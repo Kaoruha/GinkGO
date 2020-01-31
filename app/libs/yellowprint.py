@@ -8,13 +8,15 @@ class YellowPrint:
 
     def route(self, rule, **options):
         def decorator(f):
-            self.mound.append((f, rule, options))
+            endpoint = options.pop("endpoint", f.__name__)
+            self.mound.append((f, rule, endpoint, options))
             return f
 
         return decorator
 
     def register(self, bp, url_prefix=''):
-        for f, rule, options in self.mound:
+        for f, rule, endpoint, options in self.mound:
             endpoint = options.pop("endpoint", f.__name__)
-            bp.add_url_rule(self.url_prefix + url_prefix + rule, endpoint, f, **options)
-            return f
+            rule = self.url_prefix + url_prefix + rule
+            bp.add_url_rule(rule, endpoint, f, **options)
+        return f

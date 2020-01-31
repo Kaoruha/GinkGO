@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from flask_sqlalchemy import SQLAlchemy as _SQLAlchemy
-from sqlalchemy import Column, Integer, SmallInteger
+from sqlalchemy import Column, Integer, SmallInteger, String
 from datetime import datetime
 
 
@@ -38,3 +38,6 @@ class Base(db.Model):
             return
         else:
             self.status = 0
+
+
+

@@ -1,4 +1,4 @@
-from libs.yellowprint import YellowPrint
+from app.libs.yellowprint import YellowPrint
 
 yp_book = YellowPrint('rp_user', url_prefix='/book')
 

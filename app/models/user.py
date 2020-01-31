@@ -1,10 +1,10 @@
 from sqlalchemy import Column, String, Integer, SmallInteger
 from werkzeug.security import generate_password_hash
-
-from models.base import Base
+from app.models.base import Base
 
 
 class User(Base):
+    __abstract__ = True
     id = Column(Integer, primary_key=True, autoincrement=True)
     nickName = Column(String(50), unique=True, nullable=False)
     email = Column(String(50), unique=True, nullable=False)

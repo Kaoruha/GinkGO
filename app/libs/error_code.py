@@ -1,5 +1,5 @@
 # 定义具体的异常报错
-from libs.error import APIException
+from app.libs.error import APIException
 
 
 class TestError(APIException):

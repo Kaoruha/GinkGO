@@ -1,5 +1,5 @@
 from flask_httpauth import HTTPBasicAuth
-from libs.error_code import APIException
+from app.libs.error_code import APIException
 
 auth = HTTPBasicAuth()
 
