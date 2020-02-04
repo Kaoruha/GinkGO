@@ -1,4 +1,5 @@
 import scrapy
+# from app.models.stock import Stock
 
 
 class StockDetailsCnSpider(scrapy.Spider):
@@ -6,7 +7,7 @@ class StockDetailsCnSpider(scrapy.Spider):
     allowed_domains = ['http://market.finance.sina.com.cn/']
     source_url = 'http://market.finance.sina.com.cn/transHis.php?symbol='
     stock_sn = 'sz000001'
-    date = '2018-04-27'
+    date = '2020-02-04'
     page = 1
     start_urls = [source_url + stock_sn + '&date=' + date + '&page=' + str(page)]
 
@@ -20,6 +21,10 @@ class StockDetailsCnSpider(scrapy.Spider):
                 volume = selector.xpath('./td[3]/text()').get()
                 total_volume = selector.xpath('./td[4]/text()').get()
                 buy_or_sale = selector.xpath('./th[2]/h5/text()|./th[2]/h6/text()').get()
+                print(timestamp, mkt_value)
+                print('*******')
+
+
         except Exception as e:
 
             return
