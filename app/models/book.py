@@ -1,11 +1,12 @@
-from sqlalchemy import Column, String, Integer
+from sqlalchemy import Column, String, Integer, Table, MetaData
+from sqlalchemy.orm import mapper
 from app.models.base import Base, db
 
 
 class Book(Base):
     __tablename__ = 'BOOK'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(50), nullable=False)
+    id = Column(Integer, name='id', primary_key=True)
+    name = Column(String(50), name='name', nullable=False)
 
     def __init__(self, name):
         self.name = name
@@ -23,3 +24,17 @@ class Book(Base):
             cls.__table__.name = 'BOOK'
         elif num == 1:
             cls.__table__.name = 'BOOK1'
+
+    @classmethod
+    def remapping(cls, table_name):
+
+        engine = db.get_engine()
+
+        # MetaData类主要用于保存表结构，连接字符串等数据，是一个多表共享的对象
+        metadata = MetaData(engine)
+        table = Table(table_name, metadata,
+                      Column(Integer, name='id', primary_key=True),
+                      Column(String(50), name='name', nullable=False)
+                      )
+        mapper(Book, table)
+

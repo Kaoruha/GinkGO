@@ -18,7 +18,6 @@ class Stock(Base):
 
     @classmethod
     def create_table(cls, code):
-        print('222')
         # 获取db中的engine
         engine = db.get_engine()
 
@@ -35,11 +34,15 @@ class Stock(Base):
                       )
         metadata.create_all(engine)
 
-    def relocate(self, stock_no):
-        def decorator(f):
-            self.__tablename__ = stock_no
-            return f
+    def get_stock(self, name):
+        table_name = name
+        if table_name not in record_table_mapper:
+            t = type(table_name, (Stock,), {'__tablename__': table_name})
+            record_table_mapper[name] = t
+        return record_table_mapper[name]
 
-        return decorator
+    def show_table_name(self):
+        return self.__tablename__
 
 
+record_table_mapper = {}
