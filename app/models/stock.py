@@ -1,48 +1,80 @@
-from app.models.base import Base, db
-from sqlalchemy import Column, String, SmallInteger, MetaData, Table
+from sqlalchemy import Column, String, SmallInteger, MetaData, Table, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import mapper, sessionmaker
+from app.config.secure import SQLALCHEMY_DATABASE_URI
+
+"""
+Stock类，封装了与数据库的一系列操作，实现动态创建表以及动态重映射
+目前设计仅针对国内A股，在结合回测框架与美股信息后会有一波更新
+2020-02-08
+"""
 
 
-# 单只股票的基类
-class Stock(Base):
-    __abstract__ = True  # 变成抽象类，只声明不实现
-    __tablename__ = 'STOCK'
-    timestamp = Column(String(20), name='timestamp', unique=True, nullable=False, primary_key=True)
-    mkt_value = Column(String(20), name='mkt_value')
-    value_change = Column(String(20), name='value_change')
-    volume = Column(String(20), name='volume')
-    total_volume = Column(SmallInteger, name='total_volume')
-    buy_or_sale = Column(SmallInteger, name='buy_or_sale')
-
-    def __init__(self, code):
-        self.__tablename__ = code
+class Stock(object):
+    __engine = create_engine(SQLALCHEMY_DATABASE_URI)
+    __Base = declarative_base()
+    __metadata = MetaData()
+    __session_factory = sessionmaker(bind=__engine)
+    __session = __session_factory()
+    __stock_mapper = {}
 
     @classmethod
-    def create_table(cls, code):
-        # 获取db中的engine
-        engine = db.get_engine()
-
+    def __create_table(cls, code):
         # MetaData类主要用于保存表结构，连接字符串等数据，是一个多表共享的对象
-        metadata = MetaData(engine)
+        metadata = MetaData(cls.__engine)
         table_name = code
         table = Table(table_name, metadata,
-                      Column(String(20), name='timestamp', unique=True, nullable=False, primary_key=True),
+                      Column(String(50), name='timestamp', unique=True, nullable=False, primary_key=True),
                       Column(String(20), name='mkt_value'),
                       Column(String(20), name='value_change'),
                       Column(String(20), name='volume'),
                       Column(SmallInteger, name='total_volume'),
-                      Column(SmallInteger, name='buy_or_sale')
+                      Column(SmallInteger, name='buy_or_sale'),
+                      Column(String(20), name='modification')
                       )
-        metadata.create_all(engine)
+        # create_all方法已经排除了同名表存在的情况
+        metadata.create_all(cls.__engine)
 
-    def get_stock(self, name):
-        table_name = name
-        if table_name not in record_table_mapper:
-            t = type(table_name, (Stock,), {'__tablename__': table_name})
-            record_table_mapper[name] = t
-        return record_table_mapper[name]
+    @classmethod
+    def __get_stock(cls, code):
+        """
+        根据code通过创建或者查询，return一个新的model类
+        code:数据库表名
+        engine:create_engine返回的对象，指定要操作的数据库连接，from sqlalchemy import create_engine
+        TODO 回头试试绑在flask_sqlalchemy的engine上
+        """
+        # 1、判断是stock_mapper中否有该股票 # TODO 判断股票是否在可选列表内，需要额外爬一个股票清单，并定期更新
+        if code in cls.__stock_mapper:
 
-    def show_table_name(self):
-        return self.__tablename__
+            # 2、如果有直接中stock_mapper中返回对应股票类
+            return cls.__stock_mapper[code]
+        else:
 
+            # 3、如果没有,则在数据库中创建同名表
+            cls.__create_table(code)
 
-record_table_mapper = {}
+            # 4、由表生成对应Model类形成映射
+            cls.__Base.metadata.reflect(cls.__engine)
+            table = cls.__Base.metadata.tables[code]
+            t = type(code, (object,), dict())
+            mapper(t, table)
+            cls.__Base.metadata.clear()
+
+            # 5、把Model存入stock_mapper
+            cls.__stock_mapper[code] = t  # TODO 单独开辟一个文件存放历史数据，应用启动时加载文件自动生成所有Model映射
+
+        # 6、返回对应Model类
+        return cls.__stock_mapper[code]
+
+    @classmethod
+    def add_msg(cls, code, timestamp):  # TODO 所有参数传入
+        s = cls.__get_stock(code)
+        t = s()
+        t.timestamp = timestamp
+        cls.__session.add(t)
+        cls.__session.commit()
+        # TODO 异常处理
+
+    @classmethod
+    def add_msgs(cls):  # TODO 批量存储数据
+        pass

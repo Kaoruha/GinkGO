@@ -11,7 +11,7 @@ class Book(Base):
     def __init__(self, name):
         self.name = name
 
-    # 查询和动态变更查询的目标数据库Ok TODO 把方法挪到stock类里去
+    # 查询和动态变更查询的目标数据库Ok
     @classmethod
     def test(cls):
         # cls.__table__.name = 'BOOK'

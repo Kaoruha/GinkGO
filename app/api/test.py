@@ -1,11 +1,10 @@
 from app.libs.yellowprint import YellowPrint
 from app.models.book import Book
 from app.models.stock import Stock
-from app.models.base import db
 from app.models.record import RecordBase
+from flask import request, json
+from app.models.base import db
 import datetime
-from flask import request, jsonify, json
-from app.libs.error import APIException
 
 yp_test = YellowPrint('rp_user', url_prefix='/test')
 
@@ -19,16 +18,15 @@ def table_generation():
     return 'Nothing goes wrong!!'
 
 
-@yp_test.route('/add')  # TODO 动态插入数据到不同库,查询的方法没用
+# TODO 单元测试
+@yp_test.route('/add')  # DONE 动态插入数据到不同库,查询的方法没用
 def data_insert():
     data = request.get_data()
     json_re = json.loads(data)
     stock = json_re['stock']
-    temp = RecordBase()
-    print('111')
-    temp.test(stock)
-    print('222')
-    return str(datetime.datetime.now())
+    time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    Stock.add_msg(stock, time)
+    return 'OK'
 
 
 @yp_test.route('/add2')
@@ -36,8 +34,22 @@ def data_insert2():
     data = request.get_data()
     json_re = json.loads(data)
     stock = json_re['stock']
-    # Book.set_base(1)
-    return str(datetime.datetime.now())
+    tp = RecordBase.get_stock(stock)
+    # with db.auto_commit():
+    #     temp = tp()
+    #     temp.name = '111'
+    #     tm = Book('fucke')
+    #     db.session.add(temp)
+    #     db.session.add(tm)
+    return 'class name = ' + str(tp.__class__.__name__)
+
+
+@yp_test.route('/add3')
+def data_insert3():
+    gdm = GoodsDesc.model(1)
+    gdm.goods_desc = 'desc'
+    db.session.add(gdm)
+    db.session.commit()
 
 
 @yp_test.route('/filter')

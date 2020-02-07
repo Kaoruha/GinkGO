@@ -1,5 +1,7 @@
 # 应用初始化
 from flask import Flask
+from sqlalchemy import MetaData
+
 from app.config import secure, setting
 
 
@@ -29,6 +31,6 @@ def reg_plugins(app):
     from app.models.base import db
     db.init_app(app)
     with app.app_context():
-        # 引入模型包，会加载__init__下导入的所有模型
-        from app import models
+        # 引入模型包，会加载__init__下导入的所有模型(如果表没自动生成取消下面引入的注释)
+        # from app import models
         db.create_all()
