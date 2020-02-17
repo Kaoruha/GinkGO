@@ -34,14 +34,15 @@ def data_insert2():
     data = request.get_data()
     json_re = json.loads(data)
     stock = json_re['stock']
-    tp = RecordBase.get_stock(stock)
-    # with db.auto_commit():
-    #     temp = tp()
-    #     temp.name = '111'
-    #     tm = Book('fucke')
-    #     db.session.add(temp)
-    #     db.session.add(tm)
-    return 'class name = ' + str(tp.__class__.__name__)
+    stock1 = json_re['stock1']
+    time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    msgs = []
+    t1 = Stock.generate_record(stock, timestamp=time)
+    t2 = Stock.generate_record(stock, timestamp=time+'1')
+    msgs.append(t1)
+    msgs.append(t2)
+    Stock.add_msgs(msgs)
+    return 'OK'
 
 
 @yp_test.route('/add3')

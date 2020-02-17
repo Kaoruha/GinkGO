@@ -1,3 +1,5 @@
+import datetime
+
 from sqlalchemy import Column, String, SmallInteger, MetaData, Table, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import mapper, sessionmaker
@@ -27,10 +29,10 @@ class Stock(object):
                       Column(String(50), name='timestamp', unique=True, nullable=False, primary_key=True),
                       Column(String(20), name='mkt_value'),
                       Column(String(20), name='value_change'),
-                      Column(String(20), name='volume'),
-                      Column(SmallInteger, name='total_volume'),
+                      Column(String(20), name='transaction_volume'),
+                      Column(SmallInteger, name='transaction_amount'),
                       Column(SmallInteger, name='buy_or_sale'),
-                      Column(String(20), name='modification')
+                      Column(String(50), name='update_time')
                       )
         # create_all方法已经排除了同名表存在的情况
         metadata.create_all(cls.__engine)
@@ -42,6 +44,8 @@ class Stock(object):
         code:数据库表名
         engine:create_engine返回的对象，指定要操作的数据库连接，from sqlalchemy import create_engine
         TODO 回头试试绑在flask_sqlalchemy的engine上
+        :param code: 股票代码，数据库表名
+        :return: 返回该股票代码的股票类
         """
         # 1、判断是stock_mapper中否有该股票 # TODO 判断股票是否在可选列表内，需要额外爬一个股票清单，并定期更新
         if code in cls.__stock_mapper:
@@ -67,14 +71,54 @@ class Stock(object):
         return cls.__stock_mapper[code]
 
     @classmethod
-    def add_msg(cls, code, timestamp):  # TODO 所有参数传入
-        s = cls.__get_stock(code)
-        t = s()
-        t.timestamp = timestamp
-        cls.__session.add(t)
-        cls.__session.commit()
-        # TODO 异常处理
+    def generate_record(cls,
+                        code,
+                        timestamp,
+                        mkt_value='-',
+                        value_change='-',
+                        transaction_volume='-',
+                        transaction_amount=0,
+                        buy_or_sale=3):
+        """
+        :param code: 股票代码
+        :param timestamp: 时间戳
+        :param mkt_value: 市场价格
+        :param value_change: 市场价格变动率
+        :param transaction_volume: 成交量
+        :param transaction_amount: 成交额
+        :param buy_or_sale: 买入还是卖出
+        :param update: 最近更新时间
+        :return: 返回code对象的一条交易记录
+
+        传入交易记录各个参数，code为股票代码，返回code对象的一条交易记录
+        """
+        try:
+            s = cls.__get_stock(code)
+            t = s()
+            t.timestamp = timestamp
+            t.mkt_value = mkt_value
+            t.value_change = value_change
+            t.transaction_volume = transaction_volume
+            t.transaction_amount = transaction_amount
+            t.buy_or_sale = buy_or_sale
+            t.update_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            return t
+            # cls.__session.add(t)
+            # cls.__session.commit()
+        except Exception as e:
+            raise e
 
     @classmethod
-    def add_msgs(cls):  # TODO 批量存储数据
-        pass
+    def add_msgs(cls, msgs):
+        """
+        :param msgs: 一个由多条股票记录组成的list
+        :return:
+        """
+        try:
+            t = []
+            for msg in msgs:
+                t.append(msg)
+            cls.__session.add_all(t)
+            cls.__session.commit()
+        except Exception as e:
+            raise e
