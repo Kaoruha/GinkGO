@@ -31,7 +31,7 @@ class Stock(object):
                       Column(String(20), name='value_change'),
                       Column(String(20), name='transaction_volume'),
                       Column(SmallInteger, name='transaction_amount'),
-                      Column(SmallInteger, name='buy_or_sale'),
+                      Column(String(10), name='buy_or_sale'),
                       Column(String(50), name='update_time')
                       )
         # create_all方法已经排除了同名表存在的情况
@@ -78,7 +78,7 @@ class Stock(object):
                         value_change='-',
                         transaction_volume='-',
                         transaction_amount=0,
-                        buy_or_sale=3):
+                        buy_or_sale='-'):
         """
         :param code: 股票代码
         :param timestamp: 时间戳

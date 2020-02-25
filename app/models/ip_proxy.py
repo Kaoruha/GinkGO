@@ -4,7 +4,7 @@ from app.models.base import Base, db
 
 
 class Book(Base):
-    __tablename__ = 'BOOK'
+    __tablename__ = 'IPProxy'
     id = Column(Integer, name='id', primary_key=True)
     name = Column(String(50), name='name', nullable=False)
 
@@ -19,15 +19,7 @@ class Book(Base):
         return user
 
     @classmethod
-    def set_base(cls, num):
-        if num == 0:
-            cls.__table__.name = 'BOOK'
-        elif num == 1:
-            cls.__table__.name = 'BOOK1'
-
-    @classmethod
     def remapping(cls, table_name):
-
         engine = db.get_engine()
 
         # MetaData类主要用于保存表结构，连接字符串等数据，是一个多表共享的对象
@@ -37,4 +29,3 @@ class Book(Base):
                       Column(String(50), name='name', nullable=False)
                       )
         mapper(Book, table)
-

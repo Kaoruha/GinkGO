@@ -6,6 +6,7 @@
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
+import random
 
 
 class SpiderSpiderMiddleware(object):
@@ -101,3 +102,19 @@ class SpiderDownloaderMiddleware(object):
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
+
+
+class UserAgentDownloaderMiddleware(object):
+    """
+    设置随机请求头
+    http://www.useragentstring.com/pages/useragentstring.php?typ=Browser
+    """
+    UserAgents = [
+        'Mozilla/5.0 (compatible; MSIE 8.0; Windows NT 6.0; Trident/4.0; Acoo Browser 1.98.744; .NET CLR 3.5.30729)',
+        'Mozilla/4.0 (compatible; MSIE 7.0; America Online Browser 1.1; Windows NT 5.1; (R1 1.5); .NET CLR 2.0.50727; InfoPath.1)',
+        'Mozilla/4.0 (compatible; MSIE 7.0; AOL 7.0; Windows NT 5.1; FunWebProducts)'
+    ]
+
+    def process_request(self, request, spider):
+        user_agent = random.choice(self.UserAgents)
+        request.headers['User-Agent'] = user_agent
