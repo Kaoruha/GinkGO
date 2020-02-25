@@ -23,6 +23,7 @@ Flask + Zipline + Scrapy
     - 谷歌财经 https://www.google.com/finance
     - QuantQuote https://www.quantquote.com（S&P500 EOD data only）
     - EODDate http://eoddata.com（requires registration）
+    - Quandl www.quandl.com
 ### 1.3. 获取方法
 - 爬虫
 - 付费API
@@ -50,6 +51,7 @@ d = \sqrt{(x_1 - x_2)^2 + (y_1 - y_2)^2}
 cos\alpha = {\sum(x_i * y_i)\over\sqrt{\sum(x_i^2)} * \sqrt{\sum(y_i^2)}}
 ```
 - 欧几里得相似度注重表现不同目标的绝对差异性，余弦相似度更多的是对目标的趋势上进行区分。
+
 #### 2.3.2. 数据标准化
 - 0-1 标准化
 0 - 1 标准化也叫离差标准化，对原始数据进行线性变换，使结果落到 [0,1] 区间内。
@@ -70,6 +72,15 @@ $\mu$为所有采样数据的均值，$\sigma$为所有采样数据的标准差
 ![75cd5c9127022c4b6afaceead2259671.png](evernotecid://C1662258-E49D-4F3C-8D3B-2E09013AF159/appyinxiangcom/18639188/ENResource/p1911)
 - 热点图-属性相关性监测
 ![b98aa7cb72a5b7be85200000dccfa434.png](evernotecid://C1662258-E49D-4F3C-8D3B-2E09013AF159/appyinxiangcom/18639188/ENResource/p1912)
+#### 2.3.4. 时间序列
+- ADF test 判断是否随机游走模型
+- Hrust Exponent
+
+$(|(log(t + \tau)-log(t)|^2)$ ~ $\tau^{2H}$
+    - H<0.5 The time series is mean reverting
+    - H=0.5 The time series is a Geometric Brownian Motion
+    - H>0.5 The time series is trending
+
 ## 3. 构建策略
 ### 3.1. 因子
 #### 3.3.1. 3日、7日、15日均线

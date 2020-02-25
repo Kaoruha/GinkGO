@@ -3,29 +3,27 @@ from sqlalchemy.orm import mapper
 from app.models.base import Base, db
 
 
-class Book(Base):
+class IPProxy(Base):
     __tablename__ = 'IPProxy'
     id = Column(Integer, name='id', primary_key=True)
-    name = Column(String(50), name='name', nullable=False)
+    schema = Column(String(10), name='schema')  # 代理的类型 http/https
+    ip = Column(String(20), name='ip')  # 代理的IP地址
+    port = Column(String(10), name='port')  # 代理的端口号
+    original = Column(String(20), name='original')  # 代理来源
+    used_total = Column(Integer, name='used_total')  # 代理的使用次数
+    success_times = Column(Integer, name='success_times')  # 代理请求成功的次数
+    continuous_failed = Column(Integer, name='continuous_failed')  # 使用代理发送请求，连续失败的次数
+    created_time = Column(String(20), name='created_time')  # 代理的爬取时间
+    status = Column(String(10), name='status')  # 代理d最新状态
+    update_time = Column(String(20), name='update_time')  # 代理状态低更新时间
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, ip, port):
+        self.ip = ip
+        self.port = port
 
     # 查询和动态变更查询的目标数据库Ok
     @classmethod
     def test(cls):
         # cls.__table__.name = 'BOOK'
-        user = db.session.query(Book).filter().all()
+        user = db.session.query(IPProxy).filter().all()
         return user
-
-    @classmethod
-    def remapping(cls, table_name):
-        engine = db.get_engine()
-
-        # MetaData类主要用于保存表结构，连接字符串等数据，是一个多表共享的对象
-        metadata = MetaData(engine)
-        table = Table(table_name, metadata,
-                      Column(Integer, name='id', primary_key=True),
-                      Column(String(50), name='name', nullable=False)
-                      )
-        mapper(Book, table)

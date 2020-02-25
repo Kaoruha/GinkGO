@@ -1,3 +1,7 @@
+"""
+api模块
+"""
+
 from flask import Blueprint
 from app.api.user import yp_user
 from app.api.book import yp_book

@@ -1,7 +1,5 @@
 from app.libs.yellowprint import YellowPrint
-from app.models.ip_proxy import Book
 from app.models.stock import Stock
-from app.models.record import RecordBase
 from flask import request, json
 from app.models.base import db
 import datetime
