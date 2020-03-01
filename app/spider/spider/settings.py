@@ -54,7 +54,9 @@ DEFAULT_REQUEST_HEADERS = {
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
     'spider.middlewares.SpiderDownloaderMiddleware': 543,
-    'spider.middlewares.UserAgentDownloaderMiddleware': 543
+    'spider.middlewares.RandomUserAgentMiddleware': 543,
+    # 'spider.middlewares.RandomIPProxyMiddleware': 543,
+
 }
 
 # Enable or disable extensions

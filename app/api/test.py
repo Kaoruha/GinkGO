@@ -36,37 +36,16 @@ def data_insert2():
     time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     msgs = []
     t1 = Stock.generate_record(stock, timestamp=time)
-    t2 = Stock.generate_record(stock, timestamp=time+'1')
+    t2 = Stock.generate_record(stock, timestamp=time + '1')
     msgs.append(t1)
     msgs.append(t2)
     Stock.add_msgs(msgs)
     return 'OK'
 
 
-@yp_test.route('/add3')
-def data_insert3():
-    gdm = GoodsDesc.model(1)
-    gdm.goods_desc = 'desc'
-    db.session.add(gdm)
-    db.session.commit()
-
-
-@yp_test.route('/filter')
-def data_filter():
-    Book.set_base(1)
-    temp = Book.test()
-    print(temp[0])
-    return temp[0].name
-
-
-@yp_test.route('/filter2')
-def data_filter2():
-    Book.set_base(0)
-    temp = Book.test()
-    print(temp[0])
-    return temp[0].name
-
-
-@yp_test.route('/table4')
+@yp_test.route('/getproxy')
 def table_generation4():
-    return 'table4444'
+    print(1)
+    from ..ip_proxy.proxy_getter import wuyou_proxy_get
+    wuyou_proxy_get()
+    return 'ok'

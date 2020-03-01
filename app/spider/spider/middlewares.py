@@ -104,7 +104,7 @@ class SpiderDownloaderMiddleware(object):
         spider.logger.info('Spider opened: %s' % spider.name)
 
 
-class UserAgentDownloaderMiddleware(object):
+class RandomUserAgentMiddleware(object):
     """
     设置随机请求头
     http://www.useragentstring.com/pages/useragentstring.php?typ=Browser
@@ -118,3 +118,19 @@ class UserAgentDownloaderMiddleware(object):
     def process_request(self, request, spider):
         user_agent = random.choice(self.UserAgents)
         request.headers['User-Agent'] = user_agent
+
+
+class RandomIPProxyMiddleware(object):
+    """
+    设置随机IP代理
+    1、请求服务，获取当前可用IP代理
+    2、随机挑选IP代理
+    ？间隔期间内代理不可用怎么处理
+    """
+    ip_proxies = [
+                  "http://163.204.245.146:9999"
+                ]
+
+    def process_request(self, request, spider):
+        ip_proxy = random.choice(self.ip_proxies)
+        request.meta['proxy'] = ip_proxy

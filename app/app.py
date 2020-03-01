@@ -32,5 +32,5 @@ def reg_plugins(app):
     db.init_app(app)
     with app.app_context():
         # 引入模型包，会加载__init__下导入的所有模型(如果表没自动生成取消下面引入的注释)
-        # from app import models
+        from app import models
         db.create_all()
