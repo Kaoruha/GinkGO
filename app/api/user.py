@@ -4,6 +4,7 @@ from app.libs.error import APIException
 from app.libs.yellowprint import YellowPrint
 from app.libs.token_auth import auth
 
+
 yp_user = YellowPrint('rp_user', url_prefix='/user')
 
 

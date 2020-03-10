@@ -5,7 +5,7 @@ import random
 
 
 class StockDetailsCnSpider(scrapy.Spider):
-    tempcount = 0
+    temp_count = 0
     name = 'stock_cn'
     allowed_domains = ['http://market.finance.sina.com.cn/']
     source_url = 'http://market.finance.sina.com.cn/transHis.php?symbol='
@@ -15,11 +15,6 @@ class StockDetailsCnSpider(scrapy.Spider):
     page = 1  # 当前页数
     start_urls = [source_url + stock_sn + '&date=' + date + '&page=' + str(page)]
     target_url = source_url + stock_sn + '&date=' + date + '&page=' + str(page)
-
-    def __init__(self, name='stock_cn', stock_sn='sz000001', date='2020-02-04'):
-        self.name = name
-        self.stock_sn = stock_sn
-        self.date = date
 
     @classmethod
     def parse(cls, response):
@@ -69,8 +64,8 @@ class StockDetailsCnSpider(scrapy.Spider):
                         print(timestamp, mkt_value, value_change, transaction_volume, transaction_amount, buy_or_sale)
                     # 3.3. 本页数据处理完毕后，休息片刻进行下一页数据的爬取
                     print(cls.date, '爬完第', cls.page, '页，准备爬下一页')
-                    cls.tempcount += 1
-                    print('共爬取', cls.tempcount, '页')
+                    cls.temp_count += 1
+                    print('共爬取', cls.temp_count, '页')
                     cls.__next_page()
                     cls.__sleep()
                     yield scrapy.Request(cls.target_url, callback=cls.parse, dont_filter=True)
@@ -123,3 +118,8 @@ class StockDetailsCnSpider(scrapy.Spider):
         r = round(t, 2) + 2
         print('静默', r, 's')
         time.sleep(r)
+
+    @classmethod
+    def set_date(cls, date):
+        cls.date = date
+        # TODO 支持多种日期格式
