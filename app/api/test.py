@@ -50,3 +50,9 @@ def table_generation4():
     print(1)
     test.start_thread()
     return 'ok'
+
+
+@yp_test.route('/fuckme')
+def fuck():
+    print('That is OK!')
+    return 'OK'
