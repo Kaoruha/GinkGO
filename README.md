@@ -21,11 +21,25 @@ pip install -r Pipfile -i https://pypi.tuna.tsinghua.edu.cn/simple
 #### 2、 生产环境部署
 nginx+gunicorn
 ```shell script
-# 按照Pipfile内的包信息安装
-pip install -r Pipfile
+# 通过gunicorn启动flask
+gunicorn -w 4 -b 127.0.0.1:5000 -D --access-logfile ./static/logs/server_log quant:app
 
-# 如果速度慢可以换国内源  
-pip install -r Pipfile -i https://pypi.tuna.tsinghua.edu.cn/simple
+# -w 线程数
+# -b 绑定IP与端口
+# -D 后台运行
+# --access-logfile 设定日志文件地址
+# quant：app   主入口文件：flask对象
+```
+
+```shell script
+# 停止gunicorn服务
+gunicorn -w 4 -b 127.0.0.1:5000 -D --access-logfile ./static/logs/server_log quant:app
+
+# 1 查询gunicorn的执行线程
+ps aux | grep gunicorn
+
+# 2 杀掉gunicorn线程
+kill -9 <线程id>
 ```
 
 #### 3、 YellowPrint与BluePrint
