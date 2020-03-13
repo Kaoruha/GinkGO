@@ -1,8 +1,8 @@
 from multiprocessing import Process
 from scrapy.crawler import CrawlerProcess
-from app.spider.spider.spiders.stock_details_cn import StockDetailsCnSpider
-from app.spider.spider.spiders.httpbin import HTTPBinIPSpider, HTTPBinUserAgentSpider
-from app.spider.spider.spiders.ip_proxy import WuYouProxySpider
+from app.beu_spider.beu_spider.spiders.stock_details_cn import StockDetailsCnSpider
+from app.beu_spider.beu_spider.spiders.httpbin import HTTPBinIPSpider, HTTPBinUserAgentSpider
+from app.beu_spider.beu_spider.spiders.ip_proxy import WuYouProxySpider
 from scrapy.utils.project import get_project_settings
 
 

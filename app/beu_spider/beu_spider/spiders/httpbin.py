@@ -1,5 +1,5 @@
+# -*- coding: utf-8 -*-
 import scrapy
-import datetime
 import time
 
 
@@ -19,6 +19,7 @@ class HTTPBinUserAgentSpider(scrapy.Spider):
             yield scrapy.Request(self.start_urls[0], callback=self.parse, dont_filter=True)
         except Exception as e:
             raise e
+
 
 class HTTPBinIPSpider(scrapy.Spider):
     """
