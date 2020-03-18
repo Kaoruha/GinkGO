@@ -2,7 +2,6 @@ from app.libs.yellowprint import YellowPrint
 from app.models.stock import Stock
 from flask import request, json
 from app.models.base import db
-from app.ip_proxy import test
 import datetime
 
 
@@ -43,13 +42,6 @@ def data_insert2():
     msgs.append(t2)
     Stock.add_msgs(msgs)
     return 'OK'
-
-
-@yp_test.route('/getproxy')
-def table_generation4():
-    print(1)
-    test.start_thread()
-    return 'ok'
 
 
 @yp_test.route('/fuckme')

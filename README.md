@@ -8,6 +8,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 # 2.2、Windows运行activate.bat
+# 在BeuQuant目录下
 venv\Scripts\activate
 
 # 3 安装依赖包
