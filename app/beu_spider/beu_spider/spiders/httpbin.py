@@ -33,7 +33,7 @@ class HTTPBinIPSpider(scrapy.Spider):
     def parse(self, response):
         try:
             print(response.text)
-            time.sleep(2)
+            time.sleep(12)
             yield scrapy.Request(self.start_urls[0], callback=self.parse, dont_filter=True)
         except Exception as e:
             raise e

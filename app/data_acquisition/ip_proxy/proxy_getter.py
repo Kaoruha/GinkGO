@@ -1,9 +1,12 @@
+"""
+IP代理获取
+"""
 from multiprocessing import Process
 from scrapy.crawler import CrawlerProcess
-from app.ip_proxy.setting import DATA_URL, DOWN_MIDDLEWARES
-from app.beu_spider.beu_spider.spiders.httpbin import HTTPBinIPSpider, HTTPBinUserAgentSpider
+from app.data_acquisition.setting import DATA_URL, DOWN_MIDDLEWARES
+from app.beu_spider.beu_spider.spiders.httpbin import HTTPBinUserAgentSpider,HTTPBinIPSpider
 from app.beu_spider.beu_spider.spiders.ip_proxy import WuYouProxySpider
-from app.ip_proxy.ip_proxy import IPProxyManager
+from app.data_acquisition.manager import SpiderManager
 
 
 def wuyou(file_name='spiderdata'):
@@ -13,11 +16,11 @@ def wuyou(file_name='spiderdata'):
         DOWNLOADER_MIDDLEWARES=DOWN_MIDDLEWARES
     )
     process = CrawlerProcess(settings)
-    process.crawl(HTTPBinUserAgentSpider)
+    process.crawl(WuYouProxySpider)
     process.start()  # the script will block here until the crawling is finished
 
 
 def start_thread():
-    t = Process(target=wuyou, kwargs={"file_name": 'hh'}, name='wuyou_spider')
-    IPProxyManager.process_register(t)
+    t = Process(target=wuyou, kwargs={"file_name": 'ipproxy'}, name='wuyou_spider')
+    SpiderManager.process_register(t)
     print("主线程")

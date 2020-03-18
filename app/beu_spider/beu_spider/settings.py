@@ -14,11 +14,15 @@ BOT_NAME = 'beu_spider'
 SPIDER_MODULES = ['beu_spider.spiders']
 NEWSPIDER_MODULE = 'beu_spider.spiders'
 
+DOWNLOAD_TIMEOUT = 3
+
+HTTPERROR_ALLOWED_CODES = [456, 407]
+
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 # USER_AGENT = 'beu_spider (+http://www.yourdomain.com)'
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 # CONCURRENT_REQUESTS = 32
@@ -54,7 +58,7 @@ ROBOTSTXT_OBEY = True
 DOWNLOADER_MIDDLEWARES = {
     'beu_spider.middlewares.BeuSpiderDownloaderMiddleware': 543,
     'beu_spider.middlewares.RandomUserAgentMiddleware': 543,
-    # 'beu_spider.middlewares.RandomIPProxyMiddleware': 543,
+    # 'beu_spider.middlewares.XiaoXiangIPProxyMiddleware': 543,
 }
 
 # Enable or disable extensions
@@ -66,7 +70,7 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-   'beu_spider.pipelines.JsonPipeline': 300,
+    'beu_spider.pipelines.JsonPipeline': 300,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)

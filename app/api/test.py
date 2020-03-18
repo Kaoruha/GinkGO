@@ -5,6 +5,7 @@ from app.models.base import db
 import datetime
 
 
+
 yp_test = YellowPrint('rp_user', url_prefix='/test')
 
 
@@ -40,11 +41,13 @@ def data_insert2():
     t2 = Stock.generate_record(stock, timestamp=time + '1')
     msgs.append(t1)
     msgs.append(t2)
-    Stock.add_msgs(msgs)
+    Stock.add_records(msgs)
     return 'OK'
 
 
 @yp_test.route('/fuckme')
 def fuck():
-    print('That is OK!')
+    print('oh yeah!')
+    from app.data_acquisition.stock.db import test
+    test()
     return 'OK'

@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import Column, String, SmallInteger, MetaData, Table, create_engine
+from sqlalchemy import Column, String, Integer, MetaData, Table, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import mapper, sessionmaker
 from app.config.secure import SQLALCHEMY_DATABASE_URI
@@ -29,10 +29,10 @@ class Stock(object):
                       Column(String(50), name='timestamp', unique=True, nullable=False, primary_key=True),
                       Column(String(20), name='mkt_value'),
                       Column(String(20), name='value_change'),
-                      Column(String(20), name='transaction_volume'),
-                      Column(SmallInteger, name='transaction_amount'),
+                      Column(Integer, name='volume'),
+                      Column(Integer, name='amount'),
                       Column(String(10), name='buy_or_sale'),
-                      Column(String(50), name='update_time')
+                      Column(String(50), name='update')
                       )
         # create_all方法已经排除了同名表存在的情况
         metadata.create_all(cls.__engine)
@@ -76,16 +76,16 @@ class Stock(object):
                         timestamp,
                         mkt_value='-',
                         value_change='-',
-                        transaction_volume='-',
-                        transaction_amount=0,
+                        volume='-',
+                        amount=0,
                         buy_or_sale='-'):
         """
         :param code: 股票代码
         :param timestamp: 时间戳
         :param mkt_value: 市场价格
         :param value_change: 市场价格变动率
-        :param transaction_volume: 成交量
-        :param transaction_amount: 成交额
+        :param volume: 成交量
+        :param amount: 成交额
         :param buy_or_sale: 买入还是卖出
         :param update: 最近更新时间
         :return: 返回code对象的一条交易记录
@@ -98,10 +98,10 @@ class Stock(object):
             t.timestamp = timestamp
             t.mkt_value = mkt_value
             t.value_change = value_change
-            t.transaction_volume = transaction_volume
-            t.transaction_amount = transaction_amount
+            t.volume = volume
+            t.amount = amount
             t.buy_or_sale = buy_or_sale
-            t.update_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            t.update = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             return t
             # cls.__session.add(t)
             # cls.__session.commit()
@@ -109,7 +109,7 @@ class Stock(object):
             raise e
 
     @classmethod
-    def add_msgs(cls, msgs):
+    def add_records(cls, msgs):
         """
         :param msgs: 一个由多条股票记录组成的list
         :return:

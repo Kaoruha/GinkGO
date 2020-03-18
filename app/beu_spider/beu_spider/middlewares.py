@@ -103,6 +103,7 @@ class BeuSpiderDownloaderMiddleware(object):
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
 
+
 class RandomUserAgentMiddleware(object):
     """
     设置随机请求头
@@ -138,10 +139,49 @@ class RandomIPProxyMiddleware(object):
     ？间隔期间内代理不可用怎么处理
     """
     ip_proxies = [
-                  "http://163.204.245.146:9999"
-                ]
+        "http://163.204.245.146:9999"
+    ]
 
     def process_request(self, request, spider):
         ip_proxy = random.choice(self.ip_proxies)
         request.meta['proxy'] = ip_proxy
 
+
+class XiaoXiangIPProxyMiddleware(object):
+    """
+    小象代理池服务
+    """
+    count = 0
+
+    @classmethod
+    def process_request(cls, request, spider):
+        print('current count:', cls.count)
+        if cls.count <= 10:
+            cls.count += 1
+            proxyUser = "557561417537310720"
+            proxyPass = "qzbSp80j"
+            proxyHost = "http-short.xiaoxiangdaili.com"
+            proxyPort = "10010"
+
+            proxyMeta = "http://%(user)s:%(pass)s@%(host)s:%(port)s" % {
+                "host": proxyHost,
+                "port": proxyPort,
+                "user": proxyUser,
+                "pass": proxyPass,
+            }
+            request.meta['proxy'] = proxyMeta
+        else:
+            cls.count = 0
+            proxyUser = "557561417537310720"
+            proxyPass = "qzbSp80j"
+            proxyHost = "http-short.xiaoxiangdaili.com"
+            proxyPort = "10010"
+
+            proxyMeta = "http://%(user)s:%(pass)s@%(host)s:%(port)s" % {
+                "host": proxyHost,
+                "port": proxyPort,
+                "user": proxyUser,
+                "pass": proxyPass,
+            }
+            request.meta['proxy'] = proxyMeta
+            # request.headers['Proxy-Switch-Ip'] = 'true'
