@@ -62,7 +62,6 @@ class StockDetailsCnSpider(scrapy.Spider):
                         volume = selector.xpath('./td[3]/text()').get()
                         amount = selector.xpath('./td[4]/text()').get()
                         buy_or_sale = selector.xpath('./th[2]/h5/text()|./th[2]/h6/text()').get()
-                        # TODO 处理所有数据
                         temp = StockItem(
                             timestamp=cls.__date + ' ' + timestamp,
                             mkt_value=mkt_value,

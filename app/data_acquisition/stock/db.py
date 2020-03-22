@@ -18,9 +18,10 @@ def json_read(file_name):
                 amount=int(temp['amount'].replace(',', '')),
                 buy_or_sale=temp['buy_or_sale']
             )
+            # TODO 数据插入前需要查重
             records.append(record)
-        Stock.add_records(records)
-        # TODO 数据插入前需要查重
+        Stock.add_records(code='sz000001', record_list=records)
+
 
 def test():
     json_read('sz000001')

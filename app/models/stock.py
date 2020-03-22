@@ -109,16 +109,25 @@ class Stock(object):
             raise e
 
     @classmethod
-    def add_records(cls, msgs):
+    def add_records(cls, code, record_list):
         """
         :param msgs: 一个由多条股票记录组成的list
         :return:
         """
         try:
-            t = []
-            for msg in msgs:
-                t.append(msg)
-            cls.__session.add_all(t)
-            cls.__session.commit()
+            s = Stock.__get_stock(code)
+            add_list = []
+            update_list = []
+            from .ip_proxy import IPProxy
+            result = IPProxy.query.count()
+            print(result)
+            for msg in record_list:
+                # TODO 数据插入前需要查重 如果数据时间较新则更新，否则再插入
+                # print(msg.timestamp)
+                # TODO 查询方法不可用，要么继承model要么写一个查询方法
+                # result = s.query.count()  # 查询语句
+                add_list.append(msg)
+            # cls.__session.add_all(add_list)
+            # cls.__session.commit()
         except Exception as e:
             raise e
