@@ -124,3 +124,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 app/config/secure.py
+.idea/misc.xml
+.idea/BeuQuant.iml
