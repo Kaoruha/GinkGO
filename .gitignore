@@ -126,3 +126,5 @@ dmypy.json
 app/config/secure.py
 .idea/misc.xml
 .idea/BeuQuant.iml
+.idea/misc.xml
+.idea/BeuQuant.iml
