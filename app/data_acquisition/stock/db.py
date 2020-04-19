@@ -20,6 +20,7 @@ def json_read(file_name):
             )
             # TODO 数据插入前需要查重
             records.append(record)
+        print(len(records))
         Stock.add_records(code='sz000001', record_list=records)
 
 

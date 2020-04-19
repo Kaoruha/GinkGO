@@ -4,6 +4,7 @@ from sqlalchemy import Column, String, Integer, MetaData, Table, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import mapper, sessionmaker
 from app.config.secure import SQLALCHEMY_DATABASE_URI
+from app.models.base import Base
 
 """
 Stock类，封装了与数据库的一系列操作，实现动态创建表以及动态重映射
@@ -127,7 +128,7 @@ class Stock(object):
                 # TODO 查询方法不可用，要么继承model要么写一个查询方法
                 # result = s.query.count()  # 查询语句
                 add_list.append(msg)
-            # cls.__session.add_all(add_list)
-            # cls.__session.commit()
+            cls.__session.add_all(add_list)
+            cls.__session.commit()
         except Exception as e:
             raise e
