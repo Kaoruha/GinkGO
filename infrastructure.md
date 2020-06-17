@@ -11,6 +11,7 @@ Flask + Zipline + Scrapy
 - 公司财务数据
 - 新闻舆情
 ### 1.2. 数据来源
+- baostock
 - tushare（要求太高后面再说）
 - **新浪财经**
     - 1 User-Agent, ( 0 , 1 ) Sleep，1 IP:67 被ban
