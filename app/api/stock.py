@@ -28,3 +28,18 @@ def update_stock_from_bao():
     t = BaoStock(code=code, start_date=start, end_date=end)
     t.up_to_date_minute()
     return 'OK'
+
+
+@yp_stock.route('/get_all_stock_code', methods=['POST'])
+def get_all_stock_code():
+    date = request.args.get('date')
+    t = BaoStock()
+    t.get_all_stock(date=date)
+    return 'OK'
+
+
+@yp_stock.route('/update_stock', methods=['POST'])
+def update_stock():
+    t = BaoStock()
+    t.update_all()
+    return 'OK'

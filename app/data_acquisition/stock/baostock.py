@@ -42,7 +42,8 @@ class BaoStock(object):
         # 详细指标参数，参见“历史行情指标参数”章节；“分钟线”参数与“日线”参数不同。
         # 分钟线指标：date,time,code,open,high,low,close,volume,amount,adjustflag
         rs = bs.query_history_k_data_plus(self.code,
-                                          'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST',
+                                          'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,'
+                                          'tradestatus,pctChg,isST',
                                           start_date=self.start_date, end_date=self.end_date,
                                           frequency='d', adjustflag='3')
         print('query_history_k_data_plus respond error_code:' + rs.error_code)
@@ -62,8 +63,11 @@ class BaoStock(object):
         # 登陆系统
         lg = bs.login()
         # 显示登陆返回信息
-        print('login respond error_code:' + lg.error_code)
-        print('login respond  error_msg:' + lg.error_msg)
+        if lg.error_code == 0:
+            return
+        else:
+            print('login respond error_code:' + lg.error_code)
+            print('login respond  error_msg:' + lg.error_msg)
 
         # 获取沪深A股历史K线数据
         # 详细指标参数，参见“历史行情指标参数”章节；“分钟线”参数与“日线”参数不同。
@@ -72,8 +76,11 @@ class BaoStock(object):
                                           'date,time,code,open,high,low,close,volume,amount,adjustflag',
                                           start_date=self.start_date, end_date=self.end_date,
                                           frequency=frequency, adjustflag='3')
-        print('query_history_k_data_plus respond error_code:' + rs.error_code)
-        print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
+        if rs.error_code == 0:
+            return
+        else:
+            print('query_history_k_data_plus respond error_code:' + rs.error_code)
+            print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
 
         # 打印结果集
         data_list = []
@@ -95,6 +102,7 @@ class BaoStock(object):
     def init_stock_minute(self):
         result = self.__get_date_minute()
         # 本地化存储CSV
+
         result.to_csv(STOCK_URL + 'min/' + self.code + '.csv', mode='w', index=False)
         self.__result_show(freq='min/')
 
@@ -102,10 +110,13 @@ class BaoStock(object):
         url = 'day/'
         try:
             last_date = self.__get_last_date(freq=url)
-            print('读取文件{}'.format(self.code + '.csv'))
+            print('正在读取文件{}'.format(self.code + '.csv'))
             # TODO 时间比较BUG
-            if last_date.strftime("%Y-%m-%d") == self.today_str:
-                print('当前数据已经最新')
+            h = datetime.datetime.now().hour
+            if h <= 16:
+                check_day = (self.today_date() + datetime.timedelta(days=-1)).strftime("%Y-%m-%d")
+            if last_date.strftime("%Y-%m-%d") == check_day:
+                print('{}当前数据已经最新'.format(self.code))
             else:
                 self.start_date = (last_date + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
                 self.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -123,10 +134,13 @@ class BaoStock(object):
         url = 'min/'
         try:
             last_date = self.__get_last_date(freq=url)
-            print('读取文件{}'.format(self.code + '.csv'))
+            print('正在读取文件{}'.format(self.code + '.csv'))
             # TODO 时间比较BUG
-            if last_date.strftime("%Y-%m-%d") == self.today_str():
-                print('当前数据已经最新')
+            h = datetime.datetime.now().hour
+            if h <= 16:
+                check_day = (self.today_date() + datetime.timedelta(days=-1)).strftime("%Y-%m-%d")
+            if last_date.strftime("%Y-%m-%d") == check_day:
+                print('{}当前数据已经最新'.format(self.code))
             else:
                 self.start_date = (last_date + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
                 self.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -141,7 +155,7 @@ class BaoStock(object):
             self.init_stock_minute()
 
     @classmethod
-    def get_all_stock(cls):
+    def get_all_stock(cls, date='2020-06-01'):
         # 登陆系统
         lg = bs.login()
         # 显示登陆返回信息
@@ -149,8 +163,10 @@ class BaoStock(object):
         print('login respond  error_msg:' + lg.error_msg)
 
         # 获取证券信息
-        t = cls.today_str
-        rs = bs.query_all_stock(day='2020-06-01')
+        t = cls.today_str()
+        print(t)
+        print(type(t))
+        rs = bs.query_all_stock(day=date)
         print('query_all_stock respond error_code:' + rs.error_code)
         print('query_all_stock respond  error_msg:' + rs.error_msg)
 
@@ -161,7 +177,25 @@ class BaoStock(object):
             data_list.append(rs.get_row_data())
         result = pd.DataFrame(data_list, columns=rs.fields)
         # 结果集输出到csv文件
-        result.to_csv(STOCK_URL + 'all_stock.csv', mode='w', index=False, encoding="gbk")
+        result.to_csv(STOCK_URL + 'all_stock.csv', mode='w', index=False, encoding="GBK")
 
         # 登出系统
         bs.logout()
+
+    @classmethod
+    def update_all(cls):
+        code_data = pd.read_csv(STOCK_URL + 'all_stock.csv', usecols=['code'])
+        for row in code_data.iterrows():
+            s = row[1].code
+            temp = BaoStock(code=s)
+            temp.up_to_date_day()
+            print('{} is done!'.format(s))
+            # time.sleep(1)
+
+        print("All Day Data Done!")
+        # for row in code_data.iterrows():
+        #     s = row[1].code
+        #     temp = BaoStock(code=s)
+        #     temp.up_to_date_minute()
+        #     print('{} is done!'.format(s))
+        #     time.sleep(5)
