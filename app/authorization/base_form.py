@@ -1,6 +1,6 @@
 from flask import request
 from wtforms import Form
-from libs.error_code import TestError
+from app.libs.error_code import TestError
 
 
 class BaseForm(Form):

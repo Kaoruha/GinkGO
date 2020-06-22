@@ -17,6 +17,9 @@ pip install -r Pipfile
 
 # 3.2、如果速度慢可以换国内源  
 pip install -r Pipfile -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 3.3、有新的包在安装完成后，需要更新Pipfile
+pip freeze >Pipfile
 ```
 
 #### 2、 生产环境部署

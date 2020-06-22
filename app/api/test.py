@@ -4,9 +4,7 @@ from flask import request, json
 from app.models.base import db
 import datetime
 
-
-
-yp_test = YellowPrint('rp_user', url_prefix='/test')
+yp_test = YellowPrint('rp_test', url_prefix='/test')
 
 
 @yp_test.route('/create')
