@@ -130,3 +130,5 @@ app/config/secure.py
 .idea/BeuQuant.iml
 .idea/misc.xml
 .idea/BeuQuant.iml
+
+static/*.csv
