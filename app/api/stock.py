@@ -38,8 +38,7 @@ def get_all_stock_code():
     return 'OK'
 
 
-@yp_stock.route('/stock', methods=['POST'])
+@yp_stock.route('/all_stock', methods=['POST'])
 def update_all_stock():
-    t = BaoStock()
-    t.update_all()
-    return 'OK'
+    BaoStock.start_update_all_stock()
+    return 'Start Updating Now!!'
