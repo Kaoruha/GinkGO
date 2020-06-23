@@ -11,14 +11,17 @@ source venv/bin/activate
 # 在BeuQuant目录下
 venv\Scripts\activate
 
-# 3 安装依赖包
-# 3.1、按照Pipfile内的包信息安装
+# 3 更新pip
+python -m pip install --upgrade pip
+
+# 4 安装依赖包
+# 4.1、按照Pipfile内的包信息安装
 pip install -r Pipfile
 
-# 3.2、如果速度慢可以换国内源  
+# 4.2、如果速度慢可以换国内源  
 pip install -r Pipfile -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 3.3、有新的包在安装完成后，需要更新Pipfile
+# 4.3、有新的包在安装完成后，需要更新Pipfile
 pip freeze >Pipfile
 ```
 
