@@ -132,3 +132,4 @@ app/config/secure.py
 .idea/BeuQuant.iml
 
 static/*.csv
+static/*.*.csv
