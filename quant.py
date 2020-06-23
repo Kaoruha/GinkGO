@@ -27,11 +27,6 @@ def framework_error(e):
             return ServerError()
 
 
-@app.route('/')
-def welcome():
-    return "Server Start!!"
-
-
 if __name__ == '__main__':
     app.run(
         host='0.0.0.0',  # 设置IP
