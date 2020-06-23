@@ -4,7 +4,7 @@
 from multiprocessing import Process
 from scrapy.crawler import CrawlerProcess
 
-from app.data_acquisition.manager import SpiderManager
+from app.data_acquisition.manager import DataManager
 from app.data_acquisition.setting import DATA_URL, DOWN_MIDDLEWARES
 from app.beu_spider.beu_spider.spiders.stock_details_cn import StockDetailsCnSpider
 
@@ -27,5 +27,5 @@ def stock(file_name='spiderdata'):
 
 def start_thread():
     t = Process(target=stock, kwargs={"file_name": 'sz000001'}, name='scrapy')
-    SpiderManager.process_register(t)
+    DataManager.process_register(t)
     print("主线程")

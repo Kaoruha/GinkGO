@@ -6,7 +6,7 @@ from scrapy.crawler import CrawlerProcess
 from app.data_acquisition.setting import DATA_URL, DOWN_MIDDLEWARES
 from app.beu_spider.beu_spider.spiders.httpbin import HTTPBinUserAgentSpider,HTTPBinIPSpider
 from app.beu_spider.beu_spider.spiders.ip_proxy import WuYouProxySpider
-from app.data_acquisition.manager import SpiderManager
+from app.data_acquisition.manager import DataManager
 
 
 def wuyou(file_name='spiderdata'):
@@ -22,5 +22,5 @@ def wuyou(file_name='spiderdata'):
 
 def start_thread():
     t = Process(target=wuyou, kwargs={"file_name": 'ipproxy'}, name='wuyou_spider')
-    SpiderManager.process_register(t)
+    DataManager.process_register(t)
     print("主线程")

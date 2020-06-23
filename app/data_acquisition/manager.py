@@ -1,9 +1,9 @@
 """
-负责代理相关的线程调度
+负责数据相关的线程调度
 """
 
 
-class SpiderManager(object):
+class DataManager(object):
     __process_dict = dict()
 
     @classmethod
@@ -16,6 +16,7 @@ class SpiderManager(object):
         :param process:
         :return: 是否注册成功的文本信息
         """
+        cls.kill_dead_process()
         if cls.is_process_exist(process):
             res = process.name + ' already exist!'
         else:
@@ -23,15 +24,16 @@ class SpiderManager(object):
             process.start()
             res = process.name + ' added!!'
         print(res)
-        return process
+        return
 
     @classmethod
     def is_process_exist(cls, process):
         """
         判断子进程是否已经存在
-        :param process:
+        :param process: 传入进程
         :return: 如果存在返回True，否则返回False
         """
+        cls.kill_dead_process()
         if process.name in cls.__process_dict:
             return True
         else:
@@ -49,12 +51,25 @@ class SpiderManager(object):
                 msg = p + ' closed!'
                 print(msg)
         cls.__process_dict.clear()
-        return 'Doen'
+        return
+
+    @classmethod
+    def kill_dead_process(cls):
+        for p in cls.__process_dict:
+            if not cls.__process_dict[p].is_alive():
+                cls.__process_dict.pop(p, None)
+                msg = p + ' popped!'
+                print(msg)
+        cls.__process_dict.clear()
 
 
 def kill_all_process():
+    """
+    停止所有数据获取相关进程
+    :return:
+    """
     try:
-        SpiderManager.kill_all()
+        DataManager.kill_all()
     except Exception as e:
         raise e
-    return 'OK'
+    return
