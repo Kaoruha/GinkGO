@@ -135,3 +135,4 @@ static/data/*.csv
 static/data/*.*.csv
 .static/data/*.csv
 .static/data/*.*.csv
+*.csv
