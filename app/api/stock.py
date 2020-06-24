@@ -42,3 +42,8 @@ def get_all_stock_code():
 def update_all_stock():
     BaoStock.start_update_all_stock()
     return 'Start Updating Now!!'
+
+
+@yp_stock.route('/all_stock', methods=['GET'])
+def get_update_progress():
+    return 'It will return xx% in future.'

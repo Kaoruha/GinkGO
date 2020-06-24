@@ -1,9 +1,12 @@
 import baostock as bs
+import sys
 import pandas as pd
 from app.config.setting import STOCK_URL
 import datetime, time
 from multiprocessing import Process
 from app.data_acquisition.manager import DataManager
+
+_output = sys.stdout
 
 
 class BaoStock(object):
@@ -48,8 +51,8 @@ class BaoStock(object):
         if lg.error_code == 0:
             return
         else:
-            # print('login respond error_code:' + lg.error_code)
-            # print('login respond  error_msg:' + lg.error_msg)
+            # _output.write('login respond error_code:' + lg.error_code)
+            # _output.write('login respond  error_msg:' + lg.error_msg)
             return
 
     @staticmethod
@@ -73,7 +76,7 @@ class BaoStock(object):
     @classmethod
     def __get_last_date(cls, freq='day/'):
         date_data = pd.read_csv(STOCK_URL + freq + cls.code + '.csv', usecols=['date'])
-        print('读取文件{}'.format(cls.code + '.csv'))
+        _output.write('\r读取文件{}'.format(cls.code + '.csv'))
         if date_data.count().date == 0:
             return False
         else:
@@ -82,14 +85,11 @@ class BaoStock(object):
 
     @classmethod
     def __result_show(cls, freq='day/'):
-        print('{} 存储完成，已更新至{}'.format((cls.code + '.csv'), cls.__get_last_date(freq=freq).strftime('%Y-%m-%d')))
+        _output.write('\r{} 存储完成，已更新至{}'.format((cls.code + '.csv'), cls.__get_last_date(freq=freq).strftime('%Y-%m-%d')))
         # TODO Log记录
 
     @classmethod
     def __get_date_day(cls):
-        # 登陆系统
-        cls.__login()
-
         # 获取沪深A股历史K线数据
         # 详细指标参数，参见“历史行情指标参数”章节；“分钟线”参数与“日线”参数不同。
         # 分钟线指标：date,time,code,open,high,low,close,volume,amount,adjustflag
@@ -98,11 +98,11 @@ class BaoStock(object):
                                           'tradestatus,pctChg,isST',
                                           start_date=cls.start_date, end_date=cls.end_date,
                                           frequency='d', adjustflag='3')
-        # if rs.error_code == 0:
-        #     return
-        # else:
-        #     print('query_history_k_data_plus respond error_code:' + rs.error_code)
-        #     print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
+        if rs.error_code == 0:
+            return
+        else:
+            _output.write('\rquery_history_k_data_plus respond error_code:' + rs.error_code)
+            _output.write('\rquery_history_k_data_plus respond  error_msg:' + rs.error_msg)
 
         # 打印结果集
         data_list = []
@@ -110,14 +110,10 @@ class BaoStock(object):
             # 获取一条记录，将记录合并在一起
             data_list.append(rs.get_row_data())
         result = pd.DataFrame(data_list, columns=rs.fields)
-        # 登出系统
-        bs.logout()
         return result
 
     @classmethod
     def __get_date_minute(cls, frequency='5'):
-        cls.__login()
-
         # 获取沪深A股历史K线数据
         # 详细指标参数，参见“历史行情指标参数”章节；“分钟线”参数与“日线”参数不同。
         # 分钟线指标：date,time,code,open,high,low,close,volume,amount,adjustflag
@@ -125,11 +121,11 @@ class BaoStock(object):
                                           'date,time,code,open,high,low,close,volume,amount,adjustflag',
                                           start_date=cls.start_date, end_date=cls.end_date,
                                           frequency=frequency, adjustflag='3')
-        # if rs.error_code == 0:
-        #     return
-        # else:
-        #     print('query_history_k_data_plus respond error_code:' + rs.error_code)
-        #     print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
+        if rs.error_code == 0:
+            return
+        else:
+            _output.write('\rquery_history_k_data_plus respond error_code:' + rs.error_code)
+            _output.write('\rquery_history_k_data_plus respond  error_msg:' + rs.error_msg)
 
         # 打印结果集
         data_list = []
@@ -137,9 +133,8 @@ class BaoStock(object):
             # 获取一条记录，将记录合并在一起
             data_list.append(rs.get_row_data())
         result = pd.DataFrame(data_list, columns=rs.fields)
-        # 登出系统
         # TODO 进度条
-        bs.logout()
+        _output.write(f'\r已经获取{cls.code}数据')
         return result
 
     @classmethod
@@ -147,7 +142,7 @@ class BaoStock(object):
         result = cls.__get_date_day()
         # 本地化存储CSV
         if result.count().date == 0:
-            print('{} has no daily date.'.format(cls.code))
+            _output.write('\r{} has no daily date.'.format(cls.code))
         else:
             result.to_csv(STOCK_URL + 'day/' + cls.code + '.csv', mode='w', index=False)
             cls.__result_show(freq='day/')
@@ -155,11 +150,11 @@ class BaoStock(object):
 
     @classmethod
     def init_stock_minute(cls):
-        print('Trying init {} 5min date.'.format(cls.code))
+        _output.write('\rTrying init {} 5min date.'.format(cls.code))
         result = cls.__get_date_minute()
         # 本地化存储CSV
         if result.count().date == 0:
-            print('{} has no 5min date.'.format(cls.code))
+            _output.write('\r{} has no 5min date.'.format(cls.code))
         else:
             result.to_csv(STOCK_URL + 'min/' + cls.code + '.csv', mode='w', index=False)
             cls.wait_for_seconds()
@@ -171,13 +166,12 @@ class BaoStock(object):
         try:
             last_date = cls.__get_last_date(freq=url)
             check_day = cls.today_str()
-            print('正在读取文件{}'.format(cls.code + '.csv'))
-            # TODO 时间比较BUG
+            _output.write('\r正在读取文件{}'.format(cls.code + '.csv'))
             h = datetime.datetime.now().hour
             if h <= 16:
                 check_day = (cls.today_date() + datetime.timedelta(days=-1)).strftime("%Y-%m-%d")
             if last_date.strftime("%Y-%m-%d") == check_day:
-                print('{}当前数据已经最新'.format(cls.code))
+                _output.write('\r{}当前数据已经最新'.format(cls.code))
             else:
                 cls.start_date = (last_date + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
                 cls.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -188,9 +182,9 @@ class BaoStock(object):
                     cls.__result_show(freq=url)
                     cls.wait_for_seconds()
                 else:
-                    print('{} has no 5min date.'.format(cls.code))
+                    _output.write('\r{} has no dayly date.'.format(cls.code))
         except Exception as e:
-            print('未找到{}.CSV文件'.format(cls.code))
+            _output.write('\r未找到{}.CSV文件'.format(cls.code))
             cls.start_date = '2006-01-01'
             cls.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
             cls.init_stock_day()
@@ -200,33 +194,35 @@ class BaoStock(object):
         url = 'min/'
         try:
             last_date = cls.__get_last_date(freq=url)
+            check_day = cls.today_str()
             if not last_date:
-                print('{} has no 5min date.')
+                _output.write('\r{} has no 5min date.')
                 return
-            print('正在读取文件{}'.format(cls.code + '.csv'))
-            # TODO 时间比较BUG
+            _output.write('\r正在读取文件{}'.format(cls.code + '.csv'))
             h = datetime.datetime.now().hour
 
             if h <= 16:
                 # 16:00 前根据前一天来确定更新校验日期
                 check_day = (cls.today_date() + datetime.timedelta(days=-1)).strftime("%Y-%m-%d")
             if last_date.strftime("%Y-%m-%d") == check_day:
-                print('{}当前数据已经最新'.format(cls.code))
+                _output.write('\r{}当前数据已经最新'.format(cls.code))
             else:
                 # 数据并非最新，进行更新
+                _output.write('\r尝试获取数据...')
                 cls.start_date = (last_date + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
                 cls.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
                 result = cls.__get_date_minute()
                 # 向CSV末尾追加数据
                 if result.count().date > 0:
+                    _output.write('\r尝试存储数据...')
                     result.to_csv(STOCK_URL + url + cls.code + '.csv', mode='a', header=False, index=False)
                     cls.__result_show(freq=url)
                     cls.wait_for_seconds()
                 else:
-                    print('{} has no 5min date.'.format(cls.code))
+                    _output.write('\r{} has no 5min date.'.format(cls.code))
 
         except Exception as e:
-            print('未找到{}.CSV文件'.format(cls.code))
+            _output.write('\r未找到{}.CSV文件'.format(cls.code))
             cls.start_date = '2006-01-01'
             cls.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
             cls.init_stock_minute()
@@ -238,8 +234,8 @@ class BaoStock(object):
 
         # 获取证券信息
         rs = bs.query_all_stock(day=date)
-        # print('query_all_stock respond error_code:' + rs.error_code)
-        # print('query_all_stock respond  error_msg:' + rs.error_msg)
+        # _output.write('query_all_stock respond error_code:' + rs.error_code)
+        # _output.write('query_all_stock respond  error_msg:' + rs.error_msg)
 
         # 打印结果集
         data_list = []
@@ -261,30 +257,32 @@ class BaoStock(object):
         except Exception as e:
             cls.get_all_stock_code()
             cls.update_all()
-
-        start = time.clock()
+        cls.__login()
         for row in code_data.iterrows():
             s = row[1].code
             cls.code = s
             cls.up_to_date_day()
-            print('{} is done! It cost {} seconds'.format(s, (format(time.clock() - start, '.2f'))))
+            t = datetime.datetime.now().strftime("%Y-%m-%d %H:%S:%S")
+            _output.write('\r{} is done!  {}'.format(s, t))
 
-        print("All Day Data Done!")
+        _output.write("\rAll Day Data Done!")
         for row in code_data.iterrows():
             s = row[1].code
             cls.code = s
             cls.up_to_date_minute()
-            print('{} is done! It cost {} seconds'.format(s, (format(time.clock() - start, '.2f'))))
+            t = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            _output.write('\r{} is done!  {}'.format(s, t))
+        bs.logout()
 
     @staticmethod
     def start_update_all_stock():
         t = Process(target=update_all_stock, name='BaoStock_update_all_stock')
         DataManager.process_register(t)
-        print("BaoStock_update_all_stock is running!!")
+        _output.write("\rBaoStock_update_all_stock is running!!")
 
     @staticmethod
     def wait_for_seconds():
-        time.sleep(2)
+        time.sleep(10)
 
 
 def update_all_stock():
