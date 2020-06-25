@@ -1,3 +1,4 @@
+import threading
 import baostock as bs
 import sys
 import pandas as pd
@@ -10,230 +11,192 @@ _output = sys.stdout
 
 
 class BaoStock(object):
+    _instance_lock = threading.Lock()
+    init_date = '1999-07-26'
+    data_split = 10000
 
-    @property
-    def code(self):
-        return self.code
+    def __init__(self):
+        pass
 
-    @code.setter
-    def code(self, code):
-        self.code = code
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, '_instance'):
+            with BaoStock._instance_lock:
+                if not hasattr(cls, '_instance'):
+                    BaoStock._instance = super().__new__(cls)
 
-    @property
-    def start_date(self):
-        return self.start_date
+            return BaoStock._instance
 
-    @start_date.setter
-    def start_date(self, start_date):
-        self.start_date = start_date
-
-    @property
-    def end_date(self):
-        return self.end_date
-
-    @end_date.setter
-    def end_date(self, end_date):
-        self.end_date = end_date
-
-    def __init__(cls, code='sh.600000', start_date='2006-01-01', end_date=''):
-        cls.code = code
-        cls.start_date = start_date
-        if end_date == '':
-            cls.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
-        else:
-            cls.end_date = end_date
-
-    @classmethod
-    def __login(cls):
-        # 登陆系统
-        lg = bs.login()
-        # 显示登陆返回信息
-        if lg.error_code == 0:
+    def login(self):
+        lg = bs.login(user_id='anonymous', password='123456')
+        if lg.error_code == '0':
             return
         else:
-            # _output.write('login respond error_code:' + lg.error_code)
-            # _output.write('login respond  error_msg:' + lg.error_msg)
-            return
+            _output.write('\rlogin respond error_code:' + lg.error_code)
+            _output.write('\rlogin respond  error_msg:' + lg.error_msg)
 
-    @staticmethod
-    def today_str():
-        """
-        获取今天日期的字符串
+    def logout(self):
+        bs.logout
 
-        :return: 今天日期YYYY-MM-DD的字符串
-        """
-        return datetime.datetime.now().strftime('%Y-%m-%d')
+    def sleep(self, sleep_second=2):
+        for i in range(sleep_second):
+            t = sleep_second - i
+            _output.write(f'\r还需等待 {t} 秒' + '=' * t)
+            time.sleep(1)
 
-    @staticmethod
-    def today_date():
-        """
-        获取今天日期的date格式
-
-        :return: 今天日期YYYY-MM-DD的date格式
-        """
-        return datetime.datetime.strptime(datetime.datetime.today().strftime("%Y-%m-%d"), '%Y-%m-%d').date()
-
-    @classmethod
-    def __get_last_date(cls, freq='day/'):
-        date_data = pd.read_csv(STOCK_URL + freq + cls.code + '.csv', usecols=['date'])
-        _output.write('\r读取文件{}'.format(cls.code + '.csv'))
-        if date_data.count().date == 0:
-            return False
-        else:
-            last_date = date_data.iloc[-1, 0]
-            return datetime.datetime.strptime(last_date, "%Y-%m-%d")
-
-    @classmethod
-    def __result_show(cls, freq='day/'):
-        _output.write('\r{} 存储完成，已更新至{}'.format((cls.code + '.csv'), cls.__get_last_date(freq=freq).strftime('%Y-%m-%d')))
-        # TODO Log记录
-
-    @classmethod
-    def __get_date_day(cls):
-        # 获取沪深A股历史K线数据
-        # 详细指标参数，参见“历史行情指标参数”章节；“分钟线”参数与“日线”参数不同。
-        # 分钟线指标：date,time,code,open,high,low,close,volume,amount,adjustflag
-        rs = bs.query_history_k_data_plus(cls.code,
-                                          'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,'
-                                          'tradestatus,pctChg,isST',
-                                          start_date=cls.start_date, end_date=cls.end_date,
-                                          frequency='d', adjustflag='3')
-        if rs.error_code == 0:
-            return
-        else:
-            _output.write('\rquery_history_k_data_plus respond error_code:' + rs.error_code)
-            _output.write('\rquery_history_k_data_plus respond  error_msg:' + rs.error_msg)
-
-        # 打印结果集
-        data_list = []
-        while (rs.error_code == '0') & rs.next():
-            # 获取一条记录，将记录合并在一起
-            data_list.append(rs.get_row_data())
-        result = pd.DataFrame(data_list, columns=rs.fields)
-        return result
-
-    @classmethod
-    def __get_date_minute(cls, frequency='5'):
-        # 获取沪深A股历史K线数据
-        # 详细指标参数，参见“历史行情指标参数”章节；“分钟线”参数与“日线”参数不同。
-        # 分钟线指标：date,time,code,open,high,low,close,volume,amount,adjustflag
-        rs = bs.query_history_k_data_plus(cls.code,
-                                          'date,time,code,open,high,low,close,volume,amount,adjustflag',
-                                          start_date=cls.start_date, end_date=cls.end_date,
+    def get_data(self, code='sh.600000', data_frequency='d', start_date='init_date', end_date='2006-02-01'):
+        daily_query = 'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST'
+        min_query = 'date,time,code,open,high,low,close,volume,amount,adjustflag'
+        dimension = daily_query
+        frequency = 'd'
+        # 根据查询数据的频率，修正查询数据的维度与频率
+        if data_frequency == 'd':
+            dimension = daily_query
+            frequency = 'd'
+        elif data_frequency == '5':
+            dimension = min_query
+            frequency = '5'
+        self.login()
+        print(f'尝试获取 {code} 数据。。。')
+        rs = bs.query_history_k_data_plus(code, dimension, start_date=start_date, end_date=end_date,
                                           frequency=frequency, adjustflag='3')
-        if rs.error_code == 0:
-            return
+        result = None
+        if rs.error_code == '0':
+            # 打印结果集
+            data_list = []
+            while (rs.error_code == '0') & rs.next():
+                # 获取一条记录，将记录合并在一起
+                data_list.append(rs.get_row_data())
+            result = pd.DataFrame(data_list, columns=rs.fields)
+            # TODO 进度条
+            print(f'已经获取 {code} 数据')
         else:
-            _output.write('\rquery_history_k_data_plus respond error_code:' + rs.error_code)
-            _output.write('\rquery_history_k_data_plus respond  error_msg:' + rs.error_msg)
-
-        # 打印结果集
-        data_list = []
-        while (rs.error_code == '0') & rs.next():
-            # 获取一条记录，将记录合并在一起
-            data_list.append(rs.get_row_data())
-        result = pd.DataFrame(data_list, columns=rs.fields)
-        # TODO 进度条
-        _output.write(f'\r已经获取{cls.code}数据')
+            print('query_history_k_data_plus respond error_code:' + rs.error_code)
+            print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
+        self.logout()
         return result
 
-    @classmethod
-    def init_stock_day(cls):
-        result = cls.__get_date_day()
-        # 本地化存储CSV
-        if result.count().date == 0:
-            _output.write('\r{} has no daily date.'.format(cls.code))
-        else:
-            result.to_csv(STOCK_URL + 'day/' + cls.code + '.csv', mode='w', index=False)
-            cls.__result_show(freq='day/')
-            cls.wait_for_seconds()
+    # 获取一系列DataFrame的长度
+    def count_data(self, data):
+        count = data.count().date
+        return count
 
-    @classmethod
-    def init_stock_minute(cls):
-        _output.write('\rTrying init {} 5min date.'.format(cls.code))
-        result = cls.__get_date_minute()
-        # 本地化存储CSV
-        if result.count().date == 0:
-            _output.write('\r{} has no 5min date.'.format(cls.code))
+    # 获取DataFrame或者某只股票的最近更新
+    def get_last_date(self, data_or_code, data_frequency='d'):
+        if data_frequency == 'd':
+            path = 'day/'
+        elif data_frequency == '5':
+            path = 'min/'
         else:
-            result.to_csv(STOCK_URL + 'min/' + cls.code + '.csv', mode='w', index=False)
-            cls.wait_for_seconds()
-            cls.__result_show(freq='min/')
-
-    @classmethod
-    def up_to_date_day(cls):
-        url = 'day/'
-        try:
-            last_date = cls.__get_last_date(freq=url)
-            check_day = cls.today_str()
-            _output.write('\r正在读取文件{}'.format(cls.code + '.csv'))
-            h = datetime.datetime.now().hour
-            if h <= 16:
-                check_day = (cls.today_date() + datetime.timedelta(days=-1)).strftime("%Y-%m-%d")
-            if last_date.strftime("%Y-%m-%d") == check_day:
-                _output.write('\r{}当前数据已经最新'.format(cls.code))
+            print('Frequency shoulb be d or 5.')
+            return
+        if type(data_or_code) == pd.core.frame.DataFrame:
+            last_date = data_or_code.iloc[-1].date
+        elif type(data_or_code) == str:
+            date_data = pd.read_csv(STOCK_URL + path + data_or_code + '.csv', usecols=['date'])
+            if date_data.count().date == 0:
+                print(f'{data_or_code}.csv 无数据')
+                return 0
             else:
-                cls.start_date = (last_date + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-                cls.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
-                result = cls.__get_date_day()
-                # 向CSV末尾追加数据
-                if result.count().date > 0:
-                    result.to_csv(STOCK_URL + url + cls.code + '.csv', mode='a', header=False, index=False)
-                    cls.__result_show(freq=url)
-                    cls.wait_for_seconds()
-                else:
-                    _output.write('\r{} has no dayly date.'.format(cls.code))
-        except Exception as e:
-            _output.write('\r未找到{}.CSV文件'.format(cls.code))
-            cls.start_date = '2006-01-01'
-            cls.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
-            cls.init_stock_day()
+                last_date = date_data.iloc[-1].date
+        return last_date
 
-    @classmethod
-    def up_to_date_minute(cls):
-        url = 'min/'
+    # 通过获取sh.000001的日交易数据来获取数据最新,目前往前推10天
+    def get_baostock_last_date(self):
+        daily_query = 'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST'
+        start_date = (datetime.datetime.now().date() + datetime.timedelta(days=-10)).strftime("%Y-%m-%d")
+        end_date = datetime.datetime.now().strftime('%Y-%m-%d')
+        rs = bs.query_history_k_data_plus('sh.000001',daily_query,start_date=start_date, end_date=end_date,frequency='d', adjustflag='3')
+        result = None
+        if rs.error_code == '0':
+            # 打印结果集
+            data_list = []
+            while (rs.error_code == '0') & rs.next():
+                # 获取一条记录，将记录合并在一起
+                data_list.append(rs.get_row_data())
+            result = pd.DataFrame(data_list, columns=rs.fields)
+        last_date = result.iloc[-1].date
+        return last_date
+
+    # 根据数据频率设定文件目录
+    def set_path(self, data_frequency):
+        if data_frequency == 'd':
+            path = STOCK_URL + 'day/'
+        elif data_frequency == '5':
+            path = STOCK_URL + 'min/'
+        else:
+            print('Frequency shoulb be d or 5.')
+        return path
+
+    # 生成CSV文件
+    def generate_csv(self, code='sh.600000', data_frequency='d', *, data_frame):
+        path = self.set_path(data_frequency)
+        if data_frame.count().date == 0:
+            print('数据不能为空')
+            return
+        else:
+            result = data_frame
+            count = result.count().date
+            if count < 10000:
+                result.to_csv(path + code + '.csv', mode='w', index=False)
+                print(f'{code}.csv 已经生成')
+            else:
+                result[:10000].to_csv(path + code + '.csv', mode='w', index=False)
+                self.add_to_csv(code=code, data_frequency=data_frequency, data_frame=result[10000:])
+
+    # 向CSV中注入数据
+    def add_to_csv(self, code='sh.600000', data_frequency='d', *, data_frame):
+        path = self.set_path(data_frequency)
+        count = data_frame.count().date
+        print(count)
+        if count == 0:
+            print('数据不能为空')
+            return
+        elif count <= self.data_split:
+            data_frame.to_csv(path + code + '.csv', mode='a', header=False, index=False)
+            last = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
+            print(f'{code}已经更新至{last}')
+        else:
+            pass
+            for i in range(int(count / self.data_split) + 1):
+                t = data_frame[self.data_split * (i):(i + 1) * self.data_split]
+                t.to_csv(path + code + '.csv', mode='a', header=False, index=False)
+                last = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
+                print(f'{code}已经更新至{last}')
+            self.sleep(10)
+        print(f'{code}.csv 已经更新至最新')
+
+    # 更新一只股票数据
+    def up_to_date(self, code='sh.600000', data_frequency='d'):
         try:
-            last_date = cls.__get_last_date(freq=url)
-            check_day = cls.today_str()
-            if not last_date:
-                _output.write('\r{} has no 5min date.')
+            last_date = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
+            h = datetime.datetime.now().hour
+            # 目前设定P.M.06:00后更新当天数据，6点之前更新至昨日即可
+            end = self.get_baostock_last_date()
+            if last_date == end:
+                print(f'{code} 已经更新至最新 {end}')
                 return
-            _output.write('\r正在读取文件{}'.format(cls.code + '.csv'))
-            h = datetime.datetime.now().hour
-
-            if h <= 16:
-                # 16:00 前根据前一天来确定更新校验日期
-                check_day = (cls.today_date() + datetime.timedelta(days=-1)).strftime("%Y-%m-%d")
-            if last_date.strftime("%Y-%m-%d") == check_day:
-                _output.write('\r{}当前数据已经最新'.format(cls.code))
-            else:
-                # 数据并非最新，进行更新
-                _output.write('\r尝试获取数据...')
-                cls.start_date = (last_date + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-                cls.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
-                result = cls.__get_date_minute()
-                # 向CSV末尾追加数据
-                if result.count().date > 0:
-                    _output.write('\r尝试存储数据...')
-                    result.to_csv(STOCK_URL + url + cls.code + '.csv', mode='a', header=False, index=False)
-                    cls.__result_show(freq=url)
-                    cls.wait_for_seconds()
-                else:
-                    _output.write('\r{} has no 5min date.'.format(cls.code))
-
+            start = (datetime.datetime.strptime(last_date, '%Y-%m-%d').date() + datetime.timedelta(days=1)).strftime(
+                '%Y-%m-%d')
+            add_data = self.get_data(code=code, data_frequency=data_frequency, start_date=start, end_date=end)
+            self.add_to_csv(code=code, data_frequency=data_frequency, data_frame=add_data)
         except Exception as e:
-            _output.write('\r未找到{}.CSV文件'.format(cls.code))
-            cls.start_date = '2006-01-01'
-            cls.end_date = datetime.datetime.now().strftime('%Y-%m-%d')
-            cls.init_stock_minute()
+            print(e)
+            print(f'没有找到 {code}.csv')
+            start = self.init_date
+            end = datetime.datetime.now().strftime('%Y-%m-%d')
+            add_data = self.get_data(code=code, data_frequency=data_frequency, start_date=start, end_date=end)
+            count = add_data.count().date
+            if count == 0:
+                print(f'{code} 没有数据')
+            else:
+                print(f'尝试创建 {code}.csv。。。')
+                self.generate_csv(code=code, data_frequency=data_frequency, data_frame=add_data)
 
-    @classmethod
-    def get_all_stock_code(cls):
-        date = cls.today_str()
-        cls.__login()
-
+    # 获取所有股票代码
+    def get_all_stock_code(self):
+        date = datetime.datetime.now().strftime('%Y-%m-%d')
         # 获取证券信息
-        rs = bs.query_all_stock(day=date)
+        rs = bs.query_all_stock(day='2020-06-24')
         # _output.write('query_all_stock respond error_code:' + rs.error_code)
         # _output.write('query_all_stock respond  error_msg:' + rs.error_msg)
 
@@ -245,45 +208,33 @@ class BaoStock(object):
         result = pd.DataFrame(data_list, columns=rs.fields)
         # 结果集输出到csv文件
         result.to_csv(STOCK_URL + 'all_stock.csv', mode='w', index=False, encoding="GBK")
-        cls.wait_for_seconds()
+        print(f'所有指数代码已经更新至 {date}')
 
-        # 登出系统
-        bs.logout()
-
-    @classmethod
-    def update_all(cls):
+    # 更新所有股票
+    def update_all_stock(self):
         try:
-            code_data = pd.read_csv(STOCK_URL + 'all_stock.csv', usecols=['code'])
+            code = pd.read_csv(STOCK_URL + 'all_stock.csv', usecols=['code'])
+            count = code.count().code
+            if count == 0:
+                print('指数代码为空，请检查')
+                return
+            else:
+                _output.write('\r开始更新日交易数据。。。')
+                for row in code.iterrows():
+                    self.up_to_date(code=row[1].code, data_frequency='d')
+
+                _output.write('\r开始更新日5分钟交易数据。。。')
+
+                for row in code.iterrows():
+                    self.up_to_date(code=row[1].code, data_frequency='5')
         except Exception as e:
-            cls.get_all_stock_code()
-            cls.update_all()
-        cls.__login()
-        for row in code_data.iterrows():
-            s = row[1].code
-            cls.code = s
-            cls.up_to_date_day()
-            t = datetime.datetime.now().strftime("%Y-%m-%d %H:%S:%S")
-            _output.write('\r{} is done!  {}'.format(s, t))
-
-        _output.write("\rAll Day Data Done!")
-        for row in code_data.iterrows():
-            s = row[1].code
-            cls.code = s
-            cls.up_to_date_minute()
-            t = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            _output.write('\r{} is done!  {}'.format(s, t))
-        bs.logout()
-
-    @staticmethod
-    def start_update_all_stock():
-        t = Process(target=update_all_stock, name='BaoStock_update_all_stock')
-        DataManager.process_register(t)
-        _output.write("\rBaoStock_update_all_stock is running!!")
-
-    @staticmethod
-    def wait_for_seconds():
-        time.sleep(10)
+            raise e
 
 
-def update_all_stock():
-    BaoStock.update_all()
+baostock = BaoStock()
+
+
+def start_update_all_stock():
+    t = Process(target=baostock.update_all_stock, name='BaoStock_update_all_stock')
+    DataManager.process_register(t)
+    _output.write("\rBaoStock_update_all_stock is running!!")
