@@ -29,13 +29,13 @@ pip freeze >Pipfile
 nginx+gunicorn
 ```shell script
 # 通过gunicorn启动flask
-gunicorn -w 4 -b 127.0.0.1:5000 -D --access-logfile ./static/logs/server_log quant:app
+gunicorn -w 4 -b 127.0.0.1:5000 -D --access-logfile ./static/logs/server_log BeuQuant:quant
 
 # -w 线程数
 # -b 绑定IP与端口
 # -D 后台运行
 # --access-logfile 设定日志文件地址
-# quant：app   主入口文件：flask对象
+# BeuQuant:quant   主入口文件：flask对象
 ```
 
 ```shell script
