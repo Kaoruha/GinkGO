@@ -111,7 +111,7 @@ class BaoStock(object):
                 print('query_history_k_data_plus respond error_code:' + rs.error_code)
                 print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
         result = pd.DataFrame(data_list, columns=rs.fields)
-        print(f'已经获取 {self.bao_count} 次')
+        print(f'\n已经获取 {self.bao_count} 次')
         return result
 
     # 获取一系列DataFrame的长度
