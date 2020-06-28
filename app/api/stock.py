@@ -1,6 +1,6 @@
 from app.libs.error import APIException
 from app.libs.yellowprint import YellowPrint
-from app.data_acquisition.stock.baostock import start_update_all_stock,baostock
+from app.data.stock.baostock import start_update_all_stock,baostock
 from flask import request
 
 yp_stock = YellowPrint('rp_stock', url_prefix='/stock')

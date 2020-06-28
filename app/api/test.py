@@ -46,6 +46,6 @@ def data_insert2():
 @yp_test.route('/fuckme')
 def fuck():
     print('oh yeah!')
-    # from app.data_acquisition.stock.db import test
+    # from app.data.stock.db import test
     # test()
     return 'OK'
