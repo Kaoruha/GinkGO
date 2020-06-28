@@ -5,7 +5,7 @@ import pandas as pd
 from app.config.setting import STOCK_URL
 import datetime, time
 from multiprocessing import Process
-from app.data_acquisition.manager import DataManager
+from app.data.manager import DataManager
 
 _output = sys.stdout
 
@@ -50,7 +50,8 @@ class BaoStock(object):
         min_query = 'date,time,code,open,high,low,close,volume,amount,adjustflag'
         dimension = daily_query
         frequency = 'd'
-        print(f'尝试获取 {code} 数据')
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f'尝试获取 {code} 数据 {now}')
         # 根据查询数据的频率，修正查询数据的维度与频率
         if data_frequency == 'd':
             dimension = daily_query
@@ -61,7 +62,7 @@ class BaoStock(object):
 
         data_list = []
 
-        # 如果需要获取日交易数据，直接发送一起请求
+        # 如果需要获取日交易数据，直接发送一个请求
         if data_frequency == 'd':
             rs = bs.query_history_k_data_plus(code, dimension, start_date=start_date, end_date=end_date,
                                               frequency=frequency, adjustflag='3')
@@ -92,7 +93,8 @@ class BaoStock(object):
                 end_temp = end_date
             else:
                 end_temp = (start + datetime.timedelta(days=offset * (i + 1))).strftime("%Y-%m-%d")
-            _output.write(f'\r尝试获取 {code} 从 {start_temp} 至 {end_temp} 的数据')
+            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            _output.write(f'\r尝试获取 {code} 从 {start_temp} 至 {end_temp} 的数据 {now}')
             rs = bs.query_history_k_data_plus(code, dimension, start_date=start_temp, end_date=end_temp,
                                               frequency=frequency, adjustflag='3')
             if rs.error_code == '0':
@@ -179,7 +181,7 @@ class BaoStock(object):
             count = result.count().date
             if count < 10000:
                 result.to_csv(path + code + '.csv', mode='w', index=False)
-                last_date = self.get_last_date(data_or_code=code,data_frequency=data_frequency)
+                last_date = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
                 print(f'{code}.csv 已经生成，最新日期为 {last_date}')
                 self.sleep(1)
             else:

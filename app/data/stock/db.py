@@ -1,5 +1,5 @@
 from flask import json
-from app.data_acquisition.setting import DATA_URL
+from app.data.setting import DATA_URL
 from app.models.stock import Stock
 
 
