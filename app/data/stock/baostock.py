@@ -16,6 +16,8 @@ class BaoStock(object):
     data_split = 10000
     bao_count = 0
 
+    # TODO 文件操作的异常回滚
+
     def __init__(self):
         pass
 
@@ -50,7 +52,7 @@ class BaoStock(object):
         min_query = 'date,time,code,open,high,low,close,volume,amount,adjustflag'
         dimension = daily_query
         frequency = 'd'
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.datetime.now().strftime("%H:%M:%S")
         print(f'尝试获取 {code} 数据 {now}')
         # 根据查询数据的频率，修正查询数据的维度与频率
         if data_frequency == 'd':
