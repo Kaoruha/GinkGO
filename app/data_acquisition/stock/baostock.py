@@ -39,11 +39,11 @@ class BaoStock(object):
         bs.logout
 
     def sleep(self, sleep_second=2):
-        print('\n')
-        for i in range(sleep_second*2):
-            t = sleep_second*2 - (i+1)
-            _output.write(f'\r还需等待 {t/2:.1f} 秒' + ' ' + '=' * t)
+        for i in range(sleep_second * 2):
+            t = sleep_second * 2 - (i + 1)
+            _output.write(f'\r还需等待 {t / 2:.1f} 秒' + ' ' + '=' * t)
             time.sleep(.5)
+        print('\n')
 
     def get_data(self, code='sh.600000', data_frequency='d', start_date='init_date', end_date='2006-02-01'):
         daily_query = 'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST'
@@ -59,11 +59,32 @@ class BaoStock(object):
             dimension = min_query
             frequency = '5'
 
+        data_list = []
+
+        # 如果需要获取日交易数据，直接发送一起请求
+        if data_frequency == 'd':
+            rs = bs.query_history_k_data_plus(code, dimension, start_date=start_date, end_date=end_date,
+                                              frequency=frequency, adjustflag='3')
+            if rs.error_code == '0':
+                # 打印结果集
+                self.bao_count += 1
+                while (rs.error_code == '0') & rs.next():
+                    # 获取一条记录，将记录合并在一起
+                    data_list.append(rs.get_row_data())
+                # TODO 进度条
+                _output.write(f'\r成功获取 {code} 从 {start_date} 至 {end_date} 的数据')
+            else:
+                print('query_history_k_data_plus respond error_code:' + rs.error_code)
+                print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
+            result = pd.DataFrame(data_list, columns=rs.fields)
+            print(f'\n已经获取BaoStock数据 {self.bao_count} 次')
+            return result
+
+        # 如果需要获取的是5min交易数据，分段获取
         start = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
         end = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
         total_days = (end - start).days
         offset = 365 * 2
-        data_list = []
 
         for i in range(int(total_days / offset) + 1):
             start_temp = (start + datetime.timedelta(days=offset * i)).strftime("%Y-%m-%d")
@@ -158,7 +179,9 @@ class BaoStock(object):
             count = result.count().date
             if count < 10000:
                 result.to_csv(path + code + '.csv', mode='w', index=False)
-                print(f'{code}.csv 已经生成')
+                last_date = self.get_last_date(data_or_code=code,data_frequency=data_frequency)
+                print(f'{code}.csv 已经生成，最新日期为 {last_date}')
+                self.sleep(1)
             else:
                 result[:10000].to_csv(path + code + '.csv', mode='w', index=False)
                 self.add_to_csv(code=code, data_frequency=data_frequency, data_frame=result[10000:])
@@ -181,7 +204,7 @@ class BaoStock(object):
                 last = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
                 _output.write(f'\r{code} 已经更新至 {last}')
             self.sleep(2)
-        print(f'{code}.csv 已经更新至最新')
+        print(f'{code}.csv 已经更新至 {last}')
 
     # 生成分钟数据黑名单，把没有分钟数据的指数存入
     def generate_min_ignore(self):
@@ -294,12 +317,17 @@ class BaoStock(object):
 
 
 baostock = BaoStock()
+
+
 # TODO 多线程管理
 # TODO 允许查询更新进度
 # TODO 僵尸请求自动重新请求
 
+def update_all_stock():
+    baostock.update_all_stock()
+
 
 def start_update_all_stock():
-    t = Process(target=baostock.update_all_stock, name='BaoStock_update_all_stock')
+    t = Process(target=update_all_stock, name='BaoStock_update_all_stock')
     DataManager.process_register(t)
     _output.write("\rBaoStock_update_all_stock is running!!")
