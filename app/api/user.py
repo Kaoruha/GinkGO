@@ -10,7 +10,7 @@ yp_user = YellowPrint('rp_user', url_prefix='/user')
 
 @yp_user.route('/register', methods=['POST'])
 def user_register():
-    # data_acquisition = request.json
+    # data = request.json
     return 'today is good day'
 
 

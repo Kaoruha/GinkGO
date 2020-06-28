@@ -3,10 +3,10 @@ IP代理获取
 """
 from multiprocessing import Process
 from scrapy.crawler import CrawlerProcess
-from app.data_acquisition.setting import DATA_URL, DOWN_MIDDLEWARES
+from app.data.setting import DATA_URL, DOWN_MIDDLEWARES
 from app.beu_spider.beu_spider.spiders.httpbin import HTTPBinUserAgentSpider,HTTPBinIPSpider
 from app.beu_spider.beu_spider.spiders.ip_proxy import WuYouProxySpider
-from app.data_acquisition.manager import DataManager
+from app.data.manager import DataManager
 
 
 def wuyou(file_name='spiderdata'):

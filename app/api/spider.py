@@ -1,7 +1,7 @@
 from app.libs.yellowprint import YellowPrint
-from app.data_acquisition.ip_proxy.proxy_getter import start_thread as proxy_get
-from app.data_acquisition.manager import kill_all_process
-from app.data_acquisition.stock.stock_getter import start_thread as stock_get
+from app.data.ip_proxy.proxy_getter import start_thread as proxy_get
+from app.data.manager import kill_all_process
+from app.data.stock.stock_getter import start_thread as stock_get
 
 yp_spider = YellowPrint('rp_spider', url_prefix='/spider')
 

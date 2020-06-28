@@ -4,8 +4,8 @@
 from multiprocessing import Process
 from scrapy.crawler import CrawlerProcess
 
-from app.data_acquisition.manager import DataManager
-from app.data_acquisition.setting import DATA_URL, DOWN_MIDDLEWARES
+from app.data.manager import DataManager
+from app.data.setting import DATA_URL, DOWN_MIDDLEWARES
 from app.beu_spider.beu_spider.spiders.stock_details_cn import StockDetailsCnSpider
 
 
