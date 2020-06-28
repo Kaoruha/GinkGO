@@ -40,10 +40,10 @@ class BaoStock(object):
 
     def sleep(self, sleep_second=2):
         print('\n')
-        for i in range(sleep_second):
-            t = sleep_second - i
-            _output.write(f'\r还需等待 {t} 秒' + ' ' + '=' * t)
-            time.sleep(1)
+        for i in range(sleep_second*2):
+            t = sleep_second*2 - (i+1)
+            _output.write(f'\r还需等待 {t/2:.1f} 秒' + ' ' + '=' * t)
+            time.sleep(.5)
 
     def get_data(self, code='sh.600000', data_frequency='d', start_date='init_date', end_date='2006-02-01'):
         daily_query = 'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST'
@@ -180,7 +180,7 @@ class BaoStock(object):
                 t.to_csv(path + code + '.csv', mode='a', header=False, index=False)
                 last = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
                 _output.write(f'\r{code} 已经更新至 {last}')
-            self.sleep(5)
+            self.sleep(2)
         print(f'{code}.csv 已经更新至最新')
 
     # 生成分钟数据黑名单，把没有分钟数据的指数存入
@@ -278,7 +278,7 @@ class BaoStock(object):
                 _output.write('\r开始更新日交易数据。。。')
                 for row in code.iterrows():
                     self.up_to_date(code=row[1].code, data_frequency='d', end=end)
-
+                print('日交易数据更新完毕')
                 _output.write('\r开始更新日5分钟交易数据。。。')
 
                 for row in code.iterrows():
@@ -286,12 +286,17 @@ class BaoStock(object):
                         print(f'{row[1].code} 已被忽略')
                         continue
                     self.up_to_date(code=row[1].code, data_frequency='5', end=end)
+                print('5min交易数据更新完毕')
             self.logout()
+            print('更新完毕')
         except Exception as e:
             raise e
 
 
 baostock = BaoStock()
+# TODO 多线程管理
+# TODO 允许查询更新进度
+# TODO 僵尸请求自动重新请求
 
 
 def start_update_all_stock():

@@ -12,7 +12,7 @@ source venv/bin/activate
 venv\Scripts\activate
 
 # 3 更新pip
-python -m pip install --upgrade pip
+python3 -m pip install --upgrade pip
 
 # 4 安装依赖包
 # 4.1、按照Pipfile内的包信息安装
