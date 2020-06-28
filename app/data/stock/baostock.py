@@ -52,7 +52,7 @@ class BaoStock(object):
         min_query = 'date,time,code,open,high,low,close,volume,amount,adjustflag'
         dimension = daily_query
         frequency = 'd'
-        now = datetime.datetime.now().strftime("%H:%M:%S")
+        now = datetime.datetime.now().strftime('%H:%M:%S')
         print(f'尝试获取 {code} 数据 {now}')
         # 根据查询数据的频率，修正查询数据的维度与频率
         if data_frequency == 'd':
@@ -95,7 +95,7 @@ class BaoStock(object):
                 end_temp = end_date
             else:
                 end_temp = (start + datetime.timedelta(days=offset * (i + 1))).strftime("%Y-%m-%d")
-            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            now = datetime.datetime.now().strftime('%H:%M:%S')
             _output.write(f'\r尝试获取 {code} 从 {start_temp} 至 {end_temp} 的数据 {now}')
             rs = bs.query_history_k_data_plus(code, dimension, start_date=start_temp, end_date=end_temp,
                                               frequency=frequency, adjustflag='3')
