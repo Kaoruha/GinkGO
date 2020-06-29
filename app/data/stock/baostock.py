@@ -41,10 +41,10 @@ class BaoStock(object):
         bs.logout
 
     def sleep(self, sleep_second=2):
-        for i in range(sleep_second * 2):
-            t = sleep_second * 2 - (i + 1)
-            _output.write(f'\r还需等待 {t / 2:.1f} 秒' + ' ' + '=' * t)
-            time.sleep(.5)
+        for i in range(sleep_second * 10):
+            t = sleep_second * 10 - (i + 1)
+            _output.write(f'\r还需等待 {t / 10:.1f} 秒' + ' ' + '>' * t)
+            time.sleep(.1)
         print('\r\n')
 
     def get_data(self, code='sh.600000', data_frequency='d', start_date='init_date', end_date='2006-02-01'):
@@ -80,7 +80,7 @@ class BaoStock(object):
                 print('query_history_k_data_plus respond error_code:' + rs.error_code)
                 print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
             result = pd.DataFrame(data_list, columns=rs.fields)
-            print(f'\n已经获取BaoStock数据 {self.bao_count} 次')
+            print(f'\n已向 BaoStock 发起请求 {self.bao_count} 次')
             return result
 
         # 如果需要获取的是5min交易数据，分段获取
@@ -126,7 +126,7 @@ class BaoStock(object):
         elif data_frequency == '5':
             path = 'min/'
         else:
-            print('Frequency shoulb be d or 5.')
+            print('Frequency should be d or 5.')
             return
         if type(data_or_code) == pd.core.frame.DataFrame:
             last_date = data_or_code.iloc[-1].date
@@ -166,7 +166,7 @@ class BaoStock(object):
         elif data_frequency == '5':
             path = STOCK_URL + 'min/'
         else:
-            print('Frequency shoulb be d or 5.')
+            print('Frequency should be d or 5.')
         return path
 
     # 生成CSV文件
@@ -256,7 +256,7 @@ class BaoStock(object):
             if end == '':
                 end = self.get_baostock_last_date()
             if last_date == end:
-                print(f'{code} 无需更新，最新日期 {end}')
+                print(f'{code} 无需更新，最新日期为 {end}')
                 return
             start = (datetime.datetime.strptime(last_date, '%Y-%m-%d').date() + datetime.timedelta(days=1)).strftime(
                 '%Y-%m-%d')
@@ -303,6 +303,7 @@ class BaoStock(object):
                 return
             else:
                 _output.write('\r开始更新日交易数据。。。')
+                begin = datetime.datetime.now()
                 for row in code.iterrows():
                     self.up_to_date(code=row[1].code, data_frequency='d', end=end)
                 print('日交易数据更新完毕')
@@ -313,16 +314,19 @@ class BaoStock(object):
                         print(f'{row[1].code} 已被忽略')
                         continue
                     self.up_to_date(code=row[1].code, data_frequency='5', end=end)
-                print('5min交易数据更新完毕')
+                print('5 Min 交易数据更新完毕')
             self.logout()
-            print('更新完毕')
+            end = datetime.datetime.now()
+            min_elapse = int((end - begin).seconds / 60)
+            second_elapse = (end - begin).seconds - 60 * min_elapse
+            print(f'更新完毕,共耗时 {min_elapse} 分 {second_elapse} 秒')
         except Exception as e:
             raise e
 
 
 baostock = BaoStock()
 
-
+# TODO 没有目录的时候，文件生成目录
 # TODO 多线程管理
 # TODO 允许查询更新进度
 # TODO 僵尸请求自动重新请求
