@@ -3,7 +3,7 @@
 Vue(Quasar) + Echarts
 暂时采用这个架构，Github上找一个开源的魔改
 ## 后端技术
-Flask + Zipline + Scrapy
+Flask  + Scrapy
 ## 1. 获取数据
 ### 1.1. 数据种类
 - 分钟级交易数据

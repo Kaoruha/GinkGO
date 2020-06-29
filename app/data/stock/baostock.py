@@ -45,7 +45,7 @@ class BaoStock(object):
             t = sleep_second * 2 - (i + 1)
             _output.write(f'\r还需等待 {t / 2:.1f} 秒' + ' ' + '=' * t)
             time.sleep(.5)
-        print('\n')
+        print('\r\n')
 
     def get_data(self, code='sh.600000', data_frequency='d', start_date='init_date', end_date='2006-02-01'):
         daily_query = 'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST'
@@ -75,7 +75,7 @@ class BaoStock(object):
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
                 # TODO 进度条
-                _output.write(f'\r成功获取 {code} 从 {start_date} 至 {end_date} 的数据')
+                _output.write(f'成功获取 {code} 从 {start_date} 至 {end_date} 的数据')
             else:
                 print('query_history_k_data_plus respond error_code:' + rs.error_code)
                 print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
