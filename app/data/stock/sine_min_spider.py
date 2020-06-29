@@ -1,5 +1,7 @@
 """
-股票交易获取
+@Author:sunny
+@Create:2020-06-29  23-34-36
+@Description:新浪股票分钟交易数据获取
 """
 from multiprocessing import Process
 from scrapy.crawler import CrawlerProcess
