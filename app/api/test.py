@@ -43,7 +43,7 @@ def data_insert2():
     return 'OK'
 
 
-@yp_test.route('/fuckme')
+@yp_test.route('/fuckme', methods=['POST'])
 def fuck():
     print('oh yeah!')
     # from app.data.stock.db import test
