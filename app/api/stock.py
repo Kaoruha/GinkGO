@@ -1,6 +1,6 @@
 from app.libs.error import APIException
 from app.libs.yellowprint import YellowPrint
-from app.data.stock.baostock import start_update_all_stock,baostock
+from app.data.stock.baostock import start_update_all_stock,baostock,start_update_adjust_factor
 from flask import request
 
 yp_stock = YellowPrint('rp_stock', url_prefix='/stock')
@@ -33,3 +33,9 @@ def get_update_progress():
 def get_all_stock_code():
     baostock.get_all_stock_code()
     return '开始获取所有股票代码'
+
+
+@yp_stock.route('/adjust_code', methods=['POST'])
+def get_all_adjust_factor():
+    start_update_adjust_factor()
+    return '开始更新所有股票复权因子'
