@@ -207,8 +207,7 @@ class BaoStock(object):
                 t.to_csv(path + code + '.csv', mode='a', header=False, index=False)
                 last = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
                 _output.write(f'\r{code} 已经更新至 {last}')
-            self.sleep(2)
-        print(f'{code}.csv 已经更新至 {last}')
+        print(f'\n{code}.csv 已经更新至 {last}')
 
     # 生成分钟数据黑名单，把没有分钟数据的指数存入
     def generate_min_ignore(self):
@@ -325,6 +324,7 @@ class BaoStock(object):
 
 
 baostock = BaoStock()
+
 
 # TODO 没有目录的时候，文件生成目录
 # TODO 多线程管理
