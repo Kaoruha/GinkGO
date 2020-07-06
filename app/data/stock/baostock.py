@@ -489,7 +489,7 @@ class BaoStock(object):
         else:
             print('开始更新复权因子数据。。。')
             self.login()
-            t = rs_list = []
+            rs_list = []
             rs_factor = bs.query_adjust_factor(code="sh.600000", start_date=self.init_date, end_date="2017-12-31")
             while (rs_factor.error_code == '0') & rs_factor.next():
                 rs_list.append(rs_factor.get_row_data())
