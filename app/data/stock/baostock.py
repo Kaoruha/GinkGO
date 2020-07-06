@@ -441,7 +441,8 @@ class BaoStock(object):
 
     # 更新复权因子数据
     def add_to_adjust_factor(self, data_frame, code, adjust_factor):
-        if not os.path.exists('../static/data/adjust_factor_data.csv'):
+        if not os.path.exists('./static/data/adjust_factor_data.csv'):
+            print('文件不存在')
             self.generate_adjust_factor(data_frame)
         else:
             temp = data_frame.copy(deep=True)
@@ -488,11 +489,15 @@ class BaoStock(object):
         else:
             print('开始更新复权因子数据。。。')
             self.login()
-            try:
-                adjust = pd.read_csv(STOCK_URL + 'adjust_factor_data.csv')
-            except Exception as e:
-                self.adjust_factor_up_to_date("sh.600001", adjust_factor='')
-                adjust = pd.read_csv(STOCK_URL + 'adjust_factor_data.csv')
+            t = rs_list = []
+            rs_factor = bs.query_adjust_factor(code="sh.600000", start_date=self.init_date, end_date="2017-12-31")
+            while (rs_factor.error_code == '0') & rs_factor.next():
+                rs_list.append(rs_factor.get_row_data())
+            result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
+            if not os.path.exists('./static/data/adjust_factor_data.csv'):
+                print('没有找到 adjust_factor_data.csv')
+                self.generate_adjust_factor(result_factor)
+            adjust = pd.read_csv(STOCK_URL + 'adjust_factor_data.csv')
             begin = datetime.datetime.now()
 
             for row in code.iterrows():
