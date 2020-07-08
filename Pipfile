@@ -45,4 +45,5 @@ update==0.0.1
 w3lib==1.21.0
 Werkzeug==0.16.0
 WTForms==2.2.1
+yapf==0.30.0
 zope.interface==4.7.1
