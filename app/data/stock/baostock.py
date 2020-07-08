@@ -38,9 +38,9 @@ class BaoStock(object):
         :return:
         """
         # 日交易数据目录
-        makedir('.\\static\\data\\day')
+        makedir('./static/data/day')
         # 5分钟交易数据目录
-        makedir('.\\static\\data\\min')
+        makedir('./static/data/min')
 
     # baostock 登录
     def login(self):
@@ -77,7 +77,11 @@ class BaoStock(object):
         print('\r\n')
 
     # 从 baostock 获取数据
-    def get_data(self, code='sh.600000', data_frequency='d', start_date='init_date', end_date='2006-02-01'):
+    def get_data(self,
+                 code='sh.600000',
+                 data_frequency='d',
+                 start_date='init_date',
+                 end_date='2006-02-01'):
         """
         从baostock获取数据
         :param code: 股票/指数 代码
@@ -104,8 +108,12 @@ class BaoStock(object):
 
         # 如果需要获取日交易数据，直接发送一个请求
         if data_frequency == 'd':
-            rs = bs.query_history_k_data_plus(code, dimension, start_date=start_date, end_date=end_date,
-                                              frequency=frequency, adjustflag='3')
+            rs = bs.query_history_k_data_plus(code,
+                                              dimension,
+                                              start_date=start_date,
+                                              end_date=end_date,
+                                              frequency=frequency,
+                                              adjustflag='3')
             if rs.error_code == '0':
                 # 打印结果集
                 self.bao_count += 1
@@ -115,8 +123,10 @@ class BaoStock(object):
                 # TODO 进度条
                 _output.write(f'成功获取 {code} 从 {start_date} 至 {end_date} 的数据')
             else:
-                print('query_history_k_data_plus respond error_code:' + rs.error_code)
-                print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
+                print('query_history_k_data_plus respond error_code:' +
+                      rs.error_code)
+                print('query_history_k_data_plus respond  error_msg:' +
+                      rs.error_msg)
             result = pd.DataFrame(data_list, columns=rs.fields)
             print(f'\n已向 BaoStock 发起请求 {self.bao_count} 次')
             return result
@@ -128,15 +138,24 @@ class BaoStock(object):
         offset = 365 * 2
 
         for i in range(int(total_days / offset) + 1):
-            start_temp = (start + datetime.timedelta(days=offset * i)).strftime("%Y-%m-%d")
+            start_temp = (
+                start +
+                datetime.timedelta(days=offset * i)).strftime("%Y-%m-%d")
             if i == int(total_days / offset):
                 end_temp = end_date
             else:
-                end_temp = (start + datetime.timedelta(days=offset * (i + 1))).strftime("%Y-%m-%d")
+                end_temp = (start +
+                            datetime.timedelta(days=offset *
+                                               (i + 1))).strftime("%Y-%m-%d")
             now = datetime.datetime.now().strftime('%H:%M:%S')
-            _output.write(f'\r尝试获取 {code} 从 {start_temp} 至 {end_temp} 的数据 {now}')
-            rs = bs.query_history_k_data_plus(code, dimension, start_date=start_temp, end_date=end_temp,
-                                              frequency=frequency, adjustflag='3')
+            _output.write(
+                f'\r尝试获取 {code} 从 {start_temp} 至 {end_temp} 的数据 {now}')
+            rs = bs.query_history_k_data_plus(code,
+                                              dimension,
+                                              start_date=start_temp,
+                                              end_date=end_temp,
+                                              frequency=frequency,
+                                              adjustflag='3')
             if rs.error_code == '0':
                 # 打印结果集
                 self.bao_count += 1
@@ -146,8 +165,10 @@ class BaoStock(object):
                 # TODO 进度条
                 _output.write(f'\r成功获取 {code} 从 {start_temp} 至 {end_temp} 的数据')
             else:
-                print('query_history_k_data_plus respond error_code:' + rs.error_code)
-                print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
+                print('query_history_k_data_plus respond error_code:' +
+                      rs.error_code)
+                print('query_history_k_data_plus respond  error_msg:' +
+                      rs.error_msg)
         result = pd.DataFrame(data_list, columns=rs.fields)
         print(f'\n已经获取 {self.bao_count} 次')
         return result
@@ -180,7 +201,8 @@ class BaoStock(object):
         if type(data_or_code) == pd.core.frame.DataFrame:
             last_date = data_or_code.iloc[-1].date
         elif type(data_or_code) == str:
-            date_data = pd.read_csv(STOCK_URL + path + data_or_code + '.csv', usecols=['date'])
+            date_data = pd.read_csv(STOCK_URL + path + data_or_code + '.csv',
+                                    usecols=['date'])
             if date_data.count().date == 0:
                 print(f'{data_or_code}.csv 无数据')
                 return 0
@@ -195,11 +217,16 @@ class BaoStock(object):
         :return: 返回baostock的最新更新日期
         """
         daily_query = 'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST'
-        start_date = (datetime.datetime.now().date() + datetime.timedelta(days=-10)).strftime("%Y-%m-%d")
+        start_date = (datetime.datetime.now().date() +
+                      datetime.timedelta(days=-10)).strftime("%Y-%m-%d")
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         self.login()
-        rs = bs.query_history_k_data_plus('sh.000001', daily_query, start_date=start_date, end_date=today,
-                                          frequency='d', adjustflag='3')
+        rs = bs.query_history_k_data_plus('sh.000001',
+                                          daily_query,
+                                          start_date=start_date,
+                                          end_date=today,
+                                          frequency='d',
+                                          adjustflag='3')
         result = None
         if rs.error_code == '0':
             # 打印结果集
@@ -228,7 +255,11 @@ class BaoStock(object):
         return path
 
     # 生成交易数据CSV文件
-    def generate_data_csv(self, code='sh.600000', data_frequency='d', *, data_frame):
+    def generate_data_csv(self,
+                          code='sh.600000',
+                          data_frequency='d',
+                          *,
+                          data_frame):
         """
         生成CSV文件
         :param code: 股票代码
@@ -240,7 +271,8 @@ class BaoStock(object):
         if data_frame.count().date == 0:
             print('数据不能为空')
             min_ignore = self.read_min_ignore()
-            if not self.is_code_in_min_ignore(code=code, min_ignore=min_ignore):
+            if not self.is_code_in_min_ignore(code=code,
+                                              min_ignore=min_ignore):
                 self.add_to_min_ignore(code=code)
             return
         else:
@@ -248,12 +280,17 @@ class BaoStock(object):
             count = result.count().date
             if count < 10000:
                 result.to_csv(path + code + '.csv', mode='w', index=False)
-                last_date = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
+                last_date = self.get_last_date(data_or_code=code,
+                                               data_frequency=data_frequency)
                 print(f'{code}.csv 已经生成，最新日期为 {last_date}')
                 self.sleep(1)
             else:
-                result[:10000].to_csv(path + code + '.csv', mode='w', index=False)
-                self.add_to_csv(code=code, data_frequency=data_frequency, data_frame=result[10000:])
+                result[:10000].to_csv(path + code + '.csv',
+                                      mode='w',
+                                      index=False)
+                self.add_to_csv(code=code,
+                                data_frequency=data_frequency,
+                                data_frame=result[10000:])
 
     # 向CSV中注入交易数据
     def add_to_csv(self, code='sh.600000', data_frequency='d', *, data_frame):
@@ -263,14 +300,22 @@ class BaoStock(object):
             print('数据不能为空')
             return
         elif count <= self.data_split:
-            data_frame.to_csv(path + code + '.csv', mode='a', header=False, index=False)
-            last = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
+            data_frame.to_csv(path + code + '.csv',
+                              mode='a',
+                              header=False,
+                              index=False)
+            last = self.get_last_date(data_or_code=code,
+                                      data_frequency=data_frequency)
             _output.write(f'\r{code} 已经更新至 {last}')
         else:
             for i in range(int(count / self.data_split) + 1):
                 t = data_frame[self.data_split * i:(i + 1) * self.data_split]
-                t.to_csv(path + code + '.csv', mode='a', header=False, index=False)
-                last = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
+                t.to_csv(path + code + '.csv',
+                         mode='a',
+                         header=False,
+                         index=False)
+                last = self.get_last_date(data_or_code=code,
+                                          data_frequency=data_frequency)
                 _output.write(f'\r{code} 已经更新至 {last}')
         print(f'\n{code}.csv 已经更新至 {last}')
 
@@ -282,7 +327,10 @@ class BaoStock(object):
         """
         t = {'code': []}
         df = pd.DataFrame(data=t, index=None)
-        df.to_csv(STOCK_URL + 'min_ignore.csv', mode='w', index=False, encoding="GBK")
+        df.to_csv(STOCK_URL + 'min_ignore.csv',
+                  mode='w',
+                  index=False,
+                  encoding="GBK")
         print(f'成功创建 min_ignore.csv')
 
     # 判断股票代码是否在分钟时间黑名单中
@@ -311,7 +359,11 @@ class BaoStock(object):
         try:
             t = {'code': [code]}
             df = pd.DataFrame(data=t, index=None)
-            df.to_csv(STOCK_URL + 'min_ignore.csv', mode='a', header=False, index=False, encoding="GBK")
+            df.to_csv(STOCK_URL + 'min_ignore.csv',
+                      mode='a',
+                      header=False,
+                      index=False,
+                      encoding="GBK")
             print(f'已经添加 {code} 至 min_ignore.csv.')
         except Exception as e:
             print(e)
@@ -325,7 +377,8 @@ class BaoStock(object):
         :return:
         """
         try:
-            ignore_df = pd.read_csv(STOCK_URL + 'min_ignore.csv', usecols=['code'])
+            ignore_df = pd.read_csv(STOCK_URL + 'min_ignore.csv',
+                                    usecols=['code'])
             return ignore_df
         except Exception as e:
             print(e)
@@ -342,23 +395,34 @@ class BaoStock(object):
         :return:
         """
         try:
-            last_date = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
+            last_date = self.get_last_date(data_or_code=code,
+                                           data_frequency=data_frequency)
             if end == '':
                 end = self.get_baostock_last_date()
             if last_date == end:
                 print(f'{code} 无需更新，最新日期为 {end}')
                 return
-            start = (datetime.datetime.strptime(last_date, '%Y-%m-%d').date() + datetime.timedelta(days=1)).strftime(
-                '%Y-%m-%d')
-            add_data = self.get_data(code=code, data_frequency=data_frequency, start_date=start, end_date=end)
-            self.add_to_csv(code=code, data_frequency=data_frequency, data_frame=add_data)
+            start = (datetime.datetime.strptime(last_date, '%Y-%m-%d').date() +
+                     datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+            add_data = self.get_data(code=code,
+                                     data_frequency=data_frequency,
+                                     start_date=start,
+                                     end_date=end)
+            self.add_to_csv(code=code,
+                            data_frequency=data_frequency,
+                            data_frame=add_data)
         except Exception as e:
             print(e)
             print(f'没有找到 {code}.csv')
             start = self.init_date
             today = datetime.datetime.now().strftime('%Y-%m-%d')
-            add_data = self.get_data(code=code, data_frequency=data_frequency, start_date=start, end_date=today)
-            self.generate_data_csv(code=code, data_frequency=data_frequency, data_frame=add_data)
+            add_data = self.get_data(code=code,
+                                     data_frequency=data_frequency,
+                                     start_date=start,
+                                     end_date=today)
+            self.generate_data_csv(code=code,
+                                   data_frequency=data_frequency,
+                                   data_frame=add_data)
 
     # 获取所有股票代码
     def get_all_stock_code(self):
@@ -381,8 +445,14 @@ class BaoStock(object):
         result = pd.DataFrame(data_list, columns=rs.fields)
         self.logout()
         # 结果集输出到csv文件
-        result.to_csv(STOCK_URL + 'all_stock.csv', mode='w', index=False, encoding="GBK")
-        print(f'所有指数代码已经更新至 {today}')
+        if not result.count().code == 0:
+            result.to_csv(STOCK_URL + 'all_stock.csv',
+                          mode='w',
+                          index=False,
+                          encoding="GBK")
+            print(f'所有指数代码已经更新至 {today}')
+        else:
+            print('指数代码为空，不进行文件写入')
 
     # 更新所有股票指数交易数据
     def update_all_stock(self):
@@ -403,15 +473,20 @@ class BaoStock(object):
                 _output.write('\r开始更新日交易数据。。。')
                 begin = datetime.datetime.now()
                 for row in code.iterrows():
-                    self.up_to_date(code=row[1].code, data_frequency='d', end=end)
+                    self.up_to_date(code=row[1].code,
+                                    data_frequency='d',
+                                    end=end)
                 print('日交易数据更新完毕')
                 _output.write('\r开始更新日5分钟交易数据。。。')
 
                 for row in code.iterrows():
-                    if self.is_code_in_min_ignore(code=row[1].code, min_ignore=min_ignore):
+                    if self.is_code_in_min_ignore(code=row[1].code,
+                                                  min_ignore=min_ignore):
                         print(f'{row[1].code} 已被忽略')
                         continue
-                    self.up_to_date(code=row[1].code, data_frequency='5', end=end)
+                    self.up_to_date(code=row[1].code,
+                                    data_frequency='5',
+                                    end=end)
                 print('5 Min 交易数据更新完毕')
             self.logout()
             end = datetime.datetime.now()
@@ -426,7 +501,9 @@ class BaoStock(object):
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         rs_list = []
         _output.write(f'\r尝试获取 {code} 复权因子数据。。。')
-        rs_factor = bs.query_adjust_factor(code=code, start_date=self.init_date, end_date=today)
+        rs_factor = bs.query_adjust_factor(code=code,
+                                           start_date=self.init_date,
+                                           end_date=today)
         while (rs_factor.error_code == '0') & rs_factor.next():
             rs_list.append(rs_factor.get_row_data())
         result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
@@ -435,7 +512,10 @@ class BaoStock(object):
 
     # 生成复权因子数据CSV
     def generate_adjust_factor(self, data_frame):
-        data_frame.to_csv(STOCK_URL + "adjust_factor_data.csv", encoding="GBK", index=False, mode='w')
+        data_frame.to_csv(STOCK_URL + "adjust_factor_data.csv",
+                          encoding="GBK",
+                          index=False,
+                          mode='w')
         print('成功生成 adjust_factor.csv')
         pass
 
@@ -448,19 +528,23 @@ class BaoStock(object):
             temp = data_frame.copy(deep=True)
             temp_list = []
             for i in range(temp.count().code):
-                if self.is_adjust_in_csv(temp.iloc[i], adjust_factor=adjust_factor):
+                if self.is_adjust_in_csv(temp.iloc[i],
+                                         adjust_factor=adjust_factor):
                     temp_list.append(i)
             result = temp.drop(index=temp_list)
             if result.count().code == 0:
                 _output.write(f'\r{code} 复权因子数据已经存在')
             else:
-                result.to_csv(STOCK_URL + "adjust_factor_data.csv", mode='a', header=False, index=False)
+                result.to_csv(STOCK_URL + "adjust_factor_data.csv",
+                              mode='a',
+                              header=False,
+                              index=False)
                 _output.write(f'\r{code} 复权因子数据已经更新')
 
     # 判断某一行DataFrame是否在adjust_factor_data.csv中
     def is_adjust_in_csv(self, data_frame, adjust_factor):
-        filter = adjust_factor.loc[
-            (adjust_factor.code == data_frame.code) & (adjust_factor.dividOperateDate == data_frame.dividOperateDate)]
+        filter = adjust_factor.loc[(adjust_factor.code == data_frame.code) & (
+            adjust_factor.dividOperateDate == data_frame.dividOperateDate)]
         count = filter.count().dividOperateDate
         if count == 1:
             return True
@@ -477,7 +561,9 @@ class BaoStock(object):
             _output.write(f'\r{code} 无复权因子数据')
             return
         else:
-            self.add_to_adjust_factor(data_frame=result, code=code, adjust_factor=adjust_factor)
+            self.add_to_adjust_factor(data_frame=result,
+                                      code=code,
+                                      adjust_factor=adjust_factor)
 
     # 更新所有股票指数复权因子
     def all_adjust_factor_up_to_date(self):
@@ -490,7 +576,9 @@ class BaoStock(object):
             print('开始更新复权因子数据。。。')
             self.login()
             rs_list = []
-            rs_factor = bs.query_adjust_factor(code="sh.600000", start_date=self.init_date, end_date="2017-12-31")
+            rs_factor = bs.query_adjust_factor(code="sh.600000",
+                                               start_date=self.init_date,
+                                               end_date="2017-12-31")
             while (rs_factor.error_code == '0') & rs_factor.next():
                 rs_list.append(rs_factor.get_row_data())
             result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
@@ -501,7 +589,8 @@ class BaoStock(object):
             begin = datetime.datetime.now()
 
             for row in code.iterrows():
-                self.adjust_factor_up_to_date(code=row[1].code, adjust_factor=adjust)
+                self.adjust_factor_up_to_date(code=row[1].code,
+                                              adjust_factor=adjust)
             end = datetime.datetime.now()
             min_elapse = int((end - begin).seconds / 60)
             second_elapse = (end - begin).seconds - 60 * min_elapse
@@ -511,11 +600,11 @@ class BaoStock(object):
 
 baostock = BaoStock()
 
-
 # TODO 没有目录的时候，文件生成目录
 # TODO 多线程管理
 # TODO 允许查询更新进度
 # TODO 僵尸请求自动重新请求
+
 
 def update_all_stock():
     baostock.update_all_stock()
@@ -532,6 +621,7 @@ def start_update_all_stock():
 
 
 def start_update_adjust_factor():
-    t = Process(target=update_all_adjust_factor, name='BaoStock_update_all_adjust_factor')
+    t = Process(target=update_all_adjust_factor,
+                name='BaoStock_update_all_adjust_factor')
     DataManager.process_register(t)
     _output.write("\rBaoStock_update_all_adjust_factor is running!!\n")
