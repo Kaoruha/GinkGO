@@ -21,7 +21,7 @@ class BaoStock(object):
     # TODO 文件操作的异常回滚
 
     def __init__(self):
-        self.init_dir()
+        self.__init_dir()
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, '_instance'):
@@ -32,7 +32,7 @@ class BaoStock(object):
             return BaoStock._instance
 
     # baostock相关目录初始化
-    def init_dir(self):
+    def __init_dir(self):
         """
         baostock相关目录初始化
         :return:
@@ -49,9 +49,7 @@ class BaoStock(object):
         :return:
         """
         lg = bs.login(user_id='anonymous', password='123456')
-        if lg.error_code == '0':
-            return
-        else:
+        if not lg.error_code == '0':
             _output.write('\rlogin respond error_code:' + lg.error_code)
             _output.write('\rlogin respond  error_msg:' + lg.error_msg)
 
