@@ -4,7 +4,6 @@ import sys
 import pandas as pd
 from app.config.setting import STOCK_URL
 import datetime, time
-from multiprocessing import Process
 from app.data.manager import DataManager
 from app.libs.tools import makedir
 import os
@@ -613,13 +612,13 @@ def update_all_adjust_factor():
 
 
 def start_update_all_stock():
-    t = Process(target=update_all_stock, name='BaoStock_update_all_stock')
-    DataManager.process_register(t)
+    t = threading.Thread(target=update_all_stock, name='BaoStock_update_all_stock')
+    DataManager.thread_register(t)
     _output.write("\rBaoStock_update_all_stock is running!!")
 
 
 def start_update_adjust_factor():
-    t = Process(target=update_all_adjust_factor,
+    t = threading.Thread(target=update_all_adjust_factor,
                 name='BaoStock_update_all_adjust_factor')
-    DataManager.process_register(t)
+    DataManager.thread_register(t)
     _output.write("\rBaoStock_update_all_adjust_factor is running!!\n")

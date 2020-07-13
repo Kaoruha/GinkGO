@@ -1,6 +1,6 @@
 from app.libs.yellowprint import YellowPrint
 from app.data.ip_proxy.proxy_getter import start_thread as proxy_get
-from app.data.manager import kill_all_process
+from app.data.manager import kill_all_thread
 
 yp_spider = YellowPrint('rp_spider', url_prefix='/spider')
 
@@ -12,9 +12,9 @@ def get_ip_proxy():
 
 
 @yp_spider.route('/kill')
-def kill_process():
-    kill_all_process()
-    return 'All processes killed'
+def kill_thread():
+    kill_all_thread()
+    return 'All threades killed'
 
 
 @yp_spider.route('/getstock')
