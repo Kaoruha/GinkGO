@@ -2,7 +2,7 @@
 from enum import Enum
 
 
-class ClientTypeEnum(Enum):
+class ClientType(Enum):
     USER_EMAIL = 100
     USER_MOBILE = 101
 
@@ -10,3 +10,9 @@ class ClientTypeEnum(Enum):
     USER_MINA = 200
     # 微信公众号
     USER_WX = 201
+
+class EventType(Enum):
+    Market = 100
+    Signal = 101
+    Order = 102
+    Fill = 103
