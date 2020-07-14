@@ -24,7 +24,6 @@ class DataManager(object):
             thread.start()
             res = thread.name + ' added!!'
         print(res)
-        return
 
     @classmethod
     def is_thread_exist(cls, thread):
@@ -51,7 +50,6 @@ class DataManager(object):
                 msg = p + ' closed!'
                 print(msg)
         cls.__thread_dict.clear()
-        return
 
     @classmethod
     def kill_dead_thread(cls):
