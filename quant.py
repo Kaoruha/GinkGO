@@ -30,7 +30,7 @@ def framework_error(e):
 if __name__ == '__main__':
     app.run(
         host='0.0.0.0',  # 设置IP
-        port=5000,  # 设置端口号
+        port=5101,  # 设置端口号
         debug=app.config['DEBUG'],  # 开启Debug模式，保存后服务器自动重启
         threaded=True  # 开启多线程
     )
