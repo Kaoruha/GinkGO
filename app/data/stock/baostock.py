@@ -474,7 +474,6 @@ class BaoStock(object):
                     self.up_to_date(code=row[1].code,
                                     data_frequency='d',
                                     end=end)
-                    self.sleep(1)
                 print('日交易数据更新完毕')
                 _output.write('\r开始更新日5分钟交易数据。。。')
 
@@ -499,17 +498,14 @@ class BaoStock(object):
     def get_adjust_factor(self, code):
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         rs_list = []
-        # _output.write(f'\r尝试获取 {code} 复权因子数据。。。')
-        print(f'尝试获取 {code} 复权因子数据。。。')
+        _output.write(f'\r尝试获取 {code} 复权因子数据。。。')
         rs_factor = bs.query_adjust_factor(code=code,
                                            start_date=self.init_date,
                                            end_date=today)
         while (rs_factor.error_code == '0') & rs_factor.next():
             rs_list.append(rs_factor.get_row_data())
         result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
-        # _output.write(f'\r成功获取 {code} 复权因子数据')
-        print(f'成功获取 {code} 复权因子数据')
-        self.sleep(1)
+        _output.write(f'\r成功获取 {code} 复权因子数据')
         return result_factor
 
     # 生成复权因子数据CSV
