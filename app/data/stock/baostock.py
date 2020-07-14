@@ -69,7 +69,8 @@ class BaoStock(object):
         """
         for i in range(sleep_second * 10):
             t = sleep_second * 10 - (i + 1)
-            _output.write(f'\r还需等待 {t / 10:.1f} 秒 ' + '\r>=' * t)
+            rate = (i+1)/(sleep_second*10)
+            _output.write(f'\r还需等待 {t / 10:.1f} 秒 ' + '|' * int(rate*20) + f' {rate*100:.1f}%')
             time.sleep(.1)
         print('\r\n')
 
@@ -280,7 +281,7 @@ class BaoStock(object):
                 last_date = self.get_last_date(data_or_code=code,
                                                data_frequency=data_frequency)
                 print(f'{code}.csv 已经生成，最新日期为 {last_date}')
-                self.sleep(1)
+                self.sleep(2)
             else:
                 result[:10000].to_csv(path + code + '.csv',
                                       mode='w',
@@ -473,6 +474,7 @@ class BaoStock(object):
                     self.up_to_date(code=row[1].code,
                                     data_frequency='d',
                                     end=end)
+                    self.sleep(1)
                 print('日交易数据更新完毕')
                 _output.write('\r开始更新日5分钟交易数据。。。')
 
@@ -507,7 +509,7 @@ class BaoStock(object):
         result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
         # _output.write(f'\r成功获取 {code} 复权因子数据')
         print(f'成功获取 {code} 复权因子数据')
-        self.sleep(5)
+        self.sleep(1)
         return result_factor
 
     # 生成复权因子数据CSV
@@ -617,11 +619,9 @@ def update_all_adjust_factor():
 def start_update_all_stock():
     t = threading.Thread(target=update_all_stock, name='BaoStock_update_all_stock')
     dm.thread_register(t)
-    _output.write("\rBaoStock_update_all_stock is running!!")
 
 
 def start_update_adjust_factor():
     t = threading.Thread(target=update_all_adjust_factor,
                 name='BaoStock_update_all_adjust_factor')
     dm.thread_register(t)
-    _output.write("\rBaoStock_update_all_adjust_factor is running!!\n")

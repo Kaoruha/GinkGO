@@ -3,6 +3,7 @@
 """
 import threading
 
+
 class DataManager(object):
     __thread_dict = dict()
     _instance_lock = threading.Lock()
@@ -27,13 +28,13 @@ class DataManager(object):
         self.kill_dead_thread()
         if self.is_thread_exist(thread):
             res = thread.name + ' already exist!'
-            print(res+'\n')
+            print('\n' + res + '\n')
             return
         else:
             self.__thread_dict[thread.name] = thread
             thread.start()
             res = thread.name + ' added!!'
-        print(res+'\n')
+        print(res + '\n')
 
     def is_thread_exist(self, thread):
         """
@@ -68,7 +69,10 @@ class DataManager(object):
             self.__thread_dict.pop(d)
             print(f'{d} has popped')
 
+
 dm = DataManager()
+
+
 def kill_all_thread():
     """
     停止所有数据获取相关线程
