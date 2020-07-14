@@ -4,7 +4,7 @@ import sys
 import pandas as pd
 from app.config.setting import STOCK_URL
 import datetime, time
-from app.data.manager import DataManager
+from app.data.manager import dm
 from app.libs.tools import makedir
 import os
 
@@ -69,7 +69,8 @@ class BaoStock(object):
         """
         for i in range(sleep_second * 10):
             t = sleep_second * 10 - (i + 1)
-            _output.write(f'\r还需等待 {t / 10:.1f} 秒' + ' ' + '>' * t)
+            rate = (i+1)/(sleep_second*10)
+            _output.write(f'\r还需等待 {t / 10:.1f} 秒 ' + '|' * int(rate*20) + f' {rate*100:.1f}%')
             time.sleep(.1)
         print('\r\n')
 
@@ -280,7 +281,7 @@ class BaoStock(object):
                 last_date = self.get_last_date(data_or_code=code,
                                                data_frequency=data_frequency)
                 print(f'{code}.csv 已经生成，最新日期为 {last_date}')
-                self.sleep(1)
+                self.sleep(2)
             else:
                 result[:10000].to_csv(path + code + '.csv',
                                       mode='w',
@@ -613,12 +614,10 @@ def update_all_adjust_factor():
 
 def start_update_all_stock():
     t = threading.Thread(target=update_all_stock, name='BaoStock_update_all_stock')
-    DataManager.thread_register(t)
-    _output.write("\rBaoStock_update_all_stock is running!!")
+    dm.thread_register(t)
 
 
 def start_update_adjust_factor():
     t = threading.Thread(target=update_all_adjust_factor,
                 name='BaoStock_update_all_adjust_factor')
-    DataManager.thread_register(t)
-    _output.write("\rBaoStock_update_all_adjust_factor is running!!\n")
+    dm.thread_register(t)

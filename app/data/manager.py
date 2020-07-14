@@ -1,13 +1,22 @@
 """
 负责数据相关的线程调度
 """
+import threading
 
 
 class DataManager(object):
     __thread_dict = dict()
+    _instance_lock = threading.Lock()
 
-    @classmethod
-    def thread_register(cls, thread):
+    def __new__(self, *args, **kwargs):
+        if not hasattr(self, '_instance'):
+            with DataManager._instance_lock:
+                if not hasattr(self, '_instance'):
+                    DataManager._instance = super().__new__(self)
+
+            return DataManager._instance
+
+    def thread_register(self, thread):
         """
         子线程注册
         1、判断子线程是否存在
@@ -16,49 +25,51 @@ class DataManager(object):
         :param thread:
         :return: 是否注册成功的文本信息
         """
-        cls.kill_dead_thread()
-        if cls.is_thread_exist(thread):
+        self.kill_dead_thread()
+        if self.is_thread_exist(thread):
             res = thread.name + ' already exist!'
+            print('\n' + res + '\n')
+            return
         else:
-            cls.__thread_dict[thread.name] = thread
+            self.__thread_dict[thread.name] = thread
             thread.start()
             res = thread.name + ' added!!'
-        print(res)
+        print(res + '\n')
 
-    @classmethod
-    def is_thread_exist(cls, thread):
+    def is_thread_exist(self, thread):
         """
         判断子线程是否已经存在
         :param thread: 传入线程
         :return: 如果存在返回True，否则返回False
         """
-        cls.kill_dead_thread()
-        if thread.name in cls.__thread_dict:
+        if thread.name in self.__thread_dict:
             return True
         else:
             return False
 
-    @classmethod
-    def kill_all(cls):
+    def kill_all(self):
         """
         杀掉列表中所有线程
         :return:
         """
-        for p in cls.__thread_dict:
-            if cls.__thread_dict[p].is_alive():
-                cls.__thread_dict[p].terminate()
+        for p in self.__thread_dict:
+            if self.__thread_dict[p].is_alive():
+                self.__thread_dict[p].terminate()
                 msg = p + ' closed!'
                 print(msg)
-        cls.__thread_dict.clear()
+        self.__thread_dict.clear()
 
-    @classmethod
-    def kill_dead_thread(cls):
-        for p in cls.__thread_dict:
-            if not cls.__thread_dict[p].is_alive():
-                cls.__thread_dict.pop(p, None)
-                msg = p + ' popped!'
-                print(msg)
-        cls.__thread_dict.clear()
+    def kill_dead_thread(self):
+        dead_list = []
+        for p in self.__thread_dict:
+            if not self.__thread_dict[p].is_alive():
+                dead_list.append(p)
+        for d in dead_list:
+            self.__thread_dict.pop(d)
+            print(f'{d} has popped')
+
+
+dm = DataManager()
 
 
 def kill_all_thread():
@@ -67,7 +78,7 @@ def kill_all_thread():
     :return:
     """
     try:
-        DataManager.kill_all()
+        dm.kill_all()
     except Exception as e:
         raise e
     return
