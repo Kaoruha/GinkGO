@@ -4,7 +4,7 @@ import sys
 import pandas as pd
 from app.config.setting import STOCK_URL
 import datetime, time
-from app.data.manager import DataManager
+from app.data.manager import dm
 from app.libs.tools import makedir
 import os
 
@@ -69,7 +69,7 @@ class BaoStock(object):
         """
         for i in range(sleep_second * 10):
             t = sleep_second * 10 - (i + 1)
-            _output.write(f'\r还需等待 {t / 10:.1f} 秒' + ' ' + '>' * t)
+            _output.write(f'\r还需等待 {t / 10:.1f} 秒 ' + '\r>=' * t)
             time.sleep(.1)
         print('\r\n')
 
@@ -497,14 +497,17 @@ class BaoStock(object):
     def get_adjust_factor(self, code):
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         rs_list = []
-        _output.write(f'\r尝试获取 {code} 复权因子数据。。。')
+        # _output.write(f'\r尝试获取 {code} 复权因子数据。。。')
+        print(f'尝试获取 {code} 复权因子数据。。。')
         rs_factor = bs.query_adjust_factor(code=code,
                                            start_date=self.init_date,
                                            end_date=today)
         while (rs_factor.error_code == '0') & rs_factor.next():
             rs_list.append(rs_factor.get_row_data())
         result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
-        _output.write(f'\r成功获取 {code} 复权因子数据')
+        # _output.write(f'\r成功获取 {code} 复权因子数据')
+        print(f'成功获取 {code} 复权因子数据')
+        self.sleep(5)
         return result_factor
 
     # 生成复权因子数据CSV
@@ -613,12 +616,12 @@ def update_all_adjust_factor():
 
 def start_update_all_stock():
     t = threading.Thread(target=update_all_stock, name='BaoStock_update_all_stock')
-    DataManager.thread_register(t)
+    dm.thread_register(t)
     _output.write("\rBaoStock_update_all_stock is running!!")
 
 
 def start_update_adjust_factor():
     t = threading.Thread(target=update_all_adjust_factor,
                 name='BaoStock_update_all_adjust_factor')
-    DataManager.thread_register(t)
+    dm.thread_register(t)
     _output.write("\rBaoStock_update_all_adjust_factor is running!!\n")
