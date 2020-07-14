@@ -143,8 +143,8 @@ class BeuData(object):
 
 beu_data = BeuData()
 
-s = beu_data.query_stock(code='sh.600000',
-                         start_date='1999-01-02',
-                         end_date='1999-01-01',
-                         frequency='d',
-                         adjust_flag=2)
+# s = beu_data.query_stock(code='sh.600000',
+#                          start_date='1999-01-02',
+#                          end_date='1999-01-01',
+#                          frequency='d',
+#                          adjust_flag=2)
