@@ -3,6 +3,7 @@ from app.models.stock import Stock
 from flask import request, json
 from app.models.base import db
 import datetime
+from app.unit_test.u_backtest import unit_test_backtest
 
 yp_test = YellowPrint('rp_test', url_prefix='/test')
 
@@ -48,4 +49,11 @@ def fuck():
     print('oh yeah!')
     # from app.data.stock.db import test
     # test()
+    return 'OK'
+
+
+@yp_test.route('/backtest', methods=['POST'])
+def backtest():
+    print('start backtest!')
+    unit_test_backtest()
     return 'OK'

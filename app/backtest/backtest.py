@@ -1,24 +1,29 @@
+"""
+回测类
+用于模拟回测，验证策略
+"""
+
 import queue
 from app.libs.enums import EventType
 import time
+import pandas as pd
 
 class BeuBacktest(object):
-    def __init__(self, data, strategy, portfolio, heartbeat):
+    def __init__(self, data:pd.DataFrame, strategy, portfolio, heartbeat:float):
         self.data = data
-        self.strategy = strategy
+        self.strategy =strategy
         self.portfolio = portfolio
         self.heartbeat = heartbeat
         self.event_list = queue.Queue()
         self.signals = 0
         self.orders = 0
         self.fills = 0
-        pass
 
     def _run(self):
+        series = self.data.copy(deep=True)
         while True:
             # 获取一条数据
-
-
+            self.portfolio.get_new_price(series.head(1))
             # 处理事件列表
             while True:
                 try:
@@ -27,9 +32,8 @@ class BeuBacktest(object):
                     break
                 else:
                     if event is not None:
-                        if event.type = EventType.Market:
-                            self.strategy.calculate_signals(event)
-                            self.portfolio.update_timeindex(event)
+                        if event.type == EventType.Market:
+                            self.portfolio.get_signal(event)
                         elif event.type == EventType.Signal:
                             self.signals +=1
                             self.portfolio.update_signal(event)
@@ -40,10 +44,11 @@ class BeuBacktest(object):
                             self.fills +=1
                             self.portfolio.update_fill(event)
             time.sleep(self.heartbeat)
+            series.drop(index=0)
 
     def _output_performance(self):
         """
-        Outputs the strategy performance from the backtest.
+        调用评价类，输出此次回测的结果
         """
         self.portfolio.create_equity_curve_dataframe()
         
@@ -52,7 +57,6 @@ class BeuBacktest(object):
         
         print("Creating equity curve...")
         print(self.portfolio.equity_curve.tail(10))
-        pprint.pprint(stats)
 
         print("Signals: %s" % self.signals)
         print("Orders: %s" % self.orders)

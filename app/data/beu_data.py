@@ -4,6 +4,8 @@
 @Description:BlaBla
 """
 import threading
+import pandas as pd
+from app.config.setting import STOCK_URL
 
 
 class BeuData(object):
