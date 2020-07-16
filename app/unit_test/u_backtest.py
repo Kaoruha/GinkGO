@@ -30,6 +30,8 @@ def add_data():
 
 def unit_test_backtest():
     t = threading.Thread(target=u_backtest, name='u_backtest')
-    d = threading.Thread(target=add_data, name='u_backtest_feed')
     t.start()
+
+def unit_test_feed():
+    d = threading.Thread(target=add_data, name='u_backtest_feed')
     d.start()

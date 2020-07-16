@@ -1,5 +1,5 @@
 from app.libs.yellowprint import YellowPrint
-from app.unit_test.u_backtest import unit_test_backtest
+from app.unit_test.u_backtest import unit_test_backtest, unit_test_feed
 
 yp_test = YellowPrint('rp_test', url_prefix='/test')
 
@@ -10,3 +10,10 @@ def backtest():
     print('start backtest!')
     unit_test_backtest()
     return 'Unit_backtest has begun!!!'
+
+
+@yp_test.route('/backtest_feed', methods=['POST'])
+def backtest_feed():
+    print('start feed!')
+    unit_test_feed()
+    return 'Unit_backtest began to feed now!!!'
