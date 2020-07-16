@@ -16,3 +16,8 @@ class EventType(Enum):
     Signal = 101
     Order = 102
     Fill = 103
+
+
+class InfoType(Enum):
+    Price = 100
+    Message = 101
