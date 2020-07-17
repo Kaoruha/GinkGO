@@ -2,7 +2,7 @@ from ginkgo.backtest.backtest import BeuBacktest
 from ginkgo.backtest.portfolio import Portfolio
 from ginkgo.backtest.judger import Judger
 from ginkgo.backtest.fund.cash_scale_limit import CashScaleLimit
-from ginkgo.data.beu_data import beu_data
+from ginkgo.data.data_portal import data_portal
 from ginkgo.backtest.strategies.base_strategy import BaseStrategy
 import threading
 from ginkgo.backtest.info import InfoPrice, InfoMsg
@@ -22,7 +22,7 @@ def u_backtest():
     unit_backtest._run()
 
 def add_data():
-    df = beu_data.query_stock(code='sh.600000',
+    df = data_portal.query_stock(code='sh.600000',
                             start_date='1999-01-02',
                             end_date='2001-01-01',
                             frequency='d',

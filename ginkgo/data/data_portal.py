@@ -8,16 +8,16 @@ import pandas as pd
 from ginkgo.config.setting import STOCK_URL
 
 
-class BeuData(object):
+class DataPortal(object):
     _instance_lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, '_instance'):
-            with BeuData._instance_lock:
+            with DataPortal._instance_lock:
                 if not hasattr(cls, '_instance'):
-                    BeuData._instance = super().__new__(cls)
+                    DataPortal._instance = super().__new__(cls)
 
-            return BeuData._instance
+            return DataPortal._instance
 
     def query_stock(self,
                     code,
@@ -148,9 +148,9 @@ class BeuData(object):
             return raw
 
 
-beu_data = BeuData()
+data_portal = DataPortal()
 
-# s = beu_data.query_stock(code='sh.600000',
+# s = data_portal.query_stock(code='sh.600000',
 #                          start_date='1999-01-02',
 #                          end_date='1999-01-01',
 #                          frequency='d',
