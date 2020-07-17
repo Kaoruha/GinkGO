@@ -37,9 +37,9 @@ class BaoStock(object):
         :return:
         """
         # 日交易数据目录
-        makedir('./static/data/day')
+        makedir('.//' + STOCK_URL + 'day')
         # 5分钟交易数据目录
-        makedir('./static/data/min')
+        makedir('.//' + STOCK_URL + 'min')
 
     # baostock 登录
     def login(self):
@@ -69,8 +69,9 @@ class BaoStock(object):
         """
         for i in range(sleep_second * 10):
             t = sleep_second * 10 - (i + 1)
-            rate = (i+1)/(sleep_second*10)
-            _output.write(f'\r还需等待 {t / 10:.1f} 秒 ' + '|' * int(rate*20) + f' {rate*100:.1f}%')
+            rate = (i + 1) / (sleep_second * 10)
+            _output.write(f'\r还需等待 {t / 10:.1f} 秒 ' + '|' * int(rate * 20) +
+                          f' {rate*100:.1f}%')
             time.sleep(.1)
         print('\r\n')
 
@@ -247,7 +248,7 @@ class BaoStock(object):
         if data_frequency == 'd':
             path = STOCK_URL + 'day/'
         elif data_frequency == '5':
-            path = STOCK_URL + 'min/'
+            path = +STOCK_URL + 'min/'
         else:
             print('Frequency should be d or 5.')
         return path
@@ -519,7 +520,7 @@ class BaoStock(object):
 
     # 更新复权因子数据
     def add_to_adjust_factor(self, data_frame, code, adjust_factor):
-        if not os.path.exists('./static/data/adjust_factor_data.csv'):
+        if not os.path.exists('.//' + STOCK_URL + 'adjust_factor_data.csv'):
             print('文件不存在')
             self.generate_adjust_factor(data_frame)
         else:
@@ -580,7 +581,7 @@ class BaoStock(object):
             while (rs_factor.error_code == '0') & rs_factor.next():
                 rs_list.append(rs_factor.get_row_data())
             result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
-            if not os.path.exists('./static/data/adjust_factor_data.csv'):
+            if not os.path.exists('.//' + STOCK_URL + 'adjust_factor_data.csv'):
                 print('没有找到 adjust_factor_data.csv')
                 self.generate_adjust_factor(result_factor)
             adjust = pd.read_csv(STOCK_URL + 'adjust_factor_data.csv')
@@ -613,11 +614,12 @@ def update_all_adjust_factor():
 
 
 def start_update_all_stock():
-    t = threading.Thread(target=update_all_stock, name='BaoStock_update_all_stock')
+    t = threading.Thread(target=update_all_stock,
+                         name='BaoStock_update_all_stock')
     dm.thread_register(t)
 
 
 def start_update_adjust_factor():
     t = threading.Thread(target=update_all_adjust_factor,
-                name='BaoStock_update_all_adjust_factor')
+                         name='BaoStock_update_all_adjust_factor')
     dm.thread_register(t)

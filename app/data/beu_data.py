@@ -97,6 +97,11 @@ class BeuData(object):
             print(e)
 
     def __adjust_cal(self, raw, adjust_factor, adjust_flag=1):
+        # 没有复权因子
+        if adjust_factor.count().code == 0:
+            return raw
+
+        # 有复权因子
         fore = raw.copy(deep=True)
         back = raw.copy(deep=True)
         for i in range(len(adjust_factor) + 1):
