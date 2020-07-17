@@ -23,10 +23,10 @@ def u_backtest():
 
 def add_data():
     df = data_portal.query_stock(code='sh.600000',
-                            start_date='1999-01-02',
+                            start_date='2000-01-02',
                             end_date='2001-01-01',
-                            frequency='d',
-                            adjust_flag=2)
+                            frequency='5',
+                            adjust_flag=3)
     for i in range(df.count().date):
         info = InfoPrice(data=df.iloc[i])
         unit_backtest._add_info(info)
@@ -37,5 +37,5 @@ def unit_test_backtest():
     t.start()
 
 def unit_test_feed():
-    d = threading.Thread(target=add_data, name='u_backtest_feed')
-    d.start()
+    feed = threading.Thread(target=add_data, name='u_backtest_feed')
+    feed.start()

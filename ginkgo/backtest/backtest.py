@@ -26,7 +26,6 @@ class BeuBacktest(object):
         while True:
             # 处理数据列表
             try:
-                print(f'Now the info_list has {self.info_list.qsize()} elements!')
                 info = self.info_list.get(False)
                 to_do_events = self.portfolio.get_new_info(info)
                 if to_do_events is not None:
@@ -59,15 +58,14 @@ class BeuBacktest(object):
     def _add_evnet(self, event):
         if event.type is not (EventType.Market or EventType.Signal or EventType.Order or EventType.Fill):
             print('Event type is unknown!')
-            return
-        self.event_list.put(event)
+        else:
+            self.event_list.put(event)
 
     def _add_info(self, info):
-        # print(info.type is not (InfoType.Price or InfoType.Message))
         if (info.type is not (InfoType.Price or InfoType.Message)):
             print('Info type is unknown!')
-            return
-        self.info_list.put(info)
+        else:
+            self.info_list.put(info)
 
     def _output_performance(self):
         """

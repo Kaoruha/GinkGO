@@ -37,7 +37,8 @@ class DataPortal(object):
             # 复权计算
             adjust = self.__adjust_cal(raw=raw,
                                        adjust_factor=adjust_factor,
-                                       adjust_flag=adjust_flag)
+                                       adjust_flag=adjust_flag,
+                                       frequency = frequency)
             # 根据start_date与end_date返回数据
             if start_date > end_date:
                 print('start should before end')
@@ -96,12 +97,17 @@ class DataPortal(object):
         except Exception as e:
             print(e)
 
-    def __adjust_cal(self, raw, adjust_factor, adjust_flag=1):
+    def __adjust_cal(self, raw, adjust_factor, adjust_flag=1, frequency='d'):
         # 没有复权因子
         if adjust_factor.count().code == 0:
             return raw
 
         # 有复权因子
+        adjust_columns = []
+        if frequency == 'd':
+            adjust_columns = ["open", "high", "low", "close", "preclose"]
+        elif frequency == '5':
+            adjust_columns = ["open", "high", "low", "close"]
         fore = raw.copy(deep=True)
         back = raw.copy(deep=True)
         for i in range(len(adjust_factor) + 1):
@@ -109,23 +115,21 @@ class DataPortal(object):
                 condition = raw['date'] < adjust_factor.iloc[0].dividOperateDate
                 condition2 = raw['date'] <= adjust_factor.iloc[
                     0].dividOperateDate
+
                 fore.loc[condition,
-                         ["open", "high", "low", "close", "preclose"
-                          ]] *= adjust_factor.iloc[0].foreAdjustFactor
+                        adjust_columns] *= adjust_factor.iloc[0].foreAdjustFactor
                 back.loc[condition2,
-                         ["open", "high", "low", "close", "preclose"
-                          ]] *= adjust_factor.iloc[0].backAdjustFactor
+                        adjust_columns] *= adjust_factor.iloc[0].backAdjustFactor
+                
             elif i == len(adjust_factor):
                 condition = raw['date'] >= adjust_factor.iloc[
                     i - 1].dividOperateDate
                 condition2 = raw['date'] > adjust_factor.iloc[
                     i - 1].dividOperateDate
                 fore.loc[condition,
-                         ["open", "high", "low", "close", "preclose"
-                          ]] *= adjust_factor.iloc[i - 1].foreAdjustFactor
+                         adjust_columns] *= adjust_factor.iloc[i - 1].foreAdjustFactor
                 back.loc[condition2,
-                         ["open", "high", "low", "close", "preclose"
-                          ]] *= adjust_factor.iloc[i - 1].backAdjustFactor
+                         adjust_columns] *= adjust_factor.iloc[i - 1].backAdjustFactor
             else:
                 condition = (
                     raw['date'] < adjust_factor.iloc[i].dividOperateDate
@@ -134,11 +138,9 @@ class DataPortal(object):
                     raw['date'] <= adjust_factor.iloc[i].dividOperateDate
                 ) & (raw['date'] > adjust_factor.iloc[i - 1].dividOperateDate)
                 fore.loc[condition,
-                         ["open", "high", "low", "close", "preclose"
-                          ]] *= adjust_factor.iloc[i].foreAdjustFactor
+                         adjust_columns] *= adjust_factor.iloc[i].foreAdjustFactor
                 back.loc[condition2,
-                         ["open", "high", "low", "close", "preclose"
-                          ]] *= adjust_factor.iloc[i].backAdjustFactor
+                         adjust_columns] *= adjust_factor.iloc[i].backAdjustFactor
 
         if adjust_flag == 1:
             return fore
