@@ -19,5 +19,6 @@ class EventType(Enum):
 
 
 class InfoType(Enum):
-    Price = 100
-    Message = 101
+    DailyPrice = 100
+    MinutePrice = 101
+    Message = 102
