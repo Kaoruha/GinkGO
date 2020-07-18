@@ -70,8 +70,10 @@ class BaoStock(object):
         for i in range(sleep_second * 10):
             t = sleep_second * 10 - (i + 1)
             rate = (i + 1) / (sleep_second * 10)
-            _output.write(f'\r还需等待 {t / 10:.1f} 秒 ' + '|' * int(rate * 20) +
-                          f' {rate*100:.1f}%')
+            process_max = 30
+            elapse = int(rate * process_max)
+            _output.write(f'\r还需等待 {t / 10:.1f} 秒 |' + '#' * elapse + ' ' * (process_max - elapse) +
+                          f'| {rate*100:.1f}%')
             time.sleep(.1)
         print('\r\n')
 
@@ -161,7 +163,6 @@ class BaoStock(object):
                 while (rs.error_code == '0') & rs.next():
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
-                # TODO 进度条
                 _output.write(f'\r成功获取 {code} 从 {start_temp} 至 {end_temp} 的数据')
             else:
                 print('query_history_k_data_plus respond error_code:' +
@@ -282,7 +283,7 @@ class BaoStock(object):
                 last_date = self.get_last_date(data_or_code=code,
                                                data_frequency=data_frequency)
                 print(f'{code}.csv 已经生成，最新日期为 {last_date}')
-                self.sleep(2)
+                self.sleep(3)
             else:
                 result[:10000].to_csv(path + code + '.csv',
                                       mode='w',
@@ -317,6 +318,7 @@ class BaoStock(object):
                                           data_frequency=data_frequency)
                 _output.write(f'\r{code} 已经更新至 {last}')
         print(f'\n{code}.csv 已经更新至 {last}')
+        self.sleep(1)
 
     # 生成分钟数据黑名单，把没有分钟数据的指数存入
     def generate_min_ignore(self):
@@ -433,8 +435,7 @@ class BaoStock(object):
         # 获取证券信息
         self.login()
         rs = bs.query_all_stock(day=today)
-        # _output.write('query_all_stock respond error_code:' + rs.error_code)
-        # _output.write('query_all_stock respond  error_msg:' + rs.error_msg)
+        # rs = bs.query_all_stock(day='2020-07-17')
 
         # 打印结果集
         data_list = []
@@ -597,7 +598,7 @@ class BaoStock(object):
             self.logout()
 
 
-baostock = BaoStock()
+bao_instance = BaoStock()
 
 # TODO 没有目录的时候，文件生成目录
 # TODO 多线程管理
@@ -606,11 +607,11 @@ baostock = BaoStock()
 
 
 def update_all_stock():
-    baostock.update_all_stock()
+    bao_instance.update_all_stock()
 
 
 def update_all_adjust_factor():
-    baostock.all_adjust_factor_up_to_date()
+    bao_instance.all_adjust_factor_up_to_date()
 
 
 def start_update_all_stock():
