@@ -6,13 +6,11 @@
 
 import queue
 from ginkgo.libs.enums import EventType, InfoType
-from ginkgo.backtest.info import InfoPrice
 import time, datetime
 
 
 class BeuBacktest(object):
-    def __init__(self, strategy, portfolio,
-                 heartbeat: float):
+    def __init__(self, strategy, portfolio, heartbeat: float):
         self.strategy = strategy
         self.portfolio = portfolio
         self.heartbeat = heartbeat
@@ -56,16 +54,19 @@ class BeuBacktest(object):
             time.sleep(self.heartbeat)
 
     def _add_evnet(self, event):
-        if event.type is not (EventType.Market or EventType.Signal or EventType.Order or EventType.Fill):
+        if event.type is not (EventType.Market or EventType.Signal
+                              or EventType.Order or EventType.Fill):
             print('Event type is unknown!')
         else:
             self.event_list.put(event)
 
     def _add_info(self, info):
-        if (info.type is not (InfoType.Price or InfoType.Message)):
-            print('Info type is unknown!')
-        else:
+        if (info.type is InfoType.Message) or (
+                info.type is InfoType.MinutePrice) or (info.type is
+                                                       InfoType.DailyPrice):
             self.info_list.put(info)
+        else:
+            print('Info type is unknown!')
 
     def _output_performance(self):
         """
