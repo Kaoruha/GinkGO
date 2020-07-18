@@ -1,11 +1,18 @@
-# Adal
+# ginkGO
 #### 1、 开发环境部署
+# 确定有Anaconda环境，至少有个Conda
 ```shell script
 # 1、创建虚拟环境
 python3 -m venv venv
 
+# 如果安装了Anaconda也可以使用conda进行虚拟环境包的管理
+ conda create -n ginkgo-venv python=3.7
+conda env create -f environment.yml
+
 # 2.1、macOS下激活虚拟环境
 source venv/bin/activate
+# Anaconda
+conda activate ginkgo-venv
 
 # 2.2、Windows运行activate.bat
 # 在BeuQuant目录下
@@ -16,13 +23,14 @@ python3 -m pip install --upgrade pip
 
 # 4 安装依赖包
 # 4.1、按照Pipfile内的包信息安装
-pip install -r Pipfile
+pip install -r environment.txt
 
 # 4.2、如果速度慢可以换国内源  
-pip install -r Pipfile -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install -r environment.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 4.3、有新的包在安装完成后，需要更新Pipfile
-pip freeze >Pipfile
+# 4.3、有新的包在安装完成后，需要更新environment
+pip freeze > environment.txt
+conda env export > environment.yml
 ```
 
 #### 2、 生产环境部署
