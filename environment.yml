@@ -55,6 +55,7 @@ dependencies:
   - wheel=0.34.2=py37_0
   - wrapt=1.11.2=py37h1de35cc_0
   - xz=5.2.5=h1de35cc_0
+  - yapf=0.30.0=py_0
   - zipp=3.1.0=py_0
   - zlib=1.2.11=h1de35cc_3
   - zope=1.0=py37_1

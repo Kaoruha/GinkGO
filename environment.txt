@@ -60,5 +60,6 @@ w3lib==1.21.0
 wcwidth @ file:///tmp/build/80754af9/wcwidth_1593447189090/work
 Werkzeug==0.16.0
 wrapt==1.11.2
+yapf @ file:///tmp/build/80754af9/yapf_1593528177422/work
 zipp==3.1.0
 zope.interface==4.7.1
