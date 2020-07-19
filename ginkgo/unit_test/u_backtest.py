@@ -1,4 +1,4 @@
-from ginkgo.backtest.simulate_engine import BeuBacktest
+from ginkgo.backtest.simulate_engine import Ginkgo_Engine
 from ginkgo.backtest.portfolio import Portfolio
 from ginkgo.backtest.judger import Judger
 from ginkgo.backtest.fund.cash_scale_limit import CashScaleLimit
@@ -10,9 +10,9 @@ import time
 
 portfolio = Portfolio()
 judger = Judger()
-heartbeat = 1
+heartbeat = .01
 strategy = BaseStrategy()
-unit_backtest = BeuBacktest(strategy=strategy,
+unit_backtest = Ginkgo_Engine(strategy=strategy,
                             portfolio=portfolio,
                             heartbeat=heartbeat)
 
@@ -24,13 +24,13 @@ def u_backtest():
 def add_data():
     df = data_portal.query_stock(code='sh.600000',
                                  start_date='1990-01-02',
-                                 end_date='2001-01-01',
-                                 frequency='5',
-                                 adjust_flag=3)
+                                 end_date='2020-10-01',
+                                 frequency='d',
+                                 adjust_flag=1)
     for i in range(df.count().date):
-        info = MinutePrice(data=df.iloc[i])
+        info = DailyPrice(data=df.iloc[i])
         unit_backtest._add_info(info)
-        time.sleep(2)
+        # time.sleep(.1)
 
 
 def unit_test_backtest():

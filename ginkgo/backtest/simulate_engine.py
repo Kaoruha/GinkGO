@@ -9,7 +9,7 @@ from ginkgo.libs.enums import EventType, InfoType
 import time, datetime
 
 
-class BeuBacktest(object):
+class Ginkgo_Engine(object):
     def __init__(self, strategy, portfolio, heartbeat: float):
         self.strategy = strategy
         self.portfolio = portfolio
@@ -28,7 +28,7 @@ class BeuBacktest(object):
                 to_do_events = self.portfolio.get_new_info(info)
                 if to_do_events is not None:
                     for e in to_do_events:
-                        self._add_evnet(e)
+                        self._add_event(e)
             except queue.Empty:
                 now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 print(f'Data_list is Empty!! {now}')
@@ -53,7 +53,7 @@ class BeuBacktest(object):
                             self.portfolio.update_fill(event)
             time.sleep(self.heartbeat)
 
-    def _add_evnet(self, event):
+    def _add_event(self, event):
         if event.type is not (EventType.Market or EventType.Signal
                               or EventType.Order or EventType.Fill):
             print('Event type is unknown!')
