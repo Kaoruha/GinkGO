@@ -283,7 +283,7 @@ class BaoStock(object):
                 last_date = self.get_last_date(data_or_code=code,
                                                data_frequency=data_frequency)
                 print(f'{code}.csv 已经生成，最新日期为 {last_date}')
-                self.sleep(3)
+                # self.sleep(3)
             else:
                 result[:10000].to_csv(path + code + '.csv',
                                       mode='w',
@@ -318,7 +318,7 @@ class BaoStock(object):
                                           data_frequency=data_frequency)
                 _output.write(f'\r{code} 已经更新至 {last}')
         print(f'\n{code}.csv 已经更新至 {last}')
-        self.sleep(1)
+        # self.sleep(1)
 
     # 生成分钟数据黑名单，把没有分钟数据的指数存入
     def generate_min_ignore(self):
