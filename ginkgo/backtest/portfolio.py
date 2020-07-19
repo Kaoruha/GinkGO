@@ -2,15 +2,16 @@
 资产组合类
 
 """
-from ginkgo.libs.enums import InfoType
 import pandas as pd
+from ginkgo.libs.enums import InfoType
+
 
 
 class Portfolio(object):
     def __init__(self, *, stamp_tax=.001, fee=0.0000687, init_captial=100000):
         self._stamp_tax = stamp_tax  # 设置印花税
         self._fee = fee  # 设置交易税
-        self._init_captial = init_captial  # 设置初始资金
+        self._init_capital = init_capital  # 设置初始资金
         self.daily = {}
         self.minute = {}
 
@@ -24,10 +25,8 @@ class Portfolio(object):
         try:
             if info.type == InfoType.DailyPrice or info.type == InfoType.MinutePrice:
                 self.__get_new_price(info=info)
-                pass
             elif info.type == InfoType.Message:
                 self.__get_new_msg(info=info)
-                pass
         except Exception as e:
             print(e)
 
@@ -64,12 +63,12 @@ class Portfolio(object):
             self.daily[code] = pd.DataFrame(
                 columns=('date', 'code', 'open', 'high', 'low', 'close',
                          'preclose', 'volume', 'adjustflag', 'turn',
-                         'tradestatus', 'pctChg', 'isST'))
+                         'tradestatus', 'pctChg', 'isST', 'MA5', 'MA10',
+                         'MA20', 'MA30', 'MA60', 'MA120'))
         print(self.daily[code])
 
     def __minute_bar_writer(self, minute_bar):
         # 分钟交易数据写入
-        print(minute_bar)
         code = self.__get_code(minute_bar)
         # 分钟数据处理
         if code in self.minute:
