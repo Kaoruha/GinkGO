@@ -1,27 +1,30 @@
 # ginkGO
 #### 1、 开发环境部署
-# 确定有Anaconda环境，至少有个Conda
+#### 建议慢慢更换成 Conda 进行虚拟环境与包的管理
 ```shell script
 # 1、创建虚拟环境
+# 1.1、Python命令创建虚拟环境
 python3 -m venv venv
 
-# 如果安装了Anaconda也可以使用conda进行虚拟环境包的管理
- conda create -n ginkgo-venv python=3.7
-conda env create -f environment.yml
+# 1.2、Anaconda 使用conda进行虚拟环境包的管理
+conda create -n ginkgo-venv python=3.7 # 新建一个虚拟环境
+conda env create -f environment.yml # 按照 environment.yml 配置一个新的虚拟环境
 
-# 2.1、macOS下激活虚拟环境
+# 2.激活虚拟环境
+# 2.1、MacOS下
 source venv/bin/activate
-# Anaconda
+
+# 2.2、Anaconda，此刻conda已经完成包的安装与虚拟环境切换
 conda activate ginkgo-venv
 
-# 2.2、Windows运行activate.bat
+# 2.3、Windows
 # 在BeuQuant目录下
 venv\Scripts\activate
 
-# 3 更新pip
+# 3、更新pip(conda 不需要这一步)
 python3 -m pip install --upgrade pip
 
-# 4 安装依赖包
+# 4、安装依赖包(conda 不需要这一步)
 # 4.1、按照Pipfile内的包信息安装
 pip install -r environment.txt
 
