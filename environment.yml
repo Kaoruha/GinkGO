@@ -3,6 +3,7 @@ channels:
   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+  -https://mirrors.ustc.edu.cn/anaconda/pkgs/free/
   - defaults
 dependencies:
   - astroid=2.4.2=py37_0
@@ -12,7 +13,7 @@ dependencies:
   - ca-certificates=2020.6.24=0
   - certifi=2020.6.20=py37_0
   - hyperlink=19.0.0=py_0
-  - icu=58.2=h0a44026_3
+  
   - importlib-metadata=1.7.0=py37_0
   - importlib_metadata=1.7.0=0
   - isort=4.3.21=py37_0

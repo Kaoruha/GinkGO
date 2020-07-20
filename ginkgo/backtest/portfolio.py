@@ -8,7 +8,7 @@ from ginkgo.libs.enums import InfoType
 
 
 class Portfolio(object):
-    def __init__(self, *, stamp_tax=.001, fee=0.0000687, init_captial=100000):
+    def __init__(self, *, stamp_tax=.001, fee=0.0000687, init_capital=100000):
         self._stamp_tax = stamp_tax  # 设置印花税
         self._fee = fee  # 设置交易税
         self._init_capital = init_capital  # 设置初始资金

@@ -1,65 +1,50 @@
-astroid @ file:///opt/concourse/worker/volumes/live/b22b518b-f584-4586-5ee9-55bfa4fca96e/volume/astroid_1592495912194/work
+astroid==2.4.2
 attrs==19.3.0
-Automat==0.8.0
+Automat==20.2.0
 baostock==0.8.8
-bcrypt==3.1.7
-blinker==1.4
-certifi==2020.6.20
 cffi==1.14.0
-Click==7.0
+click==7.1.2
+colorama==0.4.3
 constantly==15.1.0
-content==0.0.1
 cryptography==2.9.2
 cssselect==1.1.0
-Flask==1.1.1
-Flask-HTTPAuth==3.3.0
-Flask-Login==0.4.1
-Flask-Mail==0.9.1
-Flask-SQLAlchemy==2.4.1
+Flask==1.1.2
+Flask-HTTPAuth==4.1.0
+Flask-SQLAlchemy==2.4.4
 hyperlink==19.0.0
-idna @ file:///tmp/build/80754af9/idna_1593446292537/work
-importlib-metadata @ file:///opt/concourse/worker/volumes/live/84197498-cbc0-4436-7ce0-03c4490b7a28/volume/importlib-metadata_1593446431408/work
+idna==2.10
 incremental==17.5.0
 isort==4.3.21
+itemadapter==0.1.0
 itsdangerous==1.1.0
-Jinja2==2.11.0
+Jinja2==2.11.2
 lazy-object-proxy==1.4.3
-lxml @ file:///opt/concourse/worker/volumes/live/0dfefafa-9e58-455e-535c-75e73a127cfd/volume/lxml_1594826856790/work
+lxml==4.5.2
 MarkupSafe==1.1.1
 mccabe==0.6.1
-more-itertools==8.4.0
 numpy==1.19.0
-packaging==20.4
 pandas==1.0.5
-parsel==1.5.2
-pluggy==0.13.1
+parsel==1.6.0
 Protego==0.1.16
-py @ file:///tmp/build/80754af9/py_1593446248552/work
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
-pycparser @ file:///tmp/build/80754af9/pycparser_1594388511720/work
+pycparser==2.20
 PyDispatcher==2.0.5
-PyHamcrest @ file:///tmp/build/80754af9/pyhamcrest_1594390921726/work
-pylint @ file:///opt/concourse/worker/volumes/live/42ede439-2571-4cb2-513c-394625d2381b/volume/pylint_1592496039330/work
-PyMySQL==0.9.3
-pyOpenSSL @ file:///tmp/build/80754af9/pyopenssl_1594392929924/work
-pyparsing==2.4.7
-pytest==5.4.3
-pytest-runner==5.2
+PyHamcrest==2.0.2
+pylint==2.5.3
+PyMySQL==0.10.0
+pyOpenSSL==19.1.0
 python-dateutil==2.8.1
 pytz==2020.1
 queuelib==1.5.0
-Scrapy==1.6.0
+Scrapy==2.2.1
 service-identity==18.1.0
 six==1.15.0
-SQLAlchemy==1.3.12
-toml @ file:///tmp/build/80754af9/toml_1592853716807/work
+SQLAlchemy==1.3.18
+toml==0.10.1
 Twisted==20.3.0
 typed-ast==1.4.1
-w3lib==1.21.0
-wcwidth @ file:///tmp/build/80754af9/wcwidth_1593447189090/work
-Werkzeug==0.16.0
-wrapt==1.11.2
-yapf @ file:///tmp/build/80754af9/yapf_1593528177422/work
-zipp==3.1.0
-zope.interface==4.7.1
+w3lib==1.22.0
+Werkzeug==1.0.1
+wrapt==1.12.1
+zope.interface==5.1.0
