@@ -7,6 +7,14 @@
 python3 -m venv venv
 
 # 1.2、Anaconda 使用conda进行虚拟环境包的管理
+# 1.2.1、更新Anaconda
+conda update anaconda
+conda update conda
+# 1.2.2、添加清华源
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
+conda config --set show_channel_urls yes
+# 1.2.3、创建环境
 conda create -n ginkgo-venv python=3.7 # 新建一个虚拟环境
 conda env create -f environment.yml # 按照 environment.yml 配置一个新的虚拟环境
 
