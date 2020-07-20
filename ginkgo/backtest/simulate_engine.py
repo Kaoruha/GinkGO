@@ -27,8 +27,8 @@ class Ginkgo_Engine(object):
                 info = self.info_list.get(False)
                 to_do_events = self.portfolio.get_new_info(info)
                 if to_do_events is not None:
-                    for e in to_do_events:
-                        self._add_event(e)
+                    for event in to_do_events:
+                        self._add_event(event)
             except queue.Empty:
                 now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 print(f'Data_list is Empty!! {now}')
@@ -44,10 +44,14 @@ class Ginkgo_Engine(object):
                             self.portfolio.get_signal(event)
                         elif event.type == EventType.Signal:
                             self.signals += 1
-                            self.portfolio.update_signal(event)
+                            to_do_events = self.portfolio.get_signal(event)
+                            if to_do_events is not None:
+                                for event in to_do_events:
+                                    self._add_event(event)
                         elif event.type == EventType.Order:
-                            self.orders += 1
-                            self.portfolio.excute_order(event)
+                            ordered_done = self.portfolio.excute_order(event)
+                            if ordered_done:
+                                self.orders += 1
                         elif event.type == EventType.Fill:
                             self.fills += 1
                             self.portfolio.update_fill(event)
