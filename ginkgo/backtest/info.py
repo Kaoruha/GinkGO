@@ -7,6 +7,9 @@ from ginkgo.libs.enums import InfoType
 
 
 class Info(object):
+    """
+    信息类
+    """
     def __init__(self, data: pd.DataFrame):
         self.type = InfoType.DailyPrice
         self.data = data
