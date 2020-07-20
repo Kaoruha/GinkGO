@@ -1,12 +1,12 @@
+import threading
+import time
 from ginkgo.backtest.simulate_engine import Ginkgo_Engine
 from ginkgo.backtest.portfolio import Portfolio
 from ginkgo.backtest.judger import Judger
 from ginkgo.backtest.fund.cash_scale_limit import CashScaleLimit
 from ginkgo.data.data_portal import data_portal
 from ginkgo.backtest.strategies.base_strategy import BaseStrategy
-import threading
 from ginkgo.backtest.info import DailyPrice, MinutePrice, MarketMSG
-import time
 
 portfolio = Portfolio()
 judger = Judger()
