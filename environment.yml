@@ -65,7 +65,6 @@ dependencies:
   - twisted=20.3.0=py37he774522_0
   - typed-ast=1.4.1=py37he774522_0
   - vc=14.1=h0510ff6_4
-  - vs2015_runtime=14.16.27012=hf0eaf9b_3
   - w3lib=1.21.0=py_0
   - wcwidth=0.2.5=py_0
   - werkzeug=1.0.1=py_0
