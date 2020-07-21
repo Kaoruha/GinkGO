@@ -88,4 +88,3 @@ dependencies:
     - pytz==2020.1
     - six==1.14.0
 prefix: F:\Anaconda3\envs\ginkgo-venv
-
