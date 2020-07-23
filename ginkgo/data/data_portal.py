@@ -1,7 +1,7 @@
 """
-@Author:sunny
-@Create:2020-07-06  15-55-12
-@Description:BlaBla
+数据入口，负责对外输出后台数据
+
+不参与数据获取
 """
 import threading
 import pandas as pd

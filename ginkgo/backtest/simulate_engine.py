@@ -1,12 +1,15 @@
 """
 引擎类
+
 用于模拟回测，验证策略
+
 # TODO 实盘操作
 """
 
 import queue
-from ginkgo.libs.enums import EventType, InfoType
 import time, datetime
+from ginkgo.libs.enums import EventType, InfoType
+
 
 
 class Ginkgo_Engine(object):
@@ -41,20 +44,21 @@ class Ginkgo_Engine(object):
                 else:
                     if event is not None:
                         if event.type == EventType.Market:
-                            self.portfolio.get_signal(event)
+                            to_do_events = self.portfolio.get_signal(event)
                         elif event.type == EventType.Signal:
                             self.signals += 1
                             to_do_events = self.portfolio.get_signal(event)
-                            if to_do_events is not None:
-                                for event in to_do_events:
-                                    self._add_event(event)
                         elif event.type == EventType.Order:
                             ordered_done = self.portfolio.excute_order(event)
                             if ordered_done:
                                 self.orders += 1
-                        elif event.type == EventType.Fill:
+                        elif event.type == EventType.Fill: # 暂时没搞明白这个fill是个啥
                             self.fills += 1
                             self.portfolio.update_fill(event)
+
+                        if to_do_events is not None:
+                            for event in to_do_events:
+                                self._add_event(event)
             time.sleep(self.heartbeat)
 
     def _add_event(self, event):

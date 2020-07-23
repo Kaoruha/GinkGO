@@ -1,6 +1,6 @@
 import threading
-import baostock as bs
 import sys
+import baostock as bs
 import pandas as pd
 from ginkgo.config.setting import STOCK_URL
 import datetime, time
@@ -72,8 +72,8 @@ class BaoStock(object):
             rate = (i + 1) / (sleep_second * 10)
             process_max = 30
             elapse = int(rate * process_max)
-            _output.write(f'\r还需等待 {t / 10:.1f} 秒 |' + '#' * elapse + ' ' * (process_max - elapse) +
-                          f'| {rate*100:.1f}%')
+            _output.write(f'\r还需等待 {t / 10:.1f} 秒 |' + '#' * elapse + ' ' *
+                          (process_max - elapse) + f'| {rate*100:.1f}%')
             time.sleep(.1)
         print('\r\n')
 
@@ -582,7 +582,8 @@ class BaoStock(object):
             while (rs_factor.error_code == '0') & rs_factor.next():
                 rs_list.append(rs_factor.get_row_data())
             result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
-            if not os.path.exists('.//' + STOCK_URL + 'adjust_factor_data.csv'):
+            if not os.path.exists('.//' + STOCK_URL +
+                                  'adjust_factor_data.csv'):
                 print('没有找到 adjust_factor_data.csv')
                 self.generate_adjust_factor(result_factor)
             adjust = pd.read_csv(STOCK_URL + 'adjust_factor_data.csv')
