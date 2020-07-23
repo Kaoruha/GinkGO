@@ -103,6 +103,7 @@ class DataPortal(object):
             return raw
 
         # 有复权因子
+        # TODO 按照截至日期复权
         adjust_columns = []
         if frequency == 'd':
             adjust_columns = ["open", "high", "low", "close", "preclose"]

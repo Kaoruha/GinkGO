@@ -52,8 +52,17 @@ class Portfolio(object):
         elif info.type == InfoType.MinutePrice:
             # 记录分钟交易数据
             self.__minute_bar_writer(info.data)
+        
+        # 2、按照时间顺序将交易数据重新排序
+        for code in self.daily:
+               self.daily[code] = self.daily[code].sort_values(by='date', ascending=True, axis=0)
+        for code in self.minute:
+               self.minute[code] = self.minute[code].sort_values(by='time', ascending=True, axis=0)
         # 2、计算各种指标，记录价格信息
-        self.__macd_calculate()
+        # 2.1、将daily里的交易信息按照时间顺序排序
+        
+        # 2.2、计算逐个股票的MACD
+        self.__average_line_calculate(span=5)
 
     def __get_new_msg(self, info: InfoType.Message):
         # TODO 处理新的市场信息
@@ -84,8 +93,7 @@ class Portfolio(object):
         code = self.__get_code(daily_bar)
         daily_columns = [
             'date', 'code', 'open', 'high', 'low', 'close', 'preclose',
-            'volume', 'adjustflag', 'turn', 'tradestatus', 'pctChg', 'isST',
-            'MA5', 'MA10', 'MA20', 'MA30', 'MA60', 'MA120'
+            'volume', 'adjustflag', 'turn', 'tradestatus', 'pctChg', 'isST'
         ]
         if code in self.daily:
             self.daily[code] = self.daily[code].append(daily_bar.T,
@@ -112,16 +120,41 @@ class Portfolio(object):
             self.minute[code] = pd.DataFrame(columns=minute_columns)
         print(self.minute[code])
 
-    # MACD计算
-    def __macd_calculate(self):
-        """
-        负责计算MACD值
-        """
-        # 1、将daily，minute里的交易信息按照时间顺序排序
-        # 1.1、将daily里的交易信息按时间排序
-        # 1.2、将minute里的交易信息按时间排序
-        # 2、计算逐个股票的MACD
-        pass
+        
 
     def excute_order(self, event):
         pass
+
+
+    def __average_line_calculate(self, span:int):
+        """
+        负责计算并写入日均线数据
+
+        :param span: 均线跨度，MA5则传入5，MA10则传入10
+        :type span: int
+        """
+        if type(span) is not int:
+            print('请输入日均线的跨度只能输入数字')
+            return
+        else:
+            new_column = 'MA' + str(span)
+        
+        for code in self.daily:
+            self.daily[code][new_column] = ''
+
+        for code in self.daily:
+            stock = self.daily[code]
+            for i in range(stock.shape[0]):
+                if i <= span:
+                    total = stock['close'].iloc[0:i].sum()
+                    days = 1
+                    if i >= 1:
+                        days = i
+                    average = total/days
+                    self.daily[code].loc[i,new_column] = average
+                else:
+                    start = stock['close'].iloc[i-span]
+                    end = stock['close'].iloc[i]
+                    total = stock['close'].iloc[i-span:i].sum()
+                    average = total/span
+                    self.daily[code].loc[i,new_column] = average

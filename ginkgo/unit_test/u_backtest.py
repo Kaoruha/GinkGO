@@ -25,7 +25,7 @@ def add_data():
     df = data_portal.query_stock(code='sh.600000',
                                  start_date='1990-01-02',
                                  end_date='2020-10-01',
-                                 frequency='5',
+                                 frequency='d',
                                  adjust_flag=1)
     for i in range(df.count().date):
         info = DailyPrice(data=df.iloc[i])

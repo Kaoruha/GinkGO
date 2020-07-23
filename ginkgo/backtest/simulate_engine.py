@@ -34,7 +34,7 @@ class Ginkgo_Engine(object):
                         self._add_event(event)
             except queue.Empty:
                 now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                print(f'Data_list is Empty!! {now}')
+                # print(f'Data_list is Empty!! {now}')
             # 处理事件列表
             while True:
                 try:
