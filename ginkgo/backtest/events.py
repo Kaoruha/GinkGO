@@ -12,8 +12,12 @@ class MarketEvent(object):
 
 
 class SignalEvent(object):
-    def __init__(self):
+    def __init__(self, buy_or_sell='BUY'):
         self.type = EventType.Signal
+        if buy_or_sell == 'BUY' or buy_or_sell == 'SELL':
+            self.buy_or_sell = buy_or_sell
+        else:
+            print('buy_or_sell can only be BUY or SELL')
 
 
 class OrderEvent(object):
