@@ -10,12 +10,23 @@ class Portfolio(object):
     """
     资产管理类，负责接收信息、处理事件、执行下单等操作
     """
-    def __init__(self, *, stamp_tax=.001, fee=0.0000687, init_capital=100000):
-        self._stamp_tax = stamp_tax  # 设置印花税
-        self._fee = fee  # 设置交易税
-        self._init_capital = init_capital  # 设置初始资金
+    def __init__(self, strategy, *, stamp_tax=.0015, fee=.00025, init_capital=100000):
+        self._stamp_tax = stamp_tax  # 设置印花税，默认千1.5
+        self._fee = fee  # 设置交易税,默认万2.5
+        self._init_capital = init_capital  # 设置初始资金，默认100K
         self.daily = {}
         self.minute = {}
+        self.strategy = strategy
+
+    def reset_capital(self, capital: int):
+        """
+        重新设置初始资金
+
+        :param capital: 初始资金
+        :type capital: int
+        """
+        self._init_capital = capital
+
 
     def get_new_info(self, info):
         """
