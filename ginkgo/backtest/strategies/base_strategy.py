@@ -1,6 +1,5 @@
 """
 基础策略
-设定交易手续费等
 
 生存第一
 生存第一
@@ -9,8 +8,12 @@
 
 
 """
-import pandas as pd
-
 
 class BaseStrategy(object):
-    pass
+    """
+    策略基类
+
+    定义一些策略的基本方法
+    """
+    def check(self, data):
+        self.data = data
