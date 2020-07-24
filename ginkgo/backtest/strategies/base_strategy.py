@@ -15,5 +15,5 @@ class BaseStrategy(object):
 
     定义一些策略的基本方法
     """
-    def check(self, data):
-        self.data = data
+    def __init__(self):
+        self.data = {}  

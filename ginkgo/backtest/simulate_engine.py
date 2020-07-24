@@ -14,7 +14,6 @@ from ginkgo.libs.enums import EventType, InfoType
 
 class Ginkgo_Engine(object):
     def __init__(self, strategy, portfolio, heartbeat: float):
-        self.strategy = strategy
         self.portfolio = portfolio
         self.heartbeat = heartbeat
         self.info_list = queue.Queue()
@@ -22,6 +21,7 @@ class Ginkgo_Engine(object):
         self.signals = 0
         self.orders = 0
         self.fills = 0
+        self.portfolio.add_strategy(strategy)
 
     def _run(self):
         while True:

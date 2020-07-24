@@ -10,13 +10,18 @@ class Portfolio(object):
     """
     资产管理类，负责接收信息、处理事件、执行下单等操作
     """
-    def __init__(self, strategy, *, stamp_tax=.0015, fee=.00025, init_capital=100000):
+    def __init__(self, *, stamp_tax=.0015, fee=.00025, init_capital=100000):
         self._stamp_tax = stamp_tax  # 设置印花税，默认千1.5
         self._fee = fee  # 设置交易税,默认万2.5
         self._init_capital = init_capital  # 设置初始资金，默认100K
         self.daily = {}
         self.minute = {}
-        self.strategy = strategy
+        self.strategy = None
+        
+
+    def add_strategy(self, new_strategy):
+        self.strategy = new_strategy
+
 
     def reset_capital(self, capital: int):
         """
@@ -39,6 +44,7 @@ class Portfolio(object):
             if info.type == InfoType.DailyPrice:
                 self.__get_new_price(info=info)
                 # TODO 将需要的信息交给策略类
+                self.strategy.check(self.daily)
             elif info.type == InfoType.MinutePrice:
                 self.__get_new_price(info=info)
             elif info.type == InfoType.Message:
@@ -112,7 +118,7 @@ class Portfolio(object):
             self.daily[code] = self.daily[code].drop_duplicates()
         else:
             self.daily[code] = pd.DataFrame(columns=daily_columns)
-        print(self.daily[code])
+        # print(self.daily[code])
 
     # 5分钟交易数据写入
     def __minute_bar_writer(self, minute_bar):
@@ -129,7 +135,7 @@ class Portfolio(object):
                 minute_bar.T, ignore_index=True).drop_duplicates()
         else:
             self.minute[code] = pd.DataFrame(columns=minute_columns)
-        print(self.minute[code])
+        # print(self.minute[code])
 
         
 
