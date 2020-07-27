@@ -22,3 +22,6 @@ class InfoType(Enum):
     DailyPrice = 100
     MinutePrice = 101
     Message = 102
+
+class MarketType(Enum):
+    Stock_CN = 100
