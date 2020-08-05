@@ -13,7 +13,7 @@ from ginkgo.libs.enums import EventType, InfoType
 
 
 class Ginkgo_Engine(object):
-    def __init__(self, strategy, portfolio, heartbeat: float):
+    def __init__(self, portfolio, heartbeat: float):
         self.portfolio = portfolio
         self.heartbeat = heartbeat
         self.info_list = queue.Queue()
@@ -21,14 +21,13 @@ class Ginkgo_Engine(object):
         self.signals = 0
         self.orders = 0
         self.fills = 0
-        self.portfolio.add_strategy(strategy)
 
     def _run(self):
         while True:
             # 处理数据列表
             try:
                 info = self.info_list.get(False)
-                to_do_events = self.portfolio.get_new_info(info)
+                to_do_events = self.portfolio.get_info(info)
                 if to_do_events is not None:
                     for event in to_do_events:
                         self._add_event(event)

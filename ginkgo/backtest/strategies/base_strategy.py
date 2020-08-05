@@ -16,4 +16,10 @@ class BaseStrategy(object):
     定义一些策略的基本方法
     """
     def __init__(self):
-        self.data = {}  
+        self.data = {}
+
+    def data_transfer(self, data):
+        self.data = data
+
+    def check(self):
+        raise NotImplementedError("Must implement check()")

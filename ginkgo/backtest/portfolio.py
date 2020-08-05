@@ -4,6 +4,7 @@
 """
 import pandas as pd
 from ginkgo.libs.enums import InfoType, MarketType
+from ginkgo.backtest.strategies.base_strategy import BaseStrategy
 
 
 class Portfolio(object):
@@ -16,13 +17,27 @@ class Portfolio(object):
         self._init_capital = init_capital  # 设置初始资金，默认100K
         self.daily = {}
         self.minute = {}
-        self.strategy = None
-        self.hold = {} # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
+        self.strategies = []
+        self.hold = {
+        }  # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN
 
-    def add_strategy(self, new_strategy):
-        self.strategy = new_strategy
+    # 策略注册
+    def register_strategy(self, new_strategy):
+        """
+        策略注册
 
+        :param new_strategy: 新策略
+        :type new_strategy: BaseStrategy的衍生类
+        """
+        if isinstance(new_strategy, BaseStrategy):
+            print(f'{type(new_strategy)} 策略注册成功')
+            # TODO 查重
+            self.strategies.append(new_strategy)
+        else:
+            print('注册失败。待注册待策略应该是BaseStrategy的衍生类')
+
+    # 重新设置初始资金
     def reset_capital(self, capital: int):
         """
         重新设置初始资金
@@ -32,34 +47,39 @@ class Portfolio(object):
         """
         self._init_capital = capital
 
-    def get_new_info(self, info):
+    def get_info(self, info):
         """
-        处理新获取的信息
+        Portfolio获取新信息
 
         :param info: 市场信息或者价格信息
         :type info: Info的继承类
         """
         try:
             if info.type == InfoType.DailyPrice:
-                self.__get_new_price(info=info)
-                # TODO 将需要的信息交给策略类
-                self.strategy.check(self.daily)
+                self.__handle_new_price(info=info)
             elif info.type == InfoType.MinutePrice:
-                self.__get_new_price(info=info)
+                self.__handle_new_price(info=info)
             elif info.type == InfoType.Message:
-                self.__get_new_msg(info=info)
+                self.__handle_new_msg(info=info)
+
+            data = {
+                    'daily': self.daily,
+                    'minute':self.minute
+                }
+            for strategy in self.strategies:
+                strategy.data_transfer(data)
+                strategy.check() # TODO 准备接收信号对象
         except Exception as e:
             print(e)
 
     # 获取新的价格信息
-    def __get_new_price(self, info):
+    def __handle_new_price(self, info):
         """
-        获取价格信息
+        处理新获取价格信息
+        记录——排序（计算指标）
 
         :param info: 价格信息，包含数据为DataFrame
         :type info: DailyPrice 或 MinutePrice
-        :return: [description]
-        :rtype: [type]
         """
         # 1、交易数据记录
         if info.type == InfoType.DailyPrice:
@@ -81,10 +101,10 @@ class Portfolio(object):
         # 2、计算各种指标，记录价格信息
         # 2.1、将daily里的交易信息按照时间顺序排序
 
-        # 2.2、计算逐个股票的MACD
-        self.__average_line_calculate(span=5)
+        # 2.2、计算逐个股票的MACD TODO转移至策略类计算
+        # self.__average_line_calculate(span=5)
 
-    def __get_new_msg(self, info: InfoType.Message):
+    def __handle_new_msg(self, info: InfoType.Message):
         # TODO 处理新的市场信息
         pass
 

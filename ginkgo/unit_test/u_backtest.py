@@ -11,10 +11,9 @@ from ginkgo.backtest.info import DailyPrice, MinutePrice, MarketMSG
 portfolio = Portfolio()
 judger = Judger()
 heartbeat = .01
-strategy = MACD()
-unit_backtest = Ginkgo_Engine(strategy=strategy,
-                            portfolio=portfolio,
-                            heartbeat=heartbeat)
+strategy_ma = MACD()
+portfolio.register_strategy(strategy_ma)
+unit_backtest = Ginkgo_Engine(portfolio=portfolio, heartbeat=heartbeat)
 
 
 def u_backtest():
