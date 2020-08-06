@@ -1,5 +1,5 @@
 from ginkgo.libs.yellowprint import YellowPrint
-from ginkgo.unit_test.u_backtest import unit_test_backtest, unit_test_feed
+from ginkgo.test.u_backtest import unit_test_backtest, unit_test_feed
 
 yp_test = YellowPrint('rp_test', url_prefix='/test')
 
