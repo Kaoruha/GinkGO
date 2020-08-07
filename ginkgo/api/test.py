@@ -1,5 +1,6 @@
 from ginkgo.libs.yellowprint import YellowPrint
 from ginkgo.test.u_backtest import unit_test_backtest, unit_test_feed
+from ginkgo.libs.response import NoException
 
 yp_test = YellowPrint('rp_test', url_prefix='/test')
 
@@ -9,11 +10,11 @@ yp_test = YellowPrint('rp_test', url_prefix='/test')
 def backtest():
     print('start backtest!')
     unit_test_backtest()
-    return 'Unit_backtest has begun!!!'
+    return NoException(msg='Start backtest successful!!')
 
 
 @yp_test.route('/backtest_feed', methods=['POST'])
 def backtest_feed():
     print('start feed!')
     unit_test_feed()
-    return 'Unit_backtest began to feed now!!!'
+    return NoException(msg='Unit_backtest began to feed now!!!')

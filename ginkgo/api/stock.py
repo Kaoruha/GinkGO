@@ -1,4 +1,4 @@
-from ginkgo.libs.error import APIException
+from ginkgo.libs.response import APIException
 from ginkgo.libs.yellowprint import YellowPrint
 from ginkgo.data.stock.baostock import start_update_all_stock,bao_instance,start_update_adjust_factor
 from flask import request

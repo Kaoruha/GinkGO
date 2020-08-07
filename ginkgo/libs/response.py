@@ -35,3 +35,37 @@ class APIException(HTTPException):
     def get_headers(self, environ=None):
         """Get a list of headers."""
         return [("Content-Type", "application/json")]
+
+
+class NoException(HTTPException):
+    code = 200
+    msg = "Sorry, we made a mistake. >_<|||"
+    data = {}
+
+    def __init__(self, code=None, msg=None, data=None, headers=None):
+        if code:
+            self.code = code
+        if msg:
+            self.msg = msg
+        if data:
+            self.data = data
+        super(NoException, self).__init__(msg, None)
+
+    def get_body(self, environ=None):
+        body = dict(
+            msg=self.msg,
+            data=self.data,
+            request=request.method + ' ' + self.get_url_no_param()
+        )
+        text = json.dumps(body)
+        return text
+
+    @staticmethod
+    def get_url_no_param():
+        full_path = str(request.full_path)
+        main_path = full_path.split('?')
+        return main_path[0]
+
+    def get_headers(self, environ=None):
+        """Get a list of headers."""
+        return [("Content-Type", "application/json")]

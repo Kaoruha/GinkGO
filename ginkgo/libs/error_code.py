@@ -1,10 +1,10 @@
 # 定义具体的异常报错
-from ginkgo.libs.error import APIException
+from ginkgo.libs.response import APIException
 
 
 class TestError(APIException):
     code = 400
-    description = (
+    msg = (
         'this is error description'
     )
 

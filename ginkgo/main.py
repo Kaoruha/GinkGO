@@ -2,7 +2,7 @@
 from werkzeug.exceptions import HTTPException
 
 from ginkgo.app import create_app
-from ginkgo.libs.error import APIException
+from ginkgo.libs.response import APIException
 from ginkgo.libs.error_code import ServerError
 
 app = create_app()

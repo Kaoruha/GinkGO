@@ -15,9 +15,3 @@ def get_ip_proxy():
 def kill_thread():
     kill_all_thread()
     return 'All threades killed'
-
-
-@yp_spider.route('/getstock')
-def get_stock():
-    stock_get()
-    return 'OK'
