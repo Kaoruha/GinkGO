@@ -39,8 +39,9 @@ class APIException(HTTPException):
 
 class NoException(HTTPException):
     code = 200
-    msg = "Sorry, we made a mistake. >_<|||"
+    msg = "Everything goes well. >-<|||"
     data = {}
+    # error_code = 200
 
     def __init__(self, code=None, msg=None, data=None, headers=None):
         if code:

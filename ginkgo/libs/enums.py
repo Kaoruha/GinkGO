@@ -25,3 +25,8 @@ class InfoType(Enum):
 
 class MarketType(Enum):
     Stock_CN = 100
+
+
+class PortfolioType(Enum):
+    Simulation = 100
+    Real = 101

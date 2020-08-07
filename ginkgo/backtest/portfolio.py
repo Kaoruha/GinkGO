@@ -3,7 +3,7 @@
 
 """
 import pandas as pd
-from ginkgo.libs.enums import InfoType, MarketType
+from ginkgo.libs.enums import InfoType, MarketType, PortfolioType
 from ginkgo.backtest.strategies.base_strategy import BaseStrategy
 
 
@@ -11,14 +11,16 @@ class Portfolio(object):
     """
     资产管理类，负责接收信息、处理事件、执行下单等操作
     """
-    def __init__(self, *, stamp_tax=.0015, fee=.00025, init_capital=100000):
+    def __init__(self, name, *, stamp_tax=.0015, fee=.00025, init_capital=100000):
+        self.name = name
         self._stamp_tax = stamp_tax  # 设置印花税，默认千1.5
         self._fee = fee  # 设置交易税,默认万2.5
         self._init_capital = init_capital  # 设置初始资金，默认100K
         self.daily = {}
         self.minute = {}
         self.strategies = []
-        self.hold = {
+        self.hold = {}# 'code': ['price', 'amount']
+        self.trades = {
         }  # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN
 
@@ -31,11 +33,11 @@ class Portfolio(object):
         :type new_strategy: BaseStrategy的衍生类
         """
         if isinstance(new_strategy, BaseStrategy):
-            print(f'{type(new_strategy)} 策略注册成功')
             # TODO 查重
             self.strategies.append(new_strategy)
+            print(f'{type(new_strategy)} 策略注册成功')
         else:
-            print('注册失败。待注册待策略应该是BaseStrategy的衍生类')
+            print('注册失败，待注册待策略应该是BaseStrategy的衍生类')
 
     # 重新设置初始资金
     def reset_capital(self, capital: int):
@@ -162,36 +164,3 @@ class Portfolio(object):
 
     def excute_order(self, event):
         pass
-
-    def __average_line_calculate(self, span: int):
-        """
-        负责计算并写入日均线数据
-
-        :param span: 均线跨度，MA5则传入5，MA10则传入10
-        :type span: int
-        """
-        if type(span) is not int:
-            print('请输入日均线的跨度只能输入数字')
-            return
-        else:
-            new_column = 'MA' + str(span)
-
-        for code in self.daily:
-            self.daily[code][new_column] = ''
-
-        for code in self.daily:
-            stock = self.daily[code]
-            for i in range(stock.shape[0]):
-                if i <= span:
-                    total = stock['close'].iloc[0:i].sum()
-                    days = 1
-                    if i >= 1:
-                        days = i
-                    average = total / days
-                    self.daily[code].loc[i, new_column] = average
-                else:
-                    start = stock['close'].iloc[i - span]
-                    end = stock['close'].iloc[i]
-                    total = stock['close'].iloc[i - span:i].sum()
-                    average = total / span
-                    self.daily[code].loc[i, new_column] = average

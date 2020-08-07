@@ -4,7 +4,7 @@ import baostock as bs
 import pandas as pd
 from ginkgo.config.setting import STOCK_URL
 import datetime, time
-from ginkgo.data.manager import dm
+from ginkgo.data.data_manager import data_manager
 from ginkgo.libs.tools import makedir
 import os
 

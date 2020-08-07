@@ -1,4 +1,4 @@
-from ginkgo.libs.response import APIException
+from ginkgo.libs.response import APIException, NoException
 from ginkgo.libs.yellowprint import YellowPrint
 from ginkgo.data.stock.baostock import start_update_all_stock,bao_instance,start_update_adjust_factor
 from flask import request
@@ -32,7 +32,7 @@ def get_update_progress():
 @yp_stock.route('/all_stock_code', methods=['POST'])
 def get_all_stock_code():
     bao_instance.get_all_stock_code()
-    return '开始获取所有股票代码'
+    return NoException(msg='开始获取股票代码')
 
 
 @yp_stock.route('/adjust_code', methods=['POST'])

@@ -8,7 +8,7 @@ from ginkgo.data.data_portal import data_portal
 from ginkgo.backtest.strategies.moving_average import MACD
 from ginkgo.backtest.info import DailyPrice, MinutePrice, MarketMSG
 
-portfolio = Portfolio()
+portfolio = Portfolio(name='test')
 judger = Judger()
 heartbeat = .01
 strategy_ma = MACD()
