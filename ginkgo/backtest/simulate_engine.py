@@ -11,9 +11,10 @@ import time, datetime
 from ginkgo.libs.enums import EventType, InfoType
 
 
-
 class Ginkgo_Engine(object):
     def __init__(self, portfolio, heartbeat: float):
+        self.runs_loop = 0
+        self.on_off = False
         self.portfolio = portfolio
         self.heartbeat = heartbeat
         self.info_list = queue.Queue()
@@ -24,41 +25,45 @@ class Ginkgo_Engine(object):
 
     def _run(self):
         while True:
-            # 处理数据列表
-            try:
-                info = self.info_list.get(False)
-                to_do_events = self.portfolio.get_info(info)
-                if to_do_events is not None:
-                    for event in to_do_events:
-                        self._add_event(event)
-            except queue.Empty:
-                now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                # print(f'Data_list is Empty!! {now}')
-            # 处理事件列表
-            while True:
+            # 判断引擎状态
+            if self.on_off:
+                # 处理数据列表
                 try:
-                    event = self.event_list.get(False)
+                    info = self.info_list.get(False)
+                    to_do_events = self.portfolio.get_info(info)
+                    if to_do_events is not None:
+                        for event in to_do_events:
+                            self._add_event(event)
                 except queue.Empty:
-                    break
-                else:
-                    if event is not None:
-                        if event.type == EventType.Market:
-                            to_do_events = self.portfolio.get_signal(event)
-                        elif event.type == EventType.Signal:
-                            self.signals += 1
-                            to_do_events = self.portfolio.get_signal(event)
-                        elif event.type == EventType.Order:
-                            ordered_done = self.portfolio.excute_order(event)
-                            if ordered_done:
-                                self.orders += 1
-                        elif event.type == EventType.Fill: # 暂时没搞明白这个fill是个啥
-                            self.fills += 1
-                            self.portfolio.update_fill(event)
+                    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    # print(f'Data_list is Empty!! {now}')
+                # 处理事件列表
+                while True:
+                    try:
+                        event = self.event_list.get(False)
+                    except queue.Empty:
+                        break
+                    else:
+                        if event is not None:
+                            if event.type == EventType.Market:
+                                to_do_events = self.portfolio.get_signal(event)
+                            elif event.type == EventType.Signal:
+                                self.signals += 1
+                                to_do_events = self.portfolio.get_signal(event)
+                            elif event.type == EventType.Order:
+                                ordered_done = self.portfolio.excute_order(
+                                    event)
+                                if ordered_done:
+                                    self.orders += 1
+                            elif event.type == EventType.Fill:  # 暂时没搞明白这个fill是个啥
+                                self.fills += 1
+                                self.portfolio.update_fill(event)
 
-                        if to_do_events is not None:
-                            for event in to_do_events:
-                                self._add_event(event)
+                            if to_do_events is not None:
+                                for event in to_do_events:
+                                    self._add_event(event)
             time.sleep(self.heartbeat)
+            # print(f'Heart Beating {self.heartbeat}')
 
     def _add_event(self, event):
         if event.type is not (EventType.Market or EventType.Signal
@@ -91,6 +96,19 @@ class Ginkgo_Engine(object):
         # print("Orders: %s" % self.orders)
         # print("Fills: %s" % self.fills)
         pass
+
+    def engine_sleep(self):
+        """
+        引擎休眠
+        """
+        self.on_off = False
+
+    def engine_start(self):
+        self.on_off = True
+        if self.runs_loop == 0:
+            self._run()
+
+        self.runs_loop += 1
 
     def simulate_trading(self):
         """

@@ -17,7 +17,7 @@ unit_backtest = Ginkgo_Engine(portfolio=portfolio, heartbeat=heartbeat)
 
 
 def u_backtest():
-    unit_backtest._run()
+    unit_backtest.engine_start()
 
 
 def add_data():
@@ -40,3 +40,10 @@ def unit_test_backtest():
 def unit_test_feed():
     feed = threading.Thread(target=add_data, name='u_backtest_feed')
     feed.start()
+
+def unit_test_engine_sleep():
+    unit_backtest.engine_sleep()
+
+
+# def unit_test_feed_kill():
+#     kill thread

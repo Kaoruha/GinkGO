@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api/test.dart';
 import '../api/stock.dart';
+import '../api/test.dart';
 
 class TestPage extends StatelessWidget {
   @override
@@ -8,14 +9,22 @@ class TestPage extends StatelessWidget {
     return MaterialApp(
       title: 'Hello_Flutter',
       home: Scaffold(
-          appBar: AppBar(title: Text('Ginkgo Test')),
-          body: Row(children: <Widget>[
+        appBar: AppBar(title: Text('Ginkgo Test')),
+        body: Row(
+          children: <Widget>[
             RaisedButton(
               color: Colors.lightBlue[200],
               onPressed: () {
                 EngineRun();
               },
               child: Text('引擎开启'),
+            ),
+            RaisedButton(
+              color: Colors.lightBlue[200],
+              onPressed: () {
+                EngineSleep();
+              },
+              child: Text('引擎休眠'),
             ),
             RaisedButton(
               color: Colors.lightBlue[300],
@@ -31,7 +40,9 @@ class TestPage extends StatelessWidget {
               },
               child: Text('数据更新'),
             ),
-          ])),
+          ],
+        ),
+      ),
     );
   }
 }
