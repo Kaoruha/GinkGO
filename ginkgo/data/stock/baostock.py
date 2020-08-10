@@ -434,7 +434,7 @@ class BaoStock(object):
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         # 获取证券信息
         self.login()
-        rs = bs.query_all_stock(day=today)
+        rs = bs.query_all_stock(day='2020-08-07')
         # rs = bs.query_all_stock(day='2020-07-17')
 
         # 打印结果集

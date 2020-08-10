@@ -2,25 +2,27 @@
 负责引擎相关的线程调度
 """
 import threading
-from ginkgo.libs.thread_manager import ThreadManager
+from ginkgo.libs.thread_manager import thread_manager
 
 
-class EnginePortal(ThreadManager):
+class EnginePortal(object):
+    _instance_lock = threading.Lock()
+    __thread_dict = dict()
     engine_list = {}
-    def __new__(self, *args, **kwargs):
-        if not hasattr(self, '_instance'):
-            with EnginePortal._instance_lock:
-                if not hasattr(self, '_instance'):
-                    EnginePortal._instance = super().__new__(self)
 
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, '_instance'):
+            with EnginePortal._instance_lock:
+                if not hasattr(cls, '_instance'):
+                    EnginePortal._instance = super().__new__(cls)
             return EnginePortal._instance
   
     def engine_register(self, engine, portfolio):
         if portfolio.name not in self.engine_list:
             self.engine_list[portfolio.name] = engine
-            t = threading.Thread(target=engine_run,
+            thread = threading.Thread(target=engine_run,
                           kwargs={"engine":engine}) # kwargs 传递字典，可以同时传递多个键值对
-            self._instance.thread_register(t)
+            thread_manager.thread_register(thread) # 线程管理,新建引擎的线程
         else:
             print(f'{portfolio.name} already exsist!')
 
@@ -44,7 +46,6 @@ class EnginePortal(ThreadManager):
 
 
 engine_portal = EnginePortal()
-
 
 def engine_run(engine):
     engine._run()

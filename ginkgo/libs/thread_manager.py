@@ -67,3 +67,5 @@ class ThreadManager(object):
         for d in dead_list:
             self.__thread_dict.pop(d)
             print(f'{d} has popped')
+
+thread_manager = ThreadManager()

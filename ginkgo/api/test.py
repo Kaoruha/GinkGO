@@ -9,8 +9,8 @@ yp_test = YellowPrint('rp_test', url_prefix='/test')
 @yp_test.route('/backtest', methods=['POST'])
 def backtest():
     print('start backtest!')
-    unit_test_backtest()
-    return NoException(msg='Start backtest successful!!')
+    # unit_test_backtest()
+    return NoException(msg='Start backtest successful1122!!')
 
 
 @yp_test.route('/backtest_feed', methods=['POST'])

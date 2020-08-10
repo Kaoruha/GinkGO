@@ -7,6 +7,7 @@ from ginkgo.backtest.fund.cash_scale_limit import CashScaleLimit
 from ginkgo.data.data_portal import data_portal
 from ginkgo.backtest.strategies.moving_average import MACD
 from ginkgo.backtest.info import DailyPrice, MinutePrice, MarketMSG
+from ginkgo.backtest.engine_portal import engine_portal
 
 portfolio = Portfolio(name='test')
 judger = Judger()
@@ -40,6 +41,7 @@ def unit_test_backtest():
 def unit_test_feed():
     feed = threading.Thread(target=add_data, name='u_backtest_feed')
     feed.start()
+
 
 def unit_test_engine_sleep():
     unit_backtest.engine_sleep()
