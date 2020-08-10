@@ -618,10 +618,10 @@ def update_all_adjust_factor():
 def start_update_all_stock():
     t = threading.Thread(target=update_all_stock,
                          name='BaoStock_update_all_stock')
-    dm.thread_register(t)
+    data_manager.thread_register(t)
 
 
 def start_update_adjust_factor():
     t = threading.Thread(target=update_all_adjust_factor,
                          name='BaoStock_update_all_adjust_factor')
-    dm.thread_register(t)
+    data_manager.thread_register(t)
