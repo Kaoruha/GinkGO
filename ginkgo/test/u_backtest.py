@@ -11,14 +11,21 @@ from ginkgo.backtest.engine_portal import engine_portal
 
 portfolio = Portfolio(name='test')
 judger = Judger()
-heartbeat = .01
+heartbeat = 5
 strategy_ma = MACD()
 portfolio.register_strategy(strategy_ma)
 unit_backtest = Ginkgo_Engine(portfolio=portfolio, heartbeat=heartbeat)
 
 
-def u_backtest():
-    unit_backtest.engine_start()
+def u_backtest_boost():
+    engine_portal.engine_register(unit_backtest)
+
+def u_backtest_sleep():
+    try:
+        engine_portal.engine_list[portfolio.name].engine_sleep()
+    except Exception as e:
+        print(e)
+        print(f'There is no engine named {portfolio.name}')
 
 
 def add_data():

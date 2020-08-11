@@ -1,15 +1,15 @@
 from ginkgo.libs.yellowprint import YellowPrint
-from ginkgo.test.u_backtest import unit_test_backtest, unit_test_feed, unit_test_engine_sleep
+from ginkgo.test.u_backtest import u_backtest_boost, unit_test_feed, unit_test_engine_sleep
 from ginkgo.libs.response import NoException
 
 yp_test = YellowPrint('rp_test', url_prefix='/test')
 
 
 # 单元测试
-@yp_test.route('/backtest', methods=['POST'])
+@yp_test.route('/backtest_boost', methods=['POST'])
 def backtest():
     print('start backtest!')
-    # unit_test_backtest()
+    u_backtest_boost()
     return NoException(msg='Start backtest successful1122!!')
 
 

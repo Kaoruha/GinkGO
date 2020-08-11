@@ -13,16 +13,16 @@ class MACD(BaseStrategy):
         self.long = LONG
 
     def check(self):
-        self.__calculate_average(self.short)
+        # self.__calculate_average(self.short)
         self.__calculate_average(self.long)
         for code in self.data['daily']:
             close = self.data['daily'][code].iloc[-1]['close']
             ma = self.data['daily'][code].iloc[-2]['MA'+str(self.short)]
             print(close)
             print(ma)
-            print('============')
+            print('=========================')
     
-    def __calculate_average(self, span: int):
+    def __calculate_average(self, span: int): # TODO 重写，只写入最新的日交易数据
         """
         负责计算并写入日均线数据
 
@@ -46,11 +46,11 @@ class MACD(BaseStrategy):
                     days = 1
                     if i >= 1:
                         days = i
-                    average = total / days
-                    self.data['daily'][code].loc[i, new_column] = average
                 else:
-                    start = stock['close'].iloc[i - span]
-                    end = stock['close'].iloc[i]
+                    # start = stock['close'].iloc[i - span]
+                    # end = stock['close'].iloc[i]
                     total = stock['close'].iloc[i - span:i].sum()
-                    average = total / span
+                    days = span
+                average = total / days
+                if self.data['daily'][code].loc[i, new_column] is not average:
                     self.data['daily'][code].loc[i, new_column] = average
