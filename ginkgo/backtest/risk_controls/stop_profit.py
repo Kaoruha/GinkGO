@@ -1,7 +1,7 @@
 """
 止盈策略
 """
-from ginkgo.backtest.risk.base_risk import BaseRisk
+from ginkgo.backtest.risk_controls.base_risk import BaseRisk
 
 
 class StopProfit(BaseRisk):
