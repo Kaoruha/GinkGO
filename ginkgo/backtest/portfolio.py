@@ -11,6 +11,7 @@ class Portfolio(object):
     """
     资产管理类，负责接收信息、处理事件、执行下单等操作
     """
+
     def __init__(self, name, *, stamp_tax=.0015, fee=.00025, init_capital=100000):
         self.name = name
         self._stamp_tax = stamp_tax  # 设置印花税，默认千1.5
@@ -19,7 +20,9 @@ class Portfolio(object):
         self.daily = {}
         self.minute = {}
         self.strategies = []
-        self.hold = {}# 'code': ['price', 'amount']
+        self.capital_controls = []
+        self.risk_controls = []
+        self.hold = {}  # 'code': ['price', 'amount']
         self.trades = {
         }  # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN
@@ -65,14 +68,20 @@ class Portfolio(object):
                 self.__handle_new_msg(info=info)
 
             data = {
-                    'daily': self.daily,
-                    'minute':self.minute
-                }
+                'daily': self.daily,
+                'minute': self.minute
+            }
+            signals = []
             for strategy in self.strategies:
                 strategy.data_transfer(data)
-                strategy.check() # TODO 准备接收信号对象
+                signal = (strategy.check())  # TODO 准备接收信号对象
+                if signal is not None:
+                    signals.append(signal)
+            print(signals)
+            return signals  # 返回所有信号
         except Exception as e:
             print(e)
+            return []  # 如果发生异常，返回空信号
 
     # 获取新的价格信息
     def __handle_new_price(self, info):
@@ -108,6 +117,10 @@ class Portfolio(object):
 
     def __handle_new_msg(self, info: InfoType.Message):
         # TODO 处理新的市场信息
+        pass
+
+    def get_signal(self, info):
+        # TODO 处理信号
         pass
 
     # 获取价格信息的股票代码
