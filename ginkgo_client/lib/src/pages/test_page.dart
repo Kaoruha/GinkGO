@@ -15,7 +15,7 @@ class TestPage extends StatelessWidget {
             RaisedButton(
               color: Colors.lightBlue[200],
               onPressed: () {
-                EngineRun();
+                EngineBoost();
               },
               child: Text('引擎开启'),
             ),
@@ -29,7 +29,7 @@ class TestPage extends StatelessWidget {
             RaisedButton(
               color: Colors.lightBlue[300],
               onPressed: () {
-                // DataFeed();
+                InfoInjection();
               },
               child: Text('喂数据'),
             ),
