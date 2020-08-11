@@ -38,7 +38,7 @@ class DataPortal(object):
             adjust = self.__adjust_cal(raw=raw,
                                        adjust_factor=adjust_factor,
                                        adjust_flag=adjust_flag,
-                                       frequency = frequency)
+                                       frequency=frequency)
             # 根据start_date与end_date返回数据
             if start_date > end_date:
                 print('start should before end')
@@ -118,10 +118,10 @@ class DataPortal(object):
                     0].dividOperateDate
 
                 fore.loc[condition,
-                        adjust_columns] *= adjust_factor.iloc[0].foreAdjustFactor
+                         adjust_columns] *= adjust_factor.iloc[0].foreAdjustFactor
                 back.loc[condition2,
-                        adjust_columns] *= adjust_factor.iloc[0].backAdjustFactor
-                
+                         adjust_columns] *= adjust_factor.iloc[0].backAdjustFactor
+
             elif i == len(adjust_factor):
                 condition = raw['date'] >= adjust_factor.iloc[
                     i - 1].dividOperateDate
@@ -133,11 +133,11 @@ class DataPortal(object):
                          adjust_columns] *= adjust_factor.iloc[i - 1].backAdjustFactor
             else:
                 condition = (
-                    raw['date'] < adjust_factor.iloc[i].dividOperateDate
-                ) & (raw['date'] >= adjust_factor.iloc[i - 1].dividOperateDate)
+                                    raw['date'] < adjust_factor.iloc[i].dividOperateDate
+                            ) & (raw['date'] >= adjust_factor.iloc[i - 1].dividOperateDate)
                 condition2 = (
-                    raw['date'] <= adjust_factor.iloc[i].dividOperateDate
-                ) & (raw['date'] > adjust_factor.iloc[i - 1].dividOperateDate)
+                                     raw['date'] <= adjust_factor.iloc[i].dividOperateDate
+                             ) & (raw['date'] > adjust_factor.iloc[i - 1].dividOperateDate)
                 fore.loc[condition,
                          adjust_columns] *= adjust_factor.iloc[i].foreAdjustFactor
                 back.loc[condition2,

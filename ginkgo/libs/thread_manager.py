@@ -8,11 +8,11 @@ class ThreadManager(object):
     __thread_dict = dict()
     _instance_lock = threading.Lock()
 
-    def __new__(self, *args, **kwargs):
-        if not hasattr(self, '_instance'):
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, '_instance'):
             with ThreadManager._instance_lock:
-                if not hasattr(self, '_instance'):
-                    ThreadManager._instance = super().__new__(self)
+                if not hasattr(cls, '_instance'):
+                    ThreadManager._instance = super().__new__(cls)
 
             return ThreadManager._instance
 
