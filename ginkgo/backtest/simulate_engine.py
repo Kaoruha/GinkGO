@@ -16,7 +16,7 @@ class Ginkgo_Engine(object):
         self.runs_loop = 0
         self.on_off = False
         self.portfolio = portfolio
-        self.heartbeat = heartbeat
+        self.heartbeat = heartbeat # 心跳时间，若为0则不进行休息
         self.info_list = queue.Queue()
         self.event_list = queue.Queue()
         self.signals = 0
@@ -28,6 +28,10 @@ class Ginkgo_Engine(object):
             # 判断引擎状态
             if self.on_off:
                 # 处理数据列表
+                print('|||||||||||||||||||||||')
+                print(f'Have {self.info_list.qsize()} info to be handel.')
+                print(f'Have {self.event_list.qsize()} events to be handel.')
+                print('|||||||||||||||||||||||')
                 try:
                     info = self.info_list.get(False)
                     to_do_events = self.portfolio.get_info(info)
@@ -62,7 +66,8 @@ class Ginkgo_Engine(object):
                             if to_do_events is not None:
                                 for event in to_do_events:
                                     self._add_event(event)
-            time.sleep(self.heartbeat)
+            if self.heartbeat is not 0:
+                time.sleep(self.heartbeat)
             # print(f'Heart Beating {self.heartbeat}')
 
     def _add_event(self, event):
