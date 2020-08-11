@@ -12,7 +12,9 @@ class MarketEvent(object):
 
 
 class SignalEvent(object):
-    def __init__(self, buy_or_sell='BUY'):
+    def __init__(self, date, code, buy_or_sell='BUY'):
+        self.date = date
+        self.code = code
         self.type = EventType.Signal
         if buy_or_sell == 'BUY' or buy_or_sell == 'SELL':
             self.buy_or_sell = buy_or_sell
