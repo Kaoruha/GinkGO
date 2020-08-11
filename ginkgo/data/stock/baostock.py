@@ -4,7 +4,7 @@ import baostock as bs
 import pandas as pd
 from ginkgo.config.setting import STOCK_URL
 import datetime, time
-from ginkgo.data.data_manager import data_manager
+from ginkgo.libs.thread_manager import thread_manager
 from ginkgo.libs.tools import makedir
 import os
 
@@ -618,10 +618,10 @@ def update_all_adjust_factor():
 def start_update_all_stock():
     t = threading.Thread(target=update_all_stock,
                          name='BaoStock_update_all_stock')
-    data_manager.thread_register(t)
+    thread_manager.thread_register(t)
 
 
 def start_update_adjust_factor():
     t = threading.Thread(target=update_all_adjust_factor,
                          name='BaoStock_update_all_adjust_factor')
-    data_manager.thread_register(t)
+    thread_manager.thread_register(t)
