@@ -14,9 +14,9 @@ from ginkgo.libs.enums import EventType, InfoType
 class Ginkgo_Engine(object):
     def __init__(self, portfolio, heartbeat: float):
         self.runs_loop = 0
-        self.on_off = False
+        self.on_off = True
         self.portfolio = portfolio
-        self.heartbeat = heartbeat # 心跳时间，若为0则不进行休息
+        self.heartbeat = heartbeat  # 心跳时间，若为0则不进行休息
         self.info_list = queue.Queue()
         self.event_list = queue.Queue()
         self.signals = 0
@@ -28,16 +28,28 @@ class Ginkgo_Engine(object):
             # 判断引擎状态
             if self.on_off:
                 # 处理数据列表
-                print('|||||||||||||||||||||||')
-                print(f'Have {self.info_list.qsize()} info to be handel.')
-                print(f'Have {self.event_list.qsize()} events to be handel.')
-                print('|||||||||||||||||||||||')
+                print(f'Have {self.info_list.qsize()} info to be handeled.')
+                print(f'Have {self.signals} signals to be handeled.')
+                print(f'Have {self.orders} orders to be handeled.')
+                print(f'Have {self.fills} fills to be handeled.')
                 try:
                     info = self.info_list.get(False)
                     to_do_events = self.portfolio.get_info(info)
-                    if to_do_events is not None:
+                    print(len(to_do_events))
+                    if len(to_do_events) > 0:
                         for event in to_do_events:
-                            self._add_event(event)
+                            self.add_event(event)
+                    # print(to_do_events is None)
+                    # if to_do_events is not None:
+                    # print(len(to_do_events))
+                    # else:
+                    #     print(222)
+                    # if to_do_events is None:
+                    # print(f'todoevnets {len(to_do_events)}')
+                    # else:
+                    # for event in to_do_events:
+                    #     self.add_event(event)
+                    # print(f'todoevnets {len(to_do_events)}')
                 except queue.Empty:
                     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     # print(f'Data_list is Empty!! {now}')
@@ -65,19 +77,19 @@ class Ginkgo_Engine(object):
 
                             if to_do_events is not None:
                                 for event in to_do_events:
-                                    self._add_event(event)
+                                    self.add_event(event)
             if self.heartbeat is not 0:
                 time.sleep(self.heartbeat)
             # print(f'Heart Beating {self.heartbeat}')
 
-    def _add_event(self, event):
-        if event.type is not (EventType.Market or EventType.Signal
-                              or EventType.Order or EventType.Fill):
-            print('Event type is unknown!')
-        else:
+    def add_event(self, event):
+        if (event.type is EventType.Market) or (event.type is EventType.Order) or (
+                event.type is EventType.Signal) or (event.type is EventType.Fill):
             self.event_list.put(event)
+        else:
+            print('Event type is unknown!')
 
-    def _add_info(self, info):
+    def add_info(self, info):
         if (info.type is InfoType.Message) or (
                 info.type is InfoType.MinutePrice) or (info.type is
                                                        InfoType.DailyPrice):
@@ -108,16 +120,11 @@ class Ginkgo_Engine(object):
         """
         self.on_off = False
 
-    def engine_start(self):
+    def engine_resume(self):
+        """
+        引擎休眠
+        """
         self.on_off = True
-        if self.runs_loop == 0:
-            self._run()
 
-        self.runs_loop += 1
-
-    def simulate_trading(self):
-        """
-        Simulates the backtest and outputs portfolio performance.
-        """
+    def engine_start(self):
         self._run()
-        self._output_performance()
