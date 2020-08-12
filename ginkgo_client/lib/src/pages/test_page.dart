@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../api/stock.dart';
-// import '../api/test.dart';
 import '../api/engine.dart';
 
 class TestPage extends StatelessWidget {
@@ -10,39 +9,25 @@ class TestPage extends StatelessWidget {
       title: 'Hello_Flutter',
       home: Scaffold(
         appBar: AppBar(title: Text('Ginkgo Test')),
-        body: Row(
-          children: <Widget>[
-            RaisedButton(
-              color: Colors.lightBlue[200],
-              onPressed: () {
-                EngineBoost();
-              },
-              child: Text('引擎开启'),
-            ),
-            RaisedButton(
-              color: Colors.lightBlue[200],
-              onPressed: () {
-                EngineSleep();
-              },
-              child: Text('引擎休眠'),
-            ),
-            RaisedButton(
-              color: Colors.lightBlue[300],
-              onPressed: () {
-                InfoInjection();
-              },
-              child: Text('喂数据'),
-            ),
-            RaisedButton(
-              color: Colors.lightBlue[100],
-              onPressed: () {
-                StockDataUpdate();
-              },
-              child: Text('数据更新'),
-            ),
-          ],
-        ),
+        body: card,
       ),
     );
   }
+
+  var card = new Card(
+      child: Column(
+    children: <Widget>[
+      ListTile(
+        title: Text(
+          'Ginkgo Engine',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text('回测引擎相关控制'),
+        leading: Icon(
+          Icons.perm_camera_mic,
+          color: Colors.lightBlue,
+        ),
+      )
+    ],
+  ));
 }
