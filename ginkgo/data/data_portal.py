@@ -26,7 +26,7 @@ class DataPortal(object):
                     frequency,
                     adjust_flag=3):
         # 如果code不存在列表内，直接返回
-        if not self.__check_code_exist(code=code):
+        if not self.check_code_exist(code=code):
             print('股票代码不存在股票列表内')
             return
         else:
@@ -47,7 +47,7 @@ class DataPortal(object):
             condition2 = adjust['date'] <= end_date
             return adjust[condition & condition2]
 
-    def __check_code_exist(self, code):
+    def check_code_exist(self, code):
         # 查询all_stock.csv中是否存在与code匹配
         try:
             code_df = pd.read_csv(STOCK_URL + 'all_stock.csv',
