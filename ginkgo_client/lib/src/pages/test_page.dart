@@ -27,7 +27,33 @@ class TestPage extends StatelessWidget {
           Icons.perm_camera_mic,
           color: Colors.lightBlue,
         ),
-      )
+      ),
+      Row(
+        children: [
+          RaisedButton(
+            color: Colors.lightBlue[200],
+            onPressed: () {
+              engineBoost();
+            },
+            child: Text('引擎启动'),
+          ),
+          RaisedButton(
+            color: Colors.lightBlue[200],
+            onPressed: () {
+              engineSleep();
+            },
+            child: Text('引擎休眠'),
+          ),
+          RaisedButton(
+            color: Colors.lightBlue[200],
+            onPressed: () {
+              engineResume();
+            },
+            child: Text('引擎恢复'),
+          ),
+        ],
+      ),
+      Divider()
     ],
   ));
 }
