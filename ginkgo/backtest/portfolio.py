@@ -5,6 +5,8 @@
 import pandas as pd
 from ginkgo.libs.enums import InfoType, MarketType, PortfolioType
 from ginkgo.backtest.strategies.base_strategy import BaseStrategy
+from ginkgo.backtest.hold_info import HoldInfo
+from ginkgo.backtest.trade_info import TradeInfo
 
 
 class Portfolio(object):
@@ -17,6 +19,7 @@ class Portfolio(object):
         self._stamp_tax = stamp_tax  # 设置印花税，默认千1.5
         self._fee = fee  # 设置交易税,默认万2.5
         self._init_capital = init_capital  # 设置初始资金，默认100K
+        self.capital = self._init_capital
         self.daily = {}
         self.minute = {}
         self.strategies = []
