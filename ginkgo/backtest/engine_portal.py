@@ -39,6 +39,9 @@ class EnginePortal(object):
             return f'{engine.portfolio.name} already exist!'
 
     def engine_sleep(self, portfolio_name):
+        """
+        引擎休眠
+        """
         if portfolio_name in self.engine_list:
             self.engine_list[portfolio_name].engine_sleep()
             return f'{portfolio_name} sleep now.'
@@ -46,6 +49,9 @@ class EnginePortal(object):
             return f'There is no {portfolio_name} engine.'
 
     def engine_resume(self, portfolio_name):
+        """
+        引擎恢复
+        """
         if portfolio_name in self.engine_list:
             self.engine_list[portfolio_name].engine_start()
             return f'{portfolio_name} resume now.'
@@ -53,6 +59,9 @@ class EnginePortal(object):
             return f'There is no {portfolio_name} engine.'
 
     def info_injection(self, portfolio_name, info):
+        """
+        数据注入
+        """
         if portfolio_name in self.engine_list:
             self.engine_list[portfolio_name].add_info(info)
             # print(f'{portfolio_name} add 1 info.')
@@ -75,5 +84,5 @@ class EnginePortal(object):
 engine_portal = EnginePortal()
 
 
-def engine_run(engine):
+def engine_run(engine:Ginkgo_Engine):
     engine._run()
