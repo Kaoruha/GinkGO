@@ -2,12 +2,13 @@
 交易记录类
 """
 import uuid
+from ginkgo.data.data_portal import data_portal
 
 
 class TradeInfo(object):
     # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
     def __init__(self, code, date, price, amount, order_id):
-        self.code = code
+        self.code = code if data_portal.check_code_exist(code=code) else 'sh.600000'
         self.date = date
         self.price = price
         self.amount = amount
@@ -19,10 +20,9 @@ class TradeInfo(object):
         交易ID生成
         """
         tuuid = uuid.uuid3(uuid.NAMESPACE_DNS,
-                       f'{self.code}.{self.date}.{self.order_id}')
+                           f'{self.code}.{self.date}.{self.order_id}')
         result = str(tuuid).replace('-', '')
         return result
-
 
 # ti = TradeInfo(code='sh.600000',
 #                date='2020-08-12',

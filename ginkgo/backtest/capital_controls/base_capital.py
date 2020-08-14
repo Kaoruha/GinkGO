@@ -1,24 +1,20 @@
 """
-基础策略
-生存第一
-生存第一
-生存第一
-生存第一
+基础的资金管理策略
 """
+from ginkgo.backtest.events import SignalEvent
 
 
-class BaseStrategy(object):
-    """
-    策略基类
-
-    定义一些策略的基本方法
-    """
+class BaseCapitial(object):
+    signal: SignalEvent
 
     def __init__(self):
         self.data = {}
 
     def data_transfer(self, data):
         self.data = data
+
+    def signal_transfer(self, signal):
+        self.signal = signal
 
     def check(self):
         raise NotImplementedError("Must implement check()")

@@ -28,10 +28,10 @@ class Ginkgo_Engine(object):
             # 判断引擎状态
             if self.on_off:
                 # 处理数据列表
-                print(f'Have {self.info_list.qsize()} info to be handeled.')
-                print(f'Have {self.signals} signals to be handeled.')
-                print(f'Have {self.orders} orders to be handeled.')
-                print(f'Have {self.fills} fills to be handeled.')
+                # print(f'Have {self.info_list.qsize()} info to be handled.')
+                # print(f'Have {self.signals} signals to be handled.')
+                # print(f'Have {self.orders} orders to be handled.')
+                # print(f'Have {self.fills} fills to be handled.')
                 try:
                     info = self.info_list.get(False)
                     to_do_events = self.portfolio.get_info(info)
@@ -39,20 +39,9 @@ class Ginkgo_Engine(object):
                     if len(to_do_events) > 0:
                         for event in to_do_events:
                             self.add_event(event)
-                    # print(to_do_events is None)
-                    # if to_do_events is not None:
-                    # print(len(to_do_events))
-                    # else:
-                    #     print(222)
-                    # if to_do_events is None:
-                    # print(f'todoevnets {len(to_do_events)}')
-                    # else:
-                    # for event in to_do_events:
-                    #     self.add_event(event)
-                    # print(f'todoevnets {len(to_do_events)}')
                 except queue.Empty:
                     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    # print(f'Data_list is Empty!! {now}')
+                    print(f'Data_list is Empty!! {now}')
                 # 处理事件列表
                 while True:
                     try:
@@ -62,13 +51,12 @@ class Ginkgo_Engine(object):
                     else:
                         if event is not None:
                             if event.type == EventType.Market:
-                                to_do_events = self.portfolio.get_signal(event)
+                                to_do_events = self.portfolio.get_info(info=event)
                             elif event.type == EventType.Signal:
                                 self.signals += 1
-                                to_do_events = self.portfolio.get_signal(event)
+                                to_do_events = self.portfolio.get_signal(signal=event)
                             elif event.type == EventType.Order:
-                                ordered_done = self.portfolio.excute_order(
-                                    event)
+                                ordered_done = self.portfolio.excute_order(order=event)
                                 if ordered_done:
                                     self.orders += 1
                             elif event.type == EventType.Fill:  # 暂时没搞明白这个fill是个啥

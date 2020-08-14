@@ -7,6 +7,7 @@ from ginkgo.libs.enums import InfoType, MarketType, PortfolioType
 from ginkgo.backtest.strategies.base_strategy import BaseStrategy
 from ginkgo.backtest.hold_info import HoldInfo
 from ginkgo.backtest.trade_info import TradeInfo
+from ginkgo.backtest.events import SignalEvent, OrderEvent
 
 
 class Portfolio(object):
@@ -14,6 +15,7 @@ class Portfolio(object):
     资产管理类，负责接收信息、处理事件、执行下单等操作
     """
 
+    # 初始化
     def __init__(self, name, *, stamp_tax=.0015, fee=.00025, init_capital=100000):
         self.name = name
         self._stamp_tax = stamp_tax  # 设置印花税，默认千1.5
@@ -25,10 +27,9 @@ class Portfolio(object):
         self.strategies = []
         self.capital_controls = []
         self.risk_controls = []
-        self.hold = {}  # 'code': ['price', 'amount']
-        self.trades = {
-        }  # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
-        self.market_type = MarketType.Stock_CN
+        self.hold = []  # 'code': ['price', 'amount']
+        self.trades = []  # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
+        self.market_type = MarketType.Stock_CN  # 以后会支持港股美股日股等乱七八糟的市场
 
     # 策略注册
     def register_strategy(self, new_strategy):
@@ -55,6 +56,7 @@ class Portfolio(object):
         """
         self._init_capital = capital
 
+    # Portfolio获取新信息后的处理
     def get_info(self, info):
         """
         Portfolio获取新信息
@@ -118,15 +120,37 @@ class Portfolio(object):
         # 2.2、计算逐个股票的MACD TODO转移至策略类计算
         # self.__average_line_calculate(span=5)
 
+    # 处理新的市场信息
     def __handle_new_msg(self, info: InfoType.Message):
         # TODO 处理新的市场信息
         pass
 
-    def get_signal(self, info):
-        # TODO 处理信号
-        pass
+    # 获取新的信号
+    def get_signal(self, signal: SignalEvent):
 
-    # 获取价格信息的股票代码
+        data = {
+            'daily': self.daily,
+            'minute': self.minute
+        }
+
+        should_take_order = True
+        for capital in self.capital_controls:
+            capital.data_transfer(data)
+            capital.signal_transfer(signal=signal)
+            if capital.check():
+                volume = 100  # TODO 确定量
+                price = 2.1  # TODO 确定价格
+            else:
+                should_take_order = False
+        if should_take_order:
+            order = OrderEvent(buy_or_sell=signal.buy_or_sell, code=signal.code, price=price, volume=volume)
+            return order
+        else:
+            return None
+
+            # 获取价格信息的股票代码
+
+    @staticmethod
     def __get_code(self, df: pd.DataFrame):
         """
         获取传入价格信息等股票代码
@@ -178,5 +202,16 @@ class Portfolio(object):
             self.minute[code] = pd.DataFrame(columns=minute_columns)
         # print(self.minute[code])
 
-    def excute_order(self, event):
-        pass
+    # 执行下单操作
+    def excute_order(self, order):
+        # 模拟
+        trade = TradeInfo(code=order.code, date=order.date, price=order.price, amount=order.amount, order_id=order.id)
+        self.trades.append(trade)
+
+        # 实盘
+        # 发送下单信息
+        # 确认下单成功
+        # 修改现金
+        # 查询是否下单成功
+        # 修改持有
+        return True

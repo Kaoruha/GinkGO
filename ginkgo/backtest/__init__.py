@@ -1,6 +1,6 @@
 """
 回测模块，负责事件驱动型回测框架的运行
-capital_controlsr 资金管理模块
+capital_controls 资金管理模块
 strategies 策略模块
 risk_controls 风控模块
 judger.py 负责各策略评估，评估方法待定
