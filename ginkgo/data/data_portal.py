@@ -6,6 +6,7 @@
 import threading
 import pandas as pd
 from ginkgo.config.setting import STOCK_URL
+from .stock.baostock import bao_instance
 
 
 class DataPortal(object):
@@ -149,6 +150,15 @@ class DataPortal(object):
             return back
         else:
             return raw
+
+    def get_stock_code(self):
+        bao_instance.get_all_stock_code()
+
+    def update_all_stock(self):
+        bao_instance.update_all_stock()
+
+    def update_adjust(self):
+        bao_instance.all_adjust_factor_up_to_date()
 
 
 data_portal = DataPortal()

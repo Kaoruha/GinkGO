@@ -6,7 +6,7 @@ from ginkgo.backtest.engine_portal import engine_portal
 from ginkgo.backtest.portfolio import Portfolio
 from ginkgo.backtest.judger import Judger
 from ginkgo.backtest.strategies.test_strategy import TestStrategy
-from ginkgo.backtest.simulate_engine import Ginkgo_Engine
+from ginkgo.backtest.engine import Ginkgo_Engine
 from ginkgo.backtest.info import DailyPrice, MinutePrice, MarketMSG
 from ginkgo.data.data_portal import data_portal
 from ginkgo.libs.socket_manager import socket_boost
@@ -51,14 +51,3 @@ def info_injection():
 def socket_run():
     socket_boost()
     return NoException(msg='socket boost on!')
-
-
-def data_injection():
-    df = data_portal.query_stock(code='sh.600000',
-                                 start_date='1990-01-02',
-                                 end_date='2020-10-01',
-                                 frequency='d',
-                                 adjust_flag=1)
-    for i in range(df.count().date):
-        info = DailyPrice(data=df.iloc[i])
-        engine_portal.info_injection('test', info=info)
