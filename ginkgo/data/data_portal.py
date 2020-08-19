@@ -6,7 +6,7 @@
 import threading
 import pandas as pd
 from ginkgo.config.setting import STOCK_URL
-from .stock.baostock import bao_instance
+from ginkgo.data.stock.baostock import bao_instance
 
 
 class DataPortal(object):

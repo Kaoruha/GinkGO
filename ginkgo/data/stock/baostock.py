@@ -3,10 +3,10 @@ import sys
 import baostock as bs
 import pandas as pd
 from ginkgo.config.setting import STOCK_URL
-import datetime, time
 from ginkgo.libs.thread_manager import thread_manager
 from ginkgo.libs.tools import makedir
 import os
+import datetime, time
 
 _output = sys.stdout
 

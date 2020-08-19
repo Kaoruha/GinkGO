@@ -39,3 +39,5 @@ def get_all_stock_code():
 def get_all_adjust_factor():
     start_update_adjust_factor()
     return '开始更新所有股票复权因子'
+
+
