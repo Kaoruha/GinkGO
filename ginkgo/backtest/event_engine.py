@@ -43,7 +43,6 @@ class EventEngine(object):
         ...
 
     """
-
     def __init__(self, *, heartbeat: float = 1.0):
         """
         初始化事件引擎
@@ -56,6 +55,7 @@ class EventEngine(object):
 
         # 事件处理线程
         self.__thread = Thread(target=self.__run)
+        # self.__feed_thread = Thread(target=self.__feed)
 
         # 设置心跳时间
         self.heartbeat = heartbeat
@@ -79,16 +79,19 @@ class EventEngine(object):
         """引擎运行"""
         while self.__active:
             try:
-                print('Alive!!')
-                event = self.__queue.get(block=True, timeout=self.heartbeat)  # 获取事件的阻塞时间引擎心跳时间
+                # print(f'{self.__queue.qsize()}')
+                # event = self.__queue.get(block=True, timeout=10)  # 获取事件的阻塞时间引擎心跳时间
+                event = self.__queue.get(block=False)  # 获取事件的阻塞时间引擎心跳时间
                 self.__process(event)
             except queue.Empty:
                 pass
+            time.sleep(self.heartbeat)
 
     def __process(self, event):
         """处理事件"""
         # 检查是否存在对该事件进行监听的处理函数
         if event.type_ in self.__handlers:
+            print('ooo')
             # 若存在，则按顺序将事件传递给处理函数执行
             [handler(event) for handler in self.__handlers[event.type_]]
 
@@ -130,6 +133,10 @@ class EventEngine(object):
         # 等待事件处理线程退出
         self.__thread.join()
 
+    def start_feed(self, data):
+        t = Thread(target=self.__feed, args=data)
+        t.start()
+
     def register(self, type_, handler):
         """注册事件处理函数监听"""
         # 尝试获取该事件类型对应的处理函数列表
@@ -144,8 +151,6 @@ class EventEngine(object):
         if handler not in handler_list:
             handler_list.append(handler)
             self.__handlers[type_] = handler_list
-
-        print(self.__handlers)
 
     def unregister(self, type_, handler):
         """注销事件处理函数监听"""
@@ -174,7 +179,7 @@ class EventEngine(object):
         if handler in self.__generalHandlers:
             self.__generalHandlers.remove(handler)
 
-    def feed(self, data: pd.DataFrame):
+    def __feed(self, data: pd.DataFrame):
         """
         给引擎喂批量数据
         :param data: DataFrame格式的数据
@@ -183,3 +188,4 @@ class EventEngine(object):
         for data_ in data.iterrows():
             daily_event = DailyEvent(data=data_)
             self.put(daily_event)
+            time.sleep(.5)
