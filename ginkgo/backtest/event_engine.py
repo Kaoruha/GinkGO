@@ -1,11 +1,11 @@
 import queue
 import time
 import datetime
-from threading import Thread
-
-from ginkgo.libs.enums import EventType, InfoType
-from ginkgo.backtest.event import DailyEvent
 import pandas as pd
+from threading import Thread
+from .enums import EventType, InfoType
+from .event import MarketEvent
+
 
 
 class EventEngine(object):
@@ -49,7 +49,10 @@ class EventEngine(object):
         初始化事件引擎
         """
         # 事件队列
-        self.__queue = queue.Queue()
+        self.__event_queue = queue.Queue()
+
+        # 信息队列
+        self.__info_queue = queue.Queue()
 
         # 事件引擎开关
         self.__active = False
@@ -81,11 +84,18 @@ class EventEngine(object):
         while self.__active:
             try:
                 # print(f'{self.__queue.qsize()}')
-                # event = self.__queue.get(block=True, timeout=10)  # 获取事件的阻塞时间引擎心跳时间
-                event = self.__queue.get(block=False)  # 获取事件的阻塞时间引擎心跳时间
-                self.__process(event)
+                info = self.__info_queue.get(block=False)  # 获取事件的阻塞时间
+                self.__process(info)
             except queue.Empty:
-                pass
+                now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                print(f'Data_list is Empty!! {now}')
+            # 处理事件列表
+            while True:
+                try:
+                    event = self.__event_queue.get(False)
+                    self.__process(event)
+                except queue.Empty:
+                    break
             time.sleep(self.heartbeat)
 
     def __process(self, event):
@@ -150,7 +160,7 @@ class EventEngine(object):
             handler_list.append(handler)
             self.__handlers[type_] = handler_list
 
-    def unregister(self, type_, handler):
+    def withdraw(self, type_, handler):
         """注销事件处理函数监听"""
         # 尝试获取该事件类型对应的处理函数列表，若无则忽略该次注销请求
         handler_list = self.__handlers[type_]
@@ -165,14 +175,14 @@ class EventEngine(object):
 
     def put(self, event):
         """向事件队列中存入事件"""
-        self.__queue.put(event)
+        self.__event_queue.put(event)
 
     def register_general_handler(self, handler):
         """注册通用事件处理函数监听"""
         if handler not in self.__generalHandlers:
             self.__generalHandlers.append(handler)
 
-    def unregister_general_handler(self, handler):
+    def withdraw_general_handler(self, handler):
         """注销通用事件处理函数监听"""
         if handler in self.__generalHandlers:
             self.__generalHandlers.remove(handler)
@@ -184,5 +194,5 @@ class EventEngine(object):
         :return: void
         """
         for data_ in data.iterrows():
-            daily_event = DailyEvent(data=data_)
-            self.put(daily_event)
+            market_event = MarketEvent(info_type=InfoType.DailyPrice,data=data_)
+            self.__info_queue.put(market_event)

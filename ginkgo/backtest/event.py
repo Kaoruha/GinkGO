@@ -2,40 +2,43 @@
 事件类
 定义不同种类的事件
 """
-
-from ginkgo.libs.enums import EventType
 import pandas as pd
+from ginkgo.backtest.enums import EventType,DealType,InfoType
+
 
 
 class MarketEvent(object):
-    def __init__(self):
+    """
+    市场事件，分为新的价格事件，新的消息事件
+    """
+    def __init__(self,info_type:InfoType,data):
         self.type_ = EventType.Market
-        # TODO 市场信息
+        self.info_type = info_type
+        self.data = data
 
 
 class SignalEvent(object):
-    def __init__(self, date, code, buy_or_sell='BUY'):
+    """
+    信号事件，给经纪人发出买入或者卖出信号
+    """
+    def __init__(self, date, code, deal:DealType=DealType.BUY):
         self.date = date
         self.code = code
         self.type_ = EventType.Signal
-        if buy_or_sell == 'BUY' or buy_or_sell == 'SELL':
-            self.buy_or_sell = buy_or_sell
-        else:
-            print('buy_or_sell can only be BUY or SELL')
-
+        self.deal = deal
 
 class OrderEvent(object):
     """
-    下单事件类
+    下单事件类，经纪人发出多空订单
     """
 
-    def __init__(self, buy_or_sell='BUY', code='sh.600000', price=0, volume=0):
+    def __init__(self, deal='BUY', code='sh.600000', price=0, volume=0):
         self.type_ = EventType.Order
-        self.buy_or_sell = buy_or_sell  # 'BUY' or 'SELL'
+        self.deal = deal  # 'BUY' or 'SELL'
         self.code = code  # 股票代码 默认为sh.600000 浦发银行
         self.price = price  # 下单价格
-        self.volume = volume  # 下单数(单位是手，买入只能整百，卖出可以零散)
-        self.optimize_volume(volume=volume)
+        self.volume = self.optimize_volume(volume=volume)  # 下单数(单位是手，买入只能整百，卖出可以零散)
+        
 
     def optimize_volume(self, volume):
         """
@@ -48,8 +51,13 @@ class OrderEvent(object):
         if self.buy_or_sell == 'BUY':
             self.volume = int(volume / 100) * 100
 
-
-class DailyEvent(object):
-    def __init__(self, data: pd.DataFrame):
-        self.type_ = EventType.DailyPrice
-        self.data = data
+class TradeEvent(object):
+    """
+    交易事件，成单后通知经纪人交易成功，更新持仓股票与资金池
+    """
+    def __init__(self,deal:DealType=DealType.BUY,code='sh.600000', price=0, volume=0):
+        self.type_ = EventType.Trade
+        self.deal = deal  # 'BUY' or 'SELL'
+        self.code = code  # 股票代码 默认为sh.600000 浦发银行
+        self.price = price  # 下单价格
+        self.volume = volume  # 下单数(单位是手，买入只能整百，卖出可以零散)

@@ -2,10 +2,9 @@
 仓位管理类
 """
 from ginkgo.libs.meta_class import with_metaclass
-from ginkgo.libs.enums import MarketType
+import abc
 
-
-class BaseSizer(object):
+class BaseSizer(metaclass=abc.ABCMeta):
     """
     仓位管理基类
     回头改成抽象类

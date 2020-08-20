@@ -1,6 +1,8 @@
 from .base_strategy import BaseStrategy
 import pandas as pd
 from ginkgo.backtest.event import SignalEvent
+from ginkgo.backtest.enums import DealType
+import random
 
 
 class MovingAverageStrategy(BaseStrategy):
@@ -19,25 +21,34 @@ class MovingAverageStrategy(BaseStrategy):
         return column_title
 
     def data_transfer(self, data: pd.DataFrame):
+        # 数据处理
         self.data = self.data.append(data, ignore_index=True)
+        # 去重 好像多余了
         self.data = self.data.drop_duplicates()
+        # 排序 好像多余了
         self.data = self.data.sort_values(by='date', ascending=True, axis=0)
+        # 计算MA值
         self.data[self.__get_column_title(self.short)] = self.data['close'].rolling(self.short, min_periods=1).mean()
         self.data[self.__get_column_title(self.long)] = self.data['close'].rolling(self.long, min_periods=1).mean()
-        print(self.data)
+
+        # 看看能不能产生信号
+        self.enter_market()
+        self.exit_market()
 
     def enter_market(self):
-        signal = SignalEvent(date=self.data[-1]['date'],code=self.data[0]['code'],buy_or_sell='BUY')
-        condition = True
+        date = self.data.iloc[-1]['date']
+        code = self.data.iloc[0]['code']
+        signal = SignalEvent(date=date,code=code,deal=DealType.BUY)
+        condition = random.random()>.5
         if condition:
-            return signal
-        else:
-            return None
+            self._engine.put(signal)
+            print('产生买入信号')
 
-    def exiting_market(self):
-        signal = SignalEvent(date=self.data[-1]['date'], code=self.data[0]['code'], buy_or_sell='SELL')
-        condition = True
+    def exit_market(self):
+        date = self.data.iloc[-1]['date']
+        code = self.data.iloc[0]['code']
+        signal = SignalEvent(date=date,code=code,deal=DealType.BUY)
+        condition = random.random()>.5
         if condition:
-            return signal
-        else:
-            return None
+            self._engine.put(signal)
+            print('产生卖出信号')

@@ -1,10 +1,11 @@
 """
 经纪人类
 """
-from ginkgo.libs.enums import MarketType
+from ginkgo.backtest.enums import MarketType
 from ginkgo.backtest.strategy.base_strategy import BaseStrategy
 from ginkgo.backtest.sizer.base_sizer import BaseSizer
 from ginkgo.backtest.risk.base_risk import BaseRisk
+from ginkgo.backtest.event_engine import EventEngine
 
 
 class BaseBroker(object):
@@ -13,8 +14,9 @@ class BaseBroker(object):
     回头改成抽象类
     """
 
-    def __init__(self, name: str, *, stamp_tax: float = .0015, fee: float = .00025, init_capital: int = 100000):
+    def __init__(self, name: str,engine:EventEngine, *, stamp_tax: float = .0015, fee: float = .00025, init_capital: int = 100000):
         self.name = name
+        self._engine = engine
         self._stamp_tax = stamp_tax  # 设置印花税，默认千1.5
         self._fee = fee  # 设置交易税,默认万2.5
         self._capital = init_capital  # 设置初始资金，默认100K
@@ -30,6 +32,8 @@ class BaseBroker(object):
         # 策略注册，目前经纪人只允许按照一种策略来进行操作,未来可能支持多种策略同时决策
         if strategy not in self._strategy:
             self._strategy.append(strategy)
+            strategy.engine_register(self._engine)
+            # print(strategy.__engine)
             print(f'{strategy.name} 已注册')  # TODO 用Log替换，同时本地存储
         else:
             print(f'{strategy.name} 已存在')
