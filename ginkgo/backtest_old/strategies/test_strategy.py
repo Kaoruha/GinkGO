@@ -1,8 +1,8 @@
 """
 测试策略策略
 """
-from ginkgo.backtest.strategies.base_strategy import BaseStrategy
-from ginkgo.backtest.events import SignalEvent
+from ginkgo.backtest_old.strategies.base_strategy import BaseStrategy
+from ginkgo.backtest_old.events import SignalEvent
 from pandas import DataFrame
 
 

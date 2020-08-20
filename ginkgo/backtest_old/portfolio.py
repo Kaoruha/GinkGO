@@ -4,10 +4,10 @@
 """
 import pandas as pd
 from ginkgo.libs.enums import InfoType, MarketType, PortfolioType
-from ginkgo.backtest.strategies.base_strategy import BaseStrategy
-from ginkgo.backtest.hold_info import HoldInfo
-from ginkgo.backtest.trade_info import TradeInfo
-from ginkgo.backtest.events import SignalEvent, OrderEvent
+from ginkgo.backtest_old.strategies.base_strategy import BaseStrategy
+from ginkgo.backtest_old.hold_info import HoldInfo
+from ginkgo.backtest_old.trade_info import TradeInfo
+from ginkgo.backtest_old.events import SignalEvent, OrderEvent
 
 
 class Portfolio(object):
@@ -118,7 +118,7 @@ class Portfolio(object):
         # 2.1、将daily里的交易信息按照时间顺序排序
 
         # 2.2、计算逐个股票的MACD TODO转移至策略类计算
-        # self.__average_line_calculate(span=5)
+        self.__average_line_calculate(span=5)
 
     # 处理新的市场信息
     def __handle_new_msg(self, info: InfoType.Message):
@@ -184,6 +184,11 @@ class Portfolio(object):
         else:
             self.daily[code] = pd.DataFrame(columns=daily_columns)
         # print(self.daily[code])
+
+    def __average_line_calculate(self, span: int):
+        ma_title = 'MA_' + str(span)
+        for code in self.daily:
+            self.daily[code][ma_title] = self.daily[code]['close'].rolling(span, min_periods=1).mean()
 
     # 5分钟交易数据写入
     def __minute_bar_writer(self, minute_bar):

@@ -1,7 +1,7 @@
 """
 头寸单位规模限制法则
 """
-from ginkgo.backtest.capital_controls.base_capital import BaseCapitial
+from ginkgo.backtest_old.capital_controls.base_capital import BaseCapitial
 
 
 class CashScaleLimit(BaseCapitial):

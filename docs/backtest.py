@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# backtest.py
+# backtest_old.py
 
 from __future__ import print_function
 
@@ -17,7 +17,7 @@ import time
 class Backtest(object):
     """
     Enscapsulates the settings and components for carrying out
-    an event-driven backtest.
+    an event-driven backtest_old.
     """
 
     def __init__(
@@ -26,7 +26,7 @@ class Backtest(object):
         execution_handler, portfolio, strategy
     ):
         """
-        Initialises the backtest.
+        Initialises the backtest_old.
 
         Parameters:
         csv_dir - The hard root to the CSV data directory.
@@ -75,7 +75,7 @@ class Backtest(object):
 
     def _run_backtest(self):
         """
-        Executes the backtest.
+        Executes the backtest_old.
         """
         i = 0
         while True:
@@ -115,7 +115,7 @@ class Backtest(object):
 
     def _output_performance(self):
         """
-        Outputs the strategy performance from the backtest.
+        Outputs the strategy performance from the backtest_old.
         """
         self.portfolio.create_equity_curve_dataframe()
         
@@ -132,7 +132,7 @@ class Backtest(object):
 
     def simulate_trading(self):
         """
-        Simulates the backtest and outputs portfolio performance.
+        Simulates the backtest_old and outputs portfolio performance.
         """
         self._run_backtest()
         self._output_performance()

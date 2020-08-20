@@ -40,7 +40,7 @@ RETURNS_LOOKBACK_DAYS = 5
 
 def initialize(context):
     """
-    A core function called automatically once at the beginning of a backtest.
+    A core function called automatically once at the beginning of a backtest_old.
     Use this function for initializing state or other bookkeeping.
     Parameters
     ----------

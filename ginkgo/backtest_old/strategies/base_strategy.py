@@ -20,5 +20,5 @@ class BaseStrategy(object):
     def data_transfer(self, data):
         self.data = data
 
-    def check(self):
+    def signal_generator(self):
         raise NotImplementedError("Must implement check()")

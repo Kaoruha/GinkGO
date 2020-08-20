@@ -1,7 +1,7 @@
 """
 基础的资金管理策略
 """
-from ginkgo.backtest.events import SignalEvent
+from ginkgo.backtest_old.events import SignalEvent
 
 
 class BaseCapitial(object):

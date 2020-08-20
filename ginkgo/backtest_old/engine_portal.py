@@ -3,7 +3,7 @@
 """
 import threading
 from ginkgo.libs.thread_manager import thread_manager
-from ginkgo.backtest.engine import Ginkgo_Engine
+from ginkgo.backtest_old.engine import Ginkgo_Engine
 
 
 class EnginePortal(object):

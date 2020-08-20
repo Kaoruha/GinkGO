@@ -11,9 +11,9 @@ yp_test = YellowPrint('rp_test', url_prefix='/test')
 # 单元测试
 @yp_test.route('/backtest_boost', methods=['POST'])
 def backtest():
-    print('start backtest!')
+    print('start backtest_old!')
     # u_backtest_boost()
-    return NoException(msg='Start backtest successful1122!!')
+    return NoException(msg='Start backtest_old successful1122!!')
 
 @yp_test.route('/all', methods=['POST'])
 def update_all():

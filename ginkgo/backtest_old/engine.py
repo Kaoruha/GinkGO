@@ -7,7 +7,8 @@
 """
 
 import queue
-import time, datetime
+import time
+import datetime
 from threading import Thread
 
 from ginkgo.libs.enums import EventType, InfoType

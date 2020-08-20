@@ -44,7 +44,7 @@ class SignalEvent(Event):
         datetime - The timestamp at which the signal was generated.
         signal_type - 'LONG' or 'SHORT'.
         strength - An adjustment factor "suggestion" used to scale 
-            quantity at the portfolio level. Useful for pairs strategies.
+            quantity at the portfolio level. Useful for pairs strategy.
         """
         self.strategy_id = strategy_id
         self.type = 'SIGNAL'
