@@ -1,7 +1,7 @@
 from ginkgo.data.data_portal import data_portal
 from ginkgo.backtest.event_engine import EventEngine
 from ginkgo.backtest.broker.single_daily_broker import SingleDailyBroker
-from ginkgo.backtest.event import *
+from ginkgo.libs.enums import EventType
 from ginkgo.backtest.strategy.moving_average import MovingAverageStrategy
 
 if __name__ == '__main__':
@@ -11,7 +11,10 @@ if __name__ == '__main__':
     # print(df.iloc[0])
 
     backtest_engine = EventEngine()
+    backtest_engine.set_heartbeat(.001)
     my_broker = SingleDailyBroker(name='my_broker')
-    backtest_engine.register(DailyEvent, my_broker.daily_handlers)
-    backtest_engine.feed(df)
+    moving_average_strategy = MovingAverageStrategy(short=5, long=30)
+    my_broker.strategy_register(moving_average_strategy)
+    backtest_engine.register(EventType.DailyPrice, my_broker.daily_handlers)
+    backtest_engine.feed(data=df)
     backtest_engine.start()

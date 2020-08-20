@@ -29,7 +29,7 @@ class BaseBroker(object):
     def strategy_register(self, strategy: BaseStrategy):
         # 策略注册，目前经纪人只允许按照一种策略来进行操作,未来可能支持多种策略同时决策
         if strategy not in self._strategy:
-            self.risk.append(strategy)
+            self._strategy.append(strategy)
             print(f'{strategy.name} 已注册')  # TODO 用Log替换，同时本地存储
         else:
             print(f'{strategy.name} 已存在')

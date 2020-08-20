@@ -43,6 +43,7 @@ class EventEngine(object):
         ...
 
     """
+
     def __init__(self, *, heartbeat: float = 1.0):
         """
         初始化事件引擎
@@ -91,9 +92,10 @@ class EventEngine(object):
         """处理事件"""
         # 检查是否存在对该事件进行监听的处理函数
         if event.type_ in self.__handlers:
-            print('ooo')
             # 若存在，则按顺序将事件传递给处理函数执行
             [handler(event) for handler in self.__handlers[event.type_]]
+        else:
+            print(f'没有{event.type_}对应的处理函数')
 
         # 调用通用处理函数进行处理
         if self.__generalHandlers:
@@ -132,10 +134,6 @@ class EventEngine(object):
 
         # 等待事件处理线程退出
         self.__thread.join()
-
-    def start_feed(self, data):
-        t = Thread(target=self.__feed, args=data)
-        t.start()
 
     def register(self, type_, handler):
         """注册事件处理函数监听"""
@@ -179,7 +177,7 @@ class EventEngine(object):
         if handler in self.__generalHandlers:
             self.__generalHandlers.remove(handler)
 
-    def __feed(self, data: pd.DataFrame):
+    def feed(self, data: pd.DataFrame):
         """
         给引擎喂批量数据
         :param data: DataFrame格式的数据
@@ -188,4 +186,3 @@ class EventEngine(object):
         for data_ in data.iterrows():
             daily_event = DailyEvent(data=data_)
             self.put(daily_event)
-            time.sleep(.5)

@@ -12,7 +12,7 @@ class BaseStrategy(object):
     """
 
     def data_transfer(self, data: pd.DataFrame):
-        self._data = data
+        raise NotImplementedError("Must implement data_transfer()")
 
     def enter_market(self):
         raise NotImplementedError("Must implement enter_market()")
