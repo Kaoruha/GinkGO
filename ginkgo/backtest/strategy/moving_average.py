@@ -14,6 +14,7 @@ class MovingAverageStrategy(BaseStrategy):
         self.short = short
         self.long = long
         self.name = f'双均线策略SHORT{self.short}LONG{self.long}'
+        self._signal_count = 0
 
     def __get_column_title(self, span: int):
         # 获取DataFrame列名，用来写入移动平均线数值
@@ -30,7 +31,7 @@ class MovingAverageStrategy(BaseStrategy):
         # 计算MA值
         self.data[self.__get_column_title(self.short)] = self.data['close'].rolling(self.short, min_periods=1).mean()
         self.data[self.__get_column_title(self.long)] = self.data['close'].rolling(self.long, min_periods=1).mean()
-
+        date = self.data.iloc[-1]['date']
         # 看看能不能产生信号
         self.enter_market()
         self.exit_market()
@@ -38,17 +39,36 @@ class MovingAverageStrategy(BaseStrategy):
     def enter_market(self):
         date = self.data.iloc[-1]['date']
         code = self.data.iloc[0]['code']
-        signal = SignalEvent(date=date,code=code,deal=DealType.BUY)
-        condition = random.random()>.5
-        if condition:
+        signal = SignalEvent(date=date, code=code, deal=DealType.BUY)
+
+        try:
+            condition1 = (self.data.iloc[-2][self.__get_column_title(self.short)]) < (self.data.iloc[-2][
+                self.__get_column_title(self.long)])
+            condition2 = self.data.iloc[-1][self.__get_column_title(self.short)] > self.data.iloc[-1][
+                self.__get_column_title(self.long)]
+        except Exception as e:
+            condition1 = False
+            condition2 = False
+
+        if condition1 and condition2:
             self._engine.put(signal)
-            print('产生买入信号')
+            self._signal_count += 1
+            print('产生买入信号！！！！！！！！！！！！！！')
+        else:
+            pass
 
     def exit_market(self):
         date = self.data.iloc[-1]['date']
         code = self.data.iloc[0]['code']
-        signal = SignalEvent(date=date,code=code,deal=DealType.BUY)
-        condition = random.random()>.5
-        if condition:
+        signal = SignalEvent(date=date, code=code, deal=DealType.SELL)
+        try:
+            condition1 = (self.data.iloc[-2][self.__get_column_title(self.short)]) > (self.data.iloc[-2][
+                self.__get_column_title(self.long)])
+            condition2 = self.data.iloc[-1][self.__get_column_title(self.short)] < self.data.iloc[-1][
+                self.__get_column_title(self.long)]
+        except Exception as e:
+            condition1 = False
+            condition2 = False
+        if condition1 and condition2:
             self._engine.put(signal)
             print('产生卖出信号')

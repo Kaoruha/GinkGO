@@ -7,7 +7,6 @@ from .enums import EventType, InfoType
 from .event import MarketEvent
 
 
-
 class EventEngine(object):
     """
     事件驱动引擎
@@ -88,7 +87,7 @@ class EventEngine(object):
                 self.__process(info)
             except queue.Empty:
                 now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                print(f'Data_list is Empty!! {now}')
+                print(f'\rData_list is Empty!! {now}', end='')
             # 处理事件列表
             while True:
                 try:
@@ -194,5 +193,5 @@ class EventEngine(object):
         :return: void
         """
         for data_ in data.iterrows():
-            market_event = MarketEvent(info_type=InfoType.DailyPrice,data=data_)
+            market_event = MarketEvent(info_type=InfoType.DailyPrice, data=data_)
             self.__info_queue.put(market_event)
