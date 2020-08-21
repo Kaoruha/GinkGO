@@ -5,12 +5,15 @@ from ginkgo.backtest.enums import EventType
 from ginkgo.backtest.strategy.moving_average import MovingAverageStrategy
 from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
 from ginkgo.backtest.sizer.all_in_one import AllInOne
+import datetime
 
 if __name__ == '__main__':
-    df = data_portal.query_stock(code='sh.603031', start_date='1990-01-01', end_date='2020-08-01', frequency='d',
+    today = datetime.datetime.now().strftime('%Y-%m-%d')
+    df = data_portal.query_stock(code='sh.600519',
+                                 start_date='1990-01-01',
+                                 end_date=today,
+                                 frequency='d',
                                  adjust_flag=2)
-    # df['ma_5'] = df['close'].rolling(5, min_periods=1).mean()
-    # print(df.iloc[0])
 
     # 引擎初始化
     backtest_engine = EventEngine()
@@ -20,7 +23,7 @@ if __name__ == '__main__':
     my_broker = SingleDailyBroker(name='my_broker', engine=backtest_engine)
 
     # 策略挂载
-    strategy = MovingAverageStrategy(short=5, long=10)
+    strategy = MovingAverageStrategy(short=10, long=30)
     my_broker.strategy_register(strategy)
 
     # 仓位管理挂载

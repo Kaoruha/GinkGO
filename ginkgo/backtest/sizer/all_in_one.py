@@ -16,7 +16,7 @@ class AllInOne(BaseSizer):
             order.capital = capital
         elif deal == DealType.SELL:
             try:
-                order.volume = position[event.code].volumn
+                order.volume = position[event.code].volume
             except Exception as e:
                 return
         self._engine.put(order)

@@ -53,7 +53,6 @@ class MovingAverageStrategy(BaseStrategy):
         if condition1 and condition2:
             self._engine.put(signal)
             self._signal_count += 1
-            print('产生买入信号！！！！！！！！！！！！！！')
         else:
             pass
 
@@ -71,4 +70,3 @@ class MovingAverageStrategy(BaseStrategy):
             condition2 = False
         if condition1 and condition2:
             self._engine.put(signal)
-            print('产生卖出信号')

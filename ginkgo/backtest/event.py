@@ -70,5 +70,4 @@ class FillEvent(object):
         self.volume = volume  # 下单数(单位是手，买入只能整百，卖出可以零散)
         self.fee = fee  # 此次交易的税费
         self.remain = remain  # 此次交易盈余
-
         self.done = done
