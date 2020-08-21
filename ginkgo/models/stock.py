@@ -100,7 +100,7 @@ class Stock(object):
             t.mkt_value = mkt_value
             t.value_change = value_change
             t.volume = volume
-            t.amount = amount
+            t.volumn = amount
             t.buy_or_sale = buy_or_sale
             t.update = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             return t

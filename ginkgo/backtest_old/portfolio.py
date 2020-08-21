@@ -210,7 +210,7 @@ class Portfolio(object):
     # 执行下单操作
     def excute_order(self, order):
         # 模拟
-        trade = TradeInfo(code=order.code, date=order.date, price=order.price, amount=order.amount, order_id=order.id)
+        trade = TradeInfo(code=order.code, date=order.date, price=order.price, amount=order.volumn, order_id=order.id)
         self.trades.append(trade)
 
         # 实盘
