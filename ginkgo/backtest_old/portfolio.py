@@ -3,7 +3,7 @@
 
 """
 import pandas as pd
-from ginkgo.libs.enums import InfoType, MarketType, PortfolioType
+from ginkgo.libs.enums import InfoType, MarketType
 from ginkgo.backtest_old.strategies.base_strategy import BaseStrategy
 from ginkgo.backtest_old.hold_info import HoldInfo
 from ginkgo.backtest_old.trade_info import TradeInfo
