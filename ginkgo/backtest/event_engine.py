@@ -42,8 +42,7 @@ class EventEngine(object):
         ...
 
     """
-
-    def __init__(self, *, heartbeat: float = 1.0):
+    def __init__(self, *, heartbeat: float = 0):
         """
         初始化事件引擎
         """
@@ -95,7 +94,9 @@ class EventEngine(object):
                     self.__process(event)
                 except queue.Empty:
                     break
-            time.sleep(self.heartbeat)
+            # 当心跳不为0时，事件引擎会短暂停歇，默认如果调用set_heartbeat设置心跳，不开启，但是可能CPU负荷过高
+            if self.heartbeat is not 0:
+                time.sleep(self.heartbeat)
 
     def __process(self, event):
         """处理事件"""
@@ -193,5 +194,6 @@ class EventEngine(object):
         :return: void
         """
         for data_ in data.iterrows():
-            market_event = MarketEvent(info_type=InfoType.DailyPrice, data=data_)
+            market_event = MarketEvent(info_type=InfoType.DailyPrice,
+                                       data=data_)
             self.__info_queue.put(market_event)

@@ -10,13 +10,17 @@ class AllInOne(BaseSizer):
         self.hold_pct = capital / self._init_capital
         deal = event.deal
         code = event.code
+        current_price = event.current_price
         date = self._get_trade_date(event=event)
-        order = OrderEvent(date=date, deal=deal, code=code)
+        
         if deal == DealType.BUY:
-            order.capital = capital
+            if capital >= current_price * 200:
+                order = OrderEvent(date=date, deal=deal,capital=capital, code=code)
+                self._engine.put(order)
         elif deal == DealType.SELL:
-            try:
-                order.volume = position[event.code].volume
-            except Exception as e:
-                return
-        self._engine.put(order)
+            if event.code in position:
+                # 如果持有股票，则全部卖出
+                volume = position[event.code].volume
+                order = OrderEvent(date=date, deal=deal,volume=volume, code=code)
+                self._engine.put(order)
+        

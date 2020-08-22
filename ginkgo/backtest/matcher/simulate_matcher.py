@@ -33,8 +33,6 @@ class SimulateMatcher(BaseMatcher):
         price = round(price, 2)
         if self.deal == DealType.BUY:
             target_volume = int(self.capital / price / 100) * 100
-            if target_volume == 0:
-                return  # TODO 回头要找到0被传进来到原因
             total_price = target_volume * price
             fee = total_price * self._fee
             commission = total_price * self._commission
@@ -57,8 +55,6 @@ class SimulateMatcher(BaseMatcher):
             self._engine.put(fill)
         elif self.deal == DealType.SELL:
             target_volume = self.position.volume
-            if target_volume == 0:
-                return  # TODO 回头要找到0被传进来到原因
             total_price = target_volume * price
             stamp_tax = total_price * self._stamp_tax
             fee = total_price * self._fee

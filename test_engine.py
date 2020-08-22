@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     # 引擎初始化
     backtest_engine = EventEngine()
-    backtest_engine.set_heartbeat(.001)
+    # backtest_engine.set_heartbeat(.001)
 
     # 经纪人初始化
     my_broker = SingleDailyBroker(name='my_broker', engine=backtest_engine)
