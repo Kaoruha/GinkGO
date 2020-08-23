@@ -12,6 +12,7 @@ class Position(object):
         self.code = code
         self.price = price
         self.volume = volume
+        self.freeze = 0
 
     def buy(self, price: float, volume: int):
         # 买入调整持仓
@@ -26,4 +27,5 @@ class Position(object):
         if volume >= self.volume:
             self.volume = 0
         else:
+            self.freeze = self.freeze + volume
             self.volume = self.volume - volume

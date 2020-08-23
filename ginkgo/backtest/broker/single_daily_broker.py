@@ -40,6 +40,7 @@ class SingleDailyBroker(BaseBroker):
     def order_handlers(self, event: OrderEvent):
         # 从回测引擎获取订单事件
         # 如果当前日期与订单与订单日期相同，则把订单事件交给撮合类，尝试成交
+        # TODO 发出下单前需要冻结，买入冻结资金，卖出冻结持仓。Position持仓类需要加上freeze
         if self.current_date == event.date:
             try:
                 position = self.position[event.code]
