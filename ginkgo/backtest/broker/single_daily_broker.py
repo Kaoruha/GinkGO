@@ -101,7 +101,7 @@ class SingleDailyBroker(BaseBroker):
                 self._engine.put(order)
             except queue.Empty:
                 break
-        # print(f'\rToday is  {self.current_date}.', end='')
+        print(f'\rToday is  {self.current_date}.', end='')
         # 将新获取等成交信息传递给每个策略
         for strategy in self._strategy:
             strategy.data_transfer(data)

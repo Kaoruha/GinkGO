@@ -17,13 +17,13 @@ if __name__ == '__main__':
 
     # 引擎初始化
     backtest_engine = EventEngine()
-    # backtest_engine.set_heartbeat(.001)
+    backtest_engine.set_heartbeat(.001)
 
     # 经纪人初始化
     my_broker = SingleDailyBroker(name='my_broker', engine=backtest_engine)
 
     # 策略挂载
-    strategy = MovingAverageStrategy(short=10, long=30)
+    strategy = MovingAverageStrategy(short=5, long=60)
     my_broker.strategy_register(strategy)
 
     # 仓位管理挂载
