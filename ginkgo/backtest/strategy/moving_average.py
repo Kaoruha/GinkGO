@@ -22,7 +22,7 @@ class MovingAverageStrategy(BaseStrategy):
         column_title = 'MA_' + str(span)
         return column_title
 
-    def data_transfer(self, data: pd.DataFrame):
+    def data_transfer(self, data: pd.DataFrame, position):
         # 数据处理
         self.data = self.data.append(data, ignore_index=True)
         # 去重 好像多余了
@@ -46,6 +46,7 @@ class MovingAverageStrategy(BaseStrategy):
         code = self.data.iloc[0]['code']
         signal = SignalEvent(date=date,
                              code=code,
+                             source=self.name,
                              current_price=self.data.iloc[-1]['close'],
                              deal=DealType.BUY)
 
@@ -71,6 +72,7 @@ class MovingAverageStrategy(BaseStrategy):
         code = self.data.iloc[0]['code']
         signal = SignalEvent(date=date,
                              code=code,
+                             source=self.name,
                              current_price=self.data.iloc[-1]['close'],
                              deal=DealType.SELL)
         try:

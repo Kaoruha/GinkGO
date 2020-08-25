@@ -45,16 +45,26 @@ class SingleDailyBroker(BaseBroker):
             try:
                 position = self.position[event.code]
             except Exception as e:
-                print(e)
+                # print(e)
                 position = None
             if event.deal == DealType.BUY:
-                self._matcher.try_match(event=event, position=position)
-                # 同时冻结资金
+                # 冻结资金
                 self._freeze += event.capital
                 self._capital -= event.capital
+
+                # 尝试成交
+                self._matcher.try_match(event=event, position=position)
+                
+                
             elif event.deal == DealType.SELL:
                 # 冻结股票
-                position.ready_to_sell(volume=event.volume)
+                if position is None:
+                    return
+                if position.volume < event.volume:
+                    position.ready_to_sell(volume=position.volume)
+                else:
+                    position.ready_to_sell(volume=event.volume)
+                
                 self._matcher.try_match(event=event, position=position)
 
         else:
@@ -84,7 +94,7 @@ class SingleDailyBroker(BaseBroker):
             elif event.deal == DealType.SELL:
                 # 减少持仓
                 self.position[event.code].sell(volume=event.volume)
-                if self.position[event.code] == 0:
+                if self.position[event.code].volume == 0:
                     del self.position[event.code]
         else:
             # 下单失败的处理
@@ -102,21 +112,21 @@ class SingleDailyBroker(BaseBroker):
         # 从回测引擎获取交易订单类
         # 根据成交金额与成交量，更新账号现金与持仓
         dealdir = '买入' if event.deal == DealType.BUY else '卖出'
-        price = self.position[event.code].price if self.position[
-            event.code] else 0
         total = self.position[event.code].volume + self.position[
-            event.code].freeze if self.position[event.code] else 0
+            event.code].freeze if event.code in self.position else 0
 
         result = '成交' if event.done else '失败'
-        profit = (total * price + self._capital -
+        profit = (total * self.current_price + self._capital -
                   self._init_capital) / self._init_capital * 100
-        print('{} Price：{}  Volume：{}  Result:{}  Profit：{}% Fee: {}'.format(
-            dealdir, round(event.price, 2), event.volume, result,
-            round(profit, 2), round(self.fee, 2)))
+        print(
+            '{} Price:{}  Volume:{}  Result:{}  Profit:{}%  Fee:{}  Source:{}'.
+            format(dealdir, round(event.price, 2), event.volume, result,
+                   round(profit, 2), round(self.fee, 2), event.source))
 
     def daily_handlers(self, event: MarketEvent):
         # 获得新的日交易数据
         data = event.data[1]
+        self.current_price = data['close']
         self.current_date = data['date']
 
         # 将待办订单重新推回引擎
@@ -129,4 +139,9 @@ class SingleDailyBroker(BaseBroker):
         print(f'\r{self.current_date}.', end='')
         # 将新获取等成交信息传递给每个策略
         for strategy in self._strategy:
-            strategy.data_transfer(data)
+            position = self.position[
+                data.code] if data.code in self.position else None
+            strategy.data_transfer(data, position=position)
+
+
+            # TODO 需要重写，肯定有bug

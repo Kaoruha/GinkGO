@@ -4,6 +4,7 @@
 import pandas as pd
 import abc
 from ginkgo.backtest.event_engine import EventEngine
+from ginkgo.backtest.postion import Position
 
 
 class BaseStrategy(metaclass=abc.ABCMeta):
@@ -11,11 +12,11 @@ class BaseStrategy(metaclass=abc.ABCMeta):
     基础策略类
     回头改成抽象类
     """
-    def engine_register(self, engine:EventEngine):
+    def engine_register(self, engine: EventEngine):
         # 引擎注册，通过Broker的注册获得引擎实例
         self._engine = engine
 
-    def data_transfer(self, data: pd.DataFrame):
+    def data_transfer(self, data: pd.DataFrame, position: Position):
         # 数据传递至策略
         raise NotImplementedError("Must implement data_transfer()")
 

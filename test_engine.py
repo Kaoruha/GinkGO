@@ -3,6 +3,8 @@ from ginkgo.backtest.event_engine import EventEngine
 from ginkgo.backtest.broker.single_daily_broker import SingleDailyBroker
 from ginkgo.backtest.enums import EventType
 from ginkgo.backtest.strategy.moving_average import MovingAverageStrategy
+from ginkgo.backtest.strategy.target_profit import TargetProfit
+from ginkgo.backtest.strategy.stop_loss import StopLoss
 from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
 
 from ginkgo.backtest.sizer.all_in_one import AllInOne
@@ -11,21 +13,25 @@ import datetime
 if __name__ == '__main__':
     today = datetime.datetime.now().strftime('%Y-%m-%d')
     df = data_portal.query_stock(code='sh.600522',
-                                 start_date='1990-01-01',
+                                 start_date='2020-01-01',
                                  end_date=today,
                                  frequency='d',
                                  adjust_flag=1)
 
     # 引擎初始化
     backtest_engine = EventEngine()
-    backtest_engine.set_heartbeat(.001)
+    backtest_engine.set_heartbeat(.1)
 
     # 经纪人初始化
     my_broker = SingleDailyBroker(name='my_broker', engine=backtest_engine)
 
     # 策略挂载
-    strategy = MovingAverageStrategy(short=6, long=30)
-    my_broker.strategy_register(strategy)
+    ma_strategy = MovingAverageStrategy(short=6, long=60)
+    target_profit = TargetProfit(target=20, target_reduce=50)
+    stop_loss = StopLoss(loss=5, target_reduce=80)
+    my_broker.strategy_register(ma_strategy)
+    my_broker.strategy_register(target_profit)
+    my_broker.strategy_register(stop_loss)
 
     # 仓位管理挂载
     sizer = AllInOne()

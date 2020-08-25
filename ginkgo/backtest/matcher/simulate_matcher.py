@@ -45,17 +45,19 @@ class SimulateMatcher(BaseMatcher):
                     commission = self._min_commission
                 remain = self.capital - total_price - fee - commission
 
-            fill = FillEvent(
-                deal=DealType.BUY,
-                code=self.code,
-                price=price,
-                volume=target_volume,
-                fee=fee + commission,
-                remain=remain,
-                done=False if target_volume == 0 else True)
+            fill = FillEvent(deal=DealType.BUY,
+                             date=self.date,
+                             code=self.code,
+                             price=price,
+                             source=self.source,
+                             volume=target_volume,
+                             fee=fee + commission,
+                             remain=remain,
+                             done=False if (target_volume == 0) or
+                             (df.iloc[0]['turn'] >= 9.5) else True)
             self._engine.put(fill)
         elif self.deal == DealType.SELL:
-            target_volume = self.volume
+            target_volume = self.volume if self.volume <= self.position.volume else self.position.volume
             total_price = target_volume * price
             stamp_tax = total_price * self._stamp_tax
             fee = total_price * self._fee
@@ -65,11 +67,14 @@ class SimulateMatcher(BaseMatcher):
             remain = total_price - stamp_tax - fee - commission
             fill = FillEvent(deal=DealType.SELL,
                              code=self.code,
+                             date=self.date,
                              price=price,
+                             source=self.source,
                              volume=target_volume,
                              fee=stamp_tax + fee + commission,
                              remain=remain,
-                             done=False if target_volume == 0 else True)
+                             done=False if (target_volume == 0) or
+                             (df.iloc[0]['turn'] <= -9.5) else True)
             self._engine.put(fill)
 
     def try_match(self, event: OrderEvent, position: Position):
@@ -79,6 +84,7 @@ class SimulateMatcher(BaseMatcher):
         self.volume = event.volume
         self.position = position
         self.capital = event.capital
+        self.source = event.source
 
         # 如果是实盘就直接发下单信号
         self.get_result()

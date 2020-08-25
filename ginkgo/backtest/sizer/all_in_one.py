@@ -7,19 +7,27 @@ from ginkgo.backtest.enums import DealType
 class AllInOne(BaseSizer):
     def get_signal(self, event: SignalEvent, capital: float, position):
         self.hold_pct = capital / self._init_capital
+        source = event.source
         deal = event.deal
         code = event.code
         current_price = event.current_price
         date = self._get_trade_date(event=event)
-        
+
         if deal == DealType.BUY:
             if capital >= current_price * 200:
-                order = OrderEvent(date=date, deal=deal,capital=capital, code=code)
+                order = OrderEvent(date=date,
+                                   deal=deal,
+                                   source=source,
+                                   capital=capital,
+                                   code=code)
                 self._engine.put(order)
         elif deal == DealType.SELL:
-            if event.code in position and position[event.code].volume >0:
+            if event.code in position and position[event.code].volume > 0:
                 # 如果持有股票，则全部卖出
                 volume = position[event.code].volume
-                order = OrderEvent(date=date, deal=deal,volume=volume, code=code)
+                order = OrderEvent(date=date,
+                                   deal=deal,
+                                   source=source,
+                                   volume=volume,
+                                   code=code)
                 self._engine.put(order)
-        
