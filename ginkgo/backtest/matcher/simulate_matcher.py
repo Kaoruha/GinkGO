@@ -26,10 +26,9 @@ class SimulateMatcher(BaseMatcher):
                                      start_date=self.date,
                                      end_date=self.date,
                                      frequency='d',
-                                     adjust_flag=3)
+                                     adjust_flag=1)
         # 模拟成交价
-        price = df.iloc[0]['open'] + (
-            (random.random() * 2 - 1) * self.slide + 1)
+        price = df.iloc[0]['open']
         price = round(price, 2)
         if self.deal == DealType.BUY:
             target_volume = int(self.capital / price / 100) * 100
@@ -37,7 +36,7 @@ class SimulateMatcher(BaseMatcher):
             fee = total_price * self._fee
             commission = total_price * self._commission
             remain = self.capital - total_price - fee - commission
-            if remain < 0:
+            if remain <= 0:
                 target_volume = int(self.capital / price / 100 - 1) * 100
                 total_price = target_volume * price
                 fee = total_price * self._fee
@@ -46,15 +45,17 @@ class SimulateMatcher(BaseMatcher):
                     commission = self._min_commission
                 remain = self.capital - total_price - fee - commission
 
-            fill = FillEvent(deal=DealType.BUY,
-                             code=self.code,
-                             price=price,
-                             volume=target_volume,
-                             fee=fee + commission,
-                             remain=remain)
+            fill = FillEvent(
+                deal=DealType.BUY,
+                code=self.code,
+                price=price,
+                volume=target_volume,
+                fee=fee + commission,
+                remain=remain,
+                done=False if target_volume == 0 else True)
             self._engine.put(fill)
         elif self.deal == DealType.SELL:
-            target_volume = self.position.volume
+            target_volume = self.volume
             total_price = target_volume * price
             stamp_tax = total_price * self._stamp_tax
             fee = total_price * self._fee
@@ -67,13 +68,15 @@ class SimulateMatcher(BaseMatcher):
                              price=price,
                              volume=target_volume,
                              fee=stamp_tax + fee + commission,
-                             remain=remain)
+                             remain=remain,
+                             done=False if target_volume == 0 else True)
             self._engine.put(fill)
 
     def try_match(self, event: OrderEvent, position: Position):
         self.date = event.date
         self.code = event.code
         self.deal = event.deal
+        self.volume = event.volume
         self.position = position
         self.capital = event.capital
 

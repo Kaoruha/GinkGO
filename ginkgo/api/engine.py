@@ -2,12 +2,6 @@ import threading
 from ginkgo.libs.thread_manager import thread_manager
 from ginkgo.libs.yellowprint import YellowPrint
 from ginkgo.libs.response import NoException
-from ginkgo.backtest_old.engine_portal import engine_portal
-from ginkgo.backtest_old.portfolio import Portfolio
-from ginkgo.backtest_old.judger import Judger
-from ginkgo.backtest_old.strategies.test_strategy import TestStrategy
-from ginkgo.backtest_old.engine import Ginkgo_Engine
-from ginkgo.backtest_old.info import DailyPrice, MinutePrice, MarketMSG
 from ginkgo.data.data_portal import data_portal
 from ginkgo.libs.socket_manager import socket_boost
 

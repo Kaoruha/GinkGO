@@ -27,6 +27,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self._sizer = None
         self._matcher = None
         self._risk = []
+        self.fee = 0 # 用来统计所有税费
         self.position = {}  # 存放Position
         self.trades = []  # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN  # 以后会支持港股美股日股等乱七八糟的市场

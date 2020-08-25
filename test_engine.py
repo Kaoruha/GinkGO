@@ -4,16 +4,17 @@ from ginkgo.backtest.broker.single_daily_broker import SingleDailyBroker
 from ginkgo.backtest.enums import EventType
 from ginkgo.backtest.strategy.moving_average import MovingAverageStrategy
 from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
+
 from ginkgo.backtest.sizer.all_in_one import AllInOne
 import datetime
 
 if __name__ == '__main__':
     today = datetime.datetime.now().strftime('%Y-%m-%d')
-    df = data_portal.query_stock(code='sh.600519',
+    df = data_portal.query_stock(code='sh.600522',
                                  start_date='1990-01-01',
                                  end_date=today,
                                  frequency='d',
-                                 adjust_flag=2)
+                                 adjust_flag=1)
 
     # 引擎初始化
     backtest_engine = EventEngine()
@@ -23,7 +24,7 @@ if __name__ == '__main__':
     my_broker = SingleDailyBroker(name='my_broker', engine=backtest_engine)
 
     # 策略挂载
-    strategy = MovingAverageStrategy(short=5, long=60)
+    strategy = MovingAverageStrategy(short=6, long=30)
     my_broker.strategy_register(strategy)
 
     # 仓位管理挂载

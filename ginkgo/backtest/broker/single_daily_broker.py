@@ -53,7 +53,10 @@ class SingleDailyBroker(BaseBroker):
                 self._freeze += event.capital
                 self._capital -= event.capital
             elif event.deal == DealType.SELL:
+                # 冻结股票
+                position.ready_to_sell(volume=event.volume)
                 self._matcher.try_match(event=event, position=position)
+
         else:
             # 如果订单日期与当前日期不符合，则把订单事件存放在待办订单，待下次信息事件更新时，重新推回引擎
             self.stand_by_order.put(event)
@@ -61,33 +64,55 @@ class SingleDailyBroker(BaseBroker):
     def fill_handlers(self, event: FillEvent):
         self.trade_history.append(event)
         self._capital += event.remain
-        self._capital = round(self._capital,2)
-        self._freeze = 0
-        if event.deal == DealType.BUY:
-            # 增加持仓
-            if event.code in self.position:
-                self.position[event.code].buy(price=event.price,
-                                              volume=event.volume)
-            else:
-                new_position = Position(code=event.code,
-                                        price=event.price,
-                                        volume=event.volume)
-                self.position[event.code] = new_position
+        self._capital = round(self._capital, 2)
+        if event.done:
+            self.fee += event.fee
+            # 下单成功的处理
+            if event.deal == DealType.BUY:
+                # 增加持仓
+                if event.code in self.position:
+                    # 如果持有该股票，增加持仓
+                    self.position[event.code].buy(price=event.price,
+                                                  volume=event.volume)
+                else:
+                    # 如果未持有该股票，建仓
+                    new_position = Position(code=event.code,
+                                            price=event.price,
+                                            volume=event.volume)
+                    self.position[event.code] = new_position
 
-            pos = self.position[event.code]
-            dealdir = '买入' if event.deal == DealType.BUY else '卖出'
-        elif event.deal == DealType.SELL:
-            # 减少持仓
-            self.position[event.code].sell(volume=event.volume)
-            if self.position[event.code] == 0:
-                del self.position[event.code]
+            elif event.deal == DealType.SELL:
+                # 减少持仓
+                self.position[event.code].sell(volume=event.volume)
+                if self.position[event.code] == 0:
+                    del self.position[event.code]
+        else:
+            # 下单失败的处理
+            if event.deal == DealType.BUY:
+                # 解锁冻结资金
+                self._freeze -= event.remain
+                self._capital += event.remain
+            else:
+                # 解锁冻结股票
+                # TODO回头要改成部分解锁
+                self.position[event.code].volume += self.position[
+                    event.code].freeze
+                self.position[event.code].freeze = 0
+
         # 从回测引擎获取交易订单类
         # 根据成交金额与成交量，更新账号现金与持仓
-        pos = self.position[event.code]
         dealdir = '买入' if event.deal == DealType.BUY else '卖出'
-        print(
-            f'日期：{self.current_date}  {pos.code} {dealdir} 成交价：{event.price}  成交量：{event.volume}  当前资产：{pos.volume*pos.price+self._capital}'
-        )
+        price = self.position[event.code].price if self.position[
+            event.code] else 0
+        total = self.position[event.code].volume + self.position[
+            event.code].freeze if self.position[event.code] else 0
+
+        result = '成交' if event.done else '失败'
+        profit = (total * price + self._capital -
+                  self._init_capital) / self._init_capital * 100
+        print('{} Price：{}  Volume：{}  Result:{}  Profit：{}% Fee: {}'.format(
+            dealdir, round(event.price, 2), event.volume, result,
+            round(profit, 2), round(self.fee, 2)))
 
     def daily_handlers(self, event: MarketEvent):
         # 获得新的日交易数据
@@ -101,7 +126,7 @@ class SingleDailyBroker(BaseBroker):
                 self._engine.put(order)
             except queue.Empty:
                 break
-        print(f'\rToday is  {self.current_date}.', end='')
+        print(f'\r{self.current_date}.', end='')
         # 将新获取等成交信息传递给每个策略
         for strategy in self._strategy:
             strategy.data_transfer(data)

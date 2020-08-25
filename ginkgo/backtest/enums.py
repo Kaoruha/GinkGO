@@ -9,6 +9,12 @@ class EventType(Enum):
     Order = 102
     Fill = 103
 
+class OrderType(Enum):
+    BuyMarket = 100
+    SellMarket = 101
+    BuyPrice = 200
+    SellPrice = 201
+
 class InfoType(Enum):
     DailyPrice = 100
     MinutePrice = 101

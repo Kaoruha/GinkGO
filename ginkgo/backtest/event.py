@@ -20,11 +20,12 @@ class SignalEvent(object):
     """
     信号事件，给经纪人发出买入或者卖出信号
     """
-    def __init__(self,
-                 date: str,
-                 code: str,
-                 current_price: float,
-                 deal: DealType = DealType.BUY):
+    def __init__(
+            self,
+            date: str,  # 信号日期
+            code: str,  # 股票代码
+            current_price: float,  # 当前价格（目前是一天日交易数据的Close价格）
+            deal: DealType = DealType.BUY):  # 交易类型
         self.date = date
         self.code = code
         self.type_ = EventType.Signal
@@ -36,16 +37,17 @@ class OrderEvent(object):
     """
     下单事件类，经纪人发出多空订单
     """
-    def __init__(self,
-                 date: str,
-                 deal: DealType,
-                 code: str,
-                 volume: int = 0,
-                 capital: float = 0):
+    def __init__(
+            self,
+            date: str,  # 信号日期
+            deal: DealType,  # 交易类型
+            code: str,  # 股票代码
+            capital: float = 0,  # 如果是多头，用来购买股票的资金
+            volume: int = 0): # 购买或卖出的量
         self.date = date
         self.type_ = EventType.Order
         self.deal = deal  # 'BUY' or 'SELL'
-        self.code = code  # 股票代码 默认为sh.600000 浦发银行
+        self.code = code
         self.capital = capital
         self.volume = self.optimize_volume(
             volume=volume)  # 下单数(单位是手，买入只能整百，卖出可以零散)

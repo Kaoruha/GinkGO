@@ -2,7 +2,6 @@ import datetime
 from .base_sizer import BaseSizer
 from ginkgo.backtest.event import SignalEvent, OrderEvent
 from ginkgo.backtest.enums import DealType
-from ginkgo.data.data_portal import data_portal
 
 
 class AllInOne(BaseSizer):
@@ -18,7 +17,7 @@ class AllInOne(BaseSizer):
                 order = OrderEvent(date=date, deal=deal,capital=capital, code=code)
                 self._engine.put(order)
         elif deal == DealType.SELL:
-            if event.code in position:
+            if event.code in position and position[event.code].volume >0:
                 # 如果持有股票，则全部卖出
                 volume = position[event.code].volume
                 order = OrderEvent(date=date, deal=deal,volume=volume, code=code)
