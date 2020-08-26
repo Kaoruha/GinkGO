@@ -13,7 +13,7 @@ import datetime
 if __name__ == '__main__':
     today = datetime.datetime.now().strftime('%Y-%m-%d')
     df = data_portal.query_stock(code='sh.600522',
-                                 start_date='2020-01-01',
+                                 start_date='2016-01-01',
                                  end_date=today,
                                  frequency='d',
                                  adjust_flag=1)
