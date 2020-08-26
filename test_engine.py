@@ -32,6 +32,8 @@ if __name__ == '__main__':
     my_broker.strategy_register(ma_strategy)
     my_broker.strategy_register(target_profit)
     my_broker.strategy_register(stop_loss)
+    strategy = MovingAverageStrategy(short=5, long=60)
+    my_broker.strategy_register(strategy)
 
     # 仓位管理挂载
     sizer = AllInOne()
