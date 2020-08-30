@@ -81,8 +81,7 @@ class EventEngine(object):
         """引擎运行"""
         while self.__active:
             try:
-                # print(f'{self.__queue.qsize()}')
-                info = self.__info_queue.get(block=False)  # 获取事件的阻塞时间
+                info = self.__info_queue.get(block=False)  # 获取消息的阻塞时间
                 self.__process(info)
             except queue.Empty:
                 now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
