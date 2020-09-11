@@ -2,9 +2,12 @@ from ginkgo.data.data_portal import data_portal
 from ginkgo.backtest.event_engine import EventEngine
 from ginkgo.backtest.broker.single_daily_broker import SingleDailyBroker
 from ginkgo.backtest.enums import EventType
+from ginkgo.data.stock.baostock import bao_instance
 from ginkgo.backtest.strategy.moving_average import MovingAverageStrategy
 from ginkgo.backtest.strategy.target_profit import TargetProfit
 from ginkgo.backtest.strategy.stop_loss import StopLoss
+import pandas as pd
+from ginkgo.config.setting import STOCK_URL
 from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
 
 from ginkgo.backtest.sizer.all_in_one import AllInOne
@@ -12,7 +15,7 @@ import datetime
 
 if __name__ == '__main__':
     today = datetime.datetime.now().strftime('%Y-%m-%d')
-    df = data_portal.query_stock(code='sh.600522',
+    df = data_portal.query_stock(code='sh.600523',
                                  start_date='2016-01-01',
                                  end_date=today,
                                  frequency='d',

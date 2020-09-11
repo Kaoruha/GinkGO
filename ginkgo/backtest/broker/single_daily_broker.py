@@ -137,7 +137,7 @@ class SingleDailyBroker(BaseBroker):
             except queue.Empty:
                 break
         print(f'\r{self.current_date}.', end='')
-        # 将新获取等成交信息传递给每个策略
+        # 将新获取的成交信息传递给每个策略
         for strategy in self._strategy:
             position = self.position[
                 data.code] if data.code in self.position else None
