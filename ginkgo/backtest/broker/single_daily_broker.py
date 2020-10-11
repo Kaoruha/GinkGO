@@ -21,8 +21,8 @@ class SingleDailyBroker(BaseBroker):
                             fee=fee,
                             init_capital=init_capital)
         self.current_date = ''
-        self.stand_by_order = queue.Queue()
-        self.trade_history = []
+        self.stand_by_order = queue.Queue() # 待处理订单
+        self.trade_history = [] # 交易历史
 
     def general_handler(self, event):
         pass
@@ -38,32 +38,39 @@ class SingleDailyBroker(BaseBroker):
                               position=self.position)
 
     def order_handlers(self, event: OrderEvent):
-        # 从回测引擎获取订单事件
-        # 如果当前日期与订单与订单日期相同，则把订单事件交给撮合类，尝试成交
-        # TODO 发出下单前需要冻结，买入冻结资金，卖出冻结持仓。Position持仓类需要加上freeze
+        """
+        从回测引擎获取下单事件
+        如果当前日期与下单事件的日期相同，则把订单事件交给撮合类，尝试成交
+        发出下单前需要冻结，买入冻结资金，卖出冻结持仓。Position持仓类需要加上freeze
+        """
+        # 如果当前日期为预计交易日期，则尝试撮合配对，否则将下单事件存放在一个队列里，下一个周期重新推回引擎
         if self.current_date == event.date:
             try:
+                # 获取当前代理持仓中，预计交易的股票代码的交易信息
                 position = self.position[event.code]
             except Exception as e:
-                # print(e)
+                print(e)
                 position = None
             if event.deal == DealType.BUY:
-                # 冻结资金
-                self._freeze += event.capital
-                self._capital -= event.capital
+                # 当下单事件为多头事件时
+                # 1、冻结资金
+                self._freeze += event.ready_capital
+                self._capital -= event.ready_capital
 
-                # 尝试成交
+                # 2、尝试成交
                 self._matcher.try_match(event=event, position=position)
                 
                 
             elif event.deal == DealType.SELL:
                 # 冻结股票
                 if position is None:
+                    print(f'当前未持有{event.code}股票')
                     return
-                if position.volume < event.volume:
-                    position.ready_to_sell(volume=position.volume)
-                else:
-                    position.ready_to_sell(volume=event.volume)
+                # if position.volume < event.volume:
+                #     position.ready_to_sell(volume=position.volume)
+                # else:
+                #     position.ready_to_sell(volume=event.volume)
+                position.ready_to_sell(target_volume=event.target_volume)
                 
                 self._matcher.try_match(event=event, position=position)
 
@@ -72,14 +79,18 @@ class SingleDailyBroker(BaseBroker):
             self.stand_by_order.put(event)
 
     def fill_handlers(self, event: FillEvent):
+        """
+        成交事件处理函数
+        """
         self.trade_history.append(event)
         self._capital += event.remain
         self._capital = round(self._capital, 2)
         if event.done:
+            # 交易成功的处理
+            # 统计该次交易税费
             self.fee += event.fee
-            # 下单成功的处理
             if event.deal == DealType.BUY:
-                # 增加持仓
+                # 如果是买入事件则增加持仓
                 if event.code in self.position:
                     # 如果持有该股票，增加持仓
                     self.position[event.code].buy(price=event.price,
@@ -92,19 +103,18 @@ class SingleDailyBroker(BaseBroker):
                     self.position[event.code] = new_position
 
             elif event.deal == DealType.SELL:
-                # 减少持仓
-                self.position[event.code].sell(volume=event.volume)
-                if self.position[event.code].volume == 0:
+                # 如果是卖出事件则减少持仓
+                self.position[event.code].sell(target_volume=event.volume)
+                if self.position[event.code].volume + self.position[event.code].freeze == 0:
                     del self.position[event.code]
         else:
-            # 下单失败的处理
+            # 交易失败的处理
             if event.deal == DealType.BUY:
                 # 解锁冻结资金
                 self._freeze -= event.remain
                 self._capital += event.remain
-            else:
+            elif event.deal == DealType.SELL:
                 # 解锁冻结股票
-                # TODO回头要改成部分解锁
                 self.position[event.code].volume += self.position[
                     event.code].freeze
                 self.position[event.code].freeze = 0
@@ -137,11 +147,8 @@ class SingleDailyBroker(BaseBroker):
             except queue.Empty:
                 break
         print(f'\r{self.current_date}.', end='')
-        # 将新获取等成交信息传递给每个策略
+        # 将新获取的价格信息传递给每个策略
         for strategy in self._strategy:
             position = self.position[
                 data.code] if data.code in self.position else None
             strategy.data_transfer(data, position=position)
-
-
-            # TODO 需要重写，肯定有bug

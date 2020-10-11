@@ -5,6 +5,9 @@ from ginkgo.backtest.enums import DealType
 
 
 class AllInOne(BaseSizer):
+    def __init__(self):
+        self.hold_pct = 0
+
     def get_signal(self, event: SignalEvent, capital: float, position):
         self.hold_pct = capital / self._init_capital
         source = event.source
@@ -18,16 +21,16 @@ class AllInOne(BaseSizer):
                 order = OrderEvent(date=date,
                                    deal=deal,
                                    source=source,
-                                   capital=capital,
+                                   ready_capital=capital,
                                    code=code)
                 self._engine.put(order)
         elif deal == DealType.SELL:
             if event.code in position and position[event.code].volume > 0:
                 # 如果持有股票，则全部卖出
-                volume = position[event.code].volume
+                target_volume = position[event.code].volume
                 order = OrderEvent(date=date,
                                    deal=deal,
                                    source=source,
-                                   volume=volume,
+                                   target_volume=target_volume,
                                    code=code)
                 self._engine.put(order)

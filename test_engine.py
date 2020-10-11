@@ -12,8 +12,8 @@ import datetime
 
 if __name__ == '__main__':
     today = datetime.datetime.now().strftime('%Y-%m-%d')
-    df = data_portal.query_stock(code='sh.600522',
-                                 start_date='2020-01-01',
+    df = data_portal.query_stock(code='sh.600521',
+                                 start_date='2013-01-01',
                                  end_date=today,
                                  frequency='d',
                                  adjust_flag=1)
@@ -27,13 +27,11 @@ if __name__ == '__main__':
 
     # 策略挂载
     ma_strategy = MovingAverageStrategy(short=6, long=60)
-    target_profit = TargetProfit(target=20, target_reduce=50)
-    stop_loss = StopLoss(loss=5, target_reduce=80)
+    # target_profit = TargetProfit(target=20, target_reduce=50)
+    # stop_loss = StopLoss(loss=5, target_reduce=80)
     my_broker.strategy_register(ma_strategy)
-    my_broker.strategy_register(target_profit)
-    my_broker.strategy_register(stop_loss)
-    strategy = MovingAverageStrategy(short=5, long=60)
-    my_broker.strategy_register(strategy)
+    # my_broker.strategy_register(target_profit)
+    # my_broker.strategy_register(stop_loss)
 
     # 仓位管理挂载
     sizer = AllInOne()

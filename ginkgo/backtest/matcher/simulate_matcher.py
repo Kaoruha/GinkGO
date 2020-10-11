@@ -15,7 +15,7 @@ class SimulateMatcher(BaseMatcher):
         self.slide = slide
         self.date = ''
         self.code = ''
-        self.capital = 0
+        self.ready_capital = 0
         self.deal = None
         self.position = None
 
@@ -31,19 +31,19 @@ class SimulateMatcher(BaseMatcher):
         price = df.iloc[0]['open']
         price = round(price, 2)
         if self.deal == DealType.BUY:
-            target_volume = int(self.capital / price / 100) * 100
+            target_volume = int(self.ready_capital / price / 100) * 100
             total_price = target_volume * price
             fee = total_price * self._fee
             commission = total_price * self._commission
-            remain = self.capital - total_price - fee - commission
+            remain = self.ready_capital - total_price - fee - commission
             if remain <= 0:
-                target_volume = int(self.capital / price / 100 - 1) * 100
+                target_volume = int(self.ready_capital / price / 100 - 1) * 100
                 total_price = target_volume * price
                 fee = total_price * self._fee
                 commission = total_price * self._commission
                 if commission < self._min_commission:
                     commission = self._min_commission
-                remain = self.capital - total_price - fee - commission
+                remain = self.ready_capital - total_price - fee - commission
 
             fill = FillEvent(deal=DealType.BUY,
                              date=self.date,
@@ -57,7 +57,7 @@ class SimulateMatcher(BaseMatcher):
                              (df.iloc[0]['turn'] >= 9.5) else True)
             self._engine.put(fill)
         elif self.deal == DealType.SELL:
-            target_volume = self.volume if self.volume <= self.position.volume else self.position.volume
+            target_volume = self.target_volume if self.target_volume <= self.position.freeze else self.position.freeze
             total_price = target_volume * price
             stamp_tax = total_price * self._stamp_tax
             fee = total_price * self._fee
@@ -81,9 +81,9 @@ class SimulateMatcher(BaseMatcher):
         self.date = event.date
         self.code = event.code
         self.deal = event.deal
-        self.volume = event.volume
+        self.target_volume = event.target_volume
         self.position = position
-        self.capital = event.capital
+        self.ready_capital = event.ready_capital
         self.source = event.source
 
         # 如果是实盘就直接发下单信号
