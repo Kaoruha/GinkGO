@@ -14,7 +14,7 @@ class MovingAverageStrategy(BaseStrategy):
         self.data: pd.DataFrame = pd.DataFrame(columns=self.columns)
         self.short = short
         self.long = long
-        self.name = f'双均线策略SHORT{self.short}LONG{self.long}'
+        self.name = f'双均线S{self.short}L{self.long}'
         self._signal_count = 0
 
     def __get_column_title(self, span: int):
@@ -44,12 +44,7 @@ class MovingAverageStrategy(BaseStrategy):
     def enter_market(self):
         date = self.data.iloc[-1]['date']
         code = self.data.iloc[0]['code']
-        signal = SignalEvent(date=date,
-                             code=code,
-                             source=self.name,
-                             current_price=self.data.iloc[-1]['close'],
-                             deal=DealType.BUY)
-
+        
         try:
             condition1 = (self.data.iloc[-2][self.__get_column_title(
                 self.short)]) < (self.data.iloc[-2][self.__get_column_title(
@@ -62,6 +57,12 @@ class MovingAverageStrategy(BaseStrategy):
             condition2 = False
 
         if condition1 and condition2:
+            signal = SignalEvent(date=date,
+                             code=code,
+                             source=self.name,
+                             current_price=self.data.iloc[-1]['close'],
+                             deal=DealType.BUY)
+
             self._engine.put(signal)
             self._signal_count += 1
         else:
@@ -70,11 +71,7 @@ class MovingAverageStrategy(BaseStrategy):
     def exit_market(self):
         date = self.data.iloc[-1]['date']
         code = self.data.iloc[0]['code']
-        signal = SignalEvent(date=date,
-                             code=code,
-                             source=self.name,
-                             current_price=self.data.iloc[-1]['close'],
-                             deal=DealType.SELL)
+        
         try:
             condition1 = (self.data.iloc[-2][self.__get_column_title(
                 self.short)]) > (self.data.iloc[-2][self.__get_column_title(
@@ -86,4 +83,10 @@ class MovingAverageStrategy(BaseStrategy):
             condition1 = False
             condition2 = False
         if condition1 and condition2:
+            signal = SignalEvent(date=date,
+                             code=code,
+                             source=self.name,
+                             current_price=self.data.iloc[-1]['close'],
+                             deal=DealType.SELL)
             self._engine.put(signal)
+            self._signal_count += 1

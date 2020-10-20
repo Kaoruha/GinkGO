@@ -150,9 +150,10 @@ class EventEngine(object):
         try:
             handler_list = self.__handlers[type_]
         except Exception as e:
+            print(e)
             self.__handlers[type_] = []
             handler_list = self.__handlers[type_]
-            print(e)
+            
 
         # 若要注册的处理函数不在该事件的处理函数列表中，则注册该事件
         if handler not in handler_list:

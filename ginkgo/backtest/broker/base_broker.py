@@ -37,21 +37,20 @@ class BaseBroker(metaclass=abc.ABCMeta):
         if strategy not in self._strategy:
             self._strategy.append(strategy)
             strategy.engine_register(self._engine)
-            # print(strategy.__engine)
             print(f'{strategy.name} 已注册')  # TODO 用Log替换，同时本地存储
         else:
             print(f'{strategy.name} 已存在')
 
     def sizer_register(self, sizer: BaseSizer):
-        # 策略注册，目前经纪人只允许按照一种策略来进行操作
+        # 仓位控制注册
         self.sizer = sizer
         sizer.engine_register(self._engine)
         sizer.get_init_capital(self._init_capital)
 
     def risk_register(self, risk: BaseRisk):
         # 风控注册
-        if risk not in self.risk:
-            self.risk.append(risk)
+        if risk not in self._risk:
+            self._risk.append(risk)
             risk.engine_register(self._engine)
             print(f'{risk.name} 已注册')  # TODO 用Log替换，同时本地存储
         else:
@@ -66,13 +65,13 @@ class BaseBroker(metaclass=abc.ABCMeta):
         raise NotImplementedError("Must implement market_handlers()")
 
     def signal_handlers(self):
-        raise NotImplementedError("Must implement market_handlers()")
+        raise NotImplementedError("Must implement signal_handlers()")
 
     def order_handlers(self):
-        raise NotImplementedError("Must implement market_handlers()")
+        raise NotImplementedError("Must implement order_handlers()")
 
     def fill_handlers(self):
-        raise NotImplementedError("Must implement market_handlers()")
+        raise NotImplementedError("Must implement fill_handlers()")
 
     def general_handler(self):
         raise NotImplementedError("Must implement general_handler()")

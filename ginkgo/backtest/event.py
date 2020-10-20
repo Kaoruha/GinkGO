@@ -50,34 +50,37 @@ class OrderEvent(Event):
             date: str,  # 信号日期
             deal: DealType,  # 交易类型
             code: str,  # 股票代码
-            capital: float = 0,  # 如果是多头，用来购买股票的资金
-            volume: int = 0,  # 购买或卖出的量
+            ready_capital: float = 0,  # 如果是多头，用来购买股票的资金
+            target_volume: int = 0,  # 购买或卖出的量
             source: str = ''):
         Event.__init__(self, date=date, code=code, source=source)
         self.type_ = EventType.Order
         self.deal = deal  # 'BUY' or 'SELL'
-        self.capital = capital
+        self.ready_capital = ready_capital
         # 下单数(单位是手，买入只能整百，卖出可以零散)
-        self.volume = self.optimize_volume(volume=volume)
+        self.target_volume = self.optimize_volume(target_volume=target_volume)
 
-    def optimize_volume(self, volume):
+    def optimize_volume(self, target_volume):
         """
+        调整买入数
         股票买入以手为单位，一手为一百股，volume只能是整百的倍数
         卖出不作限制
 
-        :param volume: [准备下单的股票数量]
-        :type volume: [int]
+        :param target_volume: [准备下单的股票数量]
+        :type target_volume: [int]
         """
         if self.deal == DealType.BUY:
-            return int(volume / 100) * 100
+            return int(target_volume / 100) * 100
         else:
-            return volume
+            return target_volume
 
 
 class FillEvent(Event):
     """
-    交易事件，交易成功后通知经纪人交易成功，更新持仓股票与资金池
-    交易失败后通知经纪人交易失败，解除资金冻结
+    交易事件
+    根据标的资金，冻结可用资金，并尝试交易
+    交易成功后通知经纪人交易成功，更新持仓股票与资金池
+    交易失败后通知经纪人交易失败，并解除资金冻结
     """
     def __init__(self,
                  deal: DealType,
@@ -96,4 +99,4 @@ class FillEvent(Event):
         self.volume = volume  # 下单数(单位是手，买入只能整百，卖出可以零散)
         self.fee = fee  # 此次交易的税费
         self.remain = remain  # 此次交易盈余
-        self.done = done
+        self.done = done # Ture为交易成功，False为交易失败
