@@ -13,7 +13,7 @@ class TargetProfit(BaseStrategy):
         self.target: float = target / 100  # 设定止盈点，默认20%
         self.target_reduce: float = self.cal_position(
             target_reduce)  # 设定目标减仓，默认为100%，直接空仓
-        self.name = f'止盈策略 {self.target*100}%利润减仓{self.target_reduce*100}%'
+        self.name = f'止盈策略 {self.target*100}% 利润减仓 {self.target_reduce*100}%'
 
     def cal_position(self, target_position: int):
         if target_position <= 0:
