@@ -10,38 +10,5 @@ yp_engine = YellowPrint('rp_engine', url_prefix='/engine')
 
 @yp_engine.route('/boost', methods=['POST'])
 def engine_boost():
-    portfolio = Portfolio(name='test')
-    judger = Judger()
-    heartbeat = 0
-    strategy_ma = TestStrategy()
-    portfolio.register_strategy(strategy_ma)
-    backtest = Ginkgo_Engine(portfolio=portfolio, heartbeat=heartbeat)
-    result = engine_portal.engine_register(engine=backtest)
-    return NoException(msg=result)
-
-
-@yp_engine.route('/sleep', methods=['POST'])
-def engine_sleep_now():
-    result = engine_portal.engine_sleep('test')
-    return NoException(msg=result)
-
-
-@yp_engine.route('/resume', methods=['POST'])
-def engine_resume():
-    result = engine_portal.engine_resume('test')
-    return NoException(msg=result)
-
-
-@yp_engine.route('/info_injection', methods=['POST'])
-def info_injection():
-    thread = threading.Thread(target=data_injection,
-                              name='test_info_injection',
-                              )
-    thread_manager.thread_register(thread)  # 线程管理,新建引擎的线程
-    return NoException(msg='Begin to inject')
-
-
-@yp_engine.route('/socket_boost', methods=['POST'])
-def socket_run():
-    socket_boost()
-    return NoException(msg='socket boost on!')
+    print("hh")
+    return NoException(msg="1", data={"name":"hha","age":1})

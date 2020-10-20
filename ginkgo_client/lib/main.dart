@@ -1,39 +1,87 @@
 import 'package:flutter/material.dart';
-import 'src/pages/test_page.dart' show TestPage;
+import 'src/pages/market.dart' show Market;
+import 'src/pages/portfolio.dart' show Portfolio;
+import 'src/pages/strategy.dart' show Strategy;
+import 'src/pages/backtest.dart' show BackTest;
+import 'src/pages/user.dart' show User;
 
-void main() {
-  runApp(MyApp());
-}
+void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Ginkgo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: MyHomePage(title: 'Ginkgo 测试'),
+      home: Homes(),
+      theme: ThemeData(primaryColor: Colors.blue[600]),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
-
-  final String title;
-
+class Homes extends StatefulWidget {
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  State<StatefulWidget> createState() {
+    return _HomesState();
+  }
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _HomesState extends State<Homes> {
+  int _currentIndex = 0;
+  final List<Widget> _children = [
+    Market(),
+    Portfolio(),
+    BackTest(),
+    Strategy(),
+    User()
+  ];
+
+  final List<BottomNavigationBarItem> _list = <BottomNavigationBarItem>[
+    BottomNavigationBarItem(
+      icon: Icon(Icons.show_chart),
+      title: Text('Market'),
+      // backgroundColor: Colors.orange
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.account_balance_wallet),
+      title: Text('Portfolio'),
+      //backgroundColor: Colors.orange
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.text_snippet),
+      title: Text('Backtest'),
+      //backgroundColor: Colors.orange
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.handyman),
+      title: Text('Strategy'),
+      //backgroundColor: Colors.orange
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.face),
+      title: Text('User'),
+      //backgroundColor: Colors.orange
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return TestPage();
+    return Scaffold(
+      appBar: AppBar(
+        title: Center(child: Text('Ginkgo')),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        onTap: onTabTapped,
+        currentIndex: _currentIndex,
+        items: _list,
+      ),
+      body: _children[_currentIndex],
+    );
+  }
+
+  void onTabTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
   }
 }
