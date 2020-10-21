@@ -24,13 +24,14 @@ Flask  + Scrapy
     - 3 User-Agent, ( 0 , 1 ) Sleep，1 IP:64 被ban
     - 6 User-Agent, ( 0 , 1 ) Sleep，1 IP:66 被ban
     - 12 User-Agent, ( 0 , 1 ) Sleep，1 IP:69 被ban
-    - 腾讯财经
-    - 东方财富
-    - 雅虎财经 http://finance.yahoo.com
-    - 谷歌财经 https://www.google.com/finance
-    - QuantQuote https://www.quantquote.com（S&P500 EOD data only）
-    - EODDate http://eoddata.com（requires registration）
-    - Quandl www.quandl.com
+    
+- 腾讯财经
+- 东方财富
+- 雅虎财经 http://finance.yahoo.com
+- 谷歌财经 https://www.google.com/finance
+- QuantQuote https://www.quantquote.com（S&P500 EOD data only）
+- EODDate http://eoddata.com（requires registration）
+- Quandl www.quandl.com
 ### 1.3. 获取方法
 - 爬虫
 - 免费API
