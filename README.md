@@ -1,7 +1,10 @@
 [TOC]
+## 简介
+整个项目其实是一个学习的过程，如果能实现不用上班就更好了。
 ## 前端技术
-Vue(Quasar) + Echarts
-暂时采用这个架构，Github上找一个开源的魔改
+~~Vue(Quasar) + Echarts~~
+~~暂时采用这个架构，Github上找一个开源的魔改~~
+现在改用Flutter进行跨平台开发
 ## 后端技术
 Flask  + Scrapy
 ## 1. 获取数据
@@ -12,6 +15,7 @@ Flask  + Scrapy
 - 新闻舆情
 ### 1.2. 数据来源
 - baostock
+- DTShare（试一试）
 - tushare（要求太高后面再说）
 - **新浪财经**
     - 1 User-Agent, ( 0 , 1 ) Sleep，1 IP:67 被ban
@@ -27,6 +31,7 @@ Flask  + Scrapy
     - Quandl www.quandl.com
 ### 1.3. 获取方法
 - 爬虫
+- 免费API
 - 付费API
 ### 1.4. 数据清洗
 ## 2. 数据分析挖掘
@@ -162,5 +167,6 @@ deltaVolatility = {(todayVolatility - yesterDayVolatility)\over todayVolatility}
     - 一致性预测因子：如研报或者分析师预测当你净利润增长率，主营业务收入增长率、最近一个月预测净利润上调幅度、最近一个月预测主营业务收入上调幅度、最近一个月上调评级占比
 
 ## 6. 模拟交易
-Interactive Broker账号已经注册
+~~Interactive Broker账号已经注册~~
+先在Interactive Broker模拟盘上试验
 ## 7. 实盘交易
