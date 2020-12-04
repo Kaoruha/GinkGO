@@ -11,11 +11,12 @@ import abc
 class BaseSizer(metaclass=abc.ABCMeta):
     """
     仓位管理基类
+
     TODO 回头改成抽象类
     """
     def __init__(self):
         self._engine = None
-        self._init_capital = 0
+        self._init_capital:float = 0.0
 
     def engine_register(self, engine: EventEngine):
         """
@@ -26,7 +27,7 @@ class BaseSizer(metaclass=abc.ABCMeta):
         """
         self._engine = engine
 
-    def get_init_capital(self, init_capital: int):
+    def set_init_capital(self, init_capital: float):
         """
         获取初始总金额
 

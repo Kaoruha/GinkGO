@@ -166,7 +166,6 @@ class EventEngine(object):
         try:
             handler_list = self.__handlers[type_]
         except Exception as e:
-            print(e)
             self.__handlers[type_] = []
             handler_list = self.__handlers[type_]
             

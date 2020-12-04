@@ -17,10 +17,12 @@ class BaseBroker(metaclass=abc.ABCMeta):
     TODO 回头改成抽象类
     """
 
-    def __init__(self, name: str, engine: EventEngine, *, stamp_tax: float = .0015, fee: float = .00025,
+    def __init__(self, name: str, engine: EventEngine, *, stamp_tax_rate: float = .0015, fee_rate: float = .00025,
                  init_capital: int = 100000):
         self.name = name
         self._engine = engine
+        self._stamp_tax_rate = stamp_tax_rate
+        self._fee_rate = fee_rate
         self._init_capital = init_capital  # 设置初始资金
         self._capital = init_capital  # 设置初始资金，默认100K
         self._freeze = 0
@@ -56,7 +58,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         """
         self._sizer = sizer
         self._sizer.engine_register(self._engine)
-        self._sizer.get_init_capital(self._init_capital)
+        self._sizer.set_init_capital(self._init_capital)
 
     def risk_register(self, risk: BaseRisk):
         """
