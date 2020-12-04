@@ -35,9 +35,10 @@ class Position(object):
     def ready_to_sell(self, target_volume: int):
         """
         持仓卖出的预处理
-        """
-        # 卖出前冻结
-        # 卖出交易发起前调用
+
+        卖出前冻结股票份额
+        卖出交易发起前调用
+        """      
 
         # 如果预计卖出量大于现在持仓，则把预计卖出修正为现有持仓再清仓
         if target_volume >= self.volume:
@@ -45,3 +46,12 @@ class Position(object):
 
         self.freeze += target_volume
         self.volume -= target_volume
+
+    def ready_to_buy(self):
+        """
+        持仓买入预处理
+
+        买入前冻结资金
+        买入交易发起前调用
+        """
+        pass

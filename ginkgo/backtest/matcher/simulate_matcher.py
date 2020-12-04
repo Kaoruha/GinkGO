@@ -1,6 +1,6 @@
 import random
 from .base_matcher import BaseMatcher
-from ginkgo.backtest.event import OrderEvent, FillEvent
+from ginkgo.backtest.events import OrderEvent, FillEvent
 from ginkgo.data.data_portal import data_portal
 from ginkgo.backtest.enums import DealType
 from ginkgo.backtest.postion import Position

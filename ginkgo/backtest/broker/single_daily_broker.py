@@ -1,12 +1,26 @@
+"""
+低频日交易数据经纪人
+
+模拟的是每日收盘获得信息
+收盘后根据策略产生交易信号
+第二天开盘尝试成交
+"""
+
 from .base_broker import BaseBroker
-from ginkgo.backtest.event import *
+from ginkgo.backtest.events import *
 import queue
-from ginkgo.backtest.enums import MarketType
+from ginkgo.backtest.enums import MarketType, InfoType
 from ginkgo.backtest.event_engine import EventEngine
 from ginkgo.backtest.postion import Position
 
 
 class SingleDailyBroker(BaseBroker):
+    """
+    低频日交易数据经纪人类
+
+    :param BaseBroker: [description]
+    :type BaseBroker: [type]
+    """
     def __init__(self,
                  name: str,
                  engine: EventEngine,
@@ -21,25 +35,62 @@ class SingleDailyBroker(BaseBroker):
                             fee=fee,
                             init_capital=init_capital)
         self.current_date = ''
+        self.current_price = 0
         self.stand_by_order = queue.Queue() # 待处理订单
-        self.trade_history = [] # 交易历史
 
     def general_handler(self, event):
         pass
 
     def market_handlers(self, event: MarketEvent):
-        pass
+        """
+        市场事件处理函数
+
+        市场事件目前分为价格信息以及消息信息，
+        此处只处理价格信息。
+
+        :param event: 获得的新的日交易数据
+        :type event: MarketEvent
+        """
+        # 检查市场事件的类型，此处只处理日交易数据
+        if event.info_type is not InfoType.DailyPrice:
+            return
+        data = event.data[1]
+        self.current_price = data['close']
+        self.current_date = data['date']
+
+        # 将待办订单重新推回引擎
+        while True:
+            try:
+                order = self.stand_by_order.get(block=False)
+                self._engine.put(order)
+            except queue.Empty:
+                break
+        print(f'\r{self.current_date}.', end='')
+        # 将新获取的价格信息传递给每个策略
+        for strategy in self._strategies:
+            position = self.position[
+                data.code] if data.code in self.position else None
+            strategy.data_transfer(data, position=position)
 
     def signal_handlers(self, event: SignalEvent):
-        # 从回测引擎获取信号事件
-        # 将信号事件转交仓位管理，由仓位管理确定目标持仓，产生订单
-        self.sizer.get_signal(event=event,
+        """
+        信号事件处理函数
+        
+        从回测引擎获取到的信号事件，
+        将转交给仓位管理策略，
+        由仓位管理策略来确定目标持仓，产生订单。
+
+        :param event: 由引擎传递过来的信号事件
+        :type event: SignalEvent
+        """
+        self._sizer.get_signal(event=event,
                               capital=self._capital,
                               position=self.position)
 
     def order_handlers(self, event: OrderEvent):
         """
-        从回测引擎获取下单事件
+        订单事件处理函数
+
         如果当前日期与下单事件的日期相同，则把订单事件交给撮合类，尝试成交
         发出下单前需要冻结，买入冻结资金，卖出冻结持仓。Position持仓类需要加上freeze
         """
@@ -132,23 +183,3 @@ class SingleDailyBroker(BaseBroker):
             '{} Price:{}  Volume:{}  Result:{}  Profit:{}%  Fee:{}  Source:{}'.
             format(dealdir, round(event.price, 2), event.volume, result,
                    round(profit, 2), round(self.fee, 2), event.source))
-
-    def daily_handlers(self, event: MarketEvent):
-        # 获得新的日交易数据
-        data = event.data[1]
-        self.current_price = data['close']
-        self.current_date = data['date']
-
-        # 将待办订单重新推回引擎
-        while True:
-            try:
-                order = self.stand_by_order.get(block=False)
-                self._engine.put(order)
-            except queue.Empty:
-                break
-        print(f'\r{self.current_date}.', end='')
-        # 将新获取的价格信息传递给每个策略
-        for strategy in self._strategy:
-            position = self.position[
-                data.code] if data.code in self.position else None
-            strategy.data_transfer(data, position=position)

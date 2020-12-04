@@ -4,26 +4,59 @@
 from enum import Enum
 
 class EventType(Enum):
-    Market = 100
-    Signal = 101
-    Order = 102
-    Fill = 103
+    """
+    事件类型
+
+    :param Enum: [description]
+    :type Enum: [type]
+    """
+    Market = 100 # 市场事件
+    Signal = 101 # 信号事件
+    Order = 102 # 订单事件
+    Fill = 103 # 成交事件
 
 class OrderType(Enum):
-    BuyMarket = 100
-    SellMarket = 101
-    BuyPrice = 200
-    SellPrice = 201
+    """
+    订单类型
+
+    :param Enum: [description]
+    :type Enum: [type]
+    """
+    BuyMarket = 100 # 以市场价买入
+    SellMarket = 101 # 以市场价格卖出
+    BuyPrice = 200 # 以特定价格买入
+    SellPrice = 201 # 以特定价格卖出
 
 class InfoType(Enum):
-    DailyPrice = 100
-    MinutePrice = 101
-    Message = 102
+    """
+    信息类型
+
+    :param Enum: [description]
+    :type Enum: [type]
+    """
+    DailyPrice = 100 # 日交易数据
+    MinutePrice = 101 # 分钟交易数据
+    Message = 102 # 消息数据 TODO后续还会完善扩充
 
 class DealType(Enum):
-    BUY = 100
-    SELL = 101
+    """
+    交易类型
+
+    :param Enum: [description]
+    :type Enum: [type]
+    """
+    BUY = 100 # 买入
+    SELL = 101 # 卖出
 
 
 class MarketType(Enum):
-    Stock_CN = 100
+    """
+    市场类型
+
+    :param Enum: [description]
+    :type Enum: [type]
+    """
+    Stock_CN = 100 # 中国沪深A股
+    Stock_HK = 101 # 港股
+    Stock_JP = 102 # 日股
+    Stock_US = 103 # 美股

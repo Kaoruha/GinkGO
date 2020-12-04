@@ -29,7 +29,7 @@ if __name__ == '__main__':
     my_broker = SingleDailyBroker(name='my_broker', engine=backtest_engine)
 
     # 策略挂载
-    ma_strategy = MovingAverageStrategy(short=6, long=60)
+    ma_strategy = MovingAverageStrategy(short_term=6, long_term=60)
     # target_profit = TargetProfit(target=20, target_reduce=50)
     # stop_loss = StopLoss(loss=5, target_reduce=80)
     my_broker.strategy_register(ma_strategy)
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     my_broker.matcher_register(matcher)
 
     # 事件处理函数注册
-    backtest_engine.register(EventType.Market, my_broker.daily_handlers)
+    backtest_engine.register(EventType.Market, my_broker.market_handlers)
     backtest_engine.register(EventType.Signal, my_broker.signal_handlers)
     backtest_engine.register(EventType.Order, my_broker.order_handlers)
     backtest_engine.register(EventType.Fill, my_broker.fill_handlers)

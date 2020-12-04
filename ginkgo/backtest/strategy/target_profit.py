@@ -4,7 +4,7 @@
 import pandas as pd
 from .base_strategy import BaseStrategy
 from ginkgo.backtest.postion import Position
-from ginkgo.backtest.event import OrderEvent
+from ginkgo.backtest.events import OrderEvent
 from ginkgo.backtest.enums import DealType
 
 

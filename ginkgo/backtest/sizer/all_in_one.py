@@ -1,6 +1,6 @@
 import datetime
 from .base_sizer import BaseSizer
-from ginkgo.backtest.event import SignalEvent, OrderEvent
+from ginkgo.backtest.events import SignalEvent, OrderEvent
 from ginkgo.backtest.enums import DealType
 
 

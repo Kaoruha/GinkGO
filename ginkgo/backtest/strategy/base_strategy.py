@@ -20,8 +20,14 @@ class BaseStrategy(metaclass=abc.ABCMeta):
         # 数据传递至策略
         raise NotImplementedError("Must implement data_transfer()")
 
-    def enter_market(self):
+    def try_get_enter_signal(self):
+        """买入信号的判断逻辑"""
         raise NotImplementedError("Must implement enter_market()")
 
-    def exit_market(self):
+    def try_get_exit_signal(self):
+        """卖出信号的判断逻辑"""
         raise NotImplementedError("Must implement exit_market()")
+
+    def try_get_signals(self):
+        self.try_get_enter_signal()
+        self.try_get_exit_signal()

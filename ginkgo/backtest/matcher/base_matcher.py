@@ -1,16 +1,16 @@
 """
-撮合类
+撮合基类
 先开发回测模拟撮合，回头接入实盘，接入券商API
 """
 import pandas as pd
 import abc
 from ginkgo.backtest.event_engine import EventEngine
-from ginkgo.backtest.event import SignalEvent
+from ginkgo.backtest.events import SignalEvent
 
 
 class BaseMatcher(metaclass=abc.ABCMeta):
     """
-    撮合类
+    撮合基类
     """
 
     def __init__(self, stamp_tax: float = .001, fee: float = .0002, commission: float = .0003, min_commission=5):
