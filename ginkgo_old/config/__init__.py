@@ -1,5 +1,5 @@
 """
-Ginkgo配置相关
+flask 配置相关
 
 setting.py 为基础配置
 
