@@ -2,4 +2,7 @@
 DEBUG = True
 REMEMBER_COOKIE_DURATION = 14  # flask_login的Cookie过期时间（天）
 
-CACHE_URL = 'resources/market_data/'
+STOCK_URL = 'resources/market_data/'
+
+import logging
+LOGGING_LEVEL = logging.DEBUG
