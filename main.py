@@ -5,4 +5,4 @@ from ginkgo_server.web.server import start_server
 gl.info('Server开始启动')
 
 # 开启tornado后端服务
-start_server()
+# start_server()
