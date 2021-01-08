@@ -1,8 +1,8 @@
-from ..util.classes_getter import get_classes
-from ...libs.ginkgo_logger import ginkgo_logger as gl
+from ginkgo_server.util.classes_getter import get_classes
+from ginkgo_server.libs.ginkgo_logger import ginkgo_logger as gl
 
-from ..handlers import engine
-from ..handlers import user
+from ginkgo_server.web.handlers import engine
+from ginkgo_server.web.handlers import user
 
 
 

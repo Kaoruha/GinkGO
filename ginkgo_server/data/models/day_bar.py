@@ -1,9 +1,9 @@
-from mongoengine import Document, StringField, IntField, FloatField
+from mongoengine import Document, StringField, IntField, FloatField, BooleanField
 
 
 class DayBar(Document):
-    date = StringField(20, primary_key=True)
-    code = StringField(20)
+    date = StringField(max_length=40, primary_key=True)
+    code = StringField(max_length=40)
     open = FloatField()
     high = FloatField()
     low = FloatField()
