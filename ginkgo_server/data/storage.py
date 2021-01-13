@@ -4,10 +4,13 @@
 import threading
 import datetime
 import time
+import tqdm
 import mongoengine
+import pandas as pd
 from ginkgo_server.libs.ginkgo_logger import ginkgo_logger as gl
 from ginkgo_server.data.models.stock_info import StockInfo
 from ginkgo_server.data.models.adjust_factor import AdjustFactor
+from ginkgo_server.data.models.day_bar import DayBar
 from ginkgo_server.config.secure import DATABASE, HOST, PORT, USERNAME, PASSWORD
 
 
@@ -16,6 +19,9 @@ class GinkgoStorage(object):
 
     # 单例模式
     def __new__(cls, *args, **kwargs):
+        """
+        Create a new instance
+        """
         if not hasattr(cls, '_instance'):
             with GinkgoStorage._instance_lock:
                 if not hasattr(cls, '_instance'):
@@ -44,20 +50,19 @@ class GinkgoStorage(object):
         pass
 
     # 插入指数信息
-    def insert_stock_info(self,
-                          code='sh.000001',
-                          code_name='上证综合指数',
-                          trade_status=1,
-                          has_min_bar=True):
+    def insert_a_stock_info(self,
+                            code='sh.000001',
+                            code_name='上证综合指数',
+                            trade_status=1):
+        """
+        向MongoDB中插入StockInfo数据，包括代号、名称、交易状态、是否有分钟数据
+        """
         self.__connect_mongo()
-        info = StockInfo()
-        info.code = code
-        info.code_name = code_name
-        info.trade_status = trade_status
-        info.has_min_bar = has_min_bar
-        info.date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        info = StockInfo(code=code,
+                         code_name=code_name,
+                         trade_status=trade_status)
         info.save()
-        gl.info(f'成功创建 {code} 的指数基础信息')
+        # gl.info(f'成功创建 {code} 的指数基础信息')
 
     # 更新指数信息
     def update_stock_info(self,
@@ -67,45 +72,34 @@ class GinkgoStorage(object):
         """
         更新指数基本信息
         """
-        date_now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         # 尝试查询数据库
         data_search = self.query_stock_info(code=code)
-        if data_search is None:
-            # 当查询结果为None即库内无数据，直接插入新的数据
-            self.create_stock_info(code=code, code_name=code_name, trade_status=trade_status, has_min_bar=has_min_bar)
-            return True
-        elif not data_search:
-            # 数据库错误处理
-            return False
-        else:
-            # 尝试更新
-            # 否则更新数据
+        if data_search:
+            # 有值的处理
             has_changed = False
-
-            if data_search.code != code:
-                data_search.code = code
-                has_changed = True
-                gl.info(f'{code} 指数信息Code代码变更')
 
             if data_search.code_name != code_name:
                 data_search.code_name = code_name
                 has_changed = True
-                gl.info(f'{code} 指数信息code_name变更')
-
             if data_search.trade_status != trade_status:
                 data_search.trade_status = trade_status
                 has_changed = True
-                gl.info(f'{code} 交易状态变更')
-                # TODO 区分停牌 or 交易
-
-            if not has_changed:
-                gl.info(f'{code} 指数信息数据无更新')
-            else:
-                data_search.date = date_now
+            if has_changed:
                 data_search.save()
-                gl.info(f'{code} 指数信息数据已更新')
-            
+                # gl.info(f'{code} 指数信息数据已更新')
+            else:
+                # gl.info(f'{code} 指数信息数据无更新')
+                pass
             return True
+        elif data_search is None:
+            # 库里没值的处理
+            self.insert_a_stock_info(code=code,
+                                     code_name=code_name,
+                                     trade_status=trade_status)
+            return True
+        else:
+            # 数据库错误的处理
+            return False
 
     # 查询指数信息
     def query_stock_info(self, code='sh.000001'):
@@ -113,19 +107,73 @@ class GinkgoStorage(object):
         查询指数信息，理论上库里只有一条数据
         """
         self.__connect_mongo()
-        gl.info(f'尝试查询 {code} 的指数基础信息')
+        # gl.info(f'尝试查询 {code} 的指数基础信息')
         stock_info_search = StockInfo.objects(code=code)
-        if stock_info_search.count() == 1:
-            return stock_info_search[0]
-        elif stock_info_search.count() == 0:
-            gl.info(f'{code} 指数信息不存在')
+
+        if stock_info_search.count() == 0:
             return None
+        elif stock_info_search.count() == 1:
+            return stock_info_search[0]
         else:
-            gl.critical(f'{code} 指数信息超过1条，请检查代码')
+            gl.critical(f'{code} 指数基本数据超过1条，请检查代码')
             return False
 
+    # 批量插入指数信息
+    def insert_stock_info_list(self, stock_info_list):
+        """
+        批量插入指数信息
+        stock_info_list: StockInfo的数组
+        """
+        insert_list = []
+        update_list = []
+        # 校验stock_info_list
+        for i in stock_info_list:
+            if isinstance(i, StockInfo):
+                next
+            else:
+                gl.error('批量插入指数信息失败，stock_info_list 类型不匹配')
+                return False
+
+        self.__connect_mongo()
+        # 确认stock_info_list的成员结构了，进行遍历,查询库里是否有数据，如果有则把这条stock_info从list中剔除
+        pbar = tqdm.tqdm(stock_info_list)
+        for i in pbar:
+            stock_info_search = self.query_stock_info(code=i.code)
+            if stock_info_search:
+                # TODO 判断数据是相同
+                has_different = False
+                if i.code_name != stock_info_search.code_name:
+                    stock_info_search.code_name = i.code_name
+                    has_different = True
+                if i.trade_status != stock_info_search.trade_status:
+                    stock_info_search.trade_status = i.trade_status
+                    has_different = True
+
+                if has_different:
+                    update_list.append(stock_info_search)
+            elif stock_info_search is None:
+                insert_list.append(i)
+            else:
+                pass
+            pbar.set_description(f"Querying {i.code} StockInfo")
+
+        # 批量插入Mongo
+        if len(insert_list) > 0:
+            StockInfo.objects.insert(insert_list)
+            gl.info(f'插入StockInfo {len(insert_list)} 条')
+        # 更新
+        if len(update_list) > 0:
+            pbar = tqdm.tqdm(update_list)
+            for i in pbar:
+                i.update_time()
+                i.save()
+                pbar.set_description(f"Updateing {i.code} StockInfo")
+        gl.info(f'更新StockInfo {len(update_list)} 条')
+
+        return True
+
     # 获取所有指数代码信息
-    def get_all_stock_info(self):
+    def get_all_stock_code(self):
         """
         获取所有指数代码
 
@@ -133,6 +181,7 @@ class GinkgoStorage(object):
         """
         self.__connect_mongo()
         stock_info_search = StockInfo.objects()
+
         rs = []
         for i in stock_info_search:
             rs.append(i.code)
@@ -144,85 +193,340 @@ class GinkgoStorage(object):
 
         return rs
 
-
     # 插入复权因子数据
-    def insert_adjust_factor(self):
-        pass
+    def insert_adjust_factor(self,
+                             code='sh.000000',
+                             divid_operate_date='0000-00-00',
+                             fore_adjust_factor=0,
+                             back_adjust_factor=0,
+                             adjust_factor=0):
+        """
+        向MongoDB中插入AdjustFactor数据，
+        
+        包括代号、名称、前复权、后复权、复权因子、是否为最新数据
+        """
+        self.__connect_mongo()
+        af = AdjustFactor(code=code,
+                          divid_operate_date=divid_operate_date,
+                          fore_adjust_factor=fore_adjust_factor,
+                          back_adjust_factor=back_adjust_factor,
+                          adjust_factor=adjust_factor)
+        af.save()
+        # gl.info(f'成功创建 {code} 的复权信息')
 
     # 更新复权因子
-    def update_adjust_factor(
-            self,
-            date=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            code='default',
-            divid_operate_date='00-00-00',
-            fore_adjust_factor=0,
-            back_adjust_factor=0,
-            adjust_factor=0,
-            is_latest=True):
-        # 连接MongoDB
-        self.__connect_mongo()
-        # 查重
-        adjust_factor_search = AdjustFactor.objects(
+    def update_adjust_factor(self,
+                             code='default',
+                             divid_operate_date='0000/00/00',
+                             fore_adjust_factor=0,
+                             back_adjust_factor=0,
+                             adjust_factor=0):
+        # 尝试查询数据库
+        data_search = self.query_adjust_factor(
             code=code, divid_operate_date=divid_operate_date)
-        if adjust_factor_search.count() > 0:
-            # 库中有数据
-            # 检查状态是否有改变，有则更新，
-            if adjust_factor_search.count() == 1:
-                adjust_factor = adjust_factor_search[0]
-                if adjust_factor.fore_adjust_factor == fore_adjust_factor and adjust_factor.back_adjust_factor == back_adjust_factor and adjust_factor.adjust_factor == adjust_factor and adjust_factor.is_latest == is_latest:
-                    gl.info(f"{code} {divid_operate_date} 复权数据无更新，不进行操作")
-                    return 0
-                else:
-                    adjust_factor.date = datetime.datetime.now().strftime(
-                        '%Y-%m-%d %H:%M:%S')
-                    adjust_factor.code = code
-                    adjust_factor.divid_operate_date = divid_operate_date
-                    adjust_factor.back_adjust_factor = back_adjust_factor
-                    adjust_factor.adjust_factor = adjust_factor
-                    adjust_factor.is_latest = is_latest
-                    adjust_factor.save()
-                    gl.info(f"{code} {divid_operate_date} 复权数据更新")
-                    return 1
+
+        if data_search:
+            # 更新数据
+            # 尝试更新
+            # 否则更新数据
+            has_changed = False
+
+            if data_search.code != code:
+                data_search.code = code
+                has_changed = True
+                # gl.info(f'{code} 指数信息Code代码变更')
+
+            if data_search.divid_operate_date != divid_operate_date:
+                data_search.divid_operate_date = divid_operate_date
+                has_changed = True
+                # gl.info(f'{code} divid_operate_date变更')
+
+            if data_search.fore_adjust_factor != fore_adjust_factor:
+                data_search.fore_adjust_factor = fore_adjust_factor
+                has_changed = True
+                # gl.info(f'{code} fore_adjust_factor变更')
+
+            if data_search.back_adjust_factor != back_adjust_factor:
+                data_search.back_adjust_factor = back_adjust_factor
+                has_changed = True
+                # gl.info(f'{code} back_adjust_factor变更')
+
+            if data_search.adjust_factor != adjust_factor:
+                data_search.adjust_factor = adjust_factor
+                has_changed = True
+                # gl.info(f'{code} adjust_factor变更')
+
+            if not has_changed:
+                pass
+                # gl.info(f'{code} 复权数据无更新')
             else:
-                gl.critical('数据库异常，复权数据有重复，请检查代码')
-                return 0
-
+                data_search.save()
+                # gl.info(f'{code} 复权数据更新完毕')
+                return True
+        elif data_search is None:
+            # 当查询结果为None即库内无数据，直接插入新的数据
+            self.insert_adjust_factor(code=code,
+                                      divid_operate_date=divid_operate_date,
+                                      fore_adjust_factor=fore_adjust_factor,
+                                      back_adjust_factor=back_adjust_factor,
+                                      adjust_factor=adjust_factor)
+            return True
         else:
-            # 库中没有数据,则添加数据
-            adjust_factor = AdjustFactor(
-                code=code,
-                date=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                divid_operate_date=divid_operate_date,
-                back_adjust_factor=back_adjust_factor,
-                adjust_factor=adjust_factor,
-                is_latest=is_latest)
-
-            adjust_factor.save()
+            # 数据库异常的处理
+            return False
 
     # 查询复权因子
-    def query_adjust_factor(self):
+    def query_adjust_factor(self,
+                            code='sh.600000',
+                            divid_operate_date='0000/00/00'):
+        self.__connect_mongo()
+        # gl.info(f'尝试查询 {code} {divid_operate_date} 的复权因子数据')
+        adjust_factor_search = AdjustFactor.objects(
+            code=code, divid_operate_date=divid_operate_date, is_delete=False)
+        if adjust_factor_search.count() == 1:
+            return adjust_factor_search[0]
+        elif adjust_factor_search.count() == 0:
+            # gl.info(f'{code} 复权因子数据不存在')
+            return None
+        else:
+            gl.critical(f'{code} 复权因子数据超过1条，请检查代码')
+            return False
+
+    # 批量插入复权因子
+    def insert_adjust_factor_list(self, adjust_factor_list):
+        """
+        批量插入复权因子
+        adjust_factor_list: AdjustFactor的数组
+        """
+
+        insert_list = []
+        update_list = []
+        # 校验adjust_factor_list
+        for i in adjust_factor_list:
+            if isinstance(i, AdjustFactor):
+                next
+            else:
+                gl.error('批量插入指数信息失败，adjust_factor_list 类型不匹配')
+                return False
+
+        self.__connect_mongo()
+        # 确认stock_info_list的成员结构了，进行遍历,查询库里是否有数据，如果有则把这条stock_info从list中剔除
+        pbar = tqdm.tqdm(adjust_factor_list)
+        adjust_factor_search = self.query_adjust_factor()
+
+        if adjust_factor_search:
+            for i in pbar:
+                new_list = []
+                for j in adjust_factor_search:
+                    if j.code == i.code and j.divid_operate_date == i.divid_operate_date:
+                        new_list.append(j)
+                    if len(new_list) == 1:
+                        has_different = False
+                        if i.fore_adjust_factor != j.fore_adjust_factor:
+                            j.fore_adjust_factor = i.fore_adjust_factor
+                            has_different = True
+                        if i.back_adjust_factor != j.back_adjust_factor:
+                            j.back_adjust_factor = i.back_adjust_factor
+                            has_different = True
+                        if i.adjust_factor != j.adjust_factor:
+                            j.adjust_factor = i.adjust_factor
+                            has_different = True
+                            
+                        if has_different:
+                            update_list.append(j)
+                    elif len(new_list) == 0:
+                        insert_list.append(i)
+                    elif len(new_list) > 1:
+                        gl.critical('数据库异常，AdjustFactor的数量超过1')
+
+                pbar.set_description(f"Querying {i.code} AdjustFactor")
+        elif adjust_factor_search is None:
+            for i in pbar:
+                insert_list.append(i)
+        else:
+            pass
+            
+
+        # 批量插入Mongo
+        if len(insert_list) > 0:
+            AdjustFactor.objects.insert(insert_list)
+            gl.info(f'插入AdjustFactor {len(insert_list)} 条')
+        # 更新
+        if len(update_list) > 0:
+            pbar = tqdm.tqdm(update_list)
+            for i in pbar:
+                i.update_time()
+                i.save()
+                pbar.set_description(f"Updateing {i.code} AdjustFactor")
+        gl.info(f'更新StockInfo {len(update_list)} 条')
+
+        return True
         pass
 
     # 获取某只股票的复权因子数据
-    def get_adjust_factors(self,code):
-        pass
+    def get_adjust_factors(self, code='sh.600000'):
+        self.__connect_mongo()
+        # gl.info(f'尝试查询 {code} 的复权因子数据')
+        adjust_factor_search = AdjustFactor.objects(code=code, is_latest=True)
+
+        if adjust_factor_search.count() == 0:
+            # gl.info(f'{code}复权因子数据不存在')
+            return None
+        else:
+            return adjust_factor_search
 
     # 添加Stock日交易数据
-    def insert_day_bar(self):
-        pass
+    def insert_day_bar(self,
+                       date='0000/00/00',
+                       code='sh.600000',
+                       open=0.0,
+                       high=0.0,
+                       low=0.0,
+                       close=0.0,
+                       preclose=0.0,
+                       volume=0,
+                       amount=0,
+                       adjust_flag=0,
+                       turn=0.0,
+                       trade_status=0,
+                       pct_change=0.0,
+                       is_ST=0):
+
+        self.__connect_mongo()
+        with mongoengine.context_managers.switch_collection(DayBar, code):
+            bar = DayBar(date=date,
+                         code=code,
+                         open=open,
+                         high=high,
+                         low=low,
+                         close=close,
+                         preclose=preclose,
+                         volume=volume,
+                         amount=amount,
+                         adjust_flag=adjust_flag,
+                         turn=turn,
+                         trade_status=trade_status,
+                         pct_change=pct_change,
+                         is_ST=is_ST)
+            bar.save()
+
+        # gl.info(f'成功创建 {code} {date} 的DayBar信息')
 
     # 更新Stock日交易数据
-    def update_day_bar(self):
-        pass
+    def update_day_bar(self,
+                       date='0000/00/00',
+                       code='sh.600000',
+                       open=0.0,
+                       high=0.0,
+                       low=0.0,
+                       close=0.0,
+                       preclose=0.0,
+                       volume=0,
+                       amount=0,
+                       adjust_flag=0,
+                       turn=0.0,
+                       trade_status=0,
+                       pct_change=0.0,
+                       is_ST=0):
+        # 尝试查询数据库
+        day_bar_search = self.query_day_bar(code=code, date=date)
+        if day_bar_search:
+            # 更新数据
+            has_changed = False
+            if day_bar_search.open != open:
+                day_bar_search.open = open
+                has_changed = True
+            if day_bar_search.high != high:
+                day_bar_search.high = high
+                has_changed = True
+            if day_bar_search.low != low:
+                day_bar_search.low = low
+                has_changed = True
+            if day_bar_search.close != close:
+                day_bar_search.close = close
+                has_changed = True
+            if day_bar_search.preclose != preclose:
+                day_bar_search.preclose = preclose
+                has_changed = True
+            if day_bar_search.volume != volume:
+                day_bar_search.volume = volume
+                has_changed = True
+            if day_bar_search.amount != amount:
+                day_bar_search.amount = amount
+                has_changed = True
+            if day_bar_search.adjust_flag != adjust_flag:
+                day_bar_search.adjust_flag = adjust_flag
+                has_changed = True
+            if day_bar_search.turn != turn:
+                day_bar_search.turn = turn
+                has_changed = True
+            if day_bar_search.trade_status != trade_status:
+                day_bar_search.trade_status = trade_status
+                has_changed = True
+            if day_bar_search.pct_change != pct_change:
+                day_bar_search.pct_change = pct_change
+                has_changed = True
+            if day_bar_search.is_ST != is_ST:
+                day_bar_search.is_ST = is_ST
+                has_changed = True
+
+            if has_changed:
+                day_bar_search.update_time()
+                day_bar_search.save()
+                # gl.info(f'{code} 日交易数据已更新')
+            else:
+                # gl.info(f'{code} 日交易数据无更新')
+                pass
+
+        elif day_bar_search is None:
+            # 插入数据
+            self.insert_day_bar(date=date,
+                                code=code,
+                                open=open,
+                                high=high,
+                                low=low,
+                                close=close,
+                                preclose=preclose,
+                                volume=volume,
+                                amount=amount,
+                                adjust_flag=adjust_flag,
+                                turn=turn,
+                                trade_status=trade_status,
+                                pct_change=pct_change,
+                                is_ST=is_ST)
+        else:
+            return False
 
     # 查询Stock日交易数据
-    def query_day_bar(self):
-        pass
+    def query_day_bar(self, code='sh.600000', date='0000/00/00'):
+        self.__connect_mongo()
+        with mongoengine.context_managers.switch_collection(DayBar, code):
+            # gl.info(f'尝试查询 {code} {date} 的日交易数据')
+            day_bar_search = DayBar.objects(code=code, date=date)
+            if day_bar_search.count() == 1:
+                return day_bar_search[0]
+            elif day_bar_search.count() == 0:
+                # gl.info(f'{code} {date} 日交易数据不存在')
+                return None
+            else:
+                gl.critical(f'{code} {date} 日交易数据超过1条，请检查代码')
+                return False
+            pass
+
+    # 插入Stock 5min交易数据
+
+    # 更新Stock 5min交易数据
+
+    # 查询Stock 5min交易数据
 
     def test(self, *args, **kwargs):
         # self.update_stock_info(has_min_bar=False, trade_status=0)
         # self.get_all_stock_code()
-        r = self.filter_stock_info(code='sh.000001')
+        # r = self.query_stock_info(code='sh.000001')
+        # self.insert_day_bar(code='sh.002001')
+        # s = self.query_day_bar('sh.002001')
+        # print(s)
+        pass
 
 
 ginkgo_storage = GinkgoStorage()

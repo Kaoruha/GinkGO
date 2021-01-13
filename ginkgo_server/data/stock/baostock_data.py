@@ -79,7 +79,7 @@ class BaoStockData(object):
     def get_data(self,
                  code='sh.600000',
                  data_frequency='d',
-                 start_date='init_date',
+                 start_date=init_date,
                  end_date='2006-02-01'):
         """
         从baostock获取数据
@@ -113,6 +113,11 @@ class BaoStockData(object):
                                               end_date=end_date,
                                               frequency=frequency,
                                               adjustflag='3')
+
+            print(start_date, end_date)
+            print('=' * 40)
+            print(rs)
+            print('=' * 40)
             if rs.error_code == '0':
                 # 打印结果集
                 while (rs.error_code == '0') & rs.next():
@@ -122,9 +127,9 @@ class BaoStockData(object):
                 gl.info(f'成功获取 {code} 从 {start_date} 至 {end_date} 的数据')
             else:
                 gl.error('query_history_k_data_plus respond error_code:' +
-                      rs.error_code)
+                         rs.error_code)
                 gl.error('query_history_k_data_plus respond  error_msg:' +
-                      rs.error_msg)
+                         rs.error_msg)
             result = pd.DataFrame(data_list, columns=rs.fields)
             return result
 
@@ -145,8 +150,7 @@ class BaoStockData(object):
                             datetime.timedelta(days=offset *
                                                (i + 1))).strftime("%Y-%m-%d")
             now = datetime.datetime.now().strftime('%H:%M:%S')
-            gl.info(
-                f'\r尝试获取 {code} 从 {start_temp} 至 {end_temp} 的数据 {now}')
+            gl.info(f'\r尝试获取 {code} 从 {start_temp} 至 {end_temp} 的数据 {now}')
             rs = bs.query_history_k_data_plus(code,
                                               dimension,
                                               start_date=start_temp,
@@ -161,9 +165,9 @@ class BaoStockData(object):
                 gl.info(f'\r成功获取 {code} 从 {start_temp} 至 {end_temp} 的数据')
             else:
                 gl.error(f'query_history_k_data_plus respond error_code:' +
-                      rs.error_code)
+                         rs.error_code)
                 gl.error('query_history_k_data_plus respond  error_msg:' +
-                      rs.error_msg)
+                         rs.error_msg)
         result = pd.DataFrame(data_list, columns=rs.fields)
         return result
 
@@ -195,44 +199,44 @@ class BaoStockData(object):
     #     if type(data_or_code) == pd.core.frame.DataFrame:
     #         last_date = data_or_code.iloc[-1].date
     #     elif type(data_or_code) == str:
-            # 数据库查询
-            # date_data = pd.read_csv(STOCK_URL + path + data_or_code + '.csv',
-            #                         usecols=['date'])
-            # if date_data.count().date == 0:
-            #     print(f'{data_or_code}.csv 无数据')
-            #     return 0
-            # else:
-            #     last_date = date_data.iloc[-1].date
-        # return last_date
+    # 数据库查询
+    # date_data = pd.read_csv(STOCK_URL + path + data_or_code + '.csv',
+    #                         usecols=['date'])
+    # if date_data.count().date == 0:
+    #     print(f'{data_or_code}.csv 无数据')
+    #     return 0
+    # else:
+    #     last_date = date_data.iloc[-1].date
+    # return last_date
 
     # 通过获取sh.000001的日交易数据来获取数据最新,目前往前推10天
-    # def get_baostock_last_date(self):
-    #     """
-    #     通过获取sh.000001的日交易数据来获取数据最新,目前往前推10天
-    #     :return: 返回baostock的最新更新日期
-    #     """
-    #     daily_query = 'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST'
-    #     start_date = (datetime.datetime.now().date() +
-    #                   datetime.timedelta(days=-10)).strftime("%Y-%m-%d")
-    #     today = datetime.datetime.now().strftime('%Y-%m-%d')
-    #     self.login()
-    #     rs = bs.query_history_k_data_plus('sh.000001',
-    #                                       daily_query,
-    #                                       start_date=start_date,
-    #                                       end_date=today,
-    #                                       frequency='d',
-    #                                       adjustflag='3')
-    #     result = None
-    #     if rs.error_code == '0':
-    #         # 打印结果集
-    #         data_list = []
-    #         while (rs.error_code == '0') & rs.next():
-    #             # 获取一条记录，将记录合并在一起
-    #             data_list.append(rs.get_row_data())
-    #         result = pd.DataFrame(data_list, columns=rs.fields)
-    #     last_date = result.iloc[-1].date
-    #     self.logout()
-    #     return last_date
+    def get_baostock_last_date(self):
+        """
+        通过获取sh.000001的日交易数据来获取数据最新,目前往前推10天
+        :return: 返回baostock的最新更新日期
+        """
+        daily_query = 'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST'
+        start_date = (datetime.datetime.now().date() +
+                      datetime.timedelta(days=-10)).strftime("%Y-%m-%d")
+        today = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.login()
+        rs = bs.query_history_k_data_plus('sh.000001',
+                                          daily_query,
+                                          start_date=start_date,
+                                          end_date=today,
+                                          frequency='d',
+                                          adjustflag='3')
+        result = None
+        if rs.error_code == '0':
+            # 打印结果集
+            data_list = []
+            while (rs.error_code == '0') & rs.next():
+                # 获取一条记录，将记录合并在一起
+                data_list.append(rs.get_row_data())
+            result = pd.DataFrame(data_list, columns=rs.fields)
+        last_date = result.iloc[-1].date
+        self.logout()
+        return last_date
 
     # 根据数据频率设定文件目录
     # def set_path(self, data_frequency):
@@ -313,7 +317,7 @@ class BaoStockData(object):
     #                                       data_frequency=data_frequency)
     #             _output.write(f'\r{code} 已经更新至 {last}')
     #     print(f'\n{code}.csv 已经更新至 {last}')
-        # self.sleep(1)
+    # self.sleep(1)
 
     # 生成分钟数据黑名单，把没有分钟数据的指数存入
     # def generate_min_ignore(self):
@@ -495,15 +499,14 @@ class BaoStockData(object):
     def get_adjust_factor(self, code):
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         rs_list = []
-        gl.info(f'尝试获取 {code} 复权因子数据。。。')
+        # gl.info(f'尝试获取 {code} 复权因子数据。。。')
         rs_factor = bs.query_adjust_factor(code=code,
                                            start_date=self.init_date,
                                            end_date=today)
         while (rs_factor.error_code == '0') & rs_factor.next():
             rs_list.append(rs_factor.get_row_data())
         result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
-        print(len(rs_list))
-        gl.info(f'成功获取 {code} 复权因子数据')
+        # gl.info(f'成功获取 {code} 复权因子数据 {len(rs_list)}条')
         return result_factor
 
     # 生成复权因子数据CSV
@@ -597,26 +600,21 @@ class BaoStockData(object):
 
 bao_instance = BaoStockData()
 
-
 # TODO 没有目录的时候，文件生成目录
 # TODO 多线程管理
 # TODO 允许查询更新进度
 # TODO 僵尸请求自动重新请求
 
-
 # def update_all_stock():
 #     bao_instance.update_all_stock()
 
-
 # def update_all_adjust_factor():
 #     bao_instance.all_adjust_factor_up_to_date()
-
 
 # def start_update_all_stock():
 #     t = threading.Thread(target=update_all_stock,
 #                          name='BaoStock_update_all_stock')
 #     thread_manager.thread_register(t)
-
 
 # def start_update_adjust_factor():
 #     t = threading.Thread(target=update_all_adjust_factor,
