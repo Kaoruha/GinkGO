@@ -14,7 +14,7 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 # gs.add_stock_info(code='hhhh')
 # gs.test()
 
-gdp.update_all_cn_stock_info()
+# gdp.update_all_cn_stock_info()
 gdp.update_all_cn_adjust_factor()
 # gs.get_all_stock_code()
 

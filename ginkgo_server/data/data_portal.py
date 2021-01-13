@@ -84,10 +84,13 @@ class DataPortal(object):
                         adjust_factor=adjust_factor)
                     
                     adjust_factor_list.append(new_ajust_factor)
+                if len(adjust_factor_list)>0:
+                    gs.insert_adjust_factor_list(adjust_factor_list)
+                    adjust_factor_list = []
 
             pbar.set_description(f"Getting {i} AdjustFactor")
 
-        gs.insert_adjust_factor_list(adjust_factor_list)
+        
 
     def get_adjust_factor(self, code='sh.000001'):
         result = gs.get_adjust_factors(code=code)

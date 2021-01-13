@@ -311,11 +311,10 @@ class GinkgoStorage(object):
 
         self.__connect_mongo()
         # 确认stock_info_list的成员结构了，进行遍历,查询库里是否有数据，如果有则把这条stock_info从list中剔除
-        pbar = tqdm.tqdm(adjust_factor_list)
-        adjust_factor_search = self.query_adjust_factor()
+        adjust_factor_search = AdjustFactor.objects()
 
         if adjust_factor_search:
-            for i in pbar:
+            for i in adjust_factor_list:
                 new_list = []
                 for j in adjust_factor_search:
                     if j.code == i.code and j.divid_operate_date == i.divid_operate_date:
@@ -350,7 +349,7 @@ class GinkgoStorage(object):
         # 批量插入Mongo
         if len(insert_list) > 0:
             AdjustFactor.objects.insert(insert_list)
-            gl.info(f'插入AdjustFactor {len(insert_list)} 条')
+            # gl.info(f'插入AdjustFactor {len(insert_list)} 条')
         # 更新
         if len(update_list) > 0:
             pbar = tqdm.tqdm(update_list)
@@ -358,7 +357,7 @@ class GinkgoStorage(object):
                 i.update_time()
                 i.save()
                 pbar.set_description(f"Updateing {i.code} AdjustFactor")
-        gl.info(f'更新StockInfo {len(update_list)} 条')
+            # gl.info(f'更新StockInfo {len(update_list)} 条')
 
         return True
         pass
