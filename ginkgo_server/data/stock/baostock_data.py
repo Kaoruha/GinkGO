@@ -48,7 +48,8 @@ class BaoStockData(object):
             gl.error('\rlogin respond error_code:' + lg.error_code)
             gl.error('\rlogin respond  error_msg:' + lg.error_msg)
         else:
-            gl.info('Baostock Login Success')
+            pass
+            # gl.info('Baostock Login Success')
 
     # baostock 退出
     def logout(self):
@@ -94,7 +95,7 @@ class BaoStockData(object):
         dimension = daily_query
         frequency = 'd'
         now = datetime.datetime.now().strftime('%H:%M:%S')
-        gl.info(f'尝试获取 {code} 数据 {now}')
+        # gl.info(f'尝试获取 {code} 数据 {now}')
         # 根据查询数据的频率，修正查询数据的维度与频率
         if data_frequency == 'd':
             dimension = daily_query
@@ -114,17 +115,13 @@ class BaoStockData(object):
                                               frequency=frequency,
                                               adjustflag='3')
 
-            print(start_date, end_date)
-            print('=' * 40)
-            print(rs)
-            print('=' * 40)
             if rs.error_code == '0':
                 # 打印结果集
                 while (rs.error_code == '0') & rs.next():
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
                 # TODO 进度条
-                gl.info(f'成功获取 {code} 从 {start_date} 至 {end_date} 的数据')
+                # gl.info(f'成功获取 {code} 从 {start_date} 至 {end_date} 的数据')
             else:
                 gl.error('query_history_k_data_plus respond error_code:' +
                          rs.error_code)
@@ -434,7 +431,7 @@ class BaoStockData(object):
         """
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         # 获取证券信息
-        self.login()
+        # self.login()
         rs = bs.query_all_stock(day='2020-08-07')
         # rs = bs.query_all_stock(day='2020-07-17')
 
@@ -461,7 +458,7 @@ class BaoStockData(object):
         """
         try:
             min_ignore = self.read_min_ignore()
-            self.login()
+            # self.login()
             code = pd.read_csv(STOCK_URL + 'all_stock.csv', usecols=['code'])
             count = code.count().code
             end = self.get_baostock_last_date()

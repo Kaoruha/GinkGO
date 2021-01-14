@@ -53,6 +53,7 @@ class DataPortal(object):
                                       code_name=code_name,
                                       trade_status=trade_status)
                 stock_info_list.append(new_stock)
+
             gs.insert_stock_info_list(stock_info_list)
 
     def update_all_cn_adjust_factor(self):
@@ -60,8 +61,8 @@ class DataPortal(object):
         更新所有CN指数的复权数据
         """
         stock_list = gs.get_all_stock_code()
-        bao_instance.login()
         adjust_factor_list = []
+        # pbar = tqdm.tqdm(stock_list[100:400])
         pbar = tqdm.tqdm(stock_list)
         for i in pbar:
             rs = bao_instance.get_adjust_factor(code=i)
@@ -71,10 +72,13 @@ class DataPortal(object):
             else:
                 for s in range(rs.shape[0]):
                     code = rs.iloc[s].loc['code']
-                    divid_operate_date = rs.iloc[s].loc['dividOperateDate']
-                    fore_adjust_factor = rs.iloc[s].loc['foreAdjustFactor']
-                    back_adjust_factor = rs.iloc[s].loc['backAdjustFactor']
-                    adjust_factor = rs.iloc[s].loc['adjustFactor']
+                    divid_operate_date = str(
+                        rs.iloc[s].loc['dividOperateDate'])
+                    fore_adjust_factor = float(
+                        rs.iloc[s].loc['foreAdjustFactor'])
+                    back_adjust_factor = float(
+                        rs.iloc[s].loc['backAdjustFactor'])
+                    adjust_factor = float(rs.iloc[s].loc['adjustFactor'])
 
                     new_ajust_factor = AdjustFactor(
                         code=code,
@@ -82,15 +86,14 @@ class DataPortal(object):
                         fore_adjust_factor=fore_adjust_factor,
                         back_adjust_factor=back_adjust_factor,
                         adjust_factor=adjust_factor)
-                    
-                    adjust_factor_list.append(new_ajust_factor)
-                if len(adjust_factor_list)>0:
-                    gs.insert_adjust_factor_list(adjust_factor_list)
-                    adjust_factor_list = []
 
+                    adjust_factor_list.append(new_ajust_factor)
             pbar.set_description(f"Getting {i} AdjustFactor")
 
-        
+        gl.info(f'获取复权因子数据{len(adjust_factor_list)}条.')
+
+        if len(adjust_factor_list) > 0:
+            gs.insert_adjust_factor_list(adjust_factor_list)
 
     def get_adjust_factor(self, code='sh.000001'):
         result = gs.get_adjust_factors(code=code)
@@ -99,47 +102,42 @@ class DataPortal(object):
     def update_stock_day_bar(self, code='sh.000001'):
         # 获取数据
         end = bao_instance.get_baostock_last_date()
+        # TOOD 获取当前最新的数据日期
+        
         rs = bao_instance.get_data(code=code, data_frequency='d', end_date=end)
-        print(rs.columns)
+        # rs = rs[:200]
         # 判断数据Len
         # 存储数据
+        insert_list = []
         if rs.shape[0] > 0:
             for i in range(rs.shape[0]):
-                date = rs.iloc[i].date
-                open = rs.iloc[i].open
-                high = rs.iloc[i].high
-                low = rs.iloc[i].low
-                close = rs.iloc[i].close
-                preclose = rs.iloc[i].preclose
-                volume = rs.iloc[i].volume
-                amount = rs.iloc[i].amount
-                adjust_flag = rs.iloc[i].adjustflag
-                turn = rs.iloc[i].turn
-                trade_status = rs.iloc[i].tradestatus
-                pct_change = rs.iloc[i].pctChg
-                is_ST = rs.iloc[i].isST
-
-                gs.update_day_bar(code=code,
-                                  date=date,
-                                  open=float(open),
-                                  high=float(high),
-                                  low=float(low),
-                                  close=float(close),
-                                  preclose=float(preclose),
-                                  volume=float(volume),
-                                  amount=float(amount),
-                                  adjust_flag=adjust_flag,
-                                  turn=float(turn),
-                                  trade_status=trade_status,
-                                  pct_change=float(pct_change),
-                                  is_ST=is_ST)
+                day_bar = DayBar(code=code,
+                                 date=str(rs.iloc[i].date),
+                                 open=float(rs.iloc[i].open),
+                                 high=float(rs.iloc[i].high),
+                                 low=float(rs.iloc[i].low),
+                                 close=float(rs.iloc[i].close),
+                                 preclose=float(rs.iloc[i].preclose),
+                                 volume=float(rs.iloc[i].volume),
+                                 amount=float(rs.iloc[i].amount),
+                                 adjust_flag=int(rs.iloc[i].adjustflag),
+                                 turn=float(rs.iloc[i].turn),
+                                 trade_status=int(rs.iloc[i].tradestatus),
+                                 pct_change=float(rs.iloc[i].pctChg),
+                                 is_ST=str(rs.iloc[i].isST))
+                insert_list.append(day_bar)
+        gs.insert_day_bar_list(code=code, day_bar_list=insert_list)
 
     def update_all_stock_day_bar(self):
         # 获取所有指数代码
         stock_list = gs.get_all_stock_code()
+        stock_list = stock_list[:20]
         # 遍历更新
-        for i in stock_list:
+        pbar = tqdm.tqdm(stock_list)
+        for i in pbar:
+            bao_instance.login()
             self.update_stock_day_bar(code=i)
+            pbar.set_description(f"Update {i} DayBar")
 
 
 data_portal = DataPortal()

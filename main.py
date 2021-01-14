@@ -15,10 +15,10 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 # gs.test()
 
 # gdp.update_all_cn_stock_info()
-gdp.update_all_cn_adjust_factor()
+# gdp.update_all_cn_adjust_factor()
 # gs.get_all_stock_code()
 
 # gdp.update_stock_day_bar(code='sh.000001')
 
-# gdp.update_all_stock_day_bar()
+gdp.update_all_stock_day_bar()
 

@@ -128,9 +128,7 @@ class GinkgoStorage(object):
         update_list = []
         # 校验stock_info_list
         for i in stock_info_list:
-            if isinstance(i, StockInfo):
-                next
-            else:
+            if not isinstance(i, StockInfo):
                 gl.error('批量插入指数信息失败，stock_info_list 类型不匹配')
                 return False
 
@@ -140,7 +138,6 @@ class GinkgoStorage(object):
         for i in pbar:
             stock_info_search = self.query_stock_info(code=i.code)
             if stock_info_search:
-                # TODO 判断数据是相同
                 has_different = False
                 if i.code_name != stock_info_search.code_name:
                     stock_info_search.code_name = i.code_name
@@ -160,7 +157,7 @@ class GinkgoStorage(object):
         # 批量插入Mongo
         if len(insert_list) > 0:
             StockInfo.objects.insert(insert_list)
-            gl.info(f'插入StockInfo {len(insert_list)} 条')
+        gl.info(f'插入StockInfo {len(insert_list)} 条')
         # 更新
         if len(update_list) > 0:
             pbar = tqdm.tqdm(update_list)
@@ -301,55 +298,65 @@ class GinkgoStorage(object):
 
         insert_list = []
         update_list = []
-        # 校验adjust_factor_list
+
+        # 校验 adjust_factor_list
         for i in adjust_factor_list:
-            if isinstance(i, AdjustFactor):
-                next
-            else:
+            if not isinstance(i, AdjustFactor):
                 gl.error('批量插入指数信息失败，adjust_factor_list 类型不匹配')
                 return False
 
+        # 数据库连接
         self.__connect_mongo()
-        # 确认stock_info_list的成员结构了，进行遍历,查询库里是否有数据，如果有则把这条stock_info从list中剔除
+
+        # 确认了stock_info_list的成员结构
+        # 进行遍历,查询库里是否有数据，如果有则把这条stock_info从list中剔除
         adjust_factor_search = AdjustFactor.objects()
 
-        if adjust_factor_search:
-            for i in adjust_factor_list:
-                new_list = []
+        gl.info(f'库中已经有 AdjustFactor {len(adjust_factor_search)} 条')
+
+        if len(adjust_factor_search) > 0:
+            # 查重
+            # 库里有数据，则遍历
+            pbar = tqdm.tqdm(adjust_factor_list)
+            for i in pbar:
+                to_update_list = []
                 for j in adjust_factor_search:
                     if j.code == i.code and j.divid_operate_date == i.divid_operate_date:
-                        new_list.append(j)
-                    if len(new_list) == 1:
-                        has_different = False
-                        if i.fore_adjust_factor != j.fore_adjust_factor:
-                            j.fore_adjust_factor = i.fore_adjust_factor
-                            has_different = True
-                        if i.back_adjust_factor != j.back_adjust_factor:
-                            j.back_adjust_factor = i.back_adjust_factor
-                            has_different = True
-                        if i.adjust_factor != j.adjust_factor:
-                            j.adjust_factor = i.adjust_factor
-                            has_different = True
-                            
-                        if has_different:
-                            update_list.append(j)
-                    elif len(new_list) == 0:
-                        insert_list.append(i)
-                    elif len(new_list) > 1:
-                        gl.critical('数据库异常，AdjustFactor的数量超过1')
+                        # 如果有Code与复权日相同的数据，则添加到待更新列表
+                        to_update_list.append(j)
+
+                if len(to_update_list) == 1:
+                    # 待更新列表有且只有一个，则判断数值是否相同，如有不同，添加到更新列表
+                    is_different = False
+                    columns = [
+                        'fore_adjust_factor', 'back_adjust_factor',
+                        'adjust_factor'
+                    ]
+                    for c in columns:
+                        if i[c] != to_update_list[0][c]:
+                            is_different = True
+                            to_update_list[0][c] = i[c]
+
+                    if is_different:
+                        update_list.append(to_update_list[0])
+                elif len(to_update_list) == 0:
+                    insert_list.append(i)
+
+                elif len(to_update_list) > 1:
+                    gl.critical('数据库异常，AdjustFactor的数量超过1')
 
                 pbar.set_description(f"Querying {i.code} AdjustFactor")
-        elif adjust_factor_search is None:
-            for i in pbar:
-                insert_list.append(i)
         else:
-            pass
-            
+            # 库里不存在
+            for i in adjust_factor_list:
+                insert_list.append(i)
 
         # 批量插入Mongo
         if len(insert_list) > 0:
+            # for i in insert_list:
+            # i.update()
             AdjustFactor.objects.insert(insert_list)
-            # gl.info(f'插入AdjustFactor {len(insert_list)} 条')
+        gl.info(f'插入AdjustFactor {len(insert_list)} 条')
         # 更新
         if len(update_list) > 0:
             pbar = tqdm.tqdm(update_list)
@@ -357,10 +364,9 @@ class GinkgoStorage(object):
                 i.update_time()
                 i.save()
                 pbar.set_description(f"Updateing {i.code} AdjustFactor")
-            # gl.info(f'更新StockInfo {len(update_list)} 条')
+        gl.info(f'更新StockInfo {len(update_list)} 条')
 
         return True
-        pass
 
     # 获取某只股票的复权因子数据
     def get_adjust_factors(self, code='sh.600000'):
@@ -511,6 +517,45 @@ class GinkgoStorage(object):
                 gl.critical(f'{code} {date} 日交易数据超过1条，请检查代码')
                 return False
             pass
+
+    # 批量插入日交易数据
+    def insert_day_bar_list(self, code, day_bar_list):
+        """
+        批量插入日交易数据
+        code:代码编号，用来确定数据插入到哪个集合
+        day_bar_list: Daybar的数组
+        """
+
+        insert_list = []
+        update_list = []
+
+        # 校验 adjust_factor_list
+        for i in day_bar_list:
+            if not isinstance(i, DayBar):
+                gl.error('批量插入日交易信息失败，day_bar_list 类型不匹配')
+                return False
+
+        # 数据库连接
+        self.__connect_mongo()
+        # 确认了day_bar_list的成员结构
+        with mongoengine.context_managers.switch_collection(DayBar, code):
+            for i in day_bar_list:
+                DayBar.objects(date=i.date).update_one(
+                    upsert=True,
+                    code=i.code,
+                    open=i.open,
+                    high=i.high,
+                    low=i.low,
+                    close=i.close,
+                    preclose=i.preclose,
+                    volume=i.volume,
+                    amount=i.amount,
+                    adjust_flag=i.adjust_flag,
+                    turn=i.turn,
+                    tradestatus=i.tradestatus,
+                    pct_change=i.pct_change,
+                    is_ST=i.is_ST)
+        return True
 
     # 插入Stock 5min交易数据
 

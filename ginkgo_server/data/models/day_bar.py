@@ -5,7 +5,7 @@ from ginkgo_server.data.models.base_model import BaseModel
 
 class DayBar(BaseModel):
     __abstract__ = True
-    date = StringField(max_length=40)
+    date = StringField(max_length=40,primary_key=True)
     code = StringField(max_length=40)
     open = FloatField()
     high = FloatField()
