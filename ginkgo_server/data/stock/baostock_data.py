@@ -10,7 +10,7 @@ from ginkgo_server.libs.ginkgo_logger import ginkgo_logger as gl
 
 class BaoStockData(object):
     _instance_lock = threading.Lock()
-    init_date = '1999-07-26'
+    init_date = "1999-07-26"
     data_split = 10000
 
     # TODO 文件操作的异常回滚
@@ -19,9 +19,9 @@ class BaoStockData(object):
         self.__init_dir()
 
     def __new__(cls, *args, **kwargs):
-        if not hasattr(cls, '_instance'):
+        if not hasattr(cls, "_instance"):
             with BaoStockData._instance_lock:
-                if not hasattr(cls, '_instance'):
+                if not hasattr(cls, "_instance"):
                     BaoStockData._instance = super().__new__(cls)
 
             return BaoStockData._instance
@@ -43,10 +43,10 @@ class BaoStockData(object):
         baostock 登录
         :return:
         """
-        lg = bs.login(user_id='anonymous', password='123456')
-        if not lg.error_code == '0':
-            gl.error('\rlogin respond error_code:' + lg.error_code)
-            gl.error('\rlogin respond  error_msg:' + lg.error_msg)
+        lg = bs.login(user_id="anonymous", password="123456")
+        if not lg.error_code == "0":
+            gl.error("\rlogin respond error_code:" + lg.error_code)
+            gl.error("\rlogin respond  error_msg:" + lg.error_msg)
         else:
             pass
             # gl.info('Baostock Login Success')
@@ -73,15 +73,17 @@ class BaoStockData(object):
             elapse = int(rate * process_max)
             # _output.write(f'\r还需等待 {t / 10:.1f} 秒 |' + '#' * elapse + ' ' *
             #               (process_max - elapse) + f'| {rate*100:.1f}%')
-            time.sleep(.1)
+            time.sleep(0.1)
         # print('\r\n')
 
     # 从 baostock 获取数据
-    def get_data(self,
-                 code='sh.600000',
-                 data_frequency='d',
-                 start_date=init_date,
-                 end_date='2006-02-01'):
+    def get_data(
+        self,
+        code="sh.600000",
+        data_frequency="d",
+        start_date=init_date,
+        end_date="2006-02-01",
+    ):
         """
         从baostock获取数据
         :param code: 股票/指数 代码
@@ -90,81 +92,85 @@ class BaoStockData(object):
         :param end_date: 截至日期
         :return: 返回一个DataFrame数据
         """
-        daily_query = 'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST'
-        min_query = 'date,time,code,open,high,low,close,volume,amount,adjustflag'
+        daily_query = "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST"
+        min_query = "date,time,code,open,high,low,close,volume,amount,adjustflag"
         dimension = daily_query
-        frequency = 'd'
-        now = datetime.datetime.now().strftime('%H:%M:%S')
+        frequency = "d"
+        now = datetime.datetime.now().strftime("%H:%M:%S")
         # gl.info(f'尝试获取 {code} 数据 {now}')
         # 根据查询数据的频率，修正查询数据的维度与频率
-        if data_frequency == 'd':
+        if data_frequency == "d":
             dimension = daily_query
-            frequency = 'd'
-        elif data_frequency == '5':
+            frequency = "d"
+        elif data_frequency == "5":
             dimension = min_query
-            frequency = '5'
+            frequency = "5"
 
         data_list = []
 
         # 如果需要获取日交易数据，直接发送一个请求
-        if data_frequency == 'd':
-            rs = bs.query_history_k_data_plus(code,
-                                              dimension,
-                                              start_date=start_date,
-                                              end_date=end_date,
-                                              frequency=frequency,
-                                              adjustflag='3')
+        if data_frequency == "d":
+            rs = bs.query_history_k_data_plus(
+                code,
+                dimension,
+                start_date=start_date,
+                end_date=end_date,
+                frequency=frequency,
+                adjustflag="3",
+            )
 
-            if rs.error_code == '0':
+            if rs.error_code == "0":
                 # 打印结果集
-                while (rs.error_code == '0') & rs.next():
+                while (rs.error_code == "0") & rs.next():
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
                 # TODO 进度条
                 # gl.info(f'成功获取 {code} 从 {start_date} 至 {end_date} 的数据')
             else:
-                gl.error('query_history_k_data_plus respond error_code:' +
-                         rs.error_code)
-                gl.error('query_history_k_data_plus respond  error_msg:' +
-                         rs.error_msg)
+                gl.error(
+                    "query_history_k_data_plus respond error_code:" + rs.error_code
+                )
+                gl.error("query_history_k_data_plus respond  error_msg:" + rs.error_msg)
             result = pd.DataFrame(data_list, columns=rs.fields)
             return result
 
         # 如果需要获取的是5min交易数据，分段获取
-        start = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
-        end = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+        start = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+        end = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
         total_days = (end - start).days
         offset = 365 * 2
 
         for i in range(int(total_days / offset) + 1):
-            start_temp = (
-                start +
-                datetime.timedelta(days=offset * i)).strftime("%Y-%m-%d")
+            start_temp = (start + datetime.timedelta(days=offset * i)).strftime(
+                "%Y-%m-%d"
+            )
             if i == int(total_days / offset):
                 end_temp = end_date
             else:
-                end_temp = (start +
-                            datetime.timedelta(days=offset *
-                                               (i + 1))).strftime("%Y-%m-%d")
-            now = datetime.datetime.now().strftime('%H:%M:%S')
-            gl.info(f'\r尝试获取 {code} 从 {start_temp} 至 {end_temp} 的数据 {now}')
-            rs = bs.query_history_k_data_plus(code,
-                                              dimension,
-                                              start_date=start_temp,
-                                              end_date=end_temp,
-                                              frequency=frequency,
-                                              adjustflag='3')
-            if rs.error_code == '0':
+                end_temp = (start + datetime.timedelta(days=offset * (i + 1))).strftime(
+                    "%Y-%m-%d"
+                )
+            now = datetime.datetime.now().strftime("%H:%M:%S")
+            # gl.info(f"\r尝试获取 {code} 从 {start_temp} 至 {end_temp} 的数据 {now}")
+            rs = bs.query_history_k_data_plus(
+                code,
+                dimension,
+                start_date=start_temp,
+                end_date=end_temp,
+                frequency=frequency,
+                adjustflag="3",
+            )
+            if rs.error_code == "0":
                 # 打印结果集
-                while (rs.error_code == '0') & rs.next():
+                while (rs.error_code == "0") & rs.next():
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
-                gl.info(f'\r成功获取 {code} 从 {start_temp} 至 {end_temp} 的数据')
+                # gl.info(f"\r成功获取 {code} 从 {start_temp} 至 {end_temp} 的数据")
             else:
-                gl.error(f'query_history_k_data_plus respond error_code:' +
-                         rs.error_code)
-                gl.error('query_history_k_data_plus respond  error_msg:' +
-                         rs.error_msg)
+                gl.error(
+                    f"query_history_k_data_plus respond error_code:" + rs.error_code
+                )
+                gl.error("query_history_k_data_plus respond  error_msg:" + rs.error_msg)
         result = pd.DataFrame(data_list, columns=rs.fields)
         return result
 
@@ -212,22 +218,25 @@ class BaoStockData(object):
         通过获取sh.000001的日交易数据来获取数据最新,目前往前推10天
         :return: 返回baostock的最新更新日期
         """
-        daily_query = 'date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST'
-        start_date = (datetime.datetime.now().date() +
-                      datetime.timedelta(days=-10)).strftime("%Y-%m-%d")
-        today = datetime.datetime.now().strftime('%Y-%m-%d')
+        daily_query = "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST"
+        start_date = (
+            datetime.datetime.now().date() + datetime.timedelta(days=-10)
+        ).strftime("%Y-%m-%d")
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
         self.login()
-        rs = bs.query_history_k_data_plus('sh.000001',
-                                          daily_query,
-                                          start_date=start_date,
-                                          end_date=today,
-                                          frequency='d',
-                                          adjustflag='3')
+        rs = bs.query_history_k_data_plus(
+            "sh.000001",
+            daily_query,
+            start_date=start_date,
+            end_date=today,
+            frequency="d",
+            adjustflag="3",
+        )
         result = None
-        if rs.error_code == '0':
+        if rs.error_code == "0":
             # 打印结果集
             data_list = []
-            while (rs.error_code == '0') & rs.next():
+            while (rs.error_code == "0") & rs.next():
                 # 获取一条记录，将记录合并在一起
                 data_list.append(rs.get_row_data())
             result = pd.DataFrame(data_list, columns=rs.fields)
@@ -385,7 +394,7 @@ class BaoStockData(object):
         pass
 
     # 更新一只股票数据
-    def update_one_stock(self, code='sh.600000', data_frequency='d', end=''):
+    def update_one_stock(self, code="sh.600000", data_frequency="d", end=""):
         """
         更新一只股票数据
         :param code: 股票代码
@@ -394,34 +403,38 @@ class BaoStockData(object):
         :return:
         """
         try:
-            last_date = self.get_last_date(data_or_code=code,
-                                           data_frequency=data_frequency)
-            if end == '':
+            last_date = self.get_last_date(
+                data_or_code=code, data_frequency=data_frequency
+            )
+            if end == "":
                 end = self.get_baostock_last_date()
             if last_date == end:
-                print(f'{code} 无需更新，最新日期为 {end}')
+                print(f"{code} 无需更新，最新日期为 {end}")
                 return
-            start = (datetime.datetime.strptime(last_date, '%Y-%m-%d').date() +
-                     datetime.timedelta(days=1)).strftime('%Y-%m-%d')
-            add_data = self.get_data(code=code,
-                                     data_frequency=data_frequency,
-                                     start_date=start,
-                                     end_date=end)
-            self.add_to_csv(code=code,
-                            data_frequency=data_frequency,
-                            data_frame=add_data)
+            start = (
+                datetime.datetime.strptime(last_date, "%Y-%m-%d").date()
+                + datetime.timedelta(days=1)
+            ).strftime("%Y-%m-%d")
+            add_data = self.get_data(
+                code=code, data_frequency=data_frequency, start_date=start, end_date=end
+            )
+            self.add_to_csv(
+                code=code, data_frequency=data_frequency, data_frame=add_data
+            )
         except Exception as e:
             print(e)
-            print(f'没有找到 {code}.csv')
+            print(f"没有找到 {code}.csv")
             start = self.init_date
-            today = datetime.datetime.now().strftime('%Y-%m-%d')
-            add_data = self.get_data(code=code,
-                                     data_frequency=data_frequency,
-                                     start_date=start,
-                                     end_date=today)
-            self.generate_data_csv(code=code,
-                                   data_frequency=data_frequency,
-                                   data_frame=add_data)
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            add_data = self.get_data(
+                code=code,
+                data_frequency=data_frequency,
+                start_date=start,
+                end_date=today,
+            )
+            self.generate_data_csv(
+                code=code, data_frequency=data_frequency, data_frame=add_data
+            )
 
     # 获取所有股票代码
     def get_all_stock_code(self):
@@ -435,13 +448,13 @@ class BaoStockData(object):
         rs = bs.query_all_stock(day=date)
 
         data_list = []
-        while (rs.error_code == '0') & rs.next():
+        while (rs.error_code == "0") & rs.next():
             # 获取一条记录，将记录合并在一起
             data_list.append(rs.get_row_data())
         result = pd.DataFrame(data_list, columns=rs.fields)
         self.logout()
         # 返回结果
-        gl.info(f'{date} 指数代码共有{result.shape[0]}条.')
+        gl.info(f"{date} 指数代码共有{result.shape[0]}条.")
         return result
 
     # 更新所有股票指数交易数据
@@ -453,48 +466,45 @@ class BaoStockData(object):
         try:
             min_ignore = self.read_min_ignore()
             # self.login()
-            code = pd.read_csv(STOCK_URL + 'all_stock.csv', usecols=['code'])
+            code = pd.read_csv(STOCK_URL + "all_stock.csv", usecols=["code"])
             count = code.count().code
             end = self.get_baostock_last_date()
             if count == 0:
-                print('指数代码为空，请检查代码')
+                print("指数代码为空，请检查代码")
                 return
             else:
-                _output.write('\r开始更新日交易数据。。。')
+                _output.write("\r开始更新日交易数据。。。")
                 begin = datetime.datetime.now()
                 for row in code.iterrows():
-                    self.up_to_date(code=row[1].code,
-                                    data_frequency='d',
-                                    end=end)
-                print('日交易数据更新完毕')
-                _output.write('\r开始更新日5分钟交易数据。。。')
+                    self.up_to_date(code=row[1].code, data_frequency="d", end=end)
+                print("日交易数据更新完毕")
+                _output.write("\r开始更新日5分钟交易数据。。。")
 
                 for row in code.iterrows():
-                    if self.is_code_in_min_ignore(code=row[1].code,
-                                                  min_ignore=min_ignore):
-                        print(f'{row[1].code} 已被忽略')
+                    if self.is_code_in_min_ignore(
+                        code=row[1].code, min_ignore=min_ignore
+                    ):
+                        print(f"{row[1].code} 已被忽略")
                         continue
-                    self.up_to_date(code=row[1].code,
-                                    data_frequency='5',
-                                    end=end)
-                print('5 Min 交易数据更新完毕')
+                    self.up_to_date(code=row[1].code, data_frequency="5", end=end)
+                print("5 Min 交易数据更新完毕")
             self.logout()
             end = datetime.datetime.now()
             min_elapse = int((end - begin).seconds / 60)
             second_elapse = (end - begin).seconds - 60 * min_elapse
-            print(f'更新完毕,共耗时 {min_elapse} 分 {second_elapse} 秒')
+            print(f"更新完毕,共耗时 {min_elapse} 分 {second_elapse} 秒")
         except Exception as e:
             raise e
 
     # 获取复权因子数据
     def get_adjust_factor(self, code):
-        today = datetime.datetime.now().strftime('%Y-%m-%d')
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
         rs_list = []
         # gl.info(f'尝试获取 {code} 复权因子数据。。。')
-        rs_factor = bs.query_adjust_factor(code=code,
-                                           start_date=self.init_date,
-                                           end_date=today)
-        while (rs_factor.error_code == '0') & rs_factor.next():
+        rs_factor = bs.query_adjust_factor(
+            code=code, start_date=self.init_date, end_date=today
+        )
+        while (rs_factor.error_code == "0") & rs_factor.next():
             rs_list.append(rs_factor.get_row_data())
         result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
         # gl.info(f'成功获取 {code} 复权因子数据 {len(rs_list)}条')
@@ -511,25 +521,26 @@ class BaoStockData(object):
 
     # 更新复权因子数据
     def add_to_adjust_factor(self, data_frame, code, adjust_factor):
-        if not os.path.exists('.//' + STOCK_URL + 'adjust_factor_data.csv'):
-            print('文件不存在')
+        if not os.path.exists(".//" + STOCK_URL + "adjust_factor_data.csv"):
+            print("文件不存在")
             self.generate_adjust_factor(data_frame)
         else:
             temp = data_frame.copy(deep=True)
             temp_list = []
             for i in range(temp.count().code):
-                if self.is_adjust_in_csv(temp.iloc[i],
-                                         adjust_factor=adjust_factor):
+                if self.is_adjust_in_csv(temp.iloc[i], adjust_factor=adjust_factor):
                     temp_list.append(i)
             result = temp.drop(index=temp_list)
             if result.count().code == 0:
-                _output.write(f'\r{code} 复权因子数据已经存在')
+                _output.write(f"\r{code} 复权因子数据已经存在")
             else:
-                result.to_csv(STOCK_URL + "adjust_factor_data.csv",
-                              mode='a',
-                              header=False,
-                              index=False)
-                _output.write(f'\r{code} 复权因子数据已经更新')
+                result.to_csv(
+                    STOCK_URL + "adjust_factor_data.csv",
+                    mode="a",
+                    header=False,
+                    index=False,
+                )
+                _output.write(f"\r{code} 复权因子数据已经更新")
 
     # 判断某一行DataFrame是否在adjust_factor_data.csv中
     # def is_adjust_in_csv(self, data_frame, adjust_factor):
@@ -548,12 +559,12 @@ class BaoStockData(object):
     def adjust_factor_up_to_date(self, code, adjust_factor):
         result = self.get_adjust_factor(code)
         if result.count().code == 0:
-            _output.write(f'\r{code} 无复权因子数据')
+            _output.write(f"\r{code} 无复权因子数据")
             return
         else:
-            self.add_to_adjust_factor(data_frame=result,
-                                      code=code,
-                                      adjust_factor=adjust_factor)
+            self.add_to_adjust_factor(
+                data_frame=result, code=code, adjust_factor=adjust_factor
+            )
 
     # 更新所有股票指数复权因子
     # def all_adjust_factor_up_to_date(self):

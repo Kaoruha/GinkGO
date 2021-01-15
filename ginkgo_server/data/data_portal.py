@@ -12,6 +12,7 @@ from ginkgo_server.libs.ginkgo_logger import ginkgo_logger as gl
 from ginkgo_server.data.models.stock_info import StockInfo
 from ginkgo_server.data.models.adjust_factor import AdjustFactor
 from ginkgo_server.data.models.day_bar import DayBar
+from ginkgo_server.data.models.min5_bar import Min5Bar
 
 
 class DataPortal(object):
@@ -131,7 +132,7 @@ class DataPortal(object):
                     is_ST=rs.iloc[i].isST,
                 )
                 insert_list.append(day_bar)
-        gs.insert_day_bar_list(code=code, day_bar_list=insert_list)
+            gs.insert_day_bar_list(code=code, day_bar_list=insert_list)
 
     def update_all_stock_day_bar(self):
         """
@@ -145,6 +146,48 @@ class DataPortal(object):
             bao_instance.login()
             self.update_stock_day_bar(code=i)
             pbar.set_description(f"Update {i} DayBar")
+
+    def update_stock_min5_bar(self, code="sh.000001"):
+        """
+        更新某一指数的5min交易数据
+        """
+        # 获取最新数据日期，目前是从baostock获取
+        end = bao_instance.get_baostock_last_date()
+        # 获取当前最新的数据日期
+        try:
+            # 尝试从MongoDB查询该指数的最新数据
+            last_date = gs.get_min5_bar_last_date(code=code)
+        except Exception as e:
+            # 失败则把开始日期设置为初识日期
+            last_date = bao_instance.init_date
+        bao_instance.login()
+        # 获取DataFrame数据
+        rs = bao_instance.get_data(
+            code=code, data_frequency="5", start_date=last_date, end_date=end
+        )
+        # rs = rs[:200]
+        # 存储数据
+        insert_list = []
+
+        if rs.shape[0] > 0:
+            for i in range(rs.shape[0]):
+                new_data = Min5Bar(
+                    date=rs.iloc[i].date,
+                    code=rs.iloc[i].code,
+                    time=rs.iloc[i].time,
+                    open=rs.iloc[i].open,
+                    high=rs.iloc[i].high,
+                    low=rs.iloc[i].low,
+                    close=rs.iloc[i].close,
+                    volume=rs.iloc[i].volume,
+                    amount=rs.iloc[i].amount,
+                    adjust_flag=rs.iloc[i].adjustflag,
+                )
+                insert_list.append(new_data)
+            gs.insert_min5_bar_list(code=code, day_bar_list=insert_list)
+        else:
+            # TODO 修改CodeInfo 的has_min_bar数据
+            pass
 
 
 data_portal = DataPortal()

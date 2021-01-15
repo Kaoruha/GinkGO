@@ -47,7 +47,7 @@ class Min5Bar(BaseModel):
         if time is None or time is "":
             self.time = "19991111093500000"
         else:
-            self.date = str(date)
+            self.time = str(time)
 
         if open is None or open is "":
             self.open = 0.0
