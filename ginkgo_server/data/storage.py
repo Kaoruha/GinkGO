@@ -74,32 +74,9 @@ class GinkgoStorage(object):
         """
         # 尝试查询数据库
         data_search = self.query_stock_info(code=code)
-        if data_search:
-            # 有值的处理
-            has_changed = False
 
-            if data_search.code_name != code_name:
-                data_search.code_name = code_name
-                has_changed = True
-            if data_search.trade_status != trade_status:
-                data_search.trade_status = trade_status
-                has_changed = True
-            if has_changed:
-                data_search.save()
-                # gl.info(f'{code} 指数信息数据已更新')
-            else:
-                # gl.info(f'{code} 指数信息数据无更新')
-                pass
-            return True
-        elif data_search is None:
-            # 库里没值的处理
-            self.insert_a_stock_info(code=code,
-                                     code_name=code_name,
-                                     trade_status=trade_status)
-            return True
-        else:
-            # 数据库错误的处理
-            return False
+        StockInfo.objects(code=code).update_one(upsert=True,
+                    code_name=code_name,trade_status=trade_status)
 
     # 查询指数信息
     def query_stock_info(self, code='sh.000001'):
@@ -124,8 +101,6 @@ class GinkgoStorage(object):
         批量插入指数信息
         stock_info_list: StockInfo的数组
         """
-        insert_list = []
-        update_list = []
         # 校验stock_info_list
         for i in stock_info_list:
             if not isinstance(i, StockInfo):
@@ -136,38 +111,8 @@ class GinkgoStorage(object):
         # 确认stock_info_list的成员结构了，进行遍历,查询库里是否有数据，如果有则把这条stock_info从list中剔除
         pbar = tqdm.tqdm(stock_info_list)
         for i in pbar:
-            stock_info_search = self.query_stock_info(code=i.code)
-            if stock_info_search:
-                has_different = False
-                if i.code_name != stock_info_search.code_name:
-                    stock_info_search.code_name = i.code_name
-                    has_different = True
-                if i.trade_status != stock_info_search.trade_status:
-                    stock_info_search.trade_status = i.trade_status
-                    has_different = True
-
-                if has_different:
-                    update_list.append(stock_info_search)
-            elif stock_info_search is None:
-                insert_list.append(i)
-            else:
-                pass
-            pbar.set_description(f"Querying {i.code} StockInfo")
-
-        # 批量插入Mongo
-        if len(insert_list) > 0:
-            StockInfo.objects.insert(insert_list)
-        gl.info(f'插入StockInfo {len(insert_list)} 条')
-        # 更新
-        if len(update_list) > 0:
-            pbar = tqdm.tqdm(update_list)
-            for i in pbar:
-                i.update_time()
-                i.save()
-                pbar.set_description(f"Updateing {i.code} StockInfo")
-        gl.info(f'更新StockInfo {len(update_list)} 条')
-
-        return True
+            StockInfo.objects(code=i.code).update_one(upsert=True, code_name=i.code_name, trade_status=i.trade_status)
+            pbar.set_description(f"Updating {i.code} StockInfo")
 
     # 获取所有指数代码信息
     def get_all_stock_code(self):
@@ -218,59 +163,7 @@ class GinkgoStorage(object):
                              fore_adjust_factor=0,
                              back_adjust_factor=0,
                              adjust_factor=0):
-        # 尝试查询数据库
-        data_search = self.query_adjust_factor(
-            code=code, divid_operate_date=divid_operate_date)
-
-        if data_search:
-            # 更新数据
-            # 尝试更新
-            # 否则更新数据
-            has_changed = False
-
-            if data_search.code != code:
-                data_search.code = code
-                has_changed = True
-                # gl.info(f'{code} 指数信息Code代码变更')
-
-            if data_search.divid_operate_date != divid_operate_date:
-                data_search.divid_operate_date = divid_operate_date
-                has_changed = True
-                # gl.info(f'{code} divid_operate_date变更')
-
-            if data_search.fore_adjust_factor != fore_adjust_factor:
-                data_search.fore_adjust_factor = fore_adjust_factor
-                has_changed = True
-                # gl.info(f'{code} fore_adjust_factor变更')
-
-            if data_search.back_adjust_factor != back_adjust_factor:
-                data_search.back_adjust_factor = back_adjust_factor
-                has_changed = True
-                # gl.info(f'{code} back_adjust_factor变更')
-
-            if data_search.adjust_factor != adjust_factor:
-                data_search.adjust_factor = adjust_factor
-                has_changed = True
-                # gl.info(f'{code} adjust_factor变更')
-
-            if not has_changed:
-                pass
-                # gl.info(f'{code} 复权数据无更新')
-            else:
-                data_search.save()
-                # gl.info(f'{code} 复权数据更新完毕')
-                return True
-        elif data_search is None:
-            # 当查询结果为None即库内无数据，直接插入新的数据
-            self.insert_adjust_factor(code=code,
-                                      divid_operate_date=divid_operate_date,
-                                      fore_adjust_factor=fore_adjust_factor,
-                                      back_adjust_factor=back_adjust_factor,
-                                      adjust_factor=adjust_factor)
-            return True
-        else:
-            # 数据库异常的处理
-            return False
+        AdjustFactor.objects(code=code,divid_operate_date=divid_operate_date).update_one(upsert=True,fore_adjust_factor=fore_adjust_factor,back_adjust_factor=back_adjust_factor,adjust_factor=adjust_factor)
 
     # 查询复权因子
     def query_adjust_factor(self,
@@ -296,9 +189,6 @@ class GinkgoStorage(object):
         adjust_factor_list: AdjustFactor的数组
         """
 
-        insert_list = []
-        update_list = []
-
         # 校验 adjust_factor_list
         for i in adjust_factor_list:
             if not isinstance(i, AdjustFactor):
@@ -307,67 +197,12 @@ class GinkgoStorage(object):
 
         # 数据库连接
         self.__connect_mongo()
+        pbar = tqdm.tqdm(adjust_factor_list)
+        for i in pbar:
+            AdjustFactor.objects(code=i.code,divid_operate_date=i.divid_operate_date).update_one(upsert=True,fore_adjust_factor=i.fore_adjust_factor,back_adjust_factor=i.back_adjust_factor,adjust_factor=i.adjust_factor)
+            pbar.set_description(f"Updating {i.code} AdjustFactors")
 
-        # 确认了stock_info_list的成员结构
-        # 进行遍历,查询库里是否有数据，如果有则把这条stock_info从list中剔除
-        adjust_factor_search = AdjustFactor.objects()
-
-        gl.info(f'库中已经有 AdjustFactor {len(adjust_factor_search)} 条')
-
-        if len(adjust_factor_search) > 0:
-            # 查重
-            # 库里有数据，则遍历
-            pbar = tqdm.tqdm(adjust_factor_list)
-            for i in pbar:
-                to_update_list = []
-                for j in adjust_factor_search:
-                    if j.code == i.code and j.divid_operate_date == i.divid_operate_date:
-                        # 如果有Code与复权日相同的数据，则添加到待更新列表
-                        to_update_list.append(j)
-
-                if len(to_update_list) == 1:
-                    # 待更新列表有且只有一个，则判断数值是否相同，如有不同，添加到更新列表
-                    is_different = False
-                    columns = [
-                        'fore_adjust_factor', 'back_adjust_factor',
-                        'adjust_factor'
-                    ]
-                    for c in columns:
-                        if i[c] != to_update_list[0][c]:
-                            is_different = True
-                            to_update_list[0][c] = i[c]
-
-                    if is_different:
-                        update_list.append(to_update_list[0])
-                elif len(to_update_list) == 0:
-                    insert_list.append(i)
-
-                elif len(to_update_list) > 1:
-                    gl.critical('数据库异常，AdjustFactor的数量超过1')
-
-                pbar.set_description(f"Querying {i.code} AdjustFactor")
-        else:
-            # 库里不存在
-            for i in adjust_factor_list:
-                insert_list.append(i)
-
-        # 批量插入Mongo
-        if len(insert_list) > 0:
-            # for i in insert_list:
-            # i.update()
-            AdjustFactor.objects.insert(insert_list)
-        gl.info(f'插入AdjustFactor {len(insert_list)} 条')
-        # 更新
-        if len(update_list) > 0:
-            pbar = tqdm.tqdm(update_list)
-            for i in pbar:
-                i.update_time()
-                i.save()
-                pbar.set_description(f"Updateing {i.code} AdjustFactor")
-        gl.info(f'更新StockInfo {len(update_list)} 条')
-
-        return True
-
+                
     # 获取某只股票的复权因子数据
     def get_adjust_factors(self, code='sh.600000'):
         self.__connect_mongo()
@@ -433,74 +268,7 @@ class GinkgoStorage(object):
                        trade_status=0,
                        pct_change=0.0,
                        is_ST=0):
-        # 尝试查询数据库
-        day_bar_search = self.query_day_bar(code=code, date=date)
-        if day_bar_search:
-            # 更新数据
-            has_changed = False
-            if day_bar_search.open != open:
-                day_bar_search.open = open
-                has_changed = True
-            if day_bar_search.high != high:
-                day_bar_search.high = high
-                has_changed = True
-            if day_bar_search.low != low:
-                day_bar_search.low = low
-                has_changed = True
-            if day_bar_search.close != close:
-                day_bar_search.close = close
-                has_changed = True
-            if day_bar_search.preclose != preclose:
-                day_bar_search.preclose = preclose
-                has_changed = True
-            if day_bar_search.volume != volume:
-                day_bar_search.volume = volume
-                has_changed = True
-            if day_bar_search.amount != amount:
-                day_bar_search.amount = amount
-                has_changed = True
-            if day_bar_search.adjust_flag != adjust_flag:
-                day_bar_search.adjust_flag = adjust_flag
-                has_changed = True
-            if day_bar_search.turn != turn:
-                day_bar_search.turn = turn
-                has_changed = True
-            if day_bar_search.trade_status != trade_status:
-                day_bar_search.trade_status = trade_status
-                has_changed = True
-            if day_bar_search.pct_change != pct_change:
-                day_bar_search.pct_change = pct_change
-                has_changed = True
-            if day_bar_search.is_ST != is_ST:
-                day_bar_search.is_ST = is_ST
-                has_changed = True
-
-            if has_changed:
-                day_bar_search.update_time()
-                day_bar_search.save()
-                # gl.info(f'{code} 日交易数据已更新')
-            else:
-                # gl.info(f'{code} 日交易数据无更新')
-                pass
-
-        elif day_bar_search is None:
-            # 插入数据
-            self.insert_day_bar(date=date,
-                                code=code,
-                                open=open,
-                                high=high,
-                                low=low,
-                                close=close,
-                                preclose=preclose,
-                                volume=volume,
-                                amount=amount,
-                                adjust_flag=adjust_flag,
-                                turn=turn,
-                                trade_status=trade_status,
-                                pct_change=pct_change,
-                                is_ST=is_ST)
-        else:
-            return False
+        DayBar.objects(date=date,code=code).update_one(upsert=True,open=open,high=high,low=low,close=close,preclose=preclose,volume=volume,adjust_flag=adjust_flag,trade_status=trade_status,pct_change=pct_change,is_ST=is_ST)
 
     # 查询Stock日交易数据
     def query_day_bar(self, code='sh.600000', date='0000/00/00'):
@@ -525,9 +293,6 @@ class GinkgoStorage(object):
         code:代码编号，用来确定数据插入到哪个集合
         day_bar_list: Daybar的数组
         """
-
-        insert_list = []
-        update_list = []
 
         # 校验 adjust_factor_list
         for i in day_bar_list:
@@ -555,7 +320,6 @@ class GinkgoStorage(object):
                     tradestatus=i.tradestatus,
                     pct_change=i.pct_change,
                     is_ST=i.is_ST)
-        return True
 
     # 插入Stock 5min交易数据
 
@@ -563,14 +327,11 @@ class GinkgoStorage(object):
 
     # 查询Stock 5min交易数据
 
-    def test(self, *args, **kwargs):
-        # self.update_stock_info(has_min_bar=False, trade_status=0)
-        # self.get_all_stock_code()
-        # r = self.query_stock_info(code='sh.000001')
-        # self.insert_day_bar(code='sh.002001')
-        # s = self.query_day_bar('sh.002001')
-        # print(s)
-        pass
+    def get_day_bar_last_date(self, code='sh.000001'):
+        self.__connect_mongo()
+        with mongoengine.context_managers.switch_collection(DayBar, code): 
+            last = DayBar.objects.order_by('-date')[:1][0].date
+        return last
 
 
 ginkgo_storage = GinkgoStorage()

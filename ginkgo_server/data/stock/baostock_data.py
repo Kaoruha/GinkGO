@@ -429,13 +429,11 @@ class BaoStockData(object):
         获取所有股票代码
         :return:
         """
-        today = datetime.datetime.now().strftime('%Y-%m-%d')
         # 获取证券信息
-        # self.login()
-        rs = bs.query_all_stock(day='2020-08-07')
-        # rs = bs.query_all_stock(day='2020-07-17')
+        self.login()
+        date = bao_instance.get_baostock_last_date()
+        rs = bs.query_all_stock(day=date)
 
-        # 打印结果集
         data_list = []
         while (rs.error_code == '0') & rs.next():
             # 获取一条记录，将记录合并在一起
@@ -443,12 +441,8 @@ class BaoStockData(object):
         result = pd.DataFrame(data_list, columns=rs.fields)
         self.logout()
         # 返回结果
-        if not result.count().code == 0:
-            gl.info(f'{today} 指数代码共有{result.shape[0]}条.')
-            return result
-        else:
-            gl.error('指数代码为空，请检查代码')
-            return None
+        gl.info(f'{date} 指数代码共有{result.shape[0]}条.')
+        return result
 
     # 更新所有股票指数交易数据
     def update_all_stock(self):

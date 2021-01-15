@@ -13,9 +13,11 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 
 # gs.add_stock_info(code='hhhh')
 # gs.test()
+# gs.get_day_bar_last_date(code='sh.0000021')
 
-# gdp.update_all_cn_stock_info()
-# gdp.update_all_cn_adjust_factor()
+
+gdp.update_all_cn_stock_info()
+gdp.update_all_cn_adjust_factor()
 # gs.get_all_stock_code()
 
 # gdp.update_stock_day_bar(code='sh.000001')

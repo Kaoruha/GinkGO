@@ -16,15 +16,22 @@ class StockInfo(BaseModel):
                  *args,
                  **kwargs):
         BaseModel.__init__(self, *args, **kwargs)
-        self.code = code
-        self.trade_status = trade_status
-        self.code_name = code_name
+        if code is None or code is '':
+            self.code = '待插入指数代码'
+        else:
+            self.code = str(code)
+
+        if trade_status is None or trade_status is '':
+            self.trade_status = 0
+        else:
+            self.trade_status = int(trade_status)
+        
+        if code_name is None or code_name is '':
+            self.code_name = '待插入指数名称'
+        else:
+            self.code_name = str(code_name)
+
         self.has_min_bar = True
-        # 切换Collection
-        # base_classes = self.__class__.__bases__ or ()
-        # base_class_names = ".".join(_.__name__ for _ in base_classes)
-        # super(StockInfo, self).__init__()
-        # self._cls = "{}.{}".format(base_class_names, self.__class__.__name__).strip(".")
 
     def set_min_bar(self, has_min_bar=True):
         """

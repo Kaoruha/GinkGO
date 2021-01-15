@@ -28,57 +28,46 @@ class DataPortal(object):
     def update_all_cn_stock_info(self):
         """
         更新所有指数代码基本信息,包括指数指数代码、指数名称、交易状态
-
-        Step1：通过Baostock获取所有指数代码
-
-        Step2：如果数据不为空进行持久化操作，反之报错
-
-        Step3：通过GinkGO_Storage进行数据持久化，目前先存储至MongoDBDocker，之后考虑本地缓存方法
         """
-        count = 0
         # Step1：通过Baostock获取所有指数代码
         result = bao_instance.get_all_stock_code()
+        # result = result[:10000]
+
         # Step2：如果数据不为空进行持久化操作，反之报错
-        if result is None:
-            gl.error('股票指数代码获取为空，请检查代码或日期')
-        else:
+        if result.shape[0] > 0:
             # Step3：通过GinkGO_Storage进行数据持久化，目前先存储至MongoDBDocker，之后考虑本地缓存方法
-            # TODO 后续需要考虑批量插入，现在先单个插入
             stock_info_list = []
             for i in range(result.shape[0]):
                 code = result.iloc[i].loc['code']
                 code_name = result.iloc[i].loc['code_name']
-                trade_status = int(result.iloc[i].loc['tradeStatus'])
+                trade_status = result.iloc[i].loc['tradeStatus']
                 new_stock = StockInfo(code=code,
                                       code_name=code_name,
                                       trade_status=trade_status)
                 stock_info_list.append(new_stock)
 
             gs.insert_stock_info_list(stock_info_list)
+        else:
+            gl.error('股票指数代码获取为空，请检查代码或日期')
 
     def update_all_cn_adjust_factor(self):
         """
-        更新所有CN指数的复权数据
+        更新所有指数的复权数据
         """
         stock_list = gs.get_all_stock_code()
-        adjust_factor_list = []
-        # pbar = tqdm.tqdm(stock_list[100:400])
+        # stock_list = stock_list[100:600]
+        insert_list = []
         pbar = tqdm.tqdm(stock_list)
         for i in pbar:
             rs = bao_instance.get_adjust_factor(code=i)
-            if rs.shape[0] == 0:
-                # gl.info(f'{i} 指数没有复权数据')
-                pass
-            else:
+            # 如果有复权数据，添加到待插入列表
+            if rs.shape[0] > 0:
                 for s in range(rs.shape[0]):
                     code = rs.iloc[s].loc['code']
-                    divid_operate_date = str(
-                        rs.iloc[s].loc['dividOperateDate'])
-                    fore_adjust_factor = float(
-                        rs.iloc[s].loc['foreAdjustFactor'])
-                    back_adjust_factor = float(
-                        rs.iloc[s].loc['backAdjustFactor'])
-                    adjust_factor = float(rs.iloc[s].loc['adjustFactor'])
+                    divid_operate_date = rs.iloc[s].loc['dividOperateDate']
+                    fore_adjust_factor = rs.iloc[s].loc['foreAdjustFactor']
+                    back_adjust_factor = rs.iloc[s].loc['backAdjustFactor']
+                    adjust_factor = rs.iloc[s].loc['adjustFactor']
 
                     new_ajust_factor = AdjustFactor(
                         code=code,
@@ -87,26 +76,35 @@ class DataPortal(object):
                         back_adjust_factor=back_adjust_factor,
                         adjust_factor=adjust_factor)
 
-                    adjust_factor_list.append(new_ajust_factor)
+                    insert_list.append(new_ajust_factor)
             pbar.set_description(f"Getting {i} AdjustFactor")
 
-        gl.info(f'获取复权因子数据{len(adjust_factor_list)}条.')
+        gl.info(f'获取复权因子数据{len(insert_list)}条.')
 
-        if len(adjust_factor_list) > 0:
-            gs.insert_adjust_factor_list(adjust_factor_list)
+        if len(insert_list) > 0:
+            gs.insert_adjust_factor_list(insert_list)
 
     def get_adjust_factor(self, code='sh.000001'):
         result = gs.get_adjust_factors(code=code)
         return result
 
     def update_stock_day_bar(self, code='sh.000001'):
-        # 获取数据
+        """
+        更新某一指数的日交易数据
+        """
+        # 获取最新数据日期，目前是从baostock获取
         end = bao_instance.get_baostock_last_date()
-        # TOOD 获取当前最新的数据日期
-        
-        rs = bao_instance.get_data(code=code, data_frequency='d', end_date=end)
+        # 获取当前最新的数据日期
+        try:
+            # 尝试从MongoDB查询该指数的最新数据
+            last_date = gs.get_day_bar_last_date(code=code)
+        except Exception as e:
+            # 失败则把开始日期设置为初识日期
+            last_date = bao_instance.init_date
+        bao_instance.login()
+        # 获取DataFrame数据
+        rs = bao_instance.get_data(code=code, data_frequency='d',start_date=last_date, end_date=end)
         # rs = rs[:200]
-        # 判断数据Len
         # 存储数据
         insert_list = []
         if rs.shape[0] > 0:
@@ -129,10 +127,12 @@ class DataPortal(object):
         gs.insert_day_bar_list(code=code, day_bar_list=insert_list)
 
     def update_all_stock_day_bar(self):
-        # 获取所有指数代码
+        """
+        更新所有指数日交易数据
+        """
+        # Step.1 获取所有指数代码
         stock_list = gs.get_all_stock_code()
-        stock_list = stock_list[:20]
-        # 遍历更新
+        # Step.2 遍历更新
         pbar = tqdm.tqdm(stock_list)
         for i in pbar:
             bao_instance.login()

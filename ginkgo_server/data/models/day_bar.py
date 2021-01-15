@@ -40,17 +40,73 @@ class DayBar(BaseModel):
                  *args,
                  **kwargs):
         BaseModel.__init__(self, *args, **kwargs)
-        self.date = date
-        self.code = code
-        self.open = open
-        self.high = high
-        self.low = low
-        self.close = close
-        self.preclose = preclose
-        self.volume = volume
-        self.amount = amount
-        self.adjust_flag = adjust_flag
-        self.turn = turn
-        self.trade_status = trade_status
-        self.pct_change = pct_change
-        self.is_ST = is_ST
+        
+        if date is None or date is '':
+            self.date = '0000/00/00'
+        else:
+            self.date = str(date)
+
+        if code is None or code is '':
+            self.code = '待插入指数代码'
+        else:
+            self.code = code
+
+        if open is None or open is '':
+            self.open = 0.0
+        else:
+            self.open = float(open)
+
+        if high is None or high is '':
+            self.high = 0.0
+        else:
+            self.high = float(high)
+
+        if low is None or low is '':
+            self.low = 0.0
+        else:
+            self.low = float(low)
+
+        if close is None or close is '':
+            self.close = 0.0
+        else:
+            self.close = float(close)
+
+        if preclose is None or preclose is '':
+            self.preclose = 0.0
+        else:
+            self.preclose = float(preclose)
+
+        if volume is None or volume is '':
+            self.volume = 0
+        else:
+            self.volume = int(volume)
+
+        if amount is None or amount is '':
+            self.amount = 0
+        else:
+            self.amount = int(amount)
+
+        if adjust_flag is None or adjust_flag is '':
+            self.adjust_flag = 0
+        else:
+            self.adjust_flag = int(adjust_flag)
+
+        if turn is None or turn is '':
+            self.turn = 0.0
+        else:
+            self.turn = float(turn)
+
+        if trade_status is None or trade_status is '':
+            self.trade_status = 0.0
+        else:
+            self.trade_status = float(trade_status)
+
+        if pct_change is None or pct_change is '':
+            self.pct_change = 0.0
+        else:
+            self.pct_change = float(pct_change)
+
+        if is_ST is None or is_ST is '':
+            self.is_ST = 0
+        else:
+            self.is_ST = int(is_ST)
