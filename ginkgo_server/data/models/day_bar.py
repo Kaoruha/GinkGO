@@ -18,7 +18,7 @@ class DayBar(BaseModel):
     turn = FloatField()
     tradestatus = IntField()
     pct_change = FloatField()
-    is_ST = StringField()
+    is_ST = IntField()
 
     # meta = {'abstract': True}
 
@@ -40,7 +40,7 @@ class DayBar(BaseModel):
                  *args,
                  **kwargs):
         BaseModel.__init__(self, *args, **kwargs)
-        
+
         if date is None or date is '':
             self.date = '0000/00/00'
         else:
@@ -49,7 +49,7 @@ class DayBar(BaseModel):
         if code is None or code is '':
             self.code = '待插入指数代码'
         else:
-            self.code = code
+            self.code = str(code)
 
         if open is None or open is '':
             self.open = 0.0
@@ -79,12 +79,12 @@ class DayBar(BaseModel):
         if volume is None or volume is '':
             self.volume = 0
         else:
-            self.volume = int(volume)
+            self.volume = float(volume)
 
         if amount is None or amount is '':
             self.amount = 0
         else:
-            self.amount = int(amount)
+            self.amount = float(amount)
 
         if adjust_flag is None or adjust_flag is '':
             self.adjust_flag = 0
@@ -99,7 +99,7 @@ class DayBar(BaseModel):
         if trade_status is None or trade_status is '':
             self.trade_status = 0.0
         else:
-            self.trade_status = float(trade_status)
+            self.trade_status = int(trade_status)
 
         if pct_change is None or pct_change is '':
             self.pct_change = 0.0

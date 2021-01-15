@@ -104,25 +104,26 @@ class DataPortal(object):
         bao_instance.login()
         # 获取DataFrame数据
         rs = bao_instance.get_data(code=code, data_frequency='d',start_date=last_date, end_date=end)
+        print(rs.shape[0])
         # rs = rs[:200]
         # 存储数据
         insert_list = []
         if rs.shape[0] > 0:
             for i in range(rs.shape[0]):
                 day_bar = DayBar(code=code,
-                                 date=str(rs.iloc[i].date),
-                                 open=float(rs.iloc[i].open),
-                                 high=float(rs.iloc[i].high),
-                                 low=float(rs.iloc[i].low),
-                                 close=float(rs.iloc[i].close),
-                                 preclose=float(rs.iloc[i].preclose),
-                                 volume=float(rs.iloc[i].volume),
-                                 amount=float(rs.iloc[i].amount),
-                                 adjust_flag=int(rs.iloc[i].adjustflag),
-                                 turn=float(rs.iloc[i].turn),
-                                 trade_status=int(rs.iloc[i].tradestatus),
-                                 pct_change=float(rs.iloc[i].pctChg),
-                                 is_ST=str(rs.iloc[i].isST))
+                                 date=rs.iloc[i].date,
+                                 open=rs.iloc[i].open,
+                                 high=rs.iloc[i].high,
+                                 low=rs.iloc[i].low,
+                                 close=rs.iloc[i].close,
+                                 preclose=rs.iloc[i].preclose,
+                                 volume=rs.iloc[i].volume,
+                                 amount=rs.iloc[i].amount,
+                                 adjust_flag=rs.iloc[i].adjustflag,
+                                 turn=rs.iloc[i].turn,
+                                 trade_status=rs.iloc[i].tradestatus,
+                                 pct_change=rs.iloc[i].pctChg,
+                                 is_ST=rs.iloc[i].isST)
                 insert_list.append(day_bar)
         gs.insert_day_bar_list(code=code, day_bar_list=insert_list)
 
