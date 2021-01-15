@@ -1,5 +1,4 @@
-import datetime
-from mongoengine import Document, StringField, IntField, FloatField, BooleanField
+from mongoengine import StringField, IntField, FloatField
 from ginkgo_server.data.models.base_model import BaseModel
 
 

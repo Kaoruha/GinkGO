@@ -135,6 +135,9 @@ class GinkgoStorage(object):
 
         return rs
 
+
+
+
     # 插入复权因子数据
     def insert_adjust_factor(self,
                              code='sh.000000',
@@ -157,12 +160,14 @@ class GinkgoStorage(object):
         # gl.info(f'成功创建 {code} 的复权信息')
 
     # 更新复权因子
-    def update_adjust_factor(self,
-                             code='default',
-                             divid_operate_date='0000/00/00',
-                             fore_adjust_factor=0,
-                             back_adjust_factor=0,
-                             adjust_factor=0):
+    def update_adjust_factor(
+        self,
+        code='default',
+        divid_operate_date='0000/00/00',
+        fore_adjust_factor=0,
+        back_adjust_factor=0,
+        adjust_factor=0
+    ):
         AdjustFactor.objects(code=code,divid_operate_date=divid_operate_date).update_one(upsert=True,fore_adjust_factor=fore_adjust_factor,back_adjust_factor=back_adjust_factor,adjust_factor=adjust_factor)
 
     # 查询复权因子
@@ -217,8 +222,8 @@ class GinkgoStorage(object):
 
     # 添加Stock日交易数据
     def insert_day_bar(self,
+    code='sh.600000',
                        date='0000/00/00',
-                       code='sh.600000',
                        open=0.0,
                        high=0.0,
                        low=0.0,
@@ -322,6 +327,7 @@ class GinkgoStorage(object):
                     is_ST=i.is_ST)
 
     # 插入Stock 5min交易数据
+    def insert_min5_bar(self,)
 
     # 更新Stock 5min交易数据
 

@@ -9,25 +9,22 @@ class StockInfo(BaseModel):
     code_name = StringField(max_length=50)
     has_min_bar = BooleanField(default=True)
 
-    def __init__(self,
-                 code='待插入指数代码',
-                 trade_status=0,
-                 code_name='待插入指数名称',
-                 *args,
-                 **kwargs):
+    def __init__(
+        self, code="待插入指数代码", trade_status=0, code_name="待插入指数名称", *args, **kwargs
+    ):
         BaseModel.__init__(self, *args, **kwargs)
-        if code is None or code is '':
-            self.code = '待插入指数代码'
+        if code is None or code is "":
+            self.code = "待插入指数代码"
         else:
             self.code = str(code)
 
-        if trade_status is None or trade_status is '':
+        if trade_status is None or trade_status is "":
             self.trade_status = 0
         else:
             self.trade_status = int(trade_status)
-        
-        if code_name is None or code_name is '':
-            self.code_name = '待插入指数名称'
+
+        if code_name is None or code_name is "":
+            self.code_name = "待插入指数名称"
         else:
             self.code_name = str(code_name)
 
