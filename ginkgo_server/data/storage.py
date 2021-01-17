@@ -130,6 +130,26 @@ class GinkgoStorage(object):
 
         return rs
 
+    def get_all_min5_code(self):
+        """
+        获取所有有分钟数据的指数代码
+
+        # TODO 等本地缓存模块完成，应该从本地缓存找起，找不到找远程Mongo,最后找不到尝试重新获取
+        """
+        self.__connect_mongo()
+        stock_info_search = StockInfo.objects(has_min_bar=True)
+
+        rs = []
+        for i in stock_info_search:
+            rs.append(i.code)
+
+        if len(rs) > 0:
+            gl.info(f"查询到 {len(rs)} 条指数代码")
+        else:
+            gl.error(f"指数代码查询为空，请检查代码")
+
+        return rs
+
     # 插入复权因子数据
     def insert_adjust_factor(
         self,
@@ -393,7 +413,7 @@ class GinkgoStorage(object):
     # 查询Stock 5min交易数据
 
     # 批量插入Stock_5min交易数据
-    def insert_min5_bar_list(self, min5_bar_list):
+    def insert_min5_bar_list(self, code, min5_bar_list):
         # 校验 min5_bar_list
         for i in min5_bar_list:
             if not isinstance(i, Min5Bar):
@@ -404,20 +424,20 @@ class GinkgoStorage(object):
         self.__connect_mongo()
         # 确认了min5_bar_list的成员结构
         with mongoengine.context_managers.switch_collection(Min5Bar, code + "_min5"):
-            for i in min5_bar_list:
-                Min5Bar.objects(time=i.time).update_one(
-                    upsert=True,
-                    date=i.date,
-                    code=i.code,
-                    open=i.open,
-                    high=i.high,
-                    low=i.low,
-                    close=i.close,
-                    volume=i.volume,
-                    amount=i.amount,
-                    adjust_flag=i.adjust_flag,
-                )
-                print("11")
+            Min5Bar.objects.insert(min5_bar_list)
+            # for i in min5_bar_list:
+            #     Min5Bar.objects(time=i.time).update_one(
+            #         upsert=True,
+            #         date=i.date,
+            #         code=i.code,
+            #         open=i.open,
+            #         high=i.high,
+            #         low=i.low,
+            #         close=i.close,
+            #         volume=i.volume,
+            #         amount=i.amount,
+            #         adjust_flag=i.adjust_flag,
+            #     )
 
     def get_day_bar_last_date(self, code="sh.000001"):
         self.__connect_mongo()
@@ -430,6 +450,12 @@ class GinkgoStorage(object):
         with mongoengine.context_managers.switch_collection(DayBar, code + "_min5"):
             last = DayBar.objects.order_by("-date")[:1][0].date
         return last
+
+    def set_stock_has_min_bar(self, code="sh.000001", has_min_bar=False):
+        result = StockInfo.objects(code=code)
+        if len(result) == 1:
+            result[0].set_min_bar(has_min_bar)
+            result[0].save()
 
     def test(self):
         print(1)

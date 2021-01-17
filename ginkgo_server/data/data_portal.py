@@ -8,6 +8,7 @@ import tqdm
 import pandas as pd
 from ginkgo_server.data.stock.baostock_data import bao_instance
 from ginkgo_server.data.storage import ginkgo_storage as gs
+from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo_server.libs.ginkgo_logger import ginkgo_logger as gl
 from ginkgo_server.data.models.stock_info import StockInfo
 from ginkgo_server.data.models.adjust_factor import AdjustFactor
@@ -99,40 +100,29 @@ class DataPortal(object):
         # 获取当前最新的数据日期
         try:
             # 尝试从MongoDB查询该指数的最新数据
-            last_date = gs.get_day_bar_last_date(code=code)
+            last_date = gs.update_stock_day_barupdate_stock_day_bar(code=code)
         except Exception as e:
+            print(e)
             # 失败则把开始日期设置为初识日期
             last_date = bao_instance.init_date
         bao_instance.login()
         # 获取DataFrame数据
+        gl.info(f"尝试获取{code} {last_date} 至 {end}数据")
         rs = bao_instance.get_data(
             code=code, data_frequency="d", start_date=last_date, end_date=end
         )
-        print(rs.shape[0])
+        # print(rs.shape[0])
         # rs = rs[:200]
         # 存储数据
-        insert_list = []
 
+        split_unit = 20000
+        gl.info(f"准备插入{rs.shape[0]}条数据")
         if rs.shape[0] > 0:
-            for i in range(rs.shape[0]):
-                day_bar = DayBar(
-                    code=code,
-                    date=rs.iloc[i].date,
-                    open=rs.iloc[i].open,
-                    high=rs.iloc[i].high,
-                    low=rs.iloc[i].low,
-                    close=rs.iloc[i].close,
-                    preclose=rs.iloc[i].preclose,
-                    volume=rs.iloc[i].volume,
-                    amount=rs.iloc[i].amount,
-                    adjust_flag=rs.iloc[i].adjustflag,
-                    turn=rs.iloc[i].turn,
-                    trade_status=rs.iloc[i].tradestatus,
-                    pct_change=rs.iloc[i].pctChg,
-                    is_ST=rs.iloc[i].isST,
-                )
-                insert_list.append(day_bar)
-            gs.insert_day_bar_list(code=code, day_bar_list=insert_list)
+            split_count = int(rs.shape[0] / split_unit)
+            for j in range(split_count + 1):
+                df = rs[j * split_unit : (j + 1) * split_unit]
+                gm.upsert_day_bar(code=code, data_frame=df)
+        gl.info(f"完成{code}daybar 插入")
 
     def update_all_stock_day_bar(self):
         """
@@ -165,29 +155,35 @@ class DataPortal(object):
         rs = bao_instance.get_data(
             code=code, data_frequency="5", start_date=last_date, end_date=end
         )
+        print(rs.shape[0])
         # rs = rs[:200]
         # 存储数据
-        insert_list = []
+
+        split_unit = 20000
 
         if rs.shape[0] > 0:
-            for i in range(rs.shape[0]):
-                new_data = Min5Bar(
-                    date=rs.iloc[i].date,
-                    code=rs.iloc[i].code,
-                    time=rs.iloc[i].time,
-                    open=rs.iloc[i].open,
-                    high=rs.iloc[i].high,
-                    low=rs.iloc[i].low,
-                    close=rs.iloc[i].close,
-                    volume=rs.iloc[i].volume,
-                    amount=rs.iloc[i].amount,
-                    adjust_flag=rs.iloc[i].adjustflag,
-                )
-                insert_list.append(new_data)
-            gs.insert_min5_bar_list(code=code, day_bar_list=insert_list)
+            split_count = int(rs.shape[0] / split_unit)
+            for j in range(split_count + 1):
+                df = rs[j * split_unit : (j + 1) * split_unit]
+                gl.info(f"开始批量插入数据{j * split_unit} 至 {(j + 1) * split_unit}")
+                gm.upsert_min5(code=code, data_frame=df)
+
         else:
             # TODO 修改CodeInfo 的has_min_bar数据
-            pass
+            gs.set_stock_has_min_bar(code=code, has_min_bar=False)
+
+    def update_all_min5_bar(self):
+        """
+        更新所有指数5min交易数据
+        """
+        # Step.1 获取所有指数代码
+        stock_list = gs.get_all_min5_code()
+        # Step.2 遍历更新
+        pbar = tqdm.tqdm(stock_list)
+        for i in pbar:
+            bao_instance.login()
+            self.update_all_min5_bar(code=i)
+            pbar.set_description(f"Update {i} Min5")
 
 
 data_portal = DataPortal()

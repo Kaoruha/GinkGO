@@ -107,7 +107,7 @@ class BaoStockData(object):
             frequency = "5"
 
         data_list = []
-
+        self.login
         # 如果需要获取日交易数据，直接发送一个请求
         if data_frequency == "d":
             rs = bs.query_history_k_data_plus(
@@ -125,7 +125,7 @@ class BaoStockData(object):
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
                 # TODO 进度条
-                # gl.info(f'成功获取 {code} 从 {start_date} 至 {end_date} 的数据')
+                # gl.info(f"成功获取 {code} 从 {start_date} 至 {end_date} 的数据")
             else:
                 gl.error(
                     "query_history_k_data_plus respond error_code:" + rs.error_code
