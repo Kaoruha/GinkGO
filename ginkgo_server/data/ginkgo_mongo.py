@@ -21,6 +21,16 @@ class GinkgoMongo(object):
         #     host=self.host, port=self.port, username=self.username, password=self.pwd
         # )
         self.client = pymongo.MongoClient(host=self.host, port=self.port)
+
+        # db = self.client.admin
+        # # 认证
+        # db.authenticate(self.username, self.pwd)
+        # # 需要用的的表需要在认证后用client单独去关联
+        # mongo_db = self.client[self.database]
+
+        # # 获取所有collections并打印，验证是否登录成功
+        # coll_names = mongo_db.list_collection_names(session=None)
+        # print(coll_names)
         dblist = self.client.list_database_names()
         print(dblist)
         self.db = self.client[self.database]
@@ -37,7 +47,7 @@ class GinkgoMongo(object):
                 pymongo.UpdateOne(
                     {"date": data_frame.iloc[i].date},
                     {
-                        "$push": {
+                        "$set": {
                             "code": data_frame.iloc[i].code,
                             "open": data_frame.iloc[i].open,
                             "high": data_frame.iloc[i].high,
@@ -116,6 +126,18 @@ class GinkgoMongo(object):
         # ]
 
         # result = collection.bulk_write(operations)
+
+    def get_latest_date(self, code: str):
+        self.change_collection(collection_name=code)
+        s = self.collection.find().sort("date", pymongo.DESCENDING).limit(1)
+        last_date = s[0]["date"]
+        return last_date
+
+    def get_latest_time(self, code: str):
+        self.change_collection(collection_name=code + "_min5")
+        s = self.collection.find().sort("time", pymongo.DESCENDING).limit(1)
+        last_time = s[0]["time"]
+        return last_time
 
     # db.users.update({'name':'user5'}, {'$set': {'age': 22}, '$setOnInsert': {'index':5}}, upsert=True)
 

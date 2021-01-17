@@ -441,8 +441,9 @@ class GinkgoStorage(object):
 
     def get_day_bar_last_date(self, code="sh.000001"):
         self.__connect_mongo()
-        with mongoengine.context_managers.switch_collection(DayBar, code):
-            last = DayBar.objects.order_by("-date")[:1][0].date
+        with mongoengine.context_managers.switch_collection(DayBar, code) as NewDayBar:
+            print(NewDayBar.objects.count())
+            last = NewDayBar.objects.order_by("-date")[:1][0].date
         return last
 
     def get_min5_bar_last_date(self, code="sh.000001"):

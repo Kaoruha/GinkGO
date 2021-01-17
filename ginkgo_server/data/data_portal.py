@@ -91,7 +91,7 @@ class DataPortal(object):
         result = gs.get_adjust_factors(code=code)
         return result
 
-    def update_stock_day_bar(self, code="sh.000001"):
+    def update_stock_day_bar(self, pbar, code="sh.000001"):
         """
         更新某一指数的日交易数据
         """
@@ -100,14 +100,13 @@ class DataPortal(object):
         # 获取当前最新的数据日期
         try:
             # 尝试从MongoDB查询该指数的最新数据
-            last_date = gs.update_stock_day_barupdate_stock_day_bar(code=code)
+            last_date = gm.get_latest_date(code=code)
         except Exception as e:
-            print(e)
             # 失败则把开始日期设置为初识日期
             last_date = bao_instance.init_date
         bao_instance.login()
         # 获取DataFrame数据
-        gl.info(f"尝试获取{code} {last_date} 至 {end}数据")
+        pbar.set_description(f"尝试获取{code} {last_date} 至 {end} 数据")
         rs = bao_instance.get_data(
             code=code, data_frequency="d", start_date=last_date, end_date=end
         )
@@ -116,13 +115,14 @@ class DataPortal(object):
         # 存储数据
 
         split_unit = 20000
-        gl.info(f"准备插入{rs.shape[0]}条数据")
+        pbar.set_description(f"{code}准备插入{rs.shape[0]}条数据")
+        # gl.info(f"准备插入{rs.shape[0]}条数据")
         if rs.shape[0] > 0:
             split_count = int(rs.shape[0] / split_unit)
             for j in range(split_count + 1):
                 df = rs[j * split_unit : (j + 1) * split_unit]
                 gm.upsert_day_bar(code=code, data_frame=df)
-        gl.info(f"完成{code}daybar 插入")
+        pbar.set_description(f"完成{code}daybar 插入")
 
     def update_all_stock_day_bar(self):
         """
@@ -134,10 +134,10 @@ class DataPortal(object):
         pbar = tqdm.tqdm(stock_list)
         for i in pbar:
             bao_instance.login()
-            self.update_stock_day_bar(code=i)
+            self.update_stock_day_bar(code=i, pbar=pbar)
             pbar.set_description(f"Update {i} DayBar")
 
-    def update_stock_min5_bar(self, code="sh.000001"):
+    def update_stock_min5_bar(self, pbar, code="sh.000001"):
         """
         更新某一指数的5min交易数据
         """
@@ -146,7 +146,7 @@ class DataPortal(object):
         # 获取当前最新的数据日期
         try:
             # 尝试从MongoDB查询该指数的最新数据
-            last_date = gs.get_min5_bar_last_date(code=code)
+            last_date = gm.get_latest_time(code=code)
         except Exception as e:
             # 失败则把开始日期设置为初识日期
             last_date = bao_instance.init_date
@@ -155,7 +155,7 @@ class DataPortal(object):
         rs = bao_instance.get_data(
             code=code, data_frequency="5", start_date=last_date, end_date=end
         )
-        print(rs.shape[0])
+        pbar.set_description(f"获取{code} 数据{rs.shape[0]}条")
         # rs = rs[:200]
         # 存储数据
 
@@ -165,8 +165,11 @@ class DataPortal(object):
             split_count = int(rs.shape[0] / split_unit)
             for j in range(split_count + 1):
                 df = rs[j * split_unit : (j + 1) * split_unit]
-                gl.info(f"开始批量插入数据{j * split_unit} 至 {(j + 1) * split_unit}")
                 gm.upsert_min5(code=code, data_frame=df)
+                pbar.set_description(
+                    f"获取{code}数据{j * split_unit}-{(j + 1) * split_unit}条"
+                )
+            pbar.set_description(f"获取{code} 数据{rs.shape[0]}条")
 
         else:
             # TODO 修改CodeInfo 的has_min_bar数据
@@ -182,7 +185,7 @@ class DataPortal(object):
         pbar = tqdm.tqdm(stock_list)
         for i in pbar:
             bao_instance.login()
-            self.update_all_min5_bar(code=i)
+            self.update_all_min5_bar(code=i, pbar=pbar)
             pbar.set_description(f"Update {i} Min5")
 
 
