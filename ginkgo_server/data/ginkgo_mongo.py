@@ -21,26 +21,22 @@ class GinkgoMongo(object):
         #     host=self.host, port=self.port, username=self.username, password=self.pwd
         # )
         self.client = pymongo.MongoClient(host=self.host, port=self.port)
-
-        # db = self.client.admin
-        # # 认证
-        # db.authenticate(self.username, self.pwd)
-        # # 需要用的的表需要在认证后用client单独去关联
-        # mongo_db = self.client[self.database]
-
-        # # 获取所有collections并打印，验证是否登录成功
-        # coll_names = mongo_db.list_collection_names(session=None)
-        # print(coll_names)
-        dblist = self.client.list_database_names()
-        print(dblist)
         self.db = self.client[self.database]
+        self.db.authenticate(self.username, self.pwd, mechanism="SCRAM-SHA-1")
+
+        # if self.username and self.pwd:
+        #     self.db = self.client[self.database].authenticate(
+        #         self.username, self.pwd, mechanism="SCRAM-SHA-256"
+        #     )
+        # else:
+        #     self.db = self.client[self.database]
 
     def change_collection(self, collection_name: str):
         self.collection = self.db[collection_name]
 
     def upsert_day_bar(self, code: str, data_frame):
         self.change_collection(collection_name=code)
-        self.collection.ensure_index("date", unique=True)
+
         operations = []
         for i in range(data_frame.shape[0]):
             operations.append(
@@ -67,10 +63,12 @@ class GinkgoMongo(object):
                 )
             )
         result = self.collection.bulk_write(operations)
+        self.collection.create_index([("date", 1)], unique=True)
+        # self.collection.ensure_index("date", unique=True)
 
     def upsert_min5(self, code: str, data_frame):
         self.change_collection(collection_name=code + "_min5")
-        self.collection.ensure_index("time", unique=True)
+        # self.collection.ensure_index("time", unique=True)
         operations = []
         for i in range(data_frame.shape[0]):
             operations.append(
@@ -96,7 +94,7 @@ class GinkgoMongo(object):
 
     def upsert_min5_old(self, code: str, data_list):
         self.change_collection(collection_name=code)
-        self.collection.ensure_index("time", unique=True)
+        # self.collection.ensure_index("time", unique=True)
         operations = []
         for i in data_list:
             operations.append(
@@ -165,5 +163,5 @@ class GinkgoMongo(object):
 
 
 ginkgo_mongo = GinkgoMongo(
-    host=HOST, port=PORT, username=USERNAME, pwd=PASSWORD, database=DATABASE
+    host=HOST, port=PORT, username=USERNAME, pwd=PASSWORD, database="quant"
 )

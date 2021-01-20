@@ -35,9 +35,10 @@ class GinkgoStorage(object):
         """
         从Ginkgo_Server的Config内读取MongoDB的配置信息，尝试进行连接
         """
-        mongoengine.connect(
-            db=DATABASE, host=HOST, port=PORT, username=USERNAME, password=PASSWORD
-        )
+        # mongoengine.connect(
+        #     db=DATABASE, host=HOST, port=PORT, username=USERNAME, password=PASSWORD
+        # )
+        mongoengine.connect(db=DATABASE, host=HOST, port=PORT)
         # TODO 连接结果输出，方便定位Bug
 
     # 判断数据库DB是否存在

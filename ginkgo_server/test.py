@@ -1,43 +1,15 @@
-# a = 100
-# b = None
-# c = False
+from pymongo import MongoClient
 
-# print(not a)
-# print(not b)
-# print(not c)
-
-
-# print('='*50)
-
-# print(a is None)
-# print(b is None)
-# print(c is None)
-
-
-# a = []
-# print(len(a))
-
-# a=['name','age']
-# b = {"name":1,"age":2}
-
-# for i in a:
-#     print(b[i])
-
-
-a = 240241
-
-
-split_unit = 10000
-
-b = a // split_unit
-c = int(a / split_unit)
-
-print(b)
-print(c)
-
-for i in range(c + 1):
-    print(f"{i*split_unit}到{(i+1)*split_unit}")
-
-
-a = [1, 2, 3, 4]
-print(a[0:10])
+host = "127.0.0.1"
+client = MongoClient(host, 27017)
+# 连接mydb数据库,账号密码认证
+client["quant"].authenticate(
+    "ginkgo", "caonima123", mechanism="SCRAM-SHA-1"
+)  # 先连接系统默认数据库admin
+# 下面一条更改是关键，我竟然尝试成功了，不知道为啥，先记录下踩的坑吧
+# 让admin数据库去认证密码登录，好吧，既然成功了，
+# quant = client.db  # 再连接自己的数据库mydb
+collection = client["quant"]["stock_info"]  # myset集合，同上解释
+collection.insert({"name": "zhangsan", "age": 18})  # 插入一条数据，如果没出错那么说明连接成功
+for i in collection.find():
+    print(i)
