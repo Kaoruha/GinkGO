@@ -17,24 +17,31 @@ class GinkgoMongo(object):
         self.connect()
 
     def connect(self):
-        # self.client = pymongo.MongoClient(
-        #     host=self.host, port=self.port, username=self.username, password=self.pwd
-        # )
+        # 建立客户端连接
         self.client = pymongo.MongoClient(host=self.host, port=self.port)
+        # 切换数据库
         self.db = self.client[self.database]
+        # 授权
         self.db.authenticate(self.username, self.pwd, mechanism="SCRAM-SHA-1")
 
-        # if self.username and self.pwd:
-        #     self.db = self.client[self.database].authenticate(
-        #         self.username, self.pwd, mechanism="SCRAM-SHA-256"
-        #     )
-        # else:
-        #     self.db = self.client[self.database]
-
     def change_collection(self, collection_name: str):
+        """
+        切换数据集
+
+        :param collection_name: 数据集名称
+        :type collection_name: str
+        """
         self.collection = self.db[collection_name]
 
-    def upsert_day_bar(self, code: str, data_frame):
+    def upsert_day_bar(self, code: str, data_frame: pd.DataFrame):
+        """
+        更新某只股票的日交易数据
+
+        :param code: 股票代码
+        :type code: str
+        :param data_frame: [description]
+        :type data_frame: DataFrame
+        """
         self.change_collection(collection_name=code)
 
         operations = []
@@ -62,9 +69,9 @@ class GinkgoMongo(object):
                     upsert=True,
                 )
             )
-        result = self.collection.bulk_write(operations)
+        self.collection.bulk_write(operations)
+        # TODO 根据插入结果进行相应处理
         self.collection.create_index([("date", 1)], unique=True)
-        # self.collection.ensure_index("date", unique=True)
 
     def upsert_min5(self, code: str, data_frame):
         self.change_collection(collection_name=code + "_min5")
@@ -163,5 +170,5 @@ class GinkgoMongo(object):
 
 
 ginkgo_mongo = GinkgoMongo(
-    host=HOST, port=PORT, username=USERNAME, pwd=PASSWORD, database="quant"
+    host=HOST, port=PORT, username=USERNAME, pwd=PASSWORD, database=DATABASE
 )

@@ -17,7 +17,7 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 
 
 # gdp.update_all_cn_stock_info()
-# gdp.update_all_cn_adjust_factor()
+# gdp.upsert_all_cn_adjust_factor_async(thread_num=10)
 # gs.get_all_stock_code()
 
 # gdp.update_stock_day_bar(code="sz.000822")
@@ -28,10 +28,10 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 
 
 def update_all():
-    gdp.update_all_cn_stock_info()
-    gdp.update_all_cn_adjust_factor()
-    gdp.update_all_stock_day_bar()
-    # gdp.update_all_min5_bar()
+    gdp.upsert_all_cn_stock_info()
+    gdp.upsert_all_cn_adjust_factor_async(thread_num=4)
+    gdp.upsert_all_stock_day_bar_async(thread_num=4)
+    gdp.upsert_all_min5_bar()
 
 
-update_all()
+# update_all()

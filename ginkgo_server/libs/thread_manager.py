@@ -2,6 +2,7 @@
 负责数据相关的线程调度
 """
 import threading
+import queue
 
 
 class ThreadManager(object):
@@ -33,8 +34,8 @@ class ThreadManager(object):
         else:
             self.__thread_dict[thread.name] = thread
             thread.start()
-            res = thread.name + ' added!!'
-        print(res + '\n')
+        #     res = f'Thread:+{thread.name} added!!'
+        # print(res + '\n')
 
     def is_thread_exist(self, thread):
         """
@@ -66,6 +67,33 @@ class ThreadManager(object):
                 dead_list.append(p)
         for d in dead_list:
             self.__thread_dict.pop(d)
-            print(f'{d} has popped')
+            # print(f'Thread:{d} has popped')
+
+    def data_portal_thread_register(self, threads, thread_num):
+        # 构建待插入与正在运行的线程池
+        to_insert_thread = queue.Queue()
+        runing_threads = {}
+        for i in threads:
+            to_insert_thread.put(i)
+        
+        # 当待insert_list与runing_threads有线程时，执行
+        while True:
+            if len(runing_threads) + to_insert_thread.qsize() == 0:
+                break
+            # 如果正在运行的线程数量小于传入的预设线程数量，则从insert_list中提取一个
+            if to_insert_thread.qsize() > 0 and len(runing_threads) < thread_num:
+                new_thread = to_insert_thread.get()
+                runing_threads[new_thread.name] = new_thread
+                self.thread_register(new_thread)
+            dead_list = []
+            for p in runing_threads:
+                if not runing_threads[p].is_alive():
+                    dead_list.append(p)
+            for d in dead_list:
+                runing_threads.pop(d)
+            self.kill_dead_thread()
+
+            
+
 
 thread_manager = ThreadManager()

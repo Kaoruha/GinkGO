@@ -1,3 +1,4 @@
+ # pylint: disable=no-member
 """
 数据的存储模块，负责与MongoDocker的通信以及本地缓存的处理
 """
@@ -225,8 +226,7 @@ class GinkgoStorage(object):
 
         # 数据库连接
         self.__connect_mongo()
-        pbar = tqdm.tqdm(adjust_factor_list)
-        for i in pbar:
+        for i in adjust_factor_list:
             AdjustFactor.objects(
                 code=i.code, divid_operate_date=i.divid_operate_date
             ).update_one(
@@ -235,7 +235,6 @@ class GinkgoStorage(object):
                 back_adjust_factor=i.back_adjust_factor,
                 adjust_factor=i.adjust_factor,
             )
-            pbar.set_description(f"Updating {i.code} AdjustFactors")
 
     # 获取某只股票的复权因子数据
     def get_adjust_factors(self, code="sh.600000"):
@@ -426,19 +425,6 @@ class GinkgoStorage(object):
         # 确认了min5_bar_list的成员结构
         with mongoengine.context_managers.switch_collection(Min5Bar, code + "_min5"):
             Min5Bar.objects.insert(min5_bar_list)
-            # for i in min5_bar_list:
-            #     Min5Bar.objects(time=i.time).update_one(
-            #         upsert=True,
-            #         date=i.date,
-            #         code=i.code,
-            #         open=i.open,
-            #         high=i.high,
-            #         low=i.low,
-            #         close=i.close,
-            #         volume=i.volume,
-            #         amount=i.amount,
-            #         adjust_flag=i.adjust_flag,
-            #     )
 
     def get_day_bar_last_date(self, code="sh.000001"):
         self.__connect_mongo()
