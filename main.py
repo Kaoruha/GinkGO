@@ -34,4 +34,4 @@ def update_all():
     gdp.upsert_all_min5_bar()
 
 
-# update_all()
+update_all()
