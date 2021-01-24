@@ -28,10 +28,10 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 
 
 def update_all():
-    gdp.upsert_all_cn_stock_info()
-    gdp.upsert_all_cn_adjust_factor_async(thread_num=4)
-    gdp.upsert_all_stock_day_bar_async(thread_num=4)
-    gdp.upsert_all_min5_bar()
+    # gdp.upsert_all_cn_stock_info()
+    # gdp.upsert_all_cn_adjust_factor_async(thread_num=3)
+    gdp.upsert_all_stock_day_bar_async(thread_num=1)
+    # gdp.upsert_all_min5_bar()
 
 
 update_all()

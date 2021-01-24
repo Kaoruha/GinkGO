@@ -108,7 +108,6 @@ class BaoStockData(object):
             frequency = "5"
 
         data_list = []
-        self.login
 
         # 如果需要获取日交易数据，直接发送一个请求
         if data_frequency == "d":
@@ -186,28 +185,29 @@ class BaoStockData(object):
         return count
 
     # 获取DataFrame或者某只股票的最近更新日期
-    def get_last_date(self, data_or_code, data_frequency='d'):
+    def get_last_date(self, data_or_code, data_frequency="d"):
         """
         获取DataFrame或者某只股票的最近更新日期
         :param data_or_code: 传入DataFrame数据 或者具体股票Code
         :param data_frequency: 数据频率'd' or '5'
         :return: 如果传入DataFrame数据则返回这个DataFrame的最新更新日期，如果传入具体股票Code则取查找本地存取的csv读取最近更新日期
         """
-        if data_frequency == 'd':
-            path = 'day/'
-        elif data_frequency == '5':
-            path = 'min/'
+        if data_frequency == "d":
+            path = "day/"
+        elif data_frequency == "5":
+            path = "min/"
         else:
-            print('Frequency should be d or 5.')
+            print("Frequency should be d or 5.")
             return
         if type(data_or_code) == pd.core.frame.DataFrame:
             last_date = data_or_code.iloc[-1].date
         elif type(data_or_code) == str:
             # 数据库查询
-            date_data = pd.read_csv(STOCK_URL + path + data_or_code + '.csv',
-                                usecols=['date'])
+            date_data = pd.read_csv(
+                STOCK_URL + path + data_or_code + ".csv", usecols=["date"]
+            )
         if date_data.count().date == 0:
-            print(f'{data_or_code}.csv 无数据')
+            print(f"{data_or_code}.csv 无数据")
             return 0
         else:
             last_date = date_data.iloc[-1].date
@@ -219,12 +219,12 @@ class BaoStockData(object):
         通过获取sh.000001的日交易数据来获取数据最新,目前往前推10天
         :return: 返回baostock的最新更新日期
         """
+        gl.info("获取baostock最新更新日期")
         daily_query = "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST"
         start_date = (
             datetime.datetime.now().date() + datetime.timedelta(days=-10)
         ).strftime("%Y-%m-%d")
         today = datetime.datetime.now().strftime("%Y-%m-%d")
-        self.login()
         rs = bs.query_history_k_data_plus(
             "sh.000001",
             daily_query,
@@ -242,7 +242,6 @@ class BaoStockData(object):
                 data_list.append(rs.get_row_data())
             result = pd.DataFrame(data_list, columns=rs.fields)
         last_date = result.iloc[-1].date
-        self.logout()
         return last_date
 
     # 根据数据频率设定文件目录
@@ -252,20 +251,16 @@ class BaoStockData(object):
         :param data_frequency: 数据频率'd' or '5'
         :return: 返回路径
         """
-        if data_frequency == 'd':
-            path = STOCK_URL + 'day/'
-        elif data_frequency == '5':
-            path = STOCK_URL + 'min/'
+        if data_frequency == "d":
+            path = STOCK_URL + "day/"
+        elif data_frequency == "5":
+            path = STOCK_URL + "min/"
         else:
-            print('Frequency should be d or 5.')
+            print("Frequency should be d or 5.")
         return path
 
     # 生成交易数据CSV文件
-    def generate_data_csv(self,
-                          code='sh.600000',
-                          data_frequency='d',
-                          *,
-                          data_frame):
+    def generate_data_csv(self, code="sh.600000", data_frequency="d", *, data_frame):
         """
         生成CSV文件
         :param code: 股票代码
@@ -275,53 +270,45 @@ class BaoStockData(object):
         """
         path = self.set_path(data_frequency)
         if data_frame.count().date == 0:
-            print('数据不能为空')
+            print("数据不能为空")
             min_ignore = self.read_min_ignore()
-            if not self.is_code_in_min_ignore(code=code,
-                                              min_ignore=min_ignore):
+            if not self.is_code_in_min_ignore(code=code, min_ignore=min_ignore):
                 self.add_to_min_ignore(code=code)
             return
         else:
             result = data_frame
             count = result.count().date
             if count < 10000:
-                result.to_csv(path + code + '.csv', mode='w', index=False)
-                last_date = self.get_last_date(data_or_code=code,
-                                               data_frequency=data_frequency)
-                print(f'{code}.csv 已经生成，最新日期为 {last_date}')
+                result.to_csv(path + code + ".csv", mode="w", index=False)
+                last_date = self.get_last_date(
+                    data_or_code=code, data_frequency=data_frequency
+                )
+                print(f"{code}.csv 已经生成，最新日期为 {last_date}")
                 # self.sleep(3)
             else:
-                result[:10000].to_csv(path + code + '.csv',
-                                      mode='w',
-                                      index=False)
-                self.add_to_csv(code=code,
-                                data_frequency=data_frequency,
-                                data_frame=result[10000:])
+                result[:10000].to_csv(path + code + ".csv", mode="w", index=False)
+                self.add_to_csv(
+                    code=code, data_frequency=data_frequency, data_frame=result[10000:]
+                )
 
     # # 向CSV中注入交易数据
-    def add_to_csv(self, code='sh.600000', data_frequency='d', *, data_frame):
+    def add_to_csv(self, code="sh.600000", data_frequency="d", *, data_frame):
         path = self.set_path(data_frequency)
         count = data_frame.count().date
         if count == 0:
-            print('数据不能为空')
+            print("数据不能为空")
             return
         elif count <= self.data_split:
-            data_frame.to_csv(path + code + '.csv',
-                              mode='a',
-                              header=False,
-                              index=False)
-            last = self.get_last_date(data_or_code=code,
-                                      data_frequency=data_frequency)
+            data_frame.to_csv(path + code + ".csv", mode="a", header=False, index=False)
+            last = self.get_last_date(data_or_code=code, data_frequency=data_frequency)
         else:
             for i in range(int(count / self.data_split) + 1):
-                t = data_frame[self.data_split * i:(i + 1) * self.data_split]
-                t.to_csv(path + code + '.csv',
-                         mode='a',
-                         header=False,
-                         index=False)
-                last = self.get_last_date(data_or_code=code,
-                                          data_frequency=data_frequency)
-        print(f'\n{code}.csv 已经更新至 {last}')
+                t = data_frame[self.data_split * i : (i + 1) * self.data_split]
+                t.to_csv(path + code + ".csv", mode="a", header=False, index=False)
+                last = self.get_last_date(
+                    data_or_code=code, data_frequency=data_frequency
+                )
+        print(f"\n{code}.csv 已经更新至 {last}")
         self.sleep(1)
 
     # 生成分钟数据黑名单，把没有分钟数据的指数存入
@@ -330,13 +317,10 @@ class BaoStockData(object):
         生成分钟数据黑名单，把没有分钟数据的指数存入
         :return:
         """
-        t = {'code': []}
+        t = {"code": []}
         df = pd.DataFrame(data=t, index=None)
-        df.to_csv(STOCK_URL + 'min_ignore.csv',
-                  mode='w',
-                  index=False,
-                  encoding="GBK")
-        print(f'成功创建 min_ignore.csv')
+        df.to_csv(STOCK_URL + "min_ignore.csv", mode="w", index=False, encoding="GBK")
+        print(f"成功创建 min_ignore.csv")
 
     # 判断股票代码是否在分钟时间黑名单中
     def is_code_in_min_ignore(self, code, min_ignore):
@@ -348,7 +332,7 @@ class BaoStockData(object):
         """
         if min_ignore is None:
             return False
-        ignore_list = min_ignore['code'].values.tolist()
+        ignore_list = min_ignore["code"].values.tolist()
         if code in ignore_list:
             return True
         else:
@@ -362,14 +346,16 @@ class BaoStockData(object):
         :return:
         """
         try:
-            t = {'code': [code]}
+            t = {"code": [code]}
             df = pd.DataFrame(data=t, index=None)
-            df.to_csv(STOCK_URL + 'min_ignore.csv',
-                      mode='a',
-                      header=False,
-                      index=False,
-                      encoding="GBK")
-            print(f'已经添加 {code} 至 min_ignore.csv.')
+            df.to_csv(
+                STOCK_URL + "min_ignore.csv",
+                mode="a",
+                header=False,
+                index=False,
+                encoding="GBK",
+            )
+            print(f"已经添加 {code} 至 min_ignore.csv.")
         except Exception as e:
             print(e)
             self.generate_min_ignore()
@@ -382,8 +368,7 @@ class BaoStockData(object):
         :return:
         """
         try:
-            ignore_df = pd.read_csv(STOCK_URL + 'min_ignore.csv',
-                                    usecols=['code'])
+            ignore_df = pd.read_csv(STOCK_URL + "min_ignore.csv", usecols=["code"])
             return ignore_df
         except Exception as e:
             print(e)
@@ -507,11 +492,10 @@ class BaoStockData(object):
 
     # 生成复权因子数据CSV
     def generate_adjust_factor(self, data_frame):
-        data_frame.to_csv(STOCK_URL + "adjust_factor_data.csv",
-                          encoding="GBK",
-                          index=False,
-                          mode='w')
-        print('成功生成 adjust_factor.csv')
+        data_frame.to_csv(
+            STOCK_URL + "adjust_factor_data.csv", encoding="GBK", index=False, mode="w"
+        )
+        print("成功生成 adjust_factor.csv")
 
     # 更新复权因子数据
     def add_to_adjust_factor(self, data_frame, code, adjust_factor):
@@ -538,15 +522,17 @@ class BaoStockData(object):
 
     # 判断某一行DataFrame是否在adjust_factor_data.csv中
     def is_adjust_in_csv(self, data_frame, adjust_factor):
-        filter = adjust_factor.loc[(adjust_factor.code == data_frame.code) & (
-            adjust_factor.dividOperateDate == data_frame.dividOperateDate)]
+        filter = adjust_factor.loc[
+            (adjust_factor.code == data_frame.code)
+            & (adjust_factor.dividOperateDate == data_frame.dividOperateDate)
+        ]
         count = filter.count().dividOperateDate
         if count == 1:
             return True
         elif count == 0:
             return False
         else:
-            print('复权因子数据重复，请复核')  # TODO 复权因子重复的话去重
+            print("复权因子数据重复，请复核")  # TODO 复权因子重复的话去重
             return True
 
     # 更新某一个股票的复权因子数据
@@ -562,35 +548,33 @@ class BaoStockData(object):
 
     # 更新所有股票指数复权因子
     def all_adjust_factor_up_to_date(self):
-        code = pd.read_csv(STOCK_URL + 'all_stock.csv', usecols=['code'])
+        code = pd.read_csv(STOCK_URL + "all_stock.csv", usecols=["code"])
         count = code.count().code
         if count == 0:
-            print('指数代码为空，请检查代码')
+            print("指数代码为空，请检查代码")
             return
         else:
-            print('开始更新复权因子数据。。。')
+            print("开始更新复权因子数据。。。")
             self.login()
             rs_list = []
-            rs_factor = bs.query_adjust_factor(code="sh.600000",
-                                               start_date=self.init_date,
-                                               end_date="2017-12-31")
-            while (rs_factor.error_code == '0') & rs_factor.next():
+            rs_factor = bs.query_adjust_factor(
+                code="sh.600000", start_date=self.init_date, end_date="2017-12-31"
+            )
+            while (rs_factor.error_code == "0") & rs_factor.next():
                 rs_list.append(rs_factor.get_row_data())
             result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
-            if not os.path.exists('.//' + STOCK_URL +
-                                  'adjust_factor_data.csv'):
-                print('没有找到 adjust_factor_data.csv')
+            if not os.path.exists(".//" + STOCK_URL + "adjust_factor_data.csv"):
+                print("没有找到 adjust_factor_data.csv")
                 self.generate_adjust_factor(result_factor)
-            adjust = pd.read_csv(STOCK_URL + 'adjust_factor_data.csv')
+            adjust = pd.read_csv(STOCK_URL + "adjust_factor_data.csv")
             begin = datetime.datetime.now()
 
             for row in code.iterrows():
-                self.adjust_factor_up_to_date(code=row[1].code,
-                                              adjust_factor=adjust)
+                self.adjust_factor_up_to_date(code=row[1].code, adjust_factor=adjust)
             end = datetime.datetime.now()
             min_elapse = int((end - begin).seconds / 60)
             second_elapse = (end - begin).seconds - 60 * min_elapse
-            print(f'复权因子数据数据更新完毕,共耗时 {min_elapse} 分 {second_elapse} 秒')
+            print(f"复权因子数据数据更新完毕,共耗时 {min_elapse} 分 {second_elapse} 秒")
             self.logout()
 
 
