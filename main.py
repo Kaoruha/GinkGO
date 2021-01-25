@@ -1,6 +1,7 @@
 # from config.setting import *
 from ginkgo_server.libs.ginkgo_logger import ginkgo_logger as gl
 from ginkgo_server.web.server import start_server
+from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo_server.data.data_portal import data_portal as gdp
 from ginkgo_server.data.storage import ginkgo_storage as gs
 
@@ -26,12 +27,16 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 
 # gdp.update_stock_min5_bar(code="sh.600000")
 
+# gm.get_all_stock_code()
+
+gm.update_adjust_factor()
+
 
 def update_all():
-    gdp.upsert_all_cn_stock_info()
-    gdp.upsert_all_cn_adjust_factor_async(thread_num=1)
-    gdp.upsert_all_stock_day_bar_async(thread_num=1)
+    gm.update_stock_info()
+    # gdp.upsert_all_cn_adjust_factor_async(thread_num=1)
+    # gdp.upsert_all_stock_day_bar_async(thread_num=1)
     # gdp.upsert_all_min5_bar()
 
 
-update_all()
+# update_all()

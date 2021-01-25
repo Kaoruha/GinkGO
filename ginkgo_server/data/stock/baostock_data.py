@@ -17,7 +17,6 @@ class BaoStockData(object):
     init_date = "1999-07-26"
     data_split = 10000
 
-    # TODO 文件操作的异常回滚
 
     def __init__(self):
         self.__init_dir()
@@ -36,6 +35,7 @@ class BaoStockData(object):
         baostock相关缓存目录初始化
         :return:
         """
+        pass
         # 日交易数据目录
         # makedir('.//' + STOCK_URL + 'day')
         # # 5分钟交易数据目录
@@ -52,8 +52,7 @@ class BaoStockData(object):
             gl.error("\rlogin respond error_code:" + lg.error_code)
             gl.error("\rlogin respond  error_msg:" + lg.error_msg)
         else:
-            pass
-            # gl.info('Baostock Login Success')
+            gl.info('Baostock Login Success')
 
     # baostock 退出
     def logout(self):
@@ -97,7 +96,7 @@ class BaoStockData(object):
         min_query = "date,time,code,open,high,low,close,volume,amount,adjustflag"
         dimension = daily_query
         frequency = "d"
-        now = datetime.datetime.now().strftime("%H:%M:%S")
+        # now = datetime.datetime.now().strftime("%H:%M:%S")
 
         # 根据查询数据的频率，修正查询数据的维度与频率
         if data_frequency == "d":
@@ -125,7 +124,6 @@ class BaoStockData(object):
                 while (rs.error_code == "0") & rs.next():
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
-                # TODO 进度条
                 # gl.info(f"成功获取 {code} 从 {start_date} 至 {end_date} 的数据")
             else:
                 gl.error(
@@ -136,43 +134,44 @@ class BaoStockData(object):
             return result
 
         # 如果需要获取的是5min交易数据，分段获取
-        start = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
-        end = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
-        total_days = (end - start).days
-        offset = 365 * 2
+        if data_frequency == "5":
+            start = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+            end = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
+            total_days = (end - start).days
+            offset = 365 * 2
 
-        for i in range(int(total_days / offset) + 1):
-            start_temp = (start + datetime.timedelta(days=offset * i)).strftime(
-                "%Y-%m-%d"
-            )
-            if i == int(total_days / offset):
-                end_temp = end_date
-            else:
-                end_temp = (start + datetime.timedelta(days=offset * (i + 1))).strftime(
+            for i in range(int(total_days / offset) + 1):
+                start_temp = (start + datetime.timedelta(days=offset * i)).strftime(
                     "%Y-%m-%d"
                 )
-            now = datetime.datetime.now().strftime("%H:%M:%S")
+                if i == int(total_days / offset):
+                    end_temp = end_date
+                else:
+                    end_temp = (start + datetime.timedelta(days=offset * (i + 1))).strftime(
+                        "%Y-%m-%d"
+                    )
+                # now = datetime.datetime.now().strftime("%H:%M:%S")
 
-            rs = bs.query_history_k_data_plus(
-                code,
-                dimension,
-                start_date=start_temp,
-                end_date=end_temp,
-                frequency=frequency,
-                adjustflag="3",
-            )
-            if rs.error_code == "0":
-                # 打印结果集
-                while (rs.error_code == "0") & rs.next():
-                    # 获取一条记录，将记录合并在一起
-                    data_list.append(rs.get_row_data())
-            else:
-                gl.error(
-                    "query_history_k_data_plus respond error_code:" + rs.error_code
+                rs = bs.query_history_k_data_plus(
+                    code,
+                    dimension,
+                    start_date=start_temp,
+                    end_date=end_temp,
+                    frequency=frequency,
+                    adjustflag="3",
                 )
-                gl.error("query_history_k_data_plus respond  error_msg:" + rs.error_msg)
-        result = pd.DataFrame(data_list, columns=rs.fields)
-        return result
+                if rs.error_code == "0":
+                    # 打印结果集
+                    while (rs.error_code == "0") & rs.next():
+                        # 获取一条记录，将记录合并在一起
+                        data_list.append(rs.get_row_data())
+                else:
+                    gl.error(
+                        "query_history_k_data_plus respond error_code:" + rs.error_code
+                    )
+                    gl.error("query_history_k_data_plus respond  error_msg:" + rs.error_msg)
+            result = pd.DataFrame(data_list, columns=rs.fields)
+            return result
 
     # 获取一系列DataFrame的长度
     def count_data(self, data):
@@ -184,7 +183,7 @@ class BaoStockData(object):
         count = data.count().date
         return count
 
-    # 获取DataFrame或者某只股票的最近更新日期
+    # 获取DataFrame或者某只股票的最近更新日期，!!ABANDON!!
     def get_last_date(self, data_or_code, data_frequency="d"):
         """
         获取DataFrame或者某只股票的最近更新日期
@@ -425,7 +424,6 @@ class BaoStockData(object):
         :return:
         """
         # 获取证券信息
-        self.login()
         date = bao_instance.get_baostock_last_date()
         rs = bs.query_all_stock(day=date)
 

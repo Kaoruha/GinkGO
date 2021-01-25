@@ -1,6 +1,7 @@
  # pylint: disable=no-member
+ # 将要被废弃，mongoengine不行 得自己重写一个
 """
-数据的存储模块，负责与MongoDocker的通信以及本地缓存的处理
+数据的存储模块，负责与MongoDB的通信以及本地缓存的处理
 """
 import threading
 import datetime

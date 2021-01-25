@@ -18,5 +18,14 @@
 # a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 # print(a[8:12])
 
-for i in range(1):
-    print(i)
+# for i in range(1):
+#     print(i)
+import time
+
+while True:
+    print(1)
+    time.sleep(1)
+
+    while True:
+        print(2)
+        time.sleep(2)

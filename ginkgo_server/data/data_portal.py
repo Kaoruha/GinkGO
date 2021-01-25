@@ -6,6 +6,8 @@
 """
 import math
 import threading
+import time
+import queue
 import tqdm
 
 # import pandas as pd
@@ -30,31 +32,6 @@ class DataPortal(object):
                     DataPortal._instance = super().__new__(cls)
 
             return DataPortal._instance
-
-    def upsert_all_cn_stock_info(self):
-        """
-        更新所有指数代码基本信息,包括指数指数代码、指数名称、交易状态
-        """
-        # Step1：通过Baostock获取所有指数代码
-        result = bao_instance.get_all_stock_code()
-        # result = result[:10000]
-
-        # Step2：如果数据不为空进行持久化操作，反之报错
-        if result.shape[0] > 0:
-            # Step3：通过GinkGO_Storage进行数据持久化，目前先存储至MongoDBDocker，之后考虑本地缓存方法
-            stock_info_list = []
-            for i in range(result.shape[0]):
-                code = result.iloc[i].loc["code"]
-                code_name = result.iloc[i].loc["code_name"]
-                trade_status = result.iloc[i].loc["tradeStatus"]
-                new_stock = StockInfo(
-                    code=code, code_name=code_name, trade_status=trade_status
-                )
-                stock_info_list.append(new_stock)
-
-            gs.insert_stock_info_list(stock_info_list)
-        else:
-            gl.error("股票指数代码获取为空，请检查代码或日期")
 
     def upsert_all_cn_adjust_factor(self):
         """
@@ -194,6 +171,13 @@ class DataPortal(object):
 
     def upsert_all_stock_day_bar_async(self, thread_num=1):
         # 获取指数列表
+        # Baostock貌似不支持多线程获取数据，遂单读线程获取数据，多线程存储数据库
+        # TODO 数据库多线程存储
+        # Step1 获取股票指数列表
+        # Step2 准备一个待upsert的队列
+        # Step3 设置upsert队列的长度，太大可能会爆内存
+        # Step4 当队列长度小于预设长度时候，按照股票队列获取，并塞入这个队列
+        # Step5 当存储线程小于预设时，从队列里拿一列数据，进行存储
         stock_list = gs.get_all_stock_code()
         slice_count = 500
         pieces_count = math.ceil(len(stock_list) / slice_count)
