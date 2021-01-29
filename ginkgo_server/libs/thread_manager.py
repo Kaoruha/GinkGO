@@ -3,6 +3,7 @@
 """
 import threading
 import queue
+import time
 
 
 class ThreadManager(object):
@@ -69,7 +70,7 @@ class ThreadManager(object):
             self.__thread_dict.pop(d)
             # print(f'Thread:{d} has popped')
 
-    def data_portal_thread_register(self, threads, thread_num):
+    def limit_thread_register(self, threads, thread_num):
         # 构建待插入与正在运行的线程池
         to_insert_thread = queue.Queue()
         runing_threads = {}
@@ -92,6 +93,7 @@ class ThreadManager(object):
             for d in dead_list:
                 runing_threads.pop(d)
             self.kill_dead_thread()
+            time.sleep(2)
 
             
 

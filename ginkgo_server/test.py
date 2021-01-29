@@ -20,12 +20,17 @@
 
 # for i in range(1):
 #     print(i)
-import time
 
-while True:
-    print(1)
-    time.sleep(1)
+# import pandas as pd
+# t = {'id':[1,2,3,4,5],'name':['Alice','Alice','Alice','Alice','Alice']}
+# g = {'id':[6,7,8,9,10],'name':['Bob','Bob','Bob','Bob','Bob']}
+# df1 = pd.DataFrame(data=t)
+# df2 = pd.DataFrame(g)
+# print(df1)
+# print(df2)
+# print('='*20)
+# s = pd.concat([df1,df2],join='inner')
+# print(s)
 
-    while True:
-        print(2)
-        time.sleep(2)
+from ginkgo_server.libs.thread_manager import thread_manager as tm
+tm.kill_all()
