@@ -40,7 +40,6 @@ class GinkgoMongo(object):
         # 授权
         self.db.authenticate(self.username, self.pwd, mechanism="SCRAM-SHA-1")
 
-
     # 更新所有股票指数基本信息
     def update_stock_info(self):
         """
@@ -53,7 +52,7 @@ class GinkgoMongo(object):
 
         # Step2：如果数据不为空进行持久化操作，反之报错
         if result.shape[0] > 0:
-            col = self.db['stock_info']
+            col = self.db["stock_info"]
 
             operations = []
             pbar = tqdm.tqdm(total=result.shape[0])
@@ -82,7 +81,7 @@ class GinkgoMongo(object):
             gl.error("股票指数代码获取为空，请检查代码或日期")
 
     def get_all_stock_code(self):
-        col = self.db['stock_info']
+        col = self.db["stock_info"]
         rs = col.find()
         df = pd.DataFrame(rs)
         if df.shape[0] > 0:
@@ -136,7 +135,7 @@ class GinkgoMongo(object):
         col = self.db[code]
 
         operations = []
-        gl.info('开始添加批量操作')
+        gl.info("开始添加批量操作")
         for i in range(data_frame.shape[0]):
             operations.append(
                 pymongo.UpdateOne(
@@ -161,13 +160,13 @@ class GinkgoMongo(object):
                     upsert=True,
                 )
             )
-        gl.info('批量操作添加完成')
-        gl.info('开始执行批量操作')
+        gl.info("批量操作添加完成")
+        gl.info("开始执行批量操作")
         col.bulk_write(operations)
-        gl.info('批量操作执行完成')
+        gl.info("批量操作执行完成")
         # TODO 根据插入结果进行相应处理
         col.create_index([("date", 1)], unique=True)
-        gl.info('索引创建完成')
+        gl.info("索引创建完成")
 
     def upsert_adjust_factor(self, data_frame: pd.DataFrame):
         """
@@ -246,49 +245,57 @@ class GinkgoMongo(object):
             )
         result = col.bulk_write(operations)
 
-
+    # 获取某只股票日交易数据的最新日期
     def get_latest_date(self, code: str):
         col = self.db[code]
         s = col.find().sort("date", pymongo.DESCENDING).limit(1)
         last_date = s[0]["date"]
         return last_date
 
+    # 获取某股票min5数据的最新时间戳
     def get_latest_time(self, code: str):
         col = self.db[code + "_min5"]
         s = col.find().sort("time", pymongo.DESCENDING).limit(1)
         last_time = s[0]["time"]
         return last_time
 
-    def update_day_bar_async(self, data_pool_size=8, thread_num=1):
+    # 异步更新日交易数据
+    def update_day_bar_async(self, data_pool_size=12, thread_num=1):
         # 获取日交易数据队列
-        gl.info('初始化.')
+        gl.info("初始化.")
         data_queue = queue.Queue()
         thread_dict = dict()
-        heartbeat = 1
+        heartbeat = 0.01
         stock_queue = queue.Queue()
-        gl.info('尝试获取股票代码')
         stock_df = self.get_all_stock_code()
-        gl.info('获取股票代码成功')
         bao_instance.login()
         end = bao_instance.get_baostock_last_date()
-        gl.info(f'最新更新日期为{end}')
+        gl.info(f"目标更新日期为{end}")
 
         if stock_df.shape[0] == 0:
-            gl.error(f'股票代码为空，请检查代码')
+            gl.error("股票代码为空，请检查代码")
             return
         for i in range(stock_df.shape[0]):
             stock_queue.put(stock_df.iloc[i].code)
-        gl.info('待更新队列准备完毕')
+        gl.info("更新队列准备完毕")
+        pbar_get = tqdm.tqdm(range(stock_queue.qsize()))
+        pbar_get.set_description("数据更新")
+        pbar_set = tqdm.tqdm(range(stock_queue.qsize()))
+        pbar_set.set_description("数据存储")
 
         while True:
-            # 如果stock_queue、
-            if stock_queue.qsize() ==0 and data_queue.qsize()==0 and len(insert_thread_list)==0:
+            # 如果stock_queue
+            if (
+                stock_queue.qsize() == 0
+                and data_queue.qsize() == 0
+                and len(thread_dict) == 0
+            ):
+                gl.info("日交易数据更新完毕")
                 return
-            
             if data_queue.qsize() < data_pool_size:
                 # 从stock_queue 中获取一个代码
                 stock_code = stock_queue.get()
-                gl.info(f'尝试获取{stock_code}数据')
+                pbar_get.set_description(f"尝试获取{stock_code}数据")
                 # 获取数据
                 # 获取当前最新的数据日期
                 try:
@@ -300,37 +307,40 @@ class GinkgoMongo(object):
                     # gl.info("设置last_date")
                     last_date = bao_instance.init_date
 
-                if end is last_date:
-                    gl.info(f"{stock_code}数据已是最新，无需更新")
+                if end == last_date:
+                    pbar_get.set_description(f"{stock_code}数据已是最新")
+                    pbar_set.set_description(f"{stock_code}无需更新")
+                    pbar_get.update(1)
+                    pbar_set.update(1)
                 else:
-                    gl.info(f'{stock_code}数据不是最新，尝试拉取最新数据')
+                    pbar_get.set_description(f"{stock_code}拉取最新数据")
                     rs = bao_instance.get_data(
                         code=stock_code,
                         data_frequency="d",
                         start_date=last_date,
                         end_date=end,
                     )
-                    gl.info(f'成功获取{stock_code}增量数据')
+                    pbar_get.set_description(f"成功获取{stock_code}增量数据")
                     # 插入data_queue中
-                    data_queue.put({stock_code:rs})
-                    gl.info(f'待插入数据:{data_queue.qsize()}')
+                    data_queue.put({stock_code: rs})
+                    pbar_get.update(1)
 
-            if len(thread_dict) < thread_num and data_queue.qsize()>0:
+            if len(thread_dict) < thread_num and data_queue.qsize() > 0:
                 # 从 data_queue 中获取一个对象
                 data = data_queue.get(block=True, timeout=None)
                 # 创建一个数据插入的线程
                 code = list(data.keys())[0]
                 df = data[code]
+                pbar_set.set_description(f"尝试存储{code}数据")
                 thread = threading.Thread(
                     name=f"Daybar {code} update",
                     target=self.upsert_day_bar,
-                    args=(code,df,),
+                    args=(code, df,),
                 )
                 # 线程注册
                 thread_dict[thread.name] = thread
                 # 线程添加至insert_thread_list
                 tm.thread_register(thread=thread)
-
             # 清理僵尸线程
             dead_list = []
             for p in thread_dict:
@@ -338,12 +348,10 @@ class GinkgoMongo(object):
                     dead_list.append(p)
             for d in dead_list:
                 thread_dict.pop(d)
+                pbar_set.update(1)
             tm.kill_dead_thread()
             # 心跳
-            gl.info(f'Stock：{stock_queue.qsize()}，Data：{data_queue.qsize()}，Threads：{len(thread_dict)}')
             time.sleep(heartbeat)
-
-
 
     def is_code_in_min_ignore(self, code: str):
         pass
