@@ -180,6 +180,9 @@ class GinkgoMongo(object):
         heartbeat = 0.01
         stock_queue = queue.Queue()
         stock_df = self.get_all_stock_code()
+
+        # stock_df = stock_df[:2000]
+
         bao_instance.login()
         end = bao_instance.get_baostock_last_date()
         gl.info(f"目标更新日期为{end}")
@@ -216,12 +219,12 @@ class GinkgoMongo(object):
                     last_date = self.get_latest_date(code=stock_code)
                 except Exception as e:
                     # 失败则把开始日期设置为初识日期
-                    # gl.info("设置last_date")
+                    # gl.info("设置last_date")2q1
                     last_date = bao_instance.init_date
 
                 if end == last_date:
                     pbar_get.set_description(f"{stock_code}数据已是最新")
-                    pbar_set.set_description(f"{stock_code}无需更新")
+                    pbar_set.set_description(f"{stock_code}目前无需更新")
                     pbar_get.update(1)
                     pbar_set.update(1)
                 else:
@@ -467,11 +470,6 @@ class GinkgoMongo(object):
     def add_to_min_ignore(self, code: str):
         pass
 
-    def get_min5(self):
-        bao_instance.login()
-        end = bao_instance.get_baostock_last_date()
-        rs = bao_instance.get_data(data_frequency="5", code="sh.600022", end_date=end)
-        print(rs)
 
     def print_dead_stock(self):
         bao_instance.login()
