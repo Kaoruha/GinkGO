@@ -36,7 +36,7 @@ def update_all():
     gm.update_stock_info()
     gm.update_adjust_factor()
     gm.update_day_bar_async(thread_num=4)
-    # gdp.upsert_all_min5_bar()
+    gm.update_min5_async(thread_num=4)
 
 
 update_all()

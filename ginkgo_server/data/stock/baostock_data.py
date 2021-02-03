@@ -17,7 +17,6 @@ class BaoStockData(object):
     init_date = "1999-07-26"
     data_split = 10000
 
-
     def __init__(self):
         self.__init_dir()
 
@@ -52,7 +51,7 @@ class BaoStockData(object):
             gl.error("\rlogin respond error_code:" + lg.error_code)
             gl.error("\rlogin respond  error_msg:" + lg.error_msg)
         else:
-            gl.info('Baostock Login Success')
+            gl.info("Baostock Login Success")
 
     # baostock 退出
     def logout(self):
@@ -147,9 +146,9 @@ class BaoStockData(object):
                 if i == int(total_days / offset):
                     end_temp = end_date
                 else:
-                    end_temp = (start + datetime.timedelta(days=offset * (i + 1))).strftime(
-                        "%Y-%m-%d"
-                    )
+                    end_temp = (
+                        start + datetime.timedelta(days=offset * (i + 1))
+                    ).strftime("%Y-%m-%d")
                 # now = datetime.datetime.now().strftime("%H:%M:%S")
 
                 rs = bs.query_history_k_data_plus(
@@ -169,7 +168,9 @@ class BaoStockData(object):
                     gl.error(
                         "query_history_k_data_plus respond error_code:" + rs.error_code
                     )
-                    gl.error("query_history_k_data_plus respond  error_msg:" + rs.error_msg)
+                    gl.error(
+                        "query_history_k_data_plus respond  error_msg:" + rs.error_msg
+                    )
             result = pd.DataFrame(data_list, columns=rs.fields)
             return result
 
