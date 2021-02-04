@@ -36,7 +36,10 @@ def update_all():
     gm.update_stock_info()
     # gm.update_adjust_factor()
     # gm.update_day_bar_async(thread_num=4)
-    gm.update_min5_async(thread_num=4)
+    gm.update_min5_async(thread_num=1)
 
 
-update_all()
+# update_all()
+
+s = gm.get_min5(code='sh.600000')
+gm.get_new_df_with_same_col(col='time',df_old=s[:500],df_new=s)

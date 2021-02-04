@@ -46,6 +46,7 @@ class GinkgoMongo(object):
         """
         更新所有指数代码基本信息,包括指数指数代码、指数名称、交易状态
         """
+        slice_count = 1000
         # Step1：通过Baostock获取所有指数代码
         bao_instance.login()
         result = bao_instance.get_all_stock_code()
@@ -72,7 +73,11 @@ class GinkgoMongo(object):
                 )
                 pbar.update(1)
                 pbar.set_description(f"添加 {result.iloc[i].code} 操作")
-            col.bulk_write(operations)
+                if len(operations) == slice_count:
+                    col.bulk_write(operations, ordered=False)
+                    operations = []
+            if len(operations) > 0:
+                col.bulk_write(operations, ordered=False)
             pbar.set_description("完成 StockInfo 更新")
             # TODO 根据插入结果进行相应处理
             pbar.set_description("StockInfo 索引更新")
@@ -135,6 +140,7 @@ class GinkgoMongo(object):
         :param data_frame: [description]
         :type data_frame: DataFrame
         """
+        slice_count = 1000
         col = self.db[code]
 
         operations = []
@@ -163,9 +169,12 @@ class GinkgoMongo(object):
                     upsert=True,
                 )
             )
-        # gl.info("批量操作添加完成")
-        # gl.info("开始执行批量操作")
-        col.bulk_write(operations)
+            if len(operations) == slice_count:
+                col.bulk_write(operations, ordered=False)
+                operations = []
+        if len(operations) > 0:
+            col.bulk_write(operations, ordered=False)
+
         # gl.info("批量操作执行完成")
         # TODO 根据插入结果进行相应处理
         col.create_index([("date", 1)], unique=True)
@@ -326,39 +335,30 @@ class GinkgoMongo(object):
     # 插入5min档位的分钟交易数据
     def upsert_min5(self, code: str, data_frame: pd.DataFrame):
         # 存储5min档交易数据
-        col = self.db[code + "_min5"]
+        print(f"{data_frame.shape[0]}")
+        df = data_frame.drop_duplicates(subset=["time"], keep="first")
+        print(f"{df.shape[0]}")
+        col = self.db[code + ".min5"]
+        slice_count = 100000
         operations = []
-        for i in range(data_frame.shape[0]):
-            operations.append(
-                pymongo.UpdateOne(
-                    {"time": data_frame.iloc[i].time},
-                    {
-                        "$set": {
-                            "date": data_frame.iloc[i].date,
-                            "time": data_frame.iloc[i].time,
-                            "code": data_frame.iloc[i].code,
-                            "open": data_frame.iloc[i].open,
-                            "high": data_frame.iloc[i].high,
-                            "low": data_frame.iloc[i].low,
-                            "close": data_frame.iloc[i].close,
-                            "volume": data_frame.iloc[i].volume,
-                            "amount": data_frame.iloc[i].amount,
-                            "adjust_flag": data_frame.iloc[i].adjustflag,
-                        }
-                    },
-                    upsert=True,
-                )
-            )
-        result = col.bulk_write(operations)
+        gl.info(f"开始批量创建{code}更新操作")
+        data = df.to_dict(orient="record")
+        # print(data)
+        print(len(data))
+        gl.info(f"{code}开始存储。。。")
+        col.insert_many(data)
+        gl.info(f"{code}完成存储。。。")
+        gl.info(f"{code}开始创建索引")
         col.create_index([("time", 1)], unique=True)
+        gl.info(f"{code}开始创建索引")
 
     # 异步更新Min5交易数据
-    def update_min5_async(self, data_pool_size=12, thread_num=1):
+    def update_min5_async(self, data_pool_size=2, thread_num=1):
         # 获取日交易数据队列
         gl.info("初始化.")
         data_queue = queue.Queue()
         thread_dict = dict()
-        heartbeat = 0.01
+        heartbeat = 1
         stock_queue = queue.Queue()
         stock_df = self.get_all_stock_code()  # TODO 获取所有有Min5的代码
         bao_instance.login()
@@ -369,9 +369,10 @@ class GinkgoMongo(object):
             gl.error("股票代码为空，请检查代码")
             return
         for i in range(stock_df.shape[0]):
-            # TODO 需要查询是否有Min5交易数据
-            stock_queue.put(stock_df.iloc[i].code)
-        gl.info("更新队列准备完毕")
+            # 需要查询是否有Min5交易数据
+            if self.check_stock_min5(code=stock_df.iloc[i].code):
+                stock_queue.put(stock_df.iloc[i].code)
+        gl.info(f"更新队列准备完毕:{stock_queue.qsize()}")
         pbar_get = tqdm.tqdm(range(stock_queue.qsize()))
         pbar_get.set_description("数据更新")
         pbar_set = tqdm.tqdm(range(stock_queue.qsize()))
@@ -389,12 +390,13 @@ class GinkgoMongo(object):
             if data_queue.qsize() < data_pool_size:
                 # 从stock_queue 中获取一个代码
                 stock_code = stock_queue.get()
-                pbar_get.set_description(f"尝试获取{stock_code}数据")
+                # pbar_get.set_description(f"尝试获取{stock_code}数据")
+                gl.info(f"获取到股票代码{stock_code}")
                 # 获取数据
                 # 获取当前最新的数据日期
                 try:
                     # 尝试从MongoDB查询该指数的最新数据
-                    # gl.info("获取last_date")
+                    gl.info("获取last_date")
                     last_date = self.get_min5_latest_time(code=stock_code)
                 except Exception as e:
                     # 失败则把开始日期设置为初识日期
@@ -402,25 +404,36 @@ class GinkgoMongo(object):
                     last_date = bao_instance.init_date
 
                 if end == last_date:
-                    pbar_get.set_description(f"{stock_code}数据已是最新")
-                    pbar_set.set_description(f"{stock_code}无需更新")
-                    pbar_get.update(1)
-                    pbar_set.update(1)
+                    # pbar_get.set_description(f"{stock_code}数据已是最新")
+                    # pbar_set.set_description(f"{stock_code}目前无需更新")
+                    gl.info(f"{stock_code}数据已是最新")
+                    # pbar_get.update(1)
+                    # pbar_set.update(1)
                 else:
-                    pbar_get.set_description(f"{stock_code}拉取最新数据")
+                    # pbar_get.set_description(f"{stock_code}拉取最新数据")
+                    gl.info(f"{stock_code}开始拉取最新数据")
                     rs = bao_instance.get_data(
                         code=stock_code,
                         data_frequency="5",
                         start_date=last_date,
                         end_date=end,
                     )
-                    pbar_get.set_description(f"成功获取{stock_code}增量数据")
+                    gl.info(f"{stock_code}成功获取最新数据{rs.shape[0]}条")
+                    # pbar_get.set_description(f"成功获取{stock_code}增量数据")
                     # 插入data_queue中
                     if rs.shape[0] > 0:
                         data_queue.put({stock_code: rs})
+                        gl.info(
+                            f"{stock_code}存入数据队列 {data_queue.qsize()}/{data_pool_size}"
+                        )
                     else:
-                        pbar_set.update(1)
-                    pbar_get.update(1)
+                        self.set_nomin5(code=stock_code)
+                        gl.info(f"{stock_code}没有Min5数据")
+                    #     pbar_set.update(1)
+                    # pbar_get.update(1)
+            else:
+                pass
+                # pbar_get.set_description("等待存储")
 
             if len(thread_dict) < thread_num and data_queue.qsize() > 0:
                 # 从 data_queue 中获取一个对象
@@ -428,7 +441,7 @@ class GinkgoMongo(object):
                 # 创建一个数据插入的线程
                 code = list(data.keys())[0]
                 df = data[code]
-                pbar_set.set_description(f"尝试存储{code}数据")
+                # pbar_set.set_description(f"尝试存储{code}数据")
                 thread = threading.Thread(
                     name=f"Daybar {code} update",
                     target=self.upsert_min5,
@@ -450,6 +463,17 @@ class GinkgoMongo(object):
             # 心跳
             time.sleep(heartbeat)
 
+    # 获取分钟交易数据
+    def get_min5(self, code):
+        # TODO 添加日期范围
+        col = self.db[code + ".min5"]
+        time1 = datetime.datetime.now()
+        rs = col.find()
+        df = pd.DataFrame(list(rs))
+        time2 = datetime.datetime.now()
+        print(time2 - time1)
+        return df
+
     # 获取某只股票日交易数据的最新日期
     def get_latest_date(self, code: str):
         col = self.db[code]
@@ -459,7 +483,7 @@ class GinkgoMongo(object):
 
     # 获取某股票min5数据的最新时间戳
     def get_min5_latest_time(self, code: str):
-        col = self.db[code + "_min5"]
+        col = self.db[code + ".min5"]
         s = col.find().sort("date", pymongo.DESCENDING).limit(1)
         last_time = s[0]["date"]
         return last_time
@@ -469,7 +493,6 @@ class GinkgoMongo(object):
 
     def add_to_min_ignore(self, code: str):
         pass
-
 
     def print_dead_stock(self):
         bao_instance.login()
@@ -489,6 +512,34 @@ class GinkgoMongo(object):
         for i in code_list2:
             if i not in code_list1:
                 print(i)
+
+    def set_nomin5(self, code: str):
+        col = self.db["stock_info"]
+        col.update_one({"code": code}, {"$set": {"has_min5": False}})
+
+    def check_stock_min5(self, code: str):
+        col = self.db["stock_info"]
+        stock_info = col.find({"code": code})
+        if stock_info.count() != 1:
+            gl.error(f"{code}不存在")
+            return False
+        else:
+            try:
+                result = stock_info[0]["has_min5"]
+                return result
+            except Exception as e:
+                return True
+
+    def get_new_df_with_same_col(self, col, df_old, df_new):
+        print(col)
+        print(df_old.shape[0])
+        print(df_new.shape[0])
+        # for i in range(df_new.shape[0]):
+        #     if df_new.iloc[i].col in df_old[col]:
+        #         # TODO 丢弃数据
+        #         print(df_new.iloc[i])
+        df = df_new
+        pass
 
     # db.users.update({'name':'user5'}, {'$set': {'age': 22}, '$setOnInsert': {'index':5}}, upsert=True)
 
