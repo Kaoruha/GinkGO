@@ -35,8 +35,8 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 def update_all():
     gm.update_stock_info()
     # gm.update_adjust_factor()
-    gm.update_day_bar_async(thread_num=4)
-    gm.update_min5_async(thread_num=1)
+    gm.update_day_bar_async_new(thread_num=4)
+    gm.update_min5_async_new(thread_num=2)
 
 
 update_all()
