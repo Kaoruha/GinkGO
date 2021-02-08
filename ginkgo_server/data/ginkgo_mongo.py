@@ -702,7 +702,7 @@ class GinkgoMongo(object):
                     get_thread_dict[thread.name] = thread
                     # 线程添加至insert_thread_list
                     tm.thread_register(thread=thread)
-                    pbar_set.set_description(
+                    pbar_get.set_description(
                         f"获取 {code} {len(get_thread_dict)}/{data_pool_size}"
                     )
 
