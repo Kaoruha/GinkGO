@@ -97,6 +97,39 @@ class GinkgoMongo(object):
         df = pd.DataFrame(rs)
         return df
 
+    # 更新所有复权因子
+    def update_adjust_factor(self):
+        df_stock_list = self.get_all_stock_code()
+        # df_stock_list = df_stock_list[:400]
+        if df_stock_list.shape[0] == 0:
+            gl.error("StockInfo为空")
+            return
+
+        insert_list = pd.DataFrame(
+            columns=[
+                "code",
+                "dividOperateDate",
+                "foreAdjustFactor",
+                "backAdjustFactor",
+                "adjustFactor",
+            ]
+        )
+        stock_count = df_stock_list.shape[0]
+        bao_instance.login()
+        pbar = tqdm.tqdm(total=stock_count)
+
+        for i in range(stock_count):
+            pbar.set_description(f"获取{df_stock_list.iloc[i].code}复权数据")
+            rs = bao_instance.get_adjust_factor(code=df_stock_list.iloc[i].code)
+            if rs.shape[0] > 0:
+                insert_list = pd.concat([insert_list, rs], join="inner")
+            pbar.update(1)
+        if insert_list.shape[0] > 0:
+            # 执行批量插入操作
+            self.upsert_adjust_factor_async(data_frame=insert_list, thread_num=4)
+        else:
+            gl.error("共获取AdjustFactor 0 条, 请检查代码")
+
     # 插入日交易数据
     def insert_day_bar(self, code: str, data_frame: pd.DataFrame):
         """
@@ -140,7 +173,7 @@ class GinkgoMongo(object):
         gl.info("初始化.")
         data_queue = queue.Queue()
         thread_dict = dict()
-        heartbeat = 0.01
+        heartbeat = 0.1
         stock_queue = queue.Queue()
         stock_df = self.get_all_stock_code()
 
@@ -168,6 +201,8 @@ class GinkgoMongo(object):
             ):
                 gl.info("日交易数据更新完毕")
                 return
+
+            # 当数据队列尺寸小于设置的数据池尺寸时，尝试进行数据获取的操作
             if data_queue.qsize() < data_pool_size and stock_queue.qsize() > 0:
                 # 从stock_queue 中获取一个代码
                 stock_code = stock_queue.get()
@@ -189,7 +224,7 @@ class GinkgoMongo(object):
                     pbar_set.update(1)
                 else:
                     pbar_get.set_description(
-                        f"{data_queue.qsize()}/{data_pool_size} Get{stock_code}"
+                        f"{data_queue.qsize()}/{data_pool_size} Get {stock_code}"
                     )
                     rs = bao_instance.get_data(
                         code=stock_code,
@@ -204,6 +239,7 @@ class GinkgoMongo(object):
                         pbar_set.update(1)
                     pbar_get.update(1)
 
+            # 当线程队列小于设置的线程限制数时，切数据队列中有值时，尝试进行数据存储操作
             if len(thread_dict) < thread_num and data_queue.qsize() > 0:
                 # 从 data_queue 中获取一个对象
                 data = data_queue.get(block=True, timeout=None)
@@ -518,9 +554,9 @@ class GinkgoMongo(object):
             if data_queue.qsize() < data_pool_size and stock_queue.qsize() > 0:
                 # 从stock_queue 中获取一个代码
                 stock_code = stock_queue.get()
-                # pbar_get.set_description(
-                #     f"{data_queue.qsize()}/{data_pool_size} {stock_code}"
-                # )
+                pbar_get.set_description(
+                    f"{stock_queue.qsize()}/{data_pool_size} {stock_code}"
+                )
                 # 获取数据
                 # 获取当前最新的数据日期
                 try:
@@ -538,25 +574,24 @@ class GinkgoMongo(object):
                     # pbar_get.update(1)
                     # pbar_set.update(1)
                 else:
-                    time1 = datetime.datetime.now()
+                    pbar_get.set_description(
+                        f"{stock_queue.qsize()}/{data_pool_size} {stock_code}"
+                    )
                     rs = bao_instance.get_data(
                         code=stock_code,
                         data_frequency="5",
                         start_date=last_date,
                         end_date=end,
                     )
-                    time2 = datetime.datetime.now()
-                    print(f"获取{stock_code}min5,耗时{time2-time1}")
-                    print(f"{data_queue.qsize()}/{data_pool_size}")
-                    # pbar_get.set_description(
-                    #     f"{data_queue.qsize()}/{data_pool_size}  {stock_code}"
-                    # )
+                    pbar_get.set_description(
+                        f"{stock_queue.qsize()}/{data_pool_size} {stock_code}"
+                    )
                     # 插入data_queue中
                     if rs.shape[0] > 0:
                         data_queue.put({stock_code: rs})
-                        # pbar_get.set_description(
-                        #     f"数据队列: {data_queue.qsize()}/{data_pool_size}"
-                        # )
+                        pbar_get.set_description(
+                            f"数据队列: {data_queue.qsize()}/{data_pool_size}"
+                        )
                     else:
                         print(f"{stock_code} has no min5")
                         self.set_nomin5(code=stock_code)
