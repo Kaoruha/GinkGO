@@ -3,9 +3,9 @@
 """
 import pandas as pd
 from .base_strategy import BaseStrategy
-from ginkgo.backtest.postion import Position
-from ginkgo.backtest.events import OrderEvent
-from ginkgo.backtest.enums import DealType
+from ginkgo_server.backtest.postion import Position
+from ginkgo_server.backtest.events import OrderEvent
+from ginkgo_server.backtest.enums import DealType
 
 
 class StopLoss(BaseStrategy):

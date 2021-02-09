@@ -3,7 +3,7 @@
 定义不同种类的事件
 """
 import pandas as pd
-from ginkgo.backtest.enums import EventType, DealType, InfoType
+from ginkgo_server.backtest.enums import EventType, DealType, InfoType
 
 
 class Event(object):

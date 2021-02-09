@@ -1,6 +1,6 @@
 from threading import Thread
-from .enums import EventType, InfoType
-from .events import *
+from ginkgo_server.backtest.enums import EventType, InfoType
+from ginkgo_server.backtest.events import *
 import queue
 import time
 import datetime

@@ -1,13 +1,13 @@
 """
 经纪人类
 """
-from ginkgo.backtest.enums import MarketType
-from ginkgo.backtest.events import *
-from ginkgo.backtest.strategy.base_strategy import BaseStrategy
-from ginkgo.backtest.sizer.base_sizer import BaseSizer
-from ginkgo.backtest.matcher.base_matcher import BaseMatcher
-from ginkgo.backtest.risk.base_risk import BaseRisk
-from ginkgo.backtest.event_engine import EventEngine
+from ginkgo_server.backtest.enums import MarketType
+from ginkgo_server.backtest.events import *
+from ginkgo_server.backtest.strategy.base_strategy import BaseStrategy
+from ginkgo_server.backtest.sizer.base_sizer import BaseSizer
+from ginkgo_server.backtest.matcher.base_matcher import BaseMatcher
+from ginkgo_server.backtest.risk.base_risk import BaseRisk
+from ginkgo_server.backtest.event_engine import EventEngine
 import abc
 
 

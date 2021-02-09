@@ -1,7 +1,6 @@
 """
 风控类
 """
-from ginkgo.libs.meta_class import with_metaclass
 
 
 class BaseRisk(object):

@@ -5,13 +5,12 @@
 收盘后根据策略产生交易信号
 第二天开盘尝试成交
 """
-
-from .base_broker import BaseBroker
-from ginkgo.backtest.events import *
 import queue
-from ginkgo.backtest.enums import MarketType, InfoType
-from ginkgo.backtest.event_engine import EventEngine
-from ginkgo.backtest.postion import Position
+from ginkgo_server.backtest.broker.base_broker import BaseBroker
+from ginkgo_server.backtest.events import *
+from ginkgo_server.backtest.enums import MarketType, InfoType
+from ginkgo_server.backtest.event_engine import EventEngine
+from ginkgo_server.backtest.postion import Position
 
 
 class SingleDailyBroker(BaseBroker):

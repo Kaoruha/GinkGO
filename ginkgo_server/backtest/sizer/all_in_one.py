@@ -1,7 +1,7 @@
 import datetime
-from .base_sizer import BaseSizer
-from ginkgo.backtest.events import SignalEvent, OrderEvent
-from ginkgo.backtest.enums import DealType
+from ginkgo_server.backtest.sizer.base_sizer import BaseSizer
+from ginkgo_server.backtest.events import SignalEvent, OrderEvent
+from ginkgo_server.backtest.enums import DealType
 
 
 class AllInOne(BaseSizer):

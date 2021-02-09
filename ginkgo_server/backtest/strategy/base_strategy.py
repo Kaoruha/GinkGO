@@ -3,8 +3,8 @@
 """
 import pandas as pd
 import abc
-from ginkgo.backtest.event_engine import EventEngine
-from ginkgo.backtest.postion import Position
+from ginkgo_server.backtest.event_engine import EventEngine
+from ginkgo_server.backtest.postion import Position
 
 
 class BaseStrategy(metaclass=abc.ABCMeta):

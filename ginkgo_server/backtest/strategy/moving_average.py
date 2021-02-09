@@ -1,7 +1,7 @@
 from .base_strategy import BaseStrategy
 import pandas as pd
-from ginkgo.backtest.events import SignalEvent
-from ginkgo.backtest.enums import DealType
+from ginkgo_server.backtest.events import SignalEvent
+from ginkgo_server.backtest.enums import DealType
 import random
 
 

@@ -1,12 +1,12 @@
 """
 数据的存储模块，负责与MongoDB的通信以及本地缓存的处理
 """
-
-import pymongo
 import time
+import pymongo
 import datetime
 import queue
 import pandas as pd
+import numpy as np
 import tqdm
 import math
 import threading
@@ -48,6 +48,86 @@ class GinkgoMongo(object):
         self.db = self.client[self.database]
         # 授权
         self.db.authenticate(self.username, self.pwd, mechanism="SCRAM-SHA-1")
+
+    def __adjust_cal(self, raw, adjust_factor, adjust_flag=1, frequency="d"):
+        """
+        复权计算
+
+        :param raw: 原始交易数据
+        :type raw: DataFrame
+        :param adjust_factor: 复权因子
+        :type adjust_factor: DataFrame
+        :param adjust_flag: 复权方式, defaults to 1
+        :type adjust_flag: int, optional
+        :param frequency: 频率, defaults to 'd'
+        :type frequency: str, optional
+        :return: 复权后的交易数据
+        :rtype: DataFrame
+        """
+        # 没有复权因子
+        if adjust_factor.count().code == 0:
+            return raw
+
+        # 有复权因子
+        # TODO 按照截至日期复权
+        adjust_columns = []
+        if frequency == "d":
+            adjust_columns = ["open", "high", "low", "close", "pre_close"]
+        elif frequency == "5":
+            adjust_columns = ["open", "high", "low", "close"]
+
+        for i in adjust_columns:
+            raw[i] = raw[i].astype(np.float)
+        for i in ["adjust_factor", "back_adjust_factor", "fore_adjust_factor"]:
+            adjust_factor[i] = adjust_factor[i].astype(np.float)
+        fore = raw.copy(deep=True)
+        back = raw.copy(deep=True)
+        print(adjust_factor.shape[0])
+        for i in range(adjust_factor.shape[0] + 1):
+            if i == 0:
+                condition = raw["date"] < adjust_factor.iloc[0].divid_operate_date
+                condition2 = raw["date"] <= adjust_factor.iloc[0].divid_operate_date
+
+                fore.loc[condition, adjust_columns] *= adjust_factor.iloc[
+                    0
+                ].fore_adjust_factor
+                back.loc[condition2, adjust_columns] *= adjust_factor.iloc[
+                    0
+                ].back_adjust_factor
+
+            elif i == len(adjust_factor):
+                condition = (
+                    raw["date"] >= adjust_factor.iloc[i - 1]["divid_operate_date"]
+                )
+                condition2 = (
+                    raw["date"] > adjust_factor.iloc[i - 1]["divid_operate_date"]
+                )
+                fore.loc[condition, adjust_columns] *= adjust_factor.iloc[i - 1][
+                    "fore_adjust_factor"
+                ]
+                back.loc[condition2, adjust_columns] *= adjust_factor.iloc[i - 1][
+                    "back_adjust_factor"
+                ]
+            else:
+                condition = (
+                    raw["date"] < adjust_factor.iloc[i]["divid_operate_date"]
+                ) & (raw["date"] >= adjust_factor.iloc[i - 1]["divid_operate_date"])
+                condition2 = (
+                    raw["date"] <= adjust_factor.iloc[i]["divid_operate_date"]
+                ) & (raw["date"] > adjust_factor.iloc[i - 1]["divid_operate_date"])
+                fore.loc[condition, adjust_columns] *= adjust_factor.iloc[i][
+                    "fore_adjust_factor"
+                ]
+                back.loc[condition2, adjust_columns] *= adjust_factor.iloc[i][
+                    "back_adjust_factor"
+                ]
+
+        if adjust_flag == 1:
+            return fore
+        elif adjust_flag == 2:
+            return back
+        else:
+            return raw
 
     # 更新所有股票指数基本信息
     def update_stockinfo(self):
@@ -109,45 +189,6 @@ class GinkgoMongo(object):
         rs = col.find()
         df = pd.DataFrame(rs)
         return df
-
-    # 更新所有复权因子
-    def update_adjustfactor(self):
-        """
-        全量更新复权因子
-        """
-        gl.info("AdjustFactor更新初始化.")
-        # 获取所有代码
-        df_stock_list = self.get_all_stockcode_by_mongo()
-
-        if df_stock_list.shape[0] == 0:
-            gl.error("StockInfo为空")
-            return
-
-        # 生成待插入df
-        insert_list = pd.DataFrame(
-            columns=[
-                "code",
-                "dividOperateDate",
-                "foreAdjustFactor",
-                "backAdjustFactor",
-                "adjustFactor",
-            ]
-        )
-        stock_count = df_stock_list.shape[0]
-        bao_instance.login()
-        pbar = tqdm.tqdm(total=stock_count)
-
-        for i in range(stock_count):
-            pbar.set_description(f"获取{df_stock_list.iloc[i].code}复权数据")
-            result = bao_instance.get_adjust_factor(code=df_stock_list.iloc[i].code)
-            if result.shape[0] > 0:
-                insert_list = pd.concat([insert_list, result], join="inner")
-            pbar.update(1)
-        if insert_list.shape[0] > 0:
-            # 执行批量插入操作
-            self.upsert_adjustfactor_async(data_frame=insert_list, thread_num=4)
-        else:
-            gl.error("共获取AdjustFactor 0 条, 请检查代码")
 
     # 更新插入复权数据
     def upsert_adjustfactor(self, data_frame: pd.DataFrame):
@@ -340,7 +381,7 @@ class GinkgoMongo(object):
                 # 获取当前最新的数据日期
                 try:
                     # 尝试从MongoDB查询该指数的最新数据
-                    last_date = self.get_latest_date(code=code)
+                    last_date = self.get_daybar_latestDate_by_Mongo(code=code)
                 except Exception as e:
                     # 失败则把开始日期设置为初识日期
                     last_date = bao_instance.init_date
@@ -522,7 +563,7 @@ class GinkgoMongo(object):
                 # 获取当前最新的数据日期
                 try:
                     # 尝试从MongoDB查询该指数的最新数据
-                    last_date = self.get_min5_latest_time(code=code)
+                    last_date = self.get_min5_latestDate_by_Mongo(code=code)
                 except Exception as e:
                     # 失败则把开始日期设置为初识日期
                     last_date = bao_instance.init_date
@@ -591,9 +632,9 @@ class GinkgoMongo(object):
             time.sleep(heartbeat)
 
     # 获取日交易数据
-    def get_dayBar_by_Mongo(self, code: str, start_date='', end_date='', *args,**kwargs):
+    def get_dayBar_by_Mongo(self, code: str, start_date="", end_date=""):
         """
-        获取交易数据
+        获取日交易数据，不传入日期范围则返回全量数据
 
         :param code: 股票代码
         :type code: str
@@ -604,38 +645,93 @@ class GinkgoMongo(object):
         :return: code股票start_date至end_date的日交易数据
         :rtype: DataFrame
         """
-        if start_date is '':
+        if start_date == "":
             start_date = bao_instance.init_date
-        if end_date is '':
+        if end_date == "":
             end_date = bao_instance.get_baostock_last_date()
-        # TODO 添加日期范围
         col = self.db[code]
         rs = col.find()
         df = pd.DataFrame(list(rs))
-        print(df)
+        condition1 = df["date"] >= start_date
+        condition2 = df["date"] <= end_date
+        df = df[condition1 & condition2]
+        df = df.sort_values(by=["date"], ascending=[True])
         return df
 
     # 获取分钟交易数据
-    def get_min5_by_Mongo(self, code):
-        # TODO 添加日期范围
+    def get_min5_by_Mongo(self, code: str, start_date="", end_date=""):
+        """
+        获取分钟交易数据，不传入日期范围则返回全量数据
+
+        :param code: 股票代码
+        :type code: str
+        :param start_date: 起始日期, defaults to ''
+        :type start_date: str, optional
+        :param end_date: 终止日期, defaults to ''
+        :type end_date: str, optional
+        :return: Min5交易数据
+        :rtype: DataFrame
+        """
+        if start_date == "":
+            start_date = bao_instance.init_date
+        if end_date == "":
+            end_date = bao_instance.get_baostock_last_date()
         col = self.db[code + min5_postfix]
-        rs = col.find()
-        df = pd.DataFrame(list(rs))
+        result = col.find()
+        df = pd.DataFrame(list(result))
+        condition1 = df["date"] >= start_date
+        condition2 = df["date"] <= end_date
+        df = df[condition1 & condition2]
+        df = df.sort_values(by=["date"], ascending=[True])
         return df
 
     # 获取复权数据
-    def get_adjustfactor_by_Mongo(self, code):
-        pass
+    def get_adjustfactor_by_Mongo(self, code: str, start_date="", end_date=""):
+        """
+        获取复权数据，不传入日期范围则返回全量数据
+
+        :param code: 股票代码
+        :type code: str
+        :param start_date: 起始日期, defaults to ""
+        :type start_date: str, optional
+        :param end_date: 截至日期, defaults to ""
+        :type end_date: str, optional
+        :return: 复权数据
+        :rtype: DataFrame
+        """
+        if start_date == "":
+            start_date = bao_instance.init_date
+        if end_date == "":
+            end_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        col = self.db["adjust_factor"]
+        result = col.find(
+            {"code": code},
+            {
+                "_id": 0,
+                "code":1,
+                "divid_operate_date": 1,
+                "adjust_factor": 1,
+                "back_adjust_factor": 1,
+                "fore_adjust_factor": 1,
+            },
+        )
+        df = pd.DataFrame(list(result))
+        # 按日期排序
+        condition1 = df["divid_operate_date"] >= start_date
+        condition2 = df["divid_operate_date"] <= end_date
+        df = df[condition1 & condition2]
+        df = df.sort_values(by=["divid_operate_date"], ascending=[True])
+        return df
 
     # 获取某只股票日交易数据的最新日期
-    def get_latest_date(self, code: str):
+    def get_daybar_latestDate_by_Mongo(self, code: str):
         col = self.db[code]
-        s = col.find().sort("date", pymongo.DESCENDING).limit(1)
-        last_date = s[0]["date"]
+        result = col.find().sort("date", pymongo.DESCENDING).limit(1)
+        last_date = result[0]["date"]
         return last_date
 
     # 获取某股票min5数据的最新时间戳
-    def get_min5_latest_time(self, code: str):
+    def get_min5_latestDate_by_Mongo(self, code: str):
         col = self.db[code + min5_postfix]
         s = col.find().sort("date", pymongo.DESCENDING).limit(1)
         last_time = s[0]["date"]
@@ -695,6 +791,49 @@ class GinkgoMongo(object):
         except Exception as e:
             pass
         return df_return
+
+    def check_code_exist(self, code):
+        # 查询all_stock.csv中是否存在与code匹配
+        try:
+            code_df = self.get_all_stockcode_by_mongo()
+            count = code_df.count().code
+            if count == 0:
+                print("指数代码为空，请检查代码")
+                return False
+            else:
+                is_code_in_list = code in code_df["code"].values
+                return is_code_in_list
+        except Exception as e:
+            raise e
+
+    def query_stock(self, code, start_date, end_date, frequency, adjust_flag=3):
+        # 如果code不存在列表内，直接返回
+        if not self.check_code_exist(code=code):
+            print("股票代码不存在股票列表内")
+            return
+        else:
+            # 获取股票原始数据
+            if frequency == "d":
+                raw = self.get_dayBar_by_Mongo(code=code)
+            elif frequency == "5":
+                raw = self.get_min5_by_Mongo(code=code)
+
+            # 获取复权因子数据
+            adjust_factor = self.get_adjustfactor_by_Mongo(code=code)
+            # 复权计算
+            adjust = self.__adjust_cal(
+                raw=raw,
+                adjust_factor=adjust_factor,
+                adjust_flag=adjust_flag,
+                frequency=frequency,
+            )
+            # 根据start_date与end_date返回数据
+            if start_date > end_date:
+                print("start should before end")
+                return
+            condition = adjust["date"] >= start_date
+            condition2 = adjust["date"] <= end_date
+            return adjust[condition & condition2]
 
 
 ginkgo_mongo = GinkgoMongo(

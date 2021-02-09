@@ -2,9 +2,9 @@
 仓位管理类
 """
 import datetime
-from ginkgo.data.data_portal import data_portal
-from ginkgo.backtest.event_engine import EventEngine
-from ginkgo.backtest.events import SignalEvent
+from ginkgo_server.data.data_portal import data_portal
+from ginkgo_server.backtest.event_engine import EventEngine
+from ginkgo_server.backtest.events import SignalEvent
 import abc
 
 
