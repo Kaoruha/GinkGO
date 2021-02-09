@@ -76,7 +76,7 @@ kill -9 <线程id>
 
 
 
-投研分析
+<!-- 投研分析
 
 全市场数据(日线/分钟线/tick)
 财务数据
@@ -117,4 +117,4 @@ kill -9 <线程id>
 
 提供mac/windows的可安装版本(QACommunity)
 提供全平台可用的web界面
-提供手机客户端(ios/andriod) [内测中]
+提供手机客户端(ios/andriod) [内测中] -->

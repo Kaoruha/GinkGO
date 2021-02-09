@@ -38,6 +38,10 @@ class GinkgoMongo(object):
         self.__connect()
 
     def __connect(self):
+        """
+        建立Mongo连接
+        TODO 连接失败的操作：提示安装Mongo，配置端口，自动安装Mongo？
+        """
         # 建立客户端连接
         self.client = pymongo.MongoClient(host=self.host, port=self.port)
         # 切换数据库
@@ -46,15 +50,16 @@ class GinkgoMongo(object):
         self.db.authenticate(self.username, self.pwd, mechanism="SCRAM-SHA-1")
 
     # 更新所有股票指数基本信息
-    def update_stock_info(self):
+    def update_stockinfo(self):
         """
         更新所有指数代码基本信息,包括指数指数代码、指数名称、交易状态
         """
+        gl.info("StockInfo更新初始化.")
         slice_count = 1000
+        gl.info(f"存储切片设置为 {slice_count}")
         # Step1：通过Baostock获取所有指数代码
         bao_instance.login()
         result = bao_instance.get_all_stock_code()
-        # result = result[:10000]
 
         # Step2：如果数据不为空进行持久化操作，反之报错
         if result.shape[0] > 0:
@@ -90,21 +95,35 @@ class GinkgoMongo(object):
         else:
             gl.error("股票指数代码获取为空，请检查代码或日期")
 
+        gl.info("StockInfo更新完成.")
+
     # 从Mongo中获取所有股票代码
-    def get_all_stock_code(self):
+    def get_all_stockcode_by_mongo(self):
+        """
+        从本地Mongo中获得所有股票代码
+
+        :return: [所有StockCode组成的df]
+        :rtype: [DataFrame]
+        """
         col = self.db["stock_info"]
         rs = col.find()
         df = pd.DataFrame(rs)
         return df
 
     # 更新所有复权因子
-    def update_adjust_factor(self):
-        df_stock_list = self.get_all_stock_code()
-        # df_stock_list = df_stock_list[:400]
+    def update_adjustfactor(self):
+        """
+        全量更新复权因子
+        """
+        gl.info("AdjustFactor更新初始化.")
+        # 获取所有代码
+        df_stock_list = self.get_all_stockcode_by_mongo()
+
         if df_stock_list.shape[0] == 0:
             gl.error("StockInfo为空")
             return
 
+        # 生成待插入df
         insert_list = pd.DataFrame(
             columns=[
                 "code",
@@ -120,24 +139,86 @@ class GinkgoMongo(object):
 
         for i in range(stock_count):
             pbar.set_description(f"获取{df_stock_list.iloc[i].code}复权数据")
-            rs = bao_instance.get_adjust_factor(code=df_stock_list.iloc[i].code)
-            if rs.shape[0] > 0:
-                insert_list = pd.concat([insert_list, rs], join="inner")
+            result = bao_instance.get_adjust_factor(code=df_stock_list.iloc[i].code)
+            if result.shape[0] > 0:
+                insert_list = pd.concat([insert_list, result], join="inner")
             pbar.update(1)
         if insert_list.shape[0] > 0:
             # 执行批量插入操作
-            self.upsert_adjust_factor_async(data_frame=insert_list, thread_num=4)
+            self.upsert_adjustfactor_async(data_frame=insert_list, thread_num=4)
         else:
             gl.error("共获取AdjustFactor 0 条, 请检查代码")
 
-    # 插入日交易数据
-    def insert_day_bar(self, code: str, data_frame: pd.DataFrame):
+    # 更新插入复权数据
+    def upsert_adjustfactor(self, data_frame: pd.DataFrame):
         """
-        批量更新某只股票的日交易数据
+        与Mongo交互，更新插入复权信息
+
+        :param data_frame: [description]
+        :type data_frame: DataFrame
+        """
+        col = self.db["adjust_factor"]
+
+        operations = []
+        pbar = tqdm.tqdm(total=data_frame.shape[0])
+        for i in range(data_frame.shape[0]):
+            operations.append(
+                pymongo.UpdateOne(
+                    {
+                        "code": data_frame.iloc[i].code,
+                        "divid_operate_date": data_frame.iloc[i].dividOperateDate,
+                    },
+                    {
+                        "$set": {
+                            "fore_adjust_factor": data_frame.iloc[i].foreAdjustFactor,
+                            "back_adjust_factor": data_frame.iloc[i].backAdjustFactor,
+                            "adjust_factor": data_frame.iloc[i].adjustFactor,
+                        }
+                    },
+                    upsert=True,
+                )
+            )
+            pbar.set_description(
+                f"{data_frame.iloc[i].code} {data_frame.iloc[i].dividOperateDate}"
+            )
+            pbar.update(1)
+        rs = col.bulk_write(operations)
+        # TODO 根据批量差距结果执行后续操作
+        # 建立索引
+        col.create_index([("code", 1), ("divid_operate_date", 1)])
+
+    # 异步更新插入复权数据
+    def upsert_adjustfactor_async(self, data_frame: pd.DataFrame, thread_num=2):
+        """
+        异步更新插入复权信息
+
+        :param data_frame: 需要更新插入的复权信息数据
+        :type data_frame: pd.DataFrame
+        :param thread_num: 最大线程数, defaults to 2
+        :type thread_num: int, optional
+        """
+        slice_count = 20000
+        pieces_count = math.ceil(data_frame.shape[0] / slice_count)
+        threads = []
+        for i in range(pieces_count):
+            gl.info(f"创建UpsertAF {i}")
+            sliced_stock_list = data_frame[slice_count * i : slice_count * (i + 1)]
+            thread = threading.Thread(
+                name=f"AdjustFactor {slice_count*i}-{slice_count*(i+1)}",
+                target=self.upsert_adjustfactor,
+                args=(sliced_stock_list,),
+            )
+            threads.append(thread)
+        tm.limit_thread_register(threads=threads, thread_num=thread_num)
+
+    # 插入日交易数据
+    def insert_daybar(self, code: str, data_frame: pd.DataFrame):
+        """
+        插入日交易数据
 
         :param code: 股票代码
         :type code: str
-        :param data_frame: [description]
+        :param data_frame: 日交易数据
         :type data_frame: DataFrame
         """
         # 如果传入的DF为空，直接返回
@@ -156,139 +237,72 @@ class GinkgoMongo(object):
             },
             inplace=True,
         )
+        # 切换collection
         col = self.db[code]
+        # dataframe转换为dict，可供pymongo批量插入
         data = df.to_dict("record")
+        # 批量插入
         col.insert_many(data)
+        # 建立索引
         col.create_index([("date", 1)], unique=True)
 
     # 更新日交易数据
-    def update_day_bar(self, code: str, df_new):
-        df_old = self.get_day_bar(code=code)
+    def update_daybar(self, code: str, df_new: pd.DataFrame):
+        """
+        更新某只股票的日交易数据
+
+        从Mongo中获取某只Code的历史日交易数据，待插入数据进行比对后，插入不重复的数据
+
+        :param code: 股票代码
+        :type code: str
+        :param df_new: 待插入的日交易数据
+        :type df_new: DataFrame
+        """
+        df_old = self.get_dayBar_by_Mongo(code=code)
         df_insert = self.get_df_norepeat(index_col="date", df_old=df_old, df_new=df_new)
-        self.insert_day_bar(code=code, data_frame=df_insert)
+        self.insert_daybar(code=code, data_frame=df_insert)
 
-    # 异步更新日交易数据
-    def update_day_bar_async(self, data_pool_size=12, thread_num=4):
-        # 获取日交易数据队列
-        gl.info("初始化.")
-        data_queue = queue.Queue()
-        thread_dict = dict()
-        heartbeat = 0.1
-        stock_queue = queue.Queue()
-        stock_df = self.get_all_stock_code()
+    # 获取日交易数据，并存入队列
+    def get_daybar_by_baostock(
+        self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
+    ):
+        """
+        获取日交易数据，并存入data_queue的队列里
 
-        bao_instance.login()
-        end = bao_instance.get_baostock_last_date()
-        gl.info(f"目标更新日期为{end}")
-
-        if stock_df.shape[0] == 0:
-            gl.error("股票代码为空，请检查代码")
-            return
-        for i in range(stock_df.shape[0]):
-            stock_queue.put(stock_df.iloc[i].code)
-        gl.info("更新队列准备完毕")
-        pbar_get = tqdm.tqdm(range(stock_queue.qsize()))
-        pbar_get.set_description("数据更新")
-        pbar_set = tqdm.tqdm(range(stock_queue.qsize()))
-        pbar_set.set_description("数据存储")
-
-        while True:
-            # 如果stock_queue
-            if (
-                stock_queue.qsize() == 0
-                and data_queue.qsize() == 0
-                and len(thread_dict) == 0
-            ):
-                gl.info("日交易数据更新完毕")
-                return
-
-            # 当数据队列尺寸小于设置的数据池尺寸时，尝试进行数据获取的操作
-            if data_queue.qsize() < data_pool_size and stock_queue.qsize() > 0:
-                # 从stock_queue 中获取一个代码
-                stock_code = stock_queue.get()
-                pbar_get.set_description(f"尝试获取{stock_code}数据")
-                # 获取数据
-                # 获取当前最新的数据日期
-                try:
-                    # 尝试从MongoDB查询该指数的最新数据
-                    # gl.info("获取last_date")
-                    last_date = self.get_latest_date(code=stock_code)
-                except Exception as e:
-                    # 失败则把开始日期设置为初识日期
-                    last_date = bao_instance.init_date
-
-                if end == last_date:
-                    pbar_get.set_description(f"{stock_code}数据已是最新")
-                    pbar_set.set_description(f"{stock_code}目前无需更新")
-                    pbar_get.update(1)
-                    pbar_set.update(1)
-                else:
-                    pbar_get.set_description(
-                        f"{data_queue.qsize()}/{data_pool_size} Get {stock_code}"
-                    )
-                    rs = bao_instance.get_data(
-                        code=stock_code,
-                        data_frequency="d",
-                        start_date=last_date,
-                        end_date=end,
-                    )
-                    # 插入data_queue中
-                    if rs.shape[0] > 0:
-                        data_queue.put({stock_code: rs})
-                    else:
-                        pbar_set.update(1)
-                    pbar_get.update(1)
-
-            # 当线程队列小于设置的线程限制数时，切数据队列中有值时，尝试进行数据存储操作
-            if len(thread_dict) < thread_num and data_queue.qsize() > 0:
-                # 从 data_queue 中获取一个对象
-                data = data_queue.get(block=True, timeout=None)
-                # 创建一个数据插入的线程
-                code = list(data.keys())[0]
-                df = data[code]
-                pbar_set.set_description(
-                    f"{len(thread_dict)}/{thread_num} Store {code}"
-                )
-                thread = threading.Thread(
-                    name=f"Min5 {code} update",
-                    target=self.update_day_bar,
-                    args=(code, df,),
-                )
-                # 线程注册
-                thread_dict[thread.name] = thread
-                # 线程添加至insert_thread_list
-                tm.thread_register(thread=thread)
-            # 清理僵尸线程
-            dead_list = []
-            for p in thread_dict:
-                if not thread_dict[p].is_alive():
-                    dead_list.append(p)
-            for d in dead_list:
-                thread_dict.pop(d)
-                pbar_set.update(1)
-            tm.kill_dead_thread()
-            # 心跳
-            time.sleep(heartbeat)
-
-    # 异步获取日交易数据
-    def get_day_bar_async(self, code, start_date, end_date, data_queue):
+        :param code: 股票代码
+        :type code: str
+        :param start_date: 起始日期
+        :type start_date: str
+        :param end_date: 终止日期
+        :type end_date: str
+        :param data_queue: 存放日交易数据的队列，由更新函数传递
+        :type data_queue: queue.Queue
+        """
         rs = bao_instance.get_data(
             code=code, data_frequency="d", start_date=start_date, end_date=end_date,
         )
-        # 插入data_queue中
+        # 推入data_queue中
         if rs.shape[0] > 0:
             data_queue.put({code: rs})
 
     # 异步更新日交易数据
-    def update_day_bar_async_new(self, data_pool_size=10, thread_num=4):
+    def update_daybar_async(self, data_pool_size=10, thread_num=4):
+        """
+        异步更新日交易数据
+
+        :param data_pool_size: [description], defaults to 10
+        :type data_pool_size: int, optional
+        :param thread_num: [description], defaults to 4
+        :type thread_num: int, optional
+        """
         # 获取日交易数据队列
-        gl.info("初始化.")
+        gl.info("日交易数据更新初始化.")
         data_queue = queue.Queue()
         get_thread_dict = dict()
         set_thread_dict = dict()
         heartbeat = 0.1
         stock_queue = queue.Queue()
-        stock_df = self.get_all_stock_code()
+        stock_df = self.get_all_stockcode_by_mongo()
 
         bao_instance.login()
         end = bao_instance.get_baostock_last_date()
@@ -343,14 +357,14 @@ class GinkgoMongo(object):
                 else:
                     thread = threading.Thread(
                         name=f"Day {code} Get",
-                        target=self.get_day_bar_async,
+                        target=self.get_daybar_by_baostock,
                         args=(code, last_date, end, data_queue,),
                     )
                     # 线程注册
                     get_thread_dict[thread.name] = thread
                     # 线程添加至insert_thread_list
                     tm.thread_register(thread=thread)
-                    pbar_set.set_description(
+                    pbar_get.set_description(
                         f"获取 {code} {len(get_thread_dict)}/{data_pool_size}"
                     )
 
@@ -362,7 +376,7 @@ class GinkgoMongo(object):
                 df = data[code]
                 thread = threading.Thread(
                     name=f"Day {code} update",
-                    target=self.update_day_bar,
+                    target=self.update_daybar,
                     args=(code, df,),
                 )
                 # 线程注册
@@ -392,93 +406,16 @@ class GinkgoMongo(object):
             # 心跳
             time.sleep(heartbeat)
 
-    # 更新所有复权因子
-    def update_adjust_factor(self):
-        df_stock_list = self.get_all_stock_code()
-        # df_stock_list = df_stock_list[:400]
-        if df_stock_list.shape[0] == 0:
-            gl.error("StockInfo为空")
-            return
-
-        insert_list = pd.DataFrame(
-            columns=[
-                "code",
-                "dividOperateDate",
-                "foreAdjustFactor",
-                "backAdjustFactor",
-                "adjustFactor",
-            ]
-        )
-        stock_count = df_stock_list.shape[0]
-        bao_instance.login()
-        pbar = tqdm.tqdm(total=stock_count)
-
-        for i in range(stock_count):
-            pbar.set_description(f"获取{df_stock_list.iloc[i].code}复权数据")
-            rs = bao_instance.get_adjust_factor(code=df_stock_list.iloc[i].code)
-            if rs.shape[0] > 0:
-                insert_list = pd.concat([insert_list, rs], join="inner")
-            pbar.update(1)
-        if insert_list.shape[0] > 0:
-            # 执行批量插入操作
-            self.upsert_adjust_factor_async(data_frame=insert_list, thread_num=4)
-        else:
-            gl.error("共获取AdjustFactor 0 条, 请检查代码")
-
-    def upsert_adjust_factor(self, data_frame: pd.DataFrame):
-        """
-        批量更新复权信息
-
-        :param data_frame: [description]
-        :type data_frame: DataFrame
-        """
-        col = self.db["adjust_factor"]
-
-        operations = []
-        pbar = tqdm.tqdm(total=data_frame.shape[0])
-        for i in range(data_frame.shape[0]):
-            operations.append(
-                pymongo.UpdateOne(
-                    {
-                        "code": data_frame.iloc[i].code,
-                        "divid_operate_date": data_frame.iloc[i].dividOperateDate,
-                    },
-                    {
-                        "$set": {
-                            "fore_adjust_factor": data_frame.iloc[i].foreAdjustFactor,
-                            "back_adjust_factor": data_frame.iloc[i].backAdjustFactor,
-                            "adjust_factor": data_frame.iloc[i].adjustFactor,
-                        }
-                    },
-                    upsert=True,
-                )
-            )
-            pbar.set_description(
-                f"{data_frame.iloc[i].code} {data_frame.iloc[i].dividOperateDate}"
-            )
-            pbar.update(1)
-        rs = col.bulk_write(operations)
-        print(rs)
-        # self.collection.ensure_index([("code",1),("divid_operate_date",1)])
-        col.create_index([("code", 1), ("divid_operate_date", 1)])
-
-    def upsert_adjust_factor_async(self, data_frame, thread_num=2):
-        slice_count = 20000
-        pieces_count = math.ceil(data_frame.shape[0] / slice_count)
-        threads = []
-        for i in range(pieces_count):
-            gl.info(f"创建UpsertAF {i}")
-            sliced_stock_list = data_frame[slice_count * i : slice_count * (i + 1)]
-            thread = threading.Thread(
-                name=f"AdjustFactor {slice_count*i}-{slice_count*(i+1)}",
-                target=self.upsert_adjust_factor,
-                args=(sliced_stock_list,),
-            )
-            threads.append(thread)
-        tm.limit_thread_register(threads=threads, thread_num=thread_num)
-
-    # 插入5min档位的分钟交易数据
+    # 批量插入5Min交易数据
     def insert_min5(self, code: str, data_frame: pd.DataFrame):
+        """
+        批量插入5Min交易数据
+
+        :param code: 股票代码
+        :type code: str
+        :param data_frame: Min5交易数据
+        :type data_frame: pd.DataFrame
+        """
         # 存储5min档交易数据
         # 如果传入的DF为空，直接返回
         if data_frame.shape[0] == 0:
@@ -492,154 +429,62 @@ class GinkgoMongo(object):
         col.insert_many(data)
         col.create_index([("time", 1)], unique=True)
 
-    # 异步插入5min档位的分钟交易数据
-    def get_min5_async(self, code, start_date, end_date, data_queue):
-        time1 = datetime.datetime.now()
+    # 从Baostock获取Min5数据，存入dataQueue中
+    def get_min5_async_by_baostock(
+        self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
+    ):
+        """
+        从Baostock获取Min5数据，存入dataQueue中
+
+        :param code: 股票代码
+        :type code: str
+        :param start_date: 开始日期
+        :type start_date: str
+        :param end_date: 结束日期
+        :type end_date: str
+        :param data_queue: 待存入的数据队列
+        :type data_queue: queue.Queue
+        """
         rs = bao_instance.get_data(
             code=code, data_frequency="5", start_date=start_date, end_date=end_date,
         )
-        # pbar_get.set_description(
-        #     f"{data_queue.qsize()}/{data_pool_size}  {stock_code}"
-        # )
         # 插入data_queue中
         if rs.shape[0] > 0:
             data_queue.put({code: rs})
-            # pbar_get.set_description(
-            #     f"数据队列: {data_queue.qsize()}/{data_pool_size}"
-            # )
         else:
             self.set_nomin5(code=code)
 
     # 更新某只Code的5min挡位分钟交易数据
-    def update_min5(self, code: str, df_new):
-        df_old = self.get_min5(code=code)
+    def update_min5(self, code: str, df_new: pd.DataFrame):
+        """
+        更新某只Code的5min挡位分钟交易数据
+
+        :param code: 股票代码
+        :type code: str
+        :param df_new: 待插入的Min5数据
+        :type df_new: pd.DataFrame
+        """
+        df_old = self.get_min5_by_Mongo(code=code)
         df_insert = self.get_df_norepeat(index_col="time", df_old=df_old, df_new=df_new)
         self.insert_min5(code=code, data_frame=df_insert)
 
     # 异步更新Min5交易数据
     def update_min5_async(self, data_pool_size=4, thread_num=2):
-        # 获取日交易数据队列
-        gl.info("初始化.")
-        data_queue = queue.Queue()
-        thread_dict = dict()
-        heartbeat = 0.01
-        stock_queue = queue.Queue()
-        stock_df = self.get_all_stock_code()
-        bao_instance.login()
-        end = bao_instance.get_baostock_last_date()
-        gl.info(f"目标更新日期为{end}")
+        """
+        异步全量更新Min5交易数据
 
-        if stock_df.shape[0] == 0:
-            gl.error("股票代码为空，请检查代码")
-            return
-        for i in range(stock_df.shape[0]):
-            # 需要查询是否有Min5交易数据
-            if self.check_stock_min5(code=stock_df.iloc[i].code):
-                stock_queue.put(stock_df.iloc[i].code)
-        gl.info(f"更新队列准备完毕:{stock_queue.qsize()}")
-        # pbar_get = tqdm.tqdm(range(stock_queue.qsize()))
-        # pbar_get.set_description("数据更新")
-        # pbar_set = tqdm.tqdm(range(stock_queue.qsize()))
-        # pbar_set.set_description("数据存储")
-
-        while True:
-            # 如果stock_queue
-            if (
-                stock_queue.qsize() == 0
-                and data_queue.qsize() == 0
-                and len(thread_dict) == 0
-            ):
-                gl.info("日交易数据更新完毕")
-                return
-            if data_queue.qsize() < data_pool_size and stock_queue.qsize() > 0:
-                # 从stock_queue 中获取一个代码
-                stock_code = stock_queue.get()
-                pbar_get.set_description(
-                    f"{stock_queue.qsize()}/{data_pool_size} {stock_code}"
-                )
-                # 获取数据
-                # 获取当前最新的数据日期
-                try:
-                    # 尝试从MongoDB查询该指数的最新数据
-                    last_date = self.get_min5_latest_time(code=stock_code)
-                except Exception as e:
-                    # 失败则把开始日期设置为初识日期
-                    last_date = bao_instance.init_date
-
-                if end == last_date:
-                    print(f"{stock_code}数据已是最新")
-                    pass
-                    # pbar_get.set_description(f"{stock_code}数据已是最新")
-                    # pbar_set.set_description(f"{stock_code}目前无需更新")
-                    # pbar_get.update(1)
-                    # pbar_set.update(1)
-                else:
-                    pbar_get.set_description(
-                        f"{stock_queue.qsize()}/{data_pool_size} {stock_code}"
-                    )
-                    rs = bao_instance.get_data(
-                        code=stock_code,
-                        data_frequency="5",
-                        start_date=last_date,
-                        end_date=end,
-                    )
-                    pbar_get.set_description(
-                        f"{stock_queue.qsize()}/{data_pool_size} {stock_code}"
-                    )
-                    # 插入data_queue中
-                    if rs.shape[0] > 0:
-                        data_queue.put({stock_code: rs})
-                        pbar_get.set_description(
-                            f"数据队列: {data_queue.qsize()}/{data_pool_size}"
-                        )
-                    else:
-                        print(f"{stock_code} has no min5")
-                        self.set_nomin5(code=stock_code)
-                        # pbar_get.set_description(f"{stock_code}没有min5")
-                        # pbar_set.update(1)
-                    # pbar_get.update(1)
-            else:
-                pass
-                # pbar_get.set_description("等待存储")
-
-            if len(thread_dict) < thread_num and data_queue.qsize() > 0:
-                # 从 data_queue 中获取一个对象
-                data = data_queue.get(block=True, timeout=None)
-                # 创建一个数据插入的线程
-                code = list(data.keys())[0]
-                df = data[code]
-                # pbar_set.set_description(f"尝试存储{code}数据")
-                thread = threading.Thread(
-                    name=f"Daybar {code} update",
-                    target=self.update_min5,
-                    args=(code, df,),
-                )
-                # 线程注册
-                thread_dict[thread.name] = thread
-                # 线程添加至insert_thread_list
-                tm.thread_register(thread=thread)
-            # 清理僵尸线程
-            dead_list = []
-            for p in thread_dict:
-                if not thread_dict[p].is_alive():
-                    dead_list.append(p)
-            for d in dead_list:
-                thread_dict.pop(d)
-                # pbar_set.update(1)
-            tm.kill_dead_thread()
-            print(f"{len(thread_dict)}/{thread_num}")
-            # 心跳
-            time.sleep(heartbeat)
-
-    # 异步更新Min5交易数据
-    def update_min5_async_new(self, data_pool_size=4, thread_num=2):
-        gl.info("初始化.")
+        :param data_pool_size: 数据缓存池上限, defaults to 4
+        :type data_pool_size: int, optional
+        :param thread_num: 存储线程上限, defaults to 2
+        :type thread_num: int, optional
+        """
+        gl.info("Min5数据更新初始化.")
         data_queue = queue.Queue()
         get_thread_dict = dict()
         set_thread_dict = dict()
         heartbeat = 0.1
         stock_queue = queue.Queue()
-        stock_df = self.get_all_stock_code()
+        stock_df = self.get_all_stockcode_by_mongo()
 
         bao_instance.login()
         end = bao_instance.get_baostock_last_date()
@@ -694,7 +539,7 @@ class GinkgoMongo(object):
                 else:
                     thread = threading.Thread(
                         name=f"Min5 {code} Get",
-                        target=self.get_min5_async,
+                        target=self.get_min5_async_by_baostock,
                         args=(code, last_date, end, data_queue,),
                     )
 
@@ -746,20 +591,41 @@ class GinkgoMongo(object):
             time.sleep(heartbeat)
 
     # 获取日交易数据
-    def get_day_bar(self, code):
+    def get_dayBar_by_Mongo(self, code: str, start_date='', end_date='', *args,**kwargs):
+        """
+        获取交易数据
+
+        :param code: 股票代码
+        :type code: str
+        :param start_date: 起始日期
+        :type start_date: str
+        :param end_date: 结束日期
+        :type end_date: str
+        :return: code股票start_date至end_date的日交易数据
+        :rtype: DataFrame
+        """
+        if start_date is '':
+            start_date = bao_instance.init_date
+        if end_date is '':
+            end_date = bao_instance.get_baostock_last_date()
         # TODO 添加日期范围
         col = self.db[code]
         rs = col.find()
         df = pd.DataFrame(list(rs))
+        print(df)
         return df
 
     # 获取分钟交易数据
-    def get_min5(self, code):
+    def get_min5_by_Mongo(self, code):
         # TODO 添加日期范围
         col = self.db[code + min5_postfix]
         rs = col.find()
         df = pd.DataFrame(list(rs))
         return df
+
+    # 获取复权数据
+    def get_adjustfactor_by_Mongo(self, code):
+        pass
 
     # 获取某只股票日交易数据的最新日期
     def get_latest_date(self, code: str):
@@ -789,7 +655,7 @@ class GinkgoMongo(object):
         for i in range(rs1.shape[0]):
             t = rs1.iloc[i].code
             code_list1.append(t)
-        rs2 = self.get_all_stock_code()
+        rs2 = self.get_all_stockcode_by_mongo()
         for i in range(rs2.shape[0]):
             t = rs2.iloc[i].code
             code_list2.append(t)
