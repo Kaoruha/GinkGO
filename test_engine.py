@@ -12,7 +12,6 @@ from ginkgo_server.backtest.sizer.all_in_one import AllInOne
 
 
 if __name__ == "__main__":
-    bao_instance.login()
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     df = gm.query_stock(
         code="sz.000725",
