@@ -1,6 +1,4 @@
-from ginkgo.data.stock.baostock import bao_instance
+from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 
 if __name__ == '__main__':
-    bao_instance.get_all_stock_code()
-    bao_instance.all_adjust_factor_up_to_date()
-    bao_instance.update_all_stock()
+    gm.update_all()

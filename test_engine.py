@@ -1,3 +1,4 @@
+import datetime
 from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo_server.backtest.event_engine import EventEngine
 from ginkgo_server.backtest.broker.single_daily_broker import SingleDailyBroker
@@ -6,19 +7,16 @@ from ginkgo_server.data.stock.baostock_data import bao_instance
 from ginkgo_server.backtest.strategy.moving_average import MovingAverageStrategy
 from ginkgo_server.backtest.strategy.target_profit import TargetProfit
 from ginkgo_server.backtest.strategy.stop_loss import StopLoss
-import pandas as pd
-from ginkgo_server.config.setting import STOCK_URL
 from ginkgo_server.backtest.matcher.simulate_matcher import SimulateMatcher
-
 from ginkgo_server.backtest.sizer.all_in_one import AllInOne
-import datetime
+
 
 if __name__ == "__main__":
     bao_instance.login()
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     df = gm.query_stock(
-        code="sh.600521",
-        start_date="2009-01-01",
+        code="sz.000725",
+        start_date="2000-11-01",
         end_date=today,
         frequency="d",
         adjust_flag=3,
@@ -32,7 +30,7 @@ if __name__ == "__main__":
     my_broker = SingleDailyBroker(name="my_broker", engine=backtest_engine)
 
     # 策略挂载
-    ma_strategy = MovingAverageStrategy(short_term=2, long_term=10)
+    ma_strategy = MovingAverageStrategy(short_term=30, long_term=180)
     # target_profit = TargetProfit(target=20, target_reduce=50)
     # stop_loss = StopLoss(loss=5, target_reduce=80)
     my_broker.strategy_register(ma_strategy)

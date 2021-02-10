@@ -94,6 +94,7 @@ class SingleDailyBroker(BaseBroker):
         发出下单前需要冻结，买入冻结资金，卖出冻结持仓。
         """
         # 如果当前日期为预计交易日期，则尝试撮合配对，否则将下单事件存放在一个队列里，下一个周期重新推回引擎
+        # print(f'订单事件处理，当前日期：{self.current_date}，事件日期{event.date}')
         if self.current_date == event.date:
             try:
                 # 获取当前代理持仓中，预计交易的股票代码的交易信息

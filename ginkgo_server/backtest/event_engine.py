@@ -89,13 +89,14 @@ class EventEngine(object):
         while self.__active:
             try:
                 info = self.__info_queue.get(block=False)  # 获取消息的阻塞时间
-                self.__process(info) 
+                self.__process(info)
                 # 先处理信息事件，一个信息事件可能产生N个事件
                 # 每个循环都会把一个信息事件带来的所有事件处理完再处理下一个信息事件
             except queue.Empty:
                 # 事件列表为空时，输出现在的时间
                 now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 print(f'\rData_list is Empty!! {now}', end='')
+                return
             # 处理事件列表
             while True:
                 try:

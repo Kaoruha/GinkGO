@@ -2,7 +2,7 @@
 仓位管理类
 """
 import datetime
-from ginkgo_server.data.data_portal import data_portal
+from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo_server.backtest.event_engine import EventEngine
 from ginkgo_server.backtest.events import SignalEvent
 import abc
@@ -59,7 +59,7 @@ class BaseSizer(metaclass=abc.ABCMeta):
         signal_date = event.date
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         try:
-            df = data_portal.query_stock(code=code, start_date=signal_date, end_date=today, frequency='d', adjust_flag=3)['date'].head(2)
+            df = gm.query_stock(code=code, start_date=signal_date, end_date=today, frequency='d', adjust_flag=3)['date'].head(2)
             return df.iloc[1]
         except Exception as e:
             return None

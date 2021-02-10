@@ -1,7 +1,7 @@
 import random
 from .base_matcher import BaseMatcher
 from ginkgo_server.backtest.events import OrderEvent, FillEvent
-from ginkgo_server.data.data_portal import data_portal
+from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo_server.backtest.enums import DealType
 from ginkgo_server.backtest.postion import Position
 
@@ -22,6 +22,7 @@ class SimulateMatcher(BaseMatcher):
 
 
     def try_match(self, event: OrderEvent, position: Position):
+        print('尝试成交')
         self.date = event.date
         self.code = event.code
         self.deal = event.deal
@@ -41,7 +42,7 @@ class SimulateMatcher(BaseMatcher):
     def get_result(self):
         # 查询结果，如果是实盘需要开启一个线程ping到有结果
         # 模拟盘就直接返回Fill了
-        df = data_portal.query_stock(code=self.code,
+        df = gm.query_stock(code=self.code,
                                      start_date=self.date,
                                      end_date=self.date,
                                      frequency='d',
@@ -53,7 +54,7 @@ class SimulateMatcher(BaseMatcher):
 
 
         # 交易失败的情况
-        fail_condition1 = abs(df.iloc[0]['turn']) >= 9.5
+        fail_condition1 = abs(float(df.iloc[0]['turn'])) >= 9.5
         if fail_condition1:
             fill = FillEvent(deal=self.deal,
             date=self.date,

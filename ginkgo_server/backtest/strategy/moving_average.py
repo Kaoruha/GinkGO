@@ -2,19 +2,18 @@ from .base_strategy import BaseStrategy
 import pandas as pd
 from ginkgo_server.backtest.events import SignalEvent
 from ginkgo_server.backtest.enums import DealType
-import random
 
 
 class MovingAverageStrategy(BaseStrategy):
-    def __init__(self, *, short_term: int = 5, long_term: int = 20):
+    def __init__(self, short_term: int = 5, long_term: int = 20):
         self.columns = [
-            'date', 'code', 'open', 'high', 'low', 'close', 'preclose',
-            'volume', 'adjustflag', 'turn', 'tradestatus', 'pctChg', 'isST'
+            'date', 'code', 'open', 'high', 'low', 'close', 'pre_close',
+            'volume', 'adjust_flag', 'turn', 'trade_status', 'pct_change', 'is_st'
         ]
         self.data = pd.DataFrame(columns=self.columns)
         self.short_term = short_term
         self.long_term = long_term
-        self.name = f'双均线S{self.long_term}L{self.long_term}'
+        self.name = f'双均线S{self.short_term}L{self.long_term}'
         self._signal_count = 0
 
     def __get_column_title(self, span: int):
@@ -52,9 +51,9 @@ class MovingAverageStrategy(BaseStrategy):
             self.long_term)] = self.data['close'].rolling(self.long_term,
                                                      min_periods=1).mean()
         # 尝试产生信号
-        self.try_get_signals()
+        self.try_gen_signals()
 
-    def try_get_enter_signal(self):
+    def try_gen_enter_signal(self):
         """
         尝试产生买入信号
         """
@@ -81,11 +80,12 @@ class MovingAverageStrategy(BaseStrategy):
                              source=self.name,
                              current_price=self.data.iloc[-1]['close'],
                              deal=DealType.BUY)
+            # print('产生买入信号')
 
             self._engine.put(signal)
             self._signal_count += 1
 
-    def try_get_exit_signal(self):
+    def try_gen_exit_signal(self):
         """
         尝试产生卖出信号
         """
@@ -111,5 +111,6 @@ class MovingAverageStrategy(BaseStrategy):
                              source=self.name,
                              current_price=self.data.iloc[-1]['close'],
                              deal=DealType.SELL)
+            # print('产生卖出信号')
             self._engine.put(signal)
             self._signal_count += 1

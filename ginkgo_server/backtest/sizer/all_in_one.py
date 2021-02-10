@@ -43,4 +43,5 @@ class AllInOne(BaseSizer):
                                    source=source,
                                    target_volume=target_volume,
                                    code=code)
+                # print('产生空头下单')
                 self._engine.put(order)
