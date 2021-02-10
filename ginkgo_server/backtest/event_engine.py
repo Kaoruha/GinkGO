@@ -7,7 +7,6 @@ import datetime
 import pandas as pd
 
 
-
 class EventEngine(object):
     """
     事件驱动引擎
@@ -43,6 +42,7 @@ class EventEngine(object):
         ...
 
     """
+
     def __init__(self, *, heartbeat: float = 0):
         """
         初始化事件引擎
@@ -54,7 +54,7 @@ class EventEngine(object):
         self.__info_queue = queue.Queue()
 
         # 事件引擎开关
-        self.__active = False # 引擎初始化时状态设置为关闭
+        self.__active = False  # 引擎初始化时状态设置为关闭
 
         # 事件处理线程
         self.__thread = Thread(target=self.__run)
@@ -83,7 +83,6 @@ class EventEngine(object):
         else:
             print("heartbeat should bigger than 0")
 
-
     def __run(self):
         """引擎运行"""
         while self.__active:
@@ -94,18 +93,18 @@ class EventEngine(object):
                 # 每个循环都会把一个信息事件带来的所有事件处理完再处理下一个信息事件
             except queue.Empty:
                 # 事件列表为空时，输出现在的时间
-                now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                print(f'\rData_list is Empty!! {now}', end='')
+                now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(f"\rData_list is Empty!! {now}", end="")
                 return
             # 处理事件列表
             while True:
                 try:
                     event = self.__event_queue.get(False)
-                    self.__process(event) # 处理事件列表
+                    self.__process(event)  # 处理事件列表
                 except queue.Empty:
                     break
             # 当心跳不为0时，事件引擎会短暂停歇，默认如果调用set_heartbeat设置心跳，不开启，但是可能CPU负荷过高
-            if self.heartbeat is not 0:
+            if self.heartbeat != 0:
                 time.sleep(self.heartbeat)
 
     def __process(self, event):
@@ -119,7 +118,7 @@ class EventEngine(object):
             # for handler in self.__handlers[event.type_]:
             #     handler(event)
         else:
-            print(f'没有{event.type_}对应的处理函数')
+            print(f"没有{event.type_}对应的处理函数")
 
         # 调用通用处理函数进行处理
         if self.__general_handlers:
@@ -169,7 +168,6 @@ class EventEngine(object):
         except Exception as e:
             self.__handlers[type_] = []
             handler_list = self.__handlers[type_]
-            
 
         # 若要注册的处理函数不在该事件的处理函数列表中，则注册该事件
         if handler not in handler_list:
@@ -214,6 +212,5 @@ class EventEngine(object):
         :return: void
         """
         for data_ in data.iterrows():
-            market_event = MarketEvent(info_type=InfoType.DailyPrice,
-                                       data=data_)
+            market_event = MarketEvent(info_type=InfoType.DailyPrice, data=data_)
             self.__info_queue.put(market_event)

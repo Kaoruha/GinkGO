@@ -32,11 +32,11 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 # gm.update_adjust_factor()
 
 
-# def update_all():
+def update_all():
+    gm.update_stockinfo()
+    gm.update_adjustfactor()
+    gm.update_daybar_async(thread_num=4)
+    gm.update_min5_async(thread_num=2)
 
 
-
-# update_all()
-
-s = gm.get_adjustfactor_by_Mongo(code='sh.600521')
-print(s)
+update_all()

@@ -20,22 +20,27 @@ class SingleDailyBroker(BaseBroker):
     :param BaseBroker: [description]
     :type BaseBroker: [type]
     """
-    def __init__(self,
-                 name: str,
-                 engine: EventEngine,
-                 *,
-                 stamp_tax_rate: float = .0015,
-                 fee_rate: float = .00025,
-                 init_capital: int = 100000):
-        BaseBroker.__init__(self,
-                            name=name,
-                            engine=engine,
-                            stamp_tax_rate=stamp_tax_rate,
-                            fee_rate=fee_rate,
-                            init_capital=init_capital)
-        self.current_date = ''
+
+    def __init__(
+        self,
+        name: str,
+        engine: EventEngine,
+        *,
+        stamp_tax_rate: float = 0.0015,
+        fee_rate: float = 0.00025,
+        init_capital: int = 100000,
+    ):
+        BaseBroker.__init__(
+            self,
+            name=name,
+            engine=engine,
+            stamp_tax_rate=stamp_tax_rate,
+            fee_rate=fee_rate,
+            init_capital=init_capital,
+        )
+        self.current_date = ""
         self.current_price = 0
-        self.stand_by_order = queue.Queue() # 待处理订单
+        self.stand_by_order = queue.Queue()  # 待处理订单
 
     def general_handler(self, event):
         pass
@@ -54,8 +59,8 @@ class SingleDailyBroker(BaseBroker):
         if event.info_type is not InfoType.DailyPrice:
             return
         data = event.data[1]
-        self.current_price = data['close']
-        self.current_date = data['date']
+        self.current_price = data["close"]
+        self.current_date = data["date"]
 
         # 将待办订单重新推回引擎
         while True:
@@ -64,11 +69,10 @@ class SingleDailyBroker(BaseBroker):
                 self._engine.put(order)
             except queue.Empty:
                 break
-        print(f'\r{self.current_date}.', end='')
+        print(f"\r{self.current_date}.", end="")
         # 将新获取的价格信息传递给每个策略
         for strategy in self._strategies:
-            position = self.position[
-                data.code] if data.code in self.position else None
+            position = self.position[data.code] if data.code in self.position else None
             strategy.data_transfer(data, position=position)
 
     def signal_handlers(self, event: SignalEvent):
@@ -82,9 +86,9 @@ class SingleDailyBroker(BaseBroker):
         :param event: 由引擎传递过来的信号事件
         :type event: SignalEvent
         """
-        self._sizer.get_signal(event=event,
-                              capital=self._capital,
-                              position=self.position)
+        self._sizer.get_signal(
+            event=event, capital=self._capital, position=self.position
+        )
 
     def order_handlers(self, event: OrderEvent):
         """
@@ -94,7 +98,7 @@ class SingleDailyBroker(BaseBroker):
         发出下单前需要冻结，买入冻结资金，卖出冻结持仓。
         """
         # 如果当前日期为预计交易日期，则尝试撮合配对，否则将下单事件存放在一个队列里，下一个周期重新推回引擎
-        # print(f'订单事件处理，当前日期：{self.current_date}，事件日期{event.date}')
+        print(f"订单事件处理，当前日期：{self.current_date}，事件日期{event.date}")
         if self.current_date == event.date:
             try:
                 # 获取当前代理持仓中，预计交易的股票代码的交易信息
@@ -113,7 +117,7 @@ class SingleDailyBroker(BaseBroker):
             elif event.deal == DealType.SELL:
                 # 冻结股票
                 if position is None:
-                    print(f'当前未持有{event.code}股票')
+                    print(f"当前未持有{event.code}股票")
                     return
                 if position.volume < event.target_volume:
                     position.ready_to_sell(target_volume=position.target_volume)
@@ -141,19 +145,23 @@ class SingleDailyBroker(BaseBroker):
                 # 如果是买入事件则增加持仓
                 if event.code in self.position:
                     # 如果持有该股票，增加持仓
-                    self.position[event.code].buy(price=event.price,
-                                                  volume=event.volume)
+                    self.position[event.code].buy(
+                        price=event.price, volume=event.volume
+                    )
                 else:
                     # 如果未持有该股票，建仓
-                    new_position = Position(code=event.code,
-                                            price=event.price,
-                                            volume=event.volume)
+                    new_position = Position(
+                        code=event.code, price=event.price, volume=event.volume
+                    )
                     self.position[event.code] = new_position
 
             elif event.deal == DealType.SELL:
                 # 如果是卖出事件则减少持仓
                 self.position[event.code].sell(volume=event.volume)
-                if self.position[event.code].volume + self.position[event.code].freeze == 0:
+                if (
+                    self.position[event.code].volume + self.position[event.code].freeze
+                    == 0
+                ):
                     del self.position[event.code]
         else:
             # 交易失败的处理
@@ -168,13 +176,20 @@ class SingleDailyBroker(BaseBroker):
 
         # 从回测引擎获取交易订单类
         # 根据成交金额与成交量，更新账号现金与持仓
-        dealdir = '买入' if event.deal == DealType.BUY else '卖出'
-        total = self.position[event.code].volume + self.position[
-            event.code].freeze if event.code in self.position else 0
+        dealdir = "买入" if event.deal == DealType.BUY else "卖出"
+        total = (
+            self.position[event.code].volume + self.position[event.code].freeze
+            if event.code in self.position
+            else 0
+        )
 
-        result = '成交' if event.done else '失败'
-        profit = (total * self.current_price + self._capital -
-                  self._init_capital) / self._init_capital * 100
-        print('{} Price:{}  Volume:{}  Result:{}  Profit:{}%  Fee:{}  Source:{}'.
-            format(dealdir, round(event.price, 2), event.volume, result,
-                   round(profit, 2), round(self.fee, 2), event.source))
+        result = "成交" if event.done else "失败"
+        profit = (
+            (total * self.current_price + self._capital - self._init_capital)
+            / self._init_capital
+            * 100
+        )
+        print(
+            f"{dealdir} Price:{round(event.price, 2)}  Volume:{event.volume}  Result:{result}  Profit:{round(profit, 2)}%  Fee:{round(self.fee, 2)}  Source:{event.source}"
+        )
+

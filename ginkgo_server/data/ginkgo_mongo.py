@@ -82,7 +82,6 @@ class GinkgoMongo(object):
             adjust_factor[i] = adjust_factor[i].astype(np.float)
         fore = raw.copy(deep=True)
         back = raw.copy(deep=True)
-        print(adjust_factor.shape[0])
         for i in range(adjust_factor.shape[0] + 1):
             if i == 0:
                 condition = raw["date"] < adjust_factor.iloc[0].divid_operate_date
@@ -254,12 +253,18 @@ class GinkgoMongo(object):
 
     # 更新所有复权因子
     def update_adjustfactor(self):
+        """
+        全量更新复权因子
+        """
+        gl.info("AdjustFactor更新初始化.")
+        # 获取所有代码
         df_stock_list = self.get_all_stockcode_by_mongo()
-        # df_stock_list = df_stock_list[:400]
+
         if df_stock_list.shape[0] == 0:
             gl.error("StockInfo为空")
             return
 
+        # 生成待插入df
         insert_list = pd.DataFrame(
             columns=[
                 "code",
@@ -275,16 +280,15 @@ class GinkgoMongo(object):
 
         for i in range(stock_count):
             pbar.set_description(f"获取{df_stock_list.iloc[i].code}复权数据")
-            rs = bao_instance.get_adjust_factor(code=df_stock_list.iloc[i].code)
-            if rs.shape[0] > 0:
-                insert_list = pd.concat([insert_list, rs], join="inner")
+            result = bao_instance.get_adjust_factor(code=df_stock_list.iloc[i].code)
+            if result.shape[0] > 0:
+                insert_list = pd.concat([insert_list, result], join="inner")
             pbar.update(1)
         if insert_list.shape[0] > 0:
             # 执行批量插入操作
             self.upsert_adjustfactor_async(data_frame=insert_list, thread_num=4)
         else:
             gl.error("共获取AdjustFactor 0 条, 请检查代码")
-
 
     # 插入日交易数据
     def insert_daybar(self, code: str, data_frame: pd.DataFrame):
@@ -742,7 +746,7 @@ class GinkgoMongo(object):
             {"code": code},
             {
                 "_id": 0,
-                "code":1,
+                "code": 1,
                 "divid_operate_date": 1,
                 "adjust_factor": 1,
                 "back_adjust_factor": 1,
@@ -867,14 +871,14 @@ class GinkgoMongo(object):
                 return
             condition = adjust["date"] >= start_date
             condition2 = adjust["date"] <= end_date
-            return adjust[condition & condition2]
+            result = adjust[condition & condition2].replace("", 0)
+            return result
 
     def update_all(self):
         self.update_stockinfo()
         self.update_adjustfactor()
         self.update_daybar_async(thread_num=4)
         self.update_min5_async(thread_num=2)
-
 
 
 ginkgo_mongo = GinkgoMongo(

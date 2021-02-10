@@ -7,11 +7,12 @@ class Position(object):
     """
     持仓类
     """
+
     def __init__(self, code: str, price: float, volume: int):
         self.code = code
         self.price = price
-        self.volume = volume # 当前持有股票量
-        self.freeze = 0 # 总冻结股票
+        self.volume = volume  # 当前持有股票量
+        self.freeze = 0  # 总冻结股票
 
     def buy(self, price: float, volume: int):
         """
@@ -28,8 +29,9 @@ class Position(object):
         if volume % 100 != 0:
             print("买入量异常，请检查策略")
             return
-        self.price = (self.price * self.volume +
-                      price * volume) / (self.volume + volume)
+        self.price = (self.price * self.volume + price * volume) / (
+            self.volume + volume
+        )
         self.volume = self.volume + volume
 
     def sell(self, volume: int):

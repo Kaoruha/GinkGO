@@ -24,8 +24,8 @@ if __name__ == "__main__":
     )
     df.fillna(0)
     # s = df.iloc[3026]['turn']
-    
-    df.replace('', 'null')
+
+    df = df.replace("", 0)
     print(df.iloc[3026])
     # for i in range(df.shape[0]):
     #     if df.iloc[i]['turn'] == '':
