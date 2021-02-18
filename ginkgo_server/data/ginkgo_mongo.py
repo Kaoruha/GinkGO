@@ -755,10 +755,14 @@ class GinkgoMongo(object):
         )
         df = pd.DataFrame(list(result))
         # 按日期排序
-        condition1 = df["divid_operate_date"] >= start_date
-        condition2 = df["divid_operate_date"] <= end_date
-        df = df[condition1 & condition2]
-        df = df.sort_values(by=["divid_operate_date"], ascending=[True])
+        try:
+            condition1 = df["divid_operate_date"] >= start_date
+            condition2 = df["divid_operate_date"] <= end_date
+            df = df[condition1 & condition2]
+            df = df.sort_values(by=["divid_operate_date"], ascending=[True])
+        except Exception as e:
+            pass
+        
         return df
 
     # 获取某只股票日交易数据的最新日期
