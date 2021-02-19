@@ -7,6 +7,7 @@ class BaseAnalyzer(object):
     def __init__(self):
         self._init_date=''
         self._current_date=''
+        self._target = 'sh.'
         self._engine = None
         self._init_capital = 0
         self._capital = 0
