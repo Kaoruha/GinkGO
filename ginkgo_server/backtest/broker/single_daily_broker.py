@@ -43,6 +43,12 @@ class SingleDailyBroker(BaseBroker):
         self.stand_by_order = queue.Queue()  # 待处理订单
 
     def general_handler(self, event):
+        """
+        通用事件处理函数
+
+        :param event: [description]
+        :type event: [type]
+        """
         pass
 
     def market_handlers(self, event: MarketEvent):
@@ -69,11 +75,17 @@ class SingleDailyBroker(BaseBroker):
                 self._engine.put(order)
             except queue.Empty:
                 break
-        print(f"\r{self.current_date}.", end="")
+        # print(f"\r{self.current_date}.", end="")
         # 将新获取的价格信息传递给每个策略
         for strategy in self._strategies:
             position = self.position[data.code] if data.code in self.position else None
+            if position:
+                position.update_price(current_price=data.close)
             strategy.data_transfer(data, position=position)
+
+        if self._analyzer is not None:
+            self._analyzer.report(self)
+
 
     def signal_handlers(self, event: SignalEvent):
         """
@@ -151,7 +163,7 @@ class SingleDailyBroker(BaseBroker):
                 else:
                     # 如果未持有该股票，建仓
                     new_position = Position(
-                        code=event.code, price=event.price, volume=event.volume
+                        code=event.code, buy_price=event.price, volume=event.volume
                     )
                     self.position[event.code] = new_position
 
@@ -189,7 +201,7 @@ class SingleDailyBroker(BaseBroker):
             / self._init_capital
             * 100
         )
-        print(
-            f"{dealdir} Price:{round(event.price, 2)}  Volume:{event.volume}  Result:{result}  Profit:{round(profit, 2)}%  Fee:{round(self.fee, 2)}  Source:{event.source}"
-        )
+        # print(
+        #     f"{dealdir} Price:{round(event.price, 2)}  Volume:{event.volume}  Result:{result}  Profit:{round(profit, 2)}%  Fee:{round(self.fee, 2)}  Source:{event.source}"
+        # )
 

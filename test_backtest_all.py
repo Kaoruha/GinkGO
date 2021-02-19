@@ -9,14 +9,13 @@ from ginkgo_server.backtest.strategy.target_profit import TargetProfit
 from ginkgo_server.backtest.strategy.stop_loss import StopLoss
 from ginkgo_server.backtest.matcher.simulate_matcher import SimulateMatcher
 from ginkgo_server.backtest.sizer.all_in_one import AllInOne
-from ginkgo_server.backtest.analyzer.normal_analyzer import NormalAnalyzer
 
 
 if __name__ == "__main__":
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     df = gm.query_stock(
-        code="sz.000732",
-        start_date="2020-01-01",
+        code="sz.000726",
+        start_date="2013-01-01",
         end_date=today,
         frequency="d",
         adjust_flag=3,
@@ -24,7 +23,7 @@ if __name__ == "__main__":
 
     # 引擎初始化
     backtest_engine = EventEngine()
-    # backtest_engine.set_heartbeat(0.001)
+    backtest_engine.set_heartbeat(0.1)
 
     # 经纪人初始化
     my_broker = SingleDailyBroker(name="my_broker", engine=backtest_engine)
@@ -44,10 +43,6 @@ if __name__ == "__main__":
     # 模拟撮合类挂载
     matcher = SimulateMatcher()
     my_broker.matcher_register(matcher)
-
-    # 分析类挂载
-    analyzer = NormalAnalyzer()
-    my_broker.analyzer_register(analyzer)
 
     # 事件处理函数注册
     backtest_engine.register(EventType.Market, my_broker.market_handlers)
