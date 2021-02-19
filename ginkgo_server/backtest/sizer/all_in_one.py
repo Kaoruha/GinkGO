@@ -40,7 +40,7 @@ class AllInOne(BaseSizer):
         elif deal == DealType.SELL:
             if event.code in position and position[event.code].volume > 0:
                 # 如果持有股票，则全部卖出
-                target_volume = position[event.code].volume
+                target_volume = int(position[event.code].volume)
                 order = OrderEvent(
                     date=date,
                     deal=deal,

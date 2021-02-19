@@ -8,11 +8,13 @@ class Position(object):
     持仓类
     """
 
-    def __init__(self, code: str, price: float, volume: int):
+    def __init__(self, code: str, buy_price: float, volume: int):
         self.code = code
-        self.price = price
+        self.buy_price = buy_price
         self.volume = volume  # 当前持有股票量
         self.freeze = 0  # 总冻结股票
+        self.current_price = buy_price
+        # print(f'建仓 {self.code} 价格:{self.buy_price} 持有量:{self.volume}')
 
     def buy(self, price: float, volume: int):
         """
@@ -29,10 +31,11 @@ class Position(object):
         if volume % 100 != 0:
             print("买入量异常，请检查策略")
             return
-        self.price = (self.price * self.volume + price * volume) / (
+        self.buy_price = (self.buy_price * self.volume + price * volume) / (
             self.volume + volume
         )
         self.volume = self.volume + volume
+        self.test_shout('买入')
 
     def sell(self, volume: int):
         """
@@ -49,6 +52,7 @@ class Position(object):
             print("成功卖出的股票大于冻结的股票，请检查策略")
         else:
             self.freeze -= volume
+        self.test_shout('卖出  ')
 
     def ready_to_sell(self, target_volume: int):
         """
@@ -63,6 +67,7 @@ class Position(object):
 
         self.freeze += target_volume
         self.volume -= target_volume
+        self.test_shout('预卖出')
 
     def ready_to_buy(self):
         """
@@ -72,3 +77,10 @@ class Position(object):
         买入交易发起前调用
         """
         pass
+
+    def update_price(self, current_price: float):
+        self.current_price = current_price
+
+    def test_shout(self,char:str):
+        pass
+        # print(f'{char}  Code:{self.code} BP:{self.buy_price} VL:{self.volume} FREEZE:{self.freeze} NP:{self.current_price}')

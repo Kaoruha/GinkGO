@@ -6,6 +6,7 @@ from ginkgo_server.backtest.events import *
 from ginkgo_server.backtest.strategy.base_strategy import BaseStrategy
 from ginkgo_server.backtest.sizer.base_sizer import BaseSizer
 from ginkgo_server.backtest.matcher.base_matcher import BaseMatcher
+from ginkgo_server.backtest.analyzer.base_analyzer import BaseAnalyzer
 from ginkgo_server.backtest.risk.base_risk import BaseRisk
 from ginkgo_server.backtest.event_engine import EventEngine
 import abc
@@ -29,6 +30,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self._strategies = []
         self._sizer = None
         self._matcher = None
+        self._analyzer = None
         self._risk = []
         self.fee = 0 # 用来统计所有税费
         self.position = {}  # 存放Position
@@ -84,6 +86,17 @@ class BaseBroker(metaclass=abc.ABCMeta):
         # 撮合类、匹配器绑定
         self._matcher = matcher
         self._matcher.engine_register(self._engine)
+
+    def analyzer_register(self, analyzer: BaseAnalyzer):
+        """
+        撮合匹配器绑定
+
+        :param matcher: 负责撮合成交，回测为虚拟逻辑/实盘为真实异步多线程API调用监听
+        :type matcher: BaseMatcher
+        """
+        # 撮合类、匹配器绑定
+        self._analyzer = analyzer
+        self._analyzer.engine_register(self._engine)
 
     def market_handlers(self, event: MarketEvent):
         """

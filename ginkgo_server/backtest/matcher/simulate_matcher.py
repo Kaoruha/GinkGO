@@ -46,7 +46,7 @@ class SimulateMatcher(BaseMatcher):
             start_date=self.date,
             end_date=self.date,
             frequency="d",
-            adjust_flag=1,
+            adjust_flag=3,
         )
         # 模拟成交,此处模拟按照开盘价购入
         price = df.iloc[0]["open"]
@@ -70,7 +70,7 @@ class SimulateMatcher(BaseMatcher):
             self._engine.put(fill)
             return
 
-        # TODO 交易成功的情况
+        # 交易成功的情况
         if self.deal == DealType.BUY:
             to_buy_volume = int(self.remain / (price * 100)) * 100
             total_price = to_buy_volume * price
@@ -81,7 +81,7 @@ class SimulateMatcher(BaseMatcher):
             remain = self.remain - total_price - fee - commission
 
             # 如果扣掉各种税费，剩余的钱不够了那么就少买一手
-            if self.remain <= 0:
+            if remain <= 0:
                 to_buy_volume = int(self.remain / (price * 100) - 1) * 100
                 total_price = to_buy_volume * price
                 fee = total_price * self._fee_rate
@@ -114,7 +114,7 @@ class SimulateMatcher(BaseMatcher):
             commission = total_price * self._commission_rate  # 计算交易佣金
             if commission < self._min_commission:
                 commission = self._min_commission  # 如果交易佣金不到最低佣金，则设置交易佣金为最低佣金
-            remain = total_price - stamp_tax - fee - commission  # 交完乱七八糟各种税以后的剩余资金
+            self.remain = total_price - stamp_tax - fee - commission  # 交完乱七八糟各种税以后的剩余资金
             fill = FillEvent(
                 deal=DealType.SELL,
                 code=self.code,
@@ -123,7 +123,7 @@ class SimulateMatcher(BaseMatcher):
                 source=self.source,
                 volume=to_sell_volume,
                 fee=stamp_tax + fee + commission,
-                remain=remain,
+                remain=self.remain,
                 done=True,
             )
             self._engine.put(fill)
