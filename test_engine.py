@@ -15,13 +15,8 @@ from ginkgo_server.backtest.analyzer.normal_analyzer import NormalAnalyzer
 if __name__ == "__main__":
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     df = gm.query_stock(
-<<<<<<< HEAD
-        code="sz.000725",
-        start_date="1995-11-01",
-=======
         code="sz.000735",
         start_date="2013-01-01",
->>>>>>> 86d65df12303c06b44bd27b63bd84ae53c1ceb23
         end_date=today,
         frequency="d",
         adjust_flag=3,
