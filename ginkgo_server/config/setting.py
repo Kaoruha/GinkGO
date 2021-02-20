@@ -2,7 +2,7 @@
 DEBUG = True
 TOKEN_EXPIRATION = 14  # Token过期时间（天）
 
-# STOCK_URL = 'resources/market_data/'
+STOCK_URL = 'resources/market_data/'
 
 import logging
 LOGGING_LEVEL = logging.DEBUG
