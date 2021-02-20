@@ -19,7 +19,9 @@
 2. 安装环境
 3. 安装MongoDB
 4. 配置MongoDB
+端口请保持27017
 ```shell
+# 进入Mongo后，需要创建库与对应权限用户
 use quant
 db.createUser({user:"ginkgo",pwd:"caonima123",roles:[{role:"readWrite",db:"quant"}]})
 ```
