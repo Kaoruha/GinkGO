@@ -379,7 +379,7 @@ class GinkgoMongo(object):
         data_queue = queue.Queue()
         get_thread_dict = dict()
         set_thread_dict = dict()
-        heartbeat = 0.1
+        heartbeat = 0.01
         stock_queue = queue.Queue()
         stock_df = self.get_all_stockcode_by_mongo()
 
