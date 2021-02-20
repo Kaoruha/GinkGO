@@ -19,4 +19,15 @@
 2. 安装环境
 3. 安装MongoDB
 4. 配置MongoDB
+```shell
+use quant
+db.createUser({user:"ginkgo",pwd:"caonima123",roles:[{role:"readWrite",db:"quant"}]})
+```
+如果是Mac，可能Linux也需要，需要取消最大文件限制数
+```shell
+ulimit -n 65535
+# db路径与log路径得换成自己的
+mongod --dbpath /Users/suny/Development/mongodb/db --logpath /Users/suny/Development/mongodb/log/mongodb.log
+```
 5. 运行测试脚本
+test_engine.py
