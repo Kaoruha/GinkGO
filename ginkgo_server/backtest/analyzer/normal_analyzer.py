@@ -31,7 +31,6 @@ class NormalAnalyzer(BaseAnalyzer):
         self._profit = (
             (self._capital + self._freeze + self._stock_value - self._init_capital)
             / self._init_capital
-            * 100
         )
         if self._profit > 0:
             self.win_days += 1
@@ -45,10 +44,10 @@ class NormalAnalyzer(BaseAnalyzer):
         # print('='*5)
         self._max_drawdown = min(self._max_drawdown, self._profit)
         self._max_profit = max(self._max_profit, self._profit)
-        str1 = f"当前收益:{round((self._profit),3):<10}"
-        str2 = f"最大收益:{round(self._max_profit,3):<10}"
-        str3 = f"最大回撤:{round(self._max_drawdown,3):<10}"
-        str4 = f'盈利比率{round(self.win_days/(self.win_days+self.lose_days),3):<6}'
+        str1 = f"当前收益: {round((self._profit),3):<10}"
+        str2 = f"最大收益: {round(self._max_profit,3):<10}"
+        str3 = f"最大回撤: {round(self._max_drawdown,3):<10}"
+        str4 = f'盈利比率:{self.win_days:>4}/{self.win_days+self.lose_days:<4}'
         print(
             f"{self._current_date}"
             + "  "
