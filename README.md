@@ -2,6 +2,11 @@
 
 整个项目是一个学习的过程，最后的成品只是一个工具，目标是为实现稳定盈利提供分析工具平台。投资有风险，请有自负盈亏的能力再进行实盘尝试。
 
+# Software Requirements
+- Operating System: Windows, Linux or Mac
+- Database: Mongodb
+- Web Server: Tornado
+
 ## Features
 
 - 多源数据爬取，清洗后统一入库
