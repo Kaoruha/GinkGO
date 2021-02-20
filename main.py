@@ -9,7 +9,7 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 # gl.info('Server开始启动')
 
 # 开启tornado后端服务
-# start_server()
+start_server()
 
 
 # gs.add_stock_info(code='hhhh')
@@ -32,11 +32,11 @@ from ginkgo_server.data.storage import ginkgo_storage as gs
 # gm.update_adjust_factor()
 
 
-def update_all():
-    gm.update_stockinfo()
-    gm.update_adjustfactor()
-    gm.update_daybar_async(thread_num=4)
-    gm.update_min5_async(thread_num=2)
+# def update_all():
+#     gm.update_stockinfo()
+#     gm.update_adjustfactor()
+#     gm.update_daybar_async(thread_num=4)
+#     gm.update_min5_async(thread_num=2)
 
 
-update_all()
+# update_all()

@@ -2,8 +2,8 @@
 import tornado.web
 import tornado.ioloop
 import os
-from ..libs.ginkgo_logger import ginkgo_logger as gl
-from .handlers import get_url_patten
+from ginkgo_server.libs.ginkgo_logger import ginkgo_logger as gl
+from ginkgo_server.web.handlers import get_url_patten
 
 
 # 启动监听
