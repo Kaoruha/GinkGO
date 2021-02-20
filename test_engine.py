@@ -30,11 +30,7 @@ if __name__ == "__main__":
     my_broker = SingleDailyBroker(name="my_broker", engine=backtest_engine)
 
     # 策略挂载
-<<<<<<< HEAD
-    ma_strategy = MovingAverageStrategy(short_term=10, long_term=60)
-=======
-    ma_strategy = MovingAverageStrategy(short_term=8, long_term=40)
->>>>>>> 86d65df12303c06b44bd27b63bd84ae53c1ceb23
+    ma_strategy = MovingAverageStrategy(short_term=4, long_term=30)
     # target_profit = TargetProfit(target=20, target_reduce=50)
     # stop_loss = StopLoss(loss=5, target_reduce=80)
     my_broker.strategy_register(ma_strategy)
