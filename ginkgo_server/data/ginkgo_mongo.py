@@ -383,6 +383,8 @@ class GinkgoMongo(object):
         stock_queue = queue.Queue()
         stock_df = self.get_all_stockcode_by_mongo()
 
+        # stock_df = stock_df[4700:]
+
         bao_instance.login()
         end = bao_instance.get_baostock_last_date()
         gl.info(f"目标更新日期为{end}")
@@ -393,6 +395,7 @@ class GinkgoMongo(object):
         for i in range(stock_df.shape[0]):
             stock_queue.put(stock_df.iloc[i].code)
         gl.info("更新队列准备完毕")
+
 
         pbar_get = tqdm.tqdm(total=stock_queue.qsize())
         pbar_set = tqdm.tqdm(total=stock_queue.qsize())
@@ -690,10 +693,11 @@ class GinkgoMongo(object):
         col = self.db[code]
         rs = col.find()
         df = pd.DataFrame(list(rs))
-        condition1 = df["date"] >= start_date
-        condition2 = df["date"] <= end_date
-        df = df[condition1 & condition2]
-        df = df.sort_values(by=["date"], ascending=[True])
+        if df.shape[0] >0:
+            condition1 = df["date"] >= start_date
+            condition2 = df["date"] <= end_date
+            df = df[condition1 & condition2]
+            df = df.sort_values(by=["date"], ascending=[True])
         return df
 
     # 获取分钟交易数据
@@ -717,10 +721,11 @@ class GinkgoMongo(object):
         col = self.db[code + min5_postfix]
         result = col.find()
         df = pd.DataFrame(list(result))
-        condition1 = df["date"] >= start_date
-        condition2 = df["date"] <= end_date
-        df = df[condition1 & condition2]
-        df = df.sort_values(by=["date"], ascending=[True])
+        if df.shape[0] >0:
+            condition1 = df["date"] >= start_date
+            condition2 = df["date"] <= end_date
+            df = df[condition1 & condition2]
+            df = df.sort_values(by=["date"], ascending=[True])
         return df
 
     # 获取复权数据
