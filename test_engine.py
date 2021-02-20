@@ -15,7 +15,7 @@ from ginkgo_server.backtest.analyzer.normal_analyzer import NormalAnalyzer
 if __name__ == "__main__":
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     df = gm.query_stock(
-        code="sz.000735",
+        code="sh.600000",
         start_date="2013-01-01",
         end_date=today,
         frequency="d",
@@ -30,15 +30,10 @@ if __name__ == "__main__":
     my_broker = SingleDailyBroker(name="my_broker", engine=backtest_engine)
 
     # 策略挂载
-    ma_strategy = MovingAverageStrategy(short_term=4, long_term=30)
+    ma_strategy = MovingAverageStrategy(short_term=4, long_term=60)
     # target_profit = TargetProfit(target=20, target_reduce=50)
     # stop_loss = StopLoss(loss=5, target_reduce=80)
-    my_broker.strategy_register(ma_strategy)
-    # my_broker.strategy_register(target_profit)
-    # my_broker.strategy_register(stop_loss)
-
-    # 仓位管理挂载
-    sizer = AllInOne()
+    my_broker.strategy_register(ma_strate 
     my_broker.sizer_register(sizer=sizer)
 
     # 模拟撮合类挂载
