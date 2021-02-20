@@ -396,7 +396,6 @@ class GinkgoMongo(object):
             stock_queue.put(stock_df.iloc[i].code)
         gl.info("更新队列准备完毕")
 
-
         pbar_get = tqdm.tqdm(total=stock_queue.qsize())
         pbar_set = tqdm.tqdm(total=stock_queue.qsize())
 
@@ -693,7 +692,7 @@ class GinkgoMongo(object):
         col = self.db[code]
         rs = col.find()
         df = pd.DataFrame(list(rs))
-        if df.shape[0] >0:
+        if df.shape[0] > 0:
             condition1 = df["date"] >= start_date
             condition2 = df["date"] <= end_date
             df = df[condition1 & condition2]
@@ -721,7 +720,7 @@ class GinkgoMongo(object):
         col = self.db[code + min5_postfix]
         result = col.find()
         df = pd.DataFrame(list(result))
-        if df.shape[0] >0:
+        if df.shape[0] > 0:
             condition1 = df["date"] >= start_date
             condition2 = df["date"] <= end_date
             df = df[condition1 & condition2]
@@ -767,7 +766,7 @@ class GinkgoMongo(object):
             df = df.sort_values(by=["divid_operate_date"], ascending=[True])
         except Exception as e:
             pass
-        
+
         return df
 
     # 获取某只股票日交易数据的最新日期
