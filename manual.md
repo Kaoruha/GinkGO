@@ -1,50 +1,36 @@
-# ginkGO
-#### 1、 开发环境部署
-#### 建议慢慢更换成 Conda 进行虚拟环境与包的管理
+### 1、 开发环境部署
+需要提前安装Python，建议3.6以上版本
+#### 1、创建虚拟环境
+#### 1.1、Python命令创建虚拟环境
 ```shell script
-# 1、创建虚拟环境
-# 1.1、Python命令创建虚拟环境
-python3 -m venv venv
-
-# 1.2、Anaconda 使用conda进行虚拟环境包的管理
-# 1.2.1、更新Anaconda
-conda update anaconda
-conda update conda
-# 1.2.2、添加清华源
-conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
-conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
-conda config --set show_channel_urls yes
-# 1.2.3、创建环境
-conda create -n ginkgo-venv python=3.7 # 新建一个虚拟环境
-conda env create -f environment.yml # 按照 environment.yml 配置一个新的虚拟环境
-
-# 2.激活虚拟环境
-# 2.1、MacOS下
+cd <project path>
+python -m venv venv
+```
+#### 1.2、激活虚拟环境
+#### 1.2.1、windows平台 powershell
+```shell
+venv\Scripts\Activate.ps1
+```
+#### 1.2.2、windows平台 cmd
+```shell
+venv\Scripts\Activate.bat
+```
+#### 1.2.3、MacOS下
+```shell
 source venv/bin/activate
-
-# 2.2、Anaconda，此刻conda已经完成包的安装,虚拟环境切换
-conda activate ginkgo-venv
-
-# 2.3、Windows
-# GinkGO
-venv\Scripts\activate
-
-# 3、更新pip(conda 不需要这一步)
-python3 -m pip install --upgrade pip
-
-# 4、安装依赖包(conda 不需要这一步)
-# 4.1、按照Pipfile内的包信息安装
-pip install -r environment.txt
-
-# 4.2、如果速度慢可以换国内源  
-pip install -r environment.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-
-# 4.3、有新的包在安装完成后，需要更新environment
-pip freeze > environment.txt
-conda env export > environment.yml
 ```
 
-#### 2、 生产环境部署
+### 2、安装依赖包
+```shell
+pip install -r environment.yml
+```
+### 3、更新依赖包
+```shell
+pip freeze > environment.yml
+```
+
+
+### 4、 生产环境部署
 nginx+gunicorn
 ```shell script
 # 通过gunicorn启动flask
@@ -68,15 +54,6 @@ ps aux | grep gunicorn
 kill -9 <线程id>
 ```
 
-#### 3、 YellowPrint与BluePrint
-> libs下的yellowPrint实现了blueprint的衍生类，用于细分url，通过 yp_user.register(bp) 来挂载到Blueprint
-
-#### 4、 爬虫
-> app/spider是基于Scrapy框架拓展的爬虫模块
-
-
-
-<!-- 投研分析
 
 全市场数据(日线/分钟线/tick)
 财务数据
@@ -114,7 +91,3 @@ kill -9 <线程id>
 可视化界面
 提供微信通知模版
 终端
-
-提供mac/windows的可安装版本(QACommunity)
-提供全平台可用的web界面
-提供手机客户端(ios/andriod) [内测中] -->
