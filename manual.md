@@ -1,39 +1,54 @@
+# 使用手册
 
 ### 1、 开发环境部署
 
 需要提前安装Python，建议3.6以上版本
+
 #### 1、创建虚拟环境
+
 #### 1.1、Python命令创建虚拟环境
+
 ```shell script
 cd <project path>
 python -m venv venv
 ```
+
 #### 1.2、激活虚拟环境
+
 #### 1.2.1、windows平台 powershell
+
 ```shell
 venv\Scripts\Activate.ps1
 ```
+
 #### 1.2.2、windows平台 cmd
+
 ```shell
 venv\Scripts\Activate.bat
 ```
+
 #### 1.2.3、MacOS下
+
 ```shell
 source venv/bin/activate
 ```
 
 ### 2、安装依赖包
+
 ```shell
 pip install -r environment.yml
 ```
+
 ### 3、更新依赖包
+
 ```shell
 pip freeze > environment.yml
 ```
 
-
 ### 4、 生产环境部署
+
 nginx+gunicorn
+
 ```shell script
 # 通过gunicorn启动flask
 gunicorn -w 4 -b 127.0.0.1:5000 -D --access-logfile ./static/logs/server_log BeuQuant:quant
@@ -55,7 +70,6 @@ ps aux | grep gunicorn
 # 2 杀掉gunicorn线程
 kill -9 <线程id>
 ```
-
 
 全市场数据(日线/分钟线/tick)
 财务数据
