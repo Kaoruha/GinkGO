@@ -16,7 +16,7 @@ if __name__ == "__main__":
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     df = gm.query_stock(
         code="sh.600000",
-        start_date="2013-01-01",
+        start_date="2021-01-01",
         end_date=today,
         frequency="d",
         adjust_flag=3,
@@ -33,7 +33,8 @@ if __name__ == "__main__":
     ma_strategy = MovingAverageStrategy(short_term=4, long_term=60)
     # target_profit = TargetProfit(target=20, target_reduce=50)
     # stop_loss = StopLoss(loss=5, target_reduce=80)
-    my_broker.strategy_register(ma_strate 
+    my_broker.strategy_register(ma_strategy)
+    sizer = AllInOne()
     my_broker.sizer_register(sizer=sizer)
 
     # 模拟撮合类挂载
