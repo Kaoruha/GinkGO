@@ -61,7 +61,7 @@ class SingleDailyBroker(BaseBroker):
         :param event: 获得的新的日交易数据
         :type event: MarketEvent
         """
-        
+
         # print(f'{self.current_date} 现金:{self._capital} 持股:{len(self.position)}')
         # 检查市场事件的类型，此处只处理日交易数据
         if event.info_type is not InfoType.DailyPrice:
@@ -133,7 +133,7 @@ class SingleDailyBroker(BaseBroker):
                     print(f"当前未持有{event.code}股票")
                     return
                 if position.volume < event.target_volume:
-                    position.ready_to_sell(target_volume=position.target_volume)
+                    position.ready_to_sell(target_volume=event.target_volume)
                 else:
                     position.ready_to_sell(target_volume=event.target_volume)
                 self._matcher.try_match(event=event, position=position)
@@ -141,7 +141,6 @@ class SingleDailyBroker(BaseBroker):
         else:
             # 如果订单日期与当前日期不符合，则把订单事件存放在待办订单，待下次信息事件更新时，重新推回引擎
             self.stand_by_order.put(event)
-
 
     def fill_handlers(self, event: FillEvent):
         """
@@ -167,11 +166,11 @@ class SingleDailyBroker(BaseBroker):
                         code=event.code, buy_price=event.price, volume=event.volume
                     )
                     self.position[event.code] = new_position
-                self._freeze -= (event.price * event.volume + event.fee + event.remain)
-                
+                self._freeze -= event.price * event.volume + event.fee + event.remain
 
             elif event.deal == DealType.SELL:
                 # 如果是卖出事件则减少持仓
+                # TODO 重写position
                 self.position[event.code].sell(volume=event.volume)
                 if (
                     self.position[event.code].volume + self.position[event.code].freeze
