@@ -10,7 +10,7 @@ class NormalAnalyzer(BaseAnalyzer):
 
     def report(self, *args, **kwargs):
         date = args[0].current_date
-        self._init_date = date if self._init_date is "" else self._init_date
+        self._init_date = date if self._init_date == "" else self._init_date
         if date > self._current_date:
             self._current_date = date
         d1 = datetime.datetime.strptime(str(self._init_date), "%Y-%m-%d")
