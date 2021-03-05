@@ -65,7 +65,10 @@ class GinkgoMongo(object):
         :rtype: DataFrame
         """
         # 没有复权因子
-        if adjust_factor.count().code == 0:
+        print('='*20)
+        print(adjust_factor.shape[0])
+        print('='*20)
+        if adjust_factor.shape[0] == 0:
             return raw
 
         # 有复权因子
