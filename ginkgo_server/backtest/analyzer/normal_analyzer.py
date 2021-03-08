@@ -1,5 +1,7 @@
 from ginkgo_server.backtest.analyzer.base_analyzer import BaseAnalyzer
 import datetime
+import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 
 
 class NormalAnalyzer(BaseAnalyzer):
@@ -36,12 +38,6 @@ class NormalAnalyzer(BaseAnalyzer):
             self.win_days += 1
         else:
             self.lose_days += 1
-        # print('='*5)
-        # print(f'利润:{self._profit}')
-        # print(f'现金:{self._capital}')
-        # print(f'冻结:{self._freeze}')
-        # print(f'股票:{self._stock_value}')
-        # print('='*5)
         self._max_drawdown = min(self._max_drawdown, self._profit)
         self._max_profit = max(self._max_profit, self._profit)
         str1 = f"当前收益: {round((self._profit),3):<10}"
@@ -60,6 +56,7 @@ class NormalAnalyzer(BaseAnalyzer):
             + str4
             + "  评价: 待完善"
         )
+        self.draw()
 
     def give_mark(self):
         pass

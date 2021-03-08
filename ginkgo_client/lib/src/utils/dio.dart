@@ -27,7 +27,7 @@ class GinkgoDio {
 
   static Dio dio = Dio(
     BaseOptions(
-      baseUrl: 'http://127.0.0.1:5101/api',
+      baseUrl: 'http://127.0.0.1:8080/api',
       connectTimeout: 60000, // 连接服务器超时时间，单位是毫秒.
       receiveTimeout: 10000, // 响应流上前后两次接受到数据的间隔，单位为毫秒, 这并不是接收数据的总时限.
     ),

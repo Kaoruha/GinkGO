@@ -1,7 +1,7 @@
 # from ..util.restful_api import RestfulAPI
 import tornado.web
 
-URL = '/user'
+URL = '/api/user'
 
 
 class TestHandler(tornado.web.RequestHandler):

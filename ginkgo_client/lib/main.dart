@@ -13,7 +13,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Ginkgo',
       home: Homes(),
-      theme: ThemeData(primaryColor: Colors.blue[600]),
+      theme: ThemeData(primaryColor: Colors.blue[800]),
     );
   }
 }

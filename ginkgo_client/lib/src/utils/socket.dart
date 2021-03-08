@@ -1,27 +1,39 @@
 import 'dart:io';
 import 'dart:async';
 
-class SocketManage {
-  static String host = '0.0.0.0';
-  static int port = 5102;
-  static Socket mSocket;
-  static Stream<List<int>> mStream;
+class WebSocketManager{
+  //私有
+  WebSocketManager._();
+  //静态
+  static WebSocketManager _manager;
+  //提供访问
+  factory WebSocketManager(){
+    if (_manager==null){
+      _manager = new WebSocketManager._();
+    }
+    return _manager;
+  }
 
-  static initSocket() async {
-    await Socket.connect(host, port).then((Socket socket) {
-      mSocket = socket;
-      mStream = mSocket.asBroadcastStream(); //多次订阅的流 如果直接用socket.listen只能订阅一次
-    }).catchError((e) {
-      print('connectException:$e');
-      initSocket();
+  WebSocket _webSocket;
+
+  void initWebSocket(){
+    String path = 'ws://127.0.0.1:8080/api/engine/sockets';
+    print(path);
+    Future<WebSocket> future = WebSocket.connect(path);
+    future.then((webSocket){
+      _webSocket = webSocket;
+      webSocket.listen((onData) {
+        print("Server:" + onData);
+      },onError: (err){
+        print("Server:Error " + err);
+      },onDone: (){
+        print("Server Disconnect");
+      });
     });
   }
 
-  static void addParams(List<int> params) {
-    mSocket.add(params);
+  void sendMSG(){
+    _webSocket.add('hahahha');
   }
 
-  static void dispos() {
-    mSocket.close();
-  }
 }

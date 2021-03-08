@@ -16,7 +16,7 @@ if __name__ == "__main__":
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     df = gm.query_stock(
         code="sh.600006",
-        start_date="2013-01-01",
+        start_date="2021-01-01",
         end_date=today,
         frequency="d",
         adjust_flag=3,
