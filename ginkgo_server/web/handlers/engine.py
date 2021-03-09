@@ -1,5 +1,5 @@
 import tornado.web
-from ginkgo_server.web.util.webSocket_base import WebsocketBase
+import tornado.websocket
 
 URL = '/api/engine'
 
@@ -18,20 +18,23 @@ class TestHandler2(tornado.web.RequestHandler):
         print('no')
 
 
-class TrySockets(WebsocketBase):
+class ConnectHandler(tornado.websocket.WebSocketHandler):
     url_prefix = URL + '/sockets'
 
-    user = None
+    def check_origin(self, origin):
+        '''重写同源检查 解决跨域问题'''
+        return True
 
     def open(self):
-        self.user = self
+        '''新的websocket连接后被调动'''
         print('NEW CONNECTION', self)
-
-    def on_message(self, message):
-        print(message)
-        msg = f'hello,{self.user},{message}'
-        self.user.write_message(msg)
+        self.write_message('Welcome')
 
     def on_close(self):
-        self.user = None
-        print('KILL CONNECTION', self)
+        '''websocket连接关闭后被调用'''
+        print('LOSE CONNECTION', self)
+
+    def on_message(self, message):
+        '''接收到客户端消息时被调用'''
+        self.write_message('new message :' + message)  # 向客服端发送
+        print(message)

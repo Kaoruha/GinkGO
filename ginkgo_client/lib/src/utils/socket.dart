@@ -1,5 +1,9 @@
 import 'dart:io';
+import 'dart:io';
 import 'dart:async';
+import 'package:web_socket_channel/html.dart';
+import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/status.dart' as status;
 
 class WebSocketManager{
   //私有
@@ -14,26 +18,39 @@ class WebSocketManager{
     return _manager;
   }
 
-  WebSocket _webSocket;
+  var channel;
 
   void initWebSocket(){
-    String path = 'ws://127.0.0.1:8080/api/engine/sockets';
-    print(path);
-    Future<WebSocket> future = WebSocket.connect(path);
-    future.then((webSocket){
-      _webSocket = webSocket;
-      webSocket.listen((onData) {
-        print("Server:" + onData);
-      },onError: (err){
-        print("Server:Error " + err);
-      },onDone: (){
-        print("Server Disconnect");
-      });
+    String url = 'ws://127.0.0.1:8080/api/engine/sockets';
+    print(url);
+    
+    // TODO 需要根据平台切换
+    // if (Platform.isAndroid) {
+    //   channel = IOWebSocketChannel.connect(url);
+    // } else {
+    //   channel = HtmlWebSocketChannel.connect(url);
+    // }
+    channel = HtmlWebSocketChannel.connect(url);
+    channel.stream.listen((message) {
+      handleMSG(message);
     });
   }
 
-  void sendMSG(){
-    _webSocket.add('hahahha');
+  void handleMSG(message){
+    // TODO 处理 Message
+    print(message);
+  }
+
+  void sendMSG(message){
+      channel.sink.add(message);
+  }
+
+  void closeSocket(){
+    channel.sink.close(status.normalClosure); 
+  }
+
+  void heartBeat(){
+    // TODO 心跳回忆
   }
 
 }

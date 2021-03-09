@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'src/pages/market.dart' show Market;
-import 'src/pages/portfolio.dart' show Portfolio;
-import 'src/pages/strategy.dart' show Strategy;
-import 'src/pages/backtest.dart' show BackTest;
-import 'src/pages/user.dart' show User;
+import 'package:ginkgo_client/src/pages/market.dart' show Market;
+import 'package:ginkgo_client/src/pages/portfolio.dart' show Portfolio;
+import 'package:ginkgo_client/src/pages/strategy.dart' show Strategy;
+import 'package:ginkgo_client/src/pages/backtest.dart' show BackTest;
+import 'package:ginkgo_client/src/pages/user.dart' show User;
 
 void main() => runApp(MyApp());
 
