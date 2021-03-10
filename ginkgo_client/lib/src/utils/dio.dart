@@ -33,13 +33,12 @@ class GinkgoDio {
     ),
   );
 
-  get(String url,
-      {Map<String, dynamic> data, Function success, Function failure}) {
-    _doRequest(url, data, Method.GET, success, failure);
+  get(String url, Function success, Function failure) {
+    _doRequest(url, {}, Method.GET, success, failure);
   }
 
-  post(String url,
-      {Map<String, dynamic> data, Function success, Function failure}) {
+  post(String url, Map<String, dynamic> data, Function success,
+      Function failure) {
     _doRequest(url, data, Method.POST, success, failure);
   }
 
@@ -67,6 +66,10 @@ class GinkgoDio {
           break;
       }
       Map<String, dynamic> result = json.decode(response.toString());
+      print(result);
+      if (successCallBack != null) {
+        successCallBack(result);
+      }
       // 打印信息
       print('''api: $url\nparams: $data\nresult: $result''');
       // 转化为model
