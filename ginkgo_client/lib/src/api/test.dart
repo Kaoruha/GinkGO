@@ -1,4 +1,4 @@
-import 'package:ginkgo_client/src/utils/dio.dart';
+import 'package:ginkgo_client/src/utils/my_dio.dart';
 
 String url_prefix = '/test';
 

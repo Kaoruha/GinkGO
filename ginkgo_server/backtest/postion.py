@@ -81,6 +81,6 @@ class Position(object):
     def update_price(self, current_price: float):
         self.current_price = current_price
 
-    def test_shout(self,char:str):
+    def test_shout(self, char: str):
         pass
         # print(f'{char}  Code:{self.code} BP:{self.buy_price} VL:{self.volume} FREEZE:{self.freeze} NP:{self.current_price}')
