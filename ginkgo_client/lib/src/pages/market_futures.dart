@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ginkgo_client/src/widget/search.dart' show SearchBar;
-import 'package:ginkgo_client/src/widget/stock_list.dart' show StockList;
+import 'package:ginkgo_client/src/widget/stock_list.dart';
 
 class MarketFutures extends StatefulWidget {
   @override
@@ -21,7 +21,8 @@ class _MarketFuturesStates extends State<MarketFutures> {
     setState(() {
       stockFilter = val;
     });
-    print('Filter: ' + stockFilter);
+    print('Future: ' + stockFilter);
+    stock_list_key.currentState.stock_filter(stockFilter);
   }
 
   @override
@@ -38,8 +39,8 @@ class _MarketFuturesStates extends State<MarketFutures> {
                 children: [
                   SearchBar(callback: (val) => onFilterChange(val)),
                   StockList(
+                    key: stock_list_key,
                     callback: (val) => onListClick(val),
-                    filter: stockFilter,
                   )
                 ],
               ),

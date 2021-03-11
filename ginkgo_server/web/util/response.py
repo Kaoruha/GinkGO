@@ -39,7 +39,7 @@ class APIException(HTTPException):
         return [("Content-Type", "application/json")]
 
 
-class NoException(HTTPException):
+class APIResponse(object):
     msg = "It Works Well!!"
     error_code = 200
     data = ''
@@ -51,7 +51,6 @@ class NoException(HTTPException):
             self.error_code = error_code
         if data:
             self.data = data
-        super(NoException, self).__init__(msg, None)
 
     def get_body(self, environ=None):
         body = dict(

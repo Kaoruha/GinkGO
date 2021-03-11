@@ -37,20 +37,6 @@ class TestPage extends StatelessWidget {
             },
             child: Text('引擎启动'),
           ),
-          RaisedButton(
-            color: Colors.lightBlue[200],
-            onPressed: () {
-              engineSleep();
-            },
-            child: Text('引擎休眠'),
-          ),
-          RaisedButton(
-            color: Colors.lightBlue[200],
-            onPressed: () {
-              engineResume();
-            },
-            child: Text('引擎恢复'),
-          ),
         ],
       ),
       Divider()
