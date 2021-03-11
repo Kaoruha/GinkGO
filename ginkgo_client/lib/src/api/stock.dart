@@ -1,29 +1,14 @@
-import 'package:ginkgo_client/src/utils/dio.dart';
+import 'package:ginkgo_client/src/utils/ginkgo_dio.dart';
+import 'dart:convert';
+import 'dart:io';
 
 String url_prefix = '/stock';
 
-void stockDataUpdate() {
-  String url = '/all_stock';
-  String tar_url = url_prefix + url;
-  ginkgo_dio.post(tar_url, {}, () {}, () {});
-}
-
-void stockCodeUpdate() {
-  String url = '/all_stock_code';
-  String tar_url = url_prefix + url;
-  ginkgo_dio.post(tar_url, {}, (res) {}, (err) {});
-}
-
-void stockAdjustUpdate() {
-  String url = '/adjust_code';
-  String tar_url = url_prefix + url;
-  ginkgo_dio.post(tar_url, {}, (res) {}, (err) {});
-}
-
-void getStockList() {
+getStockList() async {
   String url = '/get_stock_info';
-  String tar_url = url_prefix + url;
-  ginkgo_dio.get(tar_url, (res) {
-    print(res);
-  }, (err) {});
+  String tarUrl = url_prefix + url;
+
+  var request = await GinkgoDio.getInstance().get(tarUrl);
+  var data = jsonDecode(request.toString());
+  return data;
 }

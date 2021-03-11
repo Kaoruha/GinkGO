@@ -2,27 +2,27 @@ import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 
-class HttpManager {
-  //一个人工智能回答的免费API
-  final String _BASEURL = 'http://api.qingyunke.com/api.php';
+class GinkgoDio {
+  // 基础配置
+  final String _BASEURL = 'http://127.0.0.1:8080/api/';
   final int _CONNECTTIMEOUT = 5000;
   final int _RECEIVETIMEOUT = 3000;
 
   //单例模式
-  static HttpManager _instance;
+  static GinkgoDio _instance;
   Dio _dio;
   BaseOptions _options;
 
-  //单例模式，只创建一次实例
-  static HttpManager getInstance() {
-    if (null == _instance) {
-      _instance = new HttpManager();
-      return _instance;
+  // 单例模式，只创建一次实例
+  static GinkgoDio getInstance() {
+    if (_instance == null) {
+      _instance = new GinkgoDio();
     }
+    return _instance;
   }
 
-  //构造函数
-  HttpManager() {
+  // 构造函数
+  GinkgoDio() {
     _options = new BaseOptions(
         baseUrl: _BASEURL,
         //连接时间为5秒
@@ -30,7 +30,7 @@ class HttpManager {
         //响应时间为3秒
         receiveTimeout: _RECEIVETIMEOUT,
         //设置请求头
-        headers: {"resource": "android"},
+        // headers: {"resource": "android"},
         //默认值是"application/json; charset=utf-8",Headers.formUrlEncodedContentType会自动编码请求体.
         contentType: Headers.formUrlEncodedContentType,
         //共有三种方式json,bytes(响应字节),stream（响应流）,plain
@@ -42,32 +42,32 @@ class HttpManager {
     //添加拦截器
     _dio.interceptors
         .add(InterceptorsWrapper(onRequest: (RequestOptions options) {
-      print("在请求之前的拦截信息");
+      print("请求拦截");
       return options;
     }, onResponse: (Response response) {
-      print("在响应之前的拦截信息");
+      print("响应拦截");
       return response;
     }, onError: (DioError e) {
-      print("在错误之前的拦截信息");
+      print("错误拦截");
       return e;
     }));
   }
 
-  //get请求方法
+  // GET
   get(url, {data, options, cancelToken}) async {
     Response response;
     try {
       response = await _dio.get(url,
           queryParameters: data, options: options, cancelToken: cancelToken);
-      print('getHttp response: $response');
+      // print('getHttp response: $response');
     } on DioError catch (e) {
-      print('getHttp exception: $e');
+      // print('getHttp exception: $e');
       formatError(e);
     }
     return response;
   }
 
-  //post请求
+  // POST
   post(url, {params, options, cancelToken}) async {
     Response response;
     try {
@@ -81,7 +81,7 @@ class HttpManager {
     return response;
   }
 
-  //post Form请求
+  // POST FORM
   postForm(url, {data, options, cancelToken}) async {
     Response response;
     try {
@@ -95,7 +95,7 @@ class HttpManager {
     return response;
   }
 
-  //下载文件
+  // DOWNLOAD
   downLoadFile(urlPath, savePath) async {
     Response response;
     try {
@@ -111,11 +111,7 @@ class HttpManager {
     return response;
   }
 
-  //取消请求
-  cancleRequests(CancelToken token) {
-    token.cancel("cancelled");
-  }
-
+  // 异常处理
   void formatError(DioError e) {
     if (e.type == DioErrorType.CONNECT_TIMEOUT) {
       print("连接超时");

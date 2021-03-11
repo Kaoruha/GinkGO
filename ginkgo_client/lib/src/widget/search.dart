@@ -17,6 +17,7 @@ class _SearchBarState extends State<SearchBar> {
   }
 
   void tellFatherWidget(String filter) {
+    print('Search: $filter');
     widget.callback(filter);
   }
 

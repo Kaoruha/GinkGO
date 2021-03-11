@@ -9,7 +9,7 @@ from ginkgo_server.web.handlers import get_url_patten
 # 启动监听
 def start_server():
     # 设置路由
-    app = tornado.web.Application(get_url_patten())
+    app = tornado.web.Application(get_url_patten(),debug=True)
     gl.info("路由挂载完成")
 
     # 绑定监听端口
