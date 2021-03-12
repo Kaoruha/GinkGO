@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:ginkgo_client/src/api/stock.dart';
 
-GlobalKey<_StockListState> stock_list_key = GlobalKey();
+GlobalKey<_StockListState> stockListKey = GlobalKey();
 
 class StockList extends StatefulWidget {
-  StockList({Key key, this.callback}) : super(key: key);
-  final callback;
+  StockList({Key key, this.list_item_click, this.list_change})
+      : super(key: key);
+  final list_item_click;
+  final list_change;
 
   @override
   State<StatefulWidget> createState() => new _StockListState();
@@ -101,11 +103,12 @@ class _StockListState extends State<StockList> {
   ];
   List stockData = [];
   void tellFatherWidget(String code) {
-    widget.callback(code);
+    widget.list_item_click(code);
   }
 
   // 从服务端获取股票代码
   void getStockData() async {
+    //TODO 先从缓存访问，如果缓存内有数据就直接存，如果没有再发起API请求
     // todo 发起API请求，解析Json，存入rawData
 
     var stock_list = await getStockList();
@@ -125,6 +128,7 @@ class _StockListState extends State<StockList> {
         stockData.add(stock);
       });
     });
+    widget.list_change(stockData.length);
   }
 
   // 根据filter字段筛选
@@ -141,22 +145,10 @@ class _StockListState extends State<StockList> {
     });
     print('RAW: $rawData');
     print('SHOW: $stockData');
+    widget.list_change(stockData.length);
     setState(() {});
     // print('显示数据：$stockData');
   }
-
-  // List<Widget> _StockList() {
-  //   var list = stockData.map((value) {
-  //     return ListTile(
-  //       leading: Icon(Icons.poll),
-  //       title: Text(value["code"]),
-  //       subtitle: Text(value["name"]),
-  //       trailing: Icon(Icons.keyboard_arrow_right),
-  //       onTap: () => {tellFatherWidget(value["code"])},
-  //     );
-  //   });
-  //   return list.toList();
-  // }
 
   @override
   void initState() {
@@ -169,6 +161,7 @@ class _StockListState extends State<StockList> {
     Map item = stockData[index];
     return ListTile(
       leading: Icon(Icons.poll),
+      contentPadding: EdgeInsets.symmetric(horizontal: 14.0),
       title: Text(item["code"]),
       subtitle: Text(item["name"]),
       trailing: Icon(Icons.keyboard_arrow_right),
@@ -176,27 +169,16 @@ class _StockListState extends State<StockList> {
     );
   }
 
-  // Widget build(BuildContext context) {
-  //   return SizedBox(
-  //     height: 500,
-  //     child: ListView.builder(
-  //       itemCount: stockData.length,
-  //       itemBuilder: _StockListItem,
-  //     ),
-  //   );
-  // }
-
   Widget build(BuildContext context) {
-    return SizedBox(
-        height: 800,
+    return Expanded(
         child: Scrollbar(
-          radius: Radius.circular(10),
-          thickness: 10,
-          child: ListView.builder(
-            itemCount: stockData.length,
-            itemBuilder: _StockListItem,
-          ),
-        ));
+            radius: Radius.circular(10),
+            thickness: 14,
+            child: ListView.builder(
+              scrollDirection: Axis.vertical,
+              itemCount: stockData.length,
+              itemBuilder: _StockListItem,
+            )));
   }
 }
 
