@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ginkgo_client/src/widget/search.dart' show SearchBar;
 import 'package:ginkgo_client/src/widget/stock_list.dart';
+import 'package:ginkgo_client/src/widget/k_chart.dart';
 
 class MarketFutures extends StatefulWidget {
   @override
@@ -10,6 +11,7 @@ class MarketFutures extends StatefulWidget {
 class _MarketFuturesStates extends State<MarketFutures> {
   String currentStock = '';
   String stockFilter = '';
+  int stockNum = 0;
   void onListClick(val) {
     setState(() {
       currentStock = val;
@@ -17,44 +19,54 @@ class _MarketFuturesStates extends State<MarketFutures> {
     print(currentStock + ' clicked');
   }
 
+  void onListChange(int count) {
+    setState(() {
+      stockNum = count;
+    });
+  }
+
   void onFilterChange(val) {
     setState(() {
       stockFilter = val;
     });
     print('Future: ' + stockFilter);
-    stock_list_key.currentState.stock_filter(stockFilter);
+    stockListKey.currentState.stock_filter(stockFilter);
   }
 
   @override
   Widget build(BuildContext context) {
-    return new Container(
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Color.fromARGB(255, 243, 243, 243),
       margin: const EdgeInsets.all(4.0),
-      child: new Row(
+      child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           children: <Widget>[
             Expanded(
               flex: 2,
-              child: new Column(
+              child: Column(
                 children: [
                   SearchBar(callback: (val) => onFilterChange(val)),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.only(left: 19),
+                    child: Text(
+                      '$stockNum 支股票',
+                      textAlign: TextAlign.left,
+                      style: TextStyle(color: Colors.grey[400]),
+                    ),
+                  ),
                   StockList(
-                    key: stock_list_key,
-                    callback: (val) => onListClick(val),
+                    key: stockListKey,
+                    list_item_click: (val) => onListClick(val),
+                    list_change: (val) => onListChange(val),
                   )
                 ],
               ),
             ),
-            Expanded(
-                flex: 8,
-                child: new Column(
-                  children: [
-                    Container(
-                      height: 80,
-                      color: const Color(0xFF2DBD3A),
-                    )
-                  ],
-                )),
+            Expanded(flex: 8, child: KChart()),
           ]),
     );
   }

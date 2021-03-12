@@ -1,9 +1,9 @@
 import 'package:ginkgo_client/src/utils/ginkgo_dio.dart';
 
-String url_prefix = '/engine';
+String urlPrefix = '/engine';
 
 void engineBoost() {
   String url = '/boost';
-  String tar_url = url_prefix + url;
-  GinkgoDio.getInstance().post(tar_url);
+  String tarURL = urlPrefix + url;
+  GinkgoDio.getInstance().post(tarURL);
 }

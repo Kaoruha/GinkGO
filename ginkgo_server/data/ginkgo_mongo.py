@@ -358,7 +358,10 @@ class GinkgoMongo(object):
         :type data_queue: queue.Queue
         """
         rs = bao_instance.get_data(
-            code=code, data_frequency="d", start_date=start_date, end_date=end_date,
+            code=code,
+            data_frequency="d",
+            start_date=start_date,
+            end_date=end_date,
         )
         # 推入data_queue中
         if rs.shape[0] > 0:
@@ -439,7 +442,12 @@ class GinkgoMongo(object):
                     thread = threading.Thread(
                         name=f"Day {code} Get",
                         target=self.get_daybar_by_baostock,
-                        args=(code, last_date, end, data_queue,),
+                        args=(
+                            code,
+                            last_date,
+                            end,
+                            data_queue,
+                        ),
                     )
                     # 线程注册
                     get_thread_dict[thread.name] = thread
@@ -458,7 +466,10 @@ class GinkgoMongo(object):
                 thread = threading.Thread(
                     name=f"Day {code} update",
                     target=self.update_daybar,
-                    args=(code, df,),
+                    args=(
+                        code,
+                        df,
+                    ),
                 )
                 # 线程注册
                 set_thread_dict[thread.name] = thread
@@ -503,7 +514,8 @@ class GinkgoMongo(object):
             return
         df = data_frame.drop_duplicates(subset=["time"], keep="first")
         df.rename(
-            columns={"adjustflag": "adjust_flag"}, inplace=True,
+            columns={"adjustflag": "adjust_flag"},
+            inplace=True,
         )
         col = self.db[code + min5_postfix]
         data = df.to_dict("record")
@@ -527,7 +539,10 @@ class GinkgoMongo(object):
         :type data_queue: queue.Queue
         """
         rs = bao_instance.get_data(
-            code=code, data_frequency="5", start_date=start_date, end_date=end_date,
+            code=code,
+            data_frequency="5",
+            start_date=start_date,
+            end_date=end_date,
         )
         # 插入data_queue中
         if rs.shape[0] > 0:
@@ -621,7 +636,12 @@ class GinkgoMongo(object):
                     thread = threading.Thread(
                         name=f"Min5 {code} Get",
                         target=self.get_min5_async_by_baostock,
-                        args=(code, last_date, end, data_queue,),
+                        args=(
+                            code,
+                            last_date,
+                            end,
+                            data_queue,
+                        ),
                     )
 
                     # 线程注册
@@ -641,7 +661,10 @@ class GinkgoMongo(object):
                 thread = threading.Thread(
                     name=f"Min5 {code} update",
                     target=self.update_min5,
-                    args=(code, df,),
+                    args=(
+                        code,
+                        df,
+                    ),
                 )
 
                 # 线程注册

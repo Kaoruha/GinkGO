@@ -26,7 +26,7 @@ dependencies:
   dio: ^3.0.10
   web_socket_channel: ^2.0.0
   fluttertoast: ^2.1.1
-  syncfusion_flutter_charts: ^18.4.47
+  fl_chart: ^0.20.1
   cookie_jar: ^1.0.1
   dio_cookie_manager: ^1.0.0
 

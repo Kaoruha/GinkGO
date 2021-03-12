@@ -1,5 +1,5 @@
- # pylint: disable=no-member
- # 将要被废弃，mongoengine不行 得自己重写一个
+# pylint: disable=no-member
+# 将要被废弃，mongoengine不行 得自己重写一个
 """
 数据的存储模块，负责与MongoDB的通信以及本地缓存的处理
 """
@@ -164,7 +164,7 @@ class GinkgoStorage(object):
     ):
         """
         向MongoDB中插入AdjustFactor数据，
-        
+
         包括代号、名称、前复权、后复权、复权因子
         """
         self.__connect_mongo()

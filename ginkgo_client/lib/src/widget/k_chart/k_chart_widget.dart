@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:k_chart/flutter_k_chart.dart';
+import 'package:ginkgo_client/src/widget/k_chart/flutter_k_chart.dart';
 import 'chart_style.dart';
 import 'entity/info_window_entity.dart';
 import 'entity/k_line_entity.dart';
