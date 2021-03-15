@@ -53,7 +53,7 @@ class _MarketFuturesStates extends State<MarketFutures> {
                     width: double.infinity,
                     padding: EdgeInsets.only(left: 19),
                     child: Text(
-                      '$stockNum 支股票',
+                      '$stockNum ',
                       textAlign: TextAlign.left,
                       style: TextStyle(color: Colors.grey[400]),
                     ),
