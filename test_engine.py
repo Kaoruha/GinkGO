@@ -1,7 +1,7 @@
 import datetime
 from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo_server.backtest.event_engine import EventEngine
-from ginkgo_server.backtest.broker.single_daily_broker import SingleDailyBroker
+from ginkgo_server.backtest.broker.next_day_broker import T1Broker
 from ginkgo_server.backtest.enums import EventType
 from ginkgo_server.data.stock.baostock_data import bao_instance
 from ginkgo_server.backtest.strategy.moving_average import MovingAverageStrategy
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     df = gm.query_stock(
         code="sh.600006",
-        start_date="2021-01-01",
+        start_date="1998-01-01",
         end_date=today,
         frequency="d",
         adjust_flag=3,
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     # backtest_engine.set_heartbeat(0.001)
 
     # 经纪人初始化
-    my_broker = SingleDailyBroker(name="my_broker", engine=backtest_engine)
+    my_broker = T1Broker(name="my_broker", engine=backtest_engine)
 
     # 策略挂载
     ma_strategy = MovingAverageStrategy(short_term=15, long_term=60)

@@ -1,5 +1,5 @@
 """
-低频日交易数据经纪人
+T+1 经纪人
 
 模拟的是每日收盘获得信息
 收盘后根据策略产生交易信号
@@ -13,7 +13,7 @@ from ginkgo_server.backtest.event_engine import EventEngine
 from ginkgo_server.backtest.postion import Position
 
 
-class SingleDailyBroker(BaseBroker):
+class T1Broker(BaseBroker):
     """
     低频日交易数据经纪人类
 
@@ -91,7 +91,7 @@ class SingleDailyBroker(BaseBroker):
     def signal_handlers(self, event: SignalEvent):
         """
         信号事件处理函数
-        
+
         从回测引擎获取到的信号事件，
         将转交给仓位管理策略，
         由仓位管理策略来确定目标持仓，产生订单。
@@ -213,4 +213,3 @@ class SingleDailyBroker(BaseBroker):
         # print(
         #     f"{dealdir} Price:{round(event.price, 2)}  Volume:{event.volume}  Result:{result}  Profit:{round(profit, 2)}%  Fee:{round(self.fee, 2)}  Source:{event.source}"
         # )
-
