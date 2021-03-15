@@ -1,7 +1,8 @@
 from ginkgo_server.backtest.analyzer.base_analyzer import BaseAnalyzer
 import datetime
 import matplotlib.pyplot as plt
-plt.switch_backend('agg')
+
+plt.switch_backend("agg")
 
 
 class NormalAnalyzer(BaseAnalyzer):
@@ -31,9 +32,8 @@ class NormalAnalyzer(BaseAnalyzer):
         for k, v in self._position.items():
             self._stock_value += (v.volume + v.freeze) * v.current_price
         self._profit = (
-            (self._capital + self._freeze + self._stock_value - self._init_capital)
-            / self._init_capital
-        )
+            self._capital + self._freeze + self._stock_value - self._init_capital
+        ) / self._init_capital
         if self._profit > 0:
             self.win_days += 1
         else:
@@ -43,7 +43,7 @@ class NormalAnalyzer(BaseAnalyzer):
         str1 = f"当前收益: {round((self._profit),3):<10}"
         str2 = f"最大收益: {round(self._max_profit,3):<10}"
         str3 = f"最大回撤: {round(self._max_drawdown,3):<10}"
-        str4 = f'盈利比率:{self.win_days:>4}/{self.win_days+self.lose_days:<4}'
+        str4 = f"盈利比率:{self.win_days:>4}/{self.win_days+self.lose_days:<4}"
         print(
             f"{self._current_date}"
             + "  "
@@ -56,8 +56,7 @@ class NormalAnalyzer(BaseAnalyzer):
             + str4
             + "  评价: 待完善"
         )
-        self.draw()
+        # self.draw()
 
     def give_mark(self):
         pass
-
