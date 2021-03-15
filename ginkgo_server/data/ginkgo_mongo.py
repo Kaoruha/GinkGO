@@ -11,14 +11,10 @@ import tqdm
 import math
 import threading
 from ginkgo_server.data.stock.baostock_data import bao_instance
+from ginkgo_server.data.bitcoin.coin_cap import coin_cap_instance
 from ginkgo_server.config.secure import DATABASE, HOST, PORT, USERNAME, PASSWORD
-from ginkgo_server.data.storage import ginkgo_storage as gs
 from ginkgo_server.libs.ginkgo_logger import ginkgo_logger as gl
 from ginkgo_server.libs.thread_manager import thread_manager as tm
-from ginkgo_server.data.models.stock_info import StockInfo
-from ginkgo_server.data.models.adjust_factor import AdjustFactor
-from ginkgo_server.data.models.day_bar import DayBar
-from ginkgo_server.data.models.min5_bar import Min5Bar
 
 
 # 5分钟交易数据后缀
@@ -906,11 +902,16 @@ class GinkgoMongo(object):
             result = adjust[condition & condition2].replace("", 0)
             return result
 
+    def update_coin_info(self):
+        rs = coin_cap_instance.get_coin_list()
+        # 存储到MongoDB
+
     def update_all(self):
         self.update_stockinfo()
         self.update_adjustfactor()
         self.update_daybar_async(thread_num=4)
         self.update_min5_async(thread_num=2)
+        # TODO 加入虚拟货币的更新
 
 
 ginkgo_mongo = GinkgoMongo(
