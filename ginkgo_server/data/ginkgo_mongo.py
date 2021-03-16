@@ -978,12 +978,17 @@ class GinkgoMongo(object):
         col.create_index([("date", 1)], unique=True)
 
     def upsert_coin_m1(self, coin_id, df):
+        t1 = time.time()
         if not self.check_coin_exsit(coin_id):
             print("请检查虚拟币ID")
             return
+        df = df.drop_duplicates(subset="time", keep="first", inplace=False)
         df_old = self.get_coin_m1_by_mongo(coin_id=coin_id)
+        print(df_old)
         df_insert = self.get_df_norepeat(index_col="time", df_old=df_old, df_new=df)
+        print(df_insert)
         self.insert_coin_m1(coin_id=coin_id, df=df_insert)
+        print("存储耗时: {round(time.time()-t1,3)}s")
 
     def check_coin_exsit(self, coin_id):
         """
