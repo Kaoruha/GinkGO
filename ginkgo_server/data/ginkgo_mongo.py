@@ -902,9 +902,219 @@ class GinkgoMongo(object):
             result = adjust[condition & condition2].replace("", 0)
             return result
 
-    def update_coin_info(self):
-        rs = coin_cap_instance.get_coin_list()
+    def upsert_coin_info(self):
+        result = coin_cap_instance.get_coin_list()
         # 存储到MongoDB
+        if result.shape[0] > 0:
+            col = self.db["coin_info"]
+            operations = []
+            pbar = tqdm.tqdm(total=result.shape[0])
+            for index, row in result.iterrows():
+                operations.append(
+                    pymongo.UpdateOne(
+                        {"id": row.id},
+                        {
+                            "$set": {
+                                "rank": row["rank"],
+                                "symbol": row.symbol,
+                                "name": row["name"],
+                                "supply": row.supply,
+                                "maxSupply": row.maxSupply,
+                                "marketCapUsd": row.marketCapUsd,
+                                "volumeUsd24Hr": row.volumeUsd24Hr,
+                                "changePercent24Hr": row.changePercent24Hr,
+                                "vwap24Hr": row.vwap24Hr,
+                            }
+                        },
+                        upsert=True,
+                    )
+                )
+                pbar.update(1)
+                pbar.set_description(f"添加 {row.id} 操作")
+            if len(operations) > 0:
+                col.bulk_write(operations, ordered=False)
+            pbar.set_description("完成 CoinInfo 更新")
+            # TODO 根据插入结果进行相应处理
+            pbar.set_description("CoinInfo 索引更新")
+            col.create_index([("id", 1)], unique=True)
+            pbar.set_description("CoinInfo 更新完成")
+        else:
+            gl.error("Coin指数代码获取为空，请检查代码或日期")
+
+        gl.info("CoinInfo更新完成.")
+
+    def get_coin_list_by_mongo(self):
+        col = self.db["coin_info"]
+        rs = col.find()
+        df = pd.DataFrame(rs)
+        df = df.drop(
+            ["_id", "volumeUsd24Hr", "vwap24Hr", "marketCapUsd", "maxSupply", "supply"],
+            axis=1,
+        )
+        return df
+
+    # 插入虚拟币分钟数据
+    def insert_coin_m1(self, coin_id: str, df: pd.DataFrame):
+        """
+        插入虚拟币分钟交易数据
+
+        :param coin_id: 虚拟币id
+        :type coin_id: str
+        :param df: 交易数据
+        :type df: DataFrame
+        """
+        # 如果传入的DF为空，直接返回
+        if df.shape[0] == 0:
+            return
+        # 去重
+        df = df.drop_duplicates(subset=["date"], keep="first")
+        # 切换collection
+        col = self.db[coin_id]
+        # dataframe转换为dict，可供pymongo批量插入
+        data = df.to_dict("record")
+        # 批量插入
+        col.insert_many(data)
+        # 建立索引
+        col.create_index([("date", 1)], unique=True)
+
+    def upsert_coin_m1(self, coin_id, df):
+        if not self.check_coin_exsit(coin_id):
+            print("请检查虚拟币ID")
+            return
+        df_old = self.get_coin_m1_by_mongo(coin_id=coin_id)
+        df_insert = self.get_df_norepeat(index_col="time", df_old=df_old, df_new=df)
+        self.insert_coin_m1(coin_id=coin_id, df=df_insert)
+
+    def check_coin_exsit(self, coin_id):
+        """
+        检查虚拟币是否存在
+        """
+        try:
+            coin_list = self.get_coin_list_by_mongo()
+            if coin_list.shape[0] == 0:
+                print("虚拟货币列表为空，请检查代码")
+                return
+            else:
+                is_coin_in_list = coin_id in coin_list["id"].values
+                return is_coin_in_list
+        except Exception as e:
+            raise e
+
+    # 获取某币min5数据的尾部时间戳
+    def get_coin_latestTime_by_mongo(self, coin_id: str):
+        col = self.db[coin_id]
+        s = col.find().sort("time", pymongo.DESCENDING).limit(1)
+        last_time = s[0]["time"]
+        return last_time
+
+    # 获取某币min5数据的头部时间戳
+    def get_coin_headTime_by_mongo(self, coin_id: str):
+        col = self.db[coin_id]
+        s = col.find().sort("time", pymongo.ASCENDING).limit(1)
+        last_time = s[0]["time"]
+        return last_time
+
+    # 从Mongo获取虚拟货币数据
+    def get_coin_m1_by_mongo(self, coin_id: str, start_date="", end_date=""):
+        """
+        获取m1交易数据，不传入日期范围则返回全量数据
+
+        :param coin_id: 股票代码
+        :type coin_id: str
+        :param start_date: 起始日期
+        :type start_date: str
+        :param end_date: 结束日期
+        :type end_date: str
+        :return: code股票start_date至end_date的日交易数据
+        :rtype: DataFrame
+        """
+        if start_date == "":
+            start_date = coin_cap_instance.init_date
+        if end_date == "":
+            end_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        col = self.db[coin_id]
+        rs = col.find()
+        df = pd.DataFrame(list(rs))
+        if df.shape[0] > 0:
+            condition1 = df["date"] >= start_date
+            condition2 = df["date"] <= end_date
+            df = df[condition1 & condition2]
+            df = df.sort_values(by=["date"], ascending=[True])
+        return df
+
+    # 更新某币M1数据
+    def update_coin_m1(self, coin_id):
+        print(f"尝试更新{coin_id}")
+        if not self.check_coin_exsit(coin_id):
+            return
+        try:
+            last_date = self.get_coin_latestTime_by_mongo(coin_id=coin_id)
+        except Exception as e:
+            print(e)
+            last_date = coin_cap_instance.init_date
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        try:
+            head_time = self.get_coin_headTime_by_mongo(coin_id=coin_id)
+            head_date = datetime.datetime.fromtimestamp(int(head_time) / 1000).strftime(
+                "%Y-%m-%d"
+            )
+        except Exception as e:
+            print(e)
+            head_date = coin_cap_instance.init_date
+
+        # 从后往前
+        should_stop = True
+        start_date = coin_cap_instance.get_delta_day(today, 2)
+        empty_count = 0
+        while should_stop:
+            start_date = coin_cap_instance.get_delta_day(start_date, -1)
+            print(f"尝试获取{coin_id} {start_date}的数据")
+            rs = coin_cap_instance.get_min_data(
+                coin_id,
+                interval="m1",
+                date=coin_cap_instance.get_delta_day(start_date, -1),
+            )
+            print("=" * 20)
+            print(rs.shape[0])
+            print("=" * 20)
+            if rs.shape[0] == 0:
+                empty_count += 1
+                print("empty!!!")
+                should_stop = False if empty_count >= 3 else True
+            else:
+                print(f"存储{coin_id}")
+                self.upsert_coin_m1(coin_id, rs)
+                print(int(rs.iloc[0].time))
+                print(int(last_date))
+                if int(rs.iloc[0].time) < int(last_date):
+                    should_stop = False
+
+        # 从前再往前
+        should_stop = True
+        start_date = coin_cap_instance.get_delta_day(head_date, 1)
+        empty_count = 0
+        while should_stop:
+            start_date = coin_cap_instance.get_delta_day(start_date, -1)
+            print(f"尝试获取{coin_id} {start_date}的数据")
+            rs = coin_cap_instance.get_min_data(
+                coin_id,
+                interval="m1",
+                date=coin_cap_instance.get_delta_day(start_date, -1),
+            )
+            if rs.shape[0] == 0:
+                empty_count += 1
+                should_stop = False if empty_count >= 3 else True
+            else:
+                self.upsert_coin_m1(coin_id, rs)
+
+    def update_all_coin(self):
+        coin_list = self.get_coin_list_by_mongo().id.values
+        for i in coin_list:
+            print(f"正在更新{i}")
+            t1 = time.time()
+            self.update_coin_m1(i)
+            t2 = time.time()
+            print(f"更新{i} 耗时:{round(t2-t1,3)}s")
 
     def update_all(self):
         self.update_stockinfo()
@@ -912,6 +1122,8 @@ class GinkgoMongo(object):
         self.update_daybar_async(thread_num=4)
         self.update_min5_async(thread_num=2)
         # TODO 加入虚拟货币的更新
+        self.update_coin_info()
+        self.update_all_coin()
 
 
 ginkgo_mongo = GinkgoMongo(
