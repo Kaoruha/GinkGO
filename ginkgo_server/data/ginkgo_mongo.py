@@ -23,6 +23,8 @@ min5_postfix = ".min5"
 
 class GinkgoMongo(object):
     def __init__(self, host, port, username, pwd, database):
+        self.coin_cache_id = ""
+        self.coin_cache = None
         self.client = None
         self.db = None
         self.host = host
@@ -975,6 +977,24 @@ class GinkgoMongo(object):
         # 建立索引
         col.create_index([("time", 1)], unique=True)
 
+    def init_coin_cache(self, coin_id):
+        self.coin_cache_id = coin_id
+        self.coin_cache = self.get_coin_m1_by_mongo(coin_id)
+
+    def get_coin_cache(self, coin_id):
+        if self.coin_cache is None:
+            self.coin_cache_id = coin_id
+            return self.get_coin_m1_by_mongo(coin_id)
+        else:
+            if coin_id == self.coin_cache_id:
+                return self.coin_cache
+            else:
+                return self.get_coin_m1_by_mongo(coin_id)
+
+    def add_coin_cache(self, coin_id, cache):
+        if coin_id == self.coin_cache_id:
+            self.coin_cache = self.coin_cache.append(cache)
+
     def upsert_coin_m1(self, coin_id, df):
         t1 = time.time()
         if not self.check_coin_exsit(coin_id):
@@ -982,12 +1002,13 @@ class GinkgoMongo(object):
             return
         df = df.drop_duplicates(subset="time", keep="first", inplace=False)
         t2 = time.time()
-        df_old = self.get_coin_m1_by_mongo(coin_id=coin_id)
+        df_old = self.get_coin_cache(coin_id=coin_id)
         t3 = time.time()
         df_insert = self.get_df_norepeat(index_col="time", df_old=df_old, df_new=df)
         print(f"{df_insert.shape[0]}:{df_old.shape[0]}")
         t4 = time.time()
         self.insert_coin_m1(coin_id=coin_id, df=df_insert)
+        self.add_coin_cache(coin_id=coin_id, cache=df_insert)
         t5 = time.time()
         print(
             f"总耗时: {round(t5-t1,3)}s  获取全量耗时: {round(t3-t2,3)}s  去重耗时: {round(t4-t3,3)}s  插入耗时: {round(t5-t4,3)}s"
@@ -1058,6 +1079,7 @@ class GinkgoMongo(object):
 
     # 更新某币M1数据
     def update_coin_m1(self, coin_id):
+        self.init_coin_cache(coin_id)
         print(f"尝试更新{coin_id}")
         if not self.check_coin_exsit(coin_id):
             return
