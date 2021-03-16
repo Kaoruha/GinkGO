@@ -988,7 +988,7 @@ class GinkgoMongo(object):
         df_insert = self.get_df_norepeat(index_col="time", df_old=df_old, df_new=df)
         print(df_insert)
         self.insert_coin_m1(coin_id=coin_id, df=df_insert)
-        print("存储耗时: {round(time.time()-t1,3)}s")
+        print(f"存储耗时: {round(time.time()-t1,3)}s")
 
     def check_coin_exsit(self, coin_id):
         """
@@ -1068,10 +1068,10 @@ class GinkgoMongo(object):
             head_date = coin_cap_instance.init_date
 
         # 从后往前
-        should_stop = True
+        should_go = True
         start_date = coin_cap_instance.get_delta_day(today, 2)
         empty_count = 0
-        while should_stop:
+        while should_go:
             start_date = coin_cap_instance.get_delta_day(start_date, -1)
             print(f"尝试获取{coin_id} {start_date}的数据")
             rs = coin_cap_instance.get_min_data(
@@ -1085,20 +1085,24 @@ class GinkgoMongo(object):
             if rs.shape[0] == 0:
                 empty_count += 1
                 print("empty!!!")
-                should_stop = False if empty_count >= 3 else True
+                should_go = False if empty_count >= 3 else True
             else:
                 print(f"存储{coin_id}")
-                self.upsert_coin_m1(coin_id, rs)
+                try:
+                    self.upsert_coin_m1(coin_id, rs)
+                except Exception as e:
+                    print(e)
+                    should_go = False
                 print(int(rs.iloc[0].time))
                 print(int(last_date))
                 if int(rs.iloc[0].time) < int(last_date):
-                    should_stop = False
+                    should_go = False
 
         # 从前再往前
-        should_stop = True
+        should_go = True
         start_date = coin_cap_instance.get_delta_day(head_date, 1)
         empty_count = 0
-        while should_stop:
+        while should_go:
             start_date = coin_cap_instance.get_delta_day(start_date, -1)
             print(f"尝试获取{coin_id} {start_date}的数据")
             rs = coin_cap_instance.get_min_data(
@@ -1108,7 +1112,7 @@ class GinkgoMongo(object):
             )
             if rs.shape[0] == 0:
                 empty_count += 1
-                should_stop = False if empty_count >= 3 else True
+                should_go = False if empty_count >= 3 else True
             else:
                 self.upsert_coin_m1(coin_id, rs)
 
