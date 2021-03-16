@@ -821,9 +821,6 @@ class GinkgoMongo(object):
         for i in range(rs2.shape[0]):
             t = rs2.iloc[i].code
             code_list2.append(t)
-
-        print(len(code_list1))
-        print(len(code_list2))
         for i in code_list2:
             if i not in code_list1:
                 print(i)
@@ -848,10 +845,12 @@ class GinkgoMongo(object):
     def get_df_norepeat(self, index_col, df_old, df_new):
         if df_old.shape[0] == 0:
             return df_new
+
         df_duplicate = df_new[df_new[index_col].isin(df_old[index_col])]
         df_return = df_new.append(df_duplicate).drop_duplicates(
             subset=[index_col], keep=False
         )
+
         try:
             df_return = df_return.drop(["_id"], axis=1)
         except Exception as e:
@@ -905,41 +904,40 @@ class GinkgoMongo(object):
     def upsert_coin_info(self):
         result = coin_cap_instance.get_coin_list()
         # 存储到MongoDB
-        if result.shape[0] > 0:
-            col = self.db["coin_info"]
-            operations = []
-            pbar = tqdm.tqdm(total=result.shape[0])
-            for index, row in result.iterrows():
-                operations.append(
-                    pymongo.UpdateOne(
-                        {"id": row.id},
-                        {
-                            "$set": {
-                                "rank": row["rank"],
-                                "symbol": row.symbol,
-                                "name": row["name"],
-                                "supply": row.supply,
-                                "maxSupply": row.maxSupply,
-                                "marketCapUsd": row.marketCapUsd,
-                                "volumeUsd24Hr": row.volumeUsd24Hr,
-                                "changePercent24Hr": row.changePercent24Hr,
-                                "vwap24Hr": row.vwap24Hr,
-                            }
-                        },
-                        upsert=True,
-                    )
-                )
-                pbar.update(1)
-                pbar.set_description(f"添加 {row.id} 操作")
-            if len(operations) > 0:
-                col.bulk_write(operations, ordered=False)
-            pbar.set_description("完成 CoinInfo 更新")
-            # TODO 根据插入结果进行相应处理
-            pbar.set_description("CoinInfo 索引更新")
-            col.create_index([("id", 1)], unique=True)
-            pbar.set_description("CoinInfo 更新完成")
-        else:
+        if result.shape[0] == 0:
             gl.error("Coin指数代码获取为空，请检查代码或日期")
+        col = self.db["coin_info"]
+        operations = []
+        pbar = tqdm.tqdm(total=result.shape[0])
+        for index, row in result.iterrows():
+            operations.append(
+                pymongo.UpdateOne(
+                    {"id": row.id},
+                    {
+                        "$set": {
+                            "rank": row["rank"],
+                            "symbol": row.symbol,
+                            "name": row["name"],
+                            "supply": row.supply,
+                            "maxSupply": row.maxSupply,
+                            "marketCapUsd": row.marketCapUsd,
+                            "volumeUsd24Hr": row.volumeUsd24Hr,
+                            "changePercent24Hr": row.changePercent24Hr,
+                            "vwap24Hr": row.vwap24Hr,
+                        }
+                    },
+                    upsert=True,
+                )
+            )
+            pbar.update(1)
+            pbar.set_description(f"添加 {row.id} 操作")
+        if len(operations) > 0:
+            col.bulk_write(operations, ordered=False)
+        pbar.set_description("完成 CoinInfo 更新")
+        # TODO 根据插入结果进行相应处理
+        pbar.set_description("CoinInfo 索引更新")
+        col.create_index([("id", 1)], unique=True)
+        pbar.set_description("CoinInfo 更新完成")
 
         gl.info("CoinInfo更新完成.")
 
@@ -967,7 +965,7 @@ class GinkgoMongo(object):
         if df.shape[0] == 0:
             return
         # 去重
-        df = df.drop_duplicates(subset=["date"], keep="first")
+        df = df.drop_duplicates(subset=["time"], keep="first")
         # 切换collection
         col = self.db[coin_id]
         # dataframe转换为dict，可供pymongo批量插入
@@ -975,7 +973,7 @@ class GinkgoMongo(object):
         # 批量插入
         col.insert_many(data)
         # 建立索引
-        col.create_index([("date", 1)], unique=True)
+        col.create_index([("time", 1)], unique=True)
 
     def upsert_coin_m1(self, coin_id, df):
         t1 = time.time()
@@ -983,12 +981,17 @@ class GinkgoMongo(object):
             print("请检查虚拟币ID")
             return
         df = df.drop_duplicates(subset="time", keep="first", inplace=False)
+        t2 = time.time()
         df_old = self.get_coin_m1_by_mongo(coin_id=coin_id)
-        print(df_old)
+        t3 = time.time()
         df_insert = self.get_df_norepeat(index_col="time", df_old=df_old, df_new=df)
-        print(df_insert)
+        print(f"{df_insert.shape[0]}:{df_old.shape[0]}")
+        t4 = time.time()
         self.insert_coin_m1(coin_id=coin_id, df=df_insert)
-        print(f"存储耗时: {round(time.time()-t1,3)}s")
+        t5 = time.time()
+        print(
+            f"总耗时: {round(t5-t1,3)}s  获取全量耗时: {round(t3-t2,3)}s  去重耗时: {round(t4-t3,3)}s  插入耗时: {round(t5-t4,3)}s"
+        )
 
     def check_coin_exsit(self, coin_id):
         """
@@ -1020,7 +1023,7 @@ class GinkgoMongo(object):
         return last_time
 
     # 从Mongo获取虚拟货币数据
-    def get_coin_m1_by_mongo(self, coin_id: str, start_date="", end_date=""):
+    def get_coin_m1_by_mongo(self, coin_id: str, start_time="", end_time=""):
         """
         获取m1交易数据，不传入日期范围则返回全量数据
 
@@ -1033,18 +1036,24 @@ class GinkgoMongo(object):
         :return: code股票start_date至end_date的日交易数据
         :rtype: DataFrame
         """
-        if start_date == "":
-            start_date = coin_cap_instance.init_date
-        if end_date == "":
-            end_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        if start_time == "":
+            start_time = coin_cap_instance.convert_date2stamp(
+                coin_cap_instance.init_date
+            )
+        if end_time == "":
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            next_day = coin_cap_instance.get_delta_day(today, 1)
+            end_time = coin_cap_instance.convert_date2stamp(next_day)
         col = self.db[coin_id]
         rs = col.find()
         df = pd.DataFrame(list(rs))
-        if df.shape[0] > 0:
-            condition1 = df["date"] >= start_date
-            condition2 = df["date"] <= end_date
-            df = df[condition1 & condition2]
-            df = df.sort_values(by=["date"], ascending=[True])
+        if df.shape[0] == 0:
+            return df
+        condition1 = df["time"] >= start_time
+        condition2 = df["time"] <= end_time
+        df = df[condition1 & condition2]
+        df = df.sort_values(by=["time"], ascending=[True])
+
         return df
 
     # 更新某币M1数据
@@ -1056,7 +1065,9 @@ class GinkgoMongo(object):
             last_date = self.get_coin_latestTime_by_mongo(coin_id=coin_id)
         except Exception as e:
             print(e)
-            last_date = coin_cap_instance.init_date
+            last_date = coin_cap_instance.convert_date2stamp(
+                coin_cap_instance.init_date
+            )
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         try:
             head_time = self.get_coin_headTime_by_mongo(coin_id=coin_id)
@@ -1079,22 +1090,13 @@ class GinkgoMongo(object):
                 interval="m1",
                 date=coin_cap_instance.get_delta_day(start_date, -1),
             )
-            print("=" * 20)
-            print(rs.shape[0])
-            print("=" * 20)
             if rs.shape[0] == 0:
                 empty_count += 1
                 print("empty!!!")
                 should_go = False if empty_count >= 3 else True
             else:
                 print(f"存储{coin_id}")
-                try:
-                    self.upsert_coin_m1(coin_id, rs)
-                except Exception as e:
-                    print(e)
-                    should_go = False
-                print(int(rs.iloc[0].time))
-                print(int(last_date))
+                self.upsert_coin_m1(coin_id, rs)
                 if int(rs.iloc[0].time) < int(last_date):
                     should_go = False
 
@@ -1111,6 +1113,7 @@ class GinkgoMongo(object):
                 date=coin_cap_instance.get_delta_day(start_date, -1),
             )
             if rs.shape[0] == 0:
+                print(f"获取到空数据{empty_count}次")
                 empty_count += 1
                 should_go = False if empty_count >= 3 else True
             else:
@@ -1131,7 +1134,7 @@ class GinkgoMongo(object):
         self.update_daybar_async(thread_num=4)
         self.update_min5_async(thread_num=2)
         # TODO 加入虚拟货币的更新
-        self.update_coin_info()
+        self.upsert_coin_info()
         self.update_all_coin()
 
 
