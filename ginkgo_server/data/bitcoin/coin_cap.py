@@ -15,6 +15,7 @@ class CoinCapAPI(object):
     _instance_lock = threading.Lock()
     interval_list = ["m1", "m5", "m15", "m30", "h1", "h2", "h6", "h12", "d1"]
     init_date = "2010-07-17"
+    one_day_sec = 1000 * (60 * 60 * 24)
 
     def __init__(self):
         pass
@@ -54,7 +55,7 @@ class CoinCapAPI(object):
         next_day = start + datetime.timedelta(days=delta)
         return next_day.strftime("%Y-%m-%d")
 
-    def get_min_data(self, coin_id, interval, date):
+    def get_min_data_by_date(self, coin_id, interval, date):
         """
         获取某个虚拟货币某天的分钟数据
         """
@@ -62,6 +63,26 @@ class CoinCapAPI(object):
         start_stamp = self.convert_date2stamp(date=date)
         end_day = self.get_delta_day(date=date, delta=1)
         end_stamp = self.convert_date2stamp(date=end_day)
+        request_link = self.get_url(
+            coin_id=coin_id, interval=interval, start=start_stamp, end=end_stamp
+        )
+        t2 = time.time()
+        # print(request_link)
+        r = requests.get(url=request_link)
+        t3 = time.time()
+        content = json.loads(r.content)
+        df = pd.DataFrame(content["data"])
+        t4 = time.time()
+        print(f"耗时:{round(t4-t1,3)}s API响应:{round(t3-t2,3)}s ")
+        return df
+
+    def get_min_data_by_time(self, coin_id, interval, time_start):
+        """
+        获取某个虚拟货币某天的分钟数据
+        """
+        t1 = time.time()
+        start_stamp = time_start
+        end_stamp = time_start + self.one_day_sec
         request_link = self.get_url(
             coin_id=coin_id, interval=interval, start=start_stamp, end=end_stamp
         )

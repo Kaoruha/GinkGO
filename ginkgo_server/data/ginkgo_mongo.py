@@ -979,24 +979,6 @@ class GinkgoMongo(object):
         # 建立索引
         col.create_index([("time", 1)], unique=True)
 
-    # def init_coin_cache(self, coin_id):
-    #     self.coin_cache_id = coin_id
-    #     self.coin_cache = self.get_coin_m1_by_mongo(coin_id)
-
-    # def get_coin_cache(self, coin_id):
-    #     if self.coin_cache is None:
-    #         self.coin_cache_id = coin_id
-    #         return self.get_coin_m1_by_mongo(coin_id)
-    #     else:
-    #         if coin_id == self.coin_cache_id:
-    #             return self.coin_cache
-    #         else:
-    #             return self.get_coin_m1_by_mongo(coin_id)
-
-    # def add_coin_cache(self, coin_id, cache):
-    #     if coin_id == self.coin_cache_id:
-    #         self.coin_cache = self.coin_cache.append(cache)
-
     def upsert_coin_m1(self, coin_id, df):
         t1 = time.time()
         if not self.check_coin_exsit(coin_id):
@@ -1036,15 +1018,25 @@ class GinkgoMongo(object):
     # 获取某币min5数据的尾部时间戳
     def get_coin_latestTime_by_mongo(self, coin_id: str):
         col = self.db[coin_id]
-        s = col.find().sort("time", pymongo.DESCENDING).limit(1)
-        last_time = s[0]["time"]
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        try:
+            s = col.find().sort("time", pymongo.DESCENDING).limit(1)
+            last_time = s[0]["time"]
+        except Exception as e:
+            print(e)
+            last_time = coin_cap_instance.convert_date2stamp(today)
         return last_time
 
     # 获取某币min5数据的头部时间戳
     def get_coin_headTime_by_mongo(self, coin_id: str):
         col = self.db[coin_id]
-        s = col.find().sort("time", pymongo.ASCENDING).limit(1)
-        last_time = s[0]["time"]
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        try:
+            s = col.find().sort("time", pymongo.ASCENDING).limit(1)
+            last_time = s[0]["time"]
+        except Exception as e:
+            print(e)
+            last_time = coin_cap_instance.convert_date2stamp(today)
         return last_time
 
     # 初始化某币min1的已有时间范围
@@ -1118,38 +1110,28 @@ class GinkgoMongo(object):
 
     # 更新某币M1数据
     def update_coin_m1(self, coin_id):
-        self.init_coin_time_range(coin_id)
-        print(f"尝试更新{coin_id}")
         if not self.check_coin_exsit(coin_id):
             return
-        try:
-            last_date = self.get_coin_latestTime_by_mongo(coin_id=coin_id)
-        except Exception as e:
-            print(e)
-            last_date = coin_cap_instance.convert_date2stamp(
-                coin_cap_instance.init_date
-            )
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
-        try:
-            head_time = self.get_coin_headTime_by_mongo(coin_id=coin_id)
-            head_date = datetime.datetime.fromtimestamp(int(head_time) / 1000).strftime(
-                "%Y-%m-%d"
-            )
-        except Exception as e:
-            print(e)
-            head_date = coin_cap_instance.init_date
 
-        # 从后往前
+        print(f"尝试更新{coin_id}")
+        self.init_coin_time_range(coin_id)
+
+        last_time = self.coin_cache_end
+
+        head_time = self.coin_cache_start
+
+        # 从后往后
         should_go = True
-        start_date = coin_cap_instance.get_delta_day(today, 2)
+        print(self.coin_cache_end)
+        start_time = last_time - coin_cap_instance.one_day_sec
         empty_count = 0
         while should_go:
-            start_date = coin_cap_instance.get_delta_day(start_date, -1)
-            print(f"尝试获取{coin_id} {start_date}的数据")
-            rs = coin_cap_instance.get_min_data(
+            start_time = start_time + coin_cap_instance.one_day_sec
+            print(f"尝试获取{coin_id} {start_time}的数据")
+            rs = coin_cap_instance.get_min_data_by_time(
                 coin_id,
                 interval="m1",
-                date=coin_cap_instance.get_delta_day(start_date, -1),
+                time_start=start_time,
             )
             if rs.shape[0] == 0:
                 empty_count += 1
@@ -1158,20 +1140,18 @@ class GinkgoMongo(object):
             else:
                 print(f"存储{coin_id}")
                 self.upsert_coin_m1(coin_id, rs)
-                if int(rs.iloc[0].time) < int(last_date):
-                    should_go = False
 
         # 从前再往前
         should_go = True
-        start_date = coin_cap_instance.get_delta_day(head_date, 1)
+        start_time = head_time
         empty_count = 0
         while should_go:
-            start_date = coin_cap_instance.get_delta_day(start_date, -1)
-            print(f"尝试获取{coin_id} {start_date}的数据")
-            rs = coin_cap_instance.get_min_data(
+            start_time = start_time - coin_cap_instance.one_day_sec
+            print(f"尝试获取{coin_id} {start_time}的数据")
+            rs = coin_cap_instance.get_min_data_by_time(
                 coin_id,
                 interval="m1",
-                date=coin_cap_instance.get_delta_day(start_date, -1),
+                time_start=start_time,
             )
             if rs.shape[0] == 0:
                 print(f"获取到空数据{empty_count}次")
