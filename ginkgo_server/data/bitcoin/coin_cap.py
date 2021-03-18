@@ -91,6 +91,7 @@ class CoinCapAPI(object):
         r = requests.get(url=request_link)
         t3 = time.time()
         content = json.loads(r.content)
+        print(content)
         df = pd.DataFrame(content["data"])
         t4 = time.time()
         print(f"耗时:{round(t4-t1,3)}s API响应:{round(t3-t2,3)}s ")
@@ -104,6 +105,7 @@ class CoinCapAPI(object):
         r = requests.get(url=request_link)
         t3 = time.time()
         content = json.loads(r.content)
+
         df = pd.DataFrame(content["data"])
 
         df = df.drop(["explorer"], axis=1)
