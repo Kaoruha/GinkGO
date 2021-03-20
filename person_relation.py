@@ -35,8 +35,12 @@ def cal(code1, name1, code2, name2, start_date, end_date, df1, p):
     plt.rcParams["font.sans-serif"] = ["Arial Unicode MS"]
     plt.title(f"[{name1} : {name2}  r={_r}")
     plt.xticks([])
-    plt.plot(df1["date"], dff1, color="red", linewidth=1.0, linestyle="dashed")
-    plt.plot(df2["date"], dff2, color="blue", linewidth=2.0, linestyle="solid")
+    plt.plot(
+        df1["date"].astype("date"), dff1, color="red", linewidth=1.0, linestyle="solid"
+    )
+    plt.plot(
+        df2["date"].astype("date"), dff2, color="blue", linewidth=2.0, linestyle="solid"
+    )
     print(f"Scipy computed Pearson r: {_r} and p-value: {p}")
     if abs(_r) > r_rate_base or abs(overall_pearson_r) > r_rate_base:
         # item = {"code": r["code"], "name": r["code_name"]}
