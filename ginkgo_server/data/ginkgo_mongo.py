@@ -788,7 +788,6 @@ class GinkgoMongo(object):
             df = df[condition1 & condition2]
             df = df.sort_values(by=["divid_operate_date"], ascending=[True])
         except Exception as e:
-            print(e)
             pass
 
         return df
