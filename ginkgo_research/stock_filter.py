@@ -38,6 +38,7 @@ def remove_index():
         "有色金属",
         "大宗商品",
         "资源优势",
+        "银河99",
     ]
     filter_list = []
     stock_list = gm.get_all_stockcode_by_mongo()
