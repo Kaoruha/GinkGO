@@ -27,7 +27,6 @@ class GinkgoMongo(object):
         self.coin_cache_id = ""
         self.coin_cache_start = ""
         self.coin_cache_end = ""
-        # self.coin_cache = None
         self.client = None
         self.db = None
         self.host = host
@@ -55,85 +54,6 @@ class GinkgoMongo(object):
         print(f"完成 {self.username} 用户授权 ")
         print("数据库准备完毕")
 
-    # def __adjust_cal(self, raw, adjust_factor, adjust_flag=1, frequency="d"):
-    #     """
-    #     复权计算
-
-    #     :param raw: 原始交易数据
-    #     :type raw: DataFrame
-    #     :param adjust_factor: 复权因子
-    #     :type adjust_factor: DataFrame
-    #     :param adjust_flag: 复权方式, defaults to 1
-    #     :type adjust_flag: int, optional
-    #     :param frequency: 频率, defaults to 'd'
-    #     :type frequency: str, optional
-    #     :return: 复权后的交易数据
-    #     :rtype: DataFrame
-    #     """
-    #     # 没有复权因子
-    #     if adjust_factor.shape[0] == 0:
-    #         return raw
-
-    #     # 有复权因子
-    #     # TODO 按照截至日期复权
-    #     adjust_columns = []
-    #     if frequency == "d":
-    #         adjust_columns = ["open", "high", "low", "close", "pre_close"]
-    #     elif frequency == "5":
-    #         adjust_columns = ["open", "high", "low", "close"]
-
-    #     for i in adjust_columns:
-    #         raw[i] = raw[i].astype(np.float)
-    #     for i in ["adjust_factor", "back_adjust_factor", "fore_adjust_factor"]:
-    #         adjust_factor[i] = adjust_factor[i].astype(np.float)
-    #     fore = raw.copy(deep=True)
-    #     back = raw.copy(deep=True)
-    #     for i in range(adjust_factor.shape[0] + 1):
-    #         if i == 0:
-    #             condition = raw["date"] < adjust_factor.iloc[0].divid_operate_date
-    #             condition2 = raw["date"] <= adjust_factor.iloc[0].divid_operate_date
-
-    #             fore.loc[condition, adjust_columns] *= adjust_factor.iloc[
-    #                 0
-    #             ].fore_adjust_factor
-    #             back.loc[condition2, adjust_columns] *= adjust_factor.iloc[
-    #                 0
-    #             ].back_adjust_factor
-
-    #         elif i == len(adjust_factor):
-    #             condition = (
-    #                 raw["date"] >= adjust_factor.iloc[i - 1]["divid_operate_date"]
-    #             )
-    #             condition2 = (
-    #                 raw["date"] > adjust_factor.iloc[i - 1]["divid_operate_date"]
-    #             )
-    #             fore.loc[condition, adjust_columns] *= adjust_factor.iloc[i - 1][
-    #                 "fore_adjust_factor"
-    #             ]
-    #             back.loc[condition2, adjust_columns] *= adjust_factor.iloc[i - 1][
-    #                 "back_adjust_factor"
-    #             ]
-    #         else:
-    #             condition = (
-    #                 raw["date"] < adjust_factor.iloc[i]["divid_operate_date"]
-    #             ) & (raw["date"] >= adjust_factor.iloc[i - 1]["divid_operate_date"])
-    #             condition2 = (
-    #                 raw["date"] <= adjust_factor.iloc[i]["divid_operate_date"]
-    #             ) & (raw["date"] > adjust_factor.iloc[i - 1]["divid_operate_date"])
-    #             fore.loc[condition, adjust_columns] *= adjust_factor.iloc[i][
-    #                 "fore_adjust_factor"
-    #             ]
-    #             back.loc[condition2, adjust_columns] *= adjust_factor.iloc[i][
-    #                 "back_adjust_factor"
-    #             ]
-
-    #     if adjust_flag == 1:
-    #         return fore
-    #     elif adjust_flag == 2:
-    #         return back
-    #     else:
-    #         return raw
-
     # 更新所有股票指数基本信息
     def update_stockinfo(self):
         """
@@ -147,38 +67,39 @@ class GinkgoMongo(object):
         result = bao_instance.get_all_stock_code()
 
         # Step2：如果数据不为空进行持久化操作，反之报错
-        if result.shape[0] > 0:
-            col = self.db["stock_info"]
-
-            operations = []
-            pbar = tqdm.tqdm(total=result.shape[0])
-            for i in range(result.shape[0]):
-                operations.append(
-                    pymongo.UpdateOne(
-                        {"code": result.iloc[i].code},
-                        {
-                            "$set": {
-                                "code_name": result.iloc[i].code_name,
-                                "trade_status": result.iloc[i].tradeStatus,
-                            }
-                        },
-                        upsert=True,
-                    )
-                )
-                pbar.update(1)
-                pbar.set_description(f"添加 {result.iloc[i].code} 操作")
-                if len(operations) == slice_count:
-                    col.bulk_write(operations, ordered=False)
-                    operations = []
-            if len(operations) > 0:
-                col.bulk_write(operations, ordered=False)
-            pbar.set_description("完成 StockInfo 更新")
-            # TODO 根据插入结果进行相应处理
-            pbar.set_description("StockInfo 索引更新")
-            col.create_index([("code", 1)], unique=True)
-            pbar.set_description("StockInfo 更新完成")
-        else:
+        if result.shape[0] == 0:
             gl.error("股票指数代码获取为空，请检查代码或日期")
+            return
+
+        col = self.db["stock_info"]
+
+        operations = []
+        pbar = tqdm.tqdm(total=result.shape[0])
+        for i in range(result.shape[0]):
+            operations.append(
+                pymongo.UpdateOne(
+                    {"code": result.iloc[i].code},
+                    {
+                        "$set": {
+                            "code_name": result.iloc[i].code_name,
+                            "trade_status": result.iloc[i].tradeStatus,
+                        }
+                    },
+                    upsert=True,
+                )
+            )
+            pbar.update(1)
+            pbar.set_description(f"添加 {result.iloc[i].code} 操作")
+            if len(operations) == slice_count:
+                col.bulk_write(operations, ordered=False)
+                operations = []
+        if len(operations) > 0:
+            col.bulk_write(operations, ordered=False)
+        pbar.set_description("完成 StockInfo 更新")
+        # TODO 根据插入结果进行相应处理
+        pbar.set_description("StockInfo 索引更新")
+        col.create_index([("code", 1)], unique=True)
+        pbar.set_description("StockInfo 更新完成")
 
         gl.info("StockInfo更新完成.")
 
@@ -228,7 +149,7 @@ class GinkgoMongo(object):
                 f"{data_frame.iloc[i].code} {data_frame.iloc[i].dividOperateDate}"
             )
             pbar.update(1)
-        rs = col.bulk_write(operations)
+        col.bulk_write(operations)
         # TODO 根据批量差距结果执行后续操作
         # 建立索引
         col.create_index([("code", 1), ("divid_operate_date", 1)])

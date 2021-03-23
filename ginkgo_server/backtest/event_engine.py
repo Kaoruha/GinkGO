@@ -167,6 +167,6 @@ class EventEngine(object):
         :param data: DataFrame格式的数据
         :return: void
         """
-        for data_ in data.iterrows():
-            market_event = MarketEvent(info_type=InfoType.DailyPrice, data=data_)
+        for i in data.iterrows():
+            market_event = MarketEvent(info_type=InfoType.DailyPrice, data=i)
             self.__info_queue.put(market_event)

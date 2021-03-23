@@ -26,16 +26,12 @@ class T1Broker(BaseBroker):
         name: str,
         engine: EventEngine,
         *,
-        stamp_tax_rate: float = 0.0015,
-        fee_rate: float = 0.00025,
         init_capital: int = 100000,
     ):
         BaseBroker.__init__(
             self,
             name=name,
             engine=engine,
-            stamp_tax_rate=stamp_tax_rate,
-            fee_rate=fee_rate,
             init_capital=init_capital,
         )
         self.current_date = ""

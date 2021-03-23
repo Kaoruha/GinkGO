@@ -16,7 +16,7 @@ if __name__ == "__main__":
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     df = gm.query_stock(
         code="sh.600006",
-        start_date="1998-01-01",
+        start_date="2021-01-01",
         end_date=today,
         frequency="d",
         adjust_flag=3,
@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     # 引擎初始化
     backtest_engine = EventEngine()
-    # backtest_engine.set_heartbeat(0.001)
+    backtest_engine.set_heartbeat(0.001)
 
     # 经纪人初始化
     my_broker = T1Broker(name="my_broker", engine=backtest_engine)
@@ -32,10 +32,10 @@ if __name__ == "__main__":
     # 策略挂载
     ma_strategy = MovingAverageStrategy(short_term=15, long_term=60)
     target_profit = TargetProfit(target=30, target_reduce=80)
-    # stop_loss = StopLoss(loss=5, target_reduce=80)
+    stop_loss = StopLoss(loss=5, target_reduce=80)
     my_broker.strategy_register(ma_strategy)
     my_broker.strategy_register(target_profit)
-    # my_broker.strategy_register(stop_loss)
+    my_broker.strategy_register(stop_loss)
     my_broker.sizer_register(sizer=AllInOne())
 
     # 模拟撮合类挂载

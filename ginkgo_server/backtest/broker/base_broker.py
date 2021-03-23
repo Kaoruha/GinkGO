@@ -23,14 +23,10 @@ class BaseBroker(metaclass=abc.ABCMeta):
         name: str,
         engine: EventEngine,
         *,
-        stamp_tax_rate: float = 0.0015,
-        fee_rate: float = 0.00025,
         init_capital: int = 100000,
     ):
         self.name = name
         self._engine = engine
-        # self._stamp_tax_rate = stamp_tax_rate
-        # self._fee_rate = fee_rate
         self._init_capital = init_capital  # 设置初始资金
         self._capital = 0
         self.get_cash(init_capital)  # 入金
@@ -39,10 +35,9 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self._sizer = None
         self._matcher = None
         self._analyzer = None
-        self._risk = []
         self.fee = 0  # 用来统计所有税费
-        self.position = {}  # 存放Position
-        self.trade_history = []
+        self.position = {}  # 存放Position对象
+        # self.trade_history = []
         # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN  # 以后会支持港股美股日股等乱七八糟的市场
 
