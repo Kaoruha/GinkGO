@@ -1,6 +1,6 @@
 import pandas as pd
 import time
-from ginkgo_research.stock_filter import remove_index
+from examples.stock_filter import remove_index
 import matplotlib.pyplot as plt
 from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 import scipy.stats as stats
@@ -31,8 +31,9 @@ def cal(code1, name1, code2, name2, start_date, end_date, df1, percent):
     _r, p = stats.pearsonr(dff1, dff2)
     print(f"Scipy computed Pearson r: {_r} and p-value: {p}")
 
-    plt.rcParams["font.sans-serif"] = ["Arial Unicode MS"]
-    plt.title(f"[{name1} : {name2}  r={_r}")
+    # plt.rcParams["font.sans-serif"] = ["Arial Unicode MS"] # Mac
+    plt.rcParams["font.sans-serif"] = ["SimHei"]  # Win
+    plt.title(f"{name1} : {name2}  r={_r}")
     plt.xticks([])
     plt.xlabel(f"{start_date} to {end_date}")
     plt.ylabel("price")
@@ -77,16 +78,15 @@ if __name__ == "__main__":
     for i, r in stock_list.iterrows():
         sort_p += 1
         df = gm.query_stock(r["code"], start_date, end_date, "d", 3)
-        print(df.shape[0])
         if df.shape[0] != 0:
             _new = {
                 "code": df.iloc[0].code,
                 "volumn": df["volume"].astype("float").sum(),
             }
             target_list = target_list.append(pd.DataFrame(_new, index=[0]))
-            print(f"{sort_p}/{code_num}")
+            print(f"{sort_p}/{code_num}", end="\r")
 
-    target_list = target_list.sort_values(by=["volumn"], ascending=False).head(20)
+    target_list = target_list.sort_values(by=["volumn"], ascending=False).head(1)
 
     p = multiprocessing.Pool(cpu_core_num - 1)
     loop = 0
