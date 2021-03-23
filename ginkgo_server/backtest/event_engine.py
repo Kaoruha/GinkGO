@@ -10,36 +10,6 @@ import pandas as pd
 class EventEngine(object):
     """
     事件驱动引擎
-    事件驱动引擎中所有的变量都设置为了私有，这是为了防止不小心
-    从外部修改了这些变量的值或状态，导致bug。
-
-    变量说明
-    __queue：私有变量，事件队列
-    __active：私有变量，事件引擎开关
-    __thread：私有变量，事件处理线程
-    __timer：私有变量，计时器
-    __handlers：私有变量，事件处理函数字典
-
-
-    方法说明
-    __run: 私有方法，事件处理线程连续运行用
-    __process: 私有方法，处理事件，调用注册在引擎中的监听函数
-    __onTimer：私有方法，计时器固定事件间隔触发后，向事件队列中存入计时器事件
-    start: 公共方法，启动引擎
-    stop：公共方法，停止引擎
-    register：公共方法，向引擎中注册监听函数
-    unregister：公共方法，向引擎中注销监听函数
-    put：公共方法，向事件队列中注入新的事件
-
-    事件监听函数必须定义为输入参数仅为一个event对象，即：
-
-    函数
-    def func(event)
-        ...
-
-    对象方法
-    def method(self, event)
-        ...
 
     """
 
@@ -62,13 +32,6 @@ class EventEngine(object):
 
         # 设置心跳时间
         self.heartbeat = heartbeat
-        # 计时器，用于触发计时器事件
-        # self.__timer = QTimer()
-        # self.__timer.timeout.connect(self.__onTimer)
-
-        # 这里的__handlers是一个字典，用来保存对应的事件调用关系
-        # 其中每个键对应的值是一个列表，列表中保存了对该事件进行监听的函数功能
-        # Key是事件类型，Value是用来处理的一系列函数
         self.__handlers = {}
 
         # __general_handlers是一个列表，与__handlers类似，用来保存通用回调函数（所有事件均调用）
@@ -132,7 +95,7 @@ class EventEngine(object):
     #     # 向队列中存入计时器事件
     #     self.put(event)
 
-    def start(self, timer=True):
+    def start(self):
         """
         引擎启动
         timer：是否要启动计时器 TODO 回头实盘引擎需要加入定时器定期获取数据处理数据
@@ -143,17 +106,10 @@ class EventEngine(object):
         # 启动事件处理线程
         self.__thread.start()
 
-        # 启动计时器，计时器事件间隔默认设定为1秒
-        # if timer:
-        #     self.__timer.start(1000)  # 这是设置时间定时器时间间隔的方法
-
     def stop(self):
         """停止引擎"""
         # 将引擎设为停止
         self.__active = False
-
-        # 停止计时器
-        # self.__timer.stop()
 
         # 等待事件处理线程退出
         self.__thread.join()

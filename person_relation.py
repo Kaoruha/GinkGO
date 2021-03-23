@@ -86,7 +86,7 @@ if __name__ == "__main__":
             target_list = target_list.append(pd.DataFrame(_new, index=[0]))
             print(f"{sort_p}/{code_num}", end="\r")
 
-    target_list = target_list.sort_values(by=["volumn"], ascending=False).head(1)
+    target_list = target_list.sort_values(by=["volumn"], ascending=False).head(20)
 
     p = multiprocessing.Pool(cpu_core_num - 1)
     loop = 0

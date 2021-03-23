@@ -18,23 +18,32 @@ class BaseBroker(metaclass=abc.ABCMeta):
     TODO 回头改成抽象类
     """
 
-    def __init__(self, name: str, engine: EventEngine, *, stamp_tax_rate: float = .0015, fee_rate: float = .00025,
-                 init_capital: int = 100000):
+    def __init__(
+        self,
+        name: str,
+        engine: EventEngine,
+        *,
+        stamp_tax_rate: float = 0.0015,
+        fee_rate: float = 0.00025,
+        init_capital: int = 100000,
+    ):
         self.name = name
         self._engine = engine
-        self._stamp_tax_rate = stamp_tax_rate
-        self._fee_rate = fee_rate
+        # self._stamp_tax_rate = stamp_tax_rate
+        # self._fee_rate = fee_rate
         self._init_capital = init_capital  # 设置初始资金
-        self._capital = init_capital  # 设置初始资金，默认100K
+        self._capital = 0
+        self.get_cash(init_capital)  # 入金
         self._freeze = 0
         self._strategies = []
         self._sizer = None
         self._matcher = None
         self._analyzer = None
         self._risk = []
-        self.fee = 0 # 用来统计所有税费
+        self.fee = 0  # 用来统计所有税费
         self.position = {}  # 存放Position
-        self.trade_history = []  # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
+        self.trade_history = []
+        # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN  # 以后会支持港股美股日股等乱七八糟的市场
 
     def strategy_register(self, strategy: BaseStrategy):
@@ -47,9 +56,9 @@ class BaseBroker(metaclass=abc.ABCMeta):
         if strategy not in self._strategies:
             self._strategies.append(strategy)
             strategy.engine_register(self._engine)
-            print(f'{strategy.name} 已注册')  # TODO 用Log替换，同时本地存储
+            print(f"{strategy.name} 已注册")  # TODO 用Log替换，同时本地存储
         else:
-            print(f'{strategy.name} 已存在')
+            print(f"{strategy.name} 已存在")
 
     def sizer_register(self, sizer: BaseSizer):
         """
@@ -72,9 +81,9 @@ class BaseBroker(metaclass=abc.ABCMeta):
         if risk not in self._risk:
             risk.engine_register(self._engine)
             self._risk.append(risk)
-            print(f'{risk.name} 已注册')  # TODO 用Log替换，同时本地存储
+            print(f"{risk.name} 已注册")  # TODO 用Log替换，同时本地存储
         else:
-            print(f'{risk.name} 已存在')
+            print(f"{risk.name} 已存在")
 
     def matcher_register(self, matcher: BaseMatcher):
         """
@@ -137,3 +146,13 @@ class BaseBroker(metaclass=abc.ABCMeta):
         :raises NotImplementedError: [description]
         """
         raise NotImplementedError("Must implement general_handler()")
+
+    def get_cash(self, cash: float):
+        """
+        入金操作
+        """
+        # 入金金额只接受大于0的金额
+        if cash > 0:
+            self._capital += cash
+        else:
+            print("Cash should above 0.")
