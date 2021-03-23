@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 import scipy.stats as stats
 import os
-from multiprocessing import Queue, Pool
+import multiprocessing
 
 
 def cal(code1, name1, code2, name2, start_date, end_date, df1, percent):
@@ -64,18 +64,33 @@ def cal(code1, name1, code2, name2, start_date, end_date, df1, percent):
 
 
 if __name__ == "__main__":
-    print("Parent process %s." % os.getpid())
+    print(f"Main Process {os.getpid()}.")
     start = time.time()
+    cpu_core_num = multiprocessing.cpu_count()
     stock_list = remove_index()
+
     code_num = stock_list.shape[0]
-    high_related = pd.DataFrame()
     start_date = "2020-01-01"
     end_date = "2021-01-01"
-    q = Queue()
-    p = Pool(12)
+    target_list = pd.DataFrame()
+    sort_p = 0
+    for i, r in stock_list.iterrows():
+        sort_p += 1
+        df = gm.query_stock(r["code"], start_date, end_date, "d", 3)
+        print(df.shape[0])
+        if df.shape[0] != 0:
+            _new = {
+                "code": df.iloc[0].code,
+                "volumn": df["volume"].astype("float").sum(),
+            }
+            target_list = target_list.append(pd.DataFrame(_new, index=[0]))
+            print(f"{sort_p}/{code_num}")
+
+    target_list = target_list.sort_values(by=["volumn"], ascending=False).head(10)
+
+    p = multiprocessing.Pool(cpu_core_num - 1)
     loop = 0
-    target_list = stock_list[0:500]
-    for i1, r1 in target_list.iterrows():
+    for i1, r1 in stock_list[stock_list["code"].isin(target_list["code"])].iterrows():
         df1 = gm.query_stock(
             code=r1["code"],
             start_date=start_date,
@@ -92,8 +107,6 @@ if __name__ == "__main__":
                 / (stock_list.shape[0] * target_list.shape[0])
                 * 100
             )
-            if i2 <= i1:
-                continue
             p.apply_async(
                 cal,
                 args=(
@@ -108,8 +121,6 @@ if __name__ == "__main__":
                 ),
             )
         loop += 1
-    # for i in range(10):
-    #     p.apply_async(long_time_task, args=(i,))
     print("Waiting for all subprocesses done...")
     p.close()
     p.join()
