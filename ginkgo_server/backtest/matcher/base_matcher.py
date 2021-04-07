@@ -21,11 +21,12 @@ class BaseMatcher(metaclass=abc.ABCMeta):
         min_commission=5,
     ):
         self._stamp_tax_rate = stamp_tax_rate  # 设置印花税，默认千1
-        self._fee_rate = fee_rate  # 设置过户费,默认万.2
+        self._fee_rate = fee_rate  # 设置过户费,默认万2
         self._commission_rate = commission_rate  # 交易佣金，按最高千3计算了，一般比这个低
         self._min_commission = min_commission  # 最低交易佣金，交易佣金的起步价
-        self.target_volume = 0  # 准备买入or卖出的股票量
-        self._engine = None
+        self.target_volume = 0  # 准备买入or卖出的股票量 TODO 要删掉
+        self._match_list = []
+        self._engine = None  # 用来推送事件
 
     def engine_register(self, engine: EventEngine):
         """
