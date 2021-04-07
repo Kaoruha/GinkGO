@@ -14,8 +14,7 @@ import abc
 
 class BaseBroker(metaclass=abc.ABCMeta):
     """
-    基础经纪人类
-    TODO 回头改成抽象类
+    经纪人基类
     """
 
     def __init__(
@@ -31,7 +30,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self._capital = 0
         self.get_cash(init_capital)  # 入金
         self._freeze = 0
-        self._strategies = []
+        self._strategies = []  # 策略池
         self._sizer = None
         self._matcher = None
         self._analyzer = None

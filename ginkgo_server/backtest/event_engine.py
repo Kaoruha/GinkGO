@@ -87,19 +87,11 @@ class EventEngine(object):
         if self.__general_handlers:
             [handler(event) for handler in self.__general_handlers]
 
-    # def __onTimer(self):
-    #     """向事件队列中存入计时器事件"""
-    #     # 创建计时器事件
-    #     event = Event(type_=EVENT_TIMER)
-    #
-    #     # 向队列中存入计时器事件
-    #     self.put(event)
-
     def start(self):
         """
         引擎启动
-        timer：是否要启动计时器 TODO 回头实盘引擎需要加入定时器定期获取数据处理数据
         """
+        # TODO 回头实盘引擎需要加入定时器定期获取数据处理数据
         # 将引擎设为启动
         self.__active = True
 
