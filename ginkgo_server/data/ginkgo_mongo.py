@@ -127,7 +127,6 @@ class GinkgoMongo(object):
         col = self.db["adjust_factor"]
 
         operations = []
-        pbar = tqdm.tqdm(total=data_frame.shape[0])
         for i in range(data_frame.shape[0]):
             operations.append(
                 pymongo.UpdateOne(
@@ -145,10 +144,6 @@ class GinkgoMongo(object):
                     upsert=True,
                 )
             )
-            pbar.set_description(
-                f"{data_frame.iloc[i].code} {data_frame.iloc[i].dividOperateDate}"
-            )
-            pbar.update(1)
         col.bulk_write(operations)
         # TODO 根据批量差距结果执行后续操作
         # 建立索引

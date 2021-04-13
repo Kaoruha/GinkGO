@@ -1,5 +1,10 @@
 """
 策略类
+
+好的策略应该：
+1、相当搞的预期年化收益率
+2、相对于起预期年化收益率比较合理的最大会策划
+3、全球股票市场的低相关度（相关度最好是一个很小很小的负值）
 """
 import pandas as pd
 import abc
@@ -12,6 +17,7 @@ class BaseStrategy(metaclass=abc.ABCMeta):
     基础策略类
     回头改成抽象类
     """
+
     def engine_register(self, engine: EventEngine):
         # 引擎注册，通过Broker的注册获得引擎实例
         self._engine = engine
@@ -21,11 +27,11 @@ class BaseStrategy(metaclass=abc.ABCMeta):
         raise NotImplementedError("Must implement data_transfer()")
 
     def try_gen_enter_signal(self):
-        """买入信号的判断逻辑"""
+        """进入策略"""
         raise NotImplementedError("Must implement enter_market()")
 
     def try_gen_exit_signal(self):
-        """卖出信号的判断逻辑"""
+        """退出策略"""
         raise NotImplementedError("Must implement exit_market()")
 
     def try_gen_signals(self):

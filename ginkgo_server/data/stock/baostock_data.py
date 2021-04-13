@@ -39,7 +39,8 @@ class BaoStockData(object):
             gl.error("\rlogin respond error_code:" + lg.error_code)
             gl.error("\rlogin respond  error_msg:" + lg.error_msg)
         else:
-            gl.info("Baostock Login Success")
+            pass
+            # gl.info("Baostock Login Success")
 
     # baostock 退出
     def logout(self):
