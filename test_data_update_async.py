@@ -1,12 +1,10 @@
-import pandas as pd
 import time
 import datetime
 from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo_server.data.stock.baostock_data import bao_instance
 import os
 import multiprocessing
-from multiprocessing import Pool, Manager
-import tqdm
+from multiprocessing import Manager
 
 
 def update_stock_daybar(total_count, queue, code):
