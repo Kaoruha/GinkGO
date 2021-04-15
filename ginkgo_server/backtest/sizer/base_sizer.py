@@ -12,11 +12,12 @@ class BaseSizer(metaclass=abc.ABCMeta):
     """
     仓位管理基类
 
-    TODO 回头改成抽象类
     """
+
     def __init__(self):
         self._engine = None
-        self._init_capital:float = 0.0
+        self._init_capital: float = 0.0
+        self._risk_factor = 20  # 风险因子
 
     def engine_register(self, engine: EventEngine):
         """
@@ -57,9 +58,15 @@ class BaseSizer(metaclass=abc.ABCMeta):
         """
         code = event.code
         signal_date = event.date
-        today = datetime.datetime.now().strftime('%Y-%m-%d')
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
         try:
-            df = gm.query_stock(code=code, start_date=signal_date, end_date=today, frequency='d', adjust_flag=3)['date'].head(2)
+            df = gm.query_stock(
+                code=code,
+                start_date=signal_date,
+                end_date=today,
+                frequency="d",
+                adjust_flag=3,
+            )["date"].head(2)
             return df.iloc[1]
         except Exception as e:
             return None
