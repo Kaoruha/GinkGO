@@ -4,7 +4,7 @@ docker run -d -v /Users/suny/data/mongo:/data/db --restart=always -p 27017:27017
 
 docker run -d -v /Users/suny/data/mongo:/data/db --restart=always -p 27017:27017 --name=ginkgo_mongo mongo
 
-docker run -d -v F:\mongo:/data/db --restart=always -p 27017:27017 --name=ginkgo_mongo mongo
+docker run -d -v E:\docker_mongo:/data/db --restart=always -p 27017:27017 --name=ginkgo_mongo mongo
 
 进入容器内部
 mongo
