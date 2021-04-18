@@ -241,7 +241,7 @@ class GinkgoMongo(object):
         # 切换collection
         col = self.db[code]
         # dataframe转换为dict，可供pymongo批量插入
-        data = df.to_dict("record")
+        data = df.to_dict(orient="records")
         # 批量插入
         col.insert_many(data)
         # 建立索引
@@ -440,7 +440,7 @@ class GinkgoMongo(object):
             inplace=True,
         )
         col = self.db[code + min5_postfix]
-        data = df.to_dict("record")
+        data = df.to_dict(orient="records")
         col.insert_many(data)
         col.create_index([("time", 1)], unique=True)
 
@@ -897,7 +897,7 @@ class GinkgoMongo(object):
         # 切换collection
         col = self.db[coin_id]
         # dataframe转换为dict，可供pymongo批量插入
-        data = df.to_dict("record")
+        data = df.to_dict(orient="records")
         # 批量插入
         col.insert_many(data)
         # 建立索引
