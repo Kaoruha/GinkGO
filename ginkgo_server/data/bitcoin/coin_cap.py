@@ -91,17 +91,17 @@ class CoinCapAPI(object):
         r = requests.get(url=request_link)
         t3 = time.time()
         content = json.loads(r.content)
-        print(content)
+        # print(content)
         df = pd.DataFrame(content["data"])
         t4 = time.time()
-        print(f"耗时:{round(t4-t1,3)}s API响应:{round(t3-t2,3)}s ")
+        print(f"{coin_id} 获取耗时:{round(t4-t1,3)}s API响应:{round(t3-t2,3)}s ")
         return df
 
     def get_coin_list(self):
         t1 = time.time()
         request_link = "https://api.coincap.io/v2/assets"
         t2 = time.time()
-        print(request_link)
+        # print(request_link)
         r = requests.get(url=request_link)
         t3 = time.time()
         content = json.loads(r.content)
@@ -111,7 +111,7 @@ class CoinCapAPI(object):
         df = df.drop(["explorer"], axis=1)
         t4 = time.time()
 
-        print(df)
+        # print(df)
         print(f"耗时:{round(t4-t1,3)}s API响应:{round(t3-t2,3)}s ")
         return df
 
