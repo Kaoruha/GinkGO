@@ -1,7 +1,6 @@
 """
 持仓类
 """
-from ginkgo_server.backtest.broker.base_broker import BaseBroker
 
 
 class Position(object):
@@ -15,18 +14,16 @@ class Position(object):
         self.volume = volume  # 当前持有股票量
         self.freeze = 0  # 总冻结股票
 
-    def ready_to_buy(self, money: float, broker: BaseBroker):
+    def pre_buy(self, money: float, broker):
         """
         持仓买入预处理
 
         买入前冻结资金
         买入交易发起前调用
         """
-        if money < broker._capital:
-            broker._capital -= money
-            broker._freeze += money
+        broker.freeze_money(money=money)
 
-    def ready_to_sell(self, target_volume: int):
+    def per_sell(self, target_volume: int):
         """
         持仓卖出的预处理
 

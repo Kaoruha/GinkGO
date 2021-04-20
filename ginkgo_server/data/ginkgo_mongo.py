@@ -917,7 +917,7 @@ class GinkgoMongo(object):
         self.insert_coin_m1(coin_id=coin_id, df=df_insert)
         t5 = time.time()
         print(
-            f"{coin_id}_{df.shape[0]}条更新总耗时: {round(t5-t1,3)}s  获取全量耗时: {round(t3-t2,3)}s  去重耗时: {round(t4-t3,3)}s  插入耗时: {round(t5-t4,3)}s"
+            f"{coin_id} ({df.shape[0]}) 更新总耗时: {round(t5-t1,3)}s  获取全量耗时: {round(t3-t2,3)}s  去重耗时: {round(t4-t3,3)}s  插入耗时: {round(t5-t4,3)}s"
         )
 
     def is_coin_exist(self, coin_id):

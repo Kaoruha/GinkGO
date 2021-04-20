@@ -17,7 +17,10 @@ class BaseSizer(metaclass=abc.ABCMeta):
     def __init__(self):
         self._engine = None
         self._init_capital: float = 0.0
-        self._risk_factor = 20  # 风险因子
+
+    def __call__(self):
+        engine_status = "未挂在引擎" if self._engine is None else f"已挂载引擎 {self._engine}"
+        print(f"仓位管理基类，{engine_status}, 金额: {self._init_capital}")
 
     def engine_register(self, engine: EventEngine):
         """

@@ -129,9 +129,9 @@ class T1Broker(BaseBroker):
                     print(f"当前未持有{event.code}股票")
                     return
                 if position.volume < event.target_volume:
-                    position.ready_to_sell(target_volume=event.target_volume)
+                    position.per_sell(target_volume=event.target_volume)
                 else:
-                    position.ready_to_sell(target_volume=event.target_volume)
+                    position.per_sell(target_volume=event.target_volume)
                 self._matcher.try_match(event=event, position=position)
 
         else:
@@ -167,7 +167,7 @@ class T1Broker(BaseBroker):
             elif event.deal == DealType.SELL:
                 # 如果是卖出事件则减少持仓
                 # TODO 重写position
-                self.position[event.code].sell(volume=event.volume)
+                self.position[event.code].sell_done(volume=event.volume)
                 if (
                     self.position[event.code].volume + self.position[event.code].freeze
                     == 0

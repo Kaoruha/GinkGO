@@ -2,7 +2,12 @@
 经纪人类
 """
 from ginkgo_server.backtest.enums import MarketType
-from ginkgo_server.backtest.events import *
+from ginkgo_server.backtest.events import (
+    SignalEvent,
+    MarketEvent,
+    FillEvent,
+    OrderEvent,
+)
 from ginkgo_server.backtest.strategy.base_strategy import BaseStrategy
 from ginkgo_server.backtest.sizer.base_sizer import BaseSizer
 from ginkgo_server.backtest.matcher.base_matcher import BaseMatcher
@@ -36,7 +41,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self._analyzer = None
         self.fee = 0  # 用来统计所有税费
         self.position = {}  # 存放Position对象
-        # self.trade_history = []
+        self.trade_history = []
         # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN  # 以后会支持港股美股日股等乱七八糟的市场
 
@@ -50,7 +55,8 @@ class BaseBroker(metaclass=abc.ABCMeta):
         if strategy not in self._strategies:
             self._strategies.append(strategy)
             strategy.engine_register(self._engine)
-            print(f"{strategy.name} 已注册")  # TODO 用Log替换，同时本地存储
+            print(f"{strategy.name} 已注册")
+            # TODO 用Log替换，同时本地存储
         else:
             print(f"{strategy.name} 已存在")
 
@@ -150,3 +156,10 @@ class BaseBroker(metaclass=abc.ABCMeta):
             self._capital += cash
         else:
             print("Cash should above 0.")
+
+    def freeze_money(self, money: float):
+        """
+        冻结现金，准备买入
+        """
+        self._capital -= money
+        self._freeze += money

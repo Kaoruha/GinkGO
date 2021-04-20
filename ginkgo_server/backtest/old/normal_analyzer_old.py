@@ -30,7 +30,7 @@ class NormalAnalyzer(BaseAnalyzer):
 
         self._stock_value = 0
         for k, v in self._position.items():
-            self._stock_value += (v.volume + v.freeze) * v.current_price
+            self._stock_value += (v.volume + v.freeze) * v.price
         self._profit = (
             self._capital + self._freeze + self._stock_value - self._init_capital
         ) / self._init_capital
