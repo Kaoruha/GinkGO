@@ -295,9 +295,9 @@ def coin_udpate_async():
 
 
 if __name__ == "__main__":
-    # gm.update_stockinfo()
-    # adjust_factor_update_async()
-    # daybar_update_async()
-    # min5_update_async()
-    # gm.update_coininfo()
+    gm.update_stockinfo()
+    adjust_factor_update_async()
+    daybar_update_async()
+    min5_update_async()
+    gm.update_coininfo()
     coin_udpate_async()
