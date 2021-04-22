@@ -262,7 +262,7 @@ def coin_udpate_async():
     print(f"建立了一个 {cpu_core_num - 1} 容量的进程池")
 
     pbar = tqdm.tqdm(total=coin_list.shape[0])
-    pbar.set_description("更新Min5")
+    pbar.set_description("更新Coin")
 
     def p_update(*a):
         pbar.update()
