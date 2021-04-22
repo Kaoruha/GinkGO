@@ -16,11 +16,10 @@ class BaseSizer(metaclass=abc.ABCMeta):
 
     def __init__(self):
         self._engine = None
-        self._init_capital: float = 0.0
 
-    def __call__(self):
-        engine_status = "未挂在引擎" if self._engine is None else f"已挂载引擎 {self._engine}"
-        print(f"仓位管理基类，{engine_status}, 金额: {self._init_capital}")
+    def __repr__(self):
+        engine_status = "未挂载引擎" if self._engine is None else f"已挂载引擎 {self._engine}"
+        return f"仓位管理基类，{engine_status}"
 
     def engine_register(self, engine: EventEngine):
         """
@@ -30,15 +29,6 @@ class BaseSizer(metaclass=abc.ABCMeta):
         :type engine: EventEngine
         """
         self._engine = engine
-
-    def set_init_capital(self, init_capital: float):
-        """
-        获取初始总金额
-
-        :param init_capital: [description]
-        :type init_capital: int
-        """
-        self._init_capital = init_capital
 
     def get_signal(self, event: SignalEvent, capital: float, position):
         """
@@ -50,26 +40,3 @@ class BaseSizer(metaclass=abc.ABCMeta):
         :return: void
         """
         raise NotImplementedError("Must implement get_buy_signal()")
-
-    def _get_trade_date(self, event: SignalEvent):
-        """
-        根据信号事件的日期，返回下单日期
-
-        此处利用到了未来的数据，需要当心
-        :param event: 信号事件
-        :return: 下单日期
-        """
-        code = event.code
-        signal_date = event.date
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
-        try:
-            df = gm.query_stock(
-                code=code,
-                start_date=signal_date,
-                end_date=today,
-                frequency="d",
-                adjust_flag=3,
-            )["date"].head(2)
-            return df.iloc[1]
-        except Exception as e:
-            return None
