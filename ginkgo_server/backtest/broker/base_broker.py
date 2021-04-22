@@ -1,6 +1,7 @@
 """
 经纪人类
 """
+import abc
 from ginkgo_server.backtest.enums import MarketType
 from ginkgo_server.backtest.events import (
     SignalEvent,
@@ -9,12 +10,11 @@ from ginkgo_server.backtest.events import (
     OrderEvent,
 )
 from ginkgo_server.backtest.strategy.base_strategy import BaseStrategy
-from ginkgo_server.backtest.sizer.base_sizer import BaseSizer
 from ginkgo_server.backtest.matcher.base_matcher import BaseMatcher
 from ginkgo_server.backtest.analyzer.base_analyzer import BaseAnalyzer
 from ginkgo_server.backtest.risk.base_risk import BaseRisk
+from ginkgo_server.backtest.sizer.base_sizer import BaseSizer
 from ginkgo_server.backtest.event_engine import EventEngine
-import abc
 
 
 class BaseBroker(metaclass=abc.ABCMeta):

@@ -2,10 +2,10 @@
 仓位管理类
 """
 import datetime
+import abc
 from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo_server.backtest.event_engine import EventEngine
 from ginkgo_server.backtest.events import SignalEvent
-import abc
 
 
 class BaseSizer(metaclass=abc.ABCMeta):
@@ -30,13 +30,11 @@ class BaseSizer(metaclass=abc.ABCMeta):
         """
         self._engine = engine
 
-    def get_signal(self, event: SignalEvent, capital: float, position):
+    def get_signal(self, event: SignalEvent, broker: BaseBroker):
         """
         获取信号事件
         根据初始金额、手持现金、当前持仓进行仓位调整，产生订单事件OrderEvent
         :param event: 某只股票的多空信号
-        :param capital: 当前手持现金
-        :param position: 当前持仓
-        :return: void
+        :param broker: 当前经纪人
         """
-        raise NotImplementedError("Must implement get_buy_signal()")
+        raise NotImplementedError("Must implement get_signal()")

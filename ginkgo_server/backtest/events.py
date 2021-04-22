@@ -33,13 +33,11 @@ class SignalEvent(Event):
         self,
         date: str,  # 信号日期
         code: str,  # 股票代码
-        current_price: float,  # 当前价格（目前是一天日交易数据的Close价格）
         deal: DealType = DealType.BUY,  # 交易类型
         source: str = "",
     ):
         Event.__init__(self, date=date, code=code, source=source)
         self.type_ = EventType.Signal
-        self.current_price = current_price
         self.deal = deal
 
 
