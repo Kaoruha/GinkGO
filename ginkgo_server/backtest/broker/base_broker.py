@@ -29,17 +29,16 @@ class BaseBroker(metaclass=abc.ABCMeta):
         *,
         init_capital: int = 100000,
     ):
-        self.name = name
+        self._name = name
         self._engine = engine
-        self._init_capital = init_capital  # 设置初始资金
-        self._capital = 0
+        self._total_capitial = init_capital  # 设置初始资金
+        self._capitial = 0
         self.get_cash(init_capital)  # 入金
         self._freeze = 0
         self._strategies = []  # 策略池
         self._sizer = None
         self._matcher = None
         self._analyzer = None
-        self.fee = 0  # 用来统计所有税费
         self.position = {}  # 存放Position对象
         self.trade_history = []
         # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
@@ -69,7 +68,6 @@ class BaseBroker(metaclass=abc.ABCMeta):
         """
         self._sizer = sizer
         self._sizer.engine_register(self._engine)
-        self._sizer.set_init_capital(self._init_capital)
 
     def risk_register(self, risk: BaseRisk):
         """
@@ -153,13 +151,27 @@ class BaseBroker(metaclass=abc.ABCMeta):
         """
         # 入金金额只接受大于0的金额
         if cash > 0:
-            self._capital += cash
+            self._capitial += cash
+            print(f"{self._name}「入金」{cash}，目前持有现金「{self._capitial}」")
         else:
             print("Cash should above 0.")
 
-    def freeze_money(self, money: float):
+    def freeze_money(self, money):
         """
         冻结现金，准备买入
         """
         self._capital -= money
         self._freeze += money
+
+    def add_position(self, position):
+        """
+        添加持仓
+        """
+        code = position.code
+        # 判断是否已经持有改标的
+        if code in self.position.keys():
+            # 已经持有则执行Position的买入操作
+            self.position[code].buy(price=position.price, volume=position.volume)
+        else:
+            # 未持有则添加持仓至position
+            self.position[code] = position

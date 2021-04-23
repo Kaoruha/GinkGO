@@ -8,11 +8,15 @@ class Position(object):
     持仓类
     """
 
-    def __init__(self, code: str, buy_price: float, volume: int):
+    def __init__(self, code, price, volume):
         self.code = code
-        self.price = buy_price
+        self.price = price
         self.volume = volume  # 当前持有股票量
-        self.freeze = 0  # 总冻结股票
+        self.frozen = 0  # 总冻结股票
+
+    def __repr__(self):
+        s = f"持仓{self.code} 单价「{self.price}」 持有量「{self.volume}」 冻结「{self.frozen}」"
+        return s
 
     def pre_buy(self, money: float, broker):
         """
@@ -35,10 +39,10 @@ class Position(object):
         if target_volume >= self.volume:
             target_volume = self.volume
 
-        self.freeze += target_volume
+        self.frozen += target_volume
         self.volume -= target_volume
 
-    def buy_done(self, price: float, volume: int):
+    def buy(self, price: float, volume: int):
         """
         买入成功后的操作
 
@@ -58,7 +62,7 @@ class Position(object):
         )
         self.volume += volume
 
-    def sell_done(self, volume: int):
+    def sell(self, volume: int):
         """
         卖出成功后的处理
 
@@ -69,10 +73,7 @@ class Position(object):
         # 如果卖出的数量大于持仓直接清空
         # 卖出交易成功后调用
         if volume > self.freeze:
-            self.freeze = 0
+            self.frozen = 0
             print("成功卖出的股票大于冻结的股票，请检查策略")
         else:
-            self.freeze -= volume
-
-    def update_price(self, current_price: float):
-        self.current_price = current_price
+            self.frozen -= volume

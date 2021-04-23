@@ -52,6 +52,6 @@ def CAL_ATR(code, date, period):
     df["today_range"] = abs(df["high"] - df["low"]).fillna(0)
     df["last_high"] = abs(df["close"].shift(1) - df["high"]).fillna(0)
     df["last_low"] = abs((df["close"].shift(1) - df["close"]).fillna(0))
-    # a = max(df.iloc[5]["today_range"], df.iloc[5]["last_high"])
     df["atr"] = df[["today_range", "last_high", "last_low"]].max(axis=1)
+    print(f'{code} {date} ATR:{df.tail(period)["atr"].mean()}')
     return df.tail(period)["atr"].mean()

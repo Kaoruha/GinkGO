@@ -45,10 +45,10 @@ class GinkgoMongo(object):
         print("成功连接至Mongo")
         # 切换数据库
         self.db = self.client[self.database]
-        print(f"切换数据库 {self.database}")
+        print(f"切换数据库{self.database}")
         # 授权
         self.db.authenticate(self.username, self.pwd, mechanism="SCRAM-SHA-1")
-        print(f"完成 {self.username} 用户授权 ")
+        print(f"完成{self.username}用户授权 ")
         print("数据库准备完毕")
 
     # 更新所有股票指数基本信息

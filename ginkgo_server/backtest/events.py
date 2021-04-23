@@ -6,9 +6,10 @@ from ginkgo_server.backtest.enums import EventType, DealType, InfoType
 
 
 class Event(object):
-    def __init__(self, date: str, code: str, source: str = ""):
-        self.date = date if date else ""
-        self.code = code if code else ""
+    def __init__(self, event_type, date="", code="", source=""):
+        self.type_ = event_type
+        self.date = date
+        self.code = code
         self.source = source
 
 
@@ -17,11 +18,24 @@ class MarketEvent(Event):
     市场事件，分为新的价格事件，新的消息事件
     """
 
-    def __init__(self, info_type: InfoType, data):
-        # Event.__init__(date=date, code=code, source=source)
-        self.type_ = EventType.Market
+    def __init__(self, date, code, source, info_type: InfoType, data):
+        super(MarketEvent, self).__init__(
+            event_type=EventType.Market, date=date, code=code, source=source
+        )
         self.info_type = info_type
         self.data = data
+
+    def __repr__(self):
+        if self.info_type == InfoType.DailyPrice:
+            t = "日线价格信息"
+        elif self.info_type == InfoType.MinutePrice:
+            t = "分钟价格信息"
+        elif self.info_type == InfoType.Message:
+            t = "市场信息"
+        else:
+            t = "未知市场事件"
+        s = f"{self.date} {t}"
+        return s
 
 
 class SignalEvent(Event):
@@ -31,14 +45,23 @@ class SignalEvent(Event):
 
     def __init__(
         self,
-        date: str,  # 信号日期
-        code: str,  # 股票代码
-        deal: DealType = DealType.BUY,  # 交易类型
-        source: str = "",
+        date,  # 信号日期
+        code,  # 股票代码
+        deal=DealType.BUY,  # 交易类型
+        source="",
     ):
-        Event.__init__(self, date=date, code=code, source=source)
+        super(SignalEvent, self).__init__(
+            event_type=EventType.Signal, date=date, code=code, source=source
+        )
         self.type_ = EventType.Signal
         self.deal = deal
+
+        print(self)
+
+    def __repr__(self):
+        d = "多" if self.deal == DealType.BUY else "空"
+        s = f"{self.date} 产生 {self.code} 「{d}头」交易信号，信号来源为「{self.source}」"
+        return s
 
 
 class OrderEvent(Event):
@@ -48,33 +71,38 @@ class OrderEvent(Event):
 
     def __init__(
         self,
-        date: str,  # 信号日期
-        deal: DealType,  # 交易类型
-        code: str,  # 股票代码
-        ready_capital: float = 0,  # 如果是多头，用来购买股票的资金
-        target_volume: int = 0,  # 购买或卖出的量
-        source: str = "",
+        date,  # 信号日期
+        code,  # 股票代码
+        deal=DealType.BUY,  # 交易类型
+        volume=0,  # 购买或卖出的量
+        source="",
     ):
-        Event.__init__(self, date=date, code=code, source=source)
-        self.type_ = EventType.Order
+        super(OrderEvent, self).__init__(
+            event_type=EventType.Order, date=date, code=code, source=source
+        )
         self.deal = deal  # 'BUY' or 'SELL'
-        self.ready_capital = ready_capital
         # 下单数(单位是手，买入只能整百，卖出可以零散)
-        self.target_volume = self.optimize_volume(target_volume=target_volume)
+        self.volume = self.optimize_volume(volume=volume)
+        print(self)
 
-    def optimize_volume(self, target_volume):
+    def __repr__(self):
+        d = "多" if self.deal == DealType.BUY else "空"
+        s = f"{self.date} 产生 {self.code} 「{d}头」下单事件，份额「{self.volume}」，事件来源为「{self.source}」"
+        return s
+
+    def optimize_volume(self, volume):
         """
         调整买入数
         股票买入以手为单位，一手为一百股，volume只能是整百的倍数
         卖出不作限制
 
-        :param target_volume: [准备下单的股票数量]
-        :type target_volume: [int]
+        :param volume: [准备下单的股票数量]
+        :type volume: [int]
         """
         if self.deal == DealType.BUY:
-            return int(target_volume / 100) * 100
+            return int(volume / 100) * 100
         else:
-            return target_volume
+            return volume
 
 
 class FillEvent(Event):
