@@ -19,5 +19,26 @@ broker.add_position(p2)
 broker.add_position(p3)
 
 
-se = SignalEvent(date="2020-04-22", code="sh.000905", deal=DealType.BUY, source="测试信息")
-o = r.get_signal(signal=se, broker=broker)
+signal1 = SignalEvent(
+    date="2020-04-22", code="sh.000905", deal=DealType.BUY, source="测试信息"
+)
+o1 = r.get_signal(signal=signal1, broker=broker)
+
+p4 = Position(code="sh.000905", price=20.1, volume=10)
+broker.add_position(p4)
+
+signal2 = SignalEvent(
+    date="2020-04-23", code="sh.000905", deal=DealType.BUY, source="测试信息"
+)
+o2 = r.get_signal(signal=signal2, broker=broker)
+
+signal3 = SignalEvent(
+    date="2020-04-25", code="sh.000905", deal=DealType.SELL, source="测试信息"
+)
+o3 = r.get_signal(signal3, broker=broker)
+
+
+signal4 = SignalEvent(
+    date="2020-04-25", code="sh.000901", deal=DealType.SELL, source="测试信息"
+)
+o4 = r.get_signal(signal4, broker=broker)
