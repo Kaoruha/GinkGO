@@ -52,16 +52,17 @@ class BaseBroker(metaclass=abc.ABCMeta):
         s += "\n" + f"初始资金：{self._init_capitial}，"
         s += "\n" + f"总资金：{self._total_capitial}，"
         s += "\n" + f"可用现金：{self._capitial}，"
+        s += "\n" + f"冻结金额：{self._freeze}"
         s += "\n" + f"仓位控制：{self._sizer._name if self._sizer else 'None'}"
         s += "\n" + f"成交撮合：{self._matcher._name if self._matcher else 'None'}"
         s += "\n" + f"分析评价：{self._analyzer._name if self._analyzer else 'None'}"
-        s += "\n" + "注册策略："
+        s += "\n" + f"注册策略：{len(self._strategies)}"
         for i in self._strategies:
-            s += "\n"
+            s += "\n    "
             s += str(i)
-        s += "\n" + "当前持仓："
+        s += "\n" + f"当前持仓：{len(self.position)}"
         for i in self.position:
-            s += "\n"
+            s += "\n    "
             s += str(self.position[i])
         return s
 
@@ -174,7 +175,9 @@ class BaseBroker(metaclass=abc.ABCMeta):
         if cash > 0:
             self._capitial += cash
             self._total_capitial += cash
-            print(f"{self._name}「入金」{cash}，目前持有现金「{self._capitial}」")
+            print(
+                f"{self._name}「入金」{format(cash,',')}，目前持有现金「{format(self._capitial,',')}」"
+            )
         else:
             print("Cash should above 0.")
 
