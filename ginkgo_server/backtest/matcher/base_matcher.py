@@ -29,7 +29,7 @@ class BaseMatcher(metaclass=abc.ABCMeta):
         self._transfer_fee_rate = transfer_fee_rate  # 设置过户费,默认万2
         self._commission_rate = commission_rate  # 交易佣金，按最高千3计算了，一般比这个低
         self._min_commission = min_commission  # 最低交易佣金，交易佣金的起步价
-        # self._match_list = []
+        self._match_list = []
         # self._engine = None  # 用来推送事件
 
     # def engine_register(self, engine: EventEngine):
@@ -60,6 +60,14 @@ class BaseMatcher(metaclass=abc.ABCMeta):
         :raises NotImplementedError: [description]
         """
         raise NotImplementedError("Must implement try_match()")
+
+    def send_order(self, order):
+        """
+        发送订单，模拟回测的话直接将订单存至队列
+
+        实盘的话向券商发送订单
+        """
+        raise NotImplementedError("Must implement send_order()")
 
     def fee_cal(self, bussiness_volume, deal_type):
         fee = 0
