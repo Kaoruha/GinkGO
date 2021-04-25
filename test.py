@@ -18,21 +18,22 @@ broker.matcher_register(matcher=matcher)
 
 p1 = Position(code="sh.000901", price=2.11, volume=100)
 p2 = Position(code="sh.000902", price=3.11, volume=200)
-p3 = Position(code="sh.000902", price=3.15, volume=20000)
+p3 = Position(code="sz.000725", price=3.15, volume=200)
 broker.add_position(p1)
 broker.add_position(p2)
 broker.add_position(p3)
 
 
 signal1 = SignalEvent(
-    date="2020-04-22", code="sz.000725", deal=DealType.BUY, source="测试信息"
+    date="2020-04-22", code="sz.000725", deal=DealType.SELL, source="测试信息"
 )
 o1 = r.get_signal(signal=signal1, broker=broker)
 price_info = gm.get_dayBar_by_mongo(
     code="sz.000725", start_date="2020-04-23", end_date="2020-04-23"
 )
-o_n = matcher.try_match(o1, broker, price_info)
-print(o_n)
+if o1 is not None:
+    o_n = matcher.try_match(o1, broker, price_info)
+    fill = matcher.get_result()
 
 
 # p4 = Position(code="sh.000905", price=20.1, volume=10)
