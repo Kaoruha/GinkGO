@@ -7,8 +7,8 @@ class T1Broker(BaseBroker):
         engine,
         *,
         name="T+1 经纪人",
-        init_capital=100000,
+        init_capitial=100000,
     ):
         super(T1Broker, self).__init__(
-            engine=engine, name=name, init_capital=init_capital
+            engine=engine, name=name, init_capitial=init_capitial
         )

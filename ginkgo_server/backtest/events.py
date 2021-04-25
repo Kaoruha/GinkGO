@@ -104,6 +104,10 @@ class OrderEvent(Event):
         else:
             return volume
 
+    def adjust_volume(self, volume):
+        target = self.volume + volume
+        self.volume = self.optimize_volume(target)
+
 
 class FillEvent(Event):
     """

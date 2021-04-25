@@ -1,130 +1,62 @@
 import random
-from .base_matcher import BaseMatcher
-from ginkgo_server.backtest.events import OrderEvent, FillEvent
-from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
-from ginkgo_server.backtest.enums import DealType
-from ginkgo_server.backtest.postion import Position
+from ginkgo_server.backtest.matcher.base_matcher import BaseMatcher
+from ginkgo_server.backtest.events import DealType
 
 
 class SimulateMatcher(BaseMatcher):
     def __init__(
         self,
-        stamp_tax_rate: float = 0.001,
-        fee_rate: float = 0.0000687,
-        slide: float = 0.002,
+        *,
+        stamp_tax_rate=0.001,
+        transfer_fee_rate=0.0002,
+        commission_rate=0.0003,
+        min_commission=5,
+        slippage=0.02,
     ):
-        BaseMatcher.__init__(self, stamp_tax_rate=stamp_tax_rate, fee_rate=fee_rate)
-        self.slide = slide  # 滑点
-        self.date = ""
-        self.code = ""
-        self.remain = 0  # 剩余资金
-        self.source = ""
-        self.deal = None
-        self.position = None
-
-    def try_match(self, event: OrderEvent, position: Position):
-        self.date = event.date
-        self.code = event.code
-        self.deal = event.deal
-        self.target_volume = event.target_volume
-        self.position = position
-        self.source = event.source
-
-        if self.deal == DealType.BUY:
-            self.remain = event.ready_capital
-        elif self.deal == DealType.SELL:
-            self.remain = 0
-
-        # 如果是实盘就直接发下单信号
-        self.get_result()
-
-    def get_result(self):
-        # 查询结果，如果是实盘需要开启一个线程ping到有结果
-        # 模拟盘就直接返回Fill了
-        df = gm.query_stock(
-            code=self.code,
-            start_date=self.date,
-            end_date=self.date,
-            frequency="d",
-            adjust_flag=3,
+        super(SimulateMatcher, self).__init__(
+            stamp_tax_rate,
+            transfer_fee_rate,
+            commission_rate,
+            min_commission,
         )
-        # 模拟成交,此处模拟按照开盘价购入
-        price = df.iloc[0]["open"]
-        price = round(price, 2)
-        # TODO 加入随机参数slider，让价格随机上下波动
+        self._slippage = slippage
 
-        # 交易失败的情况
-        fail_condition1 = abs(float(df.iloc[0]["turn"])) >= 9.5
-        if fail_condition1:
-            fill = FillEvent(
-                deal=self.deal,
-                date=self.date,
-                code=self.code,
-                price=price,
-                volume=self.target_volume,
-                source=self.source,
-                fee=0,
-                remain=self.remain,
-                done=False,
-            )
-            self._engine.put(fill)
+    def __repr__(self):
+        stamp = self._stamp_tax_rate
+        trans = self._transfer_fee_rate
+        comm = self._commission_rate
+        min_comm = self._min_commission
+        s = f"回测模拟成交，当前印花税：「{stamp}」，过户费：「{trans}」，交易佣金：「{comm}」，最小交易佣金：「{min_comm}」"
+        return s
+
+    def try_match(self, order, broker, price):
+        """
+        尝试撮合
+        """
+        # 检查价格信息是否为空
+        if price.shape[0] != 1:
+            print(f"今日{order.code} 无价格信息，可能休市")
             return
+        # 检查价格信息的日期是否在订单事件日期之后
+        if str(price.loc[0].date) <= str(order.date):
+            print("需要在订单事件生成的第二天才可以进行撮合尝试")
+            return order
 
-        # 交易成功的情况
-        if self.deal == DealType.BUY:
-            to_buy_volume = int(self.remain / (price * 100)) * 100
-            total_price = to_buy_volume * price
-            fee = total_price * self._fee_rate
-            commission = total_price * self._commission_rate
-            if commission < self._min_commission:
-                commission = self._min_commission
-            remain = self.remain - total_price - fee - commission
-
-            # 如果扣掉各种税费，剩余的钱不够了那么就少买一手
-            if remain <= 0:
-                to_buy_volume = int(self.remain / (price * 100) - 1) * 100
-                total_price = to_buy_volume * price
-                fee = total_price * self._fee_rate
-                commission = total_price * self._commission_rate
-                if commission < self._min_commission:
-                    commission = self._min_commission
-                remain = self.remain - total_price - fee - commission
-
-            fill = FillEvent(
-                deal=DealType.BUY,
-                date=self.date,
-                code=self.code,
-                price=price,
-                source=self.source,
-                volume=to_buy_volume,
-                fee=fee + commission,
-                remain=remain,
-                done=True,
+        # 尝试成交
+        if order.deal == DealType.BUY:
+            r = (random.random() * 2 - 1) * self._slippage
+            p = float(price.loc[0].open) * (1 + r)
+            bussiness_volume = p * order.volume
+            fee = self.fee_cal(bussiness_volume=bussiness_volume, deal_type=order.deal)
+            if broker._capitial <= (bussiness_volume + fee):
+                # 当前现金小于预计成交量与税费，调整Order内的Volume后再尝试成交
+                gap = bussiness_volume + fee - broker._capitial
+                order.adjust_volume(-(gap / p))
+                bussiness_volume = p * order.volume
+            print(
+                f"预计成交量：{order.volume}，预计成交金额：{bussiness_volume}，税费：{fee}，当前现金：{broker._capitial}"
             )
-            self._engine.put(fill)
-        elif self.deal == DealType.SELL:
-            to_sell_volume = (
-                self.target_volume
-                if self.target_volume <= self.position.freeze
-                else self.position.freeze
-            )
-            total_price = to_sell_volume * price  # 得到卖出的总价
-            stamp_tax = total_price * self._stamp_tax_rate  # 计算印花税
-            fee = total_price * self._fee_rate  # 计算过户费
-            commission = total_price * self._commission_rate  # 计算交易佣金
-            if commission < self._min_commission:
-                commission = self._min_commission  # 如果交易佣金不到最低佣金，则设置交易佣金为最低佣金
-            self.remain = total_price - stamp_tax - fee - commission  # 交完乱七八糟各种税以后的剩余资金
-            fill = FillEvent(
-                deal=DealType.SELL,
-                code=self.code,
-                date=self.date,
-                price=price,
-                source=self.source,
-                volume=to_sell_volume,
-                fee=stamp_tax + fee + commission,
-                remain=self.remain,
-                done=True,
-            )
-            self._engine.put(fill)
+            # broker.freeze_money(bussiness_volume + fee)
+            print(broker)
 
+        # elif order.deal == DealType.SELL:
