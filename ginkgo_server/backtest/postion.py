@@ -12,7 +12,7 @@ class Position(object):
         self.code = code
         self.price = price
         self.volume = volume  # 当前持有股票量
-        self.frozen = 0  # 总冻结股票
+        self.freeze = 0  # 总冻结股票
 
     def __repr__(self):
         s = f"持仓{self.code} 单价「{self.price}」 持有量「{self.volume}」 冻结「{self.frozen}」"
@@ -27,7 +27,7 @@ class Position(object):
         """
         broker.freeze_money(money=money)
 
-    def per_sell(self, target_volume: int):
+    def per_sell(self, volume: int):
         """
         持仓卖出的预处理
 
@@ -36,11 +36,11 @@ class Position(object):
         """
 
         # 如果预计卖出量大于现在持仓，则把预计卖出修正为现有持仓再清仓
-        if target_volume >= self.volume:
-            target_volume = self.volume
+        if volume >= self.volume:
+            volume = self.volume
 
-        self.frozen += target_volume
-        self.volume -= target_volume
+        self.freeze += volume
+        self.volume -= volume
 
     def buy(self, price: float, volume: int):
         """
