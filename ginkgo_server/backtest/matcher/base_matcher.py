@@ -69,6 +69,9 @@ class BaseMatcher(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError("Must implement send_order()")
 
+    def get_result(self):
+        raise NotImplementedError("Must implement get_result()")
+
     def fee_cal(self, bussiness_volume, deal_type):
         fee = 0
         commision = bussiness_volume * self._commission_rate
