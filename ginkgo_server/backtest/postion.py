@@ -15,7 +15,7 @@ class Position(object):
         self.freeze = 0  # 总冻结股票
 
     def __repr__(self):
-        s = f"持仓{self.code} 单价「{self.price}」 持有量「{self.volume}」 冻结「{self.frozen}」"
+        s = f"持仓{self.code} 单价「{self.price}」 持有量「{self.volume}」 冻结「{self.freeze}」"
         return s
 
     def pre_buy(self, money: float, broker):
@@ -42,17 +42,14 @@ class Position(object):
         self.freeze += volume
         self.volume -= volume
 
-    def buy(self, price: float, volume: int):
+    def buy(self, price, volume):
         """
         买入成功后的操作
 
         :param price: 成交的价格
-
-        :type price: float
-
         :param volume: 成交量
+        :param done: 买入是否成功
 
-        :type volume: int
         """
         # 买入调整持仓
         # 买入的基础单位为手，一手为100股
@@ -62,18 +59,22 @@ class Position(object):
         )
         self.volume += volume
 
-    def sell(self, volume: int):
+    def sell(self, volume, done):
         """
-        卖出成功后的处理
+        卖出后的处理
 
         :param volume: 卖出的股票数
-        :type volume: int
+        :param done: 卖出是否成功
         """
         # 卖出调整持仓
         # 如果卖出的数量大于持仓直接清空
         # 卖出交易成功后调用
-        if volume > self.freeze:
-            self.frozen = 0
-            print("成功卖出的股票大于冻结的股票，请检查策略")
+        if done:
+            if volume > self.freeze:
+                print("成功卖出的股票大于冻结的股票，请检查策略")
+                self.freeze = 0
+            else:
+                self.freeze -= volume
         else:
-            self.frozen -= volume
+            self.volume += volume
+            self.freeze -= volume

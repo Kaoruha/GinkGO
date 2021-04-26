@@ -1,5 +1,5 @@
 from ginkgo_server.backtest.sizer.risk_avg_sizer import RiskAVGSizer
-from ginkgo_server.backtest.events import SignalEvent, DealType
+from ginkgo_server.backtest.events import SignalEvent, DealType, EventType
 from ginkgo_server.backtest.broker.T_1_broker import T1Broker
 from ginkgo_server.backtest.event_engine import EventEngine
 from ginkgo_server.backtest.postion import Position
@@ -27,13 +27,26 @@ broker.add_position(p3)
 signal1 = SignalEvent(
     date="2020-04-22", code="sz.000725", deal=DealType.SELL, source="测试信息"
 )
-o1 = r.get_signal(signal=signal1, broker=broker)
+o1 = broker.signal_handler(signal=signal1, broker=broker)
 price_info = gm.get_dayBar_by_mongo(
     code="sz.000725", start_date="2020-04-23", end_date="2020-04-23"
 )
+print("接到信号后")
+# print(broker)
 if o1 is not None:
     o_n = matcher.try_match(o1, broker, price_info)
-    fill = matcher.get_result()
+    print("发出订单，尝试成交后")
+    # print(broker)
+    fill = matcher.get_result(price_info)
+    for i in fill:
+        if i.type_ == EventType.Order:
+            print("处理订单事件")
+
+        if i.type_ == EventType.Fill:
+            print("处理成交事件")
+            broker.fill_handler(i)
+print("成交后")
+print(broker)
 
 
 # p4 = Position(code="sh.000905", price=20.1, volume=10)

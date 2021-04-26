@@ -127,37 +127,37 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self._analyzer = analyzer
         self._analyzer.engine_register(self._engine)
 
-    def market_handlers(self, event: MarketEvent):
+    def market_handler(self, event: MarketEvent):
         """
         市场事件处理函数
 
         :raises NotImplementedError: [description]
         """
-        raise NotImplementedError("Must implement market_handlers()")
+        raise NotImplementedError("Must implement market_handler()")
 
-    def signal_handlers(self, event: SignalEvent):
+    def signal_handler(self, event: SignalEvent):
         """
         信号事件处理函数
 
         :raises NotImplementedError: [description]
         """
-        raise NotImplementedError("Must implement signal_handlers()")
+        raise NotImplementedError("Must implement signal_handler()")
 
-    def order_handlers(self, event: OrderEvent):
+    def order_handler(self, event: OrderEvent):
         """
         订单事件处理函数
 
         :raises NotImplementedError: [description]
         """
-        raise NotImplementedError("Must implement order_handlers()")
+        raise NotImplementedError("Must implement order_handler()")
 
-    def fill_handlers(self, event: FillEvent):
+    def fill_handler(self, event: FillEvent):
         """
         成交事件处理函数
 
         :raises NotImplementedError: [description]
         """
-        raise NotImplementedError("Must implement fill_handlers()")
+        raise NotImplementedError("Must implement fill_handler()")
 
     def general_handler(self):
         """
@@ -202,3 +202,19 @@ class BaseBroker(metaclass=abc.ABCMeta):
         else:
             # 未持有则添加持仓至position
             self.position[code] = position
+
+    def check_position(self):
+        """
+        清理持仓
+
+        将空的持仓清除出持仓列表
+        """
+        clean_list = []
+        for k in self.position:
+            total = self.position[k].volume + self.position[k].freeze
+            if total == 0:
+                clean_list.append(k)
+            if total < 0:
+                print("持仓异常，请检查代码")
+        for i in clean_list:
+            self.position.pop(i)

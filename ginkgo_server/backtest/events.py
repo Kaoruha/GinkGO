@@ -83,6 +83,7 @@ class OrderEvent(Event):
         self.deal = deal  # 'BUY' or 'SELL'
         # 下单数(单位是手，买入只能整百，卖出可以零散)
         self.volume = self.optimize_volume(volume=volume)
+        self.freeze = 0
         print(self)
 
     def __repr__(self):
@@ -108,6 +109,9 @@ class OrderEvent(Event):
         target = self.volume + volume
         self.volume = self.optimize_volume(target)
 
+    def freeze_money(self, money):
+        self.freeze += money
+
 
 class FillEvent(Event):
     """
@@ -119,21 +123,38 @@ class FillEvent(Event):
 
     def __init__(
         self,
-        deal: DealType,
-        date: str,
-        code: str,
-        price: float = 0,
-        volume: int = 0,
-        source: str = "",
-        fee: float = 0,
-        remain: float = 0,
-        done: bool = True,
+        deal,
+        date,
+        code,
+        price,
+        volume,
+        source,
+        fee,
+        remain,
+        freeze,
+        done,
     ):
-        Event.__init__(self, date=date, code=code, source=source)
-        self.type_ = EventType.Fill
+        super(FillEvent, self).__init__(
+            event_type=EventType.Fill, date=date, code=code, source=source
+        )
         self.deal = deal  # 'BUY' or 'SELL'
         self.price = price  # 下单价格
         self.volume = volume  # 下单数(单位是手，买入只能整百，卖出可以零散)
         self.fee = fee  # 此次交易的税费
         self.remain = remain  # 此次交易盈余
+        self.freeze = freeze  # 之前冻结的金额或者标的量
         self.done = done  # Ture为交易成功，False为交易失败
+        print(self)
+
+    def __repr__(self):
+        s = f"{self.date} {self.code} "
+        s += "「"
+        s += "购买" if self.deal == DealType.BUY else "卖出"
+        s += "成功" if self.done else "失败"
+        s += "」"
+        s += f" 事件来源为「{self.source}」"
+        s += f"价格：「{round(self.price,2)}」,"
+        s += f"成交量：「{round(self.volume,2)}」,"
+        s += f"盈余现金：「{round(self.remain,2)}」,"
+        s += f"税费：「{round(self.fee,2)}」,"
+        return s

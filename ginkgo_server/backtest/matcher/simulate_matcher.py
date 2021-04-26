@@ -49,7 +49,7 @@ class SimulateMatcher(BaseMatcher):
 
         # 尝试成交
         if order.deal == DealType.BUY:
-            p = float(price.loc[0].open)
+            p = float(price.loc[0].open) * 1.1
             bussiness_volume = p * order.volume
             fee = self.fee_cal(bussiness_volume=bussiness_volume, deal_type=order.deal)
             if broker._capitial <= (bussiness_volume + fee):
@@ -61,6 +61,7 @@ class SimulateMatcher(BaseMatcher):
                 f"预计成交量：{order.volume}，预计成交金额：{bussiness_volume}，税费：{fee}，当前现金：{broker._capitial}"
             )
             broker.freeze_money(bussiness_volume + fee)
+            order.freeze_money(bussiness_volume + fee)
         elif order.deal == DealType.SELL:
             if order.code not in broker.position:
                 print(f"未持有{order.code}")
@@ -71,14 +72,97 @@ class SimulateMatcher(BaseMatcher):
 
         self.send_order(order)
 
-    def get_result(self):
-        print("尝试获取结果")
+    def get_result(self, price):
+        """
+        尝试获取订单结果
+
+        交易成功会返回FillEvent，交易失败会返回失败的FillEvent与日期更新后的Order
+        """
         result = []
+        price = price.loc[0]
         for i in self._match_list:
-            r = (random.random() * 2 - 1) * self._slippage
-            p_df = gm.get_dayBar_by_mongo(
-                code=i.code, start_date=i.date, end_date=i.date
+            # 休市或者停牌的处理
+            if price.shape[0] == 0:
+                i.source = f"{price.date} 无价格信息，可能休市或停牌，模拟成交类重新推送"
+                i.date = price.date
+                f = FillEvent(
+                    deal=i.deal,
+                    date=price.date,
+                    code=i.code,
+                    price=0,
+                    volume=0,
+                    source="无价格信息",
+                    fee=0,
+                    remain=i.freeze if i.deal == DealType.BUY else i.volume,
+                    done=False,
+                )
+                result.append(f)
+                result.append(i)
+                continue
+
+            pct_chg = float(price["pct_change"])
+
+            # 涨跌停处理
+            if abs(pct_chg) >= 9.5:
+                # 涨停处理
+                if pct_chg > 0 and i.deal == DealType.BUY:
+                    i.source = f"{price.date} {i.code} 涨停，无法购买，模拟成交类重新推送"
+                    i.date = price.date
+                    f = FillEvent(
+                        deal=i.deal,
+                        date=price.date,
+                        code=i.code,
+                        price=0,
+                        volume=i.volume,
+                        source=i.source,
+                        fee=0,
+                        remain=i.freeze,
+                        freeze=i.freeze,
+                        done=False,
+                    )
+                    result.append(f)
+                    result.append(i)
+                    return result
+                # 跌停处理
+                if pct_chg < 0 and i.deal == DealType.SELL:
+                    i.source = f"{price.date} {i.code} 跌停，无法卖出，模拟成交类重新推送"
+                    i.date = price.date
+                    f = FillEvent(
+                        deal=i.deal,
+                        date=price.date,
+                        code=i.code,
+                        price=0,
+                        volume=0,
+                        source=i.source,
+                        fee=0,
+                        remain=i.freeze,
+                        freeze=i.freeze,
+                        done=False,
+                    )
+                    result.append(f)
+                    result.append(i)
+                    return result
+
+            # 模拟成交处理
+            # 目前在一天的价格内随机取一个作为成交价
+            # 也可以考虑从开盘价出发，进行一定范围的滑动
+            # r = (random.random() * 2 - 1) * self._slippage
+            high = float(price.high)
+            low = float(price.low)
+            p = random.random() * (high - low) + low
+            total = p * i.volume
+            f = FillEvent(
+                deal=i.deal,
+                date=price.date,
+                code=i.code,
+                price=p,
+                volume=i.volume,
+                source=f"{price.date}模拟成交",
+                fee=self.fee_cal(bussiness_volume=total, deal_type=i.deal),
+                remain=(i.freeze - total) if i.deal == DealType.BUY else total,
+                freeze=i.freeze,
+                done=True,
             )
-            p = float(p_df.loc[0].open) * (1 + r)
-            # TODO 需要考虑涨跌停
-            print(p)
+            result.append(f)
+
+        return result
