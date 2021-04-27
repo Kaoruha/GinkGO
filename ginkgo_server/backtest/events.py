@@ -18,12 +18,13 @@ class MarketEvent(Event):
     市场事件，分为新的价格事件，新的消息事件
     """
 
-    def __init__(self, date, code, source, info_type: InfoType, data):
+    def __init__(self, date, code, source, info_type, data, time="0000"):
         super(MarketEvent, self).__init__(
             event_type=EventType.Market, date=date, code=code, source=source
         )
         self.info_type = info_type
         self.data = data
+        self.time = time
 
     def __repr__(self):
         if self.info_type == InfoType.DailyPrice:

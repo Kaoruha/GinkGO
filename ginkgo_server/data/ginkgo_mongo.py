@@ -668,7 +668,7 @@ class GinkgoMongo(object):
             condition2 = df["date"] <= end_date
             df = df[condition1 & condition2]
             df = df.sort_values(by=["date"], ascending=[True])
-        return df
+        return df.reset_index()
 
     # 获取复权数据
     def get_adjustfactor_by_mongo(self, code: str, start_date="", end_date=""):

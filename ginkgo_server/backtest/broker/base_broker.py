@@ -8,6 +8,7 @@ from ginkgo_server.backtest.events import (
     MarketEvent,
     FillEvent,
     OrderEvent,
+    InfoType,
 )
 from ginkgo_server.backtest.strategy.base_strategy import BaseStrategy
 from ginkgo_server.backtest.matcher.base_matcher import BaseMatcher
@@ -31,6 +32,8 @@ class BaseBroker(metaclass=abc.ABCMeta):
     ):
         self._name = name
         self._engine = engine
+        self.date = None
+        self.time = None
         self._init_capitial = init_capitial  # 设置初始资金
         self._total_capitial = 0
         self._capitial = 0
@@ -40,6 +43,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self._sizer = None
         self._matcher = None
         self._analyzer = None
+        self.current_price = {}  # 存储获得的最新价格信息
         self.position = {}  # 存放Position对象
         self.trade_history = []
         # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
@@ -49,6 +53,8 @@ class BaseBroker(metaclass=abc.ABCMeta):
         s = "=" * 20 + "\n"
         # TODO
         s += f"{self._name} "
+        s += "\n" + f"当前日期：{self.date}，"
+        s += "\n" + f"当前时间：{self.time}，"
         s += "\n" + f"初始资金：{self._init_capitial}，"
         s += "\n" + f"总资金：{self._total_capitial}，"
         s += "\n" + f"可用现金：{self._capitial}，"
@@ -218,3 +224,39 @@ class BaseBroker(metaclass=abc.ABCMeta):
                 print("持仓异常，请检查代码")
         for i in clean_list:
             self.position.pop(i)
+
+    def update_date(self, new_date):
+        """
+        日期更新
+
+        如果日期更新成功返回True，如果新的日期位于当下日期更早的位置，更新失败，返回False
+        """
+        if self.date is None or self.date <= new_date:
+            self.date = new_date
+            return True
+        else:
+            return False
+
+    def update_time(self, new_time):
+        """
+        时间更新
+
+        如果日期更新成功返回True，如果新的日期位于当下日期更早的位置，更新失败，返回False
+        """
+        # 先校验日期
+        date = f"{new_time[:4]}-{new_time[4:6]}-{new_time[6:8]}"
+        if self.update_date(date):
+            # 日期通过再校验时间
+            if self.time is None or self.time <= new_time:
+                self.time = new_time
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def update_price(self, code, data):
+        """
+        获取价格信息处理
+        """
+        self.current_price[code] = data

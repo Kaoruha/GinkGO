@@ -17,6 +17,7 @@ import pandas as pd
 import abc
 from ginkgo_server.backtest.event_engine import EventEngine
 from ginkgo_server.backtest.postion import Position
+from ginkgo_server.backtest.events import InfoType
 
 
 class BaseStrategy(metaclass=abc.ABCMeta):
@@ -24,6 +25,26 @@ class BaseStrategy(metaclass=abc.ABCMeta):
     基础策略类
     回头改成抽象类
     """
+
+    def __init__(self, name="策略基类"):
+        self.name = name
+        self.day_columns = [
+            "date",
+            "code",
+            "open",
+            "high",
+            "low",
+            "close",
+            "pre_close",
+            "volume",
+            "adjust_flag",
+            "turn",
+            "trade_status",
+            "pct_change",
+            "is_st",
+        ]
+        self.daybar = pd.DataFrame(columns=self.day_columns)
+        self.minbar = None
 
     def engine_register(self, engine: EventEngine):
         # 引擎注册，通过Broker的注册获得引擎实例
@@ -44,3 +65,12 @@ class BaseStrategy(metaclass=abc.ABCMeta):
     def try_gen_signals(self):
         self.try_gen_enter_signal()
         self.try_gen_exit_signal()
+
+    def get_price(self, price):
+        print("hhh")
+        if price.info_type == InfoType.DailyPrice:
+            print(price.data)
+            try:
+                self.daybar.append(price, ignore_index=True)
+            except Exception as e:
+                print("数据接收异常，请检查代码")

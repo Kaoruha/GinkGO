@@ -1,5 +1,5 @@
 from ginkgo_server.backtest.broker.base_broker import BaseBroker
-from ginkgo_server.backtest.events import EventType, DealType
+from ginkgo_server.backtest.events import EventType, DealType, InfoType
 from ginkgo_server.backtest.postion import Position
 
 
@@ -16,18 +16,41 @@ class T1Broker(BaseBroker):
         )
 
     def market_handler(self, event):
-        pass
+        # 市场事件的日期超过当前日期才会进行后续操作
+        if event.info_type == InfoType.DailyPrice:
+            if not self.update_date(event.date):
+                print("事件日期异常，不进行任何操作，请检查代码")
+                return
+            self.update_price(code=event.code, data=event.data)
+            print("处理DayBar")
 
-    def signal_handler(self, event):
-        order = self._sizer.get_signal(signal=event, broker=self)
+        if event.info_type == InfoType.MinutePrice:
+            if not self.update_time(event.time):
+                print("事件时间异常，不进行任何操作，请检查代码")
+                return
+            self.update_price(code=event.code, data=event.data)
+            print("处理Min5")
+
+        for i in self._strategies:
+            i.get_price(event)
+
+    def signal_handler(self, signal):
+        order = self._sizer.get_signal(signal=signal, broker=self)
         if order is not None:
             return order
             self._engine.put(order)
 
     def order_handler(self, event):
         # TODO Price 怎么传给Matcher??
-        # self._matcher.try_match(order=event,broker=self,price=?)
-        pass
+        if event.code not in self.current_price.keys():
+            print(f"没有{event.code}的当前价格信息，请检查代码")
+            return
+        result = self._matcher.try_match(
+            order=event, broker=self, price=self.current_price[event.code]
+        )
+        for i in result:
+            # TODO 根据事件类型分别处理？
+            print(i)
 
     def fill_handler(self, event):
         if event.done:
