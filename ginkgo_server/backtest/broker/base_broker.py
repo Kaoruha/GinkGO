@@ -45,6 +45,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self.current_price = {}  # 存储获得的最新价格信息
         self.position = {}  # 存放Position对象
         self.trade_history = []
+        self.hold_orders = []
         # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN  # 以后会支持港股美股日股等乱七八糟的市场
 
