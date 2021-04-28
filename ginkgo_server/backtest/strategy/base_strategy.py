@@ -37,22 +37,22 @@ class BaseStrategy(metaclass=abc.ABCMeta):
             "close",
             "pre_close",
             "volume",
+            "amount",
             "adjust_flag",
             "turn",
-            "trade_status",
-            "pct_change",
+            "pct_chg",
             "is_st",
         ]
         self.daybar = pd.DataFrame(columns=self.day_columns)
         self.minbar = None
 
+    def __repr__(self):
+        s = self.name
+        return s
+
     def engine_register(self, engine: EventEngine):
         # 引擎注册，通过Broker的注册获得引擎实例
         self._engine = engine
-
-    def data_transfer(self, data: pd.DataFrame, position: Position):
-        # 数据传递至策略
-        raise NotImplementedError("Must implement data_transfer()")
 
     def try_gen_enter_signal(self):
         """进入策略"""
@@ -66,11 +66,22 @@ class BaseStrategy(metaclass=abc.ABCMeta):
         self.try_gen_enter_signal()
         self.try_gen_exit_signal()
 
-    def get_price(self, price):
-        print("hhh")
-        if price.info_type == InfoType.DailyPrice:
-            print(price.data)
+    def get_price(self, event):
+        if event.info_type == InfoType.DailyPrice:
             try:
-                self.daybar.append(price, ignore_index=True)
+                self.daybar = self.daybar.append(event.data.data, ignore_index=True)
+                # 去重
+                self.daybar = self.daybar.drop_duplicates()
+                # 排序
+                self.daybar = self.daybar.sort_values(by="date", ascending=True, axis=0)
+                # 计算MA值
+                # self.data[self.__get_column_title(self.short_term)] = (
+                #     self.data["close"].rolling(self.short_term, min_periods=1).mean()
+                # )
+                # self.data[self.__get_column_title(self.long_term)] = (
+                #     self.data["close"].rolling(self.long_term, min_periods=1).mean()
+                # )
             except Exception as e:
+                print(e)
                 print("数据接收异常，请检查代码")
+            print(self.daybar)
