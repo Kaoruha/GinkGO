@@ -33,7 +33,6 @@ class DayBar(Price):
         pct_change: float,
         is_st: int,
     ):
-        print(pct_change)
         super(DayBar, self).__init__(price_type=PriceType.Day)
         self.index = [
             "date",
@@ -45,9 +44,9 @@ class DayBar(Price):
             "pre_close",
             "volume",
             "amount",
-            "adjustFlag",
+            "adjust_flag",
             "turn",
-            "pct_change_",
+            "pct_chg",
             "is_st",
         ]
         self.data = pd.Series(index=self.index)
@@ -60,9 +59,9 @@ class DayBar(Price):
         self.data.pre_close = pre_close
         self.data.volume = volume
         self.data.amount = amount
-        self.data.adjustFlag = adjust_flag
+        self.data.adjust_flag = adjust_flag
         self.data.turn = turn
-        self.data.pct_change_ = pct_change
+        self.data.pct_chg = pct_change
         self.data.is_st = is_st
 
     def __repr__(self):
@@ -76,7 +75,7 @@ class Min5Bar(Price):
         date: str,
         time: str,
         code: str,
-        open: float,
+        open_: float,
         high: float,
         low: float,
         close: float,
@@ -108,3 +107,7 @@ class Min5Bar(Price):
         self.data.volume = volume
         self.data.amount = amount
         self.data.adjustFlag = adjust_flag
+
+    def __repr__(self):
+        s = str(self.data)
+        return s
