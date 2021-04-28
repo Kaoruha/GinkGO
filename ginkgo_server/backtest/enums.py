@@ -70,3 +70,12 @@ class MarketType(Enum):
     Stock_JP = 102  # 日股
     Stock_US = 103  # 美股
 
+
+class PriceType(Enum):
+    """
+    价格类型
+    """
+
+    Day = 100  # 日线
+    Min5 = 101  # 5Min线
+    Now = 102  # 当前价格
