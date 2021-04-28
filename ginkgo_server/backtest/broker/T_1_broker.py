@@ -34,10 +34,14 @@ class T1Broker(BaseBroker):
         for i in self._strategies:
             i.get_price(event)
 
+        for i in self.hold_orders:
+            self._engine.put(i)
+        self.hold_orders = []  # TODO 回头换成queue
+
     def signal_handler(self, signal):
         order = self._sizer.get_signal(signal=signal, broker=self)
         if order is not None:
-            return order
+            return order  # 测试用，回头要删掉这行
             self._engine.put(order)
 
     def order_handler(self, event):
@@ -45,12 +49,20 @@ class T1Broker(BaseBroker):
         if event.code not in self.current_price.keys():
             print(f"没有{event.code}的当前价格信息，请检查代码")
             return
-        result = self._matcher.try_match(
+        order_callback = self._matcher.try_match(
             order=event, broker=self, price=self.current_price[event.code]
         )
+        # 如果尝试订单事件成交时校验失败，成交类会返回该订单，此时在hold_orders中暂存，待有新的Price进入时再推回Engine
+        if order_callback:
+            self.hold_orders.append(order_callback)
+        print(f"MatchList: {self._matcher._match_list}")
+        result = self._matcher.get_result(self.current_price[event.code])
         for i in result:
-            # TODO 根据事件类型分别处理？
-            print(i)
+            if i.type_ == EventType.Order:
+                self.hold_orders.append(i)
+            if i.type_ == EventType.Fill:
+                return i  # TODO 测试用，回头要删掉
+                self._engine.put(i)
 
     def fill_handler(self, event):
         if event.done:
