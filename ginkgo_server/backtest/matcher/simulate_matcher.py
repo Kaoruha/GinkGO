@@ -1,6 +1,7 @@
 import random
 from ginkgo_server.backtest.matcher.base_matcher import BaseMatcher
-from ginkgo_server.backtest.events import DealType, FillEvent
+from ginkgo_server.backtest.events import FillEvent
+from ginkgo_server.backtest.enums import DealType
 from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
 
 
@@ -8,11 +9,11 @@ class SimulateMatcher(BaseMatcher):
     def __init__(
         self,
         *,
-        stamp_tax_rate=0.001,
-        transfer_fee_rate=0.0002,
-        commission_rate=0.0003,
-        min_commission=5,
-        slippage=0.02,
+        stamp_tax_rate: float = 0.001,
+        transfer_fee_rate: float = 0.0002,
+        commission_rate: float = 0.0003,
+        min_commission: float = 5,
+        slippage: float = 0.02,
     ):
         super(SimulateMatcher, self).__init__(
             name="回测模拟成交",
