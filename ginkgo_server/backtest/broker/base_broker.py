@@ -2,13 +2,12 @@
 经纪人类
 """
 import abc
-from ginkgo_server.backtest.enums import MarketType
+from ginkgo_server.backtest.enums import MarketType, InfoType
 from ginkgo_server.backtest.events import (
     SignalEvent,
     MarketEvent,
     FillEvent,
     OrderEvent,
-    InfoType,
 )
 from ginkgo_server.backtest.strategy.base_strategy import BaseStrategy
 from ginkgo_server.backtest.matcher.base_matcher import BaseMatcher
