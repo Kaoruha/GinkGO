@@ -15,5 +15,5 @@ from ginkgo_server.backtest.strategy.base_strategy import BaseStrategy
 
 
 class TrendFollow(BaseStrategy):
-    def __init__(self, name="趋势跟踪策略"):
+    def __init__(self, name: str = "趋势跟踪策略"):
         super(TrendFollow, self).__init__(name=name)
