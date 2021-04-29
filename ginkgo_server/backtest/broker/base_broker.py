@@ -34,9 +34,8 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self.date = None
         self.time = None
         self._init_capitial = init_capitial  # 设置初始资金
-        self._total_capitial = 0
         self._capitial = 0
-        self.get_cash(init_capitial)  # 入金
+        self._total_capitial = 0
         self._freeze = 0
         self._strategies = []  # 策略池
         self._sizer = None
@@ -48,6 +47,9 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self.hold_orders = []
         # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN  # 以后会支持港股美股日股等乱七八糟的市场
+
+        self.get_cash(init_capitial)  # 入金
+        self.cal_total_capitial()
 
     def __repr__(self):
         s = "=" * 20 + "\n"
@@ -180,7 +182,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         # 入金金额只接受大于0的金额
         if cash > 0:
             self._capitial += cash
-            self._total_capitial += cash
+            self.cal_total_capitial()
             print(
                 f"{self._name}「入金」{format(cash,',')}，目前持有现金「{format(self._capitial,',')}」"
             )
@@ -260,3 +262,12 @@ class BaseBroker(metaclass=abc.ABCMeta):
         获取价格信息处理
         """
         self.current_price[code] = data
+
+    def cal_total_capitial(self):
+        stock = 0
+
+        for i in self.position.keys():
+            stock += self.position[i].price * (
+                self.position[i].volume + self.position[i].freeze
+            )
+        self._total_capitial = self._capitial + self._freeze + stock

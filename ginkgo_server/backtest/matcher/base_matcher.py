@@ -85,3 +85,6 @@ class BaseMatcher(metaclass=abc.ABCMeta):
             fee = fee + stamp
 
         return fee
+
+    def clear_match_list(self):
+        self._match_list = []

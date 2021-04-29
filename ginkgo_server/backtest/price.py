@@ -111,3 +111,7 @@ class Min5Bar(Price):
     def __repr__(self):
         s = str(self.data)
         return s
+
+
+class CurrentPrice(Price):
+    pass

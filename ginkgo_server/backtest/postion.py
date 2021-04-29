@@ -15,7 +15,7 @@ class Position(object):
         self.freeze = 0  # 总冻结股票
 
     def __repr__(self):
-        s = f"持仓{self.code} 单价「{self.price}」 持有量「{self.volume}」 冻结「{self.freeze}」"
+        s = f"持仓 {self.code} 单价「{self.price}」 持有量「{self.volume}」 冻结「{self.freeze}」"
         return s
 
     def pre_buy(self, money: float, broker):
@@ -69,6 +69,9 @@ class Position(object):
         # 卖出调整持仓
         # 如果卖出的数量大于持仓直接清空
         # 卖出交易成功后调用
+        print("测试策划书")
+        print(volume)
+        print(done)
         if done:
             if volume > self.freeze:
                 print("成功卖出的股票大于冻结的股票，请检查策略")

@@ -43,6 +43,7 @@ class RiskAVGSizer(BaseSizer):
 
     def get_signal(self, signal, broker):
         # 需要根据经纪人持仓进行判断
+
         code = signal.code
         date = signal.date
         hold_position = broker.position
@@ -54,6 +55,11 @@ class RiskAVGSizer(BaseSizer):
             # 买入信号，则返回头寸订单
             if signal.deal == DealType.BUY:
                 volume = self.buy_cal(total=total, code=code, date=date)
+                # print("+" * 20)
+                # print("+" * 20)
+                # print(volume)
+                # print("=" * 20)
+                # print("=" * 20)
                 order = OrderEvent(
                     date=signal.date,
                     deal=DealType.BUY,
@@ -63,6 +69,7 @@ class RiskAVGSizer(BaseSizer):
                 )
                 return order
             # 卖出信号，则无视
+            print(f"{date} 「{broker._name}」未持有该股票，卖出信号没有意义，请检查代码")
         else:
             # 经纪人持有信号相关头寸:
             # 买入信号，则计算目前持仓距离目标仓位空间，返回剩余空间的头寸订单事件

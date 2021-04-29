@@ -12,8 +12,33 @@
 """
 
 from ginkgo_server.backtest.strategy.base_strategy import BaseStrategy
+from ginkgo_server.backtest.events import SignalEvent
+from ginkgo_server.backtest.enums import DealType
+import random
 
 
 class TrendFollow(BaseStrategy):
     def __init__(self, name: str = "趋势跟踪策略"):
         super(TrendFollow, self).__init__(name=name)
+
+    def try_gen_enter_signal(self):
+        """进入策略"""
+        code = self.daybar.loc[0].code
+        date = self.daybar.iloc[-1].date
+        r = random.random()
+        if r > 0.9:
+            signal = SignalEvent(
+                code=code, date=date, deal=DealType.BUY, source="测试随便产生的信号"
+            )
+            return signal
+
+    def try_gen_exit_signal(self):
+        """退出策略"""
+        code = self.daybar.loc[0].code
+        date = self.daybar.iloc[-1].date
+        r = random.random()
+        if r > 0.9:
+            signal = SignalEvent(
+                date=date, code=code, deal=DealType.SELL, source="10%概率论卖出"
+            )
+            return signal

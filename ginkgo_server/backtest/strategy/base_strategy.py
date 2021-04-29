@@ -63,13 +63,20 @@ class BaseStrategy(metaclass=abc.ABCMeta):
         raise NotImplementedError("Must implement exit_market()")
 
     def try_gen_signals(self):
-        self.try_gen_enter_signal()
-        self.try_gen_exit_signal()
+        r = []
+        signal_enter = self.try_gen_enter_signal()
+        signal_exit = self.try_gen_exit_signal()
+        if signal_enter:
+            r.append(signal_enter)
+        if signal_exit:
+            r.append(signal_exit)
+        return r
 
     def get_price(self, event):
         if event.info_type == InfoType.DailyPrice:
             try:
-                self.daybar = self.daybar.append(event.data.data, ignore_index=True)
+                day_bar = event.data
+                self.daybar = self.daybar.append(day_bar.data, ignore_index=True)
                 # 去重
                 self.daybar = self.daybar.drop_duplicates()
                 # 排序
@@ -84,4 +91,6 @@ class BaseStrategy(metaclass=abc.ABCMeta):
             except Exception as e:
                 print(e)
                 print("数据接收异常，请检查代码")
-            print(self.daybar)
+            # print(self.daybar)
+        r = self.try_gen_signals()
+        return r

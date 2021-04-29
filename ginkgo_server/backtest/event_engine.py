@@ -1,6 +1,7 @@
 from threading import Thread
 from ginkgo_server.backtest.enums import EventType, InfoType
-from ginkgo_server.backtest.events import *
+from ginkgo_server.backtest.events import MarketEvent
+from ginkgo_server.backtest.price import DayBar
 import queue
 import time
 import datetime
@@ -159,6 +160,27 @@ class EventEngine(object):
         :param data: DataFrame格式的数据
         :return: void
         """
-        for i in data.iterrows():
-            market_event = MarketEvent(info_type=InfoType.DailyPrice, data=i)
+        for i, r in data.iterrows():
+            day_bar = DayBar(
+                date=r.date,
+                code=r.code,
+                open_=r.open,
+                high=r.high,
+                low=r.low,
+                close=r.close,
+                pre_close=r.pre_close,
+                volume=r.volume,
+                amount=r.amount,
+                adjust_flag=r.adjust_flag,
+                turn=r.turn,
+                pct_change=r["pct_change"],
+                is_st=r.is_st,
+            )
+            market_event = MarketEvent(
+                date=r.date,
+                code=r.code,
+                source="GM历史数据",
+                info_type=InfoType.DailyPrice,
+                data=day_bar,
+            )
             self.__info_queue.put(market_event)
