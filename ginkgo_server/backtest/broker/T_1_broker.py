@@ -37,26 +37,40 @@ class T1Broker(BaseBroker):
                 for i in signals:
                     self._engine.put(i)
 
-        for i in self.hold_orders:
+        for i in self.hold_events:
             self._engine.put(i)
-        self.hold_orders = []  # TODO 回头换成queue
+        self.hold_events = []  # TODO 回头换成queue
 
     def signal_handler(self, signal):
+        # 先检查信号事件里的标的当天是否有成交量，如果没有，把信号推回给
+        if signal.code not in self.current_price.keys():
+            print(f"目前已经价格信息内没有 {signal.code}的信息")
+            return
+        if self.current_price[signal.code].data.volume == 0:
+            date = self.current_price[signal.code].data.date
+            code = self.current_price[signal.code].data.code
+            print(f"{date} {code} 没有成交量，会把信号事件重新推送至Hold")
+            signal.date = date
+            signal.source = "{date} {code} 无成交量，第二天再尝试处理信号事件"
+            self.hold_events.append(signal)
+            return
         order = self._sizer.get_signal(signal=signal, broker=self)
         if order is not None:
             # return order  # 测试用，回头要删掉这行
             self._engine.put(order)
 
     def order_handler(self, event):
+        # 检查是否有对应Code的价格信息
         if event.code not in self.current_price.keys():
             print(f"没有{event.code}的当前价格信息，请检查代码")
             return
 
         # 检查价格信息的日期是否在订单事件日期之后
-        if str(self.current_price[event.code].data.date) <= str(event.date):
-            print("需要在订单事件生成的第二天才可以进行撮合尝试")
+        current_date = str(self.current_price[event.code].data.date)
+        if current_date <= str(event.date):
+            print(f"{current_date} 需要在订单事件生成的第二天才可以进行撮合尝试")
             event.source = "当天无法成交，Broker暂时持有Order待获取新Price时重新尝试"
-            self.hold_orders.append(event)
+            self.hold_events.append(event)
             return
 
         self._matcher.try_match(
@@ -66,7 +80,7 @@ class T1Broker(BaseBroker):
         result = self._matcher.get_result(self.current_price)
         for i in result:
             if i.type_ == EventType.Order:
-                self.hold_orders.append(i)
+                self.hold_events.append(i)
             if i.type_ == EventType.Fill:
                 # return i  # TODO 测试用，回头要删掉
                 self._engine.put(i)
@@ -84,7 +98,8 @@ class T1Broker(BaseBroker):
             elif event.deal == DealType.SELL:
                 # 交易成功的卖单处理
                 if event.code not in self.position.keys():
-                    print("未持仓却交易成功，请检查代码")
+                    print(f"{event.date} 未持仓却交易成功，请检查代码")
+                    return
                 self.position[event.code].sell(volume=event.volume, done=True)
                 self._capitial += event.remain
                 self.cal_total_capitial()
@@ -96,7 +111,7 @@ class T1Broker(BaseBroker):
                 self._capitial += event.freeze
             if event.deal == DealType.SELL:
                 self.position[event.code].sell(volume=event.volume, done=False)
-        print(self)
+        print(self._total_capitial)
 
     def general_handler(self, event):
         pass

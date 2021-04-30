@@ -44,6 +44,7 @@ class SimulateMatcher(BaseMatcher):
         if order.code not in current_price.keys():
             print("目前已知价格中没有 {order.code} 相关价格, 请检查代码")
             return
+        date = current_price[order.code].data.date
         if order.deal == DealType.BUY:
             p = float(current_price[order.code].data.open) * 1.1
             bussiness_volume = p * order.volume
@@ -54,13 +55,13 @@ class SimulateMatcher(BaseMatcher):
                 order.adjust_volume(-(gap / p))
                 bussiness_volume = p * order.volume
             print(
-                f"预计成交量：{order.volume}，预计成交金额：{bussiness_volume}，税费：{fee}，当前现金：{broker._capitial}"
+                f"{date} 预计成交量：{order.volume}，预计成交金额：{bussiness_volume}，税费：{fee}，当前现金：{broker._capitial}"
             )
             broker.freeze_money(bussiness_volume + fee)
             order.freeze_money(bussiness_volume + fee)
         elif order.deal == DealType.SELL:
             if order.code not in broker.position:
-                print(f"未持有{order.code}")
+                print(f"{date} 未持有{order.code}")
                 return
             broker.position[order.code].per_sell(order.volume)
             order.volume = broker.position[order.code].freeze
@@ -69,7 +70,6 @@ class SimulateMatcher(BaseMatcher):
         order.source = f"{self._name} 通过初步校验，模拟发出下单命令，等待返回下单结果"
 
         self.send_order(order)
-        print(self._match_list)
 
     def get_result(self, current_price):
         """
@@ -141,7 +141,7 @@ class SimulateMatcher(BaseMatcher):
                     code=i.code,
                     price=p_random,
                     volume=i.volume,
-                    source=f"{p.date}模拟成交",
+                    source=f"{p.date} 模拟成交",
                     fee=fee,
                     remain=(i.freeze - total - fee)
                     if i.deal == DealType.BUY

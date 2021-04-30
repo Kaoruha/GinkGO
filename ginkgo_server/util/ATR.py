@@ -24,6 +24,7 @@ def CAL_ATR(code, date, period):
     """
     ATR 计算
     """
+    # ATR的统计周期至少是一天，0或者负数天是不成立的
     if period < 1:
         print("Period should more than 1 day.")
         return 0
@@ -31,12 +32,10 @@ def CAL_ATR(code, date, period):
     end = datetime.datetime.strptime(date, "%Y-%m-%d").date()
     count = 1
     while True:
-        # print(f"Days:{-period * count - 1}")
         start = (end + datetime.timedelta(days=-period * count - 1)).strftime(
             "%Y-%m-%d"
         )
         df = gm.get_dayBar_by_mongo(code=code, start_date=start, end_date=date)
-        # print(f"Counts:{df.shape[0]}")
         if df.shape[0] >= period + 1:
             break
         else:
@@ -53,5 +52,5 @@ def CAL_ATR(code, date, period):
     df["last_high"] = abs(df["close"].shift(1) - df["high"]).fillna(0)
     df["last_low"] = abs((df["close"].shift(1) - df["close"]).fillna(0))
     df["atr"] = df[["today_range", "last_high", "last_low"]].max(axis=1)
-    print(f'{code} {date} ATR:{df.tail(period)["atr"].mean()}')
+    # print(f'{code} {date} ATR:{df.tail(period)["atr"].mean()}')
     return df.tail(period)["atr"].mean()

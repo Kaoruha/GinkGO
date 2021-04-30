@@ -33,7 +33,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self._engine = engine
         self.date = None
         self.time = None
-        self._init_capitial = init_capitial  # 设置初始资金
+        self._init_capitial = 0  # 设置初始资金
         self._capitial = 0
         self._total_capitial = 0
         self._freeze = 0
@@ -44,7 +44,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self.current_price = {}  # 存储获得的最新价格信息
         self.position = {}  # 存放Position对象
         self.trade_history = []
-        self.hold_orders = []
+        self.hold_events = []
         # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN  # 以后会支持港股美股日股等乱七八糟的市场
 
@@ -182,6 +182,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         # 入金金额只接受大于0的金额
         if cash > 0:
             self._capitial += cash
+            self._init_capitial += cash
             self.cal_total_capitial()
             print(
                 f"{self._name}「入金」{format(cash,',')}，目前持有现金「{format(self._capitial,',')}」"

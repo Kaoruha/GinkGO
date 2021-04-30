@@ -69,9 +69,6 @@ class Position(object):
         # 卖出调整持仓
         # 如果卖出的数量大于持仓直接清空
         # 卖出交易成功后调用
-        print("测试策划书")
-        print(volume)
-        print(done)
         if done:
             if volume > self.freeze:
                 print("成功卖出的股票大于冻结的股票，请检查策略")

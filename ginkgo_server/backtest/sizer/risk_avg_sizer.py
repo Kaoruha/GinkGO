@@ -20,7 +20,7 @@ class RiskAVGSizer(BaseSizer):
 
     def add_risk_factor(self, code, risk_factor):
         self._risk_factor[code] = risk_factor
-        print(f"当前风险因子：{self._risk_factor}")
+        # print(f"当前风险因子：{self._risk_factor}")
 
     def get_risk_factor(self, code):
         if code in self._risk_factor.keys():
@@ -34,7 +34,10 @@ class RiskAVGSizer(BaseSizer):
         # 根据波动幅度计算目标仓位总资金
         money = total * (self.get_risk_factor(code=code) / 100 / 100)
         # 返回购入份额数
-        return money / atr
+        if atr == 0:
+            return 100
+        else:
+            return money / atr
 
     def sell_cal(self, code, position):
         # 目前采用简单策略，卖出份额为持仓的全部
@@ -47,7 +50,7 @@ class RiskAVGSizer(BaseSizer):
         code = signal.code
         date = signal.date
         hold_position = broker.position
-        total = broker._total_capitial
+        total = broker._init_capitial
         # TODO 现在所有标的都按照基准风险因子BaseRiskFactor设定风险因子，回头会根据持仓情况和信号情况动态调整风险因子
         self.add_risk_factor(code=code, risk_factor=self._base_risk_factor)
         # 经纪人未持有信号相关头寸
@@ -55,11 +58,6 @@ class RiskAVGSizer(BaseSizer):
             # 买入信号，则返回头寸订单
             if signal.deal == DealType.BUY:
                 volume = self.buy_cal(total=total, code=code, date=date)
-                # print("+" * 20)
-                # print("+" * 20)
-                # print(volume)
-                # print("=" * 20)
-                # print("=" * 20)
                 order = OrderEvent(
                     date=signal.date,
                     deal=DealType.BUY,
@@ -76,7 +74,7 @@ class RiskAVGSizer(BaseSizer):
             if signal.deal == DealType.BUY:
                 target_volume = self.buy_cal(total=total, code=code, date=date)
                 current_volume = broker.position[code].volume
-                print(f"{code} 当前持仓：{current_volume} 目标持仓：{target_volume}")
+                print(f"{date} {code} 当前持仓：{current_volume} 目标持仓：{target_volume}")
                 gap = target_volume - current_volume
                 if gap >= 100:
                     order = OrderEvent(
@@ -88,7 +86,7 @@ class RiskAVGSizer(BaseSizer):
                     )
                     return order
                 else:
-                    print("补仓交易量小于最小成交量，不进行补仓操作")
+                    print(f"{date} 补仓交易量小于最小成交量，不进行补仓操作")
                 # TODO 反复出现买入信号可以考虑调大该标的的风险因子
 
             # 卖出信号，则根据目前持仓,计算卖出量，返回头寸订单事件
