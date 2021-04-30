@@ -61,6 +61,7 @@ class SimulateMatcher(BaseMatcher):
         elif order.deal == DealType.SELL:
             if order.code not in broker.position:
                 print(f"未持有{order.code}")
+                return
             broker.position[order.code].per_sell(order.volume)
             order.volume = broker.position[order.code].freeze
 

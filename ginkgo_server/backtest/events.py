@@ -102,6 +102,7 @@ class OrderEvent(Event):
         :type volume: [int]
         """
         if self.deal == DealType.BUY:
+            print(f"Bug:{volume},{type(volume)}")
             return int(volume / 100) * 100
         else:
             return volume

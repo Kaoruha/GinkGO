@@ -31,7 +31,7 @@ broker.matcher_register(matcher=matcher)
 
 
 pdata = gm.get_dayBar_by_mongo(
-    code="sz.000725", start_date="2019-04-23", end_date="2020-06_23"
+    code="sz.000725", start_date="2000-04-23", end_date="2020-06_23"
 )
 engine.feed(pdata)
 engine.start()
