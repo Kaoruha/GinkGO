@@ -23,6 +23,7 @@ class TestStrategy(BaseStrategy):
 
     def try_gen_enter_signal(self):
         """进入策略"""
+        print(self.daybar)
         code = self.daybar.loc[0].code
         date = self.daybar.iloc[-1].date
         r = random.random()
