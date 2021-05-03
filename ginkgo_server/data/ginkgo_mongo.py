@@ -40,16 +40,16 @@ class GinkgoMongo(object):
         TODO 连接失败的操作：提示安装mongo，配置端口，自动安装mongo？
         """
         # 建立客户端连接
-        print("正在尝试连接Mongo")
+        # print("正在尝试连接Mongo")
         self.client = pymongo.MongoClient(host=self.host, port=self.port)
-        print("成功连接至Mongo")
+        # print("成功连接至Mongo")
         # 切换数据库
         self.db = self.client[self.database]
-        print(f"切换数据库{self.database}")
+        # print(f"切换数据库{self.database}")
         # 授权
         self.db.authenticate(self.username, self.pwd, mechanism="SCRAM-SHA-1")
-        print(f"完成{self.username}用户授权 ")
-        print("数据库准备完毕")
+        # print(f"完成{self.username}用户授权 ")
+        # print("数据库准备完毕")
 
     # 更新所有股票指数基本信息
     def update_stockinfo(self):
