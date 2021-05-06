@@ -30,6 +30,7 @@ class BaseStrategy(metaclass=abc.ABCMeta):
         ]
         self.daybar = pd.DataFrame(columns=self.day_columns)
         self.minbar = None
+        self.broker = None
 
     def __repr__(self):
         s = self.name
@@ -57,7 +58,7 @@ class BaseStrategy(metaclass=abc.ABCMeta):
             r.append(signal_exit)
         return r
 
-    def get_price(self, event):
+    def get_price(self, event, broker):
         if event.info_type == InfoType.DailyPrice:
             try:
                 day_bar = event.data
@@ -66,15 +67,9 @@ class BaseStrategy(metaclass=abc.ABCMeta):
                 self.daybar = self.daybar.drop_duplicates()
                 # 排序
                 self.daybar = self.daybar.sort_values(by="date", ascending=True, axis=0)
-                # 计算MA值
-                # self.data[self.__get_column_title(self.short_term)] = (
-                #     self.data["close"].rolling(self.short_term, min_periods=1).mean()
-                # )
-                # self.data[self.__get_column_title(self.long_term)] = (
-                #     self.data["close"].rolling(self.long_term, min_periods=1).mean()
-                # )
             except Exception as e:
                 print(e)
                 print("数据接收异常，请检查代码")
+        self.broker = broker
         r = self.try_gen_signals()
         return r
