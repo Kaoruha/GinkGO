@@ -14,31 +14,78 @@
 from ginkgo_server.backtest.strategy.base_strategy import BaseStrategy
 from ginkgo_server.backtest.events import SignalEvent
 from ginkgo_server.backtest.enums import DealType
+from ginkgo_server.util.ATR import CAL_ATR
 import random
 
 
 class TrendFollow(BaseStrategy):
-    def __init__(self, name: str = "趋势跟踪策略"):
+    def __init__(
+        self,
+        name: str = "趋势跟踪策略",
+        short_term: int = 50,
+        long_term: int = 100,
+        factor: int = 20,
+    ):
+        name = name + f"S{short_term}L{long_term}"
         super(TrendFollow, self).__init__(name=name)
+        self.short_term = short_term  # 短周期长度
+        self.long_term = long_term  # 长周期长度
+        self.factor = factor  # 风险因子，建议与持仓类统一
+
+    def __get_column_title(self, term):
+        s = "MA" + str(term)
+        return s
 
     def try_gen_enter_signal(self):
         """进入策略"""
         code = self.daybar.loc[0].code
         date = self.daybar.iloc[-1].date
-        r = random.random()
-        if r > 0.9:
+
+        short_title = self.__get_column_title(self.short_term)
+        long_title = self.__get_column_title(self.long_term)
+        # 计算MA值
+        self.daybar[short_title] = (
+            self.daybar["close"].rolling(self.short_term, min_periods=1).mean()
+        )
+        self.daybar[long_title] = (
+            self.daybar["close"].rolling(self.long_term, min_periods=1).mean()
+        )
+        if self.daybar.shape[0] < 3:
+            return
+        yesterday = self.daybar.iloc[-2]
+        today = self.daybar.iloc[-1]
+        if (
+            yesterday[short_title] < yesterday[long_title]
+            and today[short_title] > today[long_title]
+        ):
             signal = SignalEvent(
-                code=code, date=date, deal=DealType.BUY, source="测试随便产生的信号"
+                code=code, date=date, deal=DealType.BUY, source=f"{date} {self.name}"
             )
             return signal
 
     def try_gen_exit_signal(self):
         """退出策略"""
+        if len(self.broker.position) == 0:
+            return
+        p = None
         code = self.daybar.loc[0].code
-        date = self.daybar.iloc[-1].date
-        r = random.random()
-        if r > 0.9:
+        for i in self.broker.position.keys():
+            if i == code:
+                p = self.broker.position[i]
+
+        if p is None:
+            return
+
+        open_date = p.date
+        hold_high = (
+            self.daybar[self.daybar["date"] >= open_date]["close"].astype(float).max()
+        )
+        today = self.daybar.iloc[-1]
+        date = today.date
+        gap = CAL_ATR(code, date, period=self.short_term)
+        sell_point = hold_high - gap
+        if float(today.close) <= sell_point:
             signal = SignalEvent(
-                date=date, code=code, deal=DealType.SELL, source="10%概率论卖出"
+                date=date, code=code, deal=DealType.SELL, source=f"{date} {self.name}"
             )
             return signal
