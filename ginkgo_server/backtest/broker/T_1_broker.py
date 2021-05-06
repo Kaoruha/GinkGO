@@ -32,7 +32,7 @@ class T1Broker(BaseBroker):
             # print("处理Min5")
 
         for i in self._strategies:
-            signals = i.get_price(event)
+            signals = i.get_price(event, self)
             if signals:
                 for i in signals:
                     self._engine.put(i)
@@ -90,7 +90,12 @@ class T1Broker(BaseBroker):
             # 交易成功的处理
             if event.deal == DealType.BUY:
                 # 交易成功的买单处理
-                p = Position(code=event.code, price=event.price, volume=event.volume)
+                p = Position(
+                    code=event.code,
+                    price=event.price,
+                    volume=event.volume,
+                    date=event.date,
+                )
                 self.add_position(p)
                 self._freeze -= event.freeze
                 self._capitial += event.remain
