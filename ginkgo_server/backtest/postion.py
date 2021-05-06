@@ -8,11 +8,12 @@ class Position(object):
     持仓类
     """
 
-    def __init__(self, code, price, volume):
+    def __init__(self, code, price, volume, date):
         self.code = code
         self.price = price
         self.volume = volume  # 当前持有股票量
         self.freeze = 0  # 总冻结股票
+        self.date = date  # 开仓日
 
     def __repr__(self):
         s = f"持仓 {self.code} 单价「{self.price}」 持有量「{self.volume}」 冻结「{self.freeze}」"
