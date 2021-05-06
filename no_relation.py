@@ -104,16 +104,16 @@ class comb(object):
 
 
 if __name__ == "__main__":
-    no_relation_count = 6  # 股票组合的总数
+    no_relation_count = 4  # 股票组合的总数
     combition22count = 0
     for i in range(no_relation_count):
         combition22count += i
-    combination_head = 1000  # 最后组合取前多少
+    combination_head = 100  # 最后组合取前多少
     holding_stock = []
     result = pd.DataFrame()
     start_date = "2020-01-01"
     end_date = "2021-04-01"
-    volume_first_count = 500  # 全股票池留成交量前XX
+    volume_first_count = 100  # 全股票池留成交量前XX
     cpu_core_num = multiprocessing.cpu_count()
     stock_list = remove_index()
     stock_count = stock_list.shape[0]
