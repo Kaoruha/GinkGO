@@ -111,7 +111,7 @@ class OrderEvent(Event):
         self.volume = self.optimize_volume(target)
 
     def freeze_money(self, money):
-        self.freeze += money
+        self.freeze = money
 
 
 class FillEvent(Event):

@@ -14,8 +14,9 @@ from ginkgo_server.backtest.matcher.simulate_matcher import SimulateMatcher
 from ginkgo_server.backtest.strategy.test_strategy import TestStrategy
 from ginkgo_server.backtest.strategy.trend_follow import TrendFollow
 from ginkgo_server.backtest.price import DayBar
+from ginkgo_server.util.stock_filter import remove_index
 
-r = RiskAVGSizer(base_factor=80)
+r = RiskAVGSizer(base_factor=20)
 
 engine = EventEngine()
 broker = T1Broker(init_capitial=10000, engine=engine)
@@ -30,7 +31,11 @@ broker.sizer_register(sizer=r)
 matcher = SimulateMatcher()
 broker.matcher_register(matcher=matcher)
 
+code_list = remove_index()
+code = code_list.sample(n=1).iloc[0].code
 
-pdata1 = gm.get_dayBar_by_mongo(code="sz.000725", start_date="2019-01-01")
+pdata1 = gm.get_dayBar_by_mongo(
+    code="sz.300102", start_date="2020-01-01", end_date="2020-04-01"
+)
 engine.feed(pdata1)
 engine.start()

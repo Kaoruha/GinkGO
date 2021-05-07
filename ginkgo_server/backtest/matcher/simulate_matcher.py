@@ -63,8 +63,13 @@ class SimulateMatcher(BaseMatcher):
             if order.code not in broker.position:
                 print(f"{date} 未持有{order.code}")
                 return
-            broker.position[order.code].per_sell(order.volume)
-            order.volume = broker.position[order.code].freeze
+            p = broker.position[order.code]
+            if p.volume >= order.volume:
+                p.per_sell(order.volume)
+                order.volume = p.freeze
+            else:
+                print(f"{date} {order.code} 持有量小于预计卖出量，丢弃该订单事件")
+                return
 
         order.date = current_price[order.code].data.date
         order.source = f"{self._name} 通过初步校验，模拟发出下单命令，等待返回下单结果"

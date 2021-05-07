@@ -268,7 +268,6 @@ class BaseBroker(metaclass=abc.ABCMeta):
         stock = 0
 
         for i in self.position.keys():
-            stock += self.position[i].price * (
-                self.position[i].volume + self.position[i].freeze
-            )
+            price = float(self.current_price[i].data.close)
+            stock += price * (self.position[i].volume + self.position[i].freeze)
         self._total_capitial = self._capitial + self._freeze + stock

@@ -40,6 +40,9 @@ class T1Broker(BaseBroker):
         for i in self.hold_events:
             self._engine.put(i)
         self.hold_events = []  # TODO 回头换成queue
+        self.cal_total_capitial()
+        print(f"{event.date} {event.code} {self._total_capitial}")
+        print(self.position)
 
     def signal_handler(self, signal):
         # 先检查信号事件里的标的当天是否有成交量，如果没有，把信号推回给
@@ -116,7 +119,7 @@ class T1Broker(BaseBroker):
                 self._capitial += event.freeze
             if event.deal == DealType.SELL:
                 self.position[event.code].sell(volume=event.volume, done=False)
-        print(self._total_capitial)
+        # print(self._total_capitial)
 
     def general_handler(self, event):
         pass
