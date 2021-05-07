@@ -24,13 +24,13 @@ class TrendFollow(BaseStrategy):
         name: str = "趋势跟踪策略",
         short_term: int = 50,
         long_term: int = 100,
-        factor: int = 20,
+        gap_count: int = 3,
     ):
         name = name + f"S{short_term}L{long_term}"
         super(TrendFollow, self).__init__(name=name)
         self.short_term = short_term  # 短周期长度
         self.long_term = long_term  # 长周期长度
-        self.factor = factor  # 风险因子，建议与持仓类统一
+        self.gap_count = gap_count  # 缺口大小，负责判断合适卖空
 
     def __get_column_title(self, term):
         s = "MA" + str(term)
@@ -83,7 +83,7 @@ class TrendFollow(BaseStrategy):
         today = self.daybar.iloc[-1]
         date = today.date
         gap = CAL_ATR(code, date, period=self.short_term)
-        sell_point = hold_high - gap
+        sell_point = hold_high - gap * self.gap_count
         if float(today.close) <= sell_point:
             signal = SignalEvent(
                 date=date, code=code, deal=DealType.SELL, source=f"{date} {self.name}"

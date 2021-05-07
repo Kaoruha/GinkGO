@@ -15,23 +15,22 @@ from ginkgo_server.backtest.strategy.test_strategy import TestStrategy
 from ginkgo_server.backtest.strategy.trend_follow import TrendFollow
 from ginkgo_server.backtest.price import DayBar
 
-r = RiskAVGSizer(base_factor=50)
+r = RiskAVGSizer(base_factor=80)
 
 engine = EventEngine()
-broker = T1Broker(engine=engine)
+broker = T1Broker(init_capitial=10000, engine=engine)
 engine.register(EventType.Market, broker.market_handler)
 engine.register(EventType.Signal, broker.signal_handler)
 engine.register(EventType.Order, broker.order_handler)
 engine.register(EventType.Fill, broker.fill_handler)
 # tf_strategy = TestStrategy()
-tf_strategy = TrendFollow(short_term=50, long_term=100, factor=50)
+tf_strategy = TrendFollow(short_term=5, long_term=20, gap_count=3)
 broker.strategy_register(tf_strategy)
 broker.sizer_register(sizer=r)
-broker.get_cash(2000)
 matcher = SimulateMatcher()
 broker.matcher_register(matcher=matcher)
 
 
-pdata1 = gm.get_dayBar_by_mongo(code="sz.000725", start_date="2018-01-01")
+pdata1 = gm.get_dayBar_by_mongo(code="sz.000725", start_date="2019-01-01")
 engine.feed(pdata1)
 engine.start()
