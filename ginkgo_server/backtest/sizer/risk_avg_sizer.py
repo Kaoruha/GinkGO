@@ -33,8 +33,6 @@ class RiskAVGSizer(BaseSizer):
         atr = CAL_ATR(code, date, period=5)
         # 根据波动幅度计算目标仓位总资金
         money = total * (self.get_risk_factor(code=code) / 100 / 100)
-        print(atr)
-        print(money)
         # 返回购入份额数
         if atr == 0:
             return 100
