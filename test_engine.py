@@ -1,15 +1,15 @@
 import datetime
-from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
-from ginkgo_server.backtest.event_engine import EventEngine
-from ginkgo_server.backtest.broker.T_1_broker import T1Broker
-from ginkgo_server.backtest.enums import EventType
-from ginkgo_server.data.stock.baostock_data import bao_instance
-from ginkgo_server.backtest.strategy.moving_average import MovingAverageStrategy
-from ginkgo_server.backtest.strategy.target_profit import TargetProfit
-from ginkgo_server.backtest.strategy.stop_loss import StopLoss
-from ginkgo_server.backtest.matcher.simulate_matcher import SimulateMatcher
-from ginkgo_server.backtest.sizer.all_in_one import AllInOne
-from ginkgo_server.backtest.analyzer.normal_analyzer import NormalAnalyzer
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
+from ginkgo.backtest.event_engine import EventEngine
+from ginkgo.backtest.broker.T_1_broker import T1Broker
+from ginkgo.backtest.enums import EventType
+from ginkgo.data.stock.baostock_data import bao_instance
+from ginkgo.backtest.strategy.moving_average import MovingAverageStrategy
+from ginkgo.backtest.strategy.target_profit import TargetProfit
+from ginkgo.backtest.strategy.stop_loss import StopLoss
+from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
+from ginkgo.backtest.sizer.all_in_one import AllInOne
+from ginkgo.backtest.analyzer.normal_analyzer import NormalAnalyzer
 
 
 if __name__ == "__main__":

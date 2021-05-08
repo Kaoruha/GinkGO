@@ -1,9 +1,9 @@
 import time
 import datetime
 import pandas as pd
-from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
-from ginkgo_server.data.stock.baostock_data import bao_instance
-from ginkgo_server.data.bitcoin.coin_cap import coin_cap_instance
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
+from ginkgo.data.stock.baostock_data import bao_instance
+from ginkgo.data.bitcoin.coin_cap import coin_cap_instance
 import os
 import multiprocessing
 from multiprocessing import Manager

@@ -1,21 +1,21 @@
-from ginkgo_server.backtest.sizer.risk_avg_sizer import RiskAVGSizer
-from ginkgo_server.backtest.events import (
+from ginkgo.backtest.sizer.risk_avg_sizer import RiskAVGSizer
+from ginkgo.backtest.events import (
     SignalEvent,
     DealType,
     EventType,
     MarketEvent,
     InfoType,
 )
-from ginkgo_server.backtest.broker.T_1_broker import T1Broker
-from ginkgo_server.backtest.event_engine import EventEngine
-from ginkgo_server.backtest.postion import Position
-from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
-from ginkgo_server.backtest.matcher.simulate_matcher import SimulateMatcher
-from ginkgo_server.backtest.strategy.test_strategy import TestStrategy
-from ginkgo_server.backtest.strategy.trend_follow import TrendFollow
-from ginkgo_server.backtest.price import DayBar
-from ginkgo_server.util.stock_filter import remove_index
-from ginkgo_server.backtest.painter.candle import CandlePainter
+from ginkgo.backtest.broker.T_1_broker import T1Broker
+from ginkgo.backtest.event_engine import EventEngine
+from ginkgo.backtest.postion import Position
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
+from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
+from ginkgo.backtest.strategy.test_strategy import TestStrategy
+from ginkgo.backtest.strategy.trend_follow import TrendFollow
+from ginkgo.backtest.price import DayBar
+from ginkgo.util.stock_filter import remove_index
+from ginkgo.backtest.painter.candle import CandlePainter
 
 r = RiskAVGSizer(base_factor=80)
 

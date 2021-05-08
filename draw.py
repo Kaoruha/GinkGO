@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.ticker as ticker
 import matplotlib.gridspec as gridspec
-from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 
 df = gm.get_dayBar_by_mongo(code="sz.000725", start_date="2020-04-04")
 x = df["date"].values
@@ -15,7 +15,8 @@ volume = df["volume"].astype(float).values
 
 fig = plt.figure(figsize=(16, 9))
 # 设置字体
-plt.rcParams["font.sans-serif"] = ["SimHei"]
+# plt.rcParams["font.sans-serif"] = ["SimHei"]
+plt.rcParams["font.sans-serif"] = ["Songti SC"]
 plt.rcParams["axes.unicode_minus"] = False
 
 # 设置标题

@@ -2,7 +2,7 @@ import pandas as pd
 import time
 from examples.stock_filter import remove_index
 import matplotlib.pyplot as plt
-from ginkgo_server.data.ginkgo_mongo import ginkgo_mongo as gm
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 import scipy.stats as stats
 import os
 import multiprocessing
