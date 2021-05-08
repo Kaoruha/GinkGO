@@ -7,33 +7,41 @@ from ginkgo.backtest.price import DayBar, Min5Bar
 
 
 class BasePainter(object):
-    def __init__(self, *args):
+    def __init__(self, mav=(), *args):
         super(BasePainter, self).__init__(*args)
         self.raw = pd.DataFrame()
         self.data = None
         self.broker = None
-        plt.ion()
+        self.figure = None
+        self.mav = mav
+
+        self.create_canvas()
+
+    def create_canvas(self):
+        pass
 
     def get_price(self, broker, price: DayBar):
         self.broker = broker
         dic = {}
         for i in price.data.keys():
             dic[i] = price.data[i]
+        dic["total_capitial"] = broker._total_capitial / broker._init_capitial
         df = pd.Series(dic)
         self.raw = self.raw.append(df, ignore_index=True)
 
     def pre_treate(self):
         df = self.raw.copy()
-        df["date"] = pd.DatetimeIndex(df["date"])
-        df.set_index(["date"], inplace=True)
-        df = df.sort_index()
         df["open"] = df["open"].astype(float)
         df["close"] = df["close"].astype(float)
         df["high"] = df["high"].astype(float)
         df["low"] = df["low"].astype(float)
         df["volume"] = df["volume"].astype(float)
+        if len(self.mav) > 0:
+            for i in range(len(self.mav)):
+                name = "MA" + str(self.mav[i])
+                df[name] = df["close"].rolling(self.mav[i], min_periods=1).mean()
 
-        self.data = df
+        self.data = df.copy()
 
     def draw(self):
         pass

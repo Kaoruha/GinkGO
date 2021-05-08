@@ -26,18 +26,19 @@ engine.register(EventType.Signal, broker.signal_handler)
 engine.register(EventType.Order, broker.order_handler)
 engine.register(EventType.Fill, broker.fill_handler)
 # tf_strategy = TestStrategy()
-tf_strategy = TrendFollow(short_term=50, long_term=100, gap_count=3)
+tf_strategy = TrendFollow(short_term=5, long_term=20, gap_count=3)
 broker.strategy_register(tf_strategy)
 broker.sizer_register(sizer=r)
 matcher = SimulateMatcher()
 broker.matcher_register(matcher=matcher)
 
-# painter = CandlePainter()
-# broker.painter_register(painter)
+painter = CandlePainter(mav=(5, 20, 50, 100))
+broker.painter_register(painter)
 
 code_list = remove_index()
 code = code_list.sample(n=1).iloc[0].code
 
-pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2013-01-01")
+pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2020-05-01")
 engine.feed(pdata1)
 engine.start()
+painter.draw_live()
