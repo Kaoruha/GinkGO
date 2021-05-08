@@ -82,7 +82,7 @@ class TrendFollow(BaseStrategy):
         )
         today = self.daybar.iloc[-1]
         date = today.date
-        gap = CAL_ATR(code, open_date, period=self.short_term)
+        gap = CAL_ATR(code, open_date, period=int(self.short_term / 5))
         sell_point = hold_high - gap * self.gap_count
         if float(today.close) <= sell_point:
             signal = SignalEvent(
