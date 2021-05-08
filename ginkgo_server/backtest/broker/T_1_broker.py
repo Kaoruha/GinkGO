@@ -22,6 +22,9 @@ class T1Broker(BaseBroker):
                 print("事件日期异常，不进行任何操作，请检查代码")
                 return
             self.update_price(code=event.code, data=event.data)
+            # if self._painter is not None:
+            #     self._painter.get_price(broker=self, price=event.data)
+            #     self._painter.draw()
             # print("处理DayBar")
 
         if event.info_type == InfoType.MinutePrice:

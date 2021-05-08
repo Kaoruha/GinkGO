@@ -14,6 +14,7 @@ from ginkgo_server.backtest.matcher.base_matcher import BaseMatcher
 from ginkgo_server.backtest.analyzer.base_analyzer import BaseAnalyzer
 from ginkgo_server.backtest.risk.base_risk import BaseRisk
 from ginkgo_server.backtest.sizer.base_sizer import BaseSizer
+from ginkgo_server.backtest.painter.base_painter import BasePainter
 from ginkgo_server.backtest.event_engine import EventEngine
 
 
@@ -41,6 +42,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self._sizer = None
         self._matcher = None
         self._analyzer = None
+        self._painter = None
         self.current_price = {}  # 存储获得的最新价格信息
         self.position = {}  # 存放Position对象
         self.trade_history = []
@@ -97,7 +99,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         :type sizer: BaseSizer
         """
         self._sizer = sizer
-        self._sizer.engine_register(self._engine)
+        # self._sizer.engine_register(self._engine)
 
     def risk_register(self, risk: BaseRisk):
         """
@@ -134,6 +136,17 @@ class BaseBroker(metaclass=abc.ABCMeta):
         # 撮合类、匹配器绑定
         self._analyzer = analyzer
         self._analyzer.engine_register(self._engine)
+
+    def painter_register(self, painter: BasePainter):
+        """
+        撮合匹配器绑定
+
+        :param matcher: 负责撮合成交，回测为虚拟逻辑/实盘为真实异步多线程API调用监听
+        :type matcher: BaseMatcher
+        """
+        # 撮合类、匹配器绑定
+        self._painter = painter
+        # self._analyzer.engine_register(self._engine)
 
     def market_handler(self, event: MarketEvent):
         """

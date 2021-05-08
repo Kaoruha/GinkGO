@@ -15,6 +15,7 @@ from ginkgo_server.backtest.strategy.test_strategy import TestStrategy
 from ginkgo_server.backtest.strategy.trend_follow import TrendFollow
 from ginkgo_server.backtest.price import DayBar
 from ginkgo_server.util.stock_filter import remove_index
+from ginkgo_server.backtest.painter.candle import CandlePainter
 
 r = RiskAVGSizer(base_factor=80)
 
@@ -25,15 +26,18 @@ engine.register(EventType.Signal, broker.signal_handler)
 engine.register(EventType.Order, broker.order_handler)
 engine.register(EventType.Fill, broker.fill_handler)
 # tf_strategy = TestStrategy()
-tf_strategy = TrendFollow(short_term=5, long_term=30, gap_count=3)
+tf_strategy = TrendFollow(short_term=50, long_term=100, gap_count=3)
 broker.strategy_register(tf_strategy)
 broker.sizer_register(sizer=r)
 matcher = SimulateMatcher()
 broker.matcher_register(matcher=matcher)
 
+# painter = CandlePainter()
+# broker.painter_register(painter)
+
 code_list = remove_index()
 code = code_list.sample(n=1).iloc[0].code
 
-pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2020-01-01")
+pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2013-01-01")
 engine.feed(pdata1)
 engine.start()
