@@ -48,7 +48,12 @@ class BaseStrategy(metaclass=abc.ABCMeta):
         """退出策略"""
         raise NotImplementedError("Must implement exit_market()")
 
+    def pre_treate(self):
+        """预处理函数"""
+        raise NotImplementedError("Must implement pre_treate()")
+
     def try_gen_signals(self):
+        self.pre_treate()
         r = []
         signal_enter = self.try_gen_enter_signal()
         signal_exit = self.try_gen_exit_signal()

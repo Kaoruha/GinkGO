@@ -36,8 +36,7 @@ class TrendFollow(BaseStrategy):
         s = "MA" + str(term)
         return s
 
-    def try_gen_enter_signal(self):
-        """进入策略"""
+    def pre_treate(self):
         code = self.daybar.loc[0].code
         date = self.daybar.iloc[-1].date
 
@@ -50,8 +49,15 @@ class TrendFollow(BaseStrategy):
         self.daybar[long_title] = (
             self.daybar["close"].rolling(self.long_term, min_periods=1).mean()
         )
+
+    def try_gen_enter_signal(self):
+        """进入策略"""
         if self.daybar.shape[0] < 3:
             return
+        short_title = self.__get_column_title(self.short_term)
+        long_title = self.__get_column_title(self.long_term)
+        code = self.daybar.loc[0].code
+        date = self.daybar.iloc[-1].date
         yesterday = self.daybar.iloc[-2]
         today = self.daybar.iloc[-1]
         if (

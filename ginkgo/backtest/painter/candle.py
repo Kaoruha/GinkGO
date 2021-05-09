@@ -55,17 +55,18 @@ class CandlePainter(BasePainter):
 
                 # 画图
                 # 蜡烛
-                ax1.bar(x=x, height=close - open_, bottom=open_, color=colors)
+                height = self.data["height"].values
+                ax1.bar(x=x, height=height, bottom=open_, color=colors)
                 # 腊烛芯
                 ax1.vlines(x, low, high, color=colors, linewidth=0.6)
                 # 移动均线
                 if len(self.mav) > 0:
                     for i in range(len(self.mav)):
                         name = "MA" + str(self.mav[i])
-                        ax1.plot(x, self.data[name])
+                        ax1.plot(x, self.data[name], label=name)
 
                 # 经纪人资产
-                ax1.plot(x, self.data["total_capitial"] * close[0])
+                ax1.plot(x, self.data["total_capitial"] * close[0], label="资金")
                 ax1.axhline(y=close[0], color="red", linestyle="--", linewidth=0.5)
                 # 成交量
                 ax2.bar(x=x, height=volume, color=colors)

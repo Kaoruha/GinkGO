@@ -17,7 +17,7 @@ from ginkgo.backtest.price import DayBar
 from ginkgo.util.stock_filter import remove_index
 from ginkgo.backtest.painter.candle import CandlePainter
 
-r = RiskAVGSizer(base_factor=80)
+r = RiskAVGSizer(base_factor=8000)
 
 engine = EventEngine()
 broker = T1Broker(init_capitial=100000, engine=engine)
@@ -26,19 +26,24 @@ engine.register(EventType.Signal, broker.signal_handler)
 engine.register(EventType.Order, broker.order_handler)
 engine.register(EventType.Fill, broker.fill_handler)
 # tf_strategy = TestStrategy()
-tf_strategy = TrendFollow(short_term=5, long_term=20, gap_count=3)
+short_ = 5
+long_ = 20
+tf_strategy = TrendFollow(short_term=short_, long_term=long_, gap_count=2)
 broker.strategy_register(tf_strategy)
 broker.sizer_register(sizer=r)
 matcher = SimulateMatcher()
 broker.matcher_register(matcher=matcher)
 
-painter = CandlePainter(mav=(5, 20, 50, 100))
+painter = CandlePainter(mav=(short_, long_))
 broker.painter_register(painter)
 
 code_list = remove_index()
 code = code_list.sample(n=1).iloc[0].code
 
-pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2020-05-01")
+pdata1 = gm.get_dayBar_by_mongo(code="sz.300359", start_date="2018-05-01")
 engine.feed(pdata1)
 engine.start()
+import matplotlib.pyplot as plt
+
+plt.set_loglevel("warning")
 painter.draw_live()
