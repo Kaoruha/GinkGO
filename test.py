@@ -27,9 +27,9 @@ engine.register(EventType.Order, broker.order_handler)
 engine.register(EventType.Fill, broker.fill_handler)
 # tf_strategy = TestStrategy()
 # 策略挂载
-short_ = 5
-long_ = 30
-tf_strategy = TrendFollow(short_term=short_, long_term=long_, gap_count=3)
+short_ = 30
+long_ = 60
+tf_strategy = TrendFollow(short_term=short_, long_term=long_, gap_count=6)
 broker.strategy_register(tf_strategy)
 
 pll_strategy = ProfitLossLimit(limit=(30, 10))
@@ -50,7 +50,7 @@ broker.painter_register(painter)
 # 准备数据
 code_list = remove_index()
 code = code_list.sample(n=1).iloc[0].code
-pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2018-01-01")
+pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2013-01-01")
 
 # 喂数据，启动
 engine.feed(pdata1)
