@@ -27,12 +27,18 @@ engine.register(EventType.Order, broker.order_handler)
 engine.register(EventType.Fill, broker.fill_handler)
 # tf_strategy = TestStrategy()
 # 策略挂载
+<<<<<<< Updated upstream
 short_ = 30
 long_ = 60
 tf_strategy = TrendFollow(short_term=short_, long_term=long_, gap_count=6)
+=======
+short_ = 5
+long_ = 10
+tf_strategy = TrendFollow(short_term=short_, long_term=long_, gap_count=3)
+>>>>>>> Stashed changes
 broker.strategy_register(tf_strategy)
 
-pll_strategy = ProfitLossLimit(limit=(30, 10))
+pll_strategy = ProfitLossLimit(limit=(12, 5))
 broker.strategy_register(pll_strategy)
 
 # 开仓策略
