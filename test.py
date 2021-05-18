@@ -20,7 +20,7 @@ from ginkgo.backtest.painter.candle import CandlePainter
 
 # 引擎事件注册
 engine = EventEngine()
-broker = T1Broker(init_capitial=100000, engine=engine)
+broker = T1Broker(init_capital=100000, engine=engine)
 engine.register(EventType.Market, broker.market_handler)
 engine.register(EventType.Signal, broker.signal_handler)
 engine.register(EventType.Order, broker.order_handler)
@@ -50,7 +50,7 @@ broker.painter_register(painter)
 # 准备数据
 code_list = remove_index()
 code = code_list.sample(n=1).iloc[0].code
-pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2013-01-01")
+pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2019-01-01")
 
 # 喂数据，启动
 engine.feed(pdata1)

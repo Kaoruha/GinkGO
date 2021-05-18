@@ -28,15 +28,15 @@ class BaseBroker(metaclass=abc.ABCMeta):
         name,
         engine,
         *,
-        init_capitial=100000,
+        init_capital=100000,
     ):
         self._name = name
         self._engine = engine
         self.date = None
         self.time = None
-        self._init_capitial = 0  # 设置初始资金
-        self._capitial = 0
-        self._total_capitial = 0
+        self._init_capital = 0  # 设置初始资金
+        self._capital = 0
+        self._total_capital = 0
         self._freeze = 0
         self._strategies = []  # 策略池
         self._sizer = None
@@ -50,8 +50,8 @@ class BaseBroker(metaclass=abc.ABCMeta):
         # 'code': ['date', 'price', 'amount', 'order_id', 'trade_id']
         self.market_type = MarketType.Stock_CN  # 以后会支持港股美股日股等乱七八糟的市场
 
-        self.get_cash(init_capitial)  # 入金
-        self.cal_total_capitial()
+        self.get_cash(init_capital)  # 入金
+        self.cal_total_capital()
 
     def __repr__(self):
         s = "=" * 20 + "\n"
@@ -59,9 +59,9 @@ class BaseBroker(metaclass=abc.ABCMeta):
         s += f"{self._name} "
         s += "\n" + f"当前日期：{self.date}，"
         s += "\n" + f"当前时间：{self.time}，"
-        s += "\n" + f"初始资金：{self._init_capitial}，"
-        s += "\n" + f"总资金：{self._total_capitial}，"
-        s += "\n" + f"可用现金：{self._capitial}，"
+        s += "\n" + f"初始资金：{self._init_capital}，"
+        s += "\n" + f"总资金：{self._total_capital}，"
+        s += "\n" + f"可用现金：{self._capital}，"
         s += "\n" + f"冻结金额：{self._freeze}"
         s += "\n" + f"仓位控制：{self._sizer._name if self._sizer else 'None'}"
         s += "\n" + f"成交撮合：{self._matcher._name if self._matcher else 'None'}"
@@ -194,11 +194,11 @@ class BaseBroker(metaclass=abc.ABCMeta):
         """
         # 入金金额只接受大于0的金额
         if cash > 0:
-            self._capitial += cash
-            self._init_capitial += cash
-            self.cal_total_capitial()
+            self._capital += cash
+            self._init_capital += cash
+            self.cal_total_capital()
             print(
-                f"{self._name}「入金」{format(cash,',')}，目前持有现金「{format(self._capitial,',')}」"
+                f"{self._name}「入金」{format(cash,',')}，目前持有现金「{format(self._capital,',')}」"
             )
         else:
             print("Cash should above 0.")
@@ -207,7 +207,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         """
         冻结现金，准备买入
         """
-        self._capitial -= money
+        self._capital -= money
         self._freeze += money
 
     def add_position(self, position):
@@ -277,10 +277,10 @@ class BaseBroker(metaclass=abc.ABCMeta):
         """
         self.current_price[code] = data
 
-    def cal_total_capitial(self):
+    def cal_total_capital(self):
         stock = 0
 
         for i in self.position.keys():
             price = float(self.current_price[i].data.close)
             stock += price * (self.position[i].volume + self.position[i].freeze)
-        self._total_capitial = self._capitial + self._freeze + stock
+        self._total_capital = self._capital + self._freeze + stock

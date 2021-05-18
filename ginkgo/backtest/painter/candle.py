@@ -69,9 +69,7 @@ class CandlePainter(BasePainter):
                         self.ax1.plot(x, self.data[name], label=name)
 
                 # 经纪人资产
-                self.ax1.plot(
-                    x, self.data["total_capitial"] * close[0], label="Capital"
-                )
+                self.ax1.plot(x, self.data["total_capital"] * close[0], label="Capital")
 
                 self.ax1.axhline(y=close[0], color="red", linestyle="--", linewidth=0.5)
                 # 成交量

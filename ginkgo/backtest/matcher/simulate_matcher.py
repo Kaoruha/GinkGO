@@ -49,13 +49,13 @@ class SimulateMatcher(BaseMatcher):
             p = float(current_price[order.code].data.open) * 1.1
             bussiness_volume = p * order.volume
             fee = self.fee_cal(bussiness_volume=bussiness_volume, deal_type=order.deal)
-            if broker._capitial <= (bussiness_volume + fee):
+            if broker._capital <= (bussiness_volume + fee):
                 # 当前现金小于预计成交量与税费，调整Order内的Volume后再尝试成交
-                gap = bussiness_volume + fee - broker._capitial
+                gap = bussiness_volume + fee - broker._capital
                 order.adjust_volume(-(gap / p))
                 bussiness_volume = p * order.volume
             print(
-                f"{date} 预计成交量：{order.volume}，预计成交金额：{bussiness_volume}，税费：{fee}，当前现金：{broker._capitial}"
+                f"{date} 预计成交量：{order.volume}，预计成交金额：{bussiness_volume}，税费：{fee}，当前现金：{broker._capital}"
             )
             broker.freeze_money(bussiness_volume + fee)
             order.freeze_money(bussiness_volume + fee)

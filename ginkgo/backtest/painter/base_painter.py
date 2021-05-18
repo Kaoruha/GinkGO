@@ -25,7 +25,7 @@ class BasePainter(object):
         dic = {}
         for i in price.data.keys():
             dic[i] = price.data[i]
-        dic["total_capitial"] = broker._total_capitial / broker._init_capitial
+        dic["total_capital"] = broker._total_capital / broker._init_capital
         df = pd.Series(dic)
         self.raw = self.raw.append(df, ignore_index=True)
 

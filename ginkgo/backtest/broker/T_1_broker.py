@@ -9,10 +9,10 @@ class T1Broker(BaseBroker):
         engine,
         *,
         name="T+1 经纪人",
-        init_capitial=100000,
+        init_capital=100000,
     ):
         super(T1Broker, self).__init__(
-            engine=engine, name=name, init_capitial=init_capitial
+            engine=engine, name=name, init_capital=init_capital
         )
 
     def market_handler(self, event):
@@ -42,8 +42,8 @@ class T1Broker(BaseBroker):
         for i in self.hold_events:
             self._engine.put(i)
         self.hold_events = []  # TODO 回头换成queue
-        self.cal_total_capitial()
-        print(f"{event.date} {event.code} {self._total_capitial}")
+        self.cal_total_capital()
+        print(f"{event.date} {event.code} {self._total_capital}")
 
     def signal_handler(self, signal):
         # 先检查信号事件里的标的当天是否有成交量，如果没有，把信号推回给
@@ -102,25 +102,25 @@ class T1Broker(BaseBroker):
                 )
                 self.add_position(p)
                 self._freeze -= event.freeze
-                self._capitial += event.remain
-                self.cal_total_capitial()
+                self._capital += event.remain
+                self.cal_total_capital()
             elif event.deal == DealType.SELL:
                 # 交易成功的卖单处理
                 if event.code not in self.position.keys():
                     print(f"{event.date} 未持仓却交易成功，请检查代码")
                     return
                 self.position[event.code].sell(volume=event.volume, done=True)
-                self._capitial += event.remain
-                self.cal_total_capitial()
+                self._capital += event.remain
+                self.cal_total_capital()
                 self.check_position()
         else:
             # 交易失败的处理
             if event.deal == DealType.BUY:
                 self._freeze -= event.freeze
-                self._capitial += event.freeze
+                self._capital += event.freeze
             if event.deal == DealType.SELL:
                 self.position[event.code].sell(volume=event.volume, done=False)
-        # print(self._total_capitial)
+        # print(self._total_capital)
 
     def general_handler(self, event):
         pass

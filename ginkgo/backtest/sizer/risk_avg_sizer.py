@@ -53,7 +53,7 @@ class RiskAVGSizer(BaseSizer):
         code = signal.code
         date = signal.date
         hold_position = broker.position
-        total = broker._init_capitial
+        total = broker._init_capital
         # TODO 现在所有标的都按照基准风险因子BaseRiskFactor设定风险因子，回头会根据持仓情况和信号情况动态调整风险因子
         self.add_risk_factor(code=code, risk_factor=self._base_risk_factor)
         # 经纪人未持有信号相关头寸
