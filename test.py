@@ -50,7 +50,7 @@ broker.painter_register(painter)
 # 准备数据
 code_list = remove_index()
 code = code_list.sample(n=1).iloc[0].code
-pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2019-01-01")
+pdata1 = gm.get_dayBar_by_mongo(code=code, start_date="2018-01-01")
 
 # 喂数据，启动
 engine.feed(pdata1)
