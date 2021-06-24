@@ -8,13 +8,10 @@ from ginkgo.backtest.events import (
 )
 from ginkgo.backtest.broker.T_1_broker import T1Broker
 from ginkgo.backtest.event_engine import EventEngine
-from ginkgo.backtest.postion import Position
 from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
-from ginkgo.backtest.strategy.test_strategy import TestStrategy
 from ginkgo.backtest.strategy.trend_follow import TrendFollow
 from ginkgo.backtest.strategy.profit_loss_limit import ProfitLossLimit
-from ginkgo.backtest.price import DayBar
 from ginkgo.util.stock_filter import remove_index
 from ginkgo.backtest.painter.candle import CandlePainter
 
