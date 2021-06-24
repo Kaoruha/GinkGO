@@ -1,5 +1,4 @@
 import time
-import datetime
 import pandas as pd
 from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo.data.stock.baostock_data import bao_instance
