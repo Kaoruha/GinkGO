@@ -93,22 +93,22 @@ class CandlePainter(BasePainter):
                     break
 
         # 鼠标参考线
-        cursor1 = Cursor(
-            self.ax1,
-            horizOn=True,
-            vertOn=True,
-            useblit=True,
-            color="lightblue",
-            linewidth=0.8,
-        )
-        cursor2 = Cursor(
-            self.ax2,
-            horizOn=True,
-            vertOn=True,
-            useblit=True,
-            color="lightblue",
-            linewidth=0.8,
-        )
+        # cursor1 = Cursor(
+        #     self.ax1,
+        #     horizOn=True,
+        #     vertOn=True,
+        #     useblit=True,
+        #     color="lightblue",
+        #     linewidth=0.8,
+        # )
+        # cursor2 = Cursor(
+        #     self.ax2,
+        #     horizOn=True,
+        #     vertOn=True,
+        #     useblit=True,
+        #     color="lightblue",
+        #     linewidth=0.8,
+        # )
         plt.ion()
         title = f"{self.raw.loc[0].code} Complete"
         self.figure.suptitle(title, fontsize=20, x=0.5, y=0.97)
