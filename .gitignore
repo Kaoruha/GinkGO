@@ -142,3 +142,5 @@ static/data/*.*.csv
 # .vscode/settings.json
 .DS_Store
 dist/*
+logs/
+.logs
