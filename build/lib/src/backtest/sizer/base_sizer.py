@@ -13,13 +13,16 @@ class BaseSizer(metaclass=abc.ABCMeta):
 
     """
 
-    def __init__(self, name):
+    def __init__(self, name='base_sizer'):
         self._engine = None
-        self.__name = name
+        if isinstance(name, str):
+            self._name = name
+        else:
+            self._name = 'base_sizer'
 
     @property
     def name(self):
-        return self.__name
+        return self._name
 
     def __repr__(self):
         engine_status = "未挂载引擎" if self._engine is None else f"已挂载引擎 {self._engine}"

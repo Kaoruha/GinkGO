@@ -12,8 +12,8 @@ class BaseStrategy(metaclass=abc.ABCMeta):
     """
 
     def __init__(self, name="策略基类"):
-        self.name = name
-        self.day_columns = [
+        self._name = name
+        self._day_columns = [
             "date",
             "code",
             "open",
@@ -28,9 +28,26 @@ class BaseStrategy(metaclass=abc.ABCMeta):
             "pct_chg",
             "is_st",
         ]
-        self.daybar = pd.DataFrame(columns=self.day_columns)
-        self.minbar = None
-        self.broker = None
+        self._daybar = pd.DataFrame(columns=self._day_columns)
+        self._minbar = None
+        self._broker = None
+        self._engine = None
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+
+    @property
+    def broker(self):
+        return self._broker
+
+    @broker.setter
+    def broker(self, value):
+        self._broker = value
 
     def __repr__(self):
         s = self.name
@@ -39,6 +56,10 @@ class BaseStrategy(metaclass=abc.ABCMeta):
     def engine_register(self, engine: EventEngine):
         # 引擎注册，通过Broker的注册获得引擎实例
         self._engine = engine
+
+    def broker_register(self, broker):
+        # 注册经纪人
+        self._broker = broker
 
     def try_gen_enter_signal(self):
         """进入策略"""
@@ -63,18 +84,17 @@ class BaseStrategy(metaclass=abc.ABCMeta):
             r.append(signal_exit)
         return r
 
-    def get_price(self, event, broker):
+    def get_price(self, event):
         if event.info_type == InfoType.DailyPrice:
             try:
                 day_bar = event.data
-                self.daybar = self.daybar.append(day_bar.data, ignore_index=True)
+                self._daybar = self.daybar.append(day_bar.data, ignore_index=True)
                 # 去重
-                self.daybar = self.daybar.drop_duplicates()
+                self._daybar = self.daybar.drop_duplicates()
                 # 排序
-                self.daybar = self.daybar.sort_values(by="date", ascending=True, axis=0)
+                self._daybar = self.daybar.sort_values(by="date", ascending=True, axis=0)
             except Exception as e:
                 print(e)
                 print("数据接收异常，请检查代码")
-        self.broker = broker
         r = self.try_gen_signals()
         return r

@@ -47,12 +47,12 @@ class T1Broker(BaseBroker):
 
     def signal_handler(self, signal):
         # 先检查信号事件里的标的当天是否有成交量，如果没有，把信号推回给
-        if signal.code not in self.current_price.keys():
+        if signal.code not in self.last_price.keys():
             print(f"目前已经价格信息内没有 {signal.code}的信息")
             return
-        if self.current_price[signal.code].data.volume == 0:
-            date = self.current_price[signal.code].data.date
-            code = self.current_price[signal.code].data.code
+        if self.last_price[signal.code].data.volume == 0:
+            date = self.last_price[signal.code].data.date
+            code = self.last_price[signal.code].data.code
             print(f"{date} {code} 没有成交量，会把信号事件重新推送至Hold")
             signal.date = date
             signal.source = "{date} {code} 无成交量，第二天再尝试处理信号事件"
@@ -65,12 +65,12 @@ class T1Broker(BaseBroker):
 
     def order_handler(self, event):
         # 检查是否有对应Code的价格信息
-        if event.code not in self.current_price.keys():
+        if event.code not in self.last_price.keys():
             print(f"没有{event.code}的当前价格信息，请检查代码")
             return
 
         # 检查价格信息的日期是否在订单事件日期之后
-        current_date = str(self.current_price[event.code].data.date)
+        current_date = str(self.last_price[event.code].data.date)
         if current_date <= str(event.date):
             print(f"{current_date} 需要在订单事件生成的第二天才可以进行撮合尝试")
             event.source = "当天无法成交，Broker暂时持有Order待获取新Price时重新尝试"
@@ -78,10 +78,10 @@ class T1Broker(BaseBroker):
             return
 
         self.matcher.try_match(
-            order=event, broker=self, current_price=self.current_price
+            order=event, broker=self, last_price=self.last_price
         )
 
-        result = self.matcher.get_result(self.current_price)
+        result = self.matcher.get_result(self.last_price)
         for i in result:
             if i.type_ == EventType.Order:
                 self.wait_events.append(i)

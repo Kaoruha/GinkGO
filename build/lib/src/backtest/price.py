@@ -11,27 +11,25 @@ class Price(metaclass=abc.ABCMeta):
         self.type_ = price_type
         self.data = None
 
-    def __repr__(self):
-        s = ""
-        return s
-
 
 class DayBar(Price):
     def __init__(
-        self,
-        date: str,
-        code: str,
-        open_: float,
-        high: float,
-        low: float,
-        close: float,
-        pre_close: float,
-        volume: int,
-        amount: float,
-        adjust_flag: int,
-        turn: float,
-        pct_change: float,
-        is_st: int,
+            self,
+            date: str,
+            code: str,
+            open_: float,
+            high: float,
+            low: float,
+            close: float,
+            pre_close: float,
+            volume: int,
+            amount: float,
+            adjust_flag: int,
+            turn: float,
+            pct_change: float,
+            is_st: int,
+            *args,
+            **kwargs
     ):
         super(DayBar, self).__init__(price_type=PriceType.Day)
         self.index = [
@@ -71,17 +69,17 @@ class DayBar(Price):
 
 class Min5Bar(Price):
     def __init__(
-        self,
-        date: str,
-        time: str,
-        code: str,
-        open_: float,
-        high: float,
-        low: float,
-        close: float,
-        volume: int,
-        amount: float,
-        adjust_flag: int,
+            self,
+            date: str,
+            time: str,
+            code: str,
+            open_: float,
+            high: float,
+            low: float,
+            close: float,
+            volume: int,
+            amount: float,
+            adjust_flag: int,
     ):
         super(Min5Bar, self).__init__(price_type=PriceType.Min5)
         self.index = [

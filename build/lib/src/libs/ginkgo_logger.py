@@ -8,6 +8,7 @@ from src.config.setting import (
     LOGGING_FILE_ON
     )
 
+
 class GinkgoLogging(object):
     def __init__(self, logger_name) -> None:
         super().__init__()
@@ -33,7 +34,6 @@ class GinkgoLogging(object):
         console_handler.setFormatter(console_formatter)
         file_handler.setFormatter(file_formatter)
         
-
         # 添加日志处理
         self.logger.addHandler(console_handler)
         if LOGGING_FILE_ON:

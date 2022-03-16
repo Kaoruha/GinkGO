@@ -16,7 +16,8 @@ from src.backtest.event_engine import EventEngine
 
 
 class BaseAnalyzer(object):
-    def __init__(self):
+    def __init__(self, name="基础分析类"):
+        self._name = name
         self._init_date = ""
         self._current_date = ""
         self._target = "sh."
@@ -26,10 +27,18 @@ class BaseAnalyzer(object):
         self._position = {}
         self._profit = 0
         self._freeze = 0
-        self._current_price = 0
+        self._last_price = 0
         self._stock_value = 0
         self._max_profit = 0
         self._max_drawdown = 0
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
 
     def engine_register(self, engine: EventEngine):
         """

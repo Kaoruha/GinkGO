@@ -27,6 +27,7 @@ class MarketEvent(Event):
         self.time = time
 
     def __repr__(self):
+        t = ""
         if self.info_type == InfoType.DailyPrice:
             t = "日线价格信息"
         elif self.info_type == InfoType.MinutePrice:
@@ -77,7 +78,9 @@ class OrderEvent(Event):
         deal=DealType.BUY,  # 交易类型
         volume=0,  # 购买或卖出的量
         source="",
+        price_limit=0
     ):
+    # TODO 添加限价、市场价成交方式
         super(OrderEvent, self).__init__(
             event_type=EventType.Order, date=date, code=code, source=source
         )
@@ -85,6 +88,7 @@ class OrderEvent(Event):
         # 下单数(单位是手，买入只能整百，卖出可以零散)
         self.volume = self.optimize_volume(volume=volume)
         self.freeze = 0
+        self.price_limit = price_limit
         print(self)
 
     def __repr__(self):

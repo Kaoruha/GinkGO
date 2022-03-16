@@ -7,8 +7,9 @@ from src.backtest.price import DayBar, Min5Bar
 
 
 class BasePainter(object):
-    def __init__(self, mav=(), *args):
+    def __init__(self, name='基础绘图',mav=(), *args):
         super(BasePainter, self).__init__(*args)
+        self._name  = name
         self.raw = pd.DataFrame()
         self.data = None
         self.broker = None
@@ -16,6 +17,10 @@ class BasePainter(object):
         self.mav = mav
 
         self.create_canvas()
+
+    @property
+    def name(self):
+        return  self._name
 
     def create_canvas(self):
         pass

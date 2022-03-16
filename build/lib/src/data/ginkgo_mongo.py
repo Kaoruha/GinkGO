@@ -16,7 +16,6 @@ from src.libs.ginkgo_logger import ginkgo_logger as gl
 from src.libs.thread_manager import thread_manager as tm
 from src.util.adjust_calculation import adjust_cal
 
-
 # 5分钟交易数据后缀
 min5_postfix = ".min5"
 
@@ -100,7 +99,7 @@ class GinkgoMongo(object):
         gl.info("StockInfo更新完成.")
 
     # 从mongo中获取所有股票代码
-    def get_all_stockcode_by_mongo(self):
+    def get_all_stockcode_by_mongo(self) -> pd.DataFrame:
         """
         从本地mongo中获得所有股票代码
 
@@ -160,9 +159,9 @@ class GinkgoMongo(object):
         threads = []
         for i in range(pieces_count):
             gl.info(f"创建UpsertAF {i}")
-            sliced_stock_list = data_frame[slice_count * i : slice_count * (i + 1)]
+            sliced_stock_list = data_frame[slice_count * i: slice_count * (i + 1)]
             thread = threading.Thread(
-                name=f"AdjustFactor {slice_count*i}-{slice_count*(i+1)}",
+                name=f"AdjustFactor {slice_count * i}-{slice_count * (i + 1)}",
                 target=self.upsert_adjustfactor,
                 args=(sliced_stock_list,),
             )
@@ -261,7 +260,7 @@ class GinkgoMongo(object):
 
     # 获取日交易数据，并存入队列
     def get_daybar_by_baostock(
-        self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
+            self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
     ):
         """
         获取日交易数据，并存入data_queue的队列里
@@ -323,18 +322,18 @@ class GinkgoMongo(object):
         while True:
             # 如果stock_queue
             if (
-                stock_queue.qsize() == 0
-                and data_queue.qsize() == 0
-                and len(get_thread_dict) == 0
-                and len(set_thread_dict) == 0
+                    stock_queue.qsize() == 0
+                    and data_queue.qsize() == 0
+                    and len(get_thread_dict) == 0
+                    and len(set_thread_dict) == 0
             ):
                 gl.info("日交易数据更新完毕")
                 return
 
             if (
-                data_queue.qsize() < data_pool_size
-                and len(get_thread_dict) == 0
-                and stock_queue.qsize() > 0
+                    data_queue.qsize() < data_pool_size
+                    and len(get_thread_dict) == 0
+                    and stock_queue.qsize() > 0
             ):
                 # 从stock_queue 中获取一个代码
                 code = stock_queue.get()
@@ -442,7 +441,7 @@ class GinkgoMongo(object):
 
     # 从Baostock获取Min5数据，存入dataQueue中
     def get_min5_async_by_baostock(
-        self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
+            self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
     ):
         """
         从Baostock获取Min5数据，存入dataQueue中
@@ -517,18 +516,18 @@ class GinkgoMongo(object):
         while True:
             # 如果stock_queue
             if (
-                stock_queue.qsize() == 0
-                and data_queue.qsize() == 0
-                and len(get_thread_dict) == 0
-                and len(set_thread_dict) == 0
+                    stock_queue.qsize() == 0
+                    and data_queue.qsize() == 0
+                    and len(get_thread_dict) == 0
+                    and len(set_thread_dict) == 0
             ):
                 gl.info("Min5 交易数据更新完毕")
                 return
 
             if (
-                data_queue.qsize() < data_pool_size
-                and len(get_thread_dict) == 0
-                and stock_queue.qsize() > 0
+                    data_queue.qsize() < data_pool_size
+                    and len(get_thread_dict) == 0
+                    and stock_queue.qsize() > 0
             ):
                 # 从stock_queue 中获取一个代码
                 code = stock_queue.get()
@@ -917,7 +916,7 @@ class GinkgoMongo(object):
         self.insert_coin_m1(coin_id=coin_id, df=df_insert)
         t5 = time.time()
         print(
-            f"{coin_id} {start_time}-{end_time} ({df.shape[0]}) 更新总耗时: {round(t5-t1,3)}s  获取全量耗时: {round(t3-t2,3)}s  去重耗时: {round(t4-t3,3)}s  插入耗时: {round(t5-t4,3)}s"
+            f"{coin_id} {start_time}-{end_time} ({df.shape[0]}) 更新总耗时: {round(t5 - t1, 3)}s  获取全量耗时: {round(t3 - t2, 3)}s  去重耗时: {round(t4 - t3, 3)}s  插入耗时: {round(t5 - t4, 3)}s"
         )
 
     def is_coin_exist(self, coin_id):
@@ -999,7 +998,7 @@ class GinkgoMongo(object):
             t1 = time.time()
             self.update_coin_m1(i)
             t2 = time.time()
-            print(f"更新{i} 耗时:{round(t2-t1,3)}s")
+            print(f"更新{i} 耗时:{round(t2 - t1, 3)}s")
 
     def update_all(self):
         self.update_stockinfo()
@@ -1009,6 +1008,13 @@ class GinkgoMongo(object):
         # TODO 加入虚拟货币的更新
         self.upsert_coin_info()
         self.update_all_coin()
+
+    def get_trade_day(self):
+        """
+        获取所有交易日
+        """
+        df = self.get_dayBar_by_mongo(code='sh.000001')
+        return df['date']
 
 
 ginkgo_mongo = GinkgoMongo(
