@@ -138,6 +138,7 @@ static/data/*.*.csv
 .static/data/*.csv
 .static/data/*.*.csv
 *.csv
-.vscode/launch.json
-.vscode/settings.json
+# .vscode/launch.json
+# .vscode/settings.json
 .DS_Store
+dist/*
