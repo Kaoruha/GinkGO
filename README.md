@@ -106,7 +106,3 @@ docker run -d -v F:\mongo:/data/db --restart=always -p 27017:27017 --ulimit npro
 mongo
 use quant
 db.createUser({user:"ginkgo",pwd:"caonima123",roles:[{role:"readWrite",db:"quant"}]})
-
-# MAC
-ulimit -n 65535
-mongod --dbpath /Users/suny/Development/mongodb/db --logpath /Users/suny/Development/mongodb/log/mongodb.log
