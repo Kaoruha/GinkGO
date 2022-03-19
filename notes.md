@@ -1,7 +1,7 @@
 <!--
  * @Author: Kaoru
  * @Date: 2022-03-16 10:25:09
- * @LastEditTime: 2022-03-16 10:25:09
+ * @LastEditTime: 2022-03-20 00:54:09
  * @LastEditors: Kaoru
  * @Description: Be stronger,be patient,be confident and never say die.
  * @FilePath: /Ginkgo/notes.md
@@ -10,7 +10,7 @@
 Momentum 动力、趋势
 MeanReversion 均值回归
 MarketMaking 做市商
-StatARB 统计套利
+StatisticalArbitrage 统计套利
 SENTMENT 情绪交易
 
 
