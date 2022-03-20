@@ -2,28 +2,26 @@
 version: '3'
 services:
   GinkgoMongo:
-    image: mongo:5.0.5
+    image: mongo:latest
     container_name: ginkgo_mongo
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: caonima123
-      MONGO_INITDB_DATABASE: quant
     volumes:
       - ./mongo:/data/db
-      - ./mongo_init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
       - nets
     ports:
       - "27017:27017"
-#   Agent:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile
-#     image: ginkgo_agent
-#     container_name: ginkgo_agent
-#     networks:
-#       - nets
-networks:
+  # Agent:
+  #   build: 
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   image: ginkgo_agent
+  #   container_name: ginkgo_agent
+  #   networks:
+  #     - nets
+networks: 
   nets:
     external: false
