@@ -1,7 +1,7 @@
 <!--
  * @Author: Kaoru
  * @Date: 2022-03-16 10:25:09
- * @LastEditTime: 2022-03-20 00:54:09
+ * @LastEditTime: 2022-03-20 17:16:21
  * @LastEditors: Kaoru
  * @Description: Be stronger,be patient,be confident and never say die.
  * @FilePath: /Ginkgo/notes.md
@@ -12,6 +12,11 @@ MeanReversion 均值回归
 MarketMaking 做市商
 StatisticalArbitrage 统计套利
 SENTMENT 情绪交易
+
+
+高频交易 做不了
+统计套利 可以做
+算法交易 可以做
 
 
 
