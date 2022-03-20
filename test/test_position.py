@@ -10,14 +10,14 @@ class PositionTest(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(PositionTest, self).__init__(*args, **kwargs)
-        self.code = 'test_01'
-        self.name = 'test_position'
+        self.code = "test_01"
+        self.name = "test_position"
         self.price = 10.0
         self.volume = 10000
-        self.date = '2020-01-01'
+        self.date = "2020-01-01"
 
     def update_price(self):
-        return (12.0,'2020-01-02')
+        return (12.0, "2020-01-02")
 
     def reset_position(self, is_t1) -> Position:
         p = Position(
@@ -26,7 +26,7 @@ class PositionTest(unittest.TestCase):
             name=self.name,
             cost=self.price,
             volume=self.volume,
-            date=self.date
+            date=self.date,
         )
         return p
 
@@ -40,92 +40,69 @@ class PositionTest(unittest.TestCase):
             cost=self.price,
             name=self.name,
             volume=self.volume,
-            date=self.date
+            date=self.date,
         )
         print(p)
         self.assertEqual(
             first={
-                'code': self.code,
-                'price': self.price,
-                'name': self.name,
-                'volume': self.volume,
-                't1frozen': self.volume,
-                'sellfrozen': 0,
-                'avaliable':0,
-                'date': self.date
+                "code": self.code,
+                "price": self.price,
+                "name": self.name,
+                "volume": self.volume,
+                "t1frozen": self.volume,
+                "sellfrozen": 0,
+                "avaliable": 0,
+                "date": self.date,
             },
             second={
-                'code': p.code,
-                'price': p.last_price,
-                'name': p.name,
-                'volume': p.volume,
-                't1frozen': p.frozen_t1,
-                'sellfrozen': p.frozen_sell,
-                'avaliable': p.avaliable_volume,
-                'date': p.date
-            }
+                "code": p.code,
+                "price": p.last_price,
+                "name": p.name,
+                "volume": p.volume,
+                "t1frozen": p.frozen_t1,
+                "sellfrozen": p.frozen_sell,
+                "avaliable": p.avaliable_volume,
+                "date": p.date,
+            },
         )
 
     def test_UpdateDate_OK(self) -> None:
         param = [
-            ('2020-01-02', '2020-01-02'),
-            ('2020-02-01', '2020-02-01'),
-            ('2021-01-01', '2021-01-01'),
+            ("2020-01-02", "2020-01-02"),
+            ("2020-02-01", "2020-02-01"),
+            ("2021-01-01", "2021-01-01"),
         ]
         for i in param:
             p = self.reset_position(is_t1=True)
             p.update_date(i[0])
-            self.assertEqual(
-                first={
-                    'date':i[1]
-                },
-                second={
-                    'date':p.date
-                }
-            )
+            self.assertEqual(first={"date": i[1]}, second={"date": p.date})
 
     def test_UpdateDate_FAILED(self) -> None:
         # TODO 日期有效性还需要校验
         param = [
-            ('2019-01-01', '2020-01-01'),
-            ('2019-02-01', '2020-01-01'),
-            ('2020', '2020-01-01'),
+            ("2019-01-01", "2020-01-01"),
+            ("2019-02-01", "2020-01-01"),
+            ("2020", "2020-01-01"),
         ]
         for i in param:
             p = self.reset_position(is_t1=True)
             p.update_date(i[0])
-            self.assertEqual(
-                first={
-                    'date':i[1]
-                },
-                second={
-                    'date':p.date
-                }
-            )
+            self.assertEqual(first={"date": i[1]}, second={"date": p.date})
 
     def test_UpdatePrice_OK(self) -> None:
         p = self.reset_position(is_t1=True)
         param = [
-            (11, '2020-01-01', 10, '2020-01-01'),
-            (10.5, '2020-01-02', 10.5, '2020-01-02'),
-            (11.1, '2020-01-03', 11.1, '2020-01-03'),
-            (13.6, '2020-02-01', 13.6, '2020-02-01')
+            (11, "2020-01-01", 10, "2020-01-01"),
+            (10.5, "2020-01-02", 10.5, "2020-01-02"),
+            (11.1, "2020-01-03", 11.1, "2020-01-03"),
+            (13.6, "2020-02-01", 13.6, "2020-02-01"),
         ]
         for i in param:
             p.update_last_price(price=i[0], date=i[1])
             self.assertEqual(
-                first={
-                    'price':i[2],
-                    'date': i[3],
-                    'total': i[2] * self.volume
-                },
-                second={
-                    'date': p.date,
-                    'price':p.last_price,
-                    'total': p.market_value
-                }
+                first={"price": i[2], "date": i[3], "total": i[2] * self.volume},
+                second={"date": p.date, "price": p.last_price, "total": p.market_value},
             )
-
 
     # def test_UnfreezeT1_OK(self) -> None:
     #     p = self.reset_position(is_t1=True)
