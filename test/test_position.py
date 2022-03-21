@@ -1,3 +1,4 @@
+from typing import Tuple
 import unittest
 from src.backtest.postion import Position
 from src.backtest.sizer.base_sizer import BaseSizer
@@ -16,10 +17,7 @@ class PositionTest(unittest.TestCase):
         self.volume = 10000
         self.date = "2020-01-01"
 
-    def update_price(self):
-        return (12.0, "2020-01-02")
-
-    def reset_position(self, is_t1) -> Position:
+    def reset_position(self, is_t1: bool) -> Position:
         p = Position(
             is_t1=is_t1,
             code=self.code,
@@ -66,6 +64,42 @@ class PositionTest(unittest.TestCase):
             },
         )
 
+    def test_UnfreezeT1_OK(self) -> None:
+        p = self.reset_position(is_t1=True)
+        self.assertEqual(
+            first={
+                "t1frozen": self.volume,
+                "sellfrozen": 0,
+                "volume": self.volume,
+                "avaliable": 0,
+                "toal": self.price * self.volume,
+            },
+            second={
+                "t1frozen": p.frozen_t1,
+                "sellfrozen": p.frozen_sell,
+                "volume": p.volume,
+                "avaliable": p.avaliable_volume,
+                "toal": p.market_value,
+            },
+        )
+        p.unfreezeT1()
+        self.assertEqual(
+            first={
+                "t1frozen": 0,
+                "sellfrozen": 0,
+                "volume": self.volume,
+                "avaliable": self.volume,
+                "toal": self.price * self.volume,
+            },
+            second={
+                "t1frozen": p.frozen_t1,
+                "sellfrozen": p.frozen_sell,
+                "volume": p.volume,
+                "avaliable": p.avaliable_volume,
+                "toal": p.market_value,
+            },
+        )
+
     def test_UpdateDate_OK(self) -> None:
         param = [
             ("2020-01-02", "2020-01-02"),
@@ -91,8 +125,31 @@ class PositionTest(unittest.TestCase):
 
     def test_UpdatePrice_OK(self) -> None:
         p = self.reset_position(is_t1=True)
+        self.assertEqual(
+            first={
+                "code": self.code,
+                "price": self.price,
+                "name": self.name,
+                "volume": self.volume,
+                "t1frozen": self.volume,
+                "sellfrozen": 0,
+                "avaliable": 0,
+                "date": self.date,
+                "total": self.volume * self.price,
+            },
+            second={
+                "code": p.code,
+                "price": p.last_price,
+                "name": p.name,
+                "volume": p.volume,
+                "t1frozen": p.frozen_t1,
+                "sellfrozen": p.frozen_sell,
+                "avaliable": p.avaliable_volume,
+                "date": p.date,
+                "total": p.market_value,
+            },
+        )
         param = [
-            (11, "2020-01-01", 10, "2020-01-01"),
             (10.5, "2020-01-02", 10.5, "2020-01-02"),
             (11.1, "2020-01-03", 11.1, "2020-01-03"),
             (13.6, "2020-02-01", 13.6, "2020-02-01"),
@@ -100,58 +157,69 @@ class PositionTest(unittest.TestCase):
         for i in param:
             p.update_last_price(price=i[0], date=i[1])
             self.assertEqual(
-                first={"price": i[2], "date": i[3], "total": i[2] * self.volume},
-                second={"date": p.date, "price": p.last_price, "total": p.market_value},
+                first={
+                    "price": i[2],
+                    "date": i[3],
+                    "volume": self.volume,
+                    "t1frozen": 0,
+                    "sellfrozen": 0,
+                    "avaliable": self.volume,
+                    "total": self.volume * i[2],
+                },
+                second={
+                    "price": p.last_price,
+                    "date": p.date,
+                    "volume": p.volume,
+                    "t1frozen": p.frozen_t1,
+                    "sellfrozen": p.frozen_sell,
+                    "avaliable": p.avaliable_volume,
+                    "total": p.market_value,
+                },
             )
 
-    # def test_UnfreezeT1_OK(self) -> None:
-    #     p = self.reset_position(is_t1=True)
-    #     self.assertEqual(
-    #         first={
-    #             'code': self.code,
-    #             'price': self.price,
-    #             'name': self.name,
-    #             'volume': self.volume,
-    #             't1frozen': self.volume,
-    #             'sellfrozen': 0,
-    #             'avaliable':0,
-    #             'date': self.date,
-    #             'total':self.volume * self.price
-    #         },
-    #         second={
-    #             'code': p.code,
-    #             'price': p.last_price,
-    #             'name': p.name,
-    #             'volume': p.volume,
-    #             't1frozen': p.frozen_t1,
-    #             'sellfrozen': p.frozen_sell,
-    #             'avaliable': p.avaliable_volume,
-    #             'date': p.date,
-    #             'total':p.market_value
-    #         }
-    #     )
-    #     up = self.update_price()
-    #     p.update_last_price(up[0], up[1])
-    #     self.assertEqual(
-    #         first={
-    #             'price':up[0],
-    #             'date':up[1],
-    #             'volume':self.volume,
-    #             't1frozen':0,
-    #             'sellfrozen':0,
-    #             'avaliable':self.volume,
-    #             'total':self.volume * up[0]
-    #         },
-    #         second={
-    #             'price':p.last_price,
-    #             'date':p.date,
-    #             'volume':p.volume,
-    #             't1frozen':p.frozen_t1,
-    #             'sellfrozen':p.frozen_sell,
-    #             'avaliable':p.avaliable_volume,
-    #             'total':p.market_value
-    #         }
-    #     )
+    def test_Buy_OK(self) -> None:
+        p = self.reset_position(is_t1=True)
+        self.assertEqual(
+            first={
+                "t1frozen": self.volume,
+                "volume": self.volume,
+                "avaliable": 0,
+                "toal": self.price * self.volume,
+            },
+            second={
+                "t1frozen": p.frozen_t1,
+                "volume": p.volume,
+                "avaliable": p.avaliable_volume,
+                "toal": p.market_value,
+            },
+        )
+        param = [
+            (12, 10000, "2020-01-01", 11, 20000, 10000),
+            (13, 20000, "2020-01-02", 12, 40000, 20000),
+            (14, 40000, "2020-01-03", 13, 80000, 40000),
+        ]
+        for i in param:
+            p.unfreezeT1()
+            p.buy(volume=i[1], cost=i[0], date=i[2])
+            self.assertEqual(
+                first={
+                    "cost": float(i[3]),
+                    "volume": i[4],
+                    "sellfrozen": 0,
+                    "t1frozen": i[5],
+                    "avaiable": i[4] - i[5],
+                },
+                second={
+                    "cost": p.cost,
+                    "volume": p.volume,
+                    "sellfrozen": p.frozen_sell,
+                    "t1frozen": p.frozen_t1,
+                    "avaiable": p.avaliable_volume,
+                },
+            )
+
+    def test_Buy_FAILED(self) -> None:
+        pass
 
     # def test_PreSell_OK(self) -> None:
     #     param = [
