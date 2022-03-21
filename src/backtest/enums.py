@@ -1,7 +1,18 @@
 """
+Author: Kaoru
+Date: 2021-12-23 00:06:29
+LastEditTime: 2022-03-22 01:03:49
+LastEditors: Kaoru
+Description: Be stronger,be patient,be confident and never say die.
+FilePath: /Ginkgo/src/backtest/enums.py
+What goes around comes around.
+"""
+"""
 回测引擎需要的枚举在这里定义
 """
 from enum import Enum
+
+from matplotlib.pyplot import cla
 
 
 class EventType(Enum):
@@ -26,10 +37,40 @@ class OrderType(Enum):
     :type Enum: [type]
     """
 
-    BuyMarket = 100  # 以市场价买入
-    SellMarket = 101  # 以市场价格卖出
-    BuyPrice = 200  # 以特定价格买入
-    SellPrice = 201  # 以特定价格卖出
+    Market = 100  # 市场订单
+    Limit = 101  # 限价订单
+    Close = 102
+    Stop = 103
+    StopLimit = 104
+    Target = 105
+    Oco = 106
+
+
+class OrderStatud(Enum):
+    """
+    订单状态
+
+    """
+
+    Created = 100
+    Submited = 102
+    Accepted = 103
+    Rejected = 201
+    Margin = 202
+    Canceled = 203
+    Partial = 204
+    Completed = 301
+    Expired = 302
+
+
+class TradeStatus(Enum):
+    """
+    交易状态
+    """
+
+    Created = 100
+    Open = 101
+    Closed = 102
 
 
 class InfoType(Enum):
