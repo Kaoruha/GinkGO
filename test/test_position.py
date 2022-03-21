@@ -108,7 +108,7 @@ class PositionTest(unittest.TestCase):
         ]
         for i in param:
             p = self.reset_position(is_t1=True)
-            p.update_date(i[0])
+            p.date = i[0]
             self.assertEqual(first={"date": i[1]}, second={"date": p.date})
 
     def test_UpdateDate_FAILED(self) -> None:
@@ -120,7 +120,7 @@ class PositionTest(unittest.TestCase):
         ]
         for i in param:
             p = self.reset_position(is_t1=True)
-            p.update_date(i[0])
+            p.date = i[0]
             self.assertEqual(first={"date": i[1]}, second={"date": p.date})
 
     def test_UpdatePrice_OK(self) -> None:

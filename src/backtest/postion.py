@@ -9,73 +9,6 @@ class Position(object):
     持仓类
     """
 
-    # region Property
-    @property
-    def cost(self):
-        """
-        持仓成本
-        """
-        return self._cost
-
-    @cost.setter
-    def cost(self, value: float):
-        self._cost = value
-
-    @property
-    def last_price(self):
-        """
-        持有标的的最新价格
-        """
-        return self._last_price
-
-    @last_price.setter
-    def last_price(self, value: float):
-        self._last_price = value
-
-    @property
-    def volume(self):
-        """
-        持仓量
-        """
-        return self._volume
-
-    @volume.setter
-    def volume(self, value: int):
-        self._volume = value
-
-    @property
-    def frozen_t1(self):
-        """
-        刚买入标的的冻结量
-        """
-        return self._frozen_t1
-
-    @frozen_t1.setter
-    def frozen_t1(self, value: int):
-        self._frozen_t1 = value
-
-    @property
-    def avaliable_volume(self):
-        """
-        可用来沽出的量
-        """
-        return self._avaliable_volume
-
-    @avaliable_volume.setter
-    def avaliable_volume(self, value: int):
-        self._avaliable_volume = value
-
-    @property
-    def frozen_sell(self):
-        """
-        当前冻结的量
-        """
-        return self._frozen_sell
-
-    @frozen_sell.setter
-    def frozen_sell(self, value: int):
-        self._frozen_sell = value
-
     @property
     def market_value(self):
         """
@@ -104,21 +37,6 @@ class Position(object):
             self._date = value
 
     @property
-    def is_t1(self):
-        """
-        是否T+1，影响买入后是否冻结
-        """
-        return self._is_t1
-
-    @is_t1.setter
-    def is_t1(self, value: bool):
-        if not isinstance(value, bool):
-            gl.error(f"is_t1 只能传入bool值，当前传入类型不符 {type(value)},已默认开启T+1模式")
-            self._is_t1 = True
-
-        self._is_t1 = value
-
-    @property
     def history(self):
         return self._history
 
@@ -130,7 +48,6 @@ class Position(object):
             self._history = []
             self._history.append(value)
 
-    # endregion
 
     def __init__(
         self,
@@ -141,15 +58,15 @@ class Position(object):
         volume=0,
         date="1999-09-09",
     ):
-        self.is_t1 = is_t1
-        self.code = code
-        self.name = name
-        self.cost = cost
-        self.last_price = cost
-        self.volume = volume  # 当前持有股票量
-        self.frozen_sell = 0  # 总冻结股票
-        self.frozen_t1 = volume if self.is_t1 else 0  # 当前T+1冻结股票数量
-        self.avaliable_volume = 0 if self.is_t1 else volume  # 可用股票
+        self.is_t1 = is_t1  # 是否T+1
+        self.code = code  # 代码
+        self.name = name  # 名称
+        self.cost = cost  # 持仓成本
+        self.last_price = cost  # 最新价格
+        self.volume = volume  # 当前持有数量
+        self.frozen_sell = 0  # 总冻结数量
+        self.frozen_t1 = volume if self.is_t1 else 0  # T+1冻结股票数量
+        self.avaliable_volume = 0 if self.is_t1 else volume  # 可用数量
         self.date = date  # 开仓日
 
     def __repr__(self):
@@ -168,12 +85,6 @@ class Position(object):
         卖出前冻结可用股票份额
         卖出交易发起前调用
         """
-        if not isinstance(volume, int):
-            gl.error(
-                f"{self.code} {self.name} 打算减少持有份额，减少的份额应该是整型，({type(volume)}){volume}不是整数"
-            )
-            return
-
         if volume > self.avaliable_volume:
             gl.warning(
                 f"{self.date} {self.code} 预沽量{volume}大于持仓{self.avaliable_volume}，已重新设置为持仓量，请检查代码"
@@ -196,23 +107,12 @@ class Position(object):
         """
         增加持仓后Position的操作
         """
-        if not isinstance(volume, int):
-            gl.error(
-                f"{self.code} {self.name} 打算增加持有份额，增加的份额应该是整数，({type(volume)}){volume}不是整数"
-            )
-            return
-
         if volume <= 0:
             gl.error(
                 f"{self.code} {self.name} 打算增加持有份额，增加的份额应该大于0，({type(volume)}){volume}"
             )
             return
 
-        if isinstance(cost, int):
-            cost = float(cost)
-        if not isinstance(cost, float):
-            gl.error(f"{self.code} 打算增加持有份额，新增持的价格应该是浮点数，({type(cost)}){cost}不是浮点数")
-            return
 
         if cost < 0:
             gl.error(f"{self.code} 打算增加持有份额，新增持的价格应该大于0，({type(cost)}){cost}")
@@ -243,12 +143,6 @@ class Position(object):
         # 卖出调整持仓
         # 如果卖出的数量大于持仓直接清空
         # 卖出交易成功后调用
-        if not isinstance(volume, int):
-            gl.error(
-                f"{self.date} {self.code} {self.name} 打算增加持有份额，增加的份额应该是整数，({type(volume)}){volume}不是整数"
-            )
-            return
-
         if volume <= 0:
             gl.error(
                 f"{self.date} {self.code} {self.name} 卖出失败，预计成交量{volume}应该大于0，请检查代码，当前回测有误"
@@ -259,12 +153,6 @@ class Position(object):
             s = "成功" if done else "失败"
             gl.error(
                 f"{self.date} {self.code} {self.name} 卖出{s}，成交量{volume}大于冻结量{self.freeze}，请检查代码，当前回测有误"
-            )
-            return self
-
-        if not isinstance(done, bool):
-            gl.error(
-                f"{self.date} {self.code} {self.name} 卖出失败，done应该传入卖出成功与否，({type(done)}){done}不是布尔值"
             )
             return self
 
@@ -279,7 +167,6 @@ class Position(object):
             self.volume += volume
             self.frozen_sell -= volume
 
-        self.cal_total()
         gl.info(self)
         return self
 
@@ -300,35 +187,14 @@ class Position(object):
         """
         更新最新价格
         """
-        if isinstance(price, int):
-            price = float(price)
-        if not isinstance(price, float):
-            gl.error(
-                f"{date} {self.code} {self.name} 打算更新最新价格，价格应该是浮点数，({type(price)}{price}不是整数"
-            )
-            return
-
         if price <= 0:
             gl.error(
                 f"{date} {self.code} {self.name} 打算更新最新价格，({type(price)}{price}应该大于0"
             )
             return
 
-        if self.update_date(date) is None:
-            return
+        self.date = date
         self.last_price = price
         self.unfreezeT1()
         gl.info(self)
         return self.last_price
-
-    def update_date(self, date: str):
-        """
-        更新日期，只能顺着时间流
-        """
-        # TODO 需要校验日期有效性，目前日期校验有Bug
-        if date > self.date:
-            self.date = date
-            return self.date
-        else:
-            gl.error(f"当前日期{self.date} 预更新至 {date} 不满足回测要求，请检查代码")
-            return
