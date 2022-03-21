@@ -27,14 +27,12 @@ class Position(object):
     def date(self, value: str):
         # TODO 加上日期的校验
         try:
-            if value > self.date:
-                self._date = value
-                return self._date
-            else:
+            if value < self.date:
                 gl.error(f"当前日期{self.date} 预更新至 {value} 不满足回测要求，请检查代码")
                 return
         except AttributeError as e:
-            self._date = value
+            pass
+        self._date = value
 
     @property
     def history(self):
@@ -47,7 +45,6 @@ class Position(object):
         except AttributeError as e:
             self._history = []
             self._history.append(value)
-
 
     def __init__(
         self,
@@ -78,6 +75,34 @@ class Position(object):
         s += f"浮动盈亏「{self.market_value - self.volume * self.last_price}」"
         return s
 
+    def buy(self, volume: int, cost: float, date: str):
+        """
+        增加持仓后Position的操作
+        """
+        if volume <= 0:
+            gl.error(
+                f"{self.code} {self.name} 打算增加持有份额，增加的份额应该大于0，({type(volume)}){volume}"
+            )
+            return
+
+        if cost < 0:
+            gl.error(f"{self.code} 打算增加持有份额，新增持的价格应该大于0，({type(cost)}){cost}")
+            return
+
+        gl.info(
+            f"{date} {self.code} {self.name} 开设多仓成功，价格「{round(cost, 2)}」 份额「{volume}」"
+        )
+
+        self.cost = (self.cost * self.volume + volume * cost) / (self.volume + volume)
+        if self.is_t1:
+            self.frozen_t1 += volume
+        else:
+            self.avaliable_volume += volume
+        self.volume += volume
+
+        gl.info(self)
+        return self
+
     def pre_sell(self, volume: int, date: str):
         """
         持仓卖出的预处理
@@ -103,35 +128,6 @@ class Position(object):
         gl.info(self)
         return self
 
-    def buy(self, volume: int, cost: float, date: str):
-        """
-        增加持仓后Position的操作
-        """
-        if volume <= 0:
-            gl.error(
-                f"{self.code} {self.name} 打算增加持有份额，增加的份额应该大于0，({type(volume)}){volume}"
-            )
-            return
-
-
-        if cost < 0:
-            gl.error(f"{self.code} 打算增加持有份额，新增持的价格应该大于0，({type(cost)}){cost}")
-            return
-
-        gl.info(
-            f"{date} {self.code} {self.name} 开设多仓成功，价格「{round(cost, 2)}」 份额「{volume}」"
-        )
-
-        self.cost = (self.cost * self.volume + volume * cost) / (self.volume + volume)
-        if self.is_t1:
-            self.frozen_t1 += volume
-        else:
-            self.avaliable_volume += volume
-        self.volume += volume
-
-        gl.info(self)
-        return self
-
     def sell(self, volume: int, done: bool, date: str):
         """
         卖出后的处理
@@ -149,7 +145,7 @@ class Position(object):
             )
             return
 
-        if volume > self.freeze:
+        if volume > self.frozen_sell:
             s = "成功" if done else "失败"
             gl.error(
                 f"{self.date} {self.code} {self.name} 卖出{s}，成交量{volume}大于冻结量{self.freeze}，请检查代码，当前回测有误"
@@ -170,7 +166,7 @@ class Position(object):
         gl.info(self)
         return self
 
-    def unfreezeT1(self):
+    def unfreeze_t1(self):
         """
         解除T+1冻结
         """
@@ -182,6 +178,11 @@ class Position(object):
         gl.info(f"{self.date} 解除冻结 {self.frozen_t1}")
         self.avaliable_volume += self.frozen_t1
         self.frozen_t1 = 0
+
+    def unfreeze_sell(self, volume: int):
+        """
+        解除卖出冻结
+        """
 
     def update_last_price(self, price: float, date: str):
         """
