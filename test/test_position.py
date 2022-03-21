@@ -1,3 +1,5 @@
+from re import I
+from sqlite3 import paramstyle
 from typing import Tuple
 import unittest
 from src.backtest.postion import Position
@@ -207,39 +209,56 @@ class PositionTest(unittest.TestCase):
                     "volume": i[4],
                     "sellfrozen": 0,
                     "t1frozen": i[5],
-                    "avaiable": i[4] - i[5],
+                    "avaliable": i[4] - i[5],
                 },
                 second={
                     "cost": p.cost,
                     "volume": p.volume,
                     "sellfrozen": p.frozen_sell,
                     "t1frozen": p.frozen_t1,
-                    "avaiable": p.avaliable_volume,
+                    "avaliable": p.avaliable_volume,
                 },
             )
 
     def test_Buy_FAILED(self) -> None:
         pass
 
-    # def test_PreSell_OK(self) -> None:
-    #     param = [
-    #         (True, 1000, '2020-01-01')
-    #     ]
-    #     for i in param:
-    #         p = self.reset_position(is_t1=i[0])
-    #         p.pre_sell(volume=i[1], date=i[2])
-    #         self.assertEqual(
-    #             first={
-    #                 'code': self.code,
-    #                 'name': self.name,
-    #                 'volume': self.volume,
-    #             },
-    #             second={
-    #                 'code': self.code,
-    #                 'name': self.name,
-    #                 'volume': self.volume,
-    #             }
-    #         )
+    def test_PreSell_OK(self) -> None:
+        param = [
+            (5000, "2020-01-01", 5000, 5000),
+            (10000, "2020-01-01", 10000, 0),
+            (11000, "2020-01-01", 10000, 0),
+        ]
+        for i in param:
+            p = self.reset_position(is_t1=True)
+            p.unfreezeT1()
+            p.pre_sell(volume=i[0], date=i[1])
+            self.assertEqual(
+                first={
+                    "volume": self.volume,
+                    "frozensell": i[2],
+                    "frozent1": 0,
+                    "avaliable": i[3],
+                },
+                second={
+                    "volume": p.volume,
+                    "frozensell": p.frozen_sell,
+                    "frozent1": p.frozen_t1,
+                    "avaliable": p.avaliable_volume,
+                },
+            )
 
-    # def test_PreSell_FAILED(self) -> None:
-    #     pass
+    def test_PreSell_FAILED(self) -> None:
+        pass
+
+    def test_Sell_OK(self) -> None:
+        param = [
+            # 卖出日期，预卖出的量，成交的量
+            ("2020-01-02", 5000, 2000)
+        ]
+        for i in param:
+            p = self.reset_position(is_t1=True)
+            p.unfreezeT1()
+
+    def test_Sell_FAILED(self) -> None:
+        pass
