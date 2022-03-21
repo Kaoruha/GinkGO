@@ -76,11 +76,12 @@ class OrderEvent(Event):
         date,  # 信号日期
         code,  # 股票代码
         deal=DealType.BUY,  # 交易类型
+        status=1,
         volume=0,  # 购买或卖出的量
         source="",
-        price_limit=0
+        price_limit=0,
     ):
-    # TODO 添加限价、市场价成交方式
+        # TODO 添加限价、市场价成交方式
         super(OrderEvent, self).__init__(
             event_type=EventType.Order, date=date, code=code, source=source
         )
