@@ -8,7 +8,7 @@ from src.backtest.matcher.base_matcher import BaseMatcher
 from src.backtest.analyzer.base_analyzer import BaseAnalyzer
 from src.backtest.painter.base_painter import BasePainter
 from src.backtest.postion import Position
-from src.backtest.price import DayBar
+from src.backtest.price_old import DayBar
 
 
 class BrokerTest(unittest.TestCase):

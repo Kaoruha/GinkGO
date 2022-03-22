@@ -5,7 +5,7 @@ from src.libs.ginkgo_logger import ginkgo_logger as gl
 from src.backtest.matcher.base_matcher import BaseMatcher
 from src.backtest.events import FillEvent
 from src.backtest.enums import Direction
-from src.backtest.price import DayBar
+from src.backtest.price_old import DayBar
 from src.backtest.events import OrderEvent
 
 

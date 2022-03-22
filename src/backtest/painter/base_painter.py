@@ -3,7 +3,7 @@
 """
 import pandas as pd
 import matplotlib.pyplot as plt
-from src.backtest.price import DayBar, Min5Bar
+from src.backtest.price_old import DayBar, Min5Bar
 
 
 class BasePainter(object):

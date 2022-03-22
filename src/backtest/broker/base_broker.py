@@ -20,7 +20,7 @@ from src.backtest.painter.base_painter import BasePainter
 from src.backtest.event_engine import EventEngine
 from src.libs.ginkgo_logger import ginkgo_logger as gl
 from src.backtest.postion import Position
-from src.backtest.price import Price
+from src.backtest.price_old import Price
 from src.data.ginkgo_mongo import ginkgo_mongo as gm
 
 
