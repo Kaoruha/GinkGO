@@ -196,6 +196,6 @@ class Position(object):
 
         self.date = date
         self.last_price = price
-        self.unfreezeT1()
+        self.unfreeze_t1()
         gl.info(self)
         return self.last_price

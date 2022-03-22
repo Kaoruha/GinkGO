@@ -13,7 +13,7 @@
 
 from src.backtest.strategy.base_strategy import BaseStrategy
 from src.backtest.events import SignalEvent
-from src.backtest.enums import DealType
+from src.backtest.enums import Direction
 from src.util.ATR import CAL_ATR
 import random
 
@@ -65,7 +65,7 @@ class TrendFollow(BaseStrategy):
             and today[short_title] > today[long_title]
         ):
             signal = SignalEvent(
-                code=code, date=date, deal=DealType.BUY, source=f"{date} {self.name}"
+                code=code, date=date, deal=Direction.BUY, source=f"{date} {self.name}"
             )
             return signal
 
@@ -92,6 +92,6 @@ class TrendFollow(BaseStrategy):
         sell_point = hold_high - gap * self.gap_count
         if float(today.close) <= sell_point:
             signal = SignalEvent(
-                date=date, code=code, deal=DealType.SELL, source=f"{date} {self.name}"
+                date=date, code=code, deal=Direction.SELL, source=f"{date} {self.name}"
             )
             return signal

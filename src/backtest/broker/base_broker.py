@@ -3,7 +3,7 @@
 """
 import abc
 import pandas as pd
-from src.backtest.enums import DealType, MarketType, InfoType
+from src.backtest.enums import Direction, MarketType, InfoType
 from src.backtest.events import (
     SignalEvent,
     MarketEvent,
@@ -171,13 +171,13 @@ class BaseBroker(metaclass=abc.ABCMeta):
     # endregion
 
     def __init__(
-            self,
-            engine,
-            name='base_broker',
-            *,
-            init_capital=100000,
-            start_date='1999-07-26',
-            end_date='2021-07-26',
+        self,
+        engine,
+        name="base_broker",
+        *,
+        init_capital=100000,
+        start_date="1999-07-26",
+        end_date="2021-07-26",
     ) -> None:
         self.name = name  # 经纪人名称
         self.engine = engine  # 挂载引擎
@@ -216,7 +216,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         self.get_cash(init_capital)  # 入金
 
     def __repr__(self) -> str:
-        s = "=" * 5 + '经纪人' + '=' * 5 + "\n"
+        s = "=" * 5 + "经纪人" + "=" * 5 + "\n"
         s += f"{self.name} "
         s += "\n" + f"当前日期：{self.today}，"
         s += "\n" + f"当前时间：{self.time}，"
@@ -245,7 +245,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         :type selector: BaseSelector
         """
         if not isinstance(selector, BaseSelector):
-            gl.warn(f'只有选股类实例可以被注册，{type(selector)} 类型不符')
+            gl.warn(f"只有选股类实例可以被注册，{type(selector)} 类型不符")
             return
         self.selector = selector
 
@@ -257,7 +257,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         :type strategy: BaseStrategy
         """
         if not isinstance(strategy, BaseStrategy):
-            gl.warn(f'只有策略类实例可以被注册为策略，{type(strategy)} 类型不符')
+            gl.warn(f"只有策略类实例可以被注册为策略，{type(strategy)} 类型不符")
             return
         if strategy not in self.strategies:
             self.strategies.append(strategy)
@@ -274,7 +274,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         :type sizer: BaseSizer
         """
         if not isinstance(sizer, BaseSizer):
-            gl.warn(f'只有仓位控制类实例可以被注册为仓位管理，{type(sizer)} 类型不符')
+            gl.warn(f"只有仓位控制类实例可以被注册为仓位管理，{type(sizer)} 类型不符")
             return
         self.sizer = sizer
 
@@ -286,7 +286,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         :type risk: BaseRisk
         """
         if not isinstance(risk, BaseRisk):
-            gl.warn(f'只有风控类实例可以被注册为风控管理，{type(risk)} 类型不符')
+            gl.warn(f"只有风控类实例可以被注册为风控管理，{type(risk)} 类型不符")
             return
         if risk not in self.risk_management:
             self.risk_management.append(risk)
@@ -304,13 +304,13 @@ class BaseBroker(metaclass=abc.ABCMeta):
         """
         # 撮合类、匹配器绑定
         if not isinstance(matcher, BaseMatcher):
-            gl.warn(f'只有撮合器类实例可以被注册为撮合器，{type(matcher)} 类型不符')
+            gl.warn(f"只有撮合器类实例可以被注册为撮合器，{type(matcher)} 类型不符")
             return
         self.matcher = matcher
         if self.engine:
             self.matcher.engine_register(self.engine)
         else:
-            gl.error('撮合器引擎绑定失败，请检查代码')
+            gl.error("撮合器引擎绑定失败，请检查代码")
 
     def analyzer_register(self, analyzer: BaseAnalyzer):
         """
@@ -321,7 +321,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         """
         # 撮合类、匹配器绑定
         if not isinstance(analyzer, BaseAnalyzer):
-            gl.warn(f'只有分析类实例可以被注册为分析模块，{type(analyzer)} 类型不符')
+            gl.warn(f"只有分析类实例可以被注册为分析模块，{type(analyzer)} 类型不符")
             return
         self.analyzer = analyzer
 
@@ -333,7 +333,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         :type painter: BasePainter
         """
         if not isinstance(painter, BasePainter):
-            gl.warn(f'只有绘图类实例可以被注册为绘图模块，{type(painter)} 类型不符')
+            gl.warn(f"只有绘图类实例可以被注册为绘图模块，{type(painter)} 类型不符")
             return
         # 绘图器绑定
         self.painter = painter
@@ -431,11 +431,11 @@ class BaseBroker(metaclass=abc.ABCMeta):
             return self.capital
 
         if money > self.capital:
-            gl.error(f'冻结金额大于当前现金，{money}>{self.capital},冻结失败，请检查代码')
+            gl.error(f"冻结金额大于当前现金，{money}>{self.capital},冻结失败，请检查代码")
             return self.capital
 
         if money < 0:
-            gl.error(f'冻结金额应当大于0，{money} < 0,冻结失败，请检查代码')
+            gl.error(f"冻结金额应当大于0，{money} < 0,冻结失败，请检查代码")
             return self.capital
 
         self.capital -= money
@@ -454,26 +454,26 @@ class BaseBroker(metaclass=abc.ABCMeta):
         code = position.code
         date = position.date
         if not isinstance(volume, int):
-            gl.error(f'持仓量应该是整型，{type(volume)}{volume}类型不符合')
+            gl.error(f"持仓量应该是整型，{type(volume)}{volume}类型不符合")
             return self.position
 
         if isinstance(price, int):
             price = float(price)
 
         if not isinstance(price, float):
-            gl.error(f'持仓价格应该是浮点数，{type(price)}{price}类型不符合')
+            gl.error(f"持仓价格应该是浮点数，{type(price)}{price}类型不符合")
             return self.position
 
         # 判断是否已经持有该标的
         if code in self.position.keys():
             # 已经持有则执行Position的买入操作
             self.position[code].buy(cost=price, volume=volume, date=date)
-            gl.info(f'{date} 增加持仓 {code}')
+            gl.info(f"{date} 增加持仓 {code}")
             gl.info(self.position[code])
         else:
             # 未持有则添加持仓至position
             p = Position(cost=price, volume=volume, date=date)
-            gl.info(f'{date} 新增持仓 {code}')
+            gl.info(f"{date} 新增持仓 {code}")
             gl.info(p)
             self.position[code] = p
         return self.position
@@ -483,11 +483,11 @@ class BaseBroker(metaclass=abc.ABCMeta):
         冻结持仓
         """
         if code not in self.position.keys():
-            gl.error(f'当前经纪人未持有{code}，无法冻结，请检查代码')
+            gl.error(f"当前经纪人未持有{code}，无法冻结，请检查代码")
             return self.position
 
         self.position[code].pre_sell(volume=volume, date=date)
-        gl.info(f'{date} 冻结{code}持仓{volume}股')
+        gl.info(f"{date} 冻结{code}持仓{volume}股")
         gl.info(self.position[code])
         return self.position
 
@@ -496,7 +496,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         恢复冻结持仓
         """
         if code not in self.position.keys():
-            gl.error(f'当前经纪人未持有{code}，无法解除冻结，请检查代码')
+            gl.error(f"当前经纪人未持有{code}，无法解除冻结，请检查代码")
             return self.position
 
         self.position[code].sell(volume=volume, done=False, date=date)
@@ -507,7 +507,7 @@ class BaseBroker(metaclass=abc.ABCMeta):
         减少持仓
         """
         if code not in self.position.keys():
-            gl.error(f'当前经纪人未持有{code}，无法减少持仓，请检查代码')
+            gl.error(f"当前经纪人未持有{code}，无法减少持仓，请检查代码")
             return False, self.position
 
         self.position[code].sell(volume=volume, done=True, date=date)
@@ -547,10 +547,10 @@ class BaseBroker(metaclass=abc.ABCMeta):
         date = price.data.date
         p = price.data.close
         if code not in self.position.keys():
-            gl.warn(f'当前经纪人未持有{code}')
+            gl.warn(f"当前经纪人未持有{code}")
             return self.position
         self.position[code].update_last_price(price=p, date=date)
-        gl.info(f'{date} {code}价格更新为 {p}')
+        gl.info(f"{date} {code}价格更新为 {p}")
 
     def cal_total_capital(self) -> float:
         """
@@ -583,16 +583,18 @@ class BaseBroker(metaclass=abc.ABCMeta):
         if self.trade_day is None:
             self.trade_day = gm.get_trade_day()
 
-        df = self.trade_day[(self.trade_day > self.today) & (self.trade_day <= self.last_day)]
+        df = self.trade_day[
+            (self.trade_day > self.today) & (self.trade_day <= self.last_day)
+        ]
         if df.empty:
-            gl.info(f'{self.today} 是数据最后一天，回测结束')
+            gl.info(f"{self.today} 是数据最后一天，回测结束")
             self.engine.stop()
             # TODO Call Analyzor.End()
         else:
             codes = self.selector.get_result(today=self.today)
             # GOTO NEXT DAY
             self.today = df.iloc[0]
-            gl.info(f'日期变更，{self.today} 已经到了')
+            gl.info(f"日期变更，{self.today} 已经到了")
 
             for i in self.position.keys():
                 if i not in codes:

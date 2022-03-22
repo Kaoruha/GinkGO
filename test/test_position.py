@@ -84,7 +84,7 @@ class PositionTest(unittest.TestCase):
                 "toal": p.market_value,
             },
         )
-        p.unfreezeT1()
+        p.unfreeze_t1()
         self.assertEqual(
             first={
                 "t1frozen": 0,
@@ -201,7 +201,7 @@ class PositionTest(unittest.TestCase):
             (14, 40000, "2020-01-03", 13, 80000, 40000),
         ]
         for i in param:
-            p.unfreezeT1()
+            p.unfreeze_t1()
             p.buy(volume=i[1], cost=i[0], date=i[2])
             self.assertEqual(
                 first={
@@ -231,7 +231,7 @@ class PositionTest(unittest.TestCase):
         ]
         for i in param:
             p = self.reset_position(is_t1=True)
-            p.unfreezeT1()
+            p.unfreeze_t1()
             p.pre_sell(volume=i[0], date=i[1])
             self.assertEqual(
                 first={
@@ -258,7 +258,7 @@ class PositionTest(unittest.TestCase):
         ]
         for i in param:
             p = self.reset_position(is_t1=True)
-            p.unfreezeT1()
+            p.unfreeze_t1()
 
     def test_Sell_FAILED(self) -> None:
         pass

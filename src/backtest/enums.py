@@ -23,10 +23,10 @@ class EventType(Enum):
     :type Enum: [type]
     """
 
-    Market = 100  # 市场事件
-    Signal = 101  # 信号事件
-    Order = 102  # 订单事件
-    Fill = 103  # 成交事件
+    MARKET = "市场事件"
+    SIGNAL = "信号事件"
+    ORDER = "订单事件"
+    FILL = "成交事件"
 
 
 class OrderType(Enum):
@@ -37,8 +37,8 @@ class OrderType(Enum):
     :type Enum: [type]
     """
 
-    Market = 100  # 市场订单
-    Limit = 101  # 限价订单
+    MARKET = "市价订单"
+    LIMIT = "限价订单"
     Close = 102
     Stop = 103
     StopLimit = 104
@@ -46,21 +46,21 @@ class OrderType(Enum):
     Oco = 106
 
 
-class OrderStatud(Enum):
+class OrderStatus(Enum):
     """
     订单状态
 
     """
 
-    Created = 100
-    Submited = 102
-    Accepted = 103
-    Rejected = 201
-    Margin = 202
-    Canceled = 203
-    Partial = 204
-    Completed = 301
-    Expired = 302
+    CREATED = "完成创建"
+    SUBMITED = "已提交"
+    ACCEPTED = "被接受"
+    REJECTED = "被拒绝"
+    MARGIN = "margin 超出保证金？"
+    CANCELLED = "被取消"
+    PARTIAL = "部分成交"
+    COMPLETED = "全部成交"
+    EXPIRED = "失效"
 
 
 class TradeStatus(Enum):
@@ -68,9 +68,9 @@ class TradeStatus(Enum):
     交易状态
     """
 
-    Created = 100
-    Open = 101
-    Closed = 102
+    CREATED = "完成创建"
+    OPEN = "进行中"
+    CLOSED = "结束"
 
 
 class InfoType(Enum):
@@ -81,12 +81,12 @@ class InfoType(Enum):
     :type Enum: [type]
     """
 
-    DailyPrice = 100  # 日交易数据
+    BAR = 100  # 日交易数据
     MinutePrice = 101  # 分钟交易数据
     Message = 102  # 消息数据 TODO后续还会完善扩充
 
 
-class DealType(Enum):
+class Direction(Enum):
     """
     交易类型
 
@@ -94,8 +94,9 @@ class DealType(Enum):
     :type Enum: [type]
     """
 
-    BUY = 100  # 买入
-    SELL = 101  # 卖出
+    LONG = "多"
+    SHORT = "空"
+    NET = "净"
 
 
 class MarketType(Enum):
@@ -106,17 +107,27 @@ class MarketType(Enum):
     :type Enum: [type]
     """
 
-    Stock_CN = 100  # 中国沪深A股
-    Stock_HK = 101  # 港股
-    Stock_JP = 102  # 日股
-    Stock_US = 103  # 美股
+    CN = "沪深A股"
+    HK = "港股"
+    JP = "日股"
+    NASDAQ = "纳斯达克"
 
 
-class PriceType(Enum):
+class Interval(Enum):
     """
-    价格类型
+    间隔
+    Interval of bar
     """
 
-    Day = 100  # 日线
-    Min5 = 101  # 5Min线
-    Now = 102  # 当前价格
+    DAILY = "d"
+    MIN5 = "5m"
+    TICK = "tick"
+
+
+class Source(Enum):
+    """
+    Where the data comes
+    """
+
+    BACKTEST = "回测"
+    SHLIVE = "上交所实时"

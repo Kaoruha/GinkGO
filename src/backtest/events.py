@@ -2,7 +2,7 @@
 事件类
 定义不同种类的事件
 """
-from src.backtest.enums import EventType, DealType, InfoType
+from src.backtest.enums import EventType, Direction, InfoType, OrderStatus
 
 
 class Event(object):
@@ -20,7 +20,7 @@ class MarketEvent(Event):
 
     def __init__(self, date, code, source, info_type, data, time="0000"):
         super(MarketEvent, self).__init__(
-            event_type=EventType.Market, date=date, code=code, source=source
+            event_type=EventType.MARKET, date=date, code=code, source=source
         )
         self.info_type = info_type
         self.data = data
@@ -49,7 +49,7 @@ class SignalEvent(Event):
         self,
         date,  # 信号日期
         code,  # 股票代码
-        deal=DealType.BUY,  # 交易类型
+        deal=Direction.LONG,  # 交易类型
         source="",
     ):
         super(SignalEvent, self).__init__(
@@ -61,7 +61,7 @@ class SignalEvent(Event):
         print(self)
 
     def __repr__(self):
-        d = "多" if self.deal == DealType.BUY else "空"
+        d = "多" if self.deal == Direction.BUY else "空"
         s = f"{self.date} 产生 {self.code} 「{d}头」交易信号，信号来源为「{self.source}」"
         return s
 
@@ -75,8 +75,8 @@ class OrderEvent(Event):
         self,
         date,  # 信号日期
         code,  # 股票代码
-        deal=DealType.BUY,  # 交易类型
-        status=1,
+        deal=Direction.LONG,  # 交易类型
+        status=OrderStatus.CREATED,
         volume=0,  # 购买或卖出的量
         source="",
         price_limit=0,
@@ -93,7 +93,7 @@ class OrderEvent(Event):
         print(self)
 
     def __repr__(self):
-        d = "多" if self.deal == DealType.BUY else "空"
+        d = "多" if self.deal == Direction.BUY else "空"
         s = f"{self.date} 产生 {self.code} 「{d}头」下单事件，份额「{self.volume}」，事件来源为「{self.source}」"
         return s
 
@@ -106,7 +106,7 @@ class OrderEvent(Event):
         :param volume: [准备下单的股票数量]
         :type volume: [int]
         """
-        if self.deal == DealType.BUY:
+        if self.deal == Direction.BUY:
             return int(volume / 100) * 100
         else:
             return volume
@@ -155,7 +155,7 @@ class FillEvent(Event):
     def __repr__(self):
         s = f"{self.date} {self.code} "
         s += "「"
-        s += "购买" if self.deal == DealType.BUY else "卖出"
+        s += "购买" if self.deal == Direction.BUY else "卖出"
         s += "成功" if self.done else "失败"
         s += "」"
         s += f" 事件来源为「{self.source}」, "

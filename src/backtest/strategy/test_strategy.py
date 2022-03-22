@@ -13,7 +13,7 @@
 
 from src.backtest.strategy.base_strategy import BaseStrategy
 from src.backtest.events import SignalEvent
-from src.backtest.enums import DealType
+from src.backtest.enums import Direction
 import random
 
 
@@ -29,7 +29,7 @@ class TestStrategy(BaseStrategy):
         r = random.random()
         if r > 0.8:
             signal = SignalEvent(
-                code=code, date=date, deal=DealType.BUY, source="测试随便产生的信号，10%概率买入"
+                code=code, date=date, deal=Direction.BUY, source="测试随便产生的信号，10%概率买入"
             )
             return signal
 
@@ -40,6 +40,6 @@ class TestStrategy(BaseStrategy):
         r = random.random()
         if r > 0.9:
             signal = SignalEvent(
-                date=date, code=code, deal=DealType.SELL, source="测试随便产生的信号，10%概率卖出"
+                date=date, code=code, deal=Direction.SELL, source="测试随便产生的信号，10%概率卖出"
             )
             return signal

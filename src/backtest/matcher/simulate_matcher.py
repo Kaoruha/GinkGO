@@ -4,20 +4,20 @@ import time
 from src.libs.ginkgo_logger import ginkgo_logger as gl
 from src.backtest.matcher.base_matcher import BaseMatcher
 from src.backtest.events import FillEvent
-from src.backtest.enums import DealType
+from src.backtest.enums import Direction
 from src.backtest.price import DayBar
 from src.backtest.events import OrderEvent
 
 
 class SimulateMatcher(BaseMatcher):
     def __init__(
-            self,
-            *,
-            stamp_tax_rate: float = 0.001,
-            transfer_fee_rate: float = 0.0002,
-            commission_rate: float = 0.0003,
-            min_commission: float = 5,
-            slippage: float = 0.02,
+        self,
+        *,
+        stamp_tax_rate: float = 0.001,
+        transfer_fee_rate: float = 0.0002,
+        commission_rate: float = 0.0003,
+        min_commission: float = 5,
+        slippage: float = 0.02,
     ):
         super(SimulateMatcher, self).__init__(
             name="回测模拟成交",
@@ -86,12 +86,14 @@ class SimulateMatcher(BaseMatcher):
                 # 3、如果结果队列为空，则看OrderCount数量
                 # 4、如果OrderCount为0，则完成此次匹配
                 if self.order_count == 0:
-                    gl.info(f'{self.today} 待成交队列已空，完成今天的匹配')
+                    gl.info(f"{self.today} 待成交队列已空，完成今天的匹配")
                     break
                 # 5、如果OrderCount不为0，就休眠5s，重复1的步骤
                 elif self.order_count > 0:
                     time.sleep(5)
-                    gl.info(f'{self.today} 待成交队列还有{self.result_list.qsize()}个，休眠5s后重新尝试获取结果')
+                    gl.info(
+                        f"{self.today} 待成交队列还有{self.result_list.qsize()}个，休眠5s后重新尝试获取结果"
+                    )
                 elif self.order_count < 0:
-                    gl.error(f'{self.today} 待成交订单数据异常，回测结果有误，请检查代码')
+                    gl.error(f"{self.today} 待成交订单数据异常，回测结果有误，请检查代码")
                     break

@@ -7,10 +7,11 @@ Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/src/backtest/trade.py
 What goes around comes around.
 """
+from src.backtest.enums import TradeStatus
 
 
 class Trade(object):
     """ """
 
-    def __init__(self, trade_status) -> None:
+    def __init__(self, trade_status: TradeStatus) -> None:
         self.trade_status = trade_status

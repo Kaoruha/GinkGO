@@ -18,40 +18,29 @@ class EventEngine(object):
 
     def __init__(self, *, heartbeat: float = 0):
         """
-        初始化事件引擎
+        初始化
         """
-        # 事件队列
-        self._event_queue = queue.Queue()
-
-        # 信息队列
-        self._info_queue = queue.Queue()
-
-        # 事件引擎开关
-        self._active = False  # 引擎初始化时状态设置为关闭
-
-        # 事件处理线程
-        self._thread = Thread(target=self.__run)
+        self._event_queue = queue.Queue()  # 事件队列
+        self._info_queue = queue.Queue()  # 信息队列
+        self._active = False  # 事件引擎开关,引擎初始化时状态设置为关闭
+        self._thread = Thread(target=self.__run)  # 事件处理线程
         # self.__feed_thread = Thread(target=self.__feed)
-
-        # 设置心跳时间
-        self.heartbeat = heartbeat
-        self._handlers = {}
-
-        # __general_handlers是一个列表，与__handlers类似，用来保存通用回调函数（所有事件均调用）
-        self._general_handlers = []
-
+        self.heartbeat = heartbeat  # 心跳间隔
+        self._handlers = {}  # 事件处理的回调函数
+        self._general_handlers = (
+            []
+        )  # __general_handlers是一个列表，与__handlers类似，用来保存通用回调函数（所有事件均调用）
         self._next_day = None
-        # 价格信息池
-        self._price_pool = {}
+        self._price_pool = {}  # 价格信息池
 
     def set_heartbeat(self, heartbeat: float):
         """
-        设置心跳的间隔
+        设置心跳间隔
         """
         if heartbeat > 0:
             self.heartbeat = heartbeat
         else:
-            print("heartbeat should bigger than 0")
+            gl.warning("heartbeat should bigger than 0")
 
     def __run(self):
         """引擎运行"""
@@ -80,7 +69,7 @@ class EventEngine(object):
         # 检查是否存在对该事件进行监听的处理函数
         if event.type_ in self._handlers:
             # 若存在，将事件传递给处理函数执行
-            print(f'处理{event}')
+            print(f"处理{event}")
             [handler(event) for handler in self._handlers[event.type_]]
 
             # 以上语句为Python列表解析方式的写法，对应的常规循环写法为：
@@ -189,10 +178,10 @@ class EventEngine(object):
             df = gm.get_dayBar_by_mongo(code=code)
             self.feed(code, df)
         # 2 从价格池获取价格
-        df = self._price_pool[code][self._price_pool[code]['date'] == date]
+        df = self._price_pool[code][self._price_pool[code]["date"] == date]
         # 3 如果数据库里没有数据，退出回
         if df.empty:
-            gl.error(f'试图获取一个不存在的数据 {date} {code}，退出回测')
+            gl.error(f"试图获取一个不存在的数据 {date} {code}，退出回测")
             return None
         else:
             day_bar = DayBar(

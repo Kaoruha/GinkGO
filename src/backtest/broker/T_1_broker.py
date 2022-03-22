@@ -1,5 +1,5 @@
 from src.backtest.broker.base_broker import BaseBroker
-from src.backtest.events import EventType, DealType, InfoType
+from src.backtest.events import EventType, Direction, InfoType
 from src.backtest.postion import Position
 
 
@@ -77,9 +77,7 @@ class T1Broker(BaseBroker):
             self.wait_events.append(event)
             return
 
-        self.matcher.try_match(
-            order=event, broker=self, last_price=self.last_price
-        )
+        self.matcher.try_match(order=event, broker=self, last_price=self.last_price)
 
         result = self.matcher.get_result(self.last_price)
         for i in result:
@@ -93,7 +91,7 @@ class T1Broker(BaseBroker):
         if event.done:
             # 交易成功的处理
             self.add_trade_to_history(event)
-            if event.deal == DealType.BUY:
+            if event.deal == Direction.BUY:
                 # 交易成功的买单处理
                 p = Position(
                     code=event.code,
@@ -105,7 +103,7 @@ class T1Broker(BaseBroker):
                 self.freeze -= event.freeze
                 self.capital += event.remain
                 self.cal_total_capital()
-            elif event.deal == DealType.SELL:
+            elif event.deal == Direction.SELL:
                 # 交易成功的卖单处理
                 if event.code not in self.position.keys():
                     print(f"{event.date} 未持仓却交易成功，请检查代码")
@@ -116,10 +114,10 @@ class T1Broker(BaseBroker):
                 self.check_position()
         else:
             # 交易失败的处理
-            if event.deal == DealType.BUY:
+            if event.deal == Direction.BUY:
                 self.freeze -= event.freeze
                 self.capital += event.freeze
-            if event.deal == DealType.SELL:
+            if event.deal == Direction.SELL:
                 self.position[event.code].sell(volume=event.volume, done=False)
         # print(self._total_capital)
 

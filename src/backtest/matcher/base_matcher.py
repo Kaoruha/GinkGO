@@ -6,7 +6,7 @@ import pandas as pd
 import queue
 import abc
 from src.backtest.event_engine import EventEngine
-from src.backtest.events import OrderEvent, DealType
+from src.backtest.events import OrderEvent, Direction
 
 
 class BaseMatcher(metaclass=abc.ABCMeta):
@@ -18,12 +18,12 @@ class BaseMatcher(metaclass=abc.ABCMeta):
     """
 
     def __init__(
-            self,
-            name="撮合基类",
-            stamp_tax_rate=0.001,
-            transfer_fee_rate=0.0002,
-            commission_rate=0.0003,
-            min_commission=5,
+        self,
+        name="撮合基类",
+        stamp_tax_rate=0.001,
+        transfer_fee_rate=0.0002,
+        commission_rate=0.0003,
+        min_commission=5,
     ):
         self._name = name
         self._stamp_tax_rate = stamp_tax_rate  # 设置印花税，默认千1
@@ -38,7 +38,7 @@ class BaseMatcher(metaclass=abc.ABCMeta):
 
     @property
     def engine(self):
-        return  self._engine
+        return self._engine
 
     @property
     def name(self):

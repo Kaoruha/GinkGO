@@ -1,6 +1,6 @@
 from src.backtest.sizer.base_sizer import BaseSizer
 from src.util.ATR import CAL_ATR
-from src.backtest.events import OrderEvent, DealType
+from src.backtest.events import OrderEvent, Direction
 
 
 class RiskAVGSizer(BaseSizer):
@@ -59,11 +59,11 @@ class RiskAVGSizer(BaseSizer):
         # 经纪人未持有信号相关头寸
         if code not in hold_position.keys():
             # 买入信号，则返回头寸订单
-            if signal.deal == DealType.BUY:
+            if signal.deal == Direction.BUY:
                 volume = self.buy_cal(total=total, code=code, date=date)
                 order = OrderEvent(
                     date=signal.date,
-                    deal=DealType.BUY,
+                    deal=Direction.BUY,
                     code=signal.code,
                     volume=volume,
                     source=self._name,
@@ -74,7 +74,7 @@ class RiskAVGSizer(BaseSizer):
         else:
             # 经纪人持有信号相关头寸:
             # 买入信号，则计算目前持仓距离目标仓位空间，返回剩余空间的头寸订单事件
-            if signal.deal == DealType.BUY:
+            if signal.deal == Direction.BUY:
                 target_volume = self.buy_cal(total=total, code=code, date=date)
                 current_volume = broker.position[code].volume
                 print(f"{date} {code} 当前持仓：{current_volume} 目标持仓：{target_volume}")
@@ -83,7 +83,7 @@ class RiskAVGSizer(BaseSizer):
                     order = OrderEvent(
                         date=date,
                         code=code,
-                        deal=DealType.BUY,
+                        deal=Direction.BUY,
                         volume=gap,
                         source=self._name,
                     )
@@ -93,11 +93,11 @@ class RiskAVGSizer(BaseSizer):
                 # TODO 反复出现买入信号可以考虑调大该标的的风险因子
 
             # 卖出信号，则根据目前持仓,计算卖出量，返回头寸订单事件
-            elif signal.deal == DealType.SELL:
+            elif signal.deal == Direction.SELL:
                 order = OrderEvent(
                     date=date,
                     code=code,
-                    deal=DealType.SELL,
+                    deal=Direction.SELL,
                     volume=self.sell_cal(code=code, position=hold_position),
                     source=self._name,
                 )

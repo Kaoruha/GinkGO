@@ -1,7 +1,7 @@
 """
 蜡烛图
 """
-from src.backtest.enums import DealType
+from src.backtest.enums import Direction
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Cursor
 import matplotlib as mpl
@@ -57,16 +57,16 @@ class CandlePainter(BasePainter):
                     self.broker.trade_history["done"] == True
                 ]
                 buy_date = self.trade_history[
-                    self.trade_history["deal"] == DealType["BUY"].value
+                    self.trade_history["deal"] == Direction["BUY"].value
                 ]["date"].values
                 buy_price = self.trade_history[
-                    self.trade_history["deal"] == DealType["BUY"].value
+                    self.trade_history["deal"] == Direction["BUY"].value
                 ]["price"].values
                 sell_date = self.trade_history[
-                    self.trade_history["deal"] == DealType["SELL"].value
+                    self.trade_history["deal"] == Direction["SELL"].value
                 ]["date"].values
                 sell_price = self.trade_history[
-                    self.trade_history["deal"] == DealType["SELL"].value
+                    self.trade_history["deal"] == Direction["SELL"].value
                 ]["price"].values
                 # 划分Grid
                 gs = mpl.gridspec.GridSpec(40, 40)

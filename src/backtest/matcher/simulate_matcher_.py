@@ -1,7 +1,7 @@
 import random
 from src.backtest.matcher.base_matcher import BaseMatcher
 from src.backtest.events import FillEvent
-from src.backtest.enums import DealType
+from src.backtest.enums import Direction
 from src.data.ginkgo_mongo import ginkgo_mongo as gm
 from src.backtest.price import DayBar, Min5Bar, CurrentPrice
 
@@ -45,7 +45,7 @@ class SimulateMatcher(BaseMatcher):
             print("目前已知价格中没有 {order.code} 相关价格, 请检查代码")
             return
         date = last_price[order.code].data.date
-        if order.deal == DealType.BUY:
+        if order.deal == Direction.BUY:
             p = float(last_price[order.code].data.open) * 1.1
             bussiness_volume = p * order.volume
             fee = self.fee_cal(bussiness_volume=bussiness_volume, deal_type=order.deal)
@@ -59,7 +59,7 @@ class SimulateMatcher(BaseMatcher):
             )
             broker.freeze_money(bussiness_volume + fee)
             order.freeze_money(bussiness_volume + fee)
-        elif order.deal == DealType.SELL:
+        elif order.deal == Direction.SELL:
             if order.code not in broker.position:
                 print(f"{date} 未持有{order.code}")
                 return
@@ -94,7 +94,7 @@ class SimulateMatcher(BaseMatcher):
                 # 涨跌停处理
                 if abs(pct_chg) >= 9.5:
                     # 涨停处理
-                    if pct_chg > 0 and i.deal == DealType.BUY:
+                    if pct_chg > 0 and i.deal == Direction.BUY:
                         i.source = f"{p.date} {i.code} 涨停，无法购买，模拟成交类重新推送"
                         i.date = p.date
                         f = FillEvent(
@@ -113,7 +113,7 @@ class SimulateMatcher(BaseMatcher):
                         result.append(i)
                         continue
                     # 跌停处理
-                    if pct_chg < 0 and i.deal == DealType.SELL:
+                    if pct_chg < 0 and i.deal == Direction.SELL:
                         i.source = f"{p.date} {i.code} 跌停，无法卖出，模拟成交类重新推送"
                         i.date = p.date
                         f = FillEvent(
@@ -149,7 +149,7 @@ class SimulateMatcher(BaseMatcher):
                     source=f"{p.date} 模拟成交",
                     fee=fee,
                     remain=(i.freeze - total - fee)
-                    if i.deal == DealType.BUY
+                    if i.deal == Direction.BUY
                     else (total - fee),
                     freeze=i.freeze,
                     done=True,

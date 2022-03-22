@@ -3,35 +3,35 @@
 """
 import abc
 import pandas as pd
-from src.backtest.enums import PriceType
+from src.backtest.enums import Interval
 
 
 class Price(metaclass=abc.ABCMeta):
-    def __init__(self, price_type: PriceType):
+    def __init__(self, price_type: Interval):
         self.type_ = price_type
         self.data = None
 
 
 class DayBar(Price):
     def __init__(
-            self,
-            date: str,
-            code: str,
-            open_: float,
-            high: float,
-            low: float,
-            close: float,
-            pre_close: float,
-            volume: int,
-            amount: float,
-            adjust_flag: int,
-            turn: float,
-            pct_change: float,
-            is_st: int,
-            *args,
-            **kwargs
+        self,
+        date: str,
+        code: str,
+        open_: float,
+        high: float,
+        low: float,
+        close: float,
+        pre_close: float,
+        volume: int,
+        amount: float,
+        adjust_flag: int,
+        turn: float,
+        pct_change: float,
+        is_st: int,
+        *args,
+        **kwargs
     ):
-        super(DayBar, self).__init__(price_type=PriceType.Day)
+        super(DayBar, self).__init__(price_type=Interval.DAILY)
         self.index = [
             "date",
             "code",
@@ -69,19 +69,19 @@ class DayBar(Price):
 
 class Min5Bar(Price):
     def __init__(
-            self,
-            date: str,
-            time: str,
-            code: str,
-            open_: float,
-            high: float,
-            low: float,
-            close: float,
-            volume: int,
-            amount: float,
-            adjust_flag: int,
+        self,
+        date: str,
+        time: str,
+        code: str,
+        open_: float,
+        high: float,
+        low: float,
+        close: float,
+        volume: int,
+        amount: float,
+        adjust_flag: int,
     ):
-        super(Min5Bar, self).__init__(price_type=PriceType.Min5)
+        super(Min5Bar, self).__init__(price_type=Interval.MIN5)
         self.index = [
             "date",
             "time",

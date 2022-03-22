@@ -3,7 +3,7 @@
 """
 from src.backtest.strategy.base_strategy import BaseStrategy
 from src.backtest.events import SignalEvent
-from src.backtest.enums import DealType
+from src.backtest.enums import Direction
 
 
 class ProfitLossLimit(BaseStrategy):
@@ -33,7 +33,7 @@ class ProfitLossLimit(BaseStrategy):
         ):
             return
         signal = SignalEvent(
-            code=code, date=date, deal=DealType.SELL, source=f"{date} {self.name}"
+            code=code, date=date, deal=Direction.SELL, source=f"{date} {self.name}"
         )
         return signal
 
