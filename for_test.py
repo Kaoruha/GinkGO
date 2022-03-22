@@ -16,7 +16,7 @@ What goes around comes around.
 # b.selector_register(BaseSelector())
 # e.register_next_day(b.next_day)
 # e.start()
-from src.backtest.bar import Bar
+from src.backtest.price import Bar
 
 b = Bar()
 print(b)
