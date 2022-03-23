@@ -1,4 +1,13 @@
 """
+Author: Kaoru
+Date: 2022-03-07 16:50:41
+LastEditTime: 2022-03-23 00:28:34
+LastEditors: Kaoru
+Description: Be stronger,be patient,be confident and never say die.
+FilePath: /Ginkgo/src/backtest/analyzer/base_analyzer.py
+What goes around comes around.
+"""
+"""
 分析评价基类
 
 净值曲线 equity curve
@@ -12,10 +21,11 @@
 盈利交易笔数/亏损交易笔数
 
 """
+import abc
 from src.backtest.event_engine import EventEngine
 
 
-class BaseAnalyzer(object):
+class BaseAnalyzer(abc.ABC):
     def __init__(self, name="基础分析类"):
         self._name = name
         self._init_date = ""
@@ -57,6 +67,7 @@ class BaseAnalyzer(object):
         """
         raise NotImplementedError("Must implement report()")
 
+    @abc.abstractmethod
     def give_a_mark(self, *args, **kwargs):
         """
         报告方法

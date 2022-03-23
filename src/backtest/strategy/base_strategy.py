@@ -1,3 +1,12 @@
+"""
+Author: Kaoru
+Date: 2022-03-08 21:37:29
+LastEditTime: 2022-03-23 00:36:32
+LastEditors: Kaoru
+Description: Be stronger,be patient,be confident and never say die.
+FilePath: /Ginkgo/src/backtest/strategy/base_strategy.py
+What goes around comes around.
+"""
 import pandas as pd
 import abc
 from src.backtest.event_engine import EventEngine
@@ -5,7 +14,7 @@ from src.backtest.postion import Position
 from src.backtest.events import InfoType
 
 
-class BaseStrategy(metaclass=abc.ABCMeta):
+class BaseStrategy(abc.ABC):
     """
     基础策略类
     回头改成抽象类
@@ -33,22 +42,6 @@ class BaseStrategy(metaclass=abc.ABCMeta):
         self._broker = None
         self._engine = None
 
-    @property
-    def name(self):
-        return self._name
-
-    @name.setter
-    def name(self, value):
-        self._name = value
-
-    @property
-    def broker(self):
-        return self._broker
-
-    @broker.setter
-    def broker(self, value):
-        self._broker = value
-
     def __repr__(self):
         s = self.name
         return s
@@ -61,14 +54,17 @@ class BaseStrategy(metaclass=abc.ABCMeta):
         # 注册经纪人
         self._broker = broker
 
-    def try_gen_enter_signal(self):
+    @abc.abstractmethod
+    def try_gen_long_signal(self):
         """进入策略"""
         raise NotImplementedError("Must implement enter_market()")
 
-    def try_gen_exit_signal(self):
+    @abc.abstractmethod
+    def try_gen_short_signal(self):
         """退出策略"""
         raise NotImplementedError("Must implement exit_market()")
 
+    @abc.abstractmethod
     def pre_treate(self):
         """预处理函数"""
         raise NotImplementedError("Must implement pre_treate()")
@@ -76,8 +72,8 @@ class BaseStrategy(metaclass=abc.ABCMeta):
     def try_gen_signals(self):
         self.pre_treate()
         r = []
-        signal_enter = self.try_gen_enter_signal()
-        signal_exit = self.try_gen_exit_signal()
+        signal_enter = self.try_gen_long_signal()
+        signal_exit = self.try_gen_short_signal()
         if signal_enter:
             r.append(signal_enter)
         if signal_exit:
@@ -92,7 +88,9 @@ class BaseStrategy(metaclass=abc.ABCMeta):
                 # 去重
                 self._daybar = self.daybar.drop_duplicates()
                 # 排序
-                self._daybar = self.daybar.sort_values(by="date", ascending=True, axis=0)
+                self._daybar = self.daybar.sort_values(
+                    by="date", ascending=True, axis=0
+                )
             except Exception as e:
                 print(e)
                 print("数据接收异常，请检查代码")

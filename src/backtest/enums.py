@@ -12,15 +12,10 @@ What goes around comes around.
 """
 from enum import Enum
 
-from matplotlib.pyplot import cla
-
 
 class EventType(Enum):
     """
     事件类型
-
-    :param Enum: [description]
-    :type Enum: [type]
     """
 
     MARKET = "市场事件"
@@ -32,9 +27,6 @@ class EventType(Enum):
 class OrderType(Enum):
     """
     订单类型
-
-    :param Enum: [description]
-    :type Enum: [type]
     """
 
     MARKET = "市价订单"
@@ -73,25 +65,19 @@ class TradeStatus(Enum):
     CLOSED = "结束"
 
 
-class InfoType(Enum):
+class MarketEventType(Enum):
     """
-    信息类型
-
-    :param Enum: [description]
-    :type Enum: [type]
+    市场事件类型
     """
 
-    BAR = 100  # 日交易数据
-    MinutePrice = 101  # 分钟交易数据
-    Message = 102  # 消息数据 TODO后续还会完善扩充
+    BAR = "Bar"
+    TICK = "Tick"
+    NEWS = "News"
 
 
 class Direction(Enum):
     """
     交易类型
-
-    :param Enum: [description]
-    :type Enum: [type]
     """
 
     LONG = "多"
@@ -102,9 +88,6 @@ class Direction(Enum):
 class MarketType(Enum):
     """
     市场类型
-
-    :param Enum: [description]
-    :type Enum: [type]
     """
 
     CN = "沪深A股"
@@ -116,7 +99,6 @@ class MarketType(Enum):
 class Interval(Enum):
     """
     间隔
-    Interval of bar
     """
 
     DAILY = "d"
@@ -131,3 +113,4 @@ class Source(Enum):
 
     BACKTEST = "回测"
     SHLIVE = "上交所实时"
+    SNOW = "雪球社区"

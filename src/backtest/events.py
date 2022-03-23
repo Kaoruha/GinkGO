@@ -2,15 +2,40 @@
 事件类
 定义不同种类的事件
 """
-from src.backtest.enums import EventType, Direction, InfoType, OrderStatus
+import abc
+import datetime
+
+from src.backtest.enums import (
+    EventType,
+    Direction,
+    OrderStatus,
+    OrderType,
+    Source,
+    MarketEventType,
+)
+from src.libs.ginkgo_logger import ginkgo_logger as gl
 
 
-class Event(object):
-    def __init__(self, event_type, date="", code="", source=""):
-        self.type_ = event_type
-        self.date = date
-        self.code = code
-        self.source = source
+class Event(abc.ABC):
+    @property
+    def datetime(self):
+        return self._datetime
+
+    @datetime.setter
+    def datetime(self, value):
+        if isinstance(value, datetime.datetime):
+            self._datetime = value
+        elif isinstance(value, str):
+            self._datetime = datetime.datetime.strptime(datetime, "%Y-%m-%d")
+        else:
+            self._datetime = datetime.datetime.strptime("9999-01-01", "%Y-%m-%d")
+
+    def __init__(self, event_type: EventType, datetime: str, code: str, source: Source):
+        self.event_type: EventType = event_type
+        self.datetime = datetime
+        self.code: str = code
+        self.source: Source = source
+        # TODO 加上id
 
 
 class MarketEvent(Event):
@@ -18,47 +43,40 @@ class MarketEvent(Event):
     市场事件，分为新的价格事件，新的消息事件
     """
 
-    def __init__(self, date, code, source, info_type, data, time="0000"):
+    def __init__(
+        self,
+        datetime: str,  # 时间 "2020-01-01 00:00:00"
+        code: str,  #  相关标的
+        source: Source,  # 来源
+        raw,  # 具体数据
+        markert_event_type: MarketEventType,
+    ):
         super(MarketEvent, self).__init__(
-            event_type=EventType.MARKET, date=date, code=code, source=source
+            event_type=EventType.MARKET, datetime=datetime, code=code, source=source
         )
-        self.info_type = info_type
-        self.data = data
-        self.time = time
+        self.market_event_type = markert_event_type
+        self.raw = raw
 
     def __repr__(self):
-        t = ""
-        if self.info_type == InfoType.DailyPrice:
-            t = "日线价格信息"
-        elif self.info_type == InfoType.MinutePrice:
-            t = "分钟价格信息"
-        elif self.info_type == InfoType.Message:
-            t = "市场信息"
-        else:
-            t = "未知市场事件"
-        s = f"{self.date} {t}"
-        return s
+        return f"{self.datetime} {self.raw}"
 
 
 class SignalEvent(Event):
     """
-    信号事件，给经纪人发出买入或者卖出信号
+    信号事件
     """
 
     def __init__(
         self,
-        date,  # 信号日期
-        code,  # 股票代码
-        deal=Direction.LONG,  # 交易类型
-        source="",
+        datetime: str,  # 信号发生时间
+        code: str,  # 股票代码
+        direction: Direction,  # 交易方向
+        source: Source,
     ):
         super(SignalEvent, self).__init__(
-            event_type=EventType.Signal, date=date, code=code, source=source
+            event_type=EventType.SIGNAL, datetime=datetime, code=code, source=source
         )
-        self.type_ = EventType.Signal
-        self.deal = deal
-
-        print(self)
+        self.direction = direction
 
     def __repr__(self):
         d = "多" if self.deal == Direction.BUY else "空"
@@ -73,31 +91,32 @@ class OrderEvent(Event):
 
     def __init__(
         self,
-        date,  # 信号日期
-        code,  # 股票代码
-        deal=Direction.LONG,  # 交易类型
-        status=OrderStatus.CREATED,
-        volume=0,  # 购买或卖出的量
-        source="",
-        price_limit=0,
+        datetime: str,  # 信号日期
+        code: str,  # 股票代码
+        direction: Direction,  # 交易类型
+        source: Source,
+        status: OrderType = OrderStatus.CREATED,
+        volume: int = 0,  # 购买或卖出的量
+        price: float = 0,
+        order_type: OrderType = OrderType.LIMIT,
     ):
-        # TODO 添加限价、市场价成交方式
         super(OrderEvent, self).__init__(
-            event_type=EventType.Order, date=date, code=code, source=source
+            event_type=EventType.Order, datetime=datetime, code=code, source=source
         )
-        self.deal = deal  # 'BUY' or 'SELL'
+        self.order_type: OrderType = order_type
+        self.status: OrderStatus = status
+        self.direction: Direction = direction  # 'BUY' or 'SELL'
         # 下单数(单位是手，买入只能整百，卖出可以零散)
-        self.volume = self.optimize_volume(volume=volume)
-        self.freeze = 0
-        self.price_limit = price_limit
-        print(self)
+        self.volume: int = self.optimize_volume(volume=volume)
+        self.price: float = price
+        self.traded: int = 0
 
     def __repr__(self):
         d = "多" if self.deal == Direction.BUY else "空"
         s = f"{self.date} 产生 {self.code} 「{d}头」下单事件，份额「{self.volume}」，事件来源为「{self.source}」"
         return s
 
-    def optimize_volume(self, volume):
+    def optimize_volume(self, volume: int):
         """
         调整买入数
         股票买入以手为单位，一手为一百股，volume只能是整百的倍数
@@ -106,61 +125,45 @@ class OrderEvent(Event):
         :param volume: [准备下单的股票数量]
         :type volume: [int]
         """
-        if self.deal == Direction.BUY:
-            return int(volume / 100) * 100
+        if self.direction == Direction.LONG:
+            r = int(volume / 100) * 100
+            if r != volume:
+                gl.warning(f"已调整买入量「{volume}」->「{r}」")
+            return r
         else:
             return volume
-
-    def adjust_volume(self, volume):
-        target = self.volume + volume
-        self.volume = self.optimize_volume(target)
-
-    def freeze_money(self, money):
-        self.freeze = money
 
 
 class FillEvent(Event):
     """
-    交易事件
-    根据标的资金，冻结可用资金，并尝试交易
-    交易成功后通知经纪人交易成功，更新持仓股票与资金池
-    交易失败后通知经纪人交易失败，并解除资金冻结
+    成交事件
     """
 
     def __init__(
         self,
-        deal,
-        date,
-        code,
-        price,
-        volume,
-        source,
-        fee,
-        remain,
-        freeze,
-        done,
+        datetime: str,  # 信号日期
+        code: str,  # 股票代码
+        direction: Direction,
+        price: float,
+        volume: int,
+        source: Source,
+        fee: float,
     ):
         super(FillEvent, self).__init__(
-            event_type=EventType.Fill, date=date, code=code, source=source
+            event_type=EventType.Fill, datetime=datetime, code=code, source=source
         )
-        self.deal = deal  # 'BUY' or 'SELL'
-        self.price = price  # 下单价格
-        self.volume = volume  # 下单数(单位是手，买入只能整百，卖出可以零散)
+        self.direction: Direction = direction  # 'LONG' or 'SHORT'
+        self.price: float = price  # 下单价格
+        self.volume: int = volume
         self.fee = fee  # 此次交易的税费
-        self.remain = remain  # 此次交易盈余
-        self.freeze = freeze  # 之前冻结的金额或者标的量
-        self.done = done  # Ture为交易成功，False为交易失败
-        print(self)
 
     def __repr__(self):
-        s = f"{self.date} {self.code} "
+        s = f"{self.datetime} {self.code} "
         s += "「"
-        s += "购买" if self.deal == Direction.BUY else "卖出"
-        s += "成功" if self.done else "失败"
+        s += "购买" if self.deal == Direction.LONG else "卖出"
         s += "」"
         s += f" 事件来源为「{self.source}」, "
         s += f"价格「{round(self.price, 2)}」, "
         s += f"成交量「{round(self.volume, 2)}」, "
-        s += f"盈余现金「{round(self.remain, 2)}」, "
         s += f"税费「{round(self.fee, 2)}」"
         return s

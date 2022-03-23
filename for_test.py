@@ -7,19 +7,36 @@ Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/for_test.py
 What goes around comes around.
 """
-# from src.backtest.broker.base_broker import BaseBroker
-# from src.backtest.event_engine import EventEngine
-# from src.backtest.selector.base_selector import BaseSelector
+import datetime
 
-# e = EventEngine(heartbeat=.001)
-# b = BaseBroker(engine=e, name='myBroker', start_date='2007-12-01', end_date='2021-12-14')
-# b.selector_register(BaseSelector())
-# e.register_next_day(b.next_day)
-# e.start()
-from src.backtest.price import Bar
+t = datetime.date.today()
+print(t)
+t1 = datetime.datetime.today()
+print(t1)
+b = "2020-01-01"
+d = datetime.datetime.strptime(b, "%Y-%m-%d")
+print(d)
+print(type(d))
+print(d.date())
+print(d.hour)
+delta = datetime.timedelta(days=1, hours=1)
+d = d + delta
+print(d)
+b2 = "2020-02-01"
+d2 = datetime.datetime.strptime(b2, "%Y-%m-%d")
+print(d2 - d)
+print(type(d2 - d))
 
-b = Bar()
-print(b)
-print(b.interval)
-b.interval = 1
-print(b.interval)
+
+# c = "9999-01-01 01:01:01"
+# dc = datetime.datetime.strptime(c, "%Y-%m-%d")
+# print(dc)
+
+
+class abb(object):
+    def haha(self):
+        print("hh")
+
+
+a = abb()
+print(type(a.haha))

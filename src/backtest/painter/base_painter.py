@@ -1,15 +1,25 @@
 """
+Author: Kaoru
+Date: 2022-03-22 22:14:51
+LastEditTime: 2022-03-23 00:33:31
+LastEditors: Kaoru
+Description: Be stronger,be patient,be confident and never say die.
+FilePath: /Ginkgo/src/backtest/painter/base_painter.py
+What goes around comes around.
+"""
+"""
 基础绘图类
 """
 import pandas as pd
+import abc
 import matplotlib.pyplot as plt
 from src.backtest.price_old import DayBar, Min5Bar
 
 
-class BasePainter(object):
-    def __init__(self, name='基础绘图',mav=(), *args):
+class BasePainter(abc.ABC):
+    def __init__(self, name="基础绘图", mav=(), *args):
         super(BasePainter, self).__init__(*args)
-        self._name  = name
+        self._name = name
         self.raw = pd.DataFrame()
         self.data = None
         self.broker = None
@@ -20,7 +30,7 @@ class BasePainter(object):
 
     @property
     def name(self):
-        return  self._name
+        return self._name
 
     def create_canvas(self):
         pass
