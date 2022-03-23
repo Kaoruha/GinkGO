@@ -12,7 +12,7 @@ import threading
 from src.data.stock.baostock_data import bao_instance
 from src.data.bitcoin.coin_cap import coin_cap_instance
 from src.config.secure import DATABASE, HOST, PORT, USERNAME, PASSWORD
-from src.libs.ginkgo_logger import ginkgo_logger as gl
+from src.libs import GINKGOLOGGER as gl
 from src.libs.thread_manager import thread_manager as tm
 from src.util.adjust_calculation import adjust_cal
 
@@ -54,16 +54,16 @@ class GinkgoMongo(object):
         """
         更新所有指数代码基本信息,包括指数指数代码、指数名称、交易状态
         """
-        gl.info("StockInfo更新初始化.")
+        gl.logger.info("StockInfo更新初始化.")
         slice_count = 3000
-        gl.info(f"存储切片设置为 {slice_count}")
+        gl.logger.info(f"存储切片设置为 {slice_count}")
         # Step1：通过Baostock获取所有指数代码
         bao_instance.login()
         result = bao_instance.get_all_stock_code()
 
         # Step2：如果数据不为空进行持久化操作，反之报错
         if result.shape[0] == 0:
-            gl.error("股票指数代码获取为空，请检查代码或日期")
+            gl.logger.error("股票指数代码获取为空，请检查代码或日期")
             return
 
         col = self.db["stock_info"]
@@ -96,7 +96,7 @@ class GinkgoMongo(object):
         col.create_index([("code", 1)], unique=True)
         pbar.set_description("StockInfo 更新完成")
 
-        gl.info("StockInfo更新完成.")
+        gl.logger.info("StockInfo更新完成.")
 
     # 从mongo中获取所有股票代码
     def get_all_stockcode_by_mongo(self) -> pd.DataFrame:
@@ -158,8 +158,8 @@ class GinkgoMongo(object):
         pieces_count = math.ceil(data_frame.shape[0] / slice_count)
         threads = []
         for i in range(pieces_count):
-            gl.info(f"创建UpsertAF {i}")
-            sliced_stock_list = data_frame[slice_count * i: slice_count * (i + 1)]
+            gl.logger.info(f"创建UpsertAF {i}")
+            sliced_stock_list = data_frame[slice_count * i : slice_count * (i + 1)]
             thread = threading.Thread(
                 name=f"AdjustFactor {slice_count * i}-{slice_count * (i + 1)}",
                 target=self.upsert_adjustfactor,
@@ -173,12 +173,12 @@ class GinkgoMongo(object):
         """
         全量更新复权因子
         """
-        gl.info("AdjustFactor更新初始化.")
+        gl.logger.info("AdjustFactor更新初始化.")
         # 获取所有代码
         df_stock_list = self.get_all_stockcode_by_mongo()
 
         if df_stock_list.shape[0] == 0:
-            gl.error("StockInfo为空")
+            gl.logger.error("StockInfo为空")
             return
 
         # 生成待插入df
@@ -205,7 +205,7 @@ class GinkgoMongo(object):
             # 执行批量插入操作
             self.upsert_adjustfactor_async(data_frame=insert_list, thread_num=4)
         else:
-            gl.error("共获取AdjustFactor 0 条, 请检查代码")
+            gl.logger.error("共获取AdjustFactor 0 条, 请检查代码")
 
     # 插入日交易数据
     def insert_daybar(self, code: str, data_frame: pd.DataFrame):
@@ -260,7 +260,7 @@ class GinkgoMongo(object):
 
     # 获取日交易数据，并存入队列
     def get_daybar_by_baostock(
-            self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
+        self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
     ):
         """
         获取日交易数据，并存入data_queue的队列里
@@ -295,7 +295,7 @@ class GinkgoMongo(object):
         :type thread_num: int, optional
         """
         # 获取日交易数据队列
-        gl.info("日交易数据更新初始化.")
+        gl.logger.info("日交易数据更新初始化.")
         data_queue = queue.Queue()
         get_thread_dict = dict()
         set_thread_dict = dict()
@@ -307,14 +307,14 @@ class GinkgoMongo(object):
 
         bao_instance.login()
         end = bao_instance.get_baostock_last_date()
-        gl.info(f"目标更新日期为{end}")
+        gl.logger.info(f"目标更新日期为{end}")
 
         if stock_df.shape[0] == 0:
-            gl.error("股票代码为空，请检查代码")
+            gl.logger.error("股票代码为空，请检查代码")
             return
         for i in range(stock_df.shape[0]):
             stock_queue.put(stock_df.iloc[i].code)
-        gl.info("更新队列准备完毕")
+        gl.logger.info("更新队列准备完毕")
 
         pbar_get = tqdm.tqdm(total=stock_queue.qsize())
         pbar_set = tqdm.tqdm(total=stock_queue.qsize())
@@ -322,18 +322,18 @@ class GinkgoMongo(object):
         while True:
             # 如果stock_queue
             if (
-                    stock_queue.qsize() == 0
-                    and data_queue.qsize() == 0
-                    and len(get_thread_dict) == 0
-                    and len(set_thread_dict) == 0
+                stock_queue.qsize() == 0
+                and data_queue.qsize() == 0
+                and len(get_thread_dict) == 0
+                and len(set_thread_dict) == 0
             ):
-                gl.info("日交易数据更新完毕")
+                gl.logger.info("日交易数据更新完毕")
                 return
 
             if (
-                    data_queue.qsize() < data_pool_size
-                    and len(get_thread_dict) == 0
-                    and stock_queue.qsize() > 0
+                data_queue.qsize() < data_pool_size
+                and len(get_thread_dict) == 0
+                and stock_queue.qsize() > 0
             ):
                 # 从stock_queue 中获取一个代码
                 code = stock_queue.get()
@@ -441,7 +441,7 @@ class GinkgoMongo(object):
 
     # 从Baostock获取Min5数据，存入dataQueue中
     def get_min5_async_by_baostock(
-            self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
+        self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
     ):
         """
         从Baostock获取Min5数据，存入dataQueue中
@@ -491,7 +491,7 @@ class GinkgoMongo(object):
         :param thread_num: 存储线程上限, defaults to 2
         :type thread_num: int, optional
         """
-        gl.info("Min5数据更新初始化.")
+        gl.logger.info("Min5数据更新初始化.")
         data_queue = queue.Queue()
         get_thread_dict = dict()
         set_thread_dict = dict()
@@ -501,33 +501,33 @@ class GinkgoMongo(object):
 
         bao_instance.login()
         end = bao_instance.get_baostock_last_date()
-        gl.info(f"目标更新日期为{end}")
+        gl.logger.info(f"目标更新日期为{end}")
 
         if stock_df.shape[0] == 0:
-            gl.error("股票代码为空，请检查代码")
+            gl.logger.error("股票代码为空，请检查代码")
             return
         for i in range(stock_df.shape[0]):
             if self.check_stock_min5(code=stock_df.iloc[i].code):
                 stock_queue.put(stock_df.iloc[i].code)
-        gl.info("更新队列准备完毕")
+        gl.logger.info("更新队列准备完毕")
         pbar_get = tqdm.tqdm(total=stock_queue.qsize())
         pbar_set = tqdm.tqdm(total=stock_queue.qsize())
 
         while True:
             # 如果stock_queue
             if (
-                    stock_queue.qsize() == 0
-                    and data_queue.qsize() == 0
-                    and len(get_thread_dict) == 0
-                    and len(set_thread_dict) == 0
+                stock_queue.qsize() == 0
+                and data_queue.qsize() == 0
+                and len(get_thread_dict) == 0
+                and len(set_thread_dict) == 0
             ):
-                gl.info("Min5 交易数据更新完毕")
+                gl.logger.info("Min5 交易数据更新完毕")
                 return
 
             if (
-                    data_queue.qsize() < data_pool_size
-                    and len(get_thread_dict) == 0
-                    and stock_queue.qsize() > 0
+                data_queue.qsize() < data_pool_size
+                and len(get_thread_dict) == 0
+                and stock_queue.qsize() > 0
             ):
                 # 从stock_queue 中获取一个代码
                 code = stock_queue.get()
@@ -754,7 +754,7 @@ class GinkgoMongo(object):
         col = self.db["stock_info"]
         stock_count = col.count_documents({"code": code})
         if stock_count != 1:
-            gl.error(f"{code}不存在")
+            gl.logger.error(f"{code}不存在")
             return False
         else:
             try:
@@ -829,7 +829,7 @@ class GinkgoMongo(object):
         result = coin_cap_instance.get_coin_list()
         # 存储到MongoDB
         if result.shape[0] == 0:
-            gl.error("Coin指数代码获取为空，请检查代码或日期")
+            gl.logger.error("Coin指数代码获取为空，请检查代码或日期")
         col = self.db["coin_info"]
         operations = []
         pbar = tqdm.tqdm(total=result.shape[0])
@@ -863,7 +863,7 @@ class GinkgoMongo(object):
         col.create_index([("id", 1)], unique=True)
         pbar.set_description("CoinInfo 更新完成")
 
-        gl.info("CoinInfo更新完成.")
+        gl.logger.info("CoinInfo更新完成.")
 
     def get_coin_list_by_mongo(self):
         col = self.db["coin_info"]
@@ -1013,8 +1013,8 @@ class GinkgoMongo(object):
         """
         获取所有交易日
         """
-        df = self.get_dayBar_by_mongo(code='sh.000001')
-        return df['date']
+        df = self.get_dayBar_by_mongo(code="sh.000001")
+        return df["date"]
 
 
 ginkgo_mongo = GinkgoMongo(

@@ -7,7 +7,7 @@ from src.backtest.enums import EventType
 from src.data.ginkgo_mongo import ginkgo_mongo as gm
 from src.backtest.events import Event, MarketEvent
 from src.backtest.price_old import DayBar
-from src.libs.ginkgo_logger import ginkgo_logger as gl
+from src.libs import GINKGOLOGGER as gl
 
 
 class EventEngine(object):
@@ -39,9 +39,9 @@ class EventEngine(object):
         """
         if heartbeat > 0:
             self.heartbeat = heartbeat
-            gl.info(f"设置心跳间隔为「{heartbeat}s」")
+            gl.logger.info(f"设置心跳间隔为「{heartbeat}s」")
         else:
-            gl.warning("heartbeat should bigger than 0")
+            gl.logger.warning("heartbeat should bigger than 0")
 
     def __run(self) -> None:
         """引擎运行"""
@@ -53,7 +53,7 @@ class EventEngine(object):
             except queue.Empty:
                 # 事件列表为空时，回测结束，Live系统应该继续等待
                 # TODO 调用分析模块
-                gl.info("回测结束")
+                gl.logger.info("回测结束")
                 break
             # 当心跳不为0时，事件引擎会短暂停歇，默认如果调用set_heartbeat设置心跳，不开启，但是可能CPU负荷过高
             if self.heartbeat != 0:
@@ -64,14 +64,14 @@ class EventEngine(object):
         # 检查是否存在对该事件进行监听的处理函数
         if event.event_type in self._handlers:
             # 若存在，将事件传递给处理函数执行
-            gl.info(f"处理{event}")
+            gl.logger.info(f"处理{event}")
             [handler(event) for handler in self._handlers[event.event_type]]
 
             # 以上语句为Python列表解析方式的写法，对应的常规循环写法为：
             # for handler in self.__handlers[event.type_]:
             #     handler(event)
         else:
-            gl.error(f"没有{event.event_type}对应的处理函数")
+            gl.logger.error(f"没有{event.event_type}对应的处理函数")
 
         # 调用通用处理函数进行处理
         if self._general_handlers:
@@ -135,7 +135,7 @@ class EventEngine(object):
             if self._handlers[event.event_type] is not None:
                 self._event_queue.put(event)
         except Exception as e:
-            gl.error(
+            gl.logger.error(
                 f"There is no handler for {event}. Please check your configuration!  \n {e}"
             )
 
@@ -182,7 +182,7 @@ class EventEngine(object):
         df = self._price_pool[code][self._price_pool[code]["date"] == date]
         # 3 如果数据库里没有数据，退出回
         if df.empty:
-            gl.error(f"试图获取一个不存在的数据 {date} {code}，退出回测")
+            gl.logger.error(f"试图获取一个不存在的数据 {date} {code}，退出回测")
             return None
         else:
             day_bar = DayBar(

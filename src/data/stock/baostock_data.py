@@ -7,7 +7,7 @@ import time
 
 import baostock as bs
 import pandas as pd
-from src.libs.ginkgo_logger import ginkgo_logger as gl
+from src.libs import GINKGOLOGGER as gl
 from src.libs.thread_manager import thread_manager
 
 
@@ -36,11 +36,11 @@ class BaoStockData(object):
         """
         lg = bs.login(user_id="anonymous", password="123456")
         if not lg.error_code == "0":
-            gl.error("\rlogin respond error_code:" + lg.error_code)
-            gl.error("\rlogin respond  error_msg:" + lg.error_msg)
+            gl.logger.error("\rlogin respond error_code:" + lg.error_code)
+            gl.logger.error("\rlogin respond  error_msg:" + lg.error_msg)
         else:
             pass
-            # gl.info("Baostock Login Success")
+            # gl.logger.info("Baostock Login Success")
 
     # baostock 退出
     def logout(self):
@@ -112,12 +112,14 @@ class BaoStockData(object):
                 while (rs.error_code == "0") & rs.next():
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
-                # gl.info(f"成功获取 {code} 从 {start_date} 至 {end_date} 的数据")
+                # gl.logger.info(f"成功获取 {code} 从 {start_date} 至 {end_date} 的数据")
             else:
-                gl.error(
+                gl.logger.error(
                     "query_history_k_data_plus respond error_code:" + rs.error_code
                 )
-                gl.error("query_history_k_data_plus respond  error_msg:" + rs.error_msg)
+                gl.logger.error(
+                    "query_history_k_data_plus respond  error_msg:" + rs.error_msg
+                )
             result = pd.DataFrame(data_list, columns=rs.fields)
             return result
 
@@ -154,10 +156,10 @@ class BaoStockData(object):
                         # 获取一条记录，将记录合并在一起
                         data_list.append(rs.get_row_data())
                 else:
-                    gl.error(
+                    gl.logger.error(
                         "query_history_k_data_plus respond error_code:" + rs.error_code
                     )
-                    gl.error(
+                    gl.logger.error(
                         "query_history_k_data_plus respond  error_msg:" + rs.error_msg
                     )
             result = pd.DataFrame(data_list, columns=rs.fields)
@@ -208,7 +210,7 @@ class BaoStockData(object):
         通过获取sh.000001的日交易数据来获取数据最新,目前往前推10天
         :return: 返回baostock的最新更新日期
         """
-        gl.info("获取baostock最新更新日期")
+        gl.logger.info("获取baostock最新更新日期")
         daily_query = "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST"
         start_date = (
             datetime.datetime.now().date() + datetime.timedelta(days=-10)
@@ -424,7 +426,7 @@ class BaoStockData(object):
         result = pd.DataFrame(data_list, columns=rs.fields)
         self.logout()
         # 返回结果
-        gl.info(f"{date} 指数代码共有{result.shape[0]}条.")
+        gl.logger.info(f"{date} 指数代码共有{result.shape[0]}条.")
         return result
 
     # 更新所有股票指数交易数据
@@ -468,14 +470,14 @@ class BaoStockData(object):
     def get_adjust_factor(self, code):
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         rs_list = []
-        # gl.info(f'尝试获取 {code} 复权因子数据。。。')
+        # gl.logger.info(f'尝试获取 {code} 复权因子数据。。。')
         rs_factor = bs.query_adjust_factor(
             code=code, start_date=self.init_date, end_date=today
         )
         while (rs_factor.error_code == "0") & rs_factor.next():
             rs_list.append(rs_factor.get_row_data())
         result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
-        # gl.info(f'成功获取 {code} 复权因子数据 {len(rs_list)}条')
+        # gl.logger.info(f'成功获取 {code} 复权因子数据 {len(rs_list)}条')
         return result_factor
 
     # 生成复权因子数据CSV

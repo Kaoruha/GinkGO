@@ -1,5 +1,5 @@
 from src.util.classes_getter import get_classes
-from src.libs.ginkgo_logger import ginkgo_logger as gl
+from src.libs import GINKGOLOGGER as gl
 
 from src.web.handlers import engine
 from src.web.handlers import stock
@@ -21,5 +21,5 @@ def get_url_patten():
                 new_list.append((str(handler.url_prefix), handler))
                 url_list.append(str(handler.url_prefix))
             else:
-                gl.error("API的URL有冲突，请检查代码")
+                gl.logger.error("API的URL有冲突，请检查代码")
     return new_list

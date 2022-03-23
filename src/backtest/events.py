@@ -13,7 +13,7 @@ from src.backtest.enums import (
     Source,
     MarketEventType,
 )
-from src.libs.ginkgo_logger import ginkgo_logger as gl
+from src.libs import GINKGOLOGGER as gl
 
 
 class Event(abc.ABC):
@@ -128,7 +128,7 @@ class OrderEvent(Event):
         if self.direction == Direction.LONG:
             r = int(volume / 100) * 100
             if r != volume:
-                gl.warning(f"已调整买入量「{volume}」->「{r}」")
+                gl.logger.warning(f"已调整买入量「{volume}」->「{r}」")
             return r
         else:
             return volume

@@ -14,7 +14,8 @@ DEBUG = True
 TOKEN_EXPIRATION = 14  # Token过期时间（天）
 
 # 日志设置
-LOGGING_PATH = "./logs/test.log"
+LOGGING_PATH = "./logs/"
+LOGGIN_DEFAULT_FILE = "test.log"
 LOGGING_FILE_ON = True
 LOGGING_LEVEL_CONSOLE = logging.DEBUG
 LOGGING_LEVEL_FILE = logging.DEBUG

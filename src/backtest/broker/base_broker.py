@@ -18,7 +18,7 @@ from src.backtest.sizer.base_sizer import BaseSizer
 from src.backtest.selector.base_selector import BaseSelector
 from src.backtest.painter.base_painter import BasePainter
 from src.backtest.event_engine import EventEngine
-from src.libs.ginkgo_logger import ginkgo_logger as gl
+from src.libs import GINKGOLOGGER as gl
 from src.backtest.postion import Position
 from src.backtest.price_old import Price
 from src.data.ginkgo_mongo import ginkgo_mongo as gm
@@ -104,7 +104,7 @@ class BaseBroker(abc.ABC):
         :type selector: BaseSelector
         """
         if not isinstance(selector, BaseSelector):
-            gl.warn(f"只有选股类实例可以被注册，{type(selector)} 类型不符")
+            gl.logger.warn(f"只有选股类实例可以被注册，{type(selector)} 类型不符")
             return
         self.selector = selector
 
@@ -116,14 +116,14 @@ class BaseBroker(abc.ABC):
         :type strategy: BaseStrategy
         """
         if not isinstance(strategy, BaseStrategy):
-            gl.warn(f"只有策略类实例可以被注册为策略，{type(strategy)} 类型不符")
+            gl.logger.warn(f"只有策略类实例可以被注册为策略，{type(strategy)} 类型不符")
             return
         if strategy not in self.strategies:
             self.strategies.append(strategy)
             strategy.engine_register(self.engine)
-            gl.info(f"{strategy.name} 已注册")
+            gl.logger.info(f"{strategy.name} 已注册")
         else:
-            gl.warning(f"{strategy.name} 已存在")
+            gl.logger.warning(f"{strategy.name} 已存在")
 
     def sizer_register(self, sizer: BaseSizer) -> None:
         """
@@ -133,7 +133,7 @@ class BaseBroker(abc.ABC):
         :type sizer: BaseSizer
         """
         if not isinstance(sizer, BaseSizer):
-            gl.warn(f"只有仓位控制类实例可以被注册为仓位管理，{type(sizer)} 类型不符")
+            gl.logger.warn(f"只有仓位控制类实例可以被注册为仓位管理，{type(sizer)} 类型不符")
             return
         self.sizer = sizer
 
@@ -145,14 +145,14 @@ class BaseBroker(abc.ABC):
         :type risk: BaseRisk
         """
         if not isinstance(risk, BaseRisk):
-            gl.warn(f"只有风控类实例可以被注册为风控管理，{type(risk)} 类型不符")
+            gl.logger.warn(f"只有风控类实例可以被注册为风控管理，{type(risk)} 类型不符")
             return
         if risk not in self.risk_management:
             self.risk_management.append(risk)
             risk.engine_register(self.engine)
-            gl.warning(f"{risk.name} 已注册")
+            gl.logger.warning(f"{risk.name} 已注册")
         else:
-            gl.warning(f"{risk.name} 已存在")
+            gl.logger.warning(f"{risk.name} 已存在")
 
     def matcher_register(self, matcher: BaseMatcher) -> None:
         """
@@ -163,13 +163,13 @@ class BaseBroker(abc.ABC):
         """
         # 撮合类、匹配器绑定
         if not isinstance(matcher, BaseMatcher):
-            gl.warn(f"只有撮合器类实例可以被注册为撮合器，{type(matcher)} 类型不符")
+            gl.logger.warn(f"只有撮合器类实例可以被注册为撮合器，{type(matcher)} 类型不符")
             return
         self.matcher = matcher
         if self.engine:
             self.matcher.engine_register(self.engine)
         else:
-            gl.error("撮合器引擎绑定失败，请检查代码")
+            gl.logger.error("撮合器引擎绑定失败，请检查代码")
 
     def analyzer_register(self, analyzer: BaseAnalyzer):
         """
@@ -180,7 +180,7 @@ class BaseBroker(abc.ABC):
         """
         # 撮合类、匹配器绑定
         if not isinstance(analyzer, BaseAnalyzer):
-            gl.warn(f"只有分析类实例可以被注册为分析模块，{type(analyzer)} 类型不符")
+            gl.logger.warn(f"只有分析类实例可以被注册为分析模块，{type(analyzer)} 类型不符")
             return
         self.analyzer = analyzer
 
@@ -192,7 +192,7 @@ class BaseBroker(abc.ABC):
         :type painter: BasePainter
         """
         if not isinstance(painter, BasePainter):
-            gl.warn(f"只有绘图类实例可以被注册为绘图模块，{type(painter)} 类型不符")
+            gl.logger.warn(f"只有绘图类实例可以被注册为绘图模块，{type(painter)} 类型不符")
             return
         # 绘图器绑定
         self.painter = painter
@@ -264,17 +264,17 @@ class BaseBroker(abc.ABC):
         """
         # 入金金额只接受大于0的金额
         if not (isinstance(cash, float) or isinstance(cash, int)):
-            gl.error(f"入金应该是一个数值，{cash}类型不符，请检查代码")
+            gl.logger.error(f"入金应该是一个数值，{cash}类型不符，请检查代码")
             return self.capital
         if cash > 0:
             self.capital += cash
             self.init_capital += cash
             self.cal_total_capital()
-            gl.info(
+            gl.logger.info(
                 f"{self.name}「入金」{format(cash, ',')}，目前持有现金「{format(self.capital, ',')}」"
             )
         else:
-            gl.error(f"入金的金额{cash}应该大于0.")
+            gl.logger.error(f"入金的金额{cash}应该大于0.")
 
         return self.capital
 
@@ -286,15 +286,15 @@ class BaseBroker(abc.ABC):
         if isinstance(money, int):
             money = float(money)
         if not isinstance(money, float):
-            gl.error(f"冻结金额应该是一个数值，{type(money)}类型不符，请检查代码")
+            gl.logger.error(f"冻结金额应该是一个数值，{type(money)}类型不符，请检查代码")
             return self.capital
 
         if money > self.capital:
-            gl.error(f"冻结金额大于当前现金，{money}>{self.capital},冻结失败，请检查代码")
+            gl.logger.error(f"冻结金额大于当前现金，{money}>{self.capital},冻结失败，请检查代码")
             return self.capital
 
         if money < 0:
-            gl.error(f"冻结金额应当大于0，{money} < 0,冻结失败，请检查代码")
+            gl.logger.error(f"冻结金额应当大于0，{money} < 0,冻结失败，请检查代码")
             return self.capital
 
         self.capital -= money
@@ -313,27 +313,27 @@ class BaseBroker(abc.ABC):
         code = position.code
         date = position.date
         if not isinstance(volume, int):
-            gl.error(f"持仓量应该是整型，{type(volume)}{volume}类型不符合")
+            gl.logger.error(f"持仓量应该是整型，{type(volume)}{volume}类型不符合")
             return self.position
 
         if isinstance(price, int):
             price = float(price)
 
         if not isinstance(price, float):
-            gl.error(f"持仓价格应该是浮点数，{type(price)}{price}类型不符合")
+            gl.logger.error(f"持仓价格应该是浮点数，{type(price)}{price}类型不符合")
             return self.position
 
         # 判断是否已经持有该标的
         if code in self.position.keys():
             # 已经持有则执行Position的买入操作
             self.position[code].buy(cost=price, volume=volume, date=date)
-            gl.info(f"{date} 增加持仓 {code}")
-            gl.info(self.position[code])
+            gl.logger.info(f"{date} 增加持仓 {code}")
+            gl.logger.info(self.position[code])
         else:
             # 未持有则添加持仓至position
             p = Position(cost=price, volume=volume, date=date)
-            gl.info(f"{date} 新增持仓 {code}")
-            gl.info(p)
+            gl.logger.info(f"{date} 新增持仓 {code}")
+            gl.logger.info(p)
             self.position[code] = p
         return self.position
 
@@ -342,12 +342,12 @@ class BaseBroker(abc.ABC):
         冻结持仓
         """
         if code not in self.position.keys():
-            gl.error(f"当前经纪人未持有{code}，无法冻结，请检查代码")
+            gl.logger.error(f"当前经纪人未持有{code}，无法冻结，请检查代码")
             return self.position
 
         self.position[code].pre_sell(volume=volume, date=date)
-        gl.info(f"{date} 冻结{code}持仓{volume}股")
-        gl.info(self.position[code])
+        gl.logger.info(f"{date} 冻结{code}持仓{volume}股")
+        gl.logger.info(self.position[code])
         return self.position
 
     def restore_frozen_position(self, code: str, volume: int, date: str) -> []:
@@ -355,7 +355,7 @@ class BaseBroker(abc.ABC):
         恢复冻结持仓
         """
         if code not in self.position.keys():
-            gl.error(f"当前经纪人未持有{code}，无法解除冻结，请检查代码")
+            gl.logger.error(f"当前经纪人未持有{code}，无法解除冻结，请检查代码")
             return self.position
 
         self.position[code].sell(volume=volume, done=False, date=date)
@@ -366,7 +366,7 @@ class BaseBroker(abc.ABC):
         减少持仓
         """
         if code not in self.position.keys():
-            gl.error(f"当前经纪人未持有{code}，无法减少持仓，请检查代码")
+            gl.logger.error(f"当前经纪人未持有{code}，无法减少持仓，请检查代码")
             return False, self.position
 
         self.position[code].sell(volume=volume, done=True, date=date)
@@ -393,7 +393,7 @@ class BaseBroker(abc.ABC):
             if total == 0:
                 clean_list.append(k)
             if total < 0:
-                gl.error(f"{k}持仓异常，回测有误，请检查代码")
+                gl.logger.error(f"{k}持仓异常，回测有误，请检查代码")
         for i in clean_list:
             self.position.pop(i)
         return self.position
@@ -406,10 +406,10 @@ class BaseBroker(abc.ABC):
         date = price.data.date
         p = price.data.close
         if code not in self.position.keys():
-            gl.warn(f"当前经纪人未持有{code}")
+            gl.logger.warn(f"当前经纪人未持有{code}")
             return self.position
         self.position[code].update_last_price(price=p, date=date)
-        gl.info(f"{date} {code}价格更新为 {p}")
+        gl.logger.info(f"{date} {code}价格更新为 {p}")
 
     def cal_total_capital(self) -> float:
         """
@@ -446,14 +446,14 @@ class BaseBroker(abc.ABC):
             (self.trade_day > self.today) & (self.trade_day <= self.last_day)
         ]
         if df.empty:
-            gl.info(f"{self.today} 是数据最后一天，回测结束")
+            gl.logger.info(f"{self.today} 是数据最后一天，回测结束")
             self.engine.stop()
             # TODO Call Analyzor.End()
         else:
             codes = self.selector.get_result(today=self.today)
             # GOTO NEXT DAY
             self.today = df.iloc[0]
-            gl.info(f"日期变更，{self.today} 已经到了")
+            gl.logger.info(f"日期变更，{self.today} 已经到了")
 
             for i in self.position.keys():
                 if i not in codes:
