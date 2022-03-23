@@ -35,6 +35,10 @@ class Position(object):
         """
         return self.last_price * self.volume
 
+    @property
+    def float_profit(self):
+        return self.market_value - self.cost * self.volume
+
     def __init__(
         self,
         code: str = "BaseCode",
@@ -61,7 +65,7 @@ class Position(object):
         s += f"可用「{self.avaliable_volume}」 冻结「{self.frozen_sell + self.frozen_t1}」 "
         s += f"其中卖出预冻结 「{self.frozen_sell}」 T+1冻结「{self.frozen_t1}」"
         s += f"现价「{self.last_price}」 总价值「{self.market_value}」 "
-        s += f"浮动盈亏「{self.market_value - self.volume * self.last_price}」"
+        s += f"浮动盈亏「{self.market_value - self.volume * self.cost}」"
         return s
 
     def buy(self, volume: int, price: float):
