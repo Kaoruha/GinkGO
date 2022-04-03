@@ -1,3 +1,44 @@
 """
+Author: Kaoru
+Date: 2021-12-23 00:06:29
+LastEditTime: 2022-04-03 00:47:09
+LastEditors: Kaoru
+Description: Be stronger,be patient,be confident and never say die.
+FilePath: /Ginkgo/src/backtest/analyzer/benchmark.py
+What goes around comes around.
+"""
+"""
 业绩基准
 """
+import pandas as pd
+from src.backtest.analyzer.base_analyzer import BaseAnalyzer
+from src.data.ginkgo_mongo import ginkgo_mongo as gm
+
+
+class BenchMark(BaseAnalyzer):
+    def __init__(self, name="业绩基准", target="sh.000001"):
+        super().__init__(name)
+        self.target = target  # TODO 要加上校验
+        self.raw = pd.DataFrame(columns=("datetime", self.target, "portfolio"))
+
+    def __repr__(self) -> str:
+        r = f"{self.name}, 标的: {self.target}"
+        return r
+
+    def record(self, timestamp, *args, **kwargs):
+        t = timestamp
+        target = gm.get_dayBar_by_mongo(code=self.target, start_date=t, end_date=t).loc[
+            0
+        ]
+        # TODO 回测可以考虑缓存数据
+        value = kwargs["broker"].total_capital
+        self.raw = self.raw.append(
+            {"datetime": t, self.target: float(target.close), "portfolio": value},
+            ignore_index=True,
+        )
+
+    def report(self, *args, **kwargs):
+        # 1. 排序
+        # 2. 如果排序结果与原数据有出入，则跑出警告，回测应该有误
+        # 3. 返回
+        pass

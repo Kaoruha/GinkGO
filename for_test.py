@@ -1,18 +1,15 @@
 """
 Author: Kaoru
-Date: 2022-03-20 23:37:02
-LastEditTime: 2022-03-22 11:40:23
+Date: 2022-03-23 21:23:27
+LastEditTime: 2022-04-03 00:52:25
 LastEditors: Kaoru
 Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/for_test.py
 What goes around comes around.
 """
-import datetime
-
-t = datetime.datetime.now().strftime("%Y-%m-%d")
-print(t)
+from src.backtest.analyzer.benchmark import BenchMark
 
 
-from src.libs import GINKGOLOGGER as gl
+b = BenchMark()
 
-gl.logger.info("helo")
+print(b.raw)

@@ -2,8 +2,9 @@
 经纪人类
 """
 import abc
+from tkinter.messagebox import NO
 import pandas as pd
-from src.backtest.enums import Direction, MarketType, InfoType
+from src.backtest.enums import Direction, MarketType
 from src.backtest.events import (
     SignalEvent,
     MarketEvent,
@@ -29,9 +30,26 @@ class BaseBroker(abc.ABC):
     经纪人基类
     """
 
+    @property
+    def position_value(self):
+        """
+        持仓价值
+        """
+        r = 0
+        for i in self.position.values():
+            r += i.marker_value
+        return r
+
+    @property
+    def total_capital(self):
+        """
+        总资金
+        """
+        return self.capital + self.frozen_capital + self.position_value
+
     def __init__(
         self,
-        engine,
+        engine=None,
         name="base_broker",
         *,
         init_capital=100000,
@@ -40,22 +58,19 @@ class BaseBroker(abc.ABC):
     ) -> None:
         self.name = name  # 经纪人名称
         self.engine = engine  # 挂载引擎
-        self.today = start_date  # 日期
+        self.datetime = start_date  # 日期
         self.last_day = end_date  # 日期
-        self.time = None  # 时间
-        self.init_capital = 0  # 设置初始资金
-        self.capital = 0  # 当前资金
-        self.total_capital = 0  # 总资金
-        self.freeze = 0  # 冻结资金
+        self.init_capital = init_capital  # 设置初始资金
+        self.capital = init_capital  # 当前资金
+        self.frozen_capital = 0  # 冻结资金
         self.strategies = []  # 策略池
         self.risk_management = []  # 风控策略池
         self.selector = None  # 股票筛选器
         self.sizer = None  # 仓位控制
         self.matcher = None  # 撮合器
-        self.analyzer = None  # 分析
+        self.analyzer = []  # 分析
         self.painter = None  # 制图
         self.position = {}  # 存放Position对象
-        # TODO Position 需要抽象成一个PositionManager
         self.trade_history = pd.DataFrame(
             columns=[
                 "date",
@@ -67,32 +82,29 @@ class BaseBroker(abc.ABC):
                 "source",
                 "fee",
             ],
-        )  # TODO 交易历史，需要单独抽象成一个类
+        )
+        # TODO 交易历史，需要单独抽象成一个类
         self.signals = []  # 信号队列
-        self.market_type = MarketType.Stock_CN  # 当前市场
+        self.market_type = MarketType.CN  # 当前市场
         self.trade_day = None  # 交易日
 
-        self.get_cash(init_capital)  # 入金
-
     def __repr__(self) -> str:
-        s = "=" * 5 + "经纪人" + "=" * 5 + "\n"
-        s += f"{self.name} "
-        s += "\n" + f"当前日期：{self.today}，"
-        s += "\n" + f"当前时间：{self.time}，"
-        s += "\n" + f"初始资金：{self.init_capital}，"
-        s += "\n" + f"总资金：{self.total_capital}，"
-        s += "\n" + f"可用现金：{self.capital}，"
-        s += "\n" + f"冻结金额：{self.freeze}"
-        s += "\n" + f"仓位控制：{self.sizer.name if self.sizer else 'None'}"
-        s += "\n" + f"成交撮合：{self.matcher.name if self.matcher else 'None'}"
-        s += "\n" + f"分析评价：{self.analyzer.name if self.analyzer else 'None'}"
-        s += "\n" + f"注册策略：{len(self.strategies)}"
+        s = f"{self.name} "
+        s += f"当前日期：{self.datetime}， "
+        s += f"初始资金：{self.init_capital}，"
+        s += f"总资金：{self.total_capital}， "
+        s += f"可用现金：{self.capital}， "
+        s += f"冻结金额：{self.frozen_capital}, "
+        s += f"仓位控制：{self.sizer.name if self.sizer else 'None'}, "
+        s += f"成交撮合：{self.matcher.name if self.matcher else 'None'}, "
+        s += f"分析评价：{self.analyzer.name if self.analyzer else 'None'}, "
+        s += f"注册策略：{len(self.strategies)} "
         for i in self.strategies:
-            s += "\n    "
+            s += "   "
             s += str(i)
-        s += "\n" + f"当前持仓：{len(self.position)}"
+        s += f"当前持仓：{len(self.position)}"
         for i in self.position:
-            s += "\n    "
+            s += "  "
             s += str(self.position[i])
         return s
 
@@ -269,7 +281,6 @@ class BaseBroker(abc.ABC):
         if cash > 0:
             self.capital += cash
             self.init_capital += cash
-            self.cal_total_capital()
             gl.logger.info(
                 f"{self.name}「入金」{format(cash, ',')}，目前持有现金「{format(self.capital, ',')}」"
             )
@@ -301,7 +312,7 @@ class BaseBroker(abc.ABC):
         self.freeze += money
         return self.capital
 
-    def add_position(self, position: Position) -> []:
+    def add_position(self, position: Position):
         """
         添加持仓
 
@@ -337,7 +348,7 @@ class BaseBroker(abc.ABC):
             self.position[code] = p
         return self.position
 
-    def freeze_position(self, code: str, volume: int, date: str) -> []:
+    def freeze_position(self, code: str, volume: int, date: str):
         """
         冻结持仓
         """
@@ -350,7 +361,7 @@ class BaseBroker(abc.ABC):
         gl.logger.info(self.position[code])
         return self.position
 
-    def restore_frozen_position(self, code: str, volume: int, date: str) -> []:
+    def restore_frozen_position(self, code: str, volume: int, date: str):
         """
         恢复冻结持仓
         """
@@ -361,7 +372,7 @@ class BaseBroker(abc.ABC):
         self.position[code].sell(volume=volume, done=False, date=date)
         return self.position
 
-    def reduce_position(self, code: str, volume: int, date: str) -> ():
+    def reduce_position(self, code: str, volume: int, date: str):
         """
         减少持仓
         """
@@ -373,16 +384,7 @@ class BaseBroker(abc.ABC):
         self.clean_position()
         return True, self.position
 
-    def cal_position(self) -> float:
-        """
-        计算持仓总价值
-        """
-        r = 0
-        for i in self.position.values():
-            r += i.cal_total()
-        return r
-
-    def clean_position(self) -> []:
+    def clean_position(self):
         """
         清理持仓
         将空的持仓清除出持仓列表
@@ -398,7 +400,7 @@ class BaseBroker(abc.ABC):
             self.position.pop(i)
         return self.position
 
-    def update_price(self, price: Price) -> []:
+    def update_price(self, price: Price):
         """
         更新持仓价格
         """
@@ -410,15 +412,6 @@ class BaseBroker(abc.ABC):
             return self.position
         self.position[code].update_last_price(price=p, date=date)
         gl.logger.info(f"{date} {code}价格更新为 {p}")
-
-    def cal_total_capital(self) -> float:
-        """
-        计算并更新总资金
-        """
-        stock_value = self.cal_position()
-        self.total_capital = self.capital + self.freeze + stock_value
-
-        return self.total_capital
 
     def add_history(self, fill_event: FillEvent):
         df = pd.DataFrame(
@@ -435,7 +428,13 @@ class BaseBroker(abc.ABC):
         )
         self.trade_history = self.trade_history.append(df, ignore_index=True)
 
-    def next_day(self):
+    def buy(self, code, type, price, volume):
+        pass
+
+    def sell(self, code, type, price, volume):
+        pass
+
+    def next(self):
         """
         根据交易日，进入下一个时间
         """

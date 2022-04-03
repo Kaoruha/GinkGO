@@ -1,7 +1,7 @@
 """
 Author: Kaoru
 Date: 2022-03-07 16:50:41
-LastEditTime: 2022-03-23 00:28:34
+LastEditTime: 2022-04-03 00:36:06
 LastEditors: Kaoru
 Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/src/backtest/analyzer/base_analyzer.py
@@ -22,56 +22,16 @@ What goes around comes around.
 
 """
 import abc
-from src.backtest.event_engine import EventEngine
 
 
 class BaseAnalyzer(abc.ABC):
     def __init__(self, name="基础分析类"):
-        self._name = name
-        self._init_date = ""
-        self._current_date = ""
-        self._target = "sh."
-        self._engine = None
-        self._init_capital = 0
-        self._capital = 0
-        self._position = {}
-        self._profit = 0
-        self._freeze = 0
-        self._last_price = 0
-        self._stock_value = 0
-        self._max_profit = 0
-        self._max_drawdown = 0
+        self.name = name
 
-    @property
-    def name(self):
-        return self._name
-
-    @name.setter
-    def name(self, value):
-        self._name = value
-
-    def engine_register(self, engine: EventEngine):
-        """
-        引擎注册，通过Broker的注册获得引擎实例
-
-        :param engine: [description]
-        :type engine: EventEngine
-        """
-        self._engine = engine
-
-    def report(self, *args, **kwargs):
-        """
-        报告方法
-
-        :raises NotImplementedError: 必须在子类中重载
-        """
+    @abc.abstractmethod
+    def record(self, *args, **kwargs):
         raise NotImplementedError("Must implement report()")
 
     @abc.abstractmethod
-    def give_a_mark(self, *args, **kwargs):
-        """
-        报告方法
-
-        :raises NotImplementedError: 必须在子类中重载
-        """
-        raise NotImplementedError("Must implement give_a_mark()")
+    def report(self, *args, **kwargs):
+        raise NotImplementedError("Must implement report()")

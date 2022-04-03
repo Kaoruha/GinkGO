@@ -3,12 +3,7 @@ from src.backtest.broker.base_broker import BaseBroker
 from src.backtest.event_engine import EventEngine
 from src.backtest.strategy.base_strategy import BaseStrategy
 from src.backtest.sizer.base_sizer import BaseSizer
-from src.backtest.risk.base_risk import BaseRisk
-from src.backtest.matcher.base_matcher import BaseMatcher
-from src.backtest.analyzer.base_analyzer import BaseAnalyzer
-from src.backtest.painter.base_painter import BasePainter
-from src.backtest.postion import Position
-from src.backtest.price_old import DayBar
+from src.libs import GINKGOLOGGER as gl
 
 
 class BrokerTest(unittest.TestCase):
@@ -18,99 +13,72 @@ class BrokerTest(unittest.TestCase):
 
     def __init__(self, *args, **kwargs) -> None:
         super(BrokerTest, self).__init__(*args, **kwargs)
-        self.broker_name = 'base'
+        self.broker_name = "testbroker"
         self.engine = EventEngine()
         self.init_capital = 100000
 
-    def reset_broker(self) -> BaseBroker:
-        self.base_broker = BaseBroker(name=self.broker_name, engine=self.engine, init_capital=self.init_capital)
+    def reset(self) -> BaseBroker:
+        self.base_broker = BaseBroker(
+            name=self.broker_name, engine=self.engine, init_capital=self.init_capital
+        )
         return self.base_broker
 
-    # def test_Init_OK(self) -> None:
-    #     """
-    #     初始化基础经纪人
-    #     """
-    #     test_tuple = [
-    #         ('broker1', 1000), ('broker2', 0), ('broker3', 10000)
-    #     ]
-    #     for i in test_tuple:
-    #         b = BaseBroker(name=i[0], engine=EventEngine(), init_capital=i[1])
-    #         self.assertEqual(
-    #             first={
-    #                 "name": i[0],
-    #                 "init_capital": i[1],
-    #             },
-    #             second={
-    #                 "name": b.name,
-    #                 "init_capital": b.init_capital,
-    #             }
-    #         )
+    def test_Init_OK(self) -> None:
+        gl.logger.critical("BaseBroker初始化测试开始.")
+        test_tuple = [
+            # 0brokername, 1init_cash
+            ("broker1", 1000),
+            ("broker2", 0),
+            ("broker3", 10000),
+        ]
+        for i in test_tuple:
+            b = BaseBroker(name=i[0], engine=EventEngine(), init_capital=i[1])
+            gl.logger.info(b)
+            self.assertEqual(
+                first={
+                    "name": i[0],
+                    "init_capital": i[1],
+                },
+                second={
+                    "name": b.name,
+                    "init_capital": b.init_capital,
+                },
+            )
+        gl.logger.critical("BaseBroker初始化测试完成.")
 
-    # def test_RegisterStrategy_FAILED(self) -> None:
-    #     """
-    #     注册一个非策略实例
-    #     """
-    #     tuple1 = [None, 'a', 1, EventEngine(), BaseRisk(), BaseMatcher(), BaseSizer(),
-    #               BaseAnalyzer(), BasePainter()]
-    #     b = self.reset_broker()
-    #     for i in tuple1:
-    #         b.strategy_register(i)
-    #         self.assertEqual(
-    #             first={
-    #                 'length': 0
-    #             },
-    #             second={
-    #                 'length': len(b.strategies)
-    #             }
-    #         )
+    def test_RegisterSelector_OK(self) -> None:
+        gl.logger.critical("BaseBroker选股模块注册测试开始.")
+        b = self.reset()
+        param = [
+            (),
+        ]
+        gl.logger.critical("BaseBroker选股模块注册测试完成.")
 
-    # def test_RegisterStrategy_OK(self) -> None:
-    #     """
-    #     注册策略
-    #     """
-    #     s = BaseStrategy(name='bb')
-    #     tuple1 = [
-    #         (BaseStrategy(name='s1'), 1),
-    #         ('strategy', 0),
-    #         (BaseStrategy(name='s2'), 1),
-    #         (110, 0),
-    #         (BaseStrategy(name='s2'), 1),
-    #         (s, 1),
-    #         (BaseSizer(), 0),
-    #         (s, 0),
-    #         (BaseStrategy(name='s5'), 1),
-    #         (None, 0),
-    #     ]
-    #     b = self.reset_broker()
-    #     count = 0
-    #     for i in tuple1:
-    #         b.strategy_register(i[0])
-    #         count += i[1]
-    #         self.assertEqual(
-    #             first={
-    #                 'length': count
-    #             },
-    #             second={
-    #                 'length': len(b.strategies)
-    #             }
-    #         )
-
-    # def test_RegisterSizer_FAILED(self) -> None:
-    #     """
-    #     仓位控制失败
-    #     """
-    #     b = self.reset_broker()
-    #     tuple1 = [1, 'Sizer', BaseRisk()]
-    #     for i in tuple1:
-    #         b.sizer_register(i)
-    #         self.assertEqual(
-    #             first={
-    #                 'sizer': None
-    #             },
-    #             second={
-    #                 'sizer': b.sizer
-    #             }
-    #         )
+    def test_RegisterStrategy_OK(self) -> None:
+        gl.logger.critical("BaseBroker策略注册测试开始.")
+        s = BaseStrategy(name="bb")
+        tuple1 = [
+            (BaseStrategy(name="s1"), 1),
+            ("strategy", 0),
+            (BaseStrategy(name="s2"), 1),
+            (110, 0),
+            (BaseStrategy(name="s2"), 1),
+            (s, 1),
+            (BaseSizer(), 0),
+            (s, 0),
+            (BaseStrategy(name="s5"), 1),
+            (None, 0),
+        ]
+        b = self.reset_broker()
+        count = 0
+        for i in tuple1:
+            b.strategy_register(i[0])
+            gl.logger.info(b)
+            count += i[1]
+            self.assertEqual(
+                first={"length": count}, second={"length": len(b.strategies)}
+            )
+        gl.logger.critical("BaseBroker策略注册测试完成.")
 
     # def test_RegisterSizer_OK(self) -> None:
     #     """
@@ -150,24 +118,6 @@ class BrokerTest(unittest.TestCase):
     #             }
     #         )
 
-    # def test_RegisterRisk_FAILED(self) -> None:
-    #     """
-    #     注册一个非风控实例
-    #     """
-    #     tuple1 = [None, 'a', 1, EventEngine(), BaseStrategy(), BaseMatcher(), BaseSizer(),
-    #               BaseAnalyzer(), BasePainter()]
-    #     b = self.reset_broker()
-    #     for i in tuple1:
-    #         b.risk_register(i)
-    #         self.assertEqual(
-    #             first={
-    #                 'length': 0
-    #             },
-    #             second={
-    #                 'length': len(b.risk_management)
-    #             }
-    #         )
-
     # def test_RegisterRisk_OK(self) -> None:
     #     """
     #     注册风控实例
@@ -196,23 +146,6 @@ class BrokerTest(unittest.TestCase):
     #             },
     #             second={
     #                 'length': len(b.risk_management)
-    #             }
-    #         )
-
-    # def test_RegisterMatcher_FAILED(self) -> None:
-    #     """
-    #     撮合单元注册失败
-    #     """
-    #     b = self.reset_broker()
-    #     tuple1 = [1, 'Matcher', BaseRisk()]
-    #     for i in tuple1:
-    #         b.matcher_register(i)
-    #         self.assertEqual(
-    #             first={
-    #                 'matcher': None
-    #             },
-    #             second={
-    #                 'matcher': b.matcher
     #             }
     #         )
 
@@ -254,23 +187,6 @@ class BrokerTest(unittest.TestCase):
     #             }
     #         )
 
-    # def test_RegisterAnalyzer_FAILED(self) -> None:
-    #     """
-    #     分析单元注册失败
-    #     """
-    #     b = self.reset_broker()
-    #     tuple1 = [1, 'Analyzer', BaseSizer()]
-    #     for i in tuple1:
-    #         b.analyzer_register(i)
-    #         self.assertEqual(
-    #             first={
-    #                 'analyzer': None
-    #             },
-    #             second={
-    #                 'analyzer': b.analyzer
-    #             }
-    #         )
-
     # def test_RegisterAnalyzer_OK(self) -> None:
     #     """
     #     分析单元注册成功
@@ -309,23 +225,6 @@ class BrokerTest(unittest.TestCase):
     #             }
     #         )
 
-    # def test_RegisterPainter_FAILED(self) -> None:
-    #     """
-    #     绘图单元注册失败
-    #     """
-    #     b = self.reset_broker()
-    #     tuple1 = [1, 'Painter', BaseSizer()]
-    #     for i in tuple1:
-    #         b.painter_register(i)
-    #         self.assertEqual(
-    #             first={
-    #                 'painter': None
-    #             },
-    #             second={
-    #                 'painter': b.painter
-    #             }
-    #         )
-
     # def test_RegisterPainter_OK(self) -> None:
     #     """
     #     绘图单元注册成功
@@ -361,23 +260,6 @@ class BrokerTest(unittest.TestCase):
     #             },
     #             second={
     #                 'name': b.painter.name
-    #             }
-    #         )
-
-    # def test_GetCash_FAILED(self) -> None:
-    #     """
-    #     经纪人入金失败
-    #     """
-    #     tuple1 = [('money', 100000), (-200, 100000)]
-    #     for i in tuple1:
-    #         b = self.reset_broker()
-    #         b.get_cash((i[0]))
-    #         self.assertEqual(
-    #             first={
-    #                 'capital': i[1]
-    #             },
-    #             second={
-    #                 'capital': b.capital
     #             }
     #         )
 
@@ -421,25 +303,6 @@ class BrokerTest(unittest.TestCase):
     #                 'capital': i[2]
     #             },
     #             second={
-    #                 'capital': b.capital
-    #             }
-    #         )
-
-    # def test_FreezeMoney_FAILED(self) -> None:
-    #     """
-    #     冻结现金失败
-    #     """
-    #     tuple1 = ['1000 dollar', '-20000', '-4000.0', '0', '0.0', '$1000', '10000$', '100000000']
-    #     b = self.reset_broker()
-    #     for i in tuple1:
-    #         b.freeze_money(i)
-    #         self.assertEqual(
-    #             first={
-    #                 'freeze': 0,
-    #                 'capital': self.init_capital
-    #             },
-    #             second={
-    #                 'freeze': b.freeze,
     #                 'capital': b.capital
     #             }
     #         )
@@ -657,23 +520,9 @@ class BrokerTest(unittest.TestCase):
     #             }
     #         )
 
-    # def test_UpdateDate_FAILED(self) -> None:
-    #     """
-    #     日期更新失败
-    #     """
-    #     # TODO
-    #     pass
-
     # def test_UpdateDate_OK(self) -> None:
     #     """
     #     日期更新成功
-    #     """
-    #     # TODO
-    #     pass
-
-    # def test_UpdateTime_FAILED(self) -> None:
-    #     """
-    #     时间更新失败
     #     """
     #     # TODO
     #     pass
@@ -683,12 +532,6 @@ class BrokerTest(unittest.TestCase):
     #     时间更新成功
     #     """
     #     # TODO
-    #     pass
-
-    # def test_UpdatePrice_FAILED(self) -> None:
-    #     """
-    #     价格更新失败
-    #     """
     #     pass
 
     # def test_UpdatePrice_OK(self) -> None:
@@ -738,13 +581,6 @@ class BrokerTest(unittest.TestCase):
     #                 'total': b.cal_total_capital()
     #             }
     #         )
-
-    # def test_AddHistory_FAILED(self) -> None:
-    #     """
-    #     增加交易历史失败
-    #     """
-    #     # TODO
-    #     pass
 
     # def test_AddHistory_OK(self) -> None:
     #     """

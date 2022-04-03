@@ -15,6 +15,7 @@ from src.config.secure import DATABASE, HOST, PORT, USERNAME, PASSWORD
 from src.libs import GINKGOLOGGER as gl
 from src.libs.thread_manager import thread_manager as tm
 from src.util.adjust_calculation import adjust_cal
+from src.libs import GINKGOLOGGER as gl
 
 # 5分钟交易数据后缀
 min5_postfix = ".min5"
@@ -31,6 +32,9 @@ class GinkgoMongo(object):
         self.database = database
 
         self.__connect()
+
+        self.code_list_cache = None
+        self.code_list_cache_last_update = None
 
     def __connect(self):
         """
@@ -106,10 +110,23 @@ class GinkgoMongo(object):
         :return: [所有StockCode组成的df]
         :rtype: [DataFrame]
         """
+        if self.code_list_cache_last_update is None:
+            self.code_list_cache_last_update = datetime.datetime.now()
+            is_overdue = False
+        else:
+            time_delta = datetime.datetime.now() - self.code_list_cache_last_update
+            is_overdue = time_delta >= datetime.timedelta(days=1)
+        if (self.code_list_cache is not None) and (not is_overdue):
+            gl.logger.debug("Get CodeList by Cache")
+            return self.code_list_cache.drop(["_id"], axis=1)
+
         col = self.db["stock_info"]
         rs = col.find()
         df = pd.DataFrame(rs)
-        return df
+        self.code_list_cache = df
+        self.code_list_cache_last_update = datetime.datetime.now()
+        gl.logger.debug("Get CodeList with no Cache")
+        return df.drop(["_id"], axis=1)
 
     # 更新插入复权数据
     def upsert_adjustfactor(self, data_frame: pd.DataFrame):

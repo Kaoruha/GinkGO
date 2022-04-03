@@ -80,8 +80,8 @@ class Direction(Enum):
     交易类型
     """
 
-    LONG = "多"
-    SHORT = "空"
+    BULL = "多"
+    BEAR = "空"
     NET = "净"
 
 
@@ -101,8 +101,8 @@ class Interval(Enum):
     间隔
     """
 
-    DAILY = "d"
-    MIN5 = "5m"
+    DAILY = "day"
+    MIN5 = "5mim"
     TICK = "tick"
 
 
@@ -112,5 +112,7 @@ class Source(Enum):
     """
 
     BACKTEST = "回测"
+    STRATEGY = "策略"
     SHLIVE = "上交所实时"
     SNOW = "雪球社区"
+    TEST = "测试用"

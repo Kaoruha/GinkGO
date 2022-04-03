@@ -4,6 +4,7 @@
 """
 import abc
 import datetime
+from tkinter.messagebox import NO
 
 from src.backtest.enums import (
     EventType,
@@ -26,7 +27,7 @@ class Event(abc.ABC):
         if isinstance(value, datetime.datetime):
             self._datetime = value
         elif isinstance(value, str):
-            self._datetime = datetime.datetime.strptime(datetime, "%Y-%m-%d")
+            self._datetime = datetime.datetime.strptime(value, "%Y-%m-%d")
         else:
             self._datetime = datetime.datetime.strptime("9999-01-01", "%Y-%m-%d")
 
@@ -45,11 +46,11 @@ class MarketEvent(Event):
 
     def __init__(
         self,
-        datetime: str,  # 时间 "2020-01-01 00:00:00"
         code: str,  #  相关标的
-        source: Source,  # 来源
         raw,  # 具体数据
         markert_event_type: MarketEventType,
+        source: Source = Source.TEST,  # 来源
+        datetime: str = None,  # 时间 "2020-01-01 00:00:00"
     ):
         super(MarketEvent, self).__init__(
             event_type=EventType.MARKET, datetime=datetime, code=code, source=source
@@ -68,19 +69,21 @@ class SignalEvent(Event):
 
     def __init__(
         self,
-        datetime: str,  # 信号发生时间
         code: str,  # 股票代码
         direction: Direction,  # 交易方向
-        source: Source,
+        datetime: str = None,  # 信号发生时间
+        source: Source = Source.TEST,  # 来源
+        last_price: float = 0,  # 最新价格
     ):
         super(SignalEvent, self).__init__(
             event_type=EventType.SIGNAL, datetime=datetime, code=code, source=source
         )
         self.direction = direction
+        self.last_price = last_price
 
     def __repr__(self):
-        d = "多" if self.deal == Direction.BUY else "空"
-        s = f"{self.date} 产生 {self.code} 「{d}头」交易信号，信号来源为「{self.source}」"
+        d = "多" if self.direction == Direction.BULL else "空"
+        s = f"{self.datetime} 产生 {self.code} 「{d}头」交易信号，信号来源为「{self.source}」"
         return s
 
 
@@ -91,17 +94,17 @@ class OrderEvent(Event):
 
     def __init__(
         self,
-        datetime: str,  # 信号日期
         code: str,  # 股票代码
         direction: Direction,  # 交易类型
-        source: Source,
+        source: Source = Source.TEST,
+        datetime: str = None,  # 信号日期
         status: OrderType = OrderStatus.CREATED,
         volume: int = 0,  # 购买或卖出的量
         price: float = 0,
         order_type: OrderType = OrderType.LIMIT,
     ):
         super(OrderEvent, self).__init__(
-            event_type=EventType.Order, datetime=datetime, code=code, source=source
+            event_type=EventType.ORDER, datetime=datetime, code=code, source=source
         )
         self.order_type: OrderType = order_type
         self.status: OrderStatus = status
@@ -112,8 +115,8 @@ class OrderEvent(Event):
         self.traded: int = 0
 
     def __repr__(self):
-        d = "多" if self.deal == Direction.BUY else "空"
-        s = f"{self.date} 产生 {self.code} 「{d}头」下单事件，份额「{self.volume}」，事件来源为「{self.source}」"
+        d = "多" if self.direction == Direction.BULL else "空"
+        s = f"{self.datetime} 产生 {self.code} 「{d}头」下单事件，份额「{self.volume}」，事件来源为「{self.source}」"
         return s
 
     def optimize_volume(self, volume: int):
@@ -125,7 +128,7 @@ class OrderEvent(Event):
         :param volume: [准备下单的股票数量]
         :type volume: [int]
         """
-        if self.direction == Direction.LONG:
+        if self.direction == Direction.BULL:
             r = int(volume / 100) * 100
             if r != volume:
                 gl.logger.warning(f"已调整买入量「{volume}」->「{r}」")
@@ -141,16 +144,16 @@ class FillEvent(Event):
 
     def __init__(
         self,
-        datetime: str,  # 信号日期
         code: str,  # 股票代码
         direction: Direction,
         price: float,
         volume: int,
-        source: Source,
         fee: float,
+        source: Source = Source.TEST,
+        datetime: str = None,  # 信号日期
     ):
         super(FillEvent, self).__init__(
-            event_type=EventType.Fill, datetime=datetime, code=code, source=source
+            event_type=EventType.FILL, datetime=datetime, code=code, source=source
         )
         self.direction: Direction = direction  # 'LONG' or 'SHORT'
         self.price: float = price  # 下单价格
@@ -160,7 +163,7 @@ class FillEvent(Event):
     def __repr__(self):
         s = f"{self.datetime} {self.code} "
         s += "「"
-        s += "购买" if self.deal == Direction.LONG else "卖出"
+        s += "购买" if self.direction == Direction.BULL else "卖出"
         s += "」"
         s += f" 事件来源为「{self.source}」, "
         s += f"价格「{round(self.price, 2)}」, "

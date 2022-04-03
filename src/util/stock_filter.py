@@ -1,3 +1,12 @@
+"""
+Author: Kaoru
+Date: 2021-12-23 00:06:29
+LastEditTime: 2022-04-02 01:59:23
+LastEditors: Kaoru
+Description: Be stronger,be patient,be confident and never say die.
+FilePath: /Ginkgo/src/util/stock_filter.py
+What goes around comes around.
+"""
 from src.data.ginkgo_mongo import ginkgo_mongo as gm
 
 
@@ -24,6 +33,7 @@ def remove_index():
         "中正",
         "800",
         "380",
+        "300",
         "500",
         "180",
         "主题",

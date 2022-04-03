@@ -1,17 +1,9 @@
 """
-Author: Kaoru
-Date: 2022-01-09 22:17:46
-LastEditTime: 2022-03-23 00:34:05
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/src/backtest/risk/base_risk.py
-What goes around comes around.
-"""
-"""
 风控类
 """
 import abc
 from src.backtest.event_engine import EventEngine
+from src.backtest.events import SignalEvent
 
 
 class BaseRisk(abc.ABC):
@@ -21,13 +13,19 @@ class BaseRisk(abc.ABC):
     """
 
     def __init__(self, name="基础风控") -> None:
-        self._name = name
-        self._engine = None
+        self.name = name
+        self.engine = None
 
-    @property
-    def name(self):
-        return self._name
-
-    def engine_register(self, engine: EventEngine):
+    def engine_register(self, engine: EventEngine) -> EventEngine:
         # 引擎注册，通过Broker的注册获得引擎实例
-        self._engine = engine
+        self.engine = engine
+        return self.engine
+
+    @abc.abstractmethod
+    def risk_analyze(self, *args, **kwargs) -> SignalEvent:
+        raise NotImplementedError("Must implement risk_analyze()")
+
+    def risk_process(self, *args, **kwargs):
+        r = self.risk_analyze(args=args, kwargs=kwargs)
+        if r is not None:
+            self.engine.put(r)

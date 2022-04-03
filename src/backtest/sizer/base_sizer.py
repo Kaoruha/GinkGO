@@ -1,52 +1,35 @@
 """
 Author: Kaoru
 Date: 2022-01-09 22:17:46
-LastEditTime: 2022-03-23 00:08:15
+LastEditTime: 2022-04-01 12:44:37
 LastEditors: Kaoru
 Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/src/backtest/sizer/base_sizer.py
 What goes around comes around.
 """
-"""
-仓位管理类
-"""
-import datetime
 import abc
-from src.backtest.event_engine import EventEngine
+
+from src.backtest.events import SignalEvent
+from src.backtest.postion import Position
 
 
 class BaseSizer(abc.ABC):
     """
     仓位管理基类
+    每次开仓前需要有仓位管理模块决定开仓大小
 
     """
 
     def __init__(self, name="base_sizer"):
-        self._engine = None
-        if isinstance(name, str):
-            self._name = name
-        else:
-            self._name = "base_sizer"
-
-    @property
-    def name(self):
-        return self._name
+        self.name = name
 
     def __repr__(self):
-        engine_status = "未挂载引擎" if self._engine is None else f"已挂载引擎 {self._engine}"
-        return f"仓位管理基类，{engine_status}"
-
-    def engine_register(self, engine: EventEngine):
-        """
-        引擎注册，通过Broker的注册获得引擎实例
-
-        :param engine: [description]
-        :type engine: EventEngine
-        """
-        self._engine = engine
+        return f"仓位管理基类，{self.name}"
 
     @abc.abstractmethod
-    def get_signal(self, event, broker):
+    def cal_size(
+        self, event: SignalEvent, capital: int, positions: dict[str, Position]
+    ) -> float:
         """
         获取信号事件
         根据初始金额、手持现金、当前持仓进行仓位调整，产生订单事件OrderEvent

@@ -1,6 +1,15 @@
 """
 Author: Kaoru
 Date: 2022-03-08 21:37:29
+LastEditTime: 2022-04-01 02:00:54
+LastEditors: Kaoru
+Description: Be stronger,be patient,be confident and never say die.
+FilePath: /Ginkgo/src/backtest/strategy/base_strategy.py
+What goes around comes around.
+"""
+"""
+Author: Kaoru
+Date: 2022-03-08 21:37:29
 LastEditTime: 2022-03-23 00:36:32
 LastEditors: Kaoru
 Description: Be stronger,be patient,be confident and never say die.
@@ -11,7 +20,6 @@ import pandas as pd
 import abc
 from src.backtest.event_engine import EventEngine
 from src.backtest.postion import Position
-from src.backtest.events import InfoType
 
 
 class BaseStrategy(abc.ABC):
