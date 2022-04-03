@@ -7,9 +7,11 @@ Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/for_test.py
 What goes around comes around.
 """
-from src.backtest.analyzer.benchmark import BenchMark
+import argparse
 
-
-b = BenchMark()
-
-print(b.raw)
+parser = argparse.ArgumentParser()
+parser.add_argument("-dev", help="dev mode", action="store_true")
+parser.add_argument("-debug")
+args = parser.parse_args()
+print(args.dev)
+print(args.debug)
