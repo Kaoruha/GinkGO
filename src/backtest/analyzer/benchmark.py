@@ -43,4 +43,6 @@ class BenchMark(BaseAnalyzer):
         # 1. 排序
         # 2. 如果排序结果与原数据有出入，则跑出警告，回测应该有误
         # 3. 返回
-        pass
+        r = {}
+        r["name"] = "benchmark:" + self.target
+        return r

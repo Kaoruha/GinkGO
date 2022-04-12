@@ -9,8 +9,8 @@ What goes around comes around.
 """
 import unittest
 from src.backtest.analyzer.benchmark import BenchMark
-from src.libs import GINKGOLOGGER as gl
 from src.backtest.broker.base_broker import BaseBroker
+from src.libs import GINKGOLOGGER as gl
 
 
 class AnalyzerTest(unittest.TestCase):
