@@ -1,7 +1,7 @@
 """
 Author: Kaoru
 Date: 2022-01-09 22:17:46
-LastEditTime: 2022-03-23 00:31:56
+LastEditTime: 2022-04-18 16:01:40
 LastEditors: Kaoru
 Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/src/backtest/matcher/base_matcher.py
@@ -39,6 +39,7 @@ class BaseMatcher(abc.ABC):
         self.transfer_fee_rate = transfer_fee_rate  # 设置过户费,默认万2
         self.commission_rate = commission_rate  # 交易佣金，按最高千3计算了，一般比这个低
         self.min_commission = min_commission  # 最低交易佣金，交易佣金的起步价
+        self.order_list = queue.Queue()
         self.match_list = queue.Queue()
         self.result_list = queue.Queue()
         self.engine = None  # 用来推送事件
@@ -63,6 +64,13 @@ class BaseMatcher(abc.ABC):
 
         """
         raise NotImplementedError("Must implement try_match()")
+
+    @abc.abstractmethod
+    def get_order(self, order):
+        """
+        获取订单
+        """
+        raise NotImplementedError("Must implement get_order()")
 
     @abc.abstractmethod
     def send_order(self, order):
