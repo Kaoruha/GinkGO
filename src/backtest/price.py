@@ -1,33 +1,37 @@
 """
 Author: Kaoru
-Date: 2022-03-22 11:36:02
-LastEditTime: 2022-03-22 11:36:03
+Date: 2022-03-22 22:14:51
+LastEditTime: 2022-04-21 01:51:03
 LastEditors: Kaoru
 Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/src/backtest/bar.py
+FilePath: /Ginkgo/src/backtest/price.py
 What goes around comes around.
 """
-from datetime import datetime
-
-from matplotlib.pyplot import cla
-from src.backtest.enums import Interval, Source
 import pandas as pd
+import abc
+from datetime import datetime
+from src.backtest.enums import Interval, Source
 
 
-class PriceBase(object):
-    pass
+class PriceBase(abc.ABC):
+    def __init__(self, code) -> None:
+        super().__init__()
+        self.code = code
+
 
 class Bar(PriceBase):
     """
     某一个时间段内的成交信息
     """
+
     @property
     def pct_change(self):
-        r = (self.close_price - self.open_price)/self.open_price
-        return round(r,2)
+        r = (self.close_price - self.open_price) / self.open_price
+        return round(r, 2)
 
     def __init__(
         self,
+        code: str = "bar",
         interval: Interval = Interval.DAILY,
         source: Source = Source.BACKTEST,
         datetime: datetime = None,
@@ -39,7 +43,7 @@ class Bar(PriceBase):
         low_price: float = 0.0,
         close_price: float = 0.0,
     ) -> None:
-        super(Bar, self).__init__()
+        super(Bar, self).__init__(code=code)
         self.interval: Interval = interval
         self.source: Source = source
         self.datetime: datetime = datetime
@@ -62,10 +66,11 @@ class Bar(PriceBase):
             "pct_change",
         ]
         self.data = pd.Series(index=self.index)
-    
+
     def __repr__(self):
         s = str(self.data)
         return s
 
-class Tick(object):
+
+class Tick(PriceBase):
     pass

@@ -31,7 +31,15 @@ class Event(abc.ABC):
         else:
             self._datetime = datetime.datetime.strptime("9999-01-01", "%Y-%m-%d")
 
-    def __init__(self, event_type: EventType, datetime: str, code: str, source: Source):
+    def __init__(
+        self,
+        event_type: EventType,
+        datetime: str,
+        code: str,
+        source: Source,
+        *args,
+        **kwargs,
+    ):
         self.event_type: EventType = event_type
         self.datetime = datetime
         self.code: str = code
@@ -51,9 +59,16 @@ class MarketEvent(Event):
         markert_event_type: MarketEventType,
         source: Source = Source.TEST,  # 来源
         datetime: str = None,  # 时间 "2020-01-01 00:00:00"
+        *args,
+        **kwargs,
     ):
         super(MarketEvent, self).__init__(
-            event_type=EventType.MARKET, datetime=datetime, code=code, source=source
+            event_type=EventType.MARKET,
+            datetime=datetime,
+            code=code,
+            source=source,
+            args=args,
+            kwargs=kwargs,
         )
         self.market_event_type = markert_event_type
         self.raw = raw
@@ -74,9 +89,16 @@ class SignalEvent(Event):
         datetime: str = None,  # 信号发生时间
         source: Source = Source.TEST,  # 来源
         last_price: float = 0,  # 最新价格
+        *args,
+        **kwargs,
     ):
         super(SignalEvent, self).__init__(
-            event_type=EventType.SIGNAL, datetime=datetime, code=code, source=source
+            event_type=EventType.SIGNAL,
+            datetime=datetime,
+            code=code,
+            source=source,
+            args=args,
+            kwargs=kwargs,
         )
         self.direction = direction
         self.last_price = last_price
@@ -102,9 +124,16 @@ class OrderEvent(Event):
         volume: int = 0,  # 购买或卖出的量
         price: float = 0,
         order_type: OrderType = OrderType.LIMIT,
+        *args,
+        **kwargs,
     ):
         super(OrderEvent, self).__init__(
-            event_type=EventType.ORDER, datetime=datetime, code=code, source=source
+            event_type=EventType.ORDER,
+            datetime=datetime,
+            code=code,
+            source=source,
+            args=args,
+            kwargs=kwargs,
         )
         self.order_type: OrderType = order_type
         self.status: OrderStatus = status
@@ -151,9 +180,16 @@ class FillEvent(Event):
         fee: float,
         source: Source = Source.TEST,
         datetime: str = None,  # 信号日期
+        *args,
+        **kwargs,
     ):
         super(FillEvent, self).__init__(
-            event_type=EventType.FILL, datetime=datetime, code=code, source=source
+            event_type=EventType.FILL,
+            datetime=datetime,
+            code=code,
+            source=source,
+            args=args,
+            kwargs=kwargs,
         )
         self.direction: Direction = direction  # 'LONG' or 'SHORT'
         self.price: float = price  # 下单价格

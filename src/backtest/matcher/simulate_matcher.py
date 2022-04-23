@@ -7,22 +7,26 @@ Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/src/backtest/matcher/simulate_matcher.py
 What goes around comes around.
 """
+from asyncio import QueueEmpty
 import time
 import queue
+from src.backtest.price import Bar
 from src.libs import GINKGOLOGGER as gl
 from src.backtest.matcher.base_matcher import BaseMatcher
+from src.backtest.enums import OrderStatus
 from src.backtest.events import OrderEvent
 
 
 class SimulateMatcher(BaseMatcher):
     def __init__(
         self,
-        *,
-        stamp_tax_rate: float = 0.001,
-        transfer_fee_rate: float = 0.0002,
-        commission_rate: float = 0.0003,
-        min_commission: float = 5,
-        slippage: float = 0.02,
+        stamp_tax_rate: float = 0.001,  # 设置印花税，默认千1
+        transfer_fee_rate: float = 0.0002,  # 设置过户费,默认万2
+        commission_rate: float = 0.0003,  # 交易佣金，按最高千3计算了，一般比这个低
+        min_commission: float = 5,  # 最低交易佣金，交易佣金的起步价
+        slippage: float = 0.02,  # 滑点
+        *args,
+        **kwargs,
     ):
         super(SimulateMatcher, self).__init__(
             name="回测模拟成交",
@@ -30,6 +34,8 @@ class SimulateMatcher(BaseMatcher):
             transfer_fee_rate=transfer_fee_rate,
             commission_rate=commission_rate,
             min_commission=min_commission,
+            args=args,
+            kwargs=kwargs,
         )
         self._slippage = slippage
 
@@ -45,32 +51,81 @@ class SimulateMatcher(BaseMatcher):
         """
         发送订单，模拟成交直接向匹配列表里添加，如果是实盘则是向券商服务发起下单API，待返回后向匹配列表添加订单
         """
-        self.match_list.put(order)
+        code = order.code
+        if order.status == OrderStatus.CREATED:
+            order.status = OrderStatus.SUBMITED
+            if code in self.match_list:
+                self.match_list[code].put(order)
+            else:
+                self.match_list[code] = queue.Queue()
+                self.match_list[code].put(order)
+            gl.logger.info(f"提交订单 {code} {order.direction}")
+            return self.match_list[code].qsize()
+        else:
+            gl.logger.error(f"{code} 状态异常，提交失败")
+            order.status = OrderStatus.REJECTED
+            if self.engine:
+                self.engine.put(order)
+            else:
+                gl.logger.critical(f"{self.name} 引擎未注册")
+            return 0 if code not in self.match_list else self.match_list[code].qsize()
 
-    def try_match(self, order: OrderEvent):
+    def get_bar(self, bar: Bar):
+        """
+        获取到新的Bar
+        """
+        # TODO 1 日期校验，只允许往后
+        # 2 try match
+        if bar.code in self.match_list:
+            self.try_match(bar=bar)
+            gl.logger.info(
+                f"{self.datetime} 尝试撮合「{self.match_list[bar.code].qsize()}」个「{bar.code}」订单"
+            )
+        else:
+            gl.logger.debug(f"{self.datetime} 不存在 「{bar.code}」订单，请检查代码")
+
+    def try_match(self, bar: Bar):
         """
         尝试撮合
         """
+        # 从orderlist中取出order，尝试发送
+        send_count = 0
         while True:
             try:
-                o = self.match_list.get(block=False)
-                self.match_order(o)
-                self.order_count += 1
+                o = self.order_list.get(block=False)
+                self.send_order(o)
+                send_count += 1
             except queue.Empty():
+                gl.logger.debug(f"{self.name} OrderList中订单已空，共计发出「{send_count}」个订单")
                 break
+        # 模拟成交
+        code = bar.code
+        count = 0
+        while True:
+            try:
+                o = self.match_list[code].get(block=False)
+                self.sim_match_order(order=o, bar=bar)
+                self.order_count += 1
+                count += 1
+            except queue.Empty():
+                gl.logger.debug(f"{self.name} Matchlist中「{code}」订单已空")
+                self.match_list.pop(bar.code)
+                break
+        gl.logger.info(f"{self.datetime} 尝试撮合「{count}」个「{code}」订单")
 
-    def match_order(self, order: OrderEvent):
+    def sim_match_order(self, order: OrderEvent, bar: Bar):
         """
         匹配
         """
-        # 1 拿到订单的Code
-        code = order.code
         # TODO 日期校验
-        # 2 找引擎要当天的日线信息
-        daybar = self.engine.get_price(code=code, date=date)
-        # 3 如果涨停则买入失败，直接返回失败的FillEvent
-        # 4 如果跌停则卖出失败，直接返回失败的FillEvent
-        # 5 其他情况则模拟交易成功，随机取开盘价与收盘价之间的一个价格，返回成功的FillEvent
+        # 1. 当出现涨停or跌停时，对应的买单与买单全部失败，存入result，并生成Fill推送回engine
+        # 2. 如果是限价委托，
+        # 2.1. 以买入委托为例，当委托买价高于当日最低价时，则判定发生成交。
+        # 当委托价格小于K线均价时，成交价即为委托价。当委托价格高于K线均价时，成交价判定为（委托价+K线均价）/2.
+        # 成交数量根据当天成交量的三角分布模型判定。
+        # 2.2. 以卖出委托为例，当委托卖价低于当日最高价时，则判定发生成交。
+        # 3.1. 如果是市价委托，当委托价格低于K线均价时，以委托价成交，
+        # 当委托价格高于K线均价时，（当日K线最高价+当日K线均价）/2。成交数量依然根据当天成交量的三角分布模型判定
         pass
 
     def get_result(self):

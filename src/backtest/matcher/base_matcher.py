@@ -11,11 +11,13 @@ What goes around comes around.
 撮合基类
 先开发回测模拟撮合，回头接入实盘，接入券商API
 """
-import pandas as pd
+import datetime
 import queue
 import abc
 from src.backtest.event_engine import EventEngine
-from src.backtest.events import OrderEvent, Direction
+from src.backtest.enums import OrderStatus
+from src.backtest.events import OrderEvent
+from src.libs import GINKGOLOGGER as gl
 
 
 class BaseMatcher(abc.ABC):
@@ -33,18 +35,38 @@ class BaseMatcher(abc.ABC):
         transfer_fee_rate=0.0002,
         commission_rate=0.0003,
         min_commission=5,
+        *args,
+        **kwargs,
     ):
         self.name = name
         self.stamp_tax_rate = stamp_tax_rate  # 设置印花税，默认千1
         self.transfer_fee_rate = transfer_fee_rate  # 设置过户费,默认万2
         self.commission_rate = commission_rate  # 交易佣金，按最高千3计算了，一般比这个低
         self.min_commission = min_commission  # 最低交易佣金，交易佣金的起步价
-        self.order_list = queue.Queue()
-        self.match_list = queue.Queue()
-        self.result_list = queue.Queue()
-        self.engine = None  # 用来推送事件
+        self.order_list = queue.Queue()  # 订单队列
+        self.match_list = {}  # 撮合队列
+        self.result_list = queue.Queue()  # 结果队列
+        self.engine: EventEngine = None  # 用来推送事件
         self.order_count = 0  # 订单计数器
-        self.today = ""
+        self.datetime: datetime = None
+
+    def get_order(self, order: OrderEvent):
+        """
+        获取订单
+        """
+        if order.status == OrderStatus.CREATED:
+            self.order_list.put(order)
+            gl.logger.info(
+                f"{self.name} 获取Order: {order.code} {order.direction} {order.order_type}"
+            )
+        else:
+            gl.logger.error(f"{order.code} 状态异常，提交失败")
+            order.status = OrderStatus.REJECTED
+            if self.engine:
+                self.engine.put(order)
+            else:
+                gl.logger.critical(f"{self.name} 引擎未注册")
+        return self.order_list.qsize()
 
     def engine_register(self, engine: EventEngine):
         """
@@ -64,13 +86,6 @@ class BaseMatcher(abc.ABC):
 
         """
         raise NotImplementedError("Must implement try_match()")
-
-    @abc.abstractmethod
-    def get_order(self, order):
-        """
-        获取订单
-        """
-        raise NotImplementedError("Must implement get_order()")
 
     @abc.abstractmethod
     def send_order(self, order):

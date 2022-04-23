@@ -6,7 +6,7 @@ from threading import Thread
 from src.backtest.enums import EventType
 from src.data.ginkgo_mongo import ginkgo_mongo as gm
 from src.backtest.events import Event, MarketEvent
-from src.backtest.price_old import DayBar
+from src.backtest.price import Bar
 from src.libs import GINKGOLOGGER as gl
 
 
