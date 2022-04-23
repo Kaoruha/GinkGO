@@ -31,17 +31,17 @@ class Bar(PriceBase):
 
     def __init__(
         self,
-        code: str = "bar",
-        interval: Interval = Interval.DAILY,
+        code: str = "bar",  # 代码
+        interval: Interval = Interval.DAILY,  # Bar的间隔
+        open_price: float = 0.0,  # 开盘价
+        close_price: float = 0.0,  # 收盘价
+        high_price: float = 0.0,  # 最高价
+        low_price: float = 0.0,  # 最低价
+        volume: int = 0,  # 成交量
+        turnover: float = 0.0,  # 换手率
+        open_interest: int = 0,  # 未结清权益
         source: Source = Source.BACKTEST,
         datetime: datetime = None,
-        volume: int = 0,
-        turnover: float = 0.0,
-        open_interest: int = 0,
-        open_price: float = 0.0,
-        high_price: float = 0.0,
-        low_price: float = 0.0,
-        close_price: float = 0.0,
     ) -> None:
         super(Bar, self).__init__(code=code)
         self.interval: Interval = interval

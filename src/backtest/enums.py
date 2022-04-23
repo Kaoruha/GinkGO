@@ -112,6 +112,7 @@ class Source(Enum):
     """
 
     BACKTEST = "回测"
+    SIMMATCHER = "模拟成交"
     STRATEGY = "策略"
     SHLIVE = "上交所实时"
     SNOW = "雪球社区"

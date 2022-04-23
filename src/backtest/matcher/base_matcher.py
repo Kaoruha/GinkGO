@@ -14,9 +14,10 @@ What goes around comes around.
 import datetime
 import queue
 import abc
+from typing import OrderedDict
 from src.backtest.event_engine import EventEngine
-from src.backtest.enums import OrderStatus
-from src.backtest.events import OrderEvent
+from src.backtest.enums import Direction, OrderStatus, Source
+from src.backtest.events import OrderEvent, FillEvent
 from src.libs import GINKGOLOGGER as gl
 
 
@@ -49,6 +50,40 @@ class BaseMatcher(abc.ABC):
         self.engine: EventEngine = None  # 用来推送事件
         self.order_count = 0  # 订单计数器
         self.datetime: datetime = None
+
+    def gen_fillevent(
+        self, order: OrderEvent, is_complete: bool, price: float = 0, volume: int = 0
+    ):
+        fill = FillEvent(
+            code=order.code,
+            direction=order.direction,
+            price=0,
+            volume=0,
+            fee=0,
+            source=Source.SIMMATCHER,
+            datetime=self.datetime,
+        )
+        if is_complete:
+            fill.price = price
+            fill.volume = volume
+            fill.fee = self.fee_cal(
+                direction=order.direction, price=price, volume=volume
+            )
+
+        return fill
+
+    def fee_cal(self, direction: Direction, price: float, volume: int):
+        total = price * volume
+        if total == 0:
+            return 0
+        stamp_tax = 0
+        transfer = total * self.transfer_fee_rate
+        commision = total * self.commission_rate
+        if commision < self.min_commission:
+            commision = self.min_commission
+        if direction == direction.BEAR:
+            stamp_tax = total * self.stamp_tax_rate
+        return commision + stamp_tax + transfer
 
     def get_order(self, order: OrderEvent):
         """

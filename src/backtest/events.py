@@ -118,12 +118,12 @@ class OrderEvent(Event):
         self,
         code: str,  # 股票代码
         direction: Direction,  # 交易类型
+        order_type: OrderType = OrderType.LIMIT,
+        price: float = 0,
+        volume: int = 0,  # 购买或卖出的量
         source: Source = Source.TEST,
         datetime: str = None,  # 信号日期
         status: OrderType = OrderStatus.CREATED,
-        volume: int = 0,  # 购买或卖出的量
-        price: float = 0,
-        order_type: OrderType = OrderType.LIMIT,
         *args,
         **kwargs,
     ):

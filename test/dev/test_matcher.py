@@ -7,11 +7,12 @@ Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/test/dev/test_matcher.py
 What goes around comes around.
 """
+from typing import OrderedDict
 import unittest
 from src.backtest.price import Bar
 from src.backtest.matcher.simulate_matcher import SimulateMatcher
 from src.backtest.events import OrderEvent
-from src.backtest.enums import Direction, OrderStatus
+from src.backtest.enums import Direction, Interval, OrderStatus, OrderType
 
 
 class SimulateMatcherTest(unittest.TestCase):
@@ -58,10 +59,41 @@ class SimulateMatcherTest(unittest.TestCase):
             r = m.send_order(o)
             self.assertEqual(first={"count": i[3]}, second={"count": r})
 
-    def test_SimMatcherTrySIMMatch_OK(self):
-        pass
+    def test_FeeCal_OK(self):
+        params = [
+            # 0stamp, 1transfer,2commission,3 min,4direction,5price,6volume,7fee
+            (0.001, 0.0002, 0.0003, 5, Direction.BULL, 1, 100, 5.02),
+            (0.002, 0.0002, 0.0003, 5, Direction.BULL, 1, 100, 5.02),
+            # TODO 需要更多的边界值
+        ]
+        for i in params:
+            m = SimulateMatcher(
+                stamp_tax_rate=i[0],
+                transfer_fee_rate=i[1],
+                commission_rate=i[2],
+                min_commission=i[3],
+            )
+            f = m.fee_cal(direction=i[4], price=i[5], volume=i[6])
+            self.assertEqual(first=i[7], second=f)
 
-    def test_SimMatcherMatch_OK(self):
+    def test_SimMatcherSIMMatch_OK(self):
+        order_params = [
+            # 0code, 1direction, 2type, 3price, 4volume
+            ("testorder1", Direction.BULL, OrderType.LIMIT, 5, 1000),
+        ]
+        bar_params = [
+            # 0code, 1 interval, 2 open, 3close, 4high, 5low, 6volume, 7 turnover
+            ("testorder1", Interval.DAILY, 5, 5.2, 5.2, 4.8, 10000, 0.23),
+        ]
+        m = self.reset()
+        for i in order_params:
+            order = OrderEvent(
+                code=i[0], direction=i[1], order_type=i[2], price=i[3], volume=i[4]
+            )
+            bar = Bar(code=i[0])
+            f = m.sim_match_order(order=order, bar=bar)
+
+    def test_SimMatcherTryMatch_OK(self):
         pass
 
     def test_SimMatcherGetResult_OK(self):

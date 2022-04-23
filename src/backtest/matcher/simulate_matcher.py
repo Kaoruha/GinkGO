@@ -7,14 +7,13 @@ Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/src/backtest/matcher/simulate_matcher.py
 What goes around comes around.
 """
-from asyncio import QueueEmpty
 import time
 import queue
 from src.backtest.price import Bar
 from src.libs import GINKGOLOGGER as gl
 from src.backtest.matcher.base_matcher import BaseMatcher
-from src.backtest.enums import OrderStatus
-from src.backtest.events import OrderEvent
+from src.backtest.enums import Direction, OrderStatus, OrderType, Source
+from src.backtest.events import FillEvent, OrderEvent
 
 
 class SimulateMatcher(BaseMatcher):
@@ -113,20 +112,87 @@ class SimulateMatcher(BaseMatcher):
                 break
         gl.logger.info(f"{self.datetime} 尝试撮合「{count}」个「{code}」订单")
 
-    def sim_match_order(self, order: OrderEvent, bar: Bar):
+    def sim_match_order(self, order: OrderEvent, bar: Bar) -> FillEvent:
         """
         匹配
         """
         # TODO 日期校验
-        # 1. 当出现涨停or跌停时，对应的买单与买单全部失败，存入result，并生成Fill推送回engine
-        # 2. 如果是限价委托，
-        # 2.1. 以买入委托为例，当委托买价高于当日最低价时，则判定发生成交。
-        # 当委托价格小于K线均价时，成交价即为委托价。当委托价格高于K线均价时，成交价判定为（委托价+K线均价）/2.
-        # 成交数量根据当天成交量的三角分布模型判定。
-        # 2.2. 以卖出委托为例，当委托卖价低于当日最高价时，则判定发生成交。
-        # 3.1. 如果是市价委托，当委托价格低于K线均价时，以委托价成交，
-        # 当委托价格高于K线均价时，（当日K线最高价+当日K线均价）/2。成交数量依然根据当天成交量的三角分布模型判定
-        pass
+        if order.code != bar.code:
+            gl.logger.error(
+                f"{self.datetime} {self.name} {order.code} {bar.code} 撮合失败，订单与价格信息代码不符"
+            )
+            return
+        # 1. 当出现涨停or跌停时，对应的买单与买单全部失败，存入result，修改Order状态推送回engine
+        limit_up_condition = order.direction == Direction.BULL and bar.pct_change >= 9.7
+        limit_down_condition = (
+            order.direction == Direction.BEAR and bar.pct_change <= -9.7
+        )
+        info = ""
+        if limit_up_condition:
+            info = f"{self.datetime} {order.code}价格涨停，订单买入撮合失败"
+        if limit_down_condition:
+            info = f"{self.datetime} {order.code}价格跌停，订单卖出撮合失败"
+        if limit_up_condition or limit_down_condition:
+            gl.logger.info(info)
+            order.status = OrderStatus.REJECTED
+            fill = self.gen_fillevent(order=order, is_complete=False)
+            self.result_list.put(fill)
+            if self.engine:
+                self.engine.put(order)
+                self.engine.put(fill)
+            else:
+                gl.logger.critical(f"{self.name} 引擎未注册")
+            return fill
+
+        # 2. 如果是限价委托
+        p = 0
+        v = 0
+        avg = (bar.open_price + bar.close_price) / 2
+        if order.order_type == OrderType.LIMIT:
+            # 2.1. 以买入委托为例，当委托买价高于当日最低价时，则判定发生成交。
+            if order.direction == Direction.BULL:
+                if order.price < bar.low_price:
+                    order.status = OrderStatus.REJECTED
+                    fill = self.gen_fillevent(order=order, is_complete=False)
+                # 当委托价格小于K线均价时，成交价即为委托价。当委托价格高于K线均价时，成交价判定为（委托价+K线均价）/2.
+                else:
+                    if order.price < avg:
+                        p = order.price
+                    else:
+                        p = (order.price + avg) / 2
+                    # TODO 成交数量根据当天成交量的三角分布模型判定。
+                    v = order.volume
+                    order.status = OrderStatus.COMPLETED
+                    fill = self.gen_fillevent(
+                        order=order, is_complete=True, price=p, volume=v
+                    )
+            # 2.2. 以卖出委托为例，当委托卖价低于当日最高价时，则判定发生成交。
+            elif order.direction == Direction.BEAR:
+                if order.price > bar.high_price:
+                    order.status = OrderStatus.REJECTED
+                    fill = self.gen_fillevent(order=order, is_complete=False)
+                else:
+                    p = order.price
+                    # TODO 成交数量根据当天成交量的三角分布模型判定。
+                    v = order.volume
+                    order.status = OrderStatus.COMPLETED
+                    fill = self.gen_fillevent(
+                        order=order, is_complete=True, price=p, volume=v
+                    )
+        # 3.1. 如果是市价委托，当委托价格低于K线均价时，以委托价成交，?
+        elif order.order_type == OrderType.MARKET:
+            p = (bar.high_price + avg) / 2
+            v = order.volume
+            order.status = OrderStatus.COMPLETED
+            fill = self.gen_fillevent(order=order, is_complete=True, price=p, volume=v)
+        # 当委托价格高于K线均价时，（当日K线最高价+当日K线均价）/2。成交数量依然根据当天成交量的三角分布模型判定?
+        self.result_list.put(fill)
+        if self.engine:
+            self.engine.put(order)
+            self.engine.put(fill)
+        else:
+            gl.logger.critical(f"{self.name} 引擎未注册")
+        return fill
 
     def get_result(self):
         """
