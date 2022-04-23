@@ -3,7 +3,7 @@ from src.backtest.matcher.base_matcher import BaseMatcher
 from src.backtest.events import FillEvent
 from src.backtest.enums import Direction
 from src.data.ginkgo_mongo import ginkgo_mongo as gm
-from src.backtest.price_old import DayBar, Min5Bar, CurrentPrice
+from src.backtest.price import Bar
 
 
 class SimulateMatcher(BaseMatcher):

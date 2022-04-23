@@ -21,7 +21,7 @@ from src.backtest.painter.base_painter import BasePainter
 from src.backtest.event_engine import EventEngine
 from src.libs import GINKGOLOGGER as gl
 from src.backtest.postion import Position
-from src.backtest.price_old import Price
+from src.backtest.price import Bar
 from src.data.ginkgo_mongo import ginkgo_mongo as gm
 
 
@@ -400,12 +400,12 @@ class BaseBroker(abc.ABC):
             self.position.pop(i)
         return self.position
 
-    def update_price(self, price: Price):
+    def update_price(self, price: Bar):
         """
         更新持仓价格
         """
-        code = price.data.code
-        date = price.data.date
+        code = price.code
+        date = price.datetime
         p = price.data.close
         if code not in self.position.keys():
             gl.logger.warn(f"当前经纪人未持有{code}")

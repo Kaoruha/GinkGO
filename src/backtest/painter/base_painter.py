@@ -13,7 +13,7 @@ What goes around comes around.
 import pandas as pd
 import abc
 import matplotlib.pyplot as plt
-from src.backtest.price_old import DayBar, Min5Bar
+from src.backtest.price import Bar
 
 
 class BasePainter(abc.ABC):
@@ -35,7 +35,7 @@ class BasePainter(abc.ABC):
     def create_canvas(self):
         pass
 
-    def get_price(self, broker, price: DayBar):
+    def get_price(self, broker, price: Bar):
         self.broker = broker
         dic = {}
         for i in price.data.keys():
