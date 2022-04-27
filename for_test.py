@@ -1,25 +1,22 @@
 """
 Author: Kaoru
 Date: 2022-04-03 16:25:41
-LastEditTime: 2022-04-13 03:09:09
+LastEditTime: 2022-04-27 03:19:11
 LastEditors: Kaoru
 Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/for_test.py
 What goes around comes around.
 """
-"""
-Author: Kaoru
-Date: 2022-03-23 21:23:27
-LastEditTime: 2022-04-03 00:52:25
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/for_test.py
-What goes around comes around.
-"""
+from src.backtest.enums import Direction
+from src.backtest.events import OrderEvent
 
-a = {"a1": 1, "a2": 2}
+i, v = (12, 22)
 
-print(a)
+print(i)
+print(v)
+a = True
+b = False
 
-a.pop("a1")
-print(a)
+
+for i in range(2, 4):
+    print(i)

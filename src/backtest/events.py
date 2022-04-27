@@ -4,6 +4,7 @@
 """
 import abc
 import datetime
+import uuid
 from tkinter.messagebox import NO
 
 from src.backtest.enums import (
@@ -44,7 +45,7 @@ class Event(abc.ABC):
         self.datetime = datetime
         self.code: str = code
         self.source: Source = source
-        # TODO 加上id
+        self.uuid = str(uuid.uuid4()).replace("-", "")
 
 
 class MarketEvent(Event):
