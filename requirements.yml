@@ -6,7 +6,6 @@ click==8.0.3
 colorlog==6.6.0
 cycler==0.11.0
 fonttools==4.28.3
-ginkgo @ file:///Users/suny/Documents/Ginkgo/dist/ginkgo-0.1.19-py3-none-any.whl
 idna==3.3
 joblib==1.1.0
 kiwisolver==1.3.2

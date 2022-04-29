@@ -17,8 +17,8 @@ import platform
 # Run this after enter your env.
 # ==============================
 
-print(sys.platform)
-print(platform.system())
+print("OS: "+sys.platform)
+print("OS: "+platform.system())
 print("Windows" == str(platform.system()))
 
 # 创建打包文件夹
@@ -46,4 +46,7 @@ if not os.path.exists("mongo"):
 if not os.path.exists("logs"):
     os.mkdir("logs")
 # 启动Docker
-os.system("docker-compose up -d")
+if "Windows" == str(platform.system()):
+    os.system("docker-compose up -d")
+elif "Linux" == str(platform.system()):
+    os.system("sudo docker-compose up -d")

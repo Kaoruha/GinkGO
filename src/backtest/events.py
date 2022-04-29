@@ -5,7 +5,6 @@
 import abc
 import datetime
 import uuid
-from tkinter.messagebox import NO
 
 from src.backtest.enums import (
     EventType,
