@@ -282,3 +282,4 @@ class SimulateMatcher(BaseMatcher):
             v = target_volume  # TODO 成交数量根据当天成交量的三角分布模型判定。
 
         return (p, v)
+
