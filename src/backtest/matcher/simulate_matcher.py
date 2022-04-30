@@ -103,7 +103,7 @@ class SimulateMatcher(BaseMatcher):
 
     def sim_match_order(self, order: OrderEvent, bar: Bar) -> FillEvent:
         """
-        匹配
+        模拟订单匹配
         """
         # TODO 日期校验
         order.status = OrderStatus.ACCEPTED
@@ -220,7 +220,7 @@ class SimulateMatcher(BaseMatcher):
         self,
         is_bull: bool,
         target_volume: int,
-        open: float,
+        open_: float,
         close: float,
         high: float,
         low: float,
@@ -230,12 +230,23 @@ class SimulateMatcher(BaseMatcher):
         """
         p = 0
         v = 0
-        limit_up_condition = is_bull and (close - open) / open >= 9.6
-        limit_down_condition = (not is_bull) and (close - open) / open <= -9.6
+        # 涨停且想买入
+        limit_up_condition = is_bull and (close - open_) / open_ >= 9.6
+        # 跌停且想出
+        limit_down_condition = (not is_bull) and (close - open_) / open_ <= -9.6
+        # 如果涨停的情况下想买，或跌停的情况下想卖，直接返回失败
+        if limit_up_condition:
+            info = f"{self.datetime} {order.code}价格涨停，订单买入撮合失败"
+        if limit_down_condition:
+            info = f"{self.datetime} {order.code}价格跌停，订单卖出撮合失败"
         if limit_up_condition or limit_down_condition:
+            gl.logger.error(info)
             return (p, v)
 
-        p = (high + open / 2 + close / 2) / 2
+        # 否则交易成功
+        # TODO 现在成交金额是按照最高价与开盘收盘价的均价的均价，后面需要调整
+        p = (high + open_ / 2 + close / 2) / 2
+        # TODO 之后需要做一个成交量的计算
         v = target_volume
         return (round(p, 2), v)
 
@@ -244,7 +255,7 @@ class SimulateMatcher(BaseMatcher):
         is_bull: bool,
         target_price: float,
         target_volume: float,
-        open: float,
+        open_: float,
         close: float,
         high: float,
         low: float,
@@ -254,10 +265,14 @@ class SimulateMatcher(BaseMatcher):
         """
         p = 0
         v = 0
-        limit_up_condition = is_bull and (close - open) / open >= 9.6
-        limit_down_condition = (not is_bull) and (close - open) / open <= -9.6
+        # 涨停且想买入
+        limit_up_condition = is_bull and (close - open_) / open_ >= 9.6
+        # 跌停且想卖出
+        limit_down_condition = (not is_bull) and (close - open_) / open_ <= -9.6
 
+        # 目标价格高于最高价
         price_higher_than_high = is_bull and target_price > high
+        # 目标价格低于最低价
         price_lower_than_low = not is_bull and target_price < low
         if (
             limit_up_condition
@@ -270,17 +285,24 @@ class SimulateMatcher(BaseMatcher):
         # 2.1. 以买入委托为例，当委托买价高于当日最低价时，则判定发生成交。
         # 当委托价格小于K线均价时，成交价即为委托价。当委托价格高于K线均价时，成交价判定为（委托价+K线均价）/2.
         # TODO K线均价现在使用的是开盘价与收盘价的平均数，后面需要优化
-        avg = (open + close) / 2
+        avg = (open_ + close) / 2
+
+        # 采用比较保守的成交策略，会提高买价，降低卖价
         if is_bull:
-            if target_price < avg:
+            # 买入的话，如果高于今日均价，就按目标价成交
+            # 如果低于今日均价则按均价与目标价的均值成交，会提高买价
+            if target_price > avg:
                 p = target_price
             else:
                 p = (target_price + avg) / 2
             v = target_volume  # TODO 成交数量根据当天成交量的三角分布模型判定。
         else:
-            p = target_price
+            # 卖出的话，如果低于今日均价，就按目标价成交
+            # 如果高于今日均价则按均价与目标价的均值成交，会降低卖价
+            if target_price < avg:
+                p = target_price
+            else:
+                p = (target_price + avg) / 2
             v = target_volume  # TODO 成交数量根据当天成交量的三角分布模型判定。
 
         return (p, v)
-
->>>>>>> 2f8a7f13d74e950f3193f1d37d907c64d17c5147
