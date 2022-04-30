@@ -16,7 +16,6 @@ import platform
 # Important
 # Run this after enter your env.
 # ==============================
-
 print("OS: "+sys.platform)
 print("OS: "+platform.system())
 print("Windows" == str(platform.system()))

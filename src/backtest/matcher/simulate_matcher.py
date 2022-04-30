@@ -64,6 +64,7 @@ class SimulateMatcher(BaseMatcher):
     def send_order(self, order: OrderEvent) -> bool:
         """
         发送订单
+        return: 发送订单的结果，成功与否
         """
         code = order.code
         if order.status == OrderStatus.CREATED:
@@ -104,6 +105,7 @@ class SimulateMatcher(BaseMatcher):
     def sim_match_order(self, order: OrderEvent, bar: Bar) -> FillEvent:
         """
         模拟订单匹配
+        return: 返回一个成交事件
         """
         # TODO 日期校验
         order.status = OrderStatus.ACCEPTED
@@ -113,64 +115,18 @@ class SimulateMatcher(BaseMatcher):
             )
             return
         # 1. 当出现涨停or跌停时，对应的买单与买单全部失败，存入result，修改Order状态推送回engine
-        limit_up_condition = order.direction == Direction.BULL and bar.pct_change >= 9.7
-        limit_down_condition = (
-            order.direction == Direction.BEAR and bar.pct_change <= -9.7
-        )
-        info = ""
-        if limit_up_condition:
-            info = f"{self.datetime} {order.code}价格涨停，订单买入撮合失败"
-        if limit_down_condition:
-            info = f"{self.datetime} {order.code}价格跌停，订单卖出撮合失败"
-        if limit_up_condition or limit_down_condition:
-            gl.logger.info(info)
+        if order.order_type == OrderType.LIMIT:
+            p,v = self.cal_price_limit()
+        elif order.order_type == OrderType.MARKET:
+            p,v = self.cal_price_market()
+
+        if p ==0 or v ==0:
             order.status = OrderStatus.REJECTED
             fill = self.gen_fillevent(order=order, is_complete=False)
             self.match_list[order.uuid] = fill
             return fill
 
-        # 2. 如果是限价委托
-        p = 0
-        v = 0
-        avg = (bar.open_price + bar.close_price) / 2
-        if order.order_type == OrderType.LIMIT:
-            # 2.1. 以买入委托为例，当委托买价高于当日最低价时，则判定发生成交。
-            if order.direction == Direction.BULL:
-                if order.price < bar.low_price:
-                    order.status = OrderStatus.REJECTED
-                    fill = self.gen_fillevent(order=order, is_complete=False)
-                # 当委托价格小于K线均价时，成交价即为委托价。当委托价格高于K线均价时，成交价判定为（委托价+K线均价）/2.
-                else:
-                    if order.price < avg:
-                        p = order.price
-                    else:
-                        p = (order.price + avg) / 2
-                    # TODO 成交数量根据当天成交量的三角分布模型判定。
-                    v = order.volume
-                    order.status = OrderStatus.COMPLETED
-                    fill = self.gen_fillevent(
-                        order=order, is_complete=True, price=p, volume=v
-                    )
-            # 2.2. 以卖出委托为例，当委托卖价低于当日最高价时，则判定发生成交。
-            elif order.direction == Direction.BEAR:
-                if order.price > bar.high_price:
-                    order.status = OrderStatus.REJECTED
-                    fill = self.gen_fillevent(order=order, is_complete=False)
-                else:
-                    p = order.price
-                    # TODO 成交数量根据当天成交量的三角分布模型判定。
-                    v = order.volume
-                    order.status = OrderStatus.COMPLETED
-                    fill = self.gen_fillevent(
-                        order=order, is_complete=True, price=p, volume=v
-                    )
-        # 3.1. 如果是市价委托，当委托价格低于K线均价时，以委托价成交，?
-        elif order.order_type == OrderType.MARKET:
-            p = (bar.high_price + avg) / 2
-            v = order.volume
-            order.status = OrderStatus.COMPLETED
-            fill = self.gen_fillevent(order=order, is_complete=True, price=p, volume=v)
-        # 当委托价格高于K线均价时，（当日K线最高价+当日K线均价）/2。成交数量依然根据当天成交量的三角分布模型判定?
+        fill = self.gen_fillevent(order=order, is_complete=True, price=p, volume=v)
         self.match_list[order.uuid] = fill
         return fill
 
@@ -227,6 +183,7 @@ class SimulateMatcher(BaseMatcher):
     ) -> tuple:
         """
         计算市价委托的成交
+        return: tuple（成交价，成交量）
         """
         p = 0
         v = 0
@@ -262,6 +219,7 @@ class SimulateMatcher(BaseMatcher):
     ) -> tuple:
         """
         计算限价委托的成交
+        return: tuple（成交价，成交量）
         """
         p = 0
         v = 0
