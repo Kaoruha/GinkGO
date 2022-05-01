@@ -1,5 +1,5 @@
 import unittest
-from src.backtest.event_engine import EventEngine
+from ginkgo.backtest.event_engine import EventEngine
 
 
 class EventEngineTest(unittest.TestCase):

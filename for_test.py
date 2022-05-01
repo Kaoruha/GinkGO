@@ -7,8 +7,8 @@ Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/for_test.py
 What goes around comes around.
 """
-from src.backtest.enums import Direction
-from src.backtest.events import OrderEvent
+from ginkgo.backtest.enums import Direction
+from ginkgo.backtest.events import OrderEvent
 
 i, v = (12, 22)
 
