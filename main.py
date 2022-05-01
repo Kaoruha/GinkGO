@@ -1,10 +1,10 @@
 # from config.setting import *
-from src.libs import GINKGOLOGGER as gl
-from src.web.server import start_server
+from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.web.server import start_server
 
-# from src.data.ginkgo_mongo import ginkgo_mongo as gm
-# from src.data.data_portal import data_portal as gdp
-# from src.data.storage import ginkgo_storage as gs
+# from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
+# from ginkgo.data.data_portal import data_portal as gdp
+# from ginkgo.data.storage import ginkgo_storage as gs
 
 
 gl.logger.info("Server启动")

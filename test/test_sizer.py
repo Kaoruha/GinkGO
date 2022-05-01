@@ -10,12 +10,12 @@ What goes around comes around.
 
 
 import unittest
-from src.backtest.sizer.base_sizer import BaseSizer
-from src.backtest.sizer.full_sizer import FullSizer
-from src.backtest.postion import Position
-from src.backtest.events import SignalEvent
-from src.backtest.enums import *
-from src.libs import GINKGOLOGGER as gl
+from ginkgo.backtest.sizer.base_sizer import BaseSizer
+from ginkgo.backtest.sizer.full_sizer import FullSizer
+from ginkgo.backtest.postion import Position
+from ginkgo.backtest.events import SignalEvent
+from ginkgo.backtest.enums import *
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class SizerTest(unittest.TestCase):

@@ -8,7 +8,7 @@ except Exception as e:
 
 config = {
     "package_name": "ginkgo",
-    "version": "0.1.19",
+    "version": "0.1.20",
     "author": "Suny",
     "email": "sun159753@gmail.com",
     "description": "An easy quant lib",

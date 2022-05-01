@@ -1,9 +1,9 @@
 import unittest
-from src.backtest.broker.base_broker import BaseBroker
-from src.backtest.event_engine import EventEngine
-from src.backtest.strategy.base_strategy import BaseStrategy
-from src.backtest.sizer.base_sizer import BaseSizer
-from src.libs import GINKGOLOGGER as gl
+from ginkgo.backtest.broker.base_broker import BaseBroker
+from ginkgo.backtest.event_engine import EventEngine
+from ginkgo.backtest.strategy.base_strategy import BaseStrategy
+from ginkgo.backtest.sizer.base_sizer import BaseSizer
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class BrokerTest(unittest.TestCase):

@@ -8,15 +8,15 @@ FilePath: /Ginkgo/test/test_events.py
 What goes around comes around.
 """
 import unittest
-from src.backtest.events import MarketEvent, SignalEvent, OrderEvent, FillEvent
-from src.backtest.enums import (
+from ginkgo.backtest.events import MarketEvent, SignalEvent, OrderEvent, FillEvent
+from ginkgo.backtest.enums import (
     Direction,
     OrderStatus,
     OrderType,
     Source,
     MarketEventType,
 )
-from src.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class EventsTest(unittest.TestCase):
@@ -124,7 +124,7 @@ class EventsTest(unittest.TestCase):
                     "date": i[0],
                     "code": i[1],
                     "dir": i[2],
-                    "src": i[3],
+                    "source": i[3],
                     "type": i[4],
                     "price": i[5],
                     "volume": i[6],
@@ -134,7 +134,7 @@ class EventsTest(unittest.TestCase):
                     "date": e.datetime.strftime("%Y-%m-%d"),
                     "code": e.code,
                     "dir": e.direction,
-                    "src": e.source,
+                    "source": e.source,
                     "type": e.order_type,
                     "price": e.price,
                     "volume": e.volume,
