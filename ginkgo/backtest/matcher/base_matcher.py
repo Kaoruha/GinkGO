@@ -1,36 +1,25 @@
-"""
-Author: Kaoru
-Date: 2022-01-09 22:17:46
-LastEditTime: 2022-04-18 16:01:40
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/ginkgo/backtest/matcher/base_matcher.py
-What goes around comes around.
-"""
 import datetime
 import queue
 import abc
-from typing import OrderedDict
 from ginkgo.backtest.event_engine import EventEngine
 from ginkgo.backtest.enums import Direction, OrderStatus, Source
-from ginkgo.backtest.events import OrderEvent, FillEvent
+from ginkgo.backtest.events import OrderEvent, FillEvent, Event
 from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class BaseMatcher(abc.ABC):
     """
     撮合基类
-
-    买入时，会产生佣金、过户费两项费用，佣金为成交金额*佣金费率，单笔佣金不满最低佣金时，按最低佣金计算。
-    卖出时，会产生佣金、过户费、印花税。印花税为成交金额*印花税费，
-
-    1.从Broker接到订单，存入OrderList
-    2.将OrderList中的订单，发送给券商/模拟撮合，状态改为已发送
-    3.获取订单结果，存入ResultList
-        - 3.1 实盘券商API，每次调用方法时会将所有已发送的订单抽出，查询结果
-        - 3.2 模拟成交的话，需要手写一个模拟成交的规则，手动调用TryMatch方法，将模拟的结果存放在MatchList
-              等待手动/自动触发GetResult，将模拟的结果存入ResultList，将对应Order状态修改为Complete，
     """
+    # 买入时，会产生佣金、过户费两项费用，佣金为成交金额*佣金费率，单笔佣金不满最低佣金时，按最低佣金计算。
+    # 卖出时，会产生佣金、过户费、印花税。印花税为成交金额*印花税费，
+
+    # 1.从Broker接到订单，存入OrderList
+    # 2.将OrderList中的订单，发送给券商/模拟撮合，状态改为已发送
+    # 3.获取订单结果，存入ResultList
+    #     - 3.1 实盘券商API，每次调用方法时会将所有已发送的订单抽出，查询结果
+    #     - 3.2 模拟成交的话，需要手写一个模拟成交的规则，手动调用TryMatch方法，将模拟的结果存放在MatchList
+    #           等待手动/自动触发GetResult，将模拟的结果存入ResultList，将对应Order状态修改为Complete，
 
     def __init__(
         self,
@@ -55,7 +44,12 @@ class BaseMatcher(abc.ABC):
 
     def gen_fillevent(
         self, order: OrderEvent, is_complete: bool, price: float = 0, volume: int = 0
-    ):
+    ) -> FillEvent:
+        """
+        生成成交事件
+        """
+        # 根据传入的订单，是否成交，成交的价格和成交量返回成交事件
+
         fill = FillEvent(
             code=order.code,
             direction=order.direction,
@@ -74,7 +68,12 @@ class BaseMatcher(abc.ABC):
 
         return fill
 
-    def fee_cal(self, direction: Direction, price: float, volume: int):
+    def fee_cal(self, direction: Direction, price: float, volume: int) -> float:
+        """
+        费率计算
+
+        包含印花税，交易税，有最低税费
+        """
         total = price * volume
         if total == 0:
             return 0
@@ -90,6 +89,7 @@ class BaseMatcher(abc.ABC):
     def get_order(self, order: OrderEvent):
         """
         获取订单
+
         """
         if order.status == OrderStatus.CREATED:
             if order.code not in self.order_list:
@@ -106,15 +106,18 @@ class BaseMatcher(abc.ABC):
                 self.engine.put(order)
             else:
                 gl.logger.critical(f"{self.name} 引擎未注册")
-        return len(self.order_list)
 
     def engine_register(self, engine: EventEngine):
         """
         引擎注册，通过Broker的注册获得引擎实例
-        :param engine: [description]
-        :type engine: EventEngine
         """
         self._engine = engine
+    
+    def send_to_engine(self, event: Event):
+        if self.engine:
+            self.engine.put(event)
+        else:
+            gl.logger.critical(f"{self.name} 引擎未注册")
 
     @abc.abstractmethod
     def send_order(self, order):
@@ -127,8 +130,17 @@ class BaseMatcher(abc.ABC):
 
     @abc.abstractmethod
     def get_result(self):
+        """
+        获取订单结果
+
+        模拟回测的话向成交队列里查询结果
+        实盘的话向券商发送API查询结果
+        """
         raise NotImplementedError("Must implement get_result()")
 
     @abc.abstractmethod
     def clear(self):
+        """
+        跨日处理所有成交结果，未成交订单
+        """
         raise NotImplementedError("Must implement Clear()")

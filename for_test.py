@@ -1,27 +1,17 @@
-"""
-Author: Kaoru
-Date: 2022-04-03 16:25:41
-LastEditTime: 2022-04-27 03:19:11
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/for_test.py
-What goes around comes around.
-"""
-from ginkgo.backtest.enums import Direction
-from ginkgo.backtest.events import OrderEvent
+class test(object):
+    def __init__(self):
+        self.a = 0
 
-i, v = (12, 22)
-
-print(i)
-print(v)
-a = True
-b = False
-
-for i in range(2, 4):
-    print(i)
+    def pls(self):
+        self.a += 1
+        print(self.a)
+        return self.a >5
 
 
-a = Direction.BEAR
-print(a.name)
-
+if __name__ == "__main__":
+    a = test()
+    for i in range(10):
+        if a.pls():
+            print("bigger than 5")
+    print(a.a)
 

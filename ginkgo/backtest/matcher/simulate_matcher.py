@@ -1,12 +1,3 @@
-"""
-Author: Kaoru
-Date: 2022-03-23 21:23:27
-LastEditTime: 2022-04-16 02:54:36
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/ginkgo/backtest/matcher/simulate_matcher.py
-What goes around comes around.
-"""
 import time
 import queue
 from ginkgo.backtest.price import Bar
@@ -17,6 +8,16 @@ from ginkgo.backtest.events import Event, FillEvent, OrderEvent
 
 
 class SimulateMatcher(BaseMatcher):
+    """
+    模拟成交
+    """
+    # 获取订单 -> 存入DictOrder
+
+    # 获取Bar价格信息 -> 查询DictOrder内相关的所有订单 -> 尝试撮合TryMatch
+    # 尝试撮合TryMatch -> 发送DictOrder内所有订单 -> 模拟成交SimMatch
+    # 模拟成交SimMatch -> 计算得到成交结果 -> 把结果放到DictMatch里
+
+    # 获取交易结果GetResult -> 从DictMatch里获取成交事件 -> 向Result里存入不重复的
     def __init__(
         self,
         stamp_tax_rate: float = 0.001,  # 设置印花税，默认千1
@@ -44,15 +45,16 @@ class SimulateMatcher(BaseMatcher):
         trans = self._transfer_fee_rate
         comm = self._commission_rate
         min_comm = self._min_commission
-        s = f"回测模拟成交，当前印花税：「{stamp}」，过户费：「{trans}」，交易佣金：「{comm}」，最小交易佣金：「{min_comm}」"
+        s = f"回测模拟成交，当前印花税：「{stamp}」，"
+        s += f"过户费：「{trans}」，交易佣金：「{comm}」，最小交易佣金：「{min_comm}」"
         return s
 
     def get_bar(self, bar: Bar):
         """
         获取到新的Bar
         """
-        # TODO 1 日期校验，只允许往后
-        # 2 try match
+        # TODO 日期校验，只允许往后
+        # 获取到最新的价格信息，遍历orderlist，尝试撮合
         if bar.code in self.order_list:
             self.try_match(bar=bar)
             gl.logger.info(
@@ -63,7 +65,7 @@ class SimulateMatcher(BaseMatcher):
 
     def send_order(self, order: OrderEvent) -> bool:
         """
-        发送订单
+        将Order发送到指定券商
         return: 发送订单的结果，成功与否
         """
         code = order.code
@@ -84,8 +86,7 @@ class SimulateMatcher(BaseMatcher):
         send_count = 0
         for v in self.order_list.values():
             for i in v:
-                if i.status == OrderStatus.CREATED:
-                    self.send_order(i)
+                if self.send_order(i):
                     send_count += 1
         gl.logger.debug(f"{self.name} 共计发出「{send_count}」个订单请求")
         # 模拟成交
@@ -156,11 +157,6 @@ class SimulateMatcher(BaseMatcher):
                     pass  # TODO bug here
         return self.result_list
 
-    def send_to_engine(self, event: Event):
-        if self.engine:
-            self.engine.put(event)
-        else:
-            gl.logger.critical(f"{self.name} 引擎未注册")
 
     def clear(self):
         super().clear()
@@ -174,6 +170,7 @@ class SimulateMatcher(BaseMatcher):
 
     def cal_price_market(
         self,
+        code:str,
         is_bull: bool,
         target_volume: int,
         open_: float,
@@ -182,20 +179,21 @@ class SimulateMatcher(BaseMatcher):
         low: float,
     ) -> tuple:
         """
-        计算市价委托的成交
+        计算市价委托的成交结果
+
         return: tuple（成交价，成交量）
         """
         p = 0
         v = 0
         # 涨停且想买入
-        limit_up_condition = is_bull and (close - open_) / open_ >= 9.6
+        limit_up_condition = is_bull and (close - open_) / open_ >= 0.096
         # 跌停且想出
-        limit_down_condition = (not is_bull) and (close - open_) / open_ <= -9.6
+        limit_down_condition = (not is_bull) and (close - open_) / open_ <= -0.096
         # 如果涨停的情况下想买，或跌停的情况下想卖，直接返回失败
         if limit_up_condition:
-            info = f"{self.datetime} {order.code}价格涨停，订单买入撮合失败"
+            info = f"{self.datetime} {code}价格涨停，市价买入撮合失败"
         if limit_down_condition:
-            info = f"{self.datetime} {order.code}价格跌停，订单卖出撮合失败"
+            info = f"{self.datetime} {code}价格跌停，市价卖出撮合失败"
         if limit_up_condition or limit_down_condition:
             gl.logger.error(info)
             return (p, v)
@@ -209,6 +207,7 @@ class SimulateMatcher(BaseMatcher):
 
     def cal_price_limit(
         self,
+        code:str,
         is_bull: bool,
         target_price: float,
         target_volume: float,
@@ -218,31 +217,46 @@ class SimulateMatcher(BaseMatcher):
         low: float,
     ) -> tuple:
         """
-        计算限价委托的成交
+        计算限价委托的成交结果
+
         return: tuple（成交价，成交量）
         """
         p = 0
         v = 0
         # 涨停且想买入
-        limit_up_condition = is_bull and (close - open_) / open_ >= 9.6
+        str_dir = "买入" if is_bull else "卖出"
+        limit_up_condition = is_bull and (close - open_) / open_ >= 0.096
         # 跌停且想卖出
-        limit_down_condition = (not is_bull) and (close - open_) / open_ <= -9.6
+        limit_down_condition = (not is_bull) and (close - open_) / open_ <= -0.096
 
         # 目标价格高于最高价
         price_higher_than_high = is_bull and target_price > high
         # 目标价格低于最低价
         price_lower_than_low = not is_bull and target_price < low
+
+        if limit_up_condition:
+            info = f"{self.datetime} {code}价格涨停，限价{str_dir}撮合失败"
+        if limit_down_condition:
+            info = f"{self.datetime} {code}价格涨停，限价{str_dir}撮合失败"
+        if price_higher_than_high:
+            info = f"{self.datetime} {code}目标价格高于最高价，限价{str_dir}撮合失败"
+        if price_lower_than_low:
+            info = f"{self.datetime} {code}目标价格低于最低价，限价{str_dir}撮合失败"
         if (
             limit_up_condition
             or limit_down_condition
             or price_higher_than_high
             or price_lower_than_low
         ):
+            gl.logger.error(info)
             return (p, v)
 
-        # 2.1. 以买入委托为例，当委托买价高于当日最低价时，则判定发生成交。
-        # 当委托价格小于K线均价时，成交价即为委托价。当委托价格高于K线均价时，成交价判定为（委托价+K线均价）/2.
+        # 成交
+        # 当委托价格小于K线均价时，成交价即为委托价。
+        # 当委托价格高于K线均价时，成交价判定为（委托价+K线均价）/2.
+        
         # TODO K线均价现在使用的是开盘价与收盘价的平均数，后面需要优化
+        
         avg = (open_ + close) / 2
 
         # 采用比较保守的成交策略，会提高买价，降低卖价
@@ -257,6 +271,7 @@ class SimulateMatcher(BaseMatcher):
         else:
             # 卖出的话，如果低于今日均价，就按目标价成交
             # 如果高于今日均价则按均价与目标价的均值成交，会降低卖价
+            print(111)
             if target_price < avg:
                 p = target_price
             else:
