@@ -221,8 +221,8 @@ class SimulateMatcher(BaseMatcher):
 
         return: tuple（成交价，成交量）
         """
-        p = 0
-        v = 0
+        p = 0  # 成交价
+        v = 0  # 成交量
         # 涨停且想买入
         str_dir = "买入" if is_bull else "卖出"
         limit_up_condition = is_bull and (close - open_) / open_ >= 0.096

@@ -1,4 +1,4 @@
-class test(object):
+class test():
     def __init__(self):
         self.a = 0
 
@@ -15,3 +15,10 @@ if __name__ == "__main__":
             print("bigger than 5")
     print(a.a)
 
+a=1
+
+
+
+
+
+b =      1

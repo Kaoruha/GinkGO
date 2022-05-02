@@ -18,7 +18,7 @@ import platform
 # ==============================
 print("OS: "+sys.platform)
 print("OS: "+platform.system())
-print("Windows" == str(platform.system()))
+print("Windows" == str(platform.system())  )
 
 # 创建打包文件夹
 if not os.path.exists("dist"):
