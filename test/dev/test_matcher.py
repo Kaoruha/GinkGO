@@ -38,7 +38,7 @@ class SimulateMatcherTest(unittest.TestCase):
         gl.logger.critical("税费计算测试完成.")
 
     def test_CalPriceMarket_OK(self):
-        gl.logger.critical("市价交易测试开始.")
+        gl.logger.critical("模拟市价交易测试开始.")
         m = self.reset()
         params = [
             # 0isbull, 1,code, 2targetvolume,3open,4close,5high,6low,7result(price,volume)
@@ -58,11 +58,11 @@ class SimulateMatcherTest(unittest.TestCase):
                 low=i[6],
             )
             self.assertEqual(first=r, second=i[7])
-        gl.logger.critical("市价交易测试完成.")
+        gl.logger.critical("模拟市价交易测试完成.")
 
 
     def test_CalPriceLimit_OK(self):
-        gl.logger.critical("限价交易测试开始.")
+        gl.logger.critical("模拟限价交易测试开始.")
         m = self.reset()
         params = [
             # 0isbull, 1targetprice, 2targetvolume, 3open, 
@@ -88,46 +88,104 @@ class SimulateMatcherTest(unittest.TestCase):
                 low=i[6],
             )
             self.assertEqual(first=r, second=i[7])
-        gl.logger.critical("限价交易测试完成.")
+        gl.logger.critical("模拟限价交易测试完成.")
 
-    # def test_SimMatcherGetOrder_OK(self):
-    #     m = self.reset()
-    #     param = [
-    #         # 0code, 1direction, 2status, 3orderlistcount
-    #         ("testgetorder1", Direction.BULL, OrderStatus.CREATED, 1),
-    #         ("testgetorder2", Direction.BEAR, OrderStatus.CREATED, 2),
-    #         ("testgetorder3", Direction.BULL, OrderStatus.CREATED, 3),
-    #         ("testgetorder4", Direction.BULL, OrderStatus.CANCELLED, 3),
-    #         ("testgetorder5", Direction.BULL, OrderStatus.SUBMITED, 3),
-    #     ]
-    #     for i in param:
-    #         o = OrderEvent(code=i[0], direction=i[1], status=i[2])
-    #         r = m.get_order(o)
-    #         self.assertEqual(first={"count": i[3]}, second={"count": r})
+    def test_SimMatcherGetOrder_OK(self):
+        gl.logger.critical("模拟获取订单测试开始.")
+        m = self.reset()
+        param = [
+            # 0code, 1direction, 2status, 3orderlistcount
+            ("testgetorder1", Direction.BULL, OrderStatus.CREATED, 1),
+            ("testgetorder2", Direction.BEAR, OrderStatus.CREATED, 2),
+            ("testgetorder3", Direction.BULL, OrderStatus.CREATED, 3),
+            ("testgetorder4", Direction.BULL, OrderStatus.CANCELLED, 3),
+            ("testgetorder5", Direction.BULL, OrderStatus.SUBMITED, 3),
+        ]
+        for i in param:
+            o = OrderEvent(code=i[0], direction=i[1], status=i[2])
+            r = m.get_order(o)
+            count = 0
+            for j in m.order_list.values():
+                for h in j:
+                    count += 1
+            self.assertEqual(first={"count": i[3]}, second={"count": count})
+        gl.logger.critical("模拟获取订单测试结束.")
 
-    # def test_SimMatcherSendOrder_OK(self):
-    #     m = self.reset()
-    #     param = [
-    #         # 0code, 1direction, 2status, 3orderlistcount
-    #         ("testsendorder1", Direction.BULL, OrderStatus.CREATED, 1),
-    #         ("testsendorder1", Direction.BULL, OrderStatus.CREATED, 2),
-    #         ("testsendorder1", Direction.BEAR, OrderStatus.CREATED, 3),
-    #         ("testsendorder1", Direction.BULL, OrderStatus.SUBMITED, 3),
-    #         ("testsendorder2", Direction.BEAR, OrderStatus.CREATED, 4),
-    #         ("testsendorder3", Direction.BULL, OrderStatus.CREATED, 5),
-    #         ("testsendorder4", Direction.BEAR, OrderStatus.CANCELLED, 5),
-    #         ("testsendorder5", Direction.BULL, OrderStatus.SUBMITED, 5),
-    #     ]
-    #     for i in param:
-    #         count = 0
-    #         o = OrderEvent(code=i[0], direction=i[1], status=i[2])
-    #         m.get_order(o)
-    #         m.send_order(o)
-    #         for k in m.order_list.values():
-    #             for j in k:
-    #                 if j.status == OrderStatus.SUBMITED:
-    #                     count += 1
-    #         self.assertEqual(first={"count": i[3]}, second={"count": count})
+    def test_SimMatcherSendOrder_OK(self):
+        gl.logger.critical("模拟发送订单测试开始.")
+        m = self.reset()
+        param = [
+            # 0code, 1direction, 2status, 3orderlistcount
+            ("testsendorder1", Direction.BULL, OrderStatus.CREATED, True),
+            ("testsendorder1", Direction.BULL, OrderStatus.CREATED, True),
+            ("testsendorder1", Direction.BEAR, OrderStatus.CREATED, True),
+            ("testsendorder1", Direction.BULL, OrderStatus.SUBMITED, False),
+            ("testsendorder2", Direction.BEAR, OrderStatus.CREATED, True),
+            ("testsendorder3", Direction.BULL, OrderStatus.CREATED, True),
+            ("testsendorder4", Direction.BEAR, OrderStatus.CANCELLED, False),
+            ("testsendorder5", Direction.BULL, OrderStatus.SUBMITED, False),
+        ]
+        for i in param:
+            o = OrderEvent(code=i[0], direction=i[1], status=i[2])
+            m.get_order(o)
+            result = m.send_order(o)
+            self.assertEqual(first={"result": i[3]}, second={"result": result})
+        gl.logger.critical("模拟订单测试结束.")
 
+    
+    def test_SimMatcherSimMatchOrder_OK(self):
+        gl.logger.critical("模拟撮合订单测试开始.")
+        params = [
+            # 0order
+            # 0code, 1direction, 2type, 3price, 4volume
+            # 1bar
+            # 0code, 1open, 2close, 3hight, 4low
+            # 2price, value
+            (('testcode1',Direction.BULL,OrderType.LIMIT,10.3,1000),
+            ('testcode1',10,10.5,10.6,10),
+            (10.3,1000)),
+        ]
+        for i in params:
+            m = self.reset()
+            op = i[0]
+            bp = i[1]
+            order = OrderEvent(
+                code=op[0],
+                direction=op[1],
+                order_type=op[2],
+                price=op[3],
+                volume=op[4]
+            )
+            bar = Bar(
+                code=bp[0],
+                open_price=bp[1],
+                close_price=bp[2],
+                high_price=bp[3],
+                low_price=bp[4]
+            )
+            fill = m.sim_match_order(order=order, bar=bar)
+            self.assertEqual(
+                    first={
+                        'price':i[2][0],
+                        'volume':i[2][1]
+                        },
+                    second={
 
+                        'price':fill.price,
+                        'volume':fill.volume
+                        }
+                    )
 
+        gl.logger.critical("模拟撮合订单测试结束.")
+    
+    def test_SimMatcherTryMatch_OK(self):
+        gl.logger.critical("模拟尝试撮合测试开始.")
+        gl.logger.critical("模拟尝试撮合测试结束.")
+    
+    def test_SimMatcherGetResult_OK(self):
+        gl.logger.critical("模拟获取交易结果测试开始.")
+        gl.logger.critical("模拟获取交易结果测试结束.")
+    
+    def test_SimMatcherClear_OK(self):
+        gl.logger.critical("模拟清除历史记录测试开始.")
+        gl.logger.critical("模拟清除历史记录测试结束.")

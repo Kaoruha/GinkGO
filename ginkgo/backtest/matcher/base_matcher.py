@@ -20,6 +20,10 @@ class BaseMatcher(abc.ABC):
     #     - 3.1 实盘券商API，每次调用方法时会将所有已发送的订单抽出，查询结果
     #     - 3.2 模拟成交的话，需要手写一个模拟成交的规则，手动调用TryMatch方法，将模拟的结果存放在MatchList
     #           等待手动/自动触发GetResult，将模拟的结果存入ResultList，将对应Order状态修改为Complete，
+    @property
+    def order_history(self):
+        return self.order_list
+
 
     def __init__(
         self,
@@ -91,6 +95,7 @@ class BaseMatcher(abc.ABC):
         获取订单
 
         """
+        # TODO 查重
         if order.status == OrderStatus.CREATED:
             if order.code not in self.order_list:
                 self.order_list[order.code] = []

@@ -117,10 +117,26 @@ class SimulateMatcher(BaseMatcher):
             return
         # 1. 当出现涨停or跌停时，对应的买单与买单全部失败，存入result，修改Order状态推送回engine
         if order.order_type == OrderType.LIMIT:
-            p,v = self.cal_price_limit()
+            p,v = self.cal_price_limit(
+                    code=order.code,
+                    is_bull=True if order.direction == Direction.BULL else False,
+                    target_price=order.price,
+                    target_volume=order.volume,
+                    open_=bar.open_price,
+                    close=bar.close_price,
+                    high=bar.high_price,
+                    low=bar.low_price,
+                    )
         elif order.order_type == OrderType.MARKET:
-            p,v = self.cal_price_market()
-
+            p,v = self.cal_price_market(
+                    code=order.code,
+                    is_bull=True if order.direction == Direction.BULL else False,
+                    target_volume=order.volume,
+                    open_=bar.open_price,
+                    close=bar.close_price,
+                    high=bar.high_price,
+                    low=bar.low_price,
+                    )
         if p ==0 or v ==0:
             order.status = OrderStatus.REJECTED
             fill = self.gen_fillevent(order=order, is_complete=False)

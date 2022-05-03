@@ -29,6 +29,22 @@ class Bar(PriceBase):
         r = (self.close_price - self.open_price) / self.open_price
         return round(r, 2)
 
+    @property
+    def data_series(self):
+        d = pd.Series(index=self.index)
+        d.datetime = self.datetime
+        d.code = self.code
+        d.open = self.open_price
+        d.close = self.close_price
+        d.high = self.high_price
+        d.low = self.low_price
+        d.volume = self.volume
+        d.turnover = self.turnover
+        d.open_interest = self.open_interest
+        d['pct_change'] = self.pct_change
+        return d
+
+
     def __init__(
         self,
         code: str = "bar",  # 代码
@@ -55,7 +71,7 @@ class Bar(PriceBase):
         self.low_price: float = low_price
         self.close_price: float = close_price
         self.index = [
-            "date",
+            "datetime",
             "code",
             "open",
             "high",
@@ -63,13 +79,14 @@ class Bar(PriceBase):
             "close",
             "volume",
             "turnover",
+            "open_interest",
             "pct_change",
         ]
-        self.data = pd.Series(index=self.index)
 
     def __repr__(self):
-        s = str(self.data)
+        s = str(self.data_series)
         return s
+
 
 
 class Tick(PriceBase):
