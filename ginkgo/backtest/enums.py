@@ -37,7 +37,7 @@ class OrderStatus(Enum):
 
     CREATED = "完成创建"
     SUBMITED = "已提交"
-    ACCEPTED = "被接受"
+    ACCEPTED = "已接受"
     REJECTED = "被拒绝"
     MARGIN = "margin 超出保证金？"
     CANCELLED = "被取消"
@@ -71,9 +71,9 @@ class Direction(Enum):
     交易类型
     """
 
-    BULL = "多"
-    BEAR = "空"
-    NET = "净"
+    BULL = "看多"
+    BEAR = "看空"
+    NET = "看净"
 
 
 class MarketType(Enum):

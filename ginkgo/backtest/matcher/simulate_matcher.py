@@ -49,19 +49,24 @@ class SimulateMatcher(BaseMatcher):
         s += f"过户费：「{trans}」，交易佣金：「{comm}」，最小交易佣金：「{min_comm}」"
         return s
 
+    def get_order(self, order: OrderEvent):
+        super().get_order(order)
+
     def get_bar(self, bar: Bar):
         """
         获取到新的Bar
+
+        模拟撮合类把价格信息丢到这个方法里就可以了
         """
         # TODO 日期校验，只允许往后
+        # 发送订单
+        self.send_orders()
         # 获取到最新的价格信息，遍历orderlist，尝试撮合
+        gl.logger.info(f"{self.datetime} 获取到{bar.code} 价格信息")
         if bar.code in self.order_list:
             self.try_match(bar=bar)
-            gl.logger.info(
-                f"{self.datetime} 尝试撮合「{len(self.order_list[bar.code])}」个「{bar.code}」订单"
-            )
         else:
-            gl.logger.debug(f"{self.datetime} 不存在 「{bar.code}」订单，请检查代码")
+            gl.logger.debug(f"{self.datetime} 不存在 「{bar.code}」订单")
 
     def send_order(self, order: OrderEvent) -> bool:
         """
@@ -71,24 +76,29 @@ class SimulateMatcher(BaseMatcher):
         code = order.code
         if order.status == OrderStatus.CREATED:
             order.status = OrderStatus.SUBMITED
-            gl.logger.info(f"提交订单 {code} {order.direction}")
+            gl.logger.info(f"提交订单 id:{order.uuid} {order.direction.value} {order.order_type.value} c:{order.code} p:{order.price} v:{order.volume}")
             return True
         else:
-            gl.logger.error(f"{code} 状态异常，提交失败")
-            order.status = OrderStatus.REJECTED
             return False
+
+    def send_orders(self):
+        """
+        发送所有可发送的订单
+        """
+        gl.logger.info(f"{self.datetime} 尝试发送订单")
+        send_count = 0
+        for v in self.order_list.values():
+            for i in v:
+                if self.send_order(i):
+                    send_count += 1
+        gl.logger.info(f"{self.name} 共计发出「{send_count}」个订单请求")
 
     def try_match(self, bar: Bar):
         """
         尝试撮合
         """
         # 从orderlist中取出order，尝试发送
-        send_count = 0
-        for v in self.order_list.values():
-            for i in v:
-                if self.send_order(i):
-                    send_count += 1
-        gl.logger.debug(f"{self.name} 共计发出「{send_count}」个订单请求")
+        gl.logger.info(f"{self.datetime} 尝试撮合「{bar.code}」相关订单")
         # 模拟成交
         code = bar.code
         if code not in self.order_list:
@@ -96,7 +106,7 @@ class SimulateMatcher(BaseMatcher):
 
         count = 0
         for i in self.order_list[code]:
-            gl.logger.info(f"尝试撮合「{i.uuid}」")
+            gl.logger.info(f"尝试撮合「{i.uuid}」「{i.code}」")
             if i.status == OrderStatus.SUBMITED:
                 self.sim_match_order(order=i, bar=bar)
                 self.order_count += 1
@@ -109,12 +119,13 @@ class SimulateMatcher(BaseMatcher):
         return: 返回一个成交事件
         """
         # TODO 日期校验
+        gl.logger.info(f"尝试模拟撮合订单 {order.code} {order.uuid}")
         order.status = OrderStatus.ACCEPTED
         if order.code != bar.code:
             gl.logger.error(
                 f"{self.datetime} {self.name} {order.code} {bar.code} 撮合失败，订单与价格信息代码不符"
             )
-            return
+            return self.gen_fillevent(order=order, is_complete=False)
         # 1. 当出现涨停or跌停时，对应的买单与买单全部失败，存入result，修改Order状态推送回engine
         if order.order_type == OrderType.LIMIT:
             p,v = self.cal_price_limit(
@@ -142,7 +153,8 @@ class SimulateMatcher(BaseMatcher):
             fill = self.gen_fillevent(order=order, is_complete=False)
             self.match_list[order.uuid] = fill
             return fill
-
+        
+        order.status = OrderStatus.COMPLETED
         fill = self.gen_fillevent(order=order, is_complete=True, price=p, volume=v)
         self.match_list[order.uuid] = fill
         return fill
@@ -158,19 +170,32 @@ class SimulateMatcher(BaseMatcher):
         interval = 0.1
         for v in self.order_list.values():
             for k in v:
-                if k.status == OrderStatus.SUBMITED:
+                # 遍历所有接收到的Order，如果状态为已经提交，则尝试去MatchList里找撮合结果
+                # 如果找到撮合结果FillEvent的话，把FillEvent移至ResultList
+                # 如果没找到撮合结果，则休眠一段时间，再次尝试从MatchList里获取
+                # 直到重复次数超过限制，结束方法
+                if k.status == OrderStatus.ACCEPTED:
                     i = 0
                     while i < retry_count:
                         if k.uuid in self.match_list:
-                            self.result_list.append(self.match_list[k.uuid])
-                            k.status = OrderStatus.COMPLETED
-                            i == retry_count
+                            self.result_list[k.uuid] = self.match_list[k.uuid]
+                            break
                         else:
                             i += 1
                             time.sleep(interval)
                             gl.logger.info(f"{self.datetime} 尝试获取「{k}」结果，次数「{i}」")
                 else:
-                    pass  # TODO bug here
+                    # TODO May have bugs.
+                    if k.uuid in self.match_list.keys() and k.uuid not in self.result_list.keys():
+                        self.result_list[k.uuid] = self.match_list[k.uuid]
+        gl.logger.debug("MatchList   "+"="*20)
+        for k,v in self.match_list.items():
+            print(v)
+        gl.logger.debug("MatchList   "+"="*20)
+        gl.logger.debug("ResultList  "+"="*20)
+        for i in self.result_list.items():
+            gl.logger.debug(i)
+        gl.logger.debug("ResultList  "+"="*20)
         return self.result_list
 
 
@@ -183,6 +208,7 @@ class SimulateMatcher(BaseMatcher):
         self.order_list = {}
         self.match_list = {}
         self.result_list = []
+
 
     def cal_price_market(
         self,
@@ -246,9 +272,9 @@ class SimulateMatcher(BaseMatcher):
         limit_down_condition = (not is_bull) and (close - open_) / open_ <= -0.096
 
         # 目标价格高于最高价
-        price_higher_than_high = is_bull and target_price > high
+        price_higher_than_high = not is_bull and target_price > high
         # 目标价格低于最低价
-        price_lower_than_low = not is_bull and target_price < low
+        price_lower_than_low = is_bull and target_price < low
 
         if limit_up_condition:
             info = f"{self.datetime} {code}价格涨停，限价{str_dir}撮合失败"
@@ -287,7 +313,6 @@ class SimulateMatcher(BaseMatcher):
         else:
             # 卖出的话，如果低于今日均价，就按目标价成交
             # 如果高于今日均价则按均价与目标价的均值成交，会降低卖价
-            print(111)
             if target_price < avg:
                 p = target_price
             else:

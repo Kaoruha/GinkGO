@@ -1,24 +1,7 @@
-class test():
-    def __init__(self):
-        self.a = 0
+from ginkgo.backtest.enums import *
 
-    def pls(self):
-        self.a += 1
-        print(self.a)
-        return self.a >5
+a = Direction.BULL
 
 
-if __name__ == "__main__":
-    a = test()
-    for i in range(10):
-        if a.pls():
-            print("bigger than 5")
-    print(a.a)
-
-a=1
-
-
-
-
-
-b =      1
+print(a)
+print(a.value)

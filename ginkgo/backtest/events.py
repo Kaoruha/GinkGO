@@ -144,8 +144,7 @@ class OrderEvent(Event):
         self.traded: int = 0
 
     def __repr__(self):
-        d = "多" if self.direction == Direction.BULL else "空"
-        s = f"{self.datetime} 产生 {self.code} 「{d}头」下单事件，份额「{self.volume}」，事件来源为「{self.source}」"
+        s = f"{self.datetime} {self.code}「{self.direction.value}」下单事件，份额「{self.volume}」，状态「{self.status.value}」，事件来源为「{self.source.value}」"
         return s
 
     def optimize_volume(self, volume: int):
@@ -201,7 +200,7 @@ class FillEvent(Event):
         s += "「"
         s += "购买" if self.direction == Direction.BULL else "卖出"
         s += "」"
-        s += f" 事件来源为「{self.source}」, "
+        s += f" 事件来源为「{self.source.value}」, "
         s += f"价格「{round(self.price, 2)}」, "
         s += f"成交量「{round(self.volume, 2)}」, "
         s += f"税费「{round(self.fee, 2)}」"

@@ -41,7 +41,7 @@ class BaseMatcher(abc.ABC):
         self.commission_rate = commission_rate  # 交易佣金，按最高千3计算了，一般比这个低
         self.min_commission = min_commission  # 最低交易佣金，交易佣金的起步价
         self.order_list = {}  # 订单队列
-        self.result_list = []  # 结果队列
+        self.result_list = {}  # 结果队列
         self.engine: EventEngine = None  # 用来推送事件
         self.order_count = 0  # 订单计数器
         self.datetime: datetime = None
@@ -102,10 +102,10 @@ class BaseMatcher(abc.ABC):
             self.order_list[order.code].append(order)
 
             gl.logger.info(
-                f"{self.name} 获取Order: {order.code} {order.direction} {order.order_type}"
+                    f"{self.name} 获取Order: {order.code} {order.uuid} {order.direction} {order.order_type}"
             )
         else:
-            gl.logger.error(f"{order.code} 状态异常，提交失败")
+            gl.logger.error(f"{order.code} 状态异常{order.status}，提交失败")
             order.status = OrderStatus.REJECTED
             if self.engine:
                 self.engine.put(order)
