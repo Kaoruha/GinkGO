@@ -190,11 +190,11 @@ class SimulateMatcher(BaseMatcher):
                         self.result_list[k.uuid] = self.match_list[k.uuid]
         gl.logger.debug("MatchList   "+"="*20)
         for k,v in self.match_list.items():
-            print(v)
+            gl.logger.debug(v)
         gl.logger.debug("MatchList   "+"="*20)
         gl.logger.debug("ResultList  "+"="*20)
-        for i in self.result_list.items():
-            gl.logger.debug(i)
+        for i,v in self.result_list.items():
+            gl.logger.debug(v)
         gl.logger.debug("ResultList  "+"="*20)
         return self.result_list
 
