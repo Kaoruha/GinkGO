@@ -13,11 +13,11 @@ class ProfitLossLimit(BaseStrategy):
         name = f"{name}P{self.profit_limit}L{self.loss_limit}"
         super(ProfitLossLimit, self).__init__(name=name)
 
-    def try_gen_enter_signal(self):
+    def try_gen_long_signal(self):
         """进入策略"""
         return
 
-    def try_gen_exit_signal(self):
+    def try_gen_short_signal(self):
         """退出策略"""
         code = self.daybar.loc[0].code
         date = self.daybar.iloc[-1].date

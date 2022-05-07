@@ -1,23 +1,5 @@
-"""
-Author: Kaoru
-Date: 2022-03-08 21:37:29
-LastEditTime: 2022-04-01 02:00:54
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/ginkgo.backtest/strategy/base_strategy.py
-What goes around comes around.
-"""
-"""
-Author: Kaoru
-Date: 2022-03-08 21:37:29
-LastEditTime: 2022-03-23 00:36:32
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/ginkgo.backtest/strategy/base_strategy.py
-What goes around comes around.
-"""
-import pandas as pd
 import abc
+import pandas as pd
 from ginkgo.backtest.event_engine import EventEngine
 from ginkgo.backtest.postion import Position
 
@@ -29,7 +11,7 @@ class BaseStrategy(abc.ABC):
     """
 
     def __init__(self, name="策略基类"):
-        self._name = name
+        self.name = name
         self._day_columns = [
             "date",
             "code",
@@ -45,10 +27,10 @@ class BaseStrategy(abc.ABC):
             "pct_chg",
             "is_st",
         ]
-        self._daybar = pd.DataFrame(columns=self._day_columns)
-        self._minbar = None
-        self._broker = None
-        self._engine = None
+        self.daybar = pd.DataFrame(columns=self._day_columns)
+        self.minbar = None
+        self.broker = None
+        self.engine = None
 
     def __repr__(self):
         s = self.name
@@ -56,11 +38,11 @@ class BaseStrategy(abc.ABC):
 
     def engine_register(self, engine: EventEngine):
         # 引擎注册，通过Broker的注册获得引擎实例
-        self._engine = engine
+        self.engine = engine
 
     def broker_register(self, broker):
         # 注册经纪人
-        self._broker = broker
+        self.broker = broker
 
     @abc.abstractmethod
     def try_gen_long_signal(self):
