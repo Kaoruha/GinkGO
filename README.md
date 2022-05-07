@@ -1,18 +1,9 @@
-<!--
- * @Author: Kaoru
- * @Date: 2021-12-24 23:46:54
- * @LastEditTime: 2022-03-16 10:25:38
- * @LastEditors: Kaoru
- * @Description: Be stronger,be patient,be confident and never say die.
- * @FilePath: /Ginkgo/README.md
- * What goes around comes around.
--->
 # 使用手册
 
 ### 1、 开发环境部署
 
 需要提前安装Python，建议3.6以上版本
-需要提前安装好Docker，以及Docker-compose
+建议提前安装好Docker，以及Docker-compose
 
 #### 1、创建虚拟环境
 
