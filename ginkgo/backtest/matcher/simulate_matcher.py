@@ -11,6 +11,7 @@ class SimulateMatcher(BaseMatcher):
     """
     模拟成交
     """
+
     # 获取订单 -> 存入DictOrder
 
     # 获取Bar价格信息 -> 查询DictOrder内相关的所有订单 -> 尝试撮合TryMatch
@@ -76,7 +77,9 @@ class SimulateMatcher(BaseMatcher):
         code = order.code
         if order.status == OrderStatus.CREATED:
             order.status = OrderStatus.SUBMITED
-            gl.logger.info(f"提交订单 id:{order.uuid} {order.direction.value} {order.order_type.value} c:{order.code} p:{order.price} v:{order.volume}")
+            gl.logger.info(
+                f"提交订单 id:{order.uuid} {order.direction.value} {order.order_type.value} c:{order.code} p:{order.price} v:{order.volume}"
+            )
             return True
         else:
             return False
@@ -128,32 +131,32 @@ class SimulateMatcher(BaseMatcher):
             return self.gen_fillevent(order=order, is_complete=False)
         # 1. 当出现涨停or跌停时，对应的买单与买单全部失败，存入result，修改Order状态推送回engine
         if order.order_type == OrderType.LIMIT:
-            p,v = self.cal_price_limit(
-                    code=order.code,
-                    is_bull=True if order.direction == Direction.BULL else False,
-                    target_price=order.price,
-                    target_volume=order.volume,
-                    open_=bar.open_price,
-                    close=bar.close_price,
-                    high=bar.high_price,
-                    low=bar.low_price,
-                    )
+            p, v = self.cal_price_limit(
+                code=order.code,
+                is_bull=True if order.direction == Direction.BULL else False,
+                target_price=order.price,
+                target_volume=order.volume,
+                open_=bar.open_price,
+                close=bar.close_price,
+                high=bar.high_price,
+                low=bar.low_price,
+            )
         elif order.order_type == OrderType.MARKET:
-            p,v = self.cal_price_market(
-                    code=order.code,
-                    is_bull=True if order.direction == Direction.BULL else False,
-                    target_volume=order.volume,
-                    open_=bar.open_price,
-                    close=bar.close_price,
-                    high=bar.high_price,
-                    low=bar.low_price,
-                    )
-        if p ==0 or v ==0:
+            p, v = self.cal_price_market(
+                code=order.code,
+                is_bull=True if order.direction == Direction.BULL else False,
+                target_volume=order.volume,
+                open_=bar.open_price,
+                close=bar.close_price,
+                high=bar.high_price,
+                low=bar.low_price,
+            )
+        if p == 0 or v == 0:
             order.status = OrderStatus.REJECTED
             fill = self.gen_fillevent(order=order, is_complete=False)
             self.match_list[order.uuid] = fill
             return fill
-        
+
         order.status = OrderStatus.COMPLETED
         fill = self.gen_fillevent(order=order, is_complete=True, price=p, volume=v)
         self.match_list[order.uuid] = fill
@@ -186,18 +189,20 @@ class SimulateMatcher(BaseMatcher):
                             gl.logger.info(f"{self.datetime} 尝试获取「{k}」结果，次数「{i}」")
                 else:
                     # TODO May have bugs.
-                    if k.uuid in self.match_list.keys() and k.uuid not in self.result_list.keys():
+                    if (
+                        k.uuid in self.match_list.keys()
+                        and k.uuid not in self.result_list.keys()
+                    ):
                         self.result_list[k.uuid] = self.match_list[k.uuid]
-        gl.logger.debug("MatchList   "+"="*20)
-        for k,v in self.match_list.items():
+        gl.logger.debug("MatchList   " + "=" * 20)
+        for k, v in self.match_list.items():
             gl.logger.debug(v)
-        gl.logger.debug("MatchList   "+"="*20)
-        gl.logger.debug("ResultList  "+"="*20)
-        for i,v in self.result_list.items():
+        gl.logger.debug("MatchList   " + "=" * 20)
+        gl.logger.debug("ResultList  " + "=" * 20)
+        for i, v in self.result_list.items():
             gl.logger.debug(v)
-        gl.logger.debug("ResultList  "+"="*20)
+        gl.logger.debug("ResultList  " + "=" * 20)
         return self.result_list
-
 
     def clear(self):
         super().clear()
@@ -209,10 +214,9 @@ class SimulateMatcher(BaseMatcher):
         self.match_list = {}
         self.result_list = []
 
-
     def cal_price_market(
         self,
-        code:str,
+        code: str,
         is_bull: bool,
         target_volume: int,
         open_: float,
@@ -249,7 +253,7 @@ class SimulateMatcher(BaseMatcher):
 
     def cal_price_limit(
         self,
-        code:str,
+        code: str,
         is_bull: bool,
         target_price: float,
         target_volume: float,
@@ -296,9 +300,9 @@ class SimulateMatcher(BaseMatcher):
         # 成交
         # 当委托价格小于K线均价时，成交价即为委托价。
         # 当委托价格高于K线均价时，成交价判定为（委托价+K线均价）/2.
-        
+
         # TODO K线均价现在使用的是开盘价与收盘价的平均数，后面需要优化
-        
+
         avg = (open_ + close) / 2
 
         # 采用比较保守的成交策略，会提高买价，降低卖价
