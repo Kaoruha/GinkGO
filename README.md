@@ -28,7 +28,7 @@ venv\Scripts\Activate.ps1
 venv\Scripts\Activate.bat
 ```
 
-#### 1.2.3、MacOS下
+#### 1.2.3、Unix/Linux下
 
 ```shell
 source venv/bin/activate
