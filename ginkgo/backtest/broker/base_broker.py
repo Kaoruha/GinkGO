@@ -2,6 +2,7 @@
 经纪人类
 """
 import abc
+import queue
 import pandas as pd
 from ginkgo.backtest.enums import Direction, MarketType
 from ginkgo.backtest.events import (
@@ -83,7 +84,7 @@ class BaseBroker(abc.ABC):
             ],
         )
         # TODO 交易历史，需要单独抽象成一个类
-        self.signals = []  # 信号队列
+        self.signals = queue.Queue()  # 信号队列
         self.market_type = MarketType.CN  # 当前市场
         self.trade_day = None  # 交易日
 

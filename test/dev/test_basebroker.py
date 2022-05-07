@@ -1,6 +1,7 @@
 import unittest
 from ginkgo.backtest.broker.base_broker import BaseBroker
 from ginkgo.backtest.event_engine import EventEngine
+from ginkgo.backtest.selector.random_selector import RandomSelector
 from ginkgo.backtest.strategy.base_strategy import BaseStrategy
 from ginkgo.backtest.sizer.base_sizer import BaseSizer
 from ginkgo.libs import GINKGOLOGGER as gl
@@ -52,33 +53,39 @@ class BrokerTest(unittest.TestCase):
         param = [
             (),
         ]
+        for i in param:
+            s = RandomSelector()
+            b.selector_register(s)
+            self.assertNotEqual(
+                first={"selector": None}, second={"selector": b.selector}
+            )
         gl.logger.critical("BaseBroker选股模块注册测试完成.")
 
-    def test_RegisterStrategy_OK(self) -> None:
-        gl.logger.critical("BaseBroker策略注册测试开始.")
-        s = BaseStrategy(name="bb")
-        tuple1 = [
-            (BaseStrategy(name="s1"), 1),
-            ("strategy", 0),
-            (BaseStrategy(name="s2"), 1),
-            (110, 0),
-            (BaseStrategy(name="s2"), 1),
-            (s, 1),
-            (BaseSizer(), 0),
-            (s, 0),
-            (BaseStrategy(name="s5"), 1),
-            (None, 0),
-        ]
-        b = self.reset_broker()
-        count = 0
-        for i in tuple1:
-            b.strategy_register(i[0])
-            gl.logger.info(b)
-            count += i[1]
-            self.assertEqual(
-                first={"length": count}, second={"length": len(b.strategies)}
-            )
-        gl.logger.critical("BaseBroker策略注册测试完成.")
+    # def test_RegisterStrategy_OK(self) -> None:
+    #     gl.logger.critical("BaseBroker策略注册测试开始.")
+    #     s = BaseStrategy(name="bb")
+    #     tuple1 = [
+    #         (BaseStrategy(name="s1"), 1),
+    #         ("strategy", 0),
+    #         (BaseStrategy(name="s2"), 1),
+    #         (110, 0),
+    #         (BaseStrategy(name="s2"), 1),
+    #         (s, 1),
+    #         (BaseSizer(), 0),
+    #         (s, 0),
+    #         (BaseStrategy(name="s5"), 1),
+    #         (None, 0),
+    #     ]
+    #     b = self.reset_broker()
+    #     count = 0
+    #     for i in tuple1:
+    #         b.strategy_register(i[0])
+    #         gl.logger.info(b)
+    #         count += i[1]
+    #         self.assertEqual(
+    #             first={"length": count}, second={"length": len(b.strategies)}
+    #         )
+    #     gl.logger.critical("BaseBroker策略注册测试完成.")
 
     # def test_RegisterSizer_OK(self) -> None:
     #     """

@@ -1,6 +1,7 @@
 from ginkgo.backtest.broker.base_broker import BaseBroker
 from ginkgo.backtest.events import EventType, Direction, InfoType
 from ginkgo.backtest.postion import Position
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class T1Broker(BaseBroker):

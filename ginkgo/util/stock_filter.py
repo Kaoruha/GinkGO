@@ -7,7 +7,7 @@ Description: Be stronger,be patient,be confident and never say die.
 FilePath: /Ginkgo/src/util/stock_filter.py
 What goes around comes around.
 """
-from src.data.ginkgo_mongo import ginkgo_mongo as gm
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 
 
 def remove_index():
