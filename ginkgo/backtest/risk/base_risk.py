@@ -1,6 +1,3 @@
-"""
-风控类
-"""
 import abc
 from ginkgo.backtest.event_engine import EventEngine
 from ginkgo.backtest.events import SignalEvent

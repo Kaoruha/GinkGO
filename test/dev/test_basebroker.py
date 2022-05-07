@@ -4,6 +4,8 @@ from ginkgo.backtest.event_engine import EventEngine
 from ginkgo.backtest.selector.random_selector import RandomSelector
 from ginkgo.backtest.strategy.profit_loss_limit import ProfitLossLimit
 from ginkgo.backtest.sizer.base_sizer import BaseSizer
+from ginkgo.backtest.sizer.full_sizer import FullSizer
+from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
 from ginkgo.libs import GINKGOLOGGER as gl
 
 
@@ -86,43 +88,31 @@ class BrokerTest(unittest.TestCase):
             )
         gl.logger.critical("BaseBroker策略注册测试完成.")
 
-    # def test_RegisterSizer_OK(self) -> None:
-    #     """
-    #     注册仓位控制
-    #     """
-    #     b = self.reset_broker()
-    #     tuple1 = ['sizer1', 'none', 'None', '111', 'name11', '11name']
-    #     for i in tuple1:
-    #         s = BaseSizer(name=i)
-    #         b.sizer_register(s)
-    #         self.assertEqual(
-    #             first={
-    #                 'name': i
-    #             },
-    #             second={
-    #                 'name': b.sizer.name
-    #             }
-    #         )
-    #     tuple2 = [
-    #         (BaseSizer(name='sizer11'), None, 'sizer11'),
-    #         (None, BaseSizer(name='sizer111'), 'sizer111'),
-    #         (BaseSizer(name='sizer22'), 'hello', 'sizer22'),
-    #         ('hello', BaseSizer(name='sizer222'), 'sizer222'),
-    #         (BaseSizer(name='sizer33'), BaseRisk(), 'sizer33'),
-    #         (BaseRisk(), BaseSizer(name='sizer333'), 'sizer333'),
-    #     ]
-    #     b = self.reset_broker()
-    #     for i in tuple2:
-    #         b.sizer_register(i[0])
-    #         b.sizer_register(i[1])
-    #         self.assertEqual(
-    #             first={
-    #                 'name': i[2]
-    #             },
-    #             second={
-    #                 'name': b.sizer.name
-    #             }
-    #         )
+    def test_RegisterSizer_OK(self) -> None:
+        """
+        注册仓位控制
+        """
+        gl.logger.critical("BaseBroker仓位控注册测试开始.")
+        b = self.reset()
+        sizer_params = ["sizer1", "none", "None", "111", "name11", "11name"]
+        for i in sizer_params:
+            s = FullSizer(name=i)
+            b.sizer_register(s)
+            self.assertEqual(first={"name": i}, second={"name": b.sizer.name})
+        params = [
+            (FullSizer(name="sizer11"), None, "sizer11"),
+            (None, FullSizer(name="sizer111"), "sizer111"),
+            (FullSizer(name="sizer22"), "hello", "sizer22"),
+            ("hello", FullSizer(name="sizer222"), "sizer222"),
+            (FullSizer(name="sizer33"), ProfitLossLimit(), "sizer33"),
+            (FullSizer(), FullSizer(name="sizer333"), "sizer333"),
+        ]
+        b = self.reset()
+        for i in params:
+            b.sizer_register(i[0])
+            b.sizer_register(i[1])
+            self.assertEqual(first={"name": i[2]}, second={"name": b.sizer.name})
+        gl.logger.critical("BaseBroker仓位控注册测试结束.")
 
     # def test_RegisterRisk_OK(self) -> None:
     #     """
@@ -155,48 +145,30 @@ class BrokerTest(unittest.TestCase):
     #             }
     #         )
 
-    # def test_RegisterMatcher_OK(self) -> None:
-    #     """
-    #     撮合单元注册成功
-    #     """
-    #     b = self.reset_broker()
-    #     tuple1 = ['matcher', 'none', 'None', '111', 'name11', '11name']
-    #     for i in tuple1:
-    #         m = BaseMatcher(name=i)
-    #         b.matcher_register(m)
-    #         self.assertEqual(
-    #             first={
-    #                 'name': i
-    #             },
-    #             second={
-    #                 'name': b.matcher.name
-    #             }
-    #         )
-    #     tuple2 = [
-    #         (BaseMatcher(name='matcher11'), None, 'matcher11'),
-    #         (None, BaseMatcher(name='matcher111'), 'matcher111'),
-    #         (BaseMatcher(name='matcher22'), 'hello', 'matcher22'),
-    #         ('hello', BaseMatcher(name='matcher222'), 'matcher222'),
-    #         (BaseMatcher(name='matcher33'), BaseRisk(), 'matcher33'),
-    #         (BaseRisk(), BaseMatcher(name='matcher333'), 'matcher333'),
-    #     ]
-    #     b = self.reset_broker()
-    #     for i in tuple2:
-    #         b.matcher_register(i[0])
-    #         b.matcher_register(i[1])
-    #         self.assertEqual(
-    #             first={
-    #                 'name': i[2]
-    #             },
-    #             second={
-    #                 'name': b.matcher.name
-    #             }
-    #         )
+    def test_RegisterMatcher_OK(self) -> None:
+        gl.logger.critical("BaseBroker撮合单元注册测试开始.")
+        b = self.reset()
+        matcher_params = ["matcher", "none", "None", "111", "name11", "11name"]
+        for i in matcher_params:
+            m = SimulateMatcher(name=i)
+            b.matcher_register(m)
+            self.assertEqual(first={"name": i}, second={"name": b.matcher.name})
+        step_params = [
+            (SimulateMatcher(name="matcher11"), None, "matcher11"),
+            (None, SimulateMatcher(name="matcher111"), "matcher111"),
+            (SimulateMatcher(name="matcher22"), "hello", "matcher22"),
+            ("hello", SimulateMatcher(name="matcher222"), "matcher222"),
+            (SimulateMatcher(name="matcher33"), ProfitLossLimit(), "matcher33"),
+            (ProfitLossLimit(), SimulateMatcher(name="matcher333"), "matcher333"),
+        ]
+        b = self.reset()
+        for i in step_params:
+            b.matcher_register(i[0])
+            b.matcher_register(i[1])
+            self.assertEqual(first={"name": i[2]}, second={"name": b.matcher.name})
+        gl.logger.critical("BaseBroker撮合单元注册测试结束.")
 
     # def test_RegisterAnalyzer_OK(self) -> None:
-    #     """
-    #     分析单元注册成功
-    #     """
     #     b = self.reset_broker()
     #     tuple1 = ['matcher', 'none', 'None', '111', 'name11', '11name']
     #     for i in tuple1:
@@ -339,6 +311,9 @@ class BrokerTest(unittest.TestCase):
     #                 'capital': b.capital
     #             }
     #         )
+
+    # def test_GetNewPrice(self) -> None:
+    #     pass
 
     # def test_AddPosition_OK(self) -> None:
     #     """

@@ -67,11 +67,31 @@ class SimulateMatcherTest(unittest.TestCase):
             # 0isbull, 1targetprice, 2targetvolume, 3open,
             # 4close, 5high, 6low, 7result(price,volume), 8code
             (True, 10, 1000, 10, 11, 11, 10, (0, 0), "testlimitcode"),  # 涨停想买
-            (True, 10.5, 1000, 10, 10, 10.2, 9.7, (0, 0), "testlimitcode"),  # 超最高价
+            (
+                False,
+                10.5,
+                1000,
+                10,
+                10,
+                10.2,
+                9.7,
+                (0, 0),
+                "testlimitcode",
+            ),  # 超最高价想买111111111111111
             (True, 9.8, 1000, 10, 9, 10.2, 9, (9.8, 1000), "testlimitcode"),  # 跌停买价高于平均
             (True, 9.3, 1000, 10, 9, 10.2, 9, (9.4, 1000), "testlimitcode"),  # 跌停买价低于平均
             (False, 10, 1000, 10, 9, 10.2, 9, (0, 0), "testlimitcode"),  # 跌停想卖
-            (False, 8.5, 1000, 10, 9, 10.2, 9, (0, 0), "testlimitcode"),  # 超最低价
+            (
+                True,
+                8.5,
+                1000,
+                10,
+                9,
+                10.2,
+                9,
+                (0, 0),
+                "testlimitcode",
+            ),  # 超最低价想买
             (
                 False,
                 9.8,

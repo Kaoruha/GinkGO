@@ -21,6 +21,7 @@ class SimulateMatcher(BaseMatcher):
     # 获取交易结果GetResult -> 从DictMatch里获取成交事件 -> 向Result里存入不重复的
     def __init__(
         self,
+        name: str = "回测模拟撮合",
         stamp_tax_rate: float = 0.001,  # 设置印花税，默认千1
         transfer_fee_rate: float = 0.0002,  # 设置过户费,默认万2
         commission_rate: float = 0.0003,  # 交易佣金，按最高千3计算了，一般比这个低
@@ -30,7 +31,7 @@ class SimulateMatcher(BaseMatcher):
         **kwargs,
     ):
         super(SimulateMatcher, self).__init__(
-            name="回测模拟撮合",
+            name=name,
             stamp_tax_rate=stamp_tax_rate,
             transfer_fee_rate=transfer_fee_rate,
             commission_rate=commission_rate,
