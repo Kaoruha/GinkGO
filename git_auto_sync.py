@@ -18,6 +18,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     com = args.comment
     print(f"Your comment is {com}")
+
     os.system("git add .")
     os.system(f'git commit -m "{com}"')
     print("CodeFever push.")
