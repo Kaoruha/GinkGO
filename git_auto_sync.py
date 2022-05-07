@@ -1,7 +1,7 @@
 import argparse
 import os
 
-codedev_url = "ssh://git@49.235.72.115:10222/Future/Ginkgo.git"
+codefever_url = "ssh://git@49.235.72.115:10222/Future/Ginkgo.git"
 github_url = "git@github.com:Kaoruha/GinkGO.git"
 
 if __name__ == "__main__":
@@ -21,3 +21,18 @@ if __name__ == "__main__":
     os.system("git add .")
     os.system(f'git commit -m "{com}"')
     os.system("git push")
+    print("CodeFever push.")
+
+    # 换Github源头
+    print("Changing Origin to Github")
+    os.system("git remote rm origin")
+    os.system(f"git remote add origin {github_url}")
+    os.system('git push -u origin "master"')
+    print("Github push")
+
+    # 换回CodeFever源头
+    print("Changing Origin to CodeFever")
+    os.system("git remote rm origin")
+    os.system(f"git remote add origin {codefever_url}")
+    os.system('git push -u origin "master"')
+    print("CodeFever push")

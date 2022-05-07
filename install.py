@@ -1,12 +1,3 @@
-"""
-Author: Kaoru
-Date: 2021-12-24 23:46:54
-LastEditTime: 2022-03-16 09:07:26
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/install.py
-What goes around comes around.
-"""
 import os
 import sys
 import time
@@ -16,9 +7,9 @@ import platform
 # Important
 # Run this after enter your env.
 # ==============================
-print("OS: "+sys.platform)
-print("OS: "+platform.system())
-print("Windows" == str(platform.system())  )
+print("OS: " + sys.platform)
+print("OS: " + platform.system())
+print("Windows" == str(platform.system()))
 
 # 创建打包文件夹
 if not os.path.exists("dist"):
