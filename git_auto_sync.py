@@ -20,7 +20,6 @@ if __name__ == "__main__":
     print(com)
     os.system("git add .")
     os.system(f'git commit -m "{com}"')
-    os.system("git push")
     print("CodeFever push.")
 
     # 换Github源头
