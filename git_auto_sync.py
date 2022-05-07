@@ -34,5 +34,5 @@ if __name__ == "__main__":
     print("Changing Origin to CodeFever")
     os.system("git remote rm origin")
     os.system(f"git remote add origin {codefever_url}")
-    os.system('git push -u origin "master"')
+    os.system('git push -u origin "main"')
     print("CodeFever push")
