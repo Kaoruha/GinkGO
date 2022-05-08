@@ -1,13 +1,4 @@
 """
-Author: Kaoru
-Date: 2022-03-22 22:14:51
-LastEditTime: 2022-03-23 00:33:31
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/ginkgo/backtest/painter/base_painter.py
-What goes around comes around.
-"""
-"""
 基础绘图类
 """
 import pandas as pd
@@ -19,7 +10,7 @@ from ginkgo.backtest.price import Bar
 class BasePainter(abc.ABC):
     def __init__(self, name="基础绘图", mav=(), *args):
         super(BasePainter, self).__init__(*args)
-        self._name = name
+        self.name = name
         self.raw = pd.DataFrame()
         self.data = None
         self.broker = None
@@ -27,10 +18,6 @@ class BasePainter(abc.ABC):
         self.mav = mav
 
         self.create_canvas()
-
-    @property
-    def name(self):
-        return self._name
 
     def create_canvas(self):
         pass

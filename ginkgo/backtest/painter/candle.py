@@ -1,20 +1,20 @@
 """
 蜡烛图
 """
-from ginkgo.backtest.enums import Direction
+import time
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Cursor
 import matplotlib as mpl
 import pandas as pd
 import numpy as np
-from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
+from matplotlib.widgets import Cursor
+from ginkgo.backtest.enums import Direction
 from ginkgo.backtest.painter.base_painter import BasePainter
-import time
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 
 
 class CandlePainter(BasePainter):
-    def __init__(self, mav=(), *args) -> None:
-        super(CandlePainter, self).__init__(mav=mav, *args)
+    def __init__(self, name="蜡烛图", mav=(), *args) -> None:
+        super(CandlePainter, self).__init__(name=name, mav=mav, *args)
         self.figure = plt.figure(num="Ginkgo回测 by Suny", figsize=(16, 9))
         self.code = "股票代码"
         self.ax1 = None

@@ -6,6 +6,7 @@ from ginkgo.backtest.strategy.profit_loss_limit import ProfitLossLimit
 from ginkgo.backtest.sizer.base_sizer import BaseSizer
 from ginkgo.backtest.sizer.full_sizer import FullSizer
 from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
+from ginkgo.backtest.painter.candle import CandlePainter
 from ginkgo.backtest.analyzer.base_analyzer import BaseAnalyzer
 from ginkgo.backtest.analyzer.benchmark import BenchMark
 from ginkgo.libs import GINKGOLOGGER as gl
@@ -191,43 +192,29 @@ class BrokerTest(unittest.TestCase):
             b.analyzer_register(i[1])
             self.assertEqual(first={"name": i[2]}, second={"name": b.analyzer.name})
 
-    # def test_RegisterPainter_OK(self) -> None:
-    #     """
-    #     绘图单元注册成功
-    #     """
-    #     b = self.reset_broker()
-    #     tuple1 = ['painter', 'none', 'None', '111', 'name11', '11name']
-    #     for i in tuple1:
-    #         p = BasePainter(name=i)
-    #         b.painter_register(p)
-    #         self.assertEqual(
-    #             first={
-    #                 'name': i
-    #             },
-    #             second={
-    #                 'name': b.painter.name
-    #             }
-    #         )
-    #     tuple2 = [
-    #         (BasePainter(name='painter11'), None, 'painter11'),
-    #         (None, BasePainter(name='painter111'), 'painter111'),
-    #         (BasePainter(name='painter22'), 'hello', 'painter22'),
-    #         ('hello', BasePainter(name='painter222'), 'painter222'),
-    #         (BasePainter(name='painter33'), BaseRisk(), 'painter33'),
-    #         (BaseRisk(), BasePainter(name='painter333'), 'painter333'),
-    #     ]
-    #     b = self.reset_broker()
-    #     for i in tuple2:
-    #         b.painter_register(i[0])
-    #         b.painter_register(i[1])
-    #         self.assertEqual(
-    #             first={
-    #                 'name': i[2]
-    #             },
-    #             second={
-    #                 'name': b.painter.name
-    #             }
-    #         )
+    def test_RegisterPainter_OK(self) -> None:
+        """
+        绘图单元注册成功
+        """
+        b = self.reset()
+        params1 = ["painter", "none", "None", "111", "name11", "11name"]
+        for i in params1:
+            p = CandlePainter(name=i)
+            b.painter_register(p)
+            self.assertEqual(first={"name": i}, second={"name": b.painter.name})
+        params2 = [
+            (CandlePainter(name="painter11"), None, "painter11"),
+            (None, CandlePainter(name="painter111"), "painter111"),
+            (CandlePainter(name="painter22"), "hello", "painter22"),
+            ("hello", CandlePainter(name="painter222"), "painter222"),
+            (CandlePainter(name="painter33"), ProfitLossLimit(), "painter33"),
+            (ProfitLossLimit(), CandlePainter(name="painter333"), "painter333"),
+        ]
+        b = self.reset()
+        for i in params2:
+            b.painter_register(i[0])
+            b.painter_register(i[1])
+            self.assertEqual(first={"name": i[2]}, second={"name": b.painter.name})
 
     # def test_GetCash_OK(self) -> None:
     #     """
