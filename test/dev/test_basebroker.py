@@ -216,49 +216,38 @@ class BrokerTest(unittest.TestCase):
             b.painter_register(i[1])
             self.assertEqual(first={"name": i[2]}, second={"name": b.painter.name})
 
-    # def test_GetCash_OK(self) -> None:
-    #     """
-    #     经纪人实例入金成功
-    #     """
-    #     # 入金1次
-    #     tuple1 = [(10000, 110000), (0, 100000)]
-    #     for i in tuple1:
-    #         b = self.reset_broker()
-    #         b.get_cash(i[0])
-    #         self.assertEqual(
-    #             first={
-    #                 "init_capital": self.init_capital + i[0],
-    #                 "capital": self.init_capital + i[0]
-    #             },
-    #             second={
-    #                 "init_capital": i[1],
-    #                 "capital": i[1]
-    #             }
-    #         )
+    def test_GetCash_OK(self) -> None:
+        """
+        经纪人实例入金成功
+        """
+        # 入金1次
+        params1 = [(10000, 110000), (0, 100000)]
+        for i in params1:
+            b = self.reset()
+            b.get_cash(i[0])
+            self.assertEqual(
+                first={
+                    "init_capital": self.init_capital + i[0],
+                    "capital": self.init_capital + i[0],
+                },
+                second={"init_capital": i[1], "capital": i[1]},
+            )
 
-    #     # 入金2次
-    #     tuple2 = [
-    #         (10000, 20000, 130000),
-    #         (10000, 0, 110000),
-    #         (0, 10000, 110000),
-    #         ('money', 10000, 110000),
-    #         (10000, 'money', 110000),
-    #         (-10000, 10000, 110000),
-    #         (10000, -20000, 110000),
-    #         (10000.111, -20000.111, 110000.111)
-    #     ]
-    #     for i in tuple2:
-    #         b = self.reset_broker()
-    #         b.get_cash(i[0])
-    #         b.get_cash(i[1])
-    #         self.assertEqual(
-    #             first={
-    #                 'capital': i[2]
-    #             },
-    #             second={
-    #                 'capital': b.capital
-    #             }
-    #         )
+        params2 = [
+            (10000, 20000, 130000),
+            (10000, 0, 110000),
+            (0, 10000, 110000),
+            ("money", 10000, 110000),
+            (10000, "money", 110000),
+            (-10000, 10000, 110000),
+            (10000, -20000, 110000),
+            (10000.111, -20000.111, 110000.111),
+        ]
+        for i in params2:
+            b = self.reset()
+            b.get_cash(i[0])
+            b.get_cash(i[1])
+            self.assertEqual(first={"capital": i[2]}, second={"capital": b.capital})
 
     # def test_FreezeMoney_OK(self) -> None:
     #     """
