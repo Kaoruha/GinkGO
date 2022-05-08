@@ -44,7 +44,7 @@ class Position(object):
         self,
         code: str = "BaseCode",
         name: str = "Hello:)",
-        cost: float = 0.0,
+        price: float = 0.0,
         volume: int = 0,
         datetime: datetime = None,
     ):
@@ -57,8 +57,8 @@ class Position(object):
         self.frozen_sell = 0  # 总冻结数量
         self.frozen_t1 = 0  # T+1冻结股票数量
         self.avaliable_volume = 0  # 可用数量
-        self.update_last_price(price=cost, datetime=datetime)
-        self.buy(volume=volume, price=cost, datetime=datetime)
+        self.update_last_price(price=price, datetime=datetime)
+        self.buy(volume=volume, price=price, datetime=datetime)
 
     def __repr__(self):
         s = f"{self.code} {self.name} 持仓，"
@@ -96,7 +96,7 @@ class Position(object):
         # TODO 需要记录
         return self
 
-    def freeze_position(self, volume: int):
+    def freeze_position(self, volume: int, datetime: dt.datetime):
         """
         持仓卖出的预处理
 
@@ -120,7 +120,7 @@ class Position(object):
         gl.logger.info(self)
         return self
 
-    def sell(self, volume: int):
+    def sell(self, volume: int, datetime: dt.datetime, *kwarg, **kwargs):
         """
         卖出后的处理
         """
@@ -135,7 +135,7 @@ class Position(object):
 
         if volume > self.frozen_sell:
             gl.logger.error(
-                f"{self.code} {self.name} 卖出，成交量{volume}大于冻结量{self.freeze}，请检查代码，当前回测有误"
+                f"{self.code} {self.name}卖出，成交量{volume}大于冻结量{self.frozen_sell}，请检查代码，当前回测有误"
             )
             return self
 

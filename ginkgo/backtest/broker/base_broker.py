@@ -303,13 +303,13 @@ class BaseBroker(abc.ABC):
             gl.logger.info(self.position[code])
         else:
             # 未持有则添加持仓至position
-            p = Position(cost=price, volume=volume, datetime=datetime)
+            p = Position(price=price, volume=volume, datetime=datetime)
             gl.logger.info(f"{datetime} 新增持仓 {code}")
             gl.logger.info(p)
             self.position[code] = p
         return self.position
 
-    def freeze_position(self, code: str, volume: int, date: str):
+    def freeze_position(self, code: str, volume: int, datetime: str):
         """
         冻结持仓
         """
@@ -317,12 +317,12 @@ class BaseBroker(abc.ABC):
             gl.logger.error(f"当前经纪人未持有{code}，无法冻结，请检查代码")
             return self.position
 
-        self.position[code].pre_sell(volume=volume, date=date)
-        gl.logger.info(f"{date} 冻结{code}持仓{volume}股")
+        self.position[code].freeze_position(volume=volume, datetime=datetime)
+        gl.logger.info(f"{datetime} 冻结{code}持仓{volume}股")
         gl.logger.info(self.position[code])
         return self.position
 
-    def restore_frozen_position(self, code: str, volume: int, date: str):
+    def restore_frozen_position(self, code: str, volume: int, datetime: str):
         """
         恢复冻结持仓
         """
@@ -330,7 +330,7 @@ class BaseBroker(abc.ABC):
             gl.logger.error(f"当前经纪人未持有{code}，无法解除冻结，请检查代码")
             return self.position
 
-        self.position[code].sell(volume=volume, done=False, date=date)
+        self.position[code].sell(volume=volume, done=False, datetime=datetime)
         return self.position
 
     def reduce_position(self, code: str, volume: int, date: str):
