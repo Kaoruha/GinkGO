@@ -1,14 +1,4 @@
 """
-Author: Kaoru
-Date: 2021-12-23 00:06:29
-LastEditTime: 2022-04-03 00:47:09
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/src/backtest/analyzer/benchmark.py
-What goes around comes around.
-"""
-
-"""
 业绩基准
 """
 
@@ -19,7 +9,7 @@ from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 
 class BenchMark(BaseAnalyzer):
     def __init__(self, name="业绩基准", target="sh.000001"):
-        super().__init__(name)
+        super().__init__(name=name)
         self.target = target  # TODO 要加上校验
         self.raw = pd.DataFrame(columns=("datetime", self.target, "portfolio"))
 

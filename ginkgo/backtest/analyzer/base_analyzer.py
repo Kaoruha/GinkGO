@@ -1,13 +1,4 @@
 """
-Author: Kaoru
-Date: 2022-03-07 16:50:41
-LastEditTime: 2022-04-03 00:36:06
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/src/backtest/analyzer/base_analyzer.py
-What goes around comes around.
-"""
-"""
 分析评价基类
 
 净值曲线 equity curve

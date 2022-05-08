@@ -6,6 +6,8 @@ from ginkgo.backtest.strategy.profit_loss_limit import ProfitLossLimit
 from ginkgo.backtest.sizer.base_sizer import BaseSizer
 from ginkgo.backtest.sizer.full_sizer import FullSizer
 from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
+from ginkgo.backtest.analyzer.base_analyzer import BaseAnalyzer
+from ginkgo.backtest.analyzer.benchmark import BenchMark
 from ginkgo.libs import GINKGOLOGGER as gl
 
 
@@ -168,40 +170,26 @@ class BrokerTest(unittest.TestCase):
             self.assertEqual(first={"name": i[2]}, second={"name": b.matcher.name})
         gl.logger.critical("BaseBroker撮合单元注册测试结束.")
 
-    # def test_RegisterAnalyzer_OK(self) -> None:
-    #     b = self.reset_broker()
-    #     tuple1 = ['matcher', 'none', 'None', '111', 'name11', '11name']
-    #     for i in tuple1:
-    #         a = BaseAnalyzer(name=i)
-    #         b.analyzer_register(a)
-    #         self.assertEqual(
-    #             first={
-    #                 'name': i
-    #             },
-    #             second={
-    #                 'name': b.analyzer.name
-    #             }
-    #         )
-    #     tuple2 = [
-    #         (BaseAnalyzer(name='analyzer11'), None, 'analyzer11'),
-    #         (None, BaseAnalyzer(name='analyzer111'), 'analyzer111'),
-    #         (BaseAnalyzer(name='analyzer22'), 'hello', 'analyzer22'),
-    #         ('hello', BaseAnalyzer(name='analyzer222'), 'analyzer222'),
-    #         (BaseAnalyzer(name='analyzer33'), BaseRisk(), 'analyzer33'),
-    #         (BaseRisk(), BaseAnalyzer(name='analyzer333'), 'analyzer333'),
-    #     ]
-    #     b = self.reset_broker()
-    #     for i in tuple2:
-    #         b.analyzer_register(i[0])
-    #         b.analyzer_register(i[1])
-    #         self.assertEqual(
-    #             first={
-    #                 'name': i[2]
-    #             },
-    #             second={
-    #                 'name': b.analyzer.name
-    #             }
-    #         )
+    def test_RegisterAnalyzer_OK(self) -> None:
+        b = self.reset()
+        params1 = ["matcher", "none", "None", "111", "name11", "11name"]
+        for i in params1:
+            a = BenchMark(name=i)
+            b.analyzer_register(a)
+            self.assertEqual(first={"name": i}, second={"name": b.analyzer.name})
+        params2 = [
+            (BenchMark(name="analyzer11"), None, "analyzer11"),
+            (None, BenchMark(name="analyzer111"), "analyzer111"),
+            (BenchMark(name="analyzer22"), "hello", "analyzer22"),
+            ("hello", BenchMark(name="analyzer222"), "analyzer222"),
+            (BenchMark(name="analyzer33"), ProfitLossLimit(), "analyzer33"),
+            (ProfitLossLimit(), BenchMark(name="analyzer333"), "analyzer333"),
+        ]
+        b = self.reset()
+        for i in params2:
+            b.analyzer_register(i[0])
+            b.analyzer_register(i[1])
+            self.assertEqual(first={"name": i[2]}, second={"name": b.analyzer.name})
 
     # def test_RegisterPainter_OK(self) -> None:
     #     """
