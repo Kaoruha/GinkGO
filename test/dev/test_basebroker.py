@@ -172,6 +172,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker撮合单元注册测试结束.")
 
     def test_RegisterAnalyzer_OK(self) -> None:
+        gl.logger.critical("BaseBroker分析器注册测试开始.")
         b = self.reset()
         params1 = ["matcher", "none", "None", "111", "name11", "11name"]
         for i in params1:
@@ -191,11 +192,13 @@ class BrokerTest(unittest.TestCase):
             b.analyzer_register(i[0])
             b.analyzer_register(i[1])
             self.assertEqual(first={"name": i[2]}, second={"name": b.analyzer.name})
+        gl.logger.critical("BaseBroker分析器注册测试完成.")
 
     def test_RegisterPainter_OK(self) -> None:
         """
         绘图单元注册成功
         """
+        gl.logger.critical("BaseBroker绘图模块注册测试开始.")
         b = self.reset()
         params1 = ["painter", "none", "None", "111", "name11", "11name"]
         for i in params1:
@@ -215,11 +218,13 @@ class BrokerTest(unittest.TestCase):
             b.painter_register(i[0])
             b.painter_register(i[1])
             self.assertEqual(first={"name": i[2]}, second={"name": b.painter.name})
+        gl.logger.critical("BaseBroker绘图模块注册测试完成.")
 
     def test_GetCash_OK(self) -> None:
         """
         经纪人实例入金成功
         """
+        gl.logger.critical("BaseBroker入金测试开始.")
         # 入金1次
         params1 = [(10000, 110000), (0, 100000)]
         for i in params1:
@@ -248,33 +253,30 @@ class BrokerTest(unittest.TestCase):
             b.get_cash(i[0])
             b.get_cash(i[1])
             self.assertEqual(first={"capital": i[2]}, second={"capital": b.capital})
+        gl.logger.critical("BaseBroker入金测试完成.")
 
-    # def test_FreezeMoney_OK(self) -> None:
-    #     """
-    #     冻结现金成功
-    #     """
-    #     tuple1 = [
-    #         (10000, 90000, 10000),
-    #         (10000, 80000, 20000),
-    #         (0, 80000, 20000),
-    #         (-10000, 80000, 20000),
-    #         (100000, 80000, 20000),
-    #         (50000, 30000, 70000)
-    #     ]
-    #     b = self.reset_broker()
-    #     capital = self.init_capital
-    #     for i in tuple1:
-    #         b.freeze_money(i[0])
-    #         self.assertEqual(
-    #             first={
-    #                 'freeze': i[2],
-    #                 'capital': i[1]
-    #             },
-    #             second={
-    #                 'freeze': b.freeze,
-    #                 'capital': b.capital
-    #             }
-    #         )
+    def test_FreezeMoney_OK(self) -> None:
+        """
+        冻结现金成功
+        """
+        gl.logger.critical("BaseBroker冻结现金测试开始.")
+        params1 = [
+            (10000, 90000, 10000),
+            (10000, 80000, 20000),
+            (0, 80000, 20000),
+            (-10000, 80000, 20000),
+            (100000, 80000, 20000),
+            (50000, 30000, 70000),
+        ]
+        b = self.reset()
+        capital = self.init_capital
+        for i in params1:
+            b.freeze_money(i[0])
+            self.assertEqual(
+                first={"freeze": i[2], "capital": i[1]},
+                second={"freeze": b.frozen_capital, "capital": b.capital},
+            )
+        gl.logger.critical("BaseBroker冻结现金测试完成.")
 
     # def test_GetNewPrice(self) -> None:
     #     pass

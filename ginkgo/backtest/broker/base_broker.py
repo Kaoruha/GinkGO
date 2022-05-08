@@ -37,7 +37,7 @@ class BaseBroker(abc.ABC):
         """
         r = 0
         for i in self.position.values():
-            r += i.marker_value
+            r += i.market_value
         return r
 
     @property
@@ -309,7 +309,7 @@ class BaseBroker(abc.ABC):
             return self.capital
 
         self.capital -= money
-        self.freeze += money
+        self.frozen_capital += money
         return self.capital
 
     def add_position(self, position: Position):
