@@ -1,6 +1,3 @@
-"""
-经纪人类
-"""
 import abc
 import queue
 import pandas as pd
@@ -33,7 +30,7 @@ class BaseBroker(abc.ABC):
     @property
     def position_value(self):
         """
-        持仓价值
+        持仓总价值
         """
         r = 0
         for i in self.position.values():
@@ -111,9 +108,6 @@ class BaseBroker(abc.ABC):
     def selector_register(self, selector: BaseSelector) -> None:
         """
         选股器注册
-
-        :param selector: 负责股票筛选
-        :type selector: BaseSelector
         """
         if not isinstance(selector, BaseSelector):
             gl.logger.warn(f"只有选股类实例可以被注册，{type(selector)} 类型不符")
@@ -123,9 +117,6 @@ class BaseBroker(abc.ABC):
     def strategy_register(self, strategy: BaseStrategy) -> None:
         """
         策略注册
-
-        :param strategy: 根据MarketEvent做出信号判断的策略
-        :type strategy: BaseStrategy
         """
         if not isinstance(strategy, BaseStrategy):
             gl.logger.warn(f"只有策略类实例可以被注册为策略，{type(strategy)} 类型不符")
@@ -140,9 +131,6 @@ class BaseBroker(abc.ABC):
     def sizer_register(self, sizer: BaseSizer) -> None:
         """
         仓位控制策略注册
-
-        :param sizer: 负责仓位控制的函数
-        :type sizer: BaseSizer
         """
         if not isinstance(sizer, BaseSizer):
             gl.logger.warn(f"只有仓位控制类实例可以被注册为仓位管理，{type(sizer)} 类型不符")
@@ -152,9 +140,6 @@ class BaseBroker(abc.ABC):
     def risk_register(self, risk: BaseRisk) -> None:
         """
         风控策略注册
-
-        :param risk: 负责资金池的风险控制
-        :type risk: BaseRisk
         """
         if not isinstance(risk, BaseRisk):
             gl.logger.warn(f"只有风控类实例可以被注册为风控管理，{type(risk)} 类型不符")
@@ -169,9 +154,6 @@ class BaseBroker(abc.ABC):
     def matcher_register(self, matcher: BaseMatcher) -> None:
         """
         撮合匹配器绑定
-
-        :param matcher: 负责撮合成交，回测为虚拟逻辑/实盘为真实异步多线程API调用监听
-        :type matcher: BaseMatcher
         """
         # 撮合类、匹配器绑定
         if not isinstance(matcher, BaseMatcher):
@@ -183,12 +165,9 @@ class BaseBroker(abc.ABC):
         else:
             gl.logger.error("撮合器引擎绑定失败，请检查代码")
 
-    def analyzer_register(self, analyzer: BaseAnalyzer):
+    def analyzer_register(self, analyzer: BaseAnalyzer) -> None:
         """
         撮合匹配器绑定
-
-        :param analyzer: 负责账户资金表现分析
-        :type analyzer: BaseAnalyzer
         """
         # 撮合类、匹配器绑定
         if not isinstance(analyzer, BaseAnalyzer):
@@ -196,12 +175,9 @@ class BaseBroker(abc.ABC):
             return
         self.analyzer = analyzer
 
-    def painter_register(self, painter: BasePainter):
+    def painter_register(self, painter: BasePainter) -> None:
         """
         绘图器绑定
-
-        :param painter: 利用matplotlib绘图
-        :type painter: BasePainter
         """
         if not isinstance(painter, BasePainter):
             gl.logger.warn(f"只有绘图类实例可以被注册为绘图模块，{type(painter)} 类型不符")
@@ -209,7 +185,7 @@ class BaseBroker(abc.ABC):
         # 绘图器绑定
         self.painter = painter
 
-    def market_handler(self, event: MarketEvent):
+    def market_handler(self, event: MarketEvent) -> None:
         """
         市场事件处理函数
         判断市场事件合法性（主要针对回测模式）
@@ -217,45 +193,35 @@ class BaseBroker(abc.ABC):
         将市场事件推送给所有策略
         将市场事件推送给所有风控
         将所有策略与风控产生的信号，存入信号队列
-
-        :raises NotImplementedError: [description]
         """
         raise NotImplementedError("Must implement market_handler()")
 
-    def signal_handler(self, event: SignalEvent):
+    def signal_handler(self, event: SignalEvent) -> None:
         """
         信号事件处理函数
         将信号、当前资金、持仓传入仓位控制
-
-        :raises NotImplementedError: [description]
         """
         raise NotImplementedError("Must implement signal_handler()")
 
-    def order_handler(self, event: OrderEvent):
+    def order_handler(self, event: OrderEvent) -> None:
         """
         订单事件处理函数
         将订单推送给撮合器
-
-        :raises NotImplementedError: [description]
         """
         raise NotImplementedError("Must implement order_handler()")
 
-    def fill_handler(self, event: FillEvent):
+    def fill_handler(self, event: FillEvent) -> None:
         """
         成交事件处理函数
         如果成交成功，则增加持仓，扣除使用掉的金额，还原剩余的的金额
         如果成交失败，则还原冻结的金额
-
-        :raises NotImplementedError: [description]
         """
         raise NotImplementedError("Must implement fill_handler()")
 
-    def general_handler(self):
+    def general_handler(self) -> None:
         """
         通用事件处理函数
         可以做分析模块的固定调用，以及绘图模块的固定调用
-
-        :raises NotImplementedError: [description]
         """
         raise NotImplementedError("Must implement general_handler()")
 
@@ -312,17 +278,12 @@ class BaseBroker(abc.ABC):
         self.frozen_capital += money
         return self.capital
 
-    def add_position(self, position: Position):
+    def add_position(self, code: str, datetime: str, price: float, volume: int):
         """
         添加持仓
 
         若是已经持有会直接添加至已有持仓内
         """
-        # TODO 会被PositionManager的方法替代
-        volume = position.volume
-        price = position.cost
-        code = position.code
-        date = position.date
         if not isinstance(volume, int):
             gl.logger.error(f"持仓量应该是整型，{type(volume)}{volume}类型不符合")
             return self.position
@@ -337,13 +298,13 @@ class BaseBroker(abc.ABC):
         # 判断是否已经持有该标的
         if code in self.position.keys():
             # 已经持有则执行Position的买入操作
-            self.position[code].buy(cost=price, volume=volume, date=date)
-            gl.logger.info(f"{date} 增加持仓 {code}")
+            self.position[code].buy(price=price, volume=volume, datetime=datetime)
+            gl.logger.info(f"{datetime} 增加持仓 {code}")
             gl.logger.info(self.position[code])
         else:
             # 未持有则添加持仓至position
-            p = Position(cost=price, volume=volume, date=date)
-            gl.logger.info(f"{date} 新增持仓 {code}")
+            p = Position(cost=price, volume=volume, datetime=datetime)
+            gl.logger.info(f"{datetime} 新增持仓 {code}")
             gl.logger.info(p)
             self.position[code] = p
         return self.position
@@ -400,20 +361,20 @@ class BaseBroker(abc.ABC):
             self.position.pop(i)
         return self.position
 
-    def update_price(self, price: Bar):
+    def update_price(self, code: str, datetime: str, price: float):
         """
         更新持仓价格
         """
-        code = price.code
-        date = price.datetime
-        p = price.data.close
         if code not in self.position.keys():
             gl.logger.warn(f"当前经纪人未持有{code}")
             return self.position
-        self.position[code].update_last_price(price=p, date=date)
-        gl.logger.info(f"{date} {code}价格更新为 {p}")
+        self.position[code].update_last_price(price=price, datetime=datetime)
+        gl.logger.info(f"{datetime} {code}价格更新为 {price}")
 
     def add_history(self, fill_event: FillEvent):
+        """
+        添加交易记录
+        """
         df = pd.DataFrame(
             {
                 "date": [fill_event.date],

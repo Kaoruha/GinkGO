@@ -1,6 +1,3 @@
-"""
-持仓类
-"""
 import datetime as dt
 from ginkgo.libs import GINKGOLOGGER as gl
 
@@ -61,7 +58,7 @@ class Position(object):
         self.frozen_t1 = 0  # T+1冻结股票数量
         self.avaliable_volume = 0  # 可用数量
         self.update_last_price(price=cost, datetime=datetime)
-        self.buy(volume=volume, price=cost)
+        self.buy(volume=volume, price=cost, datetime=datetime)
 
     def __repr__(self):
         s = f"{self.code} {self.name} 持仓，"
@@ -72,7 +69,7 @@ class Position(object):
         s += f"浮动盈亏「{self.market_value - self.volume * self.cost}」"
         return s
 
-    def buy(self, volume: int, price: float):
+    def buy(self, price: float, volume: int, datetime: dt.datetime):
         """
         增加持仓后Position的操作
         """
@@ -99,7 +96,7 @@ class Position(object):
         # TODO 需要记录
         return self
 
-    def freeze_sell(self, volume: int):
+    def freeze_position(self, volume: int):
         """
         持仓卖出的预处理
 

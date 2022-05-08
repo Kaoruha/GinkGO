@@ -145,7 +145,7 @@ class PositionTest(unittest.TestCase):
             (20, 80000, "2020-01-03", 15.5, 160000, 10000, 0, 150000),
         ]
         for i in param:
-            p.buy(volume=i[1], price=i[0])
+            p.buy(volume=i[1], price=i[0], datetime=i[2])
             self.assertEqual(
                 first={
                     "cost": i[3],
@@ -165,7 +165,7 @@ class PositionTest(unittest.TestCase):
 
         gl.logger.critical("Position新开多头仓位测试完成.")
 
-    def test_PositionFreezeSell_OK(self):
+    def test_PositionFreezePosition_OK(self):
         gl.logger.critical("Position冻结仓位测试开始.")
         p = self.reset()
         p.unfreeze_t1()
@@ -177,7 +177,7 @@ class PositionTest(unittest.TestCase):
             (1000, 8000, 2000, 100000),
         ]
         for i in param:
-            p.freeze_sell(volume=i[0])
+            p.freeze_position(volume=i[0])
             self.assertEqual(
                 first={"frozensell": i[1], "ava": i[2], "totalvalue": i[3]},
                 second={
@@ -201,7 +201,7 @@ class PositionTest(unittest.TestCase):
             (5000, 5000, 0, 0, 0),
         ]
         for i in param:
-            p.freeze_sell(i[0])
+            p.freeze_position(i[0])
             p.sell(i[1])
             self.assertEqual(
                 first={"frozensell": i[2], "ava": i[3], "total": i[4]},
@@ -235,3 +235,8 @@ class PositionTest(unittest.TestCase):
                     },
                 )
         gl.logger.critical("Position更新测试完成.")
+
+    def test_PositionMarketValue(self):
+        gl.logger.critical("Posiiton 市场价值测试开始")
+        # TODO
+        gl.logger.critical("Posiiton 市场价值测试结束")

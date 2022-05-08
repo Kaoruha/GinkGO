@@ -17,6 +17,9 @@ class T1Broker(BaseBroker):
         )
 
     def market_handler_(self, event):
+        """
+        市场事件的处理
+        """
         # 市场事件的日期超过当前日期才会进行后续操作
         if event.info_type == InfoType.DailyPrice:
             if not self.update_date(event.date):
@@ -47,6 +50,9 @@ class T1Broker(BaseBroker):
         print(f"{event.date} {event.code} {self.total_capital}")
 
     def signal_handler(self, signal):
+        """
+        信号事件的处理
+        """
         # 先检查信号事件里的标的当天是否有成交量，如果没有，把信号推回给
         if signal.code not in self.last_price.keys():
             print(f"目前已经价格信息内没有 {signal.code}的信息")
@@ -65,6 +71,9 @@ class T1Broker(BaseBroker):
             self.engine.put(order)
 
     def order_handler(self, event):
+        """
+        订单事件的处理
+        """
         # 检查是否有对应Code的价格信息
         if event.code not in self.last_price.keys():
             print(f"没有{event.code}的当前价格信息，请检查代码")
@@ -89,6 +98,9 @@ class T1Broker(BaseBroker):
                 self.engine.put(i)
 
     def fill_handler(self, event):
+        """
+        成交事件的处理
+        """
         if event.done:
             # 交易成功的处理
             self.add_trade_to_history(event)
@@ -123,4 +135,7 @@ class T1Broker(BaseBroker):
         # print(self._total_capital)
 
     def general_handler(self, event):
+        """
+        通用事件的处理
+        """
         pass

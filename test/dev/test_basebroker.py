@@ -31,13 +31,13 @@ class BrokerTest(unittest.TestCase):
 
     def test_Init_OK(self) -> None:
         gl.logger.critical("BaseBroker初始化测试开始.")
-        test_tuple = [
+        params = [
             # 0brokername, 1init_cash
             ("broker1", 1000),
             ("broker2", 0),
             ("broker3", 10000),
         ]
-        for i in test_tuple:
+        for i in params:
             b = BaseBroker(name=i[0], engine=EventEngine(), init_capital=i[1])
             gl.logger.info(b)
             self.assertEqual(
@@ -55,10 +55,10 @@ class BrokerTest(unittest.TestCase):
     def test_RegisterSelector_OK(self) -> None:
         gl.logger.critical("BaseBroker选股模块注册测试开始.")
         b = self.reset()
-        param = [
+        params = [
             (),
         ]
-        for i in param:
+        for i in params:
             s = RandomSelector()
             b.selector_register(s)
             self.assertNotEqual(
@@ -70,6 +70,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker策略注册测试开始.")
         s = ProfitLossLimit(name="test_strategy")
         params = [
+            # 0strategy, 1strategy_count
             (ProfitLossLimit(name="s1"), 1),
             ("strategy", 0),
             (s, 1),
@@ -103,6 +104,7 @@ class BrokerTest(unittest.TestCase):
             b.sizer_register(s)
             self.assertEqual(first={"name": i}, second={"name": b.sizer.name})
         params = [
+            # 0sizer0, 1sizer1, 2finalsizername
             (FullSizer(name="sizer11"), None, "sizer11"),
             (None, FullSizer(name="sizer111"), "sizer111"),
             (FullSizer(name="sizer22"), "hello", "sizer22"),
@@ -157,6 +159,7 @@ class BrokerTest(unittest.TestCase):
             b.matcher_register(m)
             self.assertEqual(first={"name": i}, second={"name": b.matcher.name})
         step_params = [
+            # 0matcher0,1matcher1,2finalmatchername
             (SimulateMatcher(name="matcher11"), None, "matcher11"),
             (None, SimulateMatcher(name="matcher111"), "matcher111"),
             (SimulateMatcher(name="matcher22"), "hello", "matcher22"),
@@ -180,6 +183,7 @@ class BrokerTest(unittest.TestCase):
             b.analyzer_register(a)
             self.assertEqual(first={"name": i}, second={"name": b.analyzer.name})
         params2 = [
+            # 0analyzer0,1analyzer1, 2finalanalyzername
             (BenchMark(name="analyzer11"), None, "analyzer11"),
             (None, BenchMark(name="analyzer111"), "analyzer111"),
             (BenchMark(name="analyzer22"), "hello", "analyzer22"),
@@ -206,6 +210,7 @@ class BrokerTest(unittest.TestCase):
             b.painter_register(p)
             self.assertEqual(first={"name": i}, second={"name": b.painter.name})
         params2 = [
+            # 0painter0,1painter1,2finalpaintername
             (CandlePainter(name="painter11"), None, "painter11"),
             (None, CandlePainter(name="painter111"), "painter111"),
             (CandlePainter(name="painter22"), "hello", "painter22"),
@@ -226,7 +231,11 @@ class BrokerTest(unittest.TestCase):
         """
         gl.logger.critical("BaseBroker入金测试开始.")
         # 入金1次
-        params1 = [(10000, 110000), (0, 100000)]
+        params1 = [
+            # 0getcash,1 capital
+            (10000, 110000),
+            (0, 100000),
+        ]
         for i in params1:
             b = self.reset()
             b.get_cash(i[0])
@@ -239,6 +248,7 @@ class BrokerTest(unittest.TestCase):
             )
 
         params2 = [
+            # 0 get0,1 get1,2capital
             (10000, 20000, 130000),
             (10000, 0, 110000),
             (0, 10000, 110000),
@@ -256,11 +266,9 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker入金测试完成.")
 
     def test_FreezeMoney_OK(self) -> None:
-        """
-        冻结现金成功
-        """
         gl.logger.critical("BaseBroker冻结现金测试开始.")
         params1 = [
+            # 0freezemoney,1capital,2frozenmoney
             (10000, 90000, 10000),
             (10000, 80000, 20000),
             (0, 80000, 20000),
@@ -278,32 +286,32 @@ class BrokerTest(unittest.TestCase):
             )
         gl.logger.critical("BaseBroker冻结现金测试完成.")
 
-    # def test_GetNewPrice(self) -> None:
+    # def test_GetNewPrice_OK(self) -> None:
     #     pass
 
-    # def test_AddPosition_OK(self) -> None:
-    #     """
-    #     增加持仓成功
-    #     """
-    #     b = self.reset_broker()
-    #     tuple1 = [
-    #         ('test1', 10, 1000, '2020-01-01', 1, 10000),
-    #         ('test1', 11, 1000, '2020-01-02', 1, 22000),
-    #         ('test2', 20, 2000, '2020-01-02', 2, 62000),
-    #         ('test2', 10, 2000, '2020-01-02', 2, 62000),
-    #     ]
-    #     for i in tuple1:
-    #         r = b.add_position(Position(code=i[0], cost=i[1], volume=i[2], date=i[3]))
-    #         self.assertEqual(
-    #             first={
-    #                 'count': i[4],
-    #                 'total': i[5]
-    #             },
-    #             second={
-    #                 'count': len(r),
-    #                 'total': b.cal_position()
-    #             }
-    #         )
+    def test_AddPosition_OK(self) -> None:
+        """
+        增加持仓成功
+        """
+        b = self.reset()
+        params = [
+            # 0code, 1price, 2volume,3date 4,count,5total_value
+            ("test1", 10, 1000, "2020-01-01", 1, 10000),
+            ("test1", 11, 1000, "2020-01-02", 1, 22000),
+            ("test2", 20, 2000, "2020-01-02", 2, 62000),
+            ("test2", 10, 2000, "2020-01-02", 2, 62000),
+        ]
+        for i in params:
+            r = b.add_position(code=i[0], price=i[1], volume=i[2], datetime=i[3])
+            b.update_price(
+                code=i[0],
+                price=i[1],
+                datetime=i[3],
+            )
+            self.assertEqual(
+                first={"count": i[4], "total": float(i[5])},
+                second={"count": len(r), "total": b.position_value},
+            )
 
     # def test_FreezePosition_OK(self) -> None:
     #     """
