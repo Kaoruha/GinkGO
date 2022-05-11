@@ -327,7 +327,7 @@ class BaseBroker(abc.ABC):
         恢复冻结持仓
         """
         if code not in self.position.keys():
-            gl.logger.error(f"当前经纪人未持有{code}，无法解除冻结，请检查代码")
+            gl.logger.warn(f"当前经纪人未持有{code}，无法解除冻结，请检查代码")
             return self.position
 
         self.position[code].sell(volume=volume, done=False, datetime=datetime)

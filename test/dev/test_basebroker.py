@@ -316,64 +316,58 @@ class BrokerTest(unittest.TestCase):
     #             )
     #         gl.logger.critical("BaseBroker增加持仓测试完成.")
 
-    def test_FreezePosition_OK(self) -> None:
-        gl.logger.critical("BaseBroker冻结仓位测试开始")
-        b = self.reset()
-        b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
-        b.add_position(code="t2", price=20, volume=1000, datetime="2020-01-01")
-        for k, v in b.position.items():
-            v.unfreeze_t1()
-        print("=" * 40)
-        for i, v in b.position.items():
-            print(i)
-            print(v)
-        print("=" * 40)
-        params = [
-            # 0code,1volume,2datetime,3frozen_sell,4aviliable_volume
-            ("t1", 500, "2020-01-01", 500, 4500),
-            ("t2", 500, "2020-01-01", 500, 500),
-            ("t1", 500, "2020-01-01", 1000, 4000),
-            ("t2", 500, "2020-01-01", 1000, 0),
-        ]
+    # def test_FreezePosition_OK(self) -> None:
+    #     gl.logger.critical("BaseBroker冻结仓位测试开始")
+    #     b = self.reset()
+    #     b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
+    #     b.add_position(code="t2", price=20, volume=1000, datetime="2020-01-01")
+    #     for k, v in b.position.items():
+    #         v.unfreeze_t1()
+    #     print("=" * 40)
+    #     for i, v in b.position.items():
+    #         print(i)
+    #         print(v)
+    #     print("=" * 40)
+    #     params = [
+    #         # 0code,1volume,2datetime,3frozen_sell,4aviliable_volume
+    #         ("t1", 500, "2020-01-01", 500, 4500),
+    #         ("t2", 500, "2020-01-01", 500, 500),
+    #         ("t1", 500, "2020-01-01", 1000, 4000),
+    #         ("t2", 500, "2020-01-01", 1000, 0),
+    #     ]
 
-        for i in params:
-            b.freeze_position(code=i[0], volume=i[1], datetime=i[2])
+    #     for i in params:
+    #         b.freeze_position(code=i[0], volume=i[1], datetime=i[2])
+    #         self.assertEqual(
+    #             first={"frozen": i[3], "hold": i[4]},
+    #             second={
+    #                 "frozen": b.position[i[0]].frozen_sell,
+    #                 "hold": b.position[i[0]].avaliable_volume,
+    #             },
+    #         )
+    #     gl.logger.critical("BaseBroker冻结仓位测试结束")
+
+    def test_RestorePosition_OK(self) -> None:
+        b = self.reset()
+        b.add_position(Position(code="t1", cost=10, volume=5000, date="2020-01-01"))
+        b.add_position(Position(code="t2", cost=20, volume=1000, date="2020-01-01"))
+        b.freeze_position("t1", volume=3000, date="2020-01-02")
+        b.freeze_position("t2", volume=500, date="2020-01-02")
+        tuple1 = [
+            ("t1", 500, "2020-01-01", 2500, 2500),
+            ("t2", 500, "2020-01-01", 0, 1000),
+            ("t2", 500, "2020-01-01", 0, 1000),
+            ("t1", 500, "2020-01-01", 2000, 3000),
+        ]
+        for i in tuple1:
+            b.restore_frozen_position(code=i[0], volume=i[1], date=i[2])
             self.assertEqual(
                 first={"frozen": i[3], "hold": i[4]},
                 second={
-                    "frozen": b.position[i[0]].frozen_sell,
-                    "hold": b.position[i[0]].avaliable_volume,
+                    "frozen": b.position[i[0]].freeze,
+                    "hold": b.position[i[0]].volume,
                 },
             )
-        gl.logger.critical("BaseBroker冻结仓位测试结束")
-
-    # def test_RestorePosition_OK(self) -> None:
-    #     """
-    #     恢复冻结的持仓
-    #     """
-    #     b = self.reset_broker()
-    #     b.add_position(Position(code='t1', cost=10, volume=5000, date='2020-01-01'))
-    #     b.add_position(Position(code='t2', cost=20, volume=1000, date='2020-01-01'))
-    #     b.freeze_position('t1', volume=3000, date='2020-01-02')
-    #     b.freeze_position('t2', volume=500, date='2020-01-02')
-    #     tuple1 = [
-    #         ('t1', 500, '2020-01-01', 2500, 2500),
-    #         ('t2', 500, '2020-01-01', 0, 1000),
-    #         ('t2', 500, '2020-01-01', 0, 1000),
-    #         ('t1', 500, '2020-01-01', 2000, 3000),
-    #     ]
-    #     for i in tuple1:
-    #         b.restore_frozen_position(code=i[0], volume=i[1], date=i[2])
-    #         self.assertEqual(
-    #             first={
-    #                 'frozen': i[3],
-    #                 'hold': i[4]
-    #             },
-    #             second={
-    #                 'frozen': b.position[i[0]].freeze,
-    #                 'hold': b.position[i[0]].volume
-    #             }
-    #         )
 
     # def test_ReducePosition_OK(self) -> None:
     #     """
