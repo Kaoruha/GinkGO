@@ -462,6 +462,7 @@ class BrokerTest(unittest.TestCase):
         params = [(50000, 100000), (0, 100000), (80000, 100000)]
         for i in params:
             b.freeze_money(i[0])
+
             self.assertEqual(first={"total": i[1]}, second={"total": b.total_capital})
         pos_params = [
             # 0code, 1price, 2volume,3date 4,count,5total_value
