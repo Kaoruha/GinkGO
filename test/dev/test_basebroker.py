@@ -418,9 +418,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker持仓计算测试完成.")
 
     def test_CleanPosition_OK(self) -> None:
-        """
-        清理持仓
-        """
+        gl.logger.critical("BaseBroker持仓清理测试开始")
         b = self.reset()
         b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
         b.add_position(code="t2", price=20, volume=1000, datetime="2020-01-01")
@@ -438,17 +436,11 @@ class BrokerTest(unittest.TestCase):
         for i in params:
             b.reduce_position(code=i[0], volume=i[1], datetime=i[2])
             self.assertEqual(first={"len": i[3]}, second={"len": len(b.position)})
+        gl.logger.critical("BaseBroker持仓清理测试结束")
 
     # def test_UpdateDate_OK(self) -> None:
     #     """
     #     日期更新成功
-    #     """
-    #     # TODO
-    #     pass
-
-    # def test_UpdateTime_OK(self) -> None:
-    #     """
-    #     时间更新成功
     #     """
     #     # TODO
     #     pass

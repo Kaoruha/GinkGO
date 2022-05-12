@@ -38,7 +38,7 @@ class SizerTest(unittest.TestCase):
     def test_FullSizerCalSize_OK(self):
         gl.logger.critical("FullSizer仓位计算测试开始.")
         s = FullSizer(name="testfullsizer")
-        p = {"testposition": Position(code="testposition", cost=10, volume=1000)}
+        p = {"testposition": Position(code="testposition", price=10, volume=1000)}
         param = [
             # 0signal, 1positions, 2capital, 3 size
             (

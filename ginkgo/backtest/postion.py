@@ -101,7 +101,7 @@ class Position(object):
         # TODO 需要记录
         return self
 
-    def freeze_position(self, volume: int, datetime: dt.datetime):
+    def freeze_position(self, volume: int, datetime: str = "9999-01-01"):
         """
         持仓卖出的预处理
 
@@ -125,7 +125,7 @@ class Position(object):
         gl.logger.debug(self)
         return self
 
-    def sell(self, volume: int, datetime: dt.datetime, *kwarg, **kwargs):
+    def sell(self, volume: int, datetime: str = "9999-01-01", *kwarg, **kwargs):
         """
         卖出后的处理
         """

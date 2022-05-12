@@ -20,7 +20,7 @@ class PositionTest(unittest.TestCase):
         p = Position(
             code=self.code,
             name=self.name,
-            cost=self.price,
+            price=self.price,
             volume=self.volume,
             datetime=self.date,
         )
