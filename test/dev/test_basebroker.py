@@ -280,11 +280,6 @@ class BrokerTest(unittest.TestCase):
             ]
             for i in params:
                 r = b.add_position(code=i[0], price=i[1], volume=i[2], datetime=i[3])
-                b.update_price(
-                    code=i[0],
-                    price=i[1],
-                    datetime=i[3],
-                )
                 self.assertEqual(
                     first={"count": i[4], "total": float(i[5])},
                     second={"count": len(r), "total": b.position_value},
@@ -438,60 +433,50 @@ class BrokerTest(unittest.TestCase):
             self.assertEqual(first={"len": i[3]}, second={"len": len(b.position)})
         gl.logger.critical("BaseBroker持仓清理测试结束")
 
-    # def test_UpdateDate_OK(self) -> None:
-    #     """
-    #     日期更新成功
-    #     """
-    #     # TODO
-    #     pass
+    def test_UpdateDate_OK(self) -> None:
+        gl.logger.critical("BaseBroker日期更新测试开始")
+        pass
+        gl.logger.critical("BaseBroker日期更新测试结束")
 
-    # def test_UpdatePrice_OK(self) -> None:
-    #     """
-    #     价格更新成功
-    #     """
-    #     b = self.reset_broker()
-    #     b.add_position(Position(code='t1', cost=10, volume=5000, date='2020-01-01'))
-    #     b.add_position(Position(code='t2', cost=20, volume=1000, date='2020-01-01'))
-    #     tuple1 = [
-    #         ('t1', 1, '2020-02-02', 25000),
-    #         ('t1', 2, '2020-02-02', 30000),
-    #         ('t2', 1, '2020-02-02', 11000),
-    #         ('t3', 1, '2020-02-02', 11000),
-    #         ('t2', 10, '2020-02-02', 20000),
-    #     ]
-    #     for i in tuple1:
-    #         price = DayBar(date=i[2], code=i[0], open_=1, high=2, low=1, close=i[1], pre_close=i[1], volume=1000,
-    #                        amount=10000, adjust_flag=0, turn=.1, pct_change=.1, is_st=0)
-    #         b.update_price(price)
-    #         self.assertEqual(
-    #             first={
-    #                 'total': i[3]
-    #             },
-    #             second={
-    #                 'total': b.cal_position()
-    #             }
-    #         )
+    def test_UpdatePrice_OK(self) -> None:
+        gl.logger.critical("BaseBroker价格更新测试开始")
+        b = self.reset()
+        b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
+        b.add_position(code="t2", price=20, volume=1000, datetime="2020-01-01")
+        params = [
+            # 0code,1price,2date,3value
+            ("t1", 1, "2020-02-02", 25000),
+            ("t1", 2, "2020-02-02", 30000),
+            ("t2", 1, "2020-02-02", 11000),
+            ("t3", 1, "2020-02-02", 11000),
+            ("t2", 10, "2020-02-02", 20000),
+        ]
+        for i in params:
+            b.update_price(code=i[0], datetime=i[2], price=i[1])
+            self.assertEqual(first={"total": i[3]}, second={"total": b.position_value})
+        gl.logger.critical("BaseBroker价格更新测试结束")
 
-    # def test_CalCapital_OK(self) -> None:
-    #     """
-    #     计算更新总资金
-    #     """
-    #     b = self.reset_broker()
-    #     tuple1 = [
-    #         (50000, 100000),
-    #         (0, 100000),
-    #         (80000, 100000)
-    #     ]
-    #     for i in tuple1:
-    #         b.freeze_money(i[0])
-    #         self.assertEqual(
-    #             first={
-    #                 'total': i[1]
-    #             },
-    #             second={
-    #                 'total': b.cal_total_capital()
-    #             }
-    #         )
+    def test_CalCapital_OK(self) -> None:
+        gl.logger.critical("BaseBroker资产计算测试开始")
+        b = self.reset()
+        params = [(50000, 100000), (0, 100000), (80000, 100000)]
+        for i in params:
+            b.freeze_money(i[0])
+            self.assertEqual(first={"total": i[1]}, second={"total": b.total_capital})
+        pos_params = [
+            # 0code, 1price, 2volume,3date 4,count,5total_value
+            ("test1", 10, 1000, "2020-01-01", 1, 10000),
+            ("test1", 11, 1000, "2020-01-02", 1, 22000),
+            ("test2", 20, 2000, "2020-01-02", 2, 62000),
+            ("test2", 10, 2000, "2020-01-02", 2, 62000),
+        ]
+        for i in pos_params:
+            r = b.add_position(code=i[0], price=i[1], volume=i[2], datetime=i[3])
+            self.assertEqual(
+                first={"total": params[-1][1] + i[5]}, second={"total": b.total_capital}
+            )
+
+        gl.logger.critical("BaseBroker资产计算测试结束")
 
     # def test_AddHistory_OK(self) -> None:
     #     """
