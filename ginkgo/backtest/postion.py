@@ -43,7 +43,7 @@ class Position(object):
     def __init__(
         self,
         code: str = "BaseCode",
-        name: str = "Hello:)",
+        name: str = "头寸",
         price: float = 0.0,
         volume: int = 0,
         datetime: datetime = None,
