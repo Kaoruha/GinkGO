@@ -417,32 +417,27 @@ class BrokerTest(unittest.TestCase):
             self.assertEqual(first={"total": i[3]}, second={"total": b.position_value})
         gl.logger.critical("BaseBroker持仓计算测试完成.")
 
-    # def test_CleanPosition_OK(self) -> None:
-    #     """
-    #     清理持仓
-    #     """
-    #     b = self.reset_broker()
-    #     b.add_position(Position(code='t1', cost=10, volume=5000, date='2020-01-01'))
-    #     b.add_position(Position(code='t2', cost=20, volume=1000, date='2020-01-01'))
-    #     b.freeze_position('t1', volume=5000, date='2020-01-02')
-    #     b.freeze_position('t2', volume=1000, date='2020-01-02')
-    #     tuple1 = [
-    #         ('t1', 2000, '2020-01-03', 2),
-    #         ('t1', 2000, '2020-01-03', 2),
-    #         ('t1', 2000, '2020-01-03', 2),
-    #         ('t1', 1000, '2020-01-03', 1),
-    #         ('t2', 1000, '2020-01-03', 0),
-    #     ]
-    #     for i in tuple1:
-    #         b.reduce_position(code=i[0], volume=i[1], date=i[2])
-    #         self.assertEqual(
-    #             first={
-    #                 'len': i[3]
-    #             },
-    #             second={
-    #                 'len': len(b.position)
-    #             }
-    #         )
+    def test_CleanPosition_OK(self) -> None:
+        """
+        清理持仓
+        """
+        b = self.reset()
+        b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
+        b.add_position(code="t2", price=20, volume=1000, datetime="2020-01-01")
+        for i, v in b.position.items():
+            v.unfreeze_t1()
+        b.freeze_position(code="t1", volume=5000, datetime="2020-01-02")
+        b.freeze_position(code="t2", volume=1000, datetime="2020-01-02")
+        params = [
+            ("t1", 2000, "2020-01-03", 2),
+            ("t1", 2000, "2020-01-03", 2),
+            ("t1", 2000, "2020-01-03", 2),
+            ("t1", 1000, "2020-01-03", 1),
+            ("t2", 1000, "2020-01-03", 0),
+        ]
+        for i in params:
+            b.reduce_position(code=i[0], volume=i[1], datetime=i[2])
+            self.assertEqual(first={"len": i[3]}, second={"len": len(b.position)})
 
     # def test_UpdateDate_OK(self) -> None:
     #     """
