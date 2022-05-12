@@ -339,7 +339,7 @@ class BaseBroker(abc.ABC):
 
     def reduce_position(self, code: str, volume: int, date: str):
         """
-        减少持仓
+        成功卖出后，减少持仓
         """
         if code not in self.position.keys():
             gl.logger.error(f"当前经纪人未持有{code}，无法减少持仓，请检查代码")
