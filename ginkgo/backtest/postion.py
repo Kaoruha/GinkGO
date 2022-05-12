@@ -84,12 +84,18 @@ class Position(object):
         gl.logger.info(
             f"{self.code} {self.name} 开设多仓成功，价格「{round(price, 2)}」 份额「{volume}」"
         )
+        # 更新价格
+        self.update_last_price(price=price, datetime=datetime)
 
+        # 更新成本
         self.cost = (self.cost * self.volume + volume * price) / (self.volume + volume)
+
+        # 更新可用头寸
         if self.is_t1:
             self.frozen_t1 += volume
         else:
             self.avaliable_volume += volume
+        # 更新总头寸
         self.volume += volume
         gl.logger.debug(self)
         # TODO 需要记录

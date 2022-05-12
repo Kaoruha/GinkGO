@@ -342,20 +342,20 @@ class BaseBroker(abc.ABC):
         self.position[code].unfreeze_sell(volume=volume)
         return self.position[code]
 
-    def reduce_position(self, code: str, volume: int, datetime: str) -> Position:
+    def reduce_position(self, code: str, volume: int, datetime: str) -> bool:
         """
         成功卖出后，减少持仓
         """
         if code not in self.position.keys():
             gl.logger.warn(f"当前经纪人未持有{code}，无法减少持仓，请检查代码")
-            return None
+            return False
 
         if volume > 0:
             volume = -volume
 
         self.position[code].update(volume=volume, datetime=datetime)
         self.clean_position()
-        return self.position[code]
+        return True
 
     def clean_position(self):
         """

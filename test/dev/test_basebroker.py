@@ -375,58 +375,47 @@ class BrokerTest(unittest.TestCase):
             )
         gl.logger.critical("BaseBroker头寸减持卖出测试完成.")
 
-    # def test_CalPosition_OK(self) -> None:
-    #     """
-    #     计算持仓总价值
-    #     """
-    #     b = self.reset_broker()
-    #     tuple1 = [
-    #         ('t1', 10, 1000, '2020-01-01', 10000),
-    #         ('t1', 10, 1000, '2020-01-02', 20000),
-    #         ('t2', 10, 1000, '2020-01-02', 30000),
-    #         ('t3', 10, 1000, '2020-01-02', 40000),
-    #         ('t3', 20, 1000, '2020-01-02', 70000),
-    #     ]
-    #     for i in tuple1:
-    #         b.add_position(Position(code=i[0], cost=i[1], volume=i[2], date=i[3]))
-    #         self.assertEqual(
-    #             first={
-    #                 'total': i[4]
-    #             },
-    #             second={
-    #                 'total': b.cal_position()
-    #             }
-    #         )
-    #     tuple2 = [
-    #         ('t1', 2000, '2020-01-01', 70000),
-    #         ('t2', 500, '2020-01-01', 70000),
-    #         ('t3', 500, '2020-01-01', 70000),
-    #     ]
-    #     for i in tuple2:
-    #         b.freeze_position(code=i[0], volume=i[1], date=i[2])
-    #         self.assertEqual(
-    #             first={
-    #                 'total': i[3]
-    #             },
-    #             second={
-    #                 'total': b.cal_position()
-    #             }
-    #         )
+    def test_CalPosition_OK(self) -> None:
+        gl.logger.critical("BaseBroker持仓计算测试完成.")
+        b = self.reset()
+        add_params = [
+            # 0code,1price,2volume,3date,4value
+            ("t1", 10, 1000, "2020-01-01", 10000),
+            ("t1", 10, 1000, "2020-01-02", 20000),
+            ("t2", 10, 1000, "2020-01-02", 30000),
+            ("t3", 10, 1000, "2020-01-02", 40000),
+            ("t3", 20, 1000, "2020-01-02", 70000),
+        ]
+        for i in add_params:
+            b.add_position(code=i[0], price=i[1], volume=i[2], datetime=i[3])
+            self.assertEqual(first={"total": i[4]}, second={"total": b.position_value})
 
-    #     tuple3 = [
-    #         ('t1', 2000, '2020-01-01', 50000),
-    #         ('t2', 500, '2020-01-01', 45000),
-    #     ]
-    #     for i in tuple3:
-    #         b.reduce_position(code=i[0], volume=i[1], date=i[2])
-    #         self.assertEqual(
-    #             first={
-    #                 'total': i[3]
-    #             },
-    #             second={
-    #                 'total': b.cal_position()
-    #             }
-    #         )
+        for i, v in b.position.items():
+            v.unfreeze_t1()
+
+        self.assertEqual(
+            first={"total": add_params[-1][4]}, second={"total": b.position_value}
+        )
+
+        freeze_params = [
+            # 0code,1freezevolume,2date,3value
+            ("t1", 2000, "2020-01-01", 70000),
+            ("t2", 500, "2020-01-01", 70000),
+            ("t3", 500, "2020-01-01", 70000),
+        ]
+        for i in freeze_params:
+            b.freeze_position(code=i[0], volume=i[1], datetime=i[2])
+            self.assertEqual(first={"total": i[3]}, second={"total": b.position_value})
+
+        reduce_params = [
+            ("t1", 2000, "2020-01-01", 50000),
+            ("t2", 500, "2020-01-01", 45000),
+            ("t3", 100, "2020-01-01", 43000),
+        ]
+        for i in reduce_params:
+            b.reduce_position(code=i[0], volume=i[1], datetime=i[2])
+            self.assertEqual(first={"total": i[3]}, second={"total": b.position_value})
+        gl.logger.critical("BaseBroker持仓计算测试完成.")
 
     # def test_CleanPosition_OK(self) -> None:
     #     """
