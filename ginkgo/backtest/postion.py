@@ -91,8 +91,7 @@ class Position(object):
         else:
             self.avaliable_volume += volume
         self.volume += volume
-
-        gl.logger.info(self)
+        gl.logger.debug(self)
         # TODO 需要记录
         return self
 
@@ -117,7 +116,7 @@ class Position(object):
         self.frozen_sell += volume
         self.avaliable_volume -= volume
         gl.logger.info(f"{self.code} 冻结仓位成功，冻结份额「{volume}」")
-        gl.logger.info(self)
+        gl.logger.debug(self)
         return self
 
     def sell(self, volume: int, datetime: dt.datetime, *kwarg, **kwargs):
@@ -125,13 +124,12 @@ class Position(object):
         卖出后的处理
         """
         # 卖出调整持仓
-        # 如果卖出的数量大于持仓直接清空
         # 卖出交易成功后调用
         if volume <= 0:
             gl.logger.error(
                 f"{self.code} {self.name} 卖出失败，预计成交量{volume}应该大于0，请检查代码，当前回测有误"
             )
-            return
+            return self
 
         if volume > self.frozen_sell:
             gl.logger.error(
@@ -139,11 +137,11 @@ class Position(object):
             )
             return self
 
-            # 交易成功
+        # 交易成功
         self.unfreeze_sell(volume=volume)
         self.volume -= volume
         gl.logger.info(f"{self.datetime} {self.code} {self.name} 卖出成功，卖出{volume}份额")
-        gl.logger.info(self)
+        gl.logger.debug(self)
         return self
 
     def unfreeze_t1(self):
@@ -155,9 +153,10 @@ class Position(object):
         if self.frozen_t1 < 0:
             gl.logger.error(f"{self.datetime} 解除冻结T+1失败，当前冻结额度小于0，请检查代码")
             return
-        gl.logger.info(f"{self.datetime} 解除冻结T+1 {self.frozen_t1}")
         self.avaliable_volume += self.frozen_t1
         self.frozen_t1 = 0
+        gl.logger.info(f"{self.datetime} 解除冻结T+1 {self.frozen_t1}")
+        gl.logger.debug(self)
 
     def unfreeze_sell(self, volume: int) -> int:
         """
@@ -167,6 +166,8 @@ class Position(object):
             volume = self.frozen_sell
             gl.logger.error(f"解除冻结份额「{volume}」超过当前冻结份额「{self.frozen_sell}」，回测有误，请检查代码")
         self.frozen_sell -= volume
+        gl.logger.info(f"{self.datetime} 解除冻结卖出 {self.frozen_sell}")
+        gl.logger.debug(self)
         return self.frozen_sell
 
     def update_last_price(self, price: float, datetime: dt.datetime):
@@ -180,13 +181,24 @@ class Position(object):
             )
             return
 
+        gl.logger.info(
+            f"{self.datetime} {self.name} {self.code} 价格由「{self.last_price}」于更新至「{price}」"
+        )
         self.last_price = price
-        gl.logger.info(self)
+        gl.logger.debug(self)
         return self.last_price
 
-    def update(self, volume: int, price: float, datetime: dt.datetime):
+    def update(
+        self,
+        datetime: dt.datetime,
+        volume: int,
+        price: float = 0.0,
+    ):
+        """
+        头寸更新
+        """
         self.datetime = datetime
         if volume > 0:
-            self.buy(volume=volume, cost=price)
+            self.buy(volume=volume, price=price, datetime=datetime)
         else:
-            self.sell(volume=volume)
+            self.sell(volume=-volume, datetime=datetime)

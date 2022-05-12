@@ -70,7 +70,7 @@ class BaseBroker(abc.ABC):
         self.position = {}  # 存放Position对象
         self.trade_history = pd.DataFrame(
             columns=[
-                "date",
+                "datetime",
                 "code",
                 "deal",
                 "done",
@@ -124,7 +124,7 @@ class BaseBroker(abc.ABC):
         if strategy not in self.strategies:
             self.strategies.append(strategy)
             strategy.engine_register(self.engine)
-            gl.logger.info(f"{strategy.name} 已注册")
+            gl.logger.info(f"策略{strategy.name} 注册完成")
         else:
             gl.logger.warning(f"{strategy.name} 已存在")
 
@@ -147,7 +147,7 @@ class BaseBroker(abc.ABC):
         if risk not in self.risk_management:
             self.risk_management.append(risk)
             risk.engine_register(self.engine)
-            gl.logger.warning(f"{risk.name} 已注册")
+            gl.logger.info(f"{risk.name} 注册完成")
         else:
             gl.logger.warning(f"{risk.name} 已存在")
 
@@ -162,6 +162,7 @@ class BaseBroker(abc.ABC):
         self.matcher = matcher
         if self.engine:
             self.matcher.engine_register(self.engine)
+            gl.logger.info(f"撮合器{matcher.name}注册完成")
         else:
             gl.logger.error("撮合器引擎绑定失败，请检查代码")
 
@@ -184,6 +185,7 @@ class BaseBroker(abc.ABC):
             return
         # 绘图器绑定
         self.painter = painter
+        gl.logger.info("绘图器绑定")
 
     def market_handler(self, event: MarketEvent) -> None:
         """
@@ -230,7 +232,7 @@ class BaseBroker(abc.ABC):
         获取到新的价格信息
         """
         # 更新日期
-        self.today = event.date
+        self.today = event.datetime
         # 把价格信息传给每个策略
         for i in self.strategies:
             i.get_price(event)
@@ -276,6 +278,9 @@ class BaseBroker(abc.ABC):
 
         self.capital -= money
         self.frozen_capital += money
+        gl.logger.info(
+            f"{self.name}冻结现金「{format(money,',')}」，目前持有现金「{format(self.capital,',')}」,目前冻结金额「{format(self.frozen_capital, ',')}」"
+        )
         return self.capital
 
     def add_position(self, code: str, datetime: str, price: float, volume: int):
@@ -298,7 +303,7 @@ class BaseBroker(abc.ABC):
         # 判断是否已经持有该标的
         if code in self.position.keys():
             # 已经持有则执行Position的买入操作
-            self.position[code].buy(price=price, volume=volume, datetime=datetime)
+            self.position[code].update(price=price, volume=volume, datetime=datetime)
             gl.logger.info(f"{datetime} 增加持仓 {code}")
             gl.logger.info(self.position[code])
         else:
@@ -337,17 +342,20 @@ class BaseBroker(abc.ABC):
         self.position[code].unfreeze_sell(volume=volume)
         return self.position[code]
 
-    def reduce_position(self, code: str, volume: int, date: str):
+    def reduce_position(self, code: str, volume: int, datetime: str) -> Position:
         """
         成功卖出后，减少持仓
         """
         if code not in self.position.keys():
-            gl.logger.error(f"当前经纪人未持有{code}，无法减少持仓，请检查代码")
-            return False, self.position
+            gl.logger.warn(f"当前经纪人未持有{code}，无法减少持仓，请检查代码")
+            return None
 
-        self.position[code].sell(volume=volume, done=True, date=date)
+        if volume > 0:
+            volume = -volume
+
+        self.position[code].update(volume=volume, datetime=datetime)
         self.clean_position()
-        return True, self.position
+        return self.position[code]
 
     def clean_position(self):
         """
@@ -356,7 +364,7 @@ class BaseBroker(abc.ABC):
         """
         clean_list = []
         for k in self.position:
-            total = self.position[k].volume + self.position[k].freeze
+            total = self.position[k].volume
             if total == 0:
                 clean_list.append(k)
             if total < 0:
