@@ -23,19 +23,17 @@ class T1Broker(BaseBroker):
         # 市场事件的日期超过当前日期才会进行后续操作
         if event.info_type == InfoType.DailyPrice:
             if not self.update_date(event.date):
-                print("事件日期异常，不进行任何操作，请检查代码")
+                gl.logger.warn("事件日期异常，不进行任何操作，请检查代码")
                 return
             self.update_price(code=event.code, data=event.data)
             if self.painter is not None:
                 self.painter.get_price(broker=self, price=event.data)
-            # print("处理DayBar")
 
         if event.info_type == InfoType.MinutePrice:
             if not self.update_time(event.data.time):
-                print("事件时间异常，不进行任何操作，请检查代码")
+                gl.logger.warn("事件时间异常，不进行任何操作，请检查代码")
                 return
             self.update_price(code=event.data.code, data=event.data)
-            # print("处理Min5")
 
         for i in self.strategies:
             signals = i.get_price(event, self)
