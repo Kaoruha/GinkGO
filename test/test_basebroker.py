@@ -10,6 +10,7 @@ from ginkgo.backtest.painter.candle import CandlePainter
 from ginkgo.backtest.analyzer.base_analyzer import BaseAnalyzer
 from ginkgo.backtest.analyzer.benchmark import BenchMark
 from ginkgo.backtest.postion import Position
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo.libs import GINKGOLOGGER as gl
 
 
@@ -478,6 +479,14 @@ class BrokerTest(unittest.TestCase):
             )
 
         gl.logger.critical("BaseBroker资产计算测试结束")
+
+    def test_Next_OK(self):
+        gl.logger.critical("BaseBroker下一天测试开始")
+        b = self.reset()
+        while True:
+            if not b.next():
+                break
+        gl.logger.critical("BaseBroker下一天测试完成")
 
     # def test_AddHistory_OK(self) -> None:
     #     """

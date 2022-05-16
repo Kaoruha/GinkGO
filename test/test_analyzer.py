@@ -1,12 +1,3 @@
-"""
-Author: Kaoru
-Date: 2022-03-22 22:14:51
-LastEditTime: 2022-04-03 01:08:53
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/test/test_analyzer.py
-What goes around comes around.
-"""
 import unittest
 from ginkgo.backtest.analyzer.benchmark import BenchMark
 from ginkgo.backtest.broker.base_broker import BaseBroker
