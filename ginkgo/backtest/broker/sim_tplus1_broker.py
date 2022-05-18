@@ -4,7 +4,7 @@ from ginkgo.backtest.postion import Position
 from ginkgo.libs import GINKGOLOGGER as gl
 
 
-class T1Broker(BaseBroker):
+class SimT1Broker(BaseBroker):
     def __init__(
         self,
         engine,

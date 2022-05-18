@@ -16,7 +16,7 @@ class EventEngine(object):
 
     """
 
-    def __init__(self, *, heartbeat: float = 0) -> None:
+    def __init__(self, *, heartbeat: float = 0.0) -> None:
         """
         初始化
         """
@@ -44,7 +44,9 @@ class EventEngine(object):
             gl.logger.warning("heartbeat should bigger than 0")
 
     def __run(self) -> None:
-        """引擎运行"""
+        """
+        引擎运行
+        """
         while self._active:
             try:
                 e = self._event_queue.get(block=False)  # 获取消息的阻塞时间
@@ -52,15 +54,15 @@ class EventEngine(object):
                 # 每个循环都会把一个事件带来的所有事件处理完再处理事件
             except queue.Empty:
                 # 事件列表为空时，回测结束，Live系统应该继续等待
-                # TODO 调用分析模块
                 gl.logger.info("回测结束")
                 break
             # 当心跳不为0时，事件引擎会短暂停歇，默认如果调用set_heartbeat设置心跳，不开启，但是可能CPU负荷过高
-            if self.heartbeat != 0:
-                time.sleep(self.heartbeat)
+            time.sleep(self.heartbeat)
 
     def __process(self, event: Event) -> None:
-        """处理事件"""
+        """
+        处理事件
+        """
         # 检查是否存在对该事件进行监听的处理函数
         if event.event_type in self._handlers:
             # 若存在，将事件传递给处理函数执行
@@ -151,18 +153,9 @@ class EventEngine(object):
             self._general_handlers.remove(handler)
         return self._general_handlers
 
-    def register_next_day(self, func):
-        """
-        注册下一天的方法
-        """
-        self._next_day = func
-
     def feed(self, code: str, data: pd.DataFrame):
         """
         向价格信息池注入信息
-        :param code:
-        :param data: DataFrame格式的数据
-        :return: void
         """
         # 1 如果没有，则建立新的K，V
         if code not in self._price_pool.keys():

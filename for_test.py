@@ -1,8 +1,9 @@
-from ginkgo.backtest.enums import *
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 
-a = Direction.BULL
-
-
-b = 1
-print(a)
-print(a.value)
+d = gm.get_trade_day()
+print(d)
+# d = d[(d > "2020-01-01") & (d < "2020-01-22")]
+# print(d)
+# print(d.iloc[0])
+print(d.shape[0])
+print(len(d))

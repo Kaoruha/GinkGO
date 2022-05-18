@@ -84,6 +84,11 @@ class BaseBroker(abc.ABC):
         self.signals = queue.Queue()  # 信号队列
         self.market_type = MarketType.CN  # 当前市场
         self.trade_day = None  # 交易日
+        self.trade_day_index = -1  # 交易日索引
+        self.trade_day = gm.get_trade_day()
+        self.trade_day = self.trade_day[
+            (self.trade_day >= start_date) & (self.trade_day <= end_date)
+        ]
 
     def __repr__(self) -> str:
         s = f"{self.name} "
@@ -407,29 +412,38 @@ class BaseBroker(abc.ABC):
     def sell(self, code, type, price, volume):
         pass
 
-    def next(self):
+    def next(self) -> bool:
         """
         根据交易日，进入下一个时间
         """
-        if self.trade_day is None:
-            self.trade_day = gm.get_trade_day()
 
-        df = self.trade_day[
-            (self.trade_day > self.today) & (self.trade_day <= self.last_day)
-        ]
-        if df.empty:
-            gl.logger.info(f"{self.today} 是数据最后一天，回测结束")
-            self.engine.stop()
+        self.trade_day_index += 1
+
+        if self.trade_day_index >= len(self.trade_day):
+            gl.logger.warn(f"{self.today} 是数据最后一天，回测结束")
+            gl.logger.warn(f"{self.today} 是数据最后一天，回测结束")
+            if self.engine:
+                self.engine.stop()
+            else:
+                return False
+
             # TODO Call Analyzor.End()
         else:
-            codes = self.selector.get_result(today=self.today)
+            codes = []
+            if self.selector:
+                codes = self.selector.get_result(today=self.today)
             # GOTO NEXT DAY
-            self.today = df.iloc[0]
+            self.today = self.trade_day.iloc[self.trade_day_index]
             gl.logger.info(f"日期变更，{self.today} 已经到了")
 
             for i in self.position.keys():
                 if i not in codes:
                     codes.append(i)
 
-            for i in codes:
-                self.engine.get_price(code=i, date=self.today)
+            if self.engine:
+                for i in codes:
+                    self.engine.get_price(code=i, date=self.today)
+            else:
+                gl.logger.error("Engine未注册")
+
+            return True
