@@ -16,7 +16,13 @@ class EventEngine(object):
 
     """
 
-    def __init__(self, *, heartbeat: float = 0.0) -> None:
+    def __init__(
+        self,
+        *,
+        heartbeat: float = 0.0,
+        timersleep: float = 0.0,
+        is_timer_on: bool = False,
+    ) -> None:
         """
         初始化
         """
@@ -24,14 +30,16 @@ class EventEngine(object):
         self._info_queue = queue.Queue()  # 信息队列
         self._active = False  # 事件引擎开关,引擎初始化时状态设置为关闭
         self._thread = Thread(target=self.__run)  # 事件处理线程
-        # self.__feed_thread = Thread(target=self.__feed)
+        self._timer_thread = Thread(target=self.__timer_run)  # 定时器处理线程
         self.heartbeat = heartbeat  # 心跳间隔
+        self.timersleep = timersleep  # 定时器间隔
+        self._timer_on = is_timer_on
+        self._timer_handlers = []
         self._handlers = {}  # 事件处理的回调函数
         self._general_handlers = (
             []
         )  # __general_handlers是一个列表，与__handlers类似，用来保存通用回调函数（所有事件均调用）
         self._next_day = None
-        self._price_pool = {}  # 价格信息池
 
     def set_heartbeat(self, heartbeat: float) -> None:
         """
@@ -58,6 +66,14 @@ class EventEngine(object):
                 break
             # 当心跳不为0时，事件引擎会短暂停歇，默认如果调用set_heartbeat设置心跳，不开启，但是可能CPU负荷过高
             time.sleep(self.heartbeat)
+
+    def __timer_run(self) -> None:
+        """
+        定期事件
+        """
+        while self.__active:
+            [handler for handler in self._timmer_handlers]
+            time.sleep(self.timmer)
 
     def __process(self, event: Event) -> None:
         """
@@ -89,6 +105,10 @@ class EventEngine(object):
 
         # 启动事件处理线程
         self._thread.start()
+
+        # 启动定时处理线程
+        if self._timmer_on:
+            self._timer_thread.start()
 
     def stop(self) -> None:
         """停止引擎"""
@@ -131,7 +151,7 @@ class EventEngine(object):
 
         return self._handlers
 
-    def put(self, event: Event):
+    def put(self, event: Event) -> None:
         """向事件队列中存入事件"""
         try:
             if self._handlers[event.event_type] is not None:
@@ -153,54 +173,14 @@ class EventEngine(object):
             self._general_handlers.remove(handler)
         return self._general_handlers
 
-    def feed(self, code: str, data: pd.DataFrame):
-        """
-        向价格信息池注入信息
-        """
-        # 1 如果没有，则建立新的K，V
-        if code not in self._price_pool.keys():
-            self._price_pool[code] = data
+    def register_timer_handler(self, handler) -> list:
+        """注册计时器事件处理函数监听"""
+        if handler not in self._timer_handlers:
+            self._timer_handlers.append(handler)
+        return self._timmer_handlers
 
-        # TODO 更新可能需要有个判断逻辑防止内存爆了
-
-    def get_price(self, code: str, date: str) -> MarketEvent:
-        """
-        获取价格信息
-        """
-        # 1 如果池子里没有当前Code的价格信息，则从数据库获取该Code的全量数据
-        if code not in self._price_pool.keys():
-            df = gm.get_dayBar_by_mongo(code=code)
-            self.feed(code, df)
-        # 2 从价格池获取价格
-        df = self._price_pool[code][self._price_pool[code]["date"] == date]
-        # 3 如果数据库里没有数据，退出回
-        if df.empty:
-            gl.logger.error(f"试图获取一个不存在的数据 {date} {code}，退出回测")
-            return None
-        else:
-            day_bar = DayBar(
-                date=df.date,
-                code=df.code,
-                open_=df.open,
-                high=df.high,
-                low=df.low,
-                close=df.close,
-                pre_close=df.pre_close,
-                volume=df.volume,
-                amount=df.amount,
-                adjust_flag=df.adjust_flag,
-                turn=df.turn,
-                pct_change=df["pct_change"],
-                is_st=df.is_st,
-            )
-            market_event = MarketEvent(
-                date=df.date,
-                code=df.code,
-                source="GM 历史数据",
-                info_type=InfoType.DailyPrice,
-                data=day_bar,
-            )
-
-            # 4 如果顺利获取到价格，则把价格信息推入info_queue
-            self._info_queue.put(market_event)
-            return market_event
+    def withdraw_timer_handler(self, handler) -> list:
+        """注销计时器事件处理函数监听"""
+        if handler in self._timer_handlers:
+            self._timer_handlers.remove(handler)
+        return self._timmer_handlers
