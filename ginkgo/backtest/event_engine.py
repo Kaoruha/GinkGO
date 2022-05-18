@@ -39,7 +39,6 @@ class EventEngine(object):
         self._general_handlers = (
             []
         )  # __general_handlers是一个列表，与__handlers类似，用来保存通用回调函数（所有事件均调用）
-        self._next_day = None
 
     def set_heartbeat(self, heartbeat: float) -> None:
         """
@@ -69,11 +68,14 @@ class EventEngine(object):
 
     def __timer_run(self) -> None:
         """
-        定期事件
+        定期运行
         """
         while self.__active:
-            [handler for handler in self._timmer_handlers]
-            time.sleep(self.timmer)
+            if len(self._timer_handlers) > 0:
+                [handler for handler in self._timer_handlers]
+                time.sleep(self.timersleep)
+            else:
+                time.sleep(10)
 
     def __process(self, event: Event) -> None:
         """
