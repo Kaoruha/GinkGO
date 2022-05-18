@@ -19,7 +19,7 @@ class EventEngine(object):
     def __init__(
         self,
         *,
-        heartbeat: float = 0.0,
+        heartbeat: float = 0.001,
         timersleep: float = 0.0,
         is_timer_on: bool = False,
     ) -> None:
@@ -65,12 +65,13 @@ class EventEngine(object):
                 break
             # 当心跳不为0时，事件引擎会短暂停歇，默认如果调用set_heartbeat设置心跳，不开启，但是可能CPU负荷过高
             time.sleep(self.heartbeat)
+            gl.logger.warn("Sleep")
 
     def __timer_run(self) -> None:
         """
         定期运行
         """
-        while self.__active:
+        while self._active:
             if len(self._timer_handlers) > 0:
                 [handler for handler in self._timer_handlers]
                 time.sleep(self.timersleep)
@@ -109,7 +110,7 @@ class EventEngine(object):
         self._thread.start()
 
         # 启动定时处理线程
-        if self._timmer_on:
+        if self._timer_on:
             self._timer_thread.start()
 
     def stop(self) -> None:

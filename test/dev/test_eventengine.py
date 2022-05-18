@@ -189,22 +189,3 @@ class EventEngineTest(unittest.TestCase):
         e.withdraw_timer_handler(timerh)
         self.assertEqual(first=0, second=len(e._timer_handlers))
         gl.logger.critical("EventEngine计时器事件注销测试结束")
-
-    def test_run_notimer(self):
-        print("")
-        gl.logger.critical("EventEngine无计时器运行测试开始")
-
-        def market_handler():
-            gl.logger.debug(f"")
-
-        gl.logger.critical("EventEngine无计时器运行测试结束")
-
-    def test_run_timer(self):
-        print("")
-        gl.logger.critical("EventEngine计时器运行测试开始")
-        gl.logger.critical("EventEngine计时器运行测试结束")
-
-    def test_run_withtimer(self):
-        print("")
-        gl.logger.critical("EventEngine运行测试开始")
-        gl.logger.critical("EventEngine运行测试结束")
