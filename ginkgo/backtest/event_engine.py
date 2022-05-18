@@ -154,14 +154,12 @@ class EventEngine(object):
         return self._handlers
 
     def put(self, event: Event) -> None:
-        """向事件队列中存入事件"""
-        try:
-            if self._handlers[event.event_type] is not None:
-                self._event_queue.put(event)
-        except Exception as e:
-            gl.logger.error(
-                f"There is no handler for {event}. Please check your configuration!  \n {e}"
-            )
+        """
+        向事件队列中存入事件
+        """
+        self._event_queue.put(event)
+        if event.event_type not in self._handlers:
+            gl.logger.warn(f"当前引擎没有{event.event_type}事件的处理函数")
 
     def register_general_handler(self, handler) -> list:
         """注册通用事件处理函数监听"""
@@ -179,10 +177,10 @@ class EventEngine(object):
         """注册计时器事件处理函数监听"""
         if handler not in self._timer_handlers:
             self._timer_handlers.append(handler)
-        return self._timmer_handlers
+        return self._timer_handlers
 
     def withdraw_timer_handler(self, handler) -> list:
         """注销计时器事件处理函数监听"""
         if handler in self._timer_handlers:
             self._timer_handlers.remove(handler)
-        return self._timmer_handlers
+        return self._timer_handlers

@@ -27,6 +27,7 @@ class SizerTest(unittest.TestCase):
         super(SizerTest, self).__init__(*args, **kwargs)
 
     def test_FullSizerInit_OK(self):
+        print("")
         gl.logger.critical("FullSizer初始化测试开始.")
         param = [("testfullsizer0",), ("testfullsizer1",)]
         for i in param:
@@ -36,6 +37,7 @@ class SizerTest(unittest.TestCase):
         gl.logger.critical("FullSizer初始化测试完成.")
 
     def test_FullSizerCalSize_OK(self):
+        print("")
         gl.logger.critical("FullSizer仓位计算测试开始.")
         s = FullSizer(name="testfullsizer")
         p = {"testposition": Position(code="testposition", price=10, volume=1000)}

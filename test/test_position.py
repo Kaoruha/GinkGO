@@ -27,6 +27,7 @@ class PositionTest(unittest.TestCase):
         return p
 
     def test_PositionInit_OK(self):
+        print("")
         gl.logger.critical("Position初始化测试开始.")
         p = self.reset()
 
@@ -58,6 +59,7 @@ class PositionTest(unittest.TestCase):
         gl.logger.critical("Position初始化测试完成.")
 
     def test_PositionUpdatePrice_OK(self):
+        print("")
         gl.logger.critical("Position价格信息更新测试开始.")
         p = self.reset()
         param = [
@@ -83,6 +85,7 @@ class PositionTest(unittest.TestCase):
         gl.logger.critical("Position价格信息更新测试完成.")
 
     def test_PositionUnfreezeT1_OK(self):
+        print("")
         gl.logger.critical("Position解除T+1冻结测试开始.")
         p = self.reset()
         p.unfreeze_t1()
@@ -105,6 +108,7 @@ class PositionTest(unittest.TestCase):
         gl.logger.critical("Position解除T+1冻结测试完成.")
 
     def test_PositionBuy_OK(self):
+        print("")
         gl.logger.critical("Position新开多头仓位测试开始.")
         p = self.reset()
         p.unfreeze_t1()
@@ -166,6 +170,7 @@ class PositionTest(unittest.TestCase):
         gl.logger.critical("Position新开多头仓位测试完成.")
 
     def test_PositionFreezePosition_OK(self):
+        print("")
         gl.logger.critical("Position冻结仓位测试开始.")
         p = self.reset()
         p.unfreeze_t1()
@@ -190,6 +195,7 @@ class PositionTest(unittest.TestCase):
         gl.logger.critical("Position冻结仓位测试完成.")
 
     def test_PositionSell_OK(self):
+        print("")
         gl.logger.critical("Position卖出测试开始.")
         p = self.reset()
         p.unfreeze_t1()
@@ -214,6 +220,7 @@ class PositionTest(unittest.TestCase):
         gl.logger.critical("Position卖出测试完成.")
 
     def test_PositionUpdate(self):
+        print("")
         gl.logger.critical("Position更新测试开始.")
         p = self.reset()
         p.unfreeze_t1()
@@ -237,6 +244,7 @@ class PositionTest(unittest.TestCase):
         gl.logger.critical("Position更新测试完成.")
 
     def test_PositionMarketValue(self):
+        print("")
         gl.logger.critical("Posiiton 市场价值测试开始")
         # TODO
         gl.logger.critical("Posiiton 市场价值测试结束")

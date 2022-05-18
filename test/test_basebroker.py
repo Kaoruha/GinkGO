@@ -32,6 +32,7 @@ class BrokerTest(unittest.TestCase):
         return self.base_broker
 
     def test_Init_OK(self) -> None:
+        print("")
         gl.logger.critical("BaseBroker初始化测试开始.")
         params = [
             # 0brokername, 1init_cash
@@ -55,6 +56,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker初始化测试完成.")
 
     def test_RegisterSelector_OK(self) -> None:
+        print("")
         gl.logger.critical("BaseBroker选股模块注册测试开始.")
         b = self.reset()
         params = [
@@ -69,6 +71,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker选股模块注册测试完成.")
 
     def test_RegisterStrategy_OK(self) -> None:
+        print("")
         gl.logger.critical("BaseBroker策略注册测试开始.")
         s = ProfitLossLimit(name="test_strategy")
         params = [
@@ -95,9 +98,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker策略注册测试完成.")
 
     def test_RegisterSizer_OK(self) -> None:
-        """
-        注册仓位控制
-        """
+        print("")
         gl.logger.critical("BaseBroker仓位控注册测试开始.")
         b = self.reset()
         sizer_params = ["sizer1", "none", "None", "111", "name11", "11name"]
@@ -127,167 +128,165 @@ class BrokerTest(unittest.TestCase):
             """
             pass
 
-        def test_RegisterMatcher_OK(self) -> None:
-            gl.logger.critical("BaseBroker撮合单元注册测试开始.")
-            b = self.reset()
-            matcher_params = ["matcher", "none", "None", "111", "name11", "11name"]
-            for i in matcher_params:
-                m = SimulateMatcher(name=i)
-                b.matcher_register(m)
-                self.assertEqual(first={"name": i}, second={"name": b.matcher.name})
-            step_params = [
-                # 0matcher0,1matcher1,2finalmatchername
-                (SimulateMatcher(name="matcher11"), None, "matcher11"),
-                (None, SimulateMatcher(name="matcher111"), "matcher111"),
-                (SimulateMatcher(name="matcher22"), "hello", "matcher22"),
-                ("hello", SimulateMatcher(name="matcher222"), "matcher222"),
-                (SimulateMatcher(name="matcher33"), ProfitLossLimit(), "matcher33"),
-                (ProfitLossLimit(), SimulateMatcher(name="matcher333"), "matcher333"),
-            ]
-            b = self.reset()
-            for i in step_params:
-                b.matcher_register(i[0])
-                b.matcher_register(i[1])
-                self.assertEqual(first={"name": i[2]}, second={"name": b.matcher.name})
-            gl.logger.critical("BaseBroker撮合单元注册测试结束.")
+    def test_RegisterMatcher_OK(self) -> None:
+        print("")
+        gl.logger.critical("BaseBroker撮合单元注册测试开始.")
+        b = self.reset()
+        matcher_params = ["matcher", "none", "None", "111", "name11", "11name"]
+        for i in matcher_params:
+            m = SimulateMatcher(name=i)
+            b.matcher_register(m)
+            self.assertEqual(first={"name": i}, second={"name": b.matcher.name})
+        step_params = [
+            # 0matcher0,1matcher1,2finalmatchername
+            (SimulateMatcher(name="matcher11"), None, "matcher11"),
+            (None, SimulateMatcher(name="matcher111"), "matcher111"),
+            (SimulateMatcher(name="matcher22"), "hello", "matcher22"),
+            ("hello", SimulateMatcher(name="matcher222"), "matcher222"),
+            (SimulateMatcher(name="matcher33"), ProfitLossLimit(), "matcher33"),
+            (ProfitLossLimit(), SimulateMatcher(name="matcher333"), "matcher333"),
+        ]
+        b = self.reset()
+        for i in step_params:
+            b.matcher_register(i[0])
+            b.matcher_register(i[1])
+            self.assertEqual(first={"name": i[2]}, second={"name": b.matcher.name})
+        gl.logger.critical("BaseBroker撮合单元注册测试结束.")
 
-        def test_RegisterAnalyzer_OK(self) -> None:
-            gl.logger.critical("BaseBroker分析器注册测试开始.")
-            b = self.reset()
-            params1 = ["matcher", "none", "None", "111", "name11", "11name"]
-            for i in params1:
-                a = BenchMark(name=i)
-                b.analyzer_register(a)
-                self.assertEqual(first={"name": i}, second={"name": b.analyzer.name})
-            params2 = [
-                # 0analyzer0,1analyzer1, 2finalanalyzername
-                (BenchMark(name="analyzer11"), None, "analyzer11"),
-                (None, BenchMark(name="analyzer111"), "analyzer111"),
-                (BenchMark(name="analyzer22"), "hello", "analyzer22"),
-                ("hello", BenchMark(name="analyzer222"), "analyzer222"),
-                (BenchMark(name="analyzer33"), ProfitLossLimit(), "analyzer33"),
-                (ProfitLossLimit(), BenchMark(name="analyzer333"), "analyzer333"),
-            ]
-            b = self.reset()
-            for i in params2:
-                b.analyzer_register(i[0])
-                b.analyzer_register(i[1])
-                self.assertEqual(first={"name": i[2]}, second={"name": b.analyzer.name})
-            gl.logger.critical("BaseBroker分析器注册测试完成.")
+    def test_RegisterAnalyzer_OK(self) -> None:
+        print("")
+        gl.logger.critical("BaseBroker分析器注册测试开始.")
+        b = self.reset()
+        params1 = ["matcher", "none", "None", "111", "name11", "11name"]
+        for i in params1:
+            a = BenchMark(name=i)
+            b.analyzer_register(a)
+            self.assertEqual(first={"name": i}, second={"name": b.analyzer.name})
+        params2 = [
+            # 0analyzer0,1analyzer1, 2finalanalyzername
+            (BenchMark(name="analyzer11"), None, "analyzer11"),
+            (None, BenchMark(name="analyzer111"), "analyzer111"),
+            (BenchMark(name="analyzer22"), "hello", "analyzer22"),
+            ("hello", BenchMark(name="analyzer222"), "analyzer222"),
+            (BenchMark(name="analyzer33"), ProfitLossLimit(), "analyzer33"),
+            (ProfitLossLimit(), BenchMark(name="analyzer333"), "analyzer333"),
+        ]
+        b = self.reset()
+        for i in params2:
+            b.analyzer_register(i[0])
+            b.analyzer_register(i[1])
+            self.assertEqual(first={"name": i[2]}, second={"name": b.analyzer.name})
+        gl.logger.critical("BaseBroker分析器注册测试完成.")
 
-        def test_RegisterPainter_OK(self) -> None:
-            """
-            绘图单元注册成功
-            """
-            gl.logger.critical("BaseBroker绘图模块注册测试开始.")
-            b = self.reset()
-            params1 = ["painter", "none", "None", "111", "name11", "11name"]
-            for i in params1:
-                p = CandlePainter(name=i)
-                b.painter_register(p)
-                self.assertEqual(first={"name": i}, second={"name": b.painter.name})
-            params2 = [
-                # 0painter0,1painter1,2finalpaintername
-                (CandlePainter(name="painter11"), None, "painter11"),
-                (None, CandlePainter(name="painter111"), "painter111"),
-                (CandlePainter(name="painter22"), "hello", "painter22"),
-                ("hello", CandlePainter(name="painter222"), "painter222"),
-                (CandlePainter(name="painter33"), ProfitLossLimit(), "painter33"),
-                (ProfitLossLimit(), CandlePainter(name="painter333"), "painter333"),
-            ]
-            b = self.reset()
-            for i in params2:
-                b.painter_register(i[0])
-                b.painter_register(i[1])
-                self.assertEqual(first={"name": i[2]}, second={"name": b.painter.name})
-            gl.logger.critical("BaseBroker绘图模块注册测试完成.")
+    def test_RegisterPainter_OK(self) -> None:
+        print("")
+        gl.logger.critical("BaseBroker绘图模块注册测试开始.")
+        b = self.reset()
+        params1 = ["painter", "none", "None", "111", "name11", "11name"]
+        for i in params1:
+            p = CandlePainter(name=i)
+            b.painter_register(p)
+            self.assertEqual(first={"name": i}, second={"name": b.painter.name})
+        params2 = [
+            # 0painter0,1painter1,2finalpaintername
+            (CandlePainter(name="painter11"), None, "painter11"),
+            (None, CandlePainter(name="painter111"), "painter111"),
+            (CandlePainter(name="painter22"), "hello", "painter22"),
+            ("hello", CandlePainter(name="painter222"), "painter222"),
+            (CandlePainter(name="painter33"), ProfitLossLimit(), "painter33"),
+            (ProfitLossLimit(), CandlePainter(name="painter333"), "painter333"),
+        ]
+        b = self.reset()
+        for i in params2:
+            b.painter_register(i[0])
+            b.painter_register(i[1])
+            self.assertEqual(first={"name": i[2]}, second={"name": b.painter.name})
+        gl.logger.critical("BaseBroker绘图模块注册测试完成.")
 
-        def test_GetCash_OK(self) -> None:
-            """
-            经纪人实例入金成功
-            """
-            gl.logger.critical("BaseBroker入金测试开始.")
-            # 入金1次
-            params1 = [
-                # 0getcash,1 capital
-                (10000, 110000),
-                (0, 100000),
-            ]
-            for i in params1:
-                b = self.reset()
-                b.get_cash(i[0])
-                self.assertEqual(
-                    first={
-                        "init_capital": self.init_capital + i[0],
-                        "capital": self.init_capital + i[0],
-                    },
-                    second={"init_capital": i[1], "capital": i[1]},
-                )
-
-            params2 = [
-                # 0 get0,1 get1,2capital
-                (10000, 20000, 130000),
-                (10000, 0, 110000),
-                (0, 10000, 110000),
-                ("money", 10000, 110000),
-                (10000, "money", 110000),
-                (-10000, 10000, 110000),
-                (10000, -20000, 110000),
-                (10000.111, -20000.111, 110000.111),
-            ]
-            for i in params2:
-                b = self.reset()
-                b.get_cash(i[0])
-                b.get_cash(i[1])
-                self.assertEqual(first={"capital": i[2]}, second={"capital": b.capital})
-            gl.logger.critical("BaseBroker入金测试完成.")
-
-        def test_FreezeMoney_OK(self) -> None:
-            gl.logger.critical("BaseBroker冻结现金测试开始.")
-            params1 = [
-                # 0freezemoney,1capital,2frozenmoney
-                (10000, 90000, 10000),
-                (10000, 80000, 20000),
-                (0, 80000, 20000),
-                (-10000, 80000, 20000),
-                (100000, 80000, 20000),
-                (50000, 30000, 70000),
-            ]
+    def test_GetCash_OK(self) -> None:
+        print("")
+        gl.logger.critical("BaseBroker入金测试开始.")
+        # 入金1次
+        params1 = [
+            # 0getcash,1 capital
+            (10000, 110000),
+            (0, 100000),
+        ]
+        for i in params1:
             b = self.reset()
-            capital = self.init_capital
-            for i in params1:
-                b.freeze_money(i[0])
-                self.assertEqual(
-                    first={"freeze": i[2], "capital": i[1]},
-                    second={"freeze": b.frozen_capital, "capital": b.capital},
-                )
-            gl.logger.critical("BaseBroker冻结现金测试完成.")
+            b.get_cash(i[0])
+            self.assertEqual(
+                first={
+                    "init_capital": self.init_capital + i[0],
+                    "capital": self.init_capital + i[0],
+                },
+                second={"init_capital": i[1], "capital": i[1]},
+            )
+
+        params2 = [
+            # 0 get0,1 get1,2capital
+            (10000, 20000, 130000),
+            (10000, 0, 110000),
+            (0, 10000, 110000),
+            ("money", 10000, 110000),
+            (10000, "money", 110000),
+            (-10000, 10000, 110000),
+            (10000, -20000, 110000),
+            (10000.111, -20000.111, 110000.111),
+        ]
+        for i in params2:
+            b = self.reset()
+            b.get_cash(i[0])
+            b.get_cash(i[1])
+            self.assertEqual(first={"capital": i[2]}, second={"capital": b.capital})
+        gl.logger.critical("BaseBroker入金测试完成.")
+
+    def test_FreezeMoney_OK(self) -> None:
+        print("")
+        gl.logger.critical("BaseBroker冻结现金测试开始.")
+        params1 = [
+            # 0freezemoney,1capital,2frozenmoney
+            (10000, 90000, 10000),
+            (10000, 80000, 20000),
+            (0, 80000, 20000),
+            (-10000, 80000, 20000),
+            (100000, 80000, 20000),
+            (50000, 30000, 70000),
+        ]
+        b = self.reset()
+        capital = self.init_capital
+        for i in params1:
+            b.freeze_money(i[0])
+            self.assertEqual(
+                first={"freeze": i[2], "capital": i[1]},
+                second={"freeze": b.frozen_capital, "capital": b.capital},
+            )
+        gl.logger.critical("BaseBroker冻结现金测试完成.")
 
         # def test_GetNewPrice_OK(self) -> None:
         #     pass
 
-        def test_AddPosition_OK(self) -> None:
-            """
-            增加持仓成功
-            """
-            gl.logger.critical("BaseBroker增加持仓测试开始.")
-            b = self.reset()
-            params = [
-                # 0code, 1price, 2volume,3date 4,count,5total_value
-                ("test1", 10, 1000, "2020-01-01", 1, 10000),
-                ("test1", 11, 1000, "2020-01-02", 1, 22000),
-                ("test2", 20, 2000, "2020-01-02", 2, 62000),
-                ("test2", 10, 2000, "2020-01-02", 2, 62000),
-            ]
-            for i in params:
-                r = b.add_position(code=i[0], price=i[1], volume=i[2], datetime=i[3])
-                self.assertEqual(
-                    first={"count": i[4], "total": float(i[5])},
-                    second={"count": len(r), "total": b.position_value},
-                )
-            gl.logger.critical("BaseBroker增加持仓测试完成.")
+    def test_AddPosition_OK(self) -> None:
+        print("")
+        gl.logger.critical("BaseBroker增加持仓测试开始.")
+        b = self.reset()
+        params = [
+            # 0code, 1price, 2volume,3date 4,count,5total_value
+            ("test1", 10, 1000, "2020-01-01", 1, 10000),
+            ("test1", 11, 1000, "2020-01-02", 1, 22000),
+            ("test2", 20, 2000, "2020-01-02", 2, 62000),
+            ("test2", 10, 2000, "2020-01-02", 2, 62000),
+        ]
+        for i in params:
+            r = b.add_position(code=i[0], price=i[1], volume=i[2], datetime=i[3])
+            self.assertEqual(
+                first={"count": i[4], "total": float(i[5])},
+                second={"count": len(r), "total": b.position_value},
+            )
+        gl.logger.critical("BaseBroker增加持仓测试完成.")
 
     def test_FreezePosition_OK(self) -> None:
+        print("")
         gl.logger.critical("BaseBroker冻结仓位测试开始")
         b = self.reset()
         b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
@@ -314,6 +313,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker冻结仓位测试结束")
 
     def test_RestorePosition_OK(self) -> None:
+        print("")
         gl.logger.critical("BaseBroker持仓头寸恢复冻结测试开始.")
         b = self.reset()
         b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
@@ -342,9 +342,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker持仓头寸恢复冻结测试完成.")
 
     def test_ReducePosition_OK(self) -> None:
-        """
-        成功卖出
-        """
+        print("")
         gl.logger.critical("BaseBroker头寸减持卖出测试开始.")
         b = self.reset()
         b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
@@ -372,6 +370,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker头寸减持卖出测试完成.")
 
     def test_CalPosition_OK(self) -> None:
+        print("")
         gl.logger.critical("BaseBroker持仓计算测试完成.")
         b = self.reset()
         add_params = [
@@ -414,6 +413,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker持仓计算测试完成.")
 
     def test_CleanPosition_OK(self) -> None:
+        print("")
         gl.logger.critical("BaseBroker持仓清理测试开始")
         b = self.reset()
         b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
@@ -435,11 +435,13 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker持仓清理测试结束")
 
     def test_UpdateDate_OK(self) -> None:
+        print("")
         gl.logger.critical("BaseBroker日期更新测试开始")
         pass
         gl.logger.critical("BaseBroker日期更新测试结束")
 
     def test_UpdatePrice_OK(self) -> None:
+        print("")
         gl.logger.critical("BaseBroker价格更新测试开始")
         b = self.reset()
         b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
@@ -458,6 +460,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker价格更新测试结束")
 
     def test_CalCapital_OK(self) -> None:
+        print("")
         gl.logger.critical("BaseBroker资产计算测试开始")
         b = self.reset()
         params = [(50000, 100000), (0, 100000), (80000, 100000)]
@@ -481,6 +484,7 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker资产计算测试结束")
 
     def test_Next_OK(self):
+        print("")
         gl.logger.critical("BaseBroker下一天测试开始")
         b = self.reset()
         while True:

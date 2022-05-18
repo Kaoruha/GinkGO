@@ -23,6 +23,7 @@ class SelectorTest(unittest.TestCase):
         super(SelectorTest, self).__init__(*args, **kwargs)
 
     def test_RNDSelectorInit_OK(self):
+        print("")
         gl.logger.critical("RandomSelector初始化测试开始.")
         param = [
             # 0interval, 1count

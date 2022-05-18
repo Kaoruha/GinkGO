@@ -28,6 +28,7 @@ class EventsTest(unittest.TestCase):
         super(EventsTest, self).__init__(*args, **kwargs)
 
     def test_MarketEventInit_OK(self):
+        print("")
         gl.logger.critical("MarketEvent初始化测试开始.")
         param = [
             # 0datetime, 1source, 2code, 3raw, 4marketeventtype
@@ -65,6 +66,7 @@ class EventsTest(unittest.TestCase):
         gl.logger.critical("MarketEvent初始化测试完成.")
 
     def test_SignalEventInit_OK(self):
+        print("")
         gl.logger.critical("SignalEvent初始化测试开始.")
         param = [
             # 0date, 1code, 2direction, 3source
@@ -86,6 +88,7 @@ class EventsTest(unittest.TestCase):
         gl.logger.critical("SignalEvent初始化测试完成.")
 
     def test_OrderEventInit_OK(self):
+        print("")
         gl.logger.critical("OrderEvent初始化测试开始.")
         param = [
             # 0date, 1code, 2direction, 3source, 4type, 5price, 6volume
@@ -144,6 +147,7 @@ class EventsTest(unittest.TestCase):
         gl.logger.critical("OrderEvent初始化测试完成.")
 
     def test_FillEventInit_OK(self):
+        print("")
         gl.logger.critical("FillEvent初始化测试开始.")
         param = [
             # 0date, 1code, 2direction, 3price, 4volume, 5source, 6fee

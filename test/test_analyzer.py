@@ -13,6 +13,7 @@ class AnalyzerTest(unittest.TestCase):
         super(AnalyzerTest, self).__init__(*args, **kwargs)
 
     def test_BenchMarkInit_OK(self):
+        print("")
         gl.logger.critical("BenchMark初始化测试开始.")
         param = [
             # 0name, 1target
@@ -29,6 +30,7 @@ class AnalyzerTest(unittest.TestCase):
         gl.logger.critical("BenchMark初始化测试完成.")
 
     def test_BenchMarkRecord_OK(self):
+        print("")
         gl.logger.critical("BenchMark记录测试开始.")
         a = BenchMark()
         b = BaseBroker()
@@ -37,5 +39,6 @@ class AnalyzerTest(unittest.TestCase):
         gl.logger.critical("BenchMark记录测试完成.")
 
     def test_BenchMarkReport_OK(self):
+        print("")
         gl.logger.critical("BenchMark报告测试开始.")
         gl.logger.critical("BenchMark报告测试完成.")
