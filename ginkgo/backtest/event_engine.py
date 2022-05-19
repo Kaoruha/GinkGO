@@ -20,7 +20,7 @@ class EventEngine(object):
         self,
         *,
         heartbeat: float = 0.001,
-        timersleep: float = 0.0,
+        timersleep: float = 1,
         is_timer_on: bool = False,
     ) -> None:
         """
@@ -36,9 +36,12 @@ class EventEngine(object):
         self._timer_on = is_timer_on
         self._timer_handlers = []
         self._handlers = {}  # 事件处理的回调函数
-        self._general_handlers = (
-            []
-        )  # __general_handlers是一个列表，与__handlers类似，用来保存通用回调函数（所有事件均调用）
+        self._general_handlers = []  # 保存通用回调函数（所有事件均调用）
+        self.__wait_count = 0
+        self.__wait_time = 1
+        self.__max_wait = 5
+        self.__timer_limit = 0
+        self.__timer_count = 0
 
     def set_heartbeat(self, heartbeat: float) -> None:
         """
@@ -50,6 +53,14 @@ class EventEngine(object):
         else:
             gl.logger.warning("heartbeat should bigger than 0")
 
+    def set_timerlimit(self, limit: int) -> None:
+        """
+        设置计时器最大次数，不设置为0，无限
+        """
+        if limit <= 0:
+            return
+        self.__timer_limit = limit
+
     def __run(self) -> None:
         """
         引擎运行
@@ -58,25 +69,45 @@ class EventEngine(object):
             try:
                 e = self._event_queue.get(block=False)  # 获取消息的阻塞时间
                 self.__process(e)
+                self.__wait_count = 0
                 # 每个循环都会把一个事件带来的所有事件处理完再处理事件
             except queue.Empty:
                 # 事件列表为空时，回测结束，Live系统应该继续等待
-                gl.logger.info("回测结束")
-                break
-            # 当心跳不为0时，事件引擎会短暂停歇，默认如果调用set_heartbeat设置心跳，不开启，但是可能CPU负荷过高
-            time.sleep(self.heartbeat)
-            gl.logger.warn("Sleep")
+                self.__wait_count += 1
+
+                if self._timer_on:
+                    gl.logger.info(f"队列为空，等待事件推入第{self.__wait_count}次")
+
+                    if self.__wait_count >= self.__max_wait:
+                        if self.__timer_count >= self.__timer_limit:
+                            break
+                else:
+                    s = f"{self.__wait_count}/{self.__max_wait}"
+                    gl.logger.info(f"队列为空，等待事件推入 第{s}次")
+                    if self.__wait_count >= self.__max_wait:
+                        break
+                time.sleep(self.__wait_time)
+            # 当心跳不为0时，事件引擎会短暂停歇
+            # 默认如果调用set_heartbeat设置心跳，不开启，但是可能CPU负荷过高
+            if self.heartbeat > 0:
+                time.sleep(self.heartbeat)
+                gl.logger.warn(f"Sleep")
 
     def __timer_run(self) -> None:
         """
         定期运行
         """
         while self._active:
+            self.__timer_count += 1
             if len(self._timer_handlers) > 0:
-                [handler for handler in self._timer_handlers]
-                time.sleep(self.timersleep)
-            else:
-                time.sleep(10)
+                [handler() for handler in self._timer_handlers]
+
+            time.sleep(self.timersleep)
+            gl.logger.warn(f"Timer Loop {self.__timer_count}")
+
+            if self.__timer_limit > 0:
+                if self.__timer_count >= self.__timer_limit:
+                    self.stop()
 
     def __process(self, event: Event) -> None:
         """
@@ -119,7 +150,16 @@ class EventEngine(object):
         self._active = False
 
         # 等待事件处理线程退出
-        # self._thread.join()
+        if self._thread.is_alive():
+            self._thread.join()
+        if self._timer_thread.is_alive():
+            self._timer_thread.join()
+
+    def pause(self) -> None:
+        """
+        暂停引擎
+        """
+        self._active = False
 
     def register(self, event_type: EventType, handler) -> dict:
         """
