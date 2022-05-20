@@ -16,16 +16,26 @@ class SimT1BrokerTest(unittest.TestCase):
         return b
 
     def test_MarketHandler(self):
-        pass
+        print("")
+        gl.logger.critical("SIMBroker市场事件处理测试开始.")
+        gl.logger.critical("SIMBroker市场事件处理测试完成.")
 
     def test_SignalHandler(self):
-        pass
+        print("")
+        gl.logger.critical("SIMBroker信号事件处理测试开始.")
+        gl.logger.critical("SIMBroker信号事件处理测试完成.")
 
     def test_OrderHandler(self):
-        pass
+        print("")
+        gl.logger.critical("SIMBroker订单事件处理测试开始.")
+        gl.logger.critical("SIMBroker订单事件处理测试完成.")
 
     def test_FillHandler(self):
-        pass
+        print("")
+        gl.logger.critical("SIMBroker成交事件处理测试开始.")
+        gl.logger.critical("SIMBroker成交事件处理测试完成.")
 
     def test_GeneralHandler(self):
-        pass
+        print("")
+        gl.logger.critical("SIMBroker通用事件处理测试开始.")
+        gl.logger.critical("SIMBroker通用事件处理测试完成.")
