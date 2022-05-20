@@ -1,6 +1,3 @@
-"""
-数据的存储模块，负责与mongoDB的通信
-"""
 import time
 import pymongo
 import datetime
@@ -22,6 +19,10 @@ min5_postfix = ".min5"
 
 
 class GinkgoMongo(object):
+    """
+    数据的存储模块，负责与mongoDB的通信
+    """
+
     def __init__(self, host, port, username, password, database):
         self.client = None
         self.db = None
@@ -952,8 +953,8 @@ class GinkgoMongo(object):
             raise e
             return False
 
-    # 获取某币数据的尾部时间戳
     def get_coin_tail_time_by_mongo(self, coin_id: str):
+        # 获取某币数据的尾部时间戳
         col = self.db[coin_id]
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         s = col.find().sort("time", pymongo.DESCENDING).limit(1)
@@ -963,8 +964,8 @@ class GinkgoMongo(object):
             last_time = s[0]["time"]
         return last_time
 
-    # 获取某币min5数据的头部时间戳
     def get_coin_head_time_by_mongo(self, coin_id: str):
+        # 获取某币min5数据的头部时间戳
         col = self.db[coin_id]
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         s = col.find().sort("time", pymongo.ASCENDING).limit(1)
@@ -974,8 +975,8 @@ class GinkgoMongo(object):
             last_time = s[0]["time"]
         return last_time
 
-    # 从Mongo获取虚拟货币数据
     def get_coin_m1_by_mongo(self, coin_id: str, start_time="", end_time=""):
+        # 从Mongo获取虚拟货币数据
         """
         获取m1交易数据，不传入日期范围则返回全量数据
 

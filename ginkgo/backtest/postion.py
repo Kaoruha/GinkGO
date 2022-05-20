@@ -15,15 +15,10 @@ class Position(object):
     def datetime(self, value):
         if isinstance(value, dt.datetime):
             self._datetime = value
-        try:
+        elif isinstance(value, str):
             self._datetime = dt.datetime.strptime(value, "%Y-%m-%d")
-        except Exception as e:
-            gl.logger.error(e)
-            try:
-                self._datetime = dt.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-            except Exception as e2:
-                gl.logger.error(e2)
-                self._datetime = dt.datetime.strptime("9999-01-01", "%Y-%m-%d")
+        else:
+            self._datetime = dt.datetime.strptime("9999-01-01", "%Y-%m-%d")
 
     @property
     def market_value(self):
