@@ -124,6 +124,8 @@ class OrderEvent(Event):
         source: Source = Source.TEST,
         datetime: str = None,  # 信号日期
         status: OrderType = OrderStatus.CREATED,
+        reference_price: float = 0,
+        frozen_money: float = 0,
         *args,
         **kwargs,
     ):
@@ -141,6 +143,7 @@ class OrderEvent(Event):
         # 下单数(单位是手，买入只能整百，卖出可以零散)
         self.volume: int = self.optimize_volume(volume=volume)
         self.price: float = price
+        self.reference_price: float = reference_price
         self.traded: int = 0
 
     def __repr__(self):
@@ -177,6 +180,7 @@ class FillEvent(Event):
         price: float,
         volume: int,
         fee: float,
+        money_remain: float = 0,  # TODO Update UnitTest and sim matcher
         source: Source = Source.TEST,
         datetime: str = None,  # 信号日期
         *args,
@@ -190,10 +194,11 @@ class FillEvent(Event):
             args=args,
             kwargs=kwargs,
         )
-        self.direction: Direction = direction  # 'LONG' or 'SHORT'
+        self.direction: Direction = direction  # 'BULL' or 'BEAR'
         self.price: float = price  # 下单价格
         self.volume: int = volume
         self.fee = fee  # 此次交易的税费
+        self.money_remain = money_remain  # 交易剩余的金额
 
     def __repr__(self):
         s = f"{self.datetime} {self.code} "

@@ -28,12 +28,12 @@ class BaseBroker(abc.ABC):
     """
 
     @property
-    def position_value(self):
+    def positions_value(self):
         """
         持仓总价值
         """
         r = 0
-        for i in self.position.values():
+        for i in self.positions.values():
             r += i.market_value
         return r
 
@@ -42,7 +42,7 @@ class BaseBroker(abc.ABC):
         """
         总资金
         """
-        return self.capital + self.frozen_capital + self.position_value
+        return self.capital + self.frozen_capital + self.positions_value
 
     def __init__(
         self,
@@ -50,13 +50,9 @@ class BaseBroker(abc.ABC):
         name="base_broker",
         *,
         init_capital=100000,
-        start_date="1999-07-26",
-        end_date="2021-07-26",
     ) -> None:
         self.name = name  # 经纪人名称
         self.engine = engine  # 挂载引擎
-        self.datetime = start_date  # 日期
-        self.last_day = end_date  # 日期
         self.init_capital = init_capital  # 设置初始资金
         self.capital = init_capital  # 当前资金
         self.frozen_capital = 0  # 冻结资金
@@ -65,9 +61,9 @@ class BaseBroker(abc.ABC):
         self.selector = None  # 股票筛选器
         self.sizer = None  # 仓位控制
         self.matcher = None  # 撮合器
-        self.analyzer = []  # 分析
+        self.analyzers = []  # 分析
         self.painter = None  # 制图
-        self.position = {}  # 存放Position对象
+        self.positions = {}  # 存放Position对象
         self.trade_history = pd.DataFrame(
             columns=[
                 "datetime",
@@ -81,33 +77,27 @@ class BaseBroker(abc.ABC):
             ],
         )
         # TODO 交易历史，需要单独抽象成一个类
-        self.signals = queue.Queue()  # 信号队列
         self.market_type = MarketType.CN  # 当前市场
-        self.trade_day = None  # 交易日
-        self.trade_day_index = -1  # 交易日索引
-        self.trade_day = gm.get_trade_day()
-        self.trade_day = self.trade_day[
-            (self.trade_day >= start_date) & (self.trade_day <= end_date)
-        ]
 
     def __repr__(self) -> str:
         s = f"{self.name} "
-        s += f"当前日期：{self.datetime}， "
         s += f"初始资金：{self.init_capital}，"
         s += f"总资金：{self.total_capital}， "
         s += f"可用现金：{self.capital}， "
         s += f"冻结金额：{self.frozen_capital}, "
         s += f"仓位控制：{self.sizer.name if self.sizer else 'None'}, "
         s += f"成交撮合：{self.matcher.name if self.matcher else 'None'}, "
-        s += f"分析评价：{self.analyzer.name if self.analyzer else 'None'}, "
+        s += f"分析评价："
+        for i in self.analyzers:
+            s += i.name + ","
         s += f"注册策略：{len(self.strategies)} "
         for i in self.strategies:
             s += "   "
             s += str(i)
-        s += f"当前持仓：{len(self.position)}"
-        for i in self.position:
+        s += f"当前持仓：{len(self.positions)}"
+        for i in self.positions:
             s += "  "
-            s += str(self.position[i])
+            s += str(self.positions[i])
         return s
 
     def selector_register(self, selector: BaseSelector) -> None:
@@ -179,7 +169,10 @@ class BaseBroker(abc.ABC):
         if not isinstance(analyzer, BaseAnalyzer):
             gl.logger.warn(f"只有分析类实例可以被注册为分析模块，{type(analyzer)} 类型不符")
             return
-        self.analyzer = analyzer
+        if analyzer in self.analyzers:
+            gl.logger.warn(f"{analyzer} 已经存在")
+            return
+        self.analyzers.append(analyzer)
 
     def painter_register(self, painter: BasePainter) -> None:
         """
@@ -232,16 +225,6 @@ class BaseBroker(abc.ABC):
         """
         raise NotImplementedError("Must implement general_handler()")
 
-    def get_new_price(self, event: MarketEvent) -> None:
-        """
-        获取到新的价格信息
-        """
-        # 更新日期
-        self.today = event.datetime
-        # 把价格信息传给每个策略
-        for i in self.strategies:
-            i.get_price(event)
-
     def get_cash(self, cash: float) -> float:
         """
         入金操作
@@ -262,7 +245,7 @@ class BaseBroker(abc.ABC):
 
         return self.capital
 
-    def freeze_money(self, money) -> float:
+    def freeze_money(self, money) -> bool:
         """
         冻结现金，准备买入
         返回剩余现金
@@ -271,22 +254,29 @@ class BaseBroker(abc.ABC):
             money = float(money)
         if not isinstance(money, float):
             gl.logger.error(f"冻结金额应该是一个数值，{type(money)}类型不符，请检查代码")
-            return self.capital
+            return False
 
         if money > self.capital:
             gl.logger.error(f"冻结金额大于当前现金，{money}>{self.capital},冻结失败，请检查代码")
-            return self.capital
+            return False
 
         if money < 0:
             gl.logger.error(f"冻结金额应当大于0，{money} < 0,冻结失败，请检查代码")
-            return self.capital
+            return False
 
         self.capital -= money
         self.frozen_capital += money
         gl.logger.info(
             f"{self.name}冻结现金「{format(money,',')}」，目前持有现金「{format(self.capital,',')}」,目前冻结金额「{format(self.frozen_capital, ',')}」"
         )
-        return self.capital
+        return True
+
+    def restore_money(self, money: float) -> float:
+        self.capital += money
+        self.frozen_capital -= money
+        gl.logger.info(
+            f"{self.name}恢复冻结现金「{format(money,',')}」，目前持有现金「{format(self.capital,',')}」,目前冻结金额「{format(self.frozen_capital, ',')}」"
+        )
 
     def add_position(self, code: str, datetime: str, price: float, volume: int):
         """
@@ -296,41 +286,41 @@ class BaseBroker(abc.ABC):
         """
         if not isinstance(volume, int):
             gl.logger.error(f"持仓量应该是整型，{type(volume)}{volume}类型不符合")
-            return self.position
+            return self.positions
 
         if isinstance(price, int):
             price = float(price)
 
         if not isinstance(price, float):
             gl.logger.error(f"持仓价格应该是浮点数，{type(price)}{price}类型不符合")
-            return self.position
+            return self.positions
 
         # 判断是否已经持有该标的
-        if code in self.position.keys():
+        if code in self.positions.keys():
             # 已经持有则执行Position的买入操作
-            self.position[code].update(price=price, volume=volume, datetime=datetime)
+            self.positions[code].update(price=price, volume=volume, datetime=datetime)
             gl.logger.info(f"{datetime} 增加持仓 {code}")
-            gl.logger.info(self.position[code])
+            gl.logger.info(self.positions[code])
         else:
             # 未持有则添加持仓至position
             p = Position(code=code, price=price, volume=volume, datetime=datetime)
             gl.logger.info(f"{datetime} 新增持仓 {code}")
             gl.logger.info(p)
-            self.position[code] = p
-        return self.position
+            self.positions[code] = p
+        return self.positions
 
     def freeze_position(self, code: str, volume: int, datetime: str):
         """
         冻结持仓
         """
-        if code not in self.position.keys():
+        if code not in self.positions.keys():
             gl.logger.error(f"当前经纪人未持有{code}，无法冻结，请检查代码")
-            return self.position
+            return self.positions
 
-        self.position[code].freeze_position(volume=volume, datetime=datetime)
+        self.positions[code].freeze_position(volume=volume, datetime=datetime)
         gl.logger.info(f"{datetime} 冻结{code}持仓{volume}股")
-        gl.logger.info(self.position[code])
-        return self.position
+        gl.logger.info(self.positions[code])
+        return self.positions
 
     def restore_frozen_position(
         self, code: str, volume: int, datetime: str
@@ -338,27 +328,27 @@ class BaseBroker(abc.ABC):
         """
         恢复冻结持仓
         """
-        if code not in self.position.keys():
+        if code not in self.positions.keys():
             gl.logger.warn(f"当前经纪人未持有{code}，无法解除冻结，请检查代码")
             return
         if volume <= 0:
             gl.logger.warn(f"头寸解除冻结份额应该大于0")
-            return self.position[code]
-        self.position[code].unfreeze_sell(volume=volume)
-        return self.position[code]
+            return self.positions[code]
+        self.positions[code].unfreeze_sell(volume=volume)
+        return self.positions[code]
 
     def reduce_position(self, code: str, volume: int, datetime: str) -> bool:
         """
         成功卖出后，减少持仓
         """
-        if code not in self.position.keys():
+        if code not in self.positions.keys():
             gl.logger.warn(f"当前经纪人未持有{code}，无法减少持仓，请检查代码")
             return False
 
         if volume > 0:
             volume = -volume
 
-        self.position[code].update(volume=volume, datetime=datetime)
+        self.positions[code].update(volume=volume, datetime=datetime)
         self.clean_position()
         return True
 
@@ -368,24 +358,24 @@ class BaseBroker(abc.ABC):
         将空的持仓清除出持仓列表
         """
         clean_list = []
-        for k in self.position:
-            total = self.position[k].volume
+        for k in self.positions:
+            total = self.positions[k].volume
             if total == 0:
                 clean_list.append(k)
             if total < 0:
                 gl.logger.error(f"{k}持仓异常，回测有误，请检查代码")
         for i in clean_list:
-            self.position.pop(i)
-        return self.position
+            self.positions.pop(i)
+        return self.positions
 
     def update_price(self, code: str, datetime: str, price: float):
         """
         更新持仓价格
         """
-        if code not in self.position.keys():
+        if code not in self.positions.keys():
             gl.logger.warn(f"当前经纪人未持有{code}")
-            return self.position
-        self.position[code].update_last_price(price=price, datetime=datetime)
+            return self.positions
+        self.positions[code].update_last_price(price=price, datetime=datetime)
         gl.logger.info(f"{datetime} {code}价格更新为 {price}")
 
     def add_history(self, fill_event: FillEvent):
@@ -436,7 +426,7 @@ class BaseBroker(abc.ABC):
             self.today = self.trade_day.iloc[self.trade_day_index]
             gl.logger.info(f"日期变更，{self.today} 已经到了")
 
-            for i in self.position.keys():
+            for i in self.positions.keys():
                 if i not in codes:
                     codes.append(i)
 

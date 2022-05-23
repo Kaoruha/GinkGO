@@ -66,7 +66,7 @@ class SimulateMatcher(BaseMatcher):
         # 获取到最新的价格信息，遍历orderlist，尝试撮合
         gl.logger.info(f"{self.datetime} 获取到{bar.code} 价格信息")
         if bar.code in self.order_list:
-            self.try_match(bar=bar)
+            self.__try_match(bar=bar)
         else:
             gl.logger.debug(f"{self.datetime} 不存在 「{bar.code}」订单")
 
@@ -97,7 +97,7 @@ class SimulateMatcher(BaseMatcher):
                     send_count += 1
         gl.logger.info(f"{self.name} 共计发出「{send_count}」个订单请求")
 
-    def try_match(self, bar: Bar):
+    def __try_match(self, bar: Bar):
         """
         尝试撮合
         """

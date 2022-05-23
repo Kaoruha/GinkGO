@@ -2,6 +2,7 @@ import abc
 import pandas as pd
 from ginkgo.backtest.event_engine import EventEngine
 from ginkgo.backtest.postion import Position
+from ginkgo.backtest.enums import MarketEventType
 
 
 class BaseStrategy(abc.ABC):
@@ -71,9 +72,9 @@ class BaseStrategy(abc.ABC):
         return r
 
     def get_price(self, event):
-        if event.info_type == InfoType.DailyPrice:
+        if event.market_event_type == MarketEventType.BAR:
             try:
-                day_bar = event.data
+                day_bar = event.raw
                 self._daybar = self.daybar.append(day_bar.data, ignore_index=True)
                 # 去重
                 self._daybar = self.daybar.drop_duplicates()

@@ -29,7 +29,7 @@ class BaseSizer(abc.ABC):
     @abc.abstractmethod
     def cal_size(
         self, event: SignalEvent, capital: int, positions: dict[str, Position]
-    ) -> float:
+    ) -> tuple:
         """
         获取信号事件
         根据初始金额、手持现金、当前持仓进行仓位调整，产生订单事件OrderEvent

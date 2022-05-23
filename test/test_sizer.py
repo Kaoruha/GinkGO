@@ -1,14 +1,3 @@
-"""
-Author: Kaoru
-Date: 2022-03-22 22:14:51
-LastEditTime: 2022-04-03 00:11:12
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/test/done/test_sizer.py
-What goes around comes around.
-"""
-
-
 import unittest
 from ginkgo.backtest.sizer.base_sizer import BaseSizer
 from ginkgo.backtest.sizer.full_sizer import FullSizer

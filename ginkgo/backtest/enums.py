@@ -108,3 +108,5 @@ class Source(Enum):
     SHLIVE = "上交所实时"
     SNOW = "雪球社区"
     TEST = "测试用"
+    T1Broker = "T+1经纪人"
+    OTHERS = "其他"
