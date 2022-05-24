@@ -53,7 +53,7 @@ class Position(object):
         self.frozen_t1 = 0  # T+1冻结股票数量
         self.avaliable_volume = 0  # 可用数量
         self.update_last_price(price=price, datetime=datetime)
-        self.buy(volume=volume, price=price, datetime=datetime)
+        self.__buy(volume=volume, price=price, datetime=datetime)
 
     def __repr__(self):
         s = f"{self.code} {self.name} 持仓，"
@@ -64,7 +64,7 @@ class Position(object):
         s += f"浮动盈亏「{self.market_value - self.volume * self.cost}」"
         return s
 
-    def buy(self, price: float, volume: int, datetime: dt.datetime):
+    def __buy(self, price: float, volume: int, datetime: dt.datetime):
         """
         增加持仓后Position的操作
         """
@@ -120,7 +120,7 @@ class Position(object):
         gl.logger.debug(self)
         return self
 
-    def sell(self, volume: int, datetime: str = "9999-01-01", *kwarg, **kwargs):
+    def __sell(self, volume: int, datetime: str = "9999-01-01", *kwarg, **kwargs):
         """
         卖出后的处理
         """
@@ -200,6 +200,6 @@ class Position(object):
         """
         self.datetime = datetime
         if volume > 0:
-            self.buy(volume=volume, price=price, datetime=datetime)
+            self.__buy(volume=volume, price=price, datetime=datetime)
         else:
-            self.sell(volume=-volume, datetime=datetime)
+            self.__sell(volume=-volume, datetime=datetime)

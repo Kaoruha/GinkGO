@@ -149,7 +149,7 @@ class PositionTest(unittest.TestCase):
             (20, 80000, "2020-01-03", 15.5, 160000, 10000, 0, 150000),
         ]
         for i in param:
-            p.buy(volume=i[1], price=i[0], datetime=i[2])
+            p._Position__buy(volume=i[1], price=i[0], datetime=i[2])
             self.assertEqual(
                 first={
                     "cost": i[3],
@@ -208,7 +208,7 @@ class PositionTest(unittest.TestCase):
         ]
         for i in param:
             p.freeze_position(i[0])
-            p.sell(i[1])
+            p._Position__sell(i[1])
             self.assertEqual(
                 first={"frozensell": i[2], "ava": i[3], "total": i[4]},
                 second={
