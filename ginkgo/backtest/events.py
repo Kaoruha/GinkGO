@@ -141,7 +141,7 @@ class OrderEvent(Event):
         self.status: OrderStatus = status
         self.direction: Direction = direction  # 'BUY' or 'SELL'
         # 下单数(单位是手，买入只能整百，卖出可以零散)
-        self.volume: int = self.optimize_volume(volume=volume)
+        self.volume: int = self.__optimize_volume(volume=volume)
         self.price: float = price
         self.reference_price: float = reference_price
         self.traded: int = 0
@@ -150,7 +150,7 @@ class OrderEvent(Event):
         s = f"{self.datetime} {self.code}「{self.direction.value}」下单事件，份额「{self.volume}」，状态「{self.status.value}」，事件来源为「{self.source.value}」"
         return s
 
-    def optimize_volume(self, volume: int):
+    def __optimize_volume(self, volume: int):
         """
         调整买入数
         股票买入以手为单位，一手为一百股，volume只能是整百的倍数
