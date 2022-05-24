@@ -158,24 +158,12 @@ class BrokerTest(unittest.TestCase):
         gl.logger.critical("BaseBroker分析器注册测试开始.")
         b = self.reset()
         params1 = ["matcher", "none", "None", "111", "name11", "11name"]
-        for i in params1:
-            a = BenchMark(name=i)
+        for i in range(len(params1)):
+            a = BenchMark(name=params1[i])
             b.analyzer_register(a)
-            self.assertEqual(first={"name": i}, second={"name": b.analyzer.name})
-        params2 = [
-            # 0analyzer0,1analyzer1, 2finalanalyzername
-            (BenchMark(name="analyzer11"), None, "analyzer11"),
-            (None, BenchMark(name="analyzer111"), "analyzer111"),
-            (BenchMark(name="analyzer22"), "hello", "analyzer22"),
-            ("hello", BenchMark(name="analyzer222"), "analyzer222"),
-            (BenchMark(name="analyzer33"), ProfitLossLimit(), "analyzer33"),
-            (ProfitLossLimit(), BenchMark(name="analyzer333"), "analyzer333"),
-        ]
-        b = self.reset()
-        for i in params2:
-            b.analyzer_register(i[0])
-            b.analyzer_register(i[1])
-            self.assertEqual(first={"name": i[2]}, second={"name": b.analyzer.name})
+            self.assertEqual(
+                first={"name": params1[i]}, second={"name": b.analyzers[i].name}
+            )
         gl.logger.critical("BaseBroker分析器注册测试完成.")
 
     def test_RegisterPainter_OK(self) -> None:
@@ -281,7 +269,7 @@ class BrokerTest(unittest.TestCase):
             r = b.add_position(code=i[0], price=i[1], volume=i[2], datetime=i[3])
             self.assertEqual(
                 first={"count": i[4], "total": float(i[5])},
-                second={"count": len(r), "total": b.position_value},
+                second={"count": len(r), "total": b.positions_value},
             )
         gl.logger.critical("BaseBroker增加持仓测试完成.")
 
@@ -291,7 +279,7 @@ class BrokerTest(unittest.TestCase):
         b = self.reset()
         b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
         b.add_position(code="t2", price=20, volume=1000, datetime="2020-01-01")
-        for i, v in b.position.items():
+        for i, v in b.positions.items():
             v.unfreeze_t1()
         params = [
             # 0code,1volume,2datetime,3frozen_sell,4aviliable_volume
@@ -306,8 +294,8 @@ class BrokerTest(unittest.TestCase):
             self.assertEqual(
                 first={"frozen": i[3], "hold": i[4]},
                 second={
-                    "frozen": b.position[i[0]].frozen_sell,
-                    "hold": b.position[i[0]].avaliable_volume,
+                    "frozen": b.positions[i[0]].frozen_sell,
+                    "hold": b.positions[i[0]].avaliable_volume,
                 },
             )
         gl.logger.critical("BaseBroker冻结仓位测试结束")
@@ -318,10 +306,10 @@ class BrokerTest(unittest.TestCase):
         b = self.reset()
         b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
         b.add_position(code="t2", price=20, volume=1000, datetime="2020-01-01")
-        for i, v in b.position.items():
+        for i, v in b.positions.items():
             v.unfreeze_t1()
-        b.position["t1"].freeze_position(volume=5000, datetime="2020-01-01")
-        b.position["t2"].freeze_position(volume=1000, datetime="2020-01-01")
+        b.positions["t1"].freeze_position(volume=5000, datetime="2020-01-01")
+        b.positions["t2"].freeze_position(volume=1000, datetime="2020-01-01")
         params = [
             # 0code,1freezevolume,2datetime,3frozen,4hold
             ("t1", 500, "2020-01-01", 4500, 5000),
@@ -335,8 +323,8 @@ class BrokerTest(unittest.TestCase):
             self.assertEqual(
                 first={"frozen": i[3], "hold": i[4]},
                 second={
-                    "frozen": b.position[i[0]].frozen_sell,
-                    "hold": b.position[i[0]].volume,
+                    "frozen": b.positions[i[0]].frozen_sell,
+                    "hold": b.positions[i[0]].volume,
                 },
             )
         gl.logger.critical("BaseBroker持仓头寸恢复冻结测试完成.")
@@ -347,7 +335,7 @@ class BrokerTest(unittest.TestCase):
         b = self.reset()
         b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
         b.add_position(code="t2", price=20, volume=1000, datetime="2020-01-01")
-        for i, v in b.position.items():
+        for i, v in b.positions.items():
             v.unfreeze_t1()
         b.freeze_position("t1", volume=3000, datetime="2020-01-02")
         b.freeze_position("t2", volume=500, datetime="2020-01-02")
@@ -363,8 +351,8 @@ class BrokerTest(unittest.TestCase):
             self.assertEqual(
                 first={"frozen": i[3], "hold": i[4]},
                 second={
-                    "frozen": b.position[i[0]].frozen_sell,
-                    "hold": b.position[i[0]].volume,
+                    "frozen": b.positions[i[0]].frozen_sell,
+                    "hold": b.positions[i[0]].volume,
                 },
             )
         gl.logger.critical("BaseBroker头寸减持卖出测试完成.")
@@ -383,13 +371,13 @@ class BrokerTest(unittest.TestCase):
         ]
         for i in add_params:
             b.add_position(code=i[0], price=i[1], volume=i[2], datetime=i[3])
-            self.assertEqual(first={"total": i[4]}, second={"total": b.position_value})
+            self.assertEqual(first={"total": i[4]}, second={"total": b.positions_value})
 
-        for i, v in b.position.items():
+        for i, v in b.positions.items():
             v.unfreeze_t1()
 
         self.assertEqual(
-            first={"total": add_params[-1][4]}, second={"total": b.position_value}
+            first={"total": add_params[-1][4]}, second={"total": b.positions_value}
         )
 
         freeze_params = [
@@ -400,7 +388,7 @@ class BrokerTest(unittest.TestCase):
         ]
         for i in freeze_params:
             b.freeze_position(code=i[0], volume=i[1], datetime=i[2])
-            self.assertEqual(first={"total": i[3]}, second={"total": b.position_value})
+            self.assertEqual(first={"total": i[3]}, second={"total": b.positions_value})
 
         reduce_params = [
             ("t1", 2000, "2020-01-01", 50000),
@@ -409,7 +397,7 @@ class BrokerTest(unittest.TestCase):
         ]
         for i in reduce_params:
             b.reduce_position(code=i[0], volume=i[1], datetime=i[2])
-            self.assertEqual(first={"total": i[3]}, second={"total": b.position_value})
+            self.assertEqual(first={"total": i[3]}, second={"total": b.positions_value})
         gl.logger.critical("BaseBroker持仓计算测试完成.")
 
     def test_CleanPosition_OK(self) -> None:
@@ -418,7 +406,7 @@ class BrokerTest(unittest.TestCase):
         b = self.reset()
         b.add_position(code="t1", price=10, volume=5000, datetime="2020-01-01")
         b.add_position(code="t2", price=20, volume=1000, datetime="2020-01-01")
-        for i, v in b.position.items():
+        for i, v in b.positions.items():
             v.unfreeze_t1()
         b.freeze_position(code="t1", volume=5000, datetime="2020-01-02")
         b.freeze_position(code="t2", volume=1000, datetime="2020-01-02")
@@ -431,7 +419,7 @@ class BrokerTest(unittest.TestCase):
         ]
         for i in params:
             b.reduce_position(code=i[0], volume=i[1], datetime=i[2])
-            self.assertEqual(first={"len": i[3]}, second={"len": len(b.position)})
+            self.assertEqual(first={"len": i[3]}, second={"len": len(b.positions)})
         gl.logger.critical("BaseBroker持仓清理测试结束")
 
     def test_UpdateDate_OK(self) -> None:
@@ -456,7 +444,7 @@ class BrokerTest(unittest.TestCase):
         ]
         for i in params:
             b.update_price(code=i[0], datetime=i[2], price=i[1])
-            self.assertEqual(first={"total": i[3]}, second={"total": b.position_value})
+            self.assertEqual(first={"total": i[3]}, second={"total": b.positions_value})
         gl.logger.critical("BaseBroker价格更新测试结束")
 
     def test_CalCapital_OK(self) -> None:
@@ -486,10 +474,7 @@ class BrokerTest(unittest.TestCase):
     def test_Next_OK(self):
         print("")
         gl.logger.critical("BaseBroker下一天测试开始")
-        b = self.reset()
-        while True:
-            if not b.next():
-                break
+        # TODO BaseBroker移除该方法，需要用模拟Broker再做
         gl.logger.critical("BaseBroker下一天测试完成")
 
     # def test_AddHistory_OK(self) -> None:

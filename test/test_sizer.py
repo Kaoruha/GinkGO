@@ -38,7 +38,7 @@ class SizerTest(unittest.TestCase):
                 ),
                 p,
                 10000,
-                800,
+                (800, 12),
             ),
             (
                 SignalEvent(
@@ -46,7 +46,7 @@ class SizerTest(unittest.TestCase):
                 ),
                 p,
                 10000,
-                800,
+                (800, 12),
             ),
             (
                 SignalEvent(
@@ -54,7 +54,7 @@ class SizerTest(unittest.TestCase):
                 ),
                 p,
                 10000,
-                1000,
+                (1000, 12),
             ),
             (
                 SignalEvent(
@@ -62,7 +62,7 @@ class SizerTest(unittest.TestCase):
                 ),
                 p,
                 10000,
-                0,
+                (0, 12),
             ),
         ]
         for i in param:

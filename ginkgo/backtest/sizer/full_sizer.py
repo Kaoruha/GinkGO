@@ -23,4 +23,4 @@ class FullSizer(BaseSizer):
                 r = (positions[code].volume, event.last_price)
             else:
                 r = (0, event.last_price)
-        return r
+        return r  # volume, price
