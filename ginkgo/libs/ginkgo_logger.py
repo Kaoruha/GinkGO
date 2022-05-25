@@ -45,8 +45,10 @@ class GinkgoLogging(object):
             datefmt="%Y-%m-%d  %H:%M:%S",
         )
         console_formatter = colorlog.ColoredFormatter(
-            fmt="%(log_color)s%(asctime) s[%(levelname)s] %(message)s [%(filename)s->%(funcName)s L:%(lineno)d]",
-            datefmt="%Y-%m-%d %H:%M:%S",
+            # fmt="%(log_color)s%(asctime) s[%(levelname)s] %(message)s [%(filename)s->%(funcName)s L:%(lineno)d]",
+            fmt="%(log_color)s%(asctime) s %(message)s [%(filename)s->%(funcName)s L:%(lineno)d]",
+            # datefmt="%Y-%m-%d %H:%M:%S",
+            datefmt="%H:%M:%S",
             log_colors=LOGGING_COLOR,
         )
         console_handler.setFormatter(console_formatter)

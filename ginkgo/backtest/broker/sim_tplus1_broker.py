@@ -2,8 +2,15 @@ from ginkgo.backtest.broker.base_broker import BaseBroker
 from ginkgo.backtest.events import EventType, Direction
 from ginkgo.backtest.postion import Position
 from ginkgo.backtest.enums import MarketEventType
-from ginkgo.backtest.events import MarketEvent, SignalEvent, FillEvent, OrderEvent
+from ginkgo.backtest.events import (
+    Event,
+    MarketEvent,
+    SignalEvent,
+    FillEvent,
+    OrderEvent,
+)
 from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 
 
 class SimT1Broker(BaseBroker):
@@ -35,7 +42,7 @@ class SimT1Broker(BaseBroker):
 
     def __repr__(self) -> str:
         s = f"{self.name} "
-        s += f"当前日期：{self.datetime}， "
+        s += f"当前日期：{self.today}， "
         s += f"初始资金：{self.init_capital}，"
         s += f"总资金：{self.total_capital}， "
         s += f"可用现金：{self.capital}， "
@@ -55,26 +62,47 @@ class SimT1Broker(BaseBroker):
             s += str(self.positions[i])
         return s
 
-    def market_handler_(self, event: MarketEvent) -> None:
+    def __engine_put(self, event: Event) -> None:
+        if self.engine:
+            self.engine.put(event)
+        else:
+            gl.logger.warn(f"引擎未注册")
+
+    def market_handler(self, event: MarketEvent) -> None:
         """
         市场事件的处理
         """
         # 市场事件的日期超过当前日期才会进行后续操作
         if event.market_event_type == MarketEventType.NEWS:
+            # 新闻事件处理>>>
             pass
+            # 新闻事件处理<<<
         elif event.market_event_type == MarketEventType.BAR:
-            # 策略
+            # Bar处理>>>
+
+            # 把最新价格发送给模拟成交
+            if self.matcher:
+                self.matcher.get_bar(event.raw)
+            else:
+                gl.logger.warn(f"撮合器未注册")
+
+            # 更新持仓价格
+            if event.code in self.positions:
+                self.positions[event.code].update_last_price(flaot(event.raw.close))
+
+            # 把价格信息发送给策略，尝试生成信号
             for i in self.strategies:
                 signals = i.get_price(event, self)
                 if signals:
                     for j in signals:
-                        self.engine.put(j)
-            # 更新价格
-            if event.code in self.positions:
-                self.positions[event.code].update_last_price(flaot(event.raw.close))
+                        self.__engine_put(j)
+
+            # Bar处理<<<
         elif event.market_event_type == MarketEventType.TICK:
+            # Tick处理>>>
             pass
-        gl.logger.info(f"{event.date} {event.code} {self.total_capital}")
+            # Tick处理<<<
+        gl.logger.info(f"{event.datetime} 获取「{event.code}」Bar信息")
 
     def signal_handler(self, signal: SignalEvent) -> OrderEvent:
         """
@@ -97,7 +125,7 @@ class SimT1Broker(BaseBroker):
             source=Source.B1Broker,
             datetime=self.today,
         )
-        self.engine.put(order)
+        self.__engine_put(order)
 
     def order_handler(self, event: OrderEvent) -> None:
         """
@@ -116,7 +144,7 @@ class SimT1Broker(BaseBroker):
             p = self.positions[event.code]
             if not p.freeze_position(event.volume):
                 gl.logger.warn(f"{self.today} {event.code} 无法冻结{ event.volume} 份额")
-                reutrn
+                return
 
         self.matcher.get_order(order=event)
 
