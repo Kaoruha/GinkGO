@@ -88,7 +88,9 @@ class SimT1Broker(BaseBroker):
 
             # 更新持仓价格
             if event.code in self.positions:
-                self.positions[event.code].update_last_price(flaot(event.raw.close))
+                self.positions[event.code].update_last_price(
+                    price=float(event.raw.close_price), datetime=event.datetime
+                )
 
             # 把价格信息发送给策略，尝试生成信号
             for i in self.strategies:

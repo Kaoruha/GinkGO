@@ -23,10 +23,14 @@ class SimT1BrokerTest(unittest.TestCase):
         print("")
         gl.logger.critical("SIMBroker获取Bar信息测试开始.")
         broker = self.reset()
+        broker.add_position(
+            code="testcode0", datetime="2020-01-01", price=5, volume=10000
+        )
         params = [
             # 0code, 1open, 2close, 3high, 4low, 5volume, 6turnover,
             # 7yesterday_pct, 8datetime
-            ("testcode", 10, 10.5, 10.6, 9.6, 10000, 0.2, 0.08, "2020-01-01"),
+            ("testcode0", 10, 10.5, 10.6, 9.6, 10000, 0.2, 0.08, "2020-01-01"),
+            ("testcode0", 10.7, 11.1, 11.1, 10.5, 10000, 0.2, 0.08, "2020-01-02"),
         ]
         for i in params:
             bar = Bar(
@@ -48,6 +52,9 @@ class SimT1BrokerTest(unittest.TestCase):
             )
             broker.market_handler(e)
             # 策略获取到价格信息
+            if i[0] in broker.positions:
+                p = broker.positions[i[0]].last_price
+                self.assertEqual(first=p, second=i[2])
             # 持仓信息更新
             # 推送给模拟成交
         gl.logger.critical("SIMBroker获取Bar信息测试完成.")

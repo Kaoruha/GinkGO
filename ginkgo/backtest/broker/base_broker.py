@@ -305,7 +305,7 @@ class BaseBroker(abc.ABC):
             # 未持有则添加持仓至position
             p = Position(code=code, price=price, volume=volume, datetime=datetime)
             gl.logger.info(f"{datetime} 新增持仓 {code}")
-            gl.logger.info(p)
+            gl.logger.info(f"{datetime}  {p}")
             self.positions[code] = p
         return self.positions
 
