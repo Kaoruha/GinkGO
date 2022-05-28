@@ -28,7 +28,7 @@ class BaseSizer(abc.ABC):
 
     @abc.abstractmethod
     def cal_size(
-        self, event: SignalEvent, capital: int, positions: dict[str, Position]
+        self, signal: SignalEvent, capital: int, positions: dict[str, Position]
     ) -> tuple:
         """
         获取信号事件

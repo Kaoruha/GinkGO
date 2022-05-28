@@ -2,6 +2,7 @@ import abc
 import pandas as pd
 from ginkgo.backtest.event_engine import EventEngine
 from ginkgo.backtest.postion import Position
+from ginkgo.backtest.events import MarketEvent
 from ginkgo.backtest.enums import MarketEventType
 
 
@@ -32,6 +33,7 @@ class BaseStrategy(abc.ABC):
         self.minbar = None
         self.broker = None
         self.engine = None
+        self.ana_bar_count = 0
 
     def __repr__(self):
         s = self.name
@@ -71,7 +73,7 @@ class BaseStrategy(abc.ABC):
             r.append(signal_exit)
         return r
 
-    def get_price(self, event):
+    def get_price(self, event: MarketEvent):
         if event.market_event_type == MarketEventType.BAR:
             try:
                 day_bar = event.raw

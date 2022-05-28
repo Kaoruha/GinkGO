@@ -41,6 +41,7 @@ class SimulateMatcher(BaseMatcher):
         )
         self._slippage = slippage
         self.match_list = {}  # 撮合结果队列
+        self.bar_count = 0
 
     def __repr__(self):
         stamp = self._stamp_tax_rate
@@ -60,15 +61,24 @@ class SimulateMatcher(BaseMatcher):
 
         模拟撮合类把价格信息丢到这个方法里就可以了
         """
-        # TODO 日期校验，只允许往后
+        # TODO 日期校验，只允许日期往后
+        if self.datetime:
+            if self.datetime > bar.datetime:
+                gl.logger.error(f"获取的Bar事件日期异常，请检查代码")
+                return
+            else:
+                self.datetime = bar.datetime
+        else:
+            self.datetime = bar.datetime
+        self.bar_count += 1
         # 发送订单
         self.send_orders()
         # 获取到最新的价格信息，遍历orderlist，尝试撮合
-        gl.logger.info(f"{self.datetime} 获取到{bar.code} 价格信息")
+        gl.logger.info(f"{self.datetime} 获取「{bar.code}」价格信息")
         if bar.code in self.order_list:
             self.__try_match(bar=bar)
         else:
-            gl.logger.debug(f"{self.datetime} 不存在 「{bar.code}」订单")
+            gl.logger.debug(f"{self.datetime}不存在「{bar.code}」订单")
 
     def send_order(self, order: OrderEvent) -> bool:
         """

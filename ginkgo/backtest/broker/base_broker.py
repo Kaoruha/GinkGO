@@ -78,6 +78,7 @@ class BaseBroker(abc.ABC):
         )
         # TODO 交易历史，需要单独抽象成一个类
         self.market_type = MarketType.CN  # 当前市场
+        self.trade_day_index = 0  # 交易日索引
 
     def __repr__(self) -> str:
         s = f"{self.name} "
@@ -304,8 +305,7 @@ class BaseBroker(abc.ABC):
         else:
             # 未持有则添加持仓至position
             p = Position(code=code, price=price, volume=volume, datetime=datetime)
-            gl.logger.info(f"{datetime} 新增持仓 {code}")
-            gl.logger.info(f"{datetime}  {p}")
+            gl.logger.info(f"{datetime} 新增持仓「{code}」P「{p.last_price}」 V「{p.volume}」")
             self.positions[code] = p
         return self.positions
 

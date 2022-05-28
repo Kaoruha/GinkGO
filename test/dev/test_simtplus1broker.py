@@ -1,7 +1,9 @@
 import unittest
 from ginkgo.backtest.broker.sim_tplus1_broker import SimT1Broker
 from ginkgo.backtest.events import MarketEvent, SignalEvent, OrderEvent, FillEvent
+from ginkgo.backtest.sizer.full_sizer import FullSizer
 from ginkgo.backtest.price import Bar
+from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
 from ginkgo.backtest.enums import *
 from ginkgo.backtest.strategy.base_strategy import BaseStrategy
 from ginkgo.libs import GINKGOLOGGER as gl
@@ -23,6 +25,8 @@ class SimT1BrokerTest(unittest.TestCase):
         print("")
         gl.logger.critical("SIMBroker获取Bar信息测试开始.")
         broker = self.reset()
+        matcher = SimulateMatcher(name="测试模拟成交")
+        broker.matcher_register(matcher=matcher)
         broker.add_position(
             code="testcode0", datetime="2020-01-01", price=5, volume=10000
         )
@@ -32,6 +36,7 @@ class SimT1BrokerTest(unittest.TestCase):
             ("testcode0", 10, 10.5, 10.6, 9.6, 10000, 0.2, 0.08, "2020-01-01"),
             ("testcode0", 10.7, 11.1, 11.1, 10.5, 10000, 0.2, 0.08, "2020-01-02"),
         ]
+        count = 0
         for i in params:
             bar = Bar(
                 code=i[0],
@@ -51,20 +56,37 @@ class SimT1BrokerTest(unittest.TestCase):
                 datetime=i[8],
             )
             broker.market_handler(e)
+            count += 1
+            # 持仓信息更新
             # 策略获取到价格信息
+            # 推送给模拟成交
             if i[0] in broker.positions:
                 p = broker.positions[i[0]].last_price
                 self.assertEqual(first=p, second=i[2])
-            # 持仓信息更新
-            # 推送给模拟成交
+            self.assertEqual(first=count, second=matcher.bar_count)
         gl.logger.critical("SIMBroker获取Bar信息测试完成.")
 
-    # def test_GetSignal_OK(self):
-    #     print("")
-    #     gl.logger.critical("SIMBroker获取信号信息测试开始.")
-    #     # 仓位控制根据当前现金持仓，计算仓位
-    #     # 生成订单信息，推送给事件引擎
-    #     gl.logger.critical("SIMBroker获取信号信息测试完成.")
+    def test_GetSignal_OK(self):
+        print("")
+        gl.logger.critical("SIMBroker获取信号信息测试开始.")
+        # 仓位控制根据当前现金持仓，计算仓位
+        sizer = FullSizer()
+        broker = self.reset()
+        broker.sizer_register(sizer)
+        params = [
+            # 0code,1direction,2datetime,3last_price
+            ("testcode0", Direction.BULL, "2020-01-01", 10),
+            ("testcode0", Direction.BULL, "2020-01-02", 11),
+            ("testcode1", Direction.BULL, "2020-01-02", 11.5),
+            ("testcode0", Direction.BEAR, "2020-01-01", 12),
+        ]
+        for i in params:
+            s = SignalEvent(code=i[0], direction=i[1], datetime=i[2], last_price=i[3])
+            o = broker.signal_handler(signal=s)
+            gl.logger.debug(o)
+
+        # 生成订单信息，推送给事件引擎
+        gl.logger.critical("SIMBroker获取信号信息测试完成.")
 
     # def test_GetOrder_OK(self):
     #     print("")

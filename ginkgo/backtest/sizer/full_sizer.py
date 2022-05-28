@@ -10,17 +10,17 @@ class FullSizer(BaseSizer):
     """
 
     def cal_size(
-        self, event: SignalEvent, capital: int, positions: dict[str, Position]
+        self, signal: SignalEvent, capital: int, positions: dict[str, Position]
     ) -> tuple:
-        if event.direction == Direction.BULL:
-            if event.last_price <= 0:
-                r = (0, event.last_price)
+        if signal.direction == Direction.BULL:
+            if signal.last_price <= 0:
+                r = (0, signal.last_price)
             else:
-                r = (int(capital / event.last_price / 100) * 100, event.last_price)
-        elif event.direction == Direction.BEAR:
-            code = event.code
+                r = (int(capital / signal.last_price / 100) * 100, signal.last_price)
+        elif signal.direction == Direction.BEAR:
+            code = signal.code
             if code in positions:
-                r = (positions[code].volume, event.last_price)
+                r = (positions[code].volume, signal.last_price)
             else:
-                r = (0, event.last_price)
+                r = (0, signal.last_price)
         return r  # volume, price

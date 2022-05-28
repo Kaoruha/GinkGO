@@ -1,7 +1,7 @@
 from ginkgo.backtest.broker.base_broker import BaseBroker
 from ginkgo.backtest.events import EventType, Direction
 from ginkgo.backtest.postion import Position
-from ginkgo.backtest.enums import MarketEventType
+from ginkgo.backtest.enums import MarketEventType, OrderType, Source
 from ginkgo.backtest.events import (
     Event,
     MarketEvent,
@@ -34,7 +34,6 @@ class SimT1Broker(BaseBroker):
         )
         self.data_engine = data_engine  # 数据引擎
         self.sim_matcher = sim_matcher  # 模拟成交
-        self.trade_day_index = -1  # 交易日索引
         self.trade_day = gm.get_trade_day()
         self.trade_day = self.trade_day[
             (self.trade_day >= start_date) & (self.trade_day <= end_date)
@@ -112,7 +111,7 @@ class SimT1Broker(BaseBroker):
         """
         # 先检查信号事件里的标的当天是否有成交量，如果没有，把信号推回给
         volume, price = self.sizer.cal_size(
-            event=event, capital=self.capital, positions=self.positions
+            signal=signal, capital=self.capital, positions=self.positions
         )
         if volume <= 0:
             return
@@ -121,13 +120,14 @@ class SimT1Broker(BaseBroker):
             code=signal.code,
             direction=signal.direction,
             order_type=OrderType.MARKET,
-            volume=volume,
             price=price,
+            volume=volume,
             reference_price=price,
-            source=Source.B1Broker,
+            source=Source.T1Broker,
             datetime=self.today,
         )
         self.__engine_put(order)
+        return order
 
     def order_handler(self, event: OrderEvent) -> None:
         """
