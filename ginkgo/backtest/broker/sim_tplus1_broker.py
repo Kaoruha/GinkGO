@@ -105,20 +105,38 @@ class SimT1Broker(BaseBroker):
             # Tick处理<<<
         gl.logger.info(f"{event.datetime} 获取「{event.code}」Bar信息")
 
-    def signal_handler(self, signal: SignalEvent) -> OrderEvent:
+    def signal_handler(self, event: SignalEvent) -> OrderEvent:
         """
         信号事件的处理
         """
         # 先检查信号事件里的标的当天是否有成交量，如果没有，把信号推回给
         volume, price = self.sizer.cal_size(
-            signal=signal, capital=self.capital, positions=self.positions
+            signal=event, capital=self.capital, positions=self.positions
         )
-        if volume <= 0:
+        if volume <= 0 or price <= 0:
+            gl.logger.warn(f"价格「{price}」或购买量「{volume}」小于0，请检查Sizer计算函数")
             return
 
+        if event.direction == Direction.BULL:
+            if volume * price > self.capital:
+                gl.logger.warn(f"{self.today} 现金不够，无法开仓")
+                return
+        elif event.direction == Direction.BEAR:
+            if event.code not in self.positions:
+                gl.logger.warn(f"{self.today} 未持有{event.code} 无法卖出")
+                return
+            av = self.positions[event.code].avaliable_volume
+            if volume > av:
+                gl.logger.warn(
+                    f"{self.today} {event.code} 可用份额「{av}」< 「{event.volume}」 "
+                )
+                return
+        else:
+            pass
+
         order = OrderEvent(
-            code=signal.code,
-            direction=signal.direction,
+            code=event.code,
+            direction=event.direction,
             order_type=OrderType.MARKET,
             price=price,
             volume=volume,

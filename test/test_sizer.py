@@ -30,8 +30,10 @@ class SizerTest(unittest.TestCase):
         gl.logger.critical("FullSizer仓位计算测试开始.")
         s = FullSizer(name="testfullsizer")
         p = {"testposition": Position(code="testposition", price=10, volume=1000)}
+        for i in p:
+            p[i].unfreeze_t1()
         param = [
-            # 0signal, 1positions, 2capital, 3 size
+            # 0signal, 1positions, 2capital, 3 size=(volume,price)
             (
                 SignalEvent(
                     code="testposition", direction=Direction.BULL, last_price=12

@@ -20,7 +20,7 @@ class FullSizer(BaseSizer):
         elif signal.direction == Direction.BEAR:
             code = signal.code
             if code in positions:
-                r = (positions[code].volume, signal.last_price)
+                r = (positions[code].avaliable_volume, signal.last_price)
             else:
                 r = (0, signal.last_price)
         return r  # volume, price

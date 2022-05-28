@@ -73,6 +73,13 @@ class SimT1BrokerTest(unittest.TestCase):
         sizer = FullSizer()
         broker = self.reset()
         broker.sizer_register(sizer)
+        broker.add_position(
+            code="testcode0", datetime="2020-01-01", price=5, volume=1000
+        )
+        gl.logger.debug("当前持仓Start" + "=" * 40)
+        for i in broker.positions:
+            gl.logger.debug(broker.positions[i])
+        gl.logger.debug("当前持仓End" + "=" * 40)
         params = [
             # 0code,1direction,2datetime,3last_price
             ("testcode0", Direction.BULL, "2020-01-01", 10),
@@ -82,7 +89,15 @@ class SimT1BrokerTest(unittest.TestCase):
         ]
         for i in params:
             s = SignalEvent(code=i[0], direction=i[1], datetime=i[2], last_price=i[3])
-            o = broker.signal_handler(signal=s)
+            o = broker.signal_handler(s)
+            gl.logger.debug(o)
+
+        for i in broker.positions:
+            broker.positions[i].unfreeze_t1()
+
+        for i in params:
+            s = SignalEvent(code=i[0], direction=i[1], datetime=i[2], last_price=i[3])
+            o = broker.signal_handler(s)
             gl.logger.debug(o)
 
         # 生成订单信息，推送给事件引擎
