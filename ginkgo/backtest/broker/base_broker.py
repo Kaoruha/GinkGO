@@ -88,14 +88,14 @@ class BaseBroker(abc.ABC):
         s += f"冻结金额：{self.frozen_capital}, "
         s += f"仓位控制：{self.sizer.name if self.sizer else 'None'}, "
         s += f"成交撮合：{self.matcher.name if self.matcher else 'None'}, "
-        s += f"分析评价："
+        s += f"分析评价：{len(self.analyzers)}, "
         for i in self.analyzers:
             s += i.name + ","
-        s += f"注册策略：{len(self.strategies)} "
+        s += f"注册策略：{len(self.strategies)}, "
         for i in self.strategies:
             s += "   "
             s += str(i)
-        s += f"当前持仓：{len(self.positions)}"
+        s += f"当前持仓：{len(self.positions)}, "
         for i in self.positions:
             s += "  "
             s += str(self.positions[i])
@@ -160,7 +160,7 @@ class BaseBroker(abc.ABC):
             self.matcher.engine_register(self.engine)
             gl.logger.info(f"撮合器{matcher.name}注册完成")
         else:
-            gl.logger.error("撮合器引擎绑定失败，请检查代码")
+            gl.logger.error("撮合器绑定引擎失败，请检查代码")
 
     def analyzer_register(self, analyzer: BaseAnalyzer) -> None:
         """
@@ -258,7 +258,7 @@ class BaseBroker(abc.ABC):
             return False
 
         if money > self.capital:
-            gl.logger.error(f"冻结金额大于当前现金，{money}>{self.capital},冻结失败，请检查代码")
+            gl.logger.warn(f"冻结金额大于当前现金，{money} > {self.capital}, 冻结失败")
             return False
 
         if money < 0:
@@ -268,7 +268,7 @@ class BaseBroker(abc.ABC):
         self.capital -= money
         self.frozen_capital += money
         gl.logger.info(
-            f"{self.name}冻结现金「{format(money,',')}」，目前持有现金「{format(self.capital,',')}」,目前冻结金额「{format(self.frozen_capital, ',')}」"
+            f"{self.name}冻结现金「{format(money,',')}」，持有现金「{format(self.capital,',')}」,冻结金额「{format(self.frozen_capital, ',')}」"
         )
         return True
 

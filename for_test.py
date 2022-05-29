@@ -1,19 +1,25 @@
-# from ginkgo.data.data_engine import DataEngine
-# from ginkgo.backtest.event_engine import EventEngine
-# import datetime
-# from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
+import baostock as bs
+import time
+import threading
+from ginkgo.data.stock.baostock_data import bao_instance as bi
 
-# d = DataEngine()
-# e = EventEngine()
-# d.set_event_engine(e)
+# code = "bj.430047"
+# start_date = "1999-07-26"
+# end_date = "2022-05-01"
+# dimension = "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST"
+# bi.login()
+# rs = bs.query_history_k_data_plus(
+#     code,
+#     dimension,
+#     start_date=start_date,
+#     end_date=end_date,
+#     frequency="d",
+#     adjustflag="3",
+# )
+# print(rs.error_code)
+# print(rs.error_msg)
 
 
-# a = gm.get_all_stockcode_by_mongo().sample(1).code.values[0]
-# print(a)
-# a = "bj.871642"
-# df = d.get_daybar(code=a, date="2020-01-21")
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 
-a = None
-
-for i in a:
-    print(i)
+gm.update_daybar_async()

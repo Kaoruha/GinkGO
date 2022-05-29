@@ -124,7 +124,6 @@ class OrderEvent(Event):
         source: Source = Source.TEST,
         datetime: str = None,  # 信号日期
         status: OrderType = OrderStatus.CREATED,
-        reference_price: float = 0,
         frozen_money: float = 0,
         *args,
         **kwargs,
@@ -143,7 +142,6 @@ class OrderEvent(Event):
         # 下单数(单位是手，买入只能整百，卖出可以零散)
         self.volume: int = self.__optimize_volume(volume=volume)
         self.price: float = price
-        self.reference_price: float = reference_price
         self.traded: int = 0
 
     def __repr__(self):

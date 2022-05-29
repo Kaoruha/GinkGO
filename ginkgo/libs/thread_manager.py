@@ -1,44 +1,44 @@
-"""
-负责数据相关的线程调度
-"""
 import threading
 import queue
 import time
 
 
 class ThreadManager(object):
+    """
+    负责数据相关的线程调度
+    """
+
     __thread_dict = dict()
     _instance_lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
-        if not hasattr(cls, '_instance'):
+        # 单例
+        if not hasattr(cls, "_instance"):
             with ThreadManager._instance_lock:
-                if not hasattr(cls, '_instance'):
+                if not hasattr(cls, "_instance"):
                     ThreadManager._instance = super().__new__(cls)
 
             return ThreadManager._instance
 
-    def thread_register(self, thread):
+    def thread_register(self, thread) -> None:
         """
         子线程注册
-        1、判断子线程是否存在
-        2、如果不存在，则注册到__thread_dict
-        3、同时开启线程
         :param thread:
         :return: 是否注册成功的文本信息
         """
+        # 1、判断子线程是否存在
+        # 2、如果不存在，则注册到__thread_dict
+        # 3、同时开启线程
         self.kill_dead_thread()
         if self.is_thread_exist(thread):
-            res = thread.name + ' already exist!'
-            print('\n' + res + '\n')
+            res = thread.name + " already exist!"
+            print("\n" + res + "\n")
             return
         else:
             self.__thread_dict[thread.name] = thread
             thread.start()
-        #     res = f'Thread:+{thread.name} added!!'
-        # print(res + '\n')
 
-    def is_thread_exist(self, thread):
+    def is_thread_exist(self, thread) -> bool:
         """
         判断子线程是否已经存在
         :param thread: 传入线程
@@ -49,7 +49,7 @@ class ThreadManager(object):
         else:
             return False
 
-    def kill_all(self):
+    def kill_all(self) -> None:
         """
         杀掉列表中所有线程
         :return:
@@ -57,11 +57,11 @@ class ThreadManager(object):
         for p in self.__thread_dict:
             if self.__thread_dict[p].is_alive():
                 self.__thread_dict[p].terminate()
-                msg = p + ' closed!'
+                msg = p + " closed!"
                 print(msg)
         self.__thread_dict.clear()
 
-    def kill_dead_thread(self):
+    def kill_dead_thread(self) -> None:
         dead_list = []
         for p in self.__thread_dict:
             if not self.__thread_dict[p].is_alive():
@@ -70,13 +70,14 @@ class ThreadManager(object):
             self.__thread_dict.pop(d)
             # print(f'Thread:{d} has popped')
 
-    def limit_thread_register(self, threads, thread_num):
+    def limit_thread_register(self, threads, thread_num: int = 2):
         # 构建待插入与正在运行的线程池
+        # TODO 需要优化，不能直接传入所有线程
         to_insert_thread = queue.Queue()
         runing_threads = {}
         for i in threads:
             to_insert_thread.put(i)
-        
+
         # 当待insert_list与runing_threads有线程时，执行
         while True:
             if len(runing_threads) + to_insert_thread.qsize() == 0:
@@ -94,8 +95,6 @@ class ThreadManager(object):
                 runing_threads.pop(d)
             self.kill_dead_thread()
             time.sleep(2)
-
-            
 
 
 thread_manager = ThreadManager()

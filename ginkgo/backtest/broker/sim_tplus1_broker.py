@@ -48,14 +48,14 @@ class SimT1Broker(BaseBroker):
         s += f"冻结金额：{self.frozen_capital}, "
         s += f"仓位控制：{self.sizer.name if self.sizer else 'None'}, "
         s += f"成交撮合：{self.matcher.name if self.matcher else 'None'}, "
-        s += f"分析评价：{len(self.analyzers)}"
+        s += f"分析评价：{len(self.analyzers)}, "
         for i in self.analyzers:
             s += i.name + ","
-        s += f"注册策略：{len(self.strategies)} "
+        s += f"注册策略：{len(self.strategies)}, "
         for i in self.strategies:
             s += "   "
             s += str(i)
-        s += f"当前持仓：{len(self.positions)}"
+        s += f"当前持仓：{len(self.positions)}, "
         for i in self.positions:
             s += "  "
             s += str(self.positions[i])
@@ -153,11 +153,11 @@ class SimT1Broker(BaseBroker):
         """
         # TODO 日期检查
 
-        if order.direction == Direction.BULL:
-            if not self.freeze_money(order.reference_price * order.volume):
+        if event.direction == Direction.BULL:
+            if not self.freeze_money(event.price * event.volume):
                 gl.logger.warn(f"{self.today} 现金不够，无法开仓")
                 return
-        elif order.direction == Direction.BEAR:
+        elif event.direction == Direction.BEAR:
             if event.code not in self.positions:
                 gl.logger.warn(f"{self.today} 未持有{event.code} 无法卖出")
                 return
