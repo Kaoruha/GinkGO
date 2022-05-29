@@ -301,7 +301,7 @@ class GinkgoMongo(object):
         data_queue.put({code: rs})
 
     # 异步更新日交易数据
-    def update_daybar_async(self, data_pool_size=10, thread_num=4) -> None:
+    def update_daybar_async(self, data_pool_size=4, thread_num=20) -> None:
         """
         异步更新日交易数据
 
@@ -485,10 +485,9 @@ class GinkgoMongo(object):
             end_date=end_date,
         )
         # 插入data_queue中
-        if rs.shape[0] > 0:
-            data_queue.put({code: rs})
-        else:
+        if rs.shape[0] == 0:
             self.set_nomin5(code=code)
+        data_queue.put({code: rs})
 
     # 更新某只Code的5min挡位分钟交易数据
     def update_min5(self, code: str, df_new: pd.DataFrame) -> None:
@@ -505,7 +504,7 @@ class GinkgoMongo(object):
         self.insert_min5(code=code, data_frame=df_insert)
 
     # 异步更新Min5交易数据
-    def update_min5_async(self, data_pool_size=4, thread_num=2) -> None:
+    def update_min5_async(self, data_pool_size=4, thread_num=20) -> None:
         """
         异步全量更新Min5交易数据
 

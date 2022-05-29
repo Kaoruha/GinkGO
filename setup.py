@@ -8,7 +8,7 @@ except Exception as e:
 
 config = {
     "package_name": "ginkgo",
-    "version": "0.1.20",
+    "version": "0.1.21",
     "author": "Suny",
     "email": "sun159753@gmail.com",
     "description": "An easy quant lib",
@@ -34,4 +34,4 @@ setuptools.setup(
 )
 
 
-# python setup.py sdist bdist_wheel
+# python setup.py sdist bdist_wheel"

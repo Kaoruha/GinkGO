@@ -163,12 +163,13 @@ class BaoStockData(object):
                         end_date=end_date,
                     )
                 else:
-                    gl.logger.error(
-                        "query_history_k_data_plus respond error_code:" + rs.error_code
-                    )
-                    gl.logger.error(
-                        "query_history_k_data_plus respond  error_msg:" + rs.error_msg
-                    )
+                    pass
+                    # gl.logger.error(
+                    #     "query_history_k_data_plus respond error_code:" + rs.error_code
+                    # )
+                    # gl.logger.error(
+                    #     "query_history_k_data_plus respond  error_msg:" + rs.error_msg
+                    # )
             result = pd.DataFrame(data_list, columns=rs.fields)
             return result
 
@@ -304,14 +305,14 @@ class BaoStockData(object):
     def get_adjust_factor(self, code: str) -> pd.DataFrame:
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         rs_list = []
-        gl.logger.debug(f"尝试获取 {code} 复权因子数据。。。")
+        # gl.logger.debug(f"尝试获取 {code} 复权因子数据。。。")
         rs_factor = bs.query_adjust_factor(
             code=code, start_date=self.init_date, end_date=today
         )
         while (rs_factor.error_code == "0") & rs_factor.next():
             rs_list.append(rs_factor.get_row_data())
         result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
-        gl.logger.info(f"成功获取 {code} 复权因子数据 {len(rs_list)}条")
+        # gl.logger.info(f"成功获取 {code} 复权因子数据 {len(rs_list)}条")
         return result_factor
 
 
