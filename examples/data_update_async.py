@@ -58,7 +58,6 @@ def daybar_update_async():
     process_num = 12
 
     stock_list = gm.get_all_stockcode_by_mongo()
-    stock_list = stock_list[1000:1100]
 
     stock_num = len(stock_list)
     end_date = bao_instance.get_baostock_last_date()
@@ -138,7 +137,6 @@ def min5_update_async():
     process_num = 12
 
     stock_list = gm.get_all_stockcode_by_mongo()
-    stock_list = stock_list[500:525]
 
     stock_num = len(stock_list)
     end_date = bao_instance.get_baostock_last_date()
