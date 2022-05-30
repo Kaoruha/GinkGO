@@ -99,6 +99,8 @@ class BaoStockData(object):
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
                 # gl.logger.info(f"成功获取 {code} 从 {start_date} 至 {end_date} 的数据")
+            elif rs.error_code == "10004011":
+                return
             else:
                 # 10001001
                 self.getdata_count += 1
