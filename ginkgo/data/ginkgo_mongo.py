@@ -277,52 +277,6 @@ class GinkgoMongo(object):
         df_insert = self.get_df_norepeat(index_col="date", df_old=df_old, df_new=df_new)
         self.insert_daybar(code=code, data_frame=df_insert)
 
-    # def update_daybar_async(self, cpu_percent=0.8):
-    #     gl.logger.critical(f"Main Process {os.getpid()}..")
-    #     start = time.time()
-    #     cpu_core_num = multiprocessing.cpu_count()
-    #     cpu_core_num = int(cpu_core_num * cpu_percent)
-    #     cpu_core_num = 1 if cpu_core_num < 1 else cpu_core_num
-    #     cpu_core_num = 4
-
-    #     stock_list = self.get_all_stockcode_by_mongo()
-    #     stock_list = stock_list[2000:2100]
-    #     end_date = bi.get_baostock_last_date()
-    #     gl.logger.info(f"Daybar准备更新至：{end_date}")
-    #     gl.logger.info(f"Stock:{stock_list.shape[0]}")
-    #     q = multiprocessing.Manager().Queue(stock_list.shape[0])
-    #     p = multiprocessing.Pool(cpu_core_num)
-    #     gl.logger.info(f"建立了一个 {cpu_core_num} 容量的进程池")
-
-    #     pbar = tqdm.tqdm(total=stock_list.shape[0])
-    #     pbar.set_description("DayBar Update")
-
-    #     for i, r in stock_list.iterrows():
-    #         q.put(r["code"])
-    #         p.apply_async(
-    #             update_stock_daybar(q, r["code"], end_date, pbar),
-    #         )
-
-    #     gl.logger.info("Waiting for all subprocesses done...")
-    #     p.close()
-    #     p.join()
-    #     end = time.time()
-    #     gl.logger.warn(f"{q.qsize()} 条更新失败")
-    #     if q.qsize() > 0:
-    #         error_list = []
-    #         while True:
-    #             try:
-    #                 code = q.get(block=False)
-    #                 print(code)
-    #                 error_list.append(code)
-    #             except Exception as e:
-    #                 print(e)
-    #                 break
-
-    #     gl.logger.critical(
-    #         "All Daybar subprocesses done. Tasks runs %0.2f seconds." % (end - start)
-    #     )
-
     def insert_min5(self, code: str, data_frame: pd.DataFrame) -> None:
         """
         批量插入5Min交易数据
@@ -336,7 +290,7 @@ class GinkgoMongo(object):
         # 如果传入的DF为空，直接返回
         if data_frame.shape[0] == 0:
             return
-        df = data_frame.drop_duplicates(subset=["time"], keep="first")
+        df = data_frame.drop_duplicates(subset=["time"], keep="first").copy()
         df.rename(
             columns={"adjustflag": "adjust_flag"},
             inplace=True,

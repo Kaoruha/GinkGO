@@ -17,6 +17,8 @@ class BaoStockData(object):
     def __init__(self):
         self.getdata_count = 0
         self.getlastdate_count = 0
+        self.getdata_max = 10
+        self.getlastdate_max = 10
         # self.__init_dir()
 
     def __new__(cls, *args, **kwargs):
@@ -34,7 +36,7 @@ class BaoStockData(object):
         """
         lg = bs.login(user_id="anonymous", password="123456")
         if lg.error_code == "0":
-            gl.logger.info("Baostock Login Success.")
+            gl.logger.warning("Baostock Login Success.")
         else:
             gl.logger.error("Login respond error_code:" + lg.error_code)
             gl.logger.error("Login respond  error_msg:" + lg.error_msg)
@@ -45,7 +47,7 @@ class BaoStockData(object):
         :return:
         """
         bs.logout
-        gl.logger.info("BaoStock LogOut.")
+        gl.logger.warning("BaoStock LogOut.")
 
     # 从 baostock 获取数据
     def get_data(
@@ -97,10 +99,22 @@ class BaoStockData(object):
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
                 # gl.logger.info(f"成功获取 {code} 从 {start_date} 至 {end_date} 的数据")
-            elif rs.error_code == "10001001":
+            else:
+                # 10001001
                 self.getdata_count += 1
-                gl.logger.debug(f"Try Login to Get Data {self.getdata_count}/{5}")
-                if self.getdata_count <= 5:
+                gl.logger.debug(
+                    f"Try Login to Get Data {self.getdata_count}/{self.getdata_max}"
+                )
+                gl.logger.error(
+                    "query_history_k_data_plus respond error_code:" + rs.error_code
+                )
+                gl.logger.error(
+                    "query_history_k_data_plus respond  error_msg:" + rs.error_msg
+                )
+                if self.getdata_count >= self.getdata_max:
+                    self.getdata_count = 0
+                else:
+                    self.logout()
                     self.login()
                     return self.get_data(
                         code=code,
@@ -108,14 +122,7 @@ class BaoStockData(object):
                         start_date=start_date,
                         end_date=end_date,
                     )
-            else:
-                pass
-                # gl.logger.error(
-                #     "query_history_k_data_plus respond error_code:" + rs.error_code
-                # )
-                # gl.logger.error(
-                #     "query_history_k_data_plus respond  error_msg:" + rs.error_msg
-                # )
+
             result = pd.DataFrame(data_list, columns=rs.fields)
             return result
 
@@ -152,24 +159,30 @@ class BaoStockData(object):
                     while (rs.error_code == "0") & rs.next():
                         # 获取一条记录，将记录合并在一起
                         data_list.append(rs.get_row_data())
-                elif rs.error_code == "10001001":
-                    self.getdata_count += 1
-                    gl.logger.debug(f"Try Login {self.getdata_count}/{5}")
-                    self.login()
-                    return self.get_data(
-                        code=code,
-                        data_frequency=data_frequency,
-                        start_date=start_date,
-                        end_date=end_date,
-                    )
                 else:
-                    pass
-                    # gl.logger.error(
-                    #     "query_history_k_data_plus respond error_code:" + rs.error_code
-                    # )
-                    # gl.logger.error(
-                    #     "query_history_k_data_plus respond  error_msg:" + rs.error_msg
-                    # )
+                    # 10001001
+                    self.getdata_count += 1
+                    gl.logger.error(
+                        "query_history_k_data_plus respond error_code:" + rs.error_code
+                    )
+                    gl.logger.error(
+                        "query_history_k_data_plus respond  error_msg:" + rs.error_msg
+                    )
+                    gl.logger.debug(
+                        f"Try Login GetDate{self.getdata_count}/{self.getdata_max}"
+                    )
+                    if self.getdata_count >= self.getdata_max:
+                        self.getdata_count = 0
+                        return
+                    else:
+                        self.logout()
+                        self.login()
+                        return self.get_data(
+                            code=code,
+                            data_frequency=data_frequency,
+                            start_date=start_date,
+                            end_date=end_date,
+                        )
             result = pd.DataFrame(data_list, columns=rs.fields)
             return result
 
@@ -212,12 +225,15 @@ class BaoStockData(object):
                 # 获取一条记录，将记录合并在一起
                 data_list.append(rs.get_row_data())
             result = pd.DataFrame(data_list, columns=rs.fields)
-        elif rs.error_code == "10001001":
+        else:
+            # 10001001
             self.getlastdate_count += 1
             gl.logger.debug(f"Try Login To Get LastDate {self.getlastdate_count}/{5}")
-            if self.getlastdate_count <= 5:
+            if self.getlastdate_count <= self.getlastdate_max:
+                self.logout()
                 self.login()
                 return self.get_baostock_last_date()
+            self.getlastdate_count = 0
         last_date = result.iloc[-1].date
         return last_date
 

@@ -1,5 +1,6 @@
 import os
 import time
+import datetime
 import math
 import tqdm
 import threading
@@ -38,6 +39,9 @@ def update_stock_daybar(queue_get, queue_put, codesdf, end_date):
 
 
 def process_pct(queue_get, queue_put, pbar):
+    t = datetime.datetime.now()
+    t = t.strftime("%H:%M:%S")
+    pbar.set_description(f"{t} DayBar Update")
     while True:
         try:
             e = queue_put.get(block=False)
@@ -45,16 +49,16 @@ def process_pct(queue_get, queue_put, pbar):
         except Exception as e:
             if queue_get.qsize() == 0:
                 break
-        time.sleep(0.05)
 
 
 def daybar_update_async():
     gl.logger.critical(f"Main Process {os.getpid()}..")
     start = time.time()
     cpu_core_num = multiprocessing.cpu_count()
-    process_num = 4
+    process_num = 12
 
     stock_list = gm.get_all_stockcode_by_mongo()
+    stock_list = stock_list[1000:1100]
 
     stock_num = len(stock_list)
     end_date = bao_instance.get_baostock_last_date()
@@ -94,8 +98,9 @@ def daybar_update_async():
     gl.logger.info("Waiting for all subprocesses done...")
     p.close()
     p.join()
+    controller.join()
     end = time.time()
-    gl.logger.info(
+    gl.logger.critical(
         "All Daybar subprocesses done. Tasks runs %0.2f seconds." % (end - start)
     )
 
@@ -130,9 +135,10 @@ def min5_update_async():
     gl.logger.critical(f"Main Process {os.getpid()}.")
     start = time.time()
     cpu_core_num = multiprocessing.cpu_count()
-    process_num = 4
+    process_num = 12
 
     stock_list = gm.get_all_stockcode_by_mongo()
+    stock_list = stock_list[500:525]
 
     stock_num = len(stock_list)
     end_date = bao_instance.get_baostock_last_date()
@@ -170,12 +176,15 @@ def min5_update_async():
             update_stock_min5,
             args=(q_get, q_put, slist, end_date),
         )
-    print("Waiting for all subprocesses done...")
+    gl.logger.debug("Waiting for all subprocesses done...")
     p.close()
     p.join()
+    controller.join()
     end = time.time()
 
-    print("All Min5 subprocesses done. Tasks runs %0.2f seconds." % (end - start))
+    gl.logger.critical(
+        "All Min5 subprocesses done. Tasks runs %0.2f seconds." % (end - start)
+    )
 
 
 if __name__ == "__main__":
