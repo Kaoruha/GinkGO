@@ -1,4 +1,6 @@
 import time
+import os
+import multiprocessing
 import pymongo
 import datetime
 import queue
@@ -275,170 +277,52 @@ class GinkgoMongo(object):
         df_insert = self.get_df_norepeat(index_col="date", df_old=df_old, df_new=df_new)
         self.insert_daybar(code=code, data_frame=df_insert)
 
-    # 获取日交易数据，并存入队列
-    def get_daybar_by_baostock(
-        self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
-    ) -> None:
-        """
-        获取日交易数据，并存入data_queue的队列里
+    # def update_daybar_async(self, cpu_percent=0.8):
+    #     gl.logger.critical(f"Main Process {os.getpid()}..")
+    #     start = time.time()
+    #     cpu_core_num = multiprocessing.cpu_count()
+    #     cpu_core_num = int(cpu_core_num * cpu_percent)
+    #     cpu_core_num = 1 if cpu_core_num < 1 else cpu_core_num
+    #     cpu_core_num = 4
 
-        :param code: 股票代码
-        :type code: str
-        :param start_date: 起始日期
-        :type start_date: str
-        :param end_date: 终止日期
-        :type end_date: str
-        :param data_queue: 存放日交易数据的队列，由更新函数传递
-        :type data_queue: queue.Queue
-        """
-        rs = bi.get_data(
-            code=code,
-            data_frequency="d",
-            start_date=start_date,
-            end_date=end_date,
-        )
-        # 推入data_queue中
-        data_queue.put({code: rs})
+    #     stock_list = self.get_all_stockcode_by_mongo()
+    #     stock_list = stock_list[2000:2100]
+    #     end_date = bi.get_baostock_last_date()
+    #     gl.logger.info(f"Daybar准备更新至：{end_date}")
+    #     gl.logger.info(f"Stock:{stock_list.shape[0]}")
+    #     q = multiprocessing.Manager().Queue(stock_list.shape[0])
+    #     p = multiprocessing.Pool(cpu_core_num)
+    #     gl.logger.info(f"建立了一个 {cpu_core_num} 容量的进程池")
 
-    # 异步更新日交易数据
-    def update_daybar_async(self, data_pool_size=4, thread_num=20) -> None:
-        """
-        异步更新日交易数据
+    #     pbar = tqdm.tqdm(total=stock_list.shape[0])
+    #     pbar.set_description("DayBar Update")
 
-        :param data_pool_size: [description], defaults to 10
-        :type data_pool_size: int, optional
-        :param thread_num: [description], defaults to 4
-        :type thread_num: int, optional
-        """
-        # 获取日交易数据队列
-        gl.logger.info("日交易数据更新初始化.")
-        data_queue = queue.Queue()
-        get_thread_dict = dict()
-        set_thread_dict = dict()
-        heartbeat = 0.01
-        stock_queue = queue.Queue()
-        stock_df = self.get_all_stockcode_by_mongo()
+    #     for i, r in stock_list.iterrows():
+    #         q.put(r["code"])
+    #         p.apply_async(
+    #             update_stock_daybar(q, r["code"], end_date, pbar),
+    #         )
 
-        # stock_df = stock_df[4700:]
+    #     gl.logger.info("Waiting for all subprocesses done...")
+    #     p.close()
+    #     p.join()
+    #     end = time.time()
+    #     gl.logger.warn(f"{q.qsize()} 条更新失败")
+    #     if q.qsize() > 0:
+    #         error_list = []
+    #         while True:
+    #             try:
+    #                 code = q.get(block=False)
+    #                 print(code)
+    #                 error_list.append(code)
+    #             except Exception as e:
+    #                 print(e)
+    #                 break
 
-        end = bi.get_baostock_last_date()
-        gl.logger.debug(f"目标更新日期为{end}")
+    #     gl.logger.critical(
+    #         "All Daybar subprocesses done. Tasks runs %0.2f seconds." % (end - start)
+    #     )
 
-        if stock_df.shape[0] == 0:
-            gl.logger.error("股票代码为空，请检查代码")
-            return
-        for i in range(stock_df.shape[0]):
-            stock_queue.put(stock_df.iloc[i].code)
-        gl.logger.info("更新队列准备完毕")
-
-        pbar_get = tqdm.tqdm(total=stock_queue.qsize())
-        pbar_set = tqdm.tqdm(total=stock_queue.qsize())
-
-        while True:
-            # 如果stock_queue
-            if (
-                stock_queue.qsize() == 0  # 待更新的代码队列为空
-                and data_queue.qsize() == 0  # 待插入的数据队列为空
-                and len(get_thread_dict) == 0  # 没有正在运行的获取线程
-                and len(set_thread_dict) == 0  # 没有正在运行的存储线程
-            ):
-                pbar_get.set_description(
-                    f"获取 {code}, 拉取 {len(get_thread_dict)}/{data_pool_size}"
-                )
-                pbar_set.set_description(
-                    f"存储 {code}, 存储 {len(set_thread_dict)}/{thread_num}"
-                )
-                gl.logger.info("日交易数据更新完毕")
-                return
-
-            if (
-                data_queue.qsize() < data_pool_size  # 待插入的数据队列没达到设置的数据池上线
-                and len(get_thread_dict) == 0  # 没有正在运行的获取线程
-                and stock_queue.qsize() > 0  # 待更新的代码队列不为空
-            ):
-                # 从stock_queue 中获取一个代码
-                code = stock_queue.get()
-                # 获取数据
-                # 获取当前最新的数据日期
-                try:
-                    # 尝试从mongoDB查询该指数现有的最新数据
-                    last_date = self.get_daybar_latestDate_by_mongo(code=code)
-                except Exception as e:
-                    # 失败则把开始日期设置为初识日期
-                    last_date = bi.init_date
-
-                if end == last_date:
-                    pbar_get.set_description(
-                        f"{code} 无新数据, 拉取 {len(get_thread_dict)}/{data_pool_size}"
-                    )
-                    pbar_set.set_description(
-                        f"{code} 无新数据, 存储 {len(set_thread_dict)}/{thread_num}"
-                    )
-                    pbar_get.update(1)
-                    pbar_set.update(1)
-                else:
-                    thread = threading.Thread(
-                        name=f"Day {code} Get",
-                        target=self.get_daybar_by_baostock,
-                        args=(
-                            code,
-                            last_date,
-                            end,
-                            data_queue,
-                        ),
-                    )
-                    # 线程注册
-                    get_thread_dict[thread.name] = thread
-                    # 线程添加至insert_thread_list
-                    tm.thread_register(thread=thread)
-                    pbar_get.set_description(
-                        f"获取 {code}, 拉取 {len(get_thread_dict)}/{data_pool_size}"
-                    )
-
-            if (
-                len(set_thread_dict) < thread_num and data_queue.qsize() > 0
-            ):  # 当前运行的存储线程小于设定的上限，且数据队列里有数据
-                # 从 data_queue 中获取一个对象
-                data = data_queue.get(block=True, timeout=None)
-                # 创建一个数据插入的线程
-                code = list(data.keys())[0]
-                df = data[code]
-                thread = threading.Thread(
-                    name=f"Day {code} update",
-                    target=self.update_daybar,
-                    args=(
-                        code,
-                        df,
-                    ),
-                )
-                # 线程注册
-                set_thread_dict[thread.name] = thread
-                # 线程添加至insert_thread_list
-                tm.thread_register(thread=thread)
-                pbar_set.set_description(
-                    f"存储 {code}, 存储 {len(set_thread_dict)}/{thread_num}"
-                )
-            # 清理僵尸线程
-            dead_list1 = []
-            for p in set_thread_dict:
-                if not set_thread_dict[p].is_alive():
-                    dead_list1.append(p)
-            for d in dead_list1:
-                set_thread_dict.pop(d)
-                pbar_set.update(1)
-
-            dead_list2 = []
-            for p in get_thread_dict:
-                if not get_thread_dict[p].is_alive():
-                    dead_list2.append(p)
-            for d in dead_list2:
-                get_thread_dict.pop(d)
-                pbar_get.update(1)
-            tm.kill_dead_thread()
-            # 心跳
-            time.sleep(heartbeat)
-
-    # 批量插入5Min交易数据
     def insert_min5(self, code: str, data_frame: pd.DataFrame) -> None:
         """
         批量插入5Min交易数据
@@ -462,33 +346,6 @@ class GinkgoMongo(object):
         col.insert_many(data)
         col.create_index([("time", 1)], unique=True)
 
-    # 从Baostock获取Min5数据，存入dataQueue中
-    def get_min5_async_by_baostock(
-        self, code: str, start_date: str, end_date: str, data_queue: queue.Queue
-    ) -> None:
-        """
-        从Baostock获取Min5数据，存入dataQueue中
-
-        :param code: 股票代码
-        :type code: str
-        :param start_date: 开始日期
-        :type start_date: str
-        :param end_date: 结束日期
-        :type end_date: str
-        :param data_queue: 待存入的数据队列
-        :type data_queue: queue.Queue
-        """
-        rs = bi.get_data(
-            code=code,
-            data_frequency="5",
-            start_date=start_date,
-            end_date=end_date,
-        )
-        # 插入data_queue中
-        if rs.shape[0] == 0:
-            self.set_nomin5(code=code)
-        data_queue.put({code: rs})
-
     # 更新某只Code的5min挡位分钟交易数据
     def update_min5(self, code: str, df_new: pd.DataFrame) -> None:
         """
@@ -503,140 +360,28 @@ class GinkgoMongo(object):
         df_insert = self.get_df_norepeat(index_col="time", df_old=df_old, df_new=df_new)
         self.insert_min5(code=code, data_frame=df_insert)
 
-    # 异步更新Min5交易数据
-    def update_min5_async(self, data_pool_size=4, thread_num=20) -> None:
-        """
-        异步全量更新Min5交易数据
+    def update_stock_min5(self, queue, code, end_date, pbar):
+        # print(f"Run task pid:{os.getpid()}...")
+        try:
+            # 尝试从mongoDB查询该指数的最新数据
+            last_date = self.get_min5_latestDate_by_mongo(code=code)
+        except Exception:
+            # 失败则把开始日期设置为初识日期
+            last_date = bi.init_date
 
-        :param data_pool_size: 数据缓存池上限, defaults to 4
-        :type data_pool_size: int, optional
-        :param thread_num: 存储线程上限, defaults to 2
-        :type thread_num: int, optional
-        """
-        gl.logger.info("Min5数据更新初始化.")
-        data_queue = queue.Queue()
-        get_thread_dict = dict()
-        set_thread_dict = dict()
-        heartbeat = 0.1
-        stock_queue = queue.Queue()
-        stock_df = self.get_all_stockcode_by_mongo()
-
-        end = bi.get_baostock_last_date()
-        gl.logger.debug(f"目标更新日期为{end}")
-
-        if stock_df.shape[0] == 0:
-            gl.logger.error("股票代码为空，请检查代码")
-            return
-        for i in range(stock_df.shape[0]):
-            if self.check_stock_min5(code=stock_df.iloc[i].code):
-                stock_queue.put(stock_df.iloc[i].code)
-        gl.logger.info("5Min更新队列准备完毕")
-        pbar_get = tqdm.tqdm(total=stock_queue.qsize())
-        pbar_set = tqdm.tqdm(total=stock_queue.qsize())
-
-        while True:
-            # 更新完毕
-            if (
-                stock_queue.qsize() == 0
-                and data_queue.qsize() == 0
-                and len(get_thread_dict) == 0
-                and len(set_thread_dict) == 0
-            ):
-                pbar_get.set_description(
-                    f"获取 {code}, 拉取{len(get_thread_dict)}/{data_pool_size}"
-                )
-                pbar_set.set_description(
-                    f"存储 {code}, 存储 {len(set_thread_dict)}/{thread_num}"
-                )
-                gl.logger.info("Min5 交易数据更新完毕")
-                return
-
-            if (
-                data_queue.qsize() < data_pool_size
-                and len(get_thread_dict) == 0
-                and stock_queue.qsize() > 0
-            ):
-                # 从stock_queue 中获取一个代码
-                code = stock_queue.get()
-                # 获取数据
-                # 获取当前最新的数据日期
-                try:
-                    # 尝试从mongoDB查询该指数的最新数据
-                    last_date = self.get_min5_latestDate_by_mongo(code=code)
-                except Exception as e:
-                    # 失败则把开始日期设置为初识日期
-                    last_date = bi.init_date
-
-                if end == last_date:
-                    pbar_get.set_description(
-                        f"{code} 无新数据, 拉取 {len(get_thread_dict)}/{data_pool_size}"
-                    )
-                    pbar_set.set_description(
-                        f"{code} 无新数据, 存储 {len(set_thread_dict)}/{thread_num}"
-                    )
-                    pbar_get.update(1)
-                    pbar_set.update(1)
-                else:
-                    thread = threading.Thread(
-                        name=f"Min5 {code} Get",
-                        target=self.get_min5_async_by_baostock,
-                        args=(
-                            code,
-                            last_date,
-                            end,
-                            data_queue,
-                        ),
-                    )
-
-                    # 线程注册
-                    get_thread_dict[thread.name] = thread
-                    # 线程添加至insert_thread_list
-                    tm.thread_register(thread=thread)
-                    pbar_get.set_description(
-                        f"获取 {code}, 获取进程{len(get_thread_dict)}/{data_pool_size}"
-                    )
-
-            if len(set_thread_dict) < thread_num and data_queue.qsize() > 0:
-                # 从 data_queue 中获取一个对象
-                data = data_queue.get(block=True, timeout=None)
-                # 创建一个数据插入的线程
-                code = list(data.keys())[0]
-                df = data[code]
-                thread = threading.Thread(
-                    name=f"Min5 {code} update",
-                    target=self.update_min5,
-                    args=(
-                        code,
-                        df,
-                    ),
-                )
-
-                # 线程注册
-                set_thread_dict[thread.name] = thread
-                # 线程添加至insert_thread_list
-                tm.thread_register(thread=thread)
-                pbar_set.set_description(
-                    f"存储 {code}, 存储进程{len(set_thread_dict)}/{thread_num}"
-                )
-            # 清理僵尸线程
-            dead_list1 = []
-            for p in set_thread_dict:
-                if not set_thread_dict[p].is_alive():
-                    dead_list1.append(p)
-            for d in dead_list1:
-                set_thread_dict.pop(d)
-                pbar_set.update(1)
-
-            dead_list2 = []
-            for p in get_thread_dict:
-                if not get_thread_dict[p].is_alive():
-                    dead_list2.append(p)
-            for d in dead_list2:
-                get_thread_dict.pop(d)
-                pbar_get.update(1)
-            tm.kill_dead_thread()
-            # 心跳
-            time.sleep(heartbeat)
+        if last_date != end_date:
+            rs = bi.get_data(
+                code=code,
+                data_frequency="5",
+                start_date=last_date,
+                end_date=end_date,
+            )
+            if rs.shape[0] > 0:
+                self.update_min5(code, rs)
+            else:
+                self.set_nomin5(code=code)
+        queue.get(code)
+        pbar.update()
 
     # 获取日交易数据
     def get_dayBar_by_mongo(
@@ -851,181 +596,6 @@ class GinkgoMongo(object):
             result = adjust[condition & condition2].replace("", 0)
             return result
 
-    def update_coininfo(self):
-        result = coin_cap_instance.get_coin_list()
-        # 存储到MongoDB
-        if result.shape[0] == 0:
-            gl.logger.error("Coin指数代码获取为空，请检查代码或日期")
-        col = self.db["coin_info"]
-        operations = []
-        pbar = tqdm.tqdm(total=result.shape[0])
-        for index, row in result.iterrows():
-            operations.append(
-                pymongo.UpdateOne(
-                    {"id": row.id},
-                    {
-                        "$set": {
-                            "rank": row["rank"],
-                            "symbol": row.symbol,
-                            "name": row["name"],
-                            "supply": row.supply,
-                            "maxSupply": row.maxSupply,
-                            "marketCapUsd": row.marketCapUsd,
-                            "volumeUsd24Hr": row.volumeUsd24Hr,
-                            "changePercent24Hr": row.changePercent24Hr,
-                            "vwap24Hr": row.vwap24Hr,
-                        }
-                    },
-                    upsert=True,
-                )
-            )
-            pbar.update(1)
-            pbar.set_description(f"添加 {row.id} 操作")
-        if len(operations) > 0:
-            col.bulk_write(operations, ordered=False)
-        pbar.set_description("完成 CoinInfo 更新")
-        # TODO 根据插入结果进行相应处理
-        pbar.set_description("CoinInfo 索引更新")
-        col.create_index([("id", 1)], unique=True)
-        pbar.set_description("CoinInfo 更新完成")
-
-        gl.logger.info("CoinInfo更新完成.")
-
-    def get_coin_list_by_mongo(self):
-        col = self.db["coin_info"]
-        rs = col.find()
-        df = pd.DataFrame(rs)
-        df = df.drop(
-            ["_id", "volumeUsd24Hr", "vwap24Hr", "marketCapUsd", "maxSupply", "supply"],
-            axis=1,
-        )
-        return df
-
-    # 插入虚拟币分钟数据
-    def insert_coin_m1(self, coin_id: str, df: pd.DataFrame):
-        """
-        插入虚拟币分钟交易数据
-
-        :param coin_id: 虚拟币id
-        :type coin_id: str
-        :param df: 交易数据
-        :type df: DataFrame
-        """
-        # 如果传入的DF为空，直接返回
-        if df.shape[0] == 0:
-            return
-        # 去重
-        df = df.drop_duplicates(subset=["time"], keep="first")
-        # 切换collection
-        col = self.db[coin_id]
-        # dataframe转换为dict，可供pymongo批量插入
-        data = df.to_dict(orient="records")
-        # 批量插入
-        col.insert_many(data)
-        # 建立索引
-        col.create_index([("time", 1)], unique=True)
-
-    def upsert_coin_m1(self, coin_id, df):
-        t1 = time.time()
-        if not self.is_coin_exist(coin_id):
-            print("请检查虚拟币ID")
-            return
-        df = df.drop_duplicates(subset="time", keep="first", inplace=False)
-        t2 = time.time()
-        start_time = self.get_coin_head_time_by_mongo(coin_id=coin_id)
-        end_time = self.get_coin_tail_time_by_mongo(coin_id=coin_id)
-        t3 = time.time()
-        df_insert1 = df[(df["time"] > end_time)]
-        df_insert2 = df[(df["time"] < start_time)]
-        df_insert = df_insert1.append(df_insert2)
-        t4 = time.time()
-        self.insert_coin_m1(coin_id=coin_id, df=df_insert)
-        t5 = time.time()
-        print(
-            f"{coin_id} {start_time}-{end_time} ({df.shape[0]}) 更新总耗时: {round(t5 - t1, 3)}s  获取全量耗时: {round(t3 - t2, 3)}s  去重耗时: {round(t4 - t3, 3)}s  插入耗时: {round(t5 - t4, 3)}s"
-        )
-
-    def is_coin_exist(self, coin_id):
-        """
-        检查虚拟币是否存在
-        """
-        try:
-            coin_list = self.get_coin_list_by_mongo()
-            if coin_list.shape[0] == 0:
-                print("虚拟货币列表为空，请检查代码")
-                return False
-            else:
-                is_coin_in_list = coin_id in coin_list["id"].values
-                return is_coin_in_list
-        except Exception as e:
-            raise e
-            return False
-
-    def get_coin_tail_time_by_mongo(self, coin_id: str):
-        # 获取某币数据的尾部时间戳
-        col = self.db[coin_id]
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
-        s = col.find().sort("time", pymongo.DESCENDING).limit(1)
-        if s.count() == 0:
-            last_time = coin_cap_instance.convert_date2stamp(today)
-        else:
-            last_time = s[0]["time"]
-        return last_time
-
-    def get_coin_head_time_by_mongo(self, coin_id: str):
-        # 获取某币min5数据的头部时间戳
-        col = self.db[coin_id]
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
-        s = col.find().sort("time", pymongo.ASCENDING).limit(1)
-        if s.count() == 0:
-            last_time = coin_cap_instance.convert_date2stamp(today)
-        else:
-            last_time = s[0]["time"]
-        return last_time
-
-    def get_coin_m1_by_mongo(self, coin_id: str, start_time="", end_time=""):
-        # 从Mongo获取虚拟货币数据
-        """
-        获取m1交易数据，不传入日期范围则返回全量数据
-
-        :param coin_id: 股票代码
-        :type coin_id: str
-        :param start_date: 起始日期
-        :type start_date: str
-        :param end_date: 结束日期
-        :type end_date: str
-        :return: code股票start_date至end_date的日交易数据
-        :rtype: DataFrame
-        """
-        if start_time == "":
-            start_time = coin_cap_instance.convert_date2stamp(
-                coin_cap_instance.init_date
-            )
-        if end_time == "":
-            today = datetime.datetime.now().strftime("%Y-%m-%d")
-            next_day = coin_cap_instance.get_delta_day(today, 1)
-            end_time = coin_cap_instance.convert_date2stamp(next_day)
-        col = self.db[coin_id]
-        rs = col.find()
-        df = pd.DataFrame(list(rs))
-        if df.shape[0] == 0:
-            return df
-        condition1 = df["time"] >= start_time
-        condition2 = df["time"] <= end_time
-        df = df[condition1 & condition2]
-        df = df.sort_values(by=["time"], ascending=[True])
-
-        return df
-
-    def update_all_coin(self):
-        coin_list = self.get_coin_list_by_mongo().id.values
-        for i in coin_list:
-            print(f"正在更新{i}")
-            t1 = time.time()
-            self.update_coin_m1(i)
-            t2 = time.time()
-            print(f"更新{i} 耗时:{round(t2 - t1, 3)}s")
-
     def update_all(self):
         self.update_stockinfo()
         self.update_adjustfactor()
@@ -1046,3 +616,26 @@ class GinkgoMongo(object):
 ginkgo_mongo = GinkgoMongo(
     host=HOST, port=PORT, username=USERNAME, password=PASSWORD, database=DATABASE
 )
+
+
+def update_stock_daybar(queue, code, end_date, pbar):
+    print(f"Run task pid:{os.getpid()}...")
+
+    try:
+        # 尝试从mongoDB查询该指数的最新数据
+        last_date = ginkgo_mongo.get_daybar_latestDate_by_mongo(code=code)
+    except Exception:
+        # 失败则把开始日期设置为初识日期
+        last_date = bi.init_date
+
+    if last_date != end_date:
+        rs = bi.get_data(
+            code=code,
+            data_frequency="d",
+            start_date=last_date,
+            end_date=end_date,
+        )
+        if rs.shape[0] > 0:
+            ginkgo_mongo.update_daybar(code, rs)
+    queue.get(code)
+    pbar.update()

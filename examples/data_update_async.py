@@ -1,300 +1,185 @@
-"""
-异步数据更新
-"""
-# import os
-# import time
-# import tqdm
-# import multiprocessing
-# import pandas as pd
+import os
+import time
+import math
+import tqdm
+import threading
+import multiprocessing
+import pandas as pd
 from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
-
-# from ginkgo.data.stock.baostock_data import bao_instance
-# from ginkgo.data.bitcoin.coin_cap import coin_cap_instance
-# from multiprocessing import Manager
-
-
-# def update_stock_daybar(queue, code, end_date):
-#     # print(f"Run task pid:{os.getpid()}...")
-#     try:
-#         # 尝试从mongoDB查询该指数的最新数据
-#         last_date = gm.get_daybar_latestDate_by_mongo(code=code)
-#     except Exception:
-#         # 失败则把开始日期设置为初识日期
-#         last_date = bao_instance.init_date
-
-#     if last_date != end_date:
-#         rs = bao_instance.get_data(
-#             code=code,
-#             data_frequency="d",
-#             start_date=last_date,
-#             end_date=end_date,
-#         )
-#         bao_instance.logout()
-#         if rs.shape[0] > 0:
-#             gm.update_daybar(code, rs)
-#     queue.get(code)
+from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.data.stock.baostock_data import bao_instance
+from ginkgo.data.bitcoin.coin_cap import coin_cap_instance
+from multiprocessing import Manager
 
 
-# def daybar_update_async():
-#     print(f"Main Process {os.getpid()}..")
-#     start = time.time()
-#     cpu_core_num = multiprocessing.cpu_count()
+def update_stock_daybar(queue_get, queue_put, codesdf, end_date):
+    gl.logger.warn(f"Sub Process {os.getpid()}..")
+    for i, r in codesdf.iterrows():
+        code = r["code"]
+        try:
+            # 尝试从mongoDB查询该指数的最新数据
+            last_date = gm.get_daybar_latestDate_by_mongo(code=code)
+        except Exception:
+            # 失败则把开始日期设置为初识日期
+            last_date = bao_instance.init_date
 
-#     stock_list = gm.get_all_stockcode_by_mongo()
-#     end_date = bao_instance.get_baostock_last_date()
-#     bao_instance.logout()
-#     print(f"Daybar准备更新至：{end_date}")
-#     print(f"Stock:{stock_list.shape[0]}")
-#     q = Manager().Queue(stock_list.shape[0])
-#     p = multiprocessing.Pool(cpu_core_num - 2)
-#     print(f"建立了一个 {cpu_core_num - 2} 容量的进程池")
+        if last_date != end_date:
+            rs = bao_instance.get_data(
+                code=code,
+                data_frequency="d",
+                start_date=last_date,
+                end_date=end_date,
+            )
+            if rs.shape[0] > 0:
+                gm.update_daybar(code, rs)
 
-#     pbar = tqdm.tqdm(total=stock_list.shape[0])
-#     pbar.set_description("DayBar Update")
-
-#     def p_update(*a):
-#         pbar.update()
-
-#     for i, r in stock_list.iterrows():
-#         q.put(r["code"])
-#         p.apply_async(
-#             update_stock_daybar,
-#             args=(q, r["code"], end_date),
-#             callback=p_update,
-#         )
-
-#     print("Waiting for all subprocesses done...")
-#     p.close()
-#     p.join()
-#     end = time.time()
-#     print(f"{q.qsize()} 条更新失败")
-#     if q.qsize() > 0:
-#         error_list = []
-#         while True:
-#             try:
-#                 code = q.get(block=False)
-#                 print(code)
-#                 error_list.append(code)
-#             except Exception as e:
-#                 print(e)
-#                 break
-
-#     print("All Daybar subprocesses done. Tasks runs %0.2f seconds." % (end - start))
+        queue_put.put(code)
+        queue_get.get()
 
 
-# def update_adjust_factor(queue, code):
-#     rs = bao_instance.get_adjust_factor(code=code)
-#     bao_instance.logout()
-#     if rs.shape[0] > 0:
-#         gm.upsert_adjustfactor(data_frame=rs)
-#     queue.get(code)
+def process_pct(queue_get, queue_put, pbar):
+    while True:
+        try:
+            e = queue_put.get(block=False)
+            pbar.update()
+        except Exception as e:
+            if queue_get.qsize() == 0:
+                break
+        time.sleep(0.05)
 
 
-# def adjust_factor_update_async():
-#     print(f"Main Process {os.getpid()}.")
-#     start = time.time()
-#     cpu_core_num = multiprocessing.cpu_count()
+def daybar_update_async():
+    gl.logger.critical(f"Main Process {os.getpid()}..")
+    start = time.time()
+    cpu_core_num = multiprocessing.cpu_count()
+    process_num = 4
 
-#     stock_list = gm.get_all_stockcode_by_mongo()
-#     print(stock_list.shape[0])
-#     q = Manager().Queue(stock_list.shape[0])
-#     p = multiprocessing.Pool(cpu_core_num - 1)
-#     print(f"建立了一个 {cpu_core_num - 1} 容量的进程池")
+    stock_list = gm.get_all_stockcode_by_mongo()
 
-#     pbar = tqdm.tqdm(total=stock_list.shape[0])
-#     pbar.set_description("AdjustFactor Update")
+    stock_num = len(stock_list)
+    end_date = bao_instance.get_baostock_last_date()
 
-#     def p_update(*a):
-#         pbar.update()
+    gl.logger.info(f"Daybar准备更新至：{end_date}")
+    gl.logger.info(f"Stock:{stock_list.shape[0]}")
 
-#     for i, r in stock_list.iterrows():
-#         q.put(r["code"])
-#         p.apply_async(
-#             update_adjust_factor,
-#             args=(q, r["code"]),
-#             callback=p_update,
-#         )
-#     print("Waiting for all subprocesses done...")
-#     p.close()
-#     p.join()
-#     end = time.time()
-#     print(
-#         "All AdjustFactor subprocesses done. Tasks runs %0.2f seconds." % (end - start)
-#     )
+    q_put = Manager().Queue(stock_list.shape[0])
+    q_get = Manager().Queue(stock_list.shape[0])
+    p = multiprocessing.Pool(process_num)
 
+    for i in range(stock_num):
+        q_get.put(1)
 
-# def update_stock_min5(queue, code, end_date):
-#     # print(f"Run task pid:{os.getpid()}...")
-#     try:
-#         # 尝试从mongoDB查询该指数的最新数据
-#         last_date = gm.get_min5_latestDate_by_mongo(code=code)
-#     except Exception:
-#         # 失败则把开始日期设置为初识日期
-#         last_date = bao_instance.init_date
+    gl.logger.info(f"建立了一个 {process_num} 容量的进程池")
+    split_count = math.ceil(stock_num / process_num)
 
-#     if last_date != end_date:
-#         rs = bao_instance.get_data(
-#             code=code,
-#             data_frequency="5",
-#             start_date=last_date,
-#             end_date=end_date,
-#         )
-#         bao_instance.logout()
-#         if rs.shape[0] > 0:
-#             gm.update_min5(code, rs)
-#         else:
-#             gm.set_nomin5(code=code)
-#     queue.get(code)
+    pbar = tqdm.tqdm(total=stock_list.shape[0])
+    pbar.set_description("DayBar Update")
+    # 启一个监控的线程
+    gl.logger.info(f"启动监控线程")
+    controller = threading.Thread(target=process_pct, args=(q_get, q_put, pbar))
+    controller.start()
+
+    # 启动进程池
+    for i in range(process_num):
+        a = i * split_count
+        b = stock_num if i == process_num - 1 else (i + 1) * split_count
+        # slist = stock_list[a:b].values.tolist()
+        slist = stock_list[a:b]
+
+        p.apply_async(
+            update_stock_daybar,
+            args=(q_get, q_put, slist, end_date),
+        )
+
+    gl.logger.info("Waiting for all subprocesses done...")
+    p.close()
+    p.join()
+    end = time.time()
+    gl.logger.info(
+        "All Daybar subprocesses done. Tasks runs %0.2f seconds." % (end - start)
+    )
 
 
-# def min5_update_async():
-#     print(f"Main Process {os.getpid()}.")
-#     start = time.time()
-#     cpu_core_num = multiprocessing.cpu_count()
+def update_stock_min5(queue_get, queue_put, codesdf, end_date):
+    gl.logger.warning(f"Sub pid:{os.getpid()}...")
+    for i in codesdf:
+        code = i
+        try:
+            # 尝试从mongoDB查询该指数的最新数据
+            last_date = gm.get_min5_latestDate_by_mongo(code=code)
+        except Exception:
+            # 失败则把开始日期设置为初识日期
+            last_date = bao_instance.init_date
 
-#     stock_list = gm.get_all_stockcode_by_mongo()
-#     insert_list = []
-
-#     for i, r in stock_list.iterrows():
-#         if gm.check_stock_min5(code=r["code"]):
-#             insert_list.append(r["code"])
-#     print(f"Stock:{stock_list.shape[0]}, HasMin5:{len(insert_list)}")
-#     end_date = bao_instance.get_baostock_last_date()
-#     bao_instance.logout()
-#     print(f"Min5准备更新至：{end_date}")
-#     q = Manager().Queue(stock_list.shape[0])
-#     p = multiprocessing.Pool(cpu_core_num - 1)
-#     print(f"建立了一个 {cpu_core_num - 1} 容量的进程池")
-
-#     pbar = tqdm.tqdm(total=len(insert_list))
-#     pbar.set_description("更新Min5")
-
-#     def p_update(*a):
-#         pbar.update()
-
-#     for i in insert_list:
-#         q.put(i)
-#         p.apply_async(
-#             update_stock_min5,
-#             args=(q, i, end_date),
-#             callback=p_update,
-#         )
-#     print("Waiting for all subprocesses done...")
-#     p.close()
-#     p.join()
-#     end = time.time()
-#     print(f"{q.qsize()} 条更新失败")
-#     if q.qsize() > 0:
-#         error_list = []
-#         while True:
-#             try:
-#                 code = q.get(block=False)
-#                 print(code)
-#                 error_list.append(code)
-#             except Exception as e:
-#                 print(e)
-#                 break
-
-#     print("All Min5 subprocesses done. Tasks runs %0.2f seconds." % (end - start))
+        if last_date != end_date:
+            rs = bao_instance.get_data(
+                code=code,
+                data_frequency="5",
+                start_date=last_date,
+                end_date=end_date,
+            )
+            if rs.shape[0] > 0:
+                gm.update_min5(code, rs)
+            else:
+                gm.set_nomin5(code=code)
+        queue_put.put(code)
+        queue_get.get()
 
 
-# def update_coin_min1(queue, code):
-#     if not gm.is_coin_exist:
-#         print("虚拟币不在更新列表内，请检查代码")
-#         return
-#     # 从后往后更新
-#     end_time = gm.get_coin_tail_time_by_mongo(coin_id=code)
-#     forward_go = True
-#     start_time = end_time - coin_cap_instance.one_day_sec
-#     empty_count = 0
-#     insert_df = pd.DataFrame()
-#     split_count = 10000
-#     while forward_go:
-#         start_time += coin_cap_instance.one_day_sec
-#         rs = coin_cap_instance.get_min_data_by_time(
-#             coin_id=code, interval="m1", time_start=start_time
-#         )
-#         if rs.shape[0] == 0:
-#             empty_count += 1
-#             print(f"空数据{empty_count}次")
-#             forward_go = False if empty_count >= 2 else True
-#         else:
-#             insert_df = insert_df.append(rs)
-#             if insert_df.shape[0] > split_count:
-#                 gm.upsert_coin_m1(coin_id=code, df=insert_df)
-#                 insert_df = pd.DataFrame()
+def min5_update_async():
+    gl.logger.critical(f"Main Process {os.getpid()}.")
+    start = time.time()
+    cpu_core_num = multiprocessing.cpu_count()
+    process_num = 4
 
-#     # 从前往前更新
-#     backward_go = True
-#     start_time = (
-#         gm.get_coin_head_time_by_mongo(coin_id=code) + coin_cap_instance.one_day_sec
-#     )
+    stock_list = gm.get_all_stockcode_by_mongo()
 
-#     while backward_go:
-#         start_time -= coin_cap_instance.one_day_sec
-#         rs = coin_cap_instance.get_min_data_by_time(
-#             coin_id=code, interval="m1", time_start=start_time
-#         )
-#         if rs.shape[0] == 0:
-#             empty_count += 1
-#             print(f"空数据{empty_count}次")
-#             backward_go = False if empty_count >= 2 else True
-#         else:
-#             insert_df = insert_df.append(rs)
-#             if insert_df.shape[0] > split_count:
-#                 gm.upsert_coin_m1(coin_id=code, df=insert_df)
-#                 insert_df = pd.DataFrame()
-#     if insert_df.shape[0] > 0:
-#         gm.upsert_coin_m1(coin_id=code, df=insert_df)
-#     queue.get(code)
+    stock_num = len(stock_list)
+    end_date = bao_instance.get_baostock_last_date()
 
+    insert_list = []
 
-# def coin_udpate_async():
-#     print(f"Main Process {os.getpid()}.")
-#     start = time.time()
-#     cpu_core_num = multiprocessing.cpu_count()
+    for i, r in stock_list.iterrows():
+        if gm.check_stock_min5(code=r["code"]):
+            insert_list.append(r["code"])
+    gl.logger.warn(f"Stock:{stock_list.shape[0]}, HasMin5:{len(insert_list)}")
+    gl.logger.debug(f"Min5准备更新至：{end_date}")
+    q_put = Manager().Queue(len(insert_list))
+    q_get = Manager().Queue(len(insert_list))
+    p = multiprocessing.Pool(process_num)
 
-#     coin_list = gm.get_coin_list_by_mongo()
-#     print(coin_list)
-#     q = Manager().Queue(coin_list.shape[0])
-#     p = multiprocessing.Pool(cpu_core_num - 1)
-#     print(f"建立了一个 {cpu_core_num - 1} 容量的进程池")
+    gl.logger.info(f"建立了一个 {process_num} 容量的进程池")
 
-#     pbar = tqdm.tqdm(total=coin_list.shape[0])
-#     pbar.set_description("更新Coin")
+    for i in range(len(insert_list)):
+        q_get.put(1)
+    pbar = tqdm.tqdm(total=len(insert_list))
+    pbar.set_description("更新Min5")
 
-#     def p_update(*a):
-#         pbar.update()
+    # 启一个监控的线程
+    gl.logger.info(f"启动监控线程")
+    controller = threading.Thread(target=process_pct, args=(q_get, q_put, pbar))
+    controller.start()
 
-#     for i, r in coin_list.iterrows():
-#         q.put(r["id"])
-#         p.apply_async(
-#             update_coin_min1,
-#             args=(q, r["id"]),
-#             callback=p_update,
-#         )
+    split_count = math.ceil(stock_num / process_num)
+    # 启动进程池
+    for i in range(process_num):
+        a = i * split_count
+        b = stock_num if i == process_num - 1 else (i + 1) * split_count
+        slist = insert_list[a:b]
+        p.apply_async(
+            update_stock_min5,
+            args=(q_get, q_put, slist, end_date),
+        )
+    print("Waiting for all subprocesses done...")
+    p.close()
+    p.join()
+    end = time.time()
 
-#     print("Waiting for all subprocesses done...")
-#     p.close()
-#     p.join()
-#     end = time.time()
-#     print(f"{q.qsize()} 条更新失败")
-#     if q.qsize() > 0:
-#         error_list = []
-#         while True:
-#             try:
-#                 code = q.get(block=False)
-#                 print(code)
-#                 error_list.append(code)
-#             except Exception as e:
-#                 print(e)
-#                 break
-
-#     print("All Coin subprocesses done. Tasks runs %0.2f seconds." % (end - start))
+    print("All Min5 subprocesses done. Tasks runs %0.2f seconds." % (end - start))
 
 
 if __name__ == "__main__":
     gm.update_stockinfo()
     gm.update_adjustfactor()
-    gm.update_daybar_async()
-    gm.update_min5_async()
+    daybar_update_async()
+    min5_update_async()
