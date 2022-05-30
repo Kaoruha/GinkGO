@@ -15,6 +15,7 @@ from multiprocessing import Manager
 
 def update_stock_daybar(queue_get, queue_put, codesdf, end_date):
     gl.logger.warn(f"Sub Process {os.getpid()}..")
+    gl.logger.info(len(codesdf))
     for i, r in codesdf.iterrows():
         code = r["code"]
         try:
@@ -23,6 +24,13 @@ def update_stock_daybar(queue_get, queue_put, codesdf, end_date):
         except Exception:
             # 失败则把开始日期设置为初识日期
             last_date = bao_instance.init_date
+
+        # rs = bao_instance.get_data(
+        #     code=code,
+        #     data_frequency="d",
+        #     start_date=last_date,
+        #     end_date=end_date,
+        # )
 
         if last_date != end_date:
             rs = bao_instance.get_data(
@@ -38,26 +46,28 @@ def update_stock_daybar(queue_get, queue_put, codesdf, end_date):
         queue_get.get()
 
 
-def process_pct(queue_get, queue_put, pbar):
-    t = datetime.datetime.now()
-    t = t.strftime("%H:%M:%S")
-    pbar.set_description(f"{t} DayBar Update")
+def process_pct(queue_get, queue_put, pbar, datatype):
     while True:
+        t = datetime.datetime.now()
+        t = t.strftime("%H:%M:%S")
+        pbar.set_description(f"{t} {datatype} Update")
         try:
             e = queue_put.get(block=False)
             pbar.update()
         except Exception as e:
             if queue_get.qsize() == 0:
                 break
+        time.sleep(0.01)
 
 
 def daybar_update_async():
     gl.logger.critical(f"Main Process {os.getpid()}..")
     start = time.time()
     cpu_core_num = multiprocessing.cpu_count()
-    process_num = 12
+    process_num = 4
 
     stock_list = gm.get_all_stockcode_by_mongo()
+    stock_list = stock_list[1000:1400]
 
     stock_num = len(stock_list)
     end_date = bao_instance.get_baostock_last_date()
@@ -79,7 +89,9 @@ def daybar_update_async():
     pbar.set_description("DayBar Update")
     # 启一个监控的线程
     gl.logger.info(f"启动监控线程")
-    controller = threading.Thread(target=process_pct, args=(q_get, q_put, pbar))
+    controller = threading.Thread(
+        target=process_pct, args=(q_get, q_put, pbar, "DayBar")
+    )
     controller.start()
 
     # 启动进程池
@@ -161,7 +173,7 @@ def min5_update_async():
 
     # 启一个监控的线程
     gl.logger.info(f"启动监控线程")
-    controller = threading.Thread(target=process_pct, args=(q_get, q_put, pbar))
+    controller = threading.Thread(target=process_pct, args=(q_get, q_put, pbar, "Min5"))
     controller.start()
 
     split_count = math.ceil(stock_num / process_num)
@@ -187,6 +199,6 @@ def min5_update_async():
 
 if __name__ == "__main__":
     gm.update_stockinfo()
-    gm.update_adjustfactor()
+    # gm.update_adjustfactor()
     daybar_update_async()
-    min5_update_async()
+    # min5_update_async()
