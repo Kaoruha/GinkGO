@@ -312,7 +312,6 @@ class BaoStockData(object):
             # 获取一条记录，将记录合并在一起
             data_list.append(rs.get_row_data())
         result = pd.DataFrame(data_list, columns=rs.fields)
-        self.logout()
         # 返回结果
         gl.logger.info(f"{date} 指数代码共有{result.shape[0]}条.")
         return result
