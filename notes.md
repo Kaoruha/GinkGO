@@ -59,17 +59,6 @@ SENTMENT 情绪交易
 终端
 
 
-### Docker Mongo
-docker run -d -v /Users/suny/data/mongo:/data/db -v /Users/suny/data/mongo/mongod.conf:/etc/mongod.conf --restart=always -p 27017:27017 --name=ginkgo_mongo mongo
-
-docker run -d -v /Users/suny/data/mongo:/data/db --restart=always -p 27017:27017 --name=ginkgo_mongo mongo --config /etc/mongo/mongod.conf
-
-docker run -d -v /Users/suny/Development/mongo:/data/db --restart=always -p 27017:27017 --ulimit nproc=65535 --name=ginkgo_mongo mongo
-
-docker run -d -p 27017:27017 --ulimit nproc=65535 --name=ginkgo_mongo mongo
-docker run -d -v F:\mongo:/data/db --restart=always -p 27017:27017 --ulimit nproc=65535 --name=ginkgo_mongo mongo
-
-进入容器内部
 mongo
 use quant
 db.createUser({user:"ginkgo",pwd:"caonima123",roles:[{role:"readWrite",db:"quant"}]})

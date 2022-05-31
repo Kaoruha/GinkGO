@@ -1,7 +1,7 @@
 import unittest
 import datetime
-from src.libs import GINKGOLOGGER as gl
-from src.backtest.selector.random_selector import RandomSelector
+from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.backtest.selector.random_selector import RandomSelector
 
 
 class SelectorTest(unittest.TestCase):

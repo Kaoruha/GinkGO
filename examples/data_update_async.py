@@ -196,6 +196,9 @@ def min5_update_async():
 
 
 if __name__ == "__main__":
+    from ginkgo.config.setting import VERSION
+
+    print(VERSION)
     gm.update_stockinfo()
     gm.update_adjustfactor()
     daybar_update_async()

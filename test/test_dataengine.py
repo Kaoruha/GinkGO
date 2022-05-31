@@ -1,7 +1,7 @@
 import unittest
-from src.backtest.event_engine import EventEngine
-from src.libs import GINKGOLOGGER as gl
-from src.data.data_engine import DataEngine
+from ginkgo.backtest.event_engine import EventEngine
+from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.data.data_engine import DataEngine
 
 
 class TestDataEngine(unittest.TestCase):

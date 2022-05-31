@@ -1,12 +1,12 @@
 import unittest
-from src.backtest.broker.sim_tplus1_broker import SimT1Broker
-from src.backtest.events import MarketEvent, SignalEvent, OrderEvent, FillEvent
-from src.backtest.sizer.full_sizer import FullSizer
-from src.backtest.price import Bar
-from src.backtest.matcher.simulate_matcher import SimulateMatcher
-from src.backtest.enums import *
-from src.backtest.strategy.base_strategy import BaseStrategy
-from src.libs import GINKGOLOGGER as gl
+from ginkgo.backtest.broker.sim_tplus1_broker import SimT1Broker
+from ginkgo.backtest.events import MarketEvent, SignalEvent, OrderEvent, FillEvent
+from ginkgo.backtest.sizer.full_sizer import FullSizer
+from ginkgo.backtest.price import Bar
+from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
+from ginkgo.backtest.enums import *
+from ginkgo.backtest.strategy.base_strategy import BaseStrategy
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class SimT1BrokerTest(unittest.TestCase):

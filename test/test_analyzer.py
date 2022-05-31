@@ -1,7 +1,7 @@
 import unittest
-from src.backtest.analyzer.benchmark import BenchMark
-from src.backtest.broker.base_broker import BaseBroker
-from src.libs import GINKGOLOGGER as gl
+from ginkgo.backtest.analyzer.benchmark import BenchMark
+from ginkgo.backtest.broker.base_broker import BaseBroker
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class AnalyzerTest(unittest.TestCase):

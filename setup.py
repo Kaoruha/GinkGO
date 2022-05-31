@@ -1,5 +1,9 @@
+"""
+打包配置
+"""
+
 import setuptools
-from src.config.setting import (
+from ginkgo.config.setting import (
     PACKAGE_NAME,
     VERSION,
     AUTHOR,

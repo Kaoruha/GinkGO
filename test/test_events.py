@@ -1,13 +1,13 @@
 import unittest
-from src.backtest.events import MarketEvent, SignalEvent, OrderEvent, FillEvent
-from src.backtest.enums import (
+from ginkgo.backtest.events import MarketEvent, SignalEvent, OrderEvent, FillEvent
+from ginkgo.backtest.enums import (
     Direction,
     OrderStatus,
     OrderType,
     Source,
     MarketEventType,
 )
-from src.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class EventsTest(unittest.TestCase):

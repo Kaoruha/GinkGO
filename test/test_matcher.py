@@ -1,9 +1,9 @@
 import unittest
-from src.backtest.price import Bar
-from src.backtest.matcher.simulate_matcher import SimulateMatcher
-from src.backtest.events import OrderEvent
-from src.backtest.enums import Direction, Interval, OrderStatus, OrderType
-from src.libs import GINKGOLOGGER as gl
+from ginkgo.backtest.price import Bar
+from ginkgo.backtest.matcher.simulate_matcher import SimulateMatcher
+from ginkgo.backtest.events import OrderEvent
+from ginkgo.backtest.enums import Direction, Interval, OrderStatus, OrderType
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class SimulateMatcherTest(unittest.TestCase):
