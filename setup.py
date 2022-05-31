@@ -1,6 +1,12 @@
 import setuptools
-
-VERSION = "0.1.22"
+from src.config.setting import (
+    PACKAGE_NAME,
+    VERSION,
+    AUTHOR,
+    EMAIL,
+    DESCRIPTION,
+    PACKAGE_URL,
+)
 
 try:
     with open("README.md", "r", encoding="utf-8") as file:
@@ -9,13 +15,13 @@ except Exception as e:
     long_description = "Not found README.md"
 
 config = {
-    "package_name": "ginkgo",
+    "package_name": PACKAGE_NAME,
     "version": VERSION,
-    "author": "Suny",
-    "email": "sun159753@gmail.com",
-    "description": "An easy quant lib",
+    "author": AUTHOR,
+    "email": EMAIL,
+    "description": DESCRIPTION,
     "long_description": long_description,
-    "url": "url://",
+    "url": PACKAGE_URL,
 }
 
 setuptools.setup(

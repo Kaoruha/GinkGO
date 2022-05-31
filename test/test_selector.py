@@ -1,17 +1,7 @@
-"""
-Author: Kaoru
-Date: 2022-03-22 22:14:51
-LastEditTime: 2022-04-02 01:41:49
-LastEditors: Kaoru
-Description: Be stronger, be patient, be confident and never say die.
-FilePath: /Ginkgo/test/test_selector.py
-What goes around comes around.
-"""
-
 import unittest
 import datetime
-from ginkgo.libs import GINKGOLOGGER as gl
-from ginkgo.backtest.selector.random_selector import RandomSelector
+from src.libs import GINKGOLOGGER as gl
+from src.backtest.selector.random_selector import RandomSelector
 
 
 class SelectorTest(unittest.TestCase):

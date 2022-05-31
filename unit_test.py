@@ -1,8 +1,8 @@
 # coding:utf-8
 import argparse
 import unittest
-from ginkgo.config.setting import LOGGING_FILE_ON, LOGGING_PATH
-from ginkgo.libs import GINKGOLOGGER as gl
+from src.config.setting import LOGGING_FILE_ON, LOGGING_PATH
+from src.libs import GINKGOLOGGER as gl
 
 
 if __name__ == "__main__":

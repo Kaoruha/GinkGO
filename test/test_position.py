@@ -1,6 +1,6 @@
 import unittest
-from ginkgo.backtest.postion import Position
-from ginkgo.libs import GINKGOLOGGER as gl
+from src.backtest.postion import Position
+from src.libs import GINKGOLOGGER as gl
 
 
 class PositionTest(unittest.TestCase):

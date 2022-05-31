@@ -1,8 +1,8 @@
 import unittest
-from ginkgo.backtest.event_engine import EventEngine
-from ginkgo.backtest.events import *
-from ginkgo.backtest.enums import *
-from ginkgo.libs import GINKGOLOGGER as gl
+from src.backtest.event_engine import EventEngine
+from src.backtest.events import *
+from src.backtest.enums import *
+from src.libs import GINKGOLOGGER as gl
 
 
 class EventEngineTest(unittest.TestCase):

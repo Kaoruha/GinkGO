@@ -1,22 +1,13 @@
-"""
-Author: Kaoru
-Date: 2022-03-22 22:14:51
-LastEditTime: 2022-03-31 02:05:43
-LastEditors: Kaoru
-Description: Be stronger,be patient,be confident and never say die.
-FilePath: /Ginkgo/test/test_events.py
-What goes around comes around.
-"""
 import unittest
-from ginkgo.backtest.events import MarketEvent, SignalEvent, OrderEvent, FillEvent
-from ginkgo.backtest.enums import (
+from src.backtest.events import MarketEvent, SignalEvent, OrderEvent, FillEvent
+from src.backtest.enums import (
     Direction,
     OrderStatus,
     OrderType,
     Source,
     MarketEventType,
 )
-from ginkgo.libs import GINKGOLOGGER as gl
+from src.libs import GINKGOLOGGER as gl
 
 
 class EventsTest(unittest.TestCase):
