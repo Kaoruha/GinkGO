@@ -27,5 +27,7 @@ if "Windows" == str(platform.system()):
     os.system("docker-compose up -d")
 elif "Linux" == str(platform.system()):
     os.system("sudo docker-compose up -d")
+else:
+    os.system("docker-compose up -d")
 
 os.system("python ./setup_auto.py")
