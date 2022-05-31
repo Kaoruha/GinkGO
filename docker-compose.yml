@@ -10,6 +10,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: caonima123
     volumes:
       - ./mongo:/data/db
+      - ./mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js  # Dont set MONGO_INITDB_DATABASE, it will agains this scrpt
     networks:
       - nets
     ports:

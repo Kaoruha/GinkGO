@@ -472,7 +472,10 @@ class GinkgoMongo(object):
 
     def set_nomin5(self, code: str) -> None:
         col = self.db["stock_info"]
-        col.update_one({"code": code}, {"$set": {"has_min5": False}})
+        try:
+            col.update_one({"code": code}, {"$set": {"has_min5": False}})
+        except Exception as e:
+            pass
 
     def check_stock_min5(self, code: str) -> bool:
         col = self.db["stock_info"]
