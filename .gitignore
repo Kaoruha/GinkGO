@@ -142,6 +142,8 @@ static/data/*.*.csv
 # .vscode/launch.json
 # .vscode/settings.json
 .DS_Store
-dist/*
-logs/*
+dist/
+logs/
+build/
+ginkgo.egg-info/
 .logs
