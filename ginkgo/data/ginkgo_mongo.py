@@ -39,6 +39,8 @@ class GinkgoMongo(object):
         self.code_list_cache = None
         self.code_list_cache_last_update = None
 
+    # TODO Need multiprocessing plan.
+
     def __connect(self):
         """
         建立mongo连接
@@ -162,6 +164,7 @@ class GinkgoMongo(object):
         # 建立索引
         col.create_index([("code", 1), ("divid_operate_date", 1)])
 
+    # TODO Need multiprocessing plan.
     # 异步更新插入复权数据
     def upsert_adjustfactor_async(self, data_frame: pd.DataFrame, thread_num=2) -> None:
         """
@@ -443,16 +446,24 @@ class GinkgoMongo(object):
 
     # 获取某只股票日交易数据的最新日期
     def get_daybar_latestDate_by_mongo(self, code: str) -> str:
-        col = self.db[code]
-        result = col.find().sort("date", pymongo.DESCENDING).limit(1)
-        last_date = result[0]["date"]
+        last_date = ""
+        try:
+            col = self.db[code]
+            result = col.find().sort("date", pymongo.DESCENDING).limit(1)
+            last_date = result[0]["date"]
+        except Exception as e:
+            last_date = bs.init_date
         return last_date
 
     # 获取某股票min5数据的最新时间戳
     def get_min5_latestDate_by_mongo(self, code: str) -> str:
-        col = self.db[code + min5_postfix]
-        s = col.find().sort("date", pymongo.DESCENDING).limit(1)
-        last_time = s[0]["date"]
+        last_time = ""
+        try:
+            col = self.db[code + min5_postfix]
+            s = col.find().sort("date", pymongo.DESCENDING).limit(1)
+            last_time = s[0]["date"]
+        except Exception as e:
+            last_time = bs.init_date
         return last_time
 
     def print_dead_stock(self):
@@ -573,26 +584,3 @@ class GinkgoMongo(object):
 ginkgo_mongo = GinkgoMongo(
     host=HOST, port=PORT, username=USERNAME, password=PASSWORD, database=DATABASE
 )
-
-
-def update_stock_daybar(queue, code, end_date, pbar):
-    print(f"Run task pid:{os.getpid()}...")
-
-    try:
-        # 尝试从mongoDB查询该指数的最新数据
-        last_date = ginkgo_mongo.get_daybar_latestDate_by_mongo(code=code)
-    except Exception:
-        # 失败则把开始日期设置为初识日期
-        last_date = bi.init_date
-
-    if last_date != end_date:
-        rs = bi.get_data(
-            code=code,
-            data_frequency="d",
-            start_date=last_date,
-            end_date=end_date,
-        )
-        if rs.shape[0] > 0:
-            ginkgo_mongo.update_daybar(code, rs)
-    queue.get(code)
-    pbar.update()

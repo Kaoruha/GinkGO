@@ -100,6 +100,10 @@ class BaoStockData(object):
                     data_list.append(rs.get_row_data())
                 # gl.logger.info(f"成功获取 {code} 从 {start_date} 至 {end_date} 的数据")
             elif rs.error_code == "10004011":
+                # Code not in sh or sz
+                return pd.DataFrame()
+            elif rs.error_code == "10002007":
+                # Network Error
                 return pd.DataFrame()
             else:
                 # 10001001
@@ -115,6 +119,7 @@ class BaoStockData(object):
                 )
                 if self.getdata_count >= self.getdata_max:
                     self.getdata_count = 0
+                    return pd.DataFrame()
                 else:
                     self.logout()
                     self.login()

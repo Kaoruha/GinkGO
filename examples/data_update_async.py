@@ -14,29 +14,34 @@ from multiprocessing import Manager
 
 def update_stock_daybar(q_stocks, q_result, end_date):
     pid = os.getpid()
-    gl.logger.warn(f"Sub Process {pid}..")
+    gl.logger.warning(f"Sub Process {pid}..")
+
     while True:
         if q_stocks.empty():
             gl.logger.critical(f"Pid {pid} End")
             break
         else:
             code = q_stocks.get(block=False)
-            try:
-                # 尝试从mongoDB查询该指数的最新数据
-                last_date = gm.get_daybar_latestDate_by_mongo(code=code)
-            except Exception as e:
-                # 失败则把开始日期设置为初识日期
-                last_date = bao_instance.init_date
+            print(code)
+            # 尝试从mongoDB查询该指数的最新数据
+            last_date = gm.get_daybar_latestDate_by_mongo(code=code)
+
+            print(f"{code} lastdate:{last_date}")
 
             if last_date != end_date:
-                rs = bao_instance.get_data(
-                    code=code,
-                    data_frequency="d",
-                    start_date=last_date,
-                    end_date=end_date,
-                )
-                if rs.shape[0] > 0:
-                    gm.update_daybar(code, rs)
+                try:
+                    rs = bao_instance.get_data(
+                        code=code,
+                        data_frequency="d",
+                        start_date=last_date,
+                        end_date=end_date,
+                    )
+                    if rs.shape[0] > 0:
+                        gm.update_daybar(code, rs)
+                except Exception as e:
+                    gl.logger.error(e)
+                    q_result.put(code)
+                    # TODO Need a error queue to store exception code
 
             q_result.put(code)
 
@@ -46,6 +51,8 @@ def process_pct(q_stocks, q_result, pbar, datatype):
         if q_result.empty() and q_stocks.empty():
             gl.logger.critical(f"{datatype} Update End")
             break
+
+        print(f"Stocck: {q_stocks.qsize()}  Result: {q_result.qsize()}")
 
         t = datetime.datetime.now()
         t = t.strftime("%H:%M:%S")
@@ -58,7 +65,7 @@ def process_pct(q_stocks, q_result, pbar, datatype):
         except Exception as e:
             if q_stocks.qsize() == 0:
                 break
-        time.sleep(0.01)
+        time.sleep(5.01)
 
 
 def daybar_update_async():
@@ -66,10 +73,12 @@ def daybar_update_async():
     start = time.time()
     cpu_core_num = multiprocessing.cpu_count()
     process_num = cpu_core_num
+    process_num = 1
 
     stock_list = gm.get_all_stockcode_by_mongo()
 
     stock_num = len(stock_list)
+    gl.logger.critical(f"Total Stocks: {stock_num}")
     end_date = bao_instance.get_baostock_last_date()
 
     gl.logger.info(f"Daybar准备更新至：{end_date}")
@@ -200,6 +209,6 @@ if __name__ == "__main__":
 
     print(VERSION)
     gm.update_stockinfo()
-    gm.update_adjustfactor()
+    # gm.update_adjustfactor()
     daybar_update_async()
     min5_update_async()

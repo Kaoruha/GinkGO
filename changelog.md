@@ -1,3 +1,6 @@
+##### 0.1.25
+  - DataUpdate bug fix.
+
 ##### 0.1.24
   - Upgrade AutoDeployment Script.
   - - Add Auto Compile and install script  setup_auto.py
