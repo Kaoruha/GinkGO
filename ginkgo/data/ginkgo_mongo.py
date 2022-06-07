@@ -463,7 +463,7 @@ class GinkgoMongo(object):
             s = col.find().sort("date", pymongo.DESCENDING).limit(1)
             last_time = s[0]["date"]
         except Exception as e:
-            last_time = bs.init_date
+            last_time = bi.init_date
         return last_time
 
     def print_dead_stock(self):

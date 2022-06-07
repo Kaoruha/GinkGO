@@ -49,6 +49,7 @@ def process_pct(q_stocks, q_result, pbar, datatype):
         if q_result.empty() and q_stocks.empty():
             gl.logger.critical(f"{datatype} Update End")
             break
+
         # print(f"Stocck: {q_stocks.qsize()}  Result: {q_result.qsize()}")
 
         t = datetime.datetime.now()
@@ -205,7 +206,7 @@ if __name__ == "__main__":
     from ginkgo.config.setting import VERSION
 
     print(VERSION)
-    gm.update_stockinfo()
-    gm.update_adjustfactor()
-    daybar_update_async()
+    # gm.update_stockinfo()
+    # gm.update_adjustfactor()
+    # daybar_update_async()
     min5_update_async()
