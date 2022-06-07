@@ -452,7 +452,7 @@ class GinkgoMongo(object):
             result = col.find().sort("date", pymongo.DESCENDING).limit(1)
             last_date = result[0]["date"]
         except Exception as e:
-            last_date = bs.init_date
+            last_date = bi.init_date
         return last_date
 
     # 获取某股票min5数据的最新时间戳
