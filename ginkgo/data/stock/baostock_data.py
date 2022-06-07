@@ -99,12 +99,6 @@ class BaoStockData(object):
                     # 获取一条记录，将记录合并在一起
                     data_list.append(rs.get_row_data())
                 # gl.logger.info(f"成功获取 {code} 从 {start_date} 至 {end_date} 的数据")
-            elif rs.error_code == "10004011":
-                # Code not in sh or sz
-                return pd.DataFrame()
-            elif rs.error_code == "10002007":
-                # Network Error
-                return pd.DataFrame()
             else:
                 # 10001001
                 self.getdata_count += 1
@@ -119,7 +113,7 @@ class BaoStockData(object):
                 )
                 if self.getdata_count >= self.getdata_max:
                     self.getdata_count = 0
-                    return pd.DataFrame()
+                    return
                 else:
                     self.logout()
                     self.login()
@@ -160,29 +154,28 @@ class BaoStockData(object):
                     frequency=frequency,
                     adjustflag="3",
                 )
+
                 if rs.error_code == "0":
                     # 打印结果集
                     self.getdata_count = 0
                     while (rs.error_code == "0") & rs.next():
                         # 获取一条记录，将记录合并在一起
                         data_list.append(rs.get_row_data())
-                elif rs.error_code == "10004011":
-                    return pd.DataFrame()
                 else:
-                    # 10001001
                     self.getdata_count += 1
-                    gl.logger.error(
-                        "query_history_k_data_plus respond error_code:" + rs.error_code
-                    )
-                    gl.logger.error(
-                        "query_history_k_data_plus respond  error_msg:" + rs.error_msg
-                    )
-                    gl.logger.debug(
-                        f"Try Login GetDate{self.getdata_count}/{self.getdata_max}"
-                    )
+                    # gl.logger.error(
+                    #     "query_history_k_data_plus respond error_code:" + rs.error_code
+                    # )
+                    # gl.logger.error(
+                    #     "query_history_k_data_plus respond  error_msg:" + rs.error_msg
+                    # )
+                    # gl.logger.debug(
+                    #     f"Try Login GetDate{self.getdata_count}/{self.getdata_max}"
+                    # )
+
                     if self.getdata_count >= self.getdata_max:
                         self.getdata_count = 0
-                        return
+                        return pd.DataFrame()
                     else:
                         self.logout()
                         self.login()

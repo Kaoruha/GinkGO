@@ -37,7 +37,7 @@ def update_stock_daybar(q_stocks, q_result, end_date):
                     if rs.shape[0] > 0:
                         gm.update_daybar(code, rs)
                 except Exception as e:
-                    gl.logger.error(e)
+                    # gl.logger.error(e)
                     q_result.put(code)
                     # TODO Need a error queue to store exception code
 
@@ -62,7 +62,7 @@ def process_pct(q_stocks, q_result, pbar, datatype):
         except Exception as e:
             if q_stocks.qsize() == 0:
                 break
-        time.sleep(0.01)
+        # time.sleep(0.01)
 
 
 def daybar_update_async():
