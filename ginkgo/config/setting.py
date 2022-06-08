@@ -1,7 +1,7 @@
 import logging
 
 PACKAGE_NAME = "ginkgo"
-VERSION = "0.1.24"
+VERSION = "0.1.30"
 AUTHOR = "suny"
 EMAIL = "sun159753@gmai.com"
 DESCRIPTION = "my quant lib"

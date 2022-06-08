@@ -75,6 +75,7 @@ def daybar_update_async():
     stock_list = gm.get_all_stockcode_by_mongo()
 
     stock_num = len(stock_list)
+
     gl.logger.critical(f"Total Stocks: {stock_num}")
     end_date = bao_instance.get_baostock_last_date()
 
@@ -155,6 +156,8 @@ def min5_update_async():
     process_num = cpu_core_num
 
     stock_list = gm.get_all_stockcode_by_mongo()
+    for i, r in stock_list.iterrows():
+        print(r)
 
     end_date = bao_instance.get_baostock_last_date()
 

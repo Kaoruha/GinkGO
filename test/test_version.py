@@ -6,7 +6,7 @@ from ginkgo.libs import GINKGOLOGGER as gl
 class VersionTest(unittest.TestCase):
     pass
 
-    def test_GetSignal_OK(self):
+    def test_GetVersion_OK(self):
         print("")
         gl.logger.critical(f"查看版本")
         gl.logger.warning(VERSION)

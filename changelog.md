@@ -1,3 +1,7 @@
+##### 0.1.30
+  - Complete Engine Test
+  - Fix GinkgoEngine
+
 ##### 0.1.25
   - DataUpdate bug fix.
 
