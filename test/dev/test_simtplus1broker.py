@@ -163,7 +163,8 @@ class SimT1BrokerTest(unittest.TestCase):
         gl.logger.critical("SIMBroker成交事件处理测试开始.")
         params = [
             # 0code, 1direction, 2price, 3volume, 4fee, 5money
-            ("testcode0", Direction.BULL, 10, 1000, 101.21, 21.5)
+            ("testcode0", Direction.BULL, 10, 1000, 101.21, 21.5),
+            ("testcode0", Direction.BEAR, 10, 1000, 101.21, 21.5),
         ]
         b = self.reset()
         for i in params:

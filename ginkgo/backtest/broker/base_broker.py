@@ -273,11 +273,23 @@ class BaseBroker(abc.ABC):
         return True
 
     def restore_money(self, money: float) -> float:
+        """
+        Release the money from frozen.
+        """
         self.capital += money
         self.frozen_capital -= money
         gl.logger.info(
             f"{self.name}恢复冻结现金「{format(money,',')}」，目前持有现金「{format(self.capital,',')}」,目前冻结金额「{format(self.frozen_capital, ',')}」"
         )
+
+    def reduce_frozen_capital(self, money: float) -> bool:
+        if money > self.frozen_capital:
+            gl.logger.warn(
+                f"The Amount of money you want to reduce from frozen_capital is larger than the frozen_capital."
+            )
+            return False
+        self.frozen_capital -= money
+        return True
 
     def add_position(self, code: str, datetime: str, price: float, volume: int):
         """
@@ -322,20 +334,20 @@ class BaseBroker(abc.ABC):
         gl.logger.info(self.positions[code])
         return self.positions
 
-    def restore_frozen_position(
-        self, code: str, volume: int, datetime: str
-    ) -> Position:
+    def restore_frozen_position(self, code: str, volume: int, datetime: str) -> bool:
         """
         恢复冻结持仓
         """
         if code not in self.positions.keys():
             gl.logger.warn(f"当前经纪人未持有{code}，无法解除冻结，请检查代码")
-            return
+            return False
         if volume <= 0:
             gl.logger.warn(f"头寸解除冻结份额应该大于0")
-            return self.positions[code]
-        self.positions[code].unfreeze_sell(volume=volume)
-        return self.positions[code]
+            return False
+        if self.positions[code].unfreeze_sell(volume=volume):
+            return True
+        else:
+            return False
 
     def reduce_position(self, code: str, volume: int, datetime: str) -> bool:
         """

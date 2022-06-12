@@ -156,26 +156,26 @@ class BaoStockData(object):
                 )
 
                 if rs.error_code == "0":
-                    # 打印结果集
                     self.getdata_count = 0
+                    # 打印结果集
                     while (rs.error_code == "0") & rs.next():
                         # 获取一条记录，将记录合并在一起
                         data_list.append(rs.get_row_data())
                 else:
                     self.getdata_count += 1
-                    # gl.logger.error(
-                    #     "query_history_k_data_plus respond error_code:" + rs.error_code
-                    # )
-                    # gl.logger.error(
-                    #     "query_history_k_data_plus respond  error_msg:" + rs.error_msg
-                    # )
-                    # gl.logger.debug(
-                    #     f"Try Login GetDate{self.getdata_count}/{self.getdata_max}"
-                    # )
+                    gl.logger.error(
+                        "query_history_k_data_plus respond error_code:" + rs.error_code
+                    )
+                    gl.logger.error(
+                        "query_history_k_data_plus respond  error_msg:" + rs.error_msg
+                    )
+                    gl.logger.debug(
+                        f"Try Login GetDate{self.getdata_count}/{self.getdata_max}"
+                    )
 
                     if self.getdata_count >= self.getdata_max:
                         self.getdata_count = 0
-                        return pd.DataFrame()
+                        return
                     else:
                         self.logout()
                         self.login()

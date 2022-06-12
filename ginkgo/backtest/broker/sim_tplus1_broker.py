@@ -176,13 +176,20 @@ class SimT1Broker(BaseBroker):
             # 失败的成交
             # TODO 添加记录
             return
+        money = event.price * event.volume + event.fee
         if event.direction == Direction.BULL:
+            # Try cal frozen_capital
+            if not self.reduce_frozen_capital(money=money):
+                return
             # 买入成功
             if event.code in self.positions:
                 self.positions[event.code].update(
                     datetime=event.datetime, volume=event.volume, price=event.price
                 )
             else:
+                """
+                Add the position
+                """
                 self.positions[event.code] = Position(
                     code=event.code,
                     name=event.code,
@@ -190,7 +197,6 @@ class SimT1Broker(BaseBroker):
                     volume=event.volume,
                     datetime=event.datetime,
                 )
-                self.restore_money(event.money_remain)
 
         elif event.direction == Direction.BEAR:
             # 卖出失败
@@ -199,13 +205,15 @@ class SimT1Broker(BaseBroker):
                 return
 
             # 卖出成功
+            if not self.restore_frozen_position(
+                code=event.code, volume=event.volume, datetime=event.datetime
+            ):
+                return
+
             self.positions[event.code].update(
                 datetime=event.datetime, volume=-event.volume, price=event.price
             )
-            self.restore_frozen_position(
-                code=event.code, volume=event.volume, datetime=event.datetime
-            )
-            self.restore_money(event.money_remain)
+            self.capital += event.money_remain
 
     def general_handler(self, event):
         """

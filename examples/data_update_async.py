@@ -46,11 +46,10 @@ def update_stock_daybar(q_stocks, q_result, end_date):
 
 def process_pct(q_stocks, q_result, pbar, datatype):
     while True:
+        # print(f"Stocck: {q_stocks.qsize()}  Result: {q_result.qsize()}")
         if q_result.empty() and q_stocks.empty():
             gl.logger.critical(f"{datatype} Update End")
             break
-
-        # print(f"Stocck: {q_stocks.qsize()}  Result: {q_result.qsize()}")
 
         t = datetime.datetime.now()
         t = t.strftime("%H:%M:%S")
@@ -63,6 +62,7 @@ def process_pct(q_stocks, q_result, pbar, datatype):
         except Exception as e:
             if q_stocks.qsize() == 0:
                 break
+
         # time.sleep(0.01)
 
 
@@ -90,7 +90,6 @@ def daybar_update_async():
         q_stocks.put(r["code"])
 
     gl.logger.info(f"建立了一个 {process_num} 容量的进程池")
-    split_count = math.ceil(stock_num / process_num)
 
     pbar = tqdm.tqdm(total=stock_list.shape[0])
     pbar.set_description("DayBar Update")
@@ -120,7 +119,7 @@ def daybar_update_async():
 
 def update_stock_min5(q_stocks, q_result, end_date):
     pid = os.getpid()
-    gl.logger.warn(f"Sub Process {pid}..")
+    gl.logger.warning(f"Sub Process {pid}..")
     while True:
         if q_stocks.empty():
             gl.logger.critical(f"Pid {pid} End")
@@ -130,21 +129,25 @@ def update_stock_min5(q_stocks, q_result, end_date):
             # 尝试从mongoDB查询该指数的最新数据
             last_date = gm.get_min5_latestDate_by_mongo(code=code)
 
-            if last_date != end_date:
-                try:
-                    rs = bao_instance.get_data(
-                        code=code,
-                        data_frequency="5",
-                        start_date=last_date,
-                        end_date=end_date,
-                    )
-                    if rs.shape[0] > 0:
-                        gm.update_min5(code, rs)
-                    else:
-                        gm.set_nomin5(code=code)
-                except Exception as e:
-                    gl.logger.error(e)
-                    q_result.put(code)
+            # if last_date != end_date:
+            #     try:
+            #         pass
+            #         rs = bao_instance.get_data(
+            #             code=code,
+            #             data_frequency="5",
+            #             start_date=last_date,
+            #             end_date=end_date,
+            #         )
+            #         if rs.shape[0] > 0:
+            #             gm.update_min5(code, rs)
+            #         else:
+            #             gm.set_nomin5(code=code)
+            #     except Exception as e:
+            #         print("================================")
+            #         gl.logger.error(e)
+            #         gl.logger.error(e)
+            #         print("================================")
+            #         q_result.put(code)
 
             q_result.put(code)
 
@@ -156,8 +159,6 @@ def min5_update_async():
     process_num = cpu_core_num
 
     stock_list = gm.get_all_stockcode_by_mongo()
-    for i, r in stock_list.iterrows():
-        print(r)
 
     end_date = bao_instance.get_baostock_last_date()
 
@@ -167,7 +168,7 @@ def min5_update_async():
         if gm.check_stock_min5(code=r["code"]):
             insert_list.append(r["code"])
 
-    gl.logger.warn(f"Min5准备更新至：{end_date}")
+    gl.logger.warning(f"Min5准备更新至：{end_date}")
     stock_num = len(insert_list)
     q_result = Manager().Queue(stock_num)
     q_stocks = Manager().Queue(stock_num)
@@ -187,7 +188,6 @@ def min5_update_async():
     )
     controller.start()
 
-    split_count = math.ceil(stock_num / process_num)
     # 启动进程池
     for i in range(process_num):
         p.apply_async(
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     from ginkgo.config.setting import VERSION
 
     print(VERSION)
-    gm.update_stockinfo()
-    gm.update_adjustfactor()
-    daybar_update_async()
+    # gm.update_stockinfo()
+    # gm.update_adjustfactor()
+    # daybar_update_async()
     min5_update_async()
