@@ -6,10 +6,11 @@ import tqdm
 import threading
 import multiprocessing
 import pandas as pd
-from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo.data.ginkgo_mongo import GinkgoMongo
+from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
 from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.data.stock.baostock_data import bao_instance
+from ginkgo.config.secure import DATABASE, HOST, PORT, USERNAME, PASSWORD
 from multiprocessing import Manager
 
 
@@ -17,6 +18,9 @@ def update_stock_daybar(q_stocks, q_result, end_date):
     pid = os.getpid()
     gl.logger.warning(f"Sub Process {pid}..")
 
+    ginkgo_mongo = GinkgoMongo(
+        host=HOST, port=PORT, username=USERNAME, password=PASSWORD, database=DATABASE
+    )
     while True:
         if q_stocks.empty():
             gl.logger.critical(f"Pid {pid} End")
@@ -24,7 +28,7 @@ def update_stock_daybar(q_stocks, q_result, end_date):
         else:
             code = q_stocks.get(block=False)
             # 尝试从mongoDB查询该指数的最新数据
-            last_date = gm.get_daybar_latestDate_by_mongo(code=code)
+            last_date = ginkgo_mongo.get_daybar_latestDate_by_mongo(code=code)
 
             if last_date != end_date:
                 try:
@@ -35,7 +39,7 @@ def update_stock_daybar(q_stocks, q_result, end_date):
                         end_date=end_date,
                     )
                     if rs.shape[0] > 0:
-                        gm.update_daybar(code, rs)
+                        ginkgo_mongo.update_daybar(code, rs)
                 except Exception as e:
                     # gl.logger.error(e)
                     q_result.put(code)
@@ -120,6 +124,9 @@ def daybar_update_async():
 def update_stock_min5(q_stocks, q_result, end_date):
     pid = os.getpid()
     gl.logger.warning(f"Sub Process {pid}..")
+    ginkgo_mongo = GinkgoMongo(
+        host=HOST, port=PORT, username=USERNAME, password=PASSWORD, database=DATABASE
+    )
     while True:
         if q_stocks.empty():
             gl.logger.critical(f"Pid {pid} End")
@@ -127,27 +134,27 @@ def update_stock_min5(q_stocks, q_result, end_date):
         else:
             code = q_stocks.get(block=False)
             # 尝试从mongoDB查询该指数的最新数据
-            last_date = gm.get_min5_latestDate_by_mongo(code=code)
+            last_date = ginkgo_mongo.get_min5_latestDate_by_mongo(code=code)
 
-            # if last_date != end_date:
-            #     try:
-            #         pass
-            #         rs = bao_instance.get_data(
-            #             code=code,
-            #             data_frequency="5",
-            #             start_date=last_date,
-            #             end_date=end_date,
-            #         )
-            #         if rs.shape[0] > 0:
-            #             gm.update_min5(code, rs)
-            #         else:
-            #             gm.set_nomin5(code=code)
-            #     except Exception as e:
-            #         print("================================")
-            #         gl.logger.error(e)
-            #         gl.logger.error(e)
-            #         print("================================")
-            #         q_result.put(code)
+            if last_date != end_date:
+                try:
+                    pass
+                    rs = bao_instance.get_data(
+                        code=code,
+                        data_frequency="5",
+                        start_date=last_date,
+                        end_date=end_date,
+                    )
+                    if rs.shape[0] > 0:
+                        ginkgo_mongo.update_min5(code, rs)
+                    else:
+                        ginkgo_mongo.set_nomin5(code=code)
+                except Exception as e:
+                    print("================================")
+                    gl.logger.error(e)
+                    gl.logger.error(e)
+                    print("================================")
+                    q_result.put(code)
 
             q_result.put(code)
 
@@ -210,7 +217,7 @@ if __name__ == "__main__":
     from ginkgo.config.setting import VERSION
 
     print(VERSION)
-    gm.update_stockinfo()
-    gm.update_adjustfactor()
+    # gm.update_stockinfo()
+    # gm.update_adjustfactor()
     daybar_update_async()
     min5_update_async()
