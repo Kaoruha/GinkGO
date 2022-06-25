@@ -164,7 +164,6 @@ def min5_update_async():
     start = time.time()
     cpu_core_num = multiprocessing.cpu_count()
     process_num = cpu_core_num
-    process_num = 1
 
     stock_list = gm.get_all_stockcode_by_mongo()
 
