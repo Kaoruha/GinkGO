@@ -42,7 +42,7 @@ class BasePainter(abc.ABC):
         df["low"] = df["low"].astype(float)
         df["volume"] = df["volume"].astype(float)
         df["height"] = df["close"] - df["open"]
-        df["height"][df["height"] == 0] = 0.01
+        df["height"][df["height"] == 0] = 0.05
         if len(self.mav) > 0:
             for i in range(len(self.mav)):
                 name = "MA" + str(self.mav[i])

@@ -66,10 +66,9 @@ class CandleTrend(BasePainter):
         # 腊烛芯
         self.ax1.vlines(x, low, high, color=colors, linewidth=0.6, zorder=1, alpha=1)
         # 移动均线
-        if len(self.mav) > 0:
-            for i in range(len(self.mav)):
-                name = "MA" + str(self.mav[i])
-                self.ax1.plot(x, self.data[name], label=name, zorder=1)
+        for i in range(len(self.mav)):
+            name = "MA" + str(self.mav[i])
+            self.ax1.plot(x, self.data[name], label=name, zorder=1)
 
         # 成交量
         self.ax2.bar(x=x, height=volume, color=colors)
@@ -80,6 +79,17 @@ class CandleTrend(BasePainter):
         # self.ax1.xaxis.set_major_locator(
         #     mpl.ticker.MultipleLocator(base=int(len(x) / 10))
         # )
+
+        # Trend
+        trends = []
+        temp_high = high[0]
+        temp_low = low[0]
+        print(temp_high)
+        print(temp_low)
+        for i in range(x.shape[0]):
+            # TODO Draw Trend Line
+            trends.append(2000)
+        self.ax1.plot(x, trends, label="Trends", zorder=1)
 
         gutter = max(20, int(len(x) / 12))
         self.ax2.xaxis.set_major_locator(mpl.ticker.MultipleLocator(base=gutter))
