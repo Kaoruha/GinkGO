@@ -82,13 +82,18 @@ class CandleTrend(BasePainter):
 
         # Trend
         trends = []
-        temp_high = high[0]
-        temp_low = low[0]
-        print(temp_high)
-        print(temp_low)
+        temp_high = (0, high[0])
+        temp_low = (0, low[0])
+        temp_direction = 0  # 1 up, -1 down, 0 flat
         for i in range(x.shape[0]):
             # TODO Draw Trend Line
-            trends.append(2000)
+            trends.append(low[i])
+
+            if high[i] > temp_high[1] and low[i] > temp_low[1]:
+                temp_direction = 1
+            if high[i] < temp_high[1] and low[i] < temp_low[1]:
+                temp_direction = -1
+
         self.ax1.plot(x, trends, label="Trends", zorder=1)
 
         gutter = max(20, int(len(x) / 12))
