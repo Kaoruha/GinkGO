@@ -1,54 +1,54 @@
-# 使用手册
+# README
 
-### 1、 开发环境部署
+### 1.Requiments
 
-需要提前安装Python，建议3.6以上版本
-建议提前安装好Docker，以及Docker-compose
+- Python 3.6 ++
+- Docker
+- Docker-compose
 
-#### 1、创建虚拟环境
+#### 1.Create Virtual Enviroment
 
-#### 1.1、Python命令创建虚拟环境
+#### 1.1.Create your own enviroment
 
 ```shell script
 cd <project path>
 python -m venv venv
 ```
 
-#### 1.2、激活虚拟环境
-
-#### 1.2.1、windows平台 powershell
+#### 1.2、Activate the enviroment you created
 
 ```shell
+# Windows && Powershell
 venv\Scripts\Activate.ps1
-```
 
-#### 1.2.2、windows平台 cmd
-
-```shell
+# Windows && CMD Tool
 venv\Scripts\Activate.bat
-```
 
-#### 1.2.3、Unix/Linux下
-
-```shell
+# Linux && MacOS
 source venv/bin/activate
 ```
 
-### 2、运行安装脚本
-
+### 2.Run script to install everything
 ```shell
 python ./install.py
 ```
 
-### 3、如果顺利的话，会在dist目录下生成程序包，Docker会启动Mongo服务
-需要手动安装一下Dist目录下的程序包，
+### 3.If it goes well, you will have docker running called ginkgo-mongo
+
+### 4.You could update data by script.
 ```shell
-pip install ./dist/ginkgo-x.xx.x
+python ./examples/data_update_async.py
 ```
+The script will auto download China's Stock info. Contains min5data and daybar.
+The data.py also have the code for downloading crypto data, but the code may be deperated. You should find apis or create your own spider.
 
-### 4、初步安装完成，可以书写自己的策略，利用策略引擎进行回测
+### 5.Run Examples\Simple_demo.py
 
-如果安装了新的库，请更新依赖文件
+This is a demo for the Engine.
+You could edit your own strategy and set indexes to confirm your idea.
+
+
+#### Update the requirements.
 ```shell
 pip freeze > requirements.yml
 ```
