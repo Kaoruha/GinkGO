@@ -19,6 +19,9 @@ os.system("pip install wheel")
 # 创建映射文件夹
 if not os.path.exists("mongo"):
     os.mkdir("mongo")
+# 创建Model
+if not os.path.exists("models"):
+    os.mkdir("models")
 # 创建日志文件夹
 if not os.path.exists("logs"):
     os.mkdir("logs")
