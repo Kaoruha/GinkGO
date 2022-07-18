@@ -65,7 +65,11 @@ class NeuralNetwork(nn.Module):
     def __init__(self, input_dim):
         super(NeuralNetwork, self).__init__()
         self.layers = nn.Sequential(
-            nn.Linear(input_dim, 6),
+            nn.Linear(input_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 64),
+            nn.ReLU(),
+            nn.Linear(64, 6),
             nn.ReLU(),
             nn.Linear(6, 1),
         )
@@ -121,7 +125,7 @@ def set_pbar_desc(pbar, desc):
 
 config = {
     "seed": 25601,
-    "lr": 1e-2,
+    "lr": 1e-5,
     "momentum": 0.9,
     "epochs": 5000,
     "early_stop": 500,
@@ -139,15 +143,19 @@ code_filter = [""]
 name_filter = [""]
 
 code_pool = all_stock["code"]
-code_pool = code_pool[1000:1102]
+code_pool = code_pool[1000:1002]
 
 x = pd.DataFrame()
 y = pd.DataFrame()
 df = pd.DataFrame()
 df_test = pd.DataFrame()
 data_pbar = tqdm.tqdm(code_pool, position=0, leave=True)
+
 time_start = time.time()
+
 desc_max = 25
+
+
 for code in code_pool:
     desc = f"Get {code}"
     set_pbar_desc(data_pbar, desc)
@@ -166,13 +174,19 @@ for code in code_pool:
         "is_st",
         "pre_close",
         "pct_change",
-        "turn",
+        # "turn",
+        # "open",
+        # "high",
+        # "low",
+        # "volume",
+        # "amount",
+        # "trade_status",
     ]
 
     df_temp.drop(labels=drop_index, axis=1, inplace=True)
 
-    observe_window = 2
-    hold_window = 4
+    observe_window = 20
+    hold_window = 5
 
     columns = df_temp.columns
 
@@ -180,7 +194,7 @@ for code in code_pool:
         step = i + 1
         for j in columns:
             new_column = j + "-" + str(step)
-            df_temp[new_column] = df_temp[j].shift(-step)
+            df_temp[new_column] = df_temp[j].shift(step)
 
     # Deal ""
     df_temp.replace(to_replace=r"^\s*$", value=np.nan, regex=True, inplace=True)
@@ -197,8 +211,10 @@ for code in code_pool:
                     print(i)
             print(e)
 
-    df_temp["yhat"] = df_temp["close"] - df_temp[f"close-{observe_window}"]
+    df_temp["yhat"] = df_temp["close"].copy().shift(-hold_window)
+    df_temp["yhat"] = (df_temp["yhat"] - df_temp["close"]) / df_temp["close"]
 
+    # Remove the head and tail
     df_temp = df_temp[observe_window:-observe_window]
 
     x_temp = df_temp.iloc[:, :-1]
@@ -219,9 +235,8 @@ for code in code_pool:
 
 # Normalization
 ts = torch.tensor(df.to_numpy(), dtype=torch.float32)
-ts = nn.functional.normalize(ts, p=2, dim=0, eps=1e-12, out=None)
+
 ts_test = torch.tensor(df_test.to_numpy(), dtype=torch.float32)
-ts_test = nn.functional.normalize(ts_test, p=2, dim=0, eps=1e-12, out=None)
 
 
 # 3 Train
@@ -240,8 +255,9 @@ def split_feature(data):
 def train(train_loader, valid_loader, test_loader, model, config, device):
     # loss_fn = nn.CrossEntropyLoss()
     loss_func = nn.MSELoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(), lr=config["lr"], momentum=config["momentum"]
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=config["lr"],
     )
     writer = SummaryWriter(log_dir=config["log_url"])  # Writer of tensoboard
 
@@ -266,8 +282,9 @@ def train(train_loader, valid_loader, test_loader, model, config, device):
 
             y = y.to(device)
             pred = model(x)
-            pred = pred.unsqueeze(1)
+            # pred = pred.unsqueeze(1)
             loss = loss_func(pred, y)
+
             optimizer.zero_grad()  # Set gradient to zero
             loss.backward()  # Compute gradient(backpropagation)
             optimizer.step()
@@ -336,12 +353,19 @@ seed = config["seed"]
 
 train_data, valid_data = train_valid_split(ts, cv_ratio, seed)
 
-
 # Select features
 x_train, y_train = split_feature(train_data)
 x_cv, y_cv = split_feature(valid_data)
 x_test, y_test = split_feature(ts_test)
 
+
+x_train_nor = nn.functional.normalize(x_train.dataset, p=2, dim=0, eps=1e-12, out=None)
+x_train = Subset(x_train_nor, x_train.indices)
+
+x_cv_nor = nn.functional.normalize(x_cv.dataset, p=2, dim=0, eps=1e-12, out=None)
+x_cv = Subset(x_cv_nor, x_cv.indices)
+
+x_test = nn.functional.normalize(x_test, p=2, dim=0, eps=1e-12, out=None)
 
 train_set = AStockDataset(x_train, y_train)
 valid_set = AStockDataset(x_cv, y_cv)
@@ -361,9 +385,10 @@ test_loader = DataLoader(
 
 
 # Start Train
-print(len(x_train.indices))
 input_dim = x_train.dataset.shape[1]
+print(f"Input: {input_dim}")
 model = NeuralNetwork(input_dim=input_dim).to(device)
+print("Model Contruction:")
 print(model)
 train(train_loader, valid_loader, test_loader, model, config, device)
 
