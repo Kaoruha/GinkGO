@@ -125,9 +125,9 @@ def set_pbar_desc(pbar, desc):
 
 config = {
     "seed": 25601,
-    "lr": 1e-5,
+    "lr": 1e-4,
     "momentum": 0.9,
-    "epochs": 5000,
+    "epochs": 10000,
     "early_stop": 500,
     "save_path": "./models/easytest.ckpt",
     "batch_size": 256,
@@ -143,7 +143,7 @@ code_filter = [""]
 name_filter = [""]
 
 code_pool = all_stock["code"]
-code_pool = code_pool[1000:1002]
+code_pool = code_pool
 
 x = pd.DataFrame()
 y = pd.DataFrame()
@@ -185,8 +185,8 @@ for code in code_pool:
 
     df_temp.drop(labels=drop_index, axis=1, inplace=True)
 
-    observe_window = 20
-    hold_window = 5
+    observe_window = 30
+    hold_window = 10
 
     columns = df_temp.columns
 
@@ -211,8 +211,8 @@ for code in code_pool:
                     print(i)
             print(e)
 
-    df_temp["yhat"] = df_temp["close"].copy().shift(-hold_window)
-    df_temp["yhat"] = (df_temp["yhat"] - df_temp["close"]) / df_temp["close"]
+    df_temp["yhat"] = df_temp["low"].copy().shift(-hold_window)
+    df_temp["yhat"] = (df_temp["yhat"] - df_temp["high"]) / df_temp["high"]
 
     # Remove the head and tail
     df_temp = df_temp[observe_window:-observe_window]
@@ -231,6 +231,12 @@ for code in code_pool:
     df = pd.concat([df, df_train_temp], axis=0)
     df_test = pd.concat([df_test, df_test_temp], axis=0)
     data_pbar.update(1)
+
+
+print(df_temp.head(5))
+print(df_test_temp.head(5))
+
+time.sleep(199999)
 
 
 # Normalization
