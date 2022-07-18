@@ -1,7 +1,7 @@
 # Pytorch
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import Dataset, DataLoader, random_split, Subset
 
 # Sklearn
 import sklearn
@@ -39,14 +39,21 @@ class AStockDataset(Dataset):
         if y is None:
             self.y = y
         else:
-            self.y = torch.FloatTensor(y.to_numpy())
-        self.x = torch.FloatTensor(x.to_numpy())
+            if isinstance(y, torch.Tensor):
+                self.y = y
+            elif isinstance(y, torch.utils.data.dataset.Subset):
+                self.y = torch.FloatTensor(y)
 
-    def __getitem__(self, idx):
+        if isinstance(x, torch.Tensor):
+            self.x = x
+        elif isinstance(x, torch.utils.data.dataset.Subset):
+            self.x = torch.FloatTensor(x.dataset[x.indices])
+
+    def __getitem__(self, index):
         if self.y is None:
-            return self.x[idx]
+            return self.x[index]
         else:
-            return self.x[idx], self.y[idx]
+            return self.x[index], self.y[index]
 
     def __len__(self):
         return len(self.x)
@@ -58,9 +65,7 @@ class NeuralNetwork(nn.Module):
     def __init__(self, input_dim):
         super(NeuralNetwork, self).__init__()
         self.layers = nn.Sequential(
-            nn.Linear(input_dim, 24),
-            nn.ReLU(),
-            nn.Linear(24, 6),
+            nn.Linear(input_dim, 6),
             nn.ReLU(),
             nn.Linear(6, 1),
         )
@@ -86,15 +91,14 @@ def same_seed(seed):
 def train_valid_split(data_set, valid_ratio, seed):
     """Split provided training data into training set and validation set"""
     valid_set_size = int(valid_ratio * data_set.shape[0])
+
     train_set_size = data_set.shape[0] - valid_set_size
-    print(valid_set_size)
-    print(train_set_size)
     train_set, valid_set = random_split(
         data_set,
         [train_set_size, valid_set_size],
         generator=torch.Generator().manual_seed(seed),
     )
-    return np.array(train_set), np.array(valid_set)
+    return train_set, valid_set
 
 
 def predict(test_loader, model, device):
@@ -117,14 +121,15 @@ def set_pbar_desc(pbar, desc):
 
 config = {
     "seed": 25601,
-    "lr": 1e-3,
+    "lr": 1e-2,
     "momentum": 0.9,
-    "epochs": 500,
-    "early_stop": 100,
+    "epochs": 5000,
+    "early_stop": 500,
     "save_path": "./models/easytest.ckpt",
-    "batch_size": 512,
+    "batch_size": 256,
     "test_ratio": 0.4,
     "cv_ratio": 0.3,
+    "log_url": "./logs/easy_try/",
 }
 
 
@@ -134,11 +139,12 @@ code_filter = [""]
 name_filter = [""]
 
 code_pool = all_stock["code"]
-code_pool = code_pool[1000:1001]
+code_pool = code_pool[1000:1102]
 
 x = pd.DataFrame()
 y = pd.DataFrame()
 df = pd.DataFrame()
+df_test = pd.DataFrame()
 data_pbar = tqdm.tqdm(code_pool, position=0, leave=True)
 time_start = time.time()
 desc_max = 25
@@ -199,23 +205,45 @@ for code in code_pool:
     y_temp = df_temp.iloc[:, -1]
     x = pd.concat([x, x_temp], axis=0)
     y = pd.concat([y, y_temp], axis=0)
-    df = pd.concat([df, df_temp], axis=0)
+
+    train_valid_split_index = df_temp.shape[0] - int(
+        df_temp.shape[0] * config["test_ratio"]
+    )
+    df_train_temp = df_temp[:train_valid_split_index].copy()
+    df_test_temp = df_temp[train_valid_split_index:].copy()
+
+    df = pd.concat([df, df_train_temp], axis=0)
+    df_test = pd.concat([df_test, df_test_temp], axis=0)
     data_pbar.update(1)
+
+
+# Normalization
+ts = torch.tensor(df.to_numpy(), dtype=torch.float32)
+ts = nn.functional.normalize(ts, p=2, dim=0, eps=1e-12, out=None)
+ts_test = torch.tensor(df_test.to_numpy(), dtype=torch.float32)
+ts_test = nn.functional.normalize(ts_test, p=2, dim=0, eps=1e-12, out=None)
 
 
 # 3 Train
 def split_feature(data):
-    x = data.iloc[:, :-1]
-    y = data.iloc[:, -1]
+    if isinstance(data, torch.Tensor):
+        x = data[:, :-1]
+        y = data[:, -1]
+    else:
+        x = data.dataset[:, :-1]
+        x = Subset(x, data.indices)
+        y = data.dataset[:, -1]
+        y = Subset(y, data.indices)
     return x, y
 
 
-def train(train_loader, valid_loader, model, config, device):
-    loss_fn = nn.CrossEntropyLoss()
+def train(train_loader, valid_loader, test_loader, model, config, device):
+    # loss_fn = nn.CrossEntropyLoss()
+    loss_func = nn.MSELoss()
     optimizer = torch.optim.SGD(
         model.parameters(), lr=config["lr"], momentum=config["momentum"]
     )
-    writer = SummaryWriter()  # Writer of tensoboard
+    writer = SummaryWriter(log_dir=config["log_url"])  # Writer of tensoboard
 
     # Create directory of saving models
     if not os.path.isdir("./models"):
@@ -233,38 +261,21 @@ def train(train_loader, valid_loader, model, config, device):
 
         train_pbar = tqdm.tqdm(train_loader, position=0, leave=True)
 
-        # print("=" * 30)
-        # for i in train_pbar:
-        #     print(len(i))
-        #     print(i[0])
-        #     time.sleep(0.2)
-        #     print(i[1])
-        #     time.sleep(0.2)
-
         for x, y in train_pbar:
-            optimizer.zero_grad()  # Set gradient to zero
             x = x.to(device)
+
             y = y.to(device)
             pred = model(x)
             pred = pred.unsqueeze(1)
-            loss = loss_fn(pred, y)
-            print(loss.size())
+            loss = loss_func(pred, y)
+            optimizer.zero_grad()  # Set gradient to zero
             loss.backward()  # Compute gradient(backpropagation)
             optimizer.step()
             step += 1
             loss_record.append(loss.detach().item())
-            # print(loss.detach().item())
-            time.sleep(0.2)
-            print("=" * 20)
 
             train_pbar.set_description(f"Epoch[{i + 1}/{n_epochs}]")
             train_pbar.set_postfix({"loss": loss.detach().item()})
-
-        print("BLOCK")
-        time.sleep(10000)
-        # for k in loss_record:
-        #     print(k)
-        #     time.sleep(0.1)
 
         mean_train_loss = sum(loss_record) / len(loss_record)
 
@@ -278,15 +289,31 @@ def train(train_loader, valid_loader, model, config, device):
             with torch.no_grad():
                 pred = model(x)
                 pred = pred.unsqueeze(1)
-                loss = loss_fn(pred, y)
+                loss = loss_func(pred, y)
 
             loss_record.append(loss.item())
 
         mean_valid_loss = sum(loss_record) / len(loss_record)
-        print(f"Epoch[{i+1}/{n_epochs}]")
-        print(f"Train_loss: {mean_train_loss:.4f}  Valid_loss: {mean_valid_loss:.4f}")
 
         writer.add_scalar("Loss/Valid", mean_valid_loss, step)
+
+        test_record = []
+        for x, y in test_loader:
+            x = x.to(device)
+            y = y.to(device)
+            with torch.no_grad():
+                pred = model(x)
+                pred = pred.unsqueeze(1)
+                loss = loss_func(pred, y)
+
+            test_record.append(loss.item())
+
+        mean_test_loss = sum(test_record) / len(test_record)
+
+        writer.add_scalar("Loss/Test", mean_test_loss, step)
+        train_pbar.set_description(
+            f"Epoch[{i + 1}/{n_epochs}] Train: {mean_train_loss:.4f}  Valid: {mean_valid_loss:.4f} Test: {mean_test_loss:.4f}"
+        )
 
         if mean_valid_loss < best_loss:
             best_loss = mean_valid_loss
@@ -307,19 +334,14 @@ cv_ratio = config["cv_ratio"]
 seed = config["seed"]
 
 
-train_data, test_data = train_valid_split(df, test_ratio, seed)
-train_data, valid_data = train_valid_split(train_data, cv_ratio, seed)
+train_data, valid_data = train_valid_split(ts, cv_ratio, seed)
 
 
 # Select features
 x_train, y_train = split_feature(train_data)
 x_cv, y_cv = split_feature(valid_data)
-x_test, y_test = split_feature(test_data)
+x_test, y_test = split_feature(ts_test)
 
-
-print(x_train.shape[1])
-model = NeuralNetwork(x_train.shape[1]).to(device)
-print(model)
 
 train_set = AStockDataset(x_train, y_train)
 valid_set = AStockDataset(x_cv, y_cv)
@@ -338,9 +360,14 @@ test_loader = DataLoader(
 )
 
 
-train(train_loader, valid_loader, model, config, device)
+# Start Train
+print(len(x_train.indices))
+input_dim = x_train.dataset.shape[1]
+model = NeuralNetwork(input_dim=input_dim).to(device)
+print(model)
+train(train_loader, valid_loader, test_loader, model, config, device)
 
-# 4 Plot && Diagnostic
-j_train = 0
-j_crossvalidate = 0
-j_expectation = 0.7
+# # 4 Plot && Diagnostic
+# j_train = 0
+# j_crossvalidate = 0
+# j_expectation = 0.7
