@@ -236,8 +236,6 @@ for code in code_pool:
 print(df_temp.head(5))
 print(df_test_temp.head(5))
 
-time.sleep(199999)
-
 
 # Normalization
 ts = torch.tensor(df.to_numpy(), dtype=torch.float32)
