@@ -112,7 +112,7 @@ def train(train_loader, valid_loader, test_loader, model, config, device):
             y = y.to(device)
 
             pred = model(x)
-            # pred = pred.unsqueeze(1)
+            # y = y.unsqueeze(1)
 
             loss = loss_fn(pred, y)
 
@@ -234,7 +234,7 @@ def set_pbar_desc(pbar, desc):
 config = {
     "max_process": "all",
     "seed": 25601,
-    "lr": 1e-3,
+    "lr": 1e-4,
     "momentum": 0.9,
     "epochs": 10000,
     "early_stop": 1000,
@@ -261,12 +261,12 @@ def get_data(q_stocks, q_result, q_data_):
         "pre_close",
         "pct_change",
         "turn",
-        "open",
-        "high",
-        "low",
+        # "open",
+        # "high",
+        # "low",
         # "close",
-        "volume",
-        "amount",
+        # "volume",
+        # "amount",
         "trade_status",
     ]
     while True:
@@ -289,9 +289,9 @@ def get_data(q_stocks, q_result, q_data_):
                 axis=0,
                 inplace=True,
             )
-            observe_window = 2
-            hold_window = 2
-            dimensions = 2
+            observe_window = 20
+            hold_window = 5
+            dimensions = 3
 
             columns = df_temp.columns
 
@@ -309,7 +309,7 @@ def get_data(q_stocks, q_result, q_data_):
 
             df_temp["yhat"] = df_temp["close"].copy().shift(-hold_window)
             df_temp["yhat"] = (
-                (df_temp["yhat"] - df_temp["close"]) / df_temp["close"] * 100
+                (df_temp["yhat"] - df_temp["high"]) / df_temp["close"] * 100
             )
 
             # Remove the head and tail
@@ -325,7 +325,7 @@ code_filter = [""]
 name_filter = [""]
 
 code_pool = all_stock["code"]
-code_pool = code_pool[1000:3000]
+code_pool = code_pool[1000:4005]
 
 # Set Cores
 gl.logger.critical(f"Main Process {os.getpid()}..")
