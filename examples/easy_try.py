@@ -325,7 +325,7 @@ code_filter = [""]
 name_filter = [""]
 
 code_pool = all_stock["code"]
-code_pool = code_pool[1000:4005]
+code_pool = code_pool[1000:1050]
 
 # Set Cores
 gl.logger.critical(f"Main Process {os.getpid()}..")
