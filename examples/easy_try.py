@@ -234,7 +234,7 @@ def set_pbar_desc(pbar, desc):
 config = {
     "max_process": "all",
     "seed": 25601,
-    "lr": 1e-4,
+    "lr": 1e-3,
     "momentum": 0.9,
     "epochs": 10000,
     "early_stop": 1000,
