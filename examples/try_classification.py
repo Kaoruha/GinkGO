@@ -38,10 +38,10 @@ from ginkgo.libs import GINKGOLOGGER as gl
 config = {
     "max_process": "all",
     "seed": 25601,
-    "lr": 1e-3,
+    "lr": 1e-4,
     "momentum": 0.9,
     "epochs": 10000,
-    "early_stop": 1000,
+    "early_stop": 1280,
     "save_path": "./models/easytest.ckpt",
     "batch_size": 256,
     "test_ratio": 0.4,
@@ -75,15 +75,12 @@ class NeuralNetwork(nn.Module):
     def __init__(self, input_dim):
         super(NeuralNetwork, self).__init__()
         self.layers = nn.Sequential(
-            nn.Linear(input_dim, 12),
-            # nn.LeakyReLU(),
-            # nn.Linear(64, 64),
-            # nn.LeakyReLU(),
-            # nn.Linear(64, 32),
+            nn.Linear(input_dim, 4),
             nn.LeakyReLU(),
-            nn.Linear(12, 6),
+            nn.Linear(4, 4),
             nn.LeakyReLU(),
-            nn.Linear(6, 1),
+            nn.Linear(4, 1),
+            nn.LeakyReLU(),
         )
 
     def forward(self, x):
@@ -138,8 +135,6 @@ def train(train_loader, valid_loader, test_loader, model, config, device):
 
         mean_train_loss = sum(loss_record) / len(loss_record)
 
-        writer.add_scalar("Loss/Train", mean_train_loss, step)
-
         model.eval()  # Set model to evaluation mode
         loss_record = []
         for x, y in valid_loader:
@@ -154,8 +149,6 @@ def train(train_loader, valid_loader, test_loader, model, config, device):
 
         mean_valid_loss = sum(loss_record) / len(loss_record)
 
-        writer.add_scalar("Loss/Valid", mean_valid_loss, step)
-
         test_record = []
         for x, y in test_loader:
             x = x.to(device)
@@ -169,7 +162,15 @@ def train(train_loader, valid_loader, test_loader, model, config, device):
 
         mean_test_loss = sum(test_record) / len(test_record)
 
-        writer.add_scalar("Loss/Test", mean_test_loss, step)
+        writer.add_scalars(
+            "Loss",
+            {
+                "Train": mean_train_loss,
+                "Valid": mean_valid_loss,
+                "Test": mean_test_loss,
+            },
+            step,
+        )
         print(
             f"Epoch[{i + 1}/{n_epochs}] Train: {mean_train_loss:.4f}  Valid: {mean_valid_loss:.4f} Test: {mean_test_loss:.4f}"
         )
@@ -464,7 +465,7 @@ def process_pct(q_stocks, q_result):
 
 import random
 
-num = 12992
+num = 129922
 
 df = pd.DataFrame({"x": range(num), "yhat": range(num)})
 df["yhat"] = df["yhat"] ** 2
