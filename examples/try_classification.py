@@ -35,6 +35,19 @@ from ginkgo.libs import GINKGOLOGGER as gl
 
 # Scope project (Define project)
 # This is a fucking poc project.
+config = {
+    "max_process": "all",
+    "seed": 25601,
+    "lr": 1e-3,
+    "momentum": 0.9,
+    "epochs": 10000,
+    "early_stop": 1000,
+    "save_path": "./models/easytest.ckpt",
+    "batch_size": 256,
+    "test_ratio": 0.4,
+    "cv_ratio": 0.3,
+    "log_url": "./logs/easy_try/",
+}
 
 # Get cpu or gpu device for training.
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -62,15 +75,15 @@ class NeuralNetwork(nn.Module):
     def __init__(self, input_dim):
         super(NeuralNetwork, self).__init__()
         self.layers = nn.Sequential(
-            nn.Linear(input_dim, 64),
+            nn.Linear(input_dim, 12),
+            # nn.LeakyReLU(),
+            # nn.Linear(64, 64),
+            # nn.LeakyReLU(),
+            # nn.Linear(64, 32),
             nn.LeakyReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(12, 6),
             nn.LeakyReLU(),
-            nn.Linear(64, 32),
-            nn.LeakyReLU(),
-            nn.Linear(32, 16),
-            nn.LeakyReLU(),
-            nn.Linear(16, 1),
+            nn.Linear(6, 1),
         )
 
     def forward(self, x):
@@ -79,6 +92,7 @@ class NeuralNetwork(nn.Module):
         return x
 
 
+writer = SummaryWriter(log_dir=config["log_url"])  # Writer of tensoboard
 # Define Train
 def train(train_loader, valid_loader, test_loader, model, config, device):
     loss_fn = nn.MSELoss()
@@ -86,8 +100,6 @@ def train(train_loader, valid_loader, test_loader, model, config, device):
         model.parameters(),
         lr=config["lr"],
     )
-
-    writer = SummaryWriter(log_dir=config["log_url"])  # Writer of tensoboard
 
     # Create directory of saving models
     if not os.path.isdir("./models"):
@@ -231,21 +243,6 @@ def set_pbar_desc(pbar, desc):
     pbar.set_description(desc)
 
 
-config = {
-    "max_process": "all",
-    "seed": 25601,
-    "lr": 1e-3,
-    "momentum": 0.9,
-    "epochs": 10000,
-    "early_stop": 1000,
-    "save_path": "./models/easytest.ckpt",
-    "batch_size": 256,
-    "test_ratio": 0.4,
-    "cv_ratio": 0.3,
-    "log_url": "./logs/easy_try/",
-}
-
-
 def get_data(q_stocks, q_result, q_data_):
     pid = os.getpid()
     gl.logger.warning(f"Sub Process {pid}..")
@@ -325,7 +322,7 @@ code_filter = [""]
 name_filter = [""]
 
 code_pool = all_stock["code"]
-code_pool = code_pool[1000:1050]
+code_pool = code_pool[1000:1010]
 
 # Set Cores
 gl.logger.critical(f"Main Process {os.getpid()}..")
@@ -373,64 +370,119 @@ def process_pct(q_stocks, q_result):
         pbar.set_description(f"Geting {code}")
 
 
-# Define Process func
-for i in code_pool:
-    q_stocks.put(i)
+# # Define Process func
+# for i in code_pool:
+#     q_stocks.put(i)
 
-# Boot a controller thread
-gl.logger.info(f"Starting Controller thread.")
-controller = threading.Thread(target=process_pct, args=(q_stocks, q_result))
-controller.start()
-
-
-for i in range(process_num):
-    p.apply_async(
-        get_data,
-        args=(q_stocks, q_result, q_data),
-    )
-
-gl.logger.info("Waiting for all subprocesses done...")
-p.close()
-
-p.join()
-end = time.time()
-controller.join()
-gl.logger.critical(
-    "All Daybar subprocesses done. Tasks runs %0.2f seconds." % (end - start)
-)
+# # Boot a controller thread
+# gl.logger.info(f"Starting Controller thread.")
+# controller = threading.Thread(target=process_pct, args=(q_stocks, q_result))
+# controller.start()
 
 
-length = 0
+# for i in range(process_num):
+#     p.apply_async(
+#         get_data,
+#         args=(q_stocks, q_result, q_data),
+#     )
+
+# gl.logger.info("Waiting for all subprocesses done...")
+# p.close()
+
+# p.join()
+# end = time.time()
+# controller.join()
+# gl.logger.critical(
+#     "All Daybar subprocesses done. Tasks runs %0.2f seconds." % (end - start)
+# )
 
 
-pbar_store = tqdm.tqdm(total=q_data.qsize(), colour="blue", leave=True)
-while True:
-    if q_data.empty():
-        gl.logger.critical(f"Data Transfer Complete.")
-        break
-    df_temp = q_data.get()
-    length += df_temp.shape[0]
-    df = pd.concat([df, df_temp], axis=0)
-    pbar_store.update(1)
-    pbar_store.set_description(f"Concat Dataframe {df.shape}")
+# length = 0
 
 
-# 1 SplitData
+# pbar_store = tqdm.tqdm(total=q_data.qsize(), colour="blue", leave=True)
+# while True:
+#     if q_data.empty():
+#         gl.logger.critical(f"Data Transfer Complete.")
+#         break
+#     df_temp = q_data.get()
+#     length += df_temp.shape[0]
+#     df = pd.concat([df, df_temp], axis=0)
+#     pbar_store.update(1)
+#     pbar_store.set_description(f"Concat Dataframe {df.shape}")
+
+
+# # 1 SplitData
+# test_ratio = config["test_ratio"]
+# cv_ratio = config["cv_ratio"]
+# seed = config["seed"]
+
+# train_data, test_data = train_valid_split(df, test_ratio, seed)
+# train_data, valid_data = train_valid_split(train_data, cv_ratio, seed)
+
+
+# # Select features
+# x_train, y_train = split_feature(train_data)
+# x_cv, y_cv = split_feature(valid_data)
+# x_test, y_test = split_feature(test_data)
+
+
+# # Normalization
+
+# x_train = nn.functional.normalize(
+#     torch.tensor(x_train.to_numpy(), dtype=torch.float32),
+#     p=2,
+#     dim=0,
+#     eps=1e-12,
+#     out=None,
+# )
+# x_cv = nn.functional.normalize(
+#     torch.tensor(x_cv.to_numpy(), dtype=torch.float32),
+#     p=2,
+#     dim=0,
+#     eps=1e-12,
+#     out=None,
+# )
+# x_test = nn.functional.normalize(
+#     torch.tensor(x_test.to_numpy(), dtype=torch.float32),
+#     p=2,
+#     dim=0,
+#     eps=1e-12,
+#     out=None,
+# )
+# y_train = torch.tensor(y_train.to_numpy(), dtype=torch.float32)
+# y_cv = torch.tensor(y_test.to_numpy(), dtype=torch.float32)
+# y_test = torch.tensor(y_test.to_numpy(), dtype=torch.float32)
+
+
+# train_set = AStockDataset(x_train, y_train)
+# valid_set = AStockDataset(x_cv, y_cv)
+# test_set = AStockDataset(x_test, y_test)
+
+
+# Fake Data
+
+import random
+
+num = 12992
+
+df = pd.DataFrame({"x": range(num), "yhat": range(num)})
+df["yhat"] = df["yhat"] ** 2
+for i in range(df.shape[0]):
+    df.iloc[i, -1] = df.iloc[i, -1] + random.random()
+    writer.add_scalar("Sample/Test", df.iloc[i, -1], df.iloc[i, 0])
+
+seed = config["seed"]
 test_ratio = config["test_ratio"]
 cv_ratio = config["cv_ratio"]
-seed = config["seed"]
 
 train_data, test_data = train_valid_split(df, test_ratio, seed)
 train_data, valid_data = train_valid_split(train_data, cv_ratio, seed)
 
 
-# Select features
 x_train, y_train = split_feature(train_data)
 x_cv, y_cv = split_feature(valid_data)
 x_test, y_test = split_feature(test_data)
-
-
-# Normalization
 
 x_train = nn.functional.normalize(
     torch.tensor(x_train.to_numpy(), dtype=torch.float32),
@@ -463,8 +515,11 @@ valid_set = AStockDataset(x_cv, y_cv)
 test_set = AStockDataset(x_test, y_test)
 
 
+# Fake Data End.
+
+
 batch_size = config["batch_size"]
-same_seed(config["seed"])
+# same_seed(config["seed"])
 
 train_loader = DataLoader(
     train_set, batch_size=batch_size, shuffle=True, pin_memory=True
