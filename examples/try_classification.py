@@ -38,10 +38,10 @@ from ginkgo.libs import GINKGOLOGGER as gl
 config = {
     "max_process": "all",
     "seed": 25601,
-    "lr": 1e-4,
+    "lr": 1e-2,
     "momentum": 0.9,
-    "epochs": 10000,
-    "early_stop": 1280,
+    "epochs": 100000,
+    "early_stop": 5280,
     "save_path": "./models/easytest.ckpt",
     "batch_size": 256,
     "test_ratio": 0.4,
