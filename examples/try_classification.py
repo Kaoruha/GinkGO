@@ -92,7 +92,7 @@ class NeuralNetwork(nn.Module):
 writer = SummaryWriter(log_dir=config["log_url"])  # Writer of tensoboard
 # Define Train
 def train(train_loader, valid_loader, test_loader, model, config, device):
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.L1Loss()
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=config["lr"],
@@ -465,13 +465,12 @@ def process_pct(q_stocks, q_result):
 
 import random
 
-num = 129922
+num = 129921
 
 df = pd.DataFrame({"x": range(num), "yhat": range(num)})
-df["yhat"] = df["yhat"] ** 2
-for i in range(df.shape[0]):
-    df.iloc[i, -1] = df.iloc[i, -1] + random.random()
-    writer.add_scalar("Sample/Test", df.iloc[i, -1], df.iloc[i, 0])
+for i, r in df.iterrows():
+    df.iloc[i, 1] = df.iloc[i, 0] ** 2
+    writer.add_scalar("Sample/Test", df.iloc[i, 1], df.iloc[i, 0])
 
 seed = config["seed"]
 test_ratio = config["test_ratio"]
@@ -485,27 +484,30 @@ x_train, y_train = split_feature(train_data)
 x_cv, y_cv = split_feature(valid_data)
 x_test, y_test = split_feature(test_data)
 
-x_train = nn.functional.normalize(
-    torch.tensor(x_train.to_numpy(), dtype=torch.float32),
-    p=2,
-    dim=0,
-    eps=1e-12,
-    out=None,
-)
-x_cv = nn.functional.normalize(
-    torch.tensor(x_cv.to_numpy(), dtype=torch.float32),
-    p=2,
-    dim=0,
-    eps=1e-12,
-    out=None,
-)
-x_test = nn.functional.normalize(
-    torch.tensor(x_test.to_numpy(), dtype=torch.float32),
-    p=2,
-    dim=0,
-    eps=1e-12,
-    out=None,
-)
+# x_train = nn.functional.normalize(
+#     torch.tensor(x_train.to_numpy(), dtype=torch.float32),
+#     p=2,
+#     dim=0,
+#     eps=1e-12,
+#     out=None,
+# )
+# x_cv = nn.functional.normalize(
+#     torch.tensor(x_cv.to_numpy(), dtype=torch.float32),
+#     p=2,
+#     dim=0,
+#     eps=1e-12,
+#     out=None,
+# )
+# x_test = nn.functional.normalize(
+#     torch.tensor(x_test.to_numpy(), dtype=torch.float32),
+#     p=2,
+#     dim=0,
+#     eps=1e-12,
+#     out=None,
+# )
+x_train = torch.tensor(x_train.to_numpy(), dtype=torch.float32)
+x_cv = torch.tensor(x_test.to_numpy(), dtype=torch.float32)
+x_test = torch.tensor(x_test.to_numpy(), dtype=torch.float32)
 y_train = torch.tensor(y_train.to_numpy(), dtype=torch.float32)
 y_cv = torch.tensor(y_test.to_numpy(), dtype=torch.float32)
 y_test = torch.tensor(y_test.to_numpy(), dtype=torch.float32)
