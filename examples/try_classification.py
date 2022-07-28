@@ -41,7 +41,7 @@ config = {
     "lr": 1e-2,
     "momentum": 0.9,
     "epochs": 100000,
-    "early_stop": 5280,
+    "early_stop": 52800,
     "save_path": "./models/easytest.ckpt",
     "batch_size": 256,
     "test_ratio": 0.4,
