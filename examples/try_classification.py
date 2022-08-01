@@ -41,7 +41,7 @@ config = {
     "lr": 1e-2,
     "momentum": 0.9,
     "epochs": 100000,
-    "early_stop": 52800,
+    "early_stop": 5280,
     "save_path": "./models/easytest.ckpt",
     "batch_size": 256,
     "test_ratio": 0.4,
@@ -75,9 +75,11 @@ class NeuralNetwork(nn.Module):
     def __init__(self, input_dim):
         super(NeuralNetwork, self).__init__()
         self.layers = nn.Sequential(
-            nn.Linear(input_dim, 4),
+            nn.Linear(input_dim, 6),
             nn.LeakyReLU(),
-            nn.Linear(4, 4),
+            nn.Linear(6, 12),
+            nn.LeakyReLU(),
+            nn.Linear(12, 4),
             nn.LeakyReLU(),
             nn.Linear(4, 1),
             nn.LeakyReLU(),
