@@ -478,6 +478,15 @@ seed = config["seed"]
 test_ratio = config["test_ratio"]
 cv_ratio = config["cv_ratio"]
 
+
+df[0] = nn.functional.normalize(
+    torch.tensor(df[0].to_numpy(), dtype=torch.float32),
+    p=2,
+    dim=0,
+    eps=1e-12,
+    out=None,
+)
+
 train_data, test_data = train_valid_split(df, test_ratio, seed)
 train_data, valid_data = train_valid_split(train_data, cv_ratio, seed)
 
