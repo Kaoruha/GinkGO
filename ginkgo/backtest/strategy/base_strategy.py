@@ -9,7 +9,6 @@ from ginkgo.backtest.enums import MarketEventType
 class BaseStrategy(abc.ABC):
     """
     基础策略类
-    回头改成抽象类
     """
 
     def __init__(self, name="策略基类"):
@@ -56,6 +55,11 @@ class BaseStrategy(abc.ABC):
     def try_gen_short_signal(self):
         """退出策略"""
         raise NotImplementedError("Must implement exit_market()")
+
+    @abc.abstractmethod
+    def calculate_signals(self):
+        """Gen Signals"""
+        raise NotImplementedError("Must implement calculate_signals()")
 
     @abc.abstractmethod
     def pre_treate(self):

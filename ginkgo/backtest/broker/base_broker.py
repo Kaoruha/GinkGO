@@ -449,3 +449,6 @@ class BaseBroker(abc.ABC):
                 gl.logger.error("Engine未注册")
 
             return True
+
+    def update_fill(self, fillevent):
+        pass

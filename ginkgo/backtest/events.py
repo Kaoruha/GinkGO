@@ -33,16 +33,15 @@ class Event(abc.ABC):
 
     def __init__(
         self,
-        event_type: EventType,
         datetime: str,
         code: str,
         source: Source,
         *args,
         **kwargs,
     ):
-        self.event_type: EventType = event_type
+        self.type = EventType.BASE
         self.datetime = datetime
-        self.code: str = code
+        self.code = code
         self.source: Source = source
         self.uuid = str(uuid.uuid4()).replace("-", "")
 
@@ -56,21 +55,19 @@ class MarketEvent(Event):
         self,
         code: str,  #  相关标的
         raw,  # 具体数据
-        markert_event_type: MarketEventType,
         source: Source = Source.TEST,  # 来源
         datetime: str = None,  # 时间 "2020-01-01 00:00:00"
         *args,
         **kwargs,
     ):
         super(MarketEvent, self).__init__(
-            event_type=EventType.MARKET,
             datetime=datetime,
             code=code,
             source=source,
             args=args,
             kwargs=kwargs,
         )
-        self.market_event_type = markert_event_type
+        self.type = EventType.MARKET
         self.raw = raw
 
     def __repr__(self):
@@ -93,18 +90,18 @@ class SignalEvent(Event):
         **kwargs,
     ):
         super(SignalEvent, self).__init__(
-            event_type=EventType.SIGNAL,
             datetime=datetime,
             code=code,
             source=source,
             args=args,
             kwargs=kwargs,
         )
+        self.type = EventType.SIGNAL
         self.direction = direction
         self.last_price = last_price
 
     def __repr__(self):
-        d = "多" if self.direction == Direction.BULL else "空"
+        d = "多" if self.direction == Direction.LONG else "空"
         s = f"{self.datetime} 产生 {self.code} 「{d}头」交易信号，信号来源为「{self.source}」"
         return s
 
@@ -118,7 +115,6 @@ class OrderEvent(Event):
         self,
         code: str,  # 股票代码
         direction: Direction,  # 交易类型
-        order_type: OrderType = OrderType.LIMIT,
         price: float = 0,
         volume: int = 0,  # 购买或卖出的量
         source: Source = Source.TEST,
@@ -129,20 +125,20 @@ class OrderEvent(Event):
         **kwargs,
     ):
         super(OrderEvent, self).__init__(
-            event_type=EventType.ORDER,
             datetime=datetime,
             code=code,
             source=source,
             args=args,
             kwargs=kwargs,
         )
-        self.order_type: OrderType = order_type
-        self.status: OrderStatus = status
-        self.direction: Direction = direction  # 'BUY' or 'SELL'
+        self.type = EventType.ORDER
+        self.order_type = order_type
+        self.status = status
+        self.direction: Direction = direction  # 'LONG' or 'SHORT'
         # 下单数(单位是手，买入只能整百，卖出可以零散)
-        self.volume: int = self.__optimize_volume(volume=volume)
-        self.price: float = price
-        self.traded: int = 0
+        self.volume = self.__optimize_volume(volume=volume)
+        self.price = price
+        self.traded = 0
 
     def __repr__(self):
         s = f"{self.datetime} {self.code}「{self.direction.value}」下单事件，份额「{self.volume}」，状态「{self.status.value}」，事件来源为「{self.source.value}」"
@@ -171,31 +167,34 @@ class FillEvent(Event):
     成交事件
     """
 
+    # describe the cost of purchase or sale as well as the transaction costs, such as fees or slippage
+
     def __init__(
         self,
         code: str,  # 股票代码
+        order: OrderEvent,
         direction: Direction,
-        price: float,
-        volume: int,
-        fee: float,
+        price: float = 0,
+        quantity: int = 0,
+        commission: float = 0,
         money_remain: float = 0,  # TODO Update UnitTest and sim matcher
         source: Source = Source.TEST,
-        datetime: str = None,  # 信号日期
+        datetime: str = None,  # when the order was filled
         *args,
         **kwargs,
     ):
         super(FillEvent, self).__init__(
-            event_type=EventType.FILL,
             datetime=datetime,
             code=code,
             source=source,
             args=args,
             kwargs=kwargs,
         )
-        self.direction: Direction = direction  # 'BULL' or 'BEAR'
-        self.price: float = price  # 下单价格
-        self.volume: int = volume
-        self.fee = fee  # 此次交易的税费
+        self.type = EventType.FILL
+        self.direction = direction  # 'LONG' or 'SHORT'
+        self.price = price  # Fill Price
+        self.quantity = quantity  # Fill Volume
+        self.commission = commission  # 此次交易的税费
         self.money_remain = money_remain  # 交易剩余的金额
 
     def __repr__(self):

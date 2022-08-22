@@ -9,6 +9,7 @@ class EventType(Enum):
     事件类型
     """
 
+    BASE = "BASE EVENT"
     MARKET = "市场事件"
     SIGNAL = "信号事件"
     ORDER = "订单事件"
@@ -71,8 +72,8 @@ class Direction(Enum):
     交易类型
     """
 
-    BULL = "看多"
-    BEAR = "看空"
+    LONG = "看多"
+    SHORT = "看空"
     NET = "看净"
 
 
