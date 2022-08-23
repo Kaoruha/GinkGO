@@ -450,5 +450,5 @@ class BaseBroker(abc.ABC):
 
             return True
 
-    def update_fill(self, fillevent):
+    def update_position(self, fillevent: FillEvent):
         pass

@@ -19,25 +19,36 @@ class EventEngine(object):
         self,
         *,
         heartbeat: float = 0.001,
-        timersleep: float = 1,
-        is_timer_on: bool = false,
-    ) -> none:
-        self.__event_queue = queue.queue()  # 事件队列
-        self.__info_queue = queue.queue()  # 信息队列
-        self.active = false  # 事件引擎开关,引擎初始化时状态设置为关闭
-        self.__thread = thread(target=self.__run)  # 事件处理线程
-        self.__timer_thread = thread(target=self.__timer_run)  # 定时器处理线程
+    ) -> None:
         self.heartbeat = heartbeat  # 心跳间隔
-        self.timersleep = timersleep  # 定时器间隔
-        self.__timer_on = is_timer_on
-        self.__timer_handlers = []
-        self.__handlers = {}  # 事件处理的回调函数
+
+        # Init
+        self.__event_queue = queue.Queue()  # 事件队列
+        self.__info_queue = queue.Queue()  # 信息队列
+        self.__thread = Thread(target=self.__run)  # 事件处理线程
+        self.__data_handlers = []  # Store the data handlers
         self.__general_handlers = []  # 保存通用回调函数（所有事件均调用）
+        self.__handlers = {}  # 事件处理的回调函数
+        self.active = False  # 事件引擎开关,引擎初始化时状态设置为关闭
         self.__wait_count = 0
         self.__wait_time = 1
-        self.__max_wait = 5
-        self.__timer_limit = 0
-        self.__timer_count = 0
+        self.__max_wait = 5  # out of it the system should interrupt
+
+    @property
+    def data_handlers(self):
+        return self.__data_handlers
+
+    @property
+    def general_handlers(self):
+        return self.__general_handlers
+
+    @property
+    def handlers(self):
+        return self.__handlers
+
+    @property
+    def events_queue(self):
+        return self.__event_queue
 
     # active
     @property
@@ -46,7 +57,7 @@ class EventEngine(object):
 
     @active.setter
     def active(self, is_active: bool):
-        self.active = is_active
+        self.__active = is_active
 
     # hearbeat
     @property
@@ -61,61 +72,58 @@ class EventEngine(object):
         else:
             gl.logger.warning("heartbeat should bigger than 0")
 
-    def set_timerlimit(self, limit: int) -> none:
-        """
-        设置计时器最大次数，不设置为0，无限
-        """
-        if limit <= 0:
-            return
-        self.__timer_limit = limit
+    @property
+    def general_handler_size(self):
+        return len(self.__general_handlers)
 
-    def __run(self) -> none:
+    def set_wait_limit(self, limit: int) -> None:
+        """
+        when limit equals 0, there is no limit.
+        """
+        if limit < 0:
+            return
+        self.__max_wait = limit
+
+    def __run(self) -> None:
         """
         引擎运行
         """
-        while true:
-            while self.active:
-                try:
-                    e = self.__event_queue.get(block=false)  # 获取消息的阻塞时间
-                    self.__process(e)
-                    self.__wait_count = 0
-                    # 每个循环都会把一个事件带来的所有事件处理完再处理事件
-                except queue.empty:
-                    # 事件列表为空时，回测结束，live系统应该继续等待
-                    self.__wait_count += 1
-
-                    if self.__timer_on:
-                        gl.logger.info(f"队列为空，等待事件推入第{self.__wait_count}次")
-
-                        if self.__wait_count >= self.__max_wait:
-                            if self.__timer_count >= self.__timer_limit:
-                                break
-                    else:
-                        s = f"{self.__wait_count}/{self.__max_wait}"
-                        gl.logger.info(f"队列为空，等待事件推入 第{s}次")
-                        if self.__wait_count >= self.__max_wait:
-                            break
-            # 默认如果调用set_heartbeat设置心跳，不开启，但是可能cpu负荷过高
-        if self.heartbeat > 0:
-            time.sleep(self.heartbeat)
-
-    def __timer_run(self) -> none:
-        """
-        定期运行
-        """
         while self.active:
-            self.__timer_count += 1
-            if len(self._timer_handlers) > 0:
-                [handler() for handler in self.__timer_handlers]
+            # Get MarketEvent from datahandler
+            # Both sim and real system should work
+            # sim handler read the data from db, realtime system try get data from scrapy or some api
 
-            time.sleep(self.timersleep)
-            gl.logger.warn(f"timer loop {self.__timer_count}")
+            # put market into eventqueue
+            for i in self.__data_handlers:
+                events = i.get_latest()
+                for j in events:
+                    self.put(j)
 
-            if self.__timer_limit > 0:
-                if self.__timer_count >= self.__timer_limit:
-                    self.stop()
+            # process the events
+            try:
+                e = self.__event_queue.get(block=false)  # 获取消息的阻塞时间
+                self.__process(e)
+                self.__wait_count = 0
+                # 每个循环都会把一个事件带来的所有事件处理完再处理事件
+            except queue.empty:
+                # 事件列表为空时，回测结束，live系统应该继续等待
 
-    def __process(self, event: event) -> none:
+                if self.__max_wait == 0:
+                    continue
+
+                gl.logger.info(f"队列为空，等待事件推入第{self.__wait_count}次")
+
+                self.__wait_count += 1
+                if self.__wait_count >= self.__max_wait:
+                    gl.logger.info("Engine stop.")
+                    break
+                else:
+                    s = f"{self.__wait_count}/{self.__max_wait}"
+                    gl.logger.info(f"队列为空，等待事件推入 第{s}次")
+
+        time.sleep(self.heartbeat)
+
+    def __process(self, event: Event) -> None:
         """
         处理事件
         """
@@ -135,7 +143,7 @@ class EventEngine(object):
         if self._general_handlers:
             [handler(event) for handler in self.__general_handlers]
 
-    def start(self) -> none:
+    def start(self) -> None:
         """
         引擎启动
         """
@@ -146,11 +154,7 @@ class EventEngine(object):
         # 启动事件处理线程
         self.__thread.start()
 
-        # 启动定时处理线程
-        if self.__timer_on:
-            self.__timer_thread.start()
-
-    def stop(self) -> none:
+    def stop(self) -> None:
         """停止引擎"""
         # 将引擎设为停止
         self.active = false
@@ -158,34 +162,32 @@ class EventEngine(object):
         # 等待事件处理线程退出
         if self.__thread.is_alive():
             self.__thread.join()
-        if self.__timer_thread.is_alive():
-            self.__timer_thread.join()
 
-    def pause(self) -> none:
+    def pause(self) -> None:
         """
         暂停引擎
         """
         self.active = false
 
-    def register(self, event_type: eventtype, handler) -> dict:
+    def register(self, event_type: EventType, handler) -> dict:
         """
         注册事件处理的函数监听
         """
         # 尝试获取该事件类型对应的处理函数队列
         try:
             handler_list = self.__handlers[event_type]
-        except exception:
-            self._handlers[event_type] = []
+        except Exception as e:
+            self.__handlers[event_type] = []
             handler_list = self.__handlers[event_type]
 
         # 若要注册的处理函数不在该事件的处理函数列表中，则注册该事件
         if handler not in handler_list:
             handler_list.append(handler)
-            self._handlers[event_type] = handler_list
+            self.__handlers[event_type] = handler_list
 
-        return self._handlers
+        return self.__handlers
 
-    def withdraw(self, event_type: eventtype, handler) -> dict:
+    def withdraw(self, event_type: EventType, handler) -> dict:
         """注销事件处理函数监听"""
         # 尝试获取该事件类型对应的处理函数列表，若无则忽略该次注销请求
         handler_list = self.__handlers[event_type]
@@ -202,13 +204,13 @@ class EventEngine(object):
 
         return self.__handlers
 
-    def put(self, event: event) -> none:
+    def put(self, event: Event) -> None:
         """
         向事件队列中存入事件
         """
         self.__event_queue.put(event)
-        if event.event_type not in self.__handlers:
-            gl.logger.warn(f"当前引擎没有{event.event_type}事件的处理函数")
+        if event.type not in self.__handlers:
+            gl.logger.warn(f"当前引擎没有{event.type}事件的处理函数")
 
     def register_general_handler(self, handler) -> list:
         """注册通用事件处理函数监听"""
@@ -221,15 +223,3 @@ class EventEngine(object):
         if handler in self.__general_handlers:
             self.__general_handlers.remove(handler)
         return self.__general_handlers
-
-    def register_timer_handler(self, handler) -> list:
-        """注册计时器事件处理函数监听"""
-        if handler not in self.__timer_handlers:
-            self.__timer_handlers.append(handler)
-        return self.__timer_handlers
-
-    def withdraw_timer_handler(self, handler) -> list:
-        """注销计时器事件处理函数监听"""
-        if handler in self.__timer_handlers:
-            self.__timer_handlers.remove(handler)
-        return self.__timer_handlers

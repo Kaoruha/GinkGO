@@ -7,7 +7,7 @@ from ginkgo.backtest.events import OrderEvent, FillEvent, Event
 from ginkgo.libs import GINKGOLOGGER as gl
 
 
-class BaseMatcher(abc.ABC):
+class BaseExcution(abc.ABC):
     """
     撮合基类
     """
@@ -21,9 +21,34 @@ class BaseMatcher(abc.ABC):
     #     - 3.1 实盘券商API，每次调用方法时会将所有已发送的订单抽出，查询结果
     #     - 3.2 模拟成交的话，需要手写一个模拟成交的规则，手动调用TryMatch方法，将模拟的结果存放在MatchList
     #           等待手动/自动触发GetResult，将模拟的结果存入ResultList，将对应Order状态修改为Complete，
+
     @property
     def order_history(self):
-        return self.order_list
+        return self.__order_list
+
+    @property
+    def result_history(self):
+        return self.__result_list
+
+    @property
+    def engine(self):
+        return self.__engine
+
+    @property
+    def stamp_tax_rate(self):
+        return self.__stamp_tax_rate
+
+    @property
+    def transfer_fee_rate(self):
+        return self.__transfer_fee_rate
+
+    @property
+    def commission_rate(self):
+        return self.__commission_rate
+
+    @property
+    def min_commission(self):
+        return self.__min_commission
 
     def __init__(
         self,
@@ -36,18 +61,18 @@ class BaseMatcher(abc.ABC):
         **kwargs,
     ):
         self.name = name
-        self.stamp_tax_rate = stamp_tax_rate  # 设置印花税，默认千1
-        self.transfer_fee_rate = transfer_fee_rate  # 设置过户费,默认万2
-        self.commission_rate = commission_rate  # 交易佣金，按最高千3计算了，一般比这个低
-        self.min_commission = min_commission  # 最低交易佣金，交易佣金的起步价
-        self.order_list = {}  # 订单队列
-        self.result_list = {}  # 结果队列
-        self.engine: EventEngine = None  # 用来推送事件
+        self.__stamp_tax_rate = stamp_tax_rate  # 设置印花税，默认千1
+        self.__transfer_fee_rate = transfer_fee_rate  # 设置过户费,默认万2
+        self.__commission_rate = commission_rate  # 交易佣金，按最高千3计算了，一般比这个低
+        self.__min_commission = min_commission  # 最低交易佣金，交易佣金的起步价
+        self.__order_list = {}  # 订单队列
+        self.__result_list = {}  # 结果队列
+        self.__engine: EventEngine = None  # 用来推送事件
         self.order_count = 0  # 订单计数器
         self.datetime: datetime = None
 
     def gen_fillevent(
-        self, order: OrderEvent, is_complete: bool, price: float = 0, volume: int = 0
+        self, order: OrderEvent, is_complete: bool, price: float = 0, quantity: int = 0
     ) -> FillEvent:
         """
         生成成交事件
@@ -56,29 +81,38 @@ class BaseMatcher(abc.ABC):
 
         fill = FillEvent(
             code=order.code,
+            order=order,
             direction=order.direction,
             price=0,
-            volume=0,
-            fee=0,
-            source=Source.SIMMATCHER,
+            quantity=0,
+            commission=0,
+            source=Source.TEST,
             datetime=self.datetime,
+            money_remain=order.frozen_money,
         )
         if is_complete:
             fill.price = price
-            fill.volume = volume
-            fill.fee = self.fee_cal(
-                direction=order.direction, price=price, volume=volume
+            fill.quantity = quantity
+            fill.commission = self.commision_cal(
+                direction=order.direction, price=price, quantity=quantity
             )
+            if fill.direction == Direction.LONG:
+                fill.money_remain = (
+                    fill.money_remain - (fill.price * fill.quantity) - fill.commission
+                )
+
+            else:
+                fill.money_remain = fill.price * fill.quantity - fill.commission
 
         return fill
 
-    def fee_cal(self, direction: Direction, price: float, volume: int) -> float:
+    def commision_cal(self, direction: Direction, price: float, quantity: int) -> float:
         """
         费率计算
 
         包含印花税，过户费，交易税，有最低税费
         """
-        total = price * volume
+        total = price * quantity
         if total == 0:
             return 0
         stamp_tax = 0
@@ -97,9 +131,9 @@ class BaseMatcher(abc.ABC):
         """
         # TODO 查重
         if order.status == OrderStatus.CREATED:
-            if order.code not in self.order_list:
-                self.order_list[order.code] = []
-            self.order_list[order.code].append(order)
+            if order.code not in self.__order_list:
+                self.__order_list[order.code] = []
+            self.__order_list[order.code].append(order)
 
             gl.logger.info(
                 f"{self.name} 获取Order: {order.code} {order.uuid} {order.direction} {order.order_type}"

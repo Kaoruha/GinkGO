@@ -20,7 +20,7 @@ class EventsTest(unittest.TestCase):
 
     def test_MarketEventInit_OK(self):
         print("")
-        gl.logger.critical("MarketEvent初始化测试开始.")
+        gl.logger.warn("MarketEvent初始化测试开始.")
         param = [
             # 0datetime, 1source, 2code, 3raw, 4marketeventtype
             (
@@ -33,7 +33,7 @@ class EventsTest(unittest.TestCase):
         ]
         for i in param:
             e = MarketEvent(
-                datetime=i[0], code=i[2], source=i[1], raw=i[3], markert_event_type=i[4]
+                datetime=i[0], code=i[2], source=i[1], raw=i[3], market_event_type=i[4]
             )
             gl.logger.info(e)
             self.assertEqual(
@@ -54,15 +54,15 @@ class EventsTest(unittest.TestCase):
                     "type": e.market_event_type,
                 },
             )
-        gl.logger.critical("MarketEvent初始化测试完成.")
+        gl.logger.warn("MarketEvent初始化测试完成.")
 
     def test_SignalEventInit_OK(self):
         print("")
-        gl.logger.critical("SignalEvent初始化测试开始.")
+        gl.logger.warn("SignalEvent初始化测试开始.")
         param = [
             # 0date, 1code, 2direction, 3source
-            ("2020-01-02", "testsignal", Direction.BULL, Source.BACKTEST),
-            ("2020-11-02", "testsignal2", Direction.BEAR, Source.SHLIVE),
+            ("2020-01-02", "testsignal", Direction.LONG, Source.BACKTEST),
+            ("2020-11-02", "testsignal2", Direction.SHORT, Source.SHLIVE),
         ]
         for i in param:
             e = SignalEvent(datetime=i[0], code=i[1], direction=i[2], source=i[3])
@@ -76,17 +76,17 @@ class EventsTest(unittest.TestCase):
                     "source": e.source,
                 },
             )
-        gl.logger.critical("SignalEvent初始化测试完成.")
+        gl.logger.warn("SignalEvent初始化测试完成.")
 
     def test_OrderEventInit_OK(self):
         print("")
-        gl.logger.critical("OrderEvent初始化测试开始.")
+        gl.logger.warn("OrderEvent初始化测试开始.")
         param = [
             # 0date, 1code, 2direction, 3source, 4type, 5price, 6volume
             (
                 "2020-01-01",
                 "testorder:sh.600001",
-                Direction.BULL,
+                Direction.LONG,
                 Source.BACKTEST,
                 OrderType.LIMIT,
                 2.2,
@@ -95,7 +95,7 @@ class EventsTest(unittest.TestCase):
             (
                 "2020-01-02",
                 "testorder:sh.600002",
-                Direction.BEAR,
+                Direction.SHORT,
                 Source.STRATEGY,
                 OrderType.LIMIT,
                 2.2,
@@ -110,7 +110,7 @@ class EventsTest(unittest.TestCase):
                 source=i[3],
                 order_type=i[4],
                 price=i[5],
-                volume=i[6],
+                quantity=i[6],
             )
             gl.logger.info(e)
             self.assertEqual(
@@ -121,7 +121,7 @@ class EventsTest(unittest.TestCase):
                     "source": i[3],
                     "type": i[4],
                     "price": i[5],
-                    "volume": i[6],
+                    "quantity": i[6],
                     "status": OrderStatus.CREATED,
                 },
                 second={
@@ -131,18 +131,18 @@ class EventsTest(unittest.TestCase):
                     "source": e.source,
                     "type": e.order_type,
                     "price": e.price,
-                    "volume": e.volume,
+                    "quantity": e.quantity,
                     "status": e.status,
                 },
             )
-        gl.logger.critical("OrderEvent初始化测试完成.")
+        gl.logger.warn("OrderEvent初始化测试完成.")
 
     def test_FillEventInit_OK(self):
         print("")
-        gl.logger.critical("FillEvent初始化测试开始.")
+        gl.logger.warn("FillEvent初始化测试开始.")
         param = [
-            # 0date, 1code, 2direction, 3price, 4volume, 5source, 6fee
-            ("2000-01-01", "testfill", Direction.BULL, 2.0, 100, Source.BACKTEST, 11.2),
+            # 0date, 1code, 2direction, 3price, 4quantity, 5source, 6commision, 7money_remain
+            ("2000-01-01", "testfill", Direction.LONG, 2.0, 100, Source.BACKTEST, 11.2),
         ]
         for i in param:
             e = FillEvent(
@@ -150,9 +150,9 @@ class EventsTest(unittest.TestCase):
                 code=i[1],
                 direction=i[2],
                 price=i[3],
-                volume=i[4],
+                quantity=i[4],
                 source=i[5],
-                fee=i[6],
+                commision=i[6],
             )
             gl.logger.info(e)
             self.assertEqual(
@@ -161,18 +161,18 @@ class EventsTest(unittest.TestCase):
                     "code": i[1],
                     "direction": i[2],
                     "price": i[3],
-                    "volume": i[4],
+                    "quantity": i[4],
                     "source": i[5],
-                    "fee": i[6],
+                    "commision": i[6],
                 },
                 second={
                     "date": e.datetime.strftime("%Y-%m-%d"),
                     "code": e.code,
                     "direction": e.direction,
                     "price": e.price,
-                    "volume": e.volume,
+                    "quantity": e.quantity,
                     "source": e.source,
-                    "fee": e.fee,
+                    "commision": e.commision,
                 },
             )
-        gl.logger.critical("FillEvent初始化测试完成.")
+        gl.logger.warn("FillEvent初始化测试完成.")

@@ -2,12 +2,12 @@ import time
 import queue
 from ginkgo.backtest.price import Bar
 from ginkgo.libs import GINKGOLOGGER as gl
-from ginkgo.backtest.matcher.base_matcher import BaseMatcher
+from ginkgo.backtest.execution.base_excution import BaseExcution
 from ginkgo.backtest.enums import Direction, OrderStatus, OrderType, Source
 from ginkgo.backtest.events import Event, FillEvent, OrderEvent
 
 
-class SimulateMatcher(BaseMatcher):
+class SimulateMatcher(BaseExcution):
     """
     模拟成交
     """
