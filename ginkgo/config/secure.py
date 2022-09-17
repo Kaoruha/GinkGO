@@ -7,7 +7,8 @@ SECRET_KEY = os.urandom(24)
 # DATABASE
 DATABASE = "quant"  # Mongo_Docker 中目标存储的数据库名
 HOST = "127.0.0.1"  # Mongo_Docker 的地址，目前测试用本地的
-PORT = 27017  # Mongo_Docker 暴露的端口号，默认为27017，启动Docker时可以进行端口映射
+# PORT = 27017  # Mongo_Docker 暴露的端口号，默认为27017，启动Docker时可以进行端口映射
+PORT = 9000
 USERNAME = "ginkgo"
 PASSWORD = "caonima123"
 
