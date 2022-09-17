@@ -1,3 +1,9 @@
+##### 0.1.4
+  - Add Clickhouse Driver.
+  - Add GUI.
+  - Add Trading Records.
+  - Backtest Engine Done, Start ML Engine.
+
 ##### 0.1.30
   - Complete Engine Test
   - Fix GinkgoEngine

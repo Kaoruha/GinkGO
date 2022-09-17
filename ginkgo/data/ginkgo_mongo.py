@@ -39,8 +39,6 @@ class GinkgoMongo(object):
         self.code_list_cache = None
         self.code_list_cache_last_update = None
 
-    # TODO Need multiprocessing plan.
-
     def __connect(self):
         """
         建立mongo连接

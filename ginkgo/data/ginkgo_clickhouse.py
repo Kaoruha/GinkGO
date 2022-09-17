@@ -18,12 +18,117 @@ from sqlalchemy.orm import sessionmaker
 
 from clickhouse_sqlalchemy import engines
 from datetime import date
+from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.config.secure import DATABASE, HOST, PORT, USERNAME, PASSWORD
 
 user = "ginkgo"
 pwd = "caonima123"
 host = "localhost"
 db = "quant"
 uri = f"clickhouse+native://{user}:{pwd}@{host}/{db}"
+
+
+class GinkgoClickHouse(object):
+    def __init__(self, host, port, username, password, database):
+        self.engine = None
+        self.session = None
+        self.metadata = None
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        self.database = database
+
+        self.__connect()
+
+        self.code_list_cache = None
+        self.code_list_cache_last_update = None
+
+    def __connect(self):
+        gl.logger.debug("Tring to connect Clickhouse")
+        uri = f"clickhouse+native://{self.username}:{self.password}@{self.host}/{self.database}"
+        gl.logger.debug(f"CurrentTarget: {uri}")
+        self.engine = create_engine(uri)
+        self.session = sessionmaker(engine)()
+        self.metadata = MetaData(bind=engine)
+        gl.logger.debug("Connect to clickhouse succeed.")
+
+    def update_stockinfo(self) -> None:
+        pass
+
+    def get_codes(self) -> pd.DataFrame:
+        pass
+
+    def insert_adjustfactor(self) -> None:
+        pass
+
+    def insert_adjustfactor_async(self) -> None:
+        pass
+
+    def del_adjustfactor(self) -> None:
+        pass
+
+    def update_adjustfactor(self) -> None:
+        pass
+
+    def get_adjustfactor(self) -> None:
+        pass
+
+    def insert_daybar(self) -> None:
+        pass
+
+    def insert_daybar_async(self) -> None:
+        pass
+
+    def del_daybar(self) -> None:
+        pass
+
+    def update_daybar(self) -> None:
+        pass
+
+    def get_daybar(self) -> None:
+        pass
+
+    def insert_min5(self) -> None:
+        pass
+
+    def insert_min5_async(self) -> None:
+        pass
+
+    def del_min5(self) -> None:
+        pass
+
+    def update_min5(self) -> None:
+        pass
+
+    def get_min5(self) -> None:
+        pass
+
+    def get_last_trade_day(self) -> None:
+        pass
+
+    def get_last_trade_time(self) -> None:
+        pass
+
+    def set_nomin5(self) -> None:
+        pass
+
+    def has_min5(self) -> bool:
+        pass
+
+    def get_trade_day(self) -> bool:
+        pass
+
+    def get_df_norepeat(self) -> pd.DataFrame:
+        pass
+
+    def query_stock(self) -> None:
+        pass
+
+
+ginkgo_clickhouse = GinkgoClickHouse(
+    host=HOST, port=PORT, username=USERNAME, password=PASSWORD, database=DATABASE
+)
 
 engine = create_engine(uri)
 session = sessionmaker(engine)()
