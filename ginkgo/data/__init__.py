@@ -1,27 +1,29 @@
-# import pymongo
+from sqlalchemy import inspect
+from ginkgo.data.ginkgo_clickhouse import ginkgo_clickhouse as gc
+from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.config.secure import DATABASE
+from ginkgo.data.models.base_model import BaseModel
+from ginkgo.data.models.stock_info import StockInfo
 
-# mongo_client = pymongo.MongoClient("localhost", 27017)
+insp = gc.insp
+db_list = insp.get_schema_names()
+gl.logger.debug(f"Databases:  {db_list}")
 
-# db = mongo_client.quant
+# Create Database
+gc.engine.connect().execute(f"CREATE DATABASE IF NOT EXISTS {DATABASE}")
 
-# dblist = mongo_client.list_database_names()
 
-# print(dblist)
+# Create Tables
 
-# if "quant" in dblist:
-#     print("quant已经存在")
-# else:
-#     print("quant不存在")
-
-# db = mongo_client.quant
-# factor = db['adjust_factor']
-
-# for s in factor.find({},{'name':'hello2'}):
-#     factor.update_one(s,{'$set':{'name':'hello22_new'}})
-
-# for x in factor.find():
-#     print(x)
-#     factor.delete_one(x)
-
-# for x in factor.find():
-#     print(x)
+# [print(cls) for cls in BaseModel.__subclasses__()]
+for i in BaseModel.__subclasses__():
+    if i.__abstract__ == True:
+        gl.logger.info(f"IGNORE {i.__tablename__}")
+        continue
+    if not gc.is_table_exsists(i.__tablename__):
+        # i.__table__.create()
+        i.create_table()
+        gl.logger.info(f"CREATE TABLE {i.__tablename__}")
+    else:
+        gl.logger.info(f"TABLE {i.__tablename__} ALREADY EXISTS.")
+    print(i)

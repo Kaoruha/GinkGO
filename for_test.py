@@ -1,7 +1,9 @@
-from ginkgo.backtest.painter.candle_trend import CandleTrend
+from ginkgo.data.ginkgo_clickhouse import ginkgo_clickhouse as gc
+from ginkgo.data.models.stock_info import StockInfo
+from ginkgo.data.models.base_model import BaseModel
 
-code = "sh.000001"
-p = CandleTrend(code=code, starttime="2019-10-01", endtime="2020-01-01")
+import datetime
 
-p.get_data()
-p.draw()
+
+gc.update_all_stockinfo()
+# gc.get_stockinfo()
