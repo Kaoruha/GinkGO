@@ -13,6 +13,7 @@ from ginkgo.data.stock.baostock_data import bao_instance as bi
 from ginkgo.data.models.stock_info import StockInfo
 from ginkgo.config.secure import DATABASE, HOST, PORT, USERNAME, PASSWORD
 from ginkgo.data.models.stock_info import StockInfo
+from ginkgo.data.models.day_bar import DayBar
 
 
 class GinkgoClickHouse(object):
@@ -51,6 +52,7 @@ class GinkgoClickHouse(object):
         pass
 
     def del_stockinfo(self) -> None:
+        # TODO
         pass
 
     def update_all_stockinfo(self) -> None:
@@ -107,10 +109,12 @@ class GinkgoClickHouse(object):
         # df.drop_duplicates(
         #     subset=["code", "name", "trade_status", "has_min5"], inplace=True
         # )
-        return df
+        return df[df["is_delete"] == False]
 
     def get_codes(self) -> pd.DataFrame:
-        pass
+        rs = self.get_stockinfo()
+        rs = rs[["code", "name"]]
+        return rs
 
     def insert_adjustfactor(self) -> None:
         pass
@@ -127,20 +131,99 @@ class GinkgoClickHouse(object):
     def get_adjustfactor(self) -> None:
         pass
 
-    def insert_daybar(self) -> None:
+    def insert_daybars(self, daybars: list) -> None:
+        count = 0
+        for i in daybars:
+            old = self.get_daybar(code=i.code, date_start=i.date, date_end=i.date)
+            if old.count() == 0:
+                self.session.add(i)
+                count += 1
+            else:
+                self.update_daybar(i)
+        self.session.commit()
+
+    def get_daybars_by_bao(self, code: str) -> pd.DataFrame:
+        end = datetime.datetime.now()
+        end_str = datetime.datetime.strftime(end, "%Y-%m-%d")
+        df = bi.get_data(code=code, data_frequency="d", end_date=end_str)
+        return df
+
+    def del_daybar(self, code: str, date: datetime.datetime) -> None:
         pass
 
-    def insert_daybar_async(self) -> None:
+    def update_daybar(self, daybar: DayBar) -> None:
         pass
 
-    def del_daybar(self) -> None:
-        pass
+    def get_daybar(self, code: str, date_start: str, date_end: str) -> None:
+        date_start = datetime.datetime.strptime(date_start, "%Y-%m-%d")
+        date_end = datetime.datetime.strptime(date_end, "%Y-%m-%d")
+        rs = (
+            self.session.query(DayBar)
+            .filter(DayBar.code == code)
+            .filter(DayBar.date >= date_start)
+            .filter(DayBar.date <= date_end)
+        )
+        return rs
 
-    def update_daybar(self) -> None:
-        pass
-
-    def get_daybar(self) -> None:
-        pass
+    def update_all_daybar(self) -> None:
+        # 1 GetAllCode
+        t0 = datetime.datetime.now()
+        code_list = self.get_codes()
+        print(code_list)
+        # 2 Get Data by Code
+        pbar = tqdm.tqdm(total=code_list.shape[0])
+        for i, r in code_list.iterrows():
+            code = r["code"]
+            name = r["name"]
+            pbar.update(1)
+            pbar.set_description(f"Updating DayBar {code} {name}")
+            df = self.get_daybars_by_bao(code)
+            float_list = [
+                "open",
+                "high",
+                "low",
+                "close",
+                "preclose",
+                "volume",
+                "amount",
+                "turn",
+                "pctChg",
+            ]
+            int_list = [
+                "adjustflag",
+                "tradestatus",
+                "isST",
+            ]
+            df[float_list] = df[float_list].astype(float)
+            df[int_list] = df[int_list].astype(int)
+            l = []
+            for k, j in df.iterrows():
+                item = DayBar()
+                item.date = datetime.datetime.strptime(j["date"], "%Y-%m-%d")
+                item.code = code
+                item.name = name
+                item.open_ = j["open"]
+                item.high = j["high"]
+                item.low = j["low"]
+                item.close = j["close"]
+                item.preclose = j["preclose"]
+                item.volume = j["volume"]
+                item.amount = j["amount"]
+                item.adjust_flag = j["adjustflag"]
+                item.turn = j["turn"]
+                item.trade_status = j["tradestatus"]
+                item.pct_change = j["pctChg"]
+                item.is_st = j["isST"]
+                l.append(item)
+            self.session.add_all(l)
+            self.session.commit()
+        pbar.set_description("Daybar Complete:)     ")
+        pbar.close()
+        t1 = datetime.datetime.now()
+        time.sleep(0.2)
+        gl.logger.info(
+            f"Daybar Update Complete. Update: {code_list.shape[0]}, Cost: {t1-t0}"
+        )
 
     def insert_min5(self) -> None:
         pass
@@ -182,68 +265,3 @@ class GinkgoClickHouse(object):
 ginkgo_clickhouse = GinkgoClickHouse(
     host=HOST, port=PORT, username=USERNAME, password=PASSWORD, database=DATABASE
 )
-
-# user = "ginkgo"
-# pwd = "caonima123"
-# host = "localhost"
-# db = "quant"
-# uri = f"clickhouse+native://{user}:{pwd}@{host}/{db}"
-
-# engine = create_engine(uri)
-# session = sessionmaker(engine)()
-# metadata = MetaData(bind=engine)
-
-# Base = declarative_base(metadata=metadata)
-
-
-# class Rate(Base):
-#     __tablename__ = "MergeTree"
-#     day = Column(Date, primary_key=True)
-#     value = Column(Integer)
-#     is_delete = Column(Boolean, default=False)
-
-#     __table_args__ = (engines.MergeTree(order_by=["day"]),)
-
-
-# insp = inspect(engine)
-# db_list = insp.get_schema_names()
-# print(f"Databases:  {db_list}")
-# # if database not in db_list:
-# #     engine.execute(DDL(f"CREATE DATABASE IF NOT EXISTS {database}"))
-
-# if not insp.has_table(Rate.__tablename__):
-#     Rate.__table__.create()
-# else:
-#     print(f"{Rate.__tablename__} already exists.")
-
-
-# # INSERT
-# a = Rate()
-# a.day = date(2021, 5, 3)
-# a.value = 123
-# session.add(a)
-# session.commit()
-
-# # INSERT BATCH
-# t0 = datetime.datetime.now()
-# for j in range(10):
-#     t1 = datetime.datetime.now()
-#     for i in range(20000):
-#         item = Rate()
-#         item.day = date(2022, 4, 1)
-#         item.value = i
-#         session.add(item)
-#     t2 = datetime.datetime.now()
-#     session.commit()
-#     t3 = datetime.datetime.now()
-
-#     print(f"Epoch: {j+1}, cost: {t3-t2}, avg: {(t3-t1)/(j+1)}, total: {t3-t0}")
-
-
-# # GET
-# t_get0 = datetime.datetime.now()
-# rs = session.query(Rate).filter()
-# df = pd.read_sql(rs.statement, con=engine)
-# t_get1 = datetime.datetime.now()
-# print(df)
-# print(t_get1 - t_get0)

@@ -80,6 +80,7 @@ class BaoStockData(object):
             frequency = "5"
 
         data_list = []
+        clean_list = ["turn", "amount", "volume", "pctChg", "isST"]
 
         # 如果需要获取日交易数据，直接发送一个请求
         if data_frequency == "d":
@@ -125,6 +126,8 @@ class BaoStockData(object):
                     )
 
             result = pd.DataFrame(data_list, columns=rs.fields)
+            for i in clean_list:
+                result.loc[result[i] == "", i] = 0
             return result
 
         # 如果需要获取的是5min交易数据，分段获取
@@ -186,6 +189,8 @@ class BaoStockData(object):
                             end_date=end_date,
                         )
             result = pd.DataFrame(data_list, columns=rs.fields)
+            for i in clean_list:
+                result.loc[result[i] == "", i] = 0
             return result
 
     # 获取一系列DataFrame的长度
