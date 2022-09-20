@@ -178,6 +178,11 @@ class GinkgoClickHouse(object):
             pbar.update(1)
             pbar.set_description(f"Updating DayBar {code} {name}")
             df = self.get_daybars_by_bao(code)
+            print("==" * 20)
+            print(df)
+            print(df is None)
+            if df is None:
+                continue
             float_list = [
                 "open",
                 "high",
@@ -194,7 +199,9 @@ class GinkgoClickHouse(object):
                 "tradestatus",
                 "isST",
             ]
+            df[float_list] = df[float_list].fillna(value=0.0)
             df[float_list] = df[float_list].astype(float)
+            df[int_list] = df[int_list].fillna(value=0)
             df[int_list] = df[int_list].astype(int)
             l = []
             for k, j in df.iterrows():

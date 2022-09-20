@@ -7,20 +7,12 @@ import pandas as pd
 import datetime
 
 
-# gc.update_all_stockinfo()
-# gc.get_stockinfo()
-# print(gc.get_stockinfo())
+# Update stockinfo
+gc.update_all_stockinfo()
+gc.get_stockinfo()
+print(gc.get_stockinfo())
 
 
-import datetime
-
-# dt = datetime.datetime(2021, 1, 3, 0, 0, 0)
-# d = DayBar(date=dt, code="hah")
-# l = []
-# l.append(d)
-# gc.insert_daybars(l)
-
-# gc.update_all_stockinfo()
 gc.update_all_daybar()
 
 # gc.get_codes()
