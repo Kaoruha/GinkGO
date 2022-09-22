@@ -6,7 +6,7 @@ import tqdm
 import datetime
 import time
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, MetaData, inspect
+from sqlalchemy import create_engine, MetaData, inspect, func
 from sqlalchemy.orm import sessionmaker
 from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.data.stock.baostock_data import bao_instance as bi
@@ -14,6 +14,7 @@ from ginkgo.data.models.stock_info import StockInfo
 from ginkgo.config.secure import DATABASE, HOST, PORT, USERNAME, PASSWORD
 from ginkgo.data.models.stock_info import StockInfo
 from ginkgo.data.models.day_bar import DayBar
+from ginkgo.util.methdispatch import methdispatch
 
 
 class GinkgoClickHouse(object):
@@ -31,7 +32,10 @@ class GinkgoClickHouse(object):
 
         self.code_list_cache = None
         self.code_list_cache_last_update = None
+        self.time_span_cache = {}
+        # TODO Cach update
 
+    # Connect to Docker
     def __connect(self):
         gl.logger.info("Tring to connect Clickhouse")
         uri = f"clickhouse+native://{self.username}:{self.password}@{self.host}/{self.database}"
@@ -55,6 +59,7 @@ class GinkgoClickHouse(object):
         # TODO
         pass
 
+    # Update all stocks one by one
     def update_all_stockinfo(self) -> None:
         t0 = datetime.datetime.now()
         gl.logger.info("StockInfo Updating Start.")
@@ -101,16 +106,15 @@ class GinkgoClickHouse(object):
             f"StockInfo Update Complete. Update: {len(rs_list)}, Cost: {t1-t0}"
         )
 
+    # Get StockInfo
     def get_stockinfo(self) -> pd.DataFrame:
         old_rs = self.session.query(StockInfo).filter()
         df = pd.read_sql(old_rs.statement, con=self.engine)
         if df.shape[0] > 0:
             df = df.drop(["uuid"], axis=1)
-        # df.drop_duplicates(
-        #     subset=["code", "name", "trade_status", "has_min5"], inplace=True
-        # )
         return df[df["is_delete"] == False]
 
+    # Get All Codes
     def get_codes(self) -> pd.DataFrame:
         rs = self.get_stockinfo()
         rs = rs[["code", "name"]]
@@ -131,17 +135,97 @@ class GinkgoClickHouse(object):
     def get_adjustfactor(self) -> None:
         pass
 
-    def insert_daybars(self, daybars: list) -> None:
-        count = 0
-        for i in daybars:
-            old = self.get_daybar(code=i.code, date_start=i.date, date_end=i.date)
-            if old.count() == 0:
-                self.session.add(i)
-                count += 1
-            else:
-                self.update_daybar(i)
-        self.session.commit()
+    def get_timespan(self, code: str) -> tuple:
+        if code in self.time_span_cache.keys():
+            return self.time_span_cache[code]
+        df = self.get_daybar(code=code)
+        start = datetime.datetime(1990, 1, 1)
+        end = datetime.datetime(1990, 1, 1)
+        try:
+            start = df.iloc[0]["date"]
+        except Exception as e:
+            gl.logger.error(e)
+        try:
+            end = df.iloc[-1]["date"]
+        except Exception as e:
+            gl.logger.error(e)
 
+        result = (start, end)
+        self.time_span_cache[code] = result
+        return result
+
+    # Insert Daybar directly
+    @methdispatch
+    def insert_daybar(self, daybar) -> None:
+        gl.logger.error(
+            "Daybar insert only support <Daybar> List<Daybar> and DataFrame. Please check your code."
+        )
+
+    @insert_daybar.register(DayBar)
+    def _(self, daybar):
+        code = daybar.code
+        date_start = self.get_timespan(code)[0]
+        date_end = self.get_timespan(code)[1]
+        date = daybar.date
+        if date < date_start or date > date_end:
+            self.session.add(daybar)
+            self.session.commit()
+            gl.logger.debug(f"Insert Daybar via <DayBar>{date}:{code}")
+        self.time_span_cache.pop(code)
+
+    @insert_daybar.register(list)
+    def _(self, daybar):
+        code = daybar[0].code
+        l = []
+        for i in daybar:
+            if isinstance(i, DayBar):
+                if i.code != code:
+                    continue
+                date_start = self.get_timespan(i.code)[0]
+                date_end = self.get_timespan(i.code)[1]
+                if i.date < date_start or i.date > date_end:
+                    l.append(i)
+            else:
+                gl.logger.error(
+                    "Daybar insert via List<Daybar>, the atom of list should be DayBar"
+                )
+                return
+        self.session.add_all(l)
+        self.session.commit()
+        self.time_span_cache.pop(code)
+        gl.logger.debug(f"Insert Daybar via List<DayBar>: {len(l)}")
+
+    @insert_daybar.register(pd.DataFrame)
+    def _(self, daybar):
+        code = daybar.iloc[0]["code"]
+        l = []
+        for i, r in daybar.iterrows():
+            if r["code"] != code:
+                continue
+            date_start = self.get_timespan(r["code"])[0]
+            date_end = self.get_timespan(r["code"])[1]
+            if r["date"] < date_start or r["date"] > date_end:
+                item = DayBar()
+                item.df_convert(r)
+                l.append(item)
+        self.session.add_all(l)
+        self.session.commit()
+        self.time_span_cache.pop(code)
+        gl.logger.debug(f"Insert Daybar via DataFrame: {len(l)}")
+
+    # Insert Daybar with date & code check
+    def insert_daybar_strict(self, daybar: DayBar) -> None:
+        code = daybar.code
+        date = daybar.date
+        rs = self.get_daybar(code=code, date_start=date, date_end=date)
+        if rs.shape[0] == 0:
+            self.session.add(daybar)
+            self.session.commit()
+            gl.logger.debug(f"Insert {date}:{code}")
+        else:
+            gl.logger.warn(f"{date}:{code} data exists.")
+
+    # Get Daybars by code via BaoStock
     def get_daybars_by_bao(self, code: str) -> pd.DataFrame:
         end = datetime.datetime.now()
         end_str = datetime.datetime.strftime(end, "%Y-%m-%d")
@@ -149,27 +233,66 @@ class GinkgoClickHouse(object):
         return df
 
     def del_daybar(self, code: str, date: datetime.datetime) -> None:
-        pass
+        q = (
+            self.session.query(DayBar)
+            .filter(DayBar.code == code)
+            .filter(DayBar.date == date)
+            .order_by(DayBar.date.asc())
+            .all()
+        )
+        for i in q:
+            i.is_delete = True
+            self.session.commit()
 
-    def update_daybar(self, daybar: DayBar) -> None:
-        pass
+    def update_daybar(self, code: str) -> None:
+        # TODO
+        old_df = self.get_daybar(code=code)
+        print(old_df["date"])
 
-    def get_daybar(self, code: str, date_start: str, date_end: str) -> None:
-        date_start = datetime.datetime.strptime(date_start, "%Y-%m-%d")
-        date_end = datetime.datetime.strptime(date_end, "%Y-%m-%d")
+    def get_daybar(self, code: str, date_start=None, date_end=None) -> pd.DataFrame:
+        t0 = datetime.datetime.now()
+        if date_start is None:
+            # Set a default to start date
+            date_start = datetime.datetime(1990, 1, 1)
+        elif isinstance(date_start, str):
+            # If date_start is str, try convert
+            # Support 2 Format
+            try:
+                date_start = datetime.datetime.strptime(date_start, "%Y-%m-%d")
+            except Exception as e:
+                date_start = datetime.datetime.strptime(date_start, "%Y-%m-%d %H:%M:%S")
+        elif not isinstance(date_start, datetime.datetime):
+            gl.logger.error("Param Date only can be str or datetime")
+            return
+
+        if date_end is None:
+            # Set a default to end date
+            date_end = datetime.datetime.now()
+        elif isinstance(date_end, str):
+            try:
+                date_end = datetime.datetime.strptime(date_end, "%Y-%m-%d")
+            except Exception as e:
+                date_end = datetime.datetime.strptime(date_end, "%Y-%m-%d %H:%M:%S")
+        elif not isinstance(date_end, datetime.datetime):
+            gl.logger.error("Param Date only can be str or datetime")
+            return
+
         rs = (
             self.session.query(DayBar)
             .filter(DayBar.code == code)
             .filter(DayBar.date >= date_start)
             .filter(DayBar.date <= date_end)
+            .order_by(DayBar.date.asc())
         )
-        return rs
+        df = pd.read_sql(rs.statement, con=self.engine)
+        ## TODO remove deuplicated
+        t1 = datetime.datetime.now()
+        return df[df["is_delete"] == False]
 
     def update_all_daybar(self) -> None:
         # 1 GetAllCode
         t0 = datetime.datetime.now()
         code_list = self.get_codes()
-        print(code_list)
         # 2 Get Data by Code
         pbar = tqdm.tqdm(total=code_list.shape[0])
         for i, r in code_list.iterrows():
@@ -178,9 +301,6 @@ class GinkgoClickHouse(object):
             pbar.update(1)
             pbar.set_description(f"Updating DayBar {code} {name}")
             df = self.get_daybars_by_bao(code)
-            print("==" * 20)
-            print(df)
-            print(df is None)
             if df is None:
                 continue
             float_list = [
