@@ -19,7 +19,7 @@ class SimulateMatcherTest(unittest.TestCase):
 
     def test_FeeCal_OK(self):
         print("")
-        gl.logger.critical("税费计算测试开始.")
+        gl.logger.warn("税费计算测试开始.")
         params = [
             # 0stamp, 1transfer,2commission,3 min,4direction,5price,6volume,7fee
             (0.001, 0.0002, 0.0003, 5, Direction.BULL, 1, 100, 5.02),
@@ -36,11 +36,11 @@ class SimulateMatcherTest(unittest.TestCase):
             )
             f = m.fee_cal(direction=i[4], price=i[5], volume=i[6])
             self.assertEqual(first=i[7], second=f)
-        gl.logger.critical("税费计算测试完成.")
+        gl.logger.warn("税费计算测试完成.")
 
     def test_CalPriceMarket_OK(self):
         print("")
-        gl.logger.critical("模拟市价交易测试开始.")
+        gl.logger.warn("模拟市价交易测试开始.")
         m = self.reset()
         params = [
             # 0isbull, 1,code, 2targetvolume,3open,4close,5high,6low,7result(price,volume)
@@ -60,11 +60,11 @@ class SimulateMatcherTest(unittest.TestCase):
                 low=i[6],
             )
             self.assertEqual(first=r, second=i[7])
-        gl.logger.critical("模拟市价交易测试完成.")
+        gl.logger.warn("模拟市价交易测试完成.")
 
     def test_CalPriceLimit_OK(self):
         print("")
-        gl.logger.critical("模拟限价交易测试开始.")
+        gl.logger.warn("模拟限价交易测试开始.")
         m = self.reset()
         params = [
             # 0isbull, 1targetprice, 2targetvolume, 3open,
@@ -130,11 +130,11 @@ class SimulateMatcherTest(unittest.TestCase):
                 low=i[6],
             )
             self.assertEqual(first=r, second=i[7])
-        gl.logger.critical("模拟限价交易测试完成.")
+        gl.logger.warn("模拟限价交易测试完成.")
 
     def test_SimMatcherGetOrder_OK(self):
         print("")
-        gl.logger.critical("模拟获取订单测试开始.")
+        gl.logger.warn("模拟获取订单测试开始.")
         m = self.reset()
         param = [
             # 0code, 1direction, 2status, 3orderlistcount
@@ -152,11 +152,11 @@ class SimulateMatcherTest(unittest.TestCase):
                 for h in j:
                     count += 1
             self.assertEqual(first={"count": i[3]}, second={"count": count})
-        gl.logger.critical("模拟获取订单测试结束.")
+        gl.logger.warn("模拟获取订单测试结束.")
 
     def test_SimMatcherSendOrder_OK(self):
         print("")
-        gl.logger.critical("模拟发送订单测试开始.")
+        gl.logger.warn("模拟发送订单测试开始.")
         m = self.reset()
         param = [
             # 0code, 1direction, 2status, 3orderlistcount
@@ -174,11 +174,11 @@ class SimulateMatcherTest(unittest.TestCase):
             m.get_order(o)
             result = m.send_order(o)
             self.assertEqual(first={"result": i[3]}, second={"result": result})
-        gl.logger.critical("模拟订单测试结束.")
+        gl.logger.warn("模拟订单测试结束.")
 
     def test_SimMatcherSimMatchOrder_OK(self):
         print("")
-        gl.logger.critical("模拟撮合订单测试开始.")
+        gl.logger.warn("模拟撮合订单测试开始.")
         params = [
             # 0order
             # 0code, 1direction, 2type, 3price, 4volume
@@ -233,17 +233,17 @@ class SimulateMatcherTest(unittest.TestCase):
                 },
             )
 
-        gl.logger.critical("模拟撮合订单测试结束.")
+        gl.logger.warn("模拟撮合订单测试结束.")
 
     def test_SimMatcherTryMatch_OK(self):
         # TODO
         print("")
-        gl.logger.critical("模拟尝试撮合测试开始.")
-        gl.logger.critical("模拟尝试撮合测试结束.")
+        gl.logger.warn("模拟尝试撮合测试开始.")
+        gl.logger.warn("模拟尝试撮合测试结束.")
 
     def test_SimMatcherGetResult_OK(self):
         print("")
-        gl.logger.critical("模拟获取交易结果测试开始.")
+        gl.logger.warn("模拟获取交易结果测试开始.")
         order_params = [
             # 0code, 1direction, 2type, 3price, 4volume
             ("testorder1", Direction.BULL, OrderType.LIMIT, 10.3, 1000),
@@ -289,9 +289,9 @@ class SimulateMatcherTest(unittest.TestCase):
                 first={"result_count": i[1]}, second={"result_count": len(m.match_list)}
             )
 
-        gl.logger.critical("模拟获取交易结果测试结束.")
+        gl.logger.warn("模拟获取交易结果测试结束.")
 
     def test_SimMatcherClear_OK(self):
         print("")
-        gl.logger.critical("模拟清除历史记录测试开始.")
-        gl.logger.critical("模拟清除历史记录测试结束.")
+        gl.logger.warn("模拟清除历史记录测试开始.")
+        gl.logger.warn("模拟清除历史记录测试结束.")
