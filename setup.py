@@ -28,6 +28,7 @@ config = {
     "url": PACKAGE_URL,
 }
 
+
 setuptools.setup(
     name=config["package_name"],
     version=config["version"],
