@@ -1,3 +1,39 @@
+##### 1.0(FUTURE)
+  - Begin to rebuild.
+  - Update Python to 3.11.
+  - Support MongoDB and Clickhouse both.
+  - Add 2 or 3 DataSource.
+  - Give up GUI. Focus on the strategy develop.
+  - Add ML Engine.
+  - Support other markets.
+
+##### 0.7(FUTURE)
+  - Add NSQ
+  - Add Dao
+  - Add Jap
+
+##### 0.6(FUTURE)
+  - Add ML Engine.
+
+##### 0.5(FUTURE)
+  - Add 2 or 3 DataSources of China Mainland Stock Market.
+  - Baostock
+  - Sine Spider
+  - 
+  - Other Source
+
+##### 0.4(FUTURE)
+  - Add Clickhouse Driver.
+  - Create Standard Data Interface.
+  - Optimize MongoDB.
+  - Optimize DataEngine.
+
+##### 0.3(FUTURE)
+  - Support MongoDB and Clickhouse both.
+
+##### 0.2(FUTURE)
+  - Update to Python3.11
+
 ##### 0.1.4
   - Add Clickhouse Driver.
   - Add GUI.
