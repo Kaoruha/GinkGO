@@ -3,7 +3,7 @@
   - Update Python to 3.11.
   - Support MongoDB and Clickhouse both.
   - Add 2 or 3 DataSource.
-  - Give up GUI. Focus on the strategy develop.
+  - Give up GUI for now. Focus on the strategy develop.
   - Add ML Engine.
   - Support other markets.
 
