@@ -62,3 +62,38 @@ SENTMENT 情绪交易
 mongo
 use quant
 db.createUser({user:"ginkgo",pwd:"caonima123",roles:[{role:"readWrite",db:"quant"}]})
+
+
+
+Designing an event-driven stock backtest system in Python can be broken down into the following high-level steps:
+
+Define the data structures that you will use to represent financial instruments, such as stocks, and financial data, such as prices and volumes.
+Define the events that your system will generate and process. These could include market data events, such as tick data, as well as order and execution events.
+Implement a data feed module that can read financial data from external sources and generate market data events for your system to process.
+Implement a strategy module that can receive market data events and generate order events based on some pre-defined rules.
+Implement an execution module that can receive order events and generate execution events based on the current market conditions.
+Implement a portfolio module that can receive execution events and update the current state of your portfolio.
+Implement a performance module that can calculate key performance metrics for your backtest, such as return on investment and Sharpe ratio.
+Here is a more detailed breakdown of each step:
+
+Define the data structures
+Define classes for financial instruments, such as stocks, and financial data, such as prices and volumes. These classes should have attributes that allow you to represent the relevant data, as well as methods that allow you to manipulate and interact with the data.
+Define a class for your portfolio that contains information about the current state of your portfolio, including the number of shares you own, the current value of those shares, and any cash or margin balances.
+Define the events
+Define classes for the events that your system will generate and process. These could include market data events, such as tick data, as well as order and execution events.
+Each event should contain all of the relevant information needed to trigger a particular action within your system. For example, a market data event might include the current price and volume for a particular stock, while an order event might include the stock symbol, the order type, and the quantity of shares to be bought or sold.
+Implement a data feed module
+Implement a data feed module that can read financial data from external sources and generate market data events for your system to process.
+This module should be able to handle different types of financial data, such as tick data or historical price data, and should be able to parse the data into the appropriate event format.
+You may also want to implement a data caching mechanism to improve performance, as reading data from external sources can be time-consuming.
+Implement a strategy module
+Implement a strategy module that can receive market data events and generate order events based on some pre-defined rules.
+This module should be able to handle different types of trading strategies, such as trend-following or mean-reversion, and should be able to adjust its behavior based on market conditions.
+You may also want to implement a strategy testing framework to help you evaluate the effectiveness of different trading strategies.
+Implement an execution module
+Implement an execution module that can receive order events and generate execution events based on the current market conditions.
+This module should be able to handle different types of orders, such as market orders or limit orders, and should be able to execute orders in a timely and efficient manner.
+You may also want to implement an order management system to help you keep track of your orders and their status.
+Implement a portfolio module
+Implement a portfolio module that can receive execution events and update the current state of your portfolio.
+This module should be able to handle different types of transactions, such as buying or selling shares, and should be able to calculate the current value of your portfolio based on the current market prices.
