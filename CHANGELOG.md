@@ -34,6 +34,10 @@
 ##### 0.2(FUTURE)
   - Update to Python3.11
 
+##### 0.1.5
+  - Optimize Architecture.
+  - Remove GUI, Add CLI
+
 ##### 0.1.4
   - Add Clickhouse Driver.
   - Add GUI.

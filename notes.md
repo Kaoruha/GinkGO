@@ -65,35 +65,23 @@ db.createUser({user:"ginkgo",pwd:"caonima123",roles:[{role:"readWrite",db:"quant
 
 
 
-Designing an event-driven stock backtest system in Python can be broken down into the following high-level steps:
 
-Define the data structures that you will use to represent financial instruments, such as stocks, and financial data, such as prices and volumes.
-Define the events that your system will generate and process. These could include market data events, such as tick data, as well as order and execution events.
-Implement a data feed module that can read financial data from external sources and generate market data events for your system to process.
-Implement a strategy module that can receive market data events and generate order events based on some pre-defined rules.
-Implement an execution module that can receive order events and generate execution events based on the current market conditions.
-Implement a portfolio module that can receive execution events and update the current state of your portfolio.
-Implement a performance module that can calculate key performance metrics for your backtest, such as return on investment and Sharpe ratio.
-Here is a more detailed breakdown of each step:
+Define the data structure: Decide on the data structure to use for the financial data you will be backtesting. This could include stock prices, volumes, financial ratios, and other indicators.
 
-Define the data structures
-Define classes for financial instruments, such as stocks, and financial data, such as prices and volumes. These classes should have attributes that allow you to represent the relevant data, as well as methods that allow you to manipulate and interact with the data.
-Define a class for your portfolio that contains information about the current state of your portfolio, including the number of shares you own, the current value of those shares, and any cash or margin balances.
-Define the events
-Define classes for the events that your system will generate and process. These could include market data events, such as tick data, as well as order and execution events.
-Each event should contain all of the relevant information needed to trigger a particular action within your system. For example, a market data event might include the current price and volume for a particular stock, while an order event might include the stock symbol, the order type, and the quantity of shares to be bought or sold.
-Implement a data feed module
-Implement a data feed module that can read financial data from external sources and generate market data events for your system to process.
-This module should be able to handle different types of financial data, such as tick data or historical price data, and should be able to parse the data into the appropriate event format.
-You may also want to implement a data caching mechanism to improve performance, as reading data from external sources can be time-consuming.
-Implement a strategy module
-Implement a strategy module that can receive market data events and generate order events based on some pre-defined rules.
-This module should be able to handle different types of trading strategies, such as trend-following or mean-reversion, and should be able to adjust its behavior based on market conditions.
-You may also want to implement a strategy testing framework to help you evaluate the effectiveness of different trading strategies.
-Implement an execution module
-Implement an execution module that can receive order events and generate execution events based on the current market conditions.
-This module should be able to handle different types of orders, such as market orders or limit orders, and should be able to execute orders in a timely and efficient manner.
-You may also want to implement an order management system to help you keep track of your orders and their status.
-Implement a portfolio module
-Implement a portfolio module that can receive execution events and update the current state of your portfolio.
-This module should be able to handle different types of transactions, such as buying or selling shares, and should be able to calculate the current value of your portfolio based on the current market prices.
+Create an event-driven architecture: Use an event-driven architecture to handle the various events that will occur during the backtesting process. This approach allows you to separate the logic of the backtesting system from the data itself. You can use an event-driven library like asyncio or Twisted to help with this.
+
+Define the events: Define the events that will be triggered during the backtesting process. These events could include things like price updates, order submissions, and trade executions.
+
+Implement the event handlers: Write the code to handle each event. This might include updating the internal state of the backtesting system, submitting orders to the exchange, or executing trades.
+
+Create a simulation environment: Create a simulation environment that mimics the behavior of a real exchange. This could include things like order books, price feeds, and market depth.
+
+Define the trading strategies: Define the trading strategies that you want to test. This could include simple strategies like buy-and-hold, or more complex strategies that involve technical analysis, machine learning, or other techniques.
+
+Backtest the strategies: Run the backtesting system on historical data to see how well the trading strategies perform. You can use various performance metrics like sharpe ratio, maximum drawdown, and cumulative returns to evaluate the performance of the strategies.
+
+Optimize the strategies: Use the results of the backtest to optimize the trading strategies. This might involve tweaking parameters like stop loss levels, take profit levels, or trade sizes to improve performance.
+
+Implement the strategies: Once you have optimized your trading strategies, you can implement them in a live trading environment.
+
+
