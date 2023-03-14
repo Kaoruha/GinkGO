@@ -1,4 +1,4 @@
-class Bar:
+class Bar(object):
     def __init__(self):
         self.timestamp = None
         self.code = "sh.600001"
@@ -7,3 +7,7 @@ class Bar:
         self.low = 0
         self.close = 0
         self.volume = 0
+
+    def check_code_exsist(self):
+        # TODO
+        pass
