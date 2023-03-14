@@ -1,7 +1,7 @@
 ##### 1.0(FUTURE)
   - Begin to rebuild.
   - Update Python to 3.11.
-  - Support MongoDB and Clickhouse both.
+  - Support MongoDB and Clickhouse.
   - Add 2 or 3 DataSource.
   - Give up GUI for now. Focus on the strategy develop.
   - Add ML Engine.
