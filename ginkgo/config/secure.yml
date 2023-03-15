@@ -1,0 +1,9 @@
+database:
+  clickhouse:
+    database: ginkgoclick
+    username: ginkgoadm
+    password: aGVsbG9jbGlja2hvdXNl
+  mongodb:
+    database: ginkgomongo
+    username: ginkgoadm
+    password: aGVsbG9tb25nbw==

@@ -1,13 +1,6 @@
 import unittest
-from ginkgo.backtest.events import MarketEvent, SignalEvent, OrderEvent, FillEvent
-from ginkgo.backtest.enums import (
-    Direction,
-    OrderStatus,
-    OrderType,
-    Source,
-    MarketEventType,
-)
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.backtest.bar import Bar
 
 
 class BarTest(unittest.TestCase):
@@ -16,42 +9,27 @@ class BarTest(unittest.TestCase):
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        super(EventsTest, self).__init__(*args, **kwargs)
+        super(BarTest, self).__init__(*args, **kwargs)
 
     def test_BarInit_OK(self):
         print("")
-        gl.logger.warn("MarketEvent初始化测试开始.")
-        param = [
-            # 0datetime, 1source, 2code, 3raw, 4marketeventtype
-            (
-                "2020-01-02",
-                Source.BACKTEST,
-                "testmarket",
-                "this is unitest",
-                MarketEventType.NEWS,
-            ),
+        gl.logger.warn("Bar初始化测试开始.")
+        params = [
+            {
+                "code": "sh.0000001",
+                "open": 10.2,
+                "high": 11,
+                "low": 9.45,
+                "close": 10,
+            },
+            {
+                "code": "sh.0000001",
+                "open": 10,
+                "high": 11.1,
+                "low": 9.6,
+                "close": 9.4,
+            },
         ]
-        for i in param:
-            e = MarketEvent(
-                datetime=i[0], code=i[2], source=i[1], raw=i[3], market_event_type=i[4]
-            )
-            gl.logger.info(e)
-            self.assertEqual(
-                first={
-                    "ismarket": True,
-                    "date": i[0],
-                    "code": i[2],
-                    "source": i[1],
-                    "raw": i[3],
-                    "type": i[4],
-                },
-                second={
-                    "ismarket": isinstance(e, MarketEvent),
-                    "date": e.datetime.strftime("%Y-%m-%d"),
-                    "code": e.code,
-                    "source": e.source,
-                    "raw": e.raw,
-                    "type": e.market_event_type,
-                },
-            )
-        gl.logger.warn("MarketEvent初始化测试完成.")
+        for item in params:
+            print(item)
+        gl.logger.warn("Bar初始化测试完成.")

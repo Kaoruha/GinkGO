@@ -2,8 +2,8 @@
 import argparse
 import os
 import unittest
-from ginkgo.config.setting import LOGGING_FILE_ON, LOGGING_PATH
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs.ginkgo_conf import GINKGOCONF as g_conf
+from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 
 
 if __name__ == "__main__":
@@ -18,6 +18,9 @@ if __name__ == "__main__":
         choices=["debug", "info", "warning", "critical"],
     )
     args = parser.parse_args()
+
+    LOGGING_FILE_ON = g_conf.LOGGING_FILE_ON
+    LOGGING_PATH = g_conf.LOGGING_PATH
 
     # 从test文件夹内读取所有单元测试
     path = "./test"
