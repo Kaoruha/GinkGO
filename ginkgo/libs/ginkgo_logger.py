@@ -1,36 +1,39 @@
-# coding:utf-8
+import os
 import logging
 import colorlog
 import threading
 from ginkgo.libs.ginkgo_conf import GINKGOCONF as g_conf
 
-from ginkgo.config.setting import (
-    LOGGING_LEVEL_CONSOLE,
-    LOGGING_LEVEL_FILE,
-    LOGGING_COLOR,
-    LOGGING_PATH,
-    LOGGIN_DEFAULT_FILE,
-    LOGGING_FILE_ON,
-)
+# Read Configure
+LOGGING_LEVEL_CONSOLE = g_conf.LOGGING_LEVEL_CONSOLE
+LOGGING_LEVEL_FILE = g_conf.LOGGING_LEVEL_FILE
+LOGGING_COLOR = g_conf.LOGGING_COLOR
+LOGGING_PATH = g_conf.LOGGING_PATH
+LOGGIN_DEFAULT_FILE = g_conf.LOGGING_DEFAULT_FILE
+LOGGING_FILE_ON = g_conf.LOGGING_FILE_ON
 
 
-class GinkgoLogging(object):
+class GinkgoLogger(object):
     # singleton
     _instance_lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
-        if not hasattr(GinkgoLogging, "_instance"):
-            with GinkgoLogging._instance_lock:
-                if not hasattr(GinkgoLogging, "_instance"):
-                    GinkgoLogging._instance = object.__new__(cls)
-        return GinkgoLogging._instance
+        if not hasattr(GinkgoLogger, "_instance"):
+            with GinkgoLogger._instance_lock:
+                if not hasattr(GinkgoLogger, "_instance"):
+                    GinkgoLogger._instance = object.__new__(cls)
+        return GinkgoLogger._instance
 
     def __init__(self, logger_name, file_name=None) -> None:
         super().__init__()
+
+        os.system(f"mkdir {LOGGING_PATH}")
+
         if file_name:
             self.file_name = file_name
         else:
             self.file_name = LOGGIN_DEFAULT_FILE
+
         self.logger = logging.getLogger(logger_name)
         console_handler = logging.StreamHandler()
         self.file_handler = logging.FileHandler(
@@ -39,8 +42,8 @@ class GinkgoLogging(object):
 
         # 设置日志级别，会以最高级别为准
         self.logger.setLevel(logging.DEBUG)
-        console_handler.setLevel(LOGGING_LEVEL_CONSOLE)
-        self.file_handler.setLevel(LOGGING_LEVEL_FILE)
+        console_handler.setLevel(self.get_log_level(LOGGING_LEVEL_CONSOLE))
+        self.file_handler.setLevel(self.get_log_level(LOGGING_LEVEL_FILE))
 
         # 日志输出格式
         file_formatter = logging.Formatter(
@@ -76,5 +79,19 @@ class GinkgoLogging(object):
         self.file_handler.setFormatter(file_formatter)
         self.logger.addHandler(self.file_handler)
 
+    def get_log_level(self, level):
+        r = 10
+        if level == "DEBUG":
+            r = 10
+        elif level == "INFO":
+            r = 20
+        elif level == "WARNING":
+            r = 30
+        elif level == "ERROR":
+            r = 40
+        elif level == "CRITICAL":
+            r = 50
+        return r
 
-GINKGOLOGGER = ginkgo_logger()
+
+GINKGOLOGGER = GinkgoLogger("ginkgo_log")

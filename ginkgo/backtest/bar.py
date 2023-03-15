@@ -1,6 +1,6 @@
 class Bar(object):
     def __init__(self):
-        self.timestamp = None
+        self.timestamp = None  # DateTime
         self.code = "sh.600001"
         self.open = 0
         self.high = 0
