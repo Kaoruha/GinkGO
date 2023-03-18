@@ -1,5 +1,6 @@
 # coding:utf-8
 import argparse
+import datetime
 import os
 import unittest
 from ginkgo.libs.ginkgo_conf import GINKGOCONF as g_conf
@@ -22,6 +23,8 @@ if __name__ == "__main__":
     LOGGING_FILE_ON = g_conf.LOGGING_FILE_ON
     LOGGING_PATH = g_conf.LOGGING_PATH
 
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(now)
     # 从test文件夹内读取所有单元测试
     path = "./test"
     if args.dev:
