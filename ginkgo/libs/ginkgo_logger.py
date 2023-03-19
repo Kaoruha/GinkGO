@@ -17,7 +17,7 @@ class GinkgoLogger(object):
     # singleton
     _instance_lock = threading.Lock()
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, **kwargs) -> object:
         if not hasattr(GinkgoLogger, "_instance"):
             with GinkgoLogger._instance_lock:
                 if not hasattr(GinkgoLogger, "_instance"):
@@ -65,7 +65,7 @@ class GinkgoLogger(object):
         if LOGGING_FILE_ON:
             self.logger.addHandler(self.file_handler)
 
-    def reset_logfile(self, file_name: str):
+    def reset_logfile(self, file_name: str) -> None:
         if not LOGGING_FILE_ON:
             return
         self.logger.removeHandler(self.file_handler)
@@ -79,7 +79,7 @@ class GinkgoLogger(object):
         self.file_handler.setFormatter(file_formatter)
         self.logger.addHandler(self.file_handler)
 
-    def get_log_level(self, level):
+    def get_log_level(self, level) -> int:
         r = 10
         if level == "DEBUG":
             r = 10

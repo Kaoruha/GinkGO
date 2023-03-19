@@ -4,15 +4,15 @@
 # from ginkgo.backtest.event.base_event import EventBase
 
 
-# class EngineTest(unittest.TestCase):
+# class EventOrderSubmissionTest(unittest.TestCase):
 #     """
-#     UnitTest for Engine.
+#     UnitTest for Event Order Submission.
 #     """
 
 #     # Init
 
 #     def __init__(self, *args, **kwargs) -> None:
-#         super(EngineTest, self).__init__(*args, **kwargs)
+#         super(EventOrderSubmissionTest, self).__init__(*args, **kwargs)
 
 #     def test_EventBaseInit_OK(self) -> None:
 #         print("")

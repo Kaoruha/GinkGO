@@ -16,7 +16,7 @@ class BarTest(unittest.TestCase):
     def __init__(self, *args, **kwargs) -> None:
         super(BarTest, self).__init__(*args, **kwargs)
 
-    def test_BarInit_OK(self):
+    def test_BarInit_OK(self) -> None:
         print("")
         gl.logger.warn("Bar初始化 测试开始.")
         params = [
@@ -50,9 +50,10 @@ class BarTest(unittest.TestCase):
                 item["volume"],
                 item["timestamp"],
             )
+            print(b)
         gl.logger.warn("Bar初始化 测试完成.")
 
-    def test_BarChange_OK(self):
+    def test_BarChange_OK(self) -> None:
         print("")
         gl.logger.warn("Bar Change 测试开始.")
         params = [
@@ -106,10 +107,11 @@ class BarTest(unittest.TestCase):
                 item["volume"],
                 item["timestamp"],
             )
+            print(b)
             self.assertEqual(b.chg, result[i])
         gl.logger.warn("Bar Change 测试完成.")
 
-    def test_BarAmplitude_OK(self):
+    def test_BarAmplitude_OK(self) -> None:
         print("")
         gl.logger.warn("Bar Amplitude 测试开始.")
         params = [
@@ -163,5 +165,6 @@ class BarTest(unittest.TestCase):
                 item["volume"],
                 item["timestamp"],
             )
+            print(b)
             self.assertEqual(b.amplitude, result[i])
         gl.logger.warn("Bar Amplitude 测试完成.")
