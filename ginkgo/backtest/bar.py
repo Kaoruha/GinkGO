@@ -1,4 +1,6 @@
 import datetime
+from ginkgo.libs.ginkgo_pretty import pretty_repr
+from ginkgo.libs.ginkgo_normalize import datetime_normalize
 
 
 class Bar(object):
@@ -11,8 +13,8 @@ class Bar(object):
         close: float,
         volume: int,
         timestamp,
-    ):
-        self.timestamp = None  # DateTime
+    ) -> None:
+        self.__timestamp = None  # DateTime
         self.code = "sh.600001"
         self.open = 0
         self.high = 0
@@ -31,55 +33,42 @@ class Bar(object):
         close: float,
         volume: int,
         timestamp: datetime.datetime,
-    ):
+    ) -> None:
         self.open = open_
         self.high = high
         self.low = low
         self.close = close
         self.volume = volume
 
-        if isinstance(timestamp, datetime.datetime):
-            self.timestamp = timestamp
-        elif isinstance(timestamp, str):
-            t = datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-            self.timestamp = t
+        self.__timestamp = datetime_normalize(timestamp)
 
     @property
-    def open_(self):
+    def timestamp(self):
+        return self.__timestamp
+
+    @property
+    def open_(self) -> float:
         return self.open
 
     @property
-    def chg(self):
+    def chg(self) -> float:
         r = self.close - self.open
         r = round(r, 2)
         return r
 
     @property
-    def amplitude(self):
+    def amplitude(self) -> float:
         r = self.high - self.low
         r = round(r, 2)
         return r
 
-    def __repr__(self):
-        bar = f"MEM   : {hex(id(self))}"
+    def __repr__(self) -> str:
+        mem = f"MEM   : {hex(id(self))}"
         date = f"Date  : {self.timestamp}"
         open_ = f"Open  : {self.open}"
         high = f"High  : {self.high}"
         low = f"Low   : {self.low}"
         close = f"Close : {self.close}"
         volume = f"Volume: {self.volume}"
-        txt = [bar, date, open_, high, low, close, volume]
-        width = 40
-        title = "=" * (width // 2 - 3) + " BAR "
-        title += "=" * (width - len(title))
-        r = "\n"
-        r += title
-        for i in range(7):
-            t = txt[i]
-            r += "\n"
-            r += t
-            r += " " * (width - len(t) - 1)
-            r += "#"
-        r += "\n"
-        r += "=" * width
-        return r
+        msg = [mem, date, open_, high, low, close, volume]
+        return pretty_repr(Bar.__name__, msg, 40)
