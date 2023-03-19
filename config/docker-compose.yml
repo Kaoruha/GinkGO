@@ -1,7 +1,7 @@
 # yaml 配置实例
 version: '3'
 services:
-  GinkgoMongo:
+  Mongo:
     image: mongo:latest
     container_name: ginkgo_mongo
     restart: always
@@ -10,8 +10,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: caonima123
       MONGO_INITDB_DATABASE: quant
     volumes:
-      - ./mongo:/data/db
-      - ./mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js
+      # - ./mongo:/data/db
+      - ./config/mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js
     networks:
       - nets
     ports:
@@ -28,7 +28,7 @@ services:
     networks:
       - nets
     volumes:
-      - ./clickhouse_users.xml:/etc/clickhouse-server/users.xml
+      - ./config/clickhouse_users.xml:/etc/clickhouse-server/users.xml
     ulimits:
       nproc: 65546
       nofile:
