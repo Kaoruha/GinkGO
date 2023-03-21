@@ -11,7 +11,7 @@ class EventBase(object, metaclass=ABCMeta):
         super(EventBase, self).__init__(*args, **kwargs)
         self.__timestamp = datetime.datetime.now()
         self.__id = uuid.uuid3(
-            uuid.NAMESPACE_DNS, str(self.timestamp) + EventBase.__name__
+            uuid.NAMESPACE_DNS, str(datetime.datetime.now()) + EventBase.__name__
         )
         self.__type = None
         self.__source = Source.SIM
