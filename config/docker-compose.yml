@@ -1,21 +1,21 @@
 # yaml 配置实例
 version: '3'
 services:
-  Mongo:
-    image: mongo:latest
-    container_name: ginkgo_mongo
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: caonima123
-      MONGO_INITDB_DATABASE: quant
-    volumes:
-      - ../db/mongo:/data/db:rw
-      - ./mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js
-    networks:
-      - nets
-    ports:
-      - "27017:27017"
+  # Mongo:
+  #   image: mongo:latest
+  #   container_name: ginkgo_mongo
+  #   restart: always
+  #   environment:
+  #     MONGO_INITDB_ROOT_USERNAME: root
+  #     MONGO_INITDB_ROOT_PASSWORD: caonima123
+  #     MONGO_INITDB_DATABASE: quant
+  #   volumes:
+  #     - ../db/mongo:/data/db:rw
+  #     - ./mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js
+  #   networks:
+  #     - nets
+  #   ports:
+  #     - "27017:27017"
 
   Clickhouse:
     image: yandex/clickhouse-server
