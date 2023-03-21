@@ -43,7 +43,7 @@ class Bar(object):
         self.__timestamp = datetime_normalize(timestamp)
 
     @property
-    def timestamp(self):
+    def timestamp(self) -> datetime.datetime:
         return self.__timestamp
 
     @property

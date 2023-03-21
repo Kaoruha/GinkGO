@@ -10,8 +10,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: caonima123
       MONGO_INITDB_DATABASE: quant
     volumes:
-      # - ./mongo:/data/db
-      - ./config/mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js
+      - ../db/mongo:/data/db:rw
+      - ./mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js
     networks:
       - nets
     ports:
@@ -28,7 +28,9 @@ services:
     networks:
       - nets
     volumes:
-      - ./config/clickhouse_users.xml:/etc/clickhouse-server/users.xml
+      - ./clickhouse_users.xml:/etc/clickhouse-server/users.xml
+      - ../db/clickhouse:/var/lib/clickhouse:rw
+      - ../db/clickhouse/log:/var/log/clickhouse-server
     ulimits:
       nproc: 65546
       nofile:

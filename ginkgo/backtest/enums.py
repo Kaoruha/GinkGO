@@ -39,3 +39,20 @@ class Source(EnumBase):
     REALTIME = 2
     SINA = 3
     BAOSTOCK = 4
+
+
+class Direction(EnumBase):
+    LONG = 1
+    SHORT = 2
+
+
+class OrderType(EnumBase):
+    MARKETORDER = 1
+    LIMITORDER = 2
+
+
+class OrderStatus(EnumBase):
+    NEW = 1
+    SUBMITTED = 2
+    FILLED = 3
+    CANCELED = 4
