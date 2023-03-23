@@ -17,9 +17,7 @@ class Order(object):
     ):
         self.code = code
         self.timestamp = datetime_normalize(timestamp)
-        self.__id = uuid.uuid3(
-            uuid.NAMESPACE_DNS, str(datetime.datetime.now()) + Order.__name__
-        )
+        self.__id = uuid.uuid4().hex
         self.direction = Direction.LONG
         self.__order_type = order_type
         self.quantity = quantity
