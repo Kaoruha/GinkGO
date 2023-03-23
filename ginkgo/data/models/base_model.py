@@ -48,8 +48,18 @@ class BaseModel(gc.base):
             if param.startswith("_"):
                 continue
             tmp = f"{str(param)}"
+            print(param)
+            print(len(param))
+            print(self.__getattribute__(param))
+            print(len(str(self.__getattribute__(param))))
             tmp += " " * (count - len(str(param)))
-            tmp += f" : {self.__getattribute__(param)}"
+            s = self.__getattribute__(param)
+            print(type(s))
+            print(len(s))
+            print(f"={s}=")
+            for i in s:
+                print(f"={i}=")
+            tmp += f" : {s}"
             r.append(tmp)
 
         return pretty_repr(self.__tablename__, r, 60)

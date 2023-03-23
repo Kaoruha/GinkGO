@@ -1,7 +1,7 @@
 import uuid
 import datetime
 from abc import abstractmethod, ABCMeta
-from ginkgo.backtest.enums import EventType, Source
+from ginkgo.enums import EventType, Source
 from ginkgo.libs.ginkgo_pretty import pretty_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 

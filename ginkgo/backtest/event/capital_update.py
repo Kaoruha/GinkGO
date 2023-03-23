@@ -1,5 +1,5 @@
 from ginkgo.backtest.event.base_event import EventBase
-from ginkgo.backtest.enums import EventType, PriceInfo, Source
+from ginkgo.enums import EventType, PriceInfo, Source
 from ginkgo.backtest.order import Order
 
 
