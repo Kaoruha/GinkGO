@@ -91,6 +91,18 @@ class GinkgoConfig(object):
         return r
 
     @property
+    def CLICKHOST(self) -> int:
+        r = ""
+        r = self.__read_secure()["database"]["clickhouse"]["host"]
+        return r
+
+    @property
+    def CLICKPORT(self) -> int:
+        r = ""
+        r = self.__read_secure()["database"]["clickhouse"]["port"]
+        return r
+
+    @property
     def MONGODB(self) -> str:
         r = ""
         try:

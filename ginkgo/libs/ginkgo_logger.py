@@ -27,7 +27,9 @@ class GinkgoLogger(object):
     def __init__(self, logger_name, file_name=None) -> None:
         super().__init__()
 
-        os.system(f"mkdir {LOGGING_PATH}")
+        if not os.path.exists(LOGGING_PATH):
+            os.mkdir(LOGGING_PATH)
+            print(f"Create folder {LOGGING_PATH}")
 
         if file_name:
             self.file_name = file_name

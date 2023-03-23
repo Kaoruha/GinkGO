@@ -1,23 +1,44 @@
-from sqlalchemy import create_engine, Column, MetaData, DDL
+from sqlalchemy import create_engine, MetaData, inspect
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
-from clickhouse_sqlalchemy import (
-    Table,
-    make_session,
-    get_declarative_base,
-    types,
-    engines,
+
+
+class GinkgoClickhouse(object):
+    def __init__(self, user: str, pwd: str, host: str, port: int, db: str):
+        self.engine = None
+        self.session = None
+        self.metadata = None
+        self.base = None
+        self.__user = user
+        self.__pwd = pwd
+        self.__host = host
+        self.__port = port
+        self.__db = db
+
+        self.__connect()
+
+    def __connect(self):
+        uri = f"clickhouse://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/{self.__db}"
+        self.engine = create_engine(uri)
+        self.session = sessionmaker(self.engine)()
+        self.metadata = MetaData(bind=self.engine)
+        gl.logger.info("Connect to clickhouse succeed.")
+        self.base = declarative_base(metadata=self.metadata)
+
+    @property
+    def insp(self):
+        return inspect(self.engine)
+
+    def is_table_exsists(self, name: str) -> bool:
+        return self.insp.has_table(name)
+
+
+GINKGOCLICK = GinkgoClickhouse(
+    user=GINKGOCONF.CLICKUSER,
+    pwd=GINKGOCONF.CLICKPWD,
+    host=GINKGOCONF.CLICKHOST,
+    port=GINKGOCONF.CLICKPORT,
+    db=GINKGOCONF.CLICKDB,
 )
-
-user = GINKGOCONF.CLICKDB
-pwd = GINKGOCONF.CLICKPWD
-host = "localhost"
-port = 9000
-db = GINKGOCONF.CLICKDB
-
-uri = f"clickhouse+native://{user}:{pwd}@{host}/{db}"
-
-engine = create_engine(uri, pool_size=100, pool_recycle=3600, pool_timeout=20)
-session = make_session(engine)
-metadata = MetaData(bind=engine)
-
-Base = get_declarative_base(metadata=metadata)

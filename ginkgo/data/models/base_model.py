@@ -1,19 +1,56 @@
 import uuid
-from ginkgo.data.drivers.ginkgo_clickhouse import Base, engine
+import datetime
+from ginkgo.data.drivers.ginkgo_clickhouse import GINKGOCLICK as gc
+from ginkgo.libs.ginkgo_pretty import pretty_repr
 from clickhouse_sqlalchemy import engines
-from sqlalchemy import Column, String, DECIMAL, DateTime, Boolean
+from sqlalchemy import Column, String, DateTime, Boolean, func
 
 
-def gen_id():
+def gen_id(self):
     return uuid.uuid4().hex
 
 
-class BaseModel(Base):
+def get_datetime(self):
+    return datetime.datetime.now()
+
+
+class BaseModel(gc.base):
     __abstract__ = True
     __tablename__ = "BaseModel"
     __table_args__ = (engines.Memory(),)
 
-    ID = Column(DECIMAL)
-    UUID = Column(String(32), default=gen_id, primary_key=True)
+    UUID = Column(String(32), primary_key=True)
     DATETIME = Column(DateTime)
+    CREATE = Column(DateTime)
+    UPDATE = Column(DateTime)
     ISDEL = Column(Boolean)
+
+    def __init__(self):
+        self.UUID = uuid.uuid4().hex
+        self.DATETIME = datetime.datetime.now()
+        self.CREATE = datetime.datetime.now()
+        self.UPDATE = datetime.datetime.now()
+
+    def delete(self):
+        self.ISDEL = True
+
+    def query(cls):
+        print(cls)
+
+    def __repr__(self):
+        methods = ["delete", "query", "registry", "metadata"]
+        r = ""
+        count = 8
+        for i in self.__dir__():
+            if i in methods:
+                continue
+
+            if i.startswith("_"):
+                continue
+            r += "\n"
+            r += i
+            # r += f"{str(i)}"
+            # r += " " * (count - len(str(i)))
+            # r += f" : {self.__getattribute__(i)}"
+
+        return pretty_repr(self.__tablename__, r, 60)
