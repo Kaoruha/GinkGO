@@ -10,7 +10,8 @@ s = []
 
 t2 = datetime.datetime.now()
 for i in range(100):
-    s.append(Order())
+    o = Order()
+    s.append(o)
     print(f"{i}/100", end="\r")
 
 GINKGODATA.add_all(s)
