@@ -39,18 +39,17 @@ class BaseModel(gc.base):
 
     def __repr__(self):
         methods = ["delete", "query", "registry", "metadata"]
-        r = ""
+        r = []
         count = 8
-        for i in self.__dir__():
-            if i in methods:
+        for param in self.__dir__():
+            if param in methods:
                 continue
 
-            if i.startswith("_"):
+            if param.startswith("_"):
                 continue
-            r += "\n"
-            r += i
-            # r += f"{str(i)}"
-            # r += " " * (count - len(str(i)))
-            # r += f" : {self.__getattribute__(i)}"
+            tmp = f"{str(param)}"
+            tmp += " " * (count - len(str(param)))
+            tmp += f" : {self.__getattribute__(param)}"
+            r.append(tmp)
 
         return pretty_repr(self.__tablename__, r, 60)
