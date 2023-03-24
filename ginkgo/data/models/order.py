@@ -8,7 +8,7 @@ class Order(BaseModel):
     __tablename__ = "Orders"
 
     CODE = Column(String(12), default="default")
-    # DIRECTION = Column(Enum(OrderType))
+    DIRECTION = Column(Enum())
     # TYPE = Column(Enum("MARKET", "LIMITORDER"))
     # QUANTITY = Column(Integer)
     # PRICE = Column(DECIMAL(10, 2))
