@@ -13,8 +13,8 @@ print("Windows" == str(platform.system()))
 
 
 # 安装依赖
-# os.system("pip install -r ./requirements.yml")
-# os.system("pip install wheel")
+os.system("pip install -r ./requirements.yml")
+os.system("pip install wheel")
 
 # 创建映射文件夹
 if not os.path.exists("db"):
