@@ -30,33 +30,32 @@ class GinkgoConfig(object):
     @property
     def LOGGING_PATH(self) -> str:
         # Where to store the log files
-        return self.__read_config()["LOGGING_PATH"]
+        return self.__read_config()["log_path"]
 
     @property
     def LOGGING_FILE_ON(self) -> str:
         # Turn on/off the logging
-        return self.__read_config()["LOGGING_FILE_ON"]
+        return self.__read_config()["log_file_on"]
 
     @property
     def LOGGING_DEFAULT_FILE(self) -> str:
         # Turn on/off the logging
-        # return self.__read_config()["LOGGING_DEFAULT_FILE"]
-        return self.__read_config()["LOGGIN_DEFAULT_FILE"]
+        return self.__read_config()["log_default_file"]
 
     @property
     def LOGGING_LEVEL_CONSOLE(self) -> str:
         # Turn on/off the logging
-        return self.__read_config()["LOGGING_LEVEL_CONSOLE"]
+        return self.__read_config()["log_level_console"]
 
     @property
     def LOGGING_LEVEL_FILE(self) -> str:
         # Turn on/off the logging
-        return self.__read_config()["LOGGING_LEVEL_CONSOLE"]
+        return self.__read_config()["log_level_file"]
 
     @property
     def LOGGING_COLOR(self) -> dict:
         # Turn on/off the logging
-        return self.__read_config()["LOGGING_COLOR"]
+        return self.__read_config()["log_color"]
 
     @property
     def CLICKDB(self) -> str:
@@ -127,6 +126,15 @@ class GinkgoConfig(object):
             r = self.__read_secure()["database"]["mongodb"]["password"]
             r = base64.b64decode(r)
             r = str(r, "utf-8")
+        except Exception as e:
+            r = "default"
+        return r
+
+    @property
+    def DBDRIVER(self) -> str:
+        r = ""
+        try:
+            r = self.__read_config()["db_driver"]
         except Exception as e:
             r = "default"
         return r

@@ -1,8 +1,7 @@
 import uuid
 import datetime
-from ginkgo.data.drivers.ginkgo_clickhouse import GINKGOCLICK as gc
+from ginkgo.data import DBDRIVER as db
 from ginkgo.libs.ginkgo_pretty import pretty_repr
-from clickhouse_sqlalchemy import engines
 from sqlalchemy import Column, String, DateTime, Boolean, func
 
 
@@ -14,51 +13,39 @@ def get_datetime(self):
     return datetime.datetime.now()
 
 
-class BaseModel(gc.base):
+class BaseModel(db.base):
     __abstract__ = True
     __tablename__ = "BaseModel"
-    __table_args__ = (engines.Memory(),)
 
-    UUID = Column(String(32), primary_key=True)
-    DATETIME = Column(DateTime)
-    CREATE = Column(DateTime)
-    UPDATE = Column(DateTime)
-    ISDEL = Column(Boolean)
+    uuid = Column(String(32), primary_key=True)
+    datetime = Column(DateTime)
+    create = Column(DateTime)
+    update = Column(DateTime)
+    isdel = Column(Boolean)
 
     def __init__(self):
-        self.UUID = uuid.uuid4().hex
-        self.DATETIME = datetime.datetime.now()
-        self.CREATE = datetime.datetime.now()
-        self.UPDATE = datetime.datetime.now()
+        self.uuid = uuid.uuid4().hex
+        self.datetime = datetime.datetime.now()
+        self.create = datetime.datetime.now()
+        self.update = datetime.datetime.now()
 
     def delete(self):
-        self.ISDEL = True
-
-    def query(cls):
-        print(cls)
+        self.isdel = True
 
     def __repr__(self):
         methods = ["delete", "query", "registry", "metadata"]
         r = []
-        count = 8
+        count = 9
         for param in self.__dir__():
             if param in methods:
                 continue
 
             if param.startswith("_"):
                 continue
-            tmp = f"{str(param)}"
-            print(param)
-            print(len(param))
-            print(self.__getattribute__(param))
-            print(len(str(self.__getattribute__(param))))
+            tmp = f"{str(param).upper()}"
             tmp += " " * (count - len(str(param)))
             s = self.__getattribute__(param)
-            print(type(s))
-            print(len(s))
-            print(f"={s}=")
-            for i in s:
-                print(f"={i}=")
+            s = str(s).strip(b"\x00".decode())
             tmp += f" : {s}"
             r.append(tmp)
 
