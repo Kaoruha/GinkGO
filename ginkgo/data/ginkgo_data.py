@@ -2,7 +2,7 @@ import os
 import sys
 import inspect
 import importlib
-from ginkgo.data.drivers.ginkgo_clickhouse import GINKGOCLICK as gc
+from ginkgo.data import DBDRIVER as dbdriver
 
 
 class GinkgoData(object):
@@ -12,11 +12,11 @@ class GinkgoData(object):
 
     @property
     def session(self):
-        return gc.session
+        return dbdriver.session
 
     @property
     def engine(self):
-        return gc.engine
+        return dbdriver.engine
 
     def add(self, value):
         self.session.add(value)
@@ -53,7 +53,7 @@ class GinkgoData(object):
                 print(f"Pass {m}")
                 continue
 
-            if gc.is_table_exsists(m.__tablename__):
+            if dbdriver.is_table_exsists(m.__tablename__):
                 print(f"Table {m.__tablename__} exist.")
             else:
                 m.__table__.create()
@@ -66,7 +66,7 @@ class GinkgoData(object):
         This will drop all the tables in models.
         """
         for m in self.__models:
-            if gc.is_table_exsists(m.__tablename__):
+            if dbdriver.is_table_exsists(m.__tablename__):
                 m.__table__.drop()
                 print(f"Drop Table {m.__tablename__} : {m}")
 

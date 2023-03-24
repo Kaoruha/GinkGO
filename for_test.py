@@ -12,6 +12,7 @@ t2 = datetime.datetime.now()
 for i in range(100):
     o = Order()
     s.append(o)
+    # o.dire = 2
     print(f"{i}/100", end="\r")
 
 GINKGODATA.add_all(s)

@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from clickhouse_sqlalchemy import engines
 
 
 class GinkgoClickhouse(object):
@@ -26,6 +27,7 @@ class GinkgoClickhouse(object):
         self.metadata = MetaData(bind=self.engine)
         gl.logger.info("Connect to clickhouse succeed.")
         self.base = declarative_base(metadata=self.metadata)
+        print(self.metadata)
 
     @property
     def insp(self):
@@ -33,12 +35,3 @@ class GinkgoClickhouse(object):
 
     def is_table_exsists(self, name: str) -> bool:
         return self.insp.has_table(name)
-
-
-GINKGOCLICK = GinkgoClickhouse(
-    user=GINKGOCONF.CLICKUSER,
-    pwd=GINKGOCONF.CLICKPWD,
-    host=GINKGOCONF.CLICKHOST,
-    port=GINKGOCONF.CLICKPORT,
-    db=GINKGOCONF.CLICKDB,
-)

@@ -1,23 +1,26 @@
-PACKAGE_NAME: ginkgo
-VERSION: 0.1.30
-AUTHOR: suny
-EMAIL: sun159753@gmai.com
-DESCRIPTION: my quant lib
-PACKAGE_URL: url://
+package_name: ginkgo
+version: 0.1.30
+author: suny
+email: sun159753@gmai.com
+description: my quant lib
+package_uri: url://
 
 # 开发/生产环境下相同的配置
-DEBUG: True
-TOKEN_EXPIRATION: 14  # Token过期时间（天）
+debug: True
+token_expiration: 14  # Token过期时间（天）
 
 # 日志设置
-LOGGING_PATH: ./logs/
-LOGGING_FILE_ON: true
-LOGGIN_DEFAULT_FILE: test.log
-LOGGING_LEVEL_CONSOLE: DEBUG
-LOGGING_LEVEL_FILE: DEBUG
-LOGGING_COLOR: 
+log_path: ./logs/
+log_file_on: true
+log_default_file: test.log
+log_level_console: DEBUG
+log_level_file: DEBUG
+log_color: 
   DEBUG: white
   INFO: green
   WARNING: yellow
   ERROR: red
   CRITICAL: bold_red
+
+# DB
+db_driver: clickhouse

@@ -11,6 +11,9 @@ class EnumBase(Enum):
             print(e)
         return r
 
+    # def __repr__(self):
+    #     return self.value
+
 
 class TickDirection(EnumBase):
     MINUSTICK = 1
