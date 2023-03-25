@@ -1,7 +1,6 @@
 from ginkgo.data.models.base_model import BaseModel
 from ginkgo.enums import OrderType, OrderStatus, Direction
 from sqlalchemy import Column, String, Boolean, func, Integer, DECIMAL, Enum
-from clickhouse_sqlalchemy import types
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
 from clickhouse_sqlalchemy import engines
 
@@ -14,7 +13,6 @@ class Order(BaseModel):
         __table_args__ = (engines.Memory(),)
 
     code = Column(String(12), default="default")
-    # direction = Column(Integer, default=1)
     # direction = Column(Enum(Direction))
     # TYPE = Column(Enum("MARKET", "LIMITORDER"))
     # QUANTITY = Column(Integer)

@@ -4,6 +4,8 @@ from ginkgo.data import DBDRIVER as db
 from ginkgo.libs.ginkgo_pretty import pretty_repr
 from sqlalchemy import Column, String, DateTime, Boolean, func
 
+# from infi.clickhouse_orm import Model
+
 
 def gen_id(self):
     return uuid.uuid4().hex
