@@ -1,5 +1,5 @@
 from ginkgo.backtest.event.base_event import EventBase
-from ginkgo.enums import EventType, PriceInfo, Source
+from ginkgo.enums import EVENT_TYPES, PRICEINFO_TYPES, SOURCE_TYPES
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.tick import Tick
 from ginkgo.libs.ginkgo_pretty import pretty_repr
@@ -8,7 +8,7 @@ from ginkgo.libs.ginkgo_pretty import pretty_repr
 class EventPriceUpdate(EventBase):
     def __init__(self, price_info, *args, **kwargs) -> None:
         super(EventPriceUpdate, self).__init__(*args, **kwargs)
-        self.event_type = EventType.PRICEUPDATE
+        self.event_type = EVENT_TYPES.PRICEUPDATE
         self.__price_type = None
         self.__bar = None
         self.__tick = None
@@ -24,15 +24,15 @@ class EventPriceUpdate(EventBase):
 
     @property
     def price_info(self):
-        if self.price_type == PriceInfo.BAR:
+        if self.price_type == PRICEINFO_TYPES.BAR:
             return self.__bar
-        elif self.price_type == PriceInfo.TICK:
+        elif self.price_type == PRICEINFO_TYPES.TICK:
             return self.__tick
         else:
             return None
 
     def update_bar(self, bar: Bar) -> None:
-        self.__price_type = PriceInfo.BAR
+        self.__price_type = PRICEINFO_TYPES.BAR
         if not isinstance(bar, Bar):
             return
         else:
@@ -41,7 +41,7 @@ class EventPriceUpdate(EventBase):
             self.__timestamp = bar.timestamp
 
     def update_tick(self, tick: Tick) -> None:
-        self.__price_type = PriceInfo.TICK
+        self.__price_type = PRICEINFO_TYPES.TICK
         if not isinstance(tick, Tick):
             return
         else:
@@ -58,7 +58,7 @@ class EventPriceUpdate(EventBase):
         price_t = f"Price : {self.price_type} : {self.price_type.value}"
         msg = [mem, event_id, source, date, event_t, price_t]
 
-        if self.price_type == PriceInfo.BAR:
+        if self.price_type == PRICEINFO_TYPES.BAR:
             open_ = f"Open  : {self.__bar.open}"
             high = f"High  : {self.__bar.high}"
             low = f"Low   : {self.__bar.low}"
@@ -69,7 +69,7 @@ class EventPriceUpdate(EventBase):
             msg.append(low)
             msg.append(close)
             msg.append(volume)
-        elif self.price_type == PriceInfo.TICK:
+        elif self.price_type == PRICEINFO_TYPES.TICK:
             price = f"Price : {self.__tick.price}"
             volume = f"Volume: {self.__tick.volume}"
             msg.append(price)

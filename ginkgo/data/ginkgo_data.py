@@ -3,6 +3,7 @@ import sys
 import inspect
 import importlib
 from ginkgo.data import DBDRIVER as dbdriver
+from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 
 
 class GinkgoData(object):
@@ -50,14 +51,14 @@ class GinkgoData(object):
         """
         for m in self.__models:
             if m.__abstract__ == True:
-                print(f"Pass {m}")
+                gl.logger.debug(f"Pass Model:{m}")
                 continue
 
             if dbdriver.is_table_exsists(m.__tablename__):
                 print(f"Table {m.__tablename__} exist.")
             else:
                 m.__table__.create()
-                print(f"Create Table {m.__tablename__} : {m}")
+                gl.logger.info(f"Create Table {m.__tablename__} : {m}")
 
     def drop_all(self):
         """
@@ -68,7 +69,7 @@ class GinkgoData(object):
         for m in self.__models:
             if dbdriver.is_table_exsists(m.__tablename__):
                 m.__table__.drop()
-                print(f"Drop Table {m.__tablename__} : {m}")
+                gl.logger.warn(f"Drop Table {m.__tablename__} : {m}")
 
 
 GINKGODATA = GinkgoData()

@@ -1,5 +1,5 @@
 import datetime
-from ginkgo.libs.ginkgo_pretty import pretty_repr
+from ginkgo.libs.ginkgo_pretty import pretty_repr, base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 
 
@@ -71,4 +71,5 @@ class Bar(object):
         close = f"Close : {self.close}"
         volume = f"Volume: {self.volume}"
         msg = [mem, date, open_, high, low, close, volume]
-        return pretty_repr(Bar.__name__, msg, 40)
+        # return pretty_repr(Bar.__name__, msg, 40)
+        return base_repr(self, Bar.__name__, 12, 60)
