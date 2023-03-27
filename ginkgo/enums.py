@@ -15,14 +15,14 @@ class EnumBase(Enum):
     #     return self.value
 
 
-class TickDirection(EnumBase):
+class TICKDIRECTION_TYPES(EnumBase):
     MINUSTICK = 1
     ZEROMINUSTICK = 2
     PLUSTICK = 3
     ZEROPLUSTICK = 4
 
 
-class EventType(EnumBase):
+class EVENT_TYPES(EnumBase):
     PRICEUPDATE = 1
     ORDERSUBMISSION = 2
     ORDERFILL = 3
@@ -32,29 +32,29 @@ class EventType(EnumBase):
     NEWSRECIEVE = 7
 
 
-class PriceInfo(EnumBase):
+class PRICEINFO_TYPES(EnumBase):
     BAR = 1
     TICK = 2
 
 
-class Source(EnumBase):
+class SOURCE_TYPES(EnumBase):
     SIM = 1
     REALTIME = 2
     SINA = 3
     BAOSTOCK = 4
 
 
-class Direction(EnumBase):
+class DIRECTION_TYPES(EnumBase):
     LONG = 1
-    SHORT = 2
+    SHORT = -1
 
 
-class OrderType(EnumBase):
+class ORDER_TYPES(EnumBase):
     MARKETORDER = 1
     LIMITORDER = 2
 
 
-class OrderStatus(EnumBase):
+class ORDERSTATUS_TYPES(EnumBase):
     NEW = 1
     SUBMITTED = 2
     FILLED = 3

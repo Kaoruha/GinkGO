@@ -1,3 +1,6 @@
+from types import FunctionType, MethodType
+
+
 def pretty_repr(class_name: str, msg: list, width: int = None):
     """
     Pretty the object print.
@@ -21,3 +24,37 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
     r += "-" * (row_max - 1) + "+"
 
     return r
+
+
+def base_repr(obj, name, label_len=12, total_len=80):
+    methods = ["delete", "query", "registry", "metadata"]
+    r = []
+    count = 12
+
+    if label_len:
+        count = label_len
+
+    # MemoryLocation
+    mem = " " * (count - len("MEM"))
+    mem += "MEM : "
+    mem += f"{hex(id(obj))}"
+    r.append(mem)
+
+    for param in obj.__dir__():
+        if param in methods:
+            continue
+
+        if param.startswith("_"):
+            continue
+
+        if isinstance(obj.__getattribute__(param), MethodType):
+            continue
+
+        tmp = " " * (count - len(str(param)))
+        tmp += f"{str(param).upper()}"
+        s = obj.__getattribute__(param)
+        filter_s = str(s).strip(b"\x00".decode())
+        tmp += f" : {str(obj.__getattribute__(param))}"
+        r.append(tmp)
+
+    return pretty_repr(name, r, total_len)

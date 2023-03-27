@@ -1,7 +1,7 @@
 import uuid
 import datetime
-from ginkgo.backtest.enums import Direction, OrderStatus, OrderType
-from ginkgo.libs.ginkgo_pretty import pretty_repr
+from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 
 
@@ -10,20 +10,20 @@ class Order(object):
         self,
         timestamp: str or datetime.datetime,
         code: str,
-        direction: Direction,
-        order_type: OrderType,
-        quantity: int,
+        direction: DIRECTION_TYPES,
+        order_type: ORDER_TYPES,
+        volume: int,
         limit_price: float = 0.0,
     ):
         self.code = code
         self.timestamp = datetime_normalize(timestamp)
         self.__id = uuid.uuid4().hex
-        self.direction = Direction.LONG
+        self.direction = DIRECTION_TYPES.LONG
         self.__order_type = order_type
-        self.quantity = quantity
+        self.volume = volume
         self.limit_price = limit_price
 
-        self.__status = OrderStatus.NEW
+        self.__status = ORDERSTATUS_TYPES.NEW
 
     @property
     def status(self):
@@ -38,24 +38,13 @@ class Order(object):
         return self.__id
 
     def __repr__(self):
-        mem = f"Mem    : {hex(id(self))}"
-        event_id = f"ID     : {self.id}"
-        date = f"Date   : {self.timestamp}"
-        direction = f"Dir    : {self.direction}"
-        order_type = f"Type   : {self.order_type}"
-        amount = f"Quant  : {self.quantity}"
-        status = f"Status : {self.status} : {self.status.value}"
-        price = f"Price  : {self.limit_price}"
-        msg = [mem, event_id, date, direction, order_type, amount, status]
-        if self.order_type == OrderType.LIMITORDER:
-            msg.append(price)
-        return pretty_repr(Order.__name__, msg)
+        return base_repr(self, Order.__name__, 12, 60)
 
     def submit(self):
-        self.__status = OrderStatus.SUBMITTED
+        self.__status = ORDERSTATUS_TYPES.SUBMITTED
 
     def fill(self):
-        self.__status = OrderStatus.FILLED
+        self.__status = ORDERSTATUS_TYPES.FILLED
 
     def cancel(self):
-        self.__status = OrderStatus.CANCELED
+        self.__status = ORDERSTATUS_TYPES.CANCELED
