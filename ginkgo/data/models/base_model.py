@@ -18,7 +18,10 @@ class BaseModel(db.base):
     __tablename__ = "BaseModel"
 
     uuid = Column(String(32), primary_key=True)
-    desc = Column(String(255), default="This man is lazy, so there is no description.")
+    desc = Column(
+        String(255),
+        default="This man is lazy, there is no description.",
+    )
     datetime = Column(DateTime)
     create = Column(DateTime)
     update = Column(DateTime)
