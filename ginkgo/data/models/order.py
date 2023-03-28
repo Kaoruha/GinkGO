@@ -18,5 +18,5 @@ class Order(BaseModel):
     order_type = Column(ChoiceType(ORDER_TYPES, impl=Integer()), default=1)
     status = Column(ChoiceType(ORDERSTATUS_TYPES, impl=Integer()), default=1)
     source = Column(ChoiceType(SOURCE_TYPES, impl=Integer()), default=1)
-    quantity = Column(Integer, default=0)
+    volume = Column(Integer, default=0)
     price = Column(DECIMAL(9, 2), default=0)

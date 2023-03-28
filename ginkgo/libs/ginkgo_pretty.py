@@ -5,7 +5,6 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
     """
     Pretty the object print.
     """
-    row_max = 10
     if width:
         row_max = width
     else:
@@ -19,7 +18,8 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
     for row in msg:
         r += "\n"
         r += row
-        r += " " * (row_max - 1 - len(row)) + "|"
+        l = row_max - 1 - len(row)
+        r += " " * l + "|"
     r += "\n"
     r += "-" * (row_max - 1) + "+"
 
@@ -54,7 +54,10 @@ def base_repr(obj, name, label_len=12, total_len=80):
         tmp += f"{str(param).upper()}"
         s = obj.__getattribute__(param)
         filter_s = str(s).strip(b"\x00".decode())
-        tmp += f" : {str(obj.__getattribute__(param))}"
+        max_len = total_len - count - 6
+        if len(filter_s) > max_len:
+            filter_s = filter_s[: max_len - 3] + "..."
+        tmp += f" : {filter_s}"
         r.append(tmp)
 
     return pretty_repr(name, r, total_len)
