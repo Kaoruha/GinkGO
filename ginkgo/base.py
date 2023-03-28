@@ -1,0 +1,2 @@
+class GinkgoBase(object):
+    pass
