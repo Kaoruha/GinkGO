@@ -1,4 +1,5 @@
 from types import FunctionType, MethodType
+from enum import Enum
 
 
 def pretty_repr(class_name: str, msg: list, width: int = None):
@@ -54,6 +55,8 @@ def base_repr(obj, name, label_len=12, total_len=80):
         tmp += f"{str(param).upper()}"
         s = obj.__getattribute__(param)
         filter_s = str(s).strip(b"\x00".decode())
+        if isinstance(s, Enum):
+            filter_s += f" : {s.value}"
         max_len = total_len - count - 6
         if len(filter_s) > max_len:
             filter_s = filter_s[: max_len - 3] + "..."
