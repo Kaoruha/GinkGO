@@ -59,3 +59,8 @@ class ORDERSTATUS_TYPES(EnumBase):
     SUBMITTED = 2
     FILLED = 3
     CANCELED = 4
+
+
+class FREQUENCY_TYPES(EnumBase):
+    DAY = 1
+    MIN5 = 2
