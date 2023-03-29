@@ -1,4 +1,4 @@
-from ginkgo.data.models.base_model import BaseModel
+from ginkgo.data.models.model_base import MBase
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 from sqlalchemy import Column, String, Integer, DECIMAL
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
@@ -6,7 +6,7 @@ from clickhouse_sqlalchemy import engines
 from sqlalchemy_utils import ChoiceType
 
 
-class Tick(BaseModel):
+class MTick(MBase):
     __abstract__ = False
     __tablename__ = "tick"
 

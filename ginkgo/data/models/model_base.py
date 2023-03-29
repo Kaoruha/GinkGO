@@ -13,7 +13,7 @@ def get_datetime(self):
     return datetime.datetime.now()
 
 
-class BaseModel(db.base):
+class MBase(db.base):
     __abstract__ = True
     __tablename__ = "BaseModel"
 

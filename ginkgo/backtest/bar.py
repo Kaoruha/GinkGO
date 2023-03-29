@@ -1,6 +1,7 @@
 import datetime
 from ginkgo.libs.ginkgo_pretty import pretty_repr, base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.enums import FREQUENCY_TYPES
 
 
 class Bar(object):
@@ -12,6 +13,7 @@ class Bar(object):
         low: float,
         close: float,
         volume: int,
+        frequency: FREQUENCY_TYPES,
         timestamp,
     ) -> None:
         self.__timestamp = None  # DateTime
@@ -22,9 +24,9 @@ class Bar(object):
         self.close = 0
         self.volume = 0
 
-        self.update(code, open_, high, low, close, volume, timestamp)
+        self.update_data(code, open_, high, low, close, volume, frequency, timestamp)
 
-    def update(
+    def update_data(
         self,
         code: str,
         open_: float,
@@ -32,12 +34,14 @@ class Bar(object):
         low: float,
         close: float,
         volume: int,
+        frequency: FREQUENCY_TYPES,
         timestamp: datetime.datetime,
     ) -> None:
         self.open = open_
         self.high = high
         self.low = low
         self.close = close
+        self.frequency = (frequency,)
         self.volume = volume
 
         self.__timestamp = datetime_normalize(timestamp)

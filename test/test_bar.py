@@ -2,6 +2,7 @@ import unittest
 import datetime
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.backtest.bar import Bar
+from ginkgo.enums import FREQUENCY_TYPES
 
 
 class BarTest(unittest.TestCase):
@@ -27,6 +28,7 @@ class BarTest(unittest.TestCase):
                 "low": 9.45,
                 "close": 10,
                 "volume": 100,
+                "frequency": FREQUENCY_TYPES.DAY,
                 "timestamp": "2020-01-01 02:02:32",
             },
             {
@@ -36,6 +38,7 @@ class BarTest(unittest.TestCase):
                 "low": 9.6,
                 "close": 9.4,
                 "volume": 10022,
+                "frequency": FREQUENCY_TYPES.DAY,
                 "timestamp": datetime.datetime.now(),
             },
         ]
@@ -48,6 +51,7 @@ class BarTest(unittest.TestCase):
                 item["low"],
                 item["close"],
                 item["volume"],
+                item["frequency"],
                 item["timestamp"],
             )
             print(b)
@@ -64,6 +68,7 @@ class BarTest(unittest.TestCase):
                 "low": 9.45,
                 "close": 10,
                 "volume": 100,
+                "frequency": FREQUENCY_TYPES.DAY,
                 "timestamp": "2020-01-01 02:02:32",
             },
             {
@@ -73,6 +78,7 @@ class BarTest(unittest.TestCase):
                 "low": 9.6,
                 "close": 9.4,
                 "volume": 10022,
+                "frequency": FREQUENCY_TYPES.DAY,
                 "timestamp": datetime.datetime.now(),
             },
             {
@@ -82,6 +88,7 @@ class BarTest(unittest.TestCase):
                 "low": 9.6,
                 "close": 11.4,
                 "volume": 10022,
+                "frequency": FREQUENCY_TYPES.DAY,
                 "timestamp": datetime.datetime.now(),
             },
             {
@@ -91,6 +98,7 @@ class BarTest(unittest.TestCase):
                 "low": 9.6,
                 "close": 11,
                 "volume": 10022,
+                "frequency": FREQUENCY_TYPES.DAY,
                 "timestamp": datetime.datetime.now(),
             },
         ]
@@ -105,6 +113,7 @@ class BarTest(unittest.TestCase):
                 item["low"],
                 item["close"],
                 item["volume"],
+                item["frequency"],
                 item["timestamp"],
             )
             print(b)
@@ -122,6 +131,7 @@ class BarTest(unittest.TestCase):
                 "low": 9.45,
                 "close": 10,
                 "volume": 100,
+                "frequency": FREQUENCY_TYPES.DAY,
                 "timestamp": "2020-01-01 02:02:32",
             },
             {
@@ -131,6 +141,7 @@ class BarTest(unittest.TestCase):
                 "low": 9.6,
                 "close": 9.4,
                 "volume": 10022,
+                "frequency": FREQUENCY_TYPES.DAY,
                 "timestamp": datetime.datetime.now(),
             },
             {
@@ -140,6 +151,7 @@ class BarTest(unittest.TestCase):
                 "low": 9.6,
                 "close": 11.4,
                 "volume": 10022,
+                "frequency": FREQUENCY_TYPES.DAY,
                 "timestamp": datetime.datetime.now(),
             },
             {
@@ -149,6 +161,7 @@ class BarTest(unittest.TestCase):
                 "low": 9.6,
                 "close": 11,
                 "volume": 10022,
+                "frequency": FREQUENCY_TYPES.DAY,
                 "timestamp": datetime.datetime.now(),
             },
         ]
@@ -163,6 +176,7 @@ class BarTest(unittest.TestCase):
                 item["low"],
                 item["close"],
                 item["volume"],
+                item["frequency"],
                 item["timestamp"],
             )
             print(b)

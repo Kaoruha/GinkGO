@@ -26,7 +26,6 @@ class GinkgoClickhouse(object):
         self.metadata = MetaData(bind=self.engine)
         gl.logger.info("Connect to clickhouse succeed.")
         self.base = declarative_base(metadata=self.metadata)
-        print(self.metadata)
 
     @property
     def insp(self):
