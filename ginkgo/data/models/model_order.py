@@ -1,9 +1,13 @@
-from ginkgo.data.models.model_base import MBase
-from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
-from sqlalchemy import Column, String, Integer, DECIMAL
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from functools import singledispatchmethod
 from clickhouse_sqlalchemy import engines
 from sqlalchemy_utils import ChoiceType
+from sqlalchemy import Column, String, Integer, DECIMAL
+from ginkgo.data.models.model_base import MBase
+from ginkgo.backtest.order import Order
+from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
+from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.libs.ginkgo_pretty import base_repr
+from ginkgo.libs.ginkgo_normalize import datetime_normalize
 
 
 class MOrder(MBase):
@@ -19,4 +23,46 @@ class MOrder(MBase):
     status = Column(ChoiceType(ORDERSTATUS_TYPES, impl=Integer()), default=1)
     source = Column(ChoiceType(SOURCE_TYPES, impl=Integer()), default=1)
     volume = Column(Integer, default=0)
-    price = Column(DECIMAL(9, 2), default=0)
+    limit_price = Column(DECIMAL(9, 2), default=0)
+
+    def __init__(self):
+        super().__init__()
+
+    @singledispatchmethod
+    def set(self):
+        pass
+
+    @set.register
+    def _(
+        self,
+        code: str,
+        direction: DIRECTION_TYPES,
+        order_type: ORDER_TYPES,
+        status: ORDERSTATUS_TYPES,
+        source: SOURCE_TYPES,
+        volume: int,
+        limit_price: float,
+        datetime,
+    ):
+        self.code = code
+        self.direction = direction
+        self.order_type = order_type
+        self.status = status
+        self.source = source
+        self.volume = volume
+        self.limit_price = limit_price
+        self.timestamp = datetime_normalize(datetime)
+
+    @set.register
+    def _(self, order: Order, source: SOURCE_TYPES) -> None:
+        self.code = order.code
+        self.direction = order.direction
+        self.order_type = order.order_type
+        self.status = order.status
+        self.source = source
+        self.volume = order.volume
+        self.limit_price = order.limit_price
+        self.timestamp = order.timestamp
+
+    def __repr__(self):
+        return base_repr(self, self.__tablename__ + "_db", 12, 46)

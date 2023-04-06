@@ -20,3 +20,6 @@ class MTick(MBase):
     source = Column(ChoiceType(SOURCE_TYPES, impl=Integer()), default=1)
     quantity = Column(Integer, default=0)
     price = Column(DECIMAL(9, 2), default=0)
+
+    def __init__(self):
+        super().__init__()

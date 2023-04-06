@@ -16,11 +16,7 @@ class OrderTest(unittest.TestCase):
 
     def __init__(self, *args, **kwargs) -> None:
         super(OrderTest, self).__init__(*args, **kwargs)
-
-    def test_OrderInit_OK(self) -> None:
-        print("")
-        gl.logger.warn("Order初始化 测试开始.")
-        params = [
+        self.params = [
             {
                 "code": "sh.0000001",
                 "timestamp": "2020-01-01 02:02:32",
@@ -38,7 +34,11 @@ class OrderTest(unittest.TestCase):
                 "limit_price": 12.1,
             },
         ]
-        for i in params:
+
+    def test_OrderInit_OK(self) -> None:
+        print("")
+        gl.logger.warn("Order初始化 测试开始.")
+        for i in self.params:
             o = Order(
                 timestamp=i["timestamp"],
                 code=i["code"],
