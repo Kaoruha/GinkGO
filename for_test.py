@@ -1,26 +1,25 @@
-import time
-import datetime
-from ginkgo.data.ginkgo_data import GINKGODATA
-from ginkgo.data.models.model_order import MOrder
 from ginkgo.data.models.model_daybar import MDaybar
+from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES
+from ginkgo.backtest.bar import Bar
+import datetime
 
-GINKGODATA.drop_all()
-GINKGODATA.create_all()
 
-s = []
+a = MDaybar()
+print(a)
+a.set("testcode", SOURCE_TYPES.SIM, 2.2, 3.3, 1.1, 2.1, 200, datetime.datetime.now())
+print(a)
 
-t2 = datetime.datetime.now()
-for i in range(100):
-    o = MDaybar()
-    print(o)
-    s.append(o)
-    # o.dire = 2
-    print(f"{i}/100", end="\r")
-
-GINKGODATA.add_all(s)
-GINKGODATA.commit()
-t3 = datetime.datetime.now()
-print(t3 - t2)
-
-r = GINKGODATA.session.query(MDaybar).first()
-print(r)
+b = Bar(
+    code="aaa",
+    open_=222,
+    high=222,
+    low=222,
+    close=222,
+    volume=2222,
+    frequency=FREQUENCY_TYPES.DAY,
+    timestamp=datetime.datetime.now(),
+)
+print(b)
+print(FREQUENCY_TYPES.DAY)
+a.set(b)
+print(a)

@@ -24,9 +24,9 @@ class Bar(object):
         self.close = 0
         self.volume = 0
 
-        self.update_data(code, open_, high, low, close, volume, frequency, timestamp)
+        self.set(code, open_, high, low, close, volume, frequency, timestamp)
 
-    def update_data(
+    def set(
         self,
         code: str,
         open_: float,
@@ -41,7 +41,7 @@ class Bar(object):
         self.high = high
         self.low = low
         self.close = close
-        self.frequency = (frequency,)
+        self.frequency = frequency
         self.volume = volume
 
         self.__timestamp = datetime_normalize(timestamp)

@@ -14,7 +14,7 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
                 row_max = len(i)
         row_max += 4
 
-    r = "-" * (row_max // 2 - len(class_name)) + f" {class_name} "
+    r = "-" * (row_max // 2 - len(class_name)) + f" {class_name.capitalize()} "
     r += "-" * (row_max - len(r) - 1) + "+"
     for row in msg:
         r += "\n"
@@ -49,6 +49,9 @@ def base_repr(obj, name, label_len=12, total_len=80):
             continue
 
         if isinstance(obj.__getattribute__(param), MethodType):
+            continue
+
+        if isinstance(obj.__getattribute__(param), FunctionType):
             continue
 
         tmp = " " * (count - len(str(param)))

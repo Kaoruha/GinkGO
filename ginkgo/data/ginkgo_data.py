@@ -4,6 +4,7 @@ import inspect
 import importlib
 from ginkgo.data import DBDRIVER as dbdriver
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.data.models.model_base import MBase
 
 
 class GinkgoData(object):
@@ -19,16 +20,27 @@ class GinkgoData(object):
     def engine(self):
         return dbdriver.engine
 
-    def add(self, value):
+    def add(self, value) -> None:
         self.session.add(value)
 
-    def commit(self):
+    def commit(self) -> None:
+        """
+        Session Commit.
+        """
         self.session.commit()
 
-    def add_all(self, values):
+    def add_all(self, values) -> None:
+        """
+        Add multi data into session
+        """
+        # TODO support different database engine.
+        # Now is for clickhouse.
         self.session.add_all(values)
 
-    def get_models(self):
+    def get_models(self) -> None:
+        """
+        Read all py files under /data/models
+        """
         package_name = "ginkgo/data/models"
         files = os.listdir(package_name)
         for file in files:
@@ -45,31 +57,36 @@ class GinkgoData(object):
                 if cls.__module__ == module_name:
                     self.__models.append(cls)
 
-    def create_all(self):
+    def create_all(self) -> None:
         """
         Create tables with all models without __abstract__ = True.
         """
         for m in self.__models:
-            if m.__abstract__ == True:
-                gl.logger.debug(f"Pass Model:{m}")
-                continue
+            self.create_table(m)
 
-            if dbdriver.is_table_exsists(m.__tablename__):
-                print(f"Table {m.__tablename__} exist.")
-            else:
-                m.__table__.create()
-                gl.logger.info(f"Create Table {m.__tablename__} : {m}")
-
-    def drop_all(self):
+    def drop_all(self) -> None:
         """
         ATTENTION!!
         Just call the func in dev.
         This will drop all the tables in models.
         """
         for m in self.__models:
-            if dbdriver.is_table_exsists(m.__tablename__):
-                m.__table__.drop()
-                gl.logger.warn(f"Drop Table {m.__tablename__} : {m}")
+            self.drop_table(m)
+
+    def drop_table(self, model: MBase) -> None:
+        if dbdriver.is_table_exsists(model.__tablename__):
+            model.__table__.drop()
+            gl.logger.warn(f"Drop Table {model.__tablename__} : {model}")
+
+    def create_table(self, model: MBase) -> None:
+        if model.__abstract__ == True:
+            gl.logger.debug(f"Pass Model:{model}")
+            return
+        if dbdriver.is_table_exsists(model.__tablename__):
+            gl.logger.debug(f"Table {model.__tablename__} exist.")
+        else:
+            model.__table__.create()
+            gl.logger.info(f"Create Table {model.__tablename__} : {model}")
 
 
 GINKGODATA = GinkgoData()
