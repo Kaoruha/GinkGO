@@ -48,4 +48,4 @@ class MBase(db.base):
         self.isdel = False
 
     def __repr__(self):
-        return base_repr(self, self.__tablename__ + "_db", 12, 80)
+        return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 80)
