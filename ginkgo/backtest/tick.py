@@ -22,7 +22,12 @@ class Tick(object):
     def timestamp(self):
         return self.__timestamp
 
-    def update(self, code: str, price: float, volume: int, timestamp) -> None:
+    @singledispatchmethod
+    def set(self):
+        pass
+
+    @set.register
+    def _(self, code: str, price: float, volume: int, timestamp) -> None:
         self.code = code
         self.price = price
         self.volume = volume
