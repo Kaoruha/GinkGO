@@ -1,4 +1,5 @@
 import datetime
+import pandas as pd
 from functools import singledispatchmethod
 from clickhouse_sqlalchemy import engines
 from sqlalchemy import Column, String, Integer, DECIMAL
@@ -62,19 +63,18 @@ class MDaybar(MBase):
         self.timestamp = datetime_normalize(datetime)
 
     @set.register
-    def _(self, bar: Bar, source: SOURCE_TYPES):
-        if bar.frequency != FREQUENCY_TYPES.DAY:
+    def _(self, df: pd.DataFrame, source: SOURCE_TYPES):
+        df = df[0]
+        if df.frequency != FREQUENCY_TYPES.DAY.value:
             gl.logger.warn(f"The bar is not daybar, your data might be wrong.")
             return
-
-        self.code = bar.code
-        self.p_open = bar.open
-        self.p_high = bar.high
-        self.p_low = bar.low
-        self.p_close = bar.close
-        self.volume = bar.volume
-        self.timestamp = bar.timestamp
+        self.p_open = df.open
+        self.p_high = df.high
+        self.p_low = df.low
+        self.p_close = df.close
+        self.volume = df.volume
+        self.timestamp = df.timestamp
         self.source = source
 
     def __repr__(self):
-        return base_repr(self, "DB"+self.__tablename__.capitalize(), 12, 46)
+        return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

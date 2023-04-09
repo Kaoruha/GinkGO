@@ -1,5 +1,7 @@
 import uuid
+import pandas as pd
 import datetime
+from functools import singledispatchmethod
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
@@ -24,6 +26,14 @@ class Order(object):
         self.limit_price = limit_price
 
         self.__status = ORDERSTATUS_TYPES.NEW
+
+    @singledispatchmethod
+    def set(self) -> None:
+        pass
+
+    @set.register
+    def _(self, df: pd.DataFrame):
+        pass
 
     @property
     def status(self):

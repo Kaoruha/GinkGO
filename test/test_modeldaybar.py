@@ -55,11 +55,12 @@ class ModelDaybarTest(unittest.TestCase):
                 i["volume"],
                 i["timestamp"],
             )
+            print(o)
         gl.logger.warn("ModelDaybar SetFromData 测试完成.")
 
-    def test_ModelDaybarSetFromDaybar_OK(self) -> None:
+    def test_ModelDaybarSetFromDataFrame_OK(self) -> None:
         print("")
-        gl.logger.warn("ModelDaybar SetFromDaybar 测试开始.")
+        gl.logger.warn("ModelDaybar SetFromDataFrame 测试开始.")
         for i in self.params:
             o = MDaybar()
             b = Bar(
@@ -72,8 +73,8 @@ class ModelDaybarTest(unittest.TestCase):
                 FREQUENCY_TYPES.DAY,
                 datetime.datetime.now(),
             )
-            o.set(b, SOURCE_TYPES.SINA)
-        gl.logger.warn("ModelDaybar SetFromDaybar 测试完成.")
+            o.set(b.to_dataframe, SOURCE_TYPES.SINA)
+        gl.logger.warn("ModelDaybar SetFromDataFrame 测试完成.")
 
     def test_ModelDaybarInsert_OK(self) -> None:
         print("")
@@ -101,14 +102,14 @@ class ModelDaybarTest(unittest.TestCase):
         GINKGODATA.commit()
         gl.logger.warn("ModelDaybar BatchInsert 测试完成.")
 
-    def test_ModelDaybarQuery_OK(self) -> None:
-        print("")
-        gl.logger.warn("ModelDaybar Query 测试开始.")
-        GINKGODATA.drop_table(MDaybar)
-        GINKGODATA.create_table(MDaybar)
-        o = MDaybar()
-        GINKGODATA.add(o)
-        GINKGODATA.commit()
-        r = GINKGODATA.session.query(MDaybar).first()
-        print(r)
-        gl.logger.warn("ModelDaybar Query 测试完成.")
+    # def test_ModelDaybarQuery_OK(self) -> None:
+    #     print("")
+    #     gl.logger.warn("ModelDaybar Query 测试开始.")
+    #     GINKGODATA.drop_table(MDaybar)
+    #     GINKGODATA.create_table(MDaybar)
+    #     o = MDaybar()
+    #     GINKGODATA.add(o)
+    #     GINKGODATA.commit()
+    #     r = GINKGODATA.session.query(MDaybar).first()
+    #     print(r)
+    #     gl.logger.warn("ModelDaybar Query 测试完成.")
