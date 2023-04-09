@@ -1,8 +1,11 @@
 import unittest
+import time
 import datetime
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.backtest.order import Order
 from ginkgo.enums import ORDER_TYPES, DIRECTION_TYPES
+
+from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
 class OrderTest(unittest.TestCase):
@@ -38,6 +41,7 @@ class OrderTest(unittest.TestCase):
     def test_OrderInit_OK(self) -> None:
         print("")
         gl.logger.warn("Order初始化 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = Order(
                 timestamp=i["timestamp"],

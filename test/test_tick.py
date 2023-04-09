@@ -1,7 +1,9 @@
 import unittest
+import time
 import datetime
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.backtest.tick import Tick
+from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
 class TickTest(unittest.TestCase):
@@ -16,6 +18,7 @@ class TickTest(unittest.TestCase):
     def test_TickInit_OK(self) -> None:
         print("")
         gl.logger.warn("Tick初始化 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         params = [
             {
                 "code": "sh.0000001",

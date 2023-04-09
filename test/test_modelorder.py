@@ -1,10 +1,13 @@
 import unittest
+import time
 import datetime
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.backtest.order import Order
 from ginkgo.data.ginkgo_data import GINKGODATA
 from ginkgo.data.models.model_order import MOrder
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+
+from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
 class ModelOrderTest(unittest.TestCase):
@@ -35,6 +38,7 @@ class ModelOrderTest(unittest.TestCase):
     def test_ModelOrderInit_OK(self) -> None:
         print("")
         gl.logger.warn("Order 初始化 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MOrder()
             o.set(
@@ -53,6 +57,7 @@ class ModelOrderTest(unittest.TestCase):
     def test_ModelOrderSetFromData_OK(self) -> None:
         print("")
         gl.logger.warn("ModelOrder SetFromData 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MOrder()
             o.set(
@@ -70,6 +75,8 @@ class ModelOrderTest(unittest.TestCase):
     def test_ModelOrderInsert_OK(self) -> None:
         print("")
         gl.logger.warn("Order Insert 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
+
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
         o = MOrder()
@@ -80,6 +87,8 @@ class ModelOrderTest(unittest.TestCase):
     def test_ModelOrderBatchInsert_OK(self) -> None:
         print("")
         gl.logger.warn("Order BatchInsert 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
+
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
         s = []
@@ -96,6 +105,8 @@ class ModelOrderTest(unittest.TestCase):
     def test_ModelOrderQuery_OK(self) -> None:
         print("")
         gl.logger.warn("Order Query 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
+
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
         o = MOrder()

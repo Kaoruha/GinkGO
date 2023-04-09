@@ -139,5 +139,14 @@ class GinkgoConfig(object):
             r = "default"
         return r
 
+    @property
+    def HEARTBEAT(self) -> float:
+        r = 0
+        try:
+            r = self.__read_config()["heart_beat"]
+        except Exception as e:
+            r = 0
+        return r
+
 
 GINKGOCONF = GinkgoConfig()

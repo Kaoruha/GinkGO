@@ -7,7 +7,7 @@ from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 
 
 class EventCapitalUpdate(EventBase):
-    def __init__(self, order_id=None, order=None, *args, **kwargs) -> None:
+    def __init__(self, order_id=None, *args, **kwargs) -> None:
         super(EventCapitalUpdate, self).__init__(*args, **kwargs)
         self.event_type = EVENT_TYPES.CAPTIALUPDATE
         self.__order = None
@@ -20,9 +20,11 @@ class EventCapitalUpdate(EventBase):
         r = GINKGODATA.get_order(order_id)
         self.__order = r
 
-        if self.__order.status.value != 3:
+        if self.__order.status.value == 3 or self.__order.status.value == 1:
+            return
+        else:
             gl.logger.error(
-                f"EventCapitalUpdate Should Spawn after Order filled. Order:{self.order_id} status is {self.order_status}. Please check your code."
+                f"EventCapitalUpdate Should Spawn after Order filled or before Order submmit. Order:{self.order_id} status is {self.order_status}. Please check your code."
             )
 
     @property

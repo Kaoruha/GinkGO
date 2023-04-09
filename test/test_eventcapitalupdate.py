@@ -1,9 +1,11 @@
 import unittest
+import time
 import datetime
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.backtest.event.capital_update import EventCapitalUpdate
 from ginkgo.data.models.model_order import MOrder
 from ginkgo.data.ginkgo_data import GINKGODATA
+from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
 class EventCapitalUpdateTest(unittest.TestCase):
@@ -20,6 +22,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
     def test_EventBaseInit_OK(self) -> None:
         print("")
         gl.logger.warn("EventCaptitalUpdate 初始化 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             GINKGODATA.drop_table(MOrder)
             GINKGODATA.create_table(MOrder)
