@@ -30,21 +30,16 @@ class MTick(MBase):
 
     @set.register
     def _(
-        self,
-        code: str,
-        source: SOURCE_TYPES,
-        price: float,
-        volume: int,
-        datetime,
+        self, code: str, price: float, volume: int, time_stamp: str or datetime.datetime
     ):
         self.code = code
-        self.source = source
         self.price = price
         self.volume = volume
-        self.timestamp = datetime_normalize(datetime)
+        self.timestamp = datetime_normalize(time_stamp)
 
     @set.register
-    def _(self, df: pd.DataFrame):
+    def _(self, df: pd.Series):
+        # TODO
         pass
 
     def __repr__(self):

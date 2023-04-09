@@ -42,11 +42,11 @@ class ModelOrderTest(unittest.TestCase):
                 i["direction"],
                 i["order_type"],
                 i["status"],
-                i["source"],
                 i["price"],
                 i["volume"],
                 i["datetime"],
             )
+            o.set_source(i["source"])
             # print(o)
         gl.logger.warn("Order 初始化 测试完成.")
 
@@ -60,25 +60,14 @@ class ModelOrderTest(unittest.TestCase):
                 i["direction"],
                 i["order_type"],
                 i["status"],
-                i["source"],
                 i["volume"],
                 i["price"],
                 i["datetime"],
             )
+            o.set_source(i["source"])
         gl.logger.warn("ModelOrder SetFromData 测试完成.")
 
-    # def test_ModelOrderSetFromOrder_OK(self) -> None:
-    #     print("")
-    #     gl.logger.warn("ModelOrder SetFromOrder 测试开始.")
-    #     for i in self.params:
-    #         o = MOrder()
-    #         order = Order(
-    #             i["datetime"], i["code"], i["direction"], i["order_type"], i["volume"]
-    #         )
-    #         o.set(order, SOURCE_TYPES.SINA)
-    #     gl.logger.warn("ModelOrder SetFromOrder 测试完成.")
-
-    def test_OrderInsert_OK(self) -> None:
+    def test_ModelOrderInsert_OK(self) -> None:
         print("")
         gl.logger.warn("Order Insert 测试开始.")
         GINKGODATA.drop_table(MOrder)
@@ -88,7 +77,7 @@ class ModelOrderTest(unittest.TestCase):
         GINKGODATA.commit()
         gl.logger.warn("Order Insert 测试完成.")
 
-    def test_OrderBatchInsert_OK(self) -> None:
+    def test_ModelOrderBatchInsert_OK(self) -> None:
         print("")
         gl.logger.warn("Order BatchInsert 测试开始.")
         GINKGODATA.drop_table(MOrder)
@@ -104,14 +93,14 @@ class ModelOrderTest(unittest.TestCase):
         GINKGODATA.commit()
         gl.logger.warn("Order BatchInsert 测试完成.")
 
-    # def test_OrderQuery_OK(self) -> None:
-    #     print("")
-    #     gl.logger.warn("Order Query 测试开始.")
-    #     GINKGODATA.drop_table(MOrder)
-    #     GINKGODATA.create_table(MOrder)
-    #     o = MOrder()
-    #     GINKGODATA.add(o)
-    #     GINKGODATA.commit()
-    #     r = GINKGODATA.session.query(MOrder).first()
-    #     print(r)
-    #     gl.logger.warn("Order Query 测试完成.")
+    def test_ModelOrderQuery_OK(self) -> None:
+        print("")
+        gl.logger.warn("Order Query 测试开始.")
+        GINKGODATA.drop_table(MOrder)
+        GINKGODATA.create_table(MOrder)
+        o = MOrder()
+        GINKGODATA.add(o)
+        GINKGODATA.commit()
+        r = GINKGODATA.get_order(o.uuid)
+        print(r)
+        gl.logger.warn("Order Query 测试完成.")

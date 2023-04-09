@@ -29,6 +29,6 @@ class EventCapitalUpdateTest(unittest.TestCase):
             GINKGODATA.commit()
             uuid = o.uuid
             e = EventCapitalUpdate()
-            e.set_order(uuid)
+            e.get_order(uuid)
             print(e)
         gl.logger.warn("EventCapitalUpdate 初始化 测试完成.")

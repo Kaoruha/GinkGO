@@ -7,7 +7,9 @@ from enum import Enum
 from types import FunctionType, MethodType
 from ginkgo.data import DBDRIVER as db
 from ginkgo.libs.ginkgo_pretty import base_repr
+from ginkgo.enums import SOURCE_TYPES
 from sqlalchemy import Column, String, DateTime, Boolean, func
+from sqlalchemy_utils import ChoiceType
 
 
 def gen_id(self):
@@ -36,6 +38,7 @@ class MBase(db.base):
         self.uuid = uuid.uuid4().hex
         self.timestamp = datetime.datetime.now()
         self.create = datetime.datetime.now()
+        self.source = None
         self.update = datetime.datetime.now()
         self.desc = "This man is so lazy. There is no description"
         self.isdel = False
@@ -65,7 +68,10 @@ class MBase(db.base):
                 item[param] = self.__getattribute__(param)
 
         df = pd.DataFrame.from_dict(item, orient="index")
-        return df
+        return df[0]
+
+    def set_source(self, source: SOURCE_TYPES):
+        self.source = source
 
     def delete(self):
         self.isdel = True

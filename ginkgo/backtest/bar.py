@@ -1,15 +1,15 @@
 import datetime
 import pandas as pd
 from types import FunctionType, MethodType
-from enum import Enum
 from functools import singledispatchmethod
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_pretty import pretty_repr, base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.backtest.base import Base
 from ginkgo.enums import FREQUENCY_TYPES
 
 
-class Bar(object):
+class Bar(Base):
     def __init__(
         self,
         code: str,
@@ -35,28 +35,6 @@ class Bar(object):
     def set(self) -> None:
         pass
 
-    @property
-    def to_dataframe(self) -> pd.DataFrame:
-        item = {}
-        methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
-        for param in self.__dir__():
-            if param in methods:
-                continue
-            if param.startswith("_"):
-                continue
-            if isinstance(self.__getattribute__(param), MethodType):
-                continue
-            if isinstance(self.__getattribute__(param), FunctionType):
-                continue
-
-            if isinstance(self.__getattribute__(param), Enum):
-                item[param] = self.__getattribute__(param).value
-            else:
-                item[param] = self.__getattribute__(param)
-
-        df = pd.DataFrame.from_dict(item, orient="index")
-        return df
-
     @set.register
     def _(
         self,
@@ -79,7 +57,7 @@ class Bar(object):
         self.__timestamp = datetime_normalize(timestamp)
 
     @set.register
-    def _(self, bar: pd.DataFrame):
+    def _(self, df: pd.Series):
         # TODO read from data model
         pass
 
@@ -94,7 +72,7 @@ class Bar(object):
     @property
     def chg(self) -> float:
         r = self.close - self.open
-        r = round(r, 2)
+        r = round(r, 4)
         return r
 
     @property

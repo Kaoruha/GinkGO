@@ -47,6 +47,4 @@ class OrderTest(unittest.TestCase):
                 volume=i["volume"],
                 limit_price=i["limit_price"],
             )
-            o.fill()
-            print(o)
         gl.logger.warn("Order初始化 测试完成.")
