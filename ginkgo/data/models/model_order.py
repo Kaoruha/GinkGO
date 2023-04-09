@@ -1,3 +1,4 @@
+import pandas as pd
 from functools import singledispatchmethod
 from clickhouse_sqlalchemy import engines
 from sqlalchemy_utils import ChoiceType
@@ -54,7 +55,7 @@ class MOrder(MBase):
         self.timestamp = datetime_normalize(datetime)
 
     @set.register
-    def _(self, order: Order, source: SOURCE_TYPES) -> None:
+    def _(self, order: pd.DataFrame, source: SOURCE_TYPES) -> None:
         self.code = order.code
         self.direction = order.direction
         self.order_type = order.order_type
@@ -65,4 +66,4 @@ class MOrder(MBase):
         self.timestamp = order.timestamp
 
     def __repr__(self):
-        return base_repr(self, "DB"+self.__tablename__.capitalize(), 12, 46)
+        return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

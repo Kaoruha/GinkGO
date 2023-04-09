@@ -28,7 +28,7 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
 
 
 def base_repr(obj, name, label_len=12, total_len=80):
-    methods = ["delete", "query", "registry", "metadata"]
+    methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
     r = []
     count = 12
 
