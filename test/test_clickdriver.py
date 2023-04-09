@@ -1,6 +1,8 @@
 import unittest
+import time
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
+from ginkgo.libs.ginkgo_conf import GINKGOCONF
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
@@ -17,6 +19,7 @@ class ClickDriverTest(unittest.TestCase):
     def test_EventBaseInit_OK(self) -> None:
         print("")
         gl.logger.warn("ClickDriver 初始化 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
 
         db = GinkgoClickhouse(
             user=GINKGOCONF.CLICKUSER,

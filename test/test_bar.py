@@ -1,8 +1,10 @@
 import unittest
 import datetime
+import time
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.backtest.bar import Bar
 from ginkgo.enums import FREQUENCY_TYPES
+from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
 class BarTest(unittest.TestCase):
@@ -20,6 +22,7 @@ class BarTest(unittest.TestCase):
     def test_BarInit_OK(self) -> None:
         print("")
         gl.logger.warn("Bar初始化 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         params = [
             {
                 "code": "sh.0000001",
@@ -59,6 +62,7 @@ class BarTest(unittest.TestCase):
     def test_BarChange_OK(self) -> None:
         print("")
         gl.logger.warn("Bar Change 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         params = [
             {
                 "code": "sh.0000001",
@@ -121,6 +125,7 @@ class BarTest(unittest.TestCase):
     def test_BarAmplitude_OK(self) -> None:
         print("")
         gl.logger.warn("Bar Amplitude 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         params = [
             {
                 "code": "sh.0000001",

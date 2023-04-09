@@ -1,10 +1,12 @@
 import unittest
+import time
 import datetime
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.backtest.bar import Bar
 from ginkgo.data.ginkgo_data import GINKGODATA
 from ginkgo.data.models.model_daybar import MDaybar
 from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES
+from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
 class ModelDaybarTest(unittest.TestCase):
@@ -35,6 +37,7 @@ class ModelDaybarTest(unittest.TestCase):
     def test_ModelDaybarInit_OK(self) -> None:
         print("")
         gl.logger.warn("ModelDaybar 初始化 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MDaybar()
 
@@ -43,6 +46,7 @@ class ModelDaybarTest(unittest.TestCase):
     def test_ModelDaybarSetFromData_OK(self) -> None:
         print("")
         gl.logger.warn("ModelDaybar SetFromData 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MDaybar()
             o.set(
@@ -61,6 +65,7 @@ class ModelDaybarTest(unittest.TestCase):
     def test_ModelDaybarSetFromDataFrame_OK(self) -> None:
         print("")
         gl.logger.warn("ModelDaybar SetFromDataFrame 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MDaybar()
             b = Bar(
@@ -81,6 +86,8 @@ class ModelDaybarTest(unittest.TestCase):
     def test_ModelDaybarInsert_OK(self) -> None:
         print("")
         gl.logger.warn("ModelDaybar Insert 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
+
         GINKGODATA.drop_table(MDaybar)
         GINKGODATA.create_table(MDaybar)
         o = MDaybar()
@@ -91,6 +98,7 @@ class ModelDaybarTest(unittest.TestCase):
     def test_ModelDaybarBatchInsert_OK(self) -> None:
         print("")
         gl.logger.warn("ModelDaybar BatchInsert 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         GINKGODATA.drop_table(MDaybar)
         GINKGODATA.create_table(MDaybar)
         s = []
@@ -107,6 +115,7 @@ class ModelDaybarTest(unittest.TestCase):
     def test_ModelDaybarQuery_OK(self) -> None:
         print("")
         gl.logger.warn("ModelDaybar Query 测试开始.")
+        time.sleep(GINKGOCONF.HEARTBEAT)
         GINKGODATA.drop_table(MDaybar)
         GINKGODATA.create_table(MDaybar)
         o = MDaybar()
