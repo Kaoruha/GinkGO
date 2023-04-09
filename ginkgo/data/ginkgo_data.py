@@ -5,6 +5,7 @@ import importlib
 from ginkgo.data import DBDRIVER as dbdriver
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 from ginkgo.data.models.model_base import MBase
+from ginkgo.data.models.model_order import MOrder
 
 
 class GinkgoData(object):
@@ -87,6 +88,10 @@ class GinkgoData(object):
         else:
             model.__table__.create()
             gl.logger.info(f"Create Table {model.__tablename__} : {model}")
+
+    def get_order(self, order_id: str):
+        r = GINKGODATA.session.query(MOrder).filter_by(uuid=order_id).first()
+        return r
 
 
 GINKGODATA = GinkgoData()

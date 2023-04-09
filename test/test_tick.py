@@ -37,5 +37,4 @@ class TickTest(unittest.TestCase):
             volume = item["volume"]
             timestamp = item["timestamp"]
             t = Tick(code, price, volume, timestamp)
-            print(t)
         gl.logger.warn("Tick初始化 测试完成.")

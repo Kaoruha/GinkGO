@@ -5,9 +5,10 @@ from functools import singledispatchmethod
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.backtest.base import Base
 
 
-class Order(object):
+class Order(Base):
     def __init__(
         self,
         timestamp: str or datetime.datetime,

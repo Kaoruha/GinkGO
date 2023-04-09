@@ -54,7 +54,6 @@ class BarTest(unittest.TestCase):
                 item["frequency"],
                 item["timestamp"],
             )
-            print(b)
         gl.logger.warn("Bar初始化 测试完成.")
 
     def test_BarChange_OK(self) -> None:
@@ -116,7 +115,6 @@ class BarTest(unittest.TestCase):
                 item["frequency"],
                 item["timestamp"],
             )
-            print(b)
             self.assertEqual(b.chg, result[i])
         gl.logger.warn("Bar Change 测试完成.")
 
@@ -179,6 +177,5 @@ class BarTest(unittest.TestCase):
                 item["frequency"],
                 item["timestamp"],
             )
-            print(b)
             self.assertEqual(b.amplitude, result[i])
         gl.logger.warn("Bar Amplitude 测试完成.")

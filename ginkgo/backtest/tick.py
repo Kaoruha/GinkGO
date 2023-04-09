@@ -4,9 +4,10 @@ from functools import singledispatchmethod
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.backtest.base import Base
 
 
-class Tick(object):
+class Tick(Base):
     def __init__(
         self,
         code: str,
@@ -35,6 +36,10 @@ class Tick(object):
         self.price = price
         self.volume = volume
         self.__timestamp = datetime_normalize(timestamp)
+
+    @set.register
+    def _(self, df: pd.DataFrame):
+        pass
 
     @set.register
     def _(self, tick: pd.DataFrame):
