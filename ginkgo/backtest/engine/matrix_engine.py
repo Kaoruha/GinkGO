@@ -7,6 +7,8 @@ The MatrixBacktest class will provide a way to run a matrix backtest, which invo
 
 - Generating reports and metrics related to the performance of the backtesting system for each combination of parameter values.
 """
+from ginkgo.backtest.engine.base_engine import BaseEngine
 
-class MatrixEngine():
+
+class MatrixEngine(BaseEngine):
     pass

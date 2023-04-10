@@ -9,5 +9,22 @@ The EventDrivenBacktest class will provide a way to run an event-driven backtest
 
 - Generating reports and metrics related to the performance of the backtesting system (By portfolio).
 """
-class EventEngine():
-    pass
+import queue
+import time
+from ginkgo.backtest.engine.base_engine import BaseEngine
+from ginkgo.libs.ginkgo_conf import GINKGOCONF
+
+
+class EventEngine(BaseEngine):
+    def __init__(self):
+        super(EventEngine, self).__init__(*args, **kwargs)
+        self.handlers = {}
+        self.events_queue = queue.Queue()
+
+    def main_loop(self):
+        while self.is_running:
+            # Get a event from events_queue
+            # Pass the event to handler
+
+            # Break for a while
+            time.sleep(GINKGOCONF.HEARTBEAT)

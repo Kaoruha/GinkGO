@@ -9,7 +9,7 @@ import platform
 # ==============================
 print("OS: " + sys.platform)
 print("OS: " + platform.system())
-print("Windows" == str(platform.system()))
+# print("Windows" == str(platform.system()))
 
 
 # 安装依赖
