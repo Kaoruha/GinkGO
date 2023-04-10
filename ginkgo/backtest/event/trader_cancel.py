@@ -6,14 +6,14 @@ from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 
 
-class EventTradeExcution(EventBase):
+class EventTradeCancellation(EventBase):
     """
-    Trade Excution only happens after Order SUBMITTED.
+    Trader Cancellation only happened after Order SUBMITTED
     """
 
     def __init__(self, order_id=None, *args, **kwargs) -> None:
-        super(EventTradeExcution, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.TRADEEXCUTION
+        super(EventTradeCancellation, self).__init__(*args, **kwargs)
+        self.event_type = EVENT_TYPES.TRADECANCELLATION
         self.__order = None
         if order_id:
             self.get_order(order_id)

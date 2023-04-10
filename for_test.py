@@ -10,5 +10,5 @@ GINKGODATA.add(o)
 GINKGODATA.commit()
 uuid = o.uuid
 e = EventCapitalUpdate()
-e.set_order(uuid)
+e.get_order(uuid)
 print(e)

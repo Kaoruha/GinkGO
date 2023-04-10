@@ -6,6 +6,10 @@ from ginkgo.libs.ginkgo_pretty import pretty_repr
 
 
 class EventPriceUpdate(EventBase):
+    """
+    PriceUpdate Only after new price info comes.
+    """
+
     def __init__(self, price_info, *args, **kwargs) -> None:
         super(EventPriceUpdate, self).__init__(*args, **kwargs)
         self.event_type = EVENT_TYPES.PRICEUPDATE
