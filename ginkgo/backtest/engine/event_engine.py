@@ -9,22 +9,123 @@ The EventDrivenBacktest class will provide a way to run an event-driven backtest
 
 - Generating reports and metrics related to the performance of the backtesting system (By portfolio).
 """
-import queue
-import time
+from time import sleep
+from queue import Queue, Empty
+from threading import Thread
 from ginkgo.backtest.engine.base_engine import BaseEngine
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.backtest.event.base_event import EventBase
+from typing import Any, Callable, List
+from ginkgo.enums import EVENT_TYPES
+from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
 
 
 class EventEngine(BaseEngine):
-    def __init__(self):
+    def __init__(self, interval: int = 1) -> None:
         super(EventEngine, self).__init__(*args, **kwargs)
-        self.handlers = {}
-        self.events_queue = queue.Queue()
+        self._interval: int = interval
+        self._active: bool = False
+        self._main_thread: Thread = Thread(target=self.main_loop)
+        self._timer_thread: Thread = Thread(target=self.timer_loop)
+        self._timer_event: list = []
+        self._handlers: dict = {}
+        self._general_handler: list = []
+        self._queue: Queue = Queue()
 
-    def main_loop(self):
-        while self.is_running:
-            # Get a event from events_queue
-            # Pass the event to handler
+    def main_loop(self) -> None:
+        """
+        The EventBacktest Main Loop.
+        """
+        while self._active:
+            try:
+                # Get a event from events_queue
+                event: EventBase = self.queue.get(block=True, timeout=1)
+                # Pass the event to handler
+                self._process(event)
+            except Empty:
+                pass
 
             # Break for a while
-            time.sleep(GINKGOCONF.HEARTBEAT)
+            sleep(GINKGOCONF.HEARTBEAT)
+
+    def timer_loop(self) -> None:
+        """
+        Timer Task. Something like crontab or systemd timer
+        """
+        while self._active:
+            for event in self._timer_event:
+                self.put(event)
+            sleep(interval)
+
+    def start(self) -> None:
+        """
+        Start the engine
+        """
+        self._active = True
+        self._main_thread.start()
+        self._timer_thread.start()
+        # TODO Log
+
+    def stop(self) -> None:
+        """
+        Pause the Engine
+        """
+        self._active = False
+        self._main_thread.join()
+        self._timer_thread.join()
+
+    def put(self, event: EventBase) -> None:
+        self._queue.put(Event)
+        # TODO Log
+
+    def _process(self, event: EventBase):
+        if event.event_type in self._handlers:
+            [handler(event) for handler in self._handlers[event.event_type]]
+
+        if len(self._general_handler) == 0:
+            return
+        [handler(event) for handler in self._general_handler]
+
+    def register(self, type: EVENT_TYPES, handler: callable) -> None:
+        if type in self._handlers:
+            l: list = self._handlers[type]
+            if handler not in self._handlers[type]:
+                l.append(handler)
+            else:
+                gl.logger.warn(f"Handler Exists.")
+        else:
+            self._handlers[type]: list = []
+            self._handlers[type].append(handler)
+            gl.logger.info(f"Register Handler {type} : {handler}")
+
+    def unregister(self, type: EVENT_TYPES, handler: callable) -> None:
+        if type not in self._handlers:
+            msg = f"Event {type} not exsits. No need to unregister the handler."
+            gl.logger.warn(msg)
+            return
+
+        if handler not in self._handlers[type]:
+            msg = f"Event {type} do not own the handler."
+            gl.logger.warn(msg)
+            return
+
+        self._handlers[type].remove(handler)
+        gl.logger.info(f"Unregister Handler {type} : {handler}")
+
+    def register_general(self, handler: callable) -> None:
+        if handler not in self._general_handler:
+            self._general_handler.append(handler)
+            msg = f"RegisterGeneral : {handler}"
+            gl.logger.info(msg)
+        else:
+            msg = f"{handler} already exist."
+            gl.logger.warn(msg)
+
+    def unregister_general(self, handler: callable) -> None:
+        if handler in self._general_handler:
+            self._general_handler.remove(handler)
+            msg = f"UnregisterGeneral : {handler}"
+            gl.logger.info(msg)
+        else:
+            msg = f"{handler} not exsit in GeneralHandler"
+            gl.logger.warn(msg)
