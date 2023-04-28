@@ -37,10 +37,10 @@ class EventBase(object, metaclass=ABCMeta):
         return self.__type
 
     @event_type.setter
-    def event_type(self, event_type: str or EVENT_TYPES) -> None:
-        if isinstance(event_type, EVENT_TYPES):
+    def type(self, type: str or EVENT_TYPES) -> None:
+        if isinstance(type, EVENT_TYPES):
             self.__type = event_type
-        elif isinstance(event_type, str):
+        elif isinstance(type, str):
             self.__type = EVENT_TYPES.enum_convert(event_type)
 
     def update_time(self, timestamp: str or datetime.datetime):
