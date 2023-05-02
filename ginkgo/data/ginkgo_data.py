@@ -3,7 +3,7 @@ import sys
 import inspect
 import importlib
 from ginkgo.data import DBDRIVER as dbdriver
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.data.models.model_base import MBase
 from ginkgo.data.models.model_order import MOrder
 

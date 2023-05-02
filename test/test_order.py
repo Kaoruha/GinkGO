@@ -1,11 +1,13 @@
 import unittest
 import time
 import datetime
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+import pandas as pd
+from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.backtest.order import Order
+from ginkgo.data.models import MOrder
 from ginkgo.enums import ORDER_TYPES, DIRECTION_TYPES
-
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.data.ginkgo_data import GINKGODATA
 
 
 class OrderTest(unittest.TestCase):
@@ -24,7 +26,7 @@ class OrderTest(unittest.TestCase):
                 "code": "sh.0000001",
                 "timestamp": "2020-01-01 02:02:32",
                 "direction": DIRECTION_TYPES.LONG,
-                "order_type": ORDER_TYPES.LIMITORDER,
+                "type": ORDER_TYPES.LIMITORDER,
                 "volume": 100001,
                 "limit_price": 10.0,
             },
@@ -32,23 +34,87 @@ class OrderTest(unittest.TestCase):
                 "code": "sh.0000001",
                 "timestamp": datetime.datetime.now(),
                 "direction": DIRECTION_TYPES.SHORT,
-                "order_type": ORDER_TYPES.MARKETORDER,
+                "type": ORDER_TYPES.MARKETORDER,
                 "volume": 10002,
-                "limit_price": 12.1,
+                "limit_price": None,
             },
         ]
 
     def test_OrderInit_OK(self) -> None:
-        print("")
-        gl.logger.warn("Order初始化 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
-        for i in self.params:
-            o = Order(
-                timestamp=i["timestamp"],
-                code=i["code"],
-                direction=i["direction"],
-                order_type=i["order_type"],
-                volume=i["volume"],
-                limit_price=i["limit_price"],
+        result = False
+        try:
+            o = Order()
+            result = True
+        except Exception as e:
+            pass
+
+        self.assertEqual(result, True)
+
+    def test_OrderSet_OK(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        for item in self.params:
+            o = Order()
+            o.set(
+                item["code"],
+                item["direction"],
+                item["type"],
+                item["volume"],
+                item["limit_price"],
+                item["timestamp"],
             )
-        gl.logger.warn("Order初始化 测试完成.")
+            self.assertEqual(o.code, item["code"])
+            self.assertEqual(o.direction, item["direction"])
+            self.assertEqual(o.type, item["type"])
+            self.assertEqual(o.volume, item["volume"])
+            self.assertEqual(o.limit_price, item["limit_price"])
+
+    def test_OrderSetFromDataFrame_OK(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        for item in self.params:
+            data = {
+                "timestamp": item["timestamp"],
+                "code": item["code"],
+                "direction": item["direction"],
+                "type": item["type"],
+                "volume": item["volume"],
+                "limit_price": item["limit_price"],
+                "uuid": "",
+            }
+            df = pd.Series(data)
+            o = Order()
+            o.set(df)
+            self.assertEqual(o.code, item["code"])
+            self.assertEqual(o.direction, item["direction"])
+            self.assertEqual(o.type, item["type"])
+            self.assertEqual(o.volume, item["volume"])
+            self.assertEqual(o.limit_price, item["limit_price"])
+
+    def test_OrderSetFromModel_OK(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        for item in self.params:
+            data = {
+                "timestamp": item["timestamp"],
+                "code": item["code"],
+                "direction": item["direction"],
+                "type": item["type"],
+                "volume": item["volume"],
+                "status": 1,
+                "limit_price": item["limit_price"],
+            }
+            df = pd.Series(data)
+            mo = MOrder()
+            mo.set(df)
+            GINKGODATA.drop_table(MOrder)
+            GINKGODATA.create_table(MOrder)
+            GINKGODATA.add(mo)
+            GINKGODATA.commit()
+            filter_rs: MOrder = GINKGODATA.get_order(mo.uuid)
+            new_df = filter_rs.to_df()
+            o = Order()
+            o.set(new_df)
+            self.assertEqual(o.code, item["code"])
+            self.assertEqual(o.direction, item["direction"])
+            self.assertEqual(o.type, item["type"])
+            self.assertEqual(o.volume, item["volume"])
+            self.assertEqual(o.limit_price, item["limit_price"])

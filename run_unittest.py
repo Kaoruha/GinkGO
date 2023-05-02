@@ -4,10 +4,10 @@ import datetime
 import os
 import unittest
 from ginkgo.libs.ginkgo_conf import GINKGOCONF as g_conf
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
-if __name__ == "__main__":
+def main():
     # args
     parser = argparse.ArgumentParser()
     parser.add_argument("-dev", "--dev", help="dev mode", action="store_true")
@@ -16,7 +16,7 @@ if __name__ == "__main__":
         "--debug",
         help="set debug level",
         type=str,
-        choices=["debug", "info", "warning", "critical"],
+        choices=["DEBUG", "INFO", "WARNING", "CRITICAL"],
     )
     args = parser.parse_args()
 
@@ -25,6 +25,10 @@ if __name__ == "__main__":
 
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(now)
+
+    # Change LogLevel
+    if args.debug:
+        gl.logger.setLevel(args.debug)
     # 从test文件夹内读取所有单元测试
     path = "./test"
     if args.dev:
@@ -43,3 +47,7 @@ if __name__ == "__main__":
             print(e)
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
+
+
+if __name__ == "__main__":
+    main()

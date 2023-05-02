@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, MetaData, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 

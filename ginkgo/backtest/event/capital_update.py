@@ -1,9 +1,9 @@
-from ginkgo.backtest.event.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES
 from ginkgo.backtest.order import Order
 from ginkgo.data.ginkgo_data import GINKGODATA
 from ginkgo.libs.ginkgo_pretty import base_repr
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.backtest.event.base_event import EventBase
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class EventCapitalUpdate(EventBase):
@@ -21,13 +21,13 @@ class EventCapitalUpdate(EventBase):
     def __init__(self, order_id=None, *args, **kwargs) -> None:
         super(EventCapitalUpdate, self).__init__(*args, **kwargs)
         self.event_type = EVENT_TYPES.CAPITALUPDATE
-        self.__order = None
+        self._order: Order = None
         if order_id:
             self.get_order(order_id)
 
     @property
-    def _order(self) -> Order:
-        return self.__order
+    def order(self) -> Order:
+        return self._order
 
     def get_order(self, order_id: str):
         # Make sure the order cant be edit by the event.
@@ -36,7 +36,9 @@ class EventCapitalUpdate(EventBase):
         if r is None:
             gl.logger.error(f"Order:{order_id} not exsist. Please check your code")
             return
-        self.__order = r
+        o = Order()
+        o.set(r)
+        self._order = o
 
         # Status could be 1,3,4
         if self.order_status.value == 2:
@@ -46,45 +48,45 @@ class EventCapitalUpdate(EventBase):
 
     @property
     def timestamp(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.timestamp
+        return self.order.timestamp
 
     @property
     def code(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.code
+        return self.order.code.strip(b"\x00".decode())
 
     @property
     def direction(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.direction
+        return self.order.direction
 
     @property
     def order_id(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.uuid
+        return self.order.uuid
 
     @property
     def order_type(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.order_type
+        return self.order.order_type
 
     @property
     def order_status(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.status
+        return self.order.status
 
     @property
     def limit_price(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.limit_price
+        return self.order.limit_price
 
     def __repr__(self):
         return base_repr(self, EventCapitalUpdate.__name__, 16, 60)

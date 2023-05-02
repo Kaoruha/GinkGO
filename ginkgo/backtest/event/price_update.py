@@ -13,9 +13,9 @@ class EventPriceUpdate(EventBase):
     def __init__(self, price_info, *args, **kwargs) -> None:
         super(EventPriceUpdate, self).__init__(*args, **kwargs)
         self.event_type = EVENT_TYPES.PRICEUPDATE
-        self.__price_type = None
-        self.__bar = None
-        self.__tick = None
+        self._price_type = None
+        self._bar = None
+        self._tick = None
 
         if isinstance(price_info, Bar):
             self.update_bar(price_info)
@@ -24,34 +24,34 @@ class EventPriceUpdate(EventBase):
 
     @property
     def price_type(self):
-        return self.__price_type
+        return self._price_type
 
     @property
     def price_info(self):
         if self.price_type == PRICEINFO_TYPES.BAR:
-            return self.__bar
+            return self._bar
         elif self.price_type == PRICEINFO_TYPES.TICK:
-            return self.__tick
+            return self._tick
         else:
             return None
 
     def update_bar(self, bar: Bar) -> None:
-        self.__price_type = PRICEINFO_TYPES.BAR
+        self._price_type = PRICEINFO_TYPES.BAR
         if not isinstance(bar, Bar):
             return
         else:
-            self.__tick = None
-            self.__bar = bar
-            self.__timestamp = bar.timestamp
+            self._tick = None
+            self._bar = bar
+            self._timestamp = bar.timestamp
 
     def update_tick(self, tick: Tick) -> None:
-        self.__price_type = PRICEINFO_TYPES.TICK
+        self.price_type = PRICEINFO_TYPES.TICK
         if not isinstance(tick, Tick):
             return
         else:
-            self.__bar = None
-            self.__tick = tick
-            self.__timestamp = tick.timestamp
+            self._bar = None
+            self._tick = tick
+            self._timestamp = tick.timestamp
 
     def __repr__(self):
         mem = f"Mem   : {hex(id(self))}"

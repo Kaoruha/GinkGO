@@ -9,42 +9,42 @@ from ginkgo.libs.ginkgo_normalize import datetime_normalize
 class EventBase(object, metaclass=ABCMeta):
     def __init__(self, *args, **kwargs) -> None:
         super(EventBase, self).__init__(*args, **kwargs)
-        self.__timestamp = datetime.datetime.now()
-        self.__id = uuid.uuid3(
+        self._timestamp = datetime.datetime.now()
+        self._id = uuid.uuid3(
             uuid.NAMESPACE_DNS, str(datetime.datetime.now()) + EventBase.__name__
         )
-        self.__type = None
-        self.__source = SOURCE_TYPES.SIM
+        self._type = None
+        self._source = SOURCE_TYPES.SIM
 
     @property
     def id(self) -> str:
-        return self.__id
+        return self._id
 
     @property
     def source(self) -> SOURCE_TYPES:
-        return self.__source
+        return self._source
 
     @source.setter
     def source(self, source: SOURCE_TYPES) -> None:
-        self.__source = source
+        self._source = source
 
     @property
     def timestamp(self) -> datetime.datetime:
-        return self.__timestamp
+        return self._timestamp
 
     @property
-    def event_type(self) -> EVENT_TYPES:
-        return self.__type
+    def type(self) -> EVENT_TYPES:
+        return self._type
 
-    @event_type.setter
+    @type.setter
     def type(self, type: str or EVENT_TYPES) -> None:
         if isinstance(type, EVENT_TYPES):
-            self.__type = event_type
+            self._type = type
         elif isinstance(type, str):
-            self.__type = EVENT_TYPES.enum_convert(event_type)
+            self._type = EVENT_TYPES.enum_convert(type)
 
     def update_time(self, timestamp: str or datetime.datetime):
-        self.__timestamp = datetime_normalize(timestamp)
+        self._timestamp = datetime_normalize(timestamp)
 
     def __repr__(self):
         return base_repr(self, EventBase.__name__, 16, 60)

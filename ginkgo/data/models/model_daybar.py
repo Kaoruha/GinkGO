@@ -6,7 +6,7 @@ from sqlalchemy import Column, String, Integer, DECIMAL
 from ginkgo.data.models.model_base import MBase
 from ginkgo.backtest.bar import Bar
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.enums import (
@@ -35,25 +35,25 @@ class MDaybar(MBase):
         super().__init__()
 
     @singledispatchmethod
-    def set(self):
+    def set(self) -> None:
         pass
 
     @set.register
     def _(
         self,
         code: str,
-        open_: float,
+        open: float,
         high: float,
         low: float,
         close: float,
         volume: int,
-        datetime,
+        datetime: str or datetime.datetime,
     ):
         self.code = code
-        self.p_open = round(open_, 2)
-        self.p_high = round(high, 2)
-        self.p_low = round(low, 2)
-        self.p_close = round(close, 2)
+        self.open = round(open, 2)
+        self.high = round(high, 2)
+        self.low = round(low, 2)
+        self.close = round(close, 2)
         self.volume = volume
         self.timestamp = datetime_normalize(datetime)
 
@@ -63,12 +63,25 @@ class MDaybar(MBase):
             gl.logger.warn(f"The bar is not daybar, your data might be wrong.")
             return
         self.code = df.code
-        self.p_open = df.open
-        self.p_high = df.high
-        self.p_low = df.low
-        self.p_close = df.close
+        self.open = df.open
+        self.high = df.high
+        self.low = df.low
+        self.close = df.close
         self.volume = df.volume
         self.timestamp = df.timestamp
+
+    def to_df(self) -> pd.Series:
+        data = {
+            "timestamp": self.timestamp,
+            "code": self.code.strip(b"\x00".decode()),
+            "open": self.open,
+            "high": self.high,
+            "low": self.low,
+            "close": self.close,
+            "volume": self.volume,
+            "uuid": self.uuid.strip(b"\x00".decode()),
+        }
+        return pd.Series(data)
 
     def __repr__(self):
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
