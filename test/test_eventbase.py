@@ -1,9 +1,10 @@
-import time
+from time import sleep
 import unittest
 import datetime
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.backtest.event.base_event import EventBase
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES
 
 
 class EventBaseTest(unittest.TestCase):
@@ -11,15 +12,21 @@ class EventBaseTest(unittest.TestCase):
     UnitTest for BaseEvent.
     """
 
-    # Init
-
     def __init__(self, *args, **kwargs) -> None:
         super(EventBaseTest, self).__init__(*args, **kwargs)
+        self.sim_source = SOURCE_TYPES.SIM
+        self.sim_type = EVENT_TYPES.PRICEUPDATE
+        self.sim_date = datetime.datetime.now()
+
+    def sim_ins(self) -> EventBase:
+        e = EventBase()
+        e.source = self.sim_source
+        e.update_time(self.sim_date)
+        e.type = self.sim_type
+        return e
 
     def test_EventBaseInit_OK(self) -> None:
-        print("")
-        gl.logger.warn("EventBase初始化 测试开始.")
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GINKGOCONF.HEARTBEAT)
         params = [
             {"type": "priceupdate"},
             {"type": "orderfill"},
@@ -28,6 +35,24 @@ class EventBaseTest(unittest.TestCase):
         for i in range(len(params)):
             item = params[i]
             e = EventBase()
-            e.event_type = item["type"]
-            print(e)
-        gl.logger.warn("EventBase初始化 测试完成.")
+            e.type = item["type"]
+
+    def test_EventBase_ID_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        e = self.sim_ins()
+        self.assertTrue(e.id != None)
+
+    def test_EventBase_Source_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        e = self.sim_ins()
+        self.assertEqual(e.source, self.sim_source)
+
+    def test_EventBase_Type_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        e = self.sim_ins()
+        self.assertEqual(e.type, self.sim_type)
+
+    def test_EventBase_Date_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        e = self.sim_ins()
+        self.assertEqual(e.timestamp, self.sim_date)

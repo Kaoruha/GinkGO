@@ -1,16 +1,16 @@
 class BaseEngine(object):
     def __init__(self, *args, **kwargs):
-        self.__is_running = False
+        self._active: bool = False
 
     @property
-    def is_running(self) -> bool:
-        return self.__is_running
+    def is_active(self) -> bool:
+        return self._active
 
     def start(self) -> None:
-        self.is_running = True
+        self._active = True
 
     def pause(self) -> None:
-        self.is_running = False
+        self._active = False
 
     def stop(self) -> None:
-        self.is_running = False
+        self._active = False

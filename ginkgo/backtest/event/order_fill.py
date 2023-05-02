@@ -3,7 +3,7 @@ from ginkgo.enums import EVENT_TYPES
 from ginkgo.backtest.order import Order
 from ginkgo.data.ginkgo_data import GINKGODATA
 from ginkgo.libs.ginkgo_pretty import base_repr
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class EventOrderFill(EventBase):
@@ -14,13 +14,13 @@ class EventOrderFill(EventBase):
     def __init__(self, order_id=None, *args, **kwargs) -> None:
         super(EventOrderFill, self).__init__(*args, **kwargs)
         self.event_type = EVENT_TYPES.ORDERFILL
-        self.__order = None
+        self._order = None
         if order_id:
             self.get_order(order_id)
 
     @property
-    def _order(self) -> Order:
-        return self.__order
+    def order(self) -> Order:
+        return self._order
 
     def get_order(self, order_id: str):
         # Make sure the order cant be edit by the event.
@@ -29,7 +29,7 @@ class EventOrderFill(EventBase):
         if r is None:
             gl.logger.error(f"Order:{order_id} not exsist. Please check your code")
             return
-        self.__order = r
+        self._order = r
 
         # Status could be only 2
         if self.order_status.value != 2:
@@ -39,45 +39,45 @@ class EventOrderFill(EventBase):
 
     @property
     def timestamp(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.timestamp
+        return self.order.timestamp
 
     @property
     def code(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.code
+        return self.order.code
 
     @property
     def direction(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.direction
+        return self.order.direction
 
     @property
     def order_id(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.uuid
+        return self.order.uuid
 
     @property
     def order_type(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.order_type
+        return self.order.order_type
 
     @property
     def order_status(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.status
+        return self.order.status
 
     @property
     def limit_price(self):
-        if self._order is None:
+        if self.order is None:
             return None
-        return self.__order.limit_price
+        return self.order.limit_price
 
     def __repr__(self):
         return base_repr(self, EventOrderFill.__name__, 16, 60)

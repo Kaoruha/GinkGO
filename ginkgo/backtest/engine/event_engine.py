@@ -17,14 +17,13 @@ from ginkgo.libs.ginkgo_conf import GINKGOCONF
 from ginkgo.backtest.event.base_event import EventBase
 from typing import Any, Callable, List
 from ginkgo.enums import EVENT_TYPES
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class EventEngine(BaseEngine):
     def __init__(self, interval: int = 1) -> None:
         super(EventEngine, self).__init__(*args, **kwargs)
         self._interval: int = interval
-        self._active: bool = False
         self._main_thread: Thread = Thread(target=self.main_loop)
         self._timer_thread: Thread = Thread(target=self.timer_loop)
         self._timer_event: list = []
@@ -61,7 +60,7 @@ class EventEngine(BaseEngine):
         """
         Start the engine
         """
-        self._active = True
+        super(EventEngine, self).start()
         self._main_thread.start()
         self._timer_thread.start()
         # TODO Log
@@ -70,7 +69,7 @@ class EventEngine(BaseEngine):
         """
         Pause the Engine
         """
-        self._active = False
+        super(EventEngine, self).stop()
         self._main_thread.join()
         self._timer_thread.join()
 

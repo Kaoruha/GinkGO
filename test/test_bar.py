@@ -1,7 +1,7 @@
 import unittest
 import datetime
-import time
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from time import sleep
+from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.backtest.bar import Bar
 from ginkgo.enums import FREQUENCY_TYPES
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
@@ -18,11 +18,31 @@ class BarTest(unittest.TestCase):
 
     def __init__(self, *args, **kwargs) -> None:
         super(BarTest, self).__init__(*args, **kwargs)
+        self.sim_code = "unittest_simcode"
+        self.sim_open = 10.1
+        self.sim_high = 11
+        self.sim_low = 9
+        self.sim_close = 9.51
+        self.sim_volume = 1991231
+        self.sim_fre = FREQUENCY_TYPES.DAY
+        self.sim_date = datetime.datetime.now()
+
+    def sim_ins(self) -> Bar:
+        b = Bar(
+            self.sim_code,
+            self.sim_open,
+            self.sim_high,
+            self.sim_low,
+            self.sim_close,
+            self.sim_volume,
+            self.sim_fre,
+            self.sim_date,
+        )
+        return b
 
     def test_BarInit_OK(self) -> None:
-        print("")
-        gl.logger.warn("Bar初始化 测试开始.")
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GINKGOCONF.HEARTBEAT)
+        result = True
         params = [
             {
                 "code": "sh.0000001",
@@ -45,142 +65,66 @@ class BarTest(unittest.TestCase):
                 "timestamp": datetime.datetime.now(),
             },
         ]
-        for i in range(len(params)):
-            item = params[i]
-            b = Bar(
-                item["code"],
-                item["open"],
-                item["high"],
-                item["low"],
-                item["close"],
-                item["volume"],
-                item["frequency"],
-                item["timestamp"],
-            )
-        gl.logger.warn("Bar初始化 测试完成.")
+        try:
+            for i in range(len(params)):
+                item = params[i]
+                b = Bar(
+                    item["code"],
+                    item["open"],
+                    item["high"],
+                    item["low"],
+                    item["close"],
+                    item["volume"],
+                    item["frequency"],
+                    item["timestamp"],
+                )
+        except Exception as e:
+            result = False
+
+        self.assertEqual(result, True)
+
+    def test_BarCode_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        r = self.sim_ins()
+        self.assertEqual(r.code, self.sim_code)
+
+    def test_BarOpen_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        r = self.sim_ins()
+        self.assertEqual(r.open, self.sim_open)
+
+    def test_BarHigh_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        r = self.sim_ins()
+        self.assertEqual(r.high, self.sim_high)
+
+    def test_BarLow_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        r = self.sim_ins()
+        self.assertEqual(r.low, self.sim_low)
+
+    def test_BarClose_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        r = self.sim_ins()
+        self.assertEqual(r.close, self.sim_close)
+
+    def test_BarFrequency_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        r = self.sim_ins()
+        self.assertEqual(r.frequency, self.sim_fre)
+
+    def test_BarTime_OK(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        r = self.sim_ins()
+        self.assertEqual(r.timestamp, self.sim_date)
 
     def test_BarChange_OK(self) -> None:
-        print("")
-        gl.logger.warn("Bar Change 测试开始.")
-        time.sleep(GINKGOCONF.HEARTBEAT)
-        params = [
-            {
-                "code": "sh.0000001",
-                "open": 10.2,
-                "high": 11,
-                "low": 9.45,
-                "close": 10,
-                "volume": 100,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": "2020-01-01 02:02:32",
-            },
-            {
-                "code": "sh.0000001",
-                "open": 10,
-                "high": 11.1,
-                "low": 9.6,
-                "close": 9.4,
-                "volume": 10022,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": datetime.datetime.now(),
-            },
-            {
-                "code": "sh.0000001",
-                "open": 10,
-                "high": 11.1,
-                "low": 9.6,
-                "close": 11.4,
-                "volume": 10022,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": datetime.datetime.now(),
-            },
-            {
-                "code": "sh.0000001",
-                "open": 10,
-                "high": 11.1,
-                "low": 9.6,
-                "close": 11,
-                "volume": 10022,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": datetime.datetime.now(),
-            },
-        ]
-        result = [-0.2, -0.6, 1.4, 1]
-        for i in range(len(params)):
-            item = params[i]
-            r = result[i]
-            b = Bar(
-                item["code"],
-                item["open"],
-                item["high"],
-                item["low"],
-                item["close"],
-                item["volume"],
-                item["frequency"],
-                item["timestamp"],
-            )
-            self.assertEqual(b.chg, result[i])
-        gl.logger.warn("Bar Change 测试完成.")
+        sleep(GINKGOCONF.HEARTBEAT)
+        r = self.sim_ins()
+        r_expect = round(self.sim_close - self.sim_open, 2)
+        self.assertEqual(r.chg, r_expect)
 
     def test_BarAmplitude_OK(self) -> None:
-        print("")
-        gl.logger.warn("Bar Amplitude 测试开始.")
-        time.sleep(GINKGOCONF.HEARTBEAT)
-        params = [
-            {
-                "code": "sh.0000001",
-                "open": 10.2,
-                "high": 11,
-                "low": 9.45,
-                "close": 10,
-                "volume": 100,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": "2020-01-01 02:02:32",
-            },
-            {
-                "code": "sh.0000001",
-                "open": 10,
-                "high": 11.1,
-                "low": 9.6,
-                "close": 9.4,
-                "volume": 10022,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": datetime.datetime.now(),
-            },
-            {
-                "code": "sh.0000001",
-                "open": 10,
-                "high": 11.1,
-                "low": 9.6,
-                "close": 11.4,
-                "volume": 10022,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": datetime.datetime.now(),
-            },
-            {
-                "code": "sh.0000001",
-                "open": 10,
-                "high": 11.6,
-                "low": 9.6,
-                "close": 11,
-                "volume": 10022,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": datetime.datetime.now(),
-            },
-        ]
-        result = [1.55, 1.5, 1.5, 2]
-        for i in range(len(params)):
-            item = params[i]
-            r = result[i]
-            b = Bar(
-                item["code"],
-                item["open"],
-                item["high"],
-                item["low"],
-                item["close"],
-                item["volume"],
-                item["frequency"],
-                item["timestamp"],
-            )
-            self.assertEqual(b.amplitude, result[i])
-        gl.logger.warn("Bar Amplitude 测试完成.")
+        sleep(GINKGOCONF.HEARTBEAT)
+        r = self.sim_ins()
+        self.assertEqual(r.amplitude, self.sim_high - self.sim_low)

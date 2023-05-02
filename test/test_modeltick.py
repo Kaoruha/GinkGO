@@ -1,7 +1,7 @@
 import unittest
 import time
 import datetime
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.backtest.tick import Tick
 from ginkgo.data.ginkgo_data import GINKGODATA
 from ginkgo.data.models.model_tick import MTick
@@ -32,8 +32,6 @@ class ModelTickTest(unittest.TestCase):
         ]
 
     def test_ModelTickInit_OK(self) -> None:
-        print("")
-        gl.logger.warn("ModelTick 初始化 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             item = MTick()
@@ -45,11 +43,7 @@ class ModelTickTest(unittest.TestCase):
             )
             item.set_source(SOURCE_TYPES.BAOSTOCK)
 
-        gl.logger.warn("ModelTick 初始化 测试完成.")
-
     def test_ModelTickInsert_OK(self) -> None:
-        print("")
-        gl.logger.warn("ModelTick Insert 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
 
         GINKGODATA.drop_table(MTick)
@@ -57,11 +51,8 @@ class ModelTickTest(unittest.TestCase):
         o = MTick()
         GINKGODATA.add(o)
         GINKGODATA.commit()
-        gl.logger.warn("ModelTick Insert 测试完成.")
 
     def test_ModelTickBatchInsert_OK(self) -> None:
-        print("")
-        gl.logger.warn("ModelTick BatchInsert 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
 
         GINKGODATA.drop_table(MTick)
@@ -75,11 +66,8 @@ class ModelTickTest(unittest.TestCase):
 
         GINKGODATA.add_all(s)
         GINKGODATA.commit()
-        gl.logger.warn("ModelTick BatchInsert 测试完成.")
 
     def test_ModelTickQuery_OK(self) -> None:
-        print("")
-        gl.logger.warn("ModelTick Query 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
 
         GINKGODATA.drop_table(MTick)
@@ -88,5 +76,3 @@ class ModelTickTest(unittest.TestCase):
         GINKGODATA.add(o)
         GINKGODATA.commit()
         r = GINKGODATA.session.query(MTick).first()
-        print(r)
-        gl.logger.warn("ModelTick Query 测试完成.")

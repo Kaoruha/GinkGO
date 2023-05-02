@@ -1,4 +1,3 @@
-import uuid
 import pandas as pd
 import datetime
 from types import FunctionType, MethodType
@@ -6,14 +5,11 @@ from functools import singledispatchmethod
 from enum import Enum
 from types import FunctionType, MethodType
 from ginkgo.data import DBDRIVER as db
+from ginkgo.libs import gen_uuid4
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.enums import SOURCE_TYPES
 from sqlalchemy import Column, String, DateTime, Boolean, func
 from sqlalchemy_utils import ChoiceType
-
-
-def gen_id(self):
-    return uuid.uuid4().hex
 
 
 def get_datetime(self):
@@ -35,7 +31,7 @@ class MBase(db.base):
     isdel = Column(Boolean)
 
     def __init__(self):
-        self.uuid = uuid.uuid4().hex
+        self.uuid = gen_uuid4()
         self.timestamp = datetime.datetime.now()
         self.create = datetime.datetime.now()
         self.source = None

@@ -1,7 +1,7 @@
 import unittest
 import time
 import datetime
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.backtest.order import Order
 from ginkgo.data.ginkgo_data import GINKGODATA
 from ginkgo.data.models.model_order import MOrder
@@ -36,8 +36,6 @@ class ModelOrderTest(unittest.TestCase):
         ]
 
     def test_ModelOrderInit_OK(self) -> None:
-        print("")
-        gl.logger.warn("Order 初始化 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MOrder()
@@ -51,12 +49,8 @@ class ModelOrderTest(unittest.TestCase):
                 i["datetime"],
             )
             o.set_source(i["source"])
-            # print(o)
-        gl.logger.warn("Order 初始化 测试完成.")
 
     def test_ModelOrderSetFromData_OK(self) -> None:
-        print("")
-        gl.logger.warn("ModelOrder SetFromData 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MOrder()
@@ -70,11 +64,8 @@ class ModelOrderTest(unittest.TestCase):
                 i["datetime"],
             )
             o.set_source(i["source"])
-        gl.logger.warn("ModelOrder SetFromData 测试完成.")
 
     def test_ModelOrderInsert_OK(self) -> None:
-        print("")
-        gl.logger.warn("Order Insert 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
 
         GINKGODATA.drop_table(MOrder)
@@ -82,11 +73,8 @@ class ModelOrderTest(unittest.TestCase):
         o = MOrder()
         GINKGODATA.add(o)
         GINKGODATA.commit()
-        gl.logger.warn("Order Insert 测试完成.")
 
     def test_ModelOrderBatchInsert_OK(self) -> None:
-        print("")
-        gl.logger.warn("Order BatchInsert 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
 
         GINKGODATA.drop_table(MOrder)
@@ -100,11 +88,8 @@ class ModelOrderTest(unittest.TestCase):
 
         GINKGODATA.add_all(s)
         GINKGODATA.commit()
-        gl.logger.warn("Order BatchInsert 测试完成.")
 
     def test_ModelOrderQuery_OK(self) -> None:
-        print("")
-        gl.logger.warn("Order Query 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
 
         GINKGODATA.drop_table(MOrder)
@@ -113,5 +98,3 @@ class ModelOrderTest(unittest.TestCase):
         GINKGODATA.add(o)
         GINKGODATA.commit()
         r = GINKGODATA.get_order(o.uuid)
-        print(r)
-        gl.logger.warn("Order Query 测试完成.")

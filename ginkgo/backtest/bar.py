@@ -2,8 +2,7 @@ import datetime
 import pandas as pd
 from types import FunctionType, MethodType
 from functools import singledispatchmethod
-from ginkgo.libs.ginkgo_pretty import base_repr
-from ginkgo.libs.ginkgo_pretty import pretty_repr, base_repr
+from ginkgo.libs.ginkgo_pretty import base_repr, pretty_repr, base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.backtest.base import Base
 from ginkgo.enums import FREQUENCY_TYPES
@@ -13,7 +12,7 @@ class Bar(Base):
     def __init__(
         self,
         code: str,
-        open_: float,
+        open: float,
         high: float,
         low: float,
         close: float,
@@ -22,14 +21,14 @@ class Bar(Base):
         timestamp,
     ) -> None:
         self.__timestamp = None  # DateTime
-        self.code = "sh.600001"
-        self.open = 0
-        self.high = 0
-        self.low = 0
-        self.close = 0
-        self.volume = 0
+        self._code = "default_code"
+        self._open = 0
+        self._high = 0
+        self._low = 0
+        self._close = 0
+        self._volume = 0
 
-        self.set(code, open_, high, low, close, volume, frequency, timestamp)
+        self.set(code, open, high, low, close, volume, frequency, timestamp)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -39,7 +38,7 @@ class Bar(Base):
     def _(
         self,
         code: str,
-        open_: float,
+        open: float,
         high: float,
         low: float,
         close: float,
@@ -47,14 +46,15 @@ class Bar(Base):
         frequency: FREQUENCY_TYPES,
         timestamp: datetime.datetime,
     ) -> None:
-        self.open = open_
-        self.high = high
-        self.low = low
-        self.close = close
-        self.frequency = frequency
-        self.volume = volume
+        self._code = code
+        self._open = open
+        self._high = high
+        self._low = low
+        self._close = close
+        self._frequency = frequency
+        self._volume = volume
 
-        self.__timestamp = datetime_normalize(timestamp)
+        self._timestamp = datetime_normalize(timestamp)
 
     @set.register
     def _(self, df: pd.Series):
@@ -62,22 +62,46 @@ class Bar(Base):
         pass
 
     @property
-    def timestamp(self) -> datetime.datetime:
-        return self.__timestamp
+    def code(self) -> str:
+        return self._code
 
     @property
-    def open_(self) -> float:
-        return self.open
+    def open(self) -> float:
+        return self._open
+
+    @property
+    def high(self) -> float:
+        return self._high
+
+    @property
+    def low(self) -> float:
+        return self._low
+
+    @property
+    def close(self) -> float:
+        return self._close
+
+    @property
+    def volume(self) -> int:
+        return self._volume
+
+    @property
+    def frequency(self) -> FREQUENCY_TYPES:
+        return self._frequency
+
+    @property
+    def timestamp(self) -> datetime.datetime:
+        return self._timestamp
 
     @property
     def chg(self) -> float:
-        r = self.close - self.open
+        r = self._close - self._open
         r = round(r, 4)
         return r
 
     @property
     def amplitude(self) -> float:
-        r = self.high - self.low
+        r = self._high - self._low
         r = round(r, 2)
         return r
 

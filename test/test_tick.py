@@ -1,7 +1,7 @@
 import unittest
 import time
 import datetime
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.backtest.tick import Tick
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
@@ -16,8 +16,6 @@ class TickTest(unittest.TestCase):
         super(TickTest, self).__init__(*args, **kwargs)
 
     def test_TickInit_OK(self) -> None:
-        print("")
-        gl.logger.warn("Tick初始化 测试开始.")
         time.sleep(GINKGOCONF.HEARTBEAT)
         params = [
             {
@@ -40,4 +38,3 @@ class TickTest(unittest.TestCase):
             volume = item["volume"]
             timestamp = item["timestamp"]
             t = Tick(code, price, volume, timestamp)
-        gl.logger.warn("Tick初始化 测试完成.")
