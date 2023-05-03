@@ -8,7 +8,7 @@ from ginkgo.libs import GINKGOLOGGER as gl
 
 class EventTradeCancellation(EventBase):
     """
-    Trader Cancellation only happened after Order SUBMITTED
+    Trade Excution only happens after Order SUBMITTED.
     """
 
     def __init__(self, order_id=None, *args, **kwargs) -> None:
@@ -64,7 +64,7 @@ class EventTradeCancellation(EventBase):
     def order_type(self):
         if self.order is None:
             return None
-        return self.order.order_type
+        return self.order.type
 
     @property
     def order_status(self):
@@ -76,7 +76,13 @@ class EventTradeCancellation(EventBase):
     def limit_price(self):
         if self.order is None:
             return None
-        return self.order.limit_price
+        return float(self.order.limit_price)
+
+    @property
+    def volume(self):
+        if self.order is None:
+            return None
+        return self.order.volume
 
     def __repr__(self):
         return base_repr(self, EventOrderFill.__name__, 16, 60)
