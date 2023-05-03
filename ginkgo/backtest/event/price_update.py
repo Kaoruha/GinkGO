@@ -1,8 +1,10 @@
 from ginkgo.backtest.event.base_event import EventBase
+from functools import singledispatchmethod
 from ginkgo.enums import EVENT_TYPES, PRICEINFO_TYPES, SOURCE_TYPES
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.tick import Tick
 from ginkgo.libs.ginkgo_pretty import pretty_repr
+from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class EventPriceUpdate(EventBase):
@@ -10,17 +12,13 @@ class EventPriceUpdate(EventBase):
     PriceUpdate Only after new price info comes.
     """
 
-    def __init__(self, price_info, *args, **kwargs) -> None:
+    def __init__(self, price_info: Bar or Tick = None, *args, **kwargs) -> None:
         super(EventPriceUpdate, self).__init__(*args, **kwargs)
         self.event_type = EVENT_TYPES.PRICEUPDATE
         self._price_type = None
-        self._bar = None
-        self._tick = None
 
-        if isinstance(price_info, Bar):
-            self.update_bar(price_info)
-        elif isinstance(price_info, Tick):
-            self.update_tick(price_info)
+        if price_info:
+            self.set(price_info)
 
     @property
     def price_type(self):
@@ -28,30 +26,101 @@ class EventPriceUpdate(EventBase):
 
     @property
     def price_info(self):
-        if self.price_type == PRICEINFO_TYPES.BAR:
+        if self._price_type == PRICEINFO_TYPES.BAR:
             return self._bar
-        elif self.price_type == PRICEINFO_TYPES.TICK:
+        elif self._price_type == PRICEINFO_TYPES.TICK:
             return self._tick
         else:
+            gl.logger.warn(f"!! The PriceInfo not set yet. Please check your code")
             return None
 
-    def update_bar(self, bar: Bar) -> None:
-        self._price_type = PRICEINFO_TYPES.BAR
-        if not isinstance(bar, Bar):
-            return
-        else:
-            self._tick = None
-            self._bar = bar
-            self._timestamp = bar.timestamp
+    @singledispatchmethod
+    def set(self) -> None:
+        pass
 
-    def update_tick(self, tick: Tick) -> None:
-        self.price_type = PRICEINFO_TYPES.TICK
-        if not isinstance(tick, Tick):
-            return
+    @set.register
+    def _(self, price: Bar):
+        self._price_type = PRICEINFO_TYPES.BAR
+        self._bar = price
+        self._tick = None
+
+    @set.register
+    def _(self, price: Tick):
+        self._price_type = PRICEINFO_TYPES.TICK
+        self._tick = price
+        self._bar = None
+
+    @property
+    def timestamp(self) -> datetime.datetime:
+        if self.price_info is None:
+            return None
+        return self.price_info.timestamp
+
+    @property
+    def price(self) -> float:
+        if self.price_info is None:
+            return None
+        if self.price_type == PRICEINFO_TYPES.TICK:
+            return self.price_info.price
         else:
-            self._bar = None
-            self._tick = tick
-            self._timestamp = tick.timestamp
+            gl.logger.warn(
+                f"The Price is Bar Type, but your are asking tick type price value."
+            )
+            return None
+
+    @property
+    def volume(self) -> int:
+        if self.price_info is None:
+            return None
+        return self.price_info.volume
+
+    @property
+    def open(self) -> float:
+        if self.price_info is None:
+            return None
+        if self.price_type == PRICEINFO_TYPES.BAR:
+            return self.price_info.open
+        else:
+            gl.logger.warn(
+                f"The Price is Tick Type, but your are asking Bar type open value."
+            )
+            return None
+
+    @property
+    def high(self) -> float:
+        if self.price_info is None:
+            return None
+        if self.price_type == PRICEINFO_TYPES.BAR:
+            return self.price_info.high
+        else:
+            gl.logger.warn(
+                f"The Price is Tick Type, but your are asking Bar type high value."
+            )
+            return None
+
+    @property
+    def low(self) -> float:
+        if self.price_info is None:
+            return None
+        if self.price_type == PRICEINFO_TYPES.BAR:
+            return self.price_info.low
+        else:
+            gl.logger.warn(
+                f"The Price is Tick Type, but your are asking Bar type low value."
+            )
+            return None
+
+    @property
+    def close(self) -> float:
+        if self.price_info is None:
+            return None
+        if self.price_type == PRICEINFO_TYPES.BAR:
+            return self.price_info.close
+        else:
+            gl.logger.warn(
+                f"The Price is Tick Type, but your are asking Bar type close value."
+            )
+            return None
 
     def __repr__(self):
         mem = f"Mem   : {hex(id(self))}"
