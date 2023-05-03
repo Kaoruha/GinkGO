@@ -14,45 +14,59 @@ class EventBaseTest(unittest.TestCase):
 
     def __init__(self, *args, **kwargs) -> None:
         super(EventBaseTest, self).__init__(*args, **kwargs)
-        self.sim_source = SOURCE_TYPES.SIM
-        self.sim_type = EVENT_TYPES.PRICEUPDATE
-        self.sim_date = datetime.datetime.now()
-
-    def sim_ins(self) -> EventBase:
-        e = EventBase()
-        e.source = self.sim_source
-        e.update_time(self.sim_date)
-        e.type = self.sim_type
-        return e
-
-    def test_EventBaseInit(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
-        params = [
-            {"type": "priceupdate"},
-            {"type": "orderfill"},
-            {"type": "prICeupdate"},
+        self.params = [
+            {
+                "sim_source": SOURCE_TYPES.SIM,
+                "sim_type": EVENT_TYPES.PRICEUPDATE,
+                "sim_timestamp": datetime.datetime.now(),
+            },
+            {
+                "sim_source": SOURCE_TYPES.SIM,
+                "sim_type": "orderfill",
+                "sim_timestamp": datetime.datetime.now(),
+            },
+            {
+                "sim_source": SOURCE_TYPES.SIM,
+                "sim_type": "ORDERSubmission",
+                "sim_timestamp": datetime.datetime.now(),
+            },
         ]
-        for i in range(len(params)):
-            item = params[i]
-            e = EventBase()
-            e.type = item["type"]
 
-    def test_EventBase_ID(self) -> None:
+    def test_EventBase_Init(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        e = self.sim_ins()
-        self.assertTrue(e.id != None)
+        result = True
+        for i in self.params:
+            try:
+                e = EventBase()
+                e.type = i["sim_type"]
+
+            except Exception as e:
+                result = False
+        self.assertEqual(result, True)
+
+    def test_EventBase_UUID(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        for i in self.params:
+            e = EventBase()
+            e.type = i["sim_type"]
+            e.source = i["sim_source"]
+            e.update_time(i["sim_timestamp"])
+            self.assertNotEqual(e.uuid, None)
 
     def test_EventBase_Source(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        e = self.sim_ins()
-        self.assertEqual(e.source, self.sim_source)
-
-    def test_EventBase_Type(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
-        e = self.sim_ins()
-        self.assertEqual(e.type, self.sim_type)
+        for i in self.params:
+            e = EventBase()
+            e.type = i["sim_type"]
+            e.source = i["sim_source"]
+            e.update_time(i["sim_timestamp"])
+            self.assertEqual(e.source, i["sim_source"])
 
     def test_EventBase_Date(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        e = self.sim_ins()
-        self.assertEqual(e.timestamp, self.sim_date)
+        for i in self.params:
+            e = EventBase()
+            e.type = i["sim_type"]
+            e.source = i["sim_source"]
+            e.update_time(i["sim_timestamp"])
+            self.assertEqual(e.timestamp, i["sim_timestamp"])

@@ -4,21 +4,20 @@ from abc import abstractmethod, ABCMeta
 from ginkgo.enums import EVENT_TYPES, SOURCE_TYPES
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs import gen_uuid4
 
 
 class EventBase(object, metaclass=ABCMeta):
     def __init__(self, *args, **kwargs) -> None:
         super(EventBase, self).__init__(*args, **kwargs)
         self._timestamp = datetime.datetime.now()
-        self._id = uuid.uuid3(
-            uuid.NAMESPACE_DNS, str(datetime.datetime.now()) + EventBase.__name__
-        )
+        self._uuid = gen_uuid4()
         self._type = None
         self._source = SOURCE_TYPES.SIM
 
     @property
-    def id(self) -> str:
-        return self._id
+    def uuid(self) -> str:
+        return self._uuid
 
     @property
     def source(self) -> SOURCE_TYPES:

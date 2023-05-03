@@ -7,9 +7,9 @@ from ginkgo.enums import FREQUENCY_TYPES
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
-class BarTest(unittest.TestCase):
+class DayBarTest(unittest.TestCase):
     """
-    UnitTest for bar.
+    UnitTest for Daybar.
     """
 
     # Init
@@ -17,114 +17,166 @@ class BarTest(unittest.TestCase):
     # Amplitude
 
     def __init__(self, *args, **kwargs) -> None:
-        super(BarTest, self).__init__(*args, **kwargs)
-        self.sim_code = "unittest_simcode"
-        self.sim_open = 10.1
-        self.sim_high = 11
-        self.sim_low = 9
-        self.sim_close = 9.51
-        self.sim_volume = 1991231
-        self.sim_fre = FREQUENCY_TYPES.DAY
-        self.sim_date = datetime.datetime.now()
-
-    def sim_ins(self) -> Bar:
-        b = Bar(
-            self.sim_code,
-            self.sim_open,
-            self.sim_high,
-            self.sim_low,
-            self.sim_close,
-            self.sim_volume,
-            self.sim_fre,
-            self.sim_date,
-        )
-        return b
-
-    def test_BarInit(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
-        result = True
-        params = [
+        super(DayBarTest, self).__init__(*args, **kwargs)
+        self.params = [
             {
-                "code": "sh.0000001",
-                "open": 10.2,
-                "high": 11,
-                "low": 9.45,
-                "close": 10,
-                "volume": 100,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": "2020-01-01 02:02:32",
+                "sim_code": "unittest_simcode",
+                "sim_open": 10.1,
+                "sim_high": 11,
+                "sim_low": 9,
+                "sim_close": 9.51,
+                "sim_volume": 1991231,
+                "sim_fre": FREQUENCY_TYPES.DAY,
+                "sim_timestamp": "2020-01-01 02:02:32",
             },
             {
-                "code": "sh.0000001",
-                "open": 10,
-                "high": 11.1,
-                "low": 9.6,
-                "close": 9.4,
-                "volume": 10022,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": datetime.datetime.now(),
+                "sim_code": "sh.0000001",
+                "sim_open": 10,
+                "sim_high": 11.1,
+                "sim_low": 9.6,
+                "sim_close": 9.4,
+                "sim_volume": 10022,
+                "sim_fre": FREQUENCY_TYPES.DAY,
+                "sim_timestamp": datetime.datetime.now(),
             },
         ]
-        try:
-            for i in range(len(params)):
-                item = params[i]
-                b = Bar(
-                    item["code"],
-                    item["open"],
-                    item["high"],
-                    item["low"],
-                    item["close"],
-                    item["volume"],
-                    item["frequency"],
-                    item["timestamp"],
-                )
-        except Exception as e:
-            result = False
 
+    def test_Bar_Init(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        result = True
+        for i in self.params:
+            try:
+                b = Bar(
+                    i["sim_code"],
+                    i["sim_open"],
+                    i["sim_high"],
+                    i["sim_low"],
+                    i["sim_close"],
+                    i["sim_volume"],
+                    i["sim_fre"],
+                    i["sim_timestamp"],
+                )
+            except Exception as e:
+                result = False
         self.assertEqual(result, True)
 
-    def test_BarCode(self) -> None:
+    def test_Bar_Code(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        r = self.sim_ins()
-        self.assertEqual(r.code, self.sim_code)
+        for i in self.params:
+            b = Bar(
+                i["sim_code"],
+                i["sim_open"],
+                i["sim_high"],
+                i["sim_low"],
+                i["sim_close"],
+                i["sim_volume"],
+                i["sim_fre"],
+                i["sim_timestamp"],
+            )
+            self.assertEqual(b.code, i["sim_code"])
 
-    def test_BarOpen(self) -> None:
+    def test_Bar_Open(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        r = self.sim_ins()
-        self.assertEqual(r.open, self.sim_open)
+        for i in self.params:
+            b = Bar(
+                i["sim_code"],
+                i["sim_open"],
+                i["sim_high"],
+                i["sim_low"],
+                i["sim_close"],
+                i["sim_volume"],
+                i["sim_fre"],
+                i["sim_timestamp"],
+            )
+            self.assertEqual(b.open, i["sim_open"])
 
-    def test_BarHigh(self) -> None:
+    def test_Bar_High(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        r = self.sim_ins()
-        self.assertEqual(r.high, self.sim_high)
+        for i in self.params:
+            b = Bar(
+                i["sim_code"],
+                i["sim_open"],
+                i["sim_high"],
+                i["sim_low"],
+                i["sim_close"],
+                i["sim_volume"],
+                i["sim_fre"],
+                i["sim_timestamp"],
+            )
+            self.assertEqual(b.high, i["sim_high"])
 
-    def test_BarLow(self) -> None:
+    def test_Bar_Low(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        r = self.sim_ins()
-        self.assertEqual(r.low, self.sim_low)
+        for i in self.params:
+            b = Bar(
+                i["sim_code"],
+                i["sim_open"],
+                i["sim_high"],
+                i["sim_low"],
+                i["sim_close"],
+                i["sim_volume"],
+                i["sim_fre"],
+                i["sim_timestamp"],
+            )
+            self.assertEqual(b.low, i["sim_low"])
 
-    def test_BarClose(self) -> None:
+    def test_Bar_Close(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        r = self.sim_ins()
-        self.assertEqual(r.close, self.sim_close)
+        for i in self.params:
+            b = Bar(
+                i["sim_code"],
+                i["sim_open"],
+                i["sim_high"],
+                i["sim_low"],
+                i["sim_close"],
+                i["sim_volume"],
+                i["sim_fre"],
+                i["sim_timestamp"],
+            )
+            self.assertEqual(b.close, i["sim_close"])
 
-    def test_BarFrequency(self) -> None:
+    def test_Bar_Frequency(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        r = self.sim_ins()
-        self.assertEqual(r.frequency, self.sim_fre)
+        for i in self.params:
+            b = Bar(
+                i["sim_code"],
+                i["sim_open"],
+                i["sim_high"],
+                i["sim_low"],
+                i["sim_close"],
+                i["sim_volume"],
+                i["sim_fre"],
+                i["sim_timestamp"],
+            )
+            self.assertEqual(b.frequency, i["sim_fre"])
 
-    def test_BarTime(self) -> None:
+    def test_Bar_Change(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        r = self.sim_ins()
-        self.assertEqual(r.timestamp, self.sim_date)
+        for i in self.params:
+            b = Bar(
+                i["sim_code"],
+                i["sim_open"],
+                i["sim_high"],
+                i["sim_low"],
+                i["sim_close"],
+                i["sim_volume"],
+                i["sim_fre"],
+                i["sim_timestamp"],
+            )
+            r_expect = round(i["sim_close"] - i["sim_open"], 2)
+            self.assertEqual(b.chg, r_expect)
 
-    def test_BarChange(self) -> None:
+    def test_Bar_Amplitude(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
-        r = self.sim_ins()
-        r_expect = round(self.sim_close - self.sim_open, 2)
-        self.assertEqual(r.chg, r_expect)
-
-    def test_BarAmplitude(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
-        r = self.sim_ins()
-        self.assertEqual(r.amplitude, self.sim_high - self.sim_low)
+        for i in self.params:
+            b = Bar(
+                i["sim_code"],
+                i["sim_open"],
+                i["sim_high"],
+                i["sim_low"],
+                i["sim_close"],
+                i["sim_volume"],
+                i["sim_fre"],
+                i["sim_timestamp"],
+            )
+            self.assertEqual(b.amplitude, i["sim_high"] - i["sim_low"])

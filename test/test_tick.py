@@ -30,7 +30,7 @@ class TickTest(unittest.TestCase):
             },
         ]
 
-    def test_TickInit(self) -> None:
+    def test_Tick_Init(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             code = i["code"]
@@ -42,7 +42,7 @@ class TickTest(unittest.TestCase):
             self.assertEqual(t.price, i["price"])
             self.assertEqual(t.volume, i["volume"])
 
-    def test_TickSet(self) -> None:
+    def test_Tick_Set(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             t = Tick()
@@ -51,7 +51,7 @@ class TickTest(unittest.TestCase):
             self.assertEqual(t.price, i["price"])
             self.assertEqual(t.volume, i["volume"])
 
-    def test_TickSetFromDF(self) -> None:
+    def test_Tick_SetFromDataFrame(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             data = {
@@ -66,7 +66,7 @@ class TickTest(unittest.TestCase):
             self.assertEqual(t.price, i["price"])
             self.assertEqual(t.volume, i["volume"])
 
-    def test_TickSetFromModel(self) -> None:
+    def test_Tick_SetFromModel(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             data = {
