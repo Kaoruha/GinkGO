@@ -48,21 +48,6 @@ class GinkgoData(object):
                 continue
             if i not in self.__models:
                 self.__models.append(i)
-        # package_name = "ginkgo/data/models"
-        # files = os.listdir(package_name)
-        # for file in files:
-        #     if not (file.endswith(".py") and file != "__init__.py"):
-        #         continue
-
-        #     file_name = file[:-3]
-        #     package_name = package_name.replace("/", ".")
-        #     module_name = package_name + "." + file_name
-        #     # print(module_name)
-        #     for name, cls in inspect.getmembers(
-        #         importlib.import_module(module_name), inspect.isclass
-        #     ):
-        #         if cls.__module__ == module_name:
-        #             self.__models.append(cls)
 
     def create_all(self) -> None:
         """

@@ -26,20 +26,26 @@ class ModelDaybarTest(unittest.TestCase):
                 "code": "testcode",
                 "source": SOURCE_TYPES.BAOSTOCK,
                 "open": 2,
-                "high": 2.444444,
+                "high": 2.44,
                 "low": 1,
-                "close": 1.999,
+                "close": 1.99,
                 "volume": 23331,
                 "timestamp": datetime.datetime.now(),
+                "frequency": FREQUENCY_TYPES.DAY,
             }
         ]
 
-    def test_ModelDaybarInit_OK(self) -> None:
+    def test_ModelDaybarInit(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
+        result = True
         for i in self.params:
-            o = MDaybar()
+            try:
+                o = MDaybar()
+            except Exception as e:
+                result = False
+        self.assertEqual(result, True)
 
-    def test_ModelDaybarSetFromData_OK(self) -> None:
+    def test_ModelDaybarSetFromData(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MDaybar()
@@ -53,11 +59,17 @@ class ModelDaybarTest(unittest.TestCase):
                 i["timestamp"],
             )
             o.set_source(i["source"])
+            self.assertEqual(o.code, i["code"])
+            self.assertEqual(o.open, i["open"])
+            self.assertEqual(o.high, i["high"])
+            self.assertEqual(o.low, i["low"])
+            self.assertEqual(o.close, i["close"])
+            self.assertEqual(o.volume, i["volume"])
+            self.assertEqual(o.timestamp, i["timestamp"])
 
-    def test_ModelDaybarSetFromDataFrame_OK(self) -> None:
+    def test_ModelDaybarSetFromDataFrame(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
-            o = MDaybar()
             b = Bar(
                 i["code"],
                 i["open"],
@@ -65,38 +77,63 @@ class ModelDaybarTest(unittest.TestCase):
                 i["low"],
                 i["close"],
                 i["volume"],
-                FREQUENCY_TYPES.DAY,
-                datetime.datetime.now(),
+                i["frequency"],
+                i["timestamp"],
             )
-            o.set(b.to_dataframe)
-            o.set_source(SOURCE_TYPES.SINA)
-
-    def test_ModelDaybarInsert_OK(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
-        GINKGODATA.drop_table(MDaybar)
-        GINKGODATA.create_table(MDaybar)
-        o = MDaybar()
-        GINKGODATA.add(o)
-        GINKGODATA.commit()
-
-    def test_ModelDaybarBatchInsert_OK(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
-        GINKGODATA.drop_table(MDaybar)
-        GINKGODATA.create_table(MDaybar)
-        s = []
-        for i in range(10):
             o = MDaybar()
-            s.append(o)
-            # o.dire = 2
+            o.set(b.to_dataframe)
+            o.set_source(i["source"])
+            self.assertEqual(o.code, i["code"])
+            self.assertEqual(o.open, i["open"])
+            self.assertEqual(o.high, i["high"])
+            self.assertEqual(o.low, i["low"])
+            self.assertEqual(o.close, i["close"])
+            self.assertEqual(o.volume, i["volume"])
+            self.assertEqual(o.timestamp, i["timestamp"])
 
-        GINKGODATA.add_all(s)
-        GINKGODATA.commit()
-
-    def test_ModelDaybarQuery_OK(self) -> None:
+    def test_ModelDaybarInsert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
+        result = True
         GINKGODATA.drop_table(MDaybar)
         GINKGODATA.create_table(MDaybar)
-        o = MDaybar()
-        GINKGODATA.add(o)
-        GINKGODATA.commit()
-        r = GINKGODATA.session.query(MDaybar).first()
+        try:
+            o = MDaybar()
+            GINKGODATA.add(o)
+            GINKGODATA.commit()
+        except Exception as e:
+            result = False
+
+        self.assertEqual(result, True)
+
+    def test_ModelDaybarBatchInsert(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        result = True
+        GINKGODATA.drop_table(MDaybar)
+        GINKGODATA.create_table(MDaybar)
+        try:
+            s = []
+            for i in range(10):
+                o = MDaybar()
+                s.append(o)
+            GINKGODATA.add_all(s)
+            GINKGODATA.commit()
+        except Exception as e:
+            result = False
+
+        self.assertEqual(result, True)
+
+    def test_ModelDaybarQuery(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        result = True
+        GINKGODATA.drop_table(MDaybar)
+        GINKGODATA.create_table(MDaybar)
+        try:
+            o = MDaybar()
+            GINKGODATA.add(o)
+            GINKGODATA.commit()
+            r = GINKGODATA.session.query(MDaybar).first()
+        except Exception as e:
+            result = False
+
+        self.assertNotEqual(r, None)
+        self.assertEqual(result, True)

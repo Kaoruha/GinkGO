@@ -1,6 +1,7 @@
 import unittest
 import time
 import datetime
+import pandas as pd
 from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.backtest.tick import Tick
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
@@ -14,10 +15,7 @@ class TickTest(unittest.TestCase):
     # Init
     def __init__(self, *args, **kwargs) -> None:
         super(TickTest, self).__init__(*args, **kwargs)
-
-    def test_TickInit_OK(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
-        params = [
+        self.params = [
             {
                 "code": "sh.0000001",
                 "price": 10.2,
@@ -31,10 +29,54 @@ class TickTest(unittest.TestCase):
                 "timestamp": datetime.datetime.now(),
             },
         ]
-        for i in range(len(params)):
-            item = params[i]
-            code = item["code"]
-            price = item["price"]
-            volume = item["volume"]
-            timestamp = item["timestamp"]
+
+    def test_TickInit(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        for i in self.params:
+            code = i["code"]
+            price = i["price"]
+            volume = i["volume"]
+            timestamp = i["timestamp"]
             t = Tick(code, price, volume, timestamp)
+            self.assertEqual(t.code, i["code"])
+            self.assertEqual(t.price, i["price"])
+            self.assertEqual(t.volume, i["volume"])
+
+    def test_TickSet(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        for i in self.params:
+            t = Tick()
+            t.set(i["code"], i["price"], i["volume"], i["timestamp"])
+            self.assertEqual(t.code, i["code"])
+            self.assertEqual(t.price, i["price"])
+            self.assertEqual(t.volume, i["volume"])
+
+    def test_TickSetFromDF(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        for i in self.params:
+            data = {
+                "code": i["code"],
+                "price": i["price"],
+                "volume": i["volume"],
+                "timestamp": i["timestamp"],
+            }
+            t = Tick()
+            t.set(pd.Series(data))
+            self.assertEqual(t.code, i["code"])
+            self.assertEqual(t.price, i["price"])
+            self.assertEqual(t.volume, i["volume"])
+
+    def test_TickSetFromModel(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        for i in self.params:
+            data = {
+                "code": i["code"],
+                "price": i["price"],
+                "volume": i["volume"],
+                "timestamp": i["timestamp"],
+            }
+            t = Tick()
+            t.set(pd.Series(data))
+            self.assertEqual(t.code, i["code"])
+            self.assertEqual(t.price, i["price"])
+            self.assertEqual(t.volume, i["volume"])

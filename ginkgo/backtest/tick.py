@@ -9,21 +9,12 @@ from ginkgo.backtest.base import Base
 class Tick(Base):
     def __init__(
         self,
-        code: str,
-        price: float,
-        volume: int,
-        timestamp: str or datetime.datetime,
+        code: str = "ginkgo_test_code",
+        price: float = 0,
+        volume: int = 0,
+        timestamp: str or datetime.datetime = None,
     ) -> None:
-        self.__timestamp = None  # DateTime
-        self.code = "sh.600001"
-        self.price = 0
-        self.volume = 0
-
         self.set(code, price, volume, timestamp)
-
-    @property
-    def timestamp(self) -> datetime.datetime:
-        return self.__timestamp
 
     @singledispatchmethod
     def set(self) -> None:
@@ -31,19 +22,33 @@ class Tick(Base):
 
     @set.register
     def _(self, code: str, price: float, volume: int, timestamp) -> None:
-        self.code = code
-        self.price = price
-        self.volume = volume
-        self.__timestamp = datetime_normalize(timestamp)
+        self._code = code
+        self._price = price
+        self._volume = volume
+        self._timestamp = datetime_normalize(timestamp)
 
     @set.register
-    def _(self, df: pd.DataFrame):
-        pass
+    def _(self, tick: pd.Series):
+        self._code = tick.code
+        self._price = tick.price
+        self._volume = tick.volume
+        self._timestamp = tick.timestamp
 
-    @set.register
-    def _(self, tick: pd.DataFrame):
-        # TODO read data from model tick
-        pass
+    @property
+    def code(self) -> str:
+        return self._code
+
+    @property
+    def price(self) -> float:
+        return self._price
+
+    @property
+    def volume(self) -> int:
+        return self._volume
+
+    @property
+    def timestamp(self) -> datetime.datetime:
+        return self._timestamp
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + Tick.__name__.capitalize(), 12, 46)

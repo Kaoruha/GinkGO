@@ -13,40 +13,46 @@ class Order(Base):
         super(Order, self).__init__(*args, **kwargs)
         self._status = ORDERSTATUS_TYPES.NEW
 
+    @singledispatchmethod
+    def set(self) -> None:
+        pass
 
-    # def set(
-    #     self,
-    #     timestamp: str or datetime.datetime,
-    #     code: str,
-    #     direction: DIRECTION_TYPES,
-    #     type: ORDER_TYPES,
-    #     volume: int,
-    #     limit_price: float,
-    #     uuid: str = "",
-    # ):
-    #     self._code: str = code
-    #     self._timestamp: datetime.datetime = datetime_normalize(timestamp)
-    #     self._direction: DIRECTION_TYPES = direction
-    #     self._type: ORDER_TYPES = type
-    #     self._volume: int = volume
-    #     self._limit_price: float = limit_price
+    @set.register
+    def _(
+        self,
+        code: str,
+        direction: DIRECTION_TYPES,
+        type: ORDER_TYPES,
+        volume: int,
+        limit_price: float,
+        timestamp: str or datetime.datetime,
+        uuid: str = "",
+    ):
+        self._code: str = code
+        self._timestamp: datetime.datetime = datetime_normalize(timestamp)
+        self._direction: DIRECTION_TYPES = direction
+        self._type: ORDER_TYPES = type
+        self._volume: int = volume
+        self._limit_price: float = limit_price
 
-    #     if len(uuid) > 0:
-    #         self._uuid: str = uuid
-    #     else:
-    #         self._uuid = gen_uuid4()
+        if len(uuid) > 0:
+            self._uuid: str = uuid
+        else:
+            self._uuid = gen_uuid4()
 
-    # def set_from_df(self, df: pd.Series):
-    #     """
-    #     Set from dataframe
-    #     """
-    #     self._code: str = df.code
-    #     self._timestamp: datetime.datetime = df.timestamp
-    #     self._uuid: str = df.uuid
-    #     self._direction: DIRECTION_TYPES = DIRECTION_TYPES(df.direction)
-    #     self._type: ORDER_TYPES = ORDER_TYPES(df["type"])
-    #     self._volume: int = df.volume
-    #     self._limit_price: float = df.limit_price
+    @set.register
+    def _(self, df: pd.Series):
+        """
+        Set from dataframe
+        """
+        self._code: str = df.code
+        self._timestamp: datetime.datetime = df.timestamp
+        self._uuid: str = df.uuid
+        self._direction: DIRECTION_TYPES = DIRECTION_TYPES(df.direction)
+        self._type: ORDER_TYPES = ORDER_TYPES(df["type"])
+        self._volume: int = df.volume
+        self._limit_price: float = df.limit_price
+        self._status = ORDERSTATUS_TYPES(df.status)
 
     @property
     def code(self) -> str:
@@ -94,43 +100,3 @@ class Order(Base):
 
     def cancel(self) -> None:
         self._status = ORDERSTATUS_TYPES.CANCELED
-
-    @singledispatchmethod
-    def set(self) -> None:
-        pass
-
-    @set.register
-    def _(
-        self,
-        code: str,
-        direction: DIRECTION_TYPES,
-        type: ORDER_TYPES,
-        volume: int,
-        limit_price: float,
-        timestamp: str or datetime.datetime,
-        uuid: str = "",
-    ):
-        self._code: str = code
-        self._timestamp: datetime.datetime = datetime_normalize(timestamp)
-        self._direction: DIRECTION_TYPES = direction
-        self._type: ORDER_TYPES = type
-        self._volume: int = volume
-        self._limit_price: float = limit_price
-
-        if len(uuid) > 0:
-            self._uuid: str = uuid
-        else:
-            self._uuid = gen_uuid4()
-
-    @set.register
-    def _(self, df: pd.Series):
-        """
-        Set from dataframe
-        """
-        self._code: str = df.code
-        self._timestamp: datetime.datetime = df.timestamp
-        self._uuid: str = df.uuid
-        self._direction: DIRECTION_TYPES = DIRECTION_TYPES(df.direction)
-        self._type: ORDER_TYPES = ORDER_TYPES(df["type"])
-        self._volume: int = df.volume
-        self._limit_price: float = df.limit_price

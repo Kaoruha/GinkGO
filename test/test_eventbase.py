@@ -25,7 +25,7 @@ class EventBaseTest(unittest.TestCase):
         e.type = self.sim_type
         return e
 
-    def test_EventBaseInit_OK(self) -> None:
+    def test_EventBaseInit(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         params = [
             {"type": "priceupdate"},
@@ -37,22 +37,22 @@ class EventBaseTest(unittest.TestCase):
             e = EventBase()
             e.type = item["type"]
 
-    def test_EventBase_ID_OK(self) -> None:
+    def test_EventBase_ID(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         e = self.sim_ins()
         self.assertTrue(e.id != None)
 
-    def test_EventBase_Source_OK(self) -> None:
+    def test_EventBase_Source(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         e = self.sim_ins()
         self.assertEqual(e.source, self.sim_source)
 
-    def test_EventBase_Type_OK(self) -> None:
+    def test_EventBase_Type(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         e = self.sim_ins()
         self.assertEqual(e.type, self.sim_type)
 
-    def test_EventBase_Date_OK(self) -> None:
+    def test_EventBase_Date(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         e = self.sim_ins()
         self.assertEqual(e.timestamp, self.sim_date)

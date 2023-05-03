@@ -20,6 +20,8 @@ class Base(object):
 
             if isinstance(self.__getattribute__(param), Enum):
                 item[param] = self.__getattribute__(param).value
+            elif isinstance(self.__getattribute__(param), str):
+                item[param] = self.__getattribute__(param).strip(b"\x00".decode())
             else:
                 item[param] = self.__getattribute__(param)
 

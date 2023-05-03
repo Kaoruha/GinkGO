@@ -2,7 +2,13 @@ import pandas as pd
 from functools import singledispatchmethod
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.data.models.model_base import MBase
-from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
+from ginkgo.enums import (
+    DIRECTION_TYPES,
+    ORDER_TYPES,
+    ORDERSTATUS_TYPES,
+    SOURCE_TYPES,
+    FREQUENCY_TYPES,
+)
 from sqlalchemy import Column, String, Integer, DECIMAL
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
 from clickhouse_sqlalchemy import engines
@@ -39,8 +45,10 @@ class MTick(MBase):
 
     @set.register
     def _(self, df: pd.Series):
-        # TODO
-        pass
+        self.code = df.code
+        self.price = df.price
+        self.volume = df.volume
+        self.timestamp = datetime_normalize(df.timestamp)
 
     def __repr__(self):
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
