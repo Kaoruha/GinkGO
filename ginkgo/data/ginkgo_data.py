@@ -82,6 +82,7 @@ class GinkgoData(object):
 
     def get_order(self, order_id: str):
         r = GINKGODATA.session.query(MOrder).filter_by(uuid=order_id).first()
+        r.code = r.code.strip(b"\x00".decode())
         return r
 
 

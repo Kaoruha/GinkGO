@@ -36,7 +36,7 @@ class ModelOrderTest(unittest.TestCase):
             }
         ]
 
-    def test_ModelOrderInit(self) -> None:
+    def test_ModelOrder_Init(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = True
         for i in self.params:
@@ -56,7 +56,7 @@ class ModelOrderTest(unittest.TestCase):
                 result = False
         self.assertEqual(result, True)
 
-    def test_ModelOrderSetFromData(self) -> None:
+    def test_ModelOrder_SetFromData(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MOrder()
@@ -80,7 +80,7 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.limit_price, i["limit_price"])
             self.assertEqual(o.timestamp, i["timestamp"])
 
-    def test_ModelOrderInsert(self) -> None:
+    def test_ModelOrder_Insert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = True
         GINKGODATA.drop_table(MOrder)
@@ -94,7 +94,7 @@ class ModelOrderTest(unittest.TestCase):
 
         self.assertEqual(result, True)
 
-    def test_ModelOrderBatchInsert(self) -> None:
+    def test_ModelOrder_BatchInsert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = True
         GINKGODATA.drop_table(MOrder)
@@ -112,7 +112,7 @@ class ModelOrderTest(unittest.TestCase):
 
         self.assertEqual(result, True)
 
-    def test_ModelOrderQuery(self) -> None:
+    def test_ModelOrder_Query(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = True
         GINKGODATA.drop_table(MOrder)

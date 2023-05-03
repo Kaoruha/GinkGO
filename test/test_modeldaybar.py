@@ -35,7 +35,7 @@ class ModelDaybarTest(unittest.TestCase):
             }
         ]
 
-    def test_ModelDaybarInit(self) -> None:
+    def test_ModelDaybar_Init(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = True
         for i in self.params:
@@ -45,7 +45,7 @@ class ModelDaybarTest(unittest.TestCase):
                 result = False
         self.assertEqual(result, True)
 
-    def test_ModelDaybarSetFromData(self) -> None:
+    def test_ModelDaybar_SetFromData(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MDaybar()
@@ -67,7 +67,7 @@ class ModelDaybarTest(unittest.TestCase):
             self.assertEqual(o.volume, i["volume"])
             self.assertEqual(o.timestamp, i["timestamp"])
 
-    def test_ModelDaybarSetFromDataFrame(self) -> None:
+    def test_ModelDaybar_SetFromDataFrame(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
@@ -91,7 +91,7 @@ class ModelDaybarTest(unittest.TestCase):
             self.assertEqual(o.volume, i["volume"])
             self.assertEqual(o.timestamp, i["timestamp"])
 
-    def test_ModelDaybarInsert(self) -> None:
+    def test_ModelDaybar_Insert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = True
         GINKGODATA.drop_table(MDaybar)
@@ -105,7 +105,7 @@ class ModelDaybarTest(unittest.TestCase):
 
         self.assertEqual(result, True)
 
-    def test_ModelDaybarBatchInsert(self) -> None:
+    def test_ModelDaybar_BatchInsert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = True
         GINKGODATA.drop_table(MDaybar)
@@ -122,7 +122,7 @@ class ModelDaybarTest(unittest.TestCase):
 
         self.assertEqual(result, True)
 
-    def test_ModelDaybarQuery(self) -> None:
+    def test_ModelDaybar_Query(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = True
         GINKGODATA.drop_table(MDaybar)

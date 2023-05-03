@@ -32,7 +32,7 @@ class EventOrderSubmission(EventBase):
         self._order = r
 
         if self.order_status.value != 1:
-            gl.logger.error(
+            gl.logger.warn(
                 f"EventOrdder Submission Should Spawn after Order Created. Order:{self.order_id} status is {self.order_status}. Please check your code."
             )
 
@@ -64,7 +64,7 @@ class EventOrderSubmission(EventBase):
     def order_type(self):
         if self.order is None:
             return None
-        return self.order.order_type
+        return self.order.type
 
     @property
     def order_status(self):
@@ -73,10 +73,10 @@ class EventOrderSubmission(EventBase):
         return self.order.status
 
     @property
-    def limit_price(self):
+    def limit_price(self) -> float:
         if self.order is None:
             return None
-        return self.order.limit_price
+        return float(self.order.limit_price)
 
     def __repr__(self):
         return base_repr(self, EventOrderFill.__name__, 16, 60)

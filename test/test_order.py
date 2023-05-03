@@ -40,7 +40,7 @@ class OrderTest(unittest.TestCase):
             },
         ]
 
-    def test_OrderInit(self) -> None:
+    def test_Order_Init(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = False
         try:
@@ -51,7 +51,7 @@ class OrderTest(unittest.TestCase):
 
         self.assertEqual(result, True)
 
-    def test_OrderSet(self) -> None:
+    def test_Order_Set(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for item in self.params:
             o = Order()
@@ -69,7 +69,7 @@ class OrderTest(unittest.TestCase):
             self.assertEqual(o.volume, item["volume"])
             self.assertEqual(o.limit_price, item["limit_price"])
 
-    def test_OrderSetFromDataFrame(self) -> None:
+    def test_Order_SetFromDataFrame(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for item in self.params:
             data = {
@@ -91,7 +91,7 @@ class OrderTest(unittest.TestCase):
             self.assertEqual(o.volume, item["volume"])
             self.assertEqual(o.limit_price, item["limit_price"])
 
-    def test_OrderSetFromModel(self) -> None:
+    def test_Order_SetFromModel(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for item in self.params:
             data = {

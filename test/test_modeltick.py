@@ -32,7 +32,7 @@ class ModelTickTest(unittest.TestCase):
             }
         ]
 
-    def test_ModelTickInit(self) -> None:
+    def test_ModelTick_Init(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             item = MTick()
@@ -43,7 +43,7 @@ class ModelTickTest(unittest.TestCase):
             self.assertEqual(item.volume, i["volume"])
             self.assertEqual(item.timestamp, i["timestamp"])
 
-    def test_ModelTickSetFromDataframe(self) -> None:
+    def test_ModelTick_SetFromDataframe(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             data = {
@@ -61,7 +61,7 @@ class ModelTickTest(unittest.TestCase):
             self.assertEqual(tick.volume, i["volume"])
             self.assertEqual(tick.timestamp, i["timestamp"])
 
-    def test_ModelTickInsert(self) -> None:
+    def test_ModelTick_Insert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = True
         GINKGODATA.drop_table(MTick)
@@ -74,7 +74,7 @@ class ModelTickTest(unittest.TestCase):
             result = False
         self.assertEqual(result, True)
 
-    def test_ModelTickBatchInsert(self) -> None:
+    def test_ModelTick_BatchInsert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = True
 
@@ -93,7 +93,7 @@ class ModelTickTest(unittest.TestCase):
             result = False
         self.assertEqual(result, True)
 
-    def test_ModelTickQuery(self) -> None:
+    def test_ModelTick_Query(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         GINKGODATA.drop_table(MTick)
         GINKGODATA.create_table(MTick)

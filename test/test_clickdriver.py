@@ -3,7 +3,6 @@ import time
 from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
 class ClickDriverTest(unittest.TestCase):
@@ -16,7 +15,7 @@ class ClickDriverTest(unittest.TestCase):
     def __init__(self, *args, **kwargs) -> None:
         super(ClickDriverTest, self).__init__(*args, **kwargs)
 
-    def test_EventBaseInit(self) -> None:
+    def test_ClickDriver_Init(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
 
         db = GinkgoClickhouse(
