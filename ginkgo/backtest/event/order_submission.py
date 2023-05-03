@@ -78,5 +78,11 @@ class EventOrderSubmission(EventBase):
             return None
         return float(self.order.limit_price)
 
+    @property
+    def volume(self):
+        if self.order is None:
+            return None
+        return self.order.volume
+
     def __repr__(self):
         return base_repr(self, EventOrderFill.__name__, 16, 60)

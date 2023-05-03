@@ -88,5 +88,11 @@ class EventCapitalUpdate(EventBase):
             return None
         return self.order.limit_price
 
+    @property
+    def volume(self):
+        if self.order is None:
+            return None
+        return self.order.volume
+
     def __repr__(self):
         return base_repr(self, EventCapitalUpdate.__name__, 16, 60)

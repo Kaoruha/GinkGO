@@ -4,7 +4,7 @@ author: suny
 email: sun159753@gmai.com
 description: my quant lib
 package_uri: url://
-heart_beat: 0
+heart_beat: .01
 
 # 开发/生产环境下相同的配置
 debug: True

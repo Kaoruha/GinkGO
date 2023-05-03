@@ -70,7 +70,7 @@ class EventPositionUpdate(EventBase):
     def order_type(self):
         if self.order is None:
             return None
-        return self.order.order_type
+        return self.order.type
 
     @property
     def order_status(self):
@@ -82,7 +82,13 @@ class EventPositionUpdate(EventBase):
     def limit_price(self):
         if self.order is None:
             return None
-        return self.order.limit_price
+        return float(self.order.limit_price)
+
+    @property
+    def volume(self):
+        if self.order is None:
+            return None
+        return self.order.volume
 
     def __repr__(self):
         return base_repr(self, EventOrderFill.__name__, 16, 60)

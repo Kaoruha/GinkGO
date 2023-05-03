@@ -24,6 +24,7 @@ class EventOrderSubmissionTest(unittest.TestCase):
                 "sim_source": SOURCE_TYPES.BAOSTOCK,
                 "sim_dir": DIRECTION_TYPES.LONG,
                 "sim_type": ORDER_TYPES.MARKETORDER,
+                "sim_volume": 2000,
                 "sim_status": ORDERSTATUS_TYPES.FILLED,
                 "sim_limitprice": 12.58,
             }
@@ -159,3 +160,20 @@ class EventOrderSubmissionTest(unittest.TestCase):
             uuid = o.uuid
             e = EventOrderSubmission(uuid)
             self.assertEqual(e.limit_price, i["sim_limitprice"])
+
+    def test_EventCU_Volume(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        GINKGODATA.drop_table(MOrder)
+        GINKGODATA.create_table(MOrder)
+        for i in self.params:
+            o = MOrder()
+            o.code = i["sim_code"]
+            o.direction = i["sim_dir"]
+            o.type = i["sim_type"]
+            o.status = i["sim_status"]
+            o.volume = i["sim_volume"]
+            GINKGODATA.add(o)
+            GINKGODATA.commit()
+            uuid = o.uuid
+            e = EventOrderSubmission(uuid)
+            self.assertEqual(e.volume, i["sim_volume"])
