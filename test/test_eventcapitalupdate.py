@@ -1,6 +1,6 @@
 import unittest
-import time
 import datetime
+from time import sleep
 from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.backtest.event.capital_update import EventCapitalUpdate
 from ginkgo.data.models.model_order import MOrder
@@ -25,12 +25,13 @@ class EventCapitalUpdateTest(unittest.TestCase):
                 "sim_source": SOURCE_TYPES.BAOSTOCK,
                 "sim_dir": DIRECTION_TYPES.LONG,
                 "sim_type": ORDER_TYPES.MARKETORDER,
+                "sim_volume": 2000,
                 "sim_status": ORDERSTATUS_TYPES.FILLED,
             }
         ]
 
     def test_EventCU_Init(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GINKGOCONF.HEARTBEAT)
         result = True
         for i in self.params:
             try:
@@ -40,7 +41,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
         self.assertEqual(result, True)
 
     def test_EventCU_InitWithInput(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GINKGOCONF.HEARTBEAT)
         result = True
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
@@ -54,7 +55,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
             self.assertEqual(e.order_id, uuid)
 
     def test_EventCU_GetOrder(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GINKGOCONF.HEARTBEAT)
         result = True
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
@@ -69,7 +70,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
             self.assertEqual(e.order_id, uuid)
 
     def test_EventCU_Code(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GINKGOCONF.HEARTBEAT)
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
         for i in self.params:
@@ -85,7 +86,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
             self.assertEqual(e.code, i["sim_code"])
 
     def test_EventCU_Dir(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GINKGOCONF.HEARTBEAT)
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
         for i in self.params:
@@ -101,7 +102,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
             self.assertEqual(e.direction, i["sim_dir"])
 
     def test_EventCU_Type(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GINKGOCONF.HEARTBEAT)
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
         for i in self.params:
@@ -117,7 +118,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
             self.assertEqual(e.order_type, i["sim_type"])
 
     def test_EventCU_Status(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GINKGOCONF.HEARTBEAT)
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
         for i in self.params:
@@ -131,3 +132,20 @@ class EventCapitalUpdateTest(unittest.TestCase):
             uuid = o.uuid
             e = EventCapitalUpdate(uuid)
             self.assertEqual(e.order_status, i["sim_status"])
+
+    def test_EventCU_Volume(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        GINKGODATA.drop_table(MOrder)
+        GINKGODATA.create_table(MOrder)
+        for i in self.params:
+            o = MOrder()
+            o.code = i["sim_code"]
+            o.direction = i["sim_dir"]
+            o.type = i["sim_type"]
+            o.status = i["sim_status"]
+            o.volume = i["sim_volume"]
+            GINKGODATA.add(o)
+            GINKGODATA.commit()
+            uuid = o.uuid
+            e = EventCapitalUpdate(uuid)
+            self.assertEqual(e.volume, i["sim_volume"])
