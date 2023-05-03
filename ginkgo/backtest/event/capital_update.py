@@ -37,7 +37,7 @@ class EventCapitalUpdate(EventBase):
             gl.logger.error(f"Order:{order_id} not exsist. Please check your code")
             return
         o = Order()
-        o.set(r)
+        o.set(r.to_dataframe)
         self._order = o
 
         # Status could be 1,3,4
@@ -74,7 +74,7 @@ class EventCapitalUpdate(EventBase):
     def order_type(self):
         if self.order is None:
             return None
-        return self.order.order_type
+        return self.order.type
 
     @property
     def order_status(self):

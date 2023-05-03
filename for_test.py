@@ -1,3 +1,21 @@
-from ginkgo.enums import DIRECTION_TYPES
+from functools import singledispatchmethod
 
-print(DIRECTION_TYPES(-1))
+
+class halo(object):
+    @singledispatchmethod
+    def do(self):
+        pass
+
+    @do.register
+    def _(self, a: int, b: int):
+        print("This is function 1")
+
+    @do.register
+    def _(self, a: str):
+        print("This is function 2")
+
+
+h = halo()
+
+h.do(1, 2)
+h.do("1")

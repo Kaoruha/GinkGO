@@ -25,10 +25,10 @@ class MDaybar(MBase):
         __table_args__ = (engines.Memory(),)
 
     code = Column(String(25), default="ginkgo_test_code")
-    p_open = Column(DECIMAL(9, 2), default=0)
-    p_high = Column(DECIMAL(9, 2), default=0)
-    p_low = Column(DECIMAL(9, 2), default=0)
-    p_close = Column(DECIMAL(9, 2), default=0)
+    open = Column(DECIMAL(9, 2), default=0)
+    high = Column(DECIMAL(9, 2), default=0)
+    low = Column(DECIMAL(9, 2), default=0)
+    close = Column(DECIMAL(9, 2), default=0)
     volume = Column(Integer, default=0)
 
     def __init__(self):
@@ -69,19 +69,6 @@ class MDaybar(MBase):
         self.close = df.close
         self.volume = df.volume
         self.timestamp = df.timestamp
-
-    def to_df(self) -> pd.Series:
-        data = {
-            "timestamp": self.timestamp,
-            "code": self.code.strip(b"\x00".decode()),
-            "open": self.open,
-            "high": self.high,
-            "low": self.low,
-            "close": self.close,
-            "volume": self.volume,
-            "uuid": self.uuid.strip(b"\x00".decode()),
-        }
-        return pd.Series(data)
 
     def __repr__(self):
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

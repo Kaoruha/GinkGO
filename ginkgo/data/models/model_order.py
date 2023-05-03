@@ -61,18 +61,5 @@ class MOrder(MBase):
         self.limit_price = df.limit_price
         self.timestamp = df.timestamp
 
-    def to_df(self) -> pd.Series:
-        data = {
-            "timestamp": self.timestamp,
-            "code": self.code.strip(b"\x00".decode()),
-            "direction": self.direction,
-            "type": self.type,
-            "status": self.status,
-            "volume": self.volume,
-            "limit_price": self.limit_price,
-            "uuid": self.uuid.strip(b"\x00".decode()),
-        }
-        return pd.Series(data)
-
     def __repr__(self):
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

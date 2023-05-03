@@ -16,7 +16,7 @@ class ClickDriverTest(unittest.TestCase):
     def __init__(self, *args, **kwargs) -> None:
         super(ClickDriverTest, self).__init__(*args, **kwargs)
 
-    def test_EventBaseInit_OK(self) -> None:
+    def test_EventBaseInit(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
 
         db = GinkgoClickhouse(

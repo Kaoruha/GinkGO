@@ -1,6 +1,7 @@
 import unittest
 import time
 import datetime
+import pandas as pd
 from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.backtest.order import Order
 from ginkgo.data.ginkgo_data import GINKGODATA
@@ -29,72 +30,100 @@ class ModelOrderTest(unittest.TestCase):
                 "order_type": ORDER_TYPES.MARKETORDER,
                 "status": ORDERSTATUS_TYPES.FILLED,
                 "source": SOURCE_TYPES.BAOSTOCK,
-                "price": 231,
                 "volume": 23331,
-                "datetime": datetime.datetime.now(),
+                "timestamp": datetime.datetime.now(),
+                "limit_price": 10,
             }
         ]
 
-    def test_ModelOrderInit_OK(self) -> None:
+    def test_ModelOrderInit(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        result = True
+        for i in self.params:
+            try:
+                o = MOrder()
+                o.set(
+                    i["code"],
+                    i["direction"],
+                    i["order_type"],
+                    i["status"],
+                    i["limit_price"],
+                    i["volume"],
+                    i["timestamp"],
+                )
+                o.set_source(i["source"])
+            except Exception as e:
+                result = False
+        self.assertEqual(result, True)
+
+    def test_ModelOrderSetFromData(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:
             o = MOrder()
-            o.set(
-                i["code"],
-                i["direction"],
-                i["order_type"],
-                i["status"],
-                i["price"],
-                i["volume"],
-                i["datetime"],
-            )
+            data = {
+                "code": i["code"],
+                "direction": i["direction"],
+                "type": i["order_type"],
+                "status": i["status"],
+                "volume": i["volume"],
+                "timestamp": i["timestamp"],
+                "limit_price": i["limit_price"],
+            }
+            o.set(pd.Series(data))
             o.set_source(i["source"])
+            self.assertEqual(o.code, i["code"])
+            self.assertEqual(o.direction, i["direction"])
+            self.assertEqual(o.type, i["order_type"])
+            self.assertEqual(o.status, i["status"])
+            self.assertEqual(o.volume, i["volume"])
+            self.assertEqual(o.limit_price, i["limit_price"])
+            self.assertEqual(o.limit_price, i["limit_price"])
+            self.assertEqual(o.timestamp, i["timestamp"])
 
-    def test_ModelOrderSetFromData_OK(self) -> None:
+    def test_ModelOrderInsert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
-        for i in self.params:
+        result = True
+        GINKGODATA.drop_table(MOrder)
+        GINKGODATA.create_table(MOrder)
+        try:
             o = MOrder()
-            o.set(
-                i["code"],
-                i["direction"],
-                i["order_type"],
-                i["status"],
-                i["volume"],
-                i["price"],
-                i["datetime"],
-            )
-            o.set_source(i["source"])
+            GINKGODATA.add(o)
+            GINKGODATA.commit()
+        except Exception as e:
+            result = False
 
-    def test_ModelOrderInsert_OK(self) -> None:
+        self.assertEqual(result, True)
+
+    def test_ModelOrderBatchInsert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
-
+        result = True
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
-        o = MOrder()
-        GINKGODATA.add(o)
-        GINKGODATA.commit()
+        try:
+            s = []
+            for i in range(10):
+                o = MOrder()
+                s.append(o)
 
-    def test_ModelOrderBatchInsert_OK(self) -> None:
+            GINKGODATA.add_all(s)
+            GINKGODATA.commit()
+        except Exception as e:
+            result = False
+
+        self.assertEqual(result, True)
+
+    def test_ModelOrderQuery(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
-
+        result = True
         GINKGODATA.drop_table(MOrder)
         GINKGODATA.create_table(MOrder)
-        s = []
-
-        for i in range(10):
+        try:
             o = MOrder()
-            s.append(o)
-            # o.dire = 2
+            GINKGODATA.add(o)
+            GINKGODATA.commit()
+            r = GINKGODATA.session.query(MOrder).first()
+        except Exception as e:
+            result = False
 
-        GINKGODATA.add_all(s)
-        GINKGODATA.commit()
-
-    def test_ModelOrderQuery_OK(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
-
-        GINKGODATA.drop_table(MOrder)
-        GINKGODATA.create_table(MOrder)
-        o = MOrder()
-        GINKGODATA.add(o)
-        GINKGODATA.commit()
-        r = GINKGODATA.get_order(o.uuid)
+        self.assertNotEqual(r, None)
+        self.assertEqual(result, True)

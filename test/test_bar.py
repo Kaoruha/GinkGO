@@ -40,7 +40,7 @@ class BarTest(unittest.TestCase):
         )
         return b
 
-    def test_BarInit_OK(self) -> None:
+    def test_BarInit(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         result = True
         params = [
@@ -83,48 +83,48 @@ class BarTest(unittest.TestCase):
 
         self.assertEqual(result, True)
 
-    def test_BarCode_OK(self) -> None:
+    def test_BarCode(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         r = self.sim_ins()
         self.assertEqual(r.code, self.sim_code)
 
-    def test_BarOpen_OK(self) -> None:
+    def test_BarOpen(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         r = self.sim_ins()
         self.assertEqual(r.open, self.sim_open)
 
-    def test_BarHigh_OK(self) -> None:
+    def test_BarHigh(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         r = self.sim_ins()
         self.assertEqual(r.high, self.sim_high)
 
-    def test_BarLow_OK(self) -> None:
+    def test_BarLow(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         r = self.sim_ins()
         self.assertEqual(r.low, self.sim_low)
 
-    def test_BarClose_OK(self) -> None:
+    def test_BarClose(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         r = self.sim_ins()
         self.assertEqual(r.close, self.sim_close)
 
-    def test_BarFrequency_OK(self) -> None:
+    def test_BarFrequency(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         r = self.sim_ins()
         self.assertEqual(r.frequency, self.sim_fre)
 
-    def test_BarTime_OK(self) -> None:
+    def test_BarTime(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         r = self.sim_ins()
         self.assertEqual(r.timestamp, self.sim_date)
 
-    def test_BarChange_OK(self) -> None:
+    def test_BarChange(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         r = self.sim_ins()
         r_expect = round(self.sim_close - self.sim_open, 2)
         self.assertEqual(r.chg, r_expect)
 
-    def test_BarAmplitude_OK(self) -> None:
+    def test_BarAmplitude(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         r = self.sim_ins()
         self.assertEqual(r.amplitude, self.sim_high - self.sim_low)

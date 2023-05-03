@@ -40,7 +40,7 @@ class OrderTest(unittest.TestCase):
             },
         ]
 
-    def test_OrderInit_OK(self) -> None:
+    def test_OrderInit(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         result = False
         try:
@@ -51,7 +51,7 @@ class OrderTest(unittest.TestCase):
 
         self.assertEqual(result, True)
 
-    def test_OrderSet_OK(self) -> None:
+    def test_OrderSet(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for item in self.params:
             o = Order()
@@ -69,7 +69,7 @@ class OrderTest(unittest.TestCase):
             self.assertEqual(o.volume, item["volume"])
             self.assertEqual(o.limit_price, item["limit_price"])
 
-    def test_OrderSetFromDataFrame_OK(self) -> None:
+    def test_OrderSetFromDataFrame(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for item in self.params:
             data = {
@@ -78,6 +78,7 @@ class OrderTest(unittest.TestCase):
                 "direction": item["direction"],
                 "type": item["type"],
                 "volume": item["volume"],
+                "status": 2,
                 "limit_price": item["limit_price"],
                 "uuid": "",
             }
@@ -90,7 +91,7 @@ class OrderTest(unittest.TestCase):
             self.assertEqual(o.volume, item["volume"])
             self.assertEqual(o.limit_price, item["limit_price"])
 
-    def test_OrderSetFromModel_OK(self) -> None:
+    def test_OrderSetFromModel(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         for item in self.params:
             data = {
@@ -110,7 +111,7 @@ class OrderTest(unittest.TestCase):
             GINKGODATA.add(mo)
             GINKGODATA.commit()
             filter_rs: MOrder = GINKGODATA.get_order(mo.uuid)
-            new_df = filter_rs.to_df()
+            new_df = filter_rs.to_dataframe
             o = Order()
             o.set(new_df)
             self.assertEqual(o.code, item["code"])
