@@ -1,3 +1,4 @@
+import datetime
 from ginkgo.backtest.event.base_event import EventBase
 from functools import singledispatchmethod
 from ginkgo.enums import EVENT_TYPES, PRICEINFO_TYPES, SOURCE_TYPES
@@ -49,6 +50,12 @@ class EventPriceUpdate(EventBase):
         self._price_type = PRICEINFO_TYPES.TICK
         self._tick = price
         self._bar = None
+
+    @property
+    def code(self) -> str:
+        if self.price_info is None:
+            return None
+        return self.price_info.code
 
     @property
     def timestamp(self) -> datetime.datetime:
