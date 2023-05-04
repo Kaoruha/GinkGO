@@ -9,7 +9,7 @@ from ginkgo.backtest.base import Base
 class Tick(Base):
     def __init__(
         self,
-        code: str = "ginkgo_test_code",
+        code: str = "ginkgo_test_tick_code",
         price: float = 0,
         volume: int = 0,
         timestamp: str or datetime.datetime = None,

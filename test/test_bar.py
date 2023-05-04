@@ -60,6 +60,30 @@ class DayBarTest(unittest.TestCase):
                 result = False
         self.assertEqual(result, True)
 
+    def test_Bar_Set(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        for i in self.params:
+            b = Bar()
+            b.set(
+                i["sim_code"],
+                i["sim_open"],
+                i["sim_high"],
+                i["sim_low"],
+                i["sim_close"],
+                i["sim_volume"],
+                i["sim_fre"],
+                i["sim_timestamp"],
+            )
+            self.assertEqual(b.code, i["sim_code"])
+            self.assertEqual(b.open, i["sim_open"])
+            self.assertEqual(b.high, i["sim_high"])
+            self.assertEqual(b.low, i["sim_low"])
+            self.assertEqual(b.close, i["sim_close"])
+
+    def test_Bar_SetFromDataFrame(self) -> None:
+        # TODO
+        pass
+
     def test_Bar_Code(self) -> None:
         sleep(GINKGOCONF.HEARTBEAT)
         for i in self.params:

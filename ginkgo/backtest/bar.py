@@ -11,14 +11,14 @@ from ginkgo.enums import FREQUENCY_TYPES
 class Bar(Base):
     def __init__(
         self,
-        code: str,
-        open: float,
-        high: float,
-        low: float,
-        close: float,
-        volume: int,
-        frequency: FREQUENCY_TYPES,
-        timestamp,
+        code: str = "ginkgo_test_bar_code",
+        open: float = 0,
+        high: float = 0,
+        low: float = 0,
+        close: float = 0,
+        volume: int = 0,
+        frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
+        timestamp: str or datetime.datetime = None,
     ) -> None:
         self.__timestamp = None  # DateTime
         self._code = "default_code"
@@ -53,13 +53,18 @@ class Bar(Base):
         self._close = close
         self._frequency = frequency
         self._volume = volume
-
         self._timestamp = datetime_normalize(timestamp)
 
     @set.register
     def _(self, df: pd.Series):
-        # TODO read from data model
-        pass
+        self._code = df.code
+        self._open = df.open
+        self._high = df.high
+        self._low = df.low
+        self._close = df.close
+        self._frequency = df.frequency
+        self._volume = df.volume
+        self._timestamp = datetime_normalize(df.timestamp)
 
     @property
     def code(self) -> str:
