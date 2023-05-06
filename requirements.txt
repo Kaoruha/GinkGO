@@ -1,3 +1,4 @@
+baostock==0.8.8
 certifi==2022.12.7
 charset-normalizer==3.1.0
 clickhouse-driver==0.2.5
