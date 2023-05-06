@@ -2,6 +2,7 @@ import os
 import sys
 import inspect
 import importlib
+import pandas as pd
 from ginkgo.data import DBDRIVER as dbdriver
 from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.data.models.model_base import MBase
@@ -84,6 +85,30 @@ class GinkgoData(object):
         r = GINKGODATA.session.query(MOrder).filter_by(uuid=order_id).first()
         r.code = r.code.strip(b"\x00".decode())
         return r
+
+    def fetch_ashare_list(self):
+        # TODO
+        pass
+
+    def insert_ashare_list(self, df):
+        # TODO
+        pass
+
+    def query_ashare_list(self, date):
+        # TODO
+        pass
+
+    def fetch_ashare_stock(self):
+        # TODO
+        pass
+
+    def insert_ashare_stock(self):
+        # TODO
+        pass
+
+    def query_ashare_stock(self):
+        # TODO
+        pass
 
 
 GINKGODATA = GinkgoData()

@@ -43,6 +43,8 @@ class SOURCE_TYPES(EnumBase):
     REALTIME = 2
     SINA = 3
     BAOSTOCK = 4
+    AKSHARE = 5
+    YAHOO = 6
 
 
 class DIRECTION_TYPES(EnumBase):
