@@ -24,7 +24,7 @@ class ModelTickTest(unittest.TestCase):
         super(ModelTickTest, self).__init__(*args, **kwargs)
         self.params = [
             {
-                "source": SOURCE_TYPES.BAOSTOCK,
+                "source": SOURCE_TYPES.SIM,
                 "code": "testcode",
                 "price": 2,
                 "volume": 23331,
@@ -37,11 +37,12 @@ class ModelTickTest(unittest.TestCase):
         for i in self.params:
             item = MTick()
             item.set(i["code"], i["price"], i["volume"], i["timestamp"])
-            item.set_source(SOURCE_TYPES.SIM)
+            item.set_source(i["source"])
             self.assertEqual(item.code, i["code"])
             self.assertEqual(item.price, i["price"])
             self.assertEqual(item.volume, i["volume"])
             self.assertEqual(item.timestamp, i["timestamp"])
+            self.assertEqual(item.source, i["source"])
 
     def test_ModelTick_SetFromDataframe(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
@@ -51,15 +52,17 @@ class ModelTickTest(unittest.TestCase):
                 "price": i["price"],
                 "volume": i["volume"],
                 "timestamp": i["timestamp"],
+                "source": i["source"],
             }
             tick = MTick()
             tick.set(pd.Series(data))
-            tick.set_source(SOURCE_TYPES.SIM)
+            tick.set_source(i["source"])
 
             self.assertEqual(tick.code, i["code"])
             self.assertEqual(tick.price, i["price"])
             self.assertEqual(tick.volume, i["volume"])
             self.assertEqual(tick.timestamp, i["timestamp"])
+            self.assertEqual(tick.source, i["source"])
 
     def test_ModelTick_Insert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)

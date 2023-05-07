@@ -14,6 +14,7 @@ from ginkgo.enums import (
     ORDER_TYPES,
     ORDERSTATUS_TYPES,
     FREQUENCY_TYPES,
+    SOURCE_TYPES,
 )
 
 
@@ -25,14 +26,14 @@ class MDaybar(MBase):
         __table_args__ = (engines.Memory(),)
 
     code = Column(String(25), default="ginkgo_test_code")
-    open = Column(DECIMAL(9, 2), default=0)
-    high = Column(DECIMAL(9, 2), default=0)
-    low = Column(DECIMAL(9, 2), default=0)
-    close = Column(DECIMAL(9, 2), default=0)
+    open = Column(DECIMAL(9, 6), default=0)
+    high = Column(DECIMAL(9, 6), default=0)
+    low = Column(DECIMAL(9, 6), default=0)
+    close = Column(DECIMAL(9, 6), default=0)
     volume = Column(Integer, default=0)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs) -> None:
+        super(MDaybar, self).__init__(*args, **kwargs)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -48,17 +49,17 @@ class MDaybar(MBase):
         close: float,
         volume: int,
         datetime: str or datetime.datetime,
-    ):
+    ) -> None:
         self.code = code
-        self.open = round(open, 2)
-        self.high = round(high, 2)
-        self.low = round(low, 2)
-        self.close = round(close, 2)
+        self.open = round(open, 6)
+        self.high = round(high, 6)
+        self.low = round(low, 6)
+        self.close = round(close, 6)
         self.volume = volume
         self.timestamp = datetime_normalize(datetime)
 
     @set.register
-    def _(self, df: pd.Series):
+    def _(self, df: pd.Series) -> None:
         if df.frequency != FREQUENCY_TYPES.DAY.value:
             gl.logger.warn(f"The bar is not daybar, your data might be wrong.")
             return
@@ -69,6 +70,8 @@ class MDaybar(MBase):
         self.close = df.close
         self.volume = df.volume
         self.timestamp = df.timestamp
+        if "source" in df.keys():
+            self.set_source(SOURCE_TYPES(df.source))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

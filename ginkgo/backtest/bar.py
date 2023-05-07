@@ -19,15 +19,10 @@ class Bar(Base):
         volume: int = 0,
         frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
         timestamp: str or datetime.datetime = None,
+        *args,
+        **kwargs
     ) -> None:
-        self.__timestamp = None  # DateTime
-        self._code = "default_code"
-        self._open = 0
-        self._high = 0
-        self._low = 0
-        self._close = 0
-        self._volume = 0
-
+        super(Bar, self).__init__(*args, **kwargs)
         self.set(code, open, high, low, close, volume, frequency, timestamp)
 
     @singledispatchmethod
