@@ -24,11 +24,11 @@ class MTick(MBase):
         __table_args__ = (engines.Memory(),)
 
     code = Column(String(25), default="ginkgo_test_code")
-    price = Column(DECIMAL(9, 2), default=0)
+    price = Column(DECIMAL(9, 6), default=0)
     volume = Column(Integer, default=0)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs) -> None:
+        super(MTick, self).__init__(*args, **kwargs)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -37,18 +37,25 @@ class MTick(MBase):
     @set.register
     def _(
         self, code: str, price: float, volume: int, time_stamp: str or datetime.datetime
-    ):
+    ) -> None:
         self.code = code
-        self.price = price
+        self.price = round(price, 6)
         self.volume = volume
         self.timestamp = datetime_normalize(time_stamp)
+        self.price = round(
+            price,
+        )
 
     @set.register
-    def _(self, df: pd.Series):
+    def _(self, df: pd.Series) -> None:
         self.code = df.code
         self.price = df.price
         self.volume = df.volume
         self.timestamp = datetime_normalize(df.timestamp)
+        print(1111111111111)
+        print("get df")
+        if "source" in df.keys():
+            self.set_source(SOURCE_TYPES(df.source))
 
-    def __repr__(self):
+    def __repr__(self) -> None:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

@@ -32,6 +32,7 @@ class ModelDaybarTest(unittest.TestCase):
                 "volume": 23331,
                 "timestamp": datetime.datetime.now(),
                 "frequency": FREQUENCY_TYPES.DAY,
+                "source": SOURCE_TYPES.SIM,
             }
         ]
 
@@ -66,6 +67,7 @@ class ModelDaybarTest(unittest.TestCase):
             self.assertEqual(o.close, i["close"])
             self.assertEqual(o.volume, i["volume"])
             self.assertEqual(o.timestamp, i["timestamp"])
+            self.assertEqual(o.source, i["source"])
 
     def test_ModelDaybar_SetFromDataFrame(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
@@ -90,6 +92,7 @@ class ModelDaybarTest(unittest.TestCase):
             self.assertEqual(o.close, i["close"])
             self.assertEqual(o.volume, i["volume"])
             self.assertEqual(o.timestamp, i["timestamp"])
+            self.assertEqual(o.source, i["source"])
 
     def test_ModelDaybar_Insert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)

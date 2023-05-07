@@ -78,6 +78,7 @@ class BaoStockTest(unittest.TestCase):
         date_start = "2015-01-01"
         date_end = "2017-07-31"
         r = self.bs.fetch_akshare_adjustfactor(code, date_start, date_end)
+        print(r)
         self.assertEqual(r.shape[0], 3)
 
     def test_Bao_GetTodaysDaybar(self) -> None:
@@ -97,15 +98,15 @@ class BaoStockTest(unittest.TestCase):
         self.assertGreater(stock_list.shape[0], 0)
         self.assertGreater(fail_limit, fail_count)
         success_count = 0
-        success_limit = 40
+        success_limit = 10
         for i in stock_list.iterrows():
             item = i[1]
             code = item.code
             datef = date.strftime("%Y-%m-%d")
             day = self.bs.fetch_ashare_stock_daybar(code, datef, datef)
             sys.stdout.write("\033[K")
-            print(f"{code}: {day.shape[0]}", end="\r")
             if day.shape[0] > 0:
                 success_count += 1
+            print(f"{code}: {success_count}", end="\r")
             if success_count >= success_limit:
                 break

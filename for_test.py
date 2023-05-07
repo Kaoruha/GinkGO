@@ -1,21 +1,19 @@
-from functools import singledispatchmethod
+from functools import singledispatch
 
 
-class halo(object):
-    @singledispatchmethod
-    def do(self):
+class haha(object):
+    @singledispatch
+    def a(self):
         pass
 
-    @do.register
-    def _(self, a: int, b: int):
-        print("This is function 1")
+    @a.register
+    def _(self, string: str, string2: str):
+        print(string + string2)
 
-    @do.register
-    def _(self, a: str):
-        print("This is function 2")
+    @a.register
+    def _(self, string: str):
+        print(string)
 
 
-h = halo()
-
-h.do(1, 2)
-h.do("1")
+sb = haha()
+sb.a("halo", "loha")

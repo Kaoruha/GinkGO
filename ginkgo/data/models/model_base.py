@@ -8,12 +8,8 @@ from ginkgo.data import DBDRIVER as db
 from ginkgo.libs import gen_uuid4
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.enums import SOURCE_TYPES
-from sqlalchemy import Column, String, DateTime, Boolean, func
+from sqlalchemy import Column, String, DateTime, Boolean, Integer
 from sqlalchemy_utils import ChoiceType
-
-
-def get_datetime(self):
-    return datetime.datetime.now()
 
 
 class MBase(db.base):
@@ -29,17 +25,18 @@ class MBase(db.base):
     create = Column(DateTime)
     update = Column(DateTime)
     isdel = Column(Boolean)
+    source = Column(ChoiceType(SOURCE_TYPES, impl=Integer()), default=0)
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.uuid = gen_uuid4()
         self.timestamp = datetime.datetime.now()
         self.create = datetime.datetime.now()
-        self.source = None
+        self.source = SOURCE_TYPES.VOID
         self.update = datetime.datetime.now()
         self.desc = "This man is so lazy. There is no description"
         self.isdel = False
 
-    def set(self):
+    def set(self) -> None:
         raise NotImplementedError(
             "Model Class need to overload Function set to transit data."
         )
@@ -68,14 +65,14 @@ class MBase(db.base):
         df = pd.DataFrame.from_dict(item, orient="index")
         return df[0]
 
-    def set_source(self, source: SOURCE_TYPES):
+    def set_source(self, source: SOURCE_TYPES) -> None:
         self.source = source
 
-    def delete(self):
+    def delete(self) -> None:
         self.isdel = True
 
-    def cancel_delete(self):
+    def cancel_delete(self) -> None:
         self.isdel = False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 80)

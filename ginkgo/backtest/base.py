@@ -1,9 +1,20 @@
 import pandas as pd
 from types import FunctionType, MethodType
+from ginkgo.enums import SOURCE_TYPES
 from enum import Enum
 
 
 class Base(object):
+    def __init__(self, *args, **kwargs):
+        self._source = SOURCE_TYPES.VOID
+
+    def set_source(self, source: SOURCE_TYPES):
+        self._source = source
+
+    @property
+    def source(self):
+        return self._source
+
     @property
     def to_dataframe(self) -> pd.DataFrame:
         item = {}

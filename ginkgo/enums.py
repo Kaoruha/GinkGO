@@ -39,6 +39,8 @@ class PRICEINFO_TYPES(EnumBase):
 
 
 class SOURCE_TYPES(EnumBase):
+    VOID = -1
+    TEST = 0
     SIM = 1
     REALTIME = 2
     SINA = 3

@@ -4,6 +4,7 @@ from functools import singledispatchmethod
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.backtest.base import Base
+from ginkgo.enums import SOURCE_TYPES
 
 
 class Tick(Base):
@@ -13,7 +14,10 @@ class Tick(Base):
         price: float = 0,
         volume: int = 0,
         timestamp: str or datetime.datetime = None,
+        *args,
+        **kwargs
     ) -> None:
+        super(Tick, self).__init__(*args, **kwargs)
         self.set(code, price, volume, timestamp)
 
     @singledispatchmethod
@@ -21,18 +25,27 @@ class Tick(Base):
         pass
 
     @set.register
-    def _(self, code: str, price: float, volume: int, timestamp) -> None:
+    def _(
+        self,
+        code: str,
+        price: float,
+        volume: int,
+        timestamp: str or datetime.datetime,
+    ) -> None:
         self._code = code
         self._price = price
         self._volume = volume
         self._timestamp = datetime_normalize(timestamp)
 
     @set.register
-    def _(self, tick: pd.Series):
-        self._code = tick.code
-        self._price = tick.price
-        self._volume = tick.volume
-        self._timestamp = tick.timestamp
+    def _(self, df: pd.Series):
+        self._code = df.code
+        self._price = df.price
+        self._volume = df.volume
+        self._timestamp = df.timestamp
+
+        if "source" in df.keys():
+            self.set_source(SOURCE_TYPES(df.source))
 
     @property
     def code(self) -> str:

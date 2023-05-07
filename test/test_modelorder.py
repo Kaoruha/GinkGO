@@ -68,6 +68,7 @@ class ModelOrderTest(unittest.TestCase):
                 "volume": i["volume"],
                 "timestamp": i["timestamp"],
                 "limit_price": i["limit_price"],
+                "source": i["source"],
             }
             o.set(pd.Series(data))
             o.set_source(i["source"])
@@ -79,6 +80,7 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.limit_price, i["limit_price"])
             self.assertEqual(o.limit_price, i["limit_price"])
             self.assertEqual(o.timestamp, i["timestamp"])
+            self.assertEqual(o.source, i["source"])
 
     def test_ModelOrder_Insert(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
