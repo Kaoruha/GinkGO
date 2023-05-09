@@ -26,7 +26,7 @@ print(platform.platform())
 print(f"CPU Cores: {os.cpu_count()}")
 # print("Windows" == str(platform.system()))
 
-docker_version = os.system("docker1 --version")
+docker_version = os.system("docker --version")
 compose_version = os.system("docker-compose --version")
 
 def bye():
@@ -70,6 +70,7 @@ else:
     print(f"ENV: {lightblue(env)}")
     ver = platform.python_version()
     print(f"Python : {lightblue(ver)}")
+    input(f"Press {green('ENTER')} to continuew")
 
     print("File Check:")
 
