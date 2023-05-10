@@ -91,7 +91,7 @@ class TickTest(unittest.TestCase):
             mt.set(df)
             mt.set_source(i["source"])
             t = Tick()
-            t.set(mt.to_dataframe)
+            t.set(mt.to_dataframe())
             self.assertEqual(t.code, i["code"])
             self.assertEqual(t.price, i["price"])
             self.assertEqual(t.volume, i["volume"])

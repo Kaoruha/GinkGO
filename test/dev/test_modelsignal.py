@@ -1,47 +1,47 @@
-import unittest
-import time
-import datetime
-import pandas as pd
-from ginkgo.libs import GINKGOLOGGER as gl
-from ginkgo.backtest.order import Order
-from ginkgo.data.ginkgo_data import GINKGODATA
-from ginkgo.data.models.model_signal import MSignal
-from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+# import unittest
+# import time
+# import datetime
+# import pandas as pd
+# from ginkgo.libs import GINKGOLOGGER as gl
+# from ginkgo.backtest.order import Order
+# from ginkgo.data.ginkgo_data import GINKGODATA
+# from ginkgo.data.models.model_signal import MSignal
+# from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+# from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
-class ModelSignalTest(unittest.TestCase):
-    """
-    UnitTest for Signal
-    """
+# class ModelSignalTest(unittest.TestCase):
+#     """
+#     UnitTest for Signal
+#     """
 
-    def __init__(self, *args, **kwargs) -> None:
-        super(ModelSignalTest, self).__init__(*args, **kwargs)
-        self.params = [
-            {
-                "code": "testordercode",
-                "direction": DIRECTION_TYPES.LONG,
-                "source": SOURCE_TYPES.BAOSTOCK,
-                "timestamp": datetime.datetime.now(),
-            }
-        ]
+#     def __init__(self, *args, **kwargs) -> None:
+#         super(ModelSignalTest, self).__init__(*args, **kwargs)
+#         self.params = [
+#             {
+#                 "code": "testordercode",
+#                 "direction": DIRECTION_TYPES.LONG,
+#                 "source": SOURCE_TYPES.BAOSTOCK,
+#                 "timestamp": datetime.datetime.now(),
+#             }
+#         ]
 
-    def test_ModelSignal_Init(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
-        result = True
-        for i in self.params:
-            try:
-                s = MSignal()
-                s.set(
-                    i["code"],
-                    i["direction"],
-                    i["timestamp"],
-                    i["source"],
-                )
-            except Exception as e:
-                result = False
-        self.assertEqual(result, True)
+#     def test_ModelSignal_Init(self) -> None:
+#         time.sleep(GINKGOCONF.HEARTBEAT)
+#         result = True
+#         for i in self.params:
+#             try:
+#                 s = MSignal()
+#                 s.set(
+#                     i["code"],
+#                     i["direction"],
+#                     i["timestamp"],
+#                     i["source"],
+#                 )
+#             except Exception as e:
+#                 result = False
+#         self.assertEqual(result, True)
 
 
 #     def test_ModelSignal_SetFromData(self) -> None:

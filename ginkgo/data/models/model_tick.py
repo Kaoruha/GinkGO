@@ -52,8 +52,6 @@ class MTick(MBase):
         self.price = df.price
         self.volume = df.volume
         self.timestamp = datetime_normalize(df.timestamp)
-        print(1111111111111)
-        print("get df")
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
 

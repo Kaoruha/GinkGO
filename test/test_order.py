@@ -118,7 +118,7 @@ class OrderTest(unittest.TestCase):
             GINKGODATA.add(mo)
             GINKGODATA.commit()
             filter_rs: MOrder = GINKGODATA.get_order(mo.uuid)
-            new_df = filter_rs.to_dataframe
+            new_df = filter_rs.to_dataframe()
             o = Order()
             o.set(new_df)
             self.assertEqual(o.code, item["code"])

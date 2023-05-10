@@ -23,6 +23,10 @@ class TICKDIRECTION_TYPES(EnumBase):
 
 
 class EVENT_TYPES(EnumBase):
+    """
+    Types of Events.For Backtest.
+    """
+
     PRICEUPDATE = 1
     ORDERSUBMISSION = 2
     ORDERFILL = 3
@@ -69,3 +73,8 @@ class ORDERSTATUS_TYPES(EnumBase):
 class FREQUENCY_TYPES(EnumBase):
     DAY = 1
     MIN5 = 2
+
+
+class MARKET_TYPES(EnumBase):
+    CHINA = 1
+    NASDAQ = 2

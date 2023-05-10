@@ -68,11 +68,15 @@ class GinkgoBaoStock(object):
         data_list = []
         while (rs.error_code == "0") & rs.next():
             data_list.append(rs.get_row_data())
+        rs.fields[0] = "timestamp"
         result = pd.DataFrame(data_list, columns=rs.fields)
 
         return result
 
     def fetch_ashare_list(self, date: str or datetime.datetime):
+        """
+        Get the stock list of china.
+        """
         if isinstance(date, datetime.datetime):
             date = date.strftime("%Y-%m-%d")
         rs = bs.query_all_stock(day=date)
@@ -82,6 +86,7 @@ class GinkgoBaoStock(object):
         data_list = []
         while (rs.error_code == "0") & rs.next():
             data_list.append(rs.get_row_data())
+        rs.fields[1] = "trade_status"
         result = pd.DataFrame(data_list, columns=rs.fields)
         return result
 
