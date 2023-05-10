@@ -8,5 +8,8 @@ def datetime_normalize(time) -> datetime.datetime:
     if isinstance(time, datetime.datetime):
         return time
     elif isinstance(time, str):
-        t = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
+        try:
+            t = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            t = datetime.datetime.strptime(time, "%Y-%m-%d")
         return t

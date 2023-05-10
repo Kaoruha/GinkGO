@@ -5,14 +5,21 @@ import importlib
 import pandas as pd
 from ginkgo.data import DBDRIVER as dbdriver
 from ginkgo.libs import GINKGOLOGGER as gl
-from ginkgo.data.models.model_base import MBase
-from ginkgo.data.models.model_order import MOrder
+from ginkgo.data.models import MCodeOnTrade, MOrder, MBase
+from ginkgo.enums import MARKET_TYPES
+from ginkgo.data import GinkgoBaoStock
 
 
 class GinkgoData(object):
+    """
+    Data Modeul
+    Get: from the db
+    """
+
     def __init__(self):
         self.__models = []
         self.get_models()
+        self.bs = GinkgoBaoStock()
 
     @property
     def session(self):
@@ -86,15 +93,37 @@ class GinkgoData(object):
         r.code = r.code.strip(b"\x00".decode())
         return r
 
-    def fetch_ashare_list(self):
+    def get_code_list(self, date: str or datetime.datetime, market: MARKET_TYPES):
         # TODO
         pass
 
-    def insert_ashare_list(self, df):
-        # TODO
+    def insert_code_list(self, df: pd.DataFrame):
+        rs = []
+        for i in df.iterrows():
+            item = MCodeOntrade()
+            item.set(i)
+            rs.append(item)
+        self.add_all(rs)
+        self.commit()
+
+    def update_code_list(self, date: str or datetime.datetime):
+        # CHINA
+        # 1. Get Code List From Bao
+        rs = self.bs.fetch_ashare_list(date)
+        rs = rs.head(1)
+        print(rs)
+        # 2. Set up list(ModelCodeOntrade)
+        # 3. insert_code_list()
+
+    def update_code_list_to_latest(self):
+        # TOOD
         pass
 
-    def query_ashare_list(self, date):
+    def update_code_list_to_latest_async(self):
+        # TOOD
+        pass
+
+    def update_ashare_list(self):
         # TODO
         pass
 
@@ -103,10 +132,6 @@ class GinkgoData(object):
         pass
 
     def insert_ashare_stock(self):
-        # TODO
-        pass
-
-    def query_ashare_stock(self):
         # TODO
         pass
 

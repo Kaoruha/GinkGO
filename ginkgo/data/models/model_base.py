@@ -41,7 +41,6 @@ class MBase(db.base):
             "Model Class need to overload Function set to transit data."
         )
 
-    @property
     def to_dataframe(self) -> pd.DataFrame:
         item = {}
         methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
