@@ -38,7 +38,7 @@ class GinkgoBaoStock(object):
             return None
 
     @property
-    def trade_day(self) -> pd.DataFrame:
+    def cn_stock_trade_day(self) -> pd.DataFrame:
         """
         Get the TradeDay
         """
@@ -48,12 +48,12 @@ class GinkgoBaoStock(object):
         if cache is not None:
             return cache
 
-        result = self.fetch_trade_day()
+        result = self.fetch_cn_stock_trade_day()
         # Update Cache and updated time
         self._update_cache(key, result)
         return result
 
-    def fetch_trade_day(self) -> pd.DataFrame:
+    def fetch_cn_stock_trade_day(self) -> pd.DataFrame:
         """
         Get A share trade day data from baostock
         """
@@ -73,7 +73,7 @@ class GinkgoBaoStock(object):
 
         return result
 
-    def fetch_ashare_list(self, date: str or datetime.datetime):
+    def fetch_cn_stock_list(self, date: str or datetime.datetime):
         """
         Get the stock list of china.
         """
@@ -90,7 +90,7 @@ class GinkgoBaoStock(object):
         result = pd.DataFrame(data_list, columns=rs.fields)
         return result
 
-    def fetch_ashare_stock_daybar(
+    def fetch_cn_stock_daybar(
         self,
         code: str,
         date_start: str or datetime.datetime,
@@ -127,7 +127,7 @@ class GinkgoBaoStock(object):
 
         return result
 
-    def fetch_ashare_stock_min5(
+    def fetch_cn_stock_min5(
         self,
         code: str,
         date_start: str or datetime.datetime,
@@ -164,7 +164,7 @@ class GinkgoBaoStock(object):
 
         return result
 
-    def fetch_akshare_adjustfactor(
+    def fetch_cn_stock_adjustfactor(
         self,
         code: str,
         date_start: str or datetime.datetime,

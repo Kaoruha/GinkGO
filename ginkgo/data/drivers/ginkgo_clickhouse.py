@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, MetaData, inspect
+from sqlalchemy import create_engine, MetaData, inspect, func
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from ginkgo.libs import GINKGOLOGGER as gl
@@ -33,3 +33,7 @@ class GinkgoClickhouse(object):
 
     def is_table_exsists(self, name: str) -> bool:
         return self.insp.has_table(name)
+
+    def get_table_size(self, model) -> int:
+        count = self.session.query(func.count(model.uuid)).scalar()
+        return count

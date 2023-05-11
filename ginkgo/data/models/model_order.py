@@ -18,7 +18,7 @@ class MOrder(MBase):
     if GINKGOCONF.DBDRIVER == "clickhouse":
         __table_args__ = (engines.Memory(),)
 
-    code = Column(String(50), default="ginkgo_test_code")
+    code = Column(String(), default="ginkgo_test_code")
     direction = Column(ChoiceType(DIRECTION_TYPES, impl=Integer()), default=1)
     type = Column(ChoiceType(ORDER_TYPES, impl=Integer()), default=1)
     status = Column(ChoiceType(ORDERSTATUS_TYPES, impl=Integer()), default=1)
