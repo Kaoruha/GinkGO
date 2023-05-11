@@ -20,9 +20,9 @@ class MAdjustfactor(MBase):
 
     # code dividOperateDate foreAdjustFactor backAdjustFactor adjustFactor
     code = Column(String(50), default="ginkgo_test_code")
-    foreadjustfactor = Column(DECIMAL(3, 6), default=0)
-    backadjustfactor = Column(DECIMAL(3, 6), default=0)
-    adjustfactor = Column(DECIMAL(3, 6), default=0)
+    foreadjustfactor = Column(DECIMAL(8, 6), default=0)
+    backadjustfactor = Column(DECIMAL(8, 6), default=0)
+    adjustfactor = Column(DECIMAL(8, 6), default=0)
 
     def __init__(self, *args, **kwargs) -> None:
         super(MAdjustfactor, self).__init__(*args, **kwargs)

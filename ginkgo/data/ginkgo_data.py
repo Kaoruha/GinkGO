@@ -99,10 +99,11 @@ class GinkgoData(object):
 
     def insert_code_list(self, df: pd.DataFrame):
         rs = []
-        for i in df.iterrows():
-            item = MCodeOntrade()
-            item.set(i)
+        for i, r in df.iterrows():
+            item = MCodeOnTrade()
+            item.set(r)
             rs.append(item)
+        print(rs)
         self.add_all(rs)
         self.commit()
 
