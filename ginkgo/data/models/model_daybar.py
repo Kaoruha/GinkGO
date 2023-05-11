@@ -25,7 +25,7 @@ class MDaybar(MBase):
     if GINKGOCONF.DBDRIVER == "clickhouse":
         __table_args__ = (engines.Memory(),)
 
-    code = Column(String(25), default="ginkgo_test_code")
+    code = Column(String(), default="ginkgo_test_code")
     open = Column(DECIMAL(9, 6), default=0)
     high = Column(DECIMAL(9, 6), default=0)
     low = Column(DECIMAL(9, 6), default=0)

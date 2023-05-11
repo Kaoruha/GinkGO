@@ -2,6 +2,14 @@ from types import FunctionType, MethodType
 from enum import Enum
 
 
+def chinese_count(msg):
+    count = 0
+    for _char in msg:
+        if "\u4e00" <= _char <= "\u9fa5":
+            count = count + 1
+    return count
+
+
 def pretty_repr(class_name: str, msg: list, width: int = None):
     """
     Pretty the object print.
@@ -19,7 +27,7 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
     for row in msg:
         r += "\n"
         r += row
-        l = row_max - 1 - len(row)
+        l = row_max - 1 - len(row) - chinese_count(row)
         r += " " * l + "|"
     r += "\n"
     r += "-" * (row_max - 1) + "+"
@@ -61,8 +69,11 @@ def base_repr(obj, name, label_len=12, total_len=80):
         if isinstance(s, Enum):
             filter_s += f" : {s.value}"
         max_len = total_len - count - 6
-        if len(filter_s) > max_len:
-            filter_s = filter_s[: max_len - 3] + "..."
+        l = len(filter_s) + chinese_count(filter_s)
+        if l > max_len:
+            cc = chinese_count(filter_s)
+            end = int(max_len - 3 - cc / 2)
+            filter_s = filter_s[:end] + "..."
         tmp += f" : {filter_s}"
         r.append(tmp)
 

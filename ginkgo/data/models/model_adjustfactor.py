@@ -19,7 +19,7 @@ class MAdjustfactor(MBase):
         __table_args__ = (engines.Memory(),)
 
     # code dividOperateDate foreAdjustFactor backAdjustFactor adjustFactor
-    code = Column(String(50), default="ginkgo_test_code")
+    code = Column(String(), default="ginkgo_test_code")
     foreadjustfactor = Column(DECIMAL(8, 6), default=0)
     backadjustfactor = Column(DECIMAL(8, 6), default=0)
     adjustfactor = Column(DECIMAL(8, 6), default=0)

@@ -1,5 +1,4 @@
-from ginkgo.data.ginkgo_data import GINKGODATA
+from ginkgo.data.sources.ginkgo_baostock import GinkgoBaoStock
 
 
-# GINKGODATA.drop_all()
-GINKGODATA.create_all()
+bs = GinkgoBaoStock()

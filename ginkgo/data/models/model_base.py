@@ -18,7 +18,7 @@ class MBase(db.base):
 
     uuid = Column(String(32), primary_key=True)
     desc = Column(
-        String(255),
+        String(),
         default="This man is lazy, there is no description.",
     )
     timestamp = Column(DateTime)

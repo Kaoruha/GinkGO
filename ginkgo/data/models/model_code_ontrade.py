@@ -17,8 +17,8 @@ class MCodeOnTrade(MBase):
     if GINKGOCONF.DBDRIVER == "clickhouse":
         __table_args__ = (engines.Memory(),)
 
-    code = Column(String(50), default="ginkgo_test_code")
-    code_name = Column(String(50), default="ginkgo_test_name")
+    code = Column(String(), default="ginkgo_test_code")
+    code_name = Column(String(), default="ginkgo_test_name")
     market = Column(ChoiceType(MARKET_TYPES, impl=Integer()), default=1)
     trade_status = Column(Boolean(), default=True)
 
