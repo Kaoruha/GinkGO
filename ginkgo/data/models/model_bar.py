@@ -27,10 +27,10 @@ class MBar(MBase):
         __table_args__ = (engines.Memory(),)
 
     code = Column(String(), default="ginkgo_test_code")
-    open = Column(DECIMAL(9, 6), default=0)
-    high = Column(DECIMAL(9, 6), default=0)
-    low = Column(DECIMAL(9, 6), default=0)
-    close = Column(DECIMAL(9, 6), default=0)
+    open = Column(DECIMAL(20, 10), default=0)
+    high = Column(DECIMAL(20, 10), default=0)
+    low = Column(DECIMAL(20, 10), default=0)
+    close = Column(DECIMAL(20, 10), default=0)
     volume = Column(Integer, default=0)
     frequency = Column(ChoiceType(FREQUENCY_TYPES, impl=Integer()), default=1)
 
@@ -59,6 +59,7 @@ class MBar(MBase):
         self.low = round(low, 6)
         self.close = round(close, 6)
         self.volume = volume
+        self.frequency = frequency
         self.timestamp = datetime_normalize(datetime)
 
     @set.register

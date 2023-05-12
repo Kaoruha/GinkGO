@@ -23,7 +23,7 @@ class MOrder(MBase):
     type = Column(ChoiceType(ORDER_TYPES, impl=Integer()), default=1)
     status = Column(ChoiceType(ORDERSTATUS_TYPES, impl=Integer()), default=1)
     volume = Column(Integer, default=0)
-    limit_price = Column(DECIMAL(9, 6), default=0)
+    limit_price = Column(DECIMAL(20, 10), default=0)
 
     def __init__(self, *args, **kwargs) -> None:
         super(MOrder, self).__init__(*args, **kwargs)

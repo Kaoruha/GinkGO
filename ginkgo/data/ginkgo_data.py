@@ -199,7 +199,9 @@ class GinkgoData(object):
 
     # Bar
 
-    def get_bar_lastdate(self, code: str, frequency: FREQUENCY_TYPES):
+    def get_bar_lastdate(
+        self, code: str, frequency: FREQUENCY_TYPES
+    ) -> datetime.datetime:
         r = (
             self.session.query(MBar)
             .filter(MBar.frequency == frequency)
@@ -225,7 +227,7 @@ class GinkgoData(object):
         start_date = datetime_normalize(start_date)
         end_date = datetime_normalize(end_date)
         r = (
-            self.session.query(MDay)
+            self.session.query(MBar)
             .filter(MBar.code == code)
             .filter(MBar.timestamp >= start_date)
             .filter(MBar.timestamp <= end_date)
@@ -241,29 +243,112 @@ class GinkgoData(object):
         return df
 
     def insert_bar(self, df: pd.DataFrame) -> None:
+        """
+        Insert Bar record into Database.
+        Will check the date code and frequency to avoid insert the duplicate record.
+        """
         rs = []
+        cache = []
+
         for i, r in df.iterrows():
+            # Set Model Bar
             item = MBar()
             item.set(r)
             item.set_source(SOURCE_TYPES.BAOSTOCK)
-            rs.append(item)
+
+            # Get the latest date of bar in database
+            latest = self.get_bar_lastdate(item.code, item.frequency)
+
+            # Gen a key with new Bar code + date + frequency_type
+            key = (
+                item.code
+                + item.timestamp.strftime("%Y-%m-%d")
+                + "f"
+                + str(item.frequency)
+            )
+
+            # If the model is already in cache, go next
+            if key in cache:
+                gl.logger.debug(
+                    f"{FREQUENCY_TYPES(item.frequency)} {item.code} on {item.timestamp} already exist in insert list."
+                )
+                continue
+
+            # If the new Bar is after the latest date in db, append it to tobeinsert list and cache list.
+            if item.timestamp > latest:
+                rs.append(item)
+                cache.append(key)
+            else:
+                # Try get the data with the same code date and frequency
+                old = self.get_bar(
+                    item.code, item.timestamp, item.timestamp, item.frequency
+                )
+                # If there is no record in database, add the model to insert list.
+                if old is None:
+                    rs.append(item)
+                    cache.append(key)
+                else:
+                    gl.logger.debug(
+                        f"{FREQUENCY_TYPES(item.frequency)} {item.code} on {item.timestamp} already exist in database."
+                    )
+                    continue
+
         self.add_all(rs)
         self.commit()
 
-    def update_cn_bar(self, code, code_name, date):
+    def update_bar_to_latest_entire(self, code: str):
+        # TODO
         pass
 
-    def update_cn_bar_to_latest_entire(self):
+    def update_bar_to_latest_fast(self, code: str, frequency: FREQUENCY_TYPES):
+        start_date = self.get_bar_lastdate(code, frequency)
+        today = datetime.datetime.now()
+
+        if start_date == today.date():
+            return
+
+        end_date = start_date + datetime.timedelta(days=180)
+        if end_date > today:
+            end_date = today
+
+        end_date = end_date.strftime("%Y-%m-%d")
+
+        gl.logger.info(f"Updating {code} FROM {start_date} to {end_date}")
+        if frequency == FREQUENCY_TYPES.DAY:
+            df = self.bs.fetch_cn_stock_daybar(code, start_date, end_date)
+        else:
+            df = self.bs.fetch_cn_stock_daybar(code, start_date, end_date)
+        rs = []
+        for i, r in df.iterrows():
+            item = MBar()
+            item.set(
+                r.code,
+                r.open,
+                r.high,
+                r.low,
+                r.close,
+                r.volume,
+                FREQUENCY_TYPES.DAY,
+                r.date,
+            )
+            item.set_source(SOURCE_TYPES.BAOSTOCK)
+            rs.append(item.to_dataframe())
+
+        rs = pd.DataFrame(rs)
+        self.insert_bar(rs)
+
+        if df.shape[0] >= 100:
+            self.update_bar_to_latest_fast(code, frequency)
+
+    def update_bar_to_latest_entire_async(self):
         pass
 
-    def update_cn_bar_to_latest_fast(self):
-        pass
-
-    def update_cn_bar_to_latest_entire_async(self):
-        pass
-
-    def update_cn_bar_to_latest_fast_async(self):
-        pass
+    def update_bar_to_latest_fast_async(self):
+        # Get Trade day
+        trade_day = self.bs.fetch_cn_stock_trade_day()
+        print(trade_day)
+        # Get CodeList from start to end
+        # Start update each code async
 
     # Min5
 
