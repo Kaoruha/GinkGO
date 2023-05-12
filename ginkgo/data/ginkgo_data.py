@@ -4,8 +4,8 @@ import importlib
 import pandas as pd
 from ginkgo.data import DBDRIVER
 from ginkgo.libs import GINKGOLOGGER as gl
-from ginkgo.data.models import MCodeOnTrade, MOrder, MBase
-from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES
+from ginkgo.data.models import MCodeOnTrade, MOrder, MBase, MBar
+from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES, FREQUENCY_TYPES
 from ginkgo.data import GinkgoBaoStock
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 
@@ -187,40 +187,82 @@ class GinkgoData(object):
             self.update_cn_codelist(current)
             current = current + datetime.timedelta(days=1)
 
-    def update_cn_codelist_to_latest_entire(self):
+    def update_cn_codelist_to_latest_entire(self) -> None:
         start = "1990-12-15"
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         self.update_cn_code_list_period(start, today)
 
-    def update_cn_codelist_to_latest_fast(self):
+    def update_cn_codelist_to_latest_fast(self) -> None:
         start = self.get_cn_codelist_lastdate()
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         self.update_cn_code_list_period(start, today)
 
-    # Daybar
+    # Bar
 
-    def get_cn_daybar_lastdate(self):
+    def get_bar_lastdate(self, code: str, frequency: FREQUENCY_TYPES):
+        r = (
+            self.session.query(MBar)
+            .filter(MBar.frequency == frequency)
+            .order_by(MBar.timestamp.desc())
+            .first()
+        )
+        if r is None:
+            return datetime_normalize("1990-12-15")
+        else:
+            return r.timestamp
+
+    def get_bar(
+        self,
+        code: str,
+        start_date: str or datetime.datetime,
+        end_date: str or datetime.datetime,
+        frequency: FREQUENCY_TYPES,
+        adjust: int = 1,
+    ) -> pd.DataFrame:
+        """
+        filter with code primary.
+        """
+        start_date = datetime_normalize(start_date)
+        end_date = datetime_normalize(end_date)
+        r = (
+            self.session.query(MDay)
+            .filter(MBar.code == code)
+            .filter(MBar.timestamp >= start_date)
+            .filter(MBar.timestamp <= end_date)
+            .all()
+        )
+        if len(r) == 0:
+            return
+        l = []
+        for i in r:
+            l.append(i.to_dataframe())
+        df = pd.DataFrame(l)
+        # TODO Do Adjust cal
+        return df
+
+    def insert_bar(self, df: pd.DataFrame) -> None:
+        rs = []
+        for i, r in df.iterrows():
+            item = MBar()
+            item.set(r)
+            item.set_source(SOURCE_TYPES.BAOSTOCK)
+            rs.append(item)
+        self.add_all(rs)
+        self.commit()
+
+    def update_cn_bar(self, code, code_name, date):
         pass
 
-    def get_daybar(self, code, code_name, date):
+    def update_cn_bar_to_latest_entire(self):
         pass
 
-    def insert_daybar(self, df: pd.DataFrame):
+    def update_cn_bar_to_latest_fast(self):
         pass
 
-    def update_cn_daybar(self, code, code_name, date):
+    def update_cn_bar_to_latest_entire_async(self):
         pass
 
-    def update_cn_daybar_to_latest_entire(self):
-        pass
-
-    def update_cn_daybar_to_latest_fast(self):
-        pass
-
-    def update_cn_daybar_to_latest_entire_async(self):
-        pass
-
-    def update_cn_daybar_to_latest_fast_async(self):
+    def update_cn_bar_to_latest_fast_async(self):
         pass
 
     # Min5
