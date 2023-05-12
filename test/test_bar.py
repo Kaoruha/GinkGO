@@ -7,9 +7,9 @@ from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
 
 
-class DayBarTest(unittest.TestCase):
+class BarTest(unittest.TestCase):
     """
-    UnitTest for Daybar.
+    UnitTest for Bar.
     """
 
     # Init
@@ -17,7 +17,7 @@ class DayBarTest(unittest.TestCase):
     # Amplitude
 
     def __init__(self, *args, **kwargs) -> None:
-        super(DayBarTest, self).__init__(*args, **kwargs)
+        super(BarTest, self).__init__(*args, **kwargs)
         self.params = [
             {
                 "sim_code": "unittest_simcode",

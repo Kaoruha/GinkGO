@@ -3,6 +3,7 @@ import pandas as pd
 from functools import singledispatchmethod
 from clickhouse_sqlalchemy import engines
 from sqlalchemy import Column, String, Integer, DECIMAL
+from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_base import MBase
 from ginkgo.backtest.bar import Bar
 from ginkgo.libs.ginkgo_conf import GINKGOCONF
@@ -18,9 +19,9 @@ from ginkgo.enums import (
 )
 
 
-class MDaybar(MBase):
+class MBar(MBase):
     __abstract__ = False
-    __tablename__ = "daybar"
+    __tablename__ = "bar"
 
     if GINKGOCONF.DBDRIVER == "clickhouse":
         __table_args__ = (engines.Memory(),)
@@ -31,9 +32,10 @@ class MDaybar(MBase):
     low = Column(DECIMAL(9, 6), default=0)
     close = Column(DECIMAL(9, 6), default=0)
     volume = Column(Integer, default=0)
+    frequency = Column(ChoiceType(FREQUENCY_TYPES, impl=Integer()), default=1)
 
     def __init__(self, *args, **kwargs) -> None:
-        super(MDaybar, self).__init__(*args, **kwargs)
+        super(MBar, self).__init__(*args, **kwargs)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -48,6 +50,7 @@ class MDaybar(MBase):
         low: float,
         close: float,
         volume: int,
+        frequency: FREQUENCY_TYPES,
         datetime: str or datetime.datetime,
     ) -> None:
         self.code = code
@@ -60,9 +63,6 @@ class MDaybar(MBase):
 
     @set.register
     def _(self, df: pd.Series) -> None:
-        if df.frequency != FREQUENCY_TYPES.DAY.value:
-            gl.logger.warn(f"The bar is not daybar, your data might be wrong.")
-            return
         self.code = df.code
         self.open = df.open
         self.high = df.high
@@ -70,6 +70,7 @@ class MDaybar(MBase):
         self.close = df.close
         self.volume = df.volume
         self.timestamp = df.timestamp
+        self.frequency = df.frequency
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
 
