@@ -115,15 +115,54 @@ class GinkgoDataTest(unittest.TestCase):
         rs = []
         for i in range(count):
             item = MBar()
-            item.set("halo", 1.1, 1.7, 1, 1.5, 10000, FREQUENCY_TYPES.DAY, "2022-01-31")
+            item.set(
+                "halo" + str(i),
+                1.1,
+                1.7,
+                1,
+                1.5,
+                10000,
+                FREQUENCY_TYPES.DAY,
+                "2022-01-31",
+            )
             rs.append(item.to_dataframe())
         df = pd.DataFrame(rs)
         GINKGODATA.insert_bar(df)
         c = GINKGODATA.get_table_size(MBar)
         self.assertEqual(c, count)
 
-    def test_GinkgoData_UpdateBar(self) -> None:
-        pass
+        GINKGODATA.drop_table(MBar)
+        GINKGODATA.create_table(MBar)
+        # Will Check the duplicate record.
+        count = 10
+        rs = []
+        for i in range(count):
+            item = MBar()
+            item.set(
+                "halo",
+                1.1,
+                1.7,
+                1,
+                1.5,
+                10000,
+                FREQUENCY_TYPES.DAY,
+                "2022-01-31",
+            )
+            rs.append(item.to_dataframe())
+        df = pd.DataFrame(rs)
+        GINKGODATA.insert_bar(df)
+        c = GINKGODATA.get_table_size(MBar)
+        self.assertEqual(c, 1)
+
+    def test_GinkgoData_UpdateBarFast(self) -> None:
+        time.sleep(GINKGOCONF.HEARTBEAT)
+        GINKGODATA.drop_table(MBar)
+        GINKGODATA.create_table(MBar)
+        code = "sh.000001"
+        GINKGODATA.update_bar_to_latest_fast(code, FREQUENCY_TYPES.DAY)
+        today = datetime.datetime.now()
+        lastday = GINKGODATA.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
+        self.assertGreater(datetime.timedelta(days=10), lastday - today)
 
     def test_GinkgoData_GetMin5LastDate(self) -> None:
         pass

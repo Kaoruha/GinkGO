@@ -124,6 +124,14 @@ class GinkgoBaoStock(object):
         while (rs.error_code == "0") & rs.next():
             data_list.append(rs.get_row_data())
         result = pd.DataFrame(data_list, columns=rs.fields)
+        float_column = [
+            "open",
+            "high",
+            "low",
+            "close",
+        ]
+        for i in float_column:
+            result[i] = result[i].astype("float")
 
         return result
 
