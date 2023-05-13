@@ -1,9 +1,10 @@
 import inspect
 import datetime
-import importlib
+import multiprocessing
 import pandas as pd
 from ginkgo.data import DBDRIVER
 from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import datetime_normalize
 from ginkgo.data.models import MCodeOnTrade, MOrder, MBase, MBar
 from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES, FREQUENCY_TYPES
 from ginkgo.data import GinkgoBaoStock
@@ -175,7 +176,7 @@ class GinkgoData(object):
         # 3. insert_code_list()
         self.add_all(data)
         self.commit()
-        gl.logger.info(f"Insert {date} CodeList {len(data)} rows.")
+        gl.logger.debug(f"Insert {date} CodeList {len(data)} rows.")
 
     def update_cn_codelist_period(
         self, start: str or datetime.datetime, end: str or datetime.datetime
@@ -190,12 +191,39 @@ class GinkgoData(object):
     def update_cn_codelist_to_latest_entire(self) -> None:
         start = "1990-12-15"
         today = datetime.datetime.now().strftime("%Y-%m-%d")
-        self.update_cn_code_list_period(start, today)
+        self.update_cn_codelist_period(start, today)
 
     def update_cn_codelist_to_latest_fast(self) -> None:
         start = self.get_cn_codelist_lastdate()
         today = datetime.datetime.now().strftime("%Y-%m-%d")
-        self.update_cn_code_list_period(start, today)
+        self.update_cn_codelist_period(start, today)
+
+    def update_cn_codelist_to_latest_entire_async(self) -> None:
+        start = datetime_normalize("1990-12-15")
+        today = datetime.datetime.now()
+        epoch = 100
+        end = start + datetime.timedelta(days=epoch)
+        cpu_count = multiprocessing.cpu_count()
+        cpu_count = int(cpu_count * 1)
+        pool = multiprocessing.Pool(cpu_count)
+        while True:
+            if end > today:
+                end = today
+            pool.apply_async(
+                self.update_cn_codelist_period,
+                args=(
+                    start,
+                    end,
+                ),
+            )
+            print(f"{start} -- {end}")
+            start = end
+            if end >= today:
+                break
+            end += datetime.timedelta(days=epoch)
+        pool.close()
+        pool.join()
+        gl.logger.info("CN CodeList update complete.")
 
     # Bar
 
@@ -341,13 +369,30 @@ class GinkgoData(object):
             self.update_bar_to_latest_fast(code, frequency)
 
     def update_bar_to_latest_entire_async(self):
-        pass
-
-    def update_bar_to_latest_fast_async(self):
+        # Prepare the async moduel
+        cpu_count = multiprocessing.cpu_count()
+        cpu_count = int(cpu_count * 0.8)
+        pool = multiprocessing.Pool(cpu_count)
+        count = 0
         # Get Trade day
         trade_day = self.bs.fetch_cn_stock_trade_day()
-        print(trade_day)
+        trade_day = trade_day[trade_day["is_trading_day"] == "1"]
+        trade_day = trade_day.iloc[0:100, :]
         # Get CodeList from start to end
+        epoch = 100
+        for i, day in trade_day.iterrows():
+            date = day["timestamp"]
+            code_list = self.get_codelist(date, MARKET_TYPES.CHINA)
+            if code_list is None:
+                gl.logger.warn(
+                    f"{date} get no code from database, please check your talbe."
+                )
+                continue
+            print(code_list)
+            print(type(code_list))
+            # for i2, code in code_list.iterrows():
+            #     print(f"{date} : {code.code}")
+            #     # TODO Let Worker do.
         # Start update each code async
 
     # Min5

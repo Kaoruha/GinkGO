@@ -16,7 +16,9 @@ class MAdjustfactor(MBase):
     __tablename__ = "adjustfactor"
 
     if GINKGOCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.Memory(),)
+        __table_args__ = (
+            engines.MergeTree(partition_key=["timestamp"], order_by=["code"]),
+        )
 
     # code dividOperateDate foreAdjustFactor backAdjustFactor adjustFactor
     code = Column(String(), default="ginkgo_test_code")

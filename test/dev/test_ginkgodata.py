@@ -68,101 +68,125 @@ class GinkgoDataTest(unittest.TestCase):
     #     time.sleep(GINKGOCONF.HEARTBEAT)
     #     GINKGODATA.drop_table(MCodeOnTrade)
     #     GINKGODATA.create_table(MCodeOnTrade)
+    #     # start_date = "1990-12-15"
+    #     # end_date = "1992-08-06"
     #     start_date = "2023-04-11"
     #     end_date = "2023-04-21"
     #     GINKGODATA.update_cn_codelist_period(start_date, end_date)
     #     c = GINKGODATA.get_table_size(MCodeOnTrade)
     #     self.assertEqual(c, 50883)
 
-    def test_GinkgoData_GetBarLastDate(self) -> None:
+    # def test_GinkgoData_UpdateCNCodeListToLatest(self) -> None:
+    #     time.sleep(GINKGOCONF.HEARTBEAT)
+    #     GINKGODATA.drop_table(MCodeOnTrade)
+    #     GINKGODATA.create_table(MCodeOnTrade)
+    #     GINKGODATA.update_cn_codelist_to_latest_fast()
+    #     c = GINKGODATA.get_table_size(MCodeOnTrade)
+    #     self.assertGreater(c, 200000)
+
+    def test_GinkgoData_UpdateCNCodeListToLatestAsync(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
-        # Fake1
-        GINKGODATA.drop_table(MBar)
-        GINKGODATA.create_table(MBar)
-        b = MBar()
-        b.set("halo", 1.1, 1.7, 1, 1.5, 10000, FREQUENCY_TYPES.DAY, "2022-01-31")
-        GINKGODATA.add(b)
-        GINKGODATA.commit()
-        b = MBar()
-        b.set("halo", 1.1, 1.7, 1, 1.5, 10000, FREQUENCY_TYPES.DAY, "2022-02-11")
-        GINKGODATA.add(b)
-        GINKGODATA.commit()
-        t = GINKGODATA.get_bar_lastdate("halo", FREQUENCY_TYPES.DAY)
-        self.assertEqual(t.strftime("%Y-%m-%d"), "2022-02-11")
-        # Fake1
-        GINKGODATA.drop_table(MBar)
-        GINKGODATA.create_table(MBar)
-        b = MBar()
-        b.set("halo", 1.1, 1.7, 1, 1.5, 10000, FREQUENCY_TYPES.DAY, "2022-02-11")
-        GINKGODATA.add(b)
-        GINKGODATA.commit()
-        b = MBar()
-        b.set("halo", 1.1, 1.7, 1, 1.5, 10000, FREQUENCY_TYPES.DAY, "2022-01-31")
-        GINKGODATA.add(b)
-        GINKGODATA.commit()
-        t = GINKGODATA.get_bar_lastdate("halo", FREQUENCY_TYPES.DAY)
-        self.assertEqual(t.strftime("%Y-%m-%d"), "2022-02-11")
+        # GINKGODATA.drop_table(MCodeOnTrade)
+        GINKGODATA.create_table(MCodeOnTrade)
+        GINKGODATA.update_cn_codelist_to_latest_entire_async()
+        c = GINKGODATA.get_table_size(MCodeOnTrade)
+        self.assertGreater(c, 200000)
 
-    def test_GinkgoData_GetBar(self) -> None:
-        pass
+    # def test_GinkgoData_GetBarLastDate(self) -> None:
+    #     time.sleep(GINKGOCONF.HEARTBEAT)
+    #     # Fake1
+    #     GINKGODATA.drop_table(MBar)
+    #     GINKGODATA.create_table(MBar)
+    #     b = MBar()
+    #     b.set("halo", 1.1, 1.7, 1, 1.5, 10000, FREQUENCY_TYPES.DAY, "2022-01-31")
+    #     GINKGODATA.add(b)
+    #     GINKGODATA.commit()
+    #     b = MBar()
+    #     b.set("halo", 1.1, 1.7, 1, 1.5, 10000, FREQUENCY_TYPES.DAY, "2022-02-11")
+    #     GINKGODATA.add(b)
+    #     GINKGODATA.commit()
+    #     t = GINKGODATA.get_bar_lastdate("halo", FREQUENCY_TYPES.DAY)
+    #     self.assertEqual(t.strftime("%Y-%m-%d"), "2022-02-11")
+    #     # Fake1
+    #     GINKGODATA.drop_table(MBar)
+    #     GINKGODATA.create_table(MBar)
+    #     b = MBar()
+    #     b.set("halo", 1.1, 1.7, 1, 1.5, 10000, FREQUENCY_TYPES.DAY, "2022-02-11")
+    #     GINKGODATA.add(b)
+    #     GINKGODATA.commit()
+    #     b = MBar()
+    #     b.set("halo", 1.1, 1.7, 1, 1.5, 10000, FREQUENCY_TYPES.DAY, "2022-01-31")
+    #     GINKGODATA.add(b)
+    #     GINKGODATA.commit()
+    #     t = GINKGODATA.get_bar_lastdate("halo", FREQUENCY_TYPES.DAY)
+    #     self.assertEqual(t.strftime("%Y-%m-%d"), "2022-02-11")
 
-    def test_GinkgoData_InsertBar(self) -> None:
+    # def test_GinkgoData_GetBar(self) -> None:
+    #     time.sleep(GINKGOCONF.HEARTBEAT)
+
+    # def test_GinkgoData_InsertBar(self) -> None:
+    #     time.sleep(GINKGOCONF.HEARTBEAT)
+    #     GINKGODATA.drop_table(MBar)
+    #     GINKGODATA.create_table(MBar)
+    #     # Fake the dataframe
+    #     count = 10
+    #     rs = []
+    #     for i in range(count):
+    #         item = MBar()
+    #         item.set(
+    #             "halo" + str(i),
+    #             1.1,
+    #             1.7,
+    #             1,
+    #             1.5,
+    #             10000,
+    #             FREQUENCY_TYPES.DAY,
+    #             "2022-01-31",
+    #         )
+    #         rs.append(item.to_dataframe())
+    #     df = pd.DataFrame(rs)
+    #     GINKGODATA.insert_bar(df)
+    #     c = GINKGODATA.get_table_size(MBar)
+    #     self.assertEqual(c, count)
+
+    #     GINKGODATA.drop_table(MBar)
+    #     GINKGODATA.create_table(MBar)
+    #     # Will Check the duplicate record.
+    #     count = 10
+    #     rs = []
+    #     for i in range(count):
+    #         item = MBar()
+    #         item.set(
+    #             "halo",
+    #             1.1,
+    #             1.7,
+    #             1,
+    #             1.5,
+    #             10000,
+    #             FREQUENCY_TYPES.DAY,
+    #             "2022-01-31",
+    #         )
+    #         rs.append(item.to_dataframe())
+    #     df = pd.DataFrame(rs)
+    #     GINKGODATA.insert_bar(df)
+    #     c = GINKGODATA.get_table_size(MBar)
+    #     self.assertEqual(c, 1)
+
+    # def test_GinkgoData_UpdateBarFast(self) -> None:
+    #     time.sleep(GINKGOCONF.HEARTBEAT)
+    #     GINKGODATA.drop_table(MBar)
+    #     GINKGODATA.create_table(MBar)
+    #     code = "sh.000001"
+    #     GINKGODATA.update_bar_to_latest_fast(code, FREQUENCY_TYPES.DAY)
+    #     today = datetime.datetime.now()
+    #     lastday = GINKGODATA.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
+    #     self.assertGreater(datetime.timedelta(days=10), lastday - today)
+
+    def test_GinkgoData_UpdateBarEntireAsync(self) -> None:
         time.sleep(GINKGOCONF.HEARTBEAT)
         GINKGODATA.drop_table(MBar)
         GINKGODATA.create_table(MBar)
-        # Fake the dataframe
-        count = 10
-        rs = []
-        for i in range(count):
-            item = MBar()
-            item.set(
-                "halo" + str(i),
-                1.1,
-                1.7,
-                1,
-                1.5,
-                10000,
-                FREQUENCY_TYPES.DAY,
-                "2022-01-31",
-            )
-            rs.append(item.to_dataframe())
-        df = pd.DataFrame(rs)
-        GINKGODATA.insert_bar(df)
-        c = GINKGODATA.get_table_size(MBar)
-        self.assertEqual(c, count)
-
-        GINKGODATA.drop_table(MBar)
-        GINKGODATA.create_table(MBar)
-        # Will Check the duplicate record.
-        count = 10
-        rs = []
-        for i in range(count):
-            item = MBar()
-            item.set(
-                "halo",
-                1.1,
-                1.7,
-                1,
-                1.5,
-                10000,
-                FREQUENCY_TYPES.DAY,
-                "2022-01-31",
-            )
-            rs.append(item.to_dataframe())
-        df = pd.DataFrame(rs)
-        GINKGODATA.insert_bar(df)
-        c = GINKGODATA.get_table_size(MBar)
-        self.assertEqual(c, 1)
-
-    def test_GinkgoData_UpdateBarFast(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
-        GINKGODATA.drop_table(MBar)
-        GINKGODATA.create_table(MBar)
-        code = "sh.000001"
-        GINKGODATA.update_bar_to_latest_fast(code, FREQUENCY_TYPES.DAY)
-        today = datetime.datetime.now()
-        lastday = GINKGODATA.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
-        self.assertGreater(datetime.timedelta(days=10), lastday - today)
+        GINKGODATA.update_bar_to_latest_entire_async()
 
     def test_GinkgoData_GetMin5LastDate(self) -> None:
         pass

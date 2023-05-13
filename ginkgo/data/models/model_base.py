@@ -5,7 +5,7 @@ from functools import singledispatchmethod
 from enum import Enum
 from types import FunctionType, MethodType
 from ginkgo.data import DBDRIVER as db
-from ginkgo.libs import gen_uuid4
+from ginkgo.libs import gen_uuid4, datetime_normalize
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.enums import SOURCE_TYPES
 from sqlalchemy import Column, String, DateTime, Boolean, Integer
@@ -21,7 +21,7 @@ class MBase(db.base):
         String(),
         default="This man is lazy, there is no description.",
     )
-    timestamp = Column(DateTime)
+    timestamp = Column(DateTime, default=datetime_normalize("1950-01-01"))
     create = Column(DateTime)
     update = Column(DateTime)
     isdel = Column(Boolean)
