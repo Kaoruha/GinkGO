@@ -24,7 +24,7 @@ class MBar(MBase):
     __tablename__ = "bar"
 
     if GINKGOCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.Memory(),)
+        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
 
     code = Column(String(), default="ginkgo_test_code")
     open = Column(DECIMAL(20, 10), default=0)

@@ -21,7 +21,7 @@ class MTick(MBase):
     __tablename__ = "tick"
 
     if GINKGOCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.Memory(),)
+        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
 
     code = Column(String(), default="ginkgo_test_code")
     price = Column(DECIMAL(20, 10), default=0)

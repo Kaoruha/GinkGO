@@ -15,7 +15,7 @@ class MCodeOnTrade(MBase):
     __tablename__ = "code_on_trade"
 
     if GINKGOCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.Memory(),)
+        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
 
     code = Column(String(), default="ginkgo_test_code")
     code_name = Column(String(), default="ginkgo_test_name")
