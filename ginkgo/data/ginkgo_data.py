@@ -1,7 +1,7 @@
 import inspect
 import datetime
-import multiprocessing
 import pandas as pd
+import multiprocessing
 from ginkgo.data import DBDRIVER
 from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.libs import datetime_normalize
@@ -141,10 +141,18 @@ class GinkgoData(object):
         self.commit()
 
     def update_cn_codelist(self, date: str or datetime.datetime) -> None:
-        date = datetime_normalize(date)
         # 0 Check data in database
-        rs = self.get_codelist(date, MARKET_TYPES.CHINA)
-        if rs is not None:
+        date = datetime_normalize(date)
+        yesterday = date + datetime.timedelta(hours=-12)
+        tomorrow = date + datetime.timedelta(hours=12)
+        r = (
+            self.session.query(MCodeOnTrade)
+            .filter(MCodeOnTrade.market == MARKET_TYPES.CHINA)
+            .filter(MCodeOnTrade.timestamp > yesterday)
+            .filter(MCodeOnTrade.timestamp <= tomorrow)
+            .first()
+        )
+        if r is not None:
             gl.logger.debug(f"CodeList on {date} exist. No need to update.")
             return
 
@@ -198,31 +206,39 @@ class GinkgoData(object):
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         self.update_cn_codelist_period(start, today)
 
+    def update_cn_codelist_async_worker(
+        self,
+        todo_queue: multiprocessing.Queue,
+        done_queue: multiprocessing.Queue,
+    ) -> None:
+        while True:
+            try:
+                date = todo_queue.get(block=False, timeout=1)
+                self.update_cn_codelist(date)
+            except Exception as e:
+                break
+
     def update_cn_codelist_to_latest_entire_async(self) -> None:
         start = datetime_normalize("1990-12-15")
-        today = datetime.datetime.now()
-        epoch = 100
-        end = start + datetime.timedelta(days=epoch)
+        now = datetime.datetime.now()
         cpu_count = multiprocessing.cpu_count()
-        cpu_count = int(cpu_count * 1)
-        pool = multiprocessing.Pool(cpu_count)
-        while True:
-            if end > today:
-                end = today
-            pool.apply_async(
-                self.update_cn_codelist_period,
+        worker_count = int(cpu_count * 0.8)
+        todo_queue = multiprocessing.Queue()
+        done_queue = multiprocessing.Queue()
+        while start < now:
+            todo_queue.put(start)
+            start = start + datetime.timedelta(days=1)
+
+        for i in range(worker_count):
+            p = multiprocessing.Process(
+                target=self.update_cn_codelist_async_worker,
                 args=(
-                    start,
-                    end,
+                    todo_queue,
+                    done_queue,
                 ),
             )
-            print(f"{start} -- {end}")
-            start = end
-            if end >= today:
-                break
-            end += datetime.timedelta(days=epoch)
-        pool.close()
-        pool.join()
+            p.start()
+            p.join()
         gl.logger.info("CN CodeList update complete.")
 
     # Bar
@@ -368,18 +384,28 @@ class GinkgoData(object):
         if df.shape[0] >= 100:
             self.update_bar_to_latest_fast(code, frequency)
 
+    def update_bar_async_worker(
+        self, todo_queue: multiprocessing.Queue, done_queue: multiprocessing.Queue
+    ):
+        while True:
+            try:
+                date, code = todo_queue.get(block=False, timeout=1)
+                self.update_cn_codelist(date)
+            except Exception as e:
+                break
+
     def update_bar_to_latest_entire_async(self):
         # Prepare the async moduel
         cpu_count = multiprocessing.cpu_count()
-        cpu_count = int(cpu_count * 0.8)
-        pool = multiprocessing.Pool(cpu_count)
-        count = 0
+        worker_count = int(cpu_count * 0.8)
+        todo_queue = multiprocessing.Queue()
+        done_queue = multiprocessing.Queue()
         # Get Trade day
         trade_day = self.bs.fetch_cn_stock_trade_day()
         trade_day = trade_day[trade_day["is_trading_day"] == "1"]
-        trade_day = trade_day.iloc[0:100, :]
+        updated_code = []
+        # trade_day = trade_day.iloc[0:100, :]
         # Get CodeList from start to end
-        epoch = 100
         for i, day in trade_day.iterrows():
             date = day["timestamp"]
             code_list = self.get_codelist(date, MARKET_TYPES.CHINA)
@@ -388,8 +414,13 @@ class GinkgoData(object):
                     f"{date} get no code from database, please check your talbe."
                 )
                 continue
-            print(code_list)
-            print(type(code_list))
+            for i2, r2 in code_list.iterrows():
+                print(f"{date}  Cache: {len(updated_code)} TODO: {todo_queue.qsize()}")
+                code = r2.code
+                if code in updated_code:
+                    continue
+                updated_code.append(code)
+                todo_queue.put(code)
             # for i2, code in code_list.iterrows():
             #     print(f"{date} : {code.code}")
             #     # TODO Let Worker do.
