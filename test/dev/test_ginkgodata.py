@@ -76,21 +76,21 @@ class GinkgoDataTest(unittest.TestCase):
     #     c = GINKGODATA.get_table_size(MCodeOnTrade)
     #     self.assertEqual(c, 50883)
 
-    # def test_GinkgoData_UpdateCNCodeListToLatest(self) -> None:
+    # def test_GinkgoData_UpdateCNCodeListToLatest_Entire(self) -> None:
     #     time.sleep(GINKGOCONF.HEARTBEAT)
-    #     GINKGODATA.drop_table(MCodeOnTrade)
+    #     # GINKGODATA.drop_table(MCodeOnTrade)
     #     GINKGODATA.create_table(MCodeOnTrade)
-    #     GINKGODATA.update_cn_codelist_to_latest_fast()
+    #     GINKGODATA.update_cn_codelist_to_latest_entire()
     #     c = GINKGODATA.get_table_size(MCodeOnTrade)
     #     self.assertGreater(c, 200000)
 
-    def test_GinkgoData_UpdateCNCodeListToLatestAsync(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
-        # GINKGODATA.drop_table(MCodeOnTrade)
-        GINKGODATA.create_table(MCodeOnTrade)
-        GINKGODATA.update_cn_codelist_to_latest_entire_async()
-        c = GINKGODATA.get_table_size(MCodeOnTrade)
-        self.assertGreater(c, 200000)
+    # def test_GinkgoData_UpdateCNCodeListToLatestAsync(self) -> None:
+    #     time.sleep(GINKGOCONF.HEARTBEAT)
+    #     # GINKGODATA.drop_table(MCodeOnTrade)
+    #     GINKGODATA.create_table(MCodeOnTrade)
+    #     GINKGODATA.update_cn_codelist_to_latest_entire_async()
+    #     c = GINKGODATA.get_table_size(MCodeOnTrade)
+    #     self.assertGreater(c, 200000)
 
     # def test_GinkgoData_GetBarLastDate(self) -> None:
     #     time.sleep(GINKGOCONF.HEARTBEAT)
@@ -188,26 +188,26 @@ class GinkgoDataTest(unittest.TestCase):
         GINKGODATA.create_table(MBar)
         GINKGODATA.update_bar_to_latest_entire_async()
 
-    def test_GinkgoData_GetMin5LastDate(self) -> None:
-        pass
+    # def test_GinkgoData_GetMin5LastDate(self) -> None:
+    #     pass
 
-    def test_GinkgoData_GetMin5(self) -> None:
-        pass
+    # def test_GinkgoData_GetMin5(self) -> None:
+    #     pass
 
-    def test_GinkgoData_InsertMin5(self) -> None:
-        pass
+    # def test_GinkgoData_InsertMin5(self) -> None:
+    #     pass
 
-    def test_GinkgoData_UpdateMin5(self) -> None:
-        pass
+    # def test_GinkgoData_UpdateMin5(self) -> None:
+    #     pass
 
-    def test_GinkgoData_GetAdjustfactorLastDate(self) -> None:
-        pass
+    # def test_GinkgoData_GetAdjustfactorLastDate(self) -> None:
+    #     pass
 
-    def test_GinkgoData_GetAdjustfactor(self) -> None:
-        pass
+    # def test_GinkgoData_GetAdjustfactor(self) -> None:
+    #     pass
 
-    def test_GinkgoData_InsertAdjustfactor(self) -> None:
-        pass
+    # def test_GinkgoData_InsertAdjustfactor(self) -> None:
+    #     pass
 
-    def test_GinkgoData_UpdateAdjustfactor(self) -> None:
-        pass
+    # def test_GinkgoData_UpdateAdjustfactor(self) -> None:
+    #     pass

@@ -54,12 +54,15 @@ def main():
     path = []
     if args.base:
         path.append(origin_path)
+
     if args.db:
         t = origin_path + "/db"
         path.append(t)
+
     if args.dev:
         t = origin_path + "/dev"
         path.append(t)
+
     if args.data:
         t = origin_path + "/data"
         path.append(t)
