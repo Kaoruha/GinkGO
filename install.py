@@ -8,11 +8,11 @@ import platform
 # Run this after enter your env.
 # ==============================
 
-path_log="logs"
-path_db="db"
-path_pip="./requirements.txt"
-path_docker="config/docker-compose.yml"
-path_click="config/clickhouse_users.xml"
+path_log = "logs"
+path_db = "db"
+path_pip = "./requirements.txt"
+path_docker = "config/docker-compose.yml"
+path_click = "config/clickhouse_users.xml"
 path_gink_conf = "ginkgo/config/config.yml"
 path_gink_sec = "ginkgo/config/secure.yml"
 
@@ -29,31 +29,39 @@ print(f"CPU Cores: {os.cpu_count()}")
 docker_version = os.system("docker --version")
 compose_version = os.system("docker-compose --version")
 
+
 def bye():
     print("Bye. Wish to see you soon.")
     sys.exit()
 
 
 def blin(msg):
-    return "\033[05m"+msg+"\033[0m"
+    return "\033[05m" + msg + "\033[0m"
+
 
 def lightblue(msg):
-    return "\033[96m"+msg+"\033[0m"
+    return "\033[96m" + msg + "\033[0m"
+
 
 def blue(msg):
-    return "\033[94m"+msg+"\033[0m"
+    return "\033[94m" + msg + "\033[0m"
+
 
 def green(msg):
-    return "\033[92m"+msg+"\033[0m"
+    return "\033[92m" + msg + "\033[0m"
+
 
 def lightyellow(msg):
-    return "\033[93m"+msg+"\033[0m"
+    return "\033[93m" + msg + "\033[0m"
+
 
 def red(msg):
-    return "\033[91m"+msg+"\033[0m"
+    return "\033[91m" + msg + "\033[0m"
+
 
 def bg_red(msg):
-    return "\033[41m"+msg+"\033[0m"
+    return "\033[41m" + msg + "\033[0m"
+
 
 notice_info = "NOTICE"
 
@@ -61,7 +69,7 @@ notice_info = "NOTICE"
 env = os.environ.get("VIRTUAL_ENV")
 if env is None:
     print(f"[{blue(notice_info)}] You should active a {bg_red('virtual enviroment')}")
-    msg = f"[{blue(notice_info)}] To active, run: {green('source venv/bin/activate')}" #TODO change the command via system
+    msg = f"[{blue(notice_info)}] To active, run: {green('source venv/bin/activate')}"  # TODO change the command via system
     print(msg)
     bye()
 else:
@@ -70,7 +78,7 @@ else:
     print(f"ENV: {lightblue(env)}")
     ver = platform.python_version()
     print(f"Python : {lightblue(ver)}")
-    input(f"Press {green('ENTER')} to continuew")
+    input(f"Press {green('ENTER')} to continue")
 
     print("File Check:")
 
@@ -101,7 +109,6 @@ else:
     else:
         msg = f"[{red(' MISSING ')}] Ginkgo config file"
         print(msg)
-
 
     print("\n")
     result = input("Conitnue? Y/N  ")
