@@ -121,8 +121,8 @@ class GinkgoData(object):
         r = (
             self.session.query(MCodeOnTrade)
             .filter(MCodeOnTrade.market == market)
-            .filter(MCodeOnTrade.timestamp > yesterday)
-            .filter(MCodeOnTrade.timestamp <= tomorrow)
+            .filter(MCodeOnTrade.timestamp >= yesterday)
+            .filter(MCodeOnTrade.timestamp < tomorrow)
             .all()
         )
         if len(r) == 0:
@@ -150,22 +150,26 @@ class GinkgoData(object):
         r = (
             self.session.query(MCodeOnTrade)
             .filter(MCodeOnTrade.market == MARKET_TYPES.CHINA)
-            .filter(MCodeOnTrade.timestamp > yesterday)
-            .filter(MCodeOnTrade.timestamp <= tomorrow)
+            .filter(MCodeOnTrade.timestamp >= yesterday)
+            .filter(MCodeOnTrade.timestamp < tomorrow)
             .first()
         )
+
         if r is not None:
             gl.logger.debug(f"CodeList on {date} exist. No need to update.")
             return
 
         # 1. Get Code List From Bao
         rs: pd.DataFrame = self.bs.fetch_cn_stock_list(date)
+        gl.logger.debug(f"Try get code list on {date}")
         if rs.shape[0] == 0:
+            gl.logger.debug(f"{date} has no codelist.")
             return
 
         # 2. Set up list(ModelCodeOntrade)
         data = []
         date = str(date.date())
+        gl.logger.debug(f"Check the date again {date}")
         rs["tmp"] = None
         rs.loc[rs["trade_status"] == "1", "tmp"] = True
         rs.loc[rs["trade_status"] == "0", "tmp"] = False
@@ -213,9 +217,10 @@ class GinkgoData(object):
         todo_queue: multiprocessing.Queue,
         done_queue: multiprocessing.Queue,
     ) -> None:
-        gl.logger.info(f"Start Worker PID:{os.getpid()}")
+        pid = os.getpid()
+        gl.logger.info(f"Start Worker PID:{pid}")
         retry_count = 0
-        retry_limit = 10
+        retry_limit = 4
         while True:
             try:
                 date = todo_queue.get(block=False, timeout=1)
@@ -224,42 +229,46 @@ class GinkgoData(object):
                 retry_count = 0
             except Exception as e:
                 retry_count += 1
-                gl.logger.warn(f"Worker{os.getpid()} Retry: {retry_count}")
-                print(e)
-                time.sleep(1)
-                if retry_count > retry_limit:
+                gl.logger.warn(f"WorkerUpdateCode Retry: {retry_count}")
+                time.sleep(0.5)
+                if retry_count >= retry_limit:
                     break
-        gl.logger.info(f"Worker: {os.getpid()} Complete.")
+        gl.logger.info(f"WorkerUpdateCode: {os.getpid()} Complete.")
 
     def update_cn_codelist_to_latest_entire_async(self) -> None:
-        start = datetime_normalize("1990-12-15")
+        start = datetime_normalize("1990-12-19")
         now = datetime.datetime.now()
         cpu_count = multiprocessing.cpu_count()
         worker_count = int(cpu_count * 1.2)
+        worker_count = 6
         todo_queue = multiprocessing.Queue()
         done_queue = multiprocessing.Queue()
         pool = []
+        count = 0
         while start < now:
             todo_queue.put(start)
             start = start + datetime.timedelta(days=1)
+            count = count + 1
+            if count > 6:
+                break
 
-        gl.logger.info(f"Updating Code List with {worker_count} Worker.")
+            gl.logger.info(f"Updating Code List with {worker_count} Worker.")
 
-        for i in range(worker_count):
-            p = multiprocessing.Process(
-                target=self.update_cn_codelist_async_worker,
-                args=(
-                    todo_queue,
-                    done_queue,
-                ),
-            )
-            p.start()
-            pool.append(p)
+            for i in range(worker_count):
+                p = multiprocessing.Process(
+                    target=self.update_cn_codelist_async_worker,
+                    args=(
+                        todo_queue,
+                        done_queue,
+                    ),
+                )
+                p.start()
+                pool.append(p)
 
-        gl.logger.info(f"Wait for all worker done.")
-        # for p in pool:
-        #     p.join()
-        gl.logger.info("CN CodeList update complete.")
+    # gl.logger.info(f"Wait for all worker done.")
+    # for p in pool:
+    #     p.join()
+    # gl.logger.info("CN CodeList update complete.")
 
     # Bar
 
@@ -364,14 +373,20 @@ class GinkgoData(object):
         # TODO
         pass
 
-    def update_bar_to_latest_fast(self, code: str, frequency: FREQUENCY_TYPES):
-        start_date = self.get_bar_lastdate(code, frequency)
+    def update_bar_to_latest_fast(
+        self,
+        code: str,
+        frequency: FREQUENCY_TYPES,
+        start_date: str or datetime.datetime,
+    ):
+        start_date = datetime_normalize(start_date)
         today = datetime.datetime.now()
 
-        if start_date == today.date():
+        if start_date > today:
             return
 
         end_date = start_date + datetime.timedelta(days=180)
+
         if end_date > today:
             end_date = today
 
@@ -399,60 +414,91 @@ class GinkgoData(object):
             rs.append(item.to_dataframe())
 
         rs = pd.DataFrame(rs)
+        print(rs)
         self.insert_bar(rs)
 
         if df.shape[0] >= 100:
-            self.update_bar_to_latest_fast(code, frequency)
+            self.update_bar_to_latest_fast(code, frequency, end_date)
 
     def update_bar_async_worker(
-        self, todo_queue: multiprocessing.Queue, done_queue: multiprocessing.Queue
+        self,
+        todo_queue: multiprocessing.Queue,
+        done_queue: multiprocessing.Queue,
+        start_date: str or datetime.datetime,
     ):
         gl.logger.info(f"Start Worker PID:{os.getpid()}")
         retry_count = 0
-        retry_limit = 10
+        retry_limit = 4
         while True:
             try:
-                date, code = todo_queue.get(block=False, timeout=1)
-                self.update_cn_codelist(date)
+                code = todo_queue.get(block=False, timeout=1)
+                gl.logger.critical(f"Deal with {code} from {start_date}")
+                self.update_bar_to_latest_fast(code, FREQUENCY_TYPES.DAY, start_date)
                 retry_count = 0
+
             except Exception as e:
                 retry_count += 1
-                time.sleep(1)
-                if retry_count > retry_limit:
+                gl.logger.warn(f"WorkerUpdateBar Retry: {retry_count}")
+                time.sleep(0.5)
+                if retry_count >= retry_limit:
                     break
-        gl.logger.info(f"Worker: {os.getpid()} Complete.")
+        gl.logger.info(f"WorkerUpdateBar: {os.getpid()} Complete.")
 
     def update_bar_to_latest_entire_async(self):
         # Prepare the async moduel
         cpu_count = multiprocessing.cpu_count()
-        worker_count = int(cpu_count * 0.8)
-        todo_queue = multiprocessing.Queue()
-        done_queue = multiprocessing.Queue()
+        worker_count = int(cpu_count * 1.2)
+        worker_count = 1
         # Get Trade day
         trade_day = self.bs.fetch_cn_stock_trade_day()
         trade_day = trade_day[trade_day["is_trading_day"] == "1"]
-        updated_code = []
-        # trade_day = trade_day.iloc[0:100, :]
+        code_updated_dict = {}
+        trade_day = trade_day.iloc[0:10, :]
         # Get CodeList from start to end
         for i, day in trade_day.iterrows():
+            pool = []
+            todo_queue = multiprocessing.Queue()
+            done_queue = multiprocessing.Queue()
             date = day["timestamp"]
             code_list = self.get_codelist(date, MARKET_TYPES.CHINA)
+            print(date)
             if code_list is None:
                 gl.logger.warn(
                     f"{date} get no code from database, please check your talbe."
                 )
                 continue
             for i2, r2 in code_list.iterrows():
-                print(f"{date}  Cache: {len(updated_code)} TODO: {todo_queue.qsize()}")
                 code = r2.code
-                if code in updated_code:
-                    continue
-                updated_code.append(code)
-                todo_queue.put(code)
-            # for i2, code in code_list.iterrows():
-            #     print(f"{date} : {code.code}")
-            #     # TODO Let Worker do.
-        # Start update each code async
+                print(code)
+                date_cached = code_updated_dict.get(code, None)
+                if date_cached is None:
+                    # Haven't update yet.
+                    code_updated_dict[code] = datetime_normalize(date)
+                    todo_queue.put(code)
+                else:
+                    latest = self.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
+                    print(f"Cached: {date_cached}  Db: {latest}")
+                    if latest >= date_cached:
+                        code_updated_dict[code] = latest
+                        continue
+                    else:
+                        print(f"{code} in db is older, need update.")
+                        todo_queue.put(code)
+            gl.logger.info(f"Updating Code List with {worker_count} Worker.")
+            for index in range(worker_count):
+                p = multiprocessing.Process(
+                    target=self.update_bar_async_worker,
+                    args=(
+                        todo_queue,
+                        done_queue,
+                        date,
+                    ),
+                )
+                p.start()
+                pool.append(p)
+
+            for p in pool:
+                p.join()
 
     # Min5
 
