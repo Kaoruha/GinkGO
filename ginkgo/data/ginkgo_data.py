@@ -1,5 +1,7 @@
 import inspect
+import time
 import datetime
+import os
 import pandas as pd
 import multiprocessing
 from ginkgo.data import DBDRIVER
@@ -211,23 +213,37 @@ class GinkgoData(object):
         todo_queue: multiprocessing.Queue,
         done_queue: multiprocessing.Queue,
     ) -> None:
+        gl.logger.info(f"Start Worker PID:{os.getpid()}")
+        retry_count = 0
+        retry_limit = 10
         while True:
             try:
                 date = todo_queue.get(block=False, timeout=1)
                 self.update_cn_codelist(date)
+                # done_queue.put(date)
+                retry_count = 0
             except Exception as e:
-                break
+                retry_count += 1
+                gl.logger.warn(f"Worker{os.getpid()} Retry: {retry_count}")
+                print(e)
+                time.sleep(1)
+                if retry_count > retry_limit:
+                    break
+        gl.logger.info(f"Worker: {os.getpid()} Complete.")
 
     def update_cn_codelist_to_latest_entire_async(self) -> None:
         start = datetime_normalize("1990-12-15")
         now = datetime.datetime.now()
         cpu_count = multiprocessing.cpu_count()
-        worker_count = int(cpu_count * 0.8)
+        worker_count = int(cpu_count * 1.2)
         todo_queue = multiprocessing.Queue()
         done_queue = multiprocessing.Queue()
+        pool = []
         while start < now:
             todo_queue.put(start)
             start = start + datetime.timedelta(days=1)
+
+        gl.logger.info(f"Updating Code List with {worker_count} Worker.")
 
         for i in range(worker_count):
             p = multiprocessing.Process(
@@ -238,7 +254,11 @@ class GinkgoData(object):
                 ),
             )
             p.start()
-            p.join()
+            pool.append(p)
+
+        gl.logger.info(f"Wait for all worker done.")
+        # for p in pool:
+        #     p.join()
         gl.logger.info("CN CodeList update complete.")
 
     # Bar
@@ -387,12 +407,20 @@ class GinkgoData(object):
     def update_bar_async_worker(
         self, todo_queue: multiprocessing.Queue, done_queue: multiprocessing.Queue
     ):
+        gl.logger.info(f"Start Worker PID:{os.getpid()}")
+        retry_count = 0
+        retry_limit = 10
         while True:
             try:
                 date, code = todo_queue.get(block=False, timeout=1)
                 self.update_cn_codelist(date)
+                retry_count = 0
             except Exception as e:
-                break
+                retry_count += 1
+                time.sleep(1)
+                if retry_count > retry_limit:
+                    break
+        gl.logger.info(f"Worker: {os.getpid()} Complete.")
 
     def update_bar_to_latest_entire_async(self):
         # Prepare the async moduel
