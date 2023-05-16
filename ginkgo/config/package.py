@@ -1,5 +1,5 @@
 PACKAGENAME = "ginkgo"
-VERSION = "0.1.30"
+VERSION = "0.1.4"
 AUTHOR = "suny"
 EMAIL = "sun159753@gmail.com"
 DESC = "My quant lib"
