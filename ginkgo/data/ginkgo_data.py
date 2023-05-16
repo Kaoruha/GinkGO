@@ -530,8 +530,9 @@ class GinkgoData(object):
         # Get CodeList from start to end
         for i, day in trade_day.iterrows():
             pool = []
-            todo_queue = multiprocessing.Queue()
-            done_queue = multiprocessing.Queue()
+            m = multiprocessing.Manager()
+            todo_queue = m.Queue()
+            done_queue = m.Queue()
             date = day["timestamp"]
             code_list = self.get_codelist(date, MARKET_TYPES.CHINA)
             if code_list is None:
