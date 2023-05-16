@@ -133,4 +133,4 @@ elif "Linux" == str(platform.system()):
 else:
     os.system(f"docker-compose -f {path_docker} up -d")
 
-# os.system("python ./setup_auto.py")
+os.system("python ./setup_install.py")
