@@ -3,7 +3,8 @@
 """
 
 import os
-from ginkgo.config.setting import VERSION
+from ginkgo.config.package import VERSION
+
 
 dist_path = "./dist"
 

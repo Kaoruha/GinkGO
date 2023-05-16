@@ -1,9 +1,3 @@
-package_name: ginkgo
-version: 0.1.30
-author: suny
-email: sun159753@gmai.com
-description: my quant lib
-package_uri: url://
 heart_beat: .01
 
 # 开发/生产环境下相同的配置
