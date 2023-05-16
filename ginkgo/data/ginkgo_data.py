@@ -270,30 +270,6 @@ class GinkgoData(object):
             start += datetime.timedelta(days=1)
             todo_queue.put(start)
 
-        # Query Test
-        # num = 0
-        # start = datetime.datetime.now()
-        # ls = []
-        # while True:
-        #     d = datetime_normalize("1990-12-19")
-        #     result = (
-        #         self.session.query(MCodeOnTrade)
-        #         .filter(MCodeOnTrade.market == MARKET_TYPES.CHINA)
-        #         .filter(MCodeOnTrade.timestamp == d)
-        #         .first()
-        #     )
-        #     if result.uuid:
-        #         num += 1
-        #     now = datetime.datetime.now()
-        #     delta = now - start
-        #     if delta > datetime.timedelta(seconds=10):
-        #         start = now
-        #         ls.append(num)
-        #         num = 0
-
-        #     if len(ls) > 0:
-        #         print(f"{round(sum(ls) / len(ls), 1)}/s", end="\r")
-
         gl.logger.info(f"Updating Code List with {worker_count} Worker.")
 
         # Threading
