@@ -36,11 +36,10 @@
 
 ##### 0.1.5
   - Optimize Architecture.
-  - Remove GUI, Add CLI
+  - Add CLI
 
 ##### 0.1.4
   - Add Clickhouse Driver.
-  - Add GUI.
   - Add Trading Records.
   - Backtest Engine Done, Start ML Engine.
 
@@ -59,8 +58,10 @@
 ##### 0.1.23
   - Upgrade GinkgoMongo
   - - Refactoring of Async Methods
+
 ##### 0.1.22
   - Fix GinkgoMongo DF Copy() Bug.
+
 ##### 0.1.21
   - Complete SimMatcher UnitTest.
   - Complete T1Broker UnitTest.

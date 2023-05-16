@@ -1,4 +1,9 @@
-from ginkgo.data.sources.ginkgo_baostock import GinkgoBaoStock
+from ginkgo.data.ginkgo_data import GinkgoData
+from ginkgo.enums import FREQUENCY_TYPES
 
 
-bs = GinkgoBaoStock()
+gd = GinkgoData()
+
+
+t = gd.get_bar_lastdate("sh.000002", FREQUENCY_TYPES.DAY)
+print(t)

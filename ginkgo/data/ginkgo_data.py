@@ -159,16 +159,13 @@ class GinkgoData(object):
         if session:
             my_session = session
 
-        try:
-            result = (
-                my_session.query(MCodeOnTrade)
-                .filter(MCodeOnTrade.market == MARKET_TYPES.CHINA)
-                .filter(MCodeOnTrade.timestamp >= yesterday)
-                .filter(MCodeOnTrade.timestamp < tomorrow)
-                .first()
-            )
-        except Exception as e:
-            print(e)
+        result = (
+            my_session.query(MCodeOnTrade)
+            .filter(MCodeOnTrade.market == MARKET_TYPES.CHINA)
+            .filter(MCodeOnTrade.timestamp >= yesterday)
+            .filter(MCodeOnTrade.timestamp < tomorrow)
+            .first()
+        )
         gl.logger.info(f"In Process {os.getpid()} {date}")
 
         if result:
@@ -269,13 +266,9 @@ class GinkgoData(object):
         todo_queue = multiprocessing.Queue()
         done_queue = multiprocessing.Queue()
         pool = []
-        count = 0
         while start <= now:
             start += datetime.timedelta(days=1)
             todo_queue.put(start)
-            count += 1
-            if count > 10:
-                break
 
         # Query Test
         # num = 0
@@ -342,6 +335,7 @@ class GinkgoData(object):
     ) -> datetime.datetime:
         r = (
             self.session.query(MBar)
+            .filter(MBar.code == code)
             .filter(MBar.frequency == frequency)
             .order_by(MBar.timestamp.desc())
             .first()
@@ -440,6 +434,7 @@ class GinkgoData(object):
         frequency: FREQUENCY_TYPES,
         start_date: str or datetime.datetime,
         session=None,
+        bao=None,
     ):
         start_date = datetime_normalize(start_date)
         today = datetime.datetime.now()
@@ -447,7 +442,7 @@ class GinkgoData(object):
         if start_date > today:
             return
 
-        end_date = start_date + datetime.timedelta(days=180)
+        end_date = start_date + datetime.timedelta(days=3000)
 
         if end_date > today:
             end_date = today
@@ -461,14 +456,34 @@ class GinkgoData(object):
         if session:
             my_session = session
 
-        if frequency == FREQUENCY_TYPES.DAY:
-            df = self.bs.fetch_cn_stock_daybar(code, start_date, end_date)
-        else:
-            # TODO Deal with other type of bars
-            df = self.bs.fetch_cn_stock_daybar(code, start_date, end_date)
+        bs = self.bs
+        if bao:
+            bs = bao
 
+        gl.logger.critical(f"=============================")
+        try:
+            if frequency == FREQUENCY_TYPES.DAY:
+                df = bs.fetch_cn_stock_daybar(code, start_date, end_date)
+            else:
+                # TODO Deal with other type of bars
+                df = bs.fetch_cn_stock_daybar(code, start_date, end_date)
+        except Exception as e:
+            print(e)
+            print(type(e))
+
+        print(df.shape[0])
+
+        gl.logger.critical(f"{start_date} -- {end_date}")
         data = []
+        latest = self.get_bar_lastdate(code, frequency)
         for i, r in df.iterrows():
+            if datetime_normalize(r.date) <= latest:
+                continue
+
+            old = self.get_bar(code, r.date, r.date, frequency)
+            if old:
+                continue
+
             item = MBar()
             item.set(
                 r.code,
@@ -485,9 +500,12 @@ class GinkgoData(object):
 
         my_session.add_all(data)
         my_session.commit()
+        gl.logger.critical(
+            f"Insert {code} Daybar {start_date} -- {end_date}  {len(data)} rows."
+        )
 
-        if df.shape[0] >= 100:
-            self.update_bar_to_latest_fast(code, frequency, end_date, my_session)
+        if df.shape[0] >= 500:
+            self.update_bar_to_latest(code, frequency, end_date, session)
 
     def update_bar_async_worker(
         self,
@@ -501,7 +519,6 @@ class GinkgoData(object):
         while True:
             try:
                 code = todo_queue.get(block=False, timeout=1)
-                gl.logger.critical(f"Deal with {code} from {start_date}")
                 DB = GinkgoClickhouse(
                     user=GINKGOCONF.CLICKUSER,
                     pwd=GINKGOCONF.CLICKPWD,
@@ -509,9 +526,13 @@ class GinkgoData(object):
                     port=GINKGOCONF.CLICKPORT,
                     db=GINKGOCONF.CLICKDB,
                 )
+                BS = GinkgoBaoStock()
+                gl.logger.critical(f"Worker start updating {code}")
                 self.update_bar_to_latest(
-                    code, FREQUENCY_TYPES.DAY, start_date, db.session
+                    code, FREQUENCY_TYPES.DAY, start_date, DB.session, BS
                 )
+                gl.logger.critical(f"Worker Finished One {code}")
+
                 retry_count = 0
 
             except Exception as e:
@@ -525,12 +546,11 @@ class GinkgoData(object):
     def update_bar_to_latest_entire_async(self):
         # Prepare the async moduel
         cpu_count = multiprocessing.cpu_count()
-        worker_count = int(cpu_count * 1.2)
+        worker_count = int(cpu_count * 1)
         worker_count = 1
         # Get Trade day
         trade_day = self.bs.fetch_cn_stock_trade_day()
         trade_day = trade_day[trade_day["is_trading_day"] == "1"]
-        code_updated_dict = {}
         # Get CodeList from start to end
         for i, day in trade_day.iterrows():
             pool = []
@@ -545,36 +565,51 @@ class GinkgoData(object):
                 continue
             for i2, r2 in code_list.iterrows():
                 code = r2.code
-                print(code)
-                date_cached = code_updated_dict.get(code, None)
-                if date_cached is None:
-                    # Haven't update yet.
-                    code_updated_dict[code] = datetime_normalize(date)
+                latest = self.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
+                gl.logger.critical(f"{code} latest in db is {latest}")
+                if latest <= datetime_normalize(date):
                     todo_queue.put(code)
                 else:
-                    latest = self.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
-                    print(f"Cached: {date_cached}  Db: {latest}")
-                    if latest >= date_cached:
-                        code_updated_dict[code] = latest
-                        continue
-                    else:
-                        print(f"{code} in db is older, need update.")
-                        todo_queue.put(code)
+                    gl.logger.warn(f"{code} in db {latest} is new than {date}")
             gl.logger.info(f"Updating Code List with {worker_count} Worker.")
-            for index in range(worker_count):
-                p = multiprocessing.Process(
+
+            if todo_queue.qsize() == 0:
+                gl.logger.critical(f"{date} no code need update.")
+                continue
+
+            # # Multiprocessing
+            # for index in range(worker_count):
+            #     p = multiprocessing.Process(
+            #         target=self.update_bar_async_worker,
+            #         args=(
+            #             todo_queue,
+            #             done_queue,
+            #             date,
+            #         ),
+            #     )
+            #     p.start()
+            #     pool.append(p)
+
+            # for p in pool:
+            #     p.join()
+
+            for i in range(worker_count):
+                t = threading.Thread(
                     target=self.update_bar_async_worker,
                     args=(
                         todo_queue,
                         done_queue,
                         date,
                     ),
+                    daemon=True,
                 )
-                p.start()
-                pool.append(p)
+                t.start()
+                pool.append(t)
+            for t in pool:
+                t.join()
 
-            for p in pool:
-                p.join()
+            gl.logger.critical("Next Day.")
+            time.sleep(1)
 
 
 GINKGODATA = GinkgoData()
