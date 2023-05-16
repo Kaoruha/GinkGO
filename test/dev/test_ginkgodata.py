@@ -84,28 +84,10 @@ class GinkgoDataTest(unittest.TestCase):
     #     c = GINKGODATA.get_table_size(MCodeOnTrade)
     #     self.assertGreater(c, 200000)
 
-    # def test_GinkgoData_UpdateCNCodeListToLatestAsync(self) -> None:
-    #     GINKGODATA.drop_table(MCodeOnTrade)
-    #     count = 0
-    #     error_count = 0
-    #     start = datetime.datetime.now()
-    #     size = 0
-
-    #     while count < 20:
-    #         time.sleep(2)
-    #         GINKGODATA.create_table(MCodeOnTrade)
-    #         GINKGODATA.update_cn_codelist_to_latest_entire_async()
-    #         c = GINKGODATA.get_table_size(MCodeOnTrade)
-    #         gl.logger.critical(f"Table size: {c}")
-    #         count += 1
-    #         if c > size:
-    #             size = c
-    #             error_count += 1
-    #         now = datetime.datetime.now()
-    #         delta = now - start
-    #         gl.logger.critical(
-    #             f"Error {error_count-1} times in {delta}  {count} tries."
-    #         )
+    def test_GinkgoData_UpdateCNCodeListToLatestAsync(self) -> None:
+        GINKGODATA.drop_table(MCodeOnTrade)
+        GINKGODATA.create_table(MCodeOnTrade)
+        GINKGODATA.update_cn_codelist_to_latest_entire_async()
 
     # def test_GinkgoData_GetBarLastDate(self) -> None:
     #     time.sleep(GINKGOCONF.HEARTBEAT)
@@ -197,11 +179,11 @@ class GinkgoDataTest(unittest.TestCase):
     #     lastday = GINKGODATA.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
     #     self.assertGreater(datetime.timedelta(days=10), lastday - today)
 
-    def test_GinkgoData_UpdateBarEntireAsync(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
-        # GINKGODATA.drop_table(MBar)
-        GINKGODATA.create_table(MBar)
-        GINKGODATA.update_bar_to_latest_entire_async()
+    # def test_GinkgoData_UpdateBarEntireAsync(self) -> None:
+    #     time.sleep(GINKGOCONF.HEARTBEAT)
+    #     # GINKGODATA.drop_table(MBar)
+    #     GINKGODATA.create_table(MBar)
+    #     GINKGODATA.update_bar_to_latest_entire_async()
 
     # def test_GinkgoData_GetMin5LastDate(self) -> None:
     #     pass
