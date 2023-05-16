@@ -560,9 +560,10 @@ class GinkgoData(object):
             code_list = self.get_codelist(date, MARKET_TYPES.CHINA)
             if code_list is None:
                 gl.logger.warn(
-                    f"{date} get no code from database, please check your talbe."
+                    f"{date} get no code from database, please check your table."
                 )
                 continue
+<<<<<<< HEAD
             for i2, r2 in code_list.iterrows():
                 code = r2.code
                 latest = self.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
@@ -572,6 +573,15 @@ class GinkgoData(object):
                 else:
                     gl.logger.warn(f"{code} in db {latest} is new than {date}")
             gl.logger.info(f"Updating Code List with {worker_count} Worker.")
+=======
+            print(code_list)
+            # print(code_list)
+            # print(type(code_list))
+            # for i2, code in code_list.iterrows():
+            #     print(f"{date} : {code.code}")
+            #     # TODO Let Worker do.
+        # Start update each code async
+>>>>>>> a50adfb (Unit test update)
 
             if todo_queue.qsize() == 0:
                 gl.logger.critical(f"{date} no code need update.")
