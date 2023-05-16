@@ -12,6 +12,8 @@ from ginkgo.data.models import MCodeOnTrade, MOrder, MBase, MBar
 from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES, FREQUENCY_TYPES
 from ginkgo.data import GinkgoBaoStock
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
 
 
 class GinkgoData(object):
@@ -143,15 +145,23 @@ class GinkgoData(object):
         self.add_all(rs)
         self.commit()
 
-    def update_cn_codelist(self, date: str or datetime.datetime) -> None:
+    def update_cn_codelist(self, date: str or datetime.datetime, session=None) -> None:
         # 0 Check data in database
         date = datetime_normalize(date)
-        gl.logger.warn(f"UpdateCode in ; {date}")
         yesterday = date + datetime.timedelta(hours=-12)
         tomorrow = date + datetime.timedelta(hours=12)
+
+        # Support Multiprocessing
+        # Sqlalchemy has some problem when multi process visit.
+        # Sometimes the session will be wrong. THat can not get the right result.
+        # So the When running async, each process will hava a sqlalchemy instance. Or will use self.session
+        my_session = self.session
+        if session:
+            my_session = session
+
         try:
             result = (
-                self.session.query(MCodeOnTrade)
+                my_session.query(MCodeOnTrade)
                 .filter(MCodeOnTrade.market == MARKET_TYPES.CHINA)
                 .filter(MCodeOnTrade.timestamp >= yesterday)
                 .filter(MCodeOnTrade.timestamp < tomorrow)
@@ -159,21 +169,20 @@ class GinkgoData(object):
             )
         except Exception as e:
             print(e)
-        gl.logger.critical(f"Anything {date}")
+        gl.logger.info(f"In Process {os.getpid()} {date}")
 
         if result:
-            gl.logger.debug(f"CodeList on {date} exist. No need to update.")
+            gl.logger.warn(f"CodeList on {date} exist. No need to update.")
             return
 
         # 1. Get Code List From Bao
         df: pd.DataFrame = self.bs.fetch_cn_stock_list(date)
         gl.logger.debug(f"Try get code list on {date}")
-        print(df)
         if df.shape[0] == 0:
-            gl.logger.debug(f"{date} has no codelist.")
+            gl.logger.debug(f"{date} has no codelist. Return...")
             return
 
-        gl.logger.critical(f"Date:{date} >={yesterday} < {tomorrow}")
+        gl.logger.critical(f"Remote has Date:{date} >={yesterday} < {tomorrow}")
         # 2. Set up list(ModelCodeOntrade)
         data = []
         date = str(date.date())
@@ -196,9 +205,8 @@ class GinkgoData(object):
             data.append(m)
 
         # 3. insert_code_list()
-        for i in data:
-            self.add(i)
-            self.commit()
+        my_session.add_all(data)
+        my_session.commit()
         gl.logger.info(f"Insert {date} CodeList {len(data)} rows.")
 
     def update_cn_codelist_period(
@@ -229,10 +237,19 @@ class GinkgoData(object):
         gl.logger.info(f"Start Worker PID:{os.getpid()}")
         retry_count = 0
         retry_limit = 5
+
+        DB = GinkgoClickhouse(
+            user=GINKGOCONF.CLICKUSER,
+            pwd=GINKGOCONF.CLICKPWD,
+            host=GINKGOCONF.CLICKHOST,
+            port=GINKGOCONF.CLICKPORT,
+            db=GINKGOCONF.CLICKDB,
+        )
+
         while True:
             try:
                 date = todo_queue.get(block=False, timeout=1)
-                self.update_cn_codelist(date)
+                self.update_cn_codelist(date, DB.session)
                 retry_count = 0
             except Exception as e:
                 retry_count += 1
@@ -249,13 +266,16 @@ class GinkgoData(object):
 
         cpu_count = multiprocessing.cpu_count()
         worker_count = int(cpu_count * 1)
-        worker_count = 4
         todo_queue = multiprocessing.Queue()
         done_queue = multiprocessing.Queue()
         pool = []
+        count = 0
         while start <= now:
             start += datetime.timedelta(days=1)
             todo_queue.put(start)
+            count += 1
+            if count > 10:
+                break
 
         # Query Test
         # num = 0
@@ -283,33 +303,37 @@ class GinkgoData(object):
 
         gl.logger.info(f"Updating Code List with {worker_count} Worker.")
 
-        for i in range(worker_count):
-            t = threading.Thread(
-                target=self.update_cn_codelist_async_worker,
-                args=(
-                    todo_queue,
-                    done_queue,
-                ),
-                daemon=True,
-            )
-            t.start()
-            pool.append(t)
-        for t in pool:
-            t.join()
+        # Threading
 
         # for i in range(worker_count):
-        #     p = multiprocessing.Process(
+        #     t = threading.Thread(
         #         target=self.update_cn_codelist_async_worker,
         #         args=(
         #             todo_queue,
         #             done_queue,
         #         ),
+        #         daemon=True,
         #     )
-        #     p.start()
-        #     pool.append(p)
+        #     t.start()
+        #     pool.append(t)
+        # for t in pool:
+        #     t.join()
 
-        # for p in pool:
-        #     p.join()
+        # Multiprocessing
+
+        for i in range(worker_count):
+            p = multiprocessing.Process(
+                target=self.update_cn_codelist_async_worker,
+                args=(
+                    todo_queue,
+                    done_queue,
+                ),
+            )
+            p.start()
+            pool.append(p)
+
+        for p in pool:
+            p.join()
 
     # Bar
 
@@ -410,15 +434,12 @@ class GinkgoData(object):
         self.add_all(rs)
         self.commit()
 
-    def update_bar_to_latest_entire(self, code: str):
-        # TODO
-        pass
-
-    def update_bar_to_latest_fast(
+    def update_bar_to_latest(
         self,
         code: str,
         frequency: FREQUENCY_TYPES,
         start_date: str or datetime.datetime,
+        session=None,
     ):
         start_date = datetime_normalize(start_date)
         today = datetime.datetime.now()
@@ -434,11 +455,19 @@ class GinkgoData(object):
         end_date = end_date.strftime("%Y-%m-%d")
 
         gl.logger.info(f"Updating {code} FROM {start_date} to {end_date}")
+
+        # Support Multiprocessing
+        my_session = self.session
+        if session:
+            my_session = session
+
         if frequency == FREQUENCY_TYPES.DAY:
             df = self.bs.fetch_cn_stock_daybar(code, start_date, end_date)
         else:
+            # TODO Deal with other type of bars
             df = self.bs.fetch_cn_stock_daybar(code, start_date, end_date)
-        rs = []
+
+        data = []
         for i, r in df.iterrows():
             item = MBar()
             item.set(
@@ -452,14 +481,13 @@ class GinkgoData(object):
                 r.date,
             )
             item.set_source(SOURCE_TYPES.BAOSTOCK)
-            rs.append(item.to_dataframe())
+            data.append(item)
 
-        rs = pd.DataFrame(rs)
-        print(rs)
-        self.insert_bar(rs)
+        my_session.add_all(data)
+        my_session.commit()
 
         if df.shape[0] >= 100:
-            self.update_bar_to_latest_fast(code, frequency, end_date)
+            self.update_bar_to_latest_fast(code, frequency, end_date, my_session)
 
     def update_bar_async_worker(
         self,
@@ -474,7 +502,16 @@ class GinkgoData(object):
             try:
                 code = todo_queue.get(block=False, timeout=1)
                 gl.logger.critical(f"Deal with {code} from {start_date}")
-                self.update_bar_to_latest_fast(code, FREQUENCY_TYPES.DAY, start_date)
+                DB = GinkgoClickhouse(
+                    user=GINKGOCONF.CLICKUSER,
+                    pwd=GINKGOCONF.CLICKPWD,
+                    host=GINKGOCONF.CLICKHOST,
+                    port=GINKGOCONF.CLICKPORT,
+                    db=GINKGOCONF.CLICKDB,
+                )
+                self.update_bar_to_latest(
+                    code, FREQUENCY_TYPES.DAY, start_date, db.session
+                )
                 retry_count = 0
 
             except Exception as e:
