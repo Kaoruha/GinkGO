@@ -9,6 +9,7 @@ The EventDrivenBacktest class will provide a way to run an event-driven backtest
 
 - Generating reports and metrics related to the performance of the backtesting system (By portfolio).
 """
+
 from time import sleep
 from queue import Queue, Empty
 from threading import Thread
@@ -38,14 +39,16 @@ class EventEngine(BaseEngine):
         while self._active:
             try:
                 # Get a event from events_queue
-                event: EventBase = self.queue.get(block=True, timeout=1)
+                event: EventBase = self.queue.get(block=True, timeout=0.5)
                 # Pass the event to handler
                 self._process(event)
+                count = 0
             except Empty:
-                pass
+                print("No Event in Queue.")
 
             # Break for a while
-            sleep(GINKGOCONF.HEARTBEAT)
+            sleep(2)
+            # sleep(GINKGOCONF.HEARTBEAT)
 
     def timer_loop(self) -> None:
         """
@@ -63,6 +66,7 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).start()
         self._main_thread.start()
         self._timer_thread.start()
+        gl.logger.critical("Engine start.")
         # TODO Log
 
     def stop(self) -> None:
@@ -72,6 +76,9 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).stop()
         self._main_thread.join()
         self._timer_thread.join()
+
+    def next(self) -> None:
+        pass
 
     def put(self, event: EventBase) -> None:
         self._queue.put(Event)
