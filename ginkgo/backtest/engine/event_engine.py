@@ -22,7 +22,7 @@ from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class EventEngine(BaseEngine):
-    def __init__(self, interval: int = 1) -> None:
+    def __init__(self, interval: int = 1, *args, **kwargs) -> None:
         super(EventEngine, self).__init__(*args, **kwargs)
         self._interval: int = interval
         self._main_thread: Thread = Thread(target=self.main_loop)
@@ -39,7 +39,7 @@ class EventEngine(BaseEngine):
         while self._active:
             try:
                 # Get a event from events_queue
-                event: EventBase = self.queue.get(block=True, timeout=0.5)
+                event: EventBase = self._queue.get(block=True, timeout=0.5)
                 # Pass the event to handler
                 self._process(event)
                 count = 0
@@ -57,7 +57,7 @@ class EventEngine(BaseEngine):
         while self._active:
             for event in self._timer_event:
                 self.put(event)
-            sleep(interval)
+            sleep(self._interval)
 
     def start(self) -> None:
         """
