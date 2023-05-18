@@ -87,11 +87,10 @@ class EventEngine(BaseEngine):
 
     def register(self, type: EVENT_TYPES, handler: callable) -> None:
         if type in self._handlers:
-            l: list = self._handlers[type]
             if handler not in self._handlers[type]:
-                l.append(handler)
+                self._handlers[type].append(handler)
             else:
-                gl.logger.warn(f"Handler Exists.")
+                gl.logger.debug(f"Handler Exists.")
         else:
             self._handlers[type]: list = []
             self._handlers[type].append(handler)
