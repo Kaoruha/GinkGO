@@ -10,6 +10,7 @@ The `Portfolio` class is responsible for managing the positions and capital for 
 - Generating reports and metrics related to the performance of the portfolio. The reports also contain charts.
 """
 
-class BasePortfolio():
+
+class BasePortfolio:
     def init(self):
         pass
