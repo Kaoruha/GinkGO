@@ -35,6 +35,7 @@ class EVENT_TYPES(EnumBase):
     POSITIONUPDATE = 6
     CAPITALUPDATE = 7
     NEWSRECIEVE = 8
+    NEXTPHASE = 9
 
 
 class PRICEINFO_TYPES(EnumBase):
