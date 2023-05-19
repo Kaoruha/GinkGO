@@ -7,12 +7,12 @@ from ginkgo.libs.ginkgo_math import cal_fee
 
 
 class BasePortfolio(object):
-    def init(self, *args, **kwargs) -> None:
-        self.name = "Fucking World"
+    def __init__(self, *args, **kwargs) -> None:
+        self.name: str = "Fucking World"
         self.cash: float = 100000
         self.freeze: float = 0
         self.position: dict = {}
-        self.tax_rate = 0.03
+        self.tax_rate: float = 0.03
 
     def _check_position(self, code: str) -> bool:
         if code in self.position.keys():
@@ -27,13 +27,13 @@ class BasePortfolio(object):
         o.set(
             code,
             DIRECTION_TYPES.LONG,
-            ORDERSTATUS_TYPES.LIMITORDER,
+            ORDER_TYPES.LIMITORDER,
             volume,
             limit_price,
             timestamp,
         )
         money = limit_price * volume
-        money += cal_fee(DIRECTION_TYPES.LONG, money)
+        money += cal_fee(DIRECTION_TYPES.LONG, money, self.tax_rate)
 
         if money < self.cash:
             self.cash -= money
@@ -162,7 +162,7 @@ class BasePortfolio(object):
             return
 
         money = price * volume
-        fee = cal_fee(DIRECTION_TYPES.SHORT, money)
+        fee = cal_fee(DIRECTION_TYPES.SHORT, money, self.tax_rate)
         self.cash = self.cash + money - fee
         self.position[code].sold(price, volume)
         if self.position[code].volume == 0:
