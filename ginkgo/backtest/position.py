@@ -3,7 +3,7 @@ from ginkgo.libs import GINKGOLOGGER as gl
 
 
 class Position(Base):
-    def __init__(self, code="", price=0.0, volume=0 * args, **kwargs):
+    def __init__(self, code="", price=0.0, volume=0, *args, **kwargs):
         super(Position, self).__init__(*args, **kwargs)
         self.code = ""
         self.price = 0

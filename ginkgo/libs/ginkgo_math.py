@@ -1,6 +1,9 @@
-def cal_fee(self, direction: DIRECTION_TYPES, price: float) -> float:
+from ginkgo.enums import DIRECTION_TYPES
+
+
+def cal_fee(direction: DIRECTION_TYPES, price: float, tax_rate: float) -> float:
     # 佣金
-    fee = price * self.tax_rate
+    fee = price * tax_rate
     if fee < 5:
         fee = 5
     # 印花税

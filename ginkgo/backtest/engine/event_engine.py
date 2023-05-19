@@ -9,7 +9,7 @@ The EventDrivenBacktest class will provide a way to run an event-driven backtest
 
 - Generating reports and metrics related to the performance of the backtesting system (By portfolio).
 """
-
+import datetime
 from time import sleep
 from queue import Queue, Empty
 from threading import Thread
@@ -44,7 +44,7 @@ class EventEngine(BaseEngine):
                 self._process(event)
                 count = 0
             except Empty:
-                print("No Event in Queue.")
+                print(f"No Event in Queue. {datetime.datetime.now()}")
 
             # Break for a while
             sleep(2)
