@@ -551,7 +551,7 @@ class GinkgoData(object):
                 # Check if done update this time
                 if code in updated_dict.keys():
                     if datetime_normalize(date) <= updated_dict[code]:
-                        gl.logger.debug(f"{code} already updated.")
+                        gl.logger.debug(f"{date} {code} already updated.")
                         continue
 
                 latest = self.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
