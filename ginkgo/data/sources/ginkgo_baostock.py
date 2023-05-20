@@ -198,4 +198,5 @@ class GinkgoBaoStock(object):
         while (rs_factor.error_code == "0") & rs_factor.next():
             rs_list.append(rs_factor.get_row_data())
         result_factor = pd.DataFrame(rs_list, columns=rs_factor.fields)
+
         return result_factor

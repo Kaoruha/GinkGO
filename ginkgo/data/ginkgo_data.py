@@ -527,6 +527,7 @@ class GinkgoData(object):
         # Get Trade day
         trade_day = self.bs.fetch_cn_stock_trade_day()
         trade_day = trade_day[trade_day["is_trading_day"] == "1"]
+        updated_dict = {}
         # Get CodeList from start to end
         for i, day in trade_day.iterrows():
             pool = []
@@ -540,13 +541,25 @@ class GinkgoData(object):
                     f"{date} get no code from database, please check your table."
                 )
                 continue
+
             for i2, r2 in code_list.iterrows():
                 code = r2.code
+                # Skip bj
+                if code.startswith("bj.", 0, 3):
+                    continue
+
+                # Check if done update this time
+                if code in updated_dict.keys():
+                    if datetime_normalize(date) <= updated_dict[code]:
+                        gl.logger.critical(f"{code} already updated.")
+                        continue
+
                 latest = self.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
                 gl.logger.critical(f"{code} latest in db is {latest}")
                 if latest <= datetime_normalize(date):
                     todo_queue.put(code)
                 else:
+                    updated_dict[code] = latest
                     gl.logger.warn(f"{code} in db {latest} is new than {date}")
             gl.logger.info(f"Updating Code List with {worker_count} Worker.")
 
