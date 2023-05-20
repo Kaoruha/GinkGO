@@ -551,11 +551,11 @@ class GinkgoData(object):
                 # Check if done update this time
                 if code in updated_dict.keys():
                     if datetime_normalize(date) <= updated_dict[code]:
-                        gl.logger.critical(f"{code} already updated.")
+                        gl.logger.debug(f"{code} already updated.")
                         continue
 
                 latest = self.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
-                gl.logger.critical(f"{code} latest in db is {latest}")
+                gl.logger.debug(f"{code} latest in db is {latest}")
                 if latest <= datetime_normalize(date):
                     todo_queue.put(code)
                 else:
@@ -564,7 +564,7 @@ class GinkgoData(object):
             gl.logger.info(f"Updating Code List with {worker_count} Worker.")
 
             if todo_queue.qsize() == 0:
-                gl.logger.critical(f"{date} no code need update.")
+                gl.logger.debug(f"{date} no code need update.")
                 continue
 
             # # Multiprocessing

@@ -52,6 +52,7 @@ class SOURCE_TYPES(EnumBase):
     BAOSTOCK = 4
     AKSHARE = 5
     YAHOO = 6
+    PORTFOLIO = 7
 
 
 class DIRECTION_TYPES(EnumBase):

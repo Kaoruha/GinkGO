@@ -23,6 +23,7 @@ class Order(Base):
     ) -> None:
         super(Order, self).__init__(*args, **kwargs)
         self.set(code, direction, type, volume, limit_price, timestamp, uuid)
+        self._status = ORDERSTATUS_TYPES.NEW
 
     @singledispatchmethod
     def set(self) -> None:

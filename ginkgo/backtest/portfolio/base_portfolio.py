@@ -10,7 +10,7 @@ class BasePortfolio(object):
     def __init__(self, *args, **kwargs) -> None:
         self.name: str = "Fucking World"
         self.cash: float = 100000
-        self.freeze: float = 0
+        self.frozen: float = 0
         self.position: dict = {}
         self.tax_rate: float = 0.03
 
@@ -37,14 +37,16 @@ class BasePortfolio(object):
 
         if money < self.cash:
             self.cash -= money
-            self.freeze += money
+            self.frozen += money
             gl.logger.debug(
                 f"Port {self.name} prebuy {code}:{volume} with limit {limit_price} on {timestamp}"
             )
             return o
 
         else:
-            gl.logger.critical(f"Can not afford {code} with Price: {price} {volume}.")
+            gl.logger.critical(
+                f"Only have Cash: {self.cash}. Can not afford {code} with Price: {limit_price} * {volume}."
+            )
             return None
 
         # TODO Backtest System need to rewirte this func to put the event
@@ -54,21 +56,25 @@ class BasePortfolio(object):
         self, code: str, money: float, timestamp: str or datetime.datetime
     ) -> Order:
         if money > self.cash:
-            gl.logger.critical(f"Can not afford {code} with Price: {price} {volume}.")
+            gl.logger.critical(
+                f"Only have Cash: {self.cash}. Can not afford {code} with {money}."
+            )
             return None
 
         o = Order()
         o.set(
             code,
             DIRECTION_TYPES.LONG,
-            ORDERSTATUS_TYPES.MARKETORDER,
+            ORDER_TYPES.MARKETORDER,
             0,
             money,
             timestamp,
         )
         gl.logger.debug(
-            f"Port {self.name} prebuy {code}:{volume} with market on {timestamp}"
+            f"Portfolio {self.name} prebuy {code} with {money} at marketprice on {timestamp}"
         )
+        self.cash -= money
+        self.frozen += money
         return o
 
         # TODO Backtest System need to rewirte this func to put the event
@@ -81,6 +87,8 @@ class BasePortfolio(object):
         volume: int,
         timestamp: str or datetime.datetime,
     ) -> Order:
+        print("===========================")
+        print(volume)
         if not self._check_position(code):
             gl.logger.critical(f"Portfolio:{self.name} do not have Position:{code}")
             return
@@ -94,6 +102,7 @@ class BasePortfolio(object):
                 f"Portfolio:{self.name} just have {self.position[code].volume}. Adjust {volume} ==>> {self.position[code].volume}"
             )
             volume = self.position[code].volume
+
         o = Order()
         o.set(
             code,
@@ -103,9 +112,11 @@ class BasePortfolio(object):
             limit_price,
             timestamp,
         )
+        o.set_source(SOURCE_TYPES.PORTFOLIO)
         gl.logger.debug(
             f"Port {self.name} presell {code}:{volume} with limit {limit_price} on {timestamp}"
         )
+        self.position[code].pre_sell(volume)
         return o
 
     def pre_sell_market(
@@ -131,30 +142,31 @@ class BasePortfolio(object):
             0,
             timestamp,
         )
-        gl.logger.debug(
-            f"Port {self.name} presell {code}:{volume} with limit {limit_price} on {timestamp}"
-        )
+        gl.logger.debug(f"Port {self.name} presell {code}:{volume} on {timestamp}")
+        self.position[code].pre_sell(volume)
         return o
 
     def buy_done(
         self, code: str, price: float, volume: int, freezed: float, remain: float
     ):
-        if freezed > self.freeze:
+        if freezed > self.frozen:
             return
+
         if self._check_position(code):
             self.position[code].buy_done(price, volume)
-            self.cash += freezed
-            self.freeze -= freezed
+            self.cash += remain
+            self.frozen -= freezed
 
         else:
+            gl.logger.critical(f"do not have {code}")
             self.position[code] = Position(code=code, price=price, volume=volume)
-            self.cash += freezed
-            self.freeze -= freezed
+            self.cash += remain
+            self.frozen -= freezed
 
-    def buy_cancel(self, code: str, freezed: float):
-        if freezed > self.freeze:
+    def buy_cancel(self, freezed: float):
+        if freezed > self.frozen:
             return
-        self.freeze -= freezed
+        self.frozen -= freezed
         self.cash += freezed
 
     def sold(self, code: str, price: float, volume: int):
