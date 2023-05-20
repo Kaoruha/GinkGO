@@ -120,6 +120,9 @@ class GinkgoBaoStock(object):
                 frequency="d",
                 adjustflag="3",
             )
+
+        if rs.error_code == "10004011":
+            return pd.DataFrame()
         data_list = []
         while (rs.error_code == "0") & rs.next():
             data_list.append(rs.get_row_data())
