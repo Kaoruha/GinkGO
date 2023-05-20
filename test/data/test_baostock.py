@@ -82,32 +82,32 @@ class BaoStockTest(unittest.TestCase):
         print(r)
         self.assertEqual(r.shape[0], 3)
 
-    # def test_Bao_GetTodaysDaybar(self) -> None:
-    #     sleep(GINKGOCONF.HEARTBEAT)
-    #     fail_count = 0
-    #     fail_limit = 10
-    #     date = datetime.datetime.now() + datetime.timedelta(days=-2)
-    #     while fail_count <= fail_limit:
-    #         stock_list = self.bs.fetch_cn_stock_list(date.strftime("%Y-%m-%d"))
-    #         if stock_list.shape[0] == 0:
-    #             fail_count += 1
-    #             date = date + datetime.timedelta(days=-1)
-    #             print(date, end="\r")
-    #         else:
-    #             break
-    #         sleep(0.1)
-    #     self.assertGreater(stock_list.shape[0], 0)
-    #     self.assertGreater(fail_limit, fail_count)
-    #     success_count = 0
-    #     success_limit = 2
-    #     for i in stock_list.iterrows():
-    #         item = i[1]
-    #         code = item.code
-    #         datef = date.strftime("%Y-%m-%d")
-    #         day = self.bs.fetch_cn_stock_daybar(code, datef, datef)
-    #         sys.stdout.write("\033[K")
-    #         if day.shape[0] > 0:
-    #             success_count += 1
-    #         print(f"{code}: {success_count}", end="\r")
-    #         if success_count >= success_limit:
-    #             break
+    def test_Bao_GetTodaysDaybar(self) -> None:
+        sleep(GINKGOCONF.HEARTBEAT)
+        fail_count = 0
+        fail_limit = 10
+        date = datetime.datetime.now() + datetime.timedelta(days=-2)
+        while fail_count <= fail_limit:
+            stock_list = self.bs.fetch_cn_stock_list(date.strftime("%Y-%m-%d"))
+            if stock_list.shape[0] == 0:
+                fail_count += 1
+                date = date + datetime.timedelta(days=-1)
+                print(date, end="\r")
+            else:
+                break
+            sleep(0.1)
+        self.assertGreater(stock_list.shape[0], 0)
+        self.assertGreater(fail_limit, fail_count)
+        success_count = 0
+        success_limit = 2
+        for i in stock_list.iterrows():
+            item = i[1]
+            code = item.code
+            datef = date.strftime("%Y-%m-%d")
+            day = self.bs.fetch_cn_stock_daybar(code, datef, datef)
+            sys.stdout.write("\033[K")
+            if day.shape[0] > 0:
+                success_count += 1
+            print(f"{code}: {success_count}", end="\r")
+            if success_count >= success_limit:
+                break
