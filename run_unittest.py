@@ -56,8 +56,10 @@ def main():
         path.append(origin_path)
 
     if args.db:
-        t = origin_path + "/db"
-        path.append(t)
+        result = input("DB Moduel may erase the database, Conitnue? Y/N  ")
+        if result.upper() != "Y":
+            t = origin_path + "/db"
+            path.append(t)
 
     if args.dev:
         t = origin_path + "/dev"
