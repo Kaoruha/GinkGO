@@ -1,6 +1,7 @@
 import baostock as bs
 import pandas as pd
 import datetime
+from time import sleep
 
 
 class GinkgoBaoStock(object):
@@ -129,6 +130,23 @@ class GinkgoBaoStock(object):
                 frequency="d",
                 adjustflag="3",
             )
+            print(rs.error_code)
+            print(rs.error_msg)
+
+        if rs.error_code == "10002007":
+            sleep(1)
+            self.logout()
+            self.login()
+            rs = bs.query_history_k_data_plus(
+                code,
+                "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST",
+                start_date=date_start,
+                end_date=date_end,
+                frequency="d",
+                adjustflag="3",
+            )
+            print(rs.error_code)
+            print(rs.error_msg)
 
         if rs.error_code == "10004011":
             return pd.DataFrame()
