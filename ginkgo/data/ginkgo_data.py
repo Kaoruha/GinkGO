@@ -576,38 +576,39 @@ class GinkgoData(object):
             update_count += todo_queue.qsize()
             gl.logger.info(f"Updating Code List with {worker_count} Worker.")
             gl.logger.warn(f"Updated {update_count} times.")
-            # # Multiprocessing
-            # for index in range(worker_count):
-            #     p = multiprocessing.Process(
-            #         target=self.update_bar_async_worker,
-            #         args=(
-            #             todo_queue,
-            #             done_queue,
-            #             date,
-            #         ),
-            #     )
-            #     p.start()
-            #     pool.append(p)
 
-            # for p in pool:
-            #     p.join()
-
-            for i in range(worker_count):
-                t = threading.Thread(
+            # Multiprocessing
+            for index in range(worker_count):
+                p = multiprocessing.Process(
                     target=self.update_bar_async_worker,
                     args=(
                         todo_queue,
                         done_queue,
                         date,
                     ),
-                    daemon=True,
                 )
-                t.start()
-                pool.append(t)
-            for t in pool:
-                t.join()
+                p.start()
+                pool.append(p)
 
-            gl.logger.critical("Next Day.")
+            for p in pool:
+                p.join()
+
+            # for i in range(worker_count):
+            #     t = threading.Thread(
+            #         target=self.update_bar_async_worker,
+            #         args=(
+            #             todo_queue,
+            #             done_queue,
+            #             date,
+            #         ),
+            #         daemon=True,
+            #     )
+            #     t.start()
+            #     pool.append(t)
+            # for t in pool:
+            #     t.join()
+
+            # gl.logger.critical("Next Day.")
             time.sleep(1)
 
 
