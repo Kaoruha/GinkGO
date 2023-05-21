@@ -437,12 +437,17 @@ class GinkgoData(object):
             bs = bao
 
         gl.logger.critical(f"=============================")
+        gl.logger.critical(f"============================")
         try:
+            gl.logger.critical(f"==========================")
+            gl.logger.debug(f"Trying to get {code} from {start_date} to {end_date}")
             if frequency == FREQUENCY_TYPES.DAY:
                 df = bs.fetch_cn_stock_daybar(code, start_date, end_date)
             else:
                 # TODO Deal with other type of bars
+                gl.logger.critical("TODO support other type bars")
                 df = bs.fetch_cn_stock_daybar(code, start_date, end_date)
+            gl.logger.critical(f"=========================")
         except Exception as e:
             print(e)
             print(type(e))
@@ -527,13 +532,15 @@ class GinkgoData(object):
         # Get Trade day
         trade_day = self.bs.fetch_cn_stock_trade_day()
         trade_day = trade_day[trade_day["is_trading_day"] == "1"]
+        # trade_day = trade_day.iloc[3200:, :]
         updated_dict = {}
         # Get CodeList from start to end
+        update_count = 0
+        m = multiprocessing.Manager()
+        todo_queue = m.Queue()
+        done_queue = m.Queue()
         for i, day in trade_day.iterrows():
             pool = []
-            m = multiprocessing.Manager()
-            todo_queue = m.Queue()
-            done_queue = m.Queue()
             date = day["timestamp"]
             code_list = self.get_codelist(date, MARKET_TYPES.CHINA)
             if code_list is None:
@@ -561,12 +568,14 @@ class GinkgoData(object):
                 else:
                     updated_dict[code] = latest
                     gl.logger.warn(f"{code} in db {latest} is new than {date}")
-            gl.logger.info(f"Updating Code List with {worker_count} Worker.")
 
             if todo_queue.qsize() == 0:
                 gl.logger.debug(f"{date} no code need update.")
                 continue
 
+            update_count += todo_queue.qsize()
+            gl.logger.info(f"Updating Code List with {worker_count} Worker.")
+            gl.logger.warn(f"Updated {update_count} times.")
             # # Multiprocessing
             # for index in range(worker_count):
             #     p = multiprocessing.Process(

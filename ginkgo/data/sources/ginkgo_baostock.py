@@ -80,6 +80,8 @@ class GinkgoBaoStock(object):
         if isinstance(date, datetime.datetime):
             date = date.strftime("%Y-%m-%d")
         rs = bs.query_all_stock(day=date)
+        print(rs.error_code)
+        print(rs.error_msg)
         if rs.error_code == "10001001":
             self.login()
             rs = bs.query_all_stock(day=date)
@@ -97,11 +99,16 @@ class GinkgoBaoStock(object):
         date_end: str or datetime.datetime,
         adjustflag: str = "3",
     ):
+        print("Function IN...")
         if isinstance(date_start, datetime.datetime):
             date_start = date_start.strftime("%Y-%m-%d")
         if isinstance(date_end, datetime.datetime):
             date_en = date_end.strftime("%Y-%m-%d")
 
+        print("Date Transformed.")
+        # import rpdb
+
+        # rpdb.set_trace()
         rs = bs.query_history_k_data_plus(
             code,
             "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST",
@@ -110,6 +117,8 @@ class GinkgoBaoStock(object):
             frequency="d",
             adjustflag="3",
         )
+        print(rs.error_code)
+        print(rs.error_msg)
         if rs.error_code == "10001001":
             self.login()
             rs = bs.query_history_k_data_plus(
