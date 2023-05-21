@@ -68,6 +68,7 @@
 #             self.assertEqual(s.direction, item["direction"])
 #             self.assertEqual(s.source, item["source"])
 
+
 # def test_Signal_SetFromModel(self) -> None:
 #     time.sleep(GINKGOCONF.HEARTBEAT)
 #     for item in self.params:
