@@ -1,8 +1,4 @@
 import unittest
-
-# import time
-# import datetime
-# import pandas as pd
 from ginkgo.libs import GINKGOLOGGER as gl
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.backtest.order import Order
@@ -11,12 +7,6 @@ from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.backtest.portfolio import BasePortfolio
 from ginkgo.backtest.position import Position
 from ginkgo.libs.ginkgo_math import cal_fee
-
-# from ginkgo.backtest.signal import Signal
-# from ginkgo.data.models import MSignal
-# from ginkgo.libs.ginkgo_conf import GINKGOCONF
-# from ginkgo.data.ginkgo_data import GINKGODATA
-# from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
 
 class PortfolioBaseTest(unittest.TestCase):
