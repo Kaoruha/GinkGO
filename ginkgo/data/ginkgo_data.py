@@ -532,7 +532,7 @@ class GinkgoData(object):
         # Get Trade day
         trade_day = self.bs.fetch_cn_stock_trade_day()
         trade_day = trade_day[trade_day["is_trading_day"] == "1"]
-        # trade_day = trade_day.iloc[3200:, :]
+        # trade_day = trade_day.iloc[6200:, :]
         updated_dict = {}
         # Get CodeList from start to end
         update_count = 0
@@ -608,8 +608,8 @@ class GinkgoData(object):
             # for t in pool:
             #     t.join()
 
-            # gl.logger.critical("Next Day.")
-            time.sleep(1)
+            gl.logger.critical("Next Day.")
+            # time.sleep(1)
 
 
 GINKGODATA = GinkgoData()
