@@ -80,3 +80,8 @@ class FREQUENCY_TYPES(EnumBase):
 class MARKET_TYPES(EnumBase):
     CHINA = 1
     NASDAQ = 2
+
+
+class ATTITUDE_TYPES(EnumBase):
+    PESSMISTIC = 1
+    OPTIMISTIC = 2
