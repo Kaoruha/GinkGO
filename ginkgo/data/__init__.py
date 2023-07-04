@@ -5,6 +5,7 @@ import importlib
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
 from ginkgo.data.sources.ginkgo_baostock import GinkgoBaoStock
+from ginkgo.data.sources.ginkgo_tushare import GinkgoTushare
 
 
 DBDRIVER = None

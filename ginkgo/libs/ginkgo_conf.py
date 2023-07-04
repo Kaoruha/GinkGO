@@ -149,7 +149,7 @@ class GinkgoConfig(object):
         return r
 
     @property
-    def TUSHARETOKEN(slef) -> str:
+    def TUSHARETOKEN(self) -> str:
         r = ""
         try:
             r = self.__read_secure()["tushare"]["token"]

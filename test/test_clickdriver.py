@@ -14,6 +14,7 @@ class ClickDriverTest(unittest.TestCase):
 
     def __init__(self, *args, **kwargs) -> None:
         super(ClickDriverTest, self).__init__(*args, **kwargs)
+        self.dev = False
 
     def test_ClickDriver_Init(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
