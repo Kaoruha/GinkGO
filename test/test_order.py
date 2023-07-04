@@ -2,12 +2,12 @@ import unittest
 import time
 import datetime
 import pandas as pd
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 from ginkgo.backtest.order import Order
 from ginkgo.data.models import MOrder
 from ginkgo.enums import ORDER_TYPES, DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
-from ginkgo.data.ginkgo_data import GINKGODATA
+from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.data.ginkgo_data import GDATA
 
 
 class OrderTest(unittest.TestCase):
@@ -43,7 +43,7 @@ class OrderTest(unittest.TestCase):
         ]
 
     def test_Order_Init(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        time.sleep(GCONF.HEARTBEAT)
         result = False
         try:
             o = Order()
@@ -54,7 +54,7 @@ class OrderTest(unittest.TestCase):
         self.assertEqual(result, True)
 
     def test_Order_Set(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        time.sleep(GCONF.HEARTBEAT)
         for item in self.params:
             o = Order()
             o.set(
@@ -74,7 +74,7 @@ class OrderTest(unittest.TestCase):
             self.assertEqual(o.source, item["source"])
 
     def test_Order_SetFromDataFrame(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        time.sleep(GCONF.HEARTBEAT)
         for item in self.params:
             data = {
                 "timestamp": item["timestamp"],
@@ -98,7 +98,7 @@ class OrderTest(unittest.TestCase):
             self.assertEqual(o.source, item["source"])
 
     def test_Order_SetFromModel(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        time.sleep(GCONF.HEARTBEAT)
         for item in self.params:
             data = {
                 "timestamp": item["timestamp"],
@@ -113,11 +113,11 @@ class OrderTest(unittest.TestCase):
             df = pd.Series(data)
             mo = MOrder()
             mo.set(df)
-            GINKGODATA.drop_table(MOrder)
-            GINKGODATA.create_table(MOrder)
-            GINKGODATA.add(mo)
-            GINKGODATA.commit()
-            filter_rs: MOrder = GINKGODATA.get_order(mo.uuid)
+            GDATA.drop_table(MOrder)
+            GDATA.create_table(MOrder)
+            GDATA.add(mo)
+            GDATA.commit()
+            filter_rs: MOrder = GDATA.get_order(mo.uuid)
             new_df = filter_rs.to_dataframe()
             o = Order()
             o.set(new_df)

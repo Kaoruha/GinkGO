@@ -1,8 +1,8 @@
 from sqlalchemy import create_engine, MetaData, inspect, func
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from ginkgo.libs import GINKGOLOGGER as gl
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.libs import GLOG
+from ginkgo.libs.ginkgo_conf import GCONF
 
 
 class GinkgoClickhouse(object):
@@ -24,7 +24,7 @@ class GinkgoClickhouse(object):
         self.engine = create_engine(uri)
         self.session = sessionmaker(self.engine)()
         self.metadata = MetaData(bind=self.engine)
-        gl.logger.info("Connect to clickhouse succeed.")
+        GLOG.logger.info("Connect to clickhouse succeed.")
         self.base = declarative_base(metadata=self.metadata)
 
     @property

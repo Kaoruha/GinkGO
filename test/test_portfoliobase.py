@@ -1,5 +1,5 @@
 import unittest
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.backtest.order import Order
 from ginkgo.libs.ginkgo_math import cal_fee

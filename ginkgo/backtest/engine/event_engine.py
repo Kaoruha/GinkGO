@@ -14,11 +14,11 @@ from time import sleep
 from queue import Queue, Empty
 from threading import Thread
 from ginkgo.backtest.engine.base_engine import BaseEngine
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.backtest.event.base_event import EventBase
 from typing import Any, Callable, List
 from ginkgo.enums import EVENT_TYPES
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 
 
 class EventEngine(BaseEngine):
@@ -48,7 +48,7 @@ class EventEngine(BaseEngine):
 
             # Break for a while
             sleep(2)
-            # sleep(GINKGOCONF.HEARTBEAT)
+            # sleep(GCONF.HEARTBEAT)
 
     def timer_loop(self) -> None:
         """
@@ -66,7 +66,7 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).start()
         self._main_thread.start()
         self._timer_thread.start()
-        gl.logger.critical("Engine start.")
+        GLOG.logger.critical("Engine start.")
         # TODO Log
 
     def stop(self) -> None:
@@ -97,40 +97,40 @@ class EventEngine(BaseEngine):
             if handler not in self._handlers[type]:
                 self._handlers[type].append(handler)
             else:
-                gl.logger.debug(f"Handler Exists.")
+                GLOG.logger.debug(f"Handler Exists.")
         else:
             self._handlers[type]: list = []
             self._handlers[type].append(handler)
-            gl.logger.info(f"Register Handler {type} : {handler}")
+            GLOG.logger.info(f"Register Handler {type} : {handler}")
 
     def unregister(self, type: EVENT_TYPES, handler: callable) -> None:
         if type not in self._handlers:
             msg = f"Event {type} not exsits. No need to unregister the handler."
-            gl.logger.warn(msg)
+            GLOG.logger.warn(msg)
             return
 
         if handler not in self._handlers[type]:
             msg = f"Event {type} do not own the handler."
-            gl.logger.warn(msg)
+            GLOG.logger.warn(msg)
             return
 
         self._handlers[type].remove(handler)
-        gl.logger.info(f"Unregister Handler {type} : {handler}")
+        GLOG.logger.info(f"Unregister Handler {type} : {handler}")
 
     def register_general(self, handler: callable) -> None:
         if handler not in self._general_handler:
             self._general_handler.append(handler)
             msg = f"RegisterGeneral : {handler}"
-            gl.logger.info(msg)
+            GLOG.logger.info(msg)
         else:
             msg = f"{handler} already exist."
-            gl.logger.warn(msg)
+            GLOG.logger.warn(msg)
 
     def unregister_general(self, handler: callable) -> None:
         if handler in self._general_handler:
             self._general_handler.remove(handler)
             msg = f"UnregisterGeneral : {handler}"
-            gl.logger.info(msg)
+            GLOG.logger.info(msg)
         else:
             msg = f"{handler} not exsit in GeneralHandler"
-            gl.logger.warn(msg)
+            GLOG.logger.warn(msg)

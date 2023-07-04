@@ -6,13 +6,13 @@ import pandas as pd
 import multiprocessing
 import threading
 from ginkgo.data import DBDRIVER
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 from ginkgo.libs import datetime_normalize
 from ginkgo.data.models import MCodeOnTrade, MOrder, MBase, MBar
 from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES, FREQUENCY_TYPES
 from ginkgo.data import GinkgoBaoStock
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
 
 
@@ -82,17 +82,17 @@ class GinkgoData(object):
     def drop_table(self, model: MBase) -> None:
         if DBDRIVER.is_table_exsists(model.__tablename__):
             model.__table__.drop()
-            gl.logger.warn(f"Drop Table {model.__tablename__} : {model}")
+            GLOG.logger.warn(f"Drop Table {model.__tablename__} : {model}")
 
     def create_table(self, model: MBase) -> None:
         if model.__abstract__ == True:
-            gl.logger.debug(f"Pass Model:{model}")
+            GLOG.logger.debug(f"Pass Model:{model}")
             return
         if DBDRIVER.is_table_exsists(model.__tablename__):
-            gl.logger.debug(f"Table {model.__tablename__} exist.")
+            GLOG.logger.debug(f"Table {model.__tablename__} exist.")
         else:
             model.__table__.create()
-            gl.logger.info(f"Create Table {model.__tablename__} : {model}")
+            GLOG.logger.info(f"Create Table {model.__tablename__} : {model}")
 
     def get_table_size(self, model: MBase) -> int:
         return DBDRIVER.get_table_size(model)
@@ -166,24 +166,24 @@ class GinkgoData(object):
             .filter(MCodeOnTrade.timestamp < tomorrow)
             .first()
         )
-        gl.logger.info(f"In Process {os.getpid()} {date}")
+        GLOG.logger.info(f"In Process {os.getpid()} {date}")
 
         if result:
-            gl.logger.warn(f"CodeList on {date} exist. No need to update.")
+            GLOG.logger.warn(f"CodeList on {date} exist. No need to update.")
             return
 
         # 1. Get Code List From Bao
         df: pd.DataFrame = self.bs.fetch_cn_stock_list(date)
-        gl.logger.debug(f"Try get code list on {date}")
+        GLOG.logger.debug(f"Try get code list on {date}")
         if df.shape[0] == 0:
-            gl.logger.debug(f"{date} has no codelist. Return...")
+            GLOG.logger.debug(f"{date} has no codelist. Return...")
             return
 
-        gl.logger.critical(f"Remote has Date:{date} >={yesterday} < {tomorrow}")
+        GLOG.logger.critical(f"Remote has Date:{date} >={yesterday} < {tomorrow}")
         # 2. Set up list(ModelCodeOntrade)
         data = []
         date = str(date.date())
-        gl.logger.debug(f"Check the date again {date}")
+        GLOG.logger.debug(f"Check the date again {date}")
         df["tmp"] = None
         df.loc[df["trade_status"] == "1", "tmp"] = True
         df.loc[df["trade_status"] == "0", "tmp"] = False
@@ -204,7 +204,7 @@ class GinkgoData(object):
         # 3. insert_code_list()
         my_session.add_all(data)
         my_session.commit()
-        gl.logger.info(f"Insert {date} CodeList {len(data)} rows.")
+        GLOG.logger.info(f"Insert {date} CodeList {len(data)} rows.")
 
     def update_cn_codelist_period(
         self, start: str or datetime.datetime, end: str or datetime.datetime
@@ -231,16 +231,16 @@ class GinkgoData(object):
         todo_queue: multiprocessing.Queue,
         done_queue: multiprocessing.Queue,
     ) -> None:
-        gl.logger.info(f"Start Worker PID:{os.getpid()}")
+        GLOG.logger.info(f"Start Worker PID:{os.getpid()}")
         retry_count = 0
         retry_limit = 5
 
         DB = GinkgoClickhouse(
-            user=GINKGOCONF.CLICKUSER,
-            pwd=GINKGOCONF.CLICKPWD,
-            host=GINKGOCONF.CLICKHOST,
-            port=GINKGOCONF.CLICKPORT,
-            db=GINKGOCONF.CLICKDB,
+            user=GCONF.CLICKUSER,
+            pwd=GCONF.CLICKPWD,
+            host=GCONF.CLICKHOST,
+            port=GCONF.CLICKPORT,
+            db=GCONF.CLICKDB,
         )
 
         while True:
@@ -250,12 +250,12 @@ class GinkgoData(object):
                 retry_count = 0
             except Exception as e:
                 retry_count += 1
-                gl.logger.warn(f"WorkerUpdateCode Retry: {retry_count}")
+                GLOG.logger.warn(f"WorkerUpdateCode Retry: {retry_count}")
                 time.sleep(0.5)
                 if retry_count >= retry_limit:
                     break
             # time.sleep(0.001)
-        gl.logger.info(f"WorkerUpdateCode: {os.getpid()} Complete.")
+        GLOG.logger.info(f"WorkerUpdateCode: {os.getpid()} Complete.")
 
     def update_cn_codelist_to_latest_entire_async(self) -> None:
         start = datetime_normalize("1990-12-18")
@@ -270,7 +270,7 @@ class GinkgoData(object):
             start += datetime.timedelta(days=1)
             todo_queue.put(start)
 
-        gl.logger.info(f"Updating Code List with {worker_count} Worker.")
+        GLOG.logger.info(f"Updating Code List with {worker_count} Worker.")
 
         # Threading
 
@@ -377,7 +377,7 @@ class GinkgoData(object):
 
             # If the model is already in cache, go next
             if key in cache:
-                gl.logger.debug(
+                GLOG.logger.debug(
                     f"{FREQUENCY_TYPES(item.frequency)} {item.code} on {item.timestamp} already exist in insert list."
                 )
                 continue
@@ -396,7 +396,7 @@ class GinkgoData(object):
                     rs.append(item)
                     cache.append(key)
                 else:
-                    gl.logger.debug(
+                    GLOG.logger.debug(
                         f"{FREQUENCY_TYPES(item.frequency)} {item.code} on {item.timestamp} already exist in database."
                     )
                     continue
@@ -425,7 +425,7 @@ class GinkgoData(object):
 
         end_date = end_date.strftime("%Y-%m-%d")
 
-        gl.logger.info(f"Updating {code} FROM {start_date} to {end_date}")
+        GLOG.logger.info(f"Updating {code} FROM {start_date} to {end_date}")
 
         # Support Multiprocessing
         my_session = self.session
@@ -436,25 +436,25 @@ class GinkgoData(object):
         if bao:
             bs = bao
 
-        gl.logger.critical(f"=============================")
-        gl.logger.critical(f"============================")
+        GLOG.logger.critical(f"=============================")
+        GLOG.logger.critical(f"============================")
         try:
-            gl.logger.critical(f"==========================")
-            gl.logger.debug(f"Trying to get {code} from {start_date} to {end_date}")
+            GLOG.logger.critical(f"==========================")
+            GLOG.logger.debug(f"Trying to get {code} from {start_date} to {end_date}")
             if frequency == FREQUENCY_TYPES.DAY:
                 df = bs.fetch_cn_stock_daybar(code, start_date, end_date)
             else:
                 # TODO Deal with other type of bars
-                gl.logger.critical("TODO support other type bars")
+                GLOG.logger.critical("TODO support other type bars")
                 df = bs.fetch_cn_stock_daybar(code, start_date, end_date)
-            gl.logger.critical(f"=========================")
+            GLOG.logger.critical(f"=========================")
         except Exception as e:
             print(e)
             print(type(e))
 
         print(df.shape[0])
 
-        gl.logger.critical(f"{start_date} -- {end_date}")
+        GLOG.logger.critical(f"{start_date} -- {end_date}")
         data = []
         latest = self.get_bar_lastdate(code, frequency)
         for i, r in df.iterrows():
@@ -481,7 +481,7 @@ class GinkgoData(object):
 
         my_session.add_all(data)
         my_session.commit()
-        gl.logger.critical(
+        GLOG.logger.critical(
             f"Insert {code} Daybar {start_date} -- {end_date}  {len(data)} rows."
         )
 
@@ -494,35 +494,35 @@ class GinkgoData(object):
         done_queue: multiprocessing.Queue,
         start_date: str or datetime.datetime,
     ):
-        gl.logger.info(f"Start Worker PID:{os.getpid()}")
+        GLOG.logger.info(f"Start Worker PID:{os.getpid()}")
         retry_count = 0
         retry_limit = 4
         while True:
             try:
                 code = todo_queue.get(block=False, timeout=1)
                 DB = GinkgoClickhouse(
-                    user=GINKGOCONF.CLICKUSER,
-                    pwd=GINKGOCONF.CLICKPWD,
-                    host=GINKGOCONF.CLICKHOST,
-                    port=GINKGOCONF.CLICKPORT,
-                    db=GINKGOCONF.CLICKDB,
+                    user=GCONF.CLICKUSER,
+                    pwd=GCONF.CLICKPWD,
+                    host=GCONF.CLICKHOST,
+                    port=GCONF.CLICKPORT,
+                    db=GCONF.CLICKDB,
                 )
                 BS = GinkgoBaoStock()
-                gl.logger.critical(f"Worker start updating {code}")
+                GLOG.logger.critical(f"Worker start updating {code}")
                 self.update_bar_to_latest(
                     code, FREQUENCY_TYPES.DAY, start_date, DB.session, BS
                 )
-                gl.logger.critical(f"Worker Finished One {code}")
+                GLOG.logger.critical(f"Worker Finished One {code}")
 
                 retry_count = 0
 
             except Exception as e:
                 retry_count += 1
-                gl.logger.warn(f"WorkerUpdateBar Retry: {retry_count}")
+                GLOG.logger.warn(f"WorkerUpdateBar Retry: {retry_count}")
                 time.sleep(0.5)
                 if retry_count >= retry_limit:
                     break
-        gl.logger.info(f"WorkerUpdateBar: {os.getpid()} Complete.")
+        GLOG.logger.info(f"WorkerUpdateBar: {os.getpid()} Complete.")
 
     def update_bar_to_latest_entire_async(self):
         # Prepare the async moduel
@@ -544,7 +544,7 @@ class GinkgoData(object):
             date = day["timestamp"]
             code_list = self.get_codelist(date, MARKET_TYPES.CHINA)
             if code_list is None:
-                gl.logger.warn(
+                GLOG.logger.warn(
                     f"{date} get no code from database, please check your table."
                 )
                 continue
@@ -558,24 +558,24 @@ class GinkgoData(object):
                 # Check if done update this time
                 if code in updated_dict.keys():
                     if datetime_normalize(date) <= updated_dict[code]:
-                        gl.logger.debug(f"{date} {code} already updated.")
+                        GLOG.logger.debug(f"{date} {code} already updated.")
                         continue
 
                 latest = self.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
-                gl.logger.debug(f"{code} latest in db is {latest}")
+                GLOG.logger.debug(f"{code} latest in db is {latest}")
                 if latest <= datetime_normalize(date):
                     todo_queue.put(code)
                 else:
                     updated_dict[code] = latest
-                    gl.logger.warn(f"{code} in db {latest} is new than {date}")
+                    GLOG.logger.warn(f"{code} in db {latest} is new than {date}")
 
             if todo_queue.qsize() == 0:
-                gl.logger.debug(f"{date} no code need update.")
+                GLOG.logger.debug(f"{date} no code need update.")
                 continue
 
             update_count += todo_queue.qsize()
-            gl.logger.info(f"Updating Code List with {worker_count} Worker.")
-            gl.logger.warn(f"Updated {update_count} times.")
+            GLOG.logger.info(f"Updating Code List with {worker_count} Worker.")
+            GLOG.logger.warn(f"Updated {update_count} times.")
 
             # Multiprocessing
             for index in range(worker_count):
@@ -608,8 +608,8 @@ class GinkgoData(object):
             # for t in pool:
             #     t.join()
 
-            gl.logger.critical("Next Day.")
+            GLOG.logger.critical("Next Day.")
             # time.sleep(1)
 
 
-GINKGODATA = GinkgoData()
+GDATA = GinkgoData()

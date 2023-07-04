@@ -1,11 +1,11 @@
 import unittest
 import datetime
 from time import sleep
-from ginkgo.libs.ginkgo_logger import GINKGOLOGGER as gl
+from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.event.price_update import EventPriceUpdate
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.tick import Tick
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.enums import (
     DIRECTION_TYPES,
     ORDER_TYPES,
@@ -41,7 +41,7 @@ class EventPriceUpdateTest(unittest.TestCase):
         ]
 
     def test_EventPU_Init(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         result = True
         for i in self.params:
             try:
@@ -51,7 +51,7 @@ class EventPriceUpdateTest(unittest.TestCase):
         self.assertEqual(result, True)
 
     def test_EventPU_InitBar(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
                 i["sim_code"],
@@ -67,7 +67,7 @@ class EventPriceUpdateTest(unittest.TestCase):
             self.assertEqual(e.price_type, PRICEINFO_TYPES.BAR)
 
     def test_EventPU_InitTick(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             t = Tick(
                 i["sim_code"], i["sim_price"], i["sim_volume"], i["sim_timestampe"]

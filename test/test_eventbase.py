@@ -1,9 +1,9 @@
 from time import sleep
 import unittest
 import datetime
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 from ginkgo.backtest.event.base_event import EventBase
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES
 
 
@@ -33,7 +33,7 @@ class EventBaseTest(unittest.TestCase):
         ]
 
     def test_EventBase_Init(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         result = True
         for i in self.params:
             try:
@@ -45,7 +45,7 @@ class EventBaseTest(unittest.TestCase):
         self.assertEqual(result, True)
 
     def test_EventBase_UUID(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             e = EventBase()
             e.type = i["sim_type"]
@@ -54,7 +54,7 @@ class EventBaseTest(unittest.TestCase):
             self.assertNotEqual(e.uuid, None)
 
     def test_EventBase_Source(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             e = EventBase()
             e.type = i["sim_type"]
@@ -63,7 +63,7 @@ class EventBaseTest(unittest.TestCase):
             self.assertEqual(e.source, i["sim_source"])
 
     def test_EventBase_Date(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             e = EventBase()
             e.type = i["sim_type"]

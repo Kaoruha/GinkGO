@@ -2,7 +2,7 @@ from ginkgo.data.ginkgo_data import GinkgoData
 from ginkgo.enums import FREQUENCY_TYPES
 from ginkgo.data.sources.ginkgo_baostock import GinkgoBaoStock
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 
 gd = GinkgoData()
 

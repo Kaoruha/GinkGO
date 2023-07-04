@@ -2,7 +2,7 @@ import datetime
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.position import Position
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 from ginkgo.libs.ginkgo_math import cal_fee
 
 
@@ -38,13 +38,13 @@ class BasePortfolio(object):
         if money < self.cash:
             self.cash -= money
             self.frozen += money
-            gl.logger.debug(
+            GLOG.logger.debug(
                 f"Port {self.name} prebuy {code}:{volume} with limit {limit_price} on {timestamp}"
             )
             return o
 
         else:
-            gl.logger.critical(
+            GLOG.logger.critical(
                 f"Only have Cash: {self.cash}. Can not afford {code} with Price: {limit_price} * {volume}."
             )
             return None
@@ -56,7 +56,7 @@ class BasePortfolio(object):
         self, code: str, money: float, timestamp: str or datetime.datetime
     ) -> Order:
         if money > self.cash:
-            gl.logger.critical(
+            GLOG.logger.critical(
                 f"Only have Cash: {self.cash}. Can not afford {code} with {money}."
             )
             return None
@@ -70,7 +70,7 @@ class BasePortfolio(object):
             money,
             timestamp,
         )
-        gl.logger.debug(
+        GLOG.logger.debug(
             f"Portfolio {self.name} prebuy {code} with {money} at marketprice on {timestamp}"
         )
         self.cash -= money
@@ -90,15 +90,15 @@ class BasePortfolio(object):
         print("===========================")
         print(volume)
         if not self._check_position(code):
-            gl.logger.critical(f"Portfolio:{self.name} do not have Position:{code}")
+            GLOG.logger.critical(f"Portfolio:{self.name} do not have Position:{code}")
             return
 
         if volume <= 0:
-            gl.logger.critical(f"Illegal volume {volume}")
+            GLOG.logger.critical(f"Illegal volume {volume}")
             return
 
         if volume > self.position[code].volume:
-            gl.logger.warn(
+            GLOG.logger.warn(
                 f"Portfolio:{self.name} just have {self.position[code].volume}. Adjust {volume} ==>> {self.position[code].volume}"
             )
             volume = self.position[code].volume
@@ -113,7 +113,7 @@ class BasePortfolio(object):
             timestamp,
         )
         o.set_source(SOURCE_TYPES.PORTFOLIO)
-        gl.logger.debug(
+        GLOG.logger.debug(
             f"Port {self.name} presell {code}:{volume} with limit {limit_price} on {timestamp}"
         )
         self.position[code].pre_sell(volume)
@@ -123,13 +123,13 @@ class BasePortfolio(object):
         self, code: str, volume: int, timestamp: str or datetime.datetime
     ) -> Order:
         if not self._check_position(code):
-            gl.logger.critical(f"Portfolio:{self.name} do not have Position:{code}")
+            GLOG.logger.critical(f"Portfolio:{self.name} do not have Position:{code}")
             return
         if volume <= 0:
-            gl.logger.critical(f"Illegal volume {volume}")
+            GLOG.logger.critical(f"Illegal volume {volume}")
             return
         if volume > self.position[code].volume:
-            gl.logger.warn(
+            GLOG.logger.warn(
                 f"Portfolio:{self.name} just have {self.position[code].volume}. Adjust {volume} ==>> {self.position[code].volume}"
             )
             volume = self.position[code].volume
@@ -142,7 +142,7 @@ class BasePortfolio(object):
             0,
             timestamp,
         )
-        gl.logger.debug(f"Port {self.name} presell {code}:{volume} on {timestamp}")
+        GLOG.logger.debug(f"Port {self.name} presell {code}:{volume} on {timestamp}")
         self.position[code].pre_sell(volume)
         return o
 
@@ -158,7 +158,7 @@ class BasePortfolio(object):
             self.frozen -= freezed
 
         else:
-            gl.logger.critical(f"do not have {code}")
+            GLOG.logger.critical(f"do not have {code}")
             self.position[code] = Position(code=code, price=price, volume=volume)
             self.cash += remain
             self.frozen -= freezed

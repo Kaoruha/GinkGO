@@ -3,7 +3,7 @@ import random
 from ginkgo.libs import datetime_normalize
 from ginkgo.enums import EVENT_TYPES, ATTITUDE_TYPES
 from ginkgo.backtest.event import EventPriceUpdate
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 
 
 class MatchMaking_Sim(object):
@@ -36,11 +36,11 @@ class MatchMaking_Sim(object):
         # TODO Check the source
         if self._current is None:
             self._current = event.timestamp
-            gl.logger.debug(f"Sim MatchMaking start. {self.current_time}")
+            GLOG.logger.debug(f"Sim MatchMaking start. {self.current_time}")
 
         # Update Current Time
         if event.timestamp < self._current:
-            gl.logger.warn(
+            GLOG.logger.warn(
                 f"Current Time is {self.current_time} the price come from past {event.timestamp}"
             )
             return

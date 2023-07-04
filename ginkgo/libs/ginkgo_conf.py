@@ -158,4 +158,4 @@ class GinkgoConfig(object):
         return r
 
 
-GINKGOCONF = GinkgoConfig()
+GCONF = GinkgoConfig()
