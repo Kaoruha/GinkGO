@@ -14,6 +14,10 @@ class PortfolioBaseTest(unittest.TestCase):
     UnitTest for Signal.
     """
 
+    def __init__(self, *args, **kwargs) -> None:
+        super(PortfolioBaseTest, self).__init__(*args, **kwargs)
+        self.dev = False
+
     def test_portfolio_init(self) -> None:
         p = BasePortfolio()
         self.assertEqual(True, True)

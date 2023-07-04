@@ -1,4 +1,5 @@
 # coding:utf-8
+import sys
 import argparse
 import datetime
 import os
@@ -16,10 +17,10 @@ def run_test(path: list):
         suite.addTest(tests)
 
     if LOGGING_FILE_ON:
-        path = LOGGING_PATH + "unittest.log"
+        log_path = LOGGING_PATH + "unittest.log"
         GLOG.reset_logfile("unittest.log")
     try:
-        f = open(path, "w")
+        f = open(log_path, "w")
         f.truncate()
     except Exception as e:
         print(e)
@@ -30,6 +31,7 @@ def run_test(path: list):
 def main():
     # args
     parser = argparse.ArgumentParser()
+
     parser.add_argument("-dev", "--dev", help="dev mode", action="store_true")
     parser.add_argument("-db", "--db", help="database test", action="store_true")
     parser.add_argument("-data", "--data", help="data test", action="store_true")
@@ -57,7 +59,11 @@ def main():
 
     if args.db:
         result = input("DB Moduel may erase the database, Conitnue? Y/N  ")
-        if result.upper() != "Y":
+        # TODO Switch the database
+        # TODO Switch the database
+        # TODO Switch the database
+        # TODO Switch the database
+        if result.upper() == "Y":
             t = origin_path + "/db"
             path.append(t)
 
@@ -73,4 +79,13 @@ def main():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 1:
+        print("Usage:")
+        print("python run_unittest.py --[mode]")
+        print("  -dev    Run the units under construction.")
+        print("  -db     Run database units.")
+        print("  -data   Run data-source relative units.")
+        print("  -base   Run frame basic units.")
+        exit()
+
     main()
