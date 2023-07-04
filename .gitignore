@@ -148,3 +148,4 @@ logs/
 build/
 ginkgo.egg-info/
 .logs
+ginkgo/config/secure.yml
