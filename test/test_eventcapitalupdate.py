@@ -19,6 +19,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
 
     def __init__(self, *args, **kwargs) -> None:
         super(EventCapitalUpdateTest, self).__init__(*args, **kwargs)
+        self.dev = False
         self.params = [
             {
                 "sim_code": "unit_test_code",

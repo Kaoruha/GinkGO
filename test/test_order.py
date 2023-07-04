@@ -21,6 +21,7 @@ class OrderTest(unittest.TestCase):
 
     def __init__(self, *args, **kwargs) -> None:
         super(OrderTest, self).__init__(*args, **kwargs)
+        self.dev = False
         self.params = [
             {
                 "code": "sh.0000001",

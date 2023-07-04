@@ -14,6 +14,7 @@ class EventBaseTest(unittest.TestCase):
 
     def __init__(self, *args, **kwargs) -> None:
         super(EventBaseTest, self).__init__(*args, **kwargs)
+        self.dev = False
         self.params = [
             {
                 "sim_source": SOURCE_TYPES.SIM,
