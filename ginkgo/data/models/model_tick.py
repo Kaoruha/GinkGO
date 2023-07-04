@@ -10,7 +10,7 @@ from ginkgo.enums import (
     FREQUENCY_TYPES,
 )
 from sqlalchemy import Column, String, Integer, DECIMAL
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from clickhouse_sqlalchemy import engines
 from sqlalchemy_utils import ChoiceType
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
@@ -20,7 +20,7 @@ class MTick(MBase):
     __abstract__ = False
     __tablename__ = "tick"
 
-    if GINKGOCONF.DBDRIVER == "clickhouse":
+    if GCONF.DBDRIVER == "clickhouse":
         __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
 
     code = Column(String(), default="ginkgo_test_code")

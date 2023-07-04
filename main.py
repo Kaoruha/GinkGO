@@ -1,5 +1,5 @@
 # from config.setting import *
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 from ginkgo.web.server import start_server
 
 # from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm
@@ -7,7 +7,7 @@ from ginkgo.web.server import start_server
 # from ginkgo.data.storage import ginkgo_storage as gs
 
 
-gl.logger.info("Server启动")
+GLOG.logger.info("Server启动")
 
 # 开启tornado后端服务
 start_server()

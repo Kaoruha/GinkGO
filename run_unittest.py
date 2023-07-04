@@ -3,8 +3,8 @@ import argparse
 import datetime
 import os
 import unittest
-from ginkgo.libs.ginkgo_conf import GINKGOCONF as g_conf
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs.ginkgo_conf import GCONF as g_conf
+from ginkgo.libs import GLOG
 
 
 def run_test(path: list):
@@ -17,7 +17,7 @@ def run_test(path: list):
 
     if LOGGING_FILE_ON:
         path = LOGGING_PATH + "unittest.log"
-        gl.reset_logfile("unittest.log")
+        GLOG.reset_logfile("unittest.log")
     try:
         f = open(path, "w")
         f.truncate()
@@ -46,9 +46,9 @@ def main():
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(now)
 
-    # Change LogLevel
+    # Change Loglevel
     if args.debug:
-        gl.logger.setLevel(args.debug)
+        GLOG.logger.setLevel(args.debug)
 
     origin_path = "./test"
     path = []

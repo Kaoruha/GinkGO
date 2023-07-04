@@ -1,8 +1,8 @@
 import unittest
 import time
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 
 
 class ClickDriverTest(unittest.TestCase):
@@ -16,20 +16,20 @@ class ClickDriverTest(unittest.TestCase):
         super(ClickDriverTest, self).__init__(*args, **kwargs)
 
     def test_ClickDriver_Init(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        time.sleep(GCONF.HEARTBEAT)
 
         db = GinkgoClickhouse(
-            user=GINKGOCONF.CLICKUSER,
-            pwd=GINKGOCONF.CLICKPWD,
-            host=GINKGOCONF.CLICKHOST,
-            port=GINKGOCONF.CLICKPORT,
-            db=GINKGOCONF.CLICKDB,
+            user=GCONF.CLICKUSER,
+            pwd=GCONF.CLICKPWD,
+            host=GCONF.CLICKHOST,
+            port=GCONF.CLICKPORT,
+            db=GCONF.CLICKDB,
         )
         r = None
         try:
             r = db.is_table_exsists("Shouldnotbethere")
         except Exception as e:
-            gl.logger.error(
+            GLOG.logger.error(
                 "Clickhouse Connection Failed. Please check your config file. And make sure the docker status."
             )
 

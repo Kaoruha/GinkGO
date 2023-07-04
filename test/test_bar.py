@@ -1,10 +1,10 @@
 import unittest
 import datetime
 from time import sleep
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 from ginkgo.backtest.bar import Bar
 from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 
 
 class BarTest(unittest.TestCase):
@@ -44,7 +44,7 @@ class BarTest(unittest.TestCase):
         ]
 
     def test_Bar_Init(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         result = True
         for i in self.params:
             try:
@@ -64,7 +64,7 @@ class BarTest(unittest.TestCase):
         self.assertEqual(result, True)
 
     def test_Bar_Set(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar()
             b.set(
@@ -90,7 +90,7 @@ class BarTest(unittest.TestCase):
         pass
 
     def test_Bar_Code(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
                 i["sim_code"],
@@ -106,7 +106,7 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.code, i["sim_code"])
 
     def test_Bar_Open(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
                 i["sim_code"],
@@ -122,7 +122,7 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.open, i["sim_open"])
 
     def test_Bar_High(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
                 i["sim_code"],
@@ -138,7 +138,7 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.high, i["sim_high"])
 
     def test_Bar_Low(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
                 i["sim_code"],
@@ -154,7 +154,7 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.low, i["sim_low"])
 
     def test_Bar_Close(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
                 i["sim_code"],
@@ -170,7 +170,7 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.close, i["sim_close"])
 
     def test_Bar_Frequency(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
                 i["sim_code"],
@@ -186,7 +186,7 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.frequency, i["sim_fre"])
 
     def test_Bar_Change(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
                 i["sim_code"],
@@ -203,7 +203,7 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.chg, r_expect)
 
     def test_Bar_Amplitude(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
                 i["sim_code"],
@@ -219,7 +219,7 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.amplitude, i["sim_high"] - i["sim_low"])
 
     def test_Bar_Source(self) -> None:
-        sleep(GINKGOCONF.HEARTBEAT)
+        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar(
                 i["sim_code"],

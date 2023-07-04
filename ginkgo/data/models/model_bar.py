@@ -6,8 +6,8 @@ from sqlalchemy import Column, String, Integer, DECIMAL
 from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_base import MBase
 from ginkgo.backtest.bar import Bar
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.libs import GLOG
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.enums import (
@@ -23,7 +23,7 @@ class MBar(MBase):
     __abstract__ = False
     __tablename__ = "bar"
 
-    if GINKGOCONF.DBDRIVER == "clickhouse":
+    if GCONF.DBDRIVER == "clickhouse":
         __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
 
     code = Column(String(), default="ginkgo_test_code")

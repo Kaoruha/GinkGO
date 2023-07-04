@@ -1,9 +1,9 @@
 from ginkgo.backtest.event.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES
 from ginkgo.backtest.order import Order
-from ginkgo.data.ginkgo_data import GINKGODATA
+from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.libs.ginkgo_pretty import base_repr
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 
 
 class EventPositionUpdate(EventBase):
@@ -31,14 +31,14 @@ class EventPositionUpdate(EventBase):
     def get_order(self, order_id: str):
         # Make sure the order cant be edit by the event.
         # Get order from db
-        r = GINKGODATA.get_order(order_id)
+        r = GDATA.get_order(order_id)
         if r is None:
-            gl.logger.error(f"Order:{order_id} not exsist. Please check your code")
+            GLOG.logger.error(f"Order:{order_id} not exsist. Please check your code")
             return
         self._order = r
 
         if self.order_status.value != 3 or self.order_status != 4:
-            gl.logger.error(
+            GLOG.logger.error(
                 f"EventPositionUpdate Should Spawn after Order Filled or Canceled. Order:{self.order_id} status is {self.order_status}. Please check your code."
             )
 

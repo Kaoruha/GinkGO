@@ -2,11 +2,11 @@ import unittest
 import time
 import datetime
 import pandas as pd
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 from ginkgo.backtest.signal import Signal
 from ginkgo.data.models import MSignal
-from ginkgo.libs.ginkgo_conf import GINKGOCONF
-from ginkgo.data.ginkgo_data import GINKGODATA
+from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
 
@@ -27,7 +27,7 @@ class SignalTest(unittest.TestCase):
         ]
 
     def test_Signal_Init(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        time.sleep(GCONF.HEARTBEAT)
         result = False
         try:
             s = Signal()
@@ -38,7 +38,7 @@ class SignalTest(unittest.TestCase):
         self.assertEqual(result, True)
 
     def test_Signal_Set(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        time.sleep(GCONF.HEARTBEAT)
         for item in self.params:
             s = Signal()
             s.set(
@@ -51,7 +51,7 @@ class SignalTest(unittest.TestCase):
             self.assertEqual(s.direction, item["direction"])
 
     def test_Signal_SetFromDataFrame(self) -> None:
-        time.sleep(GINKGOCONF.HEARTBEAT)
+        time.sleep(GCONF.HEARTBEAT)
         for item in self.params:
             data = {
                 "code": item["code"],

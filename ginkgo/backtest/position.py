@@ -1,5 +1,5 @@
 from ginkgo.backtest.base import Base
-from ginkgo.libs import GINKGOLOGGER as gl
+from ginkgo.libs import GLOG
 from ginkgo.libs.ginkgo_pretty import base_repr
 
 
@@ -20,25 +20,25 @@ class Position(Base):
 
     def buy_done(self, price: float, volume: int) -> None:
         if price < 0 or volume < 0:
-            gl.logger.critical(f"Illegal price:{price} or volume:{volume}")
+            GLOG.logger.critical(f"Illegal price:{price} or volume:{volume}")
             return
         old_price = self.price
         old_volume = self.volume
         self.volume += volume
         self.price = (old_price * old_volume + price * volume) / self.volume
-        gl.logger.debug(
+        GLOG.logger.debug(
             f"POS {self.code} add {volume} at {price}. Final price: {price}, volume: {self.volume}, frozen: {self.frozen}"
         )
 
     def pre_sell(self, volume: int) -> None:
         if volume > self.volume:
-            gl.logger.critical(
+            GLOG.logger.critical(
                 f"POS {self.code} just has {self.volume} cant afford {volume}, please check your code"
             )
 
         self.volume -= volume
         self.frozen += volume
-        gl.logger.debug(
+        GLOG.logger.debug(
             f"POS {self.code} freezed {volume}. Final volume:{self.volume} frozen: {self.frozen}"
         )
 
@@ -47,26 +47,26 @@ class Position(Base):
         if price < 0:
             return
         if volume > self.frozen:
-            gl.logger.critical(
+            GLOG.logger.critical(
                 f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code"
             )
             return
         self.frozen -= volume
         self.profit += (price - self.price) * volume
-        gl.logger.debug(
+        GLOG.logger.debug(
             f"POS {self.code} sold {volume}. Final volume:{self.volume}  frozen:{self.frozen}"
         )
 
     def sell_cancel(self, volume: int) -> None:
         if volume > self.frozen:
-            gl.logger.critical(
+            GLOG.logger.critical(
                 f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code"
             )
             return
 
         self.frozen -= volume
         self.volume += volume
-        gl.logger.debug(
+        GLOG.logger.debug(
             f"POS {self.code} unfreeze {volume}. Final volume:{self.volume}  frozen: {self.frozen}"
         )
 

@@ -2,15 +2,15 @@ import os
 import logging
 import colorlog
 import threading
-from ginkgo.libs.ginkgo_conf import GINKGOCONF as g_conf
+from ginkgo.libs.ginkgo_conf import GCONF
 
 # Read Configure
-LOGGING_LEVEL_CONSOLE = g_conf.LOGGING_LEVEL_CONSOLE
-LOGGING_LEVEL_FILE = g_conf.LOGGING_LEVEL_FILE
-LOGGING_COLOR = g_conf.LOGGING_COLOR
-LOGGING_PATH = g_conf.LOGGING_PATH
-LOGGIN_DEFAULT_FILE = g_conf.LOGGING_DEFAULT_FILE
-LOGGING_FILE_ON = g_conf.LOGGING_FILE_ON
+LOGGING_LEVEL_CONSOLE = GCONF.LOGGING_LEVEL_CONSOLE
+LOGGING_LEVEL_FILE = GCONF.LOGGING_LEVEL_FILE
+LOGGING_COLOR = GCONF.LOGGING_COLOR
+LOGGING_PATH = GCONF.LOGGING_PATH
+LOGGIN_DEFAULT_FILE = GCONF.LOGGING_DEFAULT_FILE
+LOGGING_FILE_ON = GCONF.LOGGING_FILE_ON
 
 
 class GinkgoLogger(object):
@@ -96,4 +96,4 @@ class GinkgoLogger(object):
         return r
 
 
-GINKGOLOGGER = GinkgoLogger("ginkgo_log")
+GLOG = GinkgoLogger("ginkgo_log")
