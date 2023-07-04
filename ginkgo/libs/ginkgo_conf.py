@@ -148,5 +148,14 @@ class GinkgoConfig(object):
             r = 0
         return r
 
+    @property
+    def TUSHARETOKEN(slef) -> str:
+        r = ""
+        try:
+            r = self.__read_secure()["tushare"]["token"]
+        except Exception as e:
+            pass
+        return r
+
 
 GINKGOCONF = GinkgoConfig()
