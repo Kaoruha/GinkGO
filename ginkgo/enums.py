@@ -53,6 +53,7 @@ class SOURCE_TYPES(EnumBase):
     AKSHARE = 5
     YAHOO = 6
     PORTFOLIO = 7
+    TUSHARE = 7
 
 
 class DIRECTION_TYPES(EnumBase):
