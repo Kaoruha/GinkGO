@@ -1,7 +1,7 @@
 import datetime
 
 
-def datetime_normalize(time) -> datetime.datetime:
+def datetime_normalize(time: str or datetime.datetime) -> datetime.datetime:
     """
     Convert str or datetime into datetime "%Y-%m-%d %H:%M:%S"
     """

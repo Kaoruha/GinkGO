@@ -32,6 +32,7 @@ def main():
     # args
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("-y", "--y", help="All Yes", action="store_true")
     parser.add_argument("-dev", "--dev", help="dev mode", action="store_true")
     parser.add_argument("-db", "--db", help="database test", action="store_true")
     parser.add_argument("-data", "--data", help="data test", action="store_true")
@@ -58,12 +59,16 @@ def main():
         path.append(origin_path)
 
     if args.db:
-        result = input("DB Moduel may erase the database, Conitnue? Y/N  ")
-        # TODO Switch the database
-        # TODO Switch the database
-        # TODO Switch the database
-        # TODO Switch the database
-        if result.upper() == "Y":
+        if not args.y:
+            result = input("DB Moduel may erase the database, Conitnue? Y/N  ")
+            # TODO Switch the database
+            # TODO Switch the database
+            # TODO Switch the database
+            # TODO Switch the database
+            if result.upper() == "Y":
+                t = origin_path + "/db"
+                path.append(t)
+        else:
             t = origin_path + "/db"
             path.append(t)
 
