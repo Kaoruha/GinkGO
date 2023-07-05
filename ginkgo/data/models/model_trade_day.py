@@ -10,7 +10,7 @@ from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 
 
-class MTradeday(MBase):
+class MTradeDay(MBase):
     __abstract__ = False
     __tablename__ = "Trade_day"
 
@@ -24,7 +24,7 @@ class MTradeday(MBase):
     is_open = Column(Boolean(), default=True)
 
     def __init__(self, *args, **kwargs) -> None:
-        super(MCodeOnTrade, self).__init__(*args, **kwargs)
+        super(MTradeDay, self).__init__(*args, **kwargs)
 
     @singledispatchmethod
     def set(self) -> None:
