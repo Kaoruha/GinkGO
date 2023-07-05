@@ -7,7 +7,6 @@ charset-normalizer==3.1.0
 clickhouse-driver==0.2.5
 clickhouse-sqlalchemy==0.2.3
 colorlog==6.7.0
-ginkgo @ file:///home/kaoru/Documents/Ginkgo/dist/ginkgo-0.1.4.tar.gz
 greenlet==2.0.2
 idna==3.4
 lxml==4.9.2
