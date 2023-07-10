@@ -24,3 +24,8 @@ os.system("python setup.py sdist bdist_wheel")
 # 安装
 dist_uri = f"pip install {dist_path}/ginkgo-{VERSION}.tar.gz"
 os.system(dist_uri)
+
+# Clean
+print("Clean Setup Cache.")
+os.system("rm -rf dist")
+os.system("rm -rf ginkgo.egg-info")
