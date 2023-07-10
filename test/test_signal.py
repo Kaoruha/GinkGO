@@ -3,7 +3,7 @@ import time
 import datetime
 import pandas as pd
 from ginkgo.libs import GLOG
-from ginkgo.backtest.signal import Signal
+from ginkgo.backtest.signals import Signal
 from ginkgo.data.models import MSignal
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.data.ginkgo_data import GDATA
