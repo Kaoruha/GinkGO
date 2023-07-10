@@ -77,7 +77,7 @@ def main():
         print(
             f"[{blue(notice_info)}] You should active a {bg_red('virtual enviroment')}"
         )
-        msg = f"[{blue(notice_info)}] To active, run: {green('source venv/bin/activate')}"  # TODO change the command via system
+        msg = f"[{blue(notice_info)}] To active, run: {green('python3 -m virtualenv venv;source venv/bin/activate')}"  # TODO change the command via system
         print(msg)
         bye()
     else:
@@ -112,11 +112,18 @@ def main():
             msg = f"[{red(' MISSING ')}] Clickhouse config file"
             print(msg)
 
-        if os.path.exists(path_gink_conf) and os.path.exists(path_gink_sec):
+        if os.path.exists(path_gink_conf):
             msg = f"[{green('CONFIRMED')}] Ginkgo config file"
             print(msg)
         else:
             msg = f"[{red(' MISSING ')}] Ginkgo config file"
+            print(msg)
+
+        if os.path.exists(path_gink_sec):
+            msg = f"[{green('CONFIRMED')}] Ginkgo secure file"
+            print(msg)
+        else:
+            msg = f"[{red(' MISSING ')}] Ginkgo secure file, you need to create your secure.yml refer to README"
             print(msg)
 
         print("\n")
