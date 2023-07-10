@@ -4,7 +4,7 @@ from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.backtest.order import Order
 from ginkgo.libs.ginkgo_math import cal_fee
 from ginkgo.enums import DIRECTION_TYPES
-from ginkgo.backtest.portfolio import BasePortfolio
+from ginkgo.backtest.portfolios import BasePortfolio
 from ginkgo.backtest.position import Position
 from ginkgo.libs.ginkgo_math import cal_fee
 

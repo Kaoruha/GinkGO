@@ -16,7 +16,7 @@ gd = GinkgoData()
 # print(rs)
 
 
-from ginkgo.backtest.matchmaknig.sim_matchmaking import MatchMaking_Sim
+from ginkgo.backtest.matchmakings.sim_matchmaking import MatchMaking_Sim
 
 m = MatchMaking_Sim()
 for i in range(20):

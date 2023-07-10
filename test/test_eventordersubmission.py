@@ -2,7 +2,7 @@ import unittest
 import datetime
 from time import sleep
 from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.backtest.event.order_submission import EventOrderSubmission
+from ginkgo.backtest.events.order_submission import EventOrderSubmission
 from ginkgo.data.models.model_order import MOrder
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.libs.ginkgo_conf import GCONF

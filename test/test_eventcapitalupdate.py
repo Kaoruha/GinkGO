@@ -2,7 +2,7 @@ import unittest
 import datetime
 from time import sleep
 from ginkgo.libs import GLOG
-from ginkgo.backtest.event.capital_update import EventCapitalUpdate
+from ginkgo.backtest.events.capital_update import EventCapitalUpdate
 from ginkgo.data.models.model_order import MOrder
 from ginkgo.backtest.bar import Bar
 from ginkgo.data.ginkgo_data import GDATA
