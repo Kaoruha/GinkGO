@@ -11,5 +11,8 @@ def datetime_normalize(time: str or datetime.datetime) -> datetime.datetime:
         try:
             t = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
         except ValueError:
-            t = datetime.datetime.strptime(time, "%Y-%m-%d")
+            try:
+                t = datetime.datetime.strptime(time, "%Y-%m-%d")
+            except ValueError:
+                t = datetime.datetime.strptime(time, "%Y%m%d")
         return t
