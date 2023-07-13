@@ -15,6 +15,11 @@ class EnumBase(Enum):
     #     return self.value
 
 
+class CURRENCY_TYPES(EnumBase):
+    CNY = 1
+    USD = 2
+
+
 class TICKDIRECTION_TYPES(EnumBase):
     MINUSTICK = 1
     ZEROMINUSTICK = 2

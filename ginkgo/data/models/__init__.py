@@ -4,5 +4,5 @@ from ginkgo.data.models.model_bar import MBar
 from ginkgo.data.models.model_tick import MTick
 from ginkgo.data.models.model_signal import MSignal
 from ginkgo.data.models.model_adjustfactor import MAdjustfactor
+from ginkgo.data.models.model_stock_info import MStockInfo
 from ginkgo.data.models.model_code_ontrade import MCodeOnTrade
-from ginkgo.data.models.model_trade_day import MTradeDay
