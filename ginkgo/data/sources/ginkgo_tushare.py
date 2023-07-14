@@ -22,7 +22,18 @@ class GinkgoTushare(object):
         return r
 
     def fetch_cn_stock_info(self) -> pd.DataFrame:
-        r = self.pro.stock_basic()
+        r = self.pro.stock_basic(
+            fields=[
+                "ts_code",
+                "symbol",
+                "name",
+                "area",
+                "industry",
+                "list_date",
+                "curr_type",
+                "delist_date",
+            ]
+        )
         return r
 
     def fetch_cn_stock_daybar(
