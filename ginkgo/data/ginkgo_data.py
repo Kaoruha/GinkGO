@@ -6,10 +6,11 @@ import pandas as pd
 import multiprocessing
 import threading
 from ginkgo.data import DBDRIVER
+from ginkgo.data.sources import GinkgoTushare
 from ginkgo.libs import GLOG
 from ginkgo.libs import datetime_normalize
-from ginkgo.data.models import MOrder, MBase, MBar
-from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES, FREQUENCY_TYPES
+from ginkgo.data.models import MOrder, MBase, MBar, MStockInfo
+from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES, FREQUENCY_TYPES, CURRENCY_TYPES
 from ginkgo.data import GinkgoBaoStock
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.libs.ginkgo_conf import GCONF
@@ -97,415 +98,77 @@ class GinkgoData(object):
     def get_table_size(self, model: MBase) -> int:
         return DBDRIVER.get_table_size(model)
 
+    # Query in database
     def get_order(self, order_id: str) -> MOrder:
         r = self.session.query(MOrder).filter(MOrder.uuid == order_id).first()
         r.code = r.code.strip(b"\x00".decode())
         return r
 
-    def update_cn_codelist_period(
-        self, start: str or datetime.datetime, end: str or datetime.datetime
-    ) -> None:
-        start = datetime_normalize(start)
-        end = datetime_normalize(end)
-        current = start
-        while current <= end:
-            self.update_cn_codelist(current)
-            current = current + datetime.timedelta(days=1)
+    def get_stock_info(self, code: str) -> pd.DataFrame:
+        r = self.session.query(MStockInfo).filter(MStockInfo.code == code).first()
+        return r
 
-    def update_cn_codelist_to_latest_entire(self) -> None:
-        start = "1990-12-15"
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
-        self.update_cn_codelist_period(start, today)
-
-    def update_cn_codelist_to_latest_fast(self) -> None:
-        start = self.get_cn_codelist_lastdate()
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
-        self.update_cn_codelist_period(start, today)
-
-    def update_cn_codelist_async_worker(
-        self,
-        todo_queue: multiprocessing.Queue,
-        done_queue: multiprocessing.Queue,
-    ) -> None:
-        GLOG.logger.info(f"Start Worker PID:{os.getpid()}")
-        retry_count = 0
-        retry_limit = 5
-
-        DB = GinkgoClickhouse(
-            user=GCONF.CLICKUSER,
-            pwd=GCONF.CLICKPWD,
-            host=GCONF.CLICKHOST,
-            port=GCONF.CLICKPORT,
-            db=GCONF.CLICKDB,
-        )
-
-        while True:
-            try:
-                date = todo_queue.get(block=False, timeout=1)
-                self.update_cn_codelist(date, DB.session)
-                retry_count = 0
-            except Exception as e:
-                retry_count += 1
-                GLOG.logger.warn(f"WorkerUpdateCode Retry: {retry_count}")
-                time.sleep(0.5)
-                if retry_count >= retry_limit:
-                    break
-            # time.sleep(0.001)
-        GLOG.logger.info(f"WorkerUpdateCode: {os.getpid()} Complete.")
-
-    def update_cn_codelist_to_latest_entire_async(self) -> None:
-        start = datetime_normalize("1990-12-18")
-        now = datetime.datetime.now()
-
-        cpu_count = multiprocessing.cpu_count()
-        worker_count = int(cpu_count * 1)
-        todo_queue = multiprocessing.Queue()
-        done_queue = multiprocessing.Queue()
-        pool = []
-        while start <= now:
-            start += datetime.timedelta(days=1)
-            todo_queue.put(start)
-
-        GLOG.logger.info(f"Updating Code List with {worker_count} Worker.")
-
-        # Threading
-
-        # for i in range(worker_count):
-        #     t = threading.Thread(
-        #         target=self.update_cn_codelist_async_worker,
-        #         args=(
-        #             todo_queue,
-        #             done_queue,
-        #         ),
-        #         daemon=True,
-        #     )
-        #     t.start()
-        #     pool.append(t)
-        # for t in pool:
-        #     t.join()
-
-        # Multiprocessing
-
-        for i in range(worker_count):
-            p = multiprocessing.Process(
-                target=self.update_cn_codelist_async_worker,
-                args=(
-                    todo_queue,
-                    done_queue,
-                ),
-            )
-            p.start()
-            pool.append(p)
-
-        for p in pool:
-            p.join()
-
-    # Bar
-
-    def get_bar_lastdate(
-        self, code: str, frequency: FREQUENCY_TYPES
-    ) -> datetime.datetime:
-        r = (
-            self.session.query(MBar)
-            .filter(MBar.code == code)
-            .filter(MBar.frequency == frequency)
-            .order_by(MBar.timestamp.desc())
-            .first()
-        )
-        if r is None:
-            return datetime_normalize("1990-12-15")
-        else:
-            return r.timestamp
-
-    def get_bar(
-        self,
-        code: str,
-        start_date: str or datetime.datetime,
-        end_date: str or datetime.datetime,
-        frequency: FREQUENCY_TYPES,
-        adjust: int = 1,
-    ) -> pd.DataFrame:
-        """
-        filter with code primary.
-        """
-        start_date = datetime_normalize(start_date)
-        end_date = datetime_normalize(end_date)
-        r = (
-            self.session.query(MBar)
-            .filter(MBar.code == code)
-            .filter(MBar.timestamp >= start_date)
-            .filter(MBar.timestamp <= end_date)
-            .all()
-        )
-        if len(r) == 0:
-            return
-        l = []
-        for i in r:
-            l.append(i.to_dataframe())
-        df = pd.DataFrame(l)
-        # TODO Do Adjust cal
-        return df
-
-    def insert_bar(self, df: pd.DataFrame) -> None:
-        """
-        Insert Bar record into Database.
-        Will check the date code and frequency to avoid insert the duplicate record.
-        """
-        rs = []
-        cache = []
-
-        for i, r in df.iterrows():
-            # Set Model Bar
-            item = MBar()
-            item.set(r)
-            item.set_source(SOURCE_TYPES.BAOSTOCK)
-
-            # Get the latest date of bar in database
-            latest = self.get_bar_lastdate(item.code, item.frequency)
-
-            # Gen a key with new Bar code + date + frequency_type
-            key = (
-                item.code
-                + item.timestamp.strftime("%Y-%m-%d")
-                + "f"
-                + str(item.frequency)
-            )
-
-            # If the model is already in cache, go next
-            if key in cache:
-                GLOG.logger.debug(
-                    f"{FREQUENCY_TYPES(item.frequency)} {item.code} on {item.timestamp} already exist in insert list."
-                )
-                continue
-
-            # If the new Bar is after the latest date in db, append it to tobeinsert list and cache list.
-            if item.timestamp > latest:
-                rs.append(item)
-                cache.append(key)
-            else:
-                # Try get the data with the same code date and frequency
-                old = self.get_bar(
-                    item.code, item.timestamp, item.timestamp, item.frequency
-                )
-                # If there is no record in database, add the model to insert list.
-                if old is None:
-                    rs.append(item)
-                    cache.append(key)
-                else:
-                    GLOG.logger.debug(
-                        f"{FREQUENCY_TYPES(item.frequency)} {item.code} on {item.timestamp} already exist in database."
-                    )
-                    continue
-
-        self.add_all(rs)
-        self.commit()
-
-    def update_bar_to_latest(
-        self,
-        code: str,
-        frequency: FREQUENCY_TYPES,
-        start_date: str or datetime.datetime,
-        session=None,
-        bao=None,
-    ):
-        start_date = datetime_normalize(start_date)
-        today = datetime.datetime.now()
-
-        if start_date > today:
-            return
-
-        end_date = start_date + datetime.timedelta(days=3000)
-
-        if end_date > today:
-            end_date = today
-
-        end_date = end_date.strftime("%Y-%m-%d")
-
-        GLOG.logger.info(f"Updating {code} FROM {start_date} to {end_date}")
-
-        # Support Multiprocessing
-        my_session = self.session
-        if session:
-            my_session = session
-
-        bs = self.bs
-        if bao:
-            bs = bao
-
-        GLOG.logger.critical(f"=============================")
-        GLOG.logger.critical(f"============================")
-        try:
-            GLOG.logger.critical(f"==========================")
-            GLOG.logger.debug(f"Trying to get {code} from {start_date} to {end_date}")
-            if frequency == FREQUENCY_TYPES.DAY:
-                df = bs.fetch_cn_stock_daybar(code, start_date, end_date)
-            else:
-                # TODO Deal with other type of bars
-                GLOG.logger.critical("TODO support other type bars")
-                df = bs.fetch_cn_stock_daybar(code, start_date, end_date)
-            GLOG.logger.critical(f"=========================")
-        except Exception as e:
-            print(e)
-            print(type(e))
-
-        print(df.shape[0])
-
-        GLOG.logger.critical(f"{start_date} -- {end_date}")
-        data = []
-        latest = self.get_bar_lastdate(code, frequency)
-        for i, r in df.iterrows():
-            if datetime_normalize(r.date) <= latest:
-                continue
-
-            old = self.get_bar(code, r.date, r.date, frequency)
-            if old:
-                continue
-
-            item = MBar()
-            item.set(
-                r.code,
-                r.open,
-                r.high,
-                r.low,
-                r.close,
-                r.volume,
-                FREQUENCY_TYPES.DAY,
-                r.date,
-            )
-            item.set_source(SOURCE_TYPES.BAOSTOCK)
-            data.append(item)
-
-        my_session.add_all(data)
-        my_session.commit()
-        GLOG.logger.critical(
-            f"Insert {code} Daybar {start_date} -- {end_date}  {len(data)} rows."
-        )
-
-        if df.shape[0] >= 500:
-            self.update_bar_to_latest(code, frequency, end_date, session)
-
-    def update_bar_async_worker(
-        self,
-        todo_queue: multiprocessing.Queue,
-        done_queue: multiprocessing.Queue,
-        start_date: str or datetime.datetime,
-    ):
-        GLOG.logger.info(f"Start Worker PID:{os.getpid()}")
-        retry_count = 0
-        retry_limit = 4
-        while True:
-            try:
-                code = todo_queue.get(block=False, timeout=1)
-                DB = GinkgoClickhouse(
-                    user=GCONF.CLICKUSER,
-                    pwd=GCONF.CLICKPWD,
-                    host=GCONF.CLICKHOST,
-                    port=GCONF.CLICKPORT,
-                    db=GCONF.CLICKDB,
-                )
-                BS = GinkgoBaoStock()
-                GLOG.logger.critical(f"Worker start updating {code}")
-                self.update_bar_to_latest(
-                    code, FREQUENCY_TYPES.DAY, start_date, DB.session, BS
-                )
-                GLOG.logger.critical(f"Worker Finished One {code}")
-
-                retry_count = 0
-
-            except Exception as e:
-                retry_count += 1
-                GLOG.logger.warn(f"WorkerUpdateBar Retry: {retry_count}")
-                time.sleep(0.5)
-                if retry_count >= retry_limit:
-                    break
-        GLOG.logger.info(f"WorkerUpdateBar: {os.getpid()} Complete.")
-
-    def update_bar_to_latest_entire_async(self):
-        # Prepare the async moduel
-        cpu_count = multiprocessing.cpu_count()
-        worker_count = int(cpu_count * 1)
-        worker_count = 1
-        # Get Trade day
-        trade_day = self.bs.fetch_cn_stock_trade_day()
-        trade_day = trade_day[trade_day["is_trading_day"] == "1"]
-        # trade_day = trade_day.iloc[6200:, :]
-        updated_dict = {}
-        # Get CodeList from start to end
+    # Daily Data update
+    def update_stock_info(self) -> None:
+        t0 = datetime.datetime.now()
         update_count = 0
-        m = multiprocessing.Manager()
-        todo_queue = m.Queue()
-        done_queue = m.Queue()
-        for i, day in trade_day.iterrows():
-            pool = []
-            date = day["timestamp"]
-            code_list = self.get_codelist(date, MARKET_TYPES.CHINA)
-            if code_list is None:
-                GLOG.logger.warn(
-                    f"{date} get no code from database, please check your table."
-                )
+        insert_count = 0
+        tu = GinkgoTushare()
+        df = tu.fetch_cn_stock_info()
+        l = []
+        for i, r in df.iterrows():
+            item = MStockInfo()
+            code = r["ts_code"] if r["ts_code"] else "DefaultCode"
+            code_name = r["name"] if r["name"] else "DefaultCodeName"
+            industry = r["industry"] if r["industry"] else "Other"
+            list_date = r["list_date"] if r["list_date"] else "2100-01-01"
+            delist_date = r["delist_date"] if r["delist_date"] else "2100-01-01"
+            if (
+                code is None
+                or code_name is None
+                or industry is None
+                or list_date is None
+                or delist_date is None
+            ):
+                print(r)
+            item.set(
+                code,
+                code_name,
+                industry,
+                CURRENCY_TYPES[r.curr_type.upper()],
+                r.list_date,
+                delist_date,
+            )
+            item.set_source(SOURCE_TYPES.TUSHARE)
+            q = self.get_stock_info(r.ts_code)
+            # Check DB, if exist, update
+            if q is not None:
+                q.code = code
+                q.code_name = code_name
+                q.industry = industry
+                q.currency = CURRENCY_TYPES[r.curr_type.upper()]
+                q.list_date = datetime_normalize(list_date)
+                q.delist_date = datetime_normalize(delist_date)
+                self.commit()
+                update_count += 1
+                GLOG.logger.debug(f"Update {q.code} stock info")
                 continue
-
-            for i2, r2 in code_list.iterrows():
-                code = r2.code
-                # Skip bj
-                if code.startswith("bj.", 0, 3):
-                    continue
-
-                # Check if done update this time
-                if code in updated_dict.keys():
-                    if datetime_normalize(date) <= updated_dict[code]:
-                        GLOG.logger.debug(f"{date} {code} already updated.")
-                        continue
-
-                latest = self.get_bar_lastdate(code, FREQUENCY_TYPES.DAY)
-                GLOG.logger.debug(f"{code} latest in db is {latest}")
-                if latest <= datetime_normalize(date):
-                    todo_queue.put(code)
-                else:
-                    updated_dict[code] = latest
-                    GLOG.logger.warn(f"{code} in db {latest} is new than {date}")
-
-            if todo_queue.qsize() == 0:
-                GLOG.logger.debug(f"{date} no code need update.")
-                continue
-
-            update_count += todo_queue.qsize()
-            GLOG.logger.info(f"Updating Code List with {worker_count} Worker.")
-            GLOG.logger.warn(f"Updated {update_count} times.")
-
-            # Multiprocessing
-            for index in range(worker_count):
-                p = multiprocessing.Process(
-                    target=self.update_bar_async_worker,
-                    args=(
-                        todo_queue,
-                        done_queue,
-                        date,
-                    ),
-                )
-                p.start()
-                pool.append(p)
-
-            for p in pool:
-                p.join()
-
-            # for i in range(worker_count):
-            #     t = threading.Thread(
-            #         target=self.update_bar_async_worker,
-            #         args=(
-            #             todo_queue,
-            #             done_queue,
-            #             date,
-            #         ),
-            #         daemon=True,
-            #     )
-            #     t.start()
-            #     pool.append(t)
-            # for t in pool:
-            #     t.join()
-
-            GLOG.logger.critical("Next Day.")
-            # time.sleep(1)
+            # if not exist, try insert
+            l.append(item)
+            if len(l) >= 1000:
+                self.add_all(l)
+                self.commit()
+                insert_count += len(l)
+                GLOG.logger.debug(f"Insert {len(l)} stock info.")
+                l = []
+        self.add_all(l)
+        self.commit()
+        GLOG.logger.info(f"Insert {len(l)} stock info.")
+        insert_count += len(l)
+        t1 = datetime.datetime.now()
+        GLOG.logger.info(
+            f"StockInfo Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
+        )
 
 
 GDATA = GinkgoData()
