@@ -40,3 +40,7 @@ class TuShareTest(unittest.TestCase):
         rs = gts.fetch_cn_stock_info()
         l = rs.shape[0]
         self.assertGreater(l, 2000)
+
+    def test-TuFetchDaybar(self) -> None:
+        time.sleep(GCONF.HEARTBEAT)
+        pass
