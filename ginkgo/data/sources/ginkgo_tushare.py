@@ -9,6 +9,8 @@ class GinkgoTushare(object):
     def __init__(self) -> None:
         self.pro = None
 
+        self.connect()
+
     def connect(self) -> None:
         if self.pro == None:
             self.pro = ts.pro_api(GCONF.TUSHARETOKEN)
@@ -19,9 +21,8 @@ class GinkgoTushare(object):
         r = r.drop(["exchange", "pretrade_date"], axis=1)
         return r
 
-    def fetch_cn_stock_list(self) -> pd.DataFrame:
+    def fetch_cn_stock_info(self) -> pd.DataFrame:
         r = self.pro.stock_basic()
-        print(r)
         return r
 
     def fetch_cn_stock_daybar(
