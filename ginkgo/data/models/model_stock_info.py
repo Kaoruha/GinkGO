@@ -1,17 +1,17 @@
 import pandas as pd
 from functools import singledispatchmethod
-from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.data.models.model_base import MBase
 from ginkgo.enums import (
     SOURCE_TYPES,
     FREQUENCY_TYPES,
     CURRENCY_TYPES,
 )
-from sqlalchemy import Column, String, Integer, DateTime
+from sqlalchemy import Column, String, DateTime, Integer
+from sqlalchemy_utils import ChoiceType
 from ginkgo.libs.ginkgo_conf import GCONF
 from clickhouse_sqlalchemy import engines
-from sqlalchemy_utils import ChoiceType
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.ginkgo_pretty import base_repr
 
 
 class MStockInfo(MBase):
@@ -32,7 +32,7 @@ class MStockInfo(MBase):
         super(MStockInfo, self).__init__(*args, **kwargs)
 
     @singledispatchmethod
-    def set(self, *args, **kwargs) -> None:
+    def set(self) -> None:
         pass
 
     @set.register
