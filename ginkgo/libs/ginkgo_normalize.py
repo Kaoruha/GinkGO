@@ -5,14 +5,24 @@ def datetime_normalize(time: str or datetime.datetime) -> datetime.datetime:
     """
     Convert str or datetime into datetime "%Y-%m-%d %H:%M:%S"
     """
+    t = datetime.datetime.now()
+
     if isinstance(time, datetime.datetime):
         return time
-    elif isinstance(time, str):
-        try:
-            t = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            try:
-                t = datetime.datetime.strptime(time, "%Y-%m-%d")
-            except ValueError:
-                t = datetime.datetime.strptime(time, "%Y%m%d")
-        return t
+
+    try:
+        t = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        pass
+
+    try:
+        t = datetime.datetime.strptime(time, "%Y-%m-%d")
+    except ValueError:
+        pass
+
+    try:
+        t = datetime.datetime.strptime(time, "%Y%m%d")
+    except ValueError:
+        pass
+
+    return t
