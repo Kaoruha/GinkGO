@@ -1,6 +1,15 @@
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+print("halo")
 
-a = "1991-04-03"
+from ginkgo.data.drivers import GinkgoClickhouse
+from ginkgo.libs.ginkgo_conf import GCONF
 
-r = datetime_normalize(a)
-print(r)
+
+DB = GinkgoClickhouse(
+    user=GCONF.CLICKUSER,
+    pwd=GCONF.CLICKPWD,
+    host=GCONF.CLICKHOST,
+    port=GCONF.CLICKPORT,
+    db=GCONF.CLICKDB,
+)
+
+DB.create_database()

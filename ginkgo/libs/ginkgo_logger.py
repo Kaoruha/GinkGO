@@ -95,5 +95,17 @@ class GinkgoLogger(object):
             r = 50
         return r
 
+    def INFO(self, msg: str):
+        self.logger.info(msg)
+
+    def DEBUG(self, msg: str):
+        self.logger.debug(msg)
+
+    def WARN(self, msg: str):
+        self.logger.warn(msg)
+
+    def CRITICAL(self, msg: str):
+        self.logger.critical(msg)
+
 
 GLOG = GinkgoLogger("ginkgo_log")

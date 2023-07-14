@@ -1,8 +1,7 @@
-from sqlalchemy import create_engine, MetaData, inspect, func
+from sqlalchemy import create_engine, MetaData, inspect, func, DDL
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from ginkgo.libs import GLOG
-from ginkgo.libs.ginkgo_conf import GCONF
 
 
 class GinkgoClickhouse(object):
@@ -16,16 +15,30 @@ class GinkgoClickhouse(object):
         self.__host = host
         self.__port = port
         self.__db = db
+        self.__is_on_test = False
 
+        self.__create_database()
         self.__connect()
 
-    def __connect(self):
+    def __connect(self) -> None:
         uri = f"clickhouse://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/{self.__db}"
         self.engine = create_engine(uri)
         self.session = sessionmaker(self.engine)()
         self.metadata = MetaData(bind=self.engine)
         GLOG.logger.info("Connect to clickhouse succeed.")
         self.base = declarative_base(metadata=self.metadata)
+
+    def __create_database(self) -> None:
+        # ATTENTION DDL will run the sql, be care of COMMAND INJECTION
+        # ATTENTION DDL will run the sql, be care of COMMAND INJECTION
+        # ATTENTION DDL will run the sql, be care of COMMAND INJECTION
+        uri = f"clickhouse://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/default"
+        e = create_engine(uri)
+        e.execute(
+            DDL(
+                f"CREATE DATABASE IF NOT EXISTS {self.__db} ENGINE = Memory COMMENT 'For Ginkgo Quant'"
+            )
+        )
 
     @property
     def insp(self):
