@@ -63,8 +63,6 @@ def main():
             result = input("DB Moduel may erase the database, Conitnue? Y/N  ")
             # TODO Switch the database
             # TODO Switch the database
-            # TODO Switch the database
-            # TODO Switch the database
             if result.upper() == "Y":
                 t = origin_path + "/db"
                 path.append(t)
