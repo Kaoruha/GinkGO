@@ -1,4 +1,5 @@
 heart_beat: .01
+dev_mode: True
 
 # 开发/生产环境下相同的配置
 debug: True

@@ -59,12 +59,16 @@ class GinkgoConfig(object):
 
     @property
     def CLICKDB(self) -> str:
-        r = ""
-        try:
-            r = self.__read_secure()["database"]["clickhouse"]["database"]
-        except Exception as e:
-            r = "default"
-        return r
+        on_dev = self.__read_config()["dev_mode"]
+        if not on_dev:
+            r = ""
+            try:
+                r = self.__read_secure()["database"]["clickhouse"]["database"]
+            except Exception as e:
+                r = "default"
+            return r
+        else:
+            return "testdb"
 
     @property
     def CLICKUSER(self) -> str:
