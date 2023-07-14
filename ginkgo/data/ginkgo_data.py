@@ -8,7 +8,7 @@ import threading
 from ginkgo.data import DBDRIVER
 from ginkgo.libs import GLOG
 from ginkgo.libs import datetime_normalize
-from ginkgo.data.models import MCodeOnTrade, MOrder, MBase, MBar
+from ginkgo.data.models import MOrder, MBase, MBar
 from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES, FREQUENCY_TYPES
 from ginkgo.data import GinkgoBaoStock
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
@@ -101,110 +101,6 @@ class GinkgoData(object):
         r = self.session.query(MOrder).filter(MOrder.uuid == order_id).first()
         r.code = r.code.strip(b"\x00".decode())
         return r
-
-    # CodeListOnTrade
-    def get_cn_codelist_lastdate(self) -> datetime.datetime:
-        r = (
-            self.session.query(MCodeOnTrade)
-            .filter(MCodeOnTrade.market == MARKET_TYPES.CHINA)
-            .order_by(MCodeOnTrade.timestamp.desc())
-            .first()
-        )
-        if r is None:
-            return datetime_normalize("1990-12-15")
-        else:
-            return r.timestamp
-
-    def get_codelist(
-        self, date: str or datetime.datetime, market: MARKET_TYPES
-    ) -> pd.DataFrame:
-        date = datetime_normalize(date)
-        yesterday = date + datetime.timedelta(hours=-12)
-        tomorrow = date + datetime.timedelta(hours=12)
-        r = (
-            self.session.query(MCodeOnTrade)
-            .filter(MCodeOnTrade.market == market)
-            .filter(MCodeOnTrade.timestamp >= yesterday)
-            .filter(MCodeOnTrade.timestamp < tomorrow)
-            .all()
-        )
-        if len(r) == 0:
-            return
-        l = []
-        for i in r:
-            l.append(i.to_dataframe())
-        df = pd.DataFrame(l)
-        return df
-
-    def insert_codelist(self, df: pd.DataFrame) -> None:
-        rs = []
-        for i, r in df.iterrows():
-            item = MCodeOnTrade()
-            item.set(r)
-            rs.append(item)
-        self.add_all(rs)
-        self.commit()
-
-    def update_cn_codelist(self, date: str or datetime.datetime, session=None) -> None:
-        # 0 Check data in database
-        date = datetime_normalize(date)
-        yesterday = date + datetime.timedelta(hours=-12)
-        tomorrow = date + datetime.timedelta(hours=12)
-
-        # Support Multiprocessing
-        # Sqlalchemy has some problem when multi process visit.
-        # Sometimes the session will be wrong. THat can not get the right result.
-        # So the When running async, each process will hava a sqlalchemy instance. Or will use self.session
-        my_session = self.session
-        if session:
-            my_session = session
-
-        result = (
-            my_session.query(MCodeOnTrade)
-            .filter(MCodeOnTrade.market == MARKET_TYPES.CHINA)
-            .filter(MCodeOnTrade.timestamp >= yesterday)
-            .filter(MCodeOnTrade.timestamp < tomorrow)
-            .first()
-        )
-        GLOG.logger.info(f"In Process {os.getpid()} {date}")
-
-        if result:
-            GLOG.logger.warn(f"CodeList on {date} exist. No need to update.")
-            return
-
-        # 1. Get Code List From Bao
-        df: pd.DataFrame = self.bs.fetch_cn_stock_list(date)
-        GLOG.logger.debug(f"Try get code list on {date}")
-        if df.shape[0] == 0:
-            GLOG.logger.debug(f"{date} has no codelist. Return...")
-            return
-
-        GLOG.logger.critical(f"Remote has Date:{date} >={yesterday} < {tomorrow}")
-        # 2. Set up list(ModelCodeOntrade)
-        data = []
-        date = str(date.date())
-        GLOG.logger.debug(f"Check the date again {date}")
-        df["tmp"] = None
-        df.loc[df["trade_status"] == "1", "tmp"] = True
-        df.loc[df["trade_status"] == "0", "tmp"] = False
-        df = df.drop(["trade_status"], axis=1)
-        df = df.rename(columns={"tmp": "trade_status"})
-        for i, r in df.iterrows():
-            m = MCodeOnTrade()
-            m.set_source(SOURCE_TYPES.BAOSTOCK)
-            m.set(
-                r["code"],
-                r["code_name"],
-                r["trade_status"],
-                MARKET_TYPES.CHINA,
-                date,
-            )
-            data.append(m)
-
-        # 3. insert_code_list()
-        my_session.add_all(data)
-        my_session.commit()
-        GLOG.logger.info(f"Insert {date} CodeList {len(data)} rows.")
 
     def update_cn_codelist_period(
         self, start: str or datetime.datetime, end: str or datetime.datetime
