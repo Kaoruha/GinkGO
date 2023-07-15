@@ -1,7 +1,8 @@
 import pandas as pd
 from functools import singledispatchmethod
-from ginkgo.libs.ginkgo_pretty import base_repr
-from ginkgo.data.models.model_base import MBase
+from ginkgo.data.models import MBase
+from ginkgo.libs import datetime_normalize, base_repr
+from ginkgo import GCONF
 from ginkgo.enums import (
     DIRECTION_TYPES,
     ORDER_TYPES,
@@ -10,10 +11,8 @@ from ginkgo.enums import (
     FREQUENCY_TYPES,
 )
 from sqlalchemy import Column, String, Integer, DECIMAL
-from ginkgo.libs.ginkgo_conf import GCONF
 from clickhouse_sqlalchemy import engines
 from sqlalchemy_utils import ChoiceType
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
 
 
 class MTick(MBase):

@@ -1,12 +1,11 @@
 import unittest
 import time
 import datetime
-from ginkgo.libs import GLOG
 from ginkgo.backtest.bar import Bar
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MBar
 from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 
 
 class ModelBarTest(unittest.TestCase):

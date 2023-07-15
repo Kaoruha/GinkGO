@@ -2,10 +2,9 @@ import unittest
 import time
 import datetime
 import pandas as pd
-from ginkgo.libs import GLOG
 from ginkgo.backtest.signals import Signal
 from ginkgo.data.models import MSignal
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 

@@ -1,14 +1,12 @@
 import tushare as ts
 import pandas as pd
-from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo import GCONF
+from ginkgo.libs import datetime_normalize
 
 
 class GinkgoTushare(object):
     def __init__(self) -> None:
         self.pro = None
-
         self.connect()
 
     def connect(self) -> None:

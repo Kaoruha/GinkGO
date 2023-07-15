@@ -2,9 +2,7 @@ import pandas as pd
 import datetime
 from functools import singledispatchmethod
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
-from ginkgo.libs.ginkgo_pretty import base_repr
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
-from ginkgo.libs import gen_uuid4
+from ginkgo.libs import base_repr, datetime_normalize, gen_uuid4
 from ginkgo.backtest.base import Base
 
 

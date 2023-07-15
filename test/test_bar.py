@@ -1,10 +1,9 @@
 import unittest
 import datetime
 from time import sleep
-from ginkgo.libs import GLOG
 from ginkgo.backtest.bar import Bar
 from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 
 
 class BarTest(unittest.TestCase):

@@ -1,8 +1,7 @@
 import unittest
 import time
-from ginkgo.libs import GLOG
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 
 
 class ClickDriverTest(unittest.TestCase):

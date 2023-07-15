@@ -1,5 +1,5 @@
 # from config.setting import *
-from ginkgo.libs import GLOG
+from ginkgo import GLOG
 from ginkgo.web.server import start_server
 
 # from ginkgo.data.ginkgo_mongo import ginkgo_mongo as gm

@@ -2,9 +2,8 @@ import unittest
 import time
 import datetime
 import pandas as pd
-from ginkgo.libs import GLOG
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES
 from ginkgo.data.models import MTradeDay
 from ginkgo.libs.ginkgo_normalize import datetime_normalize

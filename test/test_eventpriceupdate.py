@@ -1,11 +1,10 @@
 import unittest
 import datetime
 from time import sleep
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.events.price_update import EventPriceUpdate
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.tick import Tick
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 from ginkgo.enums import (
     DIRECTION_TYPES,
     ORDER_TYPES,

@@ -3,7 +3,7 @@ import random
 from ginkgo.libs import datetime_normalize
 from ginkgo.enums import EVENT_TYPES, ATTITUDE_TYPES
 from ginkgo.backtest.event import EventPriceUpdate
-from ginkgo.libs import GLOG
+from ginkgo import GLOG
 
 
 class MatchMaking_Sim(object):

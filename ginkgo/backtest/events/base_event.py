@@ -2,9 +2,7 @@ import uuid
 import datetime
 from abc import abstractmethod, ABCMeta
 from ginkgo.enums import EVENT_TYPES, SOURCE_TYPES
-from ginkgo.libs.ginkgo_pretty import base_repr
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
-from ginkgo.libs import gen_uuid4
+from ginkgo.libs import base_repr, datetime_normalize, gen_uuid4
 
 
 class EventBase(object, metaclass=ABCMeta):

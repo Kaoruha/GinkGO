@@ -2,8 +2,7 @@ import datetime
 import pandas as pd
 from types import FunctionType, MethodType
 from functools import singledispatchmethod
-from ginkgo.libs.ginkgo_pretty import base_repr, pretty_repr, base_repr
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs import base_repr, pretty_repr, base_repr, datetime_normalize
 from ginkgo.backtest.base import Base
 from ginkgo.enums import FREQUENCY_TYPES
 

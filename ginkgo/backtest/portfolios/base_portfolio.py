@@ -2,8 +2,8 @@ import datetime
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.position import Position
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES
-from ginkgo.libs import GLOG
-from ginkgo.libs.ginkgo_math import cal_fee
+from ginkgo import GLOG
+from ginkgo.libs import cal_fee
 
 
 class BasePortfolio(object):

@@ -1,12 +1,11 @@
 import unittest
 import datetime
 from time import sleep
-from ginkgo.libs import GLOG
 from ginkgo.backtest.events.capital_update import EventCapitalUpdate
 from ginkgo.data.models.model_order import MOrder
 from ginkgo.backtest.bar import Bar
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 
 

@@ -1,13 +1,12 @@
 import pandas as pd
 from functools import singledispatchmethod
-from ginkgo.libs.ginkgo_pretty import base_repr
-from ginkgo.data.models.model_base import MBase
+from ginkgo.libs import base_repr, datetime_normalize
+from ginkgo.data.models import MBase
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
 from sqlalchemy import Column, String, Integer, DateTime, Boolean
-from ginkgo.libs.ginkgo_conf import GCONF
 from clickhouse_sqlalchemy import engines
 from sqlalchemy_utils import ChoiceType
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo import GCONF
 
 
 class MTradeDay(MBase):

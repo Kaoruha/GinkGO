@@ -1,11 +1,7 @@
 import os
 import sys
-import inspect
-import importlib
-from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
-from ginkgo.data.sources.ginkgo_baostock import GinkgoBaoStock
-from ginkgo.data.sources.ginkgo_tushare import GinkgoTushare
+from ginkgo import GCONF
+from ginkgo.data.drivers import GinkgoClickhouse
 
 
 DBDRIVER = None
