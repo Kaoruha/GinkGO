@@ -11,6 +11,7 @@ import argparse
 
 
 def bye():
+    print("\n")
     print("Bye. Wish to see you soon.")
     sys.exit()
 
@@ -49,10 +50,10 @@ def main():
     args = parser.parse_args()
 
     path_log = "logs"
-    path_db = "db"
+    path_db = ".db"
     path_pip = "./requirements.txt"
-    path_docker = "config/docker-compose.yml"
-    path_click = "config/clickhouse_users.xml"
+    path_docker = "ginkgo/docker-compose.yml"
+    path_click = "ginkgo/clickhouse_users.xml"
     path_gink_conf = "ginkgo/config/config.yml"
     path_gink_sec = "ginkgo/config/secure.yml"
 
@@ -154,4 +155,5 @@ def main():
 
 
 if __name__ == "__main__":
+    os.system("clear")
     main()

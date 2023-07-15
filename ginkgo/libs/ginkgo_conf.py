@@ -59,7 +59,7 @@ class GinkgoConfig(object):
 
     @property
     def CLICKDB(self) -> str:
-        on_dev = self.__read_config()["dev_mode"]
+        on_dev = self.__read_config()["debug"]
         if not on_dev:
             r = ""
             try:
