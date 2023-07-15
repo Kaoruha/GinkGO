@@ -1,6 +1,6 @@
 from ginkgo.backtest.base import Base
-from ginkgo.libs import GLOG
-from ginkgo.libs.ginkgo_pretty import base_repr
+from ginkgo import GLOG
+from ginkgo.libs import base_repr
 
 
 class Position(Base):

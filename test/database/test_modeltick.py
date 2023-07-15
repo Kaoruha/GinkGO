@@ -2,12 +2,11 @@ import unittest
 import time
 import datetime
 import pandas as pd
-from ginkgo.libs import GLOG
 from ginkgo.backtest.tick import Tick
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models.model_tick import MTick
 from ginkgo.enums import SOURCE_TYPES
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 
 
 # class ModelTickTest(unittest.TestCase):

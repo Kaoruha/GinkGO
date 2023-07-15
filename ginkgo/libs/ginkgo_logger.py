@@ -2,7 +2,7 @@ import os
 import logging
 import colorlog
 import threading
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF
 
 # Read Configure
 LOGGING_LEVEL_CONSOLE = GCONF.LOGGING_LEVEL_CONSOLE
@@ -100,7 +100,10 @@ class GinkgoLogger(object):
         self.logger.debug(msg)
 
     def WARN(self, msg: str):
-        self.logger.warn(msg)
+        self.logger.warning(msg)
+
+    def ERROR(self, msg: str):
+        self.logger.error(msg)
 
     def CRITICAL(self, msg: str):
         self.logger.critical(msg)

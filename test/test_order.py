@@ -2,11 +2,10 @@ import unittest
 import time
 import datetime
 import pandas as pd
-from ginkgo.libs import GLOG
 from ginkgo.backtest.order import Order
 from ginkgo.data.models import MOrder
 from ginkgo.enums import ORDER_TYPES, DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 from ginkgo.data.ginkgo_data import GDATA
 
 

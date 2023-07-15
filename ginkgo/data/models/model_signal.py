@@ -6,9 +6,8 @@ from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_base import MBase
 from ginkgo.backtest.order import Order
 from ginkgo.enums import DIRECTION_TYPES
-from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs.ginkgo_pretty import base_repr
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo import GCONF
+from ginkgo.libs import base_repr, datetime_normalize
 
 
 class MSignal(MBase):

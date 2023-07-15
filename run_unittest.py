@@ -4,13 +4,12 @@ import argparse
 import datetime
 import os
 import unittest
-from ginkgo.libs.ginkgo_conf import GCONF as g_conf
-from ginkgo.libs import GLOG
+from ginkgo import GCONF, GLOG
 
 
 def run_test(path: list):
-    LOGGING_FILE_ON = g_conf.LOGGING_FILE_ON
-    LOGGING_PATH = g_conf.LOGGING_PATH
+    LOGGING_FILE_ON = GCONF.LOGGING_FILE_ON
+    LOGGING_PATH = GCONF.LOGGING_PATH
     suite = unittest.TestSuite()
     for i in path:
         tests = unittest.TestLoader().discover(i, pattern="test_*.py")

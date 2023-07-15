@@ -4,8 +4,8 @@ from functools import singledispatchmethod
 from ginkgo.enums import EVENT_TYPES, PRICEINFO_TYPES, SOURCE_TYPES
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.tick import Tick
-from ginkgo.libs.ginkgo_pretty import pretty_repr
-from ginkgo.libs import GLOG
+from ginkgo.libs import base_repr
+from ginkgo import GLOG
 
 
 class EventPriceUpdate(EventBase):

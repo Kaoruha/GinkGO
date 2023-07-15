@@ -14,11 +14,10 @@ from time import sleep
 from queue import Queue, Empty
 from threading import Thread
 from ginkgo.backtest.engine.base_engine import BaseEngine
-from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.backtest.event.base_event import EventBase
 from typing import Any, Callable, List
 from ginkgo.enums import EVENT_TYPES
-from ginkgo.libs import GLOG
+from ginkgo import GLOG, GCONF
 
 
 class EventEngine(BaseEngine):

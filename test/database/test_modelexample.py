@@ -1,9 +1,8 @@
 import unittest
 import time
 import datetime
-from ginkgo.libs import GLOG
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 
 
 class ModelExampleTest(unittest.TestCase):

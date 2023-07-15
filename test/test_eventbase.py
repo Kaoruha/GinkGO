@@ -1,9 +1,8 @@
 from time import sleep
 import unittest
 import datetime
-from ginkgo.libs import GLOG
 from ginkgo.backtest.events.base_event import EventBase
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES
 
 

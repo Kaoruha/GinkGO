@@ -2,13 +2,12 @@ import unittest
 import time
 import datetime
 import pandas as pd
-from ginkgo.libs import GLOG
 from ginkgo.backtest.order import Order
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models.model_order import MOrder
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo import GCONF, GLOG
 
 
 # class ModelOrderTest(unittest.TestCase):
