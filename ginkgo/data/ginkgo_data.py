@@ -30,7 +30,7 @@ class GinkgoData(object):
         self.__models = []
         self.get_models()
         self.bs = GinkgoBaoStock()
-        self.batch_size = 2000
+        self.batch_size = 1000
 
     @property
     def session(self):
@@ -118,8 +118,11 @@ class GinkgoData(object):
         r = self.session.query(MStockInfo).filter(MStockInfo.code == code).first()
         return r
 
-    def get_stock_info_df(self, code: str) -> pd.DataFrame:
-        r = self.session.query(MStockInfo).filter(MStockInfo.code == code)
+    def get_stock_info_df(self, code: str = "") -> pd.DataFrame:
+        if code == "":
+            r = self.session.query(MStockInfo)
+        else:
+            r = self.session.query(MStockInfo).filter(MStockInfo.code == code)
         df = pd.read_sql(r.statement, self.engine)
         return df
 
@@ -153,6 +156,41 @@ class GinkgoData(object):
             .filter(MTradeDay.market == market)
             .filter(MTradeDay.timestamp >= date_start)
             .filter(MTradeDay.timestamp <= date_end)
+        )
+        df = pd.read_sql(r.statement, self.engine)
+        return df
+
+    def get_daybar(
+        self,
+        code: str,
+        date_start: str or datetime.datetime,
+        date_end: str or datetime.datetime,
+    ) -> list:
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        r = (
+            self.session.query(MBar)
+            .filter(MBar.code == code)
+            .filter(MBar.timestamp >= date_start)
+            .filter(MBar.timestamp <= date_end)
+            .all()
+        )
+
+        return r
+
+    def get_daybar_df(
+        self,
+        code: str,
+        date_start: str or datetime.datetime,
+        date_end: str or datetime.datetime,
+    ) -> pd.DataFrame:
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        r = (
+            self.session.query(MBar)
+            .filter(MBar.code == code)
+            .filter(MBar.timestamp >= date_start)
+            .filter(MBar.timestamp <= date_end)
         )
         df = pd.read_sql(r.statement, self.engine)
         return df
@@ -214,8 +252,8 @@ class GinkgoData(object):
                 l = []
         self.add_all(l)
         self.commit()
-        GLOG.DEBUG(f"Insert {len(l)} stock info.")
         insert_count += len(l)
+        GLOG.DEBUG(f"Insert {len(l)} stock info.")
         t1 = datetime.datetime.now()
         GLOG.INFO(
             f"StockInfo Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
@@ -277,6 +315,117 @@ class GinkgoData(object):
         GLOG.INFO(
             f"TradeCalendar Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
         )
+
+    def udpate_cn_daybar(self, code: str) -> None:
+        # Get the stock info of code
+        t0 = datetime.datetime.now()
+        info = self.get_stock_info(code)
+        if info is None:
+            GLOG.WARN(
+                f"{code} not exsit in db, please check your code or try updating the stock info"
+            )
+            return
+
+        # Got the range of date
+        date_start = info.list_date
+        date_end = info.delist_date
+        today = datetime.datetime.now()
+        if today < date_end:
+            date_end = today
+
+        missing_period = [
+            [None, None],
+        ]
+
+        trade_calendar = self.get_trade_calendar_df(
+            MARKET_TYPES.CHINA, date_start, date_end
+        )
+        trade_calendar = trade_calendar[trade_calendar["is_open"] == "true"]
+        trade_calendar.sort_values(by="timestamp", inplace=True, ascending=True)
+
+        current = date_start + datetime.timedelta(days=-1)
+        for index, calendar in trade_calendar.iterrows():
+            # Check NextDay
+            current = calendar["timestamp"]
+            print(f"{current}  {code}")
+            # Check if the bar exist in db
+            q = self.get_daybar_df(code, current, current)
+            if q.shape[0] > 1:
+                GLOG.WARN(
+                    f"{current} {code} has more than 1 record. Please run script to clean the duplicate record."
+                )
+            elif q.shape[0] == 1:
+                # Exist
+                period = missing_period[-1]
+                if period[0] is None:
+                    continue
+                elif period[1] is None:
+                    period[1] = current
+            elif q.shape[0] == 0:
+                # Missing
+                period = missing_period[-1]
+                if period[0] is None:
+                    period[0] = current
+                    continue
+                if period[1] is not None:
+                    missing_period.append([current, None])
+
+        period = missing_period[-1]
+        if period[0] is not None:
+            if period[1] is None:
+                period[1] = date_end
+
+        # Fetch the data and insert to db
+        tu = GinkgoTushare()
+        l = []
+        insert_count = 0
+        for period in missing_period:
+            print(period)
+        for period in missing_period:
+            start = period[0]
+            end = period[1]
+            GLOG.INFO(f"Fetch {code} {info.code_name} from {start} to {end}")
+            rs = tu.fetch_cn_stock_daybar(code, start, end)
+            if rs.shape[0] == 0:
+                GLOG.INFO(
+                    f"{code} {info.code_name} from {start} to {end} has no records."
+                )
+                continue
+            for i, r in rs.iterrows():
+                b = MBar()
+                b.set_source(SOURCE_TYPES.TUSHARE)
+                b.set(
+                    code,
+                    r["open"],
+                    r["high"],
+                    r["low"],
+                    r["close"],
+                    r["vol"],
+                    FREQUENCY_TYPES.DAY,
+                    datetime_normalize(r["trade_date"]),
+                )
+                l.append(b)
+                if len(l) >= self.batch_size:
+                    self.add_all(l)
+                    self.commit()
+                    insert_count += len(l)
+                    GLOG.DEBUG(f"Insert {len(l)} {code} Daybar.")
+                    l = []
+        self.add_all(l)
+        self.commit()
+        insert_count += len(l)
+        GLOG.DEBUG(f"Insert {len(l)} {code} Daybar.")
+        t1 = datetime.datetime.now()
+        GLOG.INFO(f"Daybar {code} Update: Insert: {insert_count} Cost: {t1-t0}")
+
+    def udpate_all_cn_daybar(self) -> None:
+        t0 = datetime.datetime.now()
+        info = self.get_stock_info_df()
+        for i, r in info.iterrows():
+            code = r["code"]
+            self.udpate_cn_daybar(code)
+        t1 = datetime.datetime.now()
+        GLOG.INFO(f"Update ALL CN Daybar cost {t1-t0}")
 
 
 GDATA = GinkgoData()

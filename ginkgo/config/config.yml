@@ -1,11 +1,11 @@
 heart_beat: .01
 # 开发/生产环境下相同的配置
-debug: True
+debug: False
 token_expiration: 14  # Token过期时间（天）
 
 # 日志设置
 log_path: ./logs/
-log_file_on: false
+log_file_on: False
 log_default_file: test.log
 log_level_console: DEBUG
 log_level_file: DEBUG
