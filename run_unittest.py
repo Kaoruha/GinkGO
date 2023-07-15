@@ -29,6 +29,7 @@ def run_test(path: list):
 
 
 def main():
+    os.system("clear")
     # args
     parser = argparse.ArgumentParser()
 
@@ -61,13 +62,11 @@ def main():
     if args.db:
         if not args.y:
             result = input("DB Moduel may erase the database, Conitnue? Y/N  ")
-            # TODO Switch the database
-            # TODO Switch the database
             if result.upper() == "Y":
-                t = origin_path + "/db"
+                t = origin_path + "/database"
                 path.append(t)
         else:
-            t = origin_path + "/db"
+            t = origin_path + "/database"
             path.append(t)
 
     if args.dev:
