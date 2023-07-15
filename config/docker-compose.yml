@@ -30,7 +30,7 @@ services:
     volumes:
       - ../logs/clickhouse:/var/log/clickhouse-server
       - ./clickhouse_users.xml:/etc/clickhouse-server/users.xml
-      - ../db/clickhouse:/var/lib/clickhouse:rw
+      - ../.db/clickhouse:/var/lib/clickhouse:rw
     ulimits:
       nproc: 65546
       nofile:
