@@ -40,10 +40,9 @@ class GinkgoTushare(object):
         date_start: str or datetime.datetime,
         date_end: str or datetime.datetime,
     ) -> pd.DataFrame:
-        start = datetime_normalize(date_start).strftime("YYYYmmdd")
-        end = datetime_normalize(date_end).strftime("YYYYmmdd")
-        r = self.pro.daily(ts_code=code, start_date=start, end_date=end)
-        print(r)
+        start = datetime_normalize(date_start).strftime("%Y-%m-%d")
+        end = datetime_normalize(date_end).strftime("%Y-%m-%d")
+        r = self.pro.daily(ts_code=code, start_date=start, end_date=end, limit=50000)
         return r
 
     def fetch_cn_stock_min(
