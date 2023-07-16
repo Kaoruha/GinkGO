@@ -1,6 +1,7 @@
 import yaml
 import base64
 import threading
+import os
 
 
 class GinkgoConfig(object):
@@ -18,6 +19,7 @@ class GinkgoConfig(object):
         self.secure_path = "./ginkgo/config/secure.yml"
 
     def __read_config(self) -> dict:
+        os.system("pwd")
         with open(self.setting_path, "r") as file:
             r = yaml.safe_load(file)
         return r
@@ -157,6 +159,24 @@ class GinkgoConfig(object):
         r = ""
         try:
             r = self.__read_secure()["tushare"]["token"]
+        except Exception as e:
+            pass
+        return r
+
+    @property
+    def DEFAULTSTART(self) -> str:
+        r = ""
+        try:
+            r = self.__read_config()["default_start"]
+        except Exception as e:
+            pass
+        return r
+
+    @property
+    def DEFAULTEND(self) -> str:
+        r = ""
+        try:
+            r = self.__read_config()["default_end"]
         except Exception as e:
             pass
         return r
