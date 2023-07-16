@@ -15,23 +15,26 @@
 ##### 0.6(FUTURE)
   - Add ML Engine.
 
-##### 0.5(FUTURE)
+##### 0.5.1(FUTURE)
+  - Update Backtest Engine
+
+##### 0.5
   - Add 2 or 3 DataSources of China Mainland Stock Market.
   - Baostock
   - Sine Spider
   - 
   - Other Source
 
-##### 0.4(FUTURE)
+##### 0.4
   - Add Clickhouse Driver.
   - Create Standard Data Interface.
   - Optimize MongoDB.
   - Optimize DataEngine.
 
-##### 0.3(FUTURE)
+##### 0.3
   - Support MongoDB and Clickhouse both.
 
-##### 0.2(FUTURE)
+##### 0.2
   - Update to Python3.11
 
 ##### 0.1.5
