@@ -3,12 +3,21 @@
 """
 
 import os
+import sys
+import time
 from ginkgo.config.package import VERSION
 
+os.system("clear")
+print("===============")
+print("Auto Package")
+print("===============")
+result = input("Conitnue? Y/N  ")
+if result.upper() != "Y":
+    print("Bye. Wish to see you soon.")
+    sys.exit()
+
 # Remove Package
-
 os.system("pip uninstall ginkgo -y")
-
 
 dist_path = "./dist"
 
@@ -27,7 +36,7 @@ os.system("python setup.py sdist bdist_wheel")
 
 # 安装
 
-dist_uri = f"pip install {dist_path}/ginkgo-{VERSION}-py3-none-any.whl"
+dist_uri = f"pip install {dist_path}/ginkgo-{VERSION}.tar.gz"
 os.system(dist_uri)
 
 # Clean
