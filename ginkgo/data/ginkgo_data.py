@@ -558,6 +558,7 @@ class GinkgoData(object):
             code = r["ts_code"]
             date = datetime_normalize(r["trade_date"])
             factor = r["adj_factor"]
+            print(f"AdjustFactor Check {date}  {code}", end="\r")
             # Check ad if exist in database
             q = self.get_adjustfactor(code, date, date)
             # If exist, update
