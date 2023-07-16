@@ -10,6 +10,9 @@ def datetime_normalize(time: str or datetime.datetime) -> datetime.datetime:
     if isinstance(time, datetime.datetime):
         return time
 
+    if isinstance(time, int):
+        time = str(time)
+
     try:
         t = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
     except ValueError:

@@ -1,6 +1,6 @@
 heart_beat: .01
 # 开发/生产环境下相同的配置
-debug: False
+debug: True
 token_expiration: 14  # Token过期时间（天）
 
 # 日志设置
@@ -18,3 +18,7 @@ log_color:
 
 # DB
 db_driver: clickhouse
+
+# ginkgo data
+default_start: 19000101
+default_end: 21000101

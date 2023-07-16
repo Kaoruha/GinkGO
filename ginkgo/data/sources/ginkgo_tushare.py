@@ -37,8 +37,8 @@ class GinkgoTushare(object):
     def fetch_cn_stock_daybar(
         self,
         code: str,
-        date_start: str or datetime.datetime,
-        date_end: str or datetime.datetime,
+        date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
+        date_end: str or datetime.datetime = GCONF.DEFAULTEND,
     ) -> pd.DataFrame:
         start = datetime_normalize(date_start).strftime("%Y-%m-%d")
         end = datetime_normalize(date_end).strftime("%Y-%m-%d")
@@ -48,15 +48,20 @@ class GinkgoTushare(object):
     def fetch_cn_stock_min(
         self,
         code: str,
-        date_start: str or datetime.datetime,
-        date_end: str or datetime.datetime,
+        date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
+        date_end: str or datetime.datetime = GCONF.DEFAULTEND,
     ) -> pd.DataFrame:
         pass
 
     def fetch_cn_stock_adjustfactor(
         self,
         code: str,
-        date_start: str or datetime.datetime,
-        date_end: str or datetime.datetime,
+        date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
+        date_end: str or datetime.datetime = GCONF.DEFAULTEND,
     ) -> pd.DataFrame:
-        pass
+        start = datetime_normalize(date_start).strftime("%Y-%m-%d")
+        end = datetime_normalize(date_end).strftime("%Y-%m-%d")
+        r = self.pro.adj_factor(
+            ts_code=code, start_date=start, end_date=end, limit=50000
+        )
+        return r
