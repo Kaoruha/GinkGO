@@ -5,6 +5,10 @@
 import os
 from ginkgo.config.package import VERSION
 
+# Remove Package
+
+os.system("pip uninstall ginkgo -y")
+
 
 dist_path = "./dist"
 
@@ -22,7 +26,8 @@ else:
 os.system("python setup.py sdist bdist_wheel")
 
 # 安装
-dist_uri = f"pip install {dist_path}/ginkgo-{VERSION}.tar.gz"
+
+dist_uri = f"pip install {dist_path}/ginkgo-{VERSION}-py3-none-any.whl"
 os.system(dist_uri)
 
 # Clean
