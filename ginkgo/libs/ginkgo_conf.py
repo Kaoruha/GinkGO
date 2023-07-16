@@ -15,8 +15,15 @@ class GinkgoConfig(object):
         return GinkgoConfig._instance
 
     def __init__(self) -> None:
-        self.setting_path = "./ginkgo/config/config.yml"
-        self.secure_path = "./ginkgo/config/secure.yml"
+        current_path = os.path.abspath(__file__)
+        self.setting_path = os.path.join(
+            os.path.dirname(current_path), "../config/config.yml"
+        )
+        self.secure_path = os.path.join(
+            os.path.dirname(current_path), "../config/secure.yml"
+        )
+        # self.setting_path = "./ginkgo/config/config.yml"
+        # self.secure_path = "./ginkgo/config/secure.yml"
 
     def __read_config(self) -> dict:
         os.system("pwd")
