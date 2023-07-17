@@ -10,12 +10,12 @@ The EventDrivenBacktest class will provide a way to run an event-driven backtest
 - Generating reports and metrics related to the performance of the backtesting system (By portfolio).
 """
 import datetime
+import sys
 from time import sleep
 from queue import Queue, Empty
 from threading import Thread
 from ginkgo.backtest.engine.base_engine import BaseEngine
 from ginkgo.backtest.event.base_event import EventBase
-from typing import Any, Callable, List
 from ginkgo.enums import EVENT_TYPES
 from ginkgo import GLOG, GCONF
 
@@ -26,7 +26,7 @@ class EventEngine(BaseEngine):
         self._interval: int = interval
         self._main_thread: Thread = Thread(target=self.main_loop)
         self._timer_thread: Thread = Thread(target=self.timer_loop)
-        self._timer_event: list = []
+        self._timer_list: list = []
         self._handlers: dict = {}
         self._general_handler: list = []
         self._queue: Queue = Queue()
@@ -35,6 +35,8 @@ class EventEngine(BaseEngine):
         """
         The EventBacktest Main Loop.
         """
+        count = 0
+        max_count = 10000
         while self._active:
             try:
                 # Get a event from events_queue
@@ -44,18 +46,20 @@ class EventEngine(BaseEngine):
                 count = 0
             except Empty:
                 print(f"No Event in Queue. {datetime.datetime.now()}")
+                count += 1
+                # Exit
+                if count >= max_count:
+                    sys.exit()
 
             # Break for a while
-            sleep(2)
-            # sleep(GCONF.HEARTBEAT)
+            sleep(GCONF.HEARTBEAT)
 
     def timer_loop(self) -> None:
         """
         Timer Task. Something like crontab or systemd timer
         """
         while self._active:
-            for event in self._timer_event:
-                self.put(event)
+            [handler() for handler in self._timer_list]
             sleep(self._interval)
 
     def start(self) -> None:
@@ -65,8 +69,7 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).start()
         self._main_thread.start()
         self._timer_thread.start()
-        GLOG.logger.critical("Engine start.")
-        # TODO Log
+        GLOG.CRITICAL("Engine start.")
 
     def stop(self) -> None:
         """
@@ -76,14 +79,10 @@ class EventEngine(BaseEngine):
         self._main_thread.join()
         self._timer_thread.join()
 
-    def next(self) -> None:
-        pass
-
     def put(self, event: EventBase) -> None:
         self._queue.put(Event)
-        # TODO Log
 
-    def _process(self, event: EventBase):
+    def _process(self, event: EventBase) -> None:
         if event.event_type in self._handlers:
             [handler(event) for handler in self._handlers[event.event_type]]
 
@@ -96,16 +95,16 @@ class EventEngine(BaseEngine):
             if handler not in self._handlers[type]:
                 self._handlers[type].append(handler)
             else:
-                GLOG.logger.debug(f"Handler Exists.")
+                GLOG.DEBUG(f"Handler Exists.")
         else:
             self._handlers[type]: list = []
             self._handlers[type].append(handler)
-            GLOG.logger.info(f"Register Handler {type} : {handler}")
+            GLOG.INFO(f"Register Handler {type} : {handler}")
 
     def unregister(self, type: EVENT_TYPES, handler: callable) -> None:
         if type not in self._handlers:
             msg = f"Event {type} not exsits. No need to unregister the handler."
-            GLOG.logger.warn(msg)
+            GLOG.WARN(msg)
             return
 
         if handler not in self._handlers[type]:
@@ -114,16 +113,16 @@ class EventEngine(BaseEngine):
             return
 
         self._handlers[type].remove(handler)
-        GLOG.logger.info(f"Unregister Handler {type} : {handler}")
+        GLOG.INFO(f"Unregister Handler {type} : {handler}")
 
     def register_general(self, handler: callable) -> None:
         if handler not in self._general_handler:
             self._general_handler.append(handler)
             msg = f"RegisterGeneral : {handler}"
-            GLOG.logger.info(msg)
+            GLOG.INFO(msg)
         else:
             msg = f"{handler} already exist."
-            GLOG.logger.warn(msg)
+            GLOG.WARN(msg)
 
     def unregister_general(self, handler: callable) -> None:
         if handler in self._general_handler:
@@ -133,3 +132,18 @@ class EventEngine(BaseEngine):
         else:
             msg = f"{handler} not exsit in GeneralHandler"
             GLOG.logger.warn(msg)
+
+    def register_timer(self, handler: callable) -> None:
+        if handler not in self._timer_list:
+            self._timer_list.append(handler)
+            GLOG.INFO(f"Register Timer Handler: {handler}")
+        else:
+            GLOG.DEBUG(f"Timer Handler Exsits.")
+
+    def unregister_timer(self, handler: callable) -> None:
+        if handler in self._timer_list:
+            self._timer_list.remove(handler)
+            GLOG.INFO(f"Unregister Timer Handler: {handler}")
+        else:
+            msg = f"TimerHandler {handler} not exists."
+            GLOG.WARN(msg)
