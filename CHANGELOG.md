@@ -1,83 +1,87 @@
 ##### 1.0(FUTURE)
-  - Begin to rebuild.
-  - Update Python to 3.11.
-  - Support MongoDB and Clickhouse.
-  - Add 2 or 3 DataSource.
-  - Give up GUI for now. Focus on the strategy develop.
-  - Add ML Engine.
-  - Support other markets.
+  - [x] Update Python to 3.11.
+  - [DEV] Upgrade Backtest Framework.
+  - [TODO] Support MongoDB and Clickhouse.
+  - [x] Add 2 or 3 DataSource.
+  - [] Add ML Engine.
+  - [TODO] Support other markets.
 
 ##### 0.7(FUTURE)
-  - Support More DataSource
-  - - Support NSQ
-  - - Support Dao
-  - - Support Jap
+  -[TODO]  Support More DataSource
+  - -[TODO]  Support NSQ
+  - -[TODO]  Support Dao
+  - -[TODO]  Support Jap
 
 ##### 0.6(FUTURE)
-  - Add ML Engine.
+  - [TODO] Add ML Engine.
 
 ##### 0.5.1(DEV)
-  - [TODO] Optimize Backtest Engine
+  - [TODO] Backtest Engine Upgrade
+  - - [DEV] Optimize Backtest Engine
+  - - [TODO] Backtest Engine Unittest
   - [TODO] Add Trading Records.
   - [TODO] Add CLI
+  - [TODO] Add Notification
+  - - [TODO] Add Mail Notification
+  - - [TODO] Add Wecat Notification
 
 ##### 0.5
   - [TODO] Baostock
-  - [Complete] Tushare
+  - [x] Tushare
   - [TODO] Sine Spider
 
 ##### 0.4
-  - [Complete] Create Standard Data Interface.
+  - [x] Create Standard Data Interface.
   - [TODO] Optimize MongoDB.
-  - [Complete] Optimize DataEngine.
+  - [x] Optimize DataEngine.
 
 ##### 0.3
   - [TODO] Support MongoDB and Clickhouse both.
   - - [TODO] Support MongoDB
-  - - [Complete] Support Clickhouse
+  - - [x] Support Clickhouse
 
 ##### 0.2
-  - [Complete] Update to Python3.11
+  - [x] Update to Python3.11
 
 ##### 0.1.5
-  - [Complete] Optimize Architecture.
+  - [x] Optimize Architecture.
 
 ##### 0.1.4
-  - [Complete] Add Clickhouse Driver.
+  - [x] Add Clickhouse Driver.
 
 ##### 0.1.30
-  - [Complete] Complete Engine Test
-  - [Complete] Fix GinkgoEngine
+  - [x] Complete Engine Test
+  - [x] Fix GinkgoEngine
 
 ##### 0.1.25
-  - [Complete] DataUpdate bug fix.
+  - [x] DataUpdate bug fix.
 
 ##### 0.1.24
-  - [Complete] Upgrade AutoDeployment Script.
-  - - [Complete] Add Auto Compile and install script  setup_auto.py
-  - - [Complete] Refactoring of install.py
+  - [x] Upgrade AutoDeployment Script.
+  - - [x] Add Auto Compile and install script  setup_auto.py
+  - - [x] Refactoring of install.py
 
 ##### 0.1.23
-  - [Complete] Upgrade GinkgoMongo
-  - - [Complete] Refactoring of Async Methods
+  - [x] Upgrade GinkgoMongo
+  - - [x] Refactoring of Async Methods
 
 ##### 0.1.22
-  - [Complete] Fix GinkgoMongo DF Copy() Bug.
+  - [x] Fix GinkgoMongo DF Copy() Bug.
 
 ##### 0.1.21
-  - [Complete] SimMatcher UnitTest.
-  - [Complete] T1Broker UnitTest.
-  - [Complete] Refactoring of DataEngine.
+  - [x] SimMatcher UnitTest.
+  - [x] T1Broker UnitTest.
+  - [x] Refactoring of DataEngine.
 
 ##### 0.1.20
-  - [Complete] Sizer UnitTest.
-  - [Complete] Matcher UnitTest.
-  - [Complete] Selector UnitTest.
-  - [Complete] Events UnitTest.
-  - [Complete] Analyzer Unittest.
-  - [Complete] BaseBroker UnitTest.
+  - [x] Sizer UnitTest.
+  - [x] Matcher UnitTest.
+  - [x] Selector UnitTest.
+  - [x] Events UnitTest.
+  - [x] Analyzer Unittest.
+  - [x] BaseBroker UnitTest.
 ##### 0.1.19
-  - [  ] Position UnitTest.
+  - [x] Position UnitTest.
   - [x] Add Broker UnitTest.
 
 ##### 0.1.18
