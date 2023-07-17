@@ -38,6 +38,9 @@ def main():
     parser.add_argument("-data", "--data", help="data test", action="store_true")
     parser.add_argument("-base", "--base", help="base test", action="store_true")
     parser.add_argument(
+        "-backtest", "--backtest", help="backtest test", action="store_true"
+    )
+    parser.add_argument(
         "-debug",
         "--debug",
         help="set debug level",
@@ -74,6 +77,10 @@ def main():
 
     if args.data:
         t = origin_path + "/data"
+        path.append(t)
+
+    if args.backtest:
+        t = origin_path + "/backtest"
         path.append(t)
 
     run_test(path)
