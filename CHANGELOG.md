@@ -77,8 +77,8 @@
   - [Complete] Analyzer Unittest.
   - [Complete] BaseBroker UnitTest.
 ##### 0.1.19
-  - [Complete] Position UnitTest.
-  - <font style="color: red;">[Complete]</font> Add Broker UnitTest.
+  - [] Position UnitTest.
+  - [x] Add Broker UnitTest.
 
 ##### 0.1.18
-  - \[$\color{blue}{Complete}$\] Fix bugs on MacOS.
+  - [x] Fix bugs on MacOS.
