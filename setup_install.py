@@ -8,13 +8,6 @@ import time
 from ginkgo.config.package import VERSION
 
 os.system("clear")
-print("===============")
-print("Auto Package")
-print("===============")
-result = input("Conitnue? Y/N  ")
-if result.upper() != "Y":
-    print("Bye. Wish to see you soon.")
-    sys.exit()
 
 # Remove Package
 os.system("pip uninstall ginkgo -y")
