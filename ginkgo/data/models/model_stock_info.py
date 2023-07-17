@@ -1,5 +1,4 @@
 import pandas as pd
-
 from functools import singledispatchmethod
 from ginkgo.data.models.model_base import MBase
 from ginkgo.enums import (

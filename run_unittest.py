@@ -15,14 +15,14 @@ def run_test(path: list):
         tests = unittest.TestLoader().discover(i, pattern="test_*.py")
         suite.addTest(tests)
 
+    log_path = LOGGING_PATH + "unittest.log"
     if LOGGING_FILE_ON:
-        log_path = LOGGING_PATH + "unittest.log"
         GLOG.reset_logfile("unittest.log")
-    try:
-        f = open(log_path, "w")
-        f.truncate()
-    except Exception as e:
-        print(e)
+        try:
+            f = open(log_path, "w")
+            f.truncate()
+        except Exception as e:
+            print(e)
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
 

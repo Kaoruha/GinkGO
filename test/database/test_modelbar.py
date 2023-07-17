@@ -72,7 +72,8 @@ class ModelBarTest(unittest.TestCase):
     def test_ModelBar_SetFromDataFrame(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
-            b = Bar(
+            b = Bar()
+            b.set(
                 i["code"],
                 i["open"],
                 i["high"],
