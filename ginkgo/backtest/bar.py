@@ -8,21 +8,8 @@ from ginkgo.enums import FREQUENCY_TYPES
 
 
 class Bar(Base):
-    def __init__(
-        self,
-        code: str = "ginkgo_test_bar_code",
-        open: float = 0,
-        high: float = 0,
-        low: float = 0,
-        close: float = 0,
-        volume: int = 0,
-        frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
-        timestamp: str or datetime.datetime = None,
-        *args,
-        **kwargs
-    ) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super(Bar, self).__init__(*args, **kwargs)
-        self.set(code, open, high, low, close, volume, frequency, timestamp)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -38,7 +25,7 @@ class Bar(Base):
         close: float,
         volume: int,
         frequency: FREQUENCY_TYPES,
-        timestamp: datetime.datetime,
+        timestamp: str or datetime.datetime,
     ) -> None:
         self._code = code
         self._open = open

@@ -26,7 +26,6 @@ class GinkgoConfig(object):
         # self.secure_path = "./ginkgo/config/secure.yml"
 
     def __read_config(self) -> dict:
-        os.system("pwd")
         with open(self.setting_path, "r") as file:
             r = yaml.safe_load(file)
         return r
