@@ -30,7 +30,7 @@ class GinkgoData(object):
         self.__models = []
         self.get_models()
         self.bs = GinkgoBaoStock()
-        self.batch_size = 1000
+        self.batch_size = 500
 
     @property
     def session(self):
