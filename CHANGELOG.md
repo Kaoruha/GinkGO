@@ -77,7 +77,7 @@
   - [Complete] Analyzer Unittest.
   - [Complete] BaseBroker UnitTest.
 ##### 0.1.19
-  - [] Position UnitTest.
+  - [  ] Position UnitTest.
   - [x] Add Broker UnitTest.
 
 ##### 0.1.18
