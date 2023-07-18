@@ -1,11 +1,12 @@
 import datetime
-from ginkgo.backtest.event.base_event import EventBase
+from ginkgo.backtest.events.base_event import EventBase
 from functools import singledispatchmethod
 from ginkgo.enums import EVENT_TYPES, PRICEINFO_TYPES, SOURCE_TYPES
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.tick import Tick
 from ginkgo.libs import base_repr
 from ginkgo import GLOG
+from ginkgo.data.ginkgo_data import GDATA
 
 
 class EventPriceUpdate(EventBase):

@@ -21,10 +21,6 @@ class EventBase(object, metaclass=ABCMeta):
     def source(self) -> SOURCE_TYPES:
         return self._source
 
-    @source.setter
-    def source(self, source: SOURCE_TYPES) -> None:
-        self._source = source
-
     @property
     def timestamp(self) -> datetime.datetime:
         return self._timestamp
@@ -42,6 +38,9 @@ class EventBase(object, metaclass=ABCMeta):
 
     def update_time(self, timestamp: str or datetime.datetime):
         self._timestamp = datetime_normalize(timestamp)
+
+    def set_source(self, source: SOURCE_TYPES):
+        self._source = source
 
     def __repr__(self):
         return base_repr(self, EventBase.__name__, 16, 60)

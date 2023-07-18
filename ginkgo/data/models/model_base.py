@@ -73,5 +73,8 @@ class MBase(db.base):
     def cancel_delete(self) -> None:
         self.isdel = False
 
+    def update_time(self, time: str or datetime.datetime) -> None:
+        self.update = datetime_normalize(time)
+
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 80)
