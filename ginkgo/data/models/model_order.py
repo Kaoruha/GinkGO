@@ -23,6 +23,9 @@ class MOrder(MBase):
     status = Column(ChoiceType(ORDERSTATUS_TYPES, impl=Integer()), default=1)
     volume = Column(Integer, default=0)
     limit_price = Column(DECIMAL(20, 10), default=0)
+    freeze = Column(DECIMAL(20, 10), default=0)
+    transaction_price = Column(DECIMAL(20, 10), default=0)
+    remain = Column(DECIMAL(20, 10), default=0)
 
     def __init__(self, *args, **kwargs) -> None:
         super(MOrder, self).__init__(*args, **kwargs)
@@ -40,7 +43,10 @@ class MOrder(MBase):
         status: ORDERSTATUS_TYPES,
         volume: int,
         limit_price: float,
-        datetime,
+        freeze: float,
+        transaction_price: float,
+        remain: float,
+        timestamp: any,
     ) -> None:
         self.code = code
         self.direction = direction
@@ -48,7 +54,10 @@ class MOrder(MBase):
         self.status = status
         self.volume = volume
         self.limit_price = round(limit_price, 6)
-        self.timestamp = datetime_normalize(datetime)
+        self.freeze = freeze
+        self.transaction_price = transaction_price
+        self.remain = remain
+        self.timestamp = datetime_normalize(timestamp)
 
     @set.register
     def _(self, df: pd.Series) -> None:
@@ -58,6 +67,10 @@ class MOrder(MBase):
         self.status = df.status
         self.volume = df.volume
         self.limit_price = df.limit_price
+        self.limit_price = round(df.limit_price, 6)
+        self.freeze = df.freeze
+        self.transaction_price = df.transaction_price
+        self.remain = df.remain
         self.timestamp = df.timestamp
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))

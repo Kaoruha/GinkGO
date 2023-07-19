@@ -39,7 +39,7 @@ class EventBaseTest(unittest.TestCase):
             try:
                 e = EventBase()
                 e.type = i["type"]
-                e.source = i["source"]
+                e.set_source = i["source"]
                 e.update_time(i["timestamp"])
 
             except Exception as e:
