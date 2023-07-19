@@ -14,13 +14,28 @@ class Order(Base):
         type: ORDER_TYPES = None,
         volume: int = 0,
         limit_price: float = 0,
-        timestamp: str or datetime.datetime = None,
+        freeze: float = 0,
+        transaction_price: float = 0,
+        remain: float = 0,
+        timestamp: any = None,
+        status: ORDERSTATUS_TYPES = ORDERSTATUS_TYPES.SUBMITTED,
         uuid: str = "",
         *args,
         **kwargs
     ) -> None:
         super(Order, self).__init__(*args, **kwargs)
-        self.set(code, direction, type, volume, limit_price, timestamp, uuid)
+        self.set(
+            code,
+            direction,
+            type,
+            volume,
+            limit_price,
+            freeze,
+            transaction_price,
+            remain,
+            timestamp,
+            uuid,
+        )
         self._status = ORDERSTATUS_TYPES.NEW
 
     @singledispatchmethod
@@ -35,15 +50,21 @@ class Order(Base):
         type: ORDER_TYPES,
         volume: int,
         limit_price: float,
-        timestamp: str or datetime.datetime,
+        freeze: float,
+        transaction_price: float,
+        remain: float,
+        timestamp: any,
         uuid: str = "",
     ):
         self._code: str = code
-        self._timestamp: datetime.datetime = datetime_normalize(timestamp)
         self._direction: DIRECTION_TYPES = direction
         self._type: ORDER_TYPES = type
         self._volume: int = volume
         self._limit_price: float = limit_price
+        self._freeze: float = freeze
+        self._transaction_price: float = transaction_price
+        self._remain: float = remain
+        self._timestamp: datetime.datetime = datetime_normalize(timestamp)
 
         if len(uuid) > 0:
             self._uuid: str = uuid
@@ -63,6 +84,9 @@ class Order(Base):
         self._volume: int = df.volume
         self._limit_price: float = df.limit_price
         self._status = ORDERSTATUS_TYPES(df.status)
+        self._freeze: float = df.freeze
+        self._transaction_price: float = df.transaction_price
+        self._remain: float = df.remain
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
 
@@ -100,6 +124,18 @@ class Order(Base):
             return None
         elif self.type == ORDER_TYPES.LIMITORDER:
             return self._limit_price
+
+    @property
+    def freeze(self) -> float:
+        return self._freeze
+
+    @property
+    def transaction_price(self) -> float:
+        return self._transaction_price
+
+    @property
+    def remain(self) -> float:
+        return self._remain
 
     def __repr__(self) -> str:
         return base_repr(self, Order.__name__, 12, 60)

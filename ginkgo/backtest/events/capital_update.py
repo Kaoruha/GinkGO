@@ -1,4 +1,4 @@
-from ginkgo.enums import EVENT_TYPES
+from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES
 from ginkgo.backtest.order import Order
 from ginkgo.libs import base_repr
 from ginkgo.backtest.events.base_event import EventBase
@@ -30,7 +30,7 @@ class EventCapitalUpdate(EventBase):
         return self._order
 
     def get_order(self, order_id: str):
-        # Make sure the order cant be edit by the event.
+        # TODO Make sure the order cant be edit by the event.
         # Get order from db
         r = GDATA.get_order(order_id)
         if r is None:
@@ -41,7 +41,7 @@ class EventCapitalUpdate(EventBase):
         self._order = o
 
         # Status could be 1,3,4
-        if self.order_status.value == 2:
+        if self.order_status.value == ORDERSTATUS_TYPES.SUBMITTED:
             GLOG.logger.error(
                 f"EventCapitalUpdate Should Spawn after Order filled or before Order submmit. Order:{self.order_id} status is {self.order_status}. Please check your code."
             )
@@ -93,6 +93,24 @@ class EventCapitalUpdate(EventBase):
         if self.order is None:
             return None
         return self.order.volume
+
+    @property
+    def freeze(self):
+        if self.order is None:
+            return None
+        return self.order.freeze
+
+    @property
+    def transaction_price(self):
+        if self.order is None:
+            return None
+        return self.order.transaction_price
+
+    @property
+    def remain(self):
+        if self.order is None:
+            return None
+        return self.order.remain
 
     def __repr__(self):
         return base_repr(self, EventCapitalUpdate.__name__, 16, 60)
