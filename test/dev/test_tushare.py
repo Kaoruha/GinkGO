@@ -5,7 +5,7 @@ import datetime
 from time import sleep
 import pandas as pd
 from ginkgo import GCONF,GLOG
-from ginkgo.data import GinkgoTushare
+from ginkgo.data.sources import GinkgoTushare
 
 
 class TuShareTest(unittest.TestCase):
@@ -40,6 +40,6 @@ class TuShareTest(unittest.TestCase):
         l = rs.shape[0]
         self.assertGreater(l, 2000)
 
-    def test-TuFetchDaybar(self) -> None:
+    def test_TuFetchDaybar(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
         pass

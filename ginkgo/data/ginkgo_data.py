@@ -73,7 +73,10 @@ class GinkgoData(object):
         Create tables with all models without __abstract__ = True.
         """
         for m in self.__models:
-            self.create_table(m)
+            try:
+                self.create_table(m)
+            except Exception as e:
+                print(e)
 
     def drop_all(self) -> None:
         """

@@ -4,7 +4,7 @@ import datetime
 from time import sleep
 import pandas as pd
 from ginkgo import GCONF, GLOG
-from ginkgo.data import GinkgoBaoStock
+from ginkgo.data.sources import GinkgoBaoStock
 
 
 class BaoStockTest(unittest.TestCase):
