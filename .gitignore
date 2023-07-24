@@ -151,4 +151,5 @@ ginkgo.egg-info/
 .logs
 ginkgo/config/secure.yml
 for_test.py
+.obsidian
 
