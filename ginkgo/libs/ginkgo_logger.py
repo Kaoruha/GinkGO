@@ -109,4 +109,4 @@ class GinkgoLogger(object):
         self.logger.critical(msg)
 
 
-GLOG = GinkgoLogger("ginkgo_log")
+GLOG = GinkgoLogger("")

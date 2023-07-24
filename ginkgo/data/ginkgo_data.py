@@ -5,7 +5,6 @@ import pandas as pd
 import multiprocessing
 import threading
 from ginkgo.data import DBDRIVER
-from ginkgo.data.sources import GinkgoTushare
 from ginkgo.data.models import MOrder, MBase, MBar, MStockInfo, MTradeDay, MAdjustfactor
 from ginkgo import GLOG, GCONF
 from ginkgo.libs import datetime_normalize, str2bool
@@ -16,7 +15,8 @@ from ginkgo.enums import (
     CURRENCY_TYPES,
     MARKET_TYPES,
 )
-from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare
+from ginkgo.data.sources import GinkgoBaoStock
+from ginkgo.data.sources import GinkgoTushare
 from ginkgo.data.drivers import GinkgoClickhouse
 
 
