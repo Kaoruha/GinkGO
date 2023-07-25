@@ -7,8 +7,6 @@ import sys
 import time
 from ginkgo.config.package import VERSION
 
-os.system("clear")
-
 # Remove Package
 os.system("pip uninstall ginkgo -y")
 
