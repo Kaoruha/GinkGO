@@ -5,7 +5,7 @@ from sqlalchemy import Column, String, Integer, DECIMAL
 from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_base import MBase
 from ginkgo.backtest.order import Order
-from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 from ginkgo import GCONF
 from ginkgo.libs import base_repr, datetime_normalize
 
@@ -50,7 +50,7 @@ class MAdjustfactor(MBase):
         self.code = df.code
         self.foreadjustfactor = df.foreadjustfactor
         self.backadjustfactor = df.backadjustfactor
-        self.adjustfactor = adjustfactor
+        self.adjustfactor = df.adjustfactor
         self.timestamp = df.timestamp
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))

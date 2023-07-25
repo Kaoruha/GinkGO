@@ -91,6 +91,8 @@ class GinkgoData(object):
         if DBDRIVER.is_table_exsists(model.__tablename__):
             model.__table__.drop()
             GLOG.WARN(f"Drop Table {model.__tablename__} : {model}")
+        else:
+            GLOG.INFO(f"No need to drop {model.__tablename__} : {model}")
 
     def create_table(self, model: MBase) -> None:
         if model.__abstract__ == True:

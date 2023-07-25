@@ -1,5 +1,6 @@
 import unittest
 import time
+import pandas as pd
 import datetime
 from ginkgo.backtest.bar import Bar
 from ginkgo.data.ginkgo_data import GDATA
@@ -39,11 +40,7 @@ class ModelBarTest(unittest.TestCase):
         time.sleep(GCONF.HEARTBEAT)
         result = True
         for i in self.params:
-            try:
-                o = MBar()
-            except Exception as e:
-                result = False
-        self.assertEqual(result, True)
+            o = MBar()
 
     def test_ModelBar_SetFromData(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
@@ -72,19 +69,9 @@ class ModelBarTest(unittest.TestCase):
     def test_ModelBar_SetFromDataFrame(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
-            b = Bar()
-            b.set(
-                i["code"],
-                i["open"],
-                i["high"],
-                i["low"],
-                i["close"],
-                i["volume"],
-                i["frequency"],
-                i["timestamp"],
-            )
+            df = pd.DataFrame.from_dict(i, orient="index")[0]
             o = MBar()
-            o.set(b.to_dataframe)
+            o.set(df)
             o.set_source(i["source"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.open, i["open"])
@@ -100,44 +87,29 @@ class ModelBarTest(unittest.TestCase):
         result = True
         GDATA.drop_table(MBar)
         GDATA.create_table(MBar)
-        try:
-            o = MBar()
-            GDATA.add(o)
-            GDATA.commit()
-        except Exception as e:
-            result = False
-
-        self.assertEqual(result, True)
+        o = MBar()
+        GDATA.add(o)
+        GDATA.commit()
 
     def test_ModelBar_BatchInsert(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
         result = True
         GDATA.drop_table(MBar)
         GDATA.create_table(MBar)
-        try:
-            s = []
-            for i in range(10):
-                o = MBar()
-                s.append(o)
-            GDATA.add_all(s)
-            GDATA.commit()
-        except Exception as e:
-            result = False
-
-        self.assertEqual(result, True)
+        s = []
+        for i in range(10):
+            o = MBar()
+            s.append(o)
+        GDATA.add_all(s)
+        GDATA.commit()
 
     def test_ModelBar_Query(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
         result = True
         GDATA.drop_table(MBar)
         GDATA.create_table(MBar)
-        try:
-            o = MBar()
-            GDATA.add(o)
-            GDATA.commit()
-            r = GDATA.session.query(MBar).first()
-        except Exception as e:
-            result = False
-
+        o = MBar()
+        GDATA.add(o)
+        GDATA.commit()
+        r = GDATA.session.query(MBar).first()
         self.assertNotEqual(r, None)
-        self.assertEqual(result, True)

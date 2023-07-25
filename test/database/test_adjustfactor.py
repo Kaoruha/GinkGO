@@ -1,4 +1,5 @@
 import unittest
+import pandas as pd
 import time
 import datetime
 from ginkgo.data.ginkgo_data import GDATA
@@ -24,19 +25,20 @@ class ModelAdjustfactorTest(unittest.TestCase):
                 "adjustfactor": 0.78,
                 "foreadjustfactor": 0.5,
                 "backadjustfactor": 0.8,
-                "date": datetime.datetime.now(),
-            }
+                "timestamp": datetime.datetime.now(),
+            },
+            {
+                "code": "testcode",
+                "adjustfactor": 0.71,
+                "foreadjustfactor": 0.2,
+                "backadjustfactor": 0.1,
+                "timestamp": datetime.datetime.now(),
+            },
         ]
 
     def test_ModelAdjustfactor_Init(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
-        result = True
-        try:
-            o = MAdjustfactor()
-        except Exception as e:
-            result = False
-
-        self.assertEqual(result, True)
+        o = MAdjustfactor()
 
     def test_ModelAdjustfactor_SetFromData(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
@@ -47,7 +49,7 @@ class ModelAdjustfactorTest(unittest.TestCase):
                 i["foreadjustfactor"],
                 i["backadjustfactor"],
                 i["adjustfactor"],
-                i["date"],
+                i["timestamp"],
             )
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.foreadjustfactor, i["foreadjustfactor"])
@@ -56,34 +58,57 @@ class ModelAdjustfactorTest(unittest.TestCase):
 
     def test_ModelAdjustfactor_SetFromDataFrame(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
+        for i in self.params:
+            df = pd.DataFrame.from_dict(i, orient="index")[0]
+            o = MAdjustfactor()
+            o.set(df)
+            self.assertEqual(o.code, i["code"])
+            self.assertEqual(o.foreadjustfactor, i["foreadjustfactor"])
+            self.assertEqual(o.backadjustfactor, i["backadjustfactor"])
+            self.assertEqual(o.adjustfactor, i["adjustfactor"])
         pass
 
     def test_ModelAdjustfactor_Insert(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
-        result = True
         GDATA.drop_table(MAdjustfactor)
         GDATA.create_table(MAdjustfactor)
         for i in self.params:
-            try:
-                o = MAdjustfactor()
-                o.set(
-                    i["code"],
-                    i["foreadjustfactor"],
-                    i["backadjustfactor"],
-                    i["adjustfactor"],
-                    i["date"],
-                )
-                GDATA.add(o)
-                GDATA.commit()
-            except Exception as e:
-                result = False
-
-        self.assertEqual(result, True)
+            o = MAdjustfactor()
+            o.set(
+                i["code"],
+                i["foreadjustfactor"],
+                i["backadjustfactor"],
+                i["adjustfactor"],
+                i["timestamp"],
+            )
+            GDATA.add(o)
+            GDATA.commit()
 
     def test_ModelAdjustfactor_BatchInsert(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
-        pass
+        GDATA.drop_table(MAdjustfactor)
+        GDATA.create_table(MAdjustfactor)
+        l = []
+        result = True
+        for i in self.params:
+            o = MAdjustfactor()
+            o.set(
+                i["code"],
+                i["foreadjustfactor"],
+                i["backadjustfactor"],
+                i["adjustfactor"],
+                i["timestamp"],
+            )
+            l.append(o)
+        GDATA.add_all(l)
+        GDATA.commit()
 
     def test_ModelAdjustfactor_Query(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
-        pass
+        GDATA.drop_table(MAdjustfactor)
+        GDATA.create_table(MAdjustfactor)
+        o = MAdjustfactor()
+        GDATA.add(o)
+        GDATA.commit()
+        r = GDATA.session.query(MAdjustfactor).first()
+        self.assertNotEqual(r, None)
