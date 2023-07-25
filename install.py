@@ -58,14 +58,13 @@ def main():
     path_gink_sec = "ginkgo/config/secure.yml"
 
     print("======================================")
-    print("Balabala Banner")
+    print("Balabala Banner")  # TODO
     print("======================================")
 
     arch = platform.architecture()[0]
     print(f"OS: {platform.system()} {arch}")
     print(platform.platform())
     print(f"CPU Cores: {os.cpu_count()}")
-    # print("Windows" == str(platform.system()))
 
     docker_version = os.system("docker --version")
     compose_version = os.system("docker-compose --version")
@@ -140,9 +139,11 @@ def main():
     # 创建映射文件夹
     if not os.path.exists(path_db):
         os.mkdir(path_db)
+
     # 创建日志文件夹
     if not os.path.exists(path_log):
         os.mkdir(path_log)
+
     # 启动Docker
     if "Windows" == str(platform.system()):
         os.system(f"docker-compose -f {path_docker} up -d")
@@ -152,7 +153,7 @@ def main():
         os.system(f"sudo docker-compose -f {path_docker} up -d")
 
     # Install Ginkgo Package
-    # os.system("python ./setup_install.py")
+    os.system("python ./setup_install.py")
 
 
 if __name__ == "__main__":
