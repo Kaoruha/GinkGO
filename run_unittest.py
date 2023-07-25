@@ -32,12 +32,12 @@ def main():
     # args
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("-all", "--all", help="Test all", action="store_true")
     parser.add_argument("-y", "--y", help="All Yes", action="store_true")
     parser.add_argument("-dev", "--dev", help="dev mode", action="store_true")
     parser.add_argument("-db", "--db", help="database test", action="store_true")
     parser.add_argument("-data", "--data", help="data test", action="store_true")
     parser.add_argument("-base", "--base", help="base test", action="store_true")
-    parser.add_argument("-all", "--all", help="Test all", action="store_true")
     parser.add_argument(
         "-backtest", "--backtest", help="backtest test", action="store_true"
     )
@@ -59,6 +59,15 @@ def main():
 
     origin_path = "./test"
     path = []
+
+    if args.all:
+        args.base = True
+        args.dev = True
+        args.data = True
+        args.backtest = True
+        args.db = True
+        args.y = True
+
     if args.base:
         path.append(origin_path)
 
@@ -83,16 +92,6 @@ def main():
     if args.backtest:
         t = origin_path + "/backtest"
         path.append(t)
-
-    if args.all:
-        t = origin_path + "/dev"
-        if t not in path:path.append(t)
-        t = origin_path + "/data"
-        if t not in path:path.append(t)
-        t = origin_path + "/backtest"
-        if t not in path:path.append(t)
-
-
 
     run_test(path)
 

@@ -40,18 +40,12 @@ class ModelOrderTest(unittest.TestCase):
 
     def test_ModelOrder_Init(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
-        result = True
         for i in self.params:
-            try:
-                o = MOrder()
-                o.set_source(i["source"])
-            except Exception as e:
-                result = False
-        self.assertEqual(result, True)
+            o = MOrder()
+            o.set_source(i["source"])
 
     def test_ModelOrder_SetFromData(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
-        result = True
         for i in self.params:
             o = MOrder()
             o.set_source(i["source"])
@@ -79,7 +73,7 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.source, i["source"])
 
-    def test_ModelOrder_SetFromData(self) -> None:
+    def test_ModelOrder_SetFromDataFrame(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MOrder()
@@ -100,48 +94,30 @@ class ModelOrderTest(unittest.TestCase):
 
     def test_ModelOrder_Insert(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
-        result = True
         GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
-        try:
-            o = MOrder()
-            GDATA.add(o)
-            GDATA.commit()
-        except Exception as e:
-            result = False
-
-        self.assertEqual(result, True)
+        o = MOrder()
+        GDATA.add(o)
+        GDATA.commit()
 
     def test_ModelOrder_BatchInsert(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
-        result = True
         GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
-        try:
-            s = []
-            for i in range(10):
-                o = MOrder()
-                s.append(o)
+        s = []
+        for i in range(10):
+            o = MOrder()
+            s.append(o)
 
-            GDATA.add_all(s)
-            GDATA.commit()
-        except Exception as e:
-            result = False
-
-        self.assertEqual(result, True)
+        GDATA.add_all(s)
+        GDATA.commit()
 
     def test_ModelOrder_Query(self) -> None:
         time.sleep(GCONF.HEARTBEAT)
-        result = True
         GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
-        try:
-            o = MOrder()
-            GDATA.add(o)
-            GDATA.commit()
-            r = GDATA.session.query(MOrder).first()
-        except Exception as e:
-            result = False
-
+        o = MOrder()
+        GDATA.add(o)
+        GDATA.commit()
+        r = GDATA.session.query(MOrder).first()
         self.assertNotEqual(r, None)
-        self.assertEqual(result, True)
