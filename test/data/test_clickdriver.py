@@ -25,12 +25,5 @@ class ClickDriverTest(unittest.TestCase):
             port=GCONF.CLICKPORT,
             db=GCONF.CLICKDB,
         )
-        r = None
-        try:
-            r = db.is_table_exsists("Shouldnotbethere")
-        except Exception as e:
-            GLOG.logger.error(
-                "Clickhouse Connection Failed. Please check your config file. And make sure the docker status."
-            )
-
+        r = db.is_table_exsists("Shouldnotbethere")
         self.assertEqual(False, r)

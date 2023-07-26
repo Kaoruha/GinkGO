@@ -125,6 +125,13 @@ class GinkgoData(object):
             .filter(MOrder.isdel == False)
         )
         df = pd.read_sql(r.statement, self.engine)
+
+        if df.shape[0] > 1:
+            GLOG.WARN(
+                f"Order_id :{order_id} has {df.shape[0]} records, please check the code and clean the database."
+            )
+
+        df = df.iloc[0, :]
         df.code = df.code.strip(b"\x00".decode())
         return df
 

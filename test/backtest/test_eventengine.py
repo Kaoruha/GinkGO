@@ -35,7 +35,7 @@ class EventEngineTest(unittest.TestCase):
         self.assertEqual(engine.is_active, False)
         engine.start()
         self.assertEqual(engine.is_active, True)
-        sleep(2)
+        sleep(1)
         engine.stop()
         self.assertEqual(engine.is_active, False)
 
@@ -157,7 +157,7 @@ class EventEngineTest(unittest.TestCase):
         self.assertEqual(a, 9)
 
     def test_EngineTimerProcess(self) -> None:
-        engine = EventEngine()
+        engine = EventEngine(0.1)
         global a
         a = 0
 
@@ -167,6 +167,6 @@ class EventEngineTest(unittest.TestCase):
 
         engine.register_timer(test_handle)
         engine.start()
-        sleep(6.2)
+        sleep(0.55)
         engine.stop()
-        self.assertEqual(a, 7)
+        self.assertEqual(a, 6)

@@ -62,34 +62,23 @@ class ModelTickTest(unittest.TestCase):
             self.assertEqual(tick.source, i["source"])
 
     def test_ModelTick_Insert(self) -> None:
-        result = True
         GDATA.drop_table(MTick)
         GDATA.create_table(MTick)
-        try:
-            o = MTick()
-            GDATA.add(o)
-            GDATA.commit()
-        except Exception as e:
-            result = False
-        self.assertEqual(result, True)
+        o = MTick()
+        GDATA.add(o)
+        GDATA.commit()
 
     def test_ModelTick_BatchInsert(self) -> None:
-        result = True
-
         GDATA.drop_table(MTick)
         GDATA.create_table(MTick)
-        try:
-            s = []
+        s = []
 
-            for i in range(10):
-                o = MTick()
-                s.append(o)
+        for i in range(10):
+            o = MTick()
+            s.append(o)
 
-            GDATA.add_all(s)
-            GDATA.commit()
-        except Exception as e:
-            result = False
-        self.assertEqual(result, True)
+        GDATA.add_all(s)
+        GDATA.commit()
 
     def test_ModelTick_Query(self) -> None:
         GDATA.drop_table(MTick)
