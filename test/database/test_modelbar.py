@@ -37,7 +37,6 @@ class ModelBarTest(unittest.TestCase):
         ]
 
     def test_ModelBar_Init(self) -> None:
-        result = True
         for i in self.params:
             o = MBar()
 
@@ -80,7 +79,6 @@ class ModelBarTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelBar_Insert(self) -> None:
-        result = True
         GDATA.drop_table(MBar)
         GDATA.create_table(MBar)
         o = MBar()
@@ -88,7 +86,6 @@ class ModelBarTest(unittest.TestCase):
         GDATA.commit()
 
     def test_ModelBar_BatchInsert(self) -> None:
-        result = True
         GDATA.drop_table(MBar)
         GDATA.create_table(MBar)
         s = []
@@ -99,7 +96,6 @@ class ModelBarTest(unittest.TestCase):
         GDATA.commit()
 
     def test_ModelBar_Query(self) -> None:
-        result = True
         GDATA.drop_table(MBar)
         GDATA.create_table(MBar)
         o = MBar()

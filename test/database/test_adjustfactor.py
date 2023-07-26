@@ -84,7 +84,6 @@ class ModelAdjustfactorTest(unittest.TestCase):
         GDATA.drop_table(MAdjustfactor)
         GDATA.create_table(MAdjustfactor)
         l = []
-        result = True
         for i in self.params:
             o = MAdjustfactor()
             o.set(

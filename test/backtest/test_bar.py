@@ -46,13 +46,8 @@ class BarTest(unittest.TestCase):
         ]
 
     def test_Bar_Init(self) -> None:
-        result = True
         for i in self.params:
-            try:
-                b = Bar()
-            except Exception as e:
-                result = False
-        self.assertEqual(result, True)
+            b = Bar()
 
     def test_Bar_Set(self) -> None:
         for i in self.params:

@@ -1,13 +1,13 @@
 import unittest
 import pandas as pd
 import datetime
-from ginkgo.backtest.events import EventCapitalUpdate
+from ginkgo.backtest.events import EventOrderSubmitted
 from ginkgo.data.models.model_order import MOrder
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 
 
-class EventCapitalUpdateTest(unittest.TestCase):
+class EventOrderSubmittedTest(unittest.TestCase):
     """
     UnitTest for Event Capital Update.
     """
@@ -15,7 +15,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
     # Init
 
     def __init__(self, *args, **kwargs) -> None:
-        super(EventCapitalUpdateTest, self).__init__(*args, **kwargs)
+        super(EventOrderSubmittedTest, self).__init__(*args, **kwargs)
         # Params for order
         self.params = [
             {
@@ -34,11 +34,11 @@ class EventCapitalUpdateTest(unittest.TestCase):
             }
         ]
 
-    def test_EventCU_Init(self) -> None:
+    def test_EventOR_Init(self) -> None:
         for i in self.params:
-            e = EventCapitalUpdate()
+            e = EventOrderSubmitted()
 
-    def test_EventCU_GetOrder(self) -> None:
+    def test_EventOR_GetOrder(self) -> None:
         # Clean the Table
         GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
@@ -50,7 +50,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
             GDATA.add(o)
             GDATA.commit()
             # Try Get
-            e = EventCapitalUpdate(o.uuid)
+            e = EventOrderSubmitted(o.uuid)
             self.assertEqual(e.order_id, o.uuid)
             self.assertEqual(e.code, i["code"])
             self.assertEqual(e.direction, i["direction"])

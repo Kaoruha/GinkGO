@@ -32,16 +32,16 @@ class EVENT_TYPES(EnumBase):
     Types of Events.For Backtest.
     """
 
+    OTHER = 0
     PRICEUPDATE = 1
-    ORDERSUBMISSION = 2
-    ORDERFILL = 3
-    TRADEEXCUTION = 4
-    TRADECANCELLATION = 5
+    ORDERSUBMITTED = 2
+    ORDERFILLED = 3
+    ORDERCANCELED = 4
+    ORDEREXECUTE = 5
     POSITIONUPDATE = 6
     CAPITALUPDATE = 7
     NEWSRECIEVE = 8
     NEXTPHASE = 9
-    OTHER = 0
 
 
 class PRICEINFO_TYPES(EnumBase):

@@ -36,7 +36,7 @@ class EventBase(object, metaclass=ABCMeta):
         elif isinstance(type, str):
             self._type = EVENT_TYPES.enum_convert(type)
 
-    def update_time(self, timestamp: str or datetime.datetime):
+    def set_time(self, timestamp: any):
         self._timestamp = datetime_normalize(timestamp)
 
     def set_source(self, source: SOURCE_TYPES):

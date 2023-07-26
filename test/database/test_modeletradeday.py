@@ -36,7 +36,6 @@ class ModelTradeDayTest(unittest.TestCase):
             o = MTradeDay()
 
     def test_ModelTradeDay_SetFromData(self) -> None:
-        result = True
         for i in self.params:
             o = MTradeDay()
             o.set(i["market"], i["is_open"], i["date"])

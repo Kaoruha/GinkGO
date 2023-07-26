@@ -6,21 +6,14 @@ from ginkgo import GLOG
 from ginkgo.data.ginkgo_data import GDATA
 
 
-class EventCapitalUpdate(EventBase):
+class EventOrderRelated(EventBase):
     """
-    Capital Update occurred in 3 scenes:
-    1. Create a new order, the money should be freeze
-    2. Order filled
-        2.1 When selling the capital should add the amount of selling part
-        2.2 When buying the frozen part should be removed
-    3. Order Cancelled
-        3.1 When selling the frozen shell should be revert
-        3.2 When buying the frozen capital should be revert
+    Order Related Event
     """
 
     def __init__(self, order_id: str = "", *args, **kwargs) -> None:
-        super(EventCapitalUpdate, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.CAPITALUPDATE
+        super(EventOrderRelated, self).__init__(*args, **kwargs)
+        self.event_type = EVENT_TYPES.OTHER
         self._order = None
         if order_id != "":
             self._order_id = order_id
@@ -48,11 +41,11 @@ class EventCapitalUpdate(EventBase):
         o.set(r)
         self._order = o
 
-        # Status could be 1,3,4
-        if self.order_status.value == ORDERSTATUS_TYPES.SUBMITTED:
-            GLOG.logger.error(
-                f"EventCapitalUpdate Should Spawn after Order filled or before Order submmit. Order:{self.order_id} status is {self.order_status}. Please check your code."
-            )
+        # # Status could be 1,3,4
+        # if self.order_status.value == ORDERSTATUS_TYPES.SUBMITTED:
+        #     GLOG.logger.error(
+        #         f"EventOrderRelated Should Spawn after Order filled or before Order submmit. Order:{self.order_id} status is {self.order_status}. Please check your code."
+        #     )
 
     @property
     def timestamp(self):
@@ -139,4 +132,4 @@ class EventCapitalUpdate(EventBase):
         return self.order.remain
 
     def __repr__(self):
-        return base_repr(self, EventCapitalUpdate.__name__, 16, 60)
+        return base_repr(self, EventOrderRelated.__name__, 16, 60)

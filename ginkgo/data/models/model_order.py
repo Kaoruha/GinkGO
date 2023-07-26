@@ -37,6 +37,7 @@ class MOrder(MBase):
     @set.register
     def _(
         self,
+        uuid: str,
         code: str,
         direction: DIRECTION_TYPES,
         type: ORDER_TYPES,
@@ -48,6 +49,7 @@ class MOrder(MBase):
         remain: float,
         timestamp: any,
     ) -> None:
+        self.uuid = uuid
         self.code = code
         self.direction = direction
         self.type = type
@@ -61,6 +63,7 @@ class MOrder(MBase):
 
     @set.register
     def _(self, df: pd.Series) -> None:
+        self.uuid = df.uuid
         self.code = df.code
         self.direction = df.direction
         self.type = df.type
