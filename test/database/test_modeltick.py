@@ -6,7 +6,7 @@ from ginkgo.backtest.tick import Tick
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models.model_tick import MTick
 from ginkgo.enums import SOURCE_TYPES
-from ginkgo import GCONF, GLOG
+from ginkgo import GLOG
 
 
 class ModelTickTest(unittest.TestCase):
@@ -32,7 +32,6 @@ class ModelTickTest(unittest.TestCase):
         ]
 
     def test_ModelTick_Init(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             item = MTick()
             item.set(i["code"], i["price"], i["volume"], i["timestamp"])
@@ -44,7 +43,6 @@ class ModelTickTest(unittest.TestCase):
             self.assertEqual(item.source, i["source"])
 
     def test_ModelTick_SetFromDataframe(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             data = {
                 "code": i["code"],
@@ -64,7 +62,6 @@ class ModelTickTest(unittest.TestCase):
             self.assertEqual(tick.source, i["source"])
 
     def test_ModelTick_Insert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         result = True
         GDATA.drop_table(MTick)
         GDATA.create_table(MTick)
@@ -77,7 +74,6 @@ class ModelTickTest(unittest.TestCase):
         self.assertEqual(result, True)
 
     def test_ModelTick_BatchInsert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         result = True
 
         GDATA.drop_table(MTick)
@@ -96,7 +92,6 @@ class ModelTickTest(unittest.TestCase):
         self.assertEqual(result, True)
 
     def test_ModelTick_Query(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MTick)
         GDATA.create_table(MTick)
         o = MTick()

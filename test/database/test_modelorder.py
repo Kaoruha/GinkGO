@@ -7,7 +7,7 @@ from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models.model_order import MOrder
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 
-from ginkgo import GCONF, GLOG
+from ginkgo import GLOG
 
 
 class ModelOrderTest(unittest.TestCase):
@@ -39,13 +39,11 @@ class ModelOrderTest(unittest.TestCase):
         ]
 
     def test_ModelOrder_Init(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MOrder()
             o.set_source(i["source"])
 
     def test_ModelOrder_SetFromData(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MOrder()
             o.set_source(i["source"])
@@ -74,7 +72,6 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelOrder_SetFromDataFrame(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MOrder()
             df = pd.DataFrame.from_dict(i, orient="index")[0]
@@ -93,7 +90,6 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelOrder_Insert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         o = MOrder()
@@ -101,7 +97,6 @@ class ModelOrderTest(unittest.TestCase):
         GDATA.commit()
 
     def test_ModelOrder_BatchInsert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         s = []
@@ -113,7 +108,6 @@ class ModelOrderTest(unittest.TestCase):
         GDATA.commit()
 
     def test_ModelOrder_Query(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         o = MOrder()

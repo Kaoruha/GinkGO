@@ -3,7 +3,7 @@ import unittest
 import datetime
 from time import sleep
 import pandas as pd
-from ginkgo import GCONF, GLOG
+from ginkgo import GLOG
 from ginkgo.data.sources import GinkgoBaoStock
 
 
@@ -21,28 +21,23 @@ class BaoStockTest(unittest.TestCase):
         self.bs = GinkgoBaoStock()
 
     def test_Bao_Login(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         self.bs.login()
         self.assert_(self.bs.client.error_code, 0)
 
     def test_Bao_Logout(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         self.bs.login()
         self.bs.logout()
         self.assert_(self.bs.client.error_code, 0)
 
     def test_Bao_FetchTradeDay(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         r = self.bs.fetch_cn_stock_trade_day()
         self.assertGreater(r.shape[0], 100)
 
     def test_Bao_TradeDay(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         r = self.bs.cn_stock_trade_day
         self.assertGreater(r.shape[0], 100)
 
     def test_Bao_TradeDayInCache(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         r = self.bs.cn_stock_trade_day
         time1 = datetime.datetime.now()
         r = self.bs.cn_stock_trade_day
@@ -50,13 +45,11 @@ class BaoStockTest(unittest.TestCase):
         self.assertGreater(datetime.timedelta(seconds=0.0001), time2 - time1)
 
     def test_Bao_FetchAList(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         date = "2017-06-30"
         r = self.bs.fetch_cn_stock_list(date)
         self.assertEqual(r.shape[0], 3824)
 
     def test_Bao_FetchAStockDaybar(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         code = "sh.600000"
         date_start = "2017-07-01"
         date_end = "2017-07-31"
@@ -64,7 +57,6 @@ class BaoStockTest(unittest.TestCase):
         self.assertEqual(r.shape[0], 21)
 
     def test_Bao_FetchAStockMin5(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         code = "sh.600519"
         date_start = "2017-07-01"
         date_end = "2017-07-31"
@@ -72,7 +64,6 @@ class BaoStockTest(unittest.TestCase):
         self.assertEqual(r.shape[0], 1008)
 
     def test_Bao_Adjustfactor(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         code = "sh.600519"
         date_start = "2015-01-01"
         date_end = "2017-07-31"
@@ -80,7 +71,6 @@ class BaoStockTest(unittest.TestCase):
         self.assertEqual(r.shape[0], 3)
 
     # def test_Bao_GetTodaysDaybar(self) -> None:
-    #     sleep(GCONF.HEARTBEAT)
     #     fail_count = 0
     #     fail_limit = 10
     #     date = datetime.datetime.now() + datetime.timedelta(days=-2)

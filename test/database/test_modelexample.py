@@ -2,7 +2,7 @@ import unittest
 import time
 import datetime
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo import GCONF, GLOG
+from ginkgo import GLOG
 
 
 class ModelExampleTest(unittest.TestCase):
@@ -20,25 +20,19 @@ class ModelExampleTest(unittest.TestCase):
         self.params = []
 
     def test_ModelExample_Init(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         pass
 
     def test_ModelExample_SetFromData(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         pass
 
     def test_ModelExample_SetFromDataFrame(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         pass
 
     def test_ModelExample_Insert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         pass
 
     def test_ModelExample_BatchInsert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         pass
 
     def test_ModelExample_Query(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         pass

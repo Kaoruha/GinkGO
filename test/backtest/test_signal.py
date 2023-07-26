@@ -2,9 +2,9 @@
 # import time
 # import datetime
 # import pandas as pd
-# from ginkgo.backtest.signals import Signal
+# from ginkgo.backtest.signal import Signal
 # from ginkgo.data.models import MSignal
-# from ginkgo import GCONF, GLOG
+# from ginkgo import GLOG
 # from ginkgo.data.ginkgo_data import GDATA
 # from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
@@ -23,46 +23,28 @@
 #                 "timestamp": "2020-01-01 02:02:32",
 #                 "direction": DIRECTION_TYPES.LONG,
 #                 "source": SOURCE_TYPES.SIM,
+#                 "uuid": "test_uuid",
 #             },
 #         ]
 
 #     def test_Signal_Init(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
 #         result = False
-#         try:
-#             s = Signal()
-#             result = True
-#         except Exception as e:
-#             pass
+#         s = Signal()
 
-#         self.assertEqual(result, True)
-
-#     def test_Signal_Set(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
+#     def test_Signal_SetFromData(self) -> None:
 #         for item in self.params:
 #             s = Signal()
-#             s.set(
-#                 item["code"],
-#                 item["direction"],
-#                 item["timestamp"],
-#             )
+#             s.set(item["code"], item["direction"], item["timestamp"], item["uuid"])
 #             s.set_source(SOURCE_TYPES.TEST)
 #             self.assertEqual(s.code, item["code"])
 #             self.assertEqual(s.direction, item["direction"])
 
 #     def test_Signal_SetFromDataFrame(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
-#         for item in self.params:
-#             data = {
-#                 "code": item["code"],
-#                 "direction": item["direction"],
-#                 "timestamp": item["timestamp"],
-#                 "source": item["source"],
-#                 "uuid": "",
-#             }
-#             df = pd.Series(data)
+#         for i in self.params:
+#             df = pd.DataFrame.from_dict(i, orient="index")[0]
 #             s = Signal()
 #             s.set(df)
-#             self.assertEqual(s.code, item["code"])
-#             self.assertEqual(s.direction, item["direction"])
-#             self.assertEqual(s.source, item["source"])
+#             self.assertEqual(s.code, i["code"])
+#             self.assertEqual(s.uuid, i["uuid"])
+#             self.assertEqual(s.direction, i["direction"])
+#             self.assertEqual(s.source, i["source"])

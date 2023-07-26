@@ -17,9 +17,9 @@ services:
   #   ports:
   #     - "27017:27017"
 
-  Clickhouse:
+  CH:
     image: clickhouse/clickhouse-server
-    container_name: ginkgo_clickhouse
+    container_name: ginkgo_ch
     restart: always
     ports:
       - "8123:8123"
@@ -40,6 +40,31 @@ services:
     environment:
       CLICKHOUSE_DB: ginkgo
       SHOW: 'ture'
+
+  CHTest:
+    image: clickhouse/clickhouse-server
+    container_name: ginkgo_ch_test
+    restart: always
+    ports:
+      - "18123:8123"
+      - "19000:9000"
+      - "19009:9009"
+    # networks:
+    #   - nets
+    volumes:
+      - ../logs/clickhouse_test:/var/log/clickhouse-server
+      - ./clickhouse_users.xml:/etc/clickhouse-server/users.xml
+      - ../.db/clickhouse_test:/var/lib/clickhouse:rw
+    ulimits:
+      nproc: 65546
+      nofile:
+        soft: 262144
+        hard: 262144
+
+    environment:
+      CLICKHOUSE_DB: ginkgo
+      SHOW: 'ture'
+
   # Agent:
   #   build: 
   #     context: .

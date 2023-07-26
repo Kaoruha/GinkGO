@@ -4,7 +4,7 @@ import datetime
 import pandas as pd
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo import GCONF, GLOG
+from ginkgo import GLOG
 from ginkgo.data.models import MSignal
 
 
@@ -30,13 +30,11 @@ class ModelSignalTest(unittest.TestCase):
         ]
 
     def test_ModelSignal_Init(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MSignal()
             o.set_source(i["source"])
 
     def test_ModelSignal_SetFromData(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MSignal()
             o.set_source(i["source"])
@@ -47,7 +45,6 @@ class ModelSignalTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelSignal_SetFromDataFrame(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MSignal)
         GDATA.create_table(MSignal)
         for i in self.params:
@@ -61,7 +58,6 @@ class ModelSignalTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelSignal_Insert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MSignal)
         GDATA.create_table(MSignal)
         for i in self.params:
@@ -72,11 +68,9 @@ class ModelSignalTest(unittest.TestCase):
             GDATA.commit()
 
     def test_ModelSignal_BatchInsert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         pass
 
     def test_ModelSignal_Query(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MSignal)
         GDATA.create_table(MSignal)
         o = MSignal()

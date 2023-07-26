@@ -4,7 +4,7 @@
 # from ginkgo.backtest.events.order_fill import EventOrderFill
 # from ginkgo.data.models.model_order import MOrder
 # from ginkgo.data.ginkgo_data import GDATA
-# from ginkgo import GCONF, GLOG
+# from ginkgo import GLOG
 # from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 
 
@@ -31,7 +31,6 @@
 #         ]
 
 #     def test_EventOF_Init(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         result = True
 #         for i in self.params:
 #             try:
@@ -41,7 +40,6 @@
 #         self.assertEqual(result, True)
 
 #     def test_EventOF_GetOrder(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         GDATA.drop_table(MOrder)
 #         GDATA.create_table(MOrder)
 #         for i in self.params:
@@ -59,7 +57,6 @@
 #             self.assertEqual(e.order_id, uuid)
 
 #     def test_EventOF_InitWithInput(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         GDATA.drop_table(MOrder)
 #         GDATA.create_table(MOrder)
 #         for i in self.params:
@@ -76,7 +73,6 @@
 #             self.assertEqual(e.order_id, uuid)
 
 #     def test_EventOF_Code(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         GDATA.drop_table(MOrder)
 #         GDATA.create_table(MOrder)
 #         for i in self.params:
@@ -93,7 +89,6 @@
 #             self.assertEqual(e.code, i["sim_code"])
 
 #     def test_EventOF_Direction(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         GDATA.drop_table(MOrder)
 #         GDATA.create_table(MOrder)
 #         for i in self.params:
@@ -110,7 +105,6 @@
 #             self.assertEqual(e.direction, i["sim_dir"])
 
 #     def test_EventOF_Type(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         GDATA.drop_table(MOrder)
 #         GDATA.create_table(MOrder)
 #         for i in self.params:
@@ -127,7 +121,6 @@
 #             self.assertEqual(e.order_type, i["sim_type"])
 
 #     def test_EventOF_Status(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         GDATA.drop_table(MOrder)
 #         GDATA.create_table(MOrder)
 #         for i in self.params:
@@ -144,7 +137,6 @@
 #             self.assertEqual(e.order_status, i["sim_status"])
 
 #     def test_EventOF_LimitPrice(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         GDATA.drop_table(MOrder)
 #         GDATA.create_table(MOrder)
 #         for i in self.params:
@@ -162,7 +154,6 @@
 #             self.assertEqual(e.limit_price, i["sim_limitprice"])
 
 #     def test_EventCU_Volume(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         GDATA.drop_table(MOrder)
 #         GDATA.create_table(MOrder)
 #         for i in self.params:
