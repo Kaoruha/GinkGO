@@ -4,7 +4,7 @@ import datetime
 from time import sleep
 from ginkgo.backtest.bar import Bar
 from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
-from ginkgo import GCONF, GLOG
+from ginkgo import GLOG
 from ginkgo.libs import datetime_normalize
 
 
@@ -46,7 +46,6 @@ class BarTest(unittest.TestCase):
         ]
 
     def test_Bar_Init(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         result = True
         for i in self.params:
             try:
@@ -56,7 +55,6 @@ class BarTest(unittest.TestCase):
         self.assertEqual(result, True)
 
     def test_Bar_Set(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar()
             b.set(
@@ -81,7 +79,6 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.frequency, i["frequency"])
 
     def test_Bar_SetFromDataFrame(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             df = pd.DataFrame.from_dict(i, orient="index")
             b = Bar()
@@ -99,7 +96,6 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.frequency, df["frequency"])
 
     def test_Bar_Change(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar()
             b.set(
@@ -117,7 +113,6 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.chg, r_expect)
 
     def test_Bar_Amplitude(self) -> None:
-        sleep(GCONF.HEARTBEAT)
         for i in self.params:
             b = Bar()
             b.set(

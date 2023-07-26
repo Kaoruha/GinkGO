@@ -6,7 +6,7 @@ from ginkgo.backtest.bar import Bar
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MBar
 from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES
-from ginkgo import GCONF, GLOG
+from ginkgo import GLOG
 
 
 class ModelBarTest(unittest.TestCase):
@@ -37,13 +37,11 @@ class ModelBarTest(unittest.TestCase):
         ]
 
     def test_ModelBar_Init(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         result = True
         for i in self.params:
             o = MBar()
 
     def test_ModelBar_SetFromData(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MBar()
             o.set(
@@ -67,7 +65,6 @@ class ModelBarTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelBar_SetFromDataFrame(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             df = pd.DataFrame.from_dict(i, orient="index")[0]
             o = MBar()
@@ -83,7 +80,6 @@ class ModelBarTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelBar_Insert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         result = True
         GDATA.drop_table(MBar)
         GDATA.create_table(MBar)
@@ -92,7 +88,6 @@ class ModelBarTest(unittest.TestCase):
         GDATA.commit()
 
     def test_ModelBar_BatchInsert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         result = True
         GDATA.drop_table(MBar)
         GDATA.create_table(MBar)
@@ -104,7 +99,6 @@ class ModelBarTest(unittest.TestCase):
         GDATA.commit()
 
     def test_ModelBar_Query(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         result = True
         GDATA.drop_table(MBar)
         GDATA.create_table(MBar)

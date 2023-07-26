@@ -3,7 +3,7 @@ import time
 import datetime
 import pandas as pd
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo import GCONF, GLOG
+from ginkgo import GLOG
 from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES
 from ginkgo.data.models import MTradeDay
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
@@ -32,12 +32,10 @@ class ModelTradeDayTest(unittest.TestCase):
         ]
 
     def test_ModelTradeDay_Init(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MTradeDay()
 
     def test_ModelTradeDay_SetFromData(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         result = True
         for i in self.params:
             o = MTradeDay()
@@ -49,7 +47,6 @@ class ModelTradeDayTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelTradeDay_SetFromDataFrame(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MTradeDay()
             df = pd.DataFrame.from_dict(i, orient="index")
@@ -60,7 +57,6 @@ class ModelTradeDayTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelTradeDay_Insert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MTradeDay)
         GDATA.create_table(MTradeDay)
         for i in self.params:
@@ -69,7 +65,6 @@ class ModelTradeDayTest(unittest.TestCase):
             GDATA.commit()
 
     def test_ModelTradeDay_BatchInsert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MTradeDay)
         GDATA.create_table(MTradeDay)
         s = []
@@ -80,7 +75,6 @@ class ModelTradeDayTest(unittest.TestCase):
         GDATA.commit()
 
     def test_ModelTradeDay_Query(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MTradeDay)
         GDATA.create_table(MTradeDay)
         o = MTradeDay()

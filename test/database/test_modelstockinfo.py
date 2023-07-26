@@ -6,7 +6,7 @@ from ginkgo.backtest.bar import Bar
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MStockInfo
 from ginkgo.enums import SOURCE_TYPES, CURRENCY_TYPES
-from ginkgo import GCONF, GLOG
+from ginkgo import GLOG
 
 
 class ModelStockInfoTest(unittest.TestCase):
@@ -40,12 +40,10 @@ class ModelStockInfoTest(unittest.TestCase):
         ]
 
     def test_ModelStockInfo_Init(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MStockInfo()
 
     def test_ModelStockInfo_SetFromData(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MStockInfo()
             o.set(
@@ -66,7 +64,6 @@ class ModelStockInfoTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelStockInfo_SetFromDataFrame(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MStockInfo()
             df = pd.DataFrame.from_dict(i, orient="index")
@@ -80,7 +77,6 @@ class ModelStockInfoTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelStockInfo_Insert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MStockInfo)
         GDATA.create_table(MStockInfo)
         for i in self.params:
@@ -89,7 +85,6 @@ class ModelStockInfoTest(unittest.TestCase):
             GDATA.commit()
 
     def test_ModelStockInfo_BatchInsert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MStockInfo)
         GDATA.create_table(MStockInfo)
         s = []
@@ -100,7 +95,6 @@ class ModelStockInfoTest(unittest.TestCase):
         GDATA.commit()
 
     def test_ModelStockInfo_Query(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MStockInfo)
         GDATA.create_table(MStockInfo)
         o = MStockInfo()

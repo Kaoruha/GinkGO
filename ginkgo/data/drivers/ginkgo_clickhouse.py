@@ -17,7 +17,7 @@ class GinkgoClickhouse(object):
         self.__db = db
         self.__is_on_test = False
 
-        self.__create_database()
+        # self.__create_database()
         self.__connect()
 
     def __connect(self) -> None:

@@ -67,16 +67,12 @@ class GinkgoConfig(object):
 
     @property
     def CLICKDB(self) -> str:
-        on_dev = self.__read_config()["debug"]
-        if not on_dev:
-            r = ""
-            try:
-                r = self.__read_secure()["database"]["clickhouse"]["database"]
-            except Exception as e:
-                r = "default"
-            return r
-        else:
-            return "testdb"
+        r = ""
+        try:
+            r = self.__read_secure()["database"]["clickhouse"]["database"]
+        except Exception as e:
+            r = "default"
+        return r
 
     @property
     def CLICKUSER(self) -> str:
@@ -109,9 +105,13 @@ class GinkgoConfig(object):
 
     @property
     def CLICKPORT(self) -> int:
-        r = ""
+        on_dev = self.__read_config()["debug"]
+
         r = self.__read_secure()["database"]["clickhouse"]["port"]
-        return r
+        if not on_dev:
+            return r
+        else:
+            return f"1{r}"
 
     @property
     def MONGODB(self) -> str:

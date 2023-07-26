@@ -4,7 +4,7 @@
 # from ginkgo.backtest.events.price_update import EventPriceUpdate
 # from ginkgo.backtest.bar import Bar
 # from ginkgo.backtest.tick import Tick
-# from ginkgo import GCONF, GLOG
+# from ginkgo import GLOG
 # from ginkgo.enums import (
 #     DIRECTION_TYPES,
 #     ORDER_TYPES,
@@ -41,7 +41,6 @@
 #         ]
 
 #     def test_EventPU_Init(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         result = True
 #         for i in self.params:
 #             try:
@@ -51,7 +50,6 @@
 #         self.assertEqual(result, True)
 
 #     def test_EventPU_InitBar(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         for i in self.params:
 #             b = Bar(
 #                 i["sim_code"],
@@ -67,7 +65,6 @@
 #             self.assertEqual(e.price_type, PRICEINFO_TYPES.BAR)
 
 #     def test_EventPU_InitTick(self) -> None:
-#         sleep(GCONF.HEARTBEAT)
 #         for i in self.params:
 #             t = Tick(
 #                 i["sim_code"], i["sim_price"], i["sim_volume"], i["sim_timestampe"]

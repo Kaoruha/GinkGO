@@ -4,7 +4,7 @@ import time
 import datetime
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MAdjustfactor
-from ginkgo import GCONF, GLOG
+from ginkgo import GLOG
 
 
 class ModelAdjustfactorTest(unittest.TestCase):
@@ -37,11 +37,9 @@ class ModelAdjustfactorTest(unittest.TestCase):
         ]
 
     def test_ModelAdjustfactor_Init(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         o = MAdjustfactor()
 
     def test_ModelAdjustfactor_SetFromData(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             o = MAdjustfactor()
             o.set(
@@ -57,7 +55,6 @@ class ModelAdjustfactorTest(unittest.TestCase):
             self.assertEqual(o.adjustfactor, i["adjustfactor"])
 
     def test_ModelAdjustfactor_SetFromDataFrame(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         for i in self.params:
             df = pd.DataFrame.from_dict(i, orient="index")[0]
             o = MAdjustfactor()
@@ -69,7 +66,6 @@ class ModelAdjustfactorTest(unittest.TestCase):
         pass
 
     def test_ModelAdjustfactor_Insert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MAdjustfactor)
         GDATA.create_table(MAdjustfactor)
         for i in self.params:
@@ -85,7 +81,6 @@ class ModelAdjustfactorTest(unittest.TestCase):
             GDATA.commit()
 
     def test_ModelAdjustfactor_BatchInsert(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MAdjustfactor)
         GDATA.create_table(MAdjustfactor)
         l = []
@@ -104,7 +99,6 @@ class ModelAdjustfactorTest(unittest.TestCase):
         GDATA.commit()
 
     def test_ModelAdjustfactor_Query(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.drop_table(MAdjustfactor)
         GDATA.create_table(MAdjustfactor)
         o = MAdjustfactor()

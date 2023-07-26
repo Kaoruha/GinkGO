@@ -5,7 +5,7 @@
 # from ginkgo.backtest.order import Order
 # from ginkgo.data.models import MOrder
 # from ginkgo.enums import ORDER_TYPES, DIRECTION_TYPES, SOURCE_TYPES
-# from ginkgo import GCONF, GLOG
+# from ginkgo import GLOG
 # from ginkgo.data.ginkgo_data import GDATA
 
 
@@ -43,7 +43,6 @@
 #         ]
 
 #     def test_Order_Init(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
 #         result = False
 #         try:
 #             o = Order()
@@ -54,7 +53,6 @@
 #         self.assertEqual(result, True)
 
 #     def test_Order_Set(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
 #         for item in self.params:
 #             o = Order()
 #             o.set(
@@ -74,7 +72,6 @@
 #             self.assertEqual(o.source, item["source"])
 
 #     def test_Order_SetFromDataFrame(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
 #         for item in self.params:
 #             data = {
 #                 "timestamp": item["timestamp"],
@@ -98,7 +95,6 @@
 #             self.assertEqual(o.source, item["source"])
 
 #     def test_Order_SetFromModel(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
 #         for item in self.params:
 #             data = {
 #                 "timestamp": item["timestamp"],

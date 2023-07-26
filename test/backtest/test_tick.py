@@ -4,7 +4,7 @@
 # import pandas as pd
 # from ginkgo.backtest.tick import Tick
 # from ginkgo.data.models.model_tick import MTick
-# from ginkgo import GCONF, GLOG
+# from ginkgo import GLOG
 # from ginkgo.enums import SOURCE_TYPES
 # from ginkgo.data.ginkgo_data import GDATA
 
@@ -36,7 +36,6 @@
 #         ]
 
 #     def test_Tick_Init(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
 #         for i in self.params:
 #             code = i["code"]
 #             price = i["price"]
@@ -50,7 +49,6 @@
 #             self.assertEqual(t.source, i["source"])
 
 #     def test_Tick_Set(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
 #         for i in self.params:
 #             t = Tick()
 #             t.set(i["code"], i["price"], i["volume"], i["timestamp"])
@@ -61,7 +59,6 @@
 #             self.assertEqual(t.source, i["source"])
 
 #     def test_Tick_SetFromDataFrame(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
 #         for i in self.params:
 #             data = {
 #                 "code": i["code"],
@@ -78,7 +75,6 @@
 #             self.assertEqual(t.source, i["source"])
 
 #     def test_Tick_SetFromModel(self) -> None:
-#         time.sleep(GCONF.HEARTBEAT)
 #         for i in self.params:
 #             data = {
 #                 "code": i["code"],
