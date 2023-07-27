@@ -25,6 +25,7 @@ class ModelOrderTest(unittest.TestCase):
         self.params = [
             {
                 "code": "testordercode",
+                "uuid": "uuidtestorderordertestuuid",
                 "direction": DIRECTION_TYPES.LONG,
                 "type": ORDER_TYPES.MARKETORDER,
                 "status": ORDERSTATUS_TYPES.SUBMITTED,
@@ -48,6 +49,7 @@ class ModelOrderTest(unittest.TestCase):
             o = MOrder()
             o.set_source(i["source"])
             o.set(
+                i["uuid"],
                 i["code"],
                 i["direction"],
                 i["type"],
