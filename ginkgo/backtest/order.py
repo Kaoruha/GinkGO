@@ -14,7 +14,7 @@ class Order(Base):
         type: ORDER_TYPES = None,
         volume: int = 0,
         limit_price: float = 0,
-        freeze: float = 0,
+        frozen: float = 0,
         transaction_price: float = 0,
         remain: float = 0,
         timestamp: any = None,
@@ -30,7 +30,7 @@ class Order(Base):
             type,
             volume,
             limit_price,
-            freeze,
+            frozen,
             transaction_price,
             remain,
             timestamp,
@@ -50,7 +50,7 @@ class Order(Base):
         type: ORDER_TYPES,
         volume: int,
         limit_price: float,
-        freeze: float,
+        frozen: float,
         transaction_price: float,
         remain: float,
         timestamp: any,
@@ -61,7 +61,7 @@ class Order(Base):
         self._type: ORDER_TYPES = type
         self._volume: int = volume
         self._limit_price: float = limit_price
-        self._freeze: float = freeze
+        self._frozen: float = frozen
         self._transaction_price: float = transaction_price
         self._remain: float = remain
         self._timestamp: datetime.datetime = datetime_normalize(timestamp)
@@ -84,7 +84,7 @@ class Order(Base):
         self._volume: int = df.volume
         self._limit_price: float = df.limit_price
         self._status = ORDERSTATUS_TYPES(df.status)
-        self._freeze: float = df.freeze
+        self._frozen: float = df.frozen
         self._transaction_price: float = df.transaction_price
         self._remain: float = df.remain
         if "source" in df.keys():
@@ -120,14 +120,11 @@ class Order(Base):
 
     @property
     def limit_price(self) -> float:
-        if self.type == ORDER_TYPES.MARKETORDER:
-            return None
-        elif self.type == ORDER_TYPES.LIMITORDER:
-            return self._limit_price
+        return self._limit_price
 
     @property
-    def freeze(self) -> float:
-        return self._freeze
+    def frozen(self) -> float:
+        return self._frozen
 
     @property
     def transaction_price(self) -> float:

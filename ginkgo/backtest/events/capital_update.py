@@ -9,7 +9,7 @@ from ginkgo.data.ginkgo_data import GDATA
 class EventCapitalUpdate(EventBase):
     """
     Capital Update occurred in 3 scenes:
-    1. Create a new order, the money should be freeze
+    1. Create a new order, the money should be frozen
     2. Order filled
         2.1 When selling the capital should add the amount of selling part
         2.2 When buying the frozen part should be removed
@@ -115,12 +115,12 @@ class EventCapitalUpdate(EventBase):
         return self.order.volume
 
     @property
-    def freeze(self):
+    def frozen(self):
         if self.order is None:
             self.get_order(self.order_id)
         if self.order is None:
             return None
-        return self.order.freeze
+        return self.order.frozen
 
     @property
     def transaction_price(self):

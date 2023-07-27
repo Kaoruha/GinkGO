@@ -1,7 +1,7 @@
 import pandas as pd
 import datetime
 from functools import singledispatchmethod
-from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize, gen_uuid4
 from ginkgo.backtest.base import Base
 
@@ -46,7 +46,7 @@ class Signal(Base):
         Set from dataframe
         """
         self._code: str = df.code
-        self._timestamp: datetime.datetime = df.timestamp
+        self._timestamp: datetime.datetime = datetime_normalize(df.timestamp)
         self._uuid: str = df.uuid
         self._direction: DIRECTION_TYPES = DIRECTION_TYPES(df.direction)
         if "source" in df.keys():
@@ -73,4 +73,4 @@ class Signal(Base):
         return self._source
 
     def __repr__(self) -> str:
-        return base_repr(self, Order.__name__, 12, 60)
+        return base_repr(self, Signal.__name__, 12, 60)

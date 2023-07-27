@@ -108,12 +108,12 @@ class EventOrderRelated(EventBase):
         return self.order.volume
 
     @property
-    def freeze(self):
+    def frozen(self):
         if self.order is None:
             self.get_order(self.order_id)
         if self.order is None:
             return None
-        return self.order.freeze
+        return self.order.frozen
 
     @property
     def transaction_price(self):

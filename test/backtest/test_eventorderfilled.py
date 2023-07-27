@@ -27,7 +27,7 @@ class EventOrderFilledTest(unittest.TestCase):
                 "volume": 2000,
                 "status": ORDERSTATUS_TYPES.FILLED,
                 "limit_price": 2.2,
-                "freeze": 44000,
+                "frozen": 44000,
                 "transaction_price": 0,
                 "remain": 0,
                 "timestamp": datetime.datetime.now(),
@@ -56,6 +56,6 @@ class EventOrderFilledTest(unittest.TestCase):
             self.assertEqual(e.direction, i["direction"])
             self.assertEqual(e.order_type, i["type"])
             self.assertEqual(e.volume, i["volume"])
-            self.assertEqual(e.freeze, i["freeze"])
+            self.assertEqual(e.frozen, i["frozen"])
             self.assertEqual(e.transaction_price, i["transaction_price"])
             self.assertEqual(e.remain, i["remain"])
