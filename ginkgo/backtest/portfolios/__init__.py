@@ -1,1 +1,1 @@
-from ginkgo.backtest.portfolio.base_portfolio import BasePortfolio
+from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio

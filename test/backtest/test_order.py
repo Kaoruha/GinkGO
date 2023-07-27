@@ -1,125 +1,101 @@
-# import unittest
-# import time
-# import datetime
-# import pandas as pd
-# from ginkgo.backtest.order import Order
-# from ginkgo.data.models import MOrder
-# from ginkgo.enums import ORDER_TYPES, DIRECTION_TYPES, SOURCE_TYPES
-# from ginkgo import GLOG
-# from ginkgo.data.ginkgo_data import GDATA
+import unittest
+import time
+import datetime
+import pandas as pd
+from ginkgo.backtest.order import Order
+from ginkgo.data.models import MOrder
+from ginkgo.enums import ORDER_TYPES, DIRECTION_TYPES, SOURCE_TYPES, ORDERSTATUS_TYPES
+from ginkgo import GLOG
+from ginkgo.data.ginkgo_data import GDATA
 
 
-# class OrderTest(unittest.TestCase):
-#     """
-#     UnitTest for order.
-#     """
+class OrderTest(unittest.TestCase):
+    """
+    UnitTest for order.
+    """
 
-#     # Init
-#     # Change
-#     # Amplitude
+    # Init
+    # Change
+    # Amplitude
 
-#     def __init__(self, *args, **kwargs) -> None:
-#         super(OrderTest, self).__init__(*args, **kwargs)
-#         self.dev = False
-#         self.params = [
-#             {
-#                 "code": "sh.0000001",
-#                 "timestamp": "2020-01-01 02:02:32",
-#                 "direction": DIRECTION_TYPES.LONG,
-#                 "type": ORDER_TYPES.LIMITORDER,
-#                 "volume": 100001,
-#                 "limit_price": 10.0,
-#                 "source": SOURCE_TYPES.SINA,
-#             },
-#             {
-#                 "code": "sh.0000001",
-#                 "timestamp": datetime.datetime.now(),
-#                 "direction": DIRECTION_TYPES.SHORT,
-#                 "type": ORDER_TYPES.MARKETORDER,
-#                 "volume": 10002,
-#                 "limit_price": None,
-#                 "source": SOURCE_TYPES.SINA,
-#             },
-#         ]
+    def __init__(self, *args, **kwargs) -> None:
+        super(OrderTest, self).__init__(*args, **kwargs)
+        self.dev = False
+        self.params = [
+            {
+                "source": SOURCE_TYPES.SINA,
+                "code": "unit_test_code",
+                "uuid": "uuiduuiduuiduuid222",
+                "direction": DIRECTION_TYPES.LONG,
+                "type": ORDER_TYPES.MARKETORDER,
+                "volume": 2000,
+                "status": ORDERSTATUS_TYPES.FILLED,
+                "limit_price": 2.2,
+                "frozen": 44000,
+                "transaction_price": 21222.3,
+                "remain": 10,
+                "timestamp": datetime.datetime.now(),
+            },
+            {
+                "source": SOURCE_TYPES.SIM,
+                "code": "unit_test_code22",
+                "uuid": "uuiduuiduuiduuid22233",
+                "direction": DIRECTION_TYPES.LONG,
+                "type": ORDER_TYPES.MARKETORDER,
+                "volume": 2000,
+                "status": ORDERSTATUS_TYPES.FILLED,
+                "limit_price": 2.4,
+                "frozen": 54000,
+                "transaction_price": 34,
+                "remain": 400,
+                "timestamp": datetime.datetime.now(),
+            },
+        ]
 
-#     def test_Order_Init(self) -> None:
-#         result = False
-#         try:
-#             o = Order()
-#             result = True
-#         except Exception as e:
-#             pass
+    def test_Order_Init(self) -> None:
+        for i in self.params:
+            o = Order()
 
-#         self.assertEqual(result, True)
+    def test_Order_SetFromData(self) -> None:
+        for item in self.params:
+            o = Order()
+            o.set(
+                item["code"],
+                item["direction"],
+                item["type"],
+                item["volume"],
+                item["limit_price"],
+                item["frozen"],
+                item["transaction_price"],
+                item["remain"],
+                item["timestamp"],
+                item["uuid"],
+            )
+            o.set_source(item["source"])
+            self.assertEqual(o.code, item["code"])
+            self.assertEqual(o.direction, item["direction"])
+            self.assertEqual(o.type, item["type"])
+            self.assertEqual(o.volume, item["volume"])
+            self.assertEqual(o.limit_price, item["limit_price"])
+            self.assertEqual(o.frozen, item["frozen"])
+            self.assertEqual(o.transaction_price, item["transaction_price"])
+            self.assertEqual(o.remain, item["remain"])
+            self.assertEqual(o.source, item["source"])
+            self.assertEqual(o.uuid, item["uuid"])
 
-#     def test_Order_Set(self) -> None:
-#         for item in self.params:
-#             o = Order()
-#             o.set(
-#                 item["code"],
-#                 item["direction"],
-#                 item["type"],
-#                 item["volume"],
-#                 item["limit_price"],
-#                 item["timestamp"],
-#             )
-#             o.set_source(item["source"])
-#             self.assertEqual(o.code, item["code"])
-#             self.assertEqual(o.direction, item["direction"])
-#             self.assertEqual(o.type, item["type"])
-#             self.assertEqual(o.volume, item["volume"])
-#             self.assertEqual(o.limit_price, item["limit_price"])
-#             self.assertEqual(o.source, item["source"])
-
-#     def test_Order_SetFromDataFrame(self) -> None:
-#         for item in self.params:
-#             data = {
-#                 "timestamp": item["timestamp"],
-#                 "code": item["code"],
-#                 "direction": item["direction"],
-#                 "type": item["type"],
-#                 "volume": item["volume"],
-#                 "status": 2,
-#                 "limit_price": item["limit_price"],
-#                 "uuid": "",
-#                 "source": item["source"],
-#             }
-#             df = pd.Series(data)
-#             o = Order()
-#             o.set(df)
-#             self.assertEqual(o.code, item["code"])
-#             self.assertEqual(o.direction, item["direction"])
-#             self.assertEqual(o.type, item["type"])
-#             self.assertEqual(o.volume, item["volume"])
-#             self.assertEqual(o.limit_price, item["limit_price"])
-#             self.assertEqual(o.source, item["source"])
-
-#     def test_Order_SetFromModel(self) -> None:
-#         for item in self.params:
-#             data = {
-#                 "timestamp": item["timestamp"],
-#                 "code": item["code"],
-#                 "direction": item["direction"],
-#                 "type": item["type"],
-#                 "volume": item["volume"],
-#                 "status": 1,
-#                 "limit_price": item["limit_price"],
-#                 "source": item["source"],
-#             }
-#             df = pd.Series(data)
-#             mo = MOrder()
-#             mo.set(df)
-#             GDATA.drop_table(MOrder)
-#             GDATA.create_table(MOrder)
-#             GDATA.add(mo)
-#             GDATA.commit()
-#             filter_rs: MOrder = GDATA.get_order(mo.uuid)
-#             new_df = filter_rs.to_dataframe()
-#             o = Order()
-#             o.set(new_df)
-#             self.assertEqual(o.code, item["code"])
-#             self.assertEqual(o.direction, item["direction"])
-#             self.assertEqual(o.type, item["type"])
-#             self.assertEqual(o.volume, item["volume"])
-#             self.assertEqual(o.limit_price, item["limit_price"])
-#             self.assertEqual(o.source, item["source"])
+    def test_Order_SetFromDataFrame(self) -> None:
+        for item in self.params:
+            o = Order()
+            df = pd.DataFrame.from_dict(item, orient="index")[0]
+            o.set(df)
+            o.set_source(item["source"])
+            self.assertEqual(o.code, item["code"])
+            self.assertEqual(o.direction, item["direction"])
+            self.assertEqual(o.type, item["type"])
+            self.assertEqual(o.volume, item["volume"])
+            self.assertEqual(o.limit_price, item["limit_price"])
+            self.assertEqual(o.frozen, item["frozen"])
+            self.assertEqual(o.transaction_price, item["transaction_price"])
+            self.assertEqual(o.remain, item["remain"])
+            self.assertEqual(o.source, item["source"])
+            self.assertEqual(o.uuid, item["uuid"])

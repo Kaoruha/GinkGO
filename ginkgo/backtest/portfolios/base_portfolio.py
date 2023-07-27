@@ -21,25 +21,28 @@ class BasePortfolio(object):
             return False
 
     def pre_buy_limit(
-        self, code: str, limit_price: float, volume: int, timestamp: str or datetime
+        self, code: str, limit_price: float, volume: int, timestamp: any
     ) -> Order:
-        o = Order()
-        o.set(
-            code,
-            DIRECTION_TYPES.LONG,
-            ORDER_TYPES.LIMITORDER,
-            volume,
-            limit_price,
-            timestamp,
-        )
         money = limit_price * volume
         money += cal_fee(DIRECTION_TYPES.LONG, money, self.tax_rate)
 
         if money < self.cash:
             self.cash -= money
             self.frozen += money
-            GLOG.logger.debug(
+            GLOG.logger.info(
                 f"Port {self.name} prebuy {code}:{volume} with limit {limit_price} on {timestamp}"
+            )
+            o = Order()
+            o.set(
+                code,  # Code
+                DIRECTION_TYPES.LONG,  # Direction
+                ORDER_TYPES.LIMITORDER,  # OrderType
+                volume,  # VOlume
+                limit_price,  # price
+                money,  # freeze money
+                0,  # Transaction price
+                0,  # Remain
+                timestamp,
             )
             return o
 
@@ -147,27 +150,27 @@ class BasePortfolio(object):
         return o
 
     def buy_done(
-        self, code: str, price: float, volume: int, freezed: float, remain: float
+        self, code: str, price: float, volume: int, frozen: float, remain: float
     ):
-        if freezed > self.frozen:
+        if frozen > self.frozen:
             return
 
         if self._check_position(code):
             self.position[code].buy_done(price, volume)
             self.cash += remain
-            self.frozen -= freezed
+            self.frozen -= frozen
 
         else:
             GLOG.logger.critical(f"do not have {code}")
             self.position[code] = Position(code=code, price=price, volume=volume)
             self.cash += remain
-            self.frozen -= freezed
+            self.frozen -= frozen
 
-    def buy_cancel(self, freezed: float):
-        if freezed > self.frozen:
+    def buy_cancel(self, frozen: float):
+        if frozen > self.frozen:
             return
-        self.frozen -= freezed
-        self.cash += freezed
+        self.frozen -= frozen
+        self.cash += frozen
 
     def sold(self, code: str, price: float, volume: int):
         if not self._check_position(code=code):

@@ -23,7 +23,7 @@ class MOrder(MBase):
     status = Column(ChoiceType(ORDERSTATUS_TYPES, impl=Integer()), default=1)
     volume = Column(Integer, default=0)
     limit_price = Column(DECIMAL(20, 10), default=0)
-    freeze = Column(DECIMAL(20, 10), default=0)
+    frozen = Column(DECIMAL(20, 10), default=0)
     transaction_price = Column(DECIMAL(20, 10), default=0)
     remain = Column(DECIMAL(20, 10), default=0)
 
@@ -44,7 +44,7 @@ class MOrder(MBase):
         status: ORDERSTATUS_TYPES,
         volume: int,
         limit_price: float,
-        freeze: float,
+        frozen: float,
         transaction_price: float,
         remain: float,
         timestamp: any,
@@ -56,7 +56,7 @@ class MOrder(MBase):
         self.status = status
         self.volume = volume
         self.limit_price = round(limit_price, 6)
-        self.freeze = freeze
+        self.frozen = frozen
         self.transaction_price = transaction_price
         self.remain = remain
         self.timestamp = datetime_normalize(timestamp)
@@ -71,7 +71,7 @@ class MOrder(MBase):
         self.volume = df.volume
         self.limit_price = df.limit_price
         self.limit_price = round(df.limit_price, 6)
-        self.freeze = df.freeze
+        self.frozen = df.frozen
         self.transaction_price = df.transaction_price
         self.remain = df.remain
         self.timestamp = df.timestamp

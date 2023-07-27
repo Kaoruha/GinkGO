@@ -32,7 +32,7 @@ class ModelOrderTest(unittest.TestCase):
                 "source": SOURCE_TYPES.PORTFOLIO,
                 "limit_price": 10.12,
                 "volume": 2000,
-                "freeze": 20240,
+                "frozen": 20240,
                 "transaction_price": 0,
                 "remain": 0,
                 "timestamp": datetime.datetime.now(),
@@ -56,7 +56,7 @@ class ModelOrderTest(unittest.TestCase):
                 i["status"],
                 i["volume"],
                 i["limit_price"],
-                i["freeze"],
+                i["frozen"],
                 i["transaction_price"],
                 i["remain"],
                 i["timestamp"],
@@ -67,7 +67,7 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.status, i["status"])
             self.assertEqual(o.volume, i["volume"])
             self.assertEqual(o.limit_price, i["limit_price"])
-            self.assertEqual(o.freeze, i["freeze"])
+            self.assertEqual(o.frozen, i["frozen"])
             self.assertEqual(o.transaction_price, i["transaction_price"])
             self.assertEqual(o.remain, i["remain"])
             self.assertEqual(o.timestamp, i["timestamp"])
@@ -85,7 +85,7 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.status, i["status"])
             self.assertEqual(o.volume, i["volume"])
             self.assertEqual(o.limit_price, i["limit_price"])
-            self.assertEqual(o.freeze, i["freeze"])
+            self.assertEqual(o.frozen, i["frozen"])
             self.assertEqual(o.transaction_price, i["transaction_price"])
             self.assertEqual(o.remain, i["remain"])
             self.assertEqual(o.timestamp, i["timestamp"])

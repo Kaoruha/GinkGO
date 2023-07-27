@@ -1,73 +1,78 @@
-# import unittest
-# import datetime
-# from time import sleep
-# from ginkgo.backtest.events.price_update import EventPriceUpdate
-# from ginkgo.backtest.bar import Bar
-# from ginkgo.backtest.tick import Tick
-# from ginkgo import GLOG
-# from ginkgo.enums import (
-#     DIRECTION_TYPES,
-#     ORDER_TYPES,
-#     ORDERSTATUS_TYPES,
-#     SOURCE_TYPES,
-#     FREQUENCY_TYPES,
-#     PRICEINFO_TYPES,
-# )
+import unittest
+import pandas as pd
+import datetime
+from time import sleep
+from ginkgo.backtest.events.price_update import EventPriceUpdate
+from ginkgo.backtest.bar import Bar
+from ginkgo.backtest.tick import Tick
+from ginkgo.libs import datetime_normalize
+from ginkgo import GLOG
+from ginkgo.enums import (
+    DIRECTION_TYPES,
+    ORDER_TYPES,
+    ORDERSTATUS_TYPES,
+    SOURCE_TYPES,
+    FREQUENCY_TYPES,
+    PRICEINFO_TYPES,
+)
 
 
-# class EventPriceUpdateTest(unittest.TestCase):
-#     """
-#     UnitTest for OrderSubmission.
-#     """
+class EventPriceUpdateTest(unittest.TestCase):
+    """
+    UnitTest for OrderSubmission.
+    """
 
-#     # Init
+    # Init
 
-#     def __init__(self, *args, **kwargs) -> None:
-#         super(EventPriceUpdateTest, self).__init__(*args, **kwargs)
-#         self.dev = False
-#         self.params = [
-#             {
-#                 "sim_code": "unittest_code",
-#                 "sim_source": SOURCE_TYPES.BAOSTOCK,
-#                 "sim_timestampe": "2022-02-12 02:12:20",
-#                 "sim_fre": FREQUENCY_TYPES.DAY,
-#                 "sim_open": 19,
-#                 "sim_high": 19,
-#                 "sim_low": 19,
-#                 "sim_close": 19,
-#                 "sim_volume": 1900,
-#                 "sim_price": 10.21,
-#             }
-#         ]
+    def __init__(self, *args, **kwargs) -> None:
+        super(EventPriceUpdateTest, self).__init__(*args, **kwargs)
+        self.dev = False
+        self.params = [
+            {
+                "code": "unittest_code",
+                "source": SOURCE_TYPES.TEST,
+                "timestamp": "2022-02-12 02:12:20",
+                "frequency": FREQUENCY_TYPES.DAY,
+                "open": 19,
+                "high": 19,
+                "low": 19,
+                "close": 19,
+                "volume": 1900,
+                "price": 10.21,
+            },
+            {
+                "code": "unittest_code22",
+                "source": SOURCE_TYPES.TUSHARE,
+                "timestamp": "2022-02-12 02:12:20",
+                "frequency": FREQUENCY_TYPES.DAY,
+                "open": 11,
+                "high": 12,
+                "low": 10.22,
+                "close": 12.1,
+                "volume": 19010,
+                "price": 10.01,
+            },
+        ]
 
-#     def test_EventPU_Init(self) -> None:
-#         result = True
-#         for i in self.params:
-#             try:
-#                 e = EventPriceUpdate()
-#             except Exception as e:
-#                 result = False
-#         self.assertEqual(result, True)
+    def test_EventPU_Init(self) -> None:
+        for i in self.params:
+            e = EventPriceUpdate()
 
-#     def test_EventPU_InitBar(self) -> None:
-#         for i in self.params:
-#             b = Bar(
-#                 i["sim_code"],
-#                 i["sim_open"],
-#                 i["sim_high"],
-#                 i["sim_low"],
-#                 i["sim_close"],
-#                 i["sim_volume"],
-#                 i["sim_fre"],
-#                 i["sim_timestampe"],
-#             )
-#             e = EventPriceUpdate(b)
-#             self.assertEqual(e.price_type, PRICEINFO_TYPES.BAR)
+    def test_EventPU_Bar(self) -> None:
+        for i in self.params:
+            b = Bar()
+            df = pd.DataFrame.from_dict(i, orient="index")[0]
+            b.set(df)
+            e = EventPriceUpdate()
+            e.set(b)
+            e.set_source(i["source"])
+            self.assertEqual(i["code"], e.code)
+            self.assertEqual(i["source"], e.source)
+            self.assertEqual(datetime_normalize(i["timestamp"]), e.timestamp)
+            self.assertEqual(i["volume"], e.volume)
+            self.assertEqual(i["open"], e.open)
+            self.assertEqual(i["high"], e.high)
+            self.assertEqual(i["low"], e.low)
+            self.assertEqual(i["close"], e.close)
 
-#     def test_EventPU_InitTick(self) -> None:
-#         for i in self.params:
-#             t = Tick(
-#                 i["sim_code"], i["sim_price"], i["sim_volume"], i["sim_timestampe"]
-#             )
-#             e = EventPriceUpdate(t)
-#             self.assertEqual(e.price_type, PRICEINFO_TYPES.TICK)
+    # TODO Tick
