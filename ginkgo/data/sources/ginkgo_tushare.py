@@ -37,12 +37,21 @@ class GinkgoTushare(object):
     def fetch_cn_stock_daybar(
         self,
         code: str,
-        date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
-        date_end: str or datetime.datetime = GCONF.DEFAULTEND,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
     ) -> pd.DataFrame:
-        start = datetime_normalize(date_start).strftime("%Y-%m-%d")
-        end = datetime_normalize(date_end).strftime("%Y-%m-%d")
-        r = self.pro.daily(ts_code=code, start_date=start, end_date=end, limit=50000)
+        start = datetime_normalize(date_start).strftime("%Y%m%d")
+        end = datetime_normalize(date_end).strftime("%Y%m%d")
+        r = self.pro.daily(
+            **{
+                "ts_code": code,
+                "trade_date": "",
+                "start_date": start,
+                "end_date": end,
+                "offset": "",
+                "limit": "50000",
+            }
+        )
         return r
 
     def fetch_cn_stock_min(
@@ -64,4 +73,5 @@ class GinkgoTushare(object):
         r = self.pro.adj_factor(
             ts_code=code, start_date=start, end_date=end, limit=50000
         )
+        r = r[r["adj_factor"].duplicated() == False]
         return r
