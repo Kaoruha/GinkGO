@@ -245,7 +245,14 @@ class GinkgoData(object):
             .filter(MAdjustfactor.isdel == False)
             .all()
         )
-        return r
+        return self._convert_to_full_cal(r)
+
+    def _convert_to_full_cal(self, df):
+        """
+        Convert Adjustfactor into Full Calendar.
+        """
+        # TODO
+        return df
 
     def get_adjustfactor_df(
         self,
