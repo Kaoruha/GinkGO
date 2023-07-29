@@ -623,15 +623,17 @@ class GinkgoData(object):
         )
 
     def update_all_cn_adjustfactor(self):
+        GLOG.INFO(f"Begin to update all CN AdjustFactor")
         t0 = datetime.datetime.now()
         info = self.get_stock_info_df()
         for i, r in info.iterrows():
             code = r["code"]
             self.update_cn_adjustfactor(code)
         t1 = datetime.datetime.now()
-        GLOG.INFO(f"Update ALL CN Daybar cost {t1-t0}")
+        GLOG.INFO(f"Update ALL CN AdjustFactor cost {t1-t0}")
 
     def update_all_cn_adjustfactor_aysnc(self):
+        GLOG.INFO(f"Begin to update all cn adjust factors")
         t0 = datetime.datetime.now()
         info = self.get_stock_info_df()
         l = []
@@ -650,7 +652,7 @@ class GinkgoData(object):
         p.close()
         p.join()
         t1 = datetime.datetime.now()
-        GLOG.INFO(f"Update All CN Daybar Done. Cost: {t1-t0}")
+        GLOG.INFO(f"Update ALL CN AdjustFactor cost {t1-t0}")
 
 
 GDATA = GinkgoData()
