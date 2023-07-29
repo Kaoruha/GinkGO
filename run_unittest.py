@@ -38,6 +38,7 @@ def main():
     parser.add_argument("-db", "--db", help="database test", action="store_true")
     parser.add_argument("-data", "--data", help="data test", action="store_true")
     parser.add_argument("-base", "--base", help="base test", action="store_true")
+    parser.add_argument("-libs", "--libs", help="lib test", action="store_true")
     parser.add_argument(
         "-backtest", "--backtest", help="backtest test", action="store_true"
     )
@@ -66,6 +67,7 @@ def main():
         args.data = True
         args.backtest = True
         args.db = True
+        args.libs = True
         args.y = True
 
     if args.base:
@@ -91,6 +93,10 @@ def main():
 
     if args.backtest:
         t = origin_path + "/backtest"
+        path.append(t)
+
+    if args.libs:
+        t = origin_path + "/libs"
         path.append(t)
 
     run_test(path)
