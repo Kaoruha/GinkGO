@@ -34,7 +34,6 @@ def main():
 
     parser.add_argument("-all", "--all", help="Test all", action="store_true")
     parser.add_argument("-y", "--y", help="All Yes", action="store_true")
-    parser.add_argument("-dev", "--dev", help="dev mode", action="store_true")
     parser.add_argument("-db", "--db", help="database test", action="store_true")
     parser.add_argument("-data", "--data", help="data test", action="store_true")
     parser.add_argument("-base", "--base", help="base test", action="store_true")
@@ -63,29 +62,25 @@ def main():
 
     if args.all:
         args.base = True
-        args.dev = True
         args.data = True
         args.backtest = True
         args.db = True
         args.libs = True
-        args.y = True
 
     if args.base:
         path.append(origin_path)
 
     if args.db:
         if not args.y:
-            result = input("DB Moduel may erase the database, Conitnue? Y/N  ")
+            result = input(
+                f"Current PORT is {GCONF.CLICKPORT}  DB Moduel may erase the database, Conitnue? Y/N  "
+            )
             if result.upper() == "Y":
                 t = origin_path + "/database"
                 path.append(t)
         else:
             t = origin_path + "/database"
             path.append(t)
-
-    if args.dev:
-        t = origin_path + "/dev"
-        path.append(t)
 
     if args.data:
         t = origin_path + "/data"
@@ -106,10 +101,11 @@ if __name__ == "__main__":
     if len(sys.argv) == 1:
         print("Usage:")
         print("python run_unittest.py --[mode]")
-        print("  -dev    Run the units under construction.")
         print("  -db     Run database units.")
         print("  -data   Run data-source relative units.")
-        print("  -base   Run frame basic units.")
+        print("  -base   Run framework basic units.")
+        print("  -libs   Run framework base libs.")
+        print("  -backtest   Run Backtest Untis.")
         exit()
 
     main()
