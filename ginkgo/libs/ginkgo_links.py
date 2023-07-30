@@ -4,22 +4,22 @@ class GinkgoSingleLinkedList(object):
         self._length = 0
 
     def append(self, value):
-        node = GinkgoSingleLinkedNode(value=valuee)
-        if self.length == 0:
-            self.head.next = node
+        node = GinkgoSingleLinkedNode(value=value)
+        if self._length == 0:
+            self.head = node
         else:
-            current = self.head.next
-            while current is not None:
+            current = self.head
+            while current.next is not None:
                 current = current.next
             current.next = node
-            self._length += 1
+        self._length += 1
 
     def insert(self, pos, value):
         if not isinstance(pos, int):
             return
         if pos > self._length:
-            pos = self._length
-        node = GinkgoSingleLinkedNode(value=valuee)
+            pos = self._length + 1
+        node = GinkgoSingleLinkedNode(value=value)
         if self._length == 0 or pos == 0:
             node.next = self.head
             self.head = node
@@ -36,7 +36,7 @@ class GinkgoSingleLinkedList(object):
         return self._length
 
     def __iter__(self):
-        for node in iter_node():
+        for node in self.iter_node():
             yield node
 
     def iter_node(self):
