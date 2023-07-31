@@ -159,3 +159,4 @@ def main():
 if __name__ == "__main__":
     os.system("clear")
     main()
+    os.system("python ./run_unittest.py --all")
