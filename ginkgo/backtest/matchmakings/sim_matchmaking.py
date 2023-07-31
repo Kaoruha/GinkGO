@@ -4,24 +4,19 @@ from ginkgo.libs import datetime_normalize
 from ginkgo.enums import EVENT_TYPES, ATTITUDE_TYPES
 from ginkgo.backtest.event import EventPriceUpdate
 from ginkgo import GLOG
+from ginkgo.backtest.matchmakings.base_matchmaking import MatchMakingBase
 
 
-class MatchMaking_Sim(object):
+class MatchMakingSim(MatchMakingBase):
     def __init__(self):
-        self._current = None
-        self._price_info = {}
+        super(MatchMakingSim, self).__init__(*args, **kwargs)
         self._attitude = ATTITUDE_TYPES.PESSMISTIC  # TODO maybe can be set by someway
         self._slip_base = 0.2
-        pass
 
     @property
     def slippage(self) -> float:
         r = self._slip_base * (random.random() * 2 - 1 + 1)
         return r if r < 1 else 1
-
-    @property
-    def current_time(self) -> datetime.datetime:
-        return self._current
 
     @property
     def price_info(self) -> dict:
@@ -32,7 +27,7 @@ class MatchMaking_Sim(object):
     def attitude(self) -> ATTITUDE_TYPES:
         return self._attitude
 
-    def price_update(self, event: EventPriceUpdate):
+    def on_stock_price(self, event: EventPriceUpdate):
         # TODO Check the source
         if self._current is None:
             self._current = event.timestamp
