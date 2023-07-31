@@ -7,6 +7,8 @@ The `Datahandler` class will provide access to historical price and volume data 
 
 - Get the Live Trading system's price and volume.
 """
+from ginkgo.backtest.feeds import base_feed
 
-class DataHandler():
+
+class DataHandler(base_feed):
     pass
