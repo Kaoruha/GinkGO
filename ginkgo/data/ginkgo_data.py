@@ -115,7 +115,8 @@ class GinkgoData(object):
             .filter(MOrder.isdel == False)
             .first()
         )
-        r.code = r.code.strip(b"\x00".decode())
+        if r is not None:
+            r.code = r.code.strip(b"\x00".decode())
         return r
 
     def get_order_df(self, order_id: str) -> pd.DataFrame:
