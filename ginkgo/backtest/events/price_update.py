@@ -1,10 +1,11 @@
 import datetime
+import pandas as pd
 from ginkgo.backtest.events.base_event import EventBase
 from functools import singledispatchmethod
 from ginkgo.enums import EVENT_TYPES, PRICEINFO_TYPES, SOURCE_TYPES
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.tick import Tick
-from ginkgo.libs import base_repr
+from ginkgo.libs import pretty_repr
 from ginkgo import GLOG
 from ginkgo.data.ginkgo_data import GDATA
 
@@ -130,9 +131,32 @@ class EventPriceUpdate(EventBase):
             )
             return None
 
+    def to_dataframe(self):
+        df = None
+        # Tick
+        if self.price_type == PRICEINFO_TYPES.TICK:
+            # TODO
+            pass
+        # Bar
+        elif self.price_type == PRICEINFO_TYPES.BAR:
+            d = {
+                "code": self.code,
+                "timestamp": self.timestamp,
+                "source": self.source,
+                "open": self.open,
+                "high": self.high,
+                "low": self.low,
+                "close": self.close,
+                "volume": self.volume,
+                "source": self.source,
+            }
+            df = pd.DataFrame.from_dict(d, orient="index").transpose()
+
+        return df
+
     def __repr__(self):
         mem = f"Mem   : {hex(id(self))}"
-        event_id = f"ID    : {self.id}"
+        event_id = f"UUID    : {self.uuid}"
         source = f"Source: {self.source} : {self.source.value}"
         date = f"Date  : {self.timestamp}"
         event_t = f"Type  : {self.event_type} : {self.event_type.value}"
@@ -140,19 +164,19 @@ class EventPriceUpdate(EventBase):
         msg = [mem, event_id, source, date, event_t, price_t]
 
         if self.price_type == PRICEINFO_TYPES.BAR:
-            open_ = f"Open  : {self.__bar.open}"
-            high = f"High  : {self.__bar.high}"
-            low = f"Low   : {self.__bar.low}"
-            close = f"Close : {self.__bar.close}"
-            volume = f"Volume: {self.__bar.volume}"
+            open_ = f"Open  : {self.price_info.open}"
+            high = f"High  : {self.price_info.high}"
+            low = f"Low   : {self.price_info.low}"
+            close = f"Close : {self.price_info.close}"
+            volume = f"Volume: {self.price_info.volume}"
             msg.append(open_)
             msg.append(high)
             msg.append(low)
             msg.append(close)
             msg.append(volume)
         elif self.price_type == PRICEINFO_TYPES.TICK:
-            price = f"Price : {self.__tick.price}"
-            volume = f"Volume: {self.__tick.volume}"
+            price = f"Price : {self.price_info.price}"
+            volume = f"Volume: {self.price_info.volume}"
             msg.append(price)
             msg.append(volume)
 

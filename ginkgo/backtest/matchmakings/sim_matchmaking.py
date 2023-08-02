@@ -1,9 +1,11 @@
 import datetime
 import random
 from ginkgo.libs import datetime_normalize
-from ginkgo.enums import EVENT_TYPES, ATTITUDE_TYPES
-from ginkgo.backtest.event import EventPriceUpdate
+from ginkgo.enums import EVENT_TYPES, ATTITUDE_TYPES, ORDERSTATUS_TYPES
+from ginkgo.backtest.events import EventPriceUpdate
 from ginkgo import GLOG
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.data.models import MOrder
 from ginkgo.backtest.matchmakings.base_matchmaking import MatchMakingBase
 
 
@@ -19,28 +21,37 @@ class MatchMakingSim(MatchMakingBase):
         return r if r < 1 else 1
 
     @property
-    def price_info(self) -> dict:
-        # The latest price info cache.
-        return self._price_info
-
-    @property
     def attitude(self) -> ATTITUDE_TYPES:
         return self._attitude
 
-    def on_stock_price(self, event: EventPriceUpdate):
-        # TODO Check the source
-        if self._current is None:
-            self._current = event.timestamp
-            GLOG.logger.debug(f"Sim MatchMaking start. {self.current_time}")
-
-        # Update Current Time
-        if event.timestamp < self._current:
-            GLOG.logger.warn(
-                f"Current Time is {self.current_time} the price come from past {event.timestamp}"
-            )
+    def on_stock_order(self, order_id: str):
+        # TODO Check if the id exsist
+        o = self.query_order(order_id)
+        if o is None:
             return
+        if o.status == ORDERSTATUS_TYPES.NEW:
+            o.status = ORDERSTATUS_TYPES.SUBMITTED
+            GDATA.commit()
+        if o.status != ORDERSTATUS_TYPES.SUBMITTED:
+            GLOG.ERROR(f"Only accept SUBMITTED order. {order_id} is under {o.status}")
+            return
+        if order_id in self._order:
+            GLOG.WARN(f"Order {order_id} is cached in queue, do not resubmit.")
+        else:
+            self._order.append(order_id)
 
-    def try_match(self, order_id: str):
+        self.try_match()
+
+    def query_order(self, order_id: str) -> MOrder:
+        if not isinstance(order_id, str):
+            GLOG.WARN("Order id only support string.")
+            return
+        o = GDATA.get_order(order_id)
+        if o is None:
+            GLOG.WARN(f"Order {order_id} not exsist.")
+        return o
+
+    def try_match(self):
         # Get the order from db
         # Get the price info from self.price_info
         # If there is no detail about the code, Try get the data from db again.The store the info into self.price_info.
