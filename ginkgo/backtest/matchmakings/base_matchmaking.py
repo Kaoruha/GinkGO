@@ -7,20 +7,24 @@ from ginkgo.enums import PRICEINFO_TYPES
 
 
 class MatchMakingBase(object):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self._now = None
         self._price = pd.DataFrame()
-        self._order = []
+        self._orders = []
 
     @property
     def now(self) -> datetime.datetime:
         return self._now
 
     @property
+    def orders(self) -> list:
+        return self._orders
+
+    @property
     def price(self) -> pd.DataFrame:
         return self._price
 
-    def on_time_goes_by(self, time: any):
+    def on_time_goes_by(self, time: any, *args, **kwargs):
         time = datetime_normalize(time)
         if time is None:
             print("Format not support, can not update time")
@@ -40,7 +44,7 @@ class MatchMakingBase(object):
                 # Reset the price
                 self._price = pd.DataFrame()
 
-    def on_stock_price(self, event: EventPriceUpdate):
+    def on_stock_price(self, event: EventPriceUpdate, *args, **kwargs):
         # TODO Check the source
         time = None
         try:
@@ -85,12 +89,12 @@ class MatchMakingBase(object):
             self._price = pd.concat([self._price, event.to_dataframe()], axis=0)
             self._price = self._price.reset_index(drop=True)
 
-    def on_stock_order(self):
+    def on_stock_order(self, *args, **kwargs):
         # If sim, run try_match
         # If live, send the order to broker
         raise NotImplemented
 
-    def query_order(self):
+    def query_order(self, *args, **kwargs):
         # if sim, return the info in self.price
         # if live, ask the remote the order status
         raise NotImplemented

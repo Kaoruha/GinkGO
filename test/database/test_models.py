@@ -341,7 +341,6 @@ class ModelOrderTest(unittest.TestCase):
             o = MOrder()
             o.set_source(i["source"])
             o.set(
-                i["uuid"],
                 i["code"],
                 i["direction"],
                 i["type"],
@@ -352,6 +351,7 @@ class ModelOrderTest(unittest.TestCase):
                 i["transaction_price"],
                 i["remain"],
                 i["timestamp"],
+                i["uuid"],
             )
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.direction, i["direction"])

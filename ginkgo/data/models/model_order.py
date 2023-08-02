@@ -4,7 +4,6 @@ from clickhouse_sqlalchemy import engines
 from sqlalchemy import Column, String, Integer, DECIMAL
 from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_base import MBase
-from ginkgo.backtest.order import Order
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 from ginkgo import GCONF
 from ginkgo.libs import base_repr, datetime_normalize
@@ -37,7 +36,6 @@ class MOrder(MBase):
     @set.register
     def _(
         self,
-        uuid: str,
         code: str,
         direction: DIRECTION_TYPES,
         type: ORDER_TYPES,
@@ -48,6 +46,7 @@ class MOrder(MBase):
         transaction_price: float,
         remain: float,
         timestamp: any,
+        uuid: str,
     ) -> None:
         self.uuid = uuid
         self.code = code
@@ -63,7 +62,6 @@ class MOrder(MBase):
 
     @set.register
     def _(self, df: pd.Series) -> None:
-        self.uuid = df.uuid
         self.code = df.code
         self.direction = df.direction
         self.type = df.type
@@ -75,6 +73,7 @@ class MOrder(MBase):
         self.transaction_price = df.transaction_price
         self.remain = df.remain
         self.timestamp = df.timestamp
+        self.uuid = df.uuid
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
 

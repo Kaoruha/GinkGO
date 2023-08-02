@@ -1,11 +1,24 @@
 import unittest
 import datetime
 from time import sleep
-from ginkgo.backtest.matchmakings import MatchMakingBase
+from ginkgo.backtest.matchmakings import (
+    MatchMakingBase,
+    MatchMakingSim,
+    MatchMakingLive,
+)
 from ginkgo.backtest.events import EventPriceUpdate
 from ginkgo.libs import datetime_normalize
 from ginkgo.backtest.bar import Bar
-from ginkgo.enums import FREQUENCY_TYPES
+from ginkgo.backtest.order import Order
+from ginkgo.data.models import MOrder
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.enums import (
+    FREQUENCY_TYPES,
+    DIRECTION_TYPES,
+    ORDER_TYPES,
+    ORDERSTATUS_TYPES,
+    SOURCE_TYPES,
+)
 
 
 class MatchMakingBaseTest(unittest.TestCase):
@@ -89,31 +102,182 @@ class MatchMakingSimTest(unittest.TestCase):
             {},
         ]
 
-    def test_sim_trymatch(self):
-        pass
-
-    def test_sim_onstockorder(self, order_id):
-        pass
-
     def test_sim_queryorder(self):
         pass
 
+    def test_sim_onstockorder(self):
+        GDATA.drop_table(MOrder)
+        GDATA.create_table(MOrder)
+        m = MatchMakingSim()
+        m.on_time_goes_by(20200101)
+        self.assertEqual(datetime_normalize(20200101), m.now)
+        o = Order()
+        o.set(
+            "test_order",
+            DIRECTION_TYPES.LONG,
+            ORDER_TYPES.LIMITORDER,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            1000,
+            10.5,
+            1000,
+            1,
+            2,
+            20200101,
+        )
+        o.set_source(SOURCE_TYPES.TEST)
+        mo = MOrder()
+        df = o.to_dataframe().iloc[0]
+        mo.set(df)
+        GDATA.add(mo)
+        GDATA.commit()
+        oid = o.uuid
 
-class MatchMakingLiveTest(unittest.TestCase):
-    """
-    UnitTest for MatchMakingLive
-    """
+        m.on_stock_order(oid)
+        self.assertEqual(True, oid in m.orders)
+        self.assertEqual(1, len(m.orders))
+        m.on_stock_order(oid)
+        self.assertEqual(True, oid in m.orders)
+        self.assertEqual(1, len(m.orders))
 
-    # Init
-    def __init__(self, *args, **kwargs) -> None:
-        super(MatchMakingLiveTest, self).__init__(*args, **kwargs)
+        # Try past and future order
+        o = Order()
+        o.set(
+            "test_order",
+            DIRECTION_TYPES.LONG,
+            ORDER_TYPES.LIMITORDER,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            1000,
+            10.5,
+            1000,
+            1,
+            2,
+            20100101,
+        )
+        o.set_source(SOURCE_TYPES.TEST)
+        mo = MOrder()
+        df = o.to_dataframe().iloc[0]
+        mo.set(df)
+        GDATA.add(mo)
+        GDATA.commit()
+        oid = o.uuid
+        m.on_stock_order(oid)
+        self.assertEqual(1, len(m.orders))
 
-        self.params = [
-            {},
-        ]
+        o = Order()
+        o.set(
+            "test_order",
+            DIRECTION_TYPES.LONG,
+            ORDER_TYPES.LIMITORDER,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            1000,
+            10.5,
+            1000,
+            1,
+            2,
+            20200102,
+        )
+        o.set_source(SOURCE_TYPES.TEST)
+        mo = MOrder()
+        df = o.to_dataframe().iloc[0]
+        mo.set(df)
+        GDATA.add(mo)
+        GDATA.commit()
+        oid = o.uuid
+        m.on_stock_order(oid)
+        self.assertEqual(1, len(m.orders))
 
-    def test_live_onstockorder(self):
-        pass
+    def test_sim_trymatch(self):
+        GDATA.drop_table(MOrder)
+        GDATA.create_table(MOrder)
+        m = MatchMakingSim()
+        m.on_time_goes_by(20200101)
+        self.assertEqual(datetime_normalize(20200101), m.now)
+        # Price Come
+        b = Bar()
+        b.set("test_code", 10, 11, 9.5, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+        e = EventPriceUpdate(price_info=b)
+        m.on_stock_price(e)
+        # Order Come over the peak
+        o = Order()
+        o.set(
+            "test_code",
+            DIRECTION_TYPES.LONG,
+            ORDER_TYPES.LIMITORDER,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            1000,
+            11.5,
+            1000,
+            1,
+            2,
+            20200101,
+        )
+        o.set_source(SOURCE_TYPES.TEST)
+        mo = MOrder()
+        df = o.to_dataframe().iloc[0]
+        mo.set(df)
+        GDATA.add(mo)
+        GDATA.commit()
+        oid = o.uuid
 
-    def test_live_queryorder(self):
-        pass
+        m.on_stock_order(oid)
+        # Try match
+
+        m.try_match()
+        sleep(0.001)
+        o1 = m.query_order(oid)
+        self.assertEqual(o1.status, ORDERSTATUS_TYPES.CANCELED)
+
+        # Price Come
+        b = Bar()
+        b.set("test_code1", 10, 11, 9.5, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+        e = EventPriceUpdate(price_info=b)
+        m.on_stock_price(e)
+        # Order Come under the vallay
+        o = Order()
+        o.set(
+            "test_code1",
+            DIRECTION_TYPES.LONG,
+            ORDER_TYPES.LIMITORDER,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            1000,
+            9.2,
+            1000,
+            1,
+            2,
+            20200101,
+        )
+        o.set_source(SOURCE_TYPES.TEST)
+        mo = MOrder()
+        df = o.to_dataframe().iloc[0]
+        mo.set(df)
+        GDATA.add(mo)
+        GDATA.commit()
+        oid = o.uuid
+
+        m.on_stock_order(oid)
+        # Try match
+
+        m.try_match()
+        sleep(0.001)
+        o2 = m.query_order(oid)
+        self.assertEqual(o2.status, ORDERSTATUS_TYPES.CANCELED)
+
+
+# class MatchMakingLiveTest(unittest.TestCase):
+#     """
+#     UnitTest for MatchMakingLive
+#     """
+
+#     # Init
+#     def __init__(self, *args, **kwargs) -> None:
+#         super(MatchMakingLiveTest, self).__init__(*args, **kwargs)
+
+#         self.params = [
+#             {},
+#         ]
+
+#     # def test_live_onstockorder(self):
+#     #     pass
+
+#     def test_live_queryorder(self):
+#         pass

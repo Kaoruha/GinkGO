@@ -12,13 +12,13 @@ class Order(Base):
         code: str = "Default Order Code",
         direction: DIRECTION_TYPES = None,
         type: ORDER_TYPES = None,
+        status: ORDERSTATUS_TYPES = ORDERSTATUS_TYPES.SUBMITTED,
         volume: int = 0,
         limit_price: float = 0,
         frozen: float = 0,
         transaction_price: float = 0,
         remain: float = 0,
         timestamp: any = None,
-        status: ORDERSTATUS_TYPES = ORDERSTATUS_TYPES.SUBMITTED,
         uuid: str = "",
         *args,
         **kwargs
@@ -40,6 +40,10 @@ class Order(Base):
 
     @singledispatchmethod
     def set(self) -> None:
+        """
+        Support transfer the params or dataframe
+        code,direction,type,volume,limit_price,frozen,transaction_price,remain,timestamp,uuid
+        """
         pass
 
     @set.register
@@ -48,6 +52,7 @@ class Order(Base):
         code: str,
         direction: DIRECTION_TYPES,
         type: ORDER_TYPES,
+        status: ORDERSTATUS_TYPES,
         volume: int,
         limit_price: float,
         frozen: float,
@@ -59,6 +64,7 @@ class Order(Base):
         self._code: str = code
         self._direction: DIRECTION_TYPES = direction
         self._type: ORDER_TYPES = type
+        self._status = status
         self._volume: int = volume
         self._limit_price: float = limit_price
         self._frozen: float = frozen
@@ -77,16 +83,17 @@ class Order(Base):
         Set from dataframe
         """
         self._code: str = df.code
-        self._timestamp: datetime.datetime = df.timestamp
-        self._uuid: str = df.uuid
         self._direction: DIRECTION_TYPES = DIRECTION_TYPES(df.direction)
         self._type: ORDER_TYPES = ORDER_TYPES(df["type"])
+        self._status: ORDERSTATUS_TYPES = ORDERSTATUS_TYPES(df["status"])
         self._volume: int = df.volume
         self._limit_price: float = df.limit_price
         self._status = ORDERSTATUS_TYPES(df.status)
         self._frozen: float = df.frozen
         self._transaction_price: float = df.transaction_price
         self._remain: float = df.remain
+        self._timestamp: datetime.datetime = df.timestamp
+        self._uuid: str = df.uuid
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
 

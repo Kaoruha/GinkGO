@@ -15,7 +15,6 @@ class Base(object):
     def source(self):
         return self._source
 
-    @property
     def to_dataframe(self) -> pd.DataFrame:
         item = {}
         methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
@@ -36,5 +35,5 @@ class Base(object):
             else:
                 item[param] = self.__getattribute__(param)
 
-        df = pd.DataFrame.from_dict(item, orient="index")
-        return df[0]
+        df = pd.DataFrame.from_dict(item, orient="index").transpose()
+        return df

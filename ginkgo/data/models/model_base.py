@@ -61,8 +61,8 @@ class MBase(db.base):
             else:
                 item[param] = self.__getattribute__(param)
 
-        df = pd.DataFrame.from_dict(item, orient="index")
-        return df[0]
+        df = pd.DataFrame.from_dict(item, orient="index").transpose()
+        return df
 
     def set_source(self, source: SOURCE_TYPES) -> None:
         self.source = source

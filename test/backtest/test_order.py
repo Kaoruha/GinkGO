@@ -63,6 +63,7 @@ class OrderTest(unittest.TestCase):
                 item["code"],
                 item["direction"],
                 item["type"],
+                item["status"],
                 item["volume"],
                 item["limit_price"],
                 item["frozen"],
