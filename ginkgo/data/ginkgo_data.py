@@ -5,7 +5,7 @@ import pandas as pd
 import multiprocessing
 import threading
 from sqlalchemy import DDL
-from ginkgo.data import DBDRIVER
+from ginkgo.data import CLICKDRIVER
 from ginkgo.data.models import MOrder, MBase, MBar, MStockInfo, MTradeDay, MAdjustfactor
 from ginkgo import GLOG, GCONF
 from ginkgo.libs import datetime_normalize, str2bool
@@ -35,11 +35,11 @@ class GinkgoData(object):
 
     @property
     def session(self):
-        return DBDRIVER.session
+        return CLICKDRIVER.session
 
     @property
     def engine(self):
-        return DBDRIVER.engine
+        return CLICKDRIVER.engine
 
     def add(self, value) -> None:
         self.session.add(value)
@@ -89,7 +89,7 @@ class GinkgoData(object):
             self.drop_table(m)
 
     def drop_table(self, model: MBase) -> None:
-        if DBDRIVER.is_table_exsists(model.__tablename__):
+        if CLICKDRIVER.is_table_exsists(model.__tablename__):
             model.__table__.drop()
             GLOG.WARN(f"Drop Table {model.__tablename__} : {model}")
         else:
@@ -99,14 +99,14 @@ class GinkgoData(object):
         if model.__abstract__ == True:
             GLOG.WARN(f"Pass Model:{model}")
             return
-        if DBDRIVER.is_table_exsists(model.__tablename__):
+        if CLICKDRIVER.is_table_exsists(model.__tablename__):
             GLOG.WARN(f"Table {model.__tablename__} exist.")
         else:
             model.__table__.create()
             GLOG.INFO(f"Create Table {model.__tablename__} : {model}")
 
     def get_table_size(self, model: MBase) -> int:
-        return DBDRIVER.get_table_size(model)
+        return CLICKDRIVER.get_table_size(model)
 
     # Query in database
     def get_order_final(self, order_id):
