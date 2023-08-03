@@ -1,7 +1,15 @@
 import datetime
 import random
+from time import sleep
+import random
 from ginkgo.libs import datetime_normalize
-from ginkgo.enums import EVENT_TYPES, ATTITUDE_TYPES, ORDERSTATUS_TYPES, ORDER_TYPES
+from ginkgo.enums import (
+    EVENT_TYPES,
+    ATTITUDE_TYPES,
+    ORDERSTATUS_TYPES,
+    ORDER_TYPES,
+    DIRECTION_TYPES,
+)
 from ginkgo.backtest.events import EventPriceUpdate
 from ginkgo import GLOG
 from ginkgo.data.ginkgo_data import GDATA
@@ -14,6 +22,9 @@ class MatchMakingSim(MatchMakingBase):
         super(MatchMakingSim, self).__init__(*args, **kwargs)
         self._attitude = ATTITUDE_TYPES.PESSMISTIC  # TODO maybe can be set by someway
         self._slip_base = 0.2
+
+    def set_attituede(self, attitude: ATTITUDE_TYPES):
+        self._attitude = attitude
 
     @property
     def slippage(self) -> float:
@@ -77,12 +88,16 @@ class MatchMakingSim(MatchMakingBase):
                 continue
             # Try match
             p = p.iloc[0, :]
+            transaction_price = 0
+            high = p.high
+            low = p.low
+            open = p.open
             # 1. If limit price
             if o.type == ORDER_TYPES.LIMITORDER:
                 # 1.1 If the limit price is out of the bound of price_info, Cancel the order
                 if o.limit_price < p.low:
                     GLOG.INFO(
-                        f"Order {o.uuid} limit price {o.limit_price} is under the valley."
+                        f"Order {o.uuid} limit price {o.limit_price} is under the valley: {p.low}."
                     )
                     o.status = ORDERSTATUS_TYPES.CANCELED
                     GDATA.commit()
@@ -90,7 +105,7 @@ class MatchMakingSim(MatchMakingBase):
 
                 if o.limit_price > p.high:
                     GLOG.INFO(
-                        f"Order {o.uuid} limit price {o.limit_price} is under the valley."
+                        f"Order {o.uuid} limit price {o.limit_price} is over the peak: {p.high}."
                     )
                     o.status = ORDERSTATUS_TYPES.CANCELED
                     GDATA.commit()
@@ -105,20 +120,43 @@ class MatchMakingSim(MatchMakingBase):
                     o.status = ORDERSTATUS_TYPES.CANCELED
                     GDATA.commit()
                     continue
+                transaction_price = o.limit_price
 
-                # 1.2.2 Change the order status => FILLED
-                o.status = ORDERSTATUS_TYPES.FILLED
-                # 1.2.3 Give it back to db
-                GDATA.commit()
             # 2. If Maket price
             elif o.type == ORDER_TYPES.MARKETORDER:
                 # 2.1 pessimistic
-                # 2.1.1 If buy, the fill price should be open + (high - open) * self.slippage
-                # 2.1.2 If sell, the fill price shoudl be open - (open - low) * self.slippage
+                if self.attitude == ATTITUDE_TYPES.PESSMISTIC:
+                    # 2.1.1 If buy, the fill price should be open + (high - open) * self.slippage
+                    if o.direction == DIRECTION_TYPES.LONG:
+                        transaction_price = p.open + (p.high - p.open) * self.slippage
+                    # 2.1.2 If sell, the fill price shoudl be open - (open - low) * self.slippage
+                    elif o.direction == DIRECTION_TYPES.SHORT:
+                        transaction_price = p.open - (p.open - p.low) * self.slippage
                 # 2.2 optimistic
-                # 2.2.1 If buy, the fill price should be open - (open - low) * self.slippage
-                # 2.2.2 If sell, the fill price shoudl be open + (high - low) * self.slippage
-                pass
+                elif self.attitude == ATTITUDE_TYPES.OPTIMISTIC:
+                    # 2.2.1 If buy, the fill price should be open - (open - low) * self.slippage
+                    if o.direction == DIRECTION_TYPES.LONG:
+                        transaction_price = p.open - (p.open - p.low) * self.slippage
+                    # 2.2.2 If sell, the fill price shoudl be open + (high - open) * self.slippage
+                    elif o.direction == DIRECTION_TYPES.SHORT:
+                        transaction_price = p.open + (p.high - p.open) * self.slippage
+                elif self.attitude == ATTITUDE_TYPES.RANDOM:
+                    transaction_price = o.low + (o.high - o.low) * random.random()
+
+            o.status = ORDERSTATUS_TYPES.FILLED
+            o.transaction_price = transaction_price
+            volume = float(transaction_price * o.volume)
+            is_long = o.direction == DIRECTION_TYPES.LONG
+            fee = self.cal_fee(volume, is_long)
+            o.fee = fee
+            remain = 0
+            if is_long:
+                remain = float(o.frozen) - volume - fee
+            else:
+                remain = volume - fee
+            o.remain = remain
+            # 1.2.3 Give it back to db
+            GDATA.commit()
         # If there is no detail about the code, Try get the data from db again.The store the info into self.price_info.
         # According the price_info, try match the order.
-        pass
+        # sleep(0.11)

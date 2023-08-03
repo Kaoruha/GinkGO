@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import multiprocessing
 import threading
+from sqlalchemy import DDL
 from ginkgo.data import DBDRIVER
 from ginkgo.data.models import MOrder, MBase, MBar, MStockInfo, MTradeDay, MAdjustfactor
 from ginkgo import GLOG, GCONF
@@ -108,15 +109,22 @@ class GinkgoData(object):
         return DBDRIVER.get_table_size(model)
 
     # Query in database
+    def get_order_final(self, order_id):
+        sql = f"SELECT * FROM order FINAL WHERE uuid='{order_id}' limit 1"
+        result = self.engine.execute(DDL(sql))
+        return result
+
     def get_order(self, order_id: str) -> MOrder:
         r = (
             self.session.query(MOrder)
+            .final()
             .filter(MOrder.uuid == order_id)
             .filter(MOrder.isdel == False)
             .first()
         )
         if r is not None:
             r.code = r.code.strip(b"\x00".decode())
+
         return r
 
     def get_order_df(self, order_id: str) -> pd.DataFrame:
