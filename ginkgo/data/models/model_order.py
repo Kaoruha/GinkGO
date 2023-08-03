@@ -14,7 +14,7 @@ class MOrder(MBase):
     __tablename__ = "order"
 
     if GCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
+        __table_args__ = (engines.ReplacingMergeTree(order_by=("timestamp",)),)
 
     code = Column(String(), default="ginkgo_test_code")
     direction = Column(ChoiceType(DIRECTION_TYPES, impl=Integer()), default=1)
@@ -25,6 +25,7 @@ class MOrder(MBase):
     frozen = Column(DECIMAL(20, 10), default=0)
     transaction_price = Column(DECIMAL(20, 10), default=0)
     remain = Column(DECIMAL(20, 10), default=0)
+    fee = Column(DECIMAL(20, 10), default=0)
 
     def __init__(self, *args, **kwargs) -> None:
         super(MOrder, self).__init__(*args, **kwargs)
@@ -45,6 +46,7 @@ class MOrder(MBase):
         frozen: float,
         transaction_price: float,
         remain: float,
+        fee: float,
         timestamp: any,
         uuid: str,
     ) -> None:
@@ -58,6 +60,7 @@ class MOrder(MBase):
         self.frozen = frozen
         self.transaction_price = transaction_price
         self.remain = remain
+        self.fee = fee
         self.timestamp = datetime_normalize(timestamp)
 
     @set.register
@@ -72,10 +75,11 @@ class MOrder(MBase):
         self.frozen = df.frozen
         self.transaction_price = df.transaction_price
         self.remain = df.remain
+        self.fee = df.fee
         self.timestamp = df.timestamp
         self.uuid = df.uuid
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
 
     def __repr__(self) -> str:
-        return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
+        return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 60)

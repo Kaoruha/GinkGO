@@ -18,6 +18,7 @@ class Order(Base):
         frozen: float = 0,
         transaction_price: float = 0,
         remain: float = 0,
+        fee: float = 0,
         timestamp: any = None,
         uuid: str = "",
         *args,
@@ -33,6 +34,7 @@ class Order(Base):
             frozen,
             transaction_price,
             remain,
+            fee,
             timestamp,
             uuid,
         )
@@ -58,6 +60,7 @@ class Order(Base):
         frozen: float,
         transaction_price: float,
         remain: float,
+        fee: float,
         timestamp: any,
         uuid: str = "",
     ):
@@ -70,6 +73,7 @@ class Order(Base):
         self._frozen: float = frozen
         self._transaction_price: float = transaction_price
         self._remain: float = remain
+        self._fee: float = fee
         self._timestamp: datetime.datetime = datetime_normalize(timestamp)
 
         if len(uuid) > 0:
@@ -92,6 +96,7 @@ class Order(Base):
         self._frozen: float = df.frozen
         self._transaction_price: float = df.transaction_price
         self._remain: float = df.remain
+        self._fee: float = df.fee
         self._timestamp: datetime.datetime = df.timestamp
         self._uuid: str = df.uuid
         if "source" in df.keys():
@@ -140,6 +145,10 @@ class Order(Base):
     @property
     def remain(self) -> float:
         return self._remain
+
+    @property
+    def fee(self) -> float:
+        return self._fee
 
     def __repr__(self) -> str:
         return base_repr(self, Order.__name__, 12, 60)
