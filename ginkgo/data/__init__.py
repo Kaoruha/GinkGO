@@ -1,8 +1,7 @@
 import os
 import sys
 from ginkgo import GCONF
-from ginkgo.data.drivers import GinkgoClickhouse
-
+from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql
 
 CLICKDRIVER = GinkgoClickhouse(
     user=GCONF.CLICKUSER,
@@ -10,4 +9,11 @@ CLICKDRIVER = GinkgoClickhouse(
     host=GCONF.CLICKHOST,
     port=GCONF.CLICKPORT,
     db=GCONF.CLICKDB,
+)
+MYSQLDRIVER = GinkgoMysql(
+    user=GCONF.MYSQLUSER,
+    pwd=GCONF.MYSQLPWD,
+    host=GCONF.MYSQLHOST,
+    port=GCONF.MYSQLPORT,
+    db=GCONF.MYSQLDB,
 )

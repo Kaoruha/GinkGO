@@ -5,8 +5,17 @@ import pandas as pd
 import multiprocessing
 import threading
 from sqlalchemy import DDL
-from ginkgo.data import CLICKDRIVER
-from ginkgo.data.models import MOrder, MBase, MBar, MStockInfo, MTradeDay, MAdjustfactor
+from ginkgo.data import CLICKDRIVER, MYSQLDRIVER
+from ginkgo.data.models import (
+    MOrder,
+    MBase,
+    MBar,
+    MStockInfo,
+    MTradeDay,
+    MAdjustfactor,
+    MClickBase,
+    MMysqlBase,
+)
 from ginkgo import GLOG, GCONF
 from ginkgo.libs import datetime_normalize, str2bool
 from ginkgo.enums import (
@@ -73,11 +82,9 @@ class GinkgoData(object):
         """
         Create tables with all models without __abstract__ = True.
         """
-        for m in self.__models:
-            try:
-                self.create_table(m)
-            except Exception as e:
-                print(e)
+        # Create tables in clickhouse
+        MClickBase.metadata.create_all(CLICKDRIVER.engine)
+        MMysqlBase.metadata.create_all(MYSQLDRIVER.engine)
 
     def drop_all(self) -> None:
         """
@@ -85,8 +92,8 @@ class GinkgoData(object):
         Just call the func in dev.
         This will drop all the tables in models.
         """
-        for m in self.__models:
-            self.drop_table(m)
+        MClickBase.metadata.drop_all(CLICKDRIVER.engine)
+        MMysqlBase.metadata.drop_all(MYSQLDRIVER.engine)
 
     def drop_table(self, model: MBase) -> None:
         if CLICKDRIVER.is_table_exsists(model.__tablename__):

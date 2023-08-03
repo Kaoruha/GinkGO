@@ -1,6 +1,6 @@
 import pandas as pd
 from functools import singledispatchmethod
-from ginkgo.data.models import MBase
+from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.libs import datetime_normalize, base_repr
 from ginkgo import GCONF
 from ginkgo.enums import (
@@ -15,7 +15,7 @@ from clickhouse_sqlalchemy import engines
 from sqlalchemy_utils import ChoiceType
 
 
-class MTick(MBase):
+class MTick(MClickBase):
     __abstract__ = False
     __tablename__ = "tick"
 

@@ -21,10 +21,15 @@ class GinkgoMysql(object):
     def __connect(self) -> None:
         uri = f"mysql+pymysql://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/{self.__db}?charset=uft8"
 
-        self.engine = create_engine(uri, echo=True, pool_size=8)
+        self.engine = create_engine(
+            uri,
+            echo=True,
+            pool_size=8,
+        )
         self.session = sessionmaker(self.engine)
         self.metadata = MetaData(bind=self.engine)
-        self.base = declarative_base(metadata=self.metadata)
+        # self.base = declarative_base(metadata=self.metadata)
+        self.base = declarative_base()
         GLOG.INFO("Connect to mysql succeed.")
 
     @property

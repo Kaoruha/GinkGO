@@ -4,7 +4,7 @@ from functools import singledispatchmethod
 from clickhouse_sqlalchemy import engines
 from sqlalchemy import Column, String, Integer, DECIMAL
 from sqlalchemy_utils import ChoiceType
-from ginkgo.data.models.model_base import MBase
+from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.backtest.bar import Bar
 from ginkgo import GLOG, GCONF
 from ginkgo.libs import base_repr, datetime_normalize
@@ -17,7 +17,7 @@ from ginkgo.enums import (
 )
 
 
-class MBar(MBase):
+class MBar(MClickBase):
     __abstract__ = False
     __tablename__ = "bar"
 
