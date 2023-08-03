@@ -34,6 +34,7 @@ class OrderTest(unittest.TestCase):
                 "frozen": 44000,
                 "transaction_price": 21222.3,
                 "remain": 10,
+                "fee": 0,
                 "timestamp": datetime.datetime.now(),
             },
             {
@@ -48,6 +49,7 @@ class OrderTest(unittest.TestCase):
                 "frozen": 54000,
                 "transaction_price": 34,
                 "remain": 400,
+                "fee": 0,
                 "timestamp": datetime.datetime.now(),
             },
         ]
@@ -69,6 +71,7 @@ class OrderTest(unittest.TestCase):
                 item["frozen"],
                 item["transaction_price"],
                 item["remain"],
+                item["fee"],
                 item["timestamp"],
                 item["uuid"],
             )

@@ -90,6 +90,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
                 "frozen": 44000,
                 "transaction_price": 0,
                 "remain": 0,
+                "fee": 0,
                 "timestamp": datetime.datetime.now(),
             }
         ]
@@ -144,6 +145,7 @@ class EventOrderCanceledTest(unittest.TestCase):
                 "frozen": 44000,
                 "transaction_price": 0,
                 "remain": 0,
+                "fee": 0,
                 "timestamp": datetime.datetime.now(),
             }
         ]
@@ -198,6 +200,7 @@ class EventOrderExecuteTest(unittest.TestCase):
                 "frozen": 44000,
                 "transaction_price": 0,
                 "remain": 0,
+                "fee": 0,
                 "timestamp": datetime.datetime.now(),
             }
         ]
@@ -252,6 +255,7 @@ class EventOrderFilledTest(unittest.TestCase):
                 "frozen": 44000,
                 "transaction_price": 0,
                 "remain": 0,
+                "fee": 0,
                 "timestamp": datetime.datetime.now(),
             }
         ]
@@ -306,6 +310,7 @@ class EventOrderRelatedTest(unittest.TestCase):
                 "frozen": 44000,
                 "transaction_price": 0,
                 "remain": 0,
+                "fee": 0,
                 "timestamp": datetime.datetime.now(),
             }
         ]
@@ -360,6 +365,7 @@ class EventOrderSubmittedTest(unittest.TestCase):
                 "frozen": 44000,
                 "transaction_price": 0,
                 "remain": 0,
+                "fee": 0,
                 "timestamp": datetime.datetime.now(),
             }
         ]
@@ -414,6 +420,7 @@ class EventPositionUpdateTest(unittest.TestCase):
                 "frozen": 44000,
                 "transaction_price": 0,
                 "remain": 0,
+                "fee": 0,
                 "timestamp": datetime.datetime.now(),
             }
         ]
