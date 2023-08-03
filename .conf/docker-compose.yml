@@ -1,22 +1,44 @@
 # yaml 配置实例
 version: '3'
 services:
-  # Mongo:
-  #   image: mongo:latest
-  #   container_name: ginkgo_mongo
-  #   restart: always
-  #   environment:
-  #     MONGO_INITDB_ROOT_USERNAME: root
-  #     MONGO_INITDB_ROOT_PASSWORD: caonima123
-  #     MONGO_INITDB_DATABASE: quant
-  #   volumes:
-  #     - ../db/mongo:/data/db:rw
-  #     - ./mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js
-  #   networks:
-  #     - nets
-  #   ports:
-  #     - "27017:27017"
-
+  MS:
+    image: mysql
+    container_name: ginkgo_ms
+    command: 
+      --max_connections=1000
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_general_ci
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ginkgo
+      MYSQL_USER: ginkgoadm
+      MYSQL_PASSWORD: hellomysql
+    volumes:
+      - ../.logs/mysql:/logs
+      - ../.db/mysql:/var/lib/mysql
+      - ./mysql_entrypoint:/docker-entrypoint-initdb.d
+  MSTest:
+    image: mysql
+    container_name: ginkgo_ms_test
+    command: 
+      --max_connections=1000
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_general_ci
+    restart: always
+    ports:
+      - "13306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ginkgo
+      MYSQL_USER: ginkgoadm
+      MYSQL_PASSWORD: hellomysql
+    volumes:
+      - ../.logs/mysql_test:/logs
+      - ../.db/mysql_test:/var/lib/mysql
+      - ./mysql_entrypoint:/docker-entrypoint-initdb.d
   CH:
     image: clickhouse/clickhouse-server
     container_name: ginkgo_ch
@@ -28,7 +50,7 @@ services:
     # networks:
     #   - nets
     volumes:
-      - ../logs/clickhouse:/var/log/clickhouse-server
+      - ../.logs/clickhouse:/var/log/clickhouse-server
       - ./clickhouse_users.xml:/etc/clickhouse-server/users.xml
       - ../.db/clickhouse:/var/lib/clickhouse:rw
     ulimits:
@@ -52,7 +74,7 @@ services:
     # networks:
     #   - nets
     volumes:
-      - ../logs/clickhouse_test:/var/log/clickhouse-server
+      - ../.logs/clickhouse_test:/var/log/clickhouse-server
       - ./clickhouse_users.xml:/etc/clickhouse-server/users.xml
       - ../.db/clickhouse_test:/var/lib/clickhouse:rw
     ulimits:
