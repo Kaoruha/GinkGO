@@ -3,7 +3,7 @@ import pandas as pd
 from ginkgo.libs import datetime_normalize
 from ginkgo.backtest.events import EventPriceUpdate
 from ginkgo import GLOG
-from ginkgo.enums import PRICEINFO_TYPES
+from ginkgo.enums import PRICEINFO_TYPES, DIRECTION_TYPES
 
 
 class MatchMakingBase(object):
@@ -11,6 +11,16 @@ class MatchMakingBase(object):
         self._now = None
         self._price = pd.DataFrame()
         self._orders = []
+        self._commission_rate = 0.0003
+        self._commission_min = 5
+
+    @property
+    def commision_rate(self) -> float:
+        return self._commission_rate
+
+    @property
+    def commision_min(self) -> float:
+        return self._commission_min
 
     @property
     def now(self) -> datetime.datetime:
@@ -98,3 +108,20 @@ class MatchMakingBase(object):
         # if sim, return the info in self.price
         # if live, ask the remote the order status
         raise NotImplemented
+
+    def cal_fee(self, volume: float, is_long: bool, *args, **kwargs):
+        if volume < 0:
+            return 0
+        # 印花税，仅卖出时收
+        stamp_tax = volume * 0.001 if not is_long else 0
+        # 过户费，买卖均收
+        transfer_fees = 0.00001 * volume
+        # 代收规费0.00687%，买卖均收
+        collection_fees = 0.0000687 * volume
+        # 佣金，买卖均收
+        commission = self.commision_rate * volume
+        commission = (
+            commission if commission > self.commision_min else self.commision_min
+        )
+
+        return stamp_tax + transfer_fees + collection_fees + commission

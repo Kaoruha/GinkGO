@@ -1,6 +1,5 @@
 import unittest
 import datetime
-from time import sleep
 from ginkgo.backtest.matchmakings import (
     MatchMakingBase,
     MatchMakingSim,
@@ -120,8 +119,9 @@ class MatchMakingSimTest(unittest.TestCase):
             1000,
             10.5,
             1000,
-            1,
-            2,
+            0,
+            0,
+            0,
             20200101,
         )
         o.set_source(SOURCE_TYPES.TEST)
@@ -149,8 +149,9 @@ class MatchMakingSimTest(unittest.TestCase):
             1000,
             10.5,
             1000,
-            1,
-            2,
+            0,
+            0,
+            0,
             20100101,
         )
         o.set_source(SOURCE_TYPES.TEST)
@@ -172,8 +173,9 @@ class MatchMakingSimTest(unittest.TestCase):
             1000,
             10.5,
             1000,
-            1,
-            2,
+            0,
+            0,
+            0,
             20200102,
         )
         o.set_source(SOURCE_TYPES.TEST)
@@ -186,7 +188,7 @@ class MatchMakingSimTest(unittest.TestCase):
         m.on_stock_order(oid)
         self.assertEqual(1, len(m.orders))
 
-    def test_sim_trymatch(self):
+    def test_sim_trymatch_outofbounds(self):
         GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         m = MatchMakingSim()
@@ -207,8 +209,9 @@ class MatchMakingSimTest(unittest.TestCase):
             1000,
             11.5,
             1000,
-            1,
-            2,
+            0,
+            0,
+            0,
             20200101,
         )
         o.set_source(SOURCE_TYPES.TEST)
@@ -223,7 +226,6 @@ class MatchMakingSimTest(unittest.TestCase):
         # Try match
 
         m.try_match()
-        sleep(0.001)
         o1 = m.query_order(oid)
         self.assertEqual(o1.status, ORDERSTATUS_TYPES.CANCELED)
 
@@ -242,8 +244,9 @@ class MatchMakingSimTest(unittest.TestCase):
             1000,
             9.2,
             1000,
-            1,
-            2,
+            0,
+            0,
+            0,
             20200101,
         )
         o.set_source(SOURCE_TYPES.TEST)
@@ -258,26 +261,201 @@ class MatchMakingSimTest(unittest.TestCase):
         # Try match
 
         m.try_match()
-        sleep(0.001)
         o2 = m.query_order(oid)
         self.assertEqual(o2.status, ORDERSTATUS_TYPES.CANCELED)
 
+    def test_sim_trymatch_limitlong(self):
+        GDATA.drop_table(MOrder)
+        GDATA.create_table(MOrder)
+        m = MatchMakingSim()
+        m.on_time_goes_by(20200101)
+        self.assertEqual(datetime_normalize(20200101), m.now)
+        # Limit LONG
+        # Price Come
+        b = Bar()
+        b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+        e = EventPriceUpdate(price_info=b)
+        m.on_stock_price(e)
+        # Order Come under the vallay
+        o = Order()
+        o.set(
+            "test_code2",
+            DIRECTION_TYPES.LONG,
+            ORDER_TYPES.LIMITORDER,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            1000,
+            9.2,
+            9300,
+            0,
+            0,
+            0,
+            20200101,
+        )
+        o.set_source(SOURCE_TYPES.TEST)
+        mo = MOrder()
+        df = o.to_dataframe().iloc[0]
+        mo.set(df)
+        GDATA.add(mo)
+        GDATA.commit()
+        oid = o.uuid
 
-# class MatchMakingLiveTest(unittest.TestCase):
-#     """
-#     UnitTest for MatchMakingLive
-#     """
+        m.on_stock_order(oid)
+        # Try match
 
-#     # Init
-#     def __init__(self, *args, **kwargs) -> None:
-#         super(MatchMakingLiveTest, self).__init__(*args, **kwargs)
+        m.try_match()
+        o3 = m.query_order(oid)
+        print(o3)
+        self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
+        self.assertEqual(9.2, float(o3.transaction_price))
 
-#         self.params = [
-#             {},
-#         ]
+    def test_sim_trymatch_limitshort(self):
+        GDATA.drop_table(MOrder)
+        GDATA.create_table(MOrder)
+        m = MatchMakingSim()
+        m.on_time_goes_by(20200101)
+        self.assertEqual(datetime_normalize(20200101), m.now)
+        # Limit SHORT
+        # Price Come
+        b = Bar()
+        b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+        e = EventPriceUpdate(price_info=b)
+        m.on_stock_price(e)
+        # Order Come under the vallay
+        o = Order()
+        o.set(
+            "test_code2",
+            DIRECTION_TYPES.LONG,
+            ORDER_TYPES.LIMITORDER,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            1000,
+            9.2,
+            9300,
+            0,
+            0,
+            0,
+            20200101,
+        )
+        o.set_source(SOURCE_TYPES.TEST)
+        mo = MOrder()
+        df = o.to_dataframe().iloc[0]
+        mo.set(df)
+        GDATA.add(mo)
+        GDATA.commit()
+        oid = o.uuid
 
-#     # def test_live_onstockorder(self):
-#     #     pass
+        m.on_stock_order(oid)
+        # Try match
 
-#     def test_live_queryorder(self):
-#         pass
+        m.try_match()
+        o3 = m.query_order(oid)
+        print(o3)
+        self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
+        self.assertEqual(9.2, float(o3.transaction_price))
+
+    def test_sim_trymatch_marketlong(self):
+        GDATA.drop_table(MOrder)
+        GDATA.create_table(MOrder)
+        m = MatchMakingSim()
+        m.on_time_goes_by(20200101)
+        self.assertEqual(datetime_normalize(20200101), m.now)
+        # MARKET LONG
+        # Price Come
+        b = Bar()
+        b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+        e = EventPriceUpdate(price_info=b)
+        m.on_stock_price(e)
+        # Order Come under the vallay
+        o = Order()
+        o.set(
+            "test_code2",
+            DIRECTION_TYPES.LONG,
+            ORDER_TYPES.LIMITORDER,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            1000,
+            9.2,
+            9300,
+            0,
+            0,
+            0,
+            20200101,
+        )
+        o.set_source(SOURCE_TYPES.TEST)
+        mo = MOrder()
+        df = o.to_dataframe().iloc[0]
+        mo.set(df)
+        GDATA.add(mo)
+        GDATA.commit()
+        oid = o.uuid
+
+        m.on_stock_order(oid)
+        # Try match
+
+        m.try_match()
+        o3 = m.query_order(oid)
+        print(o3)
+        self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
+        self.assertEqual(9.2, float(o3.transaction_price))
+
+    def test_sim_trymatch_marketshort(self):
+        GDATA.drop_table(MOrder)
+        GDATA.create_table(MOrder)
+        m = MatchMakingSim()
+        m.on_time_goes_by(20200101)
+        self.assertEqual(datetime_normalize(20200101), m.now)
+        # MARKET SHORT
+        # Price Come
+        b = Bar()
+        b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+        e = EventPriceUpdate(price_info=b)
+        m.on_stock_price(e)
+        # Order Come under the vallay
+        o = Order()
+        o.set(
+            "test_code2",
+            DIRECTION_TYPES.LONG,
+            ORDER_TYPES.LIMITORDER,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            1000,
+            9.2,
+            9300,
+            0,
+            0,
+            0,
+            20200101,
+        )
+        o.set_source(SOURCE_TYPES.TEST)
+        mo = MOrder()
+        df = o.to_dataframe().iloc[0]
+        mo.set(df)
+        GDATA.add(mo)
+        GDATA.commit()
+        oid = o.uuid
+
+        m.on_stock_order(oid)
+        # Try match
+
+        m.try_match()
+        o3 = m.query_order(oid)
+        print(o3)
+        self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
+        self.assertEqual(9.2, float(o3.transaction_price))
+
+
+# # class MatchMakingLiveTest(unittest.TestCase):
+# #     """
+# #     UnitTest for MatchMakingLive
+# #     """
+
+# #     # Init
+# #     def __init__(self, *args, **kwargs) -> None:
+# #         super(MatchMakingLiveTest, self).__init__(*args, **kwargs)
+
+# #         self.params = [
+# #             {},
+# #         ]
+
+# #     # def test_live_onstockorder(self):
+# #     #     pass
+
+# #     def test_live_queryorder(self):
+# #         pass
