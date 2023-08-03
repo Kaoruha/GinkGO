@@ -49,11 +49,11 @@ def main():
     parser.add_argument("-y", "--y", help="set yes", action="store_true")
     args = parser.parse_args()
 
-    path_log = "logs"
+    path_log = ".logs"
     path_db = ".db"
     path_pip = "./requirements.txt"
-    path_docker = "ginkgo/docker-compose.yml"
-    path_click = "ginkgo/clickhouse_users.xml"
+    path_docker = ".conf/docker-compose.yml"
+    path_click = ".conf/clickhouse_users.xml"
     path_gink_conf = "ginkgo/config/config.yml"
     path_gink_sec = "ginkgo/config/secure.yml"
 
@@ -159,4 +159,4 @@ def main():
 if __name__ == "__main__":
     os.system("clear")
     main()
-    os.system("python ./run_unittest.py --all")
+    # os.system("python ./run_unittest.py --all")
