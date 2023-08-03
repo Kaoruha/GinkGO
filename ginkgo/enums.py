@@ -92,3 +92,4 @@ class MARKET_TYPES(EnumBase):
 class ATTITUDE_TYPES(EnumBase):
     PESSMISTIC = 1
     OPTIMISTIC = 2
+    RANDOM = 3
