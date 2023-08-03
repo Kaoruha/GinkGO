@@ -75,10 +75,28 @@ class GinkgoConfig(object):
         return r
 
     @property
+    def MYSQLDB(self) -> str:
+        r = ""
+        try:
+            r = self.__read_secure()["database"]["mysql"]["database"]
+        except Exception as e:
+            r = "default"
+        return r
+
+    @property
     def CLICKUSER(self) -> str:
         r = ""
         try:
             r = self.__read_secure()["database"]["clickhouse"]["username"]
+        except Exception as e:
+            r = "default"
+        return r
+
+    @property
+    def MYSQLUSER(self) -> str:
+        r = ""
+        try:
+            r = self.__read_secure()["database"]["mysql"]["username"]
         except Exception as e:
             r = "default"
         return r
@@ -98,9 +116,29 @@ class GinkgoConfig(object):
         return r
 
     @property
+    def MYSQLPWD(self) -> str:
+        """
+        Password for clickhouse
+        """
+        r = ""
+        try:
+            r = self.__read_secure()["database"]["mysql"]["password"]
+            r = base64.b64decode(r)
+            r = str(r, "utf-8")
+        except Exception as e:
+            r = "default"
+        return r
+
+    @property
     def CLICKHOST(self) -> int:
         r = ""
         r = self.__read_secure()["database"]["clickhouse"]["host"]
+        return r
+
+    @property
+    def MYSQLHOST(self) -> int:
+        r = ""
+        r = self.__read_secure()["database"]["mysql"]["host"]
         return r
 
     @property
@@ -108,6 +146,16 @@ class GinkgoConfig(object):
         on_dev = self.__read_config()["debug"]
 
         r = self.__read_secure()["database"]["clickhouse"]["port"]
+        if not on_dev:
+            return r
+        else:
+            return f"1{r}"
+
+    @property
+    def MYSQLPORT(self) -> int:
+        on_dev = self.__read_config()["debug"]
+
+        r = self.__read_secure()["database"]["mysql"]["port"]
         if not on_dev:
             return r
         else:

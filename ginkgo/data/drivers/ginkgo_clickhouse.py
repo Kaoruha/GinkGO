@@ -16,7 +16,6 @@ class GinkgoClickhouse(object):
         self.__host = host
         self.__port = port
         self.__db = db
-        self.__is_on_test = False
 
         # self.__create_database()
         self.__connect()
