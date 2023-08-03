@@ -25,8 +25,8 @@ class GinkgoClickhouse(object):
         self.engine = create_engine(uri)
         self.session = sessionmaker(self.engine)(query_cls=Query)
         self.metadata = MetaData(bind=self.engine)
-        GLOG.INFO("Connect to clickhouse succeed.")
         self.base = declarative_base(metadata=self.metadata)
+        GLOG.INFO("Connect to clickhouse succeed.")
 
     def __create_database(self) -> None:
         # ATTENTION DDL will run the sql, be care of COMMAND INJECTION

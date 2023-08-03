@@ -4,21 +4,24 @@ from types import FunctionType, MethodType
 from functools import singledispatchmethod
 from enum import Enum
 from types import FunctionType, MethodType
-from ginkgo.data import DBDRIVER as db
 from ginkgo.libs import gen_uuid4, datetime_normalize
+from sqlalchemy.ext.declarative import declarative_base
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.enums import SOURCE_TYPES
 from sqlalchemy import Column, String, DateTime, Boolean, Integer
 from sqlalchemy_utils import ChoiceType
 
 
-class MBase(db.base):
+Base = declarative_base()
+
+
+class MMysqlBase(Base):
     __abstract__ = True
     __tablename__ = "BaseModel"
 
     uuid = Column(String(32), primary_key=True)
     desc = Column(
-        String(),
+        String(255),
         default="This man is lazy, there is no description.",
     )
     timestamp = Column(DateTime, default=datetime_normalize("1950-01-01"))

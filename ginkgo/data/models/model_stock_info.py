@@ -1,6 +1,6 @@
 import pandas as pd
 from functools import singledispatchmethod
-from ginkgo.data.models.model_base import MBase
+from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.enums import (
     SOURCE_TYPES,
     FREQUENCY_TYPES,
@@ -13,7 +13,7 @@ from clickhouse_sqlalchemy import engines
 from ginkgo.libs import datetime_normalize, base_repr
 
 
-class MStockInfo(MBase):
+class MStockInfo(MClickBase):
     __abstract__ = False
     __tablename__ = "stock_info"
 

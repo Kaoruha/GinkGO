@@ -1,4 +1,5 @@
-from ginkgo.data.models.model_base import MBase
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.data.models.model_order import MOrder
 from ginkgo.data.models.model_bar import MBar
 from ginkgo.data.models.model_tick import MTick
