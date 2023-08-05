@@ -8,7 +8,6 @@ from sqlalchemy import DDL
 from ginkgo.data import CLICKDRIVER, MYSQLDRIVER
 from ginkgo.data.models import (
     MOrder,
-    MBase,
     MBar,
     MStockInfo,
     MTradeDay,
@@ -43,21 +42,42 @@ class GinkgoData(object):
         self.batch_size = 500
 
     @property
-    def session(self):
+    def driver(self, model):
+        if isinstance(model, MClickBase):
+            return CLICKDRIVER
+        elif isinstance(model, MMysqlBase):
+            return MYSQLDRIVER
+
+    @property
+    def click_session(self):
         return CLICKDRIVER.session
 
     @property
-    def engine(self):
+    def click_engine(self):
         return CLICKDRIVER.engine
 
+    @property
+    def mysql_session(self):
+        return MYSQLDRIVER.session
+
+    @property
+    def mysql_engine(self):
+        return MYSQLDRIVER.engine
+
     def add(self, value) -> None:
-        self.session.add(value)
+        session = None
+        if isinstance(value, MClickBase):
+            session = self.click_session
+        elif isinstance(value, MMysqlBase):
+            session = self.mysql_session
+        session.add(value)
 
     def commit(self) -> None:
         """
         Session Commit.
         """
-        self.session.commit()
+        self.click_session.commit()
+        self.mysql_session.commit()
 
     def add_all(self, values) -> None:
         """
@@ -95,14 +115,14 @@ class GinkgoData(object):
         MClickBase.metadata.drop_all(CLICKDRIVER.engine)
         MMysqlBase.metadata.drop_all(MYSQLDRIVER.engine)
 
-    def drop_table(self, model: MBase) -> None:
+    def drop_table(self, model) -> None:
         if CLICKDRIVER.is_table_exsists(model.__tablename__):
             model.__table__.drop()
             GLOG.WARN(f"Drop Table {model.__tablename__} : {model}")
         else:
             GLOG.INFO(f"No need to drop {model.__tablename__} : {model}")
 
-    def create_table(self, model: MBase) -> None:
+    def create_table(self, model) -> None:
         if model.__abstract__ == True:
             GLOG.WARN(f"Pass Model:{model}")
             return
@@ -112,11 +132,11 @@ class GinkgoData(object):
             model.__table__.create()
             GLOG.INFO(f"Create Table {model.__tablename__} : {model}")
 
-    def get_table_size(self, model: MBase) -> int:
+    def get_table_size(self, model) -> int:
         return CLICKDRIVER.get_table_size(model)
 
     # Query in database
-    def get_order_final(self, order_id):
+    def get_order_final(self, order_id: str):
         sql = f"SELECT * FROM order FINAL WHERE uuid='{order_id}' limit 1"
         result = self.engine.execute(DDL(sql))
         return result
