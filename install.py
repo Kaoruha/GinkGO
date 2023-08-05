@@ -46,8 +46,14 @@ def bg_red(msg):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-y", "--y", help="set yes", action="store_true")
+    parser.add_argument("-y", "--y", help="pass configuration", action="store_true")
+    parser.add_argument("-r", "--r", help="reinstall", action="store_true")
     args = parser.parse_args()
+
+    if args.r:
+        cmd = "sudo docker rm -f ginkgo_ms ginkgo_ms_test ginkgo_ch ginkgo_ch_test;sudo rm -rf .db .logs;python ./install.py -y"
+        os.system(cmd)
+        return
 
     path_log = ".logs"
     path_db = ".db"
