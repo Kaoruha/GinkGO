@@ -190,7 +190,7 @@ class GinkgoData(object):
             .filter(MOrder.uuid == order_id)
             .filter(MOrder.isdel == False)
         )
-        df = pd.read_sql(r.statement, self.engine)
+        df = pd.read_sql(r.statement, MYSQLDRIVER.engine)
 
         if df.shape[0] > 1:
             GLOG.WARN(

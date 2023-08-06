@@ -105,7 +105,6 @@ class MatchMakingSimTest(unittest.TestCase):
         pass
 
     def test_sim_onstockorder(self):
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         m = MatchMakingSim()
         m.on_time_goes_by(20200101)
@@ -189,7 +188,6 @@ class MatchMakingSimTest(unittest.TestCase):
         self.assertEqual(1, len(m.orders))
 
     def test_sim_trymatch_outofbounds(self):
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         m = MatchMakingSim()
         m.on_time_goes_by(20200101)
@@ -265,7 +263,6 @@ class MatchMakingSimTest(unittest.TestCase):
         self.assertEqual(o2.status, ORDERSTATUS_TYPES.CANCELED)
 
     def test_sim_trymatch_limitlong(self):
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         m = MatchMakingSim()
         m.on_time_goes_by(20200101)
@@ -309,7 +306,6 @@ class MatchMakingSimTest(unittest.TestCase):
         self.assertEqual(9.2, float(o3.transaction_price))
 
     def test_sim_trymatch_limitshort(self):
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         m = MatchMakingSim()
         m.on_time_goes_by(20200101)
@@ -353,7 +349,6 @@ class MatchMakingSimTest(unittest.TestCase):
         self.assertEqual(9.2, float(o3.transaction_price))
 
     def test_sim_trymatch_marketlong(self):
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         m = MatchMakingSim()
         m.on_time_goes_by(20200101)
@@ -397,7 +392,6 @@ class MatchMakingSimTest(unittest.TestCase):
         self.assertEqual(9.2, float(o3.transaction_price))
 
     def test_sim_trymatch_marketshort(self):
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         m = MatchMakingSim()
         m.on_time_goes_by(20200101)
@@ -441,21 +435,21 @@ class MatchMakingSimTest(unittest.TestCase):
         self.assertEqual(9.2, float(o3.transaction_price))
 
 
-# # class MatchMakingLiveTest(unittest.TestCase):
-# #     """
-# #     UnitTest for MatchMakingLive
-# #     """
+class MatchMakingLiveTest(unittest.TestCase):
+    """
+    UnitTest for MatchMakingLive
+    """
 
-# #     # Init
-# #     def __init__(self, *args, **kwargs) -> None:
-# #         super(MatchMakingLiveTest, self).__init__(*args, **kwargs)
+    # Init
+    def __init__(self, *args, **kwargs) -> None:
+        super(MatchMakingLiveTest, self).__init__(*args, **kwargs)
 
-# #         self.params = [
-# #             {},
-# #         ]
+        self.params = [
+            {},
+        ]
 
-# #     # def test_live_onstockorder(self):
-# #     #     pass
+    # def test_live_onstockorder(self):
+    #     pass
 
-# #     def test_live_queryorder(self):
-# #         pass
+    def test_live_queryorder(self):
+        pass
