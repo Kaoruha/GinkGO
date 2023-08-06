@@ -7,6 +7,7 @@ charset-normalizer==3.1.0
 clickhouse-driver==0.2.5
 clickhouse-sqlalchemy==0.2.3
 colorlog==6.7.0
+ginkgo @ file:///Users/suny/Documents/Ginkgo/dist/ginkgo-0.5.1.tar.gz#sha256=f988db6e4d26dfec1901edc9626504453173931553cdbf5a426de6cdf1938662
 greenlet==2.0.2
 idna==3.4
 lxml==4.9.2
@@ -14,6 +15,7 @@ numpy==1.24.2
 packaging==23.1
 pandas==2.0.0
 prettytable==3.6.0
+PyMySQL==1.1.0
 pyproject_hooks==1.0.0
 python-dateutil==2.8.2
 pytz==2022.7.1
@@ -26,6 +28,7 @@ six==1.16.0
 soupsieve==2.4.1
 SQLAlchemy==1.4.47
 SQLAlchemy-Utils==0.40.0
+tomli==2.0.1
 tushare==1.2.89
 typing_extensions==4.5.0
 tzdata==2022.7
