@@ -1,4 +1,5 @@
 import datetime
+import uuid
 import unittest
 import pandas as pd
 from time import sleep
@@ -80,7 +81,7 @@ class EventCapitalUpdateTest(unittest.TestCase):
         self.params = [
             {
                 "code": "unit_test_code",
-                "uuid": "uuiduuiduuiduuid222",
+                "uuid": uuid.uuid4().hex,
                 "source": SOURCE_TYPES.BAOSTOCK,
                 "direction": DIRECTION_TYPES.LONG,
                 "type": ORDER_TYPES.MARKETORDER,
@@ -101,16 +102,14 @@ class EventCapitalUpdateTest(unittest.TestCase):
 
     def test_EventCU_GetOrder(self) -> None:
         # Clean the Table
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         for i in self.params:
-            # Insert an Order
             o = MOrder()
             df = pd.DataFrame.from_dict(i, orient="index")[0]
             o.set(df)
             GDATA.add(o)
             GDATA.commit()
-            # Try Get
+            # # Try Get
             e = EventCapitalUpdate(o.uuid)
             self.assertEqual(e.order_id, o.uuid)
             self.assertEqual(e.code, i["code"])
@@ -135,7 +134,7 @@ class EventOrderCanceledTest(unittest.TestCase):
         self.params = [
             {
                 "code": "unit_test_code",
-                "uuid": "uuiduuiduuiduuid222",
+                "uuid": uuid.uuid4().hex,
                 "source": SOURCE_TYPES.BAOSTOCK,
                 "direction": DIRECTION_TYPES.LONG,
                 "type": ORDER_TYPES.MARKETORDER,
@@ -156,7 +155,6 @@ class EventOrderCanceledTest(unittest.TestCase):
 
     def test_EventOC_GetOrder(self) -> None:
         # Clean the Table
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         for i in self.params:
             # Insert an Order
@@ -190,7 +188,7 @@ class EventOrderExecuteTest(unittest.TestCase):
         self.params = [
             {
                 "code": "unit_test_code",
-                "uuid": "uuiduuiduuiduuid222",
+                "uuid": uuid.uuid4().hex,
                 "source": SOURCE_TYPES.BAOSTOCK,
                 "direction": DIRECTION_TYPES.LONG,
                 "type": ORDER_TYPES.MARKETORDER,
@@ -211,7 +209,6 @@ class EventOrderExecuteTest(unittest.TestCase):
 
     def test_EventOC_GetOrder(self) -> None:
         # Clean the Table
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         for i in self.params:
             # Insert an Order
@@ -245,7 +242,7 @@ class EventOrderFilledTest(unittest.TestCase):
         self.params = [
             {
                 "code": "unit_test_code",
-                "uuid": "uuiduuiduuiduuid222",
+                "uuid": uuid.uuid4().hex,
                 "source": SOURCE_TYPES.BAOSTOCK,
                 "direction": DIRECTION_TYPES.LONG,
                 "type": ORDER_TYPES.MARKETORDER,
@@ -266,7 +263,6 @@ class EventOrderFilledTest(unittest.TestCase):
 
     def test_EventOF_GetOrder(self) -> None:
         # Clean the Table
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         for i in self.params:
             # Insert an Order
@@ -300,7 +296,7 @@ class EventOrderRelatedTest(unittest.TestCase):
         self.params = [
             {
                 "code": "unit_test_code",
-                "uuid": "uuiduuiduuiduuid222",
+                "uuid": uuid.uuid4().hex,
                 "source": SOURCE_TYPES.BAOSTOCK,
                 "direction": DIRECTION_TYPES.LONG,
                 "type": ORDER_TYPES.MARKETORDER,
@@ -321,7 +317,6 @@ class EventOrderRelatedTest(unittest.TestCase):
 
     def test_EventOR_GetOrder(self) -> None:
         # Clean the Table
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         for i in self.params:
             # Insert an Order
@@ -355,7 +350,7 @@ class EventOrderSubmittedTest(unittest.TestCase):
         self.params = [
             {
                 "code": "unit_test_code",
-                "uuid": "uuiduuiduuiduuid222",
+                "uuid": uuid.uuid4().hex,
                 "source": SOURCE_TYPES.BAOSTOCK,
                 "direction": DIRECTION_TYPES.LONG,
                 "type": ORDER_TYPES.MARKETORDER,
@@ -376,7 +371,6 @@ class EventOrderSubmittedTest(unittest.TestCase):
 
     def test_EventOR_GetOrder(self) -> None:
         # Clean the Table
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         for i in self.params:
             # Insert an Order
@@ -410,7 +404,7 @@ class EventPositionUpdateTest(unittest.TestCase):
         self.params = [
             {
                 "code": "unit_test_code",
-                "uuid": "uuiduuiduuiduuid222",
+                "uuid": uuid.uuid4().hex,
                 "source": SOURCE_TYPES.BAOSTOCK,
                 "direction": DIRECTION_TYPES.LONG,
                 "type": ORDER_TYPES.MARKETORDER,
@@ -431,7 +425,6 @@ class EventPositionUpdateTest(unittest.TestCase):
 
     def test_EventPU_GetOrder(self) -> None:
         # Clean the Table
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
         for i in self.params:
             # Insert an Order
@@ -510,4 +503,5 @@ class EventPriceUpdateTest(unittest.TestCase):
             self.assertEqual(i["low"], e.low)
             self.assertEqual(i["close"], e.close)
 
-    # TODO Tick
+
+#     # TODO Tick
