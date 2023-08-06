@@ -156,7 +156,7 @@ def main():
     elif "Linux" == str(platform.system()):
         os.system(f"sudo docker-compose -f {path_docker} up -d")
     else:
-        os.system(f"sudo docker-compose -f {path_docker} up -d")
+        os.system(f"docker-compose -f {path_docker} up -d")
 
     # Install Ginkgo Package
     os.system("python ./setup_install.py")
