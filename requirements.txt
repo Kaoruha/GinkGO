@@ -3,10 +3,12 @@ beautifulsoup4==4.12.2
 bs4==0.0.1
 build==0.10.0
 certifi==2022.12.7
+cffi==1.15.1
 charset-normalizer==3.1.0
 clickhouse-driver==0.2.5
 clickhouse-sqlalchemy==0.2.3
 colorlog==6.7.0
+cryptography==41.0.3
 ginkgo @ file:///Users/suny/Documents/Ginkgo/dist/ginkgo-0.5.1.tar.gz#sha256=f988db6e4d26dfec1901edc9626504453173931553cdbf5a426de6cdf1938662
 greenlet==2.0.2
 idna==3.4
@@ -15,6 +17,7 @@ numpy==1.24.2
 packaging==23.1
 pandas==2.0.0
 prettytable==3.6.0
+pycparser==2.21
 PyMySQL==1.1.0
 pyproject_hooks==1.0.0
 python-dateutil==2.8.2
