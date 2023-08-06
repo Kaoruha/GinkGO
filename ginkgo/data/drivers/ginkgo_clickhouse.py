@@ -2,7 +2,6 @@ from sqlalchemy import create_engine, MetaData, inspect, func, DDL
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from ginkgo import GLOG
-from clickhouse_sqlalchemy.orm.query import Query
 
 
 class GinkgoClickhouse(object):
@@ -23,7 +22,7 @@ class GinkgoClickhouse(object):
     def __connect(self) -> None:
         uri = f"clickhouse://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/{self.__db}"
         self.engine = create_engine(uri)
-        self.session = sessionmaker(self.engine)(query_cls=Query)
+        self.session = sessionmaker(self.engine)()
         self.metadata = MetaData(bind=self.engine)
         self.base = declarative_base(metadata=self.metadata)
         GLOG.INFO("Connect to clickhouse succeed.")

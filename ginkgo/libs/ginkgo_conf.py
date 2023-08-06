@@ -84,6 +84,15 @@ class GinkgoConfig(object):
         return r
 
     @property
+    def MONGODB(self) -> str:
+        r = ""
+        try:
+            r = self.__read_secure()["database"]["mongodb"]["database"]
+        except Exception as e:
+            r = "default"
+        return r
+
+    @property
     def CLICKUSER(self) -> str:
         r = ""
         try:
@@ -102,6 +111,15 @@ class GinkgoConfig(object):
         return r
 
     @property
+    def MONGOUSER(self) -> str:
+        r = ""
+        try:
+            r = self.__read_secure()["database"]["mongodb"]["username"]
+        except Exception as e:
+            r = "default"
+        return r
+
+    @property
     def CLICKPWD(self) -> str:
         """
         Password for clickhouse
@@ -111,6 +129,7 @@ class GinkgoConfig(object):
             r = self.__read_secure()["database"]["clickhouse"]["password"]
             r = base64.b64decode(r)
             r = str(r, "utf-8")
+            r = r.replace("\n", "")
         except Exception as e:
             r = "default"
         return r
@@ -123,6 +142,18 @@ class GinkgoConfig(object):
         r = ""
         try:
             r = self.__read_secure()["database"]["mysql"]["password"]
+            r = base64.b64decode(r)
+            r = str(r, "utf-8")
+            r = r.replace("\n", "")
+        except Exception as e:
+            r = "default"
+        return r
+
+    @property
+    def MONGOPWD(self) -> str:
+        r = ""
+        try:
+            r = self.__read_secure()["database"]["mongodb"]["password"]
             r = base64.b64decode(r)
             r = str(r, "utf-8")
         except Exception as e:
@@ -139,6 +170,12 @@ class GinkgoConfig(object):
     def MYSQLHOST(self) -> int:
         r = ""
         r = self.__read_secure()["database"]["mysql"]["host"]
+        return r
+
+    @property
+    def MONGOHOST(self) -> int:
+        r = ""
+        r = self.__read_secure()["database"]["mongo"]["host"]
         return r
 
     @property
@@ -162,42 +199,14 @@ class GinkgoConfig(object):
             return f"1{r}"
 
     @property
-    def MONGODB(self) -> str:
-        r = ""
-        try:
-            r = self.__read_secure()["database"]["mongodb"]["database"]
-        except Exception as e:
-            r = "default"
-        return r
+    def MONGOPORT(self) -> int:
+        on_dev = self.__read_config()["debug"]
 
-    @property
-    def MONGOUSER(self) -> str:
-        r = ""
-        try:
-            r = self.__read_secure()["database"]["mongodb"]["username"]
-        except Exception as e:
-            r = "default"
-        return r
-
-    @property
-    def MONGOPWD(self) -> str:
-        r = ""
-        try:
-            r = self.__read_secure()["database"]["mongodb"]["password"]
-            r = base64.b64decode(r)
-            r = str(r, "utf-8")
-        except Exception as e:
-            r = "default"
-        return r
-
-    @property
-    def DBDRIVER(self) -> str:
-        r = ""
-        try:
-            r = self.__read_config()["db_driver"]
-        except Exception as e:
-            r = "default"
-        return r
+        r = self.__read_secure()["database"]["mongo"]["port"]
+        if not on_dev:
+            return r
+        else:
+            return f"1{r}"
 
     @property
     def HEARTBEAT(self) -> float:
@@ -231,6 +240,15 @@ class GinkgoConfig(object):
         r = ""
         try:
             r = self.__read_config()["default_end"]
+        except Exception as e:
+            pass
+        return r
+
+    @property
+    def DBDRIVER(self) -> str:
+        r = ""
+        try:
+            r = self.__read_config()["db_driver"]
         except Exception as e:
             pass
         return r
