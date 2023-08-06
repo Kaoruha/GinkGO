@@ -1,17 +1,16 @@
 ##### 1.0(FUTURE)
   - [x] Update Python to 3.11.
   - [DEV] Upgrade Backtest Framework.
-  `- [DEV] Support MongoDB and Clickhouse.`
   - [x] Support MysqlDB and Clickhouse.
   - [x] Add 2 or 3 DataSource.
   - [] Add ML Engine.
   - [TODO] Support other markets.
 
 ##### 0.7(FUTURE)
-  -[TODO]  Support More DataSource
-  - -[TODO]  Support NSQ
-  - -[TODO]  Support Dao
-  - -[TODO]  Support Jap
+  - [TODO]  Support More DataSource
+  - - [TODO]  Support NSQ
+  - - [TODO]  Support Dao
+  - - [TODO]  Support Jap
   - [TODO] Add Notification
   - - [TODO] Add Mail Notification
   - - [TODO] Add Wecat Notification
