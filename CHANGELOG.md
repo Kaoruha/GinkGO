@@ -1,7 +1,8 @@
 ##### 1.0(FUTURE)
   - [x] Update Python to 3.11.
   - [DEV] Upgrade Backtest Framework.
-  - [TODO] Support MongoDB and Clickhouse.
+  `- [DEV] Support MongoDB and Clickhouse.`
+  - [x] Support MysqlDB and Clickhouse.
   - [x] Add 2 or 3 DataSource.
   - [] Add ML Engine.
   - [TODO] Support other markets.
@@ -11,35 +12,37 @@
   - -[TODO]  Support NSQ
   - -[TODO]  Support Dao
   - -[TODO]  Support Jap
+  - [TODO] Add Notification
+  - - [TODO] Add Mail Notification
+  - - [TODO] Add Wecat Notification
 
 ##### 0.6(FUTURE)
+  - [TODO] Add CLI
   - [TODO] Add ML Engine.
+  - [TODO] Add Trading Records.
 
 ##### 0.5.1(DEV)
   - [TODO] Backtest Engine Upgrade
   - - [DEV] Optimize Backtest Engine
   - - [DEV] Backtest Engine Unittest
-  - [TODO] Add Trading Records.
-  - [TODO] Add CLI
-  - [TODO] Add Notification
-  - - [TODO] Add Mail Notification
-  - - [TODO] Add Wecat Notification
 
 ##### 0.5
-  - [TODO] Baostock
   - [x] Tushare
-  - [TODO] Sine Spider
   - [TODO] AK Share
+  - [TODO] Sine Spider
+  - [TODO] Baostock
 
 ##### 0.4
   - [x] Create Standard Data Interface.
-  - [TODO] Optimize MongoDB.
   - [x] Optimize DataEngine.
+  - [x] Optimize MysqlBase.
+  - [TODO] Optimize MongoDB.
 
 ##### 0.3
-  - [TODO] Support MongoDB and Clickhouse both.
-  - - [TODO] Support MongoDB
+  - [x] Support Multi Databases.
   - - [x] Support Clickhouse
+  - - [x] Support Mysql
+  - - [TODO] Support MongoDB
 
 ##### 0.2
   - [x] Update to Python3.11
@@ -81,6 +84,7 @@
   - [x] Events UnitTest.
   - [x] Analyzer Unittest.
   - [x] BaseBroker UnitTest.
+
 ##### 0.1.19
   - [x] Position UnitTest.
   - [x] Add Broker UnitTest.
