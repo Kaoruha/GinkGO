@@ -1,11 +1,11 @@
 import time
+import types
 import datetime
 import os
 import pandas as pd
 import multiprocessing
 import threading
 from sqlalchemy import DDL
-from ginkgo.data import CLICKDRIVER, MYSQLDRIVER
 from ginkgo.data.models import (
     MOrder,
     MBar,
@@ -26,7 +26,8 @@ from ginkgo.enums import (
 )
 from ginkgo.data.sources import GinkgoBaoStock
 from ginkgo.data.sources import GinkgoTushare
-from ginkgo.data.drivers import GinkgoClickhouse
+from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql
+from ginkgo.data import CLICKDRIVER, MYSQLDRIVER
 
 
 class GinkgoData(object):
@@ -36,48 +37,53 @@ class GinkgoData(object):
     """
 
     def __init__(self):
-        self.__models = []
+        self._click_models = []
+        self._mysql_models = []
         self.get_models()
         self.bs = GinkgoBaoStock()
         self.batch_size = 500
+        self._is_click_cached = False
+        self._is_mysql_cached = False
 
-    @property
-    def driver(self, model):
-        if isinstance(model, MClickBase):
-            return CLICKDRIVER
-        elif isinstance(model, MMysqlBase):
-            return MYSQLDRIVER
+    def get_driver(self, value):
+        is_class = isinstance(value, type)
+        driver = None
+        if is_class:
+            if issubclass(value, MClickBase):
+                driver = CLICKDRIVER
+            elif issubclass(value, MMysqlBase):
+                driver = MYSQLDRIVER
+        else:
+            if isinstance(value, MClickBase):
+                driver = CLICKDRIVER
+            elif isinstance(value, MMysqlBase):
+                driver = MYSQLDRIVER
 
-    @property
-    def click_session(self):
-        return CLICKDRIVER.session
-
-    @property
-    def click_engine(self):
-        return CLICKDRIVER.engine
-
-    @property
-    def mysql_session(self):
-        return MYSQLDRIVER.session
-
-    @property
-    def mysql_engine(self):
-        return MYSQLDRIVER.engine
+        if driver is None:
+            GLOG.ERROR(f"Model {value} should be sub of clickbase or mysqlbase.")
+        return driver
 
     def add(self, value) -> None:
-        session = None
-        if isinstance(value, MClickBase):
-            session = self.click_session
-        elif isinstance(value, MMysqlBase):
-            session = self.mysql_session
-        session.add(value)
+        driver = self.get_driver(value)
+        driver.session.add(value)
+        if driver == CLICKDRIVER:
+            self._is_click_cached = True
+        elif driver == MYSQLDRIVER:
+            self._is_mysql_cached = True
 
     def commit(self) -> None:
         """
         Session Commit.
         """
-        self.click_session.commit()
-        self.mysql_session.commit()
+        CLICKDRIVER.session.commit()
+        MYSQLDRIVER.session.commit()
+        # if self._is_click_cached:
+        #     CLICKDRIVER.session.commit()
+        #     self._is_click_cached = False
+
+        # if self._is_mysql_cached:
+        #     MYSQLDRIVER.session.commit()
+        #     self._is_mysql_cached = True
 
     def add_all(self, values) -> None:
         """
@@ -85,25 +91,45 @@ class GinkgoData(object):
         """
         # TODO support different database engine.
         # Now is for clickhouse.
-        self.session.add_all(values)
+        click_list = []
+        mysql_list = []
+        for i in values:
+            if isinstance(i, MClickBase):
+                click_list.append(i)
+            elif isinstance(i, MMysqlBase):
+                mysql_list.append(i)
+        if len(click_list) > 0:
+            CLICKDRIVER.session.add_all(click_list)
+            self._is_click_cached = True
+        if len(mysql_list) > 0:
+            MYSQLDRIVER.session.add_all(mysql_list)
+            self._is_mysql_cached = True
 
     def get_models(self) -> None:
         """
         Read all py files under /data/models
         """
-        self.__models = []
-        for i in MBase.__subclasses__():
+        self._click_models = []
+        self._mysql_models = []
+        for i in MClickBase.__subclasses__():
             if i.__abstract__ == True:
                 continue
-            if i not in self.__models:
-                self.__models.append(i)
+            if i not in self._click_models:
+                self._click_models.append(i)
+
+        for i in MMysqlBase.__subclasses__():
+            if i.__abstract__ == True:
+                continue
+            if i not in self._mysql_models:
+                self._mysql_models.append(i)
 
     def create_all(self) -> None:
         """
         Create tables with all models without __abstract__ = True.
         """
-        # Create tables in clickhouse
+        # Create Tables in clickhouse
         MClickBase.metadata.create_all(CLICKDRIVER.engine)
+        # Create Tables in mysql
         MMysqlBase.metadata.create_all(MYSQLDRIVER.engine)
 
     def drop_all(self) -> None:
@@ -112,39 +138,43 @@ class GinkgoData(object):
         Just call the func in dev.
         This will drop all the tables in models.
         """
+        # Drop Tables in clickhouse
         MClickBase.metadata.drop_all(CLICKDRIVER.engine)
+        # Drop Tables in mysql
         MMysqlBase.metadata.drop_all(MYSQLDRIVER.engine)
 
     def drop_table(self, model) -> None:
-        if CLICKDRIVER.is_table_exsists(model.__tablename__):
-            model.__table__.drop()
+        driver = self.get_driver(model)
+        if driver is None:
+            return
+        if driver.is_table_exsists(model.__tablename__):
+            model.__table__.drop(driver.engine)
             GLOG.WARN(f"Drop Table {model.__tablename__} : {model}")
         else:
             GLOG.INFO(f"No need to drop {model.__tablename__} : {model}")
 
     def create_table(self, model) -> None:
+        driver = self.get_driver(model)
+        if driver is None:
+            return
         if model.__abstract__ == True:
             GLOG.WARN(f"Pass Model:{model}")
             return
-        if CLICKDRIVER.is_table_exsists(model.__tablename__):
+        if driver.is_table_exsists(model.__tablename__):
             GLOG.WARN(f"Table {model.__tablename__} exist.")
         else:
-            model.__table__.create()
+            model.__table__.create(driver.engine)
             GLOG.INFO(f"Create Table {model.__tablename__} : {model}")
 
     def get_table_size(self, model) -> int:
-        return CLICKDRIVER.get_table_size(model)
-
-    # Query in database
-    def get_order_final(self, order_id: str):
-        sql = f"SELECT * FROM order FINAL WHERE uuid='{order_id}' limit 1"
-        result = self.engine.execute(DDL(sql))
-        return result
+        driver = self.get_driver(model)
+        if driver is None:
+            return 0
+        return driver.get_table_size(model)
 
     def get_order(self, order_id: str) -> MOrder:
         r = (
-            self.session.query(MOrder)
-            .final()
+            MYSQLDRIVER.session.query(MOrder)
             .filter(MOrder.uuid == order_id)
             .filter(MOrder.isdel == False)
             .first()
@@ -156,7 +186,7 @@ class GinkgoData(object):
 
     def get_order_df(self, order_id: str) -> pd.DataFrame:
         r = (
-            self.session.query(MOrder)
+            MYSQLDRIVER.session.query(MOrder)
             .filter(MOrder.uuid == order_id)
             .filter(MOrder.isdel == False)
         )
@@ -173,7 +203,7 @@ class GinkgoData(object):
 
     def get_stock_info(self, code: str) -> MStockInfo:
         r = (
-            self.session.query(MStockInfo)
+            CLICKDRIVER.session.query(MStockInfo)
             .filter(MStockInfo.code == code)
             .filter(MStockInfo.isdel == False)
             .first()
@@ -182,10 +212,10 @@ class GinkgoData(object):
 
     def get_stock_info_df(self, code: str = "") -> pd.DataFrame:
         if code == "":
-            r = self.session.query(MStockInfo).filter(MStockInfo.isdel == False)
+            r = CLICKDRIVER.session.query(MStockInfo).filter(MStockInfo.isdel == False)
         else:
             r = (
-                self.session.query(MStockInfo)
+                CLICKDRIVER.session.query(MStockInfo)
                 .filter(MStockInfo.code == code)
                 .filter(MStockInfo.isdel == False)
             )
@@ -201,7 +231,7 @@ class GinkgoData(object):
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            self.session.query(MTradeDay)
+            CLICKDRIVER.session.query(MTradeDay)
             .filter(MTradeDay.market == market)
             .filter(MTradeDay.timestamp >= date_start)
             .filter(MTradeDay.timestamp <= date_end)
@@ -219,7 +249,7 @@ class GinkgoData(object):
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            self.session.query(MTradeDay)
+            CLICKDRIVER.session.query(MTradeDay)
             .filter(MTradeDay.market == market)
             .filter(MTradeDay.timestamp >= date_start)
             .filter(MTradeDay.timestamp <= date_end)
@@ -237,7 +267,7 @@ class GinkgoData(object):
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            self.session.query(MBar)
+            CLICKDRIVER.session.query(MBar)
             .filter(MBar.code == code)
             .filter(MBar.timestamp >= date_start)
             .filter(MBar.timestamp <= date_end)
@@ -256,7 +286,7 @@ class GinkgoData(object):
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            self.session.query(MBar)
+            CLICKDRIVER.session.query(MBar)
             .filter(MBar.code == code)
             .filter(MBar.timestamp >= date_start)
             .filter(MBar.timestamp <= date_end)
@@ -274,7 +304,7 @@ class GinkgoData(object):
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            self.session.query(MAdjustfactor)
+            CLICKDRIVER.session.query(MAdjustfactor)
             .filter(MAdjustfactor.code == code)
             .filter(MAdjustfactor.timestamp >= date_start)
             .filter(MAdjustfactor.timestamp <= date_end)
@@ -299,7 +329,7 @@ class GinkgoData(object):
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            self.session.query(MAdjustfactor)
+            CLICKDRIVER.session.query(MAdjustfactor)
             .filter(MAdjustfactor.code == code)
             .filter(MAdjustfactor.timestamp >= date_start)
             .filter(MAdjustfactor.timestamp <= date_end)

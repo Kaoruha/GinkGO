@@ -19,14 +19,17 @@ class GinkgoMysql(object):
         self.__connect()
 
     def __connect(self) -> None:
-        uri = f"mysql+pymysql://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/{self.__db}?charset=uft8"
+        # uri = f"mysql+pymysql://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/{self.__db}?charset=uft8"
+        uri = f"mysql+pymysql://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/{self.__db}"
 
         self.engine = create_engine(
             uri,
-            echo=True,
-            pool_size=8,
+            # pool_size=10,
+            # pool_timeout=10,
+            # max_overflow=5,
+            # echo=True,
         )
-        self.session = sessionmaker(self.engine)
+        self.session = sessionmaker(self.engine)()
         self.metadata = MetaData(bind=self.engine)
         # self.base = declarative_base(metadata=self.metadata)
         self.base = declarative_base()
@@ -40,5 +43,6 @@ class GinkgoMysql(object):
         return self.insp.has_table(name)
 
     def get_table_size(self, model) -> int:
-        count = self.session.query(func.count(model.uuid)).scalar()
+        # count = self.session.query(func.count(model.uuid)).scalar()
+        count = self.session.query(model).count()
         return count

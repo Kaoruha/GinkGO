@@ -3,14 +3,14 @@ from functools import singledispatchmethod
 from clickhouse_sqlalchemy import engines
 from sqlalchemy import Column, String, Integer, DECIMAL
 from sqlalchemy_utils import ChoiceType
-from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.backtest.order import Order
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 from ginkgo import GCONF
 from ginkgo.libs import base_repr, datetime_normalize
 
 
-class MAdjustfactor(MClickBase):
+class MAdjustfactor(MMysqlBase):
     __abstract__ = False
     __tablename__ = "adjustfactor"
 
@@ -18,7 +18,7 @@ class MAdjustfactor(MClickBase):
         __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
 
     # code dividOperateDate foreAdjustFactor backAdjustFactor adjustFactor
-    code = Column(String(), default="ginkgo_test_code")
+    code = Column(String(40), default="ginkgo_test_code")
     foreadjustfactor = Column(DECIMAL(20, 10), default=0)
     backadjustfactor = Column(DECIMAL(20, 10), default=0)
     adjustfactor = Column(DECIMAL(20, 10), default=0)

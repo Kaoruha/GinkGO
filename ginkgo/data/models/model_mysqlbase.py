@@ -17,7 +17,7 @@ Base = declarative_base()
 
 class MMysqlBase(Base):
     __abstract__ = True
-    __tablename__ = "BaseModel"
+    __tablename__ = "MysqlBaseModel"
 
     uuid = Column(String(32), primary_key=True)
     desc = Column(

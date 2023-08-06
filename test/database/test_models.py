@@ -1,7 +1,10 @@
 import unittest
+import base64
+import random
 import time
 import pandas as pd
 import datetime
+from ginkgo.libs.ginkgo_conf import GCONF
 
 from ginkgo.enums import (
     SOURCE_TYPES,
@@ -102,29 +105,45 @@ class ModelBarTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelBar_Insert(self) -> None:
-        GDATA.drop_table(MBar)
         GDATA.create_table(MBar)
+        size0 = GDATA.get_table_size(MBar)
         o = MBar()
         GDATA.add(o)
         GDATA.commit()
+        size1 = GDATA.get_table_size(MBar)
+        self.assertEqual(1, size1 - size0)
 
     def test_ModelBar_BatchInsert(self) -> None:
-        GDATA.drop_table(MBar)
         GDATA.create_table(MBar)
-        s = []
-        for i in range(10):
-            o = MBar()
-            s.append(o)
-        GDATA.add_all(s)
-        GDATA.commit()
+        times = random.random() * 1000
+        times = int(times)
+        for i in range(times):
+            size0 = GDATA.get_table_size(MBar)
+            print(f"ModelBar BatchInsert Test : {i+1}", end="\r")
+            count = random.random() * 100
+            count = int(count)
+            s = []
+            for j in range(count):
+                o = MBar()
+                s.append(o)
+            GDATA.add_all(s)
+            GDATA.commit()
+            size1 = GDATA.get_table_size(MBar)
+            self.assertEqual(count, size1 - size0)
 
     def test_ModelBar_Query(self) -> None:
-        GDATA.drop_table(MBar)
+        time.sleep(GCONF.HEARTBEAT)
         GDATA.create_table(MBar)
         o = MBar()
+        o.open = 111
         GDATA.add(o)
         GDATA.commit()
-        r = GDATA.session.query(MBar).first()
+        r = (
+            GDATA.get_driver(MBar)
+            .session.query(MBar)
+            .filter(MBar.uuid == o.uuid)
+            .first()
+        )
         self.assertNotEqual(r, None)
 
 
@@ -187,9 +206,9 @@ class ModelAdjustfactorTest(unittest.TestCase):
         pass
 
     def test_ModelAdjustfactor_Insert(self) -> None:
-        GDATA.drop_table(MAdjustfactor)
         GDATA.create_table(MAdjustfactor)
         for i in self.params:
+            size0 = GDATA.get_table_size(MAdjustfactor)
             o = MAdjustfactor()
             o.set(
                 i["code"],
@@ -200,32 +219,73 @@ class ModelAdjustfactorTest(unittest.TestCase):
             )
             GDATA.add(o)
             GDATA.commit()
+            size1 = GDATA.get_table_size(MAdjustfactor)
+            self.assertEqual(1, size1 - size0)
 
     def test_ModelAdjustfactor_BatchInsert(self) -> None:
-        GDATA.drop_table(MAdjustfactor)
         GDATA.create_table(MAdjustfactor)
-        l = []
-        for i in self.params:
-            o = MAdjustfactor()
-            o.set(
-                i["code"],
-                i["foreadjustfactor"],
-                i["backadjustfactor"],
-                i["adjustfactor"],
-                i["timestamp"],
-            )
-            l.append(o)
-        GDATA.add_all(l)
-        GDATA.commit()
+        times0 = random.random() * 1000
+        times0 = int(times0)
+        for j in range(times0):
+            size0 = GDATA.get_table_size(MAdjustfactor)
+            print(f"ModelAdjustfactor BatchInsert Test: {j+1}", end="\r")
+            l = []
+            times = random.random() * 100
+            times = int(times)
+            for k in range(times):
+                for i in self.params:
+                    o = MAdjustfactor()
+                    o.set(
+                        i["code"],
+                        i["foreadjustfactor"],
+                        i["backadjustfactor"],
+                        i["adjustfactor"],
+                        i["timestamp"],
+                    )
+                    l.append(o)
+            GDATA.add_all(l)
+            GDATA.commit()
+            size1 = GDATA.get_table_size(MAdjustfactor)
+            self.assertEqual(size1 - size0, len(l))
 
     def test_ModelAdjustfactor_Query(self) -> None:
-        GDATA.drop_table(MAdjustfactor)
         GDATA.create_table(MAdjustfactor)
         o = MAdjustfactor()
         GDATA.add(o)
         GDATA.commit()
-        r = GDATA.session.query(MAdjustfactor).first()
+        r = GDATA.get_driver(MAdjustfactor).session.query(MAdjustfactor).first()
         self.assertNotEqual(r, None)
+
+    def test_ModelAdjustfactor_Update(self) -> None:
+        num = random.random() * 1000
+        num = int(num)
+        GDATA.create_table(MAdjustfactor)
+        o = MAdjustfactor()
+        GDATA.add(o)
+        GDATA.commit()
+        uuid = o.uuid
+        for i in range(num):
+            print(f"ModelAdjustfactor Update: {i+1}", end="\r")
+            item = (
+                GDATA.get_driver(MAdjustfactor)
+                .session.query(MAdjustfactor)
+                .filter(MAdjustfactor.uuid == uuid)
+                .first()
+            )
+            s = random.random() * 10000
+            s = str(s)
+            s = s.encode("ascii")
+            s = base64.b64encode(s)
+            s = s.decode("ascii")
+            item.code = s
+            GDATA.commit()
+            item = (
+                GDATA.get_driver(MAdjustfactor)
+                .session.query(MAdjustfactor)
+                .filter(MAdjustfactor.uuid == uuid)
+                .first()
+            )
+            self.assertEqual(s, item.code)
 
 
 class ModelTradeDayTest(unittest.TestCase):
@@ -275,30 +335,39 @@ class ModelTradeDayTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelTradeDay_Insert(self) -> None:
-        GDATA.drop_table(MTradeDay)
         GDATA.create_table(MTradeDay)
         for i in self.params:
+            size0 = GDATA.get_table_size(MTradeDay)
             o = MTradeDay()
             GDATA.add(o)
             GDATA.commit()
+            size1 = GDATA.get_table_size(MTradeDay)
+            self.assertEqual(1, size1 - size0)
 
     def test_ModelTradeDay_BatchInsert(self) -> None:
-        GDATA.drop_table(MTradeDay)
         GDATA.create_table(MTradeDay)
-        s = []
-        for i in self.params:
-            o = MTradeDay()
-            s.append(o)
-        GDATA.add_all(s)
-        GDATA.commit()
+        times = random.random() * 1000
+        times = int(times)
+        for j in range(times):
+            print(f"ModelTradeDay BatchInsert Test: {j+1}", end="\r")
+            size0 = GDATA.get_table_size(MTradeDay)
+            s = []
+            num = random.random() * 100
+            num = int(num)
+            for i in range(num):
+                o = MTradeDay()
+                s.append(o)
+            GDATA.add_all(s)
+            GDATA.commit()
+            size1 = GDATA.get_table_size(MTradeDay)
+            self.assertEqual(len(s), size1 - size0)
 
     def test_ModelTradeDay_Query(self) -> None:
-        GDATA.drop_table(MTradeDay)
         GDATA.create_table(MTradeDay)
         o = MTradeDay()
         GDATA.add(o)
         GDATA.commit()
-        r = GDATA.session.query(MTradeDay).first()
+        r = GDATA.get_driver(MTradeDay).session.query(MTradeDay).first()
         self.assertNotEqual(r, None)
 
 
@@ -327,6 +396,7 @@ class ModelOrderTest(unittest.TestCase):
                 "frozen": 20240,
                 "transaction_price": 0,
                 "remain": 0,
+                "fee": 0,
                 "timestamp": datetime.datetime.now(),
             }
         ]
@@ -350,6 +420,7 @@ class ModelOrderTest(unittest.TestCase):
                 i["frozen"],
                 i["transaction_price"],
                 i["remain"],
+                i["fee"],
                 i["timestamp"],
                 i["uuid"],
             )
@@ -362,6 +433,7 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.frozen, i["frozen"])
             self.assertEqual(o.transaction_price, i["transaction_price"])
             self.assertEqual(o.remain, i["remain"])
+            self.assertEqual(o.fee, i["fee"])
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.source, i["source"])
 
@@ -380,35 +452,69 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.frozen, i["frozen"])
             self.assertEqual(o.transaction_price, i["transaction_price"])
             self.assertEqual(o.remain, i["remain"])
+            self.assertEqual(o.fee, i["fee"])
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.source, i["source"])
 
     def test_ModelOrder_Insert(self) -> None:
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
+        size0 = GDATA.get_table_size(MOrder)
         o = MOrder()
         GDATA.add(o)
         GDATA.commit()
+        size1 = GDATA.get_table_size(MOrder)
+        self.assertEqual(1, size1 - size0)
 
     def test_ModelOrder_BatchInsert(self) -> None:
-        GDATA.drop_table(MOrder)
         GDATA.create_table(MOrder)
-        s = []
-        for i in range(10):
-            o = MOrder()
-            s.append(o)
-
-        GDATA.add_all(s)
-        GDATA.commit()
+        times = random.random() * 1000
+        times = int(times)
+        for j in range(times):
+            size0 = GDATA.get_table_size(MOrder)
+            print(f"ModelOrder BatchInsert Test : {j+1}", end="\r")
+            num = random.random() * 100
+            num = int(num)
+            s = []
+            for i in range(num):
+                o = MOrder()
+                s.append(o)
+            GDATA.add_all(s)
+            GDATA.commit()
+            size1 = GDATA.get_table_size(MOrder)
+            self.assertEqual(len(s), size1 - size0)
 
     def test_ModelOrder_Query(self) -> None:
-        GDATA.drop_table(MOrder)
+        num = random.random() * 1000
+        num = int(num)
+        GDATA.create_table(MOrder)
+
+        for i in range(num):
+            o = MOrder()
+            GDATA.add(o)
+            GDATA.commit()
+            r = GDATA.get_driver(MOrder).session.query(MOrder).first()
+            self.assertNotEqual(r, None)
+
+    def test_ModelOrder_Update(self) -> None:
+        num = random.random() * 1000
+        num = int(num)
         GDATA.create_table(MOrder)
         o = MOrder()
         GDATA.add(o)
         GDATA.commit()
-        r = GDATA.session.query(MOrder).first()
-        self.assertNotEqual(r, None)
+        uuid = o.uuid
+        for i in range(num):
+            print(f"ModelOrder Update: {i+1}", end="\r")
+            item = GDATA.get_order(uuid)
+            s = random.random() * 10000
+            s = str(s)
+            s = s.encode("ascii")
+            s = base64.b64encode(s)
+            s = s.decode("ascii")
+            item.code = s
+            GDATA.commit()
+            item = GDATA.get_order(uuid)
+            self.assertEqual(s, item.code)
 
 
 class ModelSignalTest(unittest.TestCase):
@@ -448,7 +554,6 @@ class ModelSignalTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelSignal_SetFromDataFrame(self) -> None:
-        GDATA.drop_table(MSignal)
         GDATA.create_table(MSignal)
         for i in self.params:
             o = MSignal()
@@ -461,25 +566,45 @@ class ModelSignalTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelSignal_Insert(self) -> None:
-        GDATA.drop_table(MSignal)
         GDATA.create_table(MSignal)
-        for i in self.params:
-            o = MSignal()
-            o.set_source(i["source"])
-            o.set(i["code"], i["direction"], i["timestamp"])
-            GDATA.add(o)
-            GDATA.commit()
+        times = random.random() * 1000
+        times = int(times)
+        for j in range(times):
+            print(f"ModeSignal Insert Test : {j+1}", end="\r")
+            for i in self.params:
+                size0 = GDATA.get_table_size(MSignal)
+                o = MSignal()
+                o.set_source(i["source"])
+                o.set(i["code"], i["direction"], i["timestamp"])
+                GDATA.add(o)
+                GDATA.commit()
+                size1 = GDATA.get_table_size(MSignal)
+                self.assertEqual(1, size1 - size0)
 
     def test_ModelSignal_BatchInsert(self) -> None:
-        pass
+        GDATA.create_table(MSignal)
+        times = random.random() * 1000
+        times = int(times)
+        for i in range(times):
+            size0 = GDATA.get_table_size(MSignal)
+            print(f"ModelSignal BatchInsert Test : {i+1}", end="\r")
+            count = random.random() * 100
+            count = int(count)
+            s = []
+            for j in range(count):
+                o = MSignal()
+                s.append(o)
+            GDATA.add_all(s)
+            GDATA.commit()
+            size1 = GDATA.get_table_size(MSignal)
+            self.assertEqual(len(s), size1 - size0)
 
     def test_ModelSignal_Query(self) -> None:
-        GDATA.drop_table(MSignal)
         GDATA.create_table(MSignal)
         o = MSignal()
         GDATA.add(o)
         GDATA.commit()
-        r = GDATA.session.query(MSignal).first()
+        r = GDATA.get_driver(MSignal).session.query(MSignal).first()
         self.assertNotEqual(r, None)
 
 
@@ -551,30 +676,41 @@ class ModelStockInfoTest(unittest.TestCase):
             self.assertEqual(o.source, i["source"])
 
     def test_ModelStockInfo_Insert(self) -> None:
-        GDATA.drop_table(MStockInfo)
         GDATA.create_table(MStockInfo)
-        for i in self.params:
-            o = MStockInfo()
-            GDATA.add(o)
-            GDATA.commit()
+        times = random.random() * 1000
+        times = int(times)
+        for j in range(times):
+            print(f"ModelStockInfo Insert Test : {j+1}", end="\r")
+            for i in self.params:
+                size0 = GDATA.get_table_size(MStockInfo)
+                o = MStockInfo()
+                GDATA.add(o)
+                GDATA.commit()
+                size1 = GDATA.get_table_size(MStockInfo)
+                self.assertEqual(1, size1 - size0)
 
     def test_ModelStockInfo_BatchInsert(self) -> None:
-        GDATA.drop_table(MStockInfo)
         GDATA.create_table(MStockInfo)
-        s = []
-        for i in self.params:
-            o = MStockInfo()
-            s.append(o)
-        GDATA.add_all(s)
-        GDATA.commit()
+        times = random.random() * 1000
+        times = int(times)
+        for j in range(times):
+            size0 = GDATA.get_table_size(MStockInfo)
+            print(f"ModelStockInfo Insert Test : {j+1}", end="\r")
+            s = []
+            for i in self.params:
+                o = MStockInfo()
+                s.append(o)
+            GDATA.add_all(s)
+            GDATA.commit()
+            size1 = GDATA.get_table_size(MStockInfo)
+            self.assertEqual(len(s), size1 - size0)
 
     def test_ModelStockInfo_Query(self) -> None:
-        GDATA.drop_table(MStockInfo)
         GDATA.create_table(MStockInfo)
         o = MStockInfo()
         GDATA.add(o)
         GDATA.commit()
-        r = GDATA.session.query(MStockInfo).first()
+        r = GDATA.get_driver(MStockInfo).session.query(MStockInfo).first()
         self.assertNotEqual(r, None)
 
 
@@ -631,30 +767,40 @@ class ModelTickTest(unittest.TestCase):
             self.assertEqual(tick.source, i["source"])
 
     def test_ModelTick_Insert(self) -> None:
-        GDATA.drop_table(MTick)
         GDATA.create_table(MTick)
-        o = MTick()
-        GDATA.add(o)
-        GDATA.commit()
+        times = random.random() * 1000
+        times = int(times)
+        for i in range(times):
+            size0 = GDATA.get_table_size(MTick)
+            print(f"ModelTick Insert Test : {i+1}", end="\r")
+            o = MTick()
+            GDATA.add(o)
+            GDATA.commit()
+            size1 = GDATA.get_table_size(MTick)
+            self.assertEqual(1, size1 - size0)
 
     def test_ModelTick_BatchInsert(self) -> None:
-        GDATA.drop_table(MTick)
         GDATA.create_table(MTick)
-        s = []
-
-        for i in range(10):
-            o = MTick()
-            s.append(o)
-
-        GDATA.add_all(s)
-        GDATA.commit()
+        times = random.random() * 1000
+        times = int(times)
+        for j in range(times):
+            size0 = GDATA.get_table_size(MTick)
+            print(f"ModelTick BatchInsert Test : {j+1}", end="\r")
+            s = []
+            count = random.random() * 100
+            count = int(count)
+            for i in range(count):
+                o = MTick()
+                s.append(o)
+            GDATA.add_all(s)
+            GDATA.commit()
+            size1 = GDATA.get_table_size(MTick)
+            self.assertEqual(len(s), size1 - size0)
 
     def test_ModelTick_Query(self) -> None:
-        GDATA.drop_table(MTick)
         GDATA.create_table(MTick)
         o = MTick()
         GDATA.add(o)
         GDATA.commit()
-        r = GDATA.session.query(MTick).first()
+        r = GDATA.get_driver(MTick).session.query(MTick).first()
         self.assertNotEqual(r, None)
-        self.assertNotEqual(r.code, None)

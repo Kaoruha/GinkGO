@@ -14,7 +14,7 @@ from sqlalchemy_utils import ChoiceType
 
 class MClickBase(db.base):
     __abstract__ = True
-    __tablename__ = "BaseModel"
+    __tablename__ = "ClickBaseModel"
 
     uuid = Column(String(32), primary_key=True)
     desc = Column(
