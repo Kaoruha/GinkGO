@@ -6,7 +6,7 @@
 
   - [x] Support MysqlDB and Clickhouse.
   - [x] Add 2 or 3 DataSource.
-  - [] Add ML Engine.
+  - [TODO] Add ML Engine.
   - [TODO] Support other markets.
 
 ##### 0.7(FUTURE)
