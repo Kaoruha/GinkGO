@@ -24,6 +24,12 @@ class MatchMakingSim(MatchMakingBase):
         self._slip_base = 0.2
 
     def set_attituede(self, attitude: ATTITUDE_TYPES):
+        """
+        Change the match price
+        PESSMISTIC
+        OPTIMISTIC
+        RANDOM
+        """
         self._attitude = attitude
 
     @property
@@ -60,6 +66,9 @@ class MatchMakingSim(MatchMakingBase):
             self._orders.append(order_id)
 
     def query_order(self, order_id: str) -> MOrder:
+        """
+        query order from database
+        """
         if not isinstance(order_id, str):
             GLOG.WARN("Order id only support string.")
             return
@@ -128,20 +137,24 @@ class MatchMakingSim(MatchMakingBase):
                 if self.attitude == ATTITUDE_TYPES.PESSMISTIC:
                     # 2.1.1 If buy, the fill price should be open + (high - open) * self.slippage
                     if o.direction == DIRECTION_TYPES.LONG:
-                        transaction_price = p.open + (p.high - p.open) * self.slippage
+                        transaction_price = (
+                            p.open + abs(p.high - p.open) * self.slippage
+                        )
                     # 2.1.2 If sell, the fill price shoudl be open - (open - low) * self.slippage
                     elif o.direction == DIRECTION_TYPES.SHORT:
-                        transaction_price = p.open - (p.open - p.low) * self.slippage
+                        transaction_price = p.open - abs(p.open - p.low) * self.slippage
                 # 2.2 optimistic
                 elif self.attitude == ATTITUDE_TYPES.OPTIMISTIC:
                     # 2.2.1 If buy, the fill price should be open - (open - low) * self.slippage
                     if o.direction == DIRECTION_TYPES.LONG:
-                        transaction_price = p.open - (p.open - p.low) * self.slippage
+                        transaction_price = p.open - abs(p.open - p.low) * self.slippage
                     # 2.2.2 If sell, the fill price shoudl be open + (high - open) * self.slippage
                     elif o.direction == DIRECTION_TYPES.SHORT:
-                        transaction_price = p.open + (p.high - p.open) * self.slippage
+                        transaction_price = (
+                            p.open + abs(p.high - p.open) * self.slippage
+                        )
                 elif self.attitude == ATTITUDE_TYPES.RANDOM:
-                    transaction_price = o.low + (o.high - o.low) * random.random()
+                    transaction_price = p.low + abs(p.high - p.low) * random.random()
 
             o.status = ORDERSTATUS_TYPES.FILLED
             o.transaction_price = transaction_price
@@ -159,4 +172,3 @@ class MatchMakingSim(MatchMakingBase):
             GDATA.commit()
         # If there is no detail about the code, Try get the data from db again.The store the info into self.price_info.
         # According the price_info, try match the order.
-        # sleep(0.11)
