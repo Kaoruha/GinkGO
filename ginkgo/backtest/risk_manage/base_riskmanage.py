@@ -1,3 +1,3 @@
-
 class BaseRiskManage:
-    pass
+    def cal(self):
+        raise NotImplementedError()

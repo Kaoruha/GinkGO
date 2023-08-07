@@ -22,7 +22,9 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
                 row_max = len(i)
         row_max += 4
 
-    r = "-" * (row_max // 2 - len(class_name)) + f" {class_name} "
+    r = ""
+    r += "\n"
+    r += "-" * (row_max // 2 - len(class_name)) + f" {class_name} "
     r += "-" * (row_max - len(r) - 1) + "+"
     for row in msg:
         r += "\n"
@@ -31,6 +33,7 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
         r += " " * l + "|"
     r += "\n"
     r += "-" * (row_max - 1) + "+"
+    r += "\n"
 
     return r
 

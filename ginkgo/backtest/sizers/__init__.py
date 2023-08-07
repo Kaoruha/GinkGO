@@ -1,1 +1,1 @@
-from ginkgo.backtest.sizers.base_sizer import SizerBase
+from ginkgo.backtest.sizers.base_sizer import BaseSizer

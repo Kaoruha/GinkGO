@@ -54,7 +54,7 @@ class MatchMakingBase(object):
                 # Reset the price
                 self._price = pd.DataFrame()
 
-    def on_stock_price(self, event: EventPriceUpdate, *args, **kwargs):
+    def on_price_update(self, event: EventPriceUpdate, *args, **kwargs):
         # TODO Check the source
         time = None
         try:
