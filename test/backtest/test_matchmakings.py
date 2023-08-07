@@ -1,5 +1,6 @@
 import unittest
 import datetime
+import random
 from ginkgo.backtest.matchmakings import (
     MatchMakingBase,
     MatchMakingSim,
@@ -17,6 +18,7 @@ from ginkgo.enums import (
     ORDER_TYPES,
     ORDERSTATUS_TYPES,
     SOURCE_TYPES,
+    ATTITUDE_TYPES,
 )
 
 
@@ -102,7 +104,16 @@ class MatchMakingSimTest(unittest.TestCase):
         ]
 
     def test_sim_queryorder(self):
-        pass
+        times = random.random() * 500
+        times = int(times)
+        mms = MatchMakingSim()
+        for i in range(times):
+            print(f"MatchMaking Order Query Test: {i+1}", end="\r")
+            o = MOrder()
+            GDATA.add(o)
+            GDATA.commit()
+            r = mms.query_order(o.uuid)
+            self.assertNotEqual(r, None)
 
     def test_sim_onstockorder(self):
         GDATA.create_table(MOrder)
@@ -264,175 +275,242 @@ class MatchMakingSimTest(unittest.TestCase):
 
     def test_sim_trymatch_limitlong(self):
         GDATA.create_table(MOrder)
-        m = MatchMakingSim()
-        m.on_time_goes_by(20200101)
-        self.assertEqual(datetime_normalize(20200101), m.now)
-        # Limit LONG
-        # Price Come
-        b = Bar()
-        b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
-        e = EventPriceUpdate(price_info=b)
-        m.on_stock_price(e)
-        # Order Come under the vallay
-        o = Order()
-        o.set(
-            "test_code2",
-            DIRECTION_TYPES.LONG,
-            ORDER_TYPES.LIMITORDER,
-            ORDERSTATUS_TYPES.SUBMITTED,
-            1000,
-            9.2,
-            9300,
-            0,
-            0,
-            0,
-            20200101,
-        )
-        o.set_source(SOURCE_TYPES.TEST)
-        mo = MOrder()
-        df = o.to_dataframe().iloc[0]
-        mo.set(df)
-        GDATA.add(mo)
-        GDATA.commit()
-        oid = o.uuid
+        times = random.random() * 500
+        times = int(times)
+        for i in range(times):
+            print(f"SimTrymatch LimitLong Test: {i+1}", end="\r")
+            m = MatchMakingSim()
+            m.on_time_goes_by(20200101)
+            self.assertEqual(datetime_normalize(20200101), m.now)
+            # Limit LONG
+            # Price Come
+            b = Bar()
+            b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+            e = EventPriceUpdate(price_info=b)
+            m.on_stock_price(e)
+            # Order Come under the vallay
+            o = Order()
+            o.set(
+                "test_code2",
+                DIRECTION_TYPES.LONG,
+                ORDER_TYPES.LIMITORDER,
+                ORDERSTATUS_TYPES.SUBMITTED,
+                1000,
+                9.2,
+                9300,
+                0,
+                0,
+                0,
+                20200101,
+            )
+            o.set_source(SOURCE_TYPES.TEST)
+            mo = MOrder()
+            df = o.to_dataframe().iloc[0]
+            mo.set(df)
+            GDATA.add(mo)
+            GDATA.commit()
+            oid = o.uuid
 
-        m.on_stock_order(oid)
-        # Try match
+            m.on_stock_order(oid)
+            # Try match
 
-        m.try_match()
-        o3 = m.query_order(oid)
-        print(o3)
-        self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
-        self.assertEqual(9.2, float(o3.transaction_price))
+            m.try_match()
+            o3 = m.query_order(oid)
+            self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
+            self.assertEqual(9.2, float(o3.transaction_price))
 
     def test_sim_trymatch_limitshort(self):
         GDATA.create_table(MOrder)
-        m = MatchMakingSim()
-        m.on_time_goes_by(20200101)
-        self.assertEqual(datetime_normalize(20200101), m.now)
-        # Limit SHORT
-        # Price Come
-        b = Bar()
-        b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
-        e = EventPriceUpdate(price_info=b)
-        m.on_stock_price(e)
-        # Order Come under the vallay
-        o = Order()
-        o.set(
-            "test_code2",
-            DIRECTION_TYPES.LONG,
-            ORDER_TYPES.LIMITORDER,
-            ORDERSTATUS_TYPES.SUBMITTED,
-            1000,
-            9.2,
-            9300,
-            0,
-            0,
-            0,
-            20200101,
-        )
-        o.set_source(SOURCE_TYPES.TEST)
-        mo = MOrder()
-        df = o.to_dataframe().iloc[0]
-        mo.set(df)
-        GDATA.add(mo)
-        GDATA.commit()
-        oid = o.uuid
+        times = random.random() * 500
+        times = int(times)
+        for i in range(times):
+            print(f"SimTrymatch LimitShort Test: {i+1}", end="\r")
+            m = MatchMakingSim()
+            m.set_attituede(ATTITUDE_TYPES.PESSMISTIC)
+            m.on_time_goes_by(20200101)
+            self.assertEqual(datetime_normalize(20200101), m.now)
+            # Limit SHORT
+            # Price Come
+            b = Bar()
+            b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+            e = EventPriceUpdate(price_info=b)
+            m.on_stock_price(e)
+            # Order Come under the vallay
+            o = Order()
+            o.set(
+                "test_code2",
+                DIRECTION_TYPES.SHORT,
+                ORDER_TYPES.LIMITORDER,
+                ORDERSTATUS_TYPES.SUBMITTED,
+                1000,
+                9.2,
+                9300,
+                0,
+                0,
+                0,
+                20200101,
+            )
+            o.set_source(SOURCE_TYPES.TEST)
+            mo = MOrder()
+            df = o.to_dataframe().iloc[0]
+            mo.set(df)
+            GDATA.add(mo)
+            GDATA.commit()
+            oid = o.uuid
 
-        m.on_stock_order(oid)
-        # Try match
+            m.on_stock_order(oid)
+            # Try match
 
-        m.try_match()
-        o3 = m.query_order(oid)
-        print(o3)
-        self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
-        self.assertEqual(9.2, float(o3.transaction_price))
+            m.try_match()
+            o3 = m.query_order(oid)
+            self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
+            self.assertEqual(9.2, float(o3.transaction_price))
+            self.assertGreaterEqual(float(o3.transaction_price), 9.2)
 
     def test_sim_trymatch_marketlong(self):
         GDATA.create_table(MOrder)
-        m = MatchMakingSim()
-        m.on_time_goes_by(20200101)
-        self.assertEqual(datetime_normalize(20200101), m.now)
-        # MARKET LONG
-        # Price Come
-        b = Bar()
-        b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
-        e = EventPriceUpdate(price_info=b)
-        m.on_stock_price(e)
-        # Order Come under the vallay
-        o = Order()
-        o.set(
-            "test_code2",
-            DIRECTION_TYPES.LONG,
-            ORDER_TYPES.LIMITORDER,
-            ORDERSTATUS_TYPES.SUBMITTED,
-            1000,
-            9.2,
-            9300,
-            0,
-            0,
-            0,
-            20200101,
-        )
-        o.set_source(SOURCE_TYPES.TEST)
-        mo = MOrder()
-        df = o.to_dataframe().iloc[0]
-        mo.set(df)
-        GDATA.add(mo)
-        GDATA.commit()
-        oid = o.uuid
+        times = random.random() * 500
+        times = int(times)
+        for i in range(times):
+            print(f"SimTrymatch MarketLong Test: {i+1}", end="\r")
+            m = MatchMakingSim()
+            m.set_attituede(ATTITUDE_TYPES.PESSMISTIC)
+            m.on_time_goes_by(20200101)
+            self.assertEqual(datetime_normalize(20200101), m.now)
+            # MARKET LONG
+            # Price Come
+            b = Bar()
+            b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+            e = EventPriceUpdate(price_info=b)
+            m.on_stock_price(e)
+            # Order Come under the vallay
+            o = Order()
+            o.set(
+                "test_code2",
+                DIRECTION_TYPES.LONG,
+                ORDER_TYPES.MARKETORDER,
+                ORDERSTATUS_TYPES.SUBMITTED,
+                1000,
+                9.2,
+                9300,
+                0,
+                0,
+                0,
+                20200101,
+            )
+            o.set_source(SOURCE_TYPES.TEST)
+            mo = MOrder()
+            df = o.to_dataframe().iloc[0]
+            mo.set(df)
+            GDATA.add(mo)
+            GDATA.commit()
+            oid = o.uuid
 
-        m.on_stock_order(oid)
-        # Try match
+            m.on_stock_order(oid)
+            # Try match
 
-        m.try_match()
-        o3 = m.query_order(oid)
-        print(o3)
-        self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
-        self.assertEqual(9.2, float(o3.transaction_price))
+            m.try_match()
+            o3 = m.query_order(oid)
+            self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
+            self.assertNotEqual(float(o3.transaction_price), 0)
+            self.assertGreaterEqual(float(o3.transaction_price), b.open)
 
     def test_sim_trymatch_marketshort(self):
         GDATA.create_table(MOrder)
-        m = MatchMakingSim()
-        m.on_time_goes_by(20200101)
-        self.assertEqual(datetime_normalize(20200101), m.now)
-        # MARKET SHORT
-        # Price Come
-        b = Bar()
-        b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
-        e = EventPriceUpdate(price_info=b)
-        m.on_stock_price(e)
-        # Order Come under the vallay
-        o = Order()
-        o.set(
-            "test_code2",
-            DIRECTION_TYPES.LONG,
-            ORDER_TYPES.LIMITORDER,
-            ORDERSTATUS_TYPES.SUBMITTED,
-            1000,
-            9.2,
-            9300,
-            0,
-            0,
-            0,
-            20200101,
-        )
-        o.set_source(SOURCE_TYPES.TEST)
-        mo = MOrder()
-        df = o.to_dataframe().iloc[0]
-        mo.set(df)
-        GDATA.add(mo)
-        GDATA.commit()
-        oid = o.uuid
+        times = random.random() * 500
+        times = int(times)
+        for i in range(times):
+            print(f"SimTrymatch MarketShort Test: {i+1}", end="\r")
+            m = MatchMakingSim()
+            m.set_attituede(ATTITUDE_TYPES.PESSMISTIC)
+            m.on_time_goes_by(20200101)
+            self.assertEqual(datetime_normalize(20200101), m.now)
+            # MARKET SHORT
+            # Price Come
+            b = Bar()
+            b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+            e = EventPriceUpdate(price_info=b)
+            m.on_stock_price(e)
+            # Order Come under the vallay
+            o = Order()
+            o.set(
+                "test_code2",
+                DIRECTION_TYPES.SHORT,
+                ORDER_TYPES.MARKETORDER,
+                ORDERSTATUS_TYPES.SUBMITTED,
+                1000,
+                9.2,
+                9300,
+                0,
+                0,
+                0,
+                20200101,
+            )
+            o.set_source(SOURCE_TYPES.TEST)
+            mo = MOrder()
+            df = o.to_dataframe().iloc[0]
+            mo.set(df)
+            GDATA.add(mo)
+            GDATA.commit()
+            oid = o.uuid
 
-        m.on_stock_order(oid)
-        # Try match
+            m.on_stock_order(oid)
+            # Try match
 
-        m.try_match()
-        o3 = m.query_order(oid)
-        print(o3)
-        self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
-        self.assertEqual(9.2, float(o3.transaction_price))
+            m.try_match()
+            o3 = m.query_order(oid)
+            self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
+            self.assertNotEqual(float(o3.transaction_price), 0)
+            self.assertLessEqual(float(o3.transaction_price), b.open)
+
+    def test_sim_trymatch_marketrandom(self):
+        GDATA.create_table(MOrder)
+        times = random.random() * 500
+        times = int(times)
+        for i in range(times):
+            print(f"SimTrymatch MarketRandom Test: {i+1}", end="\r")
+            m = MatchMakingSim()
+            m.set_attituede(ATTITUDE_TYPES.RANDOM)
+            m.on_time_goes_by(20200101)
+            self.assertEqual(datetime_normalize(20200101), m.now)
+            # MARKET SHORT
+            # Price Come
+            b = Bar()
+            b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
+            e = EventPriceUpdate(price_info=b)
+            m.on_stock_price(e)
+            # Order Come under the vallay
+            o = Order()
+            o.set(
+                "test_code2",
+                DIRECTION_TYPES.SHORT,
+                ORDER_TYPES.MARKETORDER,
+                ORDERSTATUS_TYPES.SUBMITTED,
+                1000,
+                9.2,
+                9300,
+                0,
+                0,
+                0,
+                20200101,
+            )
+            o.set_source(SOURCE_TYPES.TEST)
+            mo = MOrder()
+            df = o.to_dataframe().iloc[0]
+            mo.set(df)
+            GDATA.add(mo)
+            GDATA.commit()
+            oid = o.uuid
+
+            m.on_stock_order(oid)
+            # Try match
+
+            m.try_match()
+            o3 = m.query_order(oid)
+            self.assertEqual(ORDERSTATUS_TYPES.FILLED, o3.status)
+            self.assertNotEqual(float(o3.transaction_price), 0)
+            self.assertLessEqual(float(o3.transaction_price), b.high)
+            self.assertGreaterEqual(float(o3.transaction_price), b.low)
 
 
 class MatchMakingLiveTest(unittest.TestCase):

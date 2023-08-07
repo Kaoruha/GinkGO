@@ -1,0 +1,2 @@
+class SizerBase(object):
+    pass
