@@ -1,2 +1,3 @@
-class SizerBase(object):
-    pass
+class BaseSizer(object):
+    def cal(self):
+        raise NotImplementedError()

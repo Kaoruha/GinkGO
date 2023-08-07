@@ -9,8 +9,94 @@ The `Portfolio` class is responsible for managing the positions and capital for 
 
 - Generating reports and metrics related to the performance of the portfolio. The reports also contain charts.
 """
+from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
+from ginkgo.backtest.bar import Bar
+from ginkgo import GLOG
+from ginkgo.backtest.events import EventOrderSubmitted, EventSigalGeneration
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.data.models import MOrder
+from ginkgo.libs import GinkgoSingleLinkedList
+from ginkgo.backtest.signal import Signal
 
 
-class BasePortfolio:
-    def init(self):
+class PortfolioT1Backtest(BasePortfolio):
+    def __init__(self, *args, **kwargs):
+        super(PortfolioT1Backtest, self).__init__(*args, **kwargs)
+        self.signals = GinkgoSingleLinkedList()
+
+    def get_position(self, code: str):
+        if code in self.position.keys():
+            return self.position[code]
+        return None
+
+    def on_time_goes_by(self, time: any, *args, **kwargs):
+        # Time goes
+        super(PortfolioT1Backtest, self).on_time_goes_by(*args, **kwargs)
+        # Check engine
+        if self.engine is None:
+            GLOG.ERROR(f"Engine not bind. Events can not put back to the engine.")
+            return
+
+        # put old signals to engine
+        for signal in self.signals:
+            self.engine.put(signal)
+
+    def on_signal(self, signal: Signal):
+        # T+1, Order will send after 1 day that signal comes.
+        if signal.timestamp >= self.now:
+            self.signals.append(signal)
+            return
+
+        if self.sizer is None:
+            GLOG.ERROR(
+                f"Portfolio Sizer not set. Can not handle the signal. Please set the sizer first."
+            )
+            return
+        # 1. Transfer signal to sizer
+        o = self.sizer.cal()
+        # 2. Get the order return
+        if o is None:
+            return
+        # 3. Transfer the order to risk_manager
+        if self.risk_manager is None:
+            GLOG.ERROR(
+                f"Portfolio RiskManager not set. Can not handle the order. Please set the RiskManager first."
+            )
+            return
+        o_adj = self.risk_manager.cal()
+        # 4. Get the adjusted order, if so put eventorder to engine
+        if o_adj is None:
+            return
+        # 5. Create order, stored into db
+        mo = MOrder()
+        mo.set(
+            o.code,
+            o.direction,
+            o.type,
+            o.status,
+            o.volume,
+            o.limit_price,
+            o.frozen,
+            o.transaction_price,
+            o.remain,
+            o.fee,
+            self.now,
+            o.uuid,
+        )
+        GDATA.add(value)
+        # 6. Create Event
+        e = EventOrderSubmitted()
+        self.engine.put(e)
+
+    def on_price_update(self, price: Bar):
+        # 1. Update position price
+        if price.code in self.position:
+            self.position[price.code].on_price_update(price.close)
+        # 2. Transfer price to each strategy
+        for strategy in self.strategies:
+            # 3. Get signal return, if so put eventsignal to engine
+            signal = strategy.cal(price)
+            if signal:
+                e = EventSigalGeneration()  # TODO set
+                self.engine.put(e)
         pass

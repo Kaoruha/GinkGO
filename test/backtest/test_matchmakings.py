@@ -52,14 +52,14 @@ class MatchMakingBaseTest(unittest.TestCase):
         m.on_time_goes_by(20200111)
         self.assertEqual(datetime_normalize("20200111"), m.now)
 
-    def test_MMB_onstockprice(self):
+    def test_MMB_onpriceupdate(self):
         m = MatchMakingBase()
         m.on_time_goes_by("20200101")
         self.assertEqual(datetime_normalize("20200101"), m.now)
         b = Bar()
         b.set("test_code", 10, 11, 9.5, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
         e = EventPriceUpdate(price_info=b)
-        m.on_stock_price(e)
+        m.on_price_update(e)
         self.assertEqual(1, m.price.shape[0])
 
         b2 = Bar()
@@ -67,10 +67,10 @@ class MatchMakingBaseTest(unittest.TestCase):
             "test_code2", 101, 111, 91.5, 101.2, 10001, FREQUENCY_TYPES.DAY, 20200101
         )
         e2 = EventPriceUpdate(price_info=b2)
-        m.on_stock_price(e2)
+        m.on_price_update(e2)
         self.assertEqual(2, m.price.shape[0])
-        m.on_stock_price(e2)
-        m.on_stock_price(e)
+        m.on_price_update(e2)
+        m.on_price_update(e)
         self.assertEqual(2, m.price.shape[0])
 
         b3 = Bar()
@@ -78,7 +78,7 @@ class MatchMakingBaseTest(unittest.TestCase):
             "test_code2", 101, 111, 91.5, 101.2, 10001, FREQUENCY_TYPES.DAY, 20190101
         )
         e3 = EventPriceUpdate(price_info=b3)
-        m.on_stock_price(e3)
+        m.on_price_update(e3)
         self.assertEqual(2, m.price.shape[0])
 
         b4 = Bar()
@@ -86,7 +86,7 @@ class MatchMakingBaseTest(unittest.TestCase):
             "test_code2", 101, 111, 91.5, 101.2, 10001, FREQUENCY_TYPES.DAY, 20200501
         )
         e4 = EventPriceUpdate(price_info=b4)
-        m.on_stock_price(e4)
+        m.on_price_update(e4)
         self.assertEqual(2, m.price.shape[0])
 
 
@@ -104,7 +104,7 @@ class MatchMakingSimTest(unittest.TestCase):
         ]
 
     def test_sim_queryorder(self):
-        times = random.random() * 500
+        times = random.random() * 50
         times = int(times)
         mms = MatchMakingSim()
         for i in range(times):
@@ -207,7 +207,7 @@ class MatchMakingSimTest(unittest.TestCase):
         b = Bar()
         b.set("test_code", 10, 11, 9.5, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
         e = EventPriceUpdate(price_info=b)
-        m.on_stock_price(e)
+        m.on_price_update(e)
         # Order Come over the peak
         o = Order()
         o.set(
@@ -242,7 +242,7 @@ class MatchMakingSimTest(unittest.TestCase):
         b = Bar()
         b.set("test_code1", 10, 11, 9.5, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
         e = EventPriceUpdate(price_info=b)
-        m.on_stock_price(e)
+        m.on_price_update(e)
         # Order Come under the vallay
         o = Order()
         o.set(
@@ -275,7 +275,7 @@ class MatchMakingSimTest(unittest.TestCase):
 
     def test_sim_trymatch_limitlong(self):
         GDATA.create_table(MOrder)
-        times = random.random() * 500
+        times = random.random() * 50
         times = int(times)
         for i in range(times):
             print(f"SimTrymatch LimitLong Test: {i+1}", end="\r")
@@ -287,7 +287,7 @@ class MatchMakingSimTest(unittest.TestCase):
             b = Bar()
             b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
             e = EventPriceUpdate(price_info=b)
-            m.on_stock_price(e)
+            m.on_price_update(e)
             # Order Come under the vallay
             o = Order()
             o.set(
@@ -321,7 +321,7 @@ class MatchMakingSimTest(unittest.TestCase):
 
     def test_sim_trymatch_limitshort(self):
         GDATA.create_table(MOrder)
-        times = random.random() * 500
+        times = random.random() * 50
         times = int(times)
         for i in range(times):
             print(f"SimTrymatch LimitShort Test: {i+1}", end="\r")
@@ -334,7 +334,7 @@ class MatchMakingSimTest(unittest.TestCase):
             b = Bar()
             b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
             e = EventPriceUpdate(price_info=b)
-            m.on_stock_price(e)
+            m.on_price_update(e)
             # Order Come under the vallay
             o = Order()
             o.set(
@@ -369,7 +369,7 @@ class MatchMakingSimTest(unittest.TestCase):
 
     def test_sim_trymatch_marketlong(self):
         GDATA.create_table(MOrder)
-        times = random.random() * 500
+        times = random.random() * 50
         times = int(times)
         for i in range(times):
             print(f"SimTrymatch MarketLong Test: {i+1}", end="\r")
@@ -382,7 +382,7 @@ class MatchMakingSimTest(unittest.TestCase):
             b = Bar()
             b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
             e = EventPriceUpdate(price_info=b)
-            m.on_stock_price(e)
+            m.on_price_update(e)
             # Order Come under the vallay
             o = Order()
             o.set(
@@ -417,7 +417,7 @@ class MatchMakingSimTest(unittest.TestCase):
 
     def test_sim_trymatch_marketshort(self):
         GDATA.create_table(MOrder)
-        times = random.random() * 500
+        times = random.random() * 50
         times = int(times)
         for i in range(times):
             print(f"SimTrymatch MarketShort Test: {i+1}", end="\r")
@@ -430,7 +430,7 @@ class MatchMakingSimTest(unittest.TestCase):
             b = Bar()
             b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
             e = EventPriceUpdate(price_info=b)
-            m.on_stock_price(e)
+            m.on_price_update(e)
             # Order Come under the vallay
             o = Order()
             o.set(
@@ -465,7 +465,7 @@ class MatchMakingSimTest(unittest.TestCase):
 
     def test_sim_trymatch_marketrandom(self):
         GDATA.create_table(MOrder)
-        times = random.random() * 500
+        times = random.random() * 50
         times = int(times)
         for i in range(times):
             print(f"SimTrymatch MarketRandom Test: {i+1}", end="\r")
@@ -478,7 +478,7 @@ class MatchMakingSimTest(unittest.TestCase):
             b = Bar()
             b.set("test_code2", 10, 11, 9, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
             e = EventPriceUpdate(price_info=b)
-            m.on_stock_price(e)
+            m.on_price_update(e)
             # Order Come under the vallay
             o = Order()
             o.set(

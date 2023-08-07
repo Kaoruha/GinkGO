@@ -115,12 +115,12 @@ class ModelBarTest(unittest.TestCase):
 
     def test_ModelBar_BatchInsert(self) -> None:
         GDATA.create_table(MBar)
-        times = random.random() * 1000
+        times = random.random() * 500
         times = int(times)
         for i in range(times):
             size0 = GDATA.get_table_size(MBar)
             print(f"ModelBar BatchInsert Test : {i+1}", end="\r")
-            count = random.random() * 100
+            count = random.random() * 500
             count = int(count)
             s = []
             for j in range(count):
@@ -224,13 +224,13 @@ class ModelAdjustfactorTest(unittest.TestCase):
 
     def test_ModelAdjustfactor_BatchInsert(self) -> None:
         GDATA.create_table(MAdjustfactor)
-        times0 = random.random() * 1000
+        times0 = random.random() * 500
         times0 = int(times0)
         for j in range(times0):
             size0 = GDATA.get_table_size(MAdjustfactor)
             print(f"ModelAdjustfactor BatchInsert Test: {j+1}", end="\r")
             l = []
-            times = random.random() * 100
+            times = random.random() * 500
             times = int(times)
             for k in range(times):
                 for i in self.params:
@@ -257,7 +257,7 @@ class ModelAdjustfactorTest(unittest.TestCase):
         self.assertNotEqual(r, None)
 
     def test_ModelAdjustfactor_Update(self) -> None:
-        num = random.random() * 1000
+        num = random.random() * 500
         num = int(num)
         GDATA.create_table(MAdjustfactor)
         o = MAdjustfactor()
@@ -272,7 +272,7 @@ class ModelAdjustfactorTest(unittest.TestCase):
                 .filter(MAdjustfactor.uuid == uuid)
                 .first()
             )
-            s = random.random() * 10000
+            s = random.random() * 500
             s = str(s)
             s = s.encode("ascii")
             s = base64.b64encode(s)
@@ -346,13 +346,13 @@ class ModelTradeDayTest(unittest.TestCase):
 
     def test_ModelTradeDay_BatchInsert(self) -> None:
         GDATA.create_table(MTradeDay)
-        times = random.random() * 1000
+        times = random.random() * 500
         times = int(times)
         for j in range(times):
             print(f"ModelTradeDay BatchInsert Test: {j+1}", end="\r")
             size0 = GDATA.get_table_size(MTradeDay)
             s = []
-            num = random.random() * 100
+            num = random.random() * 500
             num = int(num)
             for i in range(num):
                 o = MTradeDay()
@@ -467,12 +467,12 @@ class ModelOrderTest(unittest.TestCase):
 
     def test_ModelOrder_BatchInsert(self) -> None:
         GDATA.create_table(MOrder)
-        times = random.random() * 1000
+        times = random.random() * 500
         times = int(times)
         for j in range(times):
             size0 = GDATA.get_table_size(MOrder)
             print(f"ModelOrder BatchInsert Test : {j+1}", end="\r")
-            num = random.random() * 100
+            num = random.random() * 500
             num = int(num)
             s = []
             for i in range(num):
@@ -484,7 +484,7 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(len(s), size1 - size0)
 
     def test_ModelOrder_Query(self) -> None:
-        num = random.random() * 1000
+        num = random.random() * 500
         num = int(num)
         GDATA.create_table(MOrder)
 
@@ -496,7 +496,7 @@ class ModelOrderTest(unittest.TestCase):
             self.assertNotEqual(r, None)
 
     def test_ModelOrder_Update(self) -> None:
-        num = random.random() * 1000
+        num = random.random() * 500
         num = int(num)
         GDATA.create_table(MOrder)
         o = MOrder()
@@ -506,7 +506,7 @@ class ModelOrderTest(unittest.TestCase):
         for i in range(num):
             print(f"ModelOrder Update: {i+1}", end="\r")
             item = GDATA.get_order(uuid)
-            s = random.random() * 10000
+            s = random.random() * 500
             s = str(s)
             s = s.encode("ascii")
             s = base64.b64encode(s)
@@ -567,7 +567,7 @@ class ModelSignalTest(unittest.TestCase):
 
     def test_ModelSignal_Insert(self) -> None:
         GDATA.create_table(MSignal)
-        times = random.random() * 1000
+        times = random.random() * 500
         times = int(times)
         for j in range(times):
             print(f"ModeSignal Insert Test : {j+1}", end="\r")
@@ -583,12 +583,12 @@ class ModelSignalTest(unittest.TestCase):
 
     def test_ModelSignal_BatchInsert(self) -> None:
         GDATA.create_table(MSignal)
-        times = random.random() * 1000
+        times = random.random() * 500
         times = int(times)
         for i in range(times):
             size0 = GDATA.get_table_size(MSignal)
             print(f"ModelSignal BatchInsert Test : {i+1}", end="\r")
-            count = random.random() * 100
+            count = random.random() * 500
             count = int(count)
             s = []
             for j in range(count):
@@ -677,7 +677,7 @@ class ModelStockInfoTest(unittest.TestCase):
 
     def test_ModelStockInfo_Insert(self) -> None:
         GDATA.create_table(MStockInfo)
-        times = random.random() * 1000
+        times = random.random() * 500
         times = int(times)
         for j in range(times):
             print(f"ModelStockInfo Insert Test : {j+1}", end="\r")
@@ -691,7 +691,7 @@ class ModelStockInfoTest(unittest.TestCase):
 
     def test_ModelStockInfo_BatchInsert(self) -> None:
         GDATA.create_table(MStockInfo)
-        times = random.random() * 1000
+        times = random.random() * 500
         times = int(times)
         for j in range(times):
             size0 = GDATA.get_table_size(MStockInfo)
@@ -768,7 +768,7 @@ class ModelTickTest(unittest.TestCase):
 
     def test_ModelTick_Insert(self) -> None:
         GDATA.create_table(MTick)
-        times = random.random() * 1000
+        times = random.random() * 500
         times = int(times)
         for i in range(times):
             size0 = GDATA.get_table_size(MTick)
@@ -781,13 +781,13 @@ class ModelTickTest(unittest.TestCase):
 
     def test_ModelTick_BatchInsert(self) -> None:
         GDATA.create_table(MTick)
-        times = random.random() * 1000
+        times = random.random() * 500
         times = int(times)
         for j in range(times):
             size0 = GDATA.get_table_size(MTick)
             print(f"ModelTick BatchInsert Test : {j+1}", end="\r")
             s = []
-            count = random.random() * 100
+            count = random.random() * 500
             count = int(count)
             for i in range(count):
                 o = MTick()
