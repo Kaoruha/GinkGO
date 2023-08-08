@@ -7,6 +7,7 @@ from ginkgo.backtest.strategies import StrategyBase
 from ginkgo.backtest.engines.base_engine import BaseEngine
 from ginkgo.backtest.signal import Signal
 from ginkgo.backtest.sizers import BaseSizer
+from ginkgo.backtest.selectors import BaseSelector
 from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.libs import cal_fee, datetime_normalize, GinkgoSingleLinkedList
@@ -22,32 +23,89 @@ class BasePortfolio(object):
         self._strategies = GinkgoSingleLinkedList()
         self._sizer = None
         self._risk_manager = None
+        self._selector = None
         self._now = None
         self.indexes: dict = {}
         self._engine = None
+        self._interested = GinkgoSingleLinkedList()
+
+    @property
+    def interested(self) -> GinkgoSingleLinkedList():
+        return self._interested
 
     def is_all_set(self) -> bool:
         r = True
         if self.engine is None:
-            GLOG.CRITICAL(f"Engine not bind. Events can not put back to the engine.")
+            GLOG.CRITICAL(f"Engine not bind. Events can not put back to the ENGINE.")
             r = False
         if self.sizer is None:
             GLOG.CRITICAL(
-                f"Portfolio Sizer not set. Can not handle the signal. Please set the sizer first."
+                f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first."
             )
             r = False
         if self.risk_manager is None:
             GLOG.CRITICAL(
-                f"Portfolio RiskManager not set. Can not handle the signal. Please set the risk_manage first."
+                f"Portfolio RiskManager not set. Can not Adjust the order. Please set the RISKMANAGER first."
+            )
+            r = False
+        if self.selector is None:
+            GLOG.CRITICAL(
+                f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first."
             )
             r = False
         if len(self.strategies) == 0:
             GLOG.WARN(f"No strategy register. Just for test.")
         return r
 
+    def bind_selector(self, selector: BaseSelector):
+        if not isinstance(selector, BaseSelector):
+            GLOG.ERROR(
+                f"Selector bind only support Selector, {type(selector)} {selector} is not supported."
+            )
+            return
+        self._selector = selector
+        self._selector.bind_portfolio(self)
+
+    @property
+    def selector(self):
+        return self._selector
+
     def bind_engine(self, engine: BaseEngine):
-        if engine:
-            self._engine = engine
+        if not isinstance(engine, BaseEngine):
+            GLOG.ERROR(
+                f"EngineBind only support Type Engine, {type(BaseEngine)} {engine} is not supported."
+            )
+            return
+        self._engine = engine
+
+    @property
+    def engine(self):
+        return self._engine
+
+    def bind_risk(self, risk: BaseRiskManagement):
+        if not isinstance(risk, BaseRiskManagement):
+            GLOG.ERROR(
+                f"Risk bind only support Riskmanagement, {type(risk)} {risk} is not supported."
+            )
+            return
+        self._risk_manager = risk
+
+    @property
+    def risk_manager(self) -> BaseRiskManagement:
+        return self._risk_manager
+
+    def bind_sizer(self, sizer: BaseSizer) -> None:
+        if not isinstance(sizer, BaseSizer):
+            GLOG.ERROR(
+                f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported."
+            )
+            return
+        self._sizer = sizer
+        self.sizer.bind_portfolio(self)
+
+    @property
+    def sizer(self) -> BaseSizer:
+        return self._sizer
 
     def freeze(self, money: float) -> bool:
         if money >= self.cash:
@@ -56,10 +114,6 @@ class BasePortfolio(object):
             self.frozen += money
             self.cash -= money
             return True
-
-    @property
-    def engine(self):
-        return self._engine
 
     def put(self, event):
         if self.engine is None:
@@ -85,23 +139,8 @@ class BasePortfolio(object):
         return self._strategies
 
     @property
-    def sizer(self) -> BaseSizer:
-        return self._sizer
-
-    @property
-    def risk_manager(self) -> BaseRiskManagement:
-        return self._risk_manager
-
-    @property
     def now(self) -> datetime.datetime:
         return self._now
-
-    def bind_risk(self, risk: BaseRiskManagement):
-        self._risk_manager = risk
-
-    def bind_sizer(self, sizer: BaseSizer) -> None:
-        self._sizer = sizer
-        self.sizer.bind_portfolio(self)
 
     def add_strategy(self, strategy: StrategyBase) -> None:
         # TODO Remove the duplicated one
@@ -117,6 +156,9 @@ class BasePortfolio(object):
             )
 
     def on_time_goes_by(self, time: any, *args, **kwargs):
+        if not self.is_all_set():
+            return
+        self._interested = self.selector.pick()
         time = datetime_normalize(time)
         if time is None:
             print("Format not support, can not update time")
@@ -125,10 +167,10 @@ class BasePortfolio(object):
             self._now = time
         else:
             if time < self.now:
-                print("We can not go back such as a time traveller")
+                GLOG.ERROR("We can not go back such as a TIME TRAVALER.")
                 return
             elif time == self.now:
-                print("time not goes on")
+                GLOG.WARN("The time not goes on.")
                 return
             else:
                 # Go next frame

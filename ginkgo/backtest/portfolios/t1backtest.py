@@ -37,10 +37,6 @@ class PortfolioT1Backtest(BasePortfolio):
     def on_time_goes_by(self, time: any, *args, **kwargs):
         # Time goes
         super(PortfolioT1Backtest, self).on_time_goes_by(time, *args, **kwargs)
-        # Check Everything.
-        if not self.is_all_set():
-            return
-
         # Put old signals to engine
         for signal in self.signals:
             e = EventSigalGeneration(signal)
