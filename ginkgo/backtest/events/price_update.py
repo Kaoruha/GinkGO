@@ -28,7 +28,7 @@ class EventPriceUpdate(EventBase):
         return self._price_type
 
     @property
-    def price_info(self):
+    def value(self):
         if self._price_type == PRICEINFO_TYPES.BAR:
             return self._bar
         elif self._price_type == PRICEINFO_TYPES.TICK:
@@ -55,22 +55,22 @@ class EventPriceUpdate(EventBase):
 
     @property
     def code(self) -> str:
-        if self.price_info is None:
+        if self.value is None:
             return None
-        return self.price_info.code
+        return self.value.code
 
     @property
     def timestamp(self) -> datetime.datetime:
-        if self.price_info is None:
+        if self.value is None:
             return None
-        return self.price_info.timestamp
+        return self.value.timestamp
 
     @property
     def price(self) -> float:
-        if self.price_info is None:
+        if self.value is None:
             return None
         if self.price_type == PRICEINFO_TYPES.TICK:
-            return self.price_info.price
+            return self.value.price
         else:
             GLOG.logger.warn(
                 f"The Price is Bar Type, but your are asking tick type price value."
@@ -79,16 +79,16 @@ class EventPriceUpdate(EventBase):
 
     @property
     def volume(self) -> int:
-        if self.price_info is None:
+        if self.value is None:
             return None
-        return self.price_info.volume
+        return self.value.volume
 
     @property
     def open(self) -> float:
-        if self.price_info is None:
+        if self.value is None:
             return None
         if self.price_type == PRICEINFO_TYPES.BAR:
-            return self.price_info.open
+            return self.value.open
         else:
             GLOG.logger.warn(
                 f"The Price is Tick Type, but your are asking Bar type open value."
@@ -97,10 +97,10 @@ class EventPriceUpdate(EventBase):
 
     @property
     def high(self) -> float:
-        if self.price_info is None:
+        if self.value is None:
             return None
         if self.price_type == PRICEINFO_TYPES.BAR:
-            return self.price_info.high
+            return self.value.high
         else:
             GLOG.logger.warn(
                 f"The Price is Tick Type, but your are asking Bar type high value."
@@ -109,10 +109,10 @@ class EventPriceUpdate(EventBase):
 
     @property
     def low(self) -> float:
-        if self.price_info is None:
+        if self.value is None:
             return None
         if self.price_type == PRICEINFO_TYPES.BAR:
-            return self.price_info.low
+            return self.value.low
         else:
             GLOG.logger.warn(
                 f"The Price is Tick Type, but your are asking Bar type low value."
@@ -121,10 +121,10 @@ class EventPriceUpdate(EventBase):
 
     @property
     def close(self) -> float:
-        if self.price_info is None:
+        if self.value is None:
             return None
         if self.price_type == PRICEINFO_TYPES.BAR:
-            return self.price_info.close
+            return self.value.close
         else:
             GLOG.logger.warn(
                 f"The Price is Tick Type, but your are asking Bar type close value."
@@ -164,19 +164,19 @@ class EventPriceUpdate(EventBase):
         msg = [mem, event_id, source, date, event_t, price_t]
 
         if self.price_type == PRICEINFO_TYPES.BAR:
-            open_ = f"Open  : {self.price_info.open}"
-            high = f"High  : {self.price_info.high}"
-            low = f"Low   : {self.price_info.low}"
-            close = f"Close : {self.price_info.close}"
-            volume = f"Volume: {self.price_info.volume}"
+            open_ = f"Open  : {self.value.open}"
+            high = f"High  : {self.value.high}"
+            low = f"Low   : {self.value.low}"
+            close = f"Close : {self.value.close}"
+            volume = f"Volume: {self.value.volume}"
             msg.append(open_)
             msg.append(high)
             msg.append(low)
             msg.append(close)
             msg.append(volume)
         elif self.price_type == PRICEINFO_TYPES.TICK:
-            price = f"Price : {self.price_info.price}"
-            volume = f"Volume: {self.price_info.volume}"
+            price = f"Price : {self.value.price}"
+            volume = f"Volume: {self.value.volume}"
             msg.append(price)
             msg.append(volume)
 

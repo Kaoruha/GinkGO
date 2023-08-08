@@ -1,7 +1,7 @@
-from ginkgo.backtest.signal import Signal
+from ginkgo.backtest.order import Order
 
 
-class BaseSizer(object):
+class BaseRiskManagement:
     def __init__(self, *args, **kwargs):
         self._portfolio = None
 
@@ -12,5 +12,5 @@ class BaseSizer(object):
     def bind_portfolio(self, portfolio):
         self._portfolio = portfolio
 
-    def cal(self, signal: Signal):
-        raise NotImplementedError()
+    def cal(self, order: Order):
+        return order

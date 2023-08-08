@@ -1,6 +1,6 @@
 class BaseIndex(object):
     def __init__(self, name: str, *args, **kwargs):
-        self._name = ""
+        self._name = name
         self._portfolio = None
 
     @property
@@ -16,4 +16,4 @@ class BaseIndex(object):
 
     @property
     def value(self) -> any:
-        raise NotImplementedError()
+        return "Should be overwrite the value property"

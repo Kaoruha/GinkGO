@@ -25,7 +25,7 @@ class Bar(Base):
         close: float,
         volume: int,
         frequency: FREQUENCY_TYPES,
-        timestamp: str or datetime.datetime,
+        timestamp: any,
     ) -> None:
         self._code = code
         self._open = open

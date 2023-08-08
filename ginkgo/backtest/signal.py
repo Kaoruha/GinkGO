@@ -11,7 +11,7 @@ class Signal(Base):
         self,
         code: str = "Default Signal Code",
         direction: DIRECTION_TYPES = None,
-        timestamp: str or datetime.datetime = None,
+        timestamp: any = None,
         uuid: str = "",
         *args,
         **kwargs
