@@ -27,3 +27,16 @@ tushare:
   token: {tokenhere}
 ```
 
+## Install
+
+``` shell
+python ./install 
+```
+
+## Unittest
+```
+python ./run_unittest.py --all
+```
+
+
+## Run Basic Backtest
