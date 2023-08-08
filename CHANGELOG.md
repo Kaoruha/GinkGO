@@ -24,9 +24,9 @@
   - [TODO] Add Trading Records.
 
 ##### 0.5.1(DEV)
-  - [TODO] Backtest Engine Upgrade
-  - - [DEV] Optimize Backtest Engine
-  - - [DEV] Backtest Engine Unittest
+  - [x] Backtest Engine Upgrade
+  - - [x] Optimize Backtest Engine
+  - - [x] Backtest Engine Unittest
 
 ##### 0.5
   - [x] Tushare
