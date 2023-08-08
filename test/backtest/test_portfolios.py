@@ -12,8 +12,9 @@ from ginkgo.backtest.events import EventPriceUpdate, EventSigalGeneration
 from ginkgo.backtest.signal import Signal
 from ginkgo.libs.ginkgo_math import cal_fee
 from ginkgo.backtest.indexes import BaseIndex
+from ginkgo.backtest.selectors import FixedSelector
 from ginkgo.backtest.bar import Bar
-from ginkgo.backtest.sizers import BaseSizer, FixSizer
+from ginkgo.backtest.sizers import BaseSizer, FixedSizer
 from ginkgo.backtest.risk_managements import BaseRiskManagement
 from ginkgo.data.ginkgo_data import GDATA
 
@@ -55,24 +56,33 @@ class PortfolioBaseTest(unittest.TestCase):
         self.assertEqual(2, len(p.position))
 
     def test_portfolio_timegoes(self) -> None:
-        m = BasePortfolio()
+        p = BasePortfolio()
         risk = BaseRiskManagement()
-        m.bind_risk(risk=risk)
+        p.bind_risk(risk=risk)
         engine = BaseEngine()
-        m.bind_engine(engine)
+        p.bind_engine(engine)
         sizer = BaseSizer()
-        m.bind_sizer(sizer)
+        p.bind_sizer(sizer)
+        s = FixedSelector("test_code")
+        p.bind_selector(s)
 
-        m.on_time_goes_by("20200101")
-        self.assertEqual(datetime_normalize("20200101"), m.now)
-        m.on_time_goes_by(20200103)
-        self.assertEqual(datetime_normalize("20200103"), m.now)
-        m.on_time_goes_by(20200101)
-        self.assertEqual(datetime_normalize("20200103"), m.now)
-        m.on_time_goes_by(20200103)
-        self.assertEqual(datetime_normalize("20200103"), m.now)
-        m.on_time_goes_by(20200111)
-        self.assertEqual(datetime_normalize("20200111"), m.now)
+        self.assertEqual(0, len(p.interested))
+
+        p.on_time_goes_by("20200101")
+        self.assertEqual(1, len(p.interested))
+        self.assertEqual(datetime_normalize("20200101"), p.now)
+        p.on_time_goes_by(20200103)
+        self.assertEqual(1, len(p.interested))
+        self.assertEqual(datetime_normalize("20200103"), p.now)
+        p.on_time_goes_by(20200101)
+        self.assertEqual(1, len(p.interested))
+        self.assertEqual(datetime_normalize("20200103"), p.now)
+        p.on_time_goes_by(20200103)
+        self.assertEqual(1, len(p.interested))
+        self.assertEqual(datetime_normalize("20200103"), p.now)
+        p.on_time_goes_by(20200111)
+        self.assertEqual(1, len(p.interested))
+        self.assertEqual(datetime_normalize("20200111"), p.now)
 
     def test_portfolio_bindengine(self) -> None:
         p = BasePortfolio()
@@ -107,6 +117,8 @@ class PortfolioT1Test(unittest.TestCase):
         p.bind_engine(engine)
         sizer = BaseSizer()
         p.bind_sizer(sizer)
+        s = FixedSelector("test_code")
+        p.bind_selector(s)
         p.on_time_goes_by("20000101")
         b = Bar()
         b.set("test_code", 10, 10.5, 9, 9.52, 1000, FREQUENCY_TYPES.DAY, "20000101")
@@ -131,8 +143,10 @@ class PortfolioT1Test(unittest.TestCase):
         p.bind_risk(risk=risk)
         engine = EventEngine()
         p.bind_engine(engine)
-        sizer = FixSizer(1)
+        sizer = FixedSizer(1)
         p.bind_sizer(sizer)
+        s = FixedSelector("test_code")
+        p.bind_selector(s)
         p.on_time_goes_by("20000101")
         signal = Signal("test_signal 20000101", DIRECTION_TYPES.LONG, 20000101)
         event = EventSigalGeneration(signal)

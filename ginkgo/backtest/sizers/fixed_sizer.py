@@ -4,9 +4,9 @@ from ginkgo.backtest.signal import Signal
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES
 
 
-class FixSizer(BaseSizer):
+class FixedSizer(BaseSizer):
     def __init__(self, ratio: float = 1, *args, **kwargs):
-        super(FixSizer, self).__init__(*args, **kwargs)
+        super(FixedSizer, self).__init__(*args, **kwargs)
         self._ratio = ratio
 
     @property
