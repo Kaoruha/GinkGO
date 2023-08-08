@@ -23,7 +23,7 @@ class EventOrderRelated(EventBase):
         return self._order_id
 
     @property
-    def order(self) -> Order:
+    def value(self) -> Order:
         if self._order is None:
             # if _order not exist, try get from db
             self.get_order(self.order_id)
@@ -49,27 +49,27 @@ class EventOrderRelated(EventBase):
 
     @property
     def timestamp(self):
-        if self.order is None:
+        if self.value is None:
             self.get_order(self.order_id)
-        if self.order is None:
+        if self.value is None:
             return None
-        return self.order.timestamp
+        return self.value.timestamp
 
     @property
     def code(self):
-        if self.order is None:
+        if self.value is None:
             self.get_order(self.order_id)
-        if self.order is None:
+        if self.value is None:
             return None
-        return self.order.code.strip(b"\x00".decode())
+        return self.value.code.strip(b"\x00".decode())
 
     @property
     def direction(self):
-        if self.order is None:
+        if self.value is None:
             self.get_order(self.order_id)
-        if self.order is None:
+        if self.value is None:
             return None
-        return self.order.direction
+        return self.value.direction
 
     @property
     def order_id(self):
@@ -77,59 +77,59 @@ class EventOrderRelated(EventBase):
 
     @property
     def order_type(self):
-        if self.order is None:
+        if self.value is None:
             self.get_order(self.order_id)
-        if self.order is None:
+        if self.value is None:
             return None
-        return self.order.type
+        return self.value.type
 
     @property
     def order_status(self):
-        if self.order is None:
+        if self.value is None:
             self.get_order(self.order_id)
-        if self.order is None:
+        if self.value is None:
             return None
-        return self.order.status
+        return self.value.status
 
     @property
     def limit_price(self):
-        if self.order is None:
+        if self.value is None:
             self.get_order(self.order_id)
-        if self.order is None:
+        if self.value is None:
             return None
-        return self.order.limit_price
+        return self.value.limit_price
 
     @property
     def volume(self):
-        if self.order is None:
+        if self.value is None:
             self.get_order(self.order_id)
-        if self.order is None:
+        if self.value is None:
             return None
-        return self.order.volume
+        return self.value.volume
 
     @property
     def frozen(self):
-        if self.order is None:
+        if self.value is None:
             self.get_order(self.order_id)
-        if self.order is None:
+        if self.value is None:
             return None
-        return self.order.frozen
+        return self.value.frozen
 
     @property
     def transaction_price(self):
-        if self.order is None:
+        if self.value is None:
             self.get_order(self.order_id)
-        if self.order is None:
+        if self.value is None:
             return None
-        return self.order.transaction_price
+        return self.value.transaction_price
 
     @property
     def remain(self):
-        if self.order is None:
+        if self.value is None:
             self.get_order(self.order_id)
-        if self.order is None:
+        if self.value is None:
             return None
-        return self.order.remain
+        return self.value.remain
 
     def __repr__(self):
         return base_repr(self, EventOrderRelated.__name__, 16, 60)

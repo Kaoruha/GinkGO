@@ -4,10 +4,18 @@ from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.strategies import StrategyBase
 from ginkgo.libs.ginkgo_math import cal_fee
-from ginkgo.enums import DIRECTION_TYPES
-from ginkgo.backtest.portfolios import BasePortfolio
+from ginkgo.enums import DIRECTION_TYPES, FREQUENCY_TYPES
+from ginkgo.backtest.engines import BaseEngine, EventEngine
+from ginkgo.backtest.portfolios import BasePortfolio, PortfolioT1Backtest
 from ginkgo.backtest.position import Position
+from ginkgo.backtest.events import EventPriceUpdate, EventSigalGeneration
+from ginkgo.backtest.signal import Signal
 from ginkgo.libs.ginkgo_math import cal_fee
+from ginkgo.backtest.indexes import BaseIndex
+from ginkgo.backtest.bar import Bar
+from ginkgo.backtest.sizers import BaseSizer, FixSizer
+from ginkgo.backtest.risk_managements import BaseRiskManagement
+from ginkgo.data.ginkgo_data import GDATA
 
 
 class PortfolioBaseTest(unittest.TestCase):
@@ -44,11 +52,17 @@ class PortfolioBaseTest(unittest.TestCase):
         self.assertEqual(1000, r.volume)
         pos2 = Position("test_code2", 20, 1000)
         p.add_position(pos2)
-        print(p.position)
         self.assertEqual(2, len(p.position))
 
     def test_portfolio_timegoes(self) -> None:
         m = BasePortfolio()
+        risk = BaseRiskManagement()
+        m.bind_risk(risk=risk)
+        engine = BaseEngine()
+        m.bind_engine(engine)
+        sizer = BaseSizer()
+        m.bind_sizer(sizer)
+
         m.on_time_goes_by("20200101")
         self.assertEqual(datetime_normalize("20200101"), m.now)
         m.on_time_goes_by(20200103)
@@ -61,16 +75,21 @@ class PortfolioBaseTest(unittest.TestCase):
         self.assertEqual(datetime_normalize("20200111"), m.now)
 
     def test_portfolio_bindengine(self) -> None:
-        pass
+        p = BasePortfolio()
+        e = BaseEngine()
+        p.bind_engine(e)
+        self.assertNotEqual(p.engine, None)
 
-    def test_portfolio_addindex(self) -> None:
-        pass
-
-    def test_portfolio_indexread(self) -> None:
-        pass
-
-    def test_portfolio_putevent(self) -> None:
-        pass
+    def test_portfolio_index(self) -> None:
+        p = BasePortfolio()
+        i = BaseIndex("test_index")
+        p.add_index(i)
+        r = None
+        try:
+            r = p.index("test_index")
+        except Exception as e:
+            pass
+        self.assertNotEqual(None, r)
 
 
 class PortfolioT1Test(unittest.TestCase):
@@ -78,13 +97,52 @@ class PortfolioT1Test(unittest.TestCase):
         super(PortfolioT1Test, self).__init__(*args, **kwargs)
 
     def test_portfoliot1_init(self) -> None:
-        pass
+        p = PortfolioT1Backtest()
 
     def test_portfoliot1_onprice(self) -> None:
-        pass
+        p = PortfolioT1Backtest()
+        risk = BaseRiskManagement()
+        p.bind_risk(risk=risk)
+        engine = EventEngine()
+        p.bind_engine(engine)
+        sizer = BaseSizer()
+        p.bind_sizer(sizer)
+        p.on_time_goes_by("20000101")
+        b = Bar()
+        b.set("test_code", 10, 10.5, 9, 9.52, 1000, FREQUENCY_TYPES.DAY, "20000101")
+        e = EventPriceUpdate(b)
+        pos = Position("test_code", 20, 1000)
+        p.add_position(pos)
+        # 1. position update
+        p.on_price_update(e)
+        self.assertEqual(9.52, p.get_position("test_code").price)
+        p.on_time_goes_by("20000102")
+        b2 = Bar()
+        b2.set("test_code", 10, 10.5, 9, 9.92, 1000, FREQUENCY_TYPES.DAY, "20000102")
+        e2 = EventPriceUpdate(b2)
+        p.on_price_update(e2)
+        self.assertEqual(9.92, p.get_position("test_code").price)
+        # 2. Strategy update
+        # TODO
 
     def test_portfoliot1_onsignal(self) -> None:
-        pass
-
-    def test_portfoliot1_onorder(self) -> None:
-        pass
+        p = PortfolioT1Backtest()
+        risk = BaseRiskManagement()
+        p.bind_risk(risk=risk)
+        engine = EventEngine()
+        p.bind_engine(engine)
+        sizer = FixSizer(1)
+        p.bind_sizer(sizer)
+        p.on_time_goes_by("20000101")
+        signal = Signal("test_signal 20000101", DIRECTION_TYPES.LONG, 20000101)
+        event = EventSigalGeneration(signal)
+        p.on_signal(event)
+        self.assertEqual(1, len(p.signals))
+        p.on_time_goes_by("20000102")
+        self.assertEqual(0, len(p.signals))
+        p.on_signal(event)
+        self.assertEqual(0, len(p.signals))
+        for order_id in p.orders:
+            uuid = order_id.value
+            orderindb = GDATA.get_order(uuid)
+            self.assertNotEqual(None, orderindb)
