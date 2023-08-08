@@ -4,15 +4,17 @@ The `Handler` class should deal with the event.
 from ginkgo.libs import GinkgoSingleLinkedList
 
 
-class BaseHandler:
-    def __init__(self):
-        self.subscribers = GinkgoSingleLinkedList()
+class BaseFeed(object):
+    def __init__(self, *args, **kwargs):
+        self._subscribers = GinkgoSingleLinkedList()
+
+    @property
+    def subscribers(self):
+        return self._subscribers
 
     def subscribe(self, guys):
         # TODO Type Filter
-        self.subscribers.append(guys)
+        self._subscribers.append(guys)
 
     def broadcast(self):
-        for i in self.subscribers:
-            # Got data
-            pass
+        raise NotImplementedError()
