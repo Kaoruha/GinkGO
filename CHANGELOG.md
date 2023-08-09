@@ -18,12 +18,17 @@
   - - [TODO] Add Mail Notification
   - - [TODO] Add Wecat Notification
 
-##### 0.6(FUTURE)
+##### 0.6(DEV)
   - [TODO] Add CLI
   - [TODO] Add ML Engine.
   - [TODO] Add Trading Records.
+  - [TODO] Basic Live engine demo
 
-##### 0.5.1(DEV)
+##### 0.5.2(DEV)
+  - [TODO] Basic Backtest demo
+  - [TODO] Config file setup
+
+##### 0.5.1
   - [x] Backtest Engine Upgrade
   - - [x] Optimize Backtest Engine
   - - [x] Backtest Engine Unittest
