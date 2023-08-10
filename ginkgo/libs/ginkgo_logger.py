@@ -37,14 +37,14 @@ class GinkgoLogger(object):
             self.file_name = LOGGIN_DEFAULT_FILE
 
         self.logger = logging.getLogger(logger_name)
-        console_handler = logging.StreamHandler()
+        self.console_handler = logging.StreamHandler()
         self.file_handler = logging.FileHandler(
             filename=LOGGING_PATH + self.file_name, encoding="utf-8", mode="a"
         )
 
         # 设置日志级别，会以最高级别为准
         self.logger.setLevel(logging.INFO)
-        console_handler.setLevel(self.get_log_level(LOGGING_LEVEL_CONSOLE))
+        self.console_handler.setLevel(self.get_log_level(LOGGING_LEVEL_CONSOLE))
         self.file_handler.setLevel(self.get_log_level(LOGGING_LEVEL_FILE))
 
         # 日志输出格式
@@ -57,11 +57,11 @@ class GinkgoLogger(object):
             datefmt="%H:%M:%S",
             log_colors=LOGGING_COLOR,
         )
-        console_handler.setFormatter(console_formatter)
+        self.console_handler.setFormatter(console_formatter)
         self.file_handler.setFormatter(file_formatter)
 
         # 添加日志处理
-        self.logger.addHandler(console_handler)
+        self.logger.addHandler(self.console_handler)
         if LOGGING_FILE_ON:
             self.logger.addHandler(self.file_handler)
 
@@ -78,6 +78,12 @@ class GinkgoLogger(object):
         )
         self.file_handler.setFormatter(file_formatter)
         self.logger.addHandler(self.file_handler)
+
+    def set_level(self, level):
+        level = self.get_log_level(level)
+        self.logger.setLevel(level)
+        self.console_handler.setLevel(level)
+        self.file_handler.setLevel(level)
 
     def get_log_level(self, level) -> int:
         r = 10
