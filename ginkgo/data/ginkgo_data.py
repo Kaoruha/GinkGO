@@ -243,8 +243,8 @@ class GinkgoData(object):
     def get_trade_calendar_df(
         self,
         market: MARKET_TYPES,
-        date_start: str or datetime.datetime,
-        date_end: str or datetime.datetime,
+        date_start: any,
+        date_end: any,
     ) -> pd.DataFrame:
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
@@ -255,7 +255,7 @@ class GinkgoData(object):
             .filter(MTradeDay.timestamp <= date_end)
             .filter(MTradeDay.isdel == False)
         )
-        df = pd.read_sql(r.statement, self.engine)
+        df = pd.read_sql(r.statement, CLICKDRIVER.engine)
         return df
 
     def get_daybar(
@@ -341,6 +341,7 @@ class GinkgoData(object):
     # Daily Data update
     def update_stock_info(self) -> None:
         t0 = datetime.datetime.now()
+        GLOG.INFO("Updating StockInfo")
         update_count = 0
         insert_count = 0
         tu = GinkgoTushare()
@@ -383,7 +384,7 @@ class GinkgoData(object):
                 q.delist_date = datetime_normalize(delist_date)
                 self.commit()
                 update_count += 1
-                GLOG.DEBUG(f"Update {q.code} stock info")
+                GLOG.INFO(f"Update {q.code} stock info")
                 continue
             # if not exist, try insert
             l.append(item)
@@ -406,14 +407,19 @@ class GinkgoData(object):
         """
         Update all Makets' Calendar
         """
+        GLOG.INFO("Updating Trade Calendar")
         self.update_cn_trade_calendar()
 
     def update_cn_trade_calendar(self) -> None:
+        GLOG.INFO("Updating CN Calendar.")
         t0 = datetime.datetime.now()
         update_count = 0
         insert_count = 0
         tu = GinkgoTushare()
         df = tu.fetch_cn_stock_trade_day()
+        if df is None:
+            GLOG.ERROR("Tushare get no data. Update CN TradeCalendar Failed.")
+            return
         l = []
         for i, r in df.iterrows():
             item = MTradeDay()
@@ -476,6 +482,11 @@ class GinkgoData(object):
 
         # Got the range of date
         date_start = info.list_date
+        date_start = 20200101
+        import pdb
+
+        pdb.set_trace()
+        # date_start = datetime_normalize(20200101)
         date_end = info.delist_date
         today = datetime.datetime.now()
         if today < date_end:
