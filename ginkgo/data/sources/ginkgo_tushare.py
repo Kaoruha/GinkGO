@@ -2,20 +2,30 @@ import tushare as ts
 import pandas as pd
 from ginkgo import GCONF
 from ginkgo.libs import datetime_normalize
+from ginkgo import GLOG
 
 
 class GinkgoTushare(object):
     def __init__(self) -> None:
         self.pro = None
         self.connect()
+        self.try_max = 5
 
     def connect(self) -> None:
         if self.pro == None:
             self.pro = ts.pro_api(GCONF.TUSHARETOKEN)
 
     def fetch_cn_stock_trade_day(self) -> pd.DataFrame:
-        self.connect()
-        r = self.pro.trade_cal()
+        try_time = 0
+        while try_time <= self.try_max:
+            r = self.pro.trade_cal()
+            if r.shape[0] == 0:
+                try_time += 1
+                GLOG.ERROR(
+                    f"Tushare API: TradeCalendar returns nothing. Retry: {try_time}"
+                )
+            if try_time >= self.try_max:
+                return
         r = r.drop(["exchange", "pretrade_date"], axis=1)
         return r
 
