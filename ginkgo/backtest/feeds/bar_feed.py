@@ -33,12 +33,15 @@ class BarFeed(BaseFeed):
             interesting_list = self._portfolio.interested
             # Get data
             df = pd.DataFrame()
-            for code in interesting_list:
+            for item in interesting_list:
+                code = item.value
+                if code is None:
+                    continue
                 new_df = GDATA.get_daybar_df(code, time, time)
                 df = pd.concat([df, new_df], ignore_index=True)
             # Broadcast
-            for i, r in df.ittrows():
+            for i, r in df.iterrows():
                 b = Bar()
                 b.set(r)
                 event = EventPriceUpdate(b)
-                sub.on_price_update(event)
+                sub.value.on_price_update(event)

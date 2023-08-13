@@ -158,7 +158,10 @@ class BasePortfolio(object):
     def on_time_goes_by(self, time: any, *args, **kwargs):
         if not self.is_all_set():
             return
-        self._interested = self.selector.pick()
+        self._interested = GinkgoSingleLinkedList()
+        codes = self.selector.pick()
+        for code in codes:
+            self._interested.append(code)
         time = datetime_normalize(time)
         if time is None:
             print("Format not support, can not update time")

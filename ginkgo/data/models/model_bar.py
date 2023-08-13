@@ -37,6 +37,16 @@ class MBar(MClickBase):
 
     @singledispatchmethod
     def set(self) -> None:
+        """
+        code: str,
+        open: float,
+        high: float,
+        low: float,
+        close: float,
+        volume: int,
+        frequency: FREQUENCY_TYPES,
+        datetime: any,
+        """
         pass
 
     @set.register
@@ -49,7 +59,7 @@ class MBar(MClickBase):
         close: float,
         volume: int,
         frequency: FREQUENCY_TYPES,
-        datetime: str or datetime.datetime,
+        datetime: any,
     ) -> None:
         self.code = code
         self.open = round(open, 6)
