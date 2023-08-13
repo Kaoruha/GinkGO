@@ -59,6 +59,7 @@ class MatchMakingBaseTest(unittest.TestCase):
         b = Bar()
         b.set("test_code", 10, 11, 9.5, 10.2, 1000, FREQUENCY_TYPES.DAY, 20200101)
         e = EventPriceUpdate(price_info=b)
+        self.assertEqual(0, m.price.shape[0])
         m.on_price_update(e)
         self.assertEqual(1, m.price.shape[0])
 

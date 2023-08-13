@@ -44,6 +44,7 @@ class GinkgoData(object):
         self.batch_size = 500
         self._is_click_cached = False
         self._is_mysql_cached = False
+        self.cpu_ratio = 0.8
 
     def get_driver(self, value):
         is_class = isinstance(value, type)
@@ -219,7 +220,7 @@ class GinkgoData(object):
                 .filter(MStockInfo.code == code)
                 .filter(MStockInfo.isdel == False)
             )
-        df = pd.read_sql(r.statement, self.engine)
+        df = pd.read_sql(r.statement, CLICKDRIVER.engine)
         return df
 
     def get_trade_calendar(
@@ -261,8 +262,8 @@ class GinkgoData(object):
     def get_daybar(
         self,
         code: str,
-        date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
-        date_end: str or datetime.datetime = GCONF.DEFAULTEND,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
     ) -> list:
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
@@ -280,8 +281,8 @@ class GinkgoData(object):
     def get_daybar_df(
         self,
         code: str,
-        date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
-        date_end: str or datetime.datetime = GCONF.DEFAULTEND,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
     ) -> pd.DataFrame:
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
@@ -292,19 +293,23 @@ class GinkgoData(object):
             .filter(MBar.timestamp <= date_end)
             .filter(MBar.isdel == False)
         )
-        df = pd.read_sql(r.statement, self.engine)
+        df = pd.read_sql(r.statement, CLICKDRIVER.engine)
+        df = df.sort_values(by="timestamp", ascending=True)
+        df.reset_index(drop=True, inplace=True)
         return df
 
     def get_adjustfactor(
         self,
         code: str,
-        date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
-        date_end: str or datetime.datetime = GCONF.DEFAULTEND,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
+        db_driver: MYSQLDRIVER = None,
     ) -> list:
+        driver = db_driver if db_driver else MYSQLDRIVER
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            CLICKDRIVER.session.query(MAdjustfactor)
+            driver.session.query(MAdjustfactor)
             .filter(MAdjustfactor.code == code)
             .filter(MAdjustfactor.timestamp >= date_start)
             .filter(MAdjustfactor.timestamp <= date_end)
@@ -318,36 +323,45 @@ class GinkgoData(object):
         Convert Adjustfactor into Full Calendar.
         """
         # TODO
+        # Get Start
+        # Get End
         return df
 
     def get_adjustfactor_df(
         self,
         code: str,
-        date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
-        date_end: str or datetime.datetime = GCONF.DEFAULTEND,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
+        db_driver: MYSQLDRIVER = None,
     ) -> list:
+        driver = db_driver if db_driver else MYSQLDRIVER
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            CLICKDRIVER.session.query(MAdjustfactor)
+            driver.session.query(MAdjustfactor)
             .filter(MAdjustfactor.code == code)
             .filter(MAdjustfactor.timestamp >= date_start)
             .filter(MAdjustfactor.timestamp <= date_end)
             .filter(MAdjustfactor.isdel == False)
         )
-        df = pd.read_sql(r.statement, self.engine)
+        df = pd.read_sql(r.statement, driver.engine)
+        df = df.sort_values(by="timestamp", ascending=True)
+        df.reset_index(drop=True, inplace=True)
         return df
 
     # Daily Data update
     def update_stock_info(self) -> None:
+        size = CLICKDRIVER.get_table_size(MStockInfo)
+        GLOG.CRITICAL(f"Current Stock Info Size: {size}")
         t0 = datetime.datetime.now()
-        GLOG.INFO("Updating StockInfo")
         update_count = 0
         insert_count = 0
         tu = GinkgoTushare()
         df = tu.fetch_cn_stock_info()
         l = []
         for i, r in df.iterrows():
+            msg = f"UpdatingStockInfo {i}/{df.shape[0]}"
+            print(msg, end="\r")
             item = MStockInfo()
             code = r["ts_code"] if r["ts_code"] else "DefaultCode"
             code_name = r["name"] if r["name"] else "DefaultCodeName"
@@ -402,6 +416,8 @@ class GinkgoData(object):
         GLOG.INFO(
             f"StockInfo Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
         )
+        size = CLICKDRIVER.get_table_size(MStockInfo)
+        GLOG.CRITICAL(f"After Update Stock Info Size: {size}")
 
     def update_trade_calendar(self) -> None:
         """
@@ -412,6 +428,8 @@ class GinkgoData(object):
 
     def update_cn_trade_calendar(self) -> None:
         GLOG.INFO("Updating CN Calendar.")
+        size = CLICKDRIVER.get_table_size(MTradeDay)
+        GLOG.CRITICAL(f"Current Trade Calendar Size: {size}")
         t0 = datetime.datetime.now()
         update_count = 0
         insert_count = 0
@@ -422,6 +440,8 @@ class GinkgoData(object):
             return
         l = []
         for i, r in df.iterrows():
+            msg = f"Updating TradeCalendar {i}/{df.shape[0]}"
+            print(msg, end="\r")
             item = MTradeDay()
             date = datetime_normalize(r["cal_date"])
             market = MARKET_TYPES.CHINA
@@ -449,7 +469,7 @@ class GinkgoData(object):
                     item2.update = datetime.datetime.now()
                     update_count += 1
                     self.commit()
-                    GLOG.DEBUG(f"Update {item2.timestamp} {item2.market} TradeCalendar")
+                    GLOG.INFO(f"Update {item2.timestamp} {item2.market} TradeCalendar")
 
             if len(q) == 0:
                 # Not Exist in db
@@ -468,11 +488,20 @@ class GinkgoData(object):
         GLOG.INFO(
             f"TradeCalendar Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
         )
+        size = CLICKDRIVER.get_table_size(MTradeDay)
+        GLOG.CRITICAL(f"After Update Trade Calendar Size: {size}")
 
     def update_cn_daybar(self, code: str) -> None:
         # Get the stock info of code
         t0 = datetime.datetime.now()
         info = self.get_stock_info(code)
+        driver = GinkgoClickhouse(
+            user=GCONF.CLICKUSER,
+            pwd=GCONF.CLICKPWD,
+            host=GCONF.CLICKHOST,
+            port=GCONF.CLICKPORT,
+            db=GCONF.CLICKDB,
+        )
 
         if info is None:
             GLOG.WARN(
@@ -482,11 +511,6 @@ class GinkgoData(object):
 
         # Got the range of date
         date_start = info.list_date
-        date_start = 20200101
-        import pdb
-
-        pdb.set_trace()
-        # date_start = datetime_normalize(20200101)
         date_end = info.delist_date
         today = datetime.datetime.now()
         if today < date_end:
@@ -504,55 +528,53 @@ class GinkgoData(object):
         trade_calendar = trade_calendar[trade_calendar["timestamp"] >= date_start]
         trade_calendar = trade_calendar[trade_calendar["timestamp"] <= date_end]
 
-        for index, calendar in trade_calendar.iterrows():
-            # Check NextDay
-            current = str(calendar["timestamp"])
+        df1 = trade_calendar["timestamp"]
+        old_df = self.get_daybar_df(code)
+        old_timestamp = old_df.timestamp.values if old_df.shape[0] > 0 else []
+        # print(old_df["timestamp"])
+        for i, r in trade_calendar.iterrows():
+            trade_calendar.loc[i, "in_db"] = r["timestamp"] in old_timestamp
+        missing_period = [
+            [None, None],
+        ]
+        last_missing = None
+        for i, r in trade_calendar.iterrows():
+            current = str(r["timestamp"])
             current = datetime_normalize(current)
             print(f"Daybar Calendar Check {current}  {code}", end="\r")
             # Check if the bar exist in db
-            q = self.get_daybar_df(code, current, current)
-            if q.shape[0] > 1:
-                GLOG.WARN(
-                    f"{current} {code} has more than 1 record. Please run script to clean the duplicate record."
-                )
-            elif q.shape[0] == 1:
-                # Exist
-                period = missing_period[-1]
-                if period[0] is None:
+            if r["in_db"] == False:
+                last_missing = r["timestamp"]
+                if missing_period[0][0] is None:
+                    missing_period[0][0] = last_missing
+                else:
+                    if missing_period[-1][-1] is not None:
+                        missing_period.append([last_missing, None])
+            elif r["in_db"] == True:
+                if missing_period[0][0] is None:
                     continue
-                elif period[1] is None:
-                    period[1] = current
-            elif q.shape[0] == 0:
-                # Missing
-                period = missing_period[-1]
-                if period[0] is None:
-                    period[0] = current
-                    continue
-                if period[1] is not None:
-                    missing_period.append([current, None])
+                else:
+                    missing_period[-1][1] = last_missing
+        if missing_period[-1][1] is None:
+            missing_period[-1][1] = datetime_normalize(
+                trade_calendar.iloc[-1]["timestamp"]
+            )
 
-        period = missing_period[-1]
-        if period[0] is not None:
-            if period[1] is None:
-                period[1] = date_end
-
-        # Fetch the data and insert to db
+        # fetch the data and insert to db
         tu = GinkgoTushare()
         l = []
         insert_count = 0
         update_count = 0
+        # for period in missing_period:
+        #     print(period)
         for period in missing_period:
-            print(period)
-
-        for period in missing_period:
+            if period[0] is None:
+                break
             start = period[0]
             end = period[1]
-            if start is None and end is None:
-                continue
             GLOG.INFO(f"Fetch {code} {info.code_name} from {start} to {end}")
-
             rs = tu.fetch_cn_stock_daybar(code, start, end)
-
+            print(rs)
             # There is no data from date_start to date_end
             if rs.shape[0] == 0:
                 GLOG.INFO(
@@ -564,26 +586,6 @@ class GinkgoData(object):
             for i, r in rs.iterrows():
                 date = datetime_normalize(r["trade_date"])
                 q = self.get_daybar(code, date, date)
-                # Update
-                if len(q) > 0:
-                    for model in q:
-                        model.open = r["open"]
-                        model.high = r["high"]
-                        model.low = r["low"]
-                        model.close = r["close"]
-                        model.vol = r["vol"]
-                        model.update = datetime.datetime.now()
-                        self.add(model)
-                        self.commit()
-                        update_count += 1
-                        GLOG.DEBUG(f"Update {date} {code} Daybar")
-
-                    if len(q) > 1:
-                        GLOG.CRITICAL(
-                            f"{date} {code} Should not have more than 1 record."
-                        )
-                    continue
-
                 # New Insert
                 b = MBar()
                 b.set_source(SOURCE_TYPES.TUSHARE)
@@ -599,13 +601,13 @@ class GinkgoData(object):
                 )
                 l.append(b)
                 if len(l) >= self.batch_size:
-                    self.add_all(l)
-                    self.commit()
+                    driver.session.add_all(l)
+                    driver.session.commit()
                     insert_count += len(l)
                     GLOG.DEBUG(f"Insert {len(l)} {code} Daybar.")
                     l = []
-        self.add_all(l)
-        self.commit()
+        driver.session.add_all(l)
+        driver.session.commit()
         insert_count += len(l)
         GLOG.DEBUG(f"Insert {len(l)} {code} Daybar.")
         t1 = datetime.datetime.now()
@@ -625,10 +627,12 @@ class GinkgoData(object):
     def update_all_cn_daybar_aysnc(self) -> None:
         t0 = datetime.datetime.now()
         info = self.get_stock_info_df()
+        for i, r in info.iterrows():
+            code = r["code"]
+            print(code)
         l = []
         cpu_count = multiprocessing.cpu_count()
-        ratio = 0.95
-        cpu_count = int(cpu_count * ratio)
+        cpu_count = int(cpu_count * self.cpu_ratio)
         for i, r in info.iterrows():
             code = r["code"]
             l.append(code)
@@ -649,6 +653,13 @@ class GinkgoData(object):
         df = tu.fetch_cn_stock_adjustfactor(code)
         insert_count = 0
         update_count = 0
+        driver = GinkgoMysql(
+            user=GCONF.MYSQLUSER,
+            pwd=GCONF.MYSQLPWD,
+            host=GCONF.MYSQLHOST,
+            port=GCONF.MYSQLPORT,
+            db=GCONF.MYSQLDB,
+        )
         l = []
         for i, r in df.iterrows():
             code = r["ts_code"]
@@ -656,7 +667,7 @@ class GinkgoData(object):
             factor = r["adj_factor"]
             print(f"AdjustFactor Check {date}  {code}", end="\r")
             # Check ad if exist in database
-            q = self.get_adjustfactor(code, date, date)
+            q = self.get_adjustfactor(code, date, date, driver)
             # If exist, update
             if len(q) >= 1:
                 if len(q) >= 2:
@@ -667,14 +678,19 @@ class GinkgoData(object):
                     if (
                         item.code == code
                         and item.timestamp == date
-                        and item.adjustfactor == factor
+                        and float(item.adjustfactor) == factor
                     ):
                         GLOG.DEBUG(f"Ignore Adjustfactor {code} {date}")
                         continue
+                    print("==============")
+                    print(f"code: {code}   db_code: {item.code}")
+                    print(f"time: {date}   db_time: {item.timestamp}")
+                    print(f"factor: {factor}   db_factor: {float(item.adjustfactor)}")
+                    print("==============")
                     item.adjustfactor = factor
                     item.update = datetime.datetime.now()
                     update_count += 1
-                    self.commit()
+                    driver.session.commit()
                     GLOG.DEBUG(f"Update {code} {date} AdjustFactor")
 
             # If not exist, new insert
@@ -685,13 +701,13 @@ class GinkgoData(object):
                 o.set(code, 1.0, 1.0, factor, date)
                 l.append(o)
                 if len(l) > self.batch_size:
-                    self.add_all(l)
-                    self.commit()
+                    driver.session.add_all(l)
+                    driver.session.commit()
                     insert_count += len(l)
                     GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
                     l = []
-        self.add_all(l)
-        self.commit()
+        driver.session.add_all(l)
+        driver.session.commit()
         insert_count += len(l)
         GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
         t1 = datetime.datetime.now()
@@ -715,8 +731,7 @@ class GinkgoData(object):
         info = self.get_stock_info_df()
         l = []
         cpu_count = multiprocessing.cpu_count()
-        ratio = 0.95
-        cpu_count = int(cpu_count * ratio)
+        cpu_count = int(cpu_count * self.cpu_ratio)
         for i, r in info.iterrows():
             code = r["code"]
             l.append(code)
@@ -730,6 +745,8 @@ class GinkgoData(object):
         p.join()
         t1 = datetime.datetime.now()
         GLOG.INFO(f"Update ALL CN AdjustFactor cost {t1-t0}")
+        size = MYSQLDRIVER.get_table_size(MAdjustfactor)
+        GLOG.CRITICAL(f"After Update Adjustfactor Size: {size}")
 
 
 GDATA = GinkgoData()

@@ -25,7 +25,7 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
     r = ""
     r += "\n"
     r += "-" * (row_max // 2 - len(class_name)) + f" {class_name} "
-    r += "-" * (row_max - len(r) - 1) + "+"
+    r += "-" * (row_max - len(r)) + "+"
     for row in msg:
         r += "\n"
         r += row

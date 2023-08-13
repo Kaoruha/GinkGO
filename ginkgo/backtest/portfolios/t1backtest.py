@@ -38,6 +38,7 @@ class PortfolioT1Backtest(BasePortfolio):
         # Time goes
         super(PortfolioT1Backtest, self).on_time_goes_by(time, *args, **kwargs)
         # Put old signals to engine
+
         for signal in self.signals:
             e = EventSigalGeneration(signal)
             self.engine.put(e)

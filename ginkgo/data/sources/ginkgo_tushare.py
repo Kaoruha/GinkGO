@@ -18,31 +18,44 @@ class GinkgoTushare(object):
     def fetch_cn_stock_trade_day(self) -> pd.DataFrame:
         try_time = 0
         while try_time <= self.try_max:
+            GLOG.INFO("Trying get cn stock trade day.")
             r = self.pro.trade_cal()
             if r.shape[0] == 0:
                 try_time += 1
                 GLOG.ERROR(
                     f"Tushare API: TradeCalendar returns nothing. Retry: {try_time}"
                 )
+            else:
+                r = r.drop(["exchange", "pretrade_date"], axis=1)
+                return r
             if try_time >= self.try_max:
                 return
-        r = r.drop(["exchange", "pretrade_date"], axis=1)
-        return r
 
     def fetch_cn_stock_info(self) -> pd.DataFrame:
-        r = self.pro.stock_basic(
-            fields=[
-                "ts_code",
-                "symbol",
-                "name",
-                "area",
-                "industry",
-                "list_date",
-                "curr_type",
-                "delist_date",
-            ]
-        )
-        return r
+        try_time = 0
+        while try_time <= self.try_max:
+            GLOG.INFO("Trying get cn stock info.")
+            r = self.pro.stock_basic(
+                fields=[
+                    "ts_code",
+                    "symbol",
+                    "name",
+                    "area",
+                    "industry",
+                    "list_date",
+                    "curr_type",
+                    "delist_date",
+                ]
+            )
+            if r.shape[0] == 0:
+                try_time += 1
+                GLOG.ERROR(
+                    f"Tushare API: CN Stock Info returns nothing. Retry: {try_time}"
+                )
+            else:
+                return r
+            if try_time >= self.try_max:
+                return
 
     def fetch_cn_stock_daybar(
         self,
@@ -84,4 +97,5 @@ class GinkgoTushare(object):
             ts_code=code, start_date=start, end_date=end, limit=50000
         )
         r = r[r["adj_factor"].duplicated() == False]
+        r.reset_index(drop=True, inplace=True)
         return r
