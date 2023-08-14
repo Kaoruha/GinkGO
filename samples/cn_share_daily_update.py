@@ -4,7 +4,7 @@ import logging
 
 
 if __name__ == "__main__":
-    GLOG.set_level(logging.INFO)
+    # GLOG.set_level(logging.INFO)
     GDATA.create_all()
     GDATA.update_stock_info()
     GDATA.update_trade_calendar()

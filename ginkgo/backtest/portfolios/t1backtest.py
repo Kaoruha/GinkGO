@@ -21,6 +21,7 @@ from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MOrder
 from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize
 from ginkgo.backtest.signal import Signal
+from ginkgo.enums import DIRECTION_TYPES
 
 
 class PortfolioT1Backtest(BasePortfolio):
@@ -74,33 +75,56 @@ class PortfolioT1Backtest(BasePortfolio):
                 f"Portfolio RiskManager not set. Can not handle the order. Please set the RiskManager first."
             )
             return
-        order_adjsted = self.risk_manager.cal(order)
+        order_adjusted = self.risk_manager.cal(order)
         # 4. Get the adjusted order, if so put eventorder to engine
-        if order_adjsted is None:
+        if order_adjusted is None:
             return
         # 5. Create order, stored into db
-        freeze_ok = self.freeze(order_adjsted.frozen)
-        if freeze_ok:
-            mo = MOrder()
+        mo = MOrder()
+        if order_adjusted.direction == DIRECTION_TYPES.LONG:
+            freeze_ok = self.freeze(order_adjusted.frozen)
+            if not freeze_ok:
+                return
             mo.set(
-                order_adjsted.code,
-                order_adjsted.direction,
-                order_adjsted.type,
-                order_adjsted.status,
-                order_adjsted.volume,
-                order_adjsted.limit_price,
-                order_adjsted.frozen,
-                order_adjsted.transaction_price,
-                order_adjsted.remain,
-                order_adjsted.fee,
+                order_adjusted.code,
+                order_adjusted.direction,
+                order_adjusted.type,
+                order_adjusted.status,
+                order_adjusted.volume,
+                order_adjusted.limit_price,
+                order_adjusted.frozen,
+                order_adjusted.transaction_price,
+                order_adjusted.remain,
+                order_adjusted.fee,
                 self.now,
-                order_adjsted.uuid,
+                order_adjusted.uuid,
             )
             GDATA.add(mo)
             e = EventOrderSubmitted(mo.uuid)
-            self.orders.append(order_adjsted.uuid)
             # 6. Create Event
             self.engine.put(e)
+        elif order_adjusted.direction == DIRECTION_TYPES.SHORT:
+            pos: Position = self.get_position(order_adjusted.code)
+            volume_freezed = pos.freeze(order_adjusted.volume)
+            mo.set(
+                order_adjusted.code,
+                order_adjusted.direction,
+                order_adjusted.type,
+                order_adjusted.status,
+                volume_freezed,
+                order_adjusted.limit_price,
+                order_adjusted.frozen,
+                order_adjusted.transaction_price,
+                order_adjusted.remain,
+                order_adjusted.fee,
+                self.now,
+                order_adjusted.uuid,
+            )
+            GDATA.add(mo)
+            e = EventOrderSubmitted(mo.uuid)
+            # 6. Create Event
+            self.engine.put(e)
+        self.orders.append(order_adjusted.uuid)
 
     def on_price_update(self, event: EventPriceUpdate):
         # Check Everything.

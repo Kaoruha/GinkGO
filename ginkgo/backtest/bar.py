@@ -13,6 +13,10 @@ class Bar(Base):
 
     @singledispatchmethod
     def set(self) -> None:
+        """
+        1. code,open,high,low,close,volume,frequency,timestamp
+        2. dataframe
+        """
         pass
 
     @set.register

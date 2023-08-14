@@ -13,11 +13,13 @@ from ginkgo import GLOG
 from ginkgo.backtest.events import EventPriceUpdate
 from ginkgo.backtest.bar import Bar
 from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.libs import datetime_normalize
 
 
 class BarFeed(BaseFeed):
     def __init__(self, *args, **kwargs):
         super(BarFeed, self).__init__(*args, **kwargs)
+        self._now = None
         self._portfolio = None
 
     def bind_portfolio(self, portfolio):
@@ -30,6 +32,7 @@ class BarFeed(BaseFeed):
 
         for sub in self.subscribers:
             time = self._portfolio.now
+            self.on_time_goes_by(time)
             interesting_list = self._portfolio.interested
             # Get data
             df = pd.DataFrame()

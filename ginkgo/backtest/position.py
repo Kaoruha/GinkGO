@@ -85,17 +85,19 @@ class Position(Base):
                 f"Can not handle this deal. direction:{direction}  price:{price}  volume:{volume}"
             )
 
-    def freeze(self, volume: int) -> None:
+    def freeze(self, volume: int) -> int:
         if volume > self.volume:
             GLOG.logger.critical(
                 f"POS {self.code} just has {self.volume} cant afford {volume}, please check your code"
             )
+            return self.volume
 
         self.volume -= volume
         self._frozen += volume
         GLOG.logger.debug(
             f"POS {self.code} freezed {volume}. Final volume:{self.volume} frozen: {self.frozen}"
         )
+        return volume
 
     def unfreeze(self, volume: int) -> None:
         if volume > self.frozen:
