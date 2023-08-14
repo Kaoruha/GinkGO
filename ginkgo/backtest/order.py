@@ -151,7 +151,7 @@ class Order(Base):
         return self._fee
 
     def __repr__(self) -> str:
-        return base_repr(self, Order.__name__, 12, 60)
+        return base_repr(self, Order.__name__, 20, 60)
 
     def submit(self) -> None:
         self._status = ORDERSTATUS_TYPES.SUBMITTED

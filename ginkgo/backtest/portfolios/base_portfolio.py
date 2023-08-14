@@ -38,21 +38,25 @@ class BasePortfolio(object):
         if self.engine is None:
             GLOG.CRITICAL(f"Engine not bind. Events can not put back to the ENGINE.")
             r = False
+
         if self.sizer is None:
             GLOG.CRITICAL(
                 f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first."
             )
             r = False
+
         if self.risk_manager is None:
             GLOG.CRITICAL(
                 f"Portfolio RiskManager not set. Can not Adjust the order. Please set the RISKMANAGER first."
             )
             r = False
+
         if self.selector is None:
             GLOG.CRITICAL(
                 f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first."
             )
             r = False
+
         if len(self.strategies) == 0:
             GLOG.WARN(f"No strategy register. Just for test.")
         return r

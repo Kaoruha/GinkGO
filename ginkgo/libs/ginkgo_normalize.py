@@ -20,6 +20,10 @@ def datetime_normalize(time: any) -> datetime.datetime:
         time = str(time)
 
     try:
+        t = datetime.datetime.strptime(time, "%Y%m%d%H%M%S")
+    except ValueError:
+        pass
+    try:
         t = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
     except ValueError:
         pass

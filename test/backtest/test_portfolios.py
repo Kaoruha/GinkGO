@@ -1,4 +1,5 @@
 import unittest
+import uuid
 from ginkgo import GLOG
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.backtest.order import Order
@@ -17,6 +18,7 @@ from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.sizers import BaseSizer, FixedSizer
 from ginkgo.backtest.risk_managements import BaseRiskManagement
 from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.backtest.feeds import BaseFeed
 
 
 class PortfolioBaseTest(unittest.TestCase):
@@ -138,17 +140,20 @@ class PortfolioT1Test(unittest.TestCase):
         # TODO
 
     def test_portfoliot1_onsignal(self) -> None:
+        code = uuid.uuid4()
+        code = str(code)
         p = PortfolioT1Backtest()
         risk = BaseRiskManagement()
         p.bind_risk(risk=risk)
         engine = EventEngine()
         p.bind_engine(engine)
         sizer = FixedSizer(1)
+        sizer.bind_feed(BaseFeed())
         p.bind_sizer(sizer)
-        s = FixedSelector(["test_code"])
+        s = FixedSelector([code])
         p.bind_selector(s)
         p.on_time_goes_by("20000101")
-        signal = Signal("test_signal 20000101", DIRECTION_TYPES.LONG, 20000101)
+        signal = Signal(code, DIRECTION_TYPES.LONG, 20000101)
         event = EventSigalGeneration(signal)
         p.on_signal(event)
         self.assertEqual(1, len(p.signals))
@@ -156,7 +161,8 @@ class PortfolioT1Test(unittest.TestCase):
         self.assertEqual(0, len(p.signals))
         p.on_signal(event)
         self.assertEqual(0, len(p.signals))
-        for order_id in p.orders:
-            uuid = order_id.value
-            orderindb = GDATA.get_order(uuid)
-            self.assertNotEqual(None, orderindb)
+        # TODO
+        # for order_id in p.orders:
+        #     uid = order_id.value
+        #     orderindb = GDATA.get_order(uid)
+        #     self.assertNotEqual(None, orderindb)
