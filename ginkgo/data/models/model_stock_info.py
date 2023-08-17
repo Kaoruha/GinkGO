@@ -17,9 +17,6 @@ class MStockInfo(MClickBase):
     __abstract__ = False
     __tablename__ = "stock_info"
 
-    if GCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
-
     code = Column(String(), default="ginkgo_test_code")
     code_name = Column(String(), default="ginkgo_test_name")
     industry = Column(String(), default="ginkgo_test_industry")

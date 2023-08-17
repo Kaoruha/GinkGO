@@ -14,10 +14,6 @@ class MAdjustfactor(MMysqlBase):
     __abstract__ = False
     __tablename__ = "adjustfactor"
 
-    if GCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
-
-    # code dividOperateDate foreAdjustFactor backAdjustFactor adjustFactor
     code = Column(String(40), default="ginkgo_test_code")
     foreadjustfactor = Column(DECIMAL(20, 10), default=0)
     backadjustfactor = Column(DECIMAL(20, 10), default=0)

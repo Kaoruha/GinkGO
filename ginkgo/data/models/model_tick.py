@@ -19,9 +19,6 @@ class MTick(MClickBase):
     __abstract__ = False
     __tablename__ = "tick"
 
-    if GCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
-
     code = Column(String(), default="ginkgo_test_code")
     price = Column(DECIMAL(20, 10), default=0)
     volume = Column(Integer, default=0)

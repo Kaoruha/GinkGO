@@ -13,9 +13,6 @@ class MTradeDay(MClickBase):
     __abstract__ = False
     __tablename__ = "trade_day"
 
-    if GCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
-
     market = Column(ChoiceType(MARKET_TYPES, impl=Integer()), default=1)
     is_open = Column(Boolean(), default=True)
 
