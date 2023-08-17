@@ -9,7 +9,6 @@ from ginkgo.enums import (
 from sqlalchemy import Column, String, DateTime, Integer
 from sqlalchemy_utils import ChoiceType
 from ginkgo import GCONF
-from clickhouse_sqlalchemy import engines
 from ginkgo.libs import datetime_normalize, base_repr
 
 

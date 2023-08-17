@@ -11,7 +11,6 @@ from ginkgo.enums import (
     FREQUENCY_TYPES,
 )
 from sqlalchemy import Column, String, Integer, DECIMAL
-from clickhouse_sqlalchemy import engines
 from sqlalchemy_utils import ChoiceType
 
 
