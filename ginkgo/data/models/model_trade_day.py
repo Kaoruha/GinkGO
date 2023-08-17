@@ -4,7 +4,6 @@ from ginkgo.libs import base_repr, datetime_normalize
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
 from sqlalchemy import Column, String, Integer, DateTime, Boolean
-from clickhouse_sqlalchemy import engines
 from sqlalchemy_utils import ChoiceType
 from ginkgo import GCONF
 

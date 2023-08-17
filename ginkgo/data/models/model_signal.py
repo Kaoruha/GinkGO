@@ -1,6 +1,5 @@
 import pandas as pd
 from functools import singledispatchmethod
-from clickhouse_sqlalchemy import engines
 from sqlalchemy import Column, String, Integer, DECIMAL
 from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
