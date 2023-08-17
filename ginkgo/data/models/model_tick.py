@@ -11,16 +11,12 @@ from ginkgo.enums import (
     FREQUENCY_TYPES,
 )
 from sqlalchemy import Column, String, Integer, DECIMAL
-from clickhouse_sqlalchemy import engines
 from sqlalchemy_utils import ChoiceType
 
 
 class MTick(MClickBase):
     __abstract__ = False
     __tablename__ = "tick"
-
-    if GCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
 
     code = Column(String(), default="ginkgo_test_code")
     price = Column(DECIMAL(20, 10), default=0)

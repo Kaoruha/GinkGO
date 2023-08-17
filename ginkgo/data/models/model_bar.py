@@ -21,9 +21,6 @@ class MBar(MClickBase):
     __abstract__ = False
     __tablename__ = "bar"
 
-    if GCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
-
     code = Column(String(), default="ginkgo_test_code")
     open = Column(DECIMAL(20, 10), default=0)
     high = Column(DECIMAL(20, 10), default=0)
