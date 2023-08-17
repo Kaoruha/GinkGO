@@ -1,6 +1,5 @@
 import pandas as pd
 from functools import singledispatchmethod
-from clickhouse_sqlalchemy import engines
 from sqlalchemy import Column, String, Integer, DECIMAL
 from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
@@ -12,9 +11,6 @@ from ginkgo.libs import base_repr, datetime_normalize
 class MOrder(MMysqlBase):
     __abstract__ = False
     __tablename__ = "order"
-
-    if GCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.ReplacingMergeTree(order_by=("timestamp",)),)
 
     code = Column(String(40), default="ginkgo_test_code")
     direction = Column(ChoiceType(DIRECTION_TYPES, impl=Integer()), default=1)
