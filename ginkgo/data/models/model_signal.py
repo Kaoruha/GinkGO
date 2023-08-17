@@ -14,9 +14,6 @@ class MSignal(MMysqlBase):
     __abstract__ = False
     __tablename__ = "signal"
 
-    if GCONF.DBDRIVER == "clickhouse":
-        __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
-
     code = Column(String(40), default="ginkgo_test_code")
     direction = Column(ChoiceType(DIRECTION_TYPES, impl=Integer()), default=1)
 

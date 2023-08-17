@@ -1,3 +1,4 @@
+from clickhouse_sqlalchemy import engines
 import pandas as pd
 import datetime
 from types import FunctionType, MethodType
@@ -15,6 +16,7 @@ from sqlalchemy_utils import ChoiceType
 class MClickBase(db.base):
     __abstract__ = True
     __tablename__ = "ClickBaseModel"
+    __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
 
     uuid = Column(String(32), primary_key=True)
     desc = Column(
