@@ -2,8 +2,8 @@ from ginkgo.data.ginkgo_data import GDATA
 import pandas as pd
 import numpy as np
 
-day_count_long = 30
-day_count_short = 5
+day_count_long = 60
+day_count_short = 10
 
 stock_infos = GDATA.get_stock_info_df()
 
