@@ -35,9 +35,11 @@
 
 ##### 0.5
   - [x] Tushare
+  - [DEV] TDX
   - [TODO] AK Share
   - [TODO] Sine Spider
   - [TODO] Baostock
+
 
 ##### 0.4
   - [x] Create Standard Data Interface.
