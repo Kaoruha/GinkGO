@@ -7,7 +7,7 @@ day_count_short = 10
 
 stock_infos = GDATA.get_stock_info_df()
 
-# stock_infos = stock_infos[:1]
+# stock_infos = stock_infos[1:5]
 
 rs = pd.DataFrame()
 
@@ -39,7 +39,7 @@ for i, r in stock_infos.iterrows():
 
     title_long = f"{day_count_long} std"
     title_short = f"{day_count_short} std"
-    std_avg = (std_long * 0.3 + std_short * 0.7) / 2
+    std_avg = (std_long * 0.6 + std_short * 0.4) / 2
     item = pd.DataFrame(
         {
             "code": [code],
@@ -51,5 +51,7 @@ for i, r in stock_infos.iterrows():
     )
     rs = pd.concat([rs, item])
     rs = rs.sort_values("std_score", ascending=True)
-    rs = rs.reset_index(drop=True)
-    print(rs)
+    print(rs.head(20))
+
+rs = rs.reset_index(drop=True)
+rs.to_csv("0817.csv", index=True)
