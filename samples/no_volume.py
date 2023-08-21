@@ -1,9 +1,10 @@
 from ginkgo.data.ginkgo_data import GDATA
+import datetime
 import pandas as pd
 import numpy as np
 
-day_count_long = 60
-day_count_short = 10
+day_count_long = 90
+day_count_short = 5
 
 stock_infos = GDATA.get_stock_info_df()
 
@@ -11,6 +12,8 @@ stock_infos = GDATA.get_stock_info_df()
 
 rs = pd.DataFrame()
 
+today = datetime.datetime.now()
+date_start = today + datetime.timedelta(days=int(-1.5 * day_count_long))
 for i, r in stock_infos.iterrows():
     code = r.code
     name = r.code_name
@@ -29,6 +32,7 @@ for i, r in stock_infos.iterrows():
     daybar["volume"] = daybar["volume"] / avg
     volumes = daybar["volume"].values
     std_long = np.std(volumes)
+    ratio = daybar.iloc[-1].volume
 
     # short
     daybar2 = raw.tail(day_count_short).copy()
@@ -39,7 +43,7 @@ for i, r in stock_infos.iterrows():
 
     title_long = f"{day_count_long} std"
     title_short = f"{day_count_short} std"
-    std_avg = (std_long * 0.6 + std_short * 0.4) / 2
+    std_avg = (std_long * 0.7 + std_short * 0.3) / 2
     item = pd.DataFrame(
         {
             "code": [code],
@@ -47,6 +51,7 @@ for i, r in stock_infos.iterrows():
             "std_score": std_avg,
             title_long: [std_long],
             title_short: [std_short],
+            "lastday:avg": ratio,
         }
     )
     rs = pd.concat([rs, item])
@@ -54,4 +59,5 @@ for i, r in stock_infos.iterrows():
     print(rs.head(20))
 
 rs = rs.reset_index(drop=True)
-rs.to_csv("0817.csv", index=True)
+rs = rs.sort_values("lastday:avg", ascending=False)
+rs.to_csv("~/Documents/volume_research.csv", index=True, encoding="GBK")
