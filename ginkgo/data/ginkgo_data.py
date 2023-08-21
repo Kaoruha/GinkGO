@@ -14,6 +14,7 @@ from ginkgo.data.models import (
     MAdjustfactor,
     MClickBase,
     MMysqlBase,
+    MTick,
 )
 from ginkgo import GLOG, GCONF
 from ginkgo.libs import datetime_normalize, str2bool
@@ -23,9 +24,9 @@ from ginkgo.enums import (
     FREQUENCY_TYPES,
     CURRENCY_TYPES,
     MARKET_TYPES,
+    TICKDIRECTION_TYPES,
 )
-from ginkgo.data.sources import GinkgoBaoStock
-from ginkgo.data.sources import GinkgoTushare
+from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare, GinkgoTDX
 from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql
 from ginkgo.data import CLICKDRIVER, MYSQLDRIVER
 
@@ -211,8 +212,8 @@ class GinkgoData(object):
         )
         return r
 
-    def get_stock_info_df(self, code: str = "") -> pd.DataFrame:
-        if code == "":
+    def get_stock_info_df(self, code: str = None) -> pd.DataFrame:
+        if code == "" or code is None:
             r = CLICKDRIVER.session.query(MStockInfo).filter(MStockInfo.isdel == False)
         else:
             r = (
@@ -348,6 +349,124 @@ class GinkgoData(object):
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
         return df
+
+    def is_tick_indb(self, code: str, date: any) -> bool:
+        date_start = datetime_normalize(date)
+        date_end = date_start + datetime.timedelta(days=1)
+        r = (
+            CLICKDRIVER.session.query(MTick)
+            .filter(MTick.code == code)
+            .filter(MTick.timestamp >= date_start)
+            .filter(MTick.timestamp <= date_end)
+            .filter(MTick.isdel == False)
+            .first()
+        )
+        if r:
+            return True
+        else:
+            return False
+
+    def get_tick(self, code: str, date_start: any, date_end: any) -> MTick:
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        r = (
+            CLICKDRIVER.session.query(MTick)
+            .filter(MTick.code == code)
+            .filter(MTick.timestamp >= date_start)
+            .filter(MTick.timestamp <= date_end)
+            .filter(MTick.isdel == False)
+            .all()
+        )
+        return r
+
+    def get_tick_df(self, code: str, date_start: any, date_end: any) -> pd.DataFrame:
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        r = (
+            CLICKDRIVER.session.query(MTick)
+            .filter(MTick.code == code)
+            .filter(MTick.timestamp >= date_start)
+            .filter(MTick.timestamp <= date_end)
+            .filter(MTick.isdel == False)
+        )
+        df = pd.read_sql(r.statement, CLICKDRIVER.engine)
+        df = df.sort_values(by="timestamp", ascending=True)
+        df.reset_index(drop=True, inplace=True)
+        return df
+
+    def del_tick(self, code: str, date: any) -> None:
+        # TODO
+        pass
+
+    def update_tick(self, code: str) -> None:
+        # Try get
+        t0 = datetime.datetime.now()
+        insert_count = 0
+        tdx = GinkgoTDX()
+        nodata_count = 0
+        date = datetime.datetime.now()
+        while True:
+            # Break
+            if nodata_count >= 50:
+                break
+            # Query database
+            date_start = date.strftime("%Y%m%d")
+            date_end = (date + datetime.timedelta(days=1)).strftime("%Y%m%d")
+            GLOG.INFO(f"Trying to update {code} Tick on {date}")
+            if self.is_tick_indb(code, date_start):
+                GLOG.WARN(f"{code} Tick on {date} is in database. Go next")
+                date = date + datetime.timedelta(days=-1)
+                nodata_count = 0
+                continue
+            # Fetch and insert
+            rs = tdx.fetch_history_transaction(code, date)
+            if rs.shape[0] == 0:
+                GLOG.CRITICAL(f"{code} No data on {date} from remote.")
+                nodata_count += 1
+                date = date + datetime.timedelta(days=-1)
+                continue
+
+            # print(rs)
+            l = []
+            for i, r in rs.iterrows():
+                # print(r)
+                item = MTick()
+                timestamp = f"{date.strftime('%Y-%m-%d')} {r.timestamp}:00"
+                price = float(r.price)
+                volume = int(r.volume)
+                buyorsell = int(r.buyorsell)
+                buyorsell = TICKDIRECTION_TYPES(buyorsell)
+                item = MTick()
+                item.set(code, price, volume, buyorsell, timestamp)
+                l.append(item)
+            self.add_all(l)
+            self.commit()
+            GLOG.INFO(f"Insert {code} Tick {len(l)}.")
+            insert_count += len(l)
+            nodata_count = 0
+            date = date + datetime.timedelta(days=-1)
+        t1 = datetime.datetime.now()
+        GLOG.WARN(f"Updating Tick {code} complete. Cost: {t1-t0}")
+
+    def update_all_cn_tick_aysnc(self) -> None:
+        t0 = datetime.datetime.now()
+        info = self.get_stock_info_df()
+        l = []
+        cpu_count = multiprocessing.cpu_count()
+        cpu_count = int(cpu_count * self.cpu_ratio)
+        for i, r in info.iterrows():
+            code = r["code"]
+            l.append(code)
+
+        p = multiprocessing.Pool(cpu_count)
+
+        for code in l:
+            res = p.apply_async(self.update_tick, args=(code,))
+
+        p.close()
+        p.join()
+        t1 = datetime.datetime.now()
+        GLOG.INFO(f"Update All CN Tick Done. Cost: {t1-t0}")
 
     # Daily Data update
     def update_stock_info(self) -> None:
@@ -627,9 +746,6 @@ class GinkgoData(object):
     def update_all_cn_daybar_aysnc(self) -> None:
         t0 = datetime.datetime.now()
         info = self.get_stock_info_df()
-        for i, r in info.iterrows():
-            code = r["code"]
-            print(code)
         l = []
         cpu_count = multiprocessing.cpu_count()
         cpu_count = int(cpu_count * self.cpu_ratio)

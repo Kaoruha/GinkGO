@@ -3,21 +3,17 @@ import pandas as pd
 from functools import singledispatchmethod
 from ginkgo.libs import base_repr, datetime_normalize
 from ginkgo.backtest.base import Base
-from ginkgo.enums import SOURCE_TYPES
+from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 
 
 class Tick(Base):
-    def __init__(
-        self,
-        code: str = "ginkgo_test_tick_code",
-        price: float = 0,
-        volume: int = 0,
-        timestamp: str or datetime.datetime = None,
-        *args,
-        **kwargs
-    ) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super(Tick, self).__init__(*args, **kwargs)
-        self.set(code, price, volume, timestamp)
+        self._code = "default tick"
+        self._price = 0
+        self._volume = 0
+        self._direction = None
+        self._timestamp = datetime.datetime.now()
 
     @singledispatchmethod
     def set(self) -> None:
@@ -29,11 +25,13 @@ class Tick(Base):
         code: str,
         price: float,
         volume: int,
-        timestamp: str or datetime.datetime,
+        direction: TICKDIRECTION_TYPES,
+        timestamp: any,
     ) -> None:
         self._code = code
         self._price = price
         self._volume = volume
+        self._direction = direction
         self._timestamp = datetime_normalize(timestamp)
 
     @set.register
@@ -41,6 +39,7 @@ class Tick(Base):
         self._code = df.code
         self._price = df.price
         self._volume = df.volume
+        self._direction = df.direction
         self._timestamp = df.timestamp
 
         if "source" in df.keys():
@@ -57,6 +56,10 @@ class Tick(Base):
     @property
     def volume(self) -> int:
         return self._volume
+
+    @property
+    def direction(self) -> TICKDIRECTION_TYPES:
+        return self._direction
 
     @property
     def timestamp(self) -> datetime.datetime:

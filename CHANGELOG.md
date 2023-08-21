@@ -27,6 +27,7 @@
 ##### 0.5.2(DEV)
   - [TODO] Basic Backtest demo
   - [TODO] Config file setup
+  - [x] TDX
 
 ##### 0.5.1
   - [x] Backtest Engine Upgrade
@@ -35,7 +36,6 @@
 
 ##### 0.5
   - [x] Tushare
-  - [DEV] TDX
   - [TODO] AK Share
   - [TODO] Sine Spider
   - [TODO] Baostock
