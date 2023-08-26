@@ -43,7 +43,7 @@ class GinkgoLogger(object):
         )
 
         # 设置日志级别，会以最高级别为准
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(logging.DEBUG)
         self.console_handler.setLevel(self.get_log_level(LOGGING_LEVEL_CONSOLE))
         self.file_handler.setLevel(self.get_log_level(LOGGING_LEVEL_FILE))
 

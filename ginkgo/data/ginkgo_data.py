@@ -46,6 +46,7 @@ class GinkgoData(object):
         self._is_click_cached = False
         self._is_mysql_cached = False
         self.cpu_ratio = 0.8
+        self.tick_models = {}
 
     def get_driver(self, value):
         is_class = isinstance(value, type)
@@ -107,6 +108,21 @@ class GinkgoData(object):
             MYSQLDRIVER.session.add_all(mysql_list)
             self._is_mysql_cached = True
 
+    def get_tick_model(self, code: str) -> type:
+        name = f"{code}.Tick"
+        if name in self.tick_models.keys():
+            return self.tick_models[name]
+        newclass = type(
+            name,
+            (MTick,),
+            {
+                "__tablename__": name,
+                "__abstract__": False,
+            },
+        )
+        self.tick_models[name] = newclass
+        return newclass
+
     def get_models(self) -> None:
         """
         Read all py files under /data/models
@@ -145,11 +161,18 @@ class GinkgoData(object):
         # Drop Tables in mysql
         MMysqlBase.metadata.drop_all(MYSQLDRIVER.engine)
 
+    def is_table_exsist(self, model) -> bool:
+        driver = self.get_driver(model)
+        if driver.is_table_exsists(model.__tablename__):
+            return True
+        else:
+            return False
+
     def drop_table(self, model) -> None:
         driver = self.get_driver(model)
         if driver is None:
             return
-        if driver.is_table_exsists(model.__tablename__):
+        if self.is_table_exsist(model):
             model.__table__.drop(driver.engine)
             GLOG.WARN(f"Drop Table {model.__tablename__} : {model}")
         else:
@@ -162,7 +185,7 @@ class GinkgoData(object):
         if model.__abstract__ == True:
             GLOG.WARN(f"Pass Model:{model}")
             return
-        if driver.is_table_exsists(model.__tablename__):
+        if self.is_table_exsist(model):
             GLOG.WARN(f"Table {model.__tablename__} exist.")
         else:
             model.__table__.create(driver.engine)
@@ -351,14 +374,18 @@ class GinkgoData(object):
         return df
 
     def is_tick_indb(self, code: str, date: any) -> bool:
+        model = self.get_tick_model(code)
+        if not self.is_table_exsist(model):
+            GLOG.WARN(f"Table Tick {code} not exsit. ")
+            return
         date_start = datetime_normalize(date)
         date_end = date_start + datetime.timedelta(days=1)
         r = (
-            CLICKDRIVER.session.query(MTick)
-            .filter(MTick.code == code)
-            .filter(MTick.timestamp >= date_start)
-            .filter(MTick.timestamp <= date_end)
-            .filter(MTick.isdel == False)
+            CLICKDRIVER.session.query(model)
+            .filter(model.code == code)
+            .filter(model.timestamp >= date_start)
+            .filter(model.timestamp <= date_end)
+            .filter(model.isdel == False)
             .first()
         )
         if r:
@@ -367,27 +394,35 @@ class GinkgoData(object):
             return False
 
     def get_tick(self, code: str, date_start: any, date_end: any) -> MTick:
+        model = self.get_tick_model(code)
+        if not self.is_table_exsist(model):
+            GLOG.WARN(f"Table Tick {code} not exsit. ")
+            return []
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            CLICKDRIVER.session.query(MTick)
-            .filter(MTick.code == code)
-            .filter(MTick.timestamp >= date_start)
-            .filter(MTick.timestamp <= date_end)
-            .filter(MTick.isdel == False)
+            CLICKDRIVER.session.query(model)
+            .filter(model.code == code)
+            .filter(model.timestamp >= date_start)
+            .filter(model.timestamp <= date_end)
+            .filter(model.isdel == False)
             .all()
         )
         return r
 
     def get_tick_df(self, code: str, date_start: any, date_end: any) -> pd.DataFrame:
+        model = self.get_tick_model(code)
+        if not self.is_table_exsist(model):
+            GLOG.WARN(f"Table Tick {code} not exsit. ")
+            return pd.DataFrame()
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            CLICKDRIVER.session.query(MTick)
-            .filter(MTick.code == code)
-            .filter(MTick.timestamp >= date_start)
-            .filter(MTick.timestamp <= date_end)
-            .filter(MTick.isdel == False)
+            CLICKDRIVER.session.query(model)
+            .filter(model.code == code)
+            .filter(model.timestamp >= date_start)
+            .filter(model.timestamp <= date_end)
+            .filter(model.isdel == False)
         )
         df = pd.read_sql(r.statement, CLICKDRIVER.engine)
         df = df.sort_values(by="timestamp", ascending=True)
@@ -399,6 +434,9 @@ class GinkgoData(object):
         pass
 
     def update_tick(self, code: str) -> None:
+        # CreateTable
+        model = self.get_tick_model(code)
+        self.create_table(model)
         # Try get
         t0 = datetime.datetime.now()
         insert_count = 0
@@ -421,7 +459,7 @@ class GinkgoData(object):
             # Fetch and insert
             rs = tdx.fetch_history_transaction(code, date)
             if rs.shape[0] == 0:
-                GLOG.CRITICAL(f"{code} No data on {date} from remote.")
+                GLOG.WARN(f"{code} No data on {date} from remote.")
                 nodata_count += 1
                 date = date + datetime.timedelta(days=-1)
                 continue
@@ -430,13 +468,12 @@ class GinkgoData(object):
             l = []
             for i, r in rs.iterrows():
                 # print(r)
-                item = MTick()
                 timestamp = f"{date.strftime('%Y-%m-%d')} {r.timestamp}:00"
                 price = float(r.price)
                 volume = int(r.volume)
                 buyorsell = int(r.buyorsell)
                 buyorsell = TICKDIRECTION_TYPES(buyorsell)
-                item = MTick()
+                item = model()
                 item.set(code, price, volume, buyorsell, timestamp)
                 l.append(item)
             self.add_all(l)
@@ -444,6 +481,13 @@ class GinkgoData(object):
             GLOG.INFO(f"Insert {code} Tick {len(l)}.")
             insert_count += len(l)
             nodata_count = 0
+            # ReCheck
+            if self.is_tick_indb(code, date_start):
+                GLOG.INFO(f"{code} {date_start} Insert Recheck Successful.")
+            else:
+                GLOG.CRITICAL(
+                    f"{code} {date_start} Insert Failed. Still no data in database."
+                )
             date = date + datetime.timedelta(days=-1)
         t1 = datetime.datetime.now()
         GLOG.WARN(f"Updating Tick {code} complete. Cost: {t1-t0}")
