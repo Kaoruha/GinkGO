@@ -8,7 +8,7 @@ log_path: ./.logs/
 log_file_on: False
 log_default_file: test.log
 log_level_console: DEBUG
-log_level_file: DEBUG
+log_level_file: CRITICAL
 log_color: 
   DEBUG: white
   INFO: green

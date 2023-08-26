@@ -17,7 +17,7 @@ from sqlalchemy_utils import ChoiceType
 
 
 class MTick(MClickBase):
-    __abstract__ = False
+    __abstract__ = True
     __tablename__ = "tick"
 
     code = Column(String(), default="ginkgo_test_code")
