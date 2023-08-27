@@ -25,6 +25,7 @@ class TICKDIRECTION_TYPES(EnumBase):
     ZEROMINUSTICK = 2
     PLUSTICK = 3
     ZEROPLUSTICK = 4
+    OTHER = 5
 
 
 class EVENT_TYPES(EnumBase):
