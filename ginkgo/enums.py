@@ -21,11 +21,12 @@ class CURRENCY_TYPES(EnumBase):
 
 
 class TICKDIRECTION_TYPES(EnumBase):
+    OTHER = 0
     MINUSTICK = 1
     ZEROMINUSTICK = 2
     PLUSTICK = 3
     ZEROPLUSTICK = 4
-    OTHER = 5
+    NOIDEA = 5
 
 
 class EVENT_TYPES(EnumBase):
