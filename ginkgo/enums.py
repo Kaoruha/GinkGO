@@ -97,7 +97,3 @@ class ATTITUDE_TYPES(EnumBase):
     RANDOM = 3
 
 
-class TICKDIRECTION_TYPES(EnumBase):
-    OTHER = 0
-    BUY = 1
-    SELL = 2
