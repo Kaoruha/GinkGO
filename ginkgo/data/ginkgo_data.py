@@ -338,6 +338,7 @@ class GinkgoData(object):
             .filter(MAdjustfactor.timestamp >= date_start)
             .filter(MAdjustfactor.timestamp <= date_end)
             .filter(MAdjustfactor.isdel == False)
+            .order_by(MAdjustfactor.timestamp.asc())
             .all()
         )
         return self._convert_to_full_cal(r)
@@ -433,7 +434,7 @@ class GinkgoData(object):
         # TODO
         pass
 
-    def update_tick(self, code: str) -> None:
+    def update_tick(self, code: str, fast_mode: bool = False) -> None:
         # CreateTable
         model = self.get_tick_model(code)
         self.create_table(model)
@@ -454,7 +455,10 @@ class GinkgoData(object):
             if self.is_tick_indb(code, date_start):
                 GLOG.WARN(f"{code} Tick on {date} is in database. Go next")
                 date = date + datetime.timedelta(days=-1)
-                nodata_count = 0
+                if fast_mode:
+                    nodata_count += 1
+                else:
+                    nodata_count = 0
                 continue
             # Fetch and insert
             rs = tdx.fetch_history_transaction(code, date)
@@ -492,7 +496,7 @@ class GinkgoData(object):
         t1 = datetime.datetime.now()
         GLOG.WARN(f"Updating Tick {code} complete. Cost: {t1-t0}")
 
-    def update_all_cn_tick_aysnc(self) -> None:
+    def update_all_cn_tick_aysnc(self, fast_mode: bool = False) -> None:
         t0 = datetime.datetime.now()
         info = self.get_stock_info_df()
         l = []
@@ -505,7 +509,13 @@ class GinkgoData(object):
         p = multiprocessing.Pool(cpu_count)
 
         for code in l:
-            res = p.apply_async(self.update_tick, args=(code,))
+            res = p.apply_async(
+                self.update_tick,
+                args=(
+                    code,
+                    fast_mode,
+                ),
+            )
 
         p.close()
         p.join()
@@ -825,7 +835,7 @@ class GinkgoData(object):
             code = r["ts_code"]
             date = datetime_normalize(r["trade_date"])
             factor = r["adj_factor"]
-            print(f"AdjustFactor Check {date}  {code}", end="\r")
+            GLOG.DEBUG(f"AdjustFactor Check {date}  {code}")
             # Check ad if exist in database
             q = self.get_adjustfactor(code, date, date, driver)
             # If exist, update
@@ -842,11 +852,6 @@ class GinkgoData(object):
                     ):
                         GLOG.DEBUG(f"Ignore Adjustfactor {code} {date}")
                         continue
-                    print("==============")
-                    print(f"code: {code}   db_code: {item.code}")
-                    print(f"time: {date}   db_time: {item.timestamp}")
-                    print(f"factor: {factor}   db_factor: {float(item.adjustfactor)}")
-                    print("==============")
                     item.adjustfactor = factor
                     item.update = datetime.datetime.now()
                     update_count += 1
@@ -856,16 +861,23 @@ class GinkgoData(object):
             # If not exist, new insert
             if len(q) == 0:
                 # Insert
-                o = MAdjustfactor()
-                o.set_source(SOURCE_TYPES.TUSHARE)
-                o.set(code, 1.0, 1.0, factor, date)
-                l.append(o)
-                if len(l) > self.batch_size:
-                    driver.session.add_all(l)
+                adjs = self.get_adjustfactor(code, GCONF.DEFAULTSTART, date, driver)
+                latest = adjs[-1]
+                if float(latest.adjustfactor) == factor:
+                    latest.update_time(date)
+                    update_count += 1
                     driver.session.commit()
-                    insert_count += len(l)
-                    GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
-                    l = []
+                else:
+                    o = MAdjustfactor()
+                    o.set_source(SOURCE_TYPES.TUSHARE)
+                    o.set(code, 1.0, 1.0, factor, date)
+                    l.append(o)
+                    if len(l) > self.batch_size:
+                        driver.session.add_all(l)
+                        driver.session.commit()
+                        insert_count += len(l)
+                        GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
+                        l = []
         driver.session.add_all(l)
         driver.session.commit()
         insert_count += len(l)

@@ -10,4 +10,4 @@ if __name__ == "__main__":
     GDATA.update_trade_calendar()
     GDATA.update_all_cn_adjustfactor_aysnc()
     GDATA.update_all_cn_daybar_aysnc()
-    GDATA.update_all_cn_tick_aysnc()
+    GDATA.update_all_cn_tick_aysnc(fast_mode=True)
