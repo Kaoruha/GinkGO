@@ -35,7 +35,7 @@ class Tick(Base):
         self._timestamp = datetime_normalize(timestamp)
 
     @set.register
-    def _(self, df: pd.Series):
+    def _(self, df: pd.Series) -> None:
         self._code = df.code
         self._price = df.price
         self._volume = df.volume

@@ -53,7 +53,7 @@ class ModelTickTest(unittest.TestCase):
                 "code": "testcode",
                 "price": 2,
                 "volume": 23331,
-                "direction": TICKDIRECTION_TYPES.BUY,
+                "direction": TICKDIRECTION_TYPES.NOIDEA,
                 "timestamp": datetime.datetime.now(),
             }
         ]
@@ -83,40 +83,46 @@ class ModelTickTest(unittest.TestCase):
             self.assertEqual(tick.source, i["source"])
 
     def test_ModelTick_Insert(self) -> None:
-        GDATA.create_table(MTick)
         times = random.random() * 500
         times = int(times)
-        for i in range(times):
-            size0 = GDATA.get_table_size(MTick)
-            print(f"ModelTick Insert Test : {i+1}", end="\r")
-            o = MTick()
-            GDATA.add(o)
-            GDATA.commit()
-            size1 = GDATA.get_table_size(MTick)
-            self.assertEqual(1, size1 - size0)
+        for j in self.params:
+            model = GDATA.get_tick_model(j["code"])
+            GDATA.create_table(model)
+            for i in range(times):
+                size0 = GDATA.get_table_size(model)
+                print(f"ModelTick Insert Test : {i+1}", end="\r")
+                o = model()
+                GDATA.add(o)
+                GDATA.commit()
+                size1 = GDATA.get_table_size(model)
+                self.assertEqual(1, size1 - size0)
 
     def test_ModelTick_BatchInsert(self) -> None:
-        GDATA.create_table(MTick)
         times = random.random() * 500
         times = int(times)
-        for j in range(times):
-            size0 = GDATA.get_table_size(MTick)
-            print(f"ModelTick BatchInsert Test : {j+1}", end="\r")
-            s = []
-            count = random.random() * 500
-            count = int(count)
-            for i in range(count):
-                o = MTick()
-                s.append(o)
-            GDATA.add_all(s)
-            GDATA.commit()
-            size1 = GDATA.get_table_size(MTick)
-            self.assertEqual(len(s), size1 - size0)
+        for i in self.params:
+            model = GDATA.get_tick_model(i["code"])
+            GDATA.create_table(model)
+            for j in range(times):
+                size0 = GDATA.get_table_size(model)
+                print(f"ModelTick BatchInsert Test : {j+1}", end="\r")
+                s = []
+                count = random.random() * 500
+                count = int(count)
+                for i in range(count):
+                    o = model()
+                    s.append(o)
+                GDATA.add_all(s)
+                GDATA.commit()
+                size1 = GDATA.get_table_size(model)
+                self.assertEqual(len(s), size1 - size0)
 
     def test_ModelTick_Query(self) -> None:
-        GDATA.create_table(MTick)
-        o = MTick()
-        GDATA.add(o)
-        GDATA.commit()
-        r = GDATA.get_driver(MTick).session.query(MTick).first()
-        self.assertNotEqual(r, None)
+        for i in self.params:
+            model = GDATA.get_tick_model(i["code"])
+            GDATA.create_table(model)
+            o = model()
+            GDATA.add(o)
+            GDATA.commit()
+            r = GDATA.get_driver(model).session.query(model).first()
+            self.assertNotEqual(r, None)
