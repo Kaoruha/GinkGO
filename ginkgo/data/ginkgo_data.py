@@ -862,22 +862,28 @@ class GinkgoData(object):
             if len(q) == 0:
                 # Insert
                 adjs = self.get_adjustfactor(code, GCONF.DEFAULTSTART, date, driver)
-                latest = adjs[-1]
-                if float(latest.adjustfactor) == factor:
-                    latest.update_time(date)
-                    update_count += 1
-                    driver.session.commit()
-                else:
+                if len(adjs) == 0 or adjs is None:
                     o = MAdjustfactor()
                     o.set_source(SOURCE_TYPES.TUSHARE)
                     o.set(code, 1.0, 1.0, factor, date)
                     l.append(o)
-                    if len(l) > self.batch_size:
-                        driver.session.add_all(l)
+                elif len(adjs) > 0:
+                    latest = adjs[-1]
+                    if float(latest.adjustfactor) == factor:
+                        latest.update_time(date)
+                        update_count += 1
                         driver.session.commit()
-                        insert_count += len(l)
-                        GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
-                        l = []
+                    else:
+                        o = MAdjustfactor()
+                        o.set_source(SOURCE_TYPES.TUSHARE)
+                        o.set(code, 1.0, 1.0, factor, date)
+                        l.append(o)
+                if len(l) > self.batch_size:
+                    driver.session.add_all(l)
+                    driver.session.commit()
+                    insert_count += len(l)
+                    GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
+                    l = []
         driver.session.add_all(l)
         driver.session.commit()
         insert_count += len(l)
