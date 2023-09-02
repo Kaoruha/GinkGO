@@ -20,6 +20,7 @@
 
 ##### 0.6(DEV)
   - [TODO] Add CLI
+  - - [x] Plot Moduel
   - [TODO] Add ML Engine.
   - [TODO] Add Trading Records.
   - [TODO] Basic Live engine demo

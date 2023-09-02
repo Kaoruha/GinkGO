@@ -23,7 +23,7 @@ class TickTest(unittest.TestCase):
                 "price": 10.2,
                 "volume": 100,
                 "timestamp": "2020-01-01 02:02:32",
-                "direction": TICKDIRECTION_TYPES.BUY,
+                "direction": TICKDIRECTION_TYPES.MINUSTICK,
                 "source": SOURCE_TYPES.AKSHARE,
             },
             {
@@ -31,7 +31,7 @@ class TickTest(unittest.TestCase):
                 "price": 10,
                 "volume": 10022,
                 "timestamp": datetime.datetime.now(),
-                "direction": TICKDIRECTION_TYPES.SELL,
+                "direction": TICKDIRECTION_TYPES.PLUSTICK,
                 "source": SOURCE_TYPES.YAHOO,
             },
         ]
@@ -47,27 +47,26 @@ class TickTest(unittest.TestCase):
             self.assertEqual(t.direction, i["direction"])
             self.assertEqual(t.source, i["source"])
 
+    def test_Tick_Set(self) -> None:
+        for i in self.params:
+            t = Tick()
+            t.set(i["code"], i["price"], i["volume"], i["direction"], i["timestamp"])
+            t.set_source(i["source"])
+            self.assertEqual(t.code, i["code"])
+            self.assertEqual(t.price, i["price"])
+            self.assertEqual(t.volume, i["volume"])
+            self.assertEqual(t.direction, i["direction"])
+            self.assertEqual(t.source, i["source"])
 
-#     def test_Tick_Set(self) -> None:
-#         for i in self.params:
-#             t = Tick()
-#             t.set(i["code"], i["price"], i["volume"], i["direction"], i["timestamp"])
-#             t.set_source(i["source"])
-#             self.assertEqual(t.code, i["code"])
-#             self.assertEqual(t.price, i["price"])
-#             self.assertEqual(t.volume, i["volume"])
-#             self.assertEqual(t.direction, i["direction"])
-#             self.assertEqual(t.source, i["source"])
-
-#     def test_Tick_SetFromDataFrame(self) -> None:
-#         for i in self.params:
-#             df = pd.DataFrame.from_dict(i, orient="index")
-#             t = Tick()
-#             print(df)
-#             t.set(df)
-#             t.set_source(i["source"])
-#             self.assertEqual(t.code, i["code"])
-#             self.assertEqual(t.price, i["price"])
-#             self.assertEqual(t.volume, i["volume"])
-#             self.assertEqual(t.direction, i["direction"])
-#             self.assertEqual(t.source, i["source"])
+    def test_Tick_SetFromDataFrame(self) -> None:
+        for i in self.params:
+            df = pd.DataFrame.from_dict(i, orient="index")
+            df = df[0]
+            t = Tick()
+            t.set(df)
+            t.set_source(i["source"])
+            self.assertEqual(t.code, i["code"])
+            self.assertEqual(t.price, i["price"])
+            self.assertEqual(t.volume, i["volume"])
+            self.assertEqual(t.direction, i["direction"])
+            self.assertEqual(t.source, i["source"])
