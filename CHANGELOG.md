@@ -26,7 +26,7 @@
   - [TODO] Basic Live engine demo
 
 ##### 0.5.2(DEV)
-  - [TODO] Basic Backtest demo
+  - [x] Basic Backtest demo
   - [TODO] Config file setup
   - [x] TDX
 
