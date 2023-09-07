@@ -159,7 +159,7 @@ def main():
         os.system(f"docker-compose -f {path_docker} up -d")
 
     # Install Ginkgo Package
-    os.system("python ./setup_install.py")
+    # os.system("python ./setup_install.py")
 
 
 if __name__ == "__main__":
