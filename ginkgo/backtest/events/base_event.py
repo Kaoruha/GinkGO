@@ -8,10 +8,19 @@ from ginkgo.libs import base_repr, datetime_normalize, gen_uuid4
 class EventBase(object, metaclass=ABCMeta):
     def __init__(self, *args, **kwargs) -> None:
         super(EventBase, self).__init__(*args, **kwargs)
+        self._name = "EventBase"
         self._timestamp = datetime.datetime.now()
         self._uuid = gen_uuid4()
         self._type = None
         self._source = SOURCE_TYPES.SIM
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def set_name(self, name: str) -> str:
+        self._name = name
+        return self._name
 
     @property
     def uuid(self) -> str:
@@ -29,12 +38,18 @@ class EventBase(object, metaclass=ABCMeta):
     def type(self) -> EVENT_TYPES:
         return self._type
 
-    @type.setter
-    def type(self, type: str or EVENT_TYPES) -> None:
+    def set_type(self, type: str or EVENT_TYPES) -> None:
         if isinstance(type, EVENT_TYPES):
             self._type = type
         elif isinstance(type, str):
             self._type = EVENT_TYPES.enum_convert(type)
+
+    # @type.setter
+    # def type(self, type: str or EVENT_TYPES) -> None:
+    #     if isinstance(type, EVENT_TYPES):
+    #         self._type = type
+    #     elif isinstance(type, str):
+    #         self._type = EVENT_TYPES.enum_convert(type)
 
     def set_time(self, timestamp: any):
         self._timestamp = datetime_normalize(timestamp)

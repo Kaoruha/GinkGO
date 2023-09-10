@@ -6,12 +6,13 @@ from ginkgo.libs import GinkgoSingleLinkedList
 from ginkgo.libs import datetime_normalize
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo import GLOG
+from ginkgo.backtest.backtest_base import BacktestBase
 
 
-class BaseFeed(object):
+class BaseFeed(BacktestBase):
     def __init__(self, *args, **kwargs):
+        super(BaseFeed, self).__init__(*args, **kwargs)
         self._subscribers = GinkgoSingleLinkedList()
-        self._now = None
 
     @property
     def subscribers(self) -> GinkgoSingleLinkedList:
@@ -24,20 +25,19 @@ class BaseFeed(object):
     def broadcast(self) -> None:
         raise NotImplementedError()
 
-    def on_time_goes_by(self, date: any) -> None:
-        date = datetime_normalize(date)
-        self._now = date
-
-    def get_history(self, code: str, date: any) -> pd.DataFrame:
-        print(f"Trying get history bar, {code}  date:{date}")
+    def get_daybar(self, code: str, date: any) -> pd.DataFrame:
+        GLOG.INFO(f"Trying get history bar, {code}  date:{date}")
         if code is None or date is None:
             return pd.DataFrame()
         datetime = datetime_normalize(date)
-        if self._now is None:
-            return GDATA.get_daybar_df(code, date, date)
+        if self.now is None:
+            GLOG.CRITICAL(f"Time need to be sync.")
+            return
         else:
             if datetime > self._now:
-                GLOG.WARN(f"CurrentDate: {self._now} you can not get the future info.")
+                GLOG.WARN(
+                    f"CurrentDate: {self.now} you can not get the future({datetime}) info."
+                )
                 return pd.DataFrame()
             else:
                 return GDATA.get_daybar_df(code, date, date)

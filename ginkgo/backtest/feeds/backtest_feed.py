@@ -12,39 +12,45 @@ from ginkgo.backtest.feeds.base_feed import BaseFeed
 from ginkgo import GLOG
 from ginkgo.backtest.events import EventPriceUpdate
 from ginkgo.backtest.bar import Bar
-from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs import datetime_normalize
+from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList
 
 
-class BarFeed(BaseFeed):
+class BacktestFeed(BaseFeed):
     def __init__(self, *args, **kwargs):
-        super(BarFeed, self).__init__(*args, **kwargs)
-        self._now = None
-        self._portfolio = None
+        super(BacktestFeed, self).__init__(*args, **kwargs)
+        self._engine = None
 
-    def bind_portfolio(self, portfolio):
-        self._portfolio = portfolio
+    @property
+    def engine(self):
+        return self._engine
 
-    def broadcast(self):
-        if self._portfolio is None:
-            GLOG.CRITICAL(f"Portfolio not bind. Can not broadcast.")
+    def bind_engine(self, engine):
+        self._engine = engine
+        if self._engine.datafeeder is None:
+            self._engine.bind_datafeeder(self)
+
+    def broadcast(self, *args, **kwargs):
+        if len(self.subscribers) == 0:
+            GLOG.CRITICAL(f"No portfolio subscribe. No target to broadcast.")
             return
 
         for sub in self.subscribers:
-            time = self._portfolio.now
-            self.on_time_goes_by(time)
-            interesting_list = self._portfolio.interested
+            interesting_list = sub.value.interested
+            if len(interesting_list) == 0:
+                continue
             # Get data
             df = pd.DataFrame()
-            for item in interesting_list:
-                code = item.value
+            for i in interesting_list:
+                code = i.value
                 if code is None:
                     continue
-                new_df = GDATA.get_daybar_df(code, time, time)
+                new_df = self.get_daybar(code, self.now)
                 df = pd.concat([df, new_df], ignore_index=True)
             # Broadcast
+            if df.shape[0] == 0:
+                continue
             for i, r in df.iterrows():
                 b = Bar()
                 b.set(r)
                 event = EventPriceUpdate(b)
-                sub.value.on_price_update(event)
+                self.engine.put(event)
