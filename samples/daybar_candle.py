@@ -3,8 +3,13 @@ from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.backtest.plots import CandlePlot
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python ./daybar_candle.py 000021.SZ 20200101 20200201")
+    if len(sys.argv) != 4:
+        print(
+            "\033[94m"
+            + "Usage: python ./daybar_candle.py 000021.SZ 20200101 20200201"
+            + "\033[0m"
+        )
+        sys.exit()
 
     code = sys.argv[1]
     date_start = sys.argv[2]

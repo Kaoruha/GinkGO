@@ -16,31 +16,31 @@ def bye():
     sys.exit()
 
 
-def blin(msg):
+def blin(msg: str):
     return "\033[05m" + msg + "\033[0m"
 
 
-def lightblue(msg):
+def lightblue(msg: str):
     return "\033[96m" + msg + "\033[0m"
 
 
-def blue(msg):
+def blue(msg: str):
     return "\033[94m" + msg + "\033[0m"
 
 
-def green(msg):
+def green(msg: str):
     return "\033[92m" + msg + "\033[0m"
 
 
-def lightyellow(msg):
+def lightyellow(msg: str):
     return "\033[93m" + msg + "\033[0m"
 
 
-def red(msg):
+def red(msg: str):
     return "\033[91m" + msg + "\033[0m"
 
 
-def bg_red(msg):
+def bg_red(msg: str):
     return "\033[41m" + msg + "\033[0m"
 
 
@@ -165,4 +165,3 @@ def main():
 if __name__ == "__main__":
     os.system("clear")
     main()
-    # os.system("python ./run_unittest.py --all")

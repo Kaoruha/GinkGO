@@ -18,6 +18,10 @@ from ginkgo.backtest.engines.base_engine import BaseEngine
 from ginkgo.backtest.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES
 from ginkgo import GLOG, GCONF
+from ginkgo.libs import datetime_normalize
+from ginkgo.backtest.portfolios import BasePortfolio
+from ginkgo.backtest.matchmakings import MatchMakingBase
+from ginkgo.libs import GinkgoSingleLinkedList
 
 
 class EventEngine(BaseEngine):
@@ -25,12 +29,79 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).__init__(*args, **kwargs)
         self._active = False
         self._interval: int = interval
+        self._time_interval = datetime.timedelta(days=1)
+        self._date_start = None
+        self._now = None
+        self.set_date_start(20000101)
+        self._duration = 100
         self._main_thread: Thread = Thread(target=self.main_loop)
         self._timer_thread: Thread = Thread(target=self.timer_loop)
         self._handles: dict = {}
         self._general_handles: list = []
         self._timer_handles: list = []
         self._queue: Queue = Queue()
+        self._portfolios = GinkgoSingleLinkedList()
+        self._matchmaking = None
+        self._datafeeder = None
+
+    @property
+    def datafeeder(self):
+        return self._datafeeder
+
+    def bind_datafeeder(self, datafeeder):
+        self._datafeeder = datafeeder
+        if self._datafeeder.engine is None:
+            self._datafeeder.bind_engine(self)
+
+    @property
+    def now(self) -> datetime.datetime:
+        return self._now
+
+    @property
+    def matchmaking(self) -> MatchMakingBase:
+        return self._matchmaking
+
+    def bind_matchmaking(self, matchmaking: MatchMakingBase) -> MatchMakingBase:
+        self._matchmaking = matchmaking
+        if self.matchmaking.engine is None:
+            self.matchmaking.bind_engine(self)
+        return self.matchmaking
+
+    @property
+    def portfolios(self) -> GinkgoSingleLinkedList:
+        return self._portfolios
+
+    def bind_portfolio(self, portfolio: BasePortfolio) -> int:
+        self._portfolios.append(portfolio)
+        for i in self.portfolios:
+            if i.value.engine is None:
+                i.value.bind_engine(self)
+        return len(self.portfolios)
+
+    @property
+    def duration(self) -> int:
+        return self._duration
+
+    def set_duration(self, duration: int) -> int:
+        self._duration = duration
+        return self._duration
+
+    @property
+    def date_start(self) -> datetime.datetime:
+        return self._date_start
+
+    def set_date_start(self, date: any) -> datetime.datetime:
+        self._date_start = datetime_normalize(date)
+        self._now = self._date_start
+        return self.date_start
+
+    def set_backtest_interval(self, interval: str) -> datetime.timedelta:
+        interval = interval.upper()
+        if interval == "DAY":
+            self._time_interval = datetime.timedelta(days=1)
+        elif interval == "MIN":
+            self._time_interval = datetime.timedelta(minutes=1)
+        return self._time_interval
 
     def main_loop(self) -> None:
         """
@@ -87,6 +158,8 @@ class EventEngine(BaseEngine):
     def _process(self, event: EventBase) -> None:
         if event.event_type in self._handles:
             [handle(event) for handle in self._handles[event.event_type]]
+        else:
+            GLOG.WARN(f"There is no handler for {event.event_type}")
 
         if len(self._general_handles) == 0:
             return
@@ -169,3 +242,21 @@ class EventEngine(BaseEngine):
     @property
     def todo_count(self) -> int:
         return self._queue.qsize()
+
+    def nextphase(self, *args, **kwargs) -> None:
+        self._now = self.now + self._time_interval
+        if len(self.portfolios) == 0:
+            GLOG.CRITICAL(f"There is no portfolio binded.")
+        else:
+            for i in self.portfolios:
+                i.value.on_time_goes_by(self.now)
+
+        if self.matchmaking is None:
+            GLOG.CRITICAL(f"There is no matchmaking binded.")
+        else:
+            self.matchmaking.on_time_goes_by(self.now)
+
+        if self.datafeeder is None:
+            GLOG.CRITICAL(f"There is no datafeeder.")
+        else:
+            self.datafeeder.on_time_goes_by(self.now)

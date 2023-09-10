@@ -443,10 +443,11 @@ class GinkgoData(object):
         insert_count = 0
         tdx = GinkgoTDX()
         nodata_count = 0
+        nodata_max = 50
         date = datetime.datetime.now()
         while True:
             # Break
-            if nodata_count >= 50:
+            if nodata_count >= nodata_max:
                 break
             # Query database
             date_start = date.strftime("%Y%m%d")
@@ -455,10 +456,7 @@ class GinkgoData(object):
             if self.is_tick_indb(code, date_start):
                 GLOG.WARN(f"{code} Tick on {date} is in database. Go next")
                 date = date + datetime.timedelta(days=-1)
-                if fast_mode:
-                    nodata_count += 1
-                else:
-                    nodata_count = 0
+                nodata_count += 1
                 continue
             # Fetch and insert
             rs = tdx.fetch_history_transaction(code, date)
@@ -484,7 +482,8 @@ class GinkgoData(object):
             self.commit()
             GLOG.INFO(f"Insert {code} Tick {len(l)}.")
             insert_count += len(l)
-            nodata_count = 0
+            if not fast_mode:
+                nodata_count = 0
             # ReCheck
             if self.is_tick_indb(code, date_start):
                 GLOG.INFO(f"{code} {date_start} Insert Recheck Successful.")

@@ -12,11 +12,13 @@ from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.libs import cal_fee, datetime_normalize, GinkgoSingleLinkedList
 from ginkgo import GLOG
+from ginkgo.backtest.backtest_base import BacktestBase
 
 
-class BasePortfolio(object):
+class BasePortfolio(BacktestBase):
     def __init__(self, *args, **kwargs) -> None:
-        self.name: str = "HaloPortfolio"
+        super(BasePortfolio, self).__init__(*args, **kwargs)
+        self.set_name("HaloPortfolio")
         self.cash: float = 100000
         self.frozen: float = 0
         self._position: dict = {}
@@ -24,7 +26,6 @@ class BasePortfolio(object):
         self._sizer = None
         self._risk_manager = None
         self._selector = None
-        self._now = None
         self.indexes: dict = {}
         self._engine = None
         self._interested = GinkgoSingleLinkedList()
@@ -142,10 +143,6 @@ class BasePortfolio(object):
     def strategies(self) -> dict:
         return self._strategies
 
-    @property
-    def now(self) -> datetime.datetime:
-        return self._now
-
     def add_strategy(self, strategy: StrategyBase) -> None:
         # TODO Remove the duplicated one
         self.strategies.append(strategy)
@@ -159,30 +156,6 @@ class BasePortfolio(object):
                 DIRECTION_TYPES.LONG, position.cost, position.volume
             )
 
-    def on_time_goes_by(self, time: any, *args, **kwargs):
-        if not self.is_all_set():
-            return
-        self._interested = GinkgoSingleLinkedList()
-        codes = self.selector.pick()
-        for code in codes:
-            self._interested.append(code)
-        time = datetime_normalize(time)
-        if time is None:
-            print("Format not support, can not update time")
-            return
-        if self._now is None:
-            self._now = time
-        else:
-            if time < self.now:
-                GLOG.ERROR("We can not go back such as a TIME TRAVALER.")
-                return
-            elif time == self.now:
-                GLOG.WARN("The time not goes on.")
-                return
-            else:
-                # Go next frame
-                self._now = time
-
     def get_position(self, code: str) -> Position:
         raise NotImplemented
 
@@ -191,3 +164,12 @@ class BasePortfolio(object):
 
     def on_signal(self, code: str) -> Order:
         raise NotImplemented
+
+    def on_time_goes_by(self, time: any, *args, **kwargs):
+        super(BasePortfolio, self).on_time_goes_by(time, *args, **kwargs)
+        if not self.is_all_set():
+            return
+        self._interested = GinkgoSingleLinkedList()
+        codes = self.selector.pick()
+        for code in codes:
+            self._interested.append(code)

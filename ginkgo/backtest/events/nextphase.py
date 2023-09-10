@@ -7,9 +7,10 @@ from ginkgo.data.ginkgo_data import GDATA
 
 
 class EventNextPhase(EventBase):
-    def __init__(self, order_id=None, *args, **kwargs) -> None:
-        super(EventOrderFill, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super(EventNextPhase, self).__init__(*args, **kwargs)
         self.event_type = EVENT_TYPES.NEXTPHASE
+        self.set_name("EventNextPhase")
 
     def __repr__(self):
-        return base_repr(self, EventOrderFill.__name__, 16, 60)
+        return base_repr(self, EventNextPhase.__name__, 16, 60)

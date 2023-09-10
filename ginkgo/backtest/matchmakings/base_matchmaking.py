@@ -4,15 +4,27 @@ from ginkgo.libs import datetime_normalize
 from ginkgo.backtest.events import EventPriceUpdate
 from ginkgo import GLOG
 from ginkgo.enums import PRICEINFO_TYPES, DIRECTION_TYPES
+from ginkgo.backtest.backtest_base import BacktestBase
 
 
-class MatchMakingBase(object):
+class MatchMakingBase(BacktestBase):
     def __init__(self, *args, **kwargs):
-        self._now = None
+        super(MatchMakingBase, self).__init__(*args, **kwargs)
+        self.set_name("HaloMatchmaking")
         self._price = pd.DataFrame()
         self._orders = []
         self._commission_rate = 0.0003
         self._commission_min = 5
+        self._engine = None
+
+    @property
+    def engine(self):
+        return self._engine
+
+    def bind_engine(self, engine):
+        self._engine = engine
+        if engine.matchmaking is None:
+            engine.bind_matchmaking(self)
 
     @property
     def commision_rate(self) -> float:
@@ -23,36 +35,12 @@ class MatchMakingBase(object):
         return self._commission_min
 
     @property
-    def now(self) -> datetime.datetime:
-        return self._now
-
-    @property
     def orders(self) -> list:
         return self._orders
 
     @property
     def price(self) -> pd.DataFrame:
         return self._price
-
-    def on_time_goes_by(self, time: any, *args, **kwargs):
-        time = datetime_normalize(time)
-        if time is None:
-            print("Format not support, can not update time")
-            return
-        if self._now is None:
-            self._now = time
-        else:
-            if time < self.now:
-                print("We can not go back such as a time traveller")
-                return
-            elif time == self.now:
-                print("time not goes on")
-                return
-            else:
-                # Go next frame
-                self._now = time
-                # Reset the price
-                self._price = pd.DataFrame()
 
     def on_price_update(self, event: EventPriceUpdate, *args, **kwargs):
         # TODO Check the source
@@ -66,12 +54,12 @@ class MatchMakingBase(object):
         if time is None:
             GLOG.ERROR(f"Price Event has no time. It is illegal")
             return
-        if time < self._now:
+        if time < self.now:
             GLOG.ERROR(
                 f"Current Time is {self.now} the price come from past {event.timestamp}"
             )
             return
-        elif time > self._now:
+        elif time > self.now:
             GLOG.ERROR(
                 f"Current Time is {self.now} the price come from future {event.timestamp}"
             )
