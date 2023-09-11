@@ -29,7 +29,7 @@
     <!-- Users and ACL. -->
     <users>
         <!-- If user name was not specified, 'default' user is used. -->
-        <ginkgo>
+        <admin>
             <!-- <password_sha256_hex>b3bcef8790658a72c3c6c3016eb6dd57f0f6ce77ad408b3ba7f050836d9e1b32</password_sha256_hex> -->
             <password_sha256_hex>7b5dffc9fe637927b732626a31c153209a6d716fd025fd552dd1c36ba4917486</password_sha256_hex>
             <networks>
@@ -41,7 +41,7 @@
 
             <!-- Quota for user. -->
             <quota>default</quota>
-        </ginkgo>
+        </admin>
         <default>
             <!-- See also the files in users.d directory where the password can be overridden.
                  Password could be specified in plaintext or in SHA256 (in hex format).
