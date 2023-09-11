@@ -1,5 +1,5 @@
 # yaml 配置实例
-version: '3'
+version: "3"
 services:
   MS:
     image: mysql
@@ -47,8 +47,6 @@ services:
       - "8123:8123"
       - "9000:9000"
       - "9009:9009"
-    # networks:
-    #   - nets
     volumes:
       - ../.logs/clickhouse:/var/log/clickhouse-server
       - ./clickhouse_users.xml:/etc/clickhouse-server/users.xml
@@ -71,8 +69,6 @@ services:
       - "18123:8123"
       - "19000:9000"
       - "19009:9009"
-    # networks:
-    #   - nets
     volumes:
       - ../.logs/clickhouse_test:/var/log/clickhouse-server
       - ./clickhouse_users.xml:/etc/clickhouse-server/users.xml
@@ -86,15 +82,3 @@ services:
     environment:
       CLICKHOUSE_DB: ginkgo
       SHOW: 'ture'
-
-  # Agent:
-  #   build: 
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   image: ginkgo_agent
-  #   container_name: ginkgo_agent
-  #   networks:
-  #     - nets
-# networks: 
-#   nets:
-#     external: false
