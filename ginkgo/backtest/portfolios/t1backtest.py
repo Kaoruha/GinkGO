@@ -42,7 +42,7 @@ class PortfolioT1Backtest(BasePortfolio):
 
         for signal in self.signals:
             e = EventSigalGeneration(signal)
-            self.engine.put(e)
+            # self.engine.put(e)
         self.signals = GinkgoSingleLinkedList()
 
     def on_signal(self, event: EventSigalGeneration):
