@@ -5,8 +5,8 @@ from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
 
 
 class FixedSizer(BaseSizer):
-    def __init__(self, volume: int = 100, *args, **kwargs):
-        super(FixedSizer, self).__init__(*args, **kwargs)
+    def __init__(self, name: str = "FixedSizer", volume: int = 150, *args, **kwargs):
+        super(FixedSizer, self).__init__(name, *args, **kwargs)
         self._volume = volume
 
     @property
@@ -14,9 +14,10 @@ class FixedSizer(BaseSizer):
         return self._volume
 
     def cal(self, signal: Signal):
-        now = signal.timestamp
         code = signal.code
-        df = self.feed.get_history(code, now)
+        df = self.data_feeder.get_daybar(code, signal.timestamp)
+        print("Stock info:")
+        print(df)
         if df.shape[0] == 0:
             return
         close = df.loc[0].close
@@ -35,10 +36,12 @@ class FixedSizer(BaseSizer):
                 transaction_price=0,
                 remain=0,
                 fee=0,
-                timestamp=now,
+                timestamp=self.now,
             )
         elif signal.direction == DIRECTION_TYPES.SHORT:
             pos = self.portfolio.get_position(code)
+            if pos is None:
+                return
             o.set(
                 signal.code,
                 signal.direction,
@@ -50,6 +53,6 @@ class FixedSizer(BaseSizer):
                 transaction_price=0,
                 remain=0,
                 fee=0,
-                timestamp=now,
+                timestamp=self.now,
             )
         return o

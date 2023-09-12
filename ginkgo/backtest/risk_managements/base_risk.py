@@ -1,8 +1,10 @@
 from ginkgo.backtest.order import Order
+from ginkgo.backtest.backtest_base import BacktestBase
 
 
-class BaseRiskManagement:
-    def __init__(self, *args, **kwargs):
+class BaseRiskManagement(BacktestBase):
+    def __init__(self, name: str = "baseriskmanagement", *args, **kwargs):
+        super(BaseRiskManagement, self).__init__(name, *args, **kwargs)
         self._portfolio = None
 
     @property

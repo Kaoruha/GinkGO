@@ -10,7 +10,7 @@ from ginkgo.enums import (
     ORDER_TYPES,
     DIRECTION_TYPES,
 )
-from ginkgo.backtest.events import EventPriceUpdate
+from ginkgo.backtest.events import EventPriceUpdate, EventOrderSubmitted
 from ginkgo import GLOG
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MOrder
@@ -41,8 +41,11 @@ class MatchMakingSim(MatchMakingBase):
     def attitude(self) -> ATTITUDE_TYPES:
         return self._attitude
 
-    def on_stock_order(self, order_id: str):
+    def on_stock_order(self, event: EventOrderSubmitted):
         # Check if the id exsist
+        print("Simmatch got an event.")
+        print(event)
+        order_id = event.value.order_id
         o = self.query_order(order_id)
         if o is None:
             return

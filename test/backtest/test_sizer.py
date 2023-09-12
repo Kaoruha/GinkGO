@@ -2,7 +2,7 @@
 # import time
 # import datetime
 # from ginkgo import GLOG
-# from ginkgo.backtest.events import EventSigalGeneration
+# from ginkgo.backtest.events import EventSignalGeneration
 # from ginkgo.libs import datetime_normalize
 # from ginkgo.backtest.sizers import BaseSizer, FixedSizer, ATRSizer
 # from ginkgo.backtest.portfolios import BasePortfolio, PortfolioT1Backtest
@@ -64,7 +64,7 @@
 #         signal = Signal(code, DIRECTION_TYPES.LONG, 20200101)
 #         o = sizer.cal(signal)
 #         self.assertEqual(10.2 * 1.1 * 1000, o.frozen)
-#         event = EventSigalGeneration(signal)
+#         event = EventSignalGeneration(signal)
 #         p.on_signal(event)
 #         self.assertEqual(0, p.frozen)
 #         p.on_time_goes_by(20200102)

@@ -48,6 +48,9 @@ class GinkgoSingleLinkedList(object):
         if current.next == None:
             yield current
 
+    def __repr__(self) -> str:
+        return f"{len(self)} Nodes Chain."
+
 
 class GinkgoSingleLinkedNode(object):
     def __init__(self, value=None, next=None):
