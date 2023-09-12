@@ -59,7 +59,8 @@ class BasePortfolio(BacktestBase):
             r = False
 
         if len(self.strategies) == 0:
-            GLOG.WARN(f"No strategy register. Just for test.")
+            GLOG.WARN(f"No strategy register. No signal will come.")
+
         return r
 
     def bind_selector(self, selector: BaseSelector):
@@ -107,6 +108,9 @@ class BasePortfolio(BacktestBase):
             return
         self._sizer = sizer
         self.sizer.bind_portfolio(self)
+        if self.engine:
+            if self.engine.datafeeder:
+                self.sizer.bind_datafeeder(self.engine.datafeeder)
 
     @property
     def sizer(self) -> BaseSizer:
@@ -144,8 +148,9 @@ class BasePortfolio(BacktestBase):
         return self._strategies
 
     def add_strategy(self, strategy: StrategyBase) -> None:
-        # TODO Remove the duplicated one
         self.strategies.append(strategy)
+        if strategy.portfolio is None:
+            strategy.bind_portfolio(self)
 
     def add_position(self, position: Position):
         code = position.code
@@ -169,6 +174,7 @@ class BasePortfolio(BacktestBase):
         super(BasePortfolio, self).on_time_goes_by(time, *args, **kwargs)
         if not self.is_all_set():
             return
+        self.sizer.on_time_goes_by(time)
         self._interested = GinkgoSingleLinkedList()
         codes = self.selector.pick()
         for code in codes:

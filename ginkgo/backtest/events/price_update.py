@@ -155,29 +155,30 @@ class EventPriceUpdate(EventBase):
         return df
 
     def __repr__(self):
-        mem = f"Mem   : {hex(id(self))}"
-        event_id = f"UUID    : {self.uuid}"
-        source = f"Source: {self.source} : {self.source.value}"
-        date = f"Date  : {self.timestamp}"
-        event_t = f"Type  : {self.event_type} : {self.event_type.value}"
-        price_t = f"Price : {self.price_type} : {self.price_type.value}"
-        msg = [mem, event_id, source, date, event_t, price_t]
+        mem = f"      Mem: {hex(id(self))}"
+        event_id = f"     UUID: {self.uuid}"
+        source = f"   Source: {self.source} : {self.source.value}"
+        date = f"     Date: {self.timestamp}"
+        event_t = f"     Type: {self.event_type} : {self.event_type.value}"
+        price_t = f"    Price: {self.price_type} : {self.price_type.value}"
+        code = f"     Code: {self.code}"
+        msg = [mem, event_id, source, date, event_t, price_t, code]
 
         if self.price_type == PRICEINFO_TYPES.BAR:
-            open_ = f"Open  : {self.value.open}"
-            high = f"High  : {self.value.high}"
-            low = f"Low   : {self.value.low}"
-            close = f"Close : {self.value.close}"
-            volume = f"Volume: {self.value.volume}"
+            open_ = f"     Open: {self.value.open}"
+            high = f"     High: {self.value.high}"
+            low = f"      Low: {self.value.low}"
+            close = f"    Close: {self.value.close}"
+            volume = f"   Volume: {self.value.volume}"
             msg.append(open_)
             msg.append(high)
             msg.append(low)
             msg.append(close)
             msg.append(volume)
         elif self.price_type == PRICEINFO_TYPES.TICK:
-            price = f"Price : {self.value.price}"
-            volume = f"Volume: {self.value.volume}"
+            price = f"    Price: {self.value.price}"
+            volume = f"   Volume: {self.value.volume}"
             msg.append(price)
             msg.append(volume)
 
-        return pretty_repr(EventPriceUpdate.__name__, msg, 50)
+        return pretty_repr(EventPriceUpdate.__name__, msg, 54)

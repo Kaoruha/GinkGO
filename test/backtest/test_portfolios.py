@@ -9,7 +9,7 @@
 # from ginkgo.backtest.engines import BaseEngine, EventEngine
 # from ginkgo.backtest.portfolios import BasePortfolio, PortfolioT1Backtest
 # from ginkgo.backtest.position import Position
-# from ginkgo.backtest.events import EventPriceUpdate, EventSigalGeneration
+# from ginkgo.backtest.events import EventPriceUpdate, EventSignalGeneration
 # from ginkgo.backtest.signal import Signal
 # from ginkgo.libs.ginkgo_math import cal_fee
 # from ginkgo.backtest.indexes import BaseIndex
@@ -154,7 +154,7 @@
 #         p.bind_selector(s)
 #         p.on_time_goes_by("20000101")
 #         signal = Signal(code, DIRECTION_TYPES.LONG, 20000101)
-#         event = EventSigalGeneration(signal)
+#         event = EventSignalGeneration(signal)
 #         p.on_signal(event)
 #         self.assertEqual(1, len(p.signals))
 #         p.on_time_goes_by("20000102")

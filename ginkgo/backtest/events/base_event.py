@@ -6,9 +6,10 @@ from ginkgo.libs import base_repr, datetime_normalize, gen_uuid4
 
 
 class EventBase(object, metaclass=ABCMeta):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, name: str = "EventBase", *args, **kwargs) -> None:
         super(EventBase, self).__init__(*args, **kwargs)
-        self._name = "EventBase"
+        self._name = ""
+        self.set_name(name)
         self._timestamp = datetime.datetime.now()
         self._uuid = gen_uuid4()
         self._type = None
@@ -43,13 +44,6 @@ class EventBase(object, metaclass=ABCMeta):
             self._type = type
         elif isinstance(type, str):
             self._type = EVENT_TYPES.enum_convert(type)
-
-    # @type.setter
-    # def type(self, type: str or EVENT_TYPES) -> None:
-    #     if isinstance(type, EVENT_TYPES):
-    #         self._type = type
-    #     elif isinstance(type, str):
-    #         self._type = EVENT_TYPES.enum_convert(type)
 
     def set_time(self, timestamp: any):
         self._timestamp = datetime_normalize(timestamp)

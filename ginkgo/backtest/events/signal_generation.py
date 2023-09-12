@@ -3,9 +3,9 @@ from ginkgo.enums import EVENT_TYPES
 from ginkgo.backtest.signal import Signal
 
 
-class EventSigalGeneration(EventBase):
-    def __init__(self, signal, *args, **kwargs):
-        super(EventSigalGeneration, self).__init__(*args, **kwargs)
+class EventSignalGeneration(EventBase):
+    def __init__(self, signal, name: str = "EventSignalGen", *args, **kwargs):
+        super(EventSignalGeneration, self).__init__(name, *args, **kwargs)
         self.event_type = EVENT_TYPES.SIGNALGENERATION
         self._signal = signal
 

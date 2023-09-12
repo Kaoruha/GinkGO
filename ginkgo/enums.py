@@ -63,6 +63,7 @@ class SOURCE_TYPES(EnumBase):
     YAHOO = 6
     TUSHARE = 7
     PORTFOLIO = 8
+    STRATEGY = 9
 
 
 class DIRECTION_TYPES(EnumBase):
@@ -96,5 +97,3 @@ class ATTITUDE_TYPES(EnumBase):
     PESSMISTIC = 1
     OPTIMISTIC = 2
     RANDOM = 3
-
-

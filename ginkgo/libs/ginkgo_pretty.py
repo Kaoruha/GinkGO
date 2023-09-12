@@ -1,5 +1,6 @@
 from types import FunctionType, MethodType
 from enum import Enum
+from ginkgo.libs.ginkgo_links import GinkgoSingleLinkedList
 
 
 def chinese_count(msg):
@@ -38,7 +39,7 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
     return r
 
 
-def base_repr(obj, name, label_len=12, total_len=80):
+def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs):
     methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
     r = []
     count = 12

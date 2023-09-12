@@ -4,8 +4,9 @@ from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList
 
 
 class BacktestBase(object):
-    def __init__(self, *args, **kwargs) -> None:
-        self._name: str = "backtest_base"
+    def __init__(self, name: str = "backtest_base", *args, **kwargs) -> None:
+        self._name: str = ""
+        self.set_name(name)
         self._now: datetime.datetime = None
 
     @property
@@ -40,3 +41,6 @@ class BacktestBase(object):
                 old = self._now
                 self._now = time
                 GLOG.INFO(f"{self.name} Time Elapses: {old} --> {self._now}")
+
+    def __repr__(self) -> str:
+        return self.name

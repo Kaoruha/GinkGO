@@ -1,1 +1,2 @@
 from ginkgo.backtest.strategies.base_strategy import StrategyBase
+from ginkgo.backtest.strategies.volume_activate import StrategyVolumeActivate

@@ -7,5 +7,5 @@ from ginkgo.backtest.events.order_submitted import EventOrderSubmitted
 from ginkgo.backtest.events.order_execute import EventOrderExecute
 from ginkgo.backtest.events.price_update import EventPriceUpdate
 from ginkgo.backtest.events.position_update import EventPositionUpdate
-from ginkgo.backtest.events.signal_generation import EventSigalGeneration
+from ginkgo.backtest.events.signal_generation import EventSignalGeneration
 from ginkgo.backtest.events.nextphase import EventNextPhase

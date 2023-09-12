@@ -25,8 +25,10 @@ from ginkgo.libs import GinkgoSingleLinkedList
 
 
 class EventEngine(BaseEngine):
-    def __init__(self, interval: int = 1, *args, **kwargs) -> None:
-        super(EventEngine, self).__init__(*args, **kwargs)
+    def __init__(
+        self, name: str = "EventEngine", interval: int = 1, *args, **kwargs
+    ) -> None:
+        super(EventEngine, self).__init__(name, *args, **kwargs)
         self._active = False
         self._interval: int = interval
         self._time_interval = datetime.timedelta(days=1)
@@ -175,7 +177,7 @@ class EventEngine(BaseEngine):
         else:
             self._handles[type]: list = []
             self._handles[type].append(handle)
-            GLOG.INFO(f"Register handle {type} : {handle}")
+            GLOG.INFO(f"Register handle {type} : {handle.__func__}")
 
     def unregister(self, type: EVENT_TYPES, handle: callable) -> None:
         if type not in self._handles:
