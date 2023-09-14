@@ -31,7 +31,7 @@ class BacktestFeed(BaseFeed):
 
     def broadcast(self, *args, **kwargs):
         if len(self.subscribers) == 0:
-            GLOG.CRITICAL(f"No portfolio subscribe. No target to broadcast.")
+            GLOG.ERROR(f"No portfolio subscribe. No target to broadcast.")
             return
 
         for sub in self.subscribers:

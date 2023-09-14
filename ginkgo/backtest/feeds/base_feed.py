@@ -31,7 +31,7 @@ class BaseFeed(BacktestBase):
             return pd.DataFrame()
         datetime = datetime_normalize(date)
         if self.now is None:
-            GLOG.CRITICAL(f"Time need to be sync.")
+            GLOG.ERROR(f"Time need to be sync.")
             return
         else:
             if datetime > self._now:

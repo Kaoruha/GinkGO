@@ -13,7 +13,7 @@ class EventTradeExcution(EventBase):
 
     def __init__(self, order_id=None, *args, **kwargs) -> None:
         super(EventTradeExcution, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.TRADEEXCUTION
+        self.set_type(EVENT_TYPES.TRADEEXCUTION)
         self._order = None
         if order_id:
             self.get_order(order_id)

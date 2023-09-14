@@ -40,7 +40,7 @@ class Position(Base):
 
     def _bought(self, price: float, volume: int) -> None:
         if price < 0 or volume < 0:
-            GLOG.logger.critical(f"Illegal price:{price} or volume:{volume}")
+            GLOG.logger.ERROR(f"Illegal price:{price} or volume:{volume}")
             return
         old_price = self.price
         old_volume = self.volume
@@ -55,7 +55,7 @@ class Position(Base):
         if price < 0:
             return
         if volume > self.frozen:
-            GLOG.logger.critical(
+            GLOG.logger.ERROR(
                 f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code"
             )
             return
@@ -87,7 +87,7 @@ class Position(Base):
 
     def freeze(self, volume: int) -> int:
         if volume > self.volume:
-            GLOG.logger.critical(
+            GLOG.logger.ERROR(
                 f"POS {self.code} just has {self.volume} cant afford {volume}, please check your code"
             )
             return self.volume
@@ -101,7 +101,7 @@ class Position(Base):
 
     def unfreeze(self, volume: int) -> None:
         if volume > self.frozen:
-            GLOG.logger.critical(
+            GLOG.logger.ERROR(
                 f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code"
             )
             return

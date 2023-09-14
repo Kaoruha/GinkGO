@@ -13,7 +13,7 @@ class EventTradeCancellation(EventBase):
 
     def __init__(self, order_id=None, *args, **kwargs) -> None:
         super(EventTradeCancellation, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.TRADECANCELLATION
+        self.set_type(EVENT_TYPES.TRADECANCELLATION)
         self._order = None
         if order_id:
             self.get_order(order_id)

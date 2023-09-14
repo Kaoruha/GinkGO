@@ -12,7 +12,7 @@ class EventBase(object, metaclass=ABCMeta):
         self.set_name(name)
         self._timestamp = datetime.datetime.now()
         self._uuid = gen_uuid4()
-        self._type = None
+        self._event_type = None
         self._source = SOURCE_TYPES.SIM
 
     @property
@@ -36,14 +36,14 @@ class EventBase(object, metaclass=ABCMeta):
         return self._timestamp
 
     @property
-    def type(self) -> EVENT_TYPES:
-        return self._type
+    def event_type(self) -> EVENT_TYPES:
+        return self._event_type
 
     def set_type(self, type: str or EVENT_TYPES) -> None:
         if isinstance(type, EVENT_TYPES):
-            self._type = type
+            self._event_type = type
         elif isinstance(type, str):
-            self._type = EVENT_TYPES.enum_convert(type)
+            self._event_type = EVENT_TYPES.enum_convert(type)
 
     def set_time(self, timestamp: any):
         self._timestamp = datetime_normalize(timestamp)

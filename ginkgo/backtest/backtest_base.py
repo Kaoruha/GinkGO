@@ -28,7 +28,7 @@ class BacktestBase(object):
             return
         if self._now is None:
             self._now = time
-            GLOG.INFO(f"{self.name} Time Init: None --> {self._now}")
+            GLOG.DEBUG(f"{self.name} Time Init: None --> {self._now}")
         else:
             if time < self.now:
                 GLOG.ERROR("We can not go back such as a TIME TRAVALER.")

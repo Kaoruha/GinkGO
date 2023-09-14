@@ -6,7 +6,7 @@ from ginkgo.backtest.signal import Signal
 class EventSignalGeneration(EventBase):
     def __init__(self, signal, name: str = "EventSignalGen", *args, **kwargs):
         super(EventSignalGeneration, self).__init__(name, *args, **kwargs)
-        self.event_type = EVENT_TYPES.SIGNALGENERATION
+        self.set_type(EVENT_TYPES.SIGNALGENERATION)
         self._signal = signal
 
     @property

@@ -143,7 +143,7 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).start()
         self._main_thread.start()
         self._timer_thread.start()
-        GLOG.CRITICAL("Engine Start.")
+        GLOG.ERROR("Engine Start.")
 
     def stop(self) -> None:
         """
@@ -152,7 +152,7 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).stop()
         self._main_thread.join()
         self._timer_thread.join()
-        GLOG.CRITICAL("Engine Stop.")
+        GLOG.ERROR("Engine Stop.")
 
     def put(self, event: EventBase) -> None:
         self._queue.put(event)
@@ -248,17 +248,17 @@ class EventEngine(BaseEngine):
     def nextphase(self, *args, **kwargs) -> None:
         self._now = self.now + self._time_interval
         if len(self.portfolios) == 0:
-            GLOG.CRITICAL(f"There is no portfolio binded.")
+            GLOG.ERROR(f"There is no portfolio binded.")
         else:
             for i in self.portfolios:
                 i.value.on_time_goes_by(self.now)
 
         if self.matchmaking is None:
-            GLOG.CRITICAL(f"There is no matchmaking binded.")
+            GLOG.ERROR(f"There is no matchmaking binded.")
         else:
             self.matchmaking.on_time_goes_by(self.now)
 
         if self.datafeeder is None:
-            GLOG.CRITICAL(f"There is no datafeeder.")
+            GLOG.ERROR(f"There is no datafeeder.")
         else:
             self.datafeeder.on_time_goes_by(self.now)

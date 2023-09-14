@@ -19,8 +19,8 @@ class BasePortfolio(BacktestBase):
     def __init__(self, *args, **kwargs) -> None:
         super(BasePortfolio, self).__init__(*args, **kwargs)
         self.set_name("HaloPortfolio")
-        self.cash: float = 100000
-        self.frozen: float = 0
+        self._cash: float = 100000
+        self._frozen: float = 0
         self._position: dict = {}
         self._strategies = GinkgoSingleLinkedList()
         self._sizer = None
@@ -29,6 +29,33 @@ class BasePortfolio(BacktestBase):
         self.indexes: dict = {}
         self._engine = None
         self._interested = GinkgoSingleLinkedList()
+        self._fee = 0
+
+    def add_found(self, money: float) -> float:
+        if money < 0:
+            GLOG.ERROR(f"The money should not under 0. {money} is illegal.")
+        else:
+            self._cash += money
+        return self.cash
+
+    @property
+    def cash(self) -> float:
+        return self._cash
+
+    @property
+    def frozen(self) -> float:
+        return self._frozen
+
+    @property
+    def fee(self) -> float:
+        return self._fee
+
+    def add_fee(self, fee: float) -> float:
+        if fee < 0:
+            GLOG.ERROR(f"The fee should not under 0. {fee} is illegal.")
+        else:
+            self._fee += fee
+        return self.fee
 
     @property
     def interested(self) -> GinkgoSingleLinkedList():
@@ -37,23 +64,23 @@ class BasePortfolio(BacktestBase):
     def is_all_set(self) -> bool:
         r = True
         if self.engine is None:
-            GLOG.CRITICAL(f"Engine not bind. Events can not put back to the ENGINE.")
+            GLOG.ERROR(f"Engine not bind. Events can not put back to the ENGINE.")
             r = False
 
         if self.sizer is None:
-            GLOG.CRITICAL(
+            GLOG.ERROR(
                 f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first."
             )
             r = False
 
         if self.risk_manager is None:
-            GLOG.CRITICAL(
+            GLOG.ERROR(
                 f"Portfolio RiskManager not set. Can not Adjust the order. Please set the RISKMANAGER first."
             )
             r = False
 
         if self.selector is None:
-            GLOG.CRITICAL(
+            GLOG.ERROR(
                 f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first."
             )
             r = False
@@ -120,9 +147,18 @@ class BasePortfolio(BacktestBase):
         if money >= self.cash:
             return False
         else:
-            self.frozen += money
-            self.cash -= money
+            self._frozen += money
+            self._cash -= money
             return True
+
+    def unfreeze(self, money: float) -> float:
+        if money > self.frozen:
+            GLOG.ERROR(
+                f"We cant unfreeze {money}, the max unfreeze is only {self.frozen}"
+            )
+        else:
+            self._frozen -= money
+        return self.frozen
 
     def put(self, event):
         if self.engine is None:
@@ -168,6 +204,12 @@ class BasePortfolio(BacktestBase):
         raise NotImplemented
 
     def on_signal(self, code: str) -> Order:
+        raise NotImplemented
+
+    def on_order_filled(self, order):
+        raise NotImplemented
+
+    def on_order_canceled(self, order):
         raise NotImplemented
 
     def on_time_goes_by(self, time: any, *args, **kwargs):
