@@ -25,7 +25,7 @@
   - [TODO] Add Trading Records.
   - [TODO] Basic Live engine demo
 
-##### 0.5.2(DEV)
+##### 0.5.2
   - [x] Basic Backtest demo
   - [TODO] Config file setup
   - [x] TDX

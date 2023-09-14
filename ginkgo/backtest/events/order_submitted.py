@@ -9,7 +9,7 @@ class EventOrderSubmitted(EventOrderRelated):
 
     def __init__(self, order_id: str = "", *args, **kwargs) -> None:
         super(EventOrderSubmitted, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.ORDERSUBMITTED
+        self.set_type(EVENT_TYPES.ORDERSUBMITTED)
         self._order = None
         if order_id != "":
             self._order_id = order_id

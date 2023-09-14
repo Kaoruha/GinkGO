@@ -14,15 +14,18 @@ from ginkgo.backtest.bar import Bar
 from ginkgo import GLOG
 from ginkgo.backtest.events import (
     EventOrderSubmitted,
+    EventOrderFilled,
     EventSignalGeneration,
     EventPriceUpdate,
+    EventOrderCanceled,
 )
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MOrder
 from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize
 from ginkgo.backtest.signal import Signal
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, ORDERSTATUS_TYPES
 from ginkgo.libs.ginkgo_pretty import base_repr
+from ginkgo.backtest.position import Position
 
 
 class PortfolioT1Backtest(BasePortfolio):
@@ -54,11 +57,11 @@ class PortfolioT1Backtest(BasePortfolio):
 
         for signal in self.signals:
             e = EventSignalGeneration(signal.value)
-            self.engine.put(e)
+            self.put(e)
         self._signals = GinkgoSingleLinkedList()
 
     def on_signal(self, event: EventSignalGeneration):
-        GLOG.CRITICAL(f"{self.name} got a signal about {event.code}.")
+        GLOG.INFO(f"{self.name} got a signal about {event.code}.")
         # Check Everything.
         if not self.is_all_set():
             return
@@ -82,62 +85,65 @@ class PortfolioT1Backtest(BasePortfolio):
         # 2. Get the order return
         if order is None:
             return
-        # # 3. Transfer the order to risk_manager
-        # if self.risk_manager is None:
-        #     GLOG.ERROR(
-        #         f"Portfolio RiskManager not set. Can not handle the order. Please set the RiskManager first."
-        #     )
-        #     return
-        # order_adjusted = self.risk_manager.cal(order)
-        # # 4. Get the adjusted order, if so put eventorder to engine
-        # if order_adjusted is None:
-        #     return
-        # # 5. Create order, stored into db
-        # mo = MOrder()
-        # if order_adjusted.direction == DIRECTION_TYPES.LONG:
-        #     freeze_ok = self.freeze(order_adjusted.frozen)
-        #     if not freeze_ok:
-        #         return
-        #     mo.set(
-        #         order_adjusted.code,
-        #         order_adjusted.direction,
-        #         order_adjusted.type,
-        #         order_adjusted.status,
-        #         order_adjusted.volume,
-        #         order_adjusted.limit_price,
-        #         order_adjusted.frozen,
-        #         order_adjusted.transaction_price,
-        #         order_adjusted.remain,
-        #         order_adjusted.fee,
-        #         self.now,
-        #         order_adjusted.uuid,
-        #     )
-        #     GDATA.add(mo)
-        #     e = EventOrderSubmitted(mo.uuid)
-        #     # 6. Create Event
-        #     self.engine.put(e)
-        # elif order_adjusted.direction == DIRECTION_TYPES.SHORT:
-        #     pos: Position = self.get_position(order_adjusted.code)
-        #     volume_freezed = pos.freeze(order_adjusted.volume)
-        #     mo.set(
-        #         order_adjusted.code,
-        #         order_adjusted.direction,
-        #         order_adjusted.type,
-        #         order_adjusted.status,
-        #         volume_freezed,
-        #         order_adjusted.limit_price,
-        #         order_adjusted.frozen,
-        #         order_adjusted.transaction_price,
-        #         order_adjusted.remain,
-        #         order_adjusted.fee,
-        #         self.now,
-        #         order_adjusted.uuid,
-        #     )
-        #     GDATA.add(mo)
-        #     e = EventOrderSubmitted(mo.uuid)
-        #     # 6. Create Event
-        #     self.engine.put(e)
-        # self.orders.append(order_adjusted.uuid)
+        # 3. Transfer the order to risk_manager
+        if self.risk_manager is None:
+            GLOG.ERROR(
+                f"Portfolio RiskManager not set. Can not handle the order. Please set the RiskManager first."
+            )
+            return
+        order_adjusted = self.risk_manager.cal(order)
+        # 4. Get the adjusted order, if so put eventorder to engine
+        if order_adjusted is None:
+            return
+        # 5. Create order, stored into db
+        mo = MOrder()
+        if order_adjusted.direction == DIRECTION_TYPES.LONG:
+            freeze_ok = self.freeze(order_adjusted.frozen)
+            if not freeze_ok:
+                return
+            mo.set(
+                order_adjusted.code,
+                order_adjusted.direction,
+                order_adjusted.type,
+                order_adjusted.status,
+                order_adjusted.volume,
+                order_adjusted.limit_price,
+                order_adjusted.frozen,
+                order_adjusted.transaction_price,
+                order_adjusted.remain,
+                order_adjusted.fee,
+                self.now,
+                order_adjusted.uuid,
+            )
+            GDATA.add(mo)
+            GDATA.commit()
+            # 6. Create Event
+            e = EventOrderSubmitted(mo.uuid)
+            GLOG.INFO("Gen an Event Order Submitted...")
+            self.put(e)
+        elif order_adjusted.direction == DIRECTION_TYPES.SHORT:
+            pos: Position = self.get_position(order_adjusted.code)
+            volume_freezed = pos.freeze(order_adjusted.volume)
+            mo.set(
+                order_adjusted.code,
+                order_adjusted.direction,
+                order_adjusted.type,
+                order_adjusted.status,
+                volume_freezed,
+                order_adjusted.limit_price,
+                order_adjusted.frozen,
+                order_adjusted.transaction_price,
+                order_adjusted.remain,
+                order_adjusted.fee,
+                self.now,
+                order_adjusted.uuid,
+            )
+            GDATA.add(mo)
+            GDATA.commit()
+            e = EventOrderSubmitted(mo.uuid)
+            # 6. Create Event
+            self.put(e)
+            self.orders.append(order_adjusted.uuid)  # Seems not work.
 
     def on_price_update(self, event: EventPriceUpdate):
         # Check Everything.
@@ -162,7 +168,25 @@ class PortfolioT1Backtest(BasePortfolio):
             if signal:
                 e = EventSignalGeneration(signal)
                 e.set_source(SOURCE_TYPES.PORTFOLIO)
-                self.engine.put(e)
+                self.put(e)
+
+    def on_order_filled(self, event: EventOrderFilled):
+        GLOG.INFO("An Order Filled...")
+        if not event.order_status == ORDERSTATUS_TYPES.FILLED:
+            GLOG.WARN(
+                f"On Order Filled only handle the FILLEDORDER, cant handle a {event.order_status} one."
+            )
+        self.unfreeze(event.frozen)
+        self.add_found(event.remain)
+        self.add_fee(event.fee)
+        p = Position(
+            code=event.code, price=event.transaction_price, volume=event.volume
+        )
+        self.add_position(p)
+
+    def on_order_canceled(self, event: EventOrderCanceled):
+        GLOG.CRITICAL("Got a canceld order.")
+        self.unfreeze(event.frozen)
 
     def __repr__(self) -> str:
         return base_repr(self, PortfolioT1Backtest.__name__, 12, 60)

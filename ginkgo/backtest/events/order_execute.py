@@ -9,7 +9,7 @@ class EventOrderExecute(EventOrderRelated):
 
     def __init__(self, order_id: str = "", *args, **kwargs) -> None:
         super(EventOrderExecute, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.ORDEREXECUTE
+        self.set_type(EVENT_TYPES.ORDEREXECUTE)
         self._order = None
         if order_id != "":
             self._order_id = order_id

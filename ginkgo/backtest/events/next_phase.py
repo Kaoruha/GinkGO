@@ -9,7 +9,7 @@ from ginkgo.data.ginkgo_data import GDATA
 class EventNextPhase(EventBase):
     def __init__(self, *args, **kwargs) -> None:
         super(EventNextPhase, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.NEXTPHASE
+        self.set_type(EVENT_TYPES.NEXTPHASE)
         self.set_name("EventNextPhase")
 
     def __repr__(self):

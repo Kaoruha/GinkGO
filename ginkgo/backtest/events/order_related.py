@@ -13,8 +13,9 @@ class EventOrderRelated(EventBase):
 
     def __init__(self, order_id: str = "", *args, **kwargs) -> None:
         super(EventOrderRelated, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.OTHER
+        self.set_type(EVENT_TYPES.OTHER)
         self._order = None
+        self._order_id = ""
         if order_id != "":
             self._order_id = order_id
 
@@ -41,11 +42,11 @@ class EventOrderRelated(EventBase):
         o.set(r)
         self._order = o
 
-        # # Status could be 1,3,4
-        # if self.order_status.value == ORDERSTATUS_TYPES.SUBMITTED:
-        #     GLOG.logger.error(
-        #         f"EventOrderRelated Should Spawn after Order filled or before Order submmit. Order:{self.order_id} status is {self.order_status}. Please check your code."
-        #     )
+        # Status could be 1,3,4
+        if self.order_status.value == ORDERSTATUS_TYPES.SUBMITTED:
+            GLOG.logger.error(
+                f"EventOrderRelated Should Spawn after Order filled or before Order submmit. Order:{self.order_id} status is {self.order_status}. Please check your code."
+            )
 
     @property
     def timestamp(self):
@@ -130,6 +131,14 @@ class EventOrderRelated(EventBase):
         if self.value is None:
             return None
         return self.value.remain
+
+    @property
+    def fee(self):
+        if self.value is None:
+            self.get_order(self.order_id)
+        if self.value is None:
+            return None
+        return self.value.fee
 
     def __repr__(self):
         return base_repr(self, EventOrderRelated.__name__, 16, 60)

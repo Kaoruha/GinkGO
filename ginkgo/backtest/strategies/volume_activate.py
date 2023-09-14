@@ -28,7 +28,7 @@ class StrategyVolumeActivate(StrategyBase):
         if self.cache[code].shape[0] < 2:
             return
         elif r < 0.67 and r > 0.6:
-            print("Will Gen Signal.")
+            GLOG.INFO(f"Will Gen Signal about {code}")
             signal = Signal()
             signal.set_source(SOURCE_TYPES.STRATEGY)
             signal.set(

@@ -12,7 +12,7 @@ class MatchMakingBase(BacktestBase):
         super(MatchMakingBase, self).__init__(*args, **kwargs)
         self.set_name("HaloMatchmaking")
         self._price = pd.DataFrame()
-        self._orders = []
+        self._order_book = []
         self._commission_rate = 0.0003
         self._commission_min = 5
         self._engine = None
@@ -35,8 +35,8 @@ class MatchMakingBase(BacktestBase):
         return self._commission_min
 
     @property
-    def orders(self) -> list:
-        return self._orders
+    def order_book(self) -> list:
+        return self._order_book
 
     @property
     def price(self) -> pd.DataFrame:
@@ -54,16 +54,19 @@ class MatchMakingBase(BacktestBase):
         if time is None:
             GLOG.ERROR(f"Price Event has no time. It is illegal")
             return
+
         if time < self.now:
             GLOG.ERROR(
                 f"Current Time is {self.now} the price come from past {event.timestamp}"
             )
             return
+
         elif time > self.now:
             GLOG.ERROR(
                 f"Current Time is {self.now} the price come from future {event.timestamp}"
             )
             return
+
         # One Frame just accept one line a code
         if self._price.shape[0] > 0:
             q = self._price[self._price.code == event.code]
@@ -77,6 +80,7 @@ class MatchMakingBase(BacktestBase):
                     f"{event.code} already in line at this frame. Drop this price event."
                 )
                 return
+
         # Deal with the tick
         ptype = event.price_type
         if ptype == PRICEINFO_TYPES.TICK:
@@ -113,3 +117,8 @@ class MatchMakingBase(BacktestBase):
         )
 
         return stamp_tax + transfer_fees + collection_fees + commission
+
+    def on_time_goes_by(self, time: any, *args, **kwargs):
+        super(MatchMakingBase, self).on_time_goes_by(time, *args, **kwargs)
+        self._price = pd.DataFrame()
+        self._order_book = []

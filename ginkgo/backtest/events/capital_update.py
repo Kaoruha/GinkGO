@@ -20,7 +20,7 @@ class EventCapitalUpdate(EventBase):
 
     def __init__(self, order_id: str = "", *args, **kwargs) -> None:
         super(EventCapitalUpdate, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.CAPITALUPDATE
+        self.set_type(EVENT_TYPES.CAPITALUPDATE)
         self._order = None
         if order_id != "":
             self._order_id = order_id

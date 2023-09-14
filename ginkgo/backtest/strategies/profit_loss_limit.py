@@ -8,4 +8,4 @@ class StrategyProfitLossLimit(StrategyBase):
         super(StrategyProfitLossLimit, self).__init__(*args, **kwargs)
 
     def cal(self, *args, **kwargs):
-        GLOG.CRITICAL("Under Profit Loss Limit Calling...")
+        GLOG.ERROR("Under Profit Loss Limit Calling...")

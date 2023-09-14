@@ -488,7 +488,7 @@ class GinkgoData(object):
             if self.is_tick_indb(code, date_start):
                 GLOG.INFO(f"{code} {date_start} Insert Recheck Successful.")
             else:
-                GLOG.CRITICAL(
+                GLOG.ERROR(
                     f"{code} {date_start} Insert Failed. Still no data in database."
                 )
             date = date + datetime.timedelta(days=-1)
@@ -524,7 +524,7 @@ class GinkgoData(object):
     # Daily Data update
     def update_stock_info(self) -> None:
         size = CLICKDRIVER.get_table_size(MStockInfo)
-        GLOG.CRITICAL(f"Current Stock Info Size: {size}")
+        GLOG.ERROR(f"Current Stock Info Size: {size}")
         t0 = datetime.datetime.now()
         update_count = 0
         insert_count = 0
@@ -589,7 +589,7 @@ class GinkgoData(object):
             f"StockInfo Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
         )
         size = CLICKDRIVER.get_table_size(MStockInfo)
-        GLOG.CRITICAL(f"After Update Stock Info Size: {size}")
+        GLOG.ERROR(f"After Update Stock Info Size: {size}")
 
     def update_trade_calendar(self) -> None:
         """
@@ -601,7 +601,7 @@ class GinkgoData(object):
     def update_cn_trade_calendar(self) -> None:
         GLOG.INFO("Updating CN Calendar.")
         size = CLICKDRIVER.get_table_size(MTradeDay)
-        GLOG.CRITICAL(f"Current Trade Calendar Size: {size}")
+        GLOG.ERROR(f"Current Trade Calendar Size: {size}")
         t0 = datetime.datetime.now()
         update_count = 0
         insert_count = 0
@@ -624,9 +624,7 @@ class GinkgoData(object):
             # Check DB, if exist update
             if len(q) >= 1:
                 if len(q) >= 2:
-                    GLOG.CRITICAL(
-                        f"Trade Calendar have {len(q)} {market} date on {date}"
-                    )
+                    GLOG.ERROR(f"Trade Calendar have {len(q)} {market} date on {date}")
                 for item2 in q:
                     if (
                         item2.timestamp == date
@@ -661,7 +659,7 @@ class GinkgoData(object):
             f"TradeCalendar Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
         )
         size = CLICKDRIVER.get_table_size(MTradeDay)
-        GLOG.CRITICAL(f"After Update Trade Calendar Size: {size}")
+        GLOG.ERROR(f"After Update Trade Calendar Size: {size}")
 
     def update_cn_daybar(self, code: str) -> None:
         # Get the stock info of code
@@ -840,7 +838,7 @@ class GinkgoData(object):
             # If exist, update
             if len(q) >= 1:
                 if len(q) >= 2:
-                    GLOG.CRITICAL(
+                    GLOG.ERROR(
                         f"Should not have {len(q)} {code} AdjustFactor on {date}"
                     )
                 for item in q:
@@ -923,7 +921,7 @@ class GinkgoData(object):
         t1 = datetime.datetime.now()
         GLOG.INFO(f"Update ALL CN AdjustFactor cost {t1-t0}")
         size = MYSQLDRIVER.get_table_size(MAdjustfactor)
-        GLOG.CRITICAL(f"After Update Adjustfactor Size: {size}")
+        GLOG.ERROR(f"After Update Adjustfactor Size: {size}")
 
 
 GDATA = GinkgoData()

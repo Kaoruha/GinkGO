@@ -17,7 +17,7 @@ class EventPriceUpdate(EventBase):
 
     def __init__(self, price_info: Bar or Tick = None, *args, **kwargs) -> None:
         super(EventPriceUpdate, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.PRICEUPDATE
+        self.set_type(EVENT_TYPES.PRICEUPDATE)
         self._price_type = None
 
         if price_info:

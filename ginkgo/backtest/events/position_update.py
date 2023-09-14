@@ -16,7 +16,7 @@ class EventPositionUpdate(EventOrderRelated):
 
     def __init__(self, order_id: str = "", *args, **kwargs) -> None:
         super(EventPositionUpdate, self).__init__(*args, **kwargs)
-        self.event_type = EVENT_TYPES.POSITIONUPDATE
+        self.set_type(EVENT_TYPES.POSITIONUPDATE)
         self._order = None
         if order_id != "":
             self._order_id = order_id

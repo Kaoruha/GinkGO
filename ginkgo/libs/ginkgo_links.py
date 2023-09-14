@@ -49,7 +49,7 @@ class GinkgoSingleLinkedList(object):
             yield current
 
     def __repr__(self) -> str:
-        return f"{len(self)} Nodes Chain."
+        return f"{len(self)}"
 
 
 class GinkgoSingleLinkedNode(object):
