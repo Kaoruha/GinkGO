@@ -21,7 +21,7 @@ class StrategyBase(object):
         self._name = name
 
     @property
-    def cache(self):
+    def raw(self):
         return self._raw
 
     @property
@@ -35,19 +35,15 @@ class StrategyBase(object):
     def on_price_update(self, data):
         df = data.to_dataframe()
         code = df.iloc[0]["code"]
-        if code not in self._raw.keys():
+        if code not in self.raw.keys():
             # init
-            self._raw[code] = df
+            self.raw[code] = df
         else:
             # append
-            if self._raw[code].shape[0] >= self._attention_spans:
-                self._raw[code] = self._raw[code].iloc[1:]
-            self._raw[code] = pd.concat([self._raw[code], df])
-            self._raw[code] = self._raw[code].sort_values(
-                by="timestamp", ascending=True
-            )
-        # print(self._raw[code])
-        # print(self._raw[code].shape)
+            if self.raw[code].shape[0] >= self._attention_spans:
+                self.raw[code] = self.raw[code].iloc[1:]
+            self.raw[code] = pd.concat([self.raw[code], df])
+            self.raw[code] = self.raw[code].sort_values(by="timestamp", ascending=True)
 
     @property
     def portfolio(self):

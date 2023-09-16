@@ -1,4 +1,5 @@
 import datetime
+import sys
 import random
 from time import sleep
 import random
@@ -50,6 +51,8 @@ class MatchMakingSim(MatchMakingBase):
         order.status = ORDERSTATUS_TYPES.CANCELED
         GDATA.commit()
         canceld_order = EventOrderCanceled(order.uuid)
+        GLOG.CRITICAL(f"Return a CANCELED ORDER")
+        print(canceld_order)
         self.engine.put(canceld_order)
 
     def on_stock_order(self, event: EventOrderSubmitted):
@@ -122,16 +125,20 @@ class MatchMakingSim(MatchMakingBase):
                 continue
             elif p.shape[0] > 1:
                 GLOG.CRITICAL(
-                    f"Price info {o.code} has more than 1 record. Please check your code."
+                    f"Price info {o.code} has more than 1 record. Something wrong in code."
                 )
                 self.return_order(o)
                 continue
+
             # # Try match
             p = p.iloc[0, :]
             transaction_price = 0
             high = p.high
             low = p.low
             open = p.open
+            if o.direction == DIRECTION_TYPES.SHORT:
+                GLOG.CRITICAL(f"Start Matching SHORT ORDER")
+                print(o)
             # 1. If limit price
             if o.type == ORDER_TYPES.LIMITORDER:
                 # 1.1 If the limit price is out of the bound of price_info, Cancel the order
@@ -152,7 +159,7 @@ class MatchMakingSim(MatchMakingBase):
                 # 1.2 If the limit price > low and < high
                 # 1.2.1 Make the deal.
                 if o.volume > p.volume:
-                    GLOG.INFO(
+                    GLOG.ERROR(
                         f"Order {o.uuid} limit price {o.limit_price} volume: {o.volume} is over the volume: {p.volume}."
                     )
                     self.return_order(o)
@@ -198,6 +205,9 @@ class MatchMakingSim(MatchMakingBase):
             else:
                 remain = volume - fee
             o.remain = round(remain, 4)
+            if o.direction == DIRECTION_TYPES.SHORT:
+                GLOG.CRITICAL(f"Complete Matching SHORT ORDER")
+                print(o)
             # 1.2.3 Give it back to db
             GDATA.commit()
             self.order_book.remove(o.uuid)

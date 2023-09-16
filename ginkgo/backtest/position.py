@@ -15,6 +15,10 @@ class Position(Base):
         self._fee = 0
 
     @property
+    def worth(self) -> float:
+        return round((self.volume + self.frozen) * self.price, 4)
+
+    @property
     def code(self) -> str:
         return self._code
 
@@ -36,13 +40,14 @@ class Position(Base):
 
     @property
     def profit(self) -> float:
-        return self.volume * (self.price - self.cost) - self.fee
+        return (self.volume + self.frozen) * (self.price - self.cost) - self.fee
 
     def _bought(self, price: float, volume: int) -> None:
+        GLOG.CRITICAL(f"Position ++")
         if price < 0 or volume < 0:
             GLOG.logger.ERROR(f"Illegal price:{price} or volume:{volume}")
             return
-        old_price = self.price
+        old_price = self.cost
         old_volume = self.volume
         self.volume += volume
         self._cost = (old_price * old_volume + price * volume) / self.volume
@@ -50,6 +55,7 @@ class Position(Base):
         GLOG.logger.debug(
             f"POS {self.code} add {volume} at {price}. Final price: {price}, volume: {self.volume}, frozen: {self.frozen}"
         )
+        GLOG.CRITICAL(f"Position ++ DONE")
 
     def _sold(self, price: float, volume: int) -> None:
         if price < 0:
@@ -62,7 +68,7 @@ class Position(Base):
 
         self._frozen -= volume
         self.on_price_update(price)
-        GLOG.logger.debug(
+        GLOG.CRITICAL(
             f"POS {self.code} sold {volume}. Final volume:{self.volume}  frozen:{self.frozen}"
         )
 

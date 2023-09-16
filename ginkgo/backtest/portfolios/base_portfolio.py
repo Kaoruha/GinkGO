@@ -21,7 +21,7 @@ class BasePortfolio(BacktestBase):
         self.set_name("HaloPortfolio")
         self._cash: float = 100000
         self._frozen: float = 0
-        self._position: dict = {}
+        self._positions: dict = {}
         self._strategies = GinkgoSingleLinkedList()
         self._sizer = None
         self._risk_manager = None
@@ -30,6 +30,21 @@ class BasePortfolio(BacktestBase):
         self._engine = None
         self._interested = GinkgoSingleLinkedList()
         self._fee = 0
+
+    @property
+    def profit(self) -> float:
+        profit = 0
+        for i in self.positions.keys():
+            profit += self.positions[i].profit
+        return profit
+
+    @property
+    def worth(self) -> float:
+        r = 0
+        r += self.cash + self.frozen
+        for key in self.positions:
+            r += self.positions[key].worth
+        return round(r, 4)
 
     def add_found(self, money: float) -> float:
         if money < 0:
@@ -153,7 +168,7 @@ class BasePortfolio(BacktestBase):
 
     def unfreeze(self, money: float) -> float:
         if money > self.frozen:
-            GLOG.ERROR(
+            GLOG.CRITICAL(
                 f"We cant unfreeze {money}, the max unfreeze is only {self.frozen}"
             )
         else:
@@ -176,8 +191,8 @@ class BasePortfolio(BacktestBase):
         return self.indexes[key].value
 
     @property
-    def position(self) -> dict:
-        return self._position
+    def positions(self) -> dict:
+        return self._positions
 
     @property
     def strategies(self) -> dict:
@@ -190,10 +205,10 @@ class BasePortfolio(BacktestBase):
 
     def add_position(self, position: Position):
         code = position.code
-        if code not in self.position.keys():
-            self._position[code] = position
+        if code not in self.positions.keys():
+            self._positions[code] = position
         else:
-            self._position[code].deal(
+            self._positions[code].deal(
                 DIRECTION_TYPES.LONG, position.cost, position.volume
             )
 
@@ -221,3 +236,16 @@ class BasePortfolio(BacktestBase):
         codes = self.selector.pick()
         for code in codes:
             self._interested.append(code)
+
+    def clean_positions(self) -> None:
+        if len(self.positions.keys()) == 0:
+            return
+        del_list = []
+
+        for key in self.positions.keys():
+            pos = self.get_position(key)
+            vol = pos.volume + pos.frozen
+            if vol == 0:
+                del_list.append(key)
+        for code in del_list:
+            del self.positions[code]

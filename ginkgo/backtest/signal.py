@@ -17,7 +17,12 @@ class Signal(Base):
         **kwargs
     ) -> None:
         super(Signal, self).__init__(*args, **kwargs)
+        self._name = "Signal"
         self.set(code, direction, timestamp, uuid)
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     @singledispatchmethod
     def set(self) -> None:

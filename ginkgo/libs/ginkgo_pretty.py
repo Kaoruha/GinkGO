@@ -71,8 +71,8 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs):
         s = obj.__getattribute__(param)
         filter_s = str(s).strip(b"\x00".decode())
         if param == "value":
-            filter_s = f"{s.type}"
-        if param == "position":
+            filter_s = f"{s.name} about {s.code}"
+        if param == "positions":
             filter_s = f"{len(s.keys())}"
         if isinstance(s, Enum):
             filter_s += f" : {s.value}"
