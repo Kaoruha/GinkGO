@@ -13,7 +13,11 @@ from ginkgo.backtest.matchmakings import MatchMakingSim
 from ginkgo.backtest.sizers import FixedSizer
 from ginkgo.backtest.events import EventNextPhase
 from ginkgo.backtest.feeds import BacktestFeed
-from ginkgo.backtest.strategies import StrategyVolumeActivate
+from ginkgo.backtest.strategies import (
+    StrategyVolumeActivate,
+    StrategyProfitLimit,
+    StrategyLossLimit,
+)
 
 
 class BacktestTest(unittest.TestCase):
@@ -42,17 +46,22 @@ class BacktestTest(unittest.TestCase):
 
         portfolio = PortfolioT1Backtest()
 
-        selector = FixedSelector(["000001.SZ", "000002.SZ"])
+        # selector = FixedSelector(["000001.SZ", "000002.SZ"])
+        selector = FixedSelector(["000001.SZ"])
         portfolio.bind_selector(selector)
 
         risk = BaseRiskManagement()
         portfolio.bind_risk(risk)
 
-        sizer = FixedSizer(name="1000Sizer", volume=1000)
+        sizer = FixedSizer(name="1000Sizer", volume=1100)
         portfolio.bind_sizer(sizer)
 
         strategy = StrategyVolumeActivate()
+        win_stop = StrategyProfitLimit(5)
+        lose_stop = StrategyLossLimit(5)
         portfolio.add_strategy(strategy)
+        portfolio.add_strategy(win_stop)
+        # portfolio.add_strategy(lose_stop)
 
         engine = EventEngine()
         engine.set_backtest_interval("day")
@@ -75,24 +84,31 @@ class BacktestTest(unittest.TestCase):
         engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
 
         engine.start()
-        engine.put(EventNextPhase())
-        time.sleep(interval)
-        # self.assertEqual(engine.now, datetime_normalize(datestart + 1))
-        # self.assertEqual(portfolio.now, datetime_normalize(datestart + 1))
-        # self.assertEqual(matchmaking.now, datetime_normalize(datestart + 1))
-        # self.assertEqual(feeder.now, datetime_normalize(datestart + 1))
-        engine.put(EventNextPhase())
-        time.sleep(interval)
-        # self.assertEqual(engine.now, datetime_normalize(datestart + 2))
-        # self.assertEqual(portfolio.now, datetime_normalize(datestart + 2))
-        # self.assertEqual(matchmaking.now, datetime_normalize(datestart + 2))
-        # self.assertEqual(feeder.now, datetime_normalize(datestart + 2))
-        engine.put(EventNextPhase())
-        time.sleep(interval)
+        # engine.put(EventNextPhase())
+        # time.sleep(interval)
+        # # self.assertEqual(engine.now, datetime_normalize(datestart + 1))
+        # # self.assertEqual(portfolio.now, datetime_normalize(datestart + 1))
+        # # self.assertEqual(matchmaking.now, datetime_normalize(datestart + 1))
+        # # self.assertEqual(feeder.now, datetime_normalize(datestart + 1))
+        # engine.put(EventNextPhase())
+        # time.sleep(interval)
+        # # self.assertEqual(engine.now, datetime_normalize(datestart + 2))
+        # # self.assertEqual(portfolio.now, datetime_normalize(datestart + 2))
+        # # self.assertEqual(matchmaking.now, datetime_normalize(datestart + 2))
+        # # self.assertEqual(feeder.now, datetime_normalize(datestart + 2))
+        # engine.put(EventNextPhase())
+        # time.sleep(interval)
 
         # TODO Update event transfer into id.
         for i in range(1000):
             engine.put(EventNextPhase())
             time.sleep(interval)
             print(portfolio)
+            print(portfolio.positions)
+            print(portfolio.worth)
+            r = portfolio.cash + portfolio.fee
+            for i in portfolio.positions.keys():
+                pos = portfolio.positions[i]
+                r += pos.volume * pos.cost
+            print(f"CAL: {r}")
         engine.stop()

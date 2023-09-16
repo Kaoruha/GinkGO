@@ -110,7 +110,7 @@ class EventEngine(BaseEngine):
         The EventBacktest Main Loop.
         """
         count = 0
-        max_count = 10000
+        max_count = 100000000
         while self._active:
             try:
                 # Get a event from events_queue
@@ -119,7 +119,7 @@ class EventEngine(BaseEngine):
                 self._process(event)
                 count = 0
             except Empty:
-                GLOG.WARN(f"No Event in Queue. {datetime.datetime.now()}")
+                # GLOG.WARN(f"No Event in Queue. {datetime.datetime.now()}")
                 count += 1
                 # Exit
                 if count >= max_count:

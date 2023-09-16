@@ -33,6 +33,9 @@ class PortfolioT1Backtest(BasePortfolio):
         super(PortfolioT1Backtest, self).__init__(*args, **kwargs)
         self._signals = GinkgoSingleLinkedList()
         self._orders = GinkgoSingleLinkedList()
+        self.order_send_count = 0
+        self.order_filled_count = 0
+        self.order_canceled_count = 0
 
     @property
     def signals(self):
@@ -43,8 +46,8 @@ class PortfolioT1Backtest(BasePortfolio):
         return self._orders
 
     def get_position(self, code: str):
-        if code in self.position.keys():
-            return self.position[code]
+        if code in self.positions.keys():
+            return self.positions[code]
         return None
 
     def on_time_goes_by(self, time: any, *args, **kwargs):
@@ -61,7 +64,9 @@ class PortfolioT1Backtest(BasePortfolio):
         self._signals = GinkgoSingleLinkedList()
 
     def on_signal(self, event: EventSignalGeneration):
-        GLOG.INFO(f"{self.name} got a signal about {event.code}.")
+        GLOG.INFO(
+            f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}."
+        )
         # Check Everything.
         if not self.is_all_set():
             return
@@ -92,13 +97,17 @@ class PortfolioT1Backtest(BasePortfolio):
             )
             return
         order_adjusted = self.risk_manager.cal(order)
+
         # 4. Get the adjusted order, if so put eventorder to engine
         if order_adjusted is None:
             return
+
         # 5. Create order, stored into db
         mo = MOrder()
         if order_adjusted.direction == DIRECTION_TYPES.LONG:
+            GLOG.CRITICAL("Got a LONG ORDER")
             freeze_ok = self.freeze(order_adjusted.frozen)
+            GLOG.CRITICAL("Got a LONG ORDER  After freeze")
             if not freeze_ok:
                 return
             mo.set(
@@ -117,12 +126,15 @@ class PortfolioT1Backtest(BasePortfolio):
             )
             GDATA.add(mo)
             GDATA.commit()
+
             # 6. Create Event
             e = EventOrderSubmitted(mo.uuid)
             GLOG.INFO("Gen an Event Order Submitted...")
             self.put(e)
+            self.order_send_count += 1
+            GLOG.WARN(f"Send : {self.order_send_count}")
         elif order_adjusted.direction == DIRECTION_TYPES.SHORT:
-            pos: Position = self.get_position(order_adjusted.code)
+            pos = self.get_position(order_adjusted.code)
             volume_freezed = pos.freeze(order_adjusted.volume)
             mo.set(
                 order_adjusted.code,
@@ -138,12 +150,15 @@ class PortfolioT1Backtest(BasePortfolio):
                 self.now,
                 order_adjusted.uuid,
             )
+            GLOG.CRITICAL("Send a Short OORDER.")
             GDATA.add(mo)
             GDATA.commit()
             e = EventOrderSubmitted(mo.uuid)
             # 6. Create Event
             self.put(e)
             self.orders.append(order_adjusted.uuid)  # Seems not work.
+            self.order_send_count += 1
+            GLOG.WARN(f"Send : {self.order_send_count}")
 
     def on_price_update(self, event: EventPriceUpdate):
         # Check Everything.
@@ -156,8 +171,8 @@ class PortfolioT1Backtest(BasePortfolio):
             )
             return
         # 1. Update position price
-        if event.code in self.position:
-            self.position[event.code].on_price_update(event.close)
+        if event.code in self.positions:
+            self.positions[event.code].on_price_update(event.close)
         # 2. Transfer price to each strategy
         if len(self.strategies) <= 0:
             return
@@ -171,22 +186,53 @@ class PortfolioT1Backtest(BasePortfolio):
                 self.put(e)
 
     def on_order_filled(self, event: EventOrderFilled):
-        GLOG.INFO("An Order Filled...")
+        self.order_filled_count += 1
+        GLOG.WARN(
+            f"Filled: {self.order_filled_count}  Canceled: {self.order_canceled_count}"
+        )
+
+        GLOG.INFO("Got An Order Filled...")
         if not event.order_status == ORDERSTATUS_TYPES.FILLED:
             GLOG.WARN(
                 f"On Order Filled only handle the FILLEDORDER, cant handle a {event.order_status} one."
             )
-        self.unfreeze(event.frozen)
-        self.add_found(event.remain)
-        self.add_fee(event.fee)
-        p = Position(
-            code=event.code, price=event.transaction_price, volume=event.volume
-        )
-        self.add_position(p)
+            return
+        if event.direction == DIRECTION_TYPES.LONG:
+            # GLOG.CRITICAL("Got a LONG ORDER")
+            self.unfreeze(event.frozen)
+            self.add_found(event.remain)
+            self.add_fee(event.fee)
+            p = Position(
+                code=event.code, price=event.transaction_price, volume=event.volume
+            )
+            self.add_position(p)
+        elif event.direction == DIRECTION_TYPES.SHORT:
+            GLOG.CRITICAL("Got a SHORT ORDER")
+            self.add_found(event.remain)
+            self.add_fee(event.fee)
+            self.positions[event.code].deal(
+                DIRECTION_TYPES.SHORT, event.transaction_price, event.volume
+            )
+            self.clean_positions()
+            GLOG.CRITICAL("Got a SHORT FILLED ORDER")
+            self.engine.stop()
+            self.engine.stop()
+        GLOG.INFO("Got An Order Filled Done")
 
     def on_order_canceled(self, event: EventOrderCanceled):
-        GLOG.CRITICAL("Got a canceld order.")
-        self.unfreeze(event.frozen)
+        self.order_canceled_count += 1
+        GLOG.WARN(
+            f"Filled: {self.order_filled_count}  Canceled: {self.order_canceled_count}"
+        )
+        GLOG.CRITICAL(f"Got a CANCELED ORDER.")
+        # TODO LONG SHORT
+        if event.direction == DIRECTION_TYPES.LONG:
+            self.unfreeze(event.frozen)
+            self.add_found(event.frozen)
+        elif event.direction == DIRECTION_TYPES.SHORT:
+            code = event.code
+            pos = self.positions[code]
+            pos.unfreeze(event.volume)
 
     def __repr__(self) -> str:
-        return base_repr(self, PortfolioT1Backtest.__name__, 12, 60)
+        return base_repr(self, PortfolioT1Backtest.__name__, 20, 60)
