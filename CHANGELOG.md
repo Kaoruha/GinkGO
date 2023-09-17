@@ -18,16 +18,19 @@
   - - [TODO] Add Mail Notification
   - - [TODO] Add Wecat Notification
 
-##### 0.6(DEV)
+##### 0.6.1(DEV)
+  - [DEV] Fix precision lost problem.
   - [TODO] Add CLI
-  - - [x] Plot Moduel
   - [TODO] Add ML Engine.
   - [TODO] Add Trading Records.
   - [TODO] Basic Live engine demo
+  - [TODO] Config file setup
+
+##### 0.6
+  - - [x] Plot Moduel
 
 ##### 0.5.2
   - [x] Basic Backtest demo
-  - [TODO] Config file setup
   - [x] TDX
 
 ##### 0.5.1
