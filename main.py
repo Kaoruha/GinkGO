@@ -7,7 +7,7 @@ from ginkgo.web.server import start_server
 # from ginkgo.data.storage import ginkgo_storage as gs
 
 
-GLOG.logger.info("Server启动")
+GLOG.INFO("Server启动")
 
 # 开启tornado后端服务
 start_server()
