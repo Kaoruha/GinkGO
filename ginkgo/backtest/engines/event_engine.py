@@ -187,7 +187,7 @@ class EventEngine(BaseEngine):
 
         if handle not in self._handles[type]:
             msg = f"Event {type} do not own the handle."
-            GLOG.logger.warn(msg)
+            GLOG.WARN(msg)
             return
 
         self._handles[type].remove(handle)
@@ -206,10 +206,10 @@ class EventEngine(BaseEngine):
         if handle in self._general_handles:
             self._general_handles.remove(handle)
             msg = f"UnregisterGeneral : {handle}"
-            GLOG.logger.info(msg)
+            GLOG.INFO(msg)
         else:
             msg = f"{handle} not exsit in Generalhandle"
-            GLOG.logger.warn(msg)
+            GLOG.WARN(msg)
 
     def register_timer(self, handle: callable) -> None:
         if handle not in self._timer_handles:

@@ -18,6 +18,7 @@ from ginkgo.backtest.events import (
     EventSignalGeneration,
     EventPriceUpdate,
     EventOrderCanceled,
+    EventNextPhase,
 )
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MOrder
@@ -33,9 +34,96 @@ class PortfolioT1Backtest(BasePortfolio):
         super(PortfolioT1Backtest, self).__init__(*args, **kwargs)
         self._signals = GinkgoSingleLinkedList()
         self._orders = GinkgoSingleLinkedList()
-        self.order_send_count = 0
-        self.order_filled_count = 0
-        self.order_canceled_count = 0
+        # Records
+        self._price_get_count = 0
+        self._price_gen_signal_count = 0
+        self._price_pass_count = 0
+        self._signal_get_count = 0
+        self._signal_gen_order_count = 0
+        self._signal_pass_count = 0
+        self._order_gen_count = 0
+        self._order_send_count = 0
+        self._order_pass_count = 0
+        self._order_filled_count = 0
+        self._order_canceled_count = 0
+
+    @property
+    def check_ok_next_phase(self) -> bool:
+        c1 = (
+            self.price_get_count * len(self.strategies)
+            == self.price_gen_signal_count + self.price_pass_count
+        )
+        c2 = (
+            self.signal_get_count
+            == self.signal_gen_order_count + self.signal_pass_count + len(self.signals)
+        )
+        r = c1 and c2
+        # print(f"C1 : {c1}")
+        # print(f"C2 : {c2}")
+        return r
+
+    def reset_phase_check(self) -> None:
+        # Records
+        self._price_get_count = 0
+        self._price_gen_signal_count = 0
+        self._price_pass_count = 0
+        self._signal_get_count = 0
+        self._signal_gen_order_count = 0
+        self._signal_pass_count = 0
+        self._order_gen_count = 0
+        self._order_send_count = 0
+        self._order_pass_count = 0
+        self._order_filled_count = 0
+        self._order_canceled_count = 0
+        # Phase Check
+        self._phase_1_price_come = False
+        self._phase_3_order_gen = False
+        self._phase_4_order_send = False
+        self._phase_5_order_filled = False
+
+    @property
+    def price_get_count(self) -> int:
+        return self._price_get_count
+
+    @property
+    def price_gen_signal_count(self) -> int:
+        return self._price_gen_signal_count
+
+    @property
+    def price_pass_count(self) -> int:
+        return self._price_pass_count
+
+    @property
+    def signal_get_count(self) -> int:
+        return self._signal_get_count
+
+    @property
+    def signal_gen_order_count(self) -> int:
+        return self._signal_gen_order_count
+
+    @property
+    def signal_pass_count(self) -> int:
+        return self._signal_pass_count
+
+    @property
+    def order_gen_count(self) -> int:
+        return self._order_gen_count
+
+    @property
+    def order_send_count(self) -> int:
+        return self._order_send_count
+
+    @property
+    def order_pass_count(self) -> int:
+        return self._order_pass_count
+
+    @property
+    def order_filled_count(self) -> int:
+        return self._order_filled_count
+
+    @property
+    def order_canceled_count(self) -> int:
+        return self._order_canceled_count
 
     @property
     def signals(self):
@@ -55,26 +143,32 @@ class PortfolioT1Backtest(BasePortfolio):
         super(PortfolioT1Backtest, self).on_time_goes_by(time, *args, **kwargs)
         # Put old signals to engine
 
+        # self.reset_phase_check()
+
         if len(self.signals) == 0:
             return
 
         for signal in self.signals:
             e = EventSignalGeneration(signal.value)
             self.put(e)
+
         self._signals = GinkgoSingleLinkedList()
 
     def on_signal(self, event: EventSignalGeneration):
+        self._signal_get_count += 1  # Record
         GLOG.INFO(
             f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}."
         )
         # Check Everything.
         if not self.is_all_set():
+            self._signal_pass_count += 1  # Record
             return
 
         if event.timestamp > self.now:
             GLOG.WARN(
                 f"Current time is {self.now.strftime('%Y-%m-%d %H:%M:%S')}, The EventSignal generated at {event.timestamp}, Can not handle the future infomation."
             )
+            self._signal_pass_count += 1  # Record
             return
 
         # T+1, Order will send after 1 day that signal comes.
@@ -89,18 +183,24 @@ class PortfolioT1Backtest(BasePortfolio):
         order = self.sizer.cal(event.value)
         # 2. Get the order return
         if order is None:
+            self._signal_pass_count += 1  # Record
             return
+
         # 3. Transfer the order to risk_manager
         if self.risk_manager is None:
             GLOG.ERROR(
                 f"Portfolio RiskManager not set. Can not handle the order. Please set the RiskManager first."
             )
+            self._signal_pass_count += 1  # Record
             return
         order_adjusted = self.risk_manager.cal(order)
 
         # 4. Get the adjusted order, if so put eventorder to engine
         if order_adjusted is None:
+            self._signal_pass_count += 1  # Record
             return
+
+        self._signal_gen_order_count += 1  # Record
 
         # 5. Create order, stored into db
         mo = MOrder()
@@ -109,6 +209,7 @@ class PortfolioT1Backtest(BasePortfolio):
             freeze_ok = self.freeze(order_adjusted.frozen)
             GLOG.CRITICAL("Got a LONG ORDER  After freeze")
             if not freeze_ok:
+                self._order_pass_count += 1
                 return
             mo.set(
                 order_adjusted.code,
@@ -131,11 +232,14 @@ class PortfolioT1Backtest(BasePortfolio):
             e = EventOrderSubmitted(mo.uuid)
             GLOG.INFO("Gen an Event Order Submitted...")
             self.put(e)
-            self.order_send_count += 1
+            self._order_send_count += 1  # Record
             GLOG.WARN(f"Send : {self.order_send_count}")
+
         elif order_adjusted.direction == DIRECTION_TYPES.SHORT:
+            GLOG.CRITICAL("Got a SHORT ORDER")
             pos = self.get_position(order_adjusted.code)
             volume_freezed = pos.freeze(order_adjusted.volume)
+            GLOG.CRITICAL("Got a SHORT ORDER Done..")
             mo.set(
                 order_adjusted.code,
                 order_adjusted.direction,
@@ -150,33 +254,45 @@ class PortfolioT1Backtest(BasePortfolio):
                 self.now,
                 order_adjusted.uuid,
             )
-            GLOG.CRITICAL("Send a Short OORDER.")
+            GLOG.CRITICAL("Send a Short ORDER.")
             GDATA.add(mo)
             GDATA.commit()
             e = EventOrderSubmitted(mo.uuid)
             # 6. Create Event
             self.put(e)
             self.orders.append(order_adjusted.uuid)  # Seems not work.
-            self.order_send_count += 1
+
+            self._order_send_count += 1  # Record
+
             GLOG.WARN(f"Send : {self.order_send_count}")
+        # self.try_go_next_phase()
 
     def on_price_update(self, event: EventPriceUpdate):
+        self._price_get_count += 1  # Record
+
         # Check Everything.
         if not self.is_all_set():
+            self._price_pass_count += 1  # Record
             return
+
         # 0 Time check
         if event.timestamp > self.now:
             GLOG.WARN(
                 f"Current time is {self.now.strftime('%Y-%m-%d %H:%M:%S')}, The EventPriceUpdate generated at {event.timestamp}, Can not handle the future infomation."
             )
+            self._price_pass_count += 1  # Record
             return
+
         # 1. Update position price
         if event.code in self.positions:
             self.positions[event.code].on_price_update(event.close)
+
         # 2. Transfer price to each strategy
         if len(self.strategies) <= 0:
+            self._price_pass_count += 1  # Record
             return
 
+        # GLOG.INFO(f"Under {len(self.strategies)} Strategies Calculating... {self.now}")
         for strategy in self.strategies:
             # 3. Get signal return, if so put eventsignal to engine
             signal = strategy.value.cal(event.value)
@@ -184,21 +300,23 @@ class PortfolioT1Backtest(BasePortfolio):
                 e = EventSignalGeneration(signal)
                 e.set_source(SOURCE_TYPES.PORTFOLIO)
                 self.put(e)
+                self._price_gen_signal_count += 1  # Record
+            else:
+                self._price_pass_count += 1  # Record
+        # GLOG.INFO(f"Strategies Calculating Complete. {self.now}")
+        # self.try_go_next_phase()
 
     def on_order_filled(self, event: EventOrderFilled):
-        self.order_filled_count += 1
-        GLOG.WARN(
-            f"Filled: {self.order_filled_count}  Canceled: {self.order_canceled_count}"
-        )
+        self._order_filled_count += 1  # Record
 
         GLOG.INFO("Got An Order Filled...")
         if not event.order_status == ORDERSTATUS_TYPES.FILLED:
-            GLOG.WARN(
-                f"On Order Filled only handle the FILLEDORDER, cant handle a {event.order_status} one."
+            GLOG.CRITICAL(
+                f"On Order Filled only handle the FILLEDORDER, cant handle a {event.order_status} one. Check the Code"
             )
             return
         if event.direction == DIRECTION_TYPES.LONG:
-            # GLOG.CRITICAL("Got a LONG ORDER")
+            GLOG.CRITICAL("DEALING with LONG FILLED ORDER")
             self.unfreeze(event.frozen)
             self.add_found(event.remain)
             self.add_fee(event.fee)
@@ -206,33 +324,45 @@ class PortfolioT1Backtest(BasePortfolio):
                 code=event.code, price=event.transaction_price, volume=event.volume
             )
             self.add_position(p)
+            GLOG.CRITICAL("Fill a LONG ORDER DONE")
         elif event.direction == DIRECTION_TYPES.SHORT:
-            GLOG.CRITICAL("Got a SHORT ORDER")
+            GLOG.CRITICAL("DEALING with SHORT FILLED ORDER")
             self.add_found(event.remain)
             self.add_fee(event.fee)
             self.positions[event.code].deal(
                 DIRECTION_TYPES.SHORT, event.transaction_price, event.volume
             )
             self.clean_positions()
-            GLOG.CRITICAL("Got a SHORT FILLED ORDER")
-            self.engine.stop()
-            self.engine.stop()
+            GLOG.CRITICAL("Fill a SHORT ORDER DONE")
         GLOG.INFO("Got An Order Filled Done")
+        # self.try_go_next_phase()
 
     def on_order_canceled(self, event: EventOrderCanceled):
-        self.order_canceled_count += 1
+        self._order_canceled_count += 1  # Record
         GLOG.WARN(
             f"Filled: {self.order_filled_count}  Canceled: {self.order_canceled_count}"
         )
-        GLOG.CRITICAL(f"Got a CANCELED ORDER.")
         # TODO LONG SHORT
+        GLOG.CRITICAL("Dealing with CANCELED ORDER.")
         if event.direction == DIRECTION_TYPES.LONG:
+            GLOG.CRITICAL("START UNFREEZE LONG.")
             self.unfreeze(event.frozen)
             self.add_found(event.frozen)
+            GLOG.CRITICAL("DONE UNFREEZE LONG.")
         elif event.direction == DIRECTION_TYPES.SHORT:
+            GLOG.CRITICAL("START UNFREEZE SHOTR.")
             code = event.code
             pos = self.positions[code]
             pos.unfreeze(event.volume)
+            GLOG.CRITICAL("DONE UNFREEZE SHORT.")
+        # self.try_go_next_phase()
+
+    def try_go_next_phase(self) -> None:
+        if self.engine is None:
+            GLOG.ERROR(f"Need to bind the engine first.")
+        if self.check_ok_next_phase:
+            GLOG.CRITICAL("SHOULD GO NEXT.")
+        # self.engine.put(EventNextPhase())
 
     def __repr__(self) -> str:
-        return base_repr(self, PortfolioT1Backtest.__name__, 20, 60)
+        return base_repr(self, PortfolioT1Backtest.__name__, 24, 60)

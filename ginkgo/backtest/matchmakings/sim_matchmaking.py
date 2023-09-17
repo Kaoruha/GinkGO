@@ -52,7 +52,6 @@ class MatchMakingSim(MatchMakingBase):
         GDATA.commit()
         canceld_order = EventOrderCanceled(order.uuid)
         GLOG.CRITICAL(f"Return a CANCELED ORDER")
-        print(canceld_order)
         self.engine.put(canceld_order)
 
     def on_stock_order(self, event: EventOrderSubmitted):
@@ -214,5 +213,6 @@ class MatchMakingSim(MatchMakingBase):
             filled_order = EventOrderFilled(o.uuid)
             self.engine.put(filled_order)
         GLOG.INFO("Done Match.")
+        self._order_book = []
         # # If there is no detail about the code, Try get the data from db again.The store the info into self.price_info.
         # # According the price_info, try match the order.

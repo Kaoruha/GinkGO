@@ -53,4 +53,4 @@ class StrategyBase(object):
         self._portfolio = portfolio
 
     def cal(self, *args, **kwargs) -> Signal:
-        GLOG.INFO(f"Under {self.name} Calculating...")
+        pass

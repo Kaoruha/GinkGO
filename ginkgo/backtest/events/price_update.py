@@ -34,7 +34,7 @@ class EventPriceUpdate(EventBase):
         elif self._price_type == PRICEINFO_TYPES.TICK:
             return self._tick
         else:
-            GLOG.logger.warn(f"!! The PriceInfo not set yet. Please check your code")
+            GLOG.WARN(f"!! The PriceInfo not set yet. Please check your code")
             return None
 
     @singledispatchmethod
@@ -72,7 +72,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.TICK:
             return self.value.price
         else:
-            GLOG.logger.warn(
+            GLOG.WARN(
                 f"The Price is Bar Type, but your are asking tick type price value."
             )
             return None
@@ -90,7 +90,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.value.open
         else:
-            GLOG.logger.warn(
+            GLOG.WARN(
                 f"The Price is Tick Type, but your are asking Bar type open value."
             )
             return None
@@ -102,7 +102,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.value.high
         else:
-            GLOG.logger.warn(
+            GLOG.WARN(
                 f"The Price is Tick Type, but your are asking Bar type high value."
             )
             return None
@@ -114,7 +114,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.value.low
         else:
-            GLOG.logger.warn(
+            GLOG.WARN(
                 f"The Price is Tick Type, but your are asking Bar type low value."
             )
             return None
@@ -126,7 +126,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.value.close
         else:
-            GLOG.logger.warn(
+            GLOG.WARN(
                 f"The Price is Tick Type, but your are asking Bar type close value."
             )
             return None

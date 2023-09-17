@@ -45,14 +45,15 @@ class Position(Base):
     def _bought(self, price: float, volume: int) -> None:
         GLOG.CRITICAL(f"Position ++")
         if price < 0 or volume < 0:
-            GLOG.logger.ERROR(f"Illegal price:{price} or volume:{volume}")
+            GLOG.ERROR(f"Illegal price:{price} or volume:{volume}")
             return
         old_price = self.cost
         old_volume = self.volume
         self.volume += volume
         self._cost = (old_price * old_volume + price * volume) / self.volume
+        self._cost = round(self._cost, 4)
         self.on_price_update(price)
-        GLOG.logger.debug(
+        GLOG.INFO(
             f"POS {self.code} add {volume} at {price}. Final price: {price}, volume: {self.volume}, frozen: {self.frozen}"
         )
         GLOG.CRITICAL(f"Position ++ DONE")
@@ -61,7 +62,7 @@ class Position(Base):
         if price < 0:
             return
         if volume > self.frozen:
-            GLOG.logger.ERROR(
+            GLOG.ERROR(
                 f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code"
             )
             return
@@ -93,30 +94,32 @@ class Position(Base):
 
     def freeze(self, volume: int) -> int:
         if volume > self.volume:
-            GLOG.logger.ERROR(
+            GLOG.ERROR(
                 f"POS {self.code} just has {self.volume} cant afford {volume}, please check your code"
             )
             return self.volume
 
         self.volume -= volume
         self._frozen += volume
-        GLOG.logger.debug(
+        GLOG.INFO(
             f"POS {self.code} freezed {volume}. Final volume:{self.volume} frozen: {self.frozen}"
         )
         return volume
 
     def unfreeze(self, volume: int) -> None:
+        GLOG.CRITICAL("START UNFREEZE...")
         if volume > self.frozen:
-            GLOG.logger.ERROR(
-                f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code"
+            GLOG.ERROR(
+                f"POS {self.code} just freezed {self.frozen} cant afford {volume}."
             )
             return
 
         self._frozen -= volume
         self.volume += volume
-        GLOG.logger.debug(
+        GLOG.INFO(
             f"POS {self.code} unfreeze {volume}. Final volume:{self.volume}  frozen: {self.frozen}"
         )
+        GLOG.CRITICAL("DONE UNFREEZE.")
 
     def add_fee(self, fee: float) -> None:
         self._fee += fee

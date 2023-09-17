@@ -42,7 +42,7 @@ class EventCapitalUpdate(EventBase):
         """
         r = GDATA.get_order_df(order_id)
         if r is None:
-            GLOG.logger.error(f"Order:{order_id} not exsist. Please check your code")
+            GLOG.ERROR(f"Order:{order_id} not exsist. Please check your code")
             return
         o = Order()
         o.set(r)
@@ -50,7 +50,7 @@ class EventCapitalUpdate(EventBase):
 
         # Status could be 1,3,4
         if self.order_status.value == ORDERSTATUS_TYPES.SUBMITTED:
-            GLOG.logger.error(
+            GLOG.ERROR(
                 f"EventCapitalUpdate Should Spawn after Order filled or before Order submmit. Order:{self.order_id} status is {self.order_status}. Please check your code."
             )
 

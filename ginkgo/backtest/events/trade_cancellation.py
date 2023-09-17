@@ -27,12 +27,12 @@ class EventTradeCancellation(EventBase):
         # Get order from db
         r = GDATA.get_order(order_id)
         if r is None:
-            GLOG.logger.error(f"Order:{order_id} not exsist. Please check your code")
+            GLOG.ERROR(f"Order:{order_id} not exsist. Please check your code")
             return
         self._order = r
 
         if self.order_status.value != 2:
-            GLOG.logger.error(
+            GLOG.ERROR(
                 f"EventOrderFill Should Spawn after Order SUBMITTED. Order:{self.order_id} status is {self.order_status}. Please check your code."
             )
 

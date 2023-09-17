@@ -26,7 +26,6 @@ class BaseFeed(BacktestBase):
         raise NotImplementedError()
 
     def get_daybar(self, code: str, date: any) -> pd.DataFrame:
-        GLOG.INFO(f"Trying get history bar, {code}  date:{date}")
         if code is None or date is None:
             return pd.DataFrame()
         datetime = datetime_normalize(date)
@@ -35,7 +34,7 @@ class BaseFeed(BacktestBase):
             return
         else:
             if datetime > self._now:
-                GLOG.WARN(
+                GLOG.CRITICAL(
                     f"CurrentDate: {self.now} you can not get the future({datetime}) info."
                 )
                 return pd.DataFrame()
