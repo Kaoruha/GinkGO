@@ -136,6 +136,9 @@ class MatchMakingSim(MatchMakingBase):
             low = p.low
             open = p.open
             if o.direction == DIRECTION_TYPES.SHORT:
+                if o.volume == 0:
+                    self.return_order(o)
+                    continue
                 GLOG.CRITICAL(f"Start Matching SHORT ORDER")
                 print(o)
             # 1. If limit price
