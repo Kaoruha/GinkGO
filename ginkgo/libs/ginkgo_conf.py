@@ -36,6 +36,10 @@ class GinkgoConfig(object):
         return r
 
     @property
+    def EPSILON(self) -> float:
+        return float(self.__read_config()["epsilon"])
+
+    @property
     def LOGGING_PATH(self) -> str:
         # Where to store the log files
         return self.__read_config()["log_path"]

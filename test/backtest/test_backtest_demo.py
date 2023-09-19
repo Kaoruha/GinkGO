@@ -42,7 +42,7 @@ class BacktestTest(unittest.TestCase):
         sizer = FixedSizer()
 
     def test_btportfolio_Init(self) -> None:
-        interval = 2
+        interval = 10
         datestart = 20050412
 
         portfolio = PortfolioT1Backtest()
@@ -90,7 +90,11 @@ class BacktestTest(unittest.TestCase):
         engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
 
         engine.start()
-        for i in range(1000):
+        for i in range(2000):
+            print(i)
+            print(i)
+            print(i)
+            print(i)
             engine.put(EventNextPhase())
             time.sleep(interval)
             r = portfolio.cash + portfolio.fee
@@ -103,5 +107,9 @@ class BacktestTest(unittest.TestCase):
                 portfolio.price_get_count * len(portfolio.strategies),
                 portfolio.price_gen_signal_count + portfolio.price_pass_count,
             )
-            self.assertEqual(portfolio.frozen, 0)
+            self.assertLessEqual(portfolio.frozen, 1e-5)
+            pf = 0
+            for pos in portfolio.positions.keys():
+                pf += portfolio.get_position(pos).frozen
+            self.assertLessEqual(pf, 1e-5)
         engine.stop()

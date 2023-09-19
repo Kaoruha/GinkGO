@@ -200,6 +200,12 @@ class PortfolioT1Backtest(BasePortfolio):
             self._signal_pass_count += 1  # Record
             return
 
+        if (
+            order_adjusted.direction == DIRECTION_TYPES.SHORT
+            and order_adjusted.volume == 0
+        ):
+            return
+
         self._signal_gen_order_count += 1  # Record
 
         # 5. Create order, stored into db
@@ -317,6 +323,7 @@ class PortfolioT1Backtest(BasePortfolio):
             return
         if event.direction == DIRECTION_TYPES.LONG:
             GLOG.CRITICAL("DEALING with LONG FILLED ORDER")
+            print(event.value)
             self.unfreeze(event.frozen)
             self.add_found(event.remain)
             self.add_fee(event.fee)

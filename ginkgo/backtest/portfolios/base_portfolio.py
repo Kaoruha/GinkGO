@@ -11,6 +11,7 @@ from ginkgo.backtest.selectors import BaseSelector
 from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.libs import cal_fee, datetime_normalize, GinkgoSingleLinkedList
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo import GLOG
 from ginkgo.backtest.backtest_base import BacktestBase
 
@@ -177,9 +178,14 @@ class BasePortfolio(BacktestBase):
 
     def unfreeze(self, money: float) -> float:
         if money > self.frozen:
-            GLOG.CRITICAL(
-                f"We cant unfreeze {money}, the max unfreeze is only {self.frozen}"
-            )
+            if money - self.frozen > GCONF.EPSILON:
+                GLOG.CRITICAL(
+                    f"We cant unfreeze {money}, the max unfreeze is only {self.frozen}"
+                )
+            else:
+                money = self.frozen
+                self._frozen -= money
+                GLOG.CRITICAL(f"DONE UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
         else:
             GLOG.CRITICAL(f"TRYING UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
             self._frozen -= money

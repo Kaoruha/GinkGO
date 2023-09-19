@@ -22,3 +22,7 @@ log_color:
 # ginkgo data
 default_start: 19000101
 default_end: 21000101
+
+
+# Setting
+epsilon: 1e-5
