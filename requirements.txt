@@ -37,6 +37,6 @@ tushare==1.2.89
 typing_extensions==4.5.0
 tzdata==2022.7
 tzlocal==4.3
-urllib3==1.26.15
+urllib3==1.26.17
 wcwidth==0.2.6
 websocket-client==0.57.0
