@@ -49,6 +49,7 @@ class PortfolioT1Backtest(BasePortfolio):
 
     @property
     def check_ok_next_phase(self) -> bool:
+        # TODO
         c1 = (
             self.price_get_count * len(self.strategies)
             == self.price_gen_signal_count + self.price_pass_count
@@ -63,6 +64,7 @@ class PortfolioT1Backtest(BasePortfolio):
         return r
 
     def reset_phase_check(self) -> None:
+        # TODO
         # Records
         self._price_get_count = 0
         self._price_gen_signal_count = 0
@@ -139,6 +141,9 @@ class PortfolioT1Backtest(BasePortfolio):
         return None
 
     def on_time_goes_by(self, time: any, *args, **kwargs):
+        """
+        Go next frame.
+        """
         # Time goes
         super(PortfolioT1Backtest, self).on_time_goes_by(time, *args, **kwargs)
         # Put old signals to engine
@@ -155,6 +160,13 @@ class PortfolioT1Backtest(BasePortfolio):
         self._signals = GinkgoSingleLinkedList()
 
     def on_signal(self, event: EventSignalGeneration):
+        """
+        Dealing with the signal coming.
+        1. get a signal
+        2. after sizer and risk manager
+        3.1 drop the signal
+        3.2 put order to event engine
+        """
         self._signal_get_count += 1  # Record
         GLOG.INFO(
             f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}."
