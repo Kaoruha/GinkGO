@@ -13,7 +13,7 @@ from ginkgo.backtest.matchmakings import MatchMakingSim
 from ginkgo.backtest.sizers import FixedSizer
 from ginkgo.backtest.events import EventNextPhase
 from ginkgo.backtest.feeds import BacktestFeed
-from ginkgo.backtest.strategies import StrategyVolumeActivate, StrategyProfitLossLimit
+from ginkgo.backtest.strategies import StrategyVolumeActivate, StrategyLossLimit
 
 
 interval = 0.5
@@ -30,7 +30,7 @@ sizer = FixedSizer(name="1000Sizer", volume=1000)
 portfolio.bind_sizer(sizer)
 
 strategy = StrategyVolumeActivate()
-profit_loss_limit = StrategyProfitLossLimit()
+profit_loss_limit = StrategyLossLimit()
 portfolio.add_strategy(strategy)
 portfolio.add_strategy(profit_loss_limit)
 
@@ -55,7 +55,7 @@ engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
 engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
 
 engine.start()
-for i in range(1000):
+for i in range(4000):
     engine.put(EventNextPhase())
     time.sleep(interval)
 engine.stop()

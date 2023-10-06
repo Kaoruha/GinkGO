@@ -55,16 +55,33 @@ class BasePortfolio(BacktestBase):
             self._cash += money
         return self.cash
 
+    def add_cash(self, money: float) -> float:
+        if money < 0:
+            GLOG.ERROR(f"The money should not under 0. {money} is illegal.")
+        else:
+            GLOG.CRITICAL(f"Add FOUND {money}")
+            self._cash += money
+        return self.cash
+
     @property
     def cash(self) -> float:
+        """
+        return the cash of portfolio
+        """
         return self._cash
 
     @property
     def frozen(self) -> float:
+        """
+        return the money frozen of portfolio
+        """
         return self._frozen
 
     @property
     def fee(self) -> float:
+        """
+        return the total fee of each trade
+        """
         return self._fee
 
     def add_fee(self, fee: float) -> float:
@@ -80,6 +97,9 @@ class BasePortfolio(BacktestBase):
         return self._interested
 
     def is_all_set(self) -> bool:
+        """
+        check if all parts set
+        """
         r = True
         if self.engine is None:
             GLOG.ERROR(f"Engine not bind. Events can not put back to the ENGINE.")
@@ -119,6 +139,9 @@ class BasePortfolio(BacktestBase):
 
     @property
     def selector(self):
+        """
+        Target selector
+        """
         return self._selector
 
     def bind_engine(self, engine: BaseEngine):
@@ -162,6 +185,9 @@ class BasePortfolio(BacktestBase):
         return self._sizer
 
     def freeze(self, money: float) -> bool:
+        """
+        Freeze the capital.
+        """
         if money >= self.cash:
             GLOG.CRITICAL(f"FREEZE NOTHING.")
             return False
@@ -177,6 +203,9 @@ class BasePortfolio(BacktestBase):
             return True
 
     def unfreeze(self, money: float) -> float:
+        """
+        frozen --, capital ++
+        """
         if money > self.frozen:
             if money - self.frozen > GCONF.EPSILON:
                 GLOG.CRITICAL(
@@ -194,6 +223,9 @@ class BasePortfolio(BacktestBase):
         return self.frozen
 
     def put(self, event):
+        """
+        Put event to eventengine.
+        """
         if self.engine is None:
             GLOG.ERROR(f"Engine not bind. Events can not put back to the engine.")
             return
@@ -206,14 +238,27 @@ class BasePortfolio(BacktestBase):
         index.bind_portfolio(self)
 
     def index(self, key: str):
-        return self.indexes[key].value
+        """
+        return the index[key]
+        """
+        # TODO
+        if key in self.indexes.keys():
+            return self.indexes[key].value
+        else:
+            return None
 
     @property
     def positions(self) -> dict:
+        """
+        Return Positions[dict] of portfolio
+        """
         return self._positions
 
     @property
     def strategies(self) -> dict:
+        """
+        Return Strategies[dict] of portfolio
+        """
         return self._strategies
 
     def add_strategy(self, strategy: StrategyBase) -> None:
@@ -246,6 +291,9 @@ class BasePortfolio(BacktestBase):
         raise NotImplemented
 
     def on_time_goes_by(self, time: any, *args, **kwargs):
+        """
+        Go next frame.
+        """
         super(BasePortfolio, self).on_time_goes_by(time, *args, **kwargs)
         if not self.is_all_set():
             return
@@ -256,6 +304,9 @@ class BasePortfolio(BacktestBase):
             self._interested.append(code)
 
     def clean_positions(self) -> None:
+        """
+        if some position's volome and frozen == 0, remove it from positions of portfolio.
+        """
         if len(self.positions.keys()) == 0:
             return
         del_list = []
