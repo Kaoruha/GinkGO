@@ -1,4 +1,5 @@
 import yaml
+import shutil
 import base64
 import threading
 import os
@@ -15,25 +16,71 @@ class GinkgoConfig(object):
         return GinkgoConfig._instance
 
     def __init__(self) -> None:
+        pass
+
+    @property
+    def setting_path(self) -> str:
+        path = os.path.join(os.environ.get("GINKGO_DIR", None), "config.yml")
+        return path
+
+    @property
+    def secure_path(self) -> str:
+        path = os.path.join(os.environ.get("GINKGO_DIR", None), "secure.yml")
+
+    def get_conf_dir(self) -> str:
+        root = os.environ.get("GINKGO_DIR", None)
+        if root is None:
+            root = os.path.expanduser("~/.ginkgo")
+            os.environ["GINKGO_DIR"] = root
+        return root
+
+    def ensure_dir(self, path: str) -> None:
+        if os.path.exists(path) and os.path.isdir(path):
+            return
+        os.makedirs(path)
+
+    def generate_config_file(self, path=None) -> None:
+        if path is None:
+            path = self.get_conf_dir()
+
+        self.ensure_dir(path)
         current_path = os.path.abspath(__file__)
-        self.setting_path = os.path.join(
-            os.path.dirname(current_path), "../config/config.yml"
-        )
-        self.secure_path = os.path.join(
-            os.path.dirname(current_path), "../config/secure.yml"
-        )
-        # self.setting_path = "./ginkgo/config/config.yml"
-        # self.secure_path = "./ginkgo/config/secure.yml"
+
+        if not os.path.exists(os.path.join(path, "config.yml")):
+            origin_path = os.path.join(
+                os.path.dirname(current_path), "../config/config.yml"
+            )
+            target_path = os.path.join(path, "config.yml")
+            shutil.copy(origin_path, target_path)
+            print(f"Copy config.yml from {origin_path} to {target_path}")
+
+        if not os.path.exists(os.path.join(path, "secure.yml")):
+            origin_path = os.path.join(
+                os.path.dirname(current_path), "../config/secure.yml"
+            )
+            target_path = os.path.join(path, "secure.yml")
+            print(f"Copy secure.yml from {origin_path} to {target_path}")
+            shutil.copy(origin_path, target_path)
 
     def __read_config(self) -> dict:
-        with open(self.setting_path, "r") as file:
-            r = yaml.safe_load(file)
-        return r
+        self.generate_config_file()
+        try:
+            with open(self.setting_path, "r") as file:
+                r = yaml.safe_load(file)
+            return r
+        except Exception as e:
+            print(e)
+            return {}
 
     def __read_secure(self) -> dict:
-        with open(self.secure_path, "r") as file:
-            r = yaml.safe_load(file)
-        return r
+        self.generate_config_file()
+        try:
+            with open(self.secure_path, "r") as file:
+                r = yaml.safe_load(file)
+            return r
+        except Exception as e:
+            print(e)
+            return {}
 
     @property
     def EPSILON(self) -> float:
