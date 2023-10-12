@@ -24,7 +24,7 @@
   - [TODO] Add ML Engine.
   - [TODO] Add Trading Records.
   - [TODO] Basic Live engine demo
-  - [TODO] Config file setup
+  - [x] Config file setup
 
 ##### 0.6
   - - [x] Plot Moduel

@@ -4,6 +4,8 @@ import time
 import platform
 import argparse
 
+from ginkgo.libs.ginkgo_conf import GCONF
+
 # ==============================
 # Important
 # Run this after enter your env.
@@ -131,6 +133,8 @@ def main():
         else:
             msg = f"[{red(' MISSING ')}] Ginkgo secure file, you need to create your secure.yml refer to README"
             print(msg)
+
+        GCONF.generate_config_file()
 
         print("\n")
         if not args.y:
