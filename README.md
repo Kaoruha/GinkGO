@@ -1,10 +1,10 @@
 # README
-A Python Backtest Library for trading strategies.
+Python Backtesting library for trading research
 - Vectorized Backtesting
 - Event Driven Backtesting
 
 
-## Secure Example
+## Secure
 ``` yaml
 database:
   clickhouse:
@@ -38,5 +38,14 @@ python ./install
 python ./run_unittest.py --all
 ```
 
+## DataUpdate
+```
+# After install
+python ./samples/cn_share_daily_update.py
+```
 
 ## Run Basic Backtest
+```
+# After install
+python ./samples/demo_backtest.py
+```
