@@ -9,16 +9,27 @@ click==8.1.7
 clickhouse-driver==0.2.5
 clickhouse-sqlalchemy==0.2.3
 colorlog==6.7.0
+contourpy==1.0.6
 cryptography==41.0.3
+cycler==0.11.0
+fonttools==4.39.4
+ginkgo @ file:///home/kaoru/Applications/Ginkgo/dist/ginkgo-0.6.0.tar.gz#sha256=377f3b0e8c55e8205a539b22ad31060271ba71ac4f767497859c58c7f05d4606
 greenlet==2.0.2
 idna==3.4
+kiwisolver==1.4.4
 lxml==4.9.2
+markdown-it-py==3.0.0
+matplotlib==3.7.2
+mdurl==0.1.2
 numpy==1.24.2
 packaging==23.1
 pandas==2.0.0
+Pillow==10.0.0
 prettytable==3.6.0
 pycparser==2.21
+Pygments==2.16.1
 PyMySQL==1.1.0
+pyparsing==3.0.9
 pyproject_hooks==1.0.0
 pytdx==1.72
 python-dateutil==2.8.2
@@ -26,6 +37,7 @@ pytz==2022.7.1
 pytz-deprecation-shim==0.1.0.post0
 PyYAML==6.0
 requests==2.28.2
+rich==13.6.0
 rpdb==0.1.6
 simplejson==3.19.1
 six==1.16.0
