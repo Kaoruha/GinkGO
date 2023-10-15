@@ -26,6 +26,7 @@ class GinkgoConfig(object):
     @property
     def secure_path(self) -> str:
         path = os.path.join(os.environ.get("GINKGO_DIR", None), "secure.yml")
+        return path
 
     def get_conf_dir(self) -> str:
         root = os.environ.get("GINKGO_DIR", None)
