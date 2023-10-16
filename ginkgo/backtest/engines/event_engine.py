@@ -35,7 +35,7 @@ class EventEngine(BaseEngine):
         self._date_start = None
         self._now = None
         self.set_date_start(20000101)
-        self._duration = 100
+        self._duration = 5
         self._main_thread: Thread = Thread(target=self.main_loop)
         self._timer_thread: Thread = Thread(target=self.timer_loop)
         self._handles: dict = {}
@@ -110,7 +110,6 @@ class EventEngine(BaseEngine):
         The EventBacktest Main Loop.
         """
         count = 0
-        max_count = 100000000
         while self._active:
             try:
                 # Get a event from events_queue
@@ -119,10 +118,10 @@ class EventEngine(BaseEngine):
                 self._process(event)
                 count = 0
             except Empty:
-                # GLOG.WARN(f"No Event in Queue. {datetime.datetime.now()}")
+                GLOG.WARN(f"No Event in Queue. {datetime.datetime.now()} {count}")
                 count += 1
                 # Exit
-                if count >= max_count:
+                if count >= self.duration:
                     sys.exit()
 
             # Break for a while
@@ -247,11 +246,6 @@ class EventEngine(BaseEngine):
 
     def nextphase(self, *args, **kwargs) -> None:
         self._now = self.now + self._time_interval
-        if len(self.portfolios) == 0:
-            GLOG.ERROR(f"There is no portfolio binded.")
-        else:
-            for i in self.portfolios:
-                i.value.on_time_goes_by(self.now)
 
         if self.matchmaking is None:
             GLOG.ERROR(f"There is no matchmaking binded.")
@@ -262,3 +256,9 @@ class EventEngine(BaseEngine):
             GLOG.ERROR(f"There is no datafeeder.")
         else:
             self.datafeeder.on_time_goes_by(self.now)
+
+        if len(self.portfolios) == 0:
+            GLOG.ERROR(f"There is no portfolio binded.")
+        else:
+            for i in self.portfolios:
+                i.value.on_time_goes_by(self.now)

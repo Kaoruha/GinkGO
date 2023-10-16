@@ -21,7 +21,7 @@ class BacktestBase(object):
         return self._now
 
     def on_time_goes_by(self, time: any, *args, **kwargs):
-        # Should support Day or Min or someother frame gap
+        # Should support Day or Min or other frame gap
         time = datetime_normalize(time)
         if time is None:
             GLOG.WARN("Format not support, can not update time")

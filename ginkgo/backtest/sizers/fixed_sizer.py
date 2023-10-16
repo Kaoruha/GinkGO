@@ -41,7 +41,7 @@ class FixedSizer(BaseSizer):
             pos = self.portfolio.get_position(code)
             if pos is None:
                 return
-            GLOG.CRITICAL("Try Generate SHORT ORDER.")
+            GLOG.WARN("Try Generate SHORT ORDER.")
             o.set(
                 signal.code,
                 signal.direction,

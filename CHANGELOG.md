@@ -17,13 +17,14 @@
   - [TODO] Add Notification
   - - [TODO] Add Mail Notification
   - - [TODO] Add Wecat Notification
+  - [TODO] Basic Live engine demo
+  - [TODO] Add ML Engine.
 
 ##### 0.6.1(DEV)
-  - [DEV] Fix precision lost problem.
+  - [x] Fix precision lost problem.
   - [TODO] Add CLI
-  - [TODO] Add ML Engine.
-  - [TODO] Add Trading Records.
-  - [TODO] Basic Live engine demo
+  - [x] Add Trading Records.
+  - [DOING] Support Mor Flexible Data Interval
   - [x] Config file setup
 
 ##### 0.6

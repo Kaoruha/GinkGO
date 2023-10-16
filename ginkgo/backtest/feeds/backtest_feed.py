@@ -54,3 +54,28 @@ class BacktestFeed(BaseFeed):
                 b.set(r)
                 event = EventPriceUpdate(b)
                 self.engine.put(event)
+
+    def get_count_of_price(self, date, interested, *args, **kwargs):
+        # Do Cache
+        # Both count and price
+        if date > self.now:
+            return 0
+        count = 0
+        # print("!!!!!!!!")
+        # print(date)
+        # print(self.now)
+        # print(interested)
+        for i in interested:
+            df = self.get_daybar(i.value, date)
+            if df.shape[0] == 1:
+                count += 1
+        # print(count)
+        # print("!!!!!!!!")
+        return count
+
+    def is_code_on_market(self, code, date, *args, **kwargs) -> bool:
+        df = self.get_daybar(code, date)
+        if df.shape[0] == 1:
+            return True
+        else:
+            return False
