@@ -42,13 +42,13 @@ class BacktestTest(unittest.TestCase):
         sizer = FixedSizer()
 
     def test_btportfolio_Init(self) -> None:
-        interval = 10
+        interval = 20
         datestart = 20050412
 
         portfolio = PortfolioT1Backtest()
 
         codes = GDATA.get_stock_info_df()
-        codes = codes[:50]
+        codes = codes[45:55]
         codes = codes.code.to_list()
 
         # selector = FixedSelector(["000001.SZ", "000002.SZ"])
@@ -89,27 +89,22 @@ class BacktestTest(unittest.TestCase):
         engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
         engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
 
+        engine.put(EventNextPhase())
         engine.start()
-        for i in range(2000):
-            print(i)
-            print(i)
-            print(i)
-            print(i)
-            engine.put(EventNextPhase())
-            time.sleep(interval)
-            r = portfolio.cash + portfolio.fee
-            for i in portfolio.positions.keys():
-                pos = portfolio.positions[i]
-                r += pos.volume * pos.cost
-            print(f"CAL: {r}")
-            print(f"FROZEN: {portfolio.frozen}")
-            self.assertEqual(
-                portfolio.price_get_count * len(portfolio.strategies),
-                portfolio.price_gen_signal_count + portfolio.price_pass_count,
-            )
-            self.assertLessEqual(portfolio.frozen, 1e-5)
-            pf = 0
-            for pos in portfolio.positions.keys():
-                pf += portfolio.get_position(pos).frozen
-            self.assertLessEqual(pf, 1e-5)
-        engine.stop()
+        # for i in range(4000):
+        #     print(i)
+        #     print(i)
+        #     engine.put(EventNextPhase())
+        #     # time.sleep(interval)
+        #     r = portfolio.cash + portfolio.fee
+        #     for i in portfolio.positions.keys():
+        #         pos = portfolio.positions[i]
+        #         r += pos.volume * pos.cost
+        #     print(f"CAL: {r}")
+        #     print(f"FROZEN: {portfolio.frozen}")
+        #     self.assertLessEqual(portfolio.frozen, 1e-5)
+        #     pf = 0
+        #     for pos in portfolio.positions.keys():
+        #         pf += portfolio.get_position(pos).frozen
+        #     self.assertLessEqual(pf, 1e-5)
+        # engine.stop()

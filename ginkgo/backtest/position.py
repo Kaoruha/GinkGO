@@ -43,7 +43,7 @@ class Position(Base):
         return (self.volume + self.frozen) * (self.price - self.cost) - self.fee
 
     def _bought(self, price: float, volume: int) -> None:
-        GLOG.CRITICAL(f"Position ++")
+        GLOG.WARN(f"Position ++")
         if price < 0 or volume < 0:
             GLOG.ERROR(f"Illegal price:{price} or volume:{volume}")
             return
@@ -56,7 +56,7 @@ class Position(Base):
         GLOG.INFO(
             f"POS {self.code} add {volume} at {price}. Final price: {price}, volume: {self.volume}, frozen: {self.frozen}"
         )
-        GLOG.CRITICAL(f"Position ++ DONE")
+        GLOG.WARN(f"Position ++ DONE")
 
     def _sold(self, price: float, volume: int) -> None:
         if price < 0:
@@ -69,7 +69,7 @@ class Position(Base):
 
         self._frozen -= volume
         self.on_price_update(price)
-        GLOG.CRITICAL(
+        GLOG.WARN(
             f"POS {self.code} sold {volume}. Final volume:{self.volume}  frozen:{self.frozen}"
         )
 
@@ -107,7 +107,7 @@ class Position(Base):
         return volume
 
     def unfreeze(self, volume: int) -> None:
-        GLOG.CRITICAL("START UNFREEZE...")
+        GLOG.WARN("START UNFREEZE...")
         if volume > self.frozen:
             GLOG.ERROR(
                 f"POS {self.code} just freezed {self.frozen} cant afford {volume}."
@@ -119,7 +119,7 @@ class Position(Base):
         GLOG.INFO(
             f"POS {self.code} unfreeze {volume}. Final volume:{self.volume}  frozen: {self.frozen}"
         )
-        GLOG.CRITICAL("DONE UNFREEZE.")
+        GLOG.WARN("DONE UNFREEZE.")
 
     def add_fee(self, fee: float) -> None:
         self._fee += fee

@@ -32,6 +32,9 @@ class BasePortfolio(BacktestBase):
         self._interested = GinkgoSingleLinkedList()
         self._fee = 0
 
+    def get_count_of_price(self, date):
+        raise NotImplemented
+
     @property
     def profit(self) -> float:
         profit = 0
@@ -51,7 +54,7 @@ class BasePortfolio(BacktestBase):
         if money < 0:
             GLOG.ERROR(f"The money should not under 0. {money} is illegal.")
         else:
-            GLOG.CRITICAL(f"Add FOUND {money}")
+            GLOG.WARN(f"Add FOUND {money}")
             self._cash += money
         return self.cash
 
@@ -59,7 +62,7 @@ class BasePortfolio(BacktestBase):
         if money < 0:
             GLOG.ERROR(f"The money should not under 0. {money} is illegal.")
         else:
-            GLOG.CRITICAL(f"Add FOUND {money}")
+            GLOG.WARN(f"Add FOUND {money}")
             self._cash += money
         return self.cash
 
@@ -88,7 +91,7 @@ class BasePortfolio(BacktestBase):
         if fee < 0:
             GLOG.ERROR(f"The fee should not under 0. {fee} is illegal.")
         else:
-            GLOG.CRITICAL(f"Add FEE {fee}")
+            GLOG.WARN(f"Add FEE {fee}")
             self._fee += fee
         return self.fee
 
@@ -189,15 +192,15 @@ class BasePortfolio(BacktestBase):
         Freeze the capital.
         """
         if money >= self.cash:
-            GLOG.CRITICAL(f"FREEZE NOTHING.")
+            GLOG.CRITICAL(f"We cant freeze {money}, we only have {self.cash}.")
             return False
         else:
-            GLOG.CRITICAL(f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
+            GLOG.WARN(f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
             print(f"FF: {self._frozen} + {money}")
             self._frozen += money
             print(f"= {self._frozen}")
             self._cash -= money
-            GLOG.CRITICAL(f"DONE FREEZE {money}. CURRENFROZEN: {self._frozen} ")
+            GLOG.WARN(f"DONE FREEZE {money}. CURRENFROZEN: {self._frozen} ")
             # self._frozen = round(self._frozen, 4)
             # self._cash = round(self._cash, 4)
             return True
@@ -214,12 +217,12 @@ class BasePortfolio(BacktestBase):
             else:
                 money = self.frozen
                 self._frozen -= money
-                GLOG.CRITICAL(f"DONE UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
+                GLOG.WARN(f"DONE UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
         else:
-            GLOG.CRITICAL(f"TRYING UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
+            GLOG.WARN(f"TRYING UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
             self._frozen -= money
             # self._frozen = round(self._frozen, 4)
-            GLOG.CRITICAL(f"DONE UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
+            GLOG.WARN(f"DONE UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
         return self.frozen
 
     def put(self, event):

@@ -25,6 +25,9 @@ class BaseFeed(BacktestBase):
     def broadcast(self) -> None:
         raise NotImplementedError()
 
+    def is_code_on_market(self, code) -> bool:
+        raise NotImplementedError()
+
     def get_daybar(self, code: str, date: any) -> pd.DataFrame:
         if code is None or date is None:
             return pd.DataFrame()

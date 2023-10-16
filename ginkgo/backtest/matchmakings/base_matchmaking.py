@@ -59,6 +59,9 @@ class MatchMakingBase(BacktestBase):
             GLOG.ERROR(
                 f"Current Time is {self.now} the price come from past {event.timestamp}"
             )
+            import pdb
+
+            pdb.set_trace()
             return
 
         elif time > self.now:

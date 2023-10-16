@@ -51,7 +51,7 @@ class MatchMakingSim(MatchMakingBase):
         order.status = ORDERSTATUS_TYPES.CANCELED
         GDATA.commit()
         canceld_order = EventOrderCanceled(order.uuid)
-        GLOG.CRITICAL(f"Return a CANCELED ORDER")
+        GLOG.WARN(f"Return a CANCELED ORDER")
         self.engine.put(canceld_order)
 
     def on_stock_order(self, event: EventOrderSubmitted):
@@ -139,7 +139,7 @@ class MatchMakingSim(MatchMakingBase):
                 if o.volume == 0:
                     self.return_order(o)
                     continue
-                GLOG.CRITICAL(f"Start Matching SHORT ORDER")
+                GLOG.WARN(f"Start Matching SHORT ORDER")
                 print(o)
             # 1. If limit price
             if o.type == ORDER_TYPES.LIMITORDER:
@@ -208,7 +208,7 @@ class MatchMakingSim(MatchMakingBase):
                 remain = volume - fee
             o.remain = round(remain, 4)
             if o.direction == DIRECTION_TYPES.SHORT:
-                GLOG.CRITICAL(f"Complete Matching SHORT ORDER")
+                GLOG.WARN(f"Complete Matching SHORT ORDER")
                 print(o)
             # 1.2.3 Give it back to db
             GDATA.commit()
