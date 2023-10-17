@@ -3,7 +3,7 @@ from sqlalchemy_utils import ChoiceType
 from functools import singledispatchmethod
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.libs import datetime_normalize, base_repr
-from ginkgo import GCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.enums import (
     DIRECTION_TYPES,
     ORDER_TYPES,
