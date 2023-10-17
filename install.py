@@ -162,7 +162,7 @@ def main():
     else:
         os.system(f"docker compose -f {path_docker} up -d")
 
-    Install Ginkgo Package
+    # Install Ginkgo Package
     os.system("python ./setup_install.py")
 
     # # Build an executable binary
