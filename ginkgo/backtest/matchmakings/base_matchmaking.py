@@ -2,7 +2,7 @@ import datetime
 import pandas as pd
 from ginkgo.libs import datetime_normalize
 from ginkgo.backtest.events import EventPriceUpdate
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import PRICEINFO_TYPES, DIRECTION_TYPES
 from ginkgo.backtest.backtest_base import BacktestBase
 

@@ -4,7 +4,7 @@
 # from time import sleep
 # from ginkgo.backtest.bar import Bar
 # from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
-# from ginkgo import GLOG
+# from ginkgo.libs.ginkgo_logger import GLOG
 # from ginkgo.libs import datetime_normalize
 
 

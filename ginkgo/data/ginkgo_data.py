@@ -16,7 +16,8 @@ from ginkgo.data.models import (
     MMysqlBase,
     MTick,
 )
-from ginkgo import GLOG, GCONF
+from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import datetime_normalize, str2bool
 from ginkgo.enums import (
     MARKET_TYPES,

@@ -12,7 +12,7 @@ from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.libs import cal_fee, datetime_normalize, GinkgoSingleLinkedList
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.backtest_base import BacktestBase
 
 

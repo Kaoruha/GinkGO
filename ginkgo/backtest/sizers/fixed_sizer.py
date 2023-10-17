@@ -2,7 +2,7 @@ from ginkgo.backtest.sizers.base_sizer import BaseSizer
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.signal import Signal
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 
 
 class FixedSizer(BaseSizer):

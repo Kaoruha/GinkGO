@@ -17,7 +17,7 @@ SENTMENT 情绪交易
 高频交易 做不了
 统计套利 可以做
 算法交易 可以做
-
+Gokk
 
 
 
@@ -102,3 +102,4 @@ Execution: You will need to design an execution system to trade on the data you 
 Backtesting and Optimization: Once you have your system in place, you will need to backtest your strategies on historical data to evaluate their performance. You can use libraries like backtrader, Pyfolio, or Zipline to perform backtesting and optimization.
 
 Monitoring and Alerts: Finally, you will need to set up a system for monitoring your trading strategies in real-time and sending alerts when certain events occur. This may include monitoring market data, portfolio performance, and risk levels.
+

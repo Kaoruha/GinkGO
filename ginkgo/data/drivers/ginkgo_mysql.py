@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, MetaData, inspect, func, DDL
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 
 
 class GinkgoMysql(object):

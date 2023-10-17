@@ -32,7 +32,7 @@ from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.tick import Tick
 from ginkgo.backtest.order import Order
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 
 
 class ModelTickTest(unittest.TestCase):

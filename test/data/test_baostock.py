@@ -3,7 +3,6 @@ import unittest
 import datetime
 from time import sleep
 import pandas as pd
-from ginkgo import GLOG
 from ginkgo.data.sources import GinkgoBaoStock
 
 

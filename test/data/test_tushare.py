@@ -4,7 +4,8 @@ import unittest
 import datetime
 from time import sleep
 import pandas as pd
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
+
 from ginkgo.data.sources import GinkgoTushare
 
 

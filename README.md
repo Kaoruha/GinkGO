@@ -33,6 +33,11 @@ tushare:
 python ./install 
 ```
 
+## Create Shortcuts
+``` shell
+sudo ./install.sh
+```
+
 ## Unittest
 ```
 python ./run_unittest.py --all

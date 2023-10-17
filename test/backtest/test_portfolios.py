@@ -1,6 +1,6 @@
 # import unittest
 # import uuid
-# from ginkgo import GLOG
+# from ginkgo.libs.ginkgo_logger import GLOG
 # from ginkgo.libs.ginkgo_normalize import datetime_normalize
 # from ginkgo.backtest.order import Order
 # from ginkgo.backtest.strategies import StrategyBase
