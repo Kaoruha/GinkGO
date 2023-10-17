@@ -28,6 +28,8 @@ Pillow==10.0.0
 prettytable==3.6.0
 pycparser==2.21
 Pygments==2.16.1
+pyinstaller==6.1.0
+pyinstaller-hooks-contrib==2023.10
 PyMySQL==1.1.0
 pyparsing==3.0.9
 pyproject_hooks==1.0.0
@@ -46,6 +48,7 @@ SQLAlchemy==1.4.47
 SQLAlchemy-Utils==0.40.0
 tomli==2.0.1
 tushare==1.2.89
+typer==0.9.0
 typing_extensions==4.5.0
 tzdata==2022.7
 tzlocal==4.3
