@@ -162,18 +162,13 @@ def main():
     else:
         os.system(f"docker compose -f {path_docker} up -d")
 
-    # Install Ginkgo Package
-    # os.system("python ./setup_install.py")
+    Install Ginkgo Package
+    os.system("python ./setup_install.py")
 
-    # Build an executable binary
-    version_split = ver.split('.')
-    version_tag = f"{version_split[0]}.{version_split[1]}"
-    cmd = f"pyinstaller --onefile --paths /home/kaoru/Documents/Ginkgo/venv/lib/python{version_tag}/site-packages  main.py -n ginkgo"
-    os.system(cmd)
-    # os.system("cp ./dist/ginkgo ./haha/ginkgo")
-
-    # # Set the entry to main.py TODO
-    # cmd = f"sudo echo '{env}/bin/python {wd}/main.py' > /usr/bin/ginkgo_cli"
+    # # Build an executable binary
+    # version_split = ver.split('.')
+    # version_tag = f"{version_split[0]}.{version_split[1]}"
+    # cmd = f"pyinstaller --onefile --paths /home/kaoru/Documents/Ginkgo/venv/lib/python{version_tag}/site-packages  main.py -n ginkgo"
     # os.system(cmd)
 
 
