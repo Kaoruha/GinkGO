@@ -1,6 +1,6 @@
 import os
 import sys
-from ginkgo import GCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql
 
 CLICKDRIVER = GinkgoClickhouse(

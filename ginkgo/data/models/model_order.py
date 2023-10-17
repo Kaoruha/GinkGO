@@ -4,7 +4,7 @@ from sqlalchemy import Column, String, Integer, DECIMAL
 from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
-from ginkgo import GCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import base_repr, datetime_normalize
 
 

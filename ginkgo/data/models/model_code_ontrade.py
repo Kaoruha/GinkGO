@@ -5,7 +5,7 @@ from sqlalchemy import Column, String, Integer, DECIMAL, Boolean
 from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
-from ginkgo import GCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import base_repr, datetime_normalize
 
 

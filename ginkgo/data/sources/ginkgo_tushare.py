@@ -1,6 +1,6 @@
 import tushare as ts
 import pandas as pd
-from ginkgo import GCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import datetime_normalize
 from ginkgo.libs.ginkgo_logger import GLOG
 

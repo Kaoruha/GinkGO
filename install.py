@@ -6,12 +6,6 @@ import argparse
 from ginkgo.libs.ginkgo_conf import GCONF
 
 
-# ==============================
-# Important
-# Run this after enter your env.
-# ==============================
-
-
 def bye():
     print("\n")
     print("Bye. Wish to see you soon.")
@@ -143,8 +137,10 @@ def main():
                 bye()
 
     # 安装依赖
-    os.system("pip install wheel")
-    os.system(f"pip install -r {path_pip}")
+    os.system("pip install wheel --default-timeout=20")
+    os.system("pip install wheel -i https://pypi.tuna.tsinghua.edu.cn/simple")
+    os.system(f"pip install -r {path_pip} --default-timeout=20")
+    os.system(f"pip install -r {path_pip} -i https://pypi.tuna.tsinghua.edu.cn/simple")
 
     # 创建映射文件夹
     if not os.path.exists(path_db):
