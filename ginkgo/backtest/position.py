@@ -1,5 +1,5 @@
 from ginkgo.backtest.base import Base
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs import base_repr
 from ginkgo.enums import DIRECTION_TYPES
 

@@ -1,3 +1,4 @@
+altgraph==0.17.4
 baostock==0.8.8
 beautifulsoup4==4.12.2
 bs4==0.0.1
@@ -13,7 +14,6 @@ contourpy==1.0.6
 cryptography==41.0.3
 cycler==0.11.0
 fonttools==4.39.4
-ginkgo @ file:///home/kaoru/Applications/Ginkgo/dist/ginkgo-0.6.0.tar.gz#sha256=377f3b0e8c55e8205a539b22ad31060271ba71ac4f767497859c58c7f05d4606
 greenlet==2.0.2
 idna==3.4
 kiwisolver==1.4.4
@@ -28,6 +28,8 @@ Pillow==10.0.0
 prettytable==3.6.0
 pycparser==2.21
 Pygments==2.16.1
+pyinstaller==6.1.0
+pyinstaller-hooks-contrib==2023.10
 PyMySQL==1.1.0
 pyparsing==3.0.9
 pyproject_hooks==1.0.0

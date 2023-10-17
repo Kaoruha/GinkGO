@@ -6,7 +6,8 @@ from sqlalchemy import Column, String, Integer, DECIMAL
 from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.backtest.bar import Bar
-from ginkgo import GLOG, GCONF
+from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import base_repr, datetime_normalize
 from ginkgo.enums import (
     DIRECTION_TYPES,

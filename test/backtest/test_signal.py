@@ -4,7 +4,7 @@
 # import pandas as pd
 # from ginkgo.backtest.signal import Signal
 # from ginkgo.data.models import MSignal
-# from ginkgo import GLOG
+# from ginkgo.libs.ginkgo_logger import GLOG
 # from ginkgo.data.ginkgo_data import GDATA
 # from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 # from ginkgo.libs import datetime_normalize

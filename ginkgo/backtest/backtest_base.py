@@ -1,5 +1,5 @@
 import datetime
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList
 
 

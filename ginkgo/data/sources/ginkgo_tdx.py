@@ -2,7 +2,7 @@ from ginkgo.data.sources.source_base import GinkgoSourceBase
 import pandas as pd
 from ginkgo.libs import datetime_normalize
 from pytdx.hq import TdxHq_API
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 import random
 
 

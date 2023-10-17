@@ -17,7 +17,7 @@ from ginkgo.backtest.events import (
     EventOrderFilled,
     EventOrderCanceled,
 )
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MOrder
 from ginkgo.backtest.matchmakings.base_matchmaking import MatchMakingBase

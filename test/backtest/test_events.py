@@ -17,7 +17,7 @@
 # from ginkgo.data.models.model_order import MOrder
 # from ginkgo.data.models.model_order import MOrder
 # from ginkgo.data.ginkgo_data import GDATA
-# from ginkgo import GLOG
+# from ginkgo.libs.ginkgo_logger import GLOG
 # from ginkgo.backtest.bar import Bar
 # from ginkgo.backtest.tick import Tick
 # from ginkgo.libs import datetime_normalize

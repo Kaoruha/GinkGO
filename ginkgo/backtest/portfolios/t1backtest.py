@@ -11,7 +11,7 @@ The `Portfolio` class is responsible for managing the positions and capital for 
 """
 from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
 from ginkgo.backtest.bar import Bar
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.events import (
     EventOrderSubmitted,
     EventOrderFilled,

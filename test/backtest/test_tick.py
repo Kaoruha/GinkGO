@@ -3,7 +3,7 @@
 # import datetime
 # import pandas as pd
 # from ginkgo.backtest.tick import Tick
-# from ginkgo import GLOG
+# from ginkgo.libs.ginkgo_logger import GLOG
 # from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 # from ginkgo.data.ginkgo_data import GDATA
 

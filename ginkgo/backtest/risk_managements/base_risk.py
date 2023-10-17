@@ -1,5 +1,5 @@
 from ginkgo.backtest.order import Order
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.backtest_base import BacktestBase
 
 

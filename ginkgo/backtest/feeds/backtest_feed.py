@@ -9,7 +9,7 @@ The `Datahandler` class will provide access to historical price and volume data 
 """
 import pandas as pd
 from ginkgo.backtest.feeds.base_feed import BaseFeed
-from ginkgo import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.events import EventPriceUpdate
 from ginkgo.backtest.bar import Bar
 from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList

@@ -3,8 +3,8 @@ import sys
 import time
 import platform
 import argparse
-
 from ginkgo.libs.ginkgo_conf import GCONF
+
 
 # ==============================
 # Important
@@ -57,8 +57,9 @@ def main():
         os.system(cmd)
         return
 
-    path_log = ".logs"
-    path_db = ".db"
+    wd = os.getcwd()
+    path_log = f"{wd}/.logs"
+    path_db = f"{wd}/.db"
     path_pip = "./requirements.txt"
     path_docker = ".conf/docker-compose.yml"
     path_click = ".conf/clickhouse_users.xml"
@@ -89,7 +90,6 @@ def main():
         print(msg)
         bye()
     else:
-        wd = os.getcwd()
         print(f"CWD: {lightblue(wd)}")
         print(f"ENV: {lightblue(env)}")
         ver = platform.python_version()
@@ -163,7 +163,18 @@ def main():
         os.system(f"docker compose -f {path_docker} up -d")
 
     # Install Ginkgo Package
-    os.system("python ./setup_install.py")
+    # os.system("python ./setup_install.py")
+
+    # Build an executable binary
+    version_split = ver.split('.')
+    version_tag = f"{version_split[0]}.{version_split[1]}"
+    cmd = f"pyinstaller --onefile --paths /home/kaoru/Documents/Ginkgo/venv/lib/python{version_tag}/site-packages  main.py -n ginkgo"
+    os.system(cmd)
+    # os.system("cp ./dist/ginkgo ./haha/ginkgo")
+
+    # # Set the entry to main.py TODO
+    # cmd = f"sudo echo '{env}/bin/python {wd}/main.py' > /usr/bin/ginkgo_cli"
+    # os.system(cmd)
 
 
 if __name__ == "__main__":
