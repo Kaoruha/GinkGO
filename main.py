@@ -4,7 +4,6 @@ from cmd import Cmd
 from typing_extensions import Annotated
 from rich.console import Console
 
-from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.backtest.plots import CandlePlot
 
 
@@ -75,6 +74,8 @@ class MyPrompt(Cmd):
         print("  -backtest   Run Backtest Untis.")
 
     def do_plt_daybar(self, msg):
+        from ginkgo.data.ginkgo_data import GDATA
+
         code = typer.prompt("What's the code?")
         info = GDATA.get_stock_info(code)
         date_start = typer.prompt("What's the start?")
@@ -124,6 +125,8 @@ def password(
 
 @app.command()
 def data_update(is_fast_on: Annotated[bool, typer.Option("--fast")] = False):
+    from ginkgo.data.ginkgo_data import GDATA
+
     GDATA.create_all()
     GDATA.update_stock_info()
     GDATA.update_trade_calendar()
@@ -166,6 +169,8 @@ def plt_daybar(
     """
     Plot Candle Chart.
     """
+    from ginkgo.data.ginkgo_data import GDATA
+
     info = GDATA.get_stock_info(code)
     code_name = info.code_name
     industry = info.industry
