@@ -126,7 +126,7 @@ class EventEngine(BaseEngine):
                     sys.exit()
 
             # Break for a while
-            sleep(GCONF.HEARTBEAT)
+            # sleep(GCONF.HEARTBEAT)
 
     def timer_loop(self) -> None:
         """
