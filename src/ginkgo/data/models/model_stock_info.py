@@ -1,4 +1,6 @@
 import pandas as pd
+from sqlalchemy import Column, String, DateTime, Integer
+from sqlalchemy_utils import ChoiceType
 from functools import singledispatchmethod
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.enums import (
@@ -6,8 +8,6 @@ from ginkgo.enums import (
     FREQUENCY_TYPES,
     CURRENCY_TYPES,
 )
-from sqlalchemy import Column, String, DateTime, Integer
-from sqlalchemy_utils import ChoiceType
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import datetime_normalize, base_repr
 

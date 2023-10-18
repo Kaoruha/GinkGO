@@ -1,4 +1,6 @@
 import pandas as pd
+from sqlalchemy import Column, String, Integer, DECIMAL
+from sqlalchemy_utils import ChoiceType
 from sqlalchemy_utils import ChoiceType
 from functools import singledispatchmethod
 from ginkgo.data.models.model_clickbase import MClickBase
@@ -12,8 +14,6 @@ from ginkgo.enums import (
     FREQUENCY_TYPES,
     TICKDIRECTION_TYPES,
 )
-from sqlalchemy import Column, String, Integer, DECIMAL
-from sqlalchemy_utils import ChoiceType
 
 
 class MTick(MClickBase):

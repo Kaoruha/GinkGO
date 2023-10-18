@@ -1,7 +1,12 @@
 import pandas as pd
 import datetime
 from functools import singledispatchmethod
-from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
+from ginkgo.enums import (
+    DIRECTION_TYPES,
+    ORDER_TYPES,
+    ORDERSTATUS_TYPES,
+    SOURCE_TYPES,
+)
 from ginkgo.libs import base_repr, datetime_normalize, gen_uuid4
 from ginkgo.backtest.base import Base
 

@@ -4,7 +4,8 @@ import argparse
 import datetime
 import os
 import unittest
-from ginkgo import GCONF, GLOG
+from src.ginkgo.libs.ginkgo_conf import GCONF
+from src.ginkgo.libs.ginkgo_logger import GLOG
 
 
 def run_test(path: list):
