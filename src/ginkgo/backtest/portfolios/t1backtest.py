@@ -43,7 +43,6 @@ class PortfolioT1Backtest(BasePortfolio):
         self.reset_phase_check()
 
     def try_go_next_phase(self) -> None:
-        # time.sleep(2)
         print("===================")
         print(f"Data: {self.now}")
         print(f"Today will get : {self._count_of_price_should_come_now} PRICE.")
@@ -65,6 +64,7 @@ class PortfolioT1Backtest(BasePortfolio):
         else:
             console.print(f"[red]NO[/red]")
 
+        print(self)
         print("===================")
 
     @property
