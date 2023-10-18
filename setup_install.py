@@ -5,7 +5,7 @@
 import os
 import sys
 import time
-from ginkgo.config.package import VERSION
+from src.ginkgo.config.package import VERSION
 
 # Remove Package
 os.system("pip uninstall ginkgo -y")
@@ -31,7 +31,7 @@ dist_uri = f"pip install {dist_path}/ginkgo-{VERSION}.tar.gz"
 os.system(dist_uri)
 
 # Clean
-print("Clean Setup Cache.")
-os.system("rm -rf dist")
-os.system("rm -rf build")
-os.system("rm -rf ginkgo.egg-info")
+# print("Clean Setup Cache.")
+# os.system("rm -rf dist")
+# os.system("rm -rf build")
+# os.system("rm -rf ginkgo.egg-info")

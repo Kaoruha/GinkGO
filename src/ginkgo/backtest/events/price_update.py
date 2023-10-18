@@ -1,7 +1,7 @@
 import datetime
 import pandas as pd
-from ginkgo.backtest.events.base_event import EventBase
 from functools import singledispatchmethod
+from ginkgo.backtest.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES, PRICEINFO_TYPES, SOURCE_TYPES
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.tick import Tick

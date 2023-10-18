@@ -4,12 +4,14 @@ from cmd import Cmd
 from typing_extensions import Annotated
 from rich.console import Console
 
-from ginkgo.backtest.plots import CandlePlot
-from ginkgo.client import data_cli
-from ginkgo.client.interactive_cli import MyPrompt
+from src.ginkgo.backtest.plots import CandlePlot
+from src.ginkgo.client import data_cli
+from src.ginkgo.client import backtest_cli
+from src.ginkgo.client.interactive_cli import MyPrompt
 
 main_app = typer.Typer(help="Usage: ginkgocli [OPTIONS] COMMAND [ARGS]...")
 main_app.add_typer(data_cli.app, name="data")
+main_app.add_typer(backtest_cli.app, name="backtest")
 
 
 @main_app.command()
@@ -25,7 +27,9 @@ def version():
     """
     Ginkgo version.
     """
-    print(f"Ginkgo version: 2.1")
+    from src.ginkgo.config.package import PACKAGENAME, VERSION
+
+    print(f"{PACKAGENAME} {VERSION}")
 
 
 @main_app.command()
@@ -43,7 +47,7 @@ def configure():
     """
     Configure Ginkgo.
     """
-    from ginkgo.config.ginkgo_config import GCONF
+    from src.ginkgo.libs.ginkgo_conf import GCONF
 
     pass
 

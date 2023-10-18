@@ -3,17 +3,16 @@
 """
 
 import setuptools
-from ginkgo.config.package import PACKAGENAME, VERSION, AUTHOR, EMAIL, DESC, URL
 
 
 config = {
-    "package_name": PACKAGENAME,
-    "version": VERSION,
-    "author": AUTHOR,
-    "email": EMAIL,
-    "description": DESC,
+    "package_name": "ginkgo",
+    "version": "0.6.0",
+    "author": "kaoru",
+    "email": "sun159753@gmail.com",
+    "description": "Python Backtesting library for trading research",
     "long_description": "TODO",
-    "package_url": URL,
+    "package_url": "",
 }
 setuptools.setup(
     name=config["package_name"],
@@ -24,15 +23,18 @@ setuptools.setup(
     long_description=config["long_description"],
     long_description_content_type="text/markdown",
     url=config["package_url"],
-    packages=setuptools.find_packages(),
-    package_data={"": ["*.yaml", "*.yml"]},
+    python_requires=">=3",
+    package_dir={"": "src"},
+    packages=setuptools.find_packages(where="src"),
+    # package_data={"": ["*.yaml", "*.yml"]},
+    package_data={},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     # entry_points={
-    #     "console_scripts": ["btm = main:main()"],
+    #     "console_scripts": ["btm = main:main"],
     # },
 )
 

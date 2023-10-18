@@ -1,27 +1,27 @@
-from clickhouse_sqlalchemy import engines
 import pandas as pd
-from clickhouse_sqlalchemy import engines
 import datetime
+from sqlalchemy import Column, String, DateTime, Boolean, Integer
+from sqlalchemy_utils import ChoiceType
 from types import FunctionType, MethodType
 from functools import singledispatchmethod
 from enum import Enum
 from types import FunctionType, MethodType
-from ginkgo.data import CLICKDRIVER as db
+from sqlalchemy.ext.declarative import declarative_base
 from ginkgo.libs import gen_uuid4, datetime_normalize
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.enums import SOURCE_TYPES
-from sqlalchemy import Column, String, DateTime, Boolean, Integer
-from sqlalchemy_utils import ChoiceType
 
 
-class MClickBase(db.base):
+Base = declarative_base()
+
+
+class MMysqlBase(Base):
     __abstract__ = True
-    __tablename__ = "ClickBaseModel"
-    __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
+    __tablename__ = "MysqlBaseModel"
 
     uuid = Column(String(32), primary_key=True)
     desc = Column(
-        String(),
+        String(255),
         default="This man is lazy, there is no description.",
     )
     timestamp = Column(DateTime, default=datetime_normalize("1950-01-01"))

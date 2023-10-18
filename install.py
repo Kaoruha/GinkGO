@@ -3,7 +3,7 @@ import sys
 import time
 import platform
 import argparse
-from ginkgo.libs.ginkgo_conf import GCONF
+from src.ginkgo.libs.ginkgo_conf import GCONF
 
 
 def bye():
@@ -57,8 +57,8 @@ def main():
     path_pip = "./requirements.txt"
     path_docker = ".conf/docker-compose.yml"
     path_click = ".conf/clickhouse_users.xml"
-    path_gink_conf = "ginkgo/config/config.yml"
-    path_gink_sec = "ginkgo/config/secure.yml"
+    path_gink_conf = f"{wd}/src/ginkgo/config/config.yml"
+    path_gink_sec = f"{wd}/src/ginkgo/config/secure.yml"
 
     print("======================================")
     print("Balabala Banner")  # TODO
