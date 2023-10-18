@@ -192,7 +192,7 @@ class BasePortfolio(BacktestBase):
         Freeze the capital.
         """
         if money >= self.cash:
-            GLOG.CRITICAL(f"We cant freeze {money}, we only have {self.cash}.")
+            GLOG.WARN(f"We cant freeze {money}, we only have {self.cash}.")
             return False
         else:
             GLOG.WARN(f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")

@@ -48,7 +48,7 @@ class BacktestTest(unittest.TestCase):
         portfolio = PortfolioT1Backtest()
 
         codes = GDATA.get_stock_info_df()
-        codes = codes[45:55]
+        # codes = codes[45:3000]
         codes = codes.code.to_list()
 
         # selector = FixedSelector(["000001.SZ", "000002.SZ"])
@@ -59,7 +59,7 @@ class BacktestTest(unittest.TestCase):
         risk = BaseRiskManagement()
         portfolio.bind_risk(risk)
 
-        sizer = FixedSizer(name="1000Sizer", volume=1100)
+        sizer = FixedSizer(name="1000Sizer", volume=500)
         portfolio.bind_sizer(sizer)
 
         strategy = StrategyVolumeActivate()
