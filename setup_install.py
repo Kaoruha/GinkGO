@@ -31,7 +31,8 @@ dist_uri = f"pip install {dist_path}/ginkgo-{VERSION}.tar.gz"
 os.system(dist_uri)
 
 # Clean
-# print("Clean Setup Cache.")
-# os.system("rm -rf dist")
-# os.system("rm -rf build")
-# os.system("rm -rf ginkgo.egg-info")
+print("Clean Setup Cache.")
+os.system("rm -rf dist")
+os.system("rm -rf build")
+os.system("rm -rf ginkgo.egg-info")
+os.system("rm -rf src/ginkgo.egg-info")
