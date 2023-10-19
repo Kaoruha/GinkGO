@@ -43,13 +43,16 @@ class BacktestTest(unittest.TestCase):
 
     def test_btportfolio_Init(self) -> None:
         interval = 20
-        datestart = 20050412
+        datestart = 20000101
 
         portfolio = PortfolioT1Backtest()
 
         codes = GDATA.get_stock_info_df()
         # codes = codes[45:3000]
         codes = codes.code.to_list()
+        import random
+
+        codes = random.sample(codes, 200)
 
         # selector = FixedSelector(["000001.SZ", "000002.SZ"])
         # selector = FixedSelector(["000042.SZ"])
@@ -59,7 +62,7 @@ class BacktestTest(unittest.TestCase):
         risk = BaseRiskManagement()
         portfolio.bind_risk(risk)
 
-        sizer = FixedSizer(name="1000Sizer", volume=500)
+        sizer = FixedSizer(name="500Sizer", volume=500)
         portfolio.bind_sizer(sizer)
 
         strategy = StrategyVolumeActivate()
