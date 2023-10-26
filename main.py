@@ -9,7 +9,7 @@ from src.ginkgo.client import data_cli
 from src.ginkgo.client import backtest_cli
 from src.ginkgo.client.interactive_cli import MyPrompt
 
-main_app = typer.Typer(help="Usage: ginkgocli [OPTIONS] COMMAND [ARGS]...")
+main_app = typer.Typer(help="Usage: ginkgo [OPTIONS] COMMAND [ARGS]...")
 main_app.add_typer(data_cli.app, name="data")
 main_app.add_typer(backtest_cli.app, name="backtest")
 
