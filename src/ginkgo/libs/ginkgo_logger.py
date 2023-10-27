@@ -79,14 +79,15 @@ class GinkgoLogger(object):
         self.file_handler.setFormatter(file_formatter)
         self.logger.addHandler(self.file_handler)
 
-    def set_level(self, level):
-        level = self.get_log_level(level)
+    def set_level(self, level: str):
+        level: int = self.get_log_level(level)
         self.logger.setLevel(level)
         self.console_handler.setLevel(level)
         self.file_handler.setLevel(level)
 
-    def get_log_level(self, level) -> int:
+    def get_log_level(self, level: str) -> int:
         r = 10
+        level = level.upper()
         if level == "DEBUG":
             r = 10
         elif level == "INFO":

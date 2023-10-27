@@ -5,9 +5,10 @@ from rich.prompt import Prompt
 
 
 class DataType(str, Enum):
-    stockinfo = "stockinfo"
-    daybar = "daybar"
-    minbar = "minbar"
+    STOCKINFO = "stockinfo"
+    ADJUST = "adjust"
+    DAYBAR = "day"
+    MINBAR = "min"
 
 
 app = typer.Typer(help="Module for DATA")
@@ -15,17 +16,24 @@ app = typer.Typer(help="Module for DATA")
 
 @app.command()
 def list(
-    datatype: Annotated[DataType, typer.Option(case_sensitive=False)],
+    data: Annotated[DataType, typer.Argument(case_sensitive=False)],
+    limit: Annotated[
+        int, typer.Option(case_sensitive=False, help="Limit the number of output.")
+    ] = 0,
+    filter: Annotated[
+        str, typer.Option(case_sensitive=True, help="Filter the output.")
+    ] = "",
 ):
     """
     Show data summary.
     """
+    # TODO limit and filter
     from ginkgo.data.ginkgo_data import GDATA
     import pandas as pd
 
     pd.set_option("display.unicode.east_asian_width", True)
 
-    if datatype == DataType.stockinfo:
+    if datatype == DataType.CODE:
         raw = GDATA.get_stock_info_df()
         raw = raw[
             [
@@ -37,19 +45,30 @@ def list(
             ]
         ]
         print(raw.to_string())
-    elif datatype == DataType.daybar:
-        code = Prompt.ask("Enter stock code: ")
+    elif datatype == DataType.DAYBAR:
         pass
-    elif datatype == DataType.minbar:
+    elif datatype == DataType.MINBAR:
         pass
 
 
 @app.command()
 def show(
-    datatype: Annotated[DataType, typer.Option(case_sensitive=False)],
-    code: Annotated[str, typer.Option(case_sensitive=False)] = "",
-    start: Annotated[str, typer.Option(case_sensitive=False)] = "",
-    end: Annotated[str, typer.Option(case_sensitive=False)] = "",
+    data: Annotated[DataType, typer.Argument(case_sensitive=False)] = "stockinfo",
+    code: Annotated[str, typer.Argument(case_sensitive=False)] = "600000.SH",
+    start: Annotated[
+        str,
+        typer.Option(
+            case_sensitive=False,
+            help="Date start, you could use yyyymmdd or yyyy-mm-dd",
+        ),
+    ] = "20200101",
+    end: Annotated[
+        str,
+        typer.Option(
+            case_sensitive=False,
+            help="Date start, you could use yyyymmdd or yyyy-mm-dd",
+        ),
+    ] = "20200201",
 ):
     """
     Show data details.
@@ -57,9 +76,11 @@ def show(
     from ginkgo.data.ginkgo_data import GDATA
     import pandas as pd
 
+    # TODO Reset the log level
+
     pd.set_option("display.unicode.east_asian_width", True)
 
-    if datatype == DataType.stockinfo:
+    if data == DataType.STOCKINFO:
         raw = GDATA.get_stock_info_df(code=code)
         raw = raw[
             [
@@ -71,29 +92,44 @@ def show(
             ]
         ]
         print(raw.to_string())
-    elif datatype == DataType.daybar:
-        if start == "" and end == "":
-            df = GDATA.get_daybar_df(code)
-        else:
-            df = GDATA.get_daybar_df(code, start, end)
+    elif data == DataType.DAYBAR:
+        df = GDATA.get_daybar_df(code, start, end)
         print(df.to_string())
-    elif datatype == DataType.minbar:
+    elif data == DataType.MINBAR:
         pass
     pass
 
 
 @app.command()
 def update(
-    datatype: Annotated[DataType, typer.Option(case_sensitive=False)],
+    data: Annotated[DataType, typer.Argument(case_sensitive=False)],
+    fast: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
     Update the database.
     """
-    pass
+    from ginkgo.data.ginkgo_data import GDATA
+    from ginkgo.libs.ginkgo_logger import GLOG
+    import logging
+
+    GLOG.set_level("CRITICAL")
+
+    if data == DataType.STOCKINFO:
+        GDATA.update_stock_info()
+    elif data == DataType.ADJUST:
+        pass
+    elif data == DataType.DAYBAR:
+        pass
+    elif data == DataType.MINBAR:
+        pass
 
 
 @app.command()
-def search():
+def search(
+    filter: Annotated[
+        str, typer.Option(case_sensitive=True, help="Key words to search")
+    ] = "",
+):
     """
     Try do fuzzy search.
     """
