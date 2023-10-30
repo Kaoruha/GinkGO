@@ -1,40 +1,50 @@
 from cmd import Cmd
+from rich.console import Console
 import sys
 import time
+import os
+
+
+console = Console()
+ans = "Ginkgo > "
 
 
 def print(string):
     """
-    Override the default print function.
+    Override the global print function.
+    Support Emoji and Style in rich.
     """
-    ans = "Ginkgo > "
     sys.stdout.write(ans)
     for char in string:
         sys.stdout.write(char)
         sys.stdout.flush()
         time.sleep(0.04)
-    sys.stdout.write("\n")
+    sys.stdout.write("\x1b[2K" * len(string))
+    sys.stdout.write("\r")
+    console.print(f"{ans}{string}")
 
 
 class MyPrompt(Cmd):
     prompt = "Master > "
-    ans = "Ginkgo > "
+    # ans = "Ginkgo > "
     intro = f"  ______              __  __               __             __"
     intro += f"\n /_  _________  __   / / / ____ __________/ ___  _____   / /"
     intro += f"\n  / / / ___/ / / /  / /_/ / __ `/ ___/ __  / _ \/ ___/  / /"
     intro += f"\n / / / /  / /_/ /  / __  / /_/ / /  / /_/ /  __/ /     /_/"
     intro += f"\n/_/ /_/   \__, /  /_/ /_/\__,_/_/   \__,_/\___/_/     (_)"
+    intro += f"\n           _/ /"
+    intro += f"\n         /___/"
     intro += f"\n"
     intro += f"\n"
     intro += f"{ans}Welcome!"
     intro += f"\n{ans}You can type ? to list commands"
 
     def app_exit(self, msg):
-        print(f"Bye. See you soon.")
+        print(f"Bye. See you soon. :four_leaf_clover:")
         return True
 
     def default(self, msg):
-        exit_list = ["bye", "Bye", "BYE", "BYe", ":q"]
+        exit_list = ["bye", "Bye", "BYE", "BYe", ":q", ":q!", ":qa"]
         if msg in exit_list:
             return self.app_exit(msg)
 
