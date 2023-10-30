@@ -1,6 +1,6 @@
 from types import FunctionType, MethodType
 from enum import Enum
-from src.ginkgo.libs.ginkgo_links import GinkgoSingleLinkedList
+from ginkgo.libs.ginkgo_links import GinkgoSingleLinkedList
 
 
 def chinese_count(msg):

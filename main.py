@@ -5,11 +5,11 @@ from typing_extensions import Annotated
 from rich.console import Console
 from rich import print
 
-from ginkgo.backtest.plots import CandlePlot
-from ginkgo.client import data_cli
-from ginkgo.client import backtest_cli
-from ginkgo.client import unittest_cli
-from ginkgo.client.interactive_cli import MyPrompt
+from src.ginkgo.backtest.plots import CandlePlot
+from src.ginkgo.client import data_cli
+from src.ginkgo.client import backtest_cli
+from src.ginkgo.client import unittest_cli
+from src.ginkgo.client.interactive_cli import MyPrompt
 
 main_app = typer.Typer(help="Usage: ginkgo [OPTIONS] COMMAND [ARGS]...")
 main_app.add_typer(data_cli.app, name="data")
@@ -24,10 +24,9 @@ def status():
     """
     Check the module status.
     """
-    from ginkgo.libs.ginkgo_conf import GCONF
+    from src.ginkgo.libs.ginkgo_conf import GCONF
 
     console.print(f"DEBUE: {GCONF.DEBUGMODE}")
-
     os.system("docker ps -a | grep ginkgo")
 
 
@@ -36,7 +35,7 @@ def version():
     """
     Ginkgo version.
     """
-    from ginkgo.config.package import PACKAGENAME, VERSION
+    from src.ginkgo.config.package import PACKAGENAME, VERSION
 
     print(
         f":sparkles: [bold medium_spring_green]{PACKAGENAME}[/bold medium_spring_green] [light_goldenrod2]{VERSION}[/light_goldenrod2]"
@@ -58,10 +57,9 @@ def configure():
     """
     Configure Ginkgo.
     """
-    from ginkgo.libs.ginkgo_conf import GCONF
+    from src.ginkgo.libs.ginkgo_conf import GCONF
 
     print(11)
-    # TODO Set config
 
     pass
 
