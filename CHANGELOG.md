@@ -23,7 +23,7 @@
 
 ##### 0.6.1(DEV)
   - [x] Fix precision lost problem.
-  - [TODO] Add CLI
+  - [DOING] Add CLI
   - [x] Add Trading Records.
   - [DOING] Support More Flexible Data Interval
   - [x] Config file setup
