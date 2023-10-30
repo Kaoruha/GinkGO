@@ -25,7 +25,7 @@
   - [x] Fix precision lost problem.
   - [TODO] Add CLI
   - [x] Add Trading Records.
-  - [DOING] Support Mor Flexible Data Interval
+  - [DOING] Support More Flexible Data Interval
   - [x] Config file setup
 
 ##### 0.6
