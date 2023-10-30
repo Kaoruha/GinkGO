@@ -10,6 +10,7 @@
   - [TODO] Support other markets.
 
 ##### 0.7(FUTURE)
+  - [TODO] Support Data Cache(redis?).
   - [TODO]  Support More DataSource
   - - [TODO]  Support NSQ
   - - [TODO]  Support Dao
