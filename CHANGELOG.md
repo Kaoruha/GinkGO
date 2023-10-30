@@ -1,6 +1,6 @@
 ##### 1.0(FUTURE)
   - [x] Update Python to 3.11.
-  - [DEV] Upgrade Backtest Framework.
+  - [DOGIN] Upgrade Backtest Framework.
 
   ~~- [DEV] Support MongoDB and Clickhouse.~~
 
