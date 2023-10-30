@@ -8,7 +8,7 @@ class DataType(str, Enum):
     STOCKINFO = "stockinfo"
     ADJUST = "adjust"
     DAYBAR = "day"
-    MINBAR = "min"
+    TICK = "min"
 
 
 app = typer.Typer(help="Module for DATA")
@@ -47,7 +47,7 @@ def list(
         print(raw.to_string())
     elif datatype == DataType.DAYBAR:
         pass
-    elif datatype == DataType.MINBAR:
+    elif datatype == DataType.TICK:
         pass
 
 
@@ -95,7 +95,7 @@ def show(
     elif data == DataType.DAYBAR:
         df = GDATA.get_daybar_df(code, start, end)
         print(df.to_string())
-    elif data == DataType.MINBAR:
+    elif data == DataType.TICK:
         pass
     pass
 
@@ -103,14 +103,25 @@ def show(
 @app.command()
 def update(
     data: Annotated[DataType, typer.Argument(case_sensitive=False)],
-    fast: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+    fast: Annotated[
+        bool,
+        typer.Option(
+            case_sensitive=False, help="If set, ginkgo will try update in fast mode."
+        ),
+    ] = False,
+    code: Annotated[
+        str,
+        typer.Option(
+            case_sensitive=False,
+            help="If set,ginkgo will try to update the data of specific code.",
+        ),
+    ] = "",
 ):
     """
     Update the database.
     """
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.libs.ginkgo_logger import GLOG
-    import logging
 
     GLOG.set_level("CRITICAL")
 
@@ -120,7 +131,7 @@ def update(
         pass
     elif data == DataType.DAYBAR:
         pass
-    elif data == DataType.MINBAR:
+    elif data == DataType.TICK:
         pass
 
 
