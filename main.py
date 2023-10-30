@@ -3,6 +3,7 @@ import os
 from cmd import Cmd
 from typing_extensions import Annotated
 from rich.console import Console
+from rich import print
 
 from src.ginkgo.backtest.plots import CandlePlot
 from src.ginkgo.client import data_cli
@@ -31,7 +32,9 @@ def version():
     """
     from src.ginkgo.config.package import PACKAGENAME, VERSION
 
-    print(f"{PACKAGENAME} {VERSION}")
+    print(
+        f":sparkles: [bold medium_spring_green]{PACKAGENAME}[/bold medium_spring_green] [light_goldenrod2]{VERSION}[/light_goldenrod2]"
+    )
 
 
 @main_app.command()
@@ -50,6 +53,8 @@ def configure():
     Configure Ginkgo.
     """
     from src.ginkgo.libs.ginkgo_conf import GCONF
+
+    print(11)
 
     pass
 
