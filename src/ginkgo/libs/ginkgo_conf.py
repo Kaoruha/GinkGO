@@ -93,6 +93,11 @@ class GinkgoConfig(object):
         return self.__read_config()["log_path"]
 
     @property
+    def UNITTEST_PATH(self) -> str:
+        # Where to store the log files
+        return self.__read_config()["unittest_path"]
+
+    @property
     def LOGGING_FILE_ON(self) -> str:
         # Turn on/off the logging
         return self.__read_config()["log_file_on"]
