@@ -3,16 +3,17 @@
 """
 
 import setuptools
+from src.ginkgo.config.package import PACKAGENAME, VERSION, AUTHOR, EMAIL, DESC, URL
 
 
 config = {
-    "package_name": "ginkgo",
-    "version": "0.6.0",
-    "author": "kaoru",
-    "email": "sun159753@gmail.com",
-    "description": "Python Backtesting library for trading research",
+    "package_name": PACKAGENAME,
+    "version": VERSION,
+    "author": AUTHOR,
+    "email": EMAIL,
+    "description": DESC,
     "long_description": "TODO",
-    "package_url": "",
+    "package_url": URL,
 }
 setuptools.setup(
     name=config["package_name"],

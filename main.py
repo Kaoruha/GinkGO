@@ -5,11 +5,11 @@ from typing_extensions import Annotated
 from rich.console import Console
 from rich import print
 
-from src.ginkgo.backtest.plots import CandlePlot
-from src.ginkgo.client import data_cli
-from src.ginkgo.client import backtest_cli
-from src.ginkgo.client import unittest_cli
-from src.ginkgo.client.interactive_cli import MyPrompt
+from ginkgo.backtest.plots import CandlePlot
+from ginkgo.client import data_cli
+from ginkgo.client import backtest_cli
+from ginkgo.client import unittest_cli
+from ginkgo.client.interactive_cli import MyPrompt
 
 main_app = typer.Typer(help="Usage: ginkgo [OPTIONS] COMMAND [ARGS]...")
 main_app.add_typer(data_cli.app, name="data")
