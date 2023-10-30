@@ -237,7 +237,7 @@ class GinkgoConfig(object):
 
     @property
     def CLICKPORT(self) -> int:
-        on_dev = self.__read_config()["debug"]
+        on_dev = self.DEBUGMODE
 
         r = self.__read_secure()["database"]["clickhouse"]["port"]
         if not on_dev:
@@ -247,7 +247,7 @@ class GinkgoConfig(object):
 
     @property
     def MYSQLPORT(self) -> int:
-        on_dev = self.__read_config()["debug"]
+        on_dev = self.DEBUGMODE
 
         r = self.__read_secure()["database"]["mysql"]["port"]
         if not on_dev:
@@ -257,7 +257,7 @@ class GinkgoConfig(object):
 
     @property
     def MONGOPORT(self) -> int:
-        on_dev = self.__read_config()["debug"]
+        on_dev = self.DEBUGMODE
 
         r = self.__read_secure()["database"]["mongo"]["port"]
         if not on_dev:
@@ -306,6 +306,15 @@ class GinkgoConfig(object):
         r = ""
         try:
             r = self.__read_config()["db_driver"]
+        except Exception as e:
+            pass
+        return r
+
+    @property
+    def DEBUGMODE(self) -> bool:
+        r = True
+        try:
+            r = self.__read_config()["debug"]
         except Exception as e:
             pass
         return r

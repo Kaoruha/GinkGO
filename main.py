@@ -16,12 +16,17 @@ main_app.add_typer(data_cli.app, name="data")
 main_app.add_typer(backtest_cli.app, name="backtest")
 main_app.add_typer(unittest_cli.app, name="unittest")
 
+console = Console()
+
 
 @main_app.command()
 def status():
     """
     Check the module status.
     """
+    from src.ginkgo.libs.ginkgo_conf import GCONF
+
+    console.print(f"DEBUE: {GCONF.DEBUGMODE}")
     os.system("docker ps -a | grep ginkgo")
 
 

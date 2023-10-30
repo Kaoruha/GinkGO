@@ -60,6 +60,8 @@ def main():
     path_gink_conf = f"{wd}/src/ginkgo/config/config.yml"
     path_gink_sec = f"{wd}/src/ginkgo/config/secure.yml"
 
+    # TODO Write logpath and workpath to config file
+
     print("======================================")
     print("Balabala Banner")  # TODO
     print("======================================")
