@@ -58,6 +58,9 @@ def plot(
         ),
     ] = "21200001",
 ):
+    """
+    Plot for BAR and TICK.
+    """
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.backtest.plots import CandlePlot
 
