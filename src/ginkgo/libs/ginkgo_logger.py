@@ -2,7 +2,7 @@ import os
 import logging
 import colorlog
 import threading
-from ginkgo.libs.ginkgo_conf import GCONF
+from src.ginkgo.libs.ginkgo_conf import GCONF
 
 # Read Configure
 LOGGING_LEVEL_CONSOLE = GCONF.LOGGING_LEVEL_CONSOLE

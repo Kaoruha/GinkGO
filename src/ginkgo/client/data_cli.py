@@ -8,7 +8,7 @@ class DataType(str, Enum):
     STOCKINFO = "stockinfo"
     ADJUST = "adjust"
     DAYBAR = "day"
-    MINBAR = "min"
+    TICK = "tick"
 
 
 app = typer.Typer(help="Module for DATA")
@@ -47,7 +47,7 @@ def list(
         print(raw.to_string())
     elif datatype == DataType.DAYBAR:
         pass
-    elif datatype == DataType.MINBAR:
+    elif datatype == DataType.TICK:
         pass
 
 
@@ -95,7 +95,7 @@ def show(
     elif data == DataType.DAYBAR:
         df = GDATA.get_daybar_df(code, start, end)
         print(df.to_string())
-    elif data == DataType.MINBAR:
+    elif data == DataType.TICK:
         pass
     pass
 
@@ -103,7 +103,20 @@ def show(
 @app.command()
 def update(
     data: Annotated[DataType, typer.Argument(case_sensitive=False)],
-    fast: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+    fast: Annotated[
+        bool,
+        typer.Option(
+            case_sensitive=False,
+            help="If set, DAYBAR and TICK update will run in fast mode.",
+        ),
+    ] = False,
+    code: Annotated[
+        DataType,
+        typer.Option(
+            case_sensitive=True,
+            help="Update the specific data. if Not set, will automatic update all.",
+        ),
+    ] = "",
 ):
     """
     Update the database.
@@ -120,7 +133,7 @@ def update(
         pass
     elif data == DataType.DAYBAR:
         pass
-    elif data == DataType.MINBAR:
+    elif data == DataType.TICK:
         pass
 
 
