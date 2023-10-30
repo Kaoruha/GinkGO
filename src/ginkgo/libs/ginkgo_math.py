@@ -1,4 +1,4 @@
-from ginkgo.enums import DIRECTION_TYPES
+from src.ginkgo.enums import DIRECTION_TYPES
 
 
 def cal_fee(direction: DIRECTION_TYPES, price: float, tax_rate: float) -> float:
