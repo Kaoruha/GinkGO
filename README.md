@@ -30,7 +30,7 @@ tushare:
 ## Install
 
 ``` shell
-python ./install 
+python ./install.py
 ```
 
 ## Create Shortcuts
@@ -40,7 +40,7 @@ sudo ./install.sh
 
 ## Unittest
 ```
-python ./run_unittest.py --all
+ginkgo unittest run --all -y
 ```
 
 ## DataUpdate

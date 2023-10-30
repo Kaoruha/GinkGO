@@ -61,14 +61,12 @@ def run(
         if not y:
             port = GCONF.CLICKPORT
             if port == "18123":
-                msg = "[medium_spring_green]DEV DATABASE[/medium_spring_green]:smiley:"
+                msg = "[medium_spring_green]DEV DATABASE[/medium_spring_green]:monkey_face:"
             else:
                 msg = "You might have connected to a [bold red]PRODUCTION DATABASE[/bold red]:boom: or you have changed the default port of dev clickhouse."
             print(f"Current PORT is {GCONF.CLICKPORT}")
             print(msg)
-            result = typer.confirm(
-                f"DB Moduel may erase the database:attention:, Conitnue? "
-            )
+            result = typer.confirm(f"DB Moduel may erase the database, Conitnue? ")
             if result:
                 t = origin_path + "/database"
                 path.append(t)
