@@ -322,6 +322,7 @@ class GinkgoData(object):
         df = pd.read_sql(r.statement, CLICKDRIVER.engine)
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
+        # TODO cal adjustfactor
         return df
 
     def get_daybar_df_cache(
@@ -340,8 +341,6 @@ class GinkgoData(object):
             r = (
                 CLICKDRIVER.session.query(MBar)
                 .filter(MBar.code == code)
-                .filter(MBar.timestamp >= date_start)
-                .filter(MBar.timestamp <= date_end)
                 .filter(MBar.isdel == False)
             )
             df = pd.read_sql(r.statement, CLICKDRIVER.engine)
@@ -352,6 +351,7 @@ class GinkgoData(object):
         if df.shape[0] > 0:
             return df[df.timestamp >= date_start][df.timestamp <= date_end]
         else:
+            # TODO cal adjustfactor
             return df
 
     def get_adjustfactor(
@@ -461,6 +461,38 @@ class GinkgoData(object):
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
         return df
+
+    def get_tick_df_cache(
+        self, code: str, date_start: any, date_end: any
+    ) -> pd.DataFrame:
+        model = self.get_tick_model(code)
+        if not self.is_table_exsist(model):
+            GLOG.WARN(f"Table Tick {code} not exsit. ")
+            return pd.DataFrame()
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        # TODO
+        cache_name = f"tick%{code}"
+        if REDISDRIVER.exists(cache_name):
+            cache = REDISDRIVER.get(cache_name)
+            df = pickle.loads(cache)
+        else:
+            r = (
+                CLICKDRIVER.session.query(model).filter(model.code == code)
+                # .filter(model.timestamp >= date_start)
+                # .filter(model.timestamp <= date_end)
+                .filter(model.isdel == False)
+            )
+            df = pd.read_sql(r.statement, CLICKDRIVER.engine)
+            df = df.sort_values(by="timestamp", ascending=True)
+            df.reset_index(drop=True, inplace=True)
+            if df.shape[0] > 0:
+                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
+        if df.shape[0] > 0:
+            return df[df.timestamp >= date_start][df.timestamp <= date_end]
+        else:
+            # TODO cal adjustfactor
+            return df
 
     def del_tick(self, code: str, date: any) -> None:
         # TODO
