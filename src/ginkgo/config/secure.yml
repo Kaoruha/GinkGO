@@ -15,5 +15,8 @@ database:
     database: ginkgo
     username: ginkgoadm
     password: aGVsbG9tb25nbw==
+  redis:
+    host: localhost
+    port: 6379
 tushare:
   token: 5a991fc45395672e5677684c9adc4aa039c76f3653ee8bdd8a4389c8

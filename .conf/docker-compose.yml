@@ -1,9 +1,25 @@
 # yaml 配置实例
 version: "3"
 services:
-  MS:
-    image: mysql
-    container_name: ginkgo_ms
+  Redis-master:
+    image: redis:alpine3.18
+    container_name: redis_master
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis.conf:/etc/redis/redis.conf
+      - ../.db/redis/data:/data
+    command: redis-server /etc/redis/redis.conf --maxmemory 2048mb
+    deploy:
+      resources:
+        limits:
+          cpus: '2.00'
+          memory: 2048M
+
+  Mysql-master:
+    image: mysql:8.2.0
+    container_name: mysql_master
     command: 
       --max_connections=1000
       --character-set-server=utf8mb4
@@ -20,9 +36,15 @@ services:
       - ../.logs/mysql:/logs
       - ../.db/mysql:/var/lib/mysql
       - ./mysql_entrypoint:/docker-entrypoint-initdb.d
-  MSTest:
-    image: mysql
-    container_name: ginkgo_ms_test
+    deploy:
+      resources:
+        limits:
+          cpus: '2.00'
+          memory: 8196M
+
+  Mysql-test:
+    image: mysql:8.2.0
+    container_name: mysql_test
     command: 
       --max_connections=1000
       --character-set-server=utf8mb4
@@ -39,9 +61,15 @@ services:
       - ../.logs/mysql_test:/logs
       - ../.db/mysql_test:/var/lib/mysql
       - ./mysql_entrypoint:/docker-entrypoint-initdb.d
-  CH:
-    image: clickhouse/clickhouse-server
-    container_name: ginkgo_ch
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1024M
+
+  Clickhouse-master:
+    image: clickhouse/clickhouse-server:23.9.3.12-alpine
+    container_name: clickhouse_master
     restart: always
     ports:
       - "8123:8123"
@@ -56,14 +84,18 @@ services:
       nofile:
         soft: 262144
         hard: 262144
-
     environment:
       CLICKHOUSE_DB: ginkgo
       SHOW: 'ture'
+    deploy:
+      resources:
+        limits:
+          cpus: '2.00'
+          memory: 8196M
 
-  CHTest:
-    image: clickhouse/clickhouse-server
-    container_name: ginkgo_ch_test
+  Clickhouse-test:
+    image: clickhouse/clickhouse-server:23.9.3.12-alpine
+    container_name: clickhouse_test
     restart: always
     ports:
       - "18123:8123"
@@ -78,7 +110,11 @@ services:
       nofile:
         soft: 262144
         hard: 262144
-
     environment:
       CLICKHOUSE_DB: ginkgo
       SHOW: 'ture'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1024M

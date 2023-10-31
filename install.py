@@ -1,9 +1,9 @@
 import os
+import shutil
 import sys
 import time
 import platform
 import argparse
-from src.ginkgo.libs.ginkgo_conf import GCONF
 
 
 def bye():
@@ -43,15 +43,10 @@ def bg_red(msg: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-y", "--y", help="pass configuration", action="store_true")
-    parser.add_argument("-r", "--r", help="reinstall", action="store_true")
     args = parser.parse_args()
 
-    if args.r:
-        cmd = "sudo docker rm -f ginkgo_ms ginkgo_ms_test ginkgo_ch ginkgo_ch_test;sudo rm -rf .db .logs;python ./install.py -y"
-        os.system(cmd)
-        return
+    wd = os.path.dirname(os.path.abspath(__file__))
 
-    wd = os.getcwd()
     path_log = f"{wd}/.logs"
     path_db = f"{wd}/.db"
     path_pip = "./requirements.txt"
@@ -130,7 +125,25 @@ def main():
             msg = f"[{red(' MISSING ')}] Ginkgo secure file, you need to create your secure.yml refer to README"
             print(msg)
 
-        GCONF.generate_config_file()
+        current_path = os.path.abspath(__file__)
+
+        # Copy the config file
+
+        path = os.path.expanduser("~") + "/.ginkgo"
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        if not os.path.exists(os.path.join(path, "config.yml")):
+            origin_path = os.path.join(wd, "src/ginkgo/config/config.yml")
+            target_path = os.path.join(path, "config.yml")
+            shutil.copy(origin_path, target_path)
+            print(f"Copy config.yml from {origin_path} to {target_path}")
+
+        if not os.path.exists(os.path.join(path, "secure.yml")):
+            origin_path = os.path.join(wd, "src/ginkgo/config/secure.yml")
+            target_path = os.path.join(path, "secure.yml")
+            print(f"Copy secure.yml from {origin_path} to {target_path}")
+            shutil.copy(origin_path, target_path)
 
         print("\n")
         if not args.y:
@@ -139,6 +152,7 @@ def main():
                 bye()
 
     # 安装依赖
+    os.system("pip install --upgrade pip")
     os.system("pip install wheel --default-timeout=20")
     os.system("pip install wheel -i https://pypi.tuna.tsinghua.edu.cn/simple")
     os.system(f"pip install -r {path_pip} --default-timeout=20")
@@ -154,11 +168,11 @@ def main():
 
     # 启动Docker
     if "Windows" == str(platform.system()):
-        os.system(f"docker compose -f {path_docker} up -d")
+        os.system(f"docker compose -f {path_docker} --compatibility up -d")
     elif "Linux" == str(platform.system()):
-        os.system(f"sudo docker compose -f {path_docker} up -d")
+        os.system(f"sudo docker compose -f {path_docker} --compatibility up -d")
     else:
-        os.system(f"docker compose -f {path_docker} up -d")
+        os.system(f"docker compose -f {path_docker} --compatibility up -d")
 
     # Install Ginkgo Package
     os.system("python ./setup_install.py")
@@ -168,6 +182,10 @@ def main():
     # version_tag = f"{version_split[0]}.{version_split[1]}"
     # cmd = f"pyinstaller --onefile --paths /home/kaoru/Documents/Ginkgo/venv/lib/python{version_tag}/site-packages  main.py -n ginkgo"
     # os.system(cmd)
+
+    print(
+        f"You could run : {lightblue('chmod +x ./install.sh;sudo ./install.sh')} to get the cli."
+    )
 
 
 if __name__ == "__main__":

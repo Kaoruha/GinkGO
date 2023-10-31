@@ -16,8 +16,8 @@ class GinkgoClickhouse(object):
         self.__port = port
         self.__db = db
 
-        # self.__create_database()
         self.__connect()
+        # self.__create_database()
 
     def __connect(self) -> None:
         uri = f"clickhouse://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/{self.__db}"
@@ -28,8 +28,6 @@ class GinkgoClickhouse(object):
         GLOG.INFO("Connect to clickhouse succeed.")
 
     def __create_database(self) -> None:
-        # ATTENTION DDL will run the sql, be care of COMMAND INJECTION
-        # ATTENTION DDL will run the sql, be care of COMMAND INJECTION
         # ATTENTION DDL will run the sql, be care of COMMAND INJECTION
         uri = f"clickhouse://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/default"
         e = create_engine(uri)

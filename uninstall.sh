@@ -1,16 +1,23 @@
 # Get the working directory
+SCRIPT_PATH=$(dirname "$0")
 
 # Clean the configuration
-
-rm -df ~/.ginkgo
+rm -rf ~/.ginkgo
 
 # Stop the containers
-docker stop -f ginkgo_ch ginkgo_ch_test ginkgo_ms ginkgo_ms_test ginkgo_redis
+docker stop clickhouse_master clickhouse_test mysql_master mysql_test redis_master
 
 # TODO Remove the containers
-docker rm -f ginkgo_ch ginkgo_ch_test ginkgo_ms ginkgo_ms_test ginkgo_redis
+docker rm -f clickhouse_master clickhouse_test mysql_master mysql_test redis_master
 
 
 # Clean the log files and container files
-# TODO
-# Remove .log .db
+sudo rm -rf  "$SCRIPT_PATH/.logs"
+sudo rm -rf  "$SCRIPT_PATH/.db"
+sudo rm -rf  "$SCRIPT_PATH/venv"
+mkdir  "$SCRIPT_PATH/.logs"
+mkdir  "$SCRIPT_PATH/.db"
+
+# Clean the soft-link
+sudo rm /usr/bin/ginkgo 2>/dev/null
+sudo rm /bin/ginkgo 2>/dev/null

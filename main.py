@@ -27,7 +27,7 @@ def status():
     from src.ginkgo.libs.ginkgo_conf import GCONF
 
     console.print(f"DEBUE: {GCONF.DEBUGMODE}")
-    os.system("docker ps -a | grep ginkgo")
+    os.system("docker stats redis_master clickhouse_master mysql_master")
 
 
 @main_app.command()
