@@ -1,6 +1,6 @@
 # cmd = f"sudo echo '{env}/bin/python {wd}/main.py' > /usr/bin/ginkgo_cli"
 SHELL_FOLDER=$(dirname $(readlink -f "$0"))
-sudo rm /usr/bin/ginkgocli
+sudo rm /usr/bin/ginkgo 2>/dev/null
 sudo echo $SHELL_FOLDER/venv/bin/python $SHELL_FOLDER/main.py \$@> /usr/bin/ginkgo
 sudo chmod +x /usr/bin/ginkgo
 

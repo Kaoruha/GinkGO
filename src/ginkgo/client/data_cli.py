@@ -7,6 +7,7 @@ from rich.console import Console
 
 class DataType(str, Enum):
     STOCKINFO = "stockinfo"
+    CALENDAR = "calendar"
     ADJUST = "adjust"
     DAYBAR = "day"
     TICK = "tick"
@@ -193,9 +194,12 @@ def update(
     # from ginkgo.libs.ginkgo_logger import GLOG
 
     # GLOG.set_level("CRITICAL")
+    GDATA.create_all()
 
     if data == DataType.STOCKINFO:
         GDATA.update_stock_info()
+    elif data == DataType.CALENDAR:
+        GDATA.update_cn_trade_calendar()
     elif data == DataType.ADJUST:
         GDATA.update_all_cn_adjustfactor_aysnc()
     elif data == DataType.DAYBAR:

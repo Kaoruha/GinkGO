@@ -266,6 +266,16 @@ class GinkgoConfig(object):
             return f"1{r}"
 
     @property
+    def REDISHOST(self) -> str:
+        r = self.__read_secure()["database"]["redis"]["host"]
+        return r
+
+    @property
+    def REDISPORT(self) -> str:
+        r = self.__read_secure()["database"]["redis"]["port"]
+        return r
+
+    @property
     def HEARTBEAT(self) -> float:
         r = 0
         try:

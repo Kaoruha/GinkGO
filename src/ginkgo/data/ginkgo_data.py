@@ -1,4 +1,6 @@
 import time
+import zlib
+import pickle
 import types
 import datetime
 import os
@@ -28,8 +30,7 @@ from ginkgo.enums import (
     TICKDIRECTION_TYPES,
 )
 from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare, GinkgoTDX
-from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql
-from ginkgo.data import CLICKDRIVER, MYSQLDRIVER
+from ginkgo.data import CLICKDRIVER, MYSQLDRIVER, REDISDRIVER
 
 
 class GinkgoData(object):
@@ -323,6 +324,36 @@ class GinkgoData(object):
         df.reset_index(drop=True, inplace=True)
         return df
 
+    def get_daybar_df_cache(
+        self,
+        code: str,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
+    ) -> pd.DataFrame:
+        cache_name = f"day%{code}"
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        if REDISDRIVER.exists(cache_name):
+            cache = REDISDRIVER.get(cache_name)
+            df = pickle.loads(cache)
+        else:
+            r = (
+                CLICKDRIVER.session.query(MBar)
+                .filter(MBar.code == code)
+                .filter(MBar.timestamp >= date_start)
+                .filter(MBar.timestamp <= date_end)
+                .filter(MBar.isdel == False)
+            )
+            df = pd.read_sql(r.statement, CLICKDRIVER.engine)
+            df = df.sort_values(by="timestamp", ascending=True)
+            df.reset_index(drop=True, inplace=True)
+            if df.shape[0] > 0:
+                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
+        if df.shape[0] > 0:
+            return df[df.timestamp >= date_start][df.timestamp <= date_end]
+        else:
+            return df
+
     def get_adjustfactor(
         self,
         code: str,
@@ -525,7 +556,7 @@ class GinkgoData(object):
     # Daily Data update
     def update_stock_info(self) -> None:
         size = CLICKDRIVER.get_table_size(MStockInfo)
-        GLOG.ERROR(f"Current Stock Info Size: {size}")
+        GLOG.INFO(f"Current Stock Info Size: {size}")
         t0 = datetime.datetime.now()
         update_count = 0
         insert_count = 0
@@ -590,7 +621,7 @@ class GinkgoData(object):
             f"StockInfo Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
         )
         size = CLICKDRIVER.get_table_size(MStockInfo)
-        GLOG.ERROR(f"After Update Stock Info Size: {size}")
+        GLOG.INFO(f"After Update Stock Info Size: {size}")
 
     def update_trade_calendar(self) -> None:
         """
@@ -602,7 +633,7 @@ class GinkgoData(object):
     def update_cn_trade_calendar(self) -> None:
         GLOG.INFO("Updating CN Calendar.")
         size = CLICKDRIVER.get_table_size(MTradeDay)
-        GLOG.ERROR(f"Current Trade Calendar Size: {size}")
+        GLOG.INFO(f"Current Trade Calendar Size: {size}")
         t0 = datetime.datetime.now()
         update_count = 0
         insert_count = 0
@@ -660,19 +691,13 @@ class GinkgoData(object):
             f"TradeCalendar Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
         )
         size = CLICKDRIVER.get_table_size(MTradeDay)
-        GLOG.ERROR(f"After Update Trade Calendar Size: {size}")
+        GLOG.INFO(f"After Update Trade Calendar Size: {size}")
 
     def update_cn_daybar(self, code: str) -> None:
         # Get the stock info of code
         t0 = datetime.datetime.now()
         info = self.get_stock_info(code)
-        driver = GinkgoClickhouse(
-            user=GCONF.CLICKUSER,
-            pwd=GCONF.CLICKPWD,
-            host=GCONF.CLICKHOST,
-            port=GCONF.CLICKPORT,
-            db=GCONF.CLICKDB,
-        )
+        driver = CLICKDRIVER
 
         if info is None:
             GLOG.WARN(
@@ -694,6 +719,11 @@ class GinkgoData(object):
         trade_calendar = self.get_trade_calendar_df(
             MARKET_TYPES.CHINA, date_start, date_end
         )
+        if trade_calendar.shape[0] == 0:
+            GLOG.CRITICAL(
+                "There is no trade calendar. Please run `ginkgo data update calendar` first."
+            )
+            return
         trade_calendar = trade_calendar[trade_calendar["is_open"] == "true"]
         trade_calendar.sort_values(by="timestamp", inplace=True, ascending=True)
         trade_calendar = trade_calendar[trade_calendar["timestamp"] >= date_start]
@@ -922,7 +952,7 @@ class GinkgoData(object):
         t1 = datetime.datetime.now()
         GLOG.INFO(f"Update ALL CN AdjustFactor cost {t1-t0}")
         size = MYSQLDRIVER.get_table_size(MAdjustfactor)
-        GLOG.ERROR(f"After Update Adjustfactor Size: {size}")
+        GLOG.INFO(f"After Update Adjustfactor Size: {size}")
 
 
 GDATA = GinkgoData()
