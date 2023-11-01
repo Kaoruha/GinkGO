@@ -14,8 +14,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.00'
-          memory: 2048M
+          cpus: '3.00'
+          memory: 8196M
 
   Mysql-master:
     image: mysql:8.2.0
@@ -39,7 +39,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.00'
+          cpus: '4.00'
           memory: 8196M
 
   Mysql-test:
@@ -64,7 +64,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '2.00'
           memory: 4096M
 
   Clickhouse-master:
@@ -90,7 +90,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.00'
+          cpus: '4.00'
           memory: 8196M
 
   Clickhouse-test:
@@ -116,5 +116,5 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '2.00'
           memory: 4096M
