@@ -11,11 +11,6 @@ services:
       - ./redis.conf:/etc/redis/redis.conf
       - ../.db/redis/data:/data
     command: redis-server /etc/redis/redis.conf --maxmemory 2048mb
-    deploy:
-      resources:
-        limits:
-          cpus: '3.00'
-          memory: 8196M
 
   Mysql-master:
     image: mysql:8.2.0
@@ -36,11 +31,6 @@ services:
       - ../.logs/mysql:/logs
       - ../.db/mysql:/var/lib/mysql
       - ./mysql_entrypoint:/docker-entrypoint-initdb.d
-    deploy:
-      resources:
-        limits:
-          cpus: '4.00'
-          memory: 8196M
 
   Mysql-test:
     image: mysql:8.2.0
@@ -87,11 +77,6 @@ services:
     environment:
       CLICKHOUSE_DB: ginkgo
       SHOW: 'ture'
-    deploy:
-      resources:
-        limits:
-          cpus: '4.00'
-          memory: 8196M
 
   Clickhouse-test:
     image: clickhouse/clickhouse-server:23.9.3.12-alpine
