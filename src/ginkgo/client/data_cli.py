@@ -8,7 +8,7 @@ from rich.console import Console
 class DataType(str, Enum):
     STOCKINFO = "stockinfo"
     CALENDAR = "calendar"
-    ADJUST = "adjust"
+    ADJUST = "adjustfactor"
     DAYBAR = "day"
     TICK = "tick"
 
