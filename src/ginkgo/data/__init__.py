@@ -1,6 +1,7 @@
 from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql, GinkgoRedis
 from ginkgo.libs.ginkgo_conf import GCONF
 
+REDISDRIVER = GinkgoRedis(GCONF.REDISHOST, GCONF.REDISPORT).redis
 CLICKDRIVER = GinkgoClickhouse(
     user=GCONF.CLICKUSER,
     pwd=GCONF.CLICKPWD,
@@ -15,5 +16,3 @@ MYSQLDRIVER = GinkgoMysql(
     port=GCONF.MYSQLPORT,
     db=GCONF.MYSQLDB,
 )
-
-REDISDRIVER = GinkgoRedis(GCONF.REDISHOST,GCONF.REDISPORT).redis

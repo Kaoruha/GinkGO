@@ -12,6 +12,7 @@ from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.enums import SOURCE_TYPES
 from sqlalchemy import Column, String, DateTime, Boolean, Integer
 from sqlalchemy_utils import ChoiceType
+from ginkgo.libs.ginkgo_conf import GCONF
 
 
 class MClickBase(db.base):

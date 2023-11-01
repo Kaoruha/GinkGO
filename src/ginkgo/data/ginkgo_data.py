@@ -30,20 +30,19 @@ from ginkgo.enums import (
     TICKDIRECTION_TYPES,
 )
 from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare, GinkgoTDX
+from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql, GinkgoRedis
 from ginkgo.data import CLICKDRIVER, MYSQLDRIVER, REDISDRIVER
 
 
 class GinkgoData(object):
     """
-    Data Modeul
-    Get: from the db
+    Data Module
     """
 
     def __init__(self):
         self._click_models = []
         self._mysql_models = []
         self.get_models()
-        self.bs = GinkgoBaoStock()
         self.batch_size = 500
         self.cpu_ratio = 0.8
         self.tick_models = {}
@@ -753,7 +752,13 @@ class GinkgoData(object):
         # Get the stock info of code
         t0 = datetime.datetime.now()
         info = self.get_stock_info(code)
-        driver = CLICKDRIVER
+        driver = GinkgoClickhouse(
+            user=GCONF.CLICKUSER,
+            pwd=GCONF.CLICKPWD,
+            host=GCONF.CLICKHOST,
+            port=GCONF.CLICKPORT,
+            db=GCONF.CLICKDB,
+        )
 
         if info is None:
             GLOG.WARN(
@@ -907,7 +912,13 @@ class GinkgoData(object):
         df = tu.fetch_cn_stock_adjustfactor(code)
         insert_count = 0
         update_count = 0
-        driver = MYSQLDRIVER
+        driver = GinkgoMysql(
+            user=GCONF.MYSQLUSER,
+            pwd=GCONF.MYSQLPWD,
+            host=GCONF.MYSQLHOST,
+            port=GCONF.MYSQLPORT,
+            db=GCONF.MYSQLDB,
+        )
         l = []
         for i, r in df.iterrows():
             code = r["ts_code"]
