@@ -142,6 +142,7 @@ def main():
             os.makedirs(path)
 
         if args.updateconfig:
+            # TODO set the unittest path
             if not os.path.exists(os.path.join(path, "config.yml")):
                 origin_path = os.path.join(wd, "src/ginkgo/config/config.yml")
                 target_path = os.path.join(path, "config.yml")

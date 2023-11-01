@@ -295,9 +295,9 @@ class GinkgoData(object):
 
     def get_trade_calendar(
         self,
-        market: MARKET_TYPES,
-        date_start: str or datetime.datetime,
-        date_end: str or datetime.datetime,
+        market: MARKET_TYPES = MARKET_TYPES.CHINA,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
     ) -> list:
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
@@ -313,9 +313,9 @@ class GinkgoData(object):
 
     def get_trade_calendar_df(
         self,
-        market: MARKET_TYPES,
-        date_start: any,
-        date_end: any,
+        market: MARKET_TYPES = MARKET_TYPES.CHINA,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
     ) -> pd.DataFrame:
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
@@ -331,9 +331,9 @@ class GinkgoData(object):
 
     def get_trade_calendar_df_cached(
         self,
-        market: MARKET_TYPES,
-        date_start: any,
-        date_end: any,
+        market: MARKET_TYPES = MARKET_TYPES.CHINA,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
     ) -> pd.DataFrame:
         cache_name = f"trade_calendar%{market}"
         date_start = datetime_normalize(date_start)
@@ -398,7 +398,10 @@ class GinkgoData(object):
         df = pd.read_sql(r.statement, CLICKDRIVER.engine)
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
-        return self.calculate_adjustfactor(code, df)
+        if df.shape[0] == 0:
+            return pd.DataFrame()
+        else:
+            return self.calculate_adjustfactor(code, df)
 
     def get_daybar_df_cached(
         self,

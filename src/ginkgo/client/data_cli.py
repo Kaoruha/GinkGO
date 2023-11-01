@@ -112,7 +112,8 @@ def list(
             ]
         ]
     elif data == DataType.CALENDAR:
-        GDATA.update_cn_trade_calendar()
+        raw = GDATA.get_trade_calendar_df_cached()
+        rs = raw[["timestamp", "market", "is_open"]]
     elif data == DataType.ADJUST:
         pass
     elif data == DataType.DAYBAR:
@@ -181,7 +182,7 @@ def show(
             ]
         ]
     elif data == DataType.DAYBAR:
-        raw = GDATA.get_daybar_df(code, start, end)
+        raw = GDATA.get_daybar_df_cached(code, start, end)
         rs = raw[
             [
                 "code",
