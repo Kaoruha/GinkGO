@@ -98,9 +98,10 @@ def list(
     import pandas as pd
 
     pd.set_option("display.unicode.east_asian_width", True)
+    rs = pd.DataFrame()
 
     if data == DataType.STOCKINFO:
-        raw = GDATA.get_stock_info_df()
+        raw = GDATA.get_stock_info_df_cached(filter)
         rs = raw[
             [
                 "code",
@@ -110,12 +111,19 @@ def list(
                 "update",
             ]
         ]
+    elif data == DataType.CALENDAR:
+        GDATA.update_cn_trade_calendar()
+    elif data == DataType.ADJUST:
+        pass
     elif data == DataType.DAYBAR:
         pass
     elif data == DataType.TICK:
         pass
 
-    print_df_paganation(rs, page)
+    if rs.shape[0] < page:
+        print(rs.to_string())
+    else:
+        print_df_paganation(rs, page)
 
 
 @app.command()
@@ -161,12 +169,37 @@ def show(
                 "update",
             ]
         ]
+    elif data == DataType.ADJUST:
+        raw = GDATA.get_adjustfactor_df_cached(code)
+        rs = raw[
+            [
+                "code",
+                "timestamp",
+                "foreadjustfactor",
+                "backadjustfactor",
+                "adjustfactor",
+            ]
+        ]
     elif data == DataType.DAYBAR:
-        rs = GDATA.get_daybar_df(code, start, end)
+        raw = GDATA.get_daybar_df(code, start, end)
+        rs = raw[
+            [
+                "code",
+                "timestamp",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+            ]
+        ]
     elif data == DataType.TICK:
         raw = GDATA.get_tick_df(code, start, end)
         rs = raw[["timestamp", "code", "price", "volume", "update", "direction"]]
-    print_df_paganation(rs, page)
+    if rs.shape[0] < page:
+        print(rs.to_string())
+    else:
+        print_df_paganation(rs, page)
 
 
 @app.command()
