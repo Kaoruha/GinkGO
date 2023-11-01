@@ -45,8 +45,6 @@ class GinkgoData(object):
         self.get_models()
         self.bs = GinkgoBaoStock()
         self.batch_size = 500
-        self._is_click_cached = False
-        self._is_mysql_cached = False
         self.cpu_ratio = 0.8
         self.tick_models = {}
 
@@ -66,15 +64,12 @@ class GinkgoData(object):
 
         if driver is None:
             GLOG.ERROR(f"Model {value} should be sub of clickbase or mysqlbase.")
+
         return driver
 
     def add(self, value) -> None:
         driver = self.get_driver(value)
         driver.session.add(value)
-        if driver == CLICKDRIVER:
-            self._is_click_cached = True
-        elif driver == MYSQLDRIVER:
-            self._is_mysql_cached = True
 
     def commit(self) -> None:
         """
@@ -82,13 +77,6 @@ class GinkgoData(object):
         """
         CLICKDRIVER.session.commit()
         MYSQLDRIVER.session.commit()
-        # if self._is_click_cached:
-        #     CLICKDRIVER.session.commit()
-        #     self._is_click_cached = False
-
-        # if self._is_mysql_cached:
-        #     MYSQLDRIVER.session.commit()
-        #     self._is_mysql_cached = True
 
     def add_all(self, values) -> None:
         """
@@ -105,12 +93,14 @@ class GinkgoData(object):
                 mysql_list.append(i)
         if len(click_list) > 0:
             CLICKDRIVER.session.add_all(click_list)
-            self._is_click_cached = True
         if len(mysql_list) > 0:
             MYSQLDRIVER.session.add_all(mysql_list)
-            self._is_mysql_cached = True
 
     def get_tick_model(self, code: str) -> type:
+        """
+        Tick data can not be stored in one table.
+        Do database partitioning first.
+        """
         name = f"{code}.Tick"
         if name in self.tick_models.keys():
             return self.tick_models[name]
@@ -164,6 +154,10 @@ class GinkgoData(object):
         MMysqlBase.metadata.drop_all(MYSQLDRIVER.engine)
 
     def is_table_exsist(self, model) -> bool:
+        """
+        Check the whether the table exists in the database.
+        Auto choose the database driver.
+        """
         driver = self.get_driver(model)
         if driver.is_table_exsists(model.__tablename__):
             return True
@@ -285,6 +279,36 @@ class GinkgoData(object):
         df = pd.read_sql(r.statement, CLICKDRIVER.engine)
         return df
 
+    def get_trade_calendar_df_cache(
+        self,
+        market: MARKET_TYPES,
+        date_start: any,
+        date_end: any,
+    ) -> pd.DataFrame:
+        cache_name = "trade_calendar"
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        if REDISDRIVER.exists(cache_name):
+            cache = REDISDRIVER.get(cache_name)
+            df = pickle.loads(cache)
+        else:
+            r = (
+                CLICKDRIVER.session.query(MTradeDay)
+                .filter(MTradeDay.market == market)
+                .filter(MTradeDay.timestamp >= date_start)
+                .filter(MTradeDay.timestamp <= date_end)
+                .filter(MTradeDay.isdel == False)
+            )
+            df = pd.read_sql(r.statement, CLICKDRIVER.engine)
+            df = df.sort_values(by="timestamp", ascending=True)
+            df.reset_index(drop=True, inplace=True)
+            if df.shape[0] > 0:
+                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
+        if df.shape[0] > 0:
+            return df[df.timestamp >= date_start][df.timestamp <= date_end]
+        else:
+            return pd.DataFrame()
+
     def get_daybar(
         self,
         code: str,
@@ -349,10 +373,10 @@ class GinkgoData(object):
             if df.shape[0] > 0:
                 REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
+            # TODO cal adjustfactor
             return df[df.timestamp >= date_start][df.timestamp <= date_end]
         else:
-            # TODO cal adjustfactor
-            return df
+            return pd.DataFrame()
 
     def get_adjustfactor(
         self,
@@ -489,10 +513,10 @@ class GinkgoData(object):
             if df.shape[0] > 0:
                 REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
+            # TODO cal adjustfactor
             return df[df.timestamp >= date_start][df.timestamp <= date_end]
         else:
-            # TODO cal adjustfactor
-            return df
+            return pd.DataFrame
 
     def del_tick(self, code: str, date: any) -> None:
         # TODO
@@ -883,13 +907,7 @@ class GinkgoData(object):
         df = tu.fetch_cn_stock_adjustfactor(code)
         insert_count = 0
         update_count = 0
-        driver = GinkgoMysql(
-            user=GCONF.MYSQLUSER,
-            pwd=GCONF.MYSQLPWD,
-            host=GCONF.MYSQLHOST,
-            port=GCONF.MYSQLPORT,
-            db=GCONF.MYSQLDB,
-        )
+        driver = MYSQLDRIVER
         l = []
         for i, r in df.iterrows():
             code = r["ts_code"]

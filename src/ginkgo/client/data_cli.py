@@ -201,7 +201,10 @@ def update(
     elif data == DataType.CALENDAR:
         GDATA.update_cn_trade_calendar()
     elif data == DataType.ADJUST:
-        GDATA.update_all_cn_adjustfactor_aysnc()
+        if code == "":
+            GDATA.update_all_cn_adjustfactor_aysnc()
+        else:
+            GDATA.update_cn_adjustfactor(code)
     elif data == DataType.DAYBAR:
         if code == "":
             GDATA.update_all_cn_daybar_aysnc()
