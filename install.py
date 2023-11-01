@@ -170,7 +170,7 @@ def main():
     if "Windows" == str(platform.system()):
         os.system(f"docker compose -f {path_docker} --compatibility up -d")
     elif "Linux" == str(platform.system()):
-        os.system(f"sudo docker compose -f {path_docker} --compatibility up -d")
+        os.system(f"docker compose -f {path_docker} --compatibility up -d")
     else:
         os.system(f"docker compose -f {path_docker} --compatibility up -d")
 
