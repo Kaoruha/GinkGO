@@ -56,7 +56,26 @@ ginkgo interactive
 ginkgo unittest run --a
 ```
 
-## DataUpdate
+## Data
+
+### Update
 ``` shell
 ginkgo data update stockinfo
+ginkgo data update calendar
+ginkgo data update adjust --code 000001.SZ
+ginkgo data update day --code 000001.SZ
+ginkgo data update tick --code 000001.SZ
 ```
+
+### List,Show
+``` shell
+ginkgo data list stockinfo --page 50
+ginkgo data show stockinfo --code 000001.SZ
+```
+
+### Plot
+``` shell
+ginkgo data plot day --code 00001.SZ --start 20200101 --end 20210101
+
+```
+

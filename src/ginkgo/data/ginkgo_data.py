@@ -221,6 +221,35 @@ class GinkgoData(object):
         df.code = df.code.strip(b"\x00".decode())
         return df
 
+    def calculate_adjustfactor(self, code, df) -> pd.DataFrame:
+        df = df.sort_values(by="timestamp", ascending=True)
+        df.reset_index(drop=True, inplace=True)
+        date_start = df.loc[0, ["timestamp"]].values[0]
+        date_end = df.loc[df.shape[0] - 1, ["timestamp"]].values[0]
+        ad = self.get_adjustfactor_df_cached(
+            code, date_start=date_start, date_end=date_end
+        )
+        ad = ad.sort_values(by="timestamp", ascending=True)
+        ad.reset_index(drop=True, inplace=True)
+        date = datetime_normalize(date_start)
+        new_ad = pd.DataFrame(columns=["timestamp", "adjustfactor"])
+        end = datetime_normalize(date_end)
+        compare = 0
+        for i, r in df.iterrows():
+            date = r["timestamp"]
+            if (
+                date >= ad.loc[compare, ["timestamp"]].values[0]
+                and compare < ad.shape[0] - 1
+            ):
+                compare = compare + 1
+            factor = ad.loc[compare, ["adjustfactor"]].values[0]
+            new_ad.loc[i] = {"timestamp": date, "adjustfactor": factor}
+        df["open"] = df["open"] / new_ad["adjustfactor"]
+        df["high"] = df["high"] / new_ad["adjustfactor"]
+        df["low"] = df["low"] / new_ad["adjustfactor"]
+        df["close"] = df["close"] / new_ad["adjustfactor"]
+        return df
+
     def get_stock_info(self, code: str) -> MStockInfo:
         r = (
             CLICKDRIVER.session.query(MStockInfo)
@@ -239,8 +268,28 @@ class GinkgoData(object):
                 .filter(MStockInfo.code == code)
                 .filter(MStockInfo.isdel == False)
             )
-        df = pd.read_sql(r.statement, CLICKDRIVER.engine)
+            df = pd.read_sql(r.statement, CLICKDRIVER.engine)
+            df = df.sort_values(by="code", ascending=True)
         return df
+
+    def get_stock_info_df_cached(self, code: str = None) -> pd.DataFrame:
+        cache_name = "stockinfo"
+        if REDISDRIVER.exists(cache_name):
+            cache = REDISDRIVER.get(cache_name)
+            df = pickle.loads(cache)
+        else:
+            r = CLICKDRIVER.session.query(MStockInfo).filter(MStockInfo.isdel == False)
+            df = pd.read_sql(r.statement, CLICKDRIVER.engine)
+            df = df.sort_values(by="code", ascending=True)
+            if df.shape[0] > 0:
+                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
+        if df.shape[0] > 0:
+            if code == "" or code is None:
+                return df
+            else:
+                return df[df.code == code]
+        else:
+            return pd.DataFrame()
 
     def get_trade_calendar(
         self,
@@ -278,13 +327,13 @@ class GinkgoData(object):
         df = pd.read_sql(r.statement, CLICKDRIVER.engine)
         return df
 
-    def get_trade_calendar_df_cache(
+    def get_trade_calendar_df_cached(
         self,
         market: MARKET_TYPES,
         date_start: any,
         date_end: any,
     ) -> pd.DataFrame:
-        cache_name = "trade_calendar"
+        cache_name = f"trade_calendar%{market}"
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         if REDISDRIVER.exists(cache_name):
@@ -294,8 +343,6 @@ class GinkgoData(object):
             r = (
                 CLICKDRIVER.session.query(MTradeDay)
                 .filter(MTradeDay.market == market)
-                .filter(MTradeDay.timestamp >= date_start)
-                .filter(MTradeDay.timestamp <= date_end)
                 .filter(MTradeDay.isdel == False)
             )
             df = pd.read_sql(r.statement, CLICKDRIVER.engine)
@@ -332,7 +379,11 @@ class GinkgoData(object):
         code: str,
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
+        adjust: int = 1,  # 0 no adjust, 1 back adjust 2 forward adjust
     ) -> pd.DataFrame:
+        """
+        Get the daybar with back adjust.
+        """
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
@@ -345,15 +396,19 @@ class GinkgoData(object):
         df = pd.read_sql(r.statement, CLICKDRIVER.engine)
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
-        # TODO cal adjustfactor
-        return df
+        return self.calculate_adjustfactor(code, df)
 
-    def get_daybar_df_cache(
+    def get_daybar_df_cached(
         self,
         code: str,
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
+        adjust: int = 1,  # 0 no adjust, 1 back adjust 2 forward adjust
     ) -> pd.DataFrame:
+        """
+        Get the daybar with back adjust.
+        Will try get from cache first.
+        """
         cache_name = f"day%{code}"
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
@@ -369,10 +424,10 @@ class GinkgoData(object):
             df = pd.read_sql(r.statement, CLICKDRIVER.engine)
             df = df.sort_values(by="timestamp", ascending=True)
             df.reset_index(drop=True, inplace=True)
+            df = self.calculate_adjustfactor(code, df)
             if df.shape[0] > 0:
                 REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
-            # TODO cal adjustfactor
             return df[df.timestamp >= date_start][df.timestamp <= date_end]
         else:
             return pd.DataFrame()
@@ -382,13 +437,11 @@ class GinkgoData(object):
         code: str,
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
-        db_driver: MYSQLDRIVER = None,
     ) -> list:
-        driver = db_driver if db_driver else MYSQLDRIVER
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            driver.session.query(MAdjustfactor)
+            MYSQLDRIVER.session.query(MAdjustfactor)
             .filter(MAdjustfactor.code == code)
             .filter(MAdjustfactor.timestamp >= date_start)
             .filter(MAdjustfactor.timestamp <= date_end)
@@ -412,22 +465,48 @@ class GinkgoData(object):
         code: str,
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
-        db_driver: MYSQLDRIVER = None,
     ) -> list:
-        driver = db_driver if db_driver else MYSQLDRIVER
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
-            driver.session.query(MAdjustfactor)
+            MYSQLDRIVER.session.query(MAdjustfactor)
             .filter(MAdjustfactor.code == code)
             .filter(MAdjustfactor.timestamp >= date_start)
             .filter(MAdjustfactor.timestamp <= date_end)
             .filter(MAdjustfactor.isdel == False)
         )
-        df = pd.read_sql(r.statement, driver.engine)
+        df = pd.read_sql(r.statement, MYSQLDRIVER.engine)
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
         return df
+
+    def get_adjustfactor_df_cached(
+        self,
+        code: str,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
+    ) -> list:
+        cache_name = f"adf%{code}"
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        if REDISDRIVER.exists(cache_name):
+            cache = REDISDRIVER.get(cache_name)
+            df = pickle.loads(cache)
+        else:
+            r = (
+                MYSQLDRIVER.session.query(MAdjustfactor)
+                .filter(MAdjustfactor.code == code)
+                .filter(MAdjustfactor.isdel == False)
+            )
+            df = pd.read_sql(r.statement, MYSQLDRIVER.engine)
+            df = df.sort_values(by="timestamp", ascending=True)
+            df.reset_index(drop=True, inplace=True)
+            if df.shape[0] > 0:
+                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
+        if df.shape[0] > 0:
+            return df[df.timestamp >= date_start][df.timestamp <= date_end]
+        else:
+            return pd.DataFrame()
 
     def is_tick_indb(self, code: str, date: any) -> bool:
         model = self.get_tick_model(code)
@@ -483,9 +562,10 @@ class GinkgoData(object):
         df = pd.read_sql(r.statement, CLICKDRIVER.engine)
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
+        # TODO adjust
         return df
 
-    def get_tick_df_cache(
+    def get_tick_df_cached(
         self, code: str, date_start: any, date_end: any
     ) -> pd.DataFrame:
         model = self.get_tick_model(code)
@@ -494,7 +574,7 @@ class GinkgoData(object):
             return pd.DataFrame()
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
-        # TODO
+        # TODO Optimize the read, read the entire of tick talbe is too slow.
         cache_name = f"tick%{code}"
         if REDISDRIVER.exists(cache_name):
             cache = REDISDRIVER.get(cache_name)
@@ -509,6 +589,7 @@ class GinkgoData(object):
             df = pd.read_sql(r.statement, CLICKDRIVER.engine)
             df = df.sort_values(by="timestamp", ascending=True)
             df.reset_index(drop=True, inplace=True)
+            df = self.calculate_adjustfactor(code, df)
             if df.shape[0] > 0:
                 REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
