@@ -165,8 +165,9 @@ def main():
     os.system("pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple")
     os.system("pip install wheel --default-timeout=20")
     os.system("pip install wheel -i https://pypi.tuna.tsinghua.edu.cn/simple")
-    os.system(f"pip install -r {path_pip} --default-timeout=20")
-    os.system(f"pip install -r {path_pip} -i https://pypi.tuna.tsinghua.edu.cn/simple")
+    os.system(
+        f"pip install -r {path_pip} --default-timeout=20 -i https://pypi.tuna.tsinghua.edu.cn/simple"
+    )
 
     # 创建映射文件夹
     if not os.path.exists(path_db):
