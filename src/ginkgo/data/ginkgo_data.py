@@ -262,6 +262,8 @@ class GinkgoData(object):
     def get_stock_info_df(self, code: str = None) -> pd.DataFrame:
         if code == "" or code is None:
             r = CLICKDRIVER.session.query(MStockInfo).filter(MStockInfo.isdel == False)
+            df = pd.read_sql(r.statement, CLICKDRIVER.engine)
+            df = df.sort_values(by="code", ascending=True)
         else:
             r = (
                 CLICKDRIVER.session.query(MStockInfo)
@@ -1007,7 +1009,7 @@ class GinkgoData(object):
             factor = r["adj_factor"]
             GLOG.DEBUG(f"AdjustFactor Check {date}  {code}")
             # Check ad if exist in database
-            q = self.get_adjustfactor(code, date, date, driver)
+            q = self.get_adjustfactor(code, date, date)
             # If exist, update
             if len(q) >= 1:
                 if len(q) >= 2:
@@ -1031,7 +1033,7 @@ class GinkgoData(object):
             # If not exist, new insert
             if len(q) == 0:
                 # Insert
-                adjs = self.get_adjustfactor(code, GCONF.DEFAULTSTART, date, driver)
+                adjs = self.get_adjustfactor(code, GCONF.DEFAULTSTART, date)
                 if len(adjs) == 0 or adjs is None:
                     o = MAdjustfactor()
                     o.set_source(SOURCE_TYPES.TUSHARE)
