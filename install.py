@@ -152,7 +152,7 @@ def main():
                 bye()
 
     # 安装依赖
-    os.system("pip install --upgrade pip")
+    os.system("pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple")
     os.system("pip install wheel --default-timeout=20")
     os.system("pip install wheel -i https://pypi.tuna.tsinghua.edu.cn/simple")
     os.system(f"pip install -r {path_pip} --default-timeout=20")
