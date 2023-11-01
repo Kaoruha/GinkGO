@@ -42,7 +42,15 @@ def bg_red(msg: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-y", "--y", help="pass configuration", action="store_true")
+    parser.add_argument(
+        "-y", "--y", help="pass yes to all request", action="store_true"
+    )
+    parser.add_argument(
+        "-updateconfig",
+        "--updateconfig",
+        help="overwrite configuration",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     wd = os.path.dirname(os.path.abspath(__file__))
@@ -133,17 +141,18 @@ def main():
         if not os.path.exists(path):
             os.makedirs(path)
 
-        if not os.path.exists(os.path.join(path, "config.yml")):
-            origin_path = os.path.join(wd, "src/ginkgo/config/config.yml")
-            target_path = os.path.join(path, "config.yml")
-            shutil.copy(origin_path, target_path)
-            print(f"Copy config.yml from {origin_path} to {target_path}")
+        if args.updateconfig:
+            if not os.path.exists(os.path.join(path, "config.yml")):
+                origin_path = os.path.join(wd, "src/ginkgo/config/config.yml")
+                target_path = os.path.join(path, "config.yml")
+                shutil.copy(origin_path, target_path)
+                print(f"Copy config.yml from {origin_path} to {target_path}")
 
-        if not os.path.exists(os.path.join(path, "secure.yml")):
-            origin_path = os.path.join(wd, "src/ginkgo/config/secure.yml")
-            target_path = os.path.join(path, "secure.yml")
-            print(f"Copy secure.yml from {origin_path} to {target_path}")
-            shutil.copy(origin_path, target_path)
+            if not os.path.exists(os.path.join(path, "secure.yml")):
+                origin_path = os.path.join(wd, "src/ginkgo/config/secure.yml")
+                target_path = os.path.join(path, "secure.yml")
+                print(f"Copy secure.yml from {origin_path} to {target_path}")
+                shutil.copy(origin_path, target_path)
 
         print("\n")
         if not args.y:
