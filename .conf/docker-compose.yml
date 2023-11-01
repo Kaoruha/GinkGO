@@ -64,8 +64,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.50'
-          memory: 1024M
+          cpus: '1'
+          memory: 4096M
 
   Clickhouse-master:
     image: clickhouse/clickhouse-server:23.9.3.12-alpine
@@ -116,5 +116,5 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.50'
-          memory: 1024M
+          cpus: '1'
+          memory: 4096M
