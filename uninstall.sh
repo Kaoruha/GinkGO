@@ -14,9 +14,9 @@ echo "Start Uninstall..."
 # Get the working directory
 SCRIPT_PATH=$(dirname "$0")
 
-echo "Clean the configuration."
+# echo "Clean the configuration."
 # Clean the configuration
-rm -rf ~/.ginkgo
+# rm -rf ~/.ginkgo
 
 echo "Clean Docker Containers."
 # Stop the containers

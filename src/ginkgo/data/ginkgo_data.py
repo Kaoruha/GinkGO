@@ -5,6 +5,7 @@ import types
 import datetime
 import os
 import pandas as pd
+import numpy as np
 import multiprocessing
 import threading
 from sqlalchemy import DDL
@@ -222,6 +223,8 @@ class GinkgoData(object):
         return df
 
     def calculate_adjustfactor(self, code, df) -> pd.DataFrame:
+        if df.shape[0] == 0:
+            return pd.DataFrame()
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
         date_start = df.loc[0, ["timestamp"]].values[0]
@@ -670,7 +673,7 @@ class GinkgoData(object):
 
     def update_all_cn_tick_aysnc(self, fast_mode: bool = False) -> None:
         t0 = datetime.datetime.now()
-        info = self.get_stock_info_df()
+        info = self.get_stock_info_df_cached()
         l = []
         cpu_count = multiprocessing.cpu_count()
         cpu_count = int(cpu_count * self.cpu_ratio)
@@ -837,7 +840,7 @@ class GinkgoData(object):
     def update_cn_daybar(self, code: str) -> None:
         # Get the stock info of code
         t0 = datetime.datetime.now()
-        info = self.get_stock_info(code)
+        info = self.get_stock_info_df_cached(code)
         driver = GinkgoClickhouse(
             user=GCONF.CLICKUSER,
             pwd=GCONF.CLICKPWD,
@@ -853,8 +856,10 @@ class GinkgoData(object):
             return
 
         # Got the range of date
-        date_start = info.list_date
-        date_end = info.delist_date
+        date_start = info.list_date.values[0]
+        date_start = datetime_normalize(str(pd.Timestamp(date_start)))
+        date_end = info.delist_date.values[0]
+        date_end = datetime_normalize(str(pd.Timestamp(date_end)))
         today = datetime.datetime.now()
         if today < date_end:
             date_end = today
@@ -863,7 +868,7 @@ class GinkgoData(object):
             [None, None],
         ]
 
-        trade_calendar = self.get_trade_calendar_df(
+        trade_calendar = self.get_trade_calendar_df_cached(
             MARKET_TYPES.CHINA, date_start, date_end
         )
         if trade_calendar.shape[0] == 0:
@@ -877,7 +882,7 @@ class GinkgoData(object):
         trade_calendar = trade_calendar[trade_calendar["timestamp"] <= date_end]
 
         df1 = trade_calendar["timestamp"]
-        old_df = self.get_daybar_df(code)
+        old_df = self.get_daybar_df_cached(code)
         old_timestamp = old_df.timestamp.values if old_df.shape[0] > 0 else []
         # print(old_df["timestamp"])
         for i, r in trade_calendar.iterrows():
@@ -965,7 +970,7 @@ class GinkgoData(object):
 
     def update_all_cn_daybar(self) -> None:
         t0 = datetime.datetime.now()
-        info = self.get_stock_info_df()
+        info = self.get_stock_info_df_cached()
         for i, r in info.iterrows():
             code = r["code"]
             self.update_cn_daybar(code)
@@ -974,7 +979,7 @@ class GinkgoData(object):
 
     def update_all_cn_daybar_aysnc(self) -> None:
         t0 = datetime.datetime.now()
-        info = self.get_stock_info_df()
+        info = self.get_stock_info_df_cached()
         l = []
         cpu_count = multiprocessing.cpu_count()
         cpu_count = int(cpu_count * self.cpu_ratio)
@@ -1071,7 +1076,7 @@ class GinkgoData(object):
     def update_all_cn_adjustfactor(self):
         GLOG.INFO(f"Begin to update all CN AdjustFactor")
         t0 = datetime.datetime.now()
-        info = self.get_stock_info_df()
+        info = self.get_stock_info_df_cached()
         for i, r in info.iterrows():
             code = r["code"]
             self.update_cn_adjustfactor(code)
@@ -1081,7 +1086,7 @@ class GinkgoData(object):
     def update_all_cn_adjustfactor_aysnc(self):
         GLOG.INFO(f"Begin to update all cn adjust factors")
         t0 = datetime.datetime.now()
-        info = self.get_stock_info_df()
+        info = self.get_stock_info_df_cached()
         l = []
         cpu_count = multiprocessing.cpu_count()
         cpu_count = int(cpu_count * self.cpu_ratio)
