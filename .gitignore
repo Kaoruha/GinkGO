@@ -149,7 +149,7 @@ logs/
 build/
 ginkgo.egg-info/
 .logs
-ginkgo/config/secure.yml
+src/ginkgo/config/secure.yml
 for_test.py
 .obsidian
 
