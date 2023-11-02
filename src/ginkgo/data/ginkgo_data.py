@@ -1,5 +1,4 @@
 import time
-from threading import Thread
 import zlib
 import pickle
 import types
@@ -36,8 +35,6 @@ from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql, GinkgoRedis
 
 from ginkgo.data import CLICKDRIVER, MYSQLDRIVER, REDISDRIVER
 
-RedisExpired = 1200
-
 
 class GinkgoData(object):
     """
@@ -45,7 +42,6 @@ class GinkgoData(object):
     """
 
     def __init__(self):
-        self.redis = REDISDRIVER
         self._click_models = []
         self._mysql_models = []
         self.get_models()
@@ -71,24 +67,6 @@ class GinkgoData(object):
             GLOG.ERROR(f"Model {value} should be sub of clickbase or mysqlbase.")
 
         return driver
-
-    def add_cache(self, cache_name: str, value: any):
-        # TODO Monitor the thread. Deal with timeout exception.
-        global RedisExpired
-
-        def redis_set(key, value):
-            if isinstance(value, pd.DataFrame):
-                value = pickle.dumps(value)
-            REDISDRIVER.setex(key, RedisExpired, value)
-
-        t = Thread(
-            target=redis_set,
-            args=(
-                cache_name,
-                value,
-            ),
-        )
-        t.start()
 
     def add(self, value) -> None:
         driver = self.get_driver(value)
@@ -245,44 +223,36 @@ class GinkgoData(object):
         df.code = df.code.strip(b"\x00".decode())
         return df
 
-    def calculate_adjustfactor(self, code: str, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Just Backword Recoverd.
-        """
+    def calculate_adjustfactor(self, code, df) -> pd.DataFrame:
         if df.shape[0] == 0:
             return pd.DataFrame()
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
         date_start = df.loc[0, ["timestamp"]].values[0]
         date_end = df.loc[df.shape[0] - 1, ["timestamp"]].values[0]
-        ad = self.get_adjustfactor_df_cached(code)
+        ad = self.get_adjustfactor_df_cached(
+            code, date_start=date_start, date_end=date_end
+        )
         ad = ad.sort_values(by="timestamp", ascending=True)
         ad.reset_index(drop=True, inplace=True)
-        latest_factor = ad.loc[ad.shape[0] - 1, ["adjustfactor"]].values[0]
-        ad["foreadjustfactor"] = ad["adjustfactor"] / latest_factor
         date = datetime_normalize(date_start)
-        new_df = pd.DataFrame(columns=["timestamp", "adjustfactor"])
+        new_ad = pd.DataFrame(columns=["timestamp", "adjustfactor"])
         end = datetime_normalize(date_end)
         compare = 0
-        new_df = df.copy()
-        new_df["adjustfactor"] = 1
-        t0 = datetime.datetime.now()
-        for i, r in new_df.iterrows():
+        for i, r in df.iterrows():
             date = r["timestamp"]
             if (
                 date >= ad.loc[compare, ["timestamp"]].values[0]
                 and compare < ad.shape[0] - 1
             ):
                 compare = compare + 1
-            new_df.loc[i, ["adjustfactor"]] = ad.loc[
-                compare, ["foreadjustfactor"]
-            ].values[0]
-        t1 = datetime.datetime.now()
-        new_df["open"] = new_df["open"] * new_df["adjustfactor"]
-        new_df["high"] = new_df["high"] * new_df["adjustfactor"]
-        new_df["low"] = new_df["low"] * new_df["adjustfactor"]
-        new_df["close"] = new_df["close"] * new_df["adjustfactor"]
-        return new_df
+            factor = ad.loc[compare, ["adjustfactor"]].values[0]
+            new_ad.loc[i] = {"timestamp": date, "adjustfactor": factor}
+        df["open"] = df["open"] / new_ad["adjustfactor"]
+        df["high"] = df["high"] / new_ad["adjustfactor"]
+        df["low"] = df["low"] / new_ad["adjustfactor"]
+        df["close"] = df["close"] / new_ad["adjustfactor"]
+        return df
 
     def get_stock_info(self, code: str) -> MStockInfo:
         r = (
@@ -318,7 +288,7 @@ class GinkgoData(object):
             df = pd.read_sql(r.statement, CLICKDRIVER.engine)
             df = df.sort_values(by="code", ascending=True)
             if df.shape[0] > 0:
-                self.add_cache(cache_name, df)
+                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
             if code == "" or code is None:
                 return df
@@ -385,7 +355,7 @@ class GinkgoData(object):
             df = df.sort_values(by="timestamp", ascending=True)
             df.reset_index(drop=True, inplace=True)
             if df.shape[0] > 0:
-                self.add_cache(cache_name, df)
+                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
             return df[df.timestamp >= date_start][df.timestamp <= date_end]
         else:
@@ -465,12 +435,9 @@ class GinkgoData(object):
             df.reset_index(drop=True, inplace=True)
             df = self.calculate_adjustfactor(code, df)
             if df.shape[0] > 0:
-                self.add_cache(cache_name, df)
+                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
-            df = df[df["timestamp"] >= date_start]
-            df = df[df["timestamp"] <= date_end]
-            df.reset_index(drop=True, inplace=True)
-            return df
+            return df[df.timestamp >= date_start][df.timestamp <= date_end]
         else:
             return pd.DataFrame()
 
@@ -544,7 +511,7 @@ class GinkgoData(object):
             df = df.sort_values(by="timestamp", ascending=True)
             df.reset_index(drop=True, inplace=True)
             if df.shape[0] > 0:
-                self.add_cache(cache_name, df)
+                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
             return df[df.timestamp >= date_start][df.timestamp <= date_end]
         else:
@@ -633,7 +600,7 @@ class GinkgoData(object):
             df.reset_index(drop=True, inplace=True)
             df = self.calculate_adjustfactor(code, df)
             if df.shape[0] > 0:
-                self.add_cache(cache_name, df)
+                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
             # TODO cal adjustfactor
             return df[df.timestamp >= date_start][df.timestamp <= date_end]
