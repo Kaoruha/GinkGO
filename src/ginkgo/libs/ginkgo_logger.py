@@ -83,7 +83,6 @@ class GinkgoLogger(object):
         level: int = self.get_log_level(level)
         self.logger.setLevel(level)
         self.console_handler.setLevel(level)
-        self.file_handler.setLevel(level)
 
     def get_log_level(self, level: str) -> int:
         r = 10
