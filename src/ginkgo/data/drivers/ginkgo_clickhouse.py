@@ -6,34 +6,55 @@ from ginkgo.libs.ginkgo_logger import GLOG
 
 class GinkgoClickhouse(object):
     def __init__(self, user: str, pwd: str, host: str, port: int, db: str):
-        self.engine = None
-        self.session = None
-        self.metadata = None
-        self.base = None
-        self.__user = user
-        self.__pwd = pwd
-        self.__host = host
-        self.__port = port
-        self.__db = db
+        self._engine = None
+        self._session = None
+        self._metadata = None
+        self._base = None
+        self._user = user
+        self._pwd = pwd
+        self._host = host
+        self._port = port
+        self._db = db
 
-        self.__connect()
-        # self.__create_database()
+    @property
+    def engine(self):
+        if self._engine is None:
+            self.connect()
+        return self._engine
 
-    def __connect(self) -> None:
-        uri = f"clickhouse://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/{self.__db}"
-        self.engine = create_engine(uri)
-        self.session = sessionmaker(self.engine)()
-        self.metadata = MetaData(bind=self.engine)
-        self.base = declarative_base(metadata=self.metadata)
-        GLOG.INFO("Connect to clickhouse succeed.")
+    @property
+    def session(self):
+        if self._session is None:
+            self.connect()
+        return self._session
+
+    @property
+    def metadata(self):
+        if self._metadata is None:
+            self.connect()
+        return self._metadata
+
+    @property
+    def base(self):
+        if self._base is None:
+            self.connect()
+        return self._base
+
+    def connect(self) -> None:
+        uri = f"clickhouse://{self._user}:{self._pwd}@{self._host}:{self._port}/{self._db}"
+        self._engine = create_engine(uri)
+        self._session = sessionmaker(self.engine)()
+        self._metadata = MetaData(bind=self.engine)
+        self._base = declarative_base(metadata=self.metadata)
+        GLOG.DEBUG("Connect to clickhouse succeed.")
 
     def __create_database(self) -> None:
         # ATTENTION DDL will run the sql, be care of COMMAND INJECTION
-        uri = f"clickhouse://{self.__user}:{self.__pwd}@{self.__host}:{self.__port}/default"
+        uri = f"clickhouse://{self._user}:{self._pwd}@{self._host}:{self._port}/default"
         e = create_engine(uri)
         e.execute(
             DDL(
-                f"CREATE DATABASE IF NOT EXISTS {self.__db} ENGINE = Memory COMMENT 'For Ginkgo Quant'"
+                f"CREATE DATABASE IF NOT EXISTS {self._db} ENGINE = Memory COMMENT 'For Ginkgo Quant'"
             )
         )
 
