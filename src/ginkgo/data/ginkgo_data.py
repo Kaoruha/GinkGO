@@ -619,9 +619,11 @@ class GinkgoData(object):
         insert_count = 0
         tdx = GinkgoTDX()
         nodata_count = 0
-        nodata_max = 50
+        nodata_max = 200
         date = datetime.datetime.now()
+        nodata_lasttime = False
         while True:
+            print(nodata_count)
             # Break
             if nodata_count >= nodata_max:
                 break
@@ -632,13 +634,19 @@ class GinkgoData(object):
             if self.is_tick_indb(code, date_start):
                 GLOG.WARN(f"{code} Tick on {date} is in database. Go next")
                 date = date + datetime.timedelta(days=-1)
-                nodata_count += 1
+                if fast_mode:
+                    nodata_count += 1
+                else:
+                    nodata_count = 0
+                nodata_lasttime = False
                 continue
             # Fetch and insert
             rs = tdx.fetch_history_transaction(code, date)
             if rs.shape[0] == 0:
                 GLOG.WARN(f"{code} No data on {date} from remote.")
-                nodata_count += 1
+                if nodata_lasttime:
+                    nodata_count += 1
+                nodata_lasttime = True
                 date = date + datetime.timedelta(days=-1)
                 continue
 
@@ -654,6 +662,7 @@ class GinkgoData(object):
                 item = model()
                 item.set(code, price, volume, buyorsell, timestamp)
                 l.append(item)
+            nodata_lasttime = False
             self.add_all(l)
             self.commit()
             GLOG.INFO(f"Insert {code} Tick {len(l)}.")
