@@ -5,23 +5,47 @@ from sqlalchemy.ext.declarative import declarative_base
 
 class GinkgoMongo(object):
     def __init__(self, user: str, pwd: str, host: str, port: str, db: str) -> None:
-        self.engine = None
-        self.session = None
-        self.metadata = None
-        self.base = None
-        self.__user = user
-        self.__pwd = pwd
-        self.__host = host
-        self.__port = port
-        self.__db = db
+        self._engine = None
+        self._session = None
+        self._metadata = None
+        self._base = None
+        self._user = user
+        self._pwd = pwd
+        self._host = host
+        self._port = port
+        self._db = db
 
-    def __connect(self) -> None:
+    @property
+    def engine(self):
+        if self._engine is None:
+            self.connect()
+        return self._engine
+
+    @property
+    def session(self):
+        if self._session is None:
+            self.connect()
+        return self._session
+
+    @property
+    def metadata(self):
+        if self._metadata is None:
+            self.connect()
+        return self._metadata
+
+    @property
+    def base(self):
+        if self._base is None:
+            self.connect()
+        return self._base
+
+    def connect(self) -> None:
         uri = f""
-        self.engine = create_engine(uri)
-        self.session = sessionmaker(self.engine)
-        self.metadata = MetaData(bind=self.engine)
+        self._engine = create_engine(uri)
+        self._session = sessionmaker(self.engine)
+        self._metadata = MetaData(bind=self.engine)
+        self._base = declarative_base(metadata=self.metadata)
         GLOG.INFO("Connect to mongo succeed.")
-        self.base = declarative_base(metadata=self.metadata)
 
     @property
     def insp(self):

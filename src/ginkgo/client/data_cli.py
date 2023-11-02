@@ -315,7 +315,7 @@ def update(
 
     # from ginkgo.libs.ginkgo_logger import GLOG
 
-    # GLOG.set_level("CRITICAL")
+    GLOG.set_level("critical")
     GDATA.create_all()
 
     if data == DataType.STOCKINFO:
