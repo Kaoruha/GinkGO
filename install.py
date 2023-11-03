@@ -51,6 +51,12 @@ def main():
         help="overwrite configuration",
         action="store_true",
     )
+    parser.add_argument(
+        "-localserver",
+        "--localserver",
+        help="install servers local, if False just setup the client.",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     wd = os.path.dirname(os.path.abspath(__file__))
@@ -193,6 +199,9 @@ def main():
     # version_tag = f"{version_split[0]}.{version_split[1]}"
     # cmd = f"pyinstaller --onefile --paths /home/kaoru/Documents/Ginkgo/venv/lib/python{version_tag}/site-packages  main.py -n ginkgo"
     # os.system(cmd)
+    from src.ginkgo.libs.ginkgo_conf import GCONF
+    GCONF.set_logging_path(path_log)
+    GCONF.set_work_path(path)
 
     print(
         f"You could run : {lightblue('chmod +x ./install.sh;sudo ./install.sh')} to get the cli."
