@@ -658,7 +658,7 @@ class GinkgoData(object):
                 l.append(item)
             self.add_all(l)
             self.commit()
-            GLOG.WARN(f"Insert {code} Tick {len(l)}.")
+            GLOG.ERROR(f"Insert {code} Tick {len(l)}.")
             insert_count += len(l)
             nodata_count = 0
             # ReCheck
@@ -675,15 +675,11 @@ class GinkgoData(object):
     def update_all_cn_tick_aysnc(self, fast_mode: bool = False) -> None:
         t0 = datetime.datetime.now()
         info = self.get_stock_info_df_cached()
-        l = []
         cpu_count = multiprocessing.cpu_count()
         cpu_count = int(cpu_count * self.cpu_ratio)
+        p = multiprocessing.Pool(cpu_count)
         for i, r in info.iterrows():
             code = r["code"]
-            l.append(code)
-        p = multiprocessing.Pool(cpu_count)
-
-        for code in l:
             res = p.apply_async(
                 self.update_tick,
                 args=(
