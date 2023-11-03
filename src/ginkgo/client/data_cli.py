@@ -1,8 +1,21 @@
 import typer
+import sys
+from threading import Thread, Event
+from multiprocessing import Process
+import time
+import datetime
 from enum import Enum
 from typing_extensions import Annotated
 from rich.prompt import Prompt
 from rich.console import Console
+from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from rich.progress import (
+    Progress,
+    BarColumn,
+    TextColumn,
+    SpinnerColumn,
+    TimeElapsedColumn,
+)
 
 
 class DataType(str, Enum):
@@ -38,6 +51,35 @@ def print_df_paganation(df, page: int):
     else:
         df = df.to_string()
         print(df)
+
+
+def progress_bar(
+    title: str,
+):
+    with Progress(
+        SpinnerColumn(),
+        # TextColumn(f"[cyan2]{title}"),
+        *Progress.get_default_columns(),
+        TextColumn(f":beach_with_umbrella: Elapesd: "),
+        TimeElapsedColumn(),
+        console=console,
+        transient=True,
+        refresh_per_second=100,
+    ) as progress:
+        task = progress.add_task(f"{title}", total=None)
+        while True:
+            progress.advance(task, advance=0.4)
+            time.sleep(0.01)
+
+
+@app.command()
+def init():
+    """
+    Create table.
+    """
+    from ginkgo.data.ginkgo_data import GDATA
+
+    GDATA.create_all()
 
 
 @app.command()
@@ -102,15 +144,18 @@ def list(
 
     if data == DataType.STOCKINFO:
         raw = GDATA.get_stock_info_df_cached(filter)
-        rs = raw[
-            [
-                "code",
-                "code_name",
-                "industry",
-                "currency",
-                "update",
+        if raw.shape[0] == 0:
+            rs = raw
+        else:
+            rs = raw[
+                [
+                    "code",
+                    "code_name",
+                    "industry",
+                    "currency",
+                    "update",
+                ]
             ]
-        ]
     elif data == DataType.CALENDAR:
         raw = GDATA.get_trade_calendar_df_cached()
         rs = raw[["timestamp", "market", "is_open"]]
@@ -158,45 +203,107 @@ def show(
     # TODO Reset the log level
 
     pd.set_option("display.unicode.east_asian_width", True)
+    t0 = datetime.datetime.now()
 
     if data == DataType.STOCKINFO:
         raw = GDATA.get_stock_info_df(code=code)
-        rs = raw[
-            [
-                "code",
-                "code_name",
-                "industry",
-                "currency",
-                "update",
+        if raw.shape[0] == 0:
+            rs = raw
+        else:
+            rs = raw[
+                [
+                    "code",
+                    "code_name",
+                    "industry",
+                    "currency",
+                    "update",
+                ]
             ]
-        ]
     elif data == DataType.ADJUST:
         raw = GDATA.get_adjustfactor_df_cached(code)
-        rs = raw[
-            [
-                "code",
-                "timestamp",
-                "foreadjustfactor",
-                "backadjustfactor",
-                "adjustfactor",
+        if raw.shape[0] == 0:
+            rs = raw
+        else:
+            rs = raw[
+                [
+                    "code",
+                    "timestamp",
+                    "foreadjustfactor",
+                    "backadjustfactor",
+                    "adjustfactor",
+                ]
             ]
-        ]
     elif data == DataType.DAYBAR:
+        p = Process(
+            target=progress_bar,
+            args=(f"Get Daybar {code}",),
+        )
+        p.start()
         raw = GDATA.get_daybar_df_cached(code, start, end)
-        rs = raw[
-            [
-                "code",
-                "timestamp",
-                "open",
-                "high",
-                "low",
-                "close",
-                "volume",
+        if raw.shape[0] == 0:
+            rs = raw
+        else:
+            rs = raw[
+                [
+                    "code",
+                    "timestamp",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                ]
             ]
-        ]
+        p.kill()
+        p.join()
+        sys.stdout.write("\r" + " " * 100 + "\r")
+        sys.stdout.flush()
+        t1 = datetime.datetime.now()
+        if t1 - t0 < datetime.timedelta(seconds=1):
+            console.print(
+                f":zap: Daybar [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]. Seems REDIS works."
+            )
+        else:
+            console.print(
+                f":hugging_face: Daybar [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]"
+            )
+
     elif data == DataType.TICK:
+        if datetime_normalize(end) - datetime_normalize(start) > datetime.timedelta(
+            days=10
+        ):
+            console.print(
+                f":banana: Tick Data just support querying less than 10 days."
+            )
+            console.print(
+                f":peach: Please optimize the [yellow]start[/yellow] or [yellow]end[/yellow] to do the query."
+            )
+            return
+        p = Process(
+            target=progress_bar,
+            args=(f"Get Tick {code}",),
+        )
+        p.start()
+        t0 = datetime.datetime.now()
         raw = GDATA.get_tick_df(code, start, end)
-        rs = raw[["timestamp", "code", "price", "volume", "update", "direction"]]
+        if raw.shape[0] == 0:
+            rs = raw
+        else:
+            rs = raw[["timestamp", "code", "price", "volume", "direction"]]
+        p.kill()
+        p.join()
+        sys.stdout.write("\r" + " " * 100 + "\r")
+        sys.stdout.flush()
+        t1 = datetime.datetime.now()
+        if t1 - t0 < datetime.timedelta(seconds=1):
+            console.print(
+                f":zap: Tick [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]."
+            )
+        else:
+            console.print(
+                f":hugging_face: Tick [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]"
+            )
+
     if rs.shape[0] < page:
         print(rs.to_string())
     else:
@@ -226,7 +333,7 @@ def update(
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.libs.ginkgo_logger import GLOG
 
-    GLOG.set_level("info")
+    GLOG.set_level("critical")
     GDATA.create_all()
 
     if data == DataType.STOCKINFO:
