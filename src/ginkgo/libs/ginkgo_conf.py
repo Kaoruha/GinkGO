@@ -63,7 +63,7 @@ class GinkgoConfig(object):
             print(f"Copy secure.yml from {origin_path} to {target_path}")
             shutil.copy(origin_path, target_path)
 
-    def __read_config(self) -> dict:
+    def _read_config(self) -> dict:
         self.generate_config_file()
         try:
             with open(self.setting_path, "r") as file:
@@ -73,7 +73,7 @@ class GinkgoConfig(object):
             print(e)
             return {}
 
-    def __read_secure(self) -> dict:
+    def _read_secure(self) -> dict:
         self.generate_config_file()
         try:
             with open(self.secure_path, "r") as file:
@@ -83,50 +83,67 @@ class GinkgoConfig(object):
             print(e)
             return {}
 
+    def _write_config(self, key: str, value: any) -> None:
+        try:
+            with open(self.setting_path, "r") as file:
+                data = yaml.safe_load(file)
+            data[key] = value
+            with open(self.setting_path, "w") as file:
+                yaml.safe_dump(data, file)
+        except Exception as e:
+            print(e)
+            return {}
+
     @property
     def EPSILON(self) -> float:
-        return float(self.__read_config()["epsilon"])
+        return float(self._read_config()["epsilon"])
 
     @property
     def LOGGING_PATH(self) -> str:
         # Where to store the log files
-        return self.__read_config()["log_path"]
+        return self._read_config()["log_path"]
+
+    def set_logging_path(self, path: str) -> None:
+        self._write_config("log_path", path)
 
     @property
-    def UNITTEST_PATH(self) -> str:
+    def WORKING_PATH(self) -> str:
         # Where to store the log files
-        return self.__read_config()["unittest_path"]
+        return self._read_config()["working_directory"]
+
+    def set_work_path(self, path: str) -> None:
+        self._write_config("working_directory", value)
 
     @property
     def LOGGING_FILE_ON(self) -> str:
         # Turn on/off the logging
-        return self.__read_config()["log_file_on"]
+        return self._read_config()["log_file_on"]
 
     @property
     def LOGGING_DEFAULT_FILE(self) -> str:
         # Turn on/off the logging
-        return self.__read_config()["log_default_file"]
+        return self._read_config()["log_default_file"]
 
     @property
     def LOGGING_LEVEL_CONSOLE(self) -> str:
         # Turn on/off the logging
-        return self.__read_config()["log_level_console"]
+        return self._read_config()["log_level_console"]
 
     @property
     def LOGGING_LEVEL_FILE(self) -> str:
         # Turn on/off the logging
-        return self.__read_config()["log_level_file"]
+        return self._read_config()["log_level_file"]
 
     @property
     def LOGGING_COLOR(self) -> dict:
         # Turn on/off the logging
-        return self.__read_config()["log_color"]
+        return self._read_config()["log_color"]
 
     @property
     def CLICKDB(self) -> str:
         r = ""
         try:
-            r = self.__read_secure()["database"]["clickhouse"]["database"]
+            r = self._read_secure()["database"]["clickhouse"]["database"]
         except Exception as e:
             r = "default"
         return r
@@ -135,7 +152,7 @@ class GinkgoConfig(object):
     def MYSQLDB(self) -> str:
         r = ""
         try:
-            r = self.__read_secure()["database"]["mysql"]["database"]
+            r = self._read_secure()["database"]["mysql"]["database"]
         except Exception as e:
             r = "default"
         return r
@@ -144,7 +161,7 @@ class GinkgoConfig(object):
     def MONGODB(self) -> str:
         r = ""
         try:
-            r = self.__read_secure()["database"]["mongodb"]["database"]
+            r = self._read_secure()["database"]["mongodb"]["database"]
         except Exception as e:
             r = "default"
         return r
@@ -153,7 +170,7 @@ class GinkgoConfig(object):
     def CLICKUSER(self) -> str:
         r = ""
         try:
-            r = self.__read_secure()["database"]["clickhouse"]["username"]
+            r = self._read_secure()["database"]["clickhouse"]["username"]
         except Exception as e:
             r = "default"
         return r
@@ -162,7 +179,7 @@ class GinkgoConfig(object):
     def MYSQLUSER(self) -> str:
         r = ""
         try:
-            r = self.__read_secure()["database"]["mysql"]["username"]
+            r = self._read_secure()["database"]["mysql"]["username"]
         except Exception as e:
             r = "default"
         return r
@@ -171,7 +188,7 @@ class GinkgoConfig(object):
     def MONGOUSER(self) -> str:
         r = ""
         try:
-            r = self.__read_secure()["database"]["mongodb"]["username"]
+            r = self._read_secure()["database"]["mongodb"]["username"]
         except Exception as e:
             r = "default"
         return r
@@ -183,7 +200,7 @@ class GinkgoConfig(object):
         """
         r = ""
         try:
-            r = self.__read_secure()["database"]["clickhouse"]["password"]
+            r = self._read_secure()["database"]["clickhouse"]["password"]
             r = base64.b64decode(r)
             r = str(r, "utf-8")
             r = r.replace("\n", "")
@@ -198,7 +215,7 @@ class GinkgoConfig(object):
         """
         r = ""
         try:
-            r = self.__read_secure()["database"]["mysql"]["password"]
+            r = self._read_secure()["database"]["mysql"]["password"]
             r = base64.b64decode(r)
             r = str(r, "utf-8")
             r = r.replace("\n", "")
@@ -210,7 +227,7 @@ class GinkgoConfig(object):
     def MONGOPWD(self) -> str:
         r = ""
         try:
-            r = self.__read_secure()["database"]["mongodb"]["password"]
+            r = self._read_secure()["database"]["mongodb"]["password"]
             r = base64.b64decode(r)
             r = str(r, "utf-8")
         except Exception as e:
@@ -220,26 +237,26 @@ class GinkgoConfig(object):
     @property
     def CLICKHOST(self) -> int:
         r = ""
-        r = self.__read_secure()["database"]["clickhouse"]["host"]
+        r = self._read_secure()["database"]["clickhouse"]["host"]
         return r
 
     @property
     def MYSQLHOST(self) -> int:
         r = ""
-        r = self.__read_secure()["database"]["mysql"]["host"]
+        r = self._read_secure()["database"]["mysql"]["host"]
         return r
 
     @property
     def MONGOHOST(self) -> int:
         r = ""
-        r = self.__read_secure()["database"]["mongo"]["host"]
+        r = self._read_secure()["database"]["mongo"]["host"]
         return r
 
     @property
     def CLICKPORT(self) -> int:
         on_dev = self.DEBUGMODE
 
-        r = self.__read_secure()["database"]["clickhouse"]["port"]
+        r = self._read_secure()["database"]["clickhouse"]["port"]
         if not on_dev:
             return r
         else:
@@ -249,7 +266,7 @@ class GinkgoConfig(object):
     def MYSQLPORT(self) -> int:
         on_dev = self.DEBUGMODE
 
-        r = self.__read_secure()["database"]["mysql"]["port"]
+        r = self._read_secure()["database"]["mysql"]["port"]
         if not on_dev:
             return r
         else:
@@ -259,7 +276,7 @@ class GinkgoConfig(object):
     def MONGOPORT(self) -> int:
         on_dev = self.DEBUGMODE
 
-        r = self.__read_secure()["database"]["mongo"]["port"]
+        r = self._read_secure()["database"]["mongo"]["port"]
         if not on_dev:
             return r
         else:
@@ -267,19 +284,19 @@ class GinkgoConfig(object):
 
     @property
     def REDISHOST(self) -> str:
-        r = self.__read_secure()["database"]["redis"]["host"]
+        r = self._read_secure()["database"]["redis"]["host"]
         return r
 
     @property
     def REDISPORT(self) -> str:
-        r = self.__read_secure()["database"]["redis"]["port"]
+        r = self._read_secure()["database"]["redis"]["port"]
         return r
 
     @property
     def HEARTBEAT(self) -> float:
         r = 0
         try:
-            r = self.__read_config()["heart_beat"]
+            r = self._read_config()["heart_beat"]
         except Exception as e:
             r = 0
         return r
@@ -288,7 +305,7 @@ class GinkgoConfig(object):
     def TUSHARETOKEN(self) -> str:
         r = ""
         try:
-            r = self.__read_secure()["tushare"]["token"]
+            r = self._read_secure()["tushare"]["token"]
         except Exception as e:
             pass
         return r
@@ -297,7 +314,7 @@ class GinkgoConfig(object):
     def DEFAULTSTART(self) -> str:
         r = ""
         try:
-            r = self.__read_config()["default_start"]
+            r = self._read_config()["default_start"]
         except Exception as e:
             pass
         return r
@@ -306,7 +323,7 @@ class GinkgoConfig(object):
     def DEFAULTEND(self) -> str:
         r = ""
         try:
-            r = self.__read_config()["default_end"]
+            r = self._read_config()["default_end"]
         except Exception as e:
             pass
         return r
@@ -315,7 +332,7 @@ class GinkgoConfig(object):
     def DBDRIVER(self) -> str:
         r = ""
         try:
-            r = self.__read_config()["db_driver"]
+            r = self._read_config()["db_driver"]
         except Exception as e:
             pass
         return r
@@ -324,10 +341,14 @@ class GinkgoConfig(object):
     def DEBUGMODE(self) -> bool:
         r = True
         try:
-            r = self.__read_config()["debug"]
+            r = self._read_config()["debug"]
         except Exception as e:
             pass
         return r
+
+    def set_debug(self, value: bool):
+        if isinstance(value, bool):
+            self._write_config("debug", value)
 
 
 GCONF = GinkgoConfig()
