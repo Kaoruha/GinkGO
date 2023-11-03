@@ -5,7 +5,7 @@ token_expiration: 14  # Token过期时间（天）
 
 # 日志设置
 log_path: /home/kaoru/.ginkgo/
-unittest_path: /home/kaoru/Documents/Ginkgo/
+working_directory: /home/kaoru/Documents/Ginkgo/
 log_file_on: False
 log_default_file: test.log
 log_level_console: DEBUG
