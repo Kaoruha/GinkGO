@@ -97,3 +97,14 @@ class ATTITUDE_TYPES(EnumBase):
     PESSMISTIC = 1
     OPTIMISTIC = 2
     RANDOM = 3
+
+
+class FILE_TYPES(EnumBase):
+    OTHER = 0
+    ANALYZER = 1
+    INDEX = 2
+    RISKMANAGER = 3
+    SELECTOR = 4
+    SIZER = 5
+    STRATEGY = 6
+    BACKTEST = 7
