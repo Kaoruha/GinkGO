@@ -20,12 +20,12 @@ class GinkgoConfig(object):
 
     @property
     def setting_path(self) -> str:
-        path = os.path.join(os.environ.get("GINKGO_DIR", None), "config.yml")
+        path = os.path.join(os.environ.get("GINKGO_DIR", self.get_conf_dir()), "config.yml")
         return path
 
     @property
     def secure_path(self) -> str:
-        path = os.path.join(os.environ.get("GINKGO_DIR", None), "secure.yml")
+        path = os.path.join(os.environ.get("GINKGO_DIR", self.get_conf_dir()), "secure.yml")
         return path
 
     def get_conf_dir(self) -> str:
@@ -112,7 +112,7 @@ class GinkgoConfig(object):
         return self._read_config()["working_directory"]
 
     def set_work_path(self, path: str) -> None:
-        self._write_config("working_directory", value)
+        self._write_config("working_directory", path)
 
     @property
     def LOGGING_FILE_ON(self) -> str:
