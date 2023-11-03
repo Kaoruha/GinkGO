@@ -5,6 +5,7 @@ from typing_extensions import Annotated
 from rich.console import Console
 from rich import print
 
+from enum import Enum
 from ginkgo.backtest.plots import CandlePlot
 from ginkgo.client import data_cli
 from ginkgo.client import backtest_cli
@@ -24,7 +25,7 @@ def status():
     """
     Check the module status.
     """
-    from src.ginkgo.libs.ginkgo_conf import GCONF
+    from ginkgo.libs.ginkgo_conf import GCONF
 
     console.print(f"DEBUE: {GCONF.DEBUGMODE}")
     os.system(
@@ -37,7 +38,7 @@ def version():
     """
     Ginkgo version.
     """
-    from src.ginkgo.config.package import PACKAGENAME, VERSION
+    from ginkgo.config.package import PACKAGENAME, VERSION
 
     print(
         f":sparkles: [bold medium_spring_green]{PACKAGENAME}[/bold medium_spring_green] [light_goldenrod2]{VERSION}[/light_goldenrod2]"
@@ -59,11 +60,32 @@ def configure():
     """
     Configure Ginkgo.
     """
-    from src.ginkgo.libs.ginkgo_conf import GCONF
+    from ginkgo.libs.ginkgo_conf import GCONF
 
     print(11)
 
     pass
+
+
+class DEBUG_TYPE(str, Enum):
+    ON = "on"
+    OFF = "off"
+
+
+@main_app.command()
+def debug(
+    switch: Annotated[DEBUG_TYPE, typer.Argument(case_sensitive=False)],
+):
+    """
+    Swtich the DEBUG MOEDE.
+    """
+    from ginkgo.libs.ginkgo_conf import GCONF
+
+    if switch == DEBUG_TYPE.ON:
+        GCONF.set_debug(True)
+    elif switch == DEBUG_TYPE.OFF:
+        GCONF.set_debug(False)
+    console.print(f"DEBUE: {GCONF.DEBUGMODE}")
 
 
 if __name__ == "__main__":
