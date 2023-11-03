@@ -46,7 +46,7 @@ class GinkgoData(object):
         self._mysql_models = []
         self.get_models()
         self.batch_size = 500
-        self.cpu_ratio = 0.8
+        self.cpu_ratio = 1.8
         self.tick_models = {}
 
     def get_driver(self, value):
@@ -620,11 +620,9 @@ class GinkgoData(object):
         insert_count = 0
         tdx = GinkgoTDX()
         nodata_count = 0
-        nodata_max = 200
+        nodata_max = 50
         date = datetime.datetime.now()
-        nodata_lasttime = False
         while True:
-            print(nodata_count)
             # Break
             if nodata_count >= nodata_max:
                 break
@@ -633,21 +631,16 @@ class GinkgoData(object):
             date_end = (date + datetime.timedelta(days=1)).strftime("%Y%m%d")
             GLOG.INFO(f"Trying to update {code} Tick on {date}")
             if self.is_tick_indb(code, date_start):
-                GLOG.WARN(f"{code} Tick on {date} is in database. Go next")
+                GLOG.DEBUG(f"{code} Tick on {date} is in database. Go next")
                 date = date + datetime.timedelta(days=-1)
-                if fast_mode:
-                    nodata_count += 1
-                else:
+                if not fast_mode:
                     nodata_count = 0
-                nodata_lasttime = False
                 continue
             # Fetch and insert
             rs = tdx.fetch_history_transaction(code, date)
             if rs.shape[0] == 0:
                 GLOG.WARN(f"{code} No data on {date} from remote.")
-                if nodata_lasttime:
-                    nodata_count += 1
-                nodata_lasttime = True
+                nodata_count += 1
                 date = date + datetime.timedelta(days=-1)
                 continue
 
@@ -663,13 +656,11 @@ class GinkgoData(object):
                 item = model()
                 item.set(code, price, volume, buyorsell, timestamp)
                 l.append(item)
-            nodata_lasttime = False
             self.add_all(l)
             self.commit()
-            GLOG.INFO(f"Insert {code} Tick {len(l)}.")
+            GLOG.WARN(f"Insert {code} Tick {len(l)}.")
             insert_count += len(l)
-            if not fast_mode:
-                nodata_count = 0
+            nodata_count = 0
             # ReCheck
             if self.is_tick_indb(code, date_start):
                 GLOG.INFO(f"{code} {date_start} Insert Recheck Successful.")
@@ -690,7 +681,6 @@ class GinkgoData(object):
         for i, r in info.iterrows():
             code = r["code"]
             l.append(code)
-
         p = multiprocessing.Pool(cpu_count)
 
         for code in l:
@@ -701,7 +691,6 @@ class GinkgoData(object):
                     fast_mode,
                 ),
             )
-
         p.close()
         p.join()
         t1 = datetime.datetime.now()

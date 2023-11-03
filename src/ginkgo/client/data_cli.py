@@ -224,10 +224,9 @@ def update(
     Update the database.
     """
     from ginkgo.data.ginkgo_data import GDATA
+    from ginkgo.libs.ginkgo_logger import GLOG
 
-    # from ginkgo.libs.ginkgo_logger import GLOG
-
-    GLOG.set_level("critical")
+    GLOG.set_level("info")
     GDATA.create_all()
 
     if data == DataType.STOCKINFO:
