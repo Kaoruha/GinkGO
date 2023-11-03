@@ -43,7 +43,7 @@ def run(
     LOGGING_FILE_ON = GCONF.LOGGING_FILE_ON
     LOGGING_PATH = GCONF.LOGGING_PATH
     suite = unittest.TestSuite()
-    origin_path = f"{GCONF.UNITTEST_PATH}test"
+    origin_path = f"{GCONF.WORKING_PATH}test"
     path = []
 
     if a:
