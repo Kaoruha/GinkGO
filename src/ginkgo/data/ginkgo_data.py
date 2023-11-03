@@ -46,7 +46,7 @@ class GinkgoData(object):
         self._mysql_models = []
         self.get_models()
         self.batch_size = 500
-        self.cpu_ratio = 1.8
+        self.cpu_ratio = 8
         self.tick_models = {}
 
     def get_driver(self, value):
