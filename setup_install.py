@@ -5,6 +5,7 @@
 import os
 import sys
 import time
+import shutil
 from src.ginkgo.config.package import VERSION
 
 # Remove Package
@@ -18,9 +19,7 @@ if not os.path.exists(dist_path):
     os.mkdir(dist_path)
 else:
     # 删除打包文件夹内所有文件
-    files = os.listdir(dist_path)
-    for i in files:
-        os.remove(f"{dist_path}/{i}")
+    shutil.rmtree(dist_path)
 
 # 编译安装包
 os.system("python setup.py sdist bdist_wheel")
