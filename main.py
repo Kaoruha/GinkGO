@@ -20,6 +20,11 @@ main_app.add_typer(unittest_cli.app, name="unittest")
 console = Console()
 
 
+class DEBUG_TYPE(str, Enum):
+    ON = "on"
+    OFF = "off"
+
+
 @main_app.command()
 def status():
     """
@@ -56,36 +61,31 @@ def interactive():
 
 
 @main_app.command()
-def configure():
+def configure(
+    cpu: Annotated[float, typer.Option(case_sensitive=False)] = None,
+    debug: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
+):
     """
     Configure Ginkgo.
     """
+    if cpu is None and debug is None:
+        console.print(
+            "You could set cpu usage by --cpu, switch the debug mode by --debug."
+        )
+
     from ginkgo.libs.ginkgo_conf import GCONF
 
-    print(11)
+    if cpu is not None:
+        if isinstance(cpu, float):
+            GCONF.set_cpu_ratio(cpu)
+        console.print(f"CPU RATIO: {GCONF.CPURATIO*100}%")
 
-    pass
-
-
-class DEBUG_TYPE(str, Enum):
-    ON = "on"
-    OFF = "off"
-
-
-@main_app.command()
-def debug(
-    switch: Annotated[DEBUG_TYPE, typer.Argument(case_sensitive=False)],
-):
-    """
-    Swtich the DEBUG MOEDE.
-    """
-    from ginkgo.libs.ginkgo_conf import GCONF
-
-    if switch == DEBUG_TYPE.ON:
-        GCONF.set_debug(True)
-    elif switch == DEBUG_TYPE.OFF:
-        GCONF.set_debug(False)
-    console.print(f"DEBUE: {GCONF.DEBUGMODE}")
+    if debug is not None:
+        if debug == DEBUG_TYPE.ON:
+            GCONF.set_debug(True)
+        elif debug == DEBUG_TYPE.OFF:
+            GCONF.set_debug(False)
+        console.print(f"DEBUE: {GCONF.DEBUGMODE}")
 
 
 if __name__ == "__main__":

@@ -20,12 +20,16 @@ class GinkgoConfig(object):
 
     @property
     def setting_path(self) -> str:
-        path = os.path.join(os.environ.get("GINKGO_DIR", self.get_conf_dir()), "config.yml")
+        path = os.path.join(
+            os.environ.get("GINKGO_DIR", self.get_conf_dir()), "config.yml"
+        )
         return path
 
     @property
     def secure_path(self) -> str:
-        path = os.path.join(os.environ.get("GINKGO_DIR", self.get_conf_dir()), "secure.yml")
+        path = os.path.join(
+            os.environ.get("GINKGO_DIR", self.get_conf_dir()), "secure.yml"
+        )
         return path
 
     def get_conf_dir(self) -> str:
@@ -113,6 +117,14 @@ class GinkgoConfig(object):
 
     def set_work_path(self, path: str) -> None:
         self._write_config("working_directory", path)
+
+    @property
+    def UNITTEST_PATH(self) -> str:
+        # Where to store the log files
+        return self._read_config()["unittest_path"]
+
+    def set_unittest_path(self, path: str) -> None:
+        self._write_config("unittest_path", path)
 
     @property
     def LOGGING_FILE_ON(self) -> str:
@@ -346,9 +358,22 @@ class GinkgoConfig(object):
             pass
         return r
 
-    def set_debug(self, value: bool):
+    def set_debug(self, value: bool) -> None:
         if isinstance(value, bool):
             self._write_config("debug", value)
+
+    @property
+    def CPURATIO(self) -> float:
+        r = 0.4
+        try:
+            r = self._read_config()["cpu_ratio"]
+        except Exception as e:
+            pass
+        return r
+
+    def set_cpu_ratio(self, value) -> None:
+        if isinstance(value, float):
+            self._write_config("cpu_ratio", value)
 
 
 GCONF = GinkgoConfig()
