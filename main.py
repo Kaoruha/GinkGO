@@ -33,6 +33,7 @@ def status():
     from ginkgo.libs.ginkgo_conf import GCONF
 
     console.print(f"DEBUE: {GCONF.DEBUGMODE}")
+    console.print(f"CPU RATIO: {GCONF.CPURATIO*100}%")
     os.system(
         "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test"
     )
