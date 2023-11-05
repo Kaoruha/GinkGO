@@ -18,6 +18,7 @@ from ginkgo.data.models import (
     MClickBase,
     MMysqlBase,
     MTick,
+    MFile,
 )
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs.ginkgo_conf import GCONF
@@ -29,6 +30,7 @@ from ginkgo.enums import (
     CURRENCY_TYPES,
     MARKET_TYPES,
     TICKDIRECTION_TYPES,
+    FILE_TYPES,
 )
 from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare, GinkgoTDX
 from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql, GinkgoRedis
@@ -1104,6 +1106,66 @@ class GinkgoData(object):
         GLOG.INFO(f"Update ALL CN AdjustFactor cost {t1-t0}")
         size = MYSQLDRIVER.get_table_size(MAdjustfactor)
         GLOG.INFO(f"After Update Adjustfactor Size: {size}")
+
+    def get_file(self, id: str):
+        r = (
+            MYSQLDRIVER.session.query(MFile)
+            .filter(MFile.uuid == id)
+            .filter(MFile.isdel == False)
+            .first()
+        )
+        return r
+
+    def get_file_list_df(self, type: FILE_TYPES = None):
+        if type is None:
+            r = MYSQLDRIVER.session.query(MFile).filter(MFile.isdel == False)
+        else:
+            r = (
+                MYSQLDRIVER.session.query(MFile)
+                .filter(MFile.type == type)
+                .filter(MFile.isdel == False)
+            )
+        df = pd.read_sql(r.statement, MYSQLDRIVER.engine)
+        df = df.sort_values(by="update", ascending=False)
+        # df.name = df.name.strip(b"\x00".decode())
+        return df
+
+    def update_file(self, id: str, type: FILE_TYPES, name: str, content: bytes):
+        r = (
+            MYSQLDRIVER.session.query(MFile)
+            .filter(MFile.uuid == id)
+            .filter(MFile.isdel == False)
+            .first()
+        )
+        if r is not None:
+            r.type = type
+            r.name = name
+            r.content = content
+            r.update = datetime.datetime.now()
+            self.commit()
+
+    def add_file(self, type: FILE_TYPES, name: str):
+        item = MFile()
+        item.type = type
+        item.file_name = name
+        item.content = b""
+        self.add(item)
+        self.commit()
+
+    def remove_file(self, id: str):
+        r = (
+            MYSQLDRIVER.session.query(MFile)
+            .filter(MFile.uuid == id)
+            .filter(MFile.isdel == False)
+            .first()
+        )
+        if r is not None:
+            r.update = datetime.datetime.now()
+            r.isdel = True
+            self.commit()
+            print(f"File {id} delete.")
+        else:
+            print(f"File {id} not exist.")
 
 
 GDATA = GinkgoData()
