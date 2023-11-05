@@ -73,6 +73,9 @@ def run(
     from ginkgo.data.ginkgo_data import GDATA
     import shutil
     import yaml
+    from ginkgo.backtest.engines import EventEngine
+    from ginkgo.backtest.portfolios import PortfolioT1Backtest
+    from ginkgo.libs import datetime_normalize
 
     # 1. Create a temp folder.
 
@@ -103,7 +106,6 @@ def run(
 
     print(backtest_config)
     backtest_name = backtest_config["name"]
-    from ginkgo.libs import datetime_normalize
 
     date_start = datetime_normalize(backtest_config["start"])
     date_end = datetime_normalize(backtest_config["end"])
@@ -113,52 +115,45 @@ def run(
 
     import inspect
     import importlib
+    import ast
 
     # Get a list of all the members of the module.py file
 
     # Portfolio -->
     # Portfolio -->
     # TODO
-    # from ginkgo.backtest.portfolios import PortfolioT1Backtest
 
-    # portfolio = PortfolioT1Backtest()  # TODO Read from database.
+    portfolio = PortfolioT1Backtest()  # TODO Read from database.
 
     # Selector -->
     # Selector -->
 
     selectors = backtest_config["selectors"]
-    for select_id in selectors:
+    for selector in selectors:
+        select_id = selector['id']
+        params = selector['params']
         print("Trying add selector::")
         print(select_id)
+        file_path = f"{temp_folder}/{select_id}.py"
         selector_model = GDATA.get_file(select_id)
         selector_content = selector_model.content
-        file = open(f"{temp_folder}/{select_id}.py", "wb")
+        file = open(file_path, "wb")
         file.write(selector_content)
         file.close()
 
-        # # Get the AST of the Python file
-        # tree = ast.parse(open(f"{temp_folder}/{select_id}.py", "r").read())
+        with open(file_path) as file:
+            source = file.read()
+            tree = ast.parse(source,mode='exec')
+            code = compile(tree,filename=file_path,mode='exec')
+            namespace = {}
+            exec(code,namespace)
+            node = ast.parse(file.read())
+            classes = [n for n in node.body if isinstance(n, ast.ClassDef)]
+        # TODO if there are more than 1 class in py file.
+        class_obj = namespace.get(classes[0].name)
+        instance = class_obj(params)
+        print(instance)
 
-        # # Get a list of all the class names in the file
-        # class_names = []
-        # for node in tree.body:
-        #     if isinstance(node, ast.ClassDef):
-        #         class_names.append(node.name)
-
-        # # Print the list of class names
-        # print(class_names)
-        # if len(class_names) != 1:
-        #     print("Error, py file should have only one class.")
-        # print("gogogo")
-        # class_name = class_names[0]
-        # import pdb
-
-        # pdb.set_trace()
-        # module = importlib.import_module(f"{temp_folder}/{select_id}")
-        # print(module)
-        # class_object = getattr(module, class_name)
-        # a = class_object()
-        # a.hello()
 
     # 3. Read backtest config, Get Sizer, Selector... from database.
     # 4. Gen *.py, record the map of py file name and module.
@@ -168,30 +163,11 @@ def run(
     # 8. Clean the temp folder.
     # shutil.rmtree(temp_folder)
 
-    # import time
-    # import random
-    # import pandas as pd
-    # import datetime
-    # from ginkgo.libs.ginkgo_logger import GLOG
-    # from ginkgo.enums import EVENT_TYPES
-    # from ginkgo.data.ginkgo_data import GDATA
-    # from ginkgo.backtest.selectors import FixedSelector
-    # from ginkgo.backtest.engines import EventEngine
-    # from ginkgo.backtest.portfolios import PortfolioT1Backtest
-    # from ginkgo.backtest.risk_managements import BaseRiskManagement
-    # from ginkgo.backtest.matchmakings import MatchMakingSim
-    # from ginkgo.backtest.sizers import FixedSizer
-    # from ginkgo.backtest.events import EventNextPhase
-    # from ginkgo.backtest.feeds import BacktestFeed
-    # from ginkgo.backtest.strategies import (
-    #     StrategyVolumeActivate,
-    #     StrategyProfitLimit,
-    #     StrategyLossLimit,
-    # )
-
     # datestart = 20000101
 
     # portfolio = PortfolioT1Backtest()
+    # codes = GDATA.get_stock_info_df()
+    # codes = codes.code.to_list()
 
     # codes = random.sample(codes, 200)
     # selector = FixedSelector(codes)
@@ -232,8 +208,8 @@ def run(
     # engine.put(EventNextPhase())
     # engine.start()
 
-    # Remove the file and directory
-    shutil.rmtree(temp_folder)
+    # # Remove the file and directory
+    # shutil.rmtree(temp_folder)
 
 
 @app.command()

@@ -20,7 +20,7 @@ from ginkgo.enums import EVENT_TYPES
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import datetime_normalize
-from ginkgo.backtest.portfolios import BasePortfolio
+from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
 from ginkgo.backtest.matchmakings import MatchMakingBase
 from ginkgo.libs import GinkgoSingleLinkedList
 
