@@ -519,7 +519,10 @@ class GinkgoData(object):
             if df.shape[0] > 0:
                 REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
-            return df[df.timestamp >= date_start][df.timestamp <= date_end]
+            df = df[df.timestamp >= date_start]
+            df = df[df.timestamp <= date_end]
+            df.reset_index(drop=True, inplace=True)
+            return df
         else:
             return pd.DataFrame()
 
