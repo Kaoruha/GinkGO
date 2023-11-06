@@ -166,6 +166,7 @@ def main():
         shutil.copy(origin_path, target_path)
 
     # Write log,unitest,working_directory to local config.
+    os.system("pip install pyyaml -i https://pypi.tuna.tsinghua.edu.cn/simple")
     from src.ginkgo.libs.ginkgo_conf import GCONF
 
     GCONF.set_logging_path(path_log)
