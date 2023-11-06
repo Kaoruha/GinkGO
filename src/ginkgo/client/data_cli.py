@@ -123,7 +123,7 @@ def plot(
 
 
 @app.command()
-def list(
+def ls(
     data: Annotated[DataType, typer.Argument(case_sensitive=False)],
     page: Annotated[
         int, typer.Option(case_sensitive=False, help="Limit the number of output.")

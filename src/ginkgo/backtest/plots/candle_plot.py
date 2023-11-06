@@ -13,6 +13,8 @@ from ginkgo.backtest.plots.base_plot import BasePlot
 
 
 class CandlePlot(BasePlot):
+    abstract = False
+
     def __init__(self, title: str = "", *args, **kwargs) -> None:
         super(CandlePlot, self).__init__(title, args, kwargs)
         self.ax1 = None

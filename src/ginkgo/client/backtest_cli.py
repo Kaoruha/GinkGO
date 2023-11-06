@@ -22,6 +22,16 @@ class ResourceType(str, Enum):
 
 
 @app.command()
+def init():
+    """
+    Copy files from default.
+    """
+    from ginkgo.data.ginkgo_data import GDATA
+
+    GDATA.init_file()
+
+
+@app.command()
 def cat(
     id: Annotated[str, typer.Argument(case_sensitive=True)],
 ):
@@ -37,7 +47,7 @@ def cat(
 
 
 @app.command()
-def list(
+def ls(
     resource: Annotated[ResourceType, typer.Argument(case_sensitive=False)] = None,
     a: Annotated[
         bool,
@@ -155,9 +165,9 @@ def run_dev(
 
     # 2. Read the id, Get backtest config from database. Write to local temp
     content = backtest_config_model.content
-    file = open(f"{temp_folder}/{id}.yml", "wb")
-    file.write(content)
-    file.close()
+
+    with open(f"{temp_folder}/{id}.yml", "wb") as file:
+        file.write(content)
 
     # Read local file
     backtest_config = None
@@ -297,9 +307,8 @@ def run(
 
     # 2. Read the id, Get backtest config from database. Write to local temp
     content = backtest_config_model.content
-    file = open(f"{temp_folder}/{id}.yml", "wb")
-    file.write(content)
-    file.close()
+    with open(f"{temp_folder}/{id}.yml", "wb") as file:
+        file.write(content)
 
     # Read local file --> config yaml
     try:
@@ -344,9 +353,8 @@ def run(
         file_path = f"{temp_folder}/{select_id}.py"
         selector_model = GDATA.get_file(select_id)
         selector_content = selector_model.content
-        file = open(file_path, "wb")
-        file.write(selector_content)
-        file.close()
+        with open(file_path, "wb") as file:
+            file.write(selector_content)
 
         with open(file_path) as file:
             source = file.read()
@@ -449,16 +457,16 @@ def edit(
         content = file_in_db.content
         temp_folder = f"{GCONF.WORKING_PATH}/{uuid.uuid4()}"
         os.mkdir(temp_folder)
-        file = open(f"{temp_folder}/{name}.{file_format}", "wb")
-        file.write(content)
-        file.close()
+        with open(f"{temp_folder}/{name}.{file_format}", "wb") as file:
+            file.write(content)
         # TODO Support editor set, nvim,vim.vi,nano or vscode?
-        os.system(f"nvim {temp_folder}/{name}.{file_format}")
-        content = open(f"{temp_folder}/{name}.{file_format}", "rb")
-        GDATA.update_file(id, type, name, content.read())
-        console.print(
-            f":lying_face: [yellow]{type}[/yellow][green bold] {name}[/green bold] Updated."
-        )
+        edit_name = name.replace(" ", "\ ") if " " in name else anme
+        os.system(f"nvim {temp_folder}/{edit_name}.{file_format}")
+        with open(f"{temp_folder}/{name}.{file_format}", "rb") as file:
+            GDATA.update_file(id, type, name, file.read())
+            console.print(
+                f":bear: [yellow]{type}[/yellow][green bold] {name}[/green bold] Updated."
+            )
         # Remove the file and directory
         shutil.rmtree(temp_folder)
 
