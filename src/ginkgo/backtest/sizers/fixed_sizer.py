@@ -6,6 +6,8 @@ from ginkgo.libs.ginkgo_logger import GLOG
 
 
 class FixedSizer(BaseSizer):
+    abstract = False
+
     def __init__(self, name: str = "FixedSizer", volume: int = 150, *args, **kwargs):
         super(FixedSizer, self).__init__(name, *args, **kwargs)
         self._volume = volume

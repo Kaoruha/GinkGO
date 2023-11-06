@@ -7,6 +7,8 @@ import time
 
 
 class StrategyVolumeActivate(StrategyBase):
+    abstract = False
+
     def __init__(self, spans: int = 20, name: str = "VolumeActivate", *args, **kwargs):
         super(StrategyVolumeActivate, self).__init__(
             spans=spans, name=name, *args, **kwargs

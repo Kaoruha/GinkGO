@@ -16,6 +16,8 @@ from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList
 
 
 class BacktestFeed(BaseFeed):
+    abstract = False
+
     def __init__(self, *args, **kwargs):
         super(BacktestFeed, self).__init__(*args, **kwargs)
         self._engine = None

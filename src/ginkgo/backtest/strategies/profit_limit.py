@@ -5,6 +5,8 @@ from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
 
 class StrategyProfitLimit(StrategyBase):
+    abstract = False
+
     def __init__(
         self,
         name: str = "ProfitLimit",

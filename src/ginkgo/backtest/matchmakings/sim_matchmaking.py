@@ -24,6 +24,8 @@ from ginkgo.backtest.matchmakings.base_matchmaking import MatchMakingBase
 
 
 class MatchMakingSim(MatchMakingBase):
+    abstract = False
+
     def __init__(self, name: str = "SIMMATCH", *args, **kwargs):
         super(MatchMakingSim, self).__init__(name, *args, **kwargs)
         self._attitude = ATTITUDE_TYPES.PESSMISTIC  # TODO maybe can be set by someway

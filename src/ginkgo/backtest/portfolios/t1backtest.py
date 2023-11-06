@@ -34,6 +34,8 @@ console = Console()
 
 
 class PortfolioT1Backtest(BasePortfolio):
+    abstract = False
+
     def __init__(self, *args, **kwargs):
         super(PortfolioT1Backtest, self).__init__(*args, **kwargs)
         self._signals = GinkgoSingleLinkedList()

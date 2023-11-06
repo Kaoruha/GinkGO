@@ -1116,6 +1116,15 @@ class GinkgoData(object):
         )
         return r
 
+    def get_file_by_name(self, name: str):
+        r = (
+            MYSQLDRIVER.session.query(MFile)
+            .filter(MFile.file_name == name)
+            .filter(MFile.isdel == False)
+            .first()
+        )
+        return r
+
     def get_file_list_df(self, type: FILE_TYPES = None):
         if type is None:
             r = MYSQLDRIVER.session.query(MFile).filter(MFile.isdel == False)
@@ -1166,6 +1175,56 @@ class GinkgoData(object):
             return True
         else:
             return False
+
+    def init_file(self) -> None:
+        def walk_through(folder: str):
+            path = f"{file_root}/{folder}"
+            files = os.listdir(path)
+            black_list = ["__", "base"]
+            for file_name in files:
+                if any(substring in file_name for substring in black_list):
+                    continue
+                # print(file)
+                file_path = f"{path}/{file_name}"
+                file_name = file_name.split(".")[0]
+                model = self.get_file_by_name(file_name)
+                if model is None:
+                    with open(file_path, "rb") as file:
+                        content = file.read()
+                        item = MFile()
+                        item.type = file_map[folder]
+                        item.file_name = file_name
+                        item.content = content
+                        self.add(item)
+                        print(f"Add {file_name}")
+
+        file_map = {
+            "analyzers": FILE_TYPES.ANALYZER,
+            "indexes": FILE_TYPES.INDEX,
+            "risk_managements": FILE_TYPES.RISKMANAGER,
+            "selectors": FILE_TYPES.SELECTOR,
+            "sizers": FILE_TYPES.SIZER,
+            "strategies": FILE_TYPES.STRATEGY,
+        }
+
+        working_dir = GCONF.WORKING_PATH
+        file_root = f"{working_dir}/src/ginkgo/backtest"
+        # BacktestConfig
+        default_backtest_name = "Default Backtest"
+        backtest_model = self.get_file_by_name(default_backtest_name)
+        if backtest_model is None:
+            with open(f"{file_root}/backtest_config.yml", "rb") as file:
+                content = file.read()
+                item = MFile()
+                item.type = FILE_TYPES.BACKTEST
+                item.file_name = default_backtest_name
+                item.content = content
+                self.add(item)
+                self.commit()
+                print("Add DefaultStrategy.yml")
+        for i in file_map:
+            walk_through(i)
+        self.commit()
 
 
 GDATA = GinkgoData()
