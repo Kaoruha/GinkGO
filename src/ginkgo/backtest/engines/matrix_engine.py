@@ -11,4 +11,5 @@ from ginkgo.backtest.engine.base_engine import BaseEngine
 
 
 class MatrixEngine(BaseEngine):
+    __abstract__ = False
     pass

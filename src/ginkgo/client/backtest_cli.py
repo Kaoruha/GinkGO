@@ -105,16 +105,19 @@ def run_dev(
     from ginkgo.libs import datetime_normalize
 
     def get_class_from_id(father_directory, file_id):
+        import pdb
+
+        pdb.set_trace()
         model = GDATA.get_file(file_id)
         path = f"{father_directory}/{file_id}.py"
         with open(path, "wb") as file:
             file.write(model.content)
             file.flush()  # Flush the data to the disk
             os.fsync(file.fileno())  # ensure the changes are permanent
-        print(path)  # print the path variable
-        print(os.path.exists(path))  # print True if the file exists, False otherwise
-        print(os.path.isfile(path))  # )
-        print(sys.path)
+        # print(path)  # print the path variable
+        # print(os.path.exists(path))  # print True if the file exists, False otherwise
+        # print(os.path.isfile(path))  # )
+        # print(sys.path)
         module = None
         try_time = 0
         while True:
@@ -153,8 +156,6 @@ def run_dev(
     random_id = uuid.uuid4()
     temp_folder = f"{GCONF.WORKING_PATH}/{random_id}"
     os.mkdir(temp_folder)
-    # file = open(f"{temp_folder}/__init__.py", "wb")
-    # file.close()
 
     # 2 Read config from database.
     backtest_config_model = GDATA.get_file(id)

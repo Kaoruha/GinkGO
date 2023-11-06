@@ -2,7 +2,7 @@ from ginkgo.backtest.selectors.base_selector import BaseSelector
 
 
 class FixedSelector(BaseSelector):
-    abstract = False
+    __abstract__ = False
 
     def __init__(
         self, codes: list, name: str = "FixedSelector", *args, **kwargs

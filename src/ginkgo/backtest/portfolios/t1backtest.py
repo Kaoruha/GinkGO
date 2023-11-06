@@ -34,7 +34,7 @@ console = Console()
 
 
 class PortfolioT1Backtest(BasePortfolio):
-    abstract = False
+    __abstract__ = False
 
     def __init__(self, *args, **kwargs):
         super(PortfolioT1Backtest, self).__init__(*args, **kwargs)
