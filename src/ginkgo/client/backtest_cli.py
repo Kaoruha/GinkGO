@@ -101,6 +101,10 @@ def run_dev(
     from ginkgo.libs.ginkgo_conf import GCONF
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.backtest.engines import EventEngine
+    from ginkgo.enums import EVENT_TYPES
+    from ginkgo.backtest.matchmakings import MatchMakingSim
+    from ginkgo.backtest.feeds import BacktestFeed
+    from ginkgo.backtest.events import EventNextPhase
     from ginkgo.backtest.portfolios import PortfolioT1Backtest
     from ginkgo.libs import datetime_normalize
 
@@ -221,6 +225,21 @@ def run_dev(
     # <-- Sizer
     # <-- Sizer
 
+    # Risk -->
+    # Risk -->
+    risk_config = backtest_config["risk_manager"]
+    risk_id = risk_config["id"]
+    risk_parameters = risk_config["parameters"]
+    risk_cls = get_class_from_id(random_id, risk_id)
+    # Bind Selector
+    if risk_cls is not None:
+        risk = risk_cls(*risk_parameters)
+        portfolio.bind_risk(risk)
+    else:
+        console.print(f":sad_but_relieved_face:Cant Locate SIZER: {sizer_id}")
+    # <-- Risk
+    # <-- Risk
+
     # Srategy -->
     # Srategy -->
     strategies_config = backtest_config["strategies"]
@@ -237,33 +256,32 @@ def run_dev(
         else:
             console.print(f":sad_but_relieved_face:Cant Locate Strategy: {strategy_id}")
 
-    # # <-- Strategy
-    # # <-- Strategy
+    # <-- Strategy
+    # <-- Strategy
 
-    # engine = EventEngine()
-    # engine.set_backtest_interval("day")
-    # engine.set_date_start(datestart)
-    # engine.bind_portfolio(portfolio)
-    # matchmaking = MatchMakingSim()
-    # engine.bind_matchmaking(matchmaking)
-    # feeder = BacktestFeed()
-    # feeder.subscribe(portfolio)
-    # engine.bind_datafeeder(feeder)
+    engine = EventEngine()
+    engine.set_backtest_interval("day")
+    engine.set_date_start(date_start)
+    engine.bind_portfolio(portfolio)
+    matchmaking = MatchMakingSim()
+    engine.bind_matchmaking(matchmaking)
+    feeder = BacktestFeed()
+    feeder.subscribe(portfolio)
+    engine.bind_datafeeder(feeder)
 
-    # # Event Handler Register
-    # engine.register(EVENT_TYPES.NEXTPHASE, engine.nextphase)
-    # engine.register(EVENT_TYPES.NEXTPHASE, feeder.broadcast)
-    # engine.register(EVENT_TYPES.PRICEUPDATE, portfolio.on_price_update)
-    # engine.register(EVENT_TYPES.PRICEUPDATE, matchmaking.on_price_update)
-    # engine.register(EVENT_TYPES.SIGNALGENERATION, portfolio.on_signal)
-    # engine.register(EVENT_TYPES.ORDERSUBMITTED, matchmaking.on_stock_order)
-    # engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
-    # engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
+    # Event Handler Register
+    engine.register(EVENT_TYPES.NEXTPHASE, engine.nextphase)
+    engine.register(EVENT_TYPES.NEXTPHASE, feeder.broadcast)
+    engine.register(EVENT_TYPES.PRICEUPDATE, portfolio.on_price_update)
+    engine.register(EVENT_TYPES.PRICEUPDATE, matchmaking.on_price_update)
+    engine.register(EVENT_TYPES.SIGNALGENERATION, portfolio.on_signal)
+    engine.register(EVENT_TYPES.ORDERSUBMITTED, matchmaking.on_stock_order)
+    engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
+    engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
 
-    # engine.put(EventNextPhase())
-    # engine.start()
+    engine.put(EventNextPhase())
+    engine.start()
 
-    print(portfolio)
     # Remove the file and directory
     shutil.rmtree(temp_folder)
 

@@ -13,6 +13,10 @@ sizer:
   parameters:
     - example sizer
     - 1000
+risk_manager:
+  id: 572135d425a14b9f9b9e18fecf7d4283
+  parameters:
+    - example risk manager
 strategies:
   - id: 77d6bf4671e844c0bcae744f4258d68e
     parameters:
