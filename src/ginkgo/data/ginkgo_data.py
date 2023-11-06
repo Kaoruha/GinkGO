@@ -1152,7 +1152,7 @@ class GinkgoData(object):
         self.add(item)
         self.commit()
 
-    def remove_file(self, id: str):
+    def remove_file(self, id: str) -> bool:
         r = (
             MYSQLDRIVER.session.query(MFile)
             .filter(MFile.uuid == id)
@@ -1163,9 +1163,9 @@ class GinkgoData(object):
             r.update = datetime.datetime.now()
             r.isdel = True
             self.commit()
-            print(f"File {id} delete.")
+            return True
         else:
-            print(f"File {id} not exist.")
+            return False
 
 
 GDATA = GinkgoData()
