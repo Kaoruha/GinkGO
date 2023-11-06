@@ -8,6 +8,7 @@ class BacktestBase(object):
         self._name: str = ""
         self.set_name(name)
         self._now: datetime.datetime = None
+        self._abstract = True
 
     @property
     def name(self) -> str:

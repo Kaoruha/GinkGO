@@ -14,7 +14,7 @@ class ResourceType(str, Enum):
     strategy = "strategy"
     selector = "selector"
     sizer = "sizer"
-    risk_manager = "risk"
+    risk_manager = "riskmanager"
     portfolio = "portfolio"
     analyzer = "analyzer"
     plot = "plot"
@@ -22,12 +22,32 @@ class ResourceType(str, Enum):
 
 
 @app.command()
+def cat(
+    id: Annotated[str, typer.Argument(case_sensitive=True)],
+):
+    """
+    Show File content.
+
+    """
+    from ginkgo.data.ginkgo_data import GDATA
+
+    file = GDATA.get_file(id)
+    content = file.content
+    console.print(content.decode("utf-8"))
+
+
+@app.command()
 def list(
     resource: Annotated[ResourceType, typer.Argument(case_sensitive=False)] = None,
+    a: Annotated[
+        bool,
+        typer.Option(case_sensitive=False, help="Show All Data, include removed file."),
+    ] = False,
 ):
     """
     Show backtest summary.
     """
+    # TODO get removed files
     from ginkgo.data.ginkgo_data import GDATA
 
     if resource is None:
@@ -51,6 +71,193 @@ def list(
         console.print(
             f"There is no {resource} in database. You could [green]ginkgo backtest new RESOURCE[/green]"
         )
+
+
+@app.command()
+def run_dev(
+    id: Annotated[str, typer.Argument(case_sensitive=True)],
+):
+    """
+    Run Backtest.
+    """
+    import uuid
+    import importlib
+    import inspect
+    import os
+    import shutil
+    import yaml
+    import time
+    import sys
+    from ginkgo.libs.ginkgo_conf import GCONF
+    from ginkgo.data.ginkgo_data import GDATA
+    from ginkgo.backtest.engines import EventEngine
+    from ginkgo.backtest.portfolios import PortfolioT1Backtest
+    from ginkgo.libs import datetime_normalize
+
+    def get_class_from_id(father_directory, file_id):
+        model = GDATA.get_file(file_id)
+        path = f"{father_directory}/{file_id}.py"
+        with open(path, "wb") as file:
+            file.write(model.content)
+            file.flush()  # Flush the data to the disk
+            os.fsync(file.fileno())  # ensure the changes are permanent
+        print(path)  # print the path variable
+        print(os.path.exists(path))  # print True if the file exists, False otherwise
+        print(os.path.isfile(path))  # )
+        print(sys.path)
+        module = None
+        try_time = 0
+        while True:
+            try:
+                module = importlib.import_module(f"{father_directory}.{file_id}")
+                break
+            except Exception as e:
+                with open(path, "wb") as file:
+                    file.write(model.content)
+                    file.flush()  # Flush the data to the disk
+                    os.fsync(file.fileno())  # ensure the changes are permanent
+                print(e)
+                try_time += 1
+                if try_time > 5:
+                    import pdb
+
+                    pdb.set_trace()
+                    break
+                time.sleep(2)
+        if module is None:
+            return None
+        classes = inspect.getmembers(module, inspect.isclass)
+        filtered_classes = []
+        for name, cls in classes:
+            if hasattr(cls, "__abstract__"):
+                filtered_classes.append(cls)
+        # TODO Check the length
+        if len(filtered_classes) == 1:
+            return filtered_classes[0]
+        else:
+            # TODO Raise Exception
+            return None
+
+    # 1. Create a temp folder.
+
+    random_id = uuid.uuid4()
+    temp_folder = f"{GCONF.WORKING_PATH}/{random_id}"
+    os.mkdir(temp_folder)
+    # file = open(f"{temp_folder}/__init__.py", "wb")
+    # file.close()
+
+    # 2 Read config from database.
+    backtest_config_model = GDATA.get_file(id)
+    if backtest_config_model is None:
+        print(f"Backtest {id} not exsit.")
+        shutil.rmtree(temp_folder)
+        return
+
+    # 2. Read the id, Get backtest config from database. Write to local temp
+    content = backtest_config_model.content
+    file = open(f"{temp_folder}/{id}.yml", "wb")
+    file.write(content)
+    file.close()
+
+    # Read local file
+    backtest_config = None
+    try:
+        with open(f"{temp_folder}/{id}.yml", "r") as file:
+            backtest_config = yaml.safe_load(file)
+    except Exception as e:
+        print(e)
+        shutil.rmtree(temp_folder)
+        return
+
+    if backtest_config is None:
+        shutil.rmtree(temp_folder)
+        return
+
+    backtest_name = backtest_config["name"]
+    date_start = datetime_normalize(backtest_config["start"])
+    date_end = datetime_normalize(backtest_config["end"])
+
+    # Get a list of all the members of the module.py file
+
+    # Portfolio -->
+
+    portfolio = PortfolioT1Backtest()  # TODO Read from database.
+
+    # Selector -->
+    # Selector -->
+    selector_config = backtest_config["selector"]
+    selector_id = selector_config["id"]
+    selector_parameters = selector_config["parameters"]
+    selector_cls = get_class_from_id(random_id, selector_id)
+    # Bind Selector
+    if selector_cls is not None:
+        selector = selector_cls(*selector_parameters)
+        portfolio.bind_selector(selector)
+    else:
+        console.print(f":sad_but_relieved_face:Cant Locate SELECOTR: {selector}.")
+    # <-- Selector
+    # <-- Selector
+
+    # Sizer -->
+    # Sizer -->
+    sizer_config = backtest_config["sizer"]
+    sizer_id = sizer_config["id"]
+    sizer_parameters = sizer_config["parameters"]
+    sizer_cls = get_class_from_id(random_id, sizer_id)
+    # Bind Selector
+    if sizer_cls is not None:
+        sizer = sizer_cls(*sizer_parameters)
+        portfolio.bind_sizer(sizer)
+    else:
+        console.print(f":sad_but_relieved_face:Cant Locate SIZER: {sizer_id}.")
+    # <-- Sizer
+    # <-- Sizer
+
+    # Srategy -->
+    # Srategy -->
+    strategies_config = backtest_config["strategies"]
+    for strategy_config in strategies_config:
+        strategy_id = strategy_config["id"]
+        strategy_parameters = strategy_config["parameters"]
+        print(strategy_id)
+        print(strategy_parameters)
+        strategy_cls = get_class_from_id(random_id, strategy_id)
+        # Bind Strategy
+        if strategy_cls is not None:
+            strategy = strategy_cls(*strategy_parameters)
+            portfolio.add_strategy(strategy)
+        else:
+            console.print(f":sad_but_relieved_face:Cant Locate Strategy: {sizer_id}.")
+
+    # <-- Strategy
+    # <-- Strategy
+
+    # engine = EventEngine()
+    # engine.set_backtest_interval("day")
+    # engine.set_date_start(datestart)
+    # engine.bind_portfolio(portfolio)
+    # matchmaking = MatchMakingSim()
+    # engine.bind_matchmaking(matchmaking)
+    # feeder = BacktestFeed()
+    # feeder.subscribe(portfolio)
+    # engine.bind_datafeeder(feeder)
+
+    # # Event Handler Register
+    # engine.register(EVENT_TYPES.NEXTPHASE, engine.nextphase)
+    # engine.register(EVENT_TYPES.NEXTPHASE, feeder.broadcast)
+    # engine.register(EVENT_TYPES.PRICEUPDATE, portfolio.on_price_update)
+    # engine.register(EVENT_TYPES.PRICEUPDATE, matchmaking.on_price_update)
+    # engine.register(EVENT_TYPES.SIGNALGENERATION, portfolio.on_signal)
+    # engine.register(EVENT_TYPES.ORDERSUBMITTED, matchmaking.on_stock_order)
+    # engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
+    # engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
+
+    # engine.put(EventNextPhase())
+    # engine.start()
+
+    print(portfolio)
+    # Remove the file and directory
+    shutil.rmtree(temp_folder)
 
 
 @app.command()
@@ -130,8 +337,8 @@ def run(
 
     selectors = backtest_config["selectors"]
     for selector in selectors:
-        select_id = selector['id']
-        params = selector['params']
+        select_id = selector["id"]
+        params = selector["params"]
         print("Trying add selector::")
         print(select_id)
         file_path = f"{temp_folder}/{select_id}.py"
@@ -143,17 +350,16 @@ def run(
 
         with open(file_path) as file:
             source = file.read()
-            tree = ast.parse(source,mode='exec')
-            code = compile(tree,filename=file_path,mode='exec')
+            tree = ast.parse(source, mode="exec")
+            code = compile(tree, filename=file_path, mode="exec")
             namespace = {}
-            exec(code,namespace)
-            node = ast.parse(file.read())
+            exec(code, namespace)
+            node = ast.parse(source)
             classes = [n for n in node.body if isinstance(n, ast.ClassDef)]
         # TODO if there are more than 1 class in py file.
         class_obj = namespace.get(classes[0].name)
         instance = class_obj(params)
         print(instance)
-
 
     # 3. Read backtest config, Get Sizer, Selector... from database.
     # 4. Gen *.py, record the map of py file name and module.
@@ -285,4 +491,8 @@ def rm(
     """
     from ginkgo.data.ginkgo_data import GDATA
 
-    GDATA.remove_file(id)
+    result = GDATA.remove_file(id)
+    if result:
+        console.print(f"File [yellow]{id}[/yellow] delete.")
+    else:
+        console.print(f"File [red]{id}[/red] not exist.")
