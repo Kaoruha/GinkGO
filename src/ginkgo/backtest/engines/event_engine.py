@@ -26,7 +26,7 @@ from ginkgo.libs import GinkgoSingleLinkedList
 
 
 class EventEngine(BaseEngine):
-    abstract = False
+    __abstract__ = False
 
     def __init__(
         self, name: str = "EventEngine", interval: int = 1, *args, **kwargs

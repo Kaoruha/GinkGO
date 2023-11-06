@@ -24,7 +24,7 @@ from ginkgo.backtest.matchmakings.base_matchmaking import MatchMakingBase
 
 
 class MatchMakingSim(MatchMakingBase):
-    abstract = False
+    __abstract__ = False
 
     def __init__(self, name: str = "SIMMATCH", *args, **kwargs):
         super(MatchMakingSim, self).__init__(name, *args, **kwargs)
