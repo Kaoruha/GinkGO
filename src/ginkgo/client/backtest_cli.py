@@ -105,9 +105,6 @@ def run_dev(
     from ginkgo.libs import datetime_normalize
 
     def get_class_from_id(father_directory, file_id):
-        import pdb
-
-        pdb.set_trace()
         model = GDATA.get_file(file_id)
         path = f"{father_directory}/{file_id}.py"
         with open(path, "wb") as file:
@@ -205,7 +202,7 @@ def run_dev(
         selector = selector_cls(*selector_parameters)
         portfolio.bind_selector(selector)
     else:
-        console.print(f":sad_but_relieved_face:Cant Locate SELECOTR: {selector}.")
+        console.print(f":sad_but_relieved_face:Cant Locate SELECOTR: {selector_id}")
     # <-- Selector
     # <-- Selector
 
@@ -220,7 +217,7 @@ def run_dev(
         sizer = sizer_cls(*sizer_parameters)
         portfolio.bind_sizer(sizer)
     else:
-        console.print(f":sad_but_relieved_face:Cant Locate SIZER: {sizer_id}.")
+        console.print(f":sad_but_relieved_face:Cant Locate SIZER: {sizer_id}")
     # <-- Sizer
     # <-- Sizer
 
@@ -238,10 +235,10 @@ def run_dev(
             strategy = strategy_cls(*strategy_parameters)
             portfolio.add_strategy(strategy)
         else:
-            console.print(f":sad_but_relieved_face:Cant Locate Strategy: {sizer_id}.")
+            console.print(f":sad_but_relieved_face:Cant Locate Strategy: {strategy_id}")
 
-    # <-- Strategy
-    # <-- Strategy
+    # # <-- Strategy
+    # # <-- Strategy
 
     # engine = EventEngine()
     # engine.set_backtest_interval("day")
@@ -461,7 +458,7 @@ def edit(
         with open(f"{temp_folder}/{name}.{file_format}", "wb") as file:
             file.write(content)
         # TODO Support editor set, nvim,vim.vi,nano or vscode?
-        edit_name = name.replace(" ", "\ ") if " " in name else anme
+        edit_name = name.replace(" ", "\ ") if " " in name else name
         os.system(f"nvim {temp_folder}/{edit_name}.{file_format}")
         with open(f"{temp_folder}/{name}.{file_format}", "rb") as file:
             GDATA.update_file(id, type, name, file.read())
