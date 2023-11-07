@@ -239,6 +239,13 @@ class GinkgoData(object):
         ad = self.get_adjustfactor_df_cached(
             code, date_start=date_start, date_end=date_end
         )
+        # print("===========")
+        # print(code)
+        # print(df)
+        # print(ad)
+        # print("===========")
+        if ad.shape[0] == 0:
+            return df
         ad = ad.sort_values(by="timestamp", ascending=True)
         ad.reset_index(drop=True, inplace=True)
         date = datetime_normalize(date_start)
@@ -363,7 +370,11 @@ class GinkgoData(object):
             if df.shape[0] > 0:
                 REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
-            return df[df.timestamp >= date_start][df.timestamp <= date_end]
+            date_range = pd.date_range(start=date_start, end=date_end)
+            df_filtered = df[df.timestamp.isin(date_range)]
+            df_filtered.reset_index(drop=True, inplace=True)
+            return df_filtered
+
         else:
             return pd.DataFrame()
 
@@ -443,7 +454,10 @@ class GinkgoData(object):
             if df.shape[0] > 0:
                 REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
-            return df[df.timestamp >= date_start][df.timestamp <= date_end]
+            date_range = pd.date_range(start=date_start, end=date_end)
+            df_filtered = df[df.timestamp.isin(date_range)]
+            df_filtered.reset_index(drop=True, inplace=True)
+            return df_filtered
         else:
             return pd.DataFrame()
 
@@ -519,10 +533,10 @@ class GinkgoData(object):
             if df.shape[0] > 0:
                 REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
-            df = df[df.timestamp >= date_start]
-            df = df[df.timestamp <= date_end]
-            df.reset_index(drop=True, inplace=True)
-            return df
+            date_range = pd.date_range(start=date_start, end=date_end)
+            df_filtered = df[df.timestamp.isin(date_range)]
+            df_filtered.reset_index(drop=True, inplace=True)
+            return df_filtered
         else:
             return pd.DataFrame()
 
@@ -612,7 +626,10 @@ class GinkgoData(object):
                 REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
         if df.shape[0] > 0:
             # TODO cal adjustfactor
-            return df[df.timestamp >= date_start][df.timestamp <= date_end]
+            date_range = pd.date_range(start=date_start, end=date_end)
+            df_filtered = df[df.timestamp.isin(date_range)]
+            df_filtered.reset_index(drop=True, inplace=True)
+            return df_filtered
         else:
             return pd.DataFrame
 
