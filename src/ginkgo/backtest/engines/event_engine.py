@@ -13,7 +13,7 @@ import datetime
 import sys
 from time import sleep
 from queue import Queue, Empty
-from threading import Thread
+from threading import Thread, Event
 from ginkgo.backtest.engines.base_engine import BaseEngine
 from ginkgo.backtest.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES
@@ -40,8 +40,14 @@ class EventEngine(BaseEngine):
         self._now = None
         self.set_date_start(20000101)
         self._duration = 5
-        self._main_thread: Thread = Thread(target=self.main_loop)
-        self._timer_thread: Thread = Thread(target=self.timer_loop)
+        self._main_flag = Event()
+        self._main_thread: Thread = Thread(
+            target=self.main_loop, args=(self._main_flag,)
+        )
+        self._timer_flag = Event()
+        self._timer_thread: Thread = Thread(
+            target=self.timer_loop, args=(self._timer_flag,)
+        )
         self._handles: dict = {}
         self._general_handles: list = []
         self._timer_handles: list = []
@@ -128,12 +134,14 @@ class EventEngine(BaseEngine):
         GLOG.DEBUG(f"{type(self)}:{self.name} set INTERVAL {self._time_interval}.")
         return self._time_interval
 
-    def main_loop(self) -> None:
+    def main_loop(self, flag) -> None:
         """
         The EventBacktest Main Loop.
         """
         count = 0
         while self._active:
+            if flag.is_set():
+                break
             try:
                 # Get a event from events_queue
                 event: EventBase = self._queue.get(block=True, timeout=0.5)
@@ -150,11 +158,13 @@ class EventEngine(BaseEngine):
             # Break for a while
             # sleep(GCONF.HEARTBEAT)
 
-    def timer_loop(self) -> None:
+    def timer_loop(self, flag) -> None:
         """
         Timer Task. Something like crontab or systemd timer
         """
         while self._active:
+            if flag.is_set():
+                break
             [handle() for handle in self._timer_handles]
             sleep(self._interval)
 
@@ -172,8 +182,10 @@ class EventEngine(BaseEngine):
         Pause the Engine
         """
         super(EventEngine, self).stop()
-        self._main_thread.join()
-        self._timer_thread.join()
+        self._main_flag.set()
+        self._timer_flag.set()
+        # self._main_thread.join()
+        # self._timer_thread.join()
         GLOG.WARN("Engine Stop.")
 
     def put(self, event: EventBase) -> None:
@@ -270,6 +282,7 @@ class EventEngine(BaseEngine):
     def nextphase(self, *args, **kwargs) -> None:
         if self.now >= self.date_end:
             self.stop()
+            return
         self._now = self.now + self._time_interval
 
         if self.matchmaking is None:
