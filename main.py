@@ -26,7 +26,9 @@ class DEBUG_TYPE(str, Enum):
 
 
 @main_app.command()
-def status():
+def status(
+    stream: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+):
     """
     Check the module status.
     """
@@ -34,9 +36,14 @@ def status():
 
     console.print(f"DEBUE: {GCONF.DEBUGMODE}")
     console.print(f"CPU RATIO: {GCONF.CPURATIO*100}%")
-    os.system(
-        "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test --no-stream"
-    )
+    if stream:
+        os.system(
+            "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test"
+        )
+    else:
+        os.system(
+            "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test --no-stream"
+        )
 
 
 @main_app.command()

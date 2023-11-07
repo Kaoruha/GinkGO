@@ -165,9 +165,11 @@ def main():
         print(f"Copy secure.yml from {origin_path} to {target_path}")
         shutil.copy(origin_path, target_path)
 
+    # Install Ginkgo Package
+    os.system("python ./setup_install.py")
     # Write log,unitest,working_directory to local config.
     os.system("pip install pyyaml -i https://pypi.tuna.tsinghua.edu.cn/simple")
-    from src.ginkgo.libs.ginkgo_conf import GCONF
+    from ginkgo.libs.ginkgo_conf import GCONF
 
     GCONF.set_logging_path(path_log)
     GCONF.set_work_path(working_directory)
@@ -201,9 +203,6 @@ def main():
         os.system(f"docker compose -f {path_dockercompose} --compatibility up -d")
     else:
         os.system(f"docker compose -f {path_dockercompose} --compatibility up -d")
-
-    # Install Ginkgo Package
-    os.system("python ./setup_install.py")
 
     # Build an executable binary
     if args.bin:
