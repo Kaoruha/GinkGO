@@ -42,4 +42,4 @@ class BaseFeed(BacktestBase):
                 )
                 return pd.DataFrame()
             else:
-                return GDATA.get_daybar_df(code, date, date)
+                return GDATA.get_daybar_df_cached(code, date, date)
