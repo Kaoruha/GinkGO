@@ -44,6 +44,7 @@ class BacktestTest(unittest.TestCase):
     def test_btportfolio_Init(self) -> None:
         interval = 20
         datestart = 20000101
+        dateend = 20020101
 
         portfolio = PortfolioT1Backtest()
 
@@ -75,6 +76,7 @@ class BacktestTest(unittest.TestCase):
         engine = EventEngine()
         engine.set_backtest_interval("day")
         engine.set_date_start(datestart)
+        engine.set_date_end(dateend)
         engine.bind_portfolio(portfolio)
         matchmaking = MatchMakingSim()
         engine.bind_matchmaking(matchmaking)
