@@ -267,6 +267,7 @@ def run_dev(
     engine = EventEngine()
     engine.set_backtest_interval("day")
     engine.set_date_start(date_start)
+    engine.set_date_end(date_end)
     engine.bind_portfolio(portfolio)
     matchmaking = MatchMakingSim()
     engine.bind_matchmaking(matchmaking)
