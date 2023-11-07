@@ -41,7 +41,9 @@ class BacktestBase(object):
                 # Go next frame
                 old = self._now
                 self._now = time
-                # GLOG.INFO(f"{self.name} Time Elapses: {old} --> {self._now}")
+                GLOG.INFO(
+                    f"{type(self)} {self.name} Time Elapses: {old} --> {self._now}"
+                )
 
     def __repr__(self) -> str:
         return self.name

@@ -70,6 +70,10 @@ class EventEngine(BaseEngine):
         self._matchmaking = matchmaking
         if self.matchmaking.engine is None:
             self.matchmaking.bind_engine(self)
+            GLOG.DEBUG(f"{type(self)}:{self.name} bind MATCHMAKING {matchmaking.name}.")
+        GLOG.DEBUG(
+            f"Bind Failed. {type(self)}:{self.name} already have MATCHMAKING {matchmaking.name}."
+        )
         return self.matchmaking
 
     @property
@@ -78,10 +82,13 @@ class EventEngine(BaseEngine):
 
     def bind_portfolio(self, portfolio: BasePortfolio) -> int:
         self._portfolios.append(portfolio)
+        GLOG.DEBUG(f"{type(self)}:{self.name} bind PORTFOLIO {portfolio.name}.")
         for i in self.portfolios:
             if i.value.engine is None:
                 i.value.bind_engine(self)
-        return len(self.portfolios)
+        l = len(self.portfolios)
+        GLOG.DEBUG(f"{type(self)}:{self.name} has {l} PORTFOLIOs.")
+        return l
 
     @property
     def duration(self) -> int:
@@ -89,6 +96,7 @@ class EventEngine(BaseEngine):
 
     def set_duration(self, duration: int) -> int:
         self._duration = duration
+        GLOG.DEBUG(f"{type(self)}:{self.name} set duration {duration}.")
         return self._duration
 
     @property
@@ -98,6 +106,7 @@ class EventEngine(BaseEngine):
     def set_date_start(self, date: any) -> datetime.datetime:
         self._date_start = datetime_normalize(date)
         self._now = self._date_start
+        GLOG.DEBUG(f"{type(self)}:{self.name} set DATESTART {self.date_start}.")
         return self.date_start
 
     def set_backtest_interval(self, interval: str) -> datetime.timedelta:
@@ -106,6 +115,7 @@ class EventEngine(BaseEngine):
             self._time_interval = datetime.timedelta(days=1)
         elif interval == "MIN":
             self._time_interval = datetime.timedelta(minutes=1)
+        GLOG.DEBUG(f"{type(self)}:{self.name} set INTERVAL {self._time_interval}.")
         return self._time_interval
 
     def main_loop(self) -> None:
@@ -145,7 +155,7 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).start()
         self._main_thread.start()
         self._timer_thread.start()
-        GLOG.ERROR("Engine Start.")
+        GLOG.WARN("Engine Start.")
 
     def stop(self) -> None:
         """
@@ -154,14 +164,16 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).stop()
         self._main_thread.join()
         self._timer_thread.join()
-        GLOG.ERROR("Engine Stop.")
+        GLOG.WARN("Engine Stop.")
 
     def put(self, event: EventBase) -> None:
         self._queue.put(event)
+        GLOG.DEBUG(f"{type(self)}:{self.name} put {event.event_type} in queue.")
 
     def _process(self, event: EventBase) -> None:
         if event.event_type in self._handles:
             [handle(event) for handle in self._handles[event.event_type]]
+            GLOG.DEBUG(f"{type(self)}:{self.name} Deal with {event.event_type}.")
         else:
             GLOG.WARN(f"There is no handler for {event.event_type}")
 
@@ -175,7 +187,7 @@ class EventEngine(BaseEngine):
             if handle not in self._handles[type]:
                 self._handles[type].append(handle)
             else:
-                GLOG.DEBUG(f"handle Exists.")
+                GLOG.WARN(f"handle Exists.")
         else:
             self._handles[type]: list = []
             self._handles[type].append(handle)
@@ -183,13 +195,11 @@ class EventEngine(BaseEngine):
 
     def unregister(self, type: EVENT_TYPES, handle: callable) -> None:
         if type not in self._handles:
-            msg = f"Event {type} not exsits. No need to unregister the handle."
-            GLOG.WARN(msg)
+            GLOG.WARN(f"Event {type} not exsits. No need to unregister the handle.")
             return
 
         if handle not in self._handles[type]:
-            msg = f"Event {type} do not own the handle."
-            GLOG.WARN(msg)
+            GLOG.WARN(f"Event {type} do not own the handle.")
             return
 
         self._handles[type].remove(handle)
@@ -263,5 +273,6 @@ class EventEngine(BaseEngine):
         if len(self.portfolios) == 0:
             GLOG.ERROR(f"There is no portfolio binded.")
         else:
+            GLOG.INFO(f"Engine:{self.name} Go NextDay {self.now}.")
             for i in self.portfolios:
                 i.value.on_time_goes_by(self.now)

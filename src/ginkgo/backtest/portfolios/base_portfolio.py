@@ -299,6 +299,7 @@ class BasePortfolio(BacktestBase):
         """
         super(BasePortfolio, self).on_time_goes_by(time, *args, **kwargs)
         if not self.is_all_set():
+            GLOG.WARN(f"{time} comes. But portfolio:{self.name} is no ready.")
             return
         self.sizer.on_time_goes_by(time)
         self._interested = GinkgoSingleLinkedList()
