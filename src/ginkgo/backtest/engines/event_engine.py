@@ -36,6 +36,7 @@ class EventEngine(BaseEngine):
         self._interval: int = interval
         self._time_interval = datetime.timedelta(days=1)
         self._date_start = None
+        self._date_end = None
         self._now = None
         self.set_date_start(20000101)
         self._duration = 5
@@ -108,6 +109,15 @@ class EventEngine(BaseEngine):
         self._now = self._date_start
         GLOG.DEBUG(f"{type(self)}:{self.name} set DATESTART {self.date_start}.")
         return self.date_start
+
+    @property
+    def date_end(self) -> datetime.datetime:
+        return self._date_end
+
+    def set_date_end(self, date: any) -> datetime.datetime:
+        self._date_end = datetime_normalize(date)
+        GLOG.DEBUG(f"{type(self)}:{self.name} set DATEEND {self.date_end}.")
+        return self.date_end
 
     def set_backtest_interval(self, interval: str) -> datetime.timedelta:
         interval = interval.upper()
@@ -258,6 +268,8 @@ class EventEngine(BaseEngine):
         return self._queue.qsize()
 
     def nextphase(self, *args, **kwargs) -> None:
+        if self.now >= self.date_end:
+            self.stop()
         self._now = self.now + self._time_interval
 
         if self.matchmaking is None:
