@@ -84,6 +84,7 @@ class GinkgoData(object):
         """
         CLICKDRIVER.session.commit()
         MYSQLDRIVER.session.commit()
+        GLOG.DEBUG(f"{type(self)} commit.")
 
     def add_all(self, values) -> None:
         """
@@ -148,6 +149,7 @@ class GinkgoData(object):
         MClickBase.metadata.create_all(CLICKDRIVER.engine)
         # Create Tables in mysql
         MMysqlBase.metadata.create_all(MYSQLDRIVER.engine)
+        GLOG.DEBUG(f"{type(self)} create all tables.")
 
     def drop_all(self) -> None:
         """
@@ -159,6 +161,7 @@ class GinkgoData(object):
         MClickBase.metadata.drop_all(CLICKDRIVER.engine)
         # Drop Tables in mysql
         MMysqlBase.metadata.drop_all(MYSQLDRIVER.engine)
+        GLOG.WARN(f"{type(self)} drop all tables.")
 
     def is_table_exsist(self, model) -> bool:
         """
@@ -230,6 +233,7 @@ class GinkgoData(object):
         return df
 
     def calculate_adjustfactor(self, code, df) -> pd.DataFrame:
+        GLOG.DEBUG(f"Cal {code} Adjustfactor.")
         if df.shape[0] == 0:
             return pd.DataFrame()
         df = df.sort_values(by="timestamp", ascending=True)
@@ -239,11 +243,6 @@ class GinkgoData(object):
         ad = self.get_adjustfactor_df_cached(
             code, date_start=date_start, date_end=date_end
         )
-        # print("===========")
-        # print(code)
-        # print(df)
-        # print(ad)
-        # print("===========")
         if ad.shape[0] == 0:
             return df
         ad = ad.sort_values(by="timestamp", ascending=True)
@@ -268,6 +267,7 @@ class GinkgoData(object):
         return df
 
     def get_stock_info(self, code: str) -> MStockInfo:
+        GLOG.INFO(f"Get Stockinfo about {code}.")
         r = (
             CLICKDRIVER.session.query(MStockInfo)
             .filter(MStockInfo.code == code)
@@ -277,6 +277,7 @@ class GinkgoData(object):
         return r
 
     def get_stock_info_df(self, code: str = None) -> pd.DataFrame:
+        GLOG.INFO(f"Get Stockinfo df about {code}.")
         if code == "" or code is None:
             r = CLICKDRIVER.session.query(MStockInfo).filter(MStockInfo.isdel == False)
             df = pd.read_sql(r.statement, CLICKDRIVER.engine)
@@ -292,6 +293,7 @@ class GinkgoData(object):
         return df
 
     def get_stock_info_df_cached(self, code: str = None) -> pd.DataFrame:
+        GLOG.INFO(f"Try get Stockinfo df cached about {code}.")
         cache_name = "stockinfo"
         if REDISDRIVER.exists(cache_name):
             cache = REDISDRIVER.get(cache_name)
@@ -316,6 +318,7 @@ class GinkgoData(object):
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
     ) -> list:
+        GLOG.INFO(f"Try get Trade Calendar.")
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
@@ -334,6 +337,7 @@ class GinkgoData(object):
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
     ) -> pd.DataFrame:
+        GLOG.INFO(f"Try get Trade Calendar df.")
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
@@ -352,6 +356,7 @@ class GinkgoData(object):
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
     ) -> pd.DataFrame:
+        GLOG.INFO(f"Try get Trade Calendar df cached.")
         cache_name = f"trade_calendar%{market}"
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
@@ -384,6 +389,7 @@ class GinkgoData(object):
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
     ) -> list:
+        GLOG.INFO(f"Try get DAYBAR about {code} from {date_start} to {date_end}.")
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
@@ -407,6 +413,7 @@ class GinkgoData(object):
         """
         Get the daybar with back adjust.
         """
+        GLOG.INFO(f"Try get DAYBAR df about {code} from {date_start} to {date_end}.")
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
@@ -435,6 +442,9 @@ class GinkgoData(object):
         Get the daybar with back adjust.
         Will try get from cache first.
         """
+        GLOG.INFO(
+            f"Try get DAYBAR df cached about {code} from {date_start} to {date_end}."
+        )
         cache_name = f"day%{code}"
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
@@ -467,6 +477,7 @@ class GinkgoData(object):
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
     ) -> list:
+        GLOG.INFO(f"Try get ADJUSTFACTOR about {code} from {date_start} to {date_end}.")
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
@@ -495,6 +506,9 @@ class GinkgoData(object):
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
     ) -> list:
+        GLOG.INFO(
+            f"Try get ADJUSTFACTOR df about {code} from {date_start} to {date_end}."
+        )
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         r = (
@@ -515,6 +529,9 @@ class GinkgoData(object):
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
     ) -> list:
+        GLOG.INFO(
+            f"Try get ADJUSTFACTOR df cached about {code} from {date_start} to {date_end}."
+        )
         cache_name = f"adf%{code}"
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
@@ -561,6 +578,7 @@ class GinkgoData(object):
             return False
 
     def get_tick(self, code: str, date_start: any, date_end: any) -> MTick:
+        GLOG.INFO(f"Try get TICK about {code} from {date_start} to {date_end}.")
         model = self.get_tick_model(code)
         if not self.is_table_exsist(model):
             GLOG.WARN(f"Table Tick {code} not exsit. ")
@@ -578,6 +596,7 @@ class GinkgoData(object):
         return r
 
     def get_tick_df(self, code: str, date_start: any, date_end: any) -> pd.DataFrame:
+        GLOG.INFO(f"Try get TICK df about {code} from {date_start} to {date_end}.")
         model = self.get_tick_model(code)
         if not self.is_table_exsist(model):
             GLOG.WARN(f"Table Tick {code} not exsit. ")
@@ -600,6 +619,9 @@ class GinkgoData(object):
     def get_tick_df_cached(
         self, code: str, date_start: any, date_end: any
     ) -> pd.DataFrame:
+        GLOG.INFO(
+            f"Try get TICK df cached about {code} from {date_start} to {date_end}."
+        )
         model = self.get_tick_model(code)
         if not self.is_table_exsist(model):
             GLOG.WARN(f"Table Tick {code} not exsit. ")
@@ -638,6 +660,7 @@ class GinkgoData(object):
         pass
 
     def update_tick(self, code: str, fast_mode: bool = False) -> None:
+        GLOG.INFO(f"Try update TICK about {code}.")
         # CreateTable
         model = self.get_tick_model(code)
         self.create_table(model)
@@ -655,7 +678,7 @@ class GinkgoData(object):
             # Query database
             date_start = date.strftime("%Y%m%d")
             date_end = (date + datetime.timedelta(days=1)).strftime("%Y%m%d")
-            GLOG.INFO(f"Trying to update {code} Tick on {date}")
+            GLOG.DEBUG(f"Trying to update {code} Tick on {date}")
             if self.is_tick_indb(code, date_start):
                 GLOG.DEBUG(f"{code} Tick on {date} is in database. Go next")
                 date = date + datetime.timedelta(days=-1)
@@ -665,7 +688,7 @@ class GinkgoData(object):
             # Fetch and insert
             rs = tdx.fetch_history_transaction(code, date)
             if rs.shape[0] == 0:
-                GLOG.WARN(f"{code} No data on {date} from remote.")
+                GLOG.DEBUG(f"{code} No data on {date} from remote.")
                 nodata_count += 1
                 date = date + datetime.timedelta(days=-1)
                 continue
@@ -684,12 +707,12 @@ class GinkgoData(object):
                 l.append(item)
             self.add_all(l)
             self.commit()
-            GLOG.ERROR(f"Insert {code} Tick {len(l)}.")
+            GLOG.INFO(f"Insert {code} Tick {len(l)}.")
             insert_count += len(l)
             nodata_count = 0
             # ReCheck
             if self.is_tick_indb(code, date_start):
-                GLOG.INFO(f"{code} {date_start} Insert Recheck Successful.")
+                GLOG.DEBUG(f"{code} {date_start} Insert Recheck Successful.")
             else:
                 GLOG.ERROR(
                     f"{code} {date_start} Insert Failed. Still no data in database."

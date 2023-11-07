@@ -3,6 +3,8 @@ from enum import Enum
 from typing_extensions import Annotated
 from rich.prompt import Prompt
 from rich.console import Console
+from ginkgo.client.unittest_cli import LogLevelType
+from ginkgo.libs.ginkgo_logger import GLOG
 
 
 app = typer.Typer(help="Module for Backtest")
@@ -86,6 +88,7 @@ def ls(
 @app.command()
 def run_dev(
     id: Annotated[str, typer.Argument(case_sensitive=True)],
+    level: Annotated[LogLevelType, typer.Option(case_sensitive=False)] = "INFO",
 ):
     """
     Run Backtest.
@@ -107,6 +110,8 @@ def run_dev(
     from ginkgo.backtest.events import EventNextPhase
     from ginkgo.backtest.portfolios import PortfolioT1Backtest
     from ginkgo.libs import datetime_normalize
+
+    GLOG.set_level(level)
 
     def get_class_from_id(father_directory, file_id):
         model = GDATA.get_file(file_id)
@@ -279,8 +284,8 @@ def run_dev(
     engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
     engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
 
-    engine.put(EventNextPhase())
     engine.start()
+    engine.put(EventNextPhase())
 
     # Remove the file and directory
     shutil.rmtree(temp_folder)

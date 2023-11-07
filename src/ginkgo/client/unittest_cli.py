@@ -17,6 +17,14 @@ from src.ginkgo.libs.ginkgo_logger import GLOG
 app = typer.Typer(help="Module for Unittest")
 
 
+class LogLevelType(str, Enum):
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
+
+
 @app.command()
 def list():
     """
@@ -36,10 +44,12 @@ def run(
     datasource: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     backtest: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     y: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+    level: Annotated[LogLevelType, typer.Option(case_sensitive=False)] = "INFO",
 ):
     """
     Run Unittest.
     """
+    GLOG.set_level(level)
     LOGGING_FILE_ON = GCONF.LOGGING_FILE_ON
     LOGGING_PATH = GCONF.LOGGING_PATH
     suite = unittest.TestSuite()
