@@ -49,6 +49,7 @@ class GinkgoData(object):
         self.get_models()
         self.batch_size = 500
         self.cpu_ratio = 0.5
+        self.redis_expiration_time = 60 * 60 * 6
         try:
             self.cpu_ratio = GCONF.CPURATIO
         except Exception as e:
@@ -303,7 +304,9 @@ class GinkgoData(object):
             df = pd.read_sql(r.statement, CLICKDRIVER.engine)
             df = df.sort_values(by="code", ascending=True)
             if df.shape[0] > 0:
-                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
+                REDISDRIVER.setex(
+                    cache_name, self.redis_expiration_time, pickle.dumps(df)
+                )
         if df.shape[0] > 0:
             if code == "" or code is None:
                 return df
@@ -373,7 +376,9 @@ class GinkgoData(object):
             df = df.sort_values(by="timestamp", ascending=True)
             df.reset_index(drop=True, inplace=True)
             if df.shape[0] > 0:
-                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
+                REDISDRIVER.setex(
+                    cache_name, self.redis_expiration_time, pickle.dumps(df)
+                )
         if df.shape[0] > 0:
             date_range = pd.date_range(start=date_start, end=date_end)
             df_filtered = df[df.timestamp.isin(date_range)]
@@ -462,7 +467,9 @@ class GinkgoData(object):
             df.reset_index(drop=True, inplace=True)
             df = self.calculate_adjustfactor(code, df)
             if df.shape[0] > 0:
-                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
+                REDISDRIVER.setex(
+                    cache_name, self.redis_expiration_time, pickle.dumps(df)
+                )
         if df.shape[0] > 0:
             date_range = pd.date_range(start=date_start, end=date_end)
             df_filtered = df[df.timestamp.isin(date_range)]
@@ -548,7 +555,9 @@ class GinkgoData(object):
             df = df.sort_values(by="timestamp", ascending=True)
             df.reset_index(drop=True, inplace=True)
             if df.shape[0] > 0:
-                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
+                REDISDRIVER.setex(
+                    cache_name, self.redis_expiration_time, pickle.dumps(df)
+                )
         if df.shape[0] > 0:
             date_range = pd.date_range(start=date_start, end=date_end)
             df_filtered = df[df.timestamp.isin(date_range)]
@@ -645,7 +654,9 @@ class GinkgoData(object):
             df.reset_index(drop=True, inplace=True)
             df = self.calculate_adjustfactor(code, df)
             if df.shape[0] > 0:
-                REDISDRIVER.setex(cache_name, 60, pickle.dumps(df))
+                REDISDRIVER.setex(
+                    cache_name, self.redis_expiration_time, pickle.dumps(df)
+                )
         if df.shape[0] > 0:
             # TODO cal adjustfactor
             date_range = pd.date_range(start=date_start, end=date_end)
