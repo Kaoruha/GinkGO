@@ -26,6 +26,8 @@ class GinkgoLogger(object):
 
     def __init__(self, logger_name, file_name=None) -> None:
         super().__init__()
+        self._file_handler_name = "ginkgo_file_logger"
+        self._console_handler_name = "ginkgo_console_logger"
 
         if not os.path.exists(LOGGING_PATH):
             os.mkdir(LOGGING_PATH)
@@ -37,10 +39,13 @@ class GinkgoLogger(object):
             self.file_name = LOGGIN_DEFAULT_FILE
 
         self.logger = logging.getLogger(logger_name)
-        self.console_handler = logging.StreamHandler()
         self.file_handler = logging.FileHandler(
             filename=LOGGING_PATH + self.file_name, encoding="utf-8", mode="a"
         )
+        self.file_handler.set_name(self._file_handler_name)
+
+        self.console_handler = logging.StreamHandler()
+        self.console_handler.set_name(self._console_handler_name)
 
         # 设置日志级别，会以最高级别为准
         self.logger.setLevel(logging.INFO)
@@ -60,10 +65,28 @@ class GinkgoLogger(object):
         self.console_handler.setFormatter(console_formatter)
         self.file_handler.setFormatter(file_formatter)
 
+        # Prevent the child logger from propagating its messages to the root logger
+        self.logger.propagate = False
+
+        is_console_handler_registed = False
+        for h in self.logger.handlers:
+            if h.name == self._console_handler_name:
+                is_console_handler_registed = True
+
+        if not is_console_handler_registed:
+            self.logger.addHandler(self.console_handler)
+
+        is_file_handler_registed = False
+        for h in self.logger.handlers:
+            if h.name == self._file_handler_name:
+                is_file_handler_registed = True
         # 添加日志处理
-        self.logger.addHandler(self.console_handler)
         if LOGGING_FILE_ON:
-            self.logger.addHandler(self.file_handler)
+            if not is_file_handler_registed:
+                self.logger.addHandler(self.file_handler)
+
+
+
 
     def reset_logfile(self, file_name: str) -> None:
         if not LOGGING_FILE_ON:
@@ -115,4 +138,4 @@ class GinkgoLogger(object):
         self.logger.critical(msg)
 
 
-GLOG = GinkgoLogger("")
+GLOG = GinkgoLogger("ginkgo")
