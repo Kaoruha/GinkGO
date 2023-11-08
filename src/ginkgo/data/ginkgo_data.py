@@ -49,7 +49,7 @@ class GinkgoData(object):
         self.get_models()
         self.batch_size = 500
         self.cpu_ratio = 0.5
-        self.redis_expiration_time = 60 * 60 * 6
+        self.redis_expiration_time = 60 * 60 * 24 * 30
         try:
             self.cpu_ratio = GCONF.CPURATIO
         except Exception as e:
