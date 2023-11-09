@@ -44,8 +44,8 @@ class BacktestTest(unittest.TestCase):
 
     def test_btportfolio_Init(self) -> None:
         interval = 20
-        datestart = 20200101
-        dateend = 20210101
+        datestart = 20140101
+        dateend = 20230101
 
         portfolio = PortfolioT1Backtest()
 
@@ -54,7 +54,7 @@ class BacktestTest(unittest.TestCase):
         codes = codes.code.to_list()
         import random
 
-        codes = random.sample(codes, 10)
+        codes = random.sample(codes, 50)
 
         # selector = FixedSelector(["000001.SZ", "000002.SZ"])
         # selector = FixedSelector(["000042.SZ"])
