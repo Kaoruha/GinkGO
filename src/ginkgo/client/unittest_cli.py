@@ -44,12 +44,13 @@ def run(
     datasource: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     backtest: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     y: Annotated[bool, typer.Option(case_sensitive=False)] = False,
-    level: Annotated[LogLevelType, typer.Option(case_sensitive=False)] = "INFO",
+    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
     Run Unittest.
     """
-    GLOG.set_level(level)
+    if debug:
+        GLOG.set_level("debug")
     LOGGING_FILE_ON = GCONF.LOGGING_FILE_ON
     LOGGING_PATH = GCONF.LOGGING_PATH
     suite = unittest.TestSuite()

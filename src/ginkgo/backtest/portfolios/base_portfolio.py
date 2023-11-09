@@ -3,17 +3,19 @@ import pandas as pd
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.position import Position
-from ginkgo.backtest.strategies import StrategyBase
-from ginkgo.backtest.engines.base_engine import BaseEngine
 from ginkgo.backtest.signal import Signal
-from ginkgo.backtest.sizers import BaseSizer
 from ginkgo.backtest.selectors import BaseSelector
+from ginkgo.backtest.sizers import BaseSizer
+from ginkgo.backtest.engines.base_engine import BaseEngine
+from ginkgo.backtest.indexes import BaseIndex
+from ginkgo.backtest.strategies import StrategyBase
 from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, RECRODSTAGE_TYPES
 from ginkgo.libs import cal_fee, datetime_normalize, GinkgoSingleLinkedList
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.backtest_base import BacktestBase
+
 
 
 class BasePortfolio(BacktestBase):
@@ -100,7 +102,7 @@ class BasePortfolio(BacktestBase):
         return self._interested
 
     def record(self, stage: RECRODSTAGE_TYPES) -> None:
-        for k, v in self.indexes:
+        for k, v in self.indexes.items():
             v.record(stage)
 
     def is_all_set(self) -> bool:

@@ -51,6 +51,7 @@ class BacktestFeed(BaseFeed):
             # Broadcast
             if df.shape[0] == 0:
                 continue
+
             for i, r in df.iterrows():
                 b = Bar()
                 b.set(r)
@@ -63,21 +64,12 @@ class BacktestFeed(BaseFeed):
         if date > self.now:
             return 0
         count = 0
-        # print("!!!!!!!!")
-        # print(date)
-        # print(self.now)
-        # print(interested)
         for i in interested:
             df = self.get_daybar(i.value, date)
             if df.shape[0] == 1:
                 count += 1
-        # print(count)
-        # print("!!!!!!!!")
         return count
 
     def is_code_on_market(self, code, date, *args, **kwargs) -> bool:
         df = self.get_daybar(code, date)
-        if df.shape[0] == 1:
-            return True
-        else:
-            return False
+        return True if df.shape[0] == 1 else False

@@ -227,6 +227,7 @@ class PortfolioT1Backtest(BasePortfolio):
             self.try_go_next_phase()
             return
 
+        # if the signal from past , and the stock has no price today, put it back to to_send signals.
         if not self.engine.datafeeder.is_code_on_market(event.code, self.now):
             self.signals.append(event.value)
             self._signal_tomorrow_count += 1
@@ -374,7 +375,7 @@ class PortfolioT1Backtest(BasePortfolio):
             )
             self.try_go_next_phase()
             return
-        self.record(RECRODSTAGE_TYPES.FILLED)
+        self.record(RECRODSTAGE_TYPES.ORDERFILLED)
         if event.direction == DIRECTION_TYPES.LONG:
             GLOG.WARN("DEALING with LONG FILLED ORDER")
             print(event.value)
@@ -405,7 +406,7 @@ class PortfolioT1Backtest(BasePortfolio):
         )
         # TODO LONG SHORT
         GLOG.WARN("Dealing with CANCELED ORDER.")
-        self.record(RECRODSTAGE_TYPES.CANCELED)
+        self.record(RECRODSTAGE_TYPES.ORDERCANCELED)
         if event.direction == DIRECTION_TYPES.LONG:
             GLOG.WARN("START UNFREEZE LONG.")
             self.unfreeze(event.frozen)
