@@ -16,6 +16,7 @@ class EnumBase(Enum):
 
 
 class CURRENCY_TYPES(EnumBase):
+    OTHER = 0
     CNY = 1
     USD = 2
 
@@ -48,6 +49,7 @@ class EVENT_TYPES(EnumBase):
 
 
 class PRICEINFO_TYPES(EnumBase):
+    OTHER = 0
     BAR = 1
     TICK = 2
 
@@ -67,16 +69,19 @@ class SOURCE_TYPES(EnumBase):
 
 
 class DIRECTION_TYPES(EnumBase):
+    OTHER = 0
     LONG = 1
     SHORT = -1
 
 
 class ORDER_TYPES(EnumBase):
+    OTHER = 0
     MARKETORDER = 1
     LIMITORDER = 2
 
 
 class ORDERSTATUS_TYPES(EnumBase):
+    OTHER = 0
     NEW = 1
     SUBMITTED = 2
     FILLED = 3
@@ -84,16 +89,19 @@ class ORDERSTATUS_TYPES(EnumBase):
 
 
 class FREQUENCY_TYPES(EnumBase):
+    OTHER = 0
     DAY = 1
     MIN5 = 2
 
 
 class MARKET_TYPES(EnumBase):
+    OTHER = 0
     CHINA = 1
     NASDAQ = 2
 
 
 class ATTITUDE_TYPES(EnumBase):
+    OTHER = 0
     PESSMISTIC = 1
     OPTIMISTIC = 2
     RANDOM = 3
@@ -108,3 +116,12 @@ class FILE_TYPES(EnumBase):
     SIZER = 5
     STRATEGY = 6
     BACKTEST = 7
+
+
+class RECRODSTAGE_TYPES(EnumBase):
+    OTHER = 0
+    NEWDAY = 1
+    SIGNALGENERATION = 2
+    ORDERSEND = 3
+    ORDERFILLED = 4
+    ORDERCANCELED = 5

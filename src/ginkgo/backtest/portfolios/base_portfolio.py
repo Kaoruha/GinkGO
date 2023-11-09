@@ -9,7 +9,7 @@ from ginkgo.backtest.signal import Signal
 from ginkgo.backtest.sizers import BaseSizer
 from ginkgo.backtest.selectors import BaseSelector
 from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
-from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES
+from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, RECRODSTAGE_TYPES
 from ginkgo.libs import cal_fee, datetime_normalize, GinkgoSingleLinkedList
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs.ginkgo_logger import GLOG
@@ -98,6 +98,10 @@ class BasePortfolio(BacktestBase):
     @property
     def interested(self) -> GinkgoSingleLinkedList():
         return self._interested
+
+    def record(self, stage: RECRODSTAGE_TYPES) -> None:
+        for k, v in self.indexes:
+            v.record(stage)
 
     def is_all_set(self) -> bool:
         """
@@ -234,11 +238,11 @@ class BasePortfolio(BacktestBase):
             return
         self.engine.put(event)
 
-    def add_index(self, index):
+    def add_index(self, index: BaseIndex):
         if index.name in self.indexes.keys():
             return
         self.indexes[index.name] = index
-        index.bind_portfolio(self)
+        self.indexes[index.name].bind_portfolio(self)
 
     def index(self, key: str):
         """
@@ -304,8 +308,11 @@ class BasePortfolio(BacktestBase):
         self.sizer.on_time_goes_by(time)
         self._interested = GinkgoSingleLinkedList()
         codes = self.selector.pick()
+
         for code in codes:
             self._interested.append(code)
+
+        self.record(RECRODSTAGE_TYPES.NEWDAY)
 
     def clean_positions(self) -> None:
         """
