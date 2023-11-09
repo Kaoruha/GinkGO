@@ -13,6 +13,7 @@ class BaseFeed(BacktestBase):
     def __init__(self, *args, **kwargs):
         super(BaseFeed, self).__init__(*args, **kwargs)
         self._subscribers = GinkgoSingleLinkedList()
+        self._cache = {}
 
     @property
     def subscribers(self) -> GinkgoSingleLinkedList:
@@ -31,15 +32,22 @@ class BaseFeed(BacktestBase):
     def get_daybar(self, code: str, date: any) -> pd.DataFrame:
         if code is None or date is None:
             return pd.DataFrame()
+
         datetime = datetime_normalize(date)
         if self.now is None:
             GLOG.ERROR(f"Time need to be sync.")
             return
-        else:
-            if datetime > self._now:
-                GLOG.CRITICAL(
+
+        if datetime > self._now:
+            GLOG.CRITICAL(
                     f"CurrentDate: {self.now} you can not get the future({datetime}) info."
                 )
-                return pd.DataFrame()
-            else:
-                return GDATA.get_daybar_df_cached(code, date, date)
+            return pd.DataFrame()
+
+        key = f"{code}{date}daybar"
+        if key in self._cache:
+            return self._cache[key]
+        else:
+            df = GDATA.get_daybar_df_cached(code, date, date)
+            self._cache[key] = df
+            return df

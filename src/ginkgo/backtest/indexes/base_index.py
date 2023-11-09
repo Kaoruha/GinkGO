@@ -1,4 +1,5 @@
 from ginkgo.enums import RECRODSTAGE_TYPES
+import pandas as pd
 
 
 class BaseIndex(object):
@@ -6,6 +7,7 @@ class BaseIndex(object):
         self._name = name
         self._active_stage = RECRODSTAGE_TYPES.NEWDAY
         self._portfolio = None
+        self._data = pd.DataFrame(columns=["timestamp",self._name])
 
     @property
     def portfolio(self):
@@ -16,15 +18,19 @@ class BaseIndex(object):
         return self._active_stage
 
     def bind_portfolio(self, portfolio, *args, **kwargs):
+        """
+        When portfolio add index, will auto run this function to pass portfolio itselft to index.
+        """
         self._portfolio = portfolio
 
     @property
     def name(self) -> str:
         return self._name
 
-    def record(self, *args, **kwargs) -> None:
-        raise NotImplemented
+    def record(self,stage, *args, **kwargs) -> None:
+        if stage != self.active_stage:
+            return
 
     @property
     def value(self) -> any:
-        return "Should be overwrite the value property"
+        return self._data

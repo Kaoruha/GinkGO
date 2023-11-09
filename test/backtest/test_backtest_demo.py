@@ -19,6 +19,7 @@ from ginkgo.backtest.strategies import (
     StrategyProfitLimit,
     StrategyLossLimit,
 )
+from ginkgo.backtest.indexes import NetValue
 
 
 class BacktestTest(unittest.TestCase):
@@ -43,8 +44,8 @@ class BacktestTest(unittest.TestCase):
 
     def test_btportfolio_Init(self) -> None:
         interval = 20
-        datestart = 20000101
-        dateend = 20020101
+        datestart = 20200101
+        dateend = 20210101
 
         portfolio = PortfolioT1Backtest()
 
@@ -53,7 +54,7 @@ class BacktestTest(unittest.TestCase):
         codes = codes.code.to_list()
         import random
 
-        codes = random.sample(codes, 200)
+        codes = random.sample(codes, 10)
 
         # selector = FixedSelector(["000001.SZ", "000002.SZ"])
         # selector = FixedSelector(["000042.SZ"])
@@ -72,6 +73,9 @@ class BacktestTest(unittest.TestCase):
         portfolio.add_strategy(strategy)
         portfolio.add_strategy(win_stop)
         portfolio.add_strategy(lose_stop)
+
+        index_netvalue = NetValue("net value")
+        portfolio.add_index(index_netvalue)
 
         engine = EventEngine()
         engine.set_backtest_interval("day")
