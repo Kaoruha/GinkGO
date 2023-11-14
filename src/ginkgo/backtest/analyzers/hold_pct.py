@@ -1,7 +1,7 @@
-from ginkgo.backtest.indexes.base_index import BaseIndex
+from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
 
 
-class HoldPCT(BaseIndex):
+class HoldPCT(BaseAnalyzer):
     __abstract__ = False
 
     def __init__(self, name: str, *args, **kwargs):
