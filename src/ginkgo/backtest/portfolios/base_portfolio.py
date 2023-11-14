@@ -7,7 +7,7 @@ from ginkgo.backtest.signal import Signal
 from ginkgo.backtest.selectors import BaseSelector
 from ginkgo.backtest.sizers import BaseSizer
 from ginkgo.backtest.engines.base_engine import BaseEngine
-from ginkgo.backtest.indexes import BaseIndex
+from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.backtest.strategies import StrategyBase
 from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, RECRODSTAGE_TYPES
@@ -29,7 +29,7 @@ class BasePortfolio(BacktestBase):
         self._sizer = None
         self._risk_manager = None
         self._selector = None
-        self.indexes: dict = {}
+        self.analyzers: dict = {}
         self._engine = None
         self._interested = GinkgoSingleLinkedList()
         self._fee = 0
@@ -102,7 +102,7 @@ class BasePortfolio(BacktestBase):
         return self._interested
 
     def record(self, stage: RECRODSTAGE_TYPES) -> None:
-        for k, v in self.indexes.items():
+        for k, v in self.analyzers.items():
             v.record(stage)
 
     def is_all_set(self) -> bool:
@@ -240,19 +240,19 @@ class BasePortfolio(BacktestBase):
             return
         self.engine.put(event)
 
-    def add_index(self, index: BaseIndex):
-        if index.name in self.indexes.keys():
+    def add_analyzer(self, analyzer: BaseAnalyzer):
+        if analyzer.name in self.analyzers.keys():
             return
-        self.indexes[index.name] = index
-        self.indexes[index.name].bind_portfolio(self)
+        self.analyzers[analyzer.name] = analyzer
+        self.analyzers[analyzer.name].bind_portfolio(self)
 
-    def index(self, key: str):
+    def analyzer(self, key: str):
         """
-        return the index[key]
+        return the analyzers[key]
         """
         # TODO
-        if key in self.indexes.keys():
-            return self.indexes[key].value
+        if key in self.analyzers.keys():
+            return self.analyzers[key].value
         else:
             return None
 
