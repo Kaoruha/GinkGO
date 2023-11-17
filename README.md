@@ -38,9 +38,9 @@ python ./install.py
 ```
 
 ## Create Shortcuts
-### This command will create a soft link in /usr/bin
-### After running this command, you could just type `ginkgo --help` to use the lib no matter whether you have active your virtual environment.
-### It is not neccesary to run this, you could also active your environment and use `python main.py --help`
+This command will create a soft link in /usr/bin
+After running this command, you could just type `ginkgo --help` to use the lib no matter whether you have active your virtual environment.
+It is not neccesary to run this, you could also active your environment and use `python main.py --help`
 ``` shell
 sudo ./install.sh
 ```
