@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList
 
@@ -9,6 +10,15 @@ class BacktestBase(object):
         self.set_name(name)
         self._now: datetime.datetime = None
         self._abstract = True
+        self._backtest_id = uuid.uuid4().hex
+
+    @property
+    def backtest_id(self) -> str:
+        return self._backtest_id
+
+    @property
+    def set_backtest_id(sellf, value: str) -> None:
+        self._backtest_id = value
 
     @property
     def name(self) -> str:

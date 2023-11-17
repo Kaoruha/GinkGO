@@ -3,8 +3,7 @@ from ginkgo.backtest.backtest_base import BacktestBase
 
 class BaseSelector(BacktestBase):
     def __init__(self, name: str = "BaseSelector", *args, **kwargs) -> None:
-        super(BaseSelector, self).__init__(*args, **kwargs)
-        self.set_name(name)
+        super(BaseSelector, self).__init__(name, *args, **kwargs)
         self._portfolio = None
 
     def bind_portfolio(self, portfolio) -> None:

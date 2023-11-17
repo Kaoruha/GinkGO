@@ -270,6 +270,7 @@ class PortfolioT1Backtest(BasePortfolio):
                 self.try_go_next_phase()
                 return
             mo.set(
+                order_adjusted.uuid,
                 order_adjusted.code,
                 order_adjusted.direction,
                 order_adjusted.type,
@@ -280,8 +281,8 @@ class PortfolioT1Backtest(BasePortfolio):
                 order_adjusted.transaction_price,
                 order_adjusted.remain,
                 order_adjusted.fee,
+                self.backtest_id,
                 self.now,
-                order_adjusted.uuid,
             )
             GDATA.add(mo)
             GDATA.commit()
@@ -301,6 +302,7 @@ class PortfolioT1Backtest(BasePortfolio):
             volume_freezed = pos.freeze(order_adjusted.volume)
             GLOG.WARN("Got a SHORT ORDER Done..")
             mo.set(
+                order_adjusted.uuid,
                 order_adjusted.code,
                 order_adjusted.direction,
                 order_adjusted.type,
@@ -311,8 +313,8 @@ class PortfolioT1Backtest(BasePortfolio):
                 order_adjusted.transaction_price,
                 order_adjusted.remain,
                 order_adjusted.fee,
+                self.backtest_id,
                 self.now,
-                order_adjusted.uuid,
             )
             GLOG.WARN("Send a Short ORDER.")
             GDATA.add(mo)

@@ -88,6 +88,7 @@ class EventEngine(BaseEngine):
         return self._portfolios
 
     def bind_portfolio(self, portfolio: BasePortfolio) -> int:
+        portfolio.set_backtest_id(self.backtest_id)
         self._portfolios.append(portfolio)
         GLOG.DEBUG(f"{type(self)}:{self.name} bind PORTFOLIO {portfolio.name}.")
         for i in self.portfolios:

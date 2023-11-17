@@ -17,7 +17,6 @@ from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.backtest_base import BacktestBase
 
 
-
 class BasePortfolio(BacktestBase):
     def __init__(self, *args, **kwargs) -> None:
         super(BasePortfolio, self).__init__(*args, **kwargs)

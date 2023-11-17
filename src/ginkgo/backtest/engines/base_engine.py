@@ -1,3 +1,6 @@
+import uuid
+
+
 class BaseEngine(object):
     def __init__(self, name: str = "BaseEngine", *args, **kwargs):
         self._active: bool = False
