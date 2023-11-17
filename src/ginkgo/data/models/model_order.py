@@ -27,6 +27,7 @@ class MOrder(MMysqlBase):
     transaction_price = Column(DECIMAL(20, 10), default=0)
     remain = Column(DECIMAL(20, 10), default=0)
     fee = Column(DECIMAL(20, 10), default=0)
+    backtest_id = Column(String(40), default="")
 
     def __init__(self, *args, **kwargs) -> None:
         super(MOrder, self).__init__(*args, **kwargs)
@@ -38,6 +39,7 @@ class MOrder(MMysqlBase):
     @set.register
     def _(
         self,
+        uuid: str,
         code: str,
         direction: DIRECTION_TYPES,
         type: ORDER_TYPES,
@@ -48,8 +50,8 @@ class MOrder(MMysqlBase):
         transaction_price: float,
         remain: float,
         fee: float,
+        backtest_id: str,
         timestamp: any,
-        uuid: str,
     ) -> None:
         self.uuid = uuid
         self.code = code
@@ -62,6 +64,7 @@ class MOrder(MMysqlBase):
         self.transaction_price = transaction_price
         self.remain = remain
         self.fee = fee
+        self.backtest_id = backtest_id
         self.timestamp = datetime_normalize(timestamp)
 
     @set.register
@@ -79,6 +82,7 @@ class MOrder(MMysqlBase):
         self.fee = df.fee
         self.timestamp = df.timestamp
         self.uuid = df.uuid
+        self.backtest_id = df.backtest_id
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
 

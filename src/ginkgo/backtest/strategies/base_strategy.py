@@ -1,24 +1,16 @@
 import pandas as pd
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.signal import Signal
+from ginkgo.backtest.backtest_base import BacktestBase
 
 
-class StrategyBase(object):
+class StrategyBase(BacktestBase):
     def __init__(self, spans: int = 20, name: str = "Strategy", *args, **kwargs):
         super(StrategyBase, self).__init__(*args, **kwargs)
-        self._name = ""
-        self.set_name(name)
         self._portfolio = None
         self._raw = {}
         self._attention_spans = 20
         self.set_attention_spans(spans)
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    def set_name(self, name: str) -> None:
-        self._name = name
 
     @property
     def raw(self):
@@ -51,6 +43,7 @@ class StrategyBase(object):
 
     def bind_portfolio(self, portfolio, *args, **kwargs):
         self._portfolio = portfolio
+        self.set_backtest_id(portfolio.backtest_id)
 
     def cal(self, *args, **kwargs) -> Signal:
         pass

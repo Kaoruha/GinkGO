@@ -34,6 +34,7 @@ class StrategyLossLimit(StrategyBase):
                 s = Signal(
                     code=code,
                     direction=DIRECTION_TYPES.SHORT,
+                    backtest_id=self.backtest_id,
                     timestamp=self.portfolio.now,
                 )
                 return s

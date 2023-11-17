@@ -15,6 +15,7 @@ class MSignal(MMysqlBase):
 
     code = Column(String(40), default="ginkgo_test_code")
     direction = Column(ChoiceType(DIRECTION_TYPES, impl=Integer()), default=1)
+    backtest_id = Column(String(40), default="")
 
     def __init__(self, *args, **kwargs) -> None:
         super(MSignal, self).__init__(*args, **kwargs)
@@ -28,16 +29,19 @@ class MSignal(MMysqlBase):
         self,
         code: str,
         direction: DIRECTION_TYPES,
+        backtest_id: str,
         datetime: any,
     ) -> None:
         self.code = code
         self.direction = direction
+        self.backtest_id = backtest_id
         self.timestamp = datetime_normalize(datetime)
 
     @set.register
     def _(self, df: pd.Series) -> None:
         self.code = df.code
         self.direction = df.direction
+        self.backtest_id = df.backtest_id
         self.timestamp = df.timestamp
 
         if "source" in df.keys():

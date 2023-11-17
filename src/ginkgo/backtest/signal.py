@@ -35,6 +35,7 @@ class Signal(Base):
         direction: DIRECTION_TYPES,
         timestamp: str or datetime.datetime,
         uuid: str = "",
+        backtest_id: str = "",
     ):
         self._code: str = code
         self._timestamp: datetime.datetime = datetime_normalize(timestamp)
