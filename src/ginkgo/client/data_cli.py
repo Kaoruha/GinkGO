@@ -19,6 +19,7 @@ from rich.progress import (
 
 
 class DataType(str, Enum):
+    ALL = "all"
     STOCKINFO = "stockinfo"
     CALENDAR = "calendar"
     ADJUST = "adjustfactor"
@@ -326,6 +327,7 @@ def update(
             help="If set,ginkgo will try to update the data of specific code.",
         ),
     ] = "",
+    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
     Update the database.
@@ -333,10 +335,15 @@ def update(
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.libs.ginkgo_logger import GLOG
 
-    GLOG.set_level("INFO")
+    if debug:
+        GLOG.set_level("DEBUG")
+    else:
+        GLOG.set_level("INFO")
     GDATA.create_all()
-
-    if data == DataType.STOCKINFO:
+    if data == DataType.ALL:
+        # TODO Update all
+        pass
+    elif data == DataType.STOCKINFO:
         GDATA.update_stock_info()
     elif data == DataType.CALENDAR:
         GDATA.update_cn_trade_calendar()

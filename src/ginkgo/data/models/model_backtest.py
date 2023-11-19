@@ -1,6 +1,6 @@
 import pandas as pd
 from functools import singledispatchmethod
-from sqlalchemy import Column, String, Integer, DECIMAL
+from sqlalchemy import Column, String, Integer, DECIMAL, DateTime
 from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.data.models.model_clickbase import MClickBase
@@ -10,18 +10,16 @@ from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import base_repr, datetime_normalize
 
 
-class MSignal(MClickBase):
+class MBacktest(MClickBase):
     __abstract__ = False
-    __tablename__ = "signal"
+    __tablename__ = "backtest"
 
-    code = Column(String(), default="ginkgo_test_code")
-    direction = Column(ChoiceType(DIRECTION_TYPES, impl=Integer()), default=1)
     backtest_id = Column(String(), default="")
-    strategy_id = Column(String(), default="")
-    strategy_name = Column(String(), default="")
+    start_at = Column(DateTime, default=datetime_normalize("1950-01-01"))
+    finish_at = Column(DateTime, default=datetime_normalize("1950-01-01"))
 
     def __init__(self, *args, **kwargs) -> None:
-        super(MSignal, self).__init__(*args, **kwargs)
+        super(MBacktest, self).__init__(*args, **kwargs)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -30,19 +28,17 @@ class MSignal(MClickBase):
     @set.register
     def _(
         self,
-        code: str,
-        direction: DIRECTION_TYPES,
         backtest_id: str,
-        strategy_id: str,
-        strategy_name: str,
-        datetime: any,
+        start_at: any,
+        finish_at: any = None,
     ) -> None:
-        self.code = code
-        self.direction = direction
         self.backtest_id = backtest_id
-        self.strategy_id = strategy_id
-        self.strategy_name = strategy_name
-        self.timestamp = datetime_normalize(datetime)
+        self.start_at = datetime_normalize(start_at)
+        self.finish_at = (
+            datetime_normalize(finish_at)
+            if finish_at
+            else datetime_normalize("1950-01-01")
+        )
 
     @set.register
     def _(self, df: pd.Series) -> None:

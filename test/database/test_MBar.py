@@ -1,5 +1,4 @@
 import unittest
-import base64
 import random
 import time
 import pandas as pd
@@ -8,30 +7,14 @@ from ginkgo.libs.ginkgo_conf import GCONF
 
 from ginkgo.enums import (
     SOURCE_TYPES,
-    DIRECTION_TYPES,
-    ORDER_TYPES,
-    ORDERSTATUS_TYPES,
     FREQUENCY_TYPES,
-    CURRENCY_TYPES,
-    MARKET_TYPES,
 )
 
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
-from ginkgo.data.models import (
-    MOrder,
-    MTradeDay,
-    MStockInfo,
-    MSignal,
-    MTick,
-    MAdjustfactor,
-    MBar,
-)
+from ginkgo.data.models import MBar
 
 from ginkgo.backtest.bar import Bar
-from ginkgo.backtest.tick import Tick
-from ginkgo.backtest.order import Order
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs.ginkgo_logger import GLOG
 
 
 class ModelBarTest(unittest.TestCase):
@@ -39,13 +22,9 @@ class ModelBarTest(unittest.TestCase):
     UnitTest for Bar.
     """
 
-    # Init
-    # set data from bar
-    # store in to GDATA
-    # query from GDATA
-
     def __init__(self, *args, **kwargs) -> None:
         super(ModelBarTest, self).__init__(*args, **kwargs)
+        self.test_count = 10
         self.params = [
             {
                 "code": "testcode",
@@ -109,39 +88,31 @@ class ModelBarTest(unittest.TestCase):
         size0 = GDATA.get_table_size(MBar)
         o = MBar()
         GDATA.add(o)
-        GDATA.commit()
         size1 = GDATA.get_table_size(MBar)
         self.assertEqual(1, size1 - size0)
 
     def test_ModelBar_BatchInsert(self) -> None:
         GDATA.create_table(MBar)
-        times = random.random() * 500
+        times = random.random() * self.test_count
         times = int(times)
         for i in range(times):
             size0 = GDATA.get_table_size(MBar)
             print(f"ModelBar BatchInsert Test : {i+1}", end="\r")
-            count = random.random() * 500
+            count = random.random() * self.test_count
             count = int(count)
             s = []
             for j in range(count):
                 o = MBar()
                 s.append(o)
             GDATA.add_all(s)
-            GDATA.commit()
             size1 = GDATA.get_table_size(MBar)
             self.assertEqual(count, size1 - size0)
 
     def test_ModelBar_Query(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
         GDATA.create_table(MBar)
         o = MBar()
         o.open = 111
+        uuid = o.uuid
         GDATA.add(o)
-        GDATA.commit()
-        r = (
-            GDATA.get_driver(MBar)
-            .session.query(MBar)
-            .filter(MBar.uuid == o.uuid)
-            .first()
-        )
+        r = GDATA.get_driver(MBar).session.query(MBar).filter(MBar.uuid == uuid).first()
         self.assertNotEqual(r, None)

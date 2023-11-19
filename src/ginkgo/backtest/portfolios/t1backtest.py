@@ -285,11 +285,10 @@ class PortfolioT1Backtest(BasePortfolio):
                 self.now,
             )
             GDATA.add(mo)
-            GDATA.commit()
             self._signal_gen_order_count += 1
 
             # 6. Create Event
-            e = EventOrderSubmitted(mo.uuid)
+            e = EventOrderSubmitted(order_adjusted.uuid)
             GLOG.INFO("Gen an Event Order Submitted...")
             self.put(e)
             self.record(RECRODSTAGE_TYPES.ORDERSEND)
@@ -318,9 +317,8 @@ class PortfolioT1Backtest(BasePortfolio):
             )
             GLOG.WARN("Send a Short ORDER.")
             GDATA.add(mo)
-            GDATA.commit()
             self._signal_gen_order_count += 1
-            e = EventOrderSubmitted(mo.uuid)
+            e = EventOrderSubmitted(order_adjusted.uuid)
             # 6. Create Event
             self.put(e)
             self.record(RECRODSTAGE_TYPES.ORDERSEND)

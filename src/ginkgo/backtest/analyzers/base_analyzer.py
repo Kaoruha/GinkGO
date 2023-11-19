@@ -1,13 +1,14 @@
 from ginkgo.enums import RECRODSTAGE_TYPES
+from ginkgo.backtest.backtest_base import BacktestBase
 import pandas as pd
 
 
-class BaseAnalyzer(object):
+class BaseAnalyzer(BacktestBase):
     def __init__(self, name: str, *args, **kwargs):
         self._name = name
         self._active_stage = RECRODSTAGE_TYPES.NEWDAY
         self._portfolio = None
-        self._data = pd.DataFrame(columns=["timestamp",self._name])
+        self._data = pd.DataFrame(columns=["timestamp", self._name])
 
     @property
     def portfolio(self):
@@ -27,7 +28,7 @@ class BaseAnalyzer(object):
     def name(self) -> str:
         return self._name
 
-    def record(self,stage, *args, **kwargs) -> None:
+    def record(self, stage, *args, **kwargs) -> None:
         if stage != self.active_stage:
             return
 

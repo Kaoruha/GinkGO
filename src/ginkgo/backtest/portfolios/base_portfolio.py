@@ -242,6 +242,7 @@ class BasePortfolio(BacktestBase):
     def add_analyzer(self, analyzer: BaseAnalyzer):
         if analyzer.name in self.analyzers.keys():
             return
+        analyzer.set_backtest_id(self.backtest_id)
         self.analyzers[analyzer.name] = analyzer
         self.analyzers[analyzer.name].bind_portfolio(self)
 
@@ -330,3 +331,11 @@ class BasePortfolio(BacktestBase):
                 del_list.append(key)
         for code in del_list:
             del self.positions[code]
+
+    def set_backtest_id(self, value: str, *args, **kwargs) -> None:
+        super(BasePortfolio, self).set_backtest_id(value, *args, **kwargs)
+        # Pass the backtest id to analyzers and strategies
+        for i in self.strategies:
+            i.value.set_backtest_id(value)
+        for i in self.analyzers.keys():
+            self.analyzers[i].set_backtest_id(value)

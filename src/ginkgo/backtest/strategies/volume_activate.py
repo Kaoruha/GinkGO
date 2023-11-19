@@ -37,5 +37,6 @@ class StrategyVolumeActivate(StrategyBase):
                 code,
                 DIRECTION_TYPES.LONG,
                 self.portfolio.now,
+                self.backtest_id,
             )
             return signal

@@ -5,33 +5,8 @@ import time
 import pandas as pd
 import datetime
 from ginkgo.libs.ginkgo_conf import GCONF
-
-from ginkgo.enums import (
-    SOURCE_TYPES,
-    DIRECTION_TYPES,
-    ORDER_TYPES,
-    ORDERSTATUS_TYPES,
-    FREQUENCY_TYPES,
-    CURRENCY_TYPES,
-    MARKET_TYPES,
-)
-
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
-from ginkgo.data.models import (
-    MOrder,
-    MTradeDay,
-    MStockInfo,
-    MSignal,
-    MTick,
-    MAdjustfactor,
-    MBar,
-)
-
-from ginkgo.backtest.bar import Bar
-from ginkgo.backtest.tick import Tick
-from ginkgo.backtest.order import Order
+from ginkgo.data.models import MAdjustfactor
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs.ginkgo_logger import GLOG
 
 
 class ModelAdjustfactorTest(unittest.TestCase):
@@ -39,13 +14,9 @@ class ModelAdjustfactorTest(unittest.TestCase):
     Examples for UnitTests of models
     """
 
-    # Init
-    # set data from bar
-    # store in to GDATA
-    # query from GDATA
-
     def __init__(self, *args, **kwargs) -> None:
         super(ModelAdjustfactorTest, self).__init__(*args, **kwargs)
+        self.test_count = 10
         self.params = [
             {
                 "code": "testcode",
@@ -90,7 +61,6 @@ class ModelAdjustfactorTest(unittest.TestCase):
             self.assertEqual(o.foreadjustfactor, i["foreadjustfactor"])
             self.assertEqual(o.backadjustfactor, i["backadjustfactor"])
             self.assertEqual(o.adjustfactor, i["adjustfactor"])
-        pass
 
     def test_ModelAdjustfactor_Insert(self) -> None:
         GDATA.create_table(MAdjustfactor)
@@ -105,19 +75,17 @@ class ModelAdjustfactorTest(unittest.TestCase):
                 i["timestamp"],
             )
             GDATA.add(o)
-            GDATA.commit()
             size1 = GDATA.get_table_size(MAdjustfactor)
             self.assertEqual(1, size1 - size0)
 
     def test_ModelAdjustfactor_BatchInsert(self) -> None:
         GDATA.create_table(MAdjustfactor)
-        times0 = random.random() * 500
+        times0 = random.random() * self.test_count
         times0 = int(times0)
         for j in range(times0):
             size0 = GDATA.get_table_size(MAdjustfactor)
-            print(f"ModelAdjustfactor BatchInsert Test: {j+1}", end="\r")
             l = []
-            times = random.random() * 500
+            times = random.random() * self.test_count
             times = int(times)
             for k in range(times):
                 for i in self.params:
@@ -131,7 +99,6 @@ class ModelAdjustfactorTest(unittest.TestCase):
                     )
                     l.append(o)
             GDATA.add_all(l)
-            GDATA.commit()
             size1 = GDATA.get_table_size(MAdjustfactor)
             self.assertEqual(size1 - size0, len(l))
 
@@ -139,23 +106,20 @@ class ModelAdjustfactorTest(unittest.TestCase):
         GDATA.create_table(MAdjustfactor)
         o = MAdjustfactor()
         GDATA.add(o)
-        GDATA.commit()
         r = GDATA.get_driver(MAdjustfactor).session.query(MAdjustfactor).first()
         self.assertNotEqual(r, None)
 
     def test_ModelAdjustfactor_Update(self) -> None:
-        num = random.random() * 500
+        num = random.random() * self.test_count
         num = int(num)
         GDATA.create_table(MAdjustfactor)
         o = MAdjustfactor()
-        GDATA.add(o)
-        GDATA.commit()
         uuid = o.uuid
+        GDATA.add(o)
         for i in range(num):
-            print(f"ModelAdjustfactor Update: {i+1}", end="\r")
+            driver = GDATA.get_driver(MAdjustfactor)
             item = (
-                GDATA.get_driver(MAdjustfactor)
-                .session.query(MAdjustfactor)
+                driver.session.query(MAdjustfactor)
                 .filter(MAdjustfactor.uuid == uuid)
                 .first()
             )
@@ -165,11 +129,10 @@ class ModelAdjustfactorTest(unittest.TestCase):
             s = base64.b64encode(s)
             s = s.decode("ascii")
             item.code = s
-            GDATA.commit()
-            item = (
-                GDATA.get_driver(MAdjustfactor)
-                .session.query(MAdjustfactor)
+            driver.session.commit()
+            item2 = (
+                driver.session.query(MAdjustfactor)
                 .filter(MAdjustfactor.uuid == uuid)
                 .first()
             )
-            self.assertEqual(s, item.code)
+            self.assertEqual(s, item2.code)
