@@ -45,7 +45,7 @@ class BacktestTest(unittest.TestCase):
     def test_btportfolio_Init(self) -> None:
         interval = 20
         datestart = 20140101
-        dateend = 20230101
+        dateend = 20140301
 
         portfolio = PortfolioT1Backtest()
 

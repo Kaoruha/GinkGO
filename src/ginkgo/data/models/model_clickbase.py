@@ -6,13 +6,21 @@ from types import FunctionType, MethodType
 from functools import singledispatchmethod
 from enum import Enum
 from types import FunctionType, MethodType
-from ginkgo.data import CLICKDRIVER as db
 from ginkgo.libs import gen_uuid4, datetime_normalize
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.enums import SOURCE_TYPES
 from sqlalchemy import Column, String, DateTime, Boolean, Integer
 from sqlalchemy_utils import ChoiceType
 from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.data.drivers import GinkgoClickhouse
+
+db = GinkgoClickhouse(
+    user=GCONF.CLICKUSER,
+    pwd=GCONF.CLICKPWD,
+    host=GCONF.CLICKHOST,
+    port=GCONF.CLICKPORT,
+    db=GCONF.CLICKDB,
+)
 
 
 class MClickBase(db.base):

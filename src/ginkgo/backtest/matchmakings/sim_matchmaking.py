@@ -49,9 +49,10 @@ class MatchMakingSim(MatchMakingBase):
     def attitude(self) -> ATTITUDE_TYPES:
         return self._attitude
 
-    def return_order(self, order):
+    def return_order(self, order, engine):
         order.status = ORDERSTATUS_TYPES.CANCELED
-        GDATA.commit()
+        engine.session.commit()
+        engine.session.close()
         canceld_order = EventOrderCanceled(order.uuid)
         GLOG.WARN(f"Return a CANCELED ORDER")
         self.engine.put(canceld_order)
@@ -60,26 +61,26 @@ class MatchMakingSim(MatchMakingBase):
         # Check if the id exsist
         GLOG.INFO(f"{self.name} got an ORDER {event.order_id}.")
         order_id = event.order_id
-        o = self.query_order(order_id)
+        o, db = self.query_order(order_id)
         if o is None:
             return
         if o.timestamp < self.now:
             GLOG.CRITICAL("Will not handle the order {event.order_id} from past")
-            self.return_order(o)
+            self.return_order(o, db)
             return
         if o.timestamp > self.now:
             GLOG.CRITICAL("Will not handle the order {event.order_id} from future")
-            self.return_order(o)
+            self.return_order(o, db)
             return
 
         # Check Order Status
         if o.status == ORDERSTATUS_TYPES.NEW:
             o.status = ORDERSTATUS_TYPES.SUBMITTED
-            GDATA.commit()
+            db.session.commit()
         if o.status != ORDERSTATUS_TYPES.SUBMITTED:
             GLOG.ERROR(f"Only accept SUBMITTED order. {order_id} is under {o.status}")
             o.status = ORDERSTATUS_TYPES.CANCELED
-            GDATA.commit()
+            db.session.commit()
             canceld_order = EventOrderCanceled(o.uuid)
             self.engine.put(canceld_order)
             return
@@ -90,6 +91,7 @@ class MatchMakingSim(MatchMakingBase):
             self.order_book.append(order_id)
 
         GLOG.INFO(f"{self.now} OrderBooks: {len(self.order_book)}")
+        db.session.close()
         self.try_match()
 
     def query_order(self, order_id: str) -> MOrder:
@@ -99,16 +101,17 @@ class MatchMakingSim(MatchMakingBase):
         if not isinstance(order_id, str):
             GLOG.WARN("Order id only support string.")
             return
-        o = GDATA.get_order(order_id)
+        db = GDATA.get_mysql()
+        o = GDATA.get_order(order_id, db)
         if o is None:
             GLOG.WARN(f"Order {order_id} not exsist.")
-        return o
+        return (o, db)
 
     def try_match(self):
         GLOG.INFO("Try Match.")
         for order_id in self.order_book:
             # Get the order from db
-            o = self.query_order(order_id)
+            o, db = self.query_order(order_id)
             oid = o.uuid
             # Get the price info from self.price_info
             p = self.price
@@ -213,9 +216,10 @@ class MatchMakingSim(MatchMakingBase):
                 GLOG.WARN(f"Complete Matching SHORT ORDER")
                 print(o)
             # 1.2.3 Give it back to db
-            GDATA.commit()
+            db.session.commit()
             self.order_book.remove(o.uuid)
             filled_order = EventOrderFilled(o.uuid)
+            db.session.close()
             self.engine.put(filled_order)
         GLOG.INFO("Done Match.")
         self._order_book = []

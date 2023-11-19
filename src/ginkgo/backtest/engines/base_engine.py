@@ -1,11 +1,11 @@
 import uuid
+from ginkgo.backtest.backtest_base import BacktestBase
 
 
-class BaseEngine(object):
+class BaseEngine(BacktestBase):
     def __init__(self, name: str = "BaseEngine", *args, **kwargs):
+        super(BaseEngine, self).__init__(name, *args, **kwargs)
         self._active: bool = False
-        self._name = ""
-        self.set_name(name)
 
     @property
     def is_active(self) -> bool:
@@ -26,6 +26,3 @@ class BaseEngine(object):
 
     def __repr__(self) -> str:
         return self.name
-
-    def set_name(self, name: str):
-        self._name = name

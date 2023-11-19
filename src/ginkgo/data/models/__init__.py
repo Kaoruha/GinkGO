@@ -8,3 +8,4 @@ from ginkgo.data.models.model_adjustfactor import MAdjustfactor
 from ginkgo.data.models.model_stock_info import MStockInfo
 from ginkgo.data.models.model_trade_day import MTradeDay
 from ginkgo.data.models.model_file import MFile
+from ginkgo.data.models.model_backtest import MBacktest

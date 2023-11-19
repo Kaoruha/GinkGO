@@ -16,8 +16,7 @@ class BacktestBase(object):
     def backtest_id(self) -> str:
         return self._backtest_id
 
-    @property
-    def set_backtest_id(sellf, value: str) -> None:
+    def set_backtest_id(self, value: str) -> None:
         self._backtest_id = value
 
     @property

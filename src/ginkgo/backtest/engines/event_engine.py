@@ -96,6 +96,7 @@ class EventEngine(BaseEngine):
                 i.value.bind_engine(self)
         l = len(self.portfolios)
         GLOG.DEBUG(f"{type(self)}:{self.name} has {l} PORTFOLIOs.")
+        # TODO set backtest_id
         return l
 
     @property
