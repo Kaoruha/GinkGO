@@ -248,6 +248,8 @@ class GinkgoData(object):
             GLOG.ERROR(
                 f"Order_id :{order_id} has {df.shape[0]} records, please check the code and clean the database."
             )
+        print("Get Order DF")
+        print(df)
 
         df = df.iloc[0, :]
         df.code = df.code.strip(b"\x00".decode())

@@ -7,7 +7,6 @@ from time import sleep
 class GinkgoBaoStock(object):
     def __init__(self):
         self._client = None
-        self._cache = {}
         self._updated = {}
 
     @property
@@ -19,40 +18,6 @@ class GinkgoBaoStock(object):
 
     def logout(self):
         self._client = bs.logout()
-
-    def _update_cache(self, key: str, data: any):
-        self._cache[key] = data
-        self._updated[key] = datetime.datetime.now()
-
-    def _try_get_cache(self, key: str):
-        now = datetime.datetime.now()
-        try:
-            last_update = self._updated[key]
-        except Exception as e:
-            last_update = None
-
-        if last_update:
-            delta = now - last_update
-            if delta < datetime.timedelta(hours=4):
-                return self._cache[key]
-        else:
-            return None
-
-    @property
-    def cn_stock_trade_day(self) -> pd.DataFrame:
-        """
-        Get the TradeDay
-        """
-        key = "trade_day"
-        # Try get Cache
-        cache = self._try_get_cache(key)
-        if cache is not None:
-            return cache
-
-        result = self.fetch_cn_stock_trade_day()
-        # Update Cache and updated time
-        self._update_cache(key, result)
-        return result
 
     def fetch_cn_stock_trade_day(self) -> pd.DataFrame:
         """

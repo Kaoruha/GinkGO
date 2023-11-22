@@ -80,10 +80,10 @@ def run(
             print(msg)
             result = typer.confirm(f"DB Moduel may erase the database, Conitnue? ")
             if result:
-                t = origin_path + "/database"
+                t = origin_path + "/db"
                 path.append(t)
         else:
-            t = origin_path + "/database"
+            t = origin_path + "/db"
             path.append(t)
 
     if libs:

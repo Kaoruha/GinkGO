@@ -35,7 +35,7 @@ class GinkgoTDX(GinkgoSourceBase):
             return pd.DataFrame()
         start = 0
         rs = []
-        GLOG.INFO(f"Fetching Tick {code} on {date}")
+        GLOG.DEBUG(f"Fetching Tick {code} on {date}")
         while try_times < max_try:
             try:
                 with self.api.connect(self.random_ip, 7709):
