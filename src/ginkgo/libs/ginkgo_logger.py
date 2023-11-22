@@ -1,4 +1,5 @@
 import os
+import inspect
 import logging
 import colorlog
 import threading
@@ -53,12 +54,14 @@ class GinkgoLogger(object):
         self.file_handler.setLevel(self.get_log_level(LOGGING_LEVEL_FILE))
 
         # 日志输出格式
+        # set the file handler formatter, that print the line num and file that call the logger function
+
         file_formatter = logging.Formatter(
-            fmt="[%(asctime)s.%(msecs)03d][%(levelname)s]:%(message)s  %(filename)s -> %(funcName)s line:%(lineno)d ",
+            fmt="[%(asctime)s.%(msecs)03d][%(levelname)s]:%(message)s  ",
             datefmt="%Y-%m-%d  %H:%M:%S",
         )
         console_formatter = colorlog.ColoredFormatter(
-            fmt="%(log_color)s%(asctime) s PID:%(process)d [%(levelname)s] %(message)s  [%(filename)s --> %(funcName)s L:%(lineno)d]",
+            fmt="%(log_color)s%(asctime) s PID:%(process)d [%(levelname)s] %(message)s ",
             datefmt="%H:%M:%S",
             log_colors=LOGGING_COLOR,
         )
@@ -85,9 +88,6 @@ class GinkgoLogger(object):
             if not is_file_handler_registed:
                 self.logger.addHandler(self.file_handler)
 
-
-
-
     def reset_logfile(self, file_name: str) -> None:
         if not LOGGING_FILE_ON:
             return
@@ -96,7 +96,7 @@ class GinkgoLogger(object):
             filename=LOGGING_PATH + file_name, encoding="utf-8", mode="a"
         )
         file_formatter = logging.Formatter(
-            fmt="[%(asctime)s.%(msecs)03d][%(levelname)s]:%(message)s  %(filename)s -> %(funcName)s line:%(lineno)d ",
+            fmt="[%(asctime)s.%(msecs)03d][%(levelname)s]:%(message)s ",
             datefmt="%Y-%m-%d  %H:%M:%S",
         )
         self.file_handler.setFormatter(file_formatter)
@@ -123,19 +123,39 @@ class GinkgoLogger(object):
         return r
 
     def INFO(self, msg: str):
-        self.logger.info(msg)
+        caller = inspect.stack()[1]
+        function = caller.function
+        filename = caller.filename.split("/")[-1]
+        lineno = caller.lineno
+        self.logger.info(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
 
     def DEBUG(self, msg: str):
-        self.logger.debug(msg)
+        caller = inspect.stack()[1]
+        function = caller.function
+        filename = caller.filename.split("/")[-1]
+        lineno = caller.lineno
+        self.logger.debug(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
 
     def WARN(self, msg: str):
-        self.logger.warning(msg)
+        caller = inspect.stack()[1]
+        function = caller.function
+        filename = caller.filename.split("/")[-1]
+        lineno = caller.lineno
+        self.logger.warning(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
 
     def ERROR(self, msg: str):
-        self.logger.error(msg)
+        caller = inspect.stack()[1]
+        function = caller.function
+        filename = caller.filename.split("/")[-1]
+        lineno = caller.lineno
+        self.logger.error(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
 
     def CRITICAL(self, msg: str):
-        self.logger.critical(msg)
+        caller = inspect.stack()[1]
+        function = caller.function
+        filename = caller.filename.split("/")[-1]
+        lineno = caller.lineno
+        self.logger.critical(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
 
 
 GLOG = GinkgoLogger("ginkgo")
