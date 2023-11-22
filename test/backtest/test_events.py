@@ -1,71 +1,73 @@
-# import datetime
-# import uuid
-# import unittest
-# import pandas as pd
-# from time import sleep
-# from ginkgo.backtest.events import (
-#     EventBase,
-#     EventCapitalUpdate,
-#     EventOrderCanceled,
-#     EventOrderExecute,
-#     EventOrderFilled,
-#     EventOrderRelated,
-#     EventOrderSubmitted,
-#     EventPositionUpdate,
-#     EventPriceUpdate,
-# )
-# from ginkgo.data.models.model_order import MOrder
-# from ginkgo.data.models.model_order import MOrder
-# from ginkgo.data.ginkgo_data import GDATA
-# from ginkgo.libs.ginkgo_logger import GLOG
-# from ginkgo.backtest.bar import Bar
-# from ginkgo.backtest.tick import Tick
-# from ginkgo.libs import datetime_normalize
-# from ginkgo.enums import (
-#     DIRECTION_TYPES,
-#     ORDER_TYPES,
-#     ORDERSTATUS_TYPES,
-#     SOURCE_TYPES,
-#     FREQUENCY_TYPES,
-#     PRICEINFO_TYPES,
-#     EVENT_TYPES,
-# )
+import datetime
+import uuid
+import unittest
+import pandas as pd
+from time import sleep
+from ginkgo.backtest.events import (
+    EventBase,
+    EventCapitalUpdate,
+    EventOrderCanceled,
+    EventOrderExecute,
+    EventOrderFilled,
+    EventOrderRelated,
+    EventOrderSubmitted,
+    EventPositionUpdate,
+    EventPriceUpdate,
+)
+from ginkgo.data.models.model_order import MOrder
+from ginkgo.data.models.model_order import MOrder
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.backtest.bar import Bar
+from ginkgo.backtest.tick import Tick
+from ginkgo.libs import datetime_normalize
+from ginkgo.enums import (
+    DIRECTION_TYPES,
+    ORDER_TYPES,
+    ORDERSTATUS_TYPES,
+    SOURCE_TYPES,
+    FREQUENCY_TYPES,
+    PRICEINFO_TYPES,
+    EVENT_TYPES,
+)
 
 
-# class EventBaseTest(unittest.TestCase):
-#     """
-#     UnitTest for BaseEvent.
-#     """
+class EventBaseTest(unittest.TestCase):
+    """
+    UnitTest for BaseEvent.
+    """
 
-#     def __init__(self, *args, **kwargs) -> None:
-#         super(EventBaseTest, self).__init__(*args, **kwargs)
-#         self.params = [
-#             {
-#                 "source": SOURCE_TYPES.SIM,
-#                 "type": EVENT_TYPES.PRICEUPDATE,
-#                 "timestamp": datetime.datetime.now(),
-#             },
-#             {
-#                 "source": SOURCE_TYPES.TEST,
-#                 "type": "orderfill",
-#                 "timestamp": "2020-01-01",
-#             },
-#             {
-#                 "source": SOURCE_TYPES.TUSHARE,
-#                 "type": "ORDERSubmission",
-#                 "timestamp": 19000101,
-#             },
-#         ]
+    def __init__(self, *args, **kwargs) -> None:
+        super(EventBaseTest, self).__init__(*args, **kwargs)
+        self.params = [
+            {
+                "source": SOURCE_TYPES.SIM,
+                "backtest_id": uuid.uuid4().hex,
+                "type": EVENT_TYPES.PRICEUPDATE,
+                "timestamp": datetime.datetime.now(),
+            },
+            {
+                "source": SOURCE_TYPES.TEST,
+                "backtest_id": uuid.uuid4().hex,
+                "type": "orderfill",
+                "timestamp": "2020-01-01",
+            },
+            {
+                "source": SOURCE_TYPES.TUSHARE,
+                "backtest_id": uuid.uuid4().hex,
+                "type": "ORDERSubmission",
+                "timestamp": 19000101,
+            },
+        ]
 
-#     def test_EventBase_Init(self) -> None:
-#         for i in self.params:
-#             e = EventBase()
-#             e.set_type(["type"])
-#             e.set_source(i["source"])
-#             e.set_time(i["timestamp"])
-
-#             self.assertEqual(e.source, i["source"])
-#             self.assertEqual(e.timestamp, datetime_normalize(i["timestamp"]))
+    def test_EventBase_Init(self) -> None:
+        for i in self.params:
+            e = EventBase()
+            e.set_type(["type"])
+            e.set_source(i["source"])
+            e.set_time(i["timestamp"])
+            self.assertEqual(e.source, i["source"])
+            self.assertEqual(e.timestamp, datetime_normalize(i["timestamp"]))
 
 
 # class EventCapitalUpdateTest(unittest.TestCase):
@@ -362,6 +364,7 @@
 #                 "remain": 0,
 #                 "fee": 0,
 #                 "timestamp": datetime.datetime.now(),
+#                 "backtest_id": uuid.uuid4().hex,
 #             }
 #         ]
 
@@ -376,12 +379,12 @@
 #             # Insert an Order
 #             o = MOrder()
 #             df = pd.DataFrame.from_dict(i, orient="index")[0]
+#             oid = o.uuid
 #             o.set(df)
 #             GDATA.add(o)
-#             GDATA.commit()
 #             # Try Get
-#             e = EventOrderSubmitted(o.uuid)
-#             self.assertEqual(e.order_id, o.uuid)
+#             e = EventOrderSubmitted(oid)
+#             self.assertEqual(e.order_id, oid)
 #             self.assertEqual(e.code, i["code"])
 #             self.assertEqual(e.direction, i["direction"])
 #             self.assertEqual(e.order_type, i["type"])
@@ -389,6 +392,7 @@
 #             self.assertEqual(e.frozen, i["frozen"])
 #             self.assertEqual(e.transaction_price, i["transaction_price"])
 #             self.assertEqual(e.remain, i["remain"])
+#             self.assertequal(e.backtest_id, i["backtest_id"])
 
 
 # class EventPositionUpdateTest(unittest.TestCase):
@@ -416,6 +420,7 @@
 #                 "remain": 0,
 #                 "fee": 0,
 #                 "timestamp": datetime.datetime.now(),
+#                 "backtest_id": uuid.uuid4().hex,
 #             }
 #         ]
 
@@ -425,17 +430,19 @@
 
 #     def test_EventPU_GetOrder(self) -> None:
 #         # Clean the Table
+#         GDATA.drop_table(MOrder)
+#         sleep(0.5)
 #         GDATA.create_table(MOrder)
 #         for i in self.params:
 #             # Insert an Order
 #             o = MOrder()
 #             df = pd.DataFrame.from_dict(i, orient="index")[0]
+#             oid = o.uuid
 #             o.set(df)
 #             GDATA.add(o)
-#             GDATA.commit()
 #             # Try Get
-#             e = EventPositionUpdate(o.uuid)
-#             self.assertEqual(e.order_id, o.uuid)
+#             e = EventPositionUpdate(oid)
+#             self.assertEqual(e.order_id, oid)
 #             self.assertEqual(e.code, i["code"])
 #             self.assertEqual(e.direction, i["direction"])
 #             self.assertEqual(e.order_type, i["type"])
@@ -443,6 +450,7 @@
 #             self.assertEqual(e.frozen, i["frozen"])
 #             self.assertEqual(e.transaction_price, i["transaction_price"])
 #             self.assertEqual(e.remain, i["remain"])
+#             self.assetequal(e.backtest_id, i["backtest_id"])
 
 
 # class EventPriceUpdateTest(unittest.TestCase):

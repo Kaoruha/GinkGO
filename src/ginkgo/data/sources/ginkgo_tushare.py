@@ -18,7 +18,7 @@ class GinkgoTushare(object):
     def fetch_cn_stock_trade_day(self) -> pd.DataFrame:
         try_time = 0
         while try_time <= self.try_max:
-            GLOG.INFO("Trying get cn stock trade day.")
+            GLOG.DEBUG("Trying get cn stock trade day.")
             r = self.pro.trade_cal()
             if r.shape[0] == 0:
                 try_time += 1
@@ -34,7 +34,7 @@ class GinkgoTushare(object):
     def fetch_cn_stock_info(self) -> pd.DataFrame:
         try_time = 0
         while try_time <= self.try_max:
-            GLOG.INFO("Trying get cn stock info.")
+            GLOG.DEBUG("Trying get cn stock info.")
             r = self.pro.stock_basic(
                 fields=[
                     "ts_code",

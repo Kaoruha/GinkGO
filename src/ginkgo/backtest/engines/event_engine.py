@@ -170,14 +170,15 @@ class EventEngine(BaseEngine):
             [handle() for handle in self._timer_handles]
             sleep(self._interval)
 
-    def start(self) -> None:
+    def start(self) -> Thread:
         """
         Start the engine
         """
         super(EventEngine, self).start()
         self._main_thread.start()
         self._timer_thread.start()
-        GLOG.WARN("Engine Start.")
+        GLOG.DEBUG("Engine Start.")
+        return self._main_thread
 
     def stop(self) -> None:
         """
@@ -215,7 +216,9 @@ class EventEngine(BaseEngine):
         else:
             self._handles[type]: list = []
             self._handles[type].append(handle)
-            GLOG.INFO(f"Register handle {type} : {handle.__func__}")
+            GLOG.INFO(
+                f"Register handle {type} : {handle.__name__}"
+            )  # handler.__func__ for method object, not support function object.
 
     def unregister(self, type: EVENT_TYPES, handle: callable) -> None:
         if type not in self._handles:
