@@ -26,6 +26,7 @@ class Order(Base):
         fee: float = 0,
         timestamp: any = None,
         uuid: str = "",
+        backtest_id: str = "",
         *args,
         **kwargs
     ) -> None:
@@ -42,6 +43,7 @@ class Order(Base):
             fee,
             timestamp,
             uuid,
+            backtest_id,
         )
         self._name = "Order"
         self._status = ORDERSTATUS_TYPES.NEW
@@ -73,6 +75,7 @@ class Order(Base):
         fee: float,
         timestamp: any,
         uuid: str = "",
+        backtest_id: str = "",
     ):
         self._code: str = code
         self._direction: DIRECTION_TYPES = direction
@@ -90,6 +93,8 @@ class Order(Base):
             self._uuid: str = uuid
         else:
             self._uuid = gen_uuid4()
+
+        self._backtest_id = backtest_id
 
     @set.register
     def _(self, df: pd.Series):
@@ -109,6 +114,7 @@ class Order(Base):
         self._fee: float = df.fee
         self._timestamp: datetime.datetime = df.timestamp
         self._uuid: str = df.uuid
+        self._backtest_id: str = df.backtest_id
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
 
@@ -160,14 +166,21 @@ class Order(Base):
     def fee(self) -> float:
         return self._fee
 
-    def __repr__(self) -> str:
-        return base_repr(self, Order.__name__, 20, 60)
+    @property
+    def backtest_id(self) -> str:
+        return self._backtest_id
 
     def submit(self) -> None:
+        # TODO check the order status
         self._status = ORDERSTATUS_TYPES.SUBMITTED
 
     def fill(self) -> None:
+        # TODO check the order status
         self._status = ORDERSTATUS_TYPES.FILLED
 
     def cancel(self) -> None:
+        # TODO check the order status
         self._status = ORDERSTATUS_TYPES.CANCELED
+
+    def __repr__(self) -> str:
+        return base_repr(self, Order.__name__, 20, 60)

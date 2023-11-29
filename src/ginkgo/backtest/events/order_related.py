@@ -140,5 +140,13 @@ class EventOrderRelated(EventBase):
             return None
         return self.value.fee
 
+    @property
+    def backtest_id(self) -> str:
+        if self.value is None:
+            self.get_order(self.order_id)
+        if self.value is None:
+            return None
+        return self.value.backtest_id
+
     def __repr__(self):
         return base_repr(self, EventOrderRelated.__name__, 16, 60)

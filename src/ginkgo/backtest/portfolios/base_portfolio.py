@@ -1,15 +1,20 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
+    from ginkgo.backtest.strategies import StrategyBase
+
+
 import datetime
+from ginkgo.backtest.engines.base_engine import BaseEngine
+from ginkgo.backtest.selectors import BaseSelector
+from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
+from ginkgo.backtest.sizers import BaseSizer
 import pandas as pd
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.position import Position
 from ginkgo.backtest.signal import Signal
-from ginkgo.backtest.selectors import BaseSelector
-from ginkgo.backtest.sizers import BaseSizer
-from ginkgo.backtest.engines.base_engine import BaseEngine
-from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.backtest.strategies import StrategyBase
-from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, RECRODSTAGE_TYPES
 from ginkgo.libs import cal_fee, datetime_normalize, GinkgoSingleLinkedList
 from ginkgo.libs.ginkgo_conf import GCONF
@@ -136,7 +141,7 @@ class BasePortfolio(BacktestBase):
 
         return r
 
-    def bind_selector(self, selector: BaseSelector):
+    def bind_selector(self, selector: "BaseSelector"):
         if not isinstance(selector, BaseSelector):
             GLOG.ERROR(
                 f"Selector bind only support Selector, {type(selector)} {selector} is not supported."
@@ -152,7 +157,7 @@ class BasePortfolio(BacktestBase):
         """
         return self._selector
 
-    def bind_engine(self, engine: BaseEngine):
+    def bind_engine(self, engine: "BaseEngine"):
         if not isinstance(engine, BaseEngine):
             GLOG.ERROR(
                 f"EngineBind only support Type Engine, {type(BaseEngine)} {engine} is not supported."
@@ -164,7 +169,7 @@ class BasePortfolio(BacktestBase):
     def engine(self):
         return self._engine
 
-    def bind_risk(self, risk: BaseRiskManagement):
+    def bind_risk(self, risk: "BaseRiskManagement") -> None:
         if not isinstance(risk, BaseRiskManagement):
             GLOG.ERROR(
                 f"Risk bind only support Riskmanagement, {type(risk)} {risk} is not supported."
@@ -173,10 +178,10 @@ class BasePortfolio(BacktestBase):
         self._risk_manager = risk
 
     @property
-    def risk_manager(self) -> BaseRiskManagement:
+    def risk_manager(self) -> "BaseRiskManagement":
         return self._risk_manager
 
-    def bind_sizer(self, sizer: BaseSizer) -> None:
+    def bind_sizer(self, sizer: "BaseSizer") -> None:
         if not isinstance(sizer, BaseSizer):
             GLOG.ERROR(
                 f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported."
@@ -185,11 +190,11 @@ class BasePortfolio(BacktestBase):
         self._sizer = sizer
         self.sizer.bind_portfolio(self)
         if self.engine:
-            if self.engine.datafeeder:
-                self.sizer.bind_datafeeder(self.engine.datafeeder)
+            if hasattr(self.engine, "datafeeder"):
+                self.sizer.bind_data_feeder(self.engine.datafeeder)
 
     @property
-    def sizer(self) -> BaseSizer:
+    def sizer(self) -> "BaseSizer":
         return self._sizer
 
     def freeze(self, money: float) -> bool:
@@ -230,7 +235,7 @@ class BasePortfolio(BacktestBase):
             GLOG.WARN(f"DONE UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
         return self.frozen
 
-    def put(self, event):
+    def put(self, event) -> None:
         """
         Put event to eventengine.
         """
@@ -239,14 +244,14 @@ class BasePortfolio(BacktestBase):
             return
         self.engine.put(event)
 
-    def add_analyzer(self, analyzer: BaseAnalyzer):
+    def add_analyzer(self, analyzer: "BaseAnalyzer") -> None:
         if analyzer.name in self.analyzers.keys():
             return
         analyzer.set_backtest_id(self.backtest_id)
         self.analyzers[analyzer.name] = analyzer
         self.analyzers[analyzer.name].bind_portfolio(self)
 
-    def analyzer(self, key: str):
+    def analyzer(self, key: str) -> "BaseAnalyzer":
         """
         return the analyzers[key]
         """
@@ -270,12 +275,12 @@ class BasePortfolio(BacktestBase):
         """
         return self._strategies
 
-    def add_strategy(self, strategy: StrategyBase) -> None:
+    def add_strategy(self, strategy: "StrategyBase") -> None:
         self.strategies.append(strategy)
         if strategy.portfolio is None:
             strategy.bind_portfolio(self)
 
-    def add_position(self, position: Position):
+    def add_position(self, position: Position) -> None:
         code = position.code
         if code not in self.positions.keys():
             self._positions[code] = position
@@ -299,7 +304,7 @@ class BasePortfolio(BacktestBase):
     def on_order_canceled(self, order):
         raise NotImplemented
 
-    def on_time_goes_by(self, time: any, *args, **kwargs):
+    def on_time_goes_by(self, time: any, *args, **kwargs) -> None:
         """
         Go next frame.
         """
