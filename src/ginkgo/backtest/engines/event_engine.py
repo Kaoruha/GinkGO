@@ -9,19 +9,24 @@ The EventDrivenBacktest class will provide a way to run an event-driven backtest
 
 - Generating reports and metrics related to the performance of the backtesting system (By portfolio).
 """
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
+    from ginkgo.backtest.matchmakings import MatchMakingBase
+    from ginkgo.backtest.events.base_event import EventBase
+    from ginkgo.backtest.feeds.base_feed import BaseFeed
+    from ginkgo.enums import EVENT_TYPES
+
 import datetime
 import sys
 from time import sleep
 from queue import Queue, Empty
 from threading import Thread, Event
 from ginkgo.backtest.engines.base_engine import BaseEngine
-from ginkgo.backtest.events.base_event import EventBase
-from ginkgo.enums import EVENT_TYPES
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import datetime_normalize
-from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
-from ginkgo.backtest.matchmakings import MatchMakingBase
 from ginkgo.libs import GinkgoSingleLinkedList
 
 
@@ -60,7 +65,7 @@ class EventEngine(BaseEngine):
     def datafeeder(self):
         return self._datafeeder
 
-    def bind_datafeeder(self, datafeeder):
+    def bind_datafeeder(self, datafeeder: "BaseFeed"):
         self._datafeeder = datafeeder
         if self._datafeeder.engine is None:
             self._datafeeder.bind_engine(self)
@@ -70,10 +75,10 @@ class EventEngine(BaseEngine):
         return self._now
 
     @property
-    def matchmaking(self) -> MatchMakingBase:
+    def matchmaking(self) -> "MatchMakingBase":
         return self._matchmaking
 
-    def bind_matchmaking(self, matchmaking: MatchMakingBase) -> MatchMakingBase:
+    def bind_matchmaking(self, matchmaking: "MatchMakingBase") -> "MatchMakingBase":
         self._matchmaking = matchmaking
         if self.matchmaking.engine is None:
             self.matchmaking.bind_engine(self)
@@ -87,7 +92,7 @@ class EventEngine(BaseEngine):
     def portfolios(self) -> GinkgoSingleLinkedList:
         return self._portfolios
 
-    def bind_portfolio(self, portfolio: BasePortfolio) -> int:
+    def bind_portfolio(self, portfolio: "BasePortfolio") -> int:
         portfolio.set_backtest_id(self.backtest_id)
         self._portfolios.append(portfolio)
         GLOG.DEBUG(f"{type(self)}:{self.name} bind PORTFOLIO {portfolio.name}.")
@@ -191,11 +196,11 @@ class EventEngine(BaseEngine):
         # self._timer_thread.join()
         GLOG.WARN("Engine Stop.")
 
-    def put(self, event: EventBase) -> None:
+    def put(self, event: "EventBase") -> None:
         self._queue.put(event)
         GLOG.DEBUG(f"{type(self)}:{self.name} put {event.event_type} in queue.")
 
-    def _process(self, event: EventBase) -> None:
+    def _process(self, event: "EventBase") -> None:
         if event.event_type in self._handles:
             [handle(event) for handle in self._handles[event.event_type]]
             GLOG.DEBUG(f"{type(self)}:{self.name} Deal with {event.event_type}.")
@@ -207,7 +212,7 @@ class EventEngine(BaseEngine):
 
         [handle(event) for handle in self._general_handles]
 
-    def register(self, type: EVENT_TYPES, handle: callable) -> None:
+    def register(self, type: "EVENT_TYPES", handle: callable) -> None:
         if type in self._handles:
             if handle not in self._handles[type]:
                 self._handles[type].append(handle)
@@ -220,7 +225,7 @@ class EventEngine(BaseEngine):
                 f"Register handle {type} : {handle.__name__}"
             )  # handler.__func__ for method object, not support function object.
 
-    def unregister(self, type: EVENT_TYPES, handle: callable) -> None:
+    def unregister(self, type: "EVENT_TYPES", handle: callable) -> None:
         if type not in self._handles:
             GLOG.WARN(f"Event {type} not exsits. No need to unregister the handle.")
             return
