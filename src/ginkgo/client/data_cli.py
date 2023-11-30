@@ -25,6 +25,8 @@ class DataType(str, Enum):
     ADJUST = "adjustfactor"
     DAYBAR = "day"
     TICK = "tick"
+    ORDER = "order"
+    ANALYZER = "analyzer"
 
 
 class PLTType(str, Enum):
@@ -165,6 +167,17 @@ def ls(
     elif data == DataType.DAYBAR:
         pass
     elif data == DataType.TICK:
+        pass
+    elif data == DataType.ORDER:
+        if filter == "":
+            GLOG.WARN("Please input backtest_id to filter the order.")
+            return
+        else:
+            raw = GDATA.get_order_df_by_backtest(filter)
+            print(raw)
+            rs = raw
+        pass
+    elif data == DataType.ANALYZER:
         pass
 
     if rs.shape[0] < page:
@@ -374,3 +387,31 @@ def search(
     Try do fuzzy search.
     """
     pass
+
+
+@app.command()
+def rebuild(
+    order: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")
+    ] = False,
+    record: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")
+    ] = False,
+    file: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild File Table")
+    ] = False,
+):
+    from ginkgo.data.ginkgo_data import GDATA
+    from ginkgo.data.models import MOrder, MBacktest, MFile
+    from ginkgo.libs.ginkgo_logger import GLOG
+
+    if order:
+        GDATA.drop_table(MOrder)
+
+    if record:
+        GDATA.drop_table(MBacktest)
+
+    if file:
+        GDATA.drop_table(MFile)
+
+    GDATA.create_all()

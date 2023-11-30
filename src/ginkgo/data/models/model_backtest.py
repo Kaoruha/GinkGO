@@ -15,6 +15,7 @@ class MBacktest(MClickBase):
     __tablename__ = "backtest"
 
     backtest_id = Column(String(), default="")
+    backtest_config_id = Column(String(), default="")
     start_at = Column(DateTime, default=datetime_normalize("1950-01-01"))
     finish_at = Column(DateTime, default=datetime_normalize("1950-01-01"))
 
@@ -29,20 +30,19 @@ class MBacktest(MClickBase):
     def _(
         self,
         backtest_id: str,
+        backtest_config_id: str,
         start_at: any,
         finish_at: any = None,
     ) -> None:
         self.backtest_id = backtest_id
+        self.uuid = backtest_id
+        self.backtest_config_id = backtest_config_id
         self.start_at = datetime_normalize(start_at)
         self.finish_at = (
             datetime_normalize(finish_at)
             if finish_at
             else datetime_normalize("1950-01-01")
         )
-
-    @set.register
-    def _(self, df: pd.Series) -> None:
-        pass
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

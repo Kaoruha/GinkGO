@@ -19,6 +19,7 @@ from ginkgo.data.models import (
     MMysqlBase,
     MTick,
     MFile,
+    MBacktest,
 )
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs.ginkgo_conf import GCONF
@@ -168,7 +169,7 @@ class GinkgoData(object):
         MClickBase.metadata.create_all(click_driver.engine)
         # Create Tables in mysql
         MMysqlBase.metadata.create_all(mysql_driver.engine)
-        GLOG.DEBUG(f"{type(self)} create all tables.")
+        GLOG.INFO(f"{type(self)} create all tables.")
 
     def drop_all(self) -> None:
         """
@@ -196,6 +197,7 @@ class GinkgoData(object):
     def drop_table(self, model) -> None:
         db = self.get_driver(model)
         if db is None:
+            GLOG.ERROR(f"Can not get driver for {model}.")
             return
         if self.is_table_exsist(model):
             model.__table__.drop(db.engine)
@@ -251,6 +253,25 @@ class GinkgoData(object):
         elif df.shape[0] == 0:
             return pd.DataFrame()
         print("Get Order DF")
+        print(df)
+
+        df = df.iloc[0, :]
+        df.code = df.code.strip(b"\x00".decode())
+        return df
+
+    def get_order_df_by_backtest(self, backtest_id: str, engine=None) -> pd.DataFrame:
+        db = engine if engine else self.get_driver(MOrder)
+        r = (
+            db.session.query(MOrder)
+            .filter(MOrder.backtest_id == backtest_id)
+            .filter(MOrder.isdel == False)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+
+        if df.shape[0] == 0:
+            GLOG.DEBUG("Try get order df by backtest, but no order found.")
+            return pd.DataFrame()
+        GLOG.DEBUG(f"Get Order DF with backtest: {backtest_id}")
         print(df)
 
         df = df.iloc[0, :]
@@ -1488,7 +1509,6 @@ class GinkgoData(object):
 
         file_map = {
             "analyzers": FILE_TYPES.ANALYZER,
-            "indexes": FILE_TYPES.INDEX,
             "risk_managements": FILE_TYPES.RISKMANAGER,
             "selectors": FILE_TYPES.SELECTOR,
             "sizers": FILE_TYPES.SIZER,
@@ -1511,6 +1531,40 @@ class GinkgoData(object):
                 print("Add DefaultStrategy.yml")
         for i in file_map:
             walk_through(i)
+
+    def add_backtest(self, backtest_id: str, backtest_conf_id: str) -> None:
+        item = MBacktest()
+        item.set(backtest_id, backtest_conf_id, datetime.datetime.now())
+        self.add(item)
+
+    def get_backtest_record(self, backtest_id: str) -> None:
+        db = self.get_driver(MBacktest)
+        if backtest_id != "":
+            r = (
+                db.session.query(MBacktest)
+                .filter(MBacktest.backtest_id == backtest_id)
+                .filter(MBacktest.isdel == False)
+                .order_by(MBacktest.start_at.desc())
+                .limit(20)
+            )
+        else:
+            r = db.session.query(MBacktest).filter(MBacktest.isdel == False)
+        return r
+
+    def get_backtest_list_df(self, backtest_id: str = "") -> None:
+        db = self.get_driver(MBacktest)
+        if backtest_id != "":
+            r = (
+                db.session.query(MBacktest)
+                .filter(MBacktest.backtest_id == backtest_id)
+                .filter(MBacktest.isdel == False)
+                .order_by(MBacktest.start_at.desc())
+            )
+        else:
+            r = db.session.query(MBacktest).filter(MBacktest.isdel == False)
+        df = pd.read_sql(r.statement, db.engine)
+        df = df.sort_values(by="start_at", ascending=True)
+        return df
 
 
 GDATA = GinkgoData()
