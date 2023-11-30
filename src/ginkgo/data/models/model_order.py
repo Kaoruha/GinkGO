@@ -50,8 +50,8 @@ class MOrder(MMysqlBase):
         transaction_price: float,
         remain: float,
         fee: float,
-        backtest_id: str,
         timestamp: any,
+        backtest_id: str,
     ) -> None:
         self.uuid = uuid
         self.code = code
@@ -64,8 +64,8 @@ class MOrder(MMysqlBase):
         self.transaction_price = transaction_price
         self.remain = remain
         self.fee = fee
-        self.backtest_id = backtest_id
         self.timestamp = datetime_normalize(timestamp)
+        self.backtest_id = backtest_id
 
     @set.register
     def _(self, df: pd.Series) -> None:

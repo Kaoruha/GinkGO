@@ -283,6 +283,7 @@ class PortfolioT1Backtest(BasePortfolio):
                 order_adjusted.fee,
                 self.backtest_id,
                 self.now,
+                self.engine.backtest_id,
             )
             GDATA.add(mo)
             self._signal_gen_order_count += 1
@@ -314,6 +315,7 @@ class PortfolioT1Backtest(BasePortfolio):
                 order_adjusted.fee,
                 self.backtest_id,
                 self.now,
+                self.engine.backtest_id,
             )
             GLOG.WARN("Send a Short ORDER.")
             GDATA.add(mo)

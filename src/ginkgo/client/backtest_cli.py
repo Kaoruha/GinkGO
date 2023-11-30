@@ -20,7 +20,11 @@ class ResourceType(str, Enum):
     portfolio = "portfolio"
     analyzer = "analyzer"
     plot = "plot"
-    index = "index"
+
+
+class ResultType(str, Enum):
+    analyzer = "analyzer"
+    order = "order"
 
 
 @app.command()
@@ -39,7 +43,6 @@ def cat(
 ):
     """
     Show File content.
-
     """
     from ginkgo.data.ginkgo_data import GDATA
 
@@ -59,7 +62,6 @@ def ls(
     """
     Show backtest summary.
     """
-    # TODO get removed files
     from ginkgo.data.ginkgo_data import GDATA
 
     if resource is None:
@@ -86,7 +88,7 @@ def ls(
 
 
 @app.command()
-def run_dev(
+def run(
     id: Annotated[str, typer.Argument(case_sensitive=True)],
     level: Annotated[LogLevelType, typer.Option(case_sensitive=False)] = "INFO",
 ):
@@ -116,6 +118,9 @@ def run_dev(
     def get_class_from_id(father_directory, file_id):
         model = GDATA.get_file(file_id)
         path = f"{father_directory}/{file_id}.py"
+        if model is None:
+            GLOG.ERROR(f"{file_id} not exist.")
+            return None
         with open(path, "wb") as file:
             file.write(model.content)
             file.flush()  # Flush the data to the disk
@@ -159,7 +164,7 @@ def run_dev(
 
     # 1. Create a temp folder.
 
-    random_id = uuid.uuid4()
+    random_id = uuid.uuid4().hex
     temp_folder = f"{GCONF.WORKING_PATH}/{random_id}"
     os.mkdir(temp_folder)
 
@@ -212,6 +217,8 @@ def run_dev(
         portfolio.bind_selector(selector)
     else:
         console.print(f":sad_but_relieved_face:Cant Locate SELECOTR: {selector_id}")
+        shutil.rmtree(temp_folder)
+        return
     # <-- Selector
     # <-- Selector
 
@@ -227,6 +234,8 @@ def run_dev(
         portfolio.bind_sizer(sizer)
     else:
         console.print(f":sad_but_relieved_face:Cant Locate SIZER: {sizer_id}")
+        shutil.rmtree(temp_folder)
+        return
     # <-- Sizer
     # <-- Sizer
 
@@ -241,7 +250,9 @@ def run_dev(
         risk = risk_cls(*risk_parameters)
         portfolio.bind_risk(risk)
     else:
-        console.print(f":sad_but_relieved_face:Cant Locate SIZER: {sizer_id}")
+        console.print(f":sad_but_relieved_face:Cant Locate RISK: {sizer_id}")
+        shutil.rmtree(temp_folder)
+        return
     # <-- Risk
     # <-- Risk
 
@@ -260,11 +271,14 @@ def run_dev(
             portfolio.add_strategy(strategy)
         else:
             console.print(f":sad_but_relieved_face:Cant Locate Strategy: {strategy_id}")
+            shutil.rmtree(temp_folder)
+            return
 
     # <-- Strategy
     # <-- Strategy
 
     engine = EventEngine()
+    engine.set_backtest_id(random_id)
     engine.set_backtest_interval("day")
     engine.set_date_start(date_start)
     engine.set_date_end(date_end)
@@ -285,167 +299,13 @@ def run_dev(
     engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
     engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
 
+    GDATA.add_backtest(str(random_id), id)
     engine.start()
+    # TODO Add Backtest Record
     engine.put(EventNextPhase())
 
     # Remove the file and directory
     shutil.rmtree(temp_folder)
-
-
-@app.command()
-def run(
-    id: Annotated[str, typer.Argument(case_sensitive=True)],
-):
-    """
-    Run Backtest.
-    """
-    # TODO The DEMO param should be replaced with dynamic backtest id.
-    # TODO backtest id -->> backtest file -->> backtest setting.
-    # TODO setting could be a yaml, include sizer_id, selector_id, start and end, strategy_ids with setting(read strategy, and export dynamic parameters to set).
-    # TODO Create a temp folder, copy sizer.py selector.py and so on.
-    # TODO Dynamic create a .py file with dynamic import.
-    # TODO Run backtest, and do index monitor, put back to the model of backtest(strategy).
-    # TODO Remove the temp folder.
-    import uuid
-    import os
-    from ginkgo.libs.ginkgo_conf import GCONF
-    from ginkgo.data.ginkgo_data import GDATA
-    import shutil
-    import yaml
-    from ginkgo.backtest.engines import EventEngine
-    from ginkgo.backtest.portfolios import PortfolioT1Backtest
-    from ginkgo.libs import datetime_normalize
-
-    # 1. Create a temp folder.
-
-    temp_folder = f"{GCONF.WORKING_PATH}/{uuid.uuid4()}"
-    os.mkdir(temp_folder)  # TODO Activa after dev
-
-    # 2 Read config from database.
-    backtest_config_model = GDATA.get_file(id)
-    if backtest_config_model is None:
-        print(f"Backtest {id} not exsit.")
-        return
-
-    # 2. Read the id, Get backtest config from database. Write to local temp
-    content = backtest_config_model.content
-    with open(f"{temp_folder}/{id}.yml", "wb") as file:
-        file.write(content)
-
-    # Read local file --> config yaml
-    try:
-        with open(f"{temp_folder}/{id}.yml", "r") as file:
-            backtest_config = yaml.safe_load(file)
-    except Exception as e:
-        print(e)
-        return
-    if backtest_config is None:
-        return
-
-    print(backtest_config)
-    backtest_name = backtest_config["name"]
-
-    date_start = datetime_normalize(backtest_config["start"])
-    date_end = datetime_normalize(backtest_config["end"])
-    print(backtest_name)
-    print(date_start)
-    print(date_end)
-
-    import inspect
-    import importlib
-    import ast
-
-    # Get a list of all the members of the module.py file
-
-    # Portfolio -->
-    # Portfolio -->
-    # TODO
-
-    portfolio = PortfolioT1Backtest()  # TODO Read from database.
-
-    # Selector -->
-    # Selector -->
-
-    selectors = backtest_config["selectors"]
-    for selector in selectors:
-        select_id = selector["id"]
-        params = selector["params"]
-        print("Trying add selector::")
-        print(select_id)
-        file_path = f"{temp_folder}/{select_id}.py"
-        selector_model = GDATA.get_file(select_id)
-        selector_content = selector_model.content
-        with open(file_path, "wb") as file:
-            file.write(selector_content)
-
-        with open(file_path) as file:
-            source = file.read()
-            tree = ast.parse(source, mode="exec")
-            code = compile(tree, filename=file_path, mode="exec")
-            namespace = {}
-            exec(code, namespace)
-            node = ast.parse(source)
-            classes = [n for n in node.body if isinstance(n, ast.ClassDef)]
-        # TODO if there are more than 1 class in py file.
-        class_obj = namespace.get(classes[0].name)
-        instance = class_obj(params)
-        print(instance)
-
-    # 3. Read backtest config, Get Sizer, Selector... from database.
-    # 4. Gen *.py, record the map of py file name and module.
-    # 5. Gen run.py.
-    # 6. Run Backtest.
-    # 7. Do Records.
-    # 8. Clean the temp folder.
-    # shutil.rmtree(temp_folder)
-
-    # datestart = 20000101
-
-    # portfolio = PortfolioT1Backtest()
-    # codes = GDATA.get_stock_info_df()
-    # codes = codes.code.to_list()
-
-    # codes = random.sample(codes, 200)
-    # selector = FixedSelector(codes)
-    # portfolio.bind_selector(selector)
-
-    # risk = BaseRiskManagement()
-    # portfolio.bind_risk(risk)
-
-    # sizer = FixedSizer(name="500Sizer", volume=500)
-    # portfolio.bind_sizer(sizer)
-    # strategy = StrategyVolumeActivate()
-    # win_stop = StrategyProfitLimit(5)
-    # lose_stop = StrategyLossLimit(5)
-    # portfolio.add_strategy(strategy)
-    # portfolio.add_strategy(win_stop)
-    # portfolio.add_strategy(lose_stop)
-
-    # engine = EventEngine()
-    # engine.set_backtest_interval("day")
-    # engine.set_date_start(datestart)
-    # engine.bind_portfolio(portfolio)
-    # matchmaking = MatchMakingSim()
-    # engine.bind_matchmaking(matchmaking)
-    # feeder = BacktestFeed()
-    # feeder.subscribe(portfolio)
-    # engine.bind_datafeeder(feeder)
-
-    # # Event Handler Register
-    # engine.register(EVENT_TYPES.NEXTPHASE, engine.nextphase)
-    # engine.register(EVENT_TYPES.NEXTPHASE, feeder.broadcast)
-    # engine.register(EVENT_TYPES.PRICEUPDATE, portfolio.on_price_update)
-    # engine.register(EVENT_TYPES.PRICEUPDATE, matchmaking.on_price_update)
-    # engine.register(EVENT_TYPES.SIGNALGENERATION, portfolio.on_signal)
-    # engine.register(EVENT_TYPES.ORDERSUBMITTED, matchmaking.on_stock_order)
-    # engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
-    # engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
-
-    # engine.put(EventNextPhase())
-    # engine.start()
-
-    # # Remove the file and directory
-    # shutil.rmtree(temp_folder)
 
 
 @app.command()
@@ -526,3 +386,26 @@ def rm(
         console.print(f"File [yellow]{id}[/yellow] delete.")
     else:
         console.print(f"File [red]{id}[/red] not exist.")
+
+
+@app.command()
+def result(
+    backtest_id: Annotated[str, typer.Option(case_sensitive=True)] = "",
+    order: Annotated[
+        bool,
+        typer.Option(case_sensitive=False, help="Show Order Result."),
+    ] = False,
+    analyzer: Annotated[
+        bool,
+        typer.Option(case_sensitive=False, help="Show Anaylzer Result."),
+    ] = False,
+):
+    from ginkgo.data.ginkgo_data import GDATA
+
+    if backtest_id == "":
+        raw = GDATA.get_backtest_list_df()
+        print(raw)
+    else:
+        raw = GDATA.get_backtest_list_df(backtest_id)
+        # TODO Analyzer
+        # TODO Order

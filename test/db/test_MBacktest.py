@@ -22,6 +22,7 @@ class ModelBacktestTest(unittest.TestCase):
             {
                 "backtest_id": "whatareyounongshalei",
                 "start_at": datetime.datetime.now(),
+                "backtest_config_id": "whatareyounongshaleiconf",
             },
         ]
 
@@ -31,10 +32,7 @@ class ModelBacktestTest(unittest.TestCase):
     def test_ModelBacktest_SetFromData(self) -> None:
         for i in self.params:
             o = MBacktest()
-            o.set(
-                i["backtest_id"],
-                i["start_at"],
-            )
+            o.set(i["backtest_id"], i["start_at"], i["backtest_config_id"])
             self.assertEqual(o.backtest_id, i["backtest_id"])
 
     def test_ModelBacktest_SetFromDataFrame(self) -> None:
@@ -48,6 +46,7 @@ class ModelBacktestTest(unittest.TestCase):
             o.set(
                 i["backtest_id"],
                 i["start_at"],
+                i["backtest_config_id"],
             )
             GDATA.add(o)
             size1 = GDATA.get_table_size(MBacktest)
@@ -68,6 +67,7 @@ class ModelBacktestTest(unittest.TestCase):
                     o.set(
                         i["backtest_id"],
                         i["start_at"],
+                        i["backtest_config_id"],
                     )
                     l.append(o)
             GDATA.add_all(l)
@@ -87,7 +87,7 @@ class ModelBacktestTest(unittest.TestCase):
         GDATA.create_table(MBacktest)
         o = MBacktest()
         uuid = o.uuid
-        o.set(uuid, "2023-11-19 00:43:21")
+        o.set(uuid, "newconfid", "2023-11-19 00:43:21")
         GDATA.add(o)
         for i in range(num):
             driver = GDATA.get_driver(MBacktest)
