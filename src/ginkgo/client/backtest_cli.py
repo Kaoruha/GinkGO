@@ -409,7 +409,9 @@ def result(
     if backtest_id == "":
         raw = GDATA.get_backtest_list_df()
         if raw.shape[0] == 0:
-            console.print(f":sad_but_relieved_face:There is no backtest in database.")
+            console.print(
+                f":sad_but_relieved_face: There is no backtest record in database."
+            )
             return
         rs = raw[["uuid", "backtest_config_id", "start_at", "finish_at"]]
         print(rs)
@@ -418,6 +420,11 @@ def result(
 
     if order:
         raw = GDATA.get_order_df_by_backtest(backtest_id)
+        if raw.shape[0] == 0:
+            console.print(
+                f":sad_but_relieved_face: There is no order about {backtest_id} in database."
+            )
+            return
         print(raw)
 
     if analyzer:

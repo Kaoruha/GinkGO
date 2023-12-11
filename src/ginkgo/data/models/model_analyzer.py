@@ -21,16 +21,16 @@ class MAnalyzer(MClickBase):
 
     def set(
         self,
-        analyzer_name: str,
-        timestamp: any,
-        value: str,
         backtest_id: str,
+        timestamp: any,
+        value: float,
+        name: str,
         analyzer_id: id,
     ) -> None:
-        self.name = analyzer_name
+        self.name = name
         self.backtest_id = backtest_id
         self.analyzer_id = analyzer_id
-        self.timestamp = datetime_normalize(datetime)
+        self.timestamp = datetime_normalize(timestamp)
         self.value = value
 
     def __repr__(self) -> str:
