@@ -399,13 +399,33 @@ def result(
         bool,
         typer.Option(case_sensitive=False, help="Show Anaylzer Result."),
     ] = False,
+    plot: Annotated[
+        bool,
+        typer.Option(case_sensitive=False, help="Plot."),
+    ] = False,
 ):
     from ginkgo.data.ginkgo_data import GDATA
 
     if backtest_id == "":
         raw = GDATA.get_backtest_list_df()
-        print(raw)
+        if raw.shape[0] == 0:
+            console.print(f":sad_but_relieved_face:There is no backtest in database.")
+            return
+        rs = raw[["uuid", "backtest_config_id", "start_at", "finish_at"]]
+        print(rs)
     else:
         raw = GDATA.get_backtest_list_df(backtest_id)
+
+    if order:
+        raw = GDATA.get_order_df_by_backtest(backtest_id)
+        print(raw)
+
+    if analyzer:
+        pass
+        # raw = GDATA.get_analyzer_df_by_backtest(backtest_id)
+        # print(raw)
+
+    if plot:
+        pass
         # TODO Analyzer
         # TODO Order
