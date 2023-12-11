@@ -10,6 +10,7 @@ import multiprocessing
 import threading
 from sqlalchemy import DDL
 from ginkgo.data.models import (
+    MAnalyzer,
     MOrder,
     MBar,
     MStockInfo,
@@ -1564,6 +1565,27 @@ class GinkgoData(object):
             r = db.session.query(MBacktest).filter(MBacktest.isdel == False)
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="start_at", ascending=True)
+        return df
+
+    def get_analyzer_df_by_backtest(
+        self, backtest_id: str, engine=None
+    ) -> pd.DataFrame:
+        db = engine if engine else self.get_driver(MAnalyzer)
+        r = (
+            db.session.query(MAnalyzer)
+            .filter(MAnalyzer.backtest_id == backtest_id)
+            .filter(MAnalyzer.isdel == False)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+
+        if df.shape[0] == 0:
+            GLOG.DEBUG("Try get analyzer df by backtest, but no order found.")
+            return pd.DataFrame()
+        GLOG.DEBUG(f"Get Analyzer DF with backtest: {backtest_id}")
+        print(df)
+
+        df = df.iloc[0, :]
+        df.code = df.code.strip(b"\x00".decode())
         return df
 
 
