@@ -1567,6 +1567,9 @@ class GinkgoData(object):
         df = df.sort_values(by="start_at", ascending=True)
         return df
 
+    def add_analyzer() -> None:
+        pass
+
     def get_analyzer_df_by_backtest(
         self, backtest_id: str, engine=None
     ) -> pd.DataFrame:
