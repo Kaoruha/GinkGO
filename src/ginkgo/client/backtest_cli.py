@@ -390,7 +390,7 @@ def rm(
 
 @app.command()
 def result(
-    backtest_id: Annotated[str, typer.Option(case_sensitive=True)] = "",
+    id: Annotated[str, typer.Option(case_sensitive=True)] = "",
     order: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Show Order Result."),
@@ -406,7 +406,7 @@ def result(
 ):
     from ginkgo.data.ginkgo_data import GDATA
 
-    if backtest_id == "":
+    if id == "":
         raw = GDATA.get_backtest_list_df()
         if raw.shape[0] == 0:
             console.print(
@@ -416,21 +416,20 @@ def result(
         rs = raw[["uuid", "backtest_config_id", "start_at", "finish_at"]]
         print(rs)
     else:
-        raw = GDATA.get_backtest_list_df(backtest_id)
+        raw = GDATA.get_backtest_list_df(id)
 
     if order:
-        raw = GDATA.get_order_df_by_backtest(backtest_id)
+        raw = GDATA.get_order_df_by_backtest(id)
         if raw.shape[0] == 0:
             console.print(
-                f":sad_but_relieved_face: There is no order about {backtest_id} in database."
+                f":sad_but_relieved_face: There is no order about {id} in database."
             )
             return
         print(raw)
 
     if analyzer:
-        pass
-        # raw = GDATA.get_analyzer_df_by_backtest(backtest_id)
-        # print(raw)
+        raw = GDATA.get_analyzer_df_by_backtest(id)
+        print(raw)
 
     if plot:
         pass
