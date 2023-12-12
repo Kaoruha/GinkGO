@@ -400,9 +400,15 @@ def rebuild(
     file: Annotated[
         bool, typer.Option(case_sensitive=False, help="Rebuild File Table")
     ] = False,
+    backtest: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Table")
+    ] = False,
+    analyzer: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")
+    ] = False,
 ):
     from ginkgo.data.ginkgo_data import GDATA
-    from ginkgo.data.models import MOrder, MBacktest, MFile
+    from ginkgo.data.models import MOrder, MBacktest, MFile, MBacktest, MAnalyzer
     from ginkgo.libs.ginkgo_logger import GLOG
 
     if order:
@@ -413,5 +419,11 @@ def rebuild(
 
     if file:
         GDATA.drop_table(MFile)
+
+    if backtest:
+        GDATA.drop_table(MBacktest)
+
+    if analyzer:
+        GDATA.drop_table(MAnalyzer)
 
     GDATA.create_all()
