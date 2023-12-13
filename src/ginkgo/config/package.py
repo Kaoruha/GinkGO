@@ -1,5 +1,5 @@
 PACKAGENAME = "ginkgo"
-VERSION = "0.6.1"
+VERSION = "0.6.2"
 AUTHOR = "suny"
 EMAIL = "sun159753@gmail.com"
 DESC = "Python Backtesting library for trading research"

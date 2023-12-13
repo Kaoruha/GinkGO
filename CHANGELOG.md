@@ -10,7 +10,7 @@
   - [TODO] Support other markets.
 
 ##### 0.7(FUTURE)
-  - [TODO] Support Data Cache(redis?).
+  - [x] Support Data Cache(redis?).
   - [TODO]  Support More DataSource
   - - [TODO]  Support NSQ
   - - [TODO]  Support Dao
@@ -21,11 +21,11 @@
   - [TODO] Basic Live engine demo
   - [TODO] Add ML Engine.
 
-##### 0.6.1(DEV)
+##### 0.6.2(DEV)
   - [x] Fix precision lost problem.
-  - [DOING] Add CLI
+  - [x] Add CLI
   - [x] Add Trading Records.
-  - [DOING] Support More Flexible Data Interval
+  - [TODO] Support More Flexible Data Interval
   - [x] Config file setup
 
 ##### 0.6
