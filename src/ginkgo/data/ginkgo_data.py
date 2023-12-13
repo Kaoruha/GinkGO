@@ -1538,6 +1538,19 @@ class GinkgoData(object):
         item.set(backtest_id, backtest_conf_id, datetime.datetime.now())
         self.add(item)
 
+    def finish_backtest(self, backtest_id: str) -> None:
+        db = self.get_driver(MBacktest)
+        r = (
+            db.session.query(MBacktest)
+            .filter(MBacktest.backtest_id == backtest_id)
+            .filter(MBacktest.isdel == False)
+            .first()
+        )
+        if r is not None:
+            r.end_at = datetime.datetime.now()
+            r.update = datetime.datetime.now()
+            db.session.commit()
+
     def get_backtest_record(self, backtest_id: str) -> None:
         db = self.get_driver(MBacktest)
         if backtest_id != "":
@@ -1567,8 +1580,18 @@ class GinkgoData(object):
         df = df.sort_values(by="start_at", ascending=True)
         return df
 
-    def add_analyzer() -> None:
-        pass
+    def add_analyzer(
+        self,
+        backtest_id: str,
+        timestamp: any,
+        value: float,
+        name: str,
+        analyzer_id: str,
+    ) -> None:
+        db = self.get_driver(MAnalyzer)
+        item = MAnalyzer()
+        item.set(backtest_id, timestamp, value, name, analyzer_id)
+        self.add(item)
 
     def get_analyzer_df_by_backtest(
         self, backtest_id: str, engine=None
@@ -1585,10 +1608,9 @@ class GinkgoData(object):
             GLOG.DEBUG("Try get analyzer df by backtest, but no order found.")
             return pd.DataFrame()
         GLOG.DEBUG(f"Get Analyzer DF with backtest: {backtest_id}")
-        print(df)
+        df = df.sort_values(by="timestamp", ascending=True)
+        df.reset_index(drop=True, inplace=True)
 
-        df = df.iloc[0, :]
-        df.code = df.code.strip(b"\x00".decode())
         return df
 
 

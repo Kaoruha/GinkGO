@@ -1,14 +1,25 @@
 from ginkgo.enums import RECRODSTAGE_TYPES
 from ginkgo.backtest.backtest_base import BacktestBase
 import pandas as pd
+from ginkgo.data.models import MAnalyzer
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.libs import datetime_normalize
 
 
 class BaseAnalyzer(BacktestBase):
     def __init__(self, name: str, *args, **kwargs):
-        self._name = name
+        super(BaseAnalyzer, self).__init__(name, *args, **kwargs)
         self._active_stage = RECRODSTAGE_TYPES.NEWDAY
         self._portfolio = None
+        self._analyzer_id = ""
         self._data = pd.DataFrame(columns=["timestamp", self._name])
+
+    @property
+    def analyzer_id(self) -> str:
+        return self._analyzer_id
+
+    def set_analyzer_id(self, analyzer_id: str):
+        self._analyzer_id = analyzer_id
 
     @property
     def portfolio(self):
@@ -32,6 +43,52 @@ class BaseAnalyzer(BacktestBase):
         if stage != self.active_stage:
             return
 
+    def add_data(self, value: float) -> None:
+        """
+        Add data with the date self.now to dataframe. If the time is already in dataframe, will update the value.
+        """
+        if self.now is None:
+            return
+        date = self.now.strftime("%Y-%m-%d %H:%M:%S")
+        if date in self._data["timestamp"].values:
+            self._data.loc[self._data["timestamp"] == date, self._name] = value
+        else:
+            self._data = pd.concat(
+                [
+                    self._data,
+                    pd.DataFrame([[date, value]], columns=["timestamp", self._name]),
+                ]
+            )
+
+    def get_data(self, time: any) -> float:
+        """
+        Try get the data at time from dataframe.
+        """
+        time = datetime_normalize(time)
+        date = time.strftime("%Y-%m-%d %H:%M:%S")
+        if date in self._data["timestamp"].values:
+            return self._data[self._data["timestamp"] == date][self._name].values[0]
+        else:
+            return None
+
     @property
-    def value(self) -> any:
+    def value(self) -> pd.DataFrame:
         return self._data
+
+    @property
+    def data(self) -> pd.DataFrame:
+        return self._data
+
+    def add_record(self) -> None:
+        """
+        Add record to database.
+        """
+        o = MAnalyzer()
+        if self.now is None:
+            return
+        date = self.now.strftime("%Y-%m-%d %H:%M:%S")
+        if date not in self.value["timestamp"].values:
+            return
+        value = self.value[self.value["timestamp"] == date][self.name].values[0]
+        o.set(self.backtest_id, self.now, value, self.name, self.analyzer_id)
+        GDATA.add(o)

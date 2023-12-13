@@ -6,7 +6,10 @@ class BaseEngine(BacktestBase):
     def __init__(self, name: str = "BaseEngine", *args, **kwargs):
         super(BaseEngine, self).__init__(name, *args, **kwargs)
         self._active: bool = False
-        self._backtest_id: str = ""
+        self._backtest_id: str = uuid.uuid4().hex
+
+    def init_backtest(self) -> None:
+        self._backtest_id: str = uuid.uuid4().hex
 
     @property
     def backtest_id(self) -> str:
