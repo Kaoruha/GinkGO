@@ -1,12 +1,12 @@
 name: example for backtest config
 start: 20200101
-end: 20230101
+end: 20210101
 selector:
   id: b0248cedbd0c4bc4b03f5e2aa40e2510
   parameters:
       - 
         - 000001.SZ
-        - 000001.SZ
+        - 000002.SZ
       - example selector
 sizer:
   id: 572135d425a14b9f9b9e18fecf7d4283
@@ -26,3 +26,10 @@ strategies:
     parameters:
       - example profit limit
       - 30
+analyzers:
+  - id: 3410b1d06e2d4aada2226277ff59c420
+    parameters:
+      - net value
+  - id: 3802a04d06124db4befcae1e0e05ddc3
+    parameters:
+      - annualized_returns

@@ -115,7 +115,7 @@ def run(
 
     GLOG.set_level(level)
 
-    def get_class_from_id(father_directory, file_id):
+    def get_class_from_id(father_directory: str, file_id: str):
         model = GDATA.get_file(file_id)
         path = f"{father_directory}/{file_id}.py"
         if model is None:
@@ -125,10 +125,6 @@ def run(
             file.write(model.content)
             file.flush()  # Flush the data to the disk
             os.fsync(file.fileno())  # ensure the changes are permanent
-        # print(path)  # print the path variable
-        # print(os.path.exists(path))  # print True if the file exists, False otherwise
-        # print(os.path.isfile(path))  # )
-        # print(sys.path)
         module = None
         try_time = 0
         while True:
@@ -143,9 +139,6 @@ def run(
                 print(e)
                 try_time += 1
                 if try_time > 5:
-                    import pdb
-
-                    pdb.set_trace()
                     break
                 time.sleep(2)
         if module is None:
@@ -216,7 +209,7 @@ def run(
         selector = selector_cls(*selector_parameters)
         portfolio.bind_selector(selector)
     else:
-        console.print(f":sad_but_relieved_face:Cant Locate SELECOTR: {selector_id}")
+        console.print(f":sad_but_relieved_face: Cant Locate SELECOTR: {selector_id}")
         shutil.rmtree(temp_folder)
         return
     # <-- Selector
@@ -270,12 +263,36 @@ def run(
             strategy = strategy_cls(*strategy_parameters)
             portfolio.add_strategy(strategy)
         else:
-            console.print(f":sad_but_relieved_face:Cant Locate Strategy: {strategy_id}")
+            console.print(
+                f":sad_but_relieved_face: Cant Locate Strategy: {strategy_id}"
+            )
             shutil.rmtree(temp_folder)
             return
 
     # <-- Strategy
     # <-- Strategy
+
+    # Analyzer -->
+    # Analyzer -->
+    analyzer_config = backtest_config["analyzers"]
+    for analyze_config in analyzer_config:
+        analyzer_id = analyze_config["id"]
+        analyzer_parameters = analyze_config["parameters"]
+        print(analyzer_id)
+        print(analyzer_parameters)
+        analyzer_cls = get_class_from_id(random_id, analyzer_id)
+        # Bind Analyzer
+        if analyzer_cls is not None:
+            analyzer = analyzer_cls(*analyzer_parameters)
+            portfolio.add_analyzer(analyzer)
+        else:
+            console.print(
+                f":sad_but_relieved_face: Cant Locate Analyzer: {analyzer_id}"
+            )
+            shutil.rmtree(temp_folder)
+            return
+    # <-- Analyzer
+    # <-- Analyzer
 
     engine = EventEngine()
     engine.set_backtest_id(random_id)
@@ -429,7 +446,8 @@ def result(
 
     if analyzer:
         raw = GDATA.get_analyzer_df_by_backtest(id)
-        print(raw)
+        rs = raw[["timestamp", "name", "value"]]
+        print(rs)
 
     if plot:
         pass

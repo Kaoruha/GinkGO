@@ -246,6 +246,9 @@ class BasePortfolio(BacktestBase):
 
     def add_analyzer(self, analyzer: "BaseAnalyzer") -> None:
         if analyzer.name in self.analyzers.keys():
+            GLOG.ERROR(
+                f"Analyzer {analyzer.name} already in the analyzers. Please check."
+            )
             return
         analyzer.set_backtest_id(self.backtest_id)
         self.analyzers[analyzer.name] = analyzer
@@ -259,6 +262,7 @@ class BasePortfolio(BacktestBase):
         if key in self.analyzers.keys():
             return self.analyzers[key].value
         else:
+            GLOG.ERROR(f"Analyzer {key} not in the analyzers. Please check.")
             return None
 
     @property
@@ -318,6 +322,9 @@ class BasePortfolio(BacktestBase):
 
         for code in codes:
             self._interested.append(code)
+
+        for analyzer_key in self.analyzers.keys():
+            self.analyzers[analyzer_key].on_time_goes_by(time)
 
         self.record(RECRODSTAGE_TYPES.NEWDAY)
 

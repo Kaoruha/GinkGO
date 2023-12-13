@@ -160,6 +160,8 @@ class EventEngine(BaseEngine):
                 count += 1
                 # Exit
                 if count >= self.duration:
+                    GLOG.WARN("Should Stop.")
+                    self.stop()
                     sys.exit()
 
             # Break for a while
