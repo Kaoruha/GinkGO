@@ -406,8 +406,8 @@ def rm(
 
 
 @app.command()
-def result(
-    id: Annotated[str, typer.Option(case_sensitive=True)] = "",
+def res(
+    id: Annotated[str, typer.Argument(case_sensitive=True)] = "",
     order: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Show Order Result."),
@@ -433,23 +433,21 @@ def result(
         rs = raw[["uuid", "backtest_config_id", "start_at", "finish_at"]]
         print(rs)
     else:
-        raw = GDATA.get_backtest_list_df(id)
+        if order:
+            raw = GDATA.get_order_df_by_backtest(id)
+            if raw.shape[0] == 0:
+                console.print(
+                    f":sad_but_relieved_face: There is no order about {id} in database."
+                )
+                return
+            print(raw)
 
-    if order:
-        raw = GDATA.get_order_df_by_backtest(id)
-        if raw.shape[0] == 0:
-            console.print(
-                f":sad_but_relieved_face: There is no order about {id} in database."
-            )
-            return
-        print(raw)
+        if analyzer:
+            raw = GDATA.get_analyzer_df_by_backtest(id)
+            rs = raw[["timestamp", "name", "value"]]
+            print(rs)
 
-    if analyzer:
-        raw = GDATA.get_analyzer_df_by_backtest(id)
-        rs = raw[["timestamp", "name", "value"]]
-        print(rs)
-
-    if plot:
-        pass
-        # TODO Analyzer
-        # TODO Order
+        if plot:
+            pass
+            # TODO Analyzer
+            # TODO Order
