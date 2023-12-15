@@ -30,6 +30,7 @@ class ResultType(str, Enum):
 @app.command()
 def init():
     """
+    Init the basic file to database.
     Copy files from default.
     """
     from ginkgo.data.ginkgo_data import GDATA
@@ -39,7 +40,7 @@ def init():
 
 @app.command()
 def cat(
-    id: Annotated[str, typer.Argument(case_sensitive=True)],
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="File id.")],
 ):
     """
     Show File content.
@@ -53,7 +54,9 @@ def cat(
 
 @app.command()
 def ls(
-    resource: Annotated[ResourceType, typer.Argument(case_sensitive=False)] = None,
+    resource: Annotated[
+        ResourceType, typer.Argument(case_sensitive=False, help="File Type")
+    ] = None,
     a: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Show All Data, include removed file."),
@@ -89,8 +92,10 @@ def ls(
 
 @app.command()
 def run(
-    id: Annotated[str, typer.Argument(case_sensitive=True)],
-    level: Annotated[LogLevelType, typer.Option(case_sensitive=False)] = "INFO",
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID.")],
+    level: Annotated[
+        LogLevelType, typer.Option(case_sensitive=False, help="DEBUG Level")
+    ] = "INFO",
 ):
     """
     Run Backtest.
@@ -327,7 +332,7 @@ def run(
 
 @app.command()
 def edit(
-    id: Annotated[str, typer.Argument(case_sensitive=True)],
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
 ):
     """
     Edit Resources.
@@ -372,8 +377,10 @@ def edit(
 
 @app.command()
 def create(
-    resource: Annotated[ResourceType, typer.Argument(case_sensitive=False)],
-    name: Annotated[str, typer.Argument(case_sensitive=True)],
+    resource: Annotated[
+        ResourceType, typer.Argument(case_sensitive=False, help="File Type")
+    ],
+    name: Annotated[str, typer.Argument(case_sensitive=True, help="File Name")],
 ):
     """
     Create file in database.
@@ -391,23 +398,35 @@ def create(
 
 @app.command()
 def rm(
-    id: Annotated[str, typer.Argument(case_sensitive=True)],
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
 ):
     """
     Delete file in database.
     """
     from ginkgo.data.ginkgo_data import GDATA
 
+    # Try remove file
     result = GDATA.remove_file(id)
     if result:
         console.print(f"File [yellow]{id}[/yellow] delete.")
-    else:
-        console.print(f"File [red]{id}[/red] not exist.")
+        return
+    # Try remove backtest records
+    result2 = GDATA.remove_backtest(id)
+    if result2:
+        console.print(f"Backtest Record [yellow]{id}[/yellow] delete.")
+        # TODO Remove order records and analyzers
+        rs = GDATA.remove_orders(id)
+        console.print(f"Orders [yellow]{rs}[/yellow] delete.")
+        rs = GDATA.remove_analyzers(id)
+        console.print(f"Analyzers [yellow]{rs}[/yellow] delete.")
+        return
+
+    console.print(f"File [red]{id}[/red] not exist.")
 
 
 @app.command()
 def res(
-    id: Annotated[str, typer.Argument(case_sensitive=True)] = "",
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
     order: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Show Order Result."),
@@ -421,6 +440,9 @@ def res(
         typer.Option(case_sensitive=False, help="Plot."),
     ] = False,
 ):
+    """
+    Show the backtest result.
+    """
     from ginkgo.data.ginkgo_data import GDATA
 
     if id == "":
