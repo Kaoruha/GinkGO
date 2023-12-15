@@ -1538,6 +1538,53 @@ class GinkgoData(object):
         item.set(backtest_id, backtest_conf_id, datetime.datetime.now())
         self.add(item)
 
+    def remove_backtest(self, backtest_id: str) -> bool:
+        db = self.get_driver(MBacktest)
+        r = (
+            db.session.query(MBacktest)
+            .filter(MBacktest.backtest_id == backtest_id)
+            .filter(MBacktest.isdel == False)
+            .first()
+        )
+        if r is None:
+            return False
+        r.update = datetime.datetime.now()
+        r.isdel = True
+        db.session.commit()
+        return True
+
+    def remove_orders(self, backtest_id: str) -> int:
+        db = self.get_driver(MOrder)
+        r = (
+            db.session.query(MOrder)
+            .filter(MOrder.backtest_id == backtest_id)
+            .filter(MOrder.isdel == False)
+            .all()
+        )
+        count = len(r)
+        if len(r) > 0:
+            for i in r:
+                i.update = datetime.datetime.now()
+                i.isdel = True
+            db.session.commit()
+        return count
+
+    def remove_analyzers(self, backtest_id: str) -> int:
+        db = self.get_driver(MAnalyzer)
+        r = (
+            db.session.query(MAnalyzer)
+            .filter(MAnalyzer.backtest_id == backtest_id)
+            .filter(MAnalyzer.isdel == False)
+            .all()
+        )
+        count = len(r)
+        if len(r) > 0:
+            for i in r:
+                i.update = datetime.datetime.now()
+                i.isdel = True
+            db.session.commit()
+        return count
+
     def finish_backtest(self, backtest_id: str) -> None:
         db = self.get_driver(MBacktest)
         r = (
