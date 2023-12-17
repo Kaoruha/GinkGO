@@ -31,7 +31,7 @@ class ResultType(str, Enum):
 def init():
     """
     Init the basic file to database.
-    Copy files from default.
+    Copy files from source.
     """
     from ginkgo.data.ginkgo_data import GDATA
 
@@ -54,8 +54,8 @@ def cat(
 
 @app.command()
 def ls(
-    resource: Annotated[
-        ResourceType, typer.Argument(case_sensitive=False, help="File Type")
+    filter: Annotated[
+        str, typer.Option(case_sensitive=False, help="File filter")
     ] = None,
     a: Annotated[
         bool,
@@ -67,26 +67,26 @@ def ls(
     """
     from ginkgo.data.ginkgo_data import GDATA
 
-    if resource is None:
+    if filter is None:
         raw = GDATA.get_file_list_df(resource)
     else:
         from ginkgo.enums import FILE_TYPES
 
-        resource = FILE_TYPES.enum_convert(resource)
+        resource = FILE_TYPES.enum_convert(filter)
         raw = GDATA.get_file_list_df(resource)
 
     if raw.shape[0] > 0:
         rs = raw[["uuid", "file_name", "type", "update"]]
         msg = ""
-        if resource is None:
+        if filter is None:
             msg = f":ramen: There are {raw.shape[0]} files. "
         else:
-            msg = f":ramen: There are {raw.shape[0]} files about {resource}. "
+            msg = f":ramen: There are {raw.shape[0]} files about {filter}. "
         console.print(msg)
         print(rs)
     else:
         console.print(
-            f"There is no {resource} in database. You could [green]ginkgo backtest new RESOURCE[/green]"
+            f"There is no {filter} in database. You could [green]ginkgo backtest new RESOURCE[/green]"
         )
 
 
@@ -377,7 +377,7 @@ def edit(
 
 @app.command()
 def create(
-    resource: Annotated[
+    type: Annotated[
         ResourceType, typer.Argument(case_sensitive=False, help="File Type")
     ],
     name: Annotated[str, typer.Argument(case_sensitive=True, help="File Name")],
@@ -388,7 +388,7 @@ def create(
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.enums import FILE_TYPES
 
-    resource = FILE_TYPES.enum_convert(resource)
+    resource = FILE_TYPES.enum_convert(type)
     if resource in FILE_TYPES:
         GDATA.add_file(resource, name)
         console.print(f"Create file [yellow]{name}[/yellow].")
@@ -427,6 +427,10 @@ def rm(
 @app.command()
 def res(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
+    plot: Annotated[
+        bool,
+        typer.Option(case_sensitive=False, help="Plot."),
+    ] = False,
     order: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Show Order Result."),
@@ -434,10 +438,6 @@ def res(
     analyzer: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Show Anaylzer Result."),
-    ] = False,
-    plot: Annotated[
-        bool,
-        typer.Option(case_sensitive=False, help="Plot."),
     ] = False,
 ):
     """
@@ -470,6 +470,7 @@ def res(
             print(rs)
 
         if plot:
-            pass
+            from ginkgo.backtest.plots import ResultPlot
+
             # TODO Analyzer
             # TODO Order
