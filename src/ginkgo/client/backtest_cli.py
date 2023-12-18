@@ -461,25 +461,30 @@ def res(
         raw = GDATA.get_backtest_list_df()
         if raw.shape[0] == 0:
             console.print(
-                f":sad_but_relieved_face: There is no backtest record in database."
+                f":sad_but_relieved_face: There is no [light_coral]backtest record[/light_coral] in database."
             )
             return
-        rs = raw[["backtest_config_id", "uuid", "start_at", "finish_at"]]
+        rs = raw[["uuid", "start_at", "finish_at", "backtest_config_id"]]
         print(rs)
     else:
         if order:
             raw = GDATA.get_order_df_by_backtest(id)
             if raw.shape[0] == 0:
                 console.print(
-                    f":sad_but_relieved_face: There is no order about {id} in database."
+                    f":sad_but_relieved_face: There is no [light_coral]order[/light_coral] about [light_coral]{id}[/light_coral] in database."
                 )
                 return
             print(raw)
 
         if analyzer:
             raw = GDATA.get_analyzer_df_by_backtest(id)
-            rs = raw[["timestamp", "name", "value"]]
-            print(rs)
+            if raw.shape[0] == 0:
+                console.print(
+                    f":sad_but_relieved_face: There is no [light_coral]backtest analyzer[/light_coral] about [light_coral]{id}[/light_coral]in database."
+                )
+            else:
+                rs = raw[["timestamp", "name", "value"]]
+                print(rs)
 
         if plot:
             from ginkgo.backtest.plots import ResultPlot

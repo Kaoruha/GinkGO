@@ -22,7 +22,11 @@ class StrategyBase(BacktestBase):
 
     def set_attention_spans(self, spans: int) -> None:
         # Keep attention of raw data
-        self._attention_spans = spans
+        if isinstance(spans, int) and spans > 0:
+            self._attention_spans = spans
+
+        if isinstance(spans, str):
+            self._attention_spans = int(spans)
 
     def on_price_update(self, data):
         df = data.to_dataframe()

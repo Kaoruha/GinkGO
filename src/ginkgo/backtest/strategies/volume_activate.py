@@ -11,7 +11,7 @@ class StrategyVolumeActivate(StrategyBase):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, spans: int = 20, name: str = "VolumeActivate", *args, **kwargs):
+    def __init__(self, name: str = "VolumeActivate", spans: int = 20, *args, **kwargs):
         super(StrategyVolumeActivate, self).__init__(
             spans=spans, name=name, *args, **kwargs
         )
