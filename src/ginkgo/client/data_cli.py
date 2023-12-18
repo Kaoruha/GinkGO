@@ -326,7 +326,25 @@ def show(
 
 @app.command()
 def update(
-    data: Annotated[DataType, typer.Argument(case_sensitive=False)],
+    a: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update StockInfo")
+    ] = False,
+    # data: Annotated[DataType, typer.Argument(case_sensitive=False)],
+    stockinfo: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update StockInfo")
+    ] = False,
+    calendar: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update Calendar")
+    ] = False,
+    adjust: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update adjustfactor")
+    ] = False,
+    day: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update day bar")
+    ] = False,
+    tick: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update tick data")
+    ] = False,
     fast: Annotated[
         bool,
         typer.Option(
@@ -335,7 +353,7 @@ def update(
     ] = False,
     code: Annotated[
         str,
-        typer.Option(
+        typer.Argument(
             case_sensitive=False,
             help="If set,ginkgo will try to update the data of specific code.",
         ),
@@ -353,24 +371,26 @@ def update(
     else:
         GLOG.set_level("INFO")
     GDATA.create_all()
-    if data == DataType.ALL:
+    if a:
         # TODO Update all
         pass
-    elif data == DataType.STOCKINFO:
+    if stockinfo:
         GDATA.update_stock_info()
-    elif data == DataType.CALENDAR:
+
+    if calendar:
         GDATA.update_cn_trade_calendar()
-    elif data == DataType.ADJUST:
+
+    if adjust:
         if code == "":
             GDATA.update_all_cn_adjustfactor_aysnc()
         else:
             GDATA.update_cn_adjustfactor(code)
-    elif data == DataType.DAYBAR:
+    if day:
         if code == "":
             GDATA.update_all_cn_daybar_aysnc()
         else:
             GDATA.update_cn_daybar(code)
-    elif data == DataType.TICK:
+    if tick:
         if code == "":
             GDATA.update_all_cn_tick_aysnc(fast_mode=fast)
         else:
@@ -406,9 +426,24 @@ def rebuild(
     analyzer: Annotated[
         bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")
     ] = False,
+    stockinfo: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")
+    ] = False,
+    calendar: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")
+    ] = False,
 ):
     from ginkgo.data.ginkgo_data import GDATA
-    from ginkgo.data.models import MOrder, MBacktest, MFile, MBacktest, MAnalyzer
+    from ginkgo.enums import MARKET_TYPES
+    from ginkgo.data.models import (
+        MOrder,
+        MBacktest,
+        MFile,
+        MBacktest,
+        MAnalyzer,
+        MStockInfo,
+        MTradeDay,
+    )
     from ginkgo.libs.ginkgo_logger import GLOG
 
     if order:
@@ -425,5 +460,19 @@ def rebuild(
 
     if analyzer:
         GDATA.drop_table(MAnalyzer)
+
+    if stockinfo:
+        GDATA.drop_table(MStockInfo)
+        cache_name = "cn_stockinfo_updated"  # TODO use const
+        GDATA.remove_from_redis(cache_name)
+
+    if calendar:
+        GDATA.drop_table(MTradeDay)
+        # Get values of MarketTypes, try remove from redis
+        for market in MARKET_TYPES:
+            cached_name = f"trade_calendar%{market}updateat"  # Use const
+            GDATA.remove_from_redis(cached_name)
+            cached_name = f"trade_calendar%{market}"  # Use const
+            GDATA.remove_from_redis(cached_name)
 
     GDATA.create_all()
