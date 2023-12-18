@@ -464,7 +464,7 @@ def res(
                 f":sad_but_relieved_face: There is no backtest record in database."
             )
             return
-        rs = raw[["uuid", "backtest_config_id", "start_at", "finish_at"]]
+        rs = raw[["backtest_config_id", "uuid", "start_at", "finish_at"]]
         print(rs)
     else:
         if order:
@@ -483,6 +483,8 @@ def res(
 
         if plot:
             from ginkgo.backtest.plots import ResultPlot
+
+            print("Fake Plot")
 
             # TODO Analyzer
             # TODO Order
