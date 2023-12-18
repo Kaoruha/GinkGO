@@ -9,6 +9,7 @@ import numpy as np
 import multiprocessing
 import threading
 from sqlalchemy import DDL
+from rich.console import Console
 from ginkgo.data.models import (
     MAnalyzer,
     MOrder,
@@ -36,6 +37,9 @@ from ginkgo.enums import (
 )
 from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare, GinkgoTDX
 from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql, GinkgoRedis
+
+
+console = Console()
 
 
 class GinkgoData(object):
@@ -952,12 +956,13 @@ class GinkgoData(object):
         self.update_cn_trade_calendar()
 
     def update_cn_trade_calendar(self) -> None:
-        cached_name = f"cntradecalendar_updated"
+        market = MARKET_TYPES.CHINA
+        cached_name = f"trade_calendar%{market}updateat"
         temp_redis = self.get_redis()
         if temp_redis.exists(cached_name):
             updated = temp_redis.get(cached_name)
             GLOG.INFO(
-                f"Tick {code} Updated at {updated.decode('utf-8')}. No need to update."
+                f"Calendar Updated at {updated.decode('utf-8')}. No need to update."
             )
             return
         GLOG.INFO("Updating CN Calendar.")
@@ -1055,6 +1060,12 @@ class GinkgoData(object):
             return
 
         # Got the range of date
+        if info.shape[0] == 0:
+            GLOG.WARN(f"{code} has no stock info in db.")
+            console.print(
+                f":zipper-mouth_face: Please run [steel_blue1]ginkgo data update --stockinfo[/steel_blue1] first."
+            )
+            return
         date_start = info.list_date.values[0]
         date_start = datetime_normalize(str(pd.Timestamp(date_start)))
         date_end = info.delist_date.values[0]
@@ -1071,8 +1082,9 @@ class GinkgoData(object):
             MARKET_TYPES.CHINA, date_start, date_end
         )
         if trade_calendar.shape[0] == 0:
-            GLOG.WARN(
-                "There is no trade calendar. Please run `ginkgo data update calendar` first."
+            GLOG.WARN("There is no trade calendar.")
+            console.print(
+                f":zipper-mouth_face: Please run [steel_blue1]ginkgo data update --calendar[/steel_blue1] first."
             )
             return
         trade_calendar = trade_calendar[trade_calendar["is_open"] == "true"]
@@ -1271,6 +1283,12 @@ class GinkgoData(object):
     def update_all_cn_daybar_aysnc(self) -> None:
         t0 = datetime.datetime.now()
         info = self.get_stock_info_df_cached()
+        if info.shape[0] == 0:
+            GLOG.WARN(f"Stock Info is empty.")
+            console.print(
+                f":zipper-mouth_face: Please run [steel_blue1]ginkgo data update --stockinfo[/steel_blue1] first."
+            )
+
         l = []
         cpu_count = multiprocessing.cpu_count()
         cpu_count = int(cpu_count * self.cpu_ratio)
@@ -1671,6 +1689,14 @@ class GinkgoData(object):
         df.reset_index(drop=True, inplace=True)
 
         return df
+
+    def remove_from_redis(self, key: str):
+        temp_redis = self.get_redis()
+        if temp_redis.exists(key):
+            temp_redis.delete(key)
+            GLOG.WARN(f"Remove {key} from redis.")
+        else:
+            GLOG.WARN(f"{key} not exist in redis.")
 
 
 GDATA = GinkgoData()
