@@ -14,7 +14,9 @@ from src.ginkgo.libs.ginkgo_conf import GCONF
 from src.ginkgo.libs.ginkgo_logger import GLOG
 
 
-app = typer.Typer(help="Module for Unittest")
+app = typer.Typer(
+    help=":dove_of_peace:  Module for Unittest. Confirm functional integrity."
+)
 
 
 class LogLevelType(str, Enum):

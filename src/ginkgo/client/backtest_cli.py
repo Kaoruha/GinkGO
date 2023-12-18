@@ -7,7 +7,9 @@ from ginkgo.client.unittest_cli import LogLevelType
 from ginkgo.libs.ginkgo_logger import GLOG
 
 
-app = typer.Typer(help="Module for Backtest")
+app = typer.Typer(
+    help=":shark: Module for Backtest. Build your own strategy and do backtest."
+)
 console = Console()
 
 
@@ -63,19 +65,25 @@ def ls(
     ] = False,
 ):
     """
-    Show backtest summary.
+    Show backtest file summary.
     """
     from ginkgo.data.ginkgo_data import GDATA
 
     if filter is None:
-        raw = GDATA.get_file_list_df(resource)
+        # If filter is None, show all files.
+        raw = GDATA.get_file_list_df(None)
     else:
+        # If filter is not None, show files by filter.
+        # Try convert filter to enum.
+        # If Failed try with fuzzy search. TODO
         from ginkgo.enums import FILE_TYPES
 
-        resource = FILE_TYPES.enum_convert(filter)
-        raw = GDATA.get_file_list_df(resource)
+        file_type = FILE_TYPES.enum_convert(filter)
+        raw = GDATA.get_file_list_df(file_type)
 
     if raw.shape[0] > 0:
+        # If there is file in database.
+        # Show the file list.
         rs = raw[["uuid", "file_name", "type", "update"]]
         msg = ""
         if filter is None:
@@ -85,8 +93,9 @@ def ls(
         console.print(msg)
         print(rs)
     else:
+        # If there is no file in database.
         console.print(
-            f"There is no {filter} in database. You could [green]ginkgo backtest new RESOURCE[/green]"
+            f"There is no {filter} in database. You could [green]ginkgo backtest init[/green] or [green]ginkgo backtest new RESOURCE[/green]"
         )
 
 
