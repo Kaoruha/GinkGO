@@ -34,7 +34,7 @@ class PLTType(str, Enum):
     TICK = "tick"
 
 
-app = typer.Typer(help="Module for DATA")
+app = typer.Typer(help=":jigsaw: Module for DATA. CRUD about all kinds of data.")
 quit_list = ["NO", "N"]
 console = Console()
 

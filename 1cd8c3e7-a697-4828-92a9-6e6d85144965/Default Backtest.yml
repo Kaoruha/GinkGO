@@ -1,0 +1,35 @@
+name: example for backtest config
+start: 20200101
+end: 20220101
+selector:
+  id: 985886ad25ad4c019168384db1d8447a
+  parameters:
+      - 
+        - 000001.SZ
+        - 000002.SZ
+      - example selector
+sizer:
+  id: b2c00c6e19424b348017f30fb452f969
+  parameters:
+    - example sizer
+    - 1000
+risk_manager:
+  id: 5db63296b6c04b598d0e671a1dd014f2
+  parameters:
+    - example risk manager
+strategies:
+  - id: 8435487c8fde449991696c35ae3ed33c
+    parameters:
+      - example loss limit
+      - 10
+  - id: 9c72d37de0c140e1a2ab33527d1a14f0
+    parameters:
+      - example profit limit
+      - 30
+analyzers:
+  - id: 99d19181e6d642c28a2f9dfbe7a8b223
+    parameters:
+      - net value
+  - id: 54083728d9e644bca04ce7690358580d
+    parameters:
+      - annualized_returns
