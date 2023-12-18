@@ -109,7 +109,7 @@ def run(
     ] = "INFO",
 ):
     """
-    :poultry_leg: Run Backtest. [yellow]Duplication fo `ginkgo backtest run`.[/yellow]
+    :poultry_leg: Run Backtest. [grey62]Duplication fo `ginkgo backtest run`.[/grey62]
     """
     from ginkgo.client.backtest_cli import run as backtest_run
 
@@ -121,7 +121,7 @@ def cat(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="File id.")],
 ):
     """
-    :see_no_evil: Show File content. [yellow]Duplication of `ginkgo backtest cat`. [/yellow]
+    :see_no_evil: Show File content. [grey62]Duplication of `ginkgo backtest cat`. [/grey62]
     """
     from ginkgo.client.backtest_cli import cat as backtest_cat
 
@@ -133,7 +133,7 @@ def edit(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
 ):
     """
-    :orange_book: Edit File resources. [yellow]Duplication of `ginkgo backtest edit`.[/yellow]
+    :orange_book: Edit File resources. [grey62]Duplication of `ginkgo backtest edit`.[/grey62]
     """
     from ginkgo.client.backtest_cli import edit as backtest_edit
 
@@ -145,7 +145,7 @@ def rm(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
 ):
     """
-    :boom: Delete file in database. [yellow]Duplication of `ginkgo backtest rm`.[/yellow]
+    :boom: Delete file in database. [grey62]Duplication of `ginkgo backtest rm`.[/grey62]
     """
     from ginkgo.client.backtest_cli import rm as backtest_rm
 
@@ -163,7 +163,7 @@ def ls(
     ] = False,
 ):
     """
-    :open_file_folder: Show backtest file summary. [yellow]Duplication of `ginkgo backtest ls`.[/yellow]
+    :open_file_folder: Show backtest file summary. [grey62]Duplication of `ginkgo backtest ls`.[/grey62]
     """
     from ginkgo.client.backtest_cli import ls as backtest_ls
 
@@ -187,7 +187,7 @@ def res(
     ] = False,
 ):
     """
-    :one-piece_swimsuit: Show the backtest result. [yellow]Duplication of `ginkgo backtest res`.[/yellow]
+    :one-piece_swimsuit: Show the backtest result. [grey62]Duplication of `ginkgo backtest res`.[/grey62]
     """
     from ginkgo.client.backtest_cli import res as backtest_res
 

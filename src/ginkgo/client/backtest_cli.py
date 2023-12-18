@@ -79,7 +79,10 @@ def ls(
         from ginkgo.enums import FILE_TYPES
 
         file_type = FILE_TYPES.enum_convert(filter)
-        raw = GDATA.get_file_list_df(file_type)
+        if file_type is None:
+            raw = GDATA.get_file_list_df_fuzzy(filter)
+        else:
+            raw = GDATA.get_file_list_df(file_type)
 
     if raw.shape[0] > 0:
         # If there is file in database.
@@ -95,7 +98,7 @@ def ls(
     else:
         # If there is no file in database.
         console.print(
-            f"There is no {filter} in database. You could [green]ginkgo backtest init[/green] or [green]ginkgo backtest new RESOURCE[/green]"
+            f"There is no [light_coral]{filter}[/light_coral] in database. You could run [steel_blue1]ginkgo backtest init[/steel_blue1] or [steel_blue1]ginkgo backtest new [FileType][/steel_blue1]"
         )
 
 
