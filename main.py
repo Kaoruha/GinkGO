@@ -194,5 +194,75 @@ def res(
     backtest_res(id, plot, order, analyzer)
 
 
+@main_app.command()
+def update(
+    a: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update StockInfo")
+    ] = False,
+    # data: Annotated[DataType, typer.Argument(case_sensitive=False)],
+    stockinfo: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update StockInfo")
+    ] = False,
+    calendar: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update Calendar")
+    ] = False,
+    adjust: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update adjustfactor")
+    ] = False,
+    day: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update day bar")
+    ] = False,
+    tick: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Update tick data")
+    ] = False,
+    fast: Annotated[
+        bool,
+        typer.Option(
+            case_sensitive=False, help="If set, ginkgo will try update in fast mode."
+        ),
+    ] = False,
+    code: Annotated[
+        str,
+        typer.Argument(
+            case_sensitive=False,
+            help="If set,ginkgo will try to update the data of specific code.",
+        ),
+    ] = "",
+    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+):
+    from ginkgo.client.data_cli import update as data_update
+
+    data_update(a, stockinfo, calendar, adjust, day, tick, fast, code, debug)
+
+
+@main_app.command()
+def rebuild(
+    order: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")
+    ] = False,
+    record: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")
+    ] = False,
+    file: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild File Table")
+    ] = False,
+    backtest: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Table")
+    ] = False,
+    analyzer: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")
+    ] = False,
+    stockinfo: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")
+    ] = False,
+    calendar: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")
+    ] = False,
+):
+    from ginkgo.client.data_cli import rebuild as data_rebuild
+
+    data_rebuild(order, record, file, backtest, analyzer, stockinfo, calendar)
+
+
 if __name__ == "__main__":
     main_app()

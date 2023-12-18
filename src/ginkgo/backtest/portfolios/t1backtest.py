@@ -283,7 +283,6 @@ class PortfolioT1Backtest(BasePortfolio):
                 order_adjusted.transaction_price,
                 order_adjusted.remain,
                 order_adjusted.fee,
-                self.backtest_id,
                 self.now,
                 self.engine.backtest_id,
             )
@@ -315,7 +314,6 @@ class PortfolioT1Backtest(BasePortfolio):
                 order_adjusted.transaction_price,
                 order_adjusted.remain,
                 order_adjusted.fee,
-                self.backtest_id,
                 self.now,
                 self.engine.backtest_id,
             )
