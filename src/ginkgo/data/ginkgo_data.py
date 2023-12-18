@@ -1654,7 +1654,7 @@ class GinkgoData(object):
         else:
             r = db.session.query(MBacktest).filter(MBacktest.isdel == False)
         df = pd.read_sql(r.statement, db.engine)
-        df = df.sort_values(by="start_at", ascending=True)
+        df = df.sort_values(by="start_at", ascending=False)
         return df
 
     def add_analyzer(
