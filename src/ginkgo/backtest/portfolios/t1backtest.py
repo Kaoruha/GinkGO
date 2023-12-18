@@ -39,6 +39,8 @@ console = Console()
 
 
 class PortfolioT1Backtest(BasePortfolio):
+    # The class with this __abstract__  will rebuild the class from bytes.
+    # If not run time function will pass the class.
     __abstract__ = False
 
     def __init__(self, *args, **kwargs):

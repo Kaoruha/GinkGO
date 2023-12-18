@@ -2,6 +2,8 @@ from ginkgo.backtest.selectors.base_selector import BaseSelector
 
 
 class FixedSelector(BaseSelector):
+    # The class with this __abstract__  will rebuild the class from bytes.
+    # If not run time function will pass the class.
     __abstract__ = False
 
     def __init__(

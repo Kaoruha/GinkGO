@@ -31,6 +31,8 @@ from ginkgo.libs import GinkgoSingleLinkedList
 
 
 class EventEngine(BaseEngine):
+    # The class with this __abstract__  will rebuild the class from bytes.
+    # If not run time function will pass the class.
     __abstract__ = False
 
     def __init__(

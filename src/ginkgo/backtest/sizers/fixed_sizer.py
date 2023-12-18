@@ -6,6 +6,8 @@ from ginkgo.libs.ginkgo_logger import GLOG
 
 
 class FixedSizer(BaseSizer):
+    # The class with this __abstract__  will rebuild the class from bytes.
+    # If not run time function will pass the class.
     __abstract__ = False
 
     def __init__(self, name: str = "FixedSizer", volume: int = 150, *args, **kwargs):

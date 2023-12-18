@@ -1443,6 +1443,18 @@ class GinkgoData(object):
         # df.name = df.name.strip(b"\x00".decode())
         return df
 
+    def get_file_list_df_fuzzy(self, filter: str, engine=None):
+        db = engine if engine else self.get_driver(MFile)
+        r = (
+            db.session.query(MFile)
+            .filter(MFile.file_name.like(f"%{filter}%"))
+            .filter(MFile.isdel == False)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        df = df.sort_values(by="update", ascending=False)
+        # df.name = df.name.strip(b"\x00".decode())
+        return df
+
     def update_file(
         self, id: str, type: FILE_TYPES, name: str, content: bytes, engine=None
     ):

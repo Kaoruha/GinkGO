@@ -20,6 +20,10 @@ risk_manager:
 strategies:
   - id: 77d6bf4671e844c0bcae744f4258d68e
     parameters:
+      - example volume activate
+      - 23
+  - id: 77d6bf4671e844c0bcae744f4258d68e
+    parameters:
       - example loss limit
       - 10
   - id: 6e86a891f53a478f961ac573ff86df83

@@ -7,6 +7,8 @@ import time
 
 
 class StrategyVolumeActivate(StrategyBase):
+    # The class with this __abstract__  will rebuild the class from bytes.
+    # If not run time function will pass the class.
     __abstract__ = False
 
     def __init__(self, spans: int = 20, name: str = "VolumeActivate", *args, **kwargs):
