@@ -1,4 +1,5 @@
 import typer
+from typing import List as typing_list
 import click
 import os
 from cmd import Cmd
@@ -142,14 +143,17 @@ def edit(
 
 @main_app.command()
 def rm(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
+    ids: Annotated[
+        typing_list[str],
+        typer.Argument(case_sensitive=True, help="File ID"),
+    ],
 ):
     """
     :boom: Delete file in database. [grey62]Duplication of `ginkgo backtest rm`.[/grey62]
     """
     from ginkgo.client.backtest_cli import rm as backtest_rm
 
-    backtest_rm(id)
+    backtest_rm(ids)
 
 
 @main_app.command()

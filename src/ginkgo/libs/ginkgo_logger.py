@@ -1,6 +1,7 @@
 import os
 import inspect
 import logging
+from logging.handlers import RotatingFileHandler
 import colorlog
 import threading
 from ginkgo.libs.ginkgo_conf import GCONF
@@ -40,8 +41,12 @@ class GinkgoLogger(object):
             self.file_name = LOGGIN_DEFAULT_FILE
 
         self.logger = logging.getLogger(logger_name)
-        self.file_handler = logging.FileHandler(
-            filename=LOGGING_PATH + self.file_name, encoding="utf-8", mode="a"
+        self.file_handler = RotatingFileHandler(
+            filename=LOGGING_PATH + self.file_name,
+            encoding="utf-8",
+            mode="a",
+            maxBytes=50 * 1024,
+            backupCount=3,
         )
         self.file_handler.set_name(self._file_handler_name)
 
