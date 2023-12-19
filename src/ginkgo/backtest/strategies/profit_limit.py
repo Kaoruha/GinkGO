@@ -17,7 +17,7 @@ class StrategyProfitLimit(StrategyBase):
         **kwargs,
     ):
         super(StrategyProfitLimit, self).__init__(5, name, *args, **kwargs)
-        self._profit_limit = profit_limit
+        self._profit_limit = int(profit_limit)
         self.set_name(f"{name}{self.profit_limit}Per")
 
     @property

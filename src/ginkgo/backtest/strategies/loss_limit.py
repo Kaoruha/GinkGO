@@ -17,7 +17,7 @@ class StrategyLossLimit(StrategyBase):
         **kwargs,
     ):
         super(StrategyLossLimit, self).__init__(5, name, *args, **kwargs)
-        self._loss_limit = loss_limit
+        self._loss_limit = int(loss_limit)
         self.set_name(f"{name}{self.loss_limit}Per")
 
     @property

@@ -1563,9 +1563,9 @@ class GinkgoData(object):
         for i in file_map:
             walk_through(i)
 
-    def add_backtest(self, backtest_id: str, backtest_conf_id: str) -> None:
+    def add_backtest(self, backtest_id: str, content: bytes) -> None:
         item = MBacktest()
-        item.set(backtest_id, backtest_conf_id, datetime.datetime.now())
+        item.set(backtest_id, datetime.datetime.now(), content)
         self.add(item)
 
     def remove_backtest(self, backtest_id: str) -> bool:
@@ -1583,6 +1583,21 @@ class GinkgoData(object):
         db.session.commit()
         return True
 
+    def finish_backtest(self, backtest_id: str) -> None:
+        db = self.get_driver(MBacktest)
+        r = (
+            db.session.query(MBacktest)
+            .filter(MBacktest.backtest_id == backtest_id)
+            .filter(MBacktest.isdel == False)
+            .first()
+        )
+        if r is None:
+            GLOG.DEBUG(f"Can not find backtest {backtest_id} in database.")
+            return
+        r.finish(datetime.datetime.now())
+        db.session.commit()
+        GLOG.DEBUG(f"Backtest {backtest_id} finished.")
+
     def remove_orders(self, backtest_id: str) -> int:
         db = self.get_driver(MOrder)
         r = (
@@ -1594,13 +1609,13 @@ class GinkgoData(object):
         count = len(r)
         if len(r) > 0:
             for i in r:
-                i.update = datetime.datetime.now()
-                i.isdel = True
+                db.session.delete(i)
             db.session.commit()
         return count
 
-    def remove_analyzers(self, backtest_id: str) -> int:
+    def remove_analyzers(self, backtest_id: str) -> None:
         db = self.get_driver(MAnalyzer)
+
         r = (
             db.session.query(MAnalyzer)
             .filter(MAnalyzer.backtest_id == backtest_id)
@@ -1608,14 +1623,16 @@ class GinkgoData(object):
             .all()
         )
         count = len(r)
-        if len(r) > 0:
-            for i in r:
-                i.update = datetime.datetime.now()
-                i.isdel = True
-            db.session.commit()
+        if count > 0:
+            db.session.query(MAnalyzer).filter(
+                MAnalyzer.backtest_id == backtest_id
+            ).filter(MAnalyzer.isdel == False).delete()
         return count
 
-    def finish_backtest(self, backtest_id: str) -> None:
+    def update_backtest_profit(self, backtest_id: str, profit: float) -> None:
+        if backtest_id == "":
+            GLOG.DEBUG("Can not update the backtest record with empty backtest_id.")
+            return
         db = self.get_driver(MBacktest)
         r = (
             db.session.query(MBacktest)
@@ -1624,22 +1641,36 @@ class GinkgoData(object):
             .first()
         )
         if r is not None:
-            r.end_at = datetime.datetime.now()
-            r.update = datetime.datetime.now()
+            r.profit = profit
+            db.session.commit()
+
+    def finish_backtest(self, backtest_id: str) -> None:
+        if backtest_id == "":
+            GLOG.DEBUG("Can not finish the backtest record with empty backtest_id.")
+            return
+        db = self.get_driver(MBacktest)
+        r = (
+            db.session.query(MBacktest)
+            .filter(MBacktest.backtest_id == backtest_id)
+            .filter(MBacktest.isdel == False)
+            .first()
+        )
+        if r is not None:
+            r.finish(datetime.datetime.now())
             db.session.commit()
 
     def get_backtest_record(self, backtest_id: str) -> None:
         db = self.get_driver(MBacktest)
-        if backtest_id != "":
-            r = (
-                db.session.query(MBacktest)
-                .filter(MBacktest.backtest_id == backtest_id)
-                .filter(MBacktest.isdel == False)
-                .order_by(MBacktest.start_at.desc())
-                .limit(20)
-            )
-        else:
-            r = db.session.query(MBacktest).filter(MBacktest.isdel == False)
+        if backtest_id == "":
+            GLOG.DEBUG("Can not get backtest record with empty backtest_id.")
+            return
+        r = (
+            db.session.query(MBacktest)
+            .filter(MBacktest.backtest_id == backtest_id)
+            .filter(MBacktest.isdel == False)
+            .order_by(MBacktest.start_at.desc())
+            .first()
+        )
         return r
 
     def get_backtest_list_df(self, backtest_id: str = "") -> None:

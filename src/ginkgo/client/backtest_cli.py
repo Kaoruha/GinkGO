@@ -1,5 +1,6 @@
 import typer
 from enum import Enum
+from typing import List as typing_list, Optional
 from typing_extensions import Annotated
 from rich.prompt import Prompt
 from rich.console import Console
@@ -161,13 +162,13 @@ def run(
         if module is None:
             return None
         classes = inspect.getmembers(module, inspect.isclass)
-        filtered_classes = []
+        filtelight_coral_classes = []
         for name, cls in classes:
             if hasattr(cls, "__abstract__"):
-                filtered_classes.append(cls)
+                filtelight_coral_classes.append(cls)
         # TODO Check the length
-        if len(filtered_classes) == 1:
-            return filtered_classes[0]
+        if len(filtelight_coral_classes) == 1:
+            return filtelight_coral_classes[0]
         else:
             # TODO Raise Exception
             return None
@@ -333,13 +334,23 @@ def run(
     engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
     engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
 
-    GDATA.add_backtest(str(random_id), id)
-    engine.start()
+    with open(f"{temp_folder}/{id}.yml", "rb") as file:
+        GDATA.add_backtest(str(random_id), file.read())
+    t = engine.start()
     # TODO Add Backtest Record
     engine.put(EventNextPhase())
 
     # Remove the file and directory
     shutil.rmtree(temp_folder)
+    t.join()
+    GDATA.finish_backtest(random_id)
+    profit = 0
+    portfolio_node = engine.portfolios.head
+    while portfolio_node is not None:
+        portfolio = portfolio_node.value
+        profit += portfolio.worth
+        portfolio_node = portfolio_node.next
+    GDATA.update_backtest_profit(random_id, profit)
 
 
 @app.command()
@@ -410,30 +421,46 @@ def create(
 
 @app.command()
 def rm(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
+    ids: Annotated[
+        typing_list[str],
+        typer.Argument(case_sensitive=True, help="File ID"),
+    ],
 ):
     """
-    Delete file in database.
+    Delete file or Backtest Record in database.
     """
     from ginkgo.data.ginkgo_data import GDATA
 
-    # Try remove file
-    result = GDATA.remove_file(id)
-    if result:
-        console.print(f"File [yellow]{id}[/yellow] delete.")
-        return
-    # Try remove backtest records
-    result2 = GDATA.remove_backtest(id)
-    if result2:
-        console.print(f"Backtest Record [yellow]{id}[/yellow] delete.")
-        # TODO Remove order records and analyzers
-        rs = GDATA.remove_orders(id)
-        console.print(f"Orders [yellow]{rs}[/yellow] delete.")
-        rs = GDATA.remove_analyzers(id)
-        console.print(f"Analyzers [yellow]{rs}[/yellow] delete.")
-        return
+    for i in ids:
+        id = i
 
-    console.print(f"File [red]{id}[/red] not exist.")
+        # Try remove file
+        result = GDATA.remove_file(id)
+        if result:
+            console.print(f":zany_face: File [yellow]{id}[/yellow] delete.")
+        else:
+            console.print(
+                f":face_with_raised_eyebrow: File [light_coral]{id}[/light_coral] not exist."
+            )
+        # Try remove backtest records
+        result2 = GDATA.remove_backtest(id)
+        if result2:
+            console.print(
+                f":zany_face: Backtest Record [light_coral]{id}[/light_coral] delete."
+            )
+        else:
+            console.print(
+                f":face_with_raised_eyebrow: Record [light_coral]{id}[/light_coral] not exist."
+            )
+            # Remove order records and analyzers
+        result3 = GDATA.remove_orders(id)
+        console.print(
+            f":zany_face: Orders about [light_coral]{id}[/light_coral] [yellow]{result3}[/yellow] delete."
+        )
+        result4 = GDATA.remove_analyzers(id)
+        console.print(
+            f":zany_face: Analyzers about [light_coral]{id}[/light_coral] [yellow]{result4}[/yellow] delete."
+        )
 
 
 @app.command()
@@ -464,7 +491,7 @@ def res(
                 f":sad_but_relieved_face: There is no [light_coral]backtest record[/light_coral] in database."
             )
             return
-        rs = raw[["uuid", "start_at", "finish_at", "backtest_config_id"]]
+        rs = raw[["uuid", "profit", "start_at", "finish_at"]]
         print(rs)
     else:
         if order:
