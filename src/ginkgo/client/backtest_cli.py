@@ -367,7 +367,7 @@ def edit(
     file_in_db = GDATA.get_file(id)
     if file_in_db is None:
         console.print(
-            f":sad_but_relieved_face:File [yellow]{id}[/yellow] not exists. Try [green]ginkgo backtest list[/green] first."
+            f":sad_but_relieved_face: File [yellow]{id}[/yellow] not exists. Try [green]ginkgo backtest list[/green] first."
         )
     else:
         import uuid
@@ -404,6 +404,9 @@ def create(
         ResourceType, typer.Argument(case_sensitive=False, help="File Type")
     ],
     name: Annotated[str, typer.Argument(case_sensitive=True, help="File Name")],
+    source: Annotated[
+        str, typer.Option(case_sensitive=True, help="Copy from Target")
+    ] = "",
 ):
     """
     :ramen: Create file in database.
@@ -413,8 +416,15 @@ def create(
 
     resource = FILE_TYPES.enum_convert(type)
     if resource in FILE_TYPES:
-        GDATA.add_file(resource, name)
-        console.print(f"Create file [yellow]{name}[/yellow].")
+        if source == "":
+            GDATA.add_file(resource, name)
+            console.print(f"Create file [yellow]{name}[/yellow].")
+        else:
+            r = GDATA.copy_file(resource, name, source)
+            if r is None:
+                console.print(f"Copy file [yellow]{name}[/yellow] Failed.")
+            else:
+                console.print(f"Copy file [yellow]{name}[/yellow] Done.")
     else:
         print(f"File type not support.")
 
