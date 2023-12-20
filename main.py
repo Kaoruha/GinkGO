@@ -134,7 +134,7 @@ def edit(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
 ):
     """
-    :orange_book: Edit File resources. [grey62]Duplication of `ginkgo backtest edit`.[/grey62]
+    :orange_book: Edit File. [grey62]Duplication of `ginkgo backtest edit`.[/grey62]
     """
     from ginkgo.client.backtest_cli import edit as backtest_edit
 
@@ -149,7 +149,7 @@ def rm(
     ],
 ):
     """
-    :boom: Delete file in database. [grey62]Duplication of `ginkgo backtest rm`.[/grey62]
+    :boom: Delete [light_coral]FILE[/light_coral] or [light_coral]BACKTEST RECORD[/light_coral] in database. [grey62]Duplication of `ginkgo backtest rm`.[/grey62]
     """
     from ginkgo.client.backtest_cli import rm as backtest_rm
 
@@ -177,7 +177,7 @@ def ls(
 @main_app.command()
 def res(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
-    plot: Annotated[
+    plt: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Show Result in charts."),
     ] = False,
@@ -195,7 +195,7 @@ def res(
     """
     from ginkgo.client.backtest_cli import res as backtest_res
 
-    backtest_res(id, plot, order, analyzer)
+    backtest_res(id, plt, order, analyzer)
 
 
 @main_app.command()
@@ -234,6 +234,9 @@ def update(
     ] = "",
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
+    """
+    :raccoon: Data Update. [grey62]Duplication of `ginkgo data update`. [/grey62]
+    """
     from ginkgo.client.data_cli import update as data_update
 
     data_update(a, stockinfo, calendar, adjust, day, tick, fast, code, debug)
@@ -263,6 +266,10 @@ def rebuild(
         bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")
     ] = False,
 ):
+    """
+    :fox_face: Rebuild [light_coral]TABLE[/light_coral] in database. [grey62]Duplication of `ginkgo data rebuild`. [/grey62]
+
+    """
     from ginkgo.client.data_cli import rebuild as data_rebuild
 
     data_rebuild(order, record, file, backtest, analyzer, stockinfo, calendar)

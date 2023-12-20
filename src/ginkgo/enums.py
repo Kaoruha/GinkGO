@@ -118,7 +118,7 @@ class FILE_TYPES(EnumBase):
     BACKTEST = 7
 
 
-class RECRODSTAGE_TYPES(EnumBase):
+class RECORDSTAGE_TYPES(EnumBase):
     OTHER = 0
     NEWDAY = 1
     SIGNALGENERATION = 2

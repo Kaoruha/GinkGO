@@ -1,4 +1,5 @@
 import typer
+from tabulate import tabulate
 from enum import Enum
 from typing import List as typing_list, Optional
 from typing_extensions import Annotated
@@ -9,7 +10,7 @@ from ginkgo.libs.ginkgo_logger import GLOG
 
 
 app = typer.Typer(
-    help=":shark: Module for Backtest. Build your own strategy and do backtest."
+    help=":shark: Module for BACKTEST. Build your own strategy and do backtest."
 )
 console = Console()
 
@@ -33,8 +34,7 @@ class ResultType(str, Enum):
 @app.command()
 def init():
     """
-    Init the basic file to database.
-    Copy files from source.
+    :ram: Init the basic file to database. Copy files from source.
     """
     from ginkgo.data.ginkgo_data import GDATA
 
@@ -46,7 +46,7 @@ def cat(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="File id.")],
 ):
     """
-    Show File content.
+    :see_no_evil: Show File content.
     """
     from ginkgo.data.ginkgo_data import GDATA
 
@@ -66,7 +66,7 @@ def ls(
     ] = False,
 ):
     """
-    Show backtest file summary.
+    :open_file_folder: Show backtest file summary.
     """
     from ginkgo.data.ginkgo_data import GDATA
 
@@ -111,7 +111,7 @@ def run(
     ] = "INFO",
 ):
     """
-    Run Backtest.
+    :poultry_leg: Run Backtest.
     """
     import uuid
     import importlib
@@ -358,7 +358,7 @@ def edit(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
 ):
     """
-    Edit Resources.
+    :orange_book: Edit File.
     """
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.libs.ginkgo_conf import GCONF
@@ -406,7 +406,7 @@ def create(
     name: Annotated[str, typer.Argument(case_sensitive=True, help="File Name")],
 ):
     """
-    Create file in database.
+    :ramen: Create file in database.
     """
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.enums import FILE_TYPES
@@ -427,7 +427,7 @@ def rm(
     ],
 ):
     """
-    Delete file or Backtest Record in database.
+    :boom: Delete [light_coral]FILE[/light_coral] or [light_coral]BACKTEST RECORD[/light_coral] in database.
     """
     from ginkgo.data.ginkgo_data import GDATA
 
@@ -466,7 +466,7 @@ def rm(
 @app.command()
 def res(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
-    plot: Annotated[
+    plt: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Plot."),
     ] = False,
@@ -480,7 +480,7 @@ def res(
     ] = False,
 ):
     """
-    Show the backtest result.
+    :one-piece_swimsuit: Show the backtest result.
     """
     from ginkgo.data.ginkgo_data import GDATA
 
@@ -503,20 +503,27 @@ def res(
                 return
             print(raw)
 
+        raw = GDATA.get_analyzer_df_by_backtest(id)
+        if raw.shape[0] == 0:
+            console.print(
+                f":sad_but_relieved_face: There is no [light_coral]backtest analyzer[/light_coral] about [light_coral]{id}[/light_coral]in database."
+            )
         if analyzer:
-            raw = GDATA.get_analyzer_df_by_backtest(id)
-            if raw.shape[0] == 0:
-                console.print(
-                    f":sad_but_relieved_face: There is no [light_coral]backtest analyzer[/light_coral] about [light_coral]{id}[/light_coral]in database."
-                )
-            else:
-                rs = raw[["timestamp", "name", "value"]]
-                print(rs)
+            # TODO Split different analyzer
+            analyzers = raw["name"].unique()
+            for analyzer_name in analyzers:
+                df = raw[raw["name"] == analyzer_name]
+                rs = df[["timestamp", "name", "value"]]
+                print(tabulate(rs, headers="keys", tablefmt="psql"))
 
-        if plot:
+        if plt:
             from ginkgo.backtest.plots import ResultPlot
 
-            print("Fake Plot")
+            analyzers = raw["name"].unique()
+            data = {}
+            for analyzer_name in analyzers:
+                df = raw[raw["name"] == analyzer_name]
+                data[analyzer_name] = df
 
-            # TODO Analyzer
-            # TODO Order
+            plt = ResultPlot()
+            plt.update_data(id, data)

@@ -433,6 +433,9 @@ def rebuild(
         bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")
     ] = False,
 ):
+    """
+    :fox_face: Rebuild [light_coral]TABLE[/light_coral] in database. Attention.
+    """
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.enums import MARKET_TYPES
     from ginkgo.data.models import (

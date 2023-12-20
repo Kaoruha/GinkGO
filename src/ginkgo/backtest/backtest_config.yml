@@ -36,4 +36,4 @@ analyzers:
       - net value
   - id: 3802a04d06124db4befcae1e0e05ddc3
     parameters:
-      - annualized_returns
+      - signal count

@@ -4,20 +4,21 @@ from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd
 
 
-class NetValue(BaseAnalyzer):
+class SignalCount(BaseAnalyzer):
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False
 
     def __init__(self, name: str, *args, **kwargs):
-        super(NetValue, self).__init__(name, *args, **kwargs)
-        self.set_stage(RECORDSTAGE_TYPES.NEWDAY)
+        super(SignalCount, self).__init__(name, *args, **kwargs)
+        self.set_stage(RECORDSTAGE_TYPES.SIGNALGENERATION)
+        self.count = 0
 
     def record(self, stage, *args, **kwargs) -> None:
-        super(NetValue, self).record(stage, *args, **kwargs)
+        super(SignalCount, self).record(stage, *args, **kwargs)
         if stage != self.active_stage:
             return
-        value = self.portfolio.worth
-        self.add_data(value)
-        GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
+        self.count += 1
+        self.add_data(self.count)
+        GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {self.count}")
         self.add_record()
