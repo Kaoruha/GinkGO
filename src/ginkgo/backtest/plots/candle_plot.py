@@ -77,49 +77,49 @@ class CandlePlot(BasePlot):
         self.ax1 = self.figure.add_subplot(gs[0:30, 0:40], sharex=self.ax2)
 
     def update_plot(self):
-        if self.raw is not None:
-            plt.ion()
-            plt.cla()
-            dates = self.raw["timestamp"].values
-            open_ = self.raw["open"].astype(float).values
-            close = self.raw["close"].astype(float).values
-            high = self.raw["high"].astype(float).values
-            low = self.raw["low"].astype(float).values
-            volume = self.raw["volume"].astype(float).values
-            # 判断涨跌颜色
-            up = close >= open_
-            colors = np.zeros(up.size, dtype="U5")
-            colors[:] = "g"
-            colors[up] = "r"
-            # 蜡烛
-            self.ax1.bar(
-                x=dates, height=close - open_, bottom=open_, color=colors, alpha=0.5
-            )
-            # 腊烛芯
-            self.ax1.vlines(dates, low, high, color=colors, linewidth=1, alpha=0.5)
-            plt.xticks(ticks=dates)
-            # 成交量
-            self.ax2.bar(x=dates, height=volume, color=colors, alpha=0.5)
-            self.ax1.grid(color="gray", linestyle="--", linewidth=1, alpha=0.2)
-            self.ax1.xaxis.set_major_locator(ticker.NullLocator())
-            self.ax2.xaxis.set_major_locator(ticker.MultipleLocator(base=30))
-            self.ax2.grid(color="gray", linestyle="--", linewidth=1, alpha=0.2)
-            plt.draw()
-
-            # Cursor
-            self.cursor = Cursor(
-                self.ax1, horizOn=True, useblit=True, color="darkblue", linewidth=0.6
-            )
-            # Txt Init
-            self.infotips = self.ax1.text(
-                0.02,
-                0.98,
-                "Click the figure.",
-                horizontalalignment="left",
-                verticalalignment="top",
-                transform=self.ax1.transAxes,
-            )
-            self.figure.canvas.mpl_connect("button_press_event", self.on_press)
-            plt.ioff()
-        else:
+        if self.raw is None:
             GLOG.WARN("There is no data in plot.raw. ")
+            return
+        plt.ion()
+        plt.cla()
+        dates = self.raw["timestamp"].values
+        open_ = self.raw["open"].astype(float).values
+        close = self.raw["close"].astype(float).values
+        high = self.raw["high"].astype(float).values
+        low = self.raw["low"].astype(float).values
+        volume = self.raw["volume"].astype(float).values
+        # 判断涨跌颜色
+        up = close >= open_
+        colors = np.zeros(up.size, dtype="U5")
+        colors[:] = "g"
+        colors[up] = "r"
+        # 蜡烛
+        self.ax1.bar(
+            x=dates, height=close - open_, bottom=open_, color=colors, alpha=0.5
+        )
+        # 腊烛芯
+        self.ax1.vlines(dates, low, high, color=colors, linewidth=1, alpha=0.5)
+        plt.xticks(ticks=dates)
+        # 成交量
+        self.ax2.bar(x=dates, height=volume, color=colors, alpha=0.5)
+        self.ax1.grid(color="gray", linestyle="--", linewidth=1, alpha=0.2)
+        self.ax1.xaxis.set_major_locator(ticker.NullLocator())
+        self.ax2.xaxis.set_major_locator(ticker.MultipleLocator(base=30))
+        self.ax2.grid(color="gray", linestyle="--", linewidth=1, alpha=0.2)
+        plt.draw()
+
+        # Cursor
+        self.cursor = Cursor(
+            self.ax1, horizOn=True, useblit=True, color="darkblue", linewidth=0.6
+        )
+        # Txt Init
+        self.infotips = self.ax1.text(
+            0.02,
+            0.98,
+            "Click the figure.",
+            horizontalalignment="left",
+            verticalalignment="top",
+            transform=self.ax1.transAxes,
+        )
+        self.figure.canvas.mpl_connect("button_press_event", self.on_press)
+        plt.ioff()

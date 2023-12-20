@@ -1,4 +1,4 @@
-from ginkgo.enums import RECRODSTAGE_TYPES
+from ginkgo.enums import RECORDSTAGE_TYPES
 from ginkgo.backtest.backtest_base import BacktestBase
 import pandas as pd
 from ginkgo.data.models import MAnalyzer
@@ -9,7 +9,7 @@ from ginkgo.libs import datetime_normalize
 class BaseAnalyzer(BacktestBase):
     def __init__(self, name: str, *args, **kwargs):
         super(BaseAnalyzer, self).__init__(name, *args, **kwargs)
-        self._active_stage = RECRODSTAGE_TYPES.NEWDAY
+        self._active_stage = RECORDSTAGE_TYPES.NEWDAY
         self._portfolio = None
         self._analyzer_id = ""
         self._data = pd.DataFrame(columns=["timestamp", self._name])
@@ -26,8 +26,12 @@ class BaseAnalyzer(BacktestBase):
         return self._portfolio
 
     @property
-    def active_stage(self) -> RECRODSTAGE_TYPES:
+    def active_stage(self) -> RECORDSTAGE_TYPES:
         return self._active_stage
+
+    def set_stage(self, stage: RECORDSTAGE_TYPES) -> None:
+        if isinstance(stage, RECORDSTAGE_TYPES):
+            self._active_stage = stage
 
     def bind_portfolio(self, portfolio, *args, **kwargs):
         """

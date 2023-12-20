@@ -15,7 +15,7 @@ from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.position import Position
 from ginkgo.backtest.signal import Signal
-from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, RECRODSTAGE_TYPES
+from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, RECORDSTAGE_TYPES
 from ginkgo.libs import cal_fee, datetime_normalize, GinkgoSingleLinkedList
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs.ginkgo_logger import GLOG
@@ -105,7 +105,7 @@ class BasePortfolio(BacktestBase):
     def interested(self) -> GinkgoSingleLinkedList():
         return self._interested
 
-    def record(self, stage: RECRODSTAGE_TYPES) -> None:
+    def record(self, stage: RECORDSTAGE_TYPES) -> None:
         for k, v in self.analyzers.items():
             v.record(stage)
 
@@ -326,7 +326,7 @@ class BasePortfolio(BacktestBase):
         for analyzer_key in self.analyzers.keys():
             self.analyzers[analyzer_key].on_time_goes_by(time)
 
-        self.record(RECRODSTAGE_TYPES.NEWDAY)
+        self.record(RECORDSTAGE_TYPES.NEWDAY)
 
     def clean_positions(self) -> None:
         """

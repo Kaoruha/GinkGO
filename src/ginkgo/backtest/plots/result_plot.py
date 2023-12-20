@@ -17,109 +17,94 @@ class ResultPlot(BasePlot):
 
     def __init__(self, title: str = "", *args, **kwargs) -> None:
         super(ResultPlot, self).__init__(title, args, kwargs)
-        self.ax1 = None
-        self.ax2 = None
-        self.infotips = None
-        self.cursor = None
+        self.ax = []
+        self.backtest_id = ""
+        self.raw = None
 
-    def update_data(self, df: pd.DataFrame) -> None:
-        if not isinstance(df, pd.DataFrame):
-            GLOG.ERROR("Plot.get_data only support DataFrame. ")
+    def update_data(self, id: str, data: dict) -> None:
+        self.backtest_id = id
+        fig_count = len(data.keys())
+        self.raw = data
+        if fig_count == 0:
+            GLOG.ERROR("Plot.Show got no data. ")
             return
+        self.figure_init(fig_count)
+        self.update_plot(data)
 
-        if df.shape[0] == 0:
-            GLOG.WARN("Plot got no data. ")
-            return
-
-        self.raw = df.copy()
-        self.update_plot()
-
-    def on_press(self, event):
-        if self.raw is None:
-            self.infotips.set_text("Be Patient. There is no data in memory. ")
-            return
-        try:
-            x, y = event.xdata, event.ydata
-            date = matplotlib.dates.num2date(x).strftime("%Y-%m-%d")
-            timestamp = datetime.datetime.strptime(date, "%Y-%m-%d")
-            info = self.raw[self.raw.timestamp == timestamp]
-            self.figure.canvas.draw_idle()
-            msg = ""
-            if info is None or info.shape[0] == 0:
-                msg += f"No Data on {date}\n"
-            elif info.shape[0] > 0:
-                msg += f"DATE: {date}\n"
-                msg += f"OPEN: {info.open.values[0]}\n"
-                msg += f"HIGH: {info.high.values[0]}\n"
-                msg += f"LOW : {info.low.values[0]}\n"
-                msg += f"CLS : {info.close.values[0]}\n"
-                msg += f"VOL : {info.volume.values[0]}\n"
-            self.infotips.set_text(msg)
-        except Exception as e:
-            self.infotips.set_text(f"{e}")
-
-    def figure_init(self) -> None:
+    def figure_init(self, fig_count: int) -> None:
         logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
         self.figure = plt.figure(figsize=(16, 9))
+        # self.figure, self.ax = plt.subplots(fig_count, 1)
         # 设置字体
         plt.rcParams["font.sans-serif"] = ["SimHei"]
         plt.rcParams["axes.unicode_minus"] = False
 
         # 设置标题
-        self.figure.suptitle(self.title, fontsize=20, x=0.5, y=0.97)
+        self.figure.suptitle(f"Backtest {self.backtest_id}", fontsize=20, x=0.5, y=0.97)
 
         # 划分Grid
-        gs = gridspec.GridSpec(40, 40)
+        hight = fig_count * 20
+        gs = gridspec.GridSpec(40, hight)
 
-        # 生成上下两张图
-        self.ax2 = self.figure.add_subplot(gs[29:40, 0:40])
-        self.ax1 = self.figure.add_subplot(gs[0:30, 0:40], sharex=self.ax2)
+        for i in range(fig_count):
+            if i > 0:
+                self.ax.append(
+                    # self.figure.add_subplot(gs[i * 20 : (i + 1) * 20 - 1, 0:40])
+                    self.figure.add_subplot(
+                        gs[i * 20 : (i + 1) * 20 - 1, 0:40], sharex=self.ax[0]
+                    )
+                )
+            else:
+                self.ax.append(
+                    self.figure.add_subplot(gs[i * 20 : (i + 1) * 20 - 2, 0:40])
+                )
+            self.ax[i].legend(title=str(i), title_fontsize=25)
+            self.ax[i].set_ylabel("Y-Label")
+            print(f"should have set ax {i}")
+            print(self.ax[i])
 
-    def update_plot(self):
-        if self.raw is not None:
-            plt.ion()
-            plt.cla()
-            dates = self.raw["timestamp"].values
-            open_ = self.raw["open"].astype(float).values
-            close = self.raw["close"].astype(float).values
-            high = self.raw["high"].astype(float).values
-            low = self.raw["low"].astype(float).values
-            volume = self.raw["volume"].astype(float).values
-            # 判断涨跌颜色
-            up = close >= open_
-            colors = np.zeros(up.size, dtype="U5")
-            colors[:] = "g"
-            colors[up] = "r"
-            # 蜡烛
-            self.ax1.bar(
-                x=dates, height=close - open_, bottom=open_, color=colors, alpha=0.5
+    def update_plot(self, data: dict):
+        if data is None:
+            GLOG.WARN("Can not plot null.")
+            return
+        if len(data.keys()) == 0:
+            GLOG.WARN("Can not plot null.")
+            return
+        # plt.ion()
+        plt.cla()
+        date_start = None
+        date_end = None
+        for key in data.keys():
+            min_date = data[key]["timestamp"].min()
+            if date_start is None:
+                date_start = min_date
+            elif min_date < date_start:
+                date_start = min_date
+            max_date = data[key]["timestamp"].max()
+            if date_end is None:
+                date_end = max_date
+            elif max_date > date_end:
+                date_end = max_date
+        complete_dates = pd.date_range(date_start, date_end)
+        a = None
+        for i in range(len(data.keys())):
+            key = list(data.keys())[i]
+            df = data[key]
+            df_ = pd.DataFrame(
+                {
+                    "timestamp": complete_dates,
+                    "value": [np.nan] * len(complete_dates),
+                }
             )
-            # 腊烛芯
-            self.ax1.vlines(dates, low, high, color=colors, linewidth=1, alpha=0.5)
-            plt.xticks(ticks=dates)
-            # 成交量
-            self.ax2.bar(x=dates, height=volume, color=colors, alpha=0.5)
-            self.ax1.grid(color="gray", linestyle="--", linewidth=1, alpha=0.2)
-            self.ax1.xaxis.set_major_locator(ticker.NullLocator())
-            self.ax2.xaxis.set_major_locator(ticker.MultipleLocator(base=30))
-            self.ax2.grid(color="gray", linestyle="--", linewidth=1, alpha=0.2)
-            plt.draw()
-
-            # Cursor
-            self.cursor = Cursor(
-                self.ax1, horizOn=True, useblit=True, color="darkblue", linewidth=0.6
-            )
-            # Txt Init
-            self.infotips = self.ax1.text(
-                0.02,
-                0.98,
-                "Click the figure.",
-                horizontalalignment="left",
-                verticalalignment="top",
-                transform=self.ax1.transAxes,
-            )
-            self.figure.canvas.mpl_connect("button_press_event", self.on_press)
-            plt.ioff()
-        else:
-            GLOG.WARN("There is no data in plot.raw. ")
+            for index, row in df.iterrows():
+                time = row["timestamp"]
+                value = row["value"]
+                df_.loc[df_["timestamp"] == time, "value"] = value
+            df_.fillna(method="ffill", inplace=True)
+            df_.fillna(0, inplace=True)
+            y = df_["value"].astype(float).values
+            self.ax[i].plot(complete_dates, y)
+        plt.draw()
+        plt.show()
+        # plt.ioff()

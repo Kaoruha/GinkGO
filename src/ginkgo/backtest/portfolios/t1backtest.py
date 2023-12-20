@@ -28,7 +28,7 @@ from ginkgo.enums import (
     DIRECTION_TYPES,
     SOURCE_TYPES,
     ORDERSTATUS_TYPES,
-    RECRODSTAGE_TYPES,
+    RECORDSTAGE_TYPES,
 )
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.backtest.position import Position
@@ -201,7 +201,7 @@ class PortfolioT1Backtest(BasePortfolio):
         3.1 drop the signal
         3.2 put order to event engine
         """
-        self.record(RECRODSTAGE_TYPES.SIGNALGENERATION)
+        self.record(RECORDSTAGE_TYPES.SIGNALGENERATION)
         self._signal_get_count += 1  # Record
         GLOG.INFO(
             f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}."
@@ -293,7 +293,7 @@ class PortfolioT1Backtest(BasePortfolio):
             e = EventOrderSubmitted(order_adjusted.uuid)
             GLOG.INFO("Gen an Event Order Submitted...")
             self.put(e)
-            self.record(RECRODSTAGE_TYPES.ORDERSEND)
+            self.record(RECORDSTAGE_TYPES.ORDERSEND)
             self._order_send_count += 1  # Record
             GLOG.WARN(f"Send : {self._order_send_count}")
 
@@ -323,7 +323,7 @@ class PortfolioT1Backtest(BasePortfolio):
             e = EventOrderSubmitted(order_adjusted.uuid)
             # 6. Create Event
             self.put(e)
-            self.record(RECRODSTAGE_TYPES.ORDERSEND)
+            self.record(RECORDSTAGE_TYPES.ORDERSEND)
             self.orders.append(order_adjusted.uuid)  # Seems not work.
             self._order_send_count += 1  # Record
 
@@ -377,7 +377,7 @@ class PortfolioT1Backtest(BasePortfolio):
             )
             self.try_go_next_phase()
             return
-        self.record(RECRODSTAGE_TYPES.ORDERFILLED)
+        self.record(RECORDSTAGE_TYPES.ORDERFILLED)
         if event.direction == DIRECTION_TYPES.LONG:
             GLOG.WARN("DEALING with LONG FILLED ORDER")
             print(event.value)
@@ -408,7 +408,7 @@ class PortfolioT1Backtest(BasePortfolio):
         )
         # TODO LONG SHORT
         GLOG.WARN("Dealing with CANCELED ORDER.")
-        self.record(RECRODSTAGE_TYPES.ORDERCANCELED)
+        self.record(RECORDSTAGE_TYPES.ORDERCANCELED)
         if event.direction == DIRECTION_TYPES.LONG:
             GLOG.WARN("START UNFREEZE LONG.")
             self.unfreeze(event.frozen)
