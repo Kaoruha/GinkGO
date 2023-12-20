@@ -547,10 +547,14 @@ def res(
         raw = GDATA.get_analyzer_df_by_backtest(id)
         if raw.shape[0] == 0:
             console.print(
-                f":sad_but_relieved_face: There is no [light_coral]backtest analyzer[/light_coral] about [light_coral]{id}[/light_coral]in database."
+                f":sad_but_relieved_face: There is no [light_coral]backtest analyzer[/light_coral] about [light_coral]{id}[/light_coral] in database."
             )
+            return
         if analyzer:
             # TODO Split different analyzer
+            import pdb
+
+            pdb.set_trace()
             analyzers = raw["name"].unique()
             for analyzer_name in analyzers:
                 df = raw[raw["name"] == analyzer_name]
