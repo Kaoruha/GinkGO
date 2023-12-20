@@ -1426,7 +1426,7 @@ class GinkgoData(object):
         GLOG.WARN(f"Update ALL CN AdjustFactor cost {t1-t0}")
         GLOG.WARN(f"After Update Adjustfactor Size: {size}")
 
-    def get_file(self, id: str, engine=None):
+    def get_file(self, id: str, engine=None) -> MFile:
         db = engine if engine else self.get_driver(MFile)
         r = (
             db.session.query(MFile)
@@ -1490,11 +1490,23 @@ class GinkgoData(object):
             r.update = datetime.datetime.now()
             db.session.commit()
 
+    def copy_file(self, type: FILE_TYPES, name: str, source: str) -> MFile:
+        file = self.get_file(source)
+        if file is None:
+            GLOG.DEBUG(f"File {source} not exist. Copy failed.")
+            return
+        item = MFile()
+        item.type = type
+        item.file_name = name
+        item.content = file.content
+        self.add(item)
+        return item
+
     def add_file(
         self,
         type: FILE_TYPES,
         name: str,
-    ):
+    ) -> None:
         item = MFile()
         item.type = type
         item.file_name = name
