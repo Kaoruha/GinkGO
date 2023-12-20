@@ -474,6 +474,30 @@ def rm(
 
 
 @app.command()
+def recall(
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")],
+    name: Annotated[str, typer.Option(case_sensitive=True, help="File Name")] = "",
+):
+    """
+    Recall the Backtest config from a complete backtest.
+    """
+    from ginkgo.data.ginkgo_data import GDATA
+    from ginkgo.enums import FILE_TYPES
+    import datetime
+
+    backtest = GDATA.get_backtest_record(id)
+    if backtest is None:
+        return
+    file_name = name if name is not "" else f"{datetime.datetime.now()}_recall"
+    content = backtest.content
+    file_id = GDATA.add_file(FILE_TYPES.BACKTEST, file_name)
+    GDATA.update_file(file_id, FILE_TYPES.BACKTEST, file_name, content)
+    console.print(
+        f":dove: Recall the configuration of backtest [light_coral]{id}[/light_coral]"
+    )
+
+
+@app.command()
 def res(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
     plt: Annotated[

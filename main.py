@@ -275,5 +275,15 @@ def rebuild(
     data_rebuild(order, record, file, backtest, analyzer, stockinfo, calendar)
 
 
+@main_app.command()
+def recall(
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")],
+    name: Annotated[str, typer.Option(case_sensitive=True, help="File Name")] = "",
+):
+    from ginkgo.client.backtest_cli import recall as backtest_recall
+
+    backtest_recall(id, name)
+
+
 if __name__ == "__main__":
     main_app()

@@ -1506,12 +1506,14 @@ class GinkgoData(object):
         self,
         type: FILE_TYPES,
         name: str,
-    ) -> None:
+    ) -> MFile():
         item = MFile()
+        file_id = item.uuid
         item.type = type
         item.file_name = name
         item.content = b""
         self.add(item)
+        return file_id
 
     def remove_file(self, id: str) -> bool:
         db = self.get_driver(MFile)
