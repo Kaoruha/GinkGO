@@ -52,17 +52,13 @@ class ResultPlot(BasePlot):
                 self.ax.append(
                     # self.figure.add_subplot(gs[i * 20 : (i + 1) * 20 - 1, 0:40])
                     self.figure.add_subplot(
-                        gs[i * 20 : (i + 1) * 20 - 1, 0:40], sharex=self.ax[0]
+                        gs[i * 20 : (i + 1) * 20 - 4, 0:40], sharex=self.ax[0]
                     )
                 )
             else:
                 self.ax.append(
-                    self.figure.add_subplot(gs[i * 20 : (i + 1) * 20 - 2, 0:40])
+                    self.figure.add_subplot(gs[i * 20 : (i + 1) * 20 - 4, 0:40])
                 )
-            self.ax[i].legend(title=str(i), title_fontsize=25)
-            self.ax[i].set_ylabel("Y-Label")
-            print(f"should have set ax {i}")
-            print(self.ax[i])
 
     def update_plot(self, data: dict):
         if data is None:
@@ -105,6 +101,7 @@ class ResultPlot(BasePlot):
             df_.fillna(0, inplace=True)
             y = df_["value"].astype(float).values
             self.ax[i].plot(complete_dates, y)
+            self.ax[i].set_title(key)
         plt.draw()
         plt.show()
         # plt.ioff()
