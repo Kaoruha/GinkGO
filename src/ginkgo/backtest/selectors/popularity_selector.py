@@ -48,12 +48,12 @@ class PopularitySelector(BaseSelector):
                     advance=1,
                     description=f"{tag} POP Scan [light_coral]{code}[/light_coral]",
                 )
-                daybar_df = GDATA.get_daybar_df(
-                    code=code, date_start=date_start, date_end=self.now
-                )
-                # daybar_df = GDATA.get_daybar_df_cached(
+                # daybar_df = GDATA.get_daybar_df(
                 #     code=code, date_start=date_start, date_end=self.now
                 # )
+                daybar_df = GDATA.get_daybar_df_cached(
+                    code=code, date_start=date_start, date_end=self.now
+                )
                 if daybar_df.shape[0] > 0:
                     df.iloc[i, column_index] = daybar_df["volume"].sum()
             t1 = datetime.datetime.now()
