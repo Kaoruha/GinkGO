@@ -487,9 +487,6 @@ class GinkgoData(object):
         Get the daybar with back adjust.
         """
         GLOG.DEBUG(f"Try get DAYBAR df about {code} from {date_start} to {date_end}.")
-        GLOG.CRITICAL(
-            f"Try get DAYBAR df about {code} from {date_start} to {date_end}."
-        )
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         db = engine if engine else self.get_driver(MBar)
@@ -506,9 +503,6 @@ class GinkgoData(object):
         if df.shape[0] == 0:
             return pd.DataFrame()
         else:
-            GLOG.CRITICAL(
-                f"Return DAYBAR df about {code} from {date_start} to {date_end}."
-            )
             return self.calculate_adjustfactor(code, df)
         # TODO Start a thread store the data in redis cache
 
@@ -544,8 +538,11 @@ class GinkgoData(object):
                 return pd.DataFrame()
         else:
             if self.cache_daybar_count < self.cache_daybar_max:
+                t0 = datetime.datetime.now()
                 t = threading.Thread(target=self.cache_daybar_df, args=(code,))
                 t.start()
+                t1 = datetime.datetime.now()
+                GLOG.CRITICAL(f"Start a thread cost {t1-t0}")
                 self.cache_daybar_count += 1
             print("should return")
             return self.get_daybar_df(code, date_start, date_end)
