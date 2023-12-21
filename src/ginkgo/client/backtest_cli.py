@@ -448,6 +448,7 @@ def rm(
         result = GDATA.remove_file(id)
         if result:
             console.print(f":zany_face: File [yellow]{id}[/yellow] delete.")
+            return
         else:
             console.print(
                 f":face_with_raised_eyebrow: File [light_coral]{id}[/light_coral] not exist."

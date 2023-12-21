@@ -6,9 +6,7 @@ class FixedSelector(BaseSelector):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(
-        self, codes: list, name: str = "FixedSelector", *args, **kwargs
-    ) -> None:
+    def __init__(self, name: str, codes: list, *args, **kwargs) -> None:
         super(FixedSelector, self).__init__(name, *args, **kwargs)
         if not isinstance(codes, list):
             print(codes)

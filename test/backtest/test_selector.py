@@ -34,10 +34,30 @@ class FixedSelectorTest(unittest.TestCase):
 
     def test_fixedselector_init(self):
         codes = ["halo", "nihao"]
-        s = FixedSelector(codes)
+        s = FixedSelector("test_fixed_selector", codes)
 
     def test_fixedselector_pick(self):
         codes = ["halo", "nihao"]
-        s = FixedSelector(codes)
+        s = FixedSelector("test_fixed_selector", codes)
         r = s.pick()
         self.assertEqual(2, len(r))
+
+
+class PopularitySelector(unittest.TestCase):
+    """
+    UnitTest for PopularitySelector
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super(PopularitySelector, self).__init__(*args, **kwargs)
+
+    def test_popularityselector_init(self):
+        codes = ["halo", "nihao"]
+        s = PopularitySelector("test_fixed_selector", codes)
+
+    def test_popularityselector_pick(self):
+        codes = ["halo", "nihao"]
+        s = PopularitySelector("test_fixed_selector", 10)
+        r = s.pick()
+        s = PopularitySelector("test_fixed_selector", -10)
+        r = s.pick()

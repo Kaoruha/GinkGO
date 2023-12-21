@@ -59,6 +59,8 @@ class GinkgoData(object):
         except Exception as e:
             print(e)
         self.tick_models = {}
+        self.cache_daybar_count = 0
+        self.cache_daybar_max = 4
 
     def get_driver(self, value):
         is_class = isinstance(value, type)
@@ -485,6 +487,9 @@ class GinkgoData(object):
         Get the daybar with back adjust.
         """
         GLOG.DEBUG(f"Try get DAYBAR df about {code} from {date_start} to {date_end}.")
+        GLOG.CRITICAL(
+            f"Try get DAYBAR df about {code} from {date_start} to {date_end}."
+        )
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         db = engine if engine else self.get_driver(MBar)
@@ -501,7 +506,11 @@ class GinkgoData(object):
         if df.shape[0] == 0:
             return pd.DataFrame()
         else:
+            GLOG.CRITICAL(
+                f"Return DAYBAR df about {code} from {date_start} to {date_end}."
+            )
             return self.calculate_adjustfactor(code, df)
+        # TODO Start a thread store the data in redis cache
 
     def get_daybar_df_cached(
         self,
@@ -526,7 +535,30 @@ class GinkgoData(object):
         if temp_redis.exists(cache_name):
             cache = temp_redis.get(cache_name)
             df = pickle.loads(cache)
+            if df.shape[0] > 0:
+                date_range = pd.date_range(start=date_start, end=date_end)
+                df_filtered = df[df.timestamp.isin(date_range)]
+                df_filtered.reset_index(drop=True, inplace=True)
+                return df_filtered
+            else:
+                return pd.DataFrame()
         else:
+            if self.cache_daybar_count < self.cache_daybar_max:
+                t = threading.Thread(target=self.cache_daybar_df, args=(code,))
+                t.start()
+                self.cache_daybar_count += 1
+            print("should return")
+            return self.get_daybar_df(code, date_start, date_end)
+
+    def cache_daybar_df(self, code: str, engine=None):
+        self.is_daybar_caching = True
+        try:
+            cache_name = f"day%{code}"
+            temp_redis = self.get_redis()
+            if temp_redis.exists(cache_name):
+                self.cache_daybar_count -= 1
+                return
+            db = engine if engine else self.get_driver(MBar)
             r = (
                 db.session.query(MBar)
                 .filter(MBar.code == code)
@@ -540,13 +572,10 @@ class GinkgoData(object):
                 temp_redis.setex(
                     cache_name, self.redis_expiration_time, pickle.dumps(df)
                 )
-        if df.shape[0] > 0:
-            date_range = pd.date_range(start=date_start, end=date_end)
-            df_filtered = df[df.timestamp.isin(date_range)]
-            df_filtered.reset_index(drop=True, inplace=True)
-            return df_filtered
-        else:
-            return pd.DataFrame()
+            self.cache_daybar_count -= 1
+        except Exception as e:
+            print(e)
+            self.cache_daybar_count -= 1
 
     def get_adjustfactor(
         self,
