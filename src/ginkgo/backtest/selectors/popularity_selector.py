@@ -26,7 +26,7 @@ class PopularitySelector(BaseSelector):
         t0 = datetime.datetime.now()
         df = GDATA.get_stock_info_df_cached()
         df["sum_volume"] = 0
-        df = df[:200]
+        df = df[:500]
         df.reset_index(drop=True, inplace=True)
         column_index = df.columns.get_loc("sum_volume")
         date_start = self.now + datetime.timedelta(days=int(self.span * -1))
