@@ -62,9 +62,8 @@ class GinkgoData(object):
         self.tick_models = {}
         self.cache_daybar_count = 0
         self.cache_daybar_max = 4
-        self.redis_queue = multiprocessing.Queue(20)
-        self.redis_listener_started = False
-        self.start_listen_redis_handler()
+        self.redis_queue = multiprocessing.Manager().Queue(20)
+        self.redis_lock = multiprocessing.Manager().Lock()
 
     def get_daybar_redis_cache_name(self, code: str) -> str:
         pass
@@ -73,44 +72,46 @@ class GinkgoData(object):
         pass
 
     def start_listen_redis_handler(self) -> None:
-        GLOG.CRITICAL(1111111)
-        if self.redis_listener_started:
-            GLOG.WARN("Redis Listener already started.")
+        acquired = self.redis_lock.acquire(timeout=1)
+        if not acquired:
+            GLOG.WARN("Redis listener already started.")
             return
-        self.redis_listener_started = True
         # Build a Multiprocessing Pool to listen to a queue.
-        count = 2
+        count = 4
         p = multiprocessing.Pool(count)
         for i in range(count):
-            p.apply_async(self.redis_handler, args=(str(i),))
-            print("After apply")
+            res = p.apply_async(
+                self.redis_handler,
+                args=(self.redis_queue,),
+                callback=self.redis_handler_done(),
+            )
         p.close()
-        p.join()
-        GLOG.INFO(33333333)
 
     def redis_handler_done(self):
-        print("Done")
+        pass
 
-    def redis_handler(self, code: str) -> None:
-        GLOG.CRITICAL(444444444)
-        print(code)
-        # try:
-        #     GLOG.CRITICAL(33333)
-        #     while True:
-        #         print(1)
-        #         time.sleep(1)
-        #         if self.redis_queue.empty():
-        #             GLOG.CRITICAL("empty")
-        #             time.sleep(2)
-        #             continue
-        #         try:
-        #             item = self.redis_queue.get()
-        #             print(item)
-        #             # TODO decode the data , and do cache
-        #         except Exception as e:
-        #             print(e)
-        # except Exception as e:
-        #     print(e)
+    def redis_handler(self, q) -> None:
+        print(
+            f"ProcessName: {multiprocessing.current_process().name}  PID: {os.getpid()}"
+        )
+
+        while True:
+            print(
+                f"Current redis: {self.redis_queue.qsize()}   {self.redis_queue}  {self}"
+            )
+            if q.empty():
+                # print("empty")
+                time.sleep(2)
+                continue
+            try:
+                item = q.get()
+                data_type = item[0]
+                code = item[1]
+                print(item)
+                print(f"dealing with {data_type} {data}")
+                # TODO decode the data , and do cache
+            except Exception as e:
+                print(e)
 
     def get_driver(self, value):
         is_class = isinstance(value, type)
@@ -587,14 +588,13 @@ class GinkgoData(object):
             else:
                 return pd.DataFrame()
         else:
-            if self.cache_daybar_count < self.cache_daybar_max:
-                t0 = datetime.datetime.now()
-                try:
-                    self.redis_queue.put([code, "daybar"], block=False)
-                except Exception as e:
-                    print(e)
-                t1 = datetime.datetime.now()
-                self.cache_daybar_count += 1
+            try:
+                self.redis_queue.put(["daybar", code], block=False)
+                print(
+                    f"After redis put , qsize: {self.redis_queue.qsize()}  {self.redis_queue}  {self}"
+                )
+            except Exception as e:
+                pass
             return self.get_daybar_df(code, date_start, date_end)
 
     def cache_daybar_df(self, code: str, engine=None):
