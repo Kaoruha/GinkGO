@@ -57,10 +57,60 @@ class GinkgoData(object):
         try:
             self.cpu_ratio = GCONF.CPURATIO
         except Exception as e:
+            self.cpu_ratio = 0.8
             print(e)
         self.tick_models = {}
         self.cache_daybar_count = 0
         self.cache_daybar_max = 4
+        self.redis_queue = multiprocessing.Queue(20)
+        self.redis_listener_started = False
+        self.start_listen_redis_handler()
+
+    def get_daybar_redis_cache_name(self, code: str) -> str:
+        pass
+
+    def get_stockinfo_redis_cache_name(self, code: str) -> str:
+        pass
+
+    def start_listen_redis_handler(self) -> None:
+        GLOG.CRITICAL(1111111)
+        if self.redis_listener_started:
+            GLOG.WARN("Redis Listener already started.")
+            return
+        self.redis_listener_started = True
+        # Build a Multiprocessing Pool to listen to a queue.
+        count = 2
+        p = multiprocessing.Pool(count)
+        for i in range(count):
+            p.apply_async(self.redis_handler, args=(str(i),))
+            print("After apply")
+        p.close()
+        p.join()
+        GLOG.INFO(33333333)
+
+    def redis_handler_done(self):
+        print("Done")
+
+    def redis_handler(self, code: str) -> None:
+        GLOG.CRITICAL(444444444)
+        print(code)
+        # try:
+        #     GLOG.CRITICAL(33333)
+        #     while True:
+        #         print(1)
+        #         time.sleep(1)
+        #         if self.redis_queue.empty():
+        #             GLOG.CRITICAL("empty")
+        #             time.sleep(2)
+        #             continue
+        #         try:
+        #             item = self.redis_queue.get()
+        #             print(item)
+        #             # TODO decode the data , and do cache
+        #         except Exception as e:
+        #             print(e)
+        # except Exception as e:
+        #     print(e)
 
     def get_driver(self, value):
         is_class = isinstance(value, type)
@@ -539,12 +589,12 @@ class GinkgoData(object):
         else:
             if self.cache_daybar_count < self.cache_daybar_max:
                 t0 = datetime.datetime.now()
-                t = threading.Thread(target=self.cache_daybar_df, args=(code,))
-                t.start()
+                try:
+                    self.redis_queue.put([code, "daybar"], block=False)
+                except Exception as e:
+                    print(e)
                 t1 = datetime.datetime.now()
-                GLOG.CRITICAL(f"Start a thread cost {t1-t0}")
                 self.cache_daybar_count += 1
-            print("should return")
             return self.get_daybar_df(code, date_start, date_end)
 
     def cache_daybar_df(self, code: str, engine=None):
