@@ -47,6 +47,21 @@ class GinkgoData(object):
     Data Module
     """
 
+    __instance = None
+    _mutex = multiprocessing.Manager().Lock()
+
+    # def __new__(cls):
+    #     return cls.get_instance()
+
+    @classmethod
+    def get_instance(cls):
+        if cls.__instance is None:
+            with cls._mutex:
+                if cls.__instance is None:
+                    cls.__instance = GinkgoData()
+        print(f"Get Instance : {cls.__instance}")
+        return cls.__instance
+
     def __init__(self):
         self._click_models = []
         self._mysql_models = []
@@ -85,22 +100,21 @@ class GinkgoData(object):
                 args=(self.redis_queue,),
                 callback=self.redis_handler_done(),
             )
+            print(f"apply async {i}")
         p.close()
 
     def redis_handler_done(self):
         pass
+        # print("Done")
 
     def redis_handler(self, q) -> None:
-        print(
-            f"ProcessName: {multiprocessing.current_process().name}  PID: {os.getpid()}"
-        )
-
         while True:
-            print(
-                f"Current redis: {self.redis_queue.qsize()}   {self.redis_queue}  {self}"
-            )
+            print(f"Current redis: {q.qsize()}   {q}  {self}")
             if q.empty():
-                # print("empty")
+                print("empty")
+                print(
+                    f"ProcessName: {multiprocessing.current_process().name}  PID: {os.getpid()}"
+                )
                 time.sleep(2)
                 continue
             try:
@@ -1820,4 +1834,4 @@ class GinkgoData(object):
             GLOG.WARN(f"{key} not exist in redis.")
 
 
-GDATA = GinkgoData()
+# GDATA = GinkgoData.get_instance()
