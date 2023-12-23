@@ -1,5 +1,5 @@
 from ginkgo.backtest.selectors.base_selector import BaseSelector
-from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.data.ginkgo_data import GinkgoData
 import datetime
 from rich.progress import Progress
 
@@ -24,9 +24,9 @@ class PopularitySelector(BaseSelector):
 
     def pick(self) -> list:
         t0 = datetime.datetime.now()
-        df = GDATA.get_stock_info_df_cached()
+        df = GinkgoData.get_instance().get_stock_info_df_cached()
         df["sum_volume"] = 0
-        df = df[:500]
+        df = df[:20]
         df.reset_index(drop=True, inplace=True)
         column_index = df.columns.get_loc("sum_volume")
         date_start = self.now + datetime.timedelta(days=int(self.span * -1))
@@ -48,10 +48,10 @@ class PopularitySelector(BaseSelector):
                     advance=1,
                     description=f"{tag} POP Scan [light_coral]{code}[/light_coral]",
                 )
-                # daybar_df = GDATA.get_daybar_df(
+                # daybar_df = GinkgoData.get_instance().get_daybar_df(
                 #     code=code, date_start=date_start, date_end=self.now
                 # )
-                daybar_df = GDATA.get_daybar_df_cached(
+                daybar_df = GinkgoData.get_instance().get_daybar_df_cached(
                     code=code, date_start=date_start, date_end=self.now
                 )
                 if daybar_df.shape[0] > 0:
