@@ -10,6 +10,7 @@ import multiprocessing
 import threading
 from sqlalchemy import DDL
 from rich.console import Console
+from rich.progress import Progress
 from ginkgo.data.models import (
     MAnalyzer,
     MOrder,
@@ -47,21 +48,6 @@ class GinkgoData(object):
     Data Module
     """
 
-    __instance = None
-    _mutex = multiprocessing.Manager().Lock()
-
-    # def __new__(cls):
-    #     return cls.get_instance()
-
-    @classmethod
-    def get_instance(cls):
-        if cls.__instance is None:
-            with cls._mutex:
-                if cls.__instance is None:
-                    cls.__instance = GinkgoData()
-        print(f"Get Instance : {cls.__instance}")
-        return cls.__instance
-
     def __init__(self):
         self._click_models = []
         self._mysql_models = []
@@ -77,8 +63,10 @@ class GinkgoData(object):
         self.tick_models = {}
         self.cache_daybar_count = 0
         self.cache_daybar_max = 4
-        self.redis_queue = multiprocessing.Manager().Queue(20)
-        self.redis_lock = multiprocessing.Manager().Lock()
+        self.redis_manager = None
+        self.redis_pool = None
+        self.redis_queue = None
+        self.redis_lock = None
 
     def get_daybar_redis_cache_name(self, code: str) -> str:
         pass
@@ -87,27 +75,38 @@ class GinkgoData(object):
         pass
 
     def start_listen_redis_handler(self) -> None:
+        print("Start Listen Redis Handler")
+        count = 2
+        if self.redis_manager is None:
+            self.redis_manager = multiprocessing.Manager()
+        if self.redis_pool is None:
+            self.redis_pool = multiprocessing.Pool(count)
+        if self.redis_queue is None:
+            self.redis_queue = multiprocessing.Manager().Queue(20)
+        if self.redis_lock is None:
+            self.redis_lock = self.redis_manager.Lock()
         acquired = self.redis_lock.acquire(timeout=1)
         if not acquired:
             GLOG.WARN("Redis listener already started.")
-            return
+            return self.redis_pool
         # Build a Multiprocessing Pool to listen to a queue.
-        count = 4
-        p = multiprocessing.Pool(count)
+        print(f"Start Listen Redis Handler {self.redis_queue}")
         for i in range(count):
-            res = p.apply_async(
+            res = self.redis_pool.apply_async(
                 self.redis_handler,
                 args=(self.redis_queue,),
-                callback=self.redis_handler_done(),
+                callback=self.redis_handler_done,
             )
-            print(f"apply async {i}")
-        p.close()
+        self.redis_pool.close()
+        self.redis_pool.join()
+        return self.redis_pool
 
-    def redis_handler_done(self):
-        pass
-        # print("Done")
+    def redis_handler_done(self, msg):
+        print(f"Started apply async.")
+        print(msg)
 
     def redis_handler(self, q) -> None:
+        print(f"Current redis: {q.qsize()}   {q}  {self}")
         while True:
             print(f"Current redis: {q.qsize()}   {q}  {self}")
             if q.empty():
@@ -603,10 +602,12 @@ class GinkgoData(object):
                 return pd.DataFrame()
         else:
             try:
-                self.redis_queue.put(["daybar", code], block=False)
-                print(
-                    f"After redis put , qsize: {self.redis_queue.qsize()}  {self.redis_queue}  {self}"
-                )
+                print(f"Try get the queue {self}  queue:{self.redis_queue}")
+                if self.redis_queue is not None:
+                    self.redis_queue.put(["daybar", code], block=False)
+                    print(
+                        f"After redis put , qsize: {self.redis_queue.qsize()}  {self.redis_queue}  {self}"
+                    )
             except Exception as e:
                 pass
             return self.get_daybar_df(code, date_start, date_end)
@@ -968,75 +969,80 @@ class GinkgoData(object):
             return
         db = engine if engine else self.get_driver(MStockInfo)
         size = db.get_table_size(MStockInfo)
-        GLOG.INFO(f"Current Stock Info Size: {size}")
+        GLOG.DEBUG(f"Current Stock Info Size: {size}")
         t0 = datetime.datetime.now()
         update_count = 0
         insert_count = 0
         tu = GinkgoTushare()
         df = tu.fetch_cn_stock_info()
         l = []
-        for i, r in df.iterrows():
-            msg = f"UpdatingStockInfo {i}/{df.shape[0]}"
-            print(msg, end="\r")
-            item = MStockInfo()
-            code = r["ts_code"] if r["ts_code"] else "DefaultCode"
-            code_name = r["name"] if r["name"] else "DefaultCodeName"
-            industry = r["industry"] if r["industry"] else "Others"
-            list_date = r["list_date"] if r["list_date"] else "2100-01-01"
-            delist_date = r["delist_date"] if r["delist_date"] else "2100-01-01"
-            item.set(
-                code,
-                code_name,
-                industry,
-                CURRENCY_TYPES[r.curr_type.upper()],
-                r.list_date,
-                delist_date,
-            )
-            item.set_source(SOURCE_TYPES.TUSHARE)
-            q = self.get_stock_info(r.ts_code, engine=db)
-            # Check DB, if exist, update
-            if q is not None:
-                if (
-                    q.code == code
-                    and q.code_name == code_name
-                    and q.industry == industry
-                    and q.currency == CURRENCY_TYPES[r.curr_type.upper()]
-                    and q.list_date == datetime_normalize(list_date)
-                    and q.delist_date == datetime_normalize(delist_date)
-                ):
-                    GLOG.DEBUG(f"Ignore Stock Info {code}")
+        with Progress() as progress:
+            task = progress.add_task("Updating StockInfo", total=df.shape[0])
+            for i, r in df.iterrows():
+                item = MStockInfo()
+                code = r["ts_code"] if r["ts_code"] else "DefaultCode"
+                progress.update(
+                    task,
+                    advance=1,
+                    description=f"Updating StockInfo: [light_coral]{code}[/light_coral]",
+                )
+                code_name = r["name"] if r["name"] else "DefaultCodeName"
+                industry = r["industry"] if r["industry"] else "Others"
+                list_date = r["list_date"] if r["list_date"] else "2100-01-01"
+                delist_date = r["delist_date"] if r["delist_date"] else "2100-01-01"
+                item.set(
+                    code,
+                    code_name,
+                    industry,
+                    CURRENCY_TYPES[r.curr_type.upper()],
+                    r.list_date,
+                    delist_date,
+                )
+                item.set_source(SOURCE_TYPES.TUSHARE)
+                q = self.get_stock_info(r.ts_code, engine=db)
+                # Check DB, if exist, update
+                if q is not None:
+                    if (
+                        q.code == code
+                        and q.code_name == code_name
+                        and q.industry == industry
+                        and q.currency == CURRENCY_TYPES[r.curr_type.upper()]
+                        and q.list_date == datetime_normalize(list_date)
+                        and q.delist_date == datetime_normalize(delist_date)
+                    ):
+                        GLOG.DEBUG(f"Ignore Stock Info {code}")
+                        continue
+                    q.code = code
+                    q.code_name = code_name
+                    q.industry = industry
+                    q.currency = CURRENCY_TYPES[r.curr_type.upper()]
+                    q.list_date = datetime_normalize(list_date)
+                    q.delist_date = datetime_normalize(delist_date)
+                    db.session.commit()
+                    update_count += 1
+                    GLOG.DEBUG(f"Update {q.code} stock info")
                     continue
-                q.code = code
-                q.code_name = code_name
-                q.industry = industry
-                q.currency = CURRENCY_TYPES[r.curr_type.upper()]
-                q.list_date = datetime_normalize(list_date)
-                q.delist_date = datetime_normalize(delist_date)
-                db.session.commit()
-                update_count += 1
-                GLOG.DEBUG(f"Update {q.code} stock info")
-                continue
-            # if not exist, try insert
-            l.append(item)
-            if len(l) >= self.batch_size:
-                self.add_all(l)
-                insert_count += len(l)
-                l = []
-        self.add_all(l)
+                # if not exist, try insert
+                l.append(item)
+                if len(l) >= self.batch_size:
+                    self.add_all(l)
+                    insert_count += len(l)
+                    l = []
+            self.add_all(l)
         insert_count += len(l)
         GLOG.DEBUG(f"Insert {len(l)} stock info.")
         t1 = datetime.datetime.now()
-        GLOG.WARN(
+        GLOG.INFO(
             f"StockInfo Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
         )
         size = db.get_table_size(MStockInfo)
-        GLOG.INFO(f"After Update Stock Info Size: {size}")
+        GLOG.DEBUG(f"After Update Stock Info Size: {size}")
         self.update_redis_stockinfo()
         temp_redis.setex(
             cached_name,
-            60 * 60 * 4,
+            60 * 60,
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        )
+        )  # Expire in 1 hour
 
     def update_trade_calendar(self) -> None:
         """
@@ -1055,7 +1061,6 @@ class GinkgoData(object):
                 f"Calendar Updated at {updated.decode('utf-8')}. No need to update."
             )
             return
-        GLOG.INFO("Updating CN Calendar.")
         db = self.get_driver(MTradeDay)
         size = db.get_table_size(MTradeDay)
         GLOG.DEBUG(f"Current Trade Calendar Size: {size}")
@@ -1063,64 +1068,73 @@ class GinkgoData(object):
         update_count = 0
         insert_count = 0
         tu = GinkgoTushare()
-        df = tu.fetch_cn_stock_trade_day()
-        if df is None:
-            GLOG.ERROR("Tushare get no data. Update CN TradeCalendar Failed.")
-            return
         l = []
-        for i, r in df.iterrows():
-            msg = f"Updating TradeCalendar {i}/{df.shape[0]}"
-            print(msg, end="\r")
-            item = MTradeDay()
-            date = datetime_normalize(r["cal_date"])
-            market = MARKET_TYPES.CHINA
-            is_open = str2bool(r["is_open"])
-            item.set(market, is_open, date)
-            item.set_source(SOURCE_TYPES.TUSHARE)
-            q = self.get_trade_calendar(market, date, date, db)
-            # Check DB, if exist update
-            if len(q) >= 1:
-                if len(q) >= 2:
-                    GLOG.ERROR(f"Trade Calendar have {len(q)} {market} date on {date}")
-                for item2 in q:
-                    if (
-                        item2.timestamp == date
-                        and item2.market == market
-                        and str2bool(item2.is_open) == is_open
-                    ):
-                        GLOG.DEBUG(f"Ignore TradeCalendar {date} {market}")
-                        continue
-                    item2.timestamp = date
-                    item2.market = market
-                    item2.is_open = is_open
-                    item2.update = datetime.datetime.now()
-                    update_count += 1
-                    db.session.commit()
-                    GLOG.DEBUG(f"Update {item2.timestamp} {item2.market} TradeCalendar")
+        df = tu.fetch_cn_stock_trade_day()
+        with Progress() as progress:
+            task = progress.add_task("Updating StockInfo", total=df.shape[0])
+            if df is None:
+                GLOG.ERROR("Tushare get no data. Update CN TradeCalendar Failed.")
+                return
+            for i, r in df.iterrows():
+                item = MTradeDay()
+                date = datetime_normalize(r["cal_date"])
+                market = MARKET_TYPES.CHINA
+                is_open = str2bool(r["is_open"])
+                item.set(market, is_open, date)
+                item.set_source(SOURCE_TYPES.TUSHARE)
+                q = self.get_trade_calendar(market, date, date, db)
+                # Check DB, if exist update
+                progress.update(
+                    task,
+                    advance=1,
+                    description=f"Updating CN Trade Day: [light_coral]{date}[light_coral]",
+                )
+                if len(q) >= 1:
+                    if len(q) >= 2:
+                        GLOG.ERROR(
+                            f"Trade Calendar have {len(q)} {market} date on {date}"
+                        )
+                    for item2 in q:
+                        if (
+                            item2.timestamp == date
+                            and item2.market == market
+                            and str2bool(item2.is_open) == is_open
+                        ):
+                            GLOG.DEBUG(f"Ignore TradeCalendar {date} {market}")
+                            continue
+                        item2.timestamp = date
+                        item2.market = market
+                        item2.is_open = is_open
+                        item2.update = datetime.datetime.now()
+                        update_count += 1
+                        db.session.commit()
+                        GLOG.DEBUG(
+                            f"Update {item2.timestamp} {item2.market} TradeCalendar"
+                        )
 
-            if len(q) == 0:
-                # Not Exist in db
-                l.append(item)
-                if len(l) >= self.batch_size:
-                    self.add_all(l)
-                    insert_count += len(l)
-                    GLOG.DEBUG(f"Insert {len(l)} Trade Calendar.")
-                    l = []
-        self.add_all(l)
-        GLOG.INFO(f"Insert {len(l)} Trade Calendar.")
+                if len(q) == 0:
+                    # Not Exist in db
+                    l.append(item)
+                    if len(l) >= self.batch_size:
+                        self.add_all(l)
+                        insert_count += len(l)
+                        GLOG.DEBUG(f"Insert {len(l)} Trade Calendar.")
+                        l = []
+            self.add_all(l)
+        GLOG.DEBUG(f"Insert {len(l)} Trade Calendar.")
         insert_count += len(l)
         t1 = datetime.datetime.now()
-        GLOG.WARN(
+        GLOG.INFO(
             f"TradeCalendar Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
         )
         size = db.get_table_size(MTradeDay)
-        GLOG.WARN(f"After Update Trade Calendar Size: {size}")
+        GLOG.DEBUG(f"After Update Trade Calendar Size: {size}")
         self.update_redis_tradecalender(MARKET_TYPES.CHINA)
         temp_redis.setex(
             cached_name,
-            60 * 60 * 24,
+            60 * 60,
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        )
+        )  # Expire in 1 hour
 
     def update_cn_daybar(self, code: str) -> None:
         cached_name = f"{code}_daybar_updated"
@@ -1834,4 +1848,4 @@ class GinkgoData(object):
             GLOG.WARN(f"{key} not exist in redis.")
 
 
-# GDATA = GinkgoData.get_instance()
+GDATA = GinkgoData()
