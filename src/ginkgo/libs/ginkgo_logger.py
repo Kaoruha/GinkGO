@@ -41,8 +41,14 @@ class GinkgoLogger(object):
             self.file_name = LOGGIN_DEFAULT_FILE
 
         self.logger = logging.getLogger(logger_name)
+        file_path = (
+            LOGGING_PATH + self.file_name
+            if LOGGING_PATH.endswith("/")
+            else LOGGING_PATH + "/" + self.file_name
+        )
+
         self.file_handler = RotatingFileHandler(
-            filename=LOGGING_PATH + "/" + self.file_name,
+            filename=file_path,
             encoding="utf-8",
             mode="a",
             maxBytes=50 * 1024,
