@@ -5,6 +5,7 @@ from multiprocessing import Process
 import time
 import datetime
 from enum import Enum
+from typing import List as typing_list
 from typing_extensions import Annotated
 from rich.prompt import Prompt
 from rich.console import Console
@@ -207,6 +208,9 @@ def show(
     page: Annotated[
         int, typer.Option(case_sensitive=False, help="Limit the number of output.")
     ] = 0,
+    filter: Annotated[
+        str, typer.Option(case_sensitive=False, help="Fuzzy Search KeyWords.")
+    ] = None,
 ):
     """
     Show data details.
@@ -326,6 +330,13 @@ def show(
 
 @app.command()
 def update(
+    code: Annotated[
+        typing_list[str],
+        typer.Argument(
+            case_sensitive=True,
+            help="If set,ginkgo will try to update the data of specific code.",
+        ),
+    ],
     a: Annotated[
         bool, typer.Option(case_sensitive=False, help="Update StockInfo")
     ] = False,
@@ -351,13 +362,6 @@ def update(
             case_sensitive=False, help="If set, ginkgo will try update in fast mode."
         ),
     ] = False,
-    code: Annotated[
-        str,
-        typer.Argument(
-            case_sensitive=False,
-            help="If set,ginkgo will try to update the data of specific code.",
-        ),
-    ] = "",
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
@@ -381,20 +385,23 @@ def update(
         GDATA.update_cn_trade_calendar()
 
     if adjust:
-        if code == "":
+        if code == []:
             GDATA.update_all_cn_adjustfactor_aysnc()
         else:
-            GDATA.update_cn_adjustfactor(code)
+            for item in code:
+                GDATA.update_cn_adjustfactor(i)
     if day:
-        if code == "":
+        if code == []:
             GDATA.update_all_cn_daybar_aysnc()
         else:
-            GDATA.update_cn_daybar(code)
+            for item in code:
+                GDATA.update_cn_daybar(item)
     if tick:
-        if code == "":
+        if code == []:
             GDATA.update_all_cn_tick_aysnc(fast_mode=fast)
         else:
-            GDATA.update_tick(code, fast_mode=fast)
+            for item in code:
+                GDATA.update_tick(item, fast_mode=fast)
 
 
 @app.command()
@@ -440,6 +447,7 @@ def rebuild(
     from ginkgo.enums import MARKET_TYPES
     from ginkgo.data.models import (
         MOrder,
+        MAdjustfactor,
         MBacktest,
         MFile,
         MBacktest,
