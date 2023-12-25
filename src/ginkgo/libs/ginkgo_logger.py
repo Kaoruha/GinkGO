@@ -42,7 +42,7 @@ class GinkgoLogger(object):
 
         self.logger = logging.getLogger(logger_name)
         self.file_handler = RotatingFileHandler(
-            filename=LOGGING_PATH + self.file_name,
+            filename=LOGGING_PATH + "/" + self.file_name,
             encoding="utf-8",
             mode="a",
             maxBytes=50 * 1024,
