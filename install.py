@@ -171,7 +171,7 @@ def main():
     os.system("pip install pyyaml -i https://pypi.tuna.tsinghua.edu.cn/simple")
     from ginkgo.libs.ginkgo_conf import GCONF
 
-    GCONF.set_logging_path(path_log)
+    # GCONF.set_logging_path(path_log)
     GCONF.set_work_path(working_directory)
     GCONF.set_unittest_path(working_directory)
 
