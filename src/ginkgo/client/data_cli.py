@@ -35,6 +35,11 @@ class PLTType(str, Enum):
     TICK = "tick"
 
 
+class WorkerType(str, Enum):
+    ON = "on"
+    OFF = "off"
+
+
 app = typer.Typer(help=":jigsaw: Module for DATA. CRUD about all kinds of data.")
 quit_list = ["NO", "N"]
 console = Console()
@@ -330,13 +335,6 @@ def show(
 
 @app.command()
 def update(
-    code: Annotated[
-        typing_list[str],
-        typer.Argument(
-            case_sensitive=True,
-            help="If set,ginkgo will try to update the data of specific code.",
-        ),
-    ],
     a: Annotated[
         bool, typer.Option(case_sensitive=False, help="Update StockInfo")
     ] = False,
@@ -362,6 +360,13 @@ def update(
             case_sensitive=False, help="If set, ginkgo will try update in fast mode."
         ),
     ] = False,
+    code: Annotated[
+        typing_list[str],
+        typer.Option(
+            case_sensitive=True,
+            help="If set,ginkgo will try to update the data of specific code.",
+        ),
+    ] = None,
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """

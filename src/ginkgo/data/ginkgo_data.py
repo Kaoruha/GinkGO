@@ -1,4 +1,6 @@
 import time
+import signal
+import psutil
 import asyncio
 import zlib
 import pickle
@@ -70,6 +72,78 @@ class GinkgoData(object):
 
     def get_stockinfo_redis_cache_name(self, code: str) -> str:
         pass
+
+    @property
+    def redis_todo_cachename(self) -> str:
+        return "redis_todo_list"
+
+    def redis_set_async(self, key, value):
+        temp_redis = self.get_redis()
+        cache_name = self.redis_todo_cachename
+        temp_redis.lpush(cache_name, f"{key}:{value}")
+
+    def redis_woker_handler(self, lock) -> None:
+        temp_redis = self.get_redis()
+        cache_name = self.redis_todo_cachename
+        while True:
+            lock.acquire()
+            # print(f"Try get list from {os.getpid()}")
+            item = temp_redis.lpop(cache_name)
+            lock.release()
+            if item is None:
+                time.sleep(1)
+                continue
+            else:
+                print(item)
+                # TODO Deal with item b"{type}:{code}"
+
+    @property
+    def redis_worker_status(self) -> str:
+        temp_redis = self.get_redis()
+        cache_name = "redis_worker_pid"
+        if temp_redis.exists(cache_name):
+            cache = temp_redis.get(cache_name).decode("utf-8")
+            try:
+                proc = psutil.Process(int(cache))
+                if proc.is_running():
+                    return "RUNNING"
+                else:
+                    return "DEAD"
+            except Exception as e:
+                return "DEAD"
+        return "NOT EXIST"
+
+    def kill_redis_worker(self) -> None:
+        temp_redis = self.get_redis()
+        cache_name = "redis_worker_pid"
+        if temp_redis.exists(cache_name):
+            cache = temp_redis.get(cache_name).decode("utf-8")
+            print(f"Current PID: {cache}")
+            try:
+                proc = psutil.Process(int(cache))
+                if proc.is_running():
+                    print(f"Proc:{cache} is running.")
+                    os.kill(int(cache), signal.SIGKILL)
+                else:
+                    print(f"Proc:{cache} not running.")
+            except Exception as e:
+                print(e)
+
+    def run_redis_worker(self, count: int = 2) -> None:
+        # Kill the worker if it is running
+        self.kill_redis_worker()
+        # Start new woker
+        cache_name = "redis_worker_pid"
+        count = count if count >= 1 else 2
+        pid = os.getpid()
+        temp_redis = self.get_redis()
+        temp_redis.set(cache_name, str(pid))
+        p = multiprocessing.Pool(count)
+        lock = multiprocessing.Manager().Lock()
+        for i in range(count):
+            p.apply_async(self.redis_woker_handler, args=(lock,))
+        p.close()
+        p.join()
 
     def get_driver(self, value):
         is_class = isinstance(value, type)
@@ -547,10 +621,10 @@ class GinkgoData(object):
                 return pd.DataFrame()
         else:
             try:
-                asyncio.run(self.cache_daybar(code, engine=engine))
+                print("Add to my own msg queue")
+                self.add_redis_todo_list("daybar", code)
             except Exception as e:
                 print(e)
-                pass
             return self.get_daybar_df(code, date_start, date_end)
 
     async def cache_daybar(self, code: str, engine=None):
