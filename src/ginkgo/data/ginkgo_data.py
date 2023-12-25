@@ -94,7 +94,10 @@ class GinkgoData(object):
                 time.sleep(1)
                 continue
             else:
-                print(item)
+                item = item.decode("utf-8")
+                data_type = item.split(":")[0]
+                code = item.split(":")[1]
+                print(f"{data_type} : {code}")
                 # TODO Deal with item b"{type}:{code}"
 
     @property
