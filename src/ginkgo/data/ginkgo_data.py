@@ -1,4 +1,5 @@
 import time
+import asyncio
 import zlib
 import pickle
 import types
@@ -63,68 +64,12 @@ class GinkgoData(object):
         self.tick_models = {}
         self.cache_daybar_count = 0
         self.cache_daybar_max = 4
-        self.redis_manager = None
-        self.redis_pool = None
-        self.redis_queue = None
-        self.redis_lock = None
 
     def get_daybar_redis_cache_name(self, code: str) -> str:
         pass
 
     def get_stockinfo_redis_cache_name(self, code: str) -> str:
         pass
-
-    def start_listen_redis_handler(self) -> None:
-        print("Start Listen Redis Handler")
-        count = 2
-        if self.redis_manager is None:
-            self.redis_manager = multiprocessing.Manager()
-        if self.redis_pool is None:
-            self.redis_pool = multiprocessing.Pool(count)
-        if self.redis_queue is None:
-            self.redis_queue = multiprocessing.Manager().Queue(20)
-        if self.redis_lock is None:
-            self.redis_lock = self.redis_manager.Lock()
-        acquired = self.redis_lock.acquire(timeout=1)
-        if not acquired:
-            GLOG.WARN("Redis listener already started.")
-            return self.redis_pool
-        # Build a Multiprocessing Pool to listen to a queue.
-        print(f"Start Listen Redis Handler {self.redis_queue}")
-        for i in range(count):
-            res = self.redis_pool.apply_async(
-                self.redis_handler,
-                args=(self.redis_queue,),
-                callback=self.redis_handler_done,
-            )
-        self.redis_pool.close()
-        self.redis_pool.join()
-        return self.redis_pool
-
-    def redis_handler_done(self, msg):
-        print(f"Started apply async.")
-        print(msg)
-
-    def redis_handler(self, q) -> None:
-        print(f"Current redis: {q.qsize()}   {q}  {self}")
-        while True:
-            print(f"Current redis: {q.qsize()}   {q}  {self}")
-            if q.empty():
-                print("empty")
-                print(
-                    f"ProcessName: {multiprocessing.current_process().name}  PID: {os.getpid()}"
-                )
-                time.sleep(2)
-                continue
-            try:
-                item = q.get()
-                data_type = item[0]
-                code = item[1]
-                print(item)
-                print(f"dealing with {data_type} {data}")
-                # TODO decode the data , and do cache
-            except Exception as e:
-                print(e)
 
     def get_driver(self, value):
         is_class = isinstance(value, type)
@@ -602,15 +547,18 @@ class GinkgoData(object):
                 return pd.DataFrame()
         else:
             try:
-                print(f"Try get the queue {self}  queue:{self.redis_queue}")
-                if self.redis_queue is not None:
-                    self.redis_queue.put(["daybar", code], block=False)
-                    print(
-                        f"After redis put , qsize: {self.redis_queue.qsize()}  {self.redis_queue}  {self}"
-                    )
+                asyncio.run(self.cache_daybar(code, engine=engine))
             except Exception as e:
+                print(e)
                 pass
             return self.get_daybar_df(code, date_start, date_end)
+
+    async def cache_daybar(self, code: str, engine=None):
+        print(f"Do Redis Cache about {code}.")
+        cache_name = f"day%{code}"
+        df = self.get_daybar_df(code, engine=engine)
+        temp_redis = self.get_redis()
+        temp_redis.setex(cache_name, self.redis_expiration_time, pickle.dumps(df))
 
     def cache_daybar_df(self, code: str, engine=None):
         self.is_daybar_caching = True
@@ -1410,14 +1358,16 @@ class GinkgoData(object):
         t1 = datetime.datetime.now()
         GLOG.WARN(f"Update All CN Daybar Done. Cost: {t1-t0}")
 
-    def update_cn_adjustfactor(self, code: str) -> None:
+    def update_cn_adjustfactor(self, code: str, queue=None) -> None:
         cached_name = f"{code}_adjustfactor_updated"
         temp_redis = self.get_redis()
         if temp_redis.exists(cached_name):
             updated = temp_redis.get(cached_name)
-            GLOG.INFO(
+            GLOG.DEBUG(
                 f"Adjustfactor {code} Updated at {updated.decode('utf-8')}. No need to update."
             )
+            if queue:
+                queue.put(code)
             return
         t0 = datetime.datetime.now()
         tu = GinkgoTushare()
@@ -1430,7 +1380,6 @@ class GinkgoData(object):
             code = r["ts_code"]
             date = datetime_normalize(r["trade_date"])
             factor = r["adj_factor"]
-            GLOG.DEBUG(f"AdjustFactor Check {date}  {code}")
 
             # Check ad if exist in database
             # Data in database
@@ -1488,7 +1437,7 @@ class GinkgoData(object):
             insert_count += len(l)
             GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
         t1 = datetime.datetime.now()
-        GLOG.WARN(
+        GLOG.DEBUG(
             f"AdjustFactor {code} Update: {update_count} Insert: {insert_count} Cost: {t1-t0}"
         )
         temp_redis.setex(
@@ -1496,19 +1445,46 @@ class GinkgoData(object):
             60 * 60 * 24,
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         )
+        if queue:
+            queue.put(code)
 
     def update_all_cn_adjustfactor(self):
         GLOG.DEBUG(f"Begin to update all CN AdjustFactor")
         t0 = datetime.datetime.now()
         info = self.get_stock_info_df_cached()
-        for i, r in info.iterrows():
-            code = r["code"]
-            self.update_cn_adjustfactor(code)
+        with Progress() as progress:
+            task = progress.add_task("Updating CN AdjustFactor: ", total=df.shape[0])
+            for i, r in info.iterrows():
+                code = r["code"]
+                progress.update(
+                    task,
+                    advance=1,
+                    description=f"Updating AdjustFactor: [light_coral]{code}[/light_coral]",
+                )
+                self.update_cn_adjustfactor(code, None)
         t1 = datetime.datetime.now()
         GLOG.WARN(f"Update ALL CN AdjustFactor cost {t1-t0}")
 
+    def start_listen(self, msg: str, max_count: int, queue) -> None:
+        with Progress() as progress:
+            task = progress.add_task(msg, total=max_count)
+            count = 0
+            while True:
+                try:
+                    item = queue.get(block=False)
+                    item_str = item if isinstance(item, str) else ""
+                    progress.update(
+                        task,
+                        advance=1,
+                        description=f"{msg}: [light_coral]{item_str}[/light_coral]",
+                    )
+                    count += 1
+                except Exception as e:
+                    time.sleep(0.2)
+                if count == max_count:
+                    break
+
     def update_all_cn_adjustfactor_aysnc(self):
-        GLOG.INFO(f"Begin to update all cn adjust factors")
         t0 = datetime.datetime.now()
         info = self.get_stock_info_df_cached()
         l = []
@@ -1519,16 +1495,28 @@ class GinkgoData(object):
             l.append(code)
 
         p = multiprocessing.Pool(cpu_count)
+        q = multiprocessing.Manager().Queue()
 
+        t = threading.Thread(
+            target=self.start_listen, args=("Updating CN AdjustFactor", len(l), q)
+        )
         for code in l:
-            res = p.apply_async(self.update_cn_adjustfactor, args=(code,))
+            res = p.apply_async(
+                self.update_cn_adjustfactor,
+                args=(
+                    code,
+                    q,
+                ),
+            )
 
         p.close()
+        t.start()
         p.join()
+        t.join()
         t1 = datetime.datetime.now()
         size = self.get_mysql().get_table_size(MAdjustfactor)
-        GLOG.WARN(f"Update ALL CN AdjustFactor cost {t1-t0}")
-        GLOG.WARN(f"After Update Adjustfactor Size: {size}")
+        GLOG.INFO(f"Update ALL CN AdjustFactor cost {t1-t0}")
+        GLOG.INFO(f"After Update Adjustfactor Size: {size}")
 
     def get_file(self, id: str, engine=None) -> MFile:
         db = engine if engine else self.get_driver(MFile)
