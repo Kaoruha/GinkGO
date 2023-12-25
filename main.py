@@ -39,11 +39,13 @@ def status(
     :bullet_train: Check the module status.
     """
     from ginkgo.libs.ginkgo_conf import GCONF
+    from ginkgo.data.ginkgo_data import GDATA
 
     console.print(f"DEBUGMODE : {GCONF.DEBUGMODE}")
     console.print(f"CPU RATIO : {GCONF.CPURATIO*100}%")
     console.print(f"LOG  PATH : {GCONF.LOGGING_PATH}")
     console.print(f"WORK  DIR : {GCONF.WORKING_PATH}")
+    console.print(f"REDISWORK : {GDATA.redis_worker_status}")
     if stream:
         os.system(
             "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test"
@@ -80,6 +82,7 @@ def interactive():
 def configure(
     cpu: Annotated[float, typer.Option(case_sensitive=False)] = None,
     debug: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
+    redis: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
     logpath: Annotated[str, typer.Option(case_sensitive=True)] = None,
     workpath: Annotated[str, typer.Option(case_sensitive=True)] = None,
 ):
@@ -90,7 +93,7 @@ def configure(
         cpu is None
         and debug is None
         and logpath is None
-        and testpath is None
+        and redis is None
         and workpath is None
     ):
         console.print(
@@ -110,6 +113,22 @@ def configure(
         elif debug == DEBUG_TYPE.OFF:
             GCONF.set_debug(False)
         console.print(f"DEBUE: {GCONF.DEBUGMODE}")
+
+    if redis is not None:
+        from ginkgo.data.ginkgo_data import GDATA
+
+        if redis == DEBUG_TYPE.ON:
+            """
+            $SHELL_FOLDER/venv/bin/python $SHELL_FOLDER/main.py
+            """
+            work_dir = GCONF.WORKING_PATH
+            cmd = f"nohup {work_dir}/venv/bin/python {work_dir}/redis_worker_server.py >{GCONF.LOGGING_PATH}/redis_worker.log 2>&1 &"
+            print(cmd)
+            os.system(cmd)
+            console.print("Redis Worker will start soon.")
+        elif redis == DEBUG_TYPE.OFF:
+            GDATA.kill_redis_worker()
+            console.print("Redis Worker will be killed soon.")
 
     if logpath is not None:
         GCONF.set_logging_path(logpath)
