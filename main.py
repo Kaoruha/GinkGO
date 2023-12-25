@@ -40,8 +40,11 @@ def status(
     """
     from ginkgo.libs.ginkgo_conf import GCONF
 
-    console.print(f"DEBUE: {GCONF.DEBUGMODE}")
-    console.print(f"CPU RATIO: {GCONF.CPURATIO*100}%")
+    console.print(f"DEBUGMODE : {GCONF.DEBUGMODE}")
+    console.print(f"CPU RATIO : {GCONF.CPURATIO*100}%")
+    console.print(f"LOG  PATH : {GCONF.LOGGING_PATH}")
+    console.print(f"TEST PATH : {GCONF.UNITTEST_PATH}")
+    console.print(f"WORK  DIR : {GCONF.WORKING_PATH}")
     if stream:
         os.system(
             "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test"
@@ -78,11 +81,20 @@ def interactive():
 def configure(
     cpu: Annotated[float, typer.Option(case_sensitive=False)] = None,
     debug: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
+    logpath: Annotated[str, typer.Option(case_sensitive=True)] = None,
+    testpath: Annotated[str, typer.Option(case_sensitive=True)] = None,
+    workpath: Annotated[str, typer.Option(case_sensitive=True)] = None,
 ):
     """
     :wrench: Configure Ginkgo.
     """
-    if cpu is None and debug is None:
+    if (
+        cpu is None
+        and debug is None
+        and logpath is None
+        and testpath is None
+        and workpath is None
+    ):
         console.print(
             "You could set cpu usage by --cpu, switch the debug mode by --debug."
         )
@@ -100,6 +112,16 @@ def configure(
         elif debug == DEBUG_TYPE.OFF:
             GCONF.set_debug(False)
         console.print(f"DEBUE: {GCONF.DEBUGMODE}")
+
+    if logpath is not None:
+        GCONF.set_logging_path(logpath)
+        console.print(f"LOGGING PATH: {GCONF.LOGGING_PATH}")
+    if testpath is not None:
+        GCONF.set_unittest_path(testpath)
+        console.print(f"UNITTEST PATH: {GCONF.UNITTEST_PATH}")
+    if workpath is not None:
+        GCONF.set_work_path(workpath)
+        console.print(f"WORK DIR: {GCONF.WORKING_PATH}")
 
 
 @main_app.command()
