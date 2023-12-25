@@ -122,13 +122,16 @@ def configure(
             $SHELL_FOLDER/venv/bin/python $SHELL_FOLDER/main.py
             """
             work_dir = GCONF.WORKING_PATH
-            cmd = f"nohup {work_dir}/venv/bin/python {work_dir}/redis_worker_server.py >{GCONF.LOGGING_PATH}/redis_worker.log 2>&1 &"
-            print(cmd)
+            cmd = f"nohup {work_dir}/venv/bin/python {work_dir}/redis_worker_server.py >>{GCONF.LOGGING_PATH}/redis_worker.log 2>&1 &"
             os.system(cmd)
-            console.print("Redis Worker will start soon.")
+            console.print(
+                ":sun_with_face: Redis Worker will [steel_blue1]START[/steel_blue1] soon."
+            )
         elif redis == DEBUG_TYPE.OFF:
             GDATA.kill_redis_worker()
-            console.print("Redis Worker will be killed soon.")
+            console.print(
+                ":ice: Redis Worker will be [light_coral]KILLED[/light_coral] soon."
+            )
 
     if logpath is not None:
         GCONF.set_logging_path(logpath)
