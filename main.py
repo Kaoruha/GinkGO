@@ -45,7 +45,7 @@ def status(
     console.print(f"CPU RATIO : {GCONF.CPURATIO*100}%")
     console.print(f"LOG  PATH : {GCONF.LOGGING_PATH}")
     console.print(f"WORK  DIR : {GCONF.WORKING_PATH}")
-    console.print(f"REDISWORK : {GDATA.redis_worker_status}")
+    console.print(f"REDISWORK : [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1]")
     if stream:
         os.system(
             "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test"
@@ -116,6 +116,9 @@ def configure(
 
     if redis is not None:
         from ginkgo.data.ginkgo_data import GDATA
+        import datetime
+
+        time_out = 5
 
         if redis == DEBUG_TYPE.ON:
             """
@@ -124,13 +127,39 @@ def configure(
             work_dir = GCONF.WORKING_PATH
             cmd = f"nohup {work_dir}/venv/bin/python {work_dir}/.redis_worker_run.py >>{GCONF.LOGGING_PATH}/redis_worker.log 2>&1 &"
             os.system(cmd)
+            count = datetime.timedelta(seconds=0)
+            t0 = datetime.datetime.now()
+            while count < datetime.timedelta(seconds=time_out):
+                t1 = datetime.datetime.now()
+                count = t1 - t0
+                status = GDATA.redis_worker_status
+                if status == "RUNNING":
+                    break
+                else:
+                    console.print(
+                        f":sun_with_face: Redis Worker is [steel_blue1]STARTING[/steel_blue1] now. {count}",
+                        end="\r",
+                    )
             console.print(
-                ":sun_with_face: Redis Worker will [steel_blue1]START[/steel_blue1] soon."
+                f":sun_with_face: Redis Worker is [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1] now."
             )
         elif redis == DEBUG_TYPE.OFF:
             GDATA.kill_redis_worker()
+            count = datetime.timedelta(seconds=0)
+            t0 = datetime.datetime.now()
+            while count < datetime.timedelta(seconds=time_out):
+                t1 = datetime.datetime.now()
+                count = t1 - t0
+                status = GDATA.redis_worker_status
+                if status == "DEAD":
+                    break
+                else:
+                    console.print(
+                        f":ice: Redis Worker will be [light_coral]KILLED[/light_coral] soon.",
+                        end="\r",
+                    )
             console.print(
-                ":ice: Redis Worker will be [light_coral]KILLED[/light_coral] soon."
+                f":sun_with_face: Redis Worker is [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1] now."
             )
 
     if logpath is not None:
@@ -265,12 +294,12 @@ def update(
         ),
     ] = False,
     code: Annotated[
-        str,
+        typing_list[str],
         typer.Argument(
-            case_sensitive=False,
+            case_sensitive=True,
             help="If set,ginkgo will try to update the data of specific code.",
         ),
-    ] = "",
+    ] = None,
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
