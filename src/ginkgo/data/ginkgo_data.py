@@ -71,9 +71,6 @@ class GinkgoData(object):
         res = f"daybar%{code}"
         return res
 
-    def get_stockinfo_redis_cache_name(self, code: str) -> str:
-        pass
-
     @property
     def redis_todo_cachename(self) -> str:
         return "redis_todo_list"
@@ -81,7 +78,7 @@ class GinkgoData(object):
     def redis_set_async(self, key, value):
         temp_redis = self.get_redis()
         cache_name = self.redis_todo_cachename
-        if temp_redis.llen(cache_name) >= 50:
+        if temp_redis.llen(cache_name) >= 100:  # TODO move into config
             GLOG.DEBUG(f"Redis Cache is full, skip {key}:{value}")
             return
         temp_redis.lpush(cache_name, f"{key}:{value}")
@@ -103,6 +100,8 @@ class GinkgoData(object):
                 code = item.split(":")[1]
                 print(f"{data_type} : {code}")
                 if data_type == "daybar":
+                    if temp_redis.exists(self.get_daybar_redis_cache_name(code)):
+                        continue
                     df = self.get_daybar_df(code)
                     if df.shape[0] == 0:
                         continue
@@ -625,7 +624,7 @@ class GinkgoData(object):
         GLOG.DEBUG(
             f"Try get DAYBAR df cached about {code} from {date_start} to {date_end}."
         )
-        cache_name = f"day%{code}"
+        cache_name = self.get_daybar_redis_cache_name(code)
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         temp_redis = self.get_redis()
@@ -637,46 +636,15 @@ class GinkgoData(object):
                 date_range = pd.date_range(start=date_start, end=date_end)
                 df_filtered = df[df.timestamp.isin(date_range)]
                 df_filtered.reset_index(drop=True, inplace=True)
+                t4 = datetime.datetime.now()
+                print(f"cache filter: {t4 - t3}")
                 return df_filtered
             else:
                 return pd.DataFrame()
         else:
             self.redis_set_async("daybar", code)
-            return self.get_daybar_df(code, date_start, date_end)
-
-    async def cache_daybar(self, code: str, engine=None):
-        print(f"Do Redis Cache about {code}.")
-        cache_name = f"day%{code}"
-        df = self.get_daybar_df(code, engine=engine)
-        temp_redis = self.get_redis()
-        temp_redis.setex(cache_name, self.redis_expiration_time, pickle.dumps(df))
-
-    def cache_daybar_df(self, code: str, engine=None):
-        self.is_daybar_caching = True
-        try:
-            cache_name = f"day%{code}"
-            temp_redis = self.get_redis()
-            if temp_redis.exists(cache_name):
-                self.cache_daybar_count -= 1
-                return
-            db = engine if engine else self.get_driver(MBar)
-            r = (
-                db.session.query(MBar)
-                .filter(MBar.code == code)
-                .filter(MBar.isdel == False)
-            )
-            df = pd.read_sql(r.statement, db.engine)
-            df = df.sort_values(by="timestamp", ascending=True)
-            df.reset_index(drop=True, inplace=True)
-            df = self.calculate_adjustfactor(code, df)
-            if df.shape[0] > 0:
-                temp_redis.setex(
-                    cache_name, self.redis_expiration_time, pickle.dumps(df)
-                )
-            self.cache_daybar_count -= 1
-        except Exception as e:
-            print(e)
-            self.cache_daybar_count -= 1
+            r = self.get_daybar_df(code, date_start, date_end)
+            return r
 
     def get_adjustfactor(
         self,
