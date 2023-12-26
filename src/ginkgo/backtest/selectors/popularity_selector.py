@@ -2,6 +2,7 @@ from ginkgo.backtest.selectors.base_selector import BaseSelector
 from ginkgo.data.ginkgo_data import GDATA
 import datetime
 from rich.progress import Progress
+from ginkgo.libs.ginkgo_logger import GLOG
 
 
 class PopularitySelector(BaseSelector):
@@ -23,10 +24,13 @@ class PopularitySelector(BaseSelector):
         self._interested = []
 
     def pick(self) -> list:
+        if self.now is None:
+            GLOG.ERROR("No date set. skip picking.")
+            return
         t0 = datetime.datetime.now()
         df = GDATA.get_stock_info_df_cached()
         df["sum_volume"] = 0
-        df = df[:20]
+        # df = df[:200]
         df.reset_index(drop=True, inplace=True)
         column_index = df.columns.get_loc("sum_volume")
         date_start = self.now + datetime.timedelta(days=int(self.span * -1))
@@ -42,7 +46,8 @@ class PopularitySelector(BaseSelector):
                 elif count % 3 == 1:
                     tag = ":mag_right:"
                 elif count % 3 == 2:
-                    tag = ":lollipop:"
+                    # tag = ":lollipop:"
+                    tag = ":mag_right:"
                 progress.update(
                     task,
                     advance=1,
