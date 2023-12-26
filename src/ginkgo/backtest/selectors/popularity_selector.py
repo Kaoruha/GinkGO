@@ -46,14 +46,15 @@ class PopularitySelector(BaseSelector):
             for i, r in df.iterrows():
                 count += 1
                 code = r.code
-                tag = ":mag:"
-                if count % 3 == 0:
-                    tag = ":mag:"
-                elif count % 3 == 1:
-                    tag = ":mag_right:"
-                elif count % 3 == 2:
-                    # tag = ":lollipop:"
-                    tag = ":mag_right:"
+                tag = ":face_savoring_food:"
+                if count % 4 == 0:
+                    tag = ":face_with_monocle:"
+                elif count % 4 == 1:
+                    tag = ":face_savoring_food:"
+                elif count % 4 == 2:
+                    tag = ":face_with_raised_eyebrow:"
+                elif count % 4 == 3:
+                    tag = ":face_with_tongue:"
                 progress.update(
                     task,
                     advance=1,
