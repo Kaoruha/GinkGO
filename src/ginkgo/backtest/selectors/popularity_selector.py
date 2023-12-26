@@ -22,19 +22,25 @@ class PopularitySelector(BaseSelector):
         self.rank = rank
         self.span = span
         self._interested = []
+        self.interval = 10
+        self.day_count = 11
 
     def pick(self) -> list:
+        self.day_count += 1
+        if self.day_count < self.interval:
+            return self._interested
+        self.day_count = 0
         if self.now is None:
             GLOG.ERROR("No date set. skip picking.")
-            return
+            return self._interested
         t0 = datetime.datetime.now()
         df = GDATA.get_stock_info_df_cached()
         df["sum_volume"] = 0
-        # df = df[:200]
         df.reset_index(drop=True, inplace=True)
         column_index = df.columns.get_loc("sum_volume")
         date_start = self.now + datetime.timedelta(days=int(self.span * -1))
         count = 0
+        self._interested = []
         with Progress() as progress:
             task = progress.add_task("Scan the data", total=df.shape[0])
             for i, r in df.iterrows():
@@ -78,6 +84,6 @@ class PopularitySelector(BaseSelector):
         else:
             df = df.tail(abs(self.rank))
 
-        r = df["code"].values
+        self._interested = df["code"].values
         t1 = datetime.datetime.now()
-        return r
+        return self._interested
