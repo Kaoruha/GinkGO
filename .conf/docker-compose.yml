@@ -10,7 +10,7 @@ services:
     volumes:
       - ./redis.conf:/etc/redis/redis.conf
       - ../.db/redis/data:/data
-    command: redis-server /etc/redis/redis.conf --maxmemory 2048mb
+    command: redis-server /etc/redis/redis.conf --maxmemory 20480mb
 
   Mysql-master:
     image: mysql:8.2.0
