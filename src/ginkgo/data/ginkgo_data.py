@@ -88,7 +88,7 @@ class GinkgoData(object):
         cache_name = self.redis_todo_cachename
         while True:
             lock.acquire()
-            # print(f"Try get list from {os.getpid()}")
+            print(f"Try get list from {os.getpid()}")
             item = temp_redis.lpop(cache_name)
             lock.release()
             if item is None:
@@ -100,16 +100,23 @@ class GinkgoData(object):
                 code = item.split(":")[1]
                 print(f"{data_type} : {code}")
                 if data_type == "daybar":
+                    print("Dealing with daybar.")
                     if temp_redis.exists(self.get_daybar_redis_cache_name(code)):
+                        print(f"{code} already cached.")
                         continue
+                    print(f"Try cache {code}.")
                     df = self.get_daybar_df(code)
+                    print(df)
                     if df.shape[0] == 0:
+                        print(f"There is no data about {code}")
                         continue
+                    print(f"Set redis about {code}")
                     temp_redis.setex(
                         self.get_daybar_redis_cache_name(code),
                         self.redis_expiration_time,
                         pickle.dumps(df),
                     )
+                    print(f"Set redis about {code} complete.")
                 elif data_type == "tick":
                     pass
                 elif data_type == "stockinfo":
@@ -136,6 +143,15 @@ class GinkgoData(object):
             except Exception as e:
                 return "DEAD"
         return "NOT EXIST"
+
+    @property
+    def redis_list_length(self) -> int:
+        temp_redis = self.get_redis()
+        cache_name = self.redis_todo_cachename
+        if temp_redis.exists(cache_name):
+            return temp_redis.llen(cache_name)
+        else:
+            return 0
 
     def kill_redis_worker(self) -> None:
         temp_redis = self.get_redis()
