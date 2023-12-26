@@ -45,7 +45,9 @@ def status(
     console.print(f"CPU RATIO : {GCONF.CPURATIO*100}%")
     console.print(f"LOG  PATH : {GCONF.LOGGING_PATH}")
     console.print(f"WORK  DIR : {GCONF.WORKING_PATH}")
-    console.print(f"REDISWORK : [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1]")
+    console.print(
+        f"REDISWORK : [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1] {GDATA.redis_list_length}"
+    )
     if stream:
         os.system(
             "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test"
