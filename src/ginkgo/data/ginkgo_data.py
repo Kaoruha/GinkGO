@@ -636,8 +636,6 @@ class GinkgoData(object):
                 date_range = pd.date_range(start=date_start, end=date_end)
                 df_filtered = df[df.timestamp.isin(date_range)]
                 df_filtered.reset_index(drop=True, inplace=True)
-                t4 = datetime.datetime.now()
-                print(f"cache filter: {t4 - t3}")
                 return df_filtered
             else:
                 return pd.DataFrame()
