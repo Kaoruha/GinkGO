@@ -362,7 +362,7 @@ def update(
     ] = False,
     code: Annotated[
         typing_list[str],
-        typer.Option(
+        typer.Argument(
             case_sensitive=True,
             help="If set,ginkgo will try to update the data of specific code.",
         ),

@@ -68,7 +68,8 @@ class GinkgoData(object):
         self.cache_daybar_max = 4
 
     def get_daybar_redis_cache_name(self, code: str) -> str:
-        pass
+        res = f"daybar%{code}"
+        return res
 
     def get_stockinfo_redis_cache_name(self, code: str) -> str:
         pass
@@ -80,6 +81,9 @@ class GinkgoData(object):
     def redis_set_async(self, key, value):
         temp_redis = self.get_redis()
         cache_name = self.redis_todo_cachename
+        if temp_redis.llen(cache_name) >= 50:
+            GLOG.DEBUG(f"Redis Cache is full, skip {key}:{value}")
+            return
         temp_redis.lpush(cache_name, f"{key}:{value}")
 
     def redis_woker_handler(self, lock) -> None:
@@ -98,10 +102,28 @@ class GinkgoData(object):
                 data_type = item.split(":")[0]
                 code = item.split(":")[1]
                 print(f"{data_type} : {code}")
-                # TODO Deal with item b"{type}:{code}"
+                if data_type == "daybar":
+                    df = self.get_daybar_df(code)
+                    if df.shape[0] == 0:
+                        continue
+                    temp_redis.setex(
+                        self.get_daybar_redis_cache_name(code),
+                        self.redis_expiration_time,
+                        pickle.dumps(df),
+                    )
+                elif data_type == "tick":
+                    pass
+                elif data_type == "stockinfo":
+                    pass
+                elif data_type == "adjust":
+                    pass
+                elif data_type == "calendar":
+                    pass
 
     @property
     def redis_worker_status(self) -> str:
+        # Plan1 store in redis
+        # Plan2 store in file ~/.ginkgo/.redis_woker_pid
         temp_redis = self.get_redis()
         cache_name = "redis_worker_pid"
         if temp_redis.exists(cache_name):
@@ -121,14 +143,10 @@ class GinkgoData(object):
         cache_name = "redis_worker_pid"
         if temp_redis.exists(cache_name):
             cache = temp_redis.get(cache_name).decode("utf-8")
-            print(f"Current PID: {cache}")
             try:
                 proc = psutil.Process(int(cache))
                 if proc.is_running():
-                    print(f"Proc:{cache} is running.")
                     os.kill(int(cache), signal.SIGKILL)
-                else:
-                    print(f"Proc:{cache} not running.")
             except Exception as e:
                 print(e)
 
@@ -623,11 +641,7 @@ class GinkgoData(object):
             else:
                 return pd.DataFrame()
         else:
-            try:
-                print("Add to my own msg queue")
-                self.add_redis_todo_list("daybar", code)
-            except Exception as e:
-                print(e)
+            self.redis_set_async("daybar", code)
             return self.get_daybar_df(code, date_start, date_end)
 
     async def cache_daybar(self, code: str, engine=None):
