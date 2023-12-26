@@ -122,7 +122,7 @@ def configure(
             $SHELL_FOLDER/venv/bin/python $SHELL_FOLDER/main.py
             """
             work_dir = GCONF.WORKING_PATH
-            cmd = f"nohup {work_dir}/venv/bin/python {work_dir}/redis_worker_server.py >>{GCONF.LOGGING_PATH}/redis_worker.log 2>&1 &"
+            cmd = f"nohup {work_dir}/venv/bin/python {work_dir}/.redis_worker_run.py >>{GCONF.LOGGING_PATH}/redis_worker.log 2>&1 &"
             os.system(cmd)
             console.print(
                 ":sun_with_face: Redis Worker will [steel_blue1]START[/steel_blue1] soon."
