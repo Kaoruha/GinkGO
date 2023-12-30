@@ -109,12 +109,26 @@ def plot(
             help="Date End, you could use yyyymmdd or yyyy-mm-dd",
         ),
     ] = "21200001",
+    ma: Annotated[
+        int, typer.Option(case_sensitive=False, help="Moving Average")
+    ] = None,
+    wma: Annotated[
+        int, typer.Option(case_sensitive=False, help="Weighted Moving Average")
+    ] = None,
+    ema: Annotated[
+        int, typer.Option(case_sensitive=False, help="Exponential Moving Average")
+    ] = None,
 ):
     """
     Plot for BAR and TICK.
     """
     from ginkgo.data.ginkgo_data import GDATA
-    from ginkgo.backtest.plots import CandlePlot
+    from ginkgo.backtest.plots import CandlePlot, CandleWithIndexPlot
+    from ginkgo.backtest.indices import (
+        SimpleMovingAverage,
+        WeightedMovingAverage,
+        ExponentialMovingAverage,
+    )
 
     if data == DataType.DAYBAR:
         info = GDATA.get_stock_info(code)
@@ -122,7 +136,17 @@ def plot(
         code_name = info.code_name
         industry = info.industry
         df = GDATA.get_daybar_df(code, start, end)
-        plt = CandlePlot(f"[{industry}] {code} {code_name}")
+        plt = CandleWithIndexPlot(f"[{industry}] {code} {code_name}")
+        if ma:
+            index_ma = SimpleMovingAverage(f"MovingAverage{ma}", ma)
+            plt.add_index(index_ma)
+        if wma:
+            index_wma = WeightedMovingAverage(f"WeightedMovingAverage{wma}", wma)
+            plt.add_index(index_wma)
+        if ema:
+            index_ema = ExponentialMovingAverage(f"ExponentialMovingAverage{ema}", ema)
+            plt.add_index(index_ema)
+
         plt.figure_init()
         plt.update_data(df)
         plt.show()
