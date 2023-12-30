@@ -211,9 +211,13 @@ def main():
         cmd = f"pyinstaller --onefile --paths /home/kaoru/Documents/Ginkgo/venv/lib/python{version_tag}/site-packages  main.py -n ginkgo"
         os.system(cmd)
 
-    print(
-        f"You could run : {lightblue('chmod +x ./install.sh;sudo ./install.sh')} to get the cli."
-    )
+    # TODO Check if ginkgo exsit in /usr/local/bin
+    if os.path.exists("/usr/local/bin/ginkgo"):
+        print(f"You could run : {lightblue('ginkgo --help')} to start your study.")
+    else:
+        print(
+            f"You could run : {lightblue('chmod +x ./install.sh;sudo ./install.sh')} to get the cli."
+        )
 
 
 if __name__ == "__main__":
