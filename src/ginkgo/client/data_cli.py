@@ -118,16 +118,20 @@ def plot(
     ema: Annotated[
         int, typer.Option(case_sensitive=False, help="Exponential Moving Average")
     ] = None,
+    atr: Annotated[
+        int, typer.Option(case_sensitive=False, help="Average True Range")
+    ] = None,
 ):
     """
     Plot for BAR and TICK.
     """
     from ginkgo.data.ginkgo_data import GDATA
-    from ginkgo.backtest.plots import CandlePlot, CandleWithIndexPlot
+    from ginkgo.backtest.plots import CandlePlot, CandleWithIndexPlot, ResultPlot
     from ginkgo.backtest.indices import (
         SimpleMovingAverage,
         WeightedMovingAverage,
         ExponentialMovingAverage,
+        AverageTrueRange,
     )
 
     if data == DataType.DAYBAR:
@@ -146,6 +150,10 @@ def plot(
         if ema:
             index_ema = ExponentialMovingAverage(f"ExponentialMovingAverage{ema}", ema)
             plt.add_index(index_ema)
+        if atr:
+            index_atr = AverageTrueRange(f"AverageTrueRange{atr}", atr)
+            plt.add_independent_index(index_atr)
+            # plt.add_index(index_atr)
 
         plt.figure_init()
         plt.update_data(df)

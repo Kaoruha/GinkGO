@@ -20,7 +20,10 @@ class CandleWithIndexPlot(BasePlot):
         super(CandleWithIndexPlot, self).__init__(title, args, kwargs)
         self.ax1 = None
         self._indecies = []
+        self._independente_indecies = []
         self._result = {}
+        self._independente_ax = {}
+        self._independent_result = {}
 
     def add_index(self, index) -> None:
         if not isinstance(index, BaseIndex):
@@ -28,6 +31,13 @@ class CandleWithIndexPlot(BasePlot):
             print(type(index))
             return
         self._indecies.append(index)
+
+    def add_independent_index(self, index) -> None:
+        if not isinstance(index, BaseIndex):
+            GLOG.ERROR("Plot.add_index only support BaseIndex.")
+            print(type(index))
+            return
+        self._independente_indecies.append(index)
 
     def update_data(self, df: pd.DataFrame) -> None:
         if not isinstance(df, pd.DataFrame):
@@ -73,6 +83,9 @@ class CandleWithIndexPlot(BasePlot):
         self._result = {}
         for i in self._indecies:
             self._result[i.name] = i.cal(raw)
+        for i in self._independente_indecies:
+            print(i.name)
+            self._independent_result[i.name] = i.cal(raw)
 
     def figure_init(self) -> None:
         # TODO
@@ -88,11 +101,17 @@ class CandleWithIndexPlot(BasePlot):
         self.figure.suptitle(self.title, fontsize=20, x=0.5, y=0.97)
 
         # 划分Grid
-        gs = gridspec.GridSpec(40, 40)
+        height = 40 + len(self._independente_indecies) * 20
+        gs = gridspec.GridSpec(height, 40)
 
         # 生成上下两张图
         self.ax2 = self.figure.add_subplot(gs[29:40, 0:40])
         self.ax1 = self.figure.add_subplot(gs[0:30, 0:40], sharex=self.ax2)
+        for i in range(len(self._independente_indecies)):
+            start = 44 + i * 16
+            end = 60 + i * 16
+            ax = self.figure.add_subplot(gs[start:end, 0:40], sharex=self.ax2)
+            self._independente_ax[self._independente_indecies[i].name] = ax
 
     def update_plot(self):
         if self.raw is None:
@@ -145,5 +164,15 @@ class CandleWithIndexPlot(BasePlot):
                 self.ax1.plot(
                     self._result[i]["timestamp"], self._result[i][i], label=f"fuck"
                 )
+
+        # Independent Index
+        print(self._independent_result)
+        if len(self._independent_result) > 0:
+            for i in self._independent_result.keys():
+                self._independente_ax[i].plot(
+                    self._independent_result[i]["timestamp"],
+                    self._independent_result[i][i],
+                )
+
         self.figure.canvas.mpl_connect("button_press_event", self.on_press)
         plt.ioff()
