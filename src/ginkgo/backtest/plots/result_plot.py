@@ -18,6 +18,7 @@ class ResultPlot(BasePlot):
     def __init__(self, title: str = "", *args, **kwargs) -> None:
         super(ResultPlot, self).__init__(title, args, kwargs)
         self.ax = []
+        self._indecies = []
         self.backtest_id = ""
         self.raw = None
 
