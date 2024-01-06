@@ -1180,17 +1180,21 @@ class GinkgoData(object):
         )  # Expire in 1 hour
 
     def update_cn_daybar(self, code: str) -> None:
+        GLOG.DEBUG(f"Try to update CN DAYBAR about {code}.")
         cached_name = f"{code}_daybar_updated"
         temp_redis = self.get_redis()
         if temp_redis.exists(cached_name):
+            GLOG.DEBUG(f"Daybar {code} exsit in REDIS. Update it.")
             updated = temp_redis.get(cached_name)
             GLOG.INFO(
                 f"Daybar {code} Updated at {updated.decode('utf-8')}. No need to update."
             )
             return
+        GLOG.DEBUG(f"Daybar {code} not exsit in REDIS.")
         GLOG.INFO(f"Updating CN DAYBAR about {code}.")
         # Get the stock info of code
         t0 = datetime.datetime.now()
+        GLOG.DEBUG(f"Get stock info about {code}")
         info = self.get_stock_info_df_cached(code)
         driver = GinkgoClickhouse(
             user=GCONF.CLICKUSER,
@@ -1248,6 +1252,7 @@ class GinkgoData(object):
             [None, None],
         ]
         last_missing = None
+        GLOG.DEBUG(f"Check {code} Daybar Calendar.")
         for i, r in trade_calendar.iterrows():
             current = str(r["timestamp"])
             current = datetime_normalize(current)
@@ -1269,12 +1274,14 @@ class GinkgoData(object):
             missing_period[-1][1] = datetime_normalize(
                 trade_calendar.iloc[-1]["timestamp"]
             )
+        GLOG.DEBUG(f"Daybar Calendar Check {code} Done.")
 
         # fetch the data and insert to db
         tu = GinkgoTushare()
         l = []
         insert_count = 0
         update_count = 0
+        GLOG.DEBUG(f"Daybar {code} Missing Period: {len(missing_period)}")
         for period in missing_period:
             if period[0] is None:
                 break
