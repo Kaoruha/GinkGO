@@ -61,6 +61,7 @@ class GinkgoMysql(object):
         return inspect(self.engine)
 
     def is_table_exsists(self, name: str) -> bool:
+        GLOG.DEBUG(f"Check Mysql table {name} exsists. {self.insp.has_table(name)}")
         return self.insp.has_table(name)
 
     def get_table_size(self, model) -> int:

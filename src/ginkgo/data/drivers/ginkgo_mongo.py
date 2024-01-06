@@ -52,8 +52,11 @@ class GinkgoMongo(object):
         return inspect(self.engine)
 
     def is_table_exsists(self, name: str) -> bool:
+        GLOG.DEBUG(f"Check Mongo table {name} exists. {self.insp.has_table(name)}")
         return self.insp.has_table(name)
 
     def get_table_size(self, model) -> int:
+        GLOG.DEBUG(f"Try get Mongo table {model.__tablename__} size.")
         count = self.session.query(func.count(model.uuid)).scalar()
+        GLOG.DEBUG(f"Mongo table {model} size is {count}")
         return count

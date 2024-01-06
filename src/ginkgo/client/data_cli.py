@@ -426,7 +426,7 @@ def update(
             GDATA.update_all_cn_adjustfactor_aysnc()
         else:
             for item in code:
-                GDATA.update_cn_adjustfactor(i)
+                GDATA.update_cn_adjustfactor(item)
     if day:
         if code == []:
             GDATA.update_all_cn_daybar_aysnc()
