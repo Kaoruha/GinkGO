@@ -52,6 +52,7 @@ class GinkgoData(object):
     """
 
     def __init__(self):
+        GLOG.DEBUG("Init GinkgoData.")
         self._click_models = []
         self._mysql_models = []
         self.get_models()
@@ -62,7 +63,7 @@ class GinkgoData(object):
             self.cpu_ratio = GCONF.CPURATIO
         except Exception as e:
             self.cpu_ratio = 0.8
-            print(e)
+            GLOG.DEBUG(e)
         self.tick_models = {}
         self.cache_daybar_count = 0
         self.cache_daybar_max = 4
@@ -76,19 +77,21 @@ class GinkgoData(object):
         return "redis_todo_list"
 
     def redis_set_async(self, key, value):
+        GLOG.DEBUG("Try add REDIS task about {key}")
         temp_redis = self.get_redis()
         cache_name = self.redis_todo_cachename
         if temp_redis.llen(cache_name) >= 100:  # TODO move into config
             GLOG.DEBUG(f"Redis Cache is full, skip {key}:{value}")
             return
         temp_redis.lpush(cache_name, f"{key}:{value}")
+        GLOG.DEBUG(f"Add REDIS Task about {key}")
 
     def redis_woker_handler(self, lock) -> None:
         temp_redis = self.get_redis()
         cache_name = self.redis_todo_cachename
         while True:
             lock.acquire()
-            print(f"Try get list from {os.getpid()}")
+            GLOG.DEBUG(f"Try get list from {os.getpid()}")
             item = temp_redis.lpop(cache_name)
             lock.release()
             if item is None:
@@ -98,25 +101,25 @@ class GinkgoData(object):
                 item = item.decode("utf-8")
                 data_type = item.split(":")[0]
                 code = item.split(":")[1]
-                print(f"{data_type} : {code}")
+                GLOG.DEBUG(f"{data_type} : {code}")
                 if data_type == "daybar":
-                    print("Dealing with daybar.")
+                    GLOG.DEBUG("Dealing with daybar.")
                     if temp_redis.exists(self.get_daybar_redis_cache_name(code)):
-                        print(f"{code} already cached.")
+                        GLOG.DEBUG(f"{code} already cached. deal with next")
                         continue
-                    print(f"Try cache {code}.")
+                    GLOG.DEBUG(f"Try cache {code}.")
                     df = self.get_daybar_df(code)
-                    print(df)
+                    GLOG.DEBUG(df)
                     if df.shape[0] == 0:
-                        print(f"There is no data about {code}")
+                        GLOG.DEBUG(f"There is no data about {code}. deal with next")
                         continue
-                    print(f"Set redis about {code}")
+                    GLOG.DEBUG(f"Set redis about {code}")
                     temp_redis.setex(
                         self.get_daybar_redis_cache_name(code),
                         self.redis_expiration_time,
                         pickle.dumps(df),
                     )
-                    print(f"Set redis about {code} complete.")
+                    GLOG.DEBUG(f"Set redis about {code} complete.")
                 elif data_type == "tick":
                     pass
                 elif data_type == "stockinfo":
@@ -146,6 +149,7 @@ class GinkgoData(object):
 
     @property
     def redis_list_length(self) -> int:
+        GLOG.DEBUG("Try get REDIS list length.")
         temp_redis = self.get_redis()
         cache_name = self.redis_todo_cachename
         if temp_redis.exists(cache_name):
@@ -154,6 +158,7 @@ class GinkgoData(object):
             return 0
 
     def kill_redis_worker(self) -> None:
+        GLOG.DEBUG("Try kill REDIS worker.")
         temp_redis = self.get_redis()
         cache_name = "redis_worker_pid"
         if temp_redis.exists(cache_name):
@@ -163,7 +168,7 @@ class GinkgoData(object):
                 if proc.is_running():
                     os.kill(int(cache), signal.SIGKILL)
             except Exception as e:
-                print(e)
+                GLOG.DEBUG(e)
 
     def run_redis_worker(self, count: int = 2) -> None:
         # Kill the worker if it is running
@@ -222,9 +227,12 @@ class GinkgoData(object):
         return GinkgoRedis(GCONF.REDISHOST, GCONF.REDISPORT).redis
 
     def add(self, value) -> None:
+        GLOG.DEBUG("Try add data to session.")
         driver = self.get_driver(value)
+        GLOG.DEBUG(f"Current Driver is {driver}.")
         driver.session.add(value)
         driver.session.commit()
+        GLOG.DEBUG(f"Driver {driver} commit.")
 
     def add_all(self, values) -> None:
         """
@@ -232,21 +240,27 @@ class GinkgoData(object):
         """
         # TODO support different database engine.
         # Now is for clickhouse.
+        GLOG.DEBUG("Try add multi data to session.")
         click_list = []
         mysql_list = []
         click_driver = self.get_click()
         mysql_driver = self.get_mysql()
         for i in values:
             if isinstance(i, MClickBase):
+                GLOG.DEBUG(f"Add {i} to clickhouse session.")
                 click_list.append(i)
             elif isinstance(i, MMysqlBase):
+                GLOG.DEBUG(f"Add {i} to mysql session.")
                 mysql_list.append(i)
+            GLOG.WARN("Just support clickhouse and mysql now. Ignore other type.")
         if len(click_list) > 0:
             click_driver.session.add_all(click_list)
             click_driver.session.commit()
+            GLOG.DEBUG(f"Clickhouse commit {len(click_list)} records.")
         if len(mysql_list) > 0:
             mysql_driver.session.add_all(mysql_list)
             mysql_driver.session.commit()
+            GLOG.DEBUG(f"Mysql commit {len(mysql_list)} records.")
 
     def get_tick_model(self, code: str) -> type:
         """
@@ -271,6 +285,9 @@ class GinkgoData(object):
         """
         Read all py files under /data/models
         """
+        GLOG.DEBUG(f"Try to read all models.")
+        click_count = 0
+        mysql_count = 0
         self._click_models = []
         self._mysql_models = []
         for i in MClickBase.__subclasses__():
@@ -278,12 +295,16 @@ class GinkgoData(object):
                 continue
             if i not in self._click_models:
                 self._click_models.append(i)
+                click_count += 1
 
         for i in MMysqlBase.__subclasses__():
             if i.__abstract__ == True:
                 continue
             if i not in self._mysql_models:
                 self._mysql_models.append(i)
+                mysql_count += 1
+        GLOG.DEBUG(f"Read {click_count} clickhouse models.")
+        GLOG.DEBUG(f"Read {mysql_count} mysql models.")
 
     def create_all(self) -> None:
         """
@@ -295,7 +316,7 @@ class GinkgoData(object):
         MClickBase.metadata.create_all(click_driver.engine)
         # Create Tables in mysql
         MMysqlBase.metadata.create_all(mysql_driver.engine)
-        GLOG.INFO(f"{type(self)} create all tables.")
+        GLOG.DEBUG(f"{type(self)} Create all tables.")
 
     def drop_all(self) -> None:
         """
@@ -351,6 +372,7 @@ class GinkgoData(object):
         return db.get_table_size(model)
 
     def get_order(self, order_id: str, engine=None) -> MOrder:
+        GLOG.DEBUG(f"Try to get Order about {order_id}.")
         db = engine if engine else self.get_driver(MOrder)
         r = (
             db.session.query(MOrder)
@@ -378,8 +400,8 @@ class GinkgoData(object):
             )
         elif df.shape[0] == 0:
             return pd.DataFrame()
-        print("Get Order DF")
-        print(df)
+        GLOG.DEBUG("Get Order DF")
+        GLOG.DEBUG(df)
 
         df = df.iloc[0, :]
         df.code = df.code.strip(b"\x00".decode())
@@ -398,7 +420,7 @@ class GinkgoData(object):
             GLOG.DEBUG("Try get order df by backtest, but no order found.")
             return pd.DataFrame()
         GLOG.DEBUG(f"Get Order DF with backtest: {backtest_id}")
-        print(df)
+        GLOG.DEBUG(df)
 
         df = df.iloc[0, :]
         df.code = df.code.strip(b"\x00".decode())
@@ -1187,7 +1209,7 @@ class GinkgoData(object):
         # Got the range of date
         if info.shape[0] == 0:
             GLOG.WARN(f"{code} has no stock info in db.")
-            console.print(
+            console.GLOG.DEBUG(
                 f":zipper-mouth_face: Please run [steel_blue1]ginkgo data update --stockinfo[/steel_blue1] first."
             )
             return
@@ -1208,7 +1230,7 @@ class GinkgoData(object):
         )
         if trade_calendar.shape[0] == 0:
             GLOG.WARN("There is no trade calendar.")
-            console.print(
+            console.GLOG.DEBUG(
                 f":zipper-mouth_face: Please run [steel_blue1]ginkgo data update --calendar[/steel_blue1] first."
             )
             return
@@ -1229,7 +1251,7 @@ class GinkgoData(object):
         for i, r in trade_calendar.iterrows():
             current = str(r["timestamp"])
             current = datetime_normalize(current)
-            print(f"Daybar Calendar Check {current}  {code}", end="\r")
+            GLOG.DEBUG(f"Daybar Calendar Check {current}  {code}", end="\r")
             # Check if the bar exist in db
             if r["in_db"] == False:
                 last_missing = r["timestamp"]
@@ -1410,7 +1432,7 @@ class GinkgoData(object):
         info = self.get_stock_info_df_cached()
         if info.shape[0] == 0:
             GLOG.WARN(f"Stock Info is empty.")
-            console.print(
+            console.GLOG.DEBUG(
                 f":zipper-mouth_face: Please run [steel_blue1]ginkgo data update --stockinfo[/steel_blue1] first."
             )
 
@@ -1432,8 +1454,10 @@ class GinkgoData(object):
         GLOG.WARN(f"Update All CN Daybar Done. Cost: {t1-t0}")
 
     def update_cn_adjustfactor(self, code: str, queue=None) -> None:
+        GLOG.DEBUG(f"Updating AdjustFactor {code}")
         cached_name = f"{code}_adjustfactor_updated"
         temp_redis = self.get_redis()
+        GLOG.DEBUG(f"Try get AdjustFactor {code} from REDIS first.")
         if temp_redis.exists(cached_name):
             updated = temp_redis.get(cached_name)
             GLOG.DEBUG(
@@ -1442,13 +1466,17 @@ class GinkgoData(object):
             if queue:
                 queue.put(code)
             return
+        GLOG.DEBUG(f"Adjustfactor {code} not in REDIS. Try get from database.")
         t0 = datetime.datetime.now()
         tu = GinkgoTushare()
+        GLOG.DEBUG(f"Try get AdjustFactor {code} from Tushare.")
         df = tu.fetch_cn_stock_adjustfactor(code)
+        GLOG.DEBUG(f"Got {df.shape[0]} records about {code} AdjustFactor.")
         insert_count = 0
         update_count = 0
         driver = self.get_mysql()
         l = []
+        GLOG.DEBUG(f"Ergodic {code} AdjustFactor.")
         for i, r in df.iterrows():
             code = r["ts_code"]
             date = datetime_normalize(r["trade_date"])
@@ -1456,6 +1484,7 @@ class GinkgoData(object):
 
             # Check ad if exist in database
             # Data in database
+            GLOG.DEBUG(f"Try to get ADJUST {code} {date} from database.")
             q = self.get_adjustfactor(code, date, date)
             # If exist, update
             if len(q) >= 1:
@@ -1464,6 +1493,7 @@ class GinkgoData(object):
                     GLOG.ERROR(
                         f"Should not have {len(q)} {code} AdjustFactor on {date}"
                     )
+                GLOG.DEBUG(f"Got {len(q)} {code} AdjustFactor on {date}, update it.")
                 for item in q:
                     if (
                         item.code == code
@@ -1480,6 +1510,7 @@ class GinkgoData(object):
 
             # If not exist, new insert
             elif len(q) == 0:
+                GLOG.DEBUG(f"No {code} {date} AdjustFactor in database.")
                 # Insert
                 adjs = self.get_adjustfactor(code, GCONF.DEFAULTSTART, date)
                 if len(adjs) == 0 or adjs is None:
@@ -1487,13 +1518,20 @@ class GinkgoData(object):
                     o.set_source(SOURCE_TYPES.TUSHARE)
                     o.set(code, 1.0, 1.0, factor, date)
                     l.append(o)
+                    GLOG.DEBUG(f"Add AdjustFactor {code} {date} to list.")
                 elif len(adjs) > 0:
                     latest = adjs[-1]
                     if float(latest.adjustfactor) == factor:
+                        GLOG.DEBUG(
+                            f"Adjust {code} {date} is same., just update the update time."
+                        )
                         latest.update_time(date)
                         update_count += 1
                         driver.session.commit()
                     else:
+                        GLOG.DEBUG(
+                            f"Adjust {code} {date} is different. update the factor."
+                        )
                         o = MAdjustfactor()
                         o.set_source(SOURCE_TYPES.TUSHARE)
                         o.set(code, 1.0, 1.0, factor, date)
@@ -1715,7 +1753,7 @@ class GinkgoData(object):
                         item.file_name = file_name
                         item.content = content
                         self.add(item)
-                        print(f"Add {file_name}")
+                        GLOG.DEBUG(f"Add {file_name}")
 
         file_map = {
             "analyzers": FILE_TYPES.ANALYZER,
@@ -1738,7 +1776,7 @@ class GinkgoData(object):
                 item.file_name = default_backtest_name
                 item.content = content
                 self.add(item)
-                print("Add DefaultStrategy.yml")
+                GLOG.DEBUG("Add DefaultStrategy.yml")
         for i in file_map:
             walk_through(i)
 

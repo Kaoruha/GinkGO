@@ -57,14 +57,20 @@ class GinkgoClickhouse(object):
                 f"CREATE DATABASE IF NOT EXISTS {self._db} ENGINE = Memory COMMENT 'For Ginkgo Quant'"
             )
         )
+        GLOG.DEBUG(f"Create database {self._db} succeed.")
 
     @property
     def insp(self):
         return inspect(self.engine)
 
     def is_table_exsists(self, name: str) -> bool:
+        GLOG.DEBUG(
+            f"Check Clickhouse table {name} exsists. {self.insp.has_table(name)}"
+        )
         return self.insp.has_table(name)
 
     def get_table_size(self, model) -> int:
+        GLOG.DEBUG("Try get Clickhouse table {model.__tablename__} size.")
         count = self.session.query(func.count(model.uuid)).scalar()
+        GLOG.DEBUG(f"Clickhouse Table {model} size is {count}")
         return count
