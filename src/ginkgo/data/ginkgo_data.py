@@ -247,12 +247,13 @@ class GinkgoData(object):
         mysql_driver = self.get_mysql()
         for i in values:
             if isinstance(i, MClickBase):
-                GLOG.DEBUG(f"Add {i} to clickhouse session.")
+                GLOG.DEBUG(f"Add {type(i)} to clickhouse session.")
                 click_list.append(i)
             elif isinstance(i, MMysqlBase):
-                GLOG.DEBUG(f"Add {i} to mysql session.")
+                GLOG.DEBUG(f"Add {type(i)} to mysql session.")
                 mysql_list.append(i)
-            GLOG.WARN("Just support clickhouse and mysql now. Ignore other type.")
+            else:
+                GLOG.WARN("Just support clickhouse and mysql now. Ignore other type.")
         if len(click_list) > 0:
             click_driver.session.add_all(click_list)
             click_driver.session.commit()
