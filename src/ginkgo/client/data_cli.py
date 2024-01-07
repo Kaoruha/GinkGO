@@ -121,6 +121,7 @@ def plot(
     atr: Annotated[
         int, typer.Option(case_sensitive=False, help="Average True Range")
     ] = None,
+    pin: Annotated[bool, typer.Option(case_sensitive=False, help="Pin Bar")] = False,
 ):
     """
     Plot for BAR and TICK.
@@ -132,6 +133,7 @@ def plot(
         WeightedMovingAverage,
         ExponentialMovingAverage,
         AverageTrueRange,
+        PinBar,
     )
 
     if data == DataType.DAYBAR:
@@ -141,6 +143,7 @@ def plot(
         industry = info.industry
         df = GDATA.get_daybar_df(code, start, end)
         plt = CandleWithIndexPlot(f"[{industry}] {code} {code_name}")
+
         if ma:
             index_ma = SimpleMovingAverage(f"MovingAverage{ma}", ma)
             plt.add_index(index_ma)
@@ -153,7 +156,9 @@ def plot(
         if atr:
             index_atr = AverageTrueRange(f"AverageTrueRange{atr}", atr)
             plt.add_independent_index(index_atr)
-            # plt.add_index(index_atr)
+        if pin:
+            index_pin = PinBar("Pin")
+            plt.add_independent_index(index_pin)
 
         plt.figure_init()
         plt.update_data(df)

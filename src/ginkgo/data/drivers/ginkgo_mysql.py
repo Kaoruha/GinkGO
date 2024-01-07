@@ -65,5 +65,6 @@ class GinkgoMysql(object):
         return self.insp.has_table(name)
 
     def get_table_size(self, model) -> int:
+        GLOG.DEBUG(f"Get Mysql table {model.__tablename__} size.")
         count = self.session.query(model).count()
         return count
