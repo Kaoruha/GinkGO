@@ -25,19 +25,17 @@ class CandleWithIndexPlot(BasePlot):
         self._independente_ax = {}
         self._independent_result = {}
 
-    def add_index(self, index) -> None:
+    def add_index(self, index, type: str = "line") -> None:
         if not isinstance(index, BaseIndex):
             GLOG.ERROR("Plot.add_index only support BaseIndex.")
-            print(type(index))
             return
-        self._indecies.append(index)
+        self._indecies.append({"type": type, "index": index})
 
-    def add_independent_index(self, index) -> None:
+    def add_independent_index(self, index, type: str = "line") -> None:
         if not isinstance(index, BaseIndex):
             GLOG.ERROR("Plot.add_index only support BaseIndex.")
-            print(type(index))
             return
-        self._independente_indecies.append(index)
+        self._independente_indecies.append({"type": type, "index": index})
 
     def update_data(self, df: pd.DataFrame) -> None:
         if not isinstance(df, pd.DataFrame):
@@ -82,10 +80,15 @@ class CandleWithIndexPlot(BasePlot):
             return
         self._result = {}
         for i in self._indecies:
-            self._result[i.name] = i.cal(raw)
+            self._result[i["index"].name] = {
+                "type": i["type"],
+                "data": i["index"].cal(raw),
+            }
         for i in self._independente_indecies:
-            print(i.name)
-            self._independent_result[i.name] = i.cal(raw)
+            self._independent_result[i["index"].name] = {
+                "type": i["type"],
+                "data": i["index"].cal(raw),
+            }
 
     def figure_init(self) -> None:
         # TODO
@@ -111,7 +114,7 @@ class CandleWithIndexPlot(BasePlot):
             start = 44 + i * 16
             end = 60 + i * 16
             ax = self.figure.add_subplot(gs[start:end, 0:40], sharex=self.ax2)
-            self._independente_ax[self._independente_indecies[i].name] = ax
+            self._independente_ax[self._independente_indecies[i]["index"].name] = ax
 
     def update_plot(self):
         if self.raw is None:
@@ -161,18 +164,35 @@ class CandleWithIndexPlot(BasePlot):
         # Index
         if len(self._result) > 0:
             for i in self._result.keys():
-                self.ax1.plot(
-                    self._result[i]["timestamp"], self._result[i][i], label=f"fuck"
-                )
+                plt_type = self._result[i]["type"]
+                data = self._result[i]["data"]
+                if plt_type == "line":
+                    self.ax1.plot(data["timestamp"], data[i], label=f"fuck")
+                elif plt_type == "scatter":
+                    self.ax1.scatter(data["timestamp"], data[i], label=f"fuck")
+                else:
+                    self.ax1.plot(data["timestamp"], data[i], label=f"fuck")
 
         # Independent Index
-        print(self._independent_result)
         if len(self._independent_result) > 0:
             for i in self._independent_result.keys():
-                self._independente_ax[i].plot(
-                    self._independent_result[i]["timestamp"],
-                    self._independent_result[i][i],
-                )
+                plt_type = self._independent_result[i]["type"]
+                data = self._independent_result[i]["data"]
+                if plt_type == "line":
+                    self._independente_ax[i].plot(
+                        data["timestamp"],
+                        data[i],
+                    )
+                elif plt_type == "scatter":
+                    self._independente_ax[i].scatter(
+                        data["timestamp"],
+                        data[i],
+                    )
+                else:
+                    self._independente_ax[i].plot(
+                        data["timestamp"],
+                        data[i],
+                    )
 
         self.figure.canvas.mpl_connect("button_press_event", self.on_press)
         plt.ioff()
