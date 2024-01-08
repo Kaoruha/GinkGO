@@ -1,4 +1,4 @@
-from matplotlib.widgets import Cursor
+from matplotlib.widgets import Cursor, MultiCursor
 from src.ginkgo.backtest.indices.base_index import BaseIndex
 import matplotlib
 import matplotlib.pyplot as plt
@@ -70,6 +70,17 @@ class CandleWithIndexPlot(BasePlot):
                 msg += f"LOW : {info.low.values[0]}\n"
                 msg += f"CLS : {info.close.values[0]}\n"
                 msg += f"VOL : {info.volume.values[0]}\n"
+                # Index
+                for i in self._result.keys():
+                    data = self._result[i]["data"][
+                        self._result[i]["data"].timestamp == timestamp
+                    ]
+                    msg += f"{i}: {data[i].values[0]}\n"
+                for i in self._independent_result.keys():
+                    data = self._independent_result[i]["data"][
+                        self._independent_result[i]["data"].timestamp == timestamp
+                    ]
+                    msg += f"{i}: {data[i].values[0]}\n"
             self.infotips.set_text(msg)
         except Exception as e:
             self.infotips.set_text(f"{e}")
@@ -150,8 +161,16 @@ class CandleWithIndexPlot(BasePlot):
 
         # Cursor
         self.cursor = Cursor(
-            self.ax1, horizOn=True, useblit=True, color="darkblue", linewidth=0.6
+            self.ax1, horizOn=True, useblit=True, color="darkblue", linewidth=1.6
         )
+        # self.cursor = MultiCursor(
+        #     self.figure.canvas,
+        #     (self.ax1, self.ax2, *self._independente_ax.values()),
+        #     horizOn=True,
+        #     vertOn=True,
+        #     color="r",
+        #     linewidth=0.6,
+        # )
         # Txt Init
         self.infotips = self.ax1.text(
             0.02,
