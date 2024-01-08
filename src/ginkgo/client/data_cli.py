@@ -146,19 +146,19 @@ def plot(
 
         if ma:
             index_ma = SimpleMovingAverage(f"MovingAverage{ma}", ma)
-            plt.add_index(index_ma)
+            plt.add_index(index_ma, "line")
         if wma:
             index_wma = WeightedMovingAverage(f"WeightedMovingAverage{wma}", wma)
-            plt.add_index(index_wma)
+            plt.add_index(index_wma, "line")
         if ema:
             index_ema = ExponentialMovingAverage(f"ExponentialMovingAverage{ema}", ema)
-            plt.add_index(index_ema)
+            plt.add_index(index_ema, "line")
         if atr:
             index_atr = AverageTrueRange(f"AverageTrueRange{atr}", atr)
-            plt.add_independent_index(index_atr)
+            plt.add_independent_index(index_atr, "line")
         if pin:
             index_pin = PinBar("Pin")
-            plt.add_independent_index(index_pin)
+            plt.add_independent_index(index_pin, "scatter")
 
         plt.figure_init()
         plt.update_data(df)
