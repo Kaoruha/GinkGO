@@ -8,7 +8,7 @@ class ExponentialMovingAverage(BaseIndex):
     EMA
     """
 
-    def __init__(self, name: str = "", timeperiod: int = 5, *args, **kwargs) -> None:
+    def __init__(self, name: str = "ema", timeperiod: int = 5, *args, **kwargs) -> None:
         super(ExponentialMovingAverage, self).__init__(name, *args, **kwargs)
         self._timeperiod = timeperiod
         self._factor = 0.9
@@ -27,13 +27,13 @@ class ExponentialMovingAverage(BaseIndex):
         for i, r in df.iterrows():
             if i < self._timeperiod:
                 rs.loc[i, column_name] = np.nan
-            else:
-                rs.loc[i, column_name] = sum(
-                    [
-                        self._weight[j] * df.loc[i - j, "close"]
-                        for j in range(self._timeperiod)
-                    ]
-                )
+                continue
+            rs.loc[i, column_name] = sum(
+                [
+                    self._weight[j] * df.loc[i - j, "close"]
+                    for j in range(self._timeperiod)
+                ]
+            )
 
         # rs.fillna(0, inplace=True)
         return rs
