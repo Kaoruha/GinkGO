@@ -86,9 +86,6 @@ class CandleWithIndexPlot(BasePlot):
             self.infotips.set_text(f"{e}")
 
     def cal_index(self, raw: pd.DataFrame) -> None:
-        if len(self._indecies) == 0:
-            GLOG.DEBUG("There is no index in plot. ")
-            return
         self._result = {}
         for i in self._indecies:
             self._result[i["index"].name] = {
@@ -185,6 +182,8 @@ class CandleWithIndexPlot(BasePlot):
             for i in self._result.keys():
                 plt_type = self._result[i]["type"]
                 data = self._result[i]["data"]
+                if data is None:
+                    continue
                 if plt_type == "line":
                     self.ax1.plot(data["timestamp"], data[i], label=f"fuck")
                 elif plt_type == "scatter":
@@ -194,9 +193,12 @@ class CandleWithIndexPlot(BasePlot):
 
         # Independent Index
         if len(self._independent_result) > 0:
+            print("11111111111")
             for i in self._independent_result.keys():
                 plt_type = self._independent_result[i]["type"]
                 data = self._independent_result[i]["data"]
+                if data is None:
+                    continue
                 if plt_type == "line":
                     self._independente_ax[i].plot(
                         data["timestamp"],
