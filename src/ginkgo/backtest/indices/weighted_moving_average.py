@@ -8,7 +8,7 @@ class WeightedMovingAverage(BaseIndex):
     WMA
     """
 
-    def __init__(self, name: str = "", timeperiod: int = 5, *args, **kwargs) -> None:
+    def __init__(self, name: str = "wma", timeperiod: int = 5, *args, **kwargs) -> None:
         super(WeightedMovingAverage, self).__init__(name, *args, **kwargs)
         self._timeperiod = timeperiod
         # Generate the weight, a list contains the weight of each data from 1 to timeperiod

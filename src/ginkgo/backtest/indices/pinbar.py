@@ -3,7 +3,7 @@ from src.ginkgo.backtest.indices.base_index import BaseIndex
 
 
 class PinBar(BaseIndex):
-    def __init__(self, name: str = "pinbar", *args, **kwargs) -> None:
+    def __init__(self, name: str = "pb", *args, **kwargs) -> None:
         super(PinBar, self).__init__(name=name, *args, **kwargs)
 
     def cal(self, raw: pd.DataFrame, *args, **kwargs) -> pd.DataFrame:

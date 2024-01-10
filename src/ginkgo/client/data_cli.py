@@ -122,6 +122,9 @@ def plot(
         int, typer.Option(case_sensitive=False, help="Average True Range")
     ] = None,
     pin: Annotated[bool, typer.Option(case_sensitive=False, help="Pin Bar")] = False,
+    inf: Annotated[
+        bool, typer.Option(case_sensitive=False, help="InflectionPoint")
+    ] = False,
 ):
     """
     Plot for BAR and TICK.
@@ -134,6 +137,7 @@ def plot(
         ExponentialMovingAverage,
         AverageTrueRange,
         PinBar,
+        InflectionPoint,
     )
 
     if data == DataType.DAYBAR:
@@ -159,6 +163,9 @@ def plot(
         if pin:
             index_pin = PinBar("Pin")
             plt.add_independent_index(index_pin, "scatter")
+        if inf:
+            index_inf = InflectionPoint("InflectionPoint")
+            plt.add_independent_index(index_inf, "scatter")
 
         plt.figure_init()
         plt.update_data(df)
