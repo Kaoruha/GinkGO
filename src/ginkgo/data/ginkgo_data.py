@@ -68,6 +68,22 @@ class GinkgoData(object):
         self.cache_daybar_count = 0
         self.cache_daybar_max = 4
 
+    def run_with_timeout(self, thread: threading.Thread, timeout: int = 20):
+        def handle_timeout(signum, frame):
+            thread.terminate()
+            raise TimeoutError("Timeout")
+
+        signal.signal(signal.SIGALRM, handle_timeout)
+        signal.alarm(timeout)
+        try:
+            result = thread.join()
+            return result
+        except TimeoutError:
+            raise TimeoutError(f"Thread did not complete within the {timeout} seconds")
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, signal.SIG_IGN)
+
     def get_daybar_redis_cache_name(self, code: str) -> str:
         res = f"daybar%{code}"
         return res
@@ -912,10 +928,13 @@ class GinkgoData(object):
         insert_count = 0
         tdx = GinkgoTDX()
         nodata_count = 0
-        nodata_max = 360
+        nodata_max = 60
         date = datetime.datetime.now()
         while True:
             # Break
+            if fast_mode and nodata_count > nodata_max:
+                GLOG.DEBUG(f"{code} No data in {nodata_max} days. Break.")
+                break
             if date < list_date:
                 break
             if nodata_count > nodata_max:
@@ -925,7 +944,9 @@ class GinkgoData(object):
             date_end = (date + datetime.timedelta(days=1)).strftime("%Y%m%d")
             GLOG.DEBUG(f"Trying to update {code} Tick on {date}")
             if self.is_tick_indb(code, date_start):
-                GLOG.WARN(f"{code} Tick on {date} is in database. Go next")
+                GLOG.WARN(
+                    f"{code} Tick on {date} is in database. Go next {nodata_count}/{nodata_max}"
+                )
                 date = date + datetime.timedelta(days=-1)
                 nodata_count = nodata_count + 1 if fast_mode else 0
                 continue

@@ -22,6 +22,9 @@ class InflectionPoint(BaseIndex):
             if i < self._window - 1:
                 rs.loc[i, column_name] = np.nan
                 continue
+            if i > df.shape[0] - self._window:
+                rs.loc[i, column_name] = np.nan
+                continue
             first_ind = i - self._window + 1
             direction = (
                 1 if df.loc[first_ind, "close"] > df.loc[first_ind, "open"] else -1
