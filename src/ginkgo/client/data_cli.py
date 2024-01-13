@@ -1,8 +1,10 @@
 import typer
+import random
 import sys
 from threading import Thread, Event
 from multiprocessing import Process
 import time
+import pandas as pd
 import datetime
 from enum import Enum
 from typing import List as typing_list
@@ -10,6 +12,8 @@ from typing_extensions import Annotated
 from rich.prompt import Prompt
 from rich.console import Console
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.libs.ginkgo_logger import GLOG
 from rich.progress import (
     Progress,
     BarColumn,
@@ -43,6 +47,15 @@ class WorkerType(str, Enum):
 app = typer.Typer(help=":jigsaw: Module for DATA. CRUD about all kinds of data.")
 quit_list = ["NO", "N"]
 console = Console()
+
+
+def random_pick_one_code():
+    # Random pick one
+
+    code_list = GDATA.get_stock_info_df()
+    code = random.choice(code_list.code.to_list())
+    console.print(f":zap: Random pick one code: [yellow]{code}[/yellow]")
+    return code
 
 
 def print_df_paganation(df, page: int):
@@ -86,7 +99,6 @@ def init():
     """
     Create table.
     """
-    from ginkgo.data.ginkgo_data import GDATA
 
     GDATA.create_all()
 
@@ -94,7 +106,7 @@ def init():
 @app.command()
 def plot(
     data: Annotated[PLTType, typer.Argument(case_sensitive=False)],
-    code: Annotated[str, typer.Option(case_sensitive=False)] = "600000.SH",
+    code: Annotated[str, typer.Option(case_sensitive=False)] = "",
     start: Annotated[
         str,
         typer.Option(
@@ -110,7 +122,11 @@ def plot(
         ),
     ] = "21200001",
     ma: Annotated[
-        int, typer.Option(case_sensitive=False, help="Moving Average")
+        int,
+        typer.Option(
+            case_sensitive=True,
+            help="moving Average",
+        ),
     ] = None,
     wma: Annotated[
         int, typer.Option(case_sensitive=False, help="Weighted Moving Average")
@@ -122,14 +138,11 @@ def plot(
         int, typer.Option(case_sensitive=False, help="Average True Range")
     ] = None,
     pin: Annotated[bool, typer.Option(case_sensitive=False, help="Pin Bar")] = False,
-    inf: Annotated[
-        bool, typer.Option(case_sensitive=False, help="InflectionPoint")
-    ] = False,
+    inf: Annotated[int, typer.Option(case_sensitive=False, help="InflectionPoint")] = 0,
 ):
     """
     Plot for BAR and TICK.
     """
-    from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.backtest.plots import CandlePlot, CandleWithIndexPlot, ResultPlot
     from ginkgo.backtest.indices import (
         SimpleMovingAverage,
@@ -140,6 +153,9 @@ def plot(
         InflectionPoint,
     )
 
+    if code == "":
+        code = random_pick_one_code()
+
     if data == DataType.DAYBAR:
         info = GDATA.get_stock_info(code)
         raw = GDATA.get_daybar_df(code, start, end)
@@ -149,7 +165,7 @@ def plot(
         plt = CandleWithIndexPlot(f"[{industry}] {code} {code_name}")
 
         if ma:
-            index_ma = SimpleMovingAverage(f"MovingAverage{ma}", ma)
+            index_ma = SimpleMovingAverage(f"MovingAverage{ma}", int(ma))
             plt.add_index(index_ma, "line")
         if wma:
             index_wma = WeightedMovingAverage(f"WeightedMovingAverage{wma}", wma)
@@ -163,8 +179,8 @@ def plot(
         if pin:
             index_pin = PinBar("Pin")
             plt.add_independent_index(index_pin, "scatter")
-        if inf:
-            index_inf = InflectionPoint("InflectionPoint")
+        if inf != 0:
+            index_inf = InflectionPoint("InflectionPoint", inf)
             plt.add_independent_index(index_inf, "scatter")
 
         plt.figure_init()
@@ -189,8 +205,6 @@ def ls(
     Show data summary.
     """
     # TODO limit and filter
-    from ginkgo.data.ginkgo_data import GDATA
-    import pandas as pd
 
     pd.set_option("display.unicode.east_asian_width", True)
     rs = pd.DataFrame()
@@ -239,7 +253,7 @@ def ls(
 @app.command()
 def show(
     data: Annotated[DataType, typer.Argument(case_sensitive=False)] = "stockinfo",
-    code: Annotated[str, typer.Option(case_sensitive=False)] = "600000.SH",
+    code: Annotated[str, typer.Option(case_sensitive=False)] = "",
     start: Annotated[
         str,
         typer.Option(
@@ -264,13 +278,13 @@ def show(
     """
     Show data details.
     """
-    from ginkgo.data.ginkgo_data import GDATA
-    import pandas as pd
 
     # TODO Reset the log level
 
     pd.set_option("display.unicode.east_asian_width", True)
     t0 = datetime.datetime.now()
+    if code == "":
+        code = random_pick_one_code()
 
     if data == DataType.STOCKINFO:
         raw = GDATA.get_stock_info_df(code=code)
@@ -416,8 +430,6 @@ def update(
     """
     Update the database.
     """
-    from ginkgo.data.ginkgo_data import GDATA
-    from ginkgo.libs.ginkgo_logger import GLOG
 
     if debug:
         GLOG.set_level("DEBUG")
@@ -492,7 +504,6 @@ def rebuild(
     """
     :fox_face: Rebuild [light_coral]TABLE[/light_coral] in database. Attention.
     """
-    from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.enums import MARKET_TYPES
     from ginkgo.data.models import (
         MOrder,
@@ -504,7 +515,6 @@ def rebuild(
         MStockInfo,
         MTradeDay,
     )
-    from ginkgo.libs.ginkgo_logger import GLOG
 
     if order:
         GDATA.drop_table(MOrder)

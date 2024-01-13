@@ -1,4 +1,5 @@
 import tushare as ts
+import threading
 import pandas as pd
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import datetime_normalize

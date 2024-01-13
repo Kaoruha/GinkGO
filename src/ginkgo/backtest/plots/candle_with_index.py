@@ -193,7 +193,6 @@ class CandleWithIndexPlot(BasePlot):
 
         # Independent Index
         if len(self._independent_result) > 0:
-            print("11111111111")
             for i in self._independent_result.keys():
                 plt_type = self._independent_result[i]["type"]
                 data = self._independent_result[i]["data"]
