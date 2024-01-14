@@ -54,7 +54,9 @@ def random_pick_one_code():
 
     code_list = GDATA.get_stock_info_df()
     code = random.choice(code_list.code.to_list())
-    console.print(f":zap: Random pick one code: [yellow]{code}[/yellow]")
+    console.print(
+        f":zap: No Code assigned. Random pick one code: [yellow]{code}[/yellow]"
+    )
     return code
 
 
@@ -139,6 +141,7 @@ def plot(
     ] = None,
     pin: Annotated[bool, typer.Option(case_sensitive=False, help="Pin Bar")] = False,
     inf: Annotated[int, typer.Option(case_sensitive=False, help="InflectionPoint")] = 0,
+    gap: Annotated[bool, typer.Option(case_sensitive=False, help="Gap")] = False,
 ):
     """
     Plot for BAR and TICK.
@@ -151,6 +154,7 @@ def plot(
         AverageTrueRange,
         PinBar,
         InflectionPoint,
+        Gap,
     )
 
     if code == "":
@@ -182,6 +186,9 @@ def plot(
         if inf != 0:
             index_inf = InflectionPoint("InflectionPoint", inf)
             plt.add_independent_index(index_inf, "scatter")
+        if gap:
+            index_gap = Gap("Gap")
+            plt.add_independent_index(index_gap, "line")
 
         plt.figure_init()
         plt.update_data(df)
