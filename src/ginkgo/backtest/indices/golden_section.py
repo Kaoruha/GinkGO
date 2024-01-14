@@ -3,7 +3,7 @@ from src.ginkgo.backtest.indices.base_index import BaseIndex
 
 
 class GoldenSection(BaseIndex):
-    # Need Optimize , so many gap, need to filter
+    # 从一波明显的趋势的起点画到终点，然后将这一波趋势分成五段，分别是0.236、0.382、0.5、0.618、1
     def __init__(self, name: str = "gs", *args, **kwargs) -> None:
         super(GoldenSection, self).__init__(name=name, *args, **kwargs)
 
