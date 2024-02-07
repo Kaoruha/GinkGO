@@ -20,3 +20,5 @@ database:
     port: 6379
 tushare:
   token: {Your Tushare Token}
+telegram:
+  token: {Your Telegram bot Token}
