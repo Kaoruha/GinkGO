@@ -99,6 +99,10 @@ class GinkgoConfig(object):
             return {}
 
     @property
+    def Telegram_Token(self) -> str:
+        return self._read_secure()["telegram"]["token"]
+
+    @property
     def EPSILON(self) -> float:
         return float(self._read_config()["epsilon"])
 
