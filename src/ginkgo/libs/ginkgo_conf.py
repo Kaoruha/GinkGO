@@ -103,6 +103,10 @@ class GinkgoConfig(object):
         return self._read_secure()["telegram"]["token"]
 
     @property
+    def Telegram_ChatIDs(self) -> list:
+        return self._read_secure()["telegram"]["chatids"]
+
+    @property
     def EPSILON(self) -> float:
         return float(self._read_config()["epsilon"])
 
