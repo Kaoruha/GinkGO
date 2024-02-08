@@ -29,6 +29,7 @@ Pygments==2.16.1
 PyMySQL==1.0.3
 pyparsing==3.0.9
 pytdx==1.72
+pyTelegramBotAPI==4.15.4
 python-dateutil==2.8.2
 pytz==2022.6
 PyYAML==6.0
