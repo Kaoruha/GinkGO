@@ -124,5 +124,5 @@ def send_short_signal(code: str):
     pass
 
 
-def telebot_run():
+def run_telebot():
     bot.infinity_polling()
