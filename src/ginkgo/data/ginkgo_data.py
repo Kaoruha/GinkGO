@@ -41,6 +41,7 @@ from ginkgo.enums import (
 )
 from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare, GinkgoTDX
 from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql, GinkgoRedis
+from src.ginkgo.libs.ginkgo_ps import find_process_by_keyword
 
 
 console = Console()
@@ -92,11 +93,18 @@ class GinkgoData(object):
     def redis_todo_cachename(self) -> str:
         return "redis_todo_list"
 
+    @property
+    def redis_worker_pids_cachename(self) -> str:
+        return "redis_worker_pid_list"
+
+    def add_redis_worker_pid(self, pid: int) -> None:
+        self.get_redis().lpush(self.redis_worker_pids_cachename, pid)
+
     def redis_set_async(self, key, value):
         GLOG.DEBUG("Try add REDIS task about {key}")
         temp_redis = self.get_redis()
         cache_name = self.redis_todo_cachename
-        if temp_redis.llen(cache_name) >= 100:  # TODO move into config
+        if temp_redis.llen(cache_name) >= 5000:  # TODO move into config
             GLOG.DEBUG(f"Redis Cache is full, skip {key}:{value}")
             return
         temp_redis.lpush(cache_name, f"{key}:{value}")
@@ -105,6 +113,7 @@ class GinkgoData(object):
     def redis_woker_handler(self, lock) -> None:
         temp_redis = self.get_redis()
         cache_name = self.redis_todo_cachename
+        self.add_redis_worker_pid(os.getpid())
         while True:
             lock.acquire()
             GLOG.DEBUG(f"Try get list from {os.getpid()}")
@@ -150,21 +159,36 @@ class GinkgoData(object):
         # Plan1 store in redis
         # Plan2 store in file ~/.ginkgo/.redis_woker_pid
         temp_redis = self.get_redis()
-        cache_name = "redis_worker_pid"
+        cache_name = self.redis_worker_pids_cachename
         if temp_redis.exists(cache_name):
-            cache = temp_redis.get(cache_name).decode("utf-8")
-            try:
-                proc = psutil.Process(int(cache))
-                if proc.is_running():
-                    return "RUNNING"
-                else:
-                    return "DEAD"
-            except Exception as e:
+            running_count = 0
+            dead_count = 0
+            if self.redis_worker_count == 0:
                 return "DEAD"
+            for i in range(self.redis_worker_count):
+                pid = temp_redis.lindex(cache_name, i).decode("utf-8")
+                try:
+                    proc = psutil.Process(int(pid))
+                    if proc.is_running():
+                        running_count += 1
+                    else:
+                        dead_count += 1
+                except Exception as e:
+                    pass
+            return f"RUNNING: {running_count}  DEAD: {dead_count} EXPIRED: {self.redis_worker_count - running_count - dead_count}"
         return "NOT EXIST"
 
     @property
-    def redis_list_length(self) -> int:
+    def redis_worker_count(self) -> int:
+        temp_redis = self.get_redis()
+        cache_name = self.redis_worker_pids_cachename
+        if temp_redis.exists(cache_name):
+            return temp_redis.llen(cache_name)
+        else:
+            return 0
+
+    @property
+    def redis_todo_list_length(self) -> int:
         GLOG.DEBUG("Try get REDIS list length.")
         temp_redis = self.get_redis()
         cache_name = self.redis_todo_cachename
@@ -176,29 +200,29 @@ class GinkgoData(object):
     def kill_redis_worker(self) -> None:
         GLOG.DEBUG("Try kill REDIS worker.")
         temp_redis = self.get_redis()
-        cache_name = "redis_worker_pid"
+        cache_name = self.redis_worker_pids_cachename
         if temp_redis.exists(cache_name):
-            cache = temp_redis.get(cache_name).decode("utf-8")
-            try:
-                proc = psutil.Process(int(cache))
-                if proc.is_running():
-                    os.kill(int(cache), signal.SIGKILL)
-            except Exception as e:
-                GLOG.DEBUG(e)
+            for i in range(self.redis_worker_count):
+                try:
+                    pid = temp_redis.lpop(cache_name).decode("utf-8")
+                    proc = psutil.Process(int(pid))
+                    if proc.is_running():
+                        os.kill(int(pid), signal.SIGKILL)
+                except Exception as e:
+                    GLOG.DEBUG(e)
+        rs = find_process_by_keyword("redis_worker_run")
+        for i in rs:
+            os.kill(int(i), signal.SIGKILL)
 
     def run_redis_worker(self, count: int = 2) -> None:
-        # Kill the worker if it is running
-        self.kill_redis_worker()
         # Start new woker
-        cache_name = "redis_worker_pid"
+        self.add_redis_worker_pid(os.getpid())
         count = count if count >= 1 else 2
-        pid = os.getpid()
-        temp_redis = self.get_redis()
-        temp_redis.set(cache_name, str(pid))
-        p = multiprocessing.Pool(count)
+        p = multiprocessing.Pool(processes=count)
+        # Daemon Process ID
         lock = multiprocessing.Manager().Lock()
         for i in range(count):
-            p.apply_async(self.redis_woker_handler, args=(lock,))
+            t = p.apply_async(self.redis_woker_handler, args=(lock,))
         p.close()
         p.join()
 

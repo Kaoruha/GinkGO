@@ -14,6 +14,7 @@ from ginkgo.client import backtest_cli
 from ginkgo.client import unittest_cli
 from ginkgo.client.interactive_cli import MyPrompt
 from ginkgo.client.backtest_cli import LogLevelType
+from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
 
 
 main_app = typer.Typer(
@@ -40,14 +41,14 @@ def status(
     """
     from ginkgo.libs.ginkgo_conf import GCONF
     from ginkgo.data.ginkgo_data import GDATA
+    from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
 
     console.print(f"DEBUGMODE : {GCONF.DEBUGMODE}")
     console.print(f"CPU RATIO : {GCONF.CPURATIO*100}%")
     console.print(f"LOG  PATH : {GCONF.LOGGING_PATH}")
     console.print(f"WORK  DIR : {GCONF.WORKING_PATH}")
-    console.print(
-        f"REDISWORK : [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1] {GDATA.redis_list_length}"
-    )
+    console.print(f"REDISWORK : [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1]")
+    console.print(f"TELEBOT   : [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1]")
     if stream:
         os.system(
             "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test"
@@ -85,6 +86,7 @@ def configure(
     cpu: Annotated[float, typer.Option(case_sensitive=False)] = None,
     debug: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
     redis: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
+    telebot: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
     logpath: Annotated[str, typer.Option(case_sensitive=True)] = None,
     workpath: Annotated[str, typer.Option(case_sensitive=True)] = None,
 ):
@@ -96,6 +98,7 @@ def configure(
         and debug is None
         and logpath is None
         and redis is None
+        and telebot is None
         and workpath is None
     ):
         console.print(
@@ -103,6 +106,8 @@ def configure(
         )
 
     from ginkgo.libs.ginkgo_conf import GCONF
+    from ginkgo.data.ginkgo_data import GDATA
+    import datetime
 
     if cpu is not None:
         if isinstance(cpu, float):
@@ -117,9 +122,6 @@ def configure(
         console.print(f"DEBUE: {GCONF.DEBUGMODE}")
 
     if redis is not None:
-        from ginkgo.data.ginkgo_data import GDATA
-        import datetime
-
         time_out = 5
 
         if redis == DEBUG_TYPE.ON:
@@ -131,11 +133,12 @@ def configure(
             os.system(cmd)
             count = datetime.timedelta(seconds=0)
             t0 = datetime.datetime.now()
+
             while count < datetime.timedelta(seconds=time_out):
                 t1 = datetime.datetime.now()
                 count = t1 - t0
                 status = GDATA.redis_worker_status
-                if status == "RUNNING":
+                if status != "NOT EXIST" and status != "DEAD":
                     break
                 else:
                     console.print(
@@ -153,7 +156,7 @@ def configure(
                 t1 = datetime.datetime.now()
                 count = t1 - t0
                 status = GDATA.redis_worker_status
-                if status == "DEAD":
+                if status == "NOT EXIST":
                     break
                 else:
                     console.print(
@@ -162,6 +165,49 @@ def configure(
                     )
             console.print(
                 f":sun_with_face: Redis Worker is [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1] now."
+            )
+    if telebot is not None:
+        time_out = 8
+        if telebot == DEBUG_TYPE.ON:
+            """
+            $SHELL_FOLDER/venv/bin/python $SHELL_FOLDER/main.py
+            """
+            work_dir = GCONF.WORKING_PATH
+            cmd = f"nohup {work_dir}/venv/bin/python {work_dir}/.telegram_bot_run.py >>{GCONF.LOGGING_PATH}/telegram_bot.log 2>&1 &"
+            os.system(cmd)
+            count = datetime.timedelta(seconds=0)
+            t0 = datetime.datetime.now()
+            while count < datetime.timedelta(seconds=time_out):
+                t1 = datetime.datetime.now()
+                count = t1 - t0
+                status = GNOTIFIER.telebot_status
+                if status == "RUNNING":
+                    break
+                else:
+                    console.print(
+                        f":sun_with_face: TeleBot is [steel_blue1]STARTING[/steel_blue1] now. {count}",
+                        end="\r",
+                    )
+            console.print(
+                f":sun_with_face: TeleBot is [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1] now."
+            )
+        elif telebot == DEBUG_TYPE.OFF:
+            GNOTIFIER.kill_telebot()
+            count = datetime.timedelta(seconds=0)
+            t0 = datetime.datetime.now()
+            while count < datetime.timedelta(seconds=time_out):
+                t1 = datetime.datetime.now()
+                count = t1 - t0
+                status = GDATA.redis_worker_status
+                if status == "DEAD" or status == "NOT EXIST":
+                    break
+                else:
+                    console.print(
+                        f":ice: Redis Worker will be [light_coral]KILLED[/light_coral] soon.",
+                        end="\r",
+                    )
+            console.print(
+                f":sun_with_face: Telegram Bot Server is [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1] now."
             )
 
     if logpath is not None:
