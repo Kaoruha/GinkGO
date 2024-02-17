@@ -7,6 +7,7 @@ from rich.prompt import Prompt
 from rich.console import Console
 from ginkgo.client.unittest_cli import LogLevelType
 from ginkgo.libs.ginkgo_logger import GLOG
+from src.ginkgo.notifier.ginkgo_notifier import GNOTIFIER
 
 
 app = typer.Typer(
@@ -338,19 +339,23 @@ def run(
         GDATA.add_backtest(str(random_id), file.read())
     t = engine.start()
     # TODO Add Backtest Record
+    GNOTIFIER.echo_to_telegram(f"Backtest {id} start.")
     engine.put(EventNextPhase())
 
     # Remove the file and directory
     shutil.rmtree(temp_folder)
     t.join()
     GDATA.finish_backtest(random_id)
-    profit = 0
+    worth = 0
     portfolio_node = engine.portfolios.head
     while portfolio_node is not None:
         portfolio = portfolio_node.value
-        profit += portfolio.worth
+        worth += portfolio.worth
         portfolio_node = portfolio_node.next
-    GDATA.update_backtest_profit(random_id, profit)
+    GDATA.update_backtest_profit(random_id, worth)
+    GNOTIFIER.echo_to_telegram(
+        f"Backtest {id} finished. From {date_start} to {date_end}. Worth: {worth}"
+    )
 
 
 @app.command()
@@ -553,9 +558,6 @@ def res(
             return
         if analyzer:
             # TODO Split different analyzer
-            import pdb
-
-            pdb.set_trace()
             analyzers = raw["name"].unique()
             for analyzer_name in analyzers:
                 df = raw[raw["name"] == analyzer_name]

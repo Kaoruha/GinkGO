@@ -13,6 +13,7 @@ class BaseAnalyzer(BacktestBase):
         self._portfolio = None
         self._analyzer_id = ""
         self._data = pd.DataFrame(columns=["timestamp", self._name])
+        self._box_range = 20
 
     @property
     def analyzer_id(self) -> str:
@@ -96,3 +97,11 @@ class BaseAnalyzer(BacktestBase):
         value = self.value[self.value["timestamp"] == date][self.name].values[0]
         o.set(self.backtest_id, self.now, value, self.name, self.analyzer_id)
         GDATA.add(o)
+
+    @property
+    def mean(self) -> float:
+        return self._data[self._name].mean()
+
+    @property
+    def variance(self) -> float:
+        return self._data[self._name].var()

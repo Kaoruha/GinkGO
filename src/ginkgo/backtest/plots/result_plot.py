@@ -45,20 +45,20 @@ class ResultPlot(BasePlot):
         self.figure.suptitle(f"Backtest {self.backtest_id}", fontsize=20, x=0.5, y=0.97)
 
         # 划分Grid
-        hight = fig_count * 20
-        gs = gridspec.GridSpec(40, hight)
+        hight = (fig_count + 1) * 20
+        gs = gridspec.GridSpec(80, hight)
 
         for i in range(fig_count):
             if i > 0:
                 self.ax.append(
                     # self.figure.add_subplot(gs[i * 20 : (i + 1) * 20 - 1, 0:40])
                     self.figure.add_subplot(
-                        gs[i * 20 : (i + 1) * 20 - 4, 0:40], sharex=self.ax[0]
+                        gs[i * 20 : (i + 1) * 20 - 4, 0:80], sharex=self.ax[0]
                     )
                 )
             else:
                 self.ax.append(
-                    self.figure.add_subplot(gs[i * 20 : (i + 1) * 20 - 4, 0:40])
+                    self.figure.add_subplot(gs[i * 20 : (i + 1) * 20 - 4, 0:80])
                 )
 
     def update_plot(self, data: dict):

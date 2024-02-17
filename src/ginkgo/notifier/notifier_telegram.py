@@ -1,7 +1,9 @@
 from src.ginkgo.libs.ginkgo_conf import GCONF
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telebot.util import quick_markup
+from src.ginkgo.data.ginkgo_data import GDATA
 import telebot
+import os
 
 
 bot = telebot.TeleBot(GCONF.Telegram_Token)
@@ -31,7 +33,10 @@ def send_help(message):
 
 @bot.message_handler(commands=["status"])
 def status_handler(message):
-    msg = bot.send_message(message.chat.id, "Show status")
+    msg = f"CPU RATIO: {GDATA.cpu_ratio}"
+    bot.send_message(message.chat.id, msg)
+    msg = f"REDIS WORKER: {GDATA.redis_worker_status}"
+    bot.send_message(message.chat.id, msg)
 
 
 @bot.message_handler(commands=["list"])
@@ -107,21 +112,6 @@ def echo(message: str):
         ids = ids[:20]
     for chat_id in ids:
         bot.send_message(chat_id, message)
-
-
-def send_long_signal(signal_id: str):
-    msg = "LONG SIGNAL"
-    msg += "\n" + "ID: " + signal_id
-    msg += "\n" + "FROM: " + "Signal via signal_id source"
-    msg += "\n" + "CODE: " + "000001.SZ"
-    msg += "\n" + "VOLE: " + "1000"
-    msg += "\n" + "TIME: " + "2021-01-01 00:00:00"
-    echo(msg)
-
-
-def send_short_signal(code: str):
-    msg = "SHORT SIGNAL"
-    pass
 
 
 def run_telebot():

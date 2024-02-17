@@ -51,11 +51,13 @@ class MatchMakingSim(MatchMakingBase):
     def attitude(self) -> ATTITUDE_TYPES:
         return self._attitude
 
-    def return_order(self, order, engine):
+    def return_order(self, order_id, engine):
+        order = GDATA.get_order(order_id=order_id, engine=engine)
         order.status = ORDERSTATUS_TYPES.CANCELED
+        order_id = order.uuid
         engine.session.commit()
         engine.session.close()
-        canceld_order = EventOrderCanceled(order.uuid)
+        canceld_order = EventOrderCanceled(order_id)
         GLOG.WARN(f"Return a CANCELED ORDER")
         self.engine.put(canceld_order)
 
@@ -68,11 +70,11 @@ class MatchMakingSim(MatchMakingBase):
             return
         if o.timestamp < self.now:
             GLOG.CRITICAL("Will not handle the order {event.order_id} from past")
-            self.return_order(o, db)
+            self.return_order(order_id, db)
             return
         if o.timestamp > self.now:
             GLOG.CRITICAL("Will not handle the order {event.order_id} from future")
-            self.return_order(o, db)
+            self.return_order(order_id, db)
             return
 
         # Check Order Status
@@ -88,7 +90,7 @@ class MatchMakingSim(MatchMakingBase):
             return
         if order_id in self.order_book:
             GLOG.WARN(f"Order {order_id} is cached in queue, do not resubmit.")
-            self.return_order(o)
+            self.return_order(order_id, db)
         else:
             self.order_book.append(order_id)
 
@@ -119,7 +121,7 @@ class MatchMakingSim(MatchMakingBase):
             p = self.price
             if p.shape[0] == 0:
                 GLOG.CRITICAL("There is no price data. Need to check the code.")
-                self.return_order(o)
+                self.return_order(order_id, db)
                 continue
 
             p = p[p.code == o.code]
@@ -127,13 +129,13 @@ class MatchMakingSim(MatchMakingBase):
             # If there is no price info, try match next order
             if p.shape[0] == 0:
                 GLOG.ERROR(f"Have no Price info about {o.code} on {self.now}.")
-                self.return_order(o)
+                self.return_order(order_id, db)
                 continue
             elif p.shape[0] > 1:
                 GLOG.CRITICAL(
                     f"Price info {o.code} has more than 1 record. Something wrong in code."
                 )
-                self.return_order(o)
+                self.return_order(order_id, db)
                 continue
 
             # # Try match
@@ -144,7 +146,7 @@ class MatchMakingSim(MatchMakingBase):
             open = p.open
             if o.direction == DIRECTION_TYPES.SHORT:
                 if o.volume == 0:
-                    self.return_order(o)
+                    self.return_order(order_id, db)
                     continue
                 GLOG.WARN(f"Start Matching SHORT ORDER")
                 print(o)
@@ -155,14 +157,14 @@ class MatchMakingSim(MatchMakingBase):
                     GLOG.INFO(
                         f"Order {o.uuid} limit price {o.limit_price} is under the valley: {p.low}."
                     )
-                    self.return_order(o)
+                    self.return_order(order_id, db)
                     continue
 
                 if o.limit_price > p.high:
                     GLOG.INFO(
                         f"Order {o.uuid} limit price {o.limit_price} is over the peak: {p.high}."
                     )
-                    self.return_order(o)
+                    self.return_order(order_id, db)
                     continue
 
                 # 1.2 If the limit price > low and < high
@@ -171,7 +173,7 @@ class MatchMakingSim(MatchMakingBase):
                     GLOG.ERROR(
                         f"Order {o.uuid} limit price {o.limit_price} volume: {o.volume} is over the volume: {p.volume}."
                     )
-                    self.return_order(o)
+                    self.return_order(order_id, db)
                     continue
                 transaction_price = o.limit_price
 
