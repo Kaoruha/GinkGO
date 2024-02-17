@@ -3,6 +3,7 @@ from src.ginkgo.libs.ginkgo_logger import GLOG
 from src.ginkgo.notifier.notifier_telegram import (
     run_telebot as run_telegram_bot_api_server,
 )
+from src.ginkgo.notifier.notifier_telegram import echo
 import threading
 import signal
 import psutil
@@ -55,6 +56,22 @@ class GinkgoNotifier(object):
         t = threading.Thread(target=run_telegram_bot_api_server)
         t.start()
         t.join()
+
+    def echo_to_telegram(self, message: str):
+        echo(message)
+
+    def send_long_signal(signal_id: str):
+        msg = "LONG SIGNAL"
+        msg += "\n" + "ID: " + signal_id
+        msg += "\n" + "FROM: " + "Signal via signal_id source"
+        msg += "\n" + "CODE: " + "000001.SZ"
+        msg += "\n" + "VOLE: " + "1000"
+        msg += "\n" + "TIME: " + "2021-01-01 00:00:00"
+        self.echoto_telegram(msg)
+
+    def send_short_signal(code: str):
+        msg = "SHORT SIGNAL"
+        self.echoto_telegram(msg)
 
 
 GNOTIFIER = GinkgoNotifier()

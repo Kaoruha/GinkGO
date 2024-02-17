@@ -23,16 +23,24 @@ class PopularitySelector(BaseSelector):
         self.span = span
         self._interested = []
         self.interval = 10
-        self.day_count = 11
+        self._last_pick = None
 
     def pick(self) -> list:
-        self.day_count += 1
-        if self.day_count < self.interval:
-            return self._interested
-        self.day_count = 0
+        self._now = self.portfolio.now
+
+        if self._last_pick is None:
+            self._last_pick = self._now
+
+        if self.now - self._last_pick < datetime.timedelta(days=self.interval):
+            if len(self._interested) > 0:
+                return self._interested
+        else:
+            self._last_pick = self.now
+
         if self.now is None:
             GLOG.ERROR("No date set. skip picking.")
             return self._interested
+
         t0 = datetime.datetime.now()
         df = GDATA.get_stock_info_df_cached()
         df["sum_volume"] = 0
