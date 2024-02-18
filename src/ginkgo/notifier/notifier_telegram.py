@@ -2,11 +2,14 @@ from src.ginkgo.libs.ginkgo_conf import GCONF
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telebot.util import quick_markup
 from src.ginkgo.data.ginkgo_data import GDATA
+from src.ginkgo.enums import FILE_TYPES
 import telebot
+import yaml
 import os
 
 
 bot = telebot.TeleBot(GCONF.Telegram_Token)
+is_running = False
 
 
 def extract_arg(arg):
@@ -26,7 +29,9 @@ def send_help(message):
     msg = "/status check ginkgo status"
     msg += "\n" + "/list show all live strategies"
     msg += "\n" + "/verify get authentification"
-    msg += "\n" + "/show display the detail"
+    msg += "\n" + "/run {uuid} run backtest by uuid"
+    msg += "\n" + "/res {uuid} show backtest result by uuid(optional)"
+    msg += "\n" + "/show {uuid} display the detail"
     msg += "\n" + "/signals show recent 10 signals"
     bot.send_message(message.chat.id, msg)
 
@@ -53,7 +58,15 @@ def list_handler(message):
 
 
 def list_backtest_records():
-    msg = "Backtest Records Callback"
+    raw = GDATA.get_file_list_df(FILE_TYPES.BACKTEST.value)
+    msg = ""
+    count = 0
+    for i, r in raw.iterrows():
+        count += 1
+        id = r["uuid"]
+        content = r["content"]
+        name = yaml.safe_load(content.decode("utf-8"))["name"]
+        msg += f"{count}. {name} {id}\n"
     return msg
 
 
@@ -87,6 +100,41 @@ def show_handler(message):
 @bot.message_handler(commands=["signals"])
 def status_handler(message):
     msg = bot.reply_to(message, "Show signals")
+
+
+@bot.message_handler(commands=["run"])
+def run_backtest(message):
+    if len(message.text.split()) != 2:
+        bot.reply_to(message, "Please type uuid. For example: /run {uuid}")
+        return
+
+    uuid = extract_arg(message.text)[0]
+    from src.ginkgo.client.backtest_cli import run as run_backtest
+
+    global is_running
+
+    if not is_running:
+        is_running = True
+        run_backtest(uuid)
+        is_running = False
+    else:
+        bot.reply_to(message, "Please wait for the previous backtest to finish.")
+        return
+
+
+@bot.message_handler(commands=["res"])
+def res_backtest(message):
+    if len(message.text.split()) != 2:
+        bot.reply_to(message, "Could type uuid. For example: /res {uuid}")
+        raw = GDATA.get_backtest_list_df().head(5)
+        for i, r in raw.iterrows():
+            bot.send_message(
+                message.chat.id,
+                f"{r['uuid']} Worth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
+            )
+        return
+
+    uuid = extract_arg(message.text)[0]
 
 
 @bot.callback_query_handler(func=lambda call: True)
