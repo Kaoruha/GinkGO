@@ -203,7 +203,7 @@ def configure(
                     break
                 else:
                     console.print(
-                        f":ice: Redis Worker will be [light_coral]KILLED[/light_coral] soon.",
+                        f":ice: Telegram Bot Server will be [light_coral]KILLED[/light_coral] soon.",
                         end="\r",
                     )
             console.print(

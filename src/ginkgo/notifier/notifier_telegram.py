@@ -7,6 +7,7 @@ import telebot
 import yaml
 import os
 
+import psutil
 
 bot = telebot.TeleBot(GCONF.Telegram_Token)
 is_running = False
@@ -40,6 +41,13 @@ def send_help(message):
 def status_handler(message):
     msg = f"CPU RATIO: {GDATA.cpu_ratio}"
     bot.send_message(message.chat.id, msg)
+    # Get CPU usage as a percentage
+    cpu_usage = psutil.cpu_percent()
+    bot.send_message(message.chat.id,f"CPU Usage: {cpu_usage}%")
+
+    # Get RAM usage
+    memory_usage = psutil.virtual_memory().percent
+    bot.send_message(message.chat.id, f"RAM Usage: {memory_usage}%")
     msg = f"REDIS WORKER: {GDATA.redis_worker_status}"
     bot.send_message(message.chat.id, msg)
 
