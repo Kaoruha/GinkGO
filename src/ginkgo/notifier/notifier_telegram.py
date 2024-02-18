@@ -43,7 +43,7 @@ def status_handler(message):
     bot.send_message(message.chat.id, msg)
     # Get CPU usage as a percentage
     cpu_usage = psutil.cpu_percent()
-    bot.send_message(message.chat.id,f"CPU Usage: {cpu_usage}%")
+    bot.send_message(message.chat.id, f"CPU Usage: {cpu_usage}%")
 
     # Get RAM usage
     memory_usage = psutil.virtual_memory().percent
@@ -134,7 +134,7 @@ def run_backtest(message):
 def res_backtest(message):
     if len(message.text.split()) != 2:
         bot.reply_to(message, "Could type uuid. For example: /res {uuid}")
-        raw = GDATA.get_backtest_list_df().head(5)
+        raw = GDATA.get_backtest_list_df().head(20)
         for i, r in raw.iterrows():
             bot.send_message(
                 message.chat.id,
