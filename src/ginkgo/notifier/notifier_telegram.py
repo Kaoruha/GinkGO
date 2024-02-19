@@ -45,6 +45,16 @@ def status_handler(message):
     cpu_usage = psutil.cpu_percent()
     bot.send_message(message.chat.id, f"CPU Usage: {cpu_usage}%")
 
+    temperatures = psutil.sensors_temperatures()
+
+    for i in temperatures.keys():
+        bot.send_message(message.chat.id, f"Sensor: {i}")
+        for entry in temperatures[i]:
+            bot.send_message(
+                message.chat.id,
+                f"{entry.label} Temperature: {entry.current}°C",
+            )
+
     # Get RAM usage
     memory_usage = psutil.virtual_memory().percent
     bot.send_message(message.chat.id, f"RAM Usage: {memory_usage}%")
@@ -134,7 +144,7 @@ def run_backtest(message):
 def res_backtest(message):
     if len(message.text.split()) != 2:
         bot.reply_to(message, "Could type uuid. For example: /res {uuid}")
-        raw = GDATA.get_backtest_list_df().head(20)
+        raw = GDATA.get_backtest_list_df().head(10)
         for i, r in raw.iterrows():
             bot.send_message(
                 message.chat.id,
