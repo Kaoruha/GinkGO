@@ -62,7 +62,7 @@ def status_handler(message):
     bot.send_message(message.chat.id, msg)
 
 
-@bot.message_handler(commands=["list"])
+@bot.message_handler(commands=["list", "ls"])
 def list_handler(message):
     button = {
         "Backtest": {"callback_data": "list_backtest_records"},

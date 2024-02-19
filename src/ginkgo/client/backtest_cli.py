@@ -121,6 +121,7 @@ def run(
     import shutil
     import yaml
     import time
+    import datetime
     import sys
     from ginkgo.libs.ginkgo_conf import GCONF
     from ginkgo.data.ginkgo_data import GDATA
@@ -339,6 +340,7 @@ def run(
         GDATA.add_backtest(str(random_id), file.read())
     t = engine.start()
     # TODO Add Backtest Record
+    time_start = datetime.datetime.now()
     GNOTIFIER.echo_to_telegram(f"Backtest {id} start.")
     engine.put(EventNextPhase())
 
@@ -353,8 +355,9 @@ def run(
         worth += portfolio.worth
         portfolio_node = portfolio_node.next
     GDATA.update_backtest_profit(random_id, worth)
+    time_end = datetime.datetime.now()
     GNOTIFIER.echo_to_telegram(
-        f"Backtest {id} finished. From {date_start} to {date_end}. Worth: {worth}"
+        f"Backtest {id} finished. From {date_start} to {date_end}. Worth: {worth}  Time: {time_end - time_start}"
     )
 
 
