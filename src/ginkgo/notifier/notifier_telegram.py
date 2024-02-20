@@ -62,21 +62,22 @@ def status_handler(message):
     bot.send_message(message.chat.id, msg)
 
 
-@bot.message_handler(commands=["list", "ls"])
+@bot.message_handler(commands=["list"])
 def list_handler(message):
     button = {
-        "Backtest": {"callback_data": "list_backtest_records"},
-        "Live": {"callback_data": "list_live_strategy"},
+        "Backtest": {"callback_data": "list_backtest_strategies"},
+        "Live": {"callback_data": "list_live_strategies"},
     }
     bot.send_message(
         message.chat.id,
         "Choose the type of data you want to display:",
-        reply_markup=quick_markup(button, row_width=2),
+        reply_markup=quick_markup(button, row_width=4),
     )
 
 
-def list_backtest_records():
+def list_backtest_strategies():
     raw = GDATA.get_file_list_df(FILE_TYPES.BACKTEST.value)
+    raw = raw.head(10)
     msg = ""
     count = 0
     for i, r in raw.iterrows():
@@ -88,7 +89,7 @@ def list_backtest_records():
     return msg
 
 
-def list_live_strategy():
+def list_live_strategies():
     msg = "Live Strategy Callback"
     return msg
 
@@ -124,6 +125,8 @@ def status_handler(message):
 def run_backtest(message):
     if len(message.text.split()) != 2:
         bot.reply_to(message, "Please type uuid. For example: /run {uuid}")
+        msg = list_backtest_strategies()
+        bot.send_message(message.chat.id, msg)
         return
 
     uuid = extract_arg(message.text)[0]
@@ -148,7 +151,7 @@ def res_backtest(message):
         for i, r in raw.iterrows():
             bot.send_message(
                 message.chat.id,
-                f"{r['uuid']} Worth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
+                f"{r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
             )
         return
 
@@ -157,12 +160,12 @@ def res_backtest(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def refresh(call):
-    if call.data == "list_backtest_records":
-        msg = list_backtest_records()
+    if call.data == "list_backtest_strategies":
+        msg = list_backtest_strategies()
         bot.send_message(call.message.chat.id, msg)
         bot.answer_callback_query(call.id)
-    elif call.data == "list_live_strategy":
-        msg = list_live_strategy()
+    elif call.data == "list_live_strategies":
+        msg = list_live_strategies()
         bot.send_message(call.message.chat.id, msg)
         bot.answer_callback_query(call.id)
 
