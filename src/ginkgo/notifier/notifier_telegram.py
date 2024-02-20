@@ -75,21 +75,21 @@ def list_handler(message):
     )
 
 
-def list_backtest_strategies():
+def get_backtest_strategies():
     raw = GDATA.get_file_list_df(FILE_TYPES.BACKTEST.value)
     raw = raw.head(10)
-    msg = ""
+    res = []
     count = 0
     for i, r in raw.iterrows():
         count += 1
         id = r["uuid"]
         content = r["content"]
         name = yaml.safe_load(content.decode("utf-8"))["name"]
-        msg += f"{count}. {name} {id}\n"
-    return msg
+        res.append(f"{count}. {name} {id}\n")
+    return res
 
 
-def list_live_strategies():
+def get_live_strategies():
     msg = "Live Strategy Callback"
     return msg
 
@@ -125,8 +125,9 @@ def status_handler(message):
 def run_backtest(message):
     if len(message.text.split()) != 2:
         bot.reply_to(message, "Please type uuid. For example: /run {uuid}")
-        msg = list_backtest_strategies()
-        bot.send_message(message.chat.id, msg)
+        res = get_backtest_strategies()
+        for i in res:
+            bot.send_message(message.chat.id, i)
         return
 
     uuid = extract_arg(message.text)[0]
@@ -161,11 +162,13 @@ def res_backtest(message):
 @bot.callback_query_handler(func=lambda call: True)
 def refresh(call):
     if call.data == "list_backtest_strategies":
-        msg = list_backtest_strategies()
-        bot.send_message(call.message.chat.id, msg)
+        bot.reply_to(call.message, "Here are the backtest strategies:")
+        res = get_backtest_strategies()
+        for i in res:
+            bot.send_message(call.message.chat.id, i)
         bot.answer_callback_query(call.id)
     elif call.data == "list_live_strategies":
-        msg = list_live_strategies()
+        msg = get_live_strategies()
         bot.send_message(call.message.chat.id, msg)
         bot.answer_callback_query(call.id)
 
