@@ -22,5 +22,6 @@ tushare:
   token: {Your Tushare Token}
 telegram:
   token: {Your Telegram bot Token}
+  password: {Your Password}
   chatids: 
     - 5316566166

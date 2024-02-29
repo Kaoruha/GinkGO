@@ -8,8 +8,8 @@ import pandas as pd
 import logging
 import datetime
 
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.backtest.plots.base_plot import BasePlot
+from src.ginkgo.libs.ginkgo_logger import GLOG
+from src.ginkgo.backtest.plots.base_plot import BasePlot
 
 
 class CandlePlot(BasePlot):

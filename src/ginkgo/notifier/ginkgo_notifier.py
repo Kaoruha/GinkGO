@@ -4,6 +4,7 @@ from src.ginkgo.notifier.notifier_telegram import (
     run_telebot as run_telegram_bot_api_server,
 )
 from src.ginkgo.notifier.notifier_telegram import echo
+from src.ginkgo.notifier.notifier_beep import beep as beepbeep
 import threading
 import signal
 import psutil
@@ -60,7 +61,7 @@ class GinkgoNotifier(object):
     def echo_to_telegram(self, message: str):
         echo(message)
 
-    def send_long_signal(signal_id: str):
+    def send_long_signal(self, signal_id: str):
         msg = "LONG SIGNAL"
         msg += "\n" + "ID: " + signal_id
         msg += "\n" + "FROM: " + "Signal via signal_id source"
@@ -69,9 +70,12 @@ class GinkgoNotifier(object):
         msg += "\n" + "TIME: " + "2021-01-01 00:00:00"
         self.echoto_telegram(msg)
 
-    def send_short_signal(code: str):
+    def send_short_signal(self, code: str):
         msg = "SHORT SIGNAL"
         self.echoto_telegram(msg)
+
+    def beep(self, freq=2000.7, repeat=1, delay=20, length=30):
+        beepbeep(freq, repeat, delay, length)
 
 
 GNOTIFIER = GinkgoNotifier()

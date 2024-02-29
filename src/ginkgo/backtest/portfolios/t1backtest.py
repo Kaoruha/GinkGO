@@ -23,6 +23,7 @@ from ginkgo.backtest.events import (
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MOrder
 from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize
+from src.ginkgo.notifier.ginkgo_notifier import GNOTIFIER
 from ginkgo.backtest.signal import Signal
 from ginkgo.enums import (
     DIRECTION_TYPES,
@@ -291,6 +292,7 @@ class PortfolioT1Backtest(BasePortfolio):
 
             # 6. Create Event
             e = EventOrderSubmitted(order_adjusted.uuid)
+            GNOTIFIER.beep()
             GLOG.INFO("Gen an Event Order Submitted...")
             self.put(e)
             self.record(RECORDSTAGE_TYPES.ORDERSEND)
@@ -321,6 +323,7 @@ class PortfolioT1Backtest(BasePortfolio):
             GDATA.add(mo)
             self._signal_gen_order_count += 1
             e = EventOrderSubmitted(order_adjusted.uuid)
+            GNOTIFIER.beep()
             # 6. Create Event
             self.put(e)
             self.record(RECORDSTAGE_TYPES.ORDERSEND)
