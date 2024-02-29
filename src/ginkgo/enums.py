@@ -125,3 +125,9 @@ class RECORDSTAGE_TYPES(EnumBase):
     ORDERSEND = 3
     ORDERFILLED = 4
     ORDERCANCELED = 5
+
+
+class GRAPHY_TYPES(EnumBase):
+    OTHER = 0
+    BAR = 1
+    LINE = 2

@@ -1,5 +1,4 @@
 from matplotlib.widgets import Cursor, MultiCursor
-from src.ginkgo.backtest.indices.base_index import BaseIndex
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -9,8 +8,9 @@ import pandas as pd
 import logging
 import datetime
 
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.backtest.plots.base_plot import BasePlot
+from src.ginkgo.libs.ginkgo_logger import GLOG
+from src.ginkgo.backtest.plots.base_plot import BasePlot
+from src.ginkgo.backtest.indices.base_index import BaseIndex
 
 
 class CandleWithIndexPlot(BasePlot):

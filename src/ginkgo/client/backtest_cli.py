@@ -304,6 +304,7 @@ def run(
         # Bind Analyzer
         if analyzer_cls is not None:
             analyzer = analyzer_cls(*analyzer_parameters)
+            analyzer.set_analyzer_id(analyzer_id)
             portfolio.add_analyzer(analyzer)
         else:
             console.print(
@@ -553,7 +554,7 @@ def res(
                 return
             print(raw)
 
-        raw = GDATA.get_analyzer_df_by_backtest(id)
+        raw = GDATA.get_analyzer_dfs_by_backtest(id)
         if raw.shape[0] == 0:
             console.print(
                 f":sad_but_relieved_face: There is no [light_coral]backtest analyzer[/light_coral] about [light_coral]{id}[/light_coral] in database."
@@ -578,3 +579,90 @@ def res(
 
             plt = ResultPlot()
             plt.update_data(id, data)
+
+
+@app.command()
+def res_test(
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
+    index: Annotated[
+        typing_list[str],
+        typer.Option(
+            case_sensitive=True,
+            help="Type the analyzer_id to plot.",
+        ),
+    ] = None,
+    versus: Annotated[
+        str,
+        typer.Option(case_sensitive=False, help="Do Compare with other backtest."),
+    ] = "",
+):
+    """
+    :one-piece_swimsuit: Show the backtest result.
+    """
+    from ginkgo.data.ginkgo_data import GDATA
+
+    if id == "":
+        console.print(f":pill: You could provide a backtest id to confirm the detail. ")
+        raw = GDATA.get_backtest_list_df()
+        if raw.shape[0] == 0:
+            console.print(
+                f":sad_but_relieved_face: There is no [light_coral]backtest record[/light_coral] in database."
+            )
+            return
+        rs = raw[["uuid", "profit", "start_at", "finish_at"]]
+        print(rs)
+        return
+    # Got backtest id
+    record = GDATA.get_backtest_record(id)
+    if record is None:
+        console.print(
+            f":sad_but_relieved_face: Record {id} not exist. Please select one of follow."
+        )
+        print(GDATA.get_backtest_list_df())
+        return
+    console.print(
+        f":sunflower: Backtest [light_coral]{id}[/light_coral]  Worth: {record.profit}"
+    )
+
+    import yaml
+
+    if len(index) == 0:
+        # get all the analyzer
+        content = record.content
+        analyzers = yaml.safe_load(content.decode("utf-8"))["analyzers"]
+        if len(analyzers) == 0:
+            console.print("No Analyzer.")
+            return
+        from prettytable import PrettyTable
+
+        table = PrettyTable(["ID", "Name"])
+        for i in analyzers:
+            table.add_row([i["id"], i["parameters"][0]])
+        print(table)
+
+        console.print(
+            f"You could use [steel_blue1]ginkgo backtest res id --index analyzer_id1 analyzer_id2[/steel_blue1] to get more infomation."
+        )
+        # Draw a line chart about the netvalue. TODO
+        return
+
+    from src.ginkgo.backtest.plots.result_plot import ResultPlot
+
+    # Got analyzer id
+    analyzer_ids = index
+    content = record.content
+    analyzers = yaml.safe_load(content.decode("utf-8"))["analyzers"]
+    fig_data = {}
+    for i in analyzer_ids:
+        df = GDATA.get_analyzer_df_by_backtest(id, i)
+        if df.shape[0] == 0:
+            continue
+        analyzer_name = "TestName"
+        for j in analyzers:
+            if j["id"] == i:
+                analyzer_name = j["parameters"][0]
+                break
+        fig_data[analyzer_name] = df
+    plot = ResultPlot("Backtest")
+    plot.update_data(id, fig_data)
+    plot.show()

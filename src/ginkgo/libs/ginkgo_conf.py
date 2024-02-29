@@ -103,6 +103,10 @@ class GinkgoConfig(object):
         return self._read_secure()["telegram"]["token"]
 
     @property
+    def TELEGRAM_PWD(self) -> str:
+        return self._read_secure()["telegram"]["password"]
+
+    @property
     def Telegram_ChatIDs(self) -> list:
         return self._read_secure()["telegram"]["chatids"]
 

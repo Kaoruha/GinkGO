@@ -5,6 +5,8 @@ from ginkgo.data.models import MAnalyzer
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.libs import datetime_normalize
 
+from src.ginkgo.enums import GRAPHY_TYPES
+
 
 class BaseAnalyzer(BacktestBase):
     def __init__(self, name: str, *args, **kwargs):
@@ -14,6 +16,10 @@ class BaseAnalyzer(BacktestBase):
         self._analyzer_id = ""
         self._data = pd.DataFrame(columns=["timestamp", self._name])
         self._box_range = 20
+        self._graph_type = GRAPHY_TYPES.OTHER
+
+    def set_graph_type(self, graph_type: GRAPHY_TYPES):
+        self._graph_type = graph_type
 
     @property
     def analyzer_id(self) -> str:

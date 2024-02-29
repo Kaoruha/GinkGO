@@ -3,9 +3,12 @@ from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telebot.util import quick_markup
 from src.ginkgo.data.ginkgo_data import GDATA
 from src.ginkgo.enums import FILE_TYPES
+from src.ginkgo.backtest.plots.result_plot import ResultPlot
 import telebot
+import shutil
 import yaml
 import os
+from src.ginkgo.artificial_intelligence.gemma_7b import Gemma7B
 
 import psutil
 
@@ -32,9 +35,41 @@ def send_help(message):
     msg += "\n" + "/verify get authentification"
     msg += "\n" + "/run {uuid} run backtest by uuid"
     msg += "\n" + "/res {uuid} show backtest result by uuid(optional)"
+    msg += (
+        "\n"
+        + "/compare {backtest1} {backtest2} {index1} {index2} compare backtest result"
+    )
     msg += "\n" + "/show {uuid} display the detail"
     msg += "\n" + "/signals show recent 10 signals"
     bot.send_message(message.chat.id, msg)
+
+
+is_thinking = False
+ai_bot = None
+
+
+# @bot.message_handler()
+# def send_chat(message):
+#     global is_thinking
+#     global ai_bot
+#     if ai_bot is None:
+#         ai_bot = Gemma7B()
+#     if not is_thinking:
+#         is_thinking = True
+#         try:
+#             msg = ai_bot.think(message.text)
+#             print("=====================")
+#             print(msg)
+#             print(type(msg))
+#             print("=====================")
+#             bot.reply_to(message, msg)
+#             is_thinking = False
+#         except Exception as e:
+#             print(e)
+#             is_thinking = False
+#     else:
+#         bot.reply_to(message, "I am tinking.")
+#         return
 
 
 @bot.message_handler(commands=["status"])
@@ -77,7 +112,6 @@ def list_handler(message):
 
 def get_backtest_strategies():
     raw = GDATA.get_file_list_df(FILE_TYPES.BACKTEST.value)
-    raw = raw.head(10)
     res = []
     count = 0
     for i, r in raw.iterrows():
@@ -98,6 +132,18 @@ def get_live_strategies():
 def verify_handler(message):
     msg = bot.send_message(message.chat.id, "Please type your token")
     bot.register_next_step_handler(msg, verify_next)
+
+
+@bot.message_handler(commands=["address"])
+def address_handler(message):
+    msg = bot.send_message(message.chat.id, "Please type your token")
+    bot.register_next_step_handler(msg, get_address)
+
+
+def get_address(message):
+    if message.text == GCONF.TELEGRAM_PWD:
+        ip = os.popen("curl https://ifconfig.net/").read()
+        bot.reply_to(message, f"Your address is {ip}")
 
 
 def verify_next(message):
@@ -144,19 +190,177 @@ def run_backtest(message):
         return
 
 
-@bot.message_handler(commands=["res"])
-def res_backtest(message):
-    if len(message.text.split()) != 2:
-        bot.reply_to(message, "Could type uuid. For example: /res {uuid}")
-        raw = GDATA.get_backtest_list_df().head(10)
+@bot.message_handler(commands=["compare"])
+def compare_backtest(message):
+    raw = GDATA.get_backtest_list_df().head(20)
+    raw = raw.reindex(columns=["uuid", "profit", "start_at", "finish_at"])
+    if len(message.text.split()) <= 2:
+        bot.reply_to(
+            message,
+            "You could provide 2 backtest ids to confirm the detail.  For example: /res {uuid_1} {uuid_2}",
+        )
         for i, r in raw.iterrows():
             bot.send_message(
                 message.chat.id,
-                f"{r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
+                f"[{i}]. {r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
             )
         return
 
-    uuid = extract_arg(message.text)[0]
+    backtest_id1 = extract_arg(message.text)[0]
+    backtest_id2 = extract_arg(message.text)[1]
+    record1 = GDATA.get_backtest_record(backtest_id1)
+    record2 = GDATA.get_backtest_record(backtest_id2)
+
+    if len(message.text.split()) == 3:
+        if record1 is None or record2 is None:
+            bot.reply_to(message, "No such backtest record.")
+            for i, r in raw.iterrows():
+                bot.send_message(
+                    message.chat.id,
+                    f"[{i}]. {r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
+                )
+            return
+        content1 = record1.content
+        content2 = record2.content
+        analyzers1 = yaml.safe_load(content1.decode("utf-8"))["analyzers"]
+        analyzers1 = {i["id"]: i["parameters"][0] for i in analyzers1}
+        analyzers2 = yaml.safe_load(content2.decode("utf-8"))["analyzers"]
+        analyzers2 = {i["id"]: i["parameters"][0] for i in analyzers2}
+        keys1 = list(analyzers1.keys())
+        keys2 = list(analyzers2.keys())
+        same_keys = list(set(keys1).intersection(set(keys2)))
+        if len(same_keys) == 0:
+            bot.send_message(message.chat.id, "No Related Analyzer.")
+            return
+
+        bot.send_message(
+            message.chat.id,
+            "You could type /res {back1} {back2} {analyzer} to get the detail.",
+        )
+        for i in same_keys:
+            bot.send_message(message.chat.id, analyzers1[i])
+            bot.send_message(message.chat.id, i)
+
+    if len(message.text.split()) >= 3:
+        plot = ResultPlot("Backtest")
+        fig_data1 = {}
+        fig_data2 = {}
+        for analyzer_id in extract_arg(message.text)[2:]:
+            df = GDATA.get_analyzer_df_by_backtest(backtest_id1, analyzer_id)
+            if df.shape[0] == 0:
+                bot.reply_to(message, "No such analyzer record. Please check the id.")
+                return
+            pic_name = f"{backtest_id1}.{analyzer_id}.png"
+            pic_path = os.path.join(GCONF.get_conf_dir(), pic_name)
+            # Gen Pic
+            content = record1.content
+            analyzers = yaml.safe_load(content.decode("utf-8"))["analyzers"]
+            analyzer_name = "TestName"
+            for i in analyzers:
+                if i["id"] == analyzer_id:
+                    analyzer_name = i["parameters"][0]
+                    break
+            fig_data1[analyzer_name] = df
+
+            df = GDATA.get_analyzer_df_by_backtest(backtest_id2, analyzer_id)
+            if df.shape[0] == 0:
+                bot.reply_to(message, "No such analyzer record. Please check the id.")
+                return
+            fig_data2[analyzer_name] = df
+    plot.update_data(
+        f"{backtest_id1} vs {backtest_id2}",
+        [fig_data1, fig_data2],
+        [backtest_id1, backtest_id2],
+    )
+    plot.save_plot(pic_path)
+    photo = open(pic_path, "rb")
+    try:
+        shutil.os.remove(pic_path)
+    except Exception as e:
+        print(e)
+        pass
+    bot.send_photo(message.chat.id, photo)
+
+
+@bot.message_handler(commands=["res"])
+def res_backtest(message):
+    raw = GDATA.get_backtest_list_df().head(10)
+    raw = raw.reindex(columns=["uuid", "profit", "start_at", "finish_at"])
+    if len(message.text.split()) == 1:
+        bot.reply_to(
+            message,
+            "You could provide a backtest id to confirm the detail.  For example: /res {uuid}",
+        )
+        for i, r in raw.iterrows():
+            bot.send_message(
+                message.chat.id,
+                f"[{i}]. {r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
+            )
+        return
+
+    backtest_id = extract_arg(message.text)[0]
+    record = GDATA.get_backtest_record(backtest_id)
+
+    if len(message.text.split()) == 2:
+        if record is None:
+            bot.reply_to(message, "No such backtest record.")
+            for i, r in raw.iterrows():
+                bot.send_message(
+                    message.chat.id,
+                    f"[{i}]. {r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
+                )
+            return
+        bot.send_message(
+            message.chat.id, f"Backtest: {backtest_id}  \nWorth: {record.profit}"
+        )
+        content = record.content
+        analyzers = yaml.safe_load(content.decode("utf-8"))["analyzers"]
+        if len(analyzers) == 0:
+            bot.send_message(message.chat.id, "No Analyzer.")
+            return
+        bot.send_message(
+            message.chat.id,
+            "You could type /res {backtest} {analyzer} to get the detail.",
+        )
+        for i in analyzers:
+            bot.send_message(
+                message.chat.id,
+                i["parameters"][0],
+            )
+            bot.send_message(
+                message.chat.id,
+                i["id"],
+            )
+
+    if len(message.text.split()) >= 3:
+        backtest_id = extract_arg(message.text)[0]
+        plot = ResultPlot("Backtest")
+        fig_data = {}
+        for analyzer_id in extract_arg(message.text)[1:]:
+            df = GDATA.get_analyzer_df_by_backtest(backtest_id, analyzer_id)
+            if df.shape[0] == 0:
+                bot.reply_to(message, "No such analyzer record. Please check the id.")
+                return
+            pic_name = f"{backtest_id}.{analyzer_id}.png"
+            pic_path = os.path.join(GCONF.get_conf_dir(), pic_name)
+            # Gen Pic
+            content = record.content
+            analyzers = yaml.safe_load(content.decode("utf-8"))["analyzers"]
+            analyzer_name = "TestName"
+            for i in analyzers:
+                if i["id"] == analyzer_id:
+                    analyzer_name = i["parameters"][0]
+                    break
+            fig_data[analyzer_name] = df
+        plot.update_data(backtest_id, [fig_data], [backtest_id])
+        plot.save_plot(pic_path)
+        photo = open(pic_path, "rb")
+        try:
+            shutil.os.remove(pic_path)
+        except Exception as e:
+            print(e)
+            pass
+        bot.send_photo(message.chat.id, photo)
 
 
 @bot.callback_query_handler(func=lambda call: True)
