@@ -42,7 +42,7 @@ from ginkgo.enums import (
 )
 from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare, GinkgoTDX
 from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql, GinkgoRedis
-from src.ginkgo.libs.ginkgo_ps import find_process_by_keyword
+from ginkgo.libs.ginkgo_ps import find_process_by_keyword
 
 
 console = Console()
@@ -1303,7 +1303,7 @@ class GinkgoData(object):
         for i, r in trade_calendar.iterrows():
             current = str(r["timestamp"])
             current = datetime_normalize(current)
-            GLOG.DEBUG(f"Daybar Calendar Check {current}  {code}", end="\r")
+            GLOG.DEBUG(f"Daybar Calendar Check {current}  {code}")
             # Check if the bar exist in db
             if r["in_db"] == False:
                 last_missing = r["timestamp"]

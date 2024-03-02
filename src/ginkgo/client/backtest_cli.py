@@ -137,7 +137,7 @@ def run(
 
     def get_class_from_id(father_directory: str, file_id: str):
         model = GDATA.get_file(file_id)
-        path = f"{father_directory}/{file_id}.py"
+        path = f"{GCONF.WORKING_PATH}/{father_directory}/{file_id}.py"
         if model is None:
             GLOG.ERROR(f"{file_id} not exist.")
             return None
@@ -517,81 +517,14 @@ def recall(
 @app.command()
 def res(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
-    plt: Annotated[
-        bool,
-        typer.Option(case_sensitive=False, help="Plot."),
-    ] = False,
-    order: Annotated[
-        bool,
-        typer.Option(case_sensitive=False, help="Show Order Result."),
-    ] = False,
-    analyzer: Annotated[
-        bool,
-        typer.Option(case_sensitive=False, help="Show Anaylzer Result."),
-    ] = False,
-):
-    """
-    :one-piece_swimsuit: Show the backtest result.
-    """
-    from ginkgo.data.ginkgo_data import GDATA
-
-    if id == "":
-        raw = GDATA.get_backtest_list_df()
-        if raw.shape[0] == 0:
-            console.print(
-                f":sad_but_relieved_face: There is no [light_coral]backtest record[/light_coral] in database."
-            )
-            return
-        rs = raw[["uuid", "profit", "start_at", "finish_at"]]
-        print(rs)
-    else:
-        if order:
-            raw = GDATA.get_order_df_by_backtest(id)
-            if raw.shape[0] == 0:
-                console.print(
-                    f":sad_but_relieved_face: There is no [light_coral]order[/light_coral] about [light_coral]{id}[/light_coral] in database."
-                )
-                return
-            print(raw)
-
-        raw = GDATA.get_analyzer_dfs_by_backtest(id)
-        if raw.shape[0] == 0:
-            console.print(
-                f":sad_but_relieved_face: There is no [light_coral]backtest analyzer[/light_coral] about [light_coral]{id}[/light_coral] in database."
-            )
-            return
-        if analyzer:
-            # TODO Split different analyzer
-            analyzers = raw["name"].unique()
-            for analyzer_name in analyzers:
-                df = raw[raw["name"] == analyzer_name]
-                rs = df[["timestamp", "name", "value"]]
-                print(tabulate(rs, headers="keys", tablefmt="psql"))
-
-        if plt:
-            from ginkgo.backtest.plots import ResultPlot
-
-            analyzers = raw["name"].unique()
-            data = {}
-            for analyzer_name in analyzers:
-                df = raw[raw["name"] == analyzer_name]
-                data[analyzer_name] = df
-
-            plt = ResultPlot()
-            plt.update_data(id, data)
-
-
-@app.command()
-def res_test(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
     index: Annotated[
         typing_list[str],
-        typer.Option(
+        typer.Argument(
             case_sensitive=True,
             help="Type the analyzer_id to plot.",
         ),
     ] = None,
-    versus: Annotated[
+    compare: Annotated[
         str,
         typer.Option(case_sensitive=False, help="Do Compare with other backtest."),
     ] = "",
@@ -602,7 +535,6 @@ def res_test(
     from ginkgo.data.ginkgo_data import GDATA
 
     if id == "":
-        console.print(f":pill: You could provide a backtest id to confirm the detail. ")
         raw = GDATA.get_backtest_list_df()
         if raw.shape[0] == 0:
             console.print(
@@ -639,10 +571,6 @@ def res_test(
         for i in analyzers:
             table.add_row([i["id"], i["parameters"][0]])
         print(table)
-
-        console.print(
-            f"You could use [steel_blue1]ginkgo backtest res id --index analyzer_id1 analyzer_id2[/steel_blue1] to get more infomation."
-        )
         # Draw a line chart about the netvalue. TODO
         return
 
@@ -652,7 +580,9 @@ def res_test(
     analyzer_ids = index
     content = record.content
     analyzers = yaml.safe_load(content.decode("utf-8"))["analyzers"]
-    fig_data = {}
+    fig_data = []
+    ids = [id]
+    temp_data = {}
     for i in analyzer_ids:
         df = GDATA.get_analyzer_df_by_backtest(id, i)
         if df.shape[0] == 0:
@@ -662,7 +592,23 @@ def res_test(
             if j["id"] == i:
                 analyzer_name = j["parameters"][0]
                 break
-        fig_data[analyzer_name] = df
+        temp_data[analyzer_name] = df
+    fig_data.append(temp_data)
+    if compare != "":
+        temp_data = {}
+        print("add compare")
+        for i in analyzer_ids:
+            df = GDATA.get_analyzer_df_by_backtest(compare, i)
+            if df.shape[0] == 0:
+                continue
+            analyzer_name = "TestName"
+            for j in analyzers:
+                if j["id"] == i:
+                    analyzer_name = j["parameters"][0]
+                    break
+            temp_data[analyzer_name] = df
+        ids.append(compare)
+        fig_data.append(temp_data)
     plot = ResultPlot("Backtest")
-    plot.update_data(id, fig_data)
+    plot.update_data(id, fig_data, ids)
     plot.show()
