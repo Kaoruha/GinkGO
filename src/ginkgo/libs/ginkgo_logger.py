@@ -104,7 +104,11 @@ class GinkgoLogger(object):
             return
         self.logger.removeHandler(self.file_handler)
         self.file_handler = logging.FileHandler(
-            filename=LOGGING_PATH + file_name, encoding="utf-8", mode="a"
+            filename=LOGGING_PATH + file_name,
+            encoding="utf-8",
+            mode="a",
+            maxBytes=50 * 1024,
+            backupCount=3,
         )
         file_formatter = logging.Formatter(
             fmt="[%(asctime)s.%(msecs)03d][%(levelname)s]:%(message)s ",
@@ -169,4 +173,4 @@ class GinkgoLogger(object):
         self.logger.critical(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
 
 
-GLOG = GinkgoLogger("ginkgo")
+GLOG = GinkgoLogger("ginkgo", "ginkgo.log")
