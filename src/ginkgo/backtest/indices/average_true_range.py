@@ -33,4 +33,4 @@ class AverageTrueRange(BaseIndex):
             tr = max(h - l, abs(c - pl), abs(ph - c))
             df.loc[i, "tr"] = tr
         df[column_name] = df["tr"].rolling(self._n).mean()
-        return df
+        return df[column_name].values[-1]

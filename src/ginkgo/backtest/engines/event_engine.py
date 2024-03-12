@@ -46,7 +46,7 @@ class EventEngine(BaseEngine):
         self._date_end = None
         self._now = None
         self.set_date_start(20000101)
-        self._duration = 5
+        self._duration = 10
         self._main_flag = Event()
         self._main_thread: Thread = Thread(
             target=self.main_loop, args=(self._main_flag,)
@@ -205,9 +205,11 @@ class EventEngine(BaseEngine):
         GLOG.DEBUG(f"{type(self)}:{self.name} put {event.event_type} in queue.")
 
     def _process(self, event: "EventBase") -> None:
+        print(f"Process {event.event_type}")
+        print(event)
         if event.event_type in self._handles:
             [handle(event) for handle in self._handles[event.event_type]]
-            GLOG.DEBUG(f"{type(self)}:{self.name} Deal with {event.event_type}.")
+            GLOG.DEBUG(f"{self.name} Deal with {event.event_type}.")
         else:
             GLOG.WARN(f"There is no handler for {event.event_type}")
 

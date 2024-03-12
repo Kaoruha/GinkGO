@@ -66,6 +66,7 @@ class SOURCE_TYPES(EnumBase):
     TUSHARE = 7
     PORTFOLIO = 8
     STRATEGY = 9
+    SIZER = 10
 
 
 class DIRECTION_TYPES(EnumBase):

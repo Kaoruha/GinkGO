@@ -56,4 +56,4 @@ class MAdjustfactor(MMysqlBase):
             self.set_source(SOURCE_TYPES(df.source))
 
     def __repr__(self) -> str:
-        return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
+        return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 46)

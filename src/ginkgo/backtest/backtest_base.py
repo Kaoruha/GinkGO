@@ -7,10 +7,11 @@ from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList
 class BacktestBase(object):
     def __init__(self, name: str = "backtest_base", *args, **kwargs) -> None:
         self._name: str = ""
-        self.set_name(name)
         self._now: datetime.datetime = None
         self._abstract = True
         self._backtest_id = uuid.uuid4().hex
+
+        self.set_name(name)
 
     @property
     def backtest_id(self) -> str:

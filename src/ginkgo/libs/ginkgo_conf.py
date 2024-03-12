@@ -100,11 +100,23 @@ class GinkgoConfig(object):
 
     @property
     def Telegram_Token(self) -> str:
-        return self._read_secure()["telegram"]["token"]
+        key = "TELEGRAM_TOKEN"
+        token = os.environ.get(key, None)
+        if token is None:
+            token = self._read_secure()["telegram"]["token"]
+            token = str(token)
+            os.environ[key] = token
+        return token
 
     @property
     def TELEGRAM_PWD(self) -> str:
-        return self._read_secure()["telegram"]["password"]
+        key = "TELEGRAM_PWD"
+        pwd = os.environ.get(key, None)
+        if pwd is None:
+            pwd = self._read_secure()["telegram"]["password"]
+            pwd = str(pwd)
+            os.environ[key] = pwd
+        return pwd
 
     @property
     def Telegram_ChatIDs(self) -> list:
@@ -116,47 +128,82 @@ class GinkgoConfig(object):
 
     @property
     def LOGGING_PATH(self) -> str:
-        # Where to store the log files
-        return self._read_config()["log_path"]
+        key = "GINKGO_LOGGING_PATH"
+        path = os.environ.get(key, None)
+        if path is None:
+            path = self._read_config()["log_path"]
+            path = str(path)
+            os.environ[key] = path
+        return path
 
     def set_logging_path(self, path: str) -> None:
         self._write_config("log_path", path)
 
     @property
     def WORKING_PATH(self) -> str:
-        # Where to store the log files
-        return self._read_config()["working_directory"]
+        key = "GINKGO_WORKING_PATH"
+        path = os.environ.get(key, None)
+        if path is None:
+            path = self._read_config()["working_directory"]
+            path = str(path)
+            os.environ[key] = path
+        return path
 
     def set_work_path(self, path: str) -> None:
         self._write_config("working_directory", path)
 
     @property
     def UNITTEST_PATH(self) -> str:
-        # Where to store the log files
-        return self._read_config()["unittest_path"]
+        key = "GINKGO_UNITTEST_PATH"
+        path = os.environ.get(key, None)
+        if path is None:
+            path = self._read_config()["unittest_path"]
+            path = str(path)
+            os.environ[key] = path
+        return path
 
     def set_unittest_path(self, path: str) -> None:
         self._write_config("unittest_path", path)
 
     @property
     def LOGGING_FILE_ON(self) -> str:
-        # Turn on/off the logging
-        return self._read_config()["log_file_on"]
+        key = "GINKGO_LOGGING_FILE_ON"
+        on = os.environ.get(key, None)
+        if on is None:
+            on = self._read_config()["log_file_on"]
+            on = str(on)
+            os.environ[key] = on
+        return bool(on)
 
     @property
     def LOGGING_DEFAULT_FILE(self) -> str:
-        # Turn on/off the logging
-        return self._read_config()["log_default_file"]
+        key = "GINKGO_LOGGING_DEFAULT_FILE"
+        file = os.environ.get(key, None)
+        if file is None:
+            file = self._read_config()["log_default_file"]
+            file = str(file)
+            os.environ[key] = file
+        return file
 
     @property
     def LOGGING_LEVEL_CONSOLE(self) -> str:
-        # Turn on/off the logging
-        return self._read_config()["log_level_console"]
+        key = "GINKGO_LOGGING_LEVEL_CONSOLE"
+        level = os.environ.get(key, None)
+        if level is None:
+            level = self._read_config()["log_level_console"]
+            level = str(level)
+            os.environ[key] = level
+        return level
 
     @property
     def LOGGING_LEVEL_FILE(self) -> str:
-        # Turn on/off the logging
-        return self._read_config()["log_level_file"]
+        key = "GINKGO_LOGGING_LEVEL_FILE"
+        level = os.environ.get(key, None)
+        if level is None:
+            level = self._read_config()["log_level_file"]
+            level = str(level)
+            os.environ[key] = level
+        return level
 
     @property
     def LOGGING_COLOR(self) -> dict:
@@ -165,227 +212,278 @@ class GinkgoConfig(object):
 
     @property
     def CLICKDB(self) -> str:
-        r = ""
-        try:
-            r = self._read_secure()["database"]["clickhouse"]["database"]
-        except Exception as e:
-            r = "default"
-        return r
+        key = "GINKGO_CLICK_DB"
+        db = os.environ.get(key, None)
+        if db is None:
+            db = self._read_secure()["database"]["clickhouse"]["database"]
+            db = str(db)
+            os.environ[key] = db
+        return db
 
     @property
     def MYSQLDB(self) -> str:
-        r = ""
-        try:
-            r = self._read_secure()["database"]["mysql"]["database"]
-        except Exception as e:
-            r = "default"
-        return r
+        key = "GINKGO_MYSQL_DB"
+        db = os.environ.get(key, None)
+        if db is None:
+            db = self._read_secure()["database"]["mysql"]["database"]
+            db = str(db)
+            os.environ[key] = db
+        return db
 
     @property
     def MONGODB(self) -> str:
-        r = ""
-        try:
-            r = self._read_secure()["database"]["mongodb"]["database"]
-        except Exception as e:
-            r = "default"
-        return r
+        key = "GINKGO_MONGO_DB"
+        db = os.environ.get(key, None)
+        if db is None:
+            db = self._read_secure()["database"]["mongodb"]["database"]
+            db = str(db)
+            os.environ[key] = db
+        return db
 
     @property
     def CLICKUSER(self) -> str:
-        r = ""
-        try:
-            r = self._read_secure()["database"]["clickhouse"]["username"]
-        except Exception as e:
-            r = "default"
-        return r
+        key = "GINKGO_CLICK_USER"
+        user = os.environ.get(key, None)
+        if user is None:
+            user = self._read_secure()["database"]["clickhouse"]["username"]
+            user = str(user)
+            os.environ[key] = user
+        return user
 
     @property
     def MYSQLUSER(self) -> str:
-        r = ""
-        try:
-            r = self._read_secure()["database"]["mysql"]["username"]
-        except Exception as e:
-            r = "default"
-        return r
+        key = "GINKGO_MYSQL_USER"
+        user = os.environ.get(key, None)
+        if user is None:
+            user = self._read_secure()["database"]["mysql"]["username"]
+            user = str(user)
+            os.environ[key] = user
+        return user
 
     @property
     def MONGOUSER(self) -> str:
-        r = ""
-        try:
-            r = self._read_secure()["database"]["mongodb"]["username"]
-        except Exception as e:
-            r = "default"
-        return r
+        key = "GINKGO_MONGO_USER"
+        user = os.environ.get(key, None)
+        if user is None:
+            user = self._read_secure()["database"]["mongodb"]["username"]
+            user = str(user)
+            os.environ[key] = user
+        return user
 
     @property
     def CLICKPWD(self) -> str:
         """
         Password for clickhouse
         """
-        r = ""
-        try:
-            r = self._read_secure()["database"]["clickhouse"]["password"]
-            r = base64.b64decode(r)
-            r = str(r, "utf-8")
-            r = r.replace("\n", "")
-        except Exception as e:
-            r = "default"
-        return r
+        key = "GINKGO_CLICK_PWD"
+        pwd = os.environ.get(key, None)
+        if pwd is None:
+            pwd = self._read_secure()["database"]["clickhouse"]["password"]
+            pwd = str(pwd)
+            os.environ[key] = pwd
+        pwd = base64.b64decode(pwd)
+        pwd = str(pwd, "utf-8")
+        pwd = pwd.replace("\n", "")
+        return pwd
 
     @property
     def MYSQLPWD(self) -> str:
         """
         Password for clickhouse
         """
-        r = ""
-        try:
-            r = self._read_secure()["database"]["mysql"]["password"]
-            r = base64.b64decode(r)
-            r = str(r, "utf-8")
-            r = r.replace("\n", "")
-        except Exception as e:
-            r = "default"
-        return r
+        key = "GINKGO_MYSQL_PWD"
+        pwd = os.environ.get(key, None)
+        if pwd is None:
+            pwd = self._read_secure()["database"]["mysql"]["password"]
+            pwd = str(pwd)
+            os.environ[key] = pwd
+        pwd = base64.b64decode(pwd)
+        pwd = str(pwd, "utf-8")
+        pwd = pwd.replace("\n", "")
+        return pwd
 
     @property
     def MONGOPWD(self) -> str:
-        r = ""
-        try:
-            r = self._read_secure()["database"]["mongodb"]["password"]
-            r = base64.b64decode(r)
-            r = str(r, "utf-8")
-        except Exception as e:
-            r = "default"
-        return r
+        key = "GINKGO_MONGO_PWD"
+        pwd = os.environ.get(key, None)
+        if pwd is None:
+            pwd = self._read_secure()["database"]["mongodb"]["password"]
+            pwd = str(pwd)
+            os.environ[key] = pwd
+        pwd = base64.b64decode(pwd)
+        pwd = str(pwd, "utf-8")
+        pwd = pwd.replace("\n", "")
+        return pwd
 
     @property
     def CLICKHOST(self) -> int:
-        r = ""
-        r = self._read_secure()["database"]["clickhouse"]["host"]
-        return r
+        key = "GINKGO_CLICK_HOST"
+        host = os.environ.get(key, None)
+        if host is None:
+            host = self._read_secure()["database"]["clickhouse"]["host"]
+            host = str(host)
+            os.environ[key] = host
+        return host
 
     @property
     def MYSQLHOST(self) -> int:
-        r = ""
-        r = self._read_secure()["database"]["mysql"]["host"]
-        return r
+        key = "GINKGO_MYSQL_HOST"
+        host = os.environ.get(key, None)
+        if host is None:
+            host = self._read_secure()["database"]["mysql"]["host"]
+            host = str(host)
+            os.environ[key] = host
+        return host
 
     @property
     def MONGOHOST(self) -> int:
-        r = ""
-        r = self._read_secure()["database"]["mongo"]["host"]
-        return r
+        key = "GINKGO_MONGO_HOST"
+        host = os.environ.get(key, None)
+        if host is None:
+            host = self._read_secure()["database"]["mongodb"]["host"]
+            host = str(host)
+            os.environ[key] = host
+        return host
 
     @property
     def CLICKPORT(self) -> int:
         on_dev = self.DEBUGMODE
+        key = "GINKGO_CLICK_PORT"
+        port = os.environ.get(key, None)
+        if port is None:
+            port = self._read_secure()["database"]["clickhouse"]["port"]
+            port = str(port)
+            os.environ[key] = port
 
-        r = self._read_secure()["database"]["clickhouse"]["port"]
-        if not on_dev:
-            return r
+        if on_dev:
+            return f"1{port}"
         else:
-            return f"1{r}"
+            return port
 
     @property
     def MYSQLPORT(self) -> int:
         on_dev = self.DEBUGMODE
+        key = "GINKGO_MYSQL_PORT"
+        port = os.environ.get(key, None)
+        if port is None:
+            port = self._read_secure()["database"]["mysql"]["port"]
+            port = str(port)
+            os.environ[key] = port
 
-        r = self._read_secure()["database"]["mysql"]["port"]
-        if not on_dev:
-            return r
+        if on_dev:
+            return f"1{port}"
         else:
-            return f"1{r}"
+            return port
 
     @property
     def MONGOPORT(self) -> int:
         on_dev = self.DEBUGMODE
+        key = "GINKGO_MONGO_PORT"
+        port = os.environ.get(key, None)
+        if port is None:
+            port = self._read_secure()["database"]["mongodb"]["port"]
+            port = str(port)
+            os.environ[key] = port
 
-        r = self._read_secure()["database"]["mongo"]["port"]
         if not on_dev:
-            return r
+            return f"1{port}"
         else:
-            return f"1{r}"
+            return port
 
     @property
     def REDISHOST(self) -> str:
-        r = self._read_secure()["database"]["redis"]["host"]
-        return r
+        key = "GINKGO_REDIS_HOST"
+        host = os.environ.get(key, None)
+        if host is None:
+            host = self._read_secure()["database"]["redis"]["host"]
+            host = str(host)
+            os.environ[key] = host
+        return host
 
     @property
     def REDISPORT(self) -> str:
-        r = self._read_secure()["database"]["redis"]["port"]
-        return r
+        key = "GINKGO_REDIS_PORT"
+        port = os.environ.get(key, None)
+        if port is None:
+            port = self._read_secure()["database"]["redis"]["port"]
+            port = str(port)
+            os.environ[key] = port
+        return port
 
     @property
     def HEARTBEAT(self) -> float:
-        r = 0
-        try:
-            r = self._read_config()["heart_beat"]
-        except Exception as e:
-            r = 0
-        return r
+        key = "GINKGO_HEARTBEAT"
+        hb = os.environ.get(key, None)
+        if hb is None:
+            hb = self._read_config()["heart_beat"]
+            hb = str(hb)
+            os.environ[key] = hb
+        return float(hb)
 
     @property
     def TUSHARETOKEN(self) -> str:
-        r = ""
-        try:
-            r = self._read_secure()["tushare"]["token"]
-        except Exception as e:
-            pass
-        return r
+        key = "TUSHARE_TOKEN"
+        token = os.environ.get(key, None)
+        if token is None:
+            token = self._read_secure()["tushare"]["token"]
+            token = str(token)
+            os.environ[key] = token
+        return token
 
     @property
     def DEFAULTSTART(self) -> str:
-        r = ""
-        try:
-            r = self._read_config()["default_start"]
-        except Exception as e:
-            pass
-        return r
+        key = "GINKGO_DEFAULT_STARTDATE"
+        date = os.environ.get(key, None)
+        if date is None:
+            date = self._read_config()["default_start"]
+            date = str(date)
+            os.environ[key] = date
+        return date
 
     @property
     def DEFAULTEND(self) -> str:
-        r = ""
-        try:
-            r = self._read_config()["default_end"]
-        except Exception as e:
-            pass
-        return r
-
-    @property
-    def DBDRIVER(self) -> str:
-        r = ""
-        try:
-            r = self._read_config()["db_driver"]
-        except Exception as e:
-            pass
-        return r
+        key = "GINKGO_DEFAULT_ENDDATE"
+        date = os.environ.get(key, None)
+        if date is None:
+            date = self._read_config()["default_end"]
+            date = str(date)
+            os.environ[key] = date
+        return date
 
     @property
     def DEBUGMODE(self) -> bool:
-        r = True
-        try:
-            r = self._read_config()["debug"]
-        except Exception as e:
-            pass
-        return r
+        key = "GINKGO_DEBUG_MODE"
+        mode = os.environ.get(key, None)
+        if mode is None:
+            mode = self._read_config()["debug"]
+            mode = str(mode)
+            os.environ[key] = mode
+        if mode.upper() == "TRUE":
+            return True
+        else:
+            return False
 
     def set_debug(self, value: bool) -> None:
+        key = "GINKGO_DEBUG_MODE"
         if isinstance(value, bool):
             self._write_config("debug", value)
+            os.environ[key] = str(value)
 
     @property
     def CPURATIO(self) -> float:
-        r = 0.4
-        try:
-            r = self._read_config()["cpu_ratio"]
-        except Exception as e:
-            pass
-        return r
+        key = "GINKGO_CPU_RATIO"
+        ratio = os.environ.get(key, None)
+        if ratio is None:
+            ratio = self._read_config()["cpu_ratio"]
+            ratio = str(ratio)
+            os.environ[key] = ratio
+        return float(ratio)
 
     def set_cpu_ratio(self, value) -> None:
+        key = "GINKGO_CPU_RATIO"
         if isinstance(value, float):
             self._write_config("cpu_ratio", value)
+            os.environ[key] = str(value)
 
 
 GCONF = GinkgoConfig()

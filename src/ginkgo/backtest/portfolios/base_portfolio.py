@@ -46,6 +46,10 @@ class BasePortfolio(BacktestBase):
         profit = 0
         for i in self.positions.keys():
             profit += self.positions[i].profit
+        if not isinstance(profit, float) and not isinstance(profit, int):
+            import pdb
+
+            pdb.set_trace()
         return profit
 
     @property

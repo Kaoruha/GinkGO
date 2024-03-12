@@ -40,9 +40,11 @@ class GinkgoMongo(object):
         return self._base
 
     def connect(self) -> None:
+        if self._engine is not None:
+            self._engine.dispose()
         uri = f""
         self._engine = create_engine(uri)
-        self._session = sessionmaker(self.engine)
+        self._session = sessionmaker(self.engine)()
         self._metadata = MetaData(bind=self.engine)
         self._base = declarative_base(metadata=self.metadata)
         GLOG.INFO("Connect to mongo succeed.")

@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, MetaData, inspect, func, DDL
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
 from ginkgo.libs.ginkgo_logger import GLOG
 
@@ -9,6 +9,7 @@ class GinkgoClickhouse(object):
         self._engine = None
         self._session = None
         self._metadata = None
+        self._session_factory = None
         self._base = None
         self._user = user
         self._pwd = pwd
@@ -25,7 +26,13 @@ class GinkgoClickhouse(object):
     @property
     def session(self):
         if self._session is None:
-            self.connect()
+            self._session = scoped_session(
+                sessionmaker(
+                    autocommit=False,
+                    autoflush=False,
+                    bind=self.engine,
+                )
+            )
         return self._session
 
     @property
@@ -41,9 +48,16 @@ class GinkgoClickhouse(object):
         return self._base
 
     def connect(self) -> None:
+        if self._engine is not None:
+            self._engine.dispose()
         uri = f"clickhouse://{self._user}:{self._pwd}@{self._host}:{self._port}/{self._db}"
-        self._engine = create_engine(uri)
-        self._session = sessionmaker(self.engine)()
+        self._engine = create_engine(
+            uri,
+            pool_recycle=3600,
+            pool_size=10,
+            pool_timeout=20,
+            max_overflow=10,
+        )
         self._metadata = MetaData(bind=self.engine)
         self._base = declarative_base(metadata=self.metadata)
         GLOG.DEBUG("Connect to clickhouse succeed.")

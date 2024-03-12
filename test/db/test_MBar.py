@@ -116,3 +116,4 @@ class ModelBarTest(unittest.TestCase):
         GDATA.add(o)
         r = GDATA.get_driver(MBar).session.query(MBar).filter(MBar.uuid == uuid).first()
         self.assertNotEqual(r, None)
+        self.assertEqual(r.open, 111)

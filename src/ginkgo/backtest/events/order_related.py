@@ -35,8 +35,14 @@ class EventOrderRelated(EventBase):
         Get order from database
         """
         r = GDATA.get_order_df(order_id)
+        if r.shape[0] == 0:
+            import pdb
+
+            pdb.set_trace()
+            GLOG.CRITICAL(f"Order:{order_id} not exsist. Please check your code")
+            return
         if r is None:
-            GLOG.ERROR(f"Order:{order_id} not exsist. Please check your code")
+            GLOG.CRITICAL(f"111Order:{order_id} not exsist. Please check your code")
             return
         o = Order()
         o.set(r)

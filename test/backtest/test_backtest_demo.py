@@ -31,7 +31,7 @@ class BacktestTest(unittest.TestCase):
         super(BacktestTest, self).__init__(*args, **kwargs)
 
     def test_btselector_Init(self) -> None:
-        selector = FixedSelector(["301529.SZ", "603270.SH"])
+        selector = FixedSelector("test", ["301529.SZ", "603270.SH"])
         self.assertEqual(selector.pick(), ["301529.SZ", "603270.SH"])
 
     def test_btengine_Init(self) -> None:
@@ -62,7 +62,7 @@ class BacktestTest(unittest.TestCase):
 
         # selector = FixedSelector(["000001.SZ", "000002.SZ"])
         # selector = FixedSelector(["000042.SZ"])
-        selector = FixedSelector(codes)
+        selector = FixedSelector("test", codes)
         portfolio.bind_selector(selector)
 
         risk = BaseRiskManagement()

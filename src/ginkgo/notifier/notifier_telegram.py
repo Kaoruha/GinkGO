@@ -193,7 +193,7 @@ def run_backtest(message):
 @bot.message_handler(commands=["compare"])
 def compare_backtest(message):
     raw = GDATA.get_backtest_list_df().head(20)
-    raw = raw.reindex(columns=["uuid", "profit", "start_at", "finish_at"])
+    raw = raw.reindex(columns=["backtest_id", "profit", "start_at", "finish_at"])
     if len(message.text.split()) <= 2:
         bot.reply_to(
             message,
@@ -202,7 +202,7 @@ def compare_backtest(message):
         for i, r in raw.iterrows():
             bot.send_message(
                 message.chat.id,
-                f"[{i}]. {r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
+                f"[{i}]. {r['backtest_id']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
             )
         return
 
@@ -213,7 +213,7 @@ def compare_backtest(message):
 
     if len(message.text.split()) == 3:
         if record1 is None or record2 is None:
-            bot.reply_to(message, "No such backtest record.")
+            bot.reply_to(message, "Ne such backtest record.")
             for i, r in raw.iterrows():
                 bot.send_message(
                     message.chat.id,
@@ -240,6 +240,7 @@ def compare_backtest(message):
         for i in same_keys:
             bot.send_message(message.chat.id, analyzers1[i])
             bot.send_message(message.chat.id, i)
+        return
 
     if len(message.text.split()) >= 3:
         plot = ResultPlot("Backtest")
@@ -284,8 +285,8 @@ def compare_backtest(message):
 
 @bot.message_handler(commands=["res"])
 def res_backtest(message):
-    raw = GDATA.get_backtest_list_df().head(10)
-    raw = raw.reindex(columns=["uuid", "profit", "start_at", "finish_at"])
+    raw = GDATA.get_backtest_list_df()
+    raw = raw.reindex(columns=["backtest_id", "profit", "start_at", "finish_at"])
     if len(message.text.split()) == 1:
         bot.reply_to(
             message,
@@ -294,7 +295,7 @@ def res_backtest(message):
         for i, r in raw.iterrows():
             bot.send_message(
                 message.chat.id,
-                f"[{i}]. {r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
+                f"[{i}]. {r['backtest_id']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
             )
         return
 
