@@ -93,6 +93,12 @@ class ModelAnalyerTest(unittest.TestCase):
     def test_ModelAnalyzer_Query(self) -> None:
         GDATA.create_table(MAnalyzer)
         o = MAnalyzer()
+        uuid = o.uuid
         GDATA.add(o)
-        r = GDATA.get_driver(MAnalyzer).session.query(MAnalyzer).first()
+        r = (
+            GDATA.get_driver(MAnalyzer)
+            .session.query(MAnalyzer)
+            .filter(MAnalyzer.uuid == uuid)
+            .first()
+        )
         self.assertNotEqual(r, None)

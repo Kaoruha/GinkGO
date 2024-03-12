@@ -221,16 +221,14 @@ def configure(
 @main_app.command()
 def run(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID.")],
-    level: Annotated[
-        LogLevelType, typer.Option(case_sensitive=False, help="DEBUG Level")
-    ] = "INFO",
+    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
     :poultry_leg: Run Backtest. [grey62]Duplication fo `ginkgo backtest run`.[/grey62]
     """
     from ginkgo.client.backtest_cli import run as backtest_run
 
-    backtest_run(id, level)
+    backtest_run(id, debug)
 
 
 @main_app.command()

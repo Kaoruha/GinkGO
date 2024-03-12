@@ -1,13 +1,16 @@
 import typer
+from ginkgo.data.ginkgo_data import GDATA
 from tabulate import tabulate
 from enum import Enum
 from typing import List as typing_list, Optional
 from typing_extensions import Annotated
 from rich.prompt import Prompt
+from rich.table import Column, Table
 from rich.console import Console
 from ginkgo.client.unittest_cli import LogLevelType
 from ginkgo.libs.ginkgo_logger import GLOG
-from src.ginkgo.notifier.ginkgo_notifier import GNOTIFIER
+from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
+from ginkgo.enums import ORDERSTATUS_TYPES
 
 
 app = typer.Typer(
@@ -30,6 +33,54 @@ class ResourceType(str, Enum):
 class ResultType(str, Enum):
     analyzer = "analyzer"
     order = "order"
+
+
+def print_order_paganation(df, page: int):
+    if page > 0:
+        data_length = df.shape[0]
+        page_count = int(data_length / page) + 1
+        for i in range(page_count):
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("DateTime", style="dim")
+            table.add_column("Code", style="dim")
+            table.add_column("Direction", style="dim")
+            table.add_column("Price", style="dim")
+            table.add_column("Volume", style="dim")
+            table.add_column("FEE", style="dim")
+            for i, r in df[i * page : (i + 1) * page].iterrows():
+                table.add_row(
+                    str(r["timestamp"]),
+                    r["code"],
+                    str(r["direction"]),
+                    str(r["transaction_price"]),
+                    str(r["volume"]),
+                    str(r["fee"]),
+                )
+            console.print(table)
+            go_next_page = Prompt.ask(
+                f"Current: {(i+1)*page}/{data_length}, Conitnue? \[y/N]"
+            )
+            if go_next_page.upper() in quit_list:
+                console.print("See you soon. :sunglasses:")
+                raise typer.Abort()
+    else:
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("DateTime", style="dim")
+        table.add_column("Code", style="dim")
+        table.add_column("Direction", style="dim")
+        table.add_column("Price", style="dim")
+        table.add_column("Volume", style="dim")
+        table.add_column("FEE", style="dim")
+        for i, r in df.iterrows():
+            table.add_row(
+                str(r["timestamp"]),
+                r["code"],
+                str(r["direction"]),
+                str(r["transaction_price"]),
+                str(r["volume"]),
+                str(r["fee"]),
+            )
+        console.print(table)
 
 
 @app.command()
@@ -96,7 +147,14 @@ def ls(
         else:
             msg = f":ramen: There are {raw.shape[0]} files about {filter}. "
         console.print(msg)
-        print(rs)
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim")
+        table.add_column("Name", style="dim")
+        table.add_column("Type", style="dim")
+        table.add_column("Update", style="dim")
+        for i, r in rs.iterrows():
+            table.add_row(r["uuid"], r["file_name"], str(r["type"]), str(r["update"]))
+        console.print(table)
     else:
         # If there is no file in database.
         console.print(
@@ -107,9 +165,7 @@ def ls(
 @app.command()
 def run(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID.")],
-    level: Annotated[
-        LogLevelType, typer.Option(case_sensitive=False, help="DEBUG Level")
-    ] = "INFO",
+    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
     :poultry_leg: Run Backtest.
@@ -133,7 +189,10 @@ def run(
     from ginkgo.backtest.portfolios import PortfolioT1Backtest
     from ginkgo.libs import datetime_normalize
 
-    GLOG.set_level(level)
+    if debug:
+        GLOG.set_level("DEBUG")
+    else:
+        GLOG.set_level("INFO")
 
     def get_class_from_id(father_directory: str, file_id: str):
         model = GDATA.get_file(file_id)
@@ -457,29 +516,29 @@ def rm(
         result = GDATA.remove_file(id)
         if result:
             console.print(f":zany_face: File [yellow]{id}[/yellow] delete.")
-            return
-        else:
-            console.print(
-                f":face_with_raised_eyebrow: File [light_coral]{id}[/light_coral] not exist."
-            )
+            continue
         # Try remove backtest records
         result2 = GDATA.remove_backtest(id)
         if result2:
             console.print(
                 f":zany_face: Backtest Record [light_coral]{id}[/light_coral] delete."
             )
-        else:
-            console.print(
-                f":face_with_raised_eyebrow: Record [light_coral]{id}[/light_coral] not exist."
-            )
-            # Remove order records and analyzers
+            continue
+        # Remove order records and analyzers
         result3 = GDATA.remove_orders(id)
-        console.print(
-            f":zany_face: Orders about [light_coral]{id}[/light_coral] [yellow]{result3}[/yellow] delete."
-        )
+        if result3 > 0:
+            console.print(
+                f":zany_face: Orders about [light_coral]{id}[/light_coral] [yellow]{result3}[/yellow] delete {result3}."
+            )
+            continue
         result4 = GDATA.remove_analyzers(id)
+        if result4 > 0:
+            console.print(
+                f":zany_face: Analyzers about [light_coral]{id}[/light_coral] [yellow]{result4}[/yellow] delete {result4}."
+            )
+            continue
         console.print(
-            f":zany_face: Analyzers about [light_coral]{id}[/light_coral] [yellow]{result4}[/yellow] delete."
+            f"There is no file or backtest record about [light_coral]{id}[/light_coral]. Please check id again."
         )
 
 
@@ -515,6 +574,48 @@ def recall(
 
 
 @app.command()
+def order(
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
+    page: Annotated[
+        int, typer.Option(case_sensitive=False, help="Limit the number of output.")
+    ] = 0,
+):
+    """
+    :one-piece_swimsuit: Show the backtest Orders.
+    """
+    if id == "":
+        raw = GDATA.get_backtest_list_df()
+        if raw.shape[0] == 0:
+            console.print(
+                f":sad_but_relieved_face: There is no [light_coral]backtest record[/light_coral] in database."
+            )
+            return
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim")
+        table.add_column("Worth", style="dim")
+        table.add_column("Start At")
+        table.add_column("Finish At")
+        rs = raw[["backtest_id", "profit", "start_at", "finish_at"]]
+        for i, r in rs.iterrows():
+            table.add_row(
+                r["backtest_id"],
+                f"${r['profit']}",
+                f"{r['start_at']}",
+                f"{r['finish_at']}",
+            )
+        console.print(table)
+        return
+    # Got backtest id
+    orders = GDATA.get_order_df_by_backtest(id)
+    if orders.shape[0] == 0:
+        console.print(f"There is no orders about Backtest: {id}")
+        return
+
+    orders = orders[orders["status"] == ORDERSTATUS_TYPES.FILLED]
+    print_order_paganation(orders, page)
+
+
+@app.command()
 def res(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
     index: Annotated[
@@ -532,7 +633,6 @@ def res(
     """
     :one-piece_swimsuit: Show the backtest result.
     """
-    from ginkgo.data.ginkgo_data import GDATA
 
     if id == "":
         raw = GDATA.get_backtest_list_df()
@@ -541,11 +641,24 @@ def res(
                 f":sad_but_relieved_face: There is no [light_coral]backtest record[/light_coral] in database."
             )
             return
-        rs = raw[["uuid", "profit", "start_at", "finish_at"]]
-        print(rs)
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim")
+        table.add_column("Worth", style="dim")
+        table.add_column("Start At")
+        table.add_column("Finish At")
+        rs = raw[["backtest_id", "profit", "start_at", "finish_at"]]
+        for i, r in rs.iterrows():
+            table.add_row(
+                r["backtest_id"],
+                f"${r['profit']}",
+                f"{r['start_at']}",
+                f"{r['finish_at']}",
+            )
+        console.print(table)
         return
     # Got backtest id
     record = GDATA.get_backtest_record(id)
+    print(record)
     if record is None:
         console.print(
             f":sad_but_relieved_face: Record {id} not exist. Please select one of follow."
@@ -554,6 +667,9 @@ def res(
         return
     console.print(
         f":sunflower: Backtest [light_coral]{id}[/light_coral]  Worth: {record.profit}"
+    )
+    console.print(
+        f"You could use [green]ginkgo backtest res {id} analyzer_id1 analyzer_id2 ...[/green] to see detail."
     )
 
     import yaml
@@ -565,13 +681,13 @@ def res(
         if len(analyzers) == 0:
             console.print("No Analyzer.")
             return
-        from prettytable import PrettyTable
 
-        table = PrettyTable(["ID", "Name"])
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim")
+        table.add_column("Name", style="dim")
         for i in analyzers:
-            table.add_row([i["id"], i["parameters"][0]])
-        print(table)
-        # Draw a line chart about the netvalue. TODO
+            table.add_row(i["id"], i["parameters"][0])
+        console.print(table)
         return
 
     from src.ginkgo.backtest.plots.result_plot import ResultPlot

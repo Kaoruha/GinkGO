@@ -1,5 +1,6 @@
 import datetime
 import sys
+import scipy.stats as stats
 import random
 from time import sleep
 import random
@@ -44,58 +45,101 @@ class MatchMakingSim(MatchMakingBase):
 
     @property
     def slippage(self) -> float:
-        r = self._slip_base * (random.random() * 2 - 1 + 1)
+        r = self._slip_base * random.random()
         return r if r < 1 else 1
 
     @property
     def attitude(self) -> ATTITUDE_TYPES:
         return self._attitude
 
-    def return_order(self, order_id, engine):
-        order = GDATA.get_order(order_id=order_id, engine=engine)
+    def return_order(self, order_id):
+        order = GDATA.get_order(order_id=order_id)
         order.status = ORDERSTATUS_TYPES.CANCELED
         order_id = order.uuid
-        engine.session.commit()
-        engine.session.close()
+        GDATA.get_driver(MOrder).session.merge(order)
+        GDATA.get_driver(MOrder).session.commit()
+        GDATA.get_driver(MOrder).session.close()
         canceld_order = EventOrderCanceled(order_id)
         GLOG.WARN(f"Return a CANCELED ORDER")
         self.engine.put(canceld_order)
+
+    def get_random_transaction_price(
+        self,
+        direction: DIRECTION_TYPES,
+        low: float,
+        high: float,
+        attitude: ATTITUDE_TYPES,
+    ):
+        mean = (low + high) / 2
+        std_dev = (high - low) / 6
+        if attitude == ATTITUDE_TYPES.RANDOM:
+            rs = stats.norm.rvs(loc=mean, scale=std_dev, size=1)
+        else:
+            skewness_right = mean
+            skewness_left = -mean
+            if attitude == ATTITUDE_TYPES.OPTIMISTIC:
+                if direction == DIRECTION_TYPES.LONG:
+                    rs = stats.skewnorm.rvs(
+                        skewness_right, loc=mean, scale=std_dev, size=1
+                    )
+                else:
+                    rs = stats.skewnorm.rvs(
+                        skewness_left, loc=mean, scale=std_dev, size=1
+                    )
+            elif attitude == ATTITUDE_TYPES.PESSMISTIC:
+                if direction == DIRECTION_TYPES.LONG:
+                    rs = stats.skewnorm.rvs(
+                        skewness_left, loc=mean, scale=std_dev, size=1
+                    )
+                else:
+                    rs = stats.skewnorm.rvs(
+                        skewness_right, loc=mean, scale=std_dev, size=1
+                    )
+            else:
+                # TODO
+                pass
+        rs = rs[0]
+        if rs > high:
+            GLOG.CRITICAL(f"Transaction price {rs} is over the high price {high}.")
+            rs = high
+        if rs < low:
+            GLOG.CRITICAL(f"Transaction price {rs} is under the low price {low}.")
+            rs = low
+        return rs
 
     def on_stock_order(self, event: EventOrderSubmitted):
         # Check if the id exsist
         GLOG.INFO(f"{self.name} got an ORDER {event.order_id}.")
         order_id = event.order_id
-        o, db = self.query_order(order_id)
+        o = self.query_order(order_id)
         if o is None:
             return
         if o.timestamp < self.now:
             GLOG.CRITICAL("Will not handle the order {event.order_id} from past")
-            self.return_order(order_id, db)
+            self.return_order(order_id)
             return
         if o.timestamp > self.now:
             GLOG.CRITICAL("Will not handle the order {event.order_id} from future")
-            self.return_order(order_id, db)
+            self.return_order(order_id)
             return
 
         # Check Order Status
         if o.status == ORDERSTATUS_TYPES.NEW:
             o.status = ORDERSTATUS_TYPES.SUBMITTED
-            db.session.commit()
+            GDATA.get_driver(MOrder).session.merge(o)
+            GDATA.get_driver(MOrder).session.commit()
+            GDATA.get_driver(MOrder).session.close()
         if o.status != ORDERSTATUS_TYPES.SUBMITTED:
             GLOG.ERROR(f"Only accept SUBMITTED order. {order_id} is under {o.status}")
-            o.status = ORDERSTATUS_TYPES.CANCELED
-            db.session.commit()
-            canceld_order = EventOrderCanceled(o.uuid)
-            self.engine.put(canceld_order)
+            self.return_order(order_id)
             return
         if order_id in self.order_book:
             GLOG.WARN(f"Order {order_id} is cached in queue, do not resubmit.")
-            self.return_order(order_id, db)
+            self.return_order(order_id)
         else:
             self.order_book.append(order_id)
 
         GLOG.INFO(f"{self.now} OrderBooks: {len(self.order_book)}")
-        db.session.close()
         self.try_match()
 
     def query_order(self, order_id: str) -> MOrder:
@@ -105,23 +149,25 @@ class MatchMakingSim(MatchMakingBase):
         if not isinstance(order_id, str):
             GLOG.WARN("Order id only support string.")
             return
-        db = GDATA.get_mysql()
-        o = GDATA.get_order(order_id, db)
+        o = GDATA.get_order(order_id)
         if o is None:
             GLOG.WARN(f"Order {order_id} not exsist.")
-        return (o, db)
+        return o
 
     def try_match(self):
         GLOG.INFO("Try Match.")
         for order_id in self.order_book:
             # Get the order from db
-            o, db = self.query_order(order_id)
+            o = self.query_order(order_id)
             oid = o.uuid
             # Get the price info from self.price_info
             p = self.price
             if p.shape[0] == 0:
                 GLOG.CRITICAL("There is no price data. Need to check the code.")
-                self.return_order(order_id, db)
+                import pdb
+
+                pdb.set_trace()
+                self.return_order(order_id)
                 continue
 
             p = p[p.code == o.code]
@@ -129,101 +175,99 @@ class MatchMakingSim(MatchMakingBase):
             # If there is no price info, try match next order
             if p.shape[0] == 0:
                 GLOG.ERROR(f"Have no Price info about {o.code} on {self.now}.")
-                self.return_order(order_id, db)
+                import pdb
+
+                pdb.set_trace()
+                self.return_order(order_id)
                 continue
             elif p.shape[0] > 1:
                 GLOG.CRITICAL(
                     f"Price info {o.code} has more than 1 record. Something wrong in code."
                 )
-                self.return_order(order_id, db)
+                import pdb
+
+                pdb.set_trace()
+                self.return_order(order_id)
                 continue
 
-            # # Try match
+            # Try match
             p = p.iloc[0, :]
             transaction_price = 0
             high = p.high
             low = p.low
             open = p.open
-            if o.direction == DIRECTION_TYPES.SHORT:
-                if o.volume == 0:
-                    self.return_order(order_id, db)
-                    continue
-                GLOG.WARN(f"Start Matching SHORT ORDER")
-                print(o)
-            # 1. If limit price
+            close = p.close
+
+            # Cancle the order if the price is out of the bound, or the volume is over the bound.
+            # Cancel the order when price go to limit.
             if o.type == ORDER_TYPES.LIMITORDER:
-                # 1.1 If the limit price is out of the bound of price_info, Cancel the order
-                if o.limit_price < p.low:
-                    GLOG.INFO(
+                if o.limit_price < low:
+                    GLOG.WARN(
                         f"Order {o.uuid} limit price {o.limit_price} is under the valley: {p.low}."
                     )
-                    self.return_order(order_id, db)
+                    self.return_order(order_id)
                     continue
-
-                if o.limit_price > p.high:
-                    GLOG.INFO(
+                if o.limit_price > high:
+                    GLOG.WARN(
                         f"Order {o.uuid} limit price {o.limit_price} is over the peak: {p.high}."
                     )
-                    self.return_order(order_id, db)
+                    self.return_order(order_id)
                     continue
-
-                # 1.2 If the limit price > low and < high
-                # 1.2.1 Make the deal.
                 if o.volume > p.volume:
-                    GLOG.ERROR(
+                    GLOG.WARN(
                         f"Order {o.uuid} limit price {o.limit_price} volume: {o.volume} is over the volume: {p.volume}."
                     )
-                    self.return_order(order_id, db)
+                    self.return_order(order_id)
                     continue
-                transaction_price = o.limit_price
+            if o.direction == DIRECTION_TYPES.LONG:
+                if close / open >= 1.098:
+                    GLOG.WARN(f"Order {o.uuid} is over the limit price.")
+                    self.return_order(order_id)
+                    continue
+            elif o.direction == DIRECTION_TYPES.SHORT:
+                if close / open <= 0.092:
+                    GLOG.WARN(f"Order {o.uuid} is over the limit price.")
+                    self.return_order(order_id)
+                    continue
 
+            # Determine transaction price
+            transaction_price = 0
+            # 1. If limit price
+            if o.type == ORDER_TYPES.LIMITORDER:
+                transaction_price = o.limit_price
             # 2. If Maket price
             elif o.type == ORDER_TYPES.MARKETORDER:
-                # 2.1 pessimistic
-                if self.attitude == ATTITUDE_TYPES.PESSMISTIC:
-                    # 2.1.1 If buy, the fill price should be open + (high - open) * self.slippage
-                    if o.direction == DIRECTION_TYPES.LONG:
-                        transaction_price = (
-                            p.open + abs(p.high - p.open) * self.slippage
-                        )
-                        transaction_price = round(transaction_price, 4)
-                    # 2.1.2 If sell, the fill price shoudl be open - (open - low) * self.slippage
-                    elif o.direction == DIRECTION_TYPES.SHORT:
-                        transaction_price = p.open - abs(p.open - p.low) * self.slippage
-                # 2.2 optimistic
-                elif self.attitude == ATTITUDE_TYPES.OPTIMISTIC:
-                    # 2.2.1 If buy, the fill price should be open - (open - low) * self.slippage
-                    if o.direction == DIRECTION_TYPES.LONG:
-                        transaction_price = p.open - abs(p.open - p.low) * self.slippage
-                    # 2.2.2 If sell, the fill price shoudl be open + (high - open) * self.slippage
-                    elif o.direction == DIRECTION_TYPES.SHORT:
-                        transaction_price = (
-                            p.open + abs(p.high - p.open) * self.slippage
-                        )
-                elif self.attitude == ATTITUDE_TYPES.RANDOM:
-                    transaction_price = p.low + abs(p.high - p.low) * random.random()
+                transaction_price = self.get_random_transaction_price(
+                    o.direction, low, high, self.attitude
+                )
 
+            transaction_price = round(transaction_price, 4)
             o.status = ORDERSTATUS_TYPES.FILLED
-            o.transaction_price = round(transaction_price, 4)
-            volume = float(transaction_price * o.volume)
-            volume = round(volume, 4)
+            o.transaction_price = transaction_price
+            transaction_money = float(transaction_price * o.volume)
+            transaction_money = round(transaction_money, 4)
             is_long = o.direction == DIRECTION_TYPES.LONG
-            fee = self.cal_fee(volume, is_long)
+            fee = self.cal_fee(transaction_price, is_long)
             o.fee = round(fee, 4)
             remain = 0
             if is_long:
-                remain = float(o.frozen) - volume - fee
+                cost = transaction_money + fee
+                remain = float(o.frozen) - cost
+                if remain < 0:
+                    GLOG.WARN(
+                        f"Order {o.uuid} has not enough money. Should freeze more."
+                    )
+                    self.return_order(order_id)
+                    continue
             else:
-                remain = volume - fee
+                remain = transaction_money - fee
             o.remain = round(remain, 4)
-            if o.direction == DIRECTION_TYPES.SHORT:
-                GLOG.WARN(f"Complete Matching SHORT ORDER")
-                print(o)
             # 1.2.3 Give it back to db
-            db.session.commit()
+            GDATA.get_driver(MOrder).session.merge(o)
+            GDATA.get_driver(MOrder).session.commit()
+            GDATA.get_driver(MOrder).session.close()
             self.order_book.remove(o.uuid)
             filled_order = EventOrderFilled(o.uuid)
-            db.session.close()
             self.engine.put(filled_order)
         GLOG.INFO("Done Match.")
         self._order_book = []

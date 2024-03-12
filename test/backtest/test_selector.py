@@ -1,7 +1,10 @@
 import datetime
 import uuid
 import unittest
-from ginkgo.backtest.selectors import BaseSelector, FixedSelector
+from ginkgo.backtest.selectors.base_selector import BaseSelector
+from ginkgo.backtest.selectors.popularity_selector import PopularitySelector
+from ginkgo.backtest.selectors.fixed_selector import FixedSelector
+from ginkgo.backtest.selectors.cn_all_selector import CNAllSelector
 from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
 
 
@@ -39,17 +42,18 @@ class FixedSelectorTest(unittest.TestCase):
     def test_fixedselector_pick(self):
         codes = ["halo", "nihao"]
         s = FixedSelector("test_fixed_selector", codes)
+        s._now = "2021-01-01"
         r = s.pick()
         self.assertEqual(2, len(r))
 
 
-class PopularitySelector(unittest.TestCase):
+class PopularitySelectorTest(unittest.TestCase):
     """
     UnitTest for PopularitySelector
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        super(PopularitySelector, self).__init__(*args, **kwargs)
+        super(PopularitySelectorTest, self).__init__(*args, **kwargs)
 
     def test_popularityselector_init(self):
         codes = ["halo", "nihao"]
@@ -58,6 +62,24 @@ class PopularitySelector(unittest.TestCase):
     def test_popularityselector_pick(self):
         codes = ["halo", "nihao"]
         s = PopularitySelector("test_fixed_selector", 10)
+        s.on_time_goes_by("2020-01-01")
         r = s.pick()
         s = PopularitySelector("test_fixed_selector", -10)
         r = s.pick()
+
+
+class CNAllSelectorTest(unittest.TestCase):
+    """
+    UnitTest for CNAllSelector
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super(CNAllSelectorTest, self).__init__(*args, **kwargs)
+
+    def test_cnall_init(self):
+        s = CNAllSelector("test")
+
+    def test_cnall_pick(self):
+        s = CNAllSelector("test")
+        rs = s.pick()
+        print(rs)

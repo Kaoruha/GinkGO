@@ -35,7 +35,6 @@ class MBacktest(MMysqlBase):
         finish_at: any = None,
     ) -> None:
         self.backtest_id = backtest_id
-        self.uuid = backtest_id
         self.start_at = datetime_normalize(start_at)
         self.content = content
         self.profit = 0

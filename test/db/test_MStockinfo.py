@@ -1,72 +1,73 @@
-# import unittest
-# import base64
-# import random
-# import time
-# import pandas as pd
-# import datetime
-# from ginkgo.libs.ginkgo_conf import GCONF
+import unittest
+import base64
+import random
+import time
+import pandas as pd
+import datetime
+from ginkgo.libs.ginkgo_conf import GCONF
 
-# from ginkgo.enums import (
-#     SOURCE_TYPES,
-#     DIRECTION_TYPES,
-#     ORDER_TYPES,
-#     ORDERSTATUS_TYPES,
-#     FREQUENCY_TYPES,
-#     CURRENCY_TYPES,
-#     MARKET_TYPES,
-# )
+from ginkgo.enums import (
+    SOURCE_TYPES,
+    DIRECTION_TYPES,
+    ORDER_TYPES,
+    ORDERSTATUS_TYPES,
+    FREQUENCY_TYPES,
+    CURRENCY_TYPES,
+    MARKET_TYPES,
+)
 
-# from ginkgo.libs.ginkgo_normalize import datetime_normalize
-# from ginkgo.data.models import (
-#     MOrder,
-#     MTradeDay,
-#     MStockInfo,
-#     MSignal,
-#     MTick,
-#     MAdjustfactor,
-#     MBar,
-# )
+from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.data.models import (
+    MOrder,
+    MTradeDay,
+    MStockInfo,
+    MSignal,
+    MTick,
+    MAdjustfactor,
+    MBar,
+)
 
-# from ginkgo.backtest.bar import Bar
-# from ginkgo.backtest.tick import Tick
-# from ginkgo.backtest.order import Order
-# from ginkgo.data.ginkgo_data import GDATA
-# from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.backtest.bar import Bar
+from ginkgo.backtest.tick import Tick
+from ginkgo.backtest.order import Order
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.libs.ginkgo_logger import GLOG
 
 
-# class ModelStockInfoTest(unittest.TestCase):
-#     """
-#     UnitTest for StockInfo.
-#     """
+class ModelStockInfoTest(unittest.TestCase):
+    """
+    UnitTest for StockInfo.
+    """
 
-#     def __init__(self, *args, **kwargs) -> None:
-#         super(ModelStockInfoTest, self).__init__(*args, **kwargs)
-#         self.params = [
-#             {
-#                 "code": "testcode",
-#                 "code_name": "testname",
-#                 "industry": "test industry",
-#                 "currency": CURRENCY_TYPES.CNY,
-#                 "list_date": datetime.datetime.now(),
-#                 "delist_date": datetime.datetime.now(),
-#                 "timestamp": datetime.datetime.now(),
-#                 "source": SOURCE_TYPES.SIM,
-#             },
-#             {
-#                 "code": "testcode2",
-#                 "code_name": "testname222",
-#                 "industry": "test industry222",
-#                 "currency": CURRENCY_TYPES.USD,
-#                 "list_date": datetime.datetime.now(),
-#                 "delist_date": datetime.datetime.now(),
-#                 "timestamp": datetime.datetime.now(),
-#                 "source": SOURCE_TYPES.SIM,
-#             },
-#         ]
+    def __init__(self, *args, **kwargs) -> None:
+        super(ModelStockInfoTest, self).__init__(*args, **kwargs)
+        self.params = [
+            {
+                "code": "testcode",
+                "code_name": "testname",
+                "industry": "test industry",
+                "currency": CURRENCY_TYPES.CNY,
+                "list_date": datetime.datetime.now(),
+                "delist_date": datetime.datetime.now(),
+                "timestamp": datetime.datetime.now(),
+                "source": SOURCE_TYPES.SIM,
+            },
+            {
+                "code": "testcode2",
+                "code_name": "testname222",
+                "industry": "test industry222",
+                "currency": CURRENCY_TYPES.USD,
+                "list_date": datetime.datetime.now(),
+                "delist_date": datetime.datetime.now(),
+                "timestamp": datetime.datetime.now(),
+                "source": SOURCE_TYPES.SIM,
+            },
+        ]
 
-#     def test_ModelStockInfo_Init(self) -> None:
-#         for i in self.params:
-#             o = MStockInfo()
+    def test_ModelStockInfo_Init(self) -> None:
+        for i in self.params:
+            o = MStockInfo()
+
 
 #     def test_ModelStockInfo_SetFromData(self) -> None:
 #         for i in self.params:

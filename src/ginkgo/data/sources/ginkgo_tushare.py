@@ -92,10 +92,13 @@ class GinkgoTushare(object):
         date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
         date_end: str or datetime.datetime = GCONF.DEFAULTEND,
     ) -> pd.DataFrame:
+        # if "BJ" in code:
+        #     GLOG.WARN("Tushare API: BJ stock not supported.")
+        #     return
         start = datetime_normalize(date_start).strftime("%Y-%m-%d")
         end = datetime_normalize(date_end).strftime("%Y-%m-%d")
         r = self.pro.adj_factor(
-            ts_code=code, start_date=start, end_date=end, limit=50000
+            ts_code=code, start_date=start, end_date=end, limit=10000
         )
         r = r[r["adj_factor"].duplicated() == False]
         r.reset_index(drop=True, inplace=True)

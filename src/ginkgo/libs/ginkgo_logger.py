@@ -103,7 +103,7 @@ class GinkgoLogger(object):
         if not LOGGING_FILE_ON:
             return
         self.logger.removeHandler(self.file_handler)
-        self.file_handler = logging.FileHandler(
+        self.file_handler = RotatingFileHandler(
             filename=LOGGING_PATH + file_name,
             encoding="utf-8",
             mode="a",
@@ -173,4 +173,5 @@ class GinkgoLogger(object):
         self.logger.critical(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
 
 
-GLOG = GinkgoLogger("ginkgo", "ginkgo.log")
+GLOG = GinkgoLogger("ginkgo")
+GLOG.reset_logfile("ginkgo.log")

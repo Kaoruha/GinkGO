@@ -74,6 +74,8 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs):
             filter_s = f"{s.name} about {s.code}"
         if param == "positions":
             filter_s = f"{len(s.keys())}"
+        if param == "analyzers":
+            filter_s = f"{len(s.keys())}"
         if isinstance(s, Enum):
             filter_s += f" : {s.value}"
         max_len = total_len - count - 6

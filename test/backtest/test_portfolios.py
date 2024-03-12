@@ -66,7 +66,7 @@ class PortfolioBaseTest(unittest.TestCase):
         p.bind_engine(engine)
         sizer = BaseSizer()
         p.bind_sizer(sizer)
-        s = FixedSelector(["test_code"])
+        s = FixedSelector("test_selector", ["test_code"])
         p.bind_selector(s)
 
         self.assertEqual(0, len(p.interested))

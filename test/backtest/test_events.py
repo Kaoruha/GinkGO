@@ -3,7 +3,7 @@ import uuid
 import unittest
 import pandas as pd
 from time import sleep
-from ginkgo.backtest.events import (
+from src.ginkgo.backtest.events import (
     EventBase,
     EventCapitalUpdate,
     EventOrderCanceled,

@@ -3,7 +3,12 @@ import time
 import datetime
 import pandas as pd
 from ginkgo.backtest.position import Position
-from ginkgo.enums import ORDER_TYPES, DIRECTION_TYPES, SOURCE_TYPES, ORDERSTATUS_TYPES
+from ginkgo.enums import (
+    ORDER_TYPES,
+    DIRECTION_TYPES,
+    SOURCE_TYPES,
+    ORDERSTATUS_TYPES,
+)
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.data.ginkgo_data import GDATA
 

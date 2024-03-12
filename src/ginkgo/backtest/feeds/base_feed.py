@@ -55,6 +55,6 @@ class BaseFeed(BacktestBase):
         if key in self._cache:
             return self._cache[key]
         else:
-            df = GDATA.get_daybar_df_cached(code, date, date)
+            df = GDATA.get_daybar_df(code, date, date)
             self._cache[key] = df
             return df

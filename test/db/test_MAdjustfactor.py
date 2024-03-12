@@ -105,8 +105,14 @@ class ModelAdjustfactorTest(unittest.TestCase):
     def test_ModelAdjustfactor_Query(self) -> None:
         GDATA.create_table(MAdjustfactor)
         o = MAdjustfactor()
+        uuid = o.uuid
         GDATA.add(o)
-        r = GDATA.get_driver(MAdjustfactor).session.query(MAdjustfactor).first()
+        r = (
+            GDATA.get_driver(MAdjustfactor)
+            .session.query(MAdjustfactor)
+            .filter(MAdjustfactor.uuid == uuid)
+            .first()
+        )
         self.assertNotEqual(r, None)
 
     def test_ModelAdjustfactor_Update(self) -> None:
@@ -117,9 +123,10 @@ class ModelAdjustfactorTest(unittest.TestCase):
         uuid = o.uuid
         GDATA.add(o)
         for i in range(num):
-            driver = GDATA.get_driver(MAdjustfactor)
+            GDATA.get_driver(MAdjustfactor)
             item = (
-                driver.session.query(MAdjustfactor)
+                GDATA.get_driver(MAdjustfactor)
+                .session.query(MAdjustfactor)
                 .filter(MAdjustfactor.uuid == uuid)
                 .first()
             )
@@ -129,9 +136,11 @@ class ModelAdjustfactorTest(unittest.TestCase):
             s = base64.b64encode(s)
             s = s.decode("ascii")
             item.code = s
-            driver.session.commit()
+            GDATA.get_driver(MAdjustfactor).session.merge(item)
+            GDATA.get_driver(MAdjustfactor).session.commit()
             item2 = (
-                driver.session.query(MAdjustfactor)
+                GDATA.get_driver(MAdjustfactor)
+                .session.query(MAdjustfactor)
                 .filter(MAdjustfactor.uuid == uuid)
                 .first()
             )
