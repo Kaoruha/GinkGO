@@ -9,23 +9,27 @@
   - [TODO] Add ML Engine.
   - [TODO] Support other markets.
 
-##### 0.7(FUTURE)
-  - [x] Support Data Cache(redis?).
+##### 0.7.2(DEV)
   - [TODO]  Support More DataSource
   - - [TODO]  Support NSQ
   - - [TODO]  Support Dao
   - - [TODO]  Support Jap
-  - [TODO] Add Notification
-  - - [TODO] Add Mail Notification
-  - - [TODO] Add Wecat Notification
-  - [TODO] Basic Live engine demo
-  - [TODO] Add ML Engine.
+  - - [TODO]  Support Crypton
 
-##### 0.6.2(DEV)
+##### 0.7.1(DEV)
+  - [x] Support Data Cache with Redis.
+  - [TODO] Add Notification
+  - - [x] Add Telegram Notification
+  - - [x] Add Beep Notification
+  - - [TODO] Add Mail Notification
+  ~~- - [TODO] Add Wecat Notification~~
+  - [x] Basic Live engine demo
+
+##### 0.6.2
   - [x] Fix precision lost problem.
   - [x] Add CLI
   - [x] Add Trading Records.
-  - [TODO] Support More Flexible Data Interval
+  - [x] Support More Flexible Data Interval
   - [x] Config file setup
 
 ##### 0.6

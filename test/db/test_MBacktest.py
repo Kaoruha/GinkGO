@@ -102,7 +102,7 @@ class ModelBacktestTest(unittest.TestCase):
         num = int(num)
         o = MBacktest()
         id = o.uuid
-        o.set(id, "2023-11-19 00:43:21", "123")
+        o.set(id, "2023-11-19 00:43:21", b"123")
         GDATA.add(o)
         for i in range(num):
             item = (

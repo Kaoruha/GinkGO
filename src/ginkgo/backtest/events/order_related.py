@@ -45,7 +45,13 @@ class EventOrderRelated(EventBase):
             GLOG.CRITICAL(f"111Order:{order_id} not exsist. Please check your code")
             return
         o = Order()
-        o.set(r)
+        try:
+            o.set(r.iloc[0])
+        except Exception as e:
+            print(e)
+            import pdb
+
+            pdb.set_trace()
         self._order = o
 
         # Status could be 1,3,4

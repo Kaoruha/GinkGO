@@ -12,6 +12,7 @@ class BaseAnalyzer(BacktestBase):
     def __init__(self, name: str, *args, **kwargs):
         super(BaseAnalyzer, self).__init__(name, *args, **kwargs)
         self._active_stage = RECORDSTAGE_TYPES.NEWDAY
+        self._record_stage = RECORDSTAGE_TYPES.NEWDAY
         self._portfolio = None
         self._analyzer_id = ""
         self._data = pd.DataFrame(columns=["timestamp", self._name])
@@ -36,9 +37,21 @@ class BaseAnalyzer(BacktestBase):
     def active_stage(self) -> RECORDSTAGE_TYPES:
         return self._active_stage
 
+    @property
+    def record_stage(self) -> RECORDSTAGE_TYPES:
+        return self._record_stage
+
     def set_stage(self, stage: RECORDSTAGE_TYPES) -> None:
         if isinstance(stage, RECORDSTAGE_TYPES):
             self._active_stage = stage
+
+    def set_active_stage(self, stage: RECORDSTAGE_TYPES) -> None:
+        if isinstance(stage, RECORDSTAGE_TYPES):
+            self._active_stage = stage
+
+    def set_record_stage(self, stage: RECORDSTAGE_TYPES) -> None:
+        if isinstance(stage, RECORDSTAGE_TYPES):
+            self._record_stage = stage
 
     def bind_portfolio(self, portfolio, *args, **kwargs):
         """
@@ -50,8 +63,12 @@ class BaseAnalyzer(BacktestBase):
     def name(self) -> str:
         return self._name
 
-    def record(self, stage, *args, **kwargs) -> None:
+    def activate(self, stage, *args, **kwargs) -> None:
         if stage != self.active_stage:
+            return
+
+    def record(self, stage, *args, **kwargs) -> None:
+        if stage != self.record_stage:
             return
 
     def add_data(self, value: float) -> None:
@@ -67,7 +84,9 @@ class BaseAnalyzer(BacktestBase):
             self._data = pd.concat(
                 [
                     self._data,
-                    pd.DataFrame([[date, value]], columns=["timestamp", self._name]),
+                    pd.DataFrame(
+                        [[date, round(value, 6)]], columns=["timestamp", self._name]
+                    ),
                 ]
             )
 
@@ -101,6 +120,8 @@ class BaseAnalyzer(BacktestBase):
         if date not in self.value["timestamp"].values:
             return
         value = self.value[self.value["timestamp"] == date][self.name].values[0]
+        value = float(value)
+        value = round(value, 6)
         o.set(self.backtest_id, self.now, value, self.name, self.analyzer_id)
         GDATA.add(o)
 

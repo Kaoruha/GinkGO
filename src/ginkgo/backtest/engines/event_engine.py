@@ -24,6 +24,7 @@ from time import sleep
 from queue import Queue, Empty
 from threading import Thread, Event
 from ginkgo.backtest.engines.base_engine import BaseEngine
+from ginkgo.backtest.events import EventNextPhase
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import datetime_normalize
@@ -162,9 +163,13 @@ class EventEngine(BaseEngine):
                 count += 1
                 # Exit
                 if count >= self.duration:
-                    GLOG.WARN("Should Stop.")
-                    self.stop()
-                    sys.exit()
+                    now = datetime.datetime.now()
+                    if self.now > now:
+                        GLOG.WARN("Should Stop.")
+                        self.stop()
+                        sys.exit()
+                    else:
+                        self.put(EventNextPhase())
 
             # Break for a while
             # sleep(GCONF.HEARTBEAT)

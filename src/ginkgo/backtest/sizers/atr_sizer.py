@@ -56,13 +56,14 @@ class ATRSizer(BaseSizer):
                 return None
             start_date = self.now - datetime.timedelta(days=self.period + 7)
             end_date = self.now
-            df = GDATA.get_daybar_df_cached(code, start_date, end_date)
+            df = GDATA.get_daybar_df(code, start_date, end_date)
+            print(df)
             atr = ATR("atr", self.period).cal(df) * self.risk_ratio
             if atr == 0:
                 return None
             max_money = self.portfolio.cash * self.risk
             max_shares = int((max_money / atr) / 100) * 100
-            price = df.iloc[-1]["close"] * 1.05
+            price = df.iloc[-1]["close"] * 1.1
             o.set(
                 signal.code,
                 signal.direction,
@@ -76,5 +77,6 @@ class ATRSizer(BaseSizer):
                 fee=0,
                 timestamp=self.now,
             )
+            print(o)
             o.set_source(SOURCE_TYPES.SIZER)
         return o

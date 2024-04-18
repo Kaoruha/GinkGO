@@ -391,6 +391,26 @@ class GinkgoConfig(object):
             return port
 
     @property
+    def KAFKAHOST(self) -> str:
+        key = "GINKGO_KAFKA_HOST"
+        host = os.environ.get(key, None)
+        if host is None:
+            host = self._read_secure()["database"]["kafka"]["host"]
+            host = str(host)
+            os.environ[key] = host
+        return host
+
+    @property
+    def KAFKAPORT(self) -> str:
+        key = "GINKGO_KAFKA_PORT"
+        port = os.environ.get(key, None)
+        if port is None:
+            port = self._read_secure()["database"]["kafka"]["port"]
+            port = str(port)
+            os.environ[key] = port
+        return port
+
+    @property
     def REDISHOST(self) -> str:
         key = "GINKGO_REDIS_HOST"
         host = os.environ.get(key, None)
@@ -484,6 +504,19 @@ class GinkgoConfig(object):
         if isinstance(value, float):
             self._write_config("cpu_ratio", value)
             os.environ[key] = str(value)
+
+    @property
+    def QUIET(self) -> bool:
+        key = "GINKGO_QUIET"
+        quiet = os.environ.get(key, None)
+        if quiet is None:
+            quiet = self._read_config()["quiet"]
+            quiet = str(quiet)
+            os.environ[key] = quiet
+        if quiet.upper() == "TRUE":
+            return True
+        else:
+            return False
 
 
 GCONF = GinkgoConfig()

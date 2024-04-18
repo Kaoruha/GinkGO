@@ -24,7 +24,7 @@ def get_dayly_limit(dataframe):
     return rs
 
 
-code_list_df = GDATA.get_stock_info_df_cached()
+code_list_df = GDATA.get_stock_info_df()
 for i, r in code_list_df.iterrows():
     code = r["code"]
     daybar = GDATA.get_daybar_df_cached(code)

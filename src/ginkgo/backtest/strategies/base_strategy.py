@@ -6,7 +6,7 @@ from ginkgo.backtest.backtest_base import BacktestBase
 
 class StrategyBase(BacktestBase):
     def __init__(self, spans: int = 20, name: str = "Strategy", *args, **kwargs):
-        super(StrategyBase, self).__init__(*args, **kwargs)
+        super(StrategyBase, self).__init__(name=name, *args, **kwargs)
         self._portfolio = None
         self._raw = {}
         self._attention_spans = 20

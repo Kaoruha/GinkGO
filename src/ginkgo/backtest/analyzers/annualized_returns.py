@@ -27,7 +27,10 @@ class AnnualizedReturn(BaseAnalyzer):
             self._base_value = self.portfolio.worth
 
         times = int(365 / self._days)
-        value = (self.portfolio.worth / self._base_value) ** times - 1
+        # value = (self.portfolio.worth / self._base_value) ** times - 1
+        value = 2
+        if value > 1000:
+            value = 1000
         self.add_data(value)
         GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
         self.add_record()

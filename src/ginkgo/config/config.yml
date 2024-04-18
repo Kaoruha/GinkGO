@@ -28,3 +28,4 @@ default_end: 21000101
 # Setting
 epsilon: 1e-5
 cpu_ratio: 0.8
+quiet: True

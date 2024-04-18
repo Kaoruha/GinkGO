@@ -370,7 +370,11 @@ def refresh(call):
         bot.reply_to(call.message, "Here are the backtest strategies:")
         res = get_backtest_strategies()
         for i in res:
-            bot.send_message(call.message.chat.id, i)
+            try:
+                bot.send_message(call.message.chat.id, i)
+            except Exception as e:
+                print(e)
+
         bot.answer_callback_query(call.id)
     elif call.data == "list_live_strategies":
         msg = get_live_strategies()
@@ -388,7 +392,10 @@ def echo(message: str):
     if len(ids) > 20:
         ids = ids[:20]
     for chat_id in ids:
-        bot.send_message(chat_id, message)
+        try:
+            bot.send_message(chat_id, message)
+        except Exception as e:
+            print(e)
 
 
 def run_telebot():

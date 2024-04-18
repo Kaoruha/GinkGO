@@ -55,6 +55,7 @@ class PortfolioT1Backtest(BasePortfolio):
     def try_go_next_phase(self) -> None:
         print("===================")
         print(f"Data: {self.now}")
+        print(f"Worth: {self.worth}")
         print(f"Today will get : {self._count_of_price_should_come_now} PRICE.")
         print(f"PriceGet: {self._price_get_count}")
         print(f"PriceGenSignal: {self._price_gen_signal_count}")
@@ -70,9 +71,12 @@ class PortfolioT1Backtest(BasePortfolio):
         if self._should_go_next_phase > 0:
             print(self._should_go_next_phase)
             console.print(f"[green]YES[/green]")
+            GDATA.update_backtest_worth(self.backtest_id, self.worth)
+            self.record_positions()
             self.put(EventNextPhase())
         else:
             console.print(f"[red]NO[/red]")
+            print(self._should_go_next_phase)
 
         print(self)
         print("===================")
@@ -87,16 +91,16 @@ class PortfolioT1Backtest(BasePortfolio):
         # 5. Gen ORDER but no ORDER sended. GO NEXT PHASE
         # 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE
         """
-        # 1
+        # 1. Have no interested Targets. GO NEXT PHASE
         if len(self.selector.pick()) == 0:
             return 1
-        # 2
+        # 2. Feeder got no PRICE. GO NEXT PHASE
         elif (
             self._count_of_price_should_come_now == 0
             and self._lastday_signal_count == 0
         ):
             return 2
-        # 3
+        # 3. Got PRICE but no SIGNAL generated. GO NEXT PHASE
         elif (
             self._price_get_count > 0
             and self._price_get_count == self._count_of_price_should_come_now
@@ -104,7 +108,7 @@ class PortfolioT1Backtest(BasePortfolio):
             and self._lastday_signal_count == 0
         ):
             return 3
-        # 4
+        # 4. Got SIGNAL but no ORDER generated. GO NEXT PHASE
         elif (
             self._signal_get_count > 0
             and self._signal_get_count
@@ -119,14 +123,14 @@ class PortfolioT1Backtest(BasePortfolio):
             and self._signal_gen_order_count == 0
         ):
             return 4
-        # 5
+        # 5. Gen ORDER but no ORDER sended. GO NEXT PHASE
         elif (
             self._price_get_count == self._count_of_price_should_come_now
             and self._signal_gen_order_count > 0
             and self._order_send_count == 0
         ):
             return 5
-        # 6
+        # 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE
         elif (
             self._price_get_count == self._count_of_price_should_come_now
             and self._order_send_count > 0
@@ -180,6 +184,8 @@ class PortfolioT1Backtest(BasePortfolio):
         """
         # Time goes
         super(PortfolioT1Backtest, self).on_time_goes_by(time, *args, **kwargs)
+        self.update_worth()
+        self.update_profit()
         self.reset_phase_check()
 
         # Put old SIGNALs to engine
@@ -367,9 +373,18 @@ class PortfolioT1Backtest(BasePortfolio):
             if signal:
                 e = EventSignalGeneration(signal)
                 e.set_source(SOURCE_TYPES.PORTFOLIO)
+                GDATA.add_signal(
+                    self.backtest_id,
+                    self.now,
+                    e.code,
+                    e.direction,
+                    f"{strategy.value.name} gen.",
+                )
                 self.put(e)
                 self._price_gen_signal_count += 1  # Record
         # GLOG.INFO(f"Strategies Calculating Complete. {self.now}")
+        self.update_worth()
+        self.update_profit()
         self.try_go_next_phase()
 
     def on_order_filled(self, event: EventOrderFilled):
@@ -380,7 +395,20 @@ class PortfolioT1Backtest(BasePortfolio):
             )
             self.try_go_next_phase()
             return
+        self.update_worth()
+        self.update_profit()
         self.record(RECORDSTAGE_TYPES.ORDERFILLED)
+        GDATA.add_order_record(
+            self.backtest_id,
+            event.value.code,
+            event.value.direction,
+            event.value.type,
+            event.value.transaction_price,
+            event.value.volume,
+            event.value.remain,
+            event.value.fee,
+            self.now,
+        )
         if event.direction == DIRECTION_TYPES.LONG:
             GLOG.WARN("DEALING with LONG FILLED ORDER")
             print(event.value)
@@ -411,6 +439,8 @@ class PortfolioT1Backtest(BasePortfolio):
         )
         # TODO LONG SHORT
         GLOG.WARN("Dealing with CANCELED ORDER.")
+        self.update_worth()
+        self.update_profit()
         self.record(RECORDSTAGE_TYPES.ORDERCANCELED)
         if event.direction == DIRECTION_TYPES.LONG:
             GLOG.WARN("START UNFREEZE LONG.")

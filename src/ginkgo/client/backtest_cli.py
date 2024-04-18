@@ -14,7 +14,7 @@ from ginkgo.enums import ORDERSTATUS_TYPES
 
 
 app = typer.Typer(
-    help=":shark: Module for BACKTEST. Build your own strategy and do backtest."
+    help=":shark: Module for BACKTEST. [grey62]Build your own strategy and do backtest.[/grey62]"
 )
 console = Console()
 
@@ -234,6 +234,8 @@ def run(
             # TODO Raise Exception
             return None
 
+    backtest_config_file_id = id
+
     # 1. Create a temp folder.
 
     random_id = uuid.uuid4().hex
@@ -364,6 +366,7 @@ def run(
         if analyzer_cls is not None:
             analyzer = analyzer_cls(*analyzer_parameters)
             analyzer.set_analyzer_id(analyzer_id)
+            print(analyzer)
             portfolio.add_analyzer(analyzer)
         else:
             console.print(
@@ -374,8 +377,9 @@ def run(
     # <-- Analyzer
     # <-- Analyzer
 
+    backtest_id = GDATA.add_backtest(random_id, content)
     engine = EventEngine()
-    engine.set_backtest_id(random_id)
+    engine.set_backtest_id(backtest_id)
     engine.set_backtest_interval("day")
     engine.set_date_start(date_start)
     engine.set_date_end(date_end)
@@ -396,8 +400,6 @@ def run(
     engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
     engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
 
-    with open(f"{temp_folder}/{id}.yml", "rb") as file:
-        GDATA.add_backtest(str(random_id), file.read())
     t = engine.start()
     # TODO Add Backtest Record
     time_start = datetime.datetime.now()
@@ -414,7 +416,7 @@ def run(
         portfolio = portfolio_node.value
         worth += portfolio.worth
         portfolio_node = portfolio_node.next
-    GDATA.update_backtest_profit(random_id, worth)
+    GDATA.update_backtest_worth(random_id, worth)
     time_end = datetime.datetime.now()
     GNOTIFIER.echo_to_telegram(
         f"Backtest {id} finished. From {date_start} to {date_end}. Worth: {worth}  Time: {time_end - time_start}"
@@ -643,12 +645,14 @@ def res(
             return
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("ID", style="dim")
+        table.add_column("Backtest", style="dim")
         table.add_column("Worth", style="dim")
         table.add_column("Start At")
         table.add_column("Finish At")
-        rs = raw[["backtest_id", "profit", "start_at", "finish_at"]]
+        rs = raw[["uuid", "backtest_id", "profit", "start_at", "finish_at"]]
         for i, r in rs.iterrows():
             table.add_row(
+                r["uuid"],
                 r["backtest_id"],
                 f"${r['profit']}",
                 f"{r['start_at']}",
@@ -657,7 +661,7 @@ def res(
         console.print(table)
         return
     # Got backtest id
-    record = GDATA.get_backtest_record(id)
+    record = GDATA.get_backtest_record_by_backtest(id)
     print(record)
     if record is None:
         console.print(

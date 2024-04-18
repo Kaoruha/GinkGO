@@ -23,6 +23,6 @@ class CNAllSelector(BaseSelector):
         if len(self._interested) > 0:
             return self._interested
 
-        df = GDATA.get_stock_info_df_cached()
+        df = GDATA.get_stock_info_df()
         self._interested = df["code"].tolist()
         return self._interested

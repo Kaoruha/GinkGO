@@ -15,7 +15,7 @@ from src.ginkgo.libs.ginkgo_logger import GLOG
 
 
 app = typer.Typer(
-    help=":dove_of_peace:  Module for Unittest. Confirm functional integrity."
+    help=":dove_of_peace:  Module for Unittest. [grey62]Confirm functional integrity.[/grey62]"
 )
 
 

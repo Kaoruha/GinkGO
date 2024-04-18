@@ -3,6 +3,7 @@ import random
 import sys
 from threading import Thread, Event
 from multiprocessing import Process
+import multiprocessing
 import time
 import pandas as pd
 import datetime
@@ -44,7 +45,9 @@ class WorkerType(str, Enum):
     OFF = "off"
 
 
-app = typer.Typer(help=":jigsaw: Module for DATA. CRUD about all kinds of data.")
+app = typer.Typer(
+    help=":jigsaw: Module for DATA. [grey62]CRUD about all kinds of data.[/grey62]"
+)
 quit_list = ["NO", "N"]
 console = Console()
 
@@ -217,7 +220,7 @@ def ls(
     rs = pd.DataFrame()
 
     if data == DataType.STOCKINFO:
-        raw = GDATA.get_stock_info_df_cached(filter)
+        raw = GDATA.get_stock_info_df(filter)
         if raw.shape[0] == 0:
             rs = raw
         else:
@@ -454,7 +457,7 @@ def update(
 
     if adjust:
         if code == []:
-            GDATA.update_all_cn_adjustfactor_aysnc()
+            GDATA.update_all_cn_adjustfactor()
         else:
             for item in code:
                 GDATA.update_cn_adjustfactor(item)
@@ -504,6 +507,9 @@ def rebuild(
     stockinfo: Annotated[
         bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")
     ] = False,
+    signal: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Signal Table")
+    ] = False,
     calendar: Annotated[
         bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")
     ] = False,
@@ -517,6 +523,7 @@ def rebuild(
         MAdjustfactor,
         MBacktest,
         MFile,
+        MSignal,
         MBacktest,
         MAnalyzer,
         MStockInfo,
@@ -537,6 +544,8 @@ def rebuild(
 
     if analyzer:
         GDATA.drop_table(MAnalyzer)
+    if signal:
+        GDATA.drop_table(MSignal)
 
     if stockinfo:
         GDATA.drop_table(MStockInfo)

@@ -1,9 +1,11 @@
 from ginkgo.backtest.strategies.base_strategy import StrategyBase
+from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.backtest.signal import Signal
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.events import EventSignalGeneration
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 import time
+import datetime
 
 
 class StrategyVolumeActivate(StrategyBase):
@@ -22,9 +24,12 @@ class StrategyVolumeActivate(StrategyBase):
 
     def cal(self, bar, *args, **kwargs):
         super(StrategyVolumeActivate, self).cal()
-        self.on_price_update(bar)
+        # self.on_price_update(bar)
         code = bar.code
-        df = self.raw[code]
+        # df = self.raw[code]
+        df = GDATA.get_daybar(
+            code, self.now - datetime.timedelta(days=-self.spans), self.now
+        )
         self._volume_mean = df["volume"].mean()
         self._volume_std = df["volume"].std()
 

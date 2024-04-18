@@ -15,9 +15,13 @@ import threading
 from sqlalchemy import DDL
 from rich.console import Console
 from rich.progress import Progress
+
 from ginkgo.data.models import (
     MAnalyzer,
+    MSignal,
     MOrder,
+    MOrderRecord,
+    MPosition,
     MBar,
     MStockInfo,
     MTradeDay,
@@ -32,7 +36,9 @@ from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import datetime_normalize, str2bool
 from ginkgo.enums import (
+    ORDER_TYPES,
     MARKET_TYPES,
+    DIRECTION_TYPES,
     SOURCE_TYPES,
     FREQUENCY_TYPES,
     CURRENCY_TYPES,
@@ -43,6 +49,7 @@ from ginkgo.enums import (
 from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare, GinkgoTDX
 from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql, GinkgoRedis
 from ginkgo.libs.ginkgo_ps import find_process_by_keyword
+from ginkgo.backtest.position import Position
 
 
 console = Console()
@@ -89,6 +96,8 @@ class GinkgoData(object):
             signal.alarm(0)
             signal.signal(signal.SIGALRM, signal.SIG_IGN)
 
+    # Redis >>
+
     def get_daybar_redis_cache_name(self, code: str) -> str:
         res = f"daybar%{code}"
         return res
@@ -104,7 +113,7 @@ class GinkgoData(object):
     def add_redis_worker_pid(self, pid: int) -> None:
         self.get_redis().lpush(self.redis_worker_pids_cachename, pid)
 
-    def redis_set_async(self, key, value):
+    def redis_set_async(self, key, value) -> None:
         GLOG.DEBUG("Try add REDIS task about {key}")
         temp_redis = self.get_redis()
         cache_name = self.redis_todo_cachename
@@ -133,10 +142,6 @@ class GinkgoData(object):
                 GLOG.DEBUG(f"{data_type} : {code}")
                 if data_type == "daybar":
                     GLOG.DEBUG("Dealing with daybar.")
-                    if temp_redis.exists(self.get_daybar_redis_cache_name(code)):
-                        GLOG.DEBUG(f"{code} already cached. deal with next")
-                        continue
-                    GLOG.DEBUG(f"Try cache {code}.")
                     df = self.get_daybar_df(code)
                     GLOG.DEBUG(df)
                     if df.shape[0] == 0:
@@ -184,6 +189,7 @@ class GinkgoData(object):
 
     @property
     def redis_worker_count(self) -> int:
+        GLOG.DEBUG("Try get REDIS worker count.")
         temp_redis = self.get_redis()
         cache_name = self.redis_worker_pids_cachename
         if temp_redis.exists(cache_name):
@@ -230,6 +236,30 @@ class GinkgoData(object):
         p.close()
         p.join()
 
+    def remove_from_redis(self, key: str):
+        temp_redis = self.get_redis()
+        if temp_redis.exists(key):
+            temp_redis.delete(key)
+            GLOG.WARN(f"Remove {key} from redis.")
+        else:
+            GLOG.WARN(f"{key} not exist in redis.")
+
+    # << Redis
+
+    # Operation about Database >>
+
+    def clean_db(self):
+        """
+        Have no idea why db connection prevent the multiprocessing pool start.
+        Reset the db to solve the problem for now.
+        """
+        del self._mysql
+        del self._clickhouse
+        del self._redis
+        self._mysql = None
+        self._clickhouse = None
+        self._redis = None
+
     def get_driver(self, value):
         is_class = isinstance(value, type)
         driver = None
@@ -249,8 +279,9 @@ class GinkgoData(object):
 
         return driver
 
-    def get_mysql(self):
+    def get_mysql(self) -> GinkgoMysql:
         if self._mysql is None:
+            GLOG.DEBUG("Generate Mysql Engine.")
             self._mysql = GinkgoMysql(
                 user=GCONF.MYSQLUSER,
                 pwd=GCONF.MYSQLPWD,
@@ -260,8 +291,9 @@ class GinkgoData(object):
             )
         return self._mysql
 
-    def get_click(self):
+    def get_click(self) -> GinkgoClickhouse:
         if self._clickhouse is None:
+            GLOG.DEBUG("Generate Clickhouse Engine.")
             self._clickhouse = GinkgoClickhouse(
                 user=GCONF.CLICKUSER,
                 pwd=GCONF.CLICKPWD,
@@ -271,12 +303,21 @@ class GinkgoData(object):
             )
         return self._clickhouse
 
-    def get_redis(self):
+    def get_redis(self) -> GinkgoRedis:
         if self._redis is None:
+            GLOG.DEBUG("Generate Redis Engine.")
             self._redis = GinkgoRedis(GCONF.REDISHOST, GCONF.REDISPORT).redis
         return self._redis
 
     def add(self, value) -> None:
+        if not isinstance(value, (MClickBase, MMysqlBase)):
+            import pdb
+
+            pdb.set_trace()
+            GLOG.ERROR(f"Can not add {value} to database.")
+            return
+        GLOG.DEBUG(type(value))
+        GLOG.DEBUG(value)
         GLOG.DEBUG("Try add data to session.")
         driver = self.get_driver(value)
         GLOG.DEBUG(f"Current Driver is {driver}.")
@@ -285,19 +326,17 @@ class GinkgoData(object):
             driver.session.commit()
         except Exception as e:
             print(e)
+            driver.session.rollback()
             import pdb
 
             pdb.set_trace()
-            driver.session.rollback()
         driver.session.close()
         GLOG.DEBUG(f"Driver {driver} commit.")
 
     def add_all(self, values) -> None:
         """
-        Add multi data into session
+        Add multi data into session.
         """
-        # TODO support different database engine.
-        # Now is for clickhouse.
         GLOG.DEBUG("Try add multi data to session.")
         click_list = []
         mysql_list = []
@@ -327,6 +366,7 @@ class GinkgoData(object):
         """
         Tick data can not be stored in one table.
         Do database partitioning first.
+        Class of Tick model will generate dynamically.
         """
         name = f"{code}.Tick"
         if name in self.tick_models.keys():
@@ -403,6 +443,10 @@ class GinkgoData(object):
             return False
 
     def drop_table(self, model) -> None:
+        """
+        Drop table from Database.
+        Support Clickhouse and Mysql now.
+        """
         db = self.get_driver(model)
         if db is None:
             GLOG.ERROR(f"Can not get driver for {model}.")
@@ -414,6 +458,10 @@ class GinkgoData(object):
             GLOG.DEBUG(f"No need to drop {model.__tablename__} : {model}")
 
     def create_table(self, model) -> None:
+        """
+        Create table with model.
+        Support Clickhouse and Mysql now.
+        """
         db = self.get_driver(model)
         if db is None:
             return
@@ -427,12 +475,19 @@ class GinkgoData(object):
             GLOG.INFO(f"Create Table {model.__tablename__} : {model}")
 
     def get_table_size(self, model, engine=None) -> int:
+        """
+        Get the size of table.
+        Support Clickhouse and Mysql now.
+        """
         db = engine if engine else self.get_driver(model)
         if db is None:
             return 0
         return db.get_table_size(model)
 
-    def get_order(self, order_id: str, engine=None) -> MOrder:
+    # << Operation about Database
+
+    # CRUD of ORDER >>
+    def get_order_by_id(self, order_id: str, engine=None) -> MOrder:
         GLOG.DEBUG(f"Try to get Order about {order_id}.")
         db = engine if engine else self.get_driver(MOrder)
         r = (
@@ -444,10 +499,231 @@ class GinkgoData(object):
         db.session.close()
         if r is not None:
             r.code = r.code.strip(b"\x00".decode())
-
         return r
 
+    def get_signal_df_by_backtest_and_code_pagination(
+        self,
+        backtest_id: str,
+        code: str,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
+        page: int = 0,
+        size: int = 100,
+        engine=None,
+    ) -> MOrder:
+        GLOG.DEBUG(f"Try to get Signal about {backtest_id}.")
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        db = engine if engine else self.get_driver(MSignal)
+        r = (
+            db.session.query(MSignal)
+            .filter(MSignal.backtest_id == backtest_id)
+            .filter(MSignal.code == code)
+            .filter(MSignal.isdel == False)
+            .filter(MSignal.timestamp >= date_start)
+            .filter(MSignal.timestamp <= date_end)
+            .order_by(MSignal.create)
+            .offset(page * size)
+            .limit(size)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        db.session.close()
+        return df
+
+    def get_signal_df_by_backtest_and_date_range_pagination(
+        self,
+        backtest_id: str,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
+        page: int = 0,
+        size: int = 100,
+        engine=None,
+    ) -> MOrder:
+        GLOG.DEBUG(f"Try to get Signal about {backtest_id}.")
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        db = engine if engine else self.get_driver(MSignal)
+        r = (
+            db.session.query(MSignal)
+            .filter(MSignal.backtest_id == backtest_id)
+            .filter(MSignal.isdel == False)
+            .filter(MSignal.timestamp >= date_start)
+            .filter(MSignal.timestamp <= date_end)
+            .order_by(MSignal.create)
+            .offset(page * size)
+            .limit(size)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        db.session.close()
+        return df
+
+    def get_orderrecord_df(
+        self,
+        backtest_id: str,
+        code: str,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
+        page: int = 0,
+        size: int = 10000,
+        engine=None,
+    ) -> MOrder:
+        GLOG.DEBUG(f"Try to get OrderRecord about {backtest_id} {code}.")
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        db = engine if engine else self.get_driver(MOrderRecord)
+        r = (
+            db.session.query(MOrderRecord)
+            .filter(MOrderRecord.backtest_id == backtest_id)
+            .filter(MOrderRecord.code == code)
+            .filter(MOrderRecord.isdel == False)
+            .filter(MOrderRecord.timestamp >= date_start)
+            .filter(MOrderRecord.timestamp <= date_end)
+            .order_by(MOrderRecord.create)
+            .offset(page * size)
+            .limit(size)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        db.session.close()
+        return df
+
+    def get_order_df_by_backtest_and_date_range_pagination(
+        self,
+        backtest_id: str,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
+        page: int = 0,
+        size: int = 100,
+        engine=None,
+    ) -> MOrder:
+        GLOG.DEBUG(f"Try to get Order about {backtest_id}.")
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        db = engine if engine else self.get_driver(MOrder)
+        r = (
+            db.session.query(MOrder)
+            .filter(MOrder.backtest_id == backtest_id)
+            .filter(MOrder.isdel == False)
+            .filter(MOrder.timestamp >= date_start)
+            .filter(MOrder.timestamp <= date_end)
+            .order_by(MOrder.create)
+            .offset(page * size)
+            .limit(size)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        db.session.close()
+        return df
+
+    def get_order_by_backtest_and_date_range_pagination(
+        self,
+        backtest_id: str,
+        date_start: any = GCONF.DEFAULTSTART,
+        date_end: any = GCONF.DEFAULTEND,
+        page: int = 0,
+        size: int = 100,
+        engine=None,
+    ) -> MOrder:
+        GLOG.DEBUG(f"Try to get Order about {order_id}.")
+        date_start = datetime_normalize(date_start)
+        date_end = datetime_normalize(date_end)
+        db = engine if engine else self.get_driver(MOrder)
+        r = (
+            db.session.query(MOrder)
+            .filter(MOrder.backtest_id == backtest_id)
+            .filter(MOrder.isdel == False)
+            .filter(MOrder.timestamp >= date_start)
+            .filter(MOrder.timestamp <= date_end)
+            .order_by(MOrder.create)
+            .offset(page * size)
+            .limit(size)
+            .all()
+        )
+        db.session.close()
+        if r is not None:
+            r.code = r.code.strip(b"\x00".decode())
+        return r
+
+    def get_order_by_backtest_pagination(
+        self, backtest_id: str, page: int = 0, size: int = 100, engine=None
+    ) -> MOrder:
+        GLOG.DEBUG(f"Try to get Order about {order_id}.")
+        db = engine if engine else self.get_driver(MOrder)
+        r = (
+            db.session.query(MOrder)
+            .filter(MOrder.backtest_id == backtest_id)
+            .filter(MOrder.isdel == False)
+            .order_by(MOrder.create)
+            .offset(page * size)
+            .limit(size)
+            .all()
+        )
+        db.session.close()
+        if r is not None:
+            r.code = r.code.strip(b"\x00".decode())
+        return r
+
+    def get_order_df_by_backtest_pagination(
+        self, backtest_id: str, page: int = 0, size: int = 100, engine=None
+    ) -> MOrder:
+        GLOG.DEBUG(f"Try to get Order about {order_id}.")
+        db = engine if engine else self.get_driver(MOrder)
+        r = (
+            db.session.query(MOrder)
+            .filter(MOrder.backtest_id == backtest_id)
+            .filter(MOrder.isdel == False)
+            .order_by(MOrder.create)
+            .offset(page * size)
+            .limit(size)
+            .all()
+        )
+        if r is not None:
+            r.code = r.code.strip(b"\x00".decode())
+        df = pd.read_sql(r.statement, db.engine)
+        db.session.close()
+        return df
+
+    def get_order(self, order_id: str, engine=None) -> MOrder:
+        """
+        Deprecated. Use get_order_by_id
+        """
+        GLOG.DEBUG(f"Try to get Order about {order_id}.")
+        db = engine if engine else self.get_driver(MOrder)
+        r = (
+            db.session.query(MOrder)
+            .filter(MOrder.uuid == order_id)
+            .filter(MOrder.isdel == False)
+            .first()
+        )
+        db.session.close()
+        if r is not None:
+            r.code = r.code.strip(b"\x00".decode())
+        return r
+
+    def get_order_df_by_id(self, order_id: str, engine=None) -> pd.DataFrame:
+        db = engine if engine else self.get_driver(MOrder)
+        r = (
+            db.session.query(MOrder)
+            .filter(MOrder.uuid == order_id)
+            .filter(MOrder.isdel == False)
+            .all()
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        db.session.close()
+
+        if df.shape[0] > 1:
+            GLOG.ERROR(
+                f"Order_id :{order_id} has {df.shape[0]} records, please check the code and clean the database."
+            )
+            # TODO clean the database
+        elif df.shape[0] == 0:
+            return pd.DataFrame()
+        GLOG.DEBUG("Get Order DF")
+        # df.code = df.code.strip(b"\x00".decode())
+        return df
+
     def get_order_df(self, order_id: str, engine=None) -> pd.DataFrame:
+        """
+        Deprecated. Use get_order_df_by_id
+        """
         db = engine if engine else self.get_driver(MOrder)
         r = (
             db.session.query(MOrder)
@@ -461,10 +737,10 @@ class GinkgoData(object):
             GLOG.ERROR(
                 f"Order_id :{order_id} has {df.shape[0]} records, please check the code and clean the database."
             )
+            # TODO clean the database
         elif df.shape[0] == 0:
             return pd.DataFrame()
         GLOG.DEBUG("Get Order DF")
-
         # df.code = df.code.strip(b"\x00".decode())
         return df
 
@@ -484,42 +760,60 @@ class GinkgoData(object):
             return pd.DataFrame()
         GLOG.DEBUG(f"Get Order DF with backtest: {backtest_id}")
         GLOG.DEBUG(df)
-
         # df.code = df.code.strip(b"\x00".decode())
         return df
 
-    def calculate_adjustfactor(self, code, df) -> pd.DataFrame:
+    # << CRUD of ORDER
+
+    # Filter with ADJUSTFACTOR >>
+
+    def filter_with_adjustfactor(self, code: str, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculate the OHLC with adjustfactor.
+        """
         GLOG.DEBUG(f"Cal {code} Adjustfactor.")
         if df.shape[0] == 0:
+            GLOG.DEBUG(f"You should not pass a empty dataframe.")
             return pd.DataFrame()
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
         date_start = df.loc[0, ["timestamp"]].values[0]
         date_end = df.loc[df.shape[0] - 1, ["timestamp"]].values[0]
-        ad = self.get_adjustfactor_df_cached(
-            code, date_start=date_start, date_end=date_end
+        ad = self.get_adjustfactor_df(
+            code, date_start=GCONF.DEFAULTSTART, date_end=GCONF.DEFAULTEND
         )
         if ad.shape[0] == 0:
             return df
         ad = ad.sort_values(by="timestamp", ascending=True)
         ad.reset_index(drop=True, inplace=True)
-        date = datetime_normalize(date_start)
-        new_ad = pd.DataFrame(columns=["timestamp", "adjustfactor"])
+        # new_ad = pd.DataFrame(columns=["timestamp", "adjustfactor"])
+        start = datetime_normalize(date_start)
+        end = datetime.datetime.now()
+        date_range = pd.date_range(start=start, end=end, freq="D")
+        ad = ad.set_index("timestamp").reindex(index=date_range)
+        ad["adjustfactor"] = ad["adjustfactor"].fillna(method="bfill")
         end = datetime_normalize(date_end)
-        compare = 0
-        for i, r in df.iterrows():
-            date = r["timestamp"]
-            if (
-                date >= ad.loc[compare, ["timestamp"]].values[0]
-                and compare < ad.shape[0] - 1
-            ):
-                compare = compare + 1
-            factor = ad.loc[compare, ["adjustfactor"]].values[0]
-            new_ad.loc[i] = {"timestamp": date, "adjustfactor": factor}
-        df["open"] = df["open"] / new_ad["adjustfactor"]
-        df["high"] = df["high"] / new_ad["adjustfactor"]
-        df["low"] = df["low"] / new_ad["adjustfactor"]
-        df["close"] = df["close"] / new_ad["adjustfactor"]
+        date_range = pd.date_range(start=start, end=end, freq="D")
+        ad = ad.reindex(index=date_range)
+        ad = ad["adjustfactor"]
+        ad = ad.to_frame(name="adjustfactor")
+        ad.index = pd.to_datetime(ad.index)
+        ad.rename(columns={"index": "timestamp"}, inplace=True)
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df = df.set_index("timestamp")
+        df = df[~df.index.duplicated()]
+        ad_reindexd = ad.reindex(index=df.index)
+        # ad_reindexd = ad_reindexd.drop_duplicates(subset=["timestamp"], keep="first")
+        df["open"] = df["open"] / ad["adjustfactor"]
+        df["open"] = df["open"].apply(lambda x: round(x, 2))
+        df["high"] = df["high"] / ad["adjustfactor"]
+        df["high"] = df["high"].apply(lambda x: round(x, 2))
+        df["low"] = df["low"] / ad["adjustfactor"]
+        df["low"] = df["low"].apply(lambda x: round(x, 2))
+        df["close"] = df["close"] / ad["adjustfactor"]
+        df["close"] = df["close"].apply(lambda x: round(x, 2))
+        df = df.assign(timestamp=df.index)
+        df.reset_index(drop=True, inplace=True)
         return df
 
     def get_stock_info(self, code: str, engine=None) -> MStockInfo:
@@ -534,7 +828,46 @@ class GinkgoData(object):
         db.session.close()
         return r
 
+    def get_stock_info_df_by_code(self, code: str = None, engine=None) -> pd.DataFrame:
+        GLOG.DEBUG(f"Get Stockinfo df about {code}.")
+        db = engine if engine else self.get_driver(MStockInfo)
+        r = (
+            db.session.query(MStockInfo)
+            .filter(MStockInfo.code == code)
+            .filter(MStockInfo.isdel == False)
+        )
+        if r is None:
+            db.session.close()
+            return pd.DataFrame()
+        df = pd.read_sql(r.statement, db.engine)
+        df = df.sort_values(by="code", ascending=True)
+        db.session.close()
+        return df
+
+    def get_stock_info_df_pagination(
+        self, page: int = 0, size: int = 100, engine=None
+    ) -> pd.DataFrame:
+        """
+        Deprecated
+        """
+        GLOG.DEBUG(f"Get Stockinfo df about {code}.")
+        db = engine if engine else self.get_driver(MStockInfo)
+        r = (
+            db.session.query(MStockInfo)
+            .filter(MStockInfo.isdel == False)
+            .offset(page * size)
+            .limit(size)
+            .all()
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        df = df.sort_values(by="code", ascending=True)
+        db.session.close()
+        return df
+
     def get_stock_info_df(self, code: str = None, engine=None) -> pd.DataFrame:
+        """
+        Deprecated
+        """
         GLOG.DEBUG(f"Get Stockinfo df about {code}.")
         db = engine if engine else self.get_driver(MStockInfo)
         if code == "" or code is None:
@@ -551,31 +884,6 @@ class GinkgoData(object):
             df = df.sort_values(by="code", ascending=True)
         db.session.close()
         return df
-
-    def get_stock_info_df_cached(self, code: str = None, engine=None) -> pd.DataFrame:
-        GLOG.DEBUG(f"Try get Stockinfo df cached about {code}.")
-        cache_name = "stockinfo"
-        temp_redis = self.get_redis()
-        db = engine if engine else self.get_driver(MStockInfo)
-        if temp_redis.exists(cache_name):
-            cache = temp_redis.get(cache_name)
-            df = pickle.loads(cache)
-        else:
-            r = db.session.query(MStockInfo).filter(MStockInfo.isdel == False)
-            df = pd.read_sql(r.statement, db.engine)
-            df = df.sort_values(by="code", ascending=True)
-            if df.shape[0] > 0:
-                temp_redis.setex(
-                    cache_name, self.redis_expiration_time, pickle.dumps(df)
-                )
-        db.session.close()
-        if df.shape[0] > 0:
-            if code == "" or code is None:
-                return df
-            else:
-                return df[df.code == code]
-        else:
-            return pd.DataFrame()
 
     def get_trade_calendar(
         self,
@@ -621,47 +929,6 @@ class GinkgoData(object):
         db.session.close()
         return df
 
-    def get_trade_calendar_df_cached(
-        self,
-        market: MARKET_TYPES = MARKET_TYPES.CHINA,
-        date_start: any = GCONF.DEFAULTSTART,
-        date_end: any = GCONF.DEFAULTEND,
-        engine=None,
-    ) -> pd.DataFrame:
-        GLOG.DEBUG(
-            f"Try get Trade Calendar df cached. {market} from {date_start} to {date_end}."
-        )
-        cache_name = f"trade_calendar%{market}"
-        date_start = datetime_normalize(date_start)
-        date_end = datetime_normalize(date_end)
-        temp_redis = self.get_redis()
-        db = engine if engine else self.get_driver(MTradeDay)
-        if temp_redis.exists(cache_name):
-            cache = temp_redis.get(cache_name)
-            df = pickle.loads(cache)
-        else:
-            r = (
-                db.session.query(MTradeDay)
-                .filter(MTradeDay.market == market)
-                .filter(MTradeDay.isdel == False)
-            )
-            df = pd.read_sql(r.statement, db.engine)
-            db.session.close()
-            df = df.sort_values(by="timestamp", ascending=True)
-            df.reset_index(drop=True, inplace=True)
-            if df.shape[0] > 0:
-                temp_redis.setex(
-                    cache_name, self.redis_expiration_time, pickle.dumps(df)
-                )
-        if df.shape[0] > 0:
-            date_range = pd.date_range(start=date_start, end=date_end)
-            df_filtered = df[df.timestamp.isin(date_range)]
-            df_filtered.reset_index(drop=True, inplace=True)
-            return df_filtered
-
-        else:
-            return pd.DataFrame()
-
     def get_daybar(
         self,
         code: str,
@@ -676,9 +943,9 @@ class GinkgoData(object):
         r = (
             db.session.query(MBar)
             .filter(MBar.code == code)
+            .filter(MBar.isdel == False)
             .filter(MBar.timestamp >= date_start)
             .filter(MBar.timestamp <= date_end)
-            .filter(MBar.isdel == False)
             .all()
         )
         db.session.close()
@@ -686,7 +953,7 @@ class GinkgoData(object):
 
     def get_daybar_df(
         self,
-        code: str,
+        code: str = "",
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
         adjust: int = 1,  # 0 no adjust, 1 back adjust 2 forward adjust
@@ -699,13 +966,22 @@ class GinkgoData(object):
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         db = engine if engine else self.get_driver(MBar)
-        r = (
-            db.session.query(MBar)
-            .filter(MBar.code == code)
-            .filter(MBar.timestamp >= date_start)
-            .filter(MBar.timestamp <= date_end)
-            .filter(MBar.isdel == False)
-        )
+        if code == "":
+            r = (
+                db.session.query(MBar)
+                .filter(MBar.timestamp >= date_start)
+                .filter(MBar.timestamp <= date_end)
+                .filter(MBar.isdel == False)
+            )
+        else:
+            r = (
+                db.session.query(MBar)
+                .filter(MBar.code == code)
+                .filter(MBar.timestamp >= date_start)
+                .filter(MBar.timestamp <= date_end)
+                .filter(MBar.isdel == False)
+            )
+
         df = pd.read_sql(r.statement, db.engine)
         db.session.close()
         df = df.sort_values(by="timestamp", ascending=True)
@@ -713,43 +989,9 @@ class GinkgoData(object):
         if df.shape[0] == 0:
             return pd.DataFrame()
         else:
-            return self.calculate_adjustfactor(code, df)
+            return df
+            # return self.filter_with_adjustfactor(code, df)
         # TODO Start a thread store the data in redis cache
-
-    def get_daybar_df_cached(
-        self,
-        code: str,
-        date_start: any = GCONF.DEFAULTSTART,
-        date_end: any = GCONF.DEFAULTEND,
-        adjust: int = 1,  # 0 no adjust, 1 back adjust 2 forward adjust
-        engine=None,
-    ) -> pd.DataFrame:
-        """
-        Get the daybar with back adjust.
-        Will try get from cache first.
-        """
-        GLOG.DEBUG(
-            f"Try get DAYBAR df cached about {code} from {date_start} to {date_end}."
-        )
-        cache_name = self.get_daybar_redis_cache_name(code)
-        date_start = datetime_normalize(date_start)
-        date_end = datetime_normalize(date_end)
-        temp_redis = self.get_redis()
-        db = engine if engine else self.get_driver(MBar)
-        if temp_redis.exists(cache_name):
-            cache = temp_redis.get(cache_name)
-            df = pickle.loads(cache)
-            if df.shape[0] > 0:
-                date_range = pd.date_range(start=date_start, end=date_end)
-                df_filtered = df[df.timestamp.isin(date_range)]
-                df_filtered.reset_index(drop=True, inplace=True)
-                return df_filtered
-            else:
-                return pd.DataFrame()
-        else:
-            self.redis_set_async("daybar", code)
-            r = self.get_daybar_df(code, date_start, date_end)
-            return r
 
     def get_adjustfactor(
         self,
@@ -806,48 +1048,10 @@ class GinkgoData(object):
             .filter(MAdjustfactor.isdel == False)
         )
         df = pd.read_sql(r.statement, db.engine)
+        df = df.drop_duplicates(subset=["timestamp"], keep="first")
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
         return df
-
-    def get_adjustfactor_df_cached(
-        self,
-        code: str,
-        date_start: any = GCONF.DEFAULTSTART,
-        date_end: any = GCONF.DEFAULTEND,
-        engine=None,
-    ) -> list:
-        GLOG.DEBUG(
-            f"Try get ADJUSTFACTOR df cached about {code} from {date_start} to {date_end}."
-        )
-        cache_name = f"adf%{code}"
-        date_start = datetime_normalize(date_start)
-        date_end = datetime_normalize(date_end)
-        temp_redis = self.get_redis()
-        if temp_redis.exists(cache_name):
-            cache = temp_redis.get(cache_name)
-            df = pickle.loads(cache)
-        else:
-            db = engine if engine else self.get_driver(MAdjustfactor)
-            r = (
-                db.session.query(MAdjustfactor)
-                .filter(MAdjustfactor.code == code)
-                .filter(MAdjustfactor.isdel == False)
-            )
-            df = pd.read_sql(r.statement, db.engine)
-            df = df.sort_values(by="timestamp", ascending=True)
-            df.reset_index(drop=True, inplace=True)
-            if df.shape[0] > 0:
-                temp_redis.setex(
-                    cache_name, self.redis_expiration_time, pickle.dumps(df)
-                )
-        if df.shape[0] > 0:
-            date_range = pd.date_range(start=date_start, end=date_end)
-            df_filtered = df[df.timestamp.isin(date_range)]
-            df_filtered.reset_index(drop=True, inplace=True)
-            return df_filtered
-        else:
-            return pd.DataFrame()
 
     def is_tick_indb(self, code: str, date: any, engine=None) -> bool:
         model = self.get_tick_model(code)
@@ -889,7 +1093,7 @@ class GinkgoData(object):
         )
         return r
 
-    def get_tick_df(
+    def get_tick_df_by_daterange(
         self, code: str, date_start: any, date_end: any, engine=None
     ) -> pd.DataFrame:
         GLOG.DEUBG(f"Try get TICK df about {code} from {date_start} to {date_end}.")
@@ -913,65 +1117,40 @@ class GinkgoData(object):
         # TODO adjust
         return df
 
-    def get_tick_df_cached(
+    def get_tick_df(
         self, code: str, date_start: any, date_end: any, engine=None
     ) -> pd.DataFrame:
-        GLOG.INFO(
-            f"Try get TICK df cached about {code} from {date_start} to {date_end}."
-        )
+        """
+        Deprecated, use get_tick_df_by_daterange
+        """
+        GLOG.DEUBG(f"Try get TICK df about {code} from {date_start} to {date_end}.")
         model = self.get_tick_model(code)
         if not self.is_table_exsist(model):
             GLOG.WARN(f"Table Tick {code} not exsit. ")
             return pd.DataFrame()
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
-        # TODO Optimize the read, read the entire of tick talbe is too slow.
-        cache_name = f"tick%{code}"
-        temp_redis = self.get_redis()
         db = engine if engine else self.get_driver(model)
-        if temp_redis.exists(cache_name):
-            cache = temp_redis.get(cache_name)
-            df = pickle.loads(cache)
-        else:
-            r = (
-                db.session.query(model).filter(model.code == code)
-                # .filter(model.timestamp >= date_start)
-                # .filter(model.timestamp <= date_end)
-                .filter(model.isdel == False)
-            )
-            df = pd.read_sql(r.statement, db.engine)
-            df = df.sort_values(by="timestamp", ascending=True)
-            df.reset_index(drop=True, inplace=True)
-            df = self.calculate_adjustfactor(code, df)
-            if df.shape[0] > 0:
-                temp_redis.setex(
-                    cache_name, self.redis_expiration_time, pickle.dumps(df)
-                )
-        if df.shape[0] > 0:
-            # TODO cal adjustfactor
-            date_range = pd.date_range(start=date_start, end=date_end)
-            df_filtered = df[df.timestamp.isin(date_range)]
-            df_filtered.reset_index(drop=True, inplace=True)
-            return df_filtered
-        else:
-            return pd.DataFrame
+        r = (
+            db.session.query(model)
+            .filter(model.code == code)
+            .filter(model.timestamp >= date_start)
+            .filter(model.timestamp <= date_end)
+            .filter(model.isdel == False)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        df = df.sort_values(by="timestamp", ascending=True)
+        df.reset_index(drop=True, inplace=True)
+        # TODO adjust
+        return df
 
     def del_tick(self, code: str, date: any) -> None:
         # TODO
         pass
 
     def update_tick(self, code: str, fast_mode: bool = False, engine=None) -> None:
-        cached_name = f"{code}_tick_updated"
-        temp_redis = self.get_redis()
-        if temp_redis.exists(cached_name):
-            updated = temp_redis.get(cached_name)
-            GLOG.INFO(
-                f"Tick {code} Updated at {updated.decode('utf-8')}. No need to update."
-            )
-            return
-        GLOG.INFO(f"Updating TICK {code}.")
-        list_date = self.get_stock_info_df_cached(code).list_date.values[0]
-        list_date = pd.Timestamp(list_date).to_pydatetime()
+        GLOG.DEBUG(f"Updating TICK {code}.")
+        list_date = self.get_stock_info(code).list_date
         # CreateTable
         model = self.get_tick_model(code)
         self.create_table(model)
@@ -987,6 +1166,7 @@ class GinkgoData(object):
             # Break
             if fast_mode and nodata_count > nodata_max:
                 GLOG.DEBUG(f"{code} No data in {nodata_max} days. Break.")
+                print(f"{code} No data in {nodata_max} days. Break.")
                 break
             if date < list_date:
                 break
@@ -996,15 +1176,19 @@ class GinkgoData(object):
             date_start = date.strftime("%Y%m%d")
             date_end = (date + datetime.timedelta(days=1)).strftime("%Y%m%d")
             GLOG.DEBUG(f"Trying to update {code} Tick on {date}")
+            print(f"Trying to update {code} Tick on {date}")
             if self.is_tick_indb(code, date_start):
-                GLOG.WARN(
+                GLOG.DEBUG(
+                    f"{code} Tick on {date} is in database. Go next {nodata_count}/{nodata_max}"
+                )
+                print(
                     f"{code} Tick on {date} is in database. Go next {nodata_count}/{nodata_max}"
                 )
                 date = date + datetime.timedelta(days=-1)
                 nodata_count = nodata_count + 1 if fast_mode else 0
                 continue
             # Check is market open today
-            open_day = self.get_trade_calendar_df_cached(
+            open_day = self.get_trade_calendar_df(
                 market=MARKET_TYPES.CHINA, date_start=date_start, date_end=date_start
             )
             if open_day.shape[0] == 0:
@@ -1017,11 +1201,12 @@ class GinkgoData(object):
             # Fetch and insert
             rs = tdx.fetch_history_transaction(code, date)
             if rs.shape[0] == 0:
-                GLOG.WARN(f"{code} No data on {date} from remote.")
+                GLOG.DEBUG(f"{code} No data on {date} from remote.")
+                print(f"{code} No data on {date} from remote.")
                 date = date + datetime.timedelta(days=-1)
                 nodata_count = nodata_count + 1 if fast_mode else 0
                 continue
-            GLOG.DEBUG(f"Got {rs.shape} records.")
+            print(f"Got {rs.shape} records.")
 
             l = []
             for i, r in rs.iterrows():
@@ -1034,30 +1219,35 @@ class GinkgoData(object):
                 item.set(code, price, volume, buyorsell, timestamp)
                 l.append(item)
             self.add_all(l)
-            GLOG.WARN(f"Insert {code} Tick {len(l)}.")
+            print(f"Insert {code} Tick {len(l)}.")
             nodata_count = 0
             insert_count += len(l)
             # ReCheck
             if self.is_tick_indb(code, date_start):
-                GLOG.DEBUG(f"{code} {date_start} Insert Recheck Successful.")
+                print(f"{code} {date_start} Insert Recheck Successful.")
             else:
-                GLOG.ERROR(
-                    f"{code} {date_start} Insert Failed. Still no data in database."
-                )
+                print(f"{code} {date_start} Insert Failed. Still no data in database.")
             date = date + datetime.timedelta(days=-1)
         t1 = datetime.datetime.now()
-        GLOG.WARN(f"Updating Tick {code} complete. Cost: {t1-t0}")
-        if insert_count > 0:
-            self.update_redis_tick(code)
-        temp_redis.setex(
-            cached_name,
-            60 * 60 * 24,
-            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        )
+        print(f"Updating Tick {code} complete. Cost: {t1-t0}")
+
+    def update_all_cn_tick(self, fast_mode: bool = False) -> None:
+        t0 = datetime.datetime.now()
+        info = self.get_stock_info_df()
+        for i, r in info.iterrows():
+            code = r["code"]
+            self.update_tick(code, fast_mode=fast_mode)
+        t1 = datetime.datetime.now()
+        GLOG.WARN(f"Update ALL CN TICK cost {t1-t0}")
 
     def update_all_cn_tick_aysnc(self, fast_mode: bool = False) -> None:
         t0 = datetime.datetime.now()
-        info = self.get_stock_info_df_cached()
+        info = self.get_stock_info_df()
+        self.clean_db()
+
+        if info.shape[0] == 0:
+            console.log(f"[red]No Data Get from DB. Cancel Tick Update Aysnc[/red]")
+            return
         cpu_count = multiprocessing.cpu_count()
         cpu_count = int(cpu_count * self.cpu_ratio)
         p = multiprocessing.Pool(cpu_count)
@@ -1070,6 +1260,7 @@ class GinkgoData(object):
                     fast_mode,
                 ),
             )
+
         p.close()
         p.join()
         t1 = datetime.datetime.now()
@@ -1077,14 +1268,6 @@ class GinkgoData(object):
 
     # Daily Data update
     def update_stock_info(self, engine=None) -> None:
-        cached_name = "cn_stockinfo_updated"
-        temp_redis = self.get_redis()
-        if temp_redis.exists(cached_name):
-            updated = temp_redis.get(cached_name)
-            GLOG.INFO(
-                f"StockInfo Updated at {updated.decode('utf-8')}. No need to update."
-            )
-            return
         db = engine if engine else self.get_driver(MStockInfo)
         size = db.get_table_size(MStockInfo)
         GLOG.DEBUG(f"Current Stock Info Size: {size}")
@@ -1155,12 +1338,6 @@ class GinkgoData(object):
         )
         size = db.get_table_size(MStockInfo)
         GLOG.DEBUG(f"After Update Stock Info Size: {size}")
-        self.update_redis_stockinfo()
-        temp_redis.setex(
-            cached_name,
-            60 * 60,
-            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        )  # Expire in 1 hour
 
     def update_trade_calendar(self) -> None:
         """
@@ -1168,17 +1345,10 @@ class GinkgoData(object):
         """
         GLOG.INFO("Updating Trade Calendar")
         self.update_cn_trade_calendar()
+        # TODO
 
     def update_cn_trade_calendar(self) -> None:
         market = MARKET_TYPES.CHINA
-        cached_name = f"trade_calendar%{market}updateat"
-        temp_redis = self.get_redis()
-        if temp_redis.exists(cached_name):
-            updated = temp_redis.get(cached_name)
-            GLOG.INFO(
-                f"Calendar Updated at {updated.decode('utf-8')}. No need to update."
-            )
-            return
         db = self.get_driver(MTradeDay)
         size = db.get_table_size(MTradeDay)
         GLOG.DEBUG(f"Current Trade Calendar Size: {size}")
@@ -1247,30 +1417,14 @@ class GinkgoData(object):
         )
         size = db.get_table_size(MTradeDay)
         GLOG.DEBUG(f"After Update Trade Calendar Size: {size}")
-        self.update_redis_tradecalender(MARKET_TYPES.CHINA)
-        temp_redis.setex(
-            cached_name,
-            60 * 60,
-            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        )  # Expire in 1 hour
 
     def update_cn_daybar(self, code: str) -> None:
         GLOG.DEBUG(f"Try to update CN DAYBAR about {code}.")
-        cached_name = f"{code}_daybar_updated"
-        temp_redis = self.get_redis()
-        if temp_redis.exists(cached_name):
-            GLOG.DEBUG(f"Daybar {code} exsit in REDIS. Update it.")
-            updated = temp_redis.get(cached_name)
-            GLOG.INFO(
-                f"Daybar {code} Updated at {updated.decode('utf-8')}. No need to update."
-            )
-            return
-        GLOG.DEBUG(f"Daybar {code} not exsit in REDIS.")
         GLOG.INFO(f"Updating CN DAYBAR about {code}.")
         # Get the stock info of code
         t0 = datetime.datetime.now()
         GLOG.DEBUG(f"Get stock info about {code}")
-        info = self.get_stock_info_df_cached(code)
+        info = self.get_stock_info_df(code)
         driver = GinkgoClickhouse(
             user=GCONF.CLICKUSER,
             pwd=GCONF.CLICKPWD,
@@ -1304,7 +1458,7 @@ class GinkgoData(object):
             [None, None],
         ]
 
-        trade_calendar = self.get_trade_calendar_df_cached(
+        trade_calendar = self.get_trade_calendar_df(
             MARKET_TYPES.CHINA, date_start, date_end
         )
         if trade_calendar.shape[0] == 0:
@@ -1407,102 +1561,9 @@ class GinkgoData(object):
         if insert_count > 0:
             self.update_redis_daybar(code)
 
-        temp_redis.setex(
-            cached_name,
-            60 * 60 * 24,
-            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        )
-
-    def update_redis_stockinfo(self) -> None:
-        # TODO Sync the redis cache name laod and set
-        cache_name = "stockinfo"
-        temp_redis = self.get_redis()
-        if not temp_redis.exists(cache_name):
-            return
-        db = self.get_click()
-        r = db.session.query(MStockInfo).filter(MStockInfo.isdel == False)
-        df = pd.read_sql(r.statement, db.engine)
-        df = df.sort_values(by="code", ascending=True)
-        if df.shape[0] > 0:
-            temp_redis.setex(cache_name, self.redis_expiration_time, pickle.dumps(df))
-            GLOG.INFO(f"Update Redis STOCKINFO.")
-
-    def update_redis_adjustfactor(self, code: str) -> None:
-        # TODO Sync the redis cache name laod and set
-        cache_name = f"adf%{code}"
-        temp_redis = self.get_redis()
-        if not temp_redis.exists(cache_name):
-            return
-        r = (
-            MYSQLDRIVER.session.query(MAdjustfactor)
-            .filter(MAdjustfactor.code == code)
-            .filter(MAdjustfactor.isdel == False)
-        )
-        df = pd.read_sql(r.statement, MYSQLDRIVER.engine)
-        df = df.sort_values(by="timestamp", ascending=True)
-        df.reset_index(drop=True, inplace=True)
-        if df.shape[0] > 0:
-            temp_redis.setex(cache_name, self.redis_expiration_time, pickle.dumps(df))
-            GLOG.INFO(f"Update Redis ADJUSTFACTOR {code}")
-
-    def update_redis_tradecalender(self, market: MARKET_TYPES) -> None:
-        # TODO Sync the redis cache name laod and set
-        cache_name = f"trade_calendar%{market}"
-        temp_redis = self.get_redis()
-        db = self.get_click()
-        if not temp_redis.exists(cache_name):
-            return
-        r = (
-            db.session.query(MTradeDay)
-            .filter(MTradeDay.market == market)
-            .filter(MTradeDay.isdel == False)
-        )
-        df = pd.read_sql(r.statement, db.engine)
-        df = df.sort_values(by="timestamp", ascending=True)
-        df.reset_index(drop=True, inplace=True)
-        if df.shape[0] > 0:
-            temp_redis.setex(cache_name, self.redis_expiration_time, pickle.dumps(df))
-            GLOG.INFO(f"Update Redis TRADECALENDER {market}")
-
-    def update_redis_daybar(self, code: str) -> None:
-        # TODO Sync the redis cache name laod and set
-        cache_name = f"day%{code}"
-        temp_redis = self.get_redis()
-        if not temp_redis.exists(cache_name):
-            return
-        db = self.get_click()
-        r = db.session.query(MBar).filter(MBar.code == code).filter(MBar.isdel == False)
-        df = pd.read_sql(r.statement, db.engine)
-        df = df.sort_values(by="timestamp", ascending=True)
-        df.reset_index(drop=True, inplace=True)
-        df = self.calculate_adjustfactor(code, df)
-        if df.shape[0] > 0:
-            temp_redis.setex(cache_name, self.redis_expiration_time, pickle.dumps(df))
-            GLOG.INFO(f"Update Redis DAYBAR {code}")
-
-    def update_redis_tick(self, code: str) -> None:
-        # TODO Sync the redis cache name laod and set
-        cache_name = f"tick%{code}"
-        temp_redis = self.get_redis()
-        if not temp_redis.exists(cache_name):
-            return
-        db = self.get_click()
-        r = (
-            db.session.query(model)
-            .filter(model.code == code)
-            .filter(model.isdel == False)
-        )
-        df = pd.read_sql(r.statement, db.engine)
-        df = df.sort_values(by="timestamp", ascending=True)
-        df.reset_index(drop=True, inplace=True)
-        df = self.calculate_adjustfactor(code, df)
-        if df.shape[0] > 0:
-            temp_redis.setex(cache_name, self.redis_expiration_time, pickle.dumps(df))
-            GLOG.INFO(f"Update Redis TICK {code}")
-
     def update_all_cn_daybar(self) -> None:
         t0 = datetime.datetime.now()
-        info = self.get_stock_info_df_cached()
+        info = self.get_stock_info_df()
         for i, r in info.iterrows():
             code = r["code"]
             self.update_cn_daybar(code)
@@ -1511,7 +1572,8 @@ class GinkgoData(object):
 
     def update_all_cn_daybar_aysnc(self) -> None:
         t0 = datetime.datetime.now()
-        info = self.get_stock_info_df_cached()
+        info = self.get_stock_info_df()
+        self.clean_db()
         if info.shape[0] == 0:
             GLOG.WARN(f"Stock Info is empty.")
             console.print(
@@ -1521,13 +1583,9 @@ class GinkgoData(object):
         l = []
         cpu_count = multiprocessing.cpu_count()
         cpu_count = int(cpu_count * self.cpu_ratio)
+        p = multiprocessing.Pool(cpu_count)
         for i, r in info.iterrows():
             code = r["code"]
-            l.append(code)
-
-        p = multiprocessing.Pool(cpu_count)
-
-        for code in l:
             res = p.apply_async(self.update_cn_daybar, args=(code,))
 
         p.close()
@@ -1537,22 +1595,13 @@ class GinkgoData(object):
 
     def update_cn_adjustfactor(self, code: str, queue=None) -> None:
         GLOG.DEBUG(f"Updating AdjustFactor {code}")
-        cached_name = f"{code}_adjustfactor_updated"
-        temp_redis = self.get_redis()
-        GLOG.DEBUG(f"Try get AdjustFactor {code} from REDIS first.")
-        if temp_redis.exists(cached_name):
-            updated = temp_redis.get(cached_name)
-            GLOG.DEBUG(
-                f"Adjustfactor {code} Updated at {updated.decode('utf-8')}. No need to update."
-            )
-            if queue:
-                queue.put(code)
-            return
-        GLOG.DEBUG(f"Adjustfactor {code} not in REDIS. Try get from database.")
         t0 = datetime.datetime.now()
-        tu = GinkgoTushare()
         GLOG.DEBUG(f"Try get AdjustFactor {code} from Tushare.")
+        tu = GinkgoTushare()
         df = tu.fetch_cn_stock_adjustfactor(code)  # This API seems something wrong.
+        GLOG.DEBUG(f"Got {df.shape[0]} records about {code} AdjustFactor.")
+        if df.shape[0] == 0:
+            return
         GLOG.DEBUG(f"Got {df.shape[0]} records about {code} AdjustFactor.")
         insert_count = 0
         update_count = 0
@@ -1569,86 +1618,82 @@ class GinkgoData(object):
             GLOG.DEBUG(f"Try to get ADJUST {code} {date} from database.")
             q = self.get_adjustfactor(code, date, date)
             # If exist, update
-            if len(q) >= 1:
-                # TODO Database seem not have duplicated data. But get_adjustfactor function return multi.
-                if len(q) >= 2:
-                    GLOG.ERROR(
-                        f"Should not have {len(q)} {code} AdjustFactor on {date}"
-                    )
-                GLOG.DEBUG(f"Got {len(q)} {code} AdjustFactor on {date}, update it.")
-                for item in q:
-                    if (
-                        item.code == code
-                        and item.timestamp == date
-                        and float(item.adjustfactor) == factor
-                    ):
-                        GLOG.DEBUG(f"Ignore Adjustfactor {code} {date}")
-                        continue
-                    item.adjustfactor = factor
-                    item.update = datetime.datetime.now()
-                    update_count += 1
-                    driver.session.commit()
-                    GLOG.DEBUG(f"Update {code} {date} AdjustFactor")
+        #     if len(q) >= 1:
+        #         # TODO Database seem not have duplicated data. But get_adjustfactor function return multi.
+        #         if len(q) >= 2:
+        #             GLOG.ERROR(
+        #                 f"Should not have {len(q)} {code} AdjustFactor on {date}"
+        #             )
+        #         GLOG.DEBUG(f"Got {len(q)} {code} AdjustFactor on {date}, update it.")
+        #         for item in q:
+        #             if (
+        #                 item.code == code
+        #                 and item.timestamp == date
+        #                 and float(item.adjustfactor) == factor
+        #             ):
+        #                 GLOG.DEBUG(f"Ignore Adjustfactor {code} {date}")
+        #                 continue
+        #             item.adjustfactor = factor
+        #             item.update = datetime.datetime.now()
+        #             update_count += 1
+        #             driver.session.commit()
+        #             GLOG.DEBUG(f"Update {code} {date} AdjustFactor")
 
-            # If not exist, new insert
-            elif len(q) == 0:
-                GLOG.DEBUG(f"No {code} {date} AdjustFactor in database.")
-                # Insert
-                adjs = self.get_adjustfactor(code, GCONF.DEFAULTSTART, date)
-                if len(adjs) == 0 or adjs is None:
-                    o = MAdjustfactor()
-                    o.set_source(SOURCE_TYPES.TUSHARE)
-                    o.set(code, 1.0, 1.0, factor, date)
-                    l.append(o)
-                    GLOG.DEBUG(f"Add AdjustFactor {code} {date} to list.")
-                elif len(adjs) > 0:
-                    latest = adjs[-1]
-                    if float(latest.adjustfactor) == factor:
-                        GLOG.DEBUG(
-                            f"Adjust {code} {date} is same., just update the update time."
-                        )
-                        latest.update_time(date)
-                        update_count += 1
-                        driver.session.commit()
-                    else:
-                        GLOG.DEBUG(
-                            f"Adjust {code} {date} is different. update the factor."
-                        )
-                        o = MAdjustfactor()
-                        o.set_source(SOURCE_TYPES.TUSHARE)
-                        o.set(code, 1.0, 1.0, factor, date)
-                        l.append(o)
-            if len(l) > self.batch_size:
-                driver.session.add_all(l)
-                driver.session.commit()
-                insert_count += len(l)
-                GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
-                l = []
-        if len(l) > 0:
-            driver.session.add_all(l)
-            driver.session.commit()
-            insert_count += len(l)
-            GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
-        t1 = datetime.datetime.now()
-        GLOG.DEBUG(
-            f"AdjustFactor {code} Update: {update_count} Insert: {insert_count} Cost: {t1-t0}"
-        )
-        temp_redis.setex(
-            cached_name,
-            60 * 60 * 24,
-            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        )
-        if queue:
-            queue.put(code)
+        #     # If not exist, new insert
+        #     elif len(q) == 0:
+        #         GLOG.DEBUG(f"No {code} {date} AdjustFactor in database.")
+        #         # Insert
+        #         adjs = self.get_adjustfactor(code, GCONF.DEFAULTSTART, date)
+        #         if len(adjs) == 0 or adjs is None:
+        #             o = MAdjustfactor()
+        #             o.set_source(SOURCE_TYPES.TUSHARE)
+        #             o.set(code, 1.0, 1.0, factor, date)
+        #             l.append(o)
+        #             GLOG.DEBUG(f"Add AdjustFactor {code} {date} to list.")
+        #         elif len(adjs) > 0:
+        #             latest = adjs[-1]
+        #             if float(latest.adjustfactor) == factor:
+        #                 GLOG.DEBUG(
+        #                     f"Adjust {code} {date} is same., just update the update time."
+        #                 )
+        #                 latest.update_time(date)
+        #                 update_count += 1
+        #                 driver.session.commit()
+        #             else:
+        #                 GLOG.DEBUG(
+        #                     f"Adjust {code} {date} is different. update the factor."
+        #                 )
+        #                 o = MAdjustfactor()
+        #                 o.set_source(SOURCE_TYPES.TUSHARE)
+        #                 o.set(code, 1.0, 1.0, factor, date)
+        #                 l.append(o)
+        #     if len(l) > self.batch_size:
+        #         driver.session.add_all(l)
+        #         driver.session.commit()
+        #         insert_count += len(l)
+        #         GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
+        #         l = []
+        # if len(l) > 0:
+        #     driver.session.add_all(l)
+        #     driver.session.commit()
+        #     insert_count += len(l)
+        #     GLOG.DEBUG(f"Insert {len(l)} {code} AdjustFactor.")
+        # self.clean_db()
+        # t1 = datetime.datetime.now()
+        # GLOG.DEBUG(
+        #     f"AdjustFactor {code} Update: {update_count} Insert: {insert_count} Cost: {t1-t0}"
+        # )
 
     def update_all_cn_adjustfactor(self):
         GLOG.DEBUG(f"Begin to update all CN AdjustFactor")
         t0 = datetime.datetime.now()
-        info = self.get_stock_info_df_cached()
+        info = self.get_stock_info_df()
+        info = info[100:102]
         with Progress() as progress:
-            task = progress.add_task("Updating CN AdjustFactor: ", total=df.shape[0])
+            task = progress.add_task("Updating CN AdjustFactor: ", total=info.shape[0])
             for i, r in info.iterrows():
                 code = r["code"]
+                print(code)
                 progress.update(
                     task,
                     advance=1,
@@ -1679,7 +1724,7 @@ class GinkgoData(object):
 
     def update_all_cn_adjustfactor_aysnc(self):
         t0 = datetime.datetime.now()
-        info = self.get_stock_info_df_cached()
+        info = self.get_stock_info_df()
         l = []
         cpu_count = multiprocessing.cpu_count()
         cpu_count = int(cpu_count * self.cpu_ratio)
@@ -1693,6 +1738,7 @@ class GinkgoData(object):
         t = threading.Thread(
             target=self.start_listen, args=("Updating CN AdjustFactor", len(l), q)
         )
+
         for code in l:
             res = p.apply_async(
                 self.update_cn_adjustfactor,
@@ -1720,6 +1766,16 @@ class GinkgoData(object):
             .first()
         )
         db.session.close()
+        return r
+
+    def get_file_by_backtest(self, backtest_id: str, engine=None):
+        db = engine if engine else self.get_driver(MFile)
+        r = (
+            db.session.query(MFile)
+            .filter(MFile.backtest_id == backtest_id)
+            .filter(MFile.isdel == False)
+            .first()
+        )
         return r
 
     def get_file_by_name(self, name: str, engine=None):
@@ -1867,16 +1923,32 @@ class GinkgoData(object):
         for i in file_map:
             walk_through(i)
 
-    def add_backtest(self, backtest_id: str, content: bytes) -> None:
+    def add_backtest(self, backtest_id: str, content: bytes) -> str:
         item = MBacktest()
         item.set(backtest_id, datetime.datetime.now(), content)
+        id = item.uuid
         self.add(item)
+        return id
+
+    def add_signal(
+        self,
+        backtest_id: str,
+        timestamp: any,
+        code: str,
+        direction: DIRECTION_TYPES,
+        reason: str,
+    ) -> str:
+        item = MSignal()
+        item.set(backtest_id, timestamp, code, direction, reason)
+        id = item.uuid
+        self.add(item)
+        return id
 
     def remove_backtest(self, backtest_id: str) -> bool:
         db = self.get_driver(MBacktest)
         r = (
             db.session.query(MBacktest)
-            .filter(MBacktest.backtest_id == backtest_id)
+            .filter(MBacktest.uuid == backtest_id)
             .filter(MBacktest.isdel == False)
             .first()
         )
@@ -1887,7 +1959,7 @@ class GinkgoData(object):
         db.session.commit()
         return True
 
-    def finish_backtest(self, backtest_id: str) -> None:
+    def finish_backtest(self, backtest_id: str) -> bool:
         db = self.get_driver(MBacktest)
         r = (
             db.session.query(MBacktest)
@@ -1897,10 +1969,11 @@ class GinkgoData(object):
         )
         if r is None:
             GLOG.DEBUG(f"Can not find backtest {backtest_id} in database.")
-            return
+            return False
         r.finish(datetime.datetime.now())
         db.session.commit()
         GLOG.DEBUG(f"Backtest {backtest_id} finished.")
+        return True
 
     def remove_orders(self, backtest_id: str) -> int:
         db = self.get_driver(MOrder)
@@ -1914,10 +1987,11 @@ class GinkgoData(object):
         if len(r) > 0:
             for i in r:
                 db.session.delete(i)
+                # TODO modify is_del
             db.session.commit()
         return count
 
-    def remove_analyzers(self, backtest_id: str) -> None:
+    def remove_analyzers(self, backtest_id: str) -> int:
         db = self.get_driver(MAnalyzer)
 
         r = (
@@ -1931,12 +2005,16 @@ class GinkgoData(object):
             db.session.query(MAnalyzer).filter(
                 MAnalyzer.backtest_id == backtest_id
             ).filter(MAnalyzer.isdel == False).delete()
+            # TODO modify is_del
         return count
 
-    def update_backtest_profit(self, backtest_id: str, profit: float) -> None:
+    def update_backtest_worth(self, backtest_id: str, worth: float) -> bool:
         if backtest_id == "":
-            GLOG.DEBUG("Can not update the backtest record with empty backtest_id.")
-            return
+            GLOG.ERROR("Can not update the backtest record with empty backtest_id.")
+            return False
+        if not isinstance(worth, (int, float)):
+            GLOG.ERROR(f"Can not update the backtest record with {type(worth)}.")
+            return False
         db = self.get_driver(MBacktest)
         r = (
             db.session.query(MBacktest)
@@ -1944,14 +2022,17 @@ class GinkgoData(object):
             .filter(MBacktest.isdel == False)
             .first()
         )
-        if r is not None:
-            r.profit = profit
+        if r is None:
+            return False
+        else:
+            r.profit = worth
             db.session.commit()
+            return True
 
-    def finish_backtest(self, backtest_id: str) -> None:
+    def finish_backtest(self, backtest_id: str) -> bool:
         if backtest_id == "":
             GLOG.DEBUG("Can not finish the backtest record with empty backtest_id.")
-            return
+            return False
         db = self.get_driver(MBacktest)
         r = (
             db.session.query(MBacktest)
@@ -1959,25 +2040,72 @@ class GinkgoData(object):
             .filter(MBacktest.isdel == False)
             .first()
         )
-        if r is not None:
+        if r is None:
+            return False
+        else:
             r.finish(datetime.datetime.now())
             db.session.commit()
+            return True
 
-    def get_backtest_record(self, backtest_id: str) -> None:
+    def get_backtest_record_by_backtest(self, backtest_id: str) -> MBacktest:
         db = self.get_driver(MBacktest)
         if backtest_id == "":
             GLOG.DEBUG("Can not get backtest record with empty backtest_id.")
             return
         r = (
             db.session.query(MBacktest)
-            .filter(MBacktest.backtest_id == backtest_id)
+            .filter(MBacktest.uuid == backtest_id)
             .filter(MBacktest.isdel == False)
             .order_by(MBacktest.start_at.desc())
             .first()
         )
         return r
 
-    def get_backtest_list_df(self, backtest_id: str = "") -> None:
+    def get_backtest_record(self, backtest_id: str) -> MBacktest:
+        db = self.get_driver(MBacktest)
+        if backtest_id == "":
+            GLOG.DEBUG("Can not get backtest record with empty backtest_id.")
+            return
+        r = (
+            db.session.query(MBacktest)
+            .filter(MBacktest.uuid == backtest_id)
+            .filter(MBacktest.isdel == False)
+            .order_by(MBacktest.start_at.desc())
+            .first()
+        )
+        return r
+
+    def get_backtest_record_pagination(
+        self, page: int = 0, size: int = 100, engine=None
+    ) -> MBacktest:
+        db = engine if engine else self.get_driver(MBacktest)
+        r = (
+            db.session.query(MBacktest)
+            .filter(MBacktest.isdel == False)
+            .order_by(MBacktest.start_at.desc())
+            .limit(size)
+            .offset(page * size)
+        )
+        db.session.close()
+        return r
+
+    def get_backtest_record_df_pagination(
+        self, page: int = 0, size: int = 100, engine=None
+    ) -> pd.DataFrame:
+        db = engine if engine else self.get_driver(MBacktest)
+        r = (
+            db.session.query(MBacktest)
+            .filter(MBacktest.isdel == False)
+            .order_by(MBacktest.start_at.desc())
+            .limit(size)
+            .offset(page * size)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        df = df.sort_values(by="start_at", ascending=False)
+        db.session.close()
+        return df
+
+    def get_backtest_list_df(self, backtest_id: str = "") -> pd.DataFrame:
         db = self.get_driver(MBacktest)
         if backtest_id == "":
             r = db.session.query(MBacktest).filter(MBacktest.isdel == False)
@@ -2046,13 +2174,70 @@ class GinkgoData(object):
 
         return df
 
-    def remove_from_redis(self, key: str):
-        temp_redis = self.get_redis()
-        if temp_redis.exists(key):
-            temp_redis.delete(key)
-            GLOG.WARN(f"Remove {key} from redis.")
-        else:
-            GLOG.WARN(f"{key} not exist in redis.")
+    def add_order_record(
+        self,
+        backtest_id: str,
+        code: str,
+        direction: DIRECTION_TYPES,
+        order_type: ORDER_TYPES,
+        transaction_price: float,
+        volume: int,
+        remain: float,
+        fee: float,
+        timestamp: any,
+        engine=None,
+    ) -> None:
+        db = engine if engine else self.get_driver(MOrderRecord)
+        item = MOrderRecord()
+        item.set(
+            backtest_id,
+            code,
+            direction,
+            order_type,
+            volume,
+            transaction_price,
+            remain,
+            fee,
+            timestamp,
+        )
+        self.add(item)
+
+    def add_position(
+        self, backtest_id: str, timestamp: any, code: str, volume: int, cost: float
+    ) -> None:
+        item = MPosition()
+        item.set(backtest_id, timestamp, code, volume, cost)
+        GDATA.add(item)
+
+    def add_positions(self, backtest_id: str, timestamp: any, positions: list) -> None:
+        for i in positions:
+            if not isinstance(i, Position):
+                GLOG.DEBUG(f"Only support add Position")
+                return
+        l = []
+        for i in positions:
+            item = MPosition()
+            item.set(backtest_id, timestamp, i.code, i.volume, i.cost)
+            l.append(item)
+        self.add_all(l)
+
+    def get_positions_pagination(
+        self, backtest_id: str, timestamp: any, page: int = 0, size: int = 1000
+    ):
+        date_start = datetime_normalize(timestamp)
+        date_end = datetime_normalize(timestamp) + datetime.timedelta(days=1)
+        db = engine if engine else self.get_driver(MPosition)
+        r = (
+            db.session.query(MPosition)
+            .filter(MPosition.timestamp >= date_start)
+            .filter(MPosition.timestamp < date_end)
+            .filter(MPosition.isdel == False)
+            .offset(page * size)
+            .limit(size)
+            .all()
+        )
+        db.session.close()
+        return r
 
 
 GDATA = GinkgoData()

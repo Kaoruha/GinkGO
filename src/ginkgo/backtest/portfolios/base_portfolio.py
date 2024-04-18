@@ -18,6 +18,7 @@ from ginkgo.backtest.signal import Signal
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, RECORDSTAGE_TYPES
 from ginkgo.libs import cal_fee, datetime_normalize, GinkgoSingleLinkedList
 from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.backtest_base import BacktestBase
 
@@ -27,7 +28,9 @@ class BasePortfolio(BacktestBase):
         super(BasePortfolio, self).__init__(*args, **kwargs)
         self.set_name("HaloPortfolio")
         self._cash: float = 100000
+        self._worth: float = 100000
         self._frozen: float = 0
+        self._profit: float = 0
         self._positions: dict = {}
         self._strategies = GinkgoSingleLinkedList()
         self._sizer = None
@@ -41,24 +44,27 @@ class BasePortfolio(BacktestBase):
     def get_count_of_price(self, date):
         raise NotImplemented
 
-    @property
-    def profit(self) -> float:
-        profit = 0
-        for i in self.positions.keys():
-            profit += self.positions[i].profit
-        if not isinstance(profit, float) and not isinstance(profit, int):
+    def update_worth(self) -> None:
+        self._worth = self.cash + self.frozen
+        for key in self.positions:
+            self._worth += self.positions[key].worth
+
+    def update_profit(self) -> None:
+        self._profit = 0
+        for key in self.positions:
+            self._profit += self.positions[key].profit
+        if not isinstance(self.profit, float) and not isinstance(self.profit, int):
             import pdb
 
             pdb.set_trace()
-        return profit
+
+    @property
+    def profit(self) -> float:
+        return self._profit
 
     @property
     def worth(self) -> float:
-        r = 0
-        r += self.cash + self.frozen
-        for key in self.positions:
-            r += self.positions[key].worth
-        return round(r, 4)
+        return self._worth
 
     def add_found(self, money: float) -> float:
         if money < 0:
@@ -66,6 +72,7 @@ class BasePortfolio(BacktestBase):
         else:
             GLOG.WARN(f"Add FOUND {money}")
             self._cash += money
+            self.update_worth()
         return self.cash
 
     def add_cash(self, money: float) -> float:
@@ -74,6 +81,7 @@ class BasePortfolio(BacktestBase):
         else:
             GLOG.WARN(f"Add FOUND {money}")
             self._cash += money
+            self.update_worth()
         return self.cash
 
     @property
@@ -111,6 +119,7 @@ class BasePortfolio(BacktestBase):
 
     def record(self, stage: RECORDSTAGE_TYPES) -> None:
         for k, v in self.analyzers.items():
+            v.activate(stage)
             v.record(stage)
 
     def is_all_set(self) -> bool:
@@ -168,6 +177,8 @@ class BasePortfolio(BacktestBase):
             )
             return
         self._engine = engine
+        for ana_name in self.analyzers.keys():
+            self.analyzers[ana_name].set_backtest_id(engine.backtest_id)
 
     @property
     def engine(self):
@@ -330,6 +341,12 @@ class BasePortfolio(BacktestBase):
         for analyzer_key in self.analyzers.keys():
             self.analyzers[analyzer_key].on_time_goes_by(time)
 
+        for strategy in self.strategies:
+            strategy.value.on_time_goes_by(time, *args, **kwargs)
+
+        self.update_profit()
+        self.update_worth()
+        GDATA.update_backtest_worth(self.backtest_id, self.worth)
         self.record(RECORDSTAGE_TYPES.NEWDAY)
 
     def clean_positions(self) -> None:
@@ -355,3 +372,15 @@ class BasePortfolio(BacktestBase):
             i.value.set_backtest_id(value)
         for i in self.analyzers.keys():
             self.analyzers[i].set_backtest_id(value)
+
+    def record_positions(self) -> None:
+        self.clean_positions()
+        if len(self.positions) == 0:
+            return
+        l = []
+        for i in self.positions.keys():
+            l.append(self.positions[i])
+        GDATA.add_positions(self.backtest_id, self.now, l)
+
+    def recover_positions(self) -> None:
+        pass
