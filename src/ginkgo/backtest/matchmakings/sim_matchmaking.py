@@ -197,6 +197,14 @@ class MatchMakingSim(MatchMakingBase):
             low = p.low
             open = p.open
             close = p.close
+            if high <= 0:
+                return
+            if low <= 0:
+                return
+            if low <= 0:
+                return
+            if close <= 0:
+                return
 
             # Cancle the order if the price is out of the bound, or the volume is over the bound.
             # Cancel the order when price go to limit.
@@ -257,6 +265,7 @@ class MatchMakingSim(MatchMakingBase):
                     GLOG.WARN(
                         f"Order {o.uuid} has not enough money. Should freeze more."
                     )
+                    print(o)
                     self.return_order(order_id)
                     continue
             else:

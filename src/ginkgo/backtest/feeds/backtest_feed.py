@@ -25,6 +25,7 @@ class BacktestFeed(BaseFeed):
     def __init__(self, *args, **kwargs):
         super(BacktestFeed, self).__init__(*args, **kwargs)
         self._engine = None
+        self._count_of_price = -1
 
     @property
     def engine(self):
@@ -44,6 +45,7 @@ class BacktestFeed(BaseFeed):
             interesting_list = sub.value.interested
 
             if len(interesting_list) == 0:
+                # No interested, Go Next Subscriber
                 continue
             # Get data
             df = pd.DataFrame()
@@ -51,6 +53,7 @@ class BacktestFeed(BaseFeed):
                 task1 = progress.add_task("Get Data", total=len(interesting_list))
                 for i in interesting_list:
                     code = i.value
+                    GLOG.DEBUG(f"Got {code}")
                     progress.update(
                         task1,
                         advance=1,
@@ -59,7 +62,12 @@ class BacktestFeed(BaseFeed):
                     if code is None:
                         continue
                     new_df = self.get_daybar(code, self.now)
-                    df = pd.concat([df, new_df], ignore_index=True)
+                    if new_df.shape[0] > 0:
+                        if self._count_of_price == -1:
+                            self._count_of_price = 1
+                        else:
+                            self._count_of_price += 1
+                        df = pd.concat([df, new_df], ignore_index=True)
                 # Broadcast
                 if df.shape[0] == 0:
                     continue
@@ -68,6 +76,7 @@ class BacktestFeed(BaseFeed):
                 for i, r in df.iterrows():
                     b = Bar()
                     b.set(r)
+                    GLOG.DEBUG(f"Generate {code} Bar.")
                     event = EventPriceUpdate(b)
                     self.engine.put(event)
                     progress.update(
@@ -82,13 +91,16 @@ class BacktestFeed(BaseFeed):
         # Both count and price
         if date > self.now:
             return 0
-        count = 0
-        for i in interested:
-            df = self.get_daybar(i.value, date)
-            if df.shape[0] == 1:
-                count += 1
-        return count
+        return self._count_of_price
 
     def is_code_on_market(self, code, date, *args, **kwargs) -> bool:
         df = self.get_daybar(code, date)
         return True if df.shape[0] == 1 else False
+
+    def on_time_goes_by(self, time: any, *args, **kwargs):
+        """
+        Go next frame.
+        """
+        # Time goes
+        super(BacktestFeed, self).on_time_goes_by(time, *args, **kwargs)
+        self._count_of_price = -1

@@ -15,8 +15,8 @@ class SignalCount(BaseAnalyzer):
         self.count = 0
         self.last_day = None
 
-    def record(self, stage, *args, **kwargs) -> None:
-        super(SignalCount, self).record(stage, *args, **kwargs)
+    def activate(self, stage, *args, **kwargs) -> None:
+        super(SignalCount, self).activate(stage, *args, **kwargs)
         if stage != self.active_stage:
             return
         if self.last_day is None:
@@ -25,6 +25,11 @@ class SignalCount(BaseAnalyzer):
             self.count = 0
         self.last_day = self.portfolio.now
         self.count += 1
+
+    def record(self, stage, *args, **kwargs) -> None:
+        super(SignalCount, self).record(stage, *args, **kwargs)
+        if stage != self.record_stage:
+            return
         self.add_data(self.count)
         GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {self.count}")
         self.add_record()

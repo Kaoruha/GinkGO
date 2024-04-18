@@ -51,8 +51,7 @@ class ModelSignalTest(unittest.TestCase):
                 "code": "halo_signal",
                 "direction": DIRECTION_TYPES.LONG,
                 "backtest_id": "backtest_id",
-                "strategy_id": "strategy_id",
-                "strategy_name": "strategy_name",
+                "reason": "reason",
                 "timestamp": datetime.datetime.now(),
                 "source": SOURCE_TYPES.TEST,
             },
@@ -67,18 +66,15 @@ class ModelSignalTest(unittest.TestCase):
         for i in self.params:
             o = MSignal()
             o.set(
+                i["backtest_id"],
+                i["timestamp"],
                 i["code"],
                 i["direction"],
-                i["backtest_id"],
-                i["strategy_id"],
-                i["strategy_name"],
-                i["timestamp"],
+                i["reason"],
             )
             o.set_source(i["source"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.direction, i["direction"])
-            self.assertEqual(o.backtest_id, i["backtest_id"])
-            self.assertEqual(o.strategy_name, i["strategy_name"])
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.source, i["source"])
 
@@ -96,12 +92,11 @@ class ModelSignalTest(unittest.TestCase):
                 o = MSignal()
                 o.set_source(i["source"])
                 o.set(
+                    i["backtest_id"],
+                    i["timestamp"],
                     i["code"],
                     i["direction"],
-                    i["backtest_id"],
-                    i["strategy_id"],
-                    i["strategy_name"],
-                    i["timestamp"],
+                    i["reason"],
                 )
                 GDATA.add(o)
                 size1 = GDATA.get_table_size(MSignal)

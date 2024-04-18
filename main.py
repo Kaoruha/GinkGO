@@ -62,7 +62,7 @@ def status(
 @main_app.command()
 def version():
     """
-    :sheep: Show the version of Local Ginkgo Client.
+    :sheep: Show the version of Client.
     """
     from ginkgo.config.package import PACKAGENAME, VERSION
 
@@ -291,25 +291,24 @@ def ls(
 @main_app.command()
 def res(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
-    plt: Annotated[
-        bool,
-        typer.Option(case_sensitive=False, help="Show Result in charts."),
-    ] = False,
-    order: Annotated[
-        bool,
-        typer.Option(case_sensitive=False, help="Show Order Result."),
-    ] = False,
-    analyzer: Annotated[
-        bool,
-        typer.Option(case_sensitive=False, help="Show Anaylzer Result."),
-    ] = False,
+    index: Annotated[
+        typing_list[str],
+        typer.Argument(
+            case_sensitive=True,
+            help="Type the analyzer_id to plot.",
+        ),
+    ] = None,
+    compare: Annotated[
+        str,
+        typer.Option(case_sensitive=False, help="Do Compare with other backtest."),
+    ] = "",
 ):
     """
     :one-piece_swimsuit: Show the backtest result. [grey62]Duplication of `ginkgo backtest res`.[/grey62]
     """
     from ginkgo.client.backtest_cli import res as backtest_res
 
-    backtest_res(id, plt, order, analyzer)
+    backtest_res(id, index, compare)
 
 
 @main_app.command()

@@ -100,6 +100,7 @@ class GinkgoTushare(object):
         r = self.pro.adj_factor(
             ts_code=code, start_date=start, end_date=end, limit=10000
         )
-        r = r[r["adj_factor"].duplicated() == False]
+        if r.shape[0] == 0:
+            return pd.DataFrame()
         r.reset_index(drop=True, inplace=True)
         return r

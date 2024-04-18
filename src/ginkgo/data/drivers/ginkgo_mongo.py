@@ -14,6 +14,11 @@ class GinkgoMongo(object):
         self._host = host
         self._port = port
         self._db = db
+        self._max_try = 5
+
+    @property
+    def max_try(self) -> int:
+        return self._max_try
 
     @property
     def engine(self):

@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, MetaData, inspect, func, DDL
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
 from ginkgo.libs.ginkgo_logger import GLOG
+import time
 
 
 class GinkgoClickhouse(object):
@@ -16,6 +17,11 @@ class GinkgoClickhouse(object):
         self._host = host
         self._port = port
         self._db = db
+        self._max_try = 5
+
+    @property
+    def max_try(self) -> int:
+        return self._max_try
 
     @property
     def engine(self):
@@ -51,16 +57,23 @@ class GinkgoClickhouse(object):
         if self._engine is not None:
             self._engine.dispose()
         uri = f"clickhouse://{self._user}:{self._pwd}@{self._host}:{self._port}/{self._db}"
-        self._engine = create_engine(
-            uri,
-            pool_recycle=3600,
-            pool_size=10,
-            pool_timeout=20,
-            max_overflow=10,
-        )
-        self._metadata = MetaData(bind=self.engine)
-        self._base = declarative_base(metadata=self.metadata)
-        GLOG.DEBUG("Connect to clickhouse succeed.")
+        for i in range(self.max_try):
+            try:
+                self._engine = create_engine(
+                    uri,
+                    pool_recycle=3600,
+                    pool_size=10,
+                    pool_timeout=20,
+                    max_overflow=10,
+                )
+                self._metadata = MetaData(bind=self.engine)
+                self._base = declarative_base(metadata=self.metadata)
+                GLOG.DEBUG("Connect to clickhouse succeed.")
+                return
+            except Exception as e:
+                print(e)
+                GLOG.DEBUG(f"Connect Clickhouse Failed {i+1}/{self.max_try} times.")
+                time.sleep(2 * (i + 1))
 
     def __create_database(self) -> None:
         # ATTENTION DDL will run the sql, be care of COMMAND INJECTION

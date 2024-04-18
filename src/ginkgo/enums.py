@@ -132,3 +132,9 @@ class GRAPHY_TYPES(EnumBase):
     OTHER = 0
     BAR = 1
     LINE = 2
+
+
+class PARAMETER_TYPES(EnumBase):
+    INT = 0
+    STRING = 1
+    FLOAT = 2

@@ -70,8 +70,8 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs):
         tmp += f"{str(param).upper()}"
         s = obj.__getattribute__(param)
         filter_s = str(s).strip(b"\x00".decode())
-        if param == "value":
-            filter_s = f"{s.name} about {s.code}"
+        # if param == "value":
+        #     filter_s = str(float(s))
         if param == "positions":
             filter_s = f"{len(s.keys())}"
         if param == "analyzers":

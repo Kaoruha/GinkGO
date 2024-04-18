@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, MetaData, inspect, func, DDL
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
 from ginkgo.libs.ginkgo_logger import GLOG
+import time
 
 
 class GinkgoMysql(object):
@@ -16,6 +17,11 @@ class GinkgoMysql(object):
         self._host = host
         self._port = port
         self._db = db
+        self._max_try = 5
+
+    @property
+    def max_try(self) -> int:
+        return self._max_try
 
     @property
     def engine(self):
@@ -52,18 +58,24 @@ class GinkgoMysql(object):
             self._engine.dispose()
         uri = f"mysql+pymysql://{self._user}:{self._pwd}@{self._host}:{self._port}/{self._db}"
 
-        self._engine = create_engine(
-            uri,
-            pool_recycle=3600,
-            pool_size=10,
-            pool_timeout=20,
-            max_overflow=10,
-            # echo=True,
-        )
-        self._metadata = MetaData(bind=self.engine)
-        # self.base = declarative_base(metadata=self.metadata)
-        self._base = declarative_base()
-        GLOG.DEBUG("Connect to mysql succeed.")
+        for i in range(self.max_try):
+            try:
+                self._engine = create_engine(
+                    uri,
+                    pool_recycle=3600,
+                    pool_size=10,
+                    pool_timeout=20,
+                    max_overflow=10,
+                    # echo=True,
+                )
+                self._metadata = MetaData(bind=self.engine)
+                # self.base = declarative_base(metadata=self.metadata)
+                self._base = declarative_base()
+                GLOG.DEBUG("Connect to mysql succeed.")
+            except Exception as e:
+                print(e)
+                GLOG.DEBUG(f"Connect Mysql Failed {i+1}/{self.maxty} times.")
+                time.sleep(2 * (i + 1))
 
     @property
     def insp(self):

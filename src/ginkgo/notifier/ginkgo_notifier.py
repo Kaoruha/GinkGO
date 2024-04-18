@@ -3,8 +3,10 @@ from src.ginkgo.libs.ginkgo_logger import GLOG
 from src.ginkgo.notifier.notifier_telegram import (
     run_telebot as run_telegram_bot_api_server,
 )
-from src.ginkgo.notifier.notifier_telegram import echo
-from src.ginkgo.notifier.notifier_beep import beep as beepbeep
+from ginkgo.notifier.notifier_telegram import echo
+from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer, GinkgoConsumer
+from ginkgo.notifier.notifier_beep import beep as beepbeep
 import threading
 import signal
 import psutil
@@ -13,6 +15,7 @@ import os
 
 class GinkgoNotifier(object):
     def __init__(self):
+        self._producer = GinkgoProducer()
         pass
 
     @property
@@ -59,7 +62,8 @@ class GinkgoNotifier(object):
         t.join()
 
     def echo_to_telegram(self, message: str):
-        echo(message)
+        t = threading.Thread(target=echo, args=(message,))
+        t.start()
 
     def send_long_signal(self, signal_id: str):
         msg = "LONG SIGNAL"
@@ -74,8 +78,18 @@ class GinkgoNotifier(object):
         msg = "SHORT SIGNAL"
         self.echoto_telegram(msg)
 
-    def beep(self, freq=2000.7, repeat=1, delay=20, length=30):
-        beepbeep(freq, repeat, delay, length)
+    def beep(self) -> None:
+        if GCONF.QUIET:
+            return
+        self._producer.send("notify", {"type": "beep"})
+        # beepbeep(2000, 1, 20, 30)
+
+    def beep_coin(self) -> None:
+        if GCONF.QUIET:
+            return
+        self._producer.send("notify", {"type": "beep"})
+        # beepbeep(1920, 1, 30, 40)
+        # beepbeep(2180, 1, 60, 230)
 
 
 GNOTIFIER = GinkgoNotifier()

@@ -9,7 +9,8 @@ class BaseEngine(BacktestBase):
         self._backtest_id: str = uuid.uuid4().hex
 
     def init_backtest(self) -> None:
-        self._backtest_id: str = uuid.uuid4().hex
+        # self._backtest_id: str = uuid.uuid4().hex
+        pass
 
     @property
     def backtest_id(self) -> str:

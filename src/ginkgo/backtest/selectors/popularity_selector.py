@@ -48,7 +48,7 @@ class PopularitySelector(BaseSelector):
             return self._interested
 
         t0 = datetime.datetime.now()
-        df = GDATA.get_stock_info_df_cached()
+        df = GDATA.get_stock_info_df()
         df["sum_volume"] = 0
         df.reset_index(drop=True, inplace=True)
         column_index = df.columns.get_loc("sum_volume")

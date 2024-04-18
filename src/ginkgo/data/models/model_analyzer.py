@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
 from sqlalchemy import Column, String, Integer, DECIMAL
+from decimal import Decimal
 from sqlalchemy_utils import ChoiceType
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.libs.ginkgo_logger import GLOG
@@ -31,7 +32,9 @@ class MAnalyzer(MClickBase):
         self.backtest_id = backtest_id
         self.analyzer_id = analyzer_id
         self.timestamp = datetime_normalize(timestamp)
-        self.value = value
+        self.value = round(value, 6)
+        if self.value > 1000000000:
+            self.value = Decimal(1000000000)
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
