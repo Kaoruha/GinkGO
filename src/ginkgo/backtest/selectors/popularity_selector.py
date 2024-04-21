@@ -77,7 +77,7 @@ class PopularitySelector(BaseSelector):
                 # daybar_df = GDATA.get_daybar_df(
                 #     code=code, date_start=date_start, date_end=self.now
                 # )
-                daybar_df = GDATA.get_daybar_df_cached(
+                daybar_df = GDATA.get_daybar_df(
                     code=code, date_start=date_start, date_end=self.now
                 )
                 if daybar_df.shape[0] > 0:

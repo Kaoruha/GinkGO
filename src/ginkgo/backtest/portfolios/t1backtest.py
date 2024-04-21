@@ -94,22 +94,25 @@ class PortfolioT1Backtest(BasePortfolio):
         # 1. Have no interested Targets. GO NEXT PHASE
         if len(self.selector.pick()) == 0:
             return 1
+        print("# 1. Have no interested Targets. GO NEXT PHASE")
         # 2. Feeder got no PRICE. GO NEXT PHASE
-        elif (
+        if (
             self._count_of_price_should_come_now == 0
             and self._lastday_signal_count == 0
         ):
             return 2
+        print("# 2. Feeder got no PRICE. GO NEXT PHASE")
         # 3. Got PRICE but no SIGNAL generated. GO NEXT PHASE
-        elif (
+        if (
             self._price_get_count > 0
             and self._price_get_count == self._count_of_price_should_come_now
             and self._price_gen_signal_count == 0
             and self._lastday_signal_count == 0
         ):
             return 3
+        print("# 3. Got PRICE but no SIGNAL generated. GO NEXT PHASE")
         # 4. Got SIGNAL but no ORDER generated. GO NEXT PHASE
-        elif (
+        if (
             self._signal_get_count > 0
             and self._signal_get_count
             == self._price_gen_signal_count + self._lastday_signal_count
@@ -123,15 +126,17 @@ class PortfolioT1Backtest(BasePortfolio):
             and self._signal_gen_order_count == 0
         ):
             return 4
+        print("# 4. Got SIGNAL but no ORDER generated. GO NEXT PHASE")
         # 5. Gen ORDER but no ORDER sended. GO NEXT PHASE
-        elif (
+        if (
             self._price_get_count == self._count_of_price_should_come_now
             and self._signal_gen_order_count > 0
             and self._order_send_count == 0
         ):
             return 5
+        print("# 5. Gen ORDER but no ORDER sended. GO NEXT PHASE")
         # 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE
-        elif (
+        if (
             self._price_get_count == self._count_of_price_should_come_now
             and self._order_send_count > 0
             and self._order_send_count
@@ -140,6 +145,7 @@ class PortfolioT1Backtest(BasePortfolio):
             == 0
         ):
             return 6
+        print("# 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE")
         return 0
 
     @property
