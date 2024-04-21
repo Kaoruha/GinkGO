@@ -142,8 +142,8 @@ def address_handler(message):
 
 def get_address(message):
     if message.text == GCONF.TELEGRAM_PWD:
-        ip = os.popen("curl https://ifconfig.net/").read()
-        bot.reply_to(message, f"Your address is {ip}")
+        ip = os.popen("curl myip.ipip.net").read()
+        bot.reply_to(message, f"{ip}")
 
 
 def verify_next(message):

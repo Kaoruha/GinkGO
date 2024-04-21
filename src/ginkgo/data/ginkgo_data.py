@@ -68,6 +68,7 @@ class GinkgoData(object):
         self.batch_size = 500
         self.cpu_ratio = 0.5
         self.redis_expiration_time = 60 * 60 * 6
+        self.max_try = 5
         try:
             self.cpu_ratio = GCONF.CPURATIO
         except Exception as e:
@@ -311,27 +312,20 @@ class GinkgoData(object):
 
     def add(self, value) -> None:
         if not isinstance(value, (MClickBase, MMysqlBase)):
-            import pdb
-
-            pdb.set_trace()
             GLOG.ERROR(f"Can not add {value} to database.")
             return
-        GLOG.DEBUG(type(value))
-        GLOG.DEBUG(value)
         GLOG.DEBUG("Try add data to session.")
-        driver = self.get_driver(value)
-        GLOG.DEBUG(f"Current Driver is {driver}.")
-        driver.session.add(value)
-        try:
-            driver.session.commit()
-        except Exception as e:
-            print(e)
-            driver.session.rollback()
-            import pdb
-
-            pdb.set_trace()
-        driver.session.close()
-        GLOG.DEBUG(f"Driver {driver} commit.")
+        for i in range(self.max_try):
+            driver = self.get_driver(value)
+            try:
+                driver.session.add(value)
+                driver.session.commit()
+                driver.session.close()
+            except Exception as e:
+                driver.session.rollback()
+                GLOG.CRITICAL(f"{type(value)} add failed {i+1}/{self.max_try}")
+                print(e)
+                time.sleep(1)
 
     def add_all(self, values) -> None:
         """
@@ -340,8 +334,6 @@ class GinkgoData(object):
         GLOG.DEBUG("Try add multi data to session.")
         click_list = []
         mysql_list = []
-        click_driver = self.get_click()
-        mysql_driver = self.get_mysql()
         for i in values:
             if isinstance(i, MClickBase):
                 GLOG.DEBUG(f"Add {type(i)} to clickhouse session.")
@@ -351,16 +343,33 @@ class GinkgoData(object):
                 mysql_list.append(i)
             else:
                 GLOG.WARN("Just support clickhouse and mysql now. Ignore other type.")
-        if len(click_list) > 0:
-            click_driver.session.add_all(click_list)
-            click_driver.session.commit()
-            click_driver.session.close()
-            GLOG.DEBUG(f"Clickhouse commit {len(click_list)} records.")
-        if len(mysql_list) > 0:
-            mysql_driver.session.add_all(mysql_list)
-            mysql_driver.session.commit()
-            mysql_driver.session.close()
-            GLOG.DEBUG(f"Mysql commit {len(mysql_list)} records.")
+
+        for i in range(self.max_try):
+            click_driver = self.get_click()
+            mysql_driver = self.get_mysql()
+            try:
+                if len(click_list) > 0:
+                    click_driver.session.add_all(click_list)
+                    click_driver.session.commit()
+                    click_driver.session.close()
+                    GLOG.DEBUG(f"Clickhouse commit {len(click_list)} records.")
+            except Exception as e:
+                click_driver.session.rollback()
+                GLOG.CRITICAL(f"ClickHouse add failed {i+1}/{self.max_try}")
+                print(e)
+                time.sleep(1)
+        for i in range(self.max_try):
+            try:
+                if len(mysql_list) > 0:
+                    mysql_driver.session.add_all(mysql_list)
+                    mysql_driver.session.commit()
+                    mysql_driver.session.close()
+                    GLOG.DEBUG(f"Mysql commit {len(mysql_list)} records.")
+            except Exception as e:
+                print(e)
+                mysql_driver.session.rollback()
+                GLOG.CRITICAL(f"Mysql add failed {i+1}/{self.max_try}")
+                time.sleep(1)
 
     def get_tick_model(self, code: str) -> type:
         """

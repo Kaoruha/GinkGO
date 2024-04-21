@@ -234,7 +234,7 @@ def ls(
                 ]
             ]
     elif data == DataType.CALENDAR:
-        raw = GDATA.get_trade_calendar_df_cached()
+        raw = GDATA.get_trade_calendar_df()
         rs = raw[["timestamp", "market", "is_open"]]
     elif data == DataType.ADJUST:
         pass
@@ -311,7 +311,7 @@ def show(
                 ]
             ]
     elif data == DataType.ADJUST:
-        raw = GDATA.get_adjustfactor_df_cached(code)
+        raw = GDATA.get_adjustfactor_df(code)
         if raw.shape[0] == 0:
             rs = raw
         else:
@@ -330,7 +330,7 @@ def show(
             args=(f"Get Daybar {code}",),
         )
         p.start()
-        raw = GDATA.get_daybar_df_cached(code, start, end)
+        raw = GDATA.get_daybar_df(code, start, end)
         if raw.shape[0] == 0:
             rs = raw
         else:
@@ -549,16 +549,8 @@ def rebuild(
 
     if stockinfo:
         GDATA.drop_table(MStockInfo)
-        cache_name = "cn_stockinfo_updated"  # TODO use const
-        GDATA.remove_from_redis(cache_name)
 
     if calendar:
         GDATA.drop_table(MTradeDay)
-        # Get values of MarketTypes, try remove from redis
-        for market in MARKET_TYPES:
-            cached_name = f"trade_calendar%{market}updateat"  # Use const
-            GDATA.remove_from_redis(cached_name)
-            cached_name = f"trade_calendar%{market}"  # Use const
-            GDATA.remove_from_redis(cached_name)
 
     GDATA.create_all()
