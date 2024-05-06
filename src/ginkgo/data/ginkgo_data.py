@@ -1,4 +1,5 @@
 import yaml
+import inspect
 import time
 import signal
 import psutil
@@ -15,6 +16,7 @@ import threading
 from sqlalchemy import DDL
 from rich.console import Console
 from rich.progress import Progress
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 from ginkgo.data.models import (
     MAnalyzer,
@@ -77,25 +79,10 @@ class GinkgoData(object):
         self.tick_models = {}
         self.cache_daybar_count = 0
         self.cache_daybar_max = 4
+        self.timeout = 60
         self._mysql = None
         self._clickhouse = None
         self._redis = None
-
-    def run_with_timeout(self, thread: threading.Thread, timeout: int = 20):
-        def handle_timeout(signum, frame):
-            thread.terminate()
-            raise TimeoutError("Timeout")
-
-        signal.signal(signal.SIGALRM, handle_timeout)
-        signal.alarm(timeout)
-        try:
-            result = thread.join()
-            return result
-        except TimeoutError:
-            raise TimeoutError(f"Thread did not complete within the {timeout} seconds")
-        finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, signal.SIG_IGN)
 
     # Redis >>
 
@@ -311,6 +298,13 @@ class GinkgoData(object):
         return self._redis
 
     def add(self, value) -> None:
+        """
+        Add a single data item.
+        Args:
+            value(Model): Data Model
+        Returns:
+            None
+        """
         if not isinstance(value, (MClickBase, MMysqlBase)):
             GLOG.ERROR(f"Can not add {value} to database.")
             return
@@ -1877,13 +1871,13 @@ class GinkgoData(object):
             .filter(MFile.isdel == False)
             .first()
         )
-        if r is not None:
-            r.update = datetime.datetime.now()
-            r.isdel = True
-            db.session.commit()
-            return True
-        else:
+        if r is None:
             return False
+        r.update = datetime.datetime.now()
+        r.isdel = True
+        db.session.commit()
+        db.session.close()
+        return True
 
     def init_file(self) -> None:
         def walk_through(folder: str):
@@ -1966,6 +1960,7 @@ class GinkgoData(object):
         r.update = datetime.datetime.now()
         r.isdel = True
         db.session.commit()
+        db.session.close()
         return True
 
     def finish_backtest(self, backtest_id: str) -> bool:
@@ -1981,6 +1976,7 @@ class GinkgoData(object):
             return False
         r.finish(datetime.datetime.now())
         db.session.commit()
+        db.session.close()
         GLOG.DEBUG(f"Backtest {backtest_id} finished.")
         return True
 
@@ -1996,8 +1992,8 @@ class GinkgoData(object):
         if len(r) > 0:
             for i in r:
                 db.session.delete(i)
-                # TODO modify is_del
             db.session.commit()
+        db.session.close()
         return count
 
     def remove_analyzers(self, backtest_id: str) -> int:
@@ -2013,8 +2009,9 @@ class GinkgoData(object):
         if count > 0:
             db.session.query(MAnalyzer).filter(
                 MAnalyzer.backtest_id == backtest_id
-            ).filter(MAnalyzer.isdel == False).delete()
+            ).delete()
             # TODO modify is_del
+        db.session.close()
         return count
 
     def update_backtest_worth(self, backtest_id: str, worth: float) -> bool:
@@ -2247,6 +2244,23 @@ class GinkgoData(object):
         )
         db.session.close()
         return r
+
+    def remove_positions(self, backtest_id: str) -> int:
+        db = self.get_driver(MPosition)
+        r = (
+            db.session.query(MPosition)
+            .filter(MPosition.backtest_id == backtest_id)
+            .filter(MPosition.isdel == False)
+            .all()
+        )
+        count = len(r)
+        if count > 0:
+            db.session.query(MPosition).filter(
+                MPosition.backtest_id == backtest_id
+            ).delete()
+            db.session.commit()
+        db.session.close()
+        return count
 
 
 GDATA = GinkgoData()

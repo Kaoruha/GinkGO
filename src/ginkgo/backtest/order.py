@@ -1,17 +1,23 @@
 import pandas as pd
 import datetime
 from functools import singledispatchmethod
+
+
+from ginkgo.libs import base_repr, datetime_normalize, gen_uuid4
+from ginkgo.backtest.base import Base
 from ginkgo.enums import (
     DIRECTION_TYPES,
     ORDER_TYPES,
     ORDERSTATUS_TYPES,
     SOURCE_TYPES,
 )
-from ginkgo.libs import base_repr, datetime_normalize, gen_uuid4
-from ginkgo.backtest.base import Base
 
 
 class Order(Base):
+    """
+    Order Class
+    """
+
     def __init__(
         self,
         code: str = "Default Order Code",
@@ -55,7 +61,9 @@ class Order(Base):
     @singledispatchmethod
     def set(self) -> None:
         """
-        Support transfer the params or dataframe
+        Support set from params or dataframe.
+        1. From parmas
+        2. From dataframe
         code,direction,type,volume,limit_price,frozen,transaction_price,remain,timestamp,uuid
         """
         pass

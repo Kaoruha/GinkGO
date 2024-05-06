@@ -17,6 +17,9 @@ class SharpRatio(BaseAnalyzer):
         self._annual_returns = []
         self._base_profit = 0.05
 
+    def activate(self, stage, *args, **kwargs) -> None:
+        pass
+
     def record(self, stage, *args, **kwargs) -> None:
         super(SharpRatio, self).record(stage, *args, **kwargs)
         if stage != self.active_stage:

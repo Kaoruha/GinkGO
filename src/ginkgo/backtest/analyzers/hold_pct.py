@@ -8,3 +8,9 @@ class HoldPCT(BaseAnalyzer):
 
     def __init__(self, name: str, *args, **kwargs):
         super(HoldPCT, self).__init__(name, *args, **kwargs)
+
+    def activate(self, stage, *args, **kwargs) -> None:
+        pass
+
+    def record(self, stage, *args, **kwargs) -> None:
+        pass

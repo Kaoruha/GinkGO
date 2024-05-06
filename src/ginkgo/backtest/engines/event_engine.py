@@ -13,21 +13,20 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
-    from ginkgo.backtest.matchmakings import MatchMakingBase
     from ginkgo.backtest.events.base_event import EventBase
     from ginkgo.backtest.feeds.base_feed import BaseFeed
     from ginkgo.enums import EVENT_TYPES
 
 import datetime
-import sys
+import threading
 from time import sleep
 from queue import Queue, Empty
-from threading import Thread, Event
+
+
 from ginkgo.backtest.engines.base_engine import BaseEngine
 from ginkgo.backtest.events import EventNextPhase
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs import datetime_normalize
 from ginkgo.libs import GinkgoSingleLinkedList
 
 
@@ -40,20 +39,14 @@ class EventEngine(BaseEngine):
         self, name: str = "EventEngine", interval: int = 1, *args, **kwargs
     ) -> None:
         super(EventEngine, self).__init__(name, *args, **kwargs)
-        self._active = False
         self._interval: int = interval
-        self._time_interval = datetime.timedelta(days=1)
-        self._date_start = None
-        self._date_end = None
         self._now = None
-        self.set_date_start(20000101)
-        self._duration = 10
-        self._main_flag = Event()
-        self._main_thread: Thread = Thread(
+        self._main_flag = threading.Event()
+        self._main_thread: Thread = threading.Thread(
             target=self.main_loop, args=(self._main_flag,)
         )
-        self._timer_flag = Event()
-        self._timer_thread: Thread = Thread(
+        self._timer_flag = threading.Event()
+        self._timer_thread: Thread = threading.Thread(
             target=self.timer_loop, args=(self._timer_flag,)
         )
         self._handles: dict = {}
@@ -61,7 +54,6 @@ class EventEngine(BaseEngine):
         self._timer_handles: list = []
         self._queue: Queue = Queue()
         self._portfolios = GinkgoSingleLinkedList()
-        self._matchmaking = None
         self._datafeeder = None
 
     @property
@@ -78,24 +70,11 @@ class EventEngine(BaseEngine):
         return self._now
 
     @property
-    def matchmaking(self) -> "MatchMakingBase":
-        return self._matchmaking
-
-    def bind_matchmaking(self, matchmaking: "MatchMakingBase") -> "MatchMakingBase":
-        self._matchmaking = matchmaking
-        if self.matchmaking.engine is None:
-            self.matchmaking.bind_engine(self)
-            GLOG.DEBUG(f"{type(self)}:{self.name} bind MATCHMAKING {matchmaking.name}.")
-        GLOG.DEBUG(
-            f"Bind Failed. {type(self)}:{self.name} already have MATCHMAKING {matchmaking.name}."
-        )
-        return self.matchmaking
-
-    @property
     def portfolios(self) -> GinkgoSingleLinkedList:
         return self._portfolios
 
     def bind_portfolio(self, portfolio: "BasePortfolio") -> int:
+        # ID of this engine is the unique in backtest.
         portfolio.set_backtest_id(self.backtest_id)
         self._portfolios.append(portfolio)
         GLOG.DEBUG(f"{type(self)}:{self.name} bind PORTFOLIO {portfolio.name}.")
@@ -104,45 +83,7 @@ class EventEngine(BaseEngine):
                 i.value.bind_engine(self)
         l = len(self.portfolios)
         GLOG.DEBUG(f"{type(self)}:{self.name} has {l} PORTFOLIOs.")
-        # TODO set backtest_id
         return l
-
-    @property
-    def duration(self) -> int:
-        return self._duration
-
-    def set_duration(self, duration: int) -> int:
-        self._duration = duration
-        GLOG.DEBUG(f"{type(self)}:{self.name} set duration {duration}.")
-        return self._duration
-
-    @property
-    def date_start(self) -> datetime.datetime:
-        return self._date_start
-
-    def set_date_start(self, date: any) -> datetime.datetime:
-        self._date_start = datetime_normalize(date)
-        self._now = self._date_start
-        GLOG.DEBUG(f"{type(self)}:{self.name} set DATESTART {self.date_start}.")
-        return self.date_start
-
-    @property
-    def date_end(self) -> datetime.datetime:
-        return self._date_end
-
-    def set_date_end(self, date: any) -> datetime.datetime:
-        self._date_end = datetime_normalize(date)
-        GLOG.DEBUG(f"{type(self)}:{self.name} set DATEEND {self.date_end}.")
-        return self.date_end
-
-    def set_backtest_interval(self, interval: str) -> datetime.timedelta:
-        interval = interval.upper()
-        if interval == "DAY":
-            self._time_interval = datetime.timedelta(days=1)
-        elif interval == "MIN":
-            self._time_interval = datetime.timedelta(minutes=1)
-        GLOG.DEBUG(f"{type(self)}:{self.name} set INTERVAL {self._time_interval}.")
-        return self._time_interval
 
     def main_loop(self, flag) -> None:
         """
@@ -157,22 +98,11 @@ class EventEngine(BaseEngine):
                 event: EventBase = self._queue.get(block=True, timeout=0.5)
                 # Pass the event to handle
                 self._process(event)
-                count = 0
             except Empty:
                 GLOG.WARN(f"No Event in Queue. {datetime.datetime.now()} {count}")
-                count += 1
-                # Exit
-                if count >= self.duration:
-                    now = datetime.datetime.now()
-                    if self.now > now:
-                        GLOG.WARN("Should Stop.")
-                        self.stop()
-                        sys.exit()
-                    else:
-                        self.put(EventNextPhase())
 
             # Break for a while
-            # sleep(GCONF.HEARTBEAT)
+            sleep(GCONF.HEARTBEAT)
 
     def timer_loop(self, flag) -> None:
         """
@@ -184,7 +114,7 @@ class EventEngine(BaseEngine):
             [handle() for handle in self._timer_handles]
             sleep(self._interval)
 
-    def start(self) -> Thread:
+    def start(self) -> threading.Thread:
         """
         Start the engine
         """
@@ -206,11 +136,18 @@ class EventEngine(BaseEngine):
         GLOG.WARN("Engine Stop.")
 
     def put(self, event: "EventBase") -> None:
+        """
+        Put event to queue.
+        Args:
+            event(Event): Event
+        Returns:
+            None
+        """
         self._queue.put(event)
         GLOG.DEBUG(f"{type(self)}:{self.name} put {event.event_type} in queue.")
 
     def _process(self, event: "EventBase") -> None:
-        print(f"Process {event.event_type}")
+        GLOG.DEBUG(f"Process {event.event_type}")
         print(event)
         if event.event_type in self._handles:
             [handle(event) for handle in self._handles[event.event_type]]
@@ -223,63 +160,91 @@ class EventEngine(BaseEngine):
 
         [handle(event) for handle in self._general_handles]
 
-    def register(self, type: "EVENT_TYPES", handle: callable) -> None:
+    def register(self, type: "EVENT_TYPES", handle: callable) -> bool:
+        """
+        Regist the event and handler.
+        Args:
+            type(EVENT_TYPES): type of event.
+            handle(function): function for dealing with event
+        Returns:
+            None
+        """
         if type in self._handles:
             if handle not in self._handles[type]:
                 self._handles[type].append(handle)
+                return True
             else:
                 GLOG.WARN(f"handle Exists.")
+                return False
         else:
             self._handles[type]: list = []
             self._handles[type].append(handle)
             GLOG.INFO(
                 f"Register handle {type} : {handle.__name__}"
             )  # handler.__func__ for method object, not support function object.
+            return True
 
-    def unregister(self, type: "EVENT_TYPES", handle: callable) -> None:
+    def unregister(self, type: "EVENT_TYPES", handle: callable) -> bool:
+        """
+        Unregist the event and handler.
+        Args:
+            type(EVENT_TYPES): type of event.
+            handle(function): function for dealing with event
+        Returns:
+            None
+        """
         if type not in self._handles:
             GLOG.WARN(f"Event {type} not exsits. No need to unregister the handle.")
-            return
+            return False
 
         if handle not in self._handles[type]:
             GLOG.WARN(f"Event {type} do not own the handle.")
-            return
+            return False
 
         self._handles[type].remove(handle)
         GLOG.INFO(f"Unregister handle {type} : {handle}")
+        return True
 
-    def register_general(self, handle: callable) -> None:
+    def register_general(self, handle: callable) -> bool:
         if handle not in self._general_handles:
             self._general_handles.append(handle)
             msg = f"RegisterGeneral : {handle}"
             GLOG.INFO(msg)
+            return True
         else:
             msg = f"{handle} already exist."
             GLOG.WARN(msg)
+            return False
 
-    def unregister_general(self, handle: callable) -> None:
+    def unregister_general(self, handle: callable) -> bool:
         if handle in self._general_handles:
             self._general_handles.remove(handle)
             msg = f"UnregisterGeneral : {handle}"
             GLOG.INFO(msg)
+            return True
         else:
             msg = f"{handle} not exsit in Generalhandle"
             GLOG.WARN(msg)
+            return False
 
-    def register_timer(self, handle: callable) -> None:
+    def register_timer(self, handle: callable) -> bool:
         if handle not in self._timer_handles:
             self._timer_handles.append(handle)
             GLOG.INFO(f"Register Timer handle: {handle}")
+            return True
         else:
-            GLOG.DEBUG(f"Timer handle Exsits.")
+            GLOG.WARN(f"Timer handle Exsits.")
+            return False
 
-    def unregister_timer(self, handle: callable) -> None:
+    def unregister_timer(self, handle: callable) -> bool:
         if handle in self._timer_handles:
             self._timer_handles.remove(handle)
             GLOG.INFO(f"Unregister Timer handle: {handle}")
+            return True
         else:
             msg = f"Timerhandle {handle} not exists."
             GLOG.WARN(msg)
+            return False
 
     @property
     def handle_count(self) -> int:
@@ -299,26 +264,3 @@ class EventEngine(BaseEngine):
     @property
     def todo_count(self) -> int:
         return self._queue.qsize()
-
-    def nextphase(self, *args, **kwargs) -> None:
-        if self.now >= self.date_end:
-            self.stop()
-            return
-        self._now = self.now + self._time_interval
-
-        if self.matchmaking is None:
-            GLOG.ERROR(f"There is no matchmaking binded.")
-        else:
-            self.matchmaking.on_time_goes_by(self.now)
-
-        if self.datafeeder is None:
-            GLOG.ERROR(f"There is no datafeeder.")
-        else:
-            self.datafeeder.on_time_goes_by(self.now)
-
-        if len(self.portfolios) == 0:
-            GLOG.ERROR(f"There is no portfolio binded.")
-        else:
-            GLOG.INFO(f"Engine:{self.name} Go NextDay {self.now}.")
-            for i in self.portfolios:
-                i.value.on_time_goes_by(self.now)

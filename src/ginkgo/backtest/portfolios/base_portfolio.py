@@ -5,22 +5,19 @@ if TYPE_CHECKING:
     from ginkgo.backtest.strategies import StrategyBase
 
 
-import datetime
 from ginkgo.backtest.engines.base_engine import BaseEngine
 from ginkgo.backtest.selectors import BaseSelector
+from ginkgo.backtest.backtest_base import BacktestBase
 from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
 from ginkgo.backtest.sizers import BaseSizer
-import pandas as pd
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.position import Position
-from ginkgo.backtest.signal import Signal
-from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES, ORDER_TYPES, RECORDSTAGE_TYPES
-from ginkgo.libs import cal_fee, datetime_normalize, GinkgoSingleLinkedList
+from ginkgo.enums import DIRECTION_TYPES, RECORDSTAGE_TYPES
+from ginkgo.libs import GinkgoSingleLinkedList
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.backtest.backtest_base import BacktestBase
+from ginkgo.data.ginkgo_data import GDATA
 
 
 class BasePortfolio(BacktestBase):
@@ -29,8 +26,8 @@ class BasePortfolio(BacktestBase):
         self.set_name("HaloPortfolio")
         self._cash: float = 100000
         self._worth: float = 100000
-        self._frozen: float = 0
         self._profit: float = 0
+        self._frozen: float = 0
         self._positions: dict = {}
         self._strategies = GinkgoSingleLinkedList()
         self._sizer = None
@@ -41,22 +38,34 @@ class BasePortfolio(BacktestBase):
         self._interested = GinkgoSingleLinkedList()
         self._fee = 0
 
-    def get_count_of_price(self, date):
-        raise NotImplemented
+    def get_count_of_price(self, date: any):
+        raise NotImplemented(
+            "Must implement the Function to get the count of coming price info."
+        )
 
     def update_worth(self) -> None:
+        """
+        Update the WORTH of Portfolio.
+            Part1: Cash
+            Part2: Frozen Money
+            Part3: Total value of all Positions
+        """
         self._worth = self.cash + self.frozen
         for key in self.positions:
             self._worth += self.positions[key].worth
 
     def update_profit(self) -> None:
+        """
+        Update the PROFIT of Portfolio
+        """
         self._profit = 0
         for key in self.positions:
             self._profit += self.positions[key].profit
-        if not isinstance(self.profit, float) and not isinstance(self.profit, int):
+        if not isinstance(self.profit, (float, int)):
             import pdb
 
             pdb.set_trace()
+            pass
 
     @property
     def profit(self) -> float:
@@ -67,19 +76,33 @@ class BasePortfolio(BacktestBase):
         return self._worth
 
     def add_found(self, money: float) -> float:
-        if money < 0:
+        """
+        [Obsolete]Add Found.
+        Args:
+            money(float): Income money.
+        Returns:
+            current cash
+        """
+        if money <= 0:
             GLOG.ERROR(f"The money should not under 0. {money} is illegal.")
-        else:
-            GLOG.WARN(f"Add FOUND {money}")
-            self._cash += money
-            self.update_worth()
+            return 0
+        GLOG.DEBUG(f"Add FOUND {money}")
+        self._cash += money
+        self.update_worth()
         return self.cash
 
     def add_cash(self, money: float) -> float:
-        if money < 0:
+        """
+        Add Found.
+        Args:
+            money(float): Income money.
+        Returns:
+            current cash
+        """
+        if money <= 0:
             GLOG.ERROR(f"The money should not under 0. {money} is illegal.")
         else:
-            GLOG.WARN(f"Add FOUND {money}")
+            GLOG.DEBUG(f"Add FOUND {money}")
             self._cash += money
             self.update_worth()
         return self.cash
@@ -101,60 +124,80 @@ class BasePortfolio(BacktestBase):
     @property
     def fee(self) -> float:
         """
-        return the total fee of each trade
+        return the total fee
         """
         return self._fee
 
     def add_fee(self, fee: float) -> float:
+        """
+        Add fee.
+        Args:
+            fee(float): number of fee
+        Returns:
+            total fee of this portfolio
+        """
         if fee < 0:
             GLOG.ERROR(f"The fee should not under 0. {fee} is illegal.")
         else:
-            GLOG.WARN(f"Add FEE {fee}")
+            GLOG.DEBUG(f"Add FEE {fee}")
             self._fee += fee
         return self.fee
 
     @property
     def interested(self) -> GinkgoSingleLinkedList():
+        """
+        Interested Codes.
+        """
         return self._interested
 
     def record(self, stage: RECORDSTAGE_TYPES) -> None:
+        """
+        Try do record. Iterrow each analyzer, do record.
+        Args:
+            stage(enum): newday, signalgeneration, ordersend, orderfilled, ordercanceled
+        Returns:
+            None
+        """
         for k, v in self.analyzers.items():
             v.activate(stage)
             v.record(stage)
 
     def is_all_set(self) -> bool:
         """
-        check if all parts set
+        Check if all parts set
+        Args:
+            None
+        Returns:
+            Is all preparation complete?
         """
-        r = True
         if self.engine is None:
-            GLOG.ERROR(f"Engine not bind. Events can not put back to the ENGINE.")
-            r = False
+            GLOG.WARN(f"Engine not bind. Events can not put back to the ENGINE.")
+            return False
 
         if self.sizer is None:
-            GLOG.ERROR(
+            GLOG.WARN(
                 f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first."
             )
-            r = False
+            return False
 
         if self.risk_manager is None:
-            GLOG.ERROR(
+            GLOG.WARN(
                 f"Portfolio RiskManager not set. Can not Adjust the order. Please set the RISKMANAGER first."
             )
-            r = False
+            return False
 
         if self.selector is None:
-            GLOG.ERROR(
+            GLOG.WARN(
                 f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first."
             )
-            r = False
+            return False
 
         if len(self.strategies) == 0:
             GLOG.WARN(f"No strategy register. No signal will come.")
 
-        return r
+        return True
 
-    def bind_selector(self, selector: "BaseSelector"):
+    def bind_selector(self, selector: BaseSelector):
         if not isinstance(selector, BaseSelector):
             GLOG.ERROR(
                 f"Selector bind only support Selector, {type(selector)} {selector} is not supported."
@@ -170,21 +213,20 @@ class BasePortfolio(BacktestBase):
         """
         return self._selector
 
-    def bind_engine(self, engine: "BaseEngine"):
+    def bind_engine(self, engine: BaseEngine):
         if not isinstance(engine, BaseEngine):
             GLOG.ERROR(
                 f"EngineBind only support Type Engine, {type(BaseEngine)} {engine} is not supported."
             )
             return
         self._engine = engine
-        for ana_name in self.analyzers.keys():
-            self.analyzers[ana_name].set_backtest_id(engine.backtest_id)
+        self.set_backtest_id(engine.backtest_id)
 
     @property
     def engine(self):
         return self._engine
 
-    def bind_risk(self, risk: "BaseRiskManagement") -> None:
+    def bind_risk(self, risk: BaseRiskManagement) -> None:
         if not isinstance(risk, BaseRiskManagement):
             GLOG.ERROR(
                 f"Risk bind only support Riskmanagement, {type(risk)} {risk} is not supported."
@@ -193,10 +235,10 @@ class BasePortfolio(BacktestBase):
         self._risk_manager = risk
 
     @property
-    def risk_manager(self) -> "BaseRiskManagement":
+    def risk_manager(self) -> BaseRiskManagement:
         return self._risk_manager
 
-    def bind_sizer(self, sizer: "BaseSizer") -> None:
+    def bind_sizer(self, sizer: BaseSizer) -> None:
         if not isinstance(sizer, BaseSizer):
             GLOG.ERROR(
                 f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported."
@@ -209,7 +251,7 @@ class BasePortfolio(BacktestBase):
                 self.sizer.bind_data_feeder(self.engine.datafeeder)
 
     @property
-    def sizer(self) -> "BaseSizer":
+    def sizer(self) -> BaseSizer:
         return self._sizer
 
     def freeze(self, money: float) -> bool:
@@ -359,6 +401,8 @@ class BasePortfolio(BacktestBase):
 
         for key in self.positions.keys():
             pos = self.get_position(key)
+            if pos is None:
+                continue
             vol = pos.volume + pos.frozen
             if vol == 0:
                 del_list.append(key)
@@ -367,11 +411,13 @@ class BasePortfolio(BacktestBase):
 
     def set_backtest_id(self, value: str, *args, **kwargs) -> None:
         super(BasePortfolio, self).set_backtest_id(value, *args, **kwargs)
-        # Pass the backtest id to analyzers and strategies
+        # Pass the backtest id to analyzers, strategies and positions.
         for i in self.strategies:
             i.value.set_backtest_id(value)
         for i in self.analyzers.keys():
             self.analyzers[i].set_backtest_id(value)
+        for i in self.positions.keys():
+            self.positions[i].set_backtest_id(value)
 
     def record_positions(self) -> None:
         self.clean_positions()
@@ -382,5 +428,28 @@ class BasePortfolio(BacktestBase):
             l.append(self.positions[i])
         GDATA.add_positions(self.backtest_id, self.now, l)
 
-    def recover_positions(self) -> None:
-        pass
+    def bought(self, code: str, price: str, volume: int, fee: float) -> None:
+        if volume < 0:
+            # LOG
+            return
+        if fee < 0:
+            # LOG
+            return
+        pos = Position()
+        pos.set(code, price, volume)
+        self.add_position(pos)
+
+    def sold(self, code: str, price: str, volume: int, fee: float) -> None:
+        p = self.get_position(code)
+        if p is None:
+            # LOG
+            return
+        if volume > p.volume:
+            # LOG
+            return
+        if fee < 0:
+            # LOG
+            return
+        p.volume -= volume
+        self.add_fee(fee)
+        self._cash += price * volume - fee

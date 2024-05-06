@@ -1,9 +1,11 @@
 import os
+import time
 import inspect
 import logging
-from logging.handlers import RotatingFileHandler
 import colorlog
 import threading
+from logging.handlers import RotatingFileHandler
+
 from ginkgo.libs.ginkgo_conf import GCONF
 
 # Read Configure
@@ -28,8 +30,19 @@ class GinkgoLogger(object):
 
     def __init__(self, logger_name, file_name=None) -> None:
         super().__init__()
+        self.backup_count = 5
+        self.max_file_bytes = 2 * 1024 * 1024 * 1024
         self._file_handler_name = "ginkgo_file_logger"
         self._console_handler_name = "ginkgo_console_logger"
+        self.file_formatter = logging.Formatter(
+            fmt="[%(asctime)s.%(msecs)03d][%(levelname)s]:%(message)s  ",
+            datefmt="%Y-%m-%d  %H:%M:%S",
+        )
+        self.console_formatter = colorlog.ColoredFormatter(
+            fmt="%(log_color)s%(asctime) s PID:%(process)d [%(levelname)s] %(message)s ",
+            datefmt="%H:%M:%S",
+            log_colors=LOGGING_COLOR,
+        )
 
         if not os.path.exists(LOGGING_PATH):
             os.mkdir(LOGGING_PATH)
@@ -51,8 +64,8 @@ class GinkgoLogger(object):
             filename=file_path,
             encoding="utf-8",
             mode="a",
-            maxBytes=50 * 1024,
-            backupCount=3,
+            maxBytes=self.max_file_bytes,
+            backupCount=self.backup_count,
         )
         self.file_handler.set_name(self._file_handler_name)
 
@@ -67,17 +80,8 @@ class GinkgoLogger(object):
         # 日志输出格式
         # set the file handler formatter, that print the line num and file that call the logger function
 
-        file_formatter = logging.Formatter(
-            fmt="[%(asctime)s.%(msecs)03d][%(levelname)s]:%(message)s  ",
-            datefmt="%Y-%m-%d  %H:%M:%S",
-        )
-        console_formatter = colorlog.ColoredFormatter(
-            fmt="%(log_color)s%(asctime) s PID:%(process)d [%(levelname)s] %(message)s ",
-            datefmt="%H:%M:%S",
-            log_colors=LOGGING_COLOR,
-        )
-        self.console_handler.setFormatter(console_formatter)
-        self.file_handler.setFormatter(file_formatter)
+        self.console_handler.setFormatter(self.console_formatter)
+        self.file_handler.setFormatter(self.file_formatter)
 
         # Prevent the child logger from propagating its messages to the root logger
         self.logger.propagate = False
@@ -99,22 +103,39 @@ class GinkgoLogger(object):
             if not is_file_handler_registed:
                 self.logger.addHandler(self.file_handler)
 
-    def reset_logfile(self, file_name: str) -> None:
-        if not LOGGING_FILE_ON:
-            return
-        self.logger.removeHandler(self.file_handler)
-        self.file_handler = RotatingFileHandler(
-            filename=LOGGING_PATH + file_name,
+        # 异常记录
+        error_path = (
+            LOGGING_PATH + self.file_name
+            if LOGGING_PATH.endswith("/")
+            else LOGGING_PATH + "/" + "error.log"
+        )
+        error_handler = logging.FileHandler(
+            filename=error_path,
             encoding="utf-8",
             mode="a",
-            maxBytes=50 * 1024,
-            backupCount=3,
         )
-        file_formatter = logging.Formatter(
-            fmt="[%(asctime)s.%(msecs)03d][%(levelname)s]:%(message)s ",
-            datefmt="%Y-%m-%d  %H:%M:%S",
+        error_handler.set_name("ginkgo_error")
+        error_handler.setLevel(logging.ERROR)
+        error_handler.setFormatter(self.file_formatter)
+        self.logger.addHandler(error_handler)
+
+    def reset_logfile(self, file_name: str) -> None:
+        self.logger.removeHandler(self.file_handler)
+        if not LOGGING_FILE_ON:
+            return
+        file_path = (
+            LOGGING_PATH + file_name
+            if LOGGING_PATH.endswith("/")
+            else LOGGING_PATH + "/" + file_name
         )
-        self.file_handler.setFormatter(file_formatter)
+        self.file_handler = RotatingFileHandler(
+            filename=file_path,
+            encoding="utf-8",
+            mode="a",
+            maxBytes=self.max_file_bytes,
+            backupCount=self.backup_count,
+        )
+        self.file_handler.setFormatter(self.file_formatter)
         self.logger.addHandler(self.file_handler)
 
     def set_level(self, level: str):

@@ -1,7 +1,8 @@
+import json
 from kafka import KafkaProducer
 from kafka import KafkaConsumer
+
 from ginkgo.libs.ginkgo_conf import GCONF
-import json
 
 
 class GinkgoProducer(object):
