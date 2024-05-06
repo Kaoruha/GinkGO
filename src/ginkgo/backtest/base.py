@@ -1,21 +1,33 @@
 import pandas as pd
 from types import FunctionType, MethodType
-from ginkgo.enums import SOURCE_TYPES
 from enum import Enum
+
+from ginkgo.enums import SOURCE_TYPES
 
 
 class Base(object):
+    """
+    Origin Base Class
+    """
+
     def __init__(self, *args, **kwargs):
         self._source = SOURCE_TYPES.VOID
-
-    def set_source(self, source: SOURCE_TYPES):
-        self._source = source
 
     @property
     def source(self):
         return self._source
 
+    def set_source(self, source: SOURCE_TYPES):
+        self._source = source
+
     def to_dataframe(self) -> pd.DataFrame:
+        """
+        Convert Object's parameters to DataFrame.
+        Args:
+            None
+        Returns:
+            A dataframe convert from this.
+        """
         item = {}
         methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
         for param in self.__dir__():

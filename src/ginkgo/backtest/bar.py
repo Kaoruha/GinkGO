@@ -1,13 +1,18 @@
+from ginkgo.libs import base_repr, pretty_repr, datetime_normalize
+from ginkgo.backtest.base import Base
+from ginkgo.enums import FREQUENCY_TYPES
+
 import datetime
 import pandas as pd
 from types import FunctionType, MethodType
 from functools import singledispatchmethod
-from ginkgo.libs import base_repr, pretty_repr, base_repr, datetime_normalize
-from ginkgo.backtest.base import Base
-from ginkgo.enums import FREQUENCY_TYPES
 
 
 class Bar(Base):
+    """
+    Bar Container. Store OHLC, code, time and other info.
+    """
+
     def __init__(self, *args, **kwargs) -> None:
         super(Bar, self).__init__(*args, **kwargs)
 
@@ -31,6 +36,21 @@ class Bar(Base):
         frequency: FREQUENCY_TYPES,
         timestamp: any,
     ) -> None:
+        """
+        Bar data set from params.
+
+        Args:
+            code(str): Code
+            open(float): price at open
+            high(float): the highest price in this period
+            low(float): the lowest price in this period
+            close(float): price at close
+            volume(int): sum of the volume in this period
+            frequency(enum): Day or Min5
+            timestamp(any): timestamp
+        Returns:
+            None
+        """
         self._code = code
         self._open = open
         self._high = high
@@ -42,6 +62,14 @@ class Bar(Base):
 
     @set.register
     def _(self, df: pd.Series):
+        """
+        Bar set from DataFrame.
+
+        Args:
+            df(DataFrame): pandas dataframe, contains code, open, high, low, close, frequency, volume, timestamp
+        Returns:
+            None
+        """
         self._code = df.code
         self._open = df.open
         self._high = df.high
@@ -53,44 +81,75 @@ class Bar(Base):
 
     @property
     def code(self) -> str:
+        """
+        The Code of the Bar.
+        """
         return self._code
 
     @property
     def open(self) -> float:
+        """
+        Open price
+        """
         return self._open
 
     @property
     def high(self) -> float:
+        """
+        The highest price.
+        """
         return self._high
 
     @property
     def low(self) -> float:
+        """
+        The lowest price.
+        """
         return self._low
 
     @property
     def close(self) -> float:
+        """
+        Close price.
+        """
         return self._close
 
     @property
     def volume(self) -> int:
+        """
+        Turnover
+        """
         return self._volume
 
     @property
     def frequency(self) -> FREQUENCY_TYPES:
+        """
+        Tag for Frequency.
+        Day, 5Min, 1Min
+        """
         return self._frequency
 
     @property
     def timestamp(self) -> datetime.datetime:
+        """
+        Time
+        """
         return self._timestamp
 
     @property
     def chg(self) -> float:
+        """
+        Change percent.
+        """
         r = self._close - self._open
         r = round(r, 4)
         return r
 
     @property
     def amplitude(self) -> float:
+        """
+        The bigest wave.
+        """
         r = self._high - self._low
         r = round(r, 2)
         return r

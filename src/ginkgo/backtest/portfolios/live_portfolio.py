@@ -9,15 +9,9 @@ The `Portfolio` class is responsible for managing the positions and capital for 
 
 - Generating reports and metrics related to the performance of the portfolio. The reports also contain charts.
 """
-
-import time
-from rich.console import Console
-
-
 from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
 from ginkgo.backtest.bar import Bar
-from ginkgo.backtest.position import Position
-from ginkgo.backtest.signal import Signal
+from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.events import (
     EventOrderSubmitted,
     EventOrderFilled,
@@ -26,196 +20,65 @@ from ginkgo.backtest.events import (
     EventOrderCanceled,
     EventNextPhase,
 )
-
-from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.libs.ginkgo_pretty import base_repr
-from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MOrder
+from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize
+from src.ginkgo.notifier.ginkgo_notifier import GNOTIFIER
+from ginkgo.backtest.signal import Signal
 from ginkgo.enums import (
     DIRECTION_TYPES,
     SOURCE_TYPES,
     ORDERSTATUS_TYPES,
     RECORDSTAGE_TYPES,
 )
-
+from ginkgo.libs.ginkgo_pretty import base_repr
+from ginkgo.backtest.position import Position
+from rich.console import Console
+import time
 
 console = Console()
 
 
-class PortfolioT1Backtest(BasePortfolio):
+class PortfolioLive(BasePortfolio):
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False
 
     def __init__(self, *args, **kwargs):
-        super(PortfolioT1Backtest, self).__init__(*args, **kwargs)
+        super(PortfolioLive, self).__init__(*args, **kwargs)
         self._signals = GinkgoSingleLinkedList()
-        self._orders = GinkgoSingleLinkedList()
-        # Records
-        self.reset_phase_check()
+        self._suggestions = GinkgoSingleLinkedList()
 
-    def try_go_next_phase(self) -> None:
-        print("===================")
-        print(f"Data: {self.now}")
-        print(f"Worth: {self.worth}")
-        print(f"Today will get : {self._count_of_price_should_come_now} PRICE.")
-        print(f"PriceGet: {self._price_get_count}")
-        print(f"PriceGenSignal: {self._price_gen_signal_count}")
-        print(f"PricePassed: {self._price_passed_count}")
-        print(f"LastDay Signal: {self._lastday_signal_count}")
-        print(f"SignalGet: {self._signal_get_count}")
-        print(f"SignalGenOrder: {self._signal_gen_order_count}")
-        print(f"SignalPassed: {self._signal_passed_count}")
-        print(f"SignalTomorrow: {self._signal_tomorrow_count}")
-        print(f"OrderSend: {self._order_send_count}")
-        print(f"OrderFilled: {self._order_filled_count}")
-        print(f"OrderCanceled: {self._order_canceled_count}")
-        if self._should_go_next_phase > 0:
-            print(self._should_go_next_phase)
-            console.print(f"[green]YES[/green]")
-            GDATA.update_backtest_worth(self.backtest_id, self.worth)
-            self.record_positions()
-            self.put(EventNextPhase())
-        else:
-            console.print(f"[red]NO[/red]")
-            print(self._should_go_next_phase)
-
-        print(self)
-        print("===================")
-
-    @property
-    def _should_go_next_phase(self) -> int:
-        """
-        # 1. Have no interested Targets. GO NEXT PHASE
-        # 2. Feeder got no PRICE. GO NEXT PHASE
-        # 3. Got PRICE but no SIGNAL generated. GO NEXT PHASE
-        # 4. Got SIGNAL but no ORDER generated. GO NEXT PHASE
-        # 5. Gen ORDER but no ORDER sended. GO NEXT PHASE
-        # 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE
-        """
-        # 1. Have no interested Targets. GO NEXT PHASE
-        if len(self.selector.pick()) == 0:
-            return 1
-        print("# 1. Have no interested Targets. GO NEXT PHASE")
-        # 2. Feeder got no PRICE. GO NEXT PHASE
-        if (
-            self._count_of_price_should_come_now == 0
-            and self._lastday_signal_count == 0
-        ):
-            return 2
-        print("# 2. Feeder got no PRICE. GO NEXT PHASE")
-        # 3. Got PRICE but no SIGNAL generated. GO NEXT PHASE
-        if (
-            self._price_get_count > 0
-            and self._price_get_count == self._count_of_price_should_come_now
-            and self._price_gen_signal_count == 0
-            and self._lastday_signal_count == 0
-        ):
-            return 3
-        print("# 3. Got PRICE but no SIGNAL generated. GO NEXT PHASE")
-        # 4. Got SIGNAL but no ORDER generated. GO NEXT PHASE
-        if (
-            self._signal_get_count > 0
-            and self._signal_get_count
-            == self._price_gen_signal_count + self._lastday_signal_count
-            and self._price_get_count == self._count_of_price_should_come_now
-            and self._price_gen_signal_count + self._lastday_signal_count
-            == self._signal_get_count
-            and self._signal_get_count
-            - self._signal_passed_count
-            - self._signal_tomorrow_count
-            == self._signal_gen_order_count
-            and self._signal_gen_order_count == 0
-        ):
-            return 4
-        print("# 4. Got SIGNAL but no ORDER generated. GO NEXT PHASE")
-        # 5. Gen ORDER but no ORDER sended. GO NEXT PHASE
-        if (
-            self._price_get_count == self._count_of_price_should_come_now
-            and self._signal_gen_order_count > 0
-            and self._order_send_count == 0
-        ):
-            return 5
-        print("# 5. Gen ORDER but no ORDER sended. GO NEXT PHASE")
-        # 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE
-        if (
-            self._price_get_count == self._count_of_price_should_come_now
-            and self._order_send_count > 0
-            and self._order_send_count
-            - self._order_filled_count
-            - self._order_canceled_count
-            == 0
-        ):
-            return 6
-        print("# 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE")
-        return 0
-
-    @property
-    def _count_of_price_should_come_now(self) -> int:
-        r = self.engine.datafeeder.get_count_of_price(self.now, self.interested)
-        return r
-
-    def reset_phase_check(self) -> None:
-        """
-        Reset all records every new frame.
-        """
-        # Records
-        self._feeder_get_no_data_today = False
-        self._price_get_count = 0
-        self._price_gen_signal_count = 0
-        self._price_passed_count = 0
-        self._lastday_signal_count = 0
-        self._signal_get_count = 0
-        self._signal_gen_order_count = 0
-        self._signal_passed_count = 0
-        self._signal_tomorrow_count = 0
-        self._order_send_count = 0
-        self._order_filled_count = 0
-        self._order_canceled_count = 0
+    def recover_positions(self):
+        # backtest_id = self.backtest_id
+        # portfolio_id = self.uuid
+        # TODO Get Positions via backtest_id and portfolio_id
+        self._positions = {}
 
     @property
     def signals(self):
         return self._signals
 
     @property
-    def orders(self):
-        return self._orders
+    def suggestions(self):
+        return self._suggestions
 
-    def get_position(self, code: str) -> Position:
-        """
-        Get Position object from portfolio.
-        Args:
-            code(str): code
-        Returns:
-            return POSITION if it exsist else return NONE
-        """
+    def get_position(self, code: str):
         if code in self.positions.keys():
             return self.positions[code]
         return None
 
-    def on_time_goes_by(self, time: any, *args, **kwargs) -> None:
+    def cal_suggestions(self):
+        pass
+
+    def on_time_goes_by(self, time: any, *args, **kwargs):
         """
         Go next frame.
         """
         # Time goes
-        super(PortfolioT1Backtest, self).on_time_goes_by(time, *args, **kwargs)
+        super(PortfolioLive, self).on_time_goes_by(time, *args, **kwargs)
         self.update_worth()
         self.update_profit()
-        self.reset_phase_check()
-
-        # Put old SIGNALs to engine
-        if len(self.signals) == 0:
-            self.try_go_next_phase()
-            return
-
-        for signal in self.signals:
-            self._lastday_signal_count += 1
-            e = EventSignalGeneration(signal.value)
-            self.put(e)
-        self._signals = GinkgoSingleLinkedList()
-        self.try_go_next_phase()
 
     def on_signal(self, event: EventSignalGeneration):
         """
@@ -445,27 +308,6 @@ class PortfolioT1Backtest(BasePortfolio):
         self._order_filled_count += 1  # Record
         self.update_worth()
         self.update_profit()
-        self.try_go_next_phase()
-
-    def on_order_canceled(self, event: EventOrderCanceled):
-        GLOG.WARN(
-            f"Filled: {self._order_filled_count}  Canceled: {self._order_canceled_count}"
-        )
-        # TODO LONG SHORT
-        GLOG.WARN("Dealing with CANCELED ORDER.")
-        self.record(RECORDSTAGE_TYPES.ORDERCANCELED)
-        if event.direction == DIRECTION_TYPES.LONG:
-            GLOG.WARN("START UNFREEZE LONG.")
-            self.unfreeze(event.frozen)
-            self.add_found(event.frozen)
-            GLOG.WARN("DONE UNFREEZE LONG.")
-        elif event.direction == DIRECTION_TYPES.SHORT:
-            GLOG.WARN("START UNFREEZE SHOTR.")
-            code = event.code
-            pos = self.positions[code]
-            pos.unfreeze(event.volume)
-            GLOG.WARN("DONE UNFREEZE SHORT.")
-        self._order_canceled_count += 1  # Record
         self.try_go_next_phase()
 
     def __repr__(self) -> str:

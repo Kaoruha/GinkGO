@@ -387,7 +387,14 @@ def audio_handler(message):
     bot.reply_to(message, "Can not handle audio files.")
 
 
-def echo(message: str):
+def echo(message: str) -> None:
+    """
+    Echo to Everyone in Telegram_ChatIDs.
+    Args:
+        message(str): message to be send.
+    Returns:
+        None
+    """
     ids = GCONF.Telegram_ChatIDs
     if len(ids) > 20:
         ids = ids[:20]

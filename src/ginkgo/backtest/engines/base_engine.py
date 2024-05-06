@@ -1,16 +1,17 @@
 import uuid
+
 from ginkgo.backtest.backtest_base import BacktestBase
 
 
 class BaseEngine(BacktestBase):
+    """
+    Basic Backtest Engine.
+    """
+
     def __init__(self, name: str = "BaseEngine", *args, **kwargs):
         super(BaseEngine, self).__init__(name, *args, **kwargs)
         self._active: bool = False
         self._backtest_id: str = uuid.uuid4().hex
-
-    def init_backtest(self) -> None:
-        # self._backtest_id: str = uuid.uuid4().hex
-        pass
 
     @property
     def backtest_id(self) -> str:
@@ -36,5 +37,6 @@ class BaseEngine(BacktestBase):
     def __repr__(self) -> str:
         return self.name
 
-    def set_backtest_id(self, value: str) -> None:
+    def set_backtest_id(self, value: str) -> str:
         self._backtest_id = value
+        return self.backtest_id

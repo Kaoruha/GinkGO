@@ -1,8 +1,9 @@
+import time
 from sqlalchemy import create_engine, MetaData, inspect, func, DDL
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
+
 from ginkgo.libs.ginkgo_logger import GLOG
-import time
 
 
 class GinkgoClickhouse(object):
@@ -21,16 +22,28 @@ class GinkgoClickhouse(object):
 
     @property
     def max_try(self) -> int:
+        """
+        Returns:
+            Max try count for connect with db.
+        """
         return self._max_try
 
     @property
     def engine(self):
+        """
+        Returns:
+            DB Engine.
+        """
         if self._engine is None:
             self.connect()
         return self._engine
 
     @property
     def session(self):
+        """
+        Returns:
+            DB Session.
+        """
         if self._session is None:
             self._session = scoped_session(
                 sessionmaker(
@@ -43,17 +56,30 @@ class GinkgoClickhouse(object):
 
     @property
     def metadata(self):
+        """
+        Returns:
+            DB Metadata.
+        """
         if self._metadata is None:
             self.connect()
         return self._metadata
 
     @property
     def base(self):
+        """
+        Returns:
+            base of db connection.
+        """
         if self._base is None:
             self.connect()
         return self._base
 
     def connect(self) -> None:
+        """
+        Connect with database.
+        Returns:
+            None
+        """
         if self._engine is not None:
             self._engine.dispose()
         uri = f"clickhouse://{self._user}:{self._pwd}@{self._host}:{self._port}/{self._db}"
@@ -88,15 +114,33 @@ class GinkgoClickhouse(object):
 
     @property
     def insp(self):
+        """
+        Returns:
+            inspect of db engine.
+        """
         return inspect(self.engine)
 
     def is_table_exsists(self, name: str) -> bool:
+        """
+        Check the exsistence of table.
+        Args:
+            name(str): table name
+        Returns:
+            Weather the table exsist.
+        """
         GLOG.DEBUG(
             f"Check Clickhouse table {name} exsists. {self.insp.has_table(name)}"
         )
         return self.insp.has_table(name)
 
     def get_table_size(self, model) -> int:
+        """
+        Get size of table.
+        Args:
+            model(Model): Data Model
+        Returns:
+            Count of table size.
+        """
         GLOG.DEBUG("Try get Clickhouse table {model.__tablename__} size.")
         count = self.session.query(func.count(model.uuid)).scalar()
         GLOG.DEBUG(f"Clickhouse Table {model} size is {count}")

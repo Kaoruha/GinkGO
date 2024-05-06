@@ -1,3 +1,9 @@
+class GinkgoSingleLinkedNode(object):
+    def __init__(self, value=None, next=None):
+        self.value = value
+        self.next = next
+
+
 class GinkgoSingleLinkedList(object):
     def __init__(self):
         self.head = GinkgoSingleLinkedNode()
@@ -50,9 +56,3 @@ class GinkgoSingleLinkedList(object):
 
     def __repr__(self) -> str:
         return f"{len(self)}"
-
-
-class GinkgoSingleLinkedNode(object):
-    def __init__(self, value=None, next=None):
-        self.value = value
-        self.next = next

@@ -181,7 +181,7 @@ def run(
     import sys
     from ginkgo.libs.ginkgo_conf import GCONF
     from ginkgo.data.ginkgo_data import GDATA
-    from ginkgo.backtest.engines import EventEngine
+    from ginkgo.backtest.engines import HistoricEngine
     from ginkgo.enums import EVENT_TYPES
     from ginkgo.backtest.matchmakings import MatchMakingSim
     from ginkgo.backtest.feeds import BacktestFeed
@@ -378,7 +378,7 @@ def run(
     # <-- Analyzer
 
     backtest_id = GDATA.add_backtest(random_id, content)
-    engine = EventEngine()
+    engine = HistoricEngine()
     engine.set_backtest_id(backtest_id)
     engine.set_backtest_interval("day")
     engine.set_date_start(date_start)
@@ -515,33 +515,40 @@ def rm(
         id = i
 
         # Try remove file
-        result = GDATA.remove_file(id)
-        if result:
-            console.print(f":zany_face: File [yellow]{id}[/yellow] delete.")
-            continue
+        result_file = GDATA.remove_file(id)
+        if result_file:
+            msg = f":zany_face: File [yellow]{id}[/yellow] delete."
+            console.print(msg)
         # Try remove backtest records
-        result2 = GDATA.remove_backtest(id)
-        if result2:
-            console.print(
-                f":zany_face: Backtest Record [light_coral]{id}[/light_coral] delete."
-            )
-            continue
+        result_back = GDATA.remove_backtest(id)
+        if result_back:
+            msg = f":zany_face: Backtest Record [light_coral]{id}[/light_coral] delete."
+            console.print(msg)
         # Remove order records and analyzers
-        result3 = GDATA.remove_orders(id)
-        if result3 > 0:
+        result_order = GDATA.remove_orders(id)
+        if result_order > 0:
+            msg = f":zany_face: Orders about [light_coral]{id}[/light_coral] [yellow]{result_order}[/yellow] delete."
+            console.print(msg)
+        result_ana = GDATA.remove_analyzers(id)
+        if result_ana > 0:
+            msg = f":zany_face: Analyzers about [light_coral]{id}[/light_coral] [yellow]{result_ana}[/yellow] delete."
+            console.print(msg)
+
+        result_pos = GDATA.remove_positions(id)
+        if result_pos > 0:
+            msg = f":zany_face: Positions in backtest [light_coral]{id}[/light_coral] [yellow]{result_pos}[/yellow] delete."
+            console.print(msg)
+
+        if (
+            not result_file
+            and not result_back
+            and result_order == 0
+            and result_ana == 0
+            and result_pos == 0
+        ):
             console.print(
-                f":zany_face: Orders about [light_coral]{id}[/light_coral] [yellow]{result3}[/yellow] delete {result3}."
+                f"There is no file or backtest record about [light_coral]{id}[/light_coral]. Please check id again."
             )
-            continue
-        result4 = GDATA.remove_analyzers(id)
-        if result4 > 0:
-            console.print(
-                f":zany_face: Analyzers about [light_coral]{id}[/light_coral] [yellow]{result4}[/yellow] delete {result4}."
-            )
-            continue
-        console.print(
-            f"There is no file or backtest record about [light_coral]{id}[/light_coral]. Please check id again."
-        )
 
 
 @app.command()

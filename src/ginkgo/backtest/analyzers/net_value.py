@@ -15,6 +15,9 @@ class NetValue(BaseAnalyzer):
         self.set_active_stage(RECORDSTAGE_TYPES.NEWDAY)
         self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
 
+    def activate(self, stage, *args, **kwargs) -> None:
+        pass
+
     def record(self, stage, *args, **kwargs) -> None:
         super(NetValue, self).record(stage, *args, **kwargs)
         if stage != self.active_stage:

@@ -15,6 +15,9 @@ class AnnualizedReturn(BaseAnalyzer):
         self._base_value = None
         self._days = 0
 
+    def activate(self, stage, *args, **kwargs) -> None:
+        pass
+
     def record(self, stage, *args, **kwargs) -> None:
         super(AnnualizedReturn, self).record(stage, *args, **kwargs)
         if stage != self.active_stage:

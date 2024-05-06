@@ -14,6 +14,9 @@ class MaxDrawdown(BaseAnalyzer):
         self.set_stage(RECORDSTAGE_TYPES.NEWDAY)
         self._max_worth = None
 
+    def activate(self, stage, *args, **kwargs) -> None:
+        pass
+
     def record(self, stage, *args, **kwargs) -> None:
         super(MaxDrawdown, self).record(stage, *args, **kwargs)
         if stage != self.active_stage:

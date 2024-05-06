@@ -7,6 +7,10 @@ from ginkgo.backtest.base import Base
 
 
 class Signal(Base):
+    """
+    Signal Class.
+    """
+
     def __init__(
         self,
         code: str = "Default Signal Code",

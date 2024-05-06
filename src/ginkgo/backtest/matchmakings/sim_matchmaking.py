@@ -3,8 +3,12 @@ import sys
 import scipy.stats as stats
 import random
 from time import sleep
-import random
+
+
 from ginkgo.libs import datetime_normalize
+from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.data.models import MOrder
 from ginkgo.enums import (
     EVENT_TYPES,
     ATTITUDE_TYPES,
@@ -12,16 +16,13 @@ from ginkgo.enums import (
     ORDER_TYPES,
     DIRECTION_TYPES,
 )
+from ginkgo.backtest.matchmakings.base_matchmaking import MatchMakingBase
 from ginkgo.backtest.events import (
     EventPriceUpdate,
     EventOrderSubmitted,
     EventOrderFilled,
     EventOrderCanceled,
 )
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.data.models import MOrder
-from ginkgo.backtest.matchmakings.base_matchmaking import MatchMakingBase
 
 
 class MatchMakingSim(MatchMakingBase):
@@ -31,31 +32,40 @@ class MatchMakingSim(MatchMakingBase):
 
     def __init__(self, name: str = "SIMMATCH", *args, **kwargs):
         super(MatchMakingSim, self).__init__(name, *args, **kwargs)
-        self._attitude = ATTITUDE_TYPES.PESSMISTIC  # TODO maybe can be set by someway
+        self._attitude = ATTITUDE_TYPES.PESSMISTIC
         self._slip_base = 0.2
 
-    def set_attituede(self, attitude: ATTITUDE_TYPES):
+    def set_attituede(self, attitude: ATTITUDE_TYPES) -> ATTITUDE_TYPES:
         """
         Change the match price
-        PESSMISTIC
-        OPTIMISTIC
-        RANDOM
+        Args:
+            attitude(enum): PESSMISTIC, OPTIMISTIC, RANDOM
+        Returns:
+            current attitude
         """
         self._attitude = attitude
-
-    @property
-    def slippage(self) -> float:
-        r = self._slip_base * random.random()
-        return r if r < 1 else 1
+        return self.attitude
 
     @property
     def attitude(self) -> ATTITUDE_TYPES:
         return self._attitude
 
-    def return_order(self, order_id):
+    @property
+    def slippage(self) -> float:
+        r = self._slip_base * random.random()
+        r = r if r < 1 else 1
+        return r
+
+    def return_order(self, order_id: str) -> None:
+        """
+        Cancel the order.
+        Args:
+            order_id(str): order id
+        Returns:
+            None
+        """
         order = GDATA.get_order(order_id=order_id)
         order.status = ORDERSTATUS_TYPES.CANCELED
-        order_id = order.uuid
         GDATA.get_driver(MOrder).session.merge(order)
         GDATA.get_driver(MOrder).session.commit()
         GDATA.get_driver(MOrder).session.close()
@@ -69,7 +79,17 @@ class MatchMakingSim(MatchMakingBase):
         low: float,
         high: float,
         attitude: ATTITUDE_TYPES,
-    ):
+    ) -> float:
+        """
+        Calculate the transaction price.
+        Args:
+            direction(enum): LONG or SHORT
+            low(float): the lowest price
+            high(float): the highest price
+            attitude(enum): PESSMISTIC, OPTIMISTIC, RANDOM
+        Returns:
+            Transaction Price.
+        """
         mean = (low + high) / 2
         std_dev = (high - low) / 6
         if attitude == ATTITUDE_TYPES.RANDOM:
@@ -108,18 +128,25 @@ class MatchMakingSim(MatchMakingBase):
         return rs
 
     def on_stock_order(self, event: EventOrderSubmitted):
+        """
+        Handlering the Order.
+        Args:
+            event(EventOrderSubmitted): event
+        Returns:
+            None
+        """
         # Check if the id exsist
-        GLOG.INFO(f"{self.name} got an ORDER {event.order_id}.")
+        GLOG.DEBUG(f"{self.name} got an ORDER {event.order_id}.")
         order_id = event.order_id
         o = self.query_order(order_id)
         if o is None:
             return
         if o.timestamp < self.now:
-            GLOG.CRITICAL("Will not handle the order {event.order_id} from past")
+            GLOG.CRITICAL("Will not handle the order {event.order_id} from past.")
             self.return_order(order_id)
             return
         if o.timestamp > self.now:
-            GLOG.CRITICAL("Will not handle the order {event.order_id} from future")
+            GLOG.CRITICAL("Will not handle the order {event.order_id} from future.")
             self.return_order(order_id)
             return
 
@@ -129,10 +156,12 @@ class MatchMakingSim(MatchMakingBase):
             GDATA.get_driver(MOrder).session.merge(o)
             GDATA.get_driver(MOrder).session.commit()
             GDATA.get_driver(MOrder).session.close()
+
         if o.status != ORDERSTATUS_TYPES.SUBMITTED:
             GLOG.ERROR(f"Only accept SUBMITTED order. {order_id} is under {o.status}")
             self.return_order(order_id)
             return
+
         if order_id in self.order_book:
             GLOG.WARN(f"Order {order_id} is cached in queue, do not resubmit.")
             self.return_order(order_id)
@@ -144,7 +173,11 @@ class MatchMakingSim(MatchMakingBase):
 
     def query_order(self, order_id: str) -> MOrder:
         """
-        query order from database
+        Query order from database.
+        Args:
+            order_id(str): order id
+        Returns:
+            Model of Order.
         """
         if not isinstance(order_id, str):
             GLOG.WARN("Order id only support string.")
@@ -155,19 +188,29 @@ class MatchMakingSim(MatchMakingBase):
         return o
 
     def try_match(self):
-        GLOG.INFO("Try Match.")
+        """
+        Sim match. Iterrow the order book and try match.
+        Args:
+            None
+        Returns:
+            None
+        """
+        GLOG.DEBUG("Try Match.")
         for order_id in self.order_book:
             # Get the order from db
             o = self.query_order(order_id)
+            if o.volume == 0:
+                self.return_order(order_id)
+                continue
             oid = o.uuid
             # Get the price info from self.price_info
             p = self.price
             if p.shape[0] == 0:
-                GLOG.CRITICAL("There is no price data. Need to check the code.")
+                GLOG.WARN("There is no price data. Need to check the code.")
                 import pdb
 
                 pdb.set_trace()
-                self.return_order(order_id)
+                self.return_order(order_id)  # TODO Resubmmit the event.
                 continue
 
             p = p[p.code == o.code]
@@ -280,5 +323,5 @@ class MatchMakingSim(MatchMakingBase):
             self.engine.put(filled_order)
         GLOG.INFO("Done Match.")
         self._order_book = []
-        # # If there is no detail about the code, Try get the data from db again.The store the info into self.price_info.
-        # # According the price_info, try match the order.
+        # If there is no detail about the code, Try get the data from db again.The store the info into self.price_info.
+        # According the price_info, try match the order.
