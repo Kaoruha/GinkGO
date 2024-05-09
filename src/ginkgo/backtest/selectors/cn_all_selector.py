@@ -19,7 +19,7 @@ class CNAllSelector(BaseSelector):
         super(CNAllSelector, self).__init__(name, *args, **kwargs)
         self._interested = []
 
-    def pick(self) -> list:
+    def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         if len(self._interested) > 0:
             return self._interested
 

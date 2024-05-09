@@ -15,7 +15,7 @@ class MSignal(MClickBase):
 
     code = Column(String(), default="ginkgo_test_code")
     direction = Column(ChoiceType(DIRECTION_TYPES, impl=Integer()), default=1)
-    backtest_id = Column(String(), default="")
+    portfolio_id = Column(String(), default="")
     reason = Column(String(), default="")
 
     def __init__(self, *args, **kwargs) -> None:
@@ -28,13 +28,13 @@ class MSignal(MClickBase):
     @set.register
     def _(
         self,
-        backtest_id: str,
+        portfolio_id: str,
         datetime: any,
         code: str,
         direction: DIRECTION_TYPES,
         reason: str,
     ) -> None:
-        self.backtest_id = backtest_id
+        self.portfolio_id = portfolio_id
         self.timestamp = datetime_normalize(datetime)
         self.code = code
         self.direction = direction

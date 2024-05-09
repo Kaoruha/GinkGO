@@ -1,4 +1,5 @@
 import pandas as pd
+
 from types import FunctionType, MethodType
 from enum import Enum
 

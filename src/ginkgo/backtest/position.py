@@ -23,6 +23,24 @@ class Position(Base):
         self._worth = 0
         self._backtest_id = ""
 
+    def set(
+        self,
+        code: str,
+        price: float,
+        cost: float,
+        volume: int,
+        frozen: float,
+        fee: float,
+        profit: float,
+    ):
+        self._code = code
+        self._price = price
+        self._cost = cost
+        self._volume = volume
+        self._frozen = frozen
+        self._fee = fee
+        self._profit = profit
+
     @property
     def backtest_id(self) -> str:
         return self._backtest_id

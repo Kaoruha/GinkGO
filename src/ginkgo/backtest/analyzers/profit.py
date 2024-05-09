@@ -9,7 +9,7 @@ class Profit(BaseAnalyzer):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, name: str, *args, **kwargs):
+    def __init__(self, name: str = "ProfitAna", *args, **kwargs):
         super(Profit, self).__init__(name, *args, **kwargs)
         self.set_stage(RECORDSTAGE_TYPES.NEWDAY)
         self._last_worth = None
@@ -18,7 +18,6 @@ class Profit(BaseAnalyzer):
         pass
 
     def record(self, stage, *args, **kwargs) -> None:
-        super(Profit, self).record(stage, *args, **kwargs)
         if stage != self.active_stage:
             return
         if self._last_worth is None:

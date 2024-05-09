@@ -247,7 +247,7 @@ def ls(
             GLOG.WARN("Please input backtest_id to filter the order.")
             return
         else:
-            raw = GDATA.get_order_df_by_backtest(filter)
+            raw = GDATA.get_order_df_by_portfolioid(filter)
             print(raw)
             rs = raw
         pass
@@ -492,6 +492,9 @@ def rebuild(
     order: Annotated[
         bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")
     ] = False,
+    orderrecord: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild OrderRecord Table")
+    ] = False,
     record: Annotated[
         bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")
     ] = False,
@@ -520,6 +523,7 @@ def rebuild(
     from ginkgo.enums import MARKET_TYPES
     from ginkgo.data.models import (
         MOrder,
+        MOrderRecord,
         MAdjustfactor,
         MBacktest,
         MFile,
@@ -533,6 +537,8 @@ def rebuild(
     if order:
         GDATA.drop_table(MOrder)
 
+    if orderrecord:
+        GDATA.drop_table(MOrderRecord)
     if record:
         GDATA.drop_table(MBacktest)
 

@@ -160,6 +160,10 @@ class PortfolioT1Backtest(BasePortfolio):
     def reset_phase_check(self) -> None:
         """
         Reset all records every new frame.
+        Args:
+            None
+        Return:
+            None
         """
         # Records
         self._feeder_get_no_data_today = False
@@ -198,6 +202,10 @@ class PortfolioT1Backtest(BasePortfolio):
     def on_time_goes_by(self, time: any, *args, **kwargs) -> None:
         """
         Go next frame.
+        Args:
+            time(any): new time
+        Return:
+            None
         """
         # Time goes
         super(PortfolioT1Backtest, self).on_time_goes_by(time, *args, **kwargs)
@@ -383,7 +391,7 @@ class PortfolioT1Backtest(BasePortfolio):
         # GLOG.INFO(f"Under {len(self.strategies)} Strategies Calculating... {self.now}")
         for strategy in self.strategies:
             # 3. Get signal return, if so put eventsignal to engine
-            signal = strategy.value.cal(event.value)
+            signal = strategy.value.cal(event.code)
             if signal:
                 e = EventSignalGeneration(signal)
                 e.set_source(SOURCE_TYPES.PORTFOLIO)
@@ -411,7 +419,7 @@ class PortfolioT1Backtest(BasePortfolio):
             return
         self.record(RECORDSTAGE_TYPES.ORDERFILLED)
         GDATA.add_order_record(
-            self.backtest_id,
+            self.uuid,
             event.value.code,
             event.value.direction,
             event.value.type,

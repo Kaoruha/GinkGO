@@ -9,7 +9,7 @@ class NetValue(BaseAnalyzer):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, name: str, *args, **kwargs):
+    def __init__(self, name: str = "netvalue", *args, **kwargs):
         super(NetValue, self).__init__(name, *args, **kwargs)
         self.set_stage(RECORDSTAGE_TYPES.NEWDAY)
         self.set_active_stage(RECORDSTAGE_TYPES.NEWDAY)
@@ -19,7 +19,6 @@ class NetValue(BaseAnalyzer):
         pass
 
     def record(self, stage, *args, **kwargs) -> None:
-        super(NetValue, self).record(stage, *args, **kwargs)
         if stage != self.active_stage:
             return
         value = self.portfolio.worth

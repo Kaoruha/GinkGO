@@ -66,7 +66,7 @@ class LiveEngine(EventEngine):
         if p is None:
             return
         pos = Position(code, price, volume)
-        self.add_position(pos)
+        p.add_position(pos)
         # Update position
         # TODO add record
         pass
@@ -86,7 +86,7 @@ class LiveEngine(EventEngine):
         node = self.portfolios.head
         while node is not None:
             portfolio = node.value
-            self.datafeeder.broadcast()
+            portfolio.cal_signal_manually()
 
         # TODO
         pass

@@ -13,6 +13,6 @@ class BaseSelector(BacktestBase):
     def portfolio(self):
         return self._portfolio
 
-    def pick(self) -> list:
+    def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         r = []
         return r

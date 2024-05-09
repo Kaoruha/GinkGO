@@ -24,9 +24,8 @@ class StrategyProfitLimit(StrategyBase):
     def profit_limit(self) -> int:
         return self._profit_limit
 
-    def cal(self, bar, *args, **kwargs):
+    def cal(self, code: str = "", *args, **kwargs):
         super(StrategyProfitLimit, self).cal()
-        code = bar.code
         if code in self.portfolio.positions.keys():
             position = self.portfolio.positions[code]
             cost = position.cost

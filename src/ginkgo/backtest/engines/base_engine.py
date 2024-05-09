@@ -36,7 +36,3 @@ class BaseEngine(BacktestBase):
 
     def __repr__(self) -> str:
         return self.name
-
-    def set_backtest_id(self, value: str) -> str:
-        self._backtest_id = value
-        return self.backtest_id

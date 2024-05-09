@@ -18,7 +18,7 @@
 #         super(StrategyTradeFollow, self).__init__(5, name, *args, **kwargs)
 #         self.set_name(name)
 
-#     def cal(self, bar, *args, **kwargs):
+#     def cal(self, code: str, *args, **kwargs):
 #         super(StrategyTradeFollow, self).cal()
 #         code = bar.code
 #         if code in self.portfolio.positions.keys():

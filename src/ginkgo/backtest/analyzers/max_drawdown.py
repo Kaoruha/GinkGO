@@ -1,7 +1,7 @@
+import pandas as pd
 from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import RECORDSTAGE_TYPES
-import pandas as pd
 
 
 class MaxDrawdown(BaseAnalyzer):
@@ -18,7 +18,6 @@ class MaxDrawdown(BaseAnalyzer):
         pass
 
     def record(self, stage, *args, **kwargs) -> None:
-        super(MaxDrawdown, self).record(stage, *args, **kwargs)
         if stage != self.active_stage:
             return
         if self._max_worth is None:

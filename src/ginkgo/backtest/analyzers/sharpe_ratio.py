@@ -4,13 +4,13 @@ from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd
 
 
-class SharpRatio(BaseAnalyzer):
+class SharpeRatio(BaseAnalyzer):
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False
 
     def __init__(self, name: str, *args, **kwargs):
-        super(SharpRatio, self).__init__(name, *args, **kwargs)
+        super(SharpeRatio, self).__init__(name, *args, **kwargs)
         self.set_stage(RECORDSTAGE_TYPES.NEWDAY)
         self._base_value = None
         self._days = 0
@@ -21,7 +21,6 @@ class SharpRatio(BaseAnalyzer):
         pass
 
     def record(self, stage, *args, **kwargs) -> None:
-        super(SharpRatio, self).record(stage, *args, **kwargs)
         if stage != self.active_stage:
             return
         if self._base_value is None:

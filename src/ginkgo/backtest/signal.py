@@ -1,8 +1,9 @@
 import pandas as pd
+import uuid
 import datetime
 from functools import singledispatchmethod
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.libs import base_repr, datetime_normalize, gen_uuid4
+from ginkgo.libs import base_repr, datetime_normalize
 from ginkgo.backtest.base import Base
 
 
@@ -38,17 +39,17 @@ class Signal(Base):
         code: str,
         direction: DIRECTION_TYPES,
         timestamp: str or datetime.datetime,
-        uuid: str = "",
+        id: str = "",
         backtest_id: str = "",
     ):
         self._code: str = code
         self._timestamp: datetime.datetime = datetime_normalize(timestamp)
         self._direction: DIRECTION_TYPES = direction
 
-        if len(uuid) > 0:
-            self._uuid: str = uuid
+        if len(id) > 0:
+            self._uuid: str = id
         else:
-            self._uuid = gen_uuid4()
+            self._uuid = uuid.uuid4().hex
 
     @set.register
     def _(self, df: pd.Series):

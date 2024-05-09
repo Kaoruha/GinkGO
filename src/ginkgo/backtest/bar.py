@@ -1,11 +1,11 @@
-from ginkgo.libs import base_repr, pretty_repr, datetime_normalize
-from ginkgo.backtest.base import Base
-from ginkgo.enums import FREQUENCY_TYPES
-
 import datetime
 import pandas as pd
 from types import FunctionType, MethodType
 from functools import singledispatchmethod
+
+from ginkgo.backtest.base import Base
+from ginkgo.libs import base_repr, pretty_repr, datetime_normalize
+from ginkgo.enums import FREQUENCY_TYPES
 
 
 class Bar(Base):
@@ -19,7 +19,7 @@ class Bar(Base):
     @singledispatchmethod
     def set(self) -> None:
         """
-        1. code,open,high,low,close,volume,frequency,timestamp
+        1. code, open, high, low, close, volume, frequency, timestamp
         2. dataframe
         """
         pass
@@ -142,7 +142,7 @@ class Bar(Base):
         Change percent.
         """
         r = self._close - self._open
-        r = round(r, 4)
+        r = round(r, 2)
         return r
 
     @property

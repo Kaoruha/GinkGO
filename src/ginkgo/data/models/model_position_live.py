@@ -1,22 +1,22 @@
 import pandas as pd
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DECIMAL
-from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.libs import base_repr, datetime_normalize
 
 
-class MPosition(MClickBase):
-    __abstract__ = True
-    __tablename__ = "position"
+class MPositionLive(MMysqlBase):
+    __abstract__ = False
+    __tablename__ = "position_live"
 
-    code = Column(String(), default="ginkgo_test_code")
-    backtest_id = Column(String(), default="")
+    code = Column(String(40), default="ginkgo_test_code")
+    portfolio_id = Column(String(40), default="")
     volume = Column(Integer, default=0)
     cost = Column(DECIMAL(20, 10), default=0)
-    reason = Column(String(), default="")
+    price = Column(DECIMAL(20, 10), default=0)
 
     def __init__(self, *args, **kwargs) -> None:
-        super(MPosition, self).__init__(*args, **kwargs)
+        super(MPositionLive, self).__init__(*args, **kwargs)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -25,17 +25,19 @@ class MPosition(MClickBase):
     @set.register
     def _(
         self,
-        backtest_id: str,
+        portfolio_id: str,
         datetime: any,
         code: str,
-        volume: int,
+        price: float,
         cost: float,
+        volume: int,
     ) -> None:
-        self.backtest_id = backtest_id
+        self.portfolio_id = portfolio_id
         self.timestamp = datetime_normalize(datetime)
         self.code = code
         self.volume = int(volume)
         self.cost = float(cost)
+        self.price = float(price)
 
     @set.register
     def _(self, df: pd.Series) -> None:

@@ -18,7 +18,7 @@ class StrategyScalping(StrategyBase):
         super(StrategyScalping, self).__init__(5, name, *args, **kwargs)
         self.set_name(name)
 
-    def cal(self, bar, *args, **kwargs):
+    def cal(self, code: str, *args, **kwargs):
         super(StrategyProfitLimit, self).cal()
         return None
         # code = bar.code
