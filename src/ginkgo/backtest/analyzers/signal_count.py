@@ -16,7 +16,6 @@ class SignalCount(BaseAnalyzer):
         self.last_day = None
 
     def activate(self, stage, *args, **kwargs) -> None:
-        super(SignalCount, self).activate(stage, *args, **kwargs)
         if stage != self.active_stage:
             return
         if self.last_day is None:

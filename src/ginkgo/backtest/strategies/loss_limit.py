@@ -24,9 +24,8 @@ class StrategyLossLimit(StrategyBase):
     def loss_limit(self) -> int:
         return self._loss_limit
 
-    def cal(self, bar, *args, **kwargs):
+    def cal(self, code: str, *args, **kwargs):
         super(StrategyLossLimit, self).cal()
-        code = bar.code
         if code in self.portfolio.positions.keys():
             position = self.portfolio.positions[code]
             cost = position.cost

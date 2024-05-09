@@ -22,18 +22,17 @@ class StrategyVolumeActivate(StrategyBase):
         self.win = 0
         self.loss = 0
 
-    def cal(self, bar, *args, **kwargs):
+    def cal(self, code: str, *args, **kwargs):
         super(StrategyVolumeActivate, self).cal()
-        # self.on_price_update(bar)
-        code = bar.code
-        # df = self.raw[code]
-        df = GDATA.get_daybar(
-            code, self.now - datetime.timedelta(days=-self.spans), self.now
+        df = GDATA.get_daybar_df(
+            code, self.now - datetime.timedelta(days=-self.attention_spans), self.now
         )
+        if df.shape[0] == 0:
+            return
         self._volume_mean = df["volume"].mean()
         self._volume_std = df["volume"].std()
 
-        r = bar.volume / self._volume_mean
+        r = df["volume"].iloc[-1] / self._volume_mean
         if self.raw[code].shape[0] < 2:
             return
         elif r < 0.67 and r > 0.6:

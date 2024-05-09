@@ -163,6 +163,14 @@ def ls(
 
 
 @app.command()
+def run_test(
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID.")],
+    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+):
+    pass
+
+
+@app.command()
 def run(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID.")],
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
@@ -615,7 +623,7 @@ def order(
         console.print(table)
         return
     # Got backtest id
-    orders = GDATA.get_order_df_by_backtest(id)
+    orders = GDATA.get_order_df_by_portfolioid(id)
     if orders.shape[0] == 0:
         console.print(f"There is no orders about Backtest: {id}")
         return

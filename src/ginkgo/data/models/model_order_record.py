@@ -24,7 +24,7 @@ class MOrderRecord(MClickBase):
     transaction_price = Column(DECIMAL(20, 10), default=0)
     remain = Column(DECIMAL(20, 10), default=0)
     fee = Column(DECIMAL(20, 10), default=0)
-    backtest_id = Column(String(40), default="")
+    portfolio_id = Column(String(40), default="")
 
     def __init__(self, *args, **kwargs) -> None:
         super(MOrderRecord, self).__init__(*args, **kwargs)
@@ -36,7 +36,7 @@ class MOrderRecord(MClickBase):
     @set.register
     def _(
         self,
-        backtest_id: str,
+        portfolio_id: str,
         code: str,
         direction: DIRECTION_TYPES,
         type: ORDER_TYPES,
@@ -54,7 +54,7 @@ class MOrderRecord(MClickBase):
         self.remain = float(remain)
         self.fee = float(fee)
         self.timestamp = datetime_normalize(timestamp)
-        self.backtest_id = str(backtest_id)
+        self.portfolio_id = str(portfolio_id)
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 60)

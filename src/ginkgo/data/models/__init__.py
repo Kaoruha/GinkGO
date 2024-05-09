@@ -11,6 +11,6 @@ from ginkgo.data.models.model_stock_info import MStockInfo
 from ginkgo.data.models.model_trade_day import MTradeDay
 from ginkgo.data.models.model_file import MFile
 from ginkgo.data.models.model_position import MPosition
+from ginkgo.data.models.model_position_live import MPositionLive
+from ginkgo.data.models.model_position_record import MPositionRecord
 from ginkgo.data.models.model_backtest import MBacktest
-from ginkgo.data.models.model_file_parameter import MFileParameter
-from ginkgo.data.models.model_backtest_config_binding import MBacktestBinding

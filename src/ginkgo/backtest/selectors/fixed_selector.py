@@ -13,6 +13,6 @@ class FixedSelector(BaseSelector):
             raise Exception("Codes must be list. Example: [code1,code2]")
         self._interested = codes
 
-    def pick(self) -> list:
+    def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         r = self._interested
         return r

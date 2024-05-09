@@ -26,7 +26,7 @@ class PopularitySelector(BaseSelector):
         self.interval = 10
         self._last_pick = None
 
-    def pick(self) -> list:
+    def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         if self.portfolio is not None:
             self._now = self.on_time_goes_by(self.portfolio.now)
 

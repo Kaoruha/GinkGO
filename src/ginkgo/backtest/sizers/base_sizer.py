@@ -15,14 +15,5 @@ class BaseSizer(BacktestBase):
     def bind_portfolio(self, portfolio):
         self._portfolio = portfolio
 
-    def bind_data_feeder(self, data_feeder):
-        self._data_feeder = data_feeder
-
-    @property
-    def data_feeder(self):
-        if self._data_feeder is None:
-            self._data_feeder = self.portfolio.engine.datafeeder
-        return self._data_feeder
-
     def cal(self, signal: Signal):
         raise NotImplementedError()

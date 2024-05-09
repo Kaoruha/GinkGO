@@ -1,10 +1,7 @@
 import yaml
-import inspect
 import time
 import signal
 import psutil
-import asyncio
-import zlib
 import pickle
 import types
 import datetime
@@ -13,7 +10,6 @@ import pandas as pd
 import numpy as np
 import multiprocessing
 import threading
-from sqlalchemy import DDL
 from rich.console import Console
 from rich.progress import Progress
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
@@ -23,7 +19,8 @@ from ginkgo.data.models import (
     MSignal,
     MOrder,
     MOrderRecord,
-    MPosition,
+    MPositionLive,
+    MPositionRecord,
     MBar,
     MStockInfo,
     MTradeDay,
@@ -506,7 +503,7 @@ class GinkgoData(object):
 
     def get_signal_df_by_backtest_and_code_pagination(
         self,
-        backtest_id: str,
+        portfolio_id: str,
         code: str,
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
@@ -514,13 +511,13 @@ class GinkgoData(object):
         size: int = 100,
         engine=None,
     ) -> MOrder:
-        GLOG.DEBUG(f"Try to get Signal about {backtest_id}.")
+        GLOG.DEBUG(f"Try to get Signal about {portfolio_id}.")
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         db = engine if engine else self.get_driver(MSignal)
         r = (
             db.session.query(MSignal)
-            .filter(MSignal.backtest_id == backtest_id)
+            .filter(MSignal.portfolio_id == portfolio_id)
             .filter(MSignal.code == code)
             .filter(MSignal.isdel == False)
             .filter(MSignal.timestamp >= date_start)
@@ -535,20 +532,20 @@ class GinkgoData(object):
 
     def get_signal_df_by_backtest_and_date_range_pagination(
         self,
-        backtest_id: str,
+        portfolio_id: str,
         date_start: any = GCONF.DEFAULTSTART,
         date_end: any = GCONF.DEFAULTEND,
         page: int = 0,
         size: int = 100,
         engine=None,
     ) -> MOrder:
-        GLOG.DEBUG(f"Try to get Signal about {backtest_id}.")
+        GLOG.DEBUG(f"Try to get Signal about {portfolio_id}.")
         date_start = datetime_normalize(date_start)
         date_end = datetime_normalize(date_end)
         db = engine if engine else self.get_driver(MSignal)
         r = (
             db.session.query(MSignal)
-            .filter(MSignal.backtest_id == backtest_id)
+            .filter(MSignal.portfolio_id == portfolio_id)
             .filter(MSignal.isdel == False)
             .filter(MSignal.timestamp >= date_start)
             .filter(MSignal.timestamp <= date_end)
@@ -747,11 +744,13 @@ class GinkgoData(object):
         # df.code = df.code.strip(b"\x00".decode())
         return df
 
-    def get_order_df_by_backtest(self, backtest_id: str, engine=None) -> pd.DataFrame:
+    def get_order_df_by_portfolioid(
+        self, portfolio_id: str, engine=None
+    ) -> pd.DataFrame:
         db = engine if engine else self.get_driver(MOrder)
         r = (
             db.session.query(MOrder)
-            .filter(MOrder.backtest_id == backtest_id)
+            .filter(MOrder.portfolio_id == portfolio_id)
             .filter(MOrder.isdel == False)
             .order_by(MOrder.timestamp.asc())
         )
@@ -1935,14 +1934,14 @@ class GinkgoData(object):
 
     def add_signal(
         self,
-        backtest_id: str,
+        portfolio_id: str,
         timestamp: any,
         code: str,
         direction: DIRECTION_TYPES,
         reason: str,
     ) -> str:
         item = MSignal()
-        item.set(backtest_id, timestamp, code, direction, reason)
+        item.set(portfolio_id, timestamp, code, direction, reason)
         id = item.uuid
         self.add(item)
         return id
@@ -2182,7 +2181,7 @@ class GinkgoData(object):
 
     def add_order_record(
         self,
-        backtest_id: str,
+        portfolio_id: str,
         code: str,
         direction: DIRECTION_TYPES,
         order_type: ORDER_TYPES,
@@ -2196,7 +2195,7 @@ class GinkgoData(object):
         db = engine if engine else self.get_driver(MOrderRecord)
         item = MOrderRecord()
         item.set(
-            backtest_id,
+            portfolio_id,
             code,
             direction,
             order_type,
@@ -2208,36 +2207,99 @@ class GinkgoData(object):
         )
         self.add(item)
 
-    def add_position(
-        self, backtest_id: str, timestamp: any, code: str, volume: int, cost: float
+    def get_orderrecord_pagination(
+        self,
+        portfolio_id: str,
+        timestart: any,
+        timeend: any,
+        page: int = 0,
+        size: int = 1000,
+        engine=None,
+    ):
+        db = engine if engine else self.get_driver(MOrderRecord)
+        timestart = datetime_normalize(timestart)
+        timeend = datetime_normalize(timeend)
+        r = (
+            db.session.query(MOrderRecord)
+            .filter(MOrderRecord.portfolio_id == portfolio_id)
+            .filter(MOrderRecord.timestamp >= timestart)
+            .filter(MOrderRecord.timestamp <= timeend)
+            .filter(MOrderRecord.isdel == False)
+            .order_by(MOrderRecord.create)
+            .offset(page * size)
+            .limit(size)
+        )
+        if r is not None:
+            r.code = r.code.strip(b"\x00".decode())
+        db.session.close()
+        return r
+
+    def get_orderrecord_df_pagination(
+        self,
+        portfolio_id: str,
+        timestart: any,
+        timeend: any,
+        page: int = 0,
+        size: int = 1000,
+        engine=None,
+    ):
+        db = engine if engine else self.get_driver(MOrderRecord)
+        timestart = datetime_normalize(timestart)
+        timeend = datetime_normalize(timeend)
+        r = (
+            db.session.query(MOrderRecord)
+            .filter(MOrderRecord.portfolio_id == portfolio_id)
+            .filter(MOrderRecord.timestamp >= timestart)
+            .filter(MOrderRecord.timestamp <= timeend)
+            .filter(MOrderRecord.isdel == False)
+            .order_by(MOrderRecord.create)
+            .offset(page * size)
+            .limit(size)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        df["code"] = df["code"].str.replace("\x00", "")
+        df["portfolio_id"] = df["portfolio_id"].str.replace("\x00", "")
+        db.session.close()
+        return df
+
+    def add_position_record(
+        self,
+        portfolio_id: str,
+        timestamp: any,
+        code: str,
+        volume: int,
+        cost: float,
     ) -> None:
-        item = MPosition()
-        item.set(backtest_id, timestamp, code, volume, cost)
+        item = MPositionRecord()
+        item.set(portfolio_id, timestamp, code, volume, cost)
         GDATA.add(item)
 
-    def add_positions(self, backtest_id: str, timestamp: any, positions: list) -> None:
+    def add_position_records(
+        self, portfolio_id: str, timestamp: any, positions: list
+    ) -> None:
         for i in positions:
             if not isinstance(i, Position):
                 GLOG.DEBUG(f"Only support add Position")
                 return
         l = []
         for i in positions:
-            item = MPosition()
-            item.set(backtest_id, timestamp, i.code, i.volume, i.cost)
+            item = MPositionRecord()
+            item.set(portfolio_id, timestamp, i.code, i.volume, i.cost)
             l.append(item)
         self.add_all(l)
 
-    def get_positions_pagination(
-        self, backtest_id: str, timestamp: any, page: int = 0, size: int = 1000
+    def get_positionlives_pagination(
+        self,
+        portfolio_id: str,
+        page: int = 0,
+        size: int = 1000,
+        engine=None,
     ):
-        date_start = datetime_normalize(timestamp)
-        date_end = datetime_normalize(timestamp) + datetime.timedelta(days=1)
-        db = engine if engine else self.get_driver(MPosition)
+        db = engine if engine else self.get_driver(MPositionLive)
         r = (
-            db.session.query(MPosition)
-            .filter(MPosition.timestamp >= date_start)
-            .filter(MPosition.timestamp < date_end)
-            .filter(MPosition.isdel == False)
+            db.session.query(MPositionLive)
+            .filter(MPositionLive.portfolio_id == portfolio_id)
+            .filter(MPositionLive.isdel == False)
             .offset(page * size)
             .limit(size)
             .all()
@@ -2245,18 +2307,112 @@ class GinkgoData(object):
         db.session.close()
         return r
 
-    def remove_positions(self, backtest_id: str) -> int:
-        db = self.get_driver(MPosition)
+    def get_positionlive_via_code(
+        self,
+        portfolio_id: str,
+        code: str,
+        engine=None,
+    ):
+        db = engine if engine else self.get_driver(MPositionLive)
         r = (
-            db.session.query(MPosition)
-            .filter(MPosition.backtest_id == backtest_id)
-            .filter(MPosition.isdel == False)
+            db.session.query(MPositionLive)
+            .filter(MPositionLive.portfolio_id == portfolio_id)
+            .filter(MPositionLive.code == code)
+            .filter(MPositionLive.isdel == False)
+            .first()
+        )
+        db.session.close()
+        return r
+
+    def update_positionlive(
+        self,
+        portfolio_id: str,
+        code: str,
+        price: float,
+        cost: float,
+        volume: int,
+        frozen: float,
+        fee: float,
+        engine=None,
+    ) -> None:
+        db = engine if engine else self.get_driver(MPositionLive)
+        p = (
+            db.session.query(MPositionLive)
+            .filter(MPositionLive.portfolio_id == portfolio_id)
+            .filter(MPositionLive.code == code)
+            .filter(MPositionLive.isdel == False)
+            .first()
+        )
+        if p is None:
+            GLOG.WARN(f"POSITION about {code} in PORTFOLIO {portfolio_id} not exist.")
+            return
+        try:
+            p.price = float(price)
+            p.cost = float(cost)
+            p.volume = int(volume)
+            p.frozen = int(frozen)
+            p.fee = float(fee)
+            p.update = datetime.datetime.now()
+            db.session.commit()
+            db.session.close()
+        except Exception as e:
+            print(e)
+
+    def add_positionlive(
+        self,
+        portfolio_id: str,
+        code: str,
+        price: float,
+        volume: int,
+        cost: float,
+    ):
+        item = MPositionLive()
+        item.set(portfolio_id, datetime.datetime.now(), code, price, cost, volume)
+        self.add(item)
+
+    def remove_positionlives(self, portfolio_id: str, engine=None):
+        db = engine if engine else self.get_driver(MPositionLive)
+        db.session.query(MPositionLive).filter(
+            MPositionLive.portfolio_id == portfolio_id
+        ).delete()
+        GLOG.DEBUG(f"Remove positions about PORTFOLIO:{portfolio_id}.")
+
+    def get_positionrecords_pagination(
+        self,
+        backtest_id: str,
+        timestamp: any,
+        page: int = 0,
+        size: int = 1000,
+        engine=None,
+    ):
+        date_start = datetime_normalize(timestamp)
+        date_end = datetime_normalize(timestamp) + datetime.timedelta(days=1)
+        db = engine if engine else self.get_driver(MPositionRecord)
+        r = (
+            db.session.query(MPositionRecord)
+            .filter(MPositionRecord.portfolio_id == portfolio_id)
+            .filter(MPositionRecord.timestamp >= date_start)
+            .filter(MPositionRecord.timestamp < date_end)
+            .filter(MPositionRecord.isdel == False)
+            .offset(page * size)
+            .limit(size)
+            .all()
+        )
+        db.session.close()
+        return r
+
+    def remove_positions(self, backtest_id: str, engine=None) -> int:
+        db = engine if engine else self.get_driver(MPositionRecord)
+        r = (
+            db.session.query(MPositionRecord)
+            .filter(MPositionRecord.backtest_id == backtest_id)
+            .filter(MPositionRecord.isdel == False)
             .all()
         )
         count = len(r)
         if count > 0:
-            db.session.query(MPosition).filter(
-                MPosition.backtest_id == backtest_id
+            db.session.query(MPositionRecord).filter(
+                MPositionRecord.backtest_id == backtest_id
             ).delete()
             db.session.commit()
         db.session.close()

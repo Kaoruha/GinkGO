@@ -1,4 +1,7 @@
+import uuid
+from rich.console import Console
 from typing import TYPE_CHECKING
+
 
 if TYPE_CHECKING:
     from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
@@ -9,7 +12,7 @@ from ginkgo.backtest.engines.base_engine import BaseEngine
 from ginkgo.backtest.selectors import BaseSelector
 from ginkgo.backtest.backtest_base import BacktestBase
 from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
-from ginkgo.backtest.sizers import BaseSizer
+from ginkgo.backtest.sizers.base_sizer import BaseSizer
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.position import Position
@@ -20,10 +23,14 @@ from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.data.ginkgo_data import GDATA
 
 
+console = Console()
+
+
 class BasePortfolio(BacktestBase):
     def __init__(self, *args, **kwargs) -> None:
         super(BasePortfolio, self).__init__(*args, **kwargs)
         self.set_name("HaloPortfolio")
+        self._uuid: str = uuid.uuid4().hex
         self._cash: float = 100000
         self._worth: float = 100000
         self._profit: float = 0
@@ -38,7 +45,26 @@ class BasePortfolio(BacktestBase):
         self._interested = GinkgoSingleLinkedList()
         self._fee = 0
 
-    def get_count_of_price(self, date: any):
+    @property
+    def uuid(self) -> str:
+        return self._uuid
+
+    @property
+    def portfolio_id(self) -> str:
+        return self._uuid
+
+    def set_portfolio_id(self, value: str) -> str:
+        """
+        Change Portfolio ID
+        Args:
+            value(str): new portfolio id
+        Return:
+            New portfolio ID.
+        """
+        self._uuid = value
+        return self.uuid
+
+    def get_count_of_price(self, date: any) -> int:
         raise NotImplemented(
             "Must implement the Function to get the count of coming price info."
         )
@@ -49,6 +75,10 @@ class BasePortfolio(BacktestBase):
             Part1: Cash
             Part2: Frozen Money
             Part3: Total value of all Positions
+        Args:
+            None
+        Return:
+            None
         """
         self._worth = self.cash + self.frozen
         for key in self.positions:
@@ -57,6 +87,10 @@ class BasePortfolio(BacktestBase):
     def update_profit(self) -> None:
         """
         Update the PROFIT of Portfolio
+        Args:
+            None
+        Return:
+            None
         """
         self._profit = 0
         for key in self.positions:
@@ -197,7 +231,14 @@ class BasePortfolio(BacktestBase):
 
         return True
 
-    def bind_selector(self, selector: BaseSelector):
+    def bind_selector(self, selector: BaseSelector) -> None:
+        """
+        Bind selector to portfolio, and bind portfolio itself to selector.
+        Args:
+            selector(BaseSelector): stock, etf picker
+        Return:
+            None
+        """
         if not isinstance(selector, BaseSelector):
             GLOG.ERROR(
                 f"Selector bind only support Selector, {type(selector)} {selector} is not supported."
@@ -214,6 +255,13 @@ class BasePortfolio(BacktestBase):
         return self._selector
 
     def bind_engine(self, engine: BaseEngine):
+        """
+        Bind engine to portfolio.
+        Args:
+            engine(BaseEngine): engine
+        Return:
+            None
+        """
         if not isinstance(engine, BaseEngine):
             GLOG.ERROR(
                 f"EngineBind only support Type Engine, {type(BaseEngine)} {engine} is not supported."
@@ -227,6 +275,13 @@ class BasePortfolio(BacktestBase):
         return self._engine
 
     def bind_risk(self, risk: BaseRiskManagement) -> None:
+        """
+        Bind risk manager to portfolio.
+        Args:
+            risk(BaseRiskManagement): risk module
+        Return:
+            None
+        """
         if not isinstance(risk, BaseRiskManagement):
             GLOG.ERROR(
                 f"Risk bind only support Riskmanagement, {type(risk)} {risk} is not supported."
@@ -239,6 +294,13 @@ class BasePortfolio(BacktestBase):
         return self._risk_manager
 
     def bind_sizer(self, sizer: BaseSizer) -> None:
+        """
+        Bind sizer to portfolio. And bind the portfolio itself to sizer.
+        Args:
+            sizer(BaseSizer): Calculate the volume of order.
+        Return:
+            None
+        """
         if not isinstance(sizer, BaseSizer):
             GLOG.ERROR(
                 f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported."
@@ -246,9 +308,6 @@ class BasePortfolio(BacktestBase):
             return
         self._sizer = sizer
         self.sizer.bind_portfolio(self)
-        if self.engine:
-            if hasattr(self.engine, "datafeeder"):
-                self.sizer.bind_data_feeder(self.engine.datafeeder)
 
     @property
     def sizer(self) -> BaseSizer:
@@ -257,39 +316,51 @@ class BasePortfolio(BacktestBase):
     def freeze(self, money: float) -> bool:
         """
         Freeze the capital.
+        Args:
+            money(float): ready to freeze target money
+        Return:
+            None
         """
         if money >= self.cash:
             GLOG.WARN(f"We cant freeze {money}, we only have {self.cash}.")
             return False
-        else:
-            GLOG.WARN(f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
-            print(f"FF: {self._frozen} + {money}")
-            self._frozen += money
-            print(f"= {self._frozen}")
-            self._cash -= money
-            GLOG.WARN(f"DONE FREEZE {money}. CURRENFROZEN: {self._frozen} ")
-            # self._frozen = round(self._frozen, 4)
-            # self._cash = round(self._cash, 4)
-            return True
+        GLOG.DEBUG(f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
+        console.print(f":ice: TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
+        self._frozen += money
+        self._cash -= money
+        GLOG.DEBUG(
+            f"DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} "
+        )
+        console.print(
+            f":money_bag: DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} "
+        )
+        return True
 
     def unfreeze(self, money: float) -> float:
         """
-        frozen --, capital ++
+        Unfreeze the money.
+        Args:
+            money(float): unfreeze money.
+        Return:
+            Current frozen money.
         """
         if money > self.frozen:
             if money - self.frozen > GCONF.EPSILON:
-                GLOG.CRITICAL(
-                    f"We cant unfreeze {money}, the max unfreeze is only {self.frozen}"
+                GLOG.ERROR(
+                    f"Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}"
                 )
+                console.print(
+                    f":prohibited: Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}"
+                )
+                return
             else:
-                money = self.frozen
-                self._frozen -= money
-                GLOG.WARN(f"DONE UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
+                self._frozen = 0
+                GLOG.DEBUG(f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
         else:
-            GLOG.WARN(f"TRYING UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
+            GLOG.DEBUG(f"TRYING UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
             self._frozen -= money
             # self._frozen = round(self._frozen, 4)
-            GLOG.WARN(f"DONE UNFREEZE {money}. CURRENTFROZEN: {self.frozen}")
+            GLOG.DEBUG(f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
         return self.frozen
 
     def put(self, event) -> None:
@@ -302,8 +373,15 @@ class BasePortfolio(BacktestBase):
         self.engine.put(event)
 
     def add_analyzer(self, analyzer: "BaseAnalyzer") -> None:
+        """
+        Add Analyzer.
+        Args:
+            analyzer(BaseAnalyzer): new analyzer
+        Return:
+            None
+        """
         if analyzer.name in self.analyzers.keys():
-            GLOG.ERROR(
+            GLOG.WARN(
                 f"Analyzer {analyzer.name} already in the analyzers. Please check."
             )
             return
@@ -313,7 +391,11 @@ class BasePortfolio(BacktestBase):
 
     def analyzer(self, key: str) -> "BaseAnalyzer":
         """
-        return the analyzers[key]
+        Get the analyzer.
+        Args:
+            key(str): key
+        Return:
+            The analyzer[key]
         """
         # TODO
         if key in self.analyzers.keys():
@@ -337,18 +419,20 @@ class BasePortfolio(BacktestBase):
         return self._strategies
 
     def add_strategy(self, strategy: "StrategyBase") -> None:
+        if strategy in self.strategies:
+            return
         self.strategies.append(strategy)
         if strategy.portfolio is None:
             strategy.bind_portfolio(self)
 
     def add_position(self, position: Position) -> None:
         code = position.code
-        if code not in self.positions.keys():
-            self._positions[code] = position
-        else:
+        if code in self.positions.keys():
             self._positions[code].deal(
                 DIRECTION_TYPES.LONG, position.cost, position.volume
             )
+        else:
+            self._positions[code] = position
 
     def get_position(self, code: str) -> Position:
         raise NotImplemented
@@ -388,7 +472,6 @@ class BasePortfolio(BacktestBase):
 
         self.update_profit()
         self.update_worth()
-        GDATA.update_backtest_worth(self.backtest_id, self.worth)
         self.record(RECORDSTAGE_TYPES.NEWDAY)
 
     def clean_positions(self) -> None:
@@ -426,7 +509,7 @@ class BasePortfolio(BacktestBase):
         l = []
         for i in self.positions.keys():
             l.append(self.positions[i])
-        GDATA.add_positions(self.backtest_id, self.now, l)
+        GDATA.add_position_records(self.uuid, self.now, l)
 
     def bought(self, code: str, price: str, volume: int, fee: float) -> None:
         if volume < 0:

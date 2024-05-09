@@ -16,8 +16,8 @@ class BacktestBase(object):
     def __init__(self, name: str = "backtest_base", *args, **kwargs) -> None:
         self._name: str = ""
         self._now: datetime.datetime = None
-        self._abstract = True
-        self._backtest_id = uuid.uuid4().hex
+        self._abstract: bool = True
+        self._backtest_id: str = uuid.uuid4().hex
 
         self.set_name(name)
 
@@ -27,7 +27,7 @@ class BacktestBase(object):
 
     def set_backtest_id(self, value: str) -> str:
         """
-        Backtest ID update.
+        Backtest ID Update.
 
         Args:
             value(str): new backtest id

@@ -1,3 +1,4 @@
+import uuid
 import pandas as pd
 import datetime
 from sqlalchemy import Column, String, DateTime, Boolean, Integer
@@ -7,7 +8,7 @@ from functools import singledispatchmethod
 from enum import Enum
 from types import FunctionType, MethodType
 from sqlalchemy.ext.declarative import declarative_base
-from ginkgo.libs import gen_uuid4, datetime_normalize
+from ginkgo.libs import datetime_normalize
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.enums import SOURCE_TYPES
 
@@ -31,7 +32,7 @@ class MMysqlBase(Base):
     source = Column(ChoiceType(SOURCE_TYPES, impl=Integer()), default=0)
 
     def __init__(self) -> None:
-        self.uuid = gen_uuid4()
+        self.uuid = uuid.uuid4().hex
         self.timestamp = datetime.datetime.now()
         self.create = datetime.datetime.now()
         self.source = SOURCE_TYPES.VOID

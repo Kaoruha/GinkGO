@@ -19,7 +19,6 @@ class AnnualizedReturn(BaseAnalyzer):
         pass
 
     def record(self, stage, *args, **kwargs) -> None:
-        super(AnnualizedReturn, self).record(stage, *args, **kwargs)
         if stage != self.active_stage:
             return
         if self._base_value is None:
