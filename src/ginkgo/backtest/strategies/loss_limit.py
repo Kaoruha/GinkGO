@@ -26,16 +26,19 @@ class StrategyLossLimit(StrategyBase):
 
     def cal(self, code: str, *args, **kwargs):
         super(StrategyLossLimit, self).cal()
-        if code in self.portfolio.positions.keys():
-            position = self.portfolio.positions[code]
-            cost = position.cost
-            price = position.price
-            ratio = price / cost
-            if 1 - self.loss_limit / 100:
-                s = Signal(
-                    code=code,
-                    direction=DIRECTION_TYPES.SHORT,
-                    backtest_id=self.backtest_id,
-                    timestamp=self.portfolio.now,
-                )
-                return s
+        if code not in self.portfolio.positions.keys():
+            return
+        position = self.portfolio.positions[code]
+        cost = position.cost
+        price = position.price
+        ratio = price / cost
+        print(f"Limit: {self.loss_limit}, Price: {price}, Cost: {cost}")
+        if ratio < (100 - self.loss_limit) / 100:
+            s = Signal(
+                code=code,
+                direction=DIRECTION_TYPES.SHORT,
+                backtest_id=self.backtest_id,
+                timestamp=self.portfolio.now,
+            )
+            print("SHORT ORDER via LossLimit.")
+            return s
