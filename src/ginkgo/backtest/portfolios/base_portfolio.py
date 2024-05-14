@@ -13,6 +13,7 @@ from ginkgo.backtest.selectors import BaseSelector
 from ginkgo.backtest.backtest_base import BacktestBase
 from ginkgo.backtest.risk_managements.base_risk import BaseRiskManagement
 from ginkgo.backtest.sizers.base_sizer import BaseSizer
+from ginkgo.backtest.events.base_event import EventBase
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.position import Position
@@ -536,3 +537,19 @@ class BasePortfolio(BacktestBase):
         p.volume -= volume
         self.add_fee(fee)
         self._cash += price * volume - fee
+
+    def is_event_from_future(self, event) -> bool:
+        """
+        Prevent the event from future.
+        """
+        try:
+            if event.timestamp > self.now:
+                GLOG.ERROR(
+                    f"Current time is {self.now.strftime('%Y-%m-%d %H:%M:%S')}, The Event {event.event_type} generated at {event.timestamp}, Can not handle the future infomation."
+                )
+                return True
+        except Exception as e:
+            print(e)
+            return False
+        finally:
+            return False

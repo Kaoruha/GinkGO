@@ -227,15 +227,15 @@ class PortfolioT1Backtest(BasePortfolio):
 
         # Put old SIGNALs to engine
         if len(self.signals) == 0:
-            self.try_go_next_phase()
-            return
-
-        for signal in self.signals:
-            self._lastday_signal_count += 1
-            e = EventSignalGeneration(signal.value)
-            self.put(e)
+            # self.try_go_next_phase()
+            pass
+        else:
+            for signal in self.signals:
+                self._lastday_signal_count += 1
+                e = EventSignalGeneration(signal.value)
+                self.put(e)
         self._signals = GinkgoSingleLinkedList()
-        self.try_go_next_phase()
+        # self.try_go_next_phase()
 
     def on_signal(self, event: EventSignalGeneration):
         """
@@ -250,17 +250,14 @@ class PortfolioT1Backtest(BasePortfolio):
         GLOG.INFO(
             f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}."
         )
-        # Check Everything.
-        if not self.is_all_set():
-            self.try_go_next_phase()
+        if self.is_event_from_future(event):
+            self._signal_passed_count += 1
+            # self.try_go_next_phase()
             return
 
-        if event.timestamp > self.now:
-            GLOG.WARN(
-                f"Current time is {self.now.strftime('%Y-%m-%d %H:%M:%S')}, The EventSignal generated at {event.timestamp}, Can not handle the future infomation."
-            )
-            self._signal_passed_count += 1
-            self.try_go_next_phase()
+        # Check Everything.
+        if not self.is_all_set():
+            # self.try_go_next_phase()
             return
 
         # T+1, Order will send after 1 day that signal comes.
@@ -268,37 +265,16 @@ class PortfolioT1Backtest(BasePortfolio):
             GLOG.INFO(
                 f"T+1 Portfolio can not send the order generated from the signal today {event.timestamp}, we will send the order tomorrow"
             )
-            if event.direction == DIRECTION_TYPES.LONG:
-                self.signals.append(event.value)
-                self._signal_tomorrow_count += 1
-            elif event.direction == DIRECTION_TYPES.SHORT:
-                order = self.sizer.cal(event.value)
-                self.put(order)
-                mo = MOrder()
-                mo.set(
-                    order.uuid,
-                    order.code,
-                    order.direction,
-                    ORDER_TYPES.MARKETORDER,
-                    ORDERSTATUS_TYPES.NEW,
-                    order.volume,
-                    order.limit_price,
-                    order.frozen,
-                    order.transaction_price,
-                    order.remain,
-                    order.fee,
-                    self.now,
-                    self.backtest_id,
-                )
-
-            self.try_go_next_phase()
+            self.signals.append(event.value)
+            self._signal_tomorrow_count += 1
+            # self.try_go_next_phase()
             return
 
         # if the signal from past , and the stock has no price today, put it back to to_send signals.
         if not self.engine.datafeeder.is_code_on_market(event.code, self.now):
             self.signals.append(event.value)
             self._signal_tomorrow_count += 1
-            self.try_go_next_phase()
+            # self.try_go_next_phase()
             return
 
         # 1. Transfer signal to sizer
@@ -306,7 +282,7 @@ class PortfolioT1Backtest(BasePortfolio):
         # 2. Get the order return
         if order is None:
             self._signal_passed_count += 1
-            self.try_go_next_phase()
+            # self.try_go_next_phase()
             return
 
         # 3. Transfer the order to risk_manager
@@ -315,12 +291,12 @@ class PortfolioT1Backtest(BasePortfolio):
         # 4. Get the adjusted order, if so put eventorder to engine
         if order_adjusted is None:
             self._signal_passed_count += 1
-            self.try_go_next_phase()
+            # self.try_go_next_phase()
             return
 
         if order_adjusted.volume == 0:
             self._signal_passed_count += 1
-            self.try_go_next_phase()
+            # self.try_go_next_phase()
             return
 
         # 5. Create order, stored into db
@@ -331,7 +307,7 @@ class PortfolioT1Backtest(BasePortfolio):
             GLOG.WARN("Got a LONG ORDER  After freeze")
             if not freeze_ok:
                 self._signal_passed_count += 1
-                self.try_go_next_phase()
+                # self.try_go_next_phase()
                 return
             mo.set(
                 order_adjusted.uuid,
@@ -392,23 +368,20 @@ class PortfolioT1Backtest(BasePortfolio):
             self._order_send_count += 1  # Record
 
             GLOG.WARN(f"Send : {self._order_send_count}")
-        self.try_go_next_phase()
+        # self.try_go_next_phase()
 
     def on_price_update(self, event: EventPriceUpdate):
         self._price_get_count += 1  # Record
 
         # Check Everything.
         if not self.is_all_set():
-            self.try_go_next_phase()
+            # self.try_go_next_phase()
             return
 
         # 0 Time check
-        if event.timestamp > self.now:
-            GLOG.WARN(
-                f"Current time is {self.now.strftime('%Y-%m-%d %H:%M:%S')}, The EventPriceUpdate generated at {event.timestamp}, Can not handle the future infomation."
-            )
+        if self.is_event_from_future(event):
             self._price_passed_count += 1
-            self.try_go_next_phase()
+            # self.try_go_next_phase()
             return
 
         # 1. Update position price
@@ -416,9 +389,9 @@ class PortfolioT1Backtest(BasePortfolio):
             self.positions[event.code].on_price_update(event.close)
 
         # 2. Transfer price to each strategy
-        if len(self.strategies) <= 0:
+        if len(self.strategies) == 0:
             self._price_passed_count += 1
-            self.try_go_next_phase()
+            # self.try_go_next_phase()
             return
 
         # GLOG.INFO(f"Under {len(self.strategies)} Strategies Calculating... {self.now}")
@@ -440,15 +413,18 @@ class PortfolioT1Backtest(BasePortfolio):
         # GLOG.INFO(f"Strategies Calculating Complete. {self.now}")
         self.update_worth()
         self.update_profit()
-        self.try_go_next_phase()
+        # self.try_go_next_phase()
 
     def on_order_filled(self, event: EventOrderFilled):
         GLOG.INFO("Got An Order Filled...")
+        if self.is_event_from_future(event):
+            return
+
         if not event.order_status == ORDERSTATUS_TYPES.FILLED:
             GLOG.CRITICAL(
                 f"On Order Filled only handle the FILLEDORDER, cant handle a {event.order_status} one. Check the Code"
             )
-            self.try_go_next_phase()
+            # self.try_go_next_phase()
             return
         self.record(RECORDSTAGE_TYPES.ORDERFILLED)
         GDATA.add_order_record(
@@ -487,14 +463,15 @@ class PortfolioT1Backtest(BasePortfolio):
         self._order_filled_count += 1  # Record
         self.update_worth()
         self.update_profit()
-        self.try_go_next_phase()
+        # self.try_go_next_phase()
 
     def on_order_canceled(self, event: EventOrderCanceled):
         GLOG.WARN(
             f"Filled: {self._order_filled_count}  Canceled: {self._order_canceled_count}"
         )
-        # TODO LONG SHORT
         GLOG.WARN("Dealing with CANCELED ORDER.")
+        if self.is_event_from_future(event):
+            return
         self.record(RECORDSTAGE_TYPES.ORDERCANCELED)
         if event.direction == DIRECTION_TYPES.LONG:
             GLOG.WARN("START UNFREEZE LONG.")
@@ -508,7 +485,7 @@ class PortfolioT1Backtest(BasePortfolio):
             pos.unfreeze(event.volume)
             GLOG.WARN("DONE UNFREEZE SHORT.")
         self._order_canceled_count += 1  # Record
-        self.try_go_next_phase()
+        # self.try_go_next_phase()
 
     def __repr__(self) -> str:
         return base_repr(self, PortfolioT1Backtest.__name__, 24, 60)
