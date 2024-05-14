@@ -38,4 +38,5 @@ class StrategyProfitLimit(StrategyBase):
                     backtest_id=self.backtest_id,
                     timestamp=self.portfolio.now,
                 )
+                print("SHORT ORDER from profit limit")
                 return s

@@ -268,8 +268,29 @@ class PortfolioT1Backtest(BasePortfolio):
             GLOG.INFO(
                 f"T+1 Portfolio can not send the order generated from the signal today {event.timestamp}, we will send the order tomorrow"
             )
-            self.signals.append(event.value)
-            self._signal_tomorrow_count += 1
+            if event.direction == DIRECTION_TYPES.LONG:
+                self.signals.append(event.value)
+                self._signal_tomorrow_count += 1
+            elif event.direction == DIRECTION_TYPES.SHORT:
+                order = self.sizer.cal(event.value)
+                self.put(order)
+                mo = MOrder()
+                mo.set(
+                    order.uuid,
+                    order.code,
+                    order.direction,
+                    ORDER_TYPES.MARKETORDER,
+                    ORDERSTATUS_TYPES.NEW,
+                    order.volume,
+                    order.limit_price,
+                    order.frozen,
+                    order.transaction_price,
+                    order.remain,
+                    order.fee,
+                    self.now,
+                    self.backtest_id,
+                )
+
             self.try_go_next_phase()
             return
 
@@ -454,6 +475,7 @@ class PortfolioT1Backtest(BasePortfolio):
             GLOG.WARN("Fill a LONG ORDER DONE")
         elif event.direction == DIRECTION_TYPES.SHORT:
             GLOG.WARN("DEALING with SHORT FILLED ORDER")
+            time.sleep(4)
             self.add_found(event.remain)
             self.add_fee(event.fee)
             self.positions[event.code].deal(
