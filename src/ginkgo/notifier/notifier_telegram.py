@@ -1,14 +1,14 @@
-from src.ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.libs.ginkgo_conf import GCONF
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telebot.util import quick_markup
-from src.ginkgo.data.ginkgo_data import GDATA
-from src.ginkgo.enums import FILE_TYPES
-from src.ginkgo.backtest.plots.result_plot import ResultPlot
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.enums import FILE_TYPES
+from ginkgo.backtest.plots.result_plot import ResultPlot
 import telebot
 import shutil
 import yaml
 import os
-from src.ginkgo.artificial_intelligence.gemma_7b import Gemma7B
+from ginkgo.artificial_intelligence.gemma_7b import Gemma7B
 
 import psutil
 
@@ -74,11 +74,15 @@ ai_bot = None
 
 @bot.message_handler(commands=["status"])
 def status_handler(message):
-    msg = f"CPU RATIO: {GDATA.cpu_ratio}"
+    msg = f"CPU RATIO: {GDATA.cpu_ratio*100}%"
     bot.send_message(message.chat.id, msg)
     # Get CPU usage as a percentage
     cpu_usage = psutil.cpu_percent()
     bot.send_message(message.chat.id, f"CPU Usage: {cpu_usage}%")
+
+    # Get RAM usage
+    memory_usage = psutil.virtual_memory().percent
+    bot.send_message(message.chat.id, f"RAM Usage: {memory_usage}%")
 
     temperatures = psutil.sensors_temperatures()
 
@@ -89,12 +93,6 @@ def status_handler(message):
                 message.chat.id,
                 f"{entry.label} Temperature: {entry.current}°C",
             )
-
-    # Get RAM usage
-    memory_usage = psutil.virtual_memory().percent
-    bot.send_message(message.chat.id, f"RAM Usage: {memory_usage}%")
-    msg = f"REDIS WORKER: {GDATA.redis_worker_status}"
-    bot.send_message(message.chat.id, msg)
 
 
 @bot.message_handler(commands=["list"])
@@ -177,7 +175,7 @@ def run_backtest(message):
         return
 
     uuid = extract_arg(message.text)[0]
-    from src.ginkgo.client.backtest_cli import run as run_backtest
+    from ginkgo.client.backtest_cli import run as run_backtest
 
     global is_running
 

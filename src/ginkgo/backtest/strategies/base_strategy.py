@@ -28,18 +28,8 @@ class StrategyBase(BacktestBase):
         if isinstance(spans, str):
             self._attention_spans = int(spans)
 
-    def on_price_update(self, data):
-        df = data.to_dataframe()
-        code = df.iloc[0]["code"]
-        if code not in self.raw.keys():
-            # init
-            self.raw[code] = df
-        else:
-            # append
-            if self.raw[code].shape[0] >= self._attention_spans:
-                self.raw[code] = self.raw[code].iloc[1:]
-            self.raw[code] = pd.concat([self.raw[code], df])
-            self.raw[code] = self.raw[code].sort_values(by="timestamp", ascending=True)
+    def on_price_update(self, code):
+        pass
 
     @property
     def portfolio(self):

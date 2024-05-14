@@ -1,5 +1,6 @@
 from types import FunctionType, MethodType
 from enum import Enum
+
 from ginkgo.libs.ginkgo_links import GinkgoSingleLinkedList
 
 

@@ -709,7 +709,7 @@ def res(
         console.print(table)
         return
 
-    from src.ginkgo.backtest.plots.result_plot import ResultPlot
+    from ginkgo.backtest.plots.result_plot import ResultPlot
 
     # Got analyzer id
     analyzer_ids = index

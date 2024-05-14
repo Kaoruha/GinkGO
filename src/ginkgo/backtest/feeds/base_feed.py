@@ -17,6 +17,7 @@ class BaseFeed(BacktestBase):
         super(BaseFeed, self).__init__(*args, **kwargs)
         self._subscribers = GinkgoSingleLinkedList()
         self._cache = None
+        self._portfolio_cache = None
 
     @property
     def subscribers(self) -> GinkgoSingleLinkedList:
@@ -51,11 +52,11 @@ class BaseFeed(BacktestBase):
             return pd.DataFrame()
 
         if self._cache is None:
-            df = GDATA.get_daybar_df("", date, date)
-            if df.shape[0] == 0:
-                return pd.DataFrame()
-            self._cache = df
-        return self._cache[self._cache.code == code]
+            self._cache = GDATA.get_daybar_df("", date_start=date, date_end=date)
+        if self._cache.shape[0] == 0:
+            return pd.DataFrame()
+        else:
+            return self._cache[self._cache.code == code]
 
     def on_time_goes_by(self, time: any, *args, **kwargs):
         """
@@ -64,3 +65,4 @@ class BaseFeed(BacktestBase):
         # Time goes
         super(BaseFeed, self).on_time_goes_by(time, *args, **kwargs)
         self._cache = None
+        self._portfolio_cache = None

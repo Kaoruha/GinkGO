@@ -1,8 +1,8 @@
+import os
 import yaml
 import shutil
 import base64
 import threading
-import os
 
 
 class GinkgoConfig(object):

@@ -4,6 +4,7 @@ if TYPE_CHECKING:
     from ginkgo.backtest.engines.base_engine import BaseEngine
 
 import datetime
+import time
 import pandas as pd
 
 
@@ -68,31 +69,36 @@ class MatchMakingBase(BacktestBase):
         return self._price
 
     def on_price_update(self, event: EventPriceUpdate, *args, **kwargs) -> None:
-        time = None
+        # print("get price")
+        # print(event)
+        # print(f"now: {self.now}")
+        # time.sleep(2)
+        timestamp = None
         try:
-            time = event.timestamp
+            timestamp = event.timestamp
         except Exception as e:
             print(e)
             pass
 
         # Check Current Time
-        if time is None:
+        if timestamp is None:
             GLOG.ERROR(f"Price Event has no time. It is illegal")
             import pdb
 
             pdb.set_trace()
             return
 
-        if time < self.now:
+        if timestamp < self.now:
             GLOG.ERROR(
                 f"Current Time is {self.now} the price come from past {event.timestamp}"
             )
-            import pdb
+            time.sleep(2)
+            # import pdb
 
-            pdb.set_trace()
+            # pdb.set_trace()
             return
 
-        elif time > self.now:
+        elif timestamp > self.now:
             GLOG.ERROR(
                 f"Current Time is {self.now} the price come from future {event.timestamp}"
             )

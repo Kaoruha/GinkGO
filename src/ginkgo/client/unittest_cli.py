@@ -10,8 +10,8 @@ import os
 import unittest
 
 
-from src.ginkgo.libs.ginkgo_conf import GCONF
-from src.ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.libs.ginkgo_logger import GLOG
 
 
 app = typer.Typer(

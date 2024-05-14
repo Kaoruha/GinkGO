@@ -35,7 +35,7 @@ class HistoricEngine(EventEngine):
         self._date_start = None
         self._date_end = None
         self.set_date_start(20000101)
-        self._max_waits = 10
+        self._max_waits = 4
         self._matchmaking = None
 
     @property
@@ -104,13 +104,13 @@ class HistoricEngine(EventEngine):
                 break
             try:
                 # Get a event from events_queue
-                event: EventBase = self._queue.get(block=True, timeout=0.5)
+                event: EventBase = self._queue.get(block=True, timeout=0.05)
                 # Pass the event to handle
                 self._process(event)
                 count = 0
             except Empty:
-                GLOG.WARN(f"No Event in Queue. {datetime.datetime.now()} {count}")
                 count += 1
+                GLOG.WARN(f"No Event in Queue. {datetime.datetime.now()} {count}")
                 # Exit
                 if count >= self._max_waits:
                     now = datetime.datetime.now()
@@ -122,7 +122,7 @@ class HistoricEngine(EventEngine):
                         self.put(EventNextPhase())
 
             # Break for a while
-            sleep(GCONF.HEARTBEAT)
+            # sleep(0.005)
 
     def nextphase(self, *args, **kwargs) -> None:
         if self.now >= self.date_end:

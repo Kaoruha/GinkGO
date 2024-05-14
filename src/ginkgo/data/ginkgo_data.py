@@ -12,7 +12,7 @@ import multiprocessing
 import threading
 from rich.console import Console
 from rich.progress import Progress
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from concurrent.futures import ThreadPoolExecutor
 
 from ginkgo.data.models import (
     MAnalyzer,
@@ -46,7 +46,12 @@ from ginkgo.enums import (
     FILE_TYPES,
 )
 from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare, GinkgoTDX
-from ginkgo.data.drivers import GinkgoClickhouse, GinkgoMysql, GinkgoRedis
+from ginkgo.data.drivers import (
+    GinkgoClickhouse,
+    GinkgoMysql,
+    GinkgoRedis,
+    GinkgoProducer,
+)
 from ginkgo.libs.ginkgo_ps import find_process_by_keyword
 from ginkgo.backtest.position import Position
 
@@ -72,7 +77,7 @@ class GinkgoData(object):
             self.cpu_ratio = GCONF.CPURATIO
         except Exception as e:
             self.cpu_ratio = 0.8
-            GLOG.DEBUG(e)
+            GLOG.ERROR(e)
         self.tick_models = {}
         self.cache_daybar_count = 0
         self.cache_daybar_max = 4
@@ -80,146 +85,18 @@ class GinkgoData(object):
         self._mysql = None
         self._clickhouse = None
         self._redis = None
+        self._kafka = None
+
+    def send_signal_stop_dataworker(self):
+        self.get_kafka_producer().send(
+            "ginkgo_data_update", {"type": "kill", "code": "blabla"}
+        )
 
     # Redis >>
 
     def get_daybar_redis_cache_name(self, code: str) -> str:
         res = f"daybar%{code}"
         return res
-
-    @property
-    def redis_todo_cachename(self) -> str:
-        return "redis_todo_list"
-
-    @property
-    def redis_worker_pids_cachename(self) -> str:
-        return "redis_worker_pid_list"
-
-    def add_redis_worker_pid(self, pid: int) -> None:
-        self.get_redis().lpush(self.redis_worker_pids_cachename, pid)
-
-    def redis_set_async(self, key, value) -> None:
-        GLOG.DEBUG("Try add REDIS task about {key}")
-        temp_redis = self.get_redis()
-        cache_name = self.redis_todo_cachename
-        if temp_redis.llen(cache_name) >= 5000:  # TODO move into config
-            GLOG.DEBUG(f"Redis Cache is full, skip {key}:{value}")
-            return
-        temp_redis.lpush(cache_name, f"{key}:{value}")
-        GLOG.DEBUG(f"Add REDIS Task about {key}")
-
-    def redis_woker_handler(self, lock) -> None:
-        temp_redis = self.get_redis()
-        cache_name = self.redis_todo_cachename
-        self.add_redis_worker_pid(os.getpid())
-        while True:
-            lock.acquire()
-            GLOG.DEBUG(f"Try get list from {os.getpid()}")
-            item = temp_redis.lpop(cache_name)
-            lock.release()
-            if item is None:
-                time.sleep(1)
-                continue
-            else:
-                item = item.decode("utf-8")
-                data_type = item.split(":")[0]
-                code = item.split(":")[1]
-                GLOG.DEBUG(f"{data_type} : {code}")
-                if data_type == "daybar":
-                    GLOG.DEBUG("Dealing with daybar.")
-                    df = self.get_daybar_df(code)
-                    GLOG.DEBUG(df)
-                    if df.shape[0] == 0:
-                        GLOG.DEBUG(f"There is no data about {code}. deal with next")
-                        continue
-                    GLOG.DEBUG(f"Set redis about {code}")
-                    temp_redis.setex(
-                        self.get_daybar_redis_cache_name(code),
-                        self.redis_expiration_time,
-                        pickle.dumps(df),
-                    )
-                    GLOG.DEBUG(f"Set redis about {code} complete.")
-                elif data_type == "tick":
-                    pass
-                elif data_type == "stockinfo":
-                    pass
-                elif data_type == "adjust":
-                    pass
-                elif data_type == "calendar":
-                    pass
-
-    @property
-    def redis_worker_status(self) -> str:
-        # Plan1 store in redis
-        # Plan2 store in file ~/.ginkgo/.redis_woker_pid
-        temp_redis = self.get_redis()
-        cache_name = self.redis_worker_pids_cachename
-        if temp_redis.exists(cache_name):
-            running_count = 0
-            dead_count = 0
-            if self.redis_worker_count == 0:
-                return "DEAD"
-            for i in range(self.redis_worker_count):
-                pid = temp_redis.lindex(cache_name, i).decode("utf-8")
-                try:
-                    proc = psutil.Process(int(pid))
-                    if proc.is_running():
-                        running_count += 1
-                    else:
-                        dead_count += 1
-                except Exception as e:
-                    pass
-            return f"RUNNING: {running_count}  DEAD: {dead_count} EXPIRED: {self.redis_worker_count - running_count - dead_count}"
-        return "NOT EXIST"
-
-    @property
-    def redis_worker_count(self) -> int:
-        GLOG.DEBUG("Try get REDIS worker count.")
-        temp_redis = self.get_redis()
-        cache_name = self.redis_worker_pids_cachename
-        if temp_redis.exists(cache_name):
-            return temp_redis.llen(cache_name)
-        else:
-            return 0
-
-    @property
-    def redis_todo_list_length(self) -> int:
-        GLOG.DEBUG("Try get REDIS list length.")
-        temp_redis = self.get_redis()
-        cache_name = self.redis_todo_cachename
-        if temp_redis.exists(cache_name):
-            return temp_redis.llen(cache_name)
-        else:
-            return 0
-
-    def kill_redis_worker(self) -> None:
-        GLOG.DEBUG("Try kill REDIS worker.")
-        temp_redis = self.get_redis()
-        cache_name = self.redis_worker_pids_cachename
-        if temp_redis.exists(cache_name):
-            for i in range(self.redis_worker_count):
-                try:
-                    pid = temp_redis.lpop(cache_name).decode("utf-8")
-                    proc = psutil.Process(int(pid))
-                    if proc.is_running():
-                        os.kill(int(pid), signal.SIGKILL)
-                except Exception as e:
-                    GLOG.DEBUG(e)
-        rs = find_process_by_keyword("redis_worker_run")
-        for i in rs:
-            os.kill(int(i), signal.SIGKILL)
-
-    def run_redis_worker(self, count: int = 2) -> None:
-        # Start new woker
-        self.add_redis_worker_pid(os.getpid())
-        count = count if count >= 1 else 2
-        p = multiprocessing.Pool(processes=count)
-        # Daemon Process ID
-        lock = multiprocessing.Manager().Lock()
-        for i in range(count):
-            t = p.apply_async(self.redis_woker_handler, args=(lock,))
-        p.close()
-        p.join()
 
     def remove_from_redis(self, key: str):
         temp_redis = self.get_redis()
@@ -293,6 +170,11 @@ class GinkgoData(object):
             GLOG.DEBUG("Generate Redis Engine.")
             self._redis = GinkgoRedis(GCONF.REDISHOST, GCONF.REDISPORT).redis
         return self._redis
+
+    def get_kafka_producer(self) -> GinkgoProducer:
+        if self._kafka is None:
+            self._kafka = GinkgoProducer()
+        return self._kafka
 
     def add(self, value) -> None:
         """
@@ -1233,6 +1115,28 @@ class GinkgoData(object):
         t1 = datetime.datetime.now()
         print(f"Updating Tick {code} complete. Cost: {t1-t0}")
 
+    def send_signal_update_bar(self, code: str, fast_mode: bool = True) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_data_update", {"type": "bar", "code": code, "fast": fast_mode}
+        )
+
+    def send_signal_update_all_bar(self, fast_mode: bool = True) -> None:
+        info = self.get_stock_info_df()
+        for i, r in info.iterrows():
+            code = r["code"]
+            self.send_signal_update_bar(code, fast_mode)
+
+    def send_signal_update_tick(self, code: str, fast_mode: bool = True) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_data_update", {"type": "tick", "code": code, "fast": fast_mode}
+        )
+
+    def send_signal_update_all_tick(self, fast_mode: bool = True) -> None:
+        info = self.get_stock_info_df()
+        for i, r in info.iterrows():
+            code = r["code"]
+            self.send_signal_update_tick(code, fast_mode)
+
     def update_all_cn_tick(self, fast_mode: bool = False) -> None:
         t0 = datetime.datetime.now()
         info = self.get_stock_info_df()
@@ -1420,7 +1324,7 @@ class GinkgoData(object):
         size = db.get_table_size(MTradeDay)
         GLOG.DEBUG(f"After Update Trade Calendar Size: {size}")
 
-    def update_cn_daybar(self, code: str) -> None:
+    def update_cn_daybar(self, code: str, fast_mode: bool = False) -> None:
         GLOG.DEBUG(f"Try to update CN DAYBAR about {code}.")
         GLOG.INFO(f"Updating CN DAYBAR about {code}.")
         # Get the stock info of code
@@ -1456,6 +1360,48 @@ class GinkgoData(object):
         if today < date_end:
             date_end = today
 
+        old_df = self.get_daybar_df(code)
+        tu = GinkgoTushare()
+        if fast_mode:
+            latest_date = old_df.iloc[-1]["timestamp"]
+            p = date_end - latest_date
+            if p > datetime.timedelta(days=1):
+                l = []
+                rs = tu.fetch_cn_stock_daybar(code, latest_date, date_end)
+                if rs.shape[0] == 0:
+                    print(f"No new data about {code} from remote.")
+                    return
+                for i, r in rs.iterrows():
+                    date = datetime_normalize(r["trade_date"])
+                    q = self.get_daybar(code, date, date)
+                    if len(q) > 0:
+                        print(f"{code} at {date} already in db.")
+                        continue
+                    # New Insert
+                    b = MBar()
+                    b.set_source(SOURCE_TYPES.TUSHARE)
+                    b.set(
+                        code,
+                        r["open"],
+                        r["high"],
+                        r["low"],
+                        r["close"],
+                        r["vol"],
+                        FREQUENCY_TYPES.DAY,
+                        date,
+                    )
+                    l.append(b)
+                if len(l) == 0:
+                    return
+                driver.session.add_all(l)
+                driver.session.commit()
+                GLOG.DEBUG(f"Insert {len(l)} {code} Daybar.")
+                print(f"Insert {len(l)} {code} Daybar.")
+                return
+            else:
+                print(f"{code} no need to update.")
+                return
+
         missing_period = [
             [None, None],
         ]
@@ -1475,7 +1421,6 @@ class GinkgoData(object):
         trade_calendar = trade_calendar[trade_calendar["timestamp"] <= date_end]
 
         df1 = trade_calendar["timestamp"]
-        old_df = self.get_daybar_df(code)
         old_timestamp = old_df.timestamp.values if old_df.shape[0] > 0 else []
         for i, r in trade_calendar.iterrows():
             trade_calendar.loc[i, "in_db"] = r["timestamp"] in old_timestamp
@@ -1508,7 +1453,6 @@ class GinkgoData(object):
         GLOG.DEBUG(f"Daybar Calendar Check {code} Done.")
 
         # fetch the data and insert to db
-        tu = GinkgoTushare()
         l = []
         insert_count = 0
         update_count = 0
@@ -1516,6 +1460,8 @@ class GinkgoData(object):
         for period in missing_period:
             if period[0] is None:
                 break
+            print(period)
+            continue
             start = period[0]
             end = period[1]
             GLOG.DEBUG(f"Fetch {code} {info.code_name} from {start} to {end}")
@@ -1531,6 +1477,9 @@ class GinkgoData(object):
             for i, r in rs.iterrows():
                 date = datetime_normalize(r["trade_date"])
                 q = self.get_daybar(code, date, date)
+                if len(q) > 0:
+                    print(f"{code} at {date} already in db.")
+                    continue
                 # New Insert
                 b = MBar()
                 b.set_source(SOURCE_TYPES.TUSHARE)
@@ -1559,9 +1508,6 @@ class GinkgoData(object):
         GLOG.WARN(
             f"Daybar {code} Update: {update_count} Insert: {insert_count} Cost: {t1-t0}"
         )
-        # Update Redis
-        if insert_count > 0:
-            self.update_redis_daybar(code)
 
     def update_all_cn_daybar(self) -> None:
         t0 = datetime.datetime.now()

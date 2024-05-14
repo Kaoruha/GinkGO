@@ -15,4 +15,6 @@ class FixedSelector(BaseSelector):
 
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         r = self._interested
+        print("++++++++++++++++++++")
+        print(r)
         return r

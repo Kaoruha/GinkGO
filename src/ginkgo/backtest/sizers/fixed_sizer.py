@@ -3,6 +3,7 @@ from ginkgo.backtest.order import Order
 from ginkgo.backtest.signal import Signal
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
 from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.data.ginkgo_data import GDATA
 
 
 class FixedSizer(BaseSizer):
@@ -20,7 +21,7 @@ class FixedSizer(BaseSizer):
 
     def cal(self, signal: Signal):
         code = signal.code
-        df = self.data_feeder.get_daybar(code, signal.timestamp)
+        df = GDATA.get_daybar_df(code, signal.timestamp, signal.timestamp)
         if df.shape[0] == 0:
             return
         close = df.loc[0].close
