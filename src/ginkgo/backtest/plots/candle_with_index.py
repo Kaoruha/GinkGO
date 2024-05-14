@@ -8,9 +8,9 @@ import pandas as pd
 import logging
 import datetime
 
-from src.ginkgo.libs.ginkgo_logger import GLOG
-from src.ginkgo.backtest.plots.base_plot import BasePlot
-from src.ginkgo.backtest.indices.base_index import BaseIndex
+from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.backtest.plots.base_plot import BasePlot
+from ginkgo.backtest.indices.base_index import BaseIndex
 
 
 class CandleWithIndexPlot(BasePlot):

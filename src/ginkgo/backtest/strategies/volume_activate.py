@@ -1,11 +1,11 @@
-from ginkgo.backtest.strategies.base_strategy import StrategyBase
-from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.backtest.signal import Signal
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.backtest.events import EventSignalGeneration
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 import time
 import datetime
+from ginkgo.backtest.events import EventSignalGeneration
+from ginkgo.backtest.signal import Signal
+from ginkgo.backtest.strategies.base_strategy import StrategyBase
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
 
 class StrategyVolumeActivate(StrategyBase):
@@ -25,17 +25,16 @@ class StrategyVolumeActivate(StrategyBase):
     def cal(self, code: str, *args, **kwargs):
         super(StrategyVolumeActivate, self).cal()
         df = GDATA.get_daybar_df(
-            code, self.now - datetime.timedelta(days=-self.attention_spans), self.now
+            code, self.now - datetime.timedelta(days=self.attention_spans), self.now
         )
+
         if df.shape[0] == 0:
             return
         self._volume_mean = df["volume"].mean()
         self._volume_std = df["volume"].std()
 
         r = df["volume"].iloc[-1] / self._volume_mean
-        if self.raw[code].shape[0] < 2:
-            return
-        elif r < 0.67 and r > 0.6:
+        if r < 0.67 and r > 0.6:
             GLOG.INFO(f"Will Gen Signal about {code}")
             signal = Signal()
             signal.set_source(SOURCE_TYPES.STRATEGY)

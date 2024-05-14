@@ -1,10 +1,12 @@
 import typer
+import time
 from typing import List as typing_list
 import click
 import os
 from cmd import Cmd
 from typing_extensions import Annotated
 from rich.console import Console
+from rich.live import Live
 from rich import print
 
 from enum import Enum
@@ -15,6 +17,7 @@ from ginkgo.client import unittest_cli
 from ginkgo.client.interactive_cli import MyPrompt
 from ginkgo.client.backtest_cli import LogLevelType
 from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
+from ginkgo.libs.ginkgo_conf import GCONF
 
 
 main_app = typer.Typer(
@@ -39,23 +42,24 @@ def status(
     """
     :bullet_train: Check the module status.
     """
-    from ginkgo.libs.ginkgo_conf import GCONF
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
+    from ginkgo.libs.ginkgo_thread import GTM
 
     console.print(f"DEBUGMODE : {GCONF.DEBUGMODE}")
-    console.print(f"CPU RATIO : {GCONF.CPURATIO*100}%")
+    console.print(f"QUIETMODE : {GCONF.QUIET}")
+    console.print(f"CPU LIMIT : {GCONF.CPURATIO*100}%")
     console.print(f"LOG  PATH : {GCONF.LOGGING_PATH}")
     console.print(f"WORK  DIR : {GCONF.WORKING_PATH}")
-    console.print(f"REDISWORK : [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1]")
-    console.print(f"TELEBOT   : [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1]")
+    console.print(f"WORKER    : {GTM.dataworker_count}")
+    console.print(f"TELE BOT  : [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1]")
     if stream:
         os.system(
-            "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test"
+            "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test kafka1 kafka2 kafka3"
         )
     else:
         os.system(
-            "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test --no-stream"
+            "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test kafka1 kafka2 kafka3 --no-stream"
         )
 
 
@@ -172,43 +176,74 @@ def configure(
             """
             $SHELL_FOLDER/venv/bin/python $SHELL_FOLDER/main.py
             """
+            if GNOTIFIER.telebot_status == "RUNNING":
+                console.print(
+                    f":sun_with_face: TeleBot is [steel_blue1]RUNNING[/steel_blue1].",
+                    end="\r",
+                )
+                return
+
+            import os
+            from ginkgo.libs import GCONF
+
+            file_name = "telebot_run.py"
+            content = """ 
+from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
+
+if __name__ == "__main__": 
+    GNOTIFIER.run_telebot() 
+"""
+
+            # 打开文件进行写入
             work_dir = GCONF.WORKING_PATH
-            cmd = f"nohup {work_dir}/venv/bin/python {work_dir}/.telegram_bot_run.py >>{GCONF.LOGGING_PATH}/telegram_bot.log 2>&1 &"
+            with open(file_name, "w") as file:
+                file.write(content)
+            cmd = f"nohup {work_dir}/venv/bin/python -u {work_dir}/{file_name} >>{GCONF.LOGGING_PATH}/telegram_bot.log 2>&1 &"
             os.system(cmd)
+
             count = datetime.timedelta(seconds=0)
             t0 = datetime.datetime.now()
-            while count < datetime.timedelta(seconds=time_out):
-                t1 = datetime.datetime.now()
-                count = t1 - t0
-                status = GNOTIFIER.telebot_status
-                if status == "RUNNING":
-                    break
-                else:
-                    console.print(
-                        f":sun_with_face: TeleBot is [steel_blue1]STARTING[/steel_blue1] now. {count}",
-                        end="\r",
-                    )
-            console.print(
-                f":sun_with_face: TeleBot is [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1] now."
-            )
+            with Live(console=console, refresh_per_second=50) as live:
+                while count < datetime.timedelta(seconds=time_out):
+                    t1 = datetime.datetime.now()
+                    count = t1 - t0
+                    status = GNOTIFIER.telebot_status
+                    if status == "RUNNING":
+                        break
+                    else:
+                        live.update(
+                            f":sun_with_face: TeleBot is [steel_blue1]STARTING[/steel_blue1] now. {count}",
+                            refresh=True,
+                        )
+                        time.sleep(0.02)
+
+                live.update(
+                    f":sun_with_face: TeleBot is [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1] now."
+                )
+            os.remove(f"{work_dir}/{file_name}")
+
         elif telebot == DEBUG_TYPE.OFF:
             GNOTIFIER.kill_telebot()
             count = datetime.timedelta(seconds=0)
             t0 = datetime.datetime.now()
-            while count < datetime.timedelta(seconds=time_out):
-                t1 = datetime.datetime.now()
-                count = t1 - t0
-                status = GDATA.redis_worker_status
-                if status == "DEAD" or status == "NOT EXIST":
-                    break
-                else:
-                    console.print(
-                        f":ice: Telegram Bot Server will be [light_coral]KILLED[/light_coral] soon.",
-                        end="\r",
-                    )
-            console.print(
-                f":sun_with_face: Telegram Bot Server is [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1] now."
-            )
+
+            with Live(console=console, refresh_per_second=50) as live:
+                while count < datetime.timedelta(seconds=time_out):
+                    t1 = datetime.datetime.now()
+                    count = t1 - t0
+                    status = GNOTIFIER.telebot_status
+                    if status == "DEAD" or status == "NOT EXIST":
+                        break
+                    else:
+                        live.update(
+                            f":ice: Telegram Bot Server will be [light_coral]KILLED[/light_coral] soon.",
+                            refresh=True,
+                        )
+                        time.sleep(0.02)
+
+                live.update(
+                    f":sun_with_face: Telegram Bot Server is [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1] now."
+                )
 
     if logpath is not None:
         GCONF.set_logging_path(logpath)

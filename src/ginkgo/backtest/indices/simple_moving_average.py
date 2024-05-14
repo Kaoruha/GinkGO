@@ -1,5 +1,5 @@
 import pandas as pd
-from src.ginkgo.backtest.indices.base_index import BaseIndex
+from ginkgo.backtest.indices.base_index import BaseIndex
 
 
 class SimpleMovingAverage(BaseIndex):

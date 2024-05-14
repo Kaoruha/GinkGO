@@ -26,7 +26,6 @@ class SignalCount(BaseAnalyzer):
         self.count += 1
 
     def record(self, stage, *args, **kwargs) -> None:
-        super(SignalCount, self).record(stage, *args, **kwargs)
         if stage != self.record_stage:
             return
         self.add_data(self.count)

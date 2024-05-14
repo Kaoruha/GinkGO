@@ -57,6 +57,8 @@ class PortfolioT1Backtest(BasePortfolio):
         self.reset_phase_check()
 
     def try_go_next_phase(self) -> None:
+        print(self)
+        return
         print("===================")
         print(f"Data: {self.now}")
         print(f"Worth: {self.worth}")
@@ -77,7 +79,8 @@ class PortfolioT1Backtest(BasePortfolio):
             console.print(f"[green]YES[/green]")
             GDATA.update_backtest_worth(self.backtest_id, self.worth)
             self.record_positions()
-            self.put(EventNextPhase())
+            # self.put(EventNextPhase())
+            # time.sleep(2)
         else:
             console.print(f"[red]NO[/red]")
             print(self._should_go_next_phase)
@@ -97,15 +100,19 @@ class PortfolioT1Backtest(BasePortfolio):
         """
         # 1. Have no interested Targets. GO NEXT PHASE
         if len(self.selector.pick()) == 0:
+            print("# 1. Have no interested Targets. GO NEXT PHASE")
             return 1
-        print("# 1. Have no interested Targets. GO NEXT PHASE")
+        print(f"Have {len(self.selector.pick())} target.")
         # 2. Feeder got no PRICE. GO NEXT PHASE
         if (
             self._count_of_price_should_come_now == 0
             and self._lastday_signal_count == 0
         ):
+            print("# 2. Feeder got no PRICE. GO NEXT PHASE")
             return 2
-        print("# 2. Feeder got no PRICE. GO NEXT PHASE")
+        print(
+            f"Today should get {self._count_of_price_should_come_now} price. Yesterday had {self._lastday_signal_count} signals"
+        )
         # 3. Got PRICE but no SIGNAL generated. GO NEXT PHASE
         if (
             self._price_get_count > 0
@@ -113,8 +120,9 @@ class PortfolioT1Backtest(BasePortfolio):
             and self._price_gen_signal_count == 0
             and self._lastday_signal_count == 0
         ):
+            print("# 3. Got PRICE but no SIGNAL generated. GO NEXT PHASE")
             return 3
-        print("# 3. Got PRICE but no SIGNAL generated. GO NEXT PHASE")
+        print(f"Got price {self._price_get_count}")
         # 4. Got SIGNAL but no ORDER generated. GO NEXT PHASE
         if (
             self._signal_get_count > 0
@@ -129,16 +137,18 @@ class PortfolioT1Backtest(BasePortfolio):
             == self._signal_gen_order_count
             and self._signal_gen_order_count == 0
         ):
+            print("# 4. Got SIGNAL but no ORDER generated. GO NEXT PHASE")
             return 4
-        print("# 4. Got SIGNAL but no ORDER generated. GO NEXT PHASE")
         # 5. Gen ORDER but no ORDER sended. GO NEXT PHASE
         if (
             self._price_get_count == self._count_of_price_should_come_now
             and self._signal_gen_order_count > 0
             and self._order_send_count == 0
         ):
+            print("# 5. Gen ORDER but no ORDER sended. GO NEXT PHASE")
             return 5
-        print("# 5. Gen ORDER but no ORDER sended. GO NEXT PHASE")
+        print(f"Gen signal {self._signal_gen_order_count}")
+        print(f"Send signal {self._order_send_count}")
         # 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE
         if (
             self._price_get_count == self._count_of_price_should_come_now
@@ -148,8 +158,10 @@ class PortfolioT1Backtest(BasePortfolio):
             - self._order_canceled_count
             == 0
         ):
+            print(
+                "# 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE"
+            )
             return 6
-        print("# 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE")
         return 0
 
     @property
@@ -431,7 +443,7 @@ class PortfolioT1Backtest(BasePortfolio):
         )
         if event.direction == DIRECTION_TYPES.LONG:
             GLOG.WARN("DEALING with LONG FILLED ORDER")
-            print(event.value)
+            # print(event.value)
             self.unfreeze(event.frozen)
             self.add_found(event.remain)
             self.add_fee(event.fee)

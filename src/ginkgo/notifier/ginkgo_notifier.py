@@ -1,29 +1,33 @@
-from src.ginkgo.data.ginkgo_data import GDATA
-from src.ginkgo.libs.ginkgo_logger import GLOG
-from src.ginkgo.notifier.notifier_telegram import (
-    run_telebot as run_telegram_bot_api_server,
-)
-from ginkgo.notifier.notifier_telegram import echo
-from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer, GinkgoConsumer
-from ginkgo.notifier.notifier_beep import beep as beepbeep
 import threading
 import signal
 import psutil
 import os
 
+from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer, GinkgoConsumer
+from ginkgo.notifier.notifier_telegram import echo
+from ginkgo.notifier.notifier_beep import beep as beepbeep
+from ginkgo.notifier.notifier_telegram import (
+    run_telebot as run_telegram_bot_api_server,
+)
+from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs.ginkgo_thread import GinkgoThreadManager
+
+gtm = GinkgoThreadManager()
+
 
 class GinkgoNotifier(object):
     def __init__(self):
         self._producer = GinkgoProducer()
+        self.telebot_pname = gtm.get_thread_cache_name("telebot")
         pass
 
     @property
     def telebot_status(self) -> str:
         temp_redis = GDATA.get_redis()
-        cache_name = "telebot_pid"
-        if temp_redis.exists(cache_name):
-            cache = temp_redis.get(cache_name).decode("utf-8")
+        if temp_redis.exists(self.telebot_pname):
+            cache = temp_redis.get(self.telebot_pname).decode("utf-8")
             try:
                 proc = psutil.Process(int(cache))
                 if proc.is_running():
@@ -38,28 +42,11 @@ class GinkgoNotifier(object):
 
     def kill_telebot(self) -> None:
         GLOG.DEBUG("Try kill TeleBot worker.")
-        temp_redis = GDATA.get_redis()
-        cache_name = "telebot_pid"
-        if temp_redis.exists(cache_name):
-            cache = temp_redis.get(cache_name).decode("utf-8")
-            try:
-                proc = psutil.Process(int(cache))
-                if proc.is_running():
-                    os.kill(int(cache), signal.SIGKILL)
-            except Exception as e:
-                GLOG.DEBUG(e)
+        gtm.kill_thread("telebot")
 
     def run_telebot(self) -> None:
         self.kill_telebot()
-        # Start new woker
-
-        cache_name = "telebot_pid"
-        pid = os.getpid()
-        temp_redis = GDATA.get_redis()
-        temp_redis.set(cache_name, str(pid))
-        t = threading.Thread(target=run_telegram_bot_api_server)
-        t.start()
-        t.join()
+        gtm.add_thread("telebot", run_telegram_bot_api_server)
 
     def echo_to_telegram(self, message: str):
         t = threading.Thread(target=echo, args=(message,))

@@ -51,6 +51,12 @@ def main():
         action="store_true",
     )
     parser.add_argument(
+        "-kafkainit",
+        "--kafkainit",
+        help="reset kafka topic",
+        action="store_true",
+    )
+    parser.add_argument(
         "-bin",
         "--bin",
         help="Build Binary.",
@@ -210,6 +216,13 @@ def main():
         version_tag = f"{version_split[0]}.{version_split[1]}"
         cmd = f"pyinstaller --onefile --paths /home/kaoru/Documents/Ginkgo/venv/lib/python{version_tag}/site-packages  main.py -n ginkgo"
         os.system(cmd)
+
+    # Kafka setting
+    # Should wait for container up.
+    if args.kafkainit:
+        from ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
+
+        kafka_topic_set()
 
     # TODO Check if ginkgo exsit in /usr/local/bin
     if os.path.exists("/usr/local/bin/ginkgo"):
