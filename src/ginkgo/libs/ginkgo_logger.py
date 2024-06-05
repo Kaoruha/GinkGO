@@ -39,7 +39,7 @@ class GinkgoLogger(object):
             datefmt="%Y-%m-%d  %H:%M:%S",
         )
         self.console_formatter = colorlog.ColoredFormatter(
-            fmt="%(log_color)s%(asctime) s PID:%(process)d [%(levelname)s] %(message)s ",
+            fmt="%(log_color)s%(asctime) s P:%(process)d [%(levelname)s] %(message)s ",
             datefmt="%H:%M:%S",
             log_colors=LOGGING_COLOR,
         )
@@ -138,7 +138,7 @@ class GinkgoLogger(object):
         self.file_handler.setFormatter(self.file_formatter)
         self.logger.addHandler(self.file_handler)
 
-    def set_level(self, level: str):
+    def set_level(self, level: str) -> None:
         level: int = self.get_log_level(level)
         self.logger.setLevel(level)
         self.console_handler.setLevel(level)

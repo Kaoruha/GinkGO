@@ -14,3 +14,4 @@ from ginkgo.data.models.model_position import MPosition
 from ginkgo.data.models.model_position_live import MPositionLive
 from ginkgo.data.models.model_position_record import MPositionRecord
 from ginkgo.data.models.model_backtest import MBacktest
+from ginkgo.data.models.model_liveportfolio import MLivePortfolio

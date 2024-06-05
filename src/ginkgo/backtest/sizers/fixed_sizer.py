@@ -31,7 +31,7 @@ class FixedSizer(BaseSizer):
         if signal.direction == DIRECTION_TYPES.LONG:
             o.set(
                 signal.code,
-                signal.direction,
+                DIRECTION_TYPES.LONG,
                 ORDER_TYPES.MARKETORDER,
                 ORDERSTATUS_TYPES.NEW,
                 volume=self._volume,
@@ -49,7 +49,7 @@ class FixedSizer(BaseSizer):
             GLOG.WARN("Try Generate SHORT ORDER.")
             o.set(
                 signal.code,
-                signal.direction,
+                DIRECTION_TYPES.SHORT,
                 ORDER_TYPES.MARKETORDER,
                 ORDERSTATUS_TYPES.NEW,
                 volume=pos.volume,

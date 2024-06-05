@@ -1,21 +1,11 @@
 <template>
   <div class="w-full relative">
     <ConfirmDialog
-      ref="transfer_backtest_dialog"
-      v-model="live_name"
-      @confirmMethod="transfer2Live"
-      :title="'Transfer Backtest to LIVE'"
-      :confirm_btn_text="'TRANSFER'"
-      :show_input="true"
-      :msg="transfer_msg"
-    >
-    </ConfirmDialog>
-    <ConfirmDialog
-      ref="del_backtest_dialog"
-      @confirmMethod="delBacktest"
-      :title="'Remove Backtest'"
+      ref="del_dialog"
+      @confirmMethod="delLivePortfolio"
+      :title="'Remove Live Portfolio'"
       :confirm_btn_text="'DELETE'"
-      :msg="del_msg"
+      :msg="confirm_msg"
     >
     </ConfirmDialog>
     <div class="mb-2">
@@ -23,14 +13,7 @@
     </div>
     <!-- FileDropdown show at right click -->
     <div class="z-10 absolute select-none" ref="dropdown">
-      <BacktestDropDown
-        ref="backtest_dropdown"
-        @copy="copyBacktestID"
-        @analyze="analyzeBacktest"
-        @tolive="transfer_backtest_dialog.openModal()"
-        @delete="del_backtest_dialog.openModal()"
-      >
-      </BacktestDropDown>
+      <LiveDropDown ref="live_dropdown" @delete="CallDelLiveModal"> </LiveDropDown>
     </div>
     <div
       class="w-full z-0 h-[calc(100vh-102px)] select-none"
@@ -63,21 +46,15 @@
                         :class="checked ? 'text-white' : 'text-gray-900'"
                         class="font-medium"
                       >
-                        Worth: ${{ item.worth }}
+                        {{ item.name }}
                       </RadioGroupLabel>
                       <RadioGroupDescription
                         as="span"
                         :class="checked ? 'text-sky-100' : 'text-gray-500'"
                         class="inline"
                       >
-                        <span>
-                          {{ item.start_at.split('T')[0] }}
-                        </span>
-                        <span aria-hidden="true"> &middot;&middot;&middot;&middot; </span>
-                        <span>
-                          {{ item.finish_at.split('T')[0] }}
-                        </span>
                       </RadioGroupDescription>
+                      <span> Worth: ${{ item.worth }} </span>
                     </div>
                   </div>
                   <div v-show="checked" class="shrink-0 text-white">
@@ -102,15 +79,15 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import axios from 'axios'
-import { ref, onMounted, watch } from 'vue'
 import { API_ENDPOINTS } from '../request.js'
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue'
 import { ChevronUpIcon } from '@heroicons/vue/20/solid'
+import { ref, onMounted, watch } from 'vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import InputSearch from '../components/InputSearch.vue'
-import BacktestDropDown from '../components/dropdown/BacktestDropDown.vue'
+import LiveDropDown from '../components/dropdown/LiveDropDown.vue'
 import yaml from 'js-yaml'
 import {
   RadioGroup,
@@ -130,31 +107,29 @@ const records = ref([
   {
     uuid: 'uuid2',
     status: 'Running',
-    worth: 100002,
+    worth: 100004,
     finish_at: '2002-01-01T11:22:11',
     start_at: '2002-01-01T11:22:11'
   }
 ])
 
-const selected = defineModel()
+const selected = ref(records.value[0])
 let page = 0
 let size = 20
-const del_msg = ref('haha')
-const transfer_msg = ref('haha')
-
-let live_name = ''
+const confirm_msg = ref('haha')
 
 let isUpdated = false
 // Responsible Pointer
 const dropdown = ref(null)
-const backtest_dropdown = ref(null)
+const live_dropdown = ref(null)
 const recordList = ref(null)
-const del_backtest_dialog = ref(null)
-const transfer_backtest_dialog = ref(null)
+const del_dialog = ref(null)
 
-async function getRecords() {
+async function fetchRecords() {
   try {
-    const response = await axios.get(API_ENDPOINTS.fetchRecord + `?page=${page}&size=${size}`)
+    const response = await axios.get(
+      API_ENDPOINTS.fetchLivePortfolio + `?page=${page}&size=${size}`
+    )
     const res = response.data
     if (res.length === 0) {
       console.log('No backtest records found.')
@@ -178,14 +153,14 @@ async function getRecords() {
 
 const loadMore = async () => {
   page += 1
-  getRecords()
+  fetchRecords()
 }
 
 const emit = defineEmits(['parentMethod'])
 
 onMounted(() => {
   records.value.length = 0
-  getRecords()
+  fetchRecords()
 })
 
 watch(selected, (newValue, oldValue) => {
@@ -194,50 +169,29 @@ watch(selected, (newValue, oldValue) => {
 
 function queryChange() {
   page = 0
-  console.log('backtest query changed.')
+  console.log('live portfolio query changed.')
 }
 
-function copyBacktestID() {
-  console.log('copy backtest id', selected.value.uuid)
+function copyLivePortfolioID() {
+  console.log('copy LivePortfolio id', current_record.uuid)
 }
 
-function transfer2Live() {
-  console.log('transfer to live', selected.value.uuid)
-  if (live_name.length == 0) {
-    return
-  }
-  addLivePortfolio(selected.value.uuid, live_name)
+function CallDelLiveModal() {
+  del_dialog.value.openModal()
 }
 
-function delBacktest() {
-  console.log('del backtest', selected.value.uuid)
-  delRecords(selected.value.uuid)
+function delLivePortfolio() {
+  console.log('del live portfolio', current_record.uuid)
+  delRecords(current_record.uuid)
 }
 
-async function addLivePortfolio(id, portfolio_name) {
+async function delRecords(id: string) {
   try {
-    const response = await axios.get(
-      API_ENDPOINTS.addLivePortfolio + `?id=${id}&name=${portfolio_name}`
-    )
+    const response = await axios.post(API_ENDPOINTS.delLivePortfolio + `?id=${id}`)
     const res = response.data
     console.log(res)
-  } catch (error) {
-    console.error('请求API时出错:', error)
-  }
-}
-
-async function delRecords(id) {
-  try {
-    const response = await axios.get(API_ENDPOINTS.delBacktest + `?id=${id}`)
-    const res = response.data
-    console.log(res)
-    if (res) {
-      records.value = []
-      page = 0
-      getRecords()
-    } else {
-      console.error('Delte Failed.')
-    }
+    records.value.length = 0
+    fetchRecords()
   } catch (error) {
     console.error('请求API时出错:', error)
   }
@@ -258,19 +212,18 @@ const checkScrollEnd = () => {
   }
 }
 
+let current_record = null
+
 function onRightClick(event, file) {
-  del_msg.value = `Sure to remove ${file.uuid}?`
-  transfer_msg.value = `Sure to transfer ${file.uuid} to live?`
+  current_record = file
+  confirm_msg.value = `Sure to remove live: ${file.uuid}?`
   const offset_x = -4
   const offset_y = -100
   var x = event.clientX + offset_x
   var y = event.clientY + offset_y
   dropdown.value.style.top = y + 'px'
   dropdown.value.style.left = x + 'px'
-  backtest_dropdown.value.simClick()
-}
-
-function analyzeBacktest() {
-  console.log('fake analyze.')
+  console.log(live_dropdown.value)
+  live_dropdown.value.simClick()
 }
 </script>

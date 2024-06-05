@@ -15,6 +15,7 @@ from rich.console import Console
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs.ginkgo_conf import GCONF
 from rich.progress import (
     Progress,
     BarColumn,
@@ -440,6 +441,18 @@ def update(
     """
     Update the database.
     """
+    from ginkgo.libs.ginkgo_thread import GTM
+
+    current_count = GTM.dataworker_count
+    target_count = GCONF.CPURATIO * 12
+    target_count = int(target_count)
+    console.print(
+        f":penguin: Target Worker: {target_count}, Current Worker: {current_count}"
+    )
+
+    count = target_count - current_count
+    if count > 0:
+        GTM.start_multi_worker(count)
 
     if debug:
         GLOG.set_level("DEBUG")
@@ -449,30 +462,32 @@ def update(
     if a:
         # TODO Update all
         pass
+
+    l = []
+    if code == []:
+        info = GDATA.get_stock_info_df()
+        for i, r in info.iterrows():
+            c = r["code"]
+            l.append(c)
+    else:
+        for item in code:
+            l.append(item)
+
     if stockinfo:
-        GDATA.update_stock_info()
+        GDATA.send_signal_update_stockinfo()
 
     if calendar:
-        GDATA.update_cn_trade_calendar()
+        GDATA.send_signal_update_calender()
 
     if adjust:
-        if code == []:
-            GDATA.update_all_cn_adjustfactor()
-        else:
-            for item in code:
-                GDATA.update_cn_adjustfactor(item)
+        for i in l:
+            GDATA.send_signal_update_adjust(i)
     if day:
-        if code == []:
-            GDATA.update_all_cn_daybar_aysnc()
-        else:
-            for item in code:
-                GDATA.update_cn_daybar(item)
+        for i in l:
+            GDATA.send_signal_update_bar(i, True)
     if tick:
-        if code == []:
-            GDATA.update_all_cn_tick_aysnc(fast_mode=fast)
-        else:
-            for item in code:
-                GDATA.update_tick(item, fast_mode=fast)
+        for i in l:
+            GDATA.send_signal_update_tick(i, True)
 
 
 @app.command()

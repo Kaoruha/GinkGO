@@ -1,21 +1,39 @@
 <template>
   <div class="w-full px-1">
-    <ConstructionItem :title="'Summary'" :raw="props.raw" :rtype="'summary'"></ConstructionItem>
-    <ConstructionItem :title="'Selector'" :raw="props.raw" :rtype="'selector'"></ConstructionItem>
-    <ConstructionItem :title="'Sizer'" :raw="props.raw" :rtype="'sizer'"></ConstructionItem>
-    <ConstructionItem :title="'Strategy'" :raw="props.raw" :rtype="'strategy'"></ConstructionItem>
-    <ConstructionItem :title="'Risk'" :raw="props.raw" :rtype="'risk'"></ConstructionItem>
+    <ConstructionItem
+      v-model="selected_backtest"
+      :title="'Summary'"
+      :rtype="'summary'"
+    ></ConstructionItem>
+    <ConstructionItem
+      v-model="selected_backtest"
+      :title="'Selector'"
+      :rtype="'selector'"
+    ></ConstructionItem>
+    <ConstructionItem
+      v-model="selected_backtest"
+      :title="'Sizer'"
+      :rtype="'sizer'"
+    ></ConstructionItem>
+    <ConstructionItem
+      v-model="selected_backtest"
+      :title="'Strategy'"
+      :rtype="'strategy'"
+    ></ConstructionItem>
+    <ConstructionItem
+      v-model="selected_backtest"
+      :title="'Risk'"
+      :rtype="'risk'"
+    ></ConstructionItem>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import ConstructionItem from '../components/ConstructionItem.vue'
 
-const props = defineProps({
-  raw: {
-    type: Object,
-    default: {}
-  }
+const selected_backtest = defineModel()
+watch(selected_backtest, (newValue, oldValue) => {
+  // console.log("Construction got new backtest, ", newValue)
 })
 </script>

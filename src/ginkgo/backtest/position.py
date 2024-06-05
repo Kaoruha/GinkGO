@@ -22,6 +22,8 @@ class Position(Base):
         self._profit = 0
         self._worth = 0
         self._backtest_id = ""
+        self.update_worth()
+        self.update_profit()
 
     def set(
         self,
@@ -151,14 +153,14 @@ class Position(Base):
             import pdb
 
             pdb.set_trace()
-            return self.volume
+            return 0
 
         self._volume -= volume
         self._frozen += volume
         GLOG.INFO(
             f"POS {self.code} freezed {volume}. Final volume:{self.volume} frozen: {self.frozen}"
         )
-        return self.volume
+        return volume
 
     def unfreeze(self, volume: int) -> int:
         """

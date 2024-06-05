@@ -6,41 +6,18 @@ from ginkgo.backtest.feeds import *
 from ginkgo.libs.ginkgo_logger import GLOG
 
 GLOG.set_level("debug")
-
 from ginkgo.backtest.portfolios import PortfolioT1Backtest
 
 portfolio = PortfolioT1Backtest()  # TODO Read from database.
 
 from ginkgo.backtest.selectors import FixedSelector, CNAllSelector
 
-
-selector = FixedSelector(
-    "test_selector",
-    [
-        "000001.SZ",
-        # "000002.SZ",
-        # "000003.SZ",
-        # "000004.SZ",
-        # "000005.SZ",
-        # "000006.SZ",
-        # "000007.SZ",
-        # "000008.SZ",
-        # "000009.SZ",
-        # "000010.SZ",
-        # "000011.SZ",
-    ],
-)
-# selector = FixedSelector(
-#     "test_selector",
-#     [
-#         "000001.SZ",
-#     ],
-# )
+selector = CNAllSelector()
 portfolio.bind_selector(selector)
 
-from ginkgo.backtest.sizers import FixedSizer
+from ginkgo.backtest.sizers import ATRSizer
 
-sizer = FixedSizer("fixed", 1000)
+sizer = ATRSizer()
 portfolio.bind_sizer(sizer)
 
 from ginkgo.backtest.risk_managements import NoRiskManagement
@@ -54,11 +31,11 @@ from ginkgo.backtest.strategies import (
     StrategyVolumeActivate,
 )
 
-losslimit = StrategyLossLimit("losslimit", 5)
+losslimit = StrategyLossLimit("losslimit", 10)
 portfolio.add_strategy(losslimit)
-profitlimit = StrategyProfitLimit("profitlimit", 10)
+profitlimit = StrategyProfitLimit("profitlimit", 30)
 portfolio.add_strategy(profitlimit)
-volumeactivate = StrategyVolumeActivate("volumea", 20)
+volumeactivate = StrategyVolumeActivate("volumea", 23)
 portfolio.add_strategy(volumeactivate)
 
 from ginkgo.backtest.analyzers import NetValue, Profit

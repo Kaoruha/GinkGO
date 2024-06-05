@@ -61,6 +61,8 @@ def status(
         os.system(
             "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test kafka1 kafka2 kafka3 --no-stream"
         )
+    console.print(f"RECENT LOG:")
+    log()
 
 
 @main_app.command()
@@ -89,7 +91,7 @@ def interactive():
 def configure(
     cpu: Annotated[float, typer.Option(case_sensitive=False)] = None,
     debug: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
-    redis: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
+    worker: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
     telebot: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
     logpath: Annotated[str, typer.Option(case_sensitive=True)] = None,
     workpath: Annotated[str, typer.Option(case_sensitive=True)] = None,
@@ -101,7 +103,7 @@ def configure(
         cpu is None
         and debug is None
         and logpath is None
-        and redis is None
+        and worker is None
         and telebot is None
         and workpath is None
     ):
@@ -125,51 +127,29 @@ def configure(
             GCONF.set_debug(False)
         console.print(f"DEBUE: {GCONF.DEBUGMODE}")
 
-    if redis is not None:
-        time_out = 5
+    if worker is not None:
+        from ginkgo.libs.ginkgo_thread import GTM
 
-        if redis == DEBUG_TYPE.ON:
+        if worker == DEBUG_TYPE.ON:
             """
             $SHELL_FOLDER/venv/bin/python $SHELL_FOLDER/main.py
             """
-            work_dir = GCONF.WORKING_PATH
-            cmd = f"nohup {work_dir}/venv/bin/python {work_dir}/.redis_worker_run.py >>{GCONF.LOGGING_PATH}/redis_worker.log 2>&1 &"
-            os.system(cmd)
-            count = datetime.timedelta(seconds=0)
-            t0 = datetime.datetime.now()
+            current_count = GTM.dataworker_count
+            target_count = GCONF.CPURATIO * 12
+            target_count = int(target_count)
+            console.print(
+                f":penguin: Target Worker: {target_count}, Current Worker: {current_count}"
+            )
 
-            while count < datetime.timedelta(seconds=time_out):
-                t1 = datetime.datetime.now()
-                count = t1 - t0
-                status = GDATA.redis_worker_status
-                if status != "NOT EXIST" and status != "DEAD":
-                    break
-                else:
-                    console.print(
-                        f":sun_with_face: Redis Worker is [steel_blue1]STARTING[/steel_blue1] now. {count}",
-                        end="\r",
-                    )
-            console.print(
-                f":sun_with_face: Redis Worker is [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1] now."
-            )
-        elif redis == DEBUG_TYPE.OFF:
-            GDATA.kill_redis_worker()
-            count = datetime.timedelta(seconds=0)
-            t0 = datetime.datetime.now()
-            while count < datetime.timedelta(seconds=time_out):
-                t1 = datetime.datetime.now()
-                count = t1 - t0
-                status = GDATA.redis_worker_status
-                if status == "NOT EXIST":
-                    break
-                else:
-                    console.print(
-                        f":ice: Redis Worker will be [light_coral]KILLED[/light_coral] soon.",
-                        end="\r",
-                    )
-            console.print(
-                f":sun_with_face: Redis Worker is [steel_blue1]{GDATA.redis_worker_status}[/steel_blue1] now."
-            )
+            count = target_count - current_count
+            if count > 0:
+                GTM.start_multi_worker(count)
+            else:
+                for i in range(count):
+                    GDATA.send_signal_stop_dataworker()
+        elif worker == DEBUG_TYPE.OFF:
+            GTM.reset_worker_pool()
+        console.print(f"WORKER    : {GTM.dataworker_count}")
     if telebot is not None:
         time_out = 8
         if telebot == DEBUG_TYPE.ON:
@@ -431,6 +411,18 @@ def recall(
     from ginkgo.client.backtest_cli import recall as backtest_recall
 
     backtest_recall(id, name)
+
+
+@main_app.command()
+def log(
+    n: Annotated[int, typer.Option(case_sensitive=False)] = 10,
+    stream: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+    data: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+):
+    file_name = "data_worker.log" if data else "ginkgo.log"
+    follow = "-f" if stream else ""
+    cmd = f"tail -n {n} {follow} {GCONF.LOGGING_PATH}/{file_name}"
+    os.system(cmd)
 
 
 if __name__ == "__main__":

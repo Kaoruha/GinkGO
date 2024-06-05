@@ -32,13 +32,15 @@ class StrategyLossLimit(StrategyBase):
         cost = position.cost
         price = position.price
         ratio = price / cost
-        print(f"Limit: {self.loss_limit}, Price: {price}, Cost: {cost}")
-        if ratio < (100 - self.loss_limit) / 100:
+        GLOG.DEBUG(f"Today's price ratio, P/C: {ratio}.")
+        GLOG.DEBUG(
+            f"Limit: {1 - self.loss_limit/100}, Price: {price}, Cost: {cost}, Ratio: {ratio}"
+        )
+        if ratio < 1 - self.loss_limit / 100:
             s = Signal(
                 code=code,
                 direction=DIRECTION_TYPES.SHORT,
                 backtest_id=self.backtest_id,
                 timestamp=self.portfolio.now,
             )
-            print("SHORT ORDER via LossLimit.")
             return s
