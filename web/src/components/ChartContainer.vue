@@ -3,6 +3,7 @@
 </template>
 
 <script setup>
+import { ref, onMounted, watch } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
 import { API_ENDPOINTS } from '../request.js'
@@ -15,10 +16,13 @@ import {
   GridComponent,
   DataZoomComponent
 } from 'echarts/components'
-import { ref, onMounted } from 'vue'
 
 onMounted(() => {
-  init()
+  chartLine = echarts.init(document.getElementById('chartLine'))
+  chartLine.setOption(options)
+  chartLine.on('click', (params) => {
+    emit('parentMethod', params.name)
+  })
 })
 
 echarts.use([
@@ -34,7 +38,8 @@ echarts.use([
 let chartLine = null
 
 let analyzer_id = 'Analyzer ID0012'
-let backtest_id = 'Backtest ID001'
+
+const selected_backtest = defineModel()
 
 const upColor = '#ec0000'
 const upBorderColor = '#8A0000'
@@ -135,6 +140,15 @@ let options = {
       smooth: true
     },
     {
+      name: 'MA5',
+      type: 'line',
+      data: calculateMA(5),
+      smooth: true,
+      lineStyle: {
+        opacity: 0.3
+      }
+    },
+    {
       name: 'MA10',
       type: 'line',
       data: calculateMA(10),
@@ -155,13 +169,11 @@ let options = {
   ]
 }
 
-function updateBacktestID(text) {
-  backtest_id = text
-}
 function updateTitle(text) {
   analyzer_id = text
   options.title.text = text
 }
+
 function updateRaw(new_data) {
   if (data.length === 0) {
     return
@@ -193,7 +205,6 @@ async function getData(back_id, ana_id) {
 }
 
 function updateLine(back_id, ana_id, ana_name) {
-  updateBacktestID(back_id)
   updateTitle(ana_id)
   getData(back_id, ana_id).then(() => {
     chartLine.setOption(options)
@@ -206,12 +217,4 @@ const emit = defineEmits(['parentMethod'])
 defineExpose({
   updateLine
 })
-
-function init() {
-  chartLine = echarts.init(document.getElementById('chartLine'))
-  chartLine.setOption(options)
-  chartLine.on('click', (params) => {
-    emit('parentMethod', params.name)
-  })
-}
 </script>

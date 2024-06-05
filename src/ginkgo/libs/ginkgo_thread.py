@@ -52,10 +52,18 @@ class GinkgoThreadManager:
 
                     if type == "kill":
                         break
-                    elif type == "tick":
-                        GDATA.update_tick(code, value["fast"])
+                    elif type == "stockinfo":
+                        GDATA.update_stock_info()
+                    elif type == "calender":
+                        GDATA.update_cn_trade_calendar()
+                    elif type == "adjust":
+                        GDATA.update_cn_adjustfactor(code)
                     elif type == "bar":
                         GDATA.update_cn_daybar(code, value["fast"])
+                    elif type == "tick":
+                        GDATA.update_tick(code, value["fast"])
+
+                        GDATA.update_cn_trade_calendar()
             except Exception as e2:
                 print(e2)
                 error_time += 1
@@ -80,9 +88,9 @@ if __name__ == "__main__":
         with open(file_name, "w") as file:
             file.write(content)
         cmd = f"nohup {work_dir}/venv/bin/python -u {work_dir}/{file_name} >>{GCONF.LOGGING_PATH}/data_worker.log 2>&1 &"
-        print(cmd)
+        # print(cmd)
         os.system(cmd)
-        print(f"Current Worker: {self.dataworker_count}")
+        # print(f"Current Worker: {self.dataworker_count}")
         count = datetime.timedelta(seconds=0)
         t0 = datetime.datetime.now()
         console.print(
@@ -122,11 +130,11 @@ if __name__ == "__main__":
                 if proc.is_running():
                     os.kill(int(pid), signal.SIGKILL)
                 self.redis.lrem(self.dataworker_pool_name, 0, pid)
-                print(f"Kill pid: {pid}")
+                console.print(f":leaf_fluttering_in_wind: Kill PID: {pid}")
                 time.sleep(0.4)
             except Exception as e:
                 print(e)
-        print("Reset all data worker cache in REDIS.")
+        console.print(":world_map: Reset all data worker cache in REDIS.")
 
     def reset_pool(self):
         while self.redis.llen(self.thread_pool_name) > 0:

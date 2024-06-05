@@ -15,19 +15,18 @@
           class="px-4 pb-2 pt-4 text-sm text-gray-500"
           v-if="props.rtype === 'summary'"
         >
-          {{ props.raw.uuid }}
-          Summary
+          {{ selected_backtest?.uuid }}
         </DisclosurePanel>
         <DisclosurePanel
           class="px-4 pb-2 pt-4 text-sm text-gray-500"
           v-if="props.rtype === 'selector'"
         >
           <span class="text-white bg-blue-400 px-2 text-sm rounded-lg">
-            {{ getSelectorID() }}
+            {{ selected_backtest?.content.selector.id }}
           </span>
           <div>
             <span class="text-gray-400 bg-gray-200 px-2 text-sm rounded-lg">
-              {{ getSelectorName() }}
+              {{ selected_backtest?.content.selector.parameters[0] }}
             </span>
           </div>
         </DisclosurePanel>
@@ -36,11 +35,11 @@
           v-if="props.rtype === 'sizer'"
         >
           <span class="text-white bg-blue-400 px-2 text-sm rounded-lg">
-            {{ getSizerID() }}
+            {{ selected_backtest?.content.sizer.id }}
           </span>
           <div>
             <span
-              v-for="item in getSizerParam()"
+              v-for="item in selected_backtest?.content.sizer.parameters"
               class="text-gray-400 bg-gray-200 px-2 text-sm rounded-xl mr-3"
               >{{ item }}</span
             >
@@ -50,7 +49,11 @@
           class="px-4 pb-2 pt-4 text-sm text-gray-500"
           v-if="props.rtype === 'strategy'"
         >
-          <div v-for="(strategy, index) in getStrategies()" :key="index" class="mb-2">
+          <div
+            v-for="(strategy, index) in selected_backtest?.content.strategies"
+            :key="index"
+            class="mb-2"
+          >
             <span class="px-2 text-sm rounded-lg" :class="getColorClass(index)">
               {{ strategy.id }}
             </span>
@@ -64,8 +67,14 @@
           </div>
         </DisclosurePanel>
         <DisclosurePanel class="px-4 pb-2 pt-4 text-sm text-gray-500" v-if="props.rtype === 'risk'">
-          {{ props.raw.uuid }}
-          Risk
+          <div>
+            {{ selected_backtest?.content.risk_manager.id }}
+          </div>
+          <span
+            v-for="param in selected_backtest?.content.risk_manager.parameters"
+            class="text-gray-400 bg-gray-200 px-2 text-sm rounded-xl mr-3"
+            >{{ param }}</span
+          >
         </DisclosurePanel>
       </Disclosure>
     </div>
@@ -73,9 +82,16 @@
 </template>
 
 <script setup>
+import { ref, onMounted, watch } from 'vue'
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue'
 import { ChevronUpIcon } from '@heroicons/vue/20/solid'
-import { ref } from 'vue'
+
+const selected_backtest = defineModel()
+
+watch(selected_backtest, (newValue, oldValue) => {
+  // console.log("ConstructionItem got new backtest, ", newValue.uuid)
+})
+
 const props = defineProps({
   title: {
     type: String,
@@ -84,60 +100,8 @@ const props = defineProps({
   rtype: {
     type: String,
     default: 'summary' // summary, strategy, risk
-  },
-  raw: {
-    rtype: Object,
-    default: {}
   }
 })
-
-const getSelectorID = () => {
-  try {
-    return props.raw.content.selector.id
-  } catch (error) {
-    console.warn('获取Selector ID出错:', error)
-    console.warn(props.raw)
-    return 'Unknown ID'
-  }
-}
-const getSelectorName = () => {
-  try {
-    return props.raw.content.selector.parameters[0]
-  } catch (error) {
-    console.warn('获取Selector Name出错:', error)
-    console.warn(props.raw)
-    return 'Unknown Name'
-  }
-}
-const getSizerID = () => {
-  try {
-    return props.raw.content.sizer.id
-  } catch (error) {
-    console.warn('获取Sizer ID出错:', error)
-    console.warn(props.raw)
-    return 'Unknown ID'
-  }
-}
-
-const getSizerParam = () => {
-  try {
-    return props.raw.content.sizer.parameters
-  } catch (error) {
-    console.warn('获取Sizer Param出错:', error)
-    console.warn(props.raw)
-    return []
-  }
-}
-
-const getStrategies = () => {
-  try {
-    return props.raw.content.strategies
-  } catch (error) {
-    console.warn('获取Sizer Param出错:', error)
-    console.warn(props.raw)
-    return []
-  }
-}
 
 const colors = [
   'bg-red-400',
@@ -147,7 +111,8 @@ const colors = [
   'bg-indigo-400',
   'bg-purple-400'
 ]
-const getColorClass = (index) => {
+
+function getColorClass(index) {
   return `${colors[index % colors.length]} text-white`
 }
 </script>

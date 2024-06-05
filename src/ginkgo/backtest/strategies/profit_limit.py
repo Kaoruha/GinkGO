@@ -31,6 +31,10 @@ class StrategyProfitLimit(StrategyBase):
             cost = position.cost
             price = position.price
             ratio = price / cost
+            GLOG.DEBUG(f"Today's price ratio, P/C: {ratio}.")
+            GLOG.DEBUG(
+                f"Limit: {1 + self.profit_limit/100}, Price: {price}, Cost: {cost}, Ratio: {ratio}"
+            )
             if ratio > (1 + self.profit_limit / 100):
                 s = Signal(
                     code=code,
@@ -38,5 +42,4 @@ class StrategyProfitLimit(StrategyBase):
                     backtest_id=self.backtest_id,
                     timestamp=self.portfolio.now,
                 )
-                print("SHORT ORDER from profit limit")
                 return s

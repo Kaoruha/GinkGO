@@ -148,7 +148,6 @@ class EventEngine(BaseEngine):
 
     def _process(self, event: "EventBase") -> None:
         GLOG.DEBUG(f"Process {event.event_type}")
-        print(event)
         if event.event_type in self._handles:
             [handle(event) for handle in self._handles[event.event_type]]
             GLOG.DEBUG(f"{self.name} Deal with {event.event_type}.")

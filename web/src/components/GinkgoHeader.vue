@@ -1,24 +1,17 @@
 <template>
   <div class="w-full max-w-md">
-    <TabGroup>
-      <TabList class="flex space-x-1 rounded-xl p-1">
+    <TabGroup v-model="selectedIndex">
+      <TabList class="flex rounded-xl">
         <Tab
-          v-for="category in Object.keys(categories)"
-          as="template"
-          :key="category"
-          v-slot="{ selected }"
+          v-for="(category, index) in categories"
+          :key="category.name"
+          :class="tabClass(index)"
         >
           <button
-            :class="[
-              'w-full rounded-lg py-2.5 text-sm font-medium leading-5 mx-2.5',
-              'ring-white/60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
-              selected
-                ? 'bg-white text-blue-700 shadow'
-                : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'
-            ]"
-            @click="go_router(categories[category].path)"
+            class="px-6 mx-2"
+            @click="go_router(categories[index].path)"
           >
-            {{ category }}
+            {{ category.name }}
           </button>
         </Tab>
       </TabList>
@@ -27,31 +20,40 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/vue'
-import { useRouter } from 'vue-router'
+import { ref, computed } from 'vue'
+import { TabGroup, TabList, Tab } from '@headlessui/vue'
+import { useRoute, useRouter } from 'vue-router'
 
+const route = useRoute()
 const router = useRouter()
 
-const categories = ref({
-  Summary: {
-    path: '/summary'
-  },
-  Live: {
-    path: '/live'
-  },
-  Backtest: {
-    path: '/backtest'
-  },
-  Data: {
-    path: '/Data'
-  },
-  File: {
-    path: '/Data'
-  }
+const categories = ref([
+  { name: 'Summary', path: '/summary' },
+  { name: 'Live', path: '/live' },
+  { name: 'Backtest', path: '/backtest' },
+  { name: 'Data', path: '/data' },
+  { name: 'File', path: '/file' },
+  { name: 'PlayGround', path: '/playground' }
+])
+
+const selectedIndex = computed(() => {
+  return categories.value.findIndex(
+    category => category.path === route.path
+  )
 })
+
+const tabClass = index => {
+  return [
+    'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
+    'ring-white/60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
+    selectedIndex.value === index
+      ? 'bg-white text-blue-700 shadow'
+      : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'
+  ]
+}
 
 function go_router(path) {
   router.push(path)
 }
 </script>
+

@@ -2,7 +2,6 @@ import datetime
 import sys
 import scipy.stats as stats
 import random
-from time import sleep
 
 
 from ginkgo.libs import datetime_normalize
@@ -137,6 +136,7 @@ class MatchMakingSim(MatchMakingBase):
         """
         # Check if the id exsist
         GLOG.DEBUG(f"{self.name} got an ORDER {event.order_id}.")
+        print(f"{self.name} got an ORDER {event.order_id}.")
         order_id = event.order_id
         o = self.query_order(order_id)
         if o is None:
@@ -276,7 +276,7 @@ class MatchMakingSim(MatchMakingBase):
                     self.return_order(order_id)
                     continue
             elif o.direction == DIRECTION_TYPES.SHORT:
-                if close / open <= 0.092:
+                if (open - close) / open >= 0.095:
                     GLOG.WARN(f"Order {o.uuid} is over the limit price.")
                     self.return_order(order_id)
                     continue

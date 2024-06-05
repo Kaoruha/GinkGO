@@ -1,4 +1,5 @@
 import yaml
+import uuid
 import time
 import signal
 import psutil
@@ -13,6 +14,7 @@ import threading
 from rich.console import Console
 from rich.progress import Progress
 from concurrent.futures import ThreadPoolExecutor
+from sqlalchemy import or_
 
 from ginkgo.data.models import (
     MAnalyzer,
@@ -30,6 +32,7 @@ from ginkgo.data.models import (
     MTick,
     MFile,
     MBacktest,
+    MLivePortfolio,
 )
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs.ginkgo_conf import GCONF
@@ -91,22 +94,6 @@ class GinkgoData(object):
         self.get_kafka_producer().send(
             "ginkgo_data_update", {"type": "kill", "code": "blabla"}
         )
-
-    # Redis >>
-
-    def get_daybar_redis_cache_name(self, code: str) -> str:
-        res = f"daybar%{code}"
-        return res
-
-    def remove_from_redis(self, key: str):
-        temp_redis = self.get_redis()
-        if temp_redis.exists(key):
-            temp_redis.delete(key)
-            GLOG.WARN(f"Remove {key} from redis.")
-        else:
-            GLOG.WARN(f"{key} not exist in redis.")
-
-    # << Redis
 
     # Operation about Database >>
 
@@ -769,6 +756,27 @@ class GinkgoData(object):
         db.session.close()
         return df
 
+    def get_stockinfo_df_fuzzy(
+        self, filter: str, page: int = 0, size: int = 20, engine=None
+    ) -> pd.DataFrame:
+        db = engine if engine else self.get_driver(MStockInfo)
+        r = (
+            db.session.query(MStockInfo)
+            .filter(
+                or_(
+                    MStockInfo.code.like(f"%{filter}%"),
+                    MStockInfo.code_name.like(f"%{filter}%"),
+                )
+            )
+            .filter(MStockInfo.isdel == False)
+            .offset(page * size)
+            .limit(size)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        df = df.sort_values(by="update", ascending=False)
+        # df.name = df.name.strip(b"\x00".decode())
+        return df
+
     def get_trade_calendar(
         self,
         market: MARKET_TYPES = MARKET_TYPES.CHINA,
@@ -1115,10 +1123,34 @@ class GinkgoData(object):
         t1 = datetime.datetime.now()
         print(f"Updating Tick {code} complete. Cost: {t1-t0}")
 
+    def send_signal_update_adjust(self, code: str = "") -> None:
+        if code == "":
+            self.get_kafka_producer().send(
+                "ginkgo_data_update", {"type": "adjust", "code": "all", "fast": True}
+            )
+        else:
+            self.get_kafka_producer().send(
+                "ginkgo_data_update", {"type": "adjust", "code": code, "fast": True}
+            )
+        GLOG.DEBUG(f"Send Signal to update {code} adjustfacotr.")
+
+    def send_signal_update_calender(self) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_data_update", {"type": "calender", "code": "None", "fast": True}
+        )
+        GLOG.DEBUG(f"Send Signal to update calender.")
+
+    def send_signal_update_stockinfo(self) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_data_update", {"type": "stockinfo", "code": "None", "fast": True}
+        )
+        GLOG.DEBUG(f"Send Signal to update stockinfo.")
+
     def send_signal_update_bar(self, code: str, fast_mode: bool = True) -> None:
         self.get_kafka_producer().send(
             "ginkgo_data_update", {"type": "bar", "code": code, "fast": fast_mode}
         )
+        GLOG.DEBUG(f"Send Signal to update {code} bar.")
 
     def send_signal_update_all_bar(self, fast_mode: bool = True) -> None:
         info = self.get_stock_info_df()
@@ -1130,6 +1162,7 @@ class GinkgoData(object):
         self.get_kafka_producer().send(
             "ginkgo_data_update", {"type": "tick", "code": code, "fast": fast_mode}
         )
+        GLOG.DEBUG(f"Send Signal to update {code} tick.")
 
     def send_signal_update_all_tick(self, fast_mode: bool = True) -> None:
         info = self.get_stock_info_df()
@@ -1716,6 +1749,16 @@ class GinkgoData(object):
         db.session.close()
         return r
 
+    def get_file_by_id(self, file_id: str, engine=None):
+        db = engine if engine else self.get_driver(MFile)
+        r = (
+            db.session.query(MFile)
+            .filter(MFile.uuid == file_id)
+            .filter(MFile.isdel == False)
+            .first()
+        )
+        return r
+
     def get_file_by_backtest(self, backtest_id: str, engine=None):
         db = engine if engine else self.get_driver(MFile)
         r = (
@@ -1736,7 +1779,9 @@ class GinkgoData(object):
         )
         return r
 
-    def get_file_list_df(self, type: FILE_TYPES = None, engine=None):
+    def get_file_list_df(
+        self, type: FILE_TYPES = None, page: int = 0, size: int = 20, engine=None
+    ):
         db = engine if engine else self.get_driver(MFile)
         if type is None:
             r = db.session.query(MFile).filter(MFile.isdel == False)
@@ -1745,18 +1790,25 @@ class GinkgoData(object):
                 db.session.query(MFile)
                 .filter(MFile.type == type)
                 .filter(MFile.isdel == False)
+                .offset(page * size)
+                .limit(size)
             )
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="update", ascending=False)
         # df.name = df.name.strip(b"\x00".decode())
         return df
 
-    def get_file_list_df_fuzzy(self, filter: str, engine=None):
+    def get_file_list_df_fuzzy(
+        self, filter: str, page: int = 0, size: int = 20, engine=None
+    ):
         db = engine if engine else self.get_driver(MFile)
         r = (
             db.session.query(MFile)
             .filter(MFile.file_name.like(f"%{filter}%"))
             .filter(MFile.isdel == False)
+            .order_by(MFile.update.desc())
+            .offset(page * size)
+            .limit(size)
         )
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="update", ascending=False)
@@ -1764,7 +1816,12 @@ class GinkgoData(object):
         return df
 
     def update_file(
-        self, id: str, type: FILE_TYPES, name: str, content: bytes, engine=None
+        self,
+        id: str,
+        type: FILE_TYPES = None,
+        name: str = "",
+        content: bytes = b"",
+        engine=None,
     ):
         db = engine if engine else self.get_driver(MFile)
         r = (
@@ -1773,12 +1830,25 @@ class GinkgoData(object):
             .filter(MFile.isdel == False)
             .first()
         )
-        if r is not None:
+        if r is None:
+            db.session.close()
+            return
+        if type is not None:
             r.type = type
-            r.name = name
+        if len(name) > 0:
+            r.file_name = name
+        if len(content) > 0:
+            print(f"Raw content: {r.content}")
             r.content = content
-            r.update = datetime.datetime.now()
-            db.session.commit()
+        r.update = datetime.datetime.now()
+        print(f"Content: {r.content}")
+        db.session.commit()
+        r = db.session.query(MFile).filter(MFile.uuid == id).first()
+        print("After update")
+        print(r.uuid)
+        print(r.content)
+        db.session.close()
+        self.clean_db()
 
     def copy_file(self, type: FILE_TYPES, name: str, source: str) -> MFile:
         file = self.get_file(source)
@@ -1878,6 +1948,98 @@ class GinkgoData(object):
         self.add(item)
         return id
 
+    def add_liveportfolio(self, name: str, engine_id: str, content: bytes) -> str:
+        item = MLivePortfolio()
+        item.set(name, engine_id, datetime.datetime.now(), content)
+        id = item.uuid
+        self.add(item)
+        return id
+
+    def get_liveportfolio(self, engine_id: str, engine=None) -> MLivePortfolio:
+        db = engine if engine else self.get_driver(MLivePortfolio)
+        r = (
+            db.session.query(MLivePortfolio)
+            .filter(MLivePortfolio.engine_id == engine_id)
+            .filter(MLivePortfolio.isdel == False)
+            .first()
+        )
+        db.session.close()
+        return r
+
+    def del_liveportfolio(self, engine_id: str) -> bool:
+        """
+        Del just modify the is_del.
+        Remove will erase the data from db.
+        """
+        db = self.get_driver(MLivePortfolio)
+        r = (
+            db.session.query(MLivePortfolio)
+            .filter(MLivePortfolio.uuid == engine_id)
+            .filter(MLivePortfolio.isdel == False)
+            .first()
+        )
+        if r is None:
+            return False
+        r.update = datetime.datetime.now()
+        r.isdel = True
+        db.session.commit()
+        db.session.close()
+        return True
+
+    def add_liveportfolio_from_backtest(self, backtest_id: str, name: str) -> None:
+        res = self.get_backtest_record(backtest_id)
+        if res is None:
+            GLOG.WARN(f"No backtest with id {backtest_id}")
+            return
+        content = res.content
+
+        id = uuid.uuid4().hex
+        self.add_liveportfolio(name, id, content)
+
+    def remove_liveportfolio(
+        self,
+        id: str,
+    ) -> None:
+        db = self.get_driver(MLivePortfolio)
+        try:
+            db.session.query(MLivePortfolio).filter(MLivePortfolio.uuid == id).delete()
+            db.session.commit()
+            db.session.close()
+            return True
+        except Exception as e:
+            print(e)
+            return False
+
+    def get_liveportfolio_pagination(
+        self, page: int = 0, size: int = 100, engine=None
+    ) -> MLivePortfolio:
+        db = engine if engine else self.get_driver(MLivePortfolio)
+        r = (
+            db.session.query(MLivePortfolio)
+            .filter(MLivePortfolio.isdel == False)
+            .order_by(MLivePortfolio.start_at.desc())
+            .offset(page * size)
+            .limit(size)
+        )
+        db.session.close()
+        return r
+
+    def get_liveportfolio_df_pagination(
+        self, page: int = 0, size: int = 100, engine=None
+    ) -> pd.DataFrame:
+        db = engine if engine else self.get_driver(MLivePortfolio)
+        r = (
+            db.session.query(MLivePortfolio)
+            .filter(MLivePortfolio.isdel == False)
+            .order_by(MLivePortfolio.start_at.desc())
+            .offset(page * size)
+            .limit(size)
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        df = df.sort_values(by="start_at", ascending=False)
+        db.session.close()
+        return df
+
     def add_signal(
         self,
         portfolio_id: str,
@@ -1941,23 +2103,51 @@ class GinkgoData(object):
         db.session.close()
         return count
 
+    def remove_orderrecord_by_id(self, id: str) -> bool:
+        db = self.get_driver(MOrderRecord)
+        try:
+            db.session.query(MOrderRecord).filter(MOrderRecord.uuid == id).delete()
+            return True
+        except Exception as e:
+            print(e)
+            return False
+        finally:
+            db.session.close()
+            self.clean_db()
+
+    def remove_orderrecords_by_portfolio(self, id: str) -> bool:
+        db = self.get_driver(MOrderRecord)
+        try:
+            db.session.query(MOrderRecord).filter(
+                MOrderRecord.portfolio_id == id
+            ).delete()
+            return True
+        except Exception as e:
+            print(e)
+            return False
+        finally:
+            db.session.close()
+            self.clean_db()
+
     def remove_analyzers(self, backtest_id: str) -> int:
         db = self.get_driver(MAnalyzer)
-
-        r = (
-            db.session.query(MAnalyzer)
-            .filter(MAnalyzer.backtest_id == backtest_id)
-            .filter(MAnalyzer.isdel == False)
-            .all()
-        )
-        count = len(r)
-        if count > 0:
+        try:
+            r = (
+                db.session.query(MAnalyzer)
+                .filter(MAnalyzer.backtest_id == backtest_id)
+                .all()
+            )
+            count = len(r)
             db.session.query(MAnalyzer).filter(
                 MAnalyzer.backtest_id == backtest_id
             ).delete()
-            # TODO modify is_del
-        db.session.close()
-        return count
+            return count
+        except Exception as e:
+            print(e)
+            return 0
+        finally:
+            db.session.close()
+            self.clean_db()
 
     def update_backtest_worth(self, backtest_id: str, worth: float) -> bool:
         if backtest_id == "":
@@ -2034,8 +2224,8 @@ class GinkgoData(object):
             db.session.query(MBacktest)
             .filter(MBacktest.isdel == False)
             .order_by(MBacktest.start_at.desc())
-            .limit(size)
             .offset(page * size)
+            .limit(size)
         )
         db.session.close()
         return r
@@ -2048,8 +2238,8 @@ class GinkgoData(object):
             db.session.query(MBacktest)
             .filter(MBacktest.isdel == False)
             .order_by(MBacktest.start_at.desc())
-            .limit(size)
             .offset(page * size)
+            .limit(size)
         )
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="start_at", ascending=False)
@@ -2152,6 +2342,44 @@ class GinkgoData(object):
             timestamp,
         )
         self.add(item)
+
+    def update_order_record(
+        self,
+        id: str,
+        code: str,
+        direction: DIRECTION_TYPES,
+        order_type: ORDER_TYPES,
+        transaction_price: float,
+        volume: int,
+        remain: float,
+        fee: float,
+        timestamp: any,
+        engine=None,
+    ) -> None:
+        db = engine if engine else self.get_driver(MOrderRecord)
+        r = db.session.query(MOrderRecord).filter(MOrderRecord.uuid == id).first()
+        pid = r.portfolio_id
+        if r is None:
+            return
+        res = self.remove_orderrecord_by_id(id)
+        if not res:
+            return
+
+        self.add_order_record(
+            pid,
+            code,
+            direction,
+            ORDER_TYPES.LIMITORDER,
+            transaction_price,
+            volume,
+            0,
+            fee,
+            timestamp,
+        )
+
+        db.session.commit()
+        db.session.close()
+        self.clean_db()
 
     def get_orderrecord_pagination(
         self,
@@ -2353,14 +2581,9 @@ class GinkgoData(object):
             db.session.query(MPositionRecord)
             .filter(MPositionRecord.backtest_id == backtest_id)
             .filter(MPositionRecord.isdel == False)
-            .all()
+            .delete()
         )
-        count = len(r)
-        if count > 0:
-            db.session.query(MPositionRecord).filter(
-                MPositionRecord.backtest_id == backtest_id
-            ).delete()
-            db.session.commit()
+        db.session.commit()
         db.session.close()
         return count
 
