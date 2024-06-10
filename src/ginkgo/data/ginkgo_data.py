@@ -57,6 +57,7 @@ from ginkgo.data.drivers import (
 )
 from ginkgo.libs.ginkgo_ps import find_process_by_keyword
 from ginkgo.backtest.position import Position
+from ginkgo.data.drivers.ginkgo_kafka import kafka_topic_llen
 
 
 console = Console()
@@ -69,6 +70,7 @@ class GinkgoData(object):
 
     def __init__(self):
         GLOG.DEBUG("Init GinkgoData.")
+        self.dataworker_pool_name = "ginkgo_dataworker"  # Conf
         self._click_models = []
         self._mysql_models = []
         self.get_models()
@@ -91,8 +93,69 @@ class GinkgoData(object):
         self._kafka = None
 
     def send_signal_stop_dataworker(self):
+        # TODO if there is no worker running return
         self.get_kafka_producer().send(
             "ginkgo_data_update", {"type": "kill", "code": "blabla"}
+        )
+
+    def send_signal_test_dataworker(self):
+        self.get_kafka_producer().send(
+            "ginkgo_data_update", {"type": "other", "code": "blabla1"}
+        )
+
+    def send_signal_update_adjust(self, code: str = "") -> None:
+        if code == "":
+            self.get_kafka_producer().send(
+                "ginkgo_data_update", {"type": "adjust", "code": "all", "fast": True}
+            )
+        else:
+            self.get_kafka_producer().send(
+                "ginkgo_data_update", {"type": "adjust", "code": code, "fast": True}
+            )
+        GLOG.DEBUG(f"Send Signal to update {code} adjustfacotr.")
+
+    def send_signal_update_calender(self) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_data_update", {"type": "calender", "code": "None", "fast": True}
+        )
+        GLOG.DEBUG(f"Send Signal to update calender.")
+
+    def send_signal_update_stockinfo(self) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_data_update", {"type": "stockinfo", "code": "None", "fast": True}
+        )
+        GLOG.DEBUG(f"Send Signal to update stockinfo.")
+
+    def send_signal_update_bar(self, code: str, fast_mode: bool = True) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_data_update", {"type": "bar", "code": code, "fast": fast_mode}
+        )
+        GLOG.DEBUG(f"Send Signal to update {code} bar.")
+
+    def send_signal_update_all_bar(self, fast_mode: bool = True) -> None:
+        info = self.get_stock_info_df()
+        for i, r in info.iterrows():
+            code = r["code"]
+            self.send_signal_update_bar(code, fast_mode)
+
+    def send_signal_update_tick(self, code: str, fast_mode: bool = True) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_data_update", {"type": "tick", "code": code, "fast": fast_mode}
+        )
+        GLOG.DEBUG(f"Send Signal to update {code} tick.")
+
+    def send_signal_update_all_tick(self, fast_mode: bool = True) -> None:
+        info = self.get_stock_info_df()
+        for i, r in info.iterrows():
+            code = r["code"]
+            self.send_signal_update_tick(code, fast_mode)
+
+    def send_signal_to_liveengine(self, engine_id: str, command: str) -> None:
+        topic_name = f"live_control"
+        print(f"try send command to topic: {topic_name}")
+        self.get_kafka_producer().send(
+            topic_name,
+            {"engine_id": engine_id, "command": command, "ttr": 0},
         )
 
     # Operation about Database >>
@@ -1122,53 +1185,6 @@ class GinkgoData(object):
             date = date + datetime.timedelta(days=-1)
         t1 = datetime.datetime.now()
         print(f"Updating Tick {code} complete. Cost: {t1-t0}")
-
-    def send_signal_update_adjust(self, code: str = "") -> None:
-        if code == "":
-            self.get_kafka_producer().send(
-                "ginkgo_data_update", {"type": "adjust", "code": "all", "fast": True}
-            )
-        else:
-            self.get_kafka_producer().send(
-                "ginkgo_data_update", {"type": "adjust", "code": code, "fast": True}
-            )
-        GLOG.DEBUG(f"Send Signal to update {code} adjustfacotr.")
-
-    def send_signal_update_calender(self) -> None:
-        self.get_kafka_producer().send(
-            "ginkgo_data_update", {"type": "calender", "code": "None", "fast": True}
-        )
-        GLOG.DEBUG(f"Send Signal to update calender.")
-
-    def send_signal_update_stockinfo(self) -> None:
-        self.get_kafka_producer().send(
-            "ginkgo_data_update", {"type": "stockinfo", "code": "None", "fast": True}
-        )
-        GLOG.DEBUG(f"Send Signal to update stockinfo.")
-
-    def send_signal_update_bar(self, code: str, fast_mode: bool = True) -> None:
-        self.get_kafka_producer().send(
-            "ginkgo_data_update", {"type": "bar", "code": code, "fast": fast_mode}
-        )
-        GLOG.DEBUG(f"Send Signal to update {code} bar.")
-
-    def send_signal_update_all_bar(self, fast_mode: bool = True) -> None:
-        info = self.get_stock_info_df()
-        for i, r in info.iterrows():
-            code = r["code"]
-            self.send_signal_update_bar(code, fast_mode)
-
-    def send_signal_update_tick(self, code: str, fast_mode: bool = True) -> None:
-        self.get_kafka_producer().send(
-            "ginkgo_data_update", {"type": "tick", "code": code, "fast": fast_mode}
-        )
-        GLOG.DEBUG(f"Send Signal to update {code} tick.")
-
-    def send_signal_update_all_tick(self, fast_mode: bool = True) -> None:
-        info = self.get_stock_info_df()
-        for i, r in info.iterrows():
-            code = r["code"]
-            self.send_signal_update_tick(code, fast_mode)
 
     def update_all_cn_tick(self, fast_mode: bool = False) -> None:
         t0 = datetime.datetime.now()

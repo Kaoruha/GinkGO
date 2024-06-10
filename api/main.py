@@ -13,6 +13,7 @@ from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.enums import FILE_TYPES, DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
 from ginkgo.data.models.model_backtest import MBacktest
+from ginkgo.backtest.portfolios.portfolio_live import PortfolioLive
 
 app = FastAPI()
 
@@ -292,4 +293,33 @@ def fetch_traderecrod(id: str = "", page: int = 0, size: int = 1000):
         df.loc[df["code"] == code, "name"] = name
     print(df.shape[0])
     res = df.to_dict(orient="records")
+    return res
+
+
+@app.get("/api/v1/live_position")
+def fetch_liveposition(id: str = "", page: int = 0, size: int = 1000):
+    print(id)
+    p = PortfolioLive()
+    p.set_portfolio_id(id)
+    l = p.recover_position(datetime.datetime.now())
+    res = []
+    for i in l:
+        item = {}
+        info = GDATA.get_stock_info_df_by_code(i.code)
+        item["code"] = i.code
+        item["code_name"] = info.code_name.values[0]
+        item["cost"] = i.cost
+        item["volume"] = i.volume
+        now = datetime.datetime.now()
+        date_start = now + datetime.timedelta(days=-20)
+        price_info = GDATA.get_daybar_df(
+            code=i.code, date_start=date_start, date_end=now
+        )
+        info = price_info.iloc[-1]
+        item["price"] = info["close"]
+        item["change"] = info["close"] - info["open"]
+        item["change_pct"] = (info["close"] - info["open"]) / info["open"]
+        item["unrealized"] = (info["close"] - i.cost) * i.volume
+        item["unrealized_pct"] = (info["close"] - i.cost) / i.cost
+        res.append(item)
     return res
