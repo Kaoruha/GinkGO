@@ -32,7 +32,7 @@
             {{ item.price }}
           </td>
           <td :class="[td_cls, item.change > 0 ? color_green : color_red]">
-            {{ item.change }}({{ (item.change_pct * 100).toFixed(2) }}%)
+            {{ item.change.toFixed(2) }}({{ (item.change_pct * 100).toFixed(2) }}%)
           </td>
           <td :class="td_cls">
             {{ (item.price * item.position).toFixed(2) }}
@@ -46,9 +46,6 @@
           <td :class="[td_cls, item.unrealized > 0 ? color_green : color_red]">
             {{ item.unrealized.toFixed(2) }}({{ (item.unrealized_pct * 100).toFixed(2) }}%)
           </td>
-          <td :class="[td_cls, item.unrealized > 0 ? color_green : color_red]">
-            {{ item.accumulated.toFixed(2) }}({{ (item.accumulated_pct * 100).toFixed(2) }}%)
-          </td>
         </tr>
       </tbody>
     </table>
@@ -60,9 +57,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import LivePositionDropdown from '../components/dropdown/LivePositionDropDown.vue'
+import { API_ENDPOINTS } from '../request.js'
+import axios from 'axios'
 
 const liveposition_dropdown = ref(null)
 const liveposition_dropdown_div = ref(null)
@@ -81,8 +80,7 @@ const columns = [
   'Market Value',
   'Volume',
   'Cost',
-  'Unrealized Gain/Loss',
-  'Accumulated Gain/Loss'
+  'Unrealized Gain/Loss'
 ]
 const positions = ref([
   {
@@ -95,9 +93,7 @@ const positions = ref([
     position: 3000,
     cost: 10.866,
     unrealized: 1932.0,
-    unrealized_pct: 0.0593,
-    accumulated: 1932.08,
-    accumulated_pct: 0.0593
+    unrealized_pct: 0.0593
   },
   {
     id: 'testid223',
@@ -109,9 +105,7 @@ const positions = ref([
     position: 3380,
     cost: 1.627,
     unrealized: 13529.13,
-    unrealized_pct: 2.4597,
-    accumulated: 21506.19,
-    accumulated_pct: 3.91
+    unrealized_pct: 2.4597
   }
   // 更多人员数据...
 ])
@@ -133,16 +127,44 @@ function onLivePositionClick(event, item) {
   liveposition_dropdown.value.simClick()
 }
 
-async function getData() {
-  console.log('fake get positions', engine_id.value)
+async function getData(id: string) {
+  try {
+    const response = await axios.get(API_ENDPOINTS.fetchLivePositions + `?id=${id}`)
+    const res = response.data
+    if (res.length === 0) {
+      console.log('No Order records found.')
+      return
+    }
+    for (let i = 0; i < res.length; i++) {
+      const item = {
+        code: res[i].code,
+        code_name: res[i].code_name,
+        code: res[i].code,
+        name: res[i].code_name,
+        price: res[i].price,
+        change: res[i].change,
+        change_pct: res[i].change_pct,
+        position: res[i].volume,
+        cost: res[i].cost,
+        unrealized: res[i].unrealized,
+        unrealized_pct: res[i].unrealized_pct
+      }
+
+      positions.value.push(item)
+    }
+  } catch (error) {
+    console.error('请求API时出错:', error)
+  }
 }
 
 watch(engine_id, (newValue, oldValue) => {
-  getData()
+  positions.value.length = 0
+  getData(engine_id.value)
 })
 
 onMounted(() => {
-  getData()
+  positions.value.length = 0
+  getData(engine_id.value)
 })
 
 defineExpose({ getData })

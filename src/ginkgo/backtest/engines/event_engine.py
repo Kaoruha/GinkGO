@@ -90,6 +90,7 @@ class EventEngine(BaseEngine):
         The EventBacktest Main Loop.
         """
         count = 0
+        GLOG.reset_logfile("live_main.log")
         while self._active:
             if flag.is_set():
                 break
@@ -103,16 +104,19 @@ class EventEngine(BaseEngine):
 
             # Break for a while
             sleep(GCONF.HEARTBEAT)
+            GLOG.INFO("wait")
 
     def timer_loop(self, flag) -> None:
         """
         Timer Task. Something like crontab or systemd timer
         """
+        GLOG.reset_logfile("live_timer.log")
         while self._active:
             if flag.is_set():
                 break
             [handle() for handle in self._timer_handles]
             sleep(self._interval)
+            GLOG.WARN("wait")
 
     def start(self) -> threading.Thread:
         """

@@ -21,6 +21,7 @@ export const API_ENDPOINTS = {
   delLivePortfolio: `${HOST}:${PORT}/api/v1/del_liveportfolio`,
   fetchCodeList: `${HOST}:${PORT}/api/v1/code_list`,
   fetchTradeRecord: `${HOST}:${PORT}/api/v1/traderecord`,
+  fetchLivePositions: `${HOST}:${PORT}/api/v1/live_position`,
   addTradeRecord: `${HOST}:${PORT}/api/v1/add_traderecord`,
   updateTradeRecord: `${HOST}:${PORT}/api/v1/update_traderecord`,
   delTradeRecord: `${HOST}:${PORT}/api/v1/del_traderecord`

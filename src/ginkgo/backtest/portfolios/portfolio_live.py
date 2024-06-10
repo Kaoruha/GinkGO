@@ -68,7 +68,8 @@ class PortfolioLive(BasePortfolio):
                 if r.direction == DIRECTION_TYPES.SHORT:
                     p.freeze(r.volume)
                 p.deal(r.direction, r.transaction_price, r.volume)
-            pos.append(p)
+            if p.volume > 0:
+                pos.append(p)
             self._positions[code] = p
 
         return pos
@@ -245,5 +246,5 @@ class PortfolioLive(BasePortfolio):
     def update_profit(self):
         pass
 
-    def __repr__(self) -> str:
-        return base_repr(self, PortfolioT1Backtest.__name__, 24, 60)
+    # def __repr__(self) -> str:
+    #     return base_repr(self, PortfolioLive.__name__, 24, 60)

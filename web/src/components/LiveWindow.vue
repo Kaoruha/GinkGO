@@ -48,7 +48,7 @@ import LiveTrade from '../components/LiveTrade.vue'
 import LiveTransfer from '../components/LiveTransfer.vue'
 import LiveSummary from '../components/LiveSummary.vue'
 
-const categories = ref(['Signals', 'Positions', 'TradeRecords', 'transferRecords'])
+const categories = ref(['Signals', 'Positions', 'TradeRecords', 'TransferRecords'])
 
 // Preset class
 const title_cls = ref('col-span-1 row-span-1 text-gray-500')

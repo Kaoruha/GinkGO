@@ -2,15 +2,8 @@
   <div class="w-full max-w-md">
     <TabGroup v-model="selectedIndex">
       <TabList class="flex rounded-xl">
-        <Tab
-          v-for="(category, index) in categories"
-          :key="category.name"
-          :class="tabClass(index)"
-        >
-          <button
-            class="px-6 mx-2"
-            @click="go_router(categories[index].path)"
-          >
+        <Tab v-for="(category, index) in categories" :key="category.name" class="px-2">
+          <button class="px-10" :class="tabClass(index)" @click="go_router(categories[index].path)">
             {{ category.name }}
           </button>
         </Tab>
@@ -37,12 +30,10 @@ const categories = ref([
 ])
 
 const selectedIndex = computed(() => {
-  return categories.value.findIndex(
-    category => category.path === route.path
-  )
+  return categories.value.findIndex((category) => category.path === route.path)
 })
 
-const tabClass = index => {
+const tabClass = (index) => {
   return [
     'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
     'ring-white/60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
@@ -56,4 +47,3 @@ function go_router(path) {
   router.push(path)
 }
 </script>
-

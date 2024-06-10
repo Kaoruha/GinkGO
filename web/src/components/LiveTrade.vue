@@ -204,7 +204,7 @@ async function getData(id: string) {
     }
     for (let i = 0; i < res.length; i++) {
       const item = {
-        timestamp: (res[i].timestamp as string).replace("T"," "),
+        timestamp: (res[i].timestamp as string).replace('T', ' '),
         direction: res[i].direction == '1' ? 'LONG' : 'SHORT',
         id: res[i].uuid as string,
         code: res[i].code as string,
@@ -235,14 +235,14 @@ async function addTradeRecord(
   comission: number,
   fee: number
 ) {
-    console.log(price)
+  console.log(price)
   try {
     const response = await axios.post(
       API_ENDPOINTS.addTradeRecord +
         `?id=${eid}&code=${code}&direction=${direction}&date=${date}&price=${price}&volume=${volume}&comission=${comission}&fee=${fee}`
     )
     const res = response.data
-  RefreshRecord()
+    RefreshRecord()
   } catch (error) {
     console.error('请求API时出错:', error)
   }
@@ -264,7 +264,7 @@ async function updateTradeRecord(
         `?id=${rid}&code=${code}&direction=${direction}&date=${date}&price=${price}&volume=${volume}&fee=${fee}`
     )
     const res = response.data
-  RefreshRecord()
+    RefreshRecord()
   } catch (error) {
     console.error('请求API时出错:', error)
   }
@@ -274,8 +274,8 @@ async function delTradeRecord(id) {
     const response = await axios.post(API_ENDPOINTS.delTradeRecord + `?id=${id}`)
     const res = response.data
     console.log(res)
-  trade_records.value.length = 0
-  getData(engine_id.value)
+    trade_records.value.length = 0
+    getData(engine_id.value)
   } catch (error) {
     console.error('请求API时出错:', error)
   }

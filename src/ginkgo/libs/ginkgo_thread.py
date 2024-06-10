@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import datetime
 import signal
@@ -11,6 +12,7 @@ from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.drivers import GinkgoConsumer
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.notifier.notifier_beep import beep
+from ginkgo.libs.ginkgo_logger import GLOG
 
 
 console = Console()
@@ -21,6 +23,7 @@ class GinkgoThreadManager:
         super(GinkgoThreadManager, self).__init__()
         self.thread_pool_name = "ginkgo_thread_pool"
         self.dataworker_pool_name = "ginkgo_dataworker"
+        self.live_engine_control_name = "ginkgo_live_control"
         self.lock = threading.Lock()  # TODO
         self._redis = None
         self.max_try = 5
@@ -35,6 +38,7 @@ class GinkgoThreadManager:
         pid = os.getpid()
         self.redis.lpush(self.dataworker_pool_name, str(pid))
         error_time = 0
+        GLOG.reset_logfile("dataworker.log")
         while True:
             try:
                 con = GinkgoConsumer("ginkgo_data_update", "ginkgo_data")
@@ -42,16 +46,17 @@ class GinkgoThreadManager:
                     f"Start Listen Kafka Topic: ginkgo_data_update Group: ginkgo_data  PID:{pid}"
                 )
                 for msg in con.consumer:
-                    con.commit()
                     beep(freq=90.7, repeat=1, delay=200, length=100)
                     error_time = 0
                     value = msg.value
-                    print(value)
                     type = value["type"]
                     code = value["code"]
+                    GLOG.DEBUG(f"Got siganl. {type} {code}")
 
                     if type == "kill":
-                        break
+                        con.commit()
+                        self.redis.lrem(self.dataworker_pool_name, 0, str(pid))
+                        sys.exit(0)
                     elif type == "stockinfo":
                         GDATA.update_stock_info()
                     elif type == "calender":
@@ -62,10 +67,11 @@ class GinkgoThreadManager:
                         GDATA.update_cn_daybar(code, value["fast"])
                     elif type == "tick":
                         GDATA.update_tick(code, value["fast"])
-
-                        GDATA.update_cn_trade_calendar()
+                    elif type == "other":
+                        print(value)
+                    con.commit()
             except Exception as e2:
-                print(e2)
+                con.commit()
                 error_time += 1
                 if error_time > self.max_try:
                     break
@@ -118,7 +124,7 @@ if __name__ == "__main__":
                 if proc.is_running():
                     exsit_list.append(pid)
             except Exception as e:
-                print(e)
+                pass
         for i in exsit_list:
             self.redis.lpush(self.dataworker_pool_name, str(i))
 
@@ -133,7 +139,7 @@ if __name__ == "__main__":
                 console.print(f":leaf_fluttering_in_wind: Kill PID: {pid}")
                 time.sleep(0.4)
             except Exception as e:
-                print(e)
+                pass
         console.print(":world_map: Reset all data worker cache in REDIS.")
 
     def reset_pool(self):
@@ -205,7 +211,6 @@ if __name__ == "__main__":
                 self.redis.lrem(self.thread_pool_name, 0, key)
                 print(f"Kill thread:{key} pid: {pid}")
             except Exception as e:
-                print(e)
                 GDATA.remove_from_redis(key)
                 self.redis.lrem(self.thread_pool_name, 0, key)
                 print(f"Remove {name} from REDIS.")
@@ -213,6 +218,51 @@ if __name__ == "__main__":
     def restart_thread(self, name: str, target) -> None:
         self.kill_thread(name)
         self.add_thread(name, target)
+
+    def add_liveengine(self, engine_id: str, pid: int) -> None:
+        self.clean_liveengine()
+        self.remove_liveengine(engine_id)
+        self.redis.hset(self.live_engine_control_name, engine_id, pid)
+
+    def get_liveengine(self) -> dict:
+        return self.redis.hgetall(self.live_engine_control_name)
+
+    def remove_liveengine(self, engine_id: str) -> None:
+        pid = self.get_pid_of_liveengine(engine_id)
+        if pid is not None:
+            GLOG.DEBUG(f"{engine_id} exist, try kill the Proc: {pid}")
+            try:
+                proc = psutil.Process(int(pid))
+                if proc.is_running():
+                    os.kill(int(pid), signal.SIGKILL)
+            except Exception as e:
+                pass
+        self.redis.hdel(self.live_engine_control_name, engine_id)
+
+    def clean_liveengine(self) -> None:
+        res = self.get_liveengine()
+        clean_list = []
+        accept_status = ["running", "sleeping"]
+        for i in res:
+            engine_id = i.decode("utf-8")
+            pid = self.get_pid_of_liveengine(engine_id)
+            try:
+                proc = psutil.Process(int(pid))
+                proc_status = proc.status()
+                if proc_status not in accept_status:
+                    clean_list.append(engine_id)
+            except psutil.NoSuchProcess:
+                clean_list.append(engine_id)
+            except psutil.AccessDenied:
+                clean_list.append(engine_id)
+            except Exception as e:
+                clean_list.append(engine_id)
+        for i in clean_list:
+            self.remove_liveengine(i)
+
+    def get_pid_of_liveengine(self, engine_id: str) -> int:
+        pid = self.redis.hget(self.live_engine_control_name, engine_id)
+        return int(pid) if pid else None
 
 
 GTM = GinkgoThreadManager()
