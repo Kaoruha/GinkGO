@@ -91,6 +91,9 @@ class GinkgoData(object):
         self._clickhouse = None
         self._redis = None
         self._kafka = None
+        self._live_status_name = "live_status"
+        self._live_engine_control_name = "live_control"
+        self._live_engine_pid_name = "live_engine_pid"
 
     def send_signal_stop_dataworker(self):
         # TODO if there is no worker running return
@@ -151,10 +154,9 @@ class GinkgoData(object):
             self.send_signal_update_tick(code, fast_mode)
 
     def send_signal_to_liveengine(self, engine_id: str, command: str) -> None:
-        topic_name = f"live_control"
-        print(f"try send command to topic: {topic_name}")
+        print(f"try send command to topic: {self._live_engine_control_name}")
         self.get_kafka_producer().send(
-            topic_name,
+            self._live_engine_control_name,
             {"engine_id": engine_id, "command": command, "ttr": 0},
         )
 
@@ -1849,6 +1851,9 @@ class GinkgoData(object):
         if r is None:
             db.session.close()
             return
+        if r.islive == True:
+            console.print(f":sad: Can not edit file {r.name} locked for live.")
+            return
         if type is not None:
             r.type = type
         if len(name) > 0:
@@ -1967,6 +1972,12 @@ class GinkgoData(object):
     def add_liveportfolio(self, name: str, engine_id: str, content: bytes) -> str:
         item = MLivePortfolio()
         item.set(name, engine_id, datetime.datetime.now(), content)
+        # TODO Duplicate content for live.
+        # TODO Convert content to json
+        # TODO Read Strategies, Duplicate and replace the fileid with new id
+        # TODO Selector
+        # TODO Sizer
+        # TODO RiskManager
         id = item.uuid
         self.add(item)
         return id
@@ -1998,6 +2009,8 @@ class GinkgoData(object):
             return False
         r.update = datetime.datetime.now()
         r.isdel = True
+        # Remove from db
+        # TODO Remove all related file
         db.session.commit()
         db.session.close()
         return True
@@ -2602,6 +2615,65 @@ class GinkgoData(object):
         db.session.commit()
         db.session.close()
         return count
+
+    def set_live_status(self, engine_id: str, status: str) -> None:
+        self.get_redis().hset(self._live_status_name, engine_id, status)
+
+    def remove_live_status(self, engine_id: str) -> None:
+        self.get_redis().hdel(self._live_status_name, engine_id)
+        pass
+
+    def get_live_status(self) -> dict:
+        return self.get_redis().hgetall(self._live_status_name)
+
+    def get_live_status_by_id(self, engine_id: str) -> str:
+        status = self.get_redis().hget(self._live_status_name, engine_id)
+        return status.decode("utf-8") if status else None
+
+    def add_liveengine(self, engine_id: str, pid: int) -> None:
+        self.clean_liveengine()
+        self.remove_liveengine(engine_id)
+        self.get_redis().hset(self._live_engine_pid_name, engine_id, pid)
+
+    def get_liveengine(self) -> dict:
+        return self.get_redis().hgetall(self._live_engine_pid_name)
+
+    def remove_liveengine(self, engine_id: str) -> None:
+        pid = self.get_pid_of_liveengine(engine_id)
+        if pid is not None:
+            GLOG.WARN(f"{engine_id} exist, try kill the Proc: {pid}")
+            try:
+                proc = psutil.Process(int(pid))
+                if proc.is_running():
+                    os.kill(int(pid), signal.SIGKILL)
+            except Exception as e:
+                pass
+        self.get_redis().hdel(self._live_engine_pid_name, engine_id)
+
+    def clean_liveengine(self) -> None:
+        res = self.get_liveengine()
+        clean_list = []
+        accept_status = ["running", "sleeping"]
+        for i in res:
+            engine_id = i.decode("utf-8")
+            pid = self.get_pid_of_liveengine(engine_id)
+            try:
+                proc = psutil.Process(int(pid))
+                proc_status = proc.status()
+                if proc_status not in accept_status:
+                    clean_list.append(engine_id)
+            except psutil.NoSuchProcess:
+                clean_list.append(engine_id)
+            except psutil.AccessDenied:
+                clean_list.append(engine_id)
+            except Exception as e:
+                clean_list.append(engine_id)
+        for i in clean_list:
+            self.remove_liveengine(i)
+
+    def get_pid_of_liveengine(self, engine_id: str) -> int:
+        pid = self.get_redis().hget(self._live_engine_pid_name, engine_id)
+        return int(pid) if pid else None
 
 
 GDATA = GinkgoData()

@@ -37,13 +37,16 @@ class LiveEngine(EventEngine):
         self,
         backtest_id: str,
         name: str = "LiveEngine",
-        interval: int = 1,
+        interval: int = 5,
         *args,
         **kwargs,
     ) -> None:
         super(LiveEngine, self).__init__(name, interval, *args, **kwargs)
         self.set_backtest_id(backtest_id)
-        self._control_thread: Thread = Thread(target=self.run_control_listener)
+        self._control_flag = Event()
+        self._control_thread: Thread = Thread(
+            target=self.run_control_listener, args=(self._control_flag,)
+        )
 
     @property
     def now(self) -> datetime.datetime:
@@ -103,22 +106,28 @@ class LiveEngine(EventEngine):
         # TODO
         pass
 
-    def run_control_listener(self) -> None:
+    def run_control_listener(self, flag) -> None:
         pid = os.getpid()
         error_time = 0
         max_try = 5
         GLOG.reset_logfile("live_control.log")
         while True:
+            if flag.is_set():
+                break
             try:
                 topic_name = f"live_control"
-                con = GinkgoConsumer(topic_name, "ginkgo_live_engine_group")
-                print(f"Start Listen Kafka Topic: {topic_name}  PID:{pid}")
+                con = GinkgoConsumer(
+                    topic=topic_name,
+                    # group_id=f"ginkgo_live_engine_{self.engine_id}",
+                    offset="latest",
+                )
+                print(
+                    f"{self.engine_id} Start Listen Kafka Topic: {topic_name}  PID:{pid}"
+                )
                 for msg in con.consumer:
-                    beep(freq=2190.7, repeat=2, delay=200, length=500)
                     error_time = 0
-                    # Handle msg
                     value = msg.value
-                    self.process_control_command(con, value)
+                    self.process_control_command(value)
             except Exception as e2:
                 print(e2)
                 error_time += 1
@@ -126,31 +135,63 @@ class LiveEngine(EventEngine):
                     sys.exit(0)
                 else:
                     sleep(min(5 * (2**error_time), 300))
-        GinkgoThreadManager().remove_liveengine(self.backtest_id)
+        GDATA.remove_liveengine(self.backtest_id)
 
-    def process_control_command(self, con, command: dict) -> None:
+    def process_control_command(self, command: dict) -> None:
+        if command["engine_id"] != self.engine_id:
+            print(f"{command['engine_id']} is not my type {self.engine_id}")
+            return
         if command["command"] == "pause":
-            print("pause")
-        elif command["command"] == "start":
-            print("start")
+            self._active = False
+            GDATA.set_live_status(self.engine_id, "pause")
         elif command["command"] == "stop":
-            try:
-                print("stop")
-                GinkgoThreadManager().remove_liveengine(self.backtest_id)
-                con.commit()
-                sleep(5)
-            except Exception as e:
-                pass
-            finally:
-                con.close()
-                sys.exit(0)
+            self._active = False
+            GDATA.set_live_status(self.engine_id, "pause")
+        elif command["command"] == "resume":
+            self._active = True
+            print("resume")
+            GDATA.set_live_status(self.engine_id, "running")
+        elif command["command"] == "start":
+            self._active = True
+            print("start")
+            GDATA.set_live_status(self.engine_id, "running")
+        elif command["command"] == "restart":
+            self._active = True
+            self.restart()
+        elif command["command"] == "cal_signal":
+            print("calculating signals.")
         else:
             print("cant handle")
             print(command)
 
     def start(self) -> Thread:
-        # super(LiveEngine, self).start()
+        super(LiveEngine, self).start()
         pid = os.getpid()
-        GinkgoThreadManager().add_liveengine(self.engine_id, int(pid))
+        GDATA.add_liveengine(self.engine_id, int(pid))
         self._control_thread.start()
+        GDATA.set_live_status(self.engine_id, "running")
         return self._control_thread
+
+    def stop(self) -> None:
+        super(LiveEngine, self).stop()
+        self._control_flag.set()
+        GDATA.set_live_status(self.engine_id, "stop")
+
+    def restart(self) -> None:
+        self._main_flag.set()
+        self._timer_flag.set()
+        GDATA.set_live_status(self.engine_id, "restart")
+        for i in range(self._interval + 5):
+            print(f"Restart in {self._interval+5-i}s")
+            sleep(1)
+        self._main_flag = Event()
+        self._main_thread: Thread = Thread(
+            target=self.main_loop, args=(self._main_flag,)
+        )
+        self._timer_flag = Event()
+        self._timer_thread: Thread = Thread(
+            target=self.timer_loop, args=(self._timer_flag,)
+        )
+        self._main_thread.start()
+        self._timer_thread.start()
+        GDATA.set_live_status(self.engine_id, "running")

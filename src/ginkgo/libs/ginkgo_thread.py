@@ -23,7 +23,6 @@ class GinkgoThreadManager:
         super(GinkgoThreadManager, self).__init__()
         self.thread_pool_name = "ginkgo_thread_pool"
         self.dataworker_pool_name = "ginkgo_dataworker"
-        self.live_engine_control_name = "ginkgo_live_control"
         self.lock = threading.Lock()  # TODO
         self._redis = None
         self.max_try = 5
@@ -218,51 +217,6 @@ if __name__ == "__main__":
     def restart_thread(self, name: str, target) -> None:
         self.kill_thread(name)
         self.add_thread(name, target)
-
-    def add_liveengine(self, engine_id: str, pid: int) -> None:
-        self.clean_liveengine()
-        self.remove_liveengine(engine_id)
-        self.redis.hset(self.live_engine_control_name, engine_id, pid)
-
-    def get_liveengine(self) -> dict:
-        return self.redis.hgetall(self.live_engine_control_name)
-
-    def remove_liveengine(self, engine_id: str) -> None:
-        pid = self.get_pid_of_liveengine(engine_id)
-        if pid is not None:
-            GLOG.DEBUG(f"{engine_id} exist, try kill the Proc: {pid}")
-            try:
-                proc = psutil.Process(int(pid))
-                if proc.is_running():
-                    os.kill(int(pid), signal.SIGKILL)
-            except Exception as e:
-                pass
-        self.redis.hdel(self.live_engine_control_name, engine_id)
-
-    def clean_liveengine(self) -> None:
-        res = self.get_liveengine()
-        clean_list = []
-        accept_status = ["running", "sleeping"]
-        for i in res:
-            engine_id = i.decode("utf-8")
-            pid = self.get_pid_of_liveengine(engine_id)
-            try:
-                proc = psutil.Process(int(pid))
-                proc_status = proc.status()
-                if proc_status not in accept_status:
-                    clean_list.append(engine_id)
-            except psutil.NoSuchProcess:
-                clean_list.append(engine_id)
-            except psutil.AccessDenied:
-                clean_list.append(engine_id)
-            except Exception as e:
-                clean_list.append(engine_id)
-        for i in clean_list:
-            self.remove_liveengine(i)
-
-    def get_pid_of_liveengine(self, engine_id: str) -> int:
-        pid = self.redis.hget(self.live_engine_control_name, engine_id)
-        return int(pid) if pid else None
 
 
 GTM = GinkgoThreadManager()
