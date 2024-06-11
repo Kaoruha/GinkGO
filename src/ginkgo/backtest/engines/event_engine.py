@@ -91,7 +91,10 @@ class EventEngine(BaseEngine):
         """
         count = 0
         GLOG.reset_logfile("live_main.log")
-        while self._active:
+        while True:
+            if not self._active:
+                continue
+
             if flag.is_set():
                 break
             try:
@@ -100,44 +103,58 @@ class EventEngine(BaseEngine):
                 # Pass the event to handle
                 self._process(event)
             except Empty:
-                GLOG.WARN(f"No Event in Queue. {datetime.datetime.now()} {count}")
+                pass
+                print(f"No Event in Queue. {datetime.datetime.now()} {count}")
 
             # Break for a while
             sleep(GCONF.HEARTBEAT)
-            GLOG.INFO("wait")
+            GLOG.DEBUG("main loop wait")
+        GLOG.INFO("Main loop END.")
 
     def timer_loop(self, flag) -> None:
         """
         Timer Task. Something like crontab or systemd timer
         """
         GLOG.reset_logfile("live_timer.log")
-        while self._active:
+        while True:
+            if not self._active:
+                continue
             if flag.is_set():
                 break
             [handle() for handle in self._timer_handles]
             sleep(self._interval)
-            GLOG.WARN("wait")
+            GLOG.DEBUG("timer wait")
+            print(f"No Event in Timer Queue.")
+        GLOG.INFO("Timer loop END.")
 
     def start(self) -> threading.Thread:
         """
         Start the engine
         """
         super(EventEngine, self).start()
+        self._active = True
         self._main_thread.start()
         self._timer_thread.start()
-        GLOG.DEBUG("Engine Start.")
+        GLOG.INFO("Engine Start.")
         return self._main_thread
+
+    def pause(self) -> None:
+        """
+        Pause the Engine
+        """
+        self._active = False
+        GLOG.INFO("Engine Pause.")
 
     def stop(self) -> None:
         """
-        Pause the Engine
+        Stop the Engine
         """
         super(EventEngine, self).stop()
         self._main_flag.set()
         self._timer_flag.set()
         # self._main_thread.join()
         # self._timer_thread.join()
-        GLOG.WARN("Engine Stop.")
+        GLOG.INFO("Engine Stop.")
 
     def put(self, event: "EventBase") -> None:
         """
@@ -205,14 +222,14 @@ class EventEngine(BaseEngine):
             return False
 
         self._handles[type].remove(handle)
-        GLOG.INFO(f"Unregister handle {type} : {handle}")
+        GLOG.DEBUG(f"Unregister handle {type} : {handle}")
         return True
 
     def register_general(self, handle: callable) -> bool:
         if handle not in self._general_handles:
             self._general_handles.append(handle)
             msg = f"RegisterGeneral : {handle}"
-            GLOG.INFO(msg)
+            GLOG.DEBUG(msg)
             return True
         else:
             msg = f"{handle} already exist."
@@ -223,7 +240,7 @@ class EventEngine(BaseEngine):
         if handle in self._general_handles:
             self._general_handles.remove(handle)
             msg = f"UnregisterGeneral : {handle}"
-            GLOG.INFO(msg)
+            GLOG.DEBUG(msg)
             return True
         else:
             msg = f"{handle} not exsit in Generalhandle"
@@ -233,7 +250,7 @@ class EventEngine(BaseEngine):
     def register_timer(self, handle: callable) -> bool:
         if handle not in self._timer_handles:
             self._timer_handles.append(handle)
-            GLOG.INFO(f"Register Timer handle: {handle}")
+            GLOG.DEBUG(f"Register Timer handle: {handle}")
             return True
         else:
             GLOG.WARN(f"Timer handle Exsits.")
@@ -242,7 +259,7 @@ class EventEngine(BaseEngine):
     def unregister_timer(self, handle: callable) -> bool:
         if handle in self._timer_handles:
             self._timer_handles.remove(handle)
-            GLOG.INFO(f"Unregister Timer handle: {handle}")
+            GLOG.DEBUG(f"Unregister Timer handle: {handle}")
             return True
         else:
             msg = f"Timerhandle {handle} not exists."

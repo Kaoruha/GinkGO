@@ -29,13 +29,13 @@ class GinkgoProducer(object):
 
 
 class GinkgoConsumer(object):
-    def __init__(self, topic: str, group_id: str = ""):
+    def __init__(self, topic: str, group_id: str = "", offset: str = "earliest"):
         self.consumer = None
         if group_id == "":
             self.consumer = KafkaConsumer(
                 topic,
                 bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
-                auto_offset_reset="earliest",  # 从最早的消息开始消费
+                auto_offset_reset=offset,  # 从最早的消息开始消费
                 value_deserializer=lambda m: json.loads(m.decode("utf-8")),  # 消息反序列化
                 max_poll_interval_ms=1800000,
                 max_poll_records=1,
@@ -45,7 +45,7 @@ class GinkgoConsumer(object):
                 topic,
                 bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
                 group_id=group_id,
-                auto_offset_reset="earliest",  # 从最早的消息开始消费
+                auto_offset_reset=offset,  # 从最早的消息开始消费
                 # auto_offset_reset="latest",
                 value_deserializer=lambda m: json.loads(m.decode("utf-8")),  # 消息反序列化
                 max_poll_interval_ms=1800000,
