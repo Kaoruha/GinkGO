@@ -46,6 +46,9 @@
                         :class="checked ? 'text-white' : 'text-gray-900'"
                         class="font-medium"
                       >
+                    <div class="w-[10px] h-[10px] rounded-lg inline-block mr-1"
+:class="get_live_status_class(item.status)"
+                        ></div>
                         {{ item.name }}
                       </RadioGroupLabel>
                       <RadioGroupDescription
@@ -99,14 +102,14 @@ import {
 const records = ref([
   {
     uuid: 'uuid',
-    status: 'Running',
+    status: 'running',
     worth: 100000,
     finish_at: '2002-01-01T11:22:11',
     start_at: '2002-01-01T11:22:11'
   },
   {
     uuid: 'uuid2',
-    status: 'Running',
+    status: 'running',
     worth: 100004,
     finish_at: '2002-01-01T11:22:11',
     start_at: '2002-01-01T11:22:11'
@@ -125,6 +128,22 @@ const live_dropdown = ref(null)
 const recordList = ref(null)
 const del_dialog = ref(null)
 
+function get_live_status_class(status){
+    switch (status){
+        case "running":
+            return "bg-green-400 animate-pulse-slow"
+        case "pause":
+            return "bg-yellow-400 animate-pulse-fast"
+        case "stop":
+            return "bg-red-400"
+        case "restart":
+            return "bg-orange-400"
+        default:
+            return "bg-yellow-400 animate-pulse-fast"
+    }
+    return "bg-green-400"
+}
+
 async function fetchRecords() {
   try {
     const response = await axios.get(
@@ -138,6 +157,7 @@ async function fetchRecords() {
     for (let i = 0; i < res.length; i++) {
       const bytes = res[i].content
       const obj = yaml.load(bytes)
+      console.log(res[i])
       res[i].content = obj
       records.value.push(res[i])
     }
@@ -161,6 +181,7 @@ const emit = defineEmits(['parentMethod'])
 onMounted(() => {
   records.value.length = 0
   fetchRecords()
+  conLiveStatusSSE()
 })
 
 watch(selected, (newValue, oldValue) => {
@@ -225,5 +246,25 @@ function onRightClick(event, file) {
   dropdown.value.style.left = x + 'px'
   console.log(live_dropdown.value)
   live_dropdown.value.simClick()
+}
+
+function conLiveStatusSSE(){
+    const eventSource = new EventSource(API_ENDPOINTS.sseLiveStatus)
+    console.log(eventSource)
+    eventSource.onmessage = (msg)=> {
+        const res = JSON.parse(msg.data)
+        records.value.forEach(value=>{
+            const id = value.uuid
+            if (id in res){
+                value.status = res[id]
+            }else{
+                value.status = "stop"
+            }
+        })
+    }
+    eventSource.onerror = (error)=>{
+        console.error("EventSource Failed: ",error)
+        eventSource.close()
+    }
 }
 </script>

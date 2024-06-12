@@ -1,6 +1,8 @@
 from typing import Union
 import yaml
+import json
 import datetime
+import asyncio
 
 from ginkgo.libs.ginkgo_conf import GCONF
 from sqlalchemy.orm import Session
@@ -9,6 +11,7 @@ from fastapi import FastAPI, Depends, Request
 from fastapi.openapi.utils import get_openapi
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.enums import FILE_TYPES, DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
@@ -176,7 +179,9 @@ def rename_file(id: str = "", name: str = ""):
 @app.get("/api/v1/del_backtest")
 def del_backtest(id: str = ""):
     res = GDATA.remove_backtest(id)
-    print(res)
+    result_order = GDATA.remove_orders(id)
+    result_ana = GDATA.remove_analyzers(id)
+    result_pos = GDATA.remove_positions(id)
     return res
 
 
@@ -189,11 +194,16 @@ def add_liveportfolio(id: str = "", name: str = ""):
 
 @app.post("/api/v1/del_liveportfolio")
 def del_liveportfolio(id: str = ""):
-    print(id)
+    # Kill the proc
+    GDATA.remove_liveengine(id)
+    # Remove file related to live
+    GDATA.del_liveportfolio_related(id)
+    # TODO Remove transfer records
+    # Remove order records
     res = GDATA.remove_orderrecords_by_portfolio(id)
-    print(res)
+    # Remove live portfolio itself
     res = GDATA.remove_liveportfolio(id)
-    print(res)
+    print("del live")
     return res
 
 
@@ -204,7 +214,10 @@ def fetch_liveportfolio(page: int = 0, size: int = 100):
         return []
     df["worth"] = df["profit"]
     res = df.to_dict(orient="records")
-    print(res)
+    for i in res:
+        fid = i["uuid"]
+        status = GDATA.get_live_status_by_id(fid)
+        i["status"] = status if status else "stop"
     return res
 
 
@@ -323,3 +336,21 @@ def fetch_liveposition(id: str = "", page: int = 0, size: int = 1000):
         item["unrealized_pct"] = (info["close"] - i.cost) / i.cost
         res.append(item)
     return res
+
+
+async def live_status_query():
+    count = 0
+    while True:
+        await asyncio.sleep(2)
+        count += 1
+        if count > 10:
+            # TODO Move to main control in future
+            GDATA.clean_live_status()
+            count = 0
+        data = GDATA.get_live_status()
+        yield f"data: {json.dumps(data)}\n\n"
+
+
+@app.get("/api/v1/stream/live_status")
+def stream_live_status():
+    return StreamingResponse(live_status_query(), media_type="text/event-stream")

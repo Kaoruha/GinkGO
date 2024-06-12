@@ -33,7 +33,7 @@
       </BacktestDropDown>
     </div>
     <div
-      class="w-full z-0 h-[calc(100vh-102px)] select-none"
+      class="w-full z-0 h-[calc(100vh-102px)] select-none overflow-y-auto"
       ref="recordList"
       @scroll="checkScrollEnd"
     >
@@ -138,7 +138,7 @@ const records = ref([
 
 const selected = defineModel()
 let page = 0
-let size = 20
+let size = 30
 const del_msg = ref('haha')
 const transfer_msg = ref('haha')
 

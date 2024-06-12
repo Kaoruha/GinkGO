@@ -1,4 +1,5 @@
 import json
+from time import sleep
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.structs import TopicPartition
 from kafka.admin import KafkaAdminClient, NewTopic
@@ -74,15 +75,24 @@ def kafka_topic_set():
     topics = admin_client.list_topics()
     print("Kafka Topics:")
     print(topics)
-    black_topic = ["__consumer_offsets"]
+    # black_topic = ["__consumer_offsets"]
+    black_topic = []
     for i in topics:
         name = str(i)
+        if name in black_topic:
+            continue
         admin_client.delete_topics(topics=[name], timeout_ms=30000)
         print(f"Delet Topic {name}")
+    topics = admin_client.list_topics()
+    sleep(1)
 
     # 创建主题
-    admin_client.create_topics(new_topics=topic_list, validate_only=False)
-    admin_client.close()
+    try:
+        admin_client.create_topics(new_topics=topic_list, validate_only=False)
+    except Exception as e:
+        print(e)
+    finally:
+        admin_client.close()
 
 
 def kafka_topic_llen(topic: str):

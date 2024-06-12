@@ -220,8 +220,11 @@ def main():
     # Kafka setting
     # Should wait for container up.
     if args.kafkainit:
+        from src.ginkgo.libs.ginkgo_thread import GTM
         from ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
 
+        GTM.reset_worker_pool()
+        # Kill LiveEngine
         kafka_topic_set()
 
     # TODO Check if ginkgo exsit in /usr/local/bin

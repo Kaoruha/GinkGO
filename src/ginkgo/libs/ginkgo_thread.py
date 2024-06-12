@@ -139,7 +139,7 @@ if __name__ == "__main__":
                 time.sleep(0.4)
             except Exception as e:
                 pass
-        console.print(":world_map: Reset all data worker cache in REDIS.")
+        console.print(":world_map:  Reset all data worker cache in REDIS.")
 
     def reset_pool(self):
         while self.redis.llen(self.thread_pool_name) > 0:
