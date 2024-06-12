@@ -444,7 +444,6 @@ def edit(
 
     file_in_db = GDATA.get_file(id)
 
-    pdb.set_trace()
     if file_in_db is None:
         console.print(
             f":sad_but_relieved_face: File [yellow]{id}[/yellow] not exists. Try [green]ginkgo backtest list[/green] first."

@@ -24,7 +24,7 @@
       </FileDropDown>
     </div>
     <div
-      class="w-full z-0 overflow-y-auto h-[calc(100vh-102px)] px-1"
+      class="w-full z-0 h-[calc(100vh-102px)] px-1 overflow-y-auto"
       ref="fileList"
       @scroll="checkScrollEnd"
     >
@@ -64,7 +64,7 @@
                         <span
                           class="px-1 py-1 text-xs rounded mr-2"
                           :class="getColorClass(item.type)"
-                          >{{ item.type.toUpperCase() }}</span
+                          >{{ item.type.substring(0, 8).toUpperCase() }}</span
                         >
                         <span class="mr-1">UpdateAt:</span>
                         <span>{{ item.update_at.split('T')[0] }} </span>
@@ -135,7 +135,7 @@ const file_rename_dialog = ref(null)
 const selected = defineModel()
 let query = ''
 let page = 0
-let size = 20
+let size = 30
 
 const rename_msg = ref('haha')
 

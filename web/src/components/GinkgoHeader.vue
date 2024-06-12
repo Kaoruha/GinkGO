@@ -1,8 +1,8 @@
 <template>
   <div class="w-full max-w-md">
     <TabGroup v-model="selectedIndex">
-      <TabList class="flex rounded-xl">
-        <Tab v-for="(category, index) in categories" :key="category.name" class="px-2">
+      <TabList class="flex rounded-xl px-4">
+        <Tab v-for="(category, index) in categories" :key="category.name">
           <button class="px-10" :class="tabClass(index)" @click="go_router(categories[index].path)">
             {{ category.name }}
           </button>
@@ -35,11 +35,10 @@ const selectedIndex = computed(() => {
 
 const tabClass = (index) => {
   return [
-    'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
-    'ring-white/60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
+    'w-full rounded-lg py-2 text-sm font-medium',
     selectedIndex.value === index
       ? 'bg-white text-blue-700 shadow'
-      : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'
+      : 'text-blue-100 hover:bg-white/[0.12]'
   ]
 }
 

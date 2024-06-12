@@ -430,7 +430,6 @@ class GinkgoData(object):
             .filter(MOrder.isdel == False)
             .first()
         )
-        db.session.close()
         if r is not None:
             r.code = r.code.strip(b"\x00".decode())
         return r
@@ -547,35 +546,6 @@ class GinkgoData(object):
         db.session.close()
         return df
 
-    def get_order_by_backtest_and_date_range_pagination(
-        self,
-        backtest_id: str,
-        date_start: any = GCONF.DEFAULTSTART,
-        date_end: any = GCONF.DEFAULTEND,
-        page: int = 0,
-        size: int = 100,
-        engine=None,
-    ) -> MOrder:
-        GLOG.DEBUG(f"Try to get Order about {order_id}.")
-        date_start = datetime_normalize(date_start)
-        date_end = datetime_normalize(date_end)
-        db = engine if engine else self.get_driver(MOrder)
-        r = (
-            db.session.query(MOrder)
-            .filter(MOrder.backtest_id == backtest_id)
-            .filter(MOrder.isdel == False)
-            .filter(MOrder.timestamp >= date_start)
-            .filter(MOrder.timestamp <= date_end)
-            .order_by(MOrder.create)
-            .offset(page * size)
-            .limit(size)
-            .all()
-        )
-        db.session.close()
-        if r is not None:
-            r.code = r.code.strip(b"\x00".decode())
-        return r
-
     def get_order_by_backtest_pagination(
         self, backtest_id: str, page: int = 0, size: int = 100, engine=None
     ) -> MOrder:
@@ -590,9 +560,11 @@ class GinkgoData(object):
             .limit(size)
             .all()
         )
-        db.session.close()
-        if r is not None:
-            r.code = r.code.strip(b"\x00".decode())
+
+        if len(r) == 0:
+            return []
+        for i in r:
+            i.code = i.code.strip(b"\x00".decode())
         return r
 
     def get_order_df_by_backtest_pagination(
@@ -609,9 +581,8 @@ class GinkgoData(object):
             .limit(size)
             .all()
         )
-        if r is not None:
-            r.code = r.code.strip(b"\x00".decode())
         df = pd.read_sql(r.statement, db.engine)
+        df["code"] = df["code"].apply(lambda x: x.strip("\x00"))
         db.session.close()
         return df
 
@@ -627,7 +598,6 @@ class GinkgoData(object):
             .filter(MOrder.isdel == False)
             .first()
         )
-        db.session.close()
         if r is not None:
             r.code = r.code.strip(b"\x00".decode())
         return r
@@ -648,10 +618,7 @@ class GinkgoData(object):
                 f"Order_id :{order_id} has {df.shape[0]} records, please check the code and clean the database."
             )
             # TODO clean the database
-        elif df.shape[0] == 0:
-            return pd.DataFrame()
-        GLOG.DEBUG("Get Order DF")
-        # df.code = df.code.strip(b"\x00".decode())
+        df["code"] = df["code"].apply(lambda x: x.strip("\x00"))
         return df
 
     def get_order_df(self, order_id: str, engine=None) -> pd.DataFrame:
@@ -672,10 +639,7 @@ class GinkgoData(object):
                 f"Order_id :{order_id} has {df.shape[0]} records, please check the code and clean the database."
             )
             # TODO clean the database
-        elif df.shape[0] == 0:
-            return pd.DataFrame()
-        GLOG.DEBUG("Get Order DF")
-        # df.code = df.code.strip(b"\x00".decode())
+        df["code"] = df["code"].apply(lambda x: x.strip("\x00"))
         return df
 
     def get_order_df_by_portfolioid(
@@ -696,7 +660,7 @@ class GinkgoData(object):
             return pd.DataFrame()
         GLOG.DEBUG(f"Get Order DF with backtest: {backtest_id}")
         GLOG.DEBUG(df)
-        # df.code = df.code.strip(b"\x00".decode())
+        df["code"] = df["code"].apply(lambda x: x.strip("\x00"))
         return df
 
     # << CRUD of ORDER
@@ -761,7 +725,6 @@ class GinkgoData(object):
             .filter(MStockInfo.isdel == False)
             .first()
         )
-        db.session.close()
         return r
 
     def get_stock_info_df_by_code(self, code: str = None, engine=None) -> pd.DataFrame:
@@ -772,9 +735,6 @@ class GinkgoData(object):
             .filter(MStockInfo.code == code)
             .filter(MStockInfo.isdel == False)
         )
-        if r is None:
-            db.session.close()
-            return pd.DataFrame()
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="code", ascending=True)
         db.session.close()
@@ -793,7 +753,6 @@ class GinkgoData(object):
             .filter(MStockInfo.isdel == False)
             .offset(page * size)
             .limit(size)
-            .all()
         )
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="code", ascending=True)
@@ -808,16 +767,14 @@ class GinkgoData(object):
         db = engine if engine else self.get_driver(MStockInfo)
         if code == "" or code is None:
             r = db.session.query(MStockInfo).filter(MStockInfo.isdel == False)
-            df = pd.read_sql(r.statement, db.engine)
-            df = df.sort_values(by="code", ascending=True)
         else:
             r = (
                 db.session.query(MStockInfo)
                 .filter(MStockInfo.code == code)
                 .filter(MStockInfo.isdel == False)
             )
-            df = pd.read_sql(r.statement, db.engine)
-            df = df.sort_values(by="code", ascending=True)
+        df = pd.read_sql(r.statement, db.engine)
+        df = df.sort_values(by="code", ascending=True)
         db.session.close()
         return df
 
@@ -839,7 +796,7 @@ class GinkgoData(object):
         )
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="update", ascending=False)
-        # df.name = df.name.strip(b"\x00".decode())
+        df["code_name"] = df["code_name"].apply(lambda x: x.strip("\x00"))
         return df
 
     def get_trade_calendar(
@@ -861,7 +818,6 @@ class GinkgoData(object):
             .filter(MTradeDay.isdel == False)
             .all()
         )
-        db.session.close()
         return r
 
     def get_trade_calendar_df(
@@ -905,7 +861,6 @@ class GinkgoData(object):
             .filter(MBar.timestamp <= date_end)
             .all()
         )
-        db.session.close()
         return r
 
     def get_daybar_df(
@@ -943,12 +898,7 @@ class GinkgoData(object):
         db.session.close()
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
-        if df.shape[0] == 0:
-            return pd.DataFrame()
-        else:
-            return df
-            # return self.filter_with_adjustfactor(code, df)
-        # TODO Start a thread store the data in redis cache
+        return df
 
     def get_adjustfactor(
         self,
@@ -972,7 +922,6 @@ class GinkgoData(object):
             .order_by(MAdjustfactor.timestamp.asc())
             .all()
         )
-        db.session.close()
         return self._convert_to_full_cal(r)
 
     def _convert_to_full_cal(self, df):
@@ -1026,10 +975,12 @@ class GinkgoData(object):
             .filter(model.isdel == False)
             .first()
         )
-        if r:
-            return True
-        else:
+        if r is None:
+            db.session.close()
             return False
+        else:
+            db.session.close()
+            return True
 
     def get_tick(self, code: str, date_start: any, date_end: any, engine=None) -> MTick:
         GLOG.DEBUG(f"Try get TICK about {code} from {date_start} to {date_end}.")
@@ -1071,7 +1022,8 @@ class GinkgoData(object):
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
-        # TODO adjust
+        db.session.close()
+        # Adjust
         return df
 
     def get_tick_df(
@@ -1098,6 +1050,7 @@ class GinkgoData(object):
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="timestamp", ascending=True)
         df.reset_index(drop=True, inplace=True)
+        db.session.close()
         # TODO adjust
         return df
 
@@ -1302,7 +1255,7 @@ class GinkgoData(object):
         """
         GLOG.INFO("Updating Trade Calendar")
         self.update_cn_trade_calendar()
-        # TODO
+        # TODO Support more market.
 
     def update_cn_trade_calendar(self) -> None:
         market = MARKET_TYPES.CHINA
@@ -1373,6 +1326,7 @@ class GinkgoData(object):
             f"TradeCalendar Update: {update_count}, Insert: {insert_count} Cost: {t1-t0}"
         )
         size = db.get_table_size(MTradeDay)
+        db.session.close()
         GLOG.DEBUG(f"After Update Trade Calendar Size: {size}")
 
     def update_cn_daybar(self, code: str, fast_mode: bool = False) -> None:
@@ -1764,7 +1718,6 @@ class GinkgoData(object):
             .filter(MFile.isdel == False)
             .first()
         )
-        db.session.close()
         return r
 
     def get_file_by_id(self, file_id: str, engine=None):
@@ -1813,7 +1766,7 @@ class GinkgoData(object):
             )
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="update", ascending=False)
-        # df.name = df.name.strip(b"\x00".decode())
+        df["file_name"] = df["file_name"].apply(lambda x: x.strip("\x00"))
         return df
 
     def get_file_list_df_fuzzy(
@@ -1830,7 +1783,7 @@ class GinkgoData(object):
         )
         df = pd.read_sql(r.statement, db.engine)
         df = df.sort_values(by="update", ascending=False)
-        # df.name = df.name.strip(b"\x00".decode())
+        df["file_name"] = df["file_name"].apply(lambda x: x.strip("\x00"))
         return df
 
     def update_file(
@@ -1871,7 +1824,9 @@ class GinkgoData(object):
         db.session.close()
         self.clean_db()
 
-    def copy_file(self, type: FILE_TYPES, name: str, source: str) -> MFile:
+    def copy_file(
+        self, type: FILE_TYPES, name: str, source: str, is_live: bool = False
+    ) -> MFile:
         file = self.get_file(source)
         if file is None:
             GLOG.DEBUG(f"File {source} not exist. Copy failed.")
@@ -1879,12 +1834,18 @@ class GinkgoData(object):
         item = MFile()
         item.type = type
         item.file_name = name
+        item.islive = is_live
         item.content = file.content
-        content = yaml.safe_load(file.content.decode("utf-8"))
-        content["name"] = name
-        item.content = yaml.dump(content).encode("utf-8")
+        if type == FILE_TYPES.BACKTEST:
+            try:
+                content = yaml.safe_load(file.content.decode("utf-8"))
+                content["name"] = name
+                item.content = yaml.dump(content).encode("utf-8")
+            except Exception as e:
+                print(e)
+        id = item.uuid
         self.add(item)
-        return item
+        return id
 
     def add_file(
         self,
@@ -1971,16 +1932,61 @@ class GinkgoData(object):
 
     def add_liveportfolio(self, name: str, engine_id: str, content: bytes) -> str:
         item = MLivePortfolio()
+        conf = yaml.safe_load(content)
+        print(conf)
+
+        # risk manager
+        risk_conf = conf["risk_manager"]
+        old_risk_id = risk_conf["id"]
+        risk_file = self.get_file_by_id(old_risk_id)
+        risk_name = risk_file.file_name
+        new_risk_name = f"{risk_name}_{name}"
+        new_risk_name = new_risk_name[:35]
+        new_risk_id = self.copy_file(
+            FILE_TYPES.RISKMANAGER, new_risk_name, old_risk_id, True
+        )
+        conf["risk_manager"]["id"] = new_risk_id
+
+        # selector
+        select_conf = conf["selector"]
+        old_select_id = select_conf["id"]
+        select_file = self.get_file_by_id(old_select_id)
+        select_name = select_file.file_name
+        new_select_name = f"{select_name}_{name}"
+        new_select_name = new_select_name[:35]
+        new_select_id = self.copy_file(
+            FILE_TYPES.SELECTOR, new_select_name, old_select_id, True
+        )
+        conf["selector"]["id"] = new_select_id
+
+        # sizer
+        sizer_conf = conf["sizer"]
+        old_sizer_id = sizer_conf["id"]
+        sizer_file = self.get_file_by_id(old_sizer_id)
+        sizer_name = sizer_file.file_name
+        new_sizer_name = f"{sizer_name}_{name}"
+        new_sizer_name = new_sizer_name[:35]
+        new_sizer_id = self.copy_file(
+            FILE_TYPES.SIZER, new_sizer_name, old_sizer_id, True
+        )
+        conf["sizer"]["id"] = new_sizer_id
+
+        # strategies
+        for i in conf["strategies"]:
+            id = i["id"]
+            file = self.get_file_by_id(id)
+            file_name = file.file_name
+            new_name = f"{file_name}_{name}"
+            new_name = new_name[:35]
+            new_file_id = self.copy_file(FILE_TYPES.STRATEGY, new_name, id, True)
+            i["id"] = new_file_id
+
+        res_id = item.uuid
+        content = yaml.dump(conf).encode("utf-8")
         item.set(name, engine_id, datetime.datetime.now(), content)
-        # TODO Duplicate content for live.
-        # TODO Convert content to json
-        # TODO Read Strategies, Duplicate and replace the fileid with new id
-        # TODO Selector
-        # TODO Sizer
-        # TODO RiskManager
-        id = item.uuid
+
         self.add(item)
-        return id
+        return res_id
 
     def get_liveportfolio(self, engine_id: str, engine=None) -> MLivePortfolio:
         db = engine if engine else self.get_driver(MLivePortfolio)
@@ -1990,8 +1996,44 @@ class GinkgoData(object):
             .filter(MLivePortfolio.isdel == False)
             .first()
         )
-        db.session.close()
         return r
+
+    def get_liveportfolio_df(self, engine_id: str, engine=None) -> MLivePortfolio:
+        db = engine if engine else self.get_driver(MLivePortfolio)
+        r = (
+            db.session.query(MLivePortfolio)
+            .filter(MLivePortfolio.engine_id == engine_id)
+            .filter(MLivePortfolio.isdel == False)
+            .first()
+        )
+        df = pd.read_sql(r.statement, db.engine)
+        db.session.close()
+        return df
+
+    def get_live_related_files(self, engine_id: str) -> list:
+        res = []
+        file = self.get_liveportfolio(engine_id)
+        if file is None:
+            return
+        content = file.content
+        content = yaml.safe_load(file.content.decode("utf-8"))
+        res.append(content["risk_manager"]["id"])
+        res.append(content["selector"]["id"])
+        res.append(content["sizer"]["id"])
+        for i in content["analyzers"]:
+            res.append(i["id"])
+        for i in content["strategies"]:
+            res.append(i["id"])
+        return res
+
+    def del_liveportfolio_related(self, engine_id: str) -> bool:
+        files = self.get_live_related_files(engine_id)
+        for i in files:
+            r = self.remove_file(i)
+            if r:
+                print(f"Remove file {i}")
+            else:
+                print(f"File {i} not exist, Remove Failed.")
 
     def del_liveportfolio(self, engine_id: str) -> bool:
         """
@@ -2093,8 +2135,7 @@ class GinkgoData(object):
         )
         if r is None:
             return False
-        r.update = datetime.datetime.now()
-        r.isdel = True
+        db.session.delete(r)
         db.session.commit()
         db.session.close()
         return True
@@ -2432,9 +2473,6 @@ class GinkgoData(object):
             .offset(page * size)
             .limit(size)
         )
-        if r is not None:
-            r.code = r.code.strip(b"\x00".decode())
-        db.session.close()
         return r
 
     def get_orderrecord_df_pagination(
@@ -2608,10 +2646,14 @@ class GinkgoData(object):
         db = engine if engine else self.get_driver(MPositionRecord)
         r = (
             db.session.query(MPositionRecord)
-            .filter(MPositionRecord.backtest_id == backtest_id)
+            .filter(MPositionRecord.portfolio_id == backtest_id)
             .filter(MPositionRecord.isdel == False)
-            .delete()
+            .all()
         )
+        count = 0
+        for i in r:
+            db.session.delete(i)
+            count += 1
         db.session.commit()
         db.session.close()
         return count
@@ -2624,11 +2666,27 @@ class GinkgoData(object):
         pass
 
     def get_live_status(self) -> dict:
-        return self.get_redis().hgetall(self._live_status_name)
+        data = self.get_redis().hgetall(self._live_status_name)
+        return {
+            key.decode("utf-8"): value.decode("utf-8") for key, value in data.items()
+        }
 
     def get_live_status_by_id(self, engine_id: str) -> str:
         status = self.get_redis().hget(self._live_status_name, engine_id)
         return status.decode("utf-8") if status else None
+
+    def clean_live_status(self) -> dict:
+        self.clean_liveengine()
+        live = self.get_liveengine()
+        status = self.get_live_status()
+        clean_list = []
+        for i in status:
+            if i in live:
+                continue
+            clean_list.append(i)
+        for i in clean_list:
+            self.remove_live_status(i)
+        return self.get_live_status()
 
     def add_liveengine(self, engine_id: str, pid: int) -> None:
         self.clean_liveengine()
@@ -2636,7 +2694,10 @@ class GinkgoData(object):
         self.get_redis().hset(self._live_engine_pid_name, engine_id, pid)
 
     def get_liveengine(self) -> dict:
-        return self.get_redis().hgetall(self._live_engine_pid_name)
+        data = self.get_redis().hgetall(self._live_engine_pid_name)
+        return {
+            key.decode("utf-8"): value.decode("utf-8") for key, value in data.items()
+        }
 
     def remove_liveengine(self, engine_id: str) -> None:
         pid = self.get_pid_of_liveengine(engine_id)
@@ -2654,8 +2715,7 @@ class GinkgoData(object):
         res = self.get_liveengine()
         clean_list = []
         accept_status = ["running", "sleeping"]
-        for i in res:
-            engine_id = i.decode("utf-8")
+        for engine_id in res:
             pid = self.get_pid_of_liveengine(engine_id)
             try:
                 proc = psutil.Process(int(pid))

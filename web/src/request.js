@@ -24,5 +24,6 @@ export const API_ENDPOINTS = {
   fetchLivePositions: `${HOST}:${PORT}/api/v1/live_position`,
   addTradeRecord: `${HOST}:${PORT}/api/v1/add_traderecord`,
   updateTradeRecord: `${HOST}:${PORT}/api/v1/update_traderecord`,
-  delTradeRecord: `${HOST}:${PORT}/api/v1/del_traderecord`
+  delTradeRecord: `${HOST}:${PORT}/api/v1/del_traderecord`,
+  sseLiveStatus: `${HOST}:${PORT}/api/v1/stream/live_status`,
 }
