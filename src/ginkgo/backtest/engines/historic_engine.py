@@ -48,6 +48,7 @@ class HistoricEngine(EventEngine):
 
     def bind_matchmaking(self, matchmaking: "MatchMakingBase") -> "MatchMakingBase":
         self._matchmaking = matchmaking
+        self._matchmaking.set_backtest_id(self.backtest_id)
         if self.matchmaking.engine is None:
             self.matchmaking.bind_engine(self)
             GLOG.DEBUG(f"{type(self)}:{self.name} bind MATCHMAKING {matchmaking.name}.")

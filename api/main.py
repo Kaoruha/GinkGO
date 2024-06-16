@@ -354,3 +354,23 @@ async def live_status_query():
 @app.get("/api/v1/stream/live_status")
 def stream_live_status():
     return StreamingResponse(live_status_query(), media_type="text/event-stream")
+
+
+@app.post("/api/v1/live_control")
+def send_live_control_signal(id: str, command: str):
+    try:
+        cmd = "stop"
+        if command.upper() == "START":
+            cmd = "start"
+        elif command.upper() == "STOP":
+            cmd = "stop"
+        elif command.upper() == "PAUSE":
+            cmd = "pause"
+        elif command.upper() == "RESTART":
+            cmd = "restart"
+        elif command.upper() == "RESUME":
+            cmd = "resume"
+        GDATA.send_signal_to_liveengine(id, cmd)
+        return 1
+    except Exception as e:
+        return 2

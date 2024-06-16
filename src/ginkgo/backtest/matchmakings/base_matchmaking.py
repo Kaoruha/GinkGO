@@ -25,6 +25,7 @@ class MatchMakingBase(BacktestBase):
         self._commission_rate = 0.0003
         self._commission_min = 5
         self._engine = None
+        self._backtest_id = ""
 
     @property
     def engine(self):
@@ -39,6 +40,17 @@ class MatchMakingBase(BacktestBase):
 
         if engine.matchmaking is None:
             engine.bind_matchmaking(self)
+
+    def set_backtest_id(self, id: str) -> None:
+        self._backtest_id = id
+
+    @property
+    def backtest_id(self) -> str:
+        return self._backtest_id
+
+    @property
+    def engine_id(self) -> str:
+        return self._backtest_id
 
     @property
     def commision_rate(self) -> float:

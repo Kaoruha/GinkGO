@@ -12,7 +12,7 @@
                 active ? 'bg-violet-500 text-white' : 'text-gray-900',
                 'group flex w-full items-center rounded-md px-2 py-2 text-sm'
               ]"
-              @click="$emit('copy')"
+              @click="$emit('detail')"
             >
               <DocumentTextIcon
                 :active="active"
@@ -31,7 +31,7 @@
                 active ? 'bg-violet-500 text-white' : 'text-gray-900',
                 'group flex w-full items-center rounded-md px-2 py-2 text-sm'
               ]"
-              @click="$emit('copy')"
+              @click="$emit('start')"
             >
               <PlayCircleIcon
                 :active="active"
@@ -48,7 +48,7 @@
                 active ? 'bg-violet-500 text-white' : 'text-gray-900',
                 'group flex w-full items-center rounded-md px-2 py-2 text-sm'
               ]"
-              @click="$emit('copy')"
+              @click="$emit('pause')"
             >
               <PauseCircleIcon
                 :active="active"
@@ -65,7 +65,7 @@
                 active ? 'bg-violet-500 text-white' : 'text-gray-900',
                 'group flex w-full items-center rounded-md px-2 py-2 text-sm'
               ]"
-              @click="$emit('copy')"
+              @click="$emit('stop')"
             >
               <StopCircleIcon
                 :active="active"
@@ -82,7 +82,7 @@
                 active ? 'bg-violet-500 text-white' : 'text-gray-900',
                 'group flex w-full items-center rounded-md px-2 py-2 text-sm'
               ]"
-              @click="$emit('copy')"
+              @click="$emit('restart')"
             >
               <ArrowPathRoundedSquareIcon
                 :active="active"

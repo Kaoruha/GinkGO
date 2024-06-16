@@ -47,6 +47,7 @@ from ginkgo.enums import (
     MARKET_TYPES,
     TICKDIRECTION_TYPES,
     FILE_TYPES,
+    ORDERSTATUS_TYPES,
 )
 from ginkgo.data.sources import GinkgoBaoStock, GinkgoTushare, GinkgoTDX
 from ginkgo.data.drivers import (
@@ -58,6 +59,7 @@ from ginkgo.data.drivers import (
 from ginkgo.libs.ginkgo_ps import find_process_by_keyword
 from ginkgo.backtest.position import Position
 from ginkgo.data.drivers.ginkgo_kafka import kafka_topic_llen
+from ginkgo.backtest.order import Order
 
 
 console = Console()
@@ -69,7 +71,7 @@ class GinkgoData(object):
     """
 
     def __init__(self):
-        GLOG.DEBUG("Init GinkgoData.")
+        GLOG.INFO("Init GinkgoData.")
         self.dataworker_pool_name = "ginkgo_dataworker"  # Conf
         self._click_models = []
         self._mysql_models = []
@@ -96,7 +98,6 @@ class GinkgoData(object):
         self._live_engine_pid_name = "live_engine_pid"
 
     def send_signal_stop_dataworker(self):
-        # TODO if there is no worker running return
         self.get_kafka_producer().send(
             "ginkgo_data_update", {"type": "kill", "code": "blabla"}
         )
@@ -421,18 +422,36 @@ class GinkgoData(object):
     # << Operation about Database
 
     # CRUD of ORDER >>
-    def get_order_by_id(self, order_id: str, engine=None) -> MOrder:
+    def get_order_by_id(self, order_id: str, engine=None) -> Order:
         GLOG.DEBUG(f"Try to get Order about {order_id}.")
+        data = self.get_order_df_by_id(order_id).iloc[0]
+        o = Order()
+        o.set(data)
+        return o
+
+    def update_order(self, order: Order, engine=None) -> None:
         db = engine if engine else self.get_driver(MOrder)
+        order_id = order.uuid
         r = (
             db.session.query(MOrder)
             .filter(MOrder.uuid == order_id)
             .filter(MOrder.isdel == False)
             .first()
         )
-        if r is not None:
-            r.code = r.code.strip(b"\x00".decode())
-        return r
+        if r is None:
+            return
+        r.code = order.code
+        r.direction = order.direction
+        r.type = order.type
+        r.status = order.status
+        r.volume = order.volume
+        r.limit_price = order.limit_price
+        r.frozen = order.frozen
+        r.transaction_price = order.transaction_price
+        r.remain = order.remain
+        r.timestamp = order.timestamp
+        db.session.commit()
+        db.session.close()
 
     def get_signal_df_by_backtest_and_code_pagination(
         self,
@@ -608,7 +627,6 @@ class GinkgoData(object):
             db.session.query(MOrder)
             .filter(MOrder.uuid == order_id)
             .filter(MOrder.isdel == False)
-            .all()
         )
         df = pd.read_sql(r.statement, db.engine)
         db.session.close()
@@ -1933,7 +1951,6 @@ class GinkgoData(object):
     def add_liveportfolio(self, name: str, engine_id: str, content: bytes) -> str:
         item = MLivePortfolio()
         conf = yaml.safe_load(content)
-        print(conf)
 
         # risk manager
         risk_conf = conf["risk_manager"]
@@ -1981,6 +1998,10 @@ class GinkgoData(object):
             new_file_id = self.copy_file(FILE_TYPES.STRATEGY, new_name, id, True)
             i["id"] = new_file_id
 
+        # remove analyzers
+        del conf["analyzers"]
+        print(conf)
+
         res_id = item.uuid
         content = yaml.dump(conf).encode("utf-8")
         item.set(name, engine_id, datetime.datetime.now(), content)
@@ -2020,8 +2041,6 @@ class GinkgoData(object):
         res.append(content["risk_manager"]["id"])
         res.append(content["selector"]["id"])
         res.append(content["sizer"]["id"])
-        for i in content["analyzers"]:
-            res.append(i["id"])
         for i in content["strategies"]:
             res.append(i["id"])
         return res

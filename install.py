@@ -105,6 +105,7 @@ def main():
     if not args.y:
         input(f"Press {green('ENTER')} to continue")
         print("File Check:")
+
     if os.path.exists(path_pip):
         msg = f"[{green('CONFIRMED')}] Pip requirements."
         print(msg)
@@ -175,7 +176,7 @@ def main():
     os.system("python ./setup_install.py")
     # Write log,unitest,working_directory to local config.
     os.system("pip install pyyaml -i https://pypi.tuna.tsinghua.edu.cn/simple")
-    from ginkgo.libs.ginkgo_conf import GCONF
+    from src.ginkgo.libs.ginkgo_conf import GCONF
 
     # GCONF.set_logging_path(path_log)
     GCONF.set_work_path(working_directory)

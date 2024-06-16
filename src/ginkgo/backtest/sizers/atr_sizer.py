@@ -76,7 +76,9 @@ class ATRSizer(BaseSizer):
                 remain=0,
                 fee=0,
                 timestamp=self.now,
+                backtest_id=self.backtest_id,
             )
+            print("Order Generated.")
             print(o)
             o.set_source(SOURCE_TYPES.SIZER)
         return o

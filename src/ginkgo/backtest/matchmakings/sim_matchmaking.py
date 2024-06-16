@@ -63,11 +63,9 @@ class MatchMakingSim(MatchMakingBase):
         Returns:
             None
         """
-        order = GDATA.get_order(order_id=order_id)
-        order.status = ORDERSTATUS_TYPES.CANCELED
-        GDATA.get_driver(MOrder).session.merge(order)
-        GDATA.get_driver(MOrder).session.commit()
-        GDATA.get_driver(MOrder).session.close()
+        o = GDATA.get_order_by_id(order_id=order_id)
+        o.cancel()
+        GDATA.update_order(o)
         canceld_order = EventOrderCanceled(order_id)
         GLOG.WARN(f"Return a CANCELED ORDER")
         self.engine.put(canceld_order)
@@ -152,10 +150,8 @@ class MatchMakingSim(MatchMakingBase):
 
         # Check Order Status
         if o.status == ORDERSTATUS_TYPES.NEW:
-            o.status = ORDERSTATUS_TYPES.SUBMITTED
-            GDATA.get_driver(MOrder).session.merge(o)
-            GDATA.get_driver(MOrder).session.commit()
-            GDATA.get_driver(MOrder).session.close()
+            o.submit()
+            GDATA.update_order(o)
 
         if o.status != ORDERSTATUS_TYPES.SUBMITTED:
             GLOG.ERROR(f"Only accept SUBMITTED order. {order_id} is under {o.status}")
@@ -182,7 +178,7 @@ class MatchMakingSim(MatchMakingBase):
         if not isinstance(order_id, str):
             GLOG.WARN("Order id only support string.")
             return
-        o = GDATA.get_order(order_id)
+        o = GDATA.get_order_by_id(order_id)
         if o is None:
             GLOG.WARN(f"Order {order_id} not exsist.")
         return o
@@ -293,7 +289,7 @@ class MatchMakingSim(MatchMakingBase):
                 )
 
             transaction_price = round(transaction_price, 4)
-            o.status = ORDERSTATUS_TYPES.FILLED
+            o.fill()
             o.transaction_price = transaction_price
             transaction_money = float(transaction_price * o.volume)
             transaction_money = round(transaction_money, 4)
@@ -315,9 +311,7 @@ class MatchMakingSim(MatchMakingBase):
                 remain = transaction_money - fee
             o.remain = round(remain, 4)
             # 1.2.3 Give it back to db
-            GDATA.get_driver(MOrder).session.merge(o)
-            GDATA.get_driver(MOrder).session.commit()
-            GDATA.get_driver(MOrder).session.close()
+            GDATA.update_order(o)
             self.order_book.remove(o.uuid)
             filled_order = EventOrderFilled(o.uuid)
             self.engine.put(filled_order)
