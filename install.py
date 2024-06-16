@@ -176,11 +176,14 @@ def main():
     os.system("python ./setup_install.py")
     # Write log,unitest,working_directory to local config.
     os.system("pip install pyyaml -i https://pypi.tuna.tsinghua.edu.cn/simple")
-    from src.ginkgo.libs.ginkgo_conf import GCONF
+    try:
+        from ginkgo.libs.ginkgo_conf import GCONF
 
-    # GCONF.set_logging_path(path_log)
-    GCONF.set_work_path(working_directory)
-    GCONF.set_unittest_path(working_directory)
+        # GCONF.set_logging_path(path_log)
+        GCONF.set_work_path(working_directory)
+        GCONF.set_unittest_path(working_directory)
+    except Exception as e:
+        print("Ginkgo not installed. Path setting will work at next installation.")
 
     if not args.y:
         result = input("Conitnue? Y/N  ")
