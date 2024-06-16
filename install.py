@@ -176,14 +176,6 @@ def main():
     os.system("python ./setup_install.py")
     # Write log,unitest,working_directory to local config.
     os.system("pip install pyyaml -i https://pypi.tuna.tsinghua.edu.cn/simple")
-    try:
-        from ginkgo.libs.ginkgo_conf import GCONF
-
-        # GCONF.set_logging_path(path_log)
-        GCONF.set_work_path(working_directory)
-        GCONF.set_unittest_path(working_directory)
-    except Exception as e:
-        print("Ginkgo not installed. Path setting will work at next installation.")
 
     if not args.y:
         result = input("Conitnue? Y/N  ")
@@ -197,6 +189,15 @@ def main():
     os.system(
         f"pip install -r {path_pip} --default-timeout=20 -i https://pypi.tuna.tsinghua.edu.cn/simple"
     )
+
+    try:
+        from ginkgo.libs.ginkgo_conf import GCONF
+
+        # GCONF.set_logging_path(path_log)
+        GCONF.set_work_path(working_directory)
+        GCONF.set_unittest_path(working_directory)
+    except Exception as e:
+        print("Ginkgo not installed. Path setting will work at next installation.")
 
     # 创建映射文件夹
     if not os.path.exists(path_db):
