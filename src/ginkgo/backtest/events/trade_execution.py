@@ -25,7 +25,7 @@ class EventTradeExcution(EventBase):
     def get_order(self, order_id: str):
         # Make sure the order cant be edit by the event.
         # Get order from db
-        r = GDATA.get_order(order_id)
+        r = GDATA.get_order_by_id(order_id)
         if r is None:
             GLOG.ERROR(f"Order:{order_id} not exsist. Please check your code")
             return

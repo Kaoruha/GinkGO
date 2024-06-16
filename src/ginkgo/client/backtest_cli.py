@@ -263,6 +263,7 @@ def run(
     with open(f"{temp_folder}/{id}.yml", "wb") as file:
         file.write(content)
 
+    backtest_id = GDATA.add_backtest(random_id, content)
     # Read local file
     backtest_config = None
     try:
@@ -286,6 +287,7 @@ def run(
     # Portfolio -->
 
     portfolio = PortfolioT1Backtest()  # TODO Read from database.
+    portfolio.set_backtest_id(backtest_id)
 
     # Selector -->
     # Selector -->
@@ -296,6 +298,7 @@ def run(
     # Bind Selector
     if selector_cls is not None:
         selector = selector_cls(*selector_parameters)
+        selector.set_backtest_id(backtest_id)
         portfolio.bind_selector(selector)
     else:
         console.print(f":sad_but_relieved_face: Cant Locate SELECOTR: {selector_id}")
@@ -310,9 +313,10 @@ def run(
     sizer_id = sizer_config["id"]
     sizer_parameters = sizer_config["parameters"]
     sizer_cls = get_class_from_id(random_id, sizer_id)
-    # Bind Selector
+    # Bind Sizer
     if sizer_cls is not None:
         sizer = sizer_cls(*sizer_parameters)
+        sizer.set_backtest_id(backtest_id)
         portfolio.bind_sizer(sizer)
     else:
         console.print(f":sad_but_relieved_face:Cant Locate SIZER: {sizer_id}")
@@ -330,6 +334,7 @@ def run(
     # Bind Selector
     if risk_cls is not None:
         risk = risk_cls(*risk_parameters)
+        risk.set_backtest_id(backtest_id)
         portfolio.bind_risk(risk)
     else:
         console.print(f":sad_but_relieved_face:Cant Locate RISK: {sizer_id}")
@@ -350,6 +355,7 @@ def run(
         # Bind Strategy
         if strategy_cls is not None:
             strategy = strategy_cls(*strategy_parameters)
+            strategy.set_backtest_id(backtest_id)
             portfolio.add_strategy(strategy)
         else:
             console.print(
@@ -373,6 +379,7 @@ def run(
         # Bind Analyzer
         if analyzer_cls is not None:
             analyzer = analyzer_cls(*analyzer_parameters)
+            analyzer.set_backtest_id(backtest_id)
             analyzer.set_analyzer_id(analyzer_id)
             print(analyzer)
             portfolio.add_analyzer(analyzer)
@@ -385,7 +392,6 @@ def run(
     # <-- Analyzer
     # <-- Analyzer
 
-    backtest_id = GDATA.add_backtest(random_id, content)
     engine = HistoricEngine()
     engine.set_backtest_id(backtest_id)
     engine.set_backtest_interval("day")
@@ -393,6 +399,7 @@ def run(
     engine.set_date_end(date_end)
     engine.bind_portfolio(portfolio)
     matchmaking = MatchMakingSim()
+    matchmaking.set_backtest_id(backtest_id)
     engine.bind_matchmaking(matchmaking)
     feeder = BacktestFeed()
     feeder.subscribe(portfolio)

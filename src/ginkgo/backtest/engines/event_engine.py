@@ -55,6 +55,7 @@ class EventEngine(BaseEngine):
         self._queue: Queue = Queue()
         self._portfolios = GinkgoSingleLinkedList()
         self._datafeeder = None
+        self._is_live = False
 
     @property
     def datafeeder(self):
@@ -97,14 +98,20 @@ class EventEngine(BaseEngine):
 
             if flag.is_set():
                 break
+
             try:
                 # Get a event from events_queue
                 event: EventBase = self._queue.get(block=True, timeout=0.5)
                 # Pass the event to handle
                 self._process(event)
+                count = 0
             except Empty:
-                pass
+                count += 1
                 print(f"No Event in Queue. {datetime.datetime.now()} {count}")
+                if self._is_live:
+                    continue
+                if count > 1000:
+                    self.stop()
 
             # Break for a while
             sleep(GCONF.HEARTBEAT)
@@ -123,8 +130,8 @@ class EventEngine(BaseEngine):
                 break
             [handle() for handle in self._timer_handles]
             sleep(self._interval)
-            GLOG.DEBUG("timer wait")
-            print(f"No Event in Timer Queue.")
+            GLOG.DEBUG(f"No Event in Timer Queue. {datetime.datetime.now()}")
+            # print(f"No Event in Timer Queue. {datetime.datetime.now()}")
         GLOG.INFO("Timer loop END.")
 
     def start(self) -> threading.Thread:

@@ -141,24 +141,24 @@ class LiveEngine(EventEngine):
         if command["engine_id"] != self.engine_id:
             print(f"{command['engine_id']} is not my type {self.engine_id}")
             return
-        if command["command"] == "pause":
+        if command["command"].uppder() == "PAUSE":
             self._active = False
             GDATA.set_live_status(self.engine_id, "pause")
-        elif command["command"] == "stop":
+        elif command["command"].uppder() == "STOp":
             self._active = False
             GDATA.set_live_status(self.engine_id, "pause")
-        elif command["command"] == "resume":
+        elif command["command"].uppder() == "RESUME":
             self._active = True
             print("resume")
             GDATA.set_live_status(self.engine_id, "running")
-        elif command["command"] == "start":
+        elif command["command"].uppder() == "START":
             self._active = True
             print("start")
             GDATA.set_live_status(self.engine_id, "running")
-        elif command["command"] == "restart":
+        elif command["command"].uppder() == "RESTART":
             self._active = True
             self.restart()
-        elif command["command"] == "cal_signal":
+        elif command["command"].uppder() == "CAL_SIGNAL":
             print("calculating signals.")
         else:
             print("cant handle")

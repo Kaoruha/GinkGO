@@ -165,5 +165,5 @@ class PortfolioT1Test(unittest.TestCase):
     #     # TODO
     #     # for order_id in p.orders:
     #     #     uid = order_id.value
-    #     #     orderindb = GDATA.get_order(uid)
+    #     #     orderindb = GDATA.get_order_by_id(uid)
     #     #     self.assertNotEqual(None, orderindb)

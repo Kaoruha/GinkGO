@@ -13,7 +13,16 @@
     </div>
     <!-- FileDropdown show at right click -->
     <div class="z-10 absolute select-none" ref="dropdown">
-      <LiveDropDown ref="live_dropdown" @delete="CallDelLiveModal"> </LiveDropDown>
+      <LiveDropDown
+        ref="live_dropdown"
+        @detail="ShowDetail"
+        @start="LiveControl(current_record.uuid, 'start')"
+        @pause="LiveControl(current_record.uuid, 'pause')"
+        @stop="LiveControl(current_record.uuid, 'stop')"
+        @restart="LiveControl(current_record.uuid, 'restart')"
+        @delete="CallDelLiveModal"
+      >
+      </LiveDropDown>
     </div>
     <div
       class="w-full z-0 h-[calc(100vh-102px)] select-none"
@@ -46,8 +55,9 @@
                         :class="checked ? 'text-white' : 'text-gray-900'"
                         class="font-medium"
                       >
-                    <div class="w-[10px] h-[10px] rounded-lg inline-block mr-1"
-:class="get_live_status_class(item.status)"
+                        <div
+                          class="w-[10px] h-[10px] rounded-lg inline-block mr-1"
+                          :class="get_live_status_class(item.status)"
                         ></div>
                         {{ item.name }}
                       </RadioGroupLabel>
@@ -128,20 +138,20 @@ const live_dropdown = ref(null)
 const recordList = ref(null)
 const del_dialog = ref(null)
 
-function get_live_status_class(status){
-    switch (status){
-        case "running":
-            return "bg-green-400 animate-pulse-slow"
-        case "pause":
-            return "bg-yellow-400 animate-pulse-fast"
-        case "stop":
-            return "bg-red-400"
-        case "restart":
-            return "bg-orange-400"
-        default:
-            return "bg-yellow-400 animate-pulse-fast"
-    }
-    return "bg-green-400"
+function get_live_status_class(status) {
+  switch (status) {
+    case 'running':
+      return 'bg-green-400 animate-pulse-fast'
+    case 'pause':
+      return 'bg-yellow-400'
+    case 'stop':
+      return 'bg-red-400'
+    case 'restart':
+      return 'bg-orange-400 animate-pulse-fast'
+    default:
+      return 'bg-blue-400 animate-pulse-fast'
+  }
+  return 'bg-green-400'
 }
 
 async function fetchRecords() {
@@ -194,7 +204,7 @@ function queryChange() {
 }
 
 function copyLivePortfolioID() {
-  console.log('copy LivePortfolio id', current_record.uuid)
+  console.log('copy LivePortfolio id', current_record.value.uuid)
 }
 
 function CallDelLiveModal() {
@@ -202,8 +212,8 @@ function CallDelLiveModal() {
 }
 
 function delLivePortfolio() {
-  console.log('del live portfolio', current_record.uuid)
-  delRecords(current_record.uuid)
+  console.log('del live portfolio', current_record.value.uuid)
+  delRecords(current_record.value.uuid)
 }
 
 async function delRecords(id: string) {
@@ -233,10 +243,10 @@ const checkScrollEnd = () => {
   }
 }
 
-let current_record = null
+const current_record = ref(null)
 
 function onRightClick(event, file) {
-  current_record = file
+  current_record.value = file
   confirm_msg.value = `Sure to remove live: ${file.uuid}?`
   const offset_x = -4
   const offset_y = -100
@@ -244,27 +254,40 @@ function onRightClick(event, file) {
   var y = event.clientY + offset_y
   dropdown.value.style.top = y + 'px'
   dropdown.value.style.left = x + 'px'
-  console.log(live_dropdown.value)
   live_dropdown.value.simClick()
 }
 
-function conLiveStatusSSE(){
-    const eventSource = new EventSource(API_ENDPOINTS.sseLiveStatus)
-    console.log(eventSource)
-    eventSource.onmessage = (msg)=> {
-        const res = JSON.parse(msg.data)
-        records.value.forEach(value=>{
-            const id = value.uuid
-            if (id in res){
-                value.status = res[id]
-            }else{
-                value.status = "stop"
-            }
-        })
-    }
-    eventSource.onerror = (error)=>{
-        console.error("EventSource Failed: ",error)
-        eventSource.close()
-    }
+function conLiveStatusSSE() {
+  const eventSource = new EventSource(API_ENDPOINTS.sseLiveStatus)
+  console.log(eventSource)
+  eventSource.onmessage = (msg) => {
+    const res = JSON.parse(msg.data)
+    records.value.forEach((value) => {
+      const id = value.uuid
+      if (id in res) {
+        value.status = res[id]
+      } else {
+        value.status = 'stop'
+      }
+    })
+  }
+  eventSource.onerror = (error) => {
+    console.error('EventSource Failed: ', error)
+    eventSource.close()
+  }
+}
+
+function ShowDetail() {
+  console.log('Show detail', current_record.value.uuid)
+}
+
+async function LiveControl(id: string, cmd: string) {
+  try {
+    const response = await axios.post(API_ENDPOINTS.LiveControl + `?id=${id}&command=${cmd}`)
+    const res = response.data
+    console.log(res)
+  } catch (error) {
+    console.error('请求API时出错:', error)
+  }
 }
 </script>

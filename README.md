@@ -48,7 +48,6 @@ sudo ./install.sh
 ## Interactive Mode
 ``` shell
 ginkgo interactive
-
 ```
 
 ## Unittest
@@ -76,6 +75,36 @@ ginkgo data show stockinfo --code 000001.SZ
 ### Plot
 ``` shell
 ginkgo data plot day --code 00001.SZ --start 20200101 --end 20210101
-
 ```
 
+# File System
+
+├── api  (api server)
+├── docs
+├── samples
+├── src (source code)
+│   └── ginkgo
+│       ├── artificial_intelligence (machine learning related)
+│       ├── backtest (backtest and live engine)
+│       │   ├── analyzers (Evaluating backtest)
+│       │   ├── engines (main engine)
+│       │   ├── events ()
+│       │   ├── feeds (data feeder)
+│       │   ├── indices (...)
+│       │   ├── matchmakings
+│       │   ├── plots (plot related)
+│       │   ├── portfolios
+│       │   ├── risk_managements (similar to strategy, but for risk manager)
+│       │   ├── selectors (code picker)
+│       │   ├── sizers (calculate position size)
+│       │   └── strategies (calculate signals)
+│       ├── client (cli command support)
+│       ├── config (settings, include basic setting and db setting)
+│       ├── data
+│       │   ├── drivers (database driver)
+│       │   ├── models (sqlalchemy model)
+│       │   └── sources (data sources)
+│       ├── libs (utils)
+│       └── notifier (email, telegram, beep alert)
+├── test (for unittest)
+└── web (web code, vue project)

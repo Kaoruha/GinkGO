@@ -130,25 +130,49 @@ class Order(Base):
     def code(self) -> str:
         return self._code
 
+    @code.setter
+    def code(self, value) -> None:
+        self._code = value
+
     @property
     def timestamp(self) -> datetime.datetime:
         return self._timestamp
+
+    @timestamp.setter
+    def timestamp(self, value) -> None:
+        self._timestamp = value
 
     @property
     def uuid(self) -> str:
         return self._uuid
 
+    @uuid.setter
+    def uuid(self, value) -> None:
+        self._uuid = uuid
+
     @property
     def direction(self) -> DIRECTION_TYPES:
         return self._direction
+
+    @direction.setter
+    def direction(self, value) -> None:
+        self._direction = value
 
     @property
     def type(self) -> ORDER_TYPES:
         return self._type
 
+    @type.setter
+    def type(self, value) -> None:
+        self._type = value
+
     @property
     def volume(self) -> int:
         return self._volume
+
+    @volume.setter
+    def volume(self, value):
+        self._volume = value
 
     @property
     def status(self) -> ORDERSTATUS_TYPES:
@@ -158,25 +182,49 @@ class Order(Base):
     def limit_price(self) -> float:
         return self._limit_price
 
+    @limit_price.setter
+    def limit_price(self, value) -> None:
+        self._limit_price = value
+
     @property
     def frozen(self) -> float:
         return self._frozen
+
+    @frozen.setter
+    def frozen(self, value) -> None:
+        self._frozen = value
 
     @property
     def transaction_price(self) -> float:
         return self._transaction_price
 
+    @transaction_price.setter
+    def transaction_price(self, value) -> None:
+        self._transaction_price = value
+
     @property
     def remain(self) -> float:
         return self._remain
+
+    @remain.setter
+    def remain(self, value) -> None:
+        self._remain = value
 
     @property
     def fee(self) -> float:
         return self._fee
 
+    @fee.setter
+    def fee(self, value) -> None:
+        self._fee = value
+
     @property
     def backtest_id(self) -> str:
         return self._backtest_id
+
+    @backtest_id.setter
+    def backtest_id(self, value) -> None:
+        self._backtest_id = value
 
     def submit(self) -> None:
         # TODO check the order status

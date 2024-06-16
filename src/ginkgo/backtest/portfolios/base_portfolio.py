@@ -497,7 +497,8 @@ class BasePortfolio(BacktestBase):
         super(BasePortfolio, self).set_backtest_id(value, *args, **kwargs)
         # Pass the backtest id to analyzers, strategies and positions.
         for i in self.strategies:
-            i.value.set_backtest_id(value)
+            if i.value is not None:
+                i.value.set_backtest_id(value)
         for i in self.analyzers.keys():
             self.analyzers[i].set_backtest_id(value)
         for i in self.positions.keys():
