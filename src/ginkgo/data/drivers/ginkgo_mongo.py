@@ -52,7 +52,7 @@ class GinkgoMongo(object):
         self._session = sessionmaker(self.engine)()
         self._metadata = MetaData(bind=self.engine)
         self._base = declarative_base(metadata=self.metadata)
-        GLOG.INFO("Connect to mongo succeed.")
+        GLOG.DEBUG("Connect to mongo succeed.")
 
     @property
     def insp(self):

@@ -1,8 +1,10 @@
 import os
+import subprocess
 import shutil
 import sys
 import time
 import platform
+import tempfile
 import argparse
 
 
@@ -209,11 +211,23 @@ def main():
 
     # 启动Docker
     if "Windows" == str(platform.system()):
-        os.system(f"docker compose -f {path_dockercompose} --compatibility up -d")
+        os.system("docker rm -f ginkgo_web")
+        os.system("docker rmi ginkgo_webui:latest")
+        os.system(
+            f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d"
+        )
     elif "Linux" == str(platform.system()):
-        os.system(f"docker compose -f {path_dockercompose} --compatibility up -d")
+        os.system("docker rm -f ginkgo_web")
+        os.system("docker rmi ginkgo_webui:latest")
+        os.system(
+            f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d"
+        )
     else:
-        os.system(f"docker compose -f {path_dockercompose} --compatibility up -d")
+        os.system("docker rm -f ginkgo_web")
+        os.system("docker rmi ginkgo_webui:latest")
+        os.system(
+            f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d"
+        )
 
     # Build an executable binary
     if args.bin:
@@ -232,13 +246,84 @@ def main():
         # Kill LiveEngine
         kafka_topic_set()
 
-    # TODO Check if ginkgo exsit in /usr/local/bin
-    if os.path.exists("/usr/local/bin/ginkgo"):
-        print(f"You could run : {lightblue('ginkgo --help')} to start your study.")
-    else:
-        print(
-            f"You could run : {lightblue('chmod +x ./install.sh;sudo ./install.sh')} to get the cli."
-        )
+    # 删除旧的 ginkgo 文件
+    print("Clean ginkgo binary.")
+    for path in ["/usr/bin/ginkgo", "/usr/local/bin/ginkgo"]:
+        try:
+            os.system(f"sudo rm {path}")
+        except FileNotFoundError:
+            pass
+
+    shell_folder = os.path.dirname(os.path.realpath(__file__))
+    output_file = "/usr/local/bin/ginkgo"
+    script_content = f"""#!/bin/bash
+
+# 检查第一个参数是否为 "serve"，第二个参数是否为 "nohup"
+if [ "$1" = "serve" ] && [ "$2" = "nohup" ]; then
+    # 如果是，则将 "serve" 命令放入后台运行
+    nohup "{shell_folder}/venv/bin/python" "{shell_folder}/main.py" serve >/dev/null 2>&1 &
+else
+    # 如果不是，则前台运行 ginkgo 命令，并将所有参数传递给前台进程
+    "{shell_folder}/venv/bin/python" "{shell_folder}/main.py" "$@"
+fi
+"""
+
+    with tempfile.NamedTemporaryFile("w", delete=False) as tmp_file:
+        tmp_file.write(script_content)
+        temp_file_name = tmp_file.name
+
+    # 使用 sudo 命令将临时文件移动到目标目录
+    print("copy binary to bin.")
+    os.system(f"sudo mv {temp_file_name} {output_file}")
+
+    # 设置文件执行权限
+    print("add executable to binary")
+    os.system(f"sudo chmod +x {output_file}")
+    if os.path.exists(temp_file_name):
+        print("remove temp file")
+        os.remove(temp_file_name)
+
+    # Remove systemd conf
+    print("remove ginkgo.service")
+    output_systemd_file = "/etc/systemd/system/ginkgo.service"
+    print("Stop ginkgo server")
+    os.system("sudo systemctl stop ginkgo")
+    print("Disable ginkgo server")
+    os.system("sudo systemctl disable ginkgo")
+    print("Remove ginkgo server")
+    os.system(f"sudo rm {output_systemd_file}")
+
+    # Write service conf
+    service_content = f"""
+[Unit]
+Description=Ginkgo API server, main control and main watchdog
+
+[Service]
+Type=forking
+User=kaoru
+ExecStart=/usr/local/bin/ginkgo serve nohup
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+"""
+    with tempfile.NamedTemporaryFile("w", delete=False) as tmp_service:
+        tmp_service.write(service_content)
+        temp_service_name = tmp_service.name
+
+    # 使用 sudo 命令将临时文件移动到目标目录
+    print("Copy ginkgo.server to systemd")
+    os.system(f"sudo mv {temp_service_name} {output_systemd_file}")
+    if os.path.exists(temp_service_name):
+        print("remove temp ginkgo.server")
+        os.remove(temp_service_name)
+    print("reload")
+    os.system("sudo systemctl daemon-reload")
+    print("Start")
+    os.system("sudo systemctl start ginkgo.service")
+    print("set auto start")
+    os.system("sudo systemctl enable ginkgo.service")
 
 
 if __name__ == "__main__":

@@ -358,8 +358,14 @@ def stream_live_status():
 
 @app.post("/api/v1/live_control")
 def send_live_control_signal(id: str, command: str):
+    print("id")
+    print(command)
+    if command.upper() == "START":
+        GDATA.send_signal_run_live(id)
+    if command.upper() == "STOP":
+        print("STOPSTOP LIVE")
+        GDATA.send_signal_stop_live(id)
     try:
-        cmd = "stop"
         if command.upper() == "START":
             cmd = "start"
         elif command.upper() == "STOP":

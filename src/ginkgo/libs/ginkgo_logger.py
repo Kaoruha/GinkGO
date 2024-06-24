@@ -19,14 +19,14 @@ LOGGING_FILE_ON = GCONF.LOGGING_FILE_ON
 
 class GinkgoLogger(object):
     # singleton
-    _instance_lock = threading.Lock()
+    # _instance_lock = threading.Lock()
 
-    def __new__(cls, *args, **kwargs) -> object:
-        if not hasattr(GinkgoLogger, "_instance"):
-            with GinkgoLogger._instance_lock:
-                if not hasattr(GinkgoLogger, "_instance"):
-                    GinkgoLogger._instance = object.__new__(cls)
-        return GinkgoLogger._instance
+    # def __new__(cls, *args, **kwargs) -> object:
+    #     if not hasattr(GinkgoLogger, "_instance"):
+    #         with GinkgoLogger._instance_lock:
+    #             if not hasattr(GinkgoLogger, "_instance"):
+    #                 GinkgoLogger._instance = object.__new__(cls)
+    #     return GinkgoLogger._instance
 
     def __init__(self, logger_name, file_name=None) -> None:
         super().__init__()
