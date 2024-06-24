@@ -71,7 +71,7 @@ class GinkgoData(object):
     """
 
     def __init__(self):
-        GLOG.INFO("Init GinkgoData.")
+        GLOG.DEBUG("Init GinkgoData.")
         self.dataworker_pool_name = "ginkgo_dataworker"  # Conf
         self._click_models = []
         self._mysql_models = []
@@ -96,6 +96,21 @@ class GinkgoData(object):
         self._live_status_name = "live_status"
         self._live_engine_control_name = "live_control"
         self._live_engine_pid_name = "live_engine_pid"
+
+    def send_signal_run_live(self, id: str) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_main_control", {"type": "run_live", "id": str(id)}
+        )
+
+    def send_signal_stop_live(self, id: str) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_main_control", {"type": "stop_live", "id": str(id)}
+        )
+
+    def send_signal_run_backtest(self, id: str) -> None:
+        self.get_kafka_producer().send(
+            "ginkgo_main_control", {"type": "backtest", "id": str(id)}
+        )
 
     def send_signal_stop_dataworker(self):
         self.get_kafka_producer().send(
@@ -2726,6 +2741,7 @@ class GinkgoData(object):
                 proc = psutil.Process(int(pid))
                 if proc.is_running():
                     os.kill(int(pid), signal.SIGKILL)
+                    GLOG.WARN(f"Killed the Proc: {pid}")
             except Exception as e:
                 pass
         self.get_redis().hdel(self._live_engine_pid_name, engine_id)

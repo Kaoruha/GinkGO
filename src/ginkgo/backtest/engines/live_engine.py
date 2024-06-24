@@ -16,7 +16,7 @@ from threading import Thread, Event
 
 
 from ginkgo.backtest.engines.event_engine import EventEngine
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs.ginkgo_logger import GinkgoLogger
 from ginkgo.libs.ginkgo_thread import GinkgoThreadManager
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import datetime_normalize
@@ -26,6 +26,9 @@ from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.drivers import GinkgoConsumer, GinkgoProducer
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.backtest.position import Position
+
+
+GLOG = GinkgoLogger("live")
 
 
 class LiveEngine(EventEngine):
@@ -47,6 +50,7 @@ class LiveEngine(EventEngine):
         self._control_thread: Thread = Thread(
             target=self.run_control_listener, args=(self._control_flag,)
         )
+        GLOG.reset_logfile(f"{backtest_id}.log")
 
     @property
     def now(self) -> datetime.datetime:
@@ -124,6 +128,9 @@ class LiveEngine(EventEngine):
                 print(
                     f"{self.engine_id} Start Listen Kafka Topic: {topic_name}  PID:{pid}"
                 )
+                GLOG.INFO(
+                    f"{self.engine_id} Start Listen Kafka Topic: {topic_name}  PID:{pid}"
+                )
                 for msg in con.consumer:
                     error_time = 0
                     value = msg.value
@@ -140,29 +147,30 @@ class LiveEngine(EventEngine):
     def process_control_command(self, command: dict) -> None:
         if command["engine_id"] != self.engine_id:
             print(f"{command['engine_id']} is not my type {self.engine_id}")
+            GLOG.INFO(f"{command['engine_id']} is not my type {self.engine_id}")
             return
-        if command["command"].uppder() == "PAUSE":
+        if command["command"].upper() == "PAUSE":
             self._active = False
             GDATA.set_live_status(self.engine_id, "pause")
-        elif command["command"].uppder() == "STOp":
-            self._active = False
-            GDATA.set_live_status(self.engine_id, "pause")
-        elif command["command"].uppder() == "RESUME":
+        elif command["command"].upper() == "RESUME":
             self._active = True
             print("resume")
+            GLOG.INFO("resume")
             GDATA.set_live_status(self.engine_id, "running")
-        elif command["command"].uppder() == "START":
+        elif command["command"].upper() == "START":
             self._active = True
-            print("start")
+            GLOG.INFO("start")
             GDATA.set_live_status(self.engine_id, "running")
-        elif command["command"].uppder() == "RESTART":
+        elif command["command"].upper() == "RESTART":
             self._active = True
             self.restart()
-        elif command["command"].uppder() == "CAL_SIGNAL":
+        elif command["command"].upper() == "CAL_SIGNAL":
             print("calculating signals.")
+            GLOG.INFO("calculating signals.")
         else:
-            print("cant handle")
+            print("Can not handle")
             print(command)
+            GLOG.ERROR(command)
 
     def start(self) -> Thread:
         super(LiveEngine, self).start()

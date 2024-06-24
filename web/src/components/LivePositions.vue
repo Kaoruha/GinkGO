@@ -139,7 +139,6 @@ async function getData(id: string) {
       const item = {
         code: res[i].code,
         code_name: res[i].code_name,
-        code: res[i].code,
         name: res[i].code_name,
         price: res[i].price,
         change: res[i].change,

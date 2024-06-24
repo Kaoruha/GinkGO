@@ -1,4 +1,5 @@
 import typer
+import subprocess
 import time
 from typing import List as typing_list
 import click
@@ -17,6 +18,7 @@ from ginkgo.client import unittest_cli
 from ginkgo.client.interactive_cli import MyPrompt
 from ginkgo.client.backtest_cli import LogLevelType
 from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
+from ginkgo.libs.ginkgo_thread import GTM
 from ginkgo.libs.ginkgo_conf import GCONF
 
 
@@ -44,10 +46,11 @@ def status(
     """
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
-    from ginkgo.libs.ginkgo_thread import GTM
 
     console.print(f"DEBUGMODE : {GCONF.DEBUGMODE}")
     console.print(f"QUIETMODE : {GCONF.QUIET}")
+    console.print(f"MAINCONTRL: [steel_blue1]{GTM.main_status}[/steel_blue1]")
+    console.print(f"WATCHDOG  : [steel_blue1]{GTM.watch_dog_status}[/steel_blue1]")
     console.print(f"CPU LIMIT : {GCONF.CPURATIO*100}%")
     console.print(f"LOG  PATH : {GCONF.LOGGING_PATH}")
     console.print(f"WORK  DIR : {GCONF.WORKING_PATH}")
@@ -91,6 +94,8 @@ def interactive():
 def configure(
     cpu: Annotated[float, typer.Option(case_sensitive=False)] = None,
     debug: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
+    maincontrol: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
+    watchdog: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
     worker: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
     telebot: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
     logpath: Annotated[str, typer.Option(case_sensitive=True)] = None,
@@ -105,6 +110,9 @@ def configure(
         and logpath is None
         and worker is None
         and telebot is None
+        and maincontrol is None
+        and watchdog is None
+        and worker is None
         and workpath is None
     ):
         console.print(
@@ -113,6 +121,7 @@ def configure(
 
     from ginkgo.libs.ginkgo_conf import GCONF
     from ginkgo.data.ginkgo_data import GDATA
+    from ginkgo.libs.ginkgo_thread import GTM
     import datetime
 
     if cpu is not None:
@@ -150,6 +159,7 @@ def configure(
         elif worker == DEBUG_TYPE.OFF:
             GTM.reset_worker_pool()
         console.print(f"WORKER    : {GTM.dataworker_count}")
+
     if telebot is not None:
         time_out = 8
         if telebot == DEBUG_TYPE.ON:
@@ -225,9 +235,22 @@ if __name__ == "__main__":
                     f":sun_with_face: Telegram Bot Server is [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1] now."
                 )
 
+    if maincontrol is not None:
+        if maincontrol == DEBUG_TYPE.ON:
+            GTM.run_main_control_daemon()
+        else:
+            GTM.kill_maincontrol()
+
+    if watchdog is not None:
+        if watchdog == DEBUG_TYPE.ON:
+            GTM.run_watch_dog_daemon()
+        else:
+            GTM.kill_watch_dog()
+
     if logpath is not None:
         GCONF.set_logging_path(logpath)
         console.print(f"LOGGING PATH: {GCONF.LOGGING_PATH}")
+
     if workpath is not None:
         GCONF.set_work_path(workpath)
         console.print(f"WORK DIR: {GCONF.WORKING_PATH}")
@@ -415,7 +438,7 @@ def recall(
 
 @main_app.command()
 def log(
-    n: Annotated[int, typer.Option(case_sensitive=False)] = 10,
+    n: Annotated[int, typer.Option(case_sensitive=False)] = 4,
     stream: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     data: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
@@ -423,6 +446,25 @@ def log(
     follow = "-f" if stream else ""
     cmd = f"tail -n {n} {follow} {GCONF.LOGGING_PATH}/{file_name}"
     os.system(cmd)
+
+
+@main_app.command()
+def serve():
+    GTM.kill_watch_dog()
+    GTM.run_watch_dog_daemon()
+    uvicorn_command = [
+        "/home/kaoru/Applications/Ginkgo/venv/bin/uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--app-dir",
+        "/home/kaoru/Applications/Ginkgo/api",
+        "--timeout-graceful-shutdown",
+        "5",
+    ]
+    subprocess.run(uvicorn_command)
 
 
 if __name__ == "__main__":

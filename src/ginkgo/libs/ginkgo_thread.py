@@ -3,16 +3,17 @@ import sys
 import time
 import datetime
 import signal
+import tempfile
 import psutil
 import threading
 from rich.live import Live
 from rich.console import Console
-
+from multiprocessing import Process
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.drivers import GinkgoConsumer
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.notifier.notifier_beep import beep
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs.ginkgo_logger import GinkgoLogger
 
 
 console = Console()
@@ -30,10 +31,11 @@ class GinkgoThreadManager:
         self.maincontrol_name = "main_control"
 
     def run_dataworker(self):
+        GLOG = GinkgoLogger("dataworker")
+        GLOG.reset_logfile("dataworker.log")
         pid = os.getpid()
         GDATA.get_redis().lpush(self.dataworker_pool_name, str(pid))
         error_time = 0
-        GLOG.reset_logfile("dataworker.log")
         while True:
             try:
                 con = GinkgoConsumer("ginkgo_data_update", "ginkgo_data")
@@ -75,30 +77,36 @@ class GinkgoThreadManager:
         GDATA.get_redis().lrem(self.dataworker_pool_name, 0, str(pid))
 
     def run_dataworker_daemon(self):
-        file_name = "dataworker_run.py"
-        content = """ 
+        content = """
 from ginkgo.libs.ginkgo_thread import GinkgoThreadManager
 
-if __name__ == "__main__": 
-    gtm = GinkgoThreadManager() 
+if __name__ == "__main__":
+    gtm = GinkgoThreadManager()
     gtm.run_dataworker()
 """
-
-        work_dir = GCONF.WORKING_PATH
-        log_dir = GCONF.LOGGING_PATH
-        with open(file_name, "w") as file:
+        with tempfile.NamedTemporaryFile(
+            "w", delete=False, prefix="ginkgo_dataworker_"
+        ) as file:
             file.write(content)
-        cmd = f"nohup {work_dir}/venv/bin/python -u {work_dir}/{file_name} >>{GCONF.LOGGING_PATH}/data_worker.log 2>&1 &"
-        # print(cmd)
-        os.system(cmd)
-        # print(f"Current Worker: {self.dataworker_count}")
-        count = datetime.timedelta(seconds=0)
-        t0 = datetime.datetime.now()
-        console.print(
-            f":sun_with_face: Data Worker is [steel_blue1]RUNNING[/steel_blue1] now."
-        )
-        time.sleep(2)
-        os.remove(f"{work_dir}/{file_name}")
+            file_name = file.name
+        try:
+            work_dir = GCONF.WORKING_PATH
+            log_dir = GCONF.LOGGING_PATH
+            with open(file_name, "w") as file:
+                file.write(content)
+            cmd = f"nohup {work_dir}/venv/bin/python -u {file_name} >>{GCONF.LOGGING_PATH}/data_worker.log 2>&1 &"
+            os.system(cmd)
+            count = datetime.timedelta(seconds=0)
+            t0 = datetime.datetime.now()
+            console.print(
+                f":sun_with_face: Data Worker is [steel_blue1]RUNNING[/steel_blue1] now."
+            )
+            time.sleep(2)
+        except Exception as e:
+            print(e)
+        finally:
+            if os.path.exists(file_name):
+                os.remove(file_name)
 
     def start_multi_worker(self, count: int = 4) -> None:
         for i in range(count):
@@ -215,7 +223,6 @@ if __name__ == "__main__":
         self.add_thread(name, target)
 
     def get_proc_status(self, pid: int) -> str:
-        # TODO
         try:
             proc = psutil.Process(int(pid))
             if proc.is_running():
@@ -227,70 +234,227 @@ if __name__ == "__main__":
         except Exception as e:
             return "NOT EXIST"
 
+    @property
     def main_status(self) -> str:
         temp_redis = GDATA.get_redis()
-        name = self.maincontrol_name
-        # TODO
         if temp_redis.exists(self.maincontrol_name):
             cache = temp_redis.get(self.maincontrol_name).decode("utf-8")
-            print("get pid of main_control")
-            print(cache)
-            try:
-                proc = psutil.Process(int(cache))
-                if proc.is_running():
-                    return "RUNNING"
-                elif proc.is_sleeping():
-                    return "SLEEPING"
-                else:
-                    return "DEAD"
-            except Exception as e:
-                return "DEAD"
+            return self.get_proc_status(cache)
         return "NOT EXIST"
 
+    @property
     def watch_dog_status(self) -> str:
         temp_redis = GDATA.get_redis()
-        name = self.get_thread_cache_name(self.watchdog_name)
-        # TODO
-        if temp_redis.exists(name):
-            cache = temp_redis.get(name).decode("utf-8")
-            try:
-                proc = psutil.Process(int(cache))
-                if proc.is_running():
-                    return "RUNNING"
-                elif proc.is_sleeping():
-                    return "SLEEPING"
-                else:
-                    return "DEAD"
-            except Exception as e:
-                return "DEAD"
+        if temp_redis.exists(self.watchdog_name):
+            cache = temp_redis.get(self.watchdog_name).decode("utf-8")
+            return self.get_proc_status(cache)
         return "NOT EXIST"
 
     def watch_dog(self) -> None:
+        self.kill_watch_dog()
         pid = os.getpid()
         GDATA.get_redis().set(self.watchdog_name, str(pid))
+        dead_count = 0
         while True:
-            status = self.main_status()
-            if stats is not "RUNNING":
-                # TODO Restart main_control
-                pass
-            print(f"{datetime.datetime.now()}  watch dog, {status}")
-            time.sleep(10)
+            if self.main_status == "RUNNING":
+                dead_count = 0
+            else:
+                dead_count += 1
+                if dead_count >= 2:
+                    print("Will pull the main control up.")
+                    self.run_main_control_daemon()
+            print(f"{datetime.datetime.now()}  watch dog, {self.watch_dog_status}")
+            time.sleep(2)
+
+    def process_main_control_command(self, value: str) -> None:
+        GLOG = GinkgoLogger("main_control")
+        GLOG.reset_logfile("main_control.log")
+        GLOG.INFO(value)
+        if value["type"] == "run_live":
+            # Get status
+            id = value["id"]
+            pid = GDATA.get_pid_of_liveengine(id)
+            if pid is None:
+                GLOG.INFO(f"{pid} not exist in redis, try run new live engine.")
+                self.run_live_daemon(id)
+                return
+            try:
+                proc = psutil.Process(pid)
+                if proc.is_running():
+                    GLOG.INFO(f"{pid} is running, pass running new live engine.")
+                    return
+            except Exception as e:
+                GLOG.INFO(
+                    f"{pid} in redis, but proc {pid} not exist, try run new live engine.."
+                )
+                print(e)
+            self.run_live(id)
+        elif value["type"] == "stop_live":
+            print("Stop live.")
+            id = value["id"]
+            GDATA.remove_liveengine(id)
+        else:
+            GLOG.WARN(f"Can not process {type}.")
+
+    def run_live(self, id: str):
+        print(f"Try run live engine {id}")
+        from ginkgo.backtest.engines.live_engine import LiveEngine
+
+        e = LiveEngine(id)
+        e.start()
+
+    def run_live_daemon(self, id: str):
+        GDATA.clean_live_status()
+        content = f"""
+from ginkgo.backtest.engines.live_engine import LiveEngine
+
+
+if __name__ == "__main__":
+    e = LiveEngine("{id}")
+    e.start()
+"""
+        with tempfile.NamedTemporaryFile(
+            "w", delete=False, prefix="ginkgo_live_"
+        ) as file:
+            file.write(content)
+            file_name = file.name
+        try:
+            work_dir = GCONF.WORKING_PATH
+            log_dir = GCONF.LOGGING_PATH
+            with open(file_name, "w") as file:
+                file.write(content)
+            cmd = f"nohup {work_dir}/venv/bin/python -u {file_name} > /dev/null 2>&1 &"
+            # print(cmd)
+            os.system(cmd)
+            # print(f"Current Worker: {self.dataworker_count}")
+            count = datetime.timedelta(seconds=0)
+            t0 = datetime.datetime.now()
+            console.print(
+                f":sun_with_face: Live {id} is [steel_blue1]RUNNING[/steel_blue1] now."
+            )
+            time.sleep(2)
+        except Exception as e:
+            print(e)
+        finally:
+            if os.path.exists(file_name):
+                os.remove(file_name)
 
     def main_control(self) -> None:
+        GDATA.clean_liveengine()
+        GDATA.clean_live_status()
+        self.kill_maincontrol()
         pid = os.getpid()
         GDATA.get_redis().set(self.maincontrol_name, str(pid))
         v = GDATA.get_redis().get(self.maincontrol_name)
         print(v)
-        GLOG.reset_logfile("for_test.log")
-        count = 0
+        GLOG = GinkgoLogger("main_control.log")
         while True:
-            count += 1
-            print(f"Main loop, {datetime.datetime.now()}")
-            if count % 2 == 0:
-                GLOG.INFO("Alive.")
-            else:
-                GLOG.ERROR("Alive.")
-            time.sleep(4)
+            try:
+                topic_name = f"ginkgo_main_control"
+                con = GinkgoConsumer(
+                    topic=topic_name,
+                    # group_id=f"ginkgo_live_engine_{self.engine_id}",
+                    offset="latest",
+                )
+                print(f"Start Listen {topic_name}  PID:{pid}")
+                for msg in con.consumer:
+                    error_time = 0
+                    value = msg.value
+                    self.process_main_control_command(value)
+            except Exception as e2:
+                print(e2)
+                error_time += 1
+                if error_time > max_try:
+                    sys.exit(0)
+                else:
+                    pass
+
+    def kill_watch_dog(self) -> None:
+        pid = GDATA.get_redis().get(self.watchdog_name)
+        self.kill_proc(int(pid))
+
+    def kill_maincontrol(self) -> None:
+        pid = GDATA.get_redis().get(self.maincontrol_name)
+        self.kill_proc(int(pid))
+
+    def run_watch_dog_daemon(self) -> None:
+        content = """
+from ginkgo.libs.ginkgo_thread import GinkgoThreadManager
+
+if __name__ == "__main__":
+    gtm = GinkgoThreadManager()
+    gtm.watch_dog()
+"""
+
+        with tempfile.NamedTemporaryFile(
+            "w", delete=False, prefix="ginkgo_watch_dog_"
+        ) as file:
+            file.write(content)
+            file_name = file.name
+
+        try:
+            work_dir = GCONF.WORKING_PATH
+            log_dir = GCONF.LOGGING_PATH
+            cmd = f"nohup {work_dir}/venv/bin/python -u {file_name} > /dev/null 2>&1 &"
+            os.system(cmd)
+            # print(f"Current Worker: {self.dataworker_count}")
+            count = datetime.timedelta(seconds=0)
+            t0 = datetime.datetime.now()
+            console.print(
+                f":sun_with_face: Ginkgo WatchDog(Main) is [steel_blue1]RUNNING[/steel_blue1] now."
+            )
+            time.sleep(2)
+        except Exception as e:
+            print(e)
+        finally:
+            if os.path.exists(file_name):
+                os.remove(file_name)
+
+    def run_main_control_daemon(self) -> None:
+        content = """
+from ginkgo.libs.ginkgo_thread import GinkgoThreadManager
+
+if __name__ == "__main__":
+    gtm = GinkgoThreadManager()
+    gtm.main_control()
+"""
+        with tempfile.NamedTemporaryFile(
+            "w", delete=False, prefix="ginkgo_main_control_"
+        ) as file:
+            file.write(content)
+            file_name = file.name
+
+        try:
+            work_dir = GCONF.WORKING_PATH
+            log_dir = GCONF.LOGGING_PATH
+            with open(file_name, "w") as file:
+                file.write(content)
+            cmd = f"nohup {work_dir}/venv/bin/python -u {file_name} > /dev/null 2>&1 &"
+            # print(cmd)
+            os.system(cmd)
+            # print(f"Current Worker: {self.dataworker_count}")
+            count = datetime.timedelta(seconds=0)
+            t0 = datetime.datetime.now()
+            console.print(
+                f":sun_with_face: Ginkgo Main COntrl is [steel_blue1]RUNNING[/steel_blue1] now."
+            )
+            time.sleep(2)
+        except Exception as e:
+            print(e)
+        finally:
+            if os.path.exists(file_name):
+                os.remove(file_name)
+
+    def kill_proc(self, pid: int):
+        try:
+            proc = psutil.Process(int(pid))
+            if proc.is_running():
+                os.kill(int(pid), signal.SIGKILL)
+            console.print(f":leaf_fluttering_in_wind: Kill PID: {pid}")
+            time.sleep(0.4)
+        except Exception as e:
+            print(e)
+            pass
 
 
 GTM = GinkgoThreadManager()

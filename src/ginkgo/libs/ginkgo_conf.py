@@ -49,20 +49,16 @@ class GinkgoConfig(object):
             path = self.get_conf_dir()
 
         self.ensure_dir(path)
-        current_path = os.path.abspath(__file__)
+        current_path = os.getcwd()
 
         if not os.path.exists(os.path.join(path, "config.yml")):
-            origin_path = os.path.join(
-                os.path.dirname(current_path), "../config/config.yml"
-            )
+            origin_path = os.path.join(current_path, "src/ginkgo/config/config.yml")
             target_path = os.path.join(path, "config.yml")
             shutil.copy(origin_path, target_path)
             print(f"Copy config.yml from {origin_path} to {target_path}")
 
         if not os.path.exists(os.path.join(path, "secure.yml")):
-            origin_path = os.path.join(
-                os.path.dirname(current_path), "../config/secure.yml"
-            )
+            origin_path = os.path.join(current_path, "src/ginkgo/config/secure.backup")
             target_path = os.path.join(path, "secure.yml")
             print(f"Copy secure.yml from {origin_path} to {target_path}")
             shutil.copy(origin_path, target_path)

@@ -1,0 +1,28 @@
+# 1st stage: Create a minal build image for node
+FROM node:18.20.1 AS vue_builder
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the package.json and install dependencies
+# Copy the Vue application code
+COPY web /app
+
+RUN npm install
+
+
+# Build the Vue app
+RUN npm run build-only
+
+# 2nd stage: Create a minimal runtime image for Vue
+FROM nginx:1.27.0 AS vue_runtime
+
+# Copy the built Vue app from the builder stage
+COPY --from=vue_builder /app/dist /usr/share/nginx/html
+
+# Expose the port the app runs on
+EXPOSE 80
+
+# Run Nginx to serve the Vue app
+CMD ["nginx", "-g", "daemon off;"]
+

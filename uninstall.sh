@@ -20,10 +20,10 @@ SCRIPT_PATH=$(dirname "$0")
 
 echo "Clean Docker Containers."
 # Stop the containers
-docker stop clickhouse_master clickhouse_test mysql_master mysql_test redis_master
+docker stop clickhouse_master clickhouse_test mysql_master mysql_test redis_master kafka1 kafka2 kafka3 ginkgo_web
 
 # TODO Remove the containers
-docker rm -f clickhouse_master clickhouse_test mysql_master mysql_test redis_master
+docker rm -f clickhouse_master clickhouse_test mysql_master mysql_test redis_master kafka1 kafka2 kafka3 ginkgo_web
 
 
 echo "Clean logs."
