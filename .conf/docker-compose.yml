@@ -4,6 +4,7 @@ x-project-name: 'ginkgo'
 services:
   webui:
     container_name: ginkgo_web
+    restart: always
     build:
       context: ..
       dockerfile: .conf/Dockerfile.web
