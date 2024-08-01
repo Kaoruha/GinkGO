@@ -76,60 +76,50 @@ ginkgo data plot day --code 00001.SZ --start 20200101 --end 20210101
 
 # File System
 
-├── api  (api server)
-
+``` plaintest
+# Construction
+├── api
 ├── docs
-
 ├── samples
-
-├── src (source code)
-
+├── src
 │   └── ginkgo
-
-│       ├── artificial_intelligence (machine learning related)
-
-│       ├── backtest (backtest and live engine)
-
-│       │   ├── analyzers (Evaluating backtest)
-
-│       │   ├── engines (main engine)
-
-│       │   ├── events ()
-
-│       │   ├── feeds (data feeder)
-
-│       │   ├── indices (...)
-
+│       ├── artificial_intelligence
+│       ├── backtest
+│       │   ├── analyzers
+│       │   ├── engines
+│       │   ├── events
+│       │   ├── feeds
+│       │   ├── indices
 │       │   ├── matchmakings
-
-│       │   ├── plots (plot related)
-
+│       │   ├── plots
 │       │   ├── portfolios
-
-│       │   ├── risk_managements (similar to strategy, but for risk manager)
-
-│       │   ├── selectors (code picker)
-
-│       │   ├── sizers (calculate position size)
-
-│       │   └── strategies (calculate signals)
-
-│       ├── client (cli command support)
-
-│       ├── config (settings, include basic setting and db setting)
-
+│       │   ├── risk_managements
+│       │   ├── selectors
+│       │   ├── sizers
+│       │   └── strategies
+│       ├── client
+│       ├── config
 │       ├── data
+│       │   ├── drivers
+│       │   ├── models
+│       │   └── sources
+│       ├── libs
+│       └── notifier
+├── test
+│   ├── backtest
+│   ├── data
+│   ├── db
+│   └── libs
+└── web
+    ├── public
+    └── src
+        ├── assets
+        ├── components
+        │   ├── dropdown
+        │   └── icons
+        ├── layouts
+        ├── router
+        ├── stores
+        └── views
 
-│       │   ├── drivers (database driver)
-
-│       │   ├── models (sqlalchemy model)
-
-│       │   └── sources (data sources)
-
-│       ├── libs (utils)
-
-│       └── notifier (email, telegram, beep alert)
-
-├── test (for unittest)
-
-└── web (web code, vue project)
+```
