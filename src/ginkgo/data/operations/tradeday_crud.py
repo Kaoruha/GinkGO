@@ -114,7 +114,7 @@ def get_tradeday_by_market_and_date_range(
     connection: Optional[GinkgoClickhouse] = None,
     *args,
     **kwargs,
-) -> Union[List[Tuple[datetime, bool]], pd.DataFrame]:
+) -> Union[List[Tuple[datetime.datetime, bool]], pd.DataFrame]:
     conn = connection if connection else get_click_connection()
     model = MTradeDay
     filters = [model.isdel == False, model.market == market]

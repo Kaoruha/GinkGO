@@ -245,7 +245,7 @@ class OperationTransferRecordTest(unittest.TestCase):
             self.assertEqual(1, size1 - size0)
 
             softdelete_transfer_record_by_id(id)
-            time.sleep(0.05)
+            time.sleep(0.1)
             size2 = get_table_size(MTransferRecord)
             item = get_transfer_record_by_id(id)
             self.assertEqual(-1, size2 - size1)
@@ -264,7 +264,7 @@ class OperationTransferRecordTest(unittest.TestCase):
             self.assertEqual(1, size1 - size0)
 
             delete_transfer_record_by_id(id)
-            time.sleep(0.05)
+            time.sleep(0.1)
             size2 = get_table_size(MTransferRecord)
             item = get_transfer_record_by_id(id)
             self.assertEqual(-1, size2 - size1)

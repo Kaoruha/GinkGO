@@ -68,7 +68,7 @@ def main():
 
     working_directory = os.path.dirname(os.path.abspath(__file__))
 
-    path_log = f"{working_directory}/.logs"
+    path_log = os.path.expanduser("~") + "/.ginkgo/logs"
     path_db = f"{working_directory}/.db"
     path_pip = f"{working_directory}/requirements.txt"
     path_dockercompose = f"{working_directory}/.conf/docker-compose.yml"
@@ -81,6 +81,7 @@ def main():
     print("======================================")
 
     arch = platform.architecture()[0]
+    os_name = platform.system()
     print(f"OS: {platform.system()} {arch}")
     print(platform.platform())
     print(f"CPU Cores: {os.cpu_count()}")
@@ -198,6 +199,7 @@ def main():
         # GCONF.set_logging_path(path_log)
         GCONF.set_work_path(working_directory)
         GCONF.set_unittest_path(working_directory)
+        GCONF.set_logging_path(path_log)
     except Exception as e:
         print("Ginkgo not installed. Path setting will work at next installation.")
 
@@ -283,18 +285,19 @@ fi
         print("remove temp file")
         os.remove(temp_file_name)
 
-    # Remove systemd conf
-    print("remove ginkgo.service")
-    output_systemd_file = "/etc/systemd/system/ginkgo.service"
-    print("Stop ginkgo server")
-    os.system("sudo systemctl stop ginkgo")
-    print("Disable ginkgo server")
-    os.system("sudo systemctl disable ginkgo")
-    print("Remove ginkgo server")
-    os.system(f"sudo rm {output_systemd_file}")
+    if os_name == "Linux":
+        # Remove systemd conf
+        print("remove ginkgo.service")
+        output_systemd_file = "/etc/systemd/system/ginkgo.service"
+        print("Stop ginkgo server")
+        os.system("sudo systemctl stop ginkgo")
+        print("Disable ginkgo server")
+        os.system("sudo systemctl disable ginkgo")
+        print("Remove ginkgo server")
+        os.system(f"sudo rm {output_systemd_file}")
 
-    # Write service conf
-    service_content = f"""
+        # Write service conf
+        service_content = f"""
 [Unit]
 Description=Ginkgo API server, main control and main watchdog
 
@@ -308,22 +311,28 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 """
-    with tempfile.NamedTemporaryFile("w", delete=False) as tmp_service:
-        tmp_service.write(service_content)
-        temp_service_name = tmp_service.name
+        with tempfile.NamedTemporaryFile("w", delete=False) as tmp_service:
+            tmp_service.write(service_content)
+            temp_service_name = tmp_service.name
 
-    # 使用 sudo 命令将临时文件移动到目标目录
-    print("Copy ginkgo.server to systemd")
-    os.system(f"sudo mv {temp_service_name} {output_systemd_file}")
-    if os.path.exists(temp_service_name):
-        print("remove temp ginkgo.server")
-        os.remove(temp_service_name)
-    print("reload")
-    os.system("sudo systemctl daemon-reload")
-    print("Start")
-    os.system("sudo systemctl start ginkgo.service")
-    print("set auto start")
-    os.system("sudo systemctl enable ginkgo.service")
+        # 使用 sudo 命令将临时文件移动到目标目录
+        print("Copy ginkgo.server to systemd")
+        os.system(f"sudo mv {temp_service_name} {output_systemd_file}")
+        if os.path.exists(temp_service_name):
+            print("remove temp ginkgo.server")
+            os.remove(temp_service_name)
+        print("reload")
+        os.system("sudo systemctl daemon-reload")
+        print("Start")
+        os.system("sudo systemctl start ginkgo.service")
+        print("set auto start")
+        os.system("sudo systemctl enable ginkgo.service")
+    elif os_name == "Darwin":
+        print("this is mac, set system server in future")
+    elif os_name == "Windows":
+        print("this is windows, set system server in future")
+
+
 
 
 if __name__ == "__main__":
