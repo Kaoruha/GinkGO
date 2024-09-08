@@ -1,6 +1,8 @@
 import redis
 import time
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG, GinkgoLogger
+
+data_logger = GinkgoLogger("ginkgo_data", "ginkgo_data.log")
 
 
 class GinkgoRedis(object):

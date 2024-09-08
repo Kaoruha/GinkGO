@@ -64,6 +64,7 @@ class GinkgoTDX(GinkgoSourceBase):
                         df = df.rename(columns={"time": "timestamp", "vol": "volume"})
                         return df
             except Exception as e:
+                GLOG.ERROR(f"Fetching Tick {code} on {date} failed. {e}")
                 print(e)
                 try_times += 1
         return pd.DataFrame()

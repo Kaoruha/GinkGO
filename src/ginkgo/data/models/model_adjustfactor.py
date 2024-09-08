@@ -37,16 +37,18 @@ class MAdjustfactor(MMysqlBase):
         foreadjustfactor: float,
         backadjustfactor: float,
         adjustfactor: float,
-        date,
+        timestamp,
+        *args,
+        **kwargs,
     ) -> None:
         self.code = code
         self.foreadjustfactor = foreadjustfactor
         self.backadjustfactor = backadjustfactor
         self.adjustfactor = adjustfactor
-        self.timestamp = datetime_normalize(date)
+        self.timestamp = datetime_normalize(timestamp)
 
     @set.register
-    def _(self, df: pd.Series) -> None:
+    def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df.code
         self.foreadjustfactor = df.foreadjustfactor
         self.backadjustfactor = df.backadjustfactor

@@ -52,6 +52,8 @@ class MOrder(MMysqlBase):
         fee: float,
         timestamp: any,
         backtest_id: str,
+        *args,
+        **kwargs,
     ) -> None:
         self.uuid = uuid
         self.code = code
@@ -61,14 +63,14 @@ class MOrder(MMysqlBase):
         self.volume = volume
         self.limit_price = round(limit_price, 6)
         self.frozen = frozen
-        self.transaction_price = transaction_price
+        self.transaction_price = round(transaction_price, 6)
         self.remain = remain
         self.fee = fee
         self.timestamp = datetime_normalize(timestamp)
         self.backtest_id = backtest_id
 
     @set.register
-    def _(self, df: pd.Series) -> None:
+    def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df.code
         self.direction = df.direction
         self.type = df.type
@@ -77,7 +79,7 @@ class MOrder(MMysqlBase):
         self.limit_price = df.limit_price
         self.limit_price = round(df.limit_price, 6)
         self.frozen = df.frozen
-        self.transaction_price = df.transaction_price
+        self.transaction_price = round(df.transaction_price, 6)
         self.remain = df.remain
         self.fee = df.fee
         self.timestamp = df.timestamp

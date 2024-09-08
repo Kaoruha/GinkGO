@@ -31,7 +31,7 @@ class MMysqlBase(Base):
     isdel = Column(Boolean)
     source = Column(ChoiceType(SOURCE_TYPES, impl=Integer()), default=0)
 
-    def __init__(self) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         self.uuid = uuid.uuid4().hex
         self.timestamp = datetime.datetime.now()
         self.create = datetime.datetime.now()
@@ -41,11 +41,9 @@ class MMysqlBase(Base):
         self.isdel = False
 
     def set(self) -> None:
-        raise NotImplementedError(
-            "Model Class need to overload Function set to transit data."
-        )
+        raise NotImplementedError("Model Class need to overload Function set to transit data.")
 
-    def to_dataframe(self) -> pd.DataFrame:
+    def to_dataframe(self, *args, **kwargs) -> pd.DataFrame:
         item = {}
         methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
         for param in self.__dir__():
@@ -68,16 +66,16 @@ class MMysqlBase(Base):
         df = pd.DataFrame.from_dict(item, orient="index").transpose()
         return df
 
-    def set_source(self, source: SOURCE_TYPES) -> None:
+    def set_source(self, source: SOURCE_TYPES, *args, **kwargs) -> None:
         self.source = source
 
-    def delete(self) -> None:
+    def delete(self, *args, **kwargs) -> None:
         self.isdel = True
 
-    def cancel_delete(self) -> None:
+    def cancel_delete(self, *args, **kwargs) -> None:
         self.isdel = False
 
-    def update_time(self, time: str or datetime.datetime) -> None:
+    def update_time(self, time: any, *args, **kwargs) -> None:
         self.update = datetime.datetime.now()
         self.timestamp = datetime_normalize(time)
 

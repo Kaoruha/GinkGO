@@ -442,7 +442,7 @@ def log(
     stream: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     data: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
-    file_name = "data_worker.log" if data else "ginkgo.log"
+    file_name = "ginkgo_data.log" if data else "ginkgo.log"
     follow = "-f" if stream else ""
     cmd = f"tail -n {n} {follow} {GCONF.LOGGING_PATH}/{file_name}"
     os.system(cmd)

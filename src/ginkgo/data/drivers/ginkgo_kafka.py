@@ -5,6 +5,9 @@ from kafka.structs import TopicPartition
 from kafka.admin import KafkaAdminClient, NewTopic
 
 from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.libs.ginkgo_logger import GLOG, GinkgoLogger
+
+data_logger = GinkgoLogger("ginkgo_data", "ginkgo_data.log")
 
 
 class GinkgoProducer(object):
@@ -23,8 +26,11 @@ class GinkgoProducer(object):
         try:
             future = self.producer.send(topic, msg)
             future.get(timeout=10)
+            GLOG.INFO(f"Kafka send message. TOPIC: {topic}")
+            data_logger.INFO(f"Kafka send message. TOPIC: {topic}")
         except Exception as e:
-            print(e)
+            GLOG.ERROR(f"Kafka send msg failed. {e}")
+            data_logger.ERROR(f"Kafka send msg failed. {e}")
         finally:
             self.producer.flush()
 

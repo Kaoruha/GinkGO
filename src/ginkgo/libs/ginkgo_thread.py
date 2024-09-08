@@ -17,6 +17,8 @@ from ginkgo.libs.ginkgo_logger import GinkgoLogger
 
 
 console = Console()
+control_logger = GinkgoLogger("main_control", "main_control.log")
+worker_logger = GinkgoLogger("dataworker", "data_worker.log")
 
 
 class GinkgoThreadManager:
@@ -31,48 +33,78 @@ class GinkgoThreadManager:
         self.maincontrol_name = "main_control"
 
     def run_dataworker(self):
-        GLOG = GinkgoLogger("dataworker")
-        GLOG.reset_logfile("dataworker.log")
         pid = os.getpid()
         GDATA.get_redis().lpush(self.dataworker_pool_name, str(pid))
         error_time = 0
+        con = GinkgoConsumer("ginkgo_data_update", "ginkgo_data")
         while True:
             try:
-                con = GinkgoConsumer("ginkgo_data_update", "ginkgo_data")
-                print(
+                worker_logger.INFO(
                     f"Start Listen Kafka Topic: ginkgo_data_update Group: ginkgo_data  PID:{pid}"
                 )
                 for msg in con.consumer:
-                    beep(freq=90.7, repeat=1, delay=200, length=100)
+                    beep(freq=900.7, repeat=2, delay=10, length=100)
+                    con.commit()
                     error_time = 0
                     value = msg.value
                     type = value["type"]
                     code = value["code"]
-                    GLOG.DEBUG(f"Got siganl. {type} {code}")
+                    worker_logger.INFO(f"Got siganl. {type} {code}")
 
                     if type == "kill":
-                        con.commit()
+                        worker_logger.INFO("Dealing with kill command.")
                         GDATA.get_redis().lrem(self.dataworker_pool_name, 0, str(pid))
                         sys.exit(0)
                     elif type == "stockinfo":
-                        GDATA.update_stock_info()
+                        worker_logger.INFO("Dealing with update stock_info command.")
+                        try:
+                            GDATA.update_stock_info()
+                        except Exception as e:
+                            pass
                     elif type == "calender":
-                        GDATA.update_cn_trade_calendar()
+                        worker_logger.INFO("Dealing with update calandar command.")
+                        try:
+                            GDATA.update_cn_trade_calendar()
+                        except Exception as e:
+                            pass
                     elif type == "adjust":
-                        GDATA.update_cn_adjustfactor(code)
+                        worker_logger.INFO(
+                            f"Dealing with the command updating adjustfactor about {code}. {'in fast mode' if value['fast'] else 'in complete mode'}."
+                        )
+                        try:
+                            GDATA.update_cn_adjustfactor(code, value["fast"])
+                        except Exception as e:
+                            pass
                     elif type == "bar":
-                        GDATA.update_cn_daybar(code, value["fast"])
+                        worker_logger.INFO(
+                            f"Dealing with the command updating daybar about {code} {'in fast mode' if value['fast'] else 'in complete mode'}."
+                        )
+                        try:
+                            GDATA.update_cn_daybar(code, value["fast"])
+                        except Exception as e:
+                            pass
                     elif type == "tick":
-                        GDATA.update_tick(code, value["fast"])
+                        worker_logger.INFO(
+                            f"Dealing with the command updating tick about {code} {'in fast mode' if value['fast'] else 'in complete mode'}."
+                        )
+                        try:
+                            GDATA.update_tick(code, value["fast"])
+                        except Exception as e:
+                            pass
                     elif type == "other":
+                        worker_logger.WARN(f"Got the command no in list. {value}")
                         print(value)
-                    con.commit()
             except Exception as e2:
                 con.commit()
                 error_time += 1
                 if error_time > self.max_try:
+                    worker_logger.INFO(f"Error {error_time} times. Restart the worker.")
+                    con = GinkgoConsumer("ginkgo_data_update", "ginkgo_data")
                     break
                 else:
+                    worker_logger.INFO(
+                        f"Error {error_time} / {self.max_try} times. {e2}"
+                    )
                     time.sleep(min(5 * (2**error_time), 300))
         GDATA.get_redis().lrem(self.dataworker_pool_name, 0, str(pid))
 
@@ -85,25 +117,28 @@ if __name__ == "__main__":
     gtm.run_dataworker()
 """
         with tempfile.NamedTemporaryFile(
-            "w", delete=False, prefix="ginkgo_dataworker_"
+            "w", delete=False, prefix="ginkgo_dataworker_", suffix=".py"
         ) as file:
             file.write(content)
             file_name = file.name
         try:
             work_dir = GCONF.WORKING_PATH
             log_dir = GCONF.LOGGING_PATH
+            worker_logger.INFO(f"Write temp file.")
             with open(file_name, "w") as file:
                 file.write(content)
-            cmd = f"nohup {work_dir}/venv/bin/python -u {file_name} >>{GCONF.LOGGING_PATH}/data_worker.log 2>&1 &"
+            cmd = f"nohup {work_dir}/venv/bin/python -u {file_name} >>{GCONF.LOGGING_PATH}/data_worker_daemon.log 2>&1 &"
+            # TODO Dynamic log file.
+            worker_logger.INFO(f"Run daemon.")
             os.system(cmd)
             count = datetime.timedelta(seconds=0)
             t0 = datetime.datetime.now()
             console.print(
                 f":sun_with_face: Data Worker is [steel_blue1]RUNNING[/steel_blue1] now."
             )
-            time.sleep(2)
+            time.sleep(1)
         except Exception as e:
-            print(e)
+            worker_logger.ERROR(f"DataWorker can not start. {e}")
         finally:
             if os.path.exists(file_name):
                 os.remove(file_name)
@@ -267,24 +302,27 @@ if __name__ == "__main__":
             time.sleep(2)
 
     def process_main_control_command(self, value: str) -> None:
-        GLOG = GinkgoLogger("main_control")
-        GLOG.reset_logfile("main_control.log")
-        GLOG.INFO(value)
+        control_logger.INFO(f"Deal with main control. {value}")
         if value["type"] == "run_live":
             # Get status
             id = value["id"]
             pid = GDATA.get_pid_of_liveengine(id)
+            control_logger.INFO(f"LiveEngine is running on PROCESS: {pid}")
             if pid is None:
-                GLOG.INFO(f"{pid} not exist in redis, try run new live engine.")
+                control_logger.INFO(
+                    f"{pid} not exist in redis, try run new live engine."
+                )
                 self.run_live_daemon(id)
                 return
             try:
                 proc = psutil.Process(pid)
                 if proc.is_running():
-                    GLOG.INFO(f"{pid} is running, pass running new live engine.")
+                    control_logger.INFO(
+                        f"PID:{pid} is running, pass running new live engine."
+                    )
                     return
             except Exception as e:
-                GLOG.INFO(
+                control_logger.INFO(
                     f"{pid} in redis, but proc {pid} not exist, try run new live engine.."
                 )
                 print(e)
@@ -294,7 +332,7 @@ if __name__ == "__main__":
             id = value["id"]
             GDATA.remove_liveengine(id)
         else:
-            GLOG.WARN(f"Can not process {type}.")
+            control_logger.WARN(f"Can not process {type}.")
 
     def run_live(self, id: str):
         print(f"Try run live engine {id}")
@@ -314,7 +352,7 @@ if __name__ == "__main__":
     e.start()
 """
         with tempfile.NamedTemporaryFile(
-            "w", delete=False, prefix="ginkgo_live_"
+            "w", delete=False, prefix="ginkgo_live_", suffix=".py"
         ) as file:
             file.write(content)
             file_name = file.name
@@ -347,7 +385,7 @@ if __name__ == "__main__":
         GDATA.get_redis().set(self.maincontrol_name, str(pid))
         v = GDATA.get_redis().get(self.maincontrol_name)
         print(v)
-        GLOG = GinkgoLogger("main_control.log")
+        GLOG = GinkgoLogger("main_control", "main_control.log")
         while True:
             try:
                 topic_name = f"ginkgo_main_control"
@@ -356,7 +394,7 @@ if __name__ == "__main__":
                     # group_id=f"ginkgo_live_engine_{self.engine_id}",
                     offset="latest",
                 )
-                print(f"Start Listen {topic_name}  PID:{pid}")
+                GLOG.INFO(f"Start Listen {topic_name}  PID:{pid}")
                 for msg in con.consumer:
                     error_time = 0
                     value = msg.value
@@ -387,7 +425,7 @@ if __name__ == "__main__":
 """
 
         with tempfile.NamedTemporaryFile(
-            "w", delete=False, prefix="ginkgo_watch_dog_"
+            "w", delete=False, prefix="ginkgo_watch_dog_", suffix=".py"
         ) as file:
             file.write(content)
             file_name = file.name
@@ -419,7 +457,7 @@ if __name__ == "__main__":
     gtm.main_control()
 """
         with tempfile.NamedTemporaryFile(
-            "w", delete=False, prefix="ginkgo_main_control_"
+            "w", delete=False, prefix="ginkgo_main_control_", suffix=".py"
         ) as file:
             file.write(content)
             file_name = file.name

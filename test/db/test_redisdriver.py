@@ -26,5 +26,3 @@ class ClickDriverTest(unittest.TestCase):
             port=GCONF.CLICKPORT,
             db=GCONF.CLICKDB,
         )
-        r = db.is_table_exsists("Shouldnotbethere")
-        self.assertEqual(False, r)

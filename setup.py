@@ -5,7 +5,6 @@
 import setuptools
 from src.ginkgo.config.package import PACKAGENAME, VERSION, AUTHOR, EMAIL, DESC, URL
 
-
 config = {
     "package_name": PACKAGENAME,
     "version": VERSION,

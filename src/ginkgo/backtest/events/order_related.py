@@ -36,9 +36,6 @@ class EventOrderRelated(EventBase):
         """
         r = GDATA.get_order_df(order_id)
         if r.shape[0] == 0:
-            import pdb
-
-            pdb.set_trace()
             GLOG.CRITICAL(f"Order:{order_id} not exsist. Please check your code")
             return
         if r is None:
@@ -49,9 +46,6 @@ class EventOrderRelated(EventBase):
             o.set(r.iloc[0])
         except Exception as e:
             print(e)
-            import pdb
-
-            pdb.set_trace()
         self._order = o
 
         # Status could be 1,3,4

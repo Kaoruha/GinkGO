@@ -1,6 +1,7 @@
 import time
 import datetime
 from rich.console import Console
+from typing import Dict
 
 from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
 from ginkgo.backtest.bar import Bar
@@ -33,6 +34,10 @@ console = Console()
 
 
 class PortfolioLive(BasePortfolio):
+    """
+    Portfolio for live system.
+    """
+
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False
@@ -40,61 +45,74 @@ class PortfolioLive(BasePortfolio):
     def __init__(self, *args, **kwargs):
         super(PortfolioLive, self).__init__(*args, **kwargs)
 
-    def recover_position(self, time: any = None) -> list[Position]:
+    def reset_positions(self, *args, **kwargs) -> Dict[str, Position]:
         """
         Recover Positions from Order Records.
         Args:
-            time[any]: time
+            None
         Returns:
-            List of Positions
+            Dict of Positions
         """
-        now = datetime.datetime.now()
-        time = datetime_normalize(time) if time else now
-        self.on_time_goes_by(time)
-        # Reset positions
-        self._positions = {}
-        # Query Order via portfolio id
-        order_df = GDATA.get_orderrecord_df_pagination(
-            self.uuid, GCONF.DEFAULTSTART, now
-        )
+        # 1. Remove position data in db.
+        result_pos = GDATA.remove_positions(backtest_id=self.uuid)
+        # TODO
+        # 2. Get Records from db.
+        order_df = GDATA.get_orderrecord_df_pagination(portfolio_id=self.uuid)
+        print(order_df)
+        # 3. Recal positions
+        l = []
         pos = []
-        # Rebuild Position via orders
         for code in order_df["code"].unique():
             temp_df = order_df[order_df["code"] == code]
             temp_df = temp_df.sort_values(by="timestamp", ascending=True)
             p = Position(code=code)
-            p.set_backtest_id("portfolio")
+            p.set_backtest_id(self.uuid)
             for i, r in temp_df.iterrows():
                 if r.direction == DIRECTION_TYPES.SHORT:
                     p.freeze(r.volume)
                 p.deal(r.direction, r.transaction_price, r.volume)
-            if p.volume > 0:
-                pos.append(p)
+            if p.volume <= 0:
+                continue
+            pos.append(p)
             self._positions[code] = p
+        # 4. Store in db.
+        self.record_positions()
 
-        return pos
+        return self.positions
 
-    @property
-    def positions(self, time: any = None) -> list[Position]:
+    def get_position(self, code: str) -> Position:
+        if code in self.positions.keys():
+            return self.positions[code]
+        return None
+
+    def cal_signals(self, time: any) -> list:
         """
-        Get Positions at time.
+        Calculate signals on specific time.
         Args:
             time[any]: any format of time
         Returns:
-            List of Positions
+            List of Signal
         """
-        time = datetime_normalize(time) if time else datetime.datetime.now()
-        return self.recover_position(time)
+        # TODO
+        return
 
-    def cal_suggestions(self, time: any = None):
+    def cal_suggestions(self, time: any = None) -> list:
+        """
+        Calculate Suggestions on specific day.
+        Calculate Signals on specific day.
+        Args:
+            time[any]: any format of time
+        Returns:
+            List of Suggestions(same as Order)
+        """
+        # TODO Try get from db, if nothing, try generate.
         now = datetime.datetime.now()
         time = datetime_normalize(time) if time else now
-        self.on_time_goes_by(time)
+        self.on_time_goes_by(time)  # TODO seems no need update time in live mode
         if self.engine is None:
             return
         if self.selector is None:
             return
-        self.on_time_goes_by(time)
         # Del signals and suggestions(orders) at time in db
         # TODO
         # Get Interested list of code from selector at time
@@ -135,7 +153,11 @@ class PortfolioLive(BasePortfolio):
 
     def on_time_goes_by(self, time: any, *args, **kwargs):
         """
-        Go next frame.
+        Go next time.
+        Args:
+            time[any]: time
+        Returns:
+            None
         """
         # Time goes
         super(PortfolioLive, self).on_time_goes_by(time, *args, **kwargs)
@@ -194,6 +216,9 @@ class PortfolioLive(BasePortfolio):
         self.record(RECORDSTAGE_TYPES.ORDERSEND)
 
     def on_price_update(self, event: EventPriceUpdate):
+        """
+        Dealing with new price info.
+        """
         # Check Everything.
         if not self.is_all_set():
             return

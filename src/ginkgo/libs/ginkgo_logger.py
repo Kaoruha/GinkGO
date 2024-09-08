@@ -18,25 +18,15 @@ LOGGING_FILE_ON = GCONF.LOGGING_FILE_ON
 
 
 class GinkgoLogger(object):
-    # singleton
-    # _instance_lock = threading.Lock()
-
-    # def __new__(cls, *args, **kwargs) -> object:
-    #     if not hasattr(GinkgoLogger, "_instance"):
-    #         with GinkgoLogger._instance_lock:
-    #             if not hasattr(GinkgoLogger, "_instance"):
-    #                 GinkgoLogger._instance = object.__new__(cls)
-    #     return GinkgoLogger._instance
-
-    def __init__(self, logger_name, file_name=None) -> None:
+    def __init__(self, logger_name, file_name=None, enable_console_log=True) -> None:
         super().__init__()
-        self.backup_count = 5
+        self.backup_count = 3
         self.max_file_bytes = 2 * 1024 * 1024 * 1024
-        self._file_handler_name = "ginkgo_file_logger"
+        self._file_handler_name = "{logger_name}_file_logger"
         self._console_handler_name = "ginkgo_console_logger"
         self.file_formatter = logging.Formatter(
-            fmt="[%(asctime)s.%(msecs)03d][%(levelname)s]:%(message)s  ",
-            datefmt="%Y-%m-%d  %H:%M:%S",
+            fmt="[%(asctime)s][%(levelname)s]:%(message)s  ",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
         self.console_formatter = colorlog.ColoredFormatter(
             fmt="%(log_color)s%(asctime) s P:%(process)d [%(levelname)s] %(message)s ",
@@ -86,13 +76,14 @@ class GinkgoLogger(object):
         # Prevent the child logger from propagating its messages to the root logger
         self.logger.propagate = False
 
-        is_console_handler_registed = False
-        for h in self.logger.handlers:
-            if h.name == self._console_handler_name:
-                is_console_handler_registed = True
+        if enable_console_log:
+            is_console_handler_registed = False
+            for h in self.logger.handlers:
+                if h.name == self._console_handler_name:
+                    is_console_handler_registed = True
 
-        if not is_console_handler_registed:
-            self.logger.addHandler(self.console_handler)
+            if not is_console_handler_registed:
+                self.logger.addHandler(self.console_handler)
 
         is_file_handler_registed = False
         for h in self.logger.handlers:
@@ -194,5 +185,4 @@ class GinkgoLogger(object):
         self.logger.critical(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
 
 
-GLOG = GinkgoLogger("ginkgo")
-GLOG.reset_logfile("ginkgo.log")
+GLOG = GinkgoLogger("ginkgo", "ginkgo.log", True)

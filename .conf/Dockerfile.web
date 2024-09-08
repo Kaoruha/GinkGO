@@ -10,7 +10,6 @@ COPY web /app
 
 RUN npm install
 
-
 # Build the Vue app
 RUN npm run build-only
 

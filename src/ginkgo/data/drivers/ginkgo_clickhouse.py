@@ -3,7 +3,7 @@ from sqlalchemy import create_engine, MetaData, inspect, func, DDL
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
 
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs.ginkgo_logger import GLOG, GinkgoLogger
 
 
 class GinkgoClickhouse(object):
@@ -19,6 +19,7 @@ class GinkgoClickhouse(object):
         self._port = port
         self._db = db
         self._max_try = 5
+        self.SessionCLS = None
 
     @property
     def max_try(self) -> int:
@@ -44,15 +45,13 @@ class GinkgoClickhouse(object):
         Returns:
             DB Session.
         """
-        if self._session is None:
-            self._session = scoped_session(
-                sessionmaker(
-                    autocommit=False,
-                    autoflush=False,
-                    bind=self.engine,
-                )
-            )
-        return self._session
+        if self.SessionCLS is None:
+            self.connect()
+        return self.SessionCLS()
+
+    def close_session(self):
+        if self._session is not None:
+            self._session.remove()  # 清除当前线程的 Session 实例
 
     @property
     def metadata(self):
@@ -94,6 +93,13 @@ class GinkgoClickhouse(object):
                 )
                 self._metadata = MetaData(bind=self.engine)
                 self._base = declarative_base(metadata=self.metadata)
+                self._session_factory = sessionmaker(
+                    autocommit=False,
+                    autoflush=False,
+                    bind=self.engine,
+                )
+
+                self.SessionCLS = scoped_session(self._session_factory)
                 GLOG.DEBUG("Connect to clickhouse succeed.")
                 return
             except Exception as e:
@@ -105,11 +111,7 @@ class GinkgoClickhouse(object):
         # ATTENTION DDL will run the sql, be care of COMMAND INJECTION
         uri = f"clickhouse://{self._user}:{self._pwd}@{self._host}:{self._port}/default"
         e = create_engine(uri)
-        e.execute(
-            DDL(
-                f"CREATE DATABASE IF NOT EXISTS {self._db} ENGINE = Memory COMMENT 'For Ginkgo Quant'"
-            )
-        )
+        e.execute(DDL(f"CREATE DATABASE IF NOT EXISTS {self._db} ENGINE = Memory COMMENT 'For Ginkgo Quant'"))
         GLOG.DEBUG(f"Create database {self._db} succeed.")
 
     @property
@@ -128,9 +130,7 @@ class GinkgoClickhouse(object):
         Returns:
             Weather the table exsist.
         """
-        GLOG.DEBUG(
-            f"Check Clickhouse table {name} exsists. {self.insp.has_table(name)}"
-        )
+        GLOG.DEBUG(f"Check Clickhouse table {name} exsists. {self.insp.has_table(name)}")
         return self.insp.has_table(name)
 
     def get_table_size(self, model) -> int:

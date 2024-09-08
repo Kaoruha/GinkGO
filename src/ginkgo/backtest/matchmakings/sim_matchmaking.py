@@ -203,9 +203,6 @@ class MatchMakingSim(MatchMakingBase):
             p = self.price
             if p.shape[0] == 0:
                 GLOG.WARN("There is no price data. Need to check the code.")
-                import pdb
-
-                pdb.set_trace()
                 self.return_order(order_id)  # TODO Resubmmit the event.
                 continue
 
@@ -214,18 +211,12 @@ class MatchMakingSim(MatchMakingBase):
             # If there is no price info, try match next order
             if p.shape[0] == 0:
                 GLOG.ERROR(f"Have no Price info about {o.code} on {self.now}.")
-                import pdb
-
-                pdb.set_trace()
                 self.return_order(order_id)
                 continue
             elif p.shape[0] > 1:
                 GLOG.CRITICAL(
                     f"Price info {o.code} has more than 1 record. Something wrong in code."
                 )
-                import pdb
-
-                pdb.set_trace()
                 self.return_order(order_id)
                 continue
 

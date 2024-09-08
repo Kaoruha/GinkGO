@@ -262,6 +262,7 @@ function conLiveStatusSSE() {
   console.log(eventSource)
   eventSource.onmessage = (msg) => {
     const res = JSON.parse(msg.data)
+    console.info("live_status", res)
     records.value.forEach((value) => {
       const id = value.uuid
       if (id in res) {

@@ -14,7 +14,6 @@ class MFile(MMysqlBase):
 
     file_name = Column(String(40), default="ginkgo_file")
     type = Column(ChoiceType(FILE_TYPES, impl=Integer()), default=0)
-    islive = Column(Boolean)
     content = Column(BLOB)
 
     def __init__(self, *args, **kwargs) -> None:
@@ -30,11 +29,12 @@ class MFile(MMysqlBase):
         file_name: str,
         type: FILE_TYPES,
         content: any,
+        *args,
+        **kwargs,
     ) -> None:
         self.file_name = file_name
         self.type = type
         self.content = content
-        islive = False
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 60)
