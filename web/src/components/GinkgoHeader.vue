@@ -26,7 +26,9 @@ const categories = ref([
   { name: 'Backtest', path: '/backtest' },
   { name: 'Data', path: '/data' },
   { name: 'File', path: '/file' },
-  { name: 'PlayGround', path: '/playground' }
+  { name: 'PlayGround', path: '/playground' },
+  { name: 'Logs', path: '/logs' },
+  { name: 'Env', path: '/env' },
 ])
 
 const selectedIndex = computed(() => {

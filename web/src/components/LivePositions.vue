@@ -41,7 +41,7 @@
             {{ item.position }}
           </td>
           <td :class="td_cls">
-            {{ item.cost }}
+            {{ item.cost.toFixed(2) }}
           </td>
           <td :class="[td_cls, item.unrealized > 0 ? color_green : color_red]">
             {{ item.unrealized.toFixed(2) }}({{ (item.unrealized_pct * 100).toFixed(2) }}%)
@@ -51,8 +51,9 @@
     </table>
     <Button
       class="bg-blue-50 h-[40px] my-4 text-blue-300 rounded text-sm font-medium hover:text-blue-500 hover:bg-blue-100"
+      @click = "resetPositions(engine_id)"
     >
-      Add Record
+      Refresh Positions
     </Button>
   </div>
 </template>
@@ -127,6 +128,16 @@ function onLivePositionClick(event, item) {
   liveposition_dropdown.value.simClick()
 }
 
+async function resetPositions(id:string){
+  try {
+    const response = await axios.get(API_ENDPOINTS.resetLivePositions + `?id=${id}`)
+    const res = response.data
+    getData(engine_id.value)
+  } catch (error) {
+    console.error('请求API时出错:', error)
+  }
+}
+
 async function getData(id: string) {
   try {
     const response = await axios.get(API_ENDPOINTS.fetchLivePositions + `?id=${id}`)
@@ -135,6 +146,7 @@ async function getData(id: string) {
       console.log('No Order records found.')
       return
     }
+    positions.value = []
     for (let i = 0; i < res.length; i++) {
       const item = {
         code: res[i].code,

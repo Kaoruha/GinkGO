@@ -89,6 +89,14 @@ class ORDERSTATUS_TYPES(EnumBase):
     CANCELED = 4
 
 
+class TRANSFERSTATUS_TYPES(EnumBase):
+    OTHER = 0
+    NEW = 1
+    SUBMITTED = 2
+    FILLED = 3
+    CANCELED = 4
+
+
 class FREQUENCY_TYPES(EnumBase):
     OTHER = 0
     DAY = 1

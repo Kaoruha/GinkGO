@@ -97,9 +97,6 @@ class BasePortfolio(BacktestBase):
         for key in self.positions:
             self._profit += self.positions[key].profit
         if not isinstance(self.profit, (float, int)):
-            import pdb
-
-            pdb.set_trace()
             pass
 
     @property

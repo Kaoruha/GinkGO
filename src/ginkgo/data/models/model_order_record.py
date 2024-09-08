@@ -45,6 +45,8 @@ class MOrderRecord(MClickBase):
         remain: float,
         fee: float,
         timestamp: any,
+        *args,
+        **kwargs,
     ) -> None:
         self.code = str(code)
         self.direction = direction

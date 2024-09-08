@@ -15,10 +15,12 @@ from fastapi.responses import StreamingResponse
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.enums import FILE_TYPES, DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.ginkgo_logger import GLOG, GinkgoLogger
 from ginkgo.data.models.model_backtest import MBacktest
 from ginkgo.backtest.portfolios.portfolio_live import PortfolioLive
 
 app = FastAPI()
+api_logger = GinkgoLogger("ginkgo_api", "ginkgo_api.log")
 
 # 创建一个允许的源列表
 origins = ["http://localhost", "http://127.0.0.1", "http://localhost:8080", "*"]
@@ -35,8 +37,9 @@ app.add_middleware(
 
 
 @app.get("/")
-def read_root():
-    return {"Hello": "World"}
+async def read_root():
+    api_logger.INFO("api test.")
+    return "Hello, Ginkgo API Server is running."
 
 
 @app.get("/api/v1/backtest")
@@ -53,7 +56,7 @@ async def fetch_backtest():
 
 
 @app.get("/api/v1/record")
-def fetch_record(page: int = 0, size: int = 100):
+async def fetch_record(page: int = 0, size: int = 100):
     df = GDATA.get_backtest_record_df_pagination(page, size)
     if df.shape[0] == 0:
         return []
@@ -63,7 +66,7 @@ def fetch_record(page: int = 0, size: int = 100):
 
 
 @app.get("/api/v1/analyzer")
-def fetch_record(backtest_id: str = "", analyzer_id: str = ""):
+async def fetch_record(backtest_id: str = "", analyzer_id: str = ""):
     df = GDATA.get_analyzer_df_by_backtest(backtest_id, analyzer_id)
     if df.shape[0] == 0:
         return []
@@ -72,7 +75,7 @@ def fetch_record(backtest_id: str = "", analyzer_id: str = ""):
 
 
 @app.get("/api/v1/order")
-def fetch_order(backtest_id: str = "", date: str = ""):
+async def fetch_order(backtest_id: str = "", date: str = ""):
     df = GDATA.get_order_df_by_backtest_and_date_range_pagination(
         backtest_id, date, date, 0, 1000
     )
@@ -83,7 +86,7 @@ def fetch_order(backtest_id: str = "", date: str = ""):
 
 
 @app.get("/api/v1/order_filled")
-def fetch_order_filled(backtest_id: str = "", code: str = ""):
+async def fetch_order_filled(backtest_id: str = "", code: str = ""):
     df = GDATA.get_orderrecord_df(backtest_id, code)
     if df.shape[0] == 0:
         return []
@@ -92,7 +95,7 @@ def fetch_order_filled(backtest_id: str = "", code: str = ""):
 
 
 @app.get("/api/v1/signal")
-def fetch_signal(backtest_id: str = "", date: str = "", code: str = ""):
+async def fetch_signal(backtest_id: str = "", date: str = "", code: str = ""):
     if code == "":
         df = GDATA.get_signal_df_by_backtest_and_date_range_pagination(
             backtest_id, date, date, 0, 1000
@@ -108,7 +111,7 @@ def fetch_signal(backtest_id: str = "", date: str = "", code: str = ""):
 
 
 @app.get("/api/v1/stockinfo")
-def fetch_stockinfo(code: str = ""):
+async def fetch_stockinfo(code: str = ""):
     df = GDATA.get_stock_info_df_by_code(code)
     if df.shape[0] == 0:
         return None
@@ -118,7 +121,7 @@ def fetch_stockinfo(code: str = ""):
 
 
 @app.get("/api/v1/daybar")
-def fetch_daybar(code: str = "", date: str = ""):
+async def fetch_daybar(code: str = "", date: str = ""):
     date = datetime_normalize(date)
     date_start = date + datetime.timedelta(days=-120)
     date_end = date + datetime.timedelta(days=60)
@@ -131,7 +134,7 @@ def fetch_daybar(code: str = "", date: str = ""):
 
 
 @app.get("/api/v1/file_list")
-def fetch_file_list(query: str = "", page: int = 0, size: int = 100):
+async def fetch_file_list(query: str = "", page: int = 0, size: int = 100):
     def convert(enum):
         return enum.name.lower()
 
@@ -152,7 +155,7 @@ def fetch_file_list(query: str = "", page: int = 0, size: int = 100):
 
 
 @app.get("/api/v1/file")
-def fetch_file(file_id: str = ""):
+async def fetch_file(file_id: str = ""):
     res = GDATA.get_file_by_id(file_id)
     print("Get file by id:")
     print(file_id)
@@ -171,13 +174,13 @@ async def update_file(file_id: str = "", request: Request = {}):
 
 
 @app.post("/api/v1/rename_file")
-def rename_file(id: str = "", name: str = ""):
+async def rename_file(id: str = "", name: str = ""):
     res = GDATA.update_file(id=id, name=name)
     return res
 
 
 @app.get("/api/v1/del_backtest")
-def del_backtest(id: str = ""):
+async def del_backtest(id: str = ""):
     res = GDATA.remove_backtest(id)
     result_order = GDATA.remove_orders(id)
     result_ana = GDATA.remove_analyzers(id)
@@ -186,14 +189,13 @@ def del_backtest(id: str = ""):
 
 
 @app.get("/api/v1/add_liveportfolio")
-def add_liveportfolio(id: str = "", name: str = ""):
+async def add_liveportfolio(id: str = "", name: str = ""):
     res = GDATA.add_liveportfolio_from_backtest(id, name)
-    print(res)
     return res
 
 
 @app.post("/api/v1/del_liveportfolio")
-def del_liveportfolio(id: str = ""):
+async def del_liveportfolio(id: str = ""):
     # Kill the proc
     GDATA.remove_liveengine(id)
     # Remove file related to live
@@ -208,7 +210,7 @@ def del_liveportfolio(id: str = ""):
 
 
 @app.get("/api/v1/liveportfolio")
-def fetch_liveportfolio(page: int = 0, size: int = 100):
+async def fetch_liveportfolio(page: int = 0, size: int = 100):
     df = GDATA.get_liveportfolio_df_pagination(page, size)
     if df.shape[0] == 0:
         return []
@@ -222,17 +224,16 @@ def fetch_liveportfolio(page: int = 0, size: int = 100):
 
 
 @app.get("/api/v1/code_list")
-def fetch_code_list(query: str = "", page: int = 0, size: int = 10):
+async def fetch_code_list(query: str = "", page: int = 0, size: int = 10):
     df = GDATA.get_stockinfo_df_fuzzy(query, page, size)
     if df.shape[0] == 0:
         return []
     res = df.to_dict(orient="records")
-    print(res)
     return res
 
 
 @app.post("/api/v1/del_traderecord")
-def del_traderecord(id: str = ""):
+async def del_traderecord(id: str = ""):
     res = GDATA.remove_orderrecord_by_id(id)
     if res:
         return "Delete Success."
@@ -240,7 +241,7 @@ def del_traderecord(id: str = ""):
 
 
 @app.post("/api/v1/add_traderecord")
-def add_traderecord(
+async def add_traderecord(
     id: str = "",
     code: str = "",
     direction: str = "",
@@ -252,6 +253,7 @@ def add_traderecord(
 ):
     direction_type = DIRECTION_TYPES.enum_convert(direction)
     timestamp = datetime_normalize(date)
+    # TODO 需要加上校验 可能当天没有价格,无法成交
     GDATA.add_order_record(
         id,
         code,
@@ -263,10 +265,13 @@ def add_traderecord(
         fee,
         timestamp,
     )
+    p = PortfolioLive()
+    p.set_portfolio_id(id)
+    l = p.reset_positions()
 
 
 @app.post("/api/v1/update_traderecord")
-def update_traderecord(
+async def update_traderecord(
     id: str = "",
     code: str = "",
     direction: str = "",
@@ -292,8 +297,9 @@ def update_traderecord(
 
 
 @app.get("/api/v1/traderecord")
-def fetch_traderecrod(id: str = "", page: int = 0, size: int = 1000):
+async def fetch_traderecrod(id: str = "", page: int = 0, size: int = 1000):
     df = GDATA.get_orderrecord_df_pagination(id, "2000-01-01", "2050-01-01", page, size)
+    df = df.sort_values(by="timestamp", ascending=True)
     if df.shape[0] == 0:
         return []
     df["name"] = "Unknown"
@@ -304,36 +310,41 @@ def fetch_traderecrod(id: str = "", page: int = 0, size: int = 1000):
             continue
         name = code_info_df[code_info_df["code"] == code]["code_name"].values[0]
         df.loc[df["code"] == code, "name"] = name
-    print(df.shape[0])
     res = df.to_dict(orient="records")
     return res
 
 
-@app.get("/api/v1/live_position")
-def fetch_liveposition(id: str = "", page: int = 0, size: int = 1000):
-    print(id)
+@app.get("/api/v1/reset_liveposition")
+async def reset_liveposition(id: str = ""):
     p = PortfolioLive()
     p.set_portfolio_id(id)
-    l = p.recover_position(datetime.datetime.now())
+    l = p.reset_positions()
+
+
+@app.get("/api/v1/live_position")
+async def fetch_liveposition(id: str = "", page: int = 0, size: int = 1000):
+    l = GDATA.get_positionrecords_pagination(backtest_id=id, page=0, size=1000)
     res = []
     for i in l:
+        i.cost = float(i.cost)
+        i.volume = int(i.volume)
         item = {}
         info = GDATA.get_stock_info_df_by_code(i.code)
         item["code"] = i.code
         item["code_name"] = info.code_name.values[0]
         item["cost"] = i.cost
         item["volume"] = i.volume
-        now = datetime.datetime.now()
-        date_start = now + datetime.timedelta(days=-20)
-        price_info = GDATA.get_daybar_df(
-            code=i.code, date_start=date_start, date_end=now
-        )
-        info = price_info.iloc[-1]
-        item["price"] = info["close"]
-        item["change"] = info["close"] - info["open"]
-        item["change_pct"] = (info["close"] - info["open"]) / info["open"]
-        item["unrealized"] = (info["close"] - i.cost) * i.volume
-        item["unrealized_pct"] = (info["close"] - i.cost) / i.cost
+        latest_price = GDATA.get_latest_price(i.code)
+        if latest_price[0] == 0:
+            continue
+        if latest_price[1] == 0:
+            continue
+
+        item["price"] = latest_price[0]
+        item["change"] = latest_price[0] - latest_price[1]
+        item["change_pct"] = (latest_price[0] - latest_price[1]) / latest_price[1]
+        item["unrealized"] = (latest_price[0] - i.cost) * i.volume
+        item["unrealized_pct"] = (latest_price[0] - i.cost) / i.cost
         res.append(item)
     return res
 
@@ -351,20 +362,39 @@ async def live_status_query():
         yield f"data: {json.dumps(data)}\n\n"
 
 
-@app.get("/api/v1/stream/live_status")
-def stream_live_status():
+@app.get("/stream/v1/live_status")
+async def stream_live_status():
     return StreamingResponse(live_status_query(), media_type="text/event-stream")
 
 
+async def live_price_stream():
+    count = 0
+    concerned_list = []  # TODO get from redis
+    while True:
+        await asyncio.sleep(10)
+        count += 1
+        if count > 10:
+            # TODO Move to main control in future
+            count = 0
+        res = {}
+        for i in concerned_list:
+            res[i] = 1  # TODO get price from redis
+        yield f"data: {json.dumps(res)}\n\n"
+
+
+@app.get("/stream/v1/live_price")
+async def stream_live_price():
+    return StreamingResponse(live_price_stream(), media_type="text/event-stream")
+
+
 @app.post("/api/v1/live_control")
-def send_live_control_signal(id: str, command: str):
-    print("id")
-    print(command)
+async def send_live_control_signal(id: str, command: str):
     if command.upper() == "START":
         GDATA.send_signal_run_live(id)
+        GLOG.INFO(f"Try start live engine {id}")
     if command.upper() == "STOP":
-        print("STOPSTOP LIVE")
         GDATA.send_signal_stop_live(id)
+        GLOG.INFO(f"Try stop live engine {id}")
     try:
         if command.upper() == "START":
             cmd = "start"
@@ -377,6 +407,7 @@ def send_live_control_signal(id: str, command: str):
         elif command.upper() == "RESUME":
             cmd = "resume"
         GDATA.send_signal_to_liveengine(id, cmd)
-        return 1
+        GLOG.INFO(f"Try send signal {cmd} to live engine {id}")
+        return f"Order send success. {cmd}"
     except Exception as e:
-        return 2
+        return f"Order send failed. {e}"

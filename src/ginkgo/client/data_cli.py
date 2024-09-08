@@ -437,31 +437,18 @@ def update(
         ),
     ] = None,
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+    d: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
     Update the database.
     """
     from ginkgo.libs.ginkgo_thread import GTM
 
-    current_count = GTM.dataworker_count
-    target_count = GCONF.CPURATIO * 12
-    target_count = int(target_count)
-    console.print(
-        f":penguin: Target Worker: {target_count}, Current Worker: {current_count}"
-    )
-
-    count = target_count - current_count
-    if count > 0:
-        GTM.start_multi_worker(count)
-
     if debug:
         GLOG.set_level("DEBUG")
     else:
         GLOG.set_level("INFO")
     GDATA.create_all()
-    if a:
-        # TODO Update all
-        pass
 
     l = []
     if code == []:
@@ -473,21 +460,76 @@ def update(
         for item in code:
             l.append(item)
 
-    if stockinfo:
-        GDATA.send_signal_update_stockinfo()
+    if d:
+        console.print(f"Current worker: {GTM.dataworker_count}")
+        if GTM.dataworker_count == 0:
+            console.print(
+                ":sad_but_relieved_face: There is no worker running. Can not handle the update request."
+            )
+            return
+        if a:
+            GDATA.send_signal_update_stockinfo()
+            GDATA.send_signal_update_calender()
+            for i in l:
+                GDATA.send_signal_update_adjust(i, fast)
+            for i in l:
+                GDATA.send_signal_update_bar(i, fast)
+            for i in l:
+                GDATA.send_signal_update_tick(i, fast)
+            return
 
-    if calendar:
-        GDATA.send_signal_update_calender()
+        if stockinfo:
+            GDATA.send_signal_update_stockinfo()
 
-    if adjust:
-        for i in l:
-            GDATA.send_signal_update_adjust(i)
-    if day:
-        for i in l:
-            GDATA.send_signal_update_bar(i, True)
-    if tick:
-        for i in l:
-            GDATA.send_signal_update_tick(i, True)
+        if calendar:
+            GDATA.send_signal_update_calender()
+
+        if adjust:
+            for i in l:
+                GDATA.send_signal_update_adjust(i, fast)
+
+        if day:
+            for i in l:
+                GDATA.send_signal_update_bar(i, fast)
+
+        if tick:
+            for i in l:
+                GDATA.send_signal_update_tick(i, fast)
+    else:
+        if a:
+            GDATA.update_stock_info()
+            GDATA.update_cn_trade_calendar()
+            GDATA.update_all_cn_adjustfactor_aysnc(fast)
+            GDATA.update_all_cn_daybar_aysnc(fast)
+            GDATA.update_all_cn_tick_aysnc(fast)
+            return
+
+        if stockinfo:
+            GDATA.update_stock_info()
+
+        if calendar:
+            GDATA.update_cn_trade_calendar()
+
+        if adjust:
+            if code == []:
+                GDATA.update_all_cn_adjustfactor_aysnc()
+            else:
+                for i in l:
+                    GDATA.update_cn_adjustfactor(i, fast)
+
+        if day:
+            if code == []:
+                GDATA.update_all_cn_daybar_aysnc()
+            else:
+                for i in l:
+                    GDATA.update_cn_daybar(i, fast)
+
+        if tick:
+            if code == []:
+                GDATA.update_all_cn_tick_aysnc()
+            else:
+                for i in l:
+                    GDATA.update_tick(i, fast)
 
 
 @app.command()
@@ -531,6 +573,9 @@ def rebuild(
     calendar: Annotated[
         bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")
     ] = False,
+    adjust: Annotated[
+        bool, typer.Option(case_sensitive=False, help="Rebuild Adjust Table")
+    ] = False,
 ):
     """
     :fox_face: Rebuild [light_coral]TABLE[/light_coral] in database. Attention.
@@ -573,5 +618,8 @@ def rebuild(
 
     if calendar:
         GDATA.drop_table(MTradeDay)
+
+    if adjust:
+        GDATA.drop_table(MAdjustfactor)
 
     GDATA.create_all()

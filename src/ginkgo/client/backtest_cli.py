@@ -36,6 +36,9 @@ class ResultType(str, Enum):
 
 
 def print_order_paganation(df, page: int):
+    """
+    Echo dataframe in TTY page by page.
+    """
     if page > 0:
         data_length = df.shape[0]
         page_count = int(data_length / page) + 1

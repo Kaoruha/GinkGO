@@ -1,8 +1,9 @@
-from sqlalchemy import create_engine, MetaData, inspect, func, DDL
+import time
+from sqlalchemy import create_engine, MetaData, inspect, func, DDL, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
-from ginkgo.libs.ginkgo_logger import GLOG
-import time
+
+from ginkgo.libs.ginkgo_logger import GLOG, GinkgoLogger
 
 
 class GinkgoMysql(object):
@@ -18,31 +19,46 @@ class GinkgoMysql(object):
         self._port = port
         self._db = db
         self._max_try = 5
+        self.SessionCLS = None
 
     @property
     def max_try(self) -> int:
+        """
+        Returns:
+            Max try count for connect with db.
+        """
         return self._max_try
 
     @property
     def engine(self):
+        """
+        Returns:
+            DB Engine.
+        """
         if self._engine is None:
             self.connect()
         return self._engine
 
     @property
     def session(self):
-        if self._session is None:
-            self._session = scoped_session(
-                sessionmaker(
-                    autocommit=False,
-                    autoflush=False,
-                    bind=self.engine,
-                )
-            )
-        return self._session
+        """
+        Returns:
+            DB Session.
+        """
+        if self.SessionCLS is None:
+            self.connect()
+        return self.SessionCLS()
+
+    def close_session(self):
+        if self._session is not None:
+            self.SessionCLS.remove()  # 清除当前线程的 Session 实例
 
     @property
     def metadata(self):
+        """
+        Returns:
+            DB Metadata.
+        """
         if self._metadata is None:
             self.connect()
         return self._metadata
@@ -71,6 +87,13 @@ class GinkgoMysql(object):
                 self._metadata = MetaData(bind=self.engine)
                 # self.base = declarative_base(metadata=self.metadata)
                 self._base = declarative_base()
+                self._session_factory = sessionmaker(
+                    autocommit=False,
+                    autoflush=False,
+                    bind=self.engine,
+                )
+
+                self.SessionCLS = scoped_session(self._session_factory)
                 GLOG.DEBUG("Connect to mysql succeed.")
             except Exception as e:
                 print(e)
@@ -82,10 +105,27 @@ class GinkgoMysql(object):
         return inspect(self.engine)
 
     def is_table_exsists(self, name: str) -> bool:
+        """
+        Check the exsistence of table.
+        Args:
+            name(str): table name
+        Returns:
+            Weather the table exsist.
+        """
         GLOG.DEBUG(f"Check Mysql table {name} exsists. {self.insp.has_table(name)}")
         return self.insp.has_table(name)
 
     def get_table_size(self, model) -> int:
+        """
+        Get size of table.
+        Args:
+            model(Model): Data Model
+        Returns:
+            Count of table size.
+        """
         GLOG.DEBUG(f"Get Mysql table {model.__tablename__} size.")
-        count = self.session.query(model).count()
-        return count
+        query = text(f"SELECT COUNT(*) AS row_count FROM {model.__tablename__}")
+        with self.session.begin():
+            result = self.session.execute(query)
+            row_count = result.scalar()
+        return row_count

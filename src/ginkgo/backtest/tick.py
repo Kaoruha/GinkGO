@@ -4,6 +4,7 @@ from functools import singledispatchmethod
 from ginkgo.libs import base_repr, datetime_normalize
 from ginkgo.backtest.base import Base
 from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
+from ginkgo.data.models import MTick
 
 
 class Tick(Base):
@@ -44,6 +45,14 @@ class Tick(Base):
 
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
+
+    @set.register
+    def _(self, model: MTick) -> None:
+        self._code = model.code
+        self._price = model.price
+        self._volume = model.volume
+        self._direction = model.direction
+        self._timestamp = model.timestamp
 
     @property
     def code(self) -> str:

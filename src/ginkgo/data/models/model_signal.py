@@ -22,7 +22,7 @@ class MSignal(MClickBase):
         super(MSignal, self).__init__(*args, **kwargs)
 
     @singledispatchmethod
-    def set(self) -> None:
+    def set(self, *args, **kwargs) -> None:
         pass
 
     @set.register
@@ -33,6 +33,8 @@ class MSignal(MClickBase):
         code: str,
         direction: DIRECTION_TYPES,
         reason: str,
+        *args,
+        **kwargs,
     ) -> None:
         self.portfolio_id = portfolio_id
         self.timestamp = datetime_normalize(datetime)
@@ -41,7 +43,7 @@ class MSignal(MClickBase):
         self.reason = reason
 
     @set.register
-    def _(self, df: pd.Series) -> None:
+    def _(self, df: pd.Series, *args, **kwargs) -> None:
         pass
 
     def __repr__(self) -> str:

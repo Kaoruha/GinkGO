@@ -28,7 +28,7 @@ from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.backtest.position import Position
 
 
-GLOG = GinkgoLogger("live")
+live_logger = GinkgoLogger("live")
 
 
 class LiveEngine(EventEngine):
@@ -50,7 +50,31 @@ class LiveEngine(EventEngine):
         self._control_thread: Thread = Thread(
             target=self.run_control_listener, args=(self._control_flag,)
         )
-        GLOG.reset_logfile(f"{backtest_id}.log")
+        live_logger.reset_logfile(f"live_{backtest_id}.log")
+        self.register_timer(self.update_time)
+        self.register_timer(self.get_price)
+
+    def update_time(self) -> None:
+        self._now = datetime.datetime.now()
+
+    def get_price(self) -> None:
+        # TODO Get Codes all portfolio care.
+        codes = []
+        node = self.portfolios.head
+        while node is not None:
+            portfolio = node.value
+            code_node = portfolio.interested.head
+            while code_node is not None:
+                codes.append(code_node.value.code)
+                code_node = code_node.next
+            node = node.next
+        # Try get Price info from DataEngine
+        for i in codes:
+            # TODO Get data from DataEngine
+            # TODO Create PriceUpdate Event
+            # TODO Push into queue
+            pass
+        pass
 
     @property
     def now(self) -> datetime.datetime:
@@ -60,18 +84,26 @@ class LiveEngine(EventEngine):
     def engine_id(self) -> str:
         return self.backtest_id
 
-    def recover_positions(self):
+    def reset_positions(self):
+        """
+        Iterate over the portfolios, query orders from db, generate holding positions.
+        """
         if len(self.portfolios) == 0:
-            GLOG.DEBUG("There is no portfolio bind to live. Can not update positions")
+            live_logger.DEBUG(
+                "There is no portfolio bind to live. Can not update positions"
+            )
             return
         node = self.portfolios.head
         while node is not None:
             p = node.value
             # Get Positions via portfolio id and backtest_id
-            p.recover_positions()
+            p.reset_positions()
             node = node.next
 
     def get_portfolio(self, portfolio_id: str):
+        """
+        Try get portfolio via id.
+        """
         node = self.portfolios.head
         while node is not None:
             p = node.value
@@ -81,16 +113,22 @@ class LiveEngine(EventEngine):
         return None
 
     def buy(self, portfolio_id, code, price, volume) -> None:
+        """
+        Add Long record for portfolio.
+        """
         p = self.get_portfolio(portfolio_id)
         if p is None:
+            live_logger.warning(f"{portfolio_id} not exist.")
             return
         pos = Position(code, price, volume)
         p.add_position(pos)
         # Update position
         # TODO add record
-        pass
 
     def sell(self, portfolio_id, code, price, volume) -> None:
+        """
+        Add Short record for portfolio.
+        """
         p = self.get_portfolio(portfolio_id)
         if p is None:
             return
@@ -101,20 +139,24 @@ class LiveEngine(EventEngine):
         # TODO add record
         pass
 
-    def cal_signal_manually(self) -> None:
+    def cal_signals(self) -> None:
+        """
+        Calculate signals.
+        """
+        live_logger.INFO("Try gen signals.")
         node = self.portfolios.head
         while node is not None:
             portfolio = node.value
-            portfolio.cal_signal_manually()
-
+            portfolio.cal_signals()
         # TODO
-        pass
+
+    def cal_suggestions(self) -> None:
+        self.cal_signals()
 
     def run_control_listener(self, flag) -> None:
         pid = os.getpid()
         error_time = 0
         max_try = 5
-        GLOG.reset_logfile("live_control.log")
         while True:
             if flag.is_set():
                 break
@@ -125,10 +167,7 @@ class LiveEngine(EventEngine):
                     # group_id=f"ginkgo_live_engine_{self.engine_id}",
                     offset="latest",
                 )
-                print(
-                    f"{self.engine_id} Start Listen Kafka Topic: {topic_name}  PID:{pid}"
-                )
-                GLOG.INFO(
+                live_logger.INFO(
                     f"{self.engine_id} Start Listen Kafka Topic: {topic_name}  PID:{pid}"
                 )
                 for msg in con.consumer:
@@ -136,7 +175,9 @@ class LiveEngine(EventEngine):
                     value = msg.value
                     self.process_control_command(value)
             except Exception as e2:
-                print(e2)
+                live_logger.ERROR(
+                    f"Something wrong happend when dealing with Kafka Topic: {topic_name}, {e2}"
+                )
                 error_time += 1
                 if error_time > max_try:
                     sys.exit(0)
@@ -146,31 +187,22 @@ class LiveEngine(EventEngine):
 
     def process_control_command(self, command: dict) -> None:
         if command["engine_id"] != self.engine_id:
-            print(f"{command['engine_id']} is not my type {self.engine_id}")
-            GLOG.INFO(f"{command['engine_id']} is not my type {self.engine_id}")
+            live_logger.INFO(f"{command['engine_id']} is not my type {self.engine_id}")
             return
         if command["command"].upper() == "PAUSE":
-            self._active = False
-            GDATA.set_live_status(self.engine_id, "pause")
+            self.pause()
         elif command["command"].upper() == "RESUME":
-            self._active = True
-            print("resume")
-            GLOG.INFO("resume")
-            GDATA.set_live_status(self.engine_id, "running")
+            self.resume()
         elif command["command"].upper() == "START":
             self._active = True
-            GLOG.INFO("start")
+            live_logger.INFO("Engine START.")
             GDATA.set_live_status(self.engine_id, "running")
         elif command["command"].upper() == "RESTART":
-            self._active = True
             self.restart()
         elif command["command"].upper() == "CAL_SIGNAL":
-            print("calculating signals.")
-            GLOG.INFO("calculating signals.")
+            live_logger.INFO("Calculating signals.")
         else:
-            print("Can not handle")
-            print(command)
-            GLOG.ERROR(command)
+            live_logger.ERROR(f"Command not support, {command}")
 
     def start(self) -> Thread:
         super(LiveEngine, self).start()
@@ -180,17 +212,29 @@ class LiveEngine(EventEngine):
         GDATA.set_live_status(self.engine_id, "running")
         return self._control_thread
 
+    def pause(self) -> None:
+        live_logger.INFO("Engine PAUSE.")
+        self._active = False
+        GDATA.set_live_status(self.engine_id, "pause")
+
+    def resume(self) -> None:
+        self._active = True
+        live_logger.INFO("Engine RESUME.")
+        GDATA.set_live_status(self.engine_id, "running")
+
     def stop(self) -> None:
         super(LiveEngine, self).stop()
         self._control_flag.set()
         GDATA.set_live_status(self.engine_id, "stop")
 
     def restart(self) -> None:
+        live_logger.INFO("Engine RESTART.")
+        self._active = True
         self._main_flag.set()
         self._timer_flag.set()
         GDATA.set_live_status(self.engine_id, "restart")
         for i in range(self._interval + 5):
-            print(f"Restart in {self._interval+5-i}s")
+            live_logger.INFO(f"Restart in {self._interval+5-i}s")
             sleep(1)
         self._main_flag = Event()
         self._main_thread: Thread = Thread(

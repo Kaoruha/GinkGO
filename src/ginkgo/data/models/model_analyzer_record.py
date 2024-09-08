@@ -8,28 +8,21 @@ from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs import base_repr, datetime_normalize
 
 
-class MAnalyzer(MClickBase):
+class MAnalyzerRecord(MClickBase):
     __abstract__ = False
-    __tablename__ = "analyzer"
+    __tablename__ = "analyzer_record"
 
     name = Column(String(), default="Default Profit")
     value = Column(DECIMAL(20, 10), default=0)
-    backtest_id = Column(String(), default="Default Profit")
+    portfolio_id = Column(String(), default="Default Profit")
     analyzer_id = Column(String(), default="Default Analyzer")
 
     def __init__(self, *args, **kwargs) -> None:
         super(MAnalyzer, self).__init__(*args, **kwargs)
 
-    def set(
-        self,
-        backtest_id: str,
-        timestamp: any,
-        value: float,
-        name: str,
-        analyzer_id: id,
-    ) -> None:
+    def set(self, portfolio_id: str, timestamp: any, value: float, name: str, analyzer_id: id, *args, **kwargs) -> None:
         self.name = name
-        self.backtest_id = backtest_id
+        self.portfolio_id = portfolio_id
         self.analyzer_id = analyzer_id
         self.timestamp = datetime_normalize(timestamp)
         self.value = round(value, 6)

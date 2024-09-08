@@ -51,12 +51,7 @@ class Order(Base):
             uuid,
             backtest_id,
         )
-        self._name = "Order"
         self._status = ORDERSTATUS_TYPES.NEW
-
-    @property
-    def name(self) -> str:
-        return self._name
 
     @singledispatchmethod
     def set(self) -> None:

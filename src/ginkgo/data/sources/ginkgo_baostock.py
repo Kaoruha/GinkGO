@@ -3,15 +3,16 @@ import pandas as pd
 import datetime
 from time import sleep
 
+from ginkgo.data.sources.source_base import GinkgoSourceBase
 
-class GinkgoBaoStock(object):
-    def __init__(self):
-        self._client = None
+
+class GinkgoBaoStock(GinkgoSourceBase):
+    def __init__(self, *args, **kwargs):
+        super(GinkgoBaoStock, self).__init__(*args, **kwargs)
         self._updated = {}
 
-    @property
-    def client(self):
-        return self._client
+    def connect(self):
+        self.login()
 
     def login(self):
         self._client = bs.login()
@@ -72,9 +73,6 @@ class GinkgoBaoStock(object):
             date_en = date_end.strftime("%Y-%m-%d")
 
         print("Date Transformed.")
-        # import rpdb
-
-        # rpdb.set_trace()
         rs = bs.query_history_k_data_plus(
             code,
             "date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST",

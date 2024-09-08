@@ -1,23 +1,15 @@
 import pandas as pd
 from sqlalchemy import Column, String, Integer, DECIMAL
 from sqlalchemy_utils import ChoiceType
-from sqlalchemy_utils import ChoiceType
 from functools import singledispatchmethod
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.libs import datetime_normalize, base_repr
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.enums import (
-    DIRECTION_TYPES,
-    ORDER_TYPES,
-    ORDERSTATUS_TYPES,
-    SOURCE_TYPES,
-    FREQUENCY_TYPES,
-    TICKDIRECTION_TYPES,
-)
+from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 
 
 class MTick(MClickBase):
-    __abstract__ = True
+    __abstract__ = False
     __tablename__ = "tick"
 
     code = Column(String(), default="ginkgo_test_code")
@@ -40,6 +32,8 @@ class MTick(MClickBase):
         volume: int,
         direction: TICKDIRECTION_TYPES,
         time_stamp: any,
+        *args,
+        **kwargs,
     ) -> None:
         self.code = code
         self.price = round(price, 6)
@@ -48,7 +42,7 @@ class MTick(MClickBase):
         self.timestamp = datetime_normalize(time_stamp)
 
     @set.register
-    def _(self, df: pd.Series) -> None:
+    def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df.code
         self.price = df.price
         self.volume = df.volume

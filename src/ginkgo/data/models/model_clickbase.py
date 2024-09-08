@@ -7,24 +7,29 @@ from types import FunctionType, MethodType
 from functools import singledispatchmethod
 from enum import Enum
 from types import FunctionType, MethodType
+from sqlalchemy import Column, String, DateTime, Boolean, Integer, create_engine, MetaData
+from sqlalchemy_utils import ChoiceType
+from sqlalchemy.ext.declarative import declarative_base
+
+
 from ginkgo.libs import datetime_normalize
+from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs.ginkgo_pretty import base_repr
 from ginkgo.enums import SOURCE_TYPES
-from sqlalchemy import Column, String, DateTime, Boolean, Integer
-from sqlalchemy_utils import ChoiceType
-from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.data.drivers import GinkgoClickhouse
 
-db = GinkgoClickhouse(
-    user=GCONF.CLICKUSER,
-    pwd=GCONF.CLICKPWD,
-    host=GCONF.CLICKHOST,
-    port=GCONF.CLICKPORT,
-    db=GCONF.CLICKDB,
+uri = f"clickhouse://{GCONF.CLICKUSER}:{GCONF.CLICKPWD}@{GCONF.CLICKHOST}:{GCONF.CLICKPORT}/{GCONF.CLICKDB}"
+engine = create_engine(
+    uri,
+    pool_recycle=3600,
+    pool_size=10,
+    pool_timeout=20,
+    max_overflow=10,
 )
+metadata = MetaData(bind=engine)
+base = declarative_base(metadata=metadata)
 
 
-class MClickBase(db.base):
+class MClickBase(base):
     __abstract__ = True
     __tablename__ = "ClickBaseModel"
     __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
@@ -50,11 +55,9 @@ class MClickBase(db.base):
         self.isdel = False
 
     def set(self) -> None:
-        raise NotImplementedError(
-            "Model Class need to overload Function set to transit data."
-        )
+        raise NotImplementedError("Model Class need to overload Function set to transit data.")
 
-    def to_dataframe(self) -> pd.DataFrame:
+    def to_dataframe(self, *args, **kwargs) -> pd.DataFrame:
         item = {}
         methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
         for param in self.__dir__():
@@ -77,16 +80,16 @@ class MClickBase(db.base):
         df = pd.DataFrame.from_dict(item, orient="index").transpose()
         return df
 
-    def set_source(self, source: SOURCE_TYPES) -> None:
+    def set_source(self, source: SOURCE_TYPES, *args, **kwargs) -> None:
         self.source = source
 
-    def delete(self) -> None:
+    def delete(self, *args, **kwargs) -> None:
         self.isdel = True
 
     def cancel_delete(self) -> None:
         self.isdel = False
 
-    def update_time(self, time: str or datetime.datetime) -> None:
+    def update_time(self, time: any, *args, **kwargs) -> None:
         self.update = datetime.datetime.now()
         self.timestamp = datetime_normalize(time)
 

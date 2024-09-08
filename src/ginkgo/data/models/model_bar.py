@@ -58,6 +58,8 @@ class MBar(MClickBase):
         volume: int,
         frequency: FREQUENCY_TYPES,
         datetime: any,
+        *args,
+        **kwargs,
     ) -> None:
         self.code = code
         self.open = round(open, 6)
@@ -69,7 +71,7 @@ class MBar(MClickBase):
         self.timestamp = datetime_normalize(datetime)
 
     @set.register
-    def _(self, df: pd.Series) -> None:
+    def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df.code
         self.open = df.open
         self.high = df.high

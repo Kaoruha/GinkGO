@@ -1,5 +1,305 @@
+from typing import List, Optional, Union
+
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
 from ginkgo.data.drivers.ginkgo_mongo import GinkgoMongo
 from ginkgo.data.drivers.ginkgo_mysql import GinkgoMysql
 from ginkgo.data.drivers.ginkgo_redis import GinkgoRedis
-from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer, GinkgoConsumer
+from ginkgo.data.drivers.ginkgo_kafka import (
+    GinkgoProducer,
+    GinkgoConsumer,
+    kafka_topic_llen,
+)
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.models.model_mysqlbase import MMysqlBase
+from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs.ginkgo_conf import GCONF
+
+mysql_connection = None
+click_connection = None
+redis_connection = None
+max_try = 5
+
+
+def clean_connection():
+    """
+    Have no idea why db connection prevent the multiprocessing pool start.
+    Reset the db to solve the problem for temporary.
+    """
+    global mysql_connection, click_connection, redis_connection
+    del mysql_connection
+    del click_connection
+    del redis_connection
+    mysql_connection = None
+    click_connection = None
+    redis_connection = None
+
+
+def get_click_connection() -> GinkgoClickhouse:
+    global click_connection
+    if click_connection is None:
+        click_connection = create_click_connection()
+    return click_connection
+
+
+def create_click_connection() -> GinkgoClickhouse:
+    return GinkgoClickhouse(
+        user=GCONF.CLICKUSER,
+        pwd=GCONF.CLICKPWD,
+        host=GCONF.CLICKHOST,
+        port=GCONF.CLICKPORT,
+        db=GCONF.CLICKDB,
+    )
+
+
+def get_mysql_connection() -> GinkgoMysql:
+    global mysql_connection
+    if mysql_connection is None:
+        mysql_connection = create_mysql_connection()
+    return mysql_connection
+
+
+def create_mysql_connection() -> GinkgoMysql:
+    return GinkgoMysql(
+        user=GCONF.MYSQLUSER,
+        pwd=GCONF.MYSQLPWD,
+        host=GCONF.MYSQLHOST,
+        port=GCONF.MYSQLPORT,
+        db=GCONF.MYSQLDB,
+    )
+
+
+def get_db_connection(value):
+    if isinstance(value, type):
+        if issubclass(value, MClickBase):
+            return get_click_connection()
+        elif issubclass(value, MMysqlBase):
+            return get_mysql_connection()
+    else:
+        if isinstance(value, MClickBase):
+            return get_click_connection()
+        elif isinstance(value, MMysqlBase):
+            return get_mysql_connection()
+
+    GLOG.CRITICAL(f"Model {value} should be sub of clickbase or mysqlbase.")
+
+
+def create_redis_connection(self) -> GinkgoRedis:
+    return GinkgoRedis(GCONF.REDISHOST, GCONF.REDISPORT).redis
+
+
+def create_kafka_producer_driver(self) -> GinkgoProducer:
+    return GinkgoProducer()
+
+
+def add(value, max_try: int = 5, connection: Optional[Union[GinkgoClickhouse, GinkgoMysql]] = None) -> None:
+    """
+    Add a single data item.
+    Args:
+        value(Model): Data Model
+    Returns:
+        None
+    """
+    if not isinstance(value, (MClickBase, MMysqlBase)):
+        GLOG.ERROR(f"Can not add {value} to database.")
+        return
+    GLOG.DEBUG("Try add data to session.")
+    for i in range(max_try):
+        conn = connection if connection else get_db_connection(value)
+        try:
+            conn.session.add(value)
+            conn.session.commit()
+            break
+        except Exception as e:
+            print(e)
+            conn.session.rollback()
+            GLOG.CRITICAL(f"{type(value)} add failed {i+1}/{max_try}")
+        finally:
+            conn.close_session()
+
+
+def add_all(values, max_try: int = 5) -> None:
+    """
+    Add multi data into session.
+    Args:
+        values(Model): multi data models
+    Returns:
+        None
+    """
+    global mysql_connection, click_connection
+    GLOG.DEBUG("Try add multi data to session.")
+    click_list = []
+    mysql_list = []
+    for i in values:
+        if isinstance(i, MClickBase):
+            click_list.append(i)
+        elif isinstance(i, MMysqlBase):
+            mysql_list.append(i)
+        else:
+            GLOG.WARN("Just support clickhouse and mysql now. Ignore other type.")
+
+    for i in range(max_try):
+        click_d = get_click_connection()
+        try:
+            if len(click_list) > 0:
+                click_d.session.add_all(click_list)
+                click_d.session.commit()
+                GLOG.DEBUG(f"Clickhouse commit {len(click_list)} records.")
+                break
+        except Exception as e:
+            click_d.session.rollback()
+            GLOG.CRITICAL(f"ClickHouse add failed {i+1}/{max_try}")
+            print(e)
+        finally:
+            click_d.close_session()
+            del click_connection
+            click_connection = None
+
+    for i in range(max_try):
+        mysql_d = get_mysql_connection()
+        try:
+            if len(mysql_list) > 0:
+                mysql_d.session.add_all(mysql_list)
+                mysql_d.session.commit()
+                GLOG.DEBUG(f"Mysql commit {len(mysql_list)} records.")
+        except Exception as e:
+            mysql_d.session.rollback()
+            GLOG.CRITICAL(f"Mysql add failed {i+1}/{self.max_try}")
+        finally:
+            mysql_d.close_session()
+            del mysql_connection
+            mysql_connection = None
+
+
+def is_table_exsists(model) -> bool:
+    """
+    Check the whether the table exists in the database.
+    Auto choose the database driver.
+    Args:
+        model(Model): model in sqlalchemy
+    Returns:
+        Whether the table exist
+    """
+    driver = get_db_connection(model)
+    res = False
+    try:
+        res = driver.is_table_exsists(model.__tablename__)
+    except Exception as e:
+        print(e)
+    finally:
+        driver.session.close()
+        del driver
+    return res
+
+
+def create_table(model) -> None:
+    """
+    Create table with model.
+    Support Clickhouse and Mysql now.
+    Args:
+        model(Model): model in sqlalchemy
+    Returns:
+        None
+    """
+    db = get_db_connection(model)
+    if db is None:
+        return
+    if model.__abstract__ == True:
+        GLOG.DEBUG(f"Pass Model:{model}")
+        return
+    if is_table_exsists(model):
+        GLOG.DEBUG(f"Table {model.__tablename__} exist.")
+    else:
+        model.__table__.create(db.engine)
+        GLOG.DEBUG(f"Create Table {model.__tablename__} : {model}")
+
+
+def drop_table(model) -> None:
+    """
+    Drop table from Database.
+    Support Clickhouse and Mysql now.
+    Args:
+        model(Model): model in sqlalchemy
+    Returns:
+        None
+    """
+    db = get_db_connection(model)
+    if db is None:
+        GLOG.ERROR(f"Can not get driver for {model}.")
+        return
+    if is_table_exsists(model):
+        model.__table__.drop(db.engine)
+        GLOG.DEBUG(f"Drop Table {model.__tablename__} : {model}")
+    else:
+        GLOG.DEBUG(f"No need to drop {model.__tablename__} : {model}")
+
+
+def create_all_tables() -> None:
+    """
+    Create tables with all models without __abstract__ = True.
+    Args:
+        None
+    Returns:
+        None
+    """
+    # Create Tables in clickhouse
+    MClickBase.metadata.create_all(create_click_connection().engine)
+    # Create Tables in mysql
+    MMysqlBase.metadata.create_all(create_mysql_connection().engine)
+    GLOG.DEBUG(f"Create all tables.")
+
+
+def drop_all_tables() -> None:
+    """
+    ATTENTION!!
+    Just call the func in dev.
+    This will drop all the tables in models.
+    Args:
+        None
+    Returns:
+        None
+    """
+    # Drop Tables in clickhouse
+    MClickBase.metadata.drop_all(get_click_connection().engine)
+    # Drop Tables in mysql
+    MMysqlBase.metadata.drop_all(get_mysql_connection().engine)
+
+
+def get_table_size(model, connection=None) -> int:
+    """
+    Get the size of table.
+    Support Clickhouse and Mysql now.
+    Args:
+        model(Model): model in sqlalchemy
+    Returns:
+        Size of table in database
+    """
+    conn = connection if connection else get_db_connection(model)
+    if conn is None:
+        return 0
+    return conn.get_table_size(model)
+
+
+__all__ = [
+    "GinkgoClickhouse",
+    "GinkgoMongo",
+    "GinkgoMysql",
+    "GinkgoRedis",
+    "GinkgoProducer",
+    "GinkgoConsumer",
+    "get_db_connection",
+    "get_mysql_connection",
+    "get_click_connection",
+    "create_mysql_connection",
+    "create_click_connection",
+    "create_redis_connection",
+    "create_kafka_producer_driver",
+    "kafka_topic_llen",
+    "add",
+    "add_all",
+    "is_table_exsists",
+    "create_table",
+    "drop_table",
+    "create_all_tables",
+    "drop_all_tables",
+    "get_table_size",
+]

@@ -4,6 +4,7 @@ import LiveView from '../views/LiveView.vue'
 import BacktestView from '../views/BacktestView.vue'
 import DataView2 from '../views/DataView.vue'
 import FileView from '../views/FileView.vue'
+import LogView from '../views/LogView.vue'
 import JupyterView from '../views/JupyterView.vue'
 
 const router = createRouter({
@@ -42,7 +43,17 @@ const router = createRouter({
       path: '/playground',
       name: 'playground',
       component: JupyterView
-    }
+    },
+    {
+      path: '/logs',
+      name: 'logs',
+      component: LogView
+    },
+    {
+      path: '/env',
+      name: 'env',
+      component: LogView
+    },
     // {
     //   path: '/about',
     //   name: 'about',

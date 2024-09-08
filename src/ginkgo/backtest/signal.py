@@ -17,17 +17,12 @@ class Signal(Base):
         code: str = "Default Signal Code",
         direction: DIRECTION_TYPES = None,
         timestamp: any = None,
-        uuid: str = "",
+        engine_id: str = "",
         *args,
         **kwargs
     ) -> None:
         super(Signal, self).__init__(*args, **kwargs)
-        self._name = "Signal"
-        self.set(code, direction, timestamp, uuid)
-
-    @property
-    def name(self) -> str:
-        return self._name
+        self.set(code, direction, timestamp, engine_id)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -38,18 +33,13 @@ class Signal(Base):
         self,
         code: str,
         direction: DIRECTION_TYPES,
-        timestamp: str or datetime.datetime,
-        id: str = "",
-        backtest_id: str = "",
+        timestamp: any,
+        engine_id: str = "",
     ):
         self._code: str = code
-        self._timestamp: datetime.datetime = datetime_normalize(timestamp)
         self._direction: DIRECTION_TYPES = direction
-
-        if len(id) > 0:
-            self._uuid: str = id
-        else:
-            self._uuid = uuid.uuid4().hex
+        self._timestamp: datetime.datetime = datetime_normalize(timestamp)
+        self._engine_id = engine_id
 
     @set.register
     def _(self, df: pd.Series):
@@ -58,7 +48,7 @@ class Signal(Base):
         """
         self._code: str = df.code
         self._timestamp: datetime.datetime = datetime_normalize(df.timestamp)
-        self._uuid: str = df.uuid
+        self._engine_id = df.engine_id
         self._direction: DIRECTION_TYPES = DIRECTION_TYPES(df.direction)
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
@@ -72,8 +62,12 @@ class Signal(Base):
         return self._timestamp
 
     @property
-    def uuid(self) -> str:
-        return self._uuid
+    def backtest_id(self) -> str:
+        return self._engine_id
+
+    @property
+    def portfolio_id(self) -> str:
+        return self._engine_id
 
     @property
     def direction(self) -> DIRECTION_TYPES:

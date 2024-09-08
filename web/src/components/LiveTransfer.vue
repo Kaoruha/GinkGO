@@ -38,7 +38,7 @@
     <Button
       class="bg-blue-50 h-[40px] my-4 text-blue-300 rounded text-sm font-medium hover:text-blue-500 hover:bg-blue-100"
     >
-      Add Record
+      Add Transfer
     </Button>
   </div>
 </template>

@@ -15,6 +15,16 @@
     >
     </ConfirmDialog>
     <button
+      :disabled="!is_able_to_run"
+      class="w-[208px] h-[44px] rounded-xl absolute right-60 shadow"
+      :class="{
+        'bg-gray-300 text-gray-700 cursor-not-allowed opacity-50': !is_able_to_run,
+        'bg-blue-500 hover:bg-blue-700 text-white': is_able_to_run
+      }"
+    >
+    RUN
+    </button>
+    <button
       :disabled="!is_content_update"
       @click="save"
       class="w-[208px] h-[44px] rounded-xl absolute right-4 shadow"
@@ -73,6 +83,8 @@ const file_selected = defineModel()
 
 const is_content_update = ref(false)
 
+const is_able_to_run = ref(true)
+
 const categories = ref(['Code', 'Node'])
 const code = ref(null)
 
@@ -99,6 +111,7 @@ async function getFileContent(file_id) {
     const res = response.data
     raw_code = res.content
     code.value = res.content
+    is_able_to_run.value = res.type == 7
   } catch (error) {
     console.error('请求API时出错:', error)
   }

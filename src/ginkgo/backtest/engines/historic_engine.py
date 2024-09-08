@@ -73,7 +73,8 @@ class HistoricEngine(EventEngine):
 
     def set_date_start(self, date: any) -> datetime.datetime:
         self._date_start = datetime_normalize(date)
-        self._now = self._date_start
+        if self._now is None:
+            self._now = self._date_start
         GLOG.DEBUG(f"{type(self)}:{self.name} set DATESTART {self.date_start}.")
         return self.date_start
 

@@ -37,8 +37,10 @@ class MStockInfo(MClickBase):
         code_name: str,
         industry: str,
         currency: CURRENCY_TYPES,
-        list_date: str or datetime.datetime,
-        delist_date: str or datetime.datetime,
+        list_date: any,
+        delist_date: any,
+        *args,
+        **kwargs,
     ) -> None:
         self.code = code
         self.code_name = code_name
@@ -48,7 +50,7 @@ class MStockInfo(MClickBase):
         self.delist_date = datetime_normalize(delist_date)
 
     @set.register
-    def _(self, df: pd.Series) -> None:
+    def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df.code
         self.code_name = df.code_name
         self.industry = df.industry

@@ -95,27 +95,18 @@ class MatchMakingBase(BacktestBase):
         # Check Current Time
         if timestamp is None:
             GLOG.ERROR(f"Price Event has no time. It is illegal")
-            import pdb
-
-            pdb.set_trace()
             return
 
         if timestamp < self.now:
             GLOG.ERROR(
                 f"Current Time is {self.now} the price come from past {event.timestamp}"
             )
-            import pdb
-
-            pdb.set_trace()
             return
 
         elif timestamp > self.now:
             GLOG.ERROR(
                 f"Current Time is {self.now} the price come from future {event.timestamp}"
             )
-            import pdb
-
-            pdb.set_trace()
             return
 
         # One Frame just accept one line a code
@@ -125,9 +116,6 @@ class MatchMakingBase(BacktestBase):
                 GLOG.ERROR(
                     f"Got 2 lines with {event.code} at this frame. Something Wrong."
                 )
-                import pdb
-
-                pdb.set_trace()
                 return
             elif q.shape[0] == 1:
                 GLOG.WARN(

@@ -27,14 +27,16 @@ class MTradeDay(MClickBase):
         self,
         market: MARKET_TYPES,
         is_open: bool,
-        date: str or datetime.datetime,
+        date: any,
+        *args,
+        **kwargs,
     ) -> None:
         self.market = market
         self.is_open = is_open
         self.timestamp = datetime_normalize(date)
 
     @set.register
-    def _(self, df: pd.Series) -> None:
+    def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.timestamp = datetime_normalize(df.date)
         self.market = df.market
         self.is_open = df.is_open
