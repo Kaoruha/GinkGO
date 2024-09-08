@@ -8,7 +8,7 @@ import telebot
 import shutil
 import yaml
 import os
-from ginkgo.artificial_intelligence.gemma_7b import Gemma7B
+# from ginkgo.artificial_intelligence.gemma_7b import Gemma7B
 
 import psutil
 
