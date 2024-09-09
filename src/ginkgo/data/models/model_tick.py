@@ -9,7 +9,7 @@ from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 
 
 class MTick(MClickBase):
-    __abstract__ = False
+    __abstract__ = True
     __tablename__ = "tick"
 
     code = Column(String(), default="ginkgo_test_code")
@@ -31,7 +31,7 @@ class MTick(MClickBase):
         price: float,
         volume: int,
         direction: TICKDIRECTION_TYPES,
-        time_stamp: any,
+        timestamp: any,
         *args,
         **kwargs,
     ) -> None:
@@ -39,7 +39,7 @@ class MTick(MClickBase):
         self.price = round(price, 6)
         self.volume = volume
         self.direction = direction
-        self.timestamp = datetime_normalize(time_stamp)
+        self.timestamp = datetime_normalize(timestamp)
 
     @set.register
     def _(self, df: pd.Series, *args, **kwargs) -> None:

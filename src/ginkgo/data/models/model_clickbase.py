@@ -32,7 +32,10 @@ base = declarative_base(metadata=metadata)
 class MClickBase(base):
     __abstract__ = True
     __tablename__ = "ClickBaseModel"
-    __table_args__ = (engines.MergeTree(order_by=("timestamp",)),)
+    __table_args__ = (
+        engines.MergeTree(order_by=("timestamp",)),
+        {"extend_existing": True},
+    )
 
     uuid = Column(String(32), primary_key=True)
     desc = Column(
