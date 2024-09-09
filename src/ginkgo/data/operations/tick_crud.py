@@ -2,11 +2,12 @@ import pandas as pd
 from typing import List, Optional, Union
 from sqlalchemy import and_
 
-from ginkgo.data.drivers import add,add_all, get_click_connection, GinkgoClickhouse
-from ginkgo.data.models import MTick
+from ginkgo.data.drivers import add, add_all, get_click_connection, GinkgoClickhouse
+from ginkgo.data.models import MTick, MClickBase
 from ginkgo.backtest import Tick
-from ginkgo.enums import TICKDIRECTION_TYPES,
+from ginkgo.enums import TICKDIRECTION_TYPES
 from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import datetime_normalize
 
 
 def get_tick_model(code: str, *args, **kwargs) -> type:
@@ -32,39 +33,42 @@ def get_tick_model(code: str, *args, **kwargs) -> type:
 
 
 def add_tick(
-        code: str,
-        price: float,
-        volume: int,
-        direction: TICKDIRECTION_TYPES,
-        timestamp: any,
-        *args,
-        **kwargs,
-        ) -> str:
+    code: str,
+    price: float,
+    volume: int,
+    direction: TICKDIRECTION_TYPES,
+    timestamp: any,
+    *args,
+    **kwargs,
+) -> str:
     model = get_tick_model(code)
     item = model()
-    item.set(code,price,volume, direction, timestamp)
+    item.set(code, price, volume, direction, timestamp)
     uuid = item.uuid
     add(item)
     return uuid
 
-def add_ticks(ticks:List[Uniton[MTick,Tick]] = None, *args, **kwargs):
-    l = []
+
+def add_ticks(ticks: List[Union[MTick, Tick]] = None, *args, **kwargs):
+    l = {}
     for i in ticks:
-        if isinstance(i, MTick):
-            l.append(i)
-        elif isinstance(i, Tick):
-            item = MTick()
-            item.set(i.code,i.price,i.volume, i.direction, i.timestamp)
-            l.append(item)
-        else:
-            GLOG.WARN("add ticks only support tick data.")
-    return add_all(l)
+        code = i.code
+        if code not in l.keys():
+            l[code] = []
+        model = get_tick_model(code)
+        item = model()
+        item.set(i.code, i.price, i.volume, i.direction, i.timestamp)
+        l[code].append(item)
+    for k, v in l.items():
+        add_all(v)
 
 
 def delete_tick_by_id(id: str, connection: Optional[GinkgoClickhouse] = None, *args, **kwargs) -> int:
     conn = connection if connection else get_click_connection()
     model = get_tick_model(code)
-    filters = [ model.uuid == id, ]
+    filters = [
+        model.uuid == id,
+    ]
     try:
         query = conn.session.query(model).filter(and_(*filters))
         res = query.delete()
@@ -78,6 +82,7 @@ def delete_tick_by_id(id: str, connection: Optional[GinkgoClickhouse] = None, *a
     finally:
         conn.close_session()
 
+
 def delete_tick_by_code_and_date_range(
     code: str,
     start_date: Optional[any] = None,
@@ -86,15 +91,20 @@ def delete_tick_by_code_and_date_range(
     *args,
     **kwargs,
 ) -> int:
+    import pdb
+
+    pdb.set_trace()
     conn = connection if connection else get_click_connection()
     model = get_tick_model(code)
-    filters = [ model.code == code, ]
+    filters = [
+        model.code == code,
+    ]
     if start_date:
         start_date = datetime_normalize(start_date)
-        filters.append(model.timestamp >=start_date)
+        filters.append(model.timestamp >= start_date)
     if end_date:
         end_date = datetime_normalize(end_date)
-        filters.append(model.timestamp <=end_date)
+        filters.append(model.timestamp <= end_date)
     try:
         query = conn.session.query(model).filter(and_(*filters))
         res = query.delete()
@@ -116,9 +126,9 @@ def softdelete_tick_by_code_and_date_range(
     connection: Optional[GinkgoClickhouse] = None,
     *args,
     **kwargs,
-        ) -> int:
+) -> int:
     GLOG.WARN("Tick Data not support softdelete, run delete instead.")
-    return delete_tick_by_codeanddate(code,start_date,end_date,connection,*args,**kwargs)
+    return delete_tick_by_codeanddate(code, start_date, end_date, connection, *args, **kwargs)
 
 
 def update_tick(tick: Union[MTick, Tick], connection: Optional[GinkgoClickhouse] = None, *args, **kwargs):
@@ -126,10 +136,7 @@ def update_tick(tick: Union[MTick, Tick], connection: Optional[GinkgoClickhouse]
     model = get_tick_model(code)
     code = tick.code
     time = datetime_normalize(tick.timestamp)
-    filters = [
-            model.code == code,
-            model.timestamp == time
-        ]
+    filters = [model.code == code, model.timestamp == time]
     try:
         query = conn.session.query(model).filter(and_(*filters))
         res = query.delete()
@@ -145,6 +152,7 @@ def update_tick(tick: Union[MTick, Tick], connection: Optional[GinkgoClickhouse]
 
     add_tick(tick.code, tick.price, tick.volume, tick.direction, datetime_normalize(tick.timestamp))
 
+
 def get_tick(
     code: str,
     start_date: Optional[any] = None,
@@ -159,16 +167,16 @@ def get_tick(
     conn = connection if connection else get_click_connection()
     model = get_tick_model(code)
     filters = [
-            model.code == code,
-        ]
+        model.code == code,
+    ]
 
     if start_date:
         start_date = datetime_normalize(start_date)
-        filters.append(model.timestamp >=start_date)
+        filters.append(model.timestamp >= start_date)
 
     if end_date:
         end_date = datetime_normalize(end_date)
-        filters.append(model.timestamp <=end_date)
+        filters.append(model.timestamp <= end_date)
 
     try:
         query = conn.session.query(model).filter(and_(*filters))
@@ -190,14 +198,16 @@ def get_tick(
                 res = []
                 for i in query:
                     item = Tick()
-                    item.set(i['code'],i['price'],i['volume'],i['direction'],i['timestamp'])
+                    item.set(i.code, i.price, i.volume, i.direction, i.timestamp)
                     res.append(item)
                 return res
-        return res
     except Exception as e:
         conn.session.rollback()
         print(e)
         GLOG.ERROR(e)
-        return 0
+        if as_dataframe:
+            return pd.DataFrame()
+        else:
+            return []
     finally:
         conn.close_session()
