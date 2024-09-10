@@ -91,9 +91,6 @@ def delete_tick_by_code_and_date_range(
     *args,
     **kwargs,
 ) -> int:
-    import pdb
-
-    pdb.set_trace()
     conn = connection if connection else get_click_connection()
     model = get_tick_model(code)
     filters = [
@@ -128,7 +125,7 @@ def softdelete_tick_by_code_and_date_range(
     **kwargs,
 ) -> int:
     GLOG.WARN("Tick Data not support softdelete, run delete instead.")
-    return delete_tick_by_codeanddate(code, start_date, end_date, connection, *args, **kwargs)
+    return delete_tick_by_code_and_date_range(code, start_date, end_date, connection, *args, **kwargs)
 
 
 def update_tick(tick: Union[MTick, Tick], connection: Optional[GinkgoClickhouse] = None, *args, **kwargs):
@@ -198,7 +195,7 @@ def get_tick(
                 res = []
                 for i in query:
                     item = Tick()
-                    item.set(i.code, i.price, i.volume, i.direction, i.timestamp)
+                    item.set(i)
                     res.append(item)
                 return res
     except Exception as e:

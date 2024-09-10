@@ -14,15 +14,16 @@ class Signal(Base):
 
     def __init__(
         self,
+        portfolio_id: str = "",
+        timestamp: any = None,
         code: str = "Default Signal Code",
         direction: DIRECTION_TYPES = None,
-        timestamp: any = None,
-        engine_id: str = "",
+        reason: str = "no reason",
         *args,
         **kwargs
     ) -> None:
         super(Signal, self).__init__(*args, **kwargs)
-        self.set(code, direction, timestamp, engine_id)
+        self.set(portfolio_id, timestamp, code, direction, reason)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -31,25 +32,28 @@ class Signal(Base):
     @set.register
     def _(
         self,
+        portfolio_id: str,
+        timestamp: any,
         code: str,
         direction: DIRECTION_TYPES,
-        timestamp: any,
-        engine_id: str = "",
+        reason: str,
     ):
+        self._portfolio_id = portfolio_id
+        self._timestamp: datetime.datetime = datetime_normalize(timestamp)
         self._code: str = code
         self._direction: DIRECTION_TYPES = direction
-        self._timestamp: datetime.datetime = datetime_normalize(timestamp)
-        self._engine_id = engine_id
+        self._reason = reason
 
     @set.register
     def _(self, df: pd.Series):
         """
         Set from dataframe
         """
-        self._code: str = df.code
+        self._portfolio_id = df.portfolio_id
         self._timestamp: datetime.datetime = datetime_normalize(df.timestamp)
-        self._engine_id = df.engine_id
+        self._code: str = df.code
         self._direction: DIRECTION_TYPES = DIRECTION_TYPES(df.direction)
+        self._reason = df.reason
         if "source" in df.keys():
             self.set_source(SOURCE_TYPES(df.source))
 
@@ -63,15 +67,19 @@ class Signal(Base):
 
     @property
     def backtest_id(self) -> str:
-        return self._engine_id
+        return self._portfolio_id
 
     @property
     def portfolio_id(self) -> str:
-        return self._engine_id
+        return self._portfolio_id
 
     @property
     def direction(self) -> DIRECTION_TYPES:
         return self._direction
+
+    @property
+    def reason(self) -> str:
+        return self._reason
 
     @property
     def source(self) -> SOURCE_TYPES:

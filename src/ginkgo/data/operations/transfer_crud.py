@@ -217,7 +217,8 @@ def get_transfer_by_portfolio_id(
             else:
                 res = []
                 for i in query:
-                    item = Transfer(i.portfolio_id, i.direction, i.market, i.money, i.timestamp)
+                    item = Transfer()
+                    item.set(i)
                     res.append(item)
                 return res
     except Exception as e:

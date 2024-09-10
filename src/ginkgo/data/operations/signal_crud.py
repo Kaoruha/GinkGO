@@ -8,9 +8,11 @@ from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import datetime_normalize
 
 
-def add_signal(code: str, direction: DIRECTION_TYPES, timestamp: any, engine_id: str):
+def add_signal(
+    portfolio_id: str, timestamp: any, code: str, direction: DIRECTION_TYPES, reason: str = "", *args, **kwargs
+):
     item = MSignal()
-    item.set(code, direction, datetime_normalize(timestamp), engine_id)
+    item.set(portfolio_id, datetime_normalize(timestamp), code, direction, reason)
     uuid = item.uuid
     add(item)
     return uuid
@@ -24,7 +26,7 @@ def add_signals(signals: List[Union[Signal, MSignal]]):
             continue
         elif isinstance(i, Signal):
             item = MSignal()
-            item.set(i.code, i.direction, datetime_normalize(i.timestamp), i.engine_id)
+            item.set(i.portfolio_id, i.timestamp, i.code, i.direction, i.reason)
             l.append(item)
             continue
         else:

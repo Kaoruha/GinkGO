@@ -7,7 +7,7 @@ from ginkgo.libs import base_repr
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, DIRECTION_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES
 from ginkgo.libs import datetime_normalize
-from ginkgo.data.models import MTransfer
+from ginkgo.data.models import MTransfer, MTransferRecord
 
 
 class Transfer(Base):
@@ -65,6 +65,15 @@ class Transfer(Base):
         self._market = model.market
         self._money = model.money
         self._status = model.status
+        self._timestamp = datetime_normalize(model.timestamp)
+
+    @set.register
+    def _(self, model: MTransferRecord) -> None:
+        self._portfolio_id = model.portfolio_id
+        self._direction = model.direction
+        self._market = model.market
+        self._money = model.money
+        self._status = TRANSFERSTATUS_TYPES.FILLED
         self._timestamp = datetime_normalize(model.timestamp)
 
     @property

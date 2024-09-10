@@ -1,3 +1,4 @@
+import pandas as pd
 from typing import List, Optional, Union
 from sqlalchemy import and_
 
@@ -40,7 +41,7 @@ def add_stockinfos(stockinfos: List[Union[StockInfo, MStockInfo]], *args, **kwar
     return add_all(l)
 
 
-def delelte_stockinfo(
+def delete_stockinfo(
     code: str,
     connection: Optional[GinkgoClickhouse] = None,
     *args,
@@ -48,7 +49,9 @@ def delelte_stockinfo(
 ):
     conn = connection if connection else get_click_connection()
     model = MStockInfo
-    filters = [ model.code == code, ]
+    filters = [
+        model.code == code,
+    ]
     try:
         query = conn.session.query(model).filter(and_(*filters))
         res = query.delete()
@@ -63,14 +66,14 @@ def delelte_stockinfo(
         conn.close_session()
 
 
-def softdelelte_stockinfo(
+def softdelete_stockinfo(
     code: str,
     connection: Optional[GinkgoClickhouse] = None,
     *args,
     **kwargs,
 ):
     GLOG.WARN("Tick Data not support softdelete, run delete instead.")
-    return delelte_stockinfo(code, connection, *args, **kwargs)
+    return delete_stockinfo(code, connection, *args, **kwargs)
 
 
 def update_stockinfo(
@@ -96,7 +99,8 @@ def get_stockinfo(
     delist_date: Optional[any] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
-    as_dataframe: Optional[bool] = False.
+    as_dataframe: Optional[bool] = False,
+    fuzzy: Optional[bool] = False,
     connection: Optional[GinkgoClickhouse] = None,
     *args,
     **kwargs,
@@ -105,21 +109,32 @@ def get_stockinfo(
     model = MStockInfo
     filters = []
     if code:
-        filters.append(model.code.like(f"%{code}%"))
+        if fuzzy:
+            filters.append(model.code.like(f"%{code}%"))
+        else:
+            filters.append(model.code == code)
 
     if code_name:
-        filters.append(model.code_name.like(f"%{code_name}%"))
+        if fuzzy:
+            filters.append(model.code_name.like(f"%{code_name}%"))
+        else:
+            filters.append(model.code_name == code_name)
+    if industry:
+        if fuzzy:
+            filters.append(model.industry.like(f"%{industry}%"))
+        else:
+            filters.append(model.industry == industry)
 
     if currency:
         filters.append(model.currency == currency)
 
     if list_date:
         list_date = datetime_normalize(list_date)
-        filters.append(model.timestamp >= list_date)
+        filters.append(model.list_date >= list_date)
 
     if delist_date:
         delist_date = datetime_normalize(delist_date)
-        filters.append(model.timestamp <= delist_date)
+        filters.append(model.delist_date <= delist_date)
 
     try:
         query = conn.session.query(model).filter(and_(*filters))
@@ -140,8 +155,8 @@ def get_stockinfo(
             else:
                 res = []
                 for i in query:
-                    item = Tick()
-                    item.set(i['code'],i['price'],i['volume'],i['direction'],i['timestamp'])
+                    item = StockInfo()
+                    item.set(i)
                     res.append(item)
                 return res
         return res

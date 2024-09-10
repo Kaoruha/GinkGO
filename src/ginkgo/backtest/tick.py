@@ -8,9 +8,17 @@ from ginkgo.data.models import MTick
 
 
 class Tick(Base):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        code: str = "defaultcode",
+        price: float = 0,
+        volume: int = 0,
+        direction=TICKDIRECTION_TYPES.OTHER,
+        *args,
+        **kwargs
+    ) -> None:
         super(Tick, self).__init__(*args, **kwargs)
-        self._code = "default tick"
+        self._code = code
         self._price = 0
         self._volume = 0
         self._direction = None
