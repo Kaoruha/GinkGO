@@ -146,12 +146,16 @@ def get_tradeday_by_market_and_date_range(
             else:
                 res = []
                 for i in query:
-                    item = (i.timestamp, i.is_open)
+                    item = TradeDay()
+                    item.set(i)
                     res.append(item)
                 return res
     except Exception as e:
         conn.session.rollback()
         print(e)
+        import pdb
+
+        pdb.set_trace()
         GLOG.ERROR(e)
         return []
     finally:

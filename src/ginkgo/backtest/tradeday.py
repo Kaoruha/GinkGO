@@ -9,7 +9,14 @@ from ginkgo.libs import datetime_normalize
 
 
 class TradeDay(Base):
-    def __init__(self, market: MARKET_TYPES, is_open: bool, timestamp: any, *args, **kwargs):
+    def __init__(
+        self,
+        market: MARKET_TYPES = MARKET_TYPES.CHINA,
+        is_open: bool = True,
+        timestamp: any = "1990-01-01",
+        *args,
+        **kwargs
+    ):
         super(TradeDay, self).__init__(*args, **kwargs)
         self._market = market
         self._is_open = is_open

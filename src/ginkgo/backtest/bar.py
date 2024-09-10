@@ -13,8 +13,21 @@ class Bar(Base):
     Bar Container. Store OHLC, code, time and other info.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        code: str = "defaultcode",
+        open: float = 0,
+        high: float = 0,
+        low: float = 0,
+        close: float = 0,
+        volume: int = 0,
+        frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
+        timestamp: any = "1990-01-01",
+        *args,
+        **kwargs
+    ) -> None:
         super(Bar, self).__init__(*args, **kwargs)
+        self.set(code, open, high, low, cloase, frequency, volume, timestamp)
 
     @singledispatchmethod
     def set(self) -> None:
