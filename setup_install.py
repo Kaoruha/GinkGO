@@ -8,6 +8,7 @@ import time
 import shutil
 from src.ginkgo.config.package import VERSION
 
+os.system("pip install setuptools")
 # Remove Package
 wd = os.path.dirname(os.path.abspath(__file__))
 os.system("pip uninstall ginkgo -y")
@@ -31,6 +32,7 @@ os.system(packageinstall)
 
 # Clean
 print("Clean Setup Cache.")
+os.system("pip uninstall setuptools -y")
 os.system(f"rm -rf {wd}/dist")
 os.system(f"rm -rf {wd}/build")
 os.system(f"rm -rf {wd}/src/ginkgo.egg-info")

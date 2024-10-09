@@ -14,15 +14,26 @@ class Position(Base):
     Holding Position Class.
     """
 
-    def __init__(self, engine_id: str = "", code="", cost=0.0, volume=0, price=0, *args, **kwargs):
+    def __init__(
+        self,
+        portfolio_id: str = "",
+        code: str = "",
+        cost: float = 0.0,
+        volume: int = 0,
+        price: float = 0,
+        frozen: int = 0,
+        fee: float = 0,
+        *args,
+        **kwargs,
+    ):
         super(Position, self).__init__(*args, **kwargs)
-        self._engine_id = engine_id
+        self._portfolio_id = portfolio_id
         self._code = code
-        self._cost = price
+        self._cost = cost
         self._volume = volume
+        self._frozen = frozen
         self._price = price
-        self._frozen = 0
-        self._fee = 0
+        self._fee = fee
         self._profit = 0
         self._worth = 0
         self.update_worth()
@@ -33,12 +44,12 @@ class Position(Base):
         pass
 
     @set.register
-    def _(self, engine_id: str, code: str, cost: float, volume: int, fee: float, *args, **kwargs) -> None:
+    def _(self, portfolio_id: str, code: str, cost: float, volume: int, fee: float, *args, **kwargs) -> None:
         """
         Data reset.
         return: none
         """
-        self._engine_id = engine_id
+        self._portfolio_id = portfolio_id
         code = str(code)
         price = float(price)
         cost = float(cost)
@@ -50,7 +61,7 @@ class Position(Base):
 
     @set.register
     def _(self, df: pd.DataFrame, *args, **kwargs):
-        self._engine_id = df["engine_id"]
+        self._portfolio_id = df["portfolio_id"]
         self._code = df["code"]
         self._cost = float(df["cost"])
         self._volume = int(df["volume"])
@@ -60,7 +71,7 @@ class Position(Base):
 
     @set.register
     def _(self, model: MPosition, *args, **kwargs):
-        self._engine_id = model.engine_id
+        self._portfolio_id = model.portfolio_id
         self._code = model.code
         self._cost = model.cost
         self._volume = model.volume
@@ -69,35 +80,8 @@ class Position(Base):
         self._profit = model.profit
 
     @property
-    def backtest_id(self, *args, **kwargs) -> str:
-        return self._engine_id
-
-    @property
     def portfolio_id(self, *args, **kwargs) -> str:
-        return self._engine_id
-
-    def set_engine_id(self, value: str, *args, **kwargs) -> str:
-        """
-        Backtest ID update.
-
-        Args:
-            value(str): new backtest id
-        Returns:
-            current backtest id
-        """
-        self._engine_id = value
-        return self._engine_id
-
-    def set_backtest_id(self, value: str, *args, **kwargs) -> str:
-        """
-        Backtest ID update.
-
-        Args:
-            value(str): new backtest id
-        Returns:
-            current backtest id
-        """
-        return self.set_engine_id(value)
+        return self._portfolio_id
 
     def set_portfolio_id(self, value: str, *args, **kwargs) -> str:
         """
@@ -108,7 +92,8 @@ class Position(Base):
         Returns:
             current backtest id
         """
-        return self.set_engine_id(value)
+        self._portfolio_id = value
+        return self._portfolio_id
 
     @property
     def volume(self, *args, **kwargs) -> int:
@@ -148,7 +133,6 @@ class Position(Base):
         """
         if self._price < 0:
             GLOG.CRITICAL(f"Price is less than 0: {self._price}")
-            return 0
         if not isinstance(self._price, (float, int)):
             GLOG.CRITICAL(f"Price is not a float/int: {self._price}")
             return 0
@@ -159,7 +143,7 @@ class Position(Base):
         """
         Average Cost.
         """
-        return self._cost
+        return float(self._cost)
 
     @property
     def frozen(self, *args, **kwargs) -> float:
@@ -168,7 +152,6 @@ class Position(Base):
         """
         if self._frozen < 0:
             GLOG.CRITICAL(f"Frozen is less than 0: {self._frozen}")
-            return 0
         if not isinstance(self._frozen, (int, numpy.int64)):
             GLOG.CRITICAL(f"Frozen is not a int: {self._frozen}")
             return 0
@@ -210,7 +193,6 @@ class Position(Base):
         """
         if self._fee < 0:
             GLOG.CRITICAL(f"Fee is less than 0: {self._fee}")
-            return 0
         if not isinstance(self._fee, (float, int)):
             GLOG.CRITICAL(f"Fee is not a float/int: {self._fee}")
             return 0

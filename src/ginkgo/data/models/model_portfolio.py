@@ -1,11 +1,13 @@
 import pandas as pd
+import datetime
+
 from functools import singledispatchmethod
-from sqlalchemy import Column, String, Integer, DECIMAL, DateTime, BLOB
+from sqlalchemy import String, DECIMAL, DateTime, Boolean
+from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.backtest.order import Order
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs import base_repr, datetime_normalize
 
 
@@ -17,18 +19,47 @@ class MPortfolio(MMysqlBase):
     __abstract__ = False
     __tablename__ = "portfolio"
 
-    name = Column(String(40), default="default_live")
-
-    def __init__(self, *args, **kwargs) -> None:
-        super(MLivePortfolio, self).__init__(*args, **kwargs)
+    name: Mapped[str] = mapped_column(String(32), default="default_live")
+    backtest_start_date: Mapped[datetime.datetime] = mapped_column(DateTime)
+    backtest_end_date: Mapped[datetime.datetime] = mapped_column(DateTime)
+    is_live: Mapped[bool] = mapped_column(Boolean, default=False)
 
     @singledispatchmethod
-    def set(self) -> None:
-        pass
+    def update(self, *args, **kwargs) -> None:
+        raise NotImplementedError("Unsupported type")
 
-    @set.register
-    def _(self, name: str, *args, **kwargs) -> None:
+    @update.register(str)
+    def _(
+        self,
+        name: str,
+        backtest_start_date: any = None,
+        backtest_end_date: any = None,
+        is_live: bool = None,
+        source: SOURCE_TYPES = None,
+        *args,
+        **kwargs
+    ) -> None:
         self.name = name
+        if backtest_start_date is not None:
+            self.backtest_start_date = datetime_normalize(backtest_start_date)
+        if backtest_end_date is not None:
+            self.backtest_end_date = datetime_normalize(backtest_end_date)
+        if is_live is not None:
+            self.is_live = is_live
+        if source is not None:
+            self.source = source
+        self.update_at = datetime.datetime.now()
+
+    @update.register(pd.Series)
+    def _(self, df: pd.DataFrame, *args, **kwargs) -> None:
+        # TODO
+        self.name = df["name"]
+        self.backtest_start_date = datetime_normalize(df["backtest_start_date"])
+        self.backtest_end_date = datetime_normalize(df["backtest_end_date"])
+        self.is_live = df["is_live"]
+        if "source" in df.keys():
+            self.source = df["source"]
+        self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

@@ -1,9 +1,9 @@
 # import unittest
+# import uuid
 # import random
 # import time
 # import pandas as pd
 # import datetime
-# from ginkgo.libs.ginkgo_conf import GCONF
 
 # from ginkgo.enums import (
 #     SOURCE_TYPES,
@@ -14,7 +14,6 @@
 # from ginkgo.data.models import MBar
 
 # from ginkgo.backtest.bar import Bar
-# from ginkgo.data.ginkgo_data import GDATA
 
 
 # class ModelBarTest(unittest.TestCase):
@@ -24,31 +23,65 @@
 
 #     def __init__(self, *args, **kwargs) -> None:
 #         super(ModelBarTest, self).__init__(*args, **kwargs)
-#         self.test_count = 10
+#         self.count = 10
+#         self.model = MBar
 #         self.params = [
 #             {
-#                 "code": "testcode",
-#                 "uuid": "uuid1234uuid1234",
-#                 "source": SOURCE_TYPES.BAOSTOCK,
-#                 "open": 2,
-#                 "high": 2.44,
-#                 "low": 1,
-#                 "close": 1.99,
-#                 "volume": 23331,
+#                 "code": uuid.uuid4().hex,
+#                 "open": round(random.uniform(0, 100), 2),
+#                 "high": round(random.uniform(0, 100), 3),
+#                 "low": round(random.uniform(0, 100), 2),
+#                 "close": round(random.uniform(0, 100), 2),
+#                 "volume": random.randint(0, 1000),
+#                 "frequency": random.choice([i for i in FREQUENCY_TYPES]),
 #                 "timestamp": datetime.datetime.now(),
-#                 "frequency": FREQUENCY_TYPES.DAY,
-#                 "source": SOURCE_TYPES.SIM,
+#                 "source": random.choice([i for i in SOURCE_TYPES]),
 #             }
+#             for i in range(self.count)
 #         ]
 
 #     def test_ModelBar_Init(self) -> None:
 #         for i in self.params:
-#             o = MBar()
+#             o = self.model(
+#                 code=i["code"],
+#                 open=i["open"],
+#                 high=i["high"],
+#                 low=i["low"],
+#                 close=i["close"],
+#                 volume=i["volume"],
+#                 frequency=i["frequency"],
+#             )
+#             self.assertEqual(o.code, i["code"])
+#             self.assertEqual(o.open, i["open"])
+#             self.assertEqual(o.high, i["high"])
+#             self.assertEqual(o.low, i["low"])
+#             self.assertEqual(o.close, i["close"])
+#             self.assertEqual(o.volume, i["volume"])
+#             self.assertEqual(o.frequency, i["frequency"])
 
 #     def test_ModelBar_SetFromData(self) -> None:
 #         for i in self.params:
-#             o = MBar()
-#             o.set(
+#             o = self.model()
+#             o.update(i["code"])
+#             self.assertEqual(o.code, i["code"])
+#             o.update(i["code"], open=i["open"])
+#             self.assertEqual(o.open, i["open"])
+#             o.update(i["code"], high=i["high"])
+#             self.assertEqual(o.high, i["high"])
+#             o.update(i["code"], low=i["low"])
+#             self.assertEqual(o.low, i["low"])
+#             o.update(i["code"], close=i["close"])
+#             self.assertEqual(o.close, i["close"])
+#             o.update(i["code"], volume=i["volume"])
+#             self.assertEqual(o.volume, i["volume"])
+#             o.update(i["code"], frequency=i["frequency"])
+#             self.assertEqual(o.frequency, i["frequency"])
+#             o.update(i["code"], timestamp=i["timestamp"])
+#             self.assertEqual(o.timestamp, i["timestamp"])
+
+#         for i in self.params:
+#             o = self.model()
+#             o.update(
 #                 i["code"],
 #                 i["open"],
 #                 i["high"],
@@ -58,7 +91,6 @@
 #                 i["frequency"],
 #                 i["timestamp"],
 #             )
-#             o.set_source(i["source"])
 #             self.assertEqual(o.code, i["code"])
 #             self.assertEqual(o.open, i["open"])
 #             self.assertEqual(o.high, i["high"])
@@ -66,14 +98,12 @@
 #             self.assertEqual(o.close, i["close"])
 #             self.assertEqual(o.volume, i["volume"])
 #             self.assertEqual(o.timestamp, i["timestamp"])
-#             self.assertEqual(o.source, i["source"])
 
 #     def test_ModelBar_SetFromDataFrame(self) -> None:
 #         for i in self.params:
 #             df = pd.DataFrame.from_dict(i, orient="index")[0]
-#             o = MBar()
-#             o.set(df)
-#             o.set_source(i["source"])
+#             o = self.model()
+#             o.update(df)
 #             self.assertEqual(o.code, i["code"])
 #             self.assertEqual(o.open, i["open"])
 #             self.assertEqual(o.high, i["high"])
@@ -82,38 +112,3 @@
 #             self.assertEqual(o.volume, i["volume"])
 #             self.assertEqual(o.timestamp, i["timestamp"])
 #             self.assertEqual(o.source, i["source"])
-
-#     def test_ModelBar_Insert(self) -> None:
-#         GDATA.create_table(MBar)
-#         size0 = GDATA.get_table_size(MBar)
-#         o = MBar()
-#         GDATA.add(o)
-#         size1 = GDATA.get_table_size(MBar)
-#         self.assertEqual(1, size1 - size0)
-
-#     def test_ModelBar_BatchInsert(self) -> None:
-#         GDATA.create_table(MBar)
-#         times = random.random() * self.test_count
-#         times = int(times)
-#         for i in range(times):
-#             size0 = GDATA.get_table_size(MBar)
-#             print(f"ModelBar BatchInsert Test : {i+1}", end="\r")
-#             count = random.random() * self.test_count
-#             count = int(count)
-#             s = []
-#             for j in range(count):
-#                 o = MBar()
-#                 s.append(o)
-#             GDATA.add_all(s)
-#             size1 = GDATA.get_table_size(MBar)
-#             self.assertEqual(count, size1 - size0)
-
-#     def test_ModelBar_Query(self) -> None:
-#         GDATA.create_table(MBar)
-#         o = MBar()
-#         o.open = 111
-#         uuid = o.uuid
-#         GDATA.add(o)
-#         r = GDATA.get_driver(MBar).session.query(MBar).filter(MBar.uuid == uuid).first()
-#         self.assertNotEqual(r, None)
-#         self.assertEqual(r.open, 111)

@@ -1,30 +1,26 @@
 import unittest
 import time
-from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
+
+from ginkgo.data.drivers.ginkgo_mysql import GinkgoMysql
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs.ginkgo_logger import GLOG
 
 
-class ClickDriverTest(unittest.TestCase):
+class MysqlDriverTest(unittest.TestCase):
     """
-    UnitTest for Clickhouse Driver.
+    UnitTest for Mysql Driver.
     """
 
     # Init
 
     def __init__(self, *args, **kwargs) -> None:
-        super(ClickDriverTest, self).__init__(*args, **kwargs)
-        self.dev = False
+        super(MysqlDriverTest, self).__init__(*args, **kwargs)
 
-    def test_ClickDriver_Init(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
-
-        db = GinkgoClickhouse(
-            user=GCONF.CLICKUSER,
-            pwd=GCONF.CLICKPWD,
-            host=GCONF.CLICKHOST,
-            port=GCONF.CLICKPORT,
-            db=GCONF.CLICKDB,
+    def test_MysqlDriver_Init(self) -> None:
+        driver = GinkgoMysql(
+            user=GCONF.MYSQLUSER,
+            pwd=GCONF.MYSQLPWD,
+            host=GCONF.MYSQLHOST,
+            port=GCONF.MYSQLPORT,
+            db=GCONF.MYSQLDB,
         )
-        r = db.is_table_exsists("Shouldnotbethere")
-        self.assertEqual(False, r)
+        self.assertNotEqual(None, driver)

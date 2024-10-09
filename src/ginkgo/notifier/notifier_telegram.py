@@ -109,7 +109,7 @@ def list_handler(message):
 
 
 def get_backtest_strategies():
-    raw = GDATA.get_file_list_df(FILE_TYPES.BACKTEST.value)
+    raw = GDATA.get_file_list_df(FILE_TYPES.ENGINE.value)
     res = []
     count = 0
     for i, r in raw.iterrows():

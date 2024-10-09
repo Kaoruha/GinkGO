@@ -1,37 +1,15 @@
 # import unittest
+# import uuid
 # import base64
 # import random
 # import time
 # import pandas as pd
 # import datetime
-# from ginkgo.libs.ginkgo_conf import GCONF
 
-# from ginkgo.enums import (
-#     SOURCE_TYPES,
-#     DIRECTION_TYPES,
-#     ORDER_TYPES,
-#     ORDERSTATUS_TYPES,
-#     FREQUENCY_TYPES,
-#     CURRENCY_TYPES,
-#     MARKET_TYPES,
-# )
+# from ginkgo.enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES
 
 # from ginkgo.libs.ginkgo_normalize import datetime_normalize
-# from ginkgo.data.models import (
-#     MOrder,
-#     MTradeDay,
-#     MStockInfo,
-#     MSignal,
-#     MTick,
-#     MAdjustfactor,
-#     MBar,
-# )
-
-# from ginkgo.backtest.bar import Bar
-# from ginkgo.backtest.tick import Tick
-# from ginkgo.backtest.order import Order
-# from ginkgo.data.ginkgo_data import GDATA
-# from ginkgo.libs.ginkgo_logger import GLOG
+# from ginkgo.data.models import MStockInfo
 
 
 # class ModelStockInfoTest(unittest.TestCase):
@@ -41,98 +19,88 @@
 
 #     def __init__(self, *args, **kwargs) -> None:
 #         super(ModelStockInfoTest, self).__init__(*args, **kwargs)
+#         self.count = 10
+#         self.model = MStockInfo
 #         self.params = [
 #             {
-#                 "code": "testcode",
-#                 "code_name": "testname",
-#                 "industry": "test industry",
-#                 "currency": CURRENCY_TYPES.CNY,
+#                 "code": uuid.uuid4().hex,
+#                 "code_name": uuid.uuid4().hex,
+#                 "industry": uuid.uuid4().hex,
+#                 "currency": random.choice([i for i in CURRENCY_TYPES]),
+#                 "market": random.choice([i for i in MARKET_TYPES]),
 #                 "list_date": datetime.datetime.now(),
 #                 "delist_date": datetime.datetime.now(),
-#                 "timestamp": datetime.datetime.now(),
-#                 "source": SOURCE_TYPES.SIM,
-#             },
-#             {
-#                 "code": "testcode2",
-#                 "code_name": "testname222",
-#                 "industry": "test industry222",
-#                 "currency": CURRENCY_TYPES.USD,
-#                 "list_date": datetime.datetime.now(),
-#                 "delist_date": datetime.datetime.now(),
-#                 "timestamp": datetime.datetime.now(),
-#                 "source": SOURCE_TYPES.SIM,
-#             },
+#                 "source": random.choice([i for i in SOURCE_TYPES]),
+#             }
+#             for i in range(self.count)
 #         ]
 
 #     def test_ModelStockInfo_Init(self) -> None:
 #         for i in self.params:
-#             o = MStockInfo()
+#             o = self.model(
+#                 code=i["code"],
+#                 code_name=i["code_name"],
+#                 industry=i["industry"],
+#                 currency=i["currency"],
+#                 market=i["market"],
+#                 list_date=i["list_date"],
+#                 delist_date=i["delist_date"],
+#                 source=i["source"],
+#             )
+#             self.assertEqual(o.code, i["code"])
+#             self.assertEqual(o.code_name, i["code_name"])
+#             self.assertEqual(o.industry, i["industry"])
+#             self.assertEqual(o.currency, i["currency"])
+#             self.assertEqual(o.market, i["market"])
+#             self.assertEqual(o.list_date, i["list_date"])
+#             self.assertEqual(o.delist_date, i["delist_date"])
+#             self.assertEqual(o.source, i["source"])
 
+#     def test_ModelStockInfo_SetFromData(self) -> None:
+#         for i in self.params:
+#             o = self.model()
+#             # Update code
+#             o.update(i["code"])
+#             self.assertEqual(o.code, i["code"])
 
-# #     def test_ModelStockInfo_SetFromData(self) -> None:
-# #         for i in self.params:
-# #             o = MStockInfo()
-# #             o.set(
-# #                 i["code"],
-# #                 i["code_name"],
-# #                 i["industry"],
-# #                 i["currency"],
-# #                 i["list_date"],
-# #                 i["delist_date"],
-# #             )
-# #             o.set_source(i["source"])
-# #             self.assertEqual(o.code, i["code"])
-# #             self.assertEqual(o.code_name, i["code_name"])
-# #             self.assertEqual(o.industry, i["industry"])
-# #             self.assertEqual(o.currency, i["currency"])
-# #             self.assertEqual(o.list_date, i["list_date"])
-# #             self.assertEqual(o.delist_date, i["delist_date"])
-# #             self.assertEqual(o.source, i["source"])
+#             # Update code_name
+#             o.update(i["code"], code_name=i["code_name"])
+#             self.assertEqual(o.code_name, i["code_name"])
 
-# #     def test_ModelStockInfo_SetFromDataFrame(self) -> None:
-# #         for i in self.params:
-# #             o = MStockInfo()
-# #             df = pd.DataFrame.from_dict(i, orient="index")
-# #             o.set(df[0])
-# #             self.assertEqual(o.code, i["code"])
-# #             self.assertEqual(o.code_name, i["code_name"])
-# #             self.assertEqual(o.industry, i["industry"])
-# #             self.assertEqual(o.currency, i["currency"])
-# #             self.assertEqual(o.list_date, i["list_date"])
-# #             self.assertEqual(o.delist_date, i["delist_date"])
-# #             self.assertEqual(o.source, i["source"])
+#             # Update industry
+#             o.update(i["code"], industry=i["industry"])
+#             self.assertEqual(o.industry, i["industry"])
 
-# #     def test_ModelStockInfo_Insert(self) -> None:
-# #         GDATA.create_table(MStockInfo)
-# #         times = random.random() * 500
-# #         times = int(times)
-# #         for j in range(times):
-# #             print(f"ModelStockInfo Insert Test : {j+1}", end="\r")
-# #             for i in self.params:
-# #                 size0 = GDATA.get_table_size(MStockInfo)
-# #                 o = MStockInfo()
-# #                 GDATA.add(o)
-# #                 size1 = GDATA.get_table_size(MStockInfo)
-# #                 self.assertEqual(1, size1 - size0)
+#             # Update currency
+#             o.update(i["code"], currency=i["currency"])
+#             self.assertEqual(o.currency, i["currency"])
 
-# #     def test_ModelStockInfo_BatchInsert(self) -> None:
-# #         GDATA.create_table(MStockInfo)
-# #         times = random.random() * 500
-# #         times = int(times)
-# #         for j in range(times):
-# #             size0 = GDATA.get_table_size(MStockInfo)
-# #             print(f"ModelStockInfo Insert Test : {j+1}", end="\r")
-# #             s = []
-# #             for i in self.params:
-# #                 o = MStockInfo()
-# #                 s.append(o)
-# #             GDATA.add_all(s)
-# #             size1 = GDATA.get_table_size(MStockInfo)
-# #             self.assertEqual(len(s), size1 - size0)
+#             # Update market
+#             o.update(i["code"], market=i["market"])
+#             self.assertEqual(o.market, i["market"])
 
-# #     def test_ModelStockInfo_Query(self) -> None:
-# #         GDATA.create_table(MStockInfo)
-# #         o = MStockInfo()
-# #         GDATA.add(o)
-# #         r = GDATA.get_driver(MStockInfo).session.query(MStockInfo).first()
-# #         self.assertNotEqual(r, None)
+#             # Update list_date
+#             o.update(i["code"], list_date=i["list_date"])
+#             self.assertEqual(o.list_date, i["list_date"])
+
+#             # Update delist_date
+#             o.update(i["code"], delist_date=i["delist_date"])
+#             self.assertEqual(o.delist_date, i["delist_date"])
+
+#             # Update source
+#             o.update(i["code"], source=i["source"])
+#             self.assertEqual(o.source, i["source"])
+
+#     def test_ModelStockInfo_SetFromDataFrame(self) -> None:
+#         for i in self.params:
+#             o = self.model()
+#             df = pd.DataFrame.from_dict(i, orient="index")[0]
+#             o.update(df)
+#             self.assertEqual(o.code, i["code"])
+#             self.assertEqual(o.code_name, i["code_name"])
+#             self.assertEqual(o.industry, i["industry"])
+#             self.assertEqual(o.currency, i["currency"])
+#             self.assertEqual(o.market, i["market"])
+#             self.assertEqual(o.list_date, i["list_date"])
+#             self.assertEqual(o.delist_date, i["delist_date"])
+#             self.assertEqual(o.source, i["source"])

@@ -35,7 +35,7 @@
 #             },
 #         ]
 
-#     def test_OperationTransfer_create(self) -> None:
+#     def test_OperationTransfer_insert(self) -> None:
 #         create_table(MTransfer)
 #         size0 = get_table_size(MTransfer)
 #         for i in self.params:
@@ -73,7 +73,7 @@
 #     def test_OperationTransfer_update(self) -> None:
 #         pass
 
-#     def test_OperationTransfer_read_byid(self) -> None:
+#     def test_OperationTransfer_get_byid(self) -> None:
 #         # in format ModelTransfer
 #         # in format dataframe
 #         create_table(MTransfer)
@@ -99,7 +99,7 @@
 #             df = get_transfer_by_id(id=transfer_id, as_dataframe=True)
 #             self.assertEqual(df.shape[0], 1)
 
-#     def test_OperationTransfer_read_byportfolio(self) -> None:
+#     def test_OperationTransfer_get_by_portfolio(self) -> None:
 #         # By Portfolio
 #         create_table(MTransfer)
 #         portfolio_id = uuid.uuid4().hex[:10]

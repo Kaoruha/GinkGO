@@ -1,226 +1,229 @@
+import pandas as pd
+import datetime
 from typing import List, Optional, Union
-from sqlalchemy import and_
+from sqlalchemy import and_, delete, update, select
 
-from ginkgo.data.drivers import add, add_all, get_mysql_connection, GinkgoMysql
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.data.drivers import add, add_all, get_mysql_connection
 from ginkgo.data.models import MAdjustfactor
-from ginkgo.backtest import Adjsutfactor
+from ginkgo.libs import datetime_normalize
+from ginkgo.libs import GLOG
 
 
 def add_adjustfactor(
+    timestamp: any,
     code: str,
     foreadjustfactor: float,
     backadjustfactor: float,
     adjustfactor: float,
-    connection: Optional[GinkgoMysql] = None,
+    source=SOURCE_TYPES.TUSHARE,
     *args,
-    **kwargs
-) -> str:
-    item = MAdjustfactor()
-    item.set(code, foreadjustfactor, backadjustfactor, adjustfactor)
-    uuid = item.uuid
-    add(item)
-    return uuid
+    **kwargs,
+) -> pd.DataFrame:
+    item = MAdjustfactor(
+        timestamp=datetime_normalize(timestamp),
+        code=code,
+        foreadjustfactor=foreadjustfactor,
+        backadjustfactor=backadjustfactor,
+        adjustfactor=adjustfactor,
+        source=source,
+    )
+    res = add(item)
+    df = res.to_dataframe()
+    get_mysql_connection().remove_session()
+    return df.iloc[0]
 
 
-def add_adjustfactors(adjustfactors: List[Union[Adjsutfactor, MAdjustfactor]], *args, **kwargs) -> int:
+def add_adjustfactors(adjustfactors: List[MAdjustfactor], *args, **kwargs) -> None:
     l = []
     for i in adjustfactors:
         if isinstance(i, MAdjustfactor):
             l.append(i)
-        elif isinstance(i, Adjsutfactor):
-            item = MAdjustfactor()
-            item.set(i.code, i.foreadjustfactor, i.backadjustfactor, i.adjustfactor, i.timestamp)
-            l.append(item)
         else:
-            GLOG.WARN("add ticks only support tick data.")
+            GLOG.WARN("add adjustfactors only support model_adjustfactor.")
     return add_all(l)
 
 
-def delete_adjustfactor_by_id(id: str, connection: Optional[GinkgoMysql] = None, *args, **kwargs) -> int:
-    conn = connection if connection else get_mysql_connection()
+def delete_adjustfactor_by_id(id: str, *args, **kwargs) -> int:
+    session = get_mysql_connection().session
     model = MAdjustfactor
     filters = [model.uuid == id]
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_adjustfactor_by_id: id {id} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
     except Exception as e:
-        conn.session.rollback()
-        pritn(e)
-        GLOG.ERROR(e)
-        return 0
+        session.rollback()
+        print(e)
     finally:
-        conn.close_session()
+        get_mysql_connection().remove_session()
 
 
-def softdelete_adjustfactor_by_id(id: str, connection: Optional[GinkgoMysql] = None, *args, **kwargs) -> int:
-    conn = connection if connection else get_mysql_connection()
+def softdelete_adjustfactor_by_id(id: str, *args, **kwargs) -> None:
     model = MAdjustfactor
     filters = [model.uuid == id]
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.first()
-        res.delete()
-        conn.session.commit()
-        return res
+        session = get_mysql_connection().session
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_adjustfactor_by_id: id {id} has more than one record.")
+        for i in query:
+            i.is_del = True
+            session.commit()
     except Exception as e:
-        conn.session.rollback()
-        pritn(e)
-        GLOG.ERROR(e)
-        return 0
+        session.rollback()
+        print(e)
     finally:
-        conn.close_session()
-    pass
+        get_mysql_connection().remove_session()
 
 
 def delete_adjustfactor_by_code_and_date_range(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
-    connection: Optional[GinkgoMysql] = None,
     *args,
-    **kwargs
+    **kwargs,
 ) -> int:
-    conn = connection if connection else get_mysql_connection()
     model = MAdjustfactor
     filters = [model.code == code]
-    if start_date:
-        start_date = datetime_normalize(start_date)
+    if start_date is not None:
         filters.append(model.timestamp >= start_date)
-
-    if end_date:
-        end_date = datetime_normalize(end_date)
+    if end_date is not None:
         filters.append(model.timestamp <= end_date)
-
+    session = get_mysql_connection().session
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
+        stmt = delete(model).where(and_(*filters))
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
-        conn.session.rollback()
-        print(e)
+        session.rollback()
         GLOG.ERROR(e)
-        return 0
     finally:
-        conn.close_session()
+        get_mysql_connection().remove_session()
 
 
 def softdelete_adjustfactor_by_code_and_date_range(
-    code: str, start_date: any, end_date: any, connection: GinkgoMysql = None, *args, **kwargs
+    code: str,
+    start_date: Optional[any] = None,
+    end_date: Optional[any] = None,
+    *args,
+    **kwargs,
 ) -> int:
-    conn = connection if connection else get_mysql_connection()
     model = MAdjustfactor
     filters = [model.code == code]
-    if start_date:
-        start_date = datetime_normalize(start_date)
+    if start_date is not None:
         filters.append(model.timestamp >= start_date)
-
-    if end_date:
-        end_date = datetime_normalize(end_date)
+    if end_date is not None:
         filters.append(model.timestamp <= end_date)
-
+    session = get_mysql_connection().session
+    updates = {"is_del": True}
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.all()
-        for i in res:
-            i.delete()
-            conn.session.commit()
-        return res
+        stmt = update(model).where(and_(*filters)).values(updates)
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
-        conn.session.rollback()
-        print(e)
+        session.rollback()
         GLOG.ERROR(e)
-        return 0
     finally:
-        conn.close_session()
+        get_mysql_connection().remove_session()
 
 
 def update_adjustfactor_by_id(
     id: str,
-    code: str,
-    foreadjustfactor: float,
-    backadjustfactor: float,
-    adjustfactor: float,
-    timestamp: any,
-    connection: GinkgoMysql = None,
+    code: str = None,
+    foreadjustfactor: float = None,
+    backadjustfactor: float = None,
+    adjustfactor: float = None,
+    timestamp: any = None,
     *args,
-    **kwargs
-) -> int:
-    conn = connection if connection else get_mysql_connection()
+    **kwargs,
+) -> None:
     model = MAdjustfactor
     filters = [model.uuid == id]
+    session = get_mysql_connection().session
+    updates = {}
+    if code is not None:
+        updates["code"] = code
+    if foreadjustfactor is not None:
+        updates["foreadjustfactor"] = foreadjustfactor
+    if backadjustfactor is not None:
+        updates["backadjustfactor"] = backadjustfactor
+    if adjustfactor is not None:
+        updates["adjustfactor"] = adjustfactor
+    if timestamp is not None:
+        updates["timestamp"] = datetime_normalize(timestamp)
+
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.first()
-        res.code = code
-        res.foreadjustfactor = foreadjustfactor
-        res.backadjustfactor = backadjustfactor
-        res.adjustfactor = adjustfactor
-        res.timestamp = datetime_normalize(timestamp)
-        conn.session.commit()
-        return 1
+        stmt = update(model).where(and_(*filters)).values(updates)
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
-        conn.session.rollback()
-        print(e)
+        session.rollback()
         GLOG.ERROR(e)
-        return 0
     finally:
-        conn.close_session()
+        get_mysql_connection().remove_session()
 
 
-def update_adjustfactor_by_code_date(
+def update_adjustfactor_by_code_and_date_range(
     code: str,
-    date: any,
-    foreadjustfactor: float,
-    backadjustfactor: float,
-    adjustfactor: float,
-    timestamp: any,
-    connection: GinkgoMysql = None,
+    start_date: any,
+    end_date: any,
+    foreadjustfactor: float = None,
+    backadjustfactor: float = None,
+    adjustfactor: float = None,
+    timestamp: any = None,
     *args,
-    **kwargs
-) -> int:
-    conn = connection if connection else get_mysql_connection()
+    **kwargs,
+) -> None:
     model = MAdjustfactor
-    filters = [model.uuid == id, model.code == code, model.timestamp == datetime_normalize(date)]
+    filters = [model.code == code]
+    start_date = datetime_normalize(start_date)
+    filters.append(model.timestamp >= start_date)
+    end_date = datetime_normalize(end_date)
+    filters.append(model.timestamp <= end_date)
+
+    session = get_mysql_connection().session
+    updates = {}
+    if foreadjustfactor is not None:
+        updates["foreadjustfactor"] = foreadjustfactor
+    if backadjustfactor is not None:
+        updates["backadjustfactor"] = backadjustfactor
+    if adjustfactor is not None:
+        updates["adjustfactor"] = adjustfactor
+    if timestamp is not None:
+        updates["timestamp"] = datetime_normalize(timestamp)
+
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.first()
-        res.code = code
-        res.foreadjustfactor = foreadjustfactor
-        res.backadjustfactor = backadjustfactor
-        res.adjustfactor = adjustfactor
-        res.timestamp = datetime_normalize(timestamp)
-        conn.session.commit()
-        return 1
+        stmt = update(model).where(and_(*filters)).values(updates)
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
-        conn.session.rollback()
-        print(e)
+        session.rollback()
         GLOG.ERROR(e)
-        return 0
     finally:
-        conn.close_session()
+        get_mysql_connection().remove_session()
 
 
-def get_adjustfactor_by_id(id: str, *args, connection: GinkgoMysql = None, **kwargs) -> Adjsutfactor:
-    conn = connection if connection else get_mysql_connection()
+def get_adjustfactor_by_id(id: str, *args, **kwargs) -> pd.DataFrame:
+    session = get_mysql_connection().session
     model = MAdjustfactor
-    filters = [model.uuid == id]
+    filters = [model.uuid == id, model.is_del == False]
+
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.first()
-        item = Adjsutfactor()
-        item.set(res)
-        return item
+        stmt = session.query(model).filter(and_(*filters))
+
+        df = pd.read_sql(stmt.statement, session.connection())
+        return df
+
     except Exception as e:
-        conn.session.rollback()
-        pritn(e)
+        session.rollback()
         GLOG.ERROR(e)
-        return 0
+        return pd.DataFrame()
     finally:
-        conn.close_session()
-    pass
+        get_mysql_connection().remove_session()
 
 
 def get_adjustfactor_by_code_and_date_range(
@@ -229,50 +232,34 @@ def get_adjustfactor_by_code_and_date_range(
     end_date: Optional[any] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
-    as_dataframe: bool = False,
-    connection: GinkgoMysql = None,
     *args,
-    **kwargs
-) -> List[Adjsutfactor]:
-    conn = connection if connection else get_mysql_connection()
+    **kwargs,
+) -> pd.DataFrame:
+    session = get_mysql_connection().session
     model = MAdjustfactor
-    filters = [model.code == code, model.isdel == False]
+    filters = [model.code == code, model.is_del == False]
 
-    if start_date:
+    if start_date is not None:
         start_date = datetime_normalize(start_date)
         filters.append(model.timestamp >= start_date)
 
-    if end_date:
+    if end_date is not None:
         end_date = datetime_normalize(end_date)
         filters.append(model.timestamp <= end_date)
 
     try:
-        query = conn.session.query(model).filter(and_(*filters))
+        # stmt = select(model).where(and_(*filters))
+        stmt = session.query(model).filter(and_(*filters))
 
         if page is not None and page_size is not None:
-            query = query.offset(page * page_size).limit(page_size)
+            stmt = stmt.offset(page * page_size).limit(page_size)
 
-        if as_dataframe:
-            if len(query.all()) > 0:
-                df = pd.read_sql(query.statement, conn.engine)
-                return df
-            else:
-                return pd.DataFrame()
-        else:
-            query = query.all()
-            if len(query) == 0:
-                return []
-            else:
-                res = []
-                for i in query:
-                    item = Transfer(i.portfolio_id, i.direction, i.market, i.money, i.timestamp)
-                    item = Adjsutfactor(i.code, i.foreadjustfactor, i.backadjustfactor, i.adjustfactor, i.timestamp)
-                    res.append(item)
-                return res
+        df = pd.read_sql(stmt.statement, session.connection())
+        return df
+
     except Exception as e:
-        conn.session.rollback()
-        print(e)
+        session.rollback()
         GLOG.ERROR(e)
-        return []
+        return pd.DataFrame()
     finally:
-        conn.close_session()
+        get_mysql_connection().remove_session()

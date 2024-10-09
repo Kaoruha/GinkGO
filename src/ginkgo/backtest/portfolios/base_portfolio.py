@@ -1,4 +1,5 @@
 import uuid
+import datetime
 from rich.console import Console
 from typing import TYPE_CHECKING
 
@@ -28,9 +29,13 @@ console = Console()
 
 
 class BasePortfolio(BacktestBase):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ) -> None:
         super(BasePortfolio, self).__init__(*args, **kwargs)
-        self.set_name("HaloPortfolio")
+        self.set_name("Halo")
         self._uuid: str = uuid.uuid4().hex
         self._cash: float = 100000
         self._worth: float = 100000
@@ -66,9 +71,7 @@ class BasePortfolio(BacktestBase):
         return self.uuid
 
     def get_count_of_price(self, date: any) -> int:
-        raise NotImplemented(
-            "Must implement the Function to get the count of coming price info."
-        )
+        raise NotImplemented("Must implement the Function to get the count of coming price info.")
 
     def update_worth(self) -> None:
         """
@@ -207,21 +210,15 @@ class BasePortfolio(BacktestBase):
             return False
 
         if self.sizer is None:
-            GLOG.WARN(
-                f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first."
-            )
+            GLOG.WARN(f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first.")
             return False
 
         if self.risk_manager is None:
-            GLOG.WARN(
-                f"Portfolio RiskManager not set. Can not Adjust the order. Please set the RISKMANAGER first."
-            )
+            GLOG.WARN(f"Portfolio RiskManager not set. Can not Adjust the order. Please set the RISKMANAGER first.")
             return False
 
         if self.selector is None:
-            GLOG.WARN(
-                f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first."
-            )
+            GLOG.WARN(f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first.")
             return False
 
         if len(self.strategies) == 0:
@@ -238,9 +235,7 @@ class BasePortfolio(BacktestBase):
             None
         """
         if not isinstance(selector, BaseSelector):
-            GLOG.ERROR(
-                f"Selector bind only support Selector, {type(selector)} {selector} is not supported."
-            )
+            GLOG.ERROR(f"Selector bind only support Selector, {type(selector)} {selector} is not supported.")
             return
         self._selector = selector
         self._selector.bind_portfolio(self)
@@ -261,9 +256,7 @@ class BasePortfolio(BacktestBase):
             None
         """
         if not isinstance(engine, BaseEngine):
-            GLOG.ERROR(
-                f"EngineBind only support Type Engine, {type(BaseEngine)} {engine} is not supported."
-            )
+            GLOG.ERROR(f"EngineBind only support Type Engine, {type(BaseEngine)} {engine} is not supported.")
             return
         self._engine = engine
         self.set_backtest_id(engine.backtest_id)
@@ -281,9 +274,7 @@ class BasePortfolio(BacktestBase):
             None
         """
         if not isinstance(risk, BaseRiskManagement):
-            GLOG.ERROR(
-                f"Risk bind only support Riskmanagement, {type(risk)} {risk} is not supported."
-            )
+            GLOG.ERROR(f"Risk bind only support Riskmanagement, {type(risk)} {risk} is not supported.")
             return
         self._risk_manager = risk
 
@@ -300,9 +291,7 @@ class BasePortfolio(BacktestBase):
             None
         """
         if not isinstance(sizer, BaseSizer):
-            GLOG.ERROR(
-                f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported."
-            )
+            GLOG.ERROR(f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported.")
             return
         self._sizer = sizer
         self.sizer.bind_portfolio(self)
@@ -326,12 +315,8 @@ class BasePortfolio(BacktestBase):
         console.print(f":ice: TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
         self._frozen += money
         self._cash -= money
-        GLOG.DEBUG(
-            f"DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} "
-        )
-        console.print(
-            f":money_bag: DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} "
-        )
+        GLOG.DEBUG(f"DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
+        console.print(f":money_bag: DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
         return True
 
     def unfreeze(self, money: float) -> float:
@@ -344,12 +329,8 @@ class BasePortfolio(BacktestBase):
         """
         if money > self.frozen:
             if money - self.frozen > GCONF.EPSILON:
-                GLOG.ERROR(
-                    f"Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}"
-                )
-                console.print(
-                    f":prohibited: Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}"
-                )
+                GLOG.ERROR(f"Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}")
+                console.print(f":prohibited: Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}")
                 return
             else:
                 self._frozen = 0
@@ -379,9 +360,7 @@ class BasePortfolio(BacktestBase):
             None
         """
         if analyzer.name in self.analyzers.keys():
-            GLOG.WARN(
-                f"Analyzer {analyzer.name} already in the analyzers. Please check."
-            )
+            GLOG.WARN(f"Analyzer {analyzer.name} already in the analyzers. Please check.")
             return
         analyzer.set_backtest_id(self.backtest_id)
         self.analyzers[analyzer.name] = analyzer
@@ -426,9 +405,7 @@ class BasePortfolio(BacktestBase):
     def add_position(self, position: Position) -> None:
         code = position.code
         if code in self.positions.keys():
-            self._positions[code].deal(
-                DIRECTION_TYPES.LONG, position.cost, position.volume
-            )
+            self._positions[code].deal(DIRECTION_TYPES.LONG, position.cost, position.volume)
         else:
             self._positions[code] = position
 

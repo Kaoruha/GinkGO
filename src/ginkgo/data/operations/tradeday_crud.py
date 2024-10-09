@@ -1,162 +1,156 @@
 import pandas as pd
 import datetime
-from typing import List, Optional, Union, Tuple
-from sqlalchemy import and_
+from sqlalchemy import and_, delete, update, select, text, or_
+from typing import List, Optional, Union
 
+from ginkgo.enums import MARKET_TYPES
 from ginkgo.data.models import MTradeDay
-from ginkgo.data.drivers import add, add_all, get_click_connection, GinkgoClickhouse
-from ginkgo.backtest.tradeday import TradeDay
-from ginkgo.libs import base_repr, datetime_normalize
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.enums import DIRECTION_TYPES, MARKET_TYPES
+from ginkgo.data.drivers import add, add_all, get_click_connection
+from ginkgo.libs import GLOG
 
 
-def add_tradeday(
-    market: MARKET_TYPES,
-    is_open: bool,
-    timestamp: any,
-    *args,
-    **kwargs,
-) -> str:
-    item = MTradeDay()
-    item.set(market, is_open, timestamp)
-    uuid = item.uuid
-    add(item)
-    return uuid
+def add_trade_day(market: MARKET_TYPES, is_open: bool, timestamp: any, *args, **kwargs) -> pd.Series:
+    item = MTradeDay(market=market, is_open=is_open, timestamp=datetime_normalize(timestamp))
+    res = add(item)
+    df = res.to_dataframe()
+    get_click_connection().remove_session()
+    return df.iloc[0]
 
 
-def add_tradedays(tradedays: List[Union[TradeDay, MTradeDay]], *args, **kwargs):
+def add_trade_days(files: List[MTradeDay], *args, **kwargs):
     l = []
-    for i in tradedays:
+    for i in files:
         if isinstance(i, MTradeDay):
             l.append(i)
-            continue
-        elif isinstance(i, TradeDay):
-            item = MTradeDay()
-            item.set(i["market"], i["is_open"], datetime_normalize(i["timestamp"]))
-            l.append(item)
-            continue
         else:
-            GLOG.WARN("add tradedays just support tradeday data.")
+            GLOG.WANR("add files only support file data.")
     return add_all(l)
 
 
-def delete_tradeday_by_id(id: str, connection: Optional[GinkgoClickhouse] = None, *args, **kwargs) -> int:
-    # Seems no need
-    conn = connection if connection else get_click_connection()
+def delete_trade_day(id: str, *argss, **kwargs):
+    session = get_click_connection().session
     model = MTradeDay
-    filters = [model.uuid == id]
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-
-        conn.session.commit()
-        return res
+        filters = [model.uuid == id]
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
     except Exception as e:
-        conn.session.rollback()
+        session.rollback()
         print(e)
-        GLOG.ERROR(e)
-        return 0
     finally:
-        conn.close_session()
+        get_click_connection().remove_session()
 
 
-def softdelete_tradeday_by_id(id: str, connection: Optional[GinkgoClickhouse] = None, *args, **kwargs) -> int:
-    delete_tradeday_by_id(id, connection, *args, **kwargs)
-
-
-def delete_tradeday_by_date_range(
-    start_date: any,
-    end_date: any,
-    connection: Optional[GinkgoClickhouse] = None,
-    *args,
-    **kwargs,
-) -> int:
-    conn = connection if connection else get_click_connection()
-    start_date = datetime_normalize(start_date)
-    end_date = datetime_normalize(end_date)
+def delete_trade_days(ids: List[str], *argss, **kwargs):
+    session = get_click_connection().session
     model = MTradeDay
-    filters = [
-        model.timestamp >= start_date,
-        model.timestamp <= end_date,
-    ]
+    filters = []
+    for i in ids:
+        filters.append(model.uuid == i)
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
+        query = session.query(model).filter(or_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord_by_id: id {ids} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
     except Exception as e:
-        conn.session.rollback()
+        session.rollback()
         print(e)
-        GLOG.ERROR(e)
-        return 0
     finally:
-        conn.close_session()
+        get_click_connection().remove_session()
 
 
-def softdelete_tradeday_by_date_range(
-    start_date: any,
-    end_date: any,
-    connection: Optional[GinkgoClickhouse] = None,
-    *args,
-    **kwargs,
-) -> int:
-    delete_tradeday_by_date_range(start_date, end_date, connection, *args, **kwargs)
-
-
-def get_tradeday_by_market_and_date_range(
-    market: MARKET_TYPES,
-    start_date: Optional[any] = None,
-    end_date: Optional[any] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    as_dataframe: bool = False,
-    connection: Optional[GinkgoClickhouse] = None,
-    *args,
-    **kwargs,
-) -> Union[List[Tuple[datetime.datetime, bool]], pd.DataFrame]:
-    conn = connection if connection else get_click_connection()
+def delete_trade_days_by_market_and_date_range(
+    market: MARKET_TYPES, start_date: any = None, end_date: any = None, *argss, **kwargs
+):
+    session = get_click_connection().session
     model = MTradeDay
-    filters = [model.isdel == False, model.market == market]
-
-    if start_date:
+    filters = [model.market == market]
+    if start_date is not None:
         start_date = datetime_normalize(start_date)
         filters.append(model.timestamp >= start_date)
-
-    if end_date:
+    if end_date is not None:
         end_date = datetime_normalize(end_date)
         filters.append(model.timestamp <= end_date)
+    try:
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(e)
+    finally:
+        get_click_connection().remove_session()
+
+
+def softdelete_trade_day(id: str, *argss, **kwargs):
+    GLOG.WARN("Soft delete not work in clickhouse, use delete instead.")
+    delete_trade_day(id, *argss, **kwargs)
+
+
+def update_trade_day(
+    *argss,
+    **kwargs,
+):
+    pass
+
+
+def get_trade_day_by_id(
+    id: str,
+    *args,
+    **kwargs,
+) -> pd.Series:
+    session = get_click_connection().session
+    model = MTradeDay
+    filters = [model.uuid == id]
 
     try:
-        query = conn.session.query(model).filter(and_(*filters))
+        stmt = session.query(model).filter(and_(*filters))
 
-        if page is not None and page_size is not None:
-            query = query.offset(page * page_size).limit(page_size)
-
-        if as_dataframe:
-            if len(query.all()) > 0:
-                df = pd.read_sql(query.statement, conn.engine)
-                return df
-            else:
-                return pd.DataFrame()
-        else:
-            query = query.all()
-            if len(query) == 0:
-                return []
-            else:
-                res = []
-                for i in query:
-                    item = TradeDay()
-                    item.set(i)
-                    res.append(item)
-                return res
+        df = pd.read_sql(stmt.statement, session.connection())
+        if df.shape[0] == 0:
+            return pd.DataFrame()
+        return df.iloc[0]
     except Exception as e:
-        conn.session.rollback()
+        session.rollback()
         print(e)
-        import pdb
-
-        pdb.set_trace()
         GLOG.ERROR(e)
-        return []
+        return 0
     finally:
-        conn.close_session()
+        get_click_connection().remove_session()
+
+
+def get_trade_days(market: MARKET_TYPES, start_date: Optional[any] = None,end_date:Optional[any], *args, **kwargs) -> pd.DataFrame:
+    session = get_click_connection().session
+    model = MTradeDay
+    filters = [model.market=market]
+    if start_date is not None:
+        start_date = datetime_normalize(start_date)
+        filters.append(model.timestamp >= start_date)
+    if end_date is not None:
+        end_date = datetime_normalize(end_date)
+        filters.append(model.timestamp <= end_date)
+    try:
+        stmt = session.query(model).filter(and_(*filters))
+        df = pd.read_sql(stmt.statement, session.connection())
+
+        if df.shape[0] == 0:
+            return pd.DataFrame()
+
+        return df
+
+    except Exception as e:
+        session.rollback()
+        print(e)
+        GLOG.ERROR(e)
+        return pd.DataFrame()
+    finally:
+        get_click_connection().remove_session()

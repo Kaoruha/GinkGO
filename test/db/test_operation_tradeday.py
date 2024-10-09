@@ -20,7 +20,7 @@
 #             {"timestamp": "2020-01-04", "is_open": True, "market": MARKET_TYPES.CHINA},
 #         ]
 
-#     def test_OperationTradeday_create(self) -> None:
+#     def test_OperationTradeday_insert(self) -> None:
 #         create_table(MTradeDay)
 #         size0 = get_table_size(MTradeDay)
 #         for i in self.params:
@@ -49,7 +49,7 @@
 #         # no need to update
 #         pass
 
-#     def test_OperationTradeday_read_by_date_range(self) -> None:
+#     def test_OperationTradeday_get_by_date_range(self) -> None:
 #         drop_table(MTradeDay)
 #         create_table(MTradeDay)
 #         for i in self.params:

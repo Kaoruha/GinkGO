@@ -1,188 +1,248 @@
-from sqlalchemy import and_
+import pandas as pd
+import datetime
+from sqlalchemy import and_, delete, update, select, text, or_
+from typing import List, Optional, Union
+
+from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+from ginkgo.data.models import MOrder
+from ginkgo.backtest import Order
+from ginkgo.data.drivers import add, add_all, get_mysql_connection
+from ginkgo.libs import GLOG, datetime_normalize
 
 
 def add_order(
     portfolio_id: str,
     code: str,
     direction: DIRECTION_TYPES,
-    order_type: ORDER_TYPES,
-    transaction_price: float,
+    type: ORDER_TYPES,
+    status: ORDERSTATUS_TYPES,
     volume: int,
+    limit_price: float,
+    frozen: float,
+    transaction_price: float,
     remain: float,
     fee: float,
     timestamp: any,
     *args,
     **kwargs,
-):
-    item = MOrder()
-    item.set(
-        portfolio_id,
-        code,
-        direction,
-        order_type,
-        volume,
-        transaction_price,
-        remain,
-        fee,
-        timestamp,
+) -> pd.Series:
+    item = MOrder(
+        portfolio_id=portfolio_id,
+        code=code,
+        direction=direction,
+        type=type,
+        status=status,
+        volume=volume,
+        limit_price=limit_price,
+        frozen=frozen,
+        transaction_price=transaction_price,
+        remain=remain,
+        fee=fee,
+        timestamp=datetime_normalize(timestamp),
     )
-    uuid = item.uuid
-    add(item)
-    return uuid
+    res = add(item)
+    df = res.to_dataframe()
+    get_mysql_connection().remove_session()
+    return df.iloc[0]
 
 
-def add_orders(orders: List[Union[Order, MOrder]], *args, **kwargs):
+def add_orders(orders: List[MOrder], *args, **kwargs):
     l = []
     for i in orders:
         if isinstance(i, MOrder):
             l.append(i)
-        elif isinstance(i, Order):
-            item = MOrder()
-            item.set(
-                i.portfolio_id,
-                i.code,
-                i.direction,
-                i.order_type,
-                i.volume,
-                i.transaction_price,
-                i.remain,
-                i.fee,
-                i.timestamp,
-            )
-            l.append(item)
         else:
-            GLOG.WARN("add ticks only support tick data.")
+            GLOG.WANR("add orders only support order data.")
     return add_all(l)
 
 
-def delete_order_by_id(id: str, connection: Optional[GinkgoClickhouse] = None, *args, **kwargs) -> int:
-    conn = connection if connection else get_click_connection()
+def delete_order(id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
     model = MOrder
-    filters = [
-        model.uuid == id,
-    ]
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
+        filters = [model.uuid == id]
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
     except Exception as e:
-        conn.session.rollback()
-        pritn(e)
+        session.rollback()
+        print(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def softdelete_order(id: str, *argss, **kwargs):
+    model = MOrder
+    filters = [model.uuid == id]
+    try:
+        session = get_mysql_connection().session
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_adjustfactor_by_id: id {id} has more than one record.")
+        for i in query:
+            i.is_del = True
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def update_order(
+    id: str,
+    portfolio_id: Optional[str] = None,
+    code: Optional[str] = None,
+    direction: Optional[DIRECTION_TYPES] = None,
+    type: Optional[ORDER_TYPES] = None,
+    status: Optional[ORDERSTATUS_TYPES] = None,
+    volume: Optional[int] = None,
+    limit_price: Optional[float] = None,
+    frozen: Optional[float] = None,
+    transaction_price: Optional[float] = None,
+    remain: Optional[float] = None,
+    fee: Optional[float] = None,
+    timestamp: Optional[any] = None,
+    *args,
+    **kwargs,
+):
+    model = MOrder
+    filters = [model.uuid == id]
+    session = get_mysql_connection().session
+    updates = {"update_at": datetime.datetime.now()}
+    if portfolio_id is not None:
+        updates["portfolio_id"] = portfolio_id
+    if code is not None:
+        updates["code"] = code
+    if direction is not None:
+        updates["direction"] = direction
+    if type is not None:
+        updates["type"] = type
+    if status is not None:
+        updates["status"] = status
+    if volume is not None:
+        updates["volume"] = volume
+    if limit_price is not None:
+        updates["limit_price"] = limit_price
+    if frozen is not None:
+        updates["frozen"] = frozen
+    if transaction_price is not None:
+        updates["transaction_price"] = transaction_price
+    if remain is not None:
+        updates["remain"] = remain
+    if fee is not None:
+        updates["fee"] = fee
+    if timestamp is not None:
+        updates["timestamp"] = datetime_normalize(timestamp)
+    try:
+        stmt = update(model).where(and_(*filters)).values(updates)
+        session.execute(stmt)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def get_order_by_id(
+    id: str,
+    *args,
+    **kwargs,
+) -> pd.Series:
+    session = get_mysql_connection().session
+    model = MOrder
+    filters = [model.uuid == id]
+
+    try:
+        stmt = session.query(model).filter(and_(*filters))
+
+        df = pd.read_sql(stmt.statement, session.connection())
+        if df.shape[0] == 0:
+            return pd.DataFrame()
+        return df.iloc[0]
+    except Exception as e:
+        session.rollback()
+        print(e)
         GLOG.ERROR(e)
         return 0
     finally:
-        conn.close_session()
+        get_mysql_connection().remove_session()
 
 
-def softdelete_order_by_id(id: str, connection: Optional[GinkgoClickhouse] = None, *args, **kwargs) -> int:
-    delete_order_by_id(id, connection, *args, **kwargs)
-
-
-def delete_order_by_portfolio_id_and_date_range(
-    portfolio_id: str,
-    start_date: Optional[any] = None,
-    end_date: Optional[any] = None,
-    connection: Optional[GinkgoClickhouse] = None,
-    *args,
-    **kwargs,
-) -> int:
-    conn = connection if connection else get_click_connection()
-    model = MOrder
-    filters = [
-        model.portfolio_id == portfolio_id,
-    ]
-    if start_date:
-        start_date = datetime_normalize(start_date)
-        filters.append(model.timestamp >= start_date)
-    if end_date:
-        end_date = datetime_normalize(end_date)
-        filters.append(model.timestamp <= end_date)
-    try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
-    except Exception as e:
-        conn.session.rollback()
-        pritn(e)
-        GLOG.ERROR(e)
-        return 0
-    finally:
-        conn.close_session()
-
-
-def softdelete_order_by_portfolio_id_and_date_range(
-    portfolio_id: str,
-    start_date: Optional[any] = None,
-    end_date: Optional[any] = None,
-    connection: Optional[GinkgoClickhouse] = None,
-    *args,
-    **kwargs,
-) -> int:
-    delete_order_by_portfolio_id_and_date_range(portfolio_id, start_date, end_date, connection, *args, **kwargs)
-
-
-def update_order():
-    pass
-
-
-def get_order(
+def get_orders(
     portfolio_id: str,
     code: Optional[str] = None,
+    direction: Optional[DIRECTION_TYPES] = None,
+    type: Optional[ORDER_TYPES] = None,
+    status: Optional[ORDERSTATUS_TYPES] = None,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
     as_dataframe: bool = False,
-    connection: Optional[GinkgoClickhouse] = None,
     *args,
     **kwargs,
-) -> Union[List[Tick], pd.DataFrame]:
-    conn = connection if connection else get_click_connection()
+) -> pd.Series:
+    session = get_mysql_connection().session
     model = MOrder
-    filters = [
-        model.portfolio_id == portfolio_id,
-    ]
-    if code:
+    filters = [model.portfolio_id == portfolio_id, model.is_del == False]
+    if code is not None:
         filters.append(model.code == code)
-
+    if direction is not None:
+        filters.append(model.direction == direction)
+    if type is not None:
+        filters.append(model.type == type)
+    if status is not None:
+        filters.append(model.status == status)
     if start_date:
         start_date = datetime_normalize(start_date)
         filters.append(model.timestamp >= start_date)
-
     if end_date:
         end_date = datetime_normalize(end_date)
         filters.append(model.timestamp <= end_date)
 
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-
+        stmt = session.query(model).filter(and_(*filters))
         if page is not None and page_size is not None:
-            query = query.offset(page * page_size).limit(page_size)
+            stmt = stmt.offset(page * page_size).limit(page_size)
 
         if as_dataframe:
-            if len(query.all()) > 0:
-                df = pd.read_sql(query.statement, conn.engine)
-                return df
-            else:
+            df = pd.read_sql(stmt.statement, session.connection())
+            if df.shape[0] == 0:
                 return pd.DataFrame()
+            return df
         else:
-            query = query.all()
-            if len(query) == 0:
-                return []
-            else:
-                res = []
-                for i in query:
-                    item = Order()
-                    item.set(i)
-                    res.append(item)
-                return res
-        return res
+            res = session.execute(stmt).scalars().all()
+            return [
+                Order(
+                    code=i.code,
+                    direction=i.direction,
+                    type=i.type,
+                    status=i.status,
+                    volume=i.volume,
+                    limit_price=i.limit_price,
+                    frozen=i.frozen,
+                    transaction_price=i.transaction_price,
+                    remain=i.remain,
+                    fee=i.fee,
+                    timestamp=i.timestamp,
+                    uuid=i.uuid,
+                    portfolio_id=i.portfolio_id,
+                    source=i.source,
+                )
+                for i in res
+            ]
     except Exception as e:
-        conn.session.rollback()
+        session.rollback()
         print(e)
         GLOG.ERROR(e)
-        return 0
+        if as_dataframe:
+            return pd.DataFrame()
+        else:
+            return []
     finally:
-        conn.close_session()
+        get_mysql_connection().remove_session()

@@ -87,7 +87,6 @@ def main():
     print(f"CPU Cores: {os.cpu_count()}")
 
     docker_version = os.system("docker --version")
-    compose_version = os.system("docker-compose --version")
 
     notice_info = "NOTICE"
 
