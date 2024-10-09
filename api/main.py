@@ -44,7 +44,7 @@ async def read_root():
 
 @app.get("/api/v1/backtest")
 async def fetch_backtest():
-    df = GDATA.get_file_list_df(FILE_TYPES.BACKTEST)
+    df = GDATA.get_file_list_df(FILE_TYPES.ENGINE)
     if df.shape[0] == 0:
         return []
     for i, r in df.iterrows():

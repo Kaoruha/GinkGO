@@ -59,7 +59,7 @@
 #         size = get_table_size(MStockInfo)
 #         self.assertEqual(0, size)
 
-#     def test_OperationStockinfo_create(self) -> None:
+#     def test_OperationStockinfo_insert(self) -> None:
 #         self.rebuild_table()
 #         size0 = get_table_size(MStockInfo)
 #         for i in self.params:
@@ -84,7 +84,7 @@
 #     def test_OperationStockinfo_update(self) -> None:
 #         pass
 
-#     def test_OperationStockinfo_read_by_code(self) -> None:
+#     def test_OperationStockinfo_get_by_code(self) -> None:
 #         self.rebuild_table()
 #         l = []
 #         size0 = get_table_size(MStockInfo)
@@ -101,7 +101,7 @@
 #         df = get_stockinfo(code="test_code1", as_dataframe=True)
 #         self.assertEqual(1, df.shape[0])
 
-#     def test_OperationStockinfo_read_by_code_fuzzy(self) -> None:
+#     def test_OperationStockinfo_get_by_code_fuzzy(self) -> None:
 #         self.rebuild_table()
 #         l = []
 #         size0 = get_table_size(MStockInfo)
@@ -123,7 +123,7 @@
 #         df = get_stockinfo(code="1", fuzzy=True, as_dataframe=True)
 #         self.assertEqual(1, df.shape[0])
 
-#     def test_OperationStockinfo_read_by_industry(self) -> None:
+#     def test_OperationStockinfo_get_by_industry(self) -> None:
 #         self.rebuild_table()
 #         l = []
 #         size0 = get_table_size(MStockInfo)
@@ -140,7 +140,7 @@
 #         df = get_stockinfo(industry="矿产", as_dataframe=True)
 #         self.assertEqual(2, df.shape[0])
 
-#     def test_OperationStockinfo_read_by_industry_fuzzy(self) -> None:
+#     def test_OperationStockinfo_get_by_industry_fuzzy(self) -> None:
 #         self.rebuild_table()
 #         l = []
 #         size0 = get_table_size(MStockInfo)
@@ -157,7 +157,7 @@
 #         df = get_stockinfo(industry="矿", fuzzy=True, as_dataframe=True)
 #         self.assertEqual(2, df.shape[0])
 
-#     def test_OperationStockinfo_read_by_currency(self) -> None:
+#     def test_OperationStockinfo_get_by_currency(self) -> None:
 #         self.rebuild_table()
 #         l = []
 #         size0 = get_table_size(MStockInfo)
@@ -174,7 +174,7 @@
 #         df = get_stockinfo(currency=CURRENCY_TYPES.CNY, as_dataframe=True)
 #         self.assertEqual(2, df.shape[0])
 
-#     def test_OperationStockinfo_read_by_listdate(self) -> None:
+#     def test_OperationStockinfo_get_by_listdate(self) -> None:
 #         self.rebuild_table()
 #         l = []
 #         size0 = get_table_size(MStockInfo)
@@ -191,7 +191,7 @@
 #         df = get_stockinfo(list_date="2020-02-01", as_dataframe=True)
 #         self.assertEqual(2, df.shape[0])
 
-#     def test_OperationStockinfo_read_by_delistdate(self) -> None:
+#     def test_OperationStockinfo_get_by_delistdate(self) -> None:
 #         self.rebuild_table()
 #         l = []
 #         size0 = get_table_size(MStockInfo)

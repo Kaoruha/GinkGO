@@ -1,4 +1,12 @@
 import threading
+import math
+
+
+def try_wait_counter(try_time: int = 0, min: int = 0.1, max: int = 30) -> int:
+    try_time = try_time if try_time > 1 else 1
+    res = 2 * math.log(try_time)
+    res = res if res < max else max
+    return res if res > min else min
 
 
 def str2bool(strint: str or int, *args, **kwargs) -> bool:

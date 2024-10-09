@@ -1,10 +1,14 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ginkgo.data.models import MOrder
+
 import pandas as pd
 import datetime
 import uuid
 from functools import singledispatchmethod
 
 from ginkgo.libs import base_repr, datetime_normalize
-from ginkgo.data.models import MOrder
 from ginkgo.backtest.base import Base
 from ginkgo.enums import (
     DIRECTION_TYPES,
@@ -65,7 +69,7 @@ class Order(Base):
         pass
 
     @singledispatchmethod
-    def _(self, model: MOrder) -> None:
+    def _(self, model: "MOrder") -> None:
         self._code = model.code
         self._direction = model.direction
         self._type = model.type

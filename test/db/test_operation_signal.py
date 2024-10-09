@@ -51,7 +51,7 @@
 #         create_table(MSignal)
 #         time.sleep(0.1)
 
-#     def test_OperationSignal_create(self) -> None:
+#     def test_OperationSignal_insert(self) -> None:
 #         self.rebuild_table()
 #         for i in self.params:
 #             size0 = get_table_size(MSignal)
@@ -76,7 +76,7 @@
 #     def test_OperationSignal_update(self) -> None:
 #         pass
 
-#     def test_OperationSignal_read_by_portfolio(self) -> None:
+#     def test_OperationSignal_get_by_portfolio(self) -> None:
 #         self.rebuild_table()
 #         time.sleep(1)
 #         l = []
@@ -100,7 +100,7 @@
 #         df = get_signal_by_portfolio_id_and_date_range(portfolio_id, as_dataframe=True)
 #         self.assertEqual(count, df.shape[0])
 
-#     def test_OperationSignal_read_by_portfolio_and_date(self) -> None:
+#     def test_OperationSignal_get_by_portfolio_and_date(self) -> None:
 #         self.rebuild_table()
 #         l = []
 #         portfolio_id = "test_portfolio"

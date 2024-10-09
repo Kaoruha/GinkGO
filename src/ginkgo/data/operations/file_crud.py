@@ -1,95 +1,167 @@
-from sqlalchemy import and_
+import pandas as pd
+import datetime
+from sqlalchemy import and_, delete, update, select, text, or_
+from typing import List, Optional, Union
 
 from ginkgo.enums import FILE_TYPES
 from ginkgo.data.models import MFile
-from ginkgo.data.drivers import add, add_all, get_mysql_connection, GinkgoMysql
+from ginkgo.data.drivers import add, add_all, get_mysql_connection
+from ginkgo.libs import GLOG
 
 
-def add_file(type: FILE_TYPES, file_name: str, content: bytes):
-    item = MFile()
-    item.set(type, file_name, content)
-    uuid = item.uuid
-    add(item)
-    return uuid
+def add_file(type: FILE_TYPES, name: str, data: bytes, *args, **kwargs) -> pd.Series:
+    item = MFile(type=type, name=name, data=data)
+    res = add(item)
+    df = res.to_dataframe()
+    get_mysql_connection().remove_session()
+    return df.iloc[0]
 
 
-def add_files():
-    pass
+def add_files(files: List[MFile], *args, **kwargs):
+    l = []
+    for i in files:
+        if isinstance(i, MFile):
+            l.append(i)
+        else:
+            GLOG.WANR("add files only support file data.")
+    return add_all(l)
 
 
-def delete_file_by_id(id: str, connection: GinkgoMysql, *argss, **kwargs):
-    conn = connection if connection else get_mysql_connection()
+def delete_file(id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
+    model = MFile
+    try:
+        filters = [model.uuid == id]
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def delete_files(ids: List[str], *argss, **kwargs):
+    session = get_mysql_connection().session
+    model = MFile
+    filters = []
+    for i in ids:
+        filters.append(model.uuid == i)
+    try:
+        query = session.query(model).filter(or_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord_by_id: id {ids} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def softdelete_file(id: str, *argss, **kwargs):
     model = MFile
     filters = [model.uuid == id]
+    session = get_mysql_connection().session
+    updates = {"is_del": True, "update_at": datetime.datetime.now()}
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
+        stmt = update(model).where(and_(*filters)).values(updates)
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
-        conn.session.rollback()
-        pritn(e)
+        session.rollback()
         GLOG.ERROR(e)
-        return 0
     finally:
-        conn.close_session()
-
-
-def softdelete_file_by_id(id: str, connection: GinkgoMysql, *argss, **kwargs):
-    delete_file_by_id(id, connection, *args, **kwargs)
+        get_mysql_connection().remove_session()
 
 
 def update_file(
     id: str,
     type: Optional[FILE_TYPES] = None,
-    file_name: Optional[str] = None,
-    content: Optional[bytes] = None,
-    connection: Optional[GinkgoMysql] = None,
+    name: Optional[str] = None,
+    data: Optional[bytes] = None,
     *argss,
     **kwargs,
 ):
-    conn = connection if connection else get_mysql_connection()
+
     model = MFile
     filters = [model.uuid == id]
+    session = get_mysql_connection().session
+    updates = {"update_at": datetime.datetime.now()}
+    if type is not None:
+        updates["type"] = type
+    if name is not None:
+        updates["name"] = name
+    if data is not None:
+        updates["data"] = data
+
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.first()
-        if type:
-            res.type = type
-        if file_name:
-            res.file_name = file_name
-        if content:
-            res.content = content
-        res.update_time()
-        conn.session.commit()
-        return res
+        stmt = update(model).where(and_(*filters)).values(updates)
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
-        conn.session.rollback()
-        pritn(e)
+        session.rollback()
         GLOG.ERROR(e)
-        return 0
     finally:
-        conn.close_session()
+        get_mysql_connection().remove_session()
 
 
 def get_file_by_id(
     id: str,
-    connection: Optional[GinkgoClickhouse] = None,
     *args,
     **kwargs,
-) -> Union[List[Tick], pd.DataFrame]:
-    conn = connection if connection else get_click_connection()
+) -> pd.Series:
+    session = get_mysql_connection().session
     model = MFile
     filters = [model.uuid == id]
 
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.first()
-        return res
+        stmt = session.query(model).filter(and_(*filters))
+
+        df = pd.read_sql(stmt.statement, session.connection())
+        if df.shape[0] == 0:
+            return pd.DataFrame()
+        return df.iloc[0]
     except Exception as e:
-        conn.session.rollback()
+        session.rollback()
         print(e)
         GLOG.ERROR(e)
         return 0
     finally:
-        conn.close_session()
+        get_mysql_connection().remove_session()
+
+
+def get_files(type: Optional[FILE_TYPES] = None, name: Optional[str] = None, *args, **kwargs) -> pd.DataFrame:
+    session = get_mysql_connection().session
+    model = MFile
+    filters = [model.is_del == False]
+
+    if type is not None:
+        filters.append(model.type == type)
+
+    if name is not None:
+        filters.append(model.name.like(f"%{name}%"))
+
+    try:
+        stmt = session.query(model).filter(and_(*filters))
+        df = pd.read_sql(stmt.statement, session.connection())
+
+        if df.shape[0] == 0:
+            return pd.DataFrame()
+
+        return df
+
+    except Exception as e:
+        session.rollback()
+        print(e)
+        GLOG.ERROR(e)
+        return pd.DataFrame()
+
+    finally:
+        get_mysql_connection().remove_session()

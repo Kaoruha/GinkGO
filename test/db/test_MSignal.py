@@ -1,10 +1,10 @@
 # import unittest
+# import uuid
 # import base64
 # import random
 # import time
 # import pandas as pd
 # import datetime
-# from ginkgo.libs.ginkgo_conf import GCONF
 
 # from ginkgo.enums import (
 #     SOURCE_TYPES,
@@ -17,21 +17,7 @@
 # )
 
 # from ginkgo.libs.ginkgo_normalize import datetime_normalize
-# from ginkgo.data.models import (
-#     MOrder,
-#     MTradeDay,
-#     MStockInfo,
-#     MSignal,
-#     MTick,
-#     MAdjustfactor,
-#     MBar,
-# )
-
-# from ginkgo.backtest.bar import Bar
-# from ginkgo.backtest.tick import Tick
-# from ginkgo.backtest.order import Order
-# from ginkgo.data.ginkgo_data import GDATA
-# from ginkgo.libs.ginkgo_logger import GLOG
+# from ginkgo.data.models import MSignal
 
 
 # class ModelSignalTest(unittest.TestCase):
@@ -41,94 +27,93 @@
 
 #     # Init
 #     # set data from bar
-#     # store in to GDATA
-#     # query from GDATA
 
 #     def __init__(self, *args, **kwargs) -> None:
 #         super(ModelSignalTest, self).__init__(*args, **kwargs)
+#         self.count = 10
+#         self.model = MSignal
 #         self.params = [
 #             {
-#                 "code": "halo_signal",
-#                 "direction": DIRECTION_TYPES.LONG,
-#                 "backtest_id": "backtest_id",
+#                 "portfolio_id": uuid.uuid4().hex,
+#                 "code": uuid.uuid4().hex,
+#                 "direction": random.choice([DIRECTION_TYPES.LONG, DIRECTION_TYPES.SHORT]),
 #                 "reason": "reason",
 #                 "timestamp": datetime.datetime.now(),
-#                 "source": SOURCE_TYPES.TEST,
-#             },
+#                 "source": random.choice([i for i in SOURCE_TYPES]),
+#             }
+#             for i in range(self.count)
 #         ]
 
 #     def test_ModelSignal_Init(self) -> None:
 #         for i in self.params:
-#             o = MSignal()
-#             o.set_source(i["source"])
+#             o = self.model(
+#                 portfolio_id=i["portfolio_id"],
+#                 timestamp=i["timestamp"],
+#                 code=i["code"],
+#                 direction=i["direction"],
+#                 reason=i["reason"],
+#                 source=i["source"],
+#             )
+#             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+#             self.assertEqual(o.timestamp, i["timestamp"])
+#             self.assertEqual(o.code, i["code"])
+#             self.assertEqual(o.direction, i["direction"])
+#             self.assertEqual(o.reason, i["reason"])
+#             self.assertEqual(o.source, i["source"])
 
 #     def test_ModelSignal_SetFromData(self) -> None:
 #         for i in self.params:
-#             o = MSignal()
-#             o.set(
-#                 i["backtest_id"],
-#                 i["timestamp"],
-#                 i["code"],
-#                 i["direction"],
-#                 i["reason"],
+#             o = self.model()
+#             # Update portidy
+#             o.update(i["portfolio_id"])
+#             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+
+#             # Update timestamp
+#             o.update(i["portfolio_id"], timestamp=i["timestamp"])
+#             self.assertEqual(o.timestamp, i["timestamp"])
+
+#             # Update code
+#             o.update(i["portfolio_id"], code=i["code"])
+#             self.assertEqual(o.code, i["code"])
+
+#             # Update direction
+#             o.update(i["portfolio_id"], direction=i["direction"])
+#             self.assertEqual(o.direction, i["direction"])
+
+#             # Update reason
+#             o.update(i["portfolio_id"], reason=i["reason"])
+#             self.assertEqual(o.reason, i["reason"])
+
+#             # Update source
+#             o.update(i["portfolio_id"], source=i["source"])
+#             self.assertEqual(o.source, i["source"])
+
+#         # Update all
+#         for i in self.params:
+#             o = self.model()
+#             o.update(
+#                 i["portfolio_id"],
+#                 timestamp=i["timestamp"],
+#                 code=i["code"],
+#                 direction=i["direction"],
+#                 reason=i["reason"],
+#                 source=i["source"],
 #             )
-#             o.set_source(i["source"])
+#             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+#             self.assertEqual(o.timestamp, i["timestamp"])
 #             self.assertEqual(o.code, i["code"])
 #             self.assertEqual(o.direction, i["direction"])
-#             self.assertEqual(o.timestamp, i["timestamp"])
+#             self.assertEqual(o.reason, i["reason"])
 #             self.assertEqual(o.source, i["source"])
 
 #     def test_ModelSignal_SetFromDataFrame(self) -> None:
-#         pass
-
-#     def test_ModelSignal_Insert(self) -> None:
-#         GDATA.create_table(MSignal)
-#         times = random.random() * 50
-#         times = int(times)
-#         for j in range(times):
-#             print(f"ModeSignal Insert Test : {j+1}", end="\r")
-#             for i in self.params:
-#                 size0 = GDATA.get_table_size(MSignal)
-#                 o = MSignal()
-#                 o.set_source(i["source"])
-#                 o.set(
-#                     i["backtest_id"],
-#                     i["timestamp"],
-#                     i["code"],
-#                     i["direction"],
-#                     i["reason"],
-#                 )
-#                 GDATA.add(o)
-#                 size1 = GDATA.get_table_size(MSignal)
-#                 self.assertEqual(1, size1 - size0)
-
-#     def test_ModelSignal_BatchInsert(self) -> None:
-#         GDATA.create_table(MSignal)
-#         times = random.random() * 50
-#         times = int(times)
-#         for i in range(times):
-#             size0 = GDATA.get_table_size(MSignal)
-#             print(f"ModelSignal BatchInsert Test : {i+1}", end="\r")
-#             count = random.random() * 50
-#             count = int(count)
-#             s = []
-#             for j in range(count):
-#                 o = MSignal()
-#                 s.append(o)
-#             GDATA.add_all(s)
-#             size1 = GDATA.get_table_size(MSignal)
-#             self.assertEqual(len(s), size1 - size0)
-
-#     def test_ModelSignal_Query(self) -> None:
-#         GDATA.create_table(MSignal)
-#         o = MSignal()
-#         uuid = o.uuid
-#         GDATA.add(o)
-#         r = (
-#             GDATA.get_driver(MSignal)
-#             .session.query(MSignal)
-#             .filter(MSignal.uuid == uuid)
-#             .first()
-#         )
-#         self.assertNotEqual(r, None)
-#         self.assertEqual(r.uuid, uuid)
+#         for i in self.params:
+#             df = pd.DataFrame.from_dict(i, orient="index")[0]
+#             o = self.model()
+#             o.update(df)
+#             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+#             self.assertEqual(o.timestamp, i["timestamp"])
+#             self.assertEqual(o.code, i["code"])
+#             self.assertEqual(o.direction, i["direction"])
+#             self.assertEqual(o.reason, i["reason"])
+#             self.assertEqual(o.source, i["source"])

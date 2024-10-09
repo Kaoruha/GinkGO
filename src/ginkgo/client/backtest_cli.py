@@ -466,7 +466,7 @@ def edit(
         id = file_in_db.uuid
         name = file_in_db.file_name
         type = file_in_db.type
-        if type is FILE_TYPES.BACKTEST:
+        if type is FILE_TYPES.ENGINE:
             file_format = "yml"
         else:
             file_format = "py"
@@ -594,8 +594,8 @@ def recall(
         )
     except Exception as e:
         print(e)
-    file_id = GDATA.add_file(FILE_TYPES.BACKTEST, file_name)
-    GDATA.update_file(file_id, FILE_TYPES.BACKTEST, file_name, content)
+    file_id = GDATA.add_file(FILE_TYPES.ENGINE, file_name)
+    GDATA.update_file(file_id, FILE_TYPES.ENGINE, file_name, content)
     console.print(
         f":dove:  Recall the configuration of backtest [light_coral]{id}[/light_coral] as [steel_blue1]{file_name}[/steel_blue1]"
     )

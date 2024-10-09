@@ -1657,7 +1657,7 @@ class GinkgoData(object):
         item.file_name = name
         item.islive = is_live
         item.content = file.content
-        if type == FILE_TYPES.BACKTEST:
+        if type == FILE_TYPES.ENGINE:
             try:
                 content = yaml.safe_load(file.content.decode("utf-8"))
                 content["name"] = name
@@ -1731,7 +1731,7 @@ class GinkgoData(object):
             with open(f"{file_root}/backtest_config.yml", "rb") as file:
                 content = file.read()
                 item = MFile()
-                item.type = FILE_TYPES.BACKTEST
+                item.type = FILE_TYPES.ENGINE
                 item.file_name = default_backtest_name
                 item.content = content
                 self.add(item)

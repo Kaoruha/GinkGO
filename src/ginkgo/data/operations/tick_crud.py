@@ -38,15 +38,23 @@ def add_tick(
     volume: int,
     direction: TICKDIRECTION_TYPES,
     timestamp: any,
+    source: SOURCE_TYPES = SOURCE_TYPES.TDX,
     *args,
     **kwargs,
 ) -> str:
     model = get_tick_model(code)
-    item = model()
-    item.set(code, price, volume, direction, timestamp)
-    uuid = item.uuid
-    add(item)
-    return uuid
+    item = model(
+        code=code,
+        price=price,
+        volume=volume,
+        direction=direction,
+        timestamp=datetime_normalize(timestamp),
+        source=source,
+    )
+    res = add(item)
+    df = res.to_dataframe()
+    get_click_connection().remove_session()
+    return df.iloc[0]
 
 
 def add_ticks(ticks: List[Union[MTick, Tick]] = None, *args, **kwargs):
@@ -56,31 +64,35 @@ def add_ticks(ticks: List[Union[MTick, Tick]] = None, *args, **kwargs):
         if code not in l.keys():
             l[code] = []
         model = get_tick_model(code)
-        item = model()
-        item.set(i.code, i.price, i.volume, i.direction, i.timestamp)
+        item = model(
+            code=code,
+            price=price,
+            volume=volume,
+            direction=direction,
+            timestamp=datetime_normalize(timestamp),
+            source=source,
+        )
         l[code].append(item)
     for k, v in l.items():
         add_all(v)
 
 
-def delete_tick_by_id(id: str, connection: Optional[GinkgoClickhouse] = None, *args, **kwargs) -> int:
-    conn = connection if connection else get_click_connection()
+def delete_tick_by_id(id: str, *args, **kwargs) -> int:
+    session = get_click_connection().session
     model = get_tick_model(code)
-    filters = [
-        model.uuid == id,
-    ]
+    filters = [model.uuid == id]
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
     except Exception as e:
-        conn.session.rollback()
-        pritn(e)
-        GLOG.ERROR(e)
-        return 0
+        session.rollback()
+        print(e)
     finally:
-        conn.close_session()
+        get_click_connection().remove_session()
 
 
 def delete_tick_by_code_and_date_range(
@@ -91,11 +103,9 @@ def delete_tick_by_code_and_date_range(
     *args,
     **kwargs,
 ) -> int:
-    conn = connection if connection else get_click_connection()
+    session = get_click_connection().session
     model = get_tick_model(code)
-    filters = [
-        model.code == code,
-    ]
+    filters = [model.code == code]
     if start_date:
         start_date = datetime_normalize(start_date)
         filters.append(model.timestamp >= start_date)
@@ -103,17 +113,17 @@ def delete_tick_by_code_and_date_range(
         end_date = datetime_normalize(end_date)
         filters.append(model.timestamp <= end_date)
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
     except Exception as e:
-        conn.session.rollback()
+        session.rollback()
         print(e)
-        GLOG.ERROR(e)
-        return 0
     finally:
-        conn.close_session()
+        get_click_connection().remove_session()
 
 
 def softdelete_tick_by_code_and_date_range(
@@ -129,25 +139,8 @@ def softdelete_tick_by_code_and_date_range(
 
 
 def update_tick(tick: Union[MTick, Tick], connection: Optional[GinkgoClickhouse] = None, *args, **kwargs):
-    conn = connection if connection else get_click_connection()
-    model = get_tick_model(code)
-    code = tick.code
-    time = datetime_normalize(tick.timestamp)
-    filters = [model.code == code, model.timestamp == time]
-    try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
-    except Exception as e:
-        conn.session.rollback()
-        print(e)
-        GLOG.ERROR(e)
-        return 0
-    finally:
-        conn.close_session()
-
-    add_tick(tick.code, tick.price, tick.volume, tick.direction, datetime_normalize(tick.timestamp))
+    # TODO
+    pass
 
 
 def get_tick(
@@ -157,54 +150,40 @@ def get_tick(
     page: Optional[int] = None,
     page_size: Optional[int] = None,
     as_dataframe: bool = False,
-    connection: Optional[GinkgoClickhouse] = None,
     *args,
     **kwargs,
 ) -> Union[List[Tick], pd.DataFrame]:
-    conn = connection if connection else get_click_connection()
+    session = get_click_connection().session
     model = get_tick_model(code)
-    filters = [
-        model.code == code,
-    ]
+    filters = [model.code == code]
 
-    if start_date:
+    if start_date is not None:
         start_date = datetime_normalize(start_date)
         filters.append(model.timestamp >= start_date)
 
-    if end_date:
+    if end_date is not None:
         end_date = datetime_normalize(end_date)
         filters.append(model.timestamp <= end_date)
 
+    stmt = session.query(model).filter(and_(*filters))  # New api not work on dataframe convert
+    if page is not None and page_size is not None:
+        stmt = stmt.offset(page * page_size).limit(page_size)
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-
-        if page is not None and page_size is not None:
-            query = query.offset(page * page_size).limit(page_size)
 
         if as_dataframe:
-            if len(query.all()) > 0:
-                df = pd.read_sql(query.statement, conn.engine)
-                return df
-            else:
-                return pd.DataFrame()
+            df = pd.read_sql(stmt.statement, session.connection())
+            return df
         else:
-            query = query.all()
-            if len(query) == 0:
-                return []
-            else:
-                res = []
-                for i in query:
-                    item = Tick()
-                    item.set(i)
-                    res.append(item)
-                return res
+            # stmt = select(model).where(and_(*filters))
+            res = session.execute(stmt).scalars().all()
+            return [Tick(code=code, price=price, volume=volume, direction=direction) for i in res]
+
     except Exception as e:
-        conn.session.rollback()
-        print(e)
+        session.rollback()
         GLOG.ERROR(e)
         if as_dataframe:
             return pd.DataFrame()
         else:
             return []
     finally:
-        conn.close_session()
+        get_click_connection().remove_session()

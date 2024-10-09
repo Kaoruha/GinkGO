@@ -1,47 +1,52 @@
 import pandas as pd
-from sqlalchemy import Column, String, Integer, DateTime, Boolean
-from sqlalchemy_utils import ChoiceType
+import datetime
+
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, Enum
+from sqlalchemy.orm import Mapped, mapped_column
 from functools import singledispatchmethod
+
 from ginkgo.libs import base_repr, datetime_normalize
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
-from ginkgo.libs.ginkgo_conf import GCONF
 
 
 class MTradeDay(MClickBase):
     __abstract__ = False
     __tablename__ = "trade_day"
 
-    market = Column(ChoiceType(MARKET_TYPES, impl=Integer()), default=1)
-    is_open = Column(Boolean(), default=True)
-
-    def __init__(self, *args, **kwargs) -> None:
-        super(MTradeDay, self).__init__(*args, **kwargs)
+    market: Mapped[MARKET_TYPES] = mapped_column(Enum(MARKET_TYPES), default=MARKET_TYPES.CHINA)
+    is_open: Mapped[bool] = mapped_column(Boolean, default=True)
 
     @singledispatchmethod
-    def set(self) -> None:
-        pass
+    def update(self, *args, **kwargs) -> None:
+        raise NotImplementedError("Unsupported type")
 
-    @set.register
+    @update.register(MARKET_TYPES)
     def _(
         self,
         market: MARKET_TYPES,
-        is_open: bool,
-        date: any,
+        timestamp: any = None,
+        is_open: bool = None,
+        source: SOURCE_TYPES = None,
         *args,
         **kwargs,
     ) -> None:
         self.market = market
-        self.is_open = is_open
-        self.timestamp = datetime_normalize(date)
+        if is_open is not None:
+            self.is_open = is_open
+        if timestamp is not None:
+            self.timestamp = datetime_normalize(timestamp)
+        if source is not None:
+            self.source = source
 
-    @set.register
+    @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.timestamp = datetime_normalize(df.date)
         self.market = df.market
         self.is_open = df.is_open
+        self.timestamp = datetime_normalize(df.timestamp)
         if "source" in df.keys():
-            self.set_source(SOURCE_TYPES(df.source))
+            self.source = df.source
+        self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> None:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

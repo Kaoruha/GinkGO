@@ -53,7 +53,7 @@ class GinkgoMongo(object):
         uri = f""
         self._engine = create_engine(uri)
         self._session = sessionmaker(self.engine)()
-        self._metadata = MetaData(bind=self.engine)
+        self._metadata = MetaData(bind=self._engine)
         self._base = declarative_base(metadata=self.metadata)
         GLOG.DEBUG("Connect to mongo succeed.")
 

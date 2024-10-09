@@ -27,7 +27,7 @@ class Bar(Base):
         **kwargs
     ) -> None:
         super(Bar, self).__init__(*args, **kwargs)
-        self.set(code, open, high, low, cloase, frequency, volume, timestamp)
+        self.set(code, open, high, low, close, frequency, volume, timestamp)
 
     @singledispatchmethod
     def set(self) -> None:

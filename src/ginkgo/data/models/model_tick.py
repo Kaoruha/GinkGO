@@ -1,10 +1,13 @@
 import pandas as pd
-from sqlalchemy import Column, String, Integer, DECIMAL
-from sqlalchemy_utils import ChoiceType
+import datetime
+
+from decimal import Decimal
 from functools import singledispatchmethod
+from sqlalchemy import Column, String, Integer, DECIMAL, Enum
+from sqlalchemy.orm import Mapped, mapped_column
+
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.libs import datetime_normalize, base_repr
-from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 
 
@@ -12,36 +15,40 @@ class MTick(MClickBase):
     __abstract__ = True
     __tablename__ = "tick"
 
-    code = Column(String(), default="ginkgo_test_code")
-    price = Column(DECIMAL(20, 10), default=0)
-    volume = Column(Integer, default=0)
-    direction = Column(ChoiceType(TICKDIRECTION_TYPES, impl=Integer()), default=1)
-
-    def __init__(self, *args, **kwargs) -> None:
-        super(MTick, self).__init__(*args, **kwargs)
+    code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
+    price: Mapped[str] = mapped_column(DECIMAL(10, 2), default=0)
+    volume: Mapped[str] = mapped_column(Integer, default=0)
+    direction: Mapped[str] = mapped_column(Enum(TICKDIRECTION_TYPES), default=TICKDIRECTION_TYPES.OTHER)
 
     @singledispatchmethod
-    def set(self) -> None:
-        pass
+    def update(self, *args, **kwargs) -> None:
+        raise NotImplementedError("Unsupported type")
 
-    @set.register
+    @update.register(str)
     def _(
         self,
         code: str,
-        price: float,
-        volume: int,
-        direction: TICKDIRECTION_TYPES,
-        timestamp: any,
+        price: float = None,
+        volume: int = None,
+        direction: TICKDIRECTION_TYPES = None,
+        timestamp: any = None,
+        source: SOURCE_TYPES = None,
         *args,
         **kwargs,
     ) -> None:
         self.code = code
-        self.price = round(price, 6)
-        self.volume = volume
-        self.direction = direction
-        self.timestamp = datetime_normalize(timestamp)
+        if price is not None:
+            self.price = round(price, 3)
+        if volume is not None:
+            self.volume = volume
+        if direction is not None:
+            self.direction = direction
+        if timestamp is not None:
+            self.timestamp = datetime_normalize(timestamp)
+        if source is not None:
+            self.source = source
 
-    @set.register
+    @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df.code
         self.price = df.price
@@ -49,7 +56,8 @@ class MTick(MClickBase):
         self.direction = df.direction
         self.timestamp = datetime_normalize(df.timestamp)
         if "source" in df.keys():
-            self.set_source(SOURCE_TYPES(df.source))
+            self.source = df.source
+        self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> None:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

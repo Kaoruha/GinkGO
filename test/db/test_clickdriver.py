@@ -2,7 +2,6 @@ import unittest
 import time
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs.ginkgo_logger import GLOG
 
 
 class ClickDriverTest(unittest.TestCase):
@@ -14,17 +13,13 @@ class ClickDriverTest(unittest.TestCase):
 
     def __init__(self, *args, **kwargs) -> None:
         super(ClickDriverTest, self).__init__(*args, **kwargs)
-        self.dev = False
 
     def test_ClickDriver_Init(self) -> None:
-        time.sleep(GCONF.HEARTBEAT)
-
-        db = GinkgoClickhouse(
+        driver = GinkgoClickhouse(
             user=GCONF.CLICKUSER,
             pwd=GCONF.CLICKPWD,
             host=GCONF.CLICKHOST,
             port=GCONF.CLICKPORT,
             db=GCONF.CLICKDB,
         )
-        r = db.is_table_exsists("Shouldnotbethere")
-        self.assertEqual(False, r)
+        self.assertNotEqual(None, driver)

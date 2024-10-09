@@ -1,6 +1,7 @@
 ##### 1.0(FUTURE)
-  - [x] Update Python to 3.11.
-  - [DOGIN] Upgrade Backtest Framework.
+  - [x] Update Python > 3.11.
+  - [x] Update Sqlalchemy > 2.0.
+  - [x] Upgrade Backtest Framework.
 
   ~~- [DEV] Support MongoDB and Clickhouse.~~
 
@@ -9,11 +10,14 @@
   - [TODO] Add ML Engine.
   - [TODO] Support other markets.
 
-##### 0.7.2(DEV)
+##### 0.9.0
   - [TODO]  Support More DataSource
   - - [TODO]  Support NSQ
   - - [TODO]  Support Dao
   - - [TODO]  Support Jap
+  - - [TODO]  Support Crypton
+##### 0.8.1(DEV)
+  - [TODO]  Support More DataSource
   - - [TODO]  Support Crypton
 
 ##### 0.7.1(DEV)
@@ -21,7 +25,7 @@
   - [TODO] Add Notification
   - - [x] Add Telegram Notification
   - - [x] Add Beep Notification
-  - - [TODO] Add Mail Notification
+  - - [x] Add Mail Notification
   ~~- - [TODO] Add Wecat Notification~~
   - [x] Basic Live engine demo
 

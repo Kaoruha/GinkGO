@@ -1,56 +1,67 @@
 import pandas as pd
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, DECIMAL
-from sqlalchemy_utils import ChoiceType
+import datetime
+
+from decimal import Decimal
 from functools import singledispatchmethod
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, DECIMAL, Enum
+from sqlalchemy.orm import Mapped, mapped_column
+
 from ginkgo.libs import base_repr, datetime_normalize
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, DIRECTION_TYPES, TRANSFERSTATUS_TYPES
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
 
 
 class MTransfer(MMysqlBase):
     __abstract__ = False
     __tablename__ = "transfer"
 
-    portfolio_id = Column(String(40), default="")
-    direction = Column(ChoiceType(DIRECTION_TYPES, impl=Integer()), default=1)
-    market = Column(ChoiceType(MARKET_TYPES, impl=Integer()), default=1)
-    money = Column(DECIMAL(20, 10), default=0)
-    status = Column(ChoiceType(TRANSFERSTATUS_TYPES, impl=Integer()), default=1)
-
-    def __init__(self, *args, **kwargs) -> None:
-        super(MTransfer, self).__init__(*args, **kwargs)
+    portfolio_id: Mapped[str] = mapped_column(String(32), default="")
+    direction: Mapped[TRANSFERDIRECTION_TYPES] = mapped_column(
+        Enum(TRANSFERDIRECTION_TYPES), default=TRANSFERDIRECTION_TYPES.IN
+    )
+    market: Mapped[MARKET_TYPES] = mapped_column(Enum(MARKET_TYPES), default=MARKET_TYPES.CHINA)
+    money: Mapped[Decimal] = mapped_column(DECIMAL(10, 2), default=0)
+    status: Mapped[TRANSFERSTATUS_TYPES] = mapped_column(Enum(TRANSFERSTATUS_TYPES), default=TRANSFERSTATUS_TYPES.OTHER)
 
     @singledispatchmethod
-    def set(self, *args, **kwargs) -> None:
-        pass
+    def update(self, *args, **kwargs) -> None:
+        raise NotImplementedError("Unsupported type")
 
-    @set.register
+    @update.register(str)
     def _(
         self,
         portfolio_id: str,
-        direction: DIRECTION_TYPES,
-        market: MARKET_TYPES,
-        money: float,
-        status: TRANSFERSTATUS_TYPES,
-        timestamp: any,
+        direction: TRANSFERDIRECTION_TYPES = None,
+        market: MARKET_TYPES = None,
+        money: float = None,
+        status: TRANSFERSTATUS_TYPES = None,
+        source: SOURCE_TYPES = None,
         *args,
         **kwargs,
     ) -> None:
         self.portfolio_id = portfolio_id
-        self.direction = direction
-        self.market = market
-        self.money = money
-        self.status = status
-        self.timestamp = datetime_normalize(timestamp)
+        if direction is not None:
+            self.direction = direction
+        if market is not None:
+            self.market = market
+        if money is not None:
+            self.money = money
+        if status is not None:
+            self.status = status
+        if source is not None:
+            self.source = source
+        self.update_at = datetime.datetime.now()
 
-    @set.register
+    @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.timestamp = datetime_normalize(df.date)
+        self.portfolio_id = df.portfolio_id
+        self.direction = df.direction
         self.market = df.market
-        self.status = TRANSFERSTATUS_TYPES(df["status"])
+        self.money = df.money
+        self.status = df.status
         if "source" in df.keys():
-            self.set_source(SOURCE_TYPES(df.source))
+            self.source = df.source
+        self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> None:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

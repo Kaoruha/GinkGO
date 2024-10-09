@@ -1,4 +1,9 @@
-from typing import List, Optional, Union
+import time
+
+
+from typing import List, Optional, Union, Any
+from sqlalchemy import inspect, select, func
+
 
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
 from ginkgo.data.drivers.ginkgo_mongo import GinkgoMongo
@@ -9,29 +14,13 @@ from ginkgo.data.drivers.ginkgo_kafka import (
     GinkgoConsumer,
     kafka_topic_llen,
 )
-from ginkgo.data.models.model_clickbase import MClickBase
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.data.models import MClickBase, MMysqlBase
+from ginkgo.libs import try_wait_counter, GLOG, GCONF
 
 mysql_connection = None
 click_connection = None
 redis_connection = None
 max_try = 5
-
-
-def clean_connection():
-    """
-    Have no idea why db connection prevent the multiprocessing pool start.
-    Reset the db to solve the problem for temporary.
-    """
-    global mysql_connection, click_connection, redis_connection
-    del mysql_connection
-    del click_connection
-    del redis_connection
-    mysql_connection = None
-    click_connection = None
-    redis_connection = None
 
 
 def get_click_connection() -> GinkgoClickhouse:
@@ -91,7 +80,7 @@ def create_kafka_producer_driver(self) -> GinkgoProducer:
     return GinkgoProducer()
 
 
-def add(value, max_try: int = 5, connection: Optional[Union[GinkgoClickhouse, GinkgoMysql]] = None) -> None:
+def add(value, max_try: int = 5, *args, **kwargs) -> any:
     """
     Add a single data item.
     Args:
@@ -104,20 +93,22 @@ def add(value, max_try: int = 5, connection: Optional[Union[GinkgoClickhouse, Gi
         return
     GLOG.DEBUG("Try add data to session.")
     for i in range(max_try):
-        conn = connection if connection else get_db_connection(value)
+        conn = get_db_connection(value)
         try:
-            conn.session.add(value)
-            conn.session.commit()
-            break
+            session = conn.session
+            session.add(value)
+            session.commit()
+            return value
         except Exception as e:
             print(e)
             conn.session.rollback()
             GLOG.CRITICAL(f"{type(value)} add failed {i+1}/{max_try}")
         finally:
-            conn.close_session()
+            pass
+            # conn.remove_session()
 
 
-def add_all(values, max_try: int = 5) -> None:
+def add_all(values: List[Any], max_try: int = 5, *args, **kwargs) -> tuple[int, int]:
     """
     Add multi data into session.
     Args:
@@ -128,7 +119,9 @@ def add_all(values, max_try: int = 5) -> None:
     global mysql_connection, click_connection
     GLOG.DEBUG("Try add multi data to session.")
     click_list = []
+    click_count = 0
     mysql_list = []
+    mysql_count = 0
     for i in values:
         if isinstance(i, MClickBase):
             click_list.append(i)
@@ -138,36 +131,38 @@ def add_all(values, max_try: int = 5) -> None:
             GLOG.WARN("Just support clickhouse and mysql now. Ignore other type.")
 
     for i in range(max_try):
-        click_d = get_click_connection()
         try:
             if len(click_list) > 0:
-                click_d.session.add_all(click_list)
-                click_d.session.commit()
+                session = get_click_connection().session
+                session.add_all(click_list)
+                session.commit()
+                click_count = len(click_list)
                 GLOG.DEBUG(f"Clickhouse commit {len(click_list)} records.")
                 break
         except Exception as e:
-            click_d.session.rollback()
+            session.rollback()
             GLOG.CRITICAL(f"ClickHouse add failed {i+1}/{max_try}")
             print(e)
         finally:
-            click_d.close_session()
-            del click_connection
-            click_connection = None
+            pass
+            # click_d.remove_session()
 
     for i in range(max_try):
-        mysql_d = get_mysql_connection()
         try:
             if len(mysql_list) > 0:
-                mysql_d.session.add_all(mysql_list)
-                mysql_d.session.commit()
+                session = get_mysql_connection().session
+                session.add_all(mysql_list)
+                session.commit()
+                mysql_count = len(mysql_list)
                 GLOG.DEBUG(f"Mysql commit {len(mysql_list)} records.")
         except Exception as e:
-            mysql_d.session.rollback()
+            session.rollback()
             GLOG.CRITICAL(f"Mysql add failed {i+1}/{self.max_try}")
         finally:
-            mysql_d.close_session()
-            del mysql_connection
-            mysql_connection = None
+            pass
+            # mysql_d.remove_session()
+
+    return (click_count, mysql_count)
 
 
 def is_table_exsists(model) -> bool:
@@ -180,15 +175,9 @@ def is_table_exsists(model) -> bool:
         Whether the table exist
     """
     driver = get_db_connection(model)
-    res = False
-    try:
-        res = driver.is_table_exsists(model.__tablename__)
-    except Exception as e:
-        print(e)
-    finally:
-        driver.session.close()
-        del driver
-    return res
+    table_name = model.__tablename__
+    inspector = inspect(driver.engine)
+    return table_name in inspector.get_table_names()
 
 
 def create_table(model) -> None:
@@ -200,17 +189,30 @@ def create_table(model) -> None:
     Returns:
         None
     """
-    db = get_db_connection(model)
-    if db is None:
-        return
     if model.__abstract__ == True:
         GLOG.DEBUG(f"Pass Model:{model}")
         return
-    if is_table_exsists(model):
-        GLOG.DEBUG(f"Table {model.__tablename__} exist.")
-    else:
-        model.__table__.create(db.engine)
-        GLOG.DEBUG(f"Create Table {model.__tablename__} : {model}")
+
+    for i in range(max_try):
+        driver = get_db_connection(model)
+        if driver is None:
+            GLOG.ERROR(f"Can not get driver for {model}.")
+            GLOG.WARN(f"{type(model)} create table failed {i+1}/{max_try}")
+            continue
+        try:
+            if is_table_exsists(model):
+                GLOG.DEBUG(f"No need to drop {model.__tablename__} : {model}")
+            else:
+                model.metadata.create_all(driver.engine)
+                GLOG.DEBUG(f"Create Table {model.__tablename__} : {model}")
+            return
+        except Exception as e:
+            GLOG.ERROR(e)
+            driver.session.rollback()
+            GLOG.WARN(f"{type(model)} drop table failed {i+1}/{max_try}")
+            time.sleep(try_wait_counter(i))
+        finally:
+            driver.remove_session()
 
 
 def drop_table(model) -> None:
@@ -222,15 +224,27 @@ def drop_table(model) -> None:
     Returns:
         None
     """
-    db = get_db_connection(model)
-    if db is None:
-        GLOG.ERROR(f"Can not get driver for {model}.")
-        return
-    if is_table_exsists(model):
-        model.__table__.drop(db.engine)
-        GLOG.DEBUG(f"Drop Table {model.__tablename__} : {model}")
-    else:
-        GLOG.DEBUG(f"No need to drop {model.__tablename__} : {model}")
+
+    for i in range(max_try):
+        driver = get_db_connection(model)
+        if driver is None:
+            GLOG.ERROR(f"Can not get driver for {model}.")
+            GLOG.WARN(f"{type(model)} drop table failed {i+1}/{max_try}")
+            continue
+        try:
+            if is_table_exsists(model):
+                model.metadata.drop_all(driver.engine)
+                GLOG.DEBUG(f"Drop Table {model.__tablename__} : {model}")
+            else:
+                GLOG.DEBUG(f"No need to drop {model.__tablename__} : {model}")
+            return
+        except Exception as e:
+            GLOG.ERROR(e)
+            driver.session.rollback()
+            GLOG.WARN(f"{type(model)} drop table failed {i+1}/{max_try}")
+            time.sleep(try_wait_counter(i))
+        finally:
+            driver.remove_session()
 
 
 def create_all_tables() -> None:
@@ -241,10 +255,12 @@ def create_all_tables() -> None:
     Returns:
         None
     """
+    global click_connection
+    global mysql_connection
     # Create Tables in clickhouse
-    MClickBase.metadata.create_all(create_click_connection().engine)
+    MClickBase.metadata.create_all(click_connection.engine)
     # Create Tables in mysql
-    MMysqlBase.metadata.create_all(create_mysql_connection().engine)
+    MMysqlBase.metadata.create_all(mysql_connection.engine)
     GLOG.DEBUG(f"Create all tables.")
 
 
@@ -258,13 +274,16 @@ def drop_all_tables() -> None:
     Returns:
         None
     """
+    global click_connection
+    global mysql_connection
     # Drop Tables in clickhouse
-    MClickBase.metadata.drop_all(get_click_connection().engine)
+    MClickBase.metadata.drop_all(click_connection.engine)
     # Drop Tables in mysql
-    MMysqlBase.metadata.drop_all(get_mysql_connection().engine)
+    MMysqlBase.metadata.drop_all(mysql_connection.engine)
+    GLOG.DEBUG(f"Drop all tables.")
 
 
-def get_table_size(model, connection=None) -> int:
+def get_table_size(model, *args, **kwargs) -> int:
     """
     Get the size of table.
     Support Clickhouse and Mysql now.
@@ -273,10 +292,9 @@ def get_table_size(model, connection=None) -> int:
     Returns:
         Size of table in database
     """
-    conn = connection if connection else get_db_connection(model)
-    if conn is None:
-        return 0
-    return conn.get_table_size(model)
+    driver = get_db_connection(model)
+    count = driver.session.scalar(select(func.count()).select_from(model))
+    return count
 
 
 __all__ = [

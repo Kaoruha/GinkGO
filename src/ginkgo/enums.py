@@ -56,7 +56,7 @@ class PRICEINFO_TYPES(EnumBase):
 
 class SOURCE_TYPES(EnumBase):
     VOID = -1
-    TEST = 0
+    OTHER = 0
     SIM = 1
     REALTIME = 2
     SINA = 3
@@ -64,15 +64,19 @@ class SOURCE_TYPES(EnumBase):
     AKSHARE = 5
     YAHOO = 6
     TUSHARE = 7
-    PORTFOLIO = 8
-    STRATEGY = 9
-    SIZER = 10
+    TDX = 8
 
 
 class DIRECTION_TYPES(EnumBase):
     OTHER = 0
     LONG = 1
     SHORT = -1
+
+
+class TRANSFERDIRECTION_TYPES(EnumBase):
+    OTHER = 0
+    IN = 1
+    OUT = 2
 
 
 class ORDER_TYPES(EnumBase):
@@ -124,7 +128,8 @@ class FILE_TYPES(EnumBase):
     SELECTOR = 4
     SIZER = 5
     STRATEGY = 6
-    BACKTEST = 7
+    ENGINE = 7
+    HANDLER = 8
 
 
 class RECORDSTAGE_TYPES(EnumBase):

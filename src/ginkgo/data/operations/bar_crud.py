@@ -1,8 +1,13 @@
-from sqlalchemy import and_
-from ginkgo.data.drivers import add, add_all, get_click_connection, GinkgoClickhouse
-from ginkgo.enums import FREQUENCY_TYPES
+import pandas as pd
+from sqlalchemy import and_, delete, update, select, text
+from typing import List, Optional, Union
+
+
+from ginkgo.data.drivers import add, add_all, get_click_connection
+from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
 from ginkgo.backtest import Bar
 from ginkgo.data.models import MBar
+from ginkgo.libs import datetime_normalize, GLOG
 
 
 def add_bar(
@@ -13,15 +18,25 @@ def add_bar(
     close: float,
     volume: int,
     frequency: FREQUENCY_TYPES,
-    datetime: any,
+    timestamp: any,
+    source: SOURCE_TYPES = SOURCE_TYPES.TUSHARE,
     *args,
     **kwargs,
 ) -> None:
-    item = MBar()
-    item.set(code, open, high, low, close, volume, frequency, datetime_normalize(datetime))
-    uuid = item.uuid
-    add(item)
-    return uuid
+    item = MBar(
+        code=code,
+        open=open,
+        high=high,
+        close=close,
+        volume=volume,
+        frequency=frequency,
+        timestamp=datetime_normalize(timestamp),
+        source=source,
+    )
+    res = add(item)
+    df = res.to_dataframe()
+    get_click_connection().remove_session()
+    return df.iloc[0]
 
 
 def add_bars(bars: List[Union[Bar, MBar]], *args, **kwargs):
@@ -30,78 +45,73 @@ def add_bars(bars: List[Union[Bar, MBar]], *args, **kwargs):
         if isinstance(i, MBar):
             l.append(i)
         elif isinstance(i, Bar):
-            item = MBar()
-            item.set(i.code, i.open, i.high, i.low, i.close, i.volume, i.frequency, i.datetime)
+            item = MBar(i.code, i.open, i.high, i.low, i.close, i.volume, i.frequency, i.datetime)
             l.append(item)
         else:
             GLOG.WARN("add ticks only support tick data.")
     return add_all(l)
 
 
-def delete_bar_by_id(id: str, connection: Optional[GinkgoClickhouse] = None, *args, **kwargs) -> int:
-    conn = connection if connection else get_click_connection()
+def delete_bar_by_id(id: str, *args, **kwargs) -> None:
+    session = get_click_connection().session
     model = MBar
-    filters = [model.uuid == id]
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
+        filters = [model.uuid == id]
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
     except Exception as e:
-        conn.session.rollback()
-        pritn(e)
-        GLOG.ERROR(e)
-        return 0
+        session.rollback()
+        print(e)
     finally:
-        conn.close_session()
+        get_click_connection().remove_session()
 
 
-def softdelete_bar_by_id(id: str, connection: Optional[GinkgoClickhouse] = None, *args, **kwargs) -> int:
-    delete_bar_by_id(id, connection, *args, **kwargs)
+def softdelete_bar_by_id(id: str, *args, **kwargs) -> None:
+    GLOG.WARN("Soft delete not work in clickhouse, use delete instead.")
+    return delete_bar_by_id(id, *args, **kwargs)
 
 
 def delete_bar_by_code_and_date_range(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
-    connection: Optional[GinkgoMysql] = None,
     *args,
     **kwargs,
-) -> int:
-    conn = connection if connection else get_click_connection()
+) -> None:
+    # Sqlalchemy ORM seems not work on clickhouse when multi delete.
+    # Use sql
     model = MBar
-    filters = [model.code == code]
-    if start_date:
-        start_date = datetime_normalize(start_date)
-        filters.append(model.timestamp >= start_date)
-
-    if end_date:
-        end_date = datetime_normalize(end_date)
-        filters.append(model.timestamp <= end_date)
-
+    sql = f"DELETE FROM {model.__tablename__} WHERE code = :code"
+    params = {"code": code}
+    session = get_click_connection().session
+    if start_date is not None:
+        sql += " AND timestamp >= :start_date"
+        params["start_date"] = datetime_normalize(start_date)
+    if end_date is not None:
+        sql += " AND timestamp <= :end_date"
+        params["end_date"] = datetime_normalize(end_date)
     try:
-        query = conn.session.query(model).filter(and_(*filters))
-        res = query.delete()
-        conn.session.commit()
-        return res
+        session.execute(text(sql), params)
+        session.commit()
     except Exception as e:
-        conn.session.rollback()
-        print(e)
+        session.rollback()
         GLOG.ERROR(e)
-        return 0
     finally:
-        conn.close_session()
+        get_click_connection().remove_session()
 
 
 def softdelete_bar_by_code_and_date_range(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
-    connection: Optional[GinkgoMysql] = None,
     *args,
     **kwargs,
 ) -> int:
-    delete_bar_by_code_and_date_range(code, start_date, end_date, connection, *args, **kwargs)
+    return delete_bar_by_code_and_date_range(code, start_date, end_date, *args, **kwargs)
 
 
 def update_bar():
@@ -117,50 +127,52 @@ def get_bar(
     page: Optional[int] = None,
     page_size: Optional[int] = None,
     as_dataframe: bool = False,
-    connection: Optional[GinkgoClickhouse] = None,
     *args,
     **kwargs,
-) -> Union[List[Tick], pd.DataFrame]:
-    conn = connection if connection else get_click_connection()
+) -> Union[List[Bar], pd.DataFrame]:
+    session = get_click_connection().session
     model = MBar
     filters = [model.code == code]
 
-    if start_date:
+    if start_date is not None:
         start_date = datetime_normalize(start_date)
         filters.append(model.timestamp >= start_date)
 
-    if end_date:
+    if end_date is not None:
         end_date = datetime_normalize(end_date)
         filters.append(model.timestamp <= end_date)
 
     try:
-        query = conn.session.query(model).filter(and_(*filters))
+        stmt = session.query(model).filter(and_(*filters))  # New api not work on dataframe convert
 
         if page is not None and page_size is not None:
-            query = query.offset(page * page_size).limit(page_size)
-
+            stmt = stmt.offset(page * page_size).limit(page_size)
         if as_dataframe:
-            if len(query.all()) > 0:
-                df = pd.read_sql(query.statement, conn.engine)
-                return df
-            else:
-                return pd.DataFrame()
+            df = pd.read_sql(stmt.statement, session.connection())
+            return df
         else:
-            query = query.all()
-            if len(query) == 0:
-                return []
-            else:
-                res = []
-                for i in query:
-                    item = Tick()
-                    item.set(i["code"], i["price"], i["volume"], i["direction"], i["timestamp"])
-                    res.append(item)
-                return res
-        return res
+            # stmt = select(model).where(and_(*filters))
+            res = session.execute(stmt).scalars().all()
+            return [
+                Bar(
+                    code=i.code,
+                    open=i.open,
+                    high=i.high,
+                    low=i.low,
+                    close=i.close,
+                    volume=i.volume,
+                    frequency=i.frequency,
+                    timestamp=i.timestamp,
+                )
+                for i in res
+            ]
+
     except Exception as e:
-        conn.session.rollback()
-        print(e)
+        session.rollback()
         GLOG.ERROR(e)
-        return 0
+        if as_dataframe:
+            return pd.DataFrame()
+        else:
+            return []
     finally:
-        conn.close_session()
+        get_click_connection().remove_session()
