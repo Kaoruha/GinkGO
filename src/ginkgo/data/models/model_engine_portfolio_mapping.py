@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
 
+from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column
@@ -25,8 +26,8 @@ class MEnginePortfolioMapping(MMysqlBase):
     def _(
         self,
         engine_id: str,
-        portfolio_id: str = None,
-        source: SOURCE_TYPES = None,
+        portfolio_id: Optional[str] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -42,7 +43,7 @@ class MEnginePortfolioMapping(MMysqlBase):
         self.engine_id = df["engine_id"]
         self.portfolio_id = df["portfolio_id"]
         if "source" in df.keys():
-            self.source = df.source
+            self.source = df["source"]
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

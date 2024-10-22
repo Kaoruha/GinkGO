@@ -14,7 +14,7 @@ from ginkgo.enums import ORDERSTATUS_TYPES
 
 
 app = typer.Typer(
-    help=":shark: Module for BACKTEST. [grey62]Build your own strategy and do backtest.[/grey62]"
+    help=":shark: Module for [bold medium_spring_green]BACKTEST[/]. [grey62]Build your own strategy and do backtest.[/grey62]"
 )
 console = Console()
 
@@ -60,9 +60,7 @@ def print_order_paganation(df, page: int):
                     str(r["fee"]),
                 )
             console.print(table)
-            go_next_page = Prompt.ask(
-                f"Current: {(i+1)*page}/{data_length}, Conitnue? \[y/N]"
-            )
+            go_next_page = Prompt.ask(f"Current: {(i+1)*page}/{data_length}, Conitnue? \[y/N]")
             if go_next_page.upper() in quit_list:
                 console.print("See you soon. :sunglasses:")
                 raise typer.Abort()
@@ -101,7 +99,7 @@ def cat(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="File id.")],
 ):
     """
-    :see_no_evil: Show File content.
+    :see_no_evil: Show [bold medium_spring_green]FILE[/] content.
     """
     from ginkgo.data.ginkgo_data import GDATA
 
@@ -112,9 +110,7 @@ def cat(
 
 @app.command()
 def ls(
-    filter: Annotated[
-        str, typer.Option(case_sensitive=False, help="File filter")
-    ] = None,
+    filter: Annotated[str, typer.Option(case_sensitive=False, help="File filter")] = None,
     a: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Show All Data, include removed file."),
@@ -161,7 +157,7 @@ def ls(
     else:
         # If there is no file in database.
         console.print(
-            f"There is no [light_coral]{filter}[/light_coral] in database. You could run [steel_blue1]ginkgo backtest init[/steel_blue1] or [steel_blue1]ginkgo backtest new [FileType][/steel_blue1]"
+            f"There is no [light_coral]{filter}[/light_coral] in database. You could run [medium_spring_green]ginkgo backtest init[/medium_spring_green] or [medium_spring_green]ginkgo backtest new [FileType][/medium_spring_green]"
         )
 
 
@@ -361,9 +357,7 @@ def run(
             strategy.set_backtest_id(backtest_id)
             portfolio.add_strategy(strategy)
         else:
-            console.print(
-                f":sad_but_relieved_face: Cant Locate Strategy: {strategy_id}"
-            )
+            console.print(f":sad_but_relieved_face: Cant Locate Strategy: {strategy_id}")
             shutil.rmtree(temp_folder)
             return
 
@@ -387,9 +381,7 @@ def run(
             print(analyzer)
             portfolio.add_analyzer(analyzer)
         else:
-            console.print(
-                f":sad_but_relieved_face: Cant Locate Analyzer: {analyzer_id}"
-            )
+            console.print(f":sad_but_relieved_face: Cant Locate Analyzer: {analyzer_id}")
             shutil.rmtree(temp_folder)
             return
     # <-- Analyzer
@@ -480,22 +472,16 @@ def edit(
         os.system(f"nvim {temp_folder}/{edit_name}.{file_format}")
         with open(f"{temp_folder}/{name}.{file_format}", "rb") as file:
             GDATA.update_file(id, type, name, file.read())
-            console.print(
-                f":bear: [yellow]{type}[/yellow][green bold] {name}[/green bold] Updated."
-            )
+            console.print(f":bear: [yellow]{type}[/yellow][green bold] {name}[/green bold] Updated.")
         # Remove the file and directory
         shutil.rmtree(temp_folder)
 
 
 @app.command()
 def create(
-    type: Annotated[
-        ResourceType, typer.Argument(case_sensitive=False, help="File Type")
-    ],
+    type: Annotated[ResourceType, typer.Argument(case_sensitive=False, help="File Type")],
     name: Annotated[str, typer.Argument(case_sensitive=True, help="File Name")],
-    source: Annotated[
-        str, typer.Option(case_sensitive=True, help="Copy from Target")
-    ] = "",
+    source: Annotated[str, typer.Option(case_sensitive=True, help="Copy from Target")] = "",
 ):
     """
     :ramen: Create file in database.
@@ -558,13 +544,7 @@ def rm(
             msg = f":zany_face: Positions in backtest [light_coral]{id}[/light_coral] [yellow]{result_pos}[/yellow] delete."
             console.print(msg)
 
-        if (
-            not result_file
-            and not result_back
-            and result_order == 0
-            and result_ana == 0
-            and result_pos == 0
-        ):
+        if not result_file and not result_back and result_order == 0 and result_ana == 0 and result_pos == 0:
             console.print(
                 f"There is no file or backtest record about [light_coral]{id}[/light_coral]. Please check id again."
             )
@@ -589,24 +569,20 @@ def recall(
     content = backtest.content
     file_name = "Edo Tensei"
     try:
-        file_name = (
-            name if name is not "" else f"{yaml.safe_load(content)['name']}_recall"
-        )
+        file_name = name if name is not "" else f"{yaml.safe_load(content)['name']}_recall"
     except Exception as e:
         print(e)
     file_id = GDATA.add_file(FILE_TYPES.ENGINE, file_name)
     GDATA.update_file(file_id, FILE_TYPES.ENGINE, file_name, content)
     console.print(
-        f":dove:  Recall the configuration of backtest [light_coral]{id}[/light_coral] as [steel_blue1]{file_name}[/steel_blue1]"
+        f":dove:  Recall the configuration of backtest [light_coral]{id}[/light_coral] as [medium_spring_green]{file_name}[/medium_spring_green]"
     )
 
 
 @app.command()
 def order(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
-    page: Annotated[
-        int, typer.Option(case_sensitive=False, help="Limit the number of output.")
-    ] = 0,
+    page: Annotated[int, typer.Option(case_sensitive=False, help="Limit the number of output.")] = 0,
 ):
     """
     :one-piece_swimsuit: Show the backtest Orders.
@@ -690,17 +666,11 @@ def res(
     record = GDATA.get_backtest_record_by_backtest(id)
     print(record)
     if record is None:
-        console.print(
-            f":sad_but_relieved_face: Record {id} not exist. Please select one of follow."
-        )
+        console.print(f":sad_but_relieved_face: Record {id} not exist. Please select one of follow.")
         print(GDATA.get_backtest_list_df())
         return
-    console.print(
-        f":sunflower: Backtest [light_coral]{id}[/light_coral]  Worth: {record.profit}"
-    )
-    console.print(
-        f"You could use [green]ginkgo backtest res {id} analyzer_id1 analyzer_id2 ...[/green] to see detail."
-    )
+    console.print(f":sunflower: Backtest [light_coral]{id}[/light_coral]  Worth: {record.profit}")
+    console.print(f"You could use [green]ginkgo backtest res {id} analyzer_id1 analyzer_id2 ...[/green] to see detail.")
 
     import yaml
 

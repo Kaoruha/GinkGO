@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
@@ -42,29 +42,45 @@ def add_portfolios(orders: List[MPortfolio], *args, **kwargs):
 def delete_portfolio(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MPortfolio
+    filters = [model.uuid == id]
     try:
-        filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def delete_portfolios(ids: List[str], *argss, **kwargs):
+    session = get_mysql_connection().session
+    model = MPortfolio
+    filters = []
+    filters.append(model.uuid.in_(ids))
+    try:
+        stmt = delete(model).where(and_(*filters))
+        session.execute(stmt)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
 def softdelete_portfolio(id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
     model = MPortfolio
     filters = [model.uuid == id]
     try:
-        session = get_mysql_connection().session
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_adjustfactor_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_adjustfactor: id {id} has more than one record.")
         for i in query:
             i.is_del = True
             session.commit()
@@ -84,9 +100,9 @@ def update_portfolio(
     *args,
     **kwargs,
 ):
+    session = get_mysql_connection().session
     model = MPortfolio
     filters = [model.uuid == id]
-    session = get_mysql_connection().session
     updates = {"update_at": datetime.datetime.now()}
     if name is not None:
         updates["name"] = name
@@ -107,7 +123,7 @@ def update_portfolio(
         get_mysql_connection().remove_session()
 
 
-def get_portfolio_by_id(
+def get_portfolio(
     id: str,
     *args,
     **kwargs,
@@ -133,6 +149,7 @@ def get_portfolio_by_id(
 
 
 def get_portfolios(
+    name: Optional[str] = None,
     is_live: Optional[bool] = None,
     backtest_start_date: Optional[any] = None,
     backtest_end_date: Optional[any] = None,
@@ -144,6 +161,8 @@ def get_portfolios(
     session = get_mysql_connection().session
     model = MPortfolio
     filters = [model.is_del == False]
+    if name is not None:
+        filters.append(model.name.like(f"%{name}%"))
     if is_live is not None:
         filters.append(model.is_live == is_live)
     if backtest_start_date:

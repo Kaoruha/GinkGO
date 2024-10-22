@@ -1,12 +1,13 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
-from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data.models import MSignal
+from ginkgo.backtest import Signal
 from ginkgo.data.drivers import add, add_all, get_click_connection
-from ginkgo.libs import GLOG
+from ginkgo.libs import GLOG, datetime_normalize
 
 
 def add_signal(
@@ -15,6 +16,7 @@ def add_signal(
     code: str,
     direction: DIRECTION_TYPES,
     reason: str,
+    source: SOURCE_TYPES = SOURCE_TYPES.SIM,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -24,6 +26,7 @@ def add_signal(
         code=code,
         direction=direction,
         reason=reason,
+        source=source,
     )
     res = add(item)
     df = res.to_dataframe()
@@ -31,54 +34,40 @@ def add_signal(
     return df.iloc[0]
 
 
-def add_signals(orders: List[MSignal], *args, **kwargs):
+def add_signals(signals: List[Union[MSignal, Signal]], *args, **kwargs):
     l = []
-    for i in orders:
+    for i in signals:
         if isinstance(i, MSignal):
             l.append(i)
+        elif isinstance(i, Signal):
+            item = MSignal(
+                portfolio_id=i.portfolio_id,
+                timestamp=i.timestamp,
+                code=i.code,
+                direction=i.direction,
+                reason=i.reason,
+                source=i.source,
+            )
+            l.append(item)
         else:
-            GLOG.WANR("add orders only support order data.")
+            GLOG.WANR("add signals only support signal data.")
     return add_all(l)
 
 
 def delete_signal(id: str, *argss, **kwargs):
     session = get_click_connection().session
     model = MSignal
+    filters = [model.uuid == id]
     try:
-        filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_signal_by_id: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
-    finally:
-        get_click_connection().remove_session()
-
-
-def delete_signal_by_portfolio_and_date_range(id: str, start_date: any = None, end_date: any = None, *argss, **kwargs):
-    session = get_click_connection().session
-    model = MSignal
-    filters = [model.portfolio_id == id]
-    if start_date is not None:
-        start_date = datetime_normalize(start_date)
-        filters.append(model.timestamp >= start_date)
-    if end_date is not None:
-        end_date = datetime_normalize(end_date)
-        filters.append(model.timestamp <= end_date)
-    try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
-    except Exception as e:
-        session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_click_connection().remove_session()
 
@@ -88,10 +77,35 @@ def softdelete_signal(id: str, *argss, **kwargs):
     return delete_signal(id, *argss, **kwargs)
 
 
-def softdelete_signal_by_portfolio_and_date_range(
-    id: str, start_date: any = None, end_date: any = None, *argss, **kwargs
+def delete_signal_by_portfolio_and_date_range(
+    portfolio_id: str, start_date: any = None, end_date: any = None, *argss, **kwargs
 ):
-    return delete_signal_by_portfolio_and_date_range(id, start_date, end_date, *argss, **kwargs)
+    # Sqlalchemy ORM seems not work on clickhouse when multi delete.
+    # Use sql
+    session = get_click_connection().session
+    model = MSignal
+    sql = f"DELETE FROM {model.__tablename__} WHERE portfolio_id = :portfolio_id"
+    params = {"portfolio_id": portfolio_id}
+    if start_date is not None:
+        sql += " AND timestamp >= :start_date"
+        params["start_date"] = datetime_normalize(start_date)
+    if end_date is not None:
+        sql += " AND timestamp <= :end_date"
+        params["end_date"] = datetime_normalize(end_date)
+    try:
+        session.execute(text(sql), params)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+    finally:
+        get_click_connection().remove_session()
+
+
+def softdelete_signal_by_portfolio_and_date_range(
+    portfolio_id: str, start_date: any = None, end_date: any = None, *argss, **kwargs
+):
+    return delete_signal_by_portfolio_and_date_range(portfolio_id, start_date, end_date, *argss, **kwargs)
 
 
 def get_signal(
@@ -112,9 +126,8 @@ def get_signal(
         return df.iloc[0]
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
-        return 0
+        return pd.DataFrame()
     finally:
         get_click_connection().remove_session()
 
@@ -131,7 +144,7 @@ def get_signals(
     as_dataframe: bool = False,
     *args,
     **kwargs,
-) -> pd.Series:
+) -> pd.DataFrame:
     session = get_click_connection().session
     model = MSignal
     filters = [model.portfolio_id == portfolio_id]
@@ -160,18 +173,10 @@ def get_signals(
                 return pd.DataFrame()
             return df
         else:
-            query = query.all()
-            if len(query) == 0:
-                return []
-            else:
-                res = []
-                for i in query:
-                    item = Transfer()
-                    item.set(i)
-                    res.append(item)
+            res = session.execute(stmt).scalars().all()
+            return [Signal(i.portfolio_id, i.timestamp, i.code, i.direction, i.reason, i.source) for i in res]
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         if as_dataframe:
             return pd.DataFrame()

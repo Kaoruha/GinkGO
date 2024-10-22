@@ -17,6 +17,7 @@ class Transfer(Base):
 
     def __init__(
         self,
+        uuid: str = "",
         portfolio_id: str = "test_portfolio",
         direction: DIRECTION_TYPES = DIRECTION_TYPES.LONG,
         market: MARKET_TYPES = MARKET_TYPES.CHINA,
@@ -27,6 +28,7 @@ class Transfer(Base):
         **kwargs
     ):
         super(Transfer, self).__init__(*args, **kwargs)
+        self.set_uuid(uuid)
         self.set(portfolio_id, direction, market, money, status, timestamp)
 
     @singledispatchmethod
@@ -99,3 +101,6 @@ class Transfer(Base):
     @property
     def timestamp(self) -> datetime.datetime:
         return self._timestamp
+
+    def __repr__(self) -> str:
+        return base_repr(self, Transfer.__name__, 20, 60)

@@ -1,7 +1,8 @@
 import datetime
 import pandas as pd
+from decimal import Decimal
 from functools import singledispatchmethod
-from ginkgo.libs import base_repr, datetime_normalize
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 from ginkgo.backtest.base import Base
 from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 from ginkgo.data.models import MTick
@@ -11,18 +12,21 @@ class Tick(Base):
     def __init__(
         self,
         code: str = "defaultcode",
-        price: float = 0,
+        price: Number = 0,
         volume: int = 0,
-        direction=TICKDIRECTION_TYPES.OTHER,
+        direction: TICKDIRECTION_TYPES = TICKDIRECTION_TYPES.OTHER,
+        timestamp: any = datetime.datetime.now(),
+        source: SOURCE_TYPES = SOURCE_TYPES.OTHER,
         *args,
         **kwargs
     ) -> None:
         super(Tick, self).__init__(*args, **kwargs)
         self._code = code
-        self._price = 0
-        self._volume = 0
-        self._direction = None
-        self._timestamp = datetime.datetime.now()
+        self._price = to_decimal(price)
+        self._volume = int(volume)
+        self._direction = direction
+        self._timestamp = datetime_normalize(timestamp)
+        self.source = source
 
     @singledispatchmethod
     def set(self) -> None:
@@ -32,10 +36,13 @@ class Tick(Base):
     def _(
         self,
         code: str,
-        price: float,
+        price: Number,
         volume: int,
         direction: TICKDIRECTION_TYPES,
         timestamp: any,
+        source: SOURCE_TYPES,
+        *args,
+        **kwargs
     ) -> None:
         self._code = code
         self._price = price
@@ -44,20 +51,20 @@ class Tick(Base):
         self._timestamp = datetime_normalize(timestamp)
 
     @set.register
-    def _(self, df: pd.Series) -> None:
-        self._code = df.code
-        self._price = df.price
-        self._volume = df.volume
-        self._direction = df.direction
-        self._timestamp = df.timestamp
+    def _(self, df: pd.Series, *args, **kwargs) -> None:
+        self._code = df["code"]
+        self._price = to_decimal(df["price"])
+        self._volume = df["volume"]
+        self._direction = df["direction"]
+        self._timestamp = datetime_normalize(df["timestamp"])
 
         if "source" in df.keys():
-            self.set_source(SOURCE_TYPES(df.source))
+            self.set_source(SOURCE_TYPES(df["source"]))
 
     @set.register
-    def _(self, model: MTick) -> None:
+    def _(self, model: MTick, *args, **kwargs) -> None:
         self._code = model.code
-        self._price = model.price
+        self._price = to_decimal(model.price)
         self._volume = model.volume
         self._direction = model.direction
         self._timestamp = model.timestamp
@@ -67,7 +74,7 @@ class Tick(Base):
         return self._code
 
     @property
-    def price(self) -> float:
+    def price(self) -> Decimal:
         return self._price
 
     @property

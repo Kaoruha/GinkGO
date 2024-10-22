@@ -1,6 +1,7 @@
 import pandas as pd
 import datetime
 
+from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, DECIMAL, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
@@ -32,10 +33,10 @@ class MPortfolio(MMysqlBase):
     def _(
         self,
         name: str,
-        backtest_start_date: any = None,
-        backtest_end_date: any = None,
-        is_live: bool = None,
-        source: SOURCE_TYPES = None,
+        backtest_start_date: Optional[any] = None,
+        backtest_end_date: Optional[any] = None,
+        is_live: Optional[bool] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs
     ) -> None:

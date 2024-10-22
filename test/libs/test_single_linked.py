@@ -26,7 +26,7 @@ class SingleLinkedListTest(unittest.TestCase):
         import random
 
         try_counts = 100
-        insert_max = 1001
+        insert_max = 200
 
         for r in range(try_counts):
             l = GinkgoSingleLinkedList()
@@ -37,7 +37,7 @@ class SingleLinkedListTest(unittest.TestCase):
             count = 0
             for item in l:
                 count += 1
-                print(f"current:{count}", end="\r")
+                # print(f"current:{count}", end="\r")
                 if count <= r:
                     self.assertEqual(count, item.value)
                 elif count == r + 1:

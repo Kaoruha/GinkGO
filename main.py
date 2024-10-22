@@ -4,7 +4,6 @@ import time
 from typing import List as typing_list
 import click
 import os
-from cmd import Cmd
 from typing_extensions import Annotated
 from rich.console import Console
 from rich.live import Live
@@ -22,9 +21,7 @@ from ginkgo.libs.ginkgo_thread import GTM
 from ginkgo.libs.ginkgo_conf import GCONF
 
 
-main_app = typer.Typer(
-    help="Usage: ginkgo [OPTIONS] COMMAND [ARGS]...", rich_markup_mode="rich"
-)
+main_app = typer.Typer(help="Usage: ginkgo [OPTIONS] COMMAND [ARGS]...", rich_markup_mode="rich")
 main_app.add_typer(data_cli.app, name="data")
 main_app.add_typer(backtest_cli.app, name="backtest")
 main_app.add_typer(unittest_cli.app, name="unittest")
@@ -42,20 +39,20 @@ def status(
     stream: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
-    :bullet_train: Check the module status.
+    :bullet_train: Check the [bold medium_spring_green]MODULE STATUS[/].
     """
     from ginkgo.data.ginkgo_data import GDATA
     from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
 
     console.print(f"DEBUGMODE : {GCONF.DEBUGMODE}")
     console.print(f"QUIETMODE : {GCONF.QUIET}")
-    console.print(f"MAINCONTRL: [steel_blue1]{GTM.main_status}[/steel_blue1]")
-    console.print(f"WATCHDOG  : [steel_blue1]{GTM.watch_dog_status}[/steel_blue1]")
+    console.print(f"MAINCONTRL: [medium_spring_green]{GTM.main_status}[/medium_spring_green]")
+    console.print(f"WATCHDOG  : [medium_spring_green]{GTM.watch_dog_status}[/medium_spring_green]")
     console.print(f"CPU LIMIT : {GCONF.CPURATIO*100}%")
     console.print(f"LOG  PATH : {GCONF.LOGGING_PATH}")
     console.print(f"WORK  DIR : {GCONF.WORKING_PATH}")
     console.print(f"WORKER    : {GTM.dataworker_count}")
-    console.print(f"TELE BOT  : [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1]")
+    console.print(f"TELE BOT  : [medium_spring_green]{GNOTIFIER.telebot_status}[/medium_spring_green]")
     if stream:
         os.system(
             "docker stats redis_master clickhouse_master mysql_master clickhouse_test mysql_test kafka1 kafka2 kafka3"
@@ -115,9 +112,7 @@ def configure(
         and worker is None
         and workpath is None
     ):
-        console.print(
-            "You could set cpu usage by --cpu, switch the debug mode by --debug."
-        )
+        console.print("You could set cpu usage by --cpu, switch the debug mode by --debug.")
 
     from ginkgo.libs.ginkgo_conf import GCONF
     from ginkgo.data.ginkgo_data import GDATA
@@ -134,7 +129,7 @@ def configure(
             GCONF.set_debug(True)
         elif debug == DEBUG_TYPE.OFF:
             GCONF.set_debug(False)
-        console.print(f"DEBUE: {GCONF.DEBUGMODE}")
+        console.print(f"DEBUE: {GCONF.DEB/UGMODE}")
 
     if worker is not None:
         from ginkgo.libs.ginkgo_thread import GTM
@@ -146,9 +141,7 @@ def configure(
             current_count = GTM.dataworker_count
             target_count = GCONF.CPURATIO * 12
             target_count = int(target_count)
-            console.print(
-                f":penguin: Target Worker: {target_count}, Current Worker: {current_count}"
-            )
+            console.print(f":penguin: Target Worker: {target_count}, Current Worker: {current_count}")
 
             count = target_count - current_count
             if count > 0:
@@ -168,7 +161,7 @@ def configure(
             """
             if GNOTIFIER.telebot_status == "RUNNING":
                 console.print(
-                    f":sun_with_face: TeleBot is [steel_blue1]RUNNING[/steel_blue1].",
+                    f":sun_with_face: TeleBot is [medium_spring_green]RUNNING[/medium_spring_green].",
                     end="\r",
                 )
                 return
@@ -202,13 +195,13 @@ if __name__ == "__main__":
                         break
                     else:
                         live.update(
-                            f":sun_with_face: TeleBot is [steel_blue1]STARTING[/steel_blue1] now. {count}",
+                            f":sun_with_face: TeleBot is [medium_spring_green]STARTING[/medium_spring_green] now. {count}",
                             refresh=True,
                         )
                         time.sleep(0.02)
 
                 live.update(
-                    f":sun_with_face: TeleBot is [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1] now."
+                    f":sun_with_face: TeleBot is [medium_spring_green]{GNOTIFIER.telebot_status}[/medium_spring_green] now."
                 )
             os.remove(f"{work_dir}/{file_name}")
 
@@ -232,7 +225,7 @@ if __name__ == "__main__":
                         time.sleep(0.02)
 
                 live.update(
-                    f":sun_with_face: Telegram Bot Server is [steel_blue1]{GNOTIFIER.telebot_status}[/steel_blue1] now."
+                    f":sun_with_face: Telegram Bot Server is [medium_spring_green]{GNOTIFIER.telebot_status}[/medium_spring_green] now."
                 )
 
     if maincontrol is not None:
@@ -262,7 +255,7 @@ def run(
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
-    :poultry_leg: Run Backtest. [grey62]Duplication fo `ginkgo backtest run`.[/grey62]
+    :poultry_leg: Run [bold medium_spring_green]BACKTEST[/]. [grey62]Duplication fo `ginkgo backtest run`.[/grey62]
     """
     from ginkgo.client.backtest_cli import run as backtest_run
 
@@ -274,7 +267,7 @@ def cat(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="File id.")],
 ):
     """
-    :see_no_evil: Show File content. [grey62]Duplication of `ginkgo backtest cat`. [/grey62]
+    :see_no_evil: Show [bold medium_spring_green]FILE[/] content. [grey62]Duplication of `ginkgo backtest cat`. [/]
     """
     from ginkgo.client.backtest_cli import cat as backtest_cat
 
@@ -301,7 +294,7 @@ def rm(
     ],
 ):
     """
-    :boom: Delete [light_coral]FILE[/light_coral] or [light_coral]BACKTEST RECORD[/light_coral] in database. [grey62]Duplication of `ginkgo backtest rm`.[/grey62]
+    :boom: Delete [bold light_coral]FILE[/] or [bold light_coral]BACKTEST RECORD[/] in database. [grey62]Duplication of `ginkgo backtest rm`.[/grey62]
     """
     from ginkgo.client.backtest_cli import rm as backtest_rm
 
@@ -310,9 +303,7 @@ def rm(
 
 @main_app.command()
 def ls(
-    filter: Annotated[
-        str, typer.Option(case_sensitive=False, help="File filter")
-    ] = None,
+    filter: Annotated[str, typer.Option(case_sensitive=False, help="File filter")] = None,
     a: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Show All Data, include removed file."),
@@ -342,7 +333,7 @@ def res(
     ] = "",
 ):
     """
-    :one-piece_swimsuit: Show the backtest result. [grey62]Duplication of `ginkgo backtest res`.[/grey62]
+    :one-piece_swimsuit: Show the [bold medium_spring_green]BACKTEST RESULT[/]. [grey62]Duplication of `ginkgo backtest res`.[/grey62]
     """
     from ginkgo.client.backtest_cli import res as backtest_res
 
@@ -351,30 +342,16 @@ def res(
 
 @main_app.command()
 def update(
-    a: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update StockInfo")
-    ] = False,
+    a: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
     # data: Annotated[DataType, typer.Argument(case_sensitive=False)],
-    stockinfo: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update StockInfo")
-    ] = False,
-    calendar: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update Calendar")
-    ] = False,
-    adjust: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update adjustfactor")
-    ] = False,
-    day: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update day bar")
-    ] = False,
-    tick: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update tick data")
-    ] = False,
+    stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
+    calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Update Calendar")] = False,
+    adjust: Annotated[bool, typer.Option(case_sensitive=False, help="Update adjustfactor")] = False,
+    day: Annotated[bool, typer.Option(case_sensitive=False, help="Update day bar")] = False,
+    tick: Annotated[bool, typer.Option(case_sensitive=False, help="Update tick data")] = False,
     fast: Annotated[
         bool,
-        typer.Option(
-            case_sensitive=False, help="If set, ginkgo will try update in fast mode."
-        ),
+        typer.Option(case_sensitive=False, help="If set, ginkgo will try update in fast mode."),
     ] = False,
     code: Annotated[
         typing_list[str],
@@ -395,30 +372,16 @@ def update(
 
 @main_app.command()
 def rebuild(
-    order: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")
-    ] = False,
-    record: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")
-    ] = False,
-    file: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild File Table")
-    ] = False,
-    backtest: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Table")
-    ] = False,
-    analyzer: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")
-    ] = False,
-    stockinfo: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")
-    ] = False,
-    calendar: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")
-    ] = False,
+    order: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")] = False,
+    record: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")] = False,
+    file: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild File Table")] = False,
+    backtest: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Table")] = False,
+    analyzer: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")] = False,
+    stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")] = False,
+    calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")] = False,
 ):
     """
-    :fox_face: Rebuild [light_coral]TABLE[/light_coral] in database. [grey62]Duplication of `ginkgo data rebuild`. [/grey62]
+    :fox_face: Rebuild [bold light_coral]TABLE[/] in database. [grey62]Duplication of `ginkgo data rebuild`. [/]
 
     """
     from ginkgo.client.data_cli import rebuild as data_rebuild
@@ -431,6 +394,9 @@ def recall(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")],
     name: Annotated[str, typer.Option(case_sensitive=True, help="File Name")] = "",
 ):
+    """
+    What is this?
+    """
     from ginkgo.client.backtest_cli import recall as backtest_recall
 
     backtest_recall(id, name)
@@ -442,6 +408,9 @@ def log(
     stream: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     data: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
+    """
+    :spiral_note_pad:  Show [bold medium_spring_green]LOG[/].
+    """
     file_name = "ginkgo_data.log" if data else "ginkgo.log"
     follow = "-f" if stream else ""
     cmd = f"tail -n {n} {follow} {GCONF.LOGGING_PATH}/{file_name}"
@@ -450,6 +419,9 @@ def log(
 
 @main_app.command()
 def serve():
+    """
+    :kaaba: Run [bold medium_spring_green]MAIN SERVER[/].
+    """
     GTM.kill_watch_dog()
     GTM.run_watch_dog_daemon()
     uvicorn_command = [

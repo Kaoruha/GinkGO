@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
 from ginkgo.data.models import MHandler
@@ -27,28 +27,36 @@ def add_handlers(handlers: List[MHandler], *args, **kwargs):
     return add_all(l)
 
 
+def upsert_handler():
+    pass
+
+
+def upsert_handlers():
+    pass
+
+
 def delete_handler(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MHandler
+    filters = [model.uuid == id]
     try:
-        filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
 def softdelete_handler(id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
     model = MHandler
     filters = [model.uuid == id]
-    session = get_mysql_connection().session
     updates = {"is_del": True, "update_at": datetime.datetime.now()}
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
@@ -69,9 +77,9 @@ def update_handler(
     *argss,
     **kwargs,
 ):
+    session = get_mysql_connection().session
     model = MHandler
     filters = [model.uuid == id]
-    session = get_mysql_connection().session
     updates = {"update_at": datetime.datetime.now()}
     if name is not None:
         updates["name"] = name
@@ -90,7 +98,7 @@ def update_handler(
         get_mysql_connection().remove_session()
 
 
-def get_handler_by_id(
+def get_handler(
     id: str = None,
     *args,
     **kwargs,
@@ -109,9 +117,7 @@ def get_handler_by_id(
         return df.iloc[0]
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
-        return 0
     finally:
         get_mysql_connection().remove_session()
 
@@ -140,7 +146,6 @@ def get_handlers(
         return df
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         return pd.DataFrame()
     finally:

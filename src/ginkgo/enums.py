@@ -22,12 +22,10 @@ class CURRENCY_TYPES(EnumBase):
 
 
 class TICKDIRECTION_TYPES(EnumBase):
-    OTHER = 0
-    MINUSTICK = 1
-    ZEROMINUSTICK = 2
-    PLUSTICK = 3
-    ZEROPLUSTICK = 4
-    NOIDEA = 5
+    OTHER = -1
+    CANCEL = 0
+    BUY = 1
+    SELL = 2
 
 
 class EVENT_TYPES(EnumBase):
@@ -151,3 +149,21 @@ class PARAMETER_TYPES(EnumBase):
     INT = 0
     STRING = 1
     FLOAT = 2
+
+
+class CAPITALADJUSTMENT_TYPES(EnumBase):
+    OTHER = 0
+    EXR_EXD = 1  # 除权除息
+    BONUS_RIGHTS_LIST = 2  # 送配股上市
+    NON_TRADABLE_LIST = 3  # 非流通股上市
+    UNKNOWN_CHANGE = 4  # 为知股本变动
+    CAPITALCHANGE = 5  # 股本变化
+    ADDITIONAL_ISSUANCE = 6  # 新股发行
+    SHARE_BUYBACK = 7  # 股份回购
+    NEW_SHARE_LIST = 8  # 增发新股上市
+    TRANSFER_RIGHTS_LIST = 9  # 转配股上市
+    CB_LIST = 10  # 可转债上市
+    SPLIT_REVERSE_SPLIT = 11  # 扩缩股
+    NON_TRADABLE_REVERSE_SPLIT = 12  # 非流通股缩股
+    CALL_WARRANT = 13  # 送认购权证
+    PUT_WARRANT = 14  # 送认沽权证

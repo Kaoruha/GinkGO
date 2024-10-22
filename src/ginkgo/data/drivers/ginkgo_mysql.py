@@ -13,8 +13,8 @@ class GinkgoMysql(object):
         self._port = port
         self._db = db
         self._echo = False
-        self._connect_timeout = 10
-        self._read_timeout = 10
+        self._connect_timeout = 2
+        self._read_timeout = 4
         self._uri = f"mysql+pymysql://{self._user}:{self._pwd}@{self._host}:{self._port}/{self._db}?connect_timeout={self._connect_timeout}&read_timeout={self._read_timeout}"
         self._engine = create_engine(self._uri, echo=self._echo, future=True)
         self._session_factory = scoped_session(sessionmaker(bind=self.engine))

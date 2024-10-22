@@ -5,6 +5,7 @@ import logging
 import colorlog
 import threading
 from logging.handlers import RotatingFileHandler
+from rich.logging import RichHandler
 
 from ginkgo.libs.ginkgo_conf import GCONF
 
@@ -28,10 +29,9 @@ class GinkgoLogger(object):
             fmt="[%(asctime)s][%(levelname)s]:%(message)s  ",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
-        self.console_formatter = colorlog.ColoredFormatter(
-            fmt="%(log_color)s%(asctime) s P:%(process)d [%(levelname)s] %(message)s ",
-            datefmt="%H:%M:%S",
-            log_colors=LOGGING_COLOR,
+        self.console_formatter = logging.Formatter(
+            "P:%(process)d %(message)s",
+            datefmt="%m-%d %H:%M",
         )
 
         if not os.path.exists(LOGGING_PATH):
@@ -44,11 +44,7 @@ class GinkgoLogger(object):
             self.file_name = LOGGIN_DEFAULT_FILE
 
         self.logger = logging.getLogger(logger_name)
-        file_path = (
-            LOGGING_PATH + self.file_name
-            if LOGGING_PATH.endswith("/")
-            else LOGGING_PATH + "/" + self.file_name
-        )
+        file_path = LOGGING_PATH + self.file_name if LOGGING_PATH.endswith("/") else LOGGING_PATH + "/" + self.file_name
 
         self.file_handler = RotatingFileHandler(
             filename=file_path,
@@ -59,7 +55,13 @@ class GinkgoLogger(object):
         )
         self.file_handler.set_name(self._file_handler_name)
 
-        self.console_handler = logging.StreamHandler()
+        # self.console_handler = logging.StreamHandler()
+        self.console_handler = RichHandler(
+            show_time=True,
+            omit_repeated_times=False,
+            rich_tracebacks=True,
+            log_time_format="[%X]",
+        )
         self.console_handler.set_name(self._console_handler_name)
 
         # 设置日志级别，会以最高级别为准
@@ -95,11 +97,7 @@ class GinkgoLogger(object):
                 self.logger.addHandler(self.file_handler)
 
         # 异常记录
-        error_path = (
-            LOGGING_PATH + self.file_name
-            if LOGGING_PATH.endswith("/")
-            else LOGGING_PATH + "/" + "error.log"
-        )
+        error_path = LOGGING_PATH + self.file_name if LOGGING_PATH.endswith("/") else LOGGING_PATH + "/" + "error.log"
         error_handler = logging.FileHandler(
             filename=error_path,
             encoding="utf-8",
@@ -114,11 +112,7 @@ class GinkgoLogger(object):
         self.logger.removeHandler(self.file_handler)
         if not LOGGING_FILE_ON:
             return
-        file_path = (
-            LOGGING_PATH + file_name
-            if LOGGING_PATH.endswith("/")
-            else LOGGING_PATH + "/" + file_name
-        )
+        file_path = LOGGING_PATH + file_name if LOGGING_PATH.endswith("/") else LOGGING_PATH + "/" + file_name
         self.file_handler = RotatingFileHandler(
             filename=file_path,
             encoding="utf-8",
@@ -149,19 +143,19 @@ class GinkgoLogger(object):
             r = 50
         return r
 
-    def INFO(self, msg: str):
-        caller = inspect.stack()[1]
-        function = caller.function
-        filename = caller.filename.split("/")[-1]
-        lineno = caller.lineno
-        self.logger.info(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
-
     def DEBUG(self, msg: str):
         caller = inspect.stack()[1]
         function = caller.function
         filename = caller.filename.split("/")[-1]
         lineno = caller.lineno
         self.logger.debug(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
+
+    def INFO(self, msg: str):
+        caller = inspect.stack()[1]
+        function = caller.function
+        filename = caller.filename.split("/")[-1]
+        lineno = caller.lineno
+        self.logger.info(f"{msg}  [{filename} -> {function}()  L:{lineno}]")
 
     def WARN(self, msg: str):
         caller = inspect.stack()[1]

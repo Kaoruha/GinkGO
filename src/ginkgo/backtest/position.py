@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy
+from typing import List, Optional, Union
 from functools import singledispatchmethod
+from decimal import Decimal
 
 from ginkgo.backtest.base import Base
 from ginkgo.libs import base_repr
@@ -18,22 +20,24 @@ class Position(Base):
         self,
         portfolio_id: str = "",
         code: str = "",
-        cost: float = 0.0,
+        cost: Union[float, Decimal] = 0.0,
         volume: int = 0,
-        price: float = 0,
+        price: Union[float, Decimal] = 0.0,
         frozen: int = 0,
-        fee: float = 0,
+        fee: Union[float, Decimal] = 0.0,
+        uuid: str = "",
         *args,
         **kwargs,
     ):
-        super(Position, self).__init__(*args, **kwargs)
+        super(Position, self).__init__(uuid, *args, **kwargs)
         self._portfolio_id = portfolio_id
         self._code = code
-        self._cost = cost
+        self._cost = cost if isinstance(cost, Decimal) else Decimal(str(cost))
         self._volume = volume
         self._frozen = frozen
-        self._price = price
-        self._fee = fee
+        self._price = price if isinstance(price, Decimal) else Decimal(str(price))
+        self._fee = fee if isinstance(fee, Decimal) else Decimal(str(fee))
+        self._uuid = uuid
         self._profit = 0
         self._worth = 0
         self.update_worth()
@@ -44,30 +48,39 @@ class Position(Base):
         pass
 
     @set.register
-    def _(self, portfolio_id: str, code: str, cost: float, volume: int, fee: float, *args, **kwargs) -> None:
+    def _(
+        self,
+        portfolio_id: str,
+        code: str,
+        cost: Union[float, Decimal],
+        volume: int,
+        fee: Union[float, Decimal],
+        uuid: Optional[str] = None,
+        *args,
+        **kwargs,
+    ) -> None:
         """
         Data reset.
         return: none
         """
         self._portfolio_id = portfolio_id
-        code = str(code)
-        price = float(price)
-        cost = float(cost)
-        volume = int(volume)
         self._code = code
-        self._price = price
-        self._cost = cost
+        self._price = price if isinstance(price, Decimal) else Decimal(str(price))
+        self._cost = cost if isinstance(cost, Decimal) else Decimal(str(cost))
         self._volume = volume
+        if uuid is not None:
+            self._uuid = uuid
 
     @set.register
-    def _(self, df: pd.DataFrame, *args, **kwargs):
+    def _(self, df: pd.Series, *args, **kwargs):
         self._portfolio_id = df["portfolio_id"]
         self._code = df["code"]
-        self._cost = float(df["cost"])
+        self._cost = df["cost"] if isinstance(df["cost"], Decimal) else Decimal(str(df["cost"]))
         self._volume = int(df["volume"])
         self._frozen = int(df["frozen"])
-        self._fee = float(df["fee"])
+        self._fee = df["fee"] if isinstance(df["fee"], Decimal) else Decimal(str(df["fee"]))
         self._profit = float(df["profit"])
+        self._uuid = df["uuid"]
 
     @set.register
     def _(self, model: MPosition, *args, **kwargs):
@@ -78,6 +91,7 @@ class Position(Base):
         self._frozen = model.frozen
         self._fee = model.fee
         self._profit = model.profit
+        self._uuid = model.uuid
 
     @property
     def portfolio_id(self, *args, **kwargs) -> str:
@@ -133,8 +147,8 @@ class Position(Base):
         """
         if self._price < 0:
             GLOG.CRITICAL(f"Price is less than 0: {self._price}")
-        if not isinstance(self._price, (float, int)):
-            GLOG.CRITICAL(f"Price is not a float/int: {self._price}")
+        if not isinstance(self._price, Decimal):
+            GLOG.CRITICAL(f"Price is not a DECIMAL: {self._price}")
             return 0
         return self._price
 
@@ -143,7 +157,7 @@ class Position(Base):
         """
         Average Cost.
         """
-        return float(self._cost)
+        return self._cost
 
     @property
     def frozen(self, *args, **kwargs) -> float:
@@ -193,8 +207,8 @@ class Position(Base):
         """
         if self._fee < 0:
             GLOG.CRITICAL(f"Fee is less than 0: {self._fee}")
-        if not isinstance(self._fee, (float, int)):
-            GLOG.CRITICAL(f"Fee is not a float/int: {self._fee}")
+        if not isinstance(self._price, Decimal):
+            GLOG.CRITICAL(f"Fee is not a DECIMAL: {self._fee}")
             return 0
         return self._fee
 
@@ -245,8 +259,8 @@ class Position(Base):
             GLOG.CRITICAL(f"Cost is less than 0: {self._cost}")
             return
 
-        if not isinstance(self._cost, (float, int)):
-            GLOG.CRITICAL(f"Cost is not a float/int: {self._cost}")
+        if not isinstance(self._cost, Decimal):
+            GLOG.CRITICAL(f"Cost is not a DECIMAL: {self._cost}")
             return
         GLOG.DEBUG(
             f"POS {self.code} add {volume} at {price}. Final price: {price}, volume: {self.volume}, frozen: {self.frozen}"
@@ -286,18 +300,15 @@ class Position(Base):
         self.update_profit()
         self.update_worth()
 
-    def on_price_update(self, price: float, *args, **kwargs) -> float:
+    def on_price_update(self, price: Union[float, int, Decimal], *args, **kwargs) -> Decimal:
         """
         Dealing with price update
         return: latest price of position
         """
-        if not isinstance(price, float):
-            GLOG.CRITICAL(f"Illegal price: {price} at on_price_update")
-            return
-        self._price = price
+        self._price = price if isinstance(price, Decimal) else Decimal(str(price))
         self.update_profit()
         self.update_worth()
-        return self.price
+        return self._price
 
     def __repr__(self) -> str:
         return base_repr(self, Position.__name__, 12, 60)

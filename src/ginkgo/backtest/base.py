@@ -11,12 +11,25 @@ class Base(object):
     Origin Base Class
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, uuid: str = "", *args, **kwargs):
         self._source = SOURCE_TYPES.VOID
+        self._uuid = uuid
+
+    @property
+    def uuid(self, *args, **kwargs) -> str:
+        return self._uuid
+
+    def set_uuid(self, uuid: str, *args, **kwargs) -> str:
+        self._uuid = uuid
+        return self._uuid
 
     @property
     def source(self):
         return self._source
+
+    @source.setter
+    def source(self, value):
+        self._source = value
 
     def set_source(self, source: SOURCE_TYPES):
         self._source = source

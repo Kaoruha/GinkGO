@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
 from ginkgo.enums import FILE_TYPES
@@ -27,20 +27,28 @@ def add_files(files: List[MFile], *args, **kwargs):
     return add_all(l)
 
 
+def upsert_file():
+    pass
+
+
+def upsert_files():
+    pass
+
+
 def delete_file(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MFile
+    filters = [model.uuid == id]
     try:
-        filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
@@ -49,26 +57,22 @@ def delete_files(ids: List[str], *argss, **kwargs):
     session = get_mysql_connection().session
     model = MFile
     filters = []
-    for i in ids:
-        filters.append(model.uuid == i)
+    filters.append(model.uuid.in_(ids))
     try:
-        query = session.query(model).filter(or_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {ids} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        stmt = delete(model).where(and_(*filters))
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
 def softdelete_file(id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
     model = MFile
     filters = [model.uuid == id]
-    session = get_mysql_connection().session
     updates = {"is_del": True, "update_at": datetime.datetime.now()}
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
@@ -89,10 +93,9 @@ def update_file(
     *argss,
     **kwargs,
 ):
-
+    session = get_mysql_connection().session
     model = MFile
     filters = [model.uuid == id]
-    session = get_mysql_connection().session
     updates = {"update_at": datetime.datetime.now()}
     if type is not None:
         updates["type"] = type
@@ -100,7 +103,6 @@ def update_file(
         updates["name"] = name
     if data is not None:
         updates["data"] = data
-
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
         session.execute(stmt)
@@ -112,7 +114,7 @@ def update_file(
         get_mysql_connection().remove_session()
 
 
-def get_file_by_id(
+def get_file(
     id: str,
     *args,
     **kwargs,
@@ -120,19 +122,16 @@ def get_file_by_id(
     session = get_mysql_connection().session
     model = MFile
     filters = [model.uuid == id]
-
     try:
         stmt = session.query(model).filter(and_(*filters))
-
         df = pd.read_sql(stmt.statement, session.connection())
         if df.shape[0] == 0:
             return pd.DataFrame()
         return df.iloc[0]
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
-        return 0
+        return pd.DataFrame()
     finally:
         get_mysql_connection().remove_session()
 
@@ -154,12 +153,9 @@ def get_files(type: Optional[FILE_TYPES] = None, name: Optional[str] = None, *ar
 
         if df.shape[0] == 0:
             return pd.DataFrame()
-
         return df
-
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         return pd.DataFrame()
 

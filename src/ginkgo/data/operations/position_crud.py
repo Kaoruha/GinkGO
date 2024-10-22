@@ -1,12 +1,13 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+import decimal
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 from ginkgo.data.models import MPosition
 from ginkgo.data.drivers import add, add_all, get_mysql_connection
-from ginkgo.libs import GLOG, datetime_normalize
+from ginkgo.libs import GLOG, datetime_normalize, Number, to_decimal
 from ginkgo.backtest import Position
 
 
@@ -14,18 +15,12 @@ def add_position(
     portfolio_id: str,
     code: str,
     volume: int,
+    cost: Number,
     frozen: int,
-    cost: float,
     *args,
     **kwargs,
 ) -> pd.Series:
-    item = MPosition(
-        portfolio_id=portfolio_id,
-        code=code,
-        volume=volume,
-        frozen=frozen,
-        cost=cost,
-    )
+    item = MPosition(portfolio_id=portfolio_id, code=code, volume=volume, cost=to_decimal(cost), frozen=frozen)
     res = add(item)
     df = res.to_dataframe()
     get_mysql_connection().remove_session()
@@ -38,69 +33,70 @@ def add_positions(orders: List[MPosition], *args, **kwargs):
         if isinstance(i, MPosition):
             l.append(i)
         else:
-            GLOG.WANR("add orders only support position data.")
+            GLOG.WANR("add positions only support position data.")
     return add_all(l)
 
 
-def delete_position_by_id(id: str, *argss, **kwargs):
+def delete_position(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MPosition
+    filters = [model.uuid == id]
     try:
-        filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_position_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_position: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
-def softdelete_position_by_id(id: str, *argss, **kwargs):
+def softdelete_position(id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
     model = MPosition
     filters = [model.uuid == id]
     try:
-        session = get_mysql_connection().session
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_adjustfactor_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_adjustfactor: id {id} has more than one record.")
         for i in query:
             i.is_del = True
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
-def delete_position(portfolio_id: str, code: str, *argss, **kwargs):
+def delete_position_by_portfolio_and_code(portfolio_id: str, code: str = None, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MPosition
-    filters = [model.portfolio_id == portfolio_id, model.code == code]
+    filters = [model.portfolio_id == portfolio_id]
+    if code is not None:
+        filters.append(model.code == code)
     try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_position_by_id: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        stmt = delete(model).where(and_(*filters))
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
-def softdelete_position(portfolio_id: str, code: str, *argss, **kwargs):
+def softdelete_position_by_portfolio_and_code(portfolio_id: str, code: str = None, *argss, **kwargs):
+    session = get_mysql_connection().session
     model = MPosition
-    filters = [model.portfolio_id == portfolio_id, model.code == code]
+    filters = [model.portfolio_id == portfolio_id]
+    if code is not None:
+        filters.append(model.code == code)
     try:
-        session = get_mysql_connection().session
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
             GLOG.WARN(f"Portfolio:{portfolio_id} has more than one position about {code}.")
@@ -109,12 +105,12 @@ def softdelete_position(portfolio_id: str, code: str, *argss, **kwargs):
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
-def update_position_by_id(
+def update_position(
     id: str,
     portfolio_id: Optional[str] = None,
     code: Optional[str] = None,
@@ -124,8 +120,8 @@ def update_position_by_id(
     *args,
     **kwargs,
 ):
-    model = MPosition
     session = get_mysql_connection().session
+    model = MPosition
     filters = [model.uuid == id]
     updates = {"update_at": datetime.datetime.now()}
     if portfolio_id is not None:
@@ -149,7 +145,7 @@ def update_position_by_id(
         get_mysql_connection().remove_session()
 
 
-def update_position(
+def update_position_by_portfolio_and_code(
     portfolio_id: str,
     code: str,
     volume: Optional[int] = None,
@@ -158,9 +154,9 @@ def update_position(
     *args,
     **kwargs,
 ):
+    session = get_mysql_connection().session
     model = MPosition
     filters = [model.portfolio_id == portfolio_id, model.code == code]
-    session = get_mysql_connection().session
     updates = {"update_at": datetime.datetime.now()}
     if volume is not None:
         updates["volume"] = volume
@@ -180,7 +176,7 @@ def update_position(
         get_mysql_connection().remove_session()
 
 
-def get_position_by_id(
+def get_position(
     id: str,
     as_dataframe: bool = False,
     *args,
@@ -204,10 +200,14 @@ def get_position_by_id(
                 volume=res.volume,
                 frozen=res.frozen,
                 cost=res.cost,
+                uuid=res.uuid,
             )
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
+        import pdb
+
+        pdb.set_trace()
         if as_dataframe:
             return pd.DataFrame()
         else:
@@ -253,7 +253,6 @@ def get_positions(
             ]
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         if as_dataframe:
             return pd.DataFrame()

@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
 
+from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column
@@ -27,10 +28,10 @@ class MEngineHandlerMapping(MMysqlBase):
     def _(
         self,
         engine_id: str,
-        handler_id: str = None,
-        type: EVENT_TYPES = None,
-        name: str = None,
-        source: SOURCE_TYPES = None,
+        handler_id: Optional[str] = None,
+        type: Optional[EVENT_TYPES] = None,
+        name: Optional[str] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -52,7 +53,7 @@ class MEngineHandlerMapping(MMysqlBase):
         self.name = df["name"]
         self.type = df["type"]
         if "source" in df.keys():
-            self.source = df.source
+            self.source = df["source"]
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

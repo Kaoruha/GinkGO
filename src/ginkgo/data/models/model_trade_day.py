@@ -1,6 +1,7 @@
 import pandas as pd
 import datetime
 
+from typing import Optional
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 from functools import singledispatchmethod
@@ -25,9 +26,9 @@ class MTradeDay(MClickBase):
     def _(
         self,
         market: MARKET_TYPES,
-        timestamp: any = None,
-        is_open: bool = None,
-        source: SOURCE_TYPES = None,
+        timestamp: Optional[any] = None,
+        is_open: Optional[bool] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -41,11 +42,11 @@ class MTradeDay(MClickBase):
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.market = df.market
-        self.is_open = df.is_open
-        self.timestamp = datetime_normalize(df.timestamp)
+        self.market = df["market"]
+        self.is_open = df["is_open"]
+        self.timestamp = datetime_normalize(df["timestamp"])
         if "source" in df.keys():
-            self.source = df.source
+            self.source = df["source"]
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> None:

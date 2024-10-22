@@ -89,3 +89,10 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs):
         r.append(tmp)
 
     return pretty_repr(name, r, total_len)
+
+
+def fix_string_length(s: str, length: int = 10):
+    if len(s) > length:
+        return s[: length - 3] + "..."
+    else:
+        return s.ljust(length)

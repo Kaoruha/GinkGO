@@ -1,27 +1,28 @@
 import pandas as pd
+from decimal import Decimal
 from typing import List, Optional, Union
 from sqlalchemy import and_, delete, update, select, text
 
 from ginkgo.data.drivers import add, add_all, get_click_connection
 from ginkgo.data.models import MAnalyzerRecord
-from ginkgo.libs import datetime_normalize, GLOG
+from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal
 from ginkgo.enums import SOURCE_TYPES
 
 
 def add_analyzer_record(
     portfolio_id: str,
     timestamp: any,
-    value: float,
+    value: Number,
     name: str,
     analyzer_id: str = "",
     source=SOURCE_TYPES.TUSHARE,
     *args,
     **kwargs,
-) -> pd.DataFrame:
+) -> pd.Series:
     item = MAnalyzerRecord(
         portfolio_id=portfolio_id,
         timestamp=datetime_normalize(timestamp),
-        value=value,
+        value=to_decimal(value),
         name=name,
         analyzer_id=analyzer_id,
         source=source,
@@ -42,30 +43,30 @@ def add_analyzer_records(records: List[MAnalyzerRecord]) -> None:
     return add_all(l)
 
 
-def delete_analyzer_record_by_id(id: str, *args, **kwargs) -> None:
+def delete_analyzer_record(id: str, *args, **kwargs) -> None:
     session = get_click_connection().session
     model = MAnalyzerRecord
+    filters = [model.uuid == id]
     try:
-        filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_click_connection().remove_session()
 
 
-def softdelete_analyzer_record_by_id(id: str, *args, **kwargs) -> None:
+def softdelete_analyzer_record(id: str, *args, **kwargs) -> None:
     GLOG.WARN("Soft delete not work in clickhouse, use delete instead.")
-    return delete_analyzer_record_by_id(id, *args, **kwargs)
+    return delete_analyzer_record(id, *args, **kwargs)
 
 
-def delete_analyzer_record_by_portfolio_analyzer_and_date_range(
+def delete_analyzer_records_by_portfolio_analyzer_and_date_range(
     portfolio_id: str,
     analyzer_id: Optional[str] = None,
     start_date: Optional[any] = None,
@@ -75,10 +76,10 @@ def delete_analyzer_record_by_portfolio_analyzer_and_date_range(
 ) -> None:
     # Sqlalchemy ORM seems not work on clickhouse when multi delete.
     # Use sql
+    session = get_click_connection().session
     model = MAnalyzerRecord
     sql = f"DELETE FROM {model.__tablename__} WHERE portfolio_id = :portfolio_id"
     params = {"portfolio_id": portfolio_id}
-    session = get_click_connection().session
     if analyzer_id is not None:
         sql += " AND analyzer_id = :analyzer_id"
         params["analyzer_id"] = analyzer_id
@@ -98,7 +99,7 @@ def delete_analyzer_record_by_portfolio_analyzer_and_date_range(
         get_click_connection().remove_session()
 
 
-def softdelete_analyzer_record_by_portfolio_analyzer_and_date_range(
+def softdelete_analyzer_records_by_portfolio_analyzer_and_date_range(
     portfolio_id: str,
     analyzer_id: Optional[str] = None,
     start_date: Optional[any] = None,
@@ -107,7 +108,7 @@ def softdelete_analyzer_record_by_portfolio_analyzer_and_date_range(
     **kwargs,
 ):
     GLOG.WARN("Soft delete not work in clickhouse, use delete instead.")
-    delete_analyzer_record_by_portfolio_analyzer_and_date_range(
+    delete_analyzer_records_by_portfolio_analyzer_and_date_range(
         portfolio_id, analyzer_id, start_date, end_date, *args, **kwargs
     )
 
@@ -119,7 +120,7 @@ def update_analyzer_record(self, *args, **kwargs):
     pass
 
 
-def get_analyzer_record(
+def get_analyzer_records(
     portfolio_id: str,
     analyzer_id: Optional[str] = None,
     start_date: Optional[any] = None,

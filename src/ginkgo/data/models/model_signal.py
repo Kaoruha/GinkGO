@@ -1,6 +1,7 @@
 import pandas as pd
 import datetime
 
+from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DECIMAL, Enum
 from sqlalchemy.orm import Mapped, mapped_column
@@ -28,11 +29,11 @@ class MSignal(MClickBase):
     def _(
         self,
         portfolio_id: str,
-        timestamp: any = None,
-        code: str = None,
-        direction: DIRECTION_TYPES = None,
-        reason: str = None,
-        source: SOURCE_TYPES = None,
+        timestamp: Optional[any] = None,
+        code: Optional[str] = None,
+        direction: Optional[DIRECTION_TYPES] = None,
+        reason: Optional[str] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -57,7 +58,7 @@ class MSignal(MClickBase):
         self.reason = df["reason"]
 
         if "source" in df.keys():
-            self.source = df.source
+            self.source = df["source"]
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

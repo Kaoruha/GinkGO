@@ -1,5 +1,5 @@
 """
-The `Datahandler` class will provide access to historical price and volume data for a given set of securities. 
+The `Datahandler` class will provide access to historical price and volume data for a given set of securities.
 
 - Loading historical price and volume data for a given set of securities.
 
@@ -7,16 +7,15 @@ The `Datahandler` class will provide access to historical price and volume data 
 
 - Get the Live Trading system's price and volume.
 """
-from ginkgo.backtest.feeds.base_feed import BaseFeed
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.backtest.events import EventPriceUpdate
-from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.backtest.bar import Bar
-from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList
 
 import time
 import pandas as pd
 from rich.progress import Progress
+
+from ginkgo.backtest.feeds.base_feed import BaseFeed
+from ginkgo.backtest.events import EventPriceUpdate
+from ginkgo.backtest.bar import Bar
+from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList, GLOG
 
 
 class BacktestFeed(BaseFeed):
@@ -80,12 +79,8 @@ class BacktestFeed(BaseFeed):
                     # print(event)
                     # time.sleep(5)
                     self.engine.put(event)
-                    progress.update(
-                        task2, advance=1, description=f"Broadcast {event.code}"
-                    )
-                    GLOG.DEBUG(
-                        f"Broadcast Price Update {event.code} on {event.timestamp}"
-                    )
+                    progress.update(task2, advance=1, description=f"Broadcast {event.code}")
+                    GLOG.DEBUG(f"Broadcast Price Update {event.code} on {event.timestamp}")
 
     def get_count_of_price(self, date, interested, *args, **kwargs):
         # Do Cache

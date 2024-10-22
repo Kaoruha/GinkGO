@@ -1,12 +1,15 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
+from rich.console import Console
 
-from ginkgo.enums import CURRENCY_TYPES, MARKET_TYPES
+from ginkgo.enums import CURRENCY_TYPES, MARKET_TYPES, SOURCE_TYPES
 from ginkgo.data.models import MStockInfo
 from ginkgo.data.drivers import add, add_all, get_mysql_connection
-from ginkgo.libs import GLOG
+from ginkgo.libs import GLOG, datetime_normalize, GCONF
+
+console = Console()
 
 
 def add_stockinfo(
@@ -35,21 +38,81 @@ def add_stockinfo(
     return df.iloc[0]
 
 
-def add_stockinfos(files: List[MStockInfo], *args, **kwargs):
+def add_stockinfos(infos: List[MStockInfo], *args, **kwargs):
     l = []
-    for i in files:
+    for i in infos:
         if isinstance(i, MStockInfo):
             l.append(i)
         else:
-            GLOG.WANR("add files only support file data.")
+            GLOG.WANR("add stockinfos only support stockinfo data.")
     return add_all(l)
+
+
+def upsert_stockinfo(
+    code: str,
+    code_name: str,
+    industry: str,
+    currency: CURRENCY_TYPES,
+    market: MARKET_TYPES,
+    list_date: any,
+    delist_date: any,
+    source: SOURCE_TYPES = SOURCE_TYPES.OTHER,
+    *args,
+    **kwargs,
+) -> pd.Series:
+    session = get_mysql_connection().session
+    model = MStockInfo
+    filters = []
+    filters.append(model.is_del == False)
+    filters.append(model.code == code)
+
+    try:
+        stmt = select(model).where(and_(*filters))
+        res = session.execute(stmt).scalars().all()
+        if len(res) == 0:
+            # Insert
+            return add_stockinfo(
+                code=code,
+                code_name=code_name,
+                industry=industry,
+                currency=currency,
+                market=market,
+                list_date=datetime_normalize(list_date),
+                delist_date=datetime_normalize(delist_date) if delist_date else GCONF.DEFAULTEND,
+                source=source,
+            )
+        else:
+            # Update
+            for i in res:
+                i.update(
+                    code,
+                    code_name=code_name,
+                    industry=industry,
+                    currency=currency,
+                    market=market,
+                    list_date=list_date if list_date else GCONF.DEFAULTSTART,
+                    delist_date=delist_date if delist_date else GCONF.DEFAULTEND,
+                    source=source,
+                )
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+        return pd.DataFrame()
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def upsert_stockinfos(infos: List[MStockInfo], *args, **kwargs):
+    # TODO
+    pass
 
 
 def delete_stockinfo(code: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MStockInfo
+    filters = [model.code == code]
     try:
-        filters = [model.code == code]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
             GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
@@ -58,7 +121,7 @@ def delete_stockinfo(code: str, *argss, **kwargs):
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
@@ -90,10 +153,9 @@ def update_stockinfo(
     *argss,
     **kwargs,
 ):
-
+    session = get_mysql_connection().session
     model = MStockInfo
     filters = [model.code == code]
-    session = get_mysql_connection().session
     updates = {"update_at": datetime.datetime.now()}
 
     if code_name:
@@ -120,7 +182,28 @@ def update_stockinfo(
         get_mysql_connection().remove_session()
 
 
-def get_stockinfo(
+def get_stockinfo(code: str, *args, **kwargs):
+    session = get_mysql_connection().session
+    model = MStockInfo
+    filters = []
+    filters.append(model.is_del == False)
+    filters.append(model.code == code)
+    try:
+        stmt = session.query(model).filter(and_(*filters))
+
+        df = pd.read_sql(stmt.statement, session.connection())
+        if df.shape[0] == 0:
+            return pd.DataFrame()
+        return df.iloc[0]
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+        return pd.DataFrame()
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def get_stockinfos(
     code: str = None,
     list_date: any = None,
     delist_date: any = None,
@@ -143,12 +226,12 @@ def get_stockinfo(
         stmt = session.query(model).filter(and_(*filters))
 
         df = pd.read_sql(stmt.statement, session.connection())
+        console.print(f":moyai: [bold green]Got {df.shape[0]} records about StockInfo from mysql.[/]")
         if df.shape[0] == 0:
             return pd.DataFrame()
         return df
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         return pd.DataFrame()
     finally:

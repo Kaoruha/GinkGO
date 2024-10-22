@@ -1,41 +1,41 @@
 import tushare as ts
 import threading
 import pandas as pd
-from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs import datetime_normalize
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import datetime_normalize, GCONF, retry, time_logger, GLOG
+from rich.console import Console
+
+console = Console()
 
 
 class GinkgoTushare(object):
-    def __init__(self) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         self.pro = None
         self.connect()
-        self.try_max = 5
 
-    def connect(self) -> None:
+    def connect(self, *args, **kwargs) -> None:
         if self.pro == None:
             self.pro = ts.pro_api(GCONF.TUSHARETOKEN)
 
-    def fetch_cn_stock_trade_day(self) -> pd.DataFrame:
-        try_time = 0
-        while try_time <= self.try_max:
-            GLOG.DEBUG("Trying get cn stock trade day.")
+    @time_logger
+    @retry(max_try=5)
+    def fetch_cn_stock_trade_day(self, *args, **kwargs) -> pd.DataFrame:
+        GLOG.DEBUG("Trying get cn stock trade day.")
+        try:
             r = self.pro.trade_cal()
             if r.shape[0] == 0:
-                try_time += 1
-                GLOG.ERROR(
-                    f"Tushare API: TradeCalendar returns nothing. Retry: {try_time}"
-                )
-            else:
-                r = r.drop(["exchange", "pretrade_date"], axis=1)
-                return r
-            if try_time >= self.try_max:
-                return
+                return pd.DataFrame()
+            console.print(f":crab: Got {r.shape[0]} records about trade day.")
+            return r
+        except Exception as e:
+            raise e
+        finally:
+            pass
 
-    def fetch_cn_stock_info(self) -> pd.DataFrame:
-        try_time = 0
-        while try_time <= self.try_max:
-            GLOG.DEBUG("Trying get cn stock info.")
+    @time_logger
+    @retry(max_try=5)
+    def fetch_cn_stockinfo(self, *args, **kwargs) -> pd.DataFrame:
+        GLOG.DEBUG("Trying get cn stock info.")
+        try:
             r = self.pro.stock_basic(
                 fields=[
                     "ts_code",
@@ -49,58 +49,60 @@ class GinkgoTushare(object):
                 ]
             )
             if r.shape[0] == 0:
-                try_time += 1
-                GLOG.ERROR(
-                    f"Tushare API: CN Stock Info returns nothing. Retry: {try_time}"
-                )
-            else:
-                return r
-            if try_time >= self.try_max:
-                return
+                return pd.DataFrame()
+            console.print(f":crab: Got {r.shape[0]} records about stockinfo.")
+            return r
+        except Exception as e:
+            raise e
+        finally:
+            pass
 
+    @time_logger
+    @retry(max_try=5)
     def fetch_cn_stock_daybar(
-        self,
-        code: str,
-        date_start: any = GCONF.DEFAULTSTART,
-        date_end: any = GCONF.DEFAULTEND,
+        self, code: str, start_date: any = GCONF.DEFAULTSTART, end_date: any = GCONF.DEFAULTEND, *args, **kwargs
     ) -> pd.DataFrame:
-        start = datetime_normalize(date_start).strftime("%Y%m%d")
-        end = datetime_normalize(date_end).strftime("%Y%m%d")
-        r = self.pro.daily(
-            **{
-                "ts_code": code,
-                "trade_date": "",
-                "start_date": start,
-                "end_date": end,
-                "offset": "",
-                "limit": "50000",
-            }
-        )
-        return r
+        start = datetime_normalize(start_date).strftime("%Y%m%d")
+        end = datetime_normalize(end_date).strftime("%Y%m%d")
+        try:
+            r = self.pro.daily(
+                **{
+                    "ts_code": code,
+                    "trade_date": "",
+                    "start_date": start,
+                    "end_date": end,
+                    "offset": "",
+                    "limit": "50000",
+                }
+            )
+            if r.shape[0] == 0:
+                return pd.DataFrame()
+            return r
+        except Exception as e:
+            raise e
+        finally:
+            pass
 
     def fetch_cn_stock_min(
-        self,
-        code: str,
-        date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
-        date_end: str or datetime.datetime = GCONF.DEFAULTEND,
+        self, code: str, start_date: any = GCONF.DEFAULTSTART, end_date: any = GCONF.DEFAULTEND, *args, **kwargs
     ) -> pd.DataFrame:
         pass
 
+    @time_logger
+    @retry(max_try=5)
     def fetch_cn_stock_adjustfactor(
-        self,
-        code: str,
-        date_start: str or datetime.datetime = GCONF.DEFAULTSTART,
-        date_end: str or datetime.datetime = GCONF.DEFAULTEND,
+        self, code: str, start_date: any = GCONF.DEFAULTSTART, end_date: any = GCONF.DEFAULTEND, *args, **kwargs
     ) -> pd.DataFrame:
-        # if "BJ" in code:
-        #     GLOG.WARN("Tushare API: BJ stock not supported.")
-        #     return
-        start = datetime_normalize(date_start).strftime("%Y-%m-%d")
-        end = datetime_normalize(date_end).strftime("%Y-%m-%d")
-        r = self.pro.adj_factor(
-            ts_code=code, start_date=start, end_date=end, limit=10000
-        )
-        if r.shape[0] == 0:
-            return pd.DataFrame()
-        r.reset_index(drop=True, inplace=True)
-        return r
+        start = datetime_normalize(start_date).strftime("%Y-%m-%d")
+        end = datetime_normalize(end_date).strftime("%Y-%m-%d")
+        try:
+            r = self.pro.adj_factor(ts_code=code, start_date=start, end_date=end, limit=10000)
+            if r.shape[0] == 0:
+                return pd.DataFrame()
+            console.print(f":crab: Got {r.shape[0]} records about {code} adjustfactor.")
+            r.reset_index(drop=True, inplace=True)
+            return r
+        except Exception as e:
+            raise e
+        finally:
+            pass
