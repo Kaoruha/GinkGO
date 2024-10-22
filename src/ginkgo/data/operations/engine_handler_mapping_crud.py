@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
 from ginkgo.enums import EVENT_TYPES
@@ -29,6 +29,14 @@ def add_engine_handler_mappings(handlers: List[MEngineHandlerMapping], *args, **
     return add_all(l)
 
 
+def upsert_engine_handler_mapping():
+    pass
+
+
+def upsert_engine_handler_mappings():
+    pass
+
+
 def delete_engine_handler_mapping(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MEngineHandlerMapping
@@ -36,13 +44,13 @@ def delete_engine_handler_mapping(id: str, *argss, **kwargs):
         filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_engine_handler_mapping: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
@@ -51,18 +59,14 @@ def delete_engine_handler_mappings(ids: List[str], *argss, **kwargs):
     session = get_mysql_connection().session
     model = MEngineHandlerMapping
     filters = []
-    for i in ids:
-        filters.append(model.uuid == i)
+    filters.append(model.uuid.in_(ids))
     try:
-        query = session.query(model).filter(or_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {ids} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        stmt = delete(model).where(and_(*filters))
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
@@ -115,7 +119,7 @@ def update_engine_handler_mapping(
         get_mysql_connection().remove_session()
 
 
-def get_engine_handler_mapping_by_id(
+def get_engine_handler_mapping(
     id: str,
     *args,
     **kwargs,
@@ -133,7 +137,6 @@ def get_engine_handler_mapping_by_id(
         return df.iloc[0]
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         return 0
     finally:
@@ -158,7 +161,6 @@ def get_engine_handler_mappings(
         return df
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         return pd.DataFrame()
     finally:

@@ -7,14 +7,18 @@ def datetime_normalize(time: any) -> datetime.datetime:
     Support datetime
     Support int 19900101
     Support str "19900101" "1990-01-01" "1990-01-01 12:12:12"
+    Support date
     """
     t = datetime.datetime.now()
 
     if time is None:
-        return time
+        return None
 
     if isinstance(time, datetime.datetime):
         return time
+
+    if isinstance(time, datetime.date):
+        return datetime.datetime.combine(time, datetime.datetime.min.time())
 
     if isinstance(time, int):
         time = str(time)

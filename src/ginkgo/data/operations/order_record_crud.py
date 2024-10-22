@@ -1,12 +1,13 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
+from decimal import Decimal
 
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
 from ginkgo.data.models import MOrderRecord
 from ginkgo.data.drivers import add, add_all, get_click_connection
-from ginkgo.libs import GLOG, datetime_normalize
+from ginkgo.libs import GLOG, datetime_normalize, Number, to_decimal
 from ginkgo.backtest import Order
 
 
@@ -18,11 +19,11 @@ def add_order_record(
     type: ORDER_TYPES,
     status: ORDERSTATUS_TYPES,
     volume: int,
-    limit_price: float,
-    frozen: float,
-    transaction_price: float,
-    remain: float,
-    fee: float,
+    limit_price: Number,
+    frozen: Number,
+    transaction_price: Number,
+    remain: Number,
+    fee: Number,
     timestamp: any,
     *args,
     **kwargs,
@@ -35,11 +36,11 @@ def add_order_record(
         type=type,
         status=status,
         volume=volume,
-        limit_price=limit_price,
+        limit_price=to_decimal(limit_price),
         frozen=frozen,
-        transaction_price=transaction_price,
-        remain=remain,
-        fee=fee,
+        transaction_price=to_decimal(transaction_price),
+        remain=to_decimal(remain),
+        fee=to_decimal(fee),
         timestamp=datetime_normalize(timestamp),
     )
     res = add(item)
@@ -65,13 +66,13 @@ def delete_order_record(id: str, *argss, **kwargs):
         filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_click_connection().remove_session()
 
@@ -81,7 +82,32 @@ def softdelete_order_record(id: str, *argss, **kwargs):
     return delete_order_record(id, *argss, **kwargs)
 
 
-def get_order_record_by_id(
+def delete_order_records_by_portfolio_and_date_range(
+    portfolio_id: str, start_date: any = None, end_date: any = None, *argss, **kwargs
+):
+    # Sqlalchemy ORM seems not work on clickhouse when multi delete.
+    # Use sql
+    session = get_click_connection().session
+    model = MOrderRecord
+    sql = f"DELETE FROM {model.__tablename__} WHERE portfolio_id = :portfolio_id"
+    params = {"portfolio_id": portfolio_id}
+    if start_date is not None:
+        sql += " AND timestamp >= :start_date"
+        params["start_date"] = datetime_normalize(start_date)
+    if end_date is not None:
+        sql += " AND timestamp <= :end_date"
+        params["end_date"] = datetime_normalize(end_date)
+    try:
+        session.execute(text(sql), params)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+    finally:
+        get_click_connection().remove_session()
+
+
+def get_order_record(
     id: str,
     *args,
     **kwargs,
@@ -99,7 +125,6 @@ def get_order_record_by_id(
         return df.iloc[0]
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         return 0
     finally:

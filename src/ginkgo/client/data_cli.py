@@ -47,7 +47,7 @@ class WorkerType(str, Enum):
 
 
 app = typer.Typer(
-    help=":jigsaw: Module for DATA. [grey62]CRUD about all kinds of data.[/grey62]"
+    help=":jigsaw: Module for [bold medium_spring_green]DATA[/]. [grey62]CRUD about all kinds of data.[/grey62]"
 )
 quit_list = ["NO", "N"]
 console = Console()
@@ -58,9 +58,7 @@ def random_pick_one_code():
 
     code_list = GDATA.get_stock_info_df()
     code = random.choice(code_list.code.to_list())
-    console.print(
-        f":zap: No Code assigned. Random pick one code: [yellow]{code}[/yellow]"
-    )
+    console.print(f":zap: No Code assigned. Random pick one code: [yellow]{code}[/yellow]")
     return code
 
 
@@ -70,9 +68,7 @@ def print_df_paganation(df, page: int):
         page_count = int(data_length / page) + 1
         for i in range(page_count):
             print(df[i * page : (i + 1) * page])
-            go_next_page = Prompt.ask(
-                f"Current: {(i+1)*page}/{data_length}, Conitnue? \[y/N]"
-            )
+            go_next_page = Prompt.ask(f"Current: {(i+1)*page}/{data_length}, Conitnue? \[y/N]")
             if go_next_page.upper() in quit_list:
                 console.print("See you soon. :sunglasses:")
                 raise typer.Abort()
@@ -134,15 +130,9 @@ def plot(
             help="moving Average",
         ),
     ] = None,
-    wma: Annotated[
-        int, typer.Option(case_sensitive=False, help="Weighted Moving Average")
-    ] = None,
-    ema: Annotated[
-        int, typer.Option(case_sensitive=False, help="Exponential Moving Average")
-    ] = None,
-    atr: Annotated[
-        int, typer.Option(case_sensitive=False, help="Average True Range")
-    ] = None,
+    wma: Annotated[int, typer.Option(case_sensitive=False, help="Weighted Moving Average")] = None,
+    ema: Annotated[int, typer.Option(case_sensitive=False, help="Exponential Moving Average")] = None,
+    atr: Annotated[int, typer.Option(case_sensitive=False, help="Average True Range")] = None,
     pin: Annotated[bool, typer.Option(case_sensitive=False, help="Pin Bar")] = False,
     inf: Annotated[int, typer.Option(case_sensitive=False, help="InflectionPoint")] = 0,
     gap: Annotated[bool, typer.Option(case_sensitive=False, help="Gap")] = False,
@@ -205,12 +195,8 @@ def plot(
 @app.command()
 def ls(
     data: Annotated[DataType, typer.Argument(case_sensitive=False)],
-    page: Annotated[
-        int, typer.Option(case_sensitive=False, help="Limit the number of output.")
-    ] = 0,
-    filter: Annotated[
-        str, typer.Option(case_sensitive=True, help="Filter the output.")
-    ] = "",
+    page: Annotated[int, typer.Option(case_sensitive=False, help="Limit the number of output.")] = 0,
+    filter: Annotated[str, typer.Option(case_sensitive=True, help="Filter the output.")] = "",
 ):
     """
     Show data summary.
@@ -279,12 +265,8 @@ def show(
             help="Date End, you could use yyyymmdd or yyyy-mm-dd",
         ),
     ] = "21200001",
-    page: Annotated[
-        int, typer.Option(case_sensitive=False, help="Limit the number of output.")
-    ] = 0,
-    filter: Annotated[
-        str, typer.Option(case_sensitive=False, help="Fuzzy Search KeyWords.")
-    ] = None,
+    page: Annotated[int, typer.Option(case_sensitive=False, help="Limit the number of output.")] = 0,
+    filter: Annotated[str, typer.Option(case_sensitive=False, help="Fuzzy Search KeyWords.")] = None,
 ):
     """
     Show data details.
@@ -352,21 +334,13 @@ def show(
         sys.stdout.flush()
         t1 = datetime.datetime.now()
         if t1 - t0 < datetime.timedelta(seconds=1):
-            console.print(
-                f":zap: Daybar [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]. Seems REDIS works."
-            )
+            console.print(f":zap: Daybar [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]. Seems REDIS works.")
         else:
-            console.print(
-                f":hugging_face: Daybar [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]"
-            )
+            console.print(f":hugging_face: Daybar [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]")
 
     elif data == DataType.TICK:
-        if datetime_normalize(end) - datetime_normalize(start) > datetime.timedelta(
-            days=10
-        ):
-            console.print(
-                f":banana: Tick Data just support querying less than 10 days."
-            )
+        if datetime_normalize(end) - datetime_normalize(start) > datetime.timedelta(days=10):
+            console.print(f":banana: Tick Data just support querying less than 10 days.")
             console.print(
                 f":peach: Please optimize the [yellow]start[/yellow] or [yellow]end[/yellow] to do the query."
             )
@@ -388,13 +362,9 @@ def show(
         sys.stdout.flush()
         t1 = datetime.datetime.now()
         if t1 - t0 < datetime.timedelta(seconds=1):
-            console.print(
-                f":zap: Tick [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]."
-            )
+            console.print(f":zap: Tick [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow].")
         else:
-            console.print(
-                f":hugging_face: Tick [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]"
-            )
+            console.print(f":hugging_face: Tick [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]")
 
     if rs.shape[0] < page:
         print(rs.to_string())
@@ -404,30 +374,16 @@ def show(
 
 @app.command()
 def update(
-    a: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update StockInfo")
-    ] = False,
+    a: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
     # data: Annotated[DataType, typer.Argument(case_sensitive=False)],
-    stockinfo: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update StockInfo")
-    ] = False,
-    calendar: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update Calendar")
-    ] = False,
-    adjust: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update adjustfactor")
-    ] = False,
-    day: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update day bar")
-    ] = False,
-    tick: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Update tick data")
-    ] = False,
+    stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
+    calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Update Calendar")] = False,
+    adjust: Annotated[bool, typer.Option(case_sensitive=False, help="Update adjustfactor")] = False,
+    day: Annotated[bool, typer.Option(case_sensitive=False, help="Update day bar")] = False,
+    tick: Annotated[bool, typer.Option(case_sensitive=False, help="Update tick data")] = False,
     fast: Annotated[
         bool,
-        typer.Option(
-            case_sensitive=False, help="If set, ginkgo will try update in fast mode."
-        ),
+        typer.Option(case_sensitive=False, help="If set, ginkgo will try update in fast mode."),
     ] = False,
     code: Annotated[
         typing_list[str],
@@ -463,9 +419,7 @@ def update(
     if d:
         console.print(f"Current worker: {GTM.dataworker_count}")
         if GTM.dataworker_count == 0:
-            console.print(
-                ":sad_but_relieved_face: There is no worker running. Can not handle the update request."
-            )
+            console.print(":sad_but_relieved_face: There is no worker running. Can not handle the update request.")
             return
         if a:
             GDATA.send_signal_update_stockinfo()
@@ -534,9 +488,7 @@ def update(
 
 @app.command()
 def search(
-    filter: Annotated[
-        str, typer.Option(case_sensitive=True, help="Key words to search")
-    ] = "",
+    filter: Annotated[str, typer.Option(case_sensitive=True, help="Key words to search")] = "",
 ):
     """
     Try do fuzzy search.
@@ -546,36 +498,16 @@ def search(
 
 @app.command()
 def rebuild(
-    order: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")
-    ] = False,
-    orderrecord: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild OrderRecord Table")
-    ] = False,
-    record: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")
-    ] = False,
-    file: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild File Table")
-    ] = False,
-    backtest: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Table")
-    ] = False,
-    analyzer: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")
-    ] = False,
-    stockinfo: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")
-    ] = False,
-    signal: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Signal Table")
-    ] = False,
-    calendar: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")
-    ] = False,
-    adjust: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Rebuild Adjust Table")
-    ] = False,
+    order: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")] = False,
+    orderrecord: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild OrderRecord Table")] = False,
+    record: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")] = False,
+    file: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild File Table")] = False,
+    backtest: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Table")] = False,
+    analyzer: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")] = False,
+    stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")] = False,
+    signal: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Signal Table")] = False,
+    calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")] = False,
+    adjust: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Adjust Table")] = False,
 ):
     """
     :fox_face: Rebuild [light_coral]TABLE[/light_coral] in database. Attention.

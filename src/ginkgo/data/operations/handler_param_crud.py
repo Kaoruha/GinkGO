@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
 from ginkgo.data.models import MHandlerParam
@@ -26,28 +26,36 @@ def add_handler_params(handlers: List[MHandlerParam], *args, **kwargs):
     return add_all(l)
 
 
+def upsert_handler_param():
+    pass
+
+
+def upsert_handler_params():
+    pass
+
+
 def delete_handler_param(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MHandlerParam
+    filters = [model.uuid == id]
     try:
-        filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
 def softdelete_handler_param(id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
     model = MHandlerParam
     filters = [model.uuid == id]
-    session = get_mysql_connection().session
     updates = {"is_del": True, "update_at": datetime.datetime.now()}
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
@@ -63,25 +71,22 @@ def softdelete_handler_param(id: str, *argss, **kwargs):
 def delete_handler_params(handler_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MHandlerParam
+    filters = [model.handler_id == id]
     try:
-        filters = [model.handler_id == id]
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        stmt = delete(model).where(and_(*filters))
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
 def softdelete_handler_params(handler_id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
     model = MHandlerParam
     filters = [model.handler_id == id]
-    session = get_mysql_connection().session
     updates = {"is_del": True, "update_at": datetime.datetime.now()}
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
@@ -102,9 +107,9 @@ def update_handler_param(
     *argss,
     **kwargs,
 ):
+    session = get_mysql_connection().session
     model = MHandlerParam
     filters = [model.uuid == id]
-    session = get_mysql_connection().session
     updates = {"update_at": datetime.datetime.now()}
     if handler_id is not None:
         updates["handler_id"] = handler_id
@@ -123,7 +128,7 @@ def update_handler_param(
         get_mysql_connection().remove_session()
 
 
-def get_handler_param_by_id(
+def get_handler_param(
     id: str,
     *args,
     **kwargs,
@@ -141,9 +146,8 @@ def get_handler_param_by_id(
         return df.iloc[0]
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
-        return 0
+        return pd.DataFrame()
     finally:
         get_mysql_connection().remove_session()
 
@@ -166,7 +170,6 @@ def get_handler_params(
         return df
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         return pd.DataFrame()
     finally:

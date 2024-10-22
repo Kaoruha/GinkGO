@@ -2,13 +2,14 @@ import datetime
 import pandas as pd
 
 from decimal import Decimal
+from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, DECIMAL, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.enums import SOURCE_TYPES
-from ginkgo.libs import base_repr, datetime_normalize
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 
 
 class MAdjustfactor(MMysqlBase):
@@ -29,11 +30,11 @@ class MAdjustfactor(MMysqlBase):
     def _(
         self,
         code: str,
-        timestamp: any = None,
-        foreadjustfactor: float = None,
-        backadjustfactor: float = None,
-        adjustfactor: float = None,
-        source: SOURCE_TYPES = None,
+        timestamp: Optional[any] = None,
+        foreadjustfactor: Optional[Number] = None,
+        backadjustfactor: Optional[Number] = None,
+        adjustfactor: Optional[Number] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -41,11 +42,11 @@ class MAdjustfactor(MMysqlBase):
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if foreadjustfactor is not None:
-            self.foreadjustfactor = foreadjustfactor
+            self.foreadjustfactor = to_decimal(foreadjustfactor)
         if backadjustfactor is not None:
-            self.backadjustfactor = backadjustfactor
+            self.backadjustfactor = to_decimal(backadjustfactor)
         if adjustfactor is not None:
-            self.adjustfactor = adjustfactor
+            self.adjustfactor = to_decimal(adjustfactor)
         if source is not None:
             self.source = source
         self.update_at = datetime.datetime.now()
@@ -53,12 +54,12 @@ class MAdjustfactor(MMysqlBase):
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df.code
-        self.foreadjustfactor = df.foreadjustfactor
-        self.backadjustfactor = df.backadjustfactor
-        self.adjustfactor = df.adjustfactor
-        self.timestamp = df.timestamp
+        self.foreadjustfactor = to_decimal(df["foreadjustfactor"])
+        self.backadjustfactor = to_decimal(df["backadjustfactor"])
+        self.adjustfactor = to_decimal(df["adjustfactor"])
+        self.timestamp = df["timestamp"]
         if "source" in df.keys():
-            self.source = df.source
+            self.source = df["source"]
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

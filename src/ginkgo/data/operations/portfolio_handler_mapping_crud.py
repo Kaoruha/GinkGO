@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
 from ginkgo.enums import EVENT_TYPES
@@ -32,35 +32,17 @@ def add_portfolio_handler_mappings(handlers: List[MPortfolioHandlerMapping], *ar
 def delete_portfolio_handler_mapping(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MPortfolioHandlerMapping
+    filters = [model.uuid == id]
     try:
-        filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
-    finally:
-        get_mysql_connection().remove_session()
-
-
-def delete_portfolio_handler_mappings(id: str, *argss, **kwargs):
-    session = get_mysql_connection().session
-    model = MPortfolioHandlerMapping
-    filters = [model.portfolio_id == i]
-    try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {ids} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
-    except Exception as e:
-        session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
@@ -81,6 +63,39 @@ def softdelete_portfolio_handler_mapping(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
+def delete_portfolio_handler_mappings_by_portfolio(portfolio_id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
+    model = MPortfolioHandlerMapping
+    filters = [model.portfolio_id == portfolio_id]
+    try:
+        stmt = delete(model).where(and_(*filters))
+        session.execute(stmt)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def softdelete_portfolio_handler_mappings_by_portfolio(portfolio_id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
+    model = MPortfolioHandlerMapping
+    filters = [model.portfolio_id == portfolio_id]
+    try:
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord: id {ids} has more than one record.")
+        for i in query:
+            i.is_del = True
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
 def update_portfolio_handler_mapping(
     id: str,
     portfolio_id: Optional[str] = None,
@@ -90,9 +105,9 @@ def update_portfolio_handler_mapping(
     *argss,
     **kwargs,
 ):
+    session = get_mysql_connection().session
     model = MPortfolioHandlerMapping
     filters = [model.uuid == id]
-    session = get_mysql_connection().session
     updates = {"update_at": datetime.datetime.now()}
     if portfolio_id is not None:
         updates["portfolio_id"] = portfolio_id
@@ -113,7 +128,7 @@ def update_portfolio_handler_mapping(
         get_mysql_connection().remove_session()
 
 
-def get_portfolio_handler_mapping_by_id(
+def get_portfolio_handler_mapping(
     id: str,
     *args,
     **kwargs,

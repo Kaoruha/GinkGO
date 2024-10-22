@@ -104,10 +104,7 @@ class PortfolioT1Backtest(BasePortfolio):
             return 1
         print(f"Have {len(self.selector.pick())} target.")
         # 2. Feeder got no PRICE. GO NEXT PHASE
-        if (
-            self._count_of_price_should_come_now == 0
-            and self._lastday_signal_count == 0
-        ):
+        if self._count_of_price_should_come_now == 0 and self._lastday_signal_count == 0:
             print("# 2. Feeder got no PRICE. GO NEXT PHASE")
             return 2
         print(
@@ -126,14 +123,10 @@ class PortfolioT1Backtest(BasePortfolio):
         # 4. Got SIGNAL but no ORDER generated. GO NEXT PHASE
         if (
             self._signal_get_count > 0
-            and self._signal_get_count
-            == self._price_gen_signal_count + self._lastday_signal_count
+            and self._signal_get_count == self._price_gen_signal_count + self._lastday_signal_count
             and self._price_get_count == self._count_of_price_should_come_now
-            and self._price_gen_signal_count + self._lastday_signal_count
-            == self._signal_get_count
-            and self._signal_get_count
-            - self._signal_passed_count
-            - self._signal_tomorrow_count
+            and self._price_gen_signal_count + self._lastday_signal_count == self._signal_get_count
+            and self._signal_get_count - self._signal_passed_count - self._signal_tomorrow_count
             == self._signal_gen_order_count
             and self._signal_gen_order_count == 0
         ):
@@ -153,14 +146,9 @@ class PortfolioT1Backtest(BasePortfolio):
         if (
             self._price_get_count == self._count_of_price_should_come_now
             and self._order_send_count > 0
-            and self._order_send_count
-            - self._order_filled_count
-            - self._order_canceled_count
-            == 0
+            and self._order_send_count - self._order_filled_count - self._order_canceled_count == 0
         ):
-            print(
-                "# 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE"
-            )
+            print("# 6. Send ORDERs and Got Equal Filled and Canceled ORDER. GO NEXT PHASE")
             return 6
         return 0
 
@@ -250,9 +238,7 @@ class PortfolioT1Backtest(BasePortfolio):
         """
         self.record(RECORDSTAGE_TYPES.SIGNALGENERATION)
         self._signal_get_count += 1  # Record
-        GLOG.INFO(
-            f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}."
-        )
+        GLOG.INFO(f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}.")
         # Check Feature Message.
         if self.is_event_from_future(event):
             self._signal_passed_count += 1
@@ -453,9 +439,7 @@ class PortfolioT1Backtest(BasePortfolio):
             self.unfreeze(event.frozen)
             self.add_found(event.remain)
             self.add_fee(event.fee)
-            p = Position(
-                code=event.code, price=event.transaction_price, volume=event.volume
-            )
+            p = Position(code=event.code, price=event.transaction_price, volume=event.volume)
             p.set_backtest_id(self.backtest_id)
             self.add_position(p)
             GLOG.WARN("Fill a LONG ORDER DONE")
@@ -463,9 +447,7 @@ class PortfolioT1Backtest(BasePortfolio):
             GLOG.WARN("DEALING with SHORT FILLED ORDER")
             self.add_found(event.remain)
             self.add_fee(event.fee)
-            self.positions[event.code].deal(
-                DIRECTION_TYPES.SHORT, event.transaction_price, event.volume
-            )
+            self.positions[event.code].deal(DIRECTION_TYPES.SHORT, event.transaction_price, event.volume)
             self.clean_positions()
             GLOG.WARN("Fill a SHORT ORDER DONE")
         GLOG.INFO("Got An Order Filled Done")
@@ -477,9 +459,7 @@ class PortfolioT1Backtest(BasePortfolio):
         # self.try_go_next_phase()
 
     def on_order_canceled(self, event: EventOrderCanceled):
-        GLOG.WARN(
-            f"Filled: {self._order_filled_count}  Canceled: {self._order_canceled_count}"
-        )
+        GLOG.WARN(f"Filled: {self._order_filled_count}  Canceled: {self._order_canceled_count}")
         GLOG.WARN("Dealing with CANCELED ORDER.")
         if self.is_event_from_future(event):
             return

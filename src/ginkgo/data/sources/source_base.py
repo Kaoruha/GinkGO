@@ -6,5 +6,9 @@ class GinkgoSourceBase(object):
     def client(self):
         return self._client
 
+    @client.setter
+    def client(self, value) -> None:
+        self._client = value
+
     def connect(self):
         raise NotImplementedError()

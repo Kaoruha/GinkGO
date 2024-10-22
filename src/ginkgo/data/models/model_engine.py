@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
 
+from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
@@ -25,8 +26,8 @@ class MEngine(MMysqlBase):
     def _(
         self,
         name: str,
-        is_live: bool = None,
-        source: SOURCE_TYPES = None,
+        is_live: Optional[bool] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -38,11 +39,11 @@ class MEngine(MMysqlBase):
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
-    def _(self, df: pd.DataFrame, *args, **kwargs) -> None:
+    def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.name = df["name"]
         self.is_live = df["is_live"]
         if "source" in df.keys():
-            self.source = df.source
+            self.source = df["source"]
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

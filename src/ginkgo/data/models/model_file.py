@@ -1,6 +1,7 @@
 import pandas as pd
 import datetime
 
+from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, Enum, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column
@@ -26,9 +27,9 @@ class MFile(MMysqlBase):
     def _(
         self,
         name: str,
-        type: FILE_TYPES = None,
-        data: bytes = None,
-        source: SOURCE_TYPES = None,
+        type: Optional[FILE_TYPES] = None,
+        data: Optional[bytes] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -42,10 +43,10 @@ class MFile(MMysqlBase):
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
-    def _(self, df: pd.DataFrame, *args, **kwargs) -> None:
+    def _(self, df: pd.Series, *args, **kwargs) -> None:
         # TODO
         if "source" in df.keys():
-            self.source = df.source
+            self.source = df["source"]
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

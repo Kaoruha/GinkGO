@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
 
+from typing import Optional
 from functools import singledispatchmethod
 from decimal import Decimal
 from sqlalchemy import String, DECIMAL
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.data.models.model_clickbase import MClickBase
-from ginkgo.libs import base_repr, datetime_normalize
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 
 
 class MAnalyzerRecord(MClickBase):
@@ -16,7 +17,7 @@ class MAnalyzerRecord(MClickBase):
     __tablename__ = "analyzer_record"
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="Default Profit")
-    value: Mapped[Decimal] = mapped_column(DECIMAL(10, 2), default=0)
+    value: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     analyzer_id: Mapped[str] = mapped_column(String(32), default="Default Analyzer")
     name: Mapped[str] = mapped_column(String(32), default="Default Profit")
 
@@ -28,11 +29,11 @@ class MAnalyzerRecord(MClickBase):
     def _(
         self,
         portfolio_id: str,
-        timestamp: any = None,
-        value: float = None,
-        analyzer_id: id = None,
-        name: str = None,
-        source: SOURCE_TYPES = None,
+        timestamp: Optional[any] = None,
+        value: Optional[Number] = None,
+        analyzer_id: Optional[str] = None,
+        name: Optional[str] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs
     ) -> None:
@@ -40,7 +41,7 @@ class MAnalyzerRecord(MClickBase):
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if value is not None:
-            self.value = round(value, 3)
+            self.value = to_decimal(value)
         if name is not None:
             self.name = name
         if analyzer_id is not None:

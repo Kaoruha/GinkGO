@@ -1,6 +1,7 @@
 import pandas as pd
 import datetime
 
+from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, DateTime, Integer, Enum
 from sqlalchemy.orm import Mapped, mapped_column
@@ -30,13 +31,13 @@ class MStockInfo(MMysqlBase):
     def _(
         self,
         code: str,
-        code_name: str = None,
-        industry: str = None,
-        currency: CURRENCY_TYPES = None,
-        market: MARKET_TYPES = None,
-        list_date: any = None,
-        delist_date: any = None,
-        source: SOURCE_TYPES = None,
+        code_name: Optional[str] = None,
+        industry: Optional[str] = None,
+        currency: Optional[CURRENCY_TYPES] = None,
+        market: Optional[MARKET_TYPES] = None,
+        list_date: Optional[any] = None,
+        delist_date: Optional[any] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -59,15 +60,15 @@ class MStockInfo(MMysqlBase):
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.code = df.code
-        self.code_name = df.code_name
-        self.industry = df.industry
-        self.currency = df.currency
-        self.market = df.market
-        self.list_date = datetime_normalize(df.list_date)
-        self.delist_date = datetime_normalize(df.delist_date)
+        self.code = df["code"]
+        self.code_name = df["code_name"]
+        self.industry = df["industry"]
+        self.currency = df["currency"]
+        self.market = df["market"]
+        self.list_date = datetime_normalize(df["list_date"])
+        self.delist_date = datetime_normalize(df["delist_date"])
         if "source" in df.keys():
-            self.source = df.source
+            self.source = df["source"]
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> None:

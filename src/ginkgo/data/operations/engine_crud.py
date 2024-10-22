@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
 from ginkgo.data.models import MEngine
@@ -26,6 +26,14 @@ def add_engines(files: List[MEngine], *args, **kwargs):
     return add_all(l)
 
 
+def upsert_engine():
+    pass
+
+
+def upsert_engines():
+    pass
+
+
 def delete_engine(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MEngine
@@ -33,13 +41,13 @@ def delete_engine(id: str, *argss, **kwargs):
         filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_engine: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
@@ -48,18 +56,14 @@ def delete_engines(ids: List[str], *argss, **kwargs):
     session = get_mysql_connection().session
     model = MEngine
     filters = []
-    for i in ids:
-        filters.append(model.uuid == i)
+    filters.append(model.uuid.in_(ids))
     try:
-        query = session.query(model).filter(or_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {ids} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        stmt = delete(model).where(and_(*filters))
+        session.execute(stmt)
+        session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
@@ -104,7 +108,7 @@ def update_engine(
 
 
 def get_engine(
-    id: str = None,
+    id: str,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -113,7 +117,6 @@ def get_engine(
     filters = [model.is_del == False]
     if id is not None:
         filters.append(model.uuid == id)
-
     try:
         stmt = session.query(model).filter(and_(*filters))
 
@@ -123,7 +126,31 @@ def get_engine(
         return df.iloc[0]
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
+        return pd.DataFrame()
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def get_engines(
+    name: Optional[str] = None,
+    *args,
+    **kwargs,
+) -> pd.Series:
+    session = get_mysql_connection().session
+    model = MEngine
+    filters = [model.is_del == False]
+    if name is not None:
+        filters.append(model.name.like(f"%{name}%"))
+    try:
+        stmt = session.query(model).filter(and_(*filters))
+
+        df = pd.read_sql(stmt.statement, session.connection())
+        if df.shape[0] == 0:
+            return pd.DataFrame()
+        return df
+    except Exception as e:
+        session.rollback()
         GLOG.ERROR(e)
         return pd.DataFrame()
     finally:

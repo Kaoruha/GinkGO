@@ -20,7 +20,6 @@ class BaseAnalyzer(BacktestBase):
         self._portfolio = None
         self._analyzer_id = ""
         self._data = pd.DataFrame(columns=["timestamp", self._name])
-        self._box_range = 20
         self._graph_type = GRAPHY_TYPES.OTHER
 
     def set_graph_type(self, graph_type: GRAPHY_TYPES):
@@ -60,32 +59,18 @@ class BaseAnalyzer(BacktestBase):
     def record_stage(self) -> RECORDSTAGE_TYPES:
         return self._record_stage
 
-    def set_stage(self, stage: RECORDSTAGE_TYPES) -> RECORDSTAGE_TYPES:
-        """
-        [Obsolete]Replaced by Function set_active_stage()
-        Args:
-            stage(enum): newday, signalgeneration, ordersend, orderfilled, ordercanceled
-        Returns:
-            new active stage
-        """
-        if isinstance(stage, RECORDSTAGE_TYPES):
-            self._active_stage = stage
-        return self.active_stage
-
-    def set_active_stage(self, stage: RECORDSTAGE_TYPES) -> RECORDSTAGE_TYPES:
+    def set_active_stage(self, stage: RECORDSTAGE_TYPES) -> RECORDSTAGE_TYPES -> None:
         """
         Set Active Stage, active will activate the counter.
         Args:
             stage(enum): newday, signalgeneration, ordersend, orderfilled, ordercanceled
         Returns:
-            new active stage
+            None
         """
         if not isinstance(stage, RECORDSTAGE_TYPES):
-            return
-        self._active_stage = stage
-        return self.active_stage
+            self._active_stage = stage
 
-    def set_record_stage(self, stage: RECORDSTAGE_TYPES) -> RECORDSTAGE_TYPES:
+    def set_record_stage(self, stage: RECORDSTAGE_TYPES) -> None:
         """
         Set Record Stage, record will interact with the db.
         Args:
@@ -93,15 +78,10 @@ class BaseAnalyzer(BacktestBase):
         Returns:
             new record stage
         """
-        if not isinstance(stage, RECORDSTAGE_TYPES):
-            return
+        if isinstance(stage, RECORDSTAGE_TYPES):
+            self._record_stage = stage
 
-        self._record_stage = stage
-        return self.record_stage
-
-    def bind_portfolio(
-        self, portfolio: "BasePortfolio", *args, **kwargs
-    ) -> "BasePortfolio":
+    def bind_portfolio(self, portfolio: "BasePortfolio", *args, **kwargs) -> "BasePortfolio":
         """
         When portfolio add index, will auto run this function to pass portfolio itselft to index.
         Args:
@@ -122,9 +102,7 @@ class BaseAnalyzer(BacktestBase):
         )
 
     def record(self, stage, *args, **kwargs) -> None:
-        raise NotImplemented(
-            "Analyzer should complete the Function record(), record() will store the data into db."
-        )
+        raise NotImplemented("Analyzer should complete the Function record(), record() will store the data into db.")
 
     def add_data(self, value: float) -> None:
         """
@@ -146,9 +124,7 @@ class BaseAnalyzer(BacktestBase):
             self._data = pd.concat(
                 [
                     self._data,
-                    pd.DataFrame(
-                        [[date, round(value, 6)]], columns=["timestamp", self._name]
-                    ),
+                    pd.DataFrame([[date, round(value, 6)]], columns=["timestamp", self._name]),
                 ]
             )
 

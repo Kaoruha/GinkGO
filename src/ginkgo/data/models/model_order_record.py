@@ -1,5 +1,6 @@
 import datetime
 import pandas as pd
+from typing import Optional
 
 from decimal import Decimal
 from functools import singledispatchmethod
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_clickbase import MClickBase
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
-from ginkgo.libs import base_repr, datetime_normalize
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 
 
 class MOrderRecord(MClickBase):
@@ -22,11 +23,11 @@ class MOrderRecord(MClickBase):
     type: Mapped[ORDER_TYPES] = mapped_column(Enum(ORDER_TYPES), default=ORDER_TYPES.OTHER)
     status: Mapped[ORDERSTATUS_TYPES] = mapped_column(Enum(ORDERSTATUS_TYPES), default=ORDERSTATUS_TYPES.OTHER)
     volume: Mapped[int] = mapped_column(Integer, default=0)
-    limit_price: Mapped[Decimal] = mapped_column(DECIMAL(10, 2), default=0)
-    frozen: Mapped[Decimal] = mapped_column(DECIMAL(10, 2), default=0)
-    transaction_price: Mapped[Decimal] = mapped_column(DECIMAL(10, 2), default=0)
-    remain: Mapped[Decimal] = mapped_column(DECIMAL(10, 2), default=0)
-    fee: Mapped[Decimal] = mapped_column(DECIMAL(10, 2), default=0)
+    limit_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    frozen: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    transaction_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    remain: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    fee: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -36,19 +37,19 @@ class MOrderRecord(MClickBase):
     def _(
         self,
         order_id: str,
-        portfolio_id: str = None,
-        code: str = None,
-        direction: DIRECTION_TYPES = None,
-        type: ORDER_TYPES = None,
-        status: ORDERSTATUS_TYPES = None,
-        volume: int = None,
-        limit_price: float = None,
-        frozen: float = None,
-        transaction_price: float = None,
-        remain: float = None,
-        fee: float = None,
-        timestamp: any = None,
-        source: SOURCE_TYPES = None,
+        portfolio_id: Optional[str] = None,
+        code: Optional[str] = None,
+        direction: Optional[DIRECTION_TYPES] = None,
+        type: Optional[ORDER_TYPES] = None,
+        status: Optional[ORDERSTATUS_TYPES] = None,
+        volume: Optional[int] = None,
+        limit_price: Optional[Number] = None,
+        frozen: Optional[int] = None,
+        transaction_price: Optional[Number] = None,
+        remain: Optional[Number] = None,
+        fee: Optional[Number] = None,
+        timestamp: Optional[any] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -66,15 +67,15 @@ class MOrderRecord(MClickBase):
         if volume is not None:
             self.volume = volume
         if limit_price is not None:
-            self.limit_price = round(limit_price, 3)
+            self.limit_price = to_decimal(limit_price)
         if frozen is not None:
             self.frozen = frozen
         if transaction_price is not None:
-            self.transaction_price = round(transaction_price, 3)
+            self.transaction_price = to_decimal(transaction_price)
         if remain is not None:
-            self.remain = remain
+            self.remain = to_decimal(remain)
         if fee is not None:
-            self.fee = fee
+            self.fee = to_decimal(fee)
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if source is not None:
@@ -82,22 +83,22 @@ class MOrderRecord(MClickBase):
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.order_id = df.order_id
-        self.portfolio_id = df.portfolio_id
-        self.code = df.code
-        self.direction = df.direction
-        self.type = df.type
-        self.status = df.status
-        self.volume = df.volume
-        self.limit_price = round(df.limit_price, 3)
-        self.frozen = df.frozen
-        self.transaction_price = round(df.transaction_price, 3)
-        self.remain = df.remain
-        self.fee = df.fee
-        self.timestamp = df.timestamp
-        self.portfolio_id = df.portfolio_id
+        self.order_id = df["order_id"]
+        self.portfolio_id = df["portfolio_id"]
+        self.code = df["code"]
+        self.direction = df["direction"]
+        self.type = df["type"]
+        self.status = df["status"]
+        self.volume = df["volume"]
+        self.limit_price = to_decimal(df["limit_price"])
+        self.frozen = df["frozen"]
+        self.transaction_price = to_decimal(df["transaction_price"])
+        self.remain = to_decimal(df["remain"])
+        self.fee = to_decimal(df["fee"])
+        self.timestamp = datetime_normalize(df["timestamp"])
+        self.portfolio_id = df["portfolio_id"]
         if "source" in df.keys():
-            self.source = df.source
+            self.source = df["source"]
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

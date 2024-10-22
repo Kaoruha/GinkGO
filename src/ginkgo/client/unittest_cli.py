@@ -15,7 +15,7 @@ from ginkgo.libs.ginkgo_logger import GLOG
 
 
 app = typer.Typer(
-    help=":dove_of_peace:  Module for Unittest. [grey62]Confirm functional integrity.[/grey62]"
+    help=":dove_of_peace:  Module for [bold medium_spring_green]UNITTEST[/]. [grey62]Confirm functional integrity.[/grey62]"
 )
 
 
@@ -37,14 +37,13 @@ def list():
 
 @app.command()
 def run(
-    a: Annotated[
-        bool, typer.Option(case_sensitive=False, help="Run All Modules of Unittest.")
-    ] = False,
+    a: Annotated[bool, typer.Option(case_sensitive=False, help="Run All Modules of Unittest.")] = False,
     base: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     db: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     libs: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     datasource: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     backtest: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+    lab: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     y: Annotated[bool, typer.Option(case_sensitive=False)] = False,
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
@@ -97,6 +96,10 @@ def run(
 
     if backtest:
         t = origin_path + "/backtest"
+        path.append(t)
+
+    if lab:
+        t = origin_path + "/lab"
         path.append(t)
 
     for i in path:

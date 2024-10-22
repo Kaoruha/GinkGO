@@ -1,5 +1,6 @@
 import datetime
 
+from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
@@ -25,9 +26,9 @@ class MHandler(MMysqlBase):
     def _(
         self,
         name: str,
-        lib_path:str=None,
-        func_name:str=None,
-        source: SOURCE_TYPES = None,
+        lib_path: Optional[str] = None,
+        func_name: Optional[str] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -42,4 +43,3 @@ class MHandler(MMysqlBase):
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 46)
-

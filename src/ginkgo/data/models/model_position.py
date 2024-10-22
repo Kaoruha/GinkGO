@@ -1,5 +1,6 @@
 import datetime
 import pandas as pd
+from typing import Union, Optional
 
 from decimal import Decimal
 from functools import singledispatchmethod
@@ -7,7 +8,7 @@ from sqlalchemy import Column, String, Integer, DECIMAL, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.libs import base_repr, datetime_normalize
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 from ginkgo.enums import SOURCE_TYPES
 
 
@@ -17,9 +18,9 @@ class MPosition(MMysqlBase):
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
-    volume: Mapped[str] = mapped_column(Integer, default=0)
-    frozen: Mapped[str] = mapped_column(Integer, default=0)
-    cost: Mapped[str] = mapped_column(DECIMAL(10, 2), default=0)
+    volume: Mapped[int] = mapped_column(Integer, default=0)
+    frozen: Mapped[int] = mapped_column(Integer, default=0)
+    cost: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -29,11 +30,11 @@ class MPosition(MMysqlBase):
     def _(
         self,
         portfolio_id: str,
-        code: str = None,
-        volume: int = None,
-        frozen: int = None,
-        cost: float = None,
-        source: SOURCE_TYPES = None,
+        code: Optional[str] = None,
+        volume: Optional[int] = None,
+        frozen: Optional[int] = None,
+        cost: Optional[Number] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -45,7 +46,7 @@ class MPosition(MMysqlBase):
         if frozen is not None:
             self.frozen = frozen
         if cost is not None:
-            self.cost = float(cost)
+            self.cost = to_decimal(cost)
         if source is not None:
             self.source = source
         self.update_at = datetime.datetime.now()
@@ -56,7 +57,7 @@ class MPosition(MMysqlBase):
         self.code = df["code"]
         self.volume = df["volume"]
         self.frozen = df["frozen"]
-        self.cost = df["cost"]
+        self.cost = to_decimal(df["cost"])
 
         if "source" in df.keys():
             self.source = df["source"]

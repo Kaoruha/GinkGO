@@ -1,13 +1,14 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
+from decimal import Decimal
 
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 from ginkgo.data.models import MOrder
 from ginkgo.backtest import Order
 from ginkgo.data.drivers import add, add_all, get_mysql_connection
-from ginkgo.libs import GLOG, datetime_normalize
+from ginkgo.libs import GLOG, datetime_normalize, Number, to_decimal
 
 
 def add_order(
@@ -17,9 +18,9 @@ def add_order(
     type: ORDER_TYPES,
     status: ORDERSTATUS_TYPES,
     volume: int,
-    limit_price: float,
-    frozen: float,
-    transaction_price: float,
+    limit_price: Number,
+    frozen: int,
+    transaction_price: Number,
     remain: float,
     fee: float,
     timestamp: any,
@@ -33,11 +34,11 @@ def add_order(
         type=type,
         status=status,
         volume=volume,
-        limit_price=limit_price,
+        limit_price=to_decimal(limit_price),
         frozen=frozen,
-        transaction_price=transaction_price,
-        remain=remain,
-        fee=fee,
+        transaction_price=to_decimal(transaction_price),
+        remain=to_decimal(remain),
+        fee=to_decimal(fee),
         timestamp=datetime_normalize(timestamp),
     )
     res = add(item)
@@ -59,35 +60,35 @@ def add_orders(orders: List[MOrder], *args, **kwargs):
 def delete_order(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MOrder
+    filters = [model.uuid == id]
     try:
-        filters = [model.uuid == id]
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
         for i in query:
             session.delete(i)
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
 def softdelete_order(id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
     model = MOrder
     filters = [model.uuid == id]
     try:
-        session = get_mysql_connection().session
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_adjustfactor_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_adjustfactor: id {id} has more than one record.")
         for i in query:
             i.is_del = True
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
@@ -109,9 +110,9 @@ def update_order(
     *args,
     **kwargs,
 ):
+    session = get_mysql_connection().session
     model = MOrder
     filters = [model.uuid == id]
-    session = get_mysql_connection().session
     updates = {"update_at": datetime.datetime.now()}
     if portfolio_id is not None:
         updates["portfolio_id"] = portfolio_id
@@ -148,7 +149,7 @@ def update_order(
         get_mysql_connection().remove_session()
 
 
-def get_order_by_id(
+def get_order(
     id: str,
     *args,
     **kwargs,
@@ -166,9 +167,8 @@ def get_order_by_id(
         return df.iloc[0]
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
-        return 0
+        return pd.DataFrame()
     finally:
         get_mysql_connection().remove_session()
 
@@ -238,7 +238,6 @@ def get_orders(
             ]
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         if as_dataframe:
             return pd.DataFrame()

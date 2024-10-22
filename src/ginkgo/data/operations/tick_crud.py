@@ -1,13 +1,14 @@
 import pandas as pd
 from typing import List, Optional, Union
-from sqlalchemy import and_
+from sqlalchemy import and_, text
 
 from ginkgo.data.drivers import add, add_all, get_click_connection, GinkgoClickhouse
 from ginkgo.data.models import MTick, MClickBase
 from ginkgo.backtest import Tick
-from ginkgo.enums import TICKDIRECTION_TYPES
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.libs import datetime_normalize
+from ginkgo.enums import TICKDIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal
+
+tick_model = {}
 
 
 def get_tick_model(code: str, *args, **kwargs) -> type:
@@ -20,21 +21,24 @@ def get_tick_model(code: str, *args, **kwargs) -> type:
     Returns:
         Model of Tick
     """
-    name = f"{code}.Tick"
-    newclass = type(
-        name,
-        (MTick,),
-        {
-            "__tablename__": name,
-            "__abstract__": False,
-        },
-    )
-    return newclass
+    global tick_model
+    name = f"{code.replace('.', '_')}_Tick"
+    if name not in tick_model.keys():
+        newclass = type(
+            name,
+            (MTick,),
+            {
+                "__tablename__": name,
+                "__abstract__": False,
+            },
+        )
+        tick_model[name] = newclass
+    return tick_model[name]
 
 
 def add_tick(
     code: str,
-    price: float,
+    price: Number,
     volume: int,
     direction: TICKDIRECTION_TYPES,
     timestamp: any,
@@ -45,7 +49,7 @@ def add_tick(
     model = get_tick_model(code)
     item = model(
         code=code,
-        price=price,
+        price=to_decimal(price),
         volume=volume,
         direction=direction,
         timestamp=datetime_normalize(timestamp),
@@ -57,7 +61,7 @@ def add_tick(
     return df.iloc[0]
 
 
-def add_ticks(ticks: List[Union[MTick, Tick]] = None, *args, **kwargs):
+def add_ticks(ticks: List[Tick] = None, *args, **kwargs):
     l = {}
     for i in ticks:
         code = i.code
@@ -66,62 +70,42 @@ def add_ticks(ticks: List[Union[MTick, Tick]] = None, *args, **kwargs):
         model = get_tick_model(code)
         item = model(
             code=code,
-            price=price,
-            volume=volume,
-            direction=direction,
-            timestamp=datetime_normalize(timestamp),
-            source=source,
+            price=i.price,
+            volume=i.volume,
+            direction=i.direction,
+            timestamp=datetime_normalize(i.timestamp),
+            source=i.source,
         )
         l[code].append(item)
     for k, v in l.items():
-        add_all(v)
+        add_all(v, *args, **kwargs)
 
 
-def delete_tick_by_id(id: str, *args, **kwargs) -> int:
-    session = get_click_connection().session
-    model = get_tick_model(code)
-    filters = [model.uuid == id]
-    try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
-    except Exception as e:
-        session.rollback()
-        print(e)
-    finally:
-        get_click_connection().remove_session()
-
-
-def delete_tick_by_code_and_date_range(
+def delete_ticks(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
-    connection: Optional[GinkgoClickhouse] = None,
     *args,
     **kwargs,
-) -> int:
+) -> None:
+    # Sqlalchemy ORM seems not work on clickhouse when multi delete.
+    # Use sql
     session = get_click_connection().session
     model = get_tick_model(code)
-    filters = [model.code == code]
-    if start_date:
-        start_date = datetime_normalize(start_date)
-        filters.append(model.timestamp >= start_date)
-    if end_date:
-        end_date = datetime_normalize(end_date)
-        filters.append(model.timestamp <= end_date)
+    sql = f"DELETE FROM `{model.__tablename__}` WHERE code = :code"
+    params = {"code": code}
+    if start_date is not None:
+        sql += " AND timestamp >= :start_date"
+        params["start_date"] = datetime_normalize(start_date)
+    if end_date is not None:
+        sql += " AND timestamp <= :end_date"
+        params["end_date"] = datetime_normalize(end_date)
     try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        session.execute(text(sql), params)
+        session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_click_connection().remove_session()
 
@@ -143,7 +127,7 @@ def update_tick(tick: Union[MTick, Tick], connection: Optional[GinkgoClickhouse]
     pass
 
 
-def get_tick(
+def get_ticks(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -176,7 +160,7 @@ def get_tick(
         else:
             # stmt = select(model).where(and_(*filters))
             res = session.execute(stmt).scalars().all()
-            return [Tick(code=code, price=price, volume=volume, direction=direction) for i in res]
+            return [Tick(code=i.code, price=i.price, volume=i.volume, direction=i.direction) for i in res]
 
     except Exception as e:
         session.rollback()

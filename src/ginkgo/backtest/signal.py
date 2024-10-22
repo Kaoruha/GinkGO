@@ -19,11 +19,12 @@ class Signal(Base):
         code: str = "Default Signal Code",
         direction: DIRECTION_TYPES = None,
         reason: str = "no reason",
+        source: SOURCE_TYPES = SOURCE_TYPES.OTHER,
         *args,
         **kwargs
     ) -> None:
         super(Signal, self).__init__(*args, **kwargs)
-        self.set(portfolio_id, timestamp, code, direction, reason)
+        self.set(portfolio_id, timestamp, code, direction, reason, source)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -37,12 +38,14 @@ class Signal(Base):
         code: str,
         direction: DIRECTION_TYPES,
         reason: str,
+        source: SOURCE_TYPES,
     ):
         self._portfolio_id = portfolio_id
         self._timestamp: datetime.datetime = datetime_normalize(timestamp)
         self._code: str = code
         self._direction: DIRECTION_TYPES = direction
         self._reason = reason
+        self.set_source(source)
 
     @set.register
     def _(self, df: pd.Series):

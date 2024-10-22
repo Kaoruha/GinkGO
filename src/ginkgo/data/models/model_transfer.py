@@ -1,12 +1,13 @@
 import pandas as pd
 import datetime
+from typing import Optional
 
 from decimal import Decimal
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, DECIMAL, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.libs import base_repr, datetime_normalize
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
 
@@ -20,8 +21,9 @@ class MTransfer(MMysqlBase):
         Enum(TRANSFERDIRECTION_TYPES), default=TRANSFERDIRECTION_TYPES.IN
     )
     market: Mapped[MARKET_TYPES] = mapped_column(Enum(MARKET_TYPES), default=MARKET_TYPES.CHINA)
-    money: Mapped[Decimal] = mapped_column(DECIMAL(10, 2), default=0)
+    money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     status: Mapped[TRANSFERSTATUS_TYPES] = mapped_column(Enum(TRANSFERSTATUS_TYPES), default=TRANSFERSTATUS_TYPES.OTHER)
+    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -31,11 +33,12 @@ class MTransfer(MMysqlBase):
     def _(
         self,
         portfolio_id: str,
-        direction: TRANSFERDIRECTION_TYPES = None,
-        market: MARKET_TYPES = None,
-        money: float = None,
-        status: TRANSFERSTATUS_TYPES = None,
-        source: SOURCE_TYPES = None,
+        direction: Optional[TRANSFERDIRECTION_TYPES] = None,
+        market: Optional[MARKET_TYPES] = None,
+        money: Optional[Number] = None,
+        status: Optional[TRANSFERSTATUS_TYPES] = None,
+        timestamp: Optional[any] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -45,22 +48,25 @@ class MTransfer(MMysqlBase):
         if market is not None:
             self.market = market
         if money is not None:
-            self.money = money
+            self.money = money if isinstance(money, Decimal) else Decimal(str(money))
         if status is not None:
             self.status = status
+        if timestamp is not None:
+            self.timestamp = timestamp
         if source is not None:
             self.source = source
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.portfolio_id = df.portfolio_id
-        self.direction = df.direction
-        self.market = df.market
-        self.money = df.money
-        self.status = df.status
+        self.portfolio_id = df["portfolio_id"]
+        self.direction = df["direction"]
+        self.market = df["market"]
+        self.money = to_decimal(df["money"])
+        self.status = df["status"]
+        self.timestamp = datetime_normalize(df["timestamp"])
         if "source" in df.keys():
-            self.source = df.source
+            self.source = df["source"]
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> None:

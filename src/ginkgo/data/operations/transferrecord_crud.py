@@ -1,21 +1,20 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text, or_
+from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
-from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, TRANSFERDIRECTION_TYPES, TRANSFERSTATUS_TYPES
+from ginkgo.enums import DIRECTION_TYPES, TRANSFERDIRECTION_TYPES, TRANSFERSTATUS_TYPES, MARKET_TYPES
 from ginkgo.data.models import MTransferRecord
 from ginkgo.data.drivers import add, add_all, get_click_connection
-from ginkgo.libs import GLOG
+from ginkgo.libs import GLOG, datetime_normalize, Number, to_decimal
 from ginkgo.backtest import Transfer
 
 
 def add_transfer_record(
     portfolio_id: str,
-    code: str,
     direction: TRANSFERDIRECTION_TYPES,
     market: MARKET_TYPES,
-    money: float,
+    money: Number,
     status: TRANSFERSTATUS_TYPES,
     timestamp: any,
     *args,
@@ -23,10 +22,9 @@ def add_transfer_record(
 ) -> pd.Series:
     item = MTransferRecord(
         portfolio_id=portfolio_id,
-        code=code,
         direction=direction,
         market=market,
-        money=money,
+        money=to_decimal(money),
         status=status,
         timestamp=datetime_normalize(timestamp),
     )
@@ -46,7 +44,7 @@ def add_transfer_records(orders: List[MTransferRecord], *args, **kwargs):
     return add_all(l)
 
 
-def delete_transfer_record(id: str, *argss, **kwargs):
+def delete_transfer_record(id: str, *args, **kwargs):
     session = get_click_connection().session
     model = MTransferRecord
     try:
@@ -59,20 +57,50 @@ def delete_transfer_record(id: str, *argss, **kwargs):
             session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
+    finally:
+
+        get_click_connection().remove_session()
+
+
+def softdelete_transfer_record(id: str, *args, **kwargs):
+    GLOG.WARN("Soft delete not work in clickhouse, use delete instead.")
+    delete_transfer_record(id, *args, **kwargs)
+
+
+def delete_transfer_records_by_portfolio(
+    portfolio_id: str, start_date: any = None, end_date: any = None, *args, **kwargs
+):
+    session = get_click_connection().session
+    model = MTransferRecord
+    sql = f"DELETE FROM `{model.__tablename__}` WHERE portfolio_id = :portfolio_id"
+    params = {"portfolio_id": portfolio_id}
+    if start_date is not None:
+        sql += " AND timestamp >= :start_date"
+        params["start_date"] = datetime_normalize(start_date)
+    if end_date is not None:
+        sql += " AND timestamp <= :end_date"
+        params["end_date"] = datetime_normalize(end_date)
+    try:
+        session.execute(text(sql), params)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
     finally:
         get_click_connection().remove_session()
 
 
-def softdelete_transfer_record(id: str, *argss, **kwargs):
+def softdelete_transfer_records_by_portfolio(
+    portfolio_id: str, start_date: any = None, end_date: any = None, *args, **kwargs
+):
     GLOG.WARN("Soft delete not work in clickhouse, use delete instead.")
-    delete_transfer_record(id, *args, **kwargs)
+    delete_transfer_records_by_portfolio(portfolio_id, start_date, end_date, *args, **kwargs)
 
 
 def update_transfer_record(
     id: str,
     portfolio_id: str = None,
-    code: str = None,
     direction: TRANSFERDIRECTION_TYPES = None,
     market: MARKET_TYPES = None,
     money: float = None,
@@ -87,8 +115,6 @@ def update_transfer_record(
     updates = {"update_at": datetime.datetime.now()}
     if portfolio_id is not None:
         updates["portfolio_id"] = portfolio_id
-    if code is not None:
-        updates["code"] = code
     if direction is not None:
         updates["direction"] = direction
     if market is not None:
@@ -112,6 +138,7 @@ def update_transfer_record(
 
 def get_transfer_record(
     id: str,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -121,23 +148,36 @@ def get_transfer_record(
 
     try:
         stmt = session.query(model).filter(and_(*filters))
-
-        df = pd.read_sql(stmt.statement, session.connection())
-        if df.shape[0] == 0:
-            return pd.DataFrame()
-        return df.iloc[0]
+        if as_dataframe:
+            df = pd.read_sql(stmt.statement, session.connection())
+            if df.shape[0] == 0:
+                return pd.DataFrame()
+            else:
+                return df.iloc[0]
+        else:
+            query = stmt.first()
+            return Transfer(
+                uuid=query.uuid,
+                portfolio_id=query.portfolio_id,
+                direction=query.direction,
+                market=query.market,
+                money=query.money,
+                status=query.status,
+                timestamp=query.timestamp,
+            )
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
-        return 0
+        if as_dataframe:
+            return pd.DataFrame()
+        else:
+            return None
     finally:
         get_click_connection().remove_session()
 
 
 def get_transfer_records(
     portfolio_id: str,
-    code: Optional[str] = None,
     direction: Optional[TRANSFERDIRECTION_TYPES] = None,
     status: Optional[TRANSFERSTATUS_TYPES] = None,
     start_date: Optional[any] = None,
@@ -151,12 +191,8 @@ def get_transfer_records(
     session = get_click_connection().session
     model = MTransferRecord
     filters = [model.portfolio_id == portfolio_id]
-    if code is not None:
-        filters.append(model.code == code)
     if direction is not None:
         filters.append(model.direction == direction)
-    if type is not None:
-        filters.append(model.type == type)
     if status is not None:
         filters.append(model.status == status)
     if start_date:

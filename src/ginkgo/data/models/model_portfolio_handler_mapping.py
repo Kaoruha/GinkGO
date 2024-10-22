@@ -1,6 +1,7 @@
 import pandas as pd
 import datetime
 
+from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, Enum, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
@@ -27,10 +28,10 @@ class MPortfolioHandlerMapping(MMysqlBase):
     def _(
         self,
         portfolio_id: str,
-        handler_id: str = None,
-        type: EVENT_TYPES = None,
-        name: str = None,
-        source: SOURCE_TYPES = None,
+        handler_id: Optional[str] = None,
+        type: Optional[EVENT_TYPES] = None,
+        name: Optional[str] = None,
+        source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
