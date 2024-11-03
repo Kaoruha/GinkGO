@@ -25,6 +25,7 @@ class MOrder(MMysqlBase):
     limit_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     frozen: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     transaction_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    transaction_volume: Mapped[int] = mapped_column(Integer, default=0)
     remain: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     fee: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
@@ -46,6 +47,7 @@ class MOrder(MMysqlBase):
         limit_price: Optional[Number] = None,
         frozen: Optional[int] = None,
         transaction_price: Optional[Number] = None,
+        transaction_volume: Optional[int] = None,
         remain: Optional[Number] = None,
         fee: Optional[Number] = None,
         timestamp: Optional[any] = None,
@@ -72,6 +74,8 @@ class MOrder(MMysqlBase):
             self.frozen = frozen
         if transaction_price is not None:
             self.transaction_price = to_decimal(transaction_price)
+        if transaction_volume is not None:
+            self.transaction_volume = transaction_volume
         if remain is not None:
             self.remain = to_decimal(remain)
         if fee is not None:
@@ -92,6 +96,7 @@ class MOrder(MMysqlBase):
         self.limit_price = to_decimal(df["limit_price"])
         self.frozen = df["frozen"]
         self.transaction_price = to_decimal(df["transaction_price"])
+        self.transaction_volume = df["transaction_volume"]
         self.remain = to_decimal(df["remain"])
         self.fee = to_decimal(df["fee"])
         self.timestamp = datetime_normalize(df["timestamp"])

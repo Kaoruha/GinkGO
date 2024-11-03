@@ -11,23 +11,20 @@ class SignalCount(BaseAnalyzer):
 
     def __init__(self, name: str, *args, **kwargs):
         super(SignalCount, self).__init__(name, *args, **kwargs)
-        self.set_stage(RECORDSTAGE_TYPES.SIGNALGENERATION)
+        self.set_activate_stage(RECORDSTAGE_TYPES.SIGNALGENERATION)
         self.count = 0
         self.last_day = None
 
-    def activate(self, stage, *args, **kwargs) -> None:
-        if stage != self.active_stage:
-            return
+    def activate(self, portfolio, *args, **kwargs) -> None:
         if self.last_day is None:
-            self.last_day = self.portfolio.now
-        if self.last_day != self.portfolio.now:
-            self.count = 0
-        self.last_day = self.portfolio.now
+            self.last_day = portfolio.now
+        if self.last_day != portfolio.now:
+            return
+        self.count = 0
+        self.last_day = portfolio.now
         self.count += 1
 
-    def record(self, stage, *args, **kwargs) -> None:
-        if stage != self.record_stage:
-            return
-        self.add_data(self.count)
-        GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {self.count}")
-        self.add_record()
+    def record(self, *args, **kwargs) -> None:
+        return
+        # self.add_data(self.count)
+        # self.add_record()

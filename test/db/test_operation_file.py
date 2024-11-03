@@ -75,19 +75,19 @@ class OperationFileTest(unittest.TestCase):
 
             # Update Type
             update_file(res.uuid, type=FILE_TYPES.SELECTOR)
-            df = get_file(res.uuid)
+            df = get_file(res.uuid).iloc[0]
             self.assertEqual(df.type, FILE_TYPES.SELECTOR)
 
             # Update name
             new_name = uuid.uuid4().hex
             update_file(res.uuid, name=new_name)
-            df = get_file(res.uuid)
+            df = get_file(res.uuid).iloc[0]
             self.assertEqual(new_name, df["name"])
 
             # Update content
             new_content = b"testnewnew"
             update_file(res.uuid, data=new_content)
-            df = get_file(res.uuid)
+            df = get_file(res.uuid).iloc[0]
             self.assertEqual(df.data, new_content)
 
             # Update all
@@ -95,7 +95,7 @@ class OperationFileTest(unittest.TestCase):
             new_type = FILE_TYPES.RISKMANAGER
             new_content = b"testnewnew2"
             update_file(res.uuid, name=new_name, type=new_type, data=new_content)
-            df = get_file(res.uuid)
+            df = get_file(res.uuid).iloc[0]
             self.assertEqual(new_name, df["name"])
             self.assertEqual(new_type, df.type)
             self.assertEqual(new_content, df.data)
@@ -107,7 +107,7 @@ class OperationFileTest(unittest.TestCase):
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
 
-            df = get_file(res.uuid)
+            df = get_file(res.uuid).iloc[0]
             self.assertEqual(res.uuid, df["uuid"])
 
     def test_OperationFile_get_fuzz(self) -> None:
@@ -122,6 +122,9 @@ class OperationFileTest(unittest.TestCase):
         print(df)
         df2 = get_files(name=f"{name_prefix}")
         print(df2)
+
+    def test_OperationFile_get_content(self) -> None:
+        pass
 
     def test_OperationFile_exists(self) -> None:
         pass

@@ -7,3 +7,6 @@ from ginkgo.backtest.indices.average_true_range import AverageTrueRange
 from ginkgo.backtest.indices.pinbar import PinBar
 from ginkgo.backtest.indices.inflection_point import InflectionPoint
 from ginkgo.backtest.indices.gap import Gap
+
+
+# TODO MOVE to Analyzer

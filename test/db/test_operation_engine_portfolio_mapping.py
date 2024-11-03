@@ -86,12 +86,12 @@ class OperationEnginePortfolioMappingTest(unittest.TestCase):
 
             # Update Engine ID
             update_engine_portfolio_mapping(res.uuid, engine_id=i["engine_id"])
-            df = get_engine_portfolio_mapping(res.uuid)
+            df = get_engine_portfolio_mapping(res.uuid).iloc[0]
             self.assertEqual(df["engine_id"], i["engine_id"])
 
             # Update Handler ID
             update_engine_portfolio_mapping(res.uuid, portfolio_id=i["portfolio_id"])
-            df = get_engine_portfolio_mapping(res.uuid)
+            df = get_engine_portfolio_mapping(res.uuid).iloc[0]
             self.assertEqual(df["portfolio_id"], i["portfolio_id"])
 
     def test_OperationEnginePortfolioMapping_get(self) -> None:

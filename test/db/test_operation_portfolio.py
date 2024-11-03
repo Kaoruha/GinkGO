@@ -85,25 +85,25 @@ class OperationPortfolioTest(unittest.TestCase):
             # update name
             new_name = uuid.uuid4().hex
             update_portfolio(res.uuid, name=new_name)
-            df = get_portfolio(res.uuid)
+            df = get_portfolio(res.uuid).iloc[0]
             self.assertEqual(new_name, df["name"])
 
             # update backtest_start_date
             new_backtest_start_date = datetime.datetime.now()
             update_portfolio(res.uuid, backtest_start_date=new_backtest_start_date)
-            df = get_portfolio(res.uuid)
+            df = get_portfolio(res.uuid).iloc[0]
             self.assertEqual(new_backtest_start_date - df["backtest_start_date"] < datetime.timedelta(seconds=1), True)
 
             # update backtest_end_date
             new_backtest_end_date = datetime.datetime.now()
             update_portfolio(res.uuid, backtest_end_date=new_backtest_end_date)
-            df = get_portfolio(res.uuid)
+            df = get_portfolio(res.uuid).iloc[0]
             self.assertEqual(new_backtest_end_date - df["backtest_end_date"] < datetime.timedelta(seconds=1), True)
 
             # update is_live
             new_is_live = random.choice([True, False])
             update_portfolio(res.uuid, is_live=new_is_live)
-            df = get_portfolio(res.uuid)
+            df = get_portfolio(res.uuid).iloc[0]
             self.assertEqual(new_is_live, df["is_live"])
 
     def test_OperationPortfolio_exists(self) -> None:
@@ -116,7 +116,7 @@ class OperationPortfolioTest(unittest.TestCase):
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
 
-            df = get_portfolio(res.uuid)
+            df = get_portfolio(res.uuid).iloc[0]
             self.assertEqual(res["uuid"], df["uuid"])
             self.assertEqual(res["name"], df["name"])
             self.assertEqual(

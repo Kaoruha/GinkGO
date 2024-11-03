@@ -6,73 +6,71 @@ import time
 import pandas as pd
 import datetime
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
-from ginkgo.data.models import MPortfolioHandlerMapping
+from ginkgo.data.models import MPortfolioFileMapping
 from ginkgo.enums import FILE_TYPES, SOURCE_TYPES
 
 
-class ModelPortfolioHandlerMappingTest(unittest.TestCase):
+class ModelPortfolioFileMappingTest(unittest.TestCase):
     """
     Examples for UnitTests of models Backtest
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        super(ModelPortfolioHandlerMappingTest, self).__init__(*args, **kwargs)
+        super(ModelPortfolioFileMappingTest, self).__init__(*args, **kwargs)
         self.count = 10
-        self.model = MPortfolioHandlerMapping
+        self.model = MPortfolioFileMapping
         self.params = [
             {
                 "portfolio_id": uuid.uuid4().hex,
-                "handler_id": uuid.uuid4().hex,
-                "type": random.choice([i for i in FILE_TYPES]),
+                "file_id": uuid.uuid4().hex,
                 "name": uuid.uuid4().hex,
+                "type": random.choice([i for i in FILE_TYPES]),
                 "source": random.choice([i for i in SOURCE_TYPES]),
             }
             for i in range(self.count)
         ]
 
-    def test_ModelPortfolioHandlerMapping_Init(self) -> None:
+    def test_ModelPortfoliofileMapping_Init(self) -> None:
         for i in self.params:
-            o = self.model(portfolio_id=i["portfolio_id"], handler_id=i["handler_id"], type=i["type"], name=i["name"])
+            o = self.model(portfolio_id=i["portfolio_id"], file_id=i["file_id"], name=i["name"], type=i["type"])
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
-            self.assertEqual(o.handler_id, i["handler_id"])
-            self.assertEqual(o.type, i["type"])
+            self.assertEqual(o.file_id, i["file_id"])
             self.assertEqual(o.name, i["name"])
 
-    def test_ModelPortfolioHandlerMapping_SetFromData(self) -> None:
+    def test_ModelPortfoliofileMapping_SetFromData(self) -> None:
         for i in self.params:
             o = self.model()
             # update portfolio_id
             o.update(i["portfolio_id"])
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
 
-            # update handler_id
-            o.update(i["portfolio_id"], handler_id=i["handler_id"])
-            self.assertEqual(o.handler_id, i["handler_id"])
-
-            # update type
-            o.update(i["portfolio_id"], type=i["type"])
-            self.assertEqual(o.type, i["type"])
+            # update file_id
+            o.update(i["portfolio_id"], file_id=i["file_id"])
+            self.assertEqual(o.file_id, i["file_id"])
 
             # update map name
             o.update(i["portfolio_id"], name=i["name"])
             self.assertEqual(o.name, i["name"])
 
+            o.update(i["portfolio_id"], type=i["type"])
+            self.assertEqual(o.type, i["type"])
+
         # Update all
         for i in self.params:
             o = self.model()
-            o.update(i["portfolio_id"], handler_id=i["handler_id"], type=i["type"], name=i["name"])
+            o.update(i["portfolio_id"], file_id=i["file_id"], name=i["name"], type=i["type"])
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
-            self.assertEqual(o.handler_id, i["handler_id"])
-            self.assertEqual(o.type, i["type"])
+            self.assertEqual(o.file_id, i["file_id"])
             self.assertEqual(o.name, i["name"])
+            self.assertEqual(o.type, i["type"])
 
-    def test_ModelPortfolioHandlerMapping_SetFromDataFrame(self) -> None:
+    def test_ModelPortfoliofileMapping_SetFromDataFrame(self) -> None:
         for i in self.params:
             df = pd.DataFrame.from_dict(i, orient="index")[0]
             o = self.model()
             o.update(df)
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
-            self.assertEqual(o.handler_id, i["handler_id"])
-            self.assertEqual(o.type, i["type"])
+            self.assertEqual(o.file_id, i["file_id"])
             self.assertEqual(o.name, i["name"])
+            self.assertEqual(o.type, i["type"])
             self.assertEqual(o.source, i["source"])

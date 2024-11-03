@@ -36,6 +36,12 @@ def get_adjustfactors_by_code_and_date_range(*args, **kwargs):
 
 
 # Analyzer Record CRUD
+def add_analyzer_record(*args, **kwargs):
+    from ginkgo.data.operations.analyzer_record_crud import add_analyzer_record as func
+
+    return func(*args, **kwargs)
+
+
 # TODO
 # Bar CRUD
 # TODO
@@ -86,8 +92,151 @@ def delete_engines(*args, **kwargs):
 
 # TODO
 # Engine Handler Mapping CRUD
+def add_engine_handler_mapping(*args, **kwargs):
+    from ginkgo.data.operations.engine_handler_mapping_crud import add_engine_handler_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def delete_engine_handler_mapping(*args, **kwargs):
+    from ginkgo.data.operations.engine_handler_mapping_crud import delete_engine_handler_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def get_engine_handler_mapping(*args, **kwargs):
+    from ginkgo.data.operations.engine_handler_mapping_crud import get_engine_handler_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def get_engine_handler_mappings(*args, **kwargs):
+    from ginkgo.data.operations.engine_handler_mapping_crud import get_engine_handler_mappings as func
+
+    return func(*args, **kwargs)
+
+
 # TODO
 # Engine Portfolio Mapping CRUD
+def add_engine_portfolio_mapping(*args, **kwargs):
+    from ginkgo.data.operations.engine_portfolio_mapping_crud import add_engine_portfolio_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def delete_engine_portfolio_mapping(*args, **kwargs):
+    from ginkgo.data.operations.engine_portfolio_mapping_crud import delete_engine_portfolio_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def get_engine_portfolio_mapping(*args, **kwargs):
+    from ginkgo.data.operations.engine_portfolio_mapping_crud import get_engine_portfolio_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def get_engine_portfolio_mappings(*args, **kwargs):
+    from ginkgo.data.operations.engine_portfolio_mapping_crud import get_engine_portfolio_mappings as func
+
+    return func(*args, **kwargs)
+
+
+# Portfolio file Mapping CRUD
+def add_portfolio_file_mapping(*args, **kwargs):
+    from ginkgo.data.operations.portfolio_file_mapping_crud import add_portfolio_file_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def delete_portfolio_file_mapping(*args, **kwargs):
+    from ginkgo.data.operations.portfolio_file_mapping_crud import delete_portfolio_file_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def update_portfolio_file_mapping(*args, **kwargs):
+    from ginkgo.data.operations.portfolio_file_mapping_crud import update_portfolio_file_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def get_portfolio_file_mapping(*args, **kwargs):
+    from ginkgo.data.operations.portfolio_file_mapping_crud import get_portfolio_file_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def get_portfolio_file_mappings(*args, **kwargs):
+    from ginkgo.data.operations.portfolio_file_mapping_crud import get_portfolio_file_mappings as func
+
+    return func(*args, **kwargs)
+
+
+def get_portfolio_file_mappings_fuzzy(*args, **kwargs):
+    from ginkgo.data.operations.portfolio_file_mapping_crud import get_portfolio_file_mappings_fuzzy as func
+
+    return func(*args, **kwargs)
+
+
+# TODO
+# File CRUD
+def add_file(*args, **kwargs):
+    from ginkgo.data.operations.file_crud import add_file as func
+
+    return func(*args, **kwargs)
+
+
+def get_files(*args, **kwargs):
+    from ginkgo.data.operations.file_crud import get_files as func
+
+    return func(*args, **kwargs)
+
+
+def get_file_content(*args, **kwargs):
+    from ginkgo.data.operations.file_crud import get_file_content as func
+
+    return func(*args, **kwargs)
+
+
+def delete_file(*args, **kwargs):
+    from ginkgo.data.operations.file_crud import delete_file as func
+
+    return func(*args, **kwargs)
+
+
+def delete_files(*args, **kwargs):
+    from ginkgo.data.operations.file_crud import delete_files as func
+
+    return func(*args, **kwargs)
+
+
+# TODO
+# Handler CRUD
+# TODO
+# Param CRUD
+def add_param(*args, **kwargs):
+    from ginkgo.data.operations.param_crud import add_param as func
+
+    return func(*args, **kwargs)
+
+
+def get_params(*args, **kwargs):
+    from ginkgo.data.operations.param_crud import get_params as func
+
+    df = func(*args, **kwargs)
+    if df.shape[0] == 0:
+        return []
+    df = df.sort_values(by="index")
+    return df["value"].values.tolist()
+
+
+# TODO
+# Order CRUD
+# TODO
+# Order Record CRUD
+# TODO
+# Portfolio CRUD
 def add_portfolio(*args, **kwargs):
     from ginkgo.data.operations.portfolio_crud import add_portfolio as func
 
@@ -118,43 +267,6 @@ def get_portfolios(*args, **kwargs):
     return func(*args, **kwargs)
 
 
-# TODO
-# File CRUD
-def add_file(*args, **kwargs):
-    from ginkgo.data.operations.file_crud import add_file as func
-
-    return func(*args, **kwargs)
-
-
-def get_files(*args, **kwargs):
-    from ginkgo.data.operations.file_crud import get_files as func
-
-    return func(*args, **kwargs)
-
-
-def delete_file(*args, **kwargs):
-    from ginkgo.data.operations.file_crud import delete_file as func
-
-    return func(*args, **kwargs)
-
-
-def delete_files(*args, **kwargs):
-    from ginkgo.data.operations.file_crud import delete_files as func
-
-    return func(*args, **kwargs)
-
-
-# TODO
-# Handler CRUD
-# TODO
-# Handler Param CRUD
-# TODO
-# Order CRUD
-# TODO
-# Order Record CRUD
-# TODO
-# Portfolio CRUD
-# TODO
 # Portfolio Handler CRUD
 # TODO
 # Position CRUD

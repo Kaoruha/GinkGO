@@ -27,8 +27,9 @@ class PopularitySelector(BaseSelector):
         self._last_pick = None
 
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
-        if self.portfolio is not None:
-            self._now = self.on_time_goes_by(self.portfolio.now)
+        # TODO
+        # if self.portfolio is not None:
+        # self._now = self.on_time_goes_by(self.portfolio.now)
 
         if self.now is None:
             GLOG.ERROR("No date set. skip picking.")
@@ -77,9 +78,7 @@ class PopularitySelector(BaseSelector):
                 # daybar_df = GDATA.get_daybar_df(
                 #     code=code, date_start=date_start, date_end=self.now
                 # )
-                daybar_df = GDATA.get_daybar_df(
-                    code=code, date_start=date_start, date_end=self.now
-                )
+                daybar_df = GDATA.get_daybar_df(code=code, date_start=date_start, date_end=self.now)
                 if daybar_df.shape[0] > 0:
                     df.iloc[i, column_index] = daybar_df["volume"].sum()
             t1 = datetime.datetime.now()

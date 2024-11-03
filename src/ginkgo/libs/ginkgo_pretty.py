@@ -1,7 +1,6 @@
 from types import FunctionType, MethodType
+import pandas as pd
 from enum import Enum
-
-from ginkgo.libs.ginkgo_links import GinkgoSingleLinkedList
 
 
 def chinese_count(msg):
@@ -71,12 +70,17 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs):
         tmp += f"{str(param).upper()}"
         s = obj.__getattribute__(param)
         filter_s = str(s).strip(b"\x00".decode())
-        # if param == "value":
-        #     filter_s = str(float(s))
-        if param == "positions":
+        special_ins_param = ["engine", "matchmaking", "datafeeder", "portfolio", "selector", "risk_manager", "sizer"]
+        special_list_param = ["portfolios", "strategies", "interested"]
+        special_dict_param = ["positions", "analyzers"]
+        if isinstance(s, pd.DataFrame):
+            filter_s = f"{str(s.shape)}"
+        if param in special_ins_param:
+            filter_s = f"[{hex(id(s))}] {str(s.name)}" if s is not None else "None"
+        if param in special_dict_param:
             filter_s = f"{len(s.keys())}"
-        if param == "analyzers":
-            filter_s = f"{len(s.keys())}"
+        if param in special_list_param:
+            filter_s = f"{len(s)}"
         if isinstance(s, Enum):
             filter_s += f" : {s.value}"
         max_len = total_len - count - 6

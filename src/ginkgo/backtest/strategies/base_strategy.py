@@ -5,39 +5,17 @@ from ginkgo.backtest.backtest_base import BacktestBase
 
 
 class StrategyBase(BacktestBase):
-    def __init__(self, spans: int = 20, name: str = "Strategy", *args, **kwargs):
-        super(StrategyBase, self).__init__(name=name, *args, **kwargs)
-        self._portfolio = None
+    def __init__(self, name: str = "Strategy", *args, **kwargs):
+        super(StrategyBase, self).__init__(name, *args, **kwargs)
         self._raw = {}
-        self._attention_spans = 20
-        self.set_attention_spans(spans)
+        self._data_feeder = None
+
+    def bind_data_feeder(self, feeder, *args, **kwargs):
+        self._data_feeder = feeder
 
     @property
     def raw(self):
         return self._raw
 
-    @property
-    def attention_spans(self):
-        return self._attention_spans
-
-    def set_attention_spans(self, spans: int) -> None:
-        # Keep attention of raw data
-        if isinstance(spans, int) and spans > 0:
-            self._attention_spans = spans
-
-        if isinstance(spans, str):
-            self._attention_spans = int(spans)
-
-    def on_price_update(self, code):
-        pass
-
-    @property
-    def portfolio(self):
-        return self._portfolio
-
-    def bind_portfolio(self, portfolio, *args, **kwargs):
-        self._portfolio = portfolio
-        self.set_backtest_id(portfolio.backtest_id)
-
-    def cal(self, *args, **kwargs) -> Signal:
+    def cal(self, portfolio_info, event, *args, **kwargs) -> Signal:
         pass

@@ -11,7 +11,7 @@ class AnnualizedReturn(BaseAnalyzer):
 
     def __init__(self, name: str, *args, **kwargs):
         super(AnnualizedReturn, self).__init__(name, *args, **kwargs)
-        self.set_stage(RECORDSTAGE_TYPES.NEWDAY)
+        self.set_activate_stage(RECORDSTAGE_TYPES.NEWDAY)
         self._base_value = None
         self._days = 0
 
@@ -22,11 +22,14 @@ class AnnualizedReturn(BaseAnalyzer):
         if stage != self.active_stage:
             return
         if self._base_value is None:
-            self._base_value = self.portfolio.worth
+            # self._base_value = self.portfolio.worth
+            # TODO
+            pass
         self._days += 1
         if self._days > 365:
             self._days = self._days - 365
-            self._base_value = self.portfolio.worth
+            # self._base_value = self.portfolio.worth
+            # TODO
 
         times = int(365 / self._days)
         # value = (self.portfolio.worth / self._base_value) ** times - 1
@@ -34,5 +37,5 @@ class AnnualizedReturn(BaseAnalyzer):
         if value > 1000:
             value = 1000
         self.add_data(value)
-        GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
+        # GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
         self.add_record()

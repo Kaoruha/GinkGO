@@ -72,8 +72,9 @@ class OperationTickSummaryTest(unittest.TestCase):
             self.assertEqual(1, size1 - size0)
 
             softdelete_tick_summary_by_id(res["uuid"])
+            time.sleep(0.05)
             size2 = get_table_size(self.model)
-            self.assertEqual(0, size2 - size1)
+            self.assertEqual(-1, size2 - size1)
 
             delete_tick_summary_by_id(res["uuid"])
             size2 = get_table_size(self.model)

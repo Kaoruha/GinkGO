@@ -13,7 +13,7 @@ from ginkgo.backtest.risk_managements import BaseRiskManagement
 from ginkgo.backtest.matchmakings import MatchMakingSim
 from ginkgo.backtest.sizers import FixedSizer
 from ginkgo.backtest.events import EventNextPhase
-from ginkgo.backtest.feeds import BacktestFeed
+from ginkgo.backtest.feeders import BacktestFeed
 from ginkgo.backtest.strategies import (
     StrategyVolumeActivate,
     StrategyProfitLimit,

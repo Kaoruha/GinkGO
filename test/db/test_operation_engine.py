@@ -84,7 +84,7 @@ class OperationEngineTest(unittest.TestCase):
             res = add_engine(**i)
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
-            item = get_engine(id=res.uuid)
+            item = get_engine(id=res.uuid).iloc[0]
             self.assertEqual(i["name"], item["name"])
             self.assertEqual(i["is_live"], item["is_live"])
 

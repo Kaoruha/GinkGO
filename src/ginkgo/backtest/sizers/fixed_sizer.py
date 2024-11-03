@@ -11,9 +11,9 @@ class FixedSizer(BaseSizer):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, name: str = "FixedSizer", volume: int = 150, *args, **kwargs):
+    def __init__(self, name: str = "FixedSizer", volume: str = "150", *args, **kwargs):
         super(FixedSizer, self).__init__(name, *args, **kwargs)
-        self._volume = volume
+        self._volume = int(volume)
 
     @property
     def volume(self) -> float:
@@ -43,7 +43,7 @@ class FixedSizer(BaseSizer):
                 timestamp=self.now,
             )
         elif signal.direction == DIRECTION_TYPES.SHORT:
-            pos = self.portfolio.get_position(code)
+            # pos = self.portfolio.get_position(code)
             if pos is None:
                 return
             GLOG.WARN("Try Generate SHORT ORDER.")

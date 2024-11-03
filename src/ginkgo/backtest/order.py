@@ -33,6 +33,7 @@ class Order(Base):
         limit_price: float = 0,
         frozen: float = 0,
         transaction_price: float = 0,
+        transaction_volume: int = 0,
         remain: float = 0,
         fee: float = 0,
         timestamp: any = None,
@@ -51,6 +52,7 @@ class Order(Base):
             limit_price,
             frozen,
             transaction_price,
+            transaction_volume,
             remain,
             fee,
             timestamp,
@@ -78,6 +80,7 @@ class Order(Base):
         self._limit_price = model.limit_price
         self._frozen = model.frozen
         self._transaction_price = model.transaction_price
+        self._transaction_volume = model.transaction_volume
         self._remain = model.remain
         self._fee = model.fee
         self._timestamp = model.fee
@@ -95,6 +98,7 @@ class Order(Base):
         limit_price: float,
         frozen: float,
         transaction_price: float,
+        transaction_volume: int,
         remain: float,
         fee: float,
         timestamp: any,
@@ -109,6 +113,7 @@ class Order(Base):
         self._limit_price: float = limit_price
         self._frozen: float = frozen
         self._transaction_price: float = transaction_price
+        self._transaction_volume: float = transaction_volume
         self._remain: float = remain
         self._fee: float = fee
         self._timestamp: datetime.datetime = datetime_normalize(timestamp)
@@ -134,6 +139,7 @@ class Order(Base):
         self._status = ORDERSTATUS_TYPES(df.status)
         self._frozen: float = df.frozen
         self._transaction_price: float = df.transaction_price
+        self._transaction_volume: int = df["transaction_volume"]
         self._remain: float = df.remain
         self._fee: float = df.fee
         self._timestamp: datetime.datetime = df.timestamp
@@ -217,6 +223,14 @@ class Order(Base):
     @transaction_price.setter
     def transaction_price(self, value) -> None:
         self._transaction_price = value
+
+    @property
+    def transaction_volume(self) -> float:
+        return self._transaction_volume
+
+    @transaction_volume.setter
+    def transaction_volume(self, value) -> None:
+        self._transaction_volume = value
 
     @property
     def remain(self) -> float:

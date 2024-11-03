@@ -80,19 +80,19 @@ class OperationHandlerTest(unittest.TestCase):
             # update name
             new_name = uuid.uuid4().hex
             update_handler(res.uuid, name=new_name)
-            item = get_handler(res.uuid)
+            item = get_handler(res.uuid).iloc[0]
             self.assertEqual(new_name, item["name"])
 
             # update libpath
             new_lib_path = uuid.uuid4().hex
             update_handler(res.uuid, lib_path=new_lib_path)
-            item = get_handler(res.uuid)
+            item = get_handler(res.uuid).iloc[0]
             self.assertEqual(new_lib_path, item["lib_path"])
 
             # update func_name
             new_func_name = uuid.uuid4().hex
             update_handler(res.uuid, func_name=new_func_name)
-            item = get_handler(res.uuid)
+            item = get_handler(res.uuid).iloc[0]
             self.assertEqual(new_func_name, item["func_name"])
 
     def test_OperationHandler_read(self) -> None:
@@ -102,7 +102,7 @@ class OperationHandlerTest(unittest.TestCase):
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
 
-            df = get_handler(res.uuid)
+            df = get_handler(res.uuid).iloc[0]
             self.assertEqual(res.uuid, df["uuid"])
 
     def test_OperationHandler_read(self) -> None:

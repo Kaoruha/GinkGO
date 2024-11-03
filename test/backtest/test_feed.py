@@ -1,7 +1,7 @@
 import datetime
 import uuid
 import unittest
-from ginkgo.backtest.feeds import BaseFeed, BacktestFeed
+from ginkgo.backtest.feeders import BaseFeed, BacktestFeed
 from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
 
 

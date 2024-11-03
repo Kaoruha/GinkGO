@@ -7,7 +7,7 @@ from ginkgo.libs import datetime_normalize
 from ginkgo.backtest.sizers import BaseSizer, FixedSizer, ATRSizer
 from ginkgo.backtest.portfolios import PortfolioT1Backtest
 from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
-from ginkgo.backtest.feeds import BacktestFeed
+from ginkgo.backtest.feeders import BacktestFeed
 from ginkgo.backtest.signal import Signal
 from ginkgo.data.models import MBar
 from ginkgo.enums import DIRECTION_TYPES, FREQUENCY_TYPES

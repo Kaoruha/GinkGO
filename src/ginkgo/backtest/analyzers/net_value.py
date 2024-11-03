@@ -11,7 +11,7 @@ class NetValue(BaseAnalyzer):
 
     def __init__(self, name: str = "netvalue", *args, **kwargs):
         super(NetValue, self).__init__(name, *args, **kwargs)
-        self.set_stage(RECORDSTAGE_TYPES.NEWDAY)
+        self.set_activate_stage(RECORDSTAGE_TYPES.NEWDAY)
         self.set_active_stage(RECORDSTAGE_TYPES.NEWDAY)
         self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
 
@@ -21,9 +21,9 @@ class NetValue(BaseAnalyzer):
     def record(self, stage, *args, **kwargs) -> None:
         if stage != self.active_stage:
             return
-        value = self.portfolio.worth
+        # value = self.portfolio.worth
         if stage != self.record_stage:
             return
         self.add_data(value)
-        GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
+        # GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
         self.add_record()

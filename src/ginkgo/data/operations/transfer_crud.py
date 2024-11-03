@@ -164,9 +164,7 @@ def get_transfer(
         if as_dataframe:
 
             df = pd.read_sql(stmt.statement, session.connection())
-            if df.shape[0] == 0:
-                return pd.DataFrame()
-            return df.iloc[0]
+            return df
         else:
             query = stmt.first()
             return Transfer(
@@ -184,7 +182,7 @@ def get_transfer(
         if as_dataframe:
             return pd.DataFrame()
         else:
-            return None
+            return pd.DataFrame()
     finally:
         get_mysql_connection().remove_session()
 

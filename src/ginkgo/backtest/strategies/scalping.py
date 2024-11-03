@@ -18,20 +18,19 @@ class StrategyScalping(StrategyBase):
         super(StrategyScalping, self).__init__(5, name, *args, **kwargs)
         self.set_name(name)
 
-    def cal(self, code: str, *args, **kwargs):
-        super(StrategyProfitLimit, self).cal()
-        return None
-        # code = bar.code
-        # if code in self.portfolio.positions.keys():
-        #     position = self.portfolio.positions[code]
-        #     cost = position.cost
-        #     price = position.price
-        #     ratio = price / cost
-        #     if ratio > (1 + self.profit_limit / 100):
-        #         s = Signal(
-        #             code=code,
-        #             direction=DIRECTION_TYPES.SHORT,
-        #             backtest_id=self.backtest_id,
-        #             timestamp=self.portfolio.now,
-        #         )
-        #         return s
+    def cal(self, portfolio, event, *args, **kwargs):
+        super(StrategyProfitLimit, self).cal(portfolio, event)
+        code = bar.code
+        if code in portfolio.positions.keys():
+            position = portfolio.positions[code]
+            cost = position.cost
+            price = position.price
+            ratio = price / cost
+            if ratio > (1 + self.profit_limit / 100):
+                s = Signal(
+                    code=code,
+                    direction=DIRECTION_TYPES.SHORT,
+                    backtest_id=self.backtest_id,
+                    timestamp=portfolio.now,
+                )
+                return s

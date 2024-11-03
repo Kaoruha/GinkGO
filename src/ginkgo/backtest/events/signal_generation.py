@@ -15,6 +15,9 @@ class EventSignalGeneration(EventBase):
 
     @property
     def code(self):
+        import pdb
+
+        pdb.set_trace()
         return self.value.code
 
     @property

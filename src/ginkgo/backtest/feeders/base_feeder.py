@@ -6,15 +6,25 @@ from ginkgo.backtest.backtest_base import BacktestBase
 from ginkgo.data.operations import get_bars
 
 
-class BaseFeed(BacktestBase):
+class BaseFeeder(BacktestBase):
     """
     Feed something like price info, news...
     """
 
     def __init__(self, *args, **kwargs):
-        super(BaseFeed, self).__init__(*args, **kwargs)
+        super(BaseFeeder, self).__init__(*args, **kwargs)
         self._subscribers = []  # Init subscribers
         self._portfolio_interested_cache = {}
+        self._engine_put = None
+
+    def put(self, event) -> None:
+        """
+        Put event to eventengine.
+        """
+        if self._engine_put is None:
+            GLOG.ERROR(f"Engine put not bind. Events can not put back to the engine.")
+            return
+        self._engine_put(event)
 
     @property
     def subscribers(self) -> List:
@@ -35,15 +45,18 @@ class BaseFeed(BacktestBase):
 
     @cache_with_expiration
     def get_daybar(self, code: str, date: any, *args, **kwargs) -> pd.DataFrame:
-        datetime = datetime_normalize(date).date()
-        datetime = datetime_normalize(datetime)
-
         if self.now is None:
             GLOG.ERROR(f"Time need to be sync.")
             return pd.DataFrame()
 
+        datetime = datetime_normalize(date).date()
+        datetime = datetime_normalize(datetime)
+
         if datetime > self._now:
             GLOG.CRITICAL(f"CurrentDate: {self.now} you can not get the future({datetime}) info.")
+            return pd.DataFrame()
+        if datetime < self._now:
+            GLOG.CRITICAL(f"CurrentDate: {self.now} you can not get the past({datetime}) info.")
             return pd.DataFrame()
 
         df = get_bars(code, start_date=date, end_date=date)
@@ -54,5 +67,5 @@ class BaseFeed(BacktestBase):
         Go next frame.
         """
         # Time goes
-        super(BaseFeed, self).on_time_goes_by(time, *args, **kwargs)
+        super(BaseFeeder, self).on_time_goes_by(time, *args, **kwargs)
         self._portfolio_interested_cache = {}

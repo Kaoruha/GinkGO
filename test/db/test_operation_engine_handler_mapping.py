@@ -86,22 +86,22 @@ class OperationEngineHandlerMappingTest(unittest.TestCase):
 
             # Update Engine ID
             update_engine_handler_mapping(res.uuid, engine_id=i["engine_id"])
-            df = get_engine_handler_mapping(res.uuid)
+            df = get_engine_handler_mapping(res.uuid).iloc[0]
             self.assertEqual(df["engine_id"], i["engine_id"])
 
             # Update Handler ID
             update_engine_handler_mapping(res.uuid, handler_id=i["handler_id"])
-            df = get_engine_handler_mapping(res.uuid)
+            df = get_engine_handler_mapping(res.uuid).iloc[0]
             self.assertEqual(df["handler_id"], i["handler_id"])
 
             # update type
             update_engine_handler_mapping(res.uuid, type=i["type"])
-            df = get_engine_handler_mapping(res.uuid)
+            df = get_engine_handler_mapping(res.uuid).iloc[0]
             self.assertEqual(df["type"], i["type"])
 
             # update name
             update_engine_handler_mapping(res.uuid, name=i["name"])
-            df = get_engine_handler_mapping(res.uuid)
+            df = get_engine_handler_mapping(res.uuid).iloc[0]
             self.assertEqual(df["name"], i["name"])
 
     def test_OperationEngineHandlerMapping_get(self) -> None:
