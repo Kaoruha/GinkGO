@@ -14,13 +14,7 @@ class ATRSizer(BaseSizer):
     __abstract__ = False
 
     def __init__(
-        self,
-        name: str = "ATRSizer",
-        period: int = 14,
-        risk: float = 0.01,
-        risk_ratio: float = 2,
-        *args,
-        **kwargs
+        self, name: str = "ATRSizer", period: int = 14, risk: float = 0.01, risk_ratio: float = 2, *args, **kwargs
     ):
         super(ATRSizer, self).__init__(name, *args, **kwargs)
         self.period = period
@@ -34,7 +28,7 @@ class ATRSizer(BaseSizer):
         code = signal.code
         o = Order()
         if signal.direction == DIRECTION_TYPES.SHORT:
-            pos = self.portfolio.get_position(code)
+            # pos = self.portfolio.get_position(code)
             if pos is None:
                 return None
             o.set(
@@ -61,7 +55,7 @@ class ATRSizer(BaseSizer):
             atr = ATR("atr", self.period).cal(df) * self.risk_ratio
             if atr == 0:
                 return None
-            max_money = self.portfolio.cash * self.risk
+            # max_money = self.portfolio.cash * self.risk
             max_shares = int((max_money / atr) / 100) * 100
             price = df.iloc[-1]["close"] * 1.1
             o.set(

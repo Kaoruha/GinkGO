@@ -46,6 +46,7 @@ class ModelOrderTest(unittest.TestCase):
                 "volume": random.randint(0, 1000),
                 "frozen": random.randint(0, 1000),
                 "transaction_price": Decimal(str(round(random.uniform(0, 100), 2))),
+                "transaction_volume": random.randint(0, 1000),
                 "remain": Decimal(str(round(random.uniform(0, 100), 2))),
                 "fee": Decimal(str(round(random.uniform(0, 100), 2))),
                 "timestamp": datetime.datetime.now(),
@@ -56,20 +57,7 @@ class ModelOrderTest(unittest.TestCase):
 
     def test_ModelOrder_Init(self) -> None:
         for i in self.params:
-            o = self.model(
-                uuid=i["uuid"],
-                portfolio_id=i["portfolio_id"],
-                code=i["code"],
-                direction=i["direction"],
-                type=i["type"],
-                status=i["status"],
-                volume=i["volume"],
-                limit_price=i["limit_price"],
-                frozen=i["frozen"],
-                transaction_price=i["transaction_price"],
-                remain=i["remain"],
-                fee=i["fee"],
-            )
+            o = self.model(**i)
 
             self.assertEqual(o.uuid, i["uuid"])
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
@@ -116,6 +104,10 @@ class ModelOrderTest(unittest.TestCase):
             # Update transaction_price
             o.update(i["portfolio_id"], transaction_price=i["transaction_price"])
             self.assertEqual(o.transaction_price, i["transaction_price"])
+
+            # Update transaction_volume
+            o.update(i["portfolio_id"], transaction_volume=i["transaction_volume"])
+            self.assertEqual(o.transaction_volume, i["transaction_volume"])
             # Update remain
             o.update(i["portfolio_id"], remain=i["remain"])
             self.assertEqual(o.remain, i["remain"])
@@ -140,6 +132,7 @@ class ModelOrderTest(unittest.TestCase):
                 i["limit_price"],
                 i["frozen"],
                 i["transaction_price"],
+                i["transaction_volume"],
                 i["remain"],
                 i["fee"],
                 i["timestamp"],
@@ -152,6 +145,7 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.limit_price, i["limit_price"])
             self.assertEqual(o.frozen, i["frozen"])
             self.assertEqual(o.transaction_price, i["transaction_price"])
+            self.assertEqual(o.transaction_volume, i["transaction_volume"])
             self.assertEqual(o.remain, i["remain"])
             self.assertEqual(o.fee, i["fee"])
             self.assertEqual(o.timestamp, i["timestamp"])
@@ -171,6 +165,7 @@ class ModelOrderTest(unittest.TestCase):
             self.assertEqual(o.limit_price, i["limit_price"])
             self.assertEqual(o.frozen, i["frozen"])
             self.assertEqual(o.transaction_price, i["transaction_price"])
+            self.assertEqual(o.transaction_volume, i["transaction_volume"])
             self.assertEqual(o.remain, i["remain"])
             self.assertEqual(o.fee, i["fee"])
             self.assertEqual(o.timestamp, i["timestamp"])

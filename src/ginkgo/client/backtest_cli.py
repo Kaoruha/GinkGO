@@ -191,7 +191,7 @@ def run(
     from ginkgo.backtest.engines import HistoricEngine
     from ginkgo.enums import EVENT_TYPES
     from ginkgo.backtest.matchmakings import MatchMakingSim
-    from ginkgo.backtest.feeds import BacktestFeed
+    from ginkgo.backtest.feeders import BacktestFeed
     from ginkgo.backtest.events import EventNextPhase
     from ginkgo.backtest.portfolios import PortfolioT1Backtest
     from ginkgo.libs import datetime_normalize

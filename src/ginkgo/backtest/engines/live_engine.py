@@ -4,7 +4,7 @@ if TYPE_CHECKING:
     from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
     from ginkgo.backtest.matchmakings import MatchMakingBase
     from ginkgo.backtest.events.base_event import EventBase
-    from ginkgo.backtest.feeds.base_feed import BaseFeed
+    from ginkgo.backtest.feeders.base_feed import BaseFeed
     from ginkgo.enums import EVENT_TYPES
 
 import datetime
@@ -35,6 +35,8 @@ class LiveEngine(EventEngine):
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False
+    # TODO
+    # REbuild with kafka
 
     def __init__(
         self,
@@ -47,9 +49,7 @@ class LiveEngine(EventEngine):
         super(LiveEngine, self).__init__(name, interval, *args, **kwargs)
         self.set_backtest_id(backtest_id)
         self._control_flag = Event()
-        self._control_thread: Thread = Thread(
-            target=self.run_control_listener, args=(self._control_flag,)
-        )
+        self._control_thread: Thread = Thread(target=self.run_control_listener, args=(self._control_flag,))
         live_logger.reset_logfile(f"live_{backtest_id}.log")
         self.register_timer(self.update_time)
         self.register_timer(self.get_price)
@@ -89,9 +89,7 @@ class LiveEngine(EventEngine):
         Iterate over the portfolios, query orders from db, generate holding positions.
         """
         if len(self.portfolios) == 0:
-            live_logger.DEBUG(
-                "There is no portfolio bind to live. Can not update positions"
-            )
+            live_logger.DEBUG("There is no portfolio bind to live. Can not update positions")
             return
         node = self.portfolios.head
         while node is not None:
@@ -167,17 +165,13 @@ class LiveEngine(EventEngine):
                     # group_id=f"ginkgo_live_engine_{self.engine_id}",
                     offset="latest",
                 )
-                live_logger.INFO(
-                    f"{self.engine_id} Start Listen Kafka Topic: {topic_name}  PID:{pid}"
-                )
+                live_logger.INFO(f"{self.engine_id} Start Listen Kafka Topic: {topic_name}  PID:{pid}")
                 for msg in con.consumer:
                     error_time = 0
                     value = msg.value
                     self.process_control_command(value)
             except Exception as e2:
-                live_logger.ERROR(
-                    f"Something wrong happend when dealing with Kafka Topic: {topic_name}, {e2}"
-                )
+                live_logger.ERROR(f"Something wrong happend when dealing with Kafka Topic: {topic_name}, {e2}")
                 error_time += 1
                 if error_time > max_try:
                     sys.exit(0)
@@ -237,13 +231,9 @@ class LiveEngine(EventEngine):
             live_logger.INFO(f"Restart in {self._interval+5-i}s")
             sleep(1)
         self._main_flag = Event()
-        self._main_thread: Thread = Thread(
-            target=self.main_loop, args=(self._main_flag,)
-        )
+        self._main_thread: Thread = Thread(target=self.main_loop, args=(self._main_flag,))
         self._timer_flag = Event()
-        self._timer_thread: Thread = Thread(
-            target=self.timer_loop, args=(self._timer_flag,)
-        )
+        self._timer_thread: Thread = Thread(target=self.timer_loop, args=(self._timer_flag,))
         self._main_thread.start()
         self._timer_thread.start()
         GDATA.set_live_status(self.engine_id, "running")

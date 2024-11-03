@@ -214,6 +214,7 @@ def fetch_and_update_capital_adjustment(*args, **kwargs):
     pass
 
 
+@skip_if_ran
 @time_logger
 def fetch_and_update_stockinfo(*args, **kwargs):
     from ginkgo.data.models import MStockInfo
@@ -476,16 +477,19 @@ def init_example_data(*args, **kwargs):
         get_portfolios,
         add_portfolio,
         delete_portfolios,
+        add_portfolio_file_mapping,
+        get_portfolio_file_mappings_fuzzy,
+        delete_portfolio_file_mapping,
+        add_param,
     )
 
     # Engine
     example_engine_name = "backtest_example"
     df = get_engines(name=example_engine_name)
     if df.shape[0] > 1:
-        delete_engines(ids=df["uuid"].values)
+        delete_engines(ids=df["uuid"].values.tolist())
         console.print(f":sun:  [light_coral]DELETE[/] Example engines.")
-        time.sleep(0.1)
-    add_engine(name=example_engine_name, is_live=False)
+    engine_df = add_engine(name=example_engine_name, is_live=False)
 
     # File
 
@@ -496,20 +500,23 @@ def init_example_data(*args, **kwargs):
         path = f"{file_root}/{folder}"
         files = os.listdir(path)
         black_list = ["__", "base"]
+        count = 0
         for file_name in files:
+            GLOG.INFO(f"file_name: {file_name}")
             if any(substring in file_name for substring in black_list):
                 continue
+            count += 1
             file_path = f"{path}/{file_name}"
             file_name = file_name.split(".")[0]
             df = get_files(name=file_name)
             if df.shape[0] > 0:
-                delete_files(ids=df["uuid"].values)
+                delete_files(ids=df["uuid"].values.tolist())
                 status.update(f":sun:  [light_coral]DELETE[/] {file_type_map[folder]} {file_name}.")
-                time.sleep(0.2)
             with open(file_path, "rb") as file:
                 content = file.read()
                 df = add_file(name=file_name, type=file_type_map[folder], data=content)
                 status.update(f":sunglasses: [medium_spring_green]CREATE[/] {file_type_map[folder]} {file_name}.")
+        console.print(f":page_facing_up: [blue]DONE[/] {count} files about {folder}.")
         status.stop()
 
     file_type_map = {
@@ -523,24 +530,102 @@ def init_example_data(*args, **kwargs):
     for i in file_type_map:
         with console.status(f"[bold green]Init File from source..[/]") as status:
             walk_through(i, status)
+    time.sleep(0.2)
 
     # Portfolio
     example_portfolio_name = "portfolio_example"
     df = get_portfolios(example_portfolio_name)
-    print(df)
     if df.shape[0] > 1:
-        delete_portfolios(ids=df["uuid"].values)
+        delete_portfolios(ids=df["uuid"].values.tolist())
         console.print(f":sun:  [light_coral]DELETE[/] Example portfolios.")
-        time.sleep(0.2)
-    add_portfolio(
+    time.sleep(0.2)
+    portfolio_df = add_portfolio(
         name=example_portfolio_name, backtest_start_date="2020-01-01", backtest_end_date="2021-01-01", is_live=False
     )
-    # Handler
-    # TODO
+    console.print(f":sun:  [medium_spring_green]CREATE[/] Example portfolio.")
+    # TODO Multi portfolios
     # Engine_Portfolio_Mapping
+    engine_portfolio_mapping = add_engine_portfolio_mapping(
+        engine_id=engine_df["uuid"], portfolio_id=portfolio_df["uuid"]
+    )
+    print(engine_portfolio_mapping)
+    console.print(f":sun:  [medium_spring_green]CREATE[/] Example engine portfolio mapping.")
+    # Portfolio File Mapping
+    strategy_names = ["volume_activate", "loss_limit"]
+    for i in strategy_names:
+        raw_files = get_files(name=i)
+        file_id = raw_files.iloc[0]["uuid"]
+        name = f"example_strategy_{raw_files.iloc[0]['name']}"
+        # Clean old data
+        mapping_old = get_portfolio_file_mappings_fuzzy(name=name)
+        for i2, r2 in mapping_old.iterrows():
+            delete_portfolio_file_mapping(r2["uuid"])
+        time.sleep(1)
+        new_portfolio_file_mapping = add_portfolio_file_mapping(
+            portfolio_id=portfolio_df["uuid"], file_id=file_id, name=name, type=FILE_TYPES.STRATEGY
+        )
+        print(f"add new_portfolio_file_mapping: {new_portfolio_file_mapping}")
+        if i == "volume_activate":
+            add_param(new_portfolio_file_mapping["uuid"], 0, "ExampleVolumeActivate")
+            add_param(new_portfolio_file_mapping["uuid"], 1, "11")
+        if i == "loss_limit":
+            add_param(new_portfolio_file_mapping["uuid"], 0, "ExampleLossLimit")
+            add_param(new_portfolio_file_mapping["uuid"], 1, "13")
+    time.sleep(1)
+    df = get_files()
+    import json
+
+    # Portfolio Selector Mapping
+    raw_selectors = get_files(type=FILE_TYPES.SELECTOR, name="fixed_selector")
+    selector_mapping = add_portfolio_file_mapping(
+        portfolio_id=portfolio_df["uuid"],
+        file_id=raw_selectors.iloc[0]["uuid"],
+        name="example_fixed_selector",
+        type=FILE_TYPES.SELECTOR,
+    )
+
+    code_list = ["600594.SH", "600000.SH"]
+    # selector params
+    add_param(selector_mapping["uuid"], 0, "example_fixed_selector")
+    add_param(selector_mapping["uuid"], 1, json.dumps(code_list))
+    # Portfolio Sizer Mapping
+    raw_sizers = get_files(type=FILE_TYPES.SIZER, name="fixed_sizer")
+    sizer_mapping = add_portfolio_file_mapping(
+        portfolio_id=portfolio_df["uuid"],
+        file_id=raw_sizers.iloc[0]["uuid"],
+        name="example_fixed_sizer",
+        type=FILE_TYPES.SIZER,
+    )
+    # sizer param
+    add_param(sizer_mapping["uuid"], 0, "example_fixed_sizer")
+    add_param(sizer_mapping["uuid"], 1, "500")
+    # Portfolio Analyzer Mapping
+    # analyzer param
+    raw_analyzers = get_files(type=FILE_TYPES.ANALYZER, name="profit")
+    analyzer_mapping = add_portfolio_file_mapping(
+        portfolio_id=portfolio_df["uuid"],
+        file_id=raw_analyzers.iloc[0]["uuid"],
+        name="example_profit",
+        type=FILE_TYPES.ANALYZER,
+    )
+    add_param(analyzer_mapping["uuid"], 0, "example_profit")
+
+    # Handler
     # TODO
     # Engine_Handler_Mapping
     # TODO
+
+
+def get_params_by_file(file_id: str):
+    from ginkgo.data.operations import get_params as func
+
+    return func(source_id=file_id)
+
+
+def get_params_by_handler(handler_id: str):
+    from ginkgo.data.operations import get_params as func
+
+    return func(source_id=handler_id)
 
 
 def get_files(*args, **kwargs):
@@ -549,8 +634,84 @@ def get_files(*args, **kwargs):
     return func(*args, **kwargs)
 
 
+def get_instance_by_file(file_id: str, mapping_id: str, file_type: FILE_TYPES):
+    from ginkgo.data.operations import get_file_content
+    from ginkgo.backtest.strategies import StrategyBase
+    from ginkgo.backtest.analyzers import BaseAnalyzer
+    from ginkgo.backtest.selectors import BaseSelector
+    from ginkgo.backtest.sizers import BaseSizer
+    from ginkgo.backtest.risk_managements import BaseRiskManagement
+
+    cls_base_mapping = {
+        FILE_TYPES.ANALYZER: BaseAnalyzer,
+        FILE_TYPES.RISKMANAGER: BaseRiskManagement,
+        FILE_TYPES.SELECTOR: BaseSelector,
+        FILE_TYPES.SIZER: BaseSizer,
+        FILE_TYPES.STRATEGY: StrategyBase,
+    }
+
+    content = get_file_content(file_id)
+    if len(content) == 0:
+        return
+    # 直接在全局作用域中执行 exec
+    exec(content.decode("utf-8"), globals())
+
+    # 检查是否已定义 `StrategyLossLimit` 类
+    classes = [
+        cls for cls in globals().values() if isinstance(cls, type) and cls_base_mapping[file_type] in cls.__bases__
+    ]
+    if len(classes) == 0:
+        raise ValueError(f"未找到任何 {cls_base_mapping[file_type]} 的子类")
+    cls = classes[0]
+    params = get_params_by_file(mapping_id)
+    try:
+        ins = cls(*params)  # 实例化类
+        if file_type == FILE_TYPES.ANALYZER:
+            ins.set_analyzer_id(file_id)
+        print(ins)
+
+        return ins
+    except Exception as e:
+        # DEBUG
+        import pdb
+
+        pdb.set_trace()
+        print(1)
+        return None
+    finally:
+        pass
+
+
+def get_trading_system_components_by_portfolio(portfolio_id: str, file_type: FILE_TYPES = None, *args, **kwargs):
+    if not isinstance(file_type, FILE_TYPES):
+        GLOG.WARN(f"Invalid type: {type}.")
+        return []
+    from ginkgo.data.operations import get_portfolio_file_mappings
+
+    mappings = get_portfolio_file_mappings(portfolio_id=portfolio_id, type=file_type)
+    l = []
+    for i, r in mappings.iterrows():
+        file_id = r["file_id"]
+        mapping_id = r["uuid"]
+        ins = get_instance_by_file(file_id, mapping_id, file_type)
+        if ins is not None:
+            l.append(ins)
+    return l
+
+
+def get_analyzers_by_portfolio(portfolio_id: str, *args, **kwargs):
+    # TODO
+    pass
+
+
 def add_engine(*args, **kwargs):
     from ginkgo.data.operations import add_engine as func
+
+    return func(*args, **kwargs)
+
+
+def get_engine(*args, **kwargs):
+    from ginkgo.data.operations import get_engine as func
 
     return func(*args, **kwargs)
 
@@ -577,13 +738,38 @@ def update_portfolio(*args, **kwargs):
 
 
 def get_portfolio(*args, **kwargs):
-    # TODO
-    pass
+    from ginkgo.data.operations import get_portfolio as func
+
+    return func(*args, **kwargs)
 
 
 def compute_adjusted_prices(*args, **kwargs):
     # TODO
     pass
+
+
+def add_engine_portfolio_mapping(*args, **kwargs):
+    from ginkgo.data.operations import add_engine_portfolio_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def get_engine_portfolio_mappings(*args, **kwargs):
+    from ginkgo.data.operations import get_engine_portfolio_mappings as func
+
+    return func(*args, **kwargs)
+
+
+def add_engine_handler_mapping(*args, **kwargs):
+    from ginkgo.data.operations import add_engine_handler_mapping as func
+
+    return func(*args, **kwargs)
+
+
+def get_engine_handler_mappings(*args, **kwargs):
+    from ginkgo.data.operations import get_engine_handler_mapping as func
+
+    return func(*args, **kwargs)
 
 
 __all__ = [name for name, obj in inspect.getmembers(inspect.getmodule(inspect.currentframe()), inspect.isfunction)]

@@ -125,7 +125,7 @@ class OperationTransferRecordTest(unittest.TestCase):
             self.assertEqual(item.money, i["money"])
             self.assertEqual(item.status, i["status"])
 
-            df = get_transfer_record(res["uuid"], as_dataframe=True)
+            df = get_transfer_record(res["uuid"], as_dataframe=True).iloc[0]
             self.assertEqual(df["direction"], i["direction"])
             self.assertEqual(df["market"], i["market"])
             self.assertEqual(df["money"], i["money"])

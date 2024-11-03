@@ -3,40 +3,35 @@ import datetime
 from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
-from ginkgo.data.models import MHandlerParam
+from ginkgo.enums import EVENT_TYPES, FILE_TYPES
+from ginkgo.data.models import MPortfolioFileMapping
 from ginkgo.data.drivers import add, add_all, get_mysql_connection
 from ginkgo.libs import GLOG
 
 
-def add_handler_param(handler_id: str, index: int, value: str, *args, **kwargs) -> pd.Series:
-    item = MHandlerParam(handler_id=handler_id, index=index, value=value)
+def add_portfolio_file_mapping(
+    portfolio_id: str, file_id: str, name: str, type: FILE_TYPES, *args, **kwargs
+) -> pd.Series:
+    item = MPortfolioFileMapping(portfolio_id=portfolio_id, file_id=file_id, type=type, name=name)
     res = add(item)
     df = res.to_dataframe()
     get_mysql_connection().remove_session()
     return df.iloc[0]
 
 
-def add_handler_params(handlers: List[MHandlerParam], *args, **kwargs):
+def add_portfolio_file_mappings(files: List[MPortfolioFileMapping], *args, **kwargs):
     l = []
-    for i in handlers:
-        if isinstance(i, MHandlerParam):
+    for i in files:
+        if isinstance(i, MPortfolioFileMapping):
             l.append(i)
         else:
-            GLOG.WANR("add handlers only support handler data.")
+            GLOG.WANR("add files only support file data.")
     return add_all(l)
 
 
-def upsert_handler_param():
-    pass
-
-
-def upsert_handler_params():
-    pass
-
-
-def delete_handler_param(id: str, *argss, **kwargs):
+def delete_portfolio_file_mapping(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
-    model = MHandlerParam
+    model = MPortfolioFileMapping
     filters = [model.uuid == id]
     try:
         query = session.query(model).filter(and_(*filters)).all()
@@ -52,10 +47,10 @@ def delete_handler_param(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def softdelete_handler_param(id: str, *argss, **kwargs):
-    session = get_mysql_connection().session
-    model = MHandlerParam
+def softdelete_portfolio_file_mapping(id: str, *argss, **kwargs):
+    model = MPortfolioFileMapping
     filters = [model.uuid == id]
+    session = get_mysql_connection().session
     updates = {"is_del": True, "update_at": datetime.datetime.now()}
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
@@ -68,55 +63,60 @@ def softdelete_handler_param(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def delete_handler_params(handler_id: str, *argss, **kwargs):
+def delete_portfolio_file_mappings_by_portfolio(portfolio_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
-    model = MHandlerParam
-    filters = [model.handler_id == id]
+    model = MPortfolioFileMapping
+    filters = [model.portfolio_id == portfolio_id]
     try:
         stmt = delete(model).where(and_(*filters))
         session.execute(stmt)
         session.commit()
     except Exception as e:
         session.rollback()
-        GLOG.ERROR(e)
+        print(e)
     finally:
         get_mysql_connection().remove_session()
 
 
-def softdelete_handler_params(handler_id: str, *argss, **kwargs):
+def softdelete_portfolio_file_mappings_by_portfolio(portfolio_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
-    model = MHandlerParam
-    filters = [model.handler_id == id]
-    updates = {"is_del": True, "update_at": datetime.datetime.now()}
+    model = MPortfolioFileMapping
+    filters = [model.portfolio_id == portfolio_id]
     try:
-        stmt = update(model).where(and_(*filters)).values(updates)
-        session.execute(stmt)
-        session.commit()
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord: id {ids} has more than one record.")
+        for i in query:
+            i.is_del = True
+            session.commit()
     except Exception as e:
         session.rollback()
-        GLOG.ERROR(e)
+        print(e)
     finally:
         get_mysql_connection().remove_session()
 
 
-def update_handler_param(
+def update_portfolio_file_mapping(
     id: str,
-    handler_id: Optional[str] = None,
-    index: Optional[int] = None,
-    value: Optional[str] = None,
+    portfolio_id: Optional[str] = None,
+    file_id: Optional[str] = None,
+    name: Optional[str] = None,
+    type: Optional[FILE_TYPES] = None,
     *argss,
     **kwargs,
 ):
     session = get_mysql_connection().session
-    model = MHandlerParam
+    model = MPortfolioFileMapping
     filters = [model.uuid == id]
     updates = {"update_at": datetime.datetime.now()}
-    if handler_id is not None:
-        updates["handler_id"] = handler_id
-    if index is not None:
-        updates["index"] = index
-    if value is not None:
-        updates["value"] = value
+    if portfolio_id is not None:
+        updates["portfolio_id"] = portfolio_id
+    if file_id is not None:
+        updates["file_id"] = file_id
+    if name is not None:
+        updates["name"] = name
+    if type is not None:
+        updates["type"] = type
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
         session.execute(stmt)
@@ -128,22 +128,20 @@ def update_handler_param(
         get_mysql_connection().remove_session()
 
 
-def get_handler_param(
+def get_portfolio_file_mapping(
     id: str,
     *args,
     **kwargs,
 ) -> pd.Series:
     session = get_mysql_connection().session
-    model = MHandlerParam
-    filters = [model.uuid == id, model.is_del == False]
+    model = MPortfolioFileMapping
+    filters = [model.uuid == id]
 
     try:
         stmt = session.query(model).filter(and_(*filters))
 
         df = pd.read_sql(stmt.statement, session.connection())
-        if df.shape[0] == 0:
-            return pd.DataFrame()
-        return df.iloc[0]
+        return df
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -152,14 +150,48 @@ def get_handler_param(
         get_mysql_connection().remove_session()
 
 
-def get_handler_params(
-    handler_id: str,
+def get_portfolio_file_mappings(
+    portfolio_id: str,
+    type: Optional[FILE_TYPES] = None,
     *args,
     **kwargs,
-) -> pd.DataFrame:
+) -> pd.Series:
     session = get_mysql_connection().session
-    model = MHandlerParam
-    filters = [model.handler_id == handler_id, model.is_del == False]
+    model = MPortfolioFileMapping
+    filters = [model.portfolio_id == portfolio_id, model.is_del == False]
+    if type is not None:
+        filters.append(model.type == type)
+
+    try:
+        stmt = session.query(model).filter(and_(*filters))
+
+        df = pd.read_sql(stmt.statement, session.connection())
+        if df.shape[0] == 0:
+            return pd.DataFrame()
+        return df
+    except Exception as e:
+        session.rollback()
+        print(e)
+        GLOG.ERROR(e)
+        return pd.DataFrame()
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def get_portfolio_file_mappings_fuzzy(
+    name: str = None,
+    type: FILE_TYPES = None,
+    *args,
+    **kwargs,
+) -> pd.Series:
+    # TODO Unittest
+    session = get_mysql_connection().session
+    model = MPortfolioFileMapping
+    filters = [model.is_del == False]
+    if name is not None:
+        filters.append(model.name.like(f"%{name}%"))
+    if type is not None:
+        filters.append(model.type == type)
 
     try:
         stmt = session.query(model).filter(and_(*filters))

@@ -132,13 +132,11 @@ def get_engine_handler_mapping(
         stmt = session.query(model).filter(and_(*filters))
 
         df = pd.read_sql(stmt.statement, session.connection())
-        if df.shape[0] == 0:
-            return pd.DataFrame()
-        return df.iloc[0]
+        return df
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
-        return 0
+        return pd.DataFrame()
     finally:
         get_mysql_connection().remove_session()
 

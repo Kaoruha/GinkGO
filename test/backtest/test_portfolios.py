@@ -19,7 +19,7 @@ from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.sizers import BaseSizer, FixedSizer
 from ginkgo.backtest.risk_managements import BaseRiskManagement
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.backtest.feeds import BaseFeed
+from ginkgo.backtest.feeders import BaseFeed
 
 
 class PortfolioBaseTest(unittest.TestCase):

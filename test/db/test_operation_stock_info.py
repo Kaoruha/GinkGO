@@ -65,7 +65,7 @@ class OperationStockinfoTest(unittest.TestCase):
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
             time.sleep(0.01)
-            df = get_stockinfo(new_code)
+            df = get_stockinfo(new_code).iloc[0]
             self.assertEqual(df["code"], params_copy["code"])
             self.assertEqual(df["code_name"], params_copy["code_name"])
             self.assertEqual(df["industry"], params_copy["industry"])
@@ -88,7 +88,7 @@ class OperationStockinfoTest(unittest.TestCase):
             # 2nd upsert, do update
             res2 = upsert_stockinfo(**params_copy)
             time.sleep(0.02)
-            df = get_stockinfo(new_code)
+            df = get_stockinfo(new_code).iloc[0]
             print(df)
             self.assertEqual(df["code"], new_code)
             self.assertEqual(df["code_name"], new_code_name)

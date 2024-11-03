@@ -150,10 +150,7 @@ def get_transfer_record(
         stmt = session.query(model).filter(and_(*filters))
         if as_dataframe:
             df = pd.read_sql(stmt.statement, session.connection())
-            if df.shape[0] == 0:
-                return pd.DataFrame()
-            else:
-                return df.iloc[0]
+            return df
         else:
             query = stmt.first()
             return Transfer(

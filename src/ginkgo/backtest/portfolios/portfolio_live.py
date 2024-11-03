@@ -109,7 +109,7 @@ class PortfolioLive(BasePortfolio):
         now = datetime.datetime.now()
         time = datetime_normalize(time) if time else now
         self.on_time_goes_by(time)  # TODO seems no need update time in live mode
-        if self.engine is None:
+        if self._engine_put is None:
             return
         if self.selector is None:
             return
@@ -147,7 +147,7 @@ class PortfolioLive(BasePortfolio):
                     order_adjusted.remain,
                     order_adjusted.fee,
                     time,
-                    self.engine.backtest_id,
+                    self.engine_id,
                 )
                 GDATA.add(mo)
 
@@ -170,9 +170,9 @@ class PortfolioLive(BasePortfolio):
         3.1. Drop the signal
         3.2. Put order to event engine
         """
-        GLOG.INFO(
-            f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}."
-        )
+        # TODO
+        return
+        GLOG.INFO(f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}.")
         # Check Everything.
         if not self.is_all_set():
             return
@@ -208,7 +208,7 @@ class PortfolioLive(BasePortfolio):
             order_adjusted.remain,
             order_adjusted.fee,
             self.now,
-            self.engine.backtest_id,
+            self.engine_id,
         )
         GDATA.add(mo)
 
@@ -219,6 +219,8 @@ class PortfolioLive(BasePortfolio):
         """
         Dealing with new price info.
         """
+        # TODO
+        return
         # Check Everything.
         if not self.is_all_set():
             return
@@ -230,6 +232,7 @@ class PortfolioLive(BasePortfolio):
         for strategy in self.strategies:
             # 3. Get signal return, if so put eventsignal to engine
             signal = strategy.value.cal(event.value)
+            return
             if signal:
                 e = EventSignalGeneration(signal)
                 e.set_source(SOURCE_TYPES.PORTFOLIO)
@@ -245,24 +248,14 @@ class PortfolioLive(BasePortfolio):
         self.update_profit()
 
     def on_order_filled(self, event: EventOrderFilled):
+        # TODO
+        return
         GLOG.INFO("Got An Order Filled...")
         if not event.order_status == ORDERSTATUS_TYPES.FILLED:
             GLOG.CRITICAL(
                 f"On Order Filled only handle the FILLEDORDER, cant handle a {event.order_status} one. Check the Code"
             )
             return
-        self.record(RECORDSTAGE_TYPES.ORDERFILLED)
-        GDATA.add_order_record(
-            self.uuid,
-            event.code,
-            event.direction,
-            event.type,
-            event.transaction_price,
-            event.volume,
-            event.remain,
-            event.fee,
-            event.timestamp,
-        )
         GLOG.INFO("Got An Order Filled Done")
 
     def update_worth(self):

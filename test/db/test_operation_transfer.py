@@ -124,7 +124,7 @@ class OperationTransferTest(unittest.TestCase):
             self.assertEqual(i["money"], item.money)
             self.assertEqual(i["status"], item.status)
 
-            df = get_transfer(id=res["uuid"], as_dataframe=True)
+            df = get_transfer(id=res["uuid"], as_dataframe=True).iloc[0]
             self.assertEqual(df["portfolio_id"], i["portfolio_id"])
             self.assertEqual(df["direction"], i["direction"])
             self.assertEqual(df["market"], i["market"])

@@ -136,14 +136,11 @@ def get_portfolio(
         stmt = session.query(model).filter(and_(*filters))
 
         df = pd.read_sql(stmt.statement, session.connection())
-        if df.shape[0] == 0:
-            return pd.DataFrame()
-        return df.iloc[0]
+        return df
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
-        return 0
+        return pd.DataFrame()
     finally:
         get_mysql_connection().remove_session()
 

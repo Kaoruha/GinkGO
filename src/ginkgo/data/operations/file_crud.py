@@ -125,9 +125,23 @@ def get_file(
     try:
         stmt = session.query(model).filter(and_(*filters))
         df = pd.read_sql(stmt.statement, session.connection())
-        if df.shape[0] == 0:
-            return pd.DataFrame()
-        return df.iloc[0]
+        return df
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+        return pd.DataFrame()
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def get_file_content(file_id: str, *args, **kwargs) -> bytes:
+    session = get_mysql_connection().session
+    model = MFile
+    filters = [model.uuid == file_id]
+    try:
+        stmt = session.query(model).filter(and_(*filters))
+        res = session.execute(stmt).scalars().first()
+        return res.data if res else b""
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)

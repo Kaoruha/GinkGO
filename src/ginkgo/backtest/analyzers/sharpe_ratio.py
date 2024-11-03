@@ -11,7 +11,7 @@ class SharpeRatio(BaseAnalyzer):
 
     def __init__(self, name: str, *args, **kwargs):
         super(SharpeRatio, self).__init__(name, *args, **kwargs)
-        self.set_stage(RECORDSTAGE_TYPES.NEWDAY)
+        self.set_activate_stage(RECORDSTAGE_TYPES.NEWDAY)
         self._base_value = None
         self._days = 0
         self._annual_returns = []
@@ -24,14 +24,15 @@ class SharpeRatio(BaseAnalyzer):
         if stage != self.active_stage:
             return
         if self._base_value is None:
-            self._base_value = self.portfolio.worth
+            # self._base_value = self.portfolio.worth
+            pass
         self._days += 1
         if self._days > 365:
             self._days = self._days - 365
-            self._base_value = self.portfolio.worth
+            # self._base_value = self.portfolio.worth
 
         times = int(365 / self._days)
-        annual_return = (self.portfolio.worth / self._base_value) ** times - 1
+        # annual_return = (self.portfolio.worth / self._base_value) ** times - 1
         self._annual_returns.append(annual_return)
         std = pd.Series(self._annual_returns).std()
         try:
@@ -40,5 +41,5 @@ class SharpeRatio(BaseAnalyzer):
             print(e)
             value = -1
         self.add_data(value)
-        GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
+        # GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
         self.add_record()

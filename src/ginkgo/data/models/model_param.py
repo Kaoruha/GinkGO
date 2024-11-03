@@ -11,11 +11,11 @@ from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES
 from ginkgo.libs import base_repr
 
 
-class MHandlerParam(MMysqlBase):
+class MParam(MMysqlBase):
     __abstract__ = False
-    __tablename__ = "handler_params"
+    __tablename__ = "params"
 
-    handler_id: Mapped[str] = mapped_column(String(32), default="")
+    source_id: Mapped[str] = mapped_column(String(32), default="")
     index: Mapped[int] = mapped_column(Integer, default=0)
     value: Mapped[str] = mapped_column(String(255), default="")
 
@@ -26,14 +26,14 @@ class MHandlerParam(MMysqlBase):
     @update.register(str)
     def _(
         self,
-        handler_id: str,
+        source_id: str,
         index: Optional[int] = None,
         value: Optional[str] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
-        self.handler_id = handler_id
+        self.source_id = source_id
         if index is not None:
             self.index = index
         if value is not None:
@@ -45,7 +45,7 @@ class MHandlerParam(MMysqlBase):
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.handler_id = df["handler_id"]
+        self.source_id = df["source_id"]
         self.index = df["index"]
         self.value = df["value"]
         if "source" in df.keys():

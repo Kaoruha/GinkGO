@@ -88,7 +88,7 @@ ginkgo data plot day --code 00001.SZ --start 20200101 --end 20210101
 │       │   ├── analyzers
 │       │   ├── engines
 │       │   ├── events
-│       │   ├── feeds
+│       │   ├── feeders
 │       │   ├── indices
 │       │   ├── matchmakings
 │       │   ├── plots

@@ -1,3 +1,4 @@
 from ginkgo.backtest.strategies.volume_activate import StrategyVolumeActivate
 from ginkgo.backtest.strategies.profit_limit import StrategyProfitLimit
 from ginkgo.backtest.strategies.loss_limit import StrategyLossLimit
+from ginkgo.backtest.strategies.base_strategy import StrategyBase

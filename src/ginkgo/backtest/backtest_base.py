@@ -1,8 +1,12 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ginkgo.backtest.engines.base_engine import BaseEngine
 import datetime
 import uuid
 from rich.console import Console
 
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import GLOG, base_repr
 from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList
 
 
@@ -17,10 +21,8 @@ class BacktestBase(object):
     def __init__(self, name: str = "backtest_base", *args, **kwargs) -> None:
         self._name: str = ""
         self._now: datetime.datetime = None
-        self._abstract: bool = True
         self._engine_id: str = uuid.uuid4().hex
-
-        self.set_name(name)
+        self.set_name(str(name))
 
     @property
     def engine_id(self) -> str:
@@ -30,17 +32,10 @@ class BacktestBase(object):
     def engine_id(self, value: str) -> None:
         self._engine_id = value
 
-    def set_engine_id(self, value: str) -> str:
-        """
-        Backtest ID Update.
-
-        Args:
-            value(str): new backtest id
-        Returns:
-            current backtest id
-        """
-        self._engine_id = value
-        return self.engine_id
+    def bind_engine(self, engine: "BaseEngine") -> None:
+        self._engine_id = engine.engine_id
+        # Do not hold engine any more. just got the put function
+        self._engine_put = engine.put
 
     @property
     def name(self) -> str:
@@ -91,15 +86,17 @@ class BacktestBase(object):
         if time < self.now:
             GLOG.ERROR("We can not go back such as a TIME TRAVALER.")
             return
+
         elif time == self.now:
             GLOG.WARN("Time not goes on.")
             return
+
         else:
             # time > self.now
             # Go next frame
             old = self._now
             self._now = time
-            GLOG.INFO(f"{type(self)} {self.name} Time Elapses: {old} --> {self.now}")
+            GLOG.DEBUG(f"{type(self)} {self.name} Time Elapses: {old} --> {self.now}")
             console.print(f":swimmer: {self.name} Time Elapses: {old} --> {self.now}")
 
     def __repr__(self) -> str:

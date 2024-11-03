@@ -3,35 +3,40 @@ import datetime
 from sqlalchemy import and_, delete, update, select, text
 from typing import List, Optional, Union
 
-from ginkgo.enums import EVENT_TYPES
-from ginkgo.data.models import MPortfolioHandlerMapping
+from ginkgo.data.models import MParam
 from ginkgo.data.drivers import add, add_all, get_mysql_connection
 from ginkgo.libs import GLOG
 
 
-def add_portfolio_handler_mapping(
-    portfolio_id: str, handler_id: str, type: EVENT_TYPES, name: str, *args, **kwargs
-) -> pd.Series:
-    item = MPortfolioHandlerMapping(portfolio_id=portfolio_id, handler_id=handler_id, type=type, name=name)
+def add_param(source_id: str, index: int, value: str, *args, **kwargs) -> pd.Series:
+    item = MParam(source_id=source_id, index=index, value=value)
     res = add(item)
     df = res.to_dataframe()
     get_mysql_connection().remove_session()
     return df.iloc[0]
 
 
-def add_portfolio_handler_mappings(handlers: List[MPortfolioHandlerMapping], *args, **kwargs):
+def add_params(handlers: List[MParam], *args, **kwargs):
     l = []
     for i in handlers:
-        if isinstance(i, MPortfolioHandlerMapping):
+        if isinstance(i, MParam):
             l.append(i)
         else:
             GLOG.WANR("add handlers only support handler data.")
     return add_all(l)
 
 
-def delete_portfolio_handler_mapping(id: str, *argss, **kwargs):
+def upsert_param():
+    pass
+
+
+def upsert_params():
+    pass
+
+
+def delete_param(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
-    model = MPortfolioHandlerMapping
+    model = MParam
     filters = [model.uuid == id]
     try:
         query = session.query(model).filter(and_(*filters)).all()
@@ -47,10 +52,10 @@ def delete_portfolio_handler_mapping(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def softdelete_portfolio_handler_mapping(id: str, *argss, **kwargs):
-    model = MPortfolioHandlerMapping
-    filters = [model.uuid == id]
+def softdelete_param(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
+    model = MParam
+    filters = [model.uuid == id]
     updates = {"is_del": True, "update_at": datetime.datetime.now()}
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
@@ -63,60 +68,26 @@ def softdelete_portfolio_handler_mapping(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def delete_portfolio_handler_mappings_by_portfolio(portfolio_id: str, *argss, **kwargs):
+def delete_params(source_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
-    model = MPortfolioHandlerMapping
-    filters = [model.portfolio_id == portfolio_id]
+    model = MParam
+    filters = [model.source_id == id]
     try:
         stmt = delete(model).where(and_(*filters))
         session.execute(stmt)
         session.commit()
     except Exception as e:
         session.rollback()
-        print(e)
+        GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
 
 
-def softdelete_portfolio_handler_mappings_by_portfolio(portfolio_id: str, *argss, **kwargs):
+def softdelete_params(source_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
-    model = MPortfolioHandlerMapping
-    filters = [model.portfolio_id == portfolio_id]
-    try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord: id {ids} has more than one record.")
-        for i in query:
-            i.is_del = True
-            session.commit()
-    except Exception as e:
-        session.rollback()
-        print(e)
-    finally:
-        get_mysql_connection().remove_session()
-
-
-def update_portfolio_handler_mapping(
-    id: str,
-    portfolio_id: Optional[str] = None,
-    handler_id: Optional[str] = None,
-    type: Optional[EVENT_TYPES] = None,
-    name: Optional[str] = None,
-    *argss,
-    **kwargs,
-):
-    session = get_mysql_connection().session
-    model = MPortfolioHandlerMapping
-    filters = [model.uuid == id]
-    updates = {"update_at": datetime.datetime.now()}
-    if portfolio_id is not None:
-        updates["portfolio_id"] = portfolio_id
-    if handler_id is not None:
-        updates["handler_id"] = handler_id
-    if type is not None:
-        updates["type"] = type
-    if name is not None:
-        updates["name"] = name
+    model = MParam
+    filters = [model.source_id == id]
+    updates = {"is_del": True, "update_at": datetime.datetime.now()}
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
         session.execute(stmt)
@@ -128,39 +99,65 @@ def update_portfolio_handler_mapping(
         get_mysql_connection().remove_session()
 
 
-def get_portfolio_handler_mapping(
+def update_param(
+    id: str,
+    source_id: Optional[str] = None,
+    index: Optional[int] = None,
+    value: Optional[str] = None,
+    *argss,
+    **kwargs,
+):
+    session = get_mysql_connection().session
+    model = MParam
+    filters = [model.uuid == id]
+    updates = {"update_at": datetime.datetime.now()}
+    if source_id is not None:
+        updates["source_id"] = source_id
+    if index is not None:
+        updates["index"] = index
+    if value is not None:
+        updates["value"] = value
+    try:
+        stmt = update(model).where(and_(*filters)).values(updates)
+        session.execute(stmt)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def get_param(
     id: str,
     *args,
     **kwargs,
 ) -> pd.Series:
     session = get_mysql_connection().session
-    model = MPortfolioHandlerMapping
-    filters = [model.uuid == id]
+    model = MParam
+    filters = [model.uuid == id, model.is_del == False]
 
     try:
         stmt = session.query(model).filter(and_(*filters))
 
         df = pd.read_sql(stmt.statement, session.connection())
-        if df.shape[0] == 0:
-            return pd.DataFrame()
-        return df.iloc[0]
+        return df
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
-        return 0
+        return pd.DataFrame()
     finally:
         get_mysql_connection().remove_session()
 
 
-def get_portfolio_handler_mappings(
-    portfolio_id: str,
+def get_params(
+    source_id: str,
     *args,
     **kwargs,
-) -> pd.Series:
+) -> pd.DataFrame:
     session = get_mysql_connection().session
-    model = MPortfolioHandlerMapping
-    filters = [model.portfolio_id == portfolio_id, model.is_del == False]
+    model = MParam
+    filters = [model.source_id == source_id, model.is_del == False]
 
     try:
         stmt = session.query(model).filter(and_(*filters))
@@ -171,7 +168,6 @@ def get_portfolio_handler_mappings(
         return df
     except Exception as e:
         session.rollback()
-        print(e)
         GLOG.ERROR(e)
         return pd.DataFrame()
     finally:

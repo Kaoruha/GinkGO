@@ -5,6 +5,7 @@ from time import sleep
 import pandas as pd
 from ginkgo.data.sources import GinkgoTDX
 from ginkgo.data import *
+from ginkgo.libs import skip_if_ran
 
 
 class DataEntryPointTest(unittest.TestCase):
@@ -31,12 +32,12 @@ class DataEntryPointTest(unittest.TestCase):
     # def test_fetch_and_update_cn_tick(self):
     #     fetch_and_update_tick(code="600594.SH", fast_mode=True)
 
-    def test_engine_add(self):
-        from ginkgo.data import add_engine, get_engines
+    # def test_engine_add(self):
+    #     from ginkgo.data import add_engine, get_engines
 
-        df = get_engines(name="backtest_example")
-        if df.shape[0] == 0:
-            add_engine(name="backtest_example", is_live=False)
+    #     df = get_engines(name="backtest_example")
+    #     if df.shape[0] == 0:
+    #         add_engine(name="backtest_example", is_live=False)
 
     def test_engine_del(self):
         pass
@@ -50,10 +51,11 @@ class DataEntryPointTest(unittest.TestCase):
         df = get_engines()
         print(df)
 
-    def test_file_init(self):
-        from ginkgo.data import init_example_data
+    # @skip_if_ran
+    # def test_file_init(self):
+    #     from ginkgo.data import init_example_data
 
-        init_example_data()
+    #     init_example_data()
 
     def test_file_add(self):
         pass

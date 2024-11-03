@@ -89,7 +89,7 @@ def format_time_seconds(ttl):
 def skip_if_ran(func):
     from ginkgo.data.drivers import create_redis_connection
 
-    func_ran_expired = 10
+    func_ran_expired = 60 * 60
 
     @wraps(func)
     def wrapper(*args, **kwargs):
