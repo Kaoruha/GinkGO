@@ -11,11 +11,15 @@ class BaseFeeder(BacktestBase):
     Feed something like price info, news...
     """
 
-    def __init__(self, *args, **kwargs):
-        super(BaseFeeder, self).__init__(*args, **kwargs)
+    def __init__(self, name="basic_feeder", *args, **kwargs):
+        super(BaseFeeder, self).__init__(name, *args, **kwargs)
         self._subscribers = []  # Init subscribers
-        self._portfolio_interested_cache = {}
         self._engine_put = None
+        self._interested = []
+
+    @property
+    def interested(self) -> List:
+        return self._interested
 
     def put(self, event) -> None:
         """
@@ -30,9 +34,9 @@ class BaseFeeder(BacktestBase):
     def subscribers(self) -> List:
         return self._subscribers
 
-    def subscribe(self, guys: any) -> None:
-        # TODO Type Filter
-        self._subscribers.append(guys)
+    def add_subscriber(self, guy: any) -> None:
+        if guy not in self._subscribers:
+            self._subscribers.append(guy)
 
     def broadcast(self, *args, **kwargs) -> None:
         """
@@ -68,4 +72,12 @@ class BaseFeeder(BacktestBase):
         """
         # Time goes
         super(BaseFeeder, self).on_time_goes_by(time, *args, **kwargs)
-        self._portfolio_interested_cache = {}
+
+    def get_tracked_symbols(self, *args, **kwargs) -> None:
+        GLOG.CRITICAL(f"Get interested codes from {type(self)}")
+        self._interested = []
+        for i in self.subscribers:
+            codes = i.interested
+            for j in codes:
+                if j not in self._interested:
+                    self._interested.append(j)

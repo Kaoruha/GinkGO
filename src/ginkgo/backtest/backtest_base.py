@@ -19,7 +19,6 @@ class BacktestBase(object):
     """
 
     def __init__(self, name: str = "backtest_base", *args, **kwargs) -> None:
-        self._name: str = ""
         self._now: datetime.datetime = None
         self._engine_id: str = uuid.uuid4().hex
         self.set_name(str(name))
@@ -79,8 +78,8 @@ class BacktestBase(object):
             return
 
         if self._now is None:
-            GLOG.DEBUG(f"{self.name} Time Init: None --> {self._now}")
             self._now = time
+            GLOG.DEBUG(f"{self.name} Time Init: None --> {self._now}")
             return
 
         if time < self.now:

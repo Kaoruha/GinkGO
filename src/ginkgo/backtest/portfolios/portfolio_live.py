@@ -184,7 +184,10 @@ class PortfolioLive(BasePortfolio):
             return
 
         # 3. Transfer the order to risk_manager
-        order_adjusted = self.risk_manager.cal(order)
+        if self.risk_manager is not None:
+            order_adjusted = self.risk_manager.cal(order)
+        else:
+            order_adjusted = order
 
         # 4. Get the adjusted order, if so put eventorder to engine
         if order_adjusted is None:
@@ -194,26 +197,12 @@ class PortfolioLive(BasePortfolio):
             return
 
         # 5. Create order, stored into db, Here is also suggestions.
-        mo = MOrder()
-        mo.set(
-            order_adjusted.uuid,
-            order_adjusted.code,
-            order_adjusted.direction,
-            order_adjusted.type,
-            order_adjusted.status,
-            order_adjusted.volume,
-            order_adjusted.limit_price,
-            order_adjusted.frozen,
-            order_adjusted.transaction_price,
-            order_adjusted.remain,
-            order_adjusted.fee,
-            self.now,
-            self.engine_id,
-        )
-        GDATA.add(mo)
+        import pdb
 
+        pdb.set_trace()
+        event = EventOrderSubmitted(order_adjusted)
+        self.put(event)
         GNOTIFIER.beep()
-        self.record(RECORDSTAGE_TYPES.ORDERSEND)
 
     def on_price_update(self, event: EventPriceUpdate):
         """

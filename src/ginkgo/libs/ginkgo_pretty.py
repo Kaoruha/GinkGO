@@ -40,7 +40,7 @@ def pretty_repr(class_name: str, msg: list, width: int = None):
 
 
 def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs):
-    methods = ["delete", "query", "registry", "metadata", "to_dataframe"]
+    methods = ["delete", "query", "registry", "metadata", "to_dataframe", "value"]
     r = []
     count = 12
 
@@ -70,8 +70,17 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs):
         tmp += f"{str(param).upper()}"
         s = obj.__getattribute__(param)
         filter_s = str(s).strip(b"\x00".decode())
-        special_ins_param = ["engine", "matchmaking", "datafeeder", "portfolio", "selector", "risk_manager", "sizer"]
-        special_list_param = ["portfolios", "strategies", "interested"]
+        special_ins_param = [
+            "engine",
+            "matchmaking",
+            "datafeeder",
+            "portfolio",
+            "selector",
+            "risk_manager",
+            "sizer",
+            "data_feeder",
+        ]
+        special_list_param = ["portfolios", "strategies", "interested", "signals"]
         special_dict_param = ["positions", "analyzers"]
         if isinstance(s, pd.DataFrame):
             filter_s = f"{str(s.shape)}"
@@ -83,6 +92,12 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs):
             filter_s = f"{len(s)}"
         if isinstance(s, Enum):
             filter_s += f" : {s.value}"
+        if param == "subscribers":
+            filter_s = ""
+            for i in range(len(s)):
+                if i != 0:
+                    filter_s += ","
+                filter_s += s[i].name
         max_len = total_len - count - 6
         l = len(filter_s) + chinese_count(filter_s)
         if l > max_len:

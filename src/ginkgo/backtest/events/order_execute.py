@@ -7,9 +7,6 @@ class EventOrderExecute(EventOrderRelated):
     OrderFill may happened after submmit.
     """
 
-    def __init__(self, order_id: str = "", *args, **kwargs) -> None:
-        super(EventOrderExecute, self).__init__(*args, **kwargs)
+    def __init__(self, order, *args, **kwargs) -> None:
+        super(EventOrderExecute, self).__init__(order, *args, **kwargs)
         self.set_type(EVENT_TYPES.ORDEREXECUTE)
-        self._order = None
-        if order_id != "":
-            self._order_id = order_id

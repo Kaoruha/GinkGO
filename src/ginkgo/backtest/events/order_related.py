@@ -10,11 +10,11 @@ class EventOrderRelated(EventBase):
     Order Related Event
     """
 
-    def __init__(self, order_id: str = "", *args, **kwargs) -> None:
+    def __init__(self, order: Order, *args, **kwargs) -> None:
         super(EventOrderRelated, self).__init__(*args, **kwargs)
         self.set_type(EVENT_TYPES.OTHER)
-        self._order = None
-        self._order_id = order_id
+        self._order = order
+        self._order_id = order.uuid
 
     @property
     def order_id(self) -> str:
@@ -34,7 +34,7 @@ class EventOrderRelated(EventBase):
     def code(self):
         if self.value is None:
             return None
-        return self.value.code.strip(b"\x00".decode())
+        return self.value.code
 
     @property
     def direction(self):
@@ -85,6 +85,12 @@ class EventOrderRelated(EventBase):
         return self.value.transaction_price
 
     @property
+    def transaction_volume(self):
+        if self.value is None:
+            return None
+        return self.value.transaction_volume
+
+    @property
     def remain(self):
         if self.value is None:
             return None
@@ -97,10 +103,10 @@ class EventOrderRelated(EventBase):
         return self.value.fee
 
     @property
-    def backtest_id(self) -> str:
+    def portfolio_id(self) -> str:
         if self.value is None:
             return None
-        return self.value.backtest_id
+        return self.value.portfolio_id
 
     def __repr__(self):
-        return base_repr(self, EventOrderRelated.__name__, 16, 60)
+        return base_repr(self, EventOrderRelated.__name__, 24, 70)

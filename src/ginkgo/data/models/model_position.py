@@ -19,6 +19,7 @@ class MPosition(MMysqlBase):
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     volume: Mapped[int] = mapped_column(Integer, default=0)
+    frozen_volume: Mapped[int] = mapped_column(Integer, default=0)
     frozen: Mapped[int] = mapped_column(Integer, default=0)
     cost: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
 
@@ -32,6 +33,7 @@ class MPosition(MMysqlBase):
         portfolio_id: str,
         code: Optional[str] = None,
         volume: Optional[int] = None,
+        frozen_volume: Optional[int] = None,
         frozen: Optional[int] = None,
         cost: Optional[Number] = None,
         source: Optional[SOURCE_TYPES] = None,
@@ -43,6 +45,8 @@ class MPosition(MMysqlBase):
             self.code = str(code)
         if volume is not None:
             self.volume = int(volume)
+        if frozen_volume is not None:
+            self.frozen_volume = int(frozen_volume)
         if frozen is not None:
             self.frozen = frozen
         if cost is not None:
@@ -56,6 +60,7 @@ class MPosition(MMysqlBase):
         self.portfolio_id = df["portfolio_id"]
         self.code = df["code"]
         self.volume = df["volume"]
+        self.frozen_volume = df["frozen_volume"]
         self.frozen = df["frozen"]
         self.cost = to_decimal(df["cost"])
 

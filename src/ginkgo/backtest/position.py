@@ -5,7 +5,7 @@ from functools import singledispatchmethod
 from decimal import Decimal
 
 from ginkgo.backtest.base import Base
-from ginkgo.libs import base_repr
+from ginkgo.libs import base_repr, Number, to_decimal
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.data.models import MPosition
@@ -22,6 +22,7 @@ class Position(Base):
         code: str = "",
         cost: Union[float, Decimal] = 0.0,
         volume: int = 0,
+        frozen_volume: int = 0,
         price: Union[float, Decimal] = 0.0,
         frozen: int = 0,
         fee: Union[float, Decimal] = 0.0,
@@ -34,6 +35,7 @@ class Position(Base):
         self._code = code
         self._cost = cost if isinstance(cost, Decimal) else Decimal(str(cost))
         self._volume = volume
+        self._frozen_volume = frozen_volume
         self._frozen = frozen
         self._price = price if isinstance(price, Decimal) else Decimal(str(price))
         self._fee = fee if isinstance(fee, Decimal) else Decimal(str(fee))
@@ -54,6 +56,7 @@ class Position(Base):
         code: str,
         cost: Union[float, Decimal],
         volume: int,
+        frozen_volume: int,
         fee: Union[float, Decimal],
         uuid: Optional[str] = None,
         *args,
@@ -68,6 +71,7 @@ class Position(Base):
         self._price = price if isinstance(price, Decimal) else Decimal(str(price))
         self._cost = cost if isinstance(cost, Decimal) else Decimal(str(cost))
         self._volume = volume
+        self._frozen_volume = frozen_volume
         if uuid is not None:
             self._uuid = uuid
 
@@ -77,6 +81,7 @@ class Position(Base):
         self._code = df["code"]
         self._cost = df["cost"] if isinstance(df["cost"], Decimal) else Decimal(str(df["cost"]))
         self._volume = int(df["volume"])
+        self._frozen_volume = int(df["frozen_volume"])
         self._frozen = int(df["frozen"])
         self._fee = df["fee"] if isinstance(df["fee"], Decimal) else Decimal(str(df["fee"]))
         self._profit = float(df["profit"])
@@ -88,6 +93,7 @@ class Position(Base):
         self._code = model.code
         self._cost = model.cost
         self._volume = model.volume
+        self._frozen_volume = model.frozen_volume
         self._frozen = model.frozen
         self._fee = model.fee
         self._profit = model.profit
@@ -121,6 +127,16 @@ class Position(Base):
             GLOG.CRITICAL(f"Volume is not a int: {self._volume}")
             return 0
         return self._volume
+
+    @property
+    def frozen_volume(self, *args, **kwargs) -> int:
+        if self._frozen_volume < 0:
+            GLOG.CRITICAL(f"Frozen Volume is less than 0: {self._frozen_volume}")
+            return 0
+        if not isinstance(self._frozen_volume, (int, numpy.int64)):
+            GLOG.CRITICAL(f"Frozen Volume is not a int: {self._frozen_volume}")
+            return 0
+        return self._frozen_volume
 
     @property
     def worth(self, *args, **kwargs) -> float:
@@ -171,19 +187,19 @@ class Position(Base):
             return 0
         return self._frozen
 
-    def freeze(self, volume: int, *args, **kwargs) -> int:
+    def freeze(self, volume: int, *args, **kwargs) -> bool:
         """
         Freeze Position.
         """
         volume = int(volume)
         if volume > self.volume:
             GLOG.CRITICAL(f"POS {self.code} just has {self.volume} cant afford {volume}, please check your code")
-            return 0
+            return False
 
         self._volume -= volume
         self._frozen += volume
         GLOG.INFO(f"POS {self.code} freezed {volume}. Final volume:{self.volume} frozen: {self.frozen}")
-        return volume
+        return True
 
     def unfreeze(self, volume: int, *args, **kwargs) -> int:
         """
@@ -232,13 +248,13 @@ class Position(Base):
         """
         self._profit = (self.volume + self.frozen) * (self.price - self.cost) - self.fee
 
-    def _bought(self, price: float, volume: int, *args, **kwargs) -> int:
+    def _bought(self, price: Number, volume: int, *args, **kwargs) -> int:
         """
         Deal with long trade.
         return: volume of position.
         """
         volume = int(volume)
-        price = float(price)
+        price = to_decimal(price)
         if price < 0 or volume < 0:
             GLOG.ERROR(f"Illegal price:{price} or volume:{volume}")
             return
@@ -251,7 +267,6 @@ class Position(Base):
             return
         else:
             self._cost = (old_price * old_volume + price * volume) / self.volume
-            self._cost = round(self._cost, 4)
         self.on_price_update(price)
 
         # Check cost
@@ -263,7 +278,7 @@ class Position(Base):
             GLOG.CRITICAL(f"Cost is not a DECIMAL: {self._cost}")
             return
         GLOG.DEBUG(
-            f"POS {self.code} add {volume} at {price}. Final price: {price}, volume: {self.volume}, frozen: {self.frozen}"
+            f"POS {self.code} add {volume} at ${price}. Final price: ${price}, volume: {self.volume}, cost: ${self.cost}, frozen: {self.frozen_volume}"
         )
         return self.volume
 

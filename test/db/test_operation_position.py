@@ -28,6 +28,7 @@ class OperationPositionTest(unittest.TestCase):
                 "portfolio_id": uuid.uuid4().hex,
                 "code": uuid.uuid4().hex,
                 "volume": random.randint(1, 100),
+                "frozen_volume": random.randint(1, 100),
                 "frozen": random.randint(1, 100),
                 "cost": decimal.Decimal(str(round(random.uniform(0, 100), 2))),
             }
@@ -80,6 +81,7 @@ class OperationPositionTest(unittest.TestCase):
             params_copy["portfolio_id"] = uuid.uuid4().hex
             params_copy["code"] = uuid.uuid4().hex
             params_copy["volume"] = random.randint(1, 100)
+            params_copy["frozen_volume"] = random.randint(1, 100)
             params_copy["frozen"] = random.randint(1, 100)
             params_copy["cost"] = random.uniform(0, 100)
 
@@ -98,6 +100,7 @@ class OperationPositionTest(unittest.TestCase):
             params_copy["portfolio_id"] = uuid.uuid4().hex
             params_copy["code"] = uuid.uuid4().hex
             params_copy["volume"] = random.randint(1, 100)
+            params_copy["frozen_volume"] = random.randint(1, 100)
             params_copy["frozen"] = random.randint(1, 100)
             params_copy["cost"] = random.uniform(0, 100)
 
@@ -127,6 +130,12 @@ class OperationPositionTest(unittest.TestCase):
             pos = get_position(res["uuid"])
             self.assertEqual(new_volume, pos.volume)
 
+            # Update frozen volume
+            new_frozen_volume = random.randint(1, 100)
+            update_position(res["uuid"], frozen_volume=new_frozen_volume)
+            pos = get_position(res["uuid"])
+            self.assertEqual(new_frozen_volume, pos.frozen_volume)
+
             # update cost
             new_cost = decimal.Decimal(str(round(random.uniform(0, 100), 2)))
             update_position(res["uuid"], cost=new_cost)
@@ -151,6 +160,14 @@ class OperationPositionTest(unittest.TestCase):
             update_position_by_portfolio_and_code(portfolio_id=res["portfolio_id"], code=res["code"], volume=new_volume)
             df = get_position(res["uuid"], as_dataframe=True).iloc[0]
             self.assertEqual(new_volume, df["volume"])
+
+            # Update volume
+            new_frozen_volume = random.randint(1, 100)
+            update_position_by_portfolio_and_code(
+                portfolio_id=res["portfolio_id"], code=res["code"], frozen_volume=new_frozen_volume
+            )
+            df = get_position(res["uuid"], as_dataframe=True).iloc[0]
+            self.assertEqual(new_frozen_volume, df["frozen_volume"])
 
             # update cost
             new_cost = round(random.uniform(0, 100), 2)
@@ -177,6 +194,7 @@ class OperationPositionTest(unittest.TestCase):
             self.assertEqual(res["portfolio_id"], pos.portfolio_id)
             self.assertEqual(res["code"], pos.code)
             self.assertEqual(res["volume"], pos.volume)
+            self.assertEqual(res["frozen_volume"], pos.frozen_volume)
             self.assertEqual(res["frozen"], pos.frozen)
             self.assertEqual(res["cost"], pos.cost)
 
@@ -192,6 +210,7 @@ class OperationPositionTest(unittest.TestCase):
             self.assertEqual(res["portfolio_id"], df.portfolio_id)
             self.assertEqual(res["code"], df.code)
             self.assertEqual(res["volume"], df.volume)
+            self.assertEqual(res["frozen_volume"], df["frozen_volume"])
             self.assertEqual(res["frozen"], df.frozen)
             self.assertEqual(res["cost"], decimal.Decimal(str(df.cost)))
 

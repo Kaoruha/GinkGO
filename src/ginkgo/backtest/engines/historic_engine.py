@@ -93,31 +93,45 @@ class HistoricEngine(EventEngine):
         GLOG.INFO(f"{self.name} Main Loop End.")
 
     def next_phase(self, *args, **kwargs) -> None:
+        if self.now is None and self.start_date is None:
+            GLOG.CRITICAL("Check the code. There is no start_date or now.")
+            self.stop()
+            sys.exit(0)
         if self.now is None:
             self._now = datetime_normalize(self.start_date)
 
         # Exit Condition
-        if self.now >= self.end_date:
-            self._empty_count += 1
-            if self._empty_count >= self.max_waits:
-                self.stop()
-                # Exit the programe
-                sys.exit(0)
-            return
-        self._now = self.now + self._backtest_interval
+        try:
+            if self.now >= self.end_date:
+                self._empty_count += 1
+                if self._empty_count >= self.max_waits:
+                    self.stop()
+                    # Exit the programe
+                    sys.exit(0)
+                return
+            self._now = self.now + self._backtest_interval
+        except Exception as e:
+            import pdb
+
+            pdb.set_trace
+            print(e)
 
         if self.matchmaking is None:
             GLOG.WARN(f"There is no matchmaking binded.")
-        else:
-            self.matchmaking.on_time_goes_by(self.now)
+            self.stop()
+            sys.exit(0)
+        self.matchmaking.on_time_goes_by(self.now)
 
         if self.datafeeder is None:
             GLOG.WARN(f"There is no datafeeder.")
-        else:
-            self.datafeeder.on_time_goes_by(self.now)
+            self.stop()
+            sys.exit(0)
+        self.datafeeder.on_time_goes_by(self.now)
 
         if len(self.portfolios) == 0:
             GLOG.WARN(f"There is no portfolio binded. There is no meaning.")
+            self.stop()
+            sys.exit(0)
         else:
             GLOG.INFO(f"Engine:{self.name} Go NextDay {self.now}.")
             for i in self.portfolios:

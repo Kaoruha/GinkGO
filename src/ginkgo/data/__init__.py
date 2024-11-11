@@ -1,9 +1,9 @@
-import pandas as pd
 import os
 import inspect
 import math
 import datetime
 import time
+import pandas as pd
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TimeElapsedColumn, TimeRemainingColumn, TextColumn
 
@@ -488,6 +488,7 @@ def init_example_data(*args, **kwargs):
     df = get_engines(name=example_engine_name)
     if df.shape[0] > 1:
         delete_engines(ids=df["uuid"].values.tolist())
+        time.sleep(1)
         console.print(f":sun:  [light_coral]DELETE[/] Example engines.")
     engine_df = add_engine(name=example_engine_name, is_live=False)
 
@@ -538,7 +539,15 @@ def init_example_data(*args, **kwargs):
     if df.shape[0] > 1:
         delete_portfolios(ids=df["uuid"].values.tolist())
         console.print(f":sun:  [light_coral]DELETE[/] Example portfolios.")
-    time.sleep(0.2)
+        with console.status(f"[bold green]Waiting for DELETING ...[/]") as status:
+            while True:
+                time.sleep(1)
+                df = get_portfolios(example_portfolio_name)
+                if df.shape[0] > 0:
+                    time.sleep(.2)
+                else:
+                    break
+            status.stop()
     portfolio_df = add_portfolio(
         name=example_portfolio_name, backtest_start_date="2020-01-01", backtest_end_date="2021-01-01", is_live=False
     )
@@ -551,7 +560,7 @@ def init_example_data(*args, **kwargs):
     print(engine_portfolio_mapping)
     console.print(f":sun:  [medium_spring_green]CREATE[/] Example engine portfolio mapping.")
     # Portfolio File Mapping
-    strategy_names = ["volume_activate", "loss_limit"]
+    strategy_names = ["random_choice", "loss_limit"]
     for i in strategy_names:
         raw_files = get_files(name=i)
         file_id = raw_files.iloc[0]["uuid"]
@@ -565,12 +574,11 @@ def init_example_data(*args, **kwargs):
             portfolio_id=portfolio_df["uuid"], file_id=file_id, name=name, type=FILE_TYPES.STRATEGY
         )
         print(f"add new_portfolio_file_mapping: {new_portfolio_file_mapping}")
-        if i == "volume_activate":
-            add_param(new_portfolio_file_mapping["uuid"], 0, "ExampleVolumeActivate")
-            add_param(new_portfolio_file_mapping["uuid"], 1, "11")
+        if i == "random_choice":
+            add_param(new_portfolio_file_mapping["uuid"], 0, "ExampleRandomChoice")
         if i == "loss_limit":
             add_param(new_portfolio_file_mapping["uuid"], 0, "ExampleLossLimit")
-            add_param(new_portfolio_file_mapping["uuid"], 1, "13")
+            add_param(new_portfolio_file_mapping["uuid"], 1, "13.5")
     time.sleep(1)
     df = get_files()
     import json
@@ -654,11 +662,12 @@ def get_instance_by_file(file_id: str, mapping_id: str, file_type: FILE_TYPES):
     if len(content) == 0:
         return
     # 直接在全局作用域中执行 exec
-    exec(content.decode("utf-8"), globals())
+    namespace = {}
+    exec(content.decode("utf-8"), namespace)
+    # exec(content.decode("utf-8"), globals())
 
-    # 检查是否已定义 `StrategyLossLimit` 类
     classes = [
-        cls for cls in globals().values() if isinstance(cls, type) and cls_base_mapping[file_type] in cls.__bases__
+        cls for cls in namespace.values() if isinstance(cls, type) and cls_base_mapping[file_type] in cls.__bases__
     ]
     if len(classes) == 0:
         raise ValueError(f"未找到任何 {cls_base_mapping[file_type]} 的子类")
@@ -666,10 +675,10 @@ def get_instance_by_file(file_id: str, mapping_id: str, file_type: FILE_TYPES):
     params = get_params_by_file(mapping_id)
     try:
         ins = cls(*params)  # 实例化类
+        print(params)
+        print(ins)
         if file_type == FILE_TYPES.ANALYZER:
             ins.set_analyzer_id(file_id)
-        print(ins)
-
         return ins
     except Exception as e:
         # DEBUG

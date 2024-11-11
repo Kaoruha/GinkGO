@@ -1,9 +1,12 @@
+import datetime
+import uuid
+from decimal import Decimal
 from ginkgo.backtest.sizers.base_sizer import BaseSizer
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.signal import Signal
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.libs import GLOG, to_decimal
+from ginkgo.data import get_bars
 
 
 class FixedSizer(BaseSizer):
@@ -19,36 +22,69 @@ class FixedSizer(BaseSizer):
     def volume(self) -> float:
         return self._volume
 
-    def cal(self, signal: Signal):
+    def calculate_order_size(self, initial_size: int, last_price: Decimal, cash: Decimal, *args, **kwargs) -> int:
+        size = initial_size
+        while size > 0:
+            last_price = to_decimal(last_price)
+            planned_cost = last_price * size * Decimal("1.1")
+            if cash >= planned_cost:
+                return (size, planned_cost)
+            size -= 100
+        return (0, 0)
+
+    def cal(self, portfolio_info, signal: Signal, *args, **kwargs):
+        print("FixedSizer try generated order.")
         code = signal.code
-        df = GDATA.get_daybar_df(code, signal.timestamp, signal.timestamp)
-        if df.shape[0] == 0:
+        direction = signal.direction
+
+        # Check if the position exists
+        if direction == DIRECTION_TYPES.SHORT and code not in portfolio_info["positions"].keys():
+            GLOG.DEBUG(f"Position {code} does not exist. Skip short signal. {self.now}")
             return
-        close = df.loc[0].close
-        max_price = close * 1.1
         o = Order()
-        v = 0
+        print("init order.")
         if signal.direction == DIRECTION_TYPES.LONG:
+            last_month_day = self.now + datetime.timedelta(days=-30)
+            yester_day = self.now + datetime.timedelta(days=-1)
+            past_price = get_bars(code, start_date=last_month_day, end_date=yester_day, as_dataframe=True)
+            print("price")
+            print(past_price)
+            if past_price.shape[0] == 0:
+                GLOG.CRITICAL(
+                    f"{code} has no data from {last_month_day} to {yester_day}.It should not happened. {self.now}"
+                )
+                return
+            last_price = past_price.iloc[-1]["close"]
+            last_price = round(last_price, 2)
+            last_price = Decimal(str(last_price))
+            cash = portfolio_info["cash"]
+            planned_size, planned_cost = self.calculate_order_size(self._volume, last_price, cash)
+            print(f"planned_size: {planned_size}, planned_cost: {planned_cost}.")
+            if planned_size == 0:
+                return None
             o.set(
-                signal.code,
-                DIRECTION_TYPES.LONG,
-                ORDER_TYPES.MARKETORDER,
-                ORDERSTATUS_TYPES.NEW,
-                volume=self._volume,
+                code,
+                direction=DIRECTION_TYPES.LONG,
+                type=ORDER_TYPES.MARKETORDER,
+                status=ORDERSTATUS_TYPES.NEW,
+                volume=planned_size,
                 limit_price=0,
-                frozen=round(max_price * self._volume, 4),
+                frozen=planned_cost,
                 transaction_price=0,
+                transaction_volume=0,
                 remain=0,
                 fee=0,
                 timestamp=self.now,
+                order_id=uuid.uuid4().hex,
+                portfolio_id=portfolio_info["uuid"]
             )
         elif signal.direction == DIRECTION_TYPES.SHORT:
-            # pos = self.portfolio.get_position(code)
+            pos = portfolio_info["positions"].get(code)
             if pos is None:
                 return
-            GLOG.WARN("Try Generate SHORT ORDER.")
+            GLOG.WARN("Try Generate SHORT ORDER. {self.now}")
             o.set(
-                signal.code,
+                code,
                 DIRECTION_TYPES.SHORT,
                 ORDER_TYPES.MARKETORDER,
                 ORDERSTATUS_TYPES.NEW,
@@ -56,8 +92,11 @@ class FixedSizer(BaseSizer):
                 limit_price=0,
                 frozen=0,
                 transaction_price=0,
+                transaction_volume=0,
                 remain=0,
                 fee=0,
                 timestamp=self.now,
+                order_id=uuid.uuid4().hex,
+                portfolio_id=portfolio_info["uuid"],
             )
         return o
