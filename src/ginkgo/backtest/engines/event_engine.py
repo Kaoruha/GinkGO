@@ -84,9 +84,8 @@ class EventEngine(BaseEngine):
         GLOG.DEBUG(f"{type(self)}:{self.name} bind PORTFOLIO {portfolio.name}.")
         portfolio.bind_engine(self)
         GLOG.DEBUG(f"{type(self)}:{self.name} has {len(self._portfolios)} PORTFOLIOs.")
-        if self._datafeeder is None:
-            return
-        portfolio.bind_datafeeder(self._datafeeder)
+        if self._datafeeder is not None:
+            portfolio.bind_data_feeder(self._datafeeder)
 
     def main_loop(self, *args, **kwargs) -> None:
         raise NotImplementedError("Mainloop need override.")

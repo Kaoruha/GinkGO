@@ -15,12 +15,20 @@ def add_position(
     portfolio_id: str,
     code: str,
     volume: int,
+    frozen_volume: int,
     cost: Number,
     frozen: int,
     *args,
     **kwargs,
 ) -> pd.Series:
-    item = MPosition(portfolio_id=portfolio_id, code=code, volume=volume, cost=to_decimal(cost), frozen=frozen)
+    item = MPosition(
+        portfolio_id=portfolio_id,
+        code=code,
+        volume=volume,
+        frozen_volume=frozen_volume,
+        cost=to_decimal(cost),
+        frozen=frozen,
+    )
     res = add(item)
     df = res.to_dataframe()
     get_mysql_connection().remove_session()
@@ -115,6 +123,7 @@ def update_position(
     portfolio_id: Optional[str] = None,
     code: Optional[str] = None,
     volume: Optional[int] = None,
+    frozen_volume: Optional[int] = None,
     frozen: Optional[int] = None,
     cost: Optional[float] = None,
     *args,
@@ -130,6 +139,8 @@ def update_position(
         updates["code"] = code
     if volume is not None:
         updates["volume"] = volume
+    if frozen_volume is not None:
+        updates["frozen_volume"] = frozen_volume
     if frozen is not None:
         updates["frozen"] = frozen
     if cost is not None:
@@ -149,6 +160,7 @@ def update_position_by_portfolio_and_code(
     portfolio_id: str,
     code: str,
     volume: Optional[int] = None,
+    frozen_volume: Optional[int] = None,
     frozen: Optional[int] = None,
     cost: Optional[float] = None,
     *args,
@@ -160,6 +172,8 @@ def update_position_by_portfolio_and_code(
     updates = {"update_at": datetime.datetime.now()}
     if volume is not None:
         updates["volume"] = volume
+    if frozen_volume is not None:
+        updates["frozen_volume"] = frozen_volume
     if frozen is not None:
         updates["frozen"] = frozen
     if cost is not None:

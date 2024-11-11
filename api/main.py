@@ -76,9 +76,7 @@ async def fetch_record(backtest_id: str = "", analyzer_id: str = ""):
 
 @app.get("/api/v1/order")
 async def fetch_order(backtest_id: str = "", date: str = ""):
-    df = GDATA.get_order_df_by_backtest_and_date_range_pagination(
-        backtest_id, date, date, 0, 1000
-    )
+    df = GDATA.get_order_df_by_backtest_and_date_range_pagination(backtest_id, date, date, 0, 1000)
     if df.shape[0] == 0:
         return []
     res = df.to_dict(orient="records")
@@ -97,9 +95,7 @@ async def fetch_order_filled(backtest_id: str = "", code: str = ""):
 @app.get("/api/v1/signal")
 async def fetch_signal(backtest_id: str = "", date: str = "", code: str = ""):
     if code == "":
-        df = GDATA.get_signal_df_by_backtest_and_date_range_pagination(
-            backtest_id, date, date, 0, 1000
-        )
+        df = GDATA.get_signal_df_by_backtest_and_date_range_pagination(backtest_id, date, date, 0, 1000)
     else:
         df = GDATA.get_signal_df_by_backtest_and_code_pagination(
             backtest_id, code, GCONF.DEFAULTSTART, GCONF.DEFAULTEND, 0, 2000

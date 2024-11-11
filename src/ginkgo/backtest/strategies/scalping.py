@@ -18,8 +18,11 @@ class StrategyScalping(StrategyBase):
         super(StrategyScalping, self).__init__(5, name, *args, **kwargs)
         self.set_name(name)
 
-    def cal(self, portfolio, event, *args, **kwargs):
-        super(StrategyProfitLimit, self).cal(portfolio, event)
+    def cal(self, portfolio_info, event, *args, **kwargs):
+        import pdb
+
+        pdb.set_trace()
+        super(StrategyProfitLimit, self).cal(portfolio_info, event)
         code = bar.code
         if code in portfolio.positions.keys():
             position = portfolio.positions[code]

@@ -5,6 +5,7 @@ from ginkgo.backtest.signal import Signal
 from ginkgo.backtest.strategies.base_strategy import StrategyBase
 from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.data import get_bars
 
 
 class StrategyVolumeActivate(StrategyBase):
@@ -12,34 +13,29 @@ class StrategyVolumeActivate(StrategyBase):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, name: str = "VolumeActivate", spans: int = 20, *args, **kwargs):
-        super(StrategyVolumeActivate, self).__init__(spans=spans, name=name, *args, **kwargs)
-        self._volume_mean = 0
-        self._volume_std = 0
+    def __init__(self, name: str = "VolumeActivate", spans: str = "20", *args, **kwargs):
+        super(StrategyVolumeActivate, self).__init__(name, *args, **kwargs)
+        self._spans = int(spans)
         self.win = 0
         self.loss = 0
 
-    def cal(self, portfolio, event, *args, **kwargs):
-        super(StrategyVolumeActivate, self).cal(portfolio, event)
-        return
-        # df = GDATA.get_daybar_df(
-        #     code, self.now - datetime.timedelta(days=self.attention_spans), self.now
-        # )
-
-        # if df.shape[0] == 0:
-        #     return
-        # self._volume_mean = df["volume"].mean()
-        # self._volume_std = df["volume"].std()
-
-        # r = df["volume"].iloc[-1] / self._volume_mean
-        # if r < 0.67 and r > 0.6:
-        #     GLOG.INFO(f"Will Gen Signal about {code}")
-        #     signal = Signal()
-        #     signal.set_source(SOURCE_TYPES.STRATEGY)
-        #     signal.set(
-        #         code,
-        #         DIRECTION_TYPES.LONG,
-        #         self.portfolio.now,
-        #         self.backtest_id,
-        #     )
-        #     return signal
+    def cal(self, portfolio_info, event, *args, **kwargs):
+        super(StrategyVolumeActivate, self).cal(portfolio_info, event)
+        date_start = self.now + datetime.timedelta(days=-self._spans)
+        date_end = self.now
+        df = get_bars(event.code, date_start, date_end, as_dataframe=True)
+        if df.shape[0] == 0:
+            return
+        mean = df["volume"].mean()
+        std = df["volume"].std()
+        r = df["volume"].iloc[-1] / mean
+        if r < 0.67 and r > 0.6:
+            GLOG.INFO(f"Gen Signal about {code} from {self.name}")
+            s = Signal(
+                portfolio_id=portfolio_info["uuid"],
+                timestamp=portfolio_info["now"],
+                code=code,
+                direction=DIRECTION_TYPES.LONG,
+                source=SOURCE_TYPES.STRATEGY,
+            )
+            return signal

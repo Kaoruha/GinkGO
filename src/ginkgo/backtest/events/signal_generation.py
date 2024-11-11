@@ -1,6 +1,7 @@
 from ginkgo.backtest.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES
 from ginkgo.backtest.signal import Signal
+from ginkgo.libs import base_repr
 
 
 class EventSignalGeneration(EventBase):
@@ -15,9 +16,6 @@ class EventSignalGeneration(EventBase):
 
     @property
     def code(self):
-        import pdb
-
-        pdb.set_trace()
         return self.value.code
 
     @property
@@ -27,3 +25,6 @@ class EventSignalGeneration(EventBase):
     @property
     def timestamp(self):
         return self.value.timestamp
+
+    def __repr__(self):
+        return base_repr(self, EventSignalGeneration.__name__, 16, 60)

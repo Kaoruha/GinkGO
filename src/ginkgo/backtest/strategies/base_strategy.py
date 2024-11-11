@@ -14,8 +14,8 @@ class StrategyBase(BacktestBase):
         self._data_feeder = feeder
 
     @property
-    def raw(self):
-        return self._raw
+    def data_feeder(self):
+        return self._data_feeder
 
     def cal(self, portfolio_info, event, *args, **kwargs) -> Signal:
         pass

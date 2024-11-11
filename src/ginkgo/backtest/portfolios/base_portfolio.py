@@ -51,13 +51,13 @@ class BasePortfolio(BacktestBase):
         self._interested: List = []
         self._engine_put = None
 
-    def bind_datafeeder(self, feeder, *args, **kwargs):
+    def bind_data_feeder(self, feeder, *args, **kwargs):
         if self._sizer is not None:
-            self._sizer.bind_datafeeder(feeder)
+            self._sizer.bind_data_feeder(feeder)
         if self._selector is not None:
-            self._selector.bind_datafeeder(feeder)
+            self._selector.bind_data_feeder(feeder)
         for i in self._strategies:
-            i.bind_datafeeder(feeder)
+            i.bind_data_feeder(feeder)
 
     def put(self, event) -> None:
         """
@@ -100,7 +100,7 @@ class BasePortfolio(BacktestBase):
 
     @property
     def profit(self) -> Decimal:
-        return self._profit
+        return round(self._profit, 2)
 
     def update_profit(self) -> None:
         """
@@ -207,12 +207,12 @@ class BasePortfolio(BacktestBase):
             GLOG.ERROR(f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first.")
             return False
 
-        if self.risk_manager is None:
-            GLOG.WARN(f"Portfolio RiskManager not set. Backtest will go on but can not adjust order.")
-
         if self.selector is None:
             GLOG.ERROR(f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first.")
             return False
+
+        if self.risk_manager is None:
+            GLOG.WARN(f"Portfolio RiskManager not set. Backtest will go on without Risk Control.")
 
         if len(self.strategies) == 0:
             GLOG.ERROR(f"No strategy register. No signal will come.")
@@ -303,7 +303,7 @@ class BasePortfolio(BacktestBase):
         Return:
             None
         """
-        money = todeciy(money)
+        money = to_decimal(money)
         if money >= self.cash:
             GLOG.WARN(f"We cant freeze {money}, we only have {self.cash}.")
             return False
@@ -408,7 +408,7 @@ class BasePortfolio(BacktestBase):
     def get_position(self, code: str) -> Position:
         raise NotImplemented
 
-    def on_price_update(self, price: Bar) -> Position:
+    def on_price_recived(self, price: Bar) -> Position:
         raise NotImplemented
 
     def on_signal(self, code: str) -> Order:
@@ -426,13 +426,12 @@ class BasePortfolio(BacktestBase):
         """
         super(BasePortfolio, self).on_time_goes_by(time, *args, **kwargs)
         # TODO
-        return
         if not self.is_all_set():
             GLOG.WARN(f"{time} comes. But portfolio:{self.name} is no ready.")
             return
         self.sizer.on_time_goes_by(time)
-        codes = self.selector.pick()
 
+        codes = self.selector.pick()
         for code in codes:
             self._interested.append(code)
 
@@ -440,7 +439,7 @@ class BasePortfolio(BacktestBase):
             self.analyzers[analyzer_key].on_time_goes_by(time)
 
         for strategy in self.strategies:
-            strategy.value.on_time_goes_by(time, *args, **kwargs)
+            strategy.on_time_goes_by(time, *args, **kwargs)
 
         self.update_profit()
         self.update_worth()
@@ -510,3 +509,16 @@ class BasePortfolio(BacktestBase):
             return True
         finally:
             pass
+
+    def get_info(self) -> Dict:
+        info = {
+            "name": self.name,
+            "now": self.now,
+            "uuid": self.uuid,
+            "cash": self.cash,
+            "frozen": self.frozen,
+            "profit": self.profit,
+            "worth": self.worth,
+            "positions": self.positions,
+        }
+        return info

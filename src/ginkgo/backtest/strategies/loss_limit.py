@@ -1,4 +1,8 @@
+from decimal import Decimal
 from ginkgo.backtest.strategies.base_strategy import StrategyBase
+from ginkgo.backtest.signal import Signal
+from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
 
 class StrategyLossLimit(StrategyBase):
@@ -13,24 +17,21 @@ class StrategyLossLimit(StrategyBase):
         *args,
         **kwargs,
     ):
-        from ginkgo.backtest.signal import Signal
-        from ginkgo.libs.ginkgo_logger import GLOG
-        from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
         super(StrategyLossLimit, self).__init__(5, name, *args, **kwargs)
-        self._loss_limit = int(loss_limit)
-        self.set_name(f"{name}{self.loss_limit}Per")
+        self._loss_limit = Decimal(loss_limit)
+        self.set_name(f"{name}_{self.loss_limit}")
 
     @property
     def loss_limit(self) -> int:
         return self._loss_limit
 
-    def cal(self, portfolio, event, *args, **kwargs):
-        super(StrategyLossLimit, self).cal(portfolio, event)
+    def cal(self, portfolio_info, event, *args, **kwargs):
+        super(StrategyLossLimit, self).cal(portfolio_info, event)
         code = event.code
-        if code not in portfolio.positions.keys():
+        if code not in portfolio_info["positions"].keys():
             return
-        position = portfolio.positions[code]
+        position = portfolio_info["positions"][code]
         cost = position.cost
         price = position.price
         ratio = price / cost
@@ -38,9 +39,10 @@ class StrategyLossLimit(StrategyBase):
         GLOG.DEBUG(f"Limit: {1 - self.loss_limit/100}, Price: {price}, Cost: {cost}, Ratio: {ratio}")
         if ratio < 1 - self.loss_limit / 100:
             s = Signal(
+                portfolio_id=portfolio_info["uuid"],
+                timestamp=portfolio_info["now"],
                 code=code,
                 direction=DIRECTION_TYPES.SHORT,
-                backtest_id=self.backtest_id,
-                # timestamp=self.portfolio.now,
+                source=SOURCE_TYPES.STRATEGY,
             )
             return s

@@ -27,6 +27,7 @@ class ModelPositionTest(unittest.TestCase):
                 "portfolio_id": uuid.uuid4().hex,
                 "code": uuid.uuid4().hex,
                 "volume": random.randint(0, 1000),
+                "frozen_volume": random.randint(0, 1000),
                 "frozen": Decimal(str(round(random.uniform(0, 20), 2))),
                 "cost": Decimal(str(round(random.uniform(0, 20), 2))),
             }
@@ -39,6 +40,7 @@ class ModelPositionTest(unittest.TestCase):
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.volume, i["volume"])
+            self.assertEqual(o.volume, i["frozen_volume"])
             self.assertEqual(o.cost, i["cost"])
 
     def test_ModelPosition_SetFromData(self) -> None:
@@ -56,6 +58,10 @@ class ModelPositionTest(unittest.TestCase):
             o.update(i["portfolio_id"], volume=i["volume"])
             self.assertEqual(o.volume, i["volume"])
 
+            # Update frozen_volume
+            o.update(i["portfolio_id"], volume=i["frozen_volume"])
+            self.assertEqual(o.frozen_volume, i["frozen_volume"])
+
             # Update cost
             o.update(i["portfolio_id"], cost=i["cost"])
             self.assertEqual(o.cost, i["cost"])
@@ -63,10 +69,11 @@ class ModelPositionTest(unittest.TestCase):
         # Update all
         for i in self.params:
             o = self.model()
-            o.update(i["portfolio_id"], code=i["code"], volume=i["volume"], cost=i["cost"])
+            o.update(i["portfolio_id"], code=i["code"], volume=i["volume"],frozen_volume=i['frozen_volume'] cost=i["cost"])
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.volume, i["volume"])
+            self.assertEqual(o.frozen_volume, i["frozen_volume"])
             self.assertEqual(o.cost, i["cost"])
 
     def test_ModelPosition_SetFromDataFrame(self) -> None:
@@ -77,4 +84,5 @@ class ModelPositionTest(unittest.TestCase):
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.volume, i["volume"])
+            self.assertEqual(o.frozen_volume, i["frozen_volume"])
             self.assertEqual(o.cost, i["cost"])

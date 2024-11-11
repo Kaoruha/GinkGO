@@ -26,6 +26,16 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
     engine = HistoricEngine(engine_data["name"])
     engine.engine_id = engine_id
 
+    # Sim Match
+    match = MatchMakingSim()
+    engine.bind_matchmaking(match)
+    engine.register(EVENT_TYPES.ORDERSUBMITTED, match.on_order_received)
+    engine.register(EVENT_TYPES.PRICEUPDATE, match.on_price_received)
+    # Data Feeder
+    feeder = BacktestFeeder("ExampleFeeder")
+    engine.bind_datafeeder(feeder)
+    engine.register_time_hook(feeder.broadcast)
+
     # Get Portfolios
     portfolio_mapping = get_engine_portfolio_mappings(engine_id)
     if portfolio_mapping.shape[0] == 0:
@@ -64,9 +74,6 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
         )
         if len(strategies) == 0:
             GLOG.CRITICAL(f"No strategy found for portfolio {portfolio_id}.")
-            import pdb
-
-            pdb.set_trace()
             return
         for i in strategies:
             portfolio.add_strategy(i)
@@ -93,7 +100,7 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
             return
         portfolio.bind_sizer(sizer)
         # Add Analyzer
-        GLOG.DEBUG("Add Analyzer")
+        GLOG.DEBUG("Add Analyzer.")
         analyzers = get_trading_system_components_by_portfolio(portfolio_id=portfolio_id, file_type=FILE_TYPES.ANALYZER)
         if len(analyzers) == 0:
             GLOG.ERROR(f"No analyzer found for portfolio {portfolio_id}.")
@@ -107,20 +114,13 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
         GLOG.DEBUG("Bind")
         engine.bind_portfolio(portfolio)
         # Register
-        engine.register(EVENT_TYPES.PRICEUPDATE, portfolio.on_price_update)
+        engine.register(EVENT_TYPES.PRICEUPDATE, portfolio.on_price_received)
         engine.register(EVENT_TYPES.ORDERFILLED, portfolio.on_order_filled)
         engine.register(EVENT_TYPES.ORDERCANCELED, portfolio.on_order_canceled)
         engine.register(EVENT_TYPES.SIGNALGENERATION, portfolio.on_signal)
 
-        # Sim Match
-        match = MatchMakingSim()
-        engine.bind_matchmaking(match)
-        engine.register(EVENT_TYPES.ORDERSUBMITTED, match.on_order_received)
-        # Data Feeder
-        feeder = BacktestFeeder()
-        engine.bind_datafeeder(feeder)
-        print(1)
-        print(1)
+        # Regist to feeder
+        feeder.add_subscriber(portfolio)
 
     print("++++++++++")
     print("Final:")

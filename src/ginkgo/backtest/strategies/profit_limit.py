@@ -18,10 +18,13 @@ class StrategyProfitLimit(StrategyBase):
     ):
         super(StrategyProfitLimit, self).__init__(5, name, *args, **kwargs)
         self._profit_limit = int(profit_limit)
-        self.set_name(f"{name}{self.profit_limit}Per")
+        self.set_name(f"{name}_{self.profit_limit}")
 
-    def cal(self, portfolio, event, *args, **kwargs):
-        super(StrategyProfitLimit, self).cal(portfolio, event)
+    def cal(self, portfolio_info, event, *args, **kwargs):
+        import pdb
+
+        pdb.set_trace()
+        super(StrategyProfitLimit, self).cal(portfolio_info, event)
         code = event.code
         if code not in portfolio.positions.keys():
             return

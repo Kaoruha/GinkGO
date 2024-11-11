@@ -63,6 +63,10 @@ class SOURCE_TYPES(EnumBase):
     YAHOO = 6
     TUSHARE = 7
     TDX = 8
+    DATABASE = 9
+    BACKTESTFEEDER = 10
+    STRATEGY = 11
+    SIMMATCH = 12
 
 
 class DIRECTION_TYPES(EnumBase):

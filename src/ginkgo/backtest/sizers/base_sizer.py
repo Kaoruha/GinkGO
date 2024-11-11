@@ -1,5 +1,6 @@
 from ginkgo.backtest.signal import Signal
 from ginkgo.backtest.backtest_base import BacktestBase
+from ginkgo.enums import DIRECTION_TYPES
 
 
 class BaseSizer(BacktestBase):
@@ -10,5 +11,5 @@ class BaseSizer(BacktestBase):
     def bind_data_feeder(self, feeder, *args, **kwargs):
         self._data_feeder = feeder
 
-    def cal(self, signal: Signal):
-        raise NotImplementedError()
+    def cal(self, portfolio_info, signal: Signal, *args, **kwargs):
+        raise NotImplemented

@@ -89,7 +89,7 @@ def format_time_seconds(ttl):
 def skip_if_ran(func):
     from ginkgo.data.drivers import create_redis_connection
 
-    func_ran_expired = 60 * 60
+    func_ran_expired = 60 * 60 * 4
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -117,7 +117,6 @@ def skip_if_ran(func):
 
 
 def retry(func=None, *, max_try: int = 5):  # 默认参数设置为 None，以区分是否传参
-
     if func is None:  # 如果没有传入函数，说明是带参调用
 
         def decorator(f):
@@ -206,6 +205,7 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
                 result = func(*args, **kwargs)
                 # 存入缓存并记录时间戳
                 cache_data[cache_key] = (result, time.time())
+                print("缓存结果")
                 if len(cache_data) > max_cache_size:
                     cache_data.popitem(last=False)
                 return result

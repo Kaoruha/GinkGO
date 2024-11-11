@@ -42,23 +42,21 @@ class Order(Base):
         *args,
         **kwargs
     ) -> None:
-        super(Order, self).__init__(*args, **kwargs)
-        self.set(
-            code,
-            direction,
-            type,
-            status,
-            volume,
-            limit_price,
-            frozen,
-            transaction_price,
-            transaction_volume,
-            remain,
-            fee,
-            timestamp,
-            uuid,
-            portfolio_id,
-        )
+        self._code = code
+        self._direction = direction
+        self._type = type
+        self._status = status
+        self._volume = volume
+        self._limit_price = limit_price
+        self._frozen = frozen
+        self._transaction_price = transaction_price
+        self._transaction_volume = transaction_volume
+        self._remain = remain
+        self._fee = fee
+        self._timestamp = timestamp
+        self._uuid = uuid
+        self._portfolio_id = portfolio_id
+        self.set_source(SOURCE_TYPES.OTHER)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -102,7 +100,7 @@ class Order(Base):
         remain: float,
         fee: float,
         timestamp: any,
-        id: str,
+        order_id: str,
         portfolio_id: str,
     ):
         self._code: str = code
@@ -118,8 +116,8 @@ class Order(Base):
         self._fee: float = fee
         self._timestamp: datetime.datetime = datetime_normalize(timestamp)
 
-        if len(id) > 0:
-            self._uuid: str = id
+        if len(order_id) > 0:
+            self._uuid: str = order_id
         else:
             self._uuid = uuid.uuid4().hex
 

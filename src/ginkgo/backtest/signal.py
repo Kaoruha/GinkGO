@@ -69,10 +69,6 @@ class Signal(Base):
         return self._timestamp
 
     @property
-    def backtest_id(self) -> str:
-        return self._portfolio_id
-
-    @property
     def portfolio_id(self) -> str:
         return self._portfolio_id
 
