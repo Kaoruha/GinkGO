@@ -2,7 +2,6 @@ from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES
 from ginkgo.backtest.order import Order
 from ginkgo.libs import base_repr
 from ginkgo.backtest.events.base_event import EventBase
-from ginkgo.libs.ginkgo_logger import GLOG
 
 
 class EventOrderRelated(EventBase):

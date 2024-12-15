@@ -1,6 +1,5 @@
 import json
 from ginkgo.backtest.selectors.base_selector import BaseSelector
-from ginkgo.libs import GLOG
 
 
 class FixedSelector(BaseSelector):
@@ -21,5 +20,5 @@ class FixedSelector(BaseSelector):
 
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         r = self._interested
-        GLOG.DEBUG(f"Selector:{self.name} pick {r}.")
+        self.log("DEBUG", f"Selector:{self.name} pick {r}.")
         return r

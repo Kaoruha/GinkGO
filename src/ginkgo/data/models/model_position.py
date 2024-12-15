@@ -20,7 +20,7 @@ class MPosition(MMysqlBase):
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     volume: Mapped[int] = mapped_column(Integer, default=0)
     frozen_volume: Mapped[int] = mapped_column(Integer, default=0)
-    frozen: Mapped[int] = mapped_column(Integer, default=0)
+    frozen_money: Mapped[int] = mapped_column(Integer, default=0)
     cost: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
 
     @singledispatchmethod
@@ -34,7 +34,7 @@ class MPosition(MMysqlBase):
         code: Optional[str] = None,
         volume: Optional[int] = None,
         frozen_volume: Optional[int] = None,
-        frozen: Optional[int] = None,
+        frozen_money: Optional[int] = None,
         cost: Optional[Number] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,
@@ -47,8 +47,8 @@ class MPosition(MMysqlBase):
             self.volume = int(volume)
         if frozen_volume is not None:
             self.frozen_volume = int(frozen_volume)
-        if frozen is not None:
-            self.frozen = frozen
+        if frozen_money is not None:
+            self.frozen_money = frozen_money
         if cost is not None:
             self.cost = to_decimal(cost)
         if source is not None:
@@ -61,7 +61,7 @@ class MPosition(MMysqlBase):
         self.code = df["code"]
         self.volume = df["volume"]
         self.frozen_volume = df["frozen_volume"]
-        self.frozen = df["frozen"]
+        self.frozen_money = df["frozen_money"]
         self.cost = to_decimal(df["cost"])
 
         if "source" in df.keys():

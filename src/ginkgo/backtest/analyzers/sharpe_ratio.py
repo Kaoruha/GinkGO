@@ -1,5 +1,4 @@
 from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd
 
@@ -41,5 +40,4 @@ class SharpeRatio(BaseAnalyzer):
             print(e)
             value = -1
         self.add_data(value)
-        # GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
         self.add_record()

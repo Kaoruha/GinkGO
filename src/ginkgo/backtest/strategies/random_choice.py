@@ -4,7 +4,6 @@ import datetime
 from ginkgo.backtest.events import EventSignalGeneration
 from ginkgo.backtest.signal import Signal
 from ginkgo.backtest.strategies.base_strategy import StrategyBase
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import get_bars
 
@@ -35,7 +34,7 @@ class StrategyRandomChoice(StrategyBase):
             direction = DIRECTION_TYPES.LONG
         elif ching > 70:
             direction = DIRECTION_TYPES.SHORT
-        GLOG.DEBUG(f"Roll: {ching}, direction: {direction}  {self.now}")
+        self.log("DEBUG", f"Roll: {ching}, direction: {direction}  {self.now}")
 
         if direction == None:
             return

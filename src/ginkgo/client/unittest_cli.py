@@ -11,7 +11,7 @@ import unittest
 
 
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import GLOG
 
 
 app = typer.Typer(

@@ -4,7 +4,6 @@ from functools import singledispatchmethod
 
 from ginkgo.backtest.base import Base
 from ginkgo.enums import MARKET_TYPES
-from ginkgo.data.models import MTradeDay
 from ginkgo.libs import datetime_normalize
 
 
@@ -25,12 +24,6 @@ class TradeDay(Base):
     @singledispatchmethod
     def set(self) -> None:
         pass
-
-    @set.register
-    def _(self, model: MTradeDay) -> None:
-        self._market = model.market
-        self._is_open = model.is_open
-        self._timestamp = datetime_normalize(model.timestamp)
 
     @set.register
     def _(self, market: MARKET_TYPES, is_open: bool, timestamp: any) -> None:

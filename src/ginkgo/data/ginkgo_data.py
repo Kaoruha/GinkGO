@@ -32,9 +32,8 @@ from ginkgo.data.models import (
     MPortfolio,
 )
 
-from ginkgo.libs.ginkgo_logger import GLOG, GinkgoLogger
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs import datetime_normalize, str2bool
+from ginkgo.libs import datetime_normalize, str2bool, GLOG, GinkgoLogger
 from ginkgo.enums import (
     ORDER_TYPES,
     MARKET_TYPES,
@@ -54,7 +53,7 @@ from ginkgo.backtest.position import Position
 from ginkgo.backtest.order import Order
 from ginkgo.notifier.notifier_beep import beep
 
-data_logger = GinkgoLogger("ginkgo_data_", "ginkgo_data.log")
+data_logger = GinkgoLogger("ginkgo_data_", ["ginkgo_data.log"])
 
 
 console = Console()

@@ -9,7 +9,7 @@ from ginkgo.enums import (
     SOURCE_TYPES,
     ORDERSTATUS_TYPES,
 )
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import GLOG
 from ginkgo.data.ginkgo_data import GDATA
 
 

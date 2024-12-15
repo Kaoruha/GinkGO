@@ -6,8 +6,6 @@ from ginkgo.enums import EVENT_TYPES, PRICEINFO_TYPES, SOURCE_TYPES
 from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.tick import Tick
 from ginkgo.libs import pretty_repr
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.data.ginkgo_data import GDATA
 
 
 class EventPriceUpdate(EventBase):
@@ -34,7 +32,7 @@ class EventPriceUpdate(EventBase):
         elif self._price_type == PRICEINFO_TYPES.TICK:
             return self._tick
         else:
-            GLOG.WARN(f"!! The PriceInfo not set yet. Please check your code")
+            self.log("WARN", f"!! The PriceInfo not set yet. Please check your code")
             return None
 
     @singledispatchmethod
@@ -72,9 +70,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.TICK:
             return self.value.price
         else:
-            GLOG.WARN(
-                f"The Price is Bar Type, but your are asking tick type price value."
-            )
+            self.log("WARN", f"The Price is Bar Type, but your are asking tick type price value.")
             return None
 
     @property
@@ -90,9 +86,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.value.open
         else:
-            GLOG.WARN(
-                f"The Price is Tick Type, but your are asking Bar type open value."
-            )
+            self.log("WARN", f"The Price is Tick Type, but your are asking Bar type open value.")
             return None
 
     @property
@@ -102,9 +96,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.value.high
         else:
-            GLOG.WARN(
-                f"The Price is Tick Type, but your are asking Bar type high value."
-            )
+            self.log("WARN", f"The Price is Tick Type, but your are asking Bar type high value.")
             return None
 
     @property
@@ -114,9 +106,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.value.low
         else:
-            GLOG.WARN(
-                f"The Price is Tick Type, but your are asking Bar type low value."
-            )
+            self.log("DEBUG", f"The Price is Tick Type, but your are asking Bar type low value.")
             return None
 
     @property
@@ -126,9 +116,7 @@ class EventPriceUpdate(EventBase):
         if self.price_type == PRICEINFO_TYPES.BAR:
             return self.value.close
         else:
-            GLOG.WARN(
-                f"The Price is Tick Type, but your are asking Bar type close value."
-            )
+            self.log("DEBUG", f"The Price is Tick Type, but your are asking Bar type close value.")
             return None
 
     def to_dataframe(self):

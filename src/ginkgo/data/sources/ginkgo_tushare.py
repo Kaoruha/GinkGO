@@ -77,6 +77,7 @@ class GinkgoTushare(object):
             )
             if r.shape[0] == 0:
                 return pd.DataFrame()
+            r.fillna(0, inplace=True)
             return r
         except Exception as e:
             raise e

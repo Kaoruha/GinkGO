@@ -28,7 +28,7 @@ from queue import Queue, Empty
 
 from ginkgo.backtest.engines.base_engine import BaseEngine
 from ginkgo.backtest.events import EventNextPhase
-from ginkgo.libs import GLOG, GCONF
+from ginkgo.libs import GCONF
 
 
 class EventEngine(BaseEngine):
@@ -81,9 +81,9 @@ class EventEngine(BaseEngine):
         if portfolio in self._portfolios:
             return
         self._portfolios.append(portfolio)
-        GLOG.DEBUG(f"{type(self)}:{self.name} bind PORTFOLIO {portfolio.name}.")
+        self.log("DEBUG", f"{type(self)}:{self.name} bind PORTFOLIO {portfolio.name}.")
         portfolio.bind_engine(self)
-        GLOG.DEBUG(f"{type(self)}:{self.name} has {len(self._portfolios)} PORTFOLIOs.")
+        self.log("DEBUG", f"{type(self)}:{self.name} has {len(self._portfolios)} PORTFOLIOs.")
         if self._datafeeder is not None:
             portfolio.bind_data_feeder(self._datafeeder)
 
@@ -100,7 +100,7 @@ class EventEngine(BaseEngine):
             if self._active:
                 [handler() for handler in self._timer_handlers]
             time.sleep(self._timer_interval)
-        GLOG.INFO("Timer loop END.")
+        self.log("INFO", "Timer loop END.")
 
     def start(self):
         """
@@ -110,14 +110,14 @@ class EventEngine(BaseEngine):
         self._active = True
         self._main_thread.start()
         self._timer_thread.start()
-        GLOG.INFO("Engine Start.")
+        self.log("INFO", "Engine STARTED.")
 
     def pause(self) -> None:
         """
         Pause the Engine
         """
         self._active = False
-        GLOG.INFO("Engine Pause.")
+        self.log("INFO", "Engine Pause.")
 
     def stop(self) -> None:
         """
@@ -126,7 +126,10 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).stop()
         self._main_flag.set()
         self._timer_flag.set()
-        GLOG.INFO("Engine Stop.")
+        self.log("INFO", "Engine Stop.")
+        self.log("INFO", "Each Portfolio status.")
+        for i in self.portfolios:
+            self.log("INFO", i)
 
     def put(self, event: "EventBase") -> None:
         """
@@ -137,15 +140,16 @@ class EventEngine(BaseEngine):
             None
         """
         self._queue.put(event)
-        GLOG.DEBUG(f"{type(self)}:{self.name} got an {event.event_type} in queue.")
+        self.log("DEBUG", f"{type(self)}:{self.name} got an {event.event_type} in queue.")
 
     def _process(self, event: "EventBase") -> None:
-        GLOG.DEBUG(f"Process {event.event_type}")
+        self.log("DEBUG", f"Process {event.event_type}")
+
         if event.event_type in self._handlers:
             [handler(event) for handler in self._handlers[event.event_type]]
-            GLOG.DEBUG(f"{self.name} Deal with {event.event_type}.")
+            self.log("DEBUG", f"{self.name} Deal with {event.event_type}.")
         else:
-            GLOG.WARN(f"There is no handlerr for {event.event_type}")
+            self.log("WARN", f"There is no handlerr for {event.event_type}")
 
         # General handlerrs
         [handler(event) for handler in self._general_handlers]
@@ -164,13 +168,13 @@ class EventEngine(BaseEngine):
                 self._handlers[type].append(handler)
                 return True
             else:
-                GLOG.WARN(f"handler Exists.")
+                self.log("WARN", f"handler Exists.")
                 return False
         else:
             self._handlers[type]: list = []
             self._handlers[type].append(handler)
-            GLOG.INFO(
-                f"Register handler {type} : {handler.__name__}"
+            self.log(
+                "INFO", f"Register handler {type} : {handler.__name__}"
             )  # handlerr.__func__ for method object, not support function object.
             return True
 
@@ -184,56 +188,56 @@ class EventEngine(BaseEngine):
             None
         """
         if type not in self._handlers:
-            GLOG.WARN(f"Event {type} not exsits. No need to unregister the handler.")
+            self.log("WARN", f"Event {type} not exsits. No need to unregister the handler.")
             return False
 
         if handler not in self._handlers[type]:
-            GLOG.WARN(f"Event {type} do not own the handler.")
+            self.log("WARN", f"Event {type} do not own the handler.")
             return False
 
         self._handlers[type].remove(handler)
-        GLOG.DEBUG(f"Unregister handler {type} : {handler}")
+        self.log("DEBUG", f"Unregister handler {type} : {handler}")
         return True
 
     def register_general(self, handler: callable) -> bool:
         if handler not in self._general_handlers:
             self._general_handlers.append(handler)
             msg = f"RegisterGeneral : {handler}"
-            GLOG.DEBUG(msg)
+            self.log("DEBUG", msg)
             return True
         else:
             msg = f"{handler} already exist."
-            GLOG.WARN(msg)
+            self.log("WARN", msg)
             return False
 
     def unregister_general(self, handler: callable) -> bool:
         if handler in self._general_handlers:
             self._general_handlers.remove(handler)
             msg = f"UnregisterGeneral : {handler}"
-            GLOG.DEBUG(msg)
+            self.log("DEBUG", msg)
             return True
         else:
             msg = f"{handler} not exsit in Generalhandler"
-            GLOG.WARN(msg)
+            self.log("WARN", msg)
             return False
 
     def register_timer(self, handler: callable) -> bool:
         if handler not in self._timer_handlers:
             self._timer_handlers.append(handler)
-            GLOG.DEBUG(f"Register Timer handler: {handler}")
+            self.log("DEBUG", f"Register Timer handler: {handler}")
             return True
         else:
-            GLOG.WARN(f"Timer handler Exsits.")
+            self.log("WARN", f"Timer handler Exsits.")
             return False
 
     def unregister_timer(self, handler: callable) -> bool:
         if handler in self._timer_handlers:
             self._timer_handlers.remove(handler)
-            GLOG.DEBUG(f"Unregister Timer handler: {handler}")
+            self.log("DEBUG", f"Unregister Timer handler: {handler}")
             return True
         else:
             msg = f"Timerhandler {handler} not exists."
-            GLOG.WARN(msg)
+            self.log("WARN", msg)
             return False
 
     @property

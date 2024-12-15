@@ -1,6 +1,5 @@
 from ginkgo.backtest.selectors.base_selector import BaseSelector
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs.ginkgo_logger import GLOG
 
 import datetime
 from rich.progress import Progress
@@ -32,7 +31,7 @@ class PopularitySelector(BaseSelector):
         # self._now = self.on_time_goes_by(self.portfolio.now)
 
         if self.now is None:
-            GLOG.ERROR("No date set. skip picking.")
+            self.log("ERROR", "No date set. skip picking.")
             return []
 
         if self._last_pick is None:
@@ -45,7 +44,7 @@ class PopularitySelector(BaseSelector):
             self._last_pick = self.now
 
         if self.now is None:
-            GLOG.ERROR("No date set. skip picking.")
+            self.log("ERROR", "No date set. skip picking.")
             return self._interested
 
         t0 = datetime.datetime.now()

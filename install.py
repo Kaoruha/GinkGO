@@ -7,6 +7,8 @@ import platform
 import tempfile
 import argparse
 
+from pathlib import Path
+
 
 def bye():
     print("Bye. Wish to see you soon.")
@@ -43,9 +45,7 @@ def bg_red(msg: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-y", "--y", help="pass yes to all request", action="store_true"
-    )
+    parser.add_argument("-y", "--y", help="pass yes to all request", action="store_true")
     parser.add_argument(
         "-updateconfig",
         "--updateconfig",
@@ -93,9 +93,7 @@ def main():
     # Check Virtual Env
     env = os.environ.get("VIRTUAL_ENV")
     if env is None:
-        print(
-            f"[{blue(notice_info)}] You should active a {bg_red('virtual enviroment')}"
-        )
+        print(f"[{blue(notice_info)}] You should active a {bg_red('virtual enviroment')}")
         msg = f"[{blue(notice_info)}] To active, run: {green('python3 -m virtualenv venv;source venv/bin/activate')}"  # TODO change the command via system
         print(msg)
         bye()
@@ -188,9 +186,7 @@ def main():
     os.system("pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple")
     os.system("pip install wheel --default-timeout=20")
     os.system("pip install wheel -i https://pypi.tuna.tsinghua.edu.cn/simple")
-    os.system(
-        f"pip install -r {path_pip} --default-timeout=20 -i https://pypi.tuna.tsinghua.edu.cn/simple"
-    )
+    os.system(f"pip install -r {path_pip} --default-timeout=20 -i https://pypi.tuna.tsinghua.edu.cn/simple")
 
     try:
         from ginkgo.libs.ginkgo_conf import GCONF
@@ -204,31 +200,25 @@ def main():
 
     # 创建映射文件夹
     if not os.path.exists(path_db):
-        os.mkdir(path_db)
+        Path(path_db).mkdir(parents=True, exist_ok=True)
 
     # 创建日志文件夹
     if not os.path.exists(path_log):
-        os.mkdir(path_log)
+        Path(path_log).mkdir(parents=True, exist_ok=True)
 
     # 启动Docker
     if "Windows" == str(platform.system()):
         os.system("docker rm -f ginkgo_web")
         os.system("docker rmi ginkgo_webui:latest")
-        os.system(
-            f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d"
-        )
+        os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
     elif "Linux" == str(platform.system()):
         os.system("docker rm -f ginkgo_web")
         os.system("docker rmi ginkgo_webui:latest")
-        os.system(
-            f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d"
-        )
+        os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
     else:
         os.system("docker rm -f ginkgo_web")
         os.system("docker rmi ginkgo_webui:latest")
-        os.system(
-            f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d"
-        )
+        os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
 
     # Build an executable binary
     if args.bin:
@@ -240,11 +230,13 @@ def main():
     # Kafka setting
     # Should wait for container up.
     if args.kafkainit:
-        from src.ginkgo.libs.ginkgo_thread import GTM
+        from src.ginkgo.libs import GTM
         from src.ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
 
-        GTM.reset_worker_pool()
+        print("kill all workers.")
+        GTM.reset_all_workers()
         # Kill LiveEngine
+        print("reset kafka topic.")
         kafka_topic_set()
 
     # 删除旧的 ginkgo 文件
@@ -303,7 +295,7 @@ Description=Ginkgo API server, main control and main watchdog
 [Service]
 Type=forking
 User=kaoru
-ExecStart=/usr/local/bin/ginkgo serve nohup
+ExecStart=/usr/local/bin/ginkgo serve --daemon
 Restart=always
 RestartSec=3
 
@@ -330,8 +322,6 @@ WantedBy=multi-user.target
         print("this is mac, set system server in future")
     elif os_name == "Windows":
         print("this is windows, set system server in future")
-
-
 
 
 if __name__ == "__main__":

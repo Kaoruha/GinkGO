@@ -1,6 +1,5 @@
 from ginkgo.backtest.strategies.base_strategy import StrategyBase
 from ginkgo.backtest.signal import Signal
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
 
@@ -32,8 +31,8 @@ class StrategyProfitLimit(StrategyBase):
         cost = position.cost
         price = position.price
         ratio = price / cost
-        GLOG.DEBUG(f"Today's price ratio, P/C: {ratio}.")
-        GLOG.DEBUG(f"Limit: {1 + self.profit_limit/100}, Price: {price}, Cost: {cost}, Ratio: {ratio}")
+        self.log("DEBUG", f"Today's price ratio, P/C: {ratio}.")
+        self.log("DEBUG", f"Limit: {1 + self.profit_limit/100}, Price: {price}, Cost: {cost}, Ratio: {ratio}")
         if ratio > (1 + self._profit_limit / 100):
             s = Signal(
                 code=code,

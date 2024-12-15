@@ -11,7 +11,7 @@ from ginkgo.notifier.notifier_telegram import (
     run_telebot as run_telegram_bot_api_server,
 )
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import GLOG
 from ginkgo.libs.ginkgo_thread import GinkgoThreadManager
 
 gtm = GinkgoThreadManager()

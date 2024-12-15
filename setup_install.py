@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import shutil
+from pathlib import Path
 from src.ginkgo.config.package import VERSION
 
 os.system("pip install setuptools")
@@ -17,7 +18,7 @@ dist_path = f"{wd}/dist"
 
 # 创建打包文件夹
 if not os.path.exists(dist_path):
-    os.mkdir(dist_path)
+    Path(dist_path).mkdir(parents=True, exist_ok=True)
 else:
     # 删除打包文件夹内所有文件
     shutil.rmtree(dist_path)

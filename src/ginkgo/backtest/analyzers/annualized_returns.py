@@ -1,7 +1,6 @@
-from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd
+from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.enums import RECORDSTAGE_TYPES
 
 
 class AnnualizedReturn(BaseAnalyzer):
@@ -37,5 +36,4 @@ class AnnualizedReturn(BaseAnalyzer):
         if value > 1000:
             value = 1000
         self.add_data(value)
-        # GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
         self.add_record()

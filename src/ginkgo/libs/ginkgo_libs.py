@@ -91,18 +91,22 @@ def skip_if_ran(func):
 
     func_ran_expired = 60 * 60 * 4
 
+    func_ran_expired = 60
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         in_progress = False
         if "progress" in kwargs and isinstance(kwargs["progress"], Progress):
             in_progress = True
         cache_key = f"{func.__name__}:{args}:{kwargs}"
+        print("Cached_KEY:")
+        print(cache_key)
         cached_result = create_redis_connection().get(cache_key)
         if cached_result is not None:
             ttl = create_redis_connection().ttl(cache_key)
             if not in_progress:
                 ttl_msg = ""
-                console.print(f":camel: FUNCTION [yellow]{func.__name__}[/] cached. ttl: {format_time_seconds(ttl)}.")
+                console.print(f":camel: FUNCTION [yellow]{cache_key}[/] cached. ttl: {format_time_seconds(ttl)}.")
             return
         try:
             result = func(*args, **kwargs)  # 执行原函数

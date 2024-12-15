@@ -3,6 +3,9 @@ import yaml
 import shutil
 import base64
 import threading
+from pathlib import Path
+
+import traceback
 
 
 class GinkgoConfig(object):
@@ -20,16 +23,12 @@ class GinkgoConfig(object):
 
     @property
     def setting_path(self) -> str:
-        path = os.path.join(
-            os.environ.get("GINKGO_DIR", self.get_conf_dir()), "config.yml"
-        )
+        path = os.path.join(os.environ.get("GINKGO_DIR", self.get_conf_dir()), "config.yml")
         return path
 
     @property
     def secure_path(self) -> str:
-        path = os.path.join(
-            os.environ.get("GINKGO_DIR", self.get_conf_dir()), "secure.yml"
-        )
+        path = os.path.join(os.environ.get("GINKGO_DIR", self.get_conf_dir()), "secure.yml")
         return path
 
     def get_conf_dir(self) -> str:
@@ -42,13 +41,12 @@ class GinkgoConfig(object):
     def ensure_dir(self, path: str) -> None:
         if os.path.exists(path) and os.path.isdir(path):
             return
-        os.makedirs(path)
+        Path(path).makedirs(parents=True, exist_ok=True)
 
     def generate_config_file(self, path=None) -> None:
         if path is None:
             path = self.get_conf_dir()
 
-        self.ensure_dir(path)
         current_path = os.getcwd()
 
         if not os.path.exists(os.path.join(path, "config.yml")):
@@ -80,7 +78,6 @@ class GinkgoConfig(object):
                 r = yaml.safe_load(file)
             return r
         except Exception as e:
-            print(e)
             return {}
 
     def _write_config(self, key: str, value: any) -> None:

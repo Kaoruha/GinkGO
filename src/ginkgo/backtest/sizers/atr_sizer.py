@@ -46,7 +46,7 @@ class ATRSizer(BaseSizer):
             )
         if signal.direction == DIRECTION_TYPES.LONG:
             if self.now is None:
-                GLOG.WARN("ATRSizer: now is None, passing the signal")
+                self.log("WARN", "ATRSizer: now is None, passing the signal")
                 return None
             start_date = self.now - datetime.timedelta(days=self.period + 7)
             end_date = self.now

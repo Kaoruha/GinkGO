@@ -15,12 +15,11 @@ from fastapi.responses import StreamingResponse
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.enums import FILE_TYPES, DIRECTION_TYPES, ORDER_TYPES
 from ginkgo.libs.ginkgo_normalize import datetime_normalize
-from ginkgo.libs.ginkgo_logger import GLOG, GinkgoLogger
-from ginkgo.data.models.model_backtest import MBacktest
+from ginkgo.libs import GLOG, GinkgoLogger
 from ginkgo.backtest.portfolios.portfolio_live import PortfolioLive
 
 app = FastAPI()
-api_logger = GinkgoLogger("ginkgo_api", "ginkgo_api.log")
+api_logger = GinkgoLogger("ginkgo_api", ["ginkgo_api.log"])
 
 # 创建一个允许的源列表
 origins = ["http://localhost", "http://127.0.0.1", "http://localhost:8080", "*"]

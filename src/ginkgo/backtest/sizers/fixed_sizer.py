@@ -5,7 +5,7 @@ from ginkgo.backtest.sizers.base_sizer import BaseSizer
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.signal import Signal
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
-from ginkgo.libs import GLOG, to_decimal
+from ginkgo.libs import to_decimal
 from ginkgo.data import get_bars
 
 
@@ -39,7 +39,7 @@ class FixedSizer(BaseSizer):
 
         # Check if the position exists
         if direction == DIRECTION_TYPES.SHORT and code not in portfolio_info["positions"].keys():
-            GLOG.DEBUG(f"Position {code} does not exist. Skip short signal. {self.now}")
+            self.log("DEBUG", f"Position {code} does not exist. Skip short signal. {self.now}")
             return
         o = Order()
         print("init order.")
@@ -50,8 +50,9 @@ class FixedSizer(BaseSizer):
             print("price")
             print(past_price)
             if past_price.shape[0] == 0:
-                GLOG.CRITICAL(
-                    f"{code} has no data from {last_month_day} to {yester_day}.It should not happened. {self.now}"
+                self.log(
+                    "CRITICAL",
+                    f"{code} has no data from {last_month_day} to {yester_day}.It should not happened. {self.now}",
                 )
                 return
             last_price = past_price.iloc[-1]["close"]
@@ -76,13 +77,13 @@ class FixedSizer(BaseSizer):
                 fee=0,
                 timestamp=self.now,
                 order_id=uuid.uuid4().hex,
-                portfolio_id=portfolio_info["uuid"]
+                portfolio_id=portfolio_info["uuid"],
             )
         elif signal.direction == DIRECTION_TYPES.SHORT:
             pos = portfolio_info["positions"].get(code)
             if pos is None:
                 return
-            GLOG.WARN("Try Generate SHORT ORDER. {self.now}")
+            self.log("WARN", "Try Generate SHORT ORDER. {self.now}")
             o.set(
                 code,
                 DIRECTION_TYPES.SHORT,

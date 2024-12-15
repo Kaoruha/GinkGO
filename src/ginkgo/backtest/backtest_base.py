@@ -6,8 +6,7 @@ import datetime
 import uuid
 from rich.console import Console
 
-from ginkgo.libs import GLOG, base_repr
-from ginkgo.libs import datetime_normalize, GinkgoSingleLinkedList
+from ginkgo.libs import GLOG, base_repr, datetime_normalize, GinkgoSingleLinkedList
 
 
 console = Console()
@@ -22,6 +21,8 @@ class BacktestBase(object):
         self._now: datetime.datetime = None
         self._engine_id: str = uuid.uuid4().hex
         self.set_name(str(name))
+        self.loggers = []
+        self.add_logger(GLOG)
 
     @property
     def engine_id(self) -> str:
@@ -60,6 +61,34 @@ class BacktestBase(object):
     def now(self) -> datetime.datetime:
         return self._now
 
+    def add_logger(self, logger) -> None:
+        if logger in self.loggers:
+            return
+        self.loggers.append(logger)
+
+    def reset_logger(self) -> None:
+        self.loggers = []
+
+    def log(self, level: str, msg: str, *args, **kwargs) -> None:
+        level_up = level.upper()
+        if level_up == "DEBUG":
+            for i in self.loggers:
+                i.DEBUG(msg)
+        elif level_up == "INFO":
+            for i in self.loggers:
+                i.INFO(msg)
+        elif level_up == "WARNING":
+            for i in self.loggers:
+                i.WARN(msg)
+        elif level_up == "ERROR":
+            for i in self.loggers:
+                i.ERROR(msg)
+        elif level_up == "CRITICAL":
+            for i in self.loggers:
+                i.CRITICAL(msg)
+        else:
+            pass
+
     def on_time_goes_by(self, time: any, *args, **kwargs) -> None:
         """
         Go next frame.
@@ -74,20 +103,20 @@ class BacktestBase(object):
         time = datetime_normalize(time)
 
         if time is None:
-            GLOG.ERROR("Format not support, can not update time")
+            self.log("ERROR", "Time format not support, can not update time")
             return
 
         if self._now is None:
             self._now = time
-            GLOG.DEBUG(f"{self.name} Time Init: None --> {self._now}")
+            self.log("DEBUG", f"{self.name} Time Init: None --> {self._now}")
             return
 
         if time < self.now:
-            GLOG.ERROR("We can not go back such as a TIME TRAVALER.")
+            self.log("ERROR", "We can not go back such as a TIME TRAVALER.")
             return
 
         elif time == self.now:
-            GLOG.WARN("Time not goes on.")
+            self.log("WARNING", "Time not goes on.")
             return
 
         else:
@@ -95,7 +124,7 @@ class BacktestBase(object):
             # Go next frame
             old = self._now
             self._now = time
-            GLOG.DEBUG(f"{type(self)} {self.name} Time Elapses: {old} --> {self.now}")
+            self.log("DEBUG", f"{type(self)} {self.name} Time Elapses: {old} --> {self.now}")
             console.print(f":swimmer: {self.name} Time Elapses: {old} --> {self.now}")
 
     def __repr__(self) -> str:

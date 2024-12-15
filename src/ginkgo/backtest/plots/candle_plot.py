@@ -8,7 +8,7 @@ import pandas as pd
 import logging
 import datetime
 
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import GLOG
 from ginkgo.backtest.plots.base_plot import BasePlot
 
 
@@ -94,9 +94,7 @@ class CandlePlot(BasePlot):
         colors[:] = "g"
         colors[up] = "r"
         # 蜡烛
-        self.ax1.bar(
-            x=dates, height=close - open_, bottom=open_, color=colors, alpha=0.5
-        )
+        self.ax1.bar(x=dates, height=close - open_, bottom=open_, color=colors, alpha=0.5)
         # 腊烛芯
         self.ax1.vlines(dates, low, high, color=colors, linewidth=1, alpha=0.5)
         plt.xticks(ticks=dates)
@@ -109,9 +107,7 @@ class CandlePlot(BasePlot):
         plt.draw()
 
         # Cursor
-        self.cursor = Cursor(
-            self.ax1, horizOn=True, useblit=True, color="darkblue", linewidth=0.6
-        )
+        self.cursor = Cursor(self.ax1, horizOn=True, useblit=True, color="darkblue", linewidth=0.6)
         # Txt Init
         self.infotips = self.ax1.text(
             0.02,

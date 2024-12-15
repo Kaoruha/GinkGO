@@ -5,9 +5,9 @@ from kafka.structs import TopicPartition
 from kafka.admin import KafkaAdminClient, NewTopic
 
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs.ginkgo_logger import GLOG, GinkgoLogger
+from ginkgo.libs import GLOG, GinkgoLogger
 
-data_logger = GinkgoLogger("ginkgo_data", "ginkgo_data.log")
+data_logger = GinkgoLogger("ginkgo_data", ["ginkgo_data.log"])
 
 
 class GinkgoProducer(object):
@@ -26,8 +26,8 @@ class GinkgoProducer(object):
         try:
             future = self.producer.send(topic, msg)
             future.get(timeout=10)
-            GLOG.INFO(f"Kafka send message. TOPIC: {topic}")
-            data_logger.INFO(f"Kafka send message. TOPIC: {topic}")
+            GLOG.INFO(f"Kafka send message. TOPIC: {topic}. {msg}")
+            data_logger.INFO(f"Kafka send message. TOPIC: {topic}. {msg}")
         except Exception as e:
             GLOG.ERROR(f"Kafka send msg failed. {e}")
             data_logger.ERROR(f"Kafka send msg failed. {e}")
@@ -69,15 +69,13 @@ def kafka_topic_set():
         bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
         client_id="admin",
     )
+    if admin_client is None:
+        print("Can not connect to kafka now. Please try later.")
 
     # 创建一个新主题的配置
     topic_list = []
-    topic_list.append(
-        NewTopic(name="ginkgo_data_update", num_partitions=32, replication_factor=1)
-    )
-    topic_list.append(
-        NewTopic(name="live_control", num_partitions=1, replication_factor=1)
-    )
+    topic_list.append(NewTopic(name="ginkgo_data_update", num_partitions=12, replication_factor=1))
+    topic_list.append(NewTopic(name="live_control", num_partitions=1, replication_factor=1))
     topics = admin_client.list_topics()
     print("Kafka Topics:")
     print(topics)
@@ -89,11 +87,12 @@ def kafka_topic_set():
             continue
         admin_client.delete_topics(topics=[name], timeout_ms=30000)
         print(f"Delet Topic {name}")
+        sleep(1)
     topics = admin_client.list_topics()
-    sleep(1)
 
     # 创建主题
     try:
+        print("Try create topics.")
         admin_client.create_topics(new_topics=topic_list, validate_only=False)
     except Exception as e:
         print(e)

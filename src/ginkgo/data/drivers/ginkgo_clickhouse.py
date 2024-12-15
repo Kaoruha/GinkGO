@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from ginkgo.libs.ginkgo_logger import GLOG, GinkgoLogger
+from ginkgo.libs import GLOG, GinkgoLogger
 
 
 class GinkgoClickhouse(object):

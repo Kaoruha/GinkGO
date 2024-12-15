@@ -15,8 +15,7 @@ from threading import Thread, Event
 
 from ginkgo.backtest.engines.event_engine import EventEngine
 from ginkgo.backtest.events import EventNextPhase
-from ginkgo.libs import datetime_normalize, GLOG, GCONF
-from ginkgo.libs import GinkgoSingleLinkedList
+from ginkgo.libs import datetime_normalize, GCONF, time_logger
 
 
 class HistoricEngine(EventEngine):
@@ -39,7 +38,7 @@ class HistoricEngine(EventEngine):
     @max_waits.setter
     def max_waits(self, value: int) -> None:
         if not isinstance(value, int):
-            GLOG.ERROR(f"{type(self)}:{self.name} set max_waits {value} error.")
+            self.log("ERROR", f"{type(self)}:{self.name} set max_waits {value} error.")
             return
         self._max_waits = value
 
@@ -50,7 +49,7 @@ class HistoricEngine(EventEngine):
     @start_date.setter
     def start_date(self, value: any) -> None:
         self._start_date = datetime_normalize(value)
-        GLOG.DEBUG(f"{type(self)}:{self.name} set DATESTART {self.start_date}.")
+        self.log("INFO", f"{type(self)}:{self.name} set DATESTART {self.start_date}.")
 
     @property
     def end_date(self) -> datetime.datetime:
@@ -59,7 +58,7 @@ class HistoricEngine(EventEngine):
     @end_date.setter
     def end_date(self, value: any) -> None:
         self._end_date = datetime_normalize(value)
-        GLOG.DEBUG(f"{type(self)}:{self.name} set DATEEND {self.end_date}.")
+        self.log("INFO", f"{type(self)}:{self.name} set DATEEND {self.end_date}.")
 
     def set_backtest_interval(self, interval: str) -> None:
         return
@@ -68,8 +67,9 @@ class HistoricEngine(EventEngine):
             self._backtest_interval = datetime.timedelta(days=1)
         elif interval == "MIN":
             self._backtest_interval = datetime.timedelta(minutes=1)
-        GLOG.DEBUG(f"{type(self)}:{self.name} set INTERVAL {self._backtest_interval}.")
+        self.log("INFO", f"{type(self)}:{self.name} set INTERVAL {self._backtest_interval}.")
 
+    @time_logger
     def main_loop(self, flag) -> None:
         """
         The EventBacktest Main Loop.
@@ -90,11 +90,11 @@ class HistoricEngine(EventEngine):
 
             # Break for a while
             sleep(0.005)
-        GLOG.INFO(f"{self.name} Main Loop End.")
+        self.log("INFO", f"{self.name} Main Loop End.")
 
     def next_phase(self, *args, **kwargs) -> None:
         if self.now is None and self.start_date is None:
-            GLOG.CRITICAL("Check the code. There is no start_date or now.")
+            self.log("ERROR", f"{self.name} Check the code. There is no start_date or now.")
             self.stop()
             sys.exit(0)
         if self.now is None:
@@ -117,23 +117,23 @@ class HistoricEngine(EventEngine):
             print(e)
 
         if self.matchmaking is None:
-            GLOG.WARN(f"There is no matchmaking binded.")
+            self.log("ERROR", f"{self.name} Check the code. There is no matchmaking.")
             self.stop()
             sys.exit(0)
         self.matchmaking.on_time_goes_by(self.now)
 
         if self.datafeeder is None:
-            GLOG.WARN(f"There is no datafeeder.")
+            self.log("ERROR", f"{self.name} Check the code. There is no datafeeder.")
             self.stop()
             sys.exit(0)
         self.datafeeder.on_time_goes_by(self.now)
 
         if len(self.portfolios) == 0:
-            GLOG.WARN(f"There is no portfolio binded. There is no meaning.")
+            self.log("ERROR", f"{self.name} Check the code. There is no portfolio.")
             self.stop()
             sys.exit(0)
         else:
-            GLOG.INFO(f"Engine:{self.name} Go NextDay {self.now}.")
+            self.log("INFO", f"{self.name} Go NextDay {self.now}.")
             for i in self.portfolios:
                 i.on_time_goes_by(self.now)
 
@@ -141,8 +141,8 @@ class HistoricEngine(EventEngine):
         for hook in self._time_hooks:
             try:
                 hook(self.now)  # 传递当前时间
-                GLOG.DEBUG(f"Executed time hook {hook.__name__} at {self.now}.")
+                self.log("DEBUG", f"Executed time hook {hook.__name__} at {self.now}.")
             except Exception as e:
-                GLOG.ERROR(f"Error executing time hook {hook.__name__}: {e}")
+                self.log("ERROR", f"Error executing time hook {hook.__name__}: {e}")
             finally:
                 pass

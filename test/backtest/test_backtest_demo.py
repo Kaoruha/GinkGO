@@ -2,10 +2,9 @@ import unittest
 import time
 import pandas as pd
 import datetime
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import EVENT_TYPES
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs import datetime_normalize
+from ginkgo.libs import datetime_normalize, GLOG
 from ginkgo.backtest.selectors import FixedSelector
 from ginkgo.backtest.engines import EventEngine
 from ginkgo.backtest.portfolios import PortfolioT1Backtest
