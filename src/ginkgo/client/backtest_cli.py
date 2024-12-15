@@ -7,8 +7,9 @@ from typing_extensions import Annotated
 from rich.prompt import Prompt
 from rich.table import Column, Table
 from rich.console import Console
+from pathlib import Path
 from ginkgo.client.unittest_cli import LogLevelType
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import GLOG
 from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
 from ginkgo.enums import ORDERSTATUS_TYPES
 
@@ -247,7 +248,7 @@ def run(
 
     random_id = uuid.uuid4().hex
     temp_folder = f"{GCONF.WORKING_PATH}/{random_id}"
-    os.mkdir(temp_folder)
+    Path(temp_folder).mkdir(parents=True, exist_ok=True)
 
     # 2 Read config from database.
     backtest_config_model = GDATA.get_file(id)
@@ -464,7 +465,7 @@ def edit(
             file_format = "py"
         content = file_in_db.content
         temp_folder = f"{GCONF.WORKING_PATH}/{uuid.uuid4()}"
-        os.mkdir(temp_folder)
+        Path(temp_folder).mkdir(parents=True, exist_ok=True)
         with open(f"{temp_folder}/{name}.{file_format}", "wb") as file:
             file.write(content)
         # TODO Support editor set, nvim,vim.vi,nano or vscode?

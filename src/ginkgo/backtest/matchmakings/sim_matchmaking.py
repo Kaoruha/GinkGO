@@ -7,7 +7,6 @@ from decimal import Decimal
 
 
 from ginkgo.libs import datetime_normalize, to_decimal, Number
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.data.models import MOrder
 from ginkgo.enums import (
     EVENT_TYPES,
@@ -46,13 +45,13 @@ class MatchMakingSim(MatchMakingBase):
             current attitude
         """
         if not isinstance(attitude, ATTITUDE_TYPES):
-            GLOG.ERROR("Attitude only support ATTITUDE_TYPES.")
+            self.log("ERROR", "Attitude only support ATTITUDE_TYPES.")
             return
         self._attitude = attitude
 
     def on_price_received(self, event, *args, **kwargs):
         if event.timestamp > self.now:
-            GLOG.ERROR(f"The price {event.value} can not from the future.")
+            self.log("ERROR", f"The price {event.value} can not from the future.")
             import pdb
 
             pdb.set_trace()
@@ -79,7 +78,7 @@ class MatchMakingSim(MatchMakingBase):
             None
         """
         order.cancel()
-        GLOG.DEBUG(f"Return a CANCELED ORDER")
+        self.log("DEBUG", f"Return a CANCELED ORDER")
         self.put(EventOrderCanceled(order))
 
     def get_random_transaction_price(
@@ -123,10 +122,10 @@ class MatchMakingSim(MatchMakingBase):
                 pass
         rs = rs[0]
         if rs > high:
-            GLOG.CRITICAL(f"Transaction price {rs} is over the high price {high}.")
+            self.log("CRITICAL", f"Transaction price {rs} is over the high price {high}.")
             rs = high
         if rs < low:
-            GLOG.CRITICAL(f"Transaction price {rs} is under the low price {low}.")
+            self.log("CRITICAL", f"Transaction price {rs} is under the low price {low}.")
             rs = low
         rs = round(rs, 2)
         return to_decimal(rs)
@@ -143,17 +142,17 @@ class MatchMakingSim(MatchMakingBase):
             return False
 
         if order.timestamp < self.now:
-            GLOG.CRITICAL("Will not handle the order {event.order_id} from past.")
+            self.log("CRITICAL", "Will not handle the order {event.order_id} from past.")
             return False
         if order.timestamp > self.now:
-            GLOG.CRITICAL("Will not handle the order {event.order_id} from future.")
+            self.log("CRITICAL", "Will not handle the order {event.order_id} from future.")
             return False
         # Check Order Status
         if order.status == ORDERSTATUS_TYPES.NEW:
             order.submit()
-            GLOG.WARN("Simmatch got a new order. Should not happen.")
+            self.log("WARN", "Simmatch got a new order. Should not happen.")
         if order.status != ORDERSTATUS_TYPES.SUBMITTED:
-            GLOG.ERROR(f"Only accept SUBMITTED order. {order_id} is under {o.status}")
+            self.log("ERROR", f"Only accept SUBMITTED order. {order_id} is under {o.status}")
             self.cancel_order(order_id)
             return False
         return True
@@ -167,15 +166,15 @@ class MatchMakingSim(MatchMakingBase):
             True or False
         """
         if not isinstance(price, pd.DataFrame):
-            GLOG.WARN(f"Price is not a data frame. {type(price)}")
+            self.log("WARN", f"Price is not a data frame. {type(price)}")
             return False
         # If there is no price info, try match next order
         if price.shape[0] == 0:
-            GLOG.ERROR(f"Have no Price info about {o.code} on {self.now}.")
+            self.log("ERROR", f"Have no Price info about {o.code} on {self.now}.")
             return False
 
         elif price.shape[0] > 1:
-            GLOG.CRITICAL(f"Price info {o.code} has more than 1 record. Something wrong in code.")
+            self.log("CRITICAL", f"Price info {o.code} has more than 1 record. Something wrong in code.")
             return False
 
         # Try match
@@ -193,14 +192,15 @@ class MatchMakingSim(MatchMakingBase):
     def can_limit_order_be_filled(self, order: Order, price: pd.Series, *args, **kwargs) -> bool:
         # Cancle the order if the price is out of the bound, or the volume is over the bound.
         if order.limit_price < price["low"]:
-            GLOG.WARN(f"Order {order.uuid} limit price {order.limit_price} is under the valley: {price.low}.")
+            self.log("WARN", f"Order {order.uuid} limit price {order.limit_price} is under the valley: {price.low}.")
             return False
         if order.limit_price > price["high"]:
-            GLOG.WARN(f"Order {order.uuid} limit price {order.limit_price} is over the peak: {price.high}.")
+            self.log("WARN", f"Order {order.uuid} limit price {order.limit_price} is over the peak: {price.high}.")
             return False
         if order.volume > price["volume"]:
-            GLOG.WARN(
-                f"Order {order.uuid} limit price {order.limit_price} volume: {order.volume} is over the volume: {price.volume}."
+            self.log(
+                "WARN",
+                f"Order {order.uuid} limit price {order.limit_price} volume: {order.volume} is over the volume: {price.volume}.",
             )
             return False
         return True
@@ -279,14 +279,14 @@ class MatchMakingSim(MatchMakingBase):
         # Check if the id exsist
         order = event.value
         order_id = event.order_id
-        GLOG.DEBUG(f"{self.name} got an ORDER {event.code}_{order.direction}.")
+        self.log("DEBUG", f"{self.name} got an ORDER {event.code}_{order.direction}.")
         if not self.is_order_valid(order):
             return
 
         if order.code not in self.order_book.keys():
             self.order_book[order.code] = []
         self.order_book[order.code].append(order)
-        GLOG.DEBUG(f"{self.name} got an ORDER {event.code} >> {event.direction}.")
+        self.log("DEBUG", f"{self.name} got an ORDER {event.code} >> {event.direction}.")
         self.try_match()
 
     def direct_match(self, order, *args, **kwargs) -> None:
@@ -297,7 +297,7 @@ class MatchMakingSim(MatchMakingBase):
         code = order.code
         # Get the price info from self.price_info
         if self.price_cache.shape[0] == 0:
-            GLOG.WARN(f"There is no price about {order.code} on {self.now}. Return the order.")
+            self.log("WARN", f"There is no price about {order.code} on {self.now}. Return the order.")
             self.cancel_order(order)  # TODO Resubmmit?
             return
 
@@ -330,7 +330,7 @@ class MatchMakingSim(MatchMakingBase):
         """
         Sim match. Iterrow the order book and try match.
         """
-        GLOG.DEBUG("Try Match.")
+        self.log("DEBUG", "Try Match.")
         for code in self.order_book:
             for o in self.order_book[code]:
                 try:
@@ -339,7 +339,7 @@ class MatchMakingSim(MatchMakingBase):
                     import pdb
 
                     pdb.set_trace()
-                    GLOG.ERROR(e)
+                    self.log("ERROR", e)
                 finally:
                     pass
         self._order_book = {}

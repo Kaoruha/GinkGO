@@ -10,7 +10,6 @@ from decimal import Decimal
 
 from ginkgo.libs import datetime_normalize
 from ginkgo.backtest.events import EventPriceUpdate
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import PRICEINFO_TYPES, DIRECTION_TYPES
 from ginkgo.backtest.backtest_base import BacktestBase
 from ginkgo.backtest.engines.base_engine import BaseEngine
@@ -34,7 +33,7 @@ class MatchMakingBase(BacktestBase):
         Put event to eventengine.
         """
         if self._engine_put is None:
-            GLOG.ERROR(f"Engine put not bind. Events can not put back to the engine.")
+            self.log("ERROR", f"Engine put not bind. Events can not put back to the engine.")
             return
         self._engine_put(event)
 
@@ -78,7 +77,7 @@ class MatchMakingBase(BacktestBase):
             Fee
         """
         if volume <= 0:
-            GLOG.ERROR(f"Volume should be greater than 0, {volume} is illegal.")
+            self.log("ERROR", f"Volume should be greater than 0, {volume} is illegal.")
             return 0
         # 印花税，仅卖出时收
         stamp_tax = volume * Decimal("0.001") if not is_long else 0

@@ -26,6 +26,9 @@ class TICKDIRECTION_TYPES(EnumBase):
     CANCEL = 0
     BUY = 1
     SELL = 2
+    OTHER1 = 3
+    OTHER2 = 4
+    OTHER3 = 5
 
 
 class EVENT_TYPES(EnumBase):

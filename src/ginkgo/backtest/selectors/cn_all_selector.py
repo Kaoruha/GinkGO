@@ -1,6 +1,5 @@
 from ginkgo.backtest.selectors.base_selector import BaseSelector
 from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs.ginkgo_logger import GLOG
 
 import datetime
 

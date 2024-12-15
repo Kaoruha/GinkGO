@@ -1,10 +1,12 @@
 from rich import inspect
+import datetime
 
 from ginkgo.enums import FILE_TYPES, EVENT_TYPES
 from ginkgo.backtest.matchmakings import MatchMakingSim, MatchMakingLive
 from ginkgo.backtest.feeders import BacktestFeeder
 from ginkgo.backtest.engines import BaseEngine, HistoricEngine
 from ginkgo.backtest.portfolios import PortfolioT1Backtest
+from ginkgo.libs import GinkgoLogger
 from ginkgo.data import (
     get_engine,
     get_engine_handler_mappings,
@@ -17,6 +19,8 @@ from ginkgo.libs import GLOG, datetime_normalize
 
 def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
     GLOG.CRITICAL(f"assembler_backtest_engine --> {id}")
+    now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    logger = GinkgoLogger(logger_name="engine_logger", file_names=[f"bt_{id}_{now}"], console_log=False)
     engine_data = get_engine(id).iloc[0]
     if engine_data.shape[0] == 0:
         GLOG.WARN(f"No engine found for id:{id}.")
@@ -25,6 +29,7 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
     # Create Engine Instanse
     engine = HistoricEngine(engine_data["name"])
     engine.engine_id = engine_id
+    engine.add_logger(logger)
 
     # Sim Match
     match = MatchMakingSim()
@@ -33,6 +38,7 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
     engine.register(EVENT_TYPES.PRICEUPDATE, match.on_price_received)
     # Data Feeder
     feeder = BacktestFeeder("ExampleFeeder")
+    feeder.add_logger(logger)
     engine.bind_datafeeder(feeder)
     engine.register_time_hook(feeder.broadcast)
 
@@ -65,6 +71,7 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
             if engine.end_date < datetime_normalize(date_end):
                 engine.end_date = datetime_normalize(date_end)
         portfolio = PortfolioT1Backtest()
+        portfolio.add_logger(logger)
         portfolio.set_portfolio_name(portfolio_data.iloc[0]["name"])
         portfolio.set_portfolio_id(portfolio_id)
         # Get Related Files about portfolio
@@ -76,6 +83,7 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
             GLOG.CRITICAL(f"No strategy found for portfolio {portfolio_id}.")
             return
         for i in strategies:
+            i.add_logger(logger)
             portfolio.add_strategy(i)
         # Add Selector
         GLOG.DEBUG("Add Selector")
@@ -92,6 +100,7 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
         GLOG.DEBUG("Add Sizer")
         sizers = get_trading_system_components_by_portfolio(portfolio_id=portfolio_id, file_type=FILE_TYPES.SIZER)
         sizer = sizers[0]
+        sizer.add_logger(logger)
         if sizer is None:
             GLOG.ERROR(f"No sizer found for portfolio {portfolio_id}.")
             import pdb
@@ -109,6 +118,7 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
             pdb.set_trace()
             return
         for i in analyzers:
+            i.add_logger(logger)
             portfolio.add_analyzer(i)
         # Bind
         GLOG.DEBUG("Bind")

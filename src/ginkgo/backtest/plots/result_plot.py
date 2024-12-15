@@ -8,7 +8,7 @@ import pandas as pd
 import logging
 import datetime
 
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import GLOG
 from ginkgo.backtest.plots.base_plot import BasePlot
 
 

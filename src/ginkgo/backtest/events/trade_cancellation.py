@@ -2,7 +2,6 @@ from ginkgo.backtest.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES
 from ginkgo.backtest.order import Order
 from ginkgo.libs import base_repr
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.data.ginkgo_data import GDATA
 
 
@@ -27,13 +26,14 @@ class EventTradeCancellation(EventBase):
         # Get order from db
         r = GDATA.get_order_by_id(order_id)
         if r is None:
-            GLOG.ERROR(f"Order:{order_id} not exsist. Please check your code")
+            self.log("ERROR", f"Order:{order_id} not exsist. Please check your code")
             return
         self._order = r
 
         if self.order_status.value != 2:
-            GLOG.ERROR(
-                f"EventOrderFill Should Spawn after Order SUBMITTED. Order:{self.order_id} status is {self.order_status}. Please check your code."
+            self.log(
+                "ERROR",
+                f"EventOrderFill Should Spawn after Order SUBMITTED. Order:{self.order_id} status is {self.order_status}. Please check your code.",
             )
 
     @property

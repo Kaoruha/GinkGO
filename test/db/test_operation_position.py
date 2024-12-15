@@ -29,7 +29,7 @@ class OperationPositionTest(unittest.TestCase):
                 "code": uuid.uuid4().hex,
                 "volume": random.randint(1, 100),
                 "frozen_volume": random.randint(1, 100),
-                "frozen": random.randint(1, 100),
+                "frozen_money": random.randint(1, 100),
                 "cost": decimal.Decimal(str(round(random.uniform(0, 100), 2))),
             }
             for i in range(cls.count)
@@ -82,7 +82,7 @@ class OperationPositionTest(unittest.TestCase):
             params_copy["code"] = uuid.uuid4().hex
             params_copy["volume"] = random.randint(1, 100)
             params_copy["frozen_volume"] = random.randint(1, 100)
-            params_copy["frozen"] = random.randint(1, 100)
+            params_copy["frozen_money"] = random.randint(1, 100)
             params_copy["cost"] = random.uniform(0, 100)
 
             size0 = get_table_size(self.model)
@@ -101,7 +101,7 @@ class OperationPositionTest(unittest.TestCase):
             params_copy["code"] = uuid.uuid4().hex
             params_copy["volume"] = random.randint(1, 100)
             params_copy["frozen_volume"] = random.randint(1, 100)
-            params_copy["frozen"] = random.randint(1, 100)
+            params_copy["frozen_money"] = random.randint(1, 100)
             params_copy["cost"] = random.uniform(0, 100)
 
             size0 = get_table_size(self.model)
@@ -144,9 +144,9 @@ class OperationPositionTest(unittest.TestCase):
 
             # update frozen
             new_frozen = random.randint(1, 100)
-            update_position(res["uuid"], frozen=new_frozen)
+            update_position(res["uuid"], frozen_money=new_frozen)
             pos = get_position(res["uuid"])
-            self.assertEqual(new_frozen, pos.frozen)
+            self.assertEqual(new_frozen, pos.frozen_money)
 
     def test_OperationPosition_update_by_portfolio_and_code(self) -> None:
         for i in self.params:
@@ -177,7 +177,9 @@ class OperationPositionTest(unittest.TestCase):
 
             # update frozen
             new_frozen = random.randint(1, 100)
-            update_position_by_portfolio_and_code(portfolio_id=res["portfolio_id"], code=res["code"], frozen=new_frozen)
+            update_position_by_portfolio_and_code(
+                portfolio_id=res["portfolio_id"], code=res["code"], frozen_money=new_frozen
+            )
             df = get_position(res["uuid"], as_dataframe=True).iloc[0]
             self.assertEqual(new_frozen, df["frozen"])
 
@@ -195,7 +197,7 @@ class OperationPositionTest(unittest.TestCase):
             self.assertEqual(res["code"], pos.code)
             self.assertEqual(res["volume"], pos.volume)
             self.assertEqual(res["frozen_volume"], pos.frozen_volume)
-            self.assertEqual(res["frozen"], pos.frozen)
+            self.assertEqual(res["frozen_money"], pos.frozen_money)
             self.assertEqual(res["cost"], pos.cost)
 
         # dataframe
@@ -211,7 +213,7 @@ class OperationPositionTest(unittest.TestCase):
             self.assertEqual(res["code"], df.code)
             self.assertEqual(res["volume"], df.volume)
             self.assertEqual(res["frozen_volume"], df["frozen_volume"])
-            self.assertEqual(res["frozen"], df.frozen)
+            self.assertEqual(res["frozen_money"], df.frozen_money)
             self.assertEqual(res["cost"], decimal.Decimal(str(df.cost)))
 
     def test_OperationPosition_get(self) -> None:

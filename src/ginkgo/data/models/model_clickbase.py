@@ -27,10 +27,12 @@ class MClickBase(Base):
         {"extend_existing": True},
     )
 
-    uuid: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: str(uuid.uuid4().hex))
+    # uuid: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: str(uuid.uuid4().hex))
+    uuid: Mapped[str] = mapped_column(String(32), default=lambda: str(uuid.uuid4().hex))
     meta: Mapped[Optional[str]] = mapped_column(String(255), default="{}")
     desc: Mapped[Optional[str]] = mapped_column(String(255), default="This man is lazy, there is no description.")
-    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime)
+    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, primary_key=True)
+    # timestamp: Mapped[datetime.datetime] = mapped_column(DateTime)
     source: Mapped[SOURCE_TYPES] = mapped_column(Enum(SOURCE_TYPES), default=SOURCE_TYPES.OTHER)
 
     def update(self) -> None:

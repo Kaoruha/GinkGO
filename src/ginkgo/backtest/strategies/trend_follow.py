@@ -1,6 +1,5 @@
 # from ginkgo.backtest.strategies.base_strategy import StrategyBase
 # from ginkgo.backtest.signal import Signal
-# from ginkgo.libs.ginkgo_logger import GLOG
 # from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 
 

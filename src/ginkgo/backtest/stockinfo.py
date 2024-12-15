@@ -2,7 +2,6 @@ import pandas as pd
 
 from ginkgo.backtest.base import Base
 from ginkgo.enums import CURRENCY_TYPES
-from ginkgo.data.models import MStockInfo
 from functools import singledispatchmethod
 from ginkgo.libs import datetime_normalize
 
@@ -42,15 +41,6 @@ class StockInfo(Base):
         self._currency = CURRENCY_TYPES(df.currency)
         self._list_date = datetime_normalize(df.list_date)
         self._delist_date = datetime_normalize(df.delist_date)
-
-    @set.register
-    def _(self, model: MStockInfo, *args, **kwargs):
-        self._code = model.code
-        self._code_name = model.code_name
-        self._industry = model.industry
-        self._currency = model.currency
-        self._list_date = datetime_normalize(model.list_date)
-        self._delist_date = datetime_normalize(model.delist_date)
 
     @property
     def code(self) -> str:

@@ -1,5 +1,4 @@
 import pandas as pd
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.backtest.signal import Signal
 from ginkgo.backtest.backtest_base import BacktestBase
 

@@ -16,7 +16,7 @@ from ginkgo.backtest.feeders.base_feeder import BaseFeeder
 from ginkgo.backtest.events import EventPriceUpdate
 from ginkgo.backtest.bar import Bar
 from ginkgo.data import get_bars
-from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
+from ginkgo.libs import datetime_normalize, cache_with_expiration
 from ginkgo.enums import SOURCE_TYPES
 
 
@@ -30,19 +30,19 @@ class BacktestFeeder(BaseFeeder):
 
     def broadcast(self, *args, **kwargs):
         if self.put is None:
-            GLOG.ERROR(f"No Engine bind. Skip broadcast.")
+            self.log("ERROR", f"No Engine bind. Skip broadcast.")
             return
         if self.now is None:
-            GLOG.ERROR(f"Time need to be sync. Skip broadcast.")
+            self.log("ERROR", f"Time need to be sync. Skip broadcast.")
             return
         if len(self.subscribers) == 0:
-            GLOG.WARN(f"No portfolio subscribe. No target to broadcast.")
+            self.log("WARN", f"No portfolio subscribe. No target to broadcast.")
             return
 
         self.get_tracked_symbols()
         try:
             if len(self.interested) == 0:
-                GLOG.WARN(f"No interested symbols. Nothing to broadcast.")
+                self.log("WARN", f"No interested symbols. Nothing to broadcast.")
                 return
             for code in self.interested:
                 price_df = self.get_daybar(code, self.now)
@@ -64,7 +64,7 @@ class BacktestFeeder(BaseFeeder):
     @cache_with_expiration
     def get_daybar(self, code: str, date: any, *args, **kwargs) -> pd.DataFrame:
         if self.now is None:
-            GLOG.ERROR(f"Time need to be sync.")
+            self.log("ERROR", f"Time need to be sync.")
             return pd.DataFrame()
         datetime = datetime_normalize(date).date()
         datetime = datetime_normalize(datetime)

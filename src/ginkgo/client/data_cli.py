@@ -12,10 +12,9 @@ from typing import List as typing_list
 from typing_extensions import Annotated
 from rich.prompt import Prompt
 from rich.console import Console
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
-from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.libs.ginkgo_conf import GCONF
+
+
+from ginkgo.libs import GLOG, GCONF, datetime_normalize
 from rich.progress import (
     Progress,
     BarColumn,
@@ -55,8 +54,9 @@ console = Console()
 
 def random_pick_one_code():
     # Random pick one
+    from ginkgo.data import get_stockinfos
 
-    code_list = GDATA.get_stock_info_df()
+    code_list = get_stockinfos()
     code = random.choice(code_list.code.to_list())
     console.print(f":zap: No Code assigned. Random pick one code: [yellow]{code}[/yellow]")
     return code
@@ -101,8 +101,12 @@ def init():
     """
     Create table.
     """
+    from ginkgo.data.drivers import create_all_tables as func
 
-    GDATA.create_all()
+    func()
+    from ginkgo.data import init_example_data as func
+
+    func()
 
 
 @app.command()
@@ -155,6 +159,7 @@ def plot(
         code = random_pick_one_code()
 
     if data == DataType.DAYBAR:
+        # TODO
         info = GDATA.get_stock_info(code)
         raw = GDATA.get_daybar_df(code, start, end)
         code_name = info.code_name
@@ -205,9 +210,10 @@ def ls(
 
     pd.set_option("display.unicode.east_asian_width", True)
     rs = pd.DataFrame()
+    from ginkgo.data import get_stockinfos
 
     if data == DataType.STOCKINFO:
-        raw = GDATA.get_stock_info_df(filter)
+        raw = get_stockinfos()
         if raw.shape[0] == 0:
             rs = raw
         else:
@@ -217,7 +223,7 @@ def ls(
                     "code_name",
                     "industry",
                     "currency",
-                    "update",
+                    "update_at",
                 ]
             ]
     elif data == DataType.CALENDAR:
@@ -267,20 +273,27 @@ def show(
     ] = "21200001",
     page: Annotated[int, typer.Option(case_sensitive=False, help="Limit the number of output.")] = 0,
     filter: Annotated[str, typer.Option(case_sensitive=False, help="Fuzzy Search KeyWords.")] = None,
+    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
     Show data details.
     """
+    from ginkgo.data import get_stockinfos
 
-    # TODO Reset the log level
+    if debug:
+        GLOG.set_level("DEBUG")
+    else:
+        GLOG.set_level("INFO")
 
+    # if code == "":
+    #     code = random_pick_one_code()
     pd.set_option("display.unicode.east_asian_width", True)
     t0 = datetime.datetime.now()
-    if code == "":
-        code = random_pick_one_code()
 
     if data == DataType.STOCKINFO:
-        raw = GDATA.get_stock_info_df(code=code)
+        raw = get_stockinfos()
+        if code != "":
+            raw = raw[raw["code"] == code]
         if raw.shape[0] == 0:
             rs = raw
         else:
@@ -290,7 +303,7 @@ def show(
                     "code_name",
                     "industry",
                     "currency",
-                    "update",
+                    "update_at",
                 ]
             ]
     elif data == DataType.ADJUST:
@@ -374,13 +387,14 @@ def show(
 
 @app.command()
 def update(
-    a: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
+    a: Annotated[bool, typer.Option(case_sensitive=False, help="Update Everything")] = False,
     # data: Annotated[DataType, typer.Argument(case_sensitive=False)],
     stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
     calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Update Calendar")] = False,
     adjust: Annotated[bool, typer.Option(case_sensitive=False, help="Update adjustfactor")] = False,
     day: Annotated[bool, typer.Option(case_sensitive=False, help="Update day bar")] = False,
     tick: Annotated[bool, typer.Option(case_sensitive=False, help="Update tick data")] = False,
+    daemon: Annotated[bool, typer.Option(case_sensitive=False, help="update background")] = False,
     fast: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="If set, ginkgo will try update in fast mode."),
@@ -393,22 +407,32 @@ def update(
         ),
     ] = None,
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
-    d: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
     Update the database.
     """
-    from ginkgo.libs.ginkgo_thread import GTM
+    from ginkgo.libs import GTM
+    from ginkgo.data import (
+        get_stockinfos,
+        send_signal_fetch_and_update_stockinfo,
+        send_signal_fetch_and_update_adjustfactor,
+        send_signal_fetch_and_update_bar,
+        send_signal_fetch_and_update_tick,
+        fetch_and_update_stockinfo,
+        fetch_and_update_tradeday,
+        fetch_and_update_cn_daybar,
+        fetch_and_update_tick,
+    )
 
+    # Set debug level
     if debug:
         GLOG.set_level("DEBUG")
     else:
         GLOG.set_level("INFO")
-    GDATA.create_all()
 
     l = []
-    if code == []:
-        info = GDATA.get_stock_info_df()
+    if code == None:
+        info = get_stockinfos()
         for i, r in info.iterrows():
             c = r["code"]
             l.append(c)
@@ -416,74 +440,108 @@ def update(
         for item in code:
             l.append(item)
 
-    if d:
-        console.print(f"Current worker: {GTM.dataworker_count}")
-        if GTM.dataworker_count == 0:
+    if daemon:
+        worker_count = GTM.get_worker_count()
+        console.print(f"Current worker: {worker_count}")
+        if worker_count == 0:
             console.print(":sad_but_relieved_face: There is no worker running. Can not handle the update request.")
             return
         if a:
-            GDATA.send_signal_update_stockinfo()
-            GDATA.send_signal_update_calender()
+            send_signal_fetch_and_update_stockinfo()
+            # GDATA.send_signal_update_calender() # TODO
             for i in l:
-                GDATA.send_signal_update_adjust(i, fast)
+                send_signal_fetch_and_update_adjustfactor(i, fast)
             for i in l:
-                GDATA.send_signal_update_bar(i, fast)
+                send_signal_fetch_and_update_bar(i, fast)
             for i in l:
-                GDATA.send_signal_update_tick(i, fast)
+                send_signal_fetch_and_update_tick(i, fast)
             return
 
         if stockinfo:
-            GDATA.send_signal_update_stockinfo()
+            send_signal_fetch_and_update_stockinfo()
 
         if calendar:
-            GDATA.send_signal_update_calender()
+            # TODO
+            print("update canlerdar in future.")
+            # GDATA.send_signal_update_calender()
 
         if adjust:
-            for i in l:
-                GDATA.send_signal_update_adjust(i, fast)
+            if code == []:
+                stockinfos = get_stockinfos()
+                for i, r in stockinfos.iterrows():
+                    code = r["code"]
+                    send_signal_fetch_and_update_adjustfactor(code, fast)
+            else:
+                for i in l:
+                    send_signal_fetch_and_update_adjustfactor(i, fast)
 
         if day:
-            for i in l:
-                GDATA.send_signal_update_bar(i, fast)
+            if code == []:
+                stockinfos = get_stockinfos()
+                for i, r in stockinfos.iterrows():
+                    code = r["code"]
+                    send_signal_fetch_and_update_bar(code, fast)
+            else:
+                for i in l:
+                    send_signal_fetch_and_update_bar(i, fast)
 
         if tick:
-            for i in l:
-                GDATA.send_signal_update_tick(i, fast)
+            if code == []:
+                stockinfos = get_stockinfos()
+                for i, r in stockinfos.iterrows():
+                    code = r["code"]
+                    send_signal_fetch_and_update_tick(code, fast)
+            else:
+                for i in l:
+                    send_signal_fetch_and_update_tick(i, fast)
+
     else:
         if a:
-            GDATA.update_stock_info()
-            GDATA.update_cn_trade_calendar()
-            GDATA.update_all_cn_adjustfactor_aysnc(fast)
-            GDATA.update_all_cn_daybar_aysnc(fast)
-            GDATA.update_all_cn_tick_aysnc(fast)
+            fetch_and_update_stockinfo()
+            fetch_and_update_tradeday()
+            stockinfos = get_stockinfos()
+            for i, r in stockinfos.iterrows():
+                code = r["code"]
+                fetch_and_update_cn_daybar(code, fast)
+                fetch_and_update_adjustfactor(code, fast)
+                fetch_and_update_tick(code, fast)
             return
 
         if stockinfo:
-            GDATA.update_stock_info()
+            fetch_and_update_stockinfo()
 
         if calendar:
-            GDATA.update_cn_trade_calendar()
+            fetch_and_update_tradeday()
 
         if adjust:
             if code == []:
-                GDATA.update_all_cn_adjustfactor_aysnc()
+                stockinfos = get_stockinfos()
+                for i, r in stockinfos.iterrows():
+                    code = r["code"]
+                    fetch_and_update_adjustfactor(code, fast)
             else:
                 for i in l:
-                    GDATA.update_cn_adjustfactor(i, fast)
+                    fetch_and_update_adjustfactor(i, fast)
 
         if day:
             if code == []:
-                GDATA.update_all_cn_daybar_aysnc()
+                stockinfos = get_stockinfos()
+                for i, r in stockinfos.iterrows():
+                    code = r["code"]
+                    fetch_and_update_cn_daybar(code, fast)
             else:
                 for i in l:
-                    GDATA.update_cn_daybar(i, fast)
+                    fetch_and_update_cn_daybar(i, fast)
 
         if tick:
             if code == []:
-                GDATA.update_all_cn_tick_aysnc()
+                stockinfos = get_stockinfos()
+                for i, r in stockinfos.iterrows():
+                    code = r["code"]
+                    fetch_and_update_tick(code, fast)
             else:
                 for i in l:
-                    GDATA.update_tick(i, fast)
+                    fetch_and_update_tick(i, fast)
 
 
 @app.command()

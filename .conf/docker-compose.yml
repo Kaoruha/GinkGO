@@ -161,7 +161,7 @@ services:
         hard: 262144
     environment:
       CLICKHOUSE_DB: ginkgo
-      SHOW: 'ture'
+      SHOW: 'true'
 
   Clickhouse-test:
     image: clickhouse/clickhouse-server:24.8.4.13-alpine
@@ -182,7 +182,7 @@ services:
         hard: 262144
     environment:
       CLICKHOUSE_DB: ginkgo
-      SHOW: 'ture'
+      SHOW: 'true'
     deploy:
       resources:
         limits:

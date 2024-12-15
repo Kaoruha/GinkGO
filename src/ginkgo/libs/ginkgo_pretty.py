@@ -80,7 +80,7 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs):
             "sizer",
             "data_feeder",
         ]
-        special_list_param = ["portfolios", "strategies", "interested", "signals"]
+        special_list_param = ["portfolios", "strategies", "interested", "signals", "loggers"]
         special_dict_param = ["positions", "analyzers"]
         if isinstance(s, pd.DataFrame):
             filter_s = f"{str(s.shape)}"

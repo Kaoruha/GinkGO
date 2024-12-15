@@ -1,4 +1,8 @@
+from typing import List, Dict
+
 import os
+import json
+import psutil
 import inspect
 import math
 import datetime
@@ -9,6 +13,7 @@ from rich.progress import Progress, SpinnerColumn, BarColumn, TimeElapsedColumn,
 
 from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES, FILE_TYPES
 from ginkgo.data.sources import GinkgoTushare, GinkgoTDX
+from ginkgo.data.drivers import create_redis_connection
 from ginkgo.libs import (
     GCONF,
     GLOG,
@@ -50,39 +55,28 @@ def send_signal_to_engine(*args, **kwargs):
     pass
 
 
-def send_signal_test_dataworker(*args, **kwargs):
-    # TODO
-    pass
+def send_signal_fetch_and_update_stockinfo(*args, **kwargs):
+    from ginkgo.data.drivers import GinkgoProducer
+
+    GinkgoProducer().send("ginkgo_data_update", {"type": "stockinfo", "code": "blabla"})
 
 
-def send_signal_fetch_and_update_adjustfactor(*args, **kwargs):
-    # TODO
-    pass
+def send_signal_fetch_and_update_adjustfactor(code: str, fast_mode: bool = True, *args, **kwargs):
+    from ginkgo.data.drivers import GinkgoProducer
+
+    GinkgoProducer().send("ginkgo_data_update", {"type": "adjust", "code": code, "fast": fast_mode})
 
 
-def send_signal_fetch_and_update_bar(*args, **kwargs):
-    # TODO
-    pass
+def send_signal_fetch_and_update_bar(code: str, fast_mode: bool, *args, **kwargs):
+    from ginkgo.data.drivers import GinkgoProducer
+
+    GinkgoProducer().send("ginkgo_data_update", {"type": "bar", "code": code, "fast": fast_mode})
 
 
-def send_signal_fetch_and_update_all_bar(*args, **kwargs):
-    # TODO
-    pass
+def send_signal_fetch_and_update_tick(code: str, fast_mode: bool = False, *args, **kwargs):
+    from ginkgo.data.drivers import GinkgoProducer
 
-
-def send_signal_fetch_and_update_tick(code: str, date: any, fast_mode: bool = False, *args, **kwargs):
-    # Get stock list
-    # Check code exist
-    # Check Table exist
-    # Check Data exist
-    # Do fetch and update
-    # TODO
-    pass
-
-
-def send_signal_fetch_and_update_all_tick(*args, **kwargs):
-    # TODO
-    pass
+    GinkgoProducer().send("ginkgo_data_update", {"type": "tick", "code": code, "fast": fast_mode})
 
 
 def send_signal_fetch_and_update_tick_summary(*args, **kwargs):
@@ -95,14 +89,15 @@ def send_signal_fetch_and_update_capital_adjustment(*args, **kwargs):
     pass
 
 
-def send_signal_fetch_and_update_stockinfo(*args, **kwargs):
-    # TODO
-    pass
-
-
 def send_signal_fetch_and_update_tradeday(*args, **kwargs):
     # TODO
     pass
+
+
+def send_signal_kill_a_worker(*args, **kwargs):
+    from ginkgo.data.drivers import GinkgoProducer
+
+    GinkgoProducer().send("ginkgo_data_update", {"type": "kill", "code": "blabla"})
 
 
 # Fetch and Update
@@ -113,7 +108,7 @@ def fetch_and_update_adjustfactor(*args, **kwargs):
     # TODO
     pass
 
-
+@retry
 @skip_if_ran
 @time_logger
 def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, *args, **kwargs):
@@ -135,10 +130,15 @@ def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, *args, **kwarg
                 timestamp=datetime_normalize(r["trade_date"]),
                 source=SOURCE_TYPES.TUSHARE,
             )
-            if pd.Timestamp(item.timestamp) in data_in_db["timestamp"].values:
-                update_list.append(item)
-            else:
-                insert_list.append(item)
+            try:
+                if pd.Timestamp(item.timestamp) in data_in_db["timestamp"].values:
+                    update_list.append(item)
+                else:
+                    insert_list.append(item)
+            except Exception as e:
+                print(e)
+            finally:
+                pass
             progress.update(task, advance=1, description=fix_string_length(f"{code} {item.timestamp}", 30))
 
     def do_update(update_list, update_dates, progress, task):
@@ -188,7 +188,7 @@ def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, *args, **kwarg
         )
 
         # Do Update
-        batch_size = 200
+        batch_size = 1000
         if len(update_list) > 0:
             task_count = len(update_list) * 2 + 1
             task2 = progress.add_task("[cyan]Convert Time", total=task_count)
@@ -213,7 +213,7 @@ def fetch_and_update_capital_adjustment(*args, **kwargs):
     # TODO
     pass
 
-
+@retry
 @skip_if_ran
 @time_logger
 def fetch_and_update_stockinfo(*args, **kwargs):
@@ -270,7 +270,7 @@ def is_code_in_stocklist(code: str, *args, **kwargs) -> None:
     else:
         return True
 
-
+@retry
 @skip_if_ran
 @time_logger
 def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False, *args, **kwargs) -> int:
@@ -307,6 +307,8 @@ def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False,
             return 0
     # Fetch data
     data_from_tdx = GinkgoTDX().fetch_history_transaction_detail(code, date)
+    if data_from_tdx is None:
+        return 1
     if data_from_tdx.shape[0] == 0:
         return 1
     # Del data in db
@@ -328,7 +330,7 @@ def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False,
             l.append(item)
             progress.update(task1, advance=1, description=f"{code} {r['timestamp']}")
         progress.update(task1, completed=data_from_tdx.shape[0], description=":white_check_mark: Prepare Tick Done.")
-    batch_size = 200
+    batch_size = 1000
     with RichProgress() as progress:
         task2 = progress.add_task("[cyan]Insert Tick", total=data_from_tdx.shape[0])
         for i in range(0, len(l), batch_size):
@@ -347,6 +349,7 @@ def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False,
 @skip_if_ran
 @time_logger
 def fetch_and_update_tick(code: str, fast_mode: bool = False, *args, **kwargs):
+    print(f"Fetch and update tick {code}")
     # Check code
     if not is_code_in_stocklist(code):
         GLOG.DEBUG(f"Exit fetch and update tick {code} on {date}.")
@@ -364,9 +367,9 @@ def fetch_and_update_tick(code: str, fast_mode: bool = False, *args, **kwargs):
         elif res == 0:
             exit_count = 0
         now = now + datetime.timedelta(days=-1)
-        if exit_count >= 60:
+        if exit_count >= 30:
             should_stop = True
-        print(f"current count: {exit_count}")
+        GLOG.DEBUG(f"current count: {exit_count}")
 
 
 @time_logger
@@ -378,6 +381,7 @@ def fetch_and_update_tick_summary(*args, **kwargs):
 @time_logger
 def fetch_and_update_tradeday(*args, **kwargs):
     # TODO
+    print("TODO fetch_and_update_tradeday")
     pass
 
 
@@ -503,7 +507,7 @@ def init_example_data(*args, **kwargs):
         black_list = ["__", "base"]
         count = 0
         for file_name in files:
-            GLOG.INFO(f"file_name: {file_name}")
+            GLOG.DEBUG(f"Check {file_name}.")
             if any(substring in file_name for substring in black_list):
                 continue
             count += 1
@@ -544,7 +548,7 @@ def init_example_data(*args, **kwargs):
                 time.sleep(1)
                 df = get_portfolios(example_portfolio_name)
                 if df.shape[0] > 0:
-                    time.sleep(.2)
+                    time.sleep(0.2)
                 else:
                     break
             status.stop()
@@ -557,7 +561,6 @@ def init_example_data(*args, **kwargs):
     engine_portfolio_mapping = add_engine_portfolio_mapping(
         engine_id=engine_df["uuid"], portfolio_id=portfolio_df["uuid"]
     )
-    print(engine_portfolio_mapping)
     console.print(f":sun:  [medium_spring_green]CREATE[/] Example engine portfolio mapping.")
     # Portfolio File Mapping
     strategy_names = ["random_choice", "loss_limit"]
@@ -573,7 +576,7 @@ def init_example_data(*args, **kwargs):
         new_portfolio_file_mapping = add_portfolio_file_mapping(
             portfolio_id=portfolio_df["uuid"], file_id=file_id, name=name, type=FILE_TYPES.STRATEGY
         )
-        print(f"add new_portfolio_file_mapping: {new_portfolio_file_mapping}")
+        GLOG.DEBUG(f"add new_portfolio_file_mapping: {new_portfolio_file_mapping}")
         if i == "random_choice":
             add_param(new_portfolio_file_mapping["uuid"], 0, "ExampleRandomChoice")
         if i == "loss_limit":
@@ -581,7 +584,6 @@ def init_example_data(*args, **kwargs):
             add_param(new_portfolio_file_mapping["uuid"], 1, "13.5")
     time.sleep(1)
     df = get_files()
-    import json
 
     # Portfolio Selector Mapping
     raw_selectors = get_files(type=FILE_TYPES.SELECTOR, name="fixed_selector")
@@ -675,16 +677,11 @@ def get_instance_by_file(file_id: str, mapping_id: str, file_type: FILE_TYPES):
     params = get_params_by_file(mapping_id)
     try:
         ins = cls(*params)  # 实例化类
-        print(params)
-        print(ins)
         if file_type == FILE_TYPES.ANALYZER:
             ins.set_analyzer_id(file_id)
         return ins
     except Exception as e:
         # DEBUG
-        import pdb
-
-        pdb.set_trace()
         print(1)
         return None
     finally:
@@ -779,6 +776,13 @@ def get_engine_handler_mappings(*args, **kwargs):
     from ginkgo.data.operations import get_engine_handler_mapping as func
 
     return func(*args, **kwargs)
+
+
+def remove_from_redis(key: str, *args, **kwargs):
+    from ginkgo.libs import create_redis_connection
+
+    conn = create_redis_connection()
+    conn.delete(key)
 
 
 __all__ = [name for name, obj in inspect.getmembers(inspect.getmodule(inspect.currentframe()), inspect.isfunction)]

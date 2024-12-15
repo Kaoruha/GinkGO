@@ -4,8 +4,7 @@ import datetime
 from time import sleep
 from ginkgo.backtest.analyzers import BaseAnalyzer
 from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
-from ginkgo.libs.ginkgo_logger import GLOG
-from ginkgo.libs import datetime_normalize
+from ginkgo.libs import datetime_normalize, GLOG
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MAnalyzer
 

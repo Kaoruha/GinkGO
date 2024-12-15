@@ -8,7 +8,7 @@ import pandas as pd
 import logging
 import datetime
 
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import GLOG
 from ginkgo.backtest.plots.base_plot import BasePlot
 from ginkgo.backtest.indices.base_index import BaseIndex
 
@@ -72,9 +72,7 @@ class CandleWithIndexPlot(BasePlot):
                 msg += f"VOL : {info.volume.values[0]}\n"
                 # Index
                 for i in self._result.keys():
-                    data = self._result[i]["data"][
-                        self._result[i]["data"].timestamp == timestamp
-                    ]
+                    data = self._result[i]["data"][self._result[i]["data"].timestamp == timestamp]
                     msg += f"{i}: {data[i].values[0]}\n"
                 for i in self._independent_result.keys():
                     data = self._independent_result[i]["data"][
@@ -142,9 +140,7 @@ class CandleWithIndexPlot(BasePlot):
         colors[:] = "g"
         colors[up] = "r"
         # 蜡烛
-        self.ax1.bar(
-            x=dates, height=close - open_, bottom=open_, color=colors, alpha=0.5
-        )
+        self.ax1.bar(x=dates, height=close - open_, bottom=open_, color=colors, alpha=0.5)
         # 腊烛芯
         self.ax1.vlines(dates, low, high, color=colors, linewidth=1, alpha=0.5)
         plt.xticks(ticks=dates)
@@ -157,9 +153,7 @@ class CandleWithIndexPlot(BasePlot):
         plt.draw()
 
         # Cursor
-        self.cursor = Cursor(
-            self.ax1, horizOn=True, useblit=True, color="darkblue", linewidth=1.6
-        )
+        self.cursor = Cursor(self.ax1, horizOn=True, useblit=True, color="darkblue", linewidth=1.6)
         # self.cursor = MultiCursor(
         #     self.figure.canvas,
         #     (self.ax1, self.ax2, *self._independente_ax.values()),

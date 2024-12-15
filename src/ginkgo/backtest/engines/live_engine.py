@@ -16,13 +16,10 @@ from threading import Thread, Event
 
 
 from ginkgo.backtest.engines.event_engine import EventEngine
-from ginkgo.libs.ginkgo_logger import GinkgoLogger
 from ginkgo.libs.ginkgo_thread import GinkgoThreadManager
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.libs import datetime_normalize
-from ginkgo.libs import GinkgoSingleLinkedList
+from ginkgo.libs import datetime_normalize, GinkgoLogger
 from ginkgo.notifier.notifier_beep import beep
-from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.drivers import GinkgoConsumer, GinkgoProducer
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.backtest.position import Position

@@ -1,6 +1,5 @@
 import pandas as pd
 from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 
@@ -31,5 +30,4 @@ class MaxDrawdown(BaseAnalyzer):
                 pass
                 # value = (self.portfolio.worth - self._max_worth) / self._max_worth
         self.add_data(value)
-        # GLOG.DEBUG(f"{self.now} {self.portfolio.name} have {self.name} {value}")
         self.add_record()

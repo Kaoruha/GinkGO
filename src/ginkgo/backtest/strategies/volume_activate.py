@@ -3,7 +3,6 @@ import datetime
 from ginkgo.backtest.events import EventSignalGeneration
 from ginkgo.backtest.signal import Signal
 from ginkgo.backtest.strategies.base_strategy import StrategyBase
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import get_bars
 
@@ -30,7 +29,7 @@ class StrategyVolumeActivate(StrategyBase):
         std = df["volume"].std()
         r = df["volume"].iloc[-1] / mean
         if r < 0.67 and r > 0.6:
-            GLOG.INFO(f"Gen Signal about {code} from {self.name}")
+            self.log("INFO", f"Gen Signal about {code} from {self.name}")
             s = Signal(
                 portfolio_id=portfolio_info["uuid"],
                 timestamp=portfolio_info["now"],

@@ -6,11 +6,16 @@ from ginkgo.libs.ginkgo_number import *
 from ginkgo.libs.ginkgo_links import *
 from ginkgo.libs.ginkgo_conf import *
 from ginkgo.libs.ginkgo_logger import *
+from ginkgo.libs.ginkgo_thread import *
 
-GLOG = GinkgoLogger("ginkgo", "ginkgo.log", True)
+GLOG = GinkgoLogger(logger_name="ginkgo", file_names=["ginkgo.log"], console_log=True)
 GCONF = GinkgoConfig()
+GTM = GinkgoThreadManager()
 
 __all__ = [
+    "GinkgoLogger",
+    "GinkgoThreadManager",
+    "GTM",
     "GLOG",
     "GCONF",
     "datetime_normalize",

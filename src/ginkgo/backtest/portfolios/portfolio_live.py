@@ -24,7 +24,6 @@ from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MOrder
 
 from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs.ginkgo_pretty import base_repr
 
@@ -172,7 +171,7 @@ class PortfolioLive(BasePortfolio):
         """
         # TODO
         return
-        GLOG.INFO(f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}.")
+        self.log("INFO", f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}.")
         # Check Everything.
         if not self.is_all_set():
             return
@@ -239,13 +238,14 @@ class PortfolioLive(BasePortfolio):
     def on_order_filled(self, event: EventOrderFilled):
         # TODO
         return
-        GLOG.INFO("Got An Order Filled...")
+        sele.log("INFO", "Got An Order Filled...")
         if not event.order_status == ORDERSTATUS_TYPES.FILLED:
-            GLOG.CRITICAL(
-                f"On Order Filled only handle the FILLEDORDER, cant handle a {event.order_status} one. Check the Code"
+            self.log(
+                "CRITICAL",
+                f"On Order Filled only handle the FILLEDORDER, cant handle a {event.order_status} one. Check the Code",
             )
             return
-        GLOG.INFO("Got An Order Filled Done")
+        self.log("INFO", "Got An Order Filled Done")
 
     def update_worth(self):
         pass

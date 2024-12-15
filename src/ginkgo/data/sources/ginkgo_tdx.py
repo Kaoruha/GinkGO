@@ -110,6 +110,10 @@ class GinkgoTDX(GinkgoSourceBase):
             return datetime.datetime.combine(new_date, time)
 
         code_num = code.split(".")[0]
+        code_market = code.split(".")[1]
+        if code_market.upper() not in ["SH", "SZ"]:
+            console.print("TDX api just support SH and SZ now.")
+            return
         date = datetime_normalize(date)
         date_num = date.strftime("%Y%m%d")
         date_num = int(date_num)

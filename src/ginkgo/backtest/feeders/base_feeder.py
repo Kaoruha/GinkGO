@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, List
 import pandas as pd
 
-from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
+from ginkgo.libs import datetime_normalize, cache_with_expiration
 from ginkgo.backtest.backtest_base import BacktestBase
 from ginkgo.data.operations import get_bars
 
@@ -26,7 +26,7 @@ class BaseFeeder(BacktestBase):
         Put event to eventengine.
         """
         if self._engine_put is None:
-            GLOG.ERROR(f"Engine put not bind. Events can not put back to the engine.")
+            self.log("ERROR", f"Engine put not bind. Events can not put back to the engine.")
             return
         self._engine_put(event)
 
@@ -50,17 +50,17 @@ class BaseFeeder(BacktestBase):
     @cache_with_expiration
     def get_daybar(self, code: str, date: any, *args, **kwargs) -> pd.DataFrame:
         if self.now is None:
-            GLOG.ERROR(f"Time need to be sync.")
+            self.log("ERROR", f"Time need to be sync.")
             return pd.DataFrame()
 
         datetime = datetime_normalize(date).date()
         datetime = datetime_normalize(datetime)
 
         if datetime > self._now:
-            GLOG.CRITICAL(f"CurrentDate: {self.now} you can not get the future({datetime}) info.")
+            self.log("ERROR", f"CurrentDate: {self.now} you can not get the future({datetime}) info.")
             return pd.DataFrame()
         if datetime < self._now:
-            GLOG.CRITICAL(f"CurrentDate: {self.now} you can not get the past({datetime}) info.")
+            self.log("ERROR", f"CurrentDate: {self.now} you can not get the past({datetime}) info.")
             return pd.DataFrame()
 
         df = get_bars(code, start_date=date, end_date=date)
@@ -74,7 +74,7 @@ class BaseFeeder(BacktestBase):
         super(BaseFeeder, self).on_time_goes_by(time, *args, **kwargs)
 
     def get_tracked_symbols(self, *args, **kwargs) -> None:
-        GLOG.CRITICAL(f"Get interested codes from {type(self)}")
+        self.log("INFO", f"Get interested codes from {[i.name for i in self._subscribers]}")
         self._interested = []
         for i in self.subscribers:
             codes = i.interested

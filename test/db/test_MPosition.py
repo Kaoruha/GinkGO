@@ -28,7 +28,7 @@ class ModelPositionTest(unittest.TestCase):
                 "code": uuid.uuid4().hex,
                 "volume": random.randint(0, 1000),
                 "frozen_volume": random.randint(0, 1000),
-                "frozen": Decimal(str(round(random.uniform(0, 20), 2))),
+                "frozen_money": Decimal(str(round(random.uniform(0, 20), 2))),
                 "cost": Decimal(str(round(random.uniform(0, 20), 2))),
             }
             for i in range(self.count)

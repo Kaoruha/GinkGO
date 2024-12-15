@@ -1,4 +1,5 @@
 import time
+import datetime
 
 
 from typing import List, Optional, Union, Any
@@ -19,7 +20,6 @@ from ginkgo.libs import try_wait_counter, GLOG, GCONF, time_logger, retry
 
 mysql_connection = None
 click_connection = None
-redis_connection = None
 max_try = 5
 
 
@@ -118,6 +118,7 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
     click_count = 0
     mysql_list = []
     mysql_count = 0
+    t0 = datetime.datetime.now()
     for i in values:
         if isinstance(i, MClickBase):
             click_list.append(i)
@@ -125,20 +126,36 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
             mysql_list.append(i)
         else:
             GLOG.WARN("Just support clickhouse and mysql now. Ignore other type.")
+    t1 = datetime.datetime.now()
+    print(f"Split data via mysql and click : {t1 - t0}s")
 
     try:
         if len(click_list) > 0:
+            tp0 = datetime.datetime.now()
             session = get_click_connection().session
+            tp1 = datetime.datetime.now()
+            print(f"Get clickhouse session : {tp1-tp0}s")
             session.add_all(click_list)
+            tp2 = datetime.datetime.now()
+            print(f"Add clickhouse data : {tp2-tp1}s")
             session.commit()
+            tp3 = datetime.datetime.now()
+            print(f"Clickhouse commit : {tp3-tp2}s")
             click_count = len(click_list)
+            tp4 = datetime.datetime.now()
+            print(f"Get list count : {tp4-tp3}s")
             GLOG.DEBUG(f"Clickhouse commit {len(click_list)} records.")
     except Exception as e:
         session.rollback()
+        import pdb
+
+        pdb.set_trace()
         GLOG.ERROR(e)
     finally:
         get_click_connection().remove_session()
 
+    t2 = datetime.datetime.now()
+    print(f"Add Clickhouse Data : {t2-t1}s")
     try:
         if len(mysql_list) > 0:
             session = get_mysql_connection().session
@@ -148,9 +165,14 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
             GLOG.DEBUG(f"Mysql commit {len(mysql_list)} records.")
     except Exception as e:
         session.rollback()
+        import pdb
+
+        pdb.set_trace()
         GLOG.ERROR(e)
     finally:
         get_mysql_connection().remove_session()
+    t3 = datetime.datetime.now()
+    print(f"Add Mysql Data : {t3-t2}s")
 
     return (click_count, mysql_count)
 

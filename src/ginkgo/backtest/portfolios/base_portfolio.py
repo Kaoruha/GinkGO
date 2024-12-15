@@ -20,7 +20,7 @@ from ginkgo.backtest.bar import Bar
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.position import Position
 from ginkgo.enums import DIRECTION_TYPES, RECORDSTAGE_TYPES
-from ginkgo.libs import GCONF, GLOG, to_decimal
+from ginkgo.libs import GCONF, to_decimal
 
 
 console = Console()
@@ -64,7 +64,7 @@ class BasePortfolio(BacktestBase):
         Put event to eventengine.
         """
         if self._engine_put is None:
-            GLOG.ERROR(f"Engine put not bind. Events can not put back to the engine.")
+            self.log("ERROR", f"Engine put not bind. Events can not put back to the engine.")
             return
         self._engine_put(event)
 
@@ -144,9 +144,9 @@ class BasePortfolio(BacktestBase):
         """
         money = to_decimal(money)
         if money <= 0:
-            GLOG.ERROR(f"The money should not under 0. {money} is illegal.")
+            self.log("ERROR", f"The money should not under 0. {money} is illegal.")
         else:
-            GLOG.DEBUG(f"Add FOUND {money}")
+            self.log("INFO", f"Add FOUND {money}")
             self._cash += money
             self.update_worth()
         return self.cash
@@ -182,9 +182,9 @@ class BasePortfolio(BacktestBase):
         """
         fee = to_decimal(fee)
         if fee < 0:
-            GLOG.ERROR(f"The fee should not under 0. {fee} is illegal.")
+            self.log("ERROR", f"The fee should not under 0. {fee} is illegal.")
         else:
-            GLOG.DEBUG(f"Add FEE {fee}")
+            self.log("DEBUG", f"Add FEE {fee}")
             self._fee += fee
         return self.fee
 
@@ -204,18 +204,18 @@ class BasePortfolio(BacktestBase):
             Is all preparation complete?
         """
         if self.sizer is None:
-            GLOG.ERROR(f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first.")
+            self.log("ERROR", f"Portfolio Sizer not set. Can not handle the signal. Please set the SIZER first.")
             return False
 
         if self.selector is None:
-            GLOG.ERROR(f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first.")
+            self.log("ERROR", f"Portfolio Selector not set. Can not pick the code. Please set the SELECTOR first.")
             return False
 
         if self.risk_manager is None:
-            GLOG.WARN(f"Portfolio RiskManager not set. Backtest will go on without Risk Control.")
+            self.log("WARN", f"Portfolio RiskManager not set. Backtest will go on without Risk Control.")
 
         if len(self.strategies) == 0:
-            GLOG.ERROR(f"No strategy register. No signal will come.")
+            self.log("ERROR", f"No strategy register. No signal will come.")
             return False
 
         return True
@@ -229,7 +229,7 @@ class BasePortfolio(BacktestBase):
             None
         """
         if not isinstance(selector, BaseSelector):
-            GLOG.ERROR(f"Selector bind only support Selector, {type(selector)} {selector} is not supported.")
+            self.log("ERROR", f"Selector bind only support Selector, {type(selector)} {selector} is not supported.")
             return
         self._selector = selector
 
@@ -249,7 +249,7 @@ class BasePortfolio(BacktestBase):
             None
         """
         if not isinstance(engine, BaseEngine):
-            GLOG.ERROR(f"EngineBind only support Type Engine, {type(BaseEngine)} {engine} is not supported.")
+            self.log("ERROR", f"EngineBind only support Type Engine, {type(BaseEngine)} {engine} is not supported.")
             return
         super(BasePortfolio, self).bind_engine(engine)
         for i in self.strategies:
@@ -270,7 +270,7 @@ class BasePortfolio(BacktestBase):
             None
         """
         if not isinstance(risk, BaseRiskManagement):
-            GLOG.ERROR(f"Risk bind only support Riskmanagement, {type(risk)} {risk} is not supported.")
+            self.log("ERROR", f"Risk bind only support Riskmanagement, {type(risk)} {risk} is not supported.")
             return
         self._risk_manager = risk
 
@@ -287,7 +287,7 @@ class BasePortfolio(BacktestBase):
             None
         """
         if not isinstance(sizer, BaseSizer):
-            GLOG.ERROR(f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported.")
+            self.log("ERROR", f"Sizer bind only support Sizer, {type(sizer)} {sizer} is not supported.")
             return
         self._sizer = sizer
 
@@ -305,13 +305,13 @@ class BasePortfolio(BacktestBase):
         """
         money = to_decimal(money)
         if money >= self.cash:
-            GLOG.WARN(f"We cant freeze {money}, we only have {self.cash}.")
+            self.log("WARN", f"We cant freeze {money}, we only have {self.cash}.")
             return False
-        GLOG.DEBUG(f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
+        self.log("DEBUG", f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
         console.print(f":ice: TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
         self._frozen += money
         self._cash -= money
-        GLOG.DEBUG(f"DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
+        self.log("DEBUG", f"DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
         console.print(f":money_bag: DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
         return True
 
@@ -326,16 +326,16 @@ class BasePortfolio(BacktestBase):
         money = to_decimal(money)
         if money > self.frozen:
             if money - self.frozen > GCONF.EPSILON:
-                GLOG.ERROR(f"Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}")
+                self.log("ERROR", f"Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}")
                 console.print(f":prohibited: Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}")
                 return
             else:
                 self._frozen = 0
-                GLOG.DEBUG(f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
+                self.log("DEBUG", f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
         else:
-            GLOG.DEBUG(f"TRYING UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
+            self.log("DEBUG", f"TRYING UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
             self._frozen -= money
-            GLOG.DEBUG(f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
+            self.log("DEBUG", f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
         return self.frozen
 
     def put(self, event) -> None:
@@ -343,7 +343,7 @@ class BasePortfolio(BacktestBase):
         Put event to eventengine.
         """
         if self._engine_put is None:
-            GLOG.ERROR(f"Engine put not bind. Events can not put back to the engine.")
+            self.log("ERROR", f"Engine put not bind. Events can not put back to the engine.")
             return
         self._engine_put(event)
 
@@ -356,16 +356,18 @@ class BasePortfolio(BacktestBase):
             None
         """
         if analyzer.name in self._analyzers:
-            GLOG.WARN(f"Analyzer {analyzer.name} already in the analyzers. Please Rename the ANALYZER and try again.")
+            self.log(
+                "WARN", f"Analyzer {analyzer.name} already in the analyzers. Please Rename the ANALYZER and try again."
+            )
             return
         if hasattr(analyzer, "activate") and callable(analyzer.activate):
             analyzer.set_portfolio_id(self.portfolio_id)
             self._analyzers[analyzer.name] = analyzer
             for i in analyzer.active_stage:
                 self._analyzer_hook[i].append(analyzer.activate)
-                GLOG.DEBUG(f"Add Analyzer {analyzer.name} in stage {i}.")
+                self.log("DEBUG", f"Add Analyzer {analyzer.name} in stage {i}.")
         else:
-            GLOG.WARN(f"Analyzer {analyzer.name} not support activate function. Please check.")
+            self.log("WARN", f"Analyzer {analyzer.name} not support activate function. Please check.")
 
     def analyzer(self, key: str) -> "BaseAnalyzer":
         """
@@ -376,7 +378,7 @@ class BasePortfolio(BacktestBase):
             The analyzer[key]
         """
         if key not in self.analyzers:
-            GLOG.ERROR(f"Analyzer {key} not in the analyzers. Please check.")
+            self.log("ERROR", f"Analyzer {key} not in the analyzers. Please check.")
             return
         return self.analyzers[key]
 
@@ -427,10 +429,11 @@ class BasePortfolio(BacktestBase):
         super(BasePortfolio, self).on_time_goes_by(time, *args, **kwargs)
         # TODO
         if not self.is_all_set():
-            GLOG.WARN(f"{time} comes. But portfolio:{self.name} is no ready.")
+            self.log("WARN", f"{time} comes. But portfolio:{self.name} is no ready.")
             return
         self.sizer.on_time_goes_by(time)
 
+        self._interested = []
         codes = self.selector.pick()
         for code in codes:
             self._interested.append(code)
@@ -456,7 +459,7 @@ class BasePortfolio(BacktestBase):
             pos = self.get_position(key)
             if pos is None:
                 continue
-            vol = pos.volume + pos.frozen
+            vol = pos.volume + pos.frozen_volume
             if vol == 0:
                 del_list.append(key)
         for code in del_list:
@@ -498,14 +501,15 @@ class BasePortfolio(BacktestBase):
         """
         try:
             if event.timestamp > self.now:
-                GLOG.CRITICAL(
-                    f"Current time is {self.now.strftime('%Y-%m-%d %H:%M:%S')}, The Event {event.event_type} generated at {event.timestamp}, Can not handle the future infomation."
+                self.log(
+                    "CRITICAL",
+                    f"Current time is {self.now.strftime('%Y-%m-%d %H:%M:%S')}, The Event {event.event_type} generated at {event.timestamp}, Can not handle the future infomation.",
                 )
                 return True
             else:
                 return False
         except Exception as e:
-            GLOG.ERROR(e)
+            self.log("ERROR", e)
             return True
         finally:
             pass

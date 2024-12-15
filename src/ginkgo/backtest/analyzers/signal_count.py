@@ -1,5 +1,4 @@
 from ginkgo.backtest.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.libs.ginkgo_logger import GLOG
 from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd
 

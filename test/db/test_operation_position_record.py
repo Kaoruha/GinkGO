@@ -32,7 +32,7 @@ class OperationPositionrecordTest(unittest.TestCase):
                 "volume": random.randint(1, 100),
                 "frozen_volume": random.randint(1, 100),
                 "cost": Decimal(str(round(random.uniform(0, 100), 2))),
-                "frozen": random.randint(1, 100),
+                "frozen_money": random.randint(1, 100),
                 "source": random.choice([i for i in SOURCE_TYPES]),
             }
             for i in range(cls.count)
@@ -101,7 +101,7 @@ class OperationPositionrecordTest(unittest.TestCase):
                     volume=random.randint(1, 100),
                     frozen_volume=random.randint(1, 100),
                     cost=Decimal(str(round(random.uniform(0, 100), 2))),
-                    frozen=random.randint(1, 100),
+                    frozen_money=random.randint(1, 100),
                     source=random.choice([i for i in SOURCE_TYPES]),
                 )
             )
@@ -114,7 +114,7 @@ class OperationPositionrecordTest(unittest.TestCase):
                     volume=random.randint(1, 100),
                     frozen_volume=random.randint(1, 100),
                     cost=Decimal(str(round(random.uniform(0, 100), 2))),
-                    frozen=random.randint(1, 100),
+                    frozen_money=random.randint(1, 100),
                     source=random.choice([i for i in SOURCE_TYPES]),
                 )
             )
@@ -148,7 +148,7 @@ class OperationPositionrecordTest(unittest.TestCase):
                     volume=random.randint(1, 100),
                     frozen_volume=random.randint(1, 100),
                     cost=Decimal(str(round(random.uniform(0, 100), 2))),
-                    frozen=random.randint(1, 100),
+                    frozen_money=random.randint(1, 100),
                     source=random.choice([i for i in SOURCE_TYPES]),
                 )
             )
@@ -161,7 +161,7 @@ class OperationPositionrecordTest(unittest.TestCase):
                     volume=random.randint(1, 100),
                     frozen_volume=random.randint(1, 100),
                     cost=Decimal(str(round(random.uniform(0, 100), 2))),
-                    frozen=random.randint(1, 100),
+                    frozen_money=random.randint(1, 100),
                     source=random.choice([i for i in SOURCE_TYPES]),
                 )
             )

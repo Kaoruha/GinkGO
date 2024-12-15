@@ -5,7 +5,7 @@ import datetime
 from time import sleep
 
 from ginkgo.data.sources.source_base import GinkgoSourceBase
-from ginkgo.libs import time_logger, datetime_normalize, GLOG, retry, time_logger
+from ginkgo.libs import time_logger, datetime_normalize, retry, time_logger, GLOG
 from rich.console import Console
 
 console = Console()

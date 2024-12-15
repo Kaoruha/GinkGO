@@ -1,8 +1,3 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from ginkgo.data.models import MOrder
-
 import pandas as pd
 import datetime
 import uuid
@@ -59,31 +54,14 @@ class Order(Base):
         self.set_source(SOURCE_TYPES.OTHER)
 
     @singledispatchmethod
-    def set(self) -> None:
+    def set(self, obj, *args, **kwargs) -> None:
         """
         Support set from params or dataframe.
         1. From parmas
         2. From dataframe
         code,direction,type,volume,limit_price,frozen,transaction_price,remain,timestamp,uuid
         """
-        pass
-
-    @singledispatchmethod
-    def _(self, model: "MOrder") -> None:
-        self._code = model.code
-        self._direction = model.direction
-        self._type = model.type
-        self._status = model.status
-        self._volume = model.volume
-        self._limit_price = model.limit_price
-        self._frozen = model.frozen
-        self._transaction_price = model.transaction_price
-        self._transaction_volume = model.transaction_volume
-        self._remain = model.remain
-        self._fee = model.fee
-        self._timestamp = model.fee
-        self.uuid = model.uuid
-        self._portfolio_id = model.portfolio_id
+        raise NotImplementedError("Unsupported type")
 
     @set.register
     def _(

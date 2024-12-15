@@ -5,6 +5,14 @@ from ginkgo.libs.ginkgo_number import Number, to_decimal
 
 
 def cal_fee(direction: DIRECTION_TYPES, price: Number, tax_rate: Number) -> Decimal:
+    """
+    Args:
+        direction(DIRECTION_TYPES): 买卖方向
+        price(Number): 价格
+        tax_rate(Number): 印花税率
+    Returns:
+        Decimal: 佣金
+    """
     price = to_decimal(price)
     tax_rate = to_decimal(tax_rate)
     # 佣金

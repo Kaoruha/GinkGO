@@ -3,12 +3,9 @@ import numpy
 from typing import List, Optional, Union
 from functools import singledispatchmethod
 from decimal import Decimal
-
-from ginkgo.backtest.base import Base
-from ginkgo.libs import base_repr, Number, to_decimal
-from ginkgo.libs.ginkgo_logger import GLOG
+from ginkgo.libs import base_repr, Number, to_decimal, GLOG
 from ginkgo.enums import DIRECTION_TYPES
-from ginkgo.data.models import MPosition
+from ginkgo.backtest.base import Base
 
 
 class Position(Base):
@@ -36,7 +33,7 @@ class Position(Base):
         self._cost = cost if isinstance(cost, Decimal) else Decimal(str(cost))
         self._volume = volume
         self._frozen_volume = frozen_volume
-        self._frozen = frozen
+        self._frozen_money = frozen
         self._price = price if isinstance(price, Decimal) else Decimal(str(price))
         self._fee = fee if isinstance(fee, Decimal) else Decimal(str(fee))
         self._uuid = uuid
@@ -46,8 +43,8 @@ class Position(Base):
         self.update_profit()
 
     @singledispatchmethod
-    def set(self, *args, **kwargs) -> None:
-        pass
+    def set(self, obj, *args, **kwargs) -> None:
+        raise NotImplementedError("Unsupported type")
 
     @set.register
     def _(
@@ -82,22 +79,10 @@ class Position(Base):
         self._cost = df["cost"] if isinstance(df["cost"], Decimal) else Decimal(str(df["cost"]))
         self._volume = int(df["volume"])
         self._frozen_volume = int(df["frozen_volume"])
-        self._frozen = int(df["frozen"])
+        self._frozen_money = int(df["frozen_money"])
         self._fee = df["fee"] if isinstance(df["fee"], Decimal) else Decimal(str(df["fee"]))
         self._profit = float(df["profit"])
         self._uuid = df["uuid"]
-
-    @set.register
-    def _(self, model: MPosition, *args, **kwargs):
-        self._portfolio_id = model.portfolio_id
-        self._code = model.code
-        self._cost = model.cost
-        self._volume = model.volume
-        self._frozen_volume = model.frozen_volume
-        self._frozen = model.frozen
-        self._fee = model.fee
-        self._profit = model.profit
-        self._uuid = model.uuid
 
     @property
     def portfolio_id(self, *args, **kwargs) -> str:
@@ -129,14 +114,11 @@ class Position(Base):
         return self._volume
 
     @property
-    def frozen_volume(self, *args, **kwargs) -> int:
-        if self._frozen_volume < 0:
-            GLOG.CRITICAL(f"Frozen Volume is less than 0: {self._frozen_volume}")
+    def frozen_money(self, *args, **kwargs) -> int:
+        if self._frozen_money < 0:
+            GLOG.CRITICAL(f"Frozen money is less than 0: {self._frozen_money}")
             return 0
-        if not isinstance(self._frozen_volume, (int, numpy.int64)):
-            GLOG.CRITICAL(f"Frozen Volume is not a int: {self._frozen_volume}")
-            return 0
-        return self._frozen_volume
+        return self._frozen_money
 
     @property
     def worth(self, *args, **kwargs) -> float:
@@ -146,7 +128,7 @@ class Position(Base):
         return self._worth
 
     def update_worth(self, *args, **kwargs) -> None:
-        w = (self.volume + self.frozen) * self.price
+        w = (self.volume + self.frozen_volume) * self.price
         self._worth = round(w, 2)
 
     @property
@@ -176,29 +158,32 @@ class Position(Base):
         return self._cost
 
     @property
-    def frozen(self, *args, **kwargs) -> float:
+    def frozen_volume(self, *args, **kwargs) -> float:
         """
         Frozen amount of position.
         """
-        if self._frozen < 0:
-            GLOG.CRITICAL(f"Frozen is less than 0: {self._frozen}")
-        if not isinstance(self._frozen, (int, numpy.int64)):
-            GLOG.CRITICAL(f"Frozen is not a int: {self._frozen}")
+        if self._frozen_volume < 0:
+            GLOG.CRITICAL(f"Frozen is less than 0: {self._frozen_volume}")
+        if not isinstance(self._frozen_volume, (int, numpy.int64)):
+            GLOG.CRITICAL(f"Frozen is not a int: {self._frozen_volume}")
             return 0
-        return self._frozen
+        return self._frozen_volume
 
     def freeze(self, volume: int, *args, **kwargs) -> bool:
         """
         Freeze Position.
         """
+        if volume <= 0:
+            GLOG.CRITICAL(f"There is no volume about{self.code} to freeze: {volume}")
+            return False
         volume = int(volume)
         if volume > self.volume:
             GLOG.CRITICAL(f"POS {self.code} just has {self.volume} cant afford {volume}, please check your code")
             return False
 
         self._volume -= volume
-        self._frozen += volume
-        GLOG.INFO(f"POS {self.code} freezed {volume}. Final volume:{self.volume} frozen: {self.frozen}")
+        self._frozen_volume += volume
+        GLOG.INFO(f"POS {self.code} freezed {volume}. Final volume:{self.volume} frozen_volume: {self.frozen_volume}")
         return True
 
     def unfreeze(self, volume: int, *args, **kwargs) -> int:
@@ -207,13 +192,13 @@ class Position(Base):
         """
         volume = int(volume)
 
-        if volume > self.frozen:
+        if volume > self.frozen_volume:
             GLOG.CRITICAL(f"POS {self.code} just freezed {self.frozen} cant afford {volume}.")
             return
 
-        self._frozen -= volume
+        self._frozen_volume -= volume
         self._volume += volume
-        GLOG.INFO(f"POS {self.code} unfreeze {volume}. Final volume:{self.volume}  frozen: {self.frozen}")
+        GLOG.INFO(f"POS {self.code} unfreeze {volume}. Final volume:{self.volume}  frozen_volume: {self.frozen_volume}")
         return self.volume
 
     @property
@@ -246,7 +231,7 @@ class Position(Base):
         """
         Update Profit. Call after Trade Done or Price Update.
         """
-        self._profit = (self.volume + self.frozen) * (self.price - self.cost) - self.fee
+        self._profit = (self.volume + self.frozen_volume) * (self.price - self.cost) - self.fee
 
     def _bought(self, price: Number, volume: int, *args, **kwargs) -> int:
         """
@@ -296,12 +281,12 @@ class Position(Base):
         GLOG.WARN(f"Position --")
         volume = int(volume)
         price = float(price)
-        if volume > self.frozen:
+        if volume > self.frozen_volume:
             GLOG.CRITICAL(f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code")
             return
-        self._frozen -= volume
+        self._frozen_volume -= volume
         self.on_price_update(price)
-        GLOG.DEBUG(f"POS {self.code} sold {volume}. Final volume:{self.volume}  frozen:{self.frozen}")
+        GLOG.DEBUG(f"POS {self.code} sold {volume}. Final volume:{self.volume}  frozen_volume:{self.frozen_volume}")
         return self.volume
 
     def deal(self, direction: DIRECTION_TYPES, price: float, volume: int, *args, **kwargs) -> None:
