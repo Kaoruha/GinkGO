@@ -69,22 +69,24 @@ def run(
         path.append(origin_path)
 
     if db:
-        # TODO Switch to dev db.
-        if not y:
-            port = GCONF.CLICKPORT
-            if port == "18123":
-                msg = "[medium_spring_green]DEV DATABASE[/medium_spring_green]:monkey_face:"
+        if GCONF.DEBUGMODE == False:
+            print("[red]DB MODE Only work on DEBUGMODE[/red]")
+        else:
+            if not y:
+                port = GCONF.CLICKPORT
+                if port == "18123":
+                    msg = "[medium_spring_green]DEV DATABASE[/medium_spring_green]:monkey_face:"
+                else:
+                    msg = "You might have connected to a [bold red]PRODUCTION DATABASE[/bold red]:boom: or you have changed the default port of dev clickhouse."
+                print(f"Current PORT is {GCONF.CLICKPORT}")
+                print(msg)
+                result = typer.confirm(f"DB Moduel may erase the database, Conitnue? ")
+                if result:
+                    t = origin_path + "/db"
+                    path.append(t)
             else:
-                msg = "You might have connected to a [bold red]PRODUCTION DATABASE[/bold red]:boom: or you have changed the default port of dev clickhouse."
-            print(f"Current PORT is {GCONF.CLICKPORT}")
-            print(msg)
-            result = typer.confirm(f"DB Moduel may erase the database, Conitnue? ")
-            if result:
                 t = origin_path + "/db"
                 path.append(t)
-        else:
-            t = origin_path + "/db"
-            path.append(t)
 
     if libs:
         t = origin_path + "/libs"
