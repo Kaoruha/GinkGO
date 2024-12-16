@@ -146,7 +146,6 @@ class BasePortfolio(BacktestBase):
         if money <= 0:
             self.log("ERROR", f"The money should not under 0. {money} is illegal.")
         else:
-            self.log("INFO", f"Add FOUND {money}")
             self._cash += money
             self.update_worth()
         return self.cash
