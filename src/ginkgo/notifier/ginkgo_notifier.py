@@ -19,7 +19,11 @@ gtm = GinkgoThreadManager()
 
 class GinkgoNotifier(object):
     def __init__(self):
-        self._producer = GinkgoProducer()
+        self._producer = None
+        try:
+            self._producer = GinkgoProducer()
+        except Exception as e:
+            print(e)
         self.telebot_pname = gtm.get_thread_cache_name("telebot")
         pass
 

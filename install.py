@@ -250,8 +250,8 @@ def main():
 
     shell_folder = os.path.dirname(os.path.realpath(__file__))
     output_file = "/usr/local/bin/ginkgo"
-    wp_result = subprocess.run(['which', 'python'], capture_output=True, text=True)
-    python_path = wp_result.stdout.strip()
+    result = subprocess.run(['which', 'python'], capture_output=True, text=True)
+    python_path = result.stdout.strip()
     script_content = f"""#!/bin/bash
 
 # 检查第一个参数是否为 "serve"，第二个参数是否为 "nohup"
