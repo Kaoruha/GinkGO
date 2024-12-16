@@ -81,7 +81,8 @@ def main():
 
     # Check Virtual Env
     env = os.environ.get("VIRTUAL_ENV")
-    if env is None:
+    conda_env = os.environ.get("CONDA_PREFIX")
+    if env is None and conda_env is None:
         print(f"[{blue(notice_info)}] You should active a {bg_red('virtual enviroment')}")
         msg = f"[{blue(notice_info)}] To active, run: {green('python3 -m virtualenv venv;source venv/bin/activate')}"  # TODO change the command via system
         print(msg)
