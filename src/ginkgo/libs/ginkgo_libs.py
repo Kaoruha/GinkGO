@@ -218,12 +218,12 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
 
         return decorator
     else:
-
         @wraps(func)
         def wrapper(*args, **kwargs):
             # 生成缓存key，包含方法名和参数
             cache_key = (func.__name__, args, tuple(sorted(kwargs.items())))
-
+            import pdb
+            pdb.set_trace()
             # 检查缓存是否存在
             if cache_key in cache_data:
                 cached_value = cache_data.get(cache_key)

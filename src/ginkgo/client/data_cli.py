@@ -1,20 +1,17 @@
 import typer
 import random
 import sys
-from threading import Thread, Event
-from multiprocessing import Process
 import multiprocessing
 import time
 import pandas as pd
 import datetime
 from enum import Enum
+from multiprocessing import Process
+from threading import Thread, Event
 from typing import List as typing_list
 from typing_extensions import Annotated
 from rich.prompt import Prompt
 from rich.console import Console
-
-
-from ginkgo.libs import GLOG, GCONF, datetime_normalize
 from rich.progress import (
     Progress,
     BarColumn,
@@ -23,6 +20,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
+from ginkgo.libs import GLOG, GCONF, datetime_normalize
 
 class DataType(str, Enum):
     ALL = "all"

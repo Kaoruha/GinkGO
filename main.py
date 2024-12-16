@@ -2,16 +2,16 @@ import typer
 import subprocess
 import time
 import math
-from typing import List as typing_list
 import click
 import os
+from enum import Enum
+from typing import List as typing_list
 from typing_extensions import Annotated
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 from rich import print
 
-from enum import Enum
 from ginkgo.client import data_cli
 from ginkgo.client import backtest_cli
 from ginkgo.client import unittest_cli
