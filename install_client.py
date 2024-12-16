@@ -16,30 +16,44 @@ def bye():
 
 
 def blin(msg: str):
+    if msg is None:
+        return
     return "\033[05m" + msg + "\033[0m"
 
 
 def lightblue(msg: str):
+    if msg is None:
+        return
     return "\033[96m" + msg + "\033[0m"
 
 
 def blue(msg: str):
+    if msg is None:
+        return
     return "\033[94m" + msg + "\033[0m"
 
 
 def green(msg: str):
+    if msg is None:
+        return
     return "\033[92m" + msg + "\033[0m"
 
 
 def lightyellow(msg: str):
+    if msg is None:
+        return
     return "\033[93m" + msg + "\033[0m"
 
 
 def red(msg: str):
+    if msg is None:
+        return
     return "\033[91m" + msg + "\033[0m"
 
 
 def bg_red(msg: str):
+    if msg is None:
+        return
     return "\033[41m" + msg + "\033[0m"
 
 
