@@ -209,6 +209,7 @@ def main():
 
     shell_folder = os.path.dirname(os.path.realpath(__file__))
     output_file = "/usr/local/bin/ginkgo"
+    result = subprocess.run(['which', 'python'], capture_output=True, text=True)
     python_path = result.stdout.strip()
     script_content = f"""#!/bin/bash
 
