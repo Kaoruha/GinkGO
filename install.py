@@ -250,15 +250,17 @@ def main():
 
     shell_folder = os.path.dirname(os.path.realpath(__file__))
     output_file = "/usr/local/bin/ginkgo"
+    result = subprocess.run(['which', 'python'], capture_output=True, text=True)
+    python_path = result.stdout.strip()
     script_content = f"""#!/bin/bash
 
 # 检查第一个参数是否为 "serve"，第二个参数是否为 "nohup"
 if [ "$1" = "serve" ] && [ "$2" = "nohup" ]; then
     # 如果是，则将 "serve" 命令放入后台运行
-    nohup "{shell_folder}/venv/bin/python" "{shell_folder}/main.py" serve >/dev/null 2>&1 &
+    nohup "{python_path}" "{shell_folder}/main.py" serve >/dev/null 2>&1 &
 else
     # 如果不是，则前台运行 ginkgo 命令，并将所有参数传递给前台进程
-    "{shell_folder}/venv/bin/python" "{shell_folder}/main.py" "$@"
+    "{python_path}" "{shell_folder}/main.py" "$@"
 fi
 """
 
