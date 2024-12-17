@@ -42,211 +42,150 @@ def red(msg: str):
 def bg_red(msg: str):
     return "\033[41m" + msg + "\033[0m"
 
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-y", "--y", help="pass yes to all request", action="store_true")
-    parser.add_argument(
-        "-updateconfig",
-        "--updateconfig",
-        help="overwrite configuration",
-        action="store_true",
-    )
-    parser.add_argument(
-        "-kafkainit",
-        "--kafkainit",
-        help="reset kafka topic",
-        action="store_true",
-    )
-    parser.add_argument(
-        "-bin",
-        "--bin",
-        help="Build Binary.",
-        action="store_true",
-    )
-    args = parser.parse_args()
-
-    working_directory = os.path.dirname(os.path.abspath(__file__))
-
-    path_log = os.path.expanduser("~") + "/.ginkgo/logs"
-    path_db = f"{working_directory}/.db"
-    path_pip = f"{working_directory}/requirements.txt"
-    path_dockercompose = f"{working_directory}/.conf/docker-compose.yml"
-    path_click = f"{working_directory}/.conf/clickhouse_users.xml"
-    path_gink_conf = f"{working_directory}/src/ginkgo/config/config.yml"
-    path_gink_sec = f"{working_directory}/src/ginkgo/config/secure.backup"
-
-    print("======================================")
-    print("Balabala Banner")  # TODO
-    print("======================================")
-
+def os_check():
     arch = platform.architecture()[0]
     os_name = platform.system()
     print(f"OS: {platform.system()} {arch}")
     print(platform.platform())
     print(f"CPU Cores: {os.cpu_count()}")
 
+def docker_check():
     docker_version = os.system("docker --version")
 
-    notice_info = "NOTICE"
-
-    # Check Virtual Env
+def env_check():
     env = os.environ.get("VIRTUAL_ENV")
     conda_env = os.environ.get("CONDA_PREFIX")
     if env is None and conda_env is None:
         print(f"[{blue(notice_info)}] You should active a {bg_red('virtual enviroment')}")
-        msg = f"[{blue(notice_info)}] To active, run: {green('python3 -m virtualenv venv;source venv/bin/activate')}"  # TODO change the command via system
+        msg = f"[{blue(notice_info)}] To active, run: {green('python3 -m virtualenv venv;source venv/bin/activate')} or {green('conda create -n ginkgo python=3.12.8')} "
         print(msg)
-        bye()
+        return None
+    return env or conda_env
 
+def env_print(working_directory, env, python_version):
     print(f"Working_directory: {lightblue(working_directory)}")
     print(f"ENV: {lightblue(env)}")
-    ver = platform.python_version()
-    print(f"Python : {lightblue(ver)}")
-    if not args.y:
-        input(f"Press {green('ENTER')} to continue")
-        print("File Check:")
+    print(f"Python : {lightblue(python_version)}")
 
-    if os.path.exists(path_pip):
-        msg = f"[{green('CONFIRMED')}] Pip requirements."
-        print(msg)
-    else:
-        msg = f"[{red(' MISSING ')}] Pip requirements."
-        print(msg)
-
-    if os.path.exists(path_dockercompose):
-        msg = f"[{green('CONFIRMED')}] Docker compose file"
-        print(msg)
-    else:
-        msg = f"[{red(' MISSING ')}] Docker Compose file"
-        print(msg)
-
-    if os.path.exists(path_click):
-        msg = f"[{green('CONFIRMED')}] Clickhouse config file"
-        print(msg)
-    else:
-        msg = f"[{red(' MISSING ')}] Clickhouse config file"
-        print(msg)
-
-    if os.path.exists(path_gink_conf):
-        msg = f"[{green('CONFIRMED')}] Ginkgo config file"
-        print(msg)
-    else:
-        msg = f"[{red(' MISSING ')}] Ginkgo config file"
-        print(msg)
-
-    if os.path.exists(path_gink_sec):
-        msg = f"[{green('CONFIRMED')}] Ginkgo secure file"
-        print(msg)
-    else:
-        msg = f"[{red(' MISSING ')}] Ginkgo secure file, you need to create your secure.yml refer to README"
-        print(msg)
-
-    # Copy the config file
-
+def copy_config(path_conf, path_secure, update_config):
     path = os.path.expanduser("~") + "/.ginkgo"
     if not os.path.exists(path):
         os.makedirs(path)
 
-    # If config file or secure file not exsit.
-    if not os.path.exists(os.path.join(path, "config.yml")):
-        origin_path = path_gink_conf
+    # If update_config, overwrite the config and secure file by force.
+    if update_config:
+        origin_path = path_conf
         target_path = os.path.join(path, "config.yml")
         shutil.copy(origin_path, target_path)
         print(f"Copy config.yml from {origin_path} to {target_path}")
-
-    if not os.path.exists(os.path.join(path, "secure.yml")):
-        origin_path = path_gink_sec
+        origin_path = path_sec
         target_path = os.path.join(path, "secure.yml")
         print(f"Copy secure.yml from {origin_path} to {target_path}")
         shutil.copy(origin_path, target_path)
+    else:
+        # If config file or secure file not exsit.
+        if not os.path.exists(os.path.join(path, "config.yml")):
+            origin_path = path_conf
+            target_path = os.path.join(path, "config.yml")
+            shutil.copy(origin_path, target_path)
+            print(f"Copy config.yml from {origin_path} to {target_path}")
+        if not os.path.exists(os.path.join(path, "secure.yml")):
+            origin_path = path_secure
+            target_path = os.path.join(path, "secure.yml")
+            print(f"Copy secure.yml from {origin_path} to {target_path}")
+            shutil.copy(origin_path, target_path)
 
-    # If get the param updateconfig, overwrite the config and secure file by force.
-
-    if args.updateconfig:
-        origin_path = path_gink_conf
-        target_path = os.path.join(path, "config.yml")
-        shutil.copy(origin_path, target_path)
-        print(f"Copy config.yml from {origin_path} to {target_path}")
-        origin_path = path_gink_sec
-        target_path = os.path.join(path, "secure.yml")
-        print(f"Copy secure.yml from {origin_path} to {target_path}")
-        shutil.copy(origin_path, target_path)
-
+def install_ginkgo():
     # Install Ginkgo Package
-    os.system("python ./setup_install.py")
-    # Write log,unitest,working_directory to local config.
-    os.system("pip install pyyaml -i https://pypi.tuna.tsinghua.edu.cn/simple")
+    subprocess.run(['python', './setup_install.py'])
+    subprocess.run(['pip', 'install', 'pyyaml', '-i', 'https://pypi.tuna.tsinghua.edu.cn/simple'])
 
-    if not args.y:
-        result = input("Conitnue? Y/N  ")
-        if result.upper() != "Y":
-            bye()
-
+def install_dependencies(path_pip):
     # 安装依赖
-    os.system("pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple")
-    os.system("pip install wheel --default-timeout=20")
-    os.system("pip install wheel -i https://pypi.tuna.tsinghua.edu.cn/simple")
-    os.system(f"pip install -r {path_pip} --default-timeout=20 -i https://pypi.tuna.tsinghua.edu.cn/simple")
-
+    command = ["pip", "install", "--upgrade", "pip", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"]
     try:
-        from ginkgo.libs.ginkgo_conf import GCONF
+        subprocess.run(command, check=True)
+        print("Pip upgrade success.")
+    except Exception as e:
+        print(e)
+    finally:
+        pass
 
-        # GCONF.set_logging_path(path_log)
+    command = ['pip', 'install', 'wheel', '--default-timeout=20', '-i', 'https://pypi.tuna.tsinghua.edu.cn/simple']
+    try:
+        subprocess.run(command, check=True)
+    except Exception as e:
+        print(e)
+    finally:
+        pass
+
+    command = ['pip', 'install','-r', path_pip, '--default-timeout=20', '-i', 'https://pypi.tuna.tsinghua.edu.cn/simple']
+    try:
+        subprocess.run(command, check=True)
+    except Exception as e:
+        print(e)
+    finally:
+        pass
+
+def set_config_path(path_log, working_directory):
+    from ginkgo.libs.ginkgo_conf import GCONF
+    try:
+        GCONF.set_logging_path(path_log)
         GCONF.set_work_path(working_directory)
         GCONF.set_unittest_path(working_directory)
         GCONF.set_logging_path(path_log)
     except Exception as e:
+        print(e)
         print("Ginkgo not installed. Path setting will work at next installation.")
 
-    # 创建映射文件夹
-    if not os.path.exists(path_db):
-        Path(path_db).mkdir(parents=True, exist_ok=True)
-
-    # 创建日志文件夹
-    if not os.path.exists(path_log):
-        Path(path_log).mkdir(parents=True, exist_ok=True)
-
+def start_docker(path_compose):
     # 启动Docker
     if "Windows" == str(platform.system()):
-        os.system("docker rm -f ginkgo_web")
-        os.system("docker rmi ginkgo_webui:latest")
+        command = ['docker', 'rm', '-f', 'ginkgo_web']
+        subprocess.run(command)
+        command = ['docker', 'rmi', '-f', 'ginkgo_web:latest']
+        subprocess.run(command)
+        command = ['docker' , 'compose', '-p', 'ginkgo', '-f', path_compose, '--compatibility' 'up']
         os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
     elif "Linux" == str(platform.system()):
-        os.system("docker rm -f ginkgo_web")
-        os.system("docker rmi ginkgo_webui:latest")
-        os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
-    else:
-        os.system("docker rm -f ginkgo_web")
-        os.system("docker rmi ginkgo_webui:latest")
-        os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
+        command = ['docker', 'rm', '-f', 'ginkgo_web']
+        subprocess.run(command)
+        command = ['docker', 'rmi', '-f', 'ginkgo_web:latest']
+        subprocess.run(command)
+        command = ['docker' , 'compose', '-p', 'ginkgo', '-f', path_compose, '--compatibility' 'up']
+        command = ['docker', 'rm', '-f', 'ginkgo_web']
+        subprocess.run(command)
+        command = ['docker', 'rmi', '-f', 'ginkgo_web:latest']
+        subprocess.run(command)
+        command = ['docker' , 'compose', '-p', 'ginkgo', '-f', path_compose, '--compatibility' 'up']
 
-    # Build an executable binary
-    if args.bin:
-        version_split = ver.split(".")
-        version_tag = f"{version_split[0]}.{version_split[1]}"
-        cmd = f"pyinstaller --onefile --paths /home/kaoru/Documents/Ginkgo/venv/lib/python{version_tag}/site-packages  main.py -n ginkgo"
-        os.system(cmd)
+def build_binary(working_path):
+    # TODO 
+    return
+    version_split = ver.split(".")
+    version_tag = f"{version_split[0]}.{version_split[1]}"
+    result = subprocess.run(['which', 'python'], capture_output=True, text=True)
+    python_path = result.stdout.strip()
+    cmd = f"pyinstaller --onefile --paths /home/kaoru/Documents/Ginkgo/venv/lib/python{version_tag}/site-packages  main.py -n ginkgo"
+    os.system(cmd)
 
-    # Kafka setting
-    # Should wait for container up.
-    if args.kafkainit:
-        from src.ginkgo.libs import GTM
-        from src.ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
+def kafka_reset():
+    from src.ginkgo.libs import GTM
+    from src.ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
 
-        print("kill all workers.")
-        GTM.reset_all_workers()
-        # Kill LiveEngine
-        print("reset kafka topic.")
-        kafka_topic_set()
+    print("kill all workers.")
+    GTM.reset_all_workers()
+    # Kill LiveEngine
+    print("reset kafka topic.")
+    kafka_topic_set()
 
-    # 删除旧的 ginkgo 文件
+def create_entrypoint():
+    # Remove EntryPoint
     print("Clean ginkgo binary.")
     for path in ["/usr/bin/ginkgo", "/usr/local/bin/ginkgo"]:
-        try:
-            os.system(f"sudo rm {path}")
-        except FileNotFoundError:
-            pass
+        if os.path.exists(path):
+            command = ['sudo','rm',path]
+            subprocess.run(command, check=True)
 
     shell_folder = os.path.dirname(os.path.realpath(__file__))
     output_file = "/usr/local/bin/ginkgo"
@@ -270,15 +209,19 @@ fi
 
     # 使用 sudo 命令将临时文件移动到目标目录
     print("copy binary to bin.")
-    os.system(f"sudo mv {temp_file_name} {output_file}")
+    command = ['sudo','mv',temp_file_name,output_file]
+    subprocess.run(command, check=True)
 
     # 设置文件执行权限
     print("add executable to binary")
-    os.system(f"sudo chmod +x {output_file}")
+    command = ['sudo','chmod', '+x',output_file]
+    subprocess.run(command, check=True)
     if os.path.exists(temp_file_name):
         print("remove temp file")
         os.remove(temp_file_name)
 
+def set_system_service():
+    os_name = platform.system()
     if os_name == "Linux":
         # Remove systemd conf
         print("remove ginkgo.service")
@@ -325,6 +268,133 @@ WantedBy=multi-user.target
         print("this is mac, set system server in future")
     elif os_name == "Windows":
         print("this is windows, set system server in future")
+
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-y", "--y", help="pass yes to all request", action="store_true")
+    parser.add_argument(
+        "-updateconfig",
+        "--updateconfig",
+        help="overwrite configuration",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-server",
+        "--server",
+        help="service installation",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-kafkainit",
+        "--kafkainit",
+        help="reset kafka topic",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-bin",
+        "--bin",
+        help="Build Binary.",
+        action="store_true",
+    )
+    args = parser.parse_args()
+
+    working_directory = os.path.dirname(os.path.abspath(__file__))
+
+    path_log = os.path.expanduser("~") + "/.ginkgo/logs"
+    path_db = f"{working_directory}/.db"
+    path_pip = f"{working_directory}/requirements.txt"
+    path_dockercompose = f"{working_directory}/.conf/docker-compose.yml"
+    path_click = f"{working_directory}/.conf/clickhouse_users.xml"
+    path_gink_conf = f"{working_directory}/src/ginkgo/config/config.yml"
+    path_gink_sec = f"{working_directory}/src/ginkgo/config/secure.backup"
+
+    print("======================================")
+    print("Balabala Banner")  # TODO
+    print("======================================")
+
+    os_check()
+
+    notice_info = "NOTICE"
+
+    env = env_check()
+    if env is None:
+        bye()
+
+    env_print(working_directory, env, platform.python_version())
+
+    if not args.y:
+        input(f"Press {green('ENTER')} to continue, {lightblue('Ginkgo')} will be build.")
+        print("File Check:")
+
+    if os.path.exists(path_pip):
+        msg = f"[{green('CONFIRMED')}] Pip requirements."
+        print(msg)
+    else:
+        msg = f"[{red(' MISSING ')}] Pip requirements."
+        print(msg)
+
+    if os.path.exists(path_dockercompose):
+        msg = f"[{green('CONFIRMED')}] Docker compose file"
+        print(msg)
+    else:
+        msg = f"[{red(' MISSING ')}] Docker Compose file"
+        print(msg)
+
+    if os.path.exists(path_click):
+        msg = f"[{green('CONFIRMED')}] Clickhouse config file"
+        print(msg)
+    else:
+        msg = f"[{red(' MISSING ')}] Clickhouse config file"
+        print(msg)
+
+    if os.path.exists(path_gink_conf):
+        msg = f"[{green('CONFIRMED')}] Ginkgo config file"
+        print(msg)
+    else:
+        msg = f"[{red(' MISSING ')}] Ginkgo config file"
+        print(msg)
+
+    if os.path.exists(path_gink_sec):
+        msg = f"[{green('CONFIRMED')}] Ginkgo secure file"
+        print(msg)
+    else:
+        msg = f"[{red(' MISSING ')}] Ginkgo secure file, you need to create your secure.yml refer to README"
+        print(msg)
+
+
+    copy_config(path_gink_conf, path_gink_sec, args.updateconfig)
+
+    install_ginkgo()
+
+    if not args.y:
+        result = input(f"{lightblue('Ginkgo Build Complete')}. Dependencies will be installed. Conitnue? {green('Y')}es/{red('N')}o  ")
+        if result.upper() != "Y":
+            bye()
+
+    install_dependencies(path_pip)
+
+    set_config_path(path_log, working_directory)
+
+    # 创建映射文件夹
+    if not os.path.exists(path_db):
+        Path(path_db).mkdir(parents=True, exist_ok=True)
+
+    # 创建日志文件夹
+    if not os.path.exists(path_log):
+        Path(path_log).mkdir(parents=True, exist_ok=True)
+
+
+    if args.bin:
+        build_binary()
+
+    if args.server:
+        start_docker(path_dockercompose)
+        set_system_service()
+        if args.kafkainit:
+            kafka_reset()
+    create_entrypoint()
 
 
 if __name__ == "__main__":
