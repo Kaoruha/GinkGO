@@ -1,3 +1,4 @@
+annotated-types==0.7.0
 anyio==4.6.2.post1
 asynch==0.2.5
 baostock==0.8.9
@@ -14,6 +15,7 @@ clickhouse-sqlalchemy==0.3.2
 contourpy==1.3.1
 cryptography==44.0.0
 cycler==0.12.1
+fastapi==0.115.6
 fonttools==4.55.0
 greenlet==3.1.1
 h11==0.14.0
@@ -41,6 +43,8 @@ prettytable==3.12.0
 psutil==6.1.0
 py-mini-racer==0.6.0
 pycparser==2.22
+pydantic==2.10.3
+pydantic_core==2.27.1
 Pygments==2.18.0
 PyMySQL==1.1.1
 pyparsing==3.2.0
@@ -51,12 +55,14 @@ PyYAML==6.0.2
 redis==5.2.0
 requests==2.32.3
 rich==13.9.4
+scipy==1.14.1
 shellingham==1.5.4
 simplejson==3.19.3
 six==1.16.0
 sniffio==1.3.1
 soupsieve==2.6
 SQLAlchemy==2.0.36
+starlette==0.41.3
 tabulate==0.9.0
 tdxpy==0.2.7
 telebot==0.0.5
