@@ -55,6 +55,7 @@ def docker_check():
 def env_check():
     env = os.environ.get("VIRTUAL_ENV")
     conda_env = os.environ.get("CONDA_PREFIX")
+    notice_info = "NOTICE"
     if env is None and conda_env is None:
         print(f"[{blue(notice_info)}] You should active a {bg_red('virtual enviroment')}")
         msg = f"[{blue(notice_info)}] To active, run: {green('python3 -m virtualenv venv;source venv/bin/activate')} or {green('conda create -n ginkgo python=3.12.8')} "
@@ -270,6 +271,66 @@ WantedBy=multi-user.target
         print("this is windows, set system server in future")
 
 
+def set_jupyterlab_config():
+    env = os.environ.get("VIRTUAL_ENV")
+    conda_env = os.environ.get("CONDA_PREFIX")
+    env_path = env or conda_env
+    # 添加到激活脚本中的内容
+
+    activate_script_path = os.path.join(env_path, 'bin', 'activate')
+    deactivate_script_path = os.path.join(env_path, 'bin', 'deactivate')
+
+    activate_env_variables =['Custom Jupyter configuration for this VirtualEnv', 'export JUPYTER_CONFIG_DIR' , 'export JUPYTER_DATA_DIR' ]
+    # 打开并读取文件内容
+    with open(activate_script_path, 'r') as file:
+        lines = file.readlines()
+    # 筛选掉包含 activate_env_variables 中任意一个变量的行
+    lines = [line for line in lines if not any(env_var in line for env_var in activate_env_variables)]
+    # Add Env set
+    lines.append("# Custom Jupyter configuration for this VirtualEnv\n")
+    working_directory = os.path.dirname(os.path.abspath(__file__))
+    lines.append(f"export JUPYTER_CONFIG_DIR={env_path}/etc/jupyter\n")
+    os.environ['JUPYTER_CONFIG_DIR'] = f"{env_path}/etc/jupyter"
+    lines.append(f"export JUPYTER_DATA_DIR={env_path}/.local/share/jupyter\n")
+    os.environ['JUPYTER_DATA_DIR'] = f"{env_path}/.local/share/jupyter"
+    # 写回文件，保存修改后的内容
+    with open(activate_script_path, 'w') as file:
+        file.writelines(lines)
+
+
+    deactivate_env_variables =['Unset Jupyter configuration', 'unset JUPYTER_CONFIG_DIR' , 'unset JUPYTER_DATA_DIR' ]
+    # 打开并读取文件内容
+    with open(deactivate_script_path, 'r') as file:
+        lines = file.readlines()
+    # 筛选掉包含 activate_env_variables 中任意一个变量的行
+    lines = [line for line in lines if not any(env_var in line for env_var in deactivate_env_variables)]
+    # Add Env set
+    lines.append("# Unset Jupyter configuration\n")
+    lines.append(f"unset JUPYTER_CONFIG_DIR\n")
+    lines.append(f"unset JUPYTER_DATA_DIR\n")
+    # 写回文件，保存修改后的内容
+    with open(deactivate_script_path, 'w') as file:
+        file.writelines(lines)
+
+    command = f"bash -i -c 'source {activate_script_path} && echo \"Activated virtual environment\"'"
+    os.system(command)
+    command = ['jupyter', 'lab', '--generate-config']
+    result = subprocess.run(command, check=True)
+
+    jupyter_conf_path = os.path.join(env_path,'etc','jupyter', 'jupyter_lab_config.py')
+    with open(jupyter_conf_path, 'r') as file:
+        lines = file.readlines()
+    # Filter Jupyter configuration
+    jupyter_conf_filter = ['c.ServerApp.ip', 'c.ServerApp.port', 'c.ServerApp.open_browser','c.ServerApp.token']
+    lines = [line for line in lines if not any(env_var in line for env_var in jupyter_conf_filter)]
+    lines.append("c.ServerApp.ip = '0.0.0.0'\n")
+    lines.append("c.ServerApp.port = 8001\n")
+    lines.append("c.ServerApp.open_browser = False\n")
+    lines.append("c.ServerApp.token = ''\n")
+    # 写回文件，保存修改后的内容
+    with open(jupyter_conf_path, 'w') as file:
+        file.writelines(lines)
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -316,7 +377,6 @@ def main():
 
     os_check()
 
-    notice_info = "NOTICE"
 
     env = env_check()
     if env is None:
@@ -395,6 +455,7 @@ def main():
         if args.kafkainit:
             kafka_reset()
     create_entrypoint()
+    set_jupyterlab_config()
 
 
 if __name__ == "__main__":
