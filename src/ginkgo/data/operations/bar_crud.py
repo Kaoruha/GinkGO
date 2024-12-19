@@ -159,6 +159,7 @@ def get_bars(
     page: Optional[int] = None,
     page_size: Optional[int] = None,
     as_dataframe: bool = False,
+    console: bool = False,
     *args,
     **kwargs,
 ) -> Union[List[Bar], pd.DataFrame]:
@@ -184,14 +185,16 @@ def get_bars(
 
         if as_dataframe:
             df = pd.read_sql(stmt.statement, session.connection())
-            console.print(f"[bold green]:flags: Got {df.shape[0]} records about {code} from clickhouse.[/]")
+            if console:
+                console.print(f"[bold green]:flags: Got {df.shape[0]} records about {code} from clickhouse.[/]")
             if df.shape[0] > 0:
                 df["source"] = SOURCE_TYPES.DATABASE
                 df["code"] = df["code"].str.replace("\x00", "", regex=False)
             return df
         else:
             res = session.execute(stmt).scalars().all()
-            console.print(f"[bold green]:flags: Got {len(res)} records about {code} from clickhouse.[/]")
+            if console:
+                console.print(f"[bold green]:flags: Got {len(res)} records about {code} from clickhouse.[/]")
             return [
                 Bar(
                     code=i.code,

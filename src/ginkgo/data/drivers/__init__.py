@@ -18,16 +18,11 @@ from ginkgo.data.drivers.ginkgo_kafka import (
 from ginkgo.data.models import MClickBase, MMysqlBase
 from ginkgo.libs import try_wait_counter, GLOG, GCONF, time_logger, retry
 
-mysql_connection = None
-click_connection = None
 max_try = 5
 
 
 def get_click_connection() -> GinkgoClickhouse:
-    global click_connection
-    if click_connection is None:
-        click_connection = create_click_connection()
-    return click_connection
+    return create_click_connection()
 
 
 def create_click_connection() -> GinkgoClickhouse:
@@ -41,10 +36,7 @@ def create_click_connection() -> GinkgoClickhouse:
 
 
 def get_mysql_connection() -> GinkgoMysql:
-    global mysql_connection
-    if mysql_connection is None:
-        mysql_connection = create_mysql_connection()
-    return mysql_connection
+    return create_mysql_connection()
 
 
 def create_mysql_connection() -> GinkgoMysql:
@@ -99,8 +91,7 @@ def add(value, *args, **kwargs) -> any:
         print(e)
         conn.session.rollback()
     finally:
-        pass
-        # conn.remove_session()
+        conn.remove_session()
 
 
 @time_logger
@@ -118,7 +109,6 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
     click_count = 0
     mysql_list = []
     mysql_count = 0
-    t0 = datetime.datetime.now()
     for i in values:
         if isinstance(i, MClickBase):
             click_list.append(i)
@@ -126,53 +116,35 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
             mysql_list.append(i)
         else:
             GLOG.WARN("Just support clickhouse and mysql now. Ignore other type.")
-    t1 = datetime.datetime.now()
-    print(f"Split data via mysql and click : {t1 - t0}s")
 
-    try:
-        if len(click_list) > 0:
-            tp0 = datetime.datetime.now()
-            session = get_click_connection().session
-            tp1 = datetime.datetime.now()
-            print(f"Get clickhouse session : {tp1-tp0}s")
+    if len(click_list) > 0:
+        try:
+            click_conn = get_click_connection()
+            session = click_conn.session
             session.add_all(click_list)
-            tp2 = datetime.datetime.now()
-            print(f"Add clickhouse data : {tp2-tp1}s")
             session.commit()
-            tp3 = datetime.datetime.now()
-            print(f"Clickhouse commit : {tp3-tp2}s")
             click_count = len(click_list)
-            tp4 = datetime.datetime.now()
-            print(f"Get list count : {tp4-tp3}s")
             GLOG.DEBUG(f"Clickhouse commit {len(click_list)} records.")
-    except Exception as e:
-        session.rollback()
-        import pdb
+        except Exception as e:
+            session.rollback()
+            GLOG.ERROR(e)
+        finally:
+            click_conn.remove_session()
 
-        pdb.set_trace()
-        GLOG.ERROR(e)
-    finally:
-        get_click_connection().remove_session()
-
-    t2 = datetime.datetime.now()
-    print(f"Add Clickhouse Data : {t2-t1}s")
-    try:
-        if len(mysql_list) > 0:
-            session = get_mysql_connection().session
+    if len(mysql_list) > 0:
+        try:
+            mysql_conn = get_mysql_connection()
+            session = mysql_conn.session
             session.add_all(mysql_list)
             session.commit()
             mysql_count = len(mysql_list)
             GLOG.DEBUG(f"Mysql commit {len(mysql_list)} records.")
-    except Exception as e:
-        session.rollback()
-        import pdb
-
-        pdb.set_trace()
-        GLOG.ERROR(e)
-    finally:
-        get_mysql_connection().remove_session()
-    t3 = datetime.datetime.now()
-    print(f"Add Mysql Data : {t3-t2}s")
+        except Exception as e:
+            session.rollback()
+            GLOG.ERROR(e)
+            mysql_connection = create_mysql_connection()
+        finally:
+            mysql_conn.remove_session()
 
     return (click_count, mysql_count)
 

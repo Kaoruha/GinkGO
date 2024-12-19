@@ -20,9 +20,10 @@ class GinkgoClickhouse(object):
             echo=self._echo,
             future=True,
             pool_recycle=3600,
-            pool_size=10,
-            pool_timeout=20,
+            pool_size=20,
+            pool_timeout=30,
             max_overflow=10,
+            pool_pre_ping=True,
         )
         self._session_factory = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=self.engine))
 

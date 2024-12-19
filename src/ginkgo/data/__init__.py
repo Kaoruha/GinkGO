@@ -111,7 +111,7 @@ def fetch_and_update_adjustfactor(*args, **kwargs):
 @retry
 @skip_if_ran
 @time_logger
-def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, *args, **kwargs):
+def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, console:bool=False, *args, **kwargs):
     from ginkgo.data.models import MBar
     from ginkgo.data.operations import add_bars
     from ginkgo.data.operations.bar_crud import delete_bars_by_code_and_dates
@@ -146,6 +146,7 @@ def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, *args, **kwarg
             update_dates.append(i.timestamp)
             progress.update(task, advance=1, description=fix_string_length(f"{code} {i.timestamp}", 30))
         delete_bars_by_code_and_dates(code=code, dates=update_dates)
+        time.sleep(.2)
         progress.update(task2, advance=1, description="Del Data")
         for i in range(0, len(update_list), batch_size):
             add_bars(update_list[i : i + batch_size], progress=progress)
@@ -162,9 +163,12 @@ def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, *args, **kwarg
         return
 
     # Get Data from database
-    with console.status(f"[bold green]Get Daybar about {code} from Clickhouse..[/]") as status:
+    if not console:
         data_in_db = get_bars(code=code, as_dataframe=True)
-        status.stop()
+    else:
+        with console.status(f"[bold green]Get Daybar about {code} from Clickhouse..[/]") as status:
+            data_in_db = get_bars(code=code, as_dataframe=True)
+            status.stop()
 
     start_date = GCONF.DEFAULTSTART
     end_date = datetime.datetime.now()
