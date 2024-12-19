@@ -286,7 +286,6 @@ def show(
     # if code == "":
     #     code = random_pick_one_code()
     pd.set_option("display.unicode.east_asian_width", True)
-    t0 = datetime.datetime.now()
 
     if data == DataType.STOCKINFO:
         raw = get_stockinfos()
@@ -319,12 +318,9 @@ def show(
                 ]
             ]
     elif data == DataType.DAYBAR:
-        p = Process(
-            target=progress_bar,
-            args=(f"Get Daybar {code}",),
-        )
-        p.start()
-        raw = GDATA.get_daybar_df(code, start, end)
+        from ginkgo.data import get_bars
+
+        raw = get_bars(code=code, start_date=start, end_date=end, as_dataframe=True)
         if raw.shape[0] == 0:
             rs = raw
         else:
@@ -339,15 +335,6 @@ def show(
                     "volume",
                 ]
             ]
-        p.kill()
-        p.join()
-        sys.stdout.write("\r" + " " * 100 + "\r")
-        sys.stdout.flush()
-        t1 = datetime.datetime.now()
-        if t1 - t0 < datetime.timedelta(seconds=1):
-            console.print(f":zap: Daybar [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]. Seems REDIS works.")
-        else:
-            console.print(f":hugging_face: Daybar [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]")
 
     elif data == DataType.TICK:
         if datetime_normalize(end) - datetime_normalize(start) > datetime.timedelta(days=10):
@@ -361,7 +348,6 @@ def show(
             args=(f"Get Tick {code}",),
         )
         p.start()
-        t0 = datetime.datetime.now()
         raw = GDATA.get_tick_df(code, start, end)
         if raw.shape[0] == 0:
             rs = raw
@@ -371,7 +357,6 @@ def show(
         p.join()
         sys.stdout.write("\r" + " " * 100 + "\r")
         sys.stdout.flush()
-        t1 = datetime.datetime.now()
         if t1 - t0 < datetime.timedelta(seconds=1):
             console.print(f":zap: Tick [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow].")
         else:
