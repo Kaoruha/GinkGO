@@ -1,8 +1,6 @@
 from ginkgo.backtest.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES
-from ginkgo.backtest.order import Order
 from ginkgo.libs import base_repr
-from ginkgo.data.ginkgo_data import GDATA
 
 
 class EventNextPhase(EventBase):

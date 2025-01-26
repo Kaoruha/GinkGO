@@ -511,5 +511,23 @@ class GinkgoConfig(object):
         else:
             return False
 
+    @property
+    def PYTHONPATH(self) -> str:
+        key = "GINKGO_PYTHON_PATH"
+        ratio = os.environ.get(key, None)
+        if ratio is None:
+            ratio = self._read_config()["python_path"]
+            ratio = str(ratio)
+            os.environ[key] = ratio
+        return str(ratio)
+
+    def set_python_path(self, value) -> None:
+        # import pdb
+        # pdb.set_trace()
+        key = "GINKGO_PYTHON_PATH"
+        if isinstance(value, str):
+            self._write_config("python_path", value)
+            os.environ[key] = str(value)
+
 
 GCONF = GinkgoConfig()

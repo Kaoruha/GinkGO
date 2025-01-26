@@ -28,3 +28,5 @@ telegram:
   password: {Your Password}
   chatids: 
     - 5316566166
+deepseek:
+  token: {Your api key}

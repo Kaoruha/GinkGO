@@ -21,14 +21,21 @@ class Signal(Base):
         reason: str = "no reason",
         source: SOURCE_TYPES = SOURCE_TYPES.OTHER,
         *args,
-        **kwargs
+        **kwargs,
     ) -> None:
         super(Signal, self).__init__(*args, **kwargs)
-        self.set(portfolio_id, timestamp, code, direction, reason, source)
+        try:
+            self.set(portfolio_id, timestamp, code, direction, reason, source)
+        except Exception as e:
+            GLOG.error(f"Error initializing Signal: {e}")
+            raise Exception("Error initializing Signal: {e}")
 
     @singledispatchmethod
-    def set(self) -> None:
-        pass
+    def set(self, *args, **kwargs) -> None:
+        """
+        Dispatch method for setting attributes.
+        """
+        raise NotImplementedError("Unsupported input type for `set` method.")
 
     @set.register
     def _(
@@ -39,7 +46,21 @@ class Signal(Base):
         direction: DIRECTION_TYPES,
         reason: str,
         source: SOURCE_TYPES,
+        *args,
+        **kwargs,
     ):
+        if not portfolio_id:
+            raise ValueError("portfolio_id cannot be empty.")
+        if not timestamp:
+            raise ValueError("timestamp cannot be empty.")
+        if not code:
+            raise ValueError("code cannot be empty.")
+        if not direction:
+            raise ValueError("direction cannot be empty.")
+        if not reason:
+            raise ValueError("reason cannot be empty.")
+        if not source:
+            raise ValueError("source cannot be empty.")
         self._portfolio_id = portfolio_id
         self._timestamp: datetime.datetime = datetime_normalize(timestamp)
         self._code: str = code
@@ -48,10 +69,16 @@ class Signal(Base):
         self.set_source(source)
 
     @set.register
-    def _(self, df: pd.Series):
+    def _(self, df: pd.Series, *args, **kwargs):
         """
         Set from dataframe
         """
+        required_fields = {"portfolio_id", "timestamp", "code", "direction", "reason"}
+        # 检查 DataFrame 是否包含所有必需字段
+        if not required_fields.issubset(df.columns):
+            missing_fields = required_fields - set(df.columns)
+            raise ValueError(f"Missing required fields in DataFrame: {missing_fields}")
+
         self._portfolio_id = df.portfolio_id
         self._timestamp: datetime.datetime = datetime_normalize(df.timestamp)
         self._code: str = df.code

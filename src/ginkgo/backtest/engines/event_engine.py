@@ -110,14 +110,14 @@ class EventEngine(BaseEngine):
         self._active = True
         self._main_thread.start()
         self._timer_thread.start()
-        self.log("INFO", "Engine STARTED.")
+        self.log("INFO", f"Engine {self.name} {self.uuid} STARTED.")
 
     def pause(self) -> None:
         """
         Pause the Engine
         """
         self._active = False
-        self.log("INFO", "Engine Pause.")
+        self.log("INFO", f"Engine {self.name} {self.uuid} PAUSED.")
 
     def stop(self) -> None:
         """
@@ -126,7 +126,7 @@ class EventEngine(BaseEngine):
         super(EventEngine, self).stop()
         self._main_flag.set()
         self._timer_flag.set()
-        self.log("INFO", "Engine Stop.")
+        self.log("INFO", f"Engine {self.name} {self.uuid} Stop.")
         self.log("INFO", "Each Portfolio status.")
         for i in self.portfolios:
             self.log("INFO", i)

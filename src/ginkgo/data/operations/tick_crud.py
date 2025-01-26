@@ -152,6 +152,10 @@ def get_ticks(
     stmt = session.query(model).filter(and_(*filters))  # New api not work on dataframe convert
     if page is not None and page_size is not None:
         stmt = stmt.offset(page * page_size).limit(page_size)
+    else:
+        if start_date is None and end_date is None:
+            GLOG.WARN("Get Ticks with out date range and pagination is not suggeted.")
+            return pd.DataFrame() if as_dataframe else None
     try:
 
         if as_dataframe:

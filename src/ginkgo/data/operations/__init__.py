@@ -282,6 +282,10 @@ def upsert_stockinfo(*args, **kwargs):
     return func(*args, **kwargs)
 
 
+def get_stockinfo(*args, **kwargs):
+    from ginkgo.data.operations.stockinfo_crud import get_stockinfo as func
+
+    return func(*args, **kwargs)
 def get_stockinfos(*args, **kwargs):
     from ginkgo.data.operations.stockinfo_crud import get_stockinfos as func
 
@@ -299,7 +303,10 @@ def ensure_tick_table(func):
         try:
             if "code" in kwargs and isinstance(kwargs["code"], str):
                 model = get_tick_model(code=kwargs["code"])
-                create_table(model)
+                if kwargs.get("no_log") == True:
+                    create_table(model, no_log=True)
+                else:
+                    create_table(model)
             result = func(*args, **kwargs)  # 执行原函数
             return result
         except Exception as e:

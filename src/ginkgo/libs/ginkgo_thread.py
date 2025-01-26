@@ -203,16 +203,14 @@ if __name__ == "__main__":
             file.write(content)
             file_name = file.name
         try:
-            work_dir = GCONF.WORKING_PATH
             log_dir = GCONF.LOGGING_PATH
             worker_logger.INFO(f"Write temp file.")
             pid = os.getpid()
             pid = str(pid)
             with open(file_name, "w") as file:
                 file.write(content)
-            # cmd = f"nohup {work_dir}/venv/bin/python -u {file_name} >>{GCONF.LOGGING_PATH}/data_worker_daemon_{pid}.log 2>&1 &"
             worker_logger.INFO(f"Run daemon.")
-            command = ["nohup", f"{work_dir}/venv/bin/python", "-u", f"{file_name}"]
+            command = ["nohup", f"{GCONF.PYTHONPATH}", "-u", f"{file_name}"]
             with open("/dev/null", "w") as devnull:
                 subprocess.Popen(command, stdout=devnull, stderr=devnull)
 
@@ -404,7 +402,7 @@ if __name__ == "__main__":
             log_dir = GCONF.LOGGING_PATH
             with open(file_name, "w") as file:
                 file.write(content)
-            command = ["nohup", f"{work_dir}/venv/bin/python", "-u", f"{file_name}", ">/dev/null", "2>&1", "&"]
+            command = ["nohup", f"{GCONF.PYTHONPATH}", "-u", f"{file_name}", ">/dev/null", "2>&1", "&"]
             subprocess.run(command)
             console.print(f":sun_with_face: Live {id} is [steel_blue1]RUNNING[/steel_blue1] now.")
             time.sleep(1)

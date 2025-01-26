@@ -1,3 +1,10 @@
+"""
+HistoricEngine 模块
+
+该模块实现了一个历史回测引擎，用于模拟金融市场的历史事件处理。
+核心功能包括事件循环、时间推进、以及事件处理。
+"""
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -19,6 +26,13 @@ from ginkgo.libs import datetime_normalize, GCONF, time_logger
 
 
 class HistoricEngine(EventEngine):
+    """
+    历史回测引擎类
+
+    继承自 EventEngine，用于处理历史数据回测中的事件循环和时间推进。
+    支持设置回测时间范围、时间间隔，并处理事件队列中的事件。
+    """
+
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False
@@ -48,8 +62,11 @@ class HistoricEngine(EventEngine):
 
     @start_date.setter
     def start_date(self, value: any) -> None:
-        self._start_date = datetime_normalize(value)
-        self.log("INFO", f"{type(self)}:{self.name} set DATESTART {self.start_date}.")
+        try:
+            self._start_date = datetime_normalize(value)
+            self.log("INFO", f"{type(self)}:{self.name} set DATESTART {self.start_date}.")
+        except Exception as e:
+            self.log("ERROR", f"{type(self)}:{self.name} set start_date failed: {e}")
 
     @property
     def end_date(self) -> datetime.datetime:
@@ -57,16 +74,20 @@ class HistoricEngine(EventEngine):
 
     @end_date.setter
     def end_date(self, value: any) -> None:
-        self._end_date = datetime_normalize(value)
-        self.log("INFO", f"{type(self)}:{self.name} set DATEEND {self.end_date}.")
+        try:
+            self._end_date = datetime_normalize(value)
+            self.log("INFO", f"{type(self)}:{self.name} set DATEEND {self.end_date}.")
+        except Exception as e:
+            self.log("ERROR", f"{type(self)}:{self.name} set end_date failed: {e}")
 
     def set_backtest_interval(self, interval: str) -> None:
-        return
         interval = interval.upper()
         if interval == "DAY":
             self._backtest_interval = datetime.timedelta(days=1)
         elif interval == "MIN":
             self._backtest_interval = datetime.timedelta(minutes=1)
+        else:
+            self.log("ERROR", f"{type(self)}:{self.name} set INTERVAL failed: Unsupported interval type '{interval}'.")
         self.log("INFO", f"{type(self)}:{self.name} set INTERVAL {self._backtest_interval}.")
 
     @time_logger
@@ -74,6 +95,10 @@ class HistoricEngine(EventEngine):
         """
         The EventBacktest Main Loop.
         """
+        if not isinstance(flag, Event):
+            self.log("ERROR", f"{self.name} main_loop: flag must be an instance of threading.Event.")
+            return
+
         while self._active:
             if flag.is_set():
                 break
@@ -89,14 +114,15 @@ class HistoricEngine(EventEngine):
                 pass
 
             # Break for a while
-            sleep(0.005)
-        self.log("INFO", f"{self.name} Main Loop End.")
+            sleep(0.002)
+        self.log("INFO", f"Engine: {self.name} Main Loop End.")
 
     def next_phase(self, *args, **kwargs) -> None:
         if self.now is None and self.start_date is None:
             self.log("ERROR", f"{self.name} Check the code. There is no start_date or now.")
             self.stop()
             sys.exit(0)
+
         if self.now is None:
             self._now = datetime_normalize(self.start_date)
 

@@ -227,10 +227,11 @@ def get_stockinfos(
         console.print(f":moyai: [bold green]Got {df.shape[0]} records about StockInfo from mysql.[/]")
         if df.shape[0] == 0:
             return pd.DataFrame()
-        return df
+        return df.sort_values(by='code')
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
         return pd.DataFrame()
     finally:
         get_mysql_connection().remove_session()
+

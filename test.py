@@ -1,9 +1,3 @@
-from ginkgo.libs.ginkgo_thread import GinkgoThreadManager
-from ginkgo.data import *
+from ginkgo.libs import GTM
 
-if __name__ == "__main__":
-    # send_signal_kill_a_worker()
-    gtm = GinkgoThreadManager()
-    # a = create_redis_connection().get(gtm.watchdog_name)
-    # print(a)
-    gtm.run_data_worker()
+GTM.run_data_worker()

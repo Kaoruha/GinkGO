@@ -91,6 +91,7 @@ def init():
     :ram: Init the basic file to database. Copy files from source.
     """
     from ginkgo.data import init_example_data as func
+
     func()
 
 
@@ -109,7 +110,7 @@ def cat(
 
 
 @app.command()
-def ls(
+def show(
     filter: Annotated[str, typer.Option(case_sensitive=False, help="File filter")] = None,
     a: Annotated[
         bool,
@@ -162,6 +163,7 @@ def run(
 ):
     from ginkgo.backtest.engines.engine_assembler_factory import assembler_backtest_engine
     from ginkgo.data import get_engine, get_engines
+
     engine_df = get_engine(id)
     if engine_df.shape[0] == 0:
         df = get_engines()
@@ -173,16 +175,15 @@ def run(
         table.add_column("Update At", style="dim")
         for i, r in df.iterrows():
             table.add_row(
-                    r['uuid'],
-                    r['name'],
-                    r['desc'],
-                    str(r['update_at']),
+                r["uuid"],
+                r["name"],
+                r["desc"],
+                str(r["update_at"]),
             )
         console.print(table)
         return
     else:
         assembler_backtest_engine(id)
-
 
 
 @app.command()
@@ -228,14 +229,16 @@ def edit(
         # Remove the file and directory
         shutil.rmtree(temp_folder)
 
+
 @app.command()
 def create_engine():
     pass
 
 
 @app.command()
-def show():
+def engine_bind():
     pass
+
 
 @app.command()
 def create_file(
@@ -340,7 +343,7 @@ def recall(
 
 
 @app.command()
-def order(
+def lsorder(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
     page: Annotated[int, typer.Option(case_sensitive=False, help="Limit the number of output.")] = 0,
 ):
@@ -380,7 +383,7 @@ def order(
 
 
 @app.command()
-def res(
+def showres(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
     index: Annotated[
         typing_list[str],

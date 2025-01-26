@@ -74,7 +74,7 @@ def kafka_topic_set():
 
     # 创建一个新主题的配置
     topic_list = []
-    topic_list.append(NewTopic(name="ginkgo_data_update", num_partitions=12, replication_factor=1))
+    topic_list.append(NewTopic(name="ginkgo_data_update", num_partitions=24, replication_factor=1))
     topic_list.append(NewTopic(name="live_control", num_partitions=1, replication_factor=1))
     topics = admin_client.list_topics()
     print("Kafka Topics:")

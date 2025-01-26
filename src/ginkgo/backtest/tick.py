@@ -17,7 +17,7 @@ class Tick(Base):
         timestamp: any = datetime.datetime.now(),
         source: SOURCE_TYPES = SOURCE_TYPES.OTHER,
         *args,
-        **kwargs
+        **kwargs,
     ) -> None:
         super(Tick, self).__init__(*args, **kwargs)
         self._code = code
@@ -29,7 +29,7 @@ class Tick(Base):
 
     @singledispatchmethod
     def set(self) -> None:
-        pass
+        raise NotImplementedError("Unsupported input type for `set` method.")
 
     @set.register
     def _(
@@ -41,8 +41,20 @@ class Tick(Base):
         timestamp: any,
         source: SOURCE_TYPES,
         *args,
-        **kwargs
+        **kwargs,
     ) -> None:
+        if not isinstance(code, str):
+            raise ValueError("Code must be a string.")
+        if not isinstance(price, (int, float, Decimal)) or price < 0:
+            raise ValueError("Price must be a non-negative number.")
+        if not isinstance(volume, int) or volume < 0:
+            raise ValueError("Volume must be a non-negative integer.")
+        if not isinstance(direction, TICKDIRECTION_TYPES):
+            raise ValueError("Direction must be a valid TICKDIRECTION_TYPES enum.")
+        if not isinstance(timestamp, (str, datetime.datetime)):
+            raise ValueError("Timestamp must be a string or datetime object.")
+        if not isinstance(source, SOURCE_TYPES):
+            raise ValueError("Source must be a valid SOURCE_TYPES enum.")
         self._code = code
         self._price = price
         self._volume = volume
@@ -51,6 +63,11 @@ class Tick(Base):
 
     @set.register
     def _(self, df: pd.Series, *args, **kwargs) -> None:
+        required_fields = {"code", "price", "volume", "direction", "timestamp"}
+        # 检查 Series 是否包含所有必需字段
+        if not required_fields.issubset(df.columns):
+            missing_fields = required_fields - set(df.columns)
+            raise ValueError(f"Missing required fields in DataFrame: {missing_fields}")
         self._code = df["code"]
         self._price = to_decimal(df["price"])
         self._volume = df["volume"]

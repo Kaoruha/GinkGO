@@ -16,7 +16,7 @@ from ginkgo.data.drivers.ginkgo_kafka import (
     kafka_topic_llen,
 )
 from ginkgo.data.models import MClickBase, MMysqlBase
-from ginkgo.libs import try_wait_counter, GLOG, GCONF, time_logger, retry
+from ginkgo.libs import try_wait_counter, GLOG, GCONF, time_logger, retry, skip_if_ran
 
 max_try = 5
 
@@ -166,7 +166,8 @@ def is_table_exsists(model) -> bool:
 
 @time_logger
 @retry
-def create_table(model) -> None:
+@skip_if_ran
+def create_table(model, no_log=True) -> None:
     """
     Create table with model.
     Support Clickhouse and Mysql now.
@@ -228,6 +229,7 @@ def drop_table(model) -> None:
 
 @time_logger
 @retry
+@skip_if_ran
 def create_all_tables() -> None:
     """
     Create tables with all models without __abstract__ = True.

@@ -1,3 +1,10 @@
+"""
+EventOrderRelated 模块
+
+该模块定义了一个与订单相关的事件类，用于处理与订单相关的操作。
+事件包含订单的详细信息，如订单ID、时间戳、代码、方向、类型、状态等。
+"""
+
 from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES
 from ginkgo.backtest.order import Order
 from ginkgo.libs import base_repr
@@ -6,10 +13,14 @@ from ginkgo.backtest.events.base_event import EventBase
 
 class EventOrderRelated(EventBase):
     """
-    Order Related Event
+    订单相关事件类
+
+    继承自 EventBase，用于处理与订单相关的操作。
     """
 
     def __init__(self, order: Order, *args, **kwargs) -> None:
+        if not isinstance(order, Order):
+            raise ValueError("Order must be an instance of Order.")
         super(EventOrderRelated, self).__init__(*args, **kwargs)
         self.set_type(EVENT_TYPES.OTHER)
         self._order = order
@@ -25,21 +36,15 @@ class EventOrderRelated(EventBase):
 
     @property
     def timestamp(self):
-        if self.value is None:
-            return None
-        return self.value.timestamp
+        return self.value.timestamp if self.value else None
 
     @property
     def code(self):
-        if self.value is None:
-            return None
-        return self.value.code
+        return self.value.code if self.value else None
 
     @property
     def direction(self):
-        if self.value is None:
-            return None
-        return self.value.direction
+        return self.value.direction if self.value else None
 
     @property
     def order_id(self):
@@ -47,64 +52,42 @@ class EventOrderRelated(EventBase):
 
     @property
     def order_type(self):
-        if self.value is None:
-            self.get_order(self.order_id)
-        if self.value is None:
-            return None
-        return self.value.type
+        return self.value.type if self.value else None
 
     @property
     def order_status(self):
-        if self.value is None:
-            return None
-        return self.value.status
+        return self.value.status if self.value else None
 
     @property
     def limit_price(self):
-        if self.value is None:
-            return None
-        return self.value.limit_price
+        return self.value.limit_price if self.value else None
 
     @property
     def volume(self):
-        if self.value is None:
-            return None
-        return self.value.volume
+        return self.value.volume if self.value else None
 
     @property
     def frozen(self):
-        if self.value is None:
-            return None
-        return self.value.frozen
+        return self.value.frozen if self.value else None
 
     @property
     def transaction_price(self):
-        if self.value is None:
-            return None
-        return self.value.transaction_price
+        return self.value.transaction_price if self.value else None
 
     @property
     def transaction_volume(self):
-        if self.value is None:
-            return None
-        return self.value.transaction_volume
+        return self.value.transaction_volume if self.value else None
 
     @property
     def remain(self):
-        if self.value is None:
-            return None
-        return self.value.remain
+        return self.value.remain if self.value else None
 
     @property
     def fee(self):
-        if self.value is None:
-            return None
-        return self.value.fee
+        return self.value.fee if self.value else None
 
     @property
     def portfolio_id(self) -> str:
-        if self.value is None:
-            return None
         return self.value.portfolio_id
 
     def __repr__(self):

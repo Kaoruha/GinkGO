@@ -45,9 +45,13 @@ def str2bool(strint: str or int, *args, **kwargs) -> bool:
 def time_logger(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        in_progress = False
+        show_log = True
         if "progress" in kwargs and isinstance(kwargs["progress"], Progress):
-            in_progress = True
+            show_log = False
+        if kwargs.get("no_log") == True:
+            show_log = False
+        if not show_log:
+            return func(*args, **kwargs)
         start_time = time.time()  # 记录开始时间
         result = None
         try:
@@ -58,10 +62,7 @@ def time_logger(func):
         finally:
             end_time = time.time()  # 记录结束时间
             duration = end_time - start_time  # 计算持续时间
-            if not in_progress:
-                console.print(
-                    f":camel: FUNCTION [yellow]{func.__name__}[/] excuted in {format_time_seconds(duration)}."
-                )
+            console.print(f":camel: FUNCTION [yellow]{func.__name__}[/] excuted in {format_time_seconds(duration)}.")
 
     return wrapper
 
@@ -91,7 +92,7 @@ def skip_if_ran(func):
 
     func_ran_expired = 60 * 60 * 4
 
-    func_ran_expired = 60
+    # func_ran_expired = 60
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -218,6 +219,7 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
 
         return decorator
     else:
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             # 生成缓存key，包含方法名和参数
