@@ -37,6 +37,25 @@ class Order(Base):
         *args,
         **kwargs
     ) -> None:
+        """
+        Initialize the Order instance.
+
+        Args:
+            code (str, optional): Code of the order. Defaults to "Default Order Code".
+            direction (DIRECTION_TYPES, optional): Direction of the order. Defaults to None.
+            type (ORDER_TYPES, optional): Type of the order. Defaults to None.
+            status (ORDERSTATUS_TYPES, optional): Status of the order. Defaults to ORDERSTATUS_TYPES.NEW.
+            volume (int, optional): Volume of the order. Defaults to 0.
+            limit_price (float, optional): Limit price of the order. Defaults to 0.
+            frozen (float, optional): Frozen amount of the order. Defaults to 0.
+            transaction_price (float, optional): Transaction price of the order. Defaults to 0.
+            transaction_volume (int, optional): Transaction volume of the order. Defaults to 0.
+            remain (float, optional): Remaining amount of the order. Defaults to 0.
+            fee (float, optional): Fee of the order. Defaults to 0.
+            timestamp (any, optional): Timestamp of the order. Defaults to None.
+            uuid (str, optional): UUID of the order. Defaults to "".
+            portfolio_id (str, optional): Portfolio ID of the order. Defaults to "".
+        """
         self._code = code
         self._direction = direction
         self._type = type
@@ -57,11 +76,11 @@ class Order(Base):
     def set(self, obj, *args, **kwargs) -> None:
         """
         Support set from params or dataframe.
-        1. From parmas
-        2. From dataframe
-        code,direction,type,volume,limit_price,frozen,transaction_price,remain,timestamp,uuid
+            1. From parmas
+            2. From dataframe
+            code,direction,type,volume,limit_price,frozen,transaction_price,remain,timestamp,uuid
         """
-        raise NotImplementedError("Unsupported type")
+        raise NotImplementedError("Unsupported input type for `set` method.")
 
     @set.register
     def _(
@@ -81,6 +100,33 @@ class Order(Base):
         order_id: str,
         portfolio_id: str,
     ):
+        if not isinstance(code, str):
+            raise ValueError("Code must be a string.")
+        if not isinstance(direction, DIRECTION_TYPES):
+            raise ValueError("Direction must be a valid DIRECTION_TYPES enum.")
+        if not isinstance(type, ORDER_TYPES):
+            raise ValueError("Type must be a valid ORDER_TYPES enum.")
+        if not isinstance(status, ORDERSTATUS_TYPES):
+            raise ValueError("Status must be a valid ORDERSTATUS_TYPES enum.")
+        if not isinstance(volume, int) or volume < 0:
+            raise ValueError("Volume must be a non-negative integer.")
+        if not isinstance(limit_price, (int, float)) or limit_price < 0:
+            raise ValueError("Limit price must be a non-negative number.")
+        if not isinstance(frozen, (int, float)) or frozen < 0:
+            raise ValueError("Frozen must be a non-negative number.")
+        if not isinstance(transaction_price, (int, float)) or transaction_price < 0:
+            raise ValueError("Transaction price must be a non-negative number.")
+        if not isinstance(transaction_volume, int) or transaction_volume < 0:
+            raise ValueError("Transaction volume must be a non-negative integer.")
+        if not isinstance(remain, (int, float)) or remain < 0:
+            raise ValueError("Remain must be a non-negative number.")
+        if not isinstance(fee, (int, float)) or fee < 0:
+            raise ValueError("Fee must be a non-negative number.")
+        if not isinstance(order_id, str):
+            raise ValueError("Order ID must be a string.")
+        if not isinstance(portfolio_id, str):
+            raise ValueError("Portfolio ID must be a string.")
+
         self._code: str = code
         self._direction: DIRECTION_TYPES = direction
         self._type: ORDER_TYPES = type
@@ -126,18 +172,42 @@ class Order(Base):
 
     @property
     def code(self) -> str:
+        """
+        Get the code of the order.
+
+        Returns:
+            str: The code.
+        """
         return self._code
 
     @code.setter
     def code(self, value) -> None:
+        """
+        Set the code of the order.
+
+        Args:
+            value (str): The code to set.
+        """
         self._code = value
 
     @property
     def timestamp(self) -> datetime.datetime:
+        """
+        Get the timestamp of the order.
+
+        Returns:
+            datetime.datetime: The timestamp.
+        """
         return self._timestamp
 
     @timestamp.setter
     def timestamp(self, value) -> None:
+        """
+        Set the timestamp of the order.
+
+        Args:
+            value (datetime.datetime): The timestamp to set.
+        """
         self._timestamp = value
 
     @property

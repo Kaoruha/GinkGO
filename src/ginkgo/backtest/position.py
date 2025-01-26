@@ -172,18 +172,22 @@ class Position(Base):
     def freeze(self, volume: int, *args, **kwargs) -> bool:
         """
         Freeze Position.
+        Args:
+            volume (int): Amount to freeze.
+        Returns:
+            bool: Success or failure.
         """
         if volume <= 0:
-            GLOG.CRITICAL(f"There is no volume about{self.code} to freeze: {volume}")
+            GLOG.CRITICAL(f"Invalid freeze volume: {volume}")
             return False
         volume = int(volume)
         if volume > self.volume:
-            GLOG.CRITICAL(f"POS {self.code} just has {self.volume} cant afford {volume}, please check your code")
+            GLOG.CRITICAL(f"Insufficient volume to freeze: {volume}, available: {self.volume}")
             return False
 
         self._volume -= volume
         self._frozen_volume += volume
-        GLOG.INFO(f"POS {self.code} freezed {volume}. Final volume:{self.volume} frozen_volume: {self.frozen_volume}")
+        GLOG.INFO(f"Freezed {volume} units. Remaining: {self.volume}, Frozen: {self.frozen_volume}")
         return True
 
     def unfreeze(self, volume: int, *args, **kwargs) -> int:
@@ -233,65 +237,104 @@ class Position(Base):
         """
         self._profit = (self.volume + self.frozen_volume) * (self.price - self.cost) - self.fee
 
-    def _bought(self, price: Number, volume: int, *args, **kwargs) -> int:
+    def _bought(self, price: Number, volume: int, *args, **kwargs) -> bool:
         """
-        Deal with long trade.
-        return: volume of position.
+        Handle a long trade.
+
+        Args:
+            price (Number): The price at which the position is bought.
+            volume (int): The volume of the position to be added.
+
+        Returns:
+            bool: Whether the operation was successful.
         """
-        volume = int(volume)
-        price = to_decimal(price)
-        if price < 0 or volume < 0:
-            GLOG.ERROR(f"Illegal price:{price} or volume:{volume}")
-            return
+        try:
+            volume = int(volume)
+            price = to_decimal(price)
+            if price <= 0 or volume <= 0:
+                raise ValueError(f"Invalid price: {price} or volume: {volume}")
+        except Exception as e:
+            GLOG.error(f"Invalid input - price: {price}, volume: {volume}, error: {e}")
+            return False
+        finally:
+            pass
 
-        old_price = self.cost
-        old_volume = self.volume
-        self._volume += volume
-        if self.volume == 0:
-            GLOG.ERROR("Should not have 0 volume after BUY.")
-            return
-        else:
-            self._cost = (old_price * old_volume + price * volume) / self.volume
-        self.on_price_update(price)
+        try:
+            prev_price = self.cost
+            prev_volume = self.volume
+            self._volume += volume
+            self._cost = (prev_price * prev_volume + price * volume) / self.volume
+            self.on_price_update(price)
+            # Check cost
+            if self._cost < 0:
+                GLOG.CRITICAL(f"Cost is less than 0: {self._cost}")
+                return
+            if not isinstance(self._cost, Decimal):
+                GLOG.CRITICAL(f"Cost is not a DECIMAL: {self._cost}")
+                return
+            GLOG.debug(f"POS {self.code} added {volume} at ${price}. Final price: ${self._cost}, ")
+            GLOG.debug(f"volume: {self.volume}, cost: ${self.cost}, frozen: {self.frozen_volume}")
+            return True
+        except Exception as e:
+            print(e)
+            return False
+        finally:
+            pass
 
-        # Check cost
-        if self._cost < 0:
-            GLOG.CRITICAL(f"Cost is less than 0: {self._cost}")
-            return
-
-        if not isinstance(self._cost, Decimal):
-            GLOG.CRITICAL(f"Cost is not a DECIMAL: {self._cost}")
-            return
-        GLOG.DEBUG(
-            f"POS {self.code} add {volume} at ${price}. Final price: ${price}, volume: {self.volume}, cost: ${self.cost}, frozen: {self.frozen_volume}"
-        )
-        return self.volume
-
-    def _sold(self, price: float, volume: int, *args, **kwargs) -> int:
+    def _sold(self, price: float, volume: int, *args, **kwargs) -> bool:
         """
-        Deal with short trade.
-        return: volume of position.
+        Handle a short trade.
+
+        Args:
+            price (float): The price at which the position is sold.
+            volume (int): The volume of the position to be reduced.
+
+        Returns:
+            bool: Whether the operation was successful.
         """
-        if price <= 0:
-            GLOG.CRITICAL(f"Illegal price: {price} at SOLD.")
-            return
-        if volume <= 0:
-            GLOG.CRITICAL(f"Illegal volume: {volume} at SOLD.")
-            return
-        GLOG.WARN(f"Position --")
-        volume = int(volume)
-        price = float(price)
+        # 参数校验
+        try:
+            volume = int(volume)
+            price = float(price)
+            if price <= 0 or volume <= 0:
+                raise ValueError(f"Invalid price: {price} or volume: {volume}")
+        except Exception as e:
+            GLOG.error(f"Invalid input - price: {price}, volume: {volume}, error: {e}")
+            return False
+        finally:
+            pass
+
         if volume > self.frozen_volume:
             GLOG.CRITICAL(f"POS {self.code} just freezed {self.frozen} cant afford {volume}, please check your code")
-            return
-        self._frozen_volume -= volume
-        self.on_price_update(price)
-        GLOG.DEBUG(f"POS {self.code} sold {volume}. Final volume:{self.volume}  frozen_volume:{self.frozen_volume}")
-        return self.volume
+            return False
+
+        # 执行卖出逻辑
+        try:
+            self._frozen_volume -= volume
+            self.on_price_update(price)
+            # 日志记录
+            GLOG.debug(
+                f"POS {self.code} sold {volume} at ${price}. "
+                f"Final price: ${self._cost}, volume: {self.volume}, "
+                f"cost: ${self.cost}, frozen: {self.frozen_volume}"
+            )
+            return True
+        except Exception as e:
+            GLOG.error(f"Error during sell operation - price: {price}, volume: {volume}, error: {e}")
+        finally:
+            pass
 
     def deal(self, direction: DIRECTION_TYPES, price: float, volume: int, *args, **kwargs) -> None:
         """
-        Dealing with successful Trade.
+        Handles successful trade execution.
+
+        Args:
+            direction (DIRECTION_TYPES): Trade direction (LONG or SHORT).
+            price (float): Execution price.
+            volume (int): Execution volume.
+
+        Example:
+            position.deal(DIRECTION_TYPES.LONG, 100.5, 50)
         """
         if direction == DIRECTION_TYPES.LONG:
             self._bought(price, volume)

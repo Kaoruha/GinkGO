@@ -22,6 +22,7 @@ from rich.progress import (
 
 from ginkgo.libs import GLOG, GCONF, datetime_normalize
 
+
 class DataType(str, Enum):
     ALL = "all"
     STOCKINFO = "stockinfo"
@@ -75,9 +76,7 @@ def print_df_paganation(df, page: int):
         print(df)
 
 
-def progress_bar(
-    title: str,
-):
+def progress_bar(title: str):
     with Progress(
         SpinnerColumn(),
         # TextColumn(f"[cyan2]{title}"),
@@ -102,6 +101,7 @@ def init():
     from ginkgo.data.drivers import create_all_tables as func
 
     func()
+
     from ginkgo.data import init_example_data as func
 
     func()

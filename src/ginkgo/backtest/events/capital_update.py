@@ -1,9 +1,20 @@
+"""
+EventCapitalUpdate 模块
+
+该模块定义了一个资金更新事件类，用于处理与资金更新相关的操作。
+资金更新可能发生在以下场景：
+1. 创建新订单时，资金应被冻结。
+2. 订单成交时：
+   - 卖出时，资金应增加。
+   - 买入时，冻结资金应被移除。
+3. 订单取消时：
+   - 卖出时，冻结资金应被恢复。
+   - 买入时，冻结资金应被恢复。
+"""
+
 from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES
-from ginkgo.backtest.order import Order
 from ginkgo.libs import base_repr
 from ginkgo.backtest.events.base_event import EventBase
-from ginkgo.data.ginkgo_data import GDATA
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
 
 
 class EventCapitalUpdate(EventBase):

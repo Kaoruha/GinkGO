@@ -19,7 +19,16 @@ class Base(object):
     def uuid(self, *args, **kwargs) -> str:
         return self._uuid
 
+    @uuid.setter
+    def uuid(self, uuid: str, *args, **kwargs) -> str:
+        if not isinstance(uuid, str):
+            raise ValueError("UUID must be a string.")
+        self._uuid = uuid
+        return self._uuid
+
     def set_uuid(self, uuid: str, *args, **kwargs) -> str:
+        if not isinstance(uuid, str):
+            raise ValueError("UUID must be a string.")
         self._uuid = uuid
         return self._uuid
 
@@ -29,6 +38,8 @@ class Base(object):
 
     @source.setter
     def source(self, value):
+        if not isinstance(value, SOURCE_TYPES):
+            raise ValueError("Source must be a valid SOURCE_TYPES enum.")
         self._source = value
 
     def set_source(self, source: SOURCE_TYPES):

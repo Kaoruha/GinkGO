@@ -1,4 +1,5 @@
 import datetime
+import numpy as np
 
 
 def datetime_normalize(time: any) -> datetime.datetime:
@@ -19,6 +20,11 @@ def datetime_normalize(time: any) -> datetime.datetime:
 
     if isinstance(time, datetime.date):
         return datetime.datetime.combine(time, datetime.datetime.min.time())
+
+    if isinstance(time, np.datetime64):
+        sec = time.item() / 1e9
+        res = datetime.datetime.fromtimestamp(sec)
+        return res
 
     if isinstance(time, int):
         time = str(time)

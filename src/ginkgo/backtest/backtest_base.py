@@ -6,7 +6,7 @@ import datetime
 import uuid
 from rich.console import Console
 
-from ginkgo.libs import GLOG, base_repr, datetime_normalize, GinkgoSingleLinkedList
+from ginkgo.libs import GLOG, base_repr, datetime_normalize
 
 
 console = Console()
@@ -33,6 +33,17 @@ class BacktestBase(object):
         self._engine_id = value
 
     def bind_engine(self, engine: "BaseEngine") -> None:
+        """
+        Bind the backtest instance to an engine.
+
+        Args:
+            engine (BaseEngine): The engine to bind to.
+
+        Raises:
+            ValueError: If the engine is invalid or missing required attributes.
+        """
+        if not hasattr(engine, "engine_id") or not hasattr(engine, "put"):
+            raise ValueError("Invalid engine: missing required attributes engine_id and put.")
         self._engine_id = engine.engine_id
         # Do not hold engine any more. just got the put function
         self._engine_put = engine.put
@@ -47,12 +58,13 @@ class BacktestBase(object):
 
     def set_name(self, name: str) -> str:
         """
-        Name update.
+        Update the instance name.
 
         Args:
-            name(str): new name
+            name (str): New name for the instance.
+
         Returns:
-            current name
+            str: The updated name.
         """
         self._name = name
         return self.name

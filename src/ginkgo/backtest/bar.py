@@ -2,6 +2,7 @@ import datetime
 import pandas as pd
 from types import FunctionType, MethodType
 from functools import singledispatchmethod
+from decimal import Decimal
 
 from ginkgo.backtest.base import Base
 from ginkgo.libs import base_repr, pretty_repr, datetime_normalize, Number, to_decimal
@@ -36,7 +37,7 @@ class Bar(Base):
         1. code, open, high, low, close, volume, frequency, timestamp
         2. dataframe
         """
-        pass
+        raise NotImplementedError("Unsupported input type for `set` method.")
 
     @set.register
     def _(
@@ -56,10 +57,10 @@ class Bar(Base):
 
         Args:
             code(str): Code
-            open(float): price at open
-            high(float): the highest price in this period
-            low(float): the lowest price in this period
-            close(float): price at close
+            open(Number): price at open
+            high(Number): the highest price in this period
+            low(Number): the lowest price in this period
+            close(Number): price at close
             volume(int): sum of the volume in this period
             amount(Number): xx
             frequency(enum): Day or Min5
@@ -105,28 +106,28 @@ class Bar(Base):
         return self._code
 
     @property
-    def open(self) -> float:
+    def open(self) -> Decimal:
         """
         Open price
         """
         return self._open
 
     @property
-    def high(self) -> float:
+    def high(self) -> Decimal:
         """
         The highest price.
         """
         return self._high
 
     @property
-    def low(self) -> float:
+    def low(self) -> Decimal:
         """
         The lowest price.
         """
         return self._low
 
     @property
-    def close(self) -> float:
+    def close(self) -> Decimal:
         """
         Close price.
         """
@@ -162,22 +163,28 @@ class Bar(Base):
         return self._timestamp
 
     @property
-    def chg(self) -> float:
+    def chg(self) -> Decimal:
         """
-        Change percent.
+        Calculate the price change (close - open).
+
+        Returns:
+            Decimal: The price change.
         """
         r = self._close - self._open
         r = round(r, 2)
-        return r
+        return Decimal(str(r))
 
     @property
-    def amplitude(self) -> float:
+    def amplitude(self) -> Decimal:
         """
-        The bigest wave.
+        Calculate the price amplitude (high - low).
+
+        Returns:
+            Decimal: The price amplitude.
         """
         r = self._high - self._low
         r = round(r, 2)
-        return r
+        return Decimal(str(r))
 
     def __repr__(self) -> str:
         return base_repr(self, Bar.__name__, 12, 60)

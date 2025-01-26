@@ -13,6 +13,7 @@ from rich.progress import Progress, SpinnerColumn, BarColumn, TimeElapsedColumn,
 
 from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES, FILE_TYPES
 from ginkgo.data.sources import GinkgoTushare, GinkgoTDX
+from ginkgo.data.operations import get_stockinfo
 from ginkgo.data.drivers import create_redis_connection
 from ginkgo.libs import (
     GCONF,
@@ -25,6 +26,7 @@ from ginkgo.libs import (
     time_logger,
     fix_string_length,
     RichProgress,
+    format_time_seconds
 )
 
 console = Console()
@@ -108,10 +110,11 @@ def fetch_and_update_adjustfactor(*args, **kwargs):
     # TODO
     pass
 
+
 @retry
 @skip_if_ran
 @time_logger
-def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, console:bool=False, *args, **kwargs):
+def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, console: bool = False, *args, **kwargs):
     from ginkgo.data.models import MBar
     from ginkgo.data.operations import add_bars
     from ginkgo.data.operations.bar_crud import delete_bars_by_code_and_dates
@@ -146,7 +149,7 @@ def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, console:bool=F
             update_dates.append(i.timestamp)
             progress.update(task, advance=1, description=fix_string_length(f"{code} {i.timestamp}", 30))
         delete_bars_by_code_and_dates(code=code, dates=update_dates)
-        time.sleep(.2)
+        time.sleep(0.2)
         progress.update(task2, advance=1, description="Del Data")
         for i in range(0, len(update_list), batch_size):
             add_bars(update_list[i : i + batch_size], progress=progress)
@@ -217,6 +220,7 @@ def fetch_and_update_capital_adjustment(*args, **kwargs):
     # TODO
     pass
 
+
 @retry
 @skip_if_ran
 @time_logger
@@ -274,12 +278,13 @@ def is_code_in_stocklist(code: str, *args, **kwargs) -> None:
     else:
         return True
 
+
 @retry
 @skip_if_ran
 @time_logger
 def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False, *args, **kwargs) -> int:
     """
-
+    Update tick on a specific date.
     :param code:
     :param date:
     :param fast_mode:
@@ -291,7 +296,7 @@ def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False,
          1 no data from remote
          2 do fetch and update
     """
-    from ginkgo.data.operations import get_ticks, delete_ticks, add_ticks
+    from ginkgo.data.operations import delete_ticks, add_ticks
     from ginkgo.enums import TICKDIRECTION_TYPES
     from ginkgo.backtest import Tick
 
@@ -301,9 +306,9 @@ def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False,
         return -1
     # Get data from database
     date = datetime_normalize(date).strftime("%Y-%m-%d")
-    date = datetime_normalize(date)
+    date = datetime_normalize(date) # TODO Have no idea why i need this.
     start_date = date + datetime.timedelta(minutes=1)
-    end_date = date + datetime.timedelta(days=1) + datetime.timedelta(minutes=-1)
+    end_date = date + datetime.timedelta(days=1) - datetime.timedelta(minutes=1)
     if fast_mode:
         data_in_db = get_ticks(code=code, start_date=start_date, end_date=end_date, as_dataframe=True)
         if data_in_db.shape[0] > 0:
@@ -350,30 +355,57 @@ def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False,
     return 2
 
 
-@skip_if_ran
 @time_logger
 def fetch_and_update_tick(code: str, fast_mode: bool = False, *args, **kwargs):
-    print(f"Fetch and update tick {code}")
+    GLOG.INFO(f"Fetch and update tick {code}")
     # Check code
     if not is_code_in_stocklist(code):
         GLOG.DEBUG(f"Exit fetch and update tick {code} on {date}.")
         return
-    now = datetime.datetime.now().date()
-    exit_count = 0
-    should_stop = False
+    info = get_stockinfo(code)
+    now = datetime.datetime.now()
+    list_date = info['list_date'].values[0]
+    list_date = datetime_normalize(list_date)
     # If click force_rebuild, do entire fetch and update
-    while not should_stop:
+    try:
+        redis = create_redis_connection()
+        redis_key = f"tick_update_{code}"
+        cache_ = redis.smembers(redis_key)
+        ttl = 60 * 60 * 24 * 3
+    except Exception as e:
+        cache = None
+    if cache_:
+        cache = {item.decode('utf-8') for item in cache_}
+    else:
+        cache = None
+    while True:
+        if cache is not None:
+            exists = now.strftime('%Y-%m-%d') in cache
+            if exists:
+                now = now - datetime.timedelta(days=1)
+                time_to_live = redis.ttl(redis_key)
+                print(f"Updating ticks about {code} on {now} is processed, ttl: {format_time_seconds(time_to_live)}")
+                continue
         res = fetch_and_update_tick_on_date(code, now, fast_mode=fast_mode)
+        should_cache = False
         if res == 2:
-            exit_count = 0
+            console.print("do update")
+            should_cache = True
         elif res == 1:
-            exit_count += 1
+            console.print("no data from remote")
+            if (datetime.datetime.now() - now).days > 2:
+                should_cache = True
         elif res == 0:
-            exit_count = 0
-        now = now + datetime.timedelta(days=-1)
-        if exit_count >= 30:
-            should_stop = True
-        GLOG.DEBUG(f"current count: {exit_count}")
+            console.print("data in db")
+            should_cache = True
+        if redis and should_cache:
+            redis.sadd(redis_key, now.strftime('%Y-%m-%d'))
+            redis.expire(redis_key, ttl)
+            cache_ = redis.smembers(redis_key)
+            cache = {item.decode('utf-8') for item in cache_}
+        now = now - datetime.timedelta(days=1)
+        if now < list_date:
+            break
 
 
 @time_logger
@@ -391,8 +423,6 @@ def fetch_and_update_tradeday(*args, **kwargs):
 
 # Get
 
-
-@time_logger
 @cache_with_expiration
 def get_stockinfos(*args, **kwargs):
     from ginkgo.data.operations import get_stockinfos
@@ -413,8 +443,9 @@ def get_bars(*args, **kwargs):
 
 
 def get_ticks(*args, **kwargs):
-    # TODO
-    pass
+    from ginkgo.data.operations import get_ticks as func
+
+    return func(*args, **kwargs)
 
 
 def get_tick_summarys(*args, **kwargs):
