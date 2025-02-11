@@ -49,7 +49,7 @@ class GinkgoThreadManager:
     def get_redis_key_about_worker_status(self, pid: str, *args, **kwargs) -> str:
         return f"{str(pid)}_status"
 
-    def process_task(self, type: str, code: str, fast: bool = None, *args, **kwargs):
+    def process_task(self, type: str, code: str, fast: bool = None,max_update:int=0, *args, **kwargs):
         pid = os.getpid()
         if type == "stockinfo":
             worker_logger.INFO("Dealing with update stock_info command.")
@@ -131,7 +131,7 @@ class GinkgoThreadManager:
                 )
                 from ginkgo.data import fetch_and_update_tick
 
-                fetch_and_update_tick(code=code, fast_mode=fast)
+                fetch_and_update_tick(code=code, fast_mode=fast, max_backtrack_day=max_update)
                 self.upsert_worker_status(
                     pid=pid,
                     task_name=f"update_tick_{code}_{'fast_mode' if fast else 'normal_model'}",
@@ -173,12 +173,14 @@ class GinkgoThreadManager:
                 fast = None
                 if "fast" in value.keys():
                     fast = value["fast"]
+                if "max_update" in value.keys():
+                    max_update = value['max_update']
                 worker_logger.INFO(f"Got siganl. {type} {code}")
                 if type == "kill":
                     # Try a new way to jump out of loop
                     raise StopIteration  # Jump out of for loop.
                 try:
-                    self.process_task(type=type, code=code, fast=fast)
+                    self.process_task(type=type, code=code, fast=fast, max_update=max_update)
                 except Exception as e2:
                     time.sleep(2)
                 finally:

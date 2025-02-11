@@ -25,7 +25,8 @@ class GinkgoProducer(object):
     def send(self, topic, msg):
         try:
             future = self.producer.send(topic, msg)
-            future.get(timeout=10)
+            result = future.get(timeout=10)
+            print(result)
             GLOG.INFO(f"Kafka send message. TOPIC: {topic}. {msg}")
             data_logger.INFO(f"Kafka send message. TOPIC: {topic}. {msg}")
         except Exception as e:

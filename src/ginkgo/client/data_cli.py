@@ -389,6 +389,7 @@ def update(
             help="If set,ginkgo will try to update the data of specific code.",
         ),
     ] = None,
+    max_update: Annotated[int, typer.Option(case_sensitive=False)] = 0,
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
     """
@@ -437,7 +438,7 @@ def update(
             for i in l:
                 send_signal_fetch_and_update_bar(i, fast)
             for i in l:
-                send_signal_fetch_and_update_tick(i, fast)
+                send_signal_fetch_and_update_tick(i, fast, max_update)
             return
 
         if stockinfo:
@@ -473,10 +474,10 @@ def update(
                 stockinfos = get_stockinfos()
                 for i, r in stockinfos.iterrows():
                     code = r["code"]
-                    send_signal_fetch_and_update_tick(code, fast)
+                    send_signal_fetch_and_update_tick(code, fast, max_update)
             else:
                 for i in l:
-                    send_signal_fetch_and_update_tick(i, fast)
+                    send_signal_fetch_and_update_tick(i, fast, max_update)
 
     else:
         if a:
@@ -487,7 +488,7 @@ def update(
                 code = r["code"]
                 fetch_and_update_cn_daybar(code, fast)
                 fetch_and_update_adjustfactor(code, fast)
-                fetch_and_update_tick(code, fast)
+                fetch_and_update_tick(code, fast, max_update)
             return
 
         if stockinfo:
@@ -521,10 +522,10 @@ def update(
                 stockinfos = get_stockinfos()
                 for i, r in stockinfos.iterrows():
                     code = r["code"]
-                    fetch_and_update_tick(code, fast)
+                    fetch_and_update_tick(code, fast, max_update)
             else:
                 for i in l:
-                    fetch_and_update_tick(i, fast)
+                    fetch_and_update_tick(i, fast, max_update)
 
 
 @app.command()
