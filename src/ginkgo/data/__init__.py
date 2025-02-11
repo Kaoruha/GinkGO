@@ -75,10 +75,10 @@ def send_signal_fetch_and_update_bar(code: str, fast_mode: bool, *args, **kwargs
     GinkgoProducer().send("ginkgo_data_update", {"type": "bar", "code": code, "fast": fast_mode})
 
 
-def send_signal_fetch_and_update_tick(code: str, fast_mode: bool = False, *args, **kwargs):
+def send_signal_fetch_and_update_tick(code: str, fast_mode: bool = False,max_update:int=0, *args, **kwargs):
     from ginkgo.data.drivers import GinkgoProducer
 
-    GinkgoProducer().send("ginkgo_data_update", {"type": "tick", "code": code, "fast": fast_mode})
+    GinkgoProducer().send("ginkgo_data_update", {"type": "tick", "code": code, "fast": fast_mode, "max_update":max_update})
 
 
 def send_signal_fetch_and_update_tick_summary(*args, **kwargs):
@@ -356,13 +356,15 @@ def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False,
 
 
 @time_logger
-def fetch_and_update_tick(code: str, fast_mode: bool = False, *args, **kwargs):
+def fetch_and_update_tick(code: str, fast_mode: bool = False, max_backtrack_day:int=0, *args, **kwargs):
     GLOG.INFO(f"Fetch and update tick {code}")
     # Check code
     if not is_code_in_stocklist(code):
         GLOG.DEBUG(f"Exit fetch and update tick {code} on {date}.")
         return
     info = get_stockinfo(code)
+    if info is None:
+        return
     now = datetime.datetime.now()
     list_date = info['list_date'].values[0]
     list_date = datetime_normalize(list_date)
@@ -371,20 +373,27 @@ def fetch_and_update_tick(code: str, fast_mode: bool = False, *args, **kwargs):
         redis = create_redis_connection()
         redis_key = f"tick_update_{code}"
         cache_ = redis.smembers(redis_key)
-        ttl = 60 * 60 * 24 * 3
+        ttl = 60 * 60 * 24 * 14 # 14 Days Cache
     except Exception as e:
-        cache = None
+        cache_ = None
     if cache_:
         cache = {item.decode('utf-8') for item in cache_}
     else:
         cache = None
+
+    update_count = 0
+
     while True:
+        update_count += 1
+        print(update_count)
         if cache is not None:
             exists = now.strftime('%Y-%m-%d') in cache
             if exists:
                 now = now - datetime.timedelta(days=1)
                 time_to_live = redis.ttl(redis_key)
                 print(f"Updating ticks about {code} on {now} is processed, ttl: {format_time_seconds(time_to_live)}")
+                if max_backtrack_day > 0 and update_count > max_backtrack_day:
+                    break
                 continue
         res = fetch_and_update_tick_on_date(code, now, fast_mode=fast_mode)
         should_cache = False
@@ -405,6 +414,8 @@ def fetch_and_update_tick(code: str, fast_mode: bool = False, *args, **kwargs):
             cache = {item.decode('utf-8') for item in cache_}
         now = now - datetime.timedelta(days=1)
         if now < list_date:
+            break
+        if max_backtrack_day > 0 and update_count > max_backtrack_day:
             break
 
 

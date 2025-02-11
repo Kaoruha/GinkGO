@@ -117,157 +117,158 @@ def interactive():
 
 
 
-# @main_app.command()
-# def run(
-#     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID.")],
-#     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
-# ):
-#     """
-#     :poultry_leg: Run [bold medium_spring_green]BACKTEST[/]. [grey62]Duplication fo `ginkgo backtest run`.[/grey62]
-#     """
-#     from ginkgo.client.backtest_cli import run as backtest_run
+@main_app.command()
+def run(
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID.")],
+    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+):
+    """
+    :poultry_leg: Run [bold medium_spring_green]BACKTEST[/]. [grey62]Duplication fo `ginkgo backtest run`.[/grey62]
+    """
+    from ginkgo.client.backtest_cli import run as backtest_run
 
-#     backtest_run(id, debug)
-
-
-# @main_app.command()
-# def cat(
-#     id: Annotated[str, typer.Argument(case_sensitive=True, help="File id.")],
-# ):
-#     """
-#     :see_no_evil: Show [bold medium_spring_green]FILE[/] content. [grey62]Duplication of `ginkgo backtest cat`. [/]
-#     """
-#     from ginkgo.client.backtest_cli import cat as backtest_cat
-
-#     backtest_cat(id)
+    backtest_run(id, debug)
 
 
-# @main_app.command()
-# def edit(
-#     id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
-# ):
-#     """
-#     :orange_book: Edit File. [grey62]Duplication of `ginkgo backtest edit`.[/grey62]
-#     """
-#     from ginkgo.client.backtest_cli import edit as backtest_edit
+@main_app.command()
+def cat(
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="File id.")],
+):
+    """
+    :see_no_evil: Show [bold medium_spring_green]FILE[/] content. [grey62]Duplication of `ginkgo backtest cat`. [/]
+    """
+    from ginkgo.client.backtest_cli import cat as backtest_cat
 
-#     backtest_edit(id)
-
-
-# @main_app.command()
-# def rm(
-#     ids: Annotated[
-#         typing_list[str],
-#         typer.Argument(case_sensitive=True, help="File ID"),
-#     ],
-# ):
-#     """
-#     :boom: Delete [bold light_coral]FILE[/] or [bold light_coral]BACKTEST RECORD[/] in database. [grey62]Duplication of `ginkgo backtest rm`.[/grey62]
-#     """
-#     from ginkgo.client.backtest_cli import rm as backtest_rm
-
-#     backtest_rm(ids)
+    backtest_cat(id)
 
 
-# @main_app.command()
-# def ls(
-#     filter: Annotated[str, typer.Option(case_sensitive=False, help="File filter")] = None,
-#     a: Annotated[
-#         bool,
-#         typer.Option(case_sensitive=False, help="Show All Data, include removed file."),
-#     ] = False,
-# ):
-#     """
-#     :open_file_folder: Show backtest file summary. [grey62]Duplication of `ginkgo backtest ls`.[/grey62]
-#     """
-#     from ginkgo.client.backtest_cli import ls as backtest_ls
+@main_app.command()
+def edit(
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
+):
+    """
+    :orange_book: Edit File. [grey62]Duplication of `ginkgo backtest edit`.[/grey62]
+    """
+    from ginkgo.client.backtest_cli import edit as backtest_edit
 
-#     backtest_ls(filter, a)
+    backtest_edit(id)
 
 
-# @main_app.command()
-# def res(
-#     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
-#     index: Annotated[
-#         typing_list[str],
-#         typer.Argument(
-#             case_sensitive=True,
-#             help="Type the analyzer_id to plot.",
-#         ),
-#     ] = None,
-#     compare: Annotated[
-#         str,
-#         typer.Option(case_sensitive=False, help="Do Compare with other backtest."),
-#     ] = "",
-# ):
-#     """
-#     :one-piece_swimsuit: Show the [bold medium_spring_green]BACKTEST RESULT[/]. [grey62]Duplication of `ginkgo backtest res`.[/grey62]
-#     """
-#     from ginkgo.client.backtest_cli import res as backtest_res
+@main_app.command()
+def rm(
+    ids: Annotated[
+        typing_list[str],
+        typer.Argument(case_sensitive=True, help="File ID"),
+    ],
+):
+    """
+    :boom: Delete [bold light_coral]FILE[/] or [bold light_coral]BACKTEST RECORD[/] in database. [grey62]Duplication of `ginkgo backtest rm`.[/grey62]
+    """
+    from ginkgo.client.backtest_cli import rm as backtest_rm
 
-#     backtest_res(id, index, compare)
+    backtest_rm(ids)
 
 
-# @main_app.command()
-# def update(
-#     a: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
-#     # data: Annotated[DataType, typer.Argument(case_sensitive=False)],
-#     stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
-#     calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Update Calendar")] = False,
-#     adjust: Annotated[bool, typer.Option(case_sensitive=False, help="Update adjustfactor")] = False,
-#     day: Annotated[bool, typer.Option(case_sensitive=False, help="Update day bar")] = False,
-#     tick: Annotated[bool, typer.Option(case_sensitive=False, help="Update tick data")] = False,
-#     fast: Annotated[
-#         bool,
-#         typer.Option(case_sensitive=False, help="If set, ginkgo will try update in fast mode."),
-#     ] = False,
-#     code: Annotated[
-#         typing_list[str],
-#         typer.Argument(
-#             case_sensitive=True,
-#             help="If set,ginkgo will try to update the data of specific code.",
-#         ),
-#     ] = None,
-#     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
-# ):
-#     """
-#     :raccoon: Data Update. [grey62]Duplication of `ginkgo data update`. [/grey62]
-#     """
-#     from ginkgo.client.data_cli import update as data_update
+@main_app.command()
+def ls(
+    filter: Annotated[str, typer.Option(case_sensitive=False, help="File filter")] = None,
+    a: Annotated[
+        bool,
+        typer.Option(case_sensitive=False, help="Show All Data, include removed file."),
+    ] = False,
+):
+    """
+    :open_file_folder: Show backtest file summary. [grey62]Duplication of `ginkgo backtest ls`.[/grey62]
+    """
+    from ginkgo.client.backtest_cli import ls as backtest_ls
 
-#     data_update(a, stockinfo, calendar, adjust, day, tick, fast, code, debug)
+    backtest_ls(filter, a)
 
 
-# @main_app.command()
-# def rebuild(
-#     order: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")] = False,
-#     record: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")] = False,
-#     file: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild File Table")] = False,
-#     backtest: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Table")] = False,
-#     analyzer: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")] = False,
-#     stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")] = False,
-#     calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")] = False,
-# ):
-#     """
-#     :fox_face: Rebuild [bold light_coral]TABLE[/] in database. [grey62]Duplication of `ginkgo data rebuild`. [/]
+@main_app.command()
+def res(
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
+    index: Annotated[
+        typing_list[str],
+        typer.Argument(
+            case_sensitive=True,
+            help="Type the analyzer_id to plot.",
+        ),
+    ] = None,
+    compare: Annotated[
+        str,
+        typer.Option(case_sensitive=False, help="Do Compare with other backtest."),
+    ] = "",
+):
+    """
+    :one-piece_swimsuit: Show the [bold medium_spring_green]BACKTEST RESULT[/]. [grey62]Duplication of `ginkgo backtest res`.[/grey62]
+    """
+    from ginkgo.client.backtest_cli import res as backtest_res
 
-#     """
-#     from ginkgo.client.data_cli import rebuild as data_rebuild
-
-#     data_rebuild(order, record, file, backtest, analyzer, stockinfo, calendar)
+    backtest_res(id, index, compare)
 
 
-# @main_app.command()
-# def recall(
-#     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")],
-#     name: Annotated[str, typer.Option(case_sensitive=True, help="File Name")] = "",
-# ):
-#     """
-#     What is this?
-#     """
-#     from ginkgo.client.backtest_cli import recall as backtest_recall
+@main_app.command()
+def update(
+    a: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
+    # data: Annotated[DataType, typer.Argument(case_sensitive=False)],
+    stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
+    calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Update Calendar")] = False,
+    adjust: Annotated[bool, typer.Option(case_sensitive=False, help="Update adjustfactor")] = False,
+    day: Annotated[bool, typer.Option(case_sensitive=False, help="Update day bar")] = False,
+    tick: Annotated[bool, typer.Option(case_sensitive=False, help="Update tick data")] = False,
+    fast: Annotated[
+        bool,
+        typer.Option(case_sensitive=False, help="If set, ginkgo will try update in fast mode."),
+    ] = False,
+    code: Annotated[
+        typing_list[str],
+        typer.Argument(
+            case_sensitive=True,
+            help="If set,ginkgo will try to update the data of specific code.",
+        ),
+    ] = None,
+    max_update: Annotated[int, typer.Option(case_sensitive=False)] = 0,
+    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+):
+    """
+    :raccoon: Data Update. [grey62]Duplication of `ginkgo data update`. [/grey62]
+    """
+    from ginkgo.client.data_cli import update as data_update
 
-#     backtest_recall(id, name)
+    data_update(a, stockinfo, calendar, adjust, day, tick, fast, code, debug)
+
+
+@main_app.command()
+def rebuild(
+    order: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")] = False,
+    record: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")] = False,
+    file: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild File Table")] = False,
+    backtest: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Table")] = False,
+    analyzer: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")] = False,
+    stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")] = False,
+    calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")] = False,
+):
+    """
+    :fox_face: Rebuild [bold light_coral]TABLE[/] in database. [grey62]Duplication of `ginkgo data rebuild`. [/]
+
+    """
+    from ginkgo.client.data_cli import rebuild as data_rebuild
+
+    data_rebuild(order, record, file, backtest, analyzer, stockinfo, calendar)
+
+
+@main_app.command()
+def recall(
+    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")],
+    name: Annotated[str, typer.Option(case_sensitive=True, help="File Name")] = "",
+):
+    """
+    What is this?
+    """
+    from ginkgo.client.backtest_cli import recall as backtest_recall
+
+    backtest_recall(id, name)
 
 
 
