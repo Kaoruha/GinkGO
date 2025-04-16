@@ -1,6 +1,7 @@
 import pandas as pd
 import datetime
 import uuid
+from decimal import Decimal
 from functools import singledispatchmethod
 
 from ginkgo.libs import base_repr, datetime_normalize
@@ -22,7 +23,7 @@ class Order(Base):
         self,
         code: str = "Default Order Code",
         direction: DIRECTION_TYPES = None,
-        type: ORDER_TYPES = None,
+        order_type: ORDER_TYPES = None,
         status: ORDERSTATUS_TYPES = ORDERSTATUS_TYPES.NEW,
         volume: int = 0,
         limit_price: float = 0,
@@ -32,10 +33,11 @@ class Order(Base):
         remain: float = 0,
         fee: float = 0,
         timestamp: any = None,
-        uuid: str = "",
+        order_id: str = "",
         portfolio_id: str = "",
+        engine_id: str = "",
         *args,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Initialize the Order instance.
@@ -43,7 +45,7 @@ class Order(Base):
         Args:
             code (str, optional): Code of the order. Defaults to "Default Order Code".
             direction (DIRECTION_TYPES, optional): Direction of the order. Defaults to None.
-            type (ORDER_TYPES, optional): Type of the order. Defaults to None.
+            order_type (ORDER_TYPES, optional): Type of the order. Defaults to None.
             status (ORDERSTATUS_TYPES, optional): Status of the order. Defaults to ORDERSTATUS_TYPES.NEW.
             volume (int, optional): Volume of the order. Defaults to 0.
             limit_price (float, optional): Limit price of the order. Defaults to 0.
@@ -53,23 +55,29 @@ class Order(Base):
             remain (float, optional): Remaining amount of the order. Defaults to 0.
             fee (float, optional): Fee of the order. Defaults to 0.
             timestamp (any, optional): Timestamp of the order. Defaults to None.
-            uuid (str, optional): UUID of the order. Defaults to "".
+            order_id (str, optional): UUID of the order. Defaults to "".
             portfolio_id (str, optional): Portfolio ID of the order. Defaults to "".
         """
-        self._code = code
-        self._direction = direction
-        self._type = type
+        self._code: str = code
+        self._direction: DIRECTION_TYPES = direction
+        self._order_type: ORDER_TYPES = order_type
         self._status = status
-        self._volume = volume
-        self._limit_price = limit_price
-        self._frozen = frozen
-        self._transaction_price = transaction_price
-        self._transaction_volume = transaction_volume
-        self._remain = remain
-        self._fee = fee
-        self._timestamp = timestamp
-        self._uuid = uuid
+        self._volume: int = volume
+        self._limit_price: float = limit_price
+        self._frozen: float = frozen
+        self._transaction_price: float = transaction_price
+        self._transaction_volume: float = transaction_volume
+        self._remain: float = remain
+        self._fee: float = fee
+        self._timestamp: datetime.datetime = datetime_normalize(timestamp)
+
+        if len(order_id) > 0:
+            self._uuid: str = order_id
+        else:
+            self._uuid = uuid.uuid4().hex
+
         self._portfolio_id = portfolio_id
+        self._engine_id = engine_id
         self.set_source(SOURCE_TYPES.OTHER)
 
     @singledispatchmethod
@@ -87,7 +95,7 @@ class Order(Base):
         self,
         code: str,
         direction: DIRECTION_TYPES,
-        type: ORDER_TYPES,
+        order_type: ORDER_TYPES,
         status: ORDERSTATUS_TYPES,
         volume: int,
         limit_price: float,
@@ -99,12 +107,13 @@ class Order(Base):
         timestamp: any,
         order_id: str,
         portfolio_id: str,
+        engine_id: str,
     ):
         if not isinstance(code, str):
             raise ValueError("Code must be a string.")
         if not isinstance(direction, DIRECTION_TYPES):
             raise ValueError("Direction must be a valid DIRECTION_TYPES enum.")
-        if not isinstance(type, ORDER_TYPES):
+        if not isinstance(order_type, ORDER_TYPES):
             raise ValueError("Type must be a valid ORDER_TYPES enum.")
         if not isinstance(status, ORDERSTATUS_TYPES):
             raise ValueError("Status must be a valid ORDERSTATUS_TYPES enum.")
@@ -112,24 +121,30 @@ class Order(Base):
             raise ValueError("Volume must be a non-negative integer.")
         if not isinstance(limit_price, (int, float)) or limit_price < 0:
             raise ValueError("Limit price must be a non-negative number.")
-        if not isinstance(frozen, (int, float)) or frozen < 0:
-            raise ValueError("Frozen must be a non-negative number.")
-        if not isinstance(transaction_price, (int, float)) or transaction_price < 0:
-            raise ValueError("Transaction price must be a non-negative number.")
+        if not isinstance(frozen, (int, float, Decimal)) or frozen < 0:
+            raise ValueError(f"Frozen must be a non-negative number. {frozen} not valid. {type(frozen)}")
+        if not isinstance(transaction_price, (int, float, Decimal)) or transaction_price < 0:
+            raise ValueError(
+                f"Transaction price must be a non-negative number. {transaction_price} not valid. {type(transaction_price)}"
+            )
         if not isinstance(transaction_volume, int) or transaction_volume < 0:
-            raise ValueError("Transaction volume must be a non-negative integer.")
-        if not isinstance(remain, (int, float)) or remain < 0:
-            raise ValueError("Remain must be a non-negative number.")
-        if not isinstance(fee, (int, float)) or fee < 0:
-            raise ValueError("Fee must be a non-negative number.")
+            raise ValueError(
+                f"Transaction volume must be a non-negative integer. {transaction_volume} not valid. {type(transaction_volume)}"
+            )
+        if not isinstance(remain, (int, float, Decimal)) or remain < 0:
+            raise ValueError(f"Remain must be a non-negative number. {remain} not valid. {type(remain)}")
+        if not isinstance(fee, (int, float, Decimal)) or fee < 0:
+            raise ValueError(f"Fee must be a non-negative number. {fee} not valid. {type(fee)}")
         if not isinstance(order_id, str):
             raise ValueError("Order ID must be a string.")
         if not isinstance(portfolio_id, str):
             raise ValueError("Portfolio ID must be a string.")
+        if not isinstance(engine_id, str):
+            raise ValueError("Portfolio ID must be a string.")
 
         self._code: str = code
         self._direction: DIRECTION_TYPES = direction
-        self._type: ORDER_TYPES = type
+        self._order_type: ORDER_TYPES = order_type
         self._status = status
         self._volume: int = volume
         self._limit_price: float = limit_price
@@ -146,29 +161,30 @@ class Order(Base):
             self._uuid = uuid.uuid4().hex
 
         self._portfolio_id = portfolio_id
+        self._engine_id = engine_id
 
     @set.register
     def _(self, df: pd.Series):
         """
         Set from dataframe
         """
-        self._code: str = df.code
-        self._direction: DIRECTION_TYPES = DIRECTION_TYPES(df.direction)
-        self._type: ORDER_TYPES = ORDER_TYPES(df["type"])
+        self._code: str = df["code"]
+        self._direction: DIRECTION_TYPES = DIRECTION_TYPES(df["direction"])
+        self._order_type: ORDER_TYPES = ORDER_TYPES(df["order_type"])
         self._status: ORDERSTATUS_TYPES = ORDERSTATUS_TYPES(df["status"])
-        self._volume: int = df.volume
-        self._limit_price: float = df.limit_price
-        self._status = ORDERSTATUS_TYPES(df.status)
-        self._frozen: float = df.frozen
-        self._transaction_price: float = df.transaction_price
+        self._volume: int = df["volume"]
+        self._limit_price: float = df["limit_price"]
+        self._frozen: float = df["frozen"]
+        self._transaction_price: float = df["transaction_price"]
         self._transaction_volume: int = df["transaction_volume"]
-        self._remain: float = df.remain
-        self._fee: float = df.fee
-        self._timestamp: datetime.datetime = df.timestamp
-        self._uuid: str = df.uuid
-        self._portfolio_id: str = df.portfolio_id
+        self._remain: float = df["remain"]
+        self._fee: float = df["fee"]
+        self._timestamp: datetime.datetime = df["timestamp"]
+        self._uuid: str = df["uuid"]
+        self._portfolio_id: str = df["portfolio_id"]
+        self._engine_id: str = df["engine_id"]
         if "source" in df.keys():
-            self.set_source(SOURCE_TYPES(df.source))
+            self.set_source(SOURCE_TYPES(df["source"]))
 
     @property
     def code(self) -> str:
@@ -211,14 +227,6 @@ class Order(Base):
         self._timestamp = value
 
     @property
-    def uuid(self) -> str:
-        return self._uuid
-
-    @uuid.setter
-    def uuid(self, value) -> None:
-        self._uuid = uuid
-
-    @property
     def direction(self) -> DIRECTION_TYPES:
         return self._direction
 
@@ -227,12 +235,12 @@ class Order(Base):
         self._direction = value
 
     @property
-    def type(self) -> ORDER_TYPES:
-        return self._type
+    def order_type(self) -> ORDER_TYPES:
+        return self._order_type
 
-    @type.setter
-    def type(self, value) -> None:
-        self._type = value
+    @order_type.setter
+    def order_type(self, value) -> None:
+        self._order_type = value
 
     @property
     def volume(self) -> int:
@@ -295,12 +303,24 @@ class Order(Base):
         self._fee = value
 
     @property
+    def order_id(self) -> str:
+        return self._uuid
+
+    @property
     def portfolio_id(self) -> str:
         return self._portfolio_id
 
     @portfolio_id.setter
     def portfolio_id(self, value) -> None:
         self._portfolio_id = value
+
+    @property
+    def engine_id(self, *args, **kwargs) -> str:
+        return self._engine_id
+
+    @engine_id.setter
+    def engine_id(self, value) -> None:
+        self._engine_id = value
 
     def submit(self) -> None:
         # TODO check the order status

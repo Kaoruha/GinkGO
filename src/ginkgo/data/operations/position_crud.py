@@ -229,7 +229,6 @@ def get_position(
     finally:
         get_mysql_connection().remove_session()
 
-
 def get_positions(
     portfolio_id: str,
     code: Optional[str] = None,

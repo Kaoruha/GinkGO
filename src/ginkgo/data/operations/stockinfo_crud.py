@@ -182,7 +182,11 @@ def update_stockinfo(
         get_mysql_connection().remove_session()
 
 
-def get_stockinfo(code: str, *args, **kwargs):
+def get_stockinfo(
+    code: str,
+    page_size: Optional[int] = None,
+    *args,
+    **kwargs):
     session = get_mysql_connection().session
     model = MStockInfo
     filters = []

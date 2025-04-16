@@ -27,6 +27,9 @@
 #             ratio = price / cost
 #             if 1 - self.loss_limit / 100:
 #                 s = Signal(
+#                    portfolio_id=portfolio_info["uuid"],
+#                    engine_id = self.engine_id
+#                    timestamp=portfolio_info["now"],
 #                     code=code,
 #                     direction=DIRECTION_TYPES.SHORT,
 #                     backtest_id=self.backtest_id,

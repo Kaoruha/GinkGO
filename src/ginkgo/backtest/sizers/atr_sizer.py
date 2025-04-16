@@ -3,7 +3,7 @@ from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES, SOURCE
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.signal import Signal
 from ginkgo.backtest.indices.average_true_range import AverageTrueRange as ATR
-from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.data import get_bars
 
 import datetime
 
@@ -33,16 +33,20 @@ class ATRSizer(BaseSizer):
                 return None
             o.set(
                 signal.code,
-                signal.direction,
-                ORDER_TYPES.MARKETORDER,
-                ORDERSTATUS_TYPES.NEW,
+                direction=signal.direction,
+                order_type=ORDER_TYPES.MARKETORDER,
+                status=ORDERSTATUS_TYPES.NEW,
                 volume=pos.volume,
                 limit_price=0,
                 frozen=0,
                 transaction_price=0,
+                transaction_volume=0,
                 remain=0,
                 fee=0,
                 timestamp=self.now,
+                order_id="",
+                portfolio_id=self.portfolio_id,
+                engine_id=self.engine_id,
             )
         if signal.direction == DIRECTION_TYPES.LONG:
             if self.now is None:
@@ -50,7 +54,7 @@ class ATRSizer(BaseSizer):
                 return None
             start_date = self.now - datetime.timedelta(days=self.period + 7)
             end_date = self.now
-            df = GDATA.get_daybar_df(code, start_date, end_date)
+            df = get_bars(code, start_date, end_date)
             print(df)
             atr = ATR("atr", self.period).cal(df) * self.risk_ratio
             if atr == 0:
@@ -60,17 +64,20 @@ class ATRSizer(BaseSizer):
             price = df.iloc[-1]["close"] * 1.1
             o.set(
                 signal.code,
-                signal.direction,
-                ORDER_TYPES.MARKETORDER,
-                ORDERSTATUS_TYPES.NEW,
+                direction=signal.direction,
+                order_type=ORDER_TYPES.MARKETORDER,
+                status=ORDERSTATUS_TYPES.NEW,
                 volume=max_shares,
                 limit_price=0,
                 frozen=round(price * max_shares, 4),
                 transaction_price=0,
+                transaction_volume=0,
                 remain=0,
                 fee=0,
                 timestamp=self.now,
-                backtest_id=self.backtest_id,
+                order_id="",
+                portfolio_id=self.portfolio_id,
+                engine_id=self.engine_id,
             )
             print("Order Generated.")
             print(o)

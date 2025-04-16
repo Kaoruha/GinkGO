@@ -17,6 +17,7 @@ class MSignal(MClickBase):
     __tablename__ = "signal"
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
+    engine_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     direction: Mapped[str] = mapped_column(Enum(DIRECTION_TYPES), default=DIRECTION_TYPES.LONG)
     reason: Mapped[str] = mapped_column(String(255), default="")
@@ -29,6 +30,7 @@ class MSignal(MClickBase):
     def _(
         self,
         portfolio_id: str,
+        engine_id: str,
         timestamp: Optional[any] = None,
         code: Optional[str] = None,
         direction: Optional[DIRECTION_TYPES] = None,
@@ -38,6 +40,7 @@ class MSignal(MClickBase):
         **kwargs,
     ) -> None:
         self.portfolio_id = portfolio_id
+        self.engine_id = engine_id
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if code is not None:
@@ -52,6 +55,7 @@ class MSignal(MClickBase):
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.portfolio_id = df["portfolio_id"]
+        self.engine_id = df["engine_id"]
         self.timestamp = datetime_normalize(df["timestamp"])
         self.code = df["code"]
         self.direction = df["direction"]

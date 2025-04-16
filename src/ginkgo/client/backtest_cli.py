@@ -1,6 +1,7 @@
 import typer
-from ginkgo.data.ginkgo_data import GDATA
-from tabulate import tabulate
+import pandas as pd
+import subprocess
+
 from enum import Enum
 from typing import List as typing_list, Optional
 from typing_extensions import Annotated
@@ -8,27 +9,21 @@ from rich.prompt import Prompt
 from rich.table import Column, Table
 from rich.console import Console
 from pathlib import Path
+
 from ginkgo.client.unittest_cli import LogLevelType
+from ginkgo.client import backtest_update_cli, backtest_create_cli
 from ginkgo.libs import GLOG
 from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
 from ginkgo.enums import ORDERSTATUS_TYPES
 
 
 app = typer.Typer(
-    help=":shark: Module for [bold medium_spring_green]BACKTEST[/]. [grey62]Build your own strategy and do backtest.[/grey62]"
+    help=":shark: Module for [bold medium_spring_green]BACKTEST[/]. [grey62]Build your own strategy and do backtest.[/grey62]",
+    no_args_is_help=True,
 )
+app.add_typer(backtest_create_cli.app, name="create")
+app.add_typer(backtest_update_cli.app, name="update")
 console = Console()
-
-
-class ResourceType(str, Enum):
-    backtest = "backtest"
-    strategy = "strategy"
-    selector = "selector"
-    sizer = "sizer"
-    risk_manager = "riskmanager"
-    portfolio = "portfolio"
-    analyzer = "analyzer"
-    plot = "plot"
 
 
 class ResultType(str, Enum):
@@ -85,89 +80,398 @@ def print_order_paganation(df, page: int):
         console.print(table)
 
 
-@app.command()
-def init():
+@app.command(name="delete")
+def delete(
+    ids: Annotated[
+        typing_list[str],
+        typer.Argument(case_sensitive=True, help="File IDs"),
+    ],
+):
     """
-    :ram: Init the basic file to database. Copy files from source.
+    :boom: Delete [bold light_coral]FILE[/] or [bold light_coral]BACKTEST RECORD[/].
     """
-    from ginkgo.data import init_example_data as func
+    from ginkgo.data.operations import delete_file, delete_engine, delete_portfolio
 
-    func()
+    for i in ids:
+        id = i
+        # Try remove file
+        result_file = delete_file(id)
+        if result_file > 0:
+            msg = f":zany_face: File [yellow]{id}[/yellow] delete."
+            console.print(msg)
+        # Try remove backtest engine
+        result_back = delete_engine(id)
+        if result_back > 0:
+            msg = f":zany_face: Backtest Engine [light_coral]{id}[/light_coral] deleted."
+            console.print(msg)
+        # remove portfolios
+        result_portfolio = delete_portfolio(id)
+        if result_portfolio > 0:
+            msg = f":zany_face: Portfolio [light_coral]{id}[/light_coral] deleted."
+            console.print(msg)
+        # remove backtest signals
+        # remove backtest orders
+        # remove backtest orders records
+        # remove backtest analyzers
+        # remove backtest positions
+        # TODO Update delete functions
+        continue
+        # Remove order records and analyzers
+        result_order = remove_orders(id)
+        if result_order > 0:
+            msg = f":zany_face: Orders about [light_coral]{id}[/light_coral] [yellow]{result_order}[/yellow] delete."
+            console.print(msg)
+        result_ana = remove_analyzers(id)
+        if result_ana > 0:
+            msg = f":zany_face: Analyzers about [light_coral]{id}[/light_coral] [yellow]{result_ana}[/yellow] delete."
+            console.print(msg)
+
+        result_pos = remove_positions(id)
+        if result_pos > 0:
+            msg = f":zany_face: Positions in backtest [light_coral]{id}[/light_coral] [yellow]{result_pos}[/yellow] delete."
+            console.print(msg)
+
+        if result_file == 0 and result_back == 0 and result_order == 0 and result_ana == 0 and result_pos == 0:
+            console.print(
+                f"There is no file or backtest record about [light_coral]{id}[/light_coral]. Please check id again."
+            )
 
 
 @app.command()
+def edit(
+    id: Annotated[str, typer.Option(..., "--id", "-id", case_sensitive=True, help="File ID")],
+):
+    """
+    :orange_book: Edit [bold yellow]FILE[/].
+    """
+
+    def check_editor():
+        editors = ["nvim", "vim"]
+        for editor in editors:
+            try:
+                # 尝试运行编辑器，如果成功则说明可用
+                result = subprocess.run([editor, "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if result.returncode == 0:
+                    return True, editor
+            except FileNotFoundError:
+                # 编辑器未安装或不在 PATH 中
+                continue
+        return False, None
+
+    editor_res = check_editor()
+    if not editor_res[0]:
+        print("There is no editor in Systemt PATH.")
+        return
+
+    editor = editor_res[1]
+
+    from ginkgo.libs.ginkgo_conf import GCONF
+    from ginkgo.data.operations import get_file, update_file
+    from ginkgo.enums import FILE_TYPES
+
+    file_in_db = get_file(id)
+
+    if file_in_db is None:
+        console.print(
+            f":sad_but_relieved_face: File [yellow]{id}[/yellow] not exists. Try [green]ginkgo backtest list[/green] first."
+        )
+    else:
+        import uuid
+        import shutil
+        import os
+
+        id = file_in_db.uuid
+        name = file_in_db["name"]
+        type = file_in_db.type
+        if type is FILE_TYPES.ENGINE:
+            file_format = "yml"
+        else:
+            file_format = "py"
+        content = file_in_db.data
+        temp_folder = f"{GCONF.WORKING_PATH}/{uuid.uuid4()}"
+        Path(temp_folder).mkdir(parents=True, exist_ok=True)
+        with open(f"{temp_folder}/{name}.{file_format}", "wb") as file:
+            file.write(content)
+        # TODO Support editor set, nvim,vim.vi,nano or vscode?
+        edit_name = name.replace(" ", r"\ ") if " " in name else name
+        os.system(f"{editor} {temp_folder}/{edit_name}.{file_format}")
+        with open(f"{temp_folder}/{name}.{file_format}", "rb") as file:
+            update_file(id, type, name, file.read())
+            console.print(f":bear: [yellow]{type}[/yellow][green bold] {name}[/green bold] Updated.")
+        # Remove the file and directory
+        shutil.rmtree(temp_folder)
+
+
+@app.command(name="cat")
 def cat(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="File id.")],
+    id: Annotated[str, typer.Option(..., "--id", "-id", case_sensitive=True, help="File id.")],
 ):
     """
     :see_no_evil: Show [bold medium_spring_green]FILE[/] content.
     """
-    from ginkgo.data.ginkgo_data import GDATA
+    from ginkgo.data.operations import get_file
 
-    file = GDATA.get_file(id)
+    file = get_file(id)
     content = file.content
     console.print(content.decode("utf-8"))
 
 
-@app.command()
-def show(
-    filter: Annotated[str, typer.Option(case_sensitive=False, help="File filter")] = None,
+@app.command(name="list", no_args_is_help=True)
+def list(
+    engine: Annotated[bool, typer.Option(case_sensitive=False, help="List engines.")] = False,
+    portfolio: Annotated[bool, typer.Option(case_sensitive=False, help="List portfolios.")] = False,
+    file: Annotated[bool, typer.Option(case_sensitive=False, help="List files.")] = False,
+    mapping: Annotated[bool, typer.Option(case_sensitive=False, help="List mappings.")] = False,
+    param: Annotated[bool, typer.Option(case_sensitive=False, help="List params.")] = False,
+    signal: Annotated[bool, typer.Option(case_sensitive=False, help="List signals.")] = False,
+    order: Annotated[bool, typer.Option(case_sensitive=False, help="List orders.")] = False,
+    position: Annotated[bool, typer.Option(case_sensitive=False, help="List positions.")] = False,
+    filter: Annotated[str, typer.Option(case_sensitive=False, help="File filter.")] = None,
     a: Annotated[
         bool,
         typer.Option(case_sensitive=False, help="Show All Data, include removed file."),
     ] = False,
 ):
     """
-    :open_file_folder: Show backtest file summary.
+    :open_file_folder: Show backtest components list.
     """
-    from ginkgo.data import get_files
-    from ginkgo.data.ginkgo_data import GDATA
+    from ginkgo.enums import FILE_TYPES
 
-    if filter is None:
-        # If filter is None, show all files.
-        raw = get_files()
-    else:
-        from ginkgo.enums import FILE_TYPES
-
-        file_type = FILE_TYPES.enum_convert(filter)
-        raw = get_files(type=file_type)
-    if raw.shape[0] > 0:
-        # If there is file in database.
-        # Show the file list.
-        rs = raw[["uuid", "name", "type", "update_at"]]
-        msg = ""
+    def intro_print(data_count: int, data_type: str):
         if filter is None:
-            msg = f":ramen: There are {raw.shape[0]} files. "
+            msg = f":ramen: There are {data_count} {data_type}. "
         else:
-            msg = f":ramen: There are {raw.shape[0]} files about {filter}. "
+            msg = f":ramen: There are {data_count} {data_type} about [bold medium_spring_green]{filter}[/]. "
         console.print(msg)
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("ID", style="dim")
-        table.add_column("Name", style="dim")
-        table.add_column("Type", style="dim")
-        table.add_column("Update", style="dim")
-        for i, r in rs.iterrows():
-            table.add_row(r["uuid"], r["name"], str(r["type"]), str(r["update_at"]))
-        console.print(table)
-    else:
-        # If there is no file in database.
-        console.print(
-            f"There is no [light_coral]{filter}[/light_coral] in database. You could run [medium_spring_green]ginkgo backtest init[/medium_spring_green] or [medium_spring_green]ginkgo backtest new [FileType][/medium_spring_green]"
+
+    def print_engine(df):
+        intro_print(df.shape[0], "engines")
+        if df.shape[0] > 0:
+            filtered_columns = ["uuid", "name", "is_live", "update_at"]
+            rs = df[filtered_columns]
+            table = Table(show_header=True, header_style="bold magenta")
+
+            table.add_column("ID", style="dim")
+            table.add_column("Name", style="dim")
+            table.add_column("Live", style="dim")
+            table.add_column("UpdateAt", style="dim")
+            for i, r in rs.iterrows():
+                table.add_row(r["uuid"], r["name"], str(r["is_live"]), str(r["update_at"]))
+            console.print(table)
+
+    def print_portfolio(df):
+        intro_print(df.shape[0], "portfolios")
+        if df.shape[0] > 0:
+            filtered_columns = ["uuid", "name", "backtest_start_date", "backtest_end_date", "update_at"]
+            rs = df[filtered_columns]
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("ID", style="dim")
+            table.add_column("Name", style="dim")
+            table.add_column("Start", style="dim")
+            table.add_column("End", style="dim")
+            table.add_column("UpdateAt", style="dim")
+            for i, r in rs.iterrows():
+                table.add_row(
+                    r["uuid"],
+                    r["name"],
+                    str(r["backtest_start_date"]),
+                    str(r["backtest_end_date"]),
+                    str(r["update_at"]),
+                )
+            console.print(table)
+
+    def print_file(df):
+        intro_print(df.shape[0], "files")
+        if df.shape[0] > 0:
+            filtered_columns = ["uuid", "name", "type", "update_at"]
+            rs = df[filtered_columns]
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("ID", style="dim")
+            table.add_column("Name", style="dim")
+            table.add_column("Type", style="dim")
+            table.add_column("UpdateAt", style="dim")
+            for i, r in rs.iterrows():
+                table.add_row(r["uuid"], r["name"], str(r["type"]), str(r["update_at"]))
+            console.print(table)
+
+    def print_mapping(df):
+        pass
+
+    res = {}
+    from ginkgo.data import get_files, get_engines, get_orders, get_portfolios
+
+    if engine:
+        df = get_engines(name=filter, as_dataframe=True)
+        res["engine"] = df
+        print_engine(df)
+
+    if portfolio:
+        df = get_portfolios(name=filter)
+        res["portfolio"] = df
+        print_portfolio(df)
+
+    if file:
+        if filter is None:
+            df = get_files()
+        else:
+            file_type = FILE_TYPES.enum_convert(filter)
+            df1 = pd.DataFrame()
+            if file_type:
+                df1 = get_files(type=file_type)
+            df = get_files(name=filter)
+            if df1.shape[0] > 0:
+                df = pd.concat([df1, df])
+            df = df.drop_duplicates(subset=["uuid"])
+        res["file"] = df
+        print_file(df)
+    if mapping:
+        from ginkgo.data.operations import (
+            get_engine_handler_mappings,
+            get_engine_portfolio_mappings,
+            get_portfolio_file_mappings,
         )
+
+        if filter is None:
+            df = get_engine_portfolio_mappings()
+            intro_print(df.shape[0], "engine portfolio mappings")
+            if df.shape[0] > 0:
+                filtered_columns = ["uuid", "engine_id", "portfolio_id", "update_at"]
+                rs = df[filtered_columns]
+                table = Table(show_header=True, header_style="bold magenta")
+                table.add_column("ID", style="dim")
+                table.add_column("Engine", style="dim")
+                table.add_column("Portfolio", style="dim")
+                table.add_column("UpdateAt", style="dim")
+                for i, r in rs.iterrows():
+                    table.add_row(r["uuid"], r["engine_id"], r["portfolio_id"], str(r["update_at"]))
+                console.print(table)
+            df = get_engine_handler_mappings()
+            intro_print(df.shape[0], "engine handler mappings")
+            # TODO
+            df = get_portfolio_file_mappings()
+            intro_print(df.shape[0], "portfolio file mappings")
+            if df.shape[0] > 0:
+                filtered_columns = ["uuid", "portfolio_id", "file_id", "name", "type", "update_at"]
+                rs = df[filtered_columns]
+                table = Table(show_header=True, header_style="bold magenta")
+                table.add_column("ID", style="dim")
+                table.add_column("Name", style="dim")
+                table.add_column("Type", style="dim")
+                table.add_column("Portfolio", style="dim")
+                table.add_column("File", style="dim")
+                table.add_column("UpdateAt", style="dim")
+                for i, r in rs.iterrows():
+                    table.add_row(
+                        r["uuid"], r["name"], str(r["type"]), r["portfolio_id"], r["file_id"], str(r["update_at"])
+                    )
+                console.print(table)
+        else:
+            df = get_engine_portfolio_mappings()
+            if df.shape[0] > 0:
+                df1 = df[df["engine_id"] == filter]
+                df2 = df[df["portfolio_id"] == filter]
+                df = pd.concat([df1, df2])
+            intro_print(df.shape[0], "engine portfolio mappings")
+            if df.shape[0] > 0:
+                filtered_columns = ["uuid", "engine_id", "portfolio_id", "update_at"]
+                rs = df[filtered_columns]
+                table = Table(show_header=True, header_style="bold magenta")
+                table.add_column("ID", style="dim")
+                table.add_column("Engine", style="dim")
+                table.add_column("Portfolio", style="dim")
+                table.add_column("UpdateAt", style="dim")
+                for i, r in rs.iterrows():
+                    table.add_row(r["uuid"], r["engine_id"], r["portfolio_id"], str(r["update_at"]))
+                console.print(table)
+            df = get_engine_handler_mappings()
+            if df.shape[0] > 0:
+                df1 = df[df["engine_id"] == filter]
+                df2 = df[df["handler_id"] == filter]
+                df = pd.concat([df1, df2])
+            intro_print(df.shape[0], "engine handler mappings")
+            if df.shape[0] > 0:
+                pass
+            df = get_portfolio_file_mappings()
+            if df.shape[0] > 0:
+                df1 = df[df["portfolio_id"] == filter]
+                df2 = df[df["file_id"] == filter]
+                df = pd.concat([df1, df2])
+            intro_print(df.shape[0], "portfolio file mappings")
+            if df.shape[0] > 0:
+                filtered_columns = ["uuid", "portfolio_id", "file_id", "name", "type", "update_at"]
+                rs = df[filtered_columns]
+                table = Table(show_header=True, header_style="bold magenta")
+                table.add_column("ID", style="dim")
+                table.add_column("Name", style="dim")
+                table.add_column("Type", style="dim")
+                table.add_column("Portfolio", style="dim")
+                table.add_column("File", style="dim")
+                table.add_column("UpdateAt", style="dim")
+                for i, r in rs.iterrows():
+                    table.add_row(
+                        r["uuid"], r["name"], str(r["type"]), r["portfolio_id"], r["file_id"], str(r["update_at"])
+                    )
+                console.print(table)
+    if param:
+        from ginkgo.data.operations import get_params
+
+        if filter is not None:
+            df = get_params(source_id=filter)
+        else:
+            df = get_params()
+        if df.shape[0] > 0:
+            intro_print(df.shape[0], "mapping params")
+            filtered_columns = ["uuid", "mapping_id", "index", "value", "update_at"]
+            print(df)
+            rs = df[filtered_columns]
+            rs = rs.sort_values(by=["mapping_id", "index"], ascending=True)
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("ID", style="dim")
+            table.add_column("Mapping", style="dim")
+            table.add_column("Index", style="dim")
+            table.add_column("Value", style="dim")
+            table.add_column("UpdateAt", style="dim")
+            for i, r in rs.iterrows():
+                table.add_row(r["uuid"], r["mapping_id"], str(r["index"]), r["value"], str(r["update_at"]))
+            console.print(table)
+
+    if signal:
+        # Get signal
+        # Filter engine
+        # Filter portfolio
+        # TODO
+        pass
+    if order:
+        # Get Order
+        # Filter engine
+        # Filter portfolio
+        # TODO
+        pass
+    if position:
+        # Get Position
+        # Filter engine
+        # Filter portfolio
+        # TODO
+        pass
 
 
 @app.command()
 def run(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID.")],
+    id: Annotated[str, typer.Option(..., "--id", "-id", case_sensitive=True, help="Backtest ID.")] = None,
     debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
+    """
+    :open_file_folder: Run [bold medium_spring_green]BACKTEST[/].
+    """
     from ginkgo.backtest.engines.engine_assembler_factory import assembler_backtest_engine
     from ginkgo.data import get_engine, get_engines
 
     engine_df = get_engine(id)
-    if engine_df.shape[0] == 0:
+    if engine_df.shape[0] == 0 or id is None:
         df = get_engines()
-        console.print(f"ENGINE [light_coral]{id}[/light_coral] not exist. You Cloud choose another engine below.")
+        msg = f"There is no engine [light_coral]{id}[/light_coral] in your database" if id is None else ""
+        msg += "You Cloud choose another engine below."
+        console.print(msg)
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("ID", style="dim")
         table.add_column("Name", style="dim")
@@ -187,146 +491,20 @@ def run(
 
 
 @app.command()
-def edit(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
-):
-    """
-    :orange_book: Edit File.
-    """
-    from ginkgo.data.ginkgo_data import GDATA
-    from ginkgo.libs.ginkgo_conf import GCONF
-    from ginkgo.enums import FILE_TYPES
-
-    file_in_db = GDATA.get_file(id)
-
-    if file_in_db is None:
-        console.print(
-            f":sad_but_relieved_face: File [yellow]{id}[/yellow] not exists. Try [green]ginkgo backtest list[/green] first."
-        )
-    else:
-        import uuid
-        import shutil
-        import os
-
-        id = file_in_db.uuid
-        name = file_in_db.file_name
-        type = file_in_db.type
-        if type is FILE_TYPES.ENGINE:
-            file_format = "yml"
-        else:
-            file_format = "py"
-        content = file_in_db.content
-        temp_folder = f"{GCONF.WORKING_PATH}/{uuid.uuid4()}"
-        Path(temp_folder).mkdir(parents=True, exist_ok=True)
-        with open(f"{temp_folder}/{name}.{file_format}", "wb") as file:
-            file.write(content)
-        # TODO Support editor set, nvim,vim.vi,nano or vscode?
-        edit_name = name.replace(" ", r"\ ") if " " in name else name
-        os.system(f"nvim {temp_folder}/{edit_name}.{file_format}")
-        with open(f"{temp_folder}/{name}.{file_format}", "rb") as file:
-            GDATA.update_file(id, type, name, file.read())
-            console.print(f":bear: [yellow]{type}[/yellow][green bold] {name}[/green bold] Updated.")
-        # Remove the file and directory
-        shutil.rmtree(temp_folder)
-
-
-@app.command()
-def create_engine():
-    pass
-
-
-@app.command()
-def engine_bind():
-    pass
-
-
-@app.command()
-def create_file(
-    type: Annotated[ResourceType, typer.Argument(case_sensitive=False, help="File Type")],
-    name: Annotated[str, typer.Argument(case_sensitive=True, help="File Name")],
-    source: Annotated[str, typer.Option(case_sensitive=True, help="Copy from Target")] = "",
-):
-    """
-    :ramen: Create file in database.
-    """
-    from ginkgo.data.ginkgo_data import GDATA
-    from ginkgo.enums import FILE_TYPES
-
-    resource = FILE_TYPES.enum_convert(type)
-    if resource in FILE_TYPES:
-        if source == "":
-            GDATA.add_file(resource, name)
-            console.print(f"Create file [yellow]{name}[/yellow].")
-        else:
-            r = GDATA.copy_file(resource, name, source)
-            if r is None:
-                console.print(f"Copy file [yellow]{name}[/yellow] Failed.")
-            else:
-                console.print(f"Copy file [yellow]{name}[/yellow] Done.")
-    else:
-        print(f"File type not support.")
-
-
-@app.command()
-def rm(
-    ids: Annotated[
-        typing_list[str],
-        typer.Argument(case_sensitive=True, help="File ID"),
-    ],
-):
-    """
-    :boom: Delete [light_coral]FILE[/light_coral] or [light_coral]BACKTEST RECORD[/light_coral] in database.
-    """
-    from ginkgo.data.ginkgo_data import GDATA
-
-    for i in ids:
-        id = i
-
-        # Try remove file
-        result_file = GDATA.remove_file(id)
-        if result_file:
-            msg = f":zany_face: File [yellow]{id}[/yellow] delete."
-            console.print(msg)
-        # Try remove backtest records
-        result_back = GDATA.remove_backtest(id)
-        if result_back:
-            msg = f":zany_face: Backtest Record [light_coral]{id}[/light_coral] delete."
-            console.print(msg)
-        # Remove order records and analyzers
-        result_order = GDATA.remove_orders(id)
-        if result_order > 0:
-            msg = f":zany_face: Orders about [light_coral]{id}[/light_coral] [yellow]{result_order}[/yellow] delete."
-            console.print(msg)
-        result_ana = GDATA.remove_analyzers(id)
-        if result_ana > 0:
-            msg = f":zany_face: Analyzers about [light_coral]{id}[/light_coral] [yellow]{result_ana}[/yellow] delete."
-            console.print(msg)
-
-        result_pos = GDATA.remove_positions(id)
-        if result_pos > 0:
-            msg = f":zany_face: Positions in backtest [light_coral]{id}[/light_coral] [yellow]{result_pos}[/yellow] delete."
-            console.print(msg)
-
-        if not result_file and not result_back and result_order == 0 and result_ana == 0 and result_pos == 0:
-            console.print(
-                f"There is no file or backtest record about [light_coral]{id}[/light_coral]. Please check id again."
-            )
-
-
-@app.command()
 def recall(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")],
+    id: Annotated[str, typer.Option(..., "--id", "-id", case_sensitive=True, help="Backtest ID")],
     name: Annotated[str, typer.Option(case_sensitive=True, help="File Name")] = "",
 ):
     """
-    Recall the Backtest config from a complete backtest.
+    :open_file_folder: Recall the backtest configuration from a completed backtest.
     """
-    from ginkgo.data.ginkgo_data import GDATA
+    # TODO
+    from ginkgo.data.operations import add_file, update_file, get_backtest_record
     from ginkgo.enums import FILE_TYPES
     import yaml
     import datetime
 
-    backtest = GDATA.get_backtest_record(id)
+    backtest = get_backtest_record(id)
     if backtest is None:
         return
     content = backtest.content
@@ -335,23 +513,24 @@ def recall(
         file_name = name if name != "" else f"{yaml.safe_load(content)['name']}_recall"
     except Exception as e:
         print(e)
-    file_id = GDATA.add_file(FILE_TYPES.ENGINE, file_name)
-    GDATA.update_file(file_id, FILE_TYPES.ENGINE, file_name, content)
+    file_id = add_file(FILE_TYPES.ENGINE, file_name)
+    update_file(file_id, FILE_TYPES.ENGINE, file_name, content)
     console.print(
         f":dove:  Recall the configuration of backtest [light_coral]{id}[/light_coral] as [medium_spring_green]{file_name}[/medium_spring_green]"
     )
 
 
-@app.command()
-def lsorder(
+def showorder(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
     page: Annotated[int, typer.Option(case_sensitive=False, help="Limit the number of output.")] = 0,
 ):
     """
     :one-piece_swimsuit: Show the backtest Orders.
     """
+    from ginkgo.data.operatiy import get_backtest_list_df, get_order_df_by_portfolioid
+
     if id == "":
-        raw = GDATA.get_backtest_list_df()
+        raw = get_backtest_list_df()
         if raw.shape[0] == 0:
             console.print(
                 f":sad_but_relieved_face: There is no [light_coral]backtest record[/light_coral] in database."
@@ -373,7 +552,7 @@ def lsorder(
         console.print(table)
         return
     # Got backtest id
-    orders = GDATA.get_order_df_by_portfolioid(id)
+    orders = get_order_df_by_portfolioid(id)
     if orders.shape[0] == 0:
         console.print(f"There is no orders about Backtest: {id}")
         return
@@ -382,8 +561,11 @@ def lsorder(
     print_order_paganation(orders, page)
 
 
-@app.command()
-def showres(
+def showparams():
+    pass
+
+
+def showresult(
     id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
     index: Annotated[
         typing_list[str],
@@ -400,9 +582,10 @@ def showres(
     """
     :one-piece_swimsuit: Show the backtest result.
     """
+    from ginkgo.data.operations import get_backtest_list_df
 
     if id == "":
-        raw = GDATA.get_backtest_list_df()
+        raw = get_backtest_list_df()
         if raw.shape[0] == 0:
             console.print(
                 f":sad_but_relieved_face: There is no [light_coral]backtest record[/light_coral] in database."
@@ -426,11 +609,11 @@ def showres(
         console.print(table)
         return
     # Got backtest id
-    record = GDATA.get_backtest_record_by_backtest(id)
+    record = get_backtest_record_by_backtest(id)
     print(record)
     if record is None:
         console.print(f":sad_but_relieved_face: Record {id} not exist. Please select one of follow.")
-        print(GDATA.get_backtest_list_df())
+        print(get_backtest_list_df())
         return
     console.print(f":sunflower: Backtest [light_coral]{id}[/light_coral]  Worth: {record.profit}")
     console.print(f"You could use [green]ginkgo backtest res {id} analyzer_id1 analyzer_id2 ...[/green] to see detail.")
@@ -463,7 +646,7 @@ def showres(
     ids = [id]
     temp_data = {}
     for i in analyzer_ids:
-        df = GDATA.get_analyzer_df_by_backtest(id, i)
+        df = get_analyzer_df_by_backtest(id, i)
         if df.shape[0] == 0:
             continue
         analyzer_name = "TestName"
@@ -477,7 +660,7 @@ def showres(
         temp_data = {}
         print("add compare")
         for i in analyzer_ids:
-            df = GDATA.get_analyzer_df_by_backtest(compare, i)
+            df = get_analyzer_df_by_backtest(compare, i)
             if df.shape[0] == 0:
                 continue
             analyzer_name = "TestName"
@@ -491,3 +674,13 @@ def showres(
     plot = ResultPlot("Backtest")
     plot.update_data(id, fig_data, ids)
     plot.show()
+
+
+@app.command(name="init")
+def init():
+    """
+    :ram: Init the basic file to database. Copy files from source.
+    """
+    from ginkgo.data import init_example_data as func
+
+    func()

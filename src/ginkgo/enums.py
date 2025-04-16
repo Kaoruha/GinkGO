@@ -8,7 +8,7 @@ class EnumBase(Enum):
         try:
             r = cls[string.upper()]
         except Exception as e:
-            print(e)
+            return
         return r
 
     # def __repr__(self):

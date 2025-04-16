@@ -17,6 +17,7 @@ class MTransfer(MMysqlBase):
     __tablename__ = "transfer"
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
+    engine_id: Mapped[str] = mapped_column(String(32), default="")
     direction: Mapped[TRANSFERDIRECTION_TYPES] = mapped_column(
         Enum(TRANSFERDIRECTION_TYPES), default=TRANSFERDIRECTION_TYPES.IN
     )
@@ -33,6 +34,7 @@ class MTransfer(MMysqlBase):
     def _(
         self,
         portfolio_id: str,
+        engine_id: str,
         direction: Optional[TRANSFERDIRECTION_TYPES] = None,
         market: Optional[MARKET_TYPES] = None,
         money: Optional[Number] = None,
@@ -43,6 +45,7 @@ class MTransfer(MMysqlBase):
         **kwargs,
     ) -> None:
         self.portfolio_id = portfolio_id
+        self.engine_id = engine_id
         if direction is not None:
             self.direction = direction
         if market is not None:
@@ -60,6 +63,7 @@ class MTransfer(MMysqlBase):
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.portfolio_id = df["portfolio_id"]
+        self.engine_id = df["engine_id"]
         self.direction = df["direction"]
         self.market = df["market"]
         self.money = to_decimal(df["money"])

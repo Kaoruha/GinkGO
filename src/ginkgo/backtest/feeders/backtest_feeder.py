@@ -70,10 +70,10 @@ class BacktestFeeder(BaseFeeder):
         datetime = datetime_normalize(datetime)
 
         if datetime > self._now:
-            GLOG.CRITICAL(f"CurrentDate: {self.now} you can not get the future({datetime}) info.")
+            self.log.CRITICAL(f"CurrentDate: {self.now} you can not get the future({datetime}) info.")
             return pd.DataFrame()
         if datetime < self._now:
-            GLOG.CRITICAL(f"CurrentDate: {self.now} you can not get the past({datetime}) info.")
+            self.log.CRITICAL(f"CurrentDate: {self.now} you can not get the past({datetime}) info.")
             return pd.DataFrame()
 
         df = get_bars(code, start_date=datetime, end_date=datetime, as_dataframe=True)

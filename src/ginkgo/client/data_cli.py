@@ -45,7 +45,8 @@ class WorkerType(str, Enum):
 
 
 app = typer.Typer(
-    help=":jigsaw: Module for [bold medium_spring_green]DATA[/]. [grey62]CRUD about all kinds of data.[/grey62]"
+    help=":jigsaw: Module for [bold medium_spring_green]DATA[/]. [grey62]CRUD about all kinds of data.[/grey62]",
+    no_args_is_help=True,
 )
 quit_list = ["NO", "N"]
 console = Console()
@@ -67,7 +68,7 @@ def print_df_paganation(df, page: int):
         page_count = int(data_length / page) + 1
         for i in range(page_count):
             print(df[i * page : (i + 1) * page])
-            go_next_page = Prompt.ask(f"Current: {(i+1)*page}/{data_length}, Conitnue? \[y/N]")
+            go_next_page = Prompt.ask(f"Current: {(i+1)*page}/{data_length}, Conitnue? [y/N]")
             if go_next_page.upper() in quit_list:
                 console.print("See you soon. :sunglasses:")
                 raise typer.Abort()
@@ -195,8 +196,8 @@ def plot(
         pass
 
 
-@app.command()
-def ls(
+@app.command(name="list")
+def list(
     data: Annotated[DataType, typer.Argument(case_sensitive=False)],
     page: Annotated[int, typer.Option(case_sensitive=False, help="Limit the number of output.")] = 0,
     filter: Annotated[str, typer.Option(case_sensitive=True, help="Filter the output.")] = "",
@@ -540,12 +541,13 @@ def search(
 
 @app.command()
 def rebuild(
+    engine: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Engine Table")] = False,
+    portfolio: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Portfolio Table")] = False,
     order: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")] = False,
     orderrecord: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild OrderRecord Table")] = False,
-    record: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")] = False,
     file: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild File Table")] = False,
-    backtest: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Table")] = False,
-    analyzer: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")] = False,
+    param: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Mapping Param Table")] = False,
+    analyzerrecord: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")] = False,
     stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")] = False,
     signal: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Signal Table")] = False,
     calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")] = False,
@@ -555,45 +557,54 @@ def rebuild(
     :fox_face: Rebuild [light_coral]TABLE[/light_coral] in database. Attention.
     """
     from ginkgo.enums import MARKET_TYPES
+    from ginkgo.data.drivers import drop_table, create_all_tables
     from ginkgo.data.models import (
         MOrder,
+        MPortfolio,
         MOrderRecord,
         MAdjustfactor,
-        MBacktest,
         MFile,
         MSignal,
-        MBacktest,
-        MAnalyzer,
+        MAnalyzerRecord,
         MStockInfo,
         MTradeDay,
+        MEngine,
+        MParam
     )
+    if engine:
+        drop_table(MEngine)
+
+    if portfolio:
+        drop_table(MPortfolio)
 
     if order:
-        GDATA.drop_table(MOrder)
+        drop_table(MOrder)
+
 
     if orderrecord:
-        GDATA.drop_table(MOrderRecord)
-    if record:
-        GDATA.drop_table(MBacktest)
+        drop_table(MOrderRecord)
 
     if file:
-        GDATA.drop_table(MFile)
+        drop_table(MFile)
 
-    if backtest:
-        GDATA.drop_table(MBacktest)
+    if param:
+        drop_table(MParam)
 
-    if analyzer:
-        GDATA.drop_table(MAnalyzer)
+    if analyzerrecord:
+        drop_table(MAnalyzerRecord)
+
     if signal:
-        GDATA.drop_table(MSignal)
+        drop_table(MSignal)
 
     if stockinfo:
-        GDATA.drop_table(MStockInfo)
+        drop_table(MStockInfo)
 
     if calendar:
-        GDATA.drop_table(MTradeDay)
+        drop_table(MTradeDay)
 
     if adjust:
-        GDATA.drop_table(MAdjustfactor)
+        drop_table(MAdjustfactor)
 
-    GDATA.create_all()
+    # TODO Mapping 
+
+    create_all_tables()

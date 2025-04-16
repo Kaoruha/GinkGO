@@ -35,9 +35,12 @@ class StrategyProfitLimit(StrategyBase):
         self.log("DEBUG", f"Limit: {1 + self.profit_limit/100}, Price: {price}, Cost: {cost}, Ratio: {ratio}")
         if ratio > (1 + self._profit_limit / 100):
             s = Signal(
+                portfolio_id=portfolio_info["uuid"],
+                engine_id=self.engine_id,
+                timestamp=portfolio_info["now"],
                 code=code,
                 direction=DIRECTION_TYPES.SHORT,
-                backtest_id=self.backtest_id,
-                timestamp=portfolio.now,
+                reason="Profit Limit",
+                source=SOURCE_TYPES.STRATEGY,
             )
             return s

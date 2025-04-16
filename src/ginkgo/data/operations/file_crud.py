@@ -9,12 +9,11 @@ from ginkgo.data.drivers import add, add_all, get_mysql_connection
 from ginkgo.libs import GLOG
 
 
-def add_file(type: FILE_TYPES, name: str, data: bytes, *args, **kwargs) -> pd.Series:
+def add_file(type: FILE_TYPES, name: str, data: bytes, *args, **kwargs) -> MFile:
     item = MFile(type=type, name=name, data=data)
     res = add(item)
-    df = res.to_dataframe()
     get_mysql_connection().remove_session()
-    return df.iloc[0]
+    return res
 
 
 def add_files(files: List[MFile], *args, **kwargs):
@@ -46,9 +45,11 @@ def delete_file(id: str, *argss, **kwargs):
         for i in query:
             session.delete(i)
             session.commit()
+        return len(query)
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
+        return
     finally:
         get_mysql_connection().remove_session()
 
@@ -125,7 +126,10 @@ def get_file(
     try:
         stmt = session.query(model).filter(and_(*filters))
         df = pd.read_sql(stmt.statement, session.connection())
-        return df
+        if df.shape[0] > 0:
+            return df.iloc[0]
+        else:
+            return pd.DataFrame()
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -134,10 +138,10 @@ def get_file(
         get_mysql_connection().remove_session()
 
 
-def get_file_content(file_id: str, *args, **kwargs) -> bytes:
+def get_file_content(id: str, *args, **kwargs) -> bytes:
     session = get_mysql_connection().session
     model = MFile
-    filters = [model.uuid == file_id]
+    filters = [model.uuid == id]
     try:
         stmt = session.query(model).filter(and_(*filters))
         res = session.execute(stmt).scalars().first()
@@ -145,12 +149,20 @@ def get_file_content(file_id: str, *args, **kwargs) -> bytes:
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
-        return pd.DataFrame()
+        return b""
     finally:
         get_mysql_connection().remove_session()
 
 
-def get_files(type: Optional[FILE_TYPES] = None, name: Optional[str] = None, *args, **kwargs) -> pd.DataFrame:
+def get_files(
+    type: Optional[FILE_TYPES] = None,
+    name: Optional[str] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
+    as_dataframe: bool = False,
+    *args,
+    **kwargs,
+) -> pd.DataFrame:
     session = get_mysql_connection().session
     model = MFile
     filters = [model.is_del == False]
@@ -172,6 +184,5 @@ def get_files(type: Optional[FILE_TYPES] = None, name: Optional[str] = None, *ar
         session.rollback()
         GLOG.ERROR(e)
         return pd.DataFrame()
-
     finally:
         get_mysql_connection().remove_session()

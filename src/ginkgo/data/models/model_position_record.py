@@ -17,6 +17,7 @@ class MPositionRecord(MClickBase):
     __tablename__ = "position_record"
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
+    engine_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     volume: Mapped[int] = mapped_column(Integer, default=0)
     frozen_volume: Mapped[int] = mapped_column(Integer, default=0)
@@ -31,6 +32,7 @@ class MPositionRecord(MClickBase):
     def _(
         self,
         portfolio_id: str,
+        engine_id: str,
         timestamp: Optional[any] = None,
         code: Optional[str] = None,
         volume: Optional[int] = None,
@@ -42,6 +44,7 @@ class MPositionRecord(MClickBase):
         **kwargs,
     ) -> None:
         self.portfolio_id = str(portfolio_id)
+        self.engine_id = str(engine_id)
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if code is not None:
@@ -60,6 +63,7 @@ class MPositionRecord(MClickBase):
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.portfolio_id = df["portfolio_id"]
+        self.engine_id = df["engine_id"]
         self.code = df["code"]
         self.volume = df["volume"]
         self.frozen_volume = df["frozen_volume"]

@@ -18,6 +18,7 @@ class Transfer(Base):
         self,
         uuid: str = "",
         portfolio_id: str = "test_portfolio",
+        engine_id: str = "",
         direction: DIRECTION_TYPES = DIRECTION_TYPES.LONG,
         market: MARKET_TYPES = MARKET_TYPES.CHINA,
         money: Number = 1000,
@@ -28,7 +29,7 @@ class Transfer(Base):
     ):
         super(Transfer, self).__init__(*args, **kwargs)
         self.set_uuid(uuid)
-        self.set(portfolio_id, direction, market, money, status, timestamp)
+        self.set(portfolio_id, engine_id, direction, market, money, status, timestamp)
 
     @singledispatchmethod
     def set(self) -> None:
@@ -38,6 +39,7 @@ class Transfer(Base):
     def _(
         self,
         portfolio_id: str,
+        engine_id: str,
         direction: DIRECTION_TYPES,
         market: MARKET_TYPES,
         money: Number,
@@ -49,6 +51,8 @@ class Transfer(Base):
         # 参数校验
         if not isinstance(portfolio_id, str):
             raise ValueError("portfolio_id must be a string.")
+        if not isinstance(engine_id, str):
+            raise ValueError("engine_id must be a string.")
         if not isinstance(direction, DIRECTION_TYPES):
             raise ValueError("direction must be a valid DIRECTION_TYPES enum.")
         if not isinstance(market, MARKET_TYPES):
@@ -61,6 +65,7 @@ class Transfer(Base):
             raise ValueError("timestamp must be a string or datetime object.")
 
         self._portfolio_id = portfolio_id
+        self._engine_id = engine_id
         self._direction = direction
         self._market = market
         self._money = money
@@ -76,6 +81,7 @@ class Transfer(Base):
             raise ValueError(f"Missing required fields in DataFrame: {missing_fields}")
 
         self._portfolio_id = df.portfolio_id
+        self._engine_id = df["engine_id"]
         self._direction = df.direction
         self._market = df.market
         self._money = df.money
@@ -86,6 +92,14 @@ class Transfer(Base):
     @property
     def portfolio_id(self) -> str:
         return self._portfolio_id
+
+    @property
+    def engine_id(self, *args, **kwargs) -> str:
+        return self._engine_id
+
+    @engine_id.setter
+    def engine_id(self, value) -> None:
+        self._engine_id = value
 
     @property
     def direction(self) -> DIRECTION_TYPES:

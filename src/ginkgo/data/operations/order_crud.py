@@ -13,6 +13,7 @@ from ginkgo.libs import GLOG, datetime_normalize, Number, to_decimal
 
 def add_order(
     portfolio_id: str,
+    engine_id: str,
     code: str,
     direction: DIRECTION_TYPES,
     type: ORDER_TYPES,
@@ -29,6 +30,7 @@ def add_order(
 ) -> pd.Series:
     item = MOrder(
         portfolio_id=portfolio_id,
+        engine_id=engine_id,
         code=code,
         direction=direction,
         type=type,
@@ -75,6 +77,42 @@ def delete_order(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
+def delete_orders_by_portfolio(portfolio_id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
+    model = MOrder
+    filters = [model.portfolio_id == portfolio_id]
+    try:
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
+def delete_orders_by_engine(engine_id: str, *argss, **kwargs):
+    session = get_mysql_connection().session
+    model = MOrder
+    filters = [model.engine_id == engine_id]
+    try:
+        query = session.query(model).filter(and_(*filters)).all()
+        if len(query) > 1:
+            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
+        for i in query:
+            session.delete(i)
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+    finally:
+        get_mysql_connection().remove_session()
+
+
 def softdelete_order(id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MOrder
@@ -96,6 +134,7 @@ def softdelete_order(id: str, *argss, **kwargs):
 def update_order(
     id: str,
     portfolio_id: Optional[str] = None,
+    engine_id: Optional[str] = None,
     code: Optional[str] = None,
     direction: Optional[DIRECTION_TYPES] = None,
     type: Optional[ORDER_TYPES] = None,
@@ -116,6 +155,8 @@ def update_order(
     updates = {"update_at": datetime.datetime.now()}
     if portfolio_id is not None:
         updates["portfolio_id"] = portfolio_id
+    if engine_id is not None:
+        updates["engine_id"] = portfolio_id
     if code is not None:
         updates["code"] = code
     if direction is not None:
@@ -151,6 +192,7 @@ def update_order(
 
 def get_order(
     id: str,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -173,6 +215,7 @@ def get_order(
 
 def get_orders(
     portfolio_id: str,
+    engine_id: str,
     code: Optional[str] = None,
     direction: Optional[DIRECTION_TYPES] = None,
     type: Optional[ORDER_TYPES] = None,
@@ -187,7 +230,7 @@ def get_orders(
 ) -> pd.Series:
     session = get_mysql_connection().session
     model = MOrder
-    filters = [model.portfolio_id == portfolio_id, model.is_del == False]
+    filters = [model.portfolio_id == portfolio_id,model.engine_id==engine_id model.is_del == False]
     if code is not None:
         filters.append(model.code == code)
     if direction is not None:

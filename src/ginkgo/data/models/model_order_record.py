@@ -17,6 +17,7 @@ class MOrderRecord(MClickBase):
     __tablename__ = "order_record"
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
+    engine_id: Mapped[str] = mapped_column(String(32), default="")
     order_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     direction: Mapped[DIRECTION_TYPES] = mapped_column(Enum(DIRECTION_TYPES), default=DIRECTION_TYPES.LONG)
@@ -39,6 +40,7 @@ class MOrderRecord(MClickBase):
         self,
         order_id: str,
         portfolio_id: Optional[str] = None,
+        engine_id: Optional[str] = None,
         code: Optional[str] = None,
         direction: Optional[DIRECTION_TYPES] = None,
         type: Optional[ORDER_TYPES] = None,
@@ -58,6 +60,8 @@ class MOrderRecord(MClickBase):
         self.order_id = order_id
         if portfolio_id is not None:
             self.portfolio_id = portfolio_id
+        if engine_id is not None:
+            self.engine_id = engine_id
         if code is not None:
             self.code = code
         if direction is not None:
@@ -102,6 +106,7 @@ class MOrderRecord(MClickBase):
         self.fee = to_decimal(df["fee"])
         self.timestamp = datetime_normalize(df["timestamp"])
         self.portfolio_id = df["portfolio_id"]
+        self.engine_id = df["engine_id"]
         if "source" in df.keys():
             self.source = df["source"]
         self.update_at = datetime.datetime.now()

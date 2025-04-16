@@ -66,7 +66,7 @@ class FixedSizer(BaseSizer):
             o.set(
                 code,
                 direction=DIRECTION_TYPES.LONG,
-                type=ORDER_TYPES.MARKETORDER,
+                order_type=ORDER_TYPES.MARKETORDER,
                 status=ORDERSTATUS_TYPES.NEW,
                 volume=planned_size,
                 limit_price=0,
@@ -76,8 +76,9 @@ class FixedSizer(BaseSizer):
                 remain=0,
                 fee=0,
                 timestamp=self.now,
-                order_id=uuid.uuid4().hex,
+                order_id="",
                 portfolio_id=portfolio_info["uuid"],
+                engine_id=self.engine_id,
             )
         elif signal.direction == DIRECTION_TYPES.SHORT:
             pos = portfolio_info["positions"].get(code)
@@ -86,9 +87,9 @@ class FixedSizer(BaseSizer):
             self.log("WARN", "Try Generate SHORT ORDER. {self.now}")
             o.set(
                 code,
-                DIRECTION_TYPES.SHORT,
-                ORDER_TYPES.MARKETORDER,
-                ORDERSTATUS_TYPES.NEW,
+                direction=DIRECTION_TYPES.SHORT,
+                order_type=ORDER_TYPES.MARKETORDER,
+                status=ORDERSTATUS_TYPES.NEW,
                 volume=pos.volume,
                 limit_price=0,
                 frozen=0,
@@ -97,7 +98,8 @@ class FixedSizer(BaseSizer):
                 remain=0,
                 fee=0,
                 timestamp=self.now,
-                order_id=uuid.uuid4().hex,
+                order_id="",
                 portfolio_id=portfolio_info["uuid"],
+                engine_id=self.engine_id,
             )
         return o

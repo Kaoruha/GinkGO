@@ -20,14 +20,15 @@ from ginkgo.enums import (
     ORDERSTATUS_TYPES,
     RECORDSTAGE_TYPES,
 )
-from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.models import MOrder
+from ginkgo.data.drivers import add
 
 from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize
 from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs.ginkgo_pretty import base_repr
 
 from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
+from ginkgo.data.operations import delete_positions_by_portfolio_and_code,delete_order_records_by_portfolio_and_date_range
 
 console = Console()
 
@@ -53,10 +54,10 @@ class PortfolioLive(BasePortfolio):
             Dict of Positions
         """
         # 1. Remove position data in db.
-        result_pos = GDATA.remove_positions(backtest_id=self.uuid)
+        result_pos = delete_positions_by_portfolio_and_code(portfolio_id=self.uuid)
         # TODO
         # 2. Get Records from db.
-        order_df = GDATA.get_orderrecord_df_pagination(portfolio_id=self.uuid)
+        order_df = delete_order_records_by_portfolio_and_date_range(portfolio_id=self.uuid)
         print(order_df)
         # 3. Recal positions
         l = []
@@ -148,7 +149,7 @@ class PortfolioLive(BasePortfolio):
                     time,
                     self.engine_id,
                 )
-                GDATA.add(mo)
+                add(mo)
 
     def on_time_goes_by(self, time: any, *args, **kwargs):
         """

@@ -24,9 +24,8 @@ def add_portfolio(
         is_live=is_live,
     )
     res = add(item)
-    df = res.to_dataframe()
     get_mysql_connection().remove_session()
-    return df.iloc[0]
+    return res
 
 
 def add_portfolios(orders: List[MPortfolio], *args, **kwargs):
@@ -50,6 +49,7 @@ def delete_portfolio(id: str, *argss, **kwargs):
         for i in query:
             session.delete(i)
             session.commit()
+        return len(query)
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -125,6 +125,7 @@ def update_portfolio(
 
 def get_portfolio(
     id: str,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -152,6 +153,7 @@ def get_portfolios(
     backtest_end_date: Optional[any] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:

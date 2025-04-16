@@ -2,7 +2,7 @@ from ginkgo.backtest.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES
 from ginkgo.backtest.order import Order
 from ginkgo.libs import base_repr
-from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.data.operations import get_order
 
 
 class EventTradeExcution(EventBase):
@@ -24,7 +24,7 @@ class EventTradeExcution(EventBase):
     def get_order(self, order_id: str):
         # Make sure the order cant be edit by the event.
         # Get order from db
-        r = GDATA.get_order_by_id(order_id)
+        r = get_order(order_id)
         if r is None:
             self.log("ERROR", f"Order:{order_id} not exsist. Please check your code")
             return

@@ -3,8 +3,8 @@ import signal
 import psutil
 import os
 
-from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer, GinkgoConsumer
+from ginkgo.data.drivers import create_redis_connection
 from ginkgo.notifier.notifier_telegram import echo
 from ginkgo.notifier.notifier_beep import beep as beepbeep
 from ginkgo.notifier.notifier_telegram import (
@@ -29,7 +29,7 @@ class GinkgoNotifier(object):
 
     @property
     def telebot_status(self) -> str:
-        temp_redis = GDATA.get_redis()
+        temp_redis = create_redis_connection()
         if temp_redis.exists(self.telebot_pname):
             cache = temp_redis.get(self.telebot_pname).decode("utf-8")
             try:

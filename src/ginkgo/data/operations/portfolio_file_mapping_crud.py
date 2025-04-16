@@ -151,14 +151,19 @@ def get_portfolio_file_mapping(
 
 
 def get_portfolio_file_mappings(
-    portfolio_id: str,
+    portfolio_id: str = None,
     type: Optional[FILE_TYPES] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     *args,
     **kwargs,
 ) -> pd.Series:
     session = get_mysql_connection().session
     model = MPortfolioFileMapping
-    filters = [model.portfolio_id == portfolio_id, model.is_del == False]
+    if portfolio_id is None:
+        filters = []
+    else:
+        filters = [model.portfolio_id == portfolio_id, model.is_del == False]
     if type is not None:
         filters.append(model.type == type)
 
@@ -181,6 +186,8 @@ def get_portfolio_file_mappings(
 def get_portfolio_file_mappings_fuzzy(
     name: str = None,
     type: FILE_TYPES = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     *args,
     **kwargs,
 ) -> pd.Series:
