@@ -7,7 +7,7 @@
 
   - [x] Support MysqlDB and Clickhouse.
   - [x] Add 2 or 3 DataSource.
-  - [TODO] Add ML Engine.
+  - [x] Add ML Engine.
   - [TODO] Support other markets.
 
 ##### 0.9.0
@@ -15,9 +15,6 @@
   - - [TODO]  Support NSQ
   - - [TODO]  Support Dao
   - - [TODO]  Support Jap
-  - - [TODO]  Support Crypton
-##### 0.8.1(DEV)
-  - [TODO]  Support More DataSource
   - - [TODO]  Support Crypton
 
 ##### 0.7.1(DEV)

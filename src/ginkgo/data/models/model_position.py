@@ -17,6 +17,7 @@ class MPosition(MMysqlBase):
     __tablename__ = "position"
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
+    engine_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     volume: Mapped[int] = mapped_column(Integer, default=0)
     frozen_volume: Mapped[int] = mapped_column(Integer, default=0)
@@ -31,6 +32,7 @@ class MPosition(MMysqlBase):
     def _(
         self,
         portfolio_id: str,
+        engine_id: str,
         code: Optional[str] = None,
         volume: Optional[int] = None,
         frozen_volume: Optional[int] = None,
@@ -41,6 +43,7 @@ class MPosition(MMysqlBase):
         **kwargs,
     ) -> None:
         self.portfolio_id = portfolio_id
+        self.engine_id = engine_id
         if code is not None:
             self.code = str(code)
         if volume is not None:
@@ -58,6 +61,7 @@ class MPosition(MMysqlBase):
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.portfolio_id = df["portfolio_id"]
+        self.engine_id = df["engine_id"]
         self.code = df["code"]
         self.volume = df["volume"]
         self.frozen_volume = df["frozen_volume"]

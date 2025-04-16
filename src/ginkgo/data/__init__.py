@@ -26,7 +26,7 @@ from ginkgo.libs import (
     time_logger,
     fix_string_length,
     RichProgress,
-    format_time_seconds
+    format_time_seconds,
 )
 
 console = Console()
@@ -75,10 +75,12 @@ def send_signal_fetch_and_update_bar(code: str, fast_mode: bool, *args, **kwargs
     GinkgoProducer().send("ginkgo_data_update", {"type": "bar", "code": code, "fast": fast_mode})
 
 
-def send_signal_fetch_and_update_tick(code: str, fast_mode: bool = False,max_update:int=0, *args, **kwargs):
+def send_signal_fetch_and_update_tick(code: str, fast_mode: bool = False, max_update: int = 0, *args, **kwargs):
     from ginkgo.data.drivers import GinkgoProducer
 
-    GinkgoProducer().send("ginkgo_data_update", {"type": "tick", "code": code, "fast": fast_mode, "max_update":max_update})
+    GinkgoProducer().send(
+        "ginkgo_data_update", {"type": "tick", "code": code, "fast": fast_mode, "max_update": max_update}
+    )
 
 
 def send_signal_fetch_and_update_tick_summary(*args, **kwargs):
@@ -306,7 +308,7 @@ def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False,
         return -1
     # Get data from database
     date = datetime_normalize(date).strftime("%Y-%m-%d")
-    date = datetime_normalize(date) # TODO Have no idea why i need this.
+    date = datetime_normalize(date)  # TODO Have no idea why i need this.
     start_date = date + datetime.timedelta(minutes=1)
     end_date = date + datetime.timedelta(days=1) - datetime.timedelta(minutes=1)
     if fast_mode:
@@ -356,7 +358,7 @@ def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False,
 
 
 @time_logger
-def fetch_and_update_tick(code: str, fast_mode: bool = False, max_backtrack_day:int=0, *args, **kwargs):
+def fetch_and_update_tick(code: str, fast_mode: bool = False, max_backtrack_day: int = 0, *args, **kwargs):
     GLOG.INFO(f"Fetch and update tick {code}")
     # Check code
     if not is_code_in_stocklist(code):
@@ -366,18 +368,18 @@ def fetch_and_update_tick(code: str, fast_mode: bool = False, max_backtrack_day:
     if info is None:
         return
     now = datetime.datetime.now()
-    list_date = info['list_date'].values[0]
+    list_date = info["list_date"].values[0]
     list_date = datetime_normalize(list_date)
     # If click force_rebuild, do entire fetch and update
     try:
         redis = create_redis_connection()
         redis_key = f"tick_update_{code}"
         cache_ = redis.smembers(redis_key)
-        ttl = 60 * 60 * 24 * 14 # 14 Days Cache
+        ttl = 60 * 60 * 24 * 14  # 14 Days Cache
     except Exception as e:
         cache_ = None
     if cache_:
-        cache = {item.decode('utf-8') for item in cache_}
+        cache = {item.decode("utf-8") for item in cache_}
     else:
         cache = None
 
@@ -387,7 +389,7 @@ def fetch_and_update_tick(code: str, fast_mode: bool = False, max_backtrack_day:
         update_count += 1
         print(update_count)
         if cache is not None:
-            exists = now.strftime('%Y-%m-%d') in cache
+            exists = now.strftime("%Y-%m-%d") in cache
             if exists:
                 now = now - datetime.timedelta(days=1)
                 time_to_live = redis.ttl(redis_key)
@@ -408,10 +410,10 @@ def fetch_and_update_tick(code: str, fast_mode: bool = False, max_backtrack_day:
             console.print("data in db")
             should_cache = True
         if redis and should_cache:
-            redis.sadd(redis_key, now.strftime('%Y-%m-%d'))
+            redis.sadd(redis_key, now.strftime("%Y-%m-%d"))
             redis.expire(redis_key, ttl)
             cache_ = redis.smembers(redis_key)
-            cache = {item.decode('utf-8') for item in cache_}
+            cache = {item.decode("utf-8") for item in cache_}
         now = now - datetime.timedelta(days=1)
         if now < list_date:
             break
@@ -433,6 +435,7 @@ def fetch_and_update_tradeday(*args, **kwargs):
 
 
 # Get
+
 
 @cache_with_expiration
 def get_stockinfos(*args, **kwargs):
@@ -490,18 +493,36 @@ def get_handlers(*args, **kwargs):
 
 
 def add_file(*args, **kwargs):
-    # TODO
-    pass
+    from ginkgo.data.operations import add_file as func
+
+    return func(*args, **kwargs)
 
 
 def copy_file(*args, **kwargs):
-    # TODO
-    pass
+    # got data from source
+    file_type = kwargs.get("type")
+    if file_type is None:
+        return
+    name = kwargs.get("name")
+    if name is None:
+        return
+    clone_id = kwargs.get("clone")
+    if clone_id is None:
+        return
+
+    from ginkgo.data.operations import get_file_content
+
+    raw_content = get_file_content(id=clone_id)
+    # add new file
+    from ginkgo.data.operations import add_file as func
+
+    return func(type=file_type, name=name, data=raw_content)
 
 
-def remove_file(*args, **kwargs):
-    # TODO
-    pass
+def delete_file(*args, **kwargs):
+    from ginkgo.data.operations import delete_file as func
+
+    return func(*args, **kwargs)
 
 
 def update_file(*args, **kwargs):
@@ -510,12 +531,16 @@ def update_file(*args, **kwargs):
 
 
 def get_file(*args, **kwargs):
-    # TODO
-    pass
+    from ginkgo.data.operations import get_file as func
+
+    return func(*args, **kwargs)
 
 
 def init_example_data(*args, **kwargs):
-    # TODO Progress
+    from ginkgo.data.operations.portfolio_file_mapping_crud import (
+        delete_portfolio_file_mappings_by_portfolio,
+        get_portfolio_file_mappings,
+    )
     from ginkgo.data.operations import (
         get_files,
         add_file,
@@ -531,19 +556,19 @@ def init_example_data(*args, **kwargs):
         get_portfolio_file_mappings_fuzzy,
         delete_portfolio_file_mapping,
         add_param,
+        delete_params,
     )
 
     # Engine
     example_engine_name = "backtest_example"
     df = get_engines(name=example_engine_name)
-    if df.shape[0] > 1:
+    if df.shape[0] > 0:
         delete_engines(ids=df["uuid"].values.tolist())
         time.sleep(1)
         console.print(f":sun:  [light_coral]DELETE[/] Example engines.")
-    engine_df = add_engine(name=example_engine_name, is_live=False)
+    engine_data = add_engine(name=example_engine_name, is_live=False)
 
     # File
-
     working_dir = GCONF.WORKING_PATH
     file_root = f"{working_dir}/src/ginkgo/backtest"
 
@@ -587,7 +612,8 @@ def init_example_data(*args, **kwargs):
     example_portfolio_name = "portfolio_example"
     df = get_portfolios(example_portfolio_name)
     if df.shape[0] > 1:
-        delete_portfolios(ids=df["uuid"].values.tolist())
+        ids = df["uuid"].values.tolist()
+        delete_portfolios(ids=ids)
         console.print(f":sun:  [light_coral]DELETE[/] Example portfolios.")
         with console.status(f"[bold green]Waiting for DELETING ...[/]") as status:
             while True:
@@ -598,15 +624,13 @@ def init_example_data(*args, **kwargs):
                 else:
                     break
             status.stop()
-    portfolio_df = add_portfolio(
+    portfolio = add_portfolio(
         name=example_portfolio_name, backtest_start_date="2020-01-01", backtest_end_date="2021-01-01", is_live=False
     )
     console.print(f":sun:  [medium_spring_green]CREATE[/] Example portfolio.")
     # TODO Multi portfolios
     # Engine_Portfolio_Mapping
-    engine_portfolio_mapping = add_engine_portfolio_mapping(
-        engine_id=engine_df["uuid"], portfolio_id=portfolio_df["uuid"]
-    )
+    engine_portfolio_mapping = add_engine_portfolio_mapping(engine_id=engine_data.uuid, portfolio_id=portfolio.uuid)
     console.print(f":sun:  [medium_spring_green]CREATE[/] Example engine portfolio mapping.")
     # Portfolio File Mapping
     strategy_names = ["random_choice", "loss_limit"]
@@ -620,7 +644,7 @@ def init_example_data(*args, **kwargs):
             delete_portfolio_file_mapping(r2["uuid"])
         time.sleep(1)
         new_portfolio_file_mapping = add_portfolio_file_mapping(
-            portfolio_id=portfolio_df["uuid"], file_id=file_id, name=name, type=FILE_TYPES.STRATEGY
+            portfolio_id=portfolio.uuid, file_id=file_id, name=name, type=FILE_TYPES.STRATEGY
         )
         GLOG.DEBUG(f"add new_portfolio_file_mapping: {new_portfolio_file_mapping}")
         if i == "random_choice":
@@ -634,7 +658,7 @@ def init_example_data(*args, **kwargs):
     # Portfolio Selector Mapping
     raw_selectors = get_files(type=FILE_TYPES.SELECTOR, name="fixed_selector")
     selector_mapping = add_portfolio_file_mapping(
-        portfolio_id=portfolio_df["uuid"],
+        portfolio_id=portfolio.uuid,
         file_id=raw_selectors.iloc[0]["uuid"],
         name="example_fixed_selector",
         type=FILE_TYPES.SELECTOR,
@@ -647,7 +671,7 @@ def init_example_data(*args, **kwargs):
     # Portfolio Sizer Mapping
     raw_sizers = get_files(type=FILE_TYPES.SIZER, name="fixed_sizer")
     sizer_mapping = add_portfolio_file_mapping(
-        portfolio_id=portfolio_df["uuid"],
+        portfolio_id=portfolio.uuid,
         file_id=raw_sizers.iloc[0]["uuid"],
         name="example_fixed_sizer",
         type=FILE_TYPES.SIZER,
@@ -659,7 +683,7 @@ def init_example_data(*args, **kwargs):
     # analyzer param
     raw_analyzers = get_files(type=FILE_TYPES.ANALYZER, name="profit")
     analyzer_mapping = add_portfolio_file_mapping(
-        portfolio_id=portfolio_df["uuid"],
+        portfolio_id=portfolio.uuid,
         file_id=raw_analyzers.iloc[0]["uuid"],
         name="example_profit",
         type=FILE_TYPES.ANALYZER,
@@ -670,18 +694,6 @@ def init_example_data(*args, **kwargs):
     # TODO
     # Engine_Handler_Mapping
     # TODO
-
-
-def get_params_by_file(file_id: str):
-    from ginkgo.data.operations import get_params as func
-
-    return func(source_id=file_id)
-
-
-def get_params_by_handler(handler_id: str):
-    from ginkgo.data.operations import get_params as func
-
-    return func(source_id=handler_id)
 
 
 def get_files(*args, **kwargs):
@@ -720,7 +732,9 @@ def get_instance_by_file(file_id: str, mapping_id: str, file_type: FILE_TYPES):
     if len(classes) == 0:
         raise ValueError(f"未找到任何 {cls_base_mapping[file_type]} 的子类")
     cls = classes[0]
-    params = get_params_by_file(mapping_id)
+    from ginkgo.data.operations import get_params_by_mapping
+
+    params = get_params_by_mapping(mapping_id)
     try:
         ins = cls(*params)  # 实例化类
         if file_type == FILE_TYPES.ANALYZER:
@@ -791,6 +805,24 @@ def update_portfolio(*args, **kwargs):
 
 def get_portfolio(*args, **kwargs):
     from ginkgo.data.operations import get_portfolio as func
+
+    return func(*args, **kwargs)
+
+
+def get_portfolios(*args, **kwargs):
+    from ginkgo.data.operations import get_portfolios as func
+
+    return func(*args, **kwargs)
+
+
+def delete_portfolio(*args, **kwargs):
+    from ginkgo.data.operations import delete_portfolio as func
+
+    return func(*args, **kwargs)
+
+
+def delete_portfolios(*args, **kwargs):
+    from ginkgo.data.operations import delete_portfolios as func
 
     return func(*args, **kwargs)
 

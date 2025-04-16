@@ -39,9 +39,11 @@ class StrategyLossLimit(StrategyBase):
         if ratio < 1 - self.loss_limit / 100:
             s = Signal(
                 portfolio_id=portfolio_info["uuid"],
+                engine_id=self.engine_id,
                 timestamp=portfolio_info["now"],
                 code=code,
                 direction=DIRECTION_TYPES.SHORT,
+                reason="Loss Limit",
                 source=SOURCE_TYPES.STRATEGY,
             )
             return s

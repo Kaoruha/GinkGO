@@ -17,6 +17,7 @@ class MOrder(MMysqlBase):
     __tablename__ = "order"
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
+    engine_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     direction: Mapped[DIRECTION_TYPES] = mapped_column(Enum(DIRECTION_TYPES), default=DIRECTION_TYPES.LONG)
     type: Mapped[ORDER_TYPES] = mapped_column(Enum(ORDER_TYPES), default=ORDER_TYPES.OTHER)
@@ -38,6 +39,7 @@ class MOrder(MMysqlBase):
     def _(
         self,
         portfolio_id: str,
+        engine_id: str,
         uuid: Optional[str] = None,
         code: Optional[str] = None,
         direction: Optional[DIRECTION_TYPES] = None,
@@ -56,6 +58,7 @@ class MOrder(MMysqlBase):
         **kwargs,
     ) -> None:
         self.portfolio_id = portfolio_id
+        self.engine_id = engine_id
         if uuid is not None:
             self.uuid = uuid
         if code is not None:
@@ -102,6 +105,7 @@ class MOrder(MMysqlBase):
         self.timestamp = datetime_normalize(df["timestamp"])
         self.uuid = df["uuid"]
         self.portfolio_id = df["portfolio_id"]
+        self.engine_id = df["engine_id"]
         if "source" in df.keys():
             self.source = df["source"]
         self.update_at = datetime.datetime.now()

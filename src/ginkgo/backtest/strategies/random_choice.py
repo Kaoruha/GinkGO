@@ -41,6 +41,7 @@ class StrategyRandomChoice(StrategyBase):
 
         s = Signal(
             portfolio_id=portfolio_info["uuid"],
+            engine_id=self.engine_id,
             timestamp=portfolio_info["now"],
             code=event.code,
             direction=direction,

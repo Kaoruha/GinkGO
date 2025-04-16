@@ -23,6 +23,7 @@ from ginkgo.notifier.notifier_beep import beep
 from ginkgo.data.drivers import GinkgoConsumer, GinkgoProducer
 from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.backtest.position import Position
+from ginkgo.data.operations import delete_engine, add_engine, update_live_engine_status
 
 
 live_logger = GinkgoLogger("live")
@@ -174,7 +175,7 @@ class LiveEngine(EventEngine):
                     sys.exit(0)
                 else:
                     sleep(min(5 * (2**error_time), 300))
-        GDATA.remove_liveengine(self.backtest_id)
+        delete_engine(self.backtest_id)
 
     def process_control_command(self, command: dict) -> None:
         if command["engine_id"] != self.engine_id:
@@ -187,7 +188,7 @@ class LiveEngine(EventEngine):
         elif command["command"].upper() == "START":
             self._active = True
             live_logger.INFO("Engine START.")
-            GDATA.set_live_status(self.engine_id, "running")
+            update_live_engine_status(self.engine_id, "running")
         elif command["command"].upper() == "RESTART":
             self.restart()
         elif command["command"].upper() == "CAL_SIGNAL":
@@ -198,32 +199,32 @@ class LiveEngine(EventEngine):
     def start(self) -> Thread:
         super(LiveEngine, self).start()
         pid = os.getpid()
-        GDATA.add_liveengine(self.engine_id, int(pid))
+        add_engine(self.engine_id,True)
         self._control_thread.start()
-        GDATA.set_live_status(self.engine_id, "running")
+        update_live_engine_status(self.engine_id, "running")
         return self._control_thread
 
     def pause(self) -> None:
         live_logger.INFO("Engine PAUSE.")
         self._active = False
-        GDATA.set_live_status(self.engine_id, "pause")
+        update_live_engine_status(self.engine_id, "pause")
 
     def resume(self) -> None:
         self._active = True
         live_logger.INFO("Engine RESUME.")
-        GDATA.set_live_status(self.engine_id, "running")
+        update_live_engine_status(self.engine_id, "running")
 
     def stop(self) -> None:
         super(LiveEngine, self).stop()
         self._control_flag.set()
-        GDATA.set_live_status(self.engine_id, "stop")
+        update_live_engine_status(self.engine_id, "stop")
 
     def restart(self) -> None:
         live_logger.INFO("Engine RESTART.")
         self._active = True
         self._main_flag.set()
         self._timer_flag.set()
-        GDATA.set_live_status(self.engine_id, "restart")
+        update_live_engine_status(self.engine_id, "restart")
         for i in range(self._interval + 5):
             live_logger.INFO(f"Restart in {self._interval+5-i}s")
             sleep(1)
@@ -233,4 +234,4 @@ class LiveEngine(EventEngine):
         self._timer_thread: Thread = Thread(target=self.timer_loop, args=(self._timer_flag,))
         self._main_thread.start()
         self._timer_thread.start()
-        GDATA.set_live_status(self.engine_id, "running")
+        update_live_engine_status(self.engine_id, "running")

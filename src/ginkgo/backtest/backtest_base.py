@@ -25,6 +25,10 @@ class BacktestBase(object):
         self.add_logger(GLOG)
 
     @property
+    def uuid(self) -> str:
+        return self._engine_id
+
+    @property
     def engine_id(self) -> str:
         return self._engine_id
 

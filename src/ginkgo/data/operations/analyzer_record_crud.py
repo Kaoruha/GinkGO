@@ -119,6 +119,8 @@ def update_analyzer_record(self, *args, **kwargs):
     # Reinsert
     pass
 
+def get_analyzer_record():
+    pass
 
 def get_analyzer_records(
     portfolio_id: str,

@@ -24,15 +24,15 @@ class BaseEngine(BacktestBase):
 
     def start(self) -> None:
         self._active = True
-        self.log("INFO", f"Engine {self.name} {self.uuid} started.")
+        self.log("INFO", f"Engine {self.name} {self.engine_id} started.")
 
     def pause(self) -> None:
         self._active = False
-        self.log("INFO", f"Engine {self.name} {self.uuid} paused.")
+        self.log("INFO", f"Engine {self.name} {self.engine_id} paused.")
 
     def stop(self) -> None:
         self._active = False
-        self.log("INFO", f"Engine {self.name} {self.uuid} stop.")
+        self.log("INFO", f"Engine {self.name} {self.engine_id} stop.")
 
     def __repr__(self) -> str:
         return base_repr(self, self._name, 16, 60)

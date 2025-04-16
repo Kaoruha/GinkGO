@@ -17,6 +17,7 @@ class MTransferRecord(MClickBase):
     __tablename__ = "transfer_record"
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
+    engine_id: Mapped[str] = mapped_column(String(32), default="")
     direction: Mapped[TRANSFERDIRECTION_TYPES] = mapped_column(
         Enum(TRANSFERDIRECTION_TYPES), default=TRANSFERDIRECTION_TYPES.IN
     )
@@ -34,6 +35,7 @@ class MTransferRecord(MClickBase):
     def _(
         self,
         portfolio_id: str,
+        engine_id: str,
         timestamp: Optional[any] = None,
         direction: Optional[TRANSFERDIRECTION_TYPES] = None,
         market: Optional[MARKET_TYPES] = None,
@@ -44,6 +46,7 @@ class MTransferRecord(MClickBase):
         **kwargs,
     ) -> None:
         self.portfolio_id = portfolio_id
+        self.engine_id = engine_id
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if direction is not None:
@@ -61,6 +64,7 @@ class MTransferRecord(MClickBase):
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.portfolio_id = df["portfolio_id"]
+        self.engine_id = df["engine_id"]
         self.timestamp = datetime_normalize(df["timestamp"])
         self.direction = df["direction"]
         self.market = df["market"]

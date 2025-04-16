@@ -1,5 +1,5 @@
 from ginkgo.backtest.selectors.base_selector import BaseSelector
-from ginkgo.data.ginkgo_data import GDATA
+from ginkgo.data import get_stockinfos
 
 import datetime
 
@@ -21,7 +21,6 @@ class CNAllSelector(BaseSelector):
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         if len(self._interested) > 0:
             return self._interested
-
-        df = GDATA.get_stock_info_df()
+        df = get_stockinfos()
         self._interested = df["code"].tolist()
         return self._interested

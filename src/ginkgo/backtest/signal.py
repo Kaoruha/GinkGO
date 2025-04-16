@@ -3,7 +3,7 @@ import uuid
 import datetime
 from functools import singledispatchmethod
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.libs import base_repr, datetime_normalize
+from ginkgo.libs import base_repr, datetime_normalize, GLOG
 from ginkgo.backtest.base import Base
 
 
@@ -15,6 +15,7 @@ class Signal(Base):
     def __init__(
         self,
         portfolio_id: str = "",
+        engine_id: str = "",
         timestamp: any = None,
         code: str = "Default Signal Code",
         direction: DIRECTION_TYPES = None,
@@ -25,9 +26,9 @@ class Signal(Base):
     ) -> None:
         super(Signal, self).__init__(*args, **kwargs)
         try:
-            self.set(portfolio_id, timestamp, code, direction, reason, source)
+            self.set(portfolio_id, engine_id, timestamp, code, direction, reason, source)
         except Exception as e:
-            GLOG.error(f"Error initializing Signal: {e}")
+            GLOG.ERROR(f"Error initializing Signal: {e}")
             raise Exception("Error initializing Signal: {e}")
 
     @singledispatchmethod
@@ -41,6 +42,7 @@ class Signal(Base):
     def _(
         self,
         portfolio_id: str,
+        engine_id: str,
         timestamp: any,
         code: str,
         direction: DIRECTION_TYPES,
@@ -51,6 +53,8 @@ class Signal(Base):
     ):
         if not portfolio_id:
             raise ValueError("portfolio_id cannot be empty.")
+        if not engine_id:
+            raise ValueError("engine_id cannot be empty.")
         if not timestamp:
             raise ValueError("timestamp cannot be empty.")
         if not code:
@@ -62,6 +66,7 @@ class Signal(Base):
         if not source:
             raise ValueError("source cannot be empty.")
         self._portfolio_id = portfolio_id
+        self._engine_id = engine_id
         self._timestamp: datetime.datetime = datetime_normalize(timestamp)
         self._code: str = code
         self._direction: DIRECTION_TYPES = direction
@@ -80,6 +85,7 @@ class Signal(Base):
             raise ValueError(f"Missing required fields in DataFrame: {missing_fields}")
 
         self._portfolio_id = df.portfolio_id
+        self._engine_id = df["engine_id"]
         self._timestamp: datetime.datetime = datetime_normalize(df.timestamp)
         self._code: str = df.code
         self._direction: DIRECTION_TYPES = DIRECTION_TYPES(df.direction)
@@ -98,6 +104,14 @@ class Signal(Base):
     @property
     def portfolio_id(self) -> str:
         return self._portfolio_id
+
+    @property
+    def engine_id(self, *args, **kwargs) -> str:
+        return self._engine_id
+
+    @engine_id.setter
+    def engine_id(self, value) -> None:
+        self._engine_id = value
 
     @property
     def direction(self) -> DIRECTION_TYPES:

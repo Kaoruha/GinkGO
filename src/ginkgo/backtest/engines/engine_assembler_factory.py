@@ -18,7 +18,7 @@ from ginkgo.libs import GLOG, datetime_normalize
 
 
 def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
-    GLOG.CRITICAL(f"assembler_backtest_engine --> {id}")
+    GLOG.WARN(f"Assembler_backtest_engine --> {id}")
     now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     logger = GinkgoLogger(logger_name="engine_logger", file_names=[f"bt_{id}_{now}"], console_log=False)
     engine_data = get_engine(id).iloc[0]

@@ -1,7 +1,7 @@
 from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.data.operations import get_files,get_engines,get_backtest_record,get_analyzer_df_by_backtest
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telebot.util import quick_markup
-from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.enums import FILE_TYPES
 from ginkgo.backtest.plots.result_plot import ResultPlot
 import telebot
@@ -74,7 +74,7 @@ ai_bot = None
 
 @bot.message_handler(commands=["status"])
 def status_handler(message):
-    msg = f"CPU RATIO: {GDATA.cpu_ratio*100}%"
+    msg = f"CPU RATIO : {GCONF.CPURATIO*100}%"
     bot.send_message(message.chat.id, msg)
     # Get CPU usage as a percentage
     cpu_usage = psutil.cpu_percent()
@@ -109,7 +109,7 @@ def list_handler(message):
 
 
 def get_backtest_strategies():
-    raw = GDATA.get_file_list_df(FILE_TYPES.ENGINE.value)
+    raw = get_files(type=FILE_TYPES.ENGINE.value,as_dataframe=True)
     res = []
     count = 0
     for i, r in raw.iterrows():
@@ -190,7 +190,7 @@ def run_backtest(message):
 
 @bot.message_handler(commands=["compare"])
 def compare_backtest(message):
-    raw = GDATA.get_backtest_list_df().head(20)
+    raw = get_engines(as_dataframe=True).head(20)
     raw = raw.reindex(columns=["backtest_id", "profit", "start_at", "finish_at"])
     if len(message.text.split()) <= 2:
         bot.reply_to(
@@ -206,8 +206,8 @@ def compare_backtest(message):
 
     backtest_id1 = extract_arg(message.text)[0]
     backtest_id2 = extract_arg(message.text)[1]
-    record1 = GDATA.get_backtest_record(backtest_id1)
-    record2 = GDATA.get_backtest_record(backtest_id2)
+    record1 = get_backtest_record(backtest_id1)
+    record2 = get_backtest_record(backtest_id2)
 
     if len(message.text.split()) == 3:
         if record1 is None or record2 is None:
@@ -245,7 +245,7 @@ def compare_backtest(message):
         fig_data1 = {}
         fig_data2 = {}
         for analyzer_id in extract_arg(message.text)[2:]:
-            df = GDATA.get_analyzer_df_by_backtest(backtest_id1, analyzer_id)
+            df = get_analyzer_df_by_backtest(backtest_id1, analyzer_id)
             if df.shape[0] == 0:
                 bot.reply_to(message, "No such analyzer record. Please check the id.")
                 return
@@ -261,7 +261,7 @@ def compare_backtest(message):
                     break
             fig_data1[analyzer_name] = df
 
-            df = GDATA.get_analyzer_df_by_backtest(backtest_id2, analyzer_id)
+            df = get_analyzer_df_by_backtest(backtest_id2, analyzer_id)
             if df.shape[0] == 0:
                 bot.reply_to(message, "No such analyzer record. Please check the id.")
                 return
@@ -283,7 +283,7 @@ def compare_backtest(message):
 
 @bot.message_handler(commands=["res"])
 def res_backtest(message):
-    raw = GDATA.get_backtest_list_df()
+    raw = get_engines(as_dataframe=True)
     raw = raw.reindex(columns=["backtest_id", "profit", "start_at", "finish_at"])
     if len(message.text.split()) == 1:
         bot.reply_to(
@@ -298,7 +298,7 @@ def res_backtest(message):
         return
 
     backtest_id = extract_arg(message.text)[0]
-    record = GDATA.get_backtest_record(backtest_id)
+    record = get_backtest_record(backtest_id)
 
     if len(message.text.split()) == 2:
         if record is None:
@@ -336,7 +336,7 @@ def res_backtest(message):
         plot = ResultPlot("Backtest")
         fig_data = {}
         for analyzer_id in extract_arg(message.text)[1:]:
-            df = GDATA.get_analyzer_df_by_backtest(backtest_id, analyzer_id)
+            df = get_analyzer_df_by_backtest(backtest_id, analyzer_id)
             if df.shape[0] == 0:
                 bot.reply_to(message, "No such analyzer record. Please check the id.")
                 return

@@ -17,6 +17,7 @@ class MAnalyzerRecord(MClickBase):
     __tablename__ = "analyzer_record"
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="Default Profit")
+    engine_id: Mapped[str] = mapped_column(String(32), default="Default Profit")
     value: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     analyzer_id: Mapped[str] = mapped_column(String(32), default="Default Analyzer")
     name: Mapped[str] = mapped_column(String(32), default="Default Profit")
@@ -29,6 +30,7 @@ class MAnalyzerRecord(MClickBase):
     def _(
         self,
         portfolio_id: str,
+        engine_id: str,
         timestamp: Optional[any] = None,
         value: Optional[Number] = None,
         analyzer_id: Optional[str] = None,
@@ -38,6 +40,7 @@ class MAnalyzerRecord(MClickBase):
         **kwargs
     ) -> None:
         self.portfolio_id = portfolio_id
+        self.engine_id = engine_id
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if value is not None:

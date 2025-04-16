@@ -8,8 +8,8 @@ from ginkgo.data.drivers import add, add_all, get_mysql_connection
 from ginkgo.libs import GLOG
 
 
-def add_param(source_id: str, index: int, value: str, *args, **kwargs) -> pd.Series:
-    item = MParam(source_id=source_id, index=index, value=value)
+def add_param(mapping_id: str, index: int, value: str, *args, **kwargs) -> pd.Series:
+    item = MParam(mapping_id=mapping_id, index=index, value=value)
     res = add(item)
     df = res.to_dataframe()
     get_mysql_connection().remove_session()
@@ -68,10 +68,10 @@ def softdelete_param(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def delete_params(source_id: str, *argss, **kwargs):
+def delete_params(mapping_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MParam
-    filters = [model.source_id == id]
+    filters = [model.mapping_id == mapping_id]
     try:
         stmt = delete(model).where(and_(*filters))
         session.execute(stmt)
@@ -83,10 +83,10 @@ def delete_params(source_id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def softdelete_params(source_id: str, *argss, **kwargs):
+def softdelete_params(mapping_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MParam
-    filters = [model.source_id == id]
+    filters = [model.mapping_id == id]
     updates = {"is_del": True, "update_at": datetime.datetime.now()}
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
@@ -101,7 +101,7 @@ def softdelete_params(source_id: str, *argss, **kwargs):
 
 def update_param(
     id: str,
-    source_id: Optional[str] = None,
+    mapping_id: Optional[str] = None,
     index: Optional[int] = None,
     value: Optional[str] = None,
     *argss,
@@ -111,8 +111,8 @@ def update_param(
     model = MParam
     filters = [model.uuid == id]
     updates = {"update_at": datetime.datetime.now()}
-    if source_id is not None:
-        updates["source_id"] = source_id
+    if mapping_id is not None:
+        updates["mapping_id"] = mapping_id
     if index is not None:
         updates["index"] = index
     if value is not None:
@@ -151,13 +151,18 @@ def get_param(
 
 
 def get_params(
-    source_id: str,
+    mapping_id: str = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     *args,
     **kwargs,
 ) -> pd.DataFrame:
     session = get_mysql_connection().session
     model = MParam
-    filters = [model.source_id == source_id, model.is_del == False]
+    if mapping_id is not None:
+        filters = [model.mapping_id == mapping_id, model.is_del == False]
+    else:
+        filters = []
 
     try:
         stmt = session.query(model).filter(and_(*filters))

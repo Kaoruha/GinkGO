@@ -135,6 +135,7 @@ def update_engine_portfolio_mapping(
 
 def get_engine_portfolio_mapping(
     id: str,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -156,13 +157,19 @@ def get_engine_portfolio_mapping(
 
 
 def get_engine_portfolio_mappings(
-    engine_id: str,
+    engine_id: str = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:
     session = get_mysql_connection().session
     model = MEnginePortfolioMapping
-    filters = [model.engine_id == engine_id]
+    if engine_id is None:
+        filters = []
+    else:
+        filters = [model.engine_id == engine_id]
 
     try:
         stmt = session.query(model).filter(and_(*filters))

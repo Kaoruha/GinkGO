@@ -109,6 +109,7 @@ def delete_order_records_by_portfolio_and_date_range(
 
 def get_order_record(
     id: str,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:

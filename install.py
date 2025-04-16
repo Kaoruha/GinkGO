@@ -243,6 +243,7 @@ fi
 
 def set_system_service():
     from ginkgo.libs.ginkgo_conf import GCONF
+
     # TODO uvicorn path need update conda
     os_name = platform.system()
     if os_name == "Linux":
@@ -256,8 +257,8 @@ def set_system_service():
         print("Remove ginkgo server")
         os.system(f"sudo rm {output_systemd_file}")
         python_path = GCONF.PYTHONPATH
-        dir1  = os.path.dirname(python_path)
-        uvicorn_path = os.path.join(dir1,'uvicorn')
+        dir1 = os.path.dirname(python_path)
+        uvicorn_path = os.path.join(dir1, "uvicorn")
 
         # Write service conf
         service_content = f"""
@@ -281,16 +282,16 @@ WantedBy=multi-user.target
 
         # 使用 sudo 命令将临时文件移动到目标目录
         print("Copy ginkgo.server to systemd")
-        subprocess.run(['sudo', 'mv', temp_service_name, output_systemd_file])
+        subprocess.run(["sudo", "mv", temp_service_name, output_systemd_file])
         if os.path.exists(temp_service_name):
             print("remove temp ginkgo.server")
             os.remove(temp_service_name)
         print("reload")
-        subprocess.run(['sudo','systemctl','daemon-reload'])
+        subprocess.run(["sudo", "systemctl", "daemon-reload"])
         print("Start")
-        subprocess.run(['sudo', 'systemctl', 'start', 'ginkgo.service'])
+        subprocess.run(["sudo", "systemctl", "start", "ginkgo.service"])
         print("set auto start")
-        subprocess.run(['sudo', 'systemctl', 'enable', 'ginkgo.service'])
+        subprocess.run(["sudo", "systemctl", "enable", "ginkgo.service"])
     elif os_name == "Darwin":
         print("this is mac, set system server in future")
     elif os_name == "Windows":
@@ -298,7 +299,6 @@ WantedBy=multi-user.target
 
 
 def set_jupyterlab_config():
-
     env = os.environ.get("VIRTUAL_ENV")
     conda_env = os.environ.get("CONDA_PREFIX")
     env_path = env or conda_env

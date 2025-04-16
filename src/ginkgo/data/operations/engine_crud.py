@@ -11,6 +11,9 @@ from ginkgo.libs import GLOG
 def add_engine(name: str, is_live: bool, *args, **kwargs) -> pd.Series:
     item = MEngine(name=name, is_live=is_live)
     res = add(item)
+    if res is None:
+        get_mysql_connection().remove_session()
+        return
     df = res.to_dataframe()
     get_mysql_connection().remove_session()
     return df.iloc[0]
@@ -23,6 +26,7 @@ def add_engines(files: List[MEngine], *args, **kwargs):
             l.append(i)
         else:
             GLOG.WANR("add files only support file data.")
+    # TODO Might have bugs.
     return add_all(l)
 
 
@@ -45,9 +49,11 @@ def delete_engine(id: str, *argss, **kwargs):
         for i in query:
             session.delete(i)
             session.commit()
+        return len(query)
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
+        return
     finally:
         get_mysql_connection().remove_session()
 
@@ -132,6 +138,8 @@ def get_engine(
 
 def get_engines(
     name: Optional[str] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -146,7 +154,7 @@ def get_engines(
         df = pd.read_sql(stmt.statement, session.connection())
         if df.shape[0] == 0:
             return pd.DataFrame()
-        return df
+        return df.sort_values(by="update_at", ascending=False)
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)

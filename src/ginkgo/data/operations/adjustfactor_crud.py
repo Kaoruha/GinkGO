@@ -215,19 +215,33 @@ def update_adjustfactors_by_code_and_date_range(
         get_mysql_connection().remove_session()
 
 
-def get_adjustfactor(id: str, *args, **kwargs) -> pd.DataFrame:
+def get_adjustfactor(
+    id: str,
+    as_dataframe: bool = True,
+    *args,
+    **kwargs
+    ) -> pd.DataFrame:
     session = get_mysql_connection().session
     model = MAdjustfactor
     filters = [model.uuid == id, model.is_del == False]
 
     try:
         stmt = session.query(model).filter(and_(*filters))
-        df = pd.read_sql(stmt.statement, session.connection())
-        return df
+        if as_dataframe:
+            df = pd.read_sql(stmt.statement, session.connection())
+            return df
+        else:
+            res = session.execute(stmt).scalars().first()
+            if res is not None:
+                session.refresh(res)
+            return Adjustactor(code=res.code,timestamp=res.timestamp, fore_adjustfactor=res.foreadjustfactor, back_adjustfactor=res.backadjustfactor, adjustfactor=res.adjustfactor)
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
-        return pd.DataFrame()
+        if as_dataframe:
+            return pd.DataFrame()
+        else:
+            return []
     finally:
         get_mysql_connection().remove_session()
 
@@ -238,6 +252,7 @@ def get_adjustfactors_by_code_and_date_range(
     end_date: Optional[any] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
+    as_dataframe: bool = True,
     *args,
     **kwargs,
 ) -> pd.DataFrame:
@@ -256,12 +271,29 @@ def get_adjustfactors_by_code_and_date_range(
         if page is not None and page_size is not None:
             stmt = stmt.offset(page * page_size).limit(page_size)
 
-        df = pd.read_sql(stmt.statement, session.connection())
-        return df
+        if as_dataframe:
+            df = pd.read_sql(stmt.statement, session.connection())
+            return df
+        else:
+            res = session.execute(stmt).scalars().all()
+            session.refresh(res)
+            return [
+                    Adjustactor(
+                        code = i.code,
+                        timestamp = i.timestamp,
+                        fore_adjustfactor = i.foreadjustfactor,
+                        back_adjustfactor = i.backadjustfactor,
+                        adjustfactor = i.adjustfactor
+                        )
+                    for i in res
+                    ]
 
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
-        return pd.DataFrame()
+        if as_dataframe:
+            return pd.DataFrame()
+        else:
+            return []
     finally:
         get_mysql_connection().remove_session()

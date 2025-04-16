@@ -15,7 +15,8 @@ from ginkgo.libs import GLOG
 
 
 app = typer.Typer(
-    help=":dove_of_peace:  Module for [bold medium_spring_green]UNITTEST[/]. [grey62]Confirm functional integrity.[/grey62]"
+    help=":dove_of_peace:  Module for [bold medium_spring_green]UNITTEST[/]. [grey62]Confirm functional integrity.[/grey62]",
+    no_args_is_help=True,
 )
 
 

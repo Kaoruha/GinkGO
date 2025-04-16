@@ -132,6 +132,7 @@ def get_capital_adjustments(
     end_date: Optional[any] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.DataFrame:

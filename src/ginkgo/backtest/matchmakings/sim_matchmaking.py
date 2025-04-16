@@ -223,10 +223,10 @@ class MatchMakingSim(MatchMakingBase):
         # Determine transaction price
         transaction_price = 0
         # 1. If limit price
-        if order.type == ORDER_TYPES.LIMITORDER:
+        if order.order_type == ORDER_TYPES.LIMITORDER:
             transaction_price = order.limit_price
         # 2. If Maket price
-        elif order.type == ORDER_TYPES.MARKETORDER:
+        elif order.order_type == ORDER_TYPES.MARKETORDER:
             transaction_price = self.get_random_transaction_price(
                 order.direction, price["low"], price["high"], self.attitude
             )
@@ -306,11 +306,11 @@ class MatchMakingSim(MatchMakingBase):
             self.cancel_order(order)
             return
 
-        if order.type == ORDER_TYPES.LIMITORDER:
+        if order.order_type == ORDER_TYPES.LIMITORDER:
             if not self.can_limit_order_be_filled(order, price.iloc[0]):
                 self.cancel_order(order)
                 return
-        elif order.type == ORDER_TYPES.MARKETORDER:
+        elif order.order_type == ORDER_TYPES.MARKETORDER:
             if not self.can_market_order_be_filled(order, price.iloc[0]):
                 self.cancel_order(order)
                 return

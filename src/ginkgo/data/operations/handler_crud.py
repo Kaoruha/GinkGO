@@ -100,6 +100,7 @@ def update_handler(
 
 def get_handler(
     id: str = None,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -125,6 +126,7 @@ def get_handlers(
     type: EVENT_TYPES = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:

@@ -16,6 +16,7 @@ class Position(Base):
     def __init__(
         self,
         portfolio_id: str = "",
+        engine_id: str = "",
         code: str = "",
         cost: Union[float, Decimal] = 0.0,
         volume: int = 0,
@@ -29,6 +30,7 @@ class Position(Base):
     ):
         super(Position, self).__init__(uuid, *args, **kwargs)
         self._portfolio_id = portfolio_id
+        self._engine_id = engine_id
         self._code = code
         self._cost = cost if isinstance(cost, Decimal) else Decimal(str(cost))
         self._volume = volume
@@ -50,6 +52,7 @@ class Position(Base):
     def _(
         self,
         portfolio_id: str,
+        engine_id: str,
         code: str,
         cost: Union[float, Decimal],
         volume: int,
@@ -64,6 +67,7 @@ class Position(Base):
         return: none
         """
         self._portfolio_id = portfolio_id
+        self._engine_id = engine_id
         self._code = code
         self._price = price if isinstance(price, Decimal) else Decimal(str(price))
         self._cost = cost if isinstance(cost, Decimal) else Decimal(str(cost))
@@ -75,6 +79,7 @@ class Position(Base):
     @set.register
     def _(self, df: pd.Series, *args, **kwargs):
         self._portfolio_id = df["portfolio_id"]
+        self._engine_id = df["engine_id"]
         self._code = df["code"]
         self._cost = df["cost"] if isinstance(df["cost"], Decimal) else Decimal(str(df["cost"]))
         self._volume = int(df["volume"])
@@ -99,6 +104,14 @@ class Position(Base):
         """
         self._portfolio_id = value
         return self._portfolio_id
+
+    @property
+    def engine_id(self, *args, **kwargs) -> str:
+        return self._engine_id
+
+    @engine_id.setter
+    def engine_id(self, value) -> None:
+        self._engine_id = value
 
     @property
     def volume(self, *args, **kwargs) -> int:
@@ -254,7 +267,7 @@ class Position(Base):
             if price <= 0 or volume <= 0:
                 raise ValueError(f"Invalid price: {price} or volume: {volume}")
         except Exception as e:
-            GLOG.error(f"Invalid input - price: {price}, volume: {volume}, error: {e}")
+            GLOG.ERROR(f"Invalid input - price: {price}, volume: {volume}, error: {e}")
             return False
         finally:
             pass
@@ -272,8 +285,8 @@ class Position(Base):
             if not isinstance(self._cost, Decimal):
                 GLOG.CRITICAL(f"Cost is not a DECIMAL: {self._cost}")
                 return
-            GLOG.debug(f"POS {self.code} added {volume} at ${price}. Final price: ${self._cost}, ")
-            GLOG.debug(f"volume: {self.volume}, cost: ${self.cost}, frozen: {self.frozen_volume}")
+            GLOG.DEBUG(f"POS {self.code} added {volume} at ${price}. Final price: ${self._cost}, ")
+            GLOG.DEBUG(f"volume: {self.volume}, cost: ${self.cost}, frozen: {self.frozen_volume}")
             return True
         except Exception as e:
             print(e)
@@ -313,14 +326,17 @@ class Position(Base):
             self._frozen_volume -= volume
             self.on_price_update(price)
             # 日志记录
-            GLOG.debug(
+            GLOG.DEBUG(
                 f"POS {self.code} sold {volume} at ${price}. "
                 f"Final price: ${self._cost}, volume: {self.volume}, "
                 f"cost: ${self.cost}, frozen: {self.frozen_volume}"
             )
             return True
         except Exception as e:
-            GLOG.error(f"Error during sell operation - price: {price}, volume: {volume}, error: {e}")
+            import pdb
+
+            pdb.set_trace()
+            GLOG.ERROR(f"Error during sell operation - price: {price}, volume: {volume}, error: {e}")
         finally:
             pass
 

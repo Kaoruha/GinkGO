@@ -89,6 +89,7 @@ def update_tradeday(
 
 def get_tradeday(
     id: str,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -113,7 +114,14 @@ def get_tradeday(
 
 
 def get_tradedays(
-    market: MARKET_TYPES, start_date: Optional[any] = None, end_date: Optional[any] = None, *args, **kwargs
+    market: MARKET_TYPES,
+    start_date: Optional[any] = None,
+    end_date: Optional[any] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
+    as_dataframe: bool = False,
+    *args,
+    **kwargs
 ) -> pd.DataFrame:
     session = get_click_connection().session
     model = MTradeDay

@@ -110,6 +110,7 @@ def softdelete_signal_by_portfolio_and_date_range(
 
 def get_signal(
     id: str,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:

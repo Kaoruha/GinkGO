@@ -22,7 +22,7 @@ from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
 from ginkgo.libs import GCONF
 
 
-main_app = typer.Typer(help="Usage: ginkgo [OPTIONS] COMMAND [ARGS]...", rich_markup_mode="rich")
+main_app = typer.Typer(rich_markup_mode="rich", no_args_is_help=True)
 main_app.add_typer(data_cli.app, name="data")
 main_app.add_typer(backtest_cli.app, name="backtest")
 main_app.add_typer(unittest_cli.app, name="unittest")
@@ -42,11 +42,10 @@ def version():
     """
     from ginkgo.config.package import PACKAGENAME, VERSION
 
-    print(
-        f":sparkles: [bold medium_spring_green]{PACKAGENAME}[/bold medium_spring_green] [light_goldenrod2]{VERSION}[/light_goldenrod2]"
-    )
+    print(f":sparkles: [bold medium_spring_green]{PACKAGENAME}[/] [light_goldenrod2]{VERSION}[/light_goldenrod2]")
 
-@main_app.command()
+
+@main_app.command(name="status")
 def status(
     stream: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
@@ -85,9 +84,11 @@ def status(
         item = status[i]
         start_time = datetime.datetime.strptime(item["time_stamp"], "%Y%m%d%H%M%S")
         elapsed_time = (current_time - start_time).total_seconds()
-        running_time = f"{int(elapsed_time // 3600):02}:{int((elapsed_time % 3600) // 60):02}:{int(elapsed_time % 60):02}"
-        dt = datetime.datetime.strptime(item['time_stamp'], "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
-        table.add_row(i, item["task_name"], item["status"],dt, running_time)
+        running_time = (
+            f"{int(elapsed_time // 3600):02}:{int((elapsed_time % 3600) // 60):02}:{int(elapsed_time % 60):02}"
+        )
+        dt = datetime.datetime.strptime(item["time_stamp"], "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
+        table.add_row(i, item["task_name"], item["status"], dt, running_time)
     # 输出表格
     if len(status.keys()) > 0:
         console.print(table)
@@ -104,9 +105,7 @@ def status(
     log()
 
 
-
-
-@main_app.command()
+@main_app.command(name="chat")
 def interactive():
     """
     :robot: Active interactive mode.
@@ -116,163 +115,7 @@ def interactive():
     p.cmdloop()
 
 
-
-@main_app.command()
-def run(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID.")],
-    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
-):
-    """
-    :poultry_leg: Run [bold medium_spring_green]BACKTEST[/]. [grey62]Duplication fo `ginkgo backtest run`.[/grey62]
-    """
-    from ginkgo.client.backtest_cli import run as backtest_run
-
-    backtest_run(id, debug)
-
-
-@main_app.command()
-def cat(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="File id.")],
-):
-    """
-    :see_no_evil: Show [bold medium_spring_green]FILE[/] content. [grey62]Duplication of `ginkgo backtest cat`. [/]
-    """
-    from ginkgo.client.backtest_cli import cat as backtest_cat
-
-    backtest_cat(id)
-
-
-@main_app.command()
-def edit(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="File ID")],
-):
-    """
-    :orange_book: Edit File. [grey62]Duplication of `ginkgo backtest edit`.[/grey62]
-    """
-    from ginkgo.client.backtest_cli import edit as backtest_edit
-
-    backtest_edit(id)
-
-
-@main_app.command()
-def rm(
-    ids: Annotated[
-        typing_list[str],
-        typer.Argument(case_sensitive=True, help="File ID"),
-    ],
-):
-    """
-    :boom: Delete [bold light_coral]FILE[/] or [bold light_coral]BACKTEST RECORD[/] in database. [grey62]Duplication of `ginkgo backtest rm`.[/grey62]
-    """
-    from ginkgo.client.backtest_cli import rm as backtest_rm
-
-    backtest_rm(ids)
-
-
-@main_app.command()
-def ls(
-    filter: Annotated[str, typer.Option(case_sensitive=False, help="File filter")] = None,
-    a: Annotated[
-        bool,
-        typer.Option(case_sensitive=False, help="Show All Data, include removed file."),
-    ] = False,
-):
-    """
-    :open_file_folder: Show backtest file summary. [grey62]Duplication of `ginkgo backtest ls`.[/grey62]
-    """
-    from ginkgo.client.backtest_cli import ls as backtest_ls
-
-    backtest_ls(filter, a)
-
-
-@main_app.command()
-def res(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")] = "",
-    index: Annotated[
-        typing_list[str],
-        typer.Argument(
-            case_sensitive=True,
-            help="Type the analyzer_id to plot.",
-        ),
-    ] = None,
-    compare: Annotated[
-        str,
-        typer.Option(case_sensitive=False, help="Do Compare with other backtest."),
-    ] = "",
-):
-    """
-    :one-piece_swimsuit: Show the [bold medium_spring_green]BACKTEST RESULT[/]. [grey62]Duplication of `ginkgo backtest res`.[/grey62]
-    """
-    from ginkgo.client.backtest_cli import res as backtest_res
-
-    backtest_res(id, index, compare)
-
-
-@main_app.command()
-def update(
-    a: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
-    # data: Annotated[DataType, typer.Argument(case_sensitive=False)],
-    stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Update StockInfo")] = False,
-    calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Update Calendar")] = False,
-    adjust: Annotated[bool, typer.Option(case_sensitive=False, help="Update adjustfactor")] = False,
-    day: Annotated[bool, typer.Option(case_sensitive=False, help="Update day bar")] = False,
-    tick: Annotated[bool, typer.Option(case_sensitive=False, help="Update tick data")] = False,
-    fast: Annotated[
-        bool,
-        typer.Option(case_sensitive=False, help="If set, ginkgo will try update in fast mode."),
-    ] = False,
-    code: Annotated[
-        typing_list[str],
-        typer.Argument(
-            case_sensitive=True,
-            help="If set,ginkgo will try to update the data of specific code.",
-        ),
-    ] = None,
-    max_update: Annotated[int, typer.Option(case_sensitive=False)] = 0,
-    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
-):
-    """
-    :raccoon: Data Update. [grey62]Duplication of `ginkgo data update`. [/grey62]
-    """
-    from ginkgo.client.data_cli import update as data_update
-
-    data_update(a, stockinfo, calendar, adjust, day, tick, fast, code, debug)
-
-
-@main_app.command()
-def rebuild(
-    order: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Order Table")] = False,
-    record: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Record Table")] = False,
-    file: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild File Table")] = False,
-    backtest: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Backtest Table")] = False,
-    analyzer: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Analyzer Table")] = False,
-    stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild StockInfo Table")] = False,
-    calendar: Annotated[bool, typer.Option(case_sensitive=False, help="Rebuild Calendar Table")] = False,
-):
-    """
-    :fox_face: Rebuild [bold light_coral]TABLE[/] in database. [grey62]Duplication of `ginkgo data rebuild`. [/]
-
-    """
-    from ginkgo.client.data_cli import rebuild as data_rebuild
-
-    data_rebuild(order, record, file, backtest, analyzer, stockinfo, calendar)
-
-
-@main_app.command()
-def recall(
-    id: Annotated[str, typer.Argument(case_sensitive=True, help="Backtest ID")],
-    name: Annotated[str, typer.Option(case_sensitive=True, help="File Name")] = "",
-):
-    """
-    What is this?
-    """
-    from ginkgo.client.backtest_cli import recall as backtest_recall
-
-    backtest_recall(id, name)
-
-
-
-@main_app.command()
+@main_app.command(name="jupyter")
 def jupyter(
     daemon: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
@@ -280,10 +123,14 @@ def jupyter(
     :kaaba: Start [bold medium_spring_green]JUPYTER LAB SERVER[/].
     """
     from ginkgo.libs import GCONF
-    jupyter_path = os.path.join(os.path.dirname(GCONF.PYTHONPATH), 'jupyter')
+
+    if daemon:
+        print("Damon is not support for jupyter now.")
+    jupyter_path = os.path.join(os.path.dirname(GCONF.PYTHONPATH), "jupyter")
     subprocess.run([jupyter_path, "lab"])
 
-@main_app.command()
+
+@main_app.command(name="server")
 def serve(
     daemon: Annotated[bool, typer.Option(case_sensitive=False)] = False,
 ):
@@ -313,8 +160,8 @@ def serve(
             return
 
     python_path = GCONF.PYTHONPATH
-    dir1  = os.path.dirname(python_path)
-    uvicorn_path = os.path.join(dir1,'uvicorn')
+    dir1 = os.path.dirname(python_path)
+    uvicorn_path = os.path.join(dir1, "uvicorn")
 
     uvicorn_command = [
         uvicorn_path,
@@ -330,8 +177,9 @@ def serve(
     ]
     subprocess.run(uvicorn_command)
 
-@main_app.command()
-def configure(
+
+@main_app.command(name="config")
+def config(
     cpu: Annotated[float, typer.Option(case_sensitive=False)] = None,
     debug: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
     maincontrol: Annotated[DEBUG_TYPE, typer.Option(case_sensitive=False)] = None,
@@ -395,6 +243,7 @@ def configure(
                 GTM.start_multi_worker(count)
             else:
                 from ginkgo.data import send_signal_kill_a_worker
+
                 for i in range(count):
                     send_signal_kill_a_worker()
         elif worker == DEBUG_TYPE.OFF:
@@ -516,6 +365,7 @@ def log(
     follow = "-f" if stream else ""
     cmd = f"tail -n {n} {follow} {GCONF.LOGGING_PATH}/{file_name}"
     os.system(cmd)
+
 
 if __name__ == "__main__":
     main_app()

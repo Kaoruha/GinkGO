@@ -14,7 +14,7 @@ class FixedSelector(BaseSelector):
         try:
             self._interested = json.loads(codes)
         except Exception as e:
-            pritn(e)
+            print(e)
         finally:
             pass
 

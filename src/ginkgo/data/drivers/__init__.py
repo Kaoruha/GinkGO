@@ -86,6 +86,7 @@ def add(value, *args, **kwargs) -> any:
         session = conn.session
         session.add(value)
         session.commit()
+        session.refresh(value)
         return value
     except Exception as e:
         print(e)
@@ -229,7 +230,6 @@ def drop_table(model) -> None:
 
 @time_logger
 @retry
-@skip_if_ran
 def create_all_tables() -> None:
     """
     Create tables with all models without __abstract__ = True.

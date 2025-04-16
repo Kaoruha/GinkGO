@@ -121,6 +121,7 @@ def update_engine_handler_mapping(
 
 def get_engine_handler_mapping(
     id: str,
+    as_dataframe: bool = False,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -142,13 +143,18 @@ def get_engine_handler_mapping(
 
 
 def get_engine_handler_mappings(
-    engine_id: str,
+    engine_id: str=None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     *args,
     **kwargs,
 ) -> pd.Series:
     session = get_mysql_connection().session
     model = MEngineHandlerMapping
-    filters = [model.engine_id == engine_id, model.is_del == False]
+    if engine_id is None:
+        filters = []
+    else:
+        filters = [model.engine_id == engine_id, model.is_del == False]
 
     try:
         stmt = session.query(model).filter(and_(*filters))
