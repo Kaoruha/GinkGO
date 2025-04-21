@@ -1,8 +1,8 @@
-from ginkgo.backtest.selectors.base_selector import BaseSelector
-from ginkgo.data import get_stockinfos, get_bars
-
 import datetime
 from rich.progress import Progress
+
+from ginkgo.backtest.selectors.base_selector import BaseSelector
+from ginkgo.data import get_stockinfos, get_bars
 
 
 class PopularitySelector(BaseSelector):
@@ -22,8 +22,8 @@ class PopularitySelector(BaseSelector):
         self.rank = rank
         self.span = span
         self._interested = []
-        self.interval = 10
-        self._last_pick = None
+        self.interval = 10  # Interval between 2 picks.
+        self._last_pick = None  # Date of last picking.
 
     def pick(self, time: any = None, *args, **kwargs) -> list[str]:
         # TODO

@@ -144,6 +144,7 @@ class RECORDSTAGE_TYPES(EnumBase):
     ORDERSEND = 3
     ORDERFILLED = 4
     ORDERCANCELED = 5
+    ENDDAY = 6
 
 
 class GRAPHY_TYPES(EnumBase):
