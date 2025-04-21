@@ -151,9 +151,8 @@ class BaseAnalyzer(BacktestBase):
         if self.now is None:
             return
         date = self.now.strftime("%Y-%m-%d %H:%M:%S")
-        if date not in self.value["timestamp"].values:
+        if date not in self.values["timestamp"].values:
             return
-        # TODO
 
     @property
     def mean(self) -> Decimal:
