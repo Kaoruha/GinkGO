@@ -5,8 +5,6 @@ import base64
 import threading
 from pathlib import Path
 
-import traceback
-
 
 class GinkgoConfig(object):
     _instance_lock = threading.Lock()
@@ -480,7 +478,8 @@ class GinkgoConfig(object):
         key = "GINKGO_DEBUG_MODE"
         if isinstance(value, bool):
             self._write_config("debug", value)
-            os.environ[key] = str(value)
+            value = str(value)
+            os.environ[key] = value
 
     @property
     def CPURATIO(self) -> float:
