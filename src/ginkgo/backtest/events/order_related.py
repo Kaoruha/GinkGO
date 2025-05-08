@@ -25,6 +25,8 @@ class EventOrderRelated(EventBase):
         self.set_type(EVENT_TYPES.OTHER)
         self._order = order
         self._order_id = order.uuid
+        self.portfolio_id = order.portfolio_id
+        self.engine_id = order.engine_id
 
     @property
     def order_id(self) -> str:
@@ -52,7 +54,7 @@ class EventOrderRelated(EventBase):
 
     @property
     def order_type(self):
-        return self.value.type if self.value else None
+        return self.value.order_type if self.value else None
 
     @property
     def order_status(self):
@@ -85,10 +87,6 @@ class EventOrderRelated(EventBase):
     @property
     def fee(self):
         return self.value.fee if self.value else None
-
-    @property
-    def portfolio_id(self) -> str:
-        return self.value.portfolio_id
 
     def __repr__(self):
         return base_repr(self, EventOrderRelated.__name__, 24, 70)

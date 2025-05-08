@@ -1,5 +1,4 @@
 import unittest
-import time
 
 from ginkgo.data.drivers.ginkgo_mysql import GinkgoMysql
 from ginkgo.libs.ginkgo_conf import GCONF

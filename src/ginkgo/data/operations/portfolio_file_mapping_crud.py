@@ -63,7 +63,7 @@ def softdelete_portfolio_file_mapping(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def delete_portfolio_file_mappings_by_portfolio(portfolio_id: str, *argss, **kwargs):
+def delete_portfolio_file_mappings_filtered(portfolio_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MPortfolioFileMapping
     filters = [model.portfolio_id == portfolio_id]
@@ -78,7 +78,7 @@ def delete_portfolio_file_mappings_by_portfolio(portfolio_id: str, *argss, **kwa
         get_mysql_connection().remove_session()
 
 
-def softdelete_portfolio_file_mappings_by_portfolio(portfolio_id: str, *argss, **kwargs):
+def softdelete_portfolio_file_mappings_filtered(portfolio_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MPortfolioFileMapping
     filters = [model.portfolio_id == portfolio_id]
@@ -150,7 +150,7 @@ def get_portfolio_file_mapping(
         get_mysql_connection().remove_session()
 
 
-def get_portfolio_file_mappings(
+def get_portfolio_file_mappings_page_filtered(
     portfolio_id: str = None,
     type: Optional[FILE_TYPES] = None,
     page: Optional[int] = None,
@@ -183,7 +183,7 @@ def get_portfolio_file_mappings(
         get_mysql_connection().remove_session()
 
 
-def get_portfolio_file_mappings_fuzzy(
+def fget_portfolio_file_mappings_page_filtered(
     name: str = None,
     type: FILE_TYPES = None,
     page: Optional[int] = None,

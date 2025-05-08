@@ -117,15 +117,13 @@ class OperationPortfolioTest(unittest.TestCase):
             self.assertEqual(1, size1 - size0)
 
             df = get_portfolio(res.uuid).iloc[0]
-            self.assertEqual(res["uuid"], df["uuid"])
-            self.assertEqual(res["name"], df["name"])
-            self.assertEqual(
-                res["backtest_start_date"] - df["backtest_start_date"] < datetime.timedelta(seconds=1), True
-            )
-            self.assertEqual(res["backtest_end_date"] - df["backtest_end_date"] < datetime.timedelta(seconds=1), True)
-            self.assertEqual(res["is_del"], df["is_del"])
+            self.assertEqual(res.uuid, df["uuid"])
+            self.assertEqual(res.name, df["name"])
+            self.assertEqual(res.backtest_start_date - df["backtest_start_date"] < datetime.timedelta(seconds=1), True)
+            self.assertEqual(res.backtest_end_date - df["backtest_end_date"] < datetime.timedelta(seconds=1), True)
+            self.assertEqual(res.is_del, df["is_del"])
 
-            self.assertEqual(res["is_live"], df["is_live"])
+            self.assertEqual(res.is_live, df["is_live"])
 
         # TODO Test fuzz name
 

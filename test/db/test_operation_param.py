@@ -21,7 +21,7 @@ class OperationHandlerParamTest(unittest.TestCase):
         cls.count = random.randint(2, 5)
         cls.params = [
             {
-                "source_id": uuid.uuid4().hex,
+                "mapping_id": uuid.uuid4().hex,
                 "index": random.randint(1, 10),
                 "value": uuid.uuid4().hex,
             }
@@ -34,7 +34,7 @@ class OperationHandlerParamTest(unittest.TestCase):
             res = add_param(**i)
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
-            self.assertEqual(res["source_id"], i["source_id"])
+            self.assertEqual(res["mapping_id"], i["mapping_id"])
             self.assertEqual(res["index"], i["index"])
             self.assertEqual(res["value"], i["value"])
 
@@ -77,11 +77,11 @@ class OperationHandlerParamTest(unittest.TestCase):
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
 
-            # update source_id
+            # update mapping_id
             new_param_id = uuid.uuid4().hex
-            update_param(res.uuid, source_id=new_param_id)
+            update_param(res.uuid, mapping_id=new_param_id)
             item = get_param(res.uuid).iloc[0]
-            self.assertEqual(item["source_id"], new_param_id)
+            self.assertEqual(item["mapping_id"], new_param_id)
 
             # update index
             new_index = random.randint(1, 10)
@@ -104,7 +104,7 @@ class OperationHandlerParamTest(unittest.TestCase):
 
             df = get_param(res.uuid).iloc[0]
             self.assertEqual(res["uuid"], df["uuid"])
-            self.assertEqual(res["source_id"], df["source_id"])
+            self.assertEqual(res["mapping_id"], df["mapping_id"])
             self.assertEqual(res["index"], df["index"])
             self.assertEqual(res["value"], df["value"])
 
@@ -114,7 +114,7 @@ class OperationHandlerParamTest(unittest.TestCase):
             res = add_param(**i)
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
-            df = get_params(res["source_id"])
+            df = get_params_page_filtered(res["mapping_id"])
             self.assertEqual(df.shape[0] > 0, True)
 
     def test_OperationHandlerParam_exists(self) -> None:

@@ -140,7 +140,7 @@ class OperationStockinfoTest(unittest.TestCase):
         # TODO
         pass
 
-    def test_OperationStockinfo_get_by_code(self) -> None:
+    def test_OperationStockinfo_filtered_code(self) -> None:
         l = []
         new_code = uuid.uuid4().hex
         size0 = get_table_size(self.model)
@@ -152,102 +152,53 @@ class OperationStockinfoTest(unittest.TestCase):
         add_stockinfos(l)
         size1 = get_table_size(self.model)
         self.assertEqual(self.count, size1 - size0)
-        res = get_stockinfos(code=new_code)
+        res = get_stockinfos_filtered(code=new_code)
         self.assertEqual(self.count, len(res))
-        df = get_stockinfos(code=new_code, as_dataframe=True)
+        df = get_stockinfos_filtered(code=new_code, as_dataframe=True)
         self.assertEqual(self.count, df.shape[0])
 
-    # def test_OperationStockinfo_get_by_code_fuzzy(self) -> None:
-    #     l = []
-    #     size0 = get_table_size(self.model)
-    #     for i in self.params:
-    #         item = MStockInfo(**i)
-    #         l.append(item)
-    #     add_stockinfos(l)
-    #     size1 = get_table_size(self.model)
-    #     self.assertEqual(self.count, size1 - size0)
-    #     res = get_stockinfos(code="test", fuzzy=True)
-    #     self.assertEqual(self.count, len(res))
-    #     df = get_stockinfos(code="test", fuzzy=True, as_dataframe=True)
-    #     self.assertEqual(self.count, df.shape[0])
+    def test_OperationStockinfo_filtered_industry(self) -> None:
+        l = []
+        new_industry = uuid.uuid4().hex
+        size0 = get_table_size(self.model)
+        for i in self.params:
+            params_copy = i.copy()
+            params_copy["industry"] = new_industry
+            item = MStockInfo(**params_copy)
+            l.append(item)
+        add_stockinfos(l)
+        size1 = get_table_size(self.model)
+        self.assertEqual(self.count, size1 - size0)
+        df = get_stockinfos_filtered(industry=new_industry)
+        self.assertEqual(self.count, df.shape[0])
 
-    #     res = get_stockinfos(code="1", fuzzy=True)
-    #     self.assertEqual(1, len(res))
-    #     df = get_stockinfos(code="1", fuzzy=True, as_dataframe=True)
-    #     self.assertEqual(1, df.shape[0])
-
-    # def test_OperationStockinfo_get_by_industry(self) -> None:
-    #     l = []
-    #     size0 = get_table_size(self.model)
-    #     for i in self.params:
-    #         item = MStockInfo(**i)
-    #         l.append(item)
-    #     add_stockinfos(l)
-    #     size1 = get_table_size(self.model)
-    #     self.assertEqual(self.count, size1 - size0)
-    #     res = get_stockinfos(industry="矿产")
-    #     self.assertEqual(2, len(res))
-    #     df = get_stockinfos(industry="矿产", as_dataframe=True)
-    #     self.assertEqual(2, df.shape[0])
-
-    # def test_OperationStockinfo_get_by_industry_fuzzy(self) -> None:
-    #     l = []
-    #     size0 = get_table_size(self.model)
-    #     for i in self.params:
-    #         item = MStockInfo(*)
-    #         l.append(item)
-    #     add_stockinfos(l)
-    #     size1 = get_table_size(self.model)
-    #     self.assertEqual(self.count, size1 - size0)
-    #     res = get_stockinfos(industry="矿", fuzzy=True)
-    #     self.assertEqual(2, len(res))
-    #     df = get_stockinfos(industry="矿", fuzzy=True, as_dataframe=True)
-    #     self.assertEqual(2, df.shape[0])
-
-    # def test_OperationStockinfo_get_by_currency(self) -> None:
-    #     l = []
-    #     size0 = get_table_size(self.model)
-    #     for i in self.params:
-    #         item = MStockInfo(**i)
-    #         l.append(item)
-    #     add_stockinfos(l)
-    #     size1 = get_table_size(self.model)
-    #     self.assertEqual(self.count, size1 - size0)
-    #     res = get_stockinfos(currency=CURRENCY_TYPES.CNY)
-    #     self.assertEqual(2, len(res))
-    #     df = get_stockinfos(currency=CURRENCY_TYPES.CNY, as_dataframe=True)
-    #     self.assertEqual(2, df.shape[0])
-
-    # def test_OperationStockinfo_get_by_listdate(self) -> None:
-    #     l = []
-    #     size0 = get_table_size(self.model)
-    #     for i in self.params:
-    #         item = MStockInfo(**i)
-    #         l.append(item)
-    #     add_stockinfos(l)
-    #     size1 = get_table_size(self.model)
-    #     self.assertEqual(self.count, size1 - size0)
-    #     res = get_stockinfos(list_date="2020-02-01")
-    #     self.assertEqual(2, len(res))
-    #     df = get_stockinfos(list_date="2020-02-01", as_dataframe=True)
-    #     self.assertEqual(2, df.shape[0])
-
-    # def test_OperationStockinfo_get_by_delistdate(self) -> None:
-    #     l = []
-    #     size0 = get_table_size(self.model)
-    #     for i in self.params:
-    #         item = MStockInfo(**i)
-    #         l.append(item)
-    #     add_stockinfos(l)
-    #     size1 = get_table_size(self.model)
-    #     self.assertEqual(self.count, size1 - size0)
-    #     res = get_stockinfos(delist_date="2020-04-01")
-    #     self.assertEqual(2, len(res))
-    #     df = get_stockinfos(delist_date="2020-04-01", as_dataframe=True)
-    #     self.assertEqual(2, df.shape[0])
-
-    def test_OperationStockinfo_exists(self) -> None:
+    def test_OperationStockinfo_get_by_listdate(self) -> None:
+        # TODO
         pass
 
-    def test_OperationStockinfo_exceptions(self) -> None:
+    def test_OperationStockinfo_get_by_delistdate(self) -> None:
+        # TODO
         pass
+
+    def test_OperationStockinfo_filtered_fuzzy(self) -> None:
+        l = []
+        size0 = get_table_size(self.model)
+        key0 = uuid.uuid4().hex[:3]
+        key1 = uuid.uuid4().hex[:3]
+        key2 = uuid.uuid4().hex[:3]
+        for i in self.params:
+            params_copy = i.copy()
+            params_copy["code"] = f"{key0}{uuid.uuid4().hex[:10]}"
+            params_copy["code_name"] = f"{key1}{uuid.uuid4().hex[:10]}"
+            params_copy["industry"] = f"{key2}{uuid.uuid4().hex[:10]}"
+            item = MStockInfo(**params_copy)
+            l.append(item)
+        add_stockinfos(l)
+        size1 = get_table_size(self.model)
+        self.assertEqual(self.count, size1 - size0)
+        df = fget_stockinfos(filter=key0)
+        self.assertLessEqual(self.count, df.shape[0])
+        df = fget_stockinfos(filter=key1)
+        self.assertLessEqual(self.count, df.shape[0])
+        df = fget_stockinfos(filter=key2)
+        self.assertLessEqual(self.count, df.shape[0])

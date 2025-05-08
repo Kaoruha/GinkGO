@@ -39,7 +39,7 @@ class Tick(Base):
         volume: int,
         direction: TICKDIRECTION_TYPES,
         timestamp: any,
-        source: SOURCE_TYPES,
+        source: SOURCE_TYPES = None,
         *args,
         **kwargs,
     ) -> None:
@@ -53,10 +53,14 @@ class Tick(Base):
             raise ValueError("Direction must be a valid TICKDIRECTION_TYPES enum.")
         if not isinstance(timestamp, (str, datetime.datetime)):
             raise ValueError("Timestamp must be a string or datetime object.")
-        if not isinstance(source, SOURCE_TYPES):
-            raise ValueError("Source must be a valid SOURCE_TYPES enum.")
+        if source is not None:
+            if not isinstance(source, SOURCE_TYPES):
+                raise ValueError("Source must be a valid SOURCE_TYPES enum.")
+            self._source = source
+        else:
+            self._source = SOURCE_TYPES.OTHER
         self._code = code
-        self._price = price
+        self._price = to_decimal(price)
         self._volume = volume
         self._direction = direction
         self._timestamp = datetime_normalize(timestamp)
@@ -65,9 +69,14 @@ class Tick(Base):
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         required_fields = {"code", "price", "volume", "direction", "timestamp"}
         # 检查 Series 是否包含所有必需字段
-        if not required_fields.issubset(df.columns):
-            missing_fields = required_fields - set(df.columns)
-            raise ValueError(f"Missing required fields in DataFrame: {missing_fields}")
+        if isinstance(df, pd.DataFrame):
+            if not required_fields.issubset(df.columns):
+                missing_fields = required_fields - set(df.columns)
+                raise ValueError(f"Missing required fields in DataFrame: {missing_fields}")
+        if isinstance(df, pd.Series):
+            if not required_fields.issubset(df.index):
+                missing_fields = required_fields - set(df.index)
+                raise ValueError(f"Missing required fields in Series: {missing_fields}")
         self._code = df["code"]
         self._price = to_decimal(df["price"])
         self._volume = df["volume"]

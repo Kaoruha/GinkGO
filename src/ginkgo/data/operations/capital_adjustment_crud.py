@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import List, Optional, Union
-from sqlalchemy import and_
+from sqlalchemy import and_, text
 
 from ginkgo.data.drivers import add, add_all, get_click_connection, GinkgoClickhouse
 from ginkgo.data.models import MCapitalAdjustment
@@ -62,14 +62,11 @@ def add_capital_adjustments(capital_adjustments: List[MCapitalAdjustment], *args
 def delete_capital_adjustment(id: str, *args, **kwargs) -> None:
     session = get_click_connection().session
     model = MCapitalAdjustment
-    filters = [model.uuid == id]
+    sql = f"DELETE FROM {model.__tablename__} WHERE uuid = :id"
+    params = {"id": id}
     try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_capital_adjustment_id: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        session.execute(text(sql), params)
+        session.commit()
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -82,7 +79,7 @@ def softdelete_capital_adjustment(id: str, *args, **kwargs) -> None:
     return delete_capital_adjustment(id=id, *args, **kwargs)
 
 
-def delete_capital_adjustments_by_code_and_date_range(
+def delete_capital_adjustments_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -109,7 +106,7 @@ def delete_capital_adjustments_by_code_and_date_range(
         get_click_connection().remove_session()
 
 
-def softdelete_capital_adjustments_by_code_and_date_range(
+def softdelete_capital_adjustments_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -126,7 +123,7 @@ def update_capital_adjustment(capital_adjustment, connection: Optional[GinkgoCli
     pass
 
 
-def get_capital_adjustments(
+def get_capital_adjustments_page_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,

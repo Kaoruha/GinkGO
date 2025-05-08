@@ -27,13 +27,16 @@ class OperationPositionrecordTest(unittest.TestCase):
         cls.params = [
             {
                 "portfolio_id": uuid.uuid4().hex,
-                "timestamp": datetime.datetime.now(),
+                "engine_id": uuid.uuid4().hex,
                 "code": uuid.uuid4().hex,
+                "cost": Decimal(str(round(random.uniform(0, 100), 2))),
                 "volume": random.randint(1, 100),
                 "frozen_volume": random.randint(1, 100),
-                "cost": Decimal(str(round(random.uniform(0, 100), 2))),
                 "frozen_money": random.randint(1, 100),
+                "price": Decimal(str(round(random.uniform(0, 100), 2))),
+                "fee": Decimal(str(round(random.uniform(0, 100), 2))),
                 "source": random.choice([i for i in SOURCE_TYPES]),
+                "timestamp": datetime.datetime.now(),
             }
             for i in range(cls.count)
         ]
@@ -72,7 +75,7 @@ class OperationPositionrecordTest(unittest.TestCase):
             size2 = get_table_size(self.model)
             self.assertEqual(-1, size2 - size1)
 
-    def test_OperationPositionrecord_softdelete_by_portfolio(self) -> None:
+    def test_OperationPositionrecord_softdelete(self) -> None:
         for i in self.params:
             size0 = get_table_size(self.model)
             res = add_position_record(**i)
@@ -84,97 +87,69 @@ class OperationPositionrecordTest(unittest.TestCase):
             size2 = get_table_size(self.model)
             self.assertEqual(-1, size2 - size1)
 
-    def test_OperationPositionrecord_delete_by_portfolio_and_code(self) -> None:
+    def test_OperationPositionrecord_delete_filtered(self) -> None:
         portfolio_id = uuid.uuid4().hex
         code1 = uuid.uuid4().hex
         code2 = uuid.uuid4().hex
         l = []
-        count1 = 3
-        count2 = 4
+        count1 = random.randint(1, 5)
+        count2 = random.randint(1, 5)
         size0 = get_table_size(self.model)
+        count = 0
         for i in range(count1):
-            l.append(
-                self.model(
-                    portfolio_id=portfolio_id,
-                    timestamp=datetime.datetime.now(),
-                    code=code1,
-                    volume=random.randint(1, 100),
-                    frozen_volume=random.randint(1, 100),
-                    cost=Decimal(str(round(random.uniform(0, 100), 2))),
-                    frozen_money=random.randint(1, 100),
-                    source=random.choice([i for i in SOURCE_TYPES]),
-                )
-            )
+            param = self.params[i % len(self.params)].copy()
+            item = self.model(**param)
+            item.code = code1
+            l.append(item)
         for i in range(count2):
-            l.append(
-                self.model(
-                    portfolio_id=portfolio_id,
-                    timestamp=datetime.datetime.now(),
-                    code=code2,
-                    volume=random.randint(1, 100),
-                    frozen_volume=random.randint(1, 100),
-                    cost=Decimal(str(round(random.uniform(0, 100), 2))),
-                    frozen_money=random.randint(1, 100),
-                    source=random.choice([i for i in SOURCE_TYPES]),
-                )
-            )
+            param = self.params[i % len(self.params)].copy()
+            item = self.model(**param)
+            item.code = code2
+            l.append(item)
         add_position_records(l)
         size1 = get_table_size(self.model)
         self.assertEqual(count1 + count2, size1 - size0)
-        delete_position_records_by_portfolio_and_code(portfolio_id=portfolio_id, code=code1)
-        time.sleep(0.01)
+
+        delete_position_records_filtered(portfolio_id=portfolio_id, code=code1)
+        time.sleep(0.1)
         size2 = get_table_size(self.model)
         self.assertEqual(-count1, size2 - size1)
 
-        delete_position_records_by_portfolio_and_code(portfolio_id=portfolio_id, code=code2)
-        time.sleep(0.01)
+        delete_position_records_filtered(portfolio_id=portfolio_id, code=code2)
+        time.sleep(0.1)
         size3 = get_table_size(self.model)
         self.assertEqual(-count2, size3 - size2)
 
-    def test_OperationPositionrecord_softdelete_by_portfolio_and_code(self) -> None:
+    def test_OperationPositionrecord_softdelete_filtered(self) -> None:
         portfolio_id = uuid.uuid4().hex
         code1 = uuid.uuid4().hex
         code2 = uuid.uuid4().hex
         l = []
-        count1 = 3
-        count2 = 4
+        count1 = random.randint(1, 5)
+        count2 = random.randint(1, 5)
         size0 = get_table_size(self.model)
+        count = 0
         for i in range(count1):
-            l.append(
-                self.model(
-                    portfolio_id=portfolio_id,
-                    timestamp=datetime.datetime.now(),
-                    code=code1,
-                    volume=random.randint(1, 100),
-                    frozen_volume=random.randint(1, 100),
-                    cost=Decimal(str(round(random.uniform(0, 100), 2))),
-                    frozen_money=random.randint(1, 100),
-                    source=random.choice([i for i in SOURCE_TYPES]),
-                )
-            )
+            param = self.params[i % len(self.params)].copy()
+            item = self.model(**param)
+            item.code = code1
+            l.append(item)
         for i in range(count2):
-            l.append(
-                self.model(
-                    portfolio_id=portfolio_id,
-                    timestamp=datetime.datetime.now(),
-                    code=code2,
-                    volume=random.randint(1, 100),
-                    frozen_volume=random.randint(1, 100),
-                    cost=Decimal(str(round(random.uniform(0, 100), 2))),
-                    frozen_money=random.randint(1, 100),
-                    source=random.choice([i for i in SOURCE_TYPES]),
-                )
-            )
+            param = self.params[i % len(self.params)].copy()
+            item = self.model(**param)
+            item.code = code2
+            l.append(item)
         add_position_records(l)
         size1 = get_table_size(self.model)
         self.assertEqual(count1 + count2, size1 - size0)
-        softdelete_position_records_by_portfolio_and_code(portfolio_id=portfolio_id, code=code1)
-        time.sleep(0.01)
+
+        softdelete_position_records_filtered(portfolio_id=portfolio_id, code=code1)
+        time.sleep(0.1)
         size2 = get_table_size(self.model)
         self.assertEqual(-count1, size2 - size1)
 
-        softdelete_position_records_by_portfolio_and_code(portfolio_id=portfolio_id, code=code2)
-        time.sleep(0.01)
+        softdelete_position_records_filtered(portfolio_id=portfolio_id, code=code2)
+        time.sleep(0.1)
         size3 = get_table_size(self.model)
         self.assertEqual(-count2, size3 - size2)
 

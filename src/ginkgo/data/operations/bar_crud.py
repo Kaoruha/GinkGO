@@ -71,13 +71,10 @@ def delete_bar(id: str, *args, **kwargs) -> None:
     session = get_click_connection().session
     model = MBar
     try:
-        filters = [model.uuid == id]
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        sql = f"DELETE FROM {model.__tablename__} WHERE uuid = :id"
+        params = {"id": id}
+        session.execute(text(sql), params)
+        session.commit()
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -90,24 +87,7 @@ def softdelete_bar(id: str, *args, **kwargs) -> None:
     return delete_bar(id, *args, **kwargs)
 
 
-def delete_bars_by_code_and_dates(code: str, dates: List[any], *args, **kwargs) -> None:
-    session = get_click_connection().session
-    model = MBar
-    sql = f"DELETE FROM {model.__tablename__} WHERE code = :code"
-    params = {"code": code}
-    sql += " AND timestamp IN :dates"
-    params["dates"] = [pd.Timestamp(datetime_normalize(i)) for i in dates]
-    try:
-        session.execute(text(sql), params)
-        session.commit()
-    except Exception as e:
-        session.rollback()
-        GLOG.ERROR(e)
-    finally:
-        get_click_connection().remove_session()
-
-
-def delete_bars_by_code_and_date_range(
+def delete_bars_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -136,7 +116,7 @@ def delete_bars_by_code_and_date_range(
         get_click_connection().remove_session()
 
 
-def softdelete_bars_by_code_and_date_range(
+def softdelete_bars_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -152,7 +132,7 @@ def update_bar(code, timestamp, *args, **kwargs):
     pass
 
 
-def get_bars(
+def get_bars_page_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,

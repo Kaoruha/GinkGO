@@ -7,16 +7,17 @@ from sqlalchemy.orm import Mapped, mapped_column
 from functools import singledispatchmethod
 
 from ginkgo.libs import base_repr, datetime_normalize
-from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
 
 
-class MTradeDay(MClickBase):
+class MTradeDay(MMysqlBase):
     __abstract__ = False
     __tablename__ = "trade_day"
 
     market: Mapped[MARKET_TYPES] = mapped_column(Enum(MARKET_TYPES), default=MARKET_TYPES.CHINA)
     is_open: Mapped[bool] = mapped_column(Boolean, default=True)
+    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:

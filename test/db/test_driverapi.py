@@ -36,8 +36,9 @@
 #         super(DriverAPITest, self).__init__(*args, **kwargs)
 #         drop_all_tables()
 
-#     def test_DriverAPI_createtable(self) -> None:
+#     def test_DriverAPI_MysqlCreatetable(self) -> None:
 #         drop_all_tables()
+#         time.sleep(0.2)
 #         r1 = is_table_exsists(MysqlTestModel)
 #         self.assertEqual(
 #             False,
@@ -48,6 +49,21 @@
 #         r2 = is_table_exsists(MysqlTestModel)
 #         self.assertEqual(True, r2, f"Failed to create the table `{mysql_test_table_name}` in MySQL.")
 
+
+#     def test_DriverAPI_MysqlDroptable(self) -> None:
+#         create_table(MysqlTestModel)
+#         r1 = is_table_exsists(MysqlTestModel)
+#         self.assertEqual(
+#             True,
+#             r1,
+#             f"The table `{mysql_test_table_name}` should exists in MySQL, unable to perform the drop table test.",
+#         )
+#         drop_table(MysqlTestModel)
+#         time.sleep(0.2)
+#         r2 = is_table_exsists(MysqlTestModel)
+#         self.assertEqual(False, r2, f"Failed to drop the table `{mysql_test_table_name}` in MySQL.")
+
+#     def test_DriverAPI_ClickhouseCreatetable(self) -> None:
 #         r3 = is_table_exsists(ClickTestModel)
 #         self.assertEqual(
 #             False,
@@ -58,19 +74,7 @@
 #         r4 = is_table_exsists(ClickTestModel)
 #         self.assertEqual(True, r4, f"Failed to create the table `{click_test_table_name}` in Clickhouse.")
 
-#     def test_DriverAPI_droptable(self) -> None:
-#         create_table(MysqlTestModel)
-#         r1 = is_table_exsists(MysqlTestModel)
-#         self.assertEqual(
-#             True,
-#             r1,
-#             f"The table `{mysql_test_table_name}` should exists in MySQL, unable to perform the drop table test.",
-#         )
-#         drop_table(MysqlTestModel)
-#         time.sleep(0.5)
-#         r2 = is_table_exsists(MysqlTestModel)
-#         self.assertEqual(False, r2, f"Failed to drop the table `{mysql_test_table_name}` in MySQL.")
-
+#     def test_DriverAPI_ClickhouseDroptable(self) -> None:
 #         create_table(ClickTestModel)
 #         r3 = is_table_exsists(ClickTestModel)
 #         self.assertEqual(
@@ -82,19 +86,24 @@
 #         r4 = is_table_exsists(ClickTestModel)
 #         self.assertEqual(False, r4, f"Failed to drop the table `{click_test_table_name}` in Clickhouse.")
 
-#     # def test_DriverAPI_createalltable(self) -> None:
-#     #     drop_all_tables()
-#     #     time.sleep(0.2)
-#     #     create_all_tables()
-#     #     mysql_driver = get_mysql_connection()
-#     #     inspector = inspect(mysql_driver.engine)
-#     #     db_tables = inspector.get_table_names()
-#     #     orm_tables = set(MMysqlBase.metadata.tables.keys())
-#     #     self.assertEqual(set(db_tables), orm_tables, "Mysql数据库中的表与ORM定义的表不一致")
 
-#     #     click_driver = get_click_connection()
-#     #     inspector = inspect(click_driver.engine)
-#     #     db_tables = inspector.get_table_names()
-#     #     orm_tables = set(MClickBase.metadata.tables.keys())
-#     #     self.assertEqual(set(db_tables), orm_tables, "Clickhouse数据库中的表与ORM定义的表不一致")
-#     #     drop_all_tables()
+
+#     def test_DriverAPI_createalltable(self) -> None:
+#         drop_all_tables()
+#         time.sleep(1)
+#         create_all_tables()
+#         mysql_driver = get_mysql_connection()
+#         inspector = inspect(mysql_driver.engine)
+#         db_tables = inspector.get_table_names()
+#         orm_tables = set(MMysqlBase.metadata.tables.keys())
+#         print("DB tables:", db_tables)
+#         print("ORM tables:", orm_tables)
+
+#         self.assertEqual(set(db_tables), orm_tables, "Mysql数据库中的表与ORM定义的表不一致")
+
+#         click_driver = get_click_connection()
+#         inspector = inspect(click_driver.engine)
+#         db_tables = inspector.get_table_names()
+#         orm_tables = set(MClickBase.metadata.tables.keys())
+#         self.assertEqual(set(db_tables), orm_tables, "Clickhouse数据库中的表与ORM定义的表不一致")
+#         drop_all_tables()

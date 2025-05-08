@@ -12,11 +12,12 @@ from ginkgo.backtest import Order
 
 
 def add_order_record(
-    portfolio_id: str,
     order_id: str,
+    portfolio_id: str,
+    engine_id: str,
     code: str,
     direction: DIRECTION_TYPES,
-    type: ORDER_TYPES,
+    order_type: ORDER_TYPES,
     status: ORDERSTATUS_TYPES,
     volume: int,
     limit_price: Number,
@@ -29,11 +30,12 @@ def add_order_record(
     **kwargs,
 ) -> pd.Series:
     item = MOrderRecord(
-        portfolio_id=portfolio_id,
         order_id=order_id,
+        portfolio_id=portfolio_id,
+        engine_id=engine_id,
         code=code,
         direction=direction,
-        type=type,
+        order_type=order_type,
         status=status,
         volume=volume,
         limit_price=to_decimal(limit_price),
@@ -62,14 +64,11 @@ def add_order_records(orders: List[MOrderRecord], *args, **kwargs):
 def delete_order_record(id: str, *argss, **kwargs):
     session = get_click_connection().session
     model = MOrderRecord
+    sql = f"DELETE FROM {model.__tablename__} WHERE uuid = :id"
+    params = {"id": id}
     try:
-        filters = [model.uuid == id]
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        session.execute(text(sql), params)
+        session.commit()
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -82,9 +81,7 @@ def softdelete_order_record(id: str, *argss, **kwargs):
     return delete_order_record(id, *argss, **kwargs)
 
 
-def delete_order_records_by_portfolio_and_date_range(
-    portfolio_id: str, start_date: any = None, end_date: any = None, *argss, **kwargs
-):
+def delete_order_records_filtered(portfolio_id: str, start_date: any = None, end_date: any = None, *argss, **kwargs):
     # Sqlalchemy ORM seems not work on clickhouse when multi delete.
     # Use sql
     session = get_click_connection().session
@@ -121,7 +118,7 @@ def get_order_record(
         stmt = session.query(model).filter(and_(*filters))
 
         df = pd.read_sql(stmt.statement, session.connection())
-        return df
+        return df.iloc[0]
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -130,11 +127,13 @@ def get_order_record(
         get_click_connection().remove_session()
 
 
-def get_order_records(
+def get_order_records_page_filtered(
     portfolio_id: str,
+    engine_id: Optional[str] = None,
+    order_id: Optional[str] = None,
     code: Optional[str] = None,
     direction: Optional[DIRECTION_TYPES] = None,
-    type: Optional[ORDER_TYPES] = None,
+    order_type: Optional[ORDER_TYPES] = None,
     status: Optional[ORDERSTATUS_TYPES] = None,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -147,12 +146,16 @@ def get_order_records(
     session = get_click_connection().session
     model = MOrderRecord
     filters = [model.portfolio_id == portfolio_id]
+    if engine_id is not None:
+        filters.append(model.engine_id == engine_id)
+    if order_id is not None:
+        filters.append(model.order_id == order_id)
     if code is not None:
         filters.append(model.code == code)
     if direction is not None:
         filters.append(model.direction == direction)
-    if type is not None:
-        filters.append(model.type == type)
+    if order_type is not None:
+        filters.append(model.order_type == order_type)
     if status is not None:
         filters.append(model.status == status)
     if start_date:
@@ -171,14 +174,14 @@ def get_order_records(
             df = pd.read_sql(stmt.statement, session.connection())
             if df.shape[0] == 0:
                 return pd.DataFrame()
-            return df
+            return df.iloc[0]
         else:
             res = session.execute(stmt).scalars().all()
             return [
                 Order(
                     code=i.code,
                     direction=i.direction,
-                    type=i.type,
+                    order_type=i.order_type,
                     status=i.status,
                     volume=i.volume,
                     limit_price=i.limit_price,
@@ -187,8 +190,9 @@ def get_order_records(
                     remain=i.remain,
                     fee=i.fee,
                     timestamp=i.timestamp,
-                    uuid=i.uuid,
+                    uuid=i.order_id,
                     portfolio_id=i.portfolio_id,
+                    engine_id=i.engine_id,
                 )
                 for i in res
             ]

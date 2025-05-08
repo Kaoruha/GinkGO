@@ -47,19 +47,21 @@ def add_transfer_records(orders: List[MTransferRecord], *args, **kwargs):
 def delete_transfer_record(id: str, *args, **kwargs):
     session = get_click_connection().session
     model = MTransferRecord
+    sql = f"DELETE FROM `{model.__tablename__}` WHERE uuid = :id"
+    params = {"uuid": id}
+    if start_date is not None:
+        sql += " AND timestamp >= :start_date"
+        params["start_date"] = datetime_normalize(start_date)
+    if end_date is not None:
+        sql += " AND timestamp <= :end_date"
+        params["end_date"] = datetime_normalize(end_date)
     try:
-        filters = [model.uuid == id]
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord_by_id: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        session.execute(text(sql), params)
+        session.commit()
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
     finally:
-
         get_click_connection().remove_session()
 
 
@@ -68,9 +70,7 @@ def softdelete_transfer_record(id: str, *args, **kwargs):
     delete_transfer_record(id, *args, **kwargs)
 
 
-def delete_transfer_records_by_portfolio(
-    portfolio_id: str, start_date: any = None, end_date: any = None, *args, **kwargs
-):
+def delete_transfer_records_filtered(portfolio_id: str, start_date: any = None, end_date: any = None, *args, **kwargs):
     session = get_click_connection().session
     model = MTransferRecord
     sql = f"DELETE FROM `{model.__tablename__}` WHERE portfolio_id = :portfolio_id"
@@ -91,7 +91,7 @@ def delete_transfer_records_by_portfolio(
         get_click_connection().remove_session()
 
 
-def softdelete_transfer_records_by_portfolio(
+def softdelete_transfer_records_filtered(
     portfolio_id: str, start_date: any = None, end_date: any = None, *args, **kwargs
 ):
     GLOG.WARN("Soft delete not work in clickhouse, use delete instead.")
@@ -173,7 +173,7 @@ def get_transfer_record(
         get_click_connection().remove_session()
 
 
-def get_transfer_records(
+def get_transfer_records_filtered(
     portfolio_id: str,
     direction: Optional[TRANSFERDIRECTION_TYPES] = None,
     status: Optional[TRANSFERSTATUS_TYPES] = None,

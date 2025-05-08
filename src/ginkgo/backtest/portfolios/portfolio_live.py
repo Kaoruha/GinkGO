@@ -28,7 +28,7 @@ from ginkgo.libs.ginkgo_conf import GCONF
 from ginkgo.libs.ginkgo_pretty import base_repr
 
 from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
-from ginkgo.data.operations import delete_positions_by_portfolio_and_code,delete_order_records_by_portfolio_and_date_range
+from ginkgo.data.operations import delete_positions_filtered, delete_order_records_filtered
 
 console = Console()
 
@@ -54,10 +54,10 @@ class PortfolioLive(BasePortfolio):
             Dict of Positions
         """
         # 1. Remove position data in db.
-        result_pos = delete_positions_by_portfolio_and_code(portfolio_id=self.uuid)
+        result_pos = delete_positions_filtered(portfolio_id=self.uuid)
         # TODO
         # 2. Get Records from db.
-        order_df = delete_order_records_by_portfolio_and_date_range(portfolio_id=self.uuid)
+        order_df = delete_order_records_filtered(portfolio_id=self.uuid)
         print(order_df)
         # 3. Recal positions
         l = []

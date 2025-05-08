@@ -88,7 +88,7 @@ class Bar(Base):
         Returns:
             None
         """
-        self._code = df.code
+        self._code = df["code"]
         self._open = to_decimal(df["open"])
         self._high = to_decimal(df["high"])
         self._low = to_decimal(df["low"])
@@ -171,7 +171,7 @@ class Bar(Base):
             Decimal: The price change.
         """
         r = self._close - self._open
-        r = round(r, 2)
+        r = round(r, 4)
         return Decimal(str(r))
 
     @property
@@ -183,7 +183,7 @@ class Bar(Base):
             Decimal: The price amplitude.
         """
         r = self._high - self._low
-        r = round(r, 2)
+        r = round(r, 4)
         return Decimal(str(r))
 
     def __repr__(self) -> str:

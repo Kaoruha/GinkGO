@@ -22,7 +22,7 @@ class ModelHandlerParamTest(unittest.TestCase):
         self.model = MParam
         self.params = [
             {
-                "source_id": uuid.uuid4().hex,
+                "mapping_id": uuid.uuid4().hex,
                 "index": i,
                 "value": uuid.uuid4().hex,
                 "source": random.choice([i for i in SOURCE_TYPES]),
@@ -32,8 +32,8 @@ class ModelHandlerParamTest(unittest.TestCase):
 
     def test_ModelHandlerParam_Init(self) -> None:
         for i in self.params:
-            o = self.model(source_id=i["source_id"], index=i["index"], value=i["value"], source=i["source"])
-            self.assertEqual(o.source_id, i["source_id"])
+            o = self.model(mapping_id=i["mapping_id"], index=i["index"], value=i["value"], source=i["source"])
+            self.assertEqual(o.mapping_id, i["mapping_id"])
             self.assertEqual(o.index, i["index"])
             self.assertEqual(o.value, i["value"])
             self.assertEqual(o.source, i["source"])
@@ -42,27 +42,27 @@ class ModelHandlerParamTest(unittest.TestCase):
         for i in self.params:
             o = self.model()
 
-            # update source_id
-            o.update(i["source_id"])
-            self.assertEqual(o.source_id, i["source_id"])
+            # update mapping_id
+            o.update(i["mapping_id"])
+            self.assertEqual(o.mapping_id, i["mapping_id"])
 
             # udpate index
-            o.update(i["source_id"], index=i["index"])
+            o.update(i["mapping_id"], index=i["index"])
             self.assertEqual(o.index, i["index"])
 
             # update value
-            o.update(i["source_id"], value=i["value"])
+            o.update(i["mapping_id"], value=i["value"])
             self.assertEqual(o.value, i["value"])
 
             # update source
-            o.update(i["source_id"], source=i["source"])
+            o.update(i["mapping_id"], source=i["source"])
             self.assertEqual(o.source, i["source"])
 
         # Update all
         for i in self.params:
             o = self.model()
-            o.update(i["source_id"], index=i["index"], value=i["value"], source=i["source"])
-            self.assertEqual(o.source_id, i["source_id"])
+            o.update(i["mapping_id"], index=i["index"], value=i["value"], source=i["source"])
+            self.assertEqual(o.mapping_id, i["mapping_id"])
             self.assertEqual(o.index, i["index"])
             self.assertEqual(o.value, i["value"])
             self.assertEqual(o.source, i["source"])
@@ -72,7 +72,7 @@ class ModelHandlerParamTest(unittest.TestCase):
             df = pd.DataFrame.from_dict(i, orient="index")[0]
             o = self.model()
             o.update(df)
-            self.assertEqual(o.source_id, i["source_id"])
+            self.assertEqual(o.mapping_id, i["mapping_id"])
             self.assertEqual(o.index, i["index"])
             self.assertEqual(o.value, i["value"])
             self.assertEqual(o.source, i["source"])

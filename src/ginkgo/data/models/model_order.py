@@ -20,7 +20,7 @@ class MOrder(MMysqlBase):
     engine_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     direction: Mapped[DIRECTION_TYPES] = mapped_column(Enum(DIRECTION_TYPES), default=DIRECTION_TYPES.LONG)
-    type: Mapped[ORDER_TYPES] = mapped_column(Enum(ORDER_TYPES), default=ORDER_TYPES.OTHER)
+    order_type: Mapped[ORDER_TYPES] = mapped_column(Enum(ORDER_TYPES), default=ORDER_TYPES.OTHER)
     status: Mapped[ORDERSTATUS_TYPES] = mapped_column(Enum(ORDERSTATUS_TYPES), default=ORDERSTATUS_TYPES.OTHER)
     volume: Mapped[int] = mapped_column(Integer, default=0)
     limit_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
@@ -43,7 +43,7 @@ class MOrder(MMysqlBase):
         uuid: Optional[str] = None,
         code: Optional[str] = None,
         direction: Optional[DIRECTION_TYPES] = None,
-        type: Optional[ORDER_TYPES] = None,
+        order_type: Optional[ORDER_TYPES] = None,
         status: Optional[ORDERSTATUS_TYPES] = None,
         volume: Optional[int] = None,
         limit_price: Optional[Number] = None,
@@ -65,8 +65,8 @@ class MOrder(MMysqlBase):
             self.code = code
         if direction is not None:
             self.direction = direction
-        if type is not None:
-            self.type = type
+        if order_type is not None:
+            self.order_type = order_type
         if status is not None:
             self.status = status
         if volume is not None:
@@ -93,7 +93,7 @@ class MOrder(MMysqlBase):
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df["code"]
         self.direction = df["direction"]
-        self.type = df["type"]
+        self.order_type = df["order_type"]
         self.status = df["status"]
         self.volume = df["volume"]
         self.limit_price = to_decimal(df["limit_price"])

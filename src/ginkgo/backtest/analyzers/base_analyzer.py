@@ -1,4 +1,5 @@
 import pandas as pd
+import warnings
 from typing import TYPE_CHECKING, List
 from decimal import Decimal
 
@@ -6,7 +7,7 @@ from decimal import Decimal
 from ginkgo.backtest.backtest_base import BacktestBase
 from ginkgo.data.operations import add_analyzer_record
 from ginkgo.libs import datetime_normalize, to_decimal, Number
-from ginkgo.enums import GRAPHY_TYPES, RECORDSTAGE_TYPES
+from ginkgo.enums import GRAPHY_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES
 
 
 class BaseAnalyzer(BacktestBase):
@@ -18,6 +19,22 @@ class BaseAnalyzer(BacktestBase):
         self._portfolio_id = ""
         self._data = pd.DataFrame(columns=["timestamp", self._name])
         self._graph_type = GRAPHY_TYPES.OTHER
+
+    @property
+    def values(self) -> pd.DataFrame:
+        """
+        As same as data.
+        """
+        warnings.warn(
+            "`values` is deprecated, please use `data` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._data
+
+    @property
+    def data(self) -> pd.DataFrame:
+        return self._data
 
     def set_graph_type(self, graph_type: GRAPHY_TYPES, *args, **kwargs) -> None:
         """
@@ -83,17 +100,15 @@ class BaseAnalyzer(BacktestBase):
         else:
             pass
 
-    @property
-    def name(self) -> str:
-        return self._name
-
-    def activate(self, stage, *args, **kwargs) -> None:
-        raise NotImplemented(
+    def activate(self, stage: RECORDSTAGE_TYPES, *args, **kwargs) -> None:
+        raise NotImplementedError(
             "ANALYZER should complete the Function activate(), activate() will activate the analyzer counter."
         )
 
     def record(self, stage, *args, **kwargs) -> None:
-        raise NotImplemented("ANALYZER should complete the Function record(), record() will store the data into db.")
+        raise NotImplementedError(
+            "ANALYZER should complete the Function record(), record() will store the data into db."
+        )
 
     def add_data(self, value: Number, *args, **kwargs) -> None:
         """
@@ -132,17 +147,10 @@ class BaseAnalyzer(BacktestBase):
         time = datetime_normalize(time)
         date = time.strftime("%Y-%m-%d %H:%M:%S")
         if date in self._data["timestamp"].values:
-            return self._data[self._data["timestamp"] == date][self._name].values[0]
+            res = to_decimal(self._data[self._data["timestamp"] == date][self._name].values[0])
+            return res
         else:
             return None
-
-    @property
-    def values(self) -> pd.DataFrame:
-        return self._data
-
-    @property
-    def data(self) -> pd.DataFrame:
-        return self._data
 
     def add_record(self, *args, **kwargs) -> None:
         """
@@ -153,13 +161,27 @@ class BaseAnalyzer(BacktestBase):
         date = self.now.strftime("%Y-%m-%d %H:%M:%S")
         if date not in self.values["timestamp"].values:
             return
+        value = self.get_data(date)
+        if value is not None:
+            add_analyzer_record(
+                portfolio_id=self._portfolio_id,
+                timestamp=date,
+                value=value,
+                name=self.name,
+                analyzer_id=self._analyzer_id,
+                source=SOURCE_TYPES.OTHER,
+            )
 
     @property
     def mean(self) -> Decimal:
+        if self._data.empty:
+            return Decimal("0.0")
         mean = self._data[self._name].mean()
         return to_decimal(mean)
 
     @property
     def variance(self) -> Decimal:
-        var = self._data[self._name].var()
+        if self._data.empty:
+            return Decimal("0.0")
+        var = self._data[self._name].astype(float).var()
         return to_decimal(var)

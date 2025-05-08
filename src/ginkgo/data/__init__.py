@@ -435,36 +435,29 @@ def fetch_and_update_tradeday(*args, **kwargs):
 
 
 # Get
-
-
 @cache_with_expiration
 def get_stockinfos(*args, **kwargs):
-    from ginkgo.data.operations import get_stockinfos
+    from ginkgo.data.operations import get_stockinfos_filtered as func
 
-    df = get_stockinfos()
-    return df
+    return func(*args, **kwargs)
 
 
 def get_adjustfactors(*args, **kwargs):
-    # TODO
-    pass
+    from ginkgo.data.operations import get_adjustfactors_page_filtered as func
+
+    return func(*args, **kwargs)
 
 
 def get_bars(*args, **kwargs):
-    from ginkgo.data.operations import get_bars as func
+    from ginkgo.data.operations import get_bars_page_filtered as func
 
     return func(*args, **kwargs)
 
 
 def get_ticks(*args, **kwargs):
-    from ginkgo.data.operations import get_ticks as func
+    from ginkgo.data.operations import get_ticks_page_filtered as func
 
     return func(*args, **kwargs)
-
-
-def get_tick_summarys(*args, **kwargs):
-    # TODO
-    pass
 
 
 def get_transfers(*args, **kwargs):
@@ -473,23 +466,27 @@ def get_transfers(*args, **kwargs):
 
 
 def get_signals(*args, **kwargs):
-    # TODO
-    pass
+    from ginkgo.data.operations import get_signals_page_filtered as func
+
+    return func(*args, **kwargs)
 
 
 def get_orders(*args, **kwargs):
-    # TODO
-    pass
+    from ginkgo.data.operations import get_orders_page_filtered as func
+
+    return func(*args, **kwargs)
 
 
 def get_order_records(*args, **kwargs):
-    # TODO
-    pass
+    from ginkgo.data.operations import get_order_records_page_filtered as func
+
+    return func(*args, **kwargs)
 
 
 def get_handlers(*args, **kwargs):
-    # TODO
-    pass
+    from ginkgo.data.operations import get_handlers_page_filtered as func
+
+    return func(*args, **kwargs)
 
 
 def add_file(*args, **kwargs):
@@ -526,8 +523,9 @@ def delete_file(*args, **kwargs):
 
 
 def update_file(*args, **kwargs):
-    # TODO
-    pass
+    from ginkgo.data.operations import update_file as func
+
+    return update_file(*args, **kwargs)
 
 
 def get_file(*args, **kwargs):
@@ -538,26 +536,19 @@ def get_file(*args, **kwargs):
 
 def init_example_data(*args, **kwargs):
     from ginkgo.data.operations.portfolio_file_mapping_crud import (
-        delete_portfolio_file_mappings_by_portfolio,
-        get_portfolio_file_mappings,
+        delete_portfolio_file_mappings_filtered,
+        get_portfolio_file_mappings_page_filtered,
+        fget_portfolio_file_mappings_page_filtered,
     )
-    from ginkgo.data.operations import (
-        get_files,
-        add_file,
-        delete_file,
-        delete_files,
-        delete_engine,
-        delete_engines,
-        add_engine,
-        get_portfolios,
-        add_portfolio,
-        delete_portfolios,
+    from ginkgo.data.operations.file_crud import get_files_page_filtered, add_file, delete_file, delete_files
+    from ginkgo.data.operations.engine_crud import delete_engine, delete_engines, add_engine
+    from ginkgo.data.operations.portfolio_crud import delete_portfolios, add_portfolio, get_portfolios_page_filtered
+    from ginkgo.data.operations.portfolio_file_mapping_crud import (
         add_portfolio_file_mapping,
-        get_portfolio_file_mappings_fuzzy,
         delete_portfolio_file_mapping,
-        add_param,
-        delete_params,
     )
+
+    from ginkgo.data.operations.param_crud import add_param, delete_params_filtered
 
     # Engine
     example_engine_name = "backtest_example"
@@ -584,7 +575,7 @@ def init_example_data(*args, **kwargs):
             count += 1
             file_path = f"{path}/{file_name}"
             file_name = file_name.split(".")[0]
-            df = get_files(name=file_name)
+            df = get_files_page_filtered(name=file_name)
             if df.shape[0] > 0:
                 delete_files(ids=df["uuid"].values.tolist())
                 status.update(f":sun:  [light_coral]DELETE[/] {file_type_map[folder]} {file_name}.")
@@ -610,7 +601,7 @@ def init_example_data(*args, **kwargs):
 
     # Portfolio
     example_portfolio_name = "portfolio_example"
-    df = get_portfolios(example_portfolio_name)
+    df = get_portfolios_page_filtered(example_portfolio_name)
     if df.shape[0] > 1:
         ids = df["uuid"].values.tolist()
         delete_portfolios(ids=ids)
@@ -618,7 +609,7 @@ def init_example_data(*args, **kwargs):
         with console.status(f"[bold green]Waiting for DELETING ...[/]") as status:
             while True:
                 time.sleep(1)
-                df = get_portfolios(example_portfolio_name)
+                df = get_portfolios_page_filtered(example_portfolio_name)
                 if df.shape[0] > 0:
                     time.sleep(0.2)
                 else:
@@ -635,11 +626,11 @@ def init_example_data(*args, **kwargs):
     # Portfolio File Mapping
     strategy_names = ["random_choice", "loss_limit"]
     for i in strategy_names:
-        raw_files = get_files(name=i)
+        raw_files = get_files_page_filtered(name=i)
         file_id = raw_files.iloc[0]["uuid"]
         name = f"example_strategy_{raw_files.iloc[0]['name']}"
         # Clean old data
-        mapping_old = get_portfolio_file_mappings_fuzzy(name=name)
+        mapping_old = fget_portfolio_file_mappings_page_filtered(name=name)
         for i2, r2 in mapping_old.iterrows():
             delete_portfolio_file_mapping(r2["uuid"])
         time.sleep(1)
@@ -653,10 +644,10 @@ def init_example_data(*args, **kwargs):
             add_param(new_portfolio_file_mapping["uuid"], 0, "ExampleLossLimit")
             add_param(new_portfolio_file_mapping["uuid"], 1, "13.5")
     time.sleep(1)
-    df = get_files()
+    df = get_files_page_filtered()
 
     # Portfolio Selector Mapping
-    raw_selectors = get_files(type=FILE_TYPES.SELECTOR, name="fixed_selector")
+    raw_selectors = get_files_page_filtered(type=FILE_TYPES.SELECTOR, name="fixed_selector")
     selector_mapping = add_portfolio_file_mapping(
         portfolio_id=portfolio.uuid,
         file_id=raw_selectors.iloc[0]["uuid"],
@@ -669,7 +660,7 @@ def init_example_data(*args, **kwargs):
     add_param(selector_mapping["uuid"], 0, "example_fixed_selector")
     add_param(selector_mapping["uuid"], 1, json.dumps(code_list))
     # Portfolio Sizer Mapping
-    raw_sizers = get_files(type=FILE_TYPES.SIZER, name="fixed_sizer")
+    raw_sizers = get_files_page_filtered(type=FILE_TYPES.SIZER, name="fixed_sizer")
     sizer_mapping = add_portfolio_file_mapping(
         portfolio_id=portfolio.uuid,
         file_id=raw_sizers.iloc[0]["uuid"],
@@ -681,7 +672,7 @@ def init_example_data(*args, **kwargs):
     add_param(sizer_mapping["uuid"], 1, "500")
     # Portfolio Analyzer Mapping
     # analyzer param
-    raw_analyzers = get_files(type=FILE_TYPES.ANALYZER, name="profit")
+    raw_analyzers = get_files_page_filtered(type=FILE_TYPES.ANALYZER, name="profit")
     analyzer_mapping = add_portfolio_file_mapping(
         portfolio_id=portfolio.uuid,
         file_id=raw_analyzers.iloc[0]["uuid"],
@@ -697,7 +688,7 @@ def init_example_data(*args, **kwargs):
 
 
 def get_files(*args, **kwargs):
-    from ginkgo.data.operations import get_files as func
+    from ginkgo.data.operations import get_files_page_filtered as func
 
     return func(*args, **kwargs)
 
@@ -732,9 +723,13 @@ def get_instance_by_file(file_id: str, mapping_id: str, file_type: FILE_TYPES):
     if len(classes) == 0:
         raise ValueError(f"未找到任何 {cls_base_mapping[file_type]} 的子类")
     cls = classes[0]
-    from ginkgo.data.operations import get_params_by_mapping
+    from ginkgo.data.operations import get_params_page_filtered
 
-    params = get_params_by_mapping(mapping_id)
+    params = get_params_page_filtered(mapping_id)
+    if params.shape[0] > 0:
+        params = params["value"].values
+    else:
+        params = []
     try:
         ins = cls(*params)  # 实例化类
         if file_type == FILE_TYPES.ANALYZER:
@@ -752,9 +747,9 @@ def get_trading_system_components_by_portfolio(portfolio_id: str, file_type: FIL
     if not isinstance(file_type, FILE_TYPES):
         GLOG.WARN(f"Invalid type: {type}.")
         return []
-    from ginkgo.data.operations import get_portfolio_file_mappings
+    from ginkgo.data.operations import get_portfolio_file_mappings_page_filtered
 
-    mappings = get_portfolio_file_mappings(portfolio_id=portfolio_id, type=file_type)
+    mappings = get_portfolio_file_mappings_page_filtered(portfolio_id=portfolio_id, type=file_type)
     l = []
     for i, r in mappings.iterrows():
         file_id = r["file_id"]
@@ -783,7 +778,7 @@ def get_engine(*args, **kwargs):
 
 
 def get_engines(*args, **kwargs):
-    from ginkgo.data.operations import get_engines as func
+    from ginkgo.data.operations import get_engines_page_filtered as func
 
     return func(*args, **kwargs)
 
@@ -810,7 +805,7 @@ def get_portfolio(*args, **kwargs):
 
 
 def get_portfolios(*args, **kwargs):
-    from ginkgo.data.operations import get_portfolios as func
+    from ginkgo.data.operations import get_portfolios_page_filtered as func
 
     return func(*args, **kwargs)
 
@@ -822,7 +817,7 @@ def delete_portfolio(*args, **kwargs):
 
 
 def delete_portfolios(*args, **kwargs):
-    from ginkgo.data.operations import delete_portfolios as func
+    from ginkgo.data.operations import delete_portfolios_filtered as func
 
     return func(*args, **kwargs)
 
@@ -839,7 +834,7 @@ def add_engine_portfolio_mapping(*args, **kwargs):
 
 
 def get_engine_portfolio_mappings(*args, **kwargs):
-    from ginkgo.data.operations import get_engine_portfolio_mappings as func
+    from ginkgo.data.operations import get_engine_portfolio_mappings_page_filtered as func
 
     return func(*args, **kwargs)
 
@@ -851,7 +846,7 @@ def add_engine_handler_mapping(*args, **kwargs):
 
 
 def get_engine_handler_mappings(*args, **kwargs):
-    from ginkgo.data.operations import get_engine_handler_mapping as func
+    from ginkgo.data.operations import get_engine_handler_mappings_page_filtered as func
 
     return func(*args, **kwargs)
 

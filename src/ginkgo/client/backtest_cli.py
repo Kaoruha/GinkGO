@@ -298,7 +298,12 @@ def list(
         pass
 
     res = {}
-    from ginkgo.data import get_files, get_engines, get_orders, get_portfolios
+    from ginkgo.data import (
+        get_files_page_filtered,
+        get_engines,
+        get_orders_page_filtered,
+        get_portfolios_page_filtered,
+    )
 
     if engine:
         df = get_engines(name=filter, as_dataframe=True)
@@ -306,19 +311,19 @@ def list(
         print_engine(df)
 
     if portfolio:
-        df = get_portfolios(name=filter)
+        df = get_portfolios_page_filtered(name=filter)
         res["portfolio"] = df
         print_portfolio(df)
 
     if file:
         if filter is None:
-            df = get_files()
+            df = get_files_page_filtered()
         else:
             file_type = FILE_TYPES.enum_convert(filter)
             df1 = pd.DataFrame()
             if file_type:
-                df1 = get_files(type=file_type)
-            df = get_files(name=filter)
+                df1 = get_files_page_filtered(type=file_type)
+            df = get_files_page_filtered(name=filter)
             if df1.shape[0] > 0:
                 df = pd.concat([df1, df])
             df = df.drop_duplicates(subset=["uuid"])
@@ -326,13 +331,13 @@ def list(
         print_file(df)
     if mapping:
         from ginkgo.data.operations import (
-            get_engine_handler_mappings,
-            get_engine_portfolio_mappings,
-            get_portfolio_file_mappings,
+            get_engine_handler_mappings_page_filtered,
+            get_engine_portfolio_mappings_page_filtered,
+            get_portfolio_file_mappings_page_filtered,
         )
 
         if filter is None:
-            df = get_engine_portfolio_mappings()
+            df = get_engine_portfolio_mappings_page_filtered()
             intro_print(df.shape[0], "engine portfolio mappings")
             if df.shape[0] > 0:
                 filtered_columns = ["uuid", "engine_id", "portfolio_id", "update_at"]
@@ -345,10 +350,10 @@ def list(
                 for i, r in rs.iterrows():
                     table.add_row(r["uuid"], r["engine_id"], r["portfolio_id"], str(r["update_at"]))
                 console.print(table)
-            df = get_engine_handler_mappings()
+            df = get_engine_handler_mappings_page_filtered()
             intro_print(df.shape[0], "engine handler mappings")
             # TODO
-            df = get_portfolio_file_mappings()
+            df = get_portfolio_file_mappings_page_filtered()
             intro_print(df.shape[0], "portfolio file mappings")
             if df.shape[0] > 0:
                 filtered_columns = ["uuid", "portfolio_id", "file_id", "name", "type", "update_at"]
@@ -366,7 +371,7 @@ def list(
                     )
                 console.print(table)
         else:
-            df = get_engine_portfolio_mappings()
+            df = get_engine_portfolio_mappings_page_filtered()
             if df.shape[0] > 0:
                 df1 = df[df["engine_id"] == filter]
                 df2 = df[df["portfolio_id"] == filter]
@@ -383,7 +388,7 @@ def list(
                 for i, r in rs.iterrows():
                     table.add_row(r["uuid"], r["engine_id"], r["portfolio_id"], str(r["update_at"]))
                 console.print(table)
-            df = get_engine_handler_mappings()
+            df = get_engine_handler_mappings_page_filtered()
             if df.shape[0] > 0:
                 df1 = df[df["engine_id"] == filter]
                 df2 = df[df["handler_id"] == filter]
@@ -391,7 +396,7 @@ def list(
             intro_print(df.shape[0], "engine handler mappings")
             if df.shape[0] > 0:
                 pass
-            df = get_portfolio_file_mappings()
+            df = get_portfolio_file_mappings_page_filtered()
             if df.shape[0] > 0:
                 df1 = df[df["portfolio_id"] == filter]
                 df2 = df[df["file_id"] == filter]
@@ -413,12 +418,12 @@ def list(
                     )
                 console.print(table)
     if param:
-        from ginkgo.data.operations import get_params
+        from ginkgo.data.operations import get_params_page_filtered
 
         if filter is not None:
-            df = get_params(source_id=filter)
+            df = get_params_page_filtered(source_id=filter)
         else:
-            df = get_params()
+            df = get_params_page_filtered()
         if df.shape[0] > 0:
             intro_print(df.shape[0], "mapping params")
             filtered_columns = ["uuid", "mapping_id", "index", "value", "update_at"]

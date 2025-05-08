@@ -1,5 +1,4 @@
 import unittest
-import time
 from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
 from ginkgo.libs.ginkgo_conf import GCONF
 

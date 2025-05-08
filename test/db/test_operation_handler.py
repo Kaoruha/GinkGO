@@ -111,7 +111,7 @@ class OperationHandlerTest(unittest.TestCase):
             res = add_handler(**i)
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
-        df = get_handlers()
+        df = get_handlers_page_filtered()
         print(df)
         self.assertEqual(df.shape[0] > 0, True)
 

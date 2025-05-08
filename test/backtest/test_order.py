@@ -1,111 +1,117 @@
 import unittest
-import uuid
-import time
-import datetime
-import pandas as pd
+from datetime import datetime
+from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 from ginkgo.backtest.order import Order
-from ginkgo.data.models import MOrder
-from ginkgo.enums import ORDER_TYPES, DIRECTION_TYPES, SOURCE_TYPES, ORDERSTATUS_TYPES
-from ginkgo.libs import GLOG
-from ginkgo.data.ginkgo_data import GDATA
 
 
-class OrderTest(unittest.TestCase):
-    """
-    UnitTest for order.
-    """
+class TestOrder(unittest.TestCase):
+    def setUp(self):
+        # 在每个测试方法之前初始化 Order 实例
+        self.order = Order(
+            code="TEST123",
+            direction=DIRECTION_TYPES.LONG,
+            order_type=ORDER_TYPES.LIMITORDER,
+            status=ORDERSTATUS_TYPES.NEW,
+            volume=100,
+            limit_price=50.0,
+            frozen=10.0,
+            transaction_price=45.0,
+            transaction_volume=50,
+            remain=50.0,
+            fee=1.0,
+            timestamp=datetime(2025, 5, 5),
+            order_id="order123",
+            portfolio_id="portfolio1",
+            engine_id="engine1",
+        )
 
-    # Init
-    # Change
-    # Amplitude
+    def test_order_initialization(self):
+        # 验证订单初始化后各个字段是否正确赋值
+        self.assertEqual(self.order.code, "TEST123")
+        self.assertEqual(self.order.direction, DIRECTION_TYPES.LONG)
+        self.assertEqual(self.order.order_type, ORDER_TYPES.LIMITORDER)
+        self.assertEqual(self.order.status, ORDERSTATUS_TYPES.NEW)
+        self.assertEqual(self.order.volume, 100)
+        self.assertEqual(self.order.limit_price, 50.0)
+        self.assertEqual(self.order.frozen, 10.0)
+        self.assertEqual(self.order.transaction_price, 45.0)
+        self.assertEqual(self.order.transaction_volume, 50)
+        self.assertEqual(self.order.remain, 50.0)
+        self.assertEqual(self.order.fee, 1.0)
+        self.assertEqual(self.order.timestamp, datetime(2025, 5, 5))
+        self.assertEqual(self.order.order_id, "order123")
+        self.assertEqual(self.order.portfolio_id, "portfolio1")
+        self.assertEqual(self.order.engine_id, "engine1")
 
-    def __init__(self, *args, **kwargs) -> None:
-        super(OrderTest, self).__init__(*args, **kwargs)
-        self.dev = False
-        self.params = [
-            {
-                "source": SOURCE_TYPES.SINA,
-                "code": "unit_test_code",
-                "uuid": "uuiduuiduuiduuid222",
-                "direction": DIRECTION_TYPES.LONG,
-                "type": ORDER_TYPES.MARKETORDER,
-                "volume": 2000,
-                "status": ORDERSTATUS_TYPES.FILLED,
-                "limit_price": 2.2,
-                "frozen": 44000,
-                "transaction_price": 21222.3,
-                "remain": 10,
-                "fee": 0,
-                "timestamp": datetime.datetime.now(),
-                "backtest_id": uuid.uuid4().hex,
-            },
-            {
-                "source": SOURCE_TYPES.SIM,
-                "code": "unit_test_code22",
-                "uuid": "uuiduuiduuiduuid22233",
-                "direction": DIRECTION_TYPES.LONG,
-                "type": ORDER_TYPES.MARKETORDER,
-                "volume": 2000,
-                "status": ORDERSTATUS_TYPES.FILLED,
-                "limit_price": 2.4,
-                "frozen": 54000,
-                "transaction_price": 34,
-                "remain": 400,
-                "fee": 0,
-                "timestamp": datetime.datetime.now(),
-                "backtest_id": uuid.uuid4().hex,
-            },
-        ]
+    def test_submit(self):
+        # 测试订单提交后状态是否更新
+        self.order.submit()
+        self.assertEqual(self.order.status, ORDERSTATUS_TYPES.SUBMITTED)
 
-    def test_Order_Init(self) -> None:
-        for i in self.params:
-            o = Order()
+    def test_fill(self):
+        # 测试订单填充后状态是否更新
+        self.order.fill()
+        self.assertEqual(self.order.status, ORDERSTATUS_TYPES.FILLED)
 
-    def test_Order_SetFromData(self) -> None:
-        for item in self.params:
-            o = Order()
-            o.set(
-                item["code"],
-                item["direction"],
-                item["type"],
-                item["status"],
-                item["volume"],
-                item["limit_price"],
-                item["frozen"],
-                item["transaction_price"],
-                item["remain"],
-                item["fee"],
-                item["timestamp"],
-                item["uuid"],
-                item["backtest_id"],
-            )
-            o.set_source(item["source"])
-            self.assertEqual(o.code, item["code"])
-            self.assertEqual(o.direction, item["direction"])
-            self.assertEqual(o.type, item["type"])
-            self.assertEqual(o.volume, item["volume"])
-            self.assertEqual(o.limit_price, item["limit_price"])
-            self.assertEqual(o.frozen, item["frozen"])
-            self.assertEqual(o.transaction_price, item["transaction_price"])
-            self.assertEqual(o.remain, item["remain"])
-            self.assertEqual(o.source, item["source"])
-            self.assertEqual(o.uuid, item["uuid"])
-            self.assertEqual(o.backtest_id, item["backtest_id"])
+    def test_cancel(self):
+        # 测试订单取消后状态是否更新
+        self.order.cancel()
+        self.assertEqual(self.order.status, ORDERSTATUS_TYPES.CANCELED)
 
-    def test_Order_SetFromDataFrame(self) -> None:
-        for item in self.params:
-            o = Order()
-            df = pd.DataFrame.from_dict(item, orient="index")[0]
-            o.set(df)
-            o.set_source(item["source"])
-            self.assertEqual(o.code, item["code"])
-            self.assertEqual(o.direction, item["direction"])
-            self.assertEqual(o.type, item["type"])
-            self.assertEqual(o.volume, item["volume"])
-            self.assertEqual(o.limit_price, item["limit_price"])
-            self.assertEqual(o.frozen, item["frozen"])
-            self.assertEqual(o.transaction_price, item["transaction_price"])
-            self.assertEqual(o.remain, item["remain"])
-            self.assertEqual(o.source, item["source"])
-            self.assertEqual(o.uuid, item["uuid"])
-            self.assertEqual(o.backtest_id, item["backtest_id"])
+    def test_set_properties(self):
+        # 测试动态更新属性
+        self.order.code = "TEST456"
+        self.assertEqual(self.order.code, "TEST456")
+
+        self.order.timestamp = datetime(2025, 6, 5)
+        self.assertEqual(self.order.timestamp, datetime(2025, 6, 5))
+
+        self.order.volume = 200
+        self.assertEqual(self.order.volume, 200)
+
+    def test_invalid_status_update(self):
+        # 测试订单状态是否正确更新
+        self.order.submit()
+        # TODO
+        self.assertEqual(self.order.status, ORDERSTATUS_TYPES.SUBMITTED)
+
+    def test_set_from_dataframe(self):
+        import pandas as pd
+
+        # 使用DataFrame设置订单属性
+        data = {
+            "code": "TEST789",
+            "direction": DIRECTION_TYPES.SHORT.value,
+            "order_type": ORDER_TYPES.MARKETORDER.value,
+            "status": ORDERSTATUS_TYPES.NEW.value,
+            "volume": 500,
+            "limit_price": 55.5,
+            "frozen": 20.0,
+            "transaction_price": 50.0,
+            "transaction_volume": 100,
+            "remain": 400.0,
+            "fee": 2.0,
+            "timestamp": datetime(2025, 5, 6),
+            "uuid": "order456",
+            "portfolio_id": "portfolio2",
+            "engine_id": "engine2",
+        }
+        df = pd.Series(data)
+        self.order.set(df)
+
+        # 确保从DataFrame设置后值被正确更新
+        self.assertEqual(self.order.code, "TEST789")
+        self.assertEqual(self.order.direction, DIRECTION_TYPES.SHORT)
+        self.assertEqual(self.order.order_type, ORDER_TYPES.MARKETORDER)
+        self.assertEqual(self.order.status, ORDERSTATUS_TYPES.NEW)
+        self.assertEqual(self.order.volume, 500)
+        self.assertEqual(self.order.limit_price, 55.5)
+        self.assertEqual(self.order.frozen, 20.0)
+        self.assertEqual(self.order.transaction_price, 50.0)
+        self.assertEqual(self.order.transaction_volume, 100)
+        self.assertEqual(self.order.remain, 400.0)
+        self.assertEqual(self.order.fee, 2.0)
+        self.assertEqual(self.order.timestamp, datetime(2025, 5, 6))
+        self.assertEqual(self.order.order_id, "order456")
+        self.assertEqual(self.order.portfolio_id, "portfolio2")
+        self.assertEqual(self.order.engine_id, "engine2")

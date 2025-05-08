@@ -14,20 +14,21 @@ class Profit(BaseAnalyzer):
         self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
         self._last_worth = None
 
-    def activate(self, stage, *args, **kwargs) -> None:
-        pass
-
-    def record(self, stage, *args, **kwargs) -> None:
-        # TODO
-        return
+    def activate(self, stage, info, *args, **kwargs) -> None:
         if stage != self.active_stage:
             return
+
+    def record(self, stage, info, *args, **kwargs) -> None:
+        if stage != self.record_stage:
+            return
         if self._last_worth is None:
-            # self._last_worth = self.portfolio.worth
+            self._last_worth = info["worth"]
             value = 0
-        else:
-            pass
-            # value = self.portfolio.worth - self._last_worth
-            # self._last_worth = self.portfolio.worth
+        value = info["worth"] - self._last_worth
+        self._last_worth = info["worth"]
         self.add_data(value)
         self.add_record()
+        print(value)
+        print(value)
+        print(value)
+        print(value)

@@ -9,7 +9,7 @@ from ginkgo.libs import base_repr, pretty_repr, datetime_normalize, Number, to_d
 from ginkgo.enums import FREQUENCY_TYPES
 
 
-class Adjustactor(Base):
+class Adjustfactor(Base):
     """
     Bar Container. Store OHLC, code, time and other info.
     """
@@ -24,7 +24,7 @@ class Adjustactor(Base):
         *args,
         **kwargs
     ) -> None:
-        super(Adjustactor, self).__init__(*args, **kwargs)
+        super(Adjustfactor, self).__init__(*args, **kwargs)
         self.set(code, timestamp, fore_adjustfactor, back_adjustfactor, adjustfactor)
 
     @singledispatchmethod

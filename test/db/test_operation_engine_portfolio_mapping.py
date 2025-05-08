@@ -101,7 +101,7 @@ class OperationEnginePortfolioMappingTest(unittest.TestCase):
             res = add_engine_portfolio_mapping(engine_id=engine_id, portfolio_id=i["portfolio_id"])
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
-        df = get_engine_portfolio_mappings(engine_id=engine_id)
+        df = get_engine_portfolio_mappings_page_filtered(engine_id=engine_id)
         self.assertEqual(self.count, df.shape[0])
 
     # def test_OperationEngine_exceptions(self) -> None:

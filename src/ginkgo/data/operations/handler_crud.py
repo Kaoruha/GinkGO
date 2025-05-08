@@ -122,7 +122,7 @@ def get_handler(
         get_mysql_connection().remove_session()
 
 
-def get_handlers(
+def get_handlers_page_filtered(
     type: EVENT_TYPES = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,

@@ -68,7 +68,7 @@ def softdelete_param(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def delete_params(mapping_id: str, *argss, **kwargs):
+def delete_params_filtered(mapping_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MParam
     filters = [model.mapping_id == mapping_id]
@@ -83,7 +83,7 @@ def delete_params(mapping_id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def softdelete_params(mapping_id: str, *argss, **kwargs):
+def softdelete_params_filtered(mapping_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MParam
     filters = [model.mapping_id == id]
@@ -150,7 +150,7 @@ def get_param(
         get_mysql_connection().remove_session()
 
 
-def get_params(
+def get_params_page_filtered(
     mapping_id: str = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
@@ -170,7 +170,7 @@ def get_params(
         df = pd.read_sql(stmt.statement, session.connection())
         if df.shape[0] == 0:
             return pd.DataFrame()
-        return df
+        return df.sort_values(by="index", ascending=True)
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)

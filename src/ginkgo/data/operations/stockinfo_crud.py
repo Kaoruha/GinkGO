@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from sqlalchemy import and_, delete, update, select, text
+from sqlalchemy import and_, delete, update, select, text, or_
 from typing import List, Optional, Union
 from rich.console import Console
 
@@ -142,7 +142,7 @@ def softdelete_stockinfo(code: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def update_stockinfo(
+def update_stockinfo_filtered(
     code: str,
     code_name: Optional[str] = None,
     industry: Optional[str] = None,
@@ -182,11 +182,7 @@ def update_stockinfo(
         get_mysql_connection().remove_session()
 
 
-def get_stockinfo(
-    code: str,
-    page_size: Optional[int] = None,
-    *args,
-    **kwargs):
+def get_stockinfo(code: str, page_size: Optional[int] = None, *args, **kwargs):
     session = get_mysql_connection().session
     model = MStockInfo
     filters = []
@@ -205,10 +201,11 @@ def get_stockinfo(
         get_mysql_connection().remove_session()
 
 
-def get_stockinfos(
+def get_stockinfos_filtered(
     code: str = None,
     list_date: any = None,
     delist_date: any = None,
+    industry:str =None,
     *args,
     **kwargs,
 ) -> pd.Series:
@@ -223,6 +220,8 @@ def get_stockinfos(
     if delist_date:
         delist_date = datetime_normalize(delist_date)
         filters.append(model.delist_date == delist_date)
+    if industry is not None:
+        filters.append(model.industry == industry)
 
     try:
         stmt = session.query(model).filter(and_(*filters))
@@ -231,7 +230,7 @@ def get_stockinfos(
         console.print(f":moyai: [bold green]Got {df.shape[0]} records about StockInfo from mysql.[/]")
         if df.shape[0] == 0:
             return pd.DataFrame()
-        return df.sort_values(by='code')
+        return df.sort_values(by="code")
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -239,3 +238,22 @@ def get_stockinfos(
     finally:
         get_mysql_connection().remove_session()
 
+
+def fget_stockinfos(filter: str = None, *args, **kwargs) -> pd.DataFrame:
+    session = get_mysql_connection().session
+    model = MStockInfo
+    filters = [model.is_del == False]
+    filters.append(or_(model.code.like(f"%{filter}%"), model.code_name.like(f"%{filter}%"), model.industry.like(f"%{filter}%")))
+    try:
+        stmt = session.query(model).filter(and_(*filters))
+
+        df = pd.read_sql(stmt.statement, session.connection())
+        if df.shape[0] == 0:
+            return pd.DataFrame()
+        return df
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+        return pd.DataFrame()
+    finally:
+        get_mysql_connection().remove_session()

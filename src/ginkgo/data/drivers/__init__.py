@@ -167,7 +167,6 @@ def is_table_exsists(model) -> bool:
 
 @time_logger
 @retry
-@skip_if_ran
 def create_table(model, no_log=True) -> None:
     """
     Create table with model.
@@ -256,8 +255,10 @@ def drop_all_tables() -> None:
         None
     """
     # Drop Tables in clickhouse
+    MClickBase.metadata.reflect(get_click_connection().engine)
     MClickBase.metadata.drop_all(get_click_connection().engine)
     # Drop Tables in mysql
+    MMysqlBase.metadata.reflect(get_mysql_connection().engine)
     MMysqlBase.metadata.drop_all(get_mysql_connection().engine)
     GLOG.DEBUG(f"Drop all tables.")
 

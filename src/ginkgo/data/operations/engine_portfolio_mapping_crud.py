@@ -53,7 +53,7 @@ def delete_engine_portfolio_mapping(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def delete_engine_portfolio_mapping_by_engine_and_portfolio(engine_id: str, portfolio_id: str, *argss, **kwargs):
+def delete_engine_portfolio_mapping_filtered(engine_id: str, portfolio_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MEnginePortfolioMapping
     filters = []
@@ -73,22 +73,22 @@ def delete_engine_portfolio_mapping_by_engine_and_portfolio(engine_id: str, port
         get_mysql_connection().remove_session()
 
 
-def delete_engine_portfolio_mappings(engine_id: str, *argss, **kwargs):
-    session = get_mysql_connection().session
-    model = MEnginePortfolioMapping
-    filters = [model.engine_id == engine_id]
-    try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord: id {ids} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
-    except Exception as e:
-        session.rollback()
-        GLOG.ERROR(e)
-    finally:
-        get_mysql_connection().remove_session()
+# def delete_engine_portfolio_mappings(engine_id: str, *argss, **kwargs):
+#     session = get_mysql_connection().session
+#     model = MEnginePortfolioMapping
+#     filters = [model.engine_id == engine_id]
+#     try:
+#         query = session.query(model).filter(and_(*filters)).all()
+#         if len(query) > 1:
+#             GLOG.WARN(f"delete_analyzerrecord: id {ids} has more than one record.")
+#         for i in query:
+#             session.delete(i)
+#             session.commit()
+#     except Exception as e:
+#         session.rollback()
+#         GLOG.ERROR(e)
+#     finally:
+#         get_mysql_connection().remove_session()
 
 
 def softdelete_engine_portfolio_mapping(id: str, *argss, **kwargs):
@@ -156,7 +156,7 @@ def get_engine_portfolio_mapping(
         get_mysql_connection().remove_session()
 
 
-def get_engine_portfolio_mappings(
+def get_engine_portfolio_mappings_page_filtered(
     engine_id: str = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,

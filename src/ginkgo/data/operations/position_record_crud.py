@@ -6,20 +6,35 @@ from typing import List, Optional, Union
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES
 from ginkgo.data.models import MPositionRecord
 from ginkgo.data.drivers import add, add_all, get_click_connection
-from ginkgo.libs import GLOG, Number, to_decimal
+from ginkgo.libs import GLOG, datetime_normalize, Number, to_decimal
 
 
 def add_position_record(
     portfolio_id: str,
+    engine_id: str,
     timestamp: any,
     code: str,
-    volume: int,
-    frozen: int,
     cost: Number,
+    volume: int,
+    frozen_volume: int,
+    frozen_money: Number,
+    price: Number,
+    fee: Number,
     *args,
     **kwargs,
 ) -> pd.Series:
-    item = MPositionRecord(portfolio_id=portfolio_id, code=code, volume=volume, frozen=frozen, cost=to_decimal(cost))
+    item = MPositionRecord(
+        portfolio_id=portfolio_id,
+        engine_id=engine_id,
+        code=code,
+        cost=to_decimal(cost),
+        volume=volume,
+        frozen_volume=frozen_volume,
+        frozen_money=to_decimal(frozen_money),
+        price=to_decimal(price),
+        fee=to_decimal(fee),
+        timestamp=datetime_normalize(timestamp),
+    )
     res = add(item)
     df = res.to_dataframe()
     get_click_connection().remove_session()
@@ -39,14 +54,12 @@ def add_position_records(orders: List[MPositionRecord], *args, **kwargs):
 def delete_position_record(id: str, *argss, **kwargs):
     session = get_click_connection().session
     model = MPositionRecord
+
     try:
-        filters = [model.uuid == id]
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        sql = f"DELETE FROM {model.__tablename__} WHERE uuid = :id"
+        params = {"id": id}
+        session.execute(text(sql), params)
+        session.commit()
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -59,15 +72,35 @@ def softdelete_position_record(id: str, *argss, **kwargs):
     return delete_position_record(id, *argss, **kwargs)
 
 
-def delete_position_records_by_portfolio_and_code(
+def delete_position_records_filtered(
     portfolio_id: str, code: str = None, start_date: any = None, end_date: any = None, *argss, **kwargs
 ):
     # Sqlalchemy ORM seems not work on clickhouse when multi delete.
     # Use sql
     session = get_click_connection().session
     model = MPositionRecord
-    sql = f"DELETE FROM {model.__tablename__} WHERE portfolio_id = :portfolio_id AND code = :code"
-    params = {"portfolio_id": portfolio_id, "code": code}
+    sql = f"DELETE FROM {model.__tablename__} WHERE portfolio_id = :portfolio_id"
+    params = {"portfolio_id": portfolio_id}
+    if code is not None:
+        sql += " AND code == :code"
+        params["code"] = code
+    if start_date is not None:
+        sql += " AND timestamp >= :start_date"
+        params["start_date"] = datetime_normalize(start_date)
+    if end_date is not None:
+        sql += " AND timestamp <= :end_date"
+        params["end_date"] = datetime_normalize(end_date)
+    try:
+        session.execute(text(sql), params)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        GLOG.ERROR(e)
+    finally:
+        get_click_connection().remove_session()
+
+    sql = f"DELETE FROM {model.__tablename__} WHERE code = :code"
+    params = {"code": code}
     if start_date is not None:
         sql += " AND timestamp >= :start_date"
         params["start_date"] = datetime_normalize(start_date)
@@ -84,9 +117,9 @@ def delete_position_records_by_portfolio_and_code(
         get_click_connection().remove_session()
 
 
-def softdelete_position_records_by_portfolio_and_code(portfolio_id: str, code: str = None, *argss, **kwargs):
+def softdelete_position_records_filtered(portfolio_id: str, code: str = None, *argss, **kwargs):
     GLOG.WARN("Soft delete not work in clickhouse, use delete instead.")
-    return delete_position_records_by_portfolio_and_code(portfolio_id, code, *argss, **kwargs)
+    return delete_position_records_filtered(portfolio_id, code, *argss, **kwargs)
 
 
 def get_position_record(
@@ -111,7 +144,7 @@ def get_position_record(
         get_click_connection().remove_session()
 
 
-def get_position_records(
+def get_position_records_page_filtered(
     portfolio_id: str,
     code: Optional[str] = None,
     start_date: Optional[any] = None,
