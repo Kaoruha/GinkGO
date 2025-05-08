@@ -16,7 +16,7 @@ def add_order(
     engine_id: str,
     code: str,
     direction: DIRECTION_TYPES,
-    type: ORDER_TYPES,
+    order_type: ORDER_TYPES,
     status: ORDERSTATUS_TYPES,
     volume: int,
     limit_price: Number,
@@ -33,7 +33,7 @@ def add_order(
         engine_id=engine_id,
         code=code,
         direction=direction,
-        type=type,
+        order_type=order_type,
         status=status,
         volume=volume,
         limit_price=to_decimal(limit_price),
@@ -77,10 +77,19 @@ def delete_order(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def delete_orders_by_portfolio(portfolio_id: str, *argss, **kwargs):
+def delete_orders_filtered(portfolio_id: str = None, engine_id: str = None, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MOrder
-    filters = [model.portfolio_id == portfolio_id]
+    filters = [model.is_del == False]
+
+    if (portfolio_id is None) and (engine_id is None):
+        # TODO Log
+        return
+
+    if portfolio_id is not None:
+        filters.append(model.portfolio_id == portfolio_id)
+    if engine_id is not None:
+        filters.append(model.engine_id == engine_id)
     try:
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
@@ -95,22 +104,22 @@ def delete_orders_by_portfolio(portfolio_id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def delete_orders_by_engine(engine_id: str, *argss, **kwargs):
-    session = get_mysql_connection().session
-    model = MOrder
-    filters = [model.engine_id == engine_id]
-    try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
-    except Exception as e:
-        session.rollback()
-        GLOG.ERROR(e)
-    finally:
-        get_mysql_connection().remove_session()
+# def delete_orders_by_engine(engine_id: str, *argss, **kwargs):
+#     session = get_mysql_connection().session
+#     model = MOrder
+#     filters = [model.engine_id == engine_id]
+#     try:
+#         query = session.query(model).filter(and_(*filters)).all()
+#         if len(query) > 1:
+#             GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
+#         for i in query:
+#             session.delete(i)
+#             session.commit()
+#     except Exception as e:
+#         session.rollback()
+#         GLOG.ERROR(e)
+#     finally:
+#         get_mysql_connection().remove_session()
 
 
 def softdelete_order(id: str, *argss, **kwargs):
@@ -137,7 +146,7 @@ def update_order(
     engine_id: Optional[str] = None,
     code: Optional[str] = None,
     direction: Optional[DIRECTION_TYPES] = None,
-    type: Optional[ORDER_TYPES] = None,
+    order_type: Optional[ORDER_TYPES] = None,
     status: Optional[ORDERSTATUS_TYPES] = None,
     volume: Optional[int] = None,
     limit_price: Optional[float] = None,
@@ -161,8 +170,8 @@ def update_order(
         updates["code"] = code
     if direction is not None:
         updates["direction"] = direction
-    if type is not None:
-        updates["type"] = type
+    if order_type is not None:
+        updates["order_type"] = order_type
     if status is not None:
         updates["status"] = status
     if volume is not None:
@@ -208,17 +217,17 @@ def get_order(
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
-        return pd.DataFrame()
+        return pd.DataFrame().iloc[0]
     finally:
         get_mysql_connection().remove_session()
 
 
-def get_orders(
+def get_orders_page_filtered(
     portfolio_id: str,
     engine_id: str,
     code: Optional[str] = None,
     direction: Optional[DIRECTION_TYPES] = None,
-    type: Optional[ORDER_TYPES] = None,
+    order_type: Optional[ORDER_TYPES] = None,
     status: Optional[ORDERSTATUS_TYPES] = None,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -230,13 +239,13 @@ def get_orders(
 ) -> pd.Series:
     session = get_mysql_connection().session
     model = MOrder
-    filters = [model.portfolio_id == portfolio_id,model.engine_id==engine_id model.is_del == False]
+    filters = [model.portfolio_id == portfolio_id, model.engine_id == engine_id, model.is_del == False]
     if code is not None:
         filters.append(model.code == code)
     if direction is not None:
         filters.append(model.direction == direction)
-    if type is not None:
-        filters.append(model.type == type)
+    if order_type is not None:
+        filters.append(model.order_type == order_type)
     if status is not None:
         filters.append(model.status == status)
     if start_date:
@@ -262,7 +271,7 @@ def get_orders(
                 Order(
                     code=i.code,
                     direction=i.direction,
-                    type=i.type,
+                    order_type=i.order_type,
                     status=i.status,
                     volume=i.volume,
                     limit_price=i.limit_price,

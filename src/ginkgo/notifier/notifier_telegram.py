@@ -1,5 +1,10 @@
 from ginkgo.libs.ginkgo_conf import GCONF
-from ginkgo.data.operations import get_files,get_engines,get_backtest_record,get_analyzer_df_by_backtest
+from ginkgo.data.operations import (
+    get_files_page_filtered,
+    get_engines_page_filtered,
+    get_backtest_record,
+    get_analyzer_df_by_backtest,
+)
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telebot.util import quick_markup
 from ginkgo.enums import FILE_TYPES
@@ -8,6 +13,7 @@ import telebot
 import shutil
 import yaml
 import os
+
 # from ginkgo.artificial_intelligence.gemma_7b import Gemma7B
 
 import psutil
@@ -35,10 +41,7 @@ def send_help(message):
     msg += "\n" + "/verify get authentification"
     msg += "\n" + "/run {uuid} run backtest by uuid"
     msg += "\n" + "/res {uuid} show backtest result by uuid(optional)"
-    msg += (
-        "\n"
-        + "/compare {backtest1} {backtest2} {index1} {index2} compare backtest result"
-    )
+    msg += "\n" + "/compare {backtest1} {backtest2} {index1} {index2} compare backtest result"
     msg += "\n" + "/show {uuid} display the detail"
     msg += "\n" + "/signals show recent 10 signals"
     bot.send_message(message.chat.id, msg)
@@ -109,7 +112,7 @@ def list_handler(message):
 
 
 def get_backtest_strategies():
-    raw = get_files(type=FILE_TYPES.ENGINE.value,as_dataframe=True)
+    raw = get_files_page_filtered(type=FILE_TYPES.ENGINE.value, as_dataframe=True)
     res = []
     count = 0
     for i, r in raw.iterrows():
@@ -145,9 +148,7 @@ def get_address(message):
 
 
 def verify_next(message):
-    bot.reply_to(
-        message, f"Token {message.text} not exists.", reply_markup=ReplyKeyboardRemove()
-    )
+    bot.reply_to(message, f"Token {message.text} not exists.", reply_markup=ReplyKeyboardRemove())
 
 
 @bot.message_handler(commands=["show"])
@@ -309,9 +310,7 @@ def res_backtest(message):
                     f"[{i}]. {r['uuid']} \nWorth: {r['profit']} \nfrom {r['start_at']} to {r['finish_at']}",
                 )
             return
-        bot.send_message(
-            message.chat.id, f"Backtest: {backtest_id}  \nWorth: {record.profit}"
-        )
+        bot.send_message(message.chat.id, f"Backtest: {backtest_id}  \nWorth: {record.profit}")
         content = record.content
         analyzers = yaml.safe_load(content.decode("utf-8"))["analyzers"]
         if len(analyzers) == 0:

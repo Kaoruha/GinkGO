@@ -80,6 +80,10 @@ class PortfolioT1Backtest(BasePortfolio):
             None
         """
         # Go next TimePhase
+        for i in self._analyzer_hook[RECORDSTAGE_TYPES.ENDDAY]:
+            i(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
+        for i in self.analyzers.keys():
+            self.analyzers[i].record(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
         super(PortfolioT1Backtest, self).on_time_goes_by(time, *args, **kwargs)
         self.update_worth()
         self.update_profit()
@@ -93,6 +97,10 @@ class PortfolioT1Backtest(BasePortfolio):
         # Reset past signals
         self._signals = []
         print(self)
+        for i in self._analyzer_hook[RECORDSTAGE_TYPES.NEWDAY]:
+            i(RECORDSTAGE_TYPES.NEWDAY, self.get_info())
+        for i in self.analyzers.keys():
+            self.analyzers[i].record(RECORDSTAGE_TYPES.NEWDAY, self.get_info())
 
     def on_signal(self, event: EventSignalGeneration):
         """
@@ -157,6 +165,10 @@ class PortfolioT1Backtest(BasePortfolio):
                 self.log("INFO", f"Do not have enough position about {order.code}. {self.now}")
                 return
         event = EventOrderSubmitted(order)
+        for i in self._analyzer_hook[RECORDSTAGE_TYPES.ORDERSEND]:
+            i(RECORDSTAGE_TYPES.ORDERSEND, self.get_info())
+        for i in self.analyzers.keys():
+            self.analyzers[i].record(RECORDSTAGE_TYPES.ORDERSEND, self.get_info())
         self.put(event)
 
     def on_price_received(self, event: EventPriceUpdate):
@@ -206,6 +218,10 @@ class PortfolioT1Backtest(BasePortfolio):
             if signal:
                 e = EventSignalGeneration(signal)
                 e.set_source(SOURCE_TYPES.STRATEGY)
+                for i in self._analyzer_hook[RECORDSTAGE_TYPES.SIGNALGENERATION]:
+                    i(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
+                for i in self.analyzers.keys():
+                    self.analyzers[i].record(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
                 self.put(e)
 
     def on_order_filled(self, event: EventOrderFilled):
@@ -219,6 +235,10 @@ class PortfolioT1Backtest(BasePortfolio):
                 f"On Order Filled only handle the FILLEDORDER, cant handle a {event.order_status} one. Check the Code. {self.now}",
             )
             return
+        for i in self._analyzer_hook[RECORDSTAGE_TYPES.ORDERFILLED]:
+            i(RECORDSTAGE_TYPES.ORDERFILLED, self.get_info())
+        for i in self.analyzers.keys():
+            self.analyzers[i].record(RECORDSTAGE_TYPES.ORDERFILLED, self.get_info())
         if event.direction == DIRECTION_TYPES.LONG:
             self.log("WARN", f"DEALING with LONG FILLED ORDER. {self.now}")
             self.deal_long_filled(event)
@@ -230,6 +250,10 @@ class PortfolioT1Backtest(BasePortfolio):
         self.update_profit()
 
     def on_order_canceled(self, event: EventOrderCanceled):
+        for i in self._analyzer_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
+            i(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
+        for i in self.analyzers:
+            self.analyzers[i].record(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
         self.log("WARN", f"Dealing with CANCELED ORDER. {self.now}")
         if self.is_event_from_future(event):
             return

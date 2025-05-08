@@ -116,7 +116,7 @@ class OperationAdjustfactorTest(unittest.TestCase):
         add_adjustfactors(l)
         size1 = get_table_size(self.model)
         self.assertEqual(4, size1 - size0)
-        delete_adjustfactors_by_code_and_date_range(code, start_date="2020-01-01", end_date="2020-01-02")
+        delete_adjustfactors_filtered(code, start_date="2020-01-01", end_date="2020-01-02")
         size2 = get_table_size(self.model)
         self.assertEqual(-3, size2 - size1)
 
@@ -164,11 +164,11 @@ class OperationAdjustfactorTest(unittest.TestCase):
         add_adjustfactors(l)
         size1 = get_table_size(self.model)
         self.assertEqual(4, size1 - size0)
-        df1 = get_adjustfactors_by_code_and_date_range(code)
-        softdelete_adjustfactors_by_code_and_date_range(code, start_date="2021-01-01", end_date="2021-01-02")
+        df1 = get_adjustfactors_page_filtered(code)
+        softdelete_adjustfactors_filtered(code, start_date="2021-01-01", end_date="2021-01-02")
         size2 = get_table_size(self.model)
         self.assertEqual(0, size2 - size1)
-        df2 = get_adjustfactors_by_code_and_date_range(code)
+        df2 = get_adjustfactors_page_filtered(code)
         self.assertEqual(-3, df2.shape[0] - df1.shape[0])
 
     def test_OperationAdjustfactor_exists(self) -> None:
@@ -280,7 +280,7 @@ class OperationAdjustfactorTest(unittest.TestCase):
         add_adjustfactors(l)
         size1 = get_table_size(self.model)
         self.assertEqual(4, size1 - size0)
-        update_adjustfactors_by_code_and_date_range(
+        update_adjustfactors_filtered(
             code,
             start_date="2021-01-01",
             end_date="2021-01-02",
@@ -288,7 +288,7 @@ class OperationAdjustfactorTest(unittest.TestCase):
             backadjustfactor=17,
             adjustfactor=18,
         )
-        df = get_adjustfactors_by_code_and_date_range(code, start_date="2021-01-01", end_date="2021-01-02")
+        df = get_adjustfactors_page_filtered(code, start_date="2021-01-01", end_date="2021-01-02")
         for i, r in df.iterrows():
             self.assertEqual(r.foreadjustfactor, 16)
             self.assertEqual(r.backadjustfactor, 17)
@@ -337,19 +337,15 @@ class OperationAdjustfactorTest(unittest.TestCase):
         )
         add_adjustfactors(l)
         size1 = get_table_size(self.model)
-        softdelete_adjustfactors_by_code_and_date_range(code, start_date="2021-01-01", end_date="2021-01-01")
+        softdelete_adjustfactors_filtered(code, start_date="2021-01-01", end_date="2021-01-01")
         self.assertEqual(4, size1 - size0)
-        df = get_adjustfactors_by_code_and_date_range(code)
+        df = get_adjustfactors_page_filtered(code)
         self.assertEqual(3, df.shape[0])
-        df = get_adjustfactors_by_code_and_date_range(code, start_date="2021-01-01", end_date="2021-01-02")
+        df = get_adjustfactors_page_filtered(code, start_date="2021-01-01", end_date="2021-01-02")
         self.assertEqual(2, df.shape[0])
-        df = get_adjustfactors_by_code_and_date_range(
-            code, start_date="2021-01-01", end_date="2021-01-03", page=0, page_size=2
-        )
+        df = get_adjustfactors_page_filtered(code, start_date="2021-01-01", end_date="2021-01-03", page=0, page_size=2)
         self.assertEqual(2, df.shape[0])
-        df = get_adjustfactors_by_code_and_date_range(
-            code, start_date="2021-01-01", end_date="2021-01-03", page=1, page_size=2
-        )
+        df = get_adjustfactors_page_filtered(code, start_date="2021-01-01", end_date="2021-01-03", page=1, page_size=2)
         self.assertEqual(1, df.shape[0])
 
     def test_OperationAdjustfactor_exceptions(self) -> None:

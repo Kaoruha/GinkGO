@@ -32,11 +32,12 @@ class ModelOrderRecordTest(unittest.TestCase):
         self.model = MOrderRecord
         self.params = [
             {
-                "portfolio_id": uuid.uuid4().hex,
                 "order_id": uuid.uuid4().hex,
+                "portfolio_id": uuid.uuid4().hex,
+                "engine_id": uuid.uuid4().hex,
                 "code": uuid.uuid4().hex,
                 "direction": random.choice([i for i in DIRECTION_TYPES]),
-                "type": random.choice([i for i in ORDER_TYPES]),
+                "order_type": random.choice([i for i in ORDER_TYPES]),
                 "status": random.choice([i for i in ORDERSTATUS_TYPES]),
                 "volume": random.randint(0, 1000),
                 "limit_price": Decimal(str(round(random.uniform(0, 100), 3))),
@@ -54,11 +55,12 @@ class ModelOrderRecordTest(unittest.TestCase):
     def test_ModelOrderRecord_Init(self) -> None:
         for i in self.params:
             o = self.model(**i)
-            self.assertEqual(o.portfolio_id, i["portfolio_id"])
             self.assertEqual(o.order_id, i["order_id"])
+            self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.direction, i["direction"])
-            self.assertEqual(o.type, i["type"])
+            self.assertEqual(o.order_type, i["order_type"])
             self.assertEqual(o.status, i["status"])
             self.assertEqual(o.volume, i["volume"])
             self.assertEqual(o.limit_price, i["limit_price"])
@@ -74,50 +76,50 @@ class ModelOrderRecordTest(unittest.TestCase):
         for i in self.params:
             o = self.model()
             # Update uuid
-            o.update(i["order_id"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"])
             self.assertEqual(o.order_id, i["order_id"])
-            # Update portfolio_id
-            o.update(i["order_id"], portfolio_id=i["portfolio_id"])
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
+
             # Update code
-            o.update(i["order_id"], code=i["code"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], code=i["code"])
             self.assertEqual(o.code, i["code"])
             # Update direction
-            o.update(i["order_id"], direction=i["direction"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], direction=i["direction"])
             self.assertEqual(o.direction, i["direction"])
             # Update type
-            o.update(i["order_id"], type=i["type"])
-            self.assertEqual(o.type, i["type"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], order_type=i["order_type"])
+            self.assertEqual(o.order_type, i["order_type"])
             # Update status
-            o.update(i["order_id"], status=i["status"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], status=i["status"])
             self.assertEqual(o.status, i["status"])
             # Update volume
-            o.update(i["order_id"], volume=i["volume"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], volume=i["volume"])
             self.assertEqual(o.volume, i["volume"])
             # Update limit_price
-            o.update(i["order_id"], limit_price=i["limit_price"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], limit_price=i["limit_price"])
             self.assertEqual(o.limit_price, i["limit_price"])
             # Update frozen
-            o.update(i["order_id"], frozen=i["frozen"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], frozen=i["frozen"])
             self.assertEqual(o.frozen, i["frozen"])
             # Update transaction_price
-            o.update(i["order_id"], transaction_price=i["transaction_price"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], transaction_price=i["transaction_price"])
             self.assertEqual(o.transaction_price, i["transaction_price"])
 
             # Update transaction volume
-            o.update(i["order_id"], transaction_volume=i["transaction_volume"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], transaction_volume=i["transaction_volume"])
             self.assertEqual(o.transaction_volume, i["transaction_volume"])
             # Update remain
-            o.update(i["order_id"], remain=i["remain"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], remain=i["remain"])
             self.assertEqual(o.remain, i["remain"])
             # Update fee
-            o.update(i["order_id"], fee=i["fee"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], fee=i["fee"])
             self.assertEqual(o.fee, i["fee"])
             # Update timestamp
-            o.update(i["order_id"], timestamp=i["timestamp"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], timestamp=i["timestamp"])
             self.assertEqual(o.timestamp, i["timestamp"])
             # Update portfolio_id
-            o.update(i["order_id"], source=i["source"])
+            o.update(i["order_id"], i["portfolio_id"], i["engine_id"], source=i["source"])
             self.assertEqual(o.source, i["source"])
 
         for i in self.params:
@@ -126,9 +128,10 @@ class ModelOrderRecordTest(unittest.TestCase):
             o.update(
                 i["order_id"],
                 portfolio_id=i["portfolio_id"],
+                engine_id=i["engine_id"],
                 code=i["code"],
                 direction=i["direction"],
-                type=i["type"],
+                order_type=i["order_type"],
                 status=i["status"],
                 volume=i["volume"],
                 limit_price=i["limit_price"],
@@ -140,9 +143,12 @@ class ModelOrderRecordTest(unittest.TestCase):
                 timestamp=i["timestamp"],
                 source=i["source"],
             )
+            self.assertEqual(o.order_id, i["order_id"])
+            self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.direction, i["direction"])
-            self.assertEqual(o.type, i["type"])
+            self.assertEqual(o.order_type, i["order_type"])
             self.assertEqual(o.status, i["status"])
             self.assertEqual(o.volume, i["volume"])
             self.assertEqual(o.limit_price, i["limit_price"])
@@ -162,7 +168,7 @@ class ModelOrderRecordTest(unittest.TestCase):
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.direction, i["direction"])
-            self.assertEqual(o.type, i["type"])
+            self.assertEqual(o.order_type, i["order_type"])
             self.assertEqual(o.status, i["status"])
             self.assertEqual(o.volume, i["volume"])
             self.assertEqual(o.limit_price, i["limit_price"])

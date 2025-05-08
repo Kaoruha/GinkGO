@@ -69,7 +69,7 @@ def softdelete_transfer(id: str, *argss, **kwargs):
         session = get_mysql_connection().session
         query = session.query(model).filter(and_(*filters)).all()
         if len(query) > 1:
-            GLOG.WARN(f"delete_adjustfactor_by_id: id {id} has more than one record.")
+            GLOG.WARN(f"delete_transfer_by_id: id {id} has more than one record.")
         for i in query:
             i.is_del = True
             session.commit()
@@ -80,7 +80,7 @@ def softdelete_transfer(id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def delete_transfers_by_portfolio(portfolio_id: str, *argss, **kwargs):
+def delete_transfers_filtered(portfolio_id: str, *argss, **kwargs):
     session = get_mysql_connection().session
     model = MTransfer
     filters = [model.portfolio_id == portfolio_id]
@@ -95,7 +95,7 @@ def delete_transfers_by_portfolio(portfolio_id: str, *argss, **kwargs):
         get_mysql_connection().remove_session()
 
 
-def softdelete_transfers_by_portfolio(portfolio_id: str, *argss, **kwargs):
+def softdelete_transfers_filtered(portfolio_id: str, *argss, **kwargs):
     model = MTransfer
     session = get_mysql_connection().session
     filters = [model.portfolio_id == portfolio_id]
@@ -162,9 +162,8 @@ def get_transfer(
     try:
         stmt = session.query(model).filter(and_(*filters))
         if as_dataframe:
-
             df = pd.read_sql(stmt.statement, session.connection())
-            return df
+            return df.iloc[0]
         else:
             query = stmt.first()
             return Transfer(
@@ -187,7 +186,7 @@ def get_transfer(
         get_mysql_connection().remove_session()
 
 
-def get_transfers(
+def get_transfers_page_filtered(
     portfolio_id: str,
     direction: Optional[TRANSFERDIRECTION_TYPES] = None,
     status: Optional[TRANSFERSTATUS_TYPES] = None,

@@ -80,23 +80,24 @@ class OperationCapitalAdjustmentTest(unittest.TestCase):
             self.assertEqual(1, size1 - size0)
 
             softdelete_capital_adjustment(res["uuid"])
+            time.sleep(0.05)
             size2 = get_table_size(self.model)
-            self.assertEqual(0, size2 - size1)
+            self.assertEqual(-1, size2 - size1)
 
             delete_capital_adjustment(res["uuid"])
             size2 = get_table_size(self.model)
             self.assertEqual(-1, size2 - size1)
 
-    def test_OperationCapitalAdjustment_delete_by_code_and_date_range(self) -> None:
-        # TODO
-        pass
+    #     def test_OperationCapitalAdjustment_delete_by_code_and_date_range(self) -> None:
+    #         # TODO
+    #         pass
 
-    def test_OperationCapitalAdjustment_softdelete_by_code_and_date_range(self) -> None:
-        # TODO
-        pass
+    #     def test_OperationCapitalAdjustment_softdelete_by_code_and_date_range(self) -> None:
+    #         # TODO
+    #         pass
 
-    def test_OperationCapitalAdjustment_update(self) -> None:
-        pass
+    #     def test_OperationCapitalAdjustment_update(self) -> None:
+    #         pass
 
     def test_OperationCapitalAdjustment_get(self) -> None:
         l = []
@@ -110,24 +111,24 @@ class OperationCapitalAdjustmentTest(unittest.TestCase):
         add_capital_adjustments(l)
         size1 = get_table_size(self.model)
         self.assertEqual(self.count, size1 - size0)
-        df = get_capital_adjustments(code=code)
+        df = get_capital_adjustments_page_filtered(code=code)
         self.assertEqual(df.shape[0], len(self.params))
 
-    def test_OperationCapitalAdjustment_get_with_date_range(self) -> None:
-        l = []
-        size0 = get_table_size(self.model)
-        code = uuid.uuid4().hex
-        for i in range(self.count):
-            params_copy = self.params[i].copy()
-            params_copy["code"] = code
-            item = self.model(**params_copy)
-            l.append(item)
-        add_capital_adjustments(l)
-        size1 = get_table_size(self.model)
-        self.assertEqual(self.count, size1 - size0)
-        df = get_capital_adjustments(code=code)
-        self.assertEqual(df.shape[0], len(self.params))
-        # TODO date range
+        def test_OperationCapitalAdjustment_get_with_date_range(self) -> None:
+            l = []
+            size0 = get_table_size(self.model)
+            code = uuid.uuid4().hex
+            for i in range(self.count):
+                params_copy = self.params[i].copy()
+                params_copy["code"] = code
+                item = self.model(**params_copy)
+                l.append(item)
+            add_capital_adjustments(l)
+            size1 = get_table_size(self.model)
+            self.assertEqual(self.count, size1 - size0)
+            df = get_capital_adjustments_page_filtered(code=code)
+            self.assertEqual(df.shape[0], len(self.params))
+            # TODO date range
 
     def test_OperationCapitalAdjustment_exists(self) -> None:
         pass

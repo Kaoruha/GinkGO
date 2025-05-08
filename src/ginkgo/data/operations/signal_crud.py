@@ -57,14 +57,11 @@ def add_signals(signals: List[Union[MSignal, Signal]], *args, **kwargs):
 def delete_signal(id: str, *argss, **kwargs):
     session = get_click_connection().session
     model = MSignal
-    filters = [model.uuid == id]
+    sql = f"DELETE FROM {model.__tablename__} WHERE uuid = :id"
+    params = {"id": id}
     try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_signal_by_id: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        session.execute(text(sql), params)
+        session.commit()
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -77,9 +74,7 @@ def softdelete_signal(id: str, *argss, **kwargs):
     return delete_signal(id, *argss, **kwargs)
 
 
-def delete_signal_by_portfolio_and_date_range(
-    portfolio_id: str, start_date: any = None, end_date: any = None, *argss, **kwargs
-):
+def delete_signal_filtered(portfolio_id: str, start_date: any = None, end_date: any = None, *argss, **kwargs):
     # Sqlalchemy ORM seems not work on clickhouse when multi delete.
     # Use sql
     session = get_click_connection().session
@@ -102,9 +97,7 @@ def delete_signal_by_portfolio_and_date_range(
         get_click_connection().remove_session()
 
 
-def softdelete_signal_by_portfolio_and_date_range(
-    portfolio_id: str, start_date: any = None, end_date: any = None, *argss, **kwargs
-):
+def softdelete_signal_filtered(portfolio_id: str, start_date: any = None, end_date: any = None, *argss, **kwargs):
     return delete_signal_by_portfolio_and_date_range(portfolio_id, start_date, end_date, *argss, **kwargs)
 
 
@@ -131,7 +124,7 @@ def get_signal(
         get_click_connection().remove_session()
 
 
-def get_signals(
+def get_signals_page_filtered(
     portfolio_id: str,
     code: Optional[str] = None,
     direction: Optional[DIRECTION_TYPES] = None,

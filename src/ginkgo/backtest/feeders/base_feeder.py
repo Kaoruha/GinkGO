@@ -3,7 +3,7 @@ import pandas as pd
 
 from ginkgo.libs import datetime_normalize, cache_with_expiration
 from ginkgo.backtest.backtest_base import BacktestBase
-from ginkgo.data.operations import get_bars
+from ginkgo.data.operations import get_bars_page_filtered
 
 
 class BaseFeeder(BacktestBase):
@@ -63,15 +63,8 @@ class BaseFeeder(BacktestBase):
             self.log("ERROR", f"CurrentDate: {self.now} you can not get the past({datetime}) info.")
             return pd.DataFrame()
 
-        df = get_bars(code, start_date=date, end_date=date)
+        df = get_bars_page_filtered(code, start_date=date, end_date=date)
         return df
-
-    def on_time_goes_by(self, time: any, *args, **kwargs) -> None:
-        """
-        Go next frame.
-        """
-        # Time goes
-        super(BaseFeeder, self).on_time_goes_by(time, *args, **kwargs)
 
     def get_tracked_symbols(self, *args, **kwargs) -> None:
         self.log("INFO", f"Get interested codes from {[i.name for i in self._subscribers]}")

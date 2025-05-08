@@ -136,7 +136,7 @@ def get_engine(
         get_mysql_connection().remove_session()
 
 
-def get_engines(
+def get_engines_page_filtered(
     name: Optional[str] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,

@@ -19,17 +19,36 @@ class BacktestBase(object):
 
     def __init__(self, name: str = "backtest_base", *args, **kwargs) -> None:
         self._now: datetime.datetime = None
+        self._uuid: str = uuid.uuid4().hex
         self._engine_id: str = uuid.uuid4().hex
+        self._engine_put = None
         self.set_name(str(name))
         self.loggers = []
         self.add_logger(GLOG)
 
     @property
     def uuid(self) -> str:
-        return self._engine_id
+        """
+        Unique ID.
+        """
+        return self._uuid
 
     @property
     def engine_id(self) -> str:
+        """
+        As same as backtest id. But more property at live time.
+        """
+        return self._engine_id
+
+    @engine_id.setter
+    def engine_id(self, value) -> None:
+        self._engine_id = engine_id
+
+    @property
+    def backtest_id(self) -> str:
+        """
+        ID for Backtest.
+        """
         return self._engine_id
 
     @engine_id.setter

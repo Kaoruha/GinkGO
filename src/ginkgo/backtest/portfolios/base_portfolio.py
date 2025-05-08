@@ -2,6 +2,7 @@ import uuid
 import datetime
 from rich.console import Console
 from typing import TYPE_CHECKING, List, Dict
+from abc import ABC, abstractmethod
 from decimal import Decimal
 
 
@@ -26,7 +27,7 @@ from ginkgo.libs import GCONF, to_decimal
 console = Console()
 
 
-class BasePortfolio(BacktestBase):
+class BasePortfolio(BacktestBase, ABC):
     def __init__(
         self,
         *args,
@@ -41,8 +42,8 @@ class BasePortfolio(BacktestBase):
         self._frozen: Decimal = Decimal("0")
         self._fee = Decimal("0")
         self._positions: dict = {}
-        self._strategies = []
-        self._sizer = None
+        self._strategies: List["StrategyBase"] = []
+        self._sizer: BaseSizer = None
         self._risk_manager = None
         self._selector = None
         self._analyzers: Dict[str, "BaseAnalyzer"] = {}
@@ -248,8 +249,7 @@ class BasePortfolio(BacktestBase):
             None
         """
         if not isinstance(engine, BaseEngine):
-            self.log("ERROR", f"EngineBind only support Type Engine, {type(BaseEngine)} {engine} is not supported.")
-            return
+            raise TypeError(f"Expected BaseEngine, got {type(engine)}")
         super(BasePortfolio, self).bind_engine(engine)
         for i in self.strategies:
             i.bind_engine(engine)
@@ -337,15 +337,6 @@ class BasePortfolio(BacktestBase):
             self.log("DEBUG", f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
         return self.frozen
 
-    def put(self, event) -> None:
-        """
-        Put event to eventengine.
-        """
-        if self._engine_put is None:
-            self.log("ERROR", f"Engine put not bind. Events can not put back to the engine.")
-            return
-        self._engine_put(event)
-
     def add_analyzer(self, analyzer: "BaseAnalyzer") -> None:
         """
         Add Analyzer.
@@ -382,7 +373,7 @@ class BasePortfolio(BacktestBase):
         return self.analyzers[key]
 
     @property
-    def positions(self) -> dict:
+    def positions(self) -> Dict[str, Position]:
         """
         Return Positions[dict] of portfolio
         """
@@ -523,5 +514,7 @@ class BasePortfolio(BacktestBase):
             "profit": self.profit,
             "worth": self.worth,
             "positions": self.positions,
+            "portfolio_id": self.portfolio_id,
+            "engine_id": self.engine_id,
         }
         return info

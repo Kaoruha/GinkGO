@@ -1,7 +1,10 @@
 import unittest
+import uuid
 import pandas as pd
 import datetime
+import random
 from time import sleep
+from decimal import Decimal
 from ginkgo.backtest.bar import Bar
 from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG
@@ -15,28 +18,19 @@ class BarTest(unittest.TestCase):
     def __init__(self, *args, **kwargs) -> None:
         super(BarTest, self).__init__(*args, **kwargs)
         self.dev = False
+
         self.params = [
             {
-                "code": "unittest_simcode",
-                "open": 10.1,
-                "high": 11,
-                "low": 9,
-                "close": 9.51,
-                "volume": 1991231,
-                "frequency": FREQUENCY_TYPES.DAY,
-                "timestamp": "2020-01-01 02:02:32",
-                "source": SOURCE_TYPES.TEST,
-            },
-            {
-                "code": "sh.0000001",
-                "open": 10,
-                "high": 11.1,
-                "low": 9.6,
-                "close": 9.4,
-                "volume": 10022,
-                "frequency": FREQUENCY_TYPES.DAY,
+                "code": uuid.uuid4().hex,
+                "open": Decimal(str(round(random.uniform(0, 100), 2))),
+                "high": Decimal(str(round(random.uniform(0, 100), 3))),
+                "low": Decimal(str(round(random.uniform(0, 100), 2))),
+                "close": Decimal(str(round(random.uniform(0, 100), 2))),
+                "volume": random.randint(0, 1000),
+                "amount": Decimal(str(round(random.uniform(0, 100), 2))),
+                "frequency": random.choice([i for i in FREQUENCY_TYPES]),
                 "timestamp": datetime.datetime.now(),
-                "source": SOURCE_TYPES.SINA,
+                "source": random.choice([i for i in SOURCE_TYPES]),
             },
         ]
 
@@ -55,6 +49,7 @@ class BarTest(unittest.TestCase):
                 i["low"],
                 i["close"],
                 i["volume"],
+                i["amount"],
                 i["frequency"],
                 i["timestamp"],
             )
@@ -65,15 +60,16 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.low, i["low"])
             self.assertEqual(b.close, i["close"])
             self.assertEqual(b.volume, i["volume"])
+            self.assertEqual(b.amount, i["amount"])
             self.assertEqual(b.source, i["source"])
             self.assertEqual(b.timestamp, datetime_normalize(i["timestamp"]))
             self.assertEqual(b.frequency, i["frequency"])
 
     def test_Bar_SetFromDataFrame(self) -> None:
         for i in self.params:
-            df = pd.DataFrame.from_dict(i, orient="index")
+            df = pd.DataFrame(i, index=[0])
+            df = df.iloc[0]
             b = Bar()
-            df = df[0]
             b.set(df)
             b.set_source(i["source"])
             self.assertEqual(b.code, df["code"])
@@ -81,6 +77,7 @@ class BarTest(unittest.TestCase):
             self.assertEqual(b.high, df["high"])
             self.assertEqual(b.low, df["low"])
             self.assertEqual(b.close, df["close"])
+            self.assertEqual(b.amount, df["amount"])
             self.assertEqual(b.volume, df["volume"])
             self.assertEqual(b.source, df["source"])
             self.assertEqual(b.timestamp, datetime_normalize(df["timestamp"]))
@@ -96,6 +93,7 @@ class BarTest(unittest.TestCase):
                 i["low"],
                 i["close"],
                 i["volume"],
+                i["amount"],
                 i["frequency"],
                 i["timestamp"],
             )
@@ -113,6 +111,7 @@ class BarTest(unittest.TestCase):
                 i["low"],
                 i["close"],
                 i["volume"],
+                i["amount"],
                 i["frequency"],
                 i["timestamp"],
             )

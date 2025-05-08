@@ -10,9 +10,10 @@ import datetime
 from abc import abstractmethod, ABCMeta
 from ginkgo.enums import EVENT_TYPES, SOURCE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize
+from ginkgo.backtest.backtest_base import BacktestBase
 
 
-class EventBase(object, metaclass=ABCMeta):
+class EventBase(BacktestBase, metaclass=ABCMeta):
     """
     事件基类
 
@@ -29,9 +30,28 @@ class EventBase(object, metaclass=ABCMeta):
         self._name = ""
         self.set_name(name)
         self._timestamp = datetime.datetime.now()
-        self._uuid = uuid.uuid4().hex
+        if "uuid" in kwargs:
+            self._uuid = kwargs["uuid"]
+        else:
+            self._uuid = uuid.uuid4().hex
+        if "engine_id" in kwargs:
+            self._engine_id = kwargs["engine_id"]
+        else:
+            self._engine_id = uuid.uuid4().hex
+        if "portfolio_id" in kwargs:
+            self._portfolio_id = kwargs["portfolio_id"]
+        else:
+            self._portfolio_id = uuid.uuid4().hex
         self._event_type = None
         self._source = SOURCE_TYPES.SIM
+
+    @property
+    def portfolio_id(self) -> str:
+        return self._portfolio_id
+
+    @portfolio_id.setter
+    def portfolio_id(self, value) -> str:
+        self._portfolio_id = value
 
     @property
     def name(self) -> str:

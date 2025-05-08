@@ -16,12 +16,12 @@ class MOrderRecord(MClickBase):
     __abstract__ = False
     __tablename__ = "order_record"
 
+    order_id: Mapped[str] = mapped_column(String(32), default="")
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
     engine_id: Mapped[str] = mapped_column(String(32), default="")
-    order_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     direction: Mapped[DIRECTION_TYPES] = mapped_column(Enum(DIRECTION_TYPES), default=DIRECTION_TYPES.LONG)
-    type: Mapped[ORDER_TYPES] = mapped_column(Enum(ORDER_TYPES), default=ORDER_TYPES.OTHER)
+    order_type: Mapped[ORDER_TYPES] = mapped_column(Enum(ORDER_TYPES), default=ORDER_TYPES.OTHER)
     status: Mapped[ORDERSTATUS_TYPES] = mapped_column(Enum(ORDERSTATUS_TYPES), default=ORDERSTATUS_TYPES.OTHER)
     volume: Mapped[int] = mapped_column(Integer, default=0)
     limit_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
@@ -39,11 +39,11 @@ class MOrderRecord(MClickBase):
     def _(
         self,
         order_id: str,
-        portfolio_id: Optional[str] = None,
-        engine_id: Optional[str] = None,
+        portfolio_id: str,
+        engine_id: str,
         code: Optional[str] = None,
         direction: Optional[DIRECTION_TYPES] = None,
-        type: Optional[ORDER_TYPES] = None,
+        order_type: Optional[ORDER_TYPES] = None,
         status: Optional[ORDERSTATUS_TYPES] = None,
         volume: Optional[int] = None,
         limit_price: Optional[Number] = None,
@@ -58,16 +58,14 @@ class MOrderRecord(MClickBase):
         **kwargs,
     ) -> None:
         self.order_id = order_id
-        if portfolio_id is not None:
-            self.portfolio_id = portfolio_id
-        if engine_id is not None:
-            self.engine_id = engine_id
+        self.portfolio_id = portfolio_id
+        self.engine_id = engine_id
         if code is not None:
             self.code = code
         if direction is not None:
             self.direction = direction
-        if type is not None:
-            self.type = type
+        if order_type is not None:
+            self.order_type = order_type
         if status is not None:
             self.status = status
         if volume is not None:
@@ -93,9 +91,10 @@ class MOrderRecord(MClickBase):
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.order_id = df["order_id"]
         self.portfolio_id = df["portfolio_id"]
+        self.engine_id = df["engine_id"]
         self.code = df["code"]
         self.direction = df["direction"]
-        self.type = df["type"]
+        self.order_type = df["order_type"]
         self.status = df["status"]
         self.volume = df["volume"]
         self.limit_price = to_decimal(df["limit_price"])
@@ -106,7 +105,6 @@ class MOrderRecord(MClickBase):
         self.fee = to_decimal(df["fee"])
         self.timestamp = datetime_normalize(df["timestamp"])
         self.portfolio_id = df["portfolio_id"]
-        self.engine_id = df["engine_id"]
         if "source" in df.keys():
             self.source = df["source"]
         self.update_at = datetime.datetime.now()

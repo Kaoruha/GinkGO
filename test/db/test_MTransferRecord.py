@@ -23,6 +23,7 @@ class ModelTransferRecordTest(unittest.TestCase):
         self.params = [
             {
                 "portfolio_id": uuid.uuid4().hex,
+                "engine_id": uuid.uuid4().hex,
                 "timestamp": datetime.datetime.now(),
                 "direction": random.choice([i for i in TRANSFERDIRECTION_TYPES]),
                 "market": random.choice([i for i in MARKET_TYPES]),
@@ -35,15 +36,9 @@ class ModelTransferRecordTest(unittest.TestCase):
 
     def test_ModelTransferRecord_Init(self) -> None:
         for i in self.params:
-            o = self.model(
-                portfolio_id=i["portfolio_id"],
-                timestamp=i["timestamp"],
-                direction=i["direction"],
-                market=i["market"],
-                money=i["money"],
-                status=i["status"],
-            )
+            o = self.model(**i)
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.direction, i["direction"])
             self.assertEqual(o.market, i["market"])
@@ -54,37 +49,39 @@ class ModelTransferRecordTest(unittest.TestCase):
         for i in self.params:
             o = self.model()
             # Update portfolio_id
-            o.update(i["portfolio_id"])
+            o.update(i["portfolio_id"], i["engine_id"])
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
 
             # Update timestamp
-            o.update(i["portfolio_id"], timestamp=i["timestamp"])
+            o.update(i["portfolio_id"], i["engine_id"], timestamp=i["timestamp"])
             self.assertEqual(o.timestamp, i["timestamp"])
 
             # Update direction
-            o.update(i["portfolio_id"], direction=i["direction"])
+            o.update(i["portfolio_id"], i["engine_id"], direction=i["direction"])
             self.assertEqual(o.direction, i["direction"])
 
             # Update market
-            o.update(i["portfolio_id"], market=i["market"])
+            o.update(i["portfolio_id"], i["engine_id"], market=i["market"])
             self.assertEqual(o.market, i["market"])
 
             # Update money
-            o.update(i["portfolio_id"], money=i["money"])
+            o.update(i["portfolio_id"], i["engine_id"], money=i["money"])
             self.assertEqual(o.money, i["money"])
 
             # Update status
-            o.update(i["portfolio_id"], status=i["status"])
+            o.update(i["portfolio_id"], i["engine_id"], status=i["status"])
             self.assertEqual(o.status, i["status"])
 
             # Update source
-            o.update(i["portfolio_id"], source=i["source"])
+            o.update(i["portfolio_id"], i["engine_id"], source=i["source"])
             self.assertEqual(o.source, i["source"])
 
         for i in self.params:
             o = self.model()
             o.update(
                 i["portfolio_id"],
+                i["engine_id"],
                 timestamp=i["timestamp"],
                 direction=i["direction"],
                 market=i["market"],
@@ -93,6 +90,7 @@ class ModelTransferRecordTest(unittest.TestCase):
                 source=i["source"],
             )
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.direction, i["direction"])
             self.assertEqual(o.market, i["market"])
@@ -106,6 +104,7 @@ class ModelTransferRecordTest(unittest.TestCase):
             df = pd.DataFrame.from_dict(i, orient="index")[0]
             o.update(df)
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.direction, i["direction"])
             self.assertEqual(o.market, i["market"])

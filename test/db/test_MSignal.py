@@ -35,10 +35,11 @@ class ModelSignalTest(unittest.TestCase):
         self.params = [
             {
                 "portfolio_id": uuid.uuid4().hex,
+                "engine_id": uuid.uuid4().hex,
+                "timestamp": datetime.datetime.now(),
                 "code": uuid.uuid4().hex,
                 "direction": random.choice([DIRECTION_TYPES.LONG, DIRECTION_TYPES.SHORT]),
                 "reason": "reason",
-                "timestamp": datetime.datetime.now(),
                 "source": random.choice([i for i in SOURCE_TYPES]),
             }
             for i in range(self.count)
@@ -48,6 +49,7 @@ class ModelSignalTest(unittest.TestCase):
         for i in self.params:
             o = self.model(
                 portfolio_id=i["portfolio_id"],
+                engine_id=i["engine_id"],
                 timestamp=i["timestamp"],
                 code=i["code"],
                 direction=i["direction"],
@@ -55,6 +57,7 @@ class ModelSignalTest(unittest.TestCase):
                 source=i["source"],
             )
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.direction, i["direction"])
@@ -65,27 +68,28 @@ class ModelSignalTest(unittest.TestCase):
         for i in self.params:
             o = self.model()
             # Update portidy
-            o.update(i["portfolio_id"])
+            o.update(i["portfolio_id"], i["engine_id"])
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
 
             # Update timestamp
-            o.update(i["portfolio_id"], timestamp=i["timestamp"])
+            o.update(i["portfolio_id"], i["engine_id"], timestamp=i["timestamp"])
             self.assertEqual(o.timestamp, i["timestamp"])
 
             # Update code
-            o.update(i["portfolio_id"], code=i["code"])
+            o.update(i["portfolio_id"], i["engine_id"], code=i["code"])
             self.assertEqual(o.code, i["code"])
 
             # Update direction
-            o.update(i["portfolio_id"], direction=i["direction"])
+            o.update(i["portfolio_id"], i["engine_id"], direction=i["direction"])
             self.assertEqual(o.direction, i["direction"])
 
             # Update reason
-            o.update(i["portfolio_id"], reason=i["reason"])
+            o.update(i["portfolio_id"], i["engine_id"], reason=i["reason"])
             self.assertEqual(o.reason, i["reason"])
 
             # Update source
-            o.update(i["portfolio_id"], source=i["source"])
+            o.update(i["portfolio_id"], i["engine_id"], source=i["source"])
             self.assertEqual(o.source, i["source"])
 
         # Update all
@@ -93,6 +97,7 @@ class ModelSignalTest(unittest.TestCase):
             o = self.model()
             o.update(
                 i["portfolio_id"],
+                i["engine_id"],
                 timestamp=i["timestamp"],
                 code=i["code"],
                 direction=i["direction"],
@@ -100,6 +105,7 @@ class ModelSignalTest(unittest.TestCase):
                 source=i["source"],
             )
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.direction, i["direction"])
@@ -112,6 +118,7 @@ class ModelSignalTest(unittest.TestCase):
             o = self.model()
             o.update(df)
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.code, i["code"])
             self.assertEqual(o.direction, i["direction"])

@@ -1,11 +1,12 @@
 import unittest
+import random
 import time
 import datetime
 import pandas as pd
+from decimal import Decimal
 from ginkgo.backtest.tick import Tick
 from ginkgo.libs import GLOG
 from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
-from ginkgo.data.ginkgo_data import GDATA
 
 
 class TickTest(unittest.TestCase):
@@ -20,18 +21,18 @@ class TickTest(unittest.TestCase):
         self.params = [
             {
                 "code": "sh.0000001",
-                "price": 10.2,
+                "price": Decimal(round(random.uniform(0, 100), 2)),
                 "volume": 100,
                 "timestamp": "2020-01-01 02:02:32",
-                "direction": TICKDIRECTION_TYPES.MINUSTICK,
+                "direction": TICKDIRECTION_TYPES.OTHER,
                 "source": SOURCE_TYPES.AKSHARE,
             },
             {
                 "code": "sh.0000001",
-                "price": 10,
+                "price": Decimal(round(random.uniform(0, 100), 2)),
                 "volume": 10022,
                 "timestamp": datetime.datetime.now(),
-                "direction": TICKDIRECTION_TYPES.PLUSTICK,
+                "direction": TICKDIRECTION_TYPES.OTHER,
                 "source": SOURCE_TYPES.YAHOO,
             },
         ]
@@ -39,8 +40,14 @@ class TickTest(unittest.TestCase):
     def test_Tick_Init(self) -> None:
         for i in self.params:
             t = Tick()
-            t.set(i["code"], i["price"], i["volume"], i["direction"], i["timestamp"])
-            t.set_source(i["source"])
+            t.set(
+                i["code"],
+                i["price"],
+                i["volume"],
+                i["direction"],
+                i["timestamp"],
+                i["source"],
+            )
             self.assertEqual(t.code, i["code"])
             self.assertEqual(t.price, i["price"])
             self.assertEqual(t.volume, i["volume"])
@@ -50,7 +57,14 @@ class TickTest(unittest.TestCase):
     def test_Tick_Set(self) -> None:
         for i in self.params:
             t = Tick()
-            t.set(i["code"], i["price"], i["volume"], i["direction"], i["timestamp"])
+            t.set(
+                i["code"],
+                i["price"],
+                i["volume"],
+                i["direction"],
+                i["timestamp"],
+                i["source"],
+            )
             t.set_source(i["source"])
             self.assertEqual(t.code, i["code"])
             self.assertEqual(t.price, i["price"])
@@ -60,11 +74,10 @@ class TickTest(unittest.TestCase):
 
     def test_Tick_SetFromDataFrame(self) -> None:
         for i in self.params:
-            df = pd.DataFrame.from_dict(i, orient="index")
-            df = df[0]
+            df = pd.DataFrame(i, index=[0])
+            df = df.iloc[0]
             t = Tick()
             t.set(df)
-            t.set_source(i["source"])
             self.assertEqual(t.code, i["code"])
             self.assertEqual(t.price, i["price"])
             self.assertEqual(t.volume, i["volume"])

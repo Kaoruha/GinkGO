@@ -133,7 +133,7 @@ class OperationPortfolioFileMappingTest(unittest.TestCase):
             params_copy = self.params[i].copy()
             params_copy["portfolio_id"] = new_portfolio_id
             add_portfolio_file_mapping(**params_copy)
-        df = get_portfolio_file_mappings(new_portfolio_id)
+        df = get_portfolio_file_mappings_page_filtered(portfolio_id=new_portfolio_id)
         self.assertEqual(df.shape[0], self.count)
 
     def test_OperationPortfolio_exceptions(self) -> None:

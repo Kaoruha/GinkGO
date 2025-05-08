@@ -238,7 +238,7 @@ class MatchMakingSim(MatchMakingBase):
         if order.direction == DIRECTION_TYPES.LONG:
             while volume >= 100:
                 transaction_money = transaction_price * volume
-                fee = self.cal_fee(transaction_price, True)
+                fee = self.cal_fee(transaction_money, True)
                 cost = transaction_money + fee
                 remain = order.frozen - cost
                 if remain < 0:
@@ -253,7 +253,7 @@ class MatchMakingSim(MatchMakingBase):
         order.transaction_price = transaction_price
         order.transaction_volume = volume
         transaction_money = transaction_price * order.volume
-        fee = self.cal_fee(transaction_price, order.direction == DIRECTION_TYPES.LONG)
+        fee = self.cal_fee(transaction_money, order.direction == DIRECTION_TYPES.LONG)
         order.fee = to_decimal(fee)
         remain = 0
         if order.direction == DIRECTION_TYPES.LONG:

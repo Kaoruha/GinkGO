@@ -46,14 +46,11 @@ def add_analyzer_records(records: List[MAnalyzerRecord]) -> None:
 def delete_analyzer_record(id: str, *args, **kwargs) -> None:
     session = get_click_connection().session
     model = MAnalyzerRecord
-    filters = [model.uuid == id]
+    sql = f"DELETE FROM {model.__tablename__} WHERE uuid = :id"
+    params = {"id": id}
     try:
-        query = session.query(model).filter(and_(*filters)).all()
-        if len(query) > 1:
-            GLOG.WARN(f"delete_analyzerrecord: id {id} has more than one record.")
-        for i in query:
-            session.delete(i)
-            session.commit()
+        session.execute(text(sql), params)
+        session.commit()
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -66,7 +63,7 @@ def softdelete_analyzer_record(id: str, *args, **kwargs) -> None:
     return delete_analyzer_record(id, *args, **kwargs)
 
 
-def delete_analyzer_records_by_portfolio_analyzer_and_date_range(
+def delete_analyzer_records_filtered(
     portfolio_id: str,
     analyzer_id: Optional[str] = None,
     start_date: Optional[any] = None,
@@ -99,7 +96,7 @@ def delete_analyzer_records_by_portfolio_analyzer_and_date_range(
         get_click_connection().remove_session()
 
 
-def softdelete_analyzer_records_by_portfolio_analyzer_and_date_range(
+def softdelete_analyzer_records_filtered(
     portfolio_id: str,
     analyzer_id: Optional[str] = None,
     start_date: Optional[any] = None,
@@ -119,10 +116,12 @@ def update_analyzer_record(self, *args, **kwargs):
     # Reinsert
     pass
 
+
 def get_analyzer_record():
     pass
 
-def get_analyzer_records(
+
+def get_analyzer_records_page_filtered(
     portfolio_id: str,
     analyzer_id: Optional[str] = None,
     start_date: Optional[any] = None,

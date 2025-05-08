@@ -89,7 +89,7 @@ def softdelete_adjustfactor(id: str, *args, **kwargs) -> None:
         get_mysql_connection().remove_session()
 
 
-def delete_adjustfactors_by_code_and_date_range(
+def delete_adjustfactors_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -114,7 +114,7 @@ def delete_adjustfactors_by_code_and_date_range(
         get_mysql_connection().remove_session()
 
 
-def softdelete_adjustfactors_by_code_and_date_range(
+def softdelete_adjustfactors_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -177,7 +177,7 @@ def update_adjustfactor(
         get_mysql_connection().remove_session()
 
 
-def update_adjustfactors_by_code_and_date_range(
+def update_adjustfactors_filtered(
     code: str,
     start_date: any,
     end_date: any,
@@ -247,7 +247,7 @@ def get_adjustfactor(id: str, as_dataframe: bool = True, *args, **kwargs) -> pd.
         get_mysql_connection().remove_session()
 
 
-def get_adjustfactors_by_code_and_date_range(
+def get_adjustfactors_page_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,

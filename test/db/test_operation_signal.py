@@ -25,6 +25,7 @@ class OperationSignalTest(unittest.TestCase):
         cls.params = [
             {
                 "portfolio_id": uuid.uuid4().hex,
+                "engine_id": uuid.uuid4().hex,
                 "timestamp": datetime.datetime.now(),
                 "code": uuid.uuid4().hex,
                 "direction": random.choice([i for i in DIRECTION_TYPES]),
@@ -72,9 +73,9 @@ class OperationSignalTest(unittest.TestCase):
             size2 = get_table_size(self.model)
             self.assertEqual(-1, size2 - size1)
 
-    def test_OperationSignal_update(self) -> None:
-        # No update
-        pass
+        def test_OperationSignal_update(self) -> None:
+            # No update
+            pass
 
     def test_OperationSignal_get_by_portfolio(self) -> None:
         l = []
@@ -88,12 +89,12 @@ class OperationSignalTest(unittest.TestCase):
         add_signals(l)
         size1 = get_table_size(self.model)
         self.assertEqual(len(self.params), size1 - size0)
-        res = get_signals(portfolio_id)
+        res = get_signals_page_filtered(portfolio_id)
         self.assertEqual(self.count, len(res))
-        df = get_signals(portfolio_id, as_dataframe=True)
+        df = get_signals_page_filtered(portfolio_id, as_dataframe=True)
         self.assertEqual(self.count, df.shape[0])
 
-    def test_OperationSignal_get_by_portfolio_and_code(self) -> None:
+    def test_OperationSignal_get_filtered(self) -> None:
         l = []
         portfolio_id = uuid.uuid4().hex
         code1 = uuid.uuid4().hex
@@ -101,14 +102,10 @@ class OperationSignalTest(unittest.TestCase):
         count1 = random.randint(1, 10)
         count2 = random.randint(1, 10)
         for i in range(count1):
-            item = Signal(
-                portfolio_id=portfolio_id,
-                timestamp=datetime.datetime.now(),
-                code=code1,
-                direction=random.choice([i for i in DIRECTION_TYPES]),
-                reason=uuid.uuid4().hex,
-                source=random.choice([i for i in SOURCE_TYPES]),
-            )
+            params_copy = self.params[i % len(self.params)].copy()
+            params_copy["code"] = code1
+            params_copy["portfolio_id"] = portfolio_id
+            item = Signal(**params_copy)
             l.append(item)
         size0 = get_table_size(self.model)
         add_signals(l)
@@ -117,44 +114,45 @@ class OperationSignalTest(unittest.TestCase):
 
         l = []
         for i in range(count2):
-            item = Signal(
-                portfolio_id=portfolio_id,
-                timestamp=datetime.datetime.now(),
-                code=code2,
-                direction=random.choice([i for i in DIRECTION_TYPES]),
-                reason=uuid.uuid4().hex,
-                source=random.choice([i for i in SOURCE_TYPES]),
-            )
+            params_copy = self.params[i % len(self.params)].copy()
+            params_copy["code"] = code2
+            params_copy["portfolio_id"] = portfolio_id
+            item = Signal(**params_copy)
             l.append(item)
-        size2 = get_table_size(self.model)
         add_signals(l)
-        size3 = get_table_size(self.model)
-        self.assertEqual(count2, size3 - size2)
+        size2 = get_table_size(self.model)
+        self.assertEqual(count2, size2 - size1)
 
-        res = get_signals(portfolio_id, code=code1)
+        res = get_signals_page_filtered(portfolio_id=portfolio_id, code=code1)
         self.assertEqual(count1, len(res))
-        df = get_signals(portfolio_id, code=code1, as_dataframe=True)
+        df = get_signals_page_filtered(portfolio_id=portfolio_id, code=code1, as_dataframe=True)
         self.assertEqual(count1, df.shape[0])
 
-        res = get_signals(portfolio_id, code=code2)
+        res = get_signals_page_filtered(portfolio_id=portfolio_id, code=code2)
         self.assertEqual(count2, len(res))
-        df = get_signals(portfolio_id, code=code2, as_dataframe=True)
+        df = get_signals_page_filtered(portfolio_id=portfolio_id, code=code2, as_dataframe=True)
         self.assertEqual(count2, df.shape[0])
 
     def test_OperationSignal_get_by_portfolio_and_direction(self) -> None:
+        # TODO
         pass
 
     def test_OperationSignal_get_by_portfolio_and_reason(self) -> None:
+        # TODO
         pass
 
     def test_OperationSignal_get_by_portfolio_and_daet_range(self) -> None:
+        # TODO
         pass
 
     def test_OperationSignal_get_by_portfolio_and_paginazion(self) -> None:
+        # TODO
         pass
 
-    # def test_OperationSignal_exists(self) -> None:
-    #     pass
+    def test_OperationSignal_exists(self) -> None:
+        # TODO
+        pass
 
-    # def test_OperationSignal_exceptions(self) -> None:
-    #     pass
+    def test_OperationSignal_exceptions(self) -> None:
+        # TODO
+        pass

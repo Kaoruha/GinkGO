@@ -142,8 +142,8 @@ def get_engine_handler_mapping(
         get_mysql_connection().remove_session()
 
 
-def get_engine_handler_mappings(
-    engine_id: str=None,
+def get_engine_handler_mappings_page_filtered(
+    engine_id: str = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
     *args,

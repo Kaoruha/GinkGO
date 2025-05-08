@@ -81,7 +81,7 @@ def add_ticks(ticks: List[Tick] = None, *args, **kwargs):
         add_all(v, *args, **kwargs)
 
 
-def delete_ticks(
+def delete_ticks_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -110,7 +110,7 @@ def delete_ticks(
         get_click_connection().remove_session()
 
 
-def softdelete_tick_by_code_and_date_range(
+def softdelete_tick_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -127,7 +127,7 @@ def update_tick(tick: Union[MTick, Tick], connection: Optional[GinkgoClickhouse]
     pass
 
 
-def get_ticks(
+def get_ticks_page_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -140,7 +140,6 @@ def get_ticks(
     session = get_click_connection().session
     model = get_tick_model(code)
     filters = [model.code == code]
-
     if start_date is not None:
         start_date = datetime_normalize(start_date)
         filters.append(model.timestamp >= start_date)
@@ -149,15 +148,13 @@ def get_ticks(
         end_date = datetime_normalize(end_date)
         filters.append(model.timestamp <= end_date)
 
-    stmt = session.query(model).filter(and_(*filters))  # New api not work on dataframe convert
+    stmt = session.query(model).filter(and_(*filters)).order_by(model.timestamp)  # New api not work on dataframe convert
     if page is not None and page_size is not None:
         stmt = stmt.offset(page * page_size).limit(page_size)
     else:
         if start_date is None and end_date is None:
-            GLOG.WARN("Get Ticks with out date range and pagination is not suggeted.")
-            return pd.DataFrame() if as_dataframe else None
+            GLOG.WARN("Get Ticks without date range and pagination is not suggeted. Please add filters to avoid unexpected result.")
     try:
-
         if as_dataframe:
             df = pd.read_sql(stmt.statement, session.connection())
             return df

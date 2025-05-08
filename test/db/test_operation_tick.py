@@ -37,10 +37,6 @@ class OperationTickTest(unittest.TestCase):
             for i in range(cls.count)
         ]
 
-    @classmethod
-    def tearDownClass(cls):
-        drop_table(cls.model)
-
     def test_OperationTick_insert(self) -> None:
         for i in self.params:
             size0 = get_table_size(self.model)
@@ -83,8 +79,9 @@ class OperationTickTest(unittest.TestCase):
         finally:
             drop_table(new_model)
 
-    # def test_OperationTick_update(self) -> None:
-    #     pass
+    def test_OperationTick_update(self) -> None:
+        # No update 
+        pass
 
     def test_OperationTick_get(self) -> None:
         # in format Tick
@@ -101,23 +98,23 @@ class OperationTickTest(unittest.TestCase):
         size1 = get_table_size(self.model)
         self.assertEqual(self.count, size1 - size0)
 
-        res = get_ticks(code=new_code)
+        res = get_ticks_page_filtered(code=new_code)
         self.assertEqual(len(res) >= self.count, True)
 
-        df = get_ticks(code=new_code, as_dataframe=True)
+        df = get_ticks_page_filtered(code=new_code, as_dataframe=True)
         self.assertEqual(df.shape[0] >= self.count, True)
 
-    def test_OperationTick_get_by_date_range(self) -> None:
-        pass
+#     def test_OperationTick_get_by_date_range(self) -> None:
+#         pass
 
-    def test_OperationTick_get_by_pagination(self) -> None:
-        pass
+#     def test_OperationTick_get_by_pagination(self) -> None:
+#         pass
 
-    def test_OperationTick_softdelete(self) -> None:
-        pass
+#     def test_OperationTick_softdelete(self) -> None:
+#         pass
 
-    # def test_OperationTick_exists(self) -> None:
-    #     pass
+#     # def test_OperationTick_exists(self) -> None:
+#     #     pass
 
-    # def test_OperationTick_exceptions(self) -> None:
-    #     pass
+#     # def test_OperationTick_exceptions(self) -> None:
+#     #     pass

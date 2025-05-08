@@ -66,7 +66,7 @@ class OperationBarTest(unittest.TestCase):
             df = add_bar(**i)
             uuid = df.uuid
             size1 = get_table_size(self.model)
-            self.assertEqual(size0 + 1, size1)
+            self.assertEqual(1, size1 - size0)
             delete_bar(uuid)
             time.sleep(0.01)
             size2 = get_table_size(self.model)
@@ -104,7 +104,7 @@ class OperationBarTest(unittest.TestCase):
         add_bars(l)
         size1 = get_table_size(self.model)
         self.assertEqual(self.count, size1 - size0)
-        delete_bars_by_code_and_date_range(code=code)
+        delete_bars_filtered(code=code)
         size2 = get_table_size(self.model)
         self.assertEqual(size2, size0)
 
@@ -129,7 +129,7 @@ class OperationBarTest(unittest.TestCase):
         add_bars(l)
         size1 = get_table_size(self.model)
         self.assertEqual(self.count, size1 - size0)
-        delete_bars_by_code_and_date_range(code=code, start_date=now, end_date=now)
+        delete_bars_filtered(code=code, start_date=now, end_date=now)
         size2 = get_table_size(self.model)
         self.assertEqual(size2, size0)
 
@@ -183,19 +183,19 @@ class OperationBarTest(unittest.TestCase):
         size1 = get_table_size(self.model)
         self.assertEqual(3, size1 - size0)
 
-        res = get_bars(code=code)
+        res = get_bars_page_filtered(code=code)
         self.assertEqual(3, len(res))
 
-        res = get_bars(code=code, start_date="2020-01-02")
+        res = get_bars_page_filtered(code=code, start_date="2020-01-02")
         self.assertEqual(2, len(res))
 
-        res = get_bars(code=code, start_date="2020-01-02", end_date="2020-01-02")
+        res = get_bars_page_filtered(code=code, start_date="2020-01-02", end_date="2020-01-02")
         self.assertEqual(1, len(res))
 
-        res = get_bars(code=code, page=0, page_size=2)
+        res = get_bars_page_filtered(code=code, page=0, page_size=2)
         self.assertEqual(2, len(res))
 
-        res = get_bars(code=code, page=1, page_size=2)
+        res = get_bars_page_filtered(code=code, page=1, page_size=2)
         self.assertEqual(1, len(res))
 
     def test_OperationBar_get_in_dataframe(self) -> None:
@@ -245,19 +245,19 @@ class OperationBarTest(unittest.TestCase):
         size1 = get_table_size(self.model)
         self.assertEqual(3, size1 - size0)
 
-        res = get_bars(code=code, as_dataframe=True)
+        res = get_bars_page_filtered(code=code, as_dataframe=True)
         self.assertEqual(3, res.shape[0])
 
-        res = get_bars(code=code, start_date="2020-01-02", as_dataframe=True)
+        res = get_bars_page_filtered(code=code, start_date="2020-01-02", as_dataframe=True)
         self.assertEqual(2, res.shape[0])
 
-        res = get_bars(code=code, start_date="2020-01-02", end_date="2020-01-02", as_dataframe=True)
+        res = get_bars_page_filtered(code=code, start_date="2020-01-02", end_date="2020-01-02", as_dataframe=True)
         self.assertEqual(1, res.shape[0])
 
-        res = get_bars(code=code, page=0, page_size=2, as_dataframe=True)
+        res = get_bars_page_filtered(code=code, page=0, page_size=2, as_dataframe=True)
         self.assertEqual(2, res.shape[0])
 
-        res = get_bars(code=code, page=1, page_size=2, as_dataframe=True)
+        res = get_bars_page_filtered(code=code, page=1, page_size=2, as_dataframe=True)
         self.assertEqual(1, res.shape[0])
 
     def test_OperationBar_exceptions(self) -> None:

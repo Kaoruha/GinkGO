@@ -22,11 +22,12 @@ class ModelAnalyzerRecordTest(unittest.TestCase):
         self.model = MAnalyzerRecord
         self.params = [
             {
-                "name": uuid.uuid4().hex,
                 "portfolio_id": uuid.uuid4().hex,
-                "value": Decimal(str(round(random.uniform(0, 100), 2))),
+                "engine_id": uuid.uuid4().hex,
                 "timestamp": datetime.datetime.now(),
+                "value": Decimal(str(round(random.uniform(0, 100), 2))),
                 "analyzer_id": uuid.uuid4().hex,
+                "name": uuid.uuid4().hex,
             }
             for i in range(self.count)
         ]
@@ -34,48 +35,54 @@ class ModelAnalyzerRecordTest(unittest.TestCase):
     def test_ModelAnalyzerRecord_Init(self) -> None:
         for i in self.params:
             o = self.model(
-                name=i["name"],
-                value=i["value"],
                 portfolio_id=i["portfolio_id"],
-                analyzer_id=i["analyzer_id"],
+                engine_id=i["engine_id"],
                 timestamp=i["timestamp"],
+                value=i["value"],
+                analyzer_id=i["analyzer_id"],
+                name=i["name"],
             )
-            self.assertEqual(o.name, i["name"])
-            self.assertEqual(o.value, i["value"])
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
-            self.assertEqual(o.analyzer_id, i["analyzer_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
             self.assertEqual(o.timestamp, i["timestamp"])
+            self.assertEqual(o.value, i["value"])
+            self.assertEqual(o.analyzer_id, i["analyzer_id"])
+            self.assertEqual(o.name, i["name"])
 
     def test_ModelAnalyzerRecord_SetFromData(self) -> None:
         for i in self.params:
             o = self.model()
-            o.update(i["portfolio_id"])
+            o.update(i["portfolio_id"], i["engine_id"])
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
-            o.update(i["portfolio_id"], timestamp=i["timestamp"])
+            self.assertEqual(o.engine_id, i["engine_id"])
+            o.update(i["portfolio_id"], i["engine_id"], timestamp=i["timestamp"])
             self.assertEqual(i["timestamp"], o.timestamp)
 
-            o.update(i["portfolio_id"], value=i["value"])
+            o.update(i["portfolio_id"], i["engine_id"], value=i["value"])
             self.assertEqual(o.value, i["value"])
 
-            o.update(i["portfolio_id"], name=i["name"])
+            o.update(i["portfolio_id"], i["engine_id"], name=i["name"])
             self.assertEqual(o.name, i["name"])
 
-            o.update(i["portfolio_id"], analyzer_id=i["analyzer_id"])
+            o.update(i["portfolio_id"], i["engine_id"], analyzer_id=i["analyzer_id"])
             self.assertEqual(o.analyzer_id, i["analyzer_id"])
         for i in self.params:
             o = self.model()
             o.update(
                 i["portfolio_id"],
+                engine_id=i["engine_id"],
                 timestamp=i["timestamp"],
                 value=i["value"],
-                name=i["name"],
                 analyzer_id=i["analyzer_id"],
+                name=i["name"],
             )
             self.assertEqual(o.portfolio_id, i["portfolio_id"])
+            self.assertEqual(o.engine_id, i["engine_id"])
             self.assertEqual(o.timestamp, i["timestamp"])
             self.assertEqual(o.value, i["value"])
-            self.assertEqual(o.name, i["name"])
             self.assertEqual(o.analyzer_id, i["analyzer_id"])
+            self.assertEqual(o.name, i["name"])
 
     def test_ModelAnalyzerRecord_SetFromDataFrame(self) -> None:
+        # TODO
         pass

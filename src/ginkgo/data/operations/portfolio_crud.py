@@ -146,7 +146,7 @@ def get_portfolio(
         get_mysql_connection().remove_session()
 
 
-def get_portfolios(
+def get_portfolios_page_filtered(
     name: Optional[str] = None,
     is_live: Optional[bool] = None,
     backtest_start_date: Optional[any] = None,

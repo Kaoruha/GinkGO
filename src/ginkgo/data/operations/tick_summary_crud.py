@@ -39,7 +39,8 @@ def add_tick_summarys(tick_summarys: List[MTickSummary] = None, *args, **kwargs)
     return add_all(l)
 
 
-def delete_tick_summary_by_id(id: str, *args, **kwargs) -> int:
+def delete_tick_summary(id: str, *args, **kwargs) -> int:
+    # TODO
     session = get_click_connection().session
     model = MTickSummary
     filters = [model.uuid == id]
@@ -57,12 +58,12 @@ def delete_tick_summary_by_id(id: str, *args, **kwargs) -> int:
         get_click_connection().remove_session()
 
 
-def softdelete_tick_summary_by_id(id: str, *args, **kwargs) -> int:
+def softdelete_tick_summary(id: str, *args, **kwargs) -> int:
     GLOG.WARN("Tick Summary not support softdelete, run delete instead.")
     return delete_tick_summary_by_id(id)
 
 
-def delete_tick_summary_by_code_and_date_range(
+def delete_tick_summaries_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -91,7 +92,7 @@ def delete_tick_summary_by_code_and_date_range(
         get_click_connection().remove_session()
 
 
-def softdelete_tick_summary_by_code_and_date_range(
+def softdelete_tick_summaries_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -108,7 +109,7 @@ def update_tick_summary(tick_summary, connection: Optional[GinkgoClickhouse] = N
     pass
 
 
-def get_tick_summarys(
+def get_tick_summaries_page_filtered(
     code: str,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,

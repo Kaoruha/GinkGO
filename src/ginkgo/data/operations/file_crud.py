@@ -154,7 +154,7 @@ def get_file_content(id: str, *args, **kwargs) -> bytes:
         get_mysql_connection().remove_session()
 
 
-def get_files(
+def get_files_page_filtered(
     type: Optional[FILE_TYPES] = None,
     name: Optional[str] = None,
     page: Optional[int] = None,
