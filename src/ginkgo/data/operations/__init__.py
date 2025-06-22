@@ -124,32 +124,38 @@ def get_engines_page_filtered(*args, **kwargs):
     return func(*args, **kwargs)
 
 
-live_engine_status_name = "live_engine_status"
+def update_engine(*args, **kwargs):
+    from ginkgo.data.operations.engine_crud import update_engine as func
+
+    return func(*args, **kwargs)
 
 
-def update_live_engine_status(engine_id: str, status: str, *args, **kwargs):
-    global live_engine_status_name
+engine_status_name = "live_engine_status"
+
+
+def update_engine_status(engine_id: str, status: str, *args, **kwargs):
+    global engine_status_name
     from ginkgo.data.drivers import create_redis_connection
 
     redis = create_redis_connection()
-    r = hset(live_engine_status_name, engine_id, status)
+    r = redis.hset(engine_status_name, engine_id, status)
 
 
-def get_live_engine_status(engine_id: str, *args, **kwargs):
-    global live_engine_status_name
+def get_engine_status(engine_id: str, *args, **kwargs):
+    global engine_status_name
     from ginkgo.data.drivers import create_redis_connection
 
-    redis = create_redis_connection()
-    value = r.hget(live_engine_status_name, engine_id)
+    r = create_redis_connection()
+    value = r.hget(engine_status_name, engine_id)
     return value
 
 
-def delete_live_engine_status(engine_id: str, *args, **kwargs):
-    global live_engine_status_name
+def delete_engine_status(engine_id: str, *args, **kwargs):
+    global engine_status_name
     from ginkgo.data.drivers import create_redis_connection
 
-    redis = create_redis_connection()
-    value = r.hdel(live_engine_status_name, engine_id)
+    r = create_redis_connection()
+    value = r.hdel(engine_status_name, engine_id)
     # TODO
 
 
@@ -456,6 +462,12 @@ def get_portfolios_page_filtered(*args, **kwargs):
     return func(*args, **kwargs)
 
 
+def update_portfolio(*args, **kwargs):
+    from ginkgo.data.operations.portfolio_crud import update_portfolio as func
+
+    return func(*args, **kwargs)
+
+
 # Handler CRUD
 def add_handler(*args, **kwargs):
     from ginkgo.data.operations.handler_crud import add_handler as func
@@ -634,11 +646,12 @@ def get_stockinfos_filtered(*args, **kwargs):
 # TODO
 # Tick CRUD
 def ensure_tick_table(func):
-    from ginkgo.data.drivers import create_table
-    from ginkgo.data.operations.tick_crud import get_tick_model
 
     @wraps(func)
     def wrapper(*args, **kwargs):
+        from ginkgo.data.drivers import create_table
+        from ginkgo.data.operations.tick_crud import get_tick_model
+
         try:
             if "code" in kwargs and isinstance(kwargs["code"], str):
                 model = get_tick_model(code=kwargs["code"])

@@ -601,7 +601,7 @@ def init_example_data(*args, **kwargs):
 
     # Portfolio
     example_portfolio_name = "portfolio_example"
-    df = get_portfolios_page_filtered(example_portfolio_name)
+    df = get_portfolios_page_filtered(name=example_portfolio_name)
     if df.shape[0] > 1:
         ids = df["uuid"].values.tolist()
         delete_portfolios(ids=ids)
@@ -621,7 +621,12 @@ def init_example_data(*args, **kwargs):
     console.print(f":sun:  [medium_spring_green]CREATE[/] Example portfolio.")
     # TODO Multi portfolios
     # Engine_Portfolio_Mapping
-    engine_portfolio_mapping = add_engine_portfolio_mapping(engine_id=engine_data.uuid, portfolio_id=portfolio.uuid)
+    engine_portfolio_mapping = add_engine_portfolio_mapping(
+        engine_id=engine_data.uuid,
+        portfolio_id=portfolio.uuid,
+        engine_name=example_engine_name,
+        portfolio_name=example_portfolio_name,
+    )
     console.print(f":sun:  [medium_spring_green]CREATE[/] Example engine portfolio mapping.")
     # Portfolio File Mapping
     strategy_names = ["random_choice", "loss_limit"]
@@ -856,6 +861,88 @@ def remove_from_redis(key: str, *args, **kwargs):
 
     conn = create_redis_connection()
     conn.delete(key)
+
+
+def clean_portfolio_file_mapping(*args, **kwargs):
+    from ginkgo.data.operations import (
+        get_portfolio_file_mappings_page_filtered,
+        get_portfolio,
+        delete_portfolio_file_mapping,
+    )
+
+    # Get all portfolio file mappings
+    df = get_portfolio_file_mappings_page_filtered()
+    todo_list = []
+    for i, r in df.iterrows():
+        uuid = r["uuid"]
+        portfolio_id = r["portfolio_id"]
+        portfolio = get_portfolio(id=portfolio_id, as_dataframe=True)
+        if portfolio.shape[0] == 0:
+            todo_list.append(uuid)
+            continue
+        file_id = r["file_id"]
+        file = get_file(id=file_id, as_dataframe=True)
+        if file.shape[0] == 0:
+            todo_list.append(uuid)
+    if len(todo_list) == 0:
+        console.print("There is no dirty data in portfolio-file mappings.")
+        return
+    with Progress() as progress:
+        task = progress.add_task("[red]Deleting portfolio-file mappings...", total=len(todo_list))
+        for i in todo_list:
+            try:
+                delete_portfolio_file_mapping(i)
+                progress.console.print(f"[red]Deleting {i}[/]")
+                # 模拟延迟删除
+                time.sleep(0.1)
+            except Exception as e:
+                progress.console.print(f"[yellow]Failed to delete:[/] {i} -> {e}")
+            finally:
+                progress.update(task, advance=1)
+
+
+def clean_engine_portfolio_mapping(*args, **kwargs):
+    from ginkgo.data.operations import (
+        get_engine_portfolio_mappings_page_filtered,
+        get_portfolio,
+        get_engine,
+        delete_engine_portfolio_mapping,
+    )
+
+    df = get_engine_portfolio_mappings_page_filtered()
+    todo_list = []
+    for i, r in df.iterrows():
+        uuid = r["uuid"]
+        engine_id = r["engine_id"]
+        portfolio_id = r["portfolio_id"]
+        engine = get_engine(id=engine_id, as_dataframe=True)
+        if engine.shape[0] == 0:
+            todo_list.append(uuid)
+            continue
+        portfolio = get_portfolio(id=portfolio_id, as_dataframe=True)
+        if portfolio.shape[0] == 0:
+            todo_list.append(uuid)
+            continue
+    if len(todo_list) == 0:
+        console.print("There is no dirty data in engine-portfolio mappings.")
+        return
+    with Progress() as progress:
+        task = progress.add_task("[red]Deleting engine-portfolio mappings...", total=len(todo_list))
+        for i in todo_list:
+            try:
+                delete_engine_portfolio_mapping(i)
+                progress.console.print(f"[red]Deleting {i}[/]")
+                # 模拟延迟删除
+                time.sleep(0.1)
+            except Exception as e:
+                progress.console.print(f"[yellow]Failed to delete:[/] {i} -> {e}")
+            finally:
+                progress.update(task, advance=1)
+
+    # Get all engine portfolio mappings
+    # iterrows and check if engine exist or if portfolio exist
+    # if not , remove the record
+    pass
 
 
 __all__ = [name for name, obj in inspect.getmembers(inspect.getmodule(inspect.currentframe()), inspect.isfunction)]

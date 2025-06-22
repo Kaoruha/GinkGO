@@ -17,7 +17,13 @@ def create_mapping_engine_portfolio(
     Create [bold medium_spring_green]MAPPING[/] [gray62]PORTFOLIO >> ENGINE.[/]
     """
     # Check engine exsist
-    from ginkgo.data.operations import get_engine, get_portfolio, get_engine_portfolio_mappings, add_engine_portfolio_mapping
+    from ginkgo.data.operations import (
+        get_engine,
+        get_portfolio,
+        get_engine_portfolio_mappings,
+        add_engine_portfolio_mapping,
+    )
+
     engine_df = get_engine(engine)
     if engine_df.shape[0] == 0:
         console.print(f"Engine {engine} not exist. Please check the id again.")
@@ -29,13 +35,20 @@ def create_mapping_engine_portfolio(
         return
     # Try get mapping by engine
     mapping_df = get_engine_portfolio_mappings(engine)
-    if (mapping_df['portfolio_id']==portfolio).any():
-        console.print(f"Mapping Portfolio_[bold medium_spring_green]{portfolio}[/] >> Engine_[bold medium_spring_green]{engine}[/] already exists.")
+    if (mapping_df["portfolio_id"] == portfolio).any():
+        console.print(
+            f"Mapping Portfolio_[bold medium_spring_green]{portfolio}[/] >> Engine_[bold medium_spring_green]{engine}[/] already exists."
+        )
         return
     # Check if mapping about engine and portfolio exists
 
     # create new mapping
-    res = add_engine_portfolio_mapping(engine_id=engine, portfolio_id=portfolio)
+    res = add_engine_portfolio_mapping(
+        engine_id=engine,
+        portfolio_id=portfolio,
+        engine_name=engine_df["name"].values[0],
+        portfolio_name=portfolio_df["name"].values[0],
+    )
     if res is not None:
         print(res.uuid)
     else:

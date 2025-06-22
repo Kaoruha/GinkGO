@@ -96,6 +96,7 @@ def update_portfolio(
     name: str = None,
     backtest_start_date: any = None,
     backtest_end_date: any = None,
+    description: str = None,
     is_live: bool = None,
     *args,
     **kwargs,
@@ -110,8 +111,10 @@ def update_portfolio(
         updates["backtest_start_date"] = datetime_normalize(backtest_start_date)
     if backtest_end_date is not None:
         updates["backtest_end_date"] = datetime_normalize(backtest_end_date)
+    if description is not None:
+        updates["desc"] = description
     if is_live is not None:
-        updates["is_live"] = is_live
+        updates["is_live"] = bool(is_live)
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
         session.execute(stmt)

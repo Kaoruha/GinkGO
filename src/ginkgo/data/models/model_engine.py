@@ -3,11 +3,11 @@ import pandas as pd
 
 from typing import Optional
 from functools import singledispatchmethod
-from sqlalchemy import String, Boolean
+from sqlalchemy import String, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import SOURCE_TYPES
+from ginkgo.enums import SOURCE_TYPES, ENGINE_STATUS
 from ginkgo.libs import base_repr
 
 
@@ -16,6 +16,7 @@ class MEngine(MMysqlBase):
     __tablename__ = "engine"
 
     name: Mapped[str] = mapped_column(String(32), default="ginkgo_test_engine")
+    status: Mapped[ENGINE_STATUS] = mapped_column(Enum(ENGINE_STATUS), default=ENGINE_STATUS.IDLE)
     is_live: Mapped[bool] = mapped_column(Boolean, default=False)
 
     @singledispatchmethod
@@ -26,12 +27,15 @@ class MEngine(MMysqlBase):
     def _(
         self,
         name: str,
+        status: Optional[ENGINE_STATUS] = None,
         is_live: Optional[bool] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
     ) -> None:
         self.name = name
+        if status is not None:
+            self.status = status
         if is_live is not None:
             self.is_live = is_live
         if source is not None:
@@ -41,6 +45,7 @@ class MEngine(MMysqlBase):
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.name = df["name"]
+        self.status = df["status"]
         self.is_live = df["is_live"]
         if "source" in df.keys():
             self.source = df["source"]

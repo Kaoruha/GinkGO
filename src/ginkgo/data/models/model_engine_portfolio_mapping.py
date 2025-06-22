@@ -17,6 +17,8 @@ class MEnginePortfolioMapping(MMysqlBase):
 
     engine_id: Mapped[str] = mapped_column(String(32), default="")
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
+    engine_name: Mapped[str] = mapped_column(String(32), default="")
+    portfolio_name: Mapped[str] = mapped_column(String(32), default="")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -27,6 +29,8 @@ class MEnginePortfolioMapping(MMysqlBase):
         self,
         engine_id: str,
         portfolio_id: Optional[str] = None,
+        engine_name: Optional[str] = None,
+        portfolio_name: Optional[str] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
@@ -34,6 +38,10 @@ class MEnginePortfolioMapping(MMysqlBase):
         self.engine_id = engine_id
         if portfolio_id is not None:
             self.portfolio_id = portfolio_id
+        if engine_name is not None:
+            self.engine_name = engine_name
+        if portfolio_name is not None:
+            self.portfolio_name = portfolio_name
         if source is not None:
             self.source = source
         self.update_at = datetime.datetime.now()
@@ -42,6 +50,8 @@ class MEnginePortfolioMapping(MMysqlBase):
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.engine_id = df["engine_id"]
         self.portfolio_id = df["portfolio_id"]
+        self.engine_name = df["engine_name"]
+        self.portfolio_name = df["portfolio_name"]
         if "source" in df.keys():
             self.source = df["source"]
         self.update_at = datetime.datetime.now()

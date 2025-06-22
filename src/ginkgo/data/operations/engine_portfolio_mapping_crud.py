@@ -9,8 +9,12 @@ from ginkgo.data.drivers import add, add_all, get_mysql_connection
 from ginkgo.libs import GLOG
 
 
-def add_engine_portfolio_mapping(engine_id: str, portfolio_id: str, *args, **kwargs) -> pd.Series:
-    item = MEnginePortfolioMapping(engine_id=engine_id, portfolio_id=portfolio_id)
+def add_engine_portfolio_mapping(
+    engine_id: str, portfolio_id: str, engine_name: str, portfolio_name: str, *args, **kwargs
+) -> pd.Series:
+    item = MEnginePortfolioMapping(
+        engine_id=engine_id, portfolio_id=portfolio_id, engine_name=engine_name, portfolio_name=portfolio_name
+    )
     res = add(item)
     df = res.to_dataframe()
     get_mysql_connection().remove_session()

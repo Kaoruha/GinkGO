@@ -569,8 +569,9 @@ def rebuild(
         MStockInfo,
         MTradeDay,
         MEngine,
-        MParam
+        MParam,
     )
+
     if engine:
         drop_table(MEngine)
 
@@ -579,7 +580,6 @@ def rebuild(
 
     if order:
         drop_table(MOrder)
-
 
     if orderrecord:
         drop_table(MOrderRecord)
@@ -605,6 +605,19 @@ def rebuild(
     if adjust:
         drop_table(MAdjustfactor)
 
-    # TODO Mapping 
+    # TODO Mapping
 
     create_all_tables()
+
+
+@app.command()
+def clean():
+    """
+    Clean Database, remove dirty data.
+    """
+    from ginkgo.data import clean_portfolio_file_mapping as func
+
+    func()
+    from ginkgo.data import clean_engine_portfolio_mapping as func
+
+    func()

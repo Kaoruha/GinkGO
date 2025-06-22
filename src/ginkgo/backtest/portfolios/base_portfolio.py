@@ -352,6 +352,7 @@ class BasePortfolio(BacktestBase, ABC):
             return
         if hasattr(analyzer, "activate") and callable(analyzer.activate):
             analyzer.set_portfolio_id(self.portfolio_id)
+            # analyzer.engine_id = self.engine_id
             self._analyzers[analyzer.name] = analyzer
             for i in analyzer.active_stage:
                 self._analyzer_hook[i].append(analyzer.activate)

@@ -165,6 +165,7 @@ class BaseAnalyzer(BacktestBase):
         if value is not None:
             add_analyzer_record(
                 portfolio_id=self._portfolio_id,
+                engine_id=self._engine_id,
                 timestamp=date,
                 value=value,
                 name=self.name,
