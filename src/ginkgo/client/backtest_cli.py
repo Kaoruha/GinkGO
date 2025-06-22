@@ -80,6 +80,41 @@ def print_order_paganation(df, page: int):
         console.print(table)
 
 
+@app.command()
+def run(
+    id: Annotated[str, typer.Option(..., "--id", "-id", case_sensitive=True, help="Backtest ID.")] = None,
+    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
+):
+    """
+    :open_file_folder: Run [bold medium_spring_green]BACKTEST[/].
+    """
+    from ginkgo.backtest.engines.engine_assembler_factory import assembler_backtest_engine
+    from ginkgo.data.operations import get_engine, get_engines_page_filtered
+
+    engine_df = get_engine(id)
+    if engine_df.shape[0] == 0 or id is None:
+        df = get_engines_page_filtered()
+        msg = f"There is no engine [light_coral]{id}[/light_coral] in your database. " if id is None else ""
+        msg += "You could choose another engine below."
+        console.print(msg)
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim")
+        table.add_column("Name", style="dim")
+        table.add_column("Description", style="dim")
+        table.add_column("Update At", style="dim")
+        for i, r in df.iterrows():
+            table.add_row(
+                r["uuid"],
+                r["name"],
+                r["desc"],
+                str(r["update_at"]),
+            )
+        console.print(table)
+        return
+    else:
+        assembler_backtest_engine(id)
+
+
 @app.command(name="delete")
 def delete(
     ids: Annotated[
@@ -169,9 +204,9 @@ def edit(
     from ginkgo.data.operations import get_file, update_file
     from ginkgo.enums import FILE_TYPES
 
-    file_in_db = get_file(id)
+    file_in_db = get_file(id=id, as_dataframe=True)
 
-    if file_in_db is None:
+    if file_in_db.shape[0] == 0:
         console.print(
             f":sad_but_relieved_face: File [yellow]{id}[/yellow] not exists. Try [green]ginkgo backtest list[/green] first."
         )
@@ -298,15 +333,15 @@ def list(
         pass
 
     res = {}
-    from ginkgo.data import (
+    from ginkgo.data.operations import (
         get_files_page_filtered,
-        get_engines,
+        get_engines_page_filtered,
         get_orders_page_filtered,
         get_portfolios_page_filtered,
     )
 
     if engine:
-        df = get_engines(name=filter, as_dataframe=True)
+        df = get_engines_page_filtered(name=filter, as_dataframe=True)
         res["engine"] = df
         print_engine(df)
 
@@ -458,41 +493,6 @@ def list(
         # Filter portfolio
         # TODO
         pass
-
-
-@app.command()
-def run(
-    id: Annotated[str, typer.Option(..., "--id", "-id", case_sensitive=True, help="Backtest ID.")] = None,
-    debug: Annotated[bool, typer.Option(case_sensitive=False)] = False,
-):
-    """
-    :open_file_folder: Run [bold medium_spring_green]BACKTEST[/].
-    """
-    from ginkgo.backtest.engines.engine_assembler_factory import assembler_backtest_engine
-    from ginkgo.data import get_engine, get_engines
-
-    engine_df = get_engine(id)
-    if engine_df.shape[0] == 0 or id is None:
-        df = get_engines()
-        msg = f"There is no engine [light_coral]{id}[/light_coral] in your database" if id is None else ""
-        msg += "You Cloud choose another engine below."
-        console.print(msg)
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("ID", style="dim")
-        table.add_column("Name", style="dim")
-        table.add_column("Description", style="dim")
-        table.add_column("Update At", style="dim")
-        for i, r in df.iterrows():
-            table.add_row(
-                r["uuid"],
-                r["name"],
-                r["desc"],
-                str(r["update_at"]),
-            )
-        console.print(table)
-        return
-    else:
-        assembler_backtest_engine(id)
 
 
 @app.command()
@@ -689,3 +689,89 @@ def init():
     from ginkgo.data import init_example_data as func
 
     func()
+
+
+@app.command(name="analyze")
+def analyze(
+    engine_id: Annotated[str, typer.Option(..., "--engine", "-engine", case_sensitive=True, help="Engine ID.")] = None,
+    portfolio_id: Annotated[
+        str, typer.Option(..., "--portfolio", "-portfolio", case_sensitive=True, help="Portfolio ID.")
+    ] = None,
+    analyzer_id: Annotated[
+        str, typer.Option(..., "--analyzer", "-analyzer", case_sensitive=True, help="Analyzer ID.")
+    ] = None,
+    output: Annotated[str, typer.Option(..., "--output", "-output", case_sensitive=True, help="Plot output.")] = None,
+):
+    """
+    :open_file_folder: Analyze [bold medium_spring_green]BACKTEST[/] with plot.
+    """
+    from ginkgo.data.operations import (
+        get_engines_page_filtered,
+        get_portfolio_file_mappings_page_filtered,
+        get_analyzer_records_page_filtered,
+    )
+    from ginkgo.data import get_engine_portfolio_mappings
+    from ginkgo.enums import FILE_TYPES
+
+    if engine_id is None:
+        df = get_engines_page_filtered()
+        msg = "You could choose engine below with param --engine"
+        console.print(msg)
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim")
+        table.add_column("Name", style="dim")
+        table.add_column("Description", style="dim")
+        table.add_column("Update At", style="dim")
+        for i, r in df.iterrows():
+            table.add_row(
+                r["uuid"],
+                r["name"],
+                r["desc"],
+                str(r["update_at"]),
+            )
+        console.print(table)
+        return
+    if portfolio_id is None:
+        df = get_engine_portfolio_mappings(engine_id)
+        msg = "You could choose portfolio below with param --portfolio"
+        console.print(msg)
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim")
+        table.add_column("Name", style="dim")
+        table.add_column("Update At", style="dim")
+        for i, r in df.iterrows():
+            table.add_row(
+                r["portfolio_id"],
+                r["portfolio_name"],
+                str(r["update_at"]),
+            )
+        console.print(table)
+        return
+
+    if analyzer_id is None:
+        df = get_portfolio_file_mappings_page_filtered(portfolio_id=portfolio_id, type=FILE_TYPES.ANALYZER)
+        msg = "You could choose analyzer below with param --analyzer"
+        console.print(msg)
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim")
+        table.add_column("Name", style="dim")
+        table.add_column("Update At", style="dim")
+        for i, r in df.iterrows():
+            table.add_row(
+                r["file_id"],
+                r["name"],
+                str(r["update_at"]),
+            )
+        console.print(table)
+        return
+
+    result = get_analyzer_records_page_filtered(portfolio_id=portfolio_id, engine_id=engine_id, analyzer_id=analyzer_id)
+    from ginkgo.backtest.plots.terminal_line import TerminalLine
+
+    if result.shape[0] == 0:
+        console.print("There is no data. Please run backtest first.")
+        return
+
+    TerminalLine(data=result, title=result.iloc[0]["name"]).show()
+    if output is not None:
+        pass

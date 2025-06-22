@@ -192,7 +192,7 @@ def get_stockinfo(code: str, page_size: Optional[int] = None, *args, **kwargs):
         stmt = session.query(model).filter(and_(*filters))
 
         df = pd.read_sql(stmt.statement, session.connection())
-        return df
+        return df.iloc[0]
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)

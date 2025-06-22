@@ -11,6 +11,7 @@ from ginkgo.enums import SOURCE_TYPES
 
 def add_analyzer_record(
     portfolio_id: str,
+    engine_id: str,
     timestamp: any,
     value: Number,
     name: str,
@@ -21,6 +22,7 @@ def add_analyzer_record(
 ) -> pd.Series:
     item = MAnalyzerRecord(
         portfolio_id=portfolio_id,
+        engine_id=engine_id,
         timestamp=datetime_normalize(timestamp),
         value=to_decimal(value),
         name=name,
@@ -65,6 +67,7 @@ def softdelete_analyzer_record(id: str, *args, **kwargs) -> None:
 
 def delete_analyzer_records_filtered(
     portfolio_id: str,
+    engine_id: Optional[str] = None,
     analyzer_id: Optional[str] = None,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -77,6 +80,9 @@ def delete_analyzer_records_filtered(
     model = MAnalyzerRecord
     sql = f"DELETE FROM {model.__tablename__} WHERE portfolio_id = :portfolio_id"
     params = {"portfolio_id": portfolio_id}
+    if engine_id is not None:
+        sql += " AND engine_id = :engine_id"
+        params["engine_id"] = engine_id
     if analyzer_id is not None:
         sql += " AND analyzer_id = :analyzer_id"
         params["analyzer_id"] = analyzer_id
@@ -98,6 +104,7 @@ def delete_analyzer_records_filtered(
 
 def softdelete_analyzer_records_filtered(
     portfolio_id: str,
+    engine_id: Optional[str] = None,
     analyzer_id: Optional[str] = None,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -106,7 +113,7 @@ def softdelete_analyzer_records_filtered(
 ):
     GLOG.WARN("Soft delete not work in clickhouse, use delete instead.")
     delete_analyzer_records_by_portfolio_analyzer_and_date_range(
-        portfolio_id, analyzer_id, start_date, end_date, *args, **kwargs
+        portfolio_id, engine_id, analyzer_id, start_date, end_date, *args, **kwargs
     )
 
 
@@ -123,6 +130,7 @@ def get_analyzer_record():
 
 def get_analyzer_records_page_filtered(
     portfolio_id: str,
+    engine_id: Optional[str] = None,
     analyzer_id: Optional[str] = None,
     start_date: Optional[any] = None,
     end_date: Optional[any] = None,
@@ -134,6 +142,9 @@ def get_analyzer_records_page_filtered(
     session = get_click_connection().session
     model = MAnalyzerRecord
     filters = [model.portfolio_id == portfolio_id]
+
+    if engine_id is not None:
+        filters.append(model.engine_id == engine_id)
 
     if analyzer_id is not None:
         filters.append(model.analyzer_id == analyzer_id)
@@ -153,7 +164,7 @@ def get_analyzer_records_page_filtered(
             stmt = stmt.offset(page * page_size).limit(page_size)
 
         df = pd.read_sql(stmt.statement, session.connection())
-        return df
+        return df.sort_values(by="timestamp")
 
     except Exception as e:
         session.rollback()

@@ -165,8 +165,8 @@ def is_table_exsists(model) -> bool:
     return table_name in inspector.get_table_names()
 
 
-@time_logger
 @retry
+@skip_if_ran
 def create_table(model, no_log=True) -> None:
     """
     Create table with model.

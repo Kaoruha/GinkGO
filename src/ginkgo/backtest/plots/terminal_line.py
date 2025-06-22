@@ -3,7 +3,7 @@ import shutil
 import plotext as plt
 
 
-class TerminalCandle:
+class TerminalLine:
     """
     一个用于处理终端蜡烛图相关操作的类。
     """
@@ -12,7 +12,7 @@ class TerminalCandle:
         self._raw = pd.DataFrame()
         self._height = 30
         self._width = shutil.get_terminal_size()[0]
-        self._title = "TerminalCandle"
+        self._title = "TerminalLine"
         if data is not None:
             self.set_data(data)
         if title is not None:
@@ -24,18 +24,10 @@ class TerminalCandle:
     def show(self):
         if self._raw.shape[0] == 0:
             return
-        max_count = self._width - 10
-        ratio = 3.2
-        max_count = int(max_count / ratio)
-        if self._raw.shape[0] > max_count:
-            data_count = max_count
-        else:
-            data_count = self._raw.shape[0]
-
-        show_data = self._raw[:data_count]
         plt.title(self._title)
+        show_data = self._raw.copy()
         plt.plotsize(self._width, self._height)
-        plt.candlestick(data=show_data, dates=show_data["timestamp"].dt.strftime("%d/%m/%Y"), colors=["green", "red"])
+        plt.plot(show_data["timestamp"].dt.strftime("%d/%m/%Y"), self._raw["value"].to_list())
         plt.grid(True)  # 关闭网格
         plt.theme("pro")
         # plt.xlabel("Date")
@@ -46,7 +38,6 @@ class TerminalCandle:
         # Validation
         if not self.validate_dataframe(data_raw):
             return
-        data_raw = data_raw.rename(columns={"open": "Open", "high": "High", "low": "Low", "close": "Close"})
         self._raw = data_raw.sort_values(by="timestamp")
 
     def validate_dataframe(self, data_raw):
@@ -56,7 +47,7 @@ class TerminalCandle:
         if data_raw.shape[0] == 0:
             return Fals
         exsisting = set(data_raw.columns)
-        required = set(["timestamp", "open", "high", "low", "close"])
+        required = set(["timestamp", "value"])
         if required.issubset(exsisting):
             return True
         else:

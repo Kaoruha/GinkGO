@@ -148,12 +148,16 @@ def get_ticks_page_filtered(
         end_date = datetime_normalize(end_date)
         filters.append(model.timestamp <= end_date)
 
-    stmt = session.query(model).filter(and_(*filters)).order_by(model.timestamp)  # New api not work on dataframe convert
+    stmt = (
+        session.query(model).filter(and_(*filters)).order_by(model.timestamp)
+    )  # New api not work on dataframe convert
     if page is not None and page_size is not None:
         stmt = stmt.offset(page * page_size).limit(page_size)
     else:
         if start_date is None and end_date is None:
-            GLOG.WARN("Get Ticks without date range and pagination is not suggeted. Please add filters to avoid unexpected result.")
+            GLOG.WARN(
+                "Get Ticks without date range and pagination is not suggeted. Please add filters to avoid unexpected result."
+            )
     try:
         if as_dataframe:
             df = pd.read_sql(stmt.statement, session.connection())

@@ -157,7 +157,7 @@ class MatchMakingSim(MatchMakingBase):
             return False
         return True
 
-    def is_price_valid(self, price: pd.DataFrame, *args, **kwargs) -> bool:
+    def is_price_valid(self, code: str, price: pd.DataFrame, *args, **kwargs) -> bool:
         """
         Check if the price is valid.
         Args:
@@ -170,11 +170,11 @@ class MatchMakingSim(MatchMakingBase):
             return False
         # If there is no price info, try match next order
         if price.shape[0] == 0:
-            self.log("ERROR", f"Have no Price info about {o.code} on {self.now}.")
+            self.log("ERROR", f"Have no Price info about {code} on {self.now}.")
             return False
 
         elif price.shape[0] > 1:
-            self.log("CRITICAL", f"Price info {o.code} has more than 1 record. Something wrong in code.")
+            self.log("CRITICAL", f"Price info {code} has more than 1 record. Something wrong in code.")
             return False
 
         # Try match
@@ -291,6 +291,7 @@ class MatchMakingSim(MatchMakingBase):
 
     def direct_match(self, order, *args, **kwargs) -> None:
         # Get the order from db
+        print(1)
         if order.volume == 0:
             self.cancel_order(order)
             return
@@ -301,11 +302,19 @@ class MatchMakingSim(MatchMakingBase):
             self.cancel_order(order)  # TODO Resubmmit?
             return
 
-        price = self.price_cache[self.price_cache["code"] == order.code]
-        if not self.is_price_valid(price):
-            self.cancel_order(order)
-            return
+        print(2)
+        try:
+            price = self.price_cache[self.price_cache["code"] == order.code]
+            if not self.is_price_valid(code, price):
+                self.cancel_order(order)
+                return
+        except Exception as e:
+            import pdb
 
+            pdb.set_trace()
+            print(e)
+
+        print(3)
         if order.order_type == ORDER_TYPES.LIMITORDER:
             if not self.can_limit_order_be_filled(order, price.iloc[0]):
                 self.cancel_order(order)
@@ -315,16 +324,19 @@ class MatchMakingSim(MatchMakingBase):
                 self.cancel_order(order)
                 return
 
+        print(4)
         if order.direction == DIRECTION_TYPES.LONG and self.is_price_limit_up(price.iloc[0]):
             self.cancel_order(order)
             return
         if order.direction == DIRECTION_TYPES.SHORT and self.is_price_limit_down(price.iloc[0]):
             self.cancel_order(order)
             return
+        print(5)
 
         filled_order = self.process_order_execution(order, price.iloc[0])
         if filled_order:
             self.put(EventOrderFilled(filled_order))
+        print(6)
 
     def try_match(self, *args, **kwargs) -> None:
         """
@@ -332,9 +344,9 @@ class MatchMakingSim(MatchMakingBase):
         """
         self.log("DEBUG", "Try Match.")
         for code in self.order_book:
-            for o in self.order_book[code]:
+            for order in self.order_book[code]:
                 try:
-                    self.direct_match(o)
+                    self.direct_match(order)
                 except Exception as e:
                     import pdb
 

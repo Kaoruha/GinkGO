@@ -12,6 +12,7 @@ import json
 ctrl_c_count = 0
 exit_threshold = 3  # 设置按下次数的阈值
 
+
 # 自定义信号处理函数
 def handle_ctrl_c(signum, frame):
     global ctrl_c_count
@@ -22,18 +23,19 @@ def handle_ctrl_c(signum, frame):
         console.print(f"\nYou need try more to exit or you could type `bye`")
     else:
         console.print("\nSee you soon.")
+        # raise KeyboardInterrupt
         sys.exit(0)
+
 
 # 设置自定义处理函数
 signal.signal(signal.SIGINT, handle_ctrl_c)
-
-
 
 
 console = Console()
 ans = "Ginkgo > "
 
 mem = ""
+
 
 def print(string):
     """
@@ -49,16 +51,17 @@ def print(string):
     sys.stdout.write("\r")
     console.print(f"{ans}{string}")
 
+
 def chunk_print(response):
     global mem
     # 逐块读取流式数据
-    console.print(ans,end='')
+    console.print(ans, end="")
     for chunk in response.iter_lines(decode_unicode=True):
         if chunk:
             try:
                 data = json.loads(chunk)
-                msg = data['response']
-                console.print(msg, end='')
+                msg = data["response"]
+                console.print(msg, end="")
                 mem += msg
             except Exception as e:
                 console.print(f"mem len: {len(mem)}")
@@ -68,36 +71,29 @@ def chunk_print(response):
     sys.stdout.write("\n")
 
 
-
-def ask_ollama(msg:str):
+def ask_ollama(msg: str):
     global mem
     mem += msg
     url = "http://localhost:11434/api/generate"
-    payload = {
-        "model": "mistral:latest",
-        "prompt": mem
-    }
+    payload = {"model": "mistral:latest", "prompt": mem}
     headers = {"Content-Type": "application/json"}
     response = requests.post(url, json=payload, headers=headers, stream=True)
     # 逐块读取流式数据
     chunk_print(response)
 
 
-
-
-
 class MyPrompt(Cmd):
     prompt = "Master > "
     # ans = "Ginkgo > "
-    intro = f"  ______              __  __               __             __"
-    intro += f"\n /_  _________  __   / / / ____ __________/ ___  _____   / /"
-    intro += f"\n  / / / ___/ / / /  / /_/ / __ `/ ___/ __  / _ \/ ___/  / /"
-    intro += f"\n / / / /  / /_/ /  / __  / /_/ / /  / /_/ /  __/ /     /_/"
-    intro += f"\n/_/ /_/   \__, /  /_/ /_/\__,_/_/   \__,_/\___/_/     (_)"
-    intro += f"\n           _/ /"
-    intro += f"\n         /___/"
-    intro += f"\n"
-    intro += f"\n"
+    intro = "  ______              __  __               __             __"
+    intro += "\n /_  _________  __   / / / ____ __________/ ___  _____   / /"
+    intro += "\n  / / / ___/ / / /  / /_/ / __ `/ ___/ __  / _ / ___/  / /"
+    intro += "\n / / / /  / /_/ /  / __  / /_/ / /  / /_/ /  __/ /     /_/"
+    intro += "\n/_/ /_/   \\__, /  /_/ /_/\\__,_/_/   \\__,_/\\___/_/     (_)"
+    intro += "\n           _/ /"
+    intro += "\n         /___/"
+    intro += "\n"
+    intro += "\n"
     intro += f"{ans}Welcome!"
     intro += f"\n{ans}You can type ? to list commands"
 
@@ -143,11 +139,12 @@ class MyPrompt(Cmd):
                     if file == filename:
                         # 找到匹配的文件，打开并读取内容
                         file_path = os.path.join(root, file)
-                        with open(file_path, 'r', encoding='utf-8') as f:
+                        with open(file_path, "r", encoding="utf-8") as f:
                             content = f.read()
                         return content
             return f"文件 {filename} 未找到"
             # 示例用法
+
         directory = "/home/kaoru/Applications/Ginkgo"  # 请替换为实际目录路径
         content = find_and_read_file(directory, file_name)
         console.print(content)
@@ -164,16 +161,18 @@ class MyPrompt(Cmd):
         try:
             with open(f"{path}/{file_name}", "r") as file:
                 for line in file:
-                    if ']:' not in line:
+                    if "]:" not in line:
                         continue
-                    logs.append(line.split(']:')[1])
+                    logs.append(line.split("]:")[1])
 
                 for i in range(0, len(logs), max_line):
-                    batch = logs[i:i + max_line]
+                    batch = logs[i : i + max_line]
                     console.print(batch)
                     global mem
                     mem = ""
-                    mem += "请根据之后提供的log帮我分析回测流程中是否存在逻辑问题,如果有例如前后矛盾或者无中生有等问题\n"
+                    mem += (
+                        "请根据之后提供的log帮我分析回测流程中是否存在逻辑问题,如果有例如前后矛盾或者无中生有等问题\n"
+                    )
                     for j in content:
                         mem += j
                     ask_ollama(mem)
@@ -208,7 +207,6 @@ class MyPrompt(Cmd):
     def do_unittest(self, msg):
         # TODO
         print("call ginkgo unittest later")
-
 
     def help_unittest(self):
         print("Usage: unittest --[mode]")

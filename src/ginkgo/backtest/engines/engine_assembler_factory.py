@@ -1,7 +1,7 @@
 from rich import inspect
 import datetime
 
-from ginkgo.enums import FILE_TYPES, EVENT_TYPES
+from ginkgo.enums import FILE_TYPES, EVENT_TYPES, ENGINE_STATUS
 from ginkgo.backtest.matchmakings import MatchMakingSim, MatchMakingLive
 from ginkgo.backtest.feeders import BacktestFeeder
 from ginkgo.backtest.engines import BaseEngine, HistoricEngine
@@ -14,6 +14,7 @@ from ginkgo.data import (
     get_portfolio,
     get_trading_system_components_by_portfolio,
 )
+from ginkgo.data.operations import delete_analyzer_records_filtered, get_engine_status, update_engine_status
 from ginkgo.libs import GLOG, datetime_normalize
 
 
@@ -25,7 +26,9 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
     if engine_data.shape[0] == 0:
         GLOG.WARN(f"No engine found for id:{id}.")
         return
+
     engine_id = engine_data["uuid"]
+
     # Create Engine Instanse
     engine = HistoricEngine(engine_data["name"])
     engine.engine_id = engine_id
@@ -131,6 +134,11 @@ def assembler_backtest_engine(id: str, *args, **kwargs) -> BaseEngine:
 
         # Regist to feeder
         feeder.add_subscriber(portfolio)
+        print("Clear historic records for portfolio", portfolio_id)
+        delete_analyzer_records_filtered(portfolio_id=portfolio_id, engine_id=engine_id)
+        # TODO Delete Order records
+        # TODO Delete Signal records
+        # TODO Delete Position records
 
     print("++++++++++")
     print("Final:")

@@ -6,10 +6,11 @@ from typing import List, Optional, Union
 from ginkgo.data.models import MEngine
 from ginkgo.data.drivers import add, add_all, get_mysql_connection
 from ginkgo.libs import GLOG
+from ginkgo.enums import ENGINE_STATUS
 
 
 def add_engine(name: str, is_live: bool, *args, **kwargs) -> pd.Series:
-    item = MEngine(name=name, is_live=is_live)
+    item = MEngine(name=name, is_live=is_live, status=ENGINE_STATUS.IDLE)
     res = add(item)
     if res is None:
         get_mysql_connection().remove_session()
@@ -93,6 +94,8 @@ def softdelete_engine(id: str, *argss, **kwargs):
 def update_engine(
     id: str,
     name: Optional[str] = None,
+    status: Optional[ENGINE_STATUS] = None,
+    is_live: Optional[bool] = None,
     *argss,
     **kwargs,
 ):
@@ -102,6 +105,10 @@ def update_engine(
     updates = {"update_at": datetime.datetime.now()}
     if name is not None:
         updates["name"] = name
+    if status is not None:
+        updates["status"] = status
+    if is_live is not None:
+        updates["is_live"] = is_live
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
         session.execute(stmt)

@@ -25,6 +25,8 @@ class OperationEnginePortfolioMappingTest(unittest.TestCase):
             {
                 "engine_id": uuid.uuid4().hex,
                 "portfolio_id": uuid.uuid4().hex,
+                "engine_name": uuid.uuid4().hex,
+                "portfolio_name": uuid.uuid4().hex,
             }
             for i in range(cls.count)
         ]
@@ -93,6 +95,16 @@ class OperationEnginePortfolioMappingTest(unittest.TestCase):
             update_engine_portfolio_mapping(res.uuid, portfolio_id=i["portfolio_id"])
             df = get_engine_portfolio_mapping(res.uuid).iloc[0]
             self.assertEqual(df["portfolio_id"], i["portfolio_id"])
+
+            # Update Engine Name
+            update_engine_portfolio_mapping(res.uuid, engine_name=i["engine_name"])
+            df = get_engine_portfolio_mapping(res.uuid).iloc[0]
+            self.assertEqual(df["engine_name"], i["engine_name"])
+
+            # Update Portfolio Name
+            update_engine_portfolio_mapping(res.uuid, portfolio_name=i["portfolio_name"])
+            df = get_engine_portfolio_mapping(res.uuid).iloc[0]
+            self.assertEqual(df["portfolio_name"], i["portfolio_name"])
 
     def test_OperationEnginePortfolioMapping_get(self) -> None:
         engine_id = uuid.uuid4().hex

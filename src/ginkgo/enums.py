@@ -175,3 +175,18 @@ class CAPITALADJUSTMENT_TYPES(EnumBase):
     NON_TRADABLE_REVERSE_SPLIT = 12  # 非流通股缩股
     CALL_WARRANT = 13  # 送认购权证
     PUT_WARRANT = 14  # 送认沽权证
+
+
+class LIVE_MODE(str, Enum):
+    ON = "on"
+    OFF = "off"
+
+
+class ENGINE_STATUS(EnumBase):
+    IDLE = 0
+    INITIALIZING = 1
+    RUNNING = 2
+    STOPPED = 3
+    COMPLETED = 4
+    ERROR = 5
+    CANCELED = 6
