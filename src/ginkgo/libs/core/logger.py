@@ -5,7 +5,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from rich.logging import RichHandler
 from pathlib import Path
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.libs.core.config import GCONF
 
 # Read Configure
 LOGGING_LEVEL_CONSOLE = GCONF.LOGGING_LEVEL_CONSOLE

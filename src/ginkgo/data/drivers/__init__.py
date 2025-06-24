@@ -183,7 +183,7 @@ def create_table(model, no_log=True) -> None:
     driver = get_db_connection(model)
     if driver is None:
         GLOG.ERROR(f"Can not get driver for {model}.")
-        raise ValueException(f"Can not get driver for model {model}.")
+        raise ValueError(f"Can not get driver for model {model}.")
     try:
         if is_table_exsists(model):
             GLOG.DEBUG(f"No need to create {model.__tablename__} : {model}")
@@ -199,7 +199,7 @@ def create_table(model, no_log=True) -> None:
 
 @time_logger
 @retry
-def drop_table(model) -> None:
+def drop_table(model, *args, **kwargs) -> None:
     """
     Drop table from Database.
     Support Clickhouse and Mysql now.
@@ -212,7 +212,7 @@ def drop_table(model) -> None:
     driver = get_db_connection(model)
     if driver is None:
         GLOG.ERROR(f"Can not get driver for {model}.")
-        raise ValueException(f"Can not get driver for model {model}.")
+        raise ValueError(f"Can not get driver for model {model}.")
     try:
         if is_table_exsists(model):
             model.__table__.drop(driver.engine)

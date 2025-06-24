@@ -16,8 +16,8 @@ class OperationFileTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model = MFile
-        drop_table(cls.model)
-        create_table(cls.model)
+        drop_table(cls.model, no_skip=True)
+        create_table(cls.model, no_skip=True)
         cls.count = random.randint(2, 5)
         cls.params = [
             {"type": random.choice([i for i in FILE_TYPES]), "name": uuid.uuid4().hex, "data": b"123"}

@@ -11,7 +11,7 @@ from ginkgo.enums import (
     FREQUENCY_TYPES,
 )
 
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.data.normalize import datetime_normalize
 from ginkgo.data.models import MBar
 
 from ginkgo.backtest.bar import Bar

@@ -22,7 +22,7 @@ def add_stockinfo(
     delist_date: any,
     *args,
     **kwargs,
-) -> pd.Series:
+) -> pd.DataFrame:
     item = MStockInfo(
         code=code,
         code_name=code_name,
@@ -35,7 +35,7 @@ def add_stockinfo(
     res = add(item)
     df = res.to_dataframe()
     get_mysql_connection().remove_session()
-    return df.iloc[0]
+    return df
 
 
 def add_stockinfos(infos: List[MStockInfo], *args, **kwargs):
@@ -59,7 +59,7 @@ def upsert_stockinfo(
     source: SOURCE_TYPES = SOURCE_TYPES.OTHER,
     *args,
     **kwargs,
-) -> pd.Series:
+) -> pd.DataFrame:
     session = get_mysql_connection().session
     model = MStockInfo
     filters = []
@@ -95,6 +95,9 @@ def upsert_stockinfo(
                     source=source,
                 )
             session.commit()
+            # Return the updated record as DataFrame (consistent with add_stockinfo)
+            df = res[0].to_dataframe()
+            return df
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)
@@ -192,7 +195,7 @@ def get_stockinfo(code: str, page_size: Optional[int] = None, *args, **kwargs):
         stmt = session.query(model).filter(and_(*filters))
 
         df = pd.read_sql(stmt.statement, session.connection())
-        return df.iloc[0]
+        return df
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)

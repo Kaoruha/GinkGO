@@ -8,7 +8,7 @@ import datetime
 
 from ginkgo.enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES
 
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.data.normalize import datetime_normalize
 from ginkgo.data.models import MStockInfo
 
 

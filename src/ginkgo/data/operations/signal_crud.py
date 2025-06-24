@@ -42,6 +42,7 @@ def add_signals(signals: List[Union[MSignal, Signal]], *args, **kwargs):
         elif isinstance(i, Signal):
             item = MSignal(
                 portfolio_id=i.portfolio_id,
+                engine_id=i.engine_id,
                 timestamp=i.timestamp,
                 code=i.code,
                 direction=i.direction,
@@ -166,7 +167,7 @@ def get_signals_page_filtered(
             return df
         else:
             res = session.execute(stmt).scalars().all()
-            return [Signal(i.portfolio_id, i.timestamp, i.code, i.direction, i.reason, i.source) for i in res]
+            return [Signal(i.portfolio_id, i.engine_id, i.timestamp, i.code, i.direction, i.reason, i.source) for i in res]
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)

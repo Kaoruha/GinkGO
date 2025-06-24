@@ -11,7 +11,7 @@ from clickhouse_sqlalchemy import engines
 
 
 from ginkgo.libs import datetime_normalize
-from ginkgo.libs.ginkgo_pretty import base_repr
+from ginkgo.libs.utils.display import base_repr
 from ginkgo.enums import SOURCE_TYPES
 
 

@@ -47,14 +47,8 @@ def add_transfer_records(orders: List[MTransferRecord], *args, **kwargs):
 def delete_transfer_record(id: str, *args, **kwargs):
     session = get_click_connection().session
     model = MTransferRecord
-    sql = f"DELETE FROM `{model.__tablename__}` WHERE uuid = :id"
+    sql = f"DELETE FROM `{model.__tablename__}` WHERE uuid = :uuid"
     params = {"uuid": id}
-    if start_date is not None:
-        sql += " AND timestamp >= :start_date"
-        params["start_date"] = datetime_normalize(start_date)
-    if end_date is not None:
-        sql += " AND timestamp <= :end_date"
-        params["end_date"] = datetime_normalize(end_date)
     try:
         session.execute(text(sql), params)
         session.commit()
@@ -95,7 +89,7 @@ def softdelete_transfer_records_filtered(
     portfolio_id: str, start_date: any = None, end_date: any = None, *args, **kwargs
 ):
     GLOG.WARN("Soft delete not work in clickhouse, use delete instead.")
-    delete_transfer_records_by_portfolio(portfolio_id, start_date, end_date, *args, **kwargs)
+    delete_transfer_records_filtered(portfolio_id, start_date, end_date, *args, **kwargs)
 
 
 def update_transfer_record(
@@ -153,9 +147,16 @@ def get_transfer_record(
             return df
         else:
             query = stmt.first()
+            if query is None:
+                print(f"DEBUG: No record found for UUID: {id}")
+                return None
+            
+            print(f"DEBUG: Found record - UUID: {query.uuid}, portfolio_id: {query.portfolio_id}, money: {query.money}")
+            
             return Transfer(
                 uuid=query.uuid,
                 portfolio_id=query.portfolio_id,
+                engine_id=getattr(query, 'engine_id', ''),
                 direction=query.direction,
                 market=query.market,
                 money=query.money,

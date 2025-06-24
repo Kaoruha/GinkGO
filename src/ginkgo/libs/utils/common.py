@@ -99,19 +99,27 @@ def skip_if_ran(func):
         in_progress = False
         if "progress" in kwargs and isinstance(kwargs["progress"], Progress):
             in_progress = True
+        
+        # 检查是否有 no_skip 参数，如果有且为 True，则跳过缓存检查并强制执行
+        no_skip = kwargs.pop("no_skip", False)  # 使用 pop 避免传递给原函数
+        
         cache_key = f"{func.__name__}:{args}:{kwargs}"
-        # TODO log not print
-        # print("Cached_KEY:")
-        # print(cache_key)
-        cached_result = create_redis_connection().get(cache_key)
-        if cached_result is not None:
-            ttl = create_redis_connection().ttl(cache_key)
-            # if not in_progress:
-            #     ttl_msg = ""
-            #     console.print(f":camel: FUNCTION [yellow]{cache_key}[/] cached. ttl: {format_time_seconds(ttl)}.")
-            return
+        print("Cached_KEY:")
+        print(cache_key)
+        
+        # 如果不是 no_skip，才检查缓存
+        if not no_skip:
+            cached_result = create_redis_connection().get(cache_key)
+            if cached_result is not None:
+                ttl = create_redis_connection().ttl(cache_key)
+                # if not in_progress:
+                #     ttl_msg = ""
+                #     console.print(f":camel: FUNCTION [yellow]{cache_key}[/] cached. ttl: {format_time_seconds(ttl)}.")
+                return
+        
         try:
             result = func(*args, **kwargs)  # 执行原函数
+            # 无论是否 no_skip，都更新缓存并刷新 TTL
             create_redis_connection().set(cache_key, "Yeah", ex=func_ran_expired)
             return result
         except Exception as e:
@@ -128,13 +136,16 @@ def retry(func=None, *, max_try: int = 5):  # 默认参数设置为 None，以�
         def decorator(f):
             @wraps(f)
             def wrapper(*args, **kwargs):
+                last_exception = None
                 for i in range(max_try):
                     try:
                         return f(*args, **kwargs)
                     except Exception as e:
+                        last_exception = e
                         console.print(f"[red]Retry FUNCTION [yellow]{f.__name__}[/] {i+1}/{max_try}[/red]")
                         if i >= max_try - 1:
                             console.print_exception()
+                            raise e
                     finally:
                         pass
 
@@ -146,13 +157,16 @@ def retry(func=None, *, max_try: int = 5):  # 默认参数设置为 None，以�
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            last_exception = None
             for i in range(max_try):
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
+                    last_exception = e
                     console.print(f"[red]Retry FUNCTION [yellow]{func.__name__}[/] {i+1}/{max_try}[/red]")
                     if i >= max_try - 1:
                         console.print_exception()
+                        raise e
                 finally:
                     pass
 

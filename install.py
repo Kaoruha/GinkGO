@@ -146,7 +146,7 @@ def install_dependencies(path_pip):
 
 
 def set_config_path(path_log, working_directory):
-    from ginkgo.libs.ginkgo_conf import GCONF
+    from ginkgo.libs.core.config import GCONF
 
     try:
         GCONF.set_logging_path(path_log)
@@ -242,7 +242,7 @@ fi
 
 
 def set_system_service():
-    from ginkgo.libs.ginkgo_conf import GCONF
+    from ginkgo.libs.core.config import GCONF
 
     # TODO uvicorn path need update conda
     os_name = platform.system()

@@ -5,9 +5,9 @@ import time
 import pandas as pd
 import datetime
 
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.data.normalize import datetime_normalize
 from ginkgo.data.models import MEngine
-from ginkgo.enums import SOURCE_TYPES
+from ginkgo.enums import SOURCE_TYPES, ENGINE_STATUS
 
 
 class ModelEngineTest(unittest.TestCase):
@@ -22,6 +22,7 @@ class ModelEngineTest(unittest.TestCase):
         self.params = [
             {
                 "name": uuid.uuid4().hex,
+                "status": random.choice([i for i in ENGINE_STATUS]),
                 "is_live": random.choice([True, False]),
                 "source": random.choice([i for i in SOURCE_TYPES]),
             }
@@ -32,9 +33,11 @@ class ModelEngineTest(unittest.TestCase):
         for i in self.params:
             o = self.model(
                 name=i["name"],
+                status=i["status"],
                 is_live=i["is_live"],
             )
             self.assertEqual(o.name, i["name"])
+            self.assertEqual(o.status, i["status"])
             self.assertEqual(o.is_live, i["is_live"])
 
     def test_ModelEngine_SetFromData(self) -> None:
@@ -47,8 +50,9 @@ class ModelEngineTest(unittest.TestCase):
 
         for i in self.params:
             o = self.model()
-            o.update(i["name"], is_live=i["is_live"])
+            o.update(i["name"], status=i["status"], is_live=i["is_live"])
             self.assertEqual(o.name, i["name"])
+            self.assertEqual(o.status, i["status"])
             self.assertEqual(o.is_live, i["is_live"])
 
     def test_ModelEngine_SetFromDataFrame(self) -> None:
@@ -57,4 +61,5 @@ class ModelEngineTest(unittest.TestCase):
             o = self.model()
             o.update(df)
             self.assertEqual(o.name, i["name"])
+            self.assertEqual(o.status, i["status"])
             self.assertEqual(o.is_live, i["is_live"])

@@ -20,8 +20,8 @@ class OperationBarTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model = MBar
-        drop_table(cls.model)
-        create_table(cls.model)
+        drop_table(cls.model, no_skip=True)
+        create_table(cls.model, no_skip=True)
         cls.count = random.randint(2, 5)
         cls.params = [
             {

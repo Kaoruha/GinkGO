@@ -16,8 +16,8 @@ class OperationHandlerParamTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model = MParam
-        drop_table(cls.model)
-        create_table(cls.model)
+        drop_table(cls.model, no_skip=True)
+        create_table(cls.model, no_skip=True)
         cls.count = random.randint(2, 5)
         cls.params = [
             {
@@ -108,7 +108,7 @@ class OperationHandlerParamTest(unittest.TestCase):
             self.assertEqual(res["index"], df["index"])
             self.assertEqual(res["value"], df["value"])
 
-    def test_OperationHandlerParam_get(self) -> None:
+    def test_OperationHandlerParam_get_filtered(self) -> None:
         for i in self.params:
             size0 = get_table_size(self.model)
             res = add_param(**i)

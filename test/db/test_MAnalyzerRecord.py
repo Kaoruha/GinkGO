@@ -7,7 +7,7 @@ import pandas as pd
 import datetime
 from decimal import Decimal
 
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.data.normalize import datetime_normalize
 from ginkgo.data.models import MAnalyzerRecord
 
 

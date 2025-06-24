@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
 
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.data.normalize import datetime_normalize
 from ginkgo.data.models import MTransferRecord
 
 

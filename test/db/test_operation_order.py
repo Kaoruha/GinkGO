@@ -19,8 +19,8 @@ class OperationOrderTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model = MOrder
-        drop_table(cls.model)
-        create_table(cls.model)
+        drop_table(cls.model, no_skip=True)
+        create_table(cls.model, no_skip=True)
         cls.count = random.randint(2, 5)
         cls.params = [
             {
@@ -90,82 +90,82 @@ class OperationOrderTest(unittest.TestCase):
             # update portfolio_id
             new_portfolio_id = uuid.uuid4().hex
             update_order(res.uuid, portfolio_id=new_portfolio_id)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_portfolio_id, df["portfolio_id"])
 
             # update engine_id
             new_engine_id = uuid.uuid4().hex
             update_order(res.uuid, engine_id=new_engine_id)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_engine_id, df["engine_id"])
 
             # update code
             new_code = uuid.uuid4().hex
             update_order(res.uuid, code=new_code)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_code, df["code"])
 
             # update direction
             new_direction = random.choice([i for i in DIRECTION_TYPES])
             update_order(res.uuid, direction=new_direction)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_direction, df["direction"])
 
             # update type
             new_type = random.choice([i for i in ORDER_TYPES])
             update_order(res.uuid, order_type=new_type)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_type, df["order_type"])
 
             # update status
             new_status = random.choice([i for i in ORDERSTATUS_TYPES])
             update_order(res.uuid, status=new_status)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_status, df["status"])
 
             # update volume
             new_volume = random.randint(0, 1000)
             update_order(res.uuid, volume=new_volume)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_volume, df["volume"])
 
             # update limit_price
             new_limit_price = round(random.uniform(0, 100), 2)
             update_order(res.uuid, limit_price=new_limit_price)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_limit_price, df["limit_price"])
 
             # update frozen
             new_frozen = random.randint(0, 1000)
             update_order(res.uuid, frozen=new_frozen)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_frozen, df["frozen"])
 
             # update transaction_price
             new_transaction_price = round(random.uniform(0, 100), 2)
             update_order(res.uuid, transaction_price=new_transaction_price)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_transaction_price, df["transaction_price"])
 
             # update remain
             new_remain = round(random.uniform(0, 100), 2)
             update_order(res.uuid, remain=new_remain)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_remain, df["remain"])
 
             # update fee
             new_fee = round(random.uniform(0, 100), 2)
             update_order(res.uuid, fee=new_fee)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_fee, df["fee"])
 
             # update timestamp
             new_timestamp = datetime.datetime.now()
             update_order(res.uuid, timestamp=new_timestamp)
-            df = get_order(res.uuid)
+            df = get_order(res.uuid).iloc[0]
             self.assertEqual(new_timestamp - df["timestamp"] < datetime.timedelta(seconds=1), True)
 
-    def test_OperationOrder_update(self) -> None:
+    def test_OperationOrder_update_dataframe_response(self) -> None:
         for i in self.params:
             size0 = get_table_size(self.model)
             res = add_order(**i)
@@ -259,7 +259,7 @@ class OperationOrderTest(unittest.TestCase):
             self.assertEqual(df["portfolio_id"], res["portfolio_id"])
             self.assertEqual(df["code"], res["code"])
             self.assertEqual(df["direction"], res["direction"])
-            self.assertEqual(df["type"], res["type"])
+            self.assertEqual(df["order_type"], res["order_type"])
             self.assertEqual(df["status"], res["status"])
             self.assertEqual(df["volume"], res["volume"])
             self.assertEqual(float(df["limit_price"]), float(res["limit_price"]))
@@ -269,7 +269,7 @@ class OperationOrderTest(unittest.TestCase):
             self.assertEqual(float(df["fee"]), float(res["fee"]))
             self.assertEqual(df["timestamp"] - res["timestamp"] < datetime.timedelta(seconds=1), True)
 
-    def test_OperationOrder_get(self) -> None:
+    def test_OperationOrder_get_filtered(self) -> None:
         # Filter portfolio_id
         new_portfolio_id = uuid.uuid4().hex
         new_engine_id = uuid.uuid4().hex

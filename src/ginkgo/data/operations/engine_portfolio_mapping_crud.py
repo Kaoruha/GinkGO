@@ -115,6 +115,8 @@ def update_engine_portfolio_mapping(
     id: str,
     engine_id: Optional[str] = None,
     portfolio_id: Optional[str] = None,
+    engine_name: Optional[str] = None,
+    portfolio_name: Optional[str] = None,
     *argss,
     **kwargs,
 ):
@@ -126,6 +128,10 @@ def update_engine_portfolio_mapping(
         updates["engine_id"] = engine_id
     if portfolio_id is not None:
         updates["portfolio_id"] = portfolio_id
+    if engine_name is not None:
+        updates["engine_name"] = engine_name
+    if portfolio_name is not None:
+        updates["portfolio_name"] = portfolio_name
     try:
         stmt = update(model).where(and_(*filters)).values(updates)
         session.execute(stmt)

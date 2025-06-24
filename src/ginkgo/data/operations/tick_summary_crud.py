@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import List, Optional, Union
-from sqlalchemy import and_
+from sqlalchemy import and_, delete
 
 from ginkgo.data.drivers import add, add_all, get_click_connection, GinkgoClickhouse
 from ginkgo.data.models import MTickSummary
@@ -60,7 +60,7 @@ def delete_tick_summary(id: str, *args, **kwargs) -> int:
 
 def softdelete_tick_summary(id: str, *args, **kwargs) -> int:
     GLOG.WARN("Tick Summary not support softdelete, run delete instead.")
-    return delete_tick_summary_by_id(id)
+    return delete_tick_summary(id)
 
 
 def delete_tick_summaries_filtered(
@@ -101,7 +101,7 @@ def softdelete_tick_summaries_filtered(
     **kwargs,
 ) -> int:
     GLOG.WARN("TickSummary Data not support softdelete, run delete instead.")
-    return delete_tick_summary_by_code_and_date_range(code, start_date, end_date, connection, *args, **kwargs)
+    return delete_tick_summaries_filtered(code, start_date, end_date, connection, *args, **kwargs)
 
 
 def update_tick_summary(tick_summary, connection: Optional[GinkgoClickhouse] = None, *args, **kwargs):

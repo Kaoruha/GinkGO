@@ -20,8 +20,8 @@ class OperationPositionTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model = MPosition
-        drop_table(cls.model)
-        create_table(cls.model)
+        drop_table(cls.model, no_skip=True)
+        create_table(cls.model, no_skip=True)
         cls.count = random.randint(10, 20)
         cls.params = [
             {
@@ -334,11 +334,11 @@ class OperationPositionTest(unittest.TestCase):
             params_copy = self.params[i].copy()
             params_copy["portfolio_id"] = new_portfolio_id
             add_position(**params_copy)
-        res = get_positions_filtered(portfolio_id=new_portfolio_id)
+        res = get_positions_page_filtered(portfolio_id=new_portfolio_id)
         self.assertEqual(self.count, len(res))
-        df = get_positions_filtered(portfolio_id=new_portfolio_id, as_dataframe=True)
+        df = get_positions_page_filtered(portfolio_id=new_portfolio_id, as_dataframe=True)
         self.assertEqual(self.count, df.shape[0])
-        df = get_positions_filtered(portfolio_id=new_portfolio_id, as_dataframe=True, page=0, page_size=2)
+        df = get_positions_page_filtered(portfolio_id=new_portfolio_id, as_dataframe=True, page=0, page_size=2)
         self.assertEqual(2, df.shape[0])
 
     def test_OperationPosition_exists(self) -> None:

@@ -17,8 +17,8 @@ class OperationTradedayTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model = MTradeDay
-        drop_table(cls.model)
-        create_table(cls.model)
+        drop_table(cls.model, no_skip=True)
+        create_table(cls.model, no_skip=True)
         cls.count = random.randint(20, 50)
         cls.params = [
             {

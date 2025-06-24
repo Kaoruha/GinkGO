@@ -18,7 +18,9 @@ from rich.console import Console
 from multiprocessing import Process
 
 
-from ginkgo.libs import GCONF, retry, GinkgoLogger
+from ginkgo.libs.core.config import GCONF
+from ginkgo.libs.utils.common import retry
+from ginkgo.libs.core.logger import GinkgoLogger
 from ginkgo.notifier.notifier_beep import beep
 
 

@@ -93,14 +93,6 @@ def update_portfolio(
         pass
 
 
-@app.command(name="mapping")
-def update_mapping():
-    """
-    Update Mapping.
-    """
-    console.print("Backtest Update Mapping")
-
-
 @app.command(name="file")
 def update_file():
     """

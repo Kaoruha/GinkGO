@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from ginkgo.enums import DIRECTION_TYPES
-from ginkgo.libs.ginkgo_number import Number, to_decimal
+from ginkgo.libs.data.number import Number, to_decimal
 
 
 def cal_fee(direction: DIRECTION_TYPES, price: Number, tax_rate: Number) -> Decimal:
