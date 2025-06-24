@@ -24,7 +24,7 @@ from ginkgo.data.models import MOrder
 from ginkgo.data.drivers import add
 
 from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.libs.core.config import GCONF
 from ginkgo.libs.ginkgo_pretty import base_repr
 
 from ginkgo.notifier.ginkgo_notifier import GNOTIFIER

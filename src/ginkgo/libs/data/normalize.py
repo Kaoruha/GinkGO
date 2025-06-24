@@ -10,8 +10,6 @@ def datetime_normalize(time: any) -> datetime.datetime:
     Support str "19900101" "1990-01-01" "1990-01-01 12:12:12"
     Support date
     """
-    t = datetime.datetime.now()
-
     if time is None:
         return None
 
@@ -22,30 +20,27 @@ def datetime_normalize(time: any) -> datetime.datetime:
         return datetime.datetime.combine(time, datetime.datetime.min.time())
 
     if isinstance(time, np.datetime64):
-        sec = time.item() / 1e9
-        res = datetime.datetime.fromtimestamp(sec)
-        return res
+        # numpy datetime64 to python datetime
+        # Convert to pandas timestamp first, then to python datetime
+        ts = time.astype('datetime64[us]').astype(datetime.datetime)
+        return ts
 
     if isinstance(time, int):
         time = str(time)
 
-    try:
-        t = datetime.datetime.strptime(time, "%Y%m%d%H%M%S")
-    except ValueError:
-        pass
-    try:
-        t = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
-    except ValueError:
-        pass
-
-    try:
-        t = datetime.datetime.strptime(time, "%Y-%m-%d")
-    except ValueError:
-        pass
-
-    try:
-        t = datetime.datetime.strptime(time, "%Y%m%d")
-    except ValueError:
-        pass
-
-    return t
+    # Try different formats
+    formats = [
+        "%Y%m%d%H%M%S",
+        "%Y-%m-%d %H:%M:%S", 
+        "%Y-%m-%d",
+        "%Y%m%d"
+    ]
+    
+    for fmt in formats:
+        try:
+            return datetime.datetime.strptime(time, fmt)
+        except ValueError:
+            continue
+    
+    # If no format worked, raise an exception
+    raise ValueError(f"Unable to parse datetime from: {time}")

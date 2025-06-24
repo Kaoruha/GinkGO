@@ -16,7 +16,7 @@ from ginkgo.enums import (
     MARKET_TYPES,
 )
 
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.data.normalize import datetime_normalize
 from ginkgo.data.models import MSignal
 
 

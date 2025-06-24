@@ -1,7 +1,7 @@
 import unittest
 import uuid
 from ginkgo.libs import GLOG
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.data.normalize import datetime_normalize
 from ginkgo.backtest.order import Order
 from ginkgo.backtest.strategies import StrategyBase
 from ginkgo.libs.ginkgo_math import cal_fee

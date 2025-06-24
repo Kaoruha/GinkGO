@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from ginkgo.backtest.base import Base
 from ginkgo.libs import base_repr
-from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, DIRECTION_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES
+from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, DIRECTION_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
 from ginkgo.libs import datetime_normalize, Number
 
 
@@ -19,7 +19,7 @@ class Transfer(Base):
         uuid: str = "",
         portfolio_id: str = "test_portfolio",
         engine_id: str = "",
-        direction: DIRECTION_TYPES = DIRECTION_TYPES.LONG,
+        direction: TRANSFERDIRECTION_TYPES = TRANSFERDIRECTION_TYPES.IN,
         market: MARKET_TYPES = MARKET_TYPES.CHINA,
         money: Number = 1000,
         status: TRANSFERSTATUS_TYPES = TRANSFERSTATUS_TYPES.NEW,
@@ -40,7 +40,7 @@ class Transfer(Base):
         self,
         portfolio_id: str,
         engine_id: str,
-        direction: DIRECTION_TYPES,
+        direction: TRANSFERDIRECTION_TYPES,
         market: MARKET_TYPES,
         money: Number,
         status: TRANSFERSTATUS_TYPES,
@@ -53,8 +53,8 @@ class Transfer(Base):
             raise ValueError("portfolio_id must be a string.")
         if not isinstance(engine_id, str):
             raise ValueError("engine_id must be a string.")
-        if not isinstance(direction, DIRECTION_TYPES):
-            raise ValueError("direction must be a valid DIRECTION_TYPES enum.")
+        if not isinstance(direction, TRANSFERDIRECTION_TYPES):
+            raise ValueError("direction must be a valid TRANSFERDIRECTION_TYPES enum.")
         if not isinstance(market, MARKET_TYPES):
             raise ValueError("market must be a valid MARKET_TYPES enum.")
         if not isinstance(money, Number) or money < 0:
@@ -102,7 +102,7 @@ class Transfer(Base):
         self._engine_id = value
 
     @property
-    def direction(self) -> DIRECTION_TYPES:
+    def direction(self) -> TRANSFERDIRECTION_TYPES:
         return self._direction
 
     @property

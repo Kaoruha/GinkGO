@@ -4,7 +4,7 @@ import json
 import datetime
 import asyncio
 
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.libs.core.config import GCONF
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from fastapi import FastAPI, Depends, Request
@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from ginkgo.data.ginkgo_data import GDATA
 from ginkgo.enums import FILE_TYPES, DIRECTION_TYPES, ORDER_TYPES
-from ginkgo.libs.ginkgo_normalize import datetime_normalize
+from ginkgo.libs.data.normalize import datetime_normalize
 from ginkgo.libs import GLOG, GinkgoLogger
 from ginkgo.backtest.portfolios.portfolio_live import PortfolioLive
 

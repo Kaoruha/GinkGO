@@ -21,8 +21,8 @@ class OperationTickTest(unittest.TestCase):
     def setUpClass(cls):
         cls.test_code = uuid.uuid4().hex[:4]
         cls.model = get_tick_model(cls.test_code)
-        drop_table(cls.model)
-        create_table(cls.model)
+        drop_table(cls.model, no_skip=True)
+        create_table(cls.model, no_skip=True)
         print(is_table_exsists(cls.model))
         cls.count = random.randint(2, 5)
         cls.params = [
@@ -59,8 +59,8 @@ class OperationTickTest(unittest.TestCase):
         new_code = uuid.uuid4().hex[:5]
         new_model = get_tick_model(new_code)
         try:
-            drop_table(new_model)
-            create_table(new_model)
+            drop_table(new_model, no_skip=True)
+            create_table(new_model, no_skip=True)
             for i in self.params:
                 params_copy = i.copy()
                 params_copy["code"] = new_code
@@ -77,10 +77,10 @@ class OperationTickTest(unittest.TestCase):
         except Exception as e:
             print(e)
         finally:
-            drop_table(new_model)
+            drop_table(new_model, no_skip=True)
 
     def test_OperationTick_update(self) -> None:
-        # No update 
+        # No update
         pass
 
     def test_OperationTick_get(self) -> None:
@@ -103,6 +103,7 @@ class OperationTickTest(unittest.TestCase):
 
         df = get_ticks_page_filtered(code=new_code, as_dataframe=True)
         self.assertEqual(df.shape[0] >= self.count, True)
+
 
 #     def test_OperationTick_get_by_date_range(self) -> None:
 #         pass

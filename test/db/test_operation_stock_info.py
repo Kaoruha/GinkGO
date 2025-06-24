@@ -20,8 +20,8 @@ class OperationStockinfoTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model = MStockInfo
-        drop_table(cls.model)
-        create_table(cls.model)
+        drop_table(cls.model, no_skip=True)
+        create_table(cls.model, no_skip=True)
         cls.count = random.randint(2, 5)
         cls.params = [
             {
@@ -65,7 +65,9 @@ class OperationStockinfoTest(unittest.TestCase):
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
             time.sleep(0.01)
-            df = get_stockinfo(new_code).iloc[0]
+            result_df = get_stockinfo(new_code)
+            self.assertGreater(result_df.shape[0], 0, "Should find the inserted record")
+            df = result_df.iloc[0]
             self.assertEqual(df["code"], params_copy["code"])
             self.assertEqual(df["code_name"], params_copy["code_name"])
             self.assertEqual(df["industry"], params_copy["industry"])
@@ -88,7 +90,9 @@ class OperationStockinfoTest(unittest.TestCase):
             # 2nd upsert, do update
             res2 = upsert_stockinfo(**params_copy)
             time.sleep(0.02)
-            df = get_stockinfo(new_code).iloc[0]
+            result_df = get_stockinfo(new_code)
+            self.assertGreater(result_df.shape[0], 0, "Should find the updated record")
+            df = result_df.iloc[0]
             print(df)
             self.assertEqual(df["code"], new_code)
             self.assertEqual(df["code_name"], new_code_name)
@@ -110,7 +114,7 @@ class OperationStockinfoTest(unittest.TestCase):
             )
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
-            delete_stockinfo(res["code"])
+            delete_stockinfo(res.iloc[0]["code"])
             size2 = get_table_size(self.model)
             self.assertEqual(-1, size2 - size1)
 
@@ -128,11 +132,11 @@ class OperationStockinfoTest(unittest.TestCase):
             )
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
-            softdelete_stockinfo(res["code"])
+            softdelete_stockinfo(res.iloc[0]["code"])
             size2 = get_table_size(self.model)
             self.assertEqual(0, size2 - size1)
 
-            delete_stockinfo(res["code"])
+            delete_stockinfo(res.iloc[0]["code"])
             size3 = get_table_size(self.model)
             self.assertEqual(-1, size3 - size2)
 

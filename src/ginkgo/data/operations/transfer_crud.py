@@ -154,7 +154,7 @@ def get_transfer(
     as_dataframe: bool = False,
     *args,
     **kwargs,
-) -> pd.Series:
+) -> pd.DataFrame:
     session = get_mysql_connection().session
     model = MTransfer
     filters = [model.uuid == id]
@@ -163,12 +163,15 @@ def get_transfer(
         stmt = session.query(model).filter(and_(*filters))
         if as_dataframe:
             df = pd.read_sql(stmt.statement, session.connection())
-            return df.iloc[0]
+            return df
         else:
             query = stmt.first()
+            if query is None:
+                return None
             return Transfer(
                 uuid=query.uuid,
                 portfolio_id=query.portfolio_id,
+                engine_id=getattr(query, 'engine_id', ''),
                 direction=query.direction,
                 market=query.market,
                 money=query.money,
@@ -181,7 +184,7 @@ def get_transfer(
         if as_dataframe:
             return pd.DataFrame()
         else:
-            return pd.DataFrame()
+            return None
     finally:
         get_mysql_connection().remove_session()
 
@@ -223,7 +226,20 @@ def get_transfers_page_filtered(
             return df
         else:
             query = stmt.all()
-            return [Transfer(i) for i in query]
+            result = []
+            for i in query:
+                transfer = Transfer(
+                    uuid=i.uuid,
+                    portfolio_id=i.portfolio_id,
+                    engine_id=getattr(i, 'engine_id', ''),
+                    direction=i.direction,
+                    market=i.market,
+                    money=i.money,
+                    status=i.status,
+                    timestamp=i.timestamp,
+                )
+                result.append(transfer)
+            return result
     except Exception as e:
         session.rollback()
         GLOG.ERROR(e)

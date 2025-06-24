@@ -10,9 +10,9 @@ from ginkgo.notifier.notifier_beep import beep as beepbeep
 from ginkgo.notifier.notifier_telegram import (
     run_telebot as run_telegram_bot_api_server,
 )
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.libs.core.config import GCONF
 from ginkgo.libs import GLOG
-from ginkgo.libs.ginkgo_thread import GinkgoThreadManager
+from ginkgo.libs.core.threading import GinkgoThreadManager
 
 gtm = GinkgoThreadManager()
 

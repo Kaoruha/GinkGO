@@ -20,8 +20,8 @@ class OperationCapitalAdjustmentTest(unittest.TestCase):
     def setUpClass(cls):
         cls.model = MCapitalAdjustment
         cls.count = random.randint(2, 5)
-        drop_table(cls.model)
-        create_table(cls.model)
+        drop_table(cls.model, no_skip=True)
+        create_table(cls.model, no_skip=True)
         cls.params = [
             {
                 "code": uuid.uuid4().hex,

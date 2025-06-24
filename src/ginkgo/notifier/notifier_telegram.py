@@ -1,4 +1,4 @@
-from ginkgo.libs.ginkgo_conf import GCONF
+from ginkgo.libs.core.config import GCONF
 from ginkgo.data.operations import (
     get_files_page_filtered,
     get_engines_page_filtered,

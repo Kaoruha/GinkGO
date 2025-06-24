@@ -18,8 +18,8 @@ class OperationEnginePortfolioMappingTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model = MEnginePortfolioMapping
-        drop_table(cls.model)
-        create_table(cls.model)
+        drop_table(cls.model, no_skip=True)
+        create_table(cls.model, no_skip=True)
         cls.count = random.randint(2, 5)
         cls.params = [
             {
@@ -81,7 +81,7 @@ class OperationEnginePortfolioMappingTest(unittest.TestCase):
         for i in self.params:
             size0 = get_table_size(self.model)
             res = add_engine_portfolio_mapping(
-                engine_id="test", portfolio_id="test", type=EVENT_TYPES.OTHER, name="name"
+                engine_id="test", portfolio_id="test", engine_name="test_engine", portfolio_name="test_portfolio"
             )
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
@@ -110,7 +110,7 @@ class OperationEnginePortfolioMappingTest(unittest.TestCase):
         engine_id = uuid.uuid4().hex
         for i in self.params:
             size0 = get_table_size(self.model)
-            res = add_engine_portfolio_mapping(engine_id=engine_id, portfolio_id=i["portfolio_id"])
+            res = add_engine_portfolio_mapping(engine_id=engine_id, portfolio_id=i["portfolio_id"], engine_name=i["engine_name"], portfolio_name=i["portfolio_name"])
             size1 = get_table_size(self.model)
             self.assertEqual(1, size1 - size0)
         df = get_engine_portfolio_mappings_page_filtered(engine_id=engine_id)

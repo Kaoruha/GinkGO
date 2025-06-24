@@ -165,7 +165,7 @@ def update_order(
     if portfolio_id is not None:
         updates["portfolio_id"] = portfolio_id
     if engine_id is not None:
-        updates["engine_id"] = portfolio_id
+        updates["engine_id"] = engine_id
     if code is not None:
         updates["code"] = code
     if direction is not None:

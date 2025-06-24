@@ -25,9 +25,7 @@ def t_test(
     print(t_critical)
 
 
-def chi2_test(
-    backtest_values: list, observe_values: list, category_count: int = 7
-) -> None:
+def chi2_test(backtest_values: list, observe_values: list, category_count: int = 7) -> None:
     # Independent test
     # H0: There is no relation between backtest_values and observe_values.
     # H1: There is relation between backtest_values and observe_values.
@@ -43,7 +41,19 @@ def chi2_test(
     group2 = df2["data"].groupby(pd.cut(df2["data"], bins))
 
     observed = np.array([group1.size().tolist(), group2.size().tolist()])
-    chi2, p, degree_of_freedom, expected = stats.chi2_contingency(observed)
+    
+    # Remove empty bins to avoid zero elements in contingency table
+    non_zero_mask = (observed[0] > 0) | (observed[1] > 0)
+    if not non_zero_mask.any():
+        raise ValueError("No valid bins with data found")
+    
+    observed_filtered = observed[:, non_zero_mask]
+    
+    # Check if we have at least 2 bins after filtering
+    if observed_filtered.shape[1] < 2:
+        raise ValueError("Insufficient non-empty bins for chi-square test")
+    
+    chi2, p, degree_of_freedom, expected = stats.chi2_contingency(observed_filtered)
     print(chi2)
     print(p)
     print(degree_of_freedom)
@@ -51,28 +61,26 @@ def chi2_test(
     if p < 0.05:
         print("Refuse the null hypothesis. Two samples are from the same distribution.")
     else:
-        print(
-            "Accept the null hypothesis. Two samples are from the different distribution."
-        )
+        print("Accept the null hypothesis. Two samples are from the different distribution.")
 
-    plt.bar(
-        bins[:-1],
-        group1.size(),
-        width=(max_value - min_value) / category_count,
-        color="b",
-        alpha=0.5,
-    )
-    plt.bar(
-        bins[:-1],
-        group2.size(),
-        width=(max_value - min_value) / category_count,
-        color="r",
-        alpha=0.5,
-    )
-    plt.xlabel("Category")
-    plt.ylabel("Frequency")
-    plt.legend(["Backtest", "Observe"])
-    plt.show()
+    # plt.bar(
+    #     bins[:-1],
+    #     group1.size(),
+    #     width=(max_value - min_value) / category_count,
+    #     color="b",
+    #     alpha=0.5,
+    # )
+    # plt.bar(
+    #     bins[:-1],
+    #     group2.size(),
+    #     width=(max_value - min_value) / category_count,
+    #     color="r",
+    #     alpha=0.5,
+    # )
+    # plt.xlabel("Category")
+    # plt.ylabel("Frequency")
+    # plt.legend(["Backtest", "Observe"])
+    # plt.show()
 
 
 def kolmogorov_smirnov_test() -> None:
