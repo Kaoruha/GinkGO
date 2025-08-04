@@ -6,10 +6,10 @@ from functools import singledispatchmethod
 from sqlalchemy import String, DECIMAL, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.backtest.order import Order
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.libs import base_repr, datetime_normalize
+from .model_mysqlbase import MMysqlBase
+from ...backtest.entities.order import Order
+from ...enums import DIRECTION_TYPES, SOURCE_TYPES
+from ...libs import base_repr, datetime_normalize
 
 
 class MPortfolio(MMysqlBase):
@@ -20,7 +20,7 @@ class MPortfolio(MMysqlBase):
     __abstract__ = False
     __tablename__ = "portfolio"
 
-    name: Mapped[str] = mapped_column(String(32), default="default_live")
+    name: Mapped[str] = mapped_column(String(64), default="default_live")
     backtest_start_date: Mapped[datetime.datetime] = mapped_column(DateTime)
     backtest_end_date: Mapped[datetime.datetime] = mapped_column(DateTime)
     is_live: Mapped[bool] = mapped_column(Boolean, default=False)

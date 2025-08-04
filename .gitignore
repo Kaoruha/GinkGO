@@ -153,4 +153,5 @@ src/ginkgo/config/secure.yml
 for_test.py
 .obsidian
 .virtual_documents
+migration_state.json
 

@@ -7,9 +7,9 @@ from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DECIMAL, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.data.models.model_clickbase import MClickBase
-from ginkgo.libs import datetime_normalize, base_repr, Number, to_decimal
-from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
+from .model_clickbase import MClickBase
+from ...libs import datetime_normalize, base_repr, Number, to_decimal
+from ...enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 
 
 class MTickSummary(MClickBase):

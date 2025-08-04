@@ -7,9 +7,9 @@ from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DECIMAL, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
-from ginkgo.enums import SOURCE_TYPES
+from .model_mysqlbase import MMysqlBase
+from ...libs import base_repr, datetime_normalize, Number, to_decimal
+from ...enums import SOURCE_TYPES
 
 
 class MPosition(MMysqlBase):

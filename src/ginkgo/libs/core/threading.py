@@ -18,10 +18,10 @@ from rich.console import Console
 from multiprocessing import Process
 
 
-from ginkgo.libs.core.config import GCONF
-from ginkgo.libs.utils.common import retry
-from ginkgo.libs.core.logger import GinkgoLogger
-from ginkgo.notifier.notifier_beep import beep
+from .config import GCONF
+from ..utils.common import retry
+from .logger import GinkgoLogger
+from ...notifier.notifier_beep import beep
 
 
 console = Console()
@@ -44,9 +44,27 @@ class GinkgoThreadManager:
         self.lock = threading.Lock()  # TODO
         self.watchdog_name = "watch_dog"  # Watchdog ensures the operation of the main control.
         self.maincontrol_name = "main_control"
-        from ginkgo.data.drivers import create_redis_connection
-
-        self.redis_conn = create_redis_connection()
+        
+        # 使用RedisService统一管理Redis操作
+        self._redis_service = None
+        # KafkaService延迟初始化，避免循环导入
+        self._kafka_service = None
+    
+    @property
+    def redis_service(self):
+        """延迟加载RedisService实例"""
+        if self._redis_service is None:
+            from ginkgo.data.containers import container
+            self._redis_service = container.redis_service()
+        return self._redis_service
+    
+    @property
+    def kafka_service(self):
+        """延迟加载KafkaService实例"""
+        if self._kafka_service is None:
+            from ginkgo.data.containers import container
+            self._kafka_service = container.kafka_service()
+        return self._kafka_service
 
     def get_redis_key_about_worker_status(self, pid: str, *args, **kwargs) -> str:
         return f"{str(pid)}_status"
@@ -60,7 +78,7 @@ class GinkgoThreadManager:
                 from ginkgo.data import fetch_and_update_stockinfo
 
                 fetch_and_update_stockinfo()
-                self.upsert_worker_status(pid=pid, task_name="update_stock_info", status="IDLE")
+                self.upsert_worker_status(pid=pid, task_name="update_stock_info", status="COMPLETE")
             except Exception as e:
                 worker_logger.ERROR(f"Error occured when dealing with update stock_info command. {e}")
                 self.upsert_worker_status(pid=pid, task_name="update_stock_info", status="ERROR")
@@ -73,7 +91,7 @@ class GinkgoThreadManager:
                 from ginkgo.data import fetch_and_update_tradeday
 
                 fetch_and_update_tradeday()
-                self.upsert_worker_status(pid=pid, task_name="update_calender", status="IDLE")
+                self.upsert_worker_status(pid=pid, task_name="update_calender", status="COMPLETE")
             except Exception as e:
                 data_logger.ERROR(e)
                 self.upsert_worker_status(pid=pid, task_name="update_calender", status="ERROR")
@@ -81,17 +99,17 @@ class GinkgoThreadManager:
                 pass
         elif type == "adjust":
             worker_logger.INFO(
-                f"Dealing with the command updating adjustfactor about {code}. {'in fast mode' if value['fast'] else 'in complete mode'}."
+                f"Dealing with the command updating adjustfactor about {code}. {'in fast mode' if fast else 'in complete mode'}."
             )
             try:
-                self.upsert_worker_status(pid=pid, task_name=f"update_calender_{code}", status="RUNNING")
+                self.upsert_worker_status(pid=pid, task_name=f"update_adjustfactor_{code}", status="RUNNING")
                 from ginkgo.data import fetch_and_update_adjustfactor
 
-                fetch_and_update_adjustfactor(code, value["fast"])
-                self.upsert_worker_status(pid=pid, task_name=f"update_calender_{code}", status="IDLE")
+                fetch_and_update_adjustfactor(code, fast)
+                self.upsert_worker_status(pid=pid, task_name=f"update_adjustfactor_{code}", status="COMPLETE")
             except Exception as e:
-                data_logger.ERROR(e)
-                self.upsert_worker_status(pid=pid, task_name=f"update_calender_{code}", status="ERROR")
+                worker_logger.ERROR(e)
+                self.upsert_worker_status(pid=pid, task_name=f"update_adjustfactor_{code}", status="ERROR")
             finally:
                 pass
         elif type == "bar":
@@ -110,7 +128,7 @@ class GinkgoThreadManager:
                 self.upsert_worker_status(
                     pid=pid,
                     task_name=f"update_daybar_{code}_{'fast_mode' if fast else 'normal_model'}",
-                    status="DONE",
+                    status="COMPLETE",
                 )
             except Exception as e:
                 data_logger.ERROR(e)
@@ -137,7 +155,7 @@ class GinkgoThreadManager:
                 self.upsert_worker_status(
                     pid=pid,
                     task_name=f"update_tick_{code}_{'fast_mode' if fast else 'normal_model'}",
-                    status="IDEL",
+                    status="COMPLETE",
                 )
             except Exception as e:
                 data_logger.ERROR(e)
@@ -157,47 +175,118 @@ class GinkgoThreadManager:
             print(value)
 
     def run_data_worker(self, *args, **kwargs):
-        from ginkgo.data.drivers import GinkgoConsumer
-
         pid = os.getpid()
         self.register_worker_pid(pid)
         print(f"Current Worker: {self.get_worker_count()}")
         self.upsert_worker_status(pid=pid, task_name="No Task", status="IDLE")
-        con = GinkgoConsumer("ginkgo_data_update", "ginkgo_data")
-        worker_logger.INFO(f"Start Listen Kafka Topic: ginkgo_data_update Group: ginkgo_data  PID:{pid}")
+        
+        worker_logger.INFO(f":arrows_counterclockwise: Worker PID:{pid} initializing...")
+        worker_logger.INFO(f":satellite_antenna: Start Listen Kafka Topic: ginkgo_data_update Group: ginkgo_data  PID:{pid}")
+        
+        # 测试Kafka连接状态
         try:
-            for msg in con.consumer:
+            kafka_health = self.kafka_service.health_check()
+            worker_logger.INFO(f":green_heart: Kafka health check: {kafka_health.get('status', 'unknown')}")
+        except Exception as e:
+            worker_logger.WARN(f":warning: Kafka health check failed: {e}")
+        
+        # 定义消息处理回调函数
+        def data_worker_message_handler(message_data):
+            try:
+                # 增加详细的调试日志
+                worker_logger.INFO(f":dart: [PID:{pid}] Received Kafka message")
+                worker_logger.INFO(f":page_facing_up: Raw message data: {message_data}")
+                
                 beep(freq=900.7, repeat=2, delay=10, length=100)
-                con.commit()
-                value = msg.value
+                
+                # 从KafkaService消息格式中提取原始数据（逻辑保持不变）
+                if "value" in message_data:
+                    value = message_data["value"]
+                    worker_logger.INFO(f":package: Extracted value from message: {value}")
+                else:
+                    # 如果是直接的消息内容
+                    value = message_data.get("content", message_data)
+                    worker_logger.INFO(f":package: Using direct content: {value}")
+                
                 type = value["type"]
                 code = value["code"]
                 fast = None
+                max_update = 0
                 if "fast" in value.keys():
                     fast = value["fast"]
                 if "max_update" in value.keys():
                     max_update = value['max_update']
-                worker_logger.INFO(f"Got siganl. {type} {code}")
+                    
+                worker_logger.INFO(f":clipboard: Parsed task: type={type}, code={code}, fast={fast}, max_update={max_update}")
+                
                 if type == "kill":
-                    # Try a new way to jump out of loop
-                    raise StopIteration  # Jump out of for loop.
+                    # 通过返回False来停止消费
+                    worker_logger.INFO(f"💀 Worker PID:{pid} received kill signal.")
+                    self.upsert_worker_status(pid=pid, task_name="", status="killed")
+                    return False
+                
                 try:
+                    worker_logger.INFO(f":rocket: Starting task execution: {type}")
                     self.process_task(type=type, code=code, fast=fast, max_update=max_update)
+                    worker_logger.INFO(f":white_check_mark: Task execution completed successfully")
+                    return True  # 消息处理成功
                 except Exception as e2:
+                    worker_logger.ERROR(f":x: Error processing task {type} {code}: {e2}")
+                    import traceback
+                    worker_logger.ERROR(f":magnifying_glass_tilted_left: Traceback: {traceback.format_exc()}")
                     time.sleep(2)
-                finally:
-                    pass
-        except StopIteration:
-            worker_logger.INFO(f"Woker PID:{pid} terminated.")
+                    return False  # 消息处理失败
+                    
+            except Exception as e:
+                worker_logger.ERROR(f"💥 Error in message handler: {e}")
+                import traceback
+                worker_logger.ERROR(f":magnifying_glass_tilted_left: Handler traceback: {traceback.format_exc()}")
+                return False
+        
+        try:
+            # 使用KafkaService订阅消息
+            worker_logger.INFO(f"📨 Attempting to subscribe to ginkgo_data_update...")
+            success = self.kafka_service.subscribe_topic(
+                topic="ginkgo_data_update",
+                handler=data_worker_message_handler,
+                group_id="ginkgo_data",
+                auto_start=True
+            )
+            
+            if not success:
+                worker_logger.ERROR(":x: Failed to subscribe to ginkgo_data_update topic")
+                return
+            else:
+                worker_logger.INFO(":white_check_mark: Successfully subscribed to Kafka topic")
+            
+            worker_logger.INFO(f":hourglass_not_done: Worker PID:{pid} is now waiting for messages...")
+            
+            # 保持进程运行，直到接收到kill信号
+            while True:
+                worker_status = self.get_worker_status(str(pid))
+                if worker_status and worker_status.get("status") == "killed":
+                    worker_logger.INFO(f"🛑 Worker PID:{pid} received kill status, shutting down...")
+                    break
+                time.sleep(1)
+                
+        except KeyboardInterrupt:
+            worker_logger.INFO(f"Worker PID:{pid} interrupted by user.")
             self.upsert_worker_status(pid=pid, task_name="", status="killed")
         except Exception as e:
-            worker_logger.ERROR(e)
+            worker_logger.ERROR(f"Worker error: {e}")
+            self.upsert_worker_status(pid=pid, task_name="", status="ERROR")
         finally:
+            # 取消订阅和清理
+            try:
+                self.kafka_service.unsubscribe_topic("ginkgo_data_update")
+            except:
+                pass
             self.unregister_worker_pid(pid)
+            worker_logger.INFO(f"Worker PID:{pid} cleanup completed.")
 
     def run_data_worker_daemon(self, *args, **kwargs):
         content = """
-from ginkgo.libs.ginkgo_thread import GinkgoThreadManager
+from ginkgo.libs.core.threading import GinkgoThreadManager
 
 if __name__ == "__main__":
     gtm = GinkgoThreadManager()
@@ -253,9 +342,12 @@ if __name__ == "__main__":
         from ginkgo.data import get_thread_count
 
         while get_thread_count() > 0:
-            key = self._redis.lpop(self.thread_pool_name).decode("utf-8")
-            key = key.split(self.get_thread_cache_name(""))[1]
-            self.kill_thread(key)
+            key = self.redis_service.pop_from_thread_list(self.thread_pool_name)
+            if key:
+                key = key.split(self.get_thread_cache_name(""))[1]
+                self.kill_thread(key)
+            else:
+                break
         console.print("Reset all thread cache in REDIS.")
 
     def get_thread_cache_name(self, name: str, *args, **kwargs) -> str:
@@ -263,68 +355,78 @@ if __name__ == "__main__":
 
     def get_thread_pool_detail(self) -> Dict:
         # TODO
-        pool = self.get_thread_pool_list()
+        thread_pids = self.get_thread_pids()
         r = {}
-        for key in pool:
-            key = key.decode("utf-8")
-            value = self._redis.get(key).decode("utf-8")
-            key = key.split(self.get_thread_cache_name(""))[1]
-            is_alive = self.get_thread_status(key)
-            if is_alive:
-                r[key] = {"pid": value, "alive": is_alive}
+        for thread_pid in thread_pids:
+            # 假设这是线程缓存key格式
+            if thread_pid.startswith(self.get_thread_cache_name("")):
+                thread_name = thread_pid.split(self.get_thread_cache_name(""))[1]
+                value = self.redis_service.get_thread_from_cache(thread_pid)
+                if value:
+                    is_alive = self.get_thread_status(thread_name)
+                    if is_alive:
+                        r[thread_name] = {"pid": value, "alive": is_alive}
         return r
 
     def add_thread(self, name: str, target: threading.Thread) -> None:
         # TODO
         # TODO
         key = self.get_thread_cache_name(name)
-        if key.encode() in self.get_thread_pool_list():
+        # 检查线程是否已存在
+        if self.redis_service.exists(key):
             console.print(f"{name} exists. Please change the name and try it again.")
             return
         pid = os.getpid()
         t = threading.Thread(target=target, name=name)
-        self._redis.set(key, str(pid))
-        self._redis.lpush(self.thread_pool_name, key)
+        self.redis_service.set_thread_cache(key, str(pid))
+        self.redis_service.add_to_thread_list(self.thread_pool_name, key)
         t.start()
 
     def get_thread_status(self, name: str) -> bool:
         # TODO
-        from ginkgo.data import remove_from_redis
-
         key = self.get_thread_cache_name(name)
-        value = self._redis.get(key).decode("utf-8")
-        pid = int(value)
+        value = self.redis_service.get_thread_from_cache(key)
+        if not value:
+            return False
         try:
-            proc = psutil.Process(int(value))
+            pid = int(value)
+            proc = psutil.Process(pid)
             return proc.is_running()
         except psutil.NoSuchProcess:
-            remove_from_redis(key)
-            console.print(f"No suck process, remove {key} from REDIS.")
+            self.redis_service.delete_cache(key)
+            console.print(f"No such process, remove {key} from REDIS.")
+            return False
+        except (ValueError, TypeError):
+            return False
 
     def kill_thread(self, name: str) -> None:
         # TODO
         key = self.get_thread_cache_name(name)
-        if self._redis.exists(key):
-            value = self._redis.get(key).decode("utf-8")
-            pid = int(value)
-            try:
-                proc = psutil.Process(pid)
-                if proc.is_running():
-                    os.kill(pid, signal.SIGKILL)
-                GDATA.remove_from_redis(key)
-                self._redis.lrem(self.thread_pool_name, 0, key)
-                console.print(f"Kill thread:{key} pid: {pid}")
-            except Exception as e:
-                GDATA.remove_from_redis(key)
-                self._redis.lrem(self.thread_pool_name, 0, key)
-                console.print(f"Remove {name} from REDIS.")
+        if self.redis_service.exists(key):
+            value = self.redis_service.get_thread_from_cache(key)
+            if value:
+                try:
+                    pid = int(value)
+                    proc = psutil.Process(pid)
+                    if proc.is_running():
+                        os.kill(pid, signal.SIGKILL)
+                    self.redis_service.delete_cache(key)
+                    self.redis_service.remove_from_thread_list(self.thread_pool_name, key)
+                    console.print(f"Kill thread:{key} pid: {pid}")
+                except Exception as e:
+                    self.redis_service.delete_cache(key)
+                    self.redis_service.remove_from_thread_list(self.thread_pool_name, key)
+                    console.print(f"Remove {name} from REDIS.")
 
     def restart_thread(self, name: str, target) -> None:
         self.kill_thread(name)
         self.add_thread(name, target)
 
-    def get_proc_status(self, pid: int) -> str:
+    def get_proc_status(self, pid) -> str:
         try:
+            # Handle cases where pid might be None, "None", or non-numeric
+            if pid is None or pid == "None" or not str(pid).isdigit():
+                return "NOT EXIST"
             proc = psutil.Process(int(pid))
             return proc.status().upper()
         except Exception as e:
@@ -334,21 +436,22 @@ if __name__ == "__main__":
 
     @property
     def main_status(self) -> str:
-        pid = self.redis_conn.get(self.maincontrol_name)
+        pid = self.redis_service.get_main_process_pid()
         if pid is not None:
             status = self.get_proc_status(pid)
             if status == "NOT EXIST":
-                self.redis_conn.delete(self.maincontrol_name)
+                self.redis_service.unregister_main_process()
             return self.get_proc_status(pid)
         return "NOT EXIST"
 
     @property
     def watch_dog_status(self) -> str:
-        cache = self.redis_conn.get(self.watchdog_name)
-        if cache:
-            return self.get_proc_status(cache)
+        pid = self.redis_service.get_watchdog_pid()
+        if pid is not None:
+            status = self.get_proc_status(pid)
             if status == "NOT EXIST":
-                self.redis_conn.delete(self.watchdog_name)
+                self.redis_service.unregister_watchdog()
+            return status
         return "NOT EXIST"
 
     def process_main_control_command(self, value: str) -> None:
@@ -382,7 +485,7 @@ if __name__ == "__main__":
     def run_live(self, id: str, *args, **kwargs):
         # TODO
         console.print(f"Try run live engine {id}")
-        from ginkgo.backtest.engines.live_engine import LiveEngine
+        from ginkgo.backtest.execution.engines.live_engine import LiveEngine
 
         e = LiveEngine(id)
         e.start()
@@ -391,7 +494,7 @@ if __name__ == "__main__":
         # TODO
         GDATA.clean_live_status()
         content = f"""
-from ginkgo.backtest.engines.live_engine import LiveEngine
+from ginkgo.backtest.execution.engines.live_engine import LiveEngine
 
 
 if __name__ == "__main__":
@@ -423,45 +526,82 @@ if __name__ == "__main__":
 
     def consume_main_control_message(self, *args, **kwargs) -> None:
         signal.signal(signal.SIGINT, self.handle_sigint)
-        from ginkgo.data.drivers import GinkgoConsumer
 
         topic_name = "ginkgo_main_control"
         console.print(f"[bold blue]Initializing consumer for topic: {topic_name}[/bold blue]")
-        con = GinkgoConsumer(topic=topic_name, offset="latest")
-        console.print(f"[bold green]Consumer initialized successfully![/bold green]")
+        
         max_try = 10
-
         error_time = 0
         exit_count = 0
-
-        while True:
+        keep_running = True
+        
+        # 定义主控制消息处理回调函数
+        def main_control_message_handler(message_data):
+            nonlocal error_time, exit_count, keep_running
             try:
-                for msg in con.consumer:
-                    value = msg.value
-                    self.process_main_control_command(value)
-                    error_time = 0  # 成功处理消息后重置错误计数
-                    exit_count = 0  # 成功处理消息后重置退出计数
-            except KeyboardInterrupt:
-                exit_count += 1
-                console.print(f"Try Harder, {exit_count}/3.")
-                if exit_count >= 3:
-                    console.print("[bold red]Main control service terminated by user.[/bold red]")
-                    break
+                # 从KafkaService消息格式中提取原始数据
+                if "value" in message_data:
+                    value = message_data["value"]
+                else:
+                    # 如果是直接的消息内容
+                    value = message_data.get("content", message_data)
+                
+                self.process_main_control_command(value)
+                error_time = 0  # 成功处理消息后重置错误计数
+                exit_count = 0  # 成功处理消息后重置退出计数
+                return True
+                
             except Exception as e:
-                error_time += 1
-                console.print(f"[bold red]Error in message consumption: {e}[/bold red]")
-                if error_time >= max_try:
-                    console.print(f"[bold red]Max retry attempts reached: {max_try}[/bold red]")
-                    raise StopIteration
-                time.sleep(1)  # 短暂休眠后重试
+                control_logger.ERROR(f"Error processing main control command: {e}")
+                return False
+        
+        try:
+            # 使用KafkaService订阅主控制消息
+            success = self.kafka_service.subscribe_topic(
+                topic=topic_name,
+                handler=main_control_message_handler,
+                group_id="main_control_group",
+                auto_start=True
+            )
+            
+            if not success:
+                console.print("[bold red]Failed to subscribe to main control topic[/bold red]")
+                return
+                
+            console.print(f"[bold green]Consumer initialized successfully![/bold green]")
+            
+            # 保持服务运行
+            while keep_running:
+                try:
+                    time.sleep(1)  # 主循环休眠
+                except KeyboardInterrupt:
+                    exit_count += 1
+                    console.print(f"Try Harder, {exit_count}/3.")
+                    if exit_count >= 3:
+                        console.print("[bold red]Main control service terminated by user.[/bold red]")
+                        break
+                except Exception as e:
+                    error_time += 1
+                    console.print(f"[bold red]Error in message consumption: {e}[/bold red]")
+                    if error_time >= max_try:
+                        console.print(f"[bold red]Max retry attempts reached: {max_try}[/bold red]")
+                        raise StopIteration
+                    time.sleep(1)  # 短暂休眠后重试
+                    
+        finally:
+            # 清理订阅
+            try:
+                self.kafka_service.unsubscribe_topic(topic_name)
+                console.print("[bold yellow]Main control topic unsubscribed.[/bold yellow]")
+            except:
+                pass
 
     def run_main_control(self, *args, **kwargs) -> None:
 
         self.kill_maincontrol()
         pid = os.getpid()
-        self.redis_conn.set(self.maincontrol_name, str(pid))
-        v = self.redis_conn.get(self.maincontrol_name)
-        console.print(v)
+        self.redis_service.register_main_process(pid)
+        console.print(f"Main control registered with PID: {pid}")
         try:
             self.consume_main_control_message()
         except StopIteration:
@@ -470,18 +610,18 @@ if __name__ == "__main__":
             console.print(f"[bold red]Unexpected error: {e}[/bold red]")
         finally:
             # 确保 Redis 键被清理
-            self.redis_conn.delete(self.maincontrol_name)
+            self.redis_service.unregister_main_process()
             console.print("[bold yellow]Main control service cleaned up.[/bold yellow]")
 
     def kill_maincontrol(self) -> None:
-        pid = self.redis_conn.get(self.maincontrol_name)
+        pid = self.redis_service.get_main_process_pid()
         if pid is None:
             control_logger.INFO(f"Ginkgo MainControl not exist.")
             return
         control_logger.INFO(f"Ginkgo Maincontrol exist. PID:{int(pid)}")
         self.kill_proc(int(pid))
         control_logger.INFO(f"Remove Maincontrol pid from redis.")
-        self.redis_conn.delete(self.maincontrol_name)
+        self.redis_service.unregister_main_process()
 
     def check_main_control_alive(self) -> None:
         exit_count = 0
@@ -523,8 +663,7 @@ if __name__ == "__main__":
         pid = os.getpid()
         console.print(f"Watch dog PID: {pid}")
 
-        key = self.watchdog_name
-        self.redis_conn.set(key, str(pid))
+        self.redis_service.register_watchdog(pid)
         try:
             self.check_main_control_alive()
         except KeyboardInterrupt:
@@ -533,22 +672,22 @@ if __name__ == "__main__":
             console.print(f"[bold red]Watchdog encountered an error: {e}[/bold red]")
         finally:
             # 清理 Redis 键
-            self.redis_conn.delete(self.watchdog_name)
+            self.redis_service.unregister_watchdog()
             console.print("[bold yellow]Watchdog process cleaned up.[/bold yellow]")
 
     def kill_watch_dog(self) -> None:
-        pid = self.redis_conn.get(self.watchdog_name)
+        pid = self.redis_service.get_watchdog_pid()
         if pid is None:
             control_logger.INFO(f"Watch dog not exist.")
             return
         control_logger.INFO(f"Watch dog exist. PID:{int(pid)}")
         self.kill_proc(int(pid))
         control_logger.INFO(f"Remove watchdog pid from redis.")
-        self.redis_conn.delete(self.watchdog_name)
+        self.redis_service.unregister_watchdog()
 
     def run_watch_dog_daemon(self) -> None:
         content = """
-from ginkgo.libs import GinkgoThreadManager
+from ginkgo.libs.core.threading import GinkgoThreadManager
 
 if __name__ == "__main__":
     gtm = GinkgoThreadManager()
@@ -579,7 +718,7 @@ if __name__ == "__main__":
 
     def run_main_control_daemon(self) -> None:
         content = """
-from ginkgo.libs import GinkgoThreadManager
+from ginkgo.libs.core.threading import GinkgoThreadManager
 
 if __name__ == "__main__":
     gtm = GinkgoThreadManager()
@@ -618,36 +757,48 @@ if __name__ == "__main__":
             pass
 
     def clean_thread_pool(self, *args, **kwargs) -> None:
-        cursor = "0"
+        cursor = 0
         while cursor != 0:
-            cursor, elements = self.redis_conn.sscan(self.thread_pool_name, cursor=cursor, count=100)
-            for item in elements:
-                pid = item.decode("utf-8")
+            cursor, elements = self.redis_service.scan_thread_pool(self.thread_pool_name, cursor=cursor, count=100)
+            for pid_str in elements:
                 try:
-                    pid = int(pid)
+                    # Check if pid is valid before converting to int
+                    if not pid_str or pid_str == "None" or not pid_str.isdigit():
+                        self.redis_service.remove_from_thread_pool_set(self.thread_pool_name, pid_str)
+                        continue
+                    pid = int(pid_str)
                     proc = psutil.Process(pid)
                     if not proc.is_running():
-                        self.unregister_worker_pid(pid)
+                        self.redis_service.remove_from_thread_pool_set(self.thread_pool_name, pid_str)
                 except psutil.NoSuchProcess as e:
-                    self.unregister_worker_pid(pid)
+                    self.redis_service.remove_from_thread_pool_set(self.thread_pool_name, pid_str)
+                except (ValueError, TypeError) as e:
+                    # Handle cases where pid cannot be converted to int
+                    self.redis_service.remove_from_thread_pool_set(self.thread_pool_name, pid_str)
                 except Exception as e:
                     pass
                 finally:
                     pass
 
     def clean_worker_pool(self, *args, **kwargs) -> None:
-        cursor = "0"
+        cursor = 0
         while cursor != 0:
-            cursor, elements = self.redis_conn.sscan(self.dataworker_pool_name, cursor=cursor, count=100)
-            for item in elements:
-                pid = item.decode("utf-8")
+            cursor, elements = self.redis_service.scan_worker_pool(self.dataworker_pool_name, cursor=cursor, count=100)
+            for pid_str in elements:
                 try:
-                    pid = int(pid)
+                    # Check if pid is valid before converting to int
+                    if not pid_str or pid_str == "None" or not pid_str.isdigit():
+                        self.unregister_worker_pid(pid_str)
+                        continue
+                    pid = int(pid_str)
                     proc = psutil.Process(pid)
                     if not proc.is_running():
-                        self.unregister_worker_pid(pid)
+                        self.unregister_worker_pid(pid_str)
                 except psutil.NoSuchProcess as e:
-                    self.unregister_worker_pid(pid)
+                    self.unregister_worker_pid(pid_str)
+                except (ValueError, TypeError) as e:
+                    # Handle cases where pid cannot be converted to int
+                    self.unregister_worker_pid(pid_str)
                 except Exception as e:
                     pass
                 finally:
@@ -655,50 +806,42 @@ if __name__ == "__main__":
 
     def get_thread_pids(self) -> List:
         res = []
-        cursor = "0"
+        cursor = 0
         while cursor != 0:
-            cursor, elements = self.redis_conn.sscan(self.thread_pool_name, cursor=cursor, count=100)
+            cursor, elements = self.redis_service.scan_thread_pool(self.thread_pool_name, cursor=cursor, count=100)
             for item in elements:
-                res.append(item.decode("utf-8"))
+                res.append(item)
         return res
 
     def get_worker_pids(self) -> List:
-        res = []
-        cursor = "0"
-        while cursor != 0:
-            cursor, elements = self.redis_conn.sscan(self.dataworker_pool_name, cursor=cursor, count=100)
-            for item in elements:
-                res.append(item.decode("utf-8"))
-        return res
+        worker_pids = self.redis_service.get_all_workers("data_worker")
+        return [str(pid) for pid in worker_pids]
 
     def register_thread_pid(self, pid: str, *args, **kwargs) -> None:
-        self.redis_conn.sadd(self.thread_pool_name, str(pid))
+        self.redis_service.add_to_thread_pool_set(self.thread_pool_name, str(pid))
 
     def unregister_thread_pid(self, pid: str, *args, **kwargs) -> None:
-        self.redis_conn.srem(self.thread_pool_name, 0, str(pid))
+        self.redis_service.remove_from_thread_pool_set(self.thread_pool_name, str(pid))
 
     def register_worker_pid(self, pid: str, *args, **kwargs) -> None:
         # register work should register to thread pool at the same time
-        self.redis_conn.sadd(self.thread_pool_name, str(pid))
-        self.redis_conn.sadd(self.dataworker_pool_name, str(pid))
+        self.redis_service.add_worker_to_pool(int(pid), "data_worker")
 
     def unregister_worker_pid(self, pid: str, *args, **kwargs) -> None:
         # unregister work should register to thread pool at the same time
-        self.redis_conn.srem(self.thread_pool_name, 0, str(pid))
-        self.redis_conn.srem(self.dataworker_pool_name, 0, str(pid))
+        self.redis_service.remove_worker_from_pool(int(pid), "data_worker")
 
     def get_thread_count(self, *args, **kwargs) -> int:
-        return self.redis_conn.scard(self.thread_pool_name)
+        return self.redis_service.get_worker_pool_size("general")
 
     def get_worker_count(self, *args, **kwargs) -> int:
-        return self.redis_conn.scard(self.dataworker_pool_name)
+        return self.redis_service.get_worker_pool_size("data_worker")
 
     def get_worker_status(self, pid: str, *args, **kwargs) -> Dict:
         pid = str(pid)
-        key = self.get_redis_key_about_worker_status(pid)
-        type = self.redis_conn.type(key)
-        res = self.redis_conn.get(key)
-        return json.loads(res) if res else None
+        task_key = f"ginkgo_worker_status_{pid}"
+        status_data = self.redis_service.get_task_status_by_key(task_key)
+        return status_data
 
     def get_workers_status(self) -> Dict:
         res = {}
@@ -706,6 +849,45 @@ if __name__ == "__main__":
             data = self.get_worker_status(pid)
             if data is None:
                 continue
+            
+            # Calculate task running time from timestamp
+            try:
+                if "time_stamp" in data:
+                    task_start_time = datetime.datetime.strptime(data["time_stamp"], "%Y%m%d%H%M%S")
+                    current_time = datetime.datetime.now()
+                    running_duration = current_time - task_start_time
+                    
+                    # Format running time as human readable
+                    total_seconds = int(running_duration.total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    seconds = total_seconds % 60
+                    
+                    if hours > 0:
+                        data["running_time"] = f"{hours}h {minutes}m"
+                    elif minutes > 0:
+                        data["running_time"] = f"{minutes}m {seconds}s"
+                    else:
+                        data["running_time"] = f"{seconds}s"
+                else:
+                    data["running_time"] = "N/A"
+            except (ValueError, TypeError) as e:
+                data["running_time"] = "N/A"
+            
+            # Get memory usage for the process
+            try:
+                proc = psutil.Process(int(pid))
+                if proc.is_running():
+                    memory_info = proc.memory_info()
+                    memory_mb = round(memory_info.rss / 1024 / 1024, 1)  # Convert bytes to MB
+                    data["memory_mb"] = f"{memory_mb} MB"
+                else:
+                    data["memory_mb"] = "N/A"
+            except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError) as e:
+                data["memory_mb"] = "N/A"
+            except Exception as e:
+                data["memory_mb"] = "N/A"
+            
             res[pid] = data
         return res
 
@@ -713,20 +895,18 @@ if __name__ == "__main__":
         pid = str(pid)
         worker_pids = self.get_worker_pids()
         if pid not in worker_pids:
-            register_worker_pid(pid)
+            self.register_worker_pid(pid)
             control_logger.WARN(f"Process: {pid} should have registered. Please Check the code.")
-        key = self.get_redis_key_about_worker_status(pid)
+        
+        task_key = f"ginkgo_worker_status_{pid}"
         status_data = {
             "task_name": task_name,
             "status": status,
             "time_stamp": datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
         }
-        status_data = json.dumps(status_data)
-        # Redis set with xx and nx is more efficient than do exists then set or update
-        result = self.redis_conn.set(key, status_data, xx=True)
-        # if update failed, do insert.
-        if result is None:
-            self.redis_conn.set(key, status_data, nx=True)
+        
+        # 使用RedisService设置任务状态，TTL设为1小时
+        self.redis_service.set_task_status(task_key, status_data, ttl=3600)
 
     def clean_worker_status(self, *args, **kwargs) -> None:
         for pid in self.get_worker_pids():
@@ -735,11 +915,13 @@ if __name__ == "__main__":
                 status = self.get_worker_status(pid)
                 key = self.get_redis_key_about_worker_status(pid)
                 if status is None:
-                    self.redis_conn.delete(key)
-                if status["status"] == "killed":
-                    self.redis_conn.delete(key)
+                    self.redis_service.delete_cache(key)
+                    continue
+                if status.get("status") == "killed":
+                    self.redis_service.delete_cache(key)
             except psutil.NoSuchProcess as e:
-                self.redis_conn.delete(key)
+                key = self.get_redis_key_about_worker_status(pid)
+                self.redis_service.delete_cache(key)
             except Exception as e:
                 pass
             finally:

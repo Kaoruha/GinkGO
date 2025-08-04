@@ -4,7 +4,6 @@ import psutil
 import os
 
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer, GinkgoConsumer
-from ginkgo.data.drivers import create_redis_connection
 from ginkgo.notifier.notifier_telegram import echo
 from ginkgo.notifier.notifier_beep import beep as beepbeep
 from ginkgo.notifier.notifier_telegram import (
@@ -20,8 +19,15 @@ gtm = GinkgoThreadManager()
 class GinkgoNotifier(object):
     def __init__(self):
         self._producer = None
+        self._kafka_service = None
+        self._redis_service = None
         try:
+            # 保持向后兼容性，同时集成KafkaService
             self._producer = GinkgoProducer()
+            # 集成KafkaService用于高级功能
+            from ginkgo.data.containers import container
+            self._kafka_service = container.kafka_service()
+            self._redis_service = container.redis_service()
         except Exception as e:
             print(e)
         self.telebot_pname = gtm.get_thread_cache_name("telebot")
@@ -29,19 +35,19 @@ class GinkgoNotifier(object):
 
     @property
     def telebot_status(self) -> str:
-        temp_redis = create_redis_connection()
-        if temp_redis.exists(self.telebot_pname):
-            cache = temp_redis.get(self.telebot_pname).decode("utf-8")
-            try:
-                proc = psutil.Process(int(cache))
-                if proc.is_running():
-                    return "RUNNING"
-                elif proc.is_sleeping():
-                    return "SLEEPING"
-                else:
+        if self._redis_service and self._redis_service.exists(self.telebot_pname):
+            cache = self._redis_service.get_cache(self.telebot_pname)
+            if cache:
+                try:
+                    proc = psutil.Process(int(cache))
+                    if proc.is_running():
+                        return "RUNNING"
+                    elif proc.is_sleeping():
+                        return "SLEEPING"
+                    else:
+                        return "DEAD"
+                except Exception as e:
                     return "DEAD"
-            except Exception as e:
-                return "DEAD"
         return "NOT EXIST"
 
     def kill_telebot(self) -> None:
@@ -72,15 +78,53 @@ class GinkgoNotifier(object):
     def beep(self) -> None:
         if GCONF.QUIET:
             return
-        self._producer.send("notify", {"type": "beep"})
+        
+        # 优先使用KafkaService，fallback到原来的producer
+        if self._kafka_service:
+            success = self._kafka_service.publish_message("notify", {"type": "beep"})
+            if success:
+                return
+            GLOG.WARN("KafkaService failed, falling back to direct producer")
+        
+        # Fallback到原来的实现
+        if self._producer:
+            self._producer.send("notify", {"type": "beep"})
         # beepbeep(2000, 1, 20, 30)
 
     def beep_coin(self) -> None:
         if GCONF.QUIET:
             return
-        self._producer.send("notify", {"type": "beep"})
+        
+        # 优先使用KafkaService，fallback到原来的producer
+        if self._kafka_service:
+            success = self._kafka_service.publish_message("notify", {"type": "beep_coin"})
+            if success:
+                return
+            GLOG.WARN("KafkaService failed, falling back to direct producer")
+        
+        # Fallback到原来的实现
+        if self._producer:
+            self._producer.send("notify", {"type": "beep"})
         # beepbeep(1920, 1, 30, 40)
         # beepbeep(2180, 1, 60, 230)
+    
+    def get_notification_stats(self) -> dict:
+        """获取通知统计信息（利用KafkaService的统计功能）"""
+        if self._kafka_service:
+            try:
+                stats = self._kafka_service.get_service_statistics()
+                return {
+                    "kafka_service_available": True,
+                    "send_statistics": stats.get("send_statistics", {}),
+                    "kafka_connection": stats.get("kafka_connection", {})
+                }
+            except Exception as e:
+                GLOG.ERROR(f"Failed to get notification stats: {e}")
+        
+        return {
+            "kafka_service_available": False,
+            "producer_available": self._producer is not None
+        }
 
 
 GNOTIFIER = GinkgoNotifier()

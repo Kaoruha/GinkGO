@@ -1,0 +1,132 @@
+{
+  "date_range_data": {
+    "columns": [
+      "ts_code",
+      "trade_date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "pre_close",
+      "change",
+      "pct_chg",
+      "vol",
+      "amount"
+    ],
+    "data": [
+      {
+        "ts_code": "000001.SZ",
+        "trade_date": "20240205",
+        "open": 9.19,
+        "high": 9.43,
+        "low": 9.11,
+        "close": 9.38,
+        "pre_close": 9.27,
+        "change": 0.11,
+        "pct_chg": 1.1866,
+        "vol": 1803591.9,
+        "amount": 1674566.499
+      },
+      {
+        "ts_code": "000001.SZ",
+        "trade_date": "20240202",
+        "open": 9.42,
+        "high": 9.47,
+        "low": 9.07,
+        "close": 9.27,
+        "pre_close": 9.41,
+        "change": -0.14,
+        "pct_chg": -1.4878,
+        "vol": 1634214.31,
+        "amount": 1520605.695
+      },
+      {
+        "ts_code": "000001.SZ",
+        "trade_date": "20240201",
+        "open": 9.41,
+        "high": 9.48,
+        "low": 9.34,
+        "close": 9.41,
+        "pre_close": 9.46,
+        "change": -0.05,
+        "pct_chg": -0.5285,
+        "vol": 1055259.87,
+        "amount": 993481.907
+      }
+    ],
+    "dtypes": {
+      "ts_code": "object",
+      "trade_date": "object",
+      "open": "float64",
+      "high": "float64",
+      "low": "float64",
+      "close": "float64",
+      "pre_close": "float64",
+      "change": "float64",
+      "pct_chg": "float64",
+      "vol": "float64",
+      "amount": "float64"
+    },
+    "shape": [
+      3,
+      11
+    ],
+    "sample_values": {
+      "ts_code": [
+        "000001.SZ",
+        "000001.SZ",
+        "000001.SZ"
+      ],
+      "trade_date": [
+        "20240205",
+        "20240202",
+        "20240201"
+      ],
+      "open": [
+        "9.19",
+        "9.42",
+        "9.41"
+      ],
+      "high": [
+        "9.43",
+        "9.47",
+        "9.48"
+      ],
+      "low": [
+        "9.11",
+        "9.07",
+        "9.34"
+      ],
+      "close": [
+        "9.38",
+        "9.27",
+        "9.41"
+      ],
+      "pre_close": [
+        "9.27",
+        "9.41",
+        "9.46"
+      ],
+      "change": [
+        "0.11",
+        "-0.14",
+        "-0.05"
+      ],
+      "pct_chg": [
+        "1.1866",
+        "-1.4878",
+        "-0.5285"
+      ],
+      "vol": [
+        "1803591.9",
+        "1634214.31",
+        "1055259.87"
+      ],
+      "amount": [
+        "1674566.499",
+        "1520605.695",
+        "993481.907"
+      ]
+    }
+  }
+}

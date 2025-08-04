@@ -6,17 +6,17 @@ from functools import singledispatchmethod
 from sqlalchemy import String, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import SOURCE_TYPES, ENGINE_STATUS
-from ginkgo.libs import base_repr
+from .model_mysqlbase import MMysqlBase
+from ...enums import SOURCE_TYPES, ENGINESTATUS_TYPES
+from ...libs import base_repr
 
 
 class MEngine(MMysqlBase):
     __abstract__ = False
     __tablename__ = "engine"
 
-    name: Mapped[str] = mapped_column(String(32), default="ginkgo_test_engine")
-    status: Mapped[ENGINE_STATUS] = mapped_column(Enum(ENGINE_STATUS), default=ENGINE_STATUS.IDLE)
+    name: Mapped[str] = mapped_column(String(64), default="ginkgo_test_engine")
+    status: Mapped[ENGINESTATUS_TYPES] = mapped_column(Enum(ENGINESTATUS_TYPES), default=ENGINESTATUS_TYPES.IDLE)
     is_live: Mapped[bool] = mapped_column(Boolean, default=False)
 
     @singledispatchmethod
@@ -27,7 +27,7 @@ class MEngine(MMysqlBase):
     def _(
         self,
         name: str,
-        status: Optional[ENGINE_STATUS] = None,
+        status: Optional[ENGINESTATUS_TYPES] = None,
         is_live: Optional[bool] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,

@@ -10,5 +10,5 @@ class GinkgoSourceBase(object):
     def client(self, value) -> None:
         self._client = value
 
-    def connect(self):
+    def connect(self, *args, **kwargs):
         raise NotImplementedError()

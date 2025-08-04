@@ -6,9 +6,9 @@ from functools import singledispatchmethod
 from sqlalchemy import String, Enum, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import FILE_TYPES, SOURCE_TYPES
-from ginkgo.libs import base_repr, datetime_normalize
+from .model_mysqlbase import MMysqlBase
+from ...enums import FILE_TYPES, SOURCE_TYPES
+from ...libs import base_repr, datetime_normalize
 
 
 class MFile(MMysqlBase):

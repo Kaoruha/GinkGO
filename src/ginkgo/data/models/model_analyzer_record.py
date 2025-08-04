@@ -7,9 +7,9 @@ from decimal import Decimal
 from sqlalchemy import String, DECIMAL
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.enums import SOURCE_TYPES
-from ginkgo.data.models.model_clickbase import MClickBase
-from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
+from ...enums import SOURCE_TYPES
+from .model_clickbase import MClickBase
+from ...libs import base_repr, datetime_normalize, Number, to_decimal
 
 
 class MAnalyzerRecord(MClickBase):

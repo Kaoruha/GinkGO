@@ -6,9 +6,9 @@ from functools import singledispatchmethod
 from sqlalchemy import Column, String, DateTime, Integer, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES, CURRENCY_TYPES, MARKET_TYPES
-from ginkgo.libs import datetime_normalize, base_repr
+from .model_mysqlbase import MMysqlBase
+from ...enums import SOURCE_TYPES, FREQUENCY_TYPES, CURRENCY_TYPES, MARKET_TYPES
+from ...libs import datetime_normalize, base_repr
 
 
 class MStockInfo(MMysqlBase):

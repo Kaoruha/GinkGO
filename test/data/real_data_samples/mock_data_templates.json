@@ -1,0 +1,119 @@
+{
+  "tick_template": {
+    "description": "基于真实TDX API格式的Tick Mock数据模板",
+    "structure": [
+      "time",
+      "price",
+      "vol",
+      "buyorsell",
+      "volume",
+      "timestamp"
+    ],
+    "sample_data": {
+      "2024-01-15": [
+        {
+          "time": "09:25",
+          "price": 9.16,
+          "vol": 4966,
+          "buyorsell": 2,
+          "volume": 4966,
+          "timestamp": "2024-01-15 09:25:00"
+        },
+        {
+          "time": "09:30",
+          "price": 9.16,
+          "vol": 1049,
+          "buyorsell": 0,
+          "volume": 1049,
+          "timestamp": "2024-01-15 09:30:00"
+        },
+        {
+          "time": "09:30",
+          "price": 9.16,
+          "vol": 38,
+          "buyorsell": 0,
+          "volume": 38,
+          "timestamp": "2024-01-15 09:30:00"
+        }
+      ]
+    },
+    "data_types": {
+      "time": "object",
+      "price": "float64",
+      "vol": "int64",
+      "buyorsell": "int64",
+      "volume": "int64",
+      "timestamp": "datetime64[ns]"
+    }
+  },
+  "bar_template": {
+    "description": "基于真实Tushare API格式的Bar Mock数据模板",
+    "structure": [
+      "ts_code",
+      "trade_date",
+      "open",
+      "high",
+      "low",
+      "close",
+      "pre_close",
+      "change",
+      "pct_chg",
+      "vol",
+      "amount"
+    ],
+    "sample_data": [
+      {
+        "ts_code": "000001.SZ",
+        "trade_date": "20240205",
+        "open": 9.19,
+        "high": 9.43,
+        "low": 9.11,
+        "close": 9.38,
+        "pre_close": 9.27,
+        "change": 0.11,
+        "pct_chg": 1.1866,
+        "vol": 1803591.9,
+        "amount": 1674566.499
+      },
+      {
+        "ts_code": "000001.SZ",
+        "trade_date": "20240202",
+        "open": 9.42,
+        "high": 9.47,
+        "low": 9.07,
+        "close": 9.27,
+        "pre_close": 9.41,
+        "change": -0.14,
+        "pct_chg": -1.4878,
+        "vol": 1634214.31,
+        "amount": 1520605.695
+      },
+      {
+        "ts_code": "000001.SZ",
+        "trade_date": "20240201",
+        "open": 9.41,
+        "high": 9.48,
+        "low": 9.34,
+        "close": 9.41,
+        "pre_close": 9.46,
+        "change": -0.05,
+        "pct_chg": -0.5285,
+        "vol": 1055259.87,
+        "amount": 993481.907
+      }
+    ],
+    "data_types": {
+      "ts_code": "object",
+      "trade_date": "object",
+      "open": "float64",
+      "high": "float64",
+      "low": "float64",
+      "close": "float64",
+      "pre_close": "float64",
+      "change": "float64",
+      "pct_chg": "float64",
+      "vol": "float64",
+      "amount": "float64"
+    }
+  }
+}

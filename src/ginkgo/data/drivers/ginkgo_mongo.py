@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, MetaData, inspect, func, DDL
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from ginkgo.libs import GLOG, GinkgoLogger
+from ...libs import GLOG, GinkgoLogger
 
 data_logger = GinkgoLogger("ginkgo_data", ["ginkgo_data.log"])
 
@@ -61,7 +61,7 @@ class GinkgoMongo(object):
     def insp(self):
         return inspect(self.engine)
 
-    def is_table_exsists(self, name: str) -> bool:
+    def is_table_exists(self, name: str) -> bool:
         GLOG.DEBUG(f"Check Mongo table {name} exists. {self.insp.has_table(name)}")
         return self.insp.has_table(name)
 

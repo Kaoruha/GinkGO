@@ -7,9 +7,9 @@ from functools import singledispatchmethod
 from sqlalchemy import String, Integer, DECIMAL, Enum, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
-from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
+from .model_mysqlbase import MMysqlBase
+from ...enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
+from ...libs import base_repr, datetime_normalize, Number, to_decimal
 
 
 class MOrder(MMysqlBase):

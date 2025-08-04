@@ -8,6 +8,7 @@ def datetime_normalize(time: any) -> datetime.datetime:
     Support datetime
     Support int 19900101
     Support str "19900101" "1990-01-01" "1990-01-01 12:12:12"
+    Support ISO 8601 formats "2023-12-31T23:59:59" "2023-12-31T23:59:59.123456"
     Support date
     """
     if time is None:
@@ -28,12 +29,15 @@ def datetime_normalize(time: any) -> datetime.datetime:
     if isinstance(time, int):
         time = str(time)
 
-    # Try different formats
+    # Try different formats (ordered by common usage for efficiency)
     formats = [
-        "%Y%m%d%H%M%S",
-        "%Y-%m-%d %H:%M:%S", 
-        "%Y-%m-%d",
-        "%Y%m%d"
+        "%Y-%m-%d %H:%M:%S",        # Standard format with space: "2023-12-31 23:59:59"
+        "%Y-%m-%dT%H:%M:%S",        # ISO 8601 with T: "2023-12-31T23:59:59"
+        "%Y-%m-%dT%H:%M:%S.%f",     # ISO 8601 with T and microseconds: "2023-12-31T23:59:59.123456"
+        "%Y%m%d%H%M%S",             # Compact format: "20231231235959"
+        "%Y%m%dT%H%M%S",            # Compact ISO format: "20231231T235959"
+        "%Y-%m-%d",                 # Date only: "2023-12-31"
+        "%Y%m%d"                    # Compact date: "20231231"
     ]
     
     for fmt in formats:
@@ -42,5 +46,9 @@ def datetime_normalize(time: any) -> datetime.datetime:
         except ValueError:
             continue
     
-    # If no format worked, raise an exception
-    raise ValueError(f"Unable to parse datetime from: {time}")
+    # If no format worked, raise an exception with supported formats
+    supported_formats = [
+        "2023-12-31 23:59:59", "2023-12-31T23:59:59", "2023-12-31T23:59:59.123456",
+        "20231231235959", "20231231T235959", "2023-12-31", "20231231"
+    ]
+    raise ValueError(f"Unable to parse datetime from: {time}. Supported formats: {supported_formats}")
