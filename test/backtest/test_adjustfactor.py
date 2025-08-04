@@ -4,7 +4,7 @@ import datetime
 import pandas as pd
 from decimal import Decimal
 
-from ginkgo.backtest.adjustfactor import Adjustfactor
+from ginkgo.backtest.entities.adjustfactor import Adjustfactor
 
 # TODO AI Gen need check
 

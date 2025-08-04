@@ -29,6 +29,9 @@ class TICKDIRECTION_TYPES(EnumBase):
     OTHER1 = 3
     OTHER2 = 4
     OTHER3 = 5
+    OTHER4 = 6
+    OTHER5 = 7
+    OTHER6 = 8
 
 
 class EVENT_TYPES(EnumBase):
@@ -70,6 +73,8 @@ class SOURCE_TYPES(EnumBase):
     BACKTESTFEEDER = 10
     STRATEGY = 11
     SIMMATCH = 12
+    BACKTEST = 13
+    LIVE = 14
 
 
 class DIRECTION_TYPES(EnumBase):
@@ -104,6 +109,7 @@ class TRANSFERSTATUS_TYPES(EnumBase):
     SUBMITTED = 2
     FILLED = 3
     CANCELED = 4
+    PENDING = 5
 
 
 class FREQUENCY_TYPES(EnumBase):
@@ -182,11 +188,51 @@ class LIVE_MODE(str, Enum):
     OFF = "off"
 
 
-class ENGINE_STATUS(EnumBase):
+class ADJUSTMENT_TYPES(EnumBase):
+    """Price adjustment types for stock data"""
+
+    NONE = 0  # No adjustment (original data)
+    FORE = 1  # Forward adjustment (前复权) - latest price as base
+    BACK = 2  # Backward adjustment (后复权) - earliest price as base
+
+
+class ENGINESTATUS_TYPES(EnumBase):
     IDLE = 0
     INITIALIZING = 1
     RUNNING = 2
     STOPPED = 3
+
+
+class STRATEGY_TYPES(EnumBase):
+    """策略类型枚举"""
+
+    UNKNOWN = 0
+    TRADITIONAL = 1
+    ML = 2
+    QUANTITATIVE = 3
+    TECHNICAL = 4
+    FUNDAMENTAL = 5
+
+
+class MODEL_TYPES(EnumBase):
+    """ML模型类型枚举"""
+
+    UNKNOWN = 0
+    TIME_SERIES = 1
+    TABULAR = 2
+    ENSEMBLE = 3
+    DEEP_LEARNING = 4
+    REINFORCEMENT = 5
+
+
+class ENGINE_TYPES(EnumBase):
+    """引擎类型枚举"""
+
+    UNKNOWN = 0
+    EVENT_DRIVEN = 1
+    MATRIX = 2
+    HYBRID = 3
+    LIVE = 4
     COMPLETED = 4
     ERROR = 5
     CANCELED = 6

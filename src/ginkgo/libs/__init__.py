@@ -44,10 +44,58 @@ try:
 except ImportError:
     find_process_by_keyword = None
 
+try:
+    from .utils.health_check import (
+        ensure_services_ready,
+        wait_for_ginkgo_services,
+        check_clickhouse_ready,
+        check_mysql_ready,
+        check_redis_ready,
+        check_kafka_ready,
+        check_docker_containers_running
+    )
+except ImportError:
+    ensure_services_ready = None
+    wait_for_ginkgo_services = None
+    check_clickhouse_ready = None
+    check_mysql_ready = None
+    check_redis_ready = None
+    check_kafka_ready = None
+    check_docker_containers_running = None
+
 # 创建全局实例（保持向后兼容）
 GLOG = GinkgoLogger(logger_name="ginkgo", file_names=["ginkgo.log"], console_log=True)
 GCONF = GinkgoConfig()
 GTM = GinkgoThreadManager()
+
+# 尝试导入校验器模块
+try:
+    from .validators import (
+        validate_component,
+        test_component,
+        BaseValidator,
+        ValidationResult,
+        ValidationLevel,
+        StrategyValidator,
+        AnalyzerValidator,
+        RiskValidator,
+        SizerValidator,
+        ComponentTester,
+        ValidationRules
+    )
+except ImportError:
+    # 校验器模块导入失败时设为None
+    validate_component = None
+    test_component = None
+    BaseValidator = None
+    ValidationResult = None
+    ValidationLevel = None
+    StrategyValidator = None
+    AnalyzerValidator = None
+    RiskValidator = None
+    SizerValidator = None
+    ComponentTester = None
+    ValidationRules = None
 
 # 导出列表 - 保持与原来的 __all__ 兼容
 __all__ = [
@@ -85,4 +133,24 @@ __all__ = [
     "GinkgoSingleLinkedNode",
     "GinkgoSingleLinkedList",
     "find_process_by_keyword",
+    # 健康检查工具
+    "ensure_services_ready",
+    "wait_for_ginkgo_services",
+    "check_clickhouse_ready",
+    "check_mysql_ready",
+    "check_redis_ready",
+    "check_kafka_ready",
+    "check_docker_containers_running",
+    # 组件校验器
+    "validate_component",
+    "test_component",
+    "BaseValidator",
+    "ValidationResult",
+    "ValidationLevel",
+    "StrategyValidator",
+    "AnalyzerValidator",
+    "RiskValidator",
+    "SizerValidator",
+    "ComponentTester",
+    "ValidationRules",
 ]

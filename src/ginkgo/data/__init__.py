@@ -1,948 +1,400 @@
-from typing import List, Dict
+"""
+Ginkgo Data Module - Public API (V6)
 
-import os
-import json
-import psutil
+This module is the main, simplified entry point to the data layer.
+It leverages a Dependency Injection Container for managing services and their dependencies.
+
+V6 updates: Added price adjustment support with new convenience APIs
+"""
+
 import inspect
-import math
-import datetime
-import time
-import pandas as pd
-from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, BarColumn, TimeElapsedColumn, TimeRemainingColumn, TextColumn
 
-from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES, FILE_TYPES
-from ginkgo.data.sources import GinkgoTushare, GinkgoTDX
-from ginkgo.data.operations import get_stockinfo
-from ginkgo.data.drivers import create_redis_connection
-from ginkgo.libs import (
-    GCONF,
-    GLOG,
-    datetime_normalize,
-    to_decimal,
-    skip_if_ran,
-    cache_with_expiration,
-    retry,
-    time_logger,
-    fix_string_length,
-    RichProgress,
-    format_time_seconds,
-)
+# Import the container to access services
+from .containers import container
 
-console = Console()
+# Import seeding module for direct access to seeding functions
+from . import seeding
 
-# Send Signal to Kafka
-main_control_topic = "ginkgo_main_control"
-engine_control_topic = "ginkgo_engine_control"
-data_handler_topic = "ginkgo_data_handler"
+# Import utils for general utility functions that don't require service injection
+from .utils import get_crud  # get_crud is still needed for direct CRUD access in getters
 
+from ..libs import time_logger, retry, skip_if_ran
+from ..enums import ADJUSTMENT_TYPES
 
-def send_signal_run_engine(engine_id: str, *args, **kwargs):
-    from ginkgo.data.drivers import GinkgoProducer
-
-    global main_control_topic
-
-    GinkgoProducer().send(main_control_topic, {"type": "run_engine", "id": str(id)})
-
-
-def send_signal_stop_engine(*args, **kwargs):
-    from ginkgo.data.drivers import GinkgoProducer
-
-    global main_control_topic
-
-    GinkgoProducer().send(main_control_topic, {"type": "kill_engine", "id": str(id)})
-
-
-def send_signal_to_engine(*args, **kwargs):
-    pass
-
-
-def send_signal_fetch_and_update_stockinfo(*args, **kwargs):
-    from ginkgo.data.drivers import GinkgoProducer
-
-    GinkgoProducer().send("ginkgo_data_update", {"type": "stockinfo", "code": "blabla"})
-
-
-def send_signal_fetch_and_update_adjustfactor(code: str, fast_mode: bool = True, *args, **kwargs):
-    from ginkgo.data.drivers import GinkgoProducer
-
-    GinkgoProducer().send("ginkgo_data_update", {"type": "adjust", "code": code, "fast": fast_mode})
-
-
-def send_signal_fetch_and_update_bar(code: str, fast_mode: bool, *args, **kwargs):
-    from ginkgo.data.drivers import GinkgoProducer
-
-    GinkgoProducer().send("ginkgo_data_update", {"type": "bar", "code": code, "fast": fast_mode})
-
-
-def send_signal_fetch_and_update_tick(code: str, fast_mode: bool = False, max_update: int = 0, *args, **kwargs):
-    from ginkgo.data.drivers import GinkgoProducer
-
-    GinkgoProducer().send(
-        "ginkgo_data_update", {"type": "tick", "code": code, "fast": fast_mode, "max_update": max_update}
-    )
-
-
-def send_signal_fetch_and_update_tick_summary(*args, **kwargs):
-    # TODO
-    pass
-
-
-def send_signal_fetch_and_update_capital_adjustment(*args, **kwargs):
-    # TODO
-    pass
-
-
-def send_signal_fetch_and_update_tradeday(*args, **kwargs):
-    # TODO
-    pass
-
-
-def send_signal_kill_a_worker(*args, **kwargs):
-    from ginkgo.data.drivers import GinkgoProducer
-
-    GinkgoProducer().send("ginkgo_data_update", {"type": "kill", "code": "blabla"})
-
-
-# Fetch and Update
-
-
-@time_logger
-def fetch_and_update_adjustfactor(*args, **kwargs):
-    # TODO
-    pass
+# --- Public API Functions ---
 
 
 @retry
-@skip_if_ran
 @time_logger
-def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, console: bool = False, *args, **kwargs):
-    from ginkgo.data.models import MBar
-    from ginkgo.data.operations import add_bars
-    from ginkgo.data.operations.bar_crud import delete_bars_by_code_and_dates
-
-    def split_data_into_update_and_insert(raw_data, update_list, insert_list, progress, task):
-        for i, r in raw_data.iterrows():
-            item = MBar(
-                code=r["ts_code"],
-                open=to_decimal(r["open"]),
-                high=to_decimal(r["high"]),
-                low=to_decimal(r["low"]),
-                close=to_decimal(r["close"]),
-                volume=int(r["vol"]),
-                amount=to_decimal(r["amount"]),
-                frequency=FREQUENCY_TYPES.DAY,
-                timestamp=datetime_normalize(r["trade_date"]),
-                source=SOURCE_TYPES.TUSHARE,
-            )
-            try:
-                if pd.Timestamp(item.timestamp) in data_in_db["timestamp"].values:
-                    update_list.append(item)
-                else:
-                    insert_list.append(item)
-            except Exception as e:
-                print(e)
-            finally:
-                pass
-            progress.update(task, advance=1, description=fix_string_length(f"{code} {item.timestamp}", 30))
-
-    def do_update(update_list, update_dates, progress, task):
-        for i in update_list:
-            update_dates.append(i.timestamp)
-            progress.update(task, advance=1, description=fix_string_length(f"{code} {i.timestamp}", 30))
-        delete_bars_by_code_and_dates(code=code, dates=update_dates)
-        time.sleep(0.2)
-        progress.update(task2, advance=1, description="Del Data")
-        for i in range(0, len(update_list), batch_size):
-            add_bars(update_list[i : i + batch_size], progress=progress)
-            progress.update(task, advance=len(update_list[i : i + batch_size]), description=f"Update {code}")
-
-    def do_insert(insert_list, progress, task):
-        for i in range(0, len(insert_list), batch_size):
-            add_bars(insert_list[i : i + batch_size], progress=progress)
-            progress.update(task, advance=batch_size, description=f"Insert {len(insert_list[i:i+batch_size])}")
-
-    # Check code
-    if not is_code_in_stocklist(code):
-        GLOG.DEBUG(f"Exit fetch and update daybar {code}.")
-        return
-
-    # Get Data from database
-    if not console:
-        data_in_db = get_bars(code=code, as_dataframe=True)
-    else:
-        with console.status(f"[bold green]Get Daybar about {code} from Clickhouse..[/]") as status:
-            data_in_db = get_bars(code=code, as_dataframe=True)
-            status.stop()
-
-    start_date = GCONF.DEFAULTSTART
-    end_date = datetime.datetime.now()
-    if data_in_db.shape[0] == 0:
-        GLOG.DEBUG(f"Code {code} has no data not db, do update.")
-    elif fast_mode:
-        GLOG.DEBUG(f"Update {code} in fast_mode, just fetch data from lastest timestamp.")
-        start_date = data_in_db.iloc[-1]["timestamp"]
-
-    # Fetch from tushare
-    data_from_tushare = GinkgoTushare().fetch_cn_stock_daybar(code=code, start_date=start_date, end_date=end_date)
-
-    update_list = []
-    insert_list = []
-    with RichProgress() as progress:
-        # Split data into update and insert
-        task1 = progress.add_task("[cyan]Split Date", total=data_from_tushare.shape[0])
-        split_data_into_update_and_insert(data_from_tushare, update_list, insert_list, progress, task1)
-        progress.update(
-            task1, completed=data_from_tushare.shape[0], description=f":white_check_mark: Split {code} data Done."
-        )
-
-        # Do Update
-        batch_size = 1000
-        if len(update_list) > 0:
-            task_count = len(update_list) * 2 + 1
-            task2 = progress.add_task("[cyan]Convert Time", total=task_count)
-            update_dates = []
-            do_update(update_list, update_dates, progress, task2)
-            progress.update(task2, completed=task_count, description=f":white_check_mark: Update {code} Daybar Done.")
-        else:
-            GLOG.DEBUG(f":hear-no-evil_monkey: {code} Daybar has no data to update.")
-
-        # Do Insert
-        if len(insert_list) > 0:
-            task_count = len(insert_list)
-            task3 = progress.add_task(f"[cyan]Insert {code}", total=task_count)
-            do_insert(insert_list, progress, task3)
-            progress.update(task3, completed=task_count, description=f":white_check_mark: Insert {code} Daybar Done.")
-        else:
-            GLOG.DEBUG(f":hear-no-evil_monkey: {code} Daybar has no data to insert.")
+def fetch_and_update_adjustfactor(code: str, fast_mode: bool = True, *args, **kwargs):
+    """Public API: Synchronizes adjustment factors for a stock code."""
+    container.adjustfactor_service().sync_for_code(code, fast_mode)
 
 
+@retry
 @time_logger
-def fetch_and_update_capital_adjustment(*args, **kwargs):
-    # TODO
-    pass
+def calc_adjust_factors(code: str, *args, **kwargs):
+    """
+    Public API: Calculate fore/back adjustment factors for a stock code.
+
+    This function corresponds to the CLI 'calc' command and triggers the calculation
+    of fore and back adjustment factors based on existing raw adjustment factor data.
+
+    Args:
+        code: Stock code to calculate adjustment factors for
+        *args, **kwargs: Additional arguments
+
+    Returns:
+        Dict containing calculation results with statistics and status
+    """
+    return container.adjustfactor_service().recalculate_adjust_factors_for_code(code, *args, **kwargs)
+
+
+@retry
+@time_logger
+def recalculate_adjust_factors_for_code(code: str, *args, **kwargs):
+    """
+    Public API: Recalculate fore/back adjustment factors for a specific stock code.
+
+    This function implements the separated architecture where raw adjustment factor
+    data is pulled first, then fore/back adjust factors are calculated separately.
+
+    Args:
+        code: Stock code to recalculate adjustment factors for
+        *args, **kwargs: Additional arguments
+
+    Returns:
+        Dict containing calculation results with success status and statistics
+    """
+    return container.adjustfactor_service().recalculate_adjust_factors_for_code(code, *args, **kwargs)
 
 
 @retry
 @skip_if_ran
 @time_logger
 def fetch_and_update_stockinfo(*args, **kwargs):
-    from ginkgo.data.models import MStockInfo
-    from ginkgo.data.operations import upsert_stockinfo
-    from ginkgo.enums import MARKET_TYPES, SOURCE_TYPES, CURRENCY_TYPES
-
-    base_log = "[bold green]Fetch and update StockInfo..[/]"
-    res = pd.DataFrame()
-
-    with console.status(base_log) as status:
-        status.update(base_log + "[bold green]Connecting Tushare..[/]")
-        res = GinkgoTushare().fetch_cn_stockinfo()
-        status.stop()
-        console.print()
-    l = []
-
-    with RichProgress() as progress:
-        task = progress.add_task("[cyan]Dealing", total=res.shape[0])
-
-        for i, r in res.iterrows():
-            code = r["ts_code"]
-            name = r["name"]
-            industry = r["industry"]
-            currency = CURRENCY_TYPES.CNY
-            market = MARKET_TYPES.CHINA
-            list_date = r["list_date"]
-            delist_date = r["delist_date"]
-            upsert_stockinfo(
-                code=code,
-                code_name=name,
-                industry=industry,
-                currency=currency,
-                market=market,
-                list_date=list_date,
-                delist_date=delist_date,
-                source=SOURCE_TYPES.TUSHARE,
-            )
-            progress.update(task, advance=1, description=fix_string_length(f"{code} {name}", 30))
-        progress.update(task, completed=True)
-
-
-@time_logger
-def is_tick_in_db(*args, **kwargs) -> bool:
-    pass
-
-
-def is_code_in_stocklist(code: str, *args, **kwargs) -> None:
-    # Verify the code's validity.
-    stock_list = get_stockinfos()
-    if code not in stock_list["code"].values:
-        GLOG.ERROR(f"Code {code} not in StockList")
-        return False
-    else:
-        return True
+    """Public API: Synchronizes stock information for all stocks."""
+    container.stockinfo_service().sync_all()
 
 
 @retry
-@skip_if_ran
-@time_logger
-def fetch_and_update_tick_on_date(code: str, date: any, fast_mode: bool = False, *args, **kwargs) -> int:
-    """
-    Update tick on a specific date.
-    :param code:
-    :param date:
-    :param fast_mode:
-    :param args:
-    :param kwargs:
-    :return:
-        -1 if code not in stocklist
-         0 data in db, but run fast_mode
-         1 no data from remote
-         2 do fetch and update
-    """
-    from ginkgo.data.operations import delete_ticks, add_ticks
-    from ginkgo.enums import TICKDIRECTION_TYPES
-    from ginkgo.backtest import Tick
-
-    # Check code
-    if not is_code_in_stocklist(code):
-        GLOG.DEBUG(f"Exit fetch and update tick {code} on {date}.")
-        return -1
-    # Get data from database
-    date = datetime_normalize(date).strftime("%Y-%m-%d")
-    date = datetime_normalize(date)  # TODO Have no idea why i need this.
-    start_date = date + datetime.timedelta(minutes=1)
-    end_date = date + datetime.timedelta(days=1) - datetime.timedelta(minutes=1)
-    if fast_mode:
-        data_in_db = get_ticks(code=code, start_date=start_date, end_date=end_date, as_dataframe=True)
-        if data_in_db.shape[0] > 0:
-            GLOG.DEBUG(f"{code} on {date} has {data_in_db.shape[0]} ticks in db, skip.")
-            return 0
-    # Fetch data
-    data_from_tdx = GinkgoTDX().fetch_history_transaction_detail(code, date)
-    if data_from_tdx is None:
-        return 1
-    if data_from_tdx.shape[0] == 0:
-        return 1
-    # Del data in db
-    delete_ticks(code=code, start_date=start_date, end_date=end_date)
-    # Insert
-    l = []
-    with RichProgress() as progress:
-        task1 = progress.add_task("[cyan]Prepare Tick", total=data_from_tdx.shape[0])
-        for i, r in data_from_tdx.iterrows():
-            direction = TICKDIRECTION_TYPES(r["buyorsell"])
-            item = Tick(
-                code=code,
-                price=r["price"],
-                volume=r["volume"],
-                direction=direction,
-                timestamp=r["timestamp"],
-                source=SOURCE_TYPES.TDX,
-            )
-            l.append(item)
-            progress.update(task1, advance=1, description=f"{code} {r['timestamp']}")
-        progress.update(task1, completed=data_from_tdx.shape[0], description=":white_check_mark: Prepare Tick Done.")
-    batch_size = 1000
-    with RichProgress() as progress:
-        task2 = progress.add_task("[cyan]Insert Tick", total=data_from_tdx.shape[0])
-        for i in range(0, len(l), batch_size):
-            add_ticks(l[i : i + batch_size], progress=progress)
-            progress.update(
-                task2,
-                advance=len(l[i : i + batch_size]),
-                description=f"Insert Tick {code} on {date.date()}",
-            )
-        progress.update(
-            task2, completed=len(l), description=f":white_check_mark: Insert Tick {code} on {date.date()} Done."
-        )
-    return 2
-
-
-@time_logger
-def fetch_and_update_tick(code: str, fast_mode: bool = False, max_backtrack_day: int = 0, *args, **kwargs):
-    GLOG.INFO(f"Fetch and update tick {code}")
-    # Check code
-    if not is_code_in_stocklist(code):
-        GLOG.DEBUG(f"Exit fetch and update tick {code} on {date}.")
-        return
-    info = get_stockinfo(code)
-    if info is None:
-        return
-    now = datetime.datetime.now()
-    list_date = info["list_date"].values[0]
-    list_date = datetime_normalize(list_date)
-    # If click force_rebuild, do entire fetch and update
-    try:
-        redis = create_redis_connection()
-        redis_key = f"tick_update_{code}"
-        cache_ = redis.smembers(redis_key)
-        ttl = 60 * 60 * 24 * 14  # 14 Days Cache
-    except Exception as e:
-        cache_ = None
-    if cache_:
-        cache = {item.decode("utf-8") for item in cache_}
-    else:
-        cache = None
-
-    update_count = 0
-
-    while True:
-        update_count += 1
-        print(update_count)
-        if cache is not None:
-            exists = now.strftime("%Y-%m-%d") in cache
-            if exists:
-                now = now - datetime.timedelta(days=1)
-                time_to_live = redis.ttl(redis_key)
-                print(f"Updating ticks about {code} on {now} is processed, ttl: {format_time_seconds(time_to_live)}")
-                if max_backtrack_day > 0 and update_count > max_backtrack_day:
-                    break
-                continue
-        res = fetch_and_update_tick_on_date(code, now, fast_mode=fast_mode)
-        should_cache = False
-        if res == 2:
-            console.print("do update")
-            should_cache = True
-        elif res == 1:
-            console.print("no data from remote")
-            if (datetime.datetime.now() - now).days > 2:
-                should_cache = True
-        elif res == 0:
-            console.print("data in db")
-            should_cache = True
-        if redis and should_cache:
-            redis.sadd(redis_key, now.strftime("%Y-%m-%d"))
-            redis.expire(redis_key, ttl)
-            cache_ = redis.smembers(redis_key)
-            cache = {item.decode("utf-8") for item in cache_}
-        now = now - datetime.timedelta(days=1)
-        if now < list_date:
-            break
-        if max_backtrack_day > 0 and update_count > max_backtrack_day:
-            break
-
-
-@time_logger
-def fetch_and_update_tick_summary(*args, **kwargs):
-    # TODO
-    pass
-
-
 @time_logger
 def fetch_and_update_tradeday(*args, **kwargs):
-    # TODO
-    print("TODO fetch_and_update_tradeday")
+    """Public API: Synchronizes trading calendar data."""
+    # This is a placeholder for trade day synchronization
+    # The actual implementation would depend on the trade day service
+    GLOG.INFO("Trade day synchronization - placeholder implementation")
     pass
 
 
-# Get
-@cache_with_expiration
-def get_stockinfos(*args, **kwargs):
-    from ginkgo.data.operations import get_stockinfos_filtered as func
+@retry
+@time_logger
+def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, *args, **kwargs):
+    """Public API: Synchronizes daily bar data for a stock code."""
+    container.bar_service().sync_for_code(code, fast_mode)
 
-    return func(*args, **kwargs)
+
+@retry
+@time_logger
+def fetch_and_update_cn_daybar_with_date_range(code: str, start_date=None, end_date=None, *args, **kwargs):
+    """Public API: Synchronizes daily bar data for a stock code within specified date range."""
+    from datetime import datetime
+
+    # Convert string dates to datetime if needed
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, "%Y%m%d")
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, "%Y%m%d")
+
+    return container.bar_service().sync_for_code_with_date_range(code, start_date, end_date)
+
+
+@retry
+@time_logger
+def fetch_and_update_cn_daybar_batch_with_date_range(codes: list, start_date=None, end_date=None, *args, **kwargs):
+    """Public API: Synchronizes daily bar data for multiple stock codes within specified date range."""
+    from datetime import datetime
+
+    # Convert string dates to datetime if needed
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, "%Y%m%d")
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, "%Y%m%d")
+
+    return container.bar_service().sync_batch_codes_with_date_range(codes, start_date, end_date)
+
+
+@retry
+@time_logger
+def fetch_and_update_tick(code: str, fast_mode: bool = False, max_backtrack_days: int = 0, *args, **kwargs):
+    """Public API: Synchronizes tick data for a stock code."""
+    container.tick_service().sync_for_code(code, fast_mode, max_backtrack_days)
+
+
+@retry
+@time_logger
+def fetch_and_update_tick_on_date(code: str, date, fast_mode: bool = False, *args, **kwargs):
+    """Public API: Synchronizes tick data for a stock code on a specific date."""
+    return container.tick_service().sync_for_code_on_date(code, date, fast_mode)
+
+
+@time_logger
+def init_example_data(*args, **kwargs):
+    """Public API: Initializes a clean set of example data for backtesting."""
+    seeding.run()
+
+
+# --- Data Retrieval (Getters) ---
+# Use services for data retrieval to leverage caching and business logic
 
 
 def get_adjustfactors(*args, **kwargs):
-    from ginkgo.data.operations import get_adjustfactors_page_filtered as func
-
-    return func(*args, **kwargs)
+    """Get adjustment factors using AdjustfactorService with caching."""
+    return container.adjustfactor_service().get_adjustfactors(*args, **kwargs)
 
 
 def get_bars(*args, **kwargs):
-    from ginkgo.data.operations import get_bars_page_filtered as func
-
-    return func(*args, **kwargs)
+    """Get bar data using BarService with caching."""
+    return container.bar_service().get_bars(*args, **kwargs)
 
 
 def get_ticks(*args, **kwargs):
-    from ginkgo.data.operations import get_ticks_page_filtered as func
-
-    return func(*args, **kwargs)
-
-
-def get_transfers(*args, **kwargs):
-    # TODO
-    pass
+    """Get tick data using TickService with caching."""
+    return container.tick_service().get_ticks(*args, **kwargs)
 
 
-def get_signals(*args, **kwargs):
-    from ginkgo.data.operations import get_signals_page_filtered as func
+def get_bars_adjusted(code: str, adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE, *args, **kwargs):
+    """
+    Get price-adjusted bar data (convenience method).
 
-    return func(*args, **kwargs)
+    Args:
+        code: Stock code (required for adjustment)
+        adjustment_type: Price adjustment type (FORE/BACK)
+        *args, **kwargs: Additional arguments passed to BarService
 
-
-def get_orders(*args, **kwargs):
-    from ginkgo.data.operations import get_orders_page_filtered as func
-
-    return func(*args, **kwargs)
-
-
-def get_order_records(*args, **kwargs):
-    from ginkgo.data.operations import get_order_records_page_filtered as func
-
-    return func(*args, **kwargs)
+    Returns:
+        Price-adjusted bar data as DataFrame or list of models
+    """
+    return container.bar_service().get_bars_adjusted(code, adjustment_type, *args, **kwargs)
 
 
-def get_handlers(*args, **kwargs):
-    from ginkgo.data.operations import get_handlers_page_filtered as func
+def get_ticks_adjusted(code: str, adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE, *args, **kwargs):
+    """
+    Get price-adjusted tick data (convenience method).
 
-    return func(*args, **kwargs)
+    Args:
+        code: Stock code (required for adjustment)
+        adjustment_type: Price adjustment type (FORE/BACK)
+        *args, **kwargs: Additional arguments passed to TickService
 
-
-def add_file(*args, **kwargs):
-    from ginkgo.data.operations import add_file as func
-
-    return func(*args, **kwargs)
-
-
-def copy_file(*args, **kwargs):
-    # got data from source
-    file_type = kwargs.get("type")
-    if file_type is None:
-        return
-    name = kwargs.get("name")
-    if name is None:
-        return
-    clone_id = kwargs.get("clone")
-    if clone_id is None:
-        return
-
-    from ginkgo.data.operations import get_file_content
-
-    raw_content = get_file_content(id=clone_id)
-    # add new file
-    from ginkgo.data.operations import add_file as func
-
-    return func(type=file_type, name=name, data=raw_content)
+    Returns:
+        Price-adjusted tick data as DataFrame or list of models
+    """
+    return container.tick_service().get_ticks_adjusted(code, adjustment_type, *args, **kwargs)
 
 
-def delete_file(*args, **kwargs):
-    from ginkgo.data.operations import delete_file as func
-
-    return func(*args, **kwargs)
+# --- Stock Info Query Functions (now part of StockinfoService) ---
 
 
-def update_file(*args, **kwargs):
-    from ginkgo.data.operations import update_file as func
-
-    return update_file(*args, **kwargs)
+def get_stockinfos(*args, **kwargs):
+    return container.stockinfo_service().get_stockinfos(*args, **kwargs)
 
 
-def get_file(*args, **kwargs):
-    from ginkgo.data.operations import get_file as func
-
-    return func(*args, **kwargs)
+def get_stockinfo_codes_set():
+    return container.stockinfo_service().get_stockinfo_codes_set()
 
 
-def init_example_data(*args, **kwargs):
-    from ginkgo.data.operations.portfolio_file_mapping_crud import (
-        delete_portfolio_file_mappings_filtered,
-        get_portfolio_file_mappings_page_filtered,
-        fget_portfolio_file_mappings_page_filtered,
-    )
-    from ginkgo.data.operations.file_crud import get_files_page_filtered, add_file, delete_file, delete_files
-    from ginkgo.data.operations.engine_crud import delete_engine, delete_engines, add_engine
-    from ginkgo.data.operations.portfolio_crud import delete_portfolios, add_portfolio, get_portfolios_page_filtered
-    from ginkgo.data.operations.portfolio_file_mapping_crud import (
-        add_portfolio_file_mapping,
-        delete_portfolio_file_mapping,
-    )
+def is_code_in_stocklist(code: str) -> bool:
+    return container.stockinfo_service().is_code_in_stocklist(code)
 
-    from ginkgo.data.operations.param_crud import add_param, delete_params_filtered
 
-    # Engine
-    example_engine_name = "backtest_example"
-    df = get_engines(name=example_engine_name)
-    if df.shape[0] > 0:
-        delete_engines(ids=df["uuid"].values.tolist())
-        time.sleep(1)
-        console.print(f":sun:  [light_coral]DELETE[/] Example engines.")
-    engine_data = add_engine(name=example_engine_name, is_live=False)
+# --- Additional Utility Functions ---
 
-    # File
-    working_dir = GCONF.WORKING_PATH
-    file_root = f"{working_dir}/src/ginkgo/backtest"
 
-    def walk_through(folder: str, status):
-        path = f"{file_root}/{folder}"
-        files = os.listdir(path)
-        black_list = ["__", "base"]
-        count = 0
-        for file_name in files:
-            GLOG.DEBUG(f"Check {file_name}.")
-            if any(substring in file_name for substring in black_list):
-                continue
-            count += 1
-            file_path = f"{path}/{file_name}"
-            file_name = file_name.split(".")[0]
-            df = get_files_page_filtered(name=file_name)
-            if df.shape[0] > 0:
-                delete_files(ids=df["uuid"].values.tolist())
-                status.update(f":sun:  [light_coral]DELETE[/] {file_type_map[folder]} {file_name}.")
-            with open(file_path, "rb") as file:
-                content = file.read()
-                df = add_file(name=file_name, type=file_type_map[folder], data=content)
-                status.update(f":sunglasses: [medium_spring_green]CREATE[/] {file_type_map[folder]} {file_name}.")
-        console.print(f":page_facing_up: [blue]DONE[/] {count} files about {folder}.")
-        status.stop()
+def is_tick_in_db(code: str, date, *args, **kwargs) -> bool:
+    """Check if tick data exists in database for a specific code and date."""
+    return container.tick_service().is_tick_data_available(code, date)
 
-    file_type_map = {
-        "analyzers": FILE_TYPES.ANALYZER,
-        "risk_managements": FILE_TYPES.RISKMANAGER,
-        "selectors": FILE_TYPES.SELECTOR,
-        "sizers": FILE_TYPES.SIZER,
-        "strategies": FILE_TYPES.STRATEGY,
-    }
 
-    for i in file_type_map:
-        with console.status(f"[bold green]Init File from source..[/]") as status:
-            walk_through(i, status)
-    time.sleep(0.2)
+def count_bars(code: str = None, **kwargs) -> int:
+    """Count bar records matching the filters."""
+    return container.bar_service().count_bars(code, **kwargs)
 
-    # Portfolio
-    example_portfolio_name = "portfolio_example"
-    df = get_portfolios_page_filtered(name=example_portfolio_name)
-    if df.shape[0] > 1:
-        ids = df["uuid"].values.tolist()
-        delete_portfolios(ids=ids)
-        console.print(f":sun:  [light_coral]DELETE[/] Example portfolios.")
-        with console.status(f"[bold green]Waiting for DELETING ...[/]") as status:
-            while True:
-                time.sleep(1)
-                df = get_portfolios_page_filtered(example_portfolio_name)
-                if df.shape[0] > 0:
-                    time.sleep(0.2)
-                else:
-                    break
-            status.stop()
-    portfolio = add_portfolio(
-        name=example_portfolio_name, backtest_start_date="2020-01-01", backtest_end_date="2021-01-01", is_live=False
-    )
-    console.print(f":sun:  [medium_spring_green]CREATE[/] Example portfolio.")
-    # TODO Multi portfolios
-    # Engine_Portfolio_Mapping
-    engine_portfolio_mapping = add_engine_portfolio_mapping(
-        engine_id=engine_data.uuid,
-        portfolio_id=portfolio.uuid,
-        engine_name=example_engine_name,
-        portfolio_name=example_portfolio_name,
-    )
-    console.print(f":sun:  [medium_spring_green]CREATE[/] Example engine portfolio mapping.")
-    # Portfolio File Mapping
-    strategy_names = ["random_choice", "loss_limit"]
-    for i in strategy_names:
-        raw_files = get_files_page_filtered(name=i)
-        file_id = raw_files.iloc[0]["uuid"]
-        name = f"example_strategy_{raw_files.iloc[0]['name']}"
-        # Clean old data
-        mapping_old = fget_portfolio_file_mappings_page_filtered(name=name)
-        for i2, r2 in mapping_old.iterrows():
-            delete_portfolio_file_mapping(r2["uuid"])
-        time.sleep(1)
-        new_portfolio_file_mapping = add_portfolio_file_mapping(
-            portfolio_id=portfolio.uuid, file_id=file_id, name=name, type=FILE_TYPES.STRATEGY
-        )
-        GLOG.DEBUG(f"add new_portfolio_file_mapping: {new_portfolio_file_mapping}")
-        if i == "random_choice":
-            add_param(new_portfolio_file_mapping["uuid"], 0, "ExampleRandomChoice")
-        if i == "loss_limit":
-            add_param(new_portfolio_file_mapping["uuid"], 0, "ExampleLossLimit")
-            add_param(new_portfolio_file_mapping["uuid"], 1, "13.5")
-    time.sleep(1)
-    df = get_files_page_filtered()
 
-    # Portfolio Selector Mapping
-    raw_selectors = get_files_page_filtered(type=FILE_TYPES.SELECTOR, name="fixed_selector")
-    selector_mapping = add_portfolio_file_mapping(
-        portfolio_id=portfolio.uuid,
-        file_id=raw_selectors.iloc[0]["uuid"],
-        name="example_fixed_selector",
-        type=FILE_TYPES.SELECTOR,
+def count_ticks(code: str = None, date=None, **kwargs) -> int:
+    """Count tick records matching the filters."""
+    return container.tick_service().count_ticks(code, date, **kwargs)
+
+
+def count_adjustfactors(code: str = None, **kwargs) -> int:
+    """Count adjustment factor records matching the filters."""
+    return container.adjustfactor_service().count_adjustfactors(code, **kwargs)
+
+
+def get_available_bar_codes(**kwargs) -> list:
+    """Get list of stock codes that have bar data."""
+    return container.bar_service().get_available_codes()
+
+
+def get_available_tick_codes(**kwargs) -> list:
+    """Get list of stock codes that have tick data."""
+    return container.tick_service().get_available_codes()
+
+
+def get_available_adjustfactor_codes(**kwargs) -> list:
+    """Get list of stock codes that have adjustment factor data."""
+    return container.adjustfactor_service().get_available_codes()
+
+
+# --- File Management Functions ---
+
+
+def add_file(name: str, file_type, data: bytes, description: str = None) -> dict:
+    """Add a new file to the database."""
+    return container.file_service().add_file(name, file_type, data, description)
+
+
+def copy_file(clone_id: str, new_name: str, file_type=None) -> dict:
+    """Create a copy of an existing file."""
+    return container.file_service().copy_file(clone_id, new_name, file_type)
+
+
+def update_file(file_id: str, name: str = None, data: bytes = None, description: str = None) -> bool:
+    """Update an existing file."""
+    return container.file_service().update_file(file_id, name, data, description)
+
+
+def delete_file(file_id: str) -> bool:
+    """Delete a file by ID."""
+    return container.file_service().delete_file(file_id)
+
+
+def get_files(name: str = None, file_type=None, as_dataframe: bool = True, **kwargs):
+    """Get files with optional filters."""
+    return container.file_service().get_files(name, file_type, as_dataframe, **kwargs)
+
+
+def get_file_content(file_id: str) -> bytes:
+    """Get the content of a specific file."""
+    return container.file_service().get_file_content(file_id)
+
+
+# --- Engine Management Functions ---
+
+
+def add_engine(name: str, is_live: bool = False, description: str = None) -> dict:
+    """Create a new backtest engine."""
+    return container.engine_service().create_engine(name, is_live, description)
+
+
+def get_engine(engine_id: str, as_dataframe: bool = False):
+    """Get a single engine by ID."""
+    return container.engine_service().get_engine(engine_id, as_dataframe)
+
+
+def get_engines(name: str = None, is_live: bool = None, as_dataframe: bool = True, **kwargs):
+    """Get engines with optional filters."""
+    return container.engine_service().get_engines(name, is_live, as_dataframe=as_dataframe, **kwargs)
+
+
+def delete_engine(engine_id: str) -> bool:
+    """Delete an engine by ID."""
+    return container.engine_service().delete_engine(engine_id)
+
+
+def delete_engines(engine_ids: list) -> int:
+    """Delete multiple engines."""
+    return container.engine_service().delete_engines(engine_ids)
+
+
+def add_engine_portfolio_mapping(
+    engine_id: str, portfolio_id: str, engine_name: str = None, portfolio_name: str = None
+) -> dict:
+    """Associate a portfolio with an engine."""
+    return container.engine_service().add_portfolio_to_engine(engine_id, portfolio_id, engine_name, portfolio_name)
+
+
+def get_engine_portfolio_mappings(engine_id: str = None, portfolio_id: str = None, as_dataframe: bool = True, **kwargs):
+    """Get engine-portfolio mappings."""
+    return container.engine_service().get_engine_portfolio_mappings(engine_id, portfolio_id, as_dataframe, **kwargs)
+
+
+# --- Portfolio Management Functions ---
+
+
+def add_portfolio(
+    name: str, backtest_start_date: str, backtest_end_date: str, is_live: bool = False, description: str = None
+) -> dict:
+    """Create a new investment portfolio."""
+    return container.portfolio_service().create_portfolio(
+        name, backtest_start_date, backtest_end_date, is_live, description
     )
 
-    code_list = ["600594.SH", "600000.SH"]
-    # selector params
-    add_param(selector_mapping["uuid"], 0, "example_fixed_selector")
-    add_param(selector_mapping["uuid"], 1, json.dumps(code_list))
-    # Portfolio Sizer Mapping
-    raw_sizers = get_files_page_filtered(type=FILE_TYPES.SIZER, name="fixed_sizer")
-    sizer_mapping = add_portfolio_file_mapping(
-        portfolio_id=portfolio.uuid,
-        file_id=raw_sizers.iloc[0]["uuid"],
-        name="example_fixed_sizer",
-        type=FILE_TYPES.SIZER,
-    )
-    # sizer param
-    add_param(sizer_mapping["uuid"], 0, "example_fixed_sizer")
-    add_param(sizer_mapping["uuid"], 1, "500")
-    # Portfolio Analyzer Mapping
-    # analyzer param
-    raw_analyzers = get_files_page_filtered(type=FILE_TYPES.ANALYZER, name="profit")
-    analyzer_mapping = add_portfolio_file_mapping(
-        portfolio_id=portfolio.uuid,
-        file_id=raw_analyzers.iloc[0]["uuid"],
-        name="example_profit",
-        type=FILE_TYPES.ANALYZER,
-    )
-    add_param(analyzer_mapping["uuid"], 0, "example_profit")
-
-    # Handler
-    # TODO
-    # Engine_Handler_Mapping
-    # TODO
-
-
-def get_files(*args, **kwargs):
-    from ginkgo.data.operations import get_files_page_filtered as func
-
-    return func(*args, **kwargs)
-
-
-def get_instance_by_file(file_id: str, mapping_id: str, file_type: FILE_TYPES):
-    from ginkgo.data.operations import get_file_content
-    from ginkgo.backtest.strategies import StrategyBase
-    from ginkgo.backtest.analyzers import BaseAnalyzer
-    from ginkgo.backtest.selectors import BaseSelector
-    from ginkgo.backtest.sizers import BaseSizer
-    from ginkgo.backtest.risk_managements import BaseRiskManagement
-
-    cls_base_mapping = {
-        FILE_TYPES.ANALYZER: BaseAnalyzer,
-        FILE_TYPES.RISKMANAGER: BaseRiskManagement,
-        FILE_TYPES.SELECTOR: BaseSelector,
-        FILE_TYPES.SIZER: BaseSizer,
-        FILE_TYPES.STRATEGY: StrategyBase,
-    }
-
-    content = get_file_content(file_id)
-    if len(content) == 0:
-        return
-    # 直接在全局作用域中执行 exec
-    namespace = {}
-    exec(content.decode("utf-8"), namespace)
-    # exec(content.decode("utf-8"), globals())
 
-    classes = [
-        cls for cls in namespace.values() if isinstance(cls, type) and cls_base_mapping[file_type] in cls.__bases__
-    ]
-    if len(classes) == 0:
-        raise ValueError(f"未找到任何 {cls_base_mapping[file_type]} 的子类")
-    cls = classes[0]
-    from ginkgo.data.operations import get_params_page_filtered
+def get_portfolio(portfolio_id: str, as_dataframe: bool = False):
+    """Get a single portfolio by ID."""
+    return container.portfolio_service().get_portfolio(portfolio_id, as_dataframe)
 
-    params = get_params_page_filtered(mapping_id)
-    if params.shape[0] > 0:
-        params = params["value"].values
-    else:
-        params = []
-    try:
-        ins = cls(*params)  # 实例化类
-        if file_type == FILE_TYPES.ANALYZER:
-            ins.set_analyzer_id(file_id)
-        return ins
-    except Exception as e:
-        # DEBUG
-        print(1)
-        return None
-    finally:
-        pass
 
+def get_portfolios(name: str = None, is_live: bool = None, as_dataframe: bool = True, **kwargs):
+    """Get portfolios with optional filters."""
+    return container.portfolio_service().get_portfolios(name, is_live, as_dataframe, **kwargs)
 
-def get_trading_system_components_by_portfolio(portfolio_id: str, file_type: FILE_TYPES = None, *args, **kwargs):
-    if not isinstance(file_type, FILE_TYPES):
-        GLOG.WARN(f"Invalid type: {type}.")
-        return []
-    from ginkgo.data.operations import get_portfolio_file_mappings_page_filtered
 
-    mappings = get_portfolio_file_mappings_page_filtered(portfolio_id=portfolio_id, type=file_type)
-    l = []
-    for i, r in mappings.iterrows():
-        file_id = r["file_id"]
-        mapping_id = r["uuid"]
-        ins = get_instance_by_file(file_id, mapping_id, file_type)
-        if ins is not None:
-            l.append(ins)
-    return l
+def delete_portfolio(portfolio_id: str) -> bool:
+    """Delete a portfolio by ID."""
+    return container.portfolio_service().delete_portfolio(portfolio_id)
 
 
-def get_analyzers_by_portfolio(portfolio_id: str, *args, **kwargs):
-    # TODO
-    pass
+def delete_portfolios(portfolio_ids: list) -> int:
+    """Delete multiple portfolios."""
+    return container.portfolio_service().delete_portfolios(portfolio_ids)
 
 
-def add_engine(*args, **kwargs):
-    from ginkgo.data.operations import add_engine as func
+def add_portfolio_file_mapping(portfolio_id: str, file_id: str, name: str, file_type) -> dict:
+    """Associate a file with a portfolio."""
+    return container.portfolio_service().add_file_to_portfolio(portfolio_id, file_id, name, file_type)
 
-    return func(*args, **kwargs)
 
+def delete_portfolio_file_mapping(mapping_id: str) -> bool:
+    """Remove a file association from a portfolio."""
+    return container.portfolio_service().remove_file_from_portfolio(mapping_id)
 
-def get_engine(*args, **kwargs):
-    from ginkgo.data.operations import get_engine as func
 
-    return func(*args, **kwargs)
+def get_portfolio_file_mappings(portfolio_id: str = None, file_type=None, as_dataframe: bool = True, **kwargs):
+    """Get portfolio-file mappings."""
+    return container.portfolio_service().get_portfolio_file_mappings(portfolio_id, file_type, as_dataframe, **kwargs)
 
 
-def get_engines(*args, **kwargs):
-    from ginkgo.data.operations import get_engines_page_filtered as func
+def add_param(mapping_id: str, order: int, value: str) -> dict:
+    """Add a parameter to a portfolio-file mapping."""
+    return container.portfolio_service().add_parameter(mapping_id, order, value)
 
-    return func(*args, **kwargs)
 
+def get_params(mapping_id: str, as_dataframe: bool = True):
+    """Get parameters for a portfolio-file mapping."""
+    return container.portfolio_service().get_parameters_for_mapping(mapping_id, as_dataframe)
 
-def add_portfolio(*args, **kwargs):
-    # TODO
-    pass
 
+# --- Component Instantiation Functions ---
 
-def remove_portfolio(*args, **kwargs):
-    # TODO
-    pass
 
+def get_instance_by_file(file_id: str, mapping_id: str, file_type):
+    """Create an instance of a trading component from file content."""
+    return container.component_service().get_instance_by_file(file_id, mapping_id, file_type)
 
-def update_portfolio(*args, **kwargs):
-    # TODO
-    pass
 
+def get_trading_system_components_by_portfolio(portfolio_id: str, file_type):
+    """Get all instantiated components of a specific type for a portfolio."""
+    return container.component_service().get_trading_system_components_by_portfolio(portfolio_id, file_type)
 
-def get_portfolio(*args, **kwargs):
-    from ginkgo.data.operations import get_portfolio as func
 
-    return func(*args, **kwargs)
+def get_analyzers_by_portfolio(portfolio_id: str):
+    """Get all analyzer instances for a portfolio."""
+    return container.component_service().get_analyzers_by_portfolio(portfolio_id)
 
 
-def get_portfolios(*args, **kwargs):
-    from ginkgo.data.operations import get_portfolios_page_filtered as func
-
-    return func(*args, **kwargs)
-
-
-def delete_portfolio(*args, **kwargs):
-    from ginkgo.data.operations import delete_portfolio as func
-
-    return func(*args, **kwargs)
-
-
-def delete_portfolios(*args, **kwargs):
-    from ginkgo.data.operations import delete_portfolios_filtered as func
-
-    return func(*args, **kwargs)
-
-
-def compute_adjusted_prices(*args, **kwargs):
-    # TODO
-    pass
-
-
-def add_engine_portfolio_mapping(*args, **kwargs):
-    from ginkgo.data.operations import add_engine_portfolio_mapping as func
-
-    return func(*args, **kwargs)
-
-
-def get_engine_portfolio_mappings(*args, **kwargs):
-    from ginkgo.data.operations import get_engine_portfolio_mappings_page_filtered as func
-
-    return func(*args, **kwargs)
-
-
-def add_engine_handler_mapping(*args, **kwargs):
-    from ginkgo.data.operations import add_engine_handler_mapping as func
-
-    return func(*args, **kwargs)
-
-
-def get_engine_handler_mappings(*args, **kwargs):
-    from ginkgo.data.operations import get_engine_handler_mappings_page_filtered as func
-
-    return func(*args, **kwargs)
-
-
-def remove_from_redis(key: str, *args, **kwargs):
-    from ginkgo.libs import create_redis_connection
-
-    conn = create_redis_connection()
-    conn.delete(key)
-
-
-def clean_portfolio_file_mapping(*args, **kwargs):
-    from ginkgo.data.operations import (
-        get_portfolio_file_mappings_page_filtered,
-        get_portfolio,
-        delete_portfolio_file_mapping,
-    )
-
-    # Get all portfolio file mappings
-    df = get_portfolio_file_mappings_page_filtered()
-    todo_list = []
-    for i, r in df.iterrows():
-        uuid = r["uuid"]
-        portfolio_id = r["portfolio_id"]
-        portfolio = get_portfolio(id=portfolio_id, as_dataframe=True)
-        if portfolio.shape[0] == 0:
-            todo_list.append(uuid)
-            continue
-        file_id = r["file_id"]
-        file = get_file(id=file_id, as_dataframe=True)
-        if file.shape[0] == 0:
-            todo_list.append(uuid)
-    if len(todo_list) == 0:
-        console.print("There is no dirty data in portfolio-file mappings.")
-        return
-    with Progress() as progress:
-        task = progress.add_task("[red]Deleting portfolio-file mappings...", total=len(todo_list))
-        for i in todo_list:
-            try:
-                delete_portfolio_file_mapping(i)
-                progress.console.print(f"[red]Deleting {i}[/]")
-                # 模拟延迟删除
-                time.sleep(0.1)
-            except Exception as e:
-                progress.console.print(f"[yellow]Failed to delete:[/] {i} -> {e}")
-            finally:
-                progress.update(task, advance=1)
-
-
-def clean_engine_portfolio_mapping(*args, **kwargs):
-    from ginkgo.data.operations import (
-        get_engine_portfolio_mappings_page_filtered,
-        get_portfolio,
-        get_engine,
-        delete_engine_portfolio_mapping,
-    )
-
-    df = get_engine_portfolio_mappings_page_filtered()
-    todo_list = []
-    for i, r in df.iterrows():
-        uuid = r["uuid"]
-        engine_id = r["engine_id"]
-        portfolio_id = r["portfolio_id"]
-        engine = get_engine(id=engine_id, as_dataframe=True)
-        if engine.shape[0] == 0:
-            todo_list.append(uuid)
-            continue
-        portfolio = get_portfolio(id=portfolio_id, as_dataframe=True)
-        if portfolio.shape[0] == 0:
-            todo_list.append(uuid)
-            continue
-    if len(todo_list) == 0:
-        console.print("There is no dirty data in engine-portfolio mappings.")
-        return
-    with Progress() as progress:
-        task = progress.add_task("[red]Deleting engine-portfolio mappings...", total=len(todo_list))
-        for i in todo_list:
-            try:
-                delete_engine_portfolio_mapping(i)
-                progress.console.print(f"[red]Deleting {i}[/]")
-                # 模拟延迟删除
-                time.sleep(0.1)
-            except Exception as e:
-                progress.console.print(f"[yellow]Failed to delete:[/] {i} -> {e}")
-            finally:
-                progress.update(task, advance=1)
-
-    # Get all engine portfolio mappings
-    # iterrows and check if engine exist or if portfolio exist
-    # if not , remove the record
-    pass
-
-
-__all__ = [name for name, obj in inspect.getmembers(inspect.getmodule(inspect.currentframe()), inspect.isfunction)]
+# --- Dynamic Export of all functions ---
+__all__ = [
+    name for name, obj in inspect.getmembers(inspect.getmodule(inspect.currentframe())) if inspect.isfunction(obj)
+]

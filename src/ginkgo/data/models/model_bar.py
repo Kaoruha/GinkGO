@@ -8,9 +8,9 @@ from sqlalchemy import Enum
 from sqlalchemy import String, Integer, DECIMAL
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.data.models.model_clickbase import MClickBase
-from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
-from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
+from .model_clickbase import MClickBase
+from ...libs import base_repr, datetime_normalize, Number, to_decimal
+from ...enums import FREQUENCY_TYPES, SOURCE_TYPES
 
 
 class MBar(MClickBase):

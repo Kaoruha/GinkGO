@@ -6,9 +6,9 @@ from functools import singledispatchmethod
 from sqlalchemy import String, Enum, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.libs import base_repr, datetime_normalize
-from ginkgo.enums import SOURCE_TYPES, FILE_TYPES
+from .model_mysqlbase import MMysqlBase
+from ...libs import base_repr, datetime_normalize
+from ...enums import SOURCE_TYPES, FILE_TYPES
 
 
 class MPortfolioFileMapping(MMysqlBase):
@@ -17,7 +17,7 @@ class MPortfolioFileMapping(MMysqlBase):
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="ginkgo_portfolio")
     file_id: Mapped[str] = mapped_column(String(32), default="ginkgo_file")
-    name: Mapped[str] = mapped_column(String(32), default="ginkgo_bind")
+    name: Mapped[str] = mapped_column(String(64), default="ginkgo_bind")
     type: Mapped[FILE_TYPES] = mapped_column(Enum(FILE_TYPES), default=FILE_TYPES.OTHER)
 
     @singledispatchmethod

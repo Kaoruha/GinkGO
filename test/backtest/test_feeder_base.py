@@ -3,7 +3,7 @@ import uuid
 import unittest
 
 from ginkgo.backtest.feeders.base_feeder import BaseFeeder
-from ginkgo.backtest.portfolios.base_portfolio import BasePortfolio
+from ginkgo.backtest.execution.portfolios.base_portfolio import BasePortfolio
 
 from unittest.mock import MagicMock
 

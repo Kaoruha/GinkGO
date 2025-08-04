@@ -6,21 +6,29 @@ from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, DECIMAL, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
+from clickhouse_sqlalchemy import engines
 
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import SOURCE_TYPES
-from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
+from .model_clickbase import MClickBase
+from ...enums import SOURCE_TYPES
+from ...libs import base_repr, datetime_normalize, Number, to_decimal
 
 
-class MAdjustfactor(MMysqlBase):
+class MAdjustfactor(MClickBase):
     __abstract__ = False
     __tablename__ = "adjustfactor"
+    
+    # ClickHouse优化配置：按代码+时间排序
+    __table_args__ = (
+        engines.MergeTree(
+            order_by=("code", "timestamp")
+        ),
+        {"extend_existing": True},
+    )
 
-    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
-    code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
-    foreadjustfactor: Mapped[Decimal] = mapped_column(DECIMAL(20, 10), default=0)
-    backadjustfactor: Mapped[Decimal] = mapped_column(DECIMAL(20, 10), default=0)
-    adjustfactor: Mapped[Decimal] = mapped_column(DECIMAL(20, 10), default=0)
+    code: Mapped[str] = mapped_column(String(32), nullable=False, comment="股票代码")
+    foreadjustfactor: Mapped[Decimal] = mapped_column(DECIMAL(16, 6), nullable=False, comment="前复权因子")
+    backadjustfactor: Mapped[Decimal] = mapped_column(DECIMAL(16, 6), nullable=False, comment="后复权因子")
+    adjustfactor: Mapped[Decimal] = mapped_column(DECIMAL(16, 6), nullable=False, comment="复权因子")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -49,7 +57,6 @@ class MAdjustfactor(MMysqlBase):
             self.adjustfactor = to_decimal(adjustfactor)
         if source is not None:
             self.source = source
-        self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
@@ -60,7 +67,6 @@ class MAdjustfactor(MMysqlBase):
         self.timestamp = df["timestamp"]
         if "source" in df.keys():
             self.source = df["source"]
-        self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 46)

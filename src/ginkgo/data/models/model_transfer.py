@@ -7,9 +7,9 @@ from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, DECIMAL, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
+from ...libs import base_repr, datetime_normalize, Number, to_decimal
+from .model_mysqlbase import MMysqlBase
+from ...enums import SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
 
 
 class MTransfer(MMysqlBase):

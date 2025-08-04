@@ -7,9 +7,9 @@ from functools import singledispatchmethod
 from sqlalchemy import DateTime, String, DECIMAL, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
-from ginkgo.data.models.model_clickbase import MClickBase
-from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
+from ...libs import base_repr, datetime_normalize, Number, to_decimal
+from .model_clickbase import MClickBase
+from ...enums import SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
 
 
 class MTransferRecord(MClickBase):

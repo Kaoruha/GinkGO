@@ -1,52 +1,151 @@
 import time
 import datetime
-
-
+import threading
 from typing import List, Optional, Union, Any
 from sqlalchemy import inspect, select, func
 
-
-from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
-from ginkgo.data.drivers.ginkgo_mongo import GinkgoMongo
-from ginkgo.data.drivers.ginkgo_mysql import GinkgoMysql
-from ginkgo.data.drivers.ginkgo_redis import GinkgoRedis
-from ginkgo.data.drivers.ginkgo_kafka import (
+from .base_driver import DatabaseDriverBase
+from .ginkgo_clickhouse import GinkgoClickhouse
+from .ginkgo_mongo import GinkgoMongo
+from .ginkgo_mysql import GinkgoMysql
+from .ginkgo_redis import GinkgoRedis
+from .ginkgo_kafka import (
     GinkgoProducer,
     GinkgoConsumer,
     kafka_topic_llen,
 )
-from ginkgo.data.models import MClickBase, MMysqlBase
-from ginkgo.libs import try_wait_counter, GLOG, GCONF, time_logger, retry, skip_if_ran
+from ..models import MClickBase, MMysqlBase
+from ...libs import try_wait_counter, GLOG, GCONF, time_logger, retry, skip_if_ran, cache_with_expiration
 
 max_try = 5
 
 
+class ConnectionManager:
+    """统一的数据库连接管理器"""
+
+    def __init__(self):
+        self._mysql_conn = None
+        self._click_conn = None
+        self._lock = threading.Lock()
+
+    def get_mysql_connection(self) -> GinkgoMysql:
+        """获取MySQL连接，带健康检查"""
+        with self._lock:
+            if self._mysql_conn is None:
+                GLOG.INFO("Creating MySQL connection pool instance...")
+                self._mysql_conn = create_mysql_connection()
+            elif not self._mysql_conn.health_check():
+                GLOG.WARN("MySQL connection unhealthy, recreating...")
+                self._mysql_conn = create_mysql_connection()
+
+        return self._mysql_conn
+
+    def get_clickhouse_connection(self) -> GinkgoClickhouse:
+        """获取ClickHouse连接，带健康检查"""
+        with self._lock:
+            if self._click_conn is None:
+                GLOG.INFO("Creating ClickHouse connection pool instance...")
+                self._click_conn = create_click_connection()
+            elif not self._click_conn.health_check():
+                GLOG.WARN("ClickHouse connection unhealthy, recreating...")
+                self._click_conn = create_click_connection()
+
+        return self._click_conn
+
+    @cache_with_expiration(expiration_seconds=30)
+    def get_connection_status(self) -> dict:
+        """获取连接状态信息（缓存30秒）"""
+        status = {}
+
+        if self._mysql_conn:
+            try:
+                mysql_healthy = self._mysql_conn.health_check()
+                mysql_stats = self._mysql_conn.get_connection_stats()
+                status["mysql"] = {"healthy": mysql_healthy, "stats": mysql_stats}
+            except Exception as e:
+                status["mysql"] = {"healthy": False, "error": str(e)}
+        else:
+            status["mysql"] = {"healthy": False, "status": "not_initialized"}
+
+        if self._click_conn:
+            try:
+                click_healthy = self._click_conn.health_check()
+                click_stats = self._click_conn.get_connection_stats()
+                status["clickhouse"] = {"healthy": click_healthy, "stats": click_stats}
+            except Exception as e:
+                status["clickhouse"] = {"healthy": False, "error": str(e)}
+        else:
+            status["clickhouse"] = {"healthy": False, "status": "not_initialized"}
+
+        return status
+
+
+# 全局连接管理器实例
+_connection_manager = ConnectionManager()
+
+# 全局连接实例 - 向后兼容
+_mysql_connection_instance = None
+_click_connection_instance = None
+
+
 def get_click_connection() -> GinkgoClickhouse:
-    return create_click_connection()
+    """获取ClickHouse连接（向后兼容）"""
+    return _connection_manager.get_clickhouse_connection()
 
 
+@retry(max_try=3)
+@time_logger
 def create_click_connection() -> GinkgoClickhouse:
-    return GinkgoClickhouse(
-        user=GCONF.CLICKUSER,
-        pwd=GCONF.CLICKPWD,
-        host=GCONF.CLICKHOST,
-        port=GCONF.CLICKPORT,
-        db=GCONF.CLICKDB,
-    )
+    """创建ClickHouse连接实例"""
+    try:
+        conn = GinkgoClickhouse(
+            user=GCONF.CLICKUSER,
+            pwd=GCONF.CLICKPWD,
+            host=GCONF.CLICKHOST,
+            port=GCONF.CLICKPORT,
+            db=GCONF.CLICKDB,
+        )
+
+        # 验证连接健康状态
+        if not conn.health_check():
+            raise RuntimeError("ClickHouse connection health check failed")
+
+        GLOG.INFO("ClickHouse connection created successfully")
+        return conn
+
+    except Exception as e:
+        GLOG.ERROR(f"Failed to create ClickHouse connection: {e}")
+        raise
 
 
 def get_mysql_connection() -> GinkgoMysql:
-    return create_mysql_connection()
+    """获取MySQL连接（向后兼容）"""
+    return _connection_manager.get_mysql_connection()
 
 
+@retry(max_try=3)
+@time_logger
 def create_mysql_connection() -> GinkgoMysql:
-    return GinkgoMysql(
-        user=GCONF.MYSQLUSER,
-        pwd=GCONF.MYSQLPWD,
-        host=GCONF.MYSQLHOST,
-        port=GCONF.MYSQLPORT,
-        db=GCONF.MYSQLDB,
-    )
+    """创建MySQL连接实例"""
+    try:
+        conn = GinkgoMysql(
+            user=GCONF.MYSQLUSER,
+            pwd=GCONF.MYSQLPWD,
+            host=GCONF.MYSQLHOST,
+            port=GCONF.MYSQLPORT,
+            db=GCONF.MYSQLDB,
+        )
+
+        # 验证连接健康状态
+        if not conn.health_check():
+            raise RuntimeError("MySQL connection health check failed")
+
+        GLOG.INFO("MySQL connection created successfully")
+        return conn
+
+    except Exception as e:
+        GLOG.ERROR(f"Failed to create MySQL connection: {e}")
+        raise
 
 
 def get_db_connection(value):
@@ -69,30 +168,33 @@ def create_redis_connection() -> GinkgoRedis:
 
 
 @retry(max_try=5)
+@time_logger
 def add(value, *args, **kwargs) -> any:
     """
     Add a single data item.
     Args:
         value(Model): Data Model
     Returns:
-        None
+        Added model with updated fields
     """
     if not isinstance(value, (MClickBase, MMysqlBase)):
         GLOG.ERROR(f"Can not add {value} to database.")
         return
+
     GLOG.DEBUG("Try add data to session.")
     conn = get_db_connection(value)
+
+    # 使用上下文管理器改进会话管理
     try:
-        session = conn.session
-        session.add(value)
-        session.commit()
-        session.refresh(value)
-        return value
+        with conn.get_session() as session:
+            session.add(value)
+            session.flush()  # 获取数据库生成的ID等信息
+            session.refresh(value)  # 确保所有属性都被加载
+            session.expunge(value)  # 将对象从session中分离，但保留属性
+            return value
     except Exception as e:
-        print(e)
-        conn.session.rollback()
-    finally:
-        conn.remove_session()
+        GLOG.ERROR(f"Failed to add data to database: {e}")
+        raise
 
 
 @time_logger
@@ -121,36 +223,66 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
     if len(click_list) > 0:
         try:
             click_conn = get_click_connection()
-            session = click_conn.session
-            session.add_all(click_list)
-            session.commit()
-            click_count = len(click_list)
-            GLOG.DEBUG(f"Clickhouse commit {len(click_list)} records.")
+
+            # 使用上下文管理器改进会话管理
+            with click_conn.get_session() as session:
+                # 使用bulk_insert_mappings提高ClickHouse插入性能
+                if click_list:
+                    # 按模型类型分组进行批量插入
+                    model_groups = {}
+                    for item in click_list:
+                        model_type = type(item)
+                        if model_type not in model_groups:
+                            model_groups[model_type] = []
+                        model_groups[model_type].append(item)
+
+                    # 为每个模型类型执行批量插入
+                    for model_type, items in model_groups.items():
+                        try:
+                            # 将对象转换为字典
+                            mappings = []
+                            for item in items:
+                                mapping = {}
+                                for column in item.__table__.columns:
+                                    mapping[column.name] = getattr(item, column.name)
+                                mappings.append(mapping)
+
+                            # 执行批量插入
+                            session.bulk_insert_mappings(model_type, mappings)
+                            GLOG.DEBUG(f"ClickHouse bulk inserted {len(mappings)} {model_type.__name__} records")
+
+                        except Exception as bulk_error:
+                            GLOG.WARN(
+                                f"ClickHouse bulk insert failed for {model_type.__name__}, falling back to add_all: {bulk_error}"
+                            )
+                            # 回退到add_all方法
+                            session.add_all(items)
+
+                click_count = len(click_list)
+                GLOG.DEBUG(f"Clickhouse committed {len(click_list)} records total.")
+
         except Exception as e:
-            session.rollback()
-            GLOG.ERROR(e)
-        finally:
-            click_conn.remove_session()
+            GLOG.ERROR(f"ClickHouse batch operation failed: {e}")
+            click_count = 0
 
     if len(mysql_list) > 0:
         try:
             mysql_conn = get_mysql_connection()
-            session = mysql_conn.session
-            session.add_all(mysql_list)
-            session.commit()
-            mysql_count = len(mysql_list)
-            GLOG.DEBUG(f"Mysql commit {len(mysql_list)} records.")
+
+            # 使用上下文管理器改进会话管理
+            with mysql_conn.get_session() as session:
+                session.add_all(mysql_list)
+                mysql_count = len(mysql_list)
+                GLOG.DEBUG(f"MySQL committed {len(mysql_list)} records.")
+
         except Exception as e:
-            session.rollback()
-            GLOG.ERROR(e)
-            mysql_connection = create_mysql_connection()
-        finally:
-            mysql_conn.remove_session()
+            GLOG.ERROR(f"MySQL batch operation failed: {e}")
+            mysql_count = 0
 
     return (click_count, mysql_count)
 
 
-def is_table_exsists(model) -> bool:
+def is_table_exists(model) -> bool:
     """
     Check the whether the table exists in the database.
     Auto choose the database driver.
@@ -176,6 +308,9 @@ def create_table(model, no_log=True) -> None:
     Returns:
         None
     """
+    import pdb
+
+    pdb.set_trace()
     if model.__abstract__ == True:
         GLOG.DEBUG(f"Pass Model:{model}")
         return
@@ -185,7 +320,7 @@ def create_table(model, no_log=True) -> None:
         GLOG.ERROR(f"Can not get driver for {model}.")
         raise ValueError(f"Can not get driver for model {model}.")
     try:
-        if is_table_exsists(model):
+        if is_table_exists(model):
             GLOG.DEBUG(f"No need to create {model.__tablename__} : {model}")
         else:
             model.metadata.create_all(driver.engine)
@@ -214,7 +349,7 @@ def drop_table(model, *args, **kwargs) -> None:
         GLOG.ERROR(f"Can not get driver for {model}.")
         raise ValueError(f"Can not get driver for model {model}.")
     try:
-        if is_table_exsists(model):
+        if is_table_exists(model):
             model.__table__.drop(driver.engine)
             # model.metadata.drop_all(driver.engine)
             GLOG.WARN(f"Drop Table {model.__tablename__} : {model}")
@@ -277,23 +412,31 @@ def get_table_size(model, *args, **kwargs) -> int:
     return count
 
 
+def get_connection_status() -> dict:
+    """获取所有数据库连接状态"""
+    return _connection_manager.get_connection_status()
+
+
 __all__ = [
+    "DatabaseDriverBase",
     "GinkgoClickhouse",
     "GinkgoMongo",
     "GinkgoMysql",
     "GinkgoRedis",
     "GinkgoProducer",
     "GinkgoConsumer",
+    "ConnectionManager",
     "get_db_connection",
     "get_mysql_connection",
     "get_click_connection",
     "create_mysql_connection",
     "create_click_connection",
     "create_redis_connection",
+    "get_connection_status",
     "kafka_topic_llen",
     "add",
     "add_all",
-    "is_table_exsists",
+    "is_table_exists",
     "create_table",
     "drop_table",
     "create_all_tables",

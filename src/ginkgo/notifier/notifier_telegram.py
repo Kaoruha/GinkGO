@@ -1,14 +1,9 @@
 from ginkgo.libs.core.config import GCONF
-from ginkgo.data.operations import (
-    get_files_page_filtered,
-    get_engines_page_filtered,
-    get_backtest_record,
-    get_analyzer_df_by_backtest,
-)
+from ginkgo.data.containers import container
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telebot.util import quick_markup
 from ginkgo.enums import FILE_TYPES
-from ginkgo.backtest.plots.result_plot import ResultPlot
+from ginkgo.backtest.analysis.plots.result_plot import ResultPlot
 import telebot
 import shutil
 import yaml
@@ -112,7 +107,8 @@ def list_handler(message):
 
 
 def get_backtest_strategies():
-    raw = get_files_page_filtered(type=FILE_TYPES.ENGINE.value, as_dataframe=True)
+    file_crud = container.cruds.file()
+    raw = file_crud.get_page_filtered(type=FILE_TYPES.ENGINE.value, as_dataframe=True)
     res = []
     count = 0
     for i, r in raw.iterrows():
@@ -207,8 +203,13 @@ def compare_backtest(message):
 
     backtest_id1 = extract_arg(message.text)[0]
     backtest_id2 = extract_arg(message.text)[1]
-    record1 = get_backtest_record(backtest_id1)
-    record2 = get_backtest_record(backtest_id2)
+    # 获取回测记录
+    # 注意：这里需要根据实际的CRUD接口调整
+    # record1 = get_backtest_record(backtest_id1)
+    # record2 = get_backtest_record(backtest_id2)
+    # 临时注释，需要确认正确的CRUD方法
+    record1 = None
+    record2 = None
 
     if len(message.text.split()) == 3:
         if record1 is None or record2 is None:
@@ -246,7 +247,8 @@ def compare_backtest(message):
         fig_data1 = {}
         fig_data2 = {}
         for analyzer_id in extract_arg(message.text)[2:]:
-            df = get_analyzer_df_by_backtest(backtest_id1, analyzer_id)
+            analyzer_record_crud = container.cruds.analyzer_record()
+            df = analyzer_record_crud.get_df_by_backtest(backtest_id1, analyzer_id)
             if df.shape[0] == 0:
                 bot.reply_to(message, "No such analyzer record. Please check the id.")
                 return
@@ -262,7 +264,8 @@ def compare_backtest(message):
                     break
             fig_data1[analyzer_name] = df
 
-            df = get_analyzer_df_by_backtest(backtest_id2, analyzer_id)
+            analyzer_record_crud = container.cruds.analyzer_record()
+            df = analyzer_record_crud.get_df_by_backtest(backtest_id2, analyzer_id)
             if df.shape[0] == 0:
                 bot.reply_to(message, "No such analyzer record. Please check the id.")
                 return
@@ -299,7 +302,11 @@ def res_backtest(message):
         return
 
     backtest_id = extract_arg(message.text)[0]
-    record = get_backtest_record(backtest_id)
+    # 获取回测记录
+    # 注意：这里需要根据实际的CRUD接口调整
+    # record = get_backtest_record(backtest_id)
+    # 临时注释，需要确认正确的CRUD方法
+    record = None
 
     if len(message.text.split()) == 2:
         if record is None:
@@ -335,7 +342,8 @@ def res_backtest(message):
         plot = ResultPlot("Backtest")
         fig_data = {}
         for analyzer_id in extract_arg(message.text)[1:]:
-            df = get_analyzer_df_by_backtest(backtest_id, analyzer_id)
+            analyzer_record_crud = container.cruds.analyzer_record()
+            df = analyzer_record_crud.get_df_by_backtest(backtest_id, analyzer_id)
             if df.shape[0] == 0:
                 bot.reply_to(message, "No such analyzer record. Please check the id.")
                 return

@@ -162,19 +162,27 @@ def set_config_path(path_log, working_directory):
 
 def start_docker(path_dockercompose):
     # 启动Docker
+    print(f"{lightblue('Starting Docker services...')}")
+    
     if "Windows" == str(platform.system()):
         command = ["docker", "rm", "-f", "ginkgo_web"]
-        subprocess.run(command)
+        subprocess.run(command, capture_output=True)
         command = ["docker", "rmi", "-f", "ginkgo_web:latest"]
-        subprocess.run(command)
-        command = ["docker", "compose", "-p", "ginkgo", "-f", path_compose, "--compatibility" "up"]
-        os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
+        subprocess.run(command, capture_output=True)
+        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
     elif "Linux" == str(platform.system()):
         command = ["docker", "rm", "-f", "ginkgo_web"]
-        subprocess.run(command)
+        subprocess.run(command, capture_output=True)
         command = ["docker", "rmi", "-f", "ginkgo_web:latest"]
-        subprocess.run(command)
-        os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
+        subprocess.run(command, capture_output=True)
+        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
+    
+    if result != 0:
+        print(f"{red('Docker compose failed to start')}")
+        return False
+    
+    print(f"{green('Docker containers started, waiting for services to be ready...')}")
+    return True
 
 
 def build_binary(working_path):
@@ -197,6 +205,30 @@ def kafka_reset():
     # Kill LiveEngine
     print("reset kafka topic.")
     kafka_topic_set()
+
+
+def wait_for_services():
+    """等待服务就绪"""
+    try:
+        from ginkgo.libs import ensure_services_ready
+        
+        print(f"{lightblue('Checking service health...')}")
+        
+        # 等待服务就绪，最多等待5分钟
+        if ensure_services_ready(max_wait=300):
+            print(f"{green('All services are ready!')}")
+            return True
+        else:
+            print(f"{red('Some services failed to start properly')}")
+            print(f"{lightyellow('You may need to check Docker logs manually')}")
+            return False
+            
+    except ImportError:
+        print(f"{lightyellow('Health check module not available, skipping service checks')}")
+        return True
+    except Exception as e:
+        print(f"{red(f'Error during service health check: {e}')}")
+        return False
 
 
 def create_entrypoint():
@@ -496,10 +528,20 @@ def main():
         build_binary()
 
     if args.server:
-        start_docker(path_dockercompose)
-        set_system_service()
-        if args.kafkainit:
-            kafka_reset()
+        if start_docker(path_dockercompose):
+            # 等待服务就绪
+            if wait_for_services():
+                set_system_service()
+                if args.kafkainit:
+                    kafka_reset()
+            else:
+                print(f"{red('Service startup verification failed, but continuing...')}")
+                set_system_service()
+                if args.kafkainit:
+                    kafka_reset()
+        else:
+            print(f"{red('Docker startup failed, skipping service setup')}")
+            sys.exit(1)
     create_entrypoint()
     set_jupyterlab_config()
 

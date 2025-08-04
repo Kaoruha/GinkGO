@@ -6,9 +6,9 @@ from functools import singledispatchmethod
 from sqlalchemy import String, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES
-from ginkgo.libs import base_repr
+from .model_mysqlbase import MMysqlBase
+from ...enums import SOURCE_TYPES, EVENT_TYPES
+from ...libs import base_repr
 
 
 class MEngineHandlerMapping(MMysqlBase):

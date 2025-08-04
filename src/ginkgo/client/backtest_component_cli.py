@@ -1,26 +1,20 @@
 import typer
-import pandas as pd
 import subprocess
-
+from pathlib import Path
 from enum import Enum
 from typing import List as typing_list, Optional
 from typing_extensions import Annotated
 from rich.prompt import Prompt
 from rich.table import Column, Table
 from rich.console import Console
-from pathlib import Path
+import pandas as pd
 
-from ginkgo.libs import GLOG
-from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
-from ginkgo.enums import ORDERSTATUS_TYPES
-from ginkgo.client import backtest_update_cli
-
+# All heavy imports moved to function level for faster CLI startup
 
 app = typer.Typer(
-    help=":dna: Manage [bold medium_spring_green]COMPONENT[/]. [grey62][/]",
+    help=":dna: Manage [bold medium_spring_green]COMPONENT[/] files. [grey62]Create, edit, and manage component files.[/grey62]",
     no_args_is_help=True,
 )
-app.add_typer(backtest_update_cli.app, name="update")
 console = Console()
 
 
@@ -32,253 +26,123 @@ def create():
     print("create component")
 
 
-@app.command(name="list", no_args_is_help=True)
-def ls(
-    engine: Annotated[bool, typer.Option(case_sensitive=False, help="List engines.")] = False,
-    portfolio: Annotated[bool, typer.Option(case_sensitive=False, help="List portfolios.")] = False,
-    file: Annotated[bool, typer.Option(case_sensitive=False, help="List files.")] = False,
-    mapping: Annotated[bool, typer.Option(case_sensitive=False, help="List mappings.")] = False,
-    param: Annotated[bool, typer.Option(case_sensitive=False, help="List params.")] = False,
-    signal: Annotated[bool, typer.Option(case_sensitive=False, help="List signals.")] = False,
-    order: Annotated[bool, typer.Option(case_sensitive=False, help="List orders.")] = False,
-    position: Annotated[bool, typer.Option(case_sensitive=False, help="List positions.")] = False,
-    filter: Annotated[str, typer.Option(case_sensitive=False, help="File filter.")] = None,
-    a: Annotated[
-        bool,
-        typer.Option(case_sensitive=False, help="Show All Data, include removed file."),
-    ] = False,
+@app.command(name="list")
+def list(
+    type: Annotated[Optional[str], typer.Option("--type", "-t", help="Filter by component type (strategy, analyzer, selector, sizer, risk)")] = None,
+    name: Annotated[Optional[str], typer.Option("--name", "-n", help="Filter by component name")] = None,
+    include_removed: Annotated[bool, typer.Option("--all", "-a", help="Include removed components")] = False,
 ):
     """
-    :open_file_folder: Show backtest components list.
+    :open_file_folder: List component files.
     """
     from ginkgo.enums import FILE_TYPES
-
-    def intro_print(data_count: int, data_type: str):
-        if filter is None:
-            msg = f":ramen: There are {data_count} {data_type}. "
+    from ginkgo.data.containers import Container
+    from ginkgo.libs.utils.display import display_dataframe
+    
+    # Build filters
+    filters = {}
+    if name:
+        filters['name'] = name
+    if type:
+        # Map string type to FILE_TYPES
+        type_mapping = {
+            'strategy': FILE_TYPES.STRATEGY,
+            'analyzer': FILE_TYPES.ANALYZER,
+            'selector': FILE_TYPES.SELECTOR,
+            'sizer': FILE_TYPES.SIZER,
+            'risk': FILE_TYPES.RISKMANAGER,
+        }
+        if type.lower() in type_mapping:
+            filters['type'] = type_mapping[type.lower()]
         else:
-            msg = f":ramen: There are {data_count} {data_type} about [bold medium_spring_green]{filter}[/]. "
-        console.print(msg)
-
-    def print_engine(df):
-        intro_print(df.shape[0], "engines")
-        if df.shape[0] > 0:
-            filtered_columns = ["uuid", "name", "is_live", "update_at"]
-            rs = df[filtered_columns]
-            table = Table(show_header=True, header_style="bold magenta")
-
-            table.add_column("ID", style="dim")
-            table.add_column("Name", style="dim")
-            table.add_column("Live", style="dim")
-            table.add_column("UpdateAt", style="dim")
-            for i, r in rs.iterrows():
-                table.add_row(r["uuid"], r["name"], str(r["is_live"]), str(r["update_at"]))
-            console.print(table)
-
-    def print_portfolio(df):
-        intro_print(df.shape[0], "portfolios")
-        if df.shape[0] > 0:
-            filtered_columns = ["uuid", "name", "backtest_start_date", "backtest_end_date", "update_at"]
-            rs = df[filtered_columns]
-            table = Table(show_header=True, header_style="bold magenta")
-            table.add_column("ID", style="dim")
-            table.add_column("Name", style="dim")
-            table.add_column("Start", style="dim")
-            table.add_column("End", style="dim")
-            table.add_column("UpdateAt", style="dim")
-            for i, r in rs.iterrows():
-                table.add_row(
-                    r["uuid"],
-                    r["name"],
-                    str(r["backtest_start_date"]),
-                    str(r["backtest_end_date"]),
-                    str(r["update_at"]),
-                )
-            console.print(table)
-
-    def print_file(df):
-        intro_print(df.shape[0], "files")
-        if df.shape[0] > 0:
-            filtered_columns = ["uuid", "name", "type", "update_at"]
-            rs = df[filtered_columns]
-            table = Table(show_header=True, header_style="bold magenta")
-            table.add_column("ID", style="dim")
-            table.add_column("Name", style="dim")
-            table.add_column("Type", style="dim")
-            table.add_column("UpdateAt", style="dim")
-            for i, r in rs.iterrows():
-                table.add_row(r["uuid"], r["name"], str(r["type"]), str(r["update_at"]))
-            console.print(table)
-
-    def print_mapping(df):
-        pass
-
-    res = {}
-    from ginkgo.data.operations import (
-        get_files_page_filtered,
-        get_engines_page_filtered,
-        get_orders_page_filtered,
-        get_portfolios_page_filtered,
-    )
-
-    if engine:
-        df = get_engines_page_filtered(name=filter, as_dataframe=True)
-        res["engine"] = df
-        print_engine(df)
-
-    if portfolio:
-        df = get_portfolios_page_filtered(name=filter)
-        res["portfolio"] = df
-        print_portfolio(df)
-
-    if file:
-        if filter is None:
-            df = get_files_page_filtered()
+            console.print(f":exclamation: Invalid component type: [light_coral]{type}[/light_coral]")
+            console.print("Valid types: strategy, analyzer, selector, sizer, risk")
+            return
+    
+    # Get component files
+    try:
+        file_crud = Container.file_crud()
+        files = file_crud.find(filters=filters)
+        
+        # Convert objects to dataframe
+        if files:
+            data_rows = []
+            for file_obj in files:
+                data_rows.append({
+                    'uuid': file_obj.uuid,
+                    'name': file_obj.name,
+                    'type': file_obj.type.name if hasattr(file_obj.type, 'name') else str(file_obj.type),
+                    'path': getattr(file_obj, 'path', ''),
+                    'update_at': getattr(file_obj, 'update_at', ''),
+                    'is_del': getattr(file_obj, 'is_del', False)
+                })
+            files_df = pd.DataFrame(data_rows)
         else:
-            file_type = FILE_TYPES.enum_convert(filter)
-            df1 = pd.DataFrame()
-            if file_type:
-                df1 = get_files_page_filtered(type=file_type)
-            df = get_files_page_filtered(name=filter)
-            if df1.shape[0] > 0:
-                df = pd.concat([df1, df])
-            df = df.drop_duplicates(subset=["uuid"])
-        res["file"] = df
-        print_file(df)
-    if mapping:
-        from ginkgo.data.operations import (
-            get_engine_handler_mappings_page_filtered,
-            get_engine_portfolio_mappings_page_filtered,
-            get_portfolio_file_mappings_page_filtered,
+            files_df = pd.DataFrame()
+        
+        # Filter out removed files unless requested
+        if files_df.shape[0] > 0 and not include_removed and 'is_del' in files_df.columns:
+            files_df = files_df[files_df['is_del'] == False]
+        
+        # Display results
+        # 配置列显示
+        components_columns_config = {
+            "uuid": {"display_name": "Component ID", "style": "dim"},
+            "name": {"display_name": "Name", "style": "cyan"},
+            "type": {"display_name": "Type", "style": "green"},
+            "path": {"display_name": "Path", "style": "dim"},
+            "update_at": {"display_name": "Update At", "style": "dim"}
+        }
+        
+        display_dataframe(
+            data=files_df,
+            columns_config=components_columns_config,
+            title=":dna: [bold]Components:[/bold]",
+            console=console
         )
-
-        if filter is None:
-            df = get_engine_portfolio_mappings_page_filtered()
-            intro_print(df.shape[0], "engine portfolio mappings")
-            if df.shape[0] > 0:
-                filtered_columns = ["uuid", "engine_id", "portfolio_id", "update_at"]
-                rs = df[filtered_columns]
-                table = Table(show_header=True, header_style="bold magenta")
-                table.add_column("ID", style="dim")
-                table.add_column("Engine", style="dim")
-                table.add_column("Portfolio", style="dim")
-                table.add_column("UpdateAt", style="dim")
-                for i, r in rs.iterrows():
-                    table.add_row(r["uuid"], r["engine_id"], r["portfolio_id"], str(r["update_at"]))
-                console.print(table)
-            df = get_engine_handler_mappings_page_filtered()
-            intro_print(df.shape[0], "engine handler mappings")
-            # TODO
-            df = get_portfolio_file_mappings_page_filtered()
-            intro_print(df.shape[0], "portfolio file mappings")
-            if df.shape[0] > 0:
-                filtered_columns = ["uuid", "portfolio_id", "file_id", "name", "type", "update_at"]
-                rs = df[filtered_columns]
-                table = Table(show_header=True, header_style="bold magenta")
-                table.add_column("ID", style="dim")
-                table.add_column("Name", style="dim")
-                table.add_column("Type", style="dim")
-                table.add_column("Portfolio", style="dim")
-                table.add_column("File", style="dim")
-                table.add_column("UpdateAt", style="dim")
-                for i, r in rs.iterrows():
-                    table.add_row(
-                        r["uuid"], r["name"], str(r["type"]), r["portfolio_id"], r["file_id"], str(r["update_at"])
-                    )
-                console.print(table)
-        else:
-            df = get_engine_portfolio_mappings_page_filtered()
-            if df.shape[0] > 0:
-                df1 = df[df["engine_id"] == filter]
-                df2 = df[df["portfolio_id"] == filter]
-                df = pd.concat([df1, df2])
-            intro_print(df.shape[0], "engine portfolio mappings")
-            if df.shape[0] > 0:
-                filtered_columns = ["uuid", "engine_id", "portfolio_id", "update_at"]
-                rs = df[filtered_columns]
-                table = Table(show_header=True, header_style="bold magenta")
-                table.add_column("ID", style="dim")
-                table.add_column("Engine", style="dim")
-                table.add_column("Portfolio", style="dim")
-                table.add_column("UpdateAt", style="dim")
-                for i, r in rs.iterrows():
-                    table.add_row(r["uuid"], r["engine_id"], r["portfolio_id"], str(r["update_at"]))
-                console.print(table)
-            df = get_engine_handler_mappings_page_filtered()
-            if df.shape[0] > 0:
-                df1 = df[df["engine_id"] == filter]
-                df2 = df[df["handler_id"] == filter]
-                df = pd.concat([df1, df2])
-            intro_print(df.shape[0], "engine handler mappings")
-            if df.shape[0] > 0:
-                pass
-            df = get_portfolio_file_mappings_page_filtered()
-            if df.shape[0] > 0:
-                df1 = df[df["portfolio_id"] == filter]
-                df2 = df[df["file_id"] == filter]
-                df = pd.concat([df1, df2])
-            intro_print(df.shape[0], "portfolio file mappings")
-            if df.shape[0] > 0:
-                filtered_columns = ["uuid", "portfolio_id", "file_id", "name", "type", "update_at"]
-                rs = df[filtered_columns]
-                table = Table(show_header=True, header_style="bold magenta")
-                table.add_column("ID", style="dim")
-                table.add_column("Name", style="dim")
-                table.add_column("Type", style="dim")
-                table.add_column("Portfolio", style="dim")
-                table.add_column("File", style="dim")
-                table.add_column("UpdateAt", style="dim")
-                for i, r in rs.iterrows():
-                    table.add_row(
-                        r["uuid"], r["name"], str(r["type"]), r["portfolio_id"], r["file_id"], str(r["update_at"])
-                    )
-                console.print(table)
-    if param:
-        from ginkgo.data.operations import get_params_page_filtered
-
-        if filter is not None:
-            df = get_params_page_filtered(source_id=filter)
-        else:
-            df = get_params_page_filtered()
-        if df.shape[0] > 0:
-            intro_print(df.shape[0], "mapping params")
-            filtered_columns = ["uuid", "mapping_id", "index", "value", "update_at"]
-            print(df)
-            rs = df[filtered_columns]
-            rs = rs.sort_values(by=["mapping_id", "index"], ascending=True)
-            table = Table(show_header=True, header_style="bold magenta")
-            table.add_column("ID", style="dim")
-            table.add_column("Mapping", style="dim")
-            table.add_column("Index", style="dim")
-            table.add_column("Value", style="dim")
-            table.add_column("UpdateAt", style="dim")
-            for i, r in rs.iterrows():
-                table.add_row(r["uuid"], r["mapping_id"], str(r["index"]), r["value"], str(r["update_at"]))
-            console.print(table)
-
-    if signal:
-        # Get signal
-        # Filter engine
-        # Filter portfolio
-        # TODO
-        pass
-    if order:
-        # Get Order
-        # Filter engine
-        # Filter portfolio
-        # TODO
-        pass
-    if position:
-        # Get Position
-        # Filter engine
-        # Filter portfolio
-        # TODO
-        pass
+        
+    except Exception as e:
+        console.print(f":x: [bold red]Failed to list components:[/bold red] {e}")
 
 
-@app.command(name="bind")
-def bind():
-    print("bind components")
+@app.command()
+def update(
+    component: Annotated[str, typer.Option("--component", "-c", "--c", help=":id: Component file ID")],
+    name: Annotated[Optional[str], typer.Option("--name", "-n", help=":label: New component name")] = None,
+    description: Annotated[Optional[str], typer.Option("--desc", help=":memo: New component description")] = None,
+):
+    """
+    :memo: Update component file metadata.
+    """
+    from ginkgo.data.containers import Container
+    
+    # Verify file exists
+    file_crud = Container.file_crud()
+    file_obj = file_crud.get(id)
+    if not file_obj:
+        console.print(f":exclamation: Component file [light_coral]{id}[/light_coral] not found.")
+        return
+    
+    # Update fields
+    updates = {}
+    if name:
+        updates['name'] = name
+    if description:
+        updates['desc'] = description
+    
+    if not updates:
+        console.print(":information: No updates specified.")
+        return
+    
+    try:
+        file_crud.update(id, **updates)
+        console.print(f":white_check_mark: [bold green]Updated component file[/bold green] [cyan]{file_obj.name}[/cyan]")
+        
+        for field, value in updates.items():
+            console.print(f"  {field}: [cyan]{value}[/cyan]")
+            
+    except Exception as e:
+        console.print(f":x: [bold red]Failed to update component:[/bold red] {e}")
 
 
 @app.command()
@@ -293,125 +157,207 @@ def edit(
         editors = ["nvim", "vim"]
         for editor in editors:
             try:
-                # 尝试运行编辑器，如果成功则说明可用
-                result = subprocess.run([editor, "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                result = subprocess.run(
+                    ["which", editor], capture_output=True, text=True
+                )
                 if result.returncode == 0:
-                    return True, editor
+                    return editor
             except FileNotFoundError:
-                # 编辑器未安装或不在 PATH 中
                 continue
-        return False, None
+        return None
 
-    editor_res = check_editor()
-    if not editor_res[0]:
-        print("There is no editor in Systemt PATH.")
+    from ginkgo.data.containers import Container
+
+    file_crud = Container.file_crud()
+    file_obj = file_crud.get(id)
+    if not file_obj:
+        console.print(f"The file {id} not exist.")
         return
 
-    editor = editor_res[1]
+    file_path = getattr(file_obj, 'path', '')
+    file_name = file_obj.name
+    console.print(f"EDIT file: {file_name}")
+    console.print(f"PATH: {file_path}")
 
-    from ginkgo.libs.core.config import GCONF
-    from ginkgo.data.operations import get_file, update_file
-    from ginkgo.enums import FILE_TYPES
+    if not Path(file_path).exists():
+        console.print(f"PATH [bold red]{file_path}[/] not exist.")
+        return
 
-    file_in_db = get_file(id=id, as_dataframe=True)
-
-    if file_in_db.shape[0] == 0:
-        console.print(
-            f":sad_but_relieved_face: File [yellow]{id}[/yellow] not exists. Try [green]ginkgo backtest list[/green] first."
-        )
+    editor = check_editor()
+    if editor:
+        subprocess.run([editor, file_path])
     else:
-        import uuid
-        import shutil
-        import os
-
-        id = file_in_db.uuid
-        name = file_in_db["name"]
-        type = file_in_db.type
-        if type is FILE_TYPES.ENGINE:
-            file_format = "yml"
-        else:
-            file_format = "py"
-        content = file_in_db.data
-        temp_folder = f"{GCONF.WORKING_PATH}/{uuid.uuid4()}"
-        Path(temp_folder).mkdir(parents=True, exist_ok=True)
-        with open(f"{temp_folder}/{name}.{file_format}", "wb") as file:
-            file.write(content)
-        # TODO Support editor set, nvim,vim.vi,nano or vscode?
-        edit_name = name.replace(" ", r"\ ") if " " in name else name
-        os.system(f"{editor} {temp_folder}/{edit_name}.{file_format}")
-        with open(f"{temp_folder}/{name}.{file_format}", "rb") as file:
-            update_file(id, type, name, file.read())
-            console.print(f":bear: [yellow]{type}[/yellow][green bold] {name}[/green bold] Updated.")
-        # Remove the file and directory
-        shutil.rmtree(temp_folder)
+        console.print("No suitable editor found (nvim or vim).")
 
 
 @app.command(name="cat")
 def cat(
-    id: Annotated[str, typer.Option(..., "--id", "-id", case_sensitive=True, help="File id.")],
+    id: Annotated[str, typer.Option(..., "--id", "-id", case_sensitive=True, help="File ID")],
 ):
     """
-    :see_no_evil: Show [bold medium_spring_green]FILE[/] content.
+    :information_source: Display file content.
     """
-    from ginkgo.data.operations import get_file
+    from ginkgo.data.containers import Container
 
-    file = get_file(id)
-    content = file.content
-    console.print(content.decode("utf-8"))
+    file_crud = Container.file_crud()
+    file_obj = file_crud.get(id)
+    if not file_obj:
+        console.print(f"The file {id} not exist.")
+        return
+
+    file_path = getattr(file_obj, 'path', '')
+    file_name = file_obj.name
+
+    if not Path(file_path).exists():
+        console.print(f"PATH [bold red]{file_path}[/] not exist.")
+        return
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        console.print(f"[bold cyan]File: {file_name}[/bold cyan]")
+        console.print(f"[dim]Path: {file_path}[/dim]")
+        console.print("─" * 60)
+        console.print(content)
+    except Exception as e:
+        console.print(f":x: [bold red]Failed to read file:[/bold red] {e}")
 
 
 @app.command(name="remove")
 def remove(
-    ids: Annotated[
-        typing_list[str],
-        typer.Argument(case_sensitive=True, help="File IDs"),
-    ],
+    id: Annotated[str, typer.Option(..., "--id", "-id", case_sensitive=True, help="File ID")],
 ):
     """
-    :boom: Delete [bold light_coral]FILE[/] or [bold light_coral]BACKTEST RECORD[/].
+    :wastebasket: Remove component file.
     """
-    from ginkgo.data.operations import delete_file, delete_engine, delete_portfolio
+    from ginkgo.data.containers import Container
+    from rich.prompt import Confirm
 
-    for i in ids:
-        id = i
-        # Try remove file
-        result_file = delete_file(id)
-        if result_file > 0:
-            msg = f":zany_face: File [yellow]{id}[/yellow] delete."
-            console.print(msg)
-        # Try remove backtest engine
-        result_back = delete_engine(id)
-        if result_back > 0:
-            msg = f":zany_face: Backtest Engine [light_coral]{id}[/light_coral] deleted."
-            console.print(msg)
-        # remove portfolios
-        result_portfolio = delete_portfolio(id)
-        if result_portfolio > 0:
-            msg = f":zany_face: Portfolio [light_coral]{id}[/light_coral] deleted."
-            console.print(msg)
-        # remove backtest signals
-        # remove backtest orders
-        # remove backtest orders records
-        # remove backtest analyzers
-        # remove backtest positions
-        # TODO Update delete functions
-        continue
-        # Remove order records and analyzers
-        result_order = remove_orders(id)
-        if result_order > 0:
-            msg = f":zany_face: Orders about [light_coral]{id}[/light_coral] [yellow]{result_order}[/yellow] delete."
-            console.print(msg)
-        result_ana = remove_analyzers(id)
-        if result_ana > 0:
-            msg = f":zany_face: Analyzers about [light_coral]{id}[/light_coral] [yellow]{result_ana}[/yellow] delete."
-            console.print(msg)
+    file_res = get_file(id)
+    if file_res.shape[0] == 0:
+        console.print(f"The file {id} not exist.")
+        return
 
-        result_pos = remove_positions(id)
-        if result_pos > 0:
-            msg = f":zany_face: Positions in backtest [light_coral]{id}[/light_coral] [yellow]{result_pos}[/yellow] delete."
-            console.print(msg)
+    file_name = file_res.iloc[0]["name"]
+    
+    if not Confirm.ask(f":question: Remove component file [cyan]{file_name}[/cyan]?", default=False):
+        console.print(":relieved_face: Operation cancelled.")
+        return
 
-        if result_file == 0 and result_back == 0 and result_order == 0 and result_ana == 0 and result_pos == 0:
-            console.print(
-                f"There is no file or backtest record about [light_coral]{id}[/light_coral]. Please check id again."
-            )
+    try:
+        file_crud.remove(id)
+        console.print(f":white_check_mark: [bold green]Removed component file[/bold green] [cyan]{file_name}[/cyan]")
+    except Exception as e:
+        console.print(f":x: [bold red]Failed to remove file:[/bold red] {e}")
+
+
+@app.command()
+def validate(
+    component: Annotated[Optional[str], typer.Option("--component", "-c", "--c", help=":id: Component ID to validate")] = None,
+    file_path: Annotated[Optional[str], typer.Option("--file", "-f", "--f", help=":page_facing_up: File path to validate")] = None,
+    type: Annotated[Optional[str], typer.Option("--type", "-t", help=":gear: Component type (strategy, analyzer, risk, sizer)")] = None,
+):
+    """
+    :white_check_mark: Validate component compliance with framework standards.
+    """
+    try:
+        from ginkgo.libs import validate_component
+        
+        if validate_component is None:
+            console.print(":x: [bold red]Validation module not available.[/bold red]")
+            console.print("Please ensure the validators module is properly installed.")
+            return
+        
+        # 参数验证
+        if not component and not file_path:
+            console.print(":exclamation: [bold red]Must specify either --component or --file[/bold red]")
+            console.print("Examples:")
+            console.print("  ginkgo backtest component validate --component abc123 --type strategy")
+            console.print("  ginkgo backtest component validate --file ./my_strategy.py --type strategy")
+            return
+        
+        if not type:
+            console.print(":exclamation: [bold red]Component type is required[/bold red]")
+            console.print("Valid types: strategy, analyzer, risk, sizer")
+            return
+        
+        # 执行校验
+        if component:
+            console.print(f":mag: [bold blue]Validating component[/bold blue] [cyan]{component}[/cyan] as [green]{type}[/green]...")
+            result = validate_component(type, component_id=component)
+        else:
+            console.print(f":mag: [bold blue]Validating file[/bold blue] [cyan]{file_path}[/cyan] as [green]{type}[/green]...")
+            result = validate_component(type, file_path=file_path)
+        
+        # 显示结果
+        _display_validation_result(result)
+        
+    except Exception as e:
+        console.print(f":x: [bold red]Validation failed:[/bold red] {e}")
+
+
+@app.command()
+def test(
+    component: Annotated[str, typer.Option("--component", "-c", "--c", help=":id: Component ID to test")],
+    test_type: Annotated[str, typer.Option("--type", "-t", help=":test_tube: Test type (unit, integration, performance)")] = "integration",
+):
+    """
+    :test_tube: Run component tests in a safe sandbox environment.
+    """
+    try:
+        from ginkgo.libs import test_component
+        
+        if test_component is None:
+            console.print(":x: [bold red]Testing module not available.[/bold red]")
+            console.print("Please ensure the validators module is properly installed.")
+            return
+        
+        console.print(f":test_tube: [bold blue]Running {test_type} tests[/bold blue] for component [cyan]{component}[/cyan]...")
+        
+        # 执行测试
+        result = test_component(component, test_type)
+        
+        # 显示结果
+        _display_validation_result(result)
+        
+    except Exception as e:
+        console.print(f":x: [bold red]Testing failed:[/bold red] {e}")
+
+
+def _display_validation_result(result):
+    """
+    显示校验结果
+    
+    Args:
+        result: ValidationResult对象
+    """
+    # 状态图标和颜色
+    if result.is_valid:
+        if result.level.value == "warning":
+            status_icon = ":warning:"
+            status_color = "yellow"
+            status_text = "PASSED WITH WARNINGS"
+        else:
+            status_icon = ":white_check_mark:"
+            status_color = "green" 
+            status_text = "PASSED"
+    else:
+        status_icon = ":x:"
+        status_color = "red"
+        status_text = "FAILED"
+    
+    # 显示主要结果
+    console.print(f"\n{status_icon} [bold {status_color}]{status_text}[/bold {status_color}]")
+    console.print(f"[bold]Message:[/bold] {result.message}")
+    
+    # 显示详细信息
+    if result.details:
+        console.print(f"[bold]Details:[/bold] {result.details}")
+    
+    # 显示建议
+    if result.suggestions:
+        console.print(f"\n[bold yellow]Suggestions:[/bold yellow]")
+        for i, suggestion in enumerate(result.suggestions, 1):
+            console.print(f"  {i}. {suggestion}")
+    
+    console.print("")  # 空行

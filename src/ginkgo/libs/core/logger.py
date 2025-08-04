@@ -5,7 +5,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from rich.logging import RichHandler
 from pathlib import Path
-from ginkgo.libs.core.config import GCONF
+from .config import GCONF
 
 # Read Configure
 LOGGING_LEVEL_CONSOLE = GCONF.LOGGING_LEVEL_CONSOLE
@@ -27,6 +27,7 @@ class GinkgoLogger:
     """
 
     def __init__(self, logger_name: str, file_names: List = None, console_log=False):
+        self.logger_name = logger_name  # 保存logger名称作为实例属性
         self.backup_count = 3
         self.max_file_bytes = 2 * 1024 * 1024 * 1024
         self._file_names = file_names

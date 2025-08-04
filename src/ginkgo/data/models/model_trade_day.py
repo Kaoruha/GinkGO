@@ -6,9 +6,9 @@ from sqlalchemy import Column, String, Integer, DateTime, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 from functools import singledispatchmethod
 
-from ginkgo.libs import base_repr, datetime_normalize
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES
+from ...libs import base_repr, datetime_normalize
+from .model_mysqlbase import MMysqlBase
+from ...enums import SOURCE_TYPES, MARKET_TYPES
 
 
 class MTradeDay(MMysqlBase):

@@ -1,0 +1,743 @@
+{
+  "2024-01-15": {
+    "columns": [
+      "time",
+      "price",
+      "vol",
+      "buyorsell",
+      "volume",
+      "timestamp"
+    ],
+    "data": [
+      {
+        "time": "09:25",
+        "price": 9.16,
+        "vol": 4966,
+        "buyorsell": 2,
+        "volume": 4966,
+        "timestamp": "2024-01-15 09:25:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.16,
+        "vol": 1049,
+        "buyorsell": 0,
+        "volume": 1049,
+        "timestamp": "2024-01-15 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.16,
+        "vol": 38,
+        "buyorsell": 0,
+        "volume": 38,
+        "timestamp": "2024-01-15 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.15,
+        "vol": 1018,
+        "buyorsell": 1,
+        "volume": 1018,
+        "timestamp": "2024-01-15 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.15,
+        "vol": 217,
+        "buyorsell": 1,
+        "volume": 217,
+        "timestamp": "2024-01-15 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.15,
+        "vol": 83,
+        "buyorsell": 1,
+        "volume": 83,
+        "timestamp": "2024-01-15 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.16,
+        "vol": 59,
+        "buyorsell": 0,
+        "volume": 59,
+        "timestamp": "2024-01-15 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.15,
+        "vol": 247,
+        "buyorsell": 1,
+        "volume": 247,
+        "timestamp": "2024-01-15 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.16,
+        "vol": 402,
+        "buyorsell": 0,
+        "volume": 402,
+        "timestamp": "2024-01-15 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.16,
+        "vol": 188,
+        "buyorsell": 0,
+        "volume": 188,
+        "timestamp": "2024-01-15 09:30:00"
+      }
+    ],
+    "dtypes": {
+      "time": "object",
+      "price": "float64",
+      "vol": "int64",
+      "buyorsell": "int64",
+      "volume": "int64",
+      "timestamp": "datetime64[ns]"
+    },
+    "shape": [
+      10,
+      6
+    ],
+    "sample_values": {
+      "time": [
+        "09:25",
+        "09:30",
+        "09:30",
+        "09:30",
+        "09:30"
+      ],
+      "price": [
+        "9.16",
+        "9.16",
+        "9.16",
+        "9.15",
+        "9.15"
+      ],
+      "vol": [
+        "4966",
+        "1049",
+        "38",
+        "1018",
+        "217"
+      ],
+      "buyorsell": [
+        "2",
+        "0",
+        "0",
+        "1",
+        "1"
+      ],
+      "volume": [
+        "4966",
+        "1049",
+        "38",
+        "1018",
+        "217"
+      ],
+      "timestamp": [
+        "2024-01-15 09:25:00",
+        "2024-01-15 09:30:00",
+        "2024-01-15 09:30:00",
+        "2024-01-15 09:30:00",
+        "2024-01-15 09:30:00"
+      ]
+    }
+  },
+  "2024-01-16": {
+    "columns": [
+      "time",
+      "price",
+      "vol",
+      "buyorsell",
+      "volume",
+      "timestamp"
+    ],
+    "data": [
+      {
+        "time": "09:25",
+        "price": 9.19,
+        "vol": 5094,
+        "buyorsell": 2,
+        "volume": 5094,
+        "timestamp": "2024-01-16 09:25:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.18,
+        "vol": 38,
+        "buyorsell": 0,
+        "volume": 38,
+        "timestamp": "2024-01-16 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.17,
+        "vol": 15,
+        "buyorsell": 1,
+        "volume": 15,
+        "timestamp": "2024-01-16 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.18,
+        "vol": 12,
+        "buyorsell": 0,
+        "volume": 12,
+        "timestamp": "2024-01-16 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.17,
+        "vol": 182,
+        "buyorsell": 1,
+        "volume": 182,
+        "timestamp": "2024-01-16 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.17,
+        "vol": 662,
+        "buyorsell": 1,
+        "volume": 662,
+        "timestamp": "2024-01-16 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.17,
+        "vol": 250,
+        "buyorsell": 1,
+        "volume": 250,
+        "timestamp": "2024-01-16 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.17,
+        "vol": 65,
+        "buyorsell": 1,
+        "volume": 65,
+        "timestamp": "2024-01-16 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.17,
+        "vol": 118,
+        "buyorsell": 1,
+        "volume": 118,
+        "timestamp": "2024-01-16 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.17,
+        "vol": 87,
+        "buyorsell": 0,
+        "volume": 87,
+        "timestamp": "2024-01-16 09:30:00"
+      }
+    ],
+    "dtypes": {
+      "time": "object",
+      "price": "float64",
+      "vol": "int64",
+      "buyorsell": "int64",
+      "volume": "int64",
+      "timestamp": "datetime64[ns]"
+    },
+    "shape": [
+      10,
+      6
+    ],
+    "sample_values": {
+      "time": [
+        "09:25",
+        "09:30",
+        "09:30",
+        "09:30",
+        "09:30"
+      ],
+      "price": [
+        "9.19",
+        "9.18",
+        "9.17",
+        "9.18",
+        "9.17"
+      ],
+      "vol": [
+        "5094",
+        "38",
+        "15",
+        "12",
+        "182"
+      ],
+      "buyorsell": [
+        "2",
+        "0",
+        "1",
+        "0",
+        "1"
+      ],
+      "volume": [
+        "5094",
+        "38",
+        "15",
+        "12",
+        "182"
+      ],
+      "timestamp": [
+        "2024-01-16 09:25:00",
+        "2024-01-16 09:30:00",
+        "2024-01-16 09:30:00",
+        "2024-01-16 09:30:00",
+        "2024-01-16 09:30:00"
+      ]
+    }
+  },
+  "2024-01-17": {
+    "columns": [
+      "time",
+      "price",
+      "vol",
+      "buyorsell",
+      "volume",
+      "timestamp"
+    ],
+    "data": [
+      {
+        "time": "09:25",
+        "price": 9.33,
+        "vol": 28618,
+        "buyorsell": 2,
+        "volume": 28618,
+        "timestamp": "2024-01-17 09:25:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.34,
+        "vol": 707,
+        "buyorsell": 0,
+        "volume": 707,
+        "timestamp": "2024-01-17 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.34,
+        "vol": 110,
+        "buyorsell": 1,
+        "volume": 110,
+        "timestamp": "2024-01-17 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.35,
+        "vol": 628,
+        "buyorsell": 0,
+        "volume": 628,
+        "timestamp": "2024-01-17 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.34,
+        "vol": 821,
+        "buyorsell": 1,
+        "volume": 821,
+        "timestamp": "2024-01-17 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.34,
+        "vol": 1640,
+        "buyorsell": 0,
+        "volume": 1640,
+        "timestamp": "2024-01-17 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.34,
+        "vol": 146,
+        "buyorsell": 0,
+        "volume": 146,
+        "timestamp": "2024-01-17 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.33,
+        "vol": 172,
+        "buyorsell": 1,
+        "volume": 172,
+        "timestamp": "2024-01-17 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.34,
+        "vol": 437,
+        "buyorsell": 0,
+        "volume": 437,
+        "timestamp": "2024-01-17 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.33,
+        "vol": 2366,
+        "buyorsell": 1,
+        "volume": 2366,
+        "timestamp": "2024-01-17 09:30:00"
+      }
+    ],
+    "dtypes": {
+      "time": "object",
+      "price": "float64",
+      "vol": "int64",
+      "buyorsell": "int64",
+      "volume": "int64",
+      "timestamp": "datetime64[ns]"
+    },
+    "shape": [
+      10,
+      6
+    ],
+    "sample_values": {
+      "time": [
+        "09:25",
+        "09:30",
+        "09:30",
+        "09:30",
+        "09:30"
+      ],
+      "price": [
+        "9.33",
+        "9.34",
+        "9.34",
+        "9.35",
+        "9.34"
+      ],
+      "vol": [
+        "28618",
+        "707",
+        "110",
+        "628",
+        "821"
+      ],
+      "buyorsell": [
+        "2",
+        "0",
+        "1",
+        "0",
+        "1"
+      ],
+      "volume": [
+        "28618",
+        "707",
+        "110",
+        "628",
+        "821"
+      ],
+      "timestamp": [
+        "2024-01-17 09:25:00",
+        "2024-01-17 09:30:00",
+        "2024-01-17 09:30:00",
+        "2024-01-17 09:30:00",
+        "2024-01-17 09:30:00"
+      ]
+    }
+  },
+  "2024-01-18": {
+    "columns": [
+      "time",
+      "price",
+      "vol",
+      "buyorsell",
+      "volume",
+      "timestamp"
+    ],
+    "data": [
+      {
+        "time": "09:25",
+        "price": 9.21,
+        "vol": 16292,
+        "buyorsell": 2,
+        "volume": 16292,
+        "timestamp": "2024-01-18 09:25:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.21,
+        "vol": 2020,
+        "buyorsell": 0,
+        "volume": 2020,
+        "timestamp": "2024-01-18 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.2,
+        "vol": 377,
+        "buyorsell": 1,
+        "volume": 377,
+        "timestamp": "2024-01-18 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.2,
+        "vol": 414,
+        "buyorsell": 0,
+        "volume": 414,
+        "timestamp": "2024-01-18 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.2,
+        "vol": 682,
+        "buyorsell": 2,
+        "volume": 682,
+        "timestamp": "2024-01-18 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.2,
+        "vol": 561,
+        "buyorsell": 0,
+        "volume": 561,
+        "timestamp": "2024-01-18 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.2,
+        "vol": 930,
+        "buyorsell": 0,
+        "volume": 930,
+        "timestamp": "2024-01-18 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.18,
+        "vol": 642,
+        "buyorsell": 1,
+        "volume": 642,
+        "timestamp": "2024-01-18 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.21,
+        "vol": 4023,
+        "buyorsell": 0,
+        "volume": 4023,
+        "timestamp": "2024-01-18 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.19,
+        "vol": 1179,
+        "buyorsell": 0,
+        "volume": 1179,
+        "timestamp": "2024-01-18 09:30:00"
+      }
+    ],
+    "dtypes": {
+      "time": "object",
+      "price": "float64",
+      "vol": "int64",
+      "buyorsell": "int64",
+      "volume": "int64",
+      "timestamp": "datetime64[ns]"
+    },
+    "shape": [
+      10,
+      6
+    ],
+    "sample_values": {
+      "time": [
+        "09:25",
+        "09:30",
+        "09:30",
+        "09:30",
+        "09:30"
+      ],
+      "price": [
+        "9.21",
+        "9.21",
+        "9.2",
+        "9.2",
+        "9.2"
+      ],
+      "vol": [
+        "16292",
+        "2020",
+        "377",
+        "414",
+        "682"
+      ],
+      "buyorsell": [
+        "2",
+        "0",
+        "1",
+        "0",
+        "2"
+      ],
+      "volume": [
+        "16292",
+        "2020",
+        "377",
+        "414",
+        "682"
+      ],
+      "timestamp": [
+        "2024-01-18 09:25:00",
+        "2024-01-18 09:30:00",
+        "2024-01-18 09:30:00",
+        "2024-01-18 09:30:00",
+        "2024-01-18 09:30:00"
+      ]
+    }
+  },
+  "2024-01-19": {
+    "columns": [
+      "time",
+      "price",
+      "vol",
+      "buyorsell",
+      "volume",
+      "timestamp"
+    ],
+    "data": [
+      {
+        "time": "09:25",
+        "price": 9.16,
+        "vol": 9984,
+        "buyorsell": 2,
+        "volume": 9984,
+        "timestamp": "2024-01-19 09:25:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.13,
+        "vol": 281,
+        "buyorsell": 1,
+        "volume": 281,
+        "timestamp": "2024-01-19 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.14,
+        "vol": 334,
+        "buyorsell": 0,
+        "volume": 334,
+        "timestamp": "2024-01-19 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.13,
+        "vol": 1035,
+        "buyorsell": 1,
+        "volume": 1035,
+        "timestamp": "2024-01-19 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.14,
+        "vol": 905,
+        "buyorsell": 0,
+        "volume": 905,
+        "timestamp": "2024-01-19 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.14,
+        "vol": 587,
+        "buyorsell": 0,
+        "volume": 587,
+        "timestamp": "2024-01-19 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.14,
+        "vol": 449,
+        "buyorsell": 0,
+        "volume": 449,
+        "timestamp": "2024-01-19 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.13,
+        "vol": 173,
+        "buyorsell": 1,
+        "volume": 173,
+        "timestamp": "2024-01-19 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.14,
+        "vol": 464,
+        "buyorsell": 0,
+        "volume": 464,
+        "timestamp": "2024-01-19 09:30:00"
+      },
+      {
+        "time": "09:30",
+        "price": 9.14,
+        "vol": 370,
+        "buyorsell": 0,
+        "volume": 370,
+        "timestamp": "2024-01-19 09:30:00"
+      }
+    ],
+    "dtypes": {
+      "time": "object",
+      "price": "float64",
+      "vol": "int64",
+      "buyorsell": "int64",
+      "volume": "int64",
+      "timestamp": "datetime64[ns]"
+    },
+    "shape": [
+      10,
+      6
+    ],
+    "sample_values": {
+      "time": [
+        "09:25",
+        "09:30",
+        "09:30",
+        "09:30",
+        "09:30"
+      ],
+      "price": [
+        "9.16",
+        "9.13",
+        "9.14",
+        "9.13",
+        "9.14"
+      ],
+      "vol": [
+        "9984",
+        "281",
+        "334",
+        "1035",
+        "905"
+      ],
+      "buyorsell": [
+        "2",
+        "1",
+        "0",
+        "1",
+        "0"
+      ],
+      "volume": [
+        "9984",
+        "281",
+        "334",
+        "1035",
+        "905"
+      ],
+      "timestamp": [
+        "2024-01-19 09:25:00",
+        "2024-01-19 09:30:00",
+        "2024-01-19 09:30:00",
+        "2024-01-19 09:30:00",
+        "2024-01-19 09:30:00"
+      ]
+    }
+  },
+  "2024-01-20": null
+}

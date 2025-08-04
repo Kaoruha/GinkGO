@@ -1,4 +1,4 @@
-from ginkgo.data.sources.source_base import GinkgoSourceBase
+from .source_base import GinkgoSourceBase
 
 
 class GinkgoYahoo(GinkgoSourceBase):
