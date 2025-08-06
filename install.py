@@ -111,7 +111,8 @@ def install_ginkgo():
 
 def install_dependencies(path_pip):
     # 安装依赖
-    command = ["pip", "install", "--upgrade", "pip", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"]
+    source = "https://mirrors.aliyun.com/pypi/simple/"
+    command = ["pip", "install", "--upgrade", "pip", "-i", source]
     try:
         subprocess.run(command, check=True)
         print("Pip upgrade success.")
@@ -120,7 +121,7 @@ def install_dependencies(path_pip):
     finally:
         pass
 
-    command = ["pip", "install", "wheel", "--default-timeout=20", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"]
+    command = ["pip", "install", "wheel", "--default-timeout=20", "-i", source]
     try:
         subprocess.run(command, check=True)
     except Exception as e:
@@ -135,7 +136,7 @@ def install_dependencies(path_pip):
         path_pip,
         "--default-timeout=20",
         "-i",
-        "https://pypi.tuna.tsinghua.edu.cn/simple",
+        source
     ]
     try:
         subprocess.run(command, check=True)
@@ -146,7 +147,7 @@ def install_dependencies(path_pip):
 
 
 def set_config_path(path_log, working_directory):
-    from ginkgo.libs.core.config import GCONF
+    from src.ginkgo.libs.core.config import GCONF
 
     try:
         GCONF.set_logging_path(path_log)
@@ -499,6 +500,8 @@ def main():
         print(msg)
     else:
         msg = f"[{red(' MISSING ')}] Ginkgo secure file, you need to create your secure.yml refer to README"
+        import pdb
+        pdb.set_trace()
         print(msg)
 
     copy_config(path_gink_conf, path_gink_sec, args.updateconfig)
