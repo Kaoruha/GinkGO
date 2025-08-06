@@ -100,7 +100,7 @@ class HistoricEngine(EventEngine):
             return
 
         consecutive_empty_count = 0
-        
+
         while self._active:
             if flag.is_set():
                 break
@@ -111,7 +111,7 @@ class HistoricEngine(EventEngine):
                 self._process(event)
                 self._empty_count = 0
                 consecutive_empty_count = 0
-                
+
             except Empty:
                 self.next_phase()
                 consecutive_empty_count += 1
@@ -123,11 +123,13 @@ class HistoricEngine(EventEngine):
                 adaptive_sleep = 0.5  # 最大休眠500ms
             elif consecutive_empty_count > 10:  # 连续10-20次空闲
                 adaptive_sleep = 0.1  # 中等休眠100ms
-            elif consecutive_empty_count > 5:   # 连续5-10次空闲
+            elif consecutive_empty_count > 5:  # 连续5-10次空闲
                 adaptive_sleep = 0.02  # 较短休眠20ms
             else:
                 adaptive_sleep = 0.002  # 保持原有的2ms以确保macOS兼容性
-                
+
+            print(f"consecutive_empty_count: {consecutive_empty_count}")
+
             sleep(adaptive_sleep)
         self.log("INFO", f"Engine: {self.name} Main Loop End.")
 
