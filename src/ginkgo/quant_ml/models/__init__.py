@@ -1,14 +1,16 @@
 """
-ML模型模块
+机器学习模型实现
 
-提供各种机器学习模型的统一接口实现，包括时序模型、表格模型、集成模型等。
+包含各种传统机器学习模型和深度学习模型的实现，
+所有模型都遵循ginkgo的IModel接口规范。
 """
 
-from .base_model import BaseMLModel
-# from .time_series import *
-# from .tabular import *
-# from .ensemble import *
+from .lightgbm import LightGBMModel
+from .xgboost import XGBoostModel  
+from .sklearn import RandomForestModel
 
 __all__ = [
-    'BaseMLModel',
+    "LightGBMModel",
+    "XGBoostModel", 
+    "RandomForestModel"
 ]

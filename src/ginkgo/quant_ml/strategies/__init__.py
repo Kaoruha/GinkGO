@@ -1,13 +1,13 @@
 """
 ML策略模块
 
-提供基于机器学习的交易策略实现。
+提供机器学习策略的实现，将ML模型集成到ginkgo的策略框架中。
 """
 
-from .base_ml_strategy import BaseMLStrategy
-from .supervised_strategy import SupervisedStrategy
+from .ml_strategy_base import MLStrategyBase
+from .prediction_strategy import PredictionStrategy
 
 __all__ = [
-    'BaseMLStrategy',
-    'SupervisedStrategy',
+    "MLStrategyBase",
+    "PredictionStrategy"
 ]
