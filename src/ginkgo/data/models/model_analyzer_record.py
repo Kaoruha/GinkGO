@@ -16,11 +16,11 @@ class MAnalyzerRecord(MClickBase):
     __abstract__ = False
     __tablename__ = "analyzer_record"
 
-    portfolio_id: Mapped[str] = mapped_column(String(32), default="Default Portfolio")
-    engine_id: Mapped[str] = mapped_column(String(32), default="Default Engine")
+    portfolio_id: Mapped[str] = mapped_column(String(), default="Default Portfolio")
+    engine_id: Mapped[str] = mapped_column(String(), default="Default Engine")
     value: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
-    analyzer_id: Mapped[str] = mapped_column(String(32), default="Default Analyzer")
-    name: Mapped[str] = mapped_column(String(32), default="Default Analyter")
+    analyzer_id: Mapped[str] = mapped_column(String(), default="Default Analyzer")
+    name: Mapped[str] = mapped_column(String(), default="Default Analyter")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:

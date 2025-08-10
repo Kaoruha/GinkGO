@@ -16,11 +16,11 @@ class MSignal(MClickBase):
     __abstract__ = False
     __tablename__ = "signal"
 
-    portfolio_id: Mapped[str] = mapped_column(String(32), default="")
-    engine_id: Mapped[str] = mapped_column(String(32), default="")
-    code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
+    portfolio_id: Mapped[str] = mapped_column(String(), default="")
+    engine_id: Mapped[str] = mapped_column(String(), default="")
+    code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     direction: Mapped[str] = mapped_column(Enum(DIRECTION_TYPES), default=DIRECTION_TYPES.LONG)
-    reason: Mapped[str] = mapped_column(String(255), default="")
+    reason: Mapped[str] = mapped_column(String(), default="")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:

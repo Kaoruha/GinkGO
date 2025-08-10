@@ -16,7 +16,7 @@ class MTick(MClickBase):
     __abstract__ = True
     __tablename__ = "tick"
 
-    code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
+    code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     volume: Mapped[int] = mapped_column(Integer, default=0)
     direction: Mapped[TICKDIRECTION_TYPES] = mapped_column(Enum(TICKDIRECTION_TYPES), default=TICKDIRECTION_TYPES.OTHER)

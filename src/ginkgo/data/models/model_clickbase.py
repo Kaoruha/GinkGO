@@ -28,31 +28,12 @@ class MClickBase(Base, MBase):
         {"extend_existing": True},
     )
 
-    uuid: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: str(uuid.uuid4().hex))
-    meta: Mapped[Optional[str]] = mapped_column(String(255), default="{}")
-    desc: Mapped[Optional[str]] = mapped_column(String(255), default="This man is lazy, there is no description.")
+    uuid: Mapped[str] = mapped_column(String(), primary_key=True, default=lambda: str(uuid.uuid4().hex))
+    meta: Mapped[Optional[str]] = mapped_column(String(), default="{}")
+    desc: Mapped[Optional[str]] = mapped_column(String(), default="This man is lazy, there is no description.")
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime)
     # timestamp: Mapped[datetime.datetime] = mapped_column(DateTime)
     source: Mapped[SOURCE_TYPES] = mapped_column(Enum(SOURCE_TYPES), default=SOURCE_TYPES.OTHER)
-
-    def __getattribute__(self, name):
-        """自动清理 ClickHouse 字符串字段的尾部空字节"""
-        value = super().__getattribute__(name)
-        
-        # 对字符串值进行清理，并且要检查这是否是数据库字段
-        if isinstance(value, str) and not name.startswith('_'):
-            # 检查是否是映射的数据库字段
-            try:
-                if hasattr(self.__class__, name):
-                    attr = getattr(self.__class__, name)
-                    if hasattr(attr, 'type'):
-                        # 应用与 to_dataframe() 相同的清理逻辑
-                        return value.strip('\x00')
-            except:
-                # 如果检查失败，安全地返回原值
-                pass
-                
-        return value
 
     def update(self) -> None:
         raise NotImplementedError("Model Class need to overload Function set to transit data.")
