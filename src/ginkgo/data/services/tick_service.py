@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 
-from ...libs import datetime_normalize, RichProgress, cache_with_expiration, retry, to_decimal
+from ...libs import datetime_normalize, RichProgress, cache_with_expiration, retry, to_decimal, ensure_tick_table
 from .. import mappers
 from ...enums import TICKDIRECTION_TYPES, ADJUSTMENT_TYPES
 from .base_service import DataService
@@ -238,11 +238,17 @@ class TickService(DataService):
         update_count = 0
 
         with RichProgress() as progress:
-            # Estimate total dates to process
-            total_days = min(max_backtrack_days if max_backtrack_days > 0 else 365, (current_date - list_date).days + 1)
+            # Calculate actual total dates to process
+            actual_days = (current_date - list_date).days + 1
+
+            total_days = actual_days
+            # Determine total days based on max_backtrack_days setting
+            if max_backtrack_days > 0:
+                total_days = min(actual_days, max_backtrack_days)
+
             task = progress.add_task(f"[cyan]Syncing Tick Data for {code}", total=total_days)
 
-            while current_date >= list_date:
+            while current_date >= list_date and update_count < total_days:
                 update_count += 1
                 batch_result["total_dates_processed"] += 1
                 date_str = current_date.strftime("%Y-%m-%d")
@@ -255,8 +261,6 @@ class TickService(DataService):
                     batch_result["skipped_dates"] += 1
                     current_date -= timedelta(days=1)
                     progress.update(task, advance=1)
-                    if max_backtrack_days > 0 and update_count > max_backtrack_days:
-                        break
                     continue
 
                 # Process the date
@@ -297,11 +301,6 @@ class TickService(DataService):
 
                 current_date -= timedelta(days=1)
                 progress.update(task, advance=1)
-
-                # Check limits
-                if max_backtrack_days > 0 and update_count > max_backtrack_days:
-                    self._logger.INFO(f"Reached max backtrack limit ({max_backtrack_days}) for {code}")
-                    break
 
         self._logger.INFO(
             f"Completed tick sync for {code}: {batch_result['successful_dates']} successful, {batch_result['failed_dates']} failed, {batch_result['skipped_dates']} skipped"
@@ -435,6 +434,7 @@ class TickService(DataService):
         )
         return batch_result
 
+    @ensure_tick_table
     def get_ticks(
         self,
         code: str = None,
@@ -649,6 +649,7 @@ class TickService(DataService):
 
         return result_df
 
+    @ensure_tick_table
     def count_ticks(self, code: str = None, date: datetime = None, **kwargs) -> int:
         """
         Counts the number of tick records matching the filters.

@@ -27,6 +27,9 @@ from ginkgo.client import container_cli
 # Import new core CLI functions
 from ginkgo.client import core_cli
 
+# Import ML CLI functions
+# from ginkgo.client import ml_cli
+
 # Create main app with improved help
 main_app = typer.Typer(
     rich_markup_mode="rich", 
@@ -76,6 +79,7 @@ main_app.add_typer(kafka_cli.app, name="kafka", help=":satellite_antenna: Kafka 
 main_app.add_typer(evaluation_cli.app, name="evaluation", help=":chart_with_upwards_trend: Evaluation tools") 
 main_app.add_typer(datasource_cli.app, name="datasource", help=":satellite_antenna: Data sources")
 main_app.add_typer(container_cli.app, name="container", help=":package: Container management")
+# main_app.add_typer(ml_cli.ml_app, name="ml", help=":robot: Machine Learning models and strategies")
 
 console = Console()
 
@@ -90,18 +94,6 @@ def version():
     from ginkgo.config.package import PACKAGENAME, VERSION
 
     print(f":sparkles: [bold medium_spring_green]{PACKAGENAME}[/] [light_goldenrod2]{VERSION}[/light_goldenrod2]")
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 if __name__ == "__main__":
