@@ -308,9 +308,6 @@ def create_table(model, no_log=True) -> None:
     Returns:
         None
     """
-    import pdb
-
-    pdb.set_trace()
     if model.__abstract__ == True:
         GLOG.DEBUG(f"Pass Model:{model}")
         return

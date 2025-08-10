@@ -328,7 +328,11 @@ class AdjustfactorService(DataService):
 
     def _get_fetch_start_date(self, code: str, fast_mode: bool) -> datetime:
         if not fast_mode:
-            return datetime_normalize(GCONF.DEFAULTSTART)
+            try:
+                date = self.stockinfo_service.get_stockinfo_by_code(code).list_date
+            except Exception as e:
+                date = datetime_normalize(GCONF.DEFAULTSTART)
+            return date
 
         latest_timestamp = self.get_latest_adjustfactor_for_code(code)
         return latest_timestamp + timedelta(days=1)

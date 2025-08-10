@@ -80,8 +80,33 @@ class TickCRUD(BaseCRUD):
         self.code = code
         self.model_class = get_tick_model(code)
 
+        # 确保tick表存在
+        self._ensure_table_exists()
+
         # Initialize parent with dynamically created model
         super().__init__(self.model_class)
+
+    def _ensure_table_exists(self):
+        """确保当前股票代码对应的tick表存在"""
+        from ...libs import GLOG
+        from ..drivers import create_table, is_table_exists
+        
+        try:
+            if not is_table_exists(self.model_class):
+                GLOG.INFO(f"Creating tick table for {self.code}: {self.model_class.__tablename__}")
+                create_table(self.model_class)
+                GLOG.INFO(f"Successfully created tick table: {self.model_class.__tablename__}")
+                
+                # 再次检查表是否创建成功
+                if is_table_exists(self.model_class):
+                    GLOG.DEBUG(f"Table creation verified: {self.model_class.__tablename__}")
+                else:
+                    GLOG.ERROR(f"Table creation failed - table still not exists: {self.model_class.__tablename__}")
+            else:
+                GLOG.DEBUG(f"Tick table already exists: {self.model_class.__tablename__}")
+        except Exception as e:
+            GLOG.ERROR(f"Failed to ensure tick table for {self.code}: {e}")
+            # 不抛出异常，让调用者处理
 
     def _get_field_config(self) -> dict:
         """

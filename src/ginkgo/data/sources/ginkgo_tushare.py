@@ -193,7 +193,7 @@ class GinkgoTushare(GinkgoSourceBase):
             最优的单次请求天数
         """
         # 基础窗口大小（约2年，复权因子数据稀疏）
-        base_window = 730 * 2
+        base_window = 365 * 6
 
         # 根据总天数调整窗口大小
         if total_days <= 730:  # 2年以内

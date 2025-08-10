@@ -24,6 +24,7 @@ from .utils.common import (
     retry,
     cache_with_expiration,
     RichProgress,
+    ensure_tick_table,
 )
 from .utils.display import pretty_repr, base_repr, fix_string_length, chinese_count, GinkgoColor
 

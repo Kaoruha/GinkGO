@@ -172,11 +172,16 @@ def copy_data(code: str):
         to_insert_list = []
         for index, row in df.iterrows():
             item = migration_model()
+            # 复制所有核心字段
             item.code = row["code"]
             item.price = row["price"]
             item.volume = row["volume"]
             item.direction = row["direction"]
-            item.source = SOURCE_TYPES.TDX
+            item.timestamp = row["timestamp"]
+            item.source = row.get("source", SOURCE_TYPES.TDX)
+            item.uuid = row.get("uuid", str(uuid.uuid4().hex))
+            item.meta = row.get("meta", "{}")
+
             to_insert_list.append(item)
         bulk_insert(to_insert_list)
         to_insert_list = []
@@ -223,7 +228,7 @@ if __name__ == "__main__":
 
     cn_index = get_stockinfos()["code"].tolist()
 
-    with ProcessPoolExecutor(max_workers=16) as pool:
+    with ProcessPoolExecutor(max_workers=12) as pool:
         # 提交所有任务
         futures = [pool.submit(migrate_one, code) for code in cn_index]
 
