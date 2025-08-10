@@ -16,9 +16,9 @@ class MPositionRecord(MClickBase):
     __abstract__ = False
     __tablename__ = "position_record"
 
-    portfolio_id: Mapped[str] = mapped_column(String(32), default="")
-    engine_id: Mapped[str] = mapped_column(String(32), default="")
-    code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
+    portfolio_id: Mapped[str] = mapped_column(String(), default="")
+    engine_id: Mapped[str] = mapped_column(String(), default="")
+    code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     cost: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     volume: Mapped[int] = mapped_column(Integer, default=0)
     frozen_volume: Mapped[int] = mapped_column(Integer, default=0)

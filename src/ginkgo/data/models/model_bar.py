@@ -17,7 +17,7 @@ class MBar(MClickBase):
     __abstract__ = False
     __tablename__ = "bar"
 
-    code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
+    code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     open: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     high: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     low: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)

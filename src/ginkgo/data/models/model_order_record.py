@@ -16,10 +16,10 @@ class MOrderRecord(MClickBase):
     __abstract__ = False
     __tablename__ = "order_record"
 
-    order_id: Mapped[str] = mapped_column(String(32), default="")
-    portfolio_id: Mapped[str] = mapped_column(String(32), default="")
-    engine_id: Mapped[str] = mapped_column(String(32), default="")
-    code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
+    order_id: Mapped[str] = mapped_column(String(), default="")
+    portfolio_id: Mapped[str] = mapped_column(String(), default="")
+    engine_id: Mapped[str] = mapped_column(String(), default="")
+    code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     direction: Mapped[DIRECTION_TYPES] = mapped_column(Enum(DIRECTION_TYPES), default=DIRECTION_TYPES.LONG)
     order_type: Mapped[ORDER_TYPES] = mapped_column(Enum(ORDER_TYPES), default=ORDER_TYPES.OTHER)
     status: Mapped[ORDERSTATUS_TYPES] = mapped_column(Enum(ORDERSTATUS_TYPES), default=ORDERSTATUS_TYPES.OTHER)

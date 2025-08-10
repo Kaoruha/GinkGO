@@ -25,7 +25,7 @@ class MAdjustfactor(MClickBase):
         {"extend_existing": True},
     )
 
-    code: Mapped[str] = mapped_column(String(32), nullable=False, comment="股票代码")
+    code: Mapped[str] = mapped_column(String(), nullable=False, comment="股票代码")
     foreadjustfactor: Mapped[Decimal] = mapped_column(DECIMAL(16, 6), nullable=False, comment="前复权因子")
     backadjustfactor: Mapped[Decimal] = mapped_column(DECIMAL(16, 6), nullable=False, comment="后复权因子")
     adjustfactor: Mapped[Decimal] = mapped_column(DECIMAL(16, 6), nullable=False, comment="复权因子")

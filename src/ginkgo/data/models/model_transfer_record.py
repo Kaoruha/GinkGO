@@ -16,8 +16,8 @@ class MTransferRecord(MClickBase):
     __abstract__ = False
     __tablename__ = "transfer_record"
 
-    portfolio_id: Mapped[str] = mapped_column(String(32), default="")
-    engine_id: Mapped[str] = mapped_column(String(32), default="")
+    portfolio_id: Mapped[str] = mapped_column(String(), default="")
+    engine_id: Mapped[str] = mapped_column(String(), default="")
     direction: Mapped[TRANSFERDIRECTION_TYPES] = mapped_column(
         Enum(TRANSFERDIRECTION_TYPES), default=TRANSFERDIRECTION_TYPES.IN
     )
