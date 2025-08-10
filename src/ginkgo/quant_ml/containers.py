@@ -1,200 +1,91 @@
 """
-ML Module Container
+ML服务容器
 
-Provides unified access to machine learning components using dependency-injector,
-following the same pattern as data, backtest, and core modules.
-
-Usage Examples:
-
-    from ginkgo.quant_ml.containers import container
-    
-    # Access ML models (similar to data.cruds.bar())
-    sklearn_model = container.models.sklearn()
-    torch_model = container.models.torch()
-    
-    # Access ML strategies
-    ml_strategy = container.strategies.base_ml()
-    
-    # Access utilities
-    feature_processor = container.utilities.feature_processor()
-    model_evaluator = container.utilities.evaluator()
-    
-    # For dependency injection:
-    from dependency_injector.wiring import inject, Provide
-    
-    @inject
-    def your_function(model = Provide[Container.models.sklearn]):
-        # Use model here
-        pass
+提供机器学习相关服务的依赖注入容器，集成模型工厂、特征工程、超参数管理等服务。
 """
 
-from dependency_injector import containers, providers
+from typing import Dict, Any, Type
+
+from ginkgo.core.interfaces.model_interface import IModel
+from ginkgo.quant_ml.models.lightgbm import LightGBMModel
+from ginkgo.quant_ml.models.xgboost import XGBoostModel
+from ginkgo.quant_ml.models.sklearn import RandomForestModel, LinearModel, SVMModel
+from ginkgo.quant_ml.features.feature_processor import FeatureProcessor
+from ginkgo.quant_ml.features.alpha_factors import AlphaFactors
 
 
-# ============= LAZY IMPORT FUNCTIONS =============
-# Model classes
-def _get_base_model_class():
-    """Lazy import for base ML model."""
-    try:
-        from ginkgo.quant_ml.models.base_model import BaseMLModel
-        return BaseMLModel
-    except ImportError:
-        # Fallback to a simple model class if not available
-        class MockMLModel:
-            def __init__(self):
-                self.is_trained = False
-            def train(self, data):
-                self.is_trained = True
-                return {"status": "success", "mock": True}
-            def predict(self, data):
-                return [0.5] * len(data) if hasattr(data, '__len__') else 0.5
-        return MockMLModel
-
-def _get_sklearn_model_class():
-    """Lazy import for sklearn model."""
-    try:
-        from ginkgo.quant_ml.models.sklearn_model import SklearnModel
-        return SklearnModel
-    except ImportError:
-        return _get_base_model_class()
-
-def _get_torch_model_class():
-    """Lazy import for PyTorch model."""
-    try:
-        from ginkgo.quant_ml.models.torch_model import TorchModel
-        return TorchModel
-    except ImportError:
-        return _get_base_model_class()
-
-# Strategy classes
-def _get_base_ml_strategy_class():
-    """Lazy import for base ML strategy."""
-    try:
-        from ginkgo.quant_ml.strategies.base_ml_strategy import BaseMLStrategy
-        return BaseMLStrategy
-    except ImportError:
-        # Fallback to a simple strategy class if not available
-        class MockMLStrategy:
-            def __init__(self):
-                self.model = None
-            def initialize(self):
-                pass
-            def generate_signals(self, data):
-                return []
-        return MockMLStrategy
-
-# Utility classes
-def _get_feature_processor_class():
-    """Lazy import for feature processor."""
-    try:
-        from ginkgo.quant_ml.utils.feature_processor import FeatureProcessor
-        return FeatureProcessor
-    except ImportError:
-        # Fallback to a simple processor if not available
-        class MockFeatureProcessor:
-            def __init__(self):
-                pass
-            def process_features(self, data):
-                return data
-        return MockFeatureProcessor
-
-def _get_model_evaluator_class():
-    """Lazy import for model evaluator."""
-    try:
-        from ginkgo.quant_ml.utils.model_evaluator import ModelEvaluator
-        return ModelEvaluator
-    except ImportError:
-        # Fallback to a simple evaluator if not available
-        class MockModelEvaluator:
-            def __init__(self):
-                pass
-            def evaluate(self, model, test_data):
-                return {"accuracy": 0.85, "mse": 0.15, "mock": True}
-        return MockModelEvaluator
+# 简化的模型类型映射
+MODEL_TYPE_MAPPING = {
+    "lightgbm": LightGBMModel,
+    "xgboost": XGBoostModel,
+    "random_forest": RandomForestModel,
+    "linear": LinearModel,
+    "svm": SVMModel,
+}
 
 
-class Container(containers.DeclarativeContainer):
+def create_model(model_type: str, **kwargs) -> IModel:
     """
-    ML module dependency injection container.
+    模型工厂方法
     
-    Provides unified access to ML components using FactoryAggregate,
-    following the data module's successful pattern.
+    Args:
+        model_type: 模型类型 ("lightgbm", "xgboost", "random_forest", "linear", "svm")
+        **kwargs: 模型初始化参数
+        
+    Returns:
+        IModel: 模型实例
     """
+    if model_type not in MODEL_TYPE_MAPPING:
+        raise ValueError(f"不支持的模型类型: {model_type}")
     
-    # ============= MODELS =============
-    # Model factories
-    base_model = providers.Factory(_get_base_model_class)
-    sklearn_model = providers.Factory(_get_sklearn_model_class)
-    torch_model = providers.Factory(_get_torch_model_class)
-    
-    # Models aggregate - similar to data module's cruds
-    models = providers.FactoryAggregate(
-        base=base_model,
-        sklearn=sklearn_model,
-        torch=torch_model
-    )
-    
-    # ============= STRATEGIES =============
-    # Strategy factories
-    base_ml_strategy = providers.Factory(_get_base_ml_strategy_class)
-    
-    # Strategies aggregate
-    strategies = providers.FactoryAggregate(
-        base_ml=base_ml_strategy
-    )
-    
-    # ============= UTILITIES =============
-    # Utility factories
-    feature_processor = providers.Factory(_get_feature_processor_class)
-    model_evaluator = providers.Factory(_get_model_evaluator_class)
-    
-    # Utilities aggregate
-    utilities = providers.FactoryAggregate(
-        feature_processor=feature_processor,
-        evaluator=model_evaluator
-    )
+    model_class = MODEL_TYPE_MAPPING[model_type]
+    return model_class(**kwargs)
 
 
-# Create a singleton instance of the container, accessible throughout the application
-container = Container()
+def get_available_models() -> Dict[str, Type[IModel]]:
+    """获取所有可用的模型类型"""
+    return MODEL_TYPE_MAPPING.copy()
 
-# Backward compatibility - provide old access methods (following backtest pattern)
-def get_model(model_type: str):
-    """Get model by type (backward compatibility)"""
-    model_mapping = {
-        'base': container.models.base,
-        'sklearn': container.models.sklearn,
-        'torch': container.models.torch
-    }
+
+def create_feature_processor(**kwargs) -> FeatureProcessor:
+    """创建特征处理器"""
+    return FeatureProcessor(**kwargs)
+
+
+def create_alpha_factors(**kwargs) -> AlphaFactors:
+    """创建Alpha因子计算器"""
+    return AlphaFactors(**kwargs)
+
+
+# 简化的容器类
+class SimpleMLContainer:
+    """简化的ML容器，避免复杂的依赖注入"""
     
-    if model_type in model_mapping:
-        return model_mapping[model_type]()
-    else:
-        raise ValueError(f"Unknown model type: {model_type}")
-
-def get_strategy(strategy_type: str):
-    """Get strategy by type (backward compatibility)"""
-    strategy_mapping = {
-        'base_ml': container.strategies.base_ml
-    }
+    def __init__(self):
+        self._models = MODEL_TYPE_MAPPING
+        self._feature_processor = None
+        self._alpha_factors = None
     
-    if strategy_type in strategy_mapping:
-        return strategy_mapping[strategy_type]()
-    else:
-        raise ValueError(f"Unknown strategy type: {strategy_type}")
+    def get_model(self, model_type: str, **kwargs) -> IModel:
+        """获取模型实例"""
+        return create_model(model_type, **kwargs)
+    
+    def get_feature_processor(self, **kwargs) -> FeatureProcessor:
+        """获取特征处理器"""
+        if self._feature_processor is None:
+            self._feature_processor = FeatureProcessor(**kwargs)
+        return self._feature_processor
+    
+    def get_alpha_factors(self, **kwargs) -> AlphaFactors:
+        """获取Alpha因子计算器"""
+        if self._alpha_factors is None:
+            self._alpha_factors = AlphaFactors(**kwargs)
+        return self._alpha_factors
+    
+    def list_models(self) -> Dict[str, Type[IModel]]:
+        """列出可用模型"""
+        return self._models.copy()
 
-def get_service_info():
-    """Get service information (backward compatibility)"""
-    return {
-        "models": ["base", "sklearn", "torch"],
-        "strategies": ["base_ml"],
-        "utilities": ["feature_processor", "evaluator"]
-    }
 
-# Bind backward compatibility methods to container (following backtest pattern)
-container.get_model = get_model
-container.get_strategy = get_strategy
-container.get_service_info = get_service_info
-
-# Create alias for backward compatibility
-ml_container = container
+# 创建全局容器实例
+ml_container = SimpleMLContainer()
