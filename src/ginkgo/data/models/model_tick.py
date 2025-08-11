@@ -6,6 +6,7 @@ from decimal import Decimal
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DECIMAL, Enum
 from sqlalchemy.orm import Mapped, mapped_column
+from clickhouse_sqlalchemy import types
 
 from .model_clickbase import MClickBase
 from ...libs import datetime_normalize, base_repr, Number, to_decimal
@@ -19,7 +20,7 @@ class MTick(MClickBase):
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     volume: Mapped[int] = mapped_column(Integer, default=0)
-    direction: Mapped[TICKDIRECTION_TYPES] = mapped_column(Enum(TICKDIRECTION_TYPES), default=TICKDIRECTION_TYPES.OTHER)
+    direction: Mapped[int] = mapped_column(types.Int8, default=-1)
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -43,21 +44,21 @@ class MTick(MClickBase):
         if volume is not None:
             self.volume = volume
         if direction is not None:
-            self.direction = direction
+            self.direction = TICKDIRECTION_TYPES.validate_input(direction) or -1
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if source is not None:
-            self.source = source
+            self.source = SOURCE_TYPES.validate_input(source) or -1
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df["code"]
         self.price = to_decimal(df["price"])
         self.volume = df["volume"]
-        self.direction = df["direction"]
+        self.direction = TICKDIRECTION_TYPES.validate_input(df["direction"]) or -1
         self.timestamp = datetime_normalize(df["timestamp"])
         if "source" in df.keys():
-            self.source = df["source"]
+            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> None:

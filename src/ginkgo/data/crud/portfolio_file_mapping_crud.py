@@ -41,8 +41,8 @@ class PortfolioFileMappingCRUD(BaseCRUD[MPortfolioFileMapping]):
             portfolio_id=kwargs.get("portfolio_id"),
             file_id=kwargs.get("file_id"),
             name=kwargs.get("name", "ginkgo_bind"),
-            type=kwargs.get("type", FILE_TYPES.OTHER),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            type=FILE_TYPES.validate_input(kwargs.get("type", FILE_TYPES.OTHER)),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MPortfolioFileMapping]:
@@ -55,8 +55,8 @@ class PortfolioFileMappingCRUD(BaseCRUD[MPortfolioFileMapping]):
                 portfolio_id=getattr(item, 'portfolio_id'),
                 file_id=getattr(item, 'file_id'),
                 name=getattr(item, 'name', 'ginkgo_bind'),
-                type=getattr(item, 'type', FILE_TYPES.OTHER),
-                source=getattr(item, 'source', SOURCE_TYPES.SIM),
+                type=FILE_TYPES.validate_input(getattr(item, 'type', FILE_TYPES.OTHER)),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
 

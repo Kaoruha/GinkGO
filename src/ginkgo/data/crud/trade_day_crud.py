@@ -56,9 +56,9 @@ class TradeDayCRUD(BaseCRUD[MTradeDay]):
         """
         return MTradeDay(
             timestamp=datetime_normalize(kwargs.get("timestamp")),
-            market=kwargs.get("market", MARKET_TYPES.CHINA),
+            market=MARKET_TYPES.validate_input(kwargs.get("market", MARKET_TYPES.CHINA)),
             is_open=kwargs.get("is_open", True),
-            source=kwargs.get("source", SOURCE_TYPES.TUSHARE),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TUSHARE)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MTradeDay]:
@@ -68,9 +68,9 @@ class TradeDayCRUD(BaseCRUD[MTradeDay]):
         if hasattr(item, 'timestamp'):
             return MTradeDay(
                 timestamp=datetime_normalize(getattr(item, 'timestamp')),
-                market=getattr(item, 'market', MARKET_TYPES.CHINA),
+                market=MARKET_TYPES.validate_input(getattr(item, 'market', MARKET_TYPES.CHINA)),
                 is_open=getattr(item, 'is_open', True),
-                source=getattr(item, 'source', SOURCE_TYPES.TUSHARE),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.TUSHARE)),
             )
         return None
 

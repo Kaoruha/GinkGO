@@ -111,6 +111,29 @@ class RedisService(DataService):
         except Exception as e:
             self._logger.ERROR(f"Failed to clear sync progress: {e}")
             return False
+
+    def clear_all_sync_progress(self, data_type: str = None) -> int:
+        """
+        清除所有同步进度缓存
+        
+        Args:
+            data_type: 数据类型，如果提供则只清除该类型的缓存，否则清除所有类型
+            
+        Returns:
+            清除的缓存数量
+        """
+        try:
+            if data_type:
+                cache_pattern = f"{data_type}_update_*"
+            else:
+                cache_pattern = "*_update_*"
+            
+            deleted = self.crud_repo.delete_pattern(cache_pattern)
+            self._logger.INFO(f"Cleared {deleted} sync progress cache entries with pattern '{cache_pattern}'")
+            return deleted
+        except Exception as e:
+            self._logger.ERROR(f"Failed to clear all sync progress cache: {e}")
+            return 0
     
     def get_progress_summary(self, code: str, start_date: datetime, end_date: datetime, 
                            data_type: str = "tick") -> Dict[str, Any]:

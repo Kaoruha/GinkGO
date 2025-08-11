@@ -7,6 +7,7 @@ from functools import singledispatchmethod
 from sqlalchemy import Enum
 from sqlalchemy import String, Integer, DECIMAL
 from sqlalchemy.orm import Mapped, mapped_column
+from clickhouse_sqlalchemy import types
 
 from .model_clickbase import MClickBase
 from ...libs import base_repr, datetime_normalize, Number, to_decimal
@@ -24,7 +25,7 @@ class MBar(MClickBase):
     close: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     volume: Mapped[int] = mapped_column(Integer, default=0)
     amount: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
-    frequency: Mapped[FREQUENCY_TYPES] = mapped_column(Enum(FREQUENCY_TYPES), default=FREQUENCY_TYPES.DAY)
+    frequency: Mapped[int] = mapped_column(types.Int8, default=-1)
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -60,11 +61,11 @@ class MBar(MClickBase):
         if amount is not None:
             self.amount = to_decimal(amount)
         if frequency is not None:
-            self.frequency = frequency
+            self.frequency = FREQUENCY_TYPES.validate_input(frequency) or -1
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if source is not None:
-            self.source = source
+            self.source = SOURCE_TYPES.validate_input(source) or -1
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
@@ -76,10 +77,10 @@ class MBar(MClickBase):
         self.volume = df["volume"]
         self.amount = to_decimal(df["amount"])
         self.timestamp = datetime_normalize(df["timestamp"])
-        self.frequency = df["frequency"]
+        self.frequency = FREQUENCY_TYPES.validate_input(df["frequency"]) or -1
 
         if "source" in df.keys():
-            self.source = df["source"]
+            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

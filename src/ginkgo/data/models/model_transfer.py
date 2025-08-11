@@ -5,6 +5,7 @@ from typing import Optional
 from decimal import Decimal
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, DECIMAL, Enum
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ...libs import base_repr, datetime_normalize, Number, to_decimal
@@ -18,12 +19,12 @@ class MTransfer(MMysqlBase):
 
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
     engine_id: Mapped[str] = mapped_column(String(32), default="")
-    direction: Mapped[TRANSFERDIRECTION_TYPES] = mapped_column(
-        Enum(TRANSFERDIRECTION_TYPES), default=TRANSFERDIRECTION_TYPES.IN
+    direction: Mapped[int] = mapped_column(
+        TINYINT, default=-1
     )
-    market: Mapped[MARKET_TYPES] = mapped_column(Enum(MARKET_TYPES), default=MARKET_TYPES.CHINA)
+    market: Mapped[int] = mapped_column(TINYINT, default=-1)
     money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
-    status: Mapped[TRANSFERSTATUS_TYPES] = mapped_column(Enum(TRANSFERSTATUS_TYPES), default=TRANSFERSTATUS_TYPES.OTHER)
+    status: Mapped[int] = mapped_column(TINYINT, default=-1)
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
 
     @singledispatchmethod
@@ -47,30 +48,30 @@ class MTransfer(MMysqlBase):
         self.portfolio_id = portfolio_id
         self.engine_id = engine_id
         if direction is not None:
-            self.direction = direction
+            self.direction = TRANSFERDIRECTION_TYPES.validate_input(direction) or -1
         if market is not None:
-            self.market = market
+            self.market = MARKET_TYPES.validate_input(market) or -1
         if money is not None:
             self.money = money if isinstance(money, Decimal) else Decimal(str(money))
         if status is not None:
-            self.status = status
+            self.status = TRANSFERSTATUS_TYPES.validate_input(status) or -1
         if timestamp is not None:
             self.timestamp = timestamp
         if source is not None:
-            self.source = source
+            self.source = SOURCE_TYPES.validate_input(source) or -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.portfolio_id = df["portfolio_id"]
         self.engine_id = df["engine_id"]
-        self.direction = df["direction"]
-        self.market = df["market"]
+        self.direction = TRANSFERDIRECTION_TYPES.validate_input(df["direction"]) or -1
+        self.market = MARKET_TYPES.validate_input(df["market"]) or -1
         self.money = to_decimal(df["money"])
-        self.status = df["status"]
+        self.status = TRANSFERSTATUS_TYPES.validate_input(df["status"]) or -1
         self.timestamp = datetime_normalize(df["timestamp"])
         if "source" in df.keys():
-            self.source = df["source"]
+            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> None:

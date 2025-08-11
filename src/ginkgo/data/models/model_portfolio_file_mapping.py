@@ -4,6 +4,7 @@ import datetime
 from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, Enum, Boolean
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .model_mysqlbase import MMysqlBase
@@ -18,7 +19,7 @@ class MPortfolioFileMapping(MMysqlBase):
     portfolio_id: Mapped[str] = mapped_column(String(32), default="ginkgo_portfolio")
     file_id: Mapped[str] = mapped_column(String(32), default="ginkgo_file")
     name: Mapped[str] = mapped_column(String(64), default="ginkgo_bind")
-    type: Mapped[FILE_TYPES] = mapped_column(Enum(FILE_TYPES), default=FILE_TYPES.OTHER)
+    type: Mapped[int] = mapped_column(TINYINT, default=-1)
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -39,23 +40,23 @@ class MPortfolioFileMapping(MMysqlBase):
         if name is not None:
             self.name = str(name)
         if type is not None:
-            self.type = type
+            self.type = FILE_TYPES.validate_input(type) or -1
         if file_id is not None:
             self.file_id = str(file_id)
         if type is not None:
-            self.type = type
+            self.type = FILE_TYPES.validate_input(type) or -1
         if source is not None:
-            self.source = source
+            self.source = SOURCE_TYPES.validate_input(source) or -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.DataFrame, *args, **kwargs) -> None:
         self.portfolio_id = df["portfolio_id"]
         self.file_id = df["file_id"]
-        self.type = df["type"]
+        self.type = FILE_TYPES.validate_input(df["type"]) or -1
         self.name = df["name"]
         if "source" in df.keys():
-            self.source = df.source
+            self.source = SOURCE_TYPES.validate_input(df.source) or -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

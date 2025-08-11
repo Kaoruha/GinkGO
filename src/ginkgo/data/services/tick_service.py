@@ -121,8 +121,12 @@ class TickService(DataService):
 
         # Validate tick data quality
         if not self._validate_tick_data(raw_data):
+            import pdb
+
+            pdb.set_trace()
             result["error"] = "Data quality validation failed"
             self._logger.ERROR(f"Data quality validation failed for {code} on {date.date()}")
+            self._logger.ERROR(raw_data)
             return result
 
         # Convert to tick models with error handling
@@ -778,6 +782,7 @@ class TickService(DataService):
             True if data passes basic validation, False otherwise
         """
         if df.empty:
+            self._logger.ERROR("There is no dataframe.")
             return True
 
         try:
@@ -787,31 +792,31 @@ class TickService(DataService):
             # Check for required columns based on TDX API format
             required_cols = ["price", "volume", "timestamp"]
             if not all(col in df.columns for col in required_cols):
-                self._logger.WARN("Missing required tick data columns")
+                self._logger.ERROR("Missing required tick data columns")
                 return False
 
             # Check for negative prices (critical issue)
             if "price" in df.columns:
                 negative_prices = (df["price"] <= 0).sum()
                 if negative_prices > 0:
-                    self._logger.WARN(f"Found {negative_prices} records with non-positive prices")
+                    self._logger.ERROR(f"Found {negative_prices} records with non-positive prices")
                     has_critical_issues = True
 
             # Check for negative volumes (critical issue)
             if "volume" in df.columns:
                 negative_volumes = (df["volume"] < 0).sum()
                 if negative_volumes > 0:
-                    self._logger.WARN(f"Found {negative_volumes} records with negative volumes")
+                    self._logger.ERROR(f"Found {negative_volumes} records with negative volumes")
                     has_critical_issues = True
 
             # Check for valid buy/sell direction values (critical issue)
             if "buyorsell" in df.columns:
                 # Valid values: 0=CANCEL, 1=BUY, 2=SELL, 8=CALL_AUCTION (集合竞价)
                 # Note: 8 is not in TICKDIRECTION_TYPES enum but is used by TDX API for call auction
-                valid_directions = [0, 1, 2, 8]
+                valid_directions = [0, 1, 2, 4, 5, 6, 7, 8]
                 invalid_directions = df[~df["buyorsell"].isin(valid_directions)].shape[0]
                 if invalid_directions > 0:
-                    self._logger.WARN(f"Found {invalid_directions} records with invalid buy/sell directions")
+                    self._logger.ERROR(f"Found {invalid_directions} records with invalid buy/sell directions")
                     has_critical_issues = True
 
             # Check timestamp continuity (warning but not critical)
@@ -820,7 +825,7 @@ class TickService(DataService):
                 # Basic check: all timestamps should be on the same day
                 unique_dates = timestamps.dt.date.nunique()
                 if unique_dates > 1:
-                    self._logger.WARN(f"Tick data spans multiple dates: {unique_dates} unique dates")
+                    self._logger.ERROR(f"Tick data spans multiple dates: {unique_dates} unique dates")
                     # Note: Multiple dates is a warning but not critical enough to stop processing
 
             # Return False if critical issues found, True otherwise

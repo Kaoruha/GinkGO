@@ -69,10 +69,10 @@ class FileCRUD(BaseCRUD[MFile]):
             file_type = type_mapping.get(file_type.upper(), FILE_TYPES.OTHER)
         
         return MFile(
-            type=file_type,
+            type=FILE_TYPES.validate_input(file_type),
             name=kwargs.get("filename", kwargs.get("name", "ginkgo_file")),
             data=kwargs.get("data", b""),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MFile]:
@@ -96,10 +96,10 @@ class FileCRUD(BaseCRUD[MFile]):
                 file_type = type_mapping.get(file_type.upper(), FILE_TYPES.OTHER)
             
             return MFile(
-                type=file_type,
+                type=FILE_TYPES.validate_input(file_type),
                 name=item.name,
                 data=getattr(item, 'data', b""),
-                source=item.source,
+                source=SOURCE_TYPES.validate_input(item.source),
             )
         return None
 

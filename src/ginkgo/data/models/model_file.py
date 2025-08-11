@@ -4,6 +4,7 @@ import datetime
 from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, Enum, LargeBinary
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .model_mysqlbase import MMysqlBase
@@ -15,7 +16,7 @@ class MFile(MMysqlBase):
     __abstract__ = False
     __tablename__ = "file"
 
-    type: Mapped[FILE_TYPES] = mapped_column(Enum(FILE_TYPES), default=FILE_TYPES.OTHER)
+    type: Mapped[int] = mapped_column(TINYINT, default=-1)
     name: Mapped[str] = mapped_column(String(40), default="ginkgo_file")
     data: Mapped[bytes] = mapped_column(LargeBinary, default=b"")
 
@@ -35,18 +36,18 @@ class MFile(MMysqlBase):
     ) -> None:
         self.name = name
         if type is not None:
-            self.type = type
+            self.type = FILE_TYPES.validate_input(type) or -1
         if data is not None:
             self.data = data
         if source is not None:
-            self.source = source
+            self.source = SOURCE_TYPES.validate_input(source) or -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         # TODO
         if "source" in df.keys():
-            self.source = df["source"]
+            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

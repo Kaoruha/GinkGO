@@ -4,6 +4,7 @@ import datetime
 from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DECIMAL, Enum
+from clickhouse_sqlalchemy import types
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .model_clickbase import MClickBase
@@ -19,7 +20,7 @@ class MSignal(MClickBase):
     portfolio_id: Mapped[str] = mapped_column(String(), default="")
     engine_id: Mapped[str] = mapped_column(String(), default="")
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
-    direction: Mapped[str] = mapped_column(Enum(DIRECTION_TYPES), default=DIRECTION_TYPES.LONG)
+    direction: Mapped[int] = mapped_column(types.Int8, default=-1)
     reason: Mapped[str] = mapped_column(String(), default="")
 
     @singledispatchmethod
@@ -46,11 +47,11 @@ class MSignal(MClickBase):
         if code is not None:
             self.code = code
         if direction is not None:
-            self.direction = direction
+            self.direction = DIRECTION_TYPES.validate_input(direction) or -1
         if reason is not None:
             self.reason = reason
         if source is not None:
-            self.source = source
+            self.source = SOURCE_TYPES.validate_input(source) or -1
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
@@ -58,11 +59,11 @@ class MSignal(MClickBase):
         self.engine_id = df["engine_id"]
         self.timestamp = datetime_normalize(df["timestamp"])
         self.code = df["code"]
-        self.direction = df["direction"]
+        self.direction = DIRECTION_TYPES.validate_input(df["direction"]) or -1
         self.reason = df["reason"]
 
         if "source" in df.keys():
-            self.source = df["source"]
+            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

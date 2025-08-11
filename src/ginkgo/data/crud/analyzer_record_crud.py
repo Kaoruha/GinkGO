@@ -77,7 +77,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             analyzer_name=kwargs.get("analyzer_name"),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
             value=to_decimal(kwargs.get("value", 0)),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MAnalyzerRecord]:
@@ -91,7 +91,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
                 analyzer_name=getattr(item, 'analyzer_name'),
                 timestamp=datetime_normalize(getattr(item, 'timestamp', datetime.now())),
                 value=to_decimal(getattr(item, 'value', 0)),
-                source=getattr(item, 'source', SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
 

@@ -7,8 +7,7 @@ from types import FunctionType, MethodType
 from sqlalchemy import Enum, String, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.orm import DeclarativeBase
-from clickhouse_sqlalchemy import engines
-
+from clickhouse_sqlalchemy import engines, types
 
 from .model_base import MBase
 from ...libs import datetime_normalize
@@ -33,7 +32,11 @@ class MClickBase(Base, MBase):
     desc: Mapped[Optional[str]] = mapped_column(String(), default="This man is lazy, there is no description.")
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime)
     # timestamp: Mapped[datetime.datetime] = mapped_column(DateTime)
-    source: Mapped[SOURCE_TYPES] = mapped_column(Enum(SOURCE_TYPES), default=SOURCE_TYPES.OTHER)
+    source: Mapped[int] = mapped_column(types.Int8, default=-1)
+
+    def get_source_enum(self):
+        """Convert database source integer back to enum for business layer"""
+        return SOURCE_TYPES.from_int(self.source)
 
     def update(self) -> None:
         raise NotImplementedError("Model Class need to overload Function set to transit data.")

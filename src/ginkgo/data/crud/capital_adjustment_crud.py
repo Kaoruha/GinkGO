@@ -51,7 +51,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
             timestamp=datetime_normalize(kwargs.get("timestamp")),
             amount=to_decimal(kwargs.get("amount", 0)),
             reason=kwargs.get("reason", ""),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MCapitalAdjustment]:
@@ -64,7 +64,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
                 timestamp=datetime_normalize(getattr(item, "timestamp", datetime.now())),
                 amount=to_decimal(getattr(item, "amount", 0)),
                 reason=getattr(item, "reason", ""),
-                source=getattr(item, "source", SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.SIM)),
             )
         return None
 

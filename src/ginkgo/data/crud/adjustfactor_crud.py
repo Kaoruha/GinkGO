@@ -90,7 +90,7 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             foreadjustfactor=to_decimal(kwargs.get("foreadjustfactor", 1.0)),
             backadjustfactor=to_decimal(kwargs.get("backadjustfactor", 1.0)),
             adjustfactor=to_decimal(kwargs.get("adjustfactor", 1.0)),
-            source=kwargs.get("source", SOURCE_TYPES.TUSHARE),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TUSHARE)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MAdjustfactor]:
@@ -106,7 +106,7 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
                 foreadjustfactor=to_decimal(getattr(item, "foreadjustfactor", 1.0)),
                 backadjustfactor=to_decimal(getattr(item, "backadjustfactor", 1.0)),
                 adjustfactor=to_decimal(getattr(item, "adjustfactor", 1.0)),
-                source=getattr(item, "source", SOURCE_TYPES.TUSHARE),
+                source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.TUSHARE)),
             )
         return None
 

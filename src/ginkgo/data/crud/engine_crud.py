@@ -40,9 +40,9 @@ class EngineCRUD(BaseCRUD[MEngine]):
         """
         return MEngine(
             name=kwargs.get("name", "test_engine"),
-            status=kwargs.get("status", ENGINESTATUS_TYPES.IDLE),
+            status=ENGINESTATUS_TYPES.validate_input(kwargs.get("status", ENGINESTATUS_TYPES.IDLE)),
             is_live=kwargs.get("is_live", False),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MEngine]:
@@ -52,9 +52,9 @@ class EngineCRUD(BaseCRUD[MEngine]):
         if hasattr(item, "name"):
             return MEngine(
                 name=getattr(item, "name", "test_engine"),
-                status=getattr(item, "status", ENGINESTATUS_TYPES.IDLE),
+                status=ENGINESTATUS_TYPES.validate_input(getattr(item, "status", ENGINESTATUS_TYPES.IDLE)),
                 is_live=getattr(item, "is_live", False),
-                source=getattr(item, "source", SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.SIM)),
             )
         return None
 

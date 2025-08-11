@@ -5,6 +5,7 @@ from typing import Optional
 from decimal import Decimal
 from functools import singledispatchmethod
 from sqlalchemy import String, Integer, DECIMAL, Enum, DateTime
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .model_mysqlbase import MMysqlBase
@@ -19,9 +20,9 @@ class MOrder(MMysqlBase):
     portfolio_id: Mapped[str] = mapped_column(String(32), default="")
     engine_id: Mapped[str] = mapped_column(String(32), default="")
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
-    direction: Mapped[DIRECTION_TYPES] = mapped_column(Enum(DIRECTION_TYPES), default=DIRECTION_TYPES.LONG)
-    order_type: Mapped[ORDER_TYPES] = mapped_column(Enum(ORDER_TYPES), default=ORDER_TYPES.OTHER)
-    status: Mapped[ORDERSTATUS_TYPES] = mapped_column(Enum(ORDERSTATUS_TYPES), default=ORDERSTATUS_TYPES.OTHER)
+    direction: Mapped[int] = mapped_column(TINYINT, default=-1)
+    order_type: Mapped[int] = mapped_column(TINYINT, default=-1)
+    status: Mapped[int] = mapped_column(TINYINT, default=-1)
     volume: Mapped[int] = mapped_column(Integer, default=0)
     limit_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     frozen: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
@@ -64,11 +65,11 @@ class MOrder(MMysqlBase):
         if code is not None:
             self.code = code
         if direction is not None:
-            self.direction = direction
+            self.direction = DIRECTION_TYPES.validate_input(direction) or -1
         if order_type is not None:
-            self.order_type = order_type
+            self.order_type = ORDER_TYPES.validate_input(order_type) or -1
         if status is not None:
-            self.status = status
+            self.status = ORDERSTATUS_TYPES.validate_input(status) or -1
         if volume is not None:
             self.volume = volume
         if limit_price is not None:
@@ -86,15 +87,15 @@ class MOrder(MMysqlBase):
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if source is not None:
-            self.source = source
+            self.source = SOURCE_TYPES.validate_input(source) or -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df["code"]
-        self.direction = df["direction"]
-        self.order_type = df["order_type"]
-        self.status = df["status"]
+        self.direction = DIRECTION_TYPES.validate_input(df["direction"]) or -1
+        self.order_type = ORDER_TYPES.validate_input(df["order_type"]) or -1
+        self.status = ORDERSTATUS_TYPES.validate_input(df["status"]) or -1
         self.volume = df["volume"]
         self.limit_price = to_decimal(df["limit_price"])
         self.frozen = df["frozen"]
@@ -107,7 +108,7 @@ class MOrder(MMysqlBase):
         self.portfolio_id = df["portfolio_id"]
         self.engine_id = df["engine_id"]
         if "source" in df.keys():
-            self.source = df["source"]
+            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

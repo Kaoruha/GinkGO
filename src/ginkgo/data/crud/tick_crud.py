@@ -90,13 +90,13 @@ class TickCRUD(BaseCRUD):
         """确保当前股票代码对应的tick表存在"""
         from ...libs import GLOG
         from ..drivers import create_table, is_table_exists
-        
+
         try:
             if not is_table_exists(self.model_class):
                 GLOG.INFO(f"Creating tick table for {self.code}: {self.model_class.__tablename__}")
                 create_table(self.model_class)
                 GLOG.INFO(f"Successfully created tick table: {self.model_class.__tablename__}")
-                
+
                 # 再次检查表是否创建成功
                 if is_table_exists(self.model_class):
                     GLOG.DEBUG(f"Table creation verified: {self.model_class.__tablename__}")
@@ -122,9 +122,9 @@ class TickCRUD(BaseCRUD):
             "price": {"type": ["decimal", "float", "int"], "min": 0},
             # 成交量 - 非负整数
             "volume": {"type": ["int", "float"], "min": 0},
-            # 方向 - 枚举值
+            # 方向 - 枚举值或整数
             "direction": {
-                "type": "enum",
+                "type": ["enum", "int"],
                 "choices": [d for d in TICKDIRECTION_TYPES],
             },
             # 时间戳 - datetime 或字符串
@@ -145,25 +145,40 @@ class TickCRUD(BaseCRUD):
             code=kwargs.get("code", self.code),  # Default to instance code
             price=to_decimal(kwargs.get("price", 0)),
             volume=kwargs.get("volume", 0),
-            direction=kwargs.get("direction", TICKDIRECTION_TYPES.OTHER),
+            direction=TICKDIRECTION_TYPES.validate_input(kwargs.get("direction", TICKDIRECTION_TYPES.OTHER)) or -1,
             timestamp=datetime_normalize(kwargs.get("timestamp")),
-            source=kwargs.get("source", SOURCE_TYPES.TDX),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TDX)) or -1,
         )
 
     def _convert_input_item(self, item: Any):
         """
-        Hook method: Convert Tick objects to MTick for database operations.
+        Hook method: Convert various objects to the correct dynamic MTick subclass.
+        Now handles both Tick business objects and dynamic MTick instances.
         Called by BaseCRUD.add_batch() template method.
         Automatically gets @time_logger + @retry effects.
         """
-        if isinstance(item, Tick):
+        if isinstance(item, self.model_class):
+            # Item is already the correct dynamic model class, no conversion needed
+            return item
+        elif hasattr(item, '__class__') and issubclass(item.__class__, MTick):
+            # Item is a different MTick subclass, create instance of our specific model
             return self.model_class(
                 code=item.code,
                 price=item.price,
                 volume=item.volume,
-                direction=item.direction,
+                direction=TICKDIRECTION_TYPES.validate_input(getattr(item, 'direction', TICKDIRECTION_TYPES.OTHER)) or -1,
                 timestamp=item.timestamp,
-                source=item.source if hasattr(item, "source") else SOURCE_TYPES.TDX,
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.TDX)) or -1,
+            )
+        elif isinstance(item, Tick):
+            # Convert business Tick objects to database MTick objects
+            return self.model_class(
+                code=item.code,
+                price=item.price,
+                volume=item.volume,
+                direction=TICKDIRECTION_TYPES.validate_input(item.direction) or -1,
+                timestamp=item.timestamp,
+                source=SOURCE_TYPES.validate_input(item.source if hasattr(item, "source") else SOURCE_TYPES.TDX) or -1,
             )
         return None
 
@@ -179,7 +194,7 @@ class TickCRUD(BaseCRUD):
                     code=item.code,
                     price=item.price,
                     volume=item.volume,
-                    direction=item.direction,
+                    direction=TICKDIRECTION_TYPES.from_int(item.direction) or TICKDIRECTION_TYPES.OTHER,
                     timestamp=item.timestamp,
                 )
                 for item in items
@@ -211,7 +226,7 @@ class TickCRUD(BaseCRUD):
         if end_time:
             filters["timestamp__lte"] = datetime_normalize(end_time)
         if direction:
-            filters["direction"] = direction
+            filters["direction"] = TICKDIRECTION_TYPES.validate_input(direction) or -1
         if min_volume:
             filters["volume__gte"] = min_volume
 
