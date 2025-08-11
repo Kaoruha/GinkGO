@@ -109,10 +109,12 @@ class GinkgoLogger:
 
     def _setup_error_handler(self):
         error_path = os.path.join(LOGGING_PATH, "error.log")
-        error_handler = logging.FileHandler(
+        error_handler = RotatingFileHandler(
             filename=error_path,
             encoding="utf-8",
             mode="a",
+            maxBytes=self.max_file_bytes,
+            backupCount=self.backup_count,
         )
         error_handler.set_name("ginkgo_error")
         error_handler.setLevel(logging.ERROR)
@@ -127,15 +129,61 @@ class GinkgoLogger:
         self._file_names.append(file_name)
         self._setup_file_handler()
 
-    def set_level(self, level: str) -> None:
-        level = self.get_log_level(level)
-        self.logger.setLevel(level)
-        self.console_handler.setLevel(level)
-        for i in self.file_handlers:
-            i.setLevel(level)
+    def set_level(self, level: str, handler_type: str = 'all') -> None:
+        """设置日志级别，支持指定handler类型
+        
+        Args:
+            level: 日志级别 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            handler_type: handler类型 ('all', 'console', 'file', 'error')
+        """
+        level_int = self.get_log_level(level)
+        
+        if handler_type == 'all':
+            self.logger.setLevel(level_int)
+            if hasattr(self, 'console_handler'):
+                self.console_handler.setLevel(level_int)
+            for handler in self.file_handlers:
+                handler.setLevel(level_int)
+        elif handler_type == 'console':
+            self.set_console_level(level)
+        elif handler_type == 'file':
+            self.set_file_level(level)
+        elif handler_type == 'error':
+            self.set_error_level(level)
+
+    def set_console_level(self, level: str):
+        """单独设置控制台日志级别"""
+        if hasattr(self, 'console_handler'):
+            self.console_handler.setLevel(self.get_log_level(level))
+
+    def set_file_level(self, level: str):
+        """设置所有文件日志级别"""
+        level_int = self.get_log_level(level)
+        for handler in self.file_handlers:
+            handler.setLevel(level_int)
+
+    def set_error_level(self, level: str):
+        """设置错误日志级别"""
+        for handler in self.logger.handlers:
+            if handler.name == 'ginkgo_error':
+                handler.setLevel(self.get_log_level(level))
+                break
 
     def get_log_level(self, level: str) -> int:
         return logging.getLevelName(level.upper())
+
+    def get_current_levels(self) -> dict:
+        """获取当前所有Handler的日志级别"""
+        levels = {
+            'logger': logging.getLevelName(self.logger.level),
+            'handlers': {}
+        }
+        
+        for handler in self.logger.handlers:
+            handler_name = handler.name or str(type(handler).__name__)
+            levels['handlers'][handler_name] = logging.getLevelName(handler.level)
+        
+        return levels
 
     def log(self, level, msg: str):
         caller = inspect.stack()[2]
@@ -147,16 +195,26 @@ class GinkgoLogger:
         log_method(msg, stacklevel=4)
 
     def DEBUG(self, msg: str):
+        if not self.logger.isEnabledFor(logging.DEBUG):
+            return
         self.log("DEBUG", msg)
 
     def INFO(self, msg: str):
+        if not self.logger.isEnabledFor(logging.INFO):
+            return
         self.log("INFO", msg)
 
     def WARN(self, msg: str):
+        if not self.logger.isEnabledFor(logging.WARNING):
+            return
         self.log("WARNING", msg)
 
     def ERROR(self, msg: str):
+        if not self.logger.isEnabledFor(logging.ERROR):
+            return
         self.log("ERROR", msg)
 
     def CRITICAL(self, msg: str):
+        if not self.logger.isEnabledFor(logging.CRITICAL):
+            return
         self.log("CRITICAL", msg)
