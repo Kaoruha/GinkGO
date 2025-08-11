@@ -1,14 +1,19 @@
 import time
 import math
 import threading
+import logging
 from collections import OrderedDict
 
 from functools import wraps
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn, TimeRemainingColumn
+from ginkgo.libs.core.logger import GinkgoLogger
 
 
 console = Console()
+
+# 创建模块级别的logger实例
+_debug_logger = GinkgoLogger("ginkgo_debug", console_log=True)
 
 
 def try_wait_counter(try_time: int = 0, min: int = 0.1, max: int = 30) -> int:
@@ -45,6 +50,11 @@ def str2bool(strint: str or int, *args, **kwargs) -> bool:
 def time_logger(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
+        # 检查是否启用 DEBUG 级别
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return func(*args, **kwargs)
+        
+        # 保留原有的 progress 和 no_log 参数检查
         show_log = True
         if "progress" in kwargs and isinstance(kwargs["progress"], Progress):
             show_log = False
@@ -52,18 +62,20 @@ def time_logger(func):
             show_log = False
         if not show_log:
             return func(*args, **kwargs)
-        start_time = time.time()  # 记录开始时间
-        result = None
+            
+        # 记录执行时间，使用 GinkgoLogger.DEBUG 输出
+        start_time = time.time()
         try:
-            result = func(*args, **kwargs)  # 执行原函数
-            return result  # 返回原函数的结果
+            result = func(*args, **kwargs)
+            return result
         except Exception as e:
             console.print_exception()
-            raise  # Re-raise the exception
+            raise
         finally:
-            end_time = time.time()  # 记录结束时间
-            duration = end_time - start_time  # 计算持续时间
-            console.print(f":camel: FUNCTION [yellow]{func.__name__}[/] excuted in {format_time_seconds(duration)}.")
+            end_time = time.time()
+            duration = end_time - start_time
+            # 使用模块级别的logger实例
+            _debug_logger.DEBUG(f"FUNCTION {func.__name__} executed in {format_time_seconds(duration)}")
 
     return wrapper
 
@@ -361,30 +373,31 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
 def ensure_tick_table(func):
     """
     装饰器：确保tick表存在后再执行函数
-    
+
     自动检测函数参数中的code参数，为对应的股票代码创建tick表
-    
+
     Args:
         func: 被装饰的函数，需要包含code参数
-        
+
     Returns:
         装饰后的函数
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         from ginkgo.libs import GLOG
-        
+
         # 从kwargs中查找code参数
         if "code" in kwargs and isinstance(kwargs["code"], str):
             code = kwargs["code"]
-            
+
             try:
                 from ginkgo.data.drivers import create_table, is_table_exists
                 from ginkgo.data.crud.tick_crud import get_tick_model
-                
+
                 # 获取动态tick模型
                 tick_model = get_tick_model(code)
-                
+
                 # 检查表是否存在，不存在则创建
                 if not is_table_exists(tick_model):
                     GLOG.INFO(f"Creating tick table for {code}: {tick_model.__tablename__}")
@@ -392,11 +405,11 @@ def ensure_tick_table(func):
                     GLOG.INFO(f"Successfully created tick table: {tick_model.__tablename__}")
                 else:
                     GLOG.DEBUG(f"Tick table already exists: {tick_model.__tablename__}")
-                    
+
             except Exception as table_error:
                 GLOG.ERROR(f"Failed to ensure tick table for {code}: {table_error}")
-        
+
         # 执行原函数
         return func(*args, **kwargs)
-                
+
     return wrapper
