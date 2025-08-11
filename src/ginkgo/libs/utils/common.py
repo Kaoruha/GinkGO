@@ -1,19 +1,14 @@
 import time
 import math
 import threading
-import logging
 from collections import OrderedDict
 
 from functools import wraps
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn, TimeRemainingColumn
-from ginkgo.libs.core.logger import GinkgoLogger
 
 
 console = Console()
-
-# 创建模块级别的logger实例
-_debug_logger = GinkgoLogger("ginkgo_debug", console_log=True)
 
 
 def try_wait_counter(try_time: int = 0, min: int = 0.1, max: int = 30) -> int:
@@ -50,11 +45,6 @@ def str2bool(strint: str or int, *args, **kwargs) -> bool:
 def time_logger(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        # 检查是否启用 DEBUG 级别
-        if not logging.getLogger().isEnabledFor(logging.DEBUG):
-            return func(*args, **kwargs)
-        
-        # 保留原有的 progress 和 no_log 参数检查
         show_log = True
         if "progress" in kwargs and isinstance(kwargs["progress"], Progress):
             show_log = False
@@ -62,20 +52,18 @@ def time_logger(func):
             show_log = False
         if not show_log:
             return func(*args, **kwargs)
-            
-        # 记录执行时间，使用 GinkgoLogger.DEBUG 输出
-        start_time = time.time()
+        start_time = time.time()  # 记录开始时间
+        result = None
         try:
-            result = func(*args, **kwargs)
-            return result
+            result = func(*args, **kwargs)  # 执行原函数
+            return result  # 返回原函数的结果
         except Exception as e:
             console.print_exception()
-            raise
+            raise  # Re-raise the exception
         finally:
-            end_time = time.time()
-            duration = end_time - start_time
-            # 使用模块级别的logger实例
-            _debug_logger.DEBUG(f"FUNCTION {func.__name__} executed in {format_time_seconds(duration)}")
+            end_time = time.time()  # 记录结束时间
+            duration = end_time - start_time  # 计算持续时间
+            console.print(f":camel: FUNCTION [yellow]{func.__name__}[/] excuted in {format_time_seconds(duration)}.")
 
     return wrapper
 

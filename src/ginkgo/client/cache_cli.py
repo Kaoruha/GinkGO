@@ -115,15 +115,20 @@ def _clear_all_caches(progress: Progress):
         progress.update(task, description="Clearing function caches...", advance=0)
         redis_service = container.redis_service()
         function_cleared = redis_service.clear_function_cache()
-        progress.update(task, advance=50)
+        progress.update(task, advance=40)
+        
+        # Clear sync progress caches
+        progress.update(task, description="Clearing sync progress caches...", advance=0)
+        sync_cleared = redis_service.clear_all_sync_progress()
+        progress.update(task, advance=40)
         
         # Clear container caches  
         progress.update(task, description="Clearing container caches...", advance=0)
         # Note: This is a more destructive operation, be careful
         # We'll skip this for now in "all" mode to be safe
-        progress.update(task, advance=50)
+        progress.update(task, advance=20)
         
-        progress.update(task, description=f"Cleared {function_cleared} function cache entries", completed=100)
+        progress.update(task, description=f"Cleared {function_cleared} function cache entries, {sync_cleared} sync progress entries", completed=100)
         
     except Exception as e:
         progress.update(task, description=f"Error: {str(e)}", completed=100)
