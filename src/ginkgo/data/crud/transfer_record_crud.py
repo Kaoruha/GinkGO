@@ -87,7 +87,7 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
             money=to_decimal(kwargs.get("money", 0)),
             status=kwargs.get("status"),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MTransferRecord]:
@@ -102,7 +102,7 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
                 money=item.money,
                 status=item.status,
                 timestamp=item.timestamp,
-                source=getattr(item, "source", SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.SIM)),
             )
         return None
 

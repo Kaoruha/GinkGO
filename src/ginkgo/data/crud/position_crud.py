@@ -105,7 +105,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
             frozen_money=to_decimal(kwargs.get("frozen_money", 0)),
             price=to_decimal(kwargs.get("price", 0)),
             fee=to_decimal(kwargs.get("fee", 0)),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MPosition]:
@@ -123,7 +123,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
                 frozen_money=to_decimal(getattr(item, 'frozen_money', 0)),
                 price=to_decimal(getattr(item, 'price', 0)),
                 fee=to_decimal(getattr(item, 'fee', 0)),
-                source=getattr(item, 'source', SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
 

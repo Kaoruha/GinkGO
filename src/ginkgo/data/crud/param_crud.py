@@ -40,7 +40,7 @@ class ParamCRUD(BaseCRUD[MParam]):
             mapping_id=kwargs.get("mapping_id", ""),
             index=kwargs.get("index", 0),
             value=kwargs.get("value", ""),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MParam]:
@@ -52,7 +52,7 @@ class ParamCRUD(BaseCRUD[MParam]):
                 mapping_id=getattr(item, 'mapping_id', ''),
                 index=getattr(item, 'index', 0),
                 value=getattr(item, 'value', ''),
-                source=getattr(item, 'source', SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
 

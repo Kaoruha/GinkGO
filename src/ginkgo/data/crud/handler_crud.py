@@ -38,7 +38,7 @@ class HandlerCRUD(BaseCRUD[MHandler]):
             name=kwargs.get("name", "test_handler"),
             lib_path=kwargs.get("lib_path", ""),
             func_name=kwargs.get("func_name", ""),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MHandler]:
@@ -50,7 +50,7 @@ class HandlerCRUD(BaseCRUD[MHandler]):
                 name=getattr(item, 'name', 'test_handler'),
                 lib_path=getattr(item, 'lib_path', ''),
                 func_name=getattr(item, 'func_name', ''),
-                source=getattr(item, 'source', SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
 

@@ -79,9 +79,9 @@ class SignalCRUD(BaseCRUD[MSignal]):
             engine_id=kwargs.get("engine_id"),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
             code=kwargs.get("code"),
-            direction=kwargs.get("direction"),
+            direction=DIRECTION_TYPES.validate_input(kwargs.get("direction")),
             reason=kwargs.get("reason"),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MSignal]:
@@ -94,9 +94,9 @@ class SignalCRUD(BaseCRUD[MSignal]):
                 engine_id=item.engine_id,
                 timestamp=item.timestamp,
                 code=item.code,
-                direction=item.direction,
+                direction=DIRECTION_TYPES.validate_input(item.direction),
                 reason=item.reason,
-                source=item.source if hasattr(item, 'source') else SOURCE_TYPES.SIM,
+                source=SOURCE_TYPES.validate_input(item.source if hasattr(item, 'source') else SOURCE_TYPES.SIM),
             )
         return None
 

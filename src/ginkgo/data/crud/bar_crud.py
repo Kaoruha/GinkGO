@@ -60,9 +60,9 @@ class BarCRUD(BaseCRUD[MBar]):
             close=to_decimal(kwargs.get("close", 0)),
             volume=kwargs.get("volume", 0),
             amount=to_decimal(kwargs.get("amount", 0)),
-            frequency=kwargs.get("frequency", FREQUENCY_TYPES.DAY),
+            frequency=FREQUENCY_TYPES.validate_input(kwargs.get("frequency", FREQUENCY_TYPES.DAY)),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
-            source=kwargs.get("source", SOURCE_TYPES.TUSHARE),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TUSHARE)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MBar]:

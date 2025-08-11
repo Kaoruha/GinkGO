@@ -85,12 +85,12 @@ class TransferCRUD(BaseCRUD[MTransfer]):
         return MTransfer(
             portfolio_id=kwargs.get("portfolio_id", ""),
             engine_id=kwargs.get("engine_id", ""),
-            direction=kwargs.get("direction", TRANSFERDIRECTION_TYPES.IN),
-            market=kwargs.get("market", MARKET_TYPES.CHINA),
+            direction=TRANSFERDIRECTION_TYPES.validate_input(kwargs.get("direction", TRANSFERDIRECTION_TYPES.IN)),
+            market=MARKET_TYPES.validate_input(kwargs.get("market", MARKET_TYPES.CHINA)),
             money=to_decimal(kwargs.get("money", 0)),
-            status=kwargs.get("status", TRANSFERSTATUS_TYPES.PENDING),
+            status=TRANSFERSTATUS_TYPES.validate_input(kwargs.get("status", TRANSFERSTATUS_TYPES.PENDING)),
             timestamp=datetime_normalize(kwargs.get("timestamp", datetime.now())),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MTransfer]:
@@ -101,12 +101,12 @@ class TransferCRUD(BaseCRUD[MTransfer]):
             return MTransfer(
                 portfolio_id=getattr(item, 'portfolio_id', ''),
                 engine_id=getattr(item, 'engine_id', ''),
-                direction=getattr(item, 'direction', TRANSFERDIRECTION_TYPES.IN),
-                market=getattr(item, 'market', MARKET_TYPES.CHINA),
+                direction=TRANSFERDIRECTION_TYPES.validate_input(getattr(item, 'direction', TRANSFERDIRECTION_TYPES.IN)),
+                market=MARKET_TYPES.validate_input(getattr(item, 'market', MARKET_TYPES.CHINA)),
                 money=to_decimal(getattr(item, 'money', 0)),
-                status=getattr(item, 'status', TRANSFERSTATUS_TYPES.PENDING),
+                status=TRANSFERSTATUS_TYPES.validate_input(getattr(item, 'status', TRANSFERSTATUS_TYPES.PENDING)),
                 timestamp=datetime_normalize(getattr(item, 'timestamp', datetime.now())),
-                source=getattr(item, 'source', SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
 

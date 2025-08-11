@@ -5,6 +5,7 @@ from typing import Optional
 from decimal import Decimal
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DECIMAL, Enum
+from clickhouse_sqlalchemy import types
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .model_clickbase import MClickBase
@@ -23,9 +24,7 @@ class MCapitalAdjustment(MClickBase):
     """
 
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
-    type: Mapped[CAPITALADJUSTMENT_TYPES] = mapped_column(
-        Enum(CAPITALADJUSTMENT_TYPES), default=CAPITALADJUSTMENT_TYPES.OTHER
-    )
+    type: Mapped[int] = mapped_column(types.Int8, default=-1)
     fenhong: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
     peigujia: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
     songzhuangu: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
@@ -67,7 +66,7 @@ class MCapitalAdjustment(MClickBase):
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
         if type is not None:
-            self.type = type
+            self.type = CAPITALADJUSTMENT_TYPES.validate_input(type) or -1
         if fenhong is not None:
             self.fenhong = to_decimal(fenhong)
         if peigujia is not None:
@@ -91,12 +90,12 @@ class MCapitalAdjustment(MClickBase):
         if xingquanjia is not None:
             self.xingquanjia = to_decimal(xingquanjia)
         if source is not None:
-            self.source = source
+            self.source = SOURCE_TYPES.validate_input(source) or -1
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         self.code = df["code"]
-        self.type = df["type"]
+        self.type = CAPITALADJUSTMENT_TYPES.validate_input(df["type"]) or -1
         self.fenhong = to_decimal(df["fenhong"])
         self.peigujia = to_decimal(df["peigujia"])
         self.songzhuangu = to_decimal(df["songzhuangu"])
@@ -110,7 +109,7 @@ class MCapitalAdjustment(MClickBase):
         self.xingquanjia = to_decimal(df["xingquanjia"])
         self.timestamp = datetime_normalize(df["timestamp"])
         if "source" in df.keys():
-            self.source = df["source"]
+            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
 
     def __repr__(self) -> None:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

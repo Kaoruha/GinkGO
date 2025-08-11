@@ -4,6 +4,7 @@ import datetime
 from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, DateTime, Integer, Enum
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .model_mysqlbase import MMysqlBase
@@ -18,8 +19,8 @@ class MStockInfo(MMysqlBase):
     code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
     code_name: Mapped[str] = mapped_column(String(32), default="ginkgo_test_name")
     industry: Mapped[str] = mapped_column(String(32), default="ginkgo_test_industry")
-    currency: Mapped[CURRENCY_TYPES] = mapped_column(Enum(CURRENCY_TYPES), default=CURRENCY_TYPES.CNY)
-    market: Mapped[MARKET_TYPES] = mapped_column(Enum(MARKET_TYPES), default=MARKET_TYPES.CHINA)
+    currency: Mapped[int] = mapped_column(TINYINT, default=-1)
+    market: Mapped[int] = mapped_column(TINYINT, default=-1)
     list_date: Mapped[datetime.datetime] = mapped_column(DateTime)
     delist_date: Mapped[datetime.datetime] = mapped_column(DateTime)
 
@@ -47,15 +48,15 @@ class MStockInfo(MMysqlBase):
         if industry is not None:
             self.industry = industry
         if currency is not None:
-            self.currency = currency
+            self.currency = CURRENCY_TYPES.validate_input(currency) or -1
         if market is not None:
-            self.market = market
+            self.market = MARKET_TYPES.validate_input(market) or -1
         if list_date is not None:
             self.list_date = datetime_normalize(list_date)
         if delist_date is not None:
             self.delist_date = datetime_normalize(delist_date)
         if source is not None:
-            self.source = source
+            self.source = SOURCE_TYPES.validate_input(source) or -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
@@ -63,12 +64,12 @@ class MStockInfo(MMysqlBase):
         self.code = df["code"]
         self.code_name = df["code_name"]
         self.industry = df["industry"]
-        self.currency = df["currency"]
-        self.market = df["market"]
+        self.currency = CURRENCY_TYPES.validate_input(df["currency"]) or -1
+        self.market = MARKET_TYPES.validate_input(df["market"]) or -1
         self.list_date = datetime_normalize(df["list_date"])
         self.delist_date = datetime_normalize(df["delist_date"])
         if "source" in df.keys():
-            self.source = df["source"]
+            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> None:

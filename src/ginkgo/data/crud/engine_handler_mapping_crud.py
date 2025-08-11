@@ -39,7 +39,7 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
         return MEngineHandlerMapping(
             engine_id=kwargs.get("engine_id"),
             handler_id=kwargs.get("handler_id"),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MEngineHandlerMapping]:
@@ -50,7 +50,7 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
             return MEngineHandlerMapping(
                 engine_id=getattr(item, 'engine_id'),
                 handler_id=getattr(item, 'handler_id'),
-                source=getattr(item, 'source', SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
 

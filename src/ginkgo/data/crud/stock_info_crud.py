@@ -122,11 +122,11 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
             code=kwargs.get("code"),
             code_name=kwargs.get("code_name", ""),
             industry=kwargs.get("industry", ""),
-            market=market,
+            market=MARKET_TYPES.validate_input(market),
             list_date=datetime_normalize(kwargs.get("list_date")),
             delist_date=datetime_normalize(kwargs.get("delist_date")),
-            currency=currency,
-            source=kwargs.get("source", SOURCE_TYPES.TUSHARE),
+            currency=CURRENCY_TYPES.validate_input(currency),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.TUSHARE)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MStockInfo]:
@@ -138,11 +138,11 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
                 code=getattr(item, 'code'),
                 code_name=getattr(item, 'code_name', ''),
                 industry=getattr(item, 'industry', ''),
-                market=getattr(item, 'market', MARKET_TYPES.CHINA),
+                market=MARKET_TYPES.validate_input(getattr(item, 'market', MARKET_TYPES.CHINA)),
                 list_date=datetime_normalize(getattr(item, 'list_date', datetime.now())),
                 delist_date=datetime_normalize(getattr(item, 'delist_date', datetime.now())),
-                currency=getattr(item, 'currency', CURRENCY_TYPES.CNY),
-                source=getattr(item, 'source', SOURCE_TYPES.TUSHARE),
+                currency=CURRENCY_TYPES.validate_input(getattr(item, 'currency', CURRENCY_TYPES.CNY)),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.TUSHARE)),
             )
         return None
 

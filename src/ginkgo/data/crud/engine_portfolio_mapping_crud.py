@@ -42,7 +42,7 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping]):
             portfolio_id=kwargs.get("portfolio_id"),
             engine_name=kwargs.get("engine_name", ""),
             portfolio_name=kwargs.get("portfolio_name", ""),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MEnginePortfolioMapping]:
@@ -56,7 +56,7 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping]):
                 portfolio_id=getattr(item, 'portfolio_id'),
                 engine_name=getattr(item, 'engine_name', ''),
                 portfolio_name=getattr(item, 'portfolio_name', ''),
-                source=getattr(item, 'source', SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
 

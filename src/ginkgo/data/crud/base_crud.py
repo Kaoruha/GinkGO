@@ -588,10 +588,17 @@ class BaseCRUD(Generic[T], ABC):
         with session_context as s:
             if self._is_clickhouse:
                 # ClickHouse requires native SQL for DELETE operations
+                from ...enums import EnumBase  # Import for enum conversion
                 sql_parts = []
                 params = {}
 
                 for key, value in filters.items():
+                    # Convert enum objects to integers for ClickHouse compatibility
+                    if isinstance(value, EnumBase):
+                        value = value.value
+                    elif isinstance(value, list):
+                        value = [item.value if isinstance(item, EnumBase) else item for item in value]
+                    
                     if "__" in key:
                         field, operator = key.split("__", 1)
                         if hasattr(self.model_class, field):
@@ -799,6 +806,7 @@ class BaseCRUD(Generic[T], ABC):
         """
         Parse enhanced filters with operator support.
         Supports operators: gte, lte, gt, lt, in, like
+        Automatically converts enum objects to integers for database compatibility.
 
         Args:
             filters: Dictionary with field__operator keys
@@ -807,9 +815,18 @@ class BaseCRUD(Generic[T], ABC):
         Returns:
             List of SQLAlchemy filter conditions
         """
+        from ...enums import EnumBase  # Import at method level to avoid circular imports
+        
         conditions = []
 
         for key, value in filters.items():
+            # Convert enum objects to integers for database compatibility
+            if isinstance(value, EnumBase):
+                value = value.value
+            elif isinstance(value, list):
+                # Handle list values (e.g., for __in operator)
+                value = [item.value if isinstance(item, EnumBase) else item for item in value]
+            
             if "__" in key:
                 field, operator = key.split("__", 1)
                 if hasattr(self.model_class, field):

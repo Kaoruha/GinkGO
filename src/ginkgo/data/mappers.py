@@ -6,11 +6,11 @@ for example, from a raw Pandas DataFrame to a list of database models.
 This isolates transformation logic and makes it reusable.
 """
 import pandas as pd
-from typing import List
+from typing import List, Any
 
 from ..libs import datetime_normalize, to_decimal, GCONF
 from .models import MAdjustfactor, MStockInfo, MBar
-from ..backtest import Tick
+from .crud.tick_crud import get_tick_model
 from ..enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES, FREQUENCY_TYPES, TICKDIRECTION_TYPES
 
 def dataframe_to_adjustfactor_models(df: pd.DataFrame, code: str) -> List[MAdjustfactor]:
@@ -31,7 +31,7 @@ def dataframe_to_adjustfactor_models(df: pd.DataFrame, code: str) -> List[MAdjus
                     backadjustfactor=to_decimal(1.0),                    # Default value, calculated later
                     adjustfactor=to_decimal(r["adj_factor"]),            # Original Tushare adj_factor
                     timestamp=datetime_normalize(r["trade_date"]),
-                    source=SOURCE_TYPES.TUSHARE,
+                    source=SOURCE_TYPES.TUSHARE.value,
                 )
             )
     return items
@@ -50,11 +50,11 @@ def row_to_stockinfo_upsert_dict(row: pd.Series) -> dict:
         "code": row["ts_code"],
         "code_name": row["name"],
         "industry": row["industry"],
-        "currency": CURRENCY_TYPES.CNY,
-        "market": MARKET_TYPES.CHINA,
+        "currency": CURRENCY_TYPES.CNY.value,
+        "market": MARKET_TYPES.CHINA.value,
         "list_date": datetime_normalize(row["list_date"]),
         "delist_date": delist_date,
-        "source": SOURCE_TYPES.TUSHARE,
+        "source": SOURCE_TYPES.TUSHARE.value,
     }
 
 def dataframe_to_stockinfo_upsert_list(df: pd.DataFrame) -> List[dict]:
@@ -82,15 +82,18 @@ def dataframe_to_bar_models(df: pd.DataFrame, code: str, frequency: FREQUENCY_TY
                 close=to_decimal(r["close"]),
                 volume=int(r["vol"]) if pd.notna(r["vol"]) else 0,
                 amount=to_decimal(r["amount"]) if pd.notna(r["amount"]) else to_decimal(0),
-                frequency=frequency,
+                frequency=FREQUENCY_TYPES.validate_input(frequency),
                 timestamp=datetime_normalize(r["trade_date"]),
-                source=SOURCE_TYPES.TUSHARE,
+                source=SOURCE_TYPES.TUSHARE.value,
             )
         )
     return items
 
-def dataframe_to_tick_models(df: pd.DataFrame, code: str) -> List[Tick]:
-    """Maps a DataFrame from TDX to a list of Tick models."""
+def dataframe_to_tick_models(df: pd.DataFrame, code: str) -> List[Any]:
+    """Maps a DataFrame from TDX to a list of dynamic tick models for the specific stock code."""
+    # Get the dynamic tick model class for this stock code
+    tick_model_class = get_tick_model(code)
+    
     items = []
     for _, r in df.iterrows():
         # Skip rows with invalid data
@@ -101,13 +104,13 @@ def dataframe_to_tick_models(df: pd.DataFrame, code: str) -> List[Tick]:
         direction = TICKDIRECTION_TYPES(r["buyorsell"]) if "buyorsell" in r and pd.notna(r["buyorsell"]) else TICKDIRECTION_TYPES.UNKNOWN
         
         items.append(
-            Tick(
+            tick_model_class(
                 code=code,
                 price=to_decimal(r["price"]),
                 volume=int(r["volume"]),
-                direction=direction,
+                direction=TICKDIRECTION_TYPES.validate_input(direction),
                 timestamp=r["timestamp"],
-                source=SOURCE_TYPES.TDX,
+                source=SOURCE_TYPES.TDX.value,
             )
         )
     return items

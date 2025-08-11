@@ -13,7 +13,7 @@ class Tick(Base):
         code: str = "defaultcode",
         price: Number = 0,
         volume: int = 0,
-        direction: TICKDIRECTION_TYPES = TICKDIRECTION_TYPES.OTHER,
+        direction: TICKDIRECTION_TYPES = TICKDIRECTION_TYPES.NEUTRAL,
         timestamp: any = datetime.datetime.now(),
         source: SOURCE_TYPES = SOURCE_TYPES.OTHER,
         *args,

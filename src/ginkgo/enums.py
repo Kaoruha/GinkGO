@@ -11,27 +11,60 @@ class EnumBase(Enum):
             return
         return r
 
+    @classmethod
+    def from_int(cls, value):
+        """Convert integer value to enum"""
+        if isinstance(value, cls):
+            return value
+        if value is None:
+            return None
+        try:
+            return cls(int(value))
+        except (ValueError, TypeError):
+            return None
+
+    def to_int(self):
+        """Convert enum to integer value"""
+        return self.value
+
+    @classmethod
+    def validate_input(cls, value):
+        """Validate and convert input (enum or int) to integer for database storage"""
+        if value is None:
+            return None
+        if isinstance(value, cls):
+            return value.value
+        if isinstance(value, int):
+            # Validate that the int value exists in enum
+            try:
+                cls(value)
+                return value
+            except ValueError:
+                return None
+        return None
+
     # def __repr__(self):
     #     return self.value
 
 
 class CURRENCY_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     CNY = 1
     USD = 2
 
 
 class TICKDIRECTION_TYPES(EnumBase):
-    OTHER = -1
-    CANCEL = 0
-    BUY = 1
-    SELL = 2
-    OTHER1 = 3
-    OTHER2 = 4
-    OTHER3 = 5
-    OTHER4 = 6
-    OTHER5 = 7
-    OTHER6 = 8
+    VOID = -1
+    NEUTRAL = 0  # 中性盘 / Unknown direction
+    ACTIVEBUY = 1  # 主动买盘 / Aggressor buy
+    ACTIVESELL = 2  # 主动卖盘 / Aggressor sell
+    CANCEL = 3  # 撤单 / Order cancelled
+    REMAIN2LIMIT = 4  # 市价剩余转限价 / Market-to-limit remainder
+    MARKET2LIMIT = 5  # 市价剩余转限价 (another flag) / Market-to-limit
+    FOKIOC = 6  # 全额成交或撤销 / Fill-or-Kill / Immediate-or-Cancel
+    SELFOPTIMAL = 7  # 本方最优 / Best on same side
+    COUNTEROPTIMAL = 8  # 对手方最优 / Best on opposite side
 
 
 class EVENT_TYPES(EnumBase):
@@ -39,6 +72,7 @@ class EVENT_TYPES(EnumBase):
     Types of Events.For Backtest.
     """
 
+    VOID = -1
     OTHER = 0
     PRICEUPDATE = 1
     ORDERSUBMITTED = 2
@@ -53,6 +87,7 @@ class EVENT_TYPES(EnumBase):
 
 
 class PRICEINFO_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     BAR = 1
     TICK = 2
@@ -78,24 +113,28 @@ class SOURCE_TYPES(EnumBase):
 
 
 class DIRECTION_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     LONG = 1
     SHORT = -1
 
 
 class TRANSFERDIRECTION_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     IN = 1
     OUT = 2
 
 
 class ORDER_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     MARKETORDER = 1
     LIMITORDER = 2
 
 
 class ORDERSTATUS_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     NEW = 1
     SUBMITTED = 2
@@ -104,6 +143,7 @@ class ORDERSTATUS_TYPES(EnumBase):
 
 
 class TRANSFERSTATUS_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     NEW = 1
     SUBMITTED = 2
@@ -113,18 +153,21 @@ class TRANSFERSTATUS_TYPES(EnumBase):
 
 
 class FREQUENCY_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     DAY = 1
     MIN5 = 2
 
 
 class MARKET_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     CHINA = 1
     NASDAQ = 2
 
 
 class ATTITUDE_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     PESSMISTIC = 1
     OPTIMISTIC = 2
@@ -132,6 +175,7 @@ class ATTITUDE_TYPES(EnumBase):
 
 
 class FILE_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     ANALYZER = 1
     INDEX = 2
@@ -144,6 +188,7 @@ class FILE_TYPES(EnumBase):
 
 
 class RECORDSTAGE_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     NEWDAY = 1
     SIGNALGENERATION = 2
@@ -154,18 +199,21 @@ class RECORDSTAGE_TYPES(EnumBase):
 
 
 class GRAPHY_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     BAR = 1
     LINE = 2
 
 
 class PARAMETER_TYPES(EnumBase):
+    VOID = -1
     INT = 0
     STRING = 1
     FLOAT = 2
 
 
 class CAPITALADJUSTMENT_TYPES(EnumBase):
+    VOID = -1
     OTHER = 0
     EXR_EXD = 1  # 除权除息
     BONUS_RIGHTS_LIST = 2  # 送配股上市
@@ -184,6 +232,7 @@ class CAPITALADJUSTMENT_TYPES(EnumBase):
 
 
 class LIVE_MODE(str, Enum):
+    VOID = -1
     ON = "on"
     OFF = "off"
 
@@ -191,12 +240,14 @@ class LIVE_MODE(str, Enum):
 class ADJUSTMENT_TYPES(EnumBase):
     """Price adjustment types for stock data"""
 
+    VOID = -1
     NONE = 0  # No adjustment (original data)
     FORE = 1  # Forward adjustment (前复权) - latest price as base
     BACK = 2  # Backward adjustment (后复权) - earliest price as base
 
 
 class ENGINESTATUS_TYPES(EnumBase):
+    VOID = -1
     IDLE = 0
     INITIALIZING = 1
     RUNNING = 2
@@ -206,6 +257,7 @@ class ENGINESTATUS_TYPES(EnumBase):
 class STRATEGY_TYPES(EnumBase):
     """策略类型枚举"""
 
+    VOID = -1
     UNKNOWN = 0
     TRADITIONAL = 1
     ML = 2
@@ -217,6 +269,7 @@ class STRATEGY_TYPES(EnumBase):
 class MODEL_TYPES(EnumBase):
     """ML模型类型枚举"""
 
+    VOID = -1
     UNKNOWN = 0
     TIME_SERIES = 1
     TABULAR = 2
@@ -228,6 +281,7 @@ class MODEL_TYPES(EnumBase):
 class ENGINE_TYPES(EnumBase):
     """引擎类型枚举"""
 
+    VOID = -1
     UNKNOWN = 0
     EVENT_DRIVEN = 1
     MATRIX = 2

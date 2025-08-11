@@ -67,7 +67,7 @@ class TickSummaryCRUD(BaseCRUD[MTickSummary]):
             price=to_decimal(kwargs.get("price", 0)),
             volume=kwargs.get("volume", 0),
             timestamp=datetime_normalize(kwargs.get("timestamp", datetime.now())),
-            source=kwargs.get("source", SOURCE_TYPES.OTHER),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.OTHER)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MTickSummary]:
@@ -80,7 +80,7 @@ class TickSummaryCRUD(BaseCRUD[MTickSummary]):
                 price=to_decimal(getattr(item, 'price', 0)),
                 volume=getattr(item, 'volume', 0),
                 timestamp=datetime_normalize(getattr(item, 'timestamp')),
-                source=getattr(item, 'source', SOURCE_TYPES.OTHER),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.OTHER)),
             )
         return None
 

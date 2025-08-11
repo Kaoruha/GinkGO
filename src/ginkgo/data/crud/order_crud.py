@@ -126,9 +126,9 @@ class OrderCRUD(BaseCRUD[MOrder]):
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
             code=kwargs.get("code"),
-            direction=kwargs.get("direction"),
-            order_type=kwargs.get("order_type"),
-            status=kwargs.get("status", ORDERSTATUS_TYPES.NEW),
+            direction=DIRECTION_TYPES.validate_input(kwargs.get("direction")),
+            order_type=ORDER_TYPES.validate_input(kwargs.get("order_type")),
+            status=ORDERSTATUS_TYPES.validate_input(kwargs.get("status", ORDERSTATUS_TYPES.NEW)),
             volume=kwargs.get("volume"),
             limit_price=to_decimal(kwargs.get("limit_price", 0)),
             frozen=kwargs.get("frozen", 0),
@@ -137,7 +137,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
             remain=kwargs.get("remain", 0.0),
             fee=kwargs.get("fee", 0.0),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MOrder]:
@@ -149,9 +149,9 @@ class OrderCRUD(BaseCRUD[MOrder]):
                 portfolio_id=getattr(item, 'portfolio_id', ""),
                 engine_id=getattr(item, 'engine_id', ""),
                 code=getattr(item, 'code', ""),
-                direction=getattr(item, 'direction', DIRECTION_TYPES.LONG),
-                order_type=getattr(item, 'order_type', ORDER_TYPES.OTHER),
-                status=getattr(item, 'status', ORDERSTATUS_TYPES.NEW),
+                direction=DIRECTION_TYPES.validate_input(getattr(item, 'direction', DIRECTION_TYPES.LONG)),
+                order_type=ORDER_TYPES.validate_input(getattr(item, 'order_type', ORDER_TYPES.OTHER)),
+                status=ORDERSTATUS_TYPES.validate_input(getattr(item, 'status', ORDERSTATUS_TYPES.NEW)),
                 volume=getattr(item, 'volume', 0),
                 limit_price=to_decimal(getattr(item, 'limit_price', 0)),
                 frozen=to_decimal(getattr(item, 'frozen', 0)),
@@ -160,7 +160,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
                 remain=to_decimal(getattr(item, 'remain', 0)),
                 fee=to_decimal(getattr(item, 'fee', 0)),
                 timestamp=datetime_normalize(getattr(item, 'timestamp')),
-                source=getattr(item, 'source', SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
 

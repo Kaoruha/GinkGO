@@ -4,6 +4,7 @@ import pandas as pd
 from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, Boolean, Enum
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .model_mysqlbase import MMysqlBase
@@ -17,7 +18,7 @@ class MEngineHandlerMapping(MMysqlBase):
 
     engine_id: Mapped[str] = mapped_column(String(32), default="")
     handler_id: Mapped[str] = mapped_column(String(32), default="")
-    type: Mapped[EVENT_TYPES] = mapped_column(Enum(EVENT_TYPES), default=EVENT_TYPES.OTHER)
+    type: Mapped[int] = mapped_column(TINYINT, default=-1)
     name: Mapped[str] = mapped_column(String(32), default="ginkgo_bind")
 
     @singledispatchmethod
@@ -39,11 +40,11 @@ class MEngineHandlerMapping(MMysqlBase):
         if handler_id is not None:
             self.handler_id = handler_id
         if type is not None:
-            self.type = type
+            self.type = EVENT_TYPES.validate_input(type) or -1
         if name is not None:
             self.name = name
         if source is not None:
-            self.source = source
+            self.source = SOURCE_TYPES.validate_input(source) or -1
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
@@ -51,9 +52,9 @@ class MEngineHandlerMapping(MMysqlBase):
         self.engine_id = df["engine_id"]
         self.handler_id = df["handler_id"]
         self.name = df["name"]
-        self.type = df["type"]
+        self.type = EVENT_TYPES.validate_input(df["type"]) or -1
         if "source" in df.keys():
-            self.source = df["source"]
+            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
         self.update_at = datetime.datetime.now()
 
     def __repr__(self) -> str:

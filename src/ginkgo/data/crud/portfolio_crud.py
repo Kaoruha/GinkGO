@@ -64,7 +64,7 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
             backtest_start_date=datetime_normalize(kwargs.get("backtest_start_date", datetime.now())),
             backtest_end_date=datetime_normalize(kwargs.get("backtest_end_date", datetime.now())),
             is_live=kwargs.get("is_live", False),
-            source=kwargs.get("source", SOURCE_TYPES.SIM),
+            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MPortfolio]:
@@ -75,7 +75,7 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
                 backtest_start_date=datetime_normalize(getattr(item, 'backtest_start_date', datetime.now())),
                 backtest_end_date=datetime_normalize(getattr(item, 'backtest_end_date', datetime.now())),
                 is_live=getattr(item, 'is_live', False),
-                source=getattr(item, 'source', SOURCE_TYPES.SIM),
+                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
 

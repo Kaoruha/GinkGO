@@ -5,6 +5,7 @@ import datetime
 from types import FunctionType, MethodType
 from typing import Optional
 from sqlalchemy import Enum, String, DateTime, Boolean
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from .model_base import MBase
@@ -27,13 +28,18 @@ class MMysqlBase(Base, MBase):
     create_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
     update_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
     is_del: Mapped[bool] = mapped_column(Boolean, default=False)
-    source: Mapped[SOURCE_TYPES] = mapped_column(Enum(SOURCE_TYPES), default=SOURCE_TYPES.OTHER)
+    source: Mapped[int] = mapped_column(TINYINT, default=-1)
+
+    def get_source_enum(self):
+        """Convert database source integer back to enum for business layer"""
+        return SOURCE_TYPES.from_int(self.source)
 
     def update(self) -> None:
         raise NotImplementedError("Model Class need to overload Function update to transit data.")
 
-    def set_source(self, source: SOURCE_TYPES, *args, **kwargs) -> None:
-        self.source = source
+    def set_source(self, source, *args, **kwargs) -> None:
+        """Set source with enum/int dual input support"""
+        self.source = SOURCE_TYPES.validate_input(source) or -1
 
     def delete(self, *args, **kwargs) -> None:
         self.is_del = True

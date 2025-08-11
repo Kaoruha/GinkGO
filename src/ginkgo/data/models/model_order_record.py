@@ -6,6 +6,7 @@ from decimal import Decimal
 from functools import singledispatchmethod
 from sqlalchemy import String, Integer, DECIMAL, Enum
 from sqlalchemy.orm import Mapped, mapped_column
+from clickhouse_sqlalchemy import types
 
 from .model_clickbase import MClickBase
 from ...enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
@@ -20,9 +21,9 @@ class MOrderRecord(MClickBase):
     portfolio_id: Mapped[str] = mapped_column(String(), default="")
     engine_id: Mapped[str] = mapped_column(String(), default="")
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
-    direction: Mapped[DIRECTION_TYPES] = mapped_column(Enum(DIRECTION_TYPES), default=DIRECTION_TYPES.LONG)
-    order_type: Mapped[ORDER_TYPES] = mapped_column(Enum(ORDER_TYPES), default=ORDER_TYPES.OTHER)
-    status: Mapped[ORDERSTATUS_TYPES] = mapped_column(Enum(ORDERSTATUS_TYPES), default=ORDERSTATUS_TYPES.OTHER)
+    direction: Mapped[int] = mapped_column(types.Int8, default=-1)
+    order_type: Mapped[int] = mapped_column(types.Int8, default=-1)
+    status: Mapped[int] = mapped_column(types.Int8, default=-1)
     volume: Mapped[int] = mapped_column(Integer, default=0)
     limit_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     frozen: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
@@ -63,11 +64,11 @@ class MOrderRecord(MClickBase):
         if code is not None:
             self.code = code
         if direction is not None:
-            self.direction = direction
+            self.direction = DIRECTION_TYPES.validate_input(direction) or -1
         if order_type is not None:
-            self.order_type = order_type
+            self.order_type = ORDER_TYPES.validate_input(order_type) or -1
         if status is not None:
-            self.status = status
+            self.status = ORDERSTATUS_TYPES.validate_input(status) or -1
         if volume is not None:
             self.volume = volume
         if limit_price is not None:
@@ -93,9 +94,9 @@ class MOrderRecord(MClickBase):
         self.portfolio_id = df["portfolio_id"]
         self.engine_id = df["engine_id"]
         self.code = df["code"]
-        self.direction = df["direction"]
-        self.order_type = df["order_type"]
-        self.status = df["status"]
+        self.direction = DIRECTION_TYPES.validate_input(df["direction"]) or -1
+        self.order_type = ORDER_TYPES.validate_input(df["order_type"]) or -1
+        self.status = ORDERSTATUS_TYPES.validate_input(df["status"]) or -1
         self.volume = df["volume"]
         self.limit_price = to_decimal(df["limit_price"])
         self.frozen = df["frozen"]

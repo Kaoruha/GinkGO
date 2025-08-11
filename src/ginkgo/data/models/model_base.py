@@ -1,7 +1,7 @@
-
 import pandas as pd
 from types import FunctionType, MethodType
 from sqlalchemy import Enum
+
 
 class MBase:
     def to_dataframe(self, *args, **kwargs) -> pd.DataFrame:
@@ -19,8 +19,6 @@ class MBase:
 
             if isinstance(self.__getattribute__(param), Enum):
                 item[param] = self.__getattribute__(param).value
-            elif isinstance(self.__getattribute__(param), str):
-                item[param] = self.__getattribute__(param).strip(b"\x00".decode())
             else:
                 item[param] = self.__getattribute__(param)
 
