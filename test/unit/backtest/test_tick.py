@@ -24,7 +24,7 @@ class TickTest(unittest.TestCase):
                 "price": Decimal(round(random.uniform(0, 100), 2)),
                 "volume": 100,
                 "timestamp": "2020-01-01 02:02:32",
-                "direction": TICKDIRECTION_TYPES.OTHER,
+                "direction": TICKDIRECTION_TYPES.NEUTRAL,
                 "source": SOURCE_TYPES.AKSHARE,
             },
             {
@@ -32,7 +32,7 @@ class TickTest(unittest.TestCase):
                 "price": Decimal(round(random.uniform(0, 100), 2)),
                 "volume": 10022,
                 "timestamp": datetime.datetime.now(),
-                "direction": TICKDIRECTION_TYPES.OTHER,
+                "direction": TICKDIRECTION_TYPES.NEUTRAL,
                 "source": SOURCE_TYPES.YAHOO,
             },
         ]

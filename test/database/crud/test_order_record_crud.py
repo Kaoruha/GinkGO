@@ -93,7 +93,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
             "code": "000001.SZ",
             "direction": DIRECTION_TYPES.LONG,
             "order_type": ORDER_TYPES.MARKETORDER,
-            "status": ORDERSTATUS_TYPES.SUBMITTED,
+            "status": ORDERSTATUS_TYPES.SUBMITTED.value,
             "volume": 1000,
             "limit_price": to_decimal(10.50),
             "frozen": to_decimal(10500.00),
@@ -135,16 +135,16 @@ class OrderRecordCRUDTest(unittest.TestCase):
         # Verify table size increased by 1
         self.assertEqual(size0 + 1, size1)
 
-        # Verify creation
+        # Verify creation - 数据库存储的是整数值
         self.assertIsNotNone(created_order)
         self.assertIsInstance(created_order, MOrderRecord)
         self.assertEqual(created_order.order_id, self.test_order_id)
         self.assertEqual(created_order.portfolio_id, self.test_portfolio_id)
         self.assertEqual(created_order.engine_id, self.test_engine_id)
         self.assertEqual(created_order.code, "000001.SZ")
-        self.assertEqual(created_order.direction, DIRECTION_TYPES.LONG)
-        self.assertEqual(created_order.order_type, ORDER_TYPES.MARKETORDER)
-        self.assertEqual(created_order.status, ORDERSTATUS_TYPES.SUBMITTED)
+        self.assertEqual(created_order.direction, DIRECTION_TYPES.LONG.value)
+        self.assertEqual(created_order.order_type, ORDER_TYPES.MARKETORDER.value)
+        self.assertEqual(created_order.status, ORDERSTATUS_TYPES.SUBMITTED.value.value)
         self.assertEqual(created_order.volume, 1000)
         self.assertEqual(created_order.limit_price, to_decimal(10.50))
 
@@ -168,7 +168,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
             "code": "000002.SZ",
             "direction": DIRECTION_TYPES.SHORT,
             "order_type": ORDER_TYPES.LIMITORDER,
-            "status": ORDERSTATUS_TYPES.FILLED,
+            "status": ORDERSTATUS_TYPES.FILLED.value,
             "volume": 2000,
             "limit_price": to_decimal(20.75),
             "frozen": to_decimal(0),
@@ -191,8 +191,8 @@ class OrderRecordCRUDTest(unittest.TestCase):
         self.assertEqual(added_order.order_id, f"TestOrder{self.test_id}_obj")
         self.assertEqual(added_order.portfolio_id, f"TestPortfolio{self.test_id}_obj")
         self.assertEqual(added_order.code, "000002.SZ")
-        self.assertEqual(added_order.direction, DIRECTION_TYPES.SHORT)
-        self.assertEqual(added_order.status, ORDERSTATUS_TYPES.FILLED)
+        self.assertEqual(added_order.direction, DIRECTION_TYPES.SHORT.value)
+        self.assertEqual(added_order.status, ORDERSTATUS_TYPES.FILLED.value)
         self.assertEqual(added_order.transaction_price, to_decimal(20.50))
 
         # Verify in database
@@ -217,7 +217,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
                 code=f"00000{i}.SZ",
                 direction=DIRECTION_TYPES.LONG if i % 2 == 0 else DIRECTION_TYPES.SHORT,
                 order_type=ORDER_TYPES.MARKETORDER,
-                status=ORDERSTATUS_TYPES.SUBMITTED,
+                status=ORDERSTATUS_TYPES.SUBMITTED.value,
                 volume=100 * (i + 1),
                 limit_price=to_decimal(10 + i),
                 frozen=to_decimal(1000 * (i + 1)),
@@ -255,7 +255,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
             params = self.test_order_params.copy()
             params["order_id"] = f"TestOrder{self.test_id}_portfolio_{i}"
             params["code"] = f"00000{i}.SZ"
-            params["status"] = ORDERSTATUS_TYPES.SUBMITTED if i == 0 else ORDERSTATUS_TYPES.FILLED
+            params["status"] = ORDERSTATUS_TYPES.SUBMITTED.value if i == 0 else ORDERSTATUS_TYPES.FILLED.value
             self.crud.create(**params)
 
         # Test find by portfolio
@@ -277,7 +277,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
         # Test find by portfolio with status filter
         found_orders_status = self.crud.find_by_portfolio(
             self.test_portfolio_id,
-            status=ORDERSTATUS_TYPES.FILLED
+            status=ORDERSTATUS_TYPES.FILLED.value
         )
         self.assertEqual(len(found_orders_status), 2)  # 2 filled orders
 
@@ -304,9 +304,9 @@ class OrderRecordCRUDTest(unittest.TestCase):
         """Test OrderRecordCRUD find by code and status business helper method with real database"""
         # Create test order records with different codes and statuses
         test_data = [
-            {"code": "TESTCODE.SZ", "status": ORDERSTATUS_TYPES.SUBMITTED},
-            {"code": "TESTCODE.SZ", "status": ORDERSTATUS_TYPES.FILLED},
-            {"code": "OTHERCODE.SZ", "status": ORDERSTATUS_TYPES.SUBMITTED},
+            {"code": "TESTCODE.SZ", "status": ORDERSTATUS_TYPES.SUBMITTED.value},
+            {"code": "TESTCODE.SZ", "status": ORDERSTATUS_TYPES.FILLED.value},
+            {"code": "OTHERCODE.SZ", "status": ORDERSTATUS_TYPES.SUBMITTED.value},
         ]
 
         for i, data in enumerate(test_data):
@@ -317,20 +317,20 @@ class OrderRecordCRUDTest(unittest.TestCase):
             self.crud.create(**params)
 
         # Test find by code and status
-        submitted_testcode_orders = self.crud.find_by_code_and_status("TESTCODE.SZ", ORDERSTATUS_TYPES.SUBMITTED)
+        submitted_testcode_orders = self.crud.find_by_code_and_status("TESTCODE.SZ", ORDERSTATUS_TYPES.SUBMITTED.value)
         self.assertEqual(len(submitted_testcode_orders), 1)
         self.assertEqual(submitted_testcode_orders[0].code, "TESTCODE.SZ")
-        self.assertEqual(submitted_testcode_orders[0].status, ORDERSTATUS_TYPES.SUBMITTED)
+        self.assertEqual(submitted_testcode_orders[0].status, ORDERSTATUS_TYPES.SUBMITTED.value)
 
-        filled_testcode_orders = self.crud.find_by_code_and_status("TESTCODE.SZ", ORDERSTATUS_TYPES.FILLED)
+        filled_testcode_orders = self.crud.find_by_code_and_status("TESTCODE.SZ", ORDERSTATUS_TYPES.FILLED.value)
         self.assertEqual(len(filled_testcode_orders), 1)
-        self.assertEqual(filled_testcode_orders[0].status, ORDERSTATUS_TYPES.FILLED)
+        self.assertEqual(filled_testcode_orders[0].status, ORDERSTATUS_TYPES.FILLED.value)
 
     @database_test_required
     def test_OrderRecordCRUD_Find_Pending_Orders_Real(self):
         """Test OrderRecordCRUD find pending orders business helper method with real database"""
         # Create test order records with different statuses
-        statuses = [ORDERSTATUS_TYPES.SUBMITTED, ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.SUBMITTED, ORDERSTATUS_TYPES.CANCELED]
+        statuses = [ORDERSTATUS_TYPES.SUBMITTED.value, ORDERSTATUS_TYPES.FILLED.value, ORDERSTATUS_TYPES.SUBMITTED.value, ORDERSTATUS_TYPES.CANCELED]
 
         for i, status in enumerate(statuses):
             params = self.test_order_params.copy()
@@ -345,7 +345,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
         # Should find 2 submitted orders (SUBMITTED is the equivalent of pending)
         self.assertEqual(len(pending_orders), 2)
         for order in pending_orders:
-            self.assertEqual(order.status, ORDERSTATUS_TYPES.SUBMITTED)
+            self.assertEqual(order.status, ORDERSTATUS_TYPES.SUBMITTED.value)
             self.assertEqual(order.portfolio_id, self.test_portfolio_id)
 
         # Test find pending orders for specific code
@@ -358,9 +358,9 @@ class OrderRecordCRUDTest(unittest.TestCase):
         """Test OrderRecordCRUD find filled orders business helper method with real database"""
         # Create test order records with different statuses and timestamps
         test_data = [
-            {"status": ORDERSTATUS_TYPES.FILLED, "timestamp": "2023-01-01 09:30:00"},
-            {"status": ORDERSTATUS_TYPES.FILLED, "timestamp": "2023-01-01 10:00:00"},
-            {"status": ORDERSTATUS_TYPES.SUBMITTED, "timestamp": "2023-01-01 10:30:00"},
+            {"status": ORDERSTATUS_TYPES.FILLED.value, "timestamp": "2023-01-01 09:30:00"},
+            {"status": ORDERSTATUS_TYPES.FILLED.value, "timestamp": "2023-01-01 10:00:00"},
+            {"status": ORDERSTATUS_TYPES.SUBMITTED.value, "timestamp": "2023-01-01 10:30:00"},
         ]
 
         for i, data in enumerate(test_data):
@@ -376,7 +376,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
         # Should find 2 filled orders
         self.assertEqual(len(filled_orders), 2)
         for order in filled_orders:
-            self.assertEqual(order.status, ORDERSTATUS_TYPES.FILLED)
+            self.assertEqual(order.status, ORDERSTATUS_TYPES.FILLED.value)
 
         # Test find filled orders with date range
         filled_orders_range = self.crud.find_filled_orders(
@@ -408,9 +408,9 @@ class OrderRecordCRUDTest(unittest.TestCase):
         """Test OrderRecordCRUD count by status business helper method with real database"""
         # Create test order records with different statuses
         statuses = [
-            ORDERSTATUS_TYPES.SUBMITTED,
-            ORDERSTATUS_TYPES.SUBMITTED,
-            ORDERSTATUS_TYPES.FILLED,
+            ORDERSTATUS_TYPES.SUBMITTED.value,
+            ORDERSTATUS_TYPES.SUBMITTED.value,
+            ORDERSTATUS_TYPES.FILLED.value,
             ORDERSTATUS_TYPES.CANCELED,
         ]
 
@@ -421,10 +421,10 @@ class OrderRecordCRUDTest(unittest.TestCase):
             self.crud.create(**params)
 
         # Test count by status
-        submitted_count = self.crud.count_by_status(ORDERSTATUS_TYPES.SUBMITTED, portfolio_id=self.test_portfolio_id)
+        submitted_count = self.crud.count_by_status(ORDERSTATUS_TYPES.SUBMITTED.value, portfolio_id=self.test_portfolio_id)
         self.assertEqual(submitted_count, 2)
 
-        filled_count = self.crud.count_by_status(ORDERSTATUS_TYPES.FILLED, portfolio_id=self.test_portfolio_id)
+        filled_count = self.crud.count_by_status(ORDERSTATUS_TYPES.FILLED.value, portfolio_id=self.test_portfolio_id)
         self.assertEqual(filled_count, 1)
 
         cancelled_count = self.crud.count_by_status(ORDERSTATUS_TYPES.CANCELED, portfolio_id=self.test_portfolio_id)
@@ -443,7 +443,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
         for i, data in enumerate(transaction_data):
             params = self.test_order_params.copy()
             params["order_id"] = f"TestOrder{self.test_id}_amount_{i}"
-            params["status"] = ORDERSTATUS_TYPES.FILLED
+            params["status"] = ORDERSTATUS_TYPES.FILLED.value
             params["transaction_price"] = to_decimal(data["transaction_price"])
             params["volume"] = data["volume"]
             params["fee"] = to_decimal(data["fee"])
@@ -522,7 +522,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
     def test_OrderRecordCRUD_Delete_By_Status_Real(self):
         """Test OrderRecordCRUD delete by status business helper method with real database"""
         # Create test order records with different statuses
-        statuses = [ORDERSTATUS_TYPES.SUBMITTED, ORDERSTATUS_TYPES.FILLED, ORDERSTATUS_TYPES.SUBMITTED, ORDERSTATUS_TYPES.CANCELED]
+        statuses = [ORDERSTATUS_TYPES.SUBMITTED.value, ORDERSTATUS_TYPES.FILLED.value, ORDERSTATUS_TYPES.SUBMITTED.value, ORDERSTATUS_TYPES.CANCELED]
 
         for i, status in enumerate(statuses):
             params = self.test_order_params.copy()
@@ -535,15 +535,15 @@ class OrderRecordCRUDTest(unittest.TestCase):
         self.assertEqual(len(all_orders), 4)
 
         # Delete submitted orders (pending equivalent)
-        self.crud.delete_by_status(ORDERSTATUS_TYPES.SUBMITTED, portfolio_id=self.test_portfolio_id)
+        self.crud.delete_by_status(ORDERSTATUS_TYPES.SUBMITTED.value, portfolio_id=self.test_portfolio_id)
 
         # Verify only 2 orders remain (filled and canceled)
         remaining_orders = self.crud.find_by_portfolio(self.test_portfolio_id)
         self.assertEqual(len(remaining_orders), 2)
         statuses_remaining = [order.status for order in remaining_orders]
-        self.assertIn(ORDERSTATUS_TYPES.FILLED, statuses_remaining)
+        self.assertIn(ORDERSTATUS_TYPES.FILLED.value, statuses_remaining)
         self.assertIn(ORDERSTATUS_TYPES.CANCELED, statuses_remaining)
-        self.assertNotIn(ORDERSTATUS_TYPES.SUBMITTED, statuses_remaining)
+        self.assertNotIn(ORDERSTATUS_TYPES.SUBMITTED.value, statuses_remaining)
 
     @database_test_required
     def test_OrderRecordCRUD_DataFrame_Output_Real(self):
@@ -577,10 +577,10 @@ class OrderRecordCRUDTest(unittest.TestCase):
         """Test OrderRecordCRUD complex filters with real database"""
         # Create order records with different attributes
         test_data = [
-            {"code": "000001.SZ", "status": ORDERSTATUS_TYPES.FILLED, "volume": 100},
-            {"code": "000002.SZ", "status": ORDERSTATUS_TYPES.SUBMITTED, "volume": 200},
-            {"code": "000001.SZ", "status": ORDERSTATUS_TYPES.SUBMITTED, "volume": 150},
-            {"code": "000003.SZ", "status": ORDERSTATUS_TYPES.FILLED, "volume": 300},
+            {"code": "000001.SZ", "status": ORDERSTATUS_TYPES.FILLED.value, "volume": 100},
+            {"code": "000002.SZ", "status": ORDERSTATUS_TYPES.SUBMITTED.value, "volume": 200},
+            {"code": "000001.SZ", "status": ORDERSTATUS_TYPES.SUBMITTED.value, "volume": 150},
+            {"code": "000003.SZ", "status": ORDERSTATUS_TYPES.FILLED.value, "volume": 300},
         ]
 
         for i, data in enumerate(test_data):
@@ -596,14 +596,14 @@ class OrderRecordCRUDTest(unittest.TestCase):
             filters={
                 "portfolio_id": self.test_portfolio_id,
                 "code": "000001.SZ",
-                "status": ORDERSTATUS_TYPES.SUBMITTED,
+                "status": ORDERSTATUS_TYPES.SUBMITTED.value,
             }
         )
 
         # Should find 1 order (000001.SZ + PENDING)
         self.assertEqual(len(filtered_orders), 1)
         self.assertEqual(filtered_orders[0].code, "000001.SZ")
-        self.assertEqual(filtered_orders[0].status, ORDERSTATUS_TYPES.SUBMITTED)
+        self.assertEqual(filtered_orders[0].status, ORDERSTATUS_TYPES.SUBMITTED.value)
 
         # Test IN operator for codes
         multi_code_orders = self.crud.find(
@@ -638,7 +638,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
             filters={
                 "order_id": self.test_order_id,
                 "code": "000001.SZ",
-                "status": ORDERSTATUS_TYPES.SUBMITTED,
+                "status": ORDERSTATUS_TYPES.SUBMITTED.value,
             }
         )
         self.assertTrue(exists_specific)
@@ -671,7 +671,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
                 code=f"BULK{i}.SZ",
                 direction=DIRECTION_TYPES.LONG,
                 order_type=ORDER_TYPES.MARKETORDER,
-                status=ORDERSTATUS_TYPES.SUBMITTED,
+                status=ORDERSTATUS_TYPES.SUBMITTED.value,
                 volume=100 * (i + 1),
                 limit_price=to_decimal(10 + i),
                 frozen=to_decimal(1000 * (i + 1)),
@@ -888,7 +888,7 @@ class OrderRecordCRUDTest(unittest.TestCase):
                 # 添加缺少的必填字段（使用有效值）
                 "direction": DIRECTION_TYPES.LONG,
                 "order_type": ORDER_TYPES.MARKETORDER,
-                "status": ORDERSTATUS_TYPES.SUBMITTED,
+                "status": ORDERSTATUS_TYPES.SUBMITTED.value,
                 "limit_price": 10.5,
                 
                 # 故意设置无效值来测试验证
