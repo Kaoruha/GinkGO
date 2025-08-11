@@ -91,7 +91,7 @@ class TickCRUDTest(unittest.TestCase):
             "code": self.test_code_primary,
             "price": to_decimal(10.50),
             "volume": 1000,
-            "direction": TICKDIRECTION_TYPES.BUY,
+            "direction": TICKDIRECTION_TYPES.ACTIVEBUY,
             "timestamp": self.test_timestamp,
             "source": SOURCE_TYPES.TDX,
         }
@@ -192,8 +192,9 @@ class TickCRUDTest(unittest.TestCase):
         self.assertEqual(created_tick.code, self.test_code_primary)
         self.assertEqual(created_tick.price, to_decimal(10.50))
         self.assertEqual(created_tick.volume, 1000)
-        self.assertEqual(created_tick.direction, TICKDIRECTION_TYPES.BUY)
-        self.assertEqual(created_tick.source, SOURCE_TYPES.TDX)
+        # 数据库存储的是整数值
+        self.assertEqual(created_tick.direction, TICKDIRECTION_TYPES.ACTIVEBUY.value)
+        self.assertEqual(created_tick.source, SOURCE_TYPES.TDX.value)
 
         # Verify in database
         found_ticks = self.crud_primary.find(filters={"code": self.test_code_primary})
@@ -210,7 +211,7 @@ class TickCRUDTest(unittest.TestCase):
             code=self.test_code_primary,
             price=15.75,
             volume=2000,
-            direction=TICKDIRECTION_TYPES.SELL,
+            direction=TICKDIRECTION_TYPES.ACTIVESELL,
             timestamp=datetime(2023, 6, 16, 10, 0, 0),
             source=SOURCE_TYPES.REALTIME,
         )
@@ -230,7 +231,8 @@ class TickCRUDTest(unittest.TestCase):
         self.assertEqual(added_tick.code, self.test_code_primary)
         self.assertEqual(added_tick.price, to_decimal(15.75))
         self.assertEqual(added_tick.volume, 2000)
-        self.assertEqual(added_tick.direction, TICKDIRECTION_TYPES.SELL)
+        # 数据库存储的是整数值
+        self.assertEqual(added_tick.direction, TICKDIRECTION_TYPES.ACTIVESELL.value)
 
         # Verify in database
         found_ticks = self.crud_primary.find(filters={"price": to_decimal(15.75)})
@@ -246,7 +248,7 @@ class TickCRUDTest(unittest.TestCase):
         batch_count = 3
         prices = [10.10, 10.20, 10.30]
         volumes = [1000, 1500, 2000]
-        directions = [TICKDIRECTION_TYPES.BUY, TICKDIRECTION_TYPES.SELL, TICKDIRECTION_TYPES.OTHER]
+        directions = [TICKDIRECTION_TYPES.ACTIVEBUY, TICKDIRECTION_TYPES.ACTIVESELL, TICKDIRECTION_TYPES.NEUTRAL]
 
         for i in range(batch_count):
             tick = Tick(
@@ -306,7 +308,7 @@ class TickCRUDTest(unittest.TestCase):
         buy_ticks = self.crud_primary.find_by_time_range(
             start_time=datetime(2023, 6, 15),
             end_time=datetime(2023, 6, 19),
-            direction=TICKDIRECTION_TYPES.BUY
+            direction=TICKDIRECTION_TYPES.ACTIVEBUY
         )
         self.assertEqual(len(buy_ticks), 4)  # All our test ticks are BUY
 
@@ -477,15 +479,15 @@ class TickCRUDTest(unittest.TestCase):
         self.assertEqual(tick.code, self.test_code_primary)
         self.assertEqual(tick.price, Decimal("10.50"))
         self.assertEqual(tick.volume, 1000)
-        self.assertEqual(tick.direction, TICKDIRECTION_TYPES.BUY)
+        self.assertEqual(tick.direction, TICKDIRECTION_TYPES.ACTIVEBUY)
 
     def test_TickCRUD_DataFrame_Output_Real(self):
         """Test TickCRUD DataFrame output with real database"""
         # Create test ticks
         test_data = [
-            {"price": 10.10, "volume": 1000, "direction": TICKDIRECTION_TYPES.BUY},
-            {"price": 10.20, "volume": 1500, "direction": TICKDIRECTION_TYPES.SELL},
-            {"price": 10.15, "volume": 2000, "direction": TICKDIRECTION_TYPES.OTHER},
+            {"price": 10.10, "volume": 1000, "direction": TICKDIRECTION_TYPES.ACTIVEBUY},
+            {"price": 10.20, "volume": 1500, "direction": TICKDIRECTION_TYPES.ACTIVESELL},
+            {"price": 10.15, "volume": 2000, "direction": TICKDIRECTION_TYPES.NEUTRAL},
         ]
 
         for i, data in enumerate(test_data):
@@ -531,7 +533,7 @@ class TickCRUDTest(unittest.TestCase):
             "code": self.test_code_secondary,
             "price": to_decimal(20.50),
             "volume": 2000,
-            "direction": TICKDIRECTION_TYPES.SELL,
+            "direction": TICKDIRECTION_TYPES.ACTIVESELL,
             "timestamp": self.test_timestamp,
             "source": SOURCE_TYPES.REALTIME,
         }
@@ -559,10 +561,10 @@ class TickCRUDTest(unittest.TestCase):
         """Test TickCRUD complex filters with real database"""
         # Create ticks with different attributes
         test_data = [
-            {"price": 10.00, "volume": 1000, "direction": TICKDIRECTION_TYPES.BUY, "timestamp": datetime(2023, 6, 15, 10, 0)},
-            {"price": 10.50, "volume": 2000, "direction": TICKDIRECTION_TYPES.SELL, "timestamp": datetime(2023, 6, 15, 11, 0)},
-            {"price": 11.00, "volume": 1500, "direction": TICKDIRECTION_TYPES.BUY, "timestamp": datetime(2023, 6, 15, 12, 0)},
-            {"price": 9.50, "volume": 3000, "direction": TICKDIRECTION_TYPES.OTHER, "timestamp": datetime(2023, 6, 15, 13, 0)},
+            {"price": 10.00, "volume": 1000, "direction": TICKDIRECTION_TYPES.ACTIVEBUY, "timestamp": datetime(2023, 6, 15, 10, 0)},
+            {"price": 10.50, "volume": 2000, "direction": TICKDIRECTION_TYPES.ACTIVESELL, "timestamp": datetime(2023, 6, 15, 11, 0)},
+            {"price": 11.00, "volume": 1500, "direction": TICKDIRECTION_TYPES.ACTIVEBUY, "timestamp": datetime(2023, 6, 15, 12, 0)},
+            {"price": 9.50, "volume": 3000, "direction": TICKDIRECTION_TYPES.NEUTRAL, "timestamp": datetime(2023, 6, 15, 13, 0)},
         ]
 
         for data in test_data:
@@ -573,7 +575,7 @@ class TickCRUDTest(unittest.TestCase):
         # Test combined filters
         buy_expensive_ticks = self.crud_primary.find(
             filters={
-                "direction": TICKDIRECTION_TYPES.BUY,
+                "direction": TICKDIRECTION_TYPES.ACTIVEBUY,
                 "price__gte": to_decimal(10.25),
                 "volume__gte": 1200,
             }
@@ -586,7 +588,7 @@ class TickCRUDTest(unittest.TestCase):
         # Test IN operator for directions
         buy_sell_ticks = self.crud_primary.find(
             filters={
-                "direction__in": [TICKDIRECTION_TYPES.BUY, TICKDIRECTION_TYPES.SELL],
+                "direction__in": [TICKDIRECTION_TYPES.ACTIVEBUY, TICKDIRECTION_TYPES.ACTIVESELL],
                 "price__lte": to_decimal(10.75)
             }
         )
@@ -594,8 +596,8 @@ class TickCRUDTest(unittest.TestCase):
         # Should find 2 ticks (price=10.00 BUY and price=10.50 SELL)
         self.assertEqual(len(buy_sell_ticks), 2)
         directions = [tick.direction for tick in buy_sell_ticks]
-        self.assertIn(TICKDIRECTION_TYPES.BUY, directions)
-        self.assertIn(TICKDIRECTION_TYPES.SELL, directions)
+        self.assertIn(TICKDIRECTION_TYPES.ACTIVEBUY, directions)
+        self.assertIn(TICKDIRECTION_TYPES.ACTIVESELL, directions)
 
     def test_TickCRUD_Exists_Real(self):
         """Test TickCRUD exists functionality with real database"""
@@ -615,7 +617,7 @@ class TickCRUDTest(unittest.TestCase):
             filters={
                 "price": to_decimal(10.50),
                 "volume": 1000,
-                "direction": TICKDIRECTION_TYPES.BUY,
+                "direction": TICKDIRECTION_TYPES.ACTIVEBUY,
             }
         )
         self.assertTrue(exists_specific)
@@ -624,7 +626,7 @@ class TickCRUDTest(unittest.TestCase):
         exists_false = self.crud_primary.exists(
             filters={
                 "price": to_decimal(10.50),
-                "direction": TICKDIRECTION_TYPES.SELL
+                "direction": TICKDIRECTION_TYPES.ACTIVESELL
             }
         )
         self.assertFalse(exists_false)
@@ -640,8 +642,8 @@ class TickCRUDTest(unittest.TestCase):
         prices = [10.10, 10.20, 10.30, 10.40, 10.50]
         volumes = [1000, 1100, 1200, 1300, 1400]
         directions = [
-            TICKDIRECTION_TYPES.BUY, TICKDIRECTION_TYPES.SELL, TICKDIRECTION_TYPES.OTHER,
-            TICKDIRECTION_TYPES.BUY, TICKDIRECTION_TYPES.SELL
+            TICKDIRECTION_TYPES.ACTIVEBUY, TICKDIRECTION_TYPES.ACTIVESELL, TICKDIRECTION_TYPES.NEUTRAL,
+            TICKDIRECTION_TYPES.ACTIVEBUY, TICKDIRECTION_TYPES.ACTIVESELL
         ]
 
         for i in range(bulk_count):
@@ -751,7 +753,7 @@ class TickCRUDTest(unittest.TestCase):
             "code": self.test_code_primary,
             "price": to_decimal(5.00),
             "volume": 100,
-            "direction": TICKDIRECTION_TYPES.BUY,
+            "direction": TICKDIRECTION_TYPES.ACTIVEBUY,
             "timestamp": datetime(2023, 6, 15, 14, 30, 0),  # ClickHouse required field
         }
 
@@ -760,7 +762,7 @@ class TickCRUDTest(unittest.TestCase):
             self.assertIsNotNone(minimal_tick)
             # Should have default values
             self.assertEqual(minimal_tick.code, self.test_code_primary)  # From instance
-            self.assertEqual(minimal_tick.direction, TICKDIRECTION_TYPES.BUY)  # As specified
+            self.assertEqual(minimal_tick.direction, TICKDIRECTION_TYPES.ACTIVEBUY)  # As specified
             self.assertEqual(minimal_tick.volume, 100)  # As specified
         except Exception as e:
             self.fail(f"Creating tick with minimal parameters should not fail: {e}")
@@ -773,12 +775,12 @@ class TickCRUDTest(unittest.TestCase):
         """Test TickCRUD business logic integration with real database"""
         # Create a realistic trading scenario throughout the day
         trading_scenario = [
-            {"time": "09:30:00", "price": 10.00, "volume": 2000, "direction": TICKDIRECTION_TYPES.BUY},
-            {"time": "10:15:30", "price": 10.05, "volume": 1500, "direction": TICKDIRECTION_TYPES.BUY},
-            {"time": "11:30:45", "price": 10.10, "volume": 3000, "direction": TICKDIRECTION_TYPES.SELL},
-            {"time": "13:00:15", "price": 10.02, "volume": 1000, "direction": TICKDIRECTION_TYPES.SELL},
-            {"time": "14:30:00", "price": 10.08, "volume": 2500, "direction": TICKDIRECTION_TYPES.BUY},
-            {"time": "15:00:00", "price": 10.12, "volume": 4000, "direction": TICKDIRECTION_TYPES.SELL},
+            {"time": "09:30:00", "price": 10.00, "volume": 2000, "direction": TICKDIRECTION_TYPES.ACTIVEBUY},
+            {"time": "10:15:30", "price": 10.05, "volume": 1500, "direction": TICKDIRECTION_TYPES.ACTIVEBUY},
+            {"time": "11:30:45", "price": 10.10, "volume": 3000, "direction": TICKDIRECTION_TYPES.ACTIVESELL},
+            {"time": "13:00:15", "price": 10.02, "volume": 1000, "direction": TICKDIRECTION_TYPES.ACTIVESELL},
+            {"time": "14:30:00", "price": 10.08, "volume": 2500, "direction": TICKDIRECTION_TYPES.ACTIVEBUY},
+            {"time": "15:00:00", "price": 10.12, "volume": 4000, "direction": TICKDIRECTION_TYPES.ACTIVESELL},
         ]
 
         for scenario in trading_scenario:
@@ -818,8 +820,8 @@ class TickCRUDTest(unittest.TestCase):
         self.assertEqual(latest_ticks[2].timestamp, datetime(2023, 6, 15, 13, 0, 15))
 
         # 5. Analysis: count buy vs sell
-        buy_ticks = self.crud_primary.find({"direction": TICKDIRECTION_TYPES.BUY})
-        sell_ticks = self.crud_primary.find({"direction": TICKDIRECTION_TYPES.SELL})
+        buy_ticks = self.crud_primary.find({"direction": TICKDIRECTION_TYPES.ACTIVEBUY})
+        sell_ticks = self.crud_primary.find({"direction": TICKDIRECTION_TYPES.ACTIVESELL})
         self.assertEqual(len(buy_ticks), 3)
         self.assertEqual(len(sell_ticks), 3)
 

@@ -81,10 +81,10 @@ class FileCRUDTest(unittest.TestCase):
 
         # Test file data based on actual MFile fields
         self.test_file_params = {
-            "type": FILE_TYPES.STRATEGY,
+            "type": FILE_TYPES.STRATEGY.value,
             "name": self.test_filename,
             "data": b"# Test file content\nprint('Hello, Ginkgo!')",
-            "source": SOURCE_TYPES.SIM,
+            "source": SOURCE_TYPES.SIM.value,
         }
 
     def tearDown(self):
@@ -119,13 +119,13 @@ class FileCRUDTest(unittest.TestCase):
         # Verify table size increased by 1
         self.assertEqual(size0 + 1, size1)
 
-        # Verify creation
+        # Verify creation - 数据库存储的是整数值
         self.assertIsNotNone(created_file)
         self.assertIsInstance(created_file, MFile)
-        self.assertEqual(created_file.type, FILE_TYPES.STRATEGY)
+        self.assertEqual(created_file.type, FILE_TYPES.STRATEGY.value.value)
         self.assertEqual(created_file.name, self.test_filename)
         self.assertEqual(created_file.data, b"# Test file content\nprint('Hello, Ginkgo!')")
-        self.assertEqual(created_file.source, SOURCE_TYPES.SIM)
+        self.assertEqual(created_file.source, SOURCE_TYPES.SIM.value.value)
 
         # Verify in database
         found_files = self.crud.find(filters={"name": self.test_filename})
@@ -140,10 +140,10 @@ class FileCRUDTest(unittest.TestCase):
         # Create file object (simple object with attributes)
         class FileObj:
             def __init__(self, test_id):
-                self.type = FILE_TYPES.ANALYZER
+                self.type = FILE_TYPES.ANALYZER.value
                 self.name = f"TestFile{test_id}_obj.py"
                 self.data = b"# Analyzer file\nclass TestAnalyzer: pass"
-                self.source = SOURCE_TYPES.DATABASE
+                self.source = SOURCE_TYPES.DATABASE.value
 
         file_obj = FileObj(self.test_id)
 
@@ -167,10 +167,10 @@ class FileCRUDTest(unittest.TestCase):
 
         # Verify addition
         self.assertIsNotNone(added_file)
-        self.assertEqual(added_file.type, FILE_TYPES.ANALYZER)
+        self.assertEqual(added_file.type, FILE_TYPES.ANALYZER.value)
         self.assertEqual(added_file.name, f"TestFile{self.test_id}_obj.py")
         self.assertEqual(added_file.data, b"# Analyzer file\nclass TestAnalyzer: pass")
-        self.assertEqual(added_file.source, SOURCE_TYPES.DATABASE)
+        self.assertEqual(added_file.source, SOURCE_TYPES.DATABASE.value)
 
         # Verify in database
         found_files = self.crud.find(filters={"name": f"TestFile{self.test_id}_obj.py"})
@@ -184,14 +184,14 @@ class FileCRUDTest(unittest.TestCase):
         # Create multiple file objects
         files = []
         batch_count = 3
-        file_types = [FILE_TYPES.STRATEGY, FILE_TYPES.ANALYZER, FILE_TYPES.INDEX]
+        file_types = [FILE_TYPES.STRATEGY.value, FILE_TYPES.ANALYZER.value, FILE_TYPES.INDEX.value]
         
         for i in range(batch_count):
             file_data = self.crud._create_from_params(
                 type=file_types[i],
                 name=f"TestFile{self.test_id}_batch_{i}.py",
                 data=f"# Batch file {i}\nprint('File {i}')".encode(),
-                source=SOURCE_TYPES.SIM,
+                source=SOURCE_TYPES.SIM.value,
             )
             files.append(file_data)
 
@@ -226,7 +226,7 @@ class FileCRUDTest(unittest.TestCase):
         self.assertEqual(len(found_files), 1)
         self.assertEqual(found_files[0].uuid, test_file_id)
         self.assertEqual(found_files[0].name, self.test_filename)
-        self.assertEqual(found_files[0].type, FILE_TYPES.STRATEGY)
+        self.assertEqual(found_files[0].type, FILE_TYPES.STRATEGY.value)
 
         # Test find by non-existent file ID
         not_found_files = self.crud.find_by_file_id("NON_EXISTENT_ID")
@@ -240,7 +240,7 @@ class FileCRUDTest(unittest.TestCase):
         for i, filename in enumerate(filenames):
             params = self.test_file_params.copy()
             params["name"] = filename
-            params["type"] = FILE_TYPES.STRATEGY if i % 2 == 0 else FILE_TYPES.ANALYZER
+            params["type"] = FILE_TYPES.STRATEGY.value if i % 2 == 0 else FILE_TYPES.ANALYZER.value
             self.crud.create(**params)
 
         # Test find by filename pattern
@@ -255,7 +255,7 @@ class FileCRUDTest(unittest.TestCase):
     def test_FileCRUD_Find_By_Type_Real(self):
         """Test FileCRUD find by type business helper method with real database"""
         # Create files with different types
-        file_types = [FILE_TYPES.STRATEGY, FILE_TYPES.ANALYZER, FILE_TYPES.INDEX, FILE_TYPES.STRATEGY]
+        file_types = [FILE_TYPES.STRATEGY.value, FILE_TYPES.ANALYZER.value, FILE_TYPES.INDEX.value, FILE_TYPES.STRATEGY.value]
 
         for i, file_type in enumerate(file_types):
             params = self.test_file_params.copy()
@@ -264,44 +264,44 @@ class FileCRUDTest(unittest.TestCase):
             self.crud.create(**params)
 
         # Test find by specific type
-        strategy_files = self.crud.find_by_type(FILE_TYPES.STRATEGY)
+        strategy_files = self.crud.find_by_type(FILE_TYPES.STRATEGY.value)
 
         # Should find at least 2 strategy files (our test records)
         matching_strategy = [f for f in strategy_files if f.name.startswith(f"TestFile{self.test_id}_type_")]
         self.assertGreaterEqual(len(matching_strategy), 2)
         for file in matching_strategy:
-            self.assertEqual(file.type, FILE_TYPES.STRATEGY)
+            self.assertEqual(file.type, FILE_TYPES.STRATEGY.value)
 
         # Test find by another type
-        analyzer_files = self.crud.find_by_type(FILE_TYPES.ANALYZER)
+        analyzer_files = self.crud.find_by_type(FILE_TYPES.ANALYZER.value)
         matching_analyzer = [f for f in analyzer_files if f.name.startswith(f"TestFile{self.test_id}_type_")]
         self.assertEqual(len(matching_analyzer), 1)
-        self.assertEqual(matching_analyzer[0].type, FILE_TYPES.ANALYZER)
+        self.assertEqual(matching_analyzer[0].type, FILE_TYPES.ANALYZER.value)
 
     def test_FileCRUD_Find_By_Type_String_Real(self):
         """Test FileCRUD find by type using string input with real database"""
         # Create files with different types
         params1 = self.test_file_params.copy()
         params1["name"] = f"TestFile{self.test_id}_str_strategy.py"
-        params1["type"] = FILE_TYPES.STRATEGY
+        params1["type"] = FILE_TYPES.STRATEGY.value
         self.crud.create(**params1)
 
         params2 = self.test_file_params.copy()
         params2["name"] = f"TestFile{self.test_id}_str_analyzer.py"
-        params2["type"] = FILE_TYPES.ANALYZER
+        params2["type"] = FILE_TYPES.ANALYZER.value
         self.crud.create(**params2)
 
         # Test find by string type
         strategy_files = self.crud.find_by_type("STRATEGY")
         matching_strategy = [f for f in strategy_files if f.name.startswith(f"TestFile{self.test_id}_str_")]
         self.assertEqual(len(matching_strategy), 1)
-        self.assertEqual(matching_strategy[0].type, FILE_TYPES.STRATEGY)
+        self.assertEqual(matching_strategy[0].type, FILE_TYPES.STRATEGY.value)
 
         # Test find by string type (different case)
         analyzer_files = self.crud.find_by_type("analyzer")
         matching_analyzer = [f for f in analyzer_files if f.name.startswith(f"TestFile{self.test_id}_str_")]
         self.assertEqual(len(matching_analyzer), 1)
-        self.assertEqual(matching_analyzer[0].type, FILE_TYPES.ANALYZER)
+        self.assertEqual(matching_analyzer[0].type, FILE_TYPES.ANALYZER.value)
 
     def test_FileCRUD_Find_By_Size_Range_Real(self):
         """Test FileCRUD find by size range business helper method with real database"""
@@ -324,11 +324,11 @@ class FileCRUDTest(unittest.TestCase):
         for i in range(3):
             params = self.test_file_params.copy()
             params["name"] = f"TestFile{self.test_id}_size_{i}.py"
-            params["type"] = FILE_TYPES.STRATEGY
+            params["type"] = FILE_TYPES.STRATEGY.value
             self.crud.create(**params)
 
         # Get total size by type (returns count due to model limitations)
-        total_size = self.crud.get_total_size_by_type(FILE_TYPES.STRATEGY)
+        total_size = self.crud.get_total_size_by_type(FILE_TYPES.STRATEGY.value)
 
         # Should return at least 3 (count of our test files)
         self.assertGreaterEqual(total_size, 3)
@@ -364,19 +364,19 @@ class FileCRUDTest(unittest.TestCase):
         # Create FileInfo object using constructor (properties are read-only)
         file_info = FileInfo(
             name=f"TestFile{self.test_id}_info.py",
-            type=FILE_TYPES.INDEX,
+            type=FILE_TYPES.INDEX.value,
             data=b"# FileInfo test\nclass TestIndex: pass"
         )
         # Set source using the base class attribute (FileInfo inherits from Base)
-        file_info._source = SOURCE_TYPES.REALTIME
+        file_info._source = SOURCE_TYPES.REALTIME.value
 
         # Convert FileInfo to MFile
         mfile = self.crud._convert_input_item(file_info)
         self.assertIsNotNone(mfile)
         self.assertEqual(mfile.name, file_info.name)
-        self.assertEqual(mfile.type, FILE_TYPES.INDEX)
+        self.assertEqual(mfile.type, FILE_TYPES.INDEX.value)
         self.assertEqual(mfile.data, file_info.data)
-        self.assertEqual(mfile.source, SOURCE_TYPES.REALTIME)
+        self.assertEqual(mfile.source, SOURCE_TYPES.REALTIME.value)
 
         # Add to database
         added_file = self.crud.add(mfile)
@@ -385,16 +385,16 @@ class FileCRUDTest(unittest.TestCase):
         # Verify in database
         found_files = self.crud.find(filters={"name": file_info.name})
         self.assertEqual(len(found_files), 1)
-        self.assertEqual(found_files[0].type, FILE_TYPES.INDEX)
+        self.assertEqual(found_files[0].type, FILE_TYPES.INDEX.value)
 
     def test_FileCRUD_Complex_Filters_Real(self):
         """Test FileCRUD complex filters with real database"""
         # Create files with different attributes
         test_data = [
-            {"name": f"TestFile{self.test_id}_complex_A.py", "type": FILE_TYPES.STRATEGY, "source": SOURCE_TYPES.SIM},
-            {"name": f"TestFile{self.test_id}_complex_B.py", "type": FILE_TYPES.ANALYZER, "source": SOURCE_TYPES.DATABASE},
-            {"name": f"TestFile{self.test_id}_complex_C.py", "type": FILE_TYPES.STRATEGY, "source": SOURCE_TYPES.REALTIME},
-            {"name": f"TestFile{self.test_id}_complex_D.py", "type": FILE_TYPES.INDEX, "source": SOURCE_TYPES.SIM},
+            {"name": f"TestFile{self.test_id}_complex_A.py", "type": FILE_TYPES.STRATEGY.value, "source": SOURCE_TYPES.SIM.value},
+            {"name": f"TestFile{self.test_id}_complex_B.py", "type": FILE_TYPES.ANALYZER.value, "source": SOURCE_TYPES.DATABASE.value},
+            {"name": f"TestFile{self.test_id}_complex_C.py", "type": FILE_TYPES.STRATEGY.value, "source": SOURCE_TYPES.REALTIME.value},
+            {"name": f"TestFile{self.test_id}_complex_D.py", "type": FILE_TYPES.INDEX.value, "source": SOURCE_TYPES.SIM.value},
         ]
 
         for data in test_data:
@@ -406,29 +406,29 @@ class FileCRUDTest(unittest.TestCase):
         filtered_files = self.crud.find(
             filters={
                 "name__like": f"TestFile{self.test_id}_complex_%",
-                "type": FILE_TYPES.STRATEGY,
-                "source": SOURCE_TYPES.SIM,
+                "type": FILE_TYPES.STRATEGY.value,
+                "source": SOURCE_TYPES.SIM.value,
             }
         )
 
         # Should find 1 file (complex_A with STRATEGY + SIM)
         self.assertEqual(len(filtered_files), 1)
-        self.assertEqual(filtered_files[0].type, FILE_TYPES.STRATEGY)
-        self.assertEqual(filtered_files[0].source, SOURCE_TYPES.SIM)
+        self.assertEqual(filtered_files[0].type, FILE_TYPES.STRATEGY.value)
+        self.assertEqual(filtered_files[0].source, SOURCE_TYPES.SIM.value)
 
         # Test IN operator for types
         multi_type_files = self.crud.find(
             filters={
                 "name__like": f"TestFile{self.test_id}_complex_%",
-                "type__in": [FILE_TYPES.ANALYZER, FILE_TYPES.INDEX]
+                "type__in": [FILE_TYPES.ANALYZER.value, FILE_TYPES.INDEX.value]
             }
         )
 
         # Should find 2 files (ANALYZER and INDEX)
         self.assertEqual(len(multi_type_files), 2)
         types = [f.type for f in multi_type_files]
-        self.assertIn(FILE_TYPES.ANALYZER, types)
-        self.assertIn(FILE_TYPES.INDEX, types)
+        self.assertIn(FILE_TYPES.ANALYZER.value, types)
+        self.assertIn(FILE_TYPES.INDEX.value, types)
 
     def test_FileCRUD_DataFrame_Output_Real(self):
         """Test FileCRUD DataFrame output with real database"""
@@ -436,7 +436,7 @@ class FileCRUDTest(unittest.TestCase):
         created_file = self.crud.create(**self.test_file_params)
 
         # Get as DataFrame
-        df_result = self.crud.find_by_type(FILE_TYPES.STRATEGY, as_dataframe=True)
+        df_result = self.crud.find_by_type(FILE_TYPES.STRATEGY.value, as_dataframe=True)
 
         # Verify DataFrame
         import pandas as pd
@@ -457,14 +457,14 @@ class FileCRUDTest(unittest.TestCase):
         # Create bulk test data
         bulk_files = []
         bulk_count = 4
-        file_types = [FILE_TYPES.STRATEGY, FILE_TYPES.ANALYZER, FILE_TYPES.INDEX, FILE_TYPES.ENGINE]
+        file_types = [FILE_TYPES.STRATEGY.value, FILE_TYPES.ANALYZER.value, FILE_TYPES.INDEX.value, FILE_TYPES.ENGINE]
 
         for i in range(bulk_count):
             file_data = self.crud._create_from_params(
                 type=file_types[i],
                 name=f"TestFile{self.test_id}_bulk_{i}.py" if i < 3 else f"TestFile{self.test_id}_bulk_{i}.json",
                 data=f"# Bulk file {i}\ndata = {i}".encode(),
-                source=SOURCE_TYPES.SIM,
+                source=SOURCE_TYPES.SIM.value,
             )
             bulk_files.append(file_data)
 
@@ -510,8 +510,8 @@ class FileCRUDTest(unittest.TestCase):
         exists_specific = self.crud.exists(
             filters={
                 "name": self.test_filename,
-                "type": FILE_TYPES.STRATEGY,
-                "source": SOURCE_TYPES.SIM
+                "type": FILE_TYPES.STRATEGY.value,
+                "source": SOURCE_TYPES.SIM.value
             }
         )
         self.assertTrue(exists_specific)
@@ -520,7 +520,7 @@ class FileCRUDTest(unittest.TestCase):
         exists_false = self.crud.exists(
             filters={
                 "name": self.test_filename,
-                "type": FILE_TYPES.ANALYZER
+                "type": FILE_TYPES.ANALYZER.value
             }
         )
         self.assertFalse(exists_false)
