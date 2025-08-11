@@ -23,6 +23,7 @@ from ginkgo.client import dev_cli
 from ginkgo.client import evaluation_cli
 from ginkgo.client import datasource_cli
 from ginkgo.client import container_cli
+from ginkgo.client import cache_cli
 
 # Import new core CLI functions
 from ginkgo.client import core_cli
@@ -79,6 +80,7 @@ main_app.add_typer(kafka_cli.app, name="kafka", help=":satellite_antenna: Kafka 
 main_app.add_typer(evaluation_cli.app, name="evaluation", help=":chart_with_upwards_trend: Evaluation tools") 
 main_app.add_typer(datasource_cli.app, name="datasource", help=":satellite_antenna: Data sources")
 main_app.add_typer(container_cli.app, name="container", help=":package: Container management")
+main_app.add_typer(cache_cli.app, name="cache", help=":wastebasket: Cache management")
 # main_app.add_typer(ml_cli.ml_app, name="ml", help=":robot: Machine Learning models and strategies")
 
 console = Console()
