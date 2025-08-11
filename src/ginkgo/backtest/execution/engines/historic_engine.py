@@ -99,8 +99,6 @@ class HistoricEngine(EventEngine):
             self.log("ERROR", f"{self.name} main_loop: flag must be an instance of threading.Event.")
             return
 
-        consecutive_empty_count = 0
-
         while self._active:
             if flag.is_set():
                 break
@@ -110,25 +108,13 @@ class HistoricEngine(EventEngine):
                 # Pass the event to handle
                 self._process(event)
                 self._empty_count = 0
-                consecutive_empty_count = 0
 
             except Empty:
                 self.next_phase()
-                consecutive_empty_count += 1
             finally:
                 pass
 
-            # 动态休眠时间，减少长期空闲时的CPU占用
-            if consecutive_empty_count > 20:  # 连续20次以上空闲
-                adaptive_sleep = 0.5  # 最大休眠500ms
-            elif consecutive_empty_count > 10:  # 连续10-20次空闲
-                adaptive_sleep = 0.1  # 中等休眠100ms
-            elif consecutive_empty_count > 5:  # 连续5-10次空闲
-                adaptive_sleep = 0.02  # 较短休眠20ms
-            else:
-                adaptive_sleep = 0.002  # 保持原有的2ms以确保macOS兼容性
-
-            print(f"consecutive_empty_count: {consecutive_empty_count}")
+            adaptive_sleep = 0.02  # 较短休眠20ms
 
             sleep(adaptive_sleep)
         self.log("INFO", f"Engine: {self.name} Main Loop End.")
