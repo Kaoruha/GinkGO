@@ -16,20 +16,26 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+
 # Lazy load and add sub-modules to app
 def _setup_subcommands():
     """Lazy load sub-command modules"""
     from ginkgo.client import (
-        backtest_component_cli, backtest_result_cli, 
-        engine_cli, portfolio_cli, param_cli, record_cli
+        backtest_component_cli,
+        backtest_result_cli,
+        engine_cli,
+        portfolio_cli,
+        param_cli,
+        record_cli,
     )
-    
+
     app.add_typer(engine_cli.app, name="engine")
     app.add_typer(portfolio_cli.app, name="portfolio")
     app.add_typer(backtest_component_cli.app, name="component")
     app.add_typer(param_cli.app, name="param")
     app.add_typer(record_cli.app, name="record")
     app.add_typer(backtest_result_cli.app, name="result")
+
 
 # Setup subcommands when module is imported
 _setup_subcommands()
@@ -45,7 +51,7 @@ def print_order_paganation(df, page: int):
     Echo dataframe in TTY page by page.
     """
     from ginkgo.libs.utils.display import display_dataframe
-    
+
     # 配置列显示
     order_columns_config = {
         "uuid": {"display_name": "Order ID", "style": "dim"},
@@ -133,7 +139,6 @@ def tree(
         Optional[str],
         typer.Option(
             "--type",
-            "-t",
             help=":filter: Filter by component type (analyzer, index, riskmanager, selector, sizer, strategy, engine, handler)",
         ),
     ] = None,
@@ -204,7 +209,7 @@ def tree(
     # 尝试查找engine
     engine_service = container.engine_service()
     portfolio_service = container.portfolio_service()
-    
+
     engine_df = engine_service.get_engine(target, as_dataframe=True)
     portfolio_df = None
 
@@ -282,8 +287,9 @@ def showorder(
         except AttributeError:
             # Fallback if service doesn't exist
             from ginkgo.data.operations import get_backtest_list_df
+
             raw = get_backtest_list_df()
-        
+
         # Use subset of columns for showorder display
         if raw.shape[0] > 0:
             rs = raw[["backtest_id", "profit", "start_at", "finish_at"]].copy()
@@ -314,8 +320,9 @@ def showorder(
     except AttributeError:
         # Fallback if service doesn't exist
         from ginkgo.data.operations import get_order_df_by_portfolioid
+
         orders = get_order_df_by_portfolioid(id)
-    
+
     if orders.shape[0] == 0:
         console.print(f"There is no orders about Backtest: {id}")
         return
@@ -357,6 +364,7 @@ def showresult(
         except AttributeError:
             # Fallback if service doesn't exist
             from ginkgo.data.operations import get_backtest_list_df
+
             raw = get_backtest_list_df()
         rs = raw[["uuid", "backtest_id", "profit", "start_at", "finish_at"]] if raw.shape[0] > 0 else raw
 
@@ -383,8 +391,9 @@ def showresult(
     except AttributeError:
         # Fallback if service doesn't exist
         from ginkgo.data.operations import get_backtest_record_by_backtest, get_backtest_list_df
+
         record = get_backtest_record_by_backtest(id)
-    
+
     print(record)
     if record is None:
         console.print(f":sad_but_relieved_face: Record {id} not exist. Please select one of follow.")
@@ -393,6 +402,7 @@ def showresult(
             print(result_service.get_backtest_results(as_dataframe=True))
         except AttributeError:
             from ginkgo.data.operations import get_backtest_list_df
+
             print(get_backtest_list_df())
         return
     console.print(f":sunflower: Backtest [light_coral]{id}[/light_coral]  Worth: {record.profit}")
@@ -440,8 +450,9 @@ def showresult(
         except AttributeError:
             # Fallback if service doesn't exist
             from ginkgo.data.operations import get_analyzer_df_by_backtest
+
             df = get_analyzer_df_by_backtest(id, i)
-        
+
         if df.shape[0] == 0:
             continue
         analyzer_name = "TestName"
@@ -461,8 +472,9 @@ def showresult(
             except AttributeError:
                 # Fallback if service doesn't exist
                 from ginkgo.data.operations import get_analyzer_df_by_backtest
+
                 df = get_analyzer_df_by_backtest(compare, i)
-            
+
             if df.shape[0] == 0:
                 continue
             analyzer_name = "TestName"
@@ -520,7 +532,7 @@ def _clean_orphaned_data(console):
     portfolio_service = container.portfolio_service()
     engine_service = container.engine_service()
     file_service = container.file_service()
-    
+
     portfolios = portfolio_service.get_portfolios(as_dataframe=True)
     engines = engine_service.get_engines(as_dataframe=True)
     files = file_service.get_files(as_dataframe=True)

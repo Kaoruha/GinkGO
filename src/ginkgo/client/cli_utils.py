@@ -12,7 +12,7 @@ def _get_component_parameters(mapping_id: str, file_id: str, file_type: FILE_TYP
         
         # 从params表获取所有构造参数
         param_crud = container.cruds.param()
-        params_df = param_crud.get_page_filtered(mapping_id)
+        params_df = param_crud.find(filters={"mapping_id": mapping_id}, as_dataframe=True, order_by="index")
         params_dict = {}
         
         if params_df.shape[0] > 0:
@@ -49,7 +49,9 @@ def _add_portfolio_components(parent_node, portfolio_id: str, detail: bool, filt
     }
     
     for _, mapping in portfolio_files.iterrows():
-        file_type = mapping["type"]
+        file_type_value = mapping["type"]
+        # 将数字转换为枚举
+        file_type = FILE_TYPES(file_type_value)
         component_info = {
             "name": mapping["name"],
             "id": mapping["file_id"],
