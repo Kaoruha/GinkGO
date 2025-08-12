@@ -310,7 +310,7 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
                         result, timestamp = cached_value
                         # 检查缓存是否过期
                         if time.time() - timestamp < expiration_seconds:
-                            print(f":fire::fire::fire: 从缓存中获取结果: {f.__name__} :fire::fire::fire:")
+                            console.print(f":fire::fire::fire: 从缓存中获取结果: {f.__name__} :fire::fire::fire:")
                             return result
                         else:
                             print("缓存过期，重新计算并缓存")
@@ -330,7 +330,7 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
 
         return decorator
     else:
-
+        # 当直接使用 @cache_with_expiration 而不带参数时
         @wraps(func)
         def wrapper(*args, **kwargs):
             # 生成缓存key，包含方法名和参数
@@ -342,7 +342,7 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
                     result, timestamp = cached_value
                     # 检查缓存是否过期
                     if time.time() - timestamp < expiration_seconds:
-                        print(f":fire::fire::fire: 从缓存中获取结果: {func.__name__} :fire::fire::fire:")
+                        console.print(f":fire::fire::fire: 从缓存中获取结果: {func.__name__} :fire::fire::fire:")
                         return result
                     else:
                         print("缓存过期，重新计算并缓存")
