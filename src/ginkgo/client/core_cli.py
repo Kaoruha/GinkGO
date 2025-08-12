@@ -61,27 +61,42 @@ def status():
         console.print(f"Log Path   : {GCONF.LOGGING_PATH}")
         console.print(f"Work Dir   : {GCONF.WORKING_PATH}")
         
-        # Display worker status table
+        # Display worker status table using same format as worker status command
         status_data = GTM.get_workers_status()
-        if isinstance(status_data, dict) and status_data:
-            console.print("\n[bold]Worker Status:[/bold]")
-            # Convert dict to simple display
-            for worker_id, status in status_data.items():
-                console.print(f"  Worker {worker_id}: {status}")
-        elif hasattr(status_data, 'shape') and status_data.shape[0] > 0:
-            console.print("\n[bold]Worker Status:[/bold]")
+        console.print("\n[bold]Worker Status:[/bold]")
+
+        if len(status_data) > 0:
+            # 转换为status dict为dataframe（复用worker_cli.py的逻辑）
+            import pandas as pd
+            worker_status_data = []
+            for worker_id, worker_info in status_data.items():
+                worker_status_data.append({
+                    "worker_id": worker_id,
+                    "task_name": worker_info.get("task_name", "N/A"),
+                    "status": worker_info.get("status", "UNKNOWN"),
+                    "memory_mb": worker_info.get("memory_mb", "N/A"),
+                    "running_time": worker_info.get("running_time", "N/A")
+                })
+            
+            status_df = pd.DataFrame(worker_status_data)
+            
+            # 配置列显示（与worker_cli.py保持一致）
+            worker_status_columns_config = {
+                "worker_id": {"display_name": "Worker ID", "style": "cyan"},
+                "task_name": {"display_name": "Task Name", "style": "blue"},
+                "status": {"display_name": "Status", "style": "green"},
+                "memory_mb": {"display_name": "Memory", "style": "yellow"},
+                "running_time": {"display_name": "Running Time", "style": "magenta"}
+            }
+            
             display_dataframe(
-                data=status_data,
-                columns_config={
-                    "worker_id": {"display_name": "Worker ID", "style": "cyan"},
-                    "status": {"display_name": "Status", "style": "green"},
-                    "task": {"display_name": "Current Task", "style": "yellow"},
-                },
+                data=status_df,
+                columns_config=worker_status_columns_config,
                 title="Active Workers",
                 console=console
             )
         else:
-            console.print("\n[dim]No active workers[/dim]")
+            console.print("[dim]No active workers[/dim]")
             
     except Exception as e:
         console.print(f"[red]Error getting system status: {e}[/red]")
