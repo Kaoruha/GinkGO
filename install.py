@@ -129,15 +129,7 @@ def install_dependencies(path_pip):
     finally:
         pass
 
-    command = [
-        "pip",
-        "install",
-        "-r",
-        path_pip,
-        "--default-timeout=20",
-        "-i",
-        source
-    ]
+    command = ["pip", "install", "-r", path_pip, "--default-timeout=20", "-i", source]
     try:
         subprocess.run(command, check=True)
     except Exception as e:
@@ -164,7 +156,7 @@ def set_config_path(path_log, working_directory):
 def start_docker(path_dockercompose):
     # 启动Docker
     print(f"{lightblue('Starting Docker services...')}")
-    
+
     if "Windows" == str(platform.system()):
         command = ["docker", "rm", "-f", "ginkgo_web"]
         subprocess.run(command, capture_output=True)
@@ -177,11 +169,11 @@ def start_docker(path_dockercompose):
         command = ["docker", "rmi", "-f", "ginkgo_web:latest"]
         subprocess.run(command, capture_output=True)
         result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
-    
+
     if result != 0:
         print(f"{red('Docker compose failed to start')}")
         return False
-    
+
     print(f"{green('Docker containers started, waiting for services to be ready...')}")
     return True
 
@@ -212,9 +204,9 @@ def wait_for_services():
     """等待服务就绪"""
     try:
         from ginkgo.libs import ensure_services_ready
-        
+
         print(f"{lightblue('Checking service health...')}")
-        
+
         # 等待服务就绪，最多等待5分钟
         if ensure_services_ready(max_wait=300):
             print(f"{green('All services are ready!')}")
@@ -223,7 +215,7 @@ def wait_for_services():
             print(f"{red('Some services failed to start properly')}")
             print(f"{lightyellow('You may need to check Docker logs manually')}")
             return False
-            
+
     except ImportError:
         print(f"{lightyellow('Health check module not available, skipping service checks')}")
         return True
@@ -501,6 +493,7 @@ def main():
     else:
         msg = f"[{red(' MISSING ')}] Ginkgo secure file, you need to create your secure.yml refer to README"
         import pdb
+
         pdb.set_trace()
         print(msg)
 
