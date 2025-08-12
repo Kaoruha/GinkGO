@@ -1,153 +1,199 @@
-##### 0.8.1
-  - [x] **Architecture Refactoring** - 架构重构
-  - - [x] Reorganize backtest module structure into functional modules
-  - - [x] Split backtest into: analysis/, computation/, core/, entities/, execution/, services/, strategy/, trading/
-  - - [x] Implement unified service architecture with dependency injection containers
-  - - [x] Restructure data layer with improved CRUD operations
-  - - [x] Optimize test architecture and organization
-  - [x] **CLI Enhancements** - CLI功能增强
-  - - [x] Add container management commands (`ginkgo container`)
-  - - [x] Add data source management commands (`ginkgo datasource`)
-  - - [x] Enhance development tools (`ginkgo dev`)
-  - - [x] Expand system management capabilities
-  - [x] **Technical Indicators & Analysis** - 技术指标和分析
-  - - [x] Add new technical analysis indicators (RSI, Bollinger Bands, etc.)
-  - - [x] Implement Alpha158 factor factory
-  - - [x] Add advanced performance analyzers (Calmar ratio, Sortino ratio, VaR/CVaR)
-  - - [x] Enhance evaluation and metric stability tools
-  - [x] **Bug Fixes & Optimizations** - 修复和优化
-  - - [x] Update unit test framework and fix test issues
-  - - [x] Update requirements and dependencies
-  - - [x] Code structure cleanup and optimization
-  - - [x] Performance improvements and stability enhancements
+# Changelog
 
-##### 1.0(FUTURE)
-  - [x] Update Python > 3.11.
-  - [x] Update Sqlalchemy > 2.0.
-  - [x] Upgrade Backtest Framework.
+All notable changes to this project will be documented in this file.
 
-  ~~- [DEV] Support MongoDB and Clickhouse.~~
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-  - [x] Support MysqlDB and Clickhouse.
-  - [x] Add 2 or 3 DataSource.
-  - [x] Add ML Engine.
-  - [x] ML Integration Module
-  - - [x] Scikit-learn, PyTorch, TensorFlow integration
-  - - [x] Alpha factor mining and feature engineering
-  - - [x] Model training and validation pipeline
-  - - [x] Real-time ML inference in backtesting
-  - [TODO] Vectorized Backtesting Engine
-  - - [TODO] NumPy/Pandas vectorized operations
-  - - [TODO] Batch processing for multiple strategies
-  - - [TODO] Performance optimization for big datasets
-  - - [TODO] Memory-efficient data handling
-  - [x] Enhanced TUI (Terminal User Interface)
-  - - [x] Rich terminal UI with real-time updates
-  - - [x] Interactive strategy monitoring
-  - - [x] Advanced data visualization in terminal
-  - - [x] Intuitive navigation and controls
-  - [x] Advanced Risk Management System
-  - - [x] Real-time position and exposure monitoring
-  - - [x] VaR (Value at Risk) calculation
-  - - [x] Drawdown control mechanisms
-  - - [x] Portfolio-level risk metrics
-  - - [x] Customizable risk alerts and limits
-  - [TODO] Support other markets.
+## [Unreleased]
 
-##### 0.9.0
-  - [TODO]  Support More DataSource
-  - - [TODO]  Support NSQ
-  - - [TODO]  Support Cryptocurrency exchanges
-  - - [TODO]  Support International markets
+### Added
+- Vectorized backtesting engine with NumPy/Pandas optimizations
+- Batch processing support for multiple strategies
+- Advanced portfolio optimization algorithms
+- Real-time performance dashboard
+- International market data support (US, HK)
+- Cryptocurrency data sources integration
+- Advanced factor mining tools with ML integration
 
-##### 0.7.1(DEV)
-  - [x] Support Data Cache with Redis.
-  - [x] Add Notification
-  - - [x] Add Telegram Notification
-  - - [x] Add Beep Notification
-  - - [x] Add Mail Notification
-  - - [x] Add Wechat Notification
-  - [x] Basic Live engine demo
+### Changed
+- Enhanced backtest performance for large datasets
+- Improved memory efficiency for big data processing
+- Extended API documentation with more examples
 
-##### 0.6.2
-  - [x] Fix precision lost problem.
-  - [x] Add CLI
-  - [x] Add Trading Records.
-  - [x] Support More Flexible Data Interval
-  - [x] Config file setup
+### Planned
+- NSQ message queue integration for real-time data streaming
+- WebSocket API for live trading interfaces
+- Advanced risk analytics with Monte Carlo simulations
+- Multi-timeframe strategy support
+- Enhanced visualization tools with interactive charts
 
-##### 0.6
-  - - [x] Plot Moduel
+## [0.8.2] - 2025-01-12
 
-##### 0.5.2
-  - [x] Basic Backtest demo
-  - [x] TDX
+### Added
+- Complete risk management system with PositionRatioRisk, LossLimitRisk, and ProfitLimitRisk
+- Dual risk control mechanism: passive order interception and active signal generation
+- Event-driven risk monitoring responding to price updates in real-time
+- Smart order volume adjustment instead of simple order rejection
 
-##### 0.5.1
-  - [x] Backtest Engine Upgrade
-  - - [x] Optimize Backtest Engine
-  - - [x] Backtest Engine Unittest
+### Changed
+- Unified worker status display format between `ginkgo status` and `ginkgo worker status`
+- Enhanced CLI interface with rich table format for worker information
+- Improved system status overview with detailed worker monitoring
 
-##### 0.5
-  - [x] Tushare
-  - [x] AK Share
-  - [x] Baostock
+### Removed
+- Redundant `manual_worker.py` script (functionality replaced by `ginkgo worker run`)
 
+## [0.8.1] - 2024-12-15
 
-##### 0.4
-  - [x] Create Standard Data Interface.
-  - [x] Optimize DataEngine.
-  - [x] Optimize MysqlBase.
+### Added
+- Reorganized backtest module structure into functional modules (analysis/, computation/, core/, entities/, execution/, services/, strategy/, trading/)
+- Unified service architecture with dependency injection containers
+- Container management commands (`ginkgo container`)
+- Data source management commands (`ginkgo datasource`)
+- New technical analysis indicators (RSI, Bollinger Bands, etc.)
+- Alpha158 factor factory implementation
+- Advanced performance analyzers (Calmar ratio, Sortino ratio, VaR/CVaR)
 
-##### 0.3
-  - [x] Support Multi Databases.
-  - - [x] Support Clickhouse
-  - - [x] Support Mysql
+### Changed
+- Enhanced development tools (`ginkgo dev`)
+- Expanded system management capabilities
+- Restructured data layer with improved CRUD operations
+- Optimized test architecture and organization
 
-##### 0.2
-  - [x] Update to Python3.11
+### Fixed
+- Unit test framework issues
+- Updated requirements and dependencies
+- Code structure cleanup and optimization
+- Performance improvements and stability enhancements
 
-##### 0.1.5
-  - [x] Optimize Architecture.
+## [0.7.1] - 2024-10-20
 
-##### 0.1.4
-  - [x] Add Clickhouse Driver.
+### Added
+- Data cache system with Redis support
+- Notification system (Telegram, Beep, Mail, WeChat)
+- Basic live trading engine demo
 
-##### 0.1.30
-  - [x] Complete Engine Test
-  - [x] Fix GinkgoEngine
+## [0.6.2] - 2024-08-15
 
-##### 0.1.25
-  - [x] DataUpdate bug fix.
+### Added
+- CLI interface
+- Trading records system
+- Flexible data interval support
+- Configuration file setup
 
-##### 0.1.24
-  - [x] Upgrade AutoDeployment Script.
-  - - [x] Add Auto Compile and install script  setup_auto.py
-  - - [x] Refactoring of install.py
+### Fixed
+- Precision lost problem
 
-##### 0.1.23
-  - [x] Upgrade GinkgoMongo
-  - - [x] Refactoring of Async Methods
+## [0.6.0] - 2024-06-10
 
-##### 0.1.22
-  - [x] Fix GinkgoMongo DF Copy() Bug.
+### Added
+- Plot module for data visualization
 
-##### 0.1.21
-  - [x] SimMatcher UnitTest.
-  - [x] T1Broker UnitTest.
-  - [x] Refactoring of DataEngine.
+## [0.5.2] - 2024-04-20
 
-##### 0.1.20
-  - [x] Sizer UnitTest.
-  - [x] Matcher UnitTest.
-  - [x] Selector UnitTest.
-  - [x] Events UnitTest.
-  - [x] Analyzer Unittest.
-  - [x] BaseBroker UnitTest.
+### Added
+- Basic backtest demonstration
+- TDX data source integration
 
-##### 0.1.19
-  - [x] Position UnitTest.
-  - [x] Add Broker UnitTest.
+## [0.5.1] - 2024-03-15
 
-##### 0.1.18
-  - [x] Fix bugs on MacOS.
+### Changed
+- Optimized backtest engine performance
+- Enhanced backtest engine with comprehensive unit tests
+
+## [0.5.0] - 2024-02-10
+
+### Added
+- Tushare data source integration
+- AKShare data source integration
+- Baostock data source integration
+
+## [0.4.0] - 2024-01-05
+
+### Added
+- Standard data interface
+- Optimized DataEngine
+- Enhanced MysqlBase functionality
+
+## [0.3.0] - 2023-11-20
+
+### Added
+- Multi-database support with ClickHouse integration
+- MySQL database integration
+
+## [0.2.0] - 2023-10-15
+
+### Changed
+- Updated to Python 3.11 support
+
+## [0.1.5] - 2023-09-10
+
+### Changed
+- Architecture optimization
+
+## [0.1.4] - 2023-08-25
+
+### Added
+- ClickHouse database driver
+
+## [0.1.30] - 2023-08-01
+
+### Added
+- Complete engine testing framework
+
+### Fixed
+- GinkgoEngine critical issues
+
+## [0.1.25] - 2023-07-15
+
+### Fixed
+- DataUpdate module bugs
+
+## [0.1.24] - 2023-07-01
+
+### Added
+- Auto compile and install script (setup_auto.py)
+
+### Changed
+- Refactored install.py deployment process
+
+## [0.1.23] - 2023-06-15
+
+### Changed
+- Refactored GinkgoMongo async methods
+
+## [0.1.22] - 2023-06-01
+
+### Fixed
+- GinkgoMongo DataFrame copy() bug
+
+## [0.1.21] - 2023-05-20
+
+### Added
+- SimMatcher unit tests
+- T1Broker unit tests
+
+### Changed
+- DataEngine refactoring
+
+## [0.1.20] - 2023-05-05
+
+### Added
+- Sizer component unit tests
+- Matcher component unit tests
+- Selector component unit tests
+- Events system unit tests
+- Analyzer component unit tests
+- BaseBroker unit tests
+
+## [0.1.19] - 2023-04-20
+
+### Added
+- Position management unit tests
+- Broker component unit tests
+
+## [0.1.18] - 2023-04-05
+
+### Fixed
+- macOS compatibility issues
