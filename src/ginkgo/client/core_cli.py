@@ -304,19 +304,22 @@ def run(
     try:
         console.print(f"[bold blue]:rocket: Running backtest: {engine_id}[/bold blue]")
         
-        from ginkgo.backtest.execution.engines.engine_assembler_factory import assembler_backtest_engine
+        from ginkgo.backtest.core.containers import container as backtest_container
         
         if debug_mode:
             from ginkgo.libs import GCONF
             GCONF.set_debug(True)
             console.print("[dim]Debug mode enabled for this run[/dim]")
         
-        engine = assembler_backtest_engine(engine_id)
-        if engine:
+        # Use the DI service instead of direct factory call
+        assembly_service = backtest_container.services.engine_assembly_service()
+        result = assembly_service.assemble_backtest_engine(engine_id)
+        
+        if result.success:
             console.print(f"[green]:white_check_mark: Backtest {engine_id} completed successfully[/green]")
             console.print("View results with: ginkgo results")
         else:
-            console.print(f"[red]:x: Failed to run backtest {engine_id}[/red]")
+            console.print(f"[red]:x: Failed to run backtest {engine_id}: {result.error}[/red]")
             
     except Exception as e:
         console.print(f"[red]:x: Backtest failed: {e}[/red]")
