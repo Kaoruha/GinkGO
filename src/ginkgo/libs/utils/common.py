@@ -6,9 +6,10 @@ from collections import OrderedDict
 from functools import wraps
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn, TimeRemainingColumn
-
+from ginkgo.libs.core.config import GinkgoConfig
 
 console = Console()
+_gconf = GinkgoConfig()
 
 
 def try_wait_counter(try_time: int = 0, min: int = 0.1, max: int = 30) -> int:
@@ -45,6 +46,10 @@ def str2bool(strint: str or int, *args, **kwargs) -> bool:
 def time_logger(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
+        # 首先检查是否为 DEBUG 模式，非 DEBUG 模式直接执行函数
+        if not _gconf.DEBUGMODE:
+            return func(*args, **kwargs)
+        
         show_log = True
         if "progress" in kwargs and isinstance(kwargs["progress"], Progress):
             show_log = False
