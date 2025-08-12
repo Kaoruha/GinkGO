@@ -122,6 +122,19 @@ def _get_engine_assembly_service_class():
     from ginkgo.backtest.services.engine_assembly_service import EngineAssemblyService
     return EngineAssemblyService
 
+
+def _create_engine_assembly_service():
+    """Create engine assembly service with all required dependencies."""
+    from ginkgo.data.containers import container as data_container
+    from ginkgo.backtest.services.engine_assembly_service import EngineAssemblyService
+    
+    return EngineAssemblyService(
+        engine_service=data_container.engine_service(),
+        portfolio_service=data_container.portfolio_service(),
+        component_service=data_container.component_service(),
+        analyzer_record_crud=data_container.cruds.analyzer_record()
+    )
+
 def _get_matchmaking_class():
     """Lazy import for MatchMaking class."""
     from ginkgo.backtest.trading.matchmakings.sim_matchmaking import MatchMakingSim
@@ -202,22 +215,12 @@ class Container(containers.DeclarativeContainer):
     )
     
     # ============= SERVICES =============  
-    # Data services from main container
-    engine_service = providers.Factory(lambda: container.engine_service())
-    portfolio_service = providers.Factory(lambda: container.portfolio_service())
-    component_service = providers.Factory(lambda: container.component_service())
-    
-    # Engine Assembly Service - properly instantiated with container services
-    engine_assembly_service = providers.Factory(
-        _get_engine_assembly_service_class
-    )
+    # Engine Assembly Service - initialize with all dependencies
+    engine_assembly_service = providers.Factory(_create_engine_assembly_service)
     
     # Services aggregate
     services = providers.FactoryAggregate(
-        engine_assembly_service=engine_assembly_service,
-        engine_service=engine_service,
-        portfolio_service=portfolio_service,
-        component_service=component_service
+        engine_assembly_service=engine_assembly_service
     )
     
     # ============= ADDITIONAL COMPONENTS =============
