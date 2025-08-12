@@ -389,7 +389,12 @@ class BarService(DataService):
             return original_data
 
         # Apply price adjustment if requested
-        return self._apply_price_adjustment(original_data, code, adjustment_type, as_dataframe)
+        if code is None:
+            # Multi-stock adjustment when no specific code provided
+            return self._apply_price_adjustment_multi_stock(original_data, adjustment_type, as_dataframe)
+        else:
+            # Single-stock adjustment when code is provided
+            return self._apply_price_adjustment(original_data, code, adjustment_type, as_dataframe)
 
     def get_bars_adjusted(
         self,
@@ -568,6 +573,95 @@ class BarService(DataService):
         result_df = merged_df.drop(columns=[factor_column])
 
         return result_df
+
+    def _apply_price_adjustment_multi_stock(
+        self,
+        bars_data: Union[pd.DataFrame, List[Any]],
+        adjustment_type: ADJUSTMENT_TYPES,
+        as_dataframe: bool,
+    ) -> Union[pd.DataFrame, List[Any]]:
+        """
+        Applies price adjustment factors to bar data for multiple stocks.
+        
+        This method handles the case where bars_data contains data from multiple stocks
+        by grouping by stock code and applying adjustment factors individually.
+
+        Args:
+            bars_data: Bar data containing multiple stocks (DataFrame or list of models)
+            adjustment_type: Type of adjustment (FORE/BACK)
+            as_dataframe: Whether bars_data is DataFrame format
+
+        Returns:
+            Price-adjusted bar data in the same format as input
+        """
+        # Handle empty data
+        if (isinstance(bars_data, pd.DataFrame) and bars_data.empty) or (
+            isinstance(bars_data, list) and len(bars_data) == 0
+        ):
+            return bars_data
+
+        try:
+            if as_dataframe:
+                # DataFrame processing - group by stock code
+                if 'code' not in bars_data.columns:
+                    self._logger.ERROR("Cannot apply multi-stock adjustment: 'code' column missing")
+                    return bars_data
+                
+                # Group by stock code and apply adjustment individually
+                adjusted_dfs = []
+                unique_codes = bars_data['code'].unique()
+                
+                self._logger.INFO(f"Applying {adjustment_type.value} adjustment to {len(unique_codes)} stocks")
+                
+                for code in unique_codes:
+                    stock_data = bars_data[bars_data['code'] == code].copy()
+                    adjusted_stock_data = self._apply_price_adjustment(
+                        stock_data, code, adjustment_type, True
+                    )
+                    adjusted_dfs.append(adjusted_stock_data)
+                
+                # Combine all adjusted data
+                result_df = pd.concat(adjusted_dfs, ignore_index=True)
+                
+                # Sort by original order (timestamp and code)
+                if 'timestamp' in result_df.columns:
+                    result_df = result_df.sort_values(['timestamp', 'code'])
+                
+                return result_df
+                
+            else:
+                # List of models processing - group by stock code
+                if not hasattr(bars_data[0], 'code'):
+                    self._logger.ERROR("Cannot apply multi-stock adjustment: models missing 'code' attribute")
+                    return bars_data
+                
+                # Group by stock code
+                code_to_models = {}
+                for bar in bars_data:
+                    code = bar.code
+                    if code not in code_to_models:
+                        code_to_models[code] = []
+                    code_to_models[code].append(bar)
+                
+                # Apply adjustment to each stock's data
+                adjusted_models = []
+                unique_codes = list(code_to_models.keys())
+                
+                self._logger.INFO(f"Applying {adjustment_type.value} adjustment to {len(unique_codes)} stocks")
+                
+                for code in unique_codes:
+                    stock_models = code_to_models[code]
+                    adjusted_stock_models = self._apply_price_adjustment(
+                        stock_models, code, adjustment_type, False
+                    )
+                    adjusted_models.extend(adjusted_stock_models)
+                
+                # Maintain original order
+                return adjusted_models
+                
+        except Exception as e:
+            self._logger.ERROR(f"Failed to apply multi-stock price adjustment: {e}")
+            return bars_data
 
     def get_latest_timestamp_for_code(self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> datetime:
         """
