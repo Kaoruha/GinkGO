@@ -121,9 +121,6 @@ class TickService(DataService):
 
         # Validate tick data quality
         if not self._validate_tick_data(raw_data):
-            import pdb
-
-            pdb.set_trace()
             result["error"] = "Data quality validation failed"
             self._logger.ERROR(f"Data quality validation failed for {code} on {date.date()}")
             self._logger.ERROR(raw_data)

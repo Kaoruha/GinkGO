@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from ...libs import time_logger, retry, GLOG, GinkgoLogger
+from ...libs import time_logger, retry, GLOG, GinkgoLogger, cache_with_expiration
 
 
 class DatabaseDriverBase(ABC):
@@ -121,6 +121,7 @@ class DatabaseDriverBase(ABC):
             self.log("ERROR", f"Failed to initialize {self.driver_name}: {e}")
             raise
 
+    @cache_with_expiration(expiration_seconds=300)
     def health_check(self) -> bool:
         """数据库健康检查"""
         try:
