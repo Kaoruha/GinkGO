@@ -99,9 +99,9 @@ def run(
     """
     :rocket: Run backtest with specified engine configuration.
     """
-    from ginkgo.backtest.execution.engines.engine_assembler_factory import assembler_backtest_engine
     from ginkgo.libs.utils.display import display_dataframe
     from ginkgo.data.containers import container
+    from ginkgo.backtest.core.containers import container as backtest_container
 
     engine_service = container.engine_service()
     engine_df = engine_service.get_engine(engine, as_dataframe=True) if engine else None
@@ -126,7 +126,14 @@ def run(
         )
         return
     else:
-        assembler_backtest_engine(engine)
+        # Use the DI service instead of direct factory call  
+        assembly_service = backtest_container.services.engine_assembly_service()
+        result = assembly_service.assemble_backtest_engine(engine)
+        
+        if result.success:
+            console.print(f"[green]:white_check_mark: Backtest {engine} completed successfully[/green]")
+        else:
+            console.print(f"[red]:x: Failed to run backtest {engine}: {result.error}[/red]")
 
 
 @app.command()
