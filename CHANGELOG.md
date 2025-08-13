@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extended API documentation with more examples
 
 ### Planned
+- Feast feature store integration for ML feature management
 - NSQ message queue integration for real-time data streaming
 - WebSocket API for live trading interfaces
 - Advanced risk analytics with Monte Carlo simulations
