@@ -154,4 +154,5 @@ for_test.py
 .obsidian
 .virtual_documents
 migration_state.json
+.serena/
 
