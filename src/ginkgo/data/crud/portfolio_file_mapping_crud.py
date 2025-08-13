@@ -106,5 +106,5 @@ class PortfolioFileMappingCRUD(BaseCRUD[MPortfolioFileMapping]):
         """
         Delete a specific mapping.
         """
-        GLOG.INFO(f"删除组合-文件映射: {portfolio_id} -> {file_id}")
+        GLOG.DEBUG(f"删除组合-文件映射: {portfolio_id} -> {file_id}")
         return self.remove({"portfolio_id": portfolio_id, "file_id": file_id})

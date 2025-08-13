@@ -57,19 +57,19 @@ def _persist_adjustfactors(code: str, items: list, fast_mode: bool):
         adjustfactor_crud.remove(filters={"code": code, "timestamp__gte": min_date, "timestamp__lte": max_date})
         time.sleep(0.2)
     adjustfactor_crud.add_batch(items)
-    GLOG.INFO(f"Persisted {len(items)} adjustfactor records for {code}.")
+    GLOG.DEBUG(f"Persisted {len(items)} adjustfactor records for {code}.")
 
 def process_adjustfactor_data(code: str, fast_mode: bool):
     if not is_code_in_stocklist(code):
         return
 
     start_date, end_date = _get_adjustfactor_fetch_range(code, fast_mode)
-    GLOG.INFO(f"Fetching adjustfactors for {code} from {start_date.date()} to {end_date.date()}")
+    GLOG.DEBUG(f"Fetching adjustfactors for {code} from {start_date.date()} to {end_date.date()}")
 
     try:
         raw_data = GinkgoTushare().fetch_cn_stock_adjustfactor(code=code, start_date=start_date, end_date=end_date)
         if raw_data is None or raw_data.empty:
-            GLOG.INFO(f"No new adjustfactor data for {code}.")
+            GLOG.DEBUG(f"No new adjustfactor data for {code}.")
             return
     except Exception as e:
         GLOG.ERROR(f"Failed to fetch adjustfactors for {code}: {e}")

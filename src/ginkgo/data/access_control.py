@@ -155,7 +155,7 @@ def service_only(method):
                 GLOG.ERROR(error_msg)
                 raise CRUDAccessViolationError(error_msg)
             else:
-                GLOG.WARN(f"[ACCESS_CONTROL] {error_msg}")
+                GLOG.DEBUG(f"[ACCESS_CONTROL] {error_msg}")
 
         return method(self, *args, **kwargs)
 

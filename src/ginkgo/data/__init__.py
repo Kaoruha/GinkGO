@@ -83,7 +83,7 @@ def fetch_and_update_tradeday(*args, **kwargs):
     """Public API: Synchronizes trading calendar data."""
     # This is a placeholder for trade day synchronization
     # The actual implementation would depend on the trade day service
-    GLOG.INFO("Trade day synchronization - placeholder implementation")
+    GLOG.DEBUG("Trade day synchronization - placeholder implementation")
     pass
 
 

@@ -572,7 +572,7 @@ class RedisCRUD:
                 return False
                 
             result = self._redis.flushdb()
-            GLOG.WARN("Redis database flushed - all keys deleted")
+            GLOG.DEBUG("Redis database flushed - all keys deleted")
             return bool(result)
             
         except Exception as e:

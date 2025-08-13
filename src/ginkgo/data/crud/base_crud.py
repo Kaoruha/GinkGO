@@ -639,7 +639,7 @@ class BaseCRUD(Generic[T], ABC):
                 if filter_conditions:
                     stmt = delete(self.model_class).where(and_(*filter_conditions))
                     s.execute(stmt)
-                    GLOG.WARN(f"Deleted {self.model_class.__name__} records from MySQL")
+                    GLOG.DEBUG(f"Deleted {self.model_class.__name__} records from MySQL")
             s.commit()
 
     def _do_modify(self, filters: Dict[str, Any], updates: Dict[str, Any], session: Optional[Session] = None) -> None:
@@ -774,7 +774,7 @@ class BaseCRUD(Generic[T], ABC):
                 if converted_item is not None:
                     converted.append(converted_item)
                 else:
-                    GLOG.WARN(f"Cannot convert item {type(item)} to {self.model_class.__name__}")
+                    GLOG.DEBUG(f"Cannot convert item {type(item)} to {self.model_class.__name__}")
         return converted
 
     def _convert_input_item(self, item: Any) -> Optional[T]:
@@ -844,7 +844,7 @@ class BaseCRUD(Generic[T], ABC):
                     elif operator == "like":
                         conditions.append(attr.like(f"%{value}%"))
                     else:
-                        GLOG.WARN(f"Unknown filter operator: {operator}")
+                        GLOG.DEBUG(f"Unknown filter operator: {operator}")
             else:
                 # Standard equality filter
                 if hasattr(self.model_class, key):
