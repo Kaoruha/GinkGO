@@ -442,7 +442,7 @@ class TickService(DataService):
         start_date: datetime = None,
         end_date: datetime = None,
         as_dataframe: bool = True,
-        adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.NONE,
+        adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE,
         **kwargs,
     ) -> Union[pd.DataFrame, List[Any]]:
         """
@@ -518,6 +518,14 @@ class TickService(DataService):
             **kwargs,
         )
 
+    # TODO: Tick数据复权方法性能优化
+    # 当前Tick数据复权实现存在性能问题，在大数据量处理时效率较低
+    # 需要优化的方向：
+    # 1. 高频数据批量计算优化
+    # 2. Tick级别复权因子插值算法优化
+    # 3. 内存使用优化，避免大量Tick数据复制
+    # 4. 流式处理支持，减少内存占用
+    # 未来版本需要重构以提升Tick数据复权性能
     def _apply_price_adjustment(
         self,
         ticks_data: Union[pd.DataFrame, List[Any]],
@@ -578,7 +586,7 @@ class TickService(DataService):
             )
 
             if adjustfactors_df.empty:
-                self._logger.WARN(f"No adjustment factors found for {code}, returning original data")
+                self._logger.DEBUG(f"No adjustment factors found for {code}, returning original data")
                 return ticks_data
 
             # Apply adjustment factors

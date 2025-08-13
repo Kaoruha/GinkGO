@@ -152,14 +152,14 @@ class FileCRUD(BaseCRUD[MFile]):
         """
         Business helper: Find files by size range (not supported by MFile model).
         """
-        GLOG.WARN("File size range search not supported by MFile model")
+        GLOG.DEBUG("File size range search not supported by MFile model")
         return self.find(filters={}, as_dataframe=as_dataframe, output_type="model")
 
     def get_total_size_by_type(self, file_type: str) -> int:
         """
         Business helper: Get total size of files by type (not supported by MFile model).
         """
-        GLOG.WARN("File size calculation not supported by MFile model")
+        GLOG.DEBUG("File size calculation not supported by MFile model")
         files = self.find_by_type(file_type, as_dataframe=False)
         return len(files)
 
@@ -167,5 +167,5 @@ class FileCRUD(BaseCRUD[MFile]):
         """
         Business helper: Delete file by ID.
         """
-        GLOG.INFO(f"删除文件记录: {file_id}")
+        GLOG.DEBUG(f"删除文件记录: {file_id}")
         return self.remove({"uuid": file_id})

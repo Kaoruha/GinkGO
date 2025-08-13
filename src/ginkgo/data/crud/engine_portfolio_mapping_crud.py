@@ -106,5 +106,5 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping]):
         """
         Delete a specific mapping.
         """
-        GLOG.INFO(f"删除引擎-组合映射: {engine_id} -> {portfolio_id}")
+        GLOG.DEBUG(f"删除引擎-组合映射: {engine_id} -> {portfolio_id}")
         return self.remove({"engine_id": engine_id, "portfolio_id": portfolio_id})

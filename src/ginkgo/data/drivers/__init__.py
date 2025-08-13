@@ -32,7 +32,7 @@ class ConnectionManager:
         """获取MySQL连接，带健康检查"""
         with self._lock:
             if self._mysql_conn is None:
-                GLOG.INFO("Creating MySQL connection pool instance...")
+                GLOG.DEBUG("Creating MySQL connection pool instance...")
                 self._mysql_conn = create_mysql_connection()
             elif not self._mysql_conn.health_check():
                 GLOG.WARN("MySQL connection unhealthy, recreating...")
@@ -44,7 +44,7 @@ class ConnectionManager:
         """获取ClickHouse连接，带健康检查"""
         with self._lock:
             if self._click_conn is None:
-                GLOG.INFO("Creating ClickHouse connection pool instance...")
+                GLOG.DEBUG("Creating ClickHouse connection pool instance...")
                 self._click_conn = create_click_connection()
             elif not self._click_conn.health_check():
                 GLOG.WARN("ClickHouse connection unhealthy, recreating...")
@@ -110,7 +110,7 @@ def create_click_connection() -> GinkgoClickhouse:
         if not conn.health_check():
             raise RuntimeError("ClickHouse connection health check failed")
 
-        GLOG.INFO("ClickHouse connection created successfully")
+        GLOG.DEBUG("ClickHouse connection created successfully")
         return conn
 
     except Exception as e:
@@ -140,7 +140,7 @@ def create_mysql_connection() -> GinkgoMysql:
         if not conn.health_check():
             raise RuntimeError("MySQL connection health check failed")
 
-        GLOG.INFO("MySQL connection created successfully")
+        GLOG.DEBUG("MySQL connection created successfully")
         return conn
 
     except Exception as e:
@@ -218,7 +218,7 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
         elif isinstance(i, MMysqlBase):
             mysql_list.append(i)
         else:
-            GLOG.WARN("Just support clickhouse and mysql now. Ignore other type.")
+            GLOG.DEBUG("Just support clickhouse and mysql now. Ignore other type.")
 
     if len(click_list) > 0:
         try:

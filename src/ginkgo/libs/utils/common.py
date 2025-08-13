@@ -49,7 +49,7 @@ def time_logger(func):
         # 首先检查是否为 DEBUG 模式，非 DEBUG 模式直接执行函数
         if not _gconf.DEBUGMODE:
             return func(*args, **kwargs)
-        
+
         show_log = True
         if "progress" in kwargs and isinstance(kwargs["progress"], Progress):
             show_log = False
@@ -315,7 +315,7 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
                         result, timestamp = cached_value
                         # 检查缓存是否过期
                         if time.time() - timestamp < expiration_seconds:
-                            console.print(f":fire::fire::fire: 从缓存中获取结果: {f.__name__} :fire::fire::fire:")
+                            # console.print(f":fire::fire::fire: 从缓存中获取结果: {f.__name__} :fire::fire::fire:")
                             return result
                         else:
                             print("缓存过期，重新计算并缓存")
@@ -347,7 +347,7 @@ def cache_with_expiration(func=None, *, expiration_seconds=60):  # 默认缓存�
                     result, timestamp = cached_value
                     # 检查缓存是否过期
                     if time.time() - timestamp < expiration_seconds:
-                        console.print(f":fire::fire::fire: 从缓存中获取结果: {func.__name__} :fire::fire::fire:")
+                        # console.print(f":fire::fire::fire: 从缓存中获取结果: {func.__name__} :fire::fire::fire:")
                         return result
                     else:
                         print("缓存过期，重新计算并缓存")

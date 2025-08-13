@@ -103,7 +103,7 @@ class GinkgoTushare(GinkgoSourceBase):
                     console.print(f":crab: Got {r.shape[0]} records about {code} daybar from {start_str} to {end_str}")
             else:
                 # 分段获取
-                GLOG.INFO(f"Large date span ({date_span} days) detected for {code}, using segmented fetch")
+                GLOG.DEBUG(f"Large date span ({date_span} days) detected for {code}, using segmented fetch")
 
                 # 预先计算总段数
                 total_segments = 0
@@ -113,7 +113,7 @@ class GinkgoTushare(GinkgoSourceBase):
                     total_segments += 1
                     temp_start = temp_end + datetime.timedelta(days=1)
 
-                GLOG.INFO(f"Will fetch {total_segments} segments for {code}")
+                GLOG.DEBUG(f"Will fetch {total_segments} segments for {code}")
 
                 current_start = start_dt
                 segment_count = 0
@@ -267,7 +267,7 @@ class GinkgoTushare(GinkgoSourceBase):
                     )
             else:
                 # 分段获取
-                GLOG.INFO(f"Large date span ({date_span} days) detected for {code}, using segmented fetch")
+                GLOG.DEBUG(f"Large date span ({date_span} days) detected for {code}, using segmented fetch")
 
                 # 预先计算总段数
                 total_segments = 0
@@ -277,7 +277,7 @@ class GinkgoTushare(GinkgoSourceBase):
                     total_segments += 1
                     temp_start = temp_end + datetime.timedelta(days=1)
 
-                GLOG.INFO(f"Will fetch {total_segments} segments for {code}")
+                GLOG.DEBUG(f"Will fetch {total_segments} segments for {code}")
 
                 current_start = start_dt
                 segment_count = 0
