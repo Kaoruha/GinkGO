@@ -1,5 +1,4 @@
 # yaml 配置实例
-version: "3"
 x-project-name: 'ginkgo'
 services:
   webui:
@@ -17,7 +16,7 @@ services:
     restart: always
     container_name: kafka1
     ports:
-      - '9092:9092'
+      - '9092:9094'
       - '9093:9093'
     environment:
       - KAFKA_KRAFT_CLUSTER_ID=LelM2dIFQkiUFvXCEcqRWA
@@ -28,9 +27,9 @@ services:
       - KAFKA_CFG_PROCESS_ROLES=broker,controller
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:9092,EXTERNAL://localhost:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
       - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
       - KAFKA_MAX_POLL_INTERVAL_MS=60000
@@ -42,7 +41,7 @@ services:
     restart: always
     container_name: kafka2
     ports:
-      - '9094:9092'
+      - '9094:9094'
       - '9095:9093'
     environment:
       - KAFKA_KRAFT_CLUSTER_ID=LelM2dIFQkiUFvXCEcqRWA
@@ -53,9 +52,9 @@ services:
       - KAFKA_CFG_PROCESS_ROLES=broker,controller
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9094
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka2:9092,EXTERNAL://localhost:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
       - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
       - KAFKA_MAX_POLL_INTERVAL_MS=60000
@@ -67,7 +66,7 @@ services:
     restart: always
     container_name: kafka3
     ports:
-      - '9096:9092'
+      - '9096:9094'
       - '9097:9093'
     environment:
       - KAFKA_KRAFT_CLUSTER_ID=LelM2dIFQkiUFvXCEcqRWA
@@ -78,18 +77,18 @@ services:
       - KAFKA_CFG_PROCESS_ROLES=broker,controller
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9096
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka3:9092,EXTERNAL://localhost:9096
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
       - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
       - KAFKA_MAX_POLL_INTERVAL_MS=60000
       - KAFKA_MAX_POLL_RECORDS=1
     volumes:
       - ../.db/kafka3_data:/data
-  Redis-master:
+  redis-master:
     image: redis:alpine3.18
-    container_name: redis_master
+    container_name: redis-master
     restart: always
     ports:
       - "6379:6379"
@@ -97,9 +96,9 @@ services:
       - ./redis.conf:/etc/redis/redis.conf
       - ../.db/redis/data:/data
     command: redis-server /etc/redis/redis.conf --maxmemory 20480mb
-  Mysql-master:
+  mysql-master:
     image: mysql:8.2.0
-    container_name: mysql_master
+    container_name: mysql-master
     command: 
       --max_connections=1000
       --character-set-server=utf8mb4
@@ -108,18 +107,18 @@ services:
     ports:
       - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ginkgo
-      MYSQL_USER: ginkgoadm
-      MYSQL_PASSWORD: hellomysql
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - ../.logs/mysql:/logs
       - ../.db/mysql:/var/lib/mysql
       - ./mysql_entrypoint:/docker-entrypoint-initdb.d
 
-  Mysql-test:
+  mysql-test:
     image: mysql:8.2.0
-    container_name: mysql_test
+    container_name: mysql-test
     command: 
       --max_connections=1000
       --character-set-server=utf8mb4
@@ -128,10 +127,10 @@ services:
     ports:
       - "13306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ginkgo
-      MYSQL_USER: ginkgoadm
-      MYSQL_PASSWORD: hellomysql
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - ../.logs/mysql_test:/logs
       - ../.db/mysql_test:/var/lib/mysql
@@ -142,9 +141,9 @@ services:
           cpus: '2.00'
           memory: 4096M
 
-  Clickhouse-master:
+  clickhouse-master:
     image: clickhouse/clickhouse-server:24.8.4.13-alpine
-    container_name: clickhouse_master
+    container_name: clickhouse-master
     restart: always
     ports:
       - "8123:8123"
@@ -163,9 +162,9 @@ services:
       CLICKHOUSE_DB: ginkgo
       SHOW: 'true'
 
-  Clickhouse-test:
+  clickhouse-test:
     image: clickhouse/clickhouse-server:24.8.4.13-alpine
-    container_name: clickhouse_test
+    container_name: clickhouse-test
     restart: always
     ports:
       - "18123:8123"
@@ -188,3 +187,95 @@ services:
         limits:
           cpus: '2.00'
           memory: 4096M
+  # Feast Feature Server - API服务
+  feast-server:
+    build:
+      context: ..
+      dockerfile: .conf/Dockerfile.feast
+    image: feast:0.51.click.redis.mysql
+    container_name: feast-server
+    restart: always
+    depends_on:
+      - redis-master
+      - clickhouse-master
+      - mysql-master
+    environment:
+      # 日志级别
+      LOG_LEVEL: info
+      # Feast服务配置
+      FEAST_SERVE_HOST: 0.0.0.0
+      FEAST_SERVE_PORT: 6566
+      # MySQL配置
+      FEAST_MYSQL_HOST: mysql-master
+      FEAST_MYSQL_PORT: 3306
+      FEAST_MYSQL_USER: ${FEAST_MYSQL_USER}
+      FEAST_MYSQL_PASSWORD: ${FEAST_MYSQL_PASSWORD}
+      FEAST_MYSQL_DATABASE: feast
+      # Redis配置
+      FEAST_REDIS_HOST: redis-master
+      FEAST_REDIS_PORT: 6379
+      # ClickHouse配置
+      FEAST_CLICKHOUSE_HOST: clickhouse-master
+      FEAST_CLICKHOUSE_PORT: 8123
+      FEAST_CLICKHOUSE_USER: ${FEAST_CLICKHOUSE_USER}
+      FEAST_CLICKHOUSE_PASSWORD: ${FEAST_CLICKHOUSE_PASSWORD}
+      FEAST_CLICKHOUSE_DATABASE: ginkgo
+      # Python环境配置
+      PYTHONPATH: /feast
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "6566:6566"  # HTTP API端口
+    working_dir: /feast
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:6566/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s  # 增加启动等待时间
+
+  # Feast Web UI - 管理界面
+  feast-ui:
+    build:
+      context: ..
+      dockerfile: .conf/Dockerfile.feast
+    image: feast:0.51.click.redis.mysql
+    container_name: feast-ui
+    restart: always
+    depends_on:
+      - redis-master
+      - clickhouse-master
+      - mysql-master
+    environment:
+      # 日志级别
+      LOG_LEVEL: info
+      # Feast WebUI配置
+      FEAST_UI_HOST: ${FEAST_UI_HOST}
+      FEAST_UI_PORT: ${FEAST_UI_PORT}
+      # MySQL配置
+      FEAST_MYSQL_HOST: mysql-master
+      FEAST_MYSQL_PORT: 3306
+      FEAST_MYSQL_USER: ${FEAST_MYSQL_USER}
+      FEAST_MYSQL_PASSWORD: ${FEAST_MYSQL_PASSWORD}
+      FEAST_MYSQL_DATABASE: feast
+      # Redis配置
+      FEAST_REDIS_HOST: redis-master
+      FEAST_REDIS_PORT: 6379
+      # ClickHouse配置
+      FEAST_CLICKHOUSE_HOST: clickhouse-master
+      FEAST_CLICKHOUSE_PORT: 8123
+      FEAST_CLICKHOUSE_USER: ${FEAST_CLICKHOUSE_USER}
+      FEAST_CLICKHOUSE_PASSWORD: ${FEAST_CLICKHOUSE_PASSWORD}
+      FEAST_CLICKHOUSE_DATABASE: ginkgo
+      # Python环境配置
+      PYTHONPATH: /feast
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "9999:9999"  # Web UI端口
+    working_dir: /feast
+    command: ["/feast/start-feast-ui.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9999 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
