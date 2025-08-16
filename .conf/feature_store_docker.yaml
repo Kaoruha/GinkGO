@@ -1,0 +1,16 @@
+project: ginkgo
+registry: 
+  registry_type: sql
+  path: mysql+pymysql://${FEAST_MYSQL_USER}:${FEAST_MYSQL_PASSWORD}@${FEAST_MYSQL_HOST}:${FEAST_MYSQL_PORT}/${FEAST_MYSQL_DATABASE}
+provider: local
+online_store:
+  type: redis
+  connection_string: ${FEAST_REDIS_HOST}:${FEAST_REDIS_PORT}
+offline_store:
+  type: clickhouse
+  host: ${FEAST_CLICKHOUSE_HOST}
+  port: ${FEAST_CLICKHOUSE_PORT}
+  database: ${FEAST_CLICKHOUSE_DATABASE}
+  user: ${FEAST_CLICKHOUSE_USER}
+  password: ${FEAST_CLICKHOUSE_PASSWORD}
+  use_temporary_tables_for_entity_df: true

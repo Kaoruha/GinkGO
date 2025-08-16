@@ -1,0 +1,26 @@
+FROM python:3.12.11-slim-bookworm
+
+RUN mkdir -p /feast
+
+WORKDIR /feast
+
+COPY .conf/feast_requirements.txt /feast/
+
+RUN apt-get update && apt-get install -y libpq-dev gcc gettext-base
+
+RUN pip install --no-cache-dir -r feast_requirements.txt
+
+RUN pip install psycopg[binary]
+
+# 复制配置模板文件
+COPY .conf/feature_store_docker.yaml /feast/feature_store_template.yaml
+
+# 复制启动脚本
+COPY .conf/start-feast.sh /feast/start-feast.sh
+COPY .conf/start-feast-ui.sh /feast/start-feast-ui.sh
+
+# 设置脚本执行权限
+RUN chmod +x /feast/start-feast.sh /feast/start-feast-ui.sh
+
+# 执行启动脚本
+CMD ["/feast/start-feast.sh"]
