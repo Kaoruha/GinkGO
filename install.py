@@ -104,8 +104,18 @@ def copy_config(path_conf, path_secure, update_config):
 
 
 def install_ginkgo():
-    # Install Ginkgo Package
-    subprocess.run(["python", "./setup_install.py"])
+    # Install Ginkgo Package using modern pip with pyproject.toml
+    try:
+        print("Installing Ginkgo package in development mode...")
+        subprocess.run(["pip", "install", "-e", "."], check=True)
+        print("Ginkgo package installed successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to install Ginkgo package: {e}")
+        print("Trying alternative installation method...")
+        subprocess.run(["pip", "install", "setuptools", "wheel"])
+        subprocess.run(["pip", "install", "-e", "."])
+    
+    # Install additional required packages
     subprocess.run(["pip", "install", "pyyaml", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"])
 
 
@@ -139,18 +149,22 @@ def install_dependencies(path_pip):
 
 
 def set_config_path(path_log, working_directory):
-    from src.ginkgo.libs.core.config import GCONF
-
     try:
+        from src.ginkgo.libs.core.config import GCONF
+        
         GCONF.set_logging_path(path_log)
         GCONF.set_work_path(working_directory)
         GCONF.set_unittest_path(working_directory)
         result = subprocess.run(["which", "python"], capture_output=True, text=True)
         python_path = result.stdout.strip()
         GCONF.set_python_path(python_path)
+        print("✅ Configuration paths set successfully.")
+    except ImportError as e:
+        print(f"⚠️  Could not import GCONF: {e}")
+        print("📝 Ginkgo package not fully installed yet. Path setting will work after installation.")
     except Exception as e:
-        print(e)
-        print("Ginkgo not installed. Path setting will work at next installation.")
+        print(f"❌ Error setting configuration paths: {e}")
+        print("📝 Configuration will be set on next run.")
 
 
 def start_docker(path_dockercompose):
@@ -190,14 +204,18 @@ def build_binary(working_path):
 
 
 def kafka_reset():
-    from src.ginkgo.libs import GTM
-    from src.ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
+    try:
+        from src.ginkgo.libs import GTM
+        from src.ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
 
-    print("kill all workers.")
-    GTM.reset_all_workers()
-    # Kill LiveEngine
-    print("reset kafka topic.")
-    kafka_topic_set()
+        print("kill all workers.")
+        GTM.reset_all_workers()
+        # Kill LiveEngine
+        print("reset kafka topic.")
+        kafka_topic_set()
+    except ImportError as e:
+        print(f"⚠️  Could not import Kafka components: {e}")
+        print("📝 Kafka reset will be available after full installation.")
 
 
 def wait_for_services():
@@ -216,8 +234,9 @@ def wait_for_services():
             print(f"{lightyellow('You may need to check Docker logs manually')}")
             return False
 
-    except ImportError:
-        print(f"{lightyellow('Health check module not available, skipping service checks')}")
+    except ImportError as e:
+        print(f"{lightyellow(f'Health check module not available: {e}')}")
+        print(f"{lightyellow('Skipping service health checks.')}")
         return True
     except Exception as e:
         print(f"{red(f'Error during service health check: {e}')}")
@@ -267,7 +286,12 @@ fi
 
 
 def set_system_service():
-    from ginkgo.libs.core.config import GCONF
+    try:
+        from ginkgo.libs.core.config import GCONF
+    except ImportError as e:
+        print(f"⚠️  Could not import GCONF: {e}")
+        print("📝 System service setup will be available after full installation.")
+        return
 
     # TODO uvicorn path need update conda
     os_name = platform.system()
