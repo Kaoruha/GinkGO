@@ -84,6 +84,10 @@ class EVENT_TYPES(EnumBase):
     NEWSRECIEVE = 8
     NEXTPHASE = 9
     SIGNALGENERATION = 10
+    EXECUTION_CONFIRMATION = 11
+    EXECUTION_REJECTION = 12
+    EXECUTION_TIMEOUT = 13
+    EXECUTION_CANCELLATION = 14
 
 
 class PRICEINFO_TYPES(EnumBase):
@@ -290,3 +294,96 @@ class ENGINE_TYPES(EnumBase):
     COMPLETED = 4
     ERROR = 5
     CANCELED = 6
+
+
+class EXECUTION_MODE(EnumBase):
+    """
+    执行模式枚举
+    
+    支持当前的人工确认模式和未来的自动化交易模式
+    """
+    VOID = -1
+    BACKTEST = 0                # 历史回测
+    PAPER_MANUAL = 1            # 模拟盘-人工确认
+    LIVE_MANUAL = 2             # 实盘-人工确认
+    PAPER_AUTO = 3              # 模拟盘-自动执行（未来）
+    LIVE_AUTO = 4               # 实盘-自动执行（未来）
+    SEMI_AUTO = 5               # 半自动模式（未来）
+    
+    @classmethod
+    def is_manual_mode(cls, mode) -> bool:
+        """判断是否为人工确认模式"""
+        return mode in [cls.PAPER_MANUAL, cls.LIVE_MANUAL]
+    
+    @classmethod
+    def is_auto_mode(cls, mode) -> bool:
+        """判断是否为自动执行模式"""
+        return mode in [cls.PAPER_AUTO, cls.LIVE_AUTO, cls.SEMI_AUTO]
+    
+    @classmethod
+    def is_paper_mode(cls, mode) -> bool:
+        """判断是否为模拟盘模式"""
+        return mode in [cls.PAPER_MANUAL, cls.PAPER_AUTO]
+    
+    @classmethod
+    def is_live_mode(cls, mode) -> bool:
+        """判断是否为实盘模式"""
+        return mode in [cls.LIVE_MANUAL, cls.LIVE_AUTO]
+    
+    @classmethod
+    def get_account_type(cls, mode) -> str:
+        """获取账户类型"""
+        if cls.is_paper_mode(mode):
+            return "paper"
+        elif cls.is_live_mode(mode):
+            return "live"
+        else:
+            return "backtest"
+
+
+class EXECUTION_STATUS(EnumBase):
+    """执行状态枚举"""
+    
+    VOID = -1
+    PENDING_CONFIRMATION = 0    # 等待人工确认
+    CONFIRMED = 1               # 已确认
+    REJECTED = 2                # 被拒绝
+    TIMEOUT = 3                 # 超时
+    CANCELLED = 4               # 已取消
+    FILLED = 5                  # 已成交
+    PARTIAL_FILLED = 6          # 部分成交
+    ERROR = 7                   # 执行错误
+
+
+class TRACKING_STATUS(EnumBase):
+    """信号追踪状态枚举"""
+    
+    VOID = -1
+    NOTIFIED = 0                # 已通知
+    EXECUTED = 1                # 已执行
+    TIMEOUT = 2                 # 超时
+    CANCELLED = 3               # 已取消
+
+
+class ACCOUNT_TYPE(EnumBase):
+    """账户类型枚举"""
+    
+    VOID = -1
+    BACKTEST = 0                # 回测账户
+    PAPER = 1                   # 模拟盘账户
+    LIVE = 2                    # 实盘账户
+
+
+class ENTITY_TYPES(EnumBase):
+    """实体类型枚举 - 用于因子管理系统"""
+    
+    VOID = -1
+    STOCK = 1        # 个股
+    MARKET = 2       # 市场/指数  
+    COUNTRY = 3      # 国家/宏观
+    INDUSTRY = 4     # 行业
+    COMMODITY = 5    # 商品
+    CURRENCY = 6     # 汇率/货币
+    BOND = 7         # 债券
+    FUND = 8         # 基金
+    CRYPTO = 9       # 加密货币

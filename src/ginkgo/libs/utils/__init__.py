@@ -4,7 +4,7 @@ Utils module for Ginkgo library
 
 from .common import (
     try_wait_counter, str2bool, time_logger, format_time_seconds,
-    skip_if_ran, retry, cache_with_expiration, RichProgress
+    skip_if_ran, retry, datasource_retry, cache_with_expiration, RichProgress
 )
 from .display import (
     pretty_repr, base_repr, fix_string_length, chinese_count, GinkgoColor
@@ -29,7 +29,7 @@ except ImportError:
 __all__ = [
     # Common utilities
     "try_wait_counter", "str2bool", "time_logger", "format_time_seconds",
-    "skip_if_ran", "retry", "cache_with_expiration", "RichProgress",
+    "skip_if_ran", "retry", "datasource_retry", "cache_with_expiration", "RichProgress",
     
     # Display utilities
     "pretty_repr", "base_repr", "fix_string_length", "chinese_count", "GinkgoColor",
