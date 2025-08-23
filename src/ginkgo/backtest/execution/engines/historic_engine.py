@@ -90,7 +90,7 @@ class HistoricEngine(EventEngine):
             self.log("ERROR", f"{type(self)}:{self.name} set INTERVAL failed: Unsupported interval type '{interval}'.")
         self.log("INFO", f"{type(self)}:{self.name} set INTERVAL {self._backtest_interval}.")
 
-    @time_logger
+    @time_logger(threshold=0.05, profile_mode=True)  # 回测核心循环，50ms阈值，性能分析模式
     def main_loop(self, flag) -> None:
         """
         The EventBacktest Main Loop.
