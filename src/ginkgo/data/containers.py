@@ -50,6 +50,8 @@ from .services.portfolio_service import PortfolioService
 from .services.component_service import ComponentService
 from .services.redis_service import RedisService
 from .services.kafka_service import KafkaService
+from .services.signal_tracking_service import SignalTrackingService
+from .services.factor_service import FactorService
 
 
 class Container(containers.DeclarativeContainer):
@@ -84,6 +86,7 @@ class Container(containers.DeclarativeContainer):
     param_crud = providers.Singleton(get_crud, "param")
     redis_crud = providers.Singleton(get_crud, "redis")
     kafka_crud = providers.Singleton(get_crud, "kafka")
+    factor_crud = providers.Singleton(get_crud, "factor")
 
     # Services (Dependencies are injected here)
     # StockinfoService must be defined before AdjustfactorService as it's a dependency
@@ -126,6 +129,18 @@ class Container(containers.DeclarativeContainer):
     redis_service = providers.Singleton(RedisService, redis_crud=redis_crud)
 
     kafka_service = providers.Singleton(KafkaService, kafka_crud=kafka_crud)
+    
+    # Signal tracking service with SignalTrackerCRUD dependency
+    signal_tracking_service = providers.Singleton(
+        SignalTrackingService, 
+        tracker_crud=providers.Singleton(get_crud, "signal_tracker")
+    )
+    
+    # Factor service with FactorCRUD dependency
+    factor_service = providers.Singleton(
+        FactorService,
+        factor_crud=factor_crud
+    )
 
 
 # A singleton instance of the container, accessible throughout the application
