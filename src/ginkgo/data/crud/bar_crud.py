@@ -7,6 +7,7 @@ from ..models import MBar
 from ...backtest import Bar
 from ...enums import FREQUENCY_TYPES, SOURCE_TYPES
 from ...libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ...libs.utils.error_handler import unified_error_handler
 from ..access_control import restrict_crud_access
 
 
