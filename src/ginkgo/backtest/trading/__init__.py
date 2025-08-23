@@ -5,6 +5,7 @@ Trading Module - 交易层
 
 - matchmakings/: 撮合引擎
 - handlers/: 处理器
+- brokers/: 交易执行代理
 
 统一的交易层接口和撮合机制
 """
@@ -14,6 +15,13 @@ try:
     from .matchmakings.base_matchmaking import MatchMakingBase
     from .matchmakings.sim_matchmaking import MatchMakingSim
     from .matchmakings.live_matchmaking import LiveMatchMaking
+    from .matchmakings.broker_matchmaking import BrokerMatchMaking
+except ImportError:
+    pass
+
+# 交易执行代理
+try:
+    from .brokers import BaseBroker, SimBroker, OKXBroker
 except ImportError:
     pass
 
@@ -29,8 +37,14 @@ except ImportError:
 __all__ = [
     # 撮合引擎
     "MatchMakingBase",
-    "MatchMakingSim",
+    "MatchMakingSim", 
     "LiveMatchMaking",
+    "BrokerMatchMaking",
+    
+    # 交易执行代理
+    "BaseBroker",
+    "SimBroker",
+    "OKXBroker",
     
     # 处理器
     "HandlerBase", 
