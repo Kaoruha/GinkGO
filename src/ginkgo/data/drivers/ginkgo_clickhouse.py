@@ -64,6 +64,50 @@ class GinkgoClickhouse(DatabaseDriverBase):
         """ClickHouse健康检查查询"""
         return "SELECT 1"
 
+    def _get_streaming_uri(self) -> str:
+        """🆕 获取ClickHouse流式查询专用连接URI - 优化参数用于大数据流式处理"""
+        return (
+            f"clickhouse://{self._user}:{self._pwd}@"
+            f"{self._host}:{self._port}/{self._db}"
+            f"?connect_timeout={self._connect_timeout * 3}"  # 流式查询使用更长超时
+            f"&read_timeout={self._read_timeout * 20}"  # 大数据查询长时间读取支持
+            f"&send_receive_timeout=0"  # 禁用发送接收超时，适合长时间查询
+            f"&max_execution_time=0"  # 禁用执行时间限制
+            f"&stream_mode=1"  # 启用流式模式
+        )
+
+    def _create_streaming_engine(self):
+        """🆕 创建ClickHouse流式查询专用引擎 - 原生流式传输支持"""
+        return create_engine(
+            self._get_streaming_uri(),
+            echo=self._echo,
+            future=True,
+            # 🔥 ClickHouse流式查询专用连接池配置
+            pool_recycle=14400,  # 4小时连接回收（大数据查询可能很长）
+            pool_size=3,  # 更小的连接池，专用于流式查询
+            pool_timeout=120,  # 更长的获取连接超时
+            max_overflow=1,  # 最小溢出连接数
+            pool_pre_ping=True,
+            # 🔥 ClickHouse流式查询专用参数
+            execution_options={
+                "stream_results": True,  # 启用结果流式传输
+                "compiled_cache": {},  # 查询编译缓存
+                "autocommit": False,  # 流式查询禁用自动提交
+            },
+            connect_args={
+                "settings": {
+                    "max_memory_usage": "0",  # 禁用内存使用限制
+                    "max_execution_time": "0",  # 禁用执行时间限制
+                    "send_timeout": "0",  # 禁用发送超时
+                    "receive_timeout": "0",  # 禁用接收超时
+                    "max_result_rows": "0",  # 禁用结果行数限制
+                    "result_overflow_mode": "break",  # 结果溢出时中断
+                    "max_threads": "1",  # 单线程处理确保顺序
+                    "prefer_localhost_replica": "1",  # 优先本地副本
+                }
+            }
+        )
+
     def health_check(self) -> bool:
         """使用专门的ClickHouse健康检查"""
         try:

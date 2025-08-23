@@ -16,7 +16,7 @@ from ...libs import time_logger, retry, GLOG, GinkgoLogger, cache_with_expiratio
 
 
 class DatabaseDriverBase(ABC):
-    """数据库驱动抽象基类"""
+    """数据库驱动抽象基类 - 增强支持流式查询连接池"""
 
     # 类级别的共享database logger，避免重复创建
     _shared_database_logger = None
@@ -26,6 +26,11 @@ class DatabaseDriverBase(ABC):
         self._db_type = driver_name.lower()
         self._engine = None
         self._session_factory = None
+        
+        # 🆕 流式查询专用连接池
+        self._streaming_engine = None
+        self._streaming_session_factory = None
+        self._streaming_enabled = False
 
         # 连接统计信息
         self._connection_stats = {
@@ -35,6 +40,11 @@ class DatabaseDriverBase(ABC):
             "active_connections": 0,
             "last_health_check": 0,
             "health_check_failures": 0,
+            # 🆕 流式查询连接统计
+            "streaming_connections_created": 0,
+            "streaming_connections_closed": 0,
+            "active_streaming_connections": 0,
+            "streaming_sessions_active": 0,
         }
         self._lock = threading.Lock()
 
@@ -87,9 +97,16 @@ class DatabaseDriverBase(ABC):
                 # 避免logger错误影响主逻辑
                 pass
 
+    # ==================== 抽象方法 ====================
+    
     @abstractmethod
     def _create_engine(self):
         """子类实现：创建数据库引擎"""
+        pass
+
+    @abstractmethod  
+    def _create_streaming_engine(self):
+        """🆕 子类实现：创建流式查询专用引擎"""
         pass
 
     @abstractmethod
@@ -101,6 +118,13 @@ class DatabaseDriverBase(ABC):
     def _get_uri(self) -> str:
         """子类实现：获取数据库连接URI"""
         pass
+    
+    @abstractmethod
+    def _get_streaming_uri(self) -> str:
+        """🆕 子类实现：获取流式查询专用连接URI"""
+        pass
+
+    # ==================== 传统连接池管理 ====================
 
     @time_logger
     @retry(max_try=3)
@@ -120,6 +144,95 @@ class DatabaseDriverBase(ABC):
         except Exception as e:
             self.log("ERROR", f"Failed to initialize {self.driver_name}: {e}")
             raise
+
+    # ==================== 🆕 流式查询连接池管理 ====================
+    
+    @time_logger
+    @retry(max_try=3)
+    def initialize_streaming(self):
+        """初始化流式查询专用连接池"""
+        self.log("INFO", f"Initializing {self.driver_name} streaming connection pool...")
+        
+        try:
+            self._streaming_engine = self._create_streaming_engine()
+            self._streaming_session_factory = scoped_session(
+                sessionmaker(bind=self._streaming_engine)
+            )
+            self._streaming_enabled = True
+            
+            if not self.health_check_streaming():
+                raise RuntimeError(f"{self.driver_name} streaming health check failed")
+                
+            self.log("INFO", f"{self.driver_name} streaming connection pool initialized successfully")
+            
+        except Exception as e:
+            self.log("ERROR", f"Failed to initialize {self.driver_name} streaming pool: {e}")
+            self._streaming_enabled = False
+            raise
+    
+    def is_streaming_enabled(self) -> bool:
+        """检查流式查询是否已启用"""
+        return self._streaming_enabled and self._streaming_engine is not None
+    
+    @contextmanager  
+    def get_streaming_session(self):
+        """🆕 上下文管理器：流式查询专用会话"""
+        if not self.is_streaming_enabled():
+            self.initialize_streaming()
+            
+        if not self.is_streaming_enabled():
+            # 降级到常规会话
+            self.log("WARNING", "Streaming not available, falling back to regular session")
+            with self.get_session() as session:
+                yield session
+            return
+            
+        session = None
+        try:
+            with self._lock:
+                self._connection_stats["streaming_connections_created"] += 1
+                self._connection_stats["active_streaming_connections"] += 1
+                self._connection_stats["streaming_sessions_active"] += 1
+                
+            session = self._streaming_session_factory()
+            self.log("DEBUG", f"Created streaming session for {self.driver_name}")
+            yield session
+            session.commit()
+            
+        except Exception as e:
+            if session:
+                session.rollback()
+            self.log("ERROR", f"{self.driver_name} streaming session error: {e}")
+            raise
+        finally:
+            if session:
+                session.close()
+                with self._lock:
+                    self._connection_stats["streaming_connections_closed"] += 1
+                    self._connection_stats["active_streaming_connections"] -= 1  
+                    self._connection_stats["streaming_sessions_active"] -= 1
+                    
+    def get_streaming_connection(self):
+        """🆕 获取流式查询原生连接（用于服务器端游标）"""
+        if not self.is_streaming_enabled():
+            self.initialize_streaming()
+            
+        if not self.is_streaming_enabled():
+            # 降级到常规连接
+            self.log("WARNING", "Streaming not available, falling back to regular connection")
+            return self._engine.raw_connection()
+            
+        try:
+            connection = self._streaming_engine.raw_connection()
+            with self._lock:
+                self._connection_stats["streaming_connections_created"] += 1
+                self._connection_stats["active_streaming_connections"] += 1
+            return connection
+        except Exception as e:
+            self.log("ERROR", f"Failed to get streaming connection for {self.driver_name}: {e}")
+            raise
+
+    # ==================== 健康检查 ====================
 
     @cache_with_expiration(expiration_seconds=300)
     def health_check(self) -> bool:
@@ -141,6 +254,25 @@ class DatabaseDriverBase(ABC):
 
             self.log("WARNING", f"{self.driver_name} health check failed: {e}")
             return False
+    
+    @cache_with_expiration(expiration_seconds=300)        
+    def health_check_streaming(self) -> bool:
+        """🆕 流式查询连接池健康检查"""
+        if not self.is_streaming_enabled():
+            return False
+            
+        try:
+            with self.get_streaming_session() as session:
+                session.execute(text(self._health_check_query()))
+                
+            self.log("DEBUG", f"{self.driver_name} streaming health check passed")
+            return True
+            
+        except Exception as e:
+            self.log("WARNING", f"{self.driver_name} streaming health check failed: {e}")
+            return False
+
+    # ==================== 传统会话管理（保持向后兼容）====================
 
     @contextmanager
     def get_session(self):
@@ -170,16 +302,63 @@ class DatabaseDriverBase(ABC):
                     self._connection_stats["connections_closed"] += 1
                     self._connection_stats["active_connections"] -= 1
 
+    # ==================== 统计和监控 ====================
+
     def get_connection_stats(self) -> Dict[str, Any]:
-        """获取连接统计信息"""
+        """获取连接统计信息（包含流式查询统计）"""
         with self._lock:
             stats = self._connection_stats.copy()
 
         stats["uptime"] = time.time() - stats["created_at"]
         stats["connection_efficiency"] = stats["connections_closed"] / max(stats["connections_created"], 1)
+        
+        # 🆕 流式查询效率统计
+        if stats["streaming_connections_created"] > 0:
+            stats["streaming_connection_efficiency"] = (
+                stats["streaming_connections_closed"] / stats["streaming_connections_created"]
+            )
+        else:
+            stats["streaming_connection_efficiency"] = 0.0
+            
         stats["driver_name"] = self.driver_name
+        stats["streaming_enabled"] = self.is_streaming_enabled()
 
         return stats
+    
+    def get_streaming_pool_info(self) -> Dict[str, Any]:
+        """🆕 获取流式查询连接池详细信息"""
+        if not self.is_streaming_enabled():
+            return {"enabled": False, "message": "Streaming not initialized"}
+            
+        try:
+            # 尝试获取连接池状态（SQLAlchemy特定）
+            pool_status = {}
+            if hasattr(self._streaming_engine.pool, 'status'):
+                pool_status = self._streaming_engine.pool.status()
+            elif hasattr(self._streaming_engine.pool, 'size'):
+                pool_status = {
+                    "pool_size": self._streaming_engine.pool.size(),
+                    "checked_in": getattr(self._streaming_engine.pool, 'checkedin', lambda: 0)(),
+                    "checked_out": getattr(self._streaming_engine.pool, 'checkedout', lambda: 0)(),
+                }
+                
+            return {
+                "enabled": True,
+                "driver_type": self._db_type,
+                "engine_info": str(self._streaming_engine.url),
+                "pool_status": pool_status,
+                "active_sessions": self._connection_stats["streaming_sessions_active"],
+                "total_created": self._connection_stats["streaming_connections_created"],
+                "total_closed": self._connection_stats["streaming_connections_closed"],
+            }
+        except Exception as e:
+            return {
+                "enabled": True,
+                "error": f"Failed to get pool info: {e}",
+                "active_sessions": self._connection_stats["streaming_sessions_active"],
+            }
+
+    # ==================== 向后兼容属性 ====================
 
     @property
     def engine(self):
@@ -187,6 +366,13 @@ class DatabaseDriverBase(ABC):
         if self._engine is None:
             self.initialize()
         return self._engine
+    
+    @property
+    def streaming_engine(self):
+        """🆕 获取流式查询引擎"""
+        if not self.is_streaming_enabled():
+            self.initialize_streaming()
+        return self._streaming_engine
 
     @property
     def session(self):
@@ -199,3 +385,8 @@ class DatabaseDriverBase(ABC):
         """移除会话（向后兼容）"""
         if self._session_factory:
             self._session_factory.remove()
+            
+    def remove_streaming_session(self):
+        """🆕 移除流式查询会话"""
+        if self._streaming_session_factory:
+            self._streaming_session_factory.remove()

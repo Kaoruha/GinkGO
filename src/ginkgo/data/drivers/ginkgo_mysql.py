@@ -63,6 +63,42 @@ class GinkgoMysql(DatabaseDriverBase):
         """MySQL健康检查查询"""
         return "SELECT 1"
 
+    def _get_streaming_uri(self) -> str:
+        """🆕 获取MySQL流式查询专用连接URI - 优化参数用于长连接"""
+        return (
+            f"mysql+pymysql://{self._user}:{self._pwd}@"
+            f"{self._host}:{self._port}/{self._db}"
+            f"?connect_timeout={self._connect_timeout * 2}"  # 流式查询使用更长超时
+            f"&read_timeout={self._read_timeout * 10}"  # 长时间读取支持
+            f"&autocommit=false"  # 流式查询禁用自动提交
+            f"&charset=utf8mb4"
+        )
+
+    def _create_streaming_engine(self):
+        """🆕 创建MySQL流式查询专用引擎 - 服务器端游标支持"""
+        return create_engine(
+            self._get_streaming_uri(),
+            echo=self._echo,
+            future=True,
+            # 🔥 流式查询专用连接池配置
+            pool_recycle=7200,  # 2小时连接回收（比常规更长）
+            pool_size=5,  # 较小的连接池，专用于流式查询
+            pool_timeout=60,  # 更长的获取连接超时
+            max_overflow=2,  # 最小溢出连接数
+            pool_pre_ping=True,
+            # 🔥 MySQL流式查询专用参数
+            execution_options={
+                "stream_results": True,  # 启用结果流式传输
+                "compiled_cache": {},  # 查询编译缓存
+            },
+            connect_args={
+                "use_unicode": True,
+                "charset": "utf8mb4",
+                "autocommit": False,  # 流式查询需要禁用自动提交
+                "cursorclass": "SSCursor",  # 服务器端游标类
+            }
+        )
+
     def health_check(self) -> bool:
         """使用专门的MySQL健康检查"""
         try:
