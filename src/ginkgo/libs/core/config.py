@@ -335,8 +335,114 @@ class GinkgoConfig(object):
         key = "GINKGO_DEBUG_MODE"
         if isinstance(value, bool):
             self._write_config("debug", value)
-            value = str(value)
-            os.environ[key] = value
+
+    # 装饰器配置属性
+    @property
+    def DECORATOR_TIME_LOGGER_ENABLED(self) -> bool:
+        """时间日志装饰器是否启用"""
+        value = self._get_config("time_logger_enabled", True, "decorator")
+        return str(value).upper() == "TRUE"
+
+    def set_decorator_time_logger_enabled(self, enabled: bool) -> None:
+        """设置时间日志装饰器启用状态"""
+        config = self._read_config()
+        if "decorator" not in config:
+            config["decorator"] = {}
+        config["decorator"]["time_logger_enabled"] = enabled
+        with open(self.setting_path, "w") as file:
+            yaml.safe_dump(config, file)
+        os.environ["GINKGO_DECORATOR_TIME_LOGGER_ENABLED"] = str(enabled)
+
+    @property
+    def DECORATOR_TIME_LOGGER_THRESHOLD(self) -> float:
+        """时间日志装饰器阈值（秒）"""
+        value = self._get_config("time_logger_threshold", 0.1, "decorator")
+        return float(value)
+
+    def set_decorator_time_logger_threshold(self, threshold: float) -> None:
+        """设置时间日志装饰器阈值"""
+        config = self._read_config()
+        if "decorator" not in config:
+            config["decorator"] = {}
+        config["decorator"]["time_logger_threshold"] = threshold
+        with open(self.setting_path, "w") as file:
+            yaml.safe_dump(config, file)
+        os.environ["GINKGO_DECORATOR_TIME_LOGGER_THRESHOLD"] = str(threshold)
+
+    @property
+    def DECORATOR_TIME_LOGGER_PROFILE_MODE(self) -> bool:
+        """时间日志装饰器性能分析模式"""
+        value = self._get_config("time_logger_profile_mode", False, "decorator")
+        return str(value).upper() == "TRUE"
+
+    def set_decorator_time_logger_profile_mode(self, profile_mode: bool) -> None:
+        """设置时间日志装饰器性能分析模式"""
+        config = self._read_config()
+        if "decorator" not in config:
+            config["decorator"] = {}
+        config["decorator"]["time_logger_profile_mode"] = profile_mode
+        with open(self.setting_path, "w") as file:
+            yaml.safe_dump(config, file)
+        os.environ["GINKGO_DECORATOR_TIME_LOGGER_PROFILE_MODE"] = str(profile_mode)
+
+    @property
+    def DECORATOR_RETRY_ENABLED(self) -> bool:
+        """重试装饰器是否启用"""
+        value = self._get_config("retry_enabled", True, "decorator")
+        return str(value).upper() == "TRUE"
+
+    @property
+    def DECORATOR_RETRY_MAX_ATTEMPTS(self) -> int:
+        """重试装饰器最大尝试次数"""
+        value = self._get_config("retry_max_attempts", 3, "decorator")
+        return int(value)
+
+    @property
+    def DECORATOR_RETRY_BACKOFF_FACTOR(self) -> float:
+        """重试装饰器退避因子"""
+        value = self._get_config("retry_backoff_factor", 2.0, "decorator")
+        return float(value)
+
+    @property
+    def DECORATOR_CACHE_ENABLED(self) -> bool:
+        """缓存装饰器是否启用"""
+        value = self._get_config("cache_enabled", True, "decorator")
+        return str(value).upper() == "TRUE"
+
+    @property
+    def DECORATOR_CACHE_DEFAULT_TTL(self) -> int:
+        """缓存装饰器默认TTL（秒）"""
+        value = self._get_config("cache_default_ttl", 300, "decorator")
+        return int(value)
+
+    # 数据源重试策略配置
+    def get_datasource_retry_config(self, source_name: str) -> dict:
+        """获取特定数据源的重试配置"""
+        config = self._read_config()
+        data_sources = config.get("data_sources", {})
+        source_config = data_sources.get(source_name.lower(), {})
+        
+        return {
+            "retry_enabled": source_config.get("retry_enabled", True),
+            "retry_max_attempts": source_config.get("retry_max_attempts", self.DECORATOR_RETRY_MAX_ATTEMPTS),
+            "retry_backoff_factor": source_config.get("retry_backoff_factor", self.DECORATOR_RETRY_BACKOFF_FACTOR)
+        }
+    
+    def get_tushare_retry_config(self) -> dict:
+        """获取TuShare重试配置"""
+        return self.get_datasource_retry_config("tushare")
+    
+    def get_baostock_retry_config(self) -> dict:
+        """获取BaoStock重试配置"""
+        return self.get_datasource_retry_config("baostock")
+    
+    def get_tdx_retry_config(self) -> dict:
+        """获取TDX重试配置"""
+        return self.get_datasource_retry_config("tdx")
+    
+    def get_yahoo_retry_config(self) -> dict:
+        """获取Yahoo重试配置"""
+        return self.get_datasource_retry_config("yahoo")
 
     @property
     def CPURATIO(self) -> float:
