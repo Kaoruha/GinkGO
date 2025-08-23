@@ -3,6 +3,67 @@ heart_beat: .01
 debug: False
 token_expiration: 14  # Token过期时间（天）
 
+# 装饰器配置
+decorator:
+  # 性能监控装饰器
+  time_logger_enabled: true
+  time_logger_threshold: 0.1
+  time_logger_profile_mode: false
+  
+  # 重试装饰器
+  retry_enabled: true
+  retry_max_attempts: 3
+  retry_backoff_factor: 2.0
+  
+  # 缓存装饰器
+  cache_enabled: true
+  cache_default_ttl: 300
+
+# 回测引擎性能监控配置
+backtest_performance:
+  # 引擎主循环 - 最严格监控
+  engine_main_loop:
+    threshold: 0.05      # 50ms阈值
+    profile_mode: true   # 强制性能分析
+    enabled: true
+  
+  # 信号执行器 - 中等监控  
+  signal_execution:
+    threshold: 0.01      # 10ms阈值
+    profile_mode: false
+    enabled: true
+    
+  # 策略计算 - 宽松监控
+  strategy_calculation:
+    threshold: 0.2       # 200ms阈值
+    profile_mode: false
+    enabled: true
+    
+  # 风控处理 - 严格监控
+  risk_management:
+    threshold: 0.02      # 20ms阈值
+    profile_mode: true
+    enabled: true
+
+# 数据源重试策略配置
+data_sources:
+  tushare:
+    retry_max_attempts: 8     # TuShare API限制较严，需要更多重试
+    retry_backoff_factor: 1.5 # 较温和的退避策略
+    retry_enabled: true
+  baostock:
+    retry_max_attempts: 5     # BaoStock稳定性较好
+    retry_backoff_factor: 2.0 # 标准退避策略
+    retry_enabled: true
+  tdx:
+    retry_max_attempts: 6     # 通达信本地数据源
+    retry_backoff_factor: 1.2 # 快速重试
+    retry_enabled: true
+  yahoo:
+    retry_max_attempts: 4     # 海外API，网络延迟较高
+    retry_backoff_factor: 2.5 # 较长的退避时间
+    retry_enabled: true
+
 # 日志设置
 log_path: /home/kaoru/.ginkgo/logs/
 working_directory: /home/kaoru/Documents/Ginkgo/
