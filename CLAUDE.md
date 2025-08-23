@@ -1,4 +1,5 @@
 # CLAUDE.md
+输出内容控制在一屏内,不要滚动。
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Chat in madarin.
 
