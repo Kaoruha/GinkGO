@@ -1,5 +1,6 @@
 # Ginkgo
 
+
 🚀 **Modern Python Quantitative Trading Library**
 
 Ginkgo is a comprehensive quantitative trading framework featuring event-driven backtesting, multi-database support, and complete risk management systems.
