@@ -2,6 +2,10 @@ from typing import List
 import os
 import inspect
 import logging
+import threading
+import hashlib
+import time
+import re
 from logging.handlers import RotatingFileHandler
 from rich.logging import RichHandler
 from pathlib import Path
@@ -27,7 +31,7 @@ class GinkgoLogger:
     """
 
     def __init__(self, logger_name: str, file_names: List = None, console_log=False):
-        self.logger_name = logger_name  # 保存logger名称作为实例属性
+        self.logger_name = logger_name
         self.backup_count = 3
         self.max_file_bytes = 2 * 1024 * 1024 * 1024
         self._file_names = file_names
@@ -49,12 +53,97 @@ class GinkgoLogger:
         self.logger = logging.getLogger(logger_name)
         self.logger.setLevel(logging.INFO)
 
+        # 错误追踪相关的实例变量
+        self._error_patterns = {}  # 错误模式计数 {pattern_hash: count}
+        self._error_timestamps = {}  # 错误时间戳 {pattern_hash: last_log_time}
+        self._error_lock = threading.RLock()  # 线程安全锁
+        self._max_error_history = 1000  # 最大错误历史记录数
+
         self._setup_handlers(console_log)
 
     def _setup_handlers(self, console_log):
         self._setup_file_handler()
         self._setup_console_handler(console_log)
         self._setup_error_handler()
+
+    def _should_log_error(self, msg: str) -> tuple[bool, str]:
+        """
+        智能流量控制：判断是否应该记录错误日志
+        
+        Args:
+            msg: 错误消息
+            
+        Returns:
+            tuple[bool, str]: (是否应该记录, 处理后的消息)
+        """
+        # 生成错误模式哈希（基于消息的前100个字符，忽略动态参数）
+        pattern_msg = msg[:100] if len(msg) > 100 else msg
+        # 移除常见的动态部分（数字、时间戳等）来生成模式
+        pattern_msg = re.sub(r'\d{4}-\d{2}-\d{2}', 'DATE', pattern_msg)  # 日期
+        pattern_msg = re.sub(r'\d{2}:\d{2}:\d{2}', 'TIME', pattern_msg)  # 时间
+        pattern_msg = re.sub(r'\b\d+\b', 'NUM', pattern_msg)  # 数字
+        pattern_hash = hashlib.md5(pattern_msg.encode()).hexdigest()[:8]
+        
+        current_time = time.time()
+        
+        with self._error_lock:
+            # 获取当前模式的计数
+            count = self._error_patterns.get(pattern_hash, 0) + 1
+            self._error_patterns[pattern_hash] = count
+            self._error_timestamps[pattern_hash] = current_time
+            
+            # 清理过期的错误记录（保留最近的记录）
+            if len(self._error_patterns) > self._max_error_history:
+                # 删除最旧的100个记录
+                sorted_items = sorted(
+                    self._error_timestamps.items(), 
+                    key=lambda x: x[1]
+                )
+                for old_hash, _ in sorted_items[:100]:
+                    self._error_patterns.pop(old_hash, None)
+                    self._error_timestamps.pop(old_hash, None)
+            
+            # 智能频率控制逻辑
+            if count == 1:
+                # 首次出现，完整记录
+                return True, f"🔥 [{pattern_hash}] {msg}"
+            elif count <= 5:
+                # 少量重复，简化记录
+                return True, f"⚠️ [{pattern_hash}] {msg} ({count}th occurrence)"
+            elif count == 10:
+                # 达到阈值，发出警告
+                return True, f"🚨 [{pattern_hash}] Error pattern occurred {count} times, consider investigation: {msg}"
+            elif count % 50 == 0:
+                # 每50次记录一次统计信息
+                return True, f"📊 [{pattern_hash}] Error pattern count: {count} - {msg}"
+            else:
+                # 高频错误，不记录
+                return False, msg
+
+    def get_error_stats(self) -> dict:
+        """获取错误统计信息"""
+        with self._error_lock:
+            total_patterns = len(self._error_patterns)
+            top_errors = sorted(
+                self._error_patterns.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:10]
+            
+            return {
+                "total_error_patterns": total_patterns,
+                "top_error_patterns": [
+                    {"pattern_hash": pattern, "count": count}
+                    for pattern, count in top_errors
+                ],
+                "total_error_count": sum(self._error_patterns.values())
+            }
+    
+    def clear_error_stats(self):
+        """清除错误统计"""
+        with self._error_lock:
+            self._error_patterns.clear()
+            self._error_timestamps.clear()
 
     def _setup_file_handler(self):
         if not self._file_names:
@@ -212,7 +301,11 @@ class GinkgoLogger:
     def ERROR(self, msg: str):
         if not self.logger.isEnabledFor(logging.ERROR):
             return
-        self.log("ERROR", msg)
+        
+        # 使用智能流量控制
+        should_log, processed_msg = self._should_log_error(msg)
+        if should_log:
+            self.log("ERROR", processed_msg)
 
     def CRITICAL(self, msg: str):
         if not self.logger.isEnabledFor(logging.CRITICAL):
