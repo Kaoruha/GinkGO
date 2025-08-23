@@ -1,91 +1,180 @@
 """
-ML服务容器
+ML Module Container
 
-提供机器学习相关服务的依赖注入容器，集成模型工厂、特征工程、超参数管理等服务。
+Provides unified access to ML services using dependency-injector,
+following the same pattern as data and backtest modules.
+
+Usage Examples:
+
+    from ginkgo.quant_ml.containers import container
+    
+    # Access models (similar to data.cruds.bar())
+    lightgbm_model = container.models.lightgbm()
+    xgboost_model = container.models.xgboost()
+    
+    # Access services
+    feature_processor = container.services.feature_processor()
+    alpha_factors = container.services.alpha_factors()
+    
+    # For dependency injection:
+    from dependency_injector.wiring import inject, Provide
+    
+    @inject
+    def your_function(model = Provide[Container.models.lightgbm]):
+        # Use model here
+        pass
 """
 
+from dependency_injector import containers, providers
 from typing import Dict, Any, Type
 
-from ginkgo.core.interfaces.model_interface import IModel
-from ginkgo.quant_ml.models.lightgbm import LightGBMModel
-from ginkgo.quant_ml.models.xgboost import XGBoostModel
-from ginkgo.quant_ml.models.sklearn import RandomForestModel, LinearModel, SVMModel
-from ginkgo.quant_ml.features.feature_processor import FeatureProcessor
-from ginkgo.quant_ml.features.alpha_factors import AlphaFactors
+
+# ============= LAZY IMPORT FUNCTIONS =============
+def _get_lightgbm_model_class():
+    """Lazy import for LightGBM model class."""
+    from ginkgo.quant_ml.models.lightgbm import LightGBMModel
+    return LightGBMModel
+
+def _get_xgboost_model_class():
+    """Lazy import for XGBoost model class."""
+    from ginkgo.quant_ml.models.xgboost import XGBoostModel
+    return XGBoostModel
+
+def _get_random_forest_model_class():
+    """Lazy import for RandomForest model class."""
+    from ginkgo.quant_ml.models.sklearn import RandomForestModel
+    return RandomForestModel
+
+def _get_linear_model_class():
+    """Lazy import for Linear model class."""
+    from ginkgo.quant_ml.models.sklearn import LinearModel
+    return LinearModel
+
+def _get_svm_model_class():
+    """Lazy import for SVM model class."""
+    from ginkgo.quant_ml.models.sklearn import SVMModel
+    return SVMModel
+
+def _get_feature_processor_class():
+    """Lazy import for FeatureProcessor class."""
+    from ginkgo.quant_ml.features.feature_processor import FeatureProcessor
+    return FeatureProcessor
+
+def _get_alpha_factors_class():
+    """Lazy import for AlphaFactors class."""
+    from ginkgo.quant_ml.features.alpha_factors import AlphaFactors
+    return AlphaFactors
+
+def _get_ml_strategy_base_class():
+    """Lazy import for MLStrategyBase class."""
+    from ginkgo.quant_ml.strategies.ml_strategy_base import MLStrategyBase
+    return MLStrategyBase
+
+def _get_prediction_strategy_class():
+    """Lazy import for PredictionStrategy class."""
+    from ginkgo.quant_ml.strategies.prediction_strategy import PredictionStrategy
+    return PredictionStrategy
 
 
-# 简化的模型类型映射
-MODEL_TYPE_MAPPING = {
-    "lightgbm": LightGBMModel,
-    "xgboost": XGBoostModel,
-    "random_forest": RandomForestModel,
-    "linear": LinearModel,
-    "svm": SVMModel,
-}
-
-
-def create_model(model_type: str, **kwargs) -> IModel:
+class Container(containers.DeclarativeContainer):
     """
-    模型工厂方法
+    ML module dependency injection container.
     
-    Args:
-        model_type: 模型类型 ("lightgbm", "xgboost", "random_forest", "linear", "svm")
-        **kwargs: 模型初始化参数
-        
-    Returns:
-        IModel: 模型实例
+    Provides unified access to ML components using FactoryAggregate,
+    following the data module's successful pattern.
     """
-    if model_type not in MODEL_TYPE_MAPPING:
+    
+    # ============= MODELS =============
+    # Model factories - using Factory for per-use instances
+    lightgbm_model = providers.Factory(_get_lightgbm_model_class)
+    xgboost_model = providers.Factory(_get_xgboost_model_class)
+    random_forest_model = providers.Factory(_get_random_forest_model_class)
+    linear_model = providers.Factory(_get_linear_model_class)
+    svm_model = providers.Factory(_get_svm_model_class)
+    
+    # Models aggregate - similar to data module's cruds
+    models = providers.FactoryAggregate(
+        lightgbm=lightgbm_model,
+        xgboost=xgboost_model,
+        random_forest=random_forest_model,
+        linear=linear_model,
+        svm=svm_model
+    )
+    
+    # ============= SERVICES =============
+    # Service factories - using Singleton for shared services
+    feature_processor_service = providers.Singleton(_get_feature_processor_class)
+    alpha_factors_service = providers.Singleton(_get_alpha_factors_class)
+    
+    # Services aggregate
+    services = providers.FactoryAggregate(
+        feature_processor=feature_processor_service,
+        alpha_factors=alpha_factors_service
+    )
+    
+    # ============= STRATEGIES =============
+    # Strategy factories
+    ml_strategy_base = providers.Factory(_get_ml_strategy_base_class)
+    prediction_strategy = providers.Factory(_get_prediction_strategy_class)
+    
+    # Strategies aggregate
+    strategies = providers.FactoryAggregate(
+        base=ml_strategy_base,
+        prediction=prediction_strategy
+    )
+
+
+# Create a singleton instance of the container, accessible throughout the application
+container = Container()
+
+# Backward compatibility - provide old access methods
+def create_model(model_type: str, **kwargs):
+    """Create model by type (backward compatibility)"""
+    model_mapping = {
+        'lightgbm': container.models.lightgbm,
+        'xgboost': container.models.xgboost,
+        'random_forest': container.models.random_forest,
+        'linear': container.models.linear,
+        'svm': container.models.svm
+    }
+    
+    if model_type in model_mapping:
+        return model_mapping[model_type](**kwargs)
+    else:
         raise ValueError(f"不支持的模型类型: {model_type}")
-    
-    model_class = MODEL_TYPE_MAPPING[model_type]
-    return model_class(**kwargs)
 
+def get_available_models() -> Dict[str, str]:
+    """Get available model types (backward compatibility)"""
+    return {
+        "lightgbm": "LightGBM Gradient Boosting",
+        "xgboost": "XGBoost Gradient Boosting", 
+        "random_forest": "Random Forest",
+        "linear": "Linear Model",
+        "svm": "Support Vector Machine"
+    }
 
-def get_available_models() -> Dict[str, Type[IModel]]:
-    """获取所有可用的模型类型"""
-    return MODEL_TYPE_MAPPING.copy()
+def create_feature_processor(**kwargs):
+    """Create feature processor (backward compatibility)"""
+    return container.services.feature_processor()(**kwargs)
 
+def create_alpha_factors(**kwargs):
+    """Create alpha factors (backward compatibility)"""
+    return container.services.alpha_factors()(**kwargs)
 
-def create_feature_processor(**kwargs) -> FeatureProcessor:
-    """创建特征处理器"""
-    return FeatureProcessor(**kwargs)
+def get_service_info():
+    """Get service information (backward compatibility)"""
+    return {
+        "models": ["lightgbm", "xgboost", "random_forest", "linear", "svm"],
+        "services": ["feature_processor", "alpha_factors"],
+        "strategies": ["base", "prediction"]
+    }
 
+# Bind backward compatibility methods to container
+container.create_model = create_model
+container.get_available_models = get_available_models
+container.create_feature_processor = create_feature_processor
+container.create_alpha_factors = create_alpha_factors
+container.get_service_info = get_service_info
 
-def create_alpha_factors(**kwargs) -> AlphaFactors:
-    """创建Alpha因子计算器"""
-    return AlphaFactors(**kwargs)
-
-
-# 简化的容器类
-class SimpleMLContainer:
-    """简化的ML容器，避免复杂的依赖注入"""
-    
-    def __init__(self):
-        self._models = MODEL_TYPE_MAPPING
-        self._feature_processor = None
-        self._alpha_factors = None
-    
-    def get_model(self, model_type: str, **kwargs) -> IModel:
-        """获取模型实例"""
-        return create_model(model_type, **kwargs)
-    
-    def get_feature_processor(self, **kwargs) -> FeatureProcessor:
-        """获取特征处理器"""
-        if self._feature_processor is None:
-            self._feature_processor = FeatureProcessor(**kwargs)
-        return self._feature_processor
-    
-    def get_alpha_factors(self, **kwargs) -> AlphaFactors:
-        """获取Alpha因子计算器"""
-        if self._alpha_factors is None:
-            self._alpha_factors = AlphaFactors(**kwargs)
-        return self._alpha_factors
-    
-    def list_models(self) -> Dict[str, Type[IModel]]:
-        """列出可用模型"""
-        return self._models.copy()
-
-
-# 创建全局容器实例
-ml_container = SimpleMLContainer()
+# Create alias for backward compatibility
+ml_container = container
