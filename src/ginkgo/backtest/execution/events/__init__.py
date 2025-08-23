@@ -9,3 +9,9 @@ from ginkgo.backtest.execution.events.price_update import EventPriceUpdate
 from ginkgo.backtest.execution.events.position_update import EventPositionUpdate
 from ginkgo.backtest.execution.events.signal_generation import EventSignalGeneration
 from ginkgo.backtest.execution.events.next_phase import EventNextPhase
+from ginkgo.backtest.execution.events.execution_confirmation import (
+    EventExecutionConfirmed,
+    EventExecutionRejected,
+    EventExecutionTimeout,
+    EventExecutionCanceled
+)
