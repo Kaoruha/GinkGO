@@ -43,34 +43,89 @@ def str2bool(strint: str or int, *args, **kwargs) -> bool:
     ]
 
 
-def time_logger(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        # 首先检查是否为 DEBUG 模式，非 DEBUG 模式直接执行函数
-        if not _gconf.DEBUGMODE:
-            return func(*args, **kwargs)
+def time_logger(func=None, *, enabled=None, threshold=None, profile_mode=None):
+    """
+    智能时间日志装饰器 - 环境感知的性能监控
+    
+    Args:
+        func: 被装饰的函数
+        enabled: 是否启用（None表示根据环境自动判断）
+        threshold: 慢查询阈值（秒），超过此值才记录日志
+        profile_mode: 性能分析模式，强制启用监控
+    
+    优化特性:
+    - 生产环境默认禁用，避免性能开销
+    - 智能阈值控制，只记录慢查询
+    - 支持性能分析模式
+    - 保持向后兼容性
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            # 从GCONF获取配置，参数优先于配置
+            actual_enabled = enabled if enabled is not None else _gconf.DECORATOR_TIME_LOGGER_ENABLED
+            actual_threshold = threshold if threshold is not None else _gconf.DECORATOR_TIME_LOGGER_THRESHOLD
+            actual_profile_mode = profile_mode if profile_mode is not None else _gconf.DECORATOR_TIME_LOGGER_PROFILE_MODE
+            
+            # 环境感知判断
+            should_monitor = actual_enabled
+            if should_monitor is None:
+                # 生产环境仅在profile模式或超过阈值时监控
+                should_monitor = _gconf.DEBUGMODE or actual_profile_mode
+            
+            # 快速路径：生产环境且未启用性能分析
+            if not should_monitor and not actual_profile_mode:
+                return f(*args, **kwargs)
 
-        show_log = True
-        if "progress" in kwargs and isinstance(kwargs["progress"], Progress):
-            show_log = False
-        if kwargs.get("no_log") == True:
-            show_log = False
-        if not show_log:
-            return func(*args, **kwargs)
-        start_time = time.time()  # 记录开始时间
-        result = None
-        try:
-            result = func(*args, **kwargs)  # 执行原函数
-            return result  # 返回原函数的结果
-        except Exception as e:
-            console.print_exception()
-            raise  # Re-raise the exception
-        finally:
-            end_time = time.time()  # 记录结束时间
-            duration = end_time - start_time  # 计算持续时间
-            console.print(f":camel: FUNCTION [yellow]{func.__name__}[/] excuted in {format_time_seconds(duration)}.")
+            # 检查特殊参数控制
+            show_log = True
+            if "progress" in kwargs and isinstance(kwargs["progress"], Progress):
+                show_log = False
+            if kwargs.get("no_log") == True:
+                show_log = False
+                
+            # 如果不显示日志且非性能分析模式，直接执行
+            if not show_log and not actual_profile_mode:
+                return f(*args, **kwargs)
 
-    return wrapper
+            start_time = time.time()
+            result = None
+            try:
+                result = f(*args, **kwargs)
+                return result
+            except Exception as e:
+                # 异常情况下总是记录性能数据
+                duration = time.time() - start_time
+                if show_log or duration > actual_threshold:
+                    console.print(f":warning: FUNCTION [red]{f.__name__}[/] failed after {format_time_seconds(duration)}")
+                console.print_exception()
+                raise
+            finally:
+                if should_monitor or actual_profile_mode:
+                    end_time = time.time()
+                    duration = end_time - start_time
+                    
+                    # 智能日志记录：只记录慢查询或调试模式
+                    if show_log and (_gconf.DEBUGMODE or duration > actual_threshold or actual_profile_mode):
+                        # 根据执行时间选择不同的图标和颜色
+                        if duration > actual_threshold * 10:  # 超慢查询
+                            icon, color = ":snail:", "red"
+                        elif duration > actual_threshold * 5:  # 慢查询
+                            icon, color = ":hourglass_not_done:", "yellow"
+                        elif duration > actual_threshold:  # 略慢
+                            icon, color = ":camel:", "yellow"
+                        else:  # 正常
+                            icon, color = ":zap:", "green"
+                            
+                        console.print(f"{icon} FUNCTION [{color}]{f.__name__}[/] executed in {format_time_seconds(duration)}")
+
+        return wrapper
+    
+    # 支持 @time_logger 和 @time_logger(...) 两种调用方式
+    if func is None:
+        return decorator
+    else:
+        return decorator(func)
 
 
 def format_time_seconds(ttl):
@@ -137,91 +192,58 @@ def skip_if_ran(func):
     return wrapper
 
 
-def retry(func=None, *, max_try: int = 5):  # 默认参数设置为 None，以区分是否传参
-    if func is None:  # 如果没有传入函数，说明是带参调用
-
-        def decorator(f):
-            @wraps(f)
-            def wrapper(*args, **kwargs):
-                last_exception = None
-                for i in range(max_try):
-                    try:
-                        return f(*args, **kwargs)
-                    except Exception as e:
-                        last_exception = e
-                        console.print(f"[red]Retry FUNCTION [yellow]{f.__name__}[/] {i+1}/{max_try}[/red]")
-                        if i >= max_try - 1:
-                            console.print_exception()
-                            raise e
-                        else:
-                            # 检查debug模式
-                            from ginkgo.libs import GCONF
-
-                            if GCONF.DEBUGMODE:
-                                # Debug模式：跳过等待，立即重试
-                                console.print(f"[yellow]Debug mode: Skipping wait, immediate retry {i+2}/{max_try}[/]")
-                            else:
-                                # 正常模式：指数递增等待时间：30、36、42、51、60秒...
-                                sleep_time = int(30 * (2 ** (i / 4)))
-                                console.print(
-                                    f"[yellow]Starting wait: {sleep_time} seconds before retry {i+2}/{max_try}[/]"
-                                )
-
-                                # 使用Rich Progress显示等待进度
-                                from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
-
-                                with Progress(
-                                    TextColumn(f"[cyan]:hourglass_not_done: Retry {i+1}/{max_try}"),
-                                    BarColumn(bar_width=20),
-                                    TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                                    TextColumn("•"),
-                                    TextColumn("[yellow]{task.completed}[/]/[green]{task.total}[/]s"),
-                                    transient=True,
-                                ) as progress:
-                                    task = progress.add_task("waiting", total=sleep_time)
-                                    for wait_sec in range(sleep_time):
-                                        time.sleep(1)
-                                        progress.update(task, advance=1)
-                    finally:
-                        pass
-
-            return wrapper
-
-        return decorator
-
-    else:  # 如果传入了函数，说明是无参调用
-
-        @wraps(func)
+def retry(func=None, *, max_try: int = None, backoff_factor: float = None):
+    """
+    智能重试装饰器，支持从GCONF读取配置
+    
+    Args:
+        max_try: 最大重试次数，None时从GCONF读取
+        backoff_factor: 退避因子，None时从GCONF读取
+    """
+    # 获取配置
+    from ginkgo.libs import GCONF
+    
+    actual_max_try = max_try if max_try is not None else GCONF.DECORATOR_RETRY_MAX_ATTEMPTS
+    actual_backoff_factor = backoff_factor if backoff_factor is not None else GCONF.DECORATOR_RETRY_BACKOFF_FACTOR
+    
+    # 检查重试是否启用
+    if not GCONF.DECORATOR_RETRY_ENABLED:
+        # 重试被禁用，直接返回原函数
+        if func is not None:
+            return func
+        else:
+            return lambda f: f
+    
+    def _retry_logic(f):
+        @wraps(f)
         def wrapper(*args, **kwargs):
             last_exception = None
-            for i in range(max_try):
+            for i in range(actual_max_try):
                 try:
-                    return func(*args, **kwargs)
+                    return f(*args, **kwargs)
                 except Exception as e:
                     last_exception = e
-                    console.print(f"[red]Retry FUNCTION [yellow]{func.__name__}[/] {i+1}/{max_try}[/red]")
-                    if i >= max_try - 1:
+                    console.print(f"[red]Retry FUNCTION [yellow]{f.__name__}[/] {i+1}/{actual_max_try}[/red]")
+                    if i >= actual_max_try - 1:
                         console.print_exception()
                         raise e
                     else:
-                        # 检查debug模式
-                        from ginkgo.libs import GCONF
-
                         if GCONF.DEBUGMODE:
                             # Debug模式：跳过等待，立即重试
-                            console.print(f"[yellow]Debug mode: Skipping wait, immediate retry {i+2}/{max_try}[/]")
+                            console.print(f"[yellow]Debug mode: Skipping wait, immediate retry {i+2}/{actual_max_try}[/]")
                         else:
-                            # 正常模式：指数递增等待时间：30、36、42、51、60秒...
-                            sleep_time = int(30 * (2 ** (i / 4)))
+                            # 使用配置的退避因子计算等待时间
+                            base_sleep = 30  # 基础等待时间30秒
+                            sleep_time = int(base_sleep * (actual_backoff_factor ** i))
                             console.print(
-                                f"[yellow]Starting wait: {sleep_time} seconds before retry {i+2}/{max_try}[/]"
+                                f"[yellow]Starting wait: {sleep_time} seconds before retry {i+2}/{actual_max_try}[/]"
                             )
 
                             # 使用Rich Progress显示等待进度
-                            from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
+                            from rich.progress import Progress, BarColumn, TextColumn
 
                             with Progress(
-                                TextColumn(f"[cyan]:hourglass_not_done: Retry {i+1}/{max_try}"),
+                                TextColumn(f"[cyan]:hourglass_not_done: Retry {i+1}/{actual_max_try}"),
                                 BarColumn(bar_width=20),
                                 TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
                                 TextColumn("•"),
@@ -234,8 +256,34 @@ def retry(func=None, *, max_try: int = 5):  # 默认参数设置为 None，以�
                                     progress.update(task, advance=1)
                 finally:
                     pass
-
         return wrapper
+
+    if func is None:  # 带参调用 @retry(max_try=5)
+        return _retry_logic
+    else:  # 无参调用 @retry
+        return _retry_logic(func)
+
+def datasource_retry(source_name: str):
+    """
+    数据源专用重试装饰器，根据数据源类型自动配置重试策略
+    
+    Args:
+        source_name: 数据源名称 ('tushare', 'baostock', 'tdx', 'yahoo')
+    
+    Usage:
+        @datasource_retry('tushare')
+        def fetch_stock_data():
+            pass
+    """
+    from ginkgo.libs import GCONF
+    
+    # 获取数据源特定配置
+    retry_config = GCONF.get_datasource_retry_config(source_name)
+    
+    return retry(
+        max_try=retry_config["retry_max_attempts"],
+        backoff_factor=retry_config["retry_backoff_factor"]
+    )
 
 
 class RichProgress:
