@@ -140,10 +140,41 @@ def _get_matchmaking_class():
     from ginkgo.backtest.trading.matchmakings.sim_matchmaking import MatchMakingSim
     return MatchMakingSim
 
+def _get_broker_matchmaking_class():
+    """Lazy import for BrokerMatchMaking class."""
+    from ginkgo.backtest.trading.matchmakings.broker_matchmaking import BrokerMatchMaking
+    return BrokerMatchMaking
+
+def _get_sim_broker_class():
+    """Lazy import for SimBroker class."""
+    from ginkgo.backtest.trading.brokers.sim_broker import SimBroker
+    return SimBroker
+
+def _get_okx_broker_class():
+    """Lazy import for OKXBroker class."""
+    from ginkgo.backtest.trading.brokers.okx_broker import OKXBroker
+    return OKXBroker
+
 def _get_feeder_class():
     """Lazy import for Feeder class."""
     from ginkgo.backtest.feeders.backtest_feeder import BacktestFeeder
     return BacktestFeeder
+
+# Execution services
+def _get_confirmation_handler_class():
+    """Lazy import for ConfirmationHandler class."""
+    from ginkgo.backtest.execution.confirmation.confirmation_handler import ConfirmationHandler
+    return ConfirmationHandler
+
+def _get_portfolio_management_service_class():
+    """Lazy import for PortfolioManagementService class."""
+    from ginkgo.backtest.services.portfolio_management_service import PortfolioManagementService
+    return PortfolioManagementService
+
+def _get_executor_factory_class():
+    """Lazy import for ExecutorFactory class."""
+    from ginkgo.backtest.execution.executors.executor_factory import ExecutorFactory
+    return ExecutorFactory
 
 
 class Container(containers.DeclarativeContainer):
@@ -218,14 +249,33 @@ class Container(containers.DeclarativeContainer):
     # Engine Assembly Service - initialize with all dependencies
     engine_assembly_service = providers.Factory(_create_engine_assembly_service)
     
+    # Execution services
+    confirmation_handler = providers.Singleton(_get_confirmation_handler_class)
+    portfolio_management_service = providers.Singleton(_get_portfolio_management_service_class)
+    executor_factory = providers.Singleton(_get_executor_factory_class)
+    
     # Services aggregate
     services = providers.FactoryAggregate(
-        engine_assembly_service=engine_assembly_service
+        engine_assembly_service=engine_assembly_service,
+        confirmation_handler=confirmation_handler,
+        portfolio_management_service=portfolio_management_service,
+        executor_factory=executor_factory
     )
     
     # ============= ADDITIONAL COMPONENTS =============
     # Matchmaking
     matchmaking = providers.Factory(lambda: _get_matchmaking_class())
+    broker_matchmaking = providers.Factory(_get_broker_matchmaking_class)
+    
+    # Brokers
+    sim_broker = providers.Factory(_get_sim_broker_class)
+    okx_broker = providers.Factory(_get_okx_broker_class)
+    
+    # Brokers aggregate - 符合Ginkgo的FactoryAggregate模式
+    brokers = providers.FactoryAggregate(
+        sim=sim_broker,
+        okx=okx_broker
+    )
     
     # Feeder
     feeder = providers.Factory(lambda: _get_feeder_class())
@@ -298,7 +348,8 @@ def get_service_info():
         "engines": ["historic", "matrix", "live", "unified", "enhanced_historic"],
         "analyzers": ["sharpe", "max_drawdown", "drawdown", "net_value", "profit"],
         "strategies": ["dual_thrust", "random", "volume_activate", "trend_follow"],
-        "portfolios": ["t1", "t1backtest", "live"]
+        "portfolios": ["t1", "t1backtest", "live"],
+        "services": ["engine_assembly_service", "confirmation_handler", "portfolio_management_service", "executor_factory"]
     }
 
 # Bind backward compatibility methods to container
