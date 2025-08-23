@@ -7,10 +7,20 @@ and coordination with trading components during backtest execution.
 
 from typing import List, Dict, Any, Optional
 import datetime
+from decimal import Decimal
 
 from ginkgo.libs import GLOG, datetime_normalize
-from ginkgo.enums import FILE_TYPES
+from ginkgo.data.services.base_service import ServiceResult
+from ginkgo.enums import FILE_TYPES, DIRECTION_TYPES
 from ginkgo.backtest.execution.portfolios import PortfolioT1Backtest
+from ginkgo.backtest.entities.position import Position
+from ginkgo.backtest.execution.events.execution_confirmation import (
+    EventExecutionConfirmed,
+    EventExecutionRejected,
+    EventExecutionTimeout,
+    EventExecutionCanceled
+)
+from ginkgo.backtest.execution.events.position_update import EventPositionUpdate
 from ginkgo.data.containers import container
 
 
@@ -334,3 +344,336 @@ class PortfolioManagementService:
         except Exception as e:
             self._logger.ERROR(f"Failed to get portfolio performance summary: {e}")
             return None
+    
+    def handle_execution_confirmed(self, event: EventExecutionConfirmed) -> ServiceResult:
+        """
+        处理执行确认事件，更新对应的Position
+        
+        Args:
+            event: 执行确认事件
+            
+        Returns:
+            ServiceResult: 处理结果
+        """
+        try:
+            portfolio_id = event.portfolio_id
+            
+            # 1. 获取或创建Portfolio实例
+            portfolio = self._get_or_create_portfolio_instance(portfolio_id)
+            if not portfolio:
+                return ServiceResult.error(f"Failed to get portfolio instance: {portfolio_id}")
+            
+            # 2. 获取或创建Position
+            position = self._get_or_create_position(
+                portfolio=portfolio,
+                code=event.code,
+                engine_id=event.engine_id,
+                portfolio_id=portfolio_id
+            )
+            
+            # 3. 更新Position
+            try:
+                # 执行交易
+                position.deal(
+                    direction=event.direction,
+                    price=float(event.actual_price),
+                    volume=event.actual_volume
+                )
+                
+                # 添加手续费
+                if event.commission > 0:
+                    position.add_fee(float(event.commission))
+                
+                self._logger.INFO(
+                    f"Updated position for {event.code}: "
+                    f"direction={event.direction}, price={event.actual_price}, "
+                    f"volume={event.actual_volume}"
+                )
+                
+                # 4. 保存Position到数据库
+                save_result = self._save_position(position)
+                if not save_result.is_success():
+                    self._logger.ERROR(f"Failed to save position: {save_result.message}")
+                
+                # 5. 发布Position更新事件
+                position_update_event = EventPositionUpdate(
+                    code=event.code,
+                    direction=event.direction,
+                    price=float(event.actual_price),
+                    volume=event.actual_volume,
+                    position_volume=position.volume,
+                    position_cost=float(position.cost),
+                    position_value=float(position.worth),
+                    engine_id=event.engine_id,
+                    portfolio_id=portfolio_id
+                )
+                
+                self._publish_event(position_update_event)
+                
+                return ServiceResult.success(
+                    position,
+                    f"Position updated for signal {event.signal_id}"
+                )
+                
+            except Exception as e:
+                self._logger.ERROR(f"Failed to update position: {e}")
+                return ServiceResult.error(f"Position update failed: {e}")
+            
+        except Exception as e:
+            self._logger.ERROR(f"Failed to handle execution confirmed event: {e}")
+            return ServiceResult.error(f"Event handling failed: {e}")
+    
+    def handle_execution_rejected(self, event: EventExecutionRejected) -> ServiceResult:
+        """
+        处理执行拒绝事件
+        
+        Args:
+            event: 执行拒绝事件
+            
+        Returns:
+            ServiceResult: 处理结果
+        """
+        try:
+            self._logger.INFO(
+                f"Signal {event.signal_id} execution rejected: {event.reject_reason}"
+            )
+            
+            # 执行拒绝时通常不需要更新Position，但可以记录日志或进行其他处理
+            # 例如：通知风控系统、更新策略状态等
+            
+            return ServiceResult.success(
+                None,
+                f"Execution rejection handled for signal {event.signal_id}"
+            )
+            
+        except Exception as e:
+            self._logger.ERROR(f"Failed to handle execution rejected event: {e}")
+            return ServiceResult.error(f"Rejection handling failed: {e}")
+    
+    def handle_execution_timeout(self, event: EventExecutionTimeout) -> ServiceResult:
+        """
+        处理执行超时事件
+        
+        Args:
+            event: 执行超时事件
+            
+        Returns:
+            ServiceResult: 处理结果
+        """
+        try:
+            self._logger.WARN(
+                f"Signal {event.signal_id} execution timed out after {event.timeout_duration}s"
+            )
+            
+            # 超时处理：可能需要通知风控系统、更新策略状态等
+            # 根据业务需求决定是否需要自动重试或其他处理
+            
+            return ServiceResult.success(
+                None,
+                f"Execution timeout handled for signal {event.signal_id}"
+            )
+            
+        except Exception as e:
+            self._logger.ERROR(f"Failed to handle execution timeout event: {e}")
+            return ServiceResult.error(f"Timeout handling failed: {e}")
+    
+    def handle_execution_canceled(self, event: EventExecutionCanceled) -> ServiceResult:
+        """
+        处理执行取消事件
+        
+        Args:
+            event: 执行取消事件
+            
+        Returns:
+            ServiceResult: 处理结果
+        """
+        try:
+            self._logger.INFO(
+                f"Signal {event.signal_id} execution canceled: {event.cancel_reason}"
+            )
+            
+            # 取消处理：可能需要释放资源、通知相关系统等
+            
+            return ServiceResult.success(
+                None,
+                f"Execution cancellation handled for signal {event.signal_id}"
+            )
+            
+        except Exception as e:
+            self._logger.ERROR(f"Failed to handle execution canceled event: {e}")
+            return ServiceResult.error(f"Cancellation handling failed: {e}")
+    
+    def _get_or_create_portfolio_instance(self, portfolio_id: str) -> Optional[PortfolioT1Backtest]:
+        """
+        获取或创建Portfolio实例
+        
+        Args:
+            portfolio_id: Portfolio ID
+            
+        Returns:
+            Portfolio实例或None
+        """
+        try:
+            # 检查是否已有活跃的Portfolio实例
+            if portfolio_id in self._active_portfolios:
+                return self._active_portfolios[portfolio_id]['instance']
+            
+            # 创建新的Portfolio实例
+            portfolio_instance = self.create_portfolio_instance(portfolio_id)
+            if portfolio_instance:
+                self._active_portfolios[portfolio_id] = {
+                    'instance': portfolio_instance,
+                    'config': {},  # 从数据库加载配置
+                    'created_at': datetime.datetime.now()
+                }
+            
+            return portfolio_instance
+            
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get or create portfolio instance: {e}")
+            return None
+    
+    def _get_or_create_position(
+        self,
+        portfolio: PortfolioT1Backtest,
+        code: str,
+        engine_id: str,
+        portfolio_id: str
+    ) -> Position:
+        """
+        获取或创建Position实例
+        
+        Args:
+            portfolio: Portfolio实例
+            code: 股票代码
+            engine_id: 引擎ID
+            portfolio_id: Portfolio ID
+            
+        Returns:
+            Position实例
+        """
+        try:
+            # 尝试从Portfolio中获取现有Position
+            position = portfolio.get_position(code)
+            
+            if position is None:
+                # 创建新的Position
+                position = Position(
+                    portfolio_id=portfolio_id,
+                    engine_id=engine_id,
+                    code=code,
+                    cost=Decimal('0'),
+                    volume=0,
+                    frozen_volume=0,
+                    frozen_money=Decimal('0'),
+                    price=Decimal('0'),
+                    fee=Decimal('0')
+                )
+                
+                # 添加到Portfolio
+                portfolio._positions[code] = position
+                
+                self._logger.DEBUG(f"Created new position for {code}")
+            
+            return position
+            
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get or create position: {e}")
+            # 返回一个空的Position作为fallback
+            return Position(
+                portfolio_id=portfolio_id,
+                engine_id=engine_id,
+                code=code
+            )
+    
+    def _save_position(self, position: Position) -> ServiceResult:
+        """
+        保存Position到数据库
+        
+        Args:
+            position: Position实例
+            
+        Returns:
+            ServiceResult: 保存结果
+        """
+        try:
+            position_crud = container.cruds.position()
+            
+            # 检查是否已存在
+            existing_positions = position_crud.get_items_filtered(
+                portfolio_id=position.portfolio_id,
+                code=position.code
+            )
+            
+            if existing_positions:
+                # 更新现有Position
+                existing_position = existing_positions[0]
+                updated_position = position_crud.update(
+                    existing_position.uuid,
+                    cost=position.cost,
+                    volume=position.volume,
+                    frozen_volume=position.frozen_volume,
+                    frozen_money=position.frozen_money,
+                    price=position.price,
+                    fee=position.fee
+                )
+                self._logger.DEBUG(f"Updated position in database: {position.code}")
+            else:
+                # 创建新Position
+                new_position = position_crud.add(
+                    portfolio_id=position.portfolio_id,
+                    engine_id=position.engine_id,
+                    code=position.code,
+                    cost=position.cost,
+                    volume=position.volume,
+                    frozen_volume=position.frozen_volume,
+                    frozen_money=position.frozen_money,
+                    price=position.price,
+                    fee=position.fee,
+                    uuid=position.uuid
+                )
+                self._logger.DEBUG(f"Created position in database: {position.code}")
+            
+            return ServiceResult.success(position, "Position saved successfully")
+            
+        except Exception as e:
+            self._logger.ERROR(f"Failed to save position: {e}")
+            return ServiceResult.error(f"Position save failed: {e}")
+    
+    def _publish_event(self, event) -> None:
+        """
+        发布事件
+        
+        Args:
+            event: 要发布的事件
+        """
+        try:
+            # TODO: 实现事件发布机制
+            # 这里可以集成到事件总线或消息队列
+            self._logger.DEBUG(f"Event published: {event}")
+            
+        except Exception as e:
+            self._logger.ERROR(f"Failed to publish event: {e}")
+    
+    def register_event_handlers(self) -> bool:
+        """
+        注册事件处理器到事件系统
+        
+        Returns:
+            bool: 注册是否成功
+        """
+        try:
+            # TODO: 实现事件系统集成
+            # 示例代码：
+            # event_bus = container.event_bus()
+            # event_bus.register(EventExecutionConfirmed, self.handle_execution_confirmed)
+            # event_bus.register(EventExecutionRejected, self.handle_execution_rejected)
+            # event_bus.register(EventExecutionTimeout, self.handle_execution_timeout)
+            # event_bus.register(EventExecutionCanceled, self.handle_execution_canceled)
+            
+            self._logger.INFO("Portfolio management event handlers registered")
+            return True
+            
+        except Exception as e:
+            self._logger.ERROR(f"Failed to register event handlers: {e}")
+            return False
