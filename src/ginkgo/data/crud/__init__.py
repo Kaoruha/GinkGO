@@ -7,6 +7,7 @@ from .capital_adjustment_crud import CapitalAdjustmentCRUD
 from .engine_crud import EngineCRUD
 from .engine_handler_mapping_crud import EngineHandlerMappingCRUD
 from .engine_portfolio_mapping_crud import EnginePortfolioMappingCRUD
+from .factor_crud import FactorCRUD
 from .file_crud import FileCRUD
 from .handler_crud import HandlerCRUD
 from .kafka_crud import KafkaCRUD
@@ -19,6 +20,7 @@ from .position_crud import PositionCRUD
 from .position_record_crud import PositionRecordCRUD
 from .redis_crud import RedisCRUD
 from .signal_crud import SignalCRUD
+from .signal_tracker_crud import SignalTrackerCRUD
 from .stock_info_crud import StockInfoCRUD
 from .tick_crud import TickCRUD
 from .tick_summary_crud import TickSummaryCRUD
@@ -36,6 +38,7 @@ __all__ = [
     "EngineCRUD",
     "EngineHandlerMappingCRUD",
     "EnginePortfolioMappingCRUD",
+    "FactorCRUD",
     "FileCRUD",
     "HandlerCRUD",
     "KafkaCRUD",
@@ -48,6 +51,7 @@ __all__ = [
     "PositionRecordCRUD",
     "RedisCRUD",
     "SignalCRUD",
+    "SignalTrackerCRUD",
     "StockInfoCRUD",
     "TickCRUD",
     "TickSummaryCRUD",
