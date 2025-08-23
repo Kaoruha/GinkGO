@@ -6,6 +6,7 @@ from .model_clickbase import MClickBase
 from .model_engine import MEngine
 from .model_engine_handler_mapping import MEngineHandlerMapping
 from .model_engine_portfolio_mapping import MEnginePortfolioMapping
+from .model_factor import MFactor
 from .model_file import MFile
 from .model_handler import MHandler
 from .model_param import MParam
@@ -34,6 +35,7 @@ __all__ = [
     "MEngine",
     "MEngineHandlerMapping",
     "MEnginePortfolioMapping",
+    "MFactor",
     "MFile",
     "MHandler",
     "MParam",

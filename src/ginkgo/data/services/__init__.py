@@ -24,3 +24,4 @@ from .portfolio_service import PortfolioService
 from .component_service import ComponentService
 from .redis_service import RedisService
 from .kafka_service import KafkaService
+from .factor_service import FactorService
