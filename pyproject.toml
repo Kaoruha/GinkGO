@@ -1,0 +1,241 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ginkgo"
+version = "0.8.1"
+description = "Python Backtesting library for trading research"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "suny", email = "sun159753@gmail.com"}
+]
+maintainers = [
+    {name = "suny", email = "sun159753@gmail.com"}
+]
+keywords = ["quantitative", "trading", "backtesting", "finance", "investment"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9", 
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+requires-python = ">=3.8"
+
+# 核心依赖 - 从requirements.txt中提取的关键包
+dependencies = [
+    "aiohttp>=3.12.0",
+    "anyio>=4.0.0",
+    "attrs>=25.0.0",
+    "baostock>=0.8.9",
+    "beautifulsoup4>=4.13.0",
+    "black>=25.0.0",
+    "certifi>=2025.0.0",
+    "charset-normalizer>=3.4.0",
+    "click>=8.1.0",
+    "clickhouse-connect>=0.8.0",
+    "cloudpickle>=3.1.0",
+    "colorama>=0.4.6",
+    "dask>=2025.7.0",
+    "fastapi>=0.116.0",
+    "gunicorn>=23.0.0",
+    "hiredis>=2.4.0",
+    "httptools>=0.6.0",
+    "huggingface-hub>=0.34.0",
+    "jinja2>=3.1.0",
+    "jsonschema>=4.25.0",
+    "lz4>=4.4.0",
+    "mmh3>=5.2.0",
+    "mypy>=1.17.0",
+    "numpy>=2.3.0",
+    "packaging>=24.1.0",
+    "pandas>=2.3.0",
+    "prometheus-client>=0.22.0",
+    "protobuf>=6.31.0",
+    "psutil>=6.0.0",
+    "psycopg>=3.2.0",
+    "psycopg-pool>=3.2.0",
+    "pyarrow>=17.0.0",
+    "pydantic>=2.10.0",
+    "pygments>=2.19.0",
+    "pyjwt>=2.10.0",
+    "pymysql>=1.1.0",
+    "python-dateutil>=2.9.0",
+    "python-dotenv>=1.1.0",
+    "pytz>=2025.2",
+    "pyyaml>=6.0.0",
+    "redis>=4.6.0",
+    "requests>=2.32.0",
+    "rich>=13.0.0",
+    "six>=1.17.0",
+    "sqlalchemy>=2.0.0",
+    "starlette>=0.47.0",
+    "tabulate>=0.9.0",
+    "tenacity>=8.5.0",
+    "termcolor>=2.4.0",
+    "tqdm>=4.67.0",
+    "tushare>=1.2.0",
+    "typer>=0.9.0",
+    "typing-extensions>=4.14.0",
+    "urllib3>=2.5.0",
+    "uvicorn>=0.34.0",
+    "uvloop>=0.21.0",
+    "websockets>=15.0.0",
+    "zstandard>=0.23.0",
+]
+
+# 可选依赖组
+[project.optional-dependencies]
+# 开发环境依赖
+dev = [
+    "black>=25.0.0",
+    "mypy>=1.17.0", 
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Kaoruha/GinkGO"
+Repository = "https://github.com/Kaoruha/GinkGO"
+Documentation = "https://github.com/Kaoruha/GinkGO/blob/master/README.md"
+Changelog = "https://github.com/Kaoruha/GinkGO/blob/master/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/Kaoruha/GinkGO/issues"
+
+# setuptools配置
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml", "*.json", "*.xml"]
+
+# 工具配置
+[tool.black]
+line-length = 120
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # 排除的目录
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+# 测试发现配置
+testpaths = ["test"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+minversion = "6.0"
+
+# 运行配置 - 合并自test/pytest.ini的完整配置
+addopts = [
+    "-v",                    # 详细输出
+    "--strict-markers",      # 严格标记模式
+    "--strict-config",       # 严格配置模式
+    "--tb=short",           # 简短traceback
+    "--color=yes",          # 彩色输出
+    "--durations=10",       # 显示最慢的10个测试
+]
+
+# 标记定义 - 精简版本
+markers = [
+    "unit: 快速的单元级测试",
+    "integration: 组件协同/端到端测试",
+    "slow: 执行时间较长的测试",
+    "database: 依赖数据库或持久化资源的测试",
+    "network: 需要外部网络资源的测试",
+    "performance: 性能或压力测试",
+    "backtest: 回测场景相关测试",
+    "live: 实盘场景相关测试",
+    "db_cleanup: 需要数据库清理的测试（自动清理测试数据）",
+    "tdd: TDD开发的测试用例",
+    "enum: 枚举处理相关的测试用例",
+]
+
+# 警告过滤
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::UserWarning:ginkgo.*",
+]
+
+# 日志配置
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+# 所需插件
+required_plugins = ["pytest-cov"]
+
+[tool.coverage.run]
+source = ["src/ginkgo"]
+omit = [
+    "*/tests/*",
+    "*/test/*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/migrations/*",
+    "*/alembic/*",
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+skip_covered = false
+
+[tool.coverage.html]
+directory = "htmlcov"

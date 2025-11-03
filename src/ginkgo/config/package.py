@@ -1,0 +1,6 @@
+PACKAGENAME = "ginkgo"
+VERSION = "0.8.1"
+AUTHOR = "suny"
+EMAIL = "sun159753@gmail.com"
+DESC = "Python Backtesting library for trading research"
+URL = "url://waf"

@@ -1,0 +1,32 @@
+database:
+  clickhouse:
+    database: ginkgo
+    username: admin
+    password: aGVsbG9jbGlja2hvdXNl
+    host: localhost
+    port: 8123
+  mysql:
+    database: ginkgo
+    username: ginkgoadm
+    password: aGVsbG9teXNxbAo=
+    host: localhost
+    port: 3306
+  mongodb:
+    database: ginkgo
+    username: ginkgoadm
+    password: aGVsbG9tb25nbw==
+  redis:
+    host: localhost
+    port: 6379
+  kafka:
+    host: localhost
+    port: 9092
+tushare:
+  token: {YourToken}
+telegram:
+  token: {YourToken}
+  password: {YourPassword}
+  chatids: 
+    - {YourIDs}
+deepseek:
+  token: {YourToken}
