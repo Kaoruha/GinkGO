@@ -4,6 +4,7 @@ import psutil
 import os
 
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer, GinkgoConsumer
+from ginkgo.interfaces.notification_interface import INotificationService
 from ginkgo.notifier.notifier_telegram import echo
 from ginkgo.notifier.notifier_beep import beep as beepbeep
 from ginkgo.notifier.notifier_telegram import (
@@ -16,7 +17,7 @@ from ginkgo.libs.core.threading import GinkgoThreadManager
 gtm = GinkgoThreadManager()
 
 
-class GinkgoNotifier(object):
+class GinkgoNotifier(INotificationService):
     def __init__(self):
         self._producer = None
         self._kafka_service = None
@@ -125,6 +126,14 @@ class GinkgoNotifier(object):
             "kafka_service_available": False,
             "producer_available": self._producer is not None
         }
+
+    def send_message(self, message: str, target=None) -> None:
+        """发送消息通知"""
+        self.echo_to_telegram(message)
+
+    def is_available(self) -> bool:
+        """检查通知服务是否可用"""
+        return (self._producer is not None) or (self._kafka_service is not None)
 
 
 GNOTIFIER = GinkgoNotifier()
