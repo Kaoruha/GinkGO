@@ -240,10 +240,16 @@ class TestAdjustFactorCRUDQuery:
             print(f"✓ 查询到 {len(low_fore_factors)} 条低前复权因子记录")
 
             # 验证查询结果
+            assert len(high_factors) > 0, "应该查询到复权因子大于1.1的记录"
+            assert len(low_fore_factors) > 0, "应该查询到前复权因子小于1.0的记录"
+
+            # 验证查询结果的正确性
             for factor in high_factors[:3]:
+                assert factor.adjustfactor > Decimal("1.1"), f"复权因子应该大于1.1，实际: {factor.adjustfactor}"
                 print(f"  - {factor.code}: 复权因子 {factor.adjustfactor}")
 
             for factor in low_fore_factors[:3]:
+                assert factor.foreadjustfactor < Decimal("1.0"), f"前复权因子应该小于1.0，实际: {factor.foreadjustfactor}"
                 print(f"  - {factor.code}: 前复权因子 {factor.foreadjustfactor}")
 
             print("✓ 复权因子值范围查询验证成功")
@@ -264,21 +270,38 @@ class TestAdjustFactorCRUDQuery:
             # 测试find_by_code方法
             print("→ 测试find_by_code方法...")
             code_factors = adjustfactor_crud.find_by_code("000001.SZ", page_size=5)
+            assert len(code_factors) > 0, "find_by_code应该查询到000001.SZ的记录"
+            assert len(code_factors) <= 5, "page_size=5应该限制查询结果数量"
             print(f"✓ find_by_code查询到 {len(code_factors)} 条记录")
+
+            # 验证查询结果的正确性
+            for factor in code_factors:
+                assert factor.code == "000001.SZ", f"股票代码应该为000001.SZ，实际: {factor.code}"
 
             # 测试find_latest_factor方法
             print("→ 测试find_latest_factor方法...")
             latest_factors = adjustfactor_crud.find_latest_factor("000001.SZ")
+            assert len(latest_factors) > 0, "find_latest_factor应该查询到000001.SZ的最新记录"
             print(f"✓ find_latest_factor查询到 {len(latest_factors)} 条记录")
+
+            # 验证最新记录的时效性
+            for factor in latest_factors:
+                assert factor.code == "000001.SZ", f"股票代码应该为000001.SZ，实际: {factor.code}"
+                assert factor.timestamp is not None, "时间戳不应为空"
 
             # 测试count_by_code方法
             print("→ 测试count_by_code方法...")
             count = adjustfactor_crud.count_by_code("000001.SZ")
+            assert count >= 0, "count应该为非负整数"
+            assert count >= len(code_factors), "count应该大于等于实际查询到的记录数"
             print(f"✓ count_by_code统计到 {count} 条记录")
 
             # 测试get_all_codes方法
             print("→ 测试get_all_codes方法...")
             all_codes = adjustfactor_crud.get_all_codes()
+            assert len(all_codes) > 0, "get_all_codes应该获取到股票代码"
+            assert isinstance(all_codes, list), "get_all_codes应该返回列表"
+            assert "000001.SZ" in all_codes, "get_all_codes结果应该包含测试数据"
             print(f"✓ get_all_codes获取到 {len(all_codes)} 个股票代码")
             print(f"  - 示例代码: {all_codes[:5]}")
 
@@ -319,10 +342,22 @@ class TestAdjustFactorCRUDBusinessLogic:
             print(f"  - 时间范围: {summary['date_range']}")
 
             # 验证汇总结果
+            assert isinstance(summary, dict), "汇总结果应该是字典类型"
+            assert summary['code'] == "000001.SZ", f"股票代码应该为000001.SZ，实际: {summary['code']}"
+            assert 'total_adjustments' in summary, "汇总结果应包含total_adjustments字段"
+            assert 'latest_factor' in summary, "汇总结果应包含latest_factor字段"
+            assert 'cumulative_factor' in summary, "汇总结果应包含cumulative_factor字段"
+
             if summary['total_adjustments'] > 0:
-                assert summary['latest_factor'] > 0
-                assert summary['cumulative_factor'] > 0
-                print("✓ 复权因子汇总分析验证成功")
+                assert summary['latest_factor'] > 0, "有调整记录时最新因子应该大于0"
+                assert summary['cumulative_factor'] > 0, "有调整记录时累积因子应该大于0"
+                assert 'date_range' in summary, "汇总结果应包含date_range字段"
+            else:
+                # 如果没有调整记录，也应该有合理的默认值
+                assert summary['latest_factor'] is None or summary['latest_factor'] == 0, "无调整记录时最新因子应为空或0"
+                assert summary['cumulative_factor'] is None or summary['cumulative_factor'] == 0, "无调整记录时累积因子应为空或0"
+
+            print("✓ 复权因子汇总分析验证成功")
 
         except Exception as e:
             print(f"✗ 复权因子汇总分析失败: {e}")
@@ -376,6 +411,14 @@ class TestAdjustFactorCRUDBusinessLogic:
                 print(f"✓ 累积因子最大: {max_factor_stock[0]} ({max_factor_stock[1]['cumulative_factor']:.6f})")
                 print(f"✓ 累积因子最小: {min_factor_stock[0]} ({min_factor_stock[1]['cumulative_factor']:.6f})")
 
+                # 验证比较结果的合理性
+                assert max_factor_stock[1]["cumulative_factor"] >= min_factor_stock[1]["cumulative_factor"], "最大累积因子应该大于等于最小累积因子"
+                assert max_factor_stock[0] in all_codes, "最大因子股票应该在股票代码列表中"
+                assert min_factor_stock[0] in all_codes, "最小因子股票应该在股票代码列表中"
+                assert len(stock_comparison) <= 5, "对比股票数量不应该超过5个"
+            else:
+                pytest.fail("stock_comparison不应该为空，应该获取到对比数据")
+
             print("✓ 股票复权因子对比分析验证成功")
 
         except Exception as e:
@@ -404,15 +447,26 @@ class TestAdjustFactorCRUDBusinessLogic:
 
             if len(time_factors) < 5:
                 print("✗ 时序数据不足，跳过趋势分析")
-                return
+                pytest.skip("时序数据不足，跳过趋势分析")
 
             # 按时间排序
             time_factors.sort(key=lambda f: f.timestamp)
+            assert len(time_factors) >= 5, "时序数据点数应该不少于5个"
+
+            # 验证数据完整性
+            for factor in time_factors:
+                assert factor.code == "000001.SZ", f"股票代码应该为000001.SZ，实际: {factor.code}"
+                assert factor.adjustfactor is not None, "复权因子不应为空"
+                assert factor.foreadjustfactor is not None, "前复权因子不应为空"
+                assert factor.timestamp is not None, "时间戳不应为空"
 
             # 计算趋势统计
             adjustfactor_values = [float(f.adjustfactor) for f in time_factors]
             forefactor_values = [float(f.foreadjustfactor) for f in time_factors]
             timestamps = [f.timestamp for f in time_factors]
+
+            # 验证时间序列的连续性
+            assert len(adjustfactor_values) == len(forefactor_values) == len(timestamps), "时间序列数据长度应该一致"
 
             if len(adjustfactor_values) >= 2:
                 first_adjust = adjustfactor_values[0]
@@ -431,6 +485,11 @@ class TestAdjustFactorCRUDBusinessLogic:
                 print(f"  - 复权因子变化: {total_change:+.6f} ({total_change_pct:+.2f}%)")
                 print(f"  - 前复权因子变化: {fore_change:+.6f} ({fore_change_pct:+.2f}%)")
 
+                # 验证计算结果的合理性
+                assert total_change == last_adjust - first_adjust, "总变化计算应该正确"
+                assert fore_change == last_fore - first_fore, "前复权因子变化计算应该正确"
+                assert len(timestamps) == len(time_factors), "时间戳数量应该匹配时间因子数量"
+
                 # 计算变化趋势
                 if len(adjustfactor_values) >= 3:
                     recent_avg = sum(adjustfactor_values[-3:]) / 3
@@ -440,6 +499,11 @@ class TestAdjustFactorCRUDBusinessLogic:
 
                     print(f"  - 近期趋势: {trend_direction}")
                     print(f"  - 趋势强度: {trend_strength:.2f}%")
+
+                    # 验证趋势计算的合理性
+                    assert trend_direction in ["上升", "下降"], "趋势方向应该是上升或下降"
+                    assert trend_strength >= 0, "趋势强度应该为非负数"
+                    assert early_avg > 0, "早期平均值应该大于0"
 
             print("✓ 复权因子时序趋势分析验证成功")
 

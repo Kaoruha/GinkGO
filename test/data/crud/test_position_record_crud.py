@@ -355,8 +355,7 @@ class TestPositionRecordCRUDBusinessLogic:
             all_records = position_record_crud.find(page_size=1000)
 
             if len(all_records) < 5:
-                print("✗ 持仓记录数据不足，跳过变更分析")
-                return
+                pytest.skip("持仓记录数据不足(少于5条)，跳过变更分析")
 
             # 按投资组合和股票分组分析
             portfolio_stock_stats = {}
@@ -434,8 +433,7 @@ class TestPositionRecordCRUDBusinessLogic:
             }, page_size=500)
 
             if len(frozen_records) < 2:
-                print("✗ 冻结持仓记录数据不足，跳过冻结分析")
-                return
+                pytest.skip("冻结持仓记录数据不足(少于2条)，跳过冻结分析")
 
             # 分析冻结情况
             total_frozen_volume = sum(r.frozen_volume for r in frozen_records)
@@ -490,8 +488,7 @@ class TestPositionRecordCRUDBusinessLogic:
             all_records = position_record_crud.find(page_size=1000)
 
             if len(all_records) < 5:
-                print("✗ 持仓记录数据不足，跳过成本分析")
-                return
+                pytest.skip("持仓记录数据不足(少于5条)，跳过成本分析")
 
             # 计算成本相关指标
             total_cost_value = 0
@@ -579,8 +576,7 @@ class TestPositionRecordCRUDBusinessLogic:
             }, page_size=1000)
 
             if len(flow_records) < 5:
-                print("✗ 持仓流数据不足，跳过流分析")
-                return
+                pytest.skip("持仓流数据不足(少于5条)，跳过流分析")
 
             # 按时间排序
             flow_records.sort(key=lambda r: r.timestamp)

@@ -379,8 +379,7 @@ class TestOrderRecordCRUDBusinessLogic:
             all_records = order_record_crud.find(page_size=1000)
 
             if len(all_records) < 5:
-                print("✗ 订单记录数据不足，跳过执行分析")
-                return
+                pytest.skip("订单记录数据不足(少于5条)，跳过执行分析")
 
             # 按订单状态分组统计
             status_stats = {}
@@ -440,8 +439,7 @@ class TestOrderRecordCRUDBusinessLogic:
             }, page_size=500)
 
             if len(executed_records) < 3:
-                print("✗ 成交记录数据不足，跳过价格分析")
-                return
+                pytest.skip("成交记录数据不足(少于3条)，跳过价格分析")
 
             # 分析成交价格与委托价格的偏差
             price_deviations = []
@@ -496,8 +494,7 @@ class TestOrderRecordCRUDBusinessLogic:
             }, page_size=1000)
 
             if len(flow_records) < 10:
-                print("✗ 订单流数据不足，跳过流分析")
-                return
+                pytest.skip("订单流数据不足(少于10条)，跳过流分析")
 
             # 按时间排序
             flow_records.sort(key=lambda r: r.timestamp)
@@ -552,8 +549,7 @@ class TestOrderRecordCRUDBusinessLogic:
             all_records = order_record_crud.find(page_size=1000)
 
             if len(all_records) < 5:
-                print("✗ 订单记录数据不足，跳过质量指标计算")
-                return
+                pytest.skip("订单记录数据不足(少于5条)，跳过质量指标计算")
 
             # 计算各种质量指标
             filled_orders = [r for r in all_records if r.status == ORDERSTATUS_TYPES.FILLED.value]

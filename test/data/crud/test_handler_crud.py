@@ -287,8 +287,7 @@ class TestHandlerCRUDUpdate:
             print("→ 查询待更新的处理器...")
             handlers = handler_crud.find(page_size=1)
             if not handlers:
-                print("✗ 没有找到可更新的处理器")
-                return
+                pytest.skip("没有找到可更新的处理器")
 
             target_handler = handlers[0]
             print(f"✓ 找到处理器: {target_handler.name}")
@@ -335,8 +334,7 @@ class TestHandlerCRUDUpdate:
             print("→ 查询待更新的处理器...")
             handlers = handler_crud.find(page_size=1)
             if not handlers:
-                print("✗ 没有找到可更新的处理器")
-                return
+                pytest.skip("没有找到可更新的处理器")
 
             target_handler = handlers[0]
             original_name = target_handler.name
@@ -392,8 +390,7 @@ class TestHandlerCRUDBusinessLogic:
             all_handlers = handler_crud.find()
 
             if len(all_handlers) < 3:
-                print("✗ 处理器数据不足，跳过系统分析")
-                return
+                pytest.skip("处理器数据不足(少于3条)，跳过系统分析")
 
             # 分析处理器系统架构
             lib_path_analysis = {}
@@ -451,8 +448,7 @@ class TestHandlerCRUDBusinessLogic:
             all_handlers = handler_crud.find()
 
             if len(all_handlers) == 0:
-                print("✗ 没有处理器记录，跳过完整性检查")
-                return
+                pytest.skip("没有处理器记录，跳过完整性检查")
 
             # 检查处理器完整性
             issues = []
@@ -522,8 +518,7 @@ class TestHandlerCRUDBusinessLogic:
             all_handlers = handler_crud.find()
 
             if len(all_handlers) < 2:
-                print("✗ 处理器数据不足，跳过命名规范分析")
-                return
+                pytest.skip("处理器数据不足(少于2条)，跳过命名规范分析")
 
             # 分析命名规范
             naming_patterns = {

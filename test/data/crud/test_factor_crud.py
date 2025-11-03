@@ -345,8 +345,7 @@ class TestFactorCRUDBusinessLogic:
             all_factors = factor_crud.find(page_size=1000)
 
             if len(all_factors) < 10:
-                print("✗ 因子数据不足，跳过覆盖分析")
-                return
+                pytest.skip("因子数据不足(少于10条)，跳过覆盖分析")
 
             # 按实体类型统计
             entity_type_stats = {}
@@ -411,11 +410,14 @@ class TestFactorCRUDBusinessLogic:
             factors = factor_crud.find(page_size=500)
 
             if len(factors) < 20:
-                print("✗ 因子数据不足，跳过值分布分析")
-                return
+                pytest.skip("因子数据不足(少于20条)，跳过值分布分析")
 
             # 计算因子值统计
             values = [float(f.factor_value) for f in factors]
+
+            # 断言验证基础数据
+            assert len(values) >= 20, f"应该有至少20个因子值进行分布分析，实际: {len(values)}"
+            assert len(values) == len(factors), "所有因子都应该有有效的因子值"
 
             if values:
                 min_val = min(values)
@@ -442,6 +444,17 @@ class TestFactorCRUDBusinessLogic:
                 print(f"  - 第一四分位数: {q1:.6f}")
                 print(f"  - 第三四分位数: {q3:.6f}")
 
+                # 断言验证统计数据的合理性
+                assert min_val <= max_val, f"最小值应该小于等于最大值，实际: {min_val} vs {max_val}"
+                assert min_val <= median <= max_val, f"中位数应该在最小值和最大值之间"
+                assert q1 <= median <= q3, f"四分位数应该满足 q1 <= median <= q3"
+                assert std_val >= 0, f"标准差应该为非负数，实际: {std_val}"
+
+                # 验证数值的有效性
+                for i, value in enumerate(values):
+                    assert isinstance(value, (int, float)), f"第{i+1}个值应该是数字类型，实际: {type(value)}"
+                    assert not (value != value), f"第{i+1}个值不应该是NaN，实际: {value}"  # NaN检查
+
                 # 异常值检测
                 iqr = q3 - q1
                 lower_bound = q1 - 1.5 * iqr
@@ -449,6 +462,12 @@ class TestFactorCRUDBusinessLogic:
 
                 outliers = [v for v in values if v < lower_bound or v > upper_bound]
                 print(f"  - 异常值数量: {len(outliers)} ({len(outliers)/len(values)*100:.1f}%)")
+
+                # 断言验证异常值比例
+                outlier_ratio = len(outliers) / len(values)
+                assert outlier_ratio <= 0.5, f"异常值比例不应该超过50%，实际: {outlier_ratio*100:.1f}%"
+            else:
+                pytest.fail("因子值列表为空，无法进行分布分析")
 
             print("✓ 因子值分布分析验证成功")
 
@@ -476,11 +495,14 @@ class TestFactorCRUDBusinessLogic:
             })
 
             if len(time_factors) < 10:
-                print("✗ 时间范围内因子数据不足，跳过时序分析")
-                return
+                pytest.skip("时间范围内因子数据不足(少于10条)，跳过时序分析")
 
             # 按时间排序
             time_factors.sort(key=lambda f: f.timestamp)
+
+            # 断言验证时序数据
+            assert len(time_factors) >= 10, f"应该有至少10条时序数据，实际: {len(time_factors)}"
+            assert time_factors[0].timestamp <= time_factors[-1].timestamp, "时间戳应该按时间顺序排列"
 
             # 按天统计
             daily_stats = {}
@@ -497,6 +519,10 @@ class TestFactorCRUDBusinessLogic:
                 daily_stats[date_key]["factor_names"].add(factor.factor_name)
                 daily_stats[date_key]["values"].append(float(factor.factor_value))
 
+            # 断言验证统计数据
+            total_records_in_daily = sum(stats["count"] for stats in daily_stats.values())
+            assert total_records_in_daily == len(time_factors), f"每日统计总和应该等于总记录数，实际: {total_records_in_daily} vs {len(time_factors)}"
+
             print(f"✓ 因子时序分析结果:")
             print(f"  - 时间跨度: {time_factors[0].timestamp.date()} ~ {time_factors[-1].timestamp.date()}")
             print(f"  - 总因子记录: {len(time_factors)}")
@@ -509,11 +535,26 @@ class TestFactorCRUDBusinessLogic:
                 avg_value = sum(stats["values"]) / len(stats["values"]) if stats["values"] else 0
                 print(f"    {date}: {stats['count']} 条记录, {len(stats['factor_names'])} 种因子, 平均值 {avg_value:.4f}")
 
+            # 断言验证每日数据的完整性
+            for date, stats in daily_stats.items():
+                assert stats["count"] > 0, f"日期{date}的记录数应该大于0"
+                assert len(stats["factor_names"]) > 0, f"日期{date}的因子种类应该大于0"
+                assert len(stats["values"]) == stats["count"], f"日期{date}的值数量应该等于记录数"
+
+                # 验证数值有效性
+                for value in stats["values"]:
+                    assert isinstance(value, (int, float)), f"因子值应该是数字类型，实际: {type(value)}"
+                    assert not (value != value), f"因子值不应该是NaN，实际: {value}"
+
             # 分析趋势
             if len(sorted_dates) >= 2:
                 first_day_avg = sum(daily_stats[sorted_dates[0]]["values"]) / len(daily_stats[sorted_dates[0]]["values"])
                 last_day_avg = sum(daily_stats[sorted_dates[-1]]["values"]) / len(daily_stats[sorted_dates[-1]]["values"])
                 trend_change = (last_day_avg - first_day_avg) / first_day_avg * 100 if first_day_avg != 0 else 0
+
+                # 断言验证趋势计算
+                assert isinstance(trend_change, (int, float)), "趋势变化应该是数字类型"
+                assert -100 <= trend_change <= 10000, f"趋势变化应该在合理范围内，实际: {trend_change}%"
                 print(f"  - 趋势分析: 从{sorted_dates[0]}到{sorted_dates[-1]}，平均值变化 {trend_change:+.2f}%")
 
             print("✓ 因子时序分析验证成功")

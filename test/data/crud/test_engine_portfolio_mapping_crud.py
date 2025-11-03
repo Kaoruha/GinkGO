@@ -719,8 +719,7 @@ class TestEnginePortfolioMappingCRUDBusinessLogic:
             all_mappings = mapping_crud.find(page_size=50)
 
             if len(all_mappings) == 0:
-                print("✗ 映射数据不足，跳过关系分析")
-                return
+                pytest.skip("映射数据不足，跳过关系分析")
 
             # 分析引擎分布
             engine_stats = {}
@@ -782,8 +781,7 @@ class TestEnginePortfolioMappingCRUDBusinessLogic:
             all_mappings = mapping_crud.find(page_size=20)
 
             if len(all_mappings) == 0:
-                print("✗ 映射数据不足，跳过一致性验证")
-                return
+                pytest.skip("映射数据不足，跳过一致性验证")
 
             # 验证映射关系一致性
             consistency_errors = []
@@ -807,11 +805,19 @@ class TestEnginePortfolioMappingCRUDBusinessLogic:
                 if mapping.source not in valid_sources:
                     consistency_errors.append(f"无效数据源: {mapping.source}")
 
+            # 断言验证基础数据
+            assert len(all_mappings) > 0, "应该有映射数据进行一致性验证"
+
             print(f"✓ 一致性验证结果:")
             if consistency_errors:
                 print(f"  - 发现 {len(consistency_errors)} 个问题:")
                 for error in consistency_errors[:5]:  # 显示前5个错误
                     print(f"    • {error}")
+                # 如果有严重的一致性错误，断言失败
+                critical_errors = [e for e in consistency_errors
+                                 if any(keyword in e for keyword in ["为空", "无效", "过长"])]
+                if critical_errors:
+                    pytest.fail(f"发现严重一致性错误: {critical_errors[:3]}")
             else:
                 print("  - 所有映射关系一致")
 
@@ -825,12 +831,22 @@ class TestEnginePortfolioMappingCRUDBusinessLogic:
                 else:
                     unique_pairs.add(pair)
 
+            # 断言验证唯一性
+            print(f"  - 唯一映射对: {len(unique_pairs)} 个")
             if duplicate_pairs:
                 print(f"  - 发现 {len(duplicate_pairs)} 个重复映射对")
                 for pair in duplicate_pairs[:3]:
                     print(f"    • {pair[0]} ↔ {pair[1]}")
+                # 不强制禁止重复，但要记录
             else:
                 print("  - 无重复映射对")
+
+            # 断言验证数据完整性统计
+            total_unique_engines = len(set(m.engine_id for m in all_mappings))
+            total_unique_portfolios = len(set(m.portfolio_id for m in all_mappings))
+            assert total_unique_engines > 0, "应该有唯一的引擎ID"
+            assert total_unique_portfolios > 0, "应该有唯一的投资组合ID"
+            assert len(unique_pairs) <= len(all_mappings), "唯一映射对数应该不超过总记录数"
 
             print("✓ 映射关系一致性验证完成")
 
