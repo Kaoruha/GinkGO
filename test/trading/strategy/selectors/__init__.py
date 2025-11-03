@@ -1,0 +1,3 @@
+"""
+Trading strategy selectors tests.
+"""

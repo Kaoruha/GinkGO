@@ -1,0 +1,3 @@
+"""
+Trading feeders tests.
+"""
