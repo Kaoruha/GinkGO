@@ -208,3 +208,5 @@ personal.*
 *.temp.key
 *.bak.config
 *.old.credential
+
+src/ginkgo/config/secure.yml
