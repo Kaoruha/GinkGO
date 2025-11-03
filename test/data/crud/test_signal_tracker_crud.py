@@ -352,8 +352,7 @@ class TestSignalTrackerCRUDUpdate:
             })
 
             if not pending_trackers:
-                print("✗ 没有找到等待执行的信号")
-                return
+                pytest.skip("没有找到等待执行的信号")
 
             target_tracker = pending_trackers[0]
             print(f"✓ 找到信号: {target_tracker.signal_id}")
@@ -413,8 +412,7 @@ class TestSignalTrackerCRUDBusinessLogic:
             all_trackers = signal_tracker_crud.find()
 
             if len(all_trackers) < 2:
-                print("✗ 信号追踪数据不足，跳过质量分析")
-                return
+                pytest.skip("信号追踪数据不足，跳过质量分析")
 
             # 按账户类型分组分析
             quality_analysis = {
@@ -474,8 +472,7 @@ class TestSignalTrackerCRUDBusinessLogic:
             all_trackers = signal_tracker_crud.find()
 
             if len(all_trackers) < 3:
-                print("✗ 信号追踪数据不足，跳过性能统计")
-                return
+                pytest.skip("信号追踪数据不足，跳过性能统计")
 
             # 按策略分组统计
             strategy_performance = {}
@@ -531,8 +528,7 @@ class TestSignalTrackerCRUDBusinessLogic:
             all_trackers = signal_tracker_crud.find()
 
             if len(all_trackers) < 2:
-                print("✗ 信号追踪数据不足，跳过效率分析")
-                return
+                pytest.skip("信号追踪数据不足，跳过效率分析")
 
             # 按执行模式分组
             mode_analysis = {}

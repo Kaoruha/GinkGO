@@ -678,8 +678,7 @@ class TestPositionCRUDBusinessLogic:
             all_positions = position_crud.find_by_portfolio("test_portfolio_001")
 
             if len(all_positions) < 2:
-                print("✗ 持仓数据不足，跳过风险分析")
-                return
+                pytest.skip("持仓数据不足(少于2条)，跳过风险分析")
 
             # 计算持仓集中度
             total_market_value = sum(float(p.price * p.volume) for p in all_positions if p.volume > 0 and p.price)
@@ -739,8 +738,7 @@ class TestPositionCRUDBusinessLogic:
             all_positions = position_crud.find(filters={"volume__gt": 0})  # 只分析有持仓的
 
             if len(all_positions) < 2:
-                print("✗ 持仓数据不足，跳过表现分析")
-                return
+                pytest.skip("持仓数据不足(少于2条)，跳过表现分析")
 
             # 计算每个持仓的表现
             performance_data = []

@@ -958,8 +958,7 @@ class TestEngineHandlerMappingCRUDBusinessLogic:
             all_mappings = mapping_crud.find(page_size=50)
 
             if len(all_mappings) == 0:
-                print("✗ 映射数据不足，跳过覆盖分析")
-                return
+                pytest.skip("映射数据不足，跳过覆盖分析")
 
             # 分析事件类型覆盖情况
             covered_event_types = set()
@@ -976,24 +975,42 @@ class TestEngineHandlerMappingCRUDBusinessLogic:
             print(f"  - 已覆盖事件类型: {len(covered_event_types)} 种")
             print(f"  - 事件类型分布:")
 
+            # 断言验证基础数据
+            assert len(all_mappings) > 0, "应该有映射数据进行分析"
+            assert len(covered_event_types) > 0, "应该有覆盖的事件类型"
+
             total_mappings = len(all_mappings)
             for event_type, count in sorted(event_type_distribution.items(),
                                            key=lambda x: x[1], reverse=True):
                 percentage = (count / total_mappings) * 100
                 print(f"    - {event_type}: {count} 个映射 ({percentage:.1f}%)")
 
+                # 断言验证分布合理性
+                assert count > 0, f"事件类型{event_type}的计数应该大于0"
+                assert 0 <= percentage <= 100, f"百分比应该在0-100之间，实际: {percentage}"
+
             # 验证关键事件类型覆盖
             critical_event_types = [
                 "PRICEUPDATE", "SIGNALGENERATION", "ORDERSUBMITTED",
-                "PORTFOLIOUPDATE", "PRICEUPDATE"
+                "PORTFOLIOUPDATE"
             ]
             missing_critical = [et for et in critical_event_types
                                if et not in covered_event_types]
 
+            # 断言验证覆盖情况
+            covered_critical = [et for et in critical_event_types
+                               if et in covered_event_types]
+
+            print(f"  - 关键事件类型覆盖: {len(covered_critical)}/{len(critical_event_types)}")
             if missing_critical:
                 print(f"  - 缺少关键事件类型: {missing_critical}")
+                # 不强制要求所有关键事件类型都必须覆盖，但要记录
             else:
                 print("  - 所有关键事件类型已覆盖")
+
+            # 验证分布统计的准确性
+            distribution_sum = sum(event_type_distribution.values())
+            assert distribution_sum == total_mappings, f"分布总和应该等于总映射数，实际: {distribution_sum} vs {total_mappings}"
 
             print("✓ 事件类型覆盖分析验证成功")
 
@@ -1015,8 +1032,7 @@ class TestEngineHandlerMappingCRUDBusinessLogic:
             all_mappings = mapping_crud.find(page_size=20)
 
             if len(all_mappings) == 0:
-                print("✗ 映射数据不足，跳过一致性验证")
-                return
+                pytest.skip("映射数据不足，跳过一致性验证")
 
             # 验证映射关系一致性
             consistency_errors = []
@@ -1042,11 +1058,19 @@ class TestEngineHandlerMappingCRUDBusinessLogic:
                 if mapping.source not in valid_sources:
                     consistency_errors.append(f"无效数据源: {mapping.source}")
 
+            # 断言验证基础数据
+            assert len(all_mappings) > 0, "应该有映射数据进行一致性验证"
+
             print(f"✓ 一致性验证结果:")
             if consistency_errors:
                 print(f"  - 发现 {len(consistency_errors)} 个问题:")
                 for error in consistency_errors[:5]:  # 显示前5个错误
                     print(f"    • {error}")
+                # 如果有严重的一致性错误，断言失败
+                critical_errors = [e for e in consistency_errors
+                                 if any(keyword in e for keyword in ["为空", "无效", "过长"])]
+                if critical_errors:
+                    pytest.fail(f"发现严重一致性错误: {critical_errors[:3]}")
             else:
                 print("  - 所有映射关系一致")
 
@@ -1060,12 +1084,22 @@ class TestEngineHandlerMappingCRUDBusinessLogic:
                 else:
                     unique_pairs.add(pair)
 
+            # 断言验证唯一性
+            print(f"  - 唯一映射对: {len(unique_pairs)} 个")
             if duplicate_pairs:
                 print(f"  - 发现 {len(duplicate_pairs)} 个重复映射对")
                 for pair in duplicate_pairs[:3]:
                     print(f"    • {pair[0]} ↔ {pair[1]}")
+                # 不强制禁止重复，但要记录
             else:
                 print("  - 无重复映射对")
+
+            # 断言验证数据完整性统计
+            total_unique_engines = len(set(m.engine_id for m in all_mappings))
+            total_unique_handlers = len(set(m.handler_id for m in all_mappings))
+            assert total_unique_engines > 0, "应该有唯一的引擎ID"
+            assert total_unique_handlers > 0, "应该有唯一的处理器ID"
+            assert len(unique_pairs) <= len(all_mappings), "唯一映射对数应该不超过总记录数"
 
             print("✓ 映射关系一致性验证完成")
 

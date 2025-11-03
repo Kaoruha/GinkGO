@@ -317,8 +317,7 @@ class TestTransferCRUDUpdate:
             print("→ 查询待更新的资金划转记录...")
             transfers = transfer_crud.find(filters={}, page=1, page_size=1)
             if not transfers:
-                print("✗ 没有找到可更新的资金划转记录")
-                return
+                pytest.skip("没有找到可更新的资金划转记录")
 
             target_transfer = transfers[0]
             print(f"✓ 找到资金划转记录: {target_transfer.timestamp}")
@@ -370,8 +369,7 @@ class TestTransferCRUDBusinessLogic:
             all_transfers = transfer_crud.find()
 
             if len(all_transfers) < 2:
-                print("✗ 资金划转记录不足，跳过分析测试")
-                return
+                pytest.skip("资金划转记录不足(少于2条)，跳过分析测试")
 
             # 按投资组合分组统计
             portfolio_analysis = {}
@@ -436,8 +434,7 @@ class TestTransferCRUDBusinessLogic:
             })
 
             if len(transfers) < 5:
-                print("✗ 资金划转记录不足，跳过趋势分析")
-                return
+                pytest.skip("资金划转记录不足(少于5条)，跳过趋势分析")
 
             # 按月份分组统计
             monthly_stats = {}
@@ -926,8 +923,7 @@ class TestTransferCRUDDataTypes:
             )
 
             if len(model_results) == 0:
-                print("✗ 没有找到数据，跳过业务对象转换测试")
-                return
+                pytest.skip("没有找到数据，跳过业务对象转换测试")
 
             # 使用ModelList的to_entities方法转换为业务对象
             business_objects = model_results.to_entities()

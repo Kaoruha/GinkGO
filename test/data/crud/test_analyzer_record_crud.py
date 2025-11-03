@@ -306,10 +306,17 @@ class TestAnalyzerRecordCRUDQuery:
             print(f"✓ 查询到 {len(low_drawdown_records)} 条低回撤记录")
 
             # 验证查询结果
+            assert len(high_sharpe_records) > 0, "应该查询到夏普比率大于2.0的记录"
+            assert len(low_drawdown_records) > 0, "应该查询到最大回撤小于0.1的记录"
+
             for record in high_sharpe_records[:3]:
+                assert record.analyzer_id == "sharpe_ratio_analyzer", f"分析器ID应该为sharpe_ratio_analyzer，实际: {record.analyzer_id}"
+                assert float(record.value) > 2.0, f"夏普比率应该大于2.0，实际: {record.value}"
                 print(f"  - {record.portfolio_id}: 夏普比率 {record.value}")
 
             for record in low_drawdown_records[:3]:
+                assert record.analyzer_id == "max_drawdown_analyzer", f"分析器ID应该为max_drawdown_analyzer，实际: {record.analyzer_id}"
+                assert float(record.value) < 0.1, f"最大回撤应该小于0.1，实际: {record.value}"
                 print(f"  - {record.portfolio_id}: 最大回撤 {record.value}")
 
             print("✓ 分析器值范围查询验证成功")
@@ -380,8 +387,20 @@ class TestAnalyzerRecordCRUDBusinessLogic:
                 print(f"      值范围: {min_value:.4f} ~ {max_value:.4f}")
 
             # 验证分析结果
+            assert len(analyzer_stats) > 0, "应该有分析器数据"
+            assert all(stats["count"] > 0 for stats in analyzer_stats.values()), "每个分析器都应该有记录"
+            assert all(len(stats["values"]) == stats["count"] for stats in analyzer_stats.values()), "每个分析器的值列表长度应该等于记录数"
+
             total_records = sum(stats["count"] for stats in analyzer_stats.values())
-            assert total_records == len(all_records)
+            assert total_records == len(all_records), "汇总记录数应该等于原始记录数"
+
+            # 验证统计数据的合理性
+            for analyzer_id, stats in analyzer_stats.items():
+                assert len(stats["portfolio_ids"]) > 0, f"分析器 {analyzer_id} 应该覆盖至少1个投资组合"
+                assert stats["latest_timestamp"] is not None, f"分析器 {analyzer_id} 应该有最新时间戳"
+                assert avg_value >= min_value, f"平均值应该大于等于最小值，分析器: {analyzer_id}"
+                assert avg_value <= max_value, f"平均值应该小于等于最大值，分析器: {analyzer_id}"
+
             print("✓ 分析器性能汇总分析验证成功")
 
         except Exception as e:
@@ -425,6 +444,7 @@ class TestAnalyzerRecordCRUDBusinessLogic:
             print(f"✓ 投资组合夏普比率排名:")
             for rank, (portfolio_id, record) in enumerate(sorted_portfolios, 1):
                 print(f"    第{rank}名: {portfolio_id} - 夏普比率 {record.value}")
+                assert float(record.value) >= 0, f"夏普比率应该为非负数，实际: {record.value}"
 
             # 统计分析
             if len(sorted_portfolios) > 0:
@@ -437,6 +457,19 @@ class TestAnalyzerRecordCRUDBusinessLogic:
                 print(f"  - 平均夏普比率: {avg_sharpe:.3f}")
                 print(f"  - 最高夏普比率: {max_sharpe:.3f}")
                 print(f"  - 最低夏普比率: {min_sharpe:.3f}")
+
+                # 断言验证统计数据的合理性
+                assert max_sharpe >= min_sharpe, "最高夏普比率应该大于等于最低夏普比率"
+                assert avg_sharpe >= min_sharpe and avg_sharpe <= max_sharpe, "平均夏普比率应该在最大值和最小值之间"
+
+                # 如果有数据，验证排名是否按降序排列
+                if len(sorted_portfolios) > 1:
+                    for i in range(len(sorted_portfolios) - 1):
+                        current_value = float(sorted_portfolios[i][1].value)
+                        next_value = float(sorted_portfolios[i + 1][1].value)
+                        assert current_value >= next_value, f"排名应该按夏普比率降序排列，但第{i+1}名({current_value}) < 第{i+2}名({next_value})"
+            else:
+                pytest.skip("没有找到投资组合表现数据，跳过排名分析验证")
 
             print("✓ 投资组合表现排名分析验证成功")
 
@@ -465,8 +498,7 @@ class TestAnalyzerRecordCRUDBusinessLogic:
             })
 
             if len(time_records) < 10:
-                print("✗ 时序数据不足，跳过趋势分析")
-                return
+                pytest.skip("时序数据不足(少于10条)，跳过趋势分析")
 
             # 按时间排序
             time_records.sort(key=lambda r: r.timestamp)
@@ -474,6 +506,10 @@ class TestAnalyzerRecordCRUDBusinessLogic:
             # 计算趋势统计
             values = [float(r.value) for r in time_records]
             timestamps = [r.timestamp for r in time_records]
+
+            # 断言基础数据验证
+            assert len(values) >= 10, f"应该有至少10条时序数据，实际: {len(values)}"
+            assert len(values) == len(timestamps), "数值和时间戳数量应该一致"
 
             if len(values) >= 2:
                 first_value = values[0]
@@ -488,6 +524,12 @@ class TestAnalyzerRecordCRUDBusinessLogic:
                 print(f"  - 最终值: {last_value:.3f}")
                 print(f"  - 总变化: {total_change:+.3f} ({total_change_pct:+.2f}%)")
 
+                # 断言验证时序数据的合理性
+                assert timestamps[0] <= timestamps[-1], "时间戳应该按时间顺序排列"
+                for i, value in enumerate(values):
+                    assert isinstance(value, (int, float)), f"第{i+1}个值应该是数字类型，实际: {type(value)}"
+                    assert not (value != value), f"第{i+1}个值不应该是NaN，实际: {value}"  # NaN检查
+
                 # 计算简单移动平均趋势
                 if len(values) >= 5:
                     # 计算最后5个点的平均
@@ -498,6 +540,13 @@ class TestAnalyzerRecordCRUDBusinessLogic:
 
                     print(f"  - 近期趋势: {trend_direction}")
                     print(f"  - 趋势强度: {trend_strength:.2f}%")
+
+                    # 断言验证趋势计算
+                    assert early_avg > 0 or early_avg < 0, "早期平均值应该是有效数字"
+                    assert recent_avg > 0 or recent_avg < 0, "近期平均值应该是有效数字"
+                    assert trend_strength >= 0, f"趋势强度应该为非负数，实际: {trend_strength}"
+            else:
+                pytest.skip("时序数据点不足，无法进行趋势分析")
 
             print("✓ 分析器时序趋势分析验证成功")
 
@@ -537,8 +586,14 @@ class TestAnalyzerRecordCRUDDelete:
         print(f"✓ 插入测试数据: {test_record.name}")
 
         # 验证数据存在
-        before_count = len(analyzer_record_crud.find(filters={"portfolio_id": "DELETE_TEST_PORTFOLIO"}))
+        before_records = analyzer_record_crud.find(filters={"portfolio_id": "DELETE_TEST_PORTFOLIO"})
+        before_count = len(before_records)
         print(f"✓ 删除前数据量: {before_count}")
+        assert before_count > 0, "删除前应该有测试数据存在"
+
+        # 验证插入的数据是正确的
+        test_record_found = any(r.name == "Delete Test Analyzer" for r in before_records)
+        assert test_record_found, "应该能找到插入的测试数据"
 
         try:
             # 执行删除
@@ -548,9 +603,15 @@ class TestAnalyzerRecordCRUDDelete:
 
             # 验证删除结果
             print("\n→ 验证删除结果...")
-            after_count = len(analyzer_record_crud.find(filters={"portfolio_id": "DELETE_TEST_PORTFOLIO"}))
+            after_records = analyzer_record_crud.find(filters={"portfolio_id": "DELETE_TEST_PORTFOLIO"})
+            after_count = len(after_records)
             print(f"✓ 删除后数据量: {after_count}")
             assert after_count == 0, "删除后应该没有相关数据"
+
+            # 额外验证：确保其他portfolio_id的数据不受影响
+            other_portfolio_records = analyzer_record_crud.find(filters={"portfolio_id": "OTHER_PORTFOLIO"})
+            print(f"✓ 其他投资组合数据保留验证: {len(other_portfolio_records)}条")
+            # 这里不强制断言，因为可能没有其他数据
 
             print("✓ 根据投资组合ID删除AnalyzerRecord验证成功")
 
@@ -589,8 +650,21 @@ class TestAnalyzerRecordCRUDDelete:
         print(f"✓ 插入引擎测试数据: {len(test_engines)}条")
 
         # 验证数据存在
-        before_count = len(analyzer_record_crud.find(filters={"engine_id": "delete_engine_001"}))
-        print(f"✓ 删除前引擎001数据量: {before_count}")
+        before_engine_001 = analyzer_record_crud.find(filters={"engine_id": "delete_engine_001"})
+        before_engine_002 = analyzer_record_crud.find(filters={"engine_id": "delete_engine_002"})
+        before_count_001 = len(before_engine_001)
+        before_count_002 = len(before_engine_002)
+        print(f"✓ 删除前引擎001数据量: {before_count_001}")
+        print(f"✓ 删除前引擎002数据量: {before_count_002}")
+
+        # 断言验证插入数据的正确性
+        assert before_count_001 >= 2, f"引擎001应该至少有2条数据，实际: {before_count_001}"
+        assert before_count_002 >= 1, f"引擎002应该至少有1条数据，实际: {before_count_002}"
+
+        # 验证插入的数据内容正确
+        engine_001_analyzers = {r.analyzer_id for r in before_engine_001}
+        expected_analyzers = {"analyzer_A", "analyzer_B"}
+        assert expected_analyzers.issubset(engine_001_analyzers), f"引擎001应该包含分析器{expected_analyzers}"
 
         try:
             # 删除特定引擎的数据
@@ -600,14 +674,21 @@ class TestAnalyzerRecordCRUDDelete:
 
             # 验证删除结果
             print("\n→ 验证删除结果...")
-            after_count = len(analyzer_record_crud.find(filters={"engine_id": "delete_engine_001"}))
-            print(f"✓ 删除后引擎001数据量: {after_count}")
-            assert after_count == 0, "删除后应该没有引擎001的数据"
+            after_engine_001 = analyzer_record_crud.find(filters={"engine_id": "delete_engine_001"})
+            after_engine_002 = analyzer_record_crud.find(filters={"engine_id": "delete_engine_002"})
+            after_count_001 = len(after_engine_001)
+            after_count_002 = len(after_engine_002)
+            print(f"✓ 删除后引擎001数据量: {after_count_001}")
+            print(f"✓ 删除后引擎002数据量: {after_count_002}")
+
+            assert after_count_001 == 0, "删除后应该没有引擎001的数据"
+            assert after_count_002 == before_count_002, "引擎002的数据应该完全保留"
 
             # 确认其他引擎数据未受影响
-            other_engine_count = len(analyzer_record_crud.find(filters={"engine_id": "delete_engine_002"}))
-            print(f"✓ 其他引擎数据保留验证: {other_engine_count}条")
-            assert other_engine_count > 0, "其他引擎数据应该保留"
+            print(f"✓ 其他引擎数据保留验证: {after_count_002}条")
+            # 验证保留数据的完整性
+            retained_analyzers = {r.analyzer_id for r in after_engine_002}
+            assert "analyzer_C" in retained_analyzers, "分析器C的数据应该保留"
 
             print("✓ 根据引擎ID删除AnalyzerRecord验证成功")
 
@@ -645,24 +726,50 @@ class TestAnalyzerRecordCRUDDelete:
 
         print(f"✓ 插入分析器测试数据: {len(test_analyzers)}条")
 
+        # 验证插入的数据
+        before_sharpe_records = analyzer_record_crud.find(filters={"analyzer_id": "delete_sharpe_analyzer"})
+        before_drawdown_records = analyzer_record_crud.find(filters={"analyzer_id": "delete_drawdown_analyzer"})
+        before_sharpe_count = len(before_sharpe_records)
+        before_drawdown_count = len(before_drawdown_records)
+
+        print(f"✓ 插入数据验证:")
+        print(f"  - 夏普分析器数据: {before_sharpe_count}条")
+        print(f"  - 最大回撤分析器数据: {before_drawdown_count}条")
+
+        # 断言验证插入数据的正确性
+        assert before_sharpe_count >= 2, f"夏普分析器应该至少有2条数据，实际: {before_sharpe_count}"
+        assert before_drawdown_count >= 1, f"最大回撤分析器应该至少有1条数据，实际: {before_drawdown_count}"
+
+        # 验证插入的数据内容
+        sharpe_names = {r.name for r in before_sharpe_records}
+        expected_names = {"Sharpe Ratio", "Sharpe Ratio Updated"}
+        assert expected_names.issubset(sharpe_names), f"夏普分析器应该包含名称{expected_names}"
+
         try:
             # 删除特定分析器的数据
             print("\n→ 执行分析器ID删除操作...")
-            before_count = len(analyzer_record_crud.find(filters={"analyzer_id": "delete_sharpe_analyzer"}))
-            print(f"✓ 删除前夏普分析器数据量: {before_count}")
-
             analyzer_record_crud.remove(filters={"analyzer_id": "delete_sharpe_analyzer"})
             print("✓ 分析器ID删除操作完成")
 
             # 验证删除结果
-            after_count = len(analyzer_record_crud.find(filters={"analyzer_id": "delete_sharpe_analyzer"}))
-            print(f"✓ 删除后夏普分析器数据量: {after_count}")
-            assert after_count == 0, "删除后应该没有夏普分析器数据"
+            after_sharpe_records = analyzer_record_crud.find(filters={"analyzer_id": "delete_sharpe_analyzer"})
+            after_drawdown_records = analyzer_record_crud.find(filters={"analyzer_id": "delete_drawdown_analyzer"})
+            after_sharpe_count = len(after_sharpe_records)
+            after_drawdown_count = len(after_drawdown_records)
+
+            print(f"✓ 删除后数据验证:")
+            print(f"  - 夏普分析器数据: {after_sharpe_count}条")
+            print(f"  - 最大回撤分析器数据: {after_drawdown_count}条")
+
+            assert after_sharpe_count == 0, "删除后应该没有夏普分析器数据"
+            assert after_drawdown_count == before_drawdown_count, "最大回撤分析器数据应该完全保留"
 
             # 确认其他分析器数据未受影响
-            other_analyzer_count = len(analyzer_record_crud.find(filters={"analyzer_id": "delete_drawdown_analyzer"}))
-            print(f"✓ 其他分析器数据保留验证: {other_analyzer_count}条")
-            assert other_analyzer_count > 0, "其他分析器数据应该保留"
+            print(f"✓ 其他分析器数据保留验证: {after_drawdown_count}条")
+
+            # 验证保留数据的完整性
+            drawdown_names = {r.name for r in after_drawdown_records}
+            assert "Max Drawdown" in drawdown_names, "最大回撤分析器的数据应该保留"
 
             print("✓ 根据分析器ID删除AnalyzerRecord验证成功")
 
@@ -701,29 +808,60 @@ class TestAnalyzerRecordCRUDDelete:
         print(f"✓ 插入时间范围测试数据: {len(test_time_range)}条")
 
         # 验证数据存在
-        before_count = len(analyzer_record_crud.find(filters={
+        time_range_filter = {
             "timestamp__gte": datetime(2023, 9, 1),
             "timestamp__lte": datetime(2023, 9, 3, 23, 59, 59)
-        }))
+        }
+        before_records = analyzer_record_crud.find(filters=time_range_filter)
+        before_count = len(before_records)
         print(f"✓ 删除前时间范围内数据量: {before_count}")
+
+        # 断言验证插入数据的正确性
+        assert before_count >= 3, f"时间范围内应该至少有3条数据，实际: {before_count}"
+
+        # 验证插入数据的时序性
+        timestamps = [r.timestamp for r in before_records]
+        timestamps.sort()
+        assert len(timestamps) >= 3, "应该有至少3个时间戳"
+
+        # 验证时间戳都在预期范围内
+        start_boundary = datetime(2023, 9, 1)
+        end_boundary = datetime(2023, 9, 3, 23, 59, 59)
+        for ts in timestamps:
+            assert start_boundary <= ts <= end_boundary, f"时间戳{ts}应该在删除范围内"
+
+        # 准备范围外的数据用于验证不误删
+        outside_filter = {
+            "timestamp__gte": datetime(2023, 9, 4),
+            "timestamp__lte": datetime(2023, 9, 5)
+        }
+        before_outside_count = len(analyzer_record_crud.find(filters=outside_filter))
 
         try:
             # 执行删除
             print("\n→ 执行时间范围删除操作...")
-            analyzer_record_crud.remove(filters={
-                "timestamp__gte": datetime(2023, 9, 1),
-                "timestamp__lte": datetime(2023, 9, 3, 23, 59, 59)
-            })
+            analyzer_record_crud.remove(filters=time_range_filter)
             print("✓ 时间范围删除操作完成")
 
             # 验证删除结果
             print("\n→ 验证删除结果...")
-            after_count = len(analyzer_record_crud.find(filters={
-                "timestamp__gte": datetime(2023, 9, 1),
-                "timestamp__lte": datetime(2023, 9, 3, 23, 59, 59)
-            }))
+            after_records = analyzer_record_crud.find(filters=time_range_filter)
+            after_count = len(after_records)
             print(f"✓ 删除后时间范围内数据量: {after_count}")
             assert after_count == 0, "删除后时间范围内应该没有数据"
+
+            # 验证范围外的数据未被误删
+            after_outside_count = len(analyzer_record_crud.find(filters=outside_filter))
+            print(f"✓ 时间范围外数据保留验证: {after_outside_count}条")
+            assert after_outside_count == before_outside_count, "时间范围外的数据应该完全保留"
+
+            # 验证删除的精确性 - 检查边界时间
+            boundary_check_filter = {
+                "timestamp__gte": datetime(2023, 9, 1, 0, 0, 1),  # 删除范围内
+                "timestamp__lte": datetime(2023, 9, 3, 23, 59, 58)   # 删除范围内
+            }
+            boundary_check_count = len(analyzer_record_crud.find(filters=boundary_check_filter))
+            assert boundary_check_count == 0, "边界时间范围内的数据也应该被删除"
 
             print("✓ 根据时间范围删除AnalyzerRecord验证成功")
 

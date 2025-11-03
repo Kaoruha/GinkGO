@@ -746,8 +746,7 @@ class TestParamCRUDBusinessLogic:
             }, order_by="index")
 
             if len(strategy_params) < 2:
-                print("✗ 策略参数数据不足，跳过管理测试")
-                return
+                pytest.skip("策略参数数据不足(少于2条)，跳过管理测试")
 
             print(f"✓ {strategy_mapping} 策略参数:")
             for param in strategy_params:
@@ -798,8 +797,7 @@ class TestParamCRUDBusinessLogic:
             }, order_by="index")
 
             if len(system_params) < 1:
-                print("✗ 系统配置数据不足，跳过管理测试")
-                return
+                pytest.skip("系统配置数据不足(少于1条)，跳过管理测试")
 
             print(f"✓ {system_mapping} 系统配置:")
             config_dict = {}
