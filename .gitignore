@@ -150,3 +150,61 @@ Thumbs.db
 .db/
 .logs/
 *.log
+
+# Security & Sensitive Files (per constitution)
+# 配置文件 - 包含敏感信息
+*.config
+*.config.json
+*.config.yaml
+*.config.yml
+*config*.secret*
+*config*.private*
+
+# 凭证和密钥文件
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.pem
+private_*
+*secret*
+*credential*
+credentials.*
+api_key.*
+access_token.*
+refresh_token.*
+
+# 数据库连接配置
+database.*
+db_config.*
+connection.*
+*connection_string*
+*db_url*
+
+# 第三方服务配置
+tushare.*
+yahoo.*
+akshare.*
+baostock.*
+tdx.*
+kafka.*
+redis.*
+
+# 交易相关敏感配置
+trading_config.*
+broker_config.*
+account_config.*
+portfolio_config.*
+
+# 个人配置目录
+~/.ginkgo/
+.ginkgo.local/
+user_config.*
+personal.*
+
+# 临时敏感文件
+*.tmp.secret
+*.temp.key
+*.bak.config
+*.old.credential
