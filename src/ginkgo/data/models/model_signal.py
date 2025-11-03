@@ -22,6 +22,8 @@ class MSignal(MClickBase, MBacktestRecordBase):
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     direction: Mapped[int] = mapped_column(types.Int8, default=-1)
     reason: Mapped[str] = mapped_column(String(), default="")
+    volume: Mapped[int] = mapped_column(types.Int64, default=0)  # 建议交易量
+    weight: Mapped[float] = mapped_column(types.Float32, default=0.0)  # 信号权重或资金分配比例
     strength: Mapped[float] = mapped_column(types.Float32, default=0.5)
     confidence: Mapped[float] = mapped_column(types.Float32, default=0.5)
 
@@ -40,6 +42,8 @@ class MSignal(MClickBase, MBacktestRecordBase):
         direction: Optional[DIRECTION_TYPES] = None,
         reason: Optional[str] = None,
         source: Optional[SOURCE_TYPES] = None,
+        volume: Optional[int] = None,
+        weight: Optional[float] = None,
         strength: Optional[float] = None,
         confidence: Optional[float] = None,
         *args,
@@ -58,6 +62,10 @@ class MSignal(MClickBase, MBacktestRecordBase):
             self.reason = reason
         if source is not None:
             self.source = SOURCE_TYPES.validate_input(source) or -1
+        if volume is not None:
+            self.volume = int(volume)
+        if weight is not None:
+            self.weight = float(weight)
         if strength is not None:
             self.strength = float(strength)
         if confidence is not None:

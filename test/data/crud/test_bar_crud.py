@@ -55,6 +55,7 @@ from ginkgo.data.crud.bar_crud import BarCRUD
 from ginkgo.data.models.model_bar import MBar
 from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
 from decimal import Decimal
+from datetime import timedelta
 
 
 @pytest.mark.database
@@ -1697,3 +1698,298 @@ class TestBarCRUDDelete:
         except Exception as e:
             print(f"✗ 批量清理操作失败: {e}")
             raise
+
+
+@pytest.mark.enum
+@pytest.mark.database
+class TestBarCRUDEnumValidation:
+    """BarCRUD枚举传参验证测试 - 整合自独立的枚举测试文件"""
+
+    # 明确配置CRUD类，添加全面的过滤条件以清理所有测试数据
+    CRUD_TEST_CONFIG = {
+        'crud_class': BarCRUD,
+        'filters': {
+            'code__like': ['ENUM_%', 'COMPREHENSIVE_%']  # 清理所有枚举测试相关的K线数据
+        }
+    }
+
+    def test_frequency_enum_conversions(self):
+        """测试频率枚举转换功能"""
+        print("\n" + "="*60)
+        print("开始测试: K线频率枚举转换")
+        print("="*60)
+
+        bar_crud = BarCRUD()
+
+        # 记录初始状态
+        before_count = len(bar_crud.find(filters={"code": "ENUM_FREQ_TEST"}))
+        print(f"→ 初始状态: {before_count} 条测试数据")
+
+        # 测试不同频率的枚举传参
+        frequency_types = [
+            (FREQUENCY_TYPES.DAY, "日线频率"),
+            (FREQUENCY_TYPES.WEEK, "周线频率"),
+            (FREQUENCY_TYPES.MIN1, "1分钟线频率")
+        ]
+
+        print(f"\n→ 测试 {len(frequency_types)} 种频率枚举传参...")
+
+        # 批量插入并验证条数变化
+        for i, (frequency_type, freq_name) in enumerate(frequency_types):
+            test_bar = MBar(
+                code="ENUM_FREQ_TEST",
+                timestamp=datetime.now() + timedelta(days=i),
+                open=10.0 + i,
+                high=11.0 + i,
+                low=9.5 + i,
+                close=10.5 + i,
+                volume=1000000 + i * 100000,
+                frequency=frequency_type,  # 直接传入枚举对象
+                source=SOURCE_TYPES.TEST
+            )
+
+            before_insert = len(bar_crud.find(filters={"code": "ENUM_FREQ_TEST"}))
+            result = bar_crud.add(test_bar)
+            assert result is not None, f"{freq_name} Bar应该成功插入"
+
+            after_insert = len(bar_crud.find(filters={"code": "ENUM_FREQ_TEST"}))
+            assert after_insert - before_insert == 1, f"{freq_name} 插入应该增加1条记录"
+            print(f"  ✓ {freq_name} 枚举传参成功，数据库条数验证正确")
+
+        # 验证总插入数量
+        final_count = len(bar_crud.find(filters={"code": "ENUM_FREQ_TEST"}))
+        assert final_count - before_count == len(frequency_types), f"总共应该插入{len(frequency_types)}条记录"
+        print(f"✓ 批量插入验证正确，共增加 {final_count - before_count} 条记录")
+
+        # 验证查询时的枚举转换
+        print("\n→ 验证查询时的枚举转换...")
+        bars = bar_crud.find(filters={"code": "ENUM_FREQ_TEST"})
+        expected_count = final_count - before_count  # 我们新增的记录数
+        assert len(bars) >= expected_count, f"应该至少查询到{expected_count}条频率数据，实际{len(bars)}条"
+
+        # 过滤出我们刚创建的Bar（基于时间戳模式）
+        our_bars = []
+        for bar in bars:
+            # 检查是否是我们的测试数据（基于频率枚举值）
+            if bar.frequency in [ft.value for ft, _ in frequency_types]:
+                our_bars.append(bar)
+
+        print(f"→ 查询到总共{len(bars)}条Bar，其中我们的测试频率数据{len(our_bars)}条")
+
+        for bar in our_bars:
+            # 数据库查询结果frequency是int值，需要转换为枚举对象进行比较
+            freq_enum = FREQUENCY_TYPES(bar.frequency)
+            assert freq_enum in [ft for ft, _ in frequency_types], "查询结果应该是有效的枚举对象"
+            freq_name = dict([(ft, fn) for ft, fn in frequency_types])[freq_enum]
+            print(f"  ✓ Bar数据: 频率={freq_name}, 收盘价={bar.close}")
+
+        # 测试频率过滤查询（枚举传参）
+        print("\n→ 测试频率过滤查询（枚举传参）...")
+        daily_bars = bar_crud.find(
+            filters={
+                "code": "ENUM_FREQ_TEST",
+                "frequency": FREQUENCY_TYPES.DAY  # 枚举传参
+            }
+        )
+        # 过滤出我们创建的日线数据
+        our_daily_bars = [b for b in daily_bars if b.frequency == FREQUENCY_TYPES.DAY.value]
+        assert len(our_daily_bars) >= 1, "应该查询到至少1条我们创建的日线Bar"
+        print(f"  ✓ 日线频率Bar: {len(our_daily_bars)} 条，枚举过滤验证正确")
+
+        # 清理测试数据并验证删除效果
+        print("\n→ 清理测试数据...")
+        delete_before = len(bar_crud.find(filters={"code": "ENUM_FREQ_TEST"}))
+        bar_crud.remove(filters={"code": "ENUM_FREQ_TEST"})
+        delete_after = len(bar_crud.find(filters={"code": "ENUM_FREQ_TEST"}))
+
+        assert delete_before - delete_after >= len(frequency_types), f"删除操作应该至少移除{len(frequency_types)}条记录"
+        print("✓ 测试数据清理完成，数据库条数验证正确")
+
+        print("✓ K线频率枚举转换测试通过")
+
+    def test_source_enum_conversions(self):
+        """测试K线数据源枚举转换功能"""
+        print("\n" + "="*60)
+        print("开始测试: K线数据源枚举转换")
+        print("="*60)
+
+        bar_crud = BarCRUD()
+
+        # 记录初始状态
+        before_count = len(bar_crud.find(filters={"code": "ENUM_SOURCE_TEST"}))
+        print(f"→ 初始状态: {before_count} 条测试数据")
+
+        # 测试不同数据源的枚举传参
+        source_types = [
+            (SOURCE_TYPES.TUSHARE, "Tushare数据源"),
+            (SOURCE_TYPES.YAHOO, "Yahoo数据源"),
+            (SOURCE_TYPES.AKSHARE, "AKShare数据源")
+        ]
+
+        print(f"\n→ 测试 {len(source_types)} 种数据源枚举传参...")
+
+        # 批量插入并验证条数变化
+        for i, (source_type, source_name) in enumerate(source_types):
+            test_bar = MBar(
+                code=f"ENUM_SOURCE_{i+1:03d}",
+                timestamp=datetime.now() + timedelta(hours=i),
+                open=20.0 + i,
+                high=21.0 + i,
+                low=19.5 + i,
+                close=20.5 + i,
+                volume=2000000 + i * 200000,
+                frequency=FREQUENCY_TYPES.DAY,
+                source=source_type  # 直接传入枚举对象
+            )
+
+            before_insert = len(bar_crud.find(filters={"code__like": "ENUM_SOURCE_%"}))
+            result = bar_crud.add(test_bar)
+            assert result is not None, f"{source_name} Bar应该成功插入"
+
+            after_insert = len(bar_crud.find(filters={"code__like": "ENUM_SOURCE_%"}))
+            assert after_insert - before_insert == 1, f"{source_name} 插入应该增加1条记录"
+            print(f"  ✓ {source_name} 枚举传参成功，数据库条数验证正确")
+
+        # 验证总插入数量
+        final_count = len(bar_crud.find(filters={"code__like": "ENUM_SOURCE_%"}))
+        assert final_count - before_count == len(source_types), f"总共应该插入{len(source_types)}条记录"
+        print(f"✓ 批量插入验证正确，共增加 {final_count - before_count} 条记录")
+
+        # 验证查询时的枚举转换
+        print("\n→ 验证查询时的枚举转换...")
+        bars = bar_crud.find(filters={"code__like": "ENUM_SOURCE_%"})
+        expected_count = final_count - before_count  # 我们新增的记录数
+        assert len(bars) >= expected_count, f"应该至少查询到{expected_count}条数据源数据，实际{len(bars)}条"
+
+        for bar in bars:
+            # 数据库查询结果source是int值，需要转换为枚举对象进行比较
+            source_enum = SOURCE_TYPES(bar.source)
+            assert source_enum in [st for st, _ in source_types], "查询结果应该是有效的枚举对象"
+            source_name = dict([(st, sn) for st, sn in source_types])[source_enum]
+            print(f"  ✓ Bar {bar.code}: 数据源={source_name}, 收盘价={bar.close}")
+
+        # 测试数据源过滤查询（枚举传参）
+        print("\n→ 测试数据源过滤查询（枚举传参）...")
+        tushare_bars = bar_crud.find(
+            filters={
+                "code__like": "ENUM_SOURCE_%",
+                "source": SOURCE_TYPES.TUSHARE  # 枚举传参
+            }
+        )
+        assert len(tushare_bars) >= 1, "应该查询到至少1条Tushare Bar"
+        print(f"  ✓ Tushare数据源Bar: {len(tushare_bars)} 条，枚举过滤验证正确")
+
+        # 清理测试数据并验证删除效果
+        print("\n→ 清理测试数据...")
+        delete_before = len(bar_crud.find(filters={"code__like": "ENUM_SOURCE_%"}))
+        bar_crud.remove(filters={"code__like": "ENUM_SOURCE_%"})
+        delete_after = len(bar_crud.find(filters={"code__like": "ENUM_SOURCE_%"}))
+
+        assert delete_before - delete_after >= len(source_types), f"删除操作应该至少移除{len(source_types)}条记录"
+        print("✓ 测试数据清理完成，数据库条数验证正确")
+
+        print("✓ K线数据源枚举转换测试通过")
+
+    def test_comprehensive_enum_validation(self):
+        """测试K线综合枚举验证功能"""
+        print("\n" + "="*60)
+        print("开始测试: K线综合枚举验证")
+        print("="*60)
+
+        bar_crud = BarCRUD()
+
+        # 记录初始状态
+        before_count = len(bar_crud.find(filters={"code__like": "COMPREHENSIVE_BAR_%"}))
+        print(f"→ 初始状态: {before_count} 条测试数据")
+
+        # 创建包含所有枚举字段的测试Bar
+        enum_combinations = [
+            # (频率, 数据源, 描述)
+            (FREQUENCY_TYPES.DAY, SOURCE_TYPES.TUSHARE, "日线Tushare数据"),
+            (FREQUENCY_TYPES.MIN1, SOURCE_TYPES.YAHOO, "分钟线Yahoo数据"),
+            (FREQUENCY_TYPES.WEEK, SOURCE_TYPES.AKSHARE, "周线AKShare数据"),
+        ]
+
+        print(f"\n→ 创建 {len(enum_combinations)} 个综合枚举测试Bar...")
+
+        # 批量插入并验证条数变化
+        for i, (frequency, source, desc) in enumerate(enum_combinations):
+            test_bar = MBar(
+                code=f"COMPREHENSIVE_BAR_{i+1:03d}",
+                timestamp=datetime.now() + timedelta(days=i),
+                open=30.0 + i,
+                high=31.0 + i,
+                low=29.5 + i,
+                close=30.5 + i,
+                volume=3000000 + i * 300000,
+                frequency=frequency,    # 枚举传参
+                source=source          # 枚举传参
+            )
+
+            before_insert = len(bar_crud.find(filters={"code__like": "COMPREHENSIVE_BAR_%"}))
+            result = bar_crud.add(test_bar)
+            assert result is not None, f"{desc} Bar应该成功插入"
+
+            after_insert = len(bar_crud.find(filters={"code__like": "COMPREHENSIVE_BAR_%"}))
+            assert after_insert - before_insert == 1, f"{desc} 插入应该增加1条记录"
+            print(f"  ✓ {desc} 创建成功，数据库条数验证正确")
+
+        # 验证总插入数量
+        final_count = len(bar_crud.find(filters={"code__like": "COMPREHENSIVE_BAR_%"}))
+        assert final_count - before_count == len(enum_combinations), f"总共应该插入{len(enum_combinations)}条记录"
+        print(f"✓ 批量插入验证正确，共增加 {final_count - before_count} 条记录")
+
+        # 验证所有枚举字段的存储和查询
+        print("\n→ 验证所有枚举字段的存储和查询...")
+        bars = bar_crud.find(filters={"code__like": "COMPREHENSIVE_BAR_%"})
+        expected_count = final_count - before_count  # 我们新增的记录数
+        assert len(bars) >= expected_count, f"应该至少查询到{expected_count}条综合测试Bar，实际{len(bars)}条"
+
+        # 创建代码到预期枚举组合的映射
+        expected_map = {
+            f"COMPREHENSIVE_BAR_{i+1:03d}": enum_combinations[i]
+            for i in range(len(enum_combinations))
+        }
+
+        our_bars = [b for b in bars if b.code in expected_map]
+        print(f"→ 查询到总共{len(bars)}条Bar，其中我们的综合测试Bar{len(our_bars)}条")
+
+        for bar in our_bars:
+            expected_frequency, expected_source, _ = expected_map[bar.code]
+
+            # 验证枚举字段正确性（数据库查询结果是int值）
+            assert bar.frequency == expected_frequency.value, f"Bar {bar.code} 频率int值不匹配，预期{expected_frequency.value}，实际{bar.frequency}"
+            assert bar.source == expected_source.value, f"Bar {bar.code} 数据源int值不匹配，预期{expected_source.value}，实际{bar.source}"
+
+            # 转换为枚举对象进行显示
+            frequency_enum = FREQUENCY_TYPES(bar.frequency)
+            source_enum = SOURCE_TYPES(bar.source)
+            print(f"  ✓ Bar {bar.code}: {frequency_enum.name}/{source_enum.name}")
+
+        # 验证ModelList转换功能
+        print("\n→ 验证ModelList转换功能...")
+        model_list = bar_crud.find(filters={"code__like": "COMPREHENSIVE_BAR_%"})
+
+        assert len(model_list) >= len(enum_combinations), f"ModelList应该包含至少{len(enum_combinations)}条测试Bar"
+
+        # 验证to_entities()方法中的枚举转换
+        entities = model_list.to_entities()
+        our_entities = [e for e in entities if hasattr(e, 'code') and e.code in expected_map]
+
+        for entity in our_entities:
+            assert hasattr(entity, 'frequency'), "业务对象应该有frequency属性"
+            assert hasattr(entity, 'source'), "业务对象应该有source属性"
+            print(f"  ✓ 业务对象 {entity.code}: 频率和数据源枚举转换正确")
+
+        print("  ✓ ModelList转换中的枚举验证正确")
+
+        # 清理测试数据并验证删除效果
+        print("\n→ 清理测试数据...")
+        delete_before = len(bar_crud.find(filters={"code__like": "COMPREHENSIVE_BAR_%"}))
+        bar_crud.remove(filters={"code__like": "COMPREHENSIVE_BAR_%"})
+        delete_after = len(bar_crud.find(filters={"code__like": "COMPREHENSIVE_BAR_%"}))
+
+        assert delete_before - delete_after >= len(enum_combinations), f"删除操作应该至少移除{len(enum_combinations)}条记录"
+        print("✓ 测试数据清理完成，数据库条数验证正确")
+
+        print("✓ K线综合枚举验证测试通过")

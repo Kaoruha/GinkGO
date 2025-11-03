@@ -28,8 +28,8 @@ from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize
 from ginkgo.libs.core.config import GCONF
 from ginkgo.libs.utils.display import base_repr
 
-from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
 from ginkgo.data.containers import container
+from ginkgo.interfaces.notification_interface import INotificationService, NotificationServiceFactory
 
 console = Console()
 
@@ -43,8 +43,10 @@ class PortfolioLive(BasePortfolio):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, notification_service: INotificationService = None, *args, **kwargs):
         super(PortfolioLive, self).__init__(*args, **kwargs)
+        # 使用依赖注入的通知服务，如果没有提供则自动创建
+        self._notification_service = notification_service or NotificationServiceFactory.create_service()
 
     def reset_positions(self, *args, **kwargs) -> Dict[str, Position]:
         """
@@ -240,7 +242,7 @@ class PortfolioLive(BasePortfolio):
             order_event = EventOrderAck(order_adjusted, broker_order_id=f"BROKER_{order_adjusted.uuid[:8]}")
             self.put(order_event)
             self.log("INFO", f"Order submitted for {event.code}: {order_adjusted.direction} {order_adjusted.volume}")
-            GNOTIFIER.beep()
+            self._notification_service.beep()
         except Exception as e:
             self.log("ERROR", f"Failed to submit order for {event.code}: {e}")
 

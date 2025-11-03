@@ -1004,6 +1004,387 @@ class TestSignalCRUDBusinessLogic:
             raise
 
 
+@pytest.mark.enum
+@pytest.mark.database
+class TestSignalCRUDEnumValidation:
+    """SignalCRUD枚举传参验证测试 - 整合自独立的枚举测试文件"""
+
+    # 明确配置CRUD类，添加全面的过滤条件以清理所有测试数据
+    CRUD_TEST_CONFIG = {
+        'crud_class': SignalCRUD,
+        'filters': {
+            'portfolio_id__like': ['test_portfolio_%', 'FILTER_%']  # 清理所有枚举测试相关的投资组合
+        }
+    }
+
+    def test_direction_enum_conversions(self):
+        """测试交易方向枚举转换功能"""
+        print("\n" + "="*60)
+        print("开始测试: 信号交易方向枚举转换")
+        print("="*60)
+
+        signal_crud = SignalCRUD()
+
+        # 先清理可能存在的旧测试数据
+        before_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"}))
+        print(f"→ 初始状态: {before_count} 条测试数据")
+
+        # 测试多头信号枚举传参
+        print("\n→ 测试多头信号枚举传参...")
+        test_signal_long = MSignal(
+            portfolio_id="test_portfolio_enum",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,  # 直接传入枚举对象
+            timestamp=datetime.now(),
+            source=SOURCE_TYPES.TEST,
+            price=10.50,
+            volume=1000,
+            weight=0.1,
+            reason="多头测试信号"
+        )
+
+        # 插入数据并验证条数变化
+        result = signal_crud.add(test_signal_long)
+        assert result is not None, "枚举传参的信号应该成功插入"
+
+        after_insert_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"}))
+        assert after_insert_count - before_count == 1, "插入操作应该增加1条记录"
+        print("✓ 多头信号枚举传参成功，数据库条数验证正确")
+
+        # 验证枚举转换正确性
+        signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"})
+        retrieved_signal = signals[0]
+        # 数据库查询结果direction是int值，应该正确存储
+        assert retrieved_signal.direction == DIRECTION_TYPES.LONG.value, "查询结果应该是LONG枚举对应的int值"
+        print("✓ 多头信号枚举存储验证正确（int值）")
+
+        # 测试空头信号枚举传参
+        print("\n→ 测试空头信号枚举传参...")
+        test_signal_short = MSignal(
+            portfolio_id="test_portfolio_enum",
+            code="000002.SZ",
+            direction=DIRECTION_TYPES.SHORT,  # 直接传入枚举对象
+            timestamp=datetime.now(),
+            source=SOURCE_TYPES.TEST,
+            price=9.80,
+            volume=1500,
+            weight=0.15,
+            reason="空头测试信号"
+        )
+
+        result = signal_crud.add(test_signal_short)
+        assert result is not None, "空头枚举传参的信号应该成功插入"
+
+        after_second_insert = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"}))
+        assert after_second_insert - after_insert_count == 1, "第二次插入操作应该增加1条记录"
+        print("✓ 空头信号枚举传参成功，数据库条数验证正确")
+
+        # 清理测试数据并验证删除效果
+        print("\n→ 清理测试数据...")
+        delete_before = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"}))
+        signal_crud.remove(filters={"portfolio_id": "test_portfolio_enum"})
+        delete_after = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"}))
+
+        assert delete_before - delete_after == 2, "删除操作应该移除2条记录"
+        assert delete_after == before_count, "删除后应该恢复到初始状态"
+        print("✓ 测试数据清理完成，数据库条数验证正确")
+
+        print("✓ 信号交易方向枚举转换测试通过")
+
+    def test_source_enum_conversions(self):
+        """测试信号数据源枚举转换功能"""
+        print("\n" + "="*60)
+        print("开始测试: 信号数据源枚举转换")
+        print("="*60)
+
+        signal_crud = SignalCRUD()
+
+        # 记录初始状态
+        before_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source"}))
+        print(f"→ 初始状态: {before_count} 条测试数据")
+
+        # 测试不同数据源的枚举传参
+        source_types = [
+            (SOURCE_TYPES.TUSHARE, "Tushare数据源"),
+            (SOURCE_TYPES.YAHOO, "Yahoo数据源"),
+            (SOURCE_TYPES.SIM, "SIM模拟数据源")
+        ]
+
+        print(f"\n→ 测试 {len(source_types)} 种数据源枚举传参...")
+
+        # 批量插入并验证条数变化
+        for i, (source_type, source_name) in enumerate(source_types):
+            test_signal = MSignal(
+                portfolio_id="test_portfolio_source",
+                code=f"60000{i+1}.SH",
+                direction=DIRECTION_TYPES.LONG,
+                timestamp=datetime.now(),
+                source=source_type,  # 直接传入枚举对象
+                price=10.0 + i,
+                volume=1000,
+                weight=0.1,
+                reason=f"{source_name}测试信号"
+            )
+
+            before_insert = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source"}))
+            result = signal_crud.add(test_signal)
+            assert result is not None, f"{source_name} 信号应该成功插入"
+
+            after_insert = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source"}))
+            assert after_insert - before_insert == 1, f"{source_name} 插入应该增加1条记录"
+            print(f"  ✓ {source_name} 枚举传参成功，数据库条数验证正确")
+
+        # 验证总插入数量
+        final_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source"}))
+        assert final_count - before_count == len(source_types), f"总共应该插入{len(source_types)}条记录"
+        print(f"✓ 批量插入验证正确，共增加 {final_count - before_count} 条记录")
+
+        # 验证查询时的枚举转换
+        print("\n→ 验证查询时的枚举转换...")
+
+        # 使用更精确的查询条件，包含我们创建的信号代码和reason特征
+        our_signal_codes = [f"60000{i+1}.SH" for i in range(len(source_types))]
+        all_our_signals = []
+
+        for code in our_signal_codes:
+            code_signals = signal_crud.find(filters={
+                "portfolio_id": "test_portfolio_source",
+                "code": code
+            })
+            # 选择最新的一条信号（按时间戳排序）
+            if code_signals:
+                latest_signal = max(code_signals, key=lambda s: s.timestamp)
+                all_our_signals.append(latest_signal)
+
+        print(f"→ 我们创建的测试信号: {len(all_our_signals)}条")
+        assert len(all_our_signals) == len(source_types), f"应该查询到{len(source_types)}条我们创建的数据源信号，实际{len(all_our_signals)}条"
+
+        for signal in all_our_signals:
+            # 数据库查询结果source是int值，需要转换为枚举对象进行比较
+            source_enum = SOURCE_TYPES(signal.source)
+            assert source_enum in [st for st, _ in source_types], "查询结果应该是有效的枚举对象"
+            source_name = dict(source_types)[source_enum]
+            print(f"  ✓ 信号 {signal.code} 数据源: {source_name}")
+
+        # 测试数据源过滤查询（枚举传参）
+        print("\n→ 测试数据源过滤查询（枚举传参）...")
+        tushare_signals = signal_crud.find(
+            filters={
+                "portfolio_id": "test_portfolio_source",
+                "source": SOURCE_TYPES.TUSHARE  # 枚举传参
+            }
+        )
+        # 同样过滤出我们创建的信号（选择最新的一条）
+        if tushare_signals:
+            latest_tushare_signal = max(tushare_signals, key=lambda s: s.timestamp)
+            our_tushare_signals = [latest_tushare_signal]
+        else:
+            our_tushare_signals = []
+
+        assert len(our_tushare_signals) == 1, "应该查询到1条我们创建的Tushare信号"
+        print(f"  ✓ Tushare数据源信号: {len(our_tushare_signals)} 条，枚举过滤验证正确")
+
+        # 清理测试数据并验证删除效果（只删除我们创建的信号，保留历史数据）
+        print("\n→ 清理测试数据...")
+        # 只删除我们创建的特定信号，而不是所有历史数据
+        delete_count = 0
+        for code in our_signal_codes:
+            before_delete = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source", "code": code}))
+            signal_crud.remove(filters={"portfolio_id": "test_portfolio_source", "code": code})
+            after_delete = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source", "code": code}))
+            delete_count += before_delete - after_delete
+
+        assert delete_count == len(source_types), f"删除操作应该移除{len(source_types)}条记录，实际移除{delete_count}条"
+        print("✓ 测试数据清理完成，数据库条数验证正确")
+
+        print("✓ 信号数据源枚举转换测试通过")
+
+    def test_comprehensive_enum_validation(self):
+        """测试信号综合枚举验证功能"""
+        print("\n" + "="*60)
+        print("开始测试: 信号综合枚举验证")
+        print("="*60)
+
+        signal_crud = SignalCRUD()
+
+        # 创建包含所有枚举字段的测试信号
+        test_signals = []
+        enum_combinations = [
+            # (方向, 数据源, 描述)
+            (DIRECTION_TYPES.LONG, SOURCE_TYPES.TUSHARE, "做多Tushare信号"),
+            (DIRECTION_TYPES.SHORT, SOURCE_TYPES.YAHOO, "做空Yahoo信号"),
+            (DIRECTION_TYPES.LONG, SOURCE_TYPES.SIM, "做多SIM模拟信号"),
+        ]
+
+        print(f"\n→ 创建 {len(enum_combinations)} 个综合枚举测试信号...")
+
+        # 先清理可能存在的旧测试数据
+        existing_signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_comprehensive"})
+        if existing_signals:
+            signal_crud.remove(filters={"portfolio_id": "test_portfolio_comprehensive"})
+
+        for i, (direction, source, desc) in enumerate(enum_combinations):
+            test_signal = MSignal(
+                portfolio_id="test_portfolio_comprehensive",
+                code=f"COMPREHENSIVE_{i+1:03d}.SZ",  # 使用更唯一的代码
+                direction=direction,      # 枚举传参
+                timestamp=datetime.now(),
+                source=source,            # 枚举传参
+                price=10.0 + i,
+                volume=1000 + i * 100,
+                weight=0.1 + i * 0.02,
+                reason=desc  # 添加reason字段避免为空
+            )
+
+            result = signal_crud.add(test_signal)
+            assert result is not None, f"{desc} 信号应该成功插入"
+            test_signals.append(test_signal)
+            print(f"  ✓ {desc} 创建成功")
+
+        # 验证所有枚举字段的存储和查询
+        print("\n→ 验证所有枚举字段的存储和查询...")
+        signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_comprehensive"})
+        assert len(signals) == len(enum_combinations), "应该查询到所有综合测试信号"
+
+        # 创建代码到预期枚举组合的映射
+        expected_map = {
+            f"COMPREHENSIVE_{i+1:03d}.SZ": enum_combinations[i]
+            for i in range(len(enum_combinations))
+        }
+
+        for signal in signals:
+            expected_direction, expected_source, _ = expected_map[signal.code]
+
+            # 验证枚举字段正确性（数据库查询结果是int值）
+            assert signal.direction == expected_direction.value, f"信号 {signal.code} 方向int值不匹配，预期{expected_direction.value}，实际{signal.direction}"
+            assert signal.source == expected_source.value, f"信号 {signal.code} 数据源int值不匹配，预期{expected_source.value}，实际{signal.source}"
+
+            # 转换为枚举对象进行显示
+            direction_enum = DIRECTION_TYPES(signal.direction)
+            source_enum = SOURCE_TYPES(signal.source)
+            print(f"  ✓ 信号 {signal.code}: {direction_enum.name}/{source_enum.name}")
+
+        # 验证ModelList转换功能
+        print("\n→ 验证ModelList转换功能...")
+        model_list = signal_crud.find(filters={"portfolio_id": "test_portfolio_comprehensive"})
+
+        assert len(model_list) == len(enum_combinations), "ModelList应该包含所有测试信号"
+
+        # 验证to_entities()方法中的枚举转换
+        entities = model_list.to_entities()
+        for entity in entities:
+            assert isinstance(entity.direction, DIRECTION_TYPES), "业务对象direction应该是枚举类型"
+            assert isinstance(entity.source, SOURCE_TYPES), "业务对象source应该是枚举类型"
+
+        print("  ✓ ModelList转换中的枚举验证正确")
+
+        # 清理测试数据
+        signal_crud.remove(filters={"portfolio_id": "test_portfolio_comprehensive"})
+        print("✓ 测试数据清理完成")
+
+        print("✓ 信号综合枚举验证测试通过")
+
+    def test_enum_filtering_and_querying(self):
+        """测试枚举过滤和查询功能"""
+        print("\n" + "="*60)
+        print("开始测试: 枚举过滤和查询功能")
+        print("="*60)
+
+        signal_crud = SignalCRUD()
+
+        # 创建测试信号数据
+        test_signals_data = [
+            # (代码, 方向, 数据源, 强度)
+            ("FILTER_001.SZ", DIRECTION_TYPES.LONG, SOURCE_TYPES.TUSHARE, 0.8),
+            ("FILTER_002.SZ", DIRECTION_TYPES.SHORT, SOURCE_TYPES.TUSHARE, 0.6),
+            ("FILTER_003.SZ", DIRECTION_TYPES.LONG, SOURCE_TYPES.YAHOO, 0.7),
+            ("FILTER_004.SZ", DIRECTION_TYPES.SHORT, SOURCE_TYPES.YAHOO, 0.9),
+        ]
+
+        print(f"\n→ 创建 {len(test_signals_data)} 个过滤测试信号...")
+
+        # 先清理可能存在的旧测试数据
+        existing_signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_filter"})
+        if existing_signals:
+            signal_crud.remove(filters={"portfolio_id": "test_portfolio_filter"})
+
+        for code, direction, source, strength in test_signals_data:
+            test_signal = MSignal(
+                portfolio_id="test_portfolio_filter",
+                code=code,
+                direction=direction,      # 枚举传参
+                timestamp=datetime.now(),
+                source=source,            # 枚举传参
+                price=10.0,
+                volume=1000,
+                weight=strength,
+                reason=f"过滤测试信号-{code}"
+            )
+
+            result = signal_crud.add(test_signal)
+            assert result is not None, f"信号 {code} 应该成功插入"
+
+        print("  ✓ 所有过滤测试信号创建成功")
+
+        # 测试方向过滤
+        print("\n→ 测试方向过滤查询（枚举传参）...")
+        long_signals = signal_crud.find(
+            filters={
+                "portfolio_id": "test_portfolio_filter",
+                "direction": DIRECTION_TYPES.LONG  # 枚举传参
+            }
+        )
+        assert len(long_signals) == 2, "应该查询到2个做多信号"
+        print(f"  ✓ 做多信号: {len(long_signals)} 条")
+
+        short_signals = signal_crud.find(
+            filters={
+                "portfolio_id": "test_portfolio_filter",
+                "direction": DIRECTION_TYPES.SHORT  # 枚举传参
+            }
+        )
+        assert len(short_signals) == 2, "应该查询到2个做空信号"
+        print(f"  ✓ 做空信号: {len(short_signals)} 条")
+
+        # 测试数据源过滤
+        print("\n→ 测试数据源过滤查询（枚举传参）...")
+        tushare_signals = signal_crud.find(
+            filters={
+                "portfolio_id": "test_portfolio_filter",
+                "source": SOURCE_TYPES.TUSHARE  # 枚举传参
+            }
+        )
+        assert len(tushare_signals) == 2, "应该查询到2个Tushare信号"
+        print(f"  ✓ Tushare信号: {len(tushare_signals)} 条")
+
+        yahoo_signals = signal_crud.find(
+            filters={
+                "portfolio_id": "test_portfolio_filter",
+                "source": SOURCE_TYPES.YAHOO  # 枚举传参
+            }
+        )
+        assert len(yahoo_signals) == 2, "应该查询到2个Yahoo信号"
+        print(f"  ✓ Yahoo信号: {len(yahoo_signals)} 条")
+
+        # 测试复合条件过滤（枚举传参）
+        print("\n→ 测试复合条件过滤查询（枚举传参）...")
+        long_tushare_signals = signal_crud.find(
+            filters={
+                "portfolio_id": "test_portfolio_filter",
+                "direction": DIRECTION_TYPES.LONG,    # 枚举传参
+                "source": SOURCE_TYPES.TUSHARE       # 枚举传参
+            }
+        )
+        assert len(long_tushare_signals) == 1, "应该查询到1个做多Tushare信号"
+        print(f"  ✓ 做多Tushare信号: {len(long_tushare_signals)} 条")
+
+        # 清理测试数据
+        signal_crud.remove(filters={"portfolio_id": "test_portfolio_filter"})
+        print("✓ 测试数据清理完成")
+
+        print("✓ 枚举过滤和查询功能测试通过")
+
+
 # TDD Red阶段验证：确保所有测试开始时都失败
 if __name__ == "__main__":
     print("TDD Red阶段验证：Signal CRUD测试")

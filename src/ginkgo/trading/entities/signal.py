@@ -23,6 +23,8 @@ class Signal(Base, TimeRelated):
         direction: DIRECTION_TYPES = None,
         reason: str = "no reason",
         source: SOURCE_TYPES = SOURCE_TYPES.OTHER,
+        volume: int = 0,  # 建议交易量，默认0
+        weight: float = 0.0,  # 信号权重或资金分配比例，默认0
         strength: float = 0.5,  # 信号强度，默认中等强度
         confidence: float = 0.5,  # 信号置信度，默认中等置信度
         uuid: str = "",  # 新增uuid参数支持，空值时自动生成
@@ -35,7 +37,7 @@ class Signal(Base, TimeRelated):
         TimeRelated.__init__(self, timestamp=timestamp, *args, **kwargs)
 
         try:
-            self.set(portfolio_id, engine_id, run_id, timestamp, code, direction, reason, source, strength, confidence)
+            self.set(portfolio_id, engine_id, run_id, timestamp, code, direction, reason, source, volume, weight, strength, confidence)
         except Exception as e:
             GLOG.ERROR(f"Error initializing Signal: {e}")
             raise Exception("Error initializing Signal: {e}")
@@ -58,6 +60,8 @@ class Signal(Base, TimeRelated):
         direction: DIRECTION_TYPES,
         reason: str,
         source: SOURCE_TYPES,
+        volume: int = 0,
+        weight: float = 0.0,
         strength: float = 0.5,
         confidence: float = 0.5,
         *args,
@@ -123,11 +127,26 @@ class Signal(Base, TimeRelated):
             raise TypeError(f"confidence must be int or float, got {type(confidence).__name__}")
         if not (0.0 <= confidence <= 1.0):
             raise ValueError("置信度必须在0.0-1.0范围内")
+
+        # volume类型验证
+        if not isinstance(volume, int):
+            raise TypeError(f"volume must be int, got {type(volume).__name__}")
+        if volume < 0:
+            raise ValueError("volume不能为负数")
+
+        # weight类型和范围验证
+        if not isinstance(weight, (int, float)):
+            raise TypeError(f"weight must be int or float, got {type(weight).__name__}")
+        if weight < 0:
+            raise ValueError("weight不能为负数")
+
         self._portfolio_id = portfolio_id
         self._engine_id = engine_id
         self._run_id = run_id
         self._code: str = code
         self._reason = reason
+        self._volume: int = volume
+        self._weight: float = float(weight)
         self._strength: float = float(strength)
         self._confidence: float = float(confidence)
 
@@ -228,6 +247,32 @@ class Signal(Base, TimeRelated):
         return self._source
 
     @property
+    def volume(self) -> int:
+        """建议交易量"""
+        return self._volume
+
+    @volume.setter
+    def volume(self, value: int) -> None:
+        if not isinstance(value, int):
+            raise TypeError(f"volume must be int, got {type(value).__name__}")
+        if value < 0:
+            raise ValueError("volume不能为负数")
+        self._volume = value
+
+    @property
+    def weight(self) -> float:
+        """信号权重或资金分配比例"""
+        return self._weight
+
+    @weight.setter
+    def weight(self, value: float) -> None:
+        if not isinstance(value, (int, float)):
+            raise TypeError(f"weight must be int or float, got {type(value).__name__}")
+        if value < 0:
+            raise ValueError("weight不能为负数")
+        self._weight = float(value)
+
+    @property
     def strength(self) -> float:
         return self._strength
 
@@ -322,6 +367,8 @@ class Signal(Base, TimeRelated):
             direction=self._direction,
             reason=self._reason,
             source=self._source,
+            volume=self._volume,
+            weight=self._weight,
             strength=self._strength,
             confidence=self._confidence
         )
@@ -357,6 +404,8 @@ class Signal(Base, TimeRelated):
             direction=DIRECTION_TYPES(model.direction),
             reason=model.reason,
             source=SOURCE_TYPES(model.source),
+            volume=model.volume,
+            weight=model.weight,
             strength=model.strength,
             confidence=model.confidence
         )

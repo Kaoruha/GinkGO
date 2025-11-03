@@ -36,12 +36,12 @@ class MStockInfo(MMysqlBase, ModelConversion):
 
         # Handle currency and market - accept both int and enum
         if currency is not None:
-            self.currency = CURRENCY_TYPES.validate_input(currency) or CURRENCY_TYPES.CNY.value
+            validated = CURRENCY_TYPES.validate_input(currency); self.currency = validated if validated is not None else CURRENCY_TYPES.CNY.value
         else:
             self.currency = CURRENCY_TYPES.CNY.value
 
         if market is not None:
-            self.market = MARKET_TYPES.validate_input(market) or MARKET_TYPES.CHINA.value
+            validated = MARKET_TYPES.validate_input(market); self.market = validated if validated is not None else MARKET_TYPES.CHINA.value
         else:
             self.market = MARKET_TYPES.CHINA.value
 
