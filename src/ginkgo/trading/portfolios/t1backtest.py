@@ -29,7 +29,7 @@ from ginkgo.trading.events import (
 )
 
 from ginkgo.libs import GinkgoSingleLinkedList, datetime_normalize, base_repr, to_decimal
-from ginkgo.notifier.ginkgo_notifier import GNOTIFIER
+from ginkgo.interfaces.notification_interface import INotificationService, NotificationServiceFactory
 from ginkgo.data.models import MOrder
 from ginkgo.enums import (
     DIRECTION_TYPES,
@@ -48,8 +48,10 @@ class PortfolioT1Backtest(BasePortfolio):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, notification_service: INotificationService = None, *args, **kwargs):
         super(PortfolioT1Backtest, self).__init__(*args, **kwargs)
+        # 使用依赖注入的通知服务，如果没有提供则自动创建
+        self._notification_service = notification_service or NotificationServiceFactory.create_service()
         self._signals: List[Signal] = []  # 存储Signal对象，用于T+1延迟执行
         self._orders = []
 

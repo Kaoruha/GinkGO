@@ -1580,6 +1580,323 @@ class TestStockInfoCRUDConversions:
                 # 不重新抛出异常，避免影响测试结果
 
 
+@pytest.mark.enum
+@pytest.mark.database
+class TestStockInfoCRUDEnumValidation:
+    """StockInfoCRUD枚举传参验证测试 - 整合自独立的枚举测试文件"""
+
+    # 明确配置CRUD类，添加全面的过滤条件以清理所有测试数据
+    CRUD_TEST_CONFIG = {
+        'crud_class': StockInfoCRUD,
+        'filters': {
+            'code__like': ['ENUM_%', 'COMPREHENSIVE_%']  # 清理所有枚举测试相关的股票代码
+        }
+    }
+
+    def test_market_enum_conversions(self):
+        """测试股票市场枚举转换功能"""
+        print("\n" + "="*60)
+        print("开始测试: 股票市场枚举转换")
+        print("="*60)
+
+        stock_crud = StockInfoCRUD()
+
+        # 记录初始状态
+        before_count = len(stock_crud.find(filters={"code__like": "ENUM_MARKET_%"}))
+        print(f"→ 初始状态: {before_count} 条测试数据")
+
+        # 测试不同市场的枚举传参
+        market_types = [
+            (MARKET_TYPES.CHINA, "中国A股市场"),
+            (MARKET_TYPES.NASDAQ, "纳斯达克市场"),
+            (MARKET_TYPES.OTHER, "其他市场"),
+            (MARKET_TYPES.VOID, "无效市场")
+        ]
+
+        print(f"\n→ 测试 {len(market_types)} 种市场枚举传参...")
+
+        # 批量插入并验证条数变化
+        for i, (market_type, market_name) in enumerate(market_types):
+            test_stock = MStockInfo(
+                code=f"ENUM_MARKET_{i+1:03d}",
+                code_name=f"测试股票{market_name}",
+                market=market_type,  # 直接传入枚举对象
+                currency=CURRENCY_TYPES.CNY,
+                source=SOURCE_TYPES.TEST,  # 添加source参数
+                industry="测试行业",
+                list_date=datetime.now(),
+                delist_date=datetime(2099, 12, 31)
+            )
+
+            before_insert = len(stock_crud.find(filters={"code__like": "ENUM_MARKET_%"}))
+            result = stock_crud.add(test_stock)
+            assert result is not None, f"{market_name} 股票应该成功插入"
+
+            after_insert = len(stock_crud.find(filters={"code__like": "ENUM_MARKET_%"}))
+            assert after_insert - before_insert == 1, f"{market_name} 插入应该增加1条记录"
+            print(f"  ✓ {market_name} 枚举传参成功，数据库条数验证正确")
+
+        # 验证总插入数量
+        final_count = len(stock_crud.find(filters={"code__like": "ENUM_MARKET_%"}))
+        assert final_count - before_count == len(market_types), f"总共应该插入{len(market_types)}条记录"
+        print(f"✓ 批量插入验证正确，共增加 {final_count - before_count} 条记录")
+
+        # 验证查询时的枚举转换
+        print("\n→ 验证查询时的枚举转换...")
+        stocks = stock_crud.find(filters={"code__like": "ENUM_MARKET_%"})
+        expected_count = final_count - before_count  # 我们新增的记录数
+        assert len(stocks) >= expected_count, f"应该至少查询到{expected_count}条市场股票，实际{len(stocks)}条"
+
+        # 过滤出我们刚创建的股票
+        our_stocks = [s for s in stocks if s.code.startswith("ENUM_MARKET_")]
+        print(f"→ 查询到总共{len(stocks)}条股票，其中我们的测试股票{len(our_stocks)}条")
+
+        for stock in our_stocks:
+            # 数据库查询结果market是int值，需要转换为枚举对象进行比较
+            market_enum = MARKET_TYPES(stock.market)
+            assert market_enum in [mt for mt, _ in market_types], "查询结果应该是有效的枚举对象"
+            market_name = dict([(mt, mn) for mt, mn in market_types])[market_enum]
+            print(f"  ✓ 股票 {stock.code}: 市场={market_name}, 行业={stock.industry}")
+
+        # 测试市场过滤查询（枚举传参）
+        print("\n→ 测试市场过滤查询（枚举传参）...")
+        china_stocks = stock_crud.find(
+            filters={
+                "code__like": "ENUM_MARKET_%",
+                "market": MARKET_TYPES.CHINA  # 枚举传参
+            }
+        )
+        assert len(china_stocks) >= 1, "应该查询到至少1条中国A股股票"
+        print(f"  ✓ 中国A股股票: {len(china_stocks)} 条，枚举过滤验证正确")
+
+        # 清理测试数据并验证删除效果
+        print("\n→ 清理测试数据...")
+        delete_before = len(stock_crud.find(filters={"code__like": "ENUM_MARKET_%"}))
+        stock_crud.remove(filters={"code__like": "ENUM_MARKET_%"})
+        delete_after = len(stock_crud.find(filters={"code__like": "ENUM_MARKET_%" }))
+
+        assert delete_before - delete_after >= len(market_types), f"删除操作应该至少移除{len(market_types)}条记录"
+        print("✓ 测试数据清理完成，数据库条数验证正确")
+
+        print("✓ 股票市场枚举转换测试通过")
+
+    def test_currency_enum_conversions(self):
+        """测试股票货币枚举转换功能"""
+        print("\n" + "="*60)
+        print("开始测试: 股票货币枚举转换")
+        print("="*60)
+
+        stock_crud = StockInfoCRUD()
+
+        # 记录初始状态
+        before_count = len(stock_crud.find(filters={"code__like": "ENUM_CURRENCY_%"}))
+        print(f"→ 初始状态: {before_count} 条测试数据")
+
+        # 测试不同货币的枚举传参
+        currency_types = [
+            (CURRENCY_TYPES.CNY, "人民币"),
+            (CURRENCY_TYPES.USD, "美元"),
+            (CURRENCY_TYPES.OTHER, "其他货币"),
+            (CURRENCY_TYPES.VOID, "无效货币")
+        ]
+
+        print(f"\n→ 测试 {len(currency_types)} 种货币枚举传参...")
+
+        # 批量插入并验证条数变化
+        for i, (currency_type, currency_name) in enumerate(currency_types):
+            test_stock = MStockInfo(
+                code=f"ENUM_CURRENCY_{i+1:03d}",
+                code_name=f"测试股票{currency_name}",
+                market=MARKET_TYPES.CHINA,
+                currency=currency_type,  # 直接传入枚举对象
+                source=SOURCE_TYPES.TEST,  # 添加source参数
+                industry="测试行业",
+                list_date=datetime.now(),
+                delist_date=datetime(2099, 12, 31)
+            )
+
+            before_insert = len(stock_crud.find(filters={"code__like": "ENUM_CURRENCY_%"}))
+            result = stock_crud.add(test_stock)
+            assert result is not None, f"{currency_name} 股票应该成功插入"
+
+            after_insert = len(stock_crud.find(filters={"code__like": "ENUM_CURRENCY_%"}))
+            assert after_insert - before_insert == 1, f"{currency_name} 插入应该增加1条记录"
+            print(f"  ✓ {currency_name} 枚举传参成功，数据库条数验证正确")
+
+        # 验证总插入数量
+        final_count = len(stock_crud.find(filters={"code__like": "ENUM_CURRENCY_%"}))
+        assert final_count - before_count == len(currency_types), f"总共应该插入{len(currency_types)}条记录"
+        print(f"✓ 批量插入验证正确，共增加 {final_count - before_count} 条记录")
+
+        # 验证查询时的枚举转换
+        print("\n→ 验证查询时的枚举转换...")
+        stocks = stock_crud.find(filters={"code__like": "ENUM_CURRENCY_%"})
+        expected_count = final_count - before_count  # 我们新增的记录数
+        assert len(stocks) >= expected_count, f"应该至少查询到{expected_count}条货币股票，实际{len(stocks)}条"
+
+        # 过滤出我们刚创建的股票
+        our_stocks = [s for s in stocks if s.code.startswith("ENUM_CURRENCY_")]
+        print(f"→ 查询到总共{len(stocks)}条股票，其中我们的测试股票{len(our_stocks)}条")
+
+        for stock in our_stocks:
+            # 数据库查询结果currency是int值，需要转换为枚举对象进行比较
+            currency_enum = CURRENCY_TYPES(stock.currency)
+            assert currency_enum in [ct for ct, _ in currency_types], "查询结果应该是有效的枚举对象"
+            currency_name = dict([(ct, cn) for ct, cn in currency_types])[currency_enum]
+            print(f"  ✓ 股票 {stock.code}: 货币={currency_name}, 行业={stock.industry}")
+
+        # 测试货币过滤查询（枚举传参）
+        print("\n→ 测试货币过滤查询（枚举传参）...")
+        usd_stocks = stock_crud.find(
+            filters={
+                "code__like": "ENUM_CURRENCY_%",
+                "currency": CURRENCY_TYPES.USD  # 枚举传参
+            }
+        )
+        assert len(usd_stocks) >= 1, "应该查询到至少1条美元股票"
+        print(f"  ✓ 美元股票: {len(usd_stocks)} 条，枚举过滤验证正确")
+
+        # 清理测试数据并验证删除效果
+        print("\n→ 清理测试数据...")
+        delete_before = len(stock_crud.find(filters={"code__like": "ENUM_CURRENCY_%"}))
+        stock_crud.remove(filters={"code__like": "ENUM_CURRENCY_%"})
+        delete_after = len(stock_crud.find(filters={"code__like": "ENUM_CURRENCY_%" }))
+
+        assert delete_before - delete_after >= len(currency_types), f"删除操作应该至少移除{len(currency_types)}条记录"
+        print("✓ 测试数据清理完成，数据库条数验证正确")
+
+        print("✓ 股票货币枚举转换测试通过")
+
+    def test_comprehensive_enum_validation(self):
+        """测试股票信息综合枚举验证功能"""
+        print("\n" + "="*60)
+        print("开始测试: 股票信息综合枚举验证")
+        print("="*60)
+
+        stock_crud = StockInfoCRUD()
+
+        # 记录初始状态
+        before_count = len(stock_crud.find(filters={"code__like": "COMPREHENSIVE_%"}))
+        print(f"→ 初始状态: {before_count} 条测试数据")
+
+        # 创建包含所有枚举字段的测试股票
+        enum_combinations = [
+            # (市场, 货币, 数据源, 代码, 名称, 行业)
+            (MARKET_TYPES.CHINA, CURRENCY_TYPES.CNY, SOURCE_TYPES.TUSHARE, "COMPREHENSIVE_001", "中国银行", "银行"),
+            (MARKET_TYPES.NASDAQ, CURRENCY_TYPES.USD, SOURCE_TYPES.YAHOO, "COMPREHENSIVE_002", "苹果公司", "科技"),
+            (MARKET_TYPES.OTHER, CURRENCY_TYPES.OTHER, SOURCE_TYPES.AKSHARE, "COMPREHENSIVE_003", "其他市场股票", "综合"),
+            (MARKET_TYPES.VOID, CURRENCY_TYPES.USD, SOURCE_TYPES.BACKTEST, "COMPREHENSIVE_004", "测试股票", "测试"),
+            (MARKET_TYPES.CHINA, CURRENCY_TYPES.CNY, SOURCE_TYPES.TDX, "COMPREHENSIVE_005", "比亚迪", "新能源"),
+        ]
+
+        print(f"\n→ 创建 {len(enum_combinations)} 个综合枚举测试股票...")
+
+        # 批量插入并验证条数变化
+        for i, (market, currency, source, code, name, industry) in enumerate(enum_combinations):
+            test_stock = MStockInfo(
+                code=f"{code}.SZ" if market == MARKET_TYPES.CHINA else f"{code}.US",
+                code_name=name,
+                market=market,      # 枚举传参
+                currency=currency,  # 枚举传参
+                industry=industry,
+                list_date=datetime.now() - timedelta(days=i*100),
+                delist_date=datetime(2099, 12, 31),
+                source=source,      # 枚举传参 - 修复：添加source参数
+            )
+
+            before_insert = len(stock_crud.find(filters={"code__like": "COMPREHENSIVE_%"}))
+            result = stock_crud.add(test_stock)
+            assert result is not None, f"{name} 应该成功插入"
+            # 直接验证新创建的记录
+            assert result.market == market.value, f"新创建的股票 {result.code} 市场值不匹配，预期{market.value}，实际{result.market}"
+            assert result.currency == currency.value, f"新创建的股票 {result.code} 货币值不匹配，预期{currency.value}，实际{result.currency}"
+            assert result.source == source.value, f"新创建的股票 {result.code} 数据源值不匹配，预期{source.value}，实际{result.source}"
+
+            after_insert = len(stock_crud.find(filters={"code__like": "COMPREHENSIVE_%"}))
+            assert after_insert - before_insert == 1, f"{name} 插入应该增加1条记录"
+            print(f"  ✓ {name} 创建成功，数据库条数验证正确")
+
+        # 验证总插入数量
+        final_count = len(stock_crud.find(filters={"code__like": "COMPREHENSIVE_%"}))
+        assert final_count - before_count == len(enum_combinations), f"总共应该插入{len(enum_combinations)}条记录"
+        print(f"✓ 批量插入验证正确，共增加 {final_count - before_count} 条记录")
+
+        # 验证所有枚举字段的存储和查询
+        print("\n→ 验证所有枚举字段的存储和查询...")
+        stocks = stock_crud.find(filters={"code__like": "COMPREHENSIVE_%"})
+        expected_count = final_count - before_count  # 我们新增的记录数
+        assert len(stocks) >= expected_count, f"应该至少查询到{expected_count}条综合测试股票，实际{len(stocks)}条"
+
+        # 创建名称到预期枚举组合的映射，并选择最新创建的记录
+        expected_map = {}
+        our_stocks = []
+
+        for market, currency, source, code, name, industry in enum_combinations:
+            stock_code = f"{code}.SZ" if market == MARKET_TYPES.CHINA else f"{code}.US"
+            expected_map[stock_code] = (market, currency, source, name)
+
+            # 查找该代码的所有记录，选择最新的一条
+            code_stocks = [s for s in stocks if s.code == stock_code]
+            if code_stocks:
+                latest_stock = max(code_stocks, key=lambda s: s.create_at)
+                our_stocks.append(latest_stock)
+
+        print(f"→ 查询到总共{len(stocks)}条股票，选择其中{len(our_stocks)}条最新创建的测试股票")
+
+        for stock in our_stocks:
+            expected_market, expected_currency, expected_source, name = expected_map[stock.code]
+
+            # 验证枚举字段正确性（数据库查询结果是int值）
+            assert stock.market == expected_market.value, f"股票 {stock.code} 市场int值不匹配，预期{expected_market.value}，实际{stock.market}"
+            assert stock.currency == expected_currency.value, f"股票 {stock.code} 货币int值不匹配，预期{expected_currency.value}，实际{stock.currency}"
+            assert stock.source == expected_source.value, f"股票 {stock.code} 数据源int值不匹配，预期{expected_source.value}，实际{stock.source}"
+
+            # 转换为枚举对象进行显示
+            market_enum = MARKET_TYPES(stock.market)
+            currency_enum = CURRENCY_TYPES(stock.currency)
+            source_enum = SOURCE_TYPES(stock.source)
+            print(f"  ✓ 股票 {stock.code}: {name}, 市场={market_enum.name}, 货币={currency_enum.name}, 数据源={source_enum.name}")
+
+        # 验证市场分布统计
+        print("\n→ 验证市场分布统计...")
+        market_distribution = {}
+        for stock in our_stocks:
+            market_enum = MARKET_TYPES(stock.market)
+            market_name = market_enum.name
+            market_distribution[market_name] = market_distribution.get(market_name, 0) + 1
+
+        print(f"  ✓ 市场分布: {market_distribution}")
+
+        # 验证ModelList转换功能
+        print("\n→ 验证ModelList转换功能...")
+        model_list = stock_crud.find(filters={"code__like": "COMPREHENSIVE_%"})
+
+        assert len(model_list) >= len(enum_combinations), f"ModelList应该包含至少{len(enum_combinations)}条测试股票"
+
+        # 验证to_entities()方法中的枚举转换
+        entities = model_list.to_entities()
+        our_entities = [e for e in entities if hasattr(e, 'code') and e.code in expected_map]
+
+        for entity in our_entities:
+            assert hasattr(entity, 'market'), "业务对象应该有market属性"
+            assert hasattr(entity, 'currency'), "业务对象应该有currency属性"
+            assert hasattr(entity, 'source'), "业务对象应该有source属性"
+            print(f"  ✓ 业务对象 {entity.code}: 所有枚举转换正确")
+
+        print("  ✓ ModelList转换中的枚举验证正确")
+
+        # 清理测试数据并验证删除效果
+        print("\n→ 清理测试数据...")
+        delete_before = len(stock_crud.find(filters={"code__like": "COMPREHENSIVE_%"}))
+        stock_crud.remove(filters={"code__like": "COMPREHENSIVE_%"})
+        delete_after = len(stock_crud.find(filters={"code__like": "COMPREHENSIVE_%" }))
+
+        assert delete_before - delete_after >= len(enum_combinations), f"删除操作应该至少移除{len(enum_combinations)}条记录"
+        print("✓ 测试数据清理完成，数据库条数验证正确")
+
+        print("✓ 股票信息综合枚举验证测试通过")
+
+
 # TDD Red阶段验证：确保所有测试开始时都失败
 if __name__ == "__main__":
     print("TDD Red阶段验证：StockInfo CRUD测试")

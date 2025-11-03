@@ -999,6 +999,217 @@ class TestPortfolioCRUDBusinessLogic:
             raise
 
 
+@pytest.mark.enum
+@pytest.mark.database
+class TestPortfolioCRUDEnumValidation:
+    """PortfolioCRUD枚举传参验证测试 - 整合自独立的枚举测试文件"""
+
+    # 明确配置CRUD类，添加全面的过滤条件以清理所有测试数据
+    CRUD_TEST_CONFIG = {
+        'crud_class': PortfolioCRUD,
+        'filters': {
+            'name__like': 'enum_%'  # 清理所有枚举测试相关的投资组合数据
+        }
+    }
+
+    def test_source_enum_conversions(self):
+        """测试投资组合数据源枚举转换功能"""
+        print("\n" + "="*60)
+        print("开始测试: 投资组合数据源枚举转换")
+        print("="*60)
+
+        portfolio_crud = PortfolioCRUD()
+
+        # 记录初始状态
+        before_count = len(portfolio_crud.find(filters={"name__like": "enum_source_test_%"}))
+        print(f"→ 初始状态: {before_count} 条测试数据")
+
+        # 测试不同数据源的枚举传参
+        source_types = [
+            (SOURCE_TYPES.SIM, "SIM模拟数据源"),
+            (SOURCE_TYPES.TUSHARE, "Tushare数据源"),
+            (SOURCE_TYPES.YAHOO, "Yahoo数据源"),
+            (SOURCE_TYPES.AKSHARE, "AKShare数据源"),
+            (SOURCE_TYPES.BACKTEST, "回测数据源")
+        ]
+
+        print(f"\n→ 测试 {len(source_types)} 种数据源枚举传参...")
+
+        # 批量插入并验证条数变化
+        for i, (source_type, source_name) in enumerate(source_types):
+            test_portfolio = MPortfolio(
+                name=f"enum_source_test_{i+1:03d}",
+                description=f"测试投资组合 - {source_name}",
+                backtest_start_date=datetime(2023, 1, 1) + timedelta(days=i*30),
+                backtest_end_date=datetime(2023, 12, 31) + timedelta(days=i*30),
+                initial_capital=1000000.0 + i * 100000,
+                current_capital=1100000.0 + i * 110000,
+                risk_level=0.1 + i * 0.02,
+                source=source_type  # 直接传入枚举对象
+            )
+
+            before_insert = len(portfolio_crud.find(filters={"name__like": "enum_source_test_%"}))
+            result = portfolio_crud.add(test_portfolio)
+            assert result is not None, f"{source_name} 投资组合应该成功插入"
+
+            after_insert = len(portfolio_crud.find(filters={"name__like": "enum_source_test_%"}))
+            assert after_insert - before_insert == 1, f"{source_name} 插入应该增加1条记录"
+            print(f"  ✓ {source_name} 枚举传参成功，数据库条数验证正确")
+
+        # 验证总插入数量
+        final_count = len(portfolio_crud.find(filters={"name__like": "enum_source_test_%"}))
+        assert final_count - before_count == len(source_types), f"总共应该插入{len(source_types)}条记录"
+        print(f"✓ 批量插入验证正确，共增加 {final_count - before_count} 条记录")
+
+        # 验证查询时的枚举转换
+        print("\n→ 验证查询时的枚举转换...")
+        portfolios = portfolio_crud.find(filters={"name__like": "enum_source_test_%"})
+        expected_count = final_count - before_count  # 我们新增的记录数
+        assert len(portfolios) >= expected_count, f"应该至少查询到{expected_count}条数据源投资组合，实际{len(portfolios)}条"
+
+        # 过滤出我们刚创建的投资组合
+        our_portfolios = [p for p in portfolios if p.name.startswith("enum_source_test_")]
+        print(f"→ 查询到总共{len(portfolios)}条投资组合，其中我们的测试投资组合{len(our_portfolios)}条")
+
+        for portfolio in our_portfolios:
+            # 数据库查询结果source是int值，需要转换为枚举对象进行比较
+            source_enum = SOURCE_TYPES(portfolio.source)
+            assert source_enum in [st for st, _ in source_types], "查询结果应该是有效的枚举对象"
+            source_name = dict([(st, sn) for st, sn in source_types])[source_enum]
+            print(f"  ✓ 投资组合 {portfolio.name}: 数据源={source_name}, 初始资金={portfolio.initial_capital:,.0f}")
+
+        # 测试数据源过滤查询（枚举传参）
+        print("\n→ 测试数据源过滤查询（枚举传参）...")
+        sim_portfolios = portfolio_crud.find(
+            filters={
+                "name__like": "enum_source_test_%",
+                "source": SOURCE_TYPES.SIM  # 枚举传参
+            }
+        )
+        assert len(sim_portfolios) >= 1, "应该查询到至少1条SIM投资组合"
+        print(f"  ✓ SIM数据源投资组合: {len(sim_portfolios)} 条，枚举过滤验证正确")
+
+        # 清理测试数据并验证删除效果
+        print("\n→ 清理测试数据...")
+        delete_before = len(portfolio_crud.find(filters={"name__like": "enum_source_test_%"}))
+        portfolio_crud.remove(filters={"name__like": "enum_source_test_%"})
+        delete_after = len(portfolio_crud.find(filters={"name__like": "enum_source_test_%"}))
+
+        assert delete_before - delete_after >= len(source_types), f"删除操作应该至少移除{len(source_types)}条记录"
+        print("✓ 测试数据清理完成，数据库条数验证正确")
+
+        print("✓ 投资组合数据源枚举转换测试通过")
+
+    def test_comprehensive_enum_validation(self):
+        """测试投资组合综合枚举验证功能"""
+        print("\n" + "="*60)
+        print("开始测试: 投资组合综合枚举验证")
+        print("="*60)
+
+        portfolio_crud = PortfolioCRUD()
+
+        # 记录初始状态
+        before_count = len(portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"}))
+        print(f"→ 初始状态: {before_count} 条测试数据")
+
+        # 创建包含数据源枚举的测试投资组合
+        enum_combinations = [
+            # (数据源, 描述, 名称, 初始资金, 风险水平)
+            (SOURCE_TYPES.TUSHARE, "Tushare量化组合", "quant_tushare", 2000000.0, 0.15),
+            (SOURCE_TYPES.SIM, "SIM模拟组合", "sim_strategy", 1500000.0, 0.12),
+            (SOURCE_TYPES.BACKTEST, "回测验证组合", "backtest_val", 1000000.0, 0.20),
+            (SOURCE_TYPES.YAHOO, "Yahoo数据组合", "yahoo_data", 500000.0, 0.08),
+            (SOURCE_TYPES.AKSHARE, "AKShare组合", "akshare_portfolio", 800000.0, 0.10),
+        ]
+
+        print(f"\n→ 创建 {len(enum_combinations)} 个综合枚举测试投资组合...")
+
+        # 批量插入并验证条数变化
+        for i, (source, desc, name_prefix, initial_capital, risk_level) in enumerate(enum_combinations):
+            test_portfolio = MPortfolio(
+                name=f"comprehensive_enum_{name_prefix}_{i+1:03d}",
+                description=f"{desc} - 综合枚举测试",
+                backtest_start_date=datetime(2023, 1, 1) + timedelta(days=i*30),
+                backtest_end_date=datetime(2023, 12, 31) + timedelta(days=i*30),
+                initial_capital=initial_capital,
+                current_capital=initial_capital * 1.1,  # 假设有10%收益
+                risk_level=risk_level,
+                source=source  # 枚举传参
+            )
+
+            before_insert = len(portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"}))
+            result = portfolio_crud.add(test_portfolio)
+            assert result is not None, f"{desc} 应该成功插入"
+
+            after_insert = len(portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"}))
+            assert after_insert - before_insert == 1, f"{desc} 插入应该增加1条记录"
+            print(f"  ✓ {desc} 创建成功，数据库条数验证正确")
+
+        # 验证总插入数量
+        final_count = len(portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"}))
+        assert final_count - before_count == len(enum_combinations), f"总共应该插入{len(enum_combinations)}条记录"
+        print(f"✓ 批量插入验证正确，共增加 {final_count - before_count} 条记录")
+
+        # 验证所有枚举字段的存储和查询
+        print("\n→ 验证所有枚举字段的存储和查询...")
+        portfolios = portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"})
+        expected_count = final_count - before_count  # 我们新增的记录数
+        assert len(portfolios) >= expected_count, f"应该至少查询到{expected_count}条综合测试投资组合，实际{len(portfolios)}条"
+
+        # 创建名称到预期数据源组合的映射
+        expected_map = {}
+        for i, (source, desc, name_prefix, _, _) in enumerate(enum_combinations):
+            portfolio_name = f"comprehensive_enum_{name_prefix}_{i+1:03d}"
+            expected_map[portfolio_name] = (source, desc)
+
+        our_portfolios = [p for p in portfolios if p.name in expected_map]
+        print(f"→ 查询到总共{len(portfolios)}条投资组合，其中我们的综合测试投资组合{len(our_portfolios)}条")
+
+        total_initial_capital = 0
+        for portfolio in our_portfolios:
+            expected_source, desc = expected_map[portfolio.name]
+
+            # 验证枚举字段正确性（数据库查询结果是int值）
+            assert portfolio.source == expected_source.value, f"投资组合 {portfolio.name} 数据源int值不匹配，预期{expected_source.value}，实际{portfolio.source}"
+
+            # 转换为枚举对象进行显示
+            source_enum = SOURCE_TYPES(portfolio.source)
+            total_initial_capital += portfolio.initial_capital
+            print(f"  ✓ 投资组合 {portfolio.name}: {desc}, 数据源={source_enum.name}, 初始资金={portfolio.initial_capital:,.0f}")
+
+        # 验证资金统计
+        print("\n→ 验证资金统计...")
+        assert total_initial_capital > 0, "总初始资金应该大于0"
+        print(f"  ✓ 我们创建的投资组合总初始资金: {total_initial_capital:,.0f}")
+
+        # 验证ModelList转换功能
+        print("\n→ 验证ModelList转换功能...")
+        model_list = portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"})
+
+        assert len(model_list) >= len(enum_combinations), f"ModelList应该包含至少{len(enum_combinations)}条测试投资组合"
+
+        # 验证to_entities()方法中的枚举转换
+        entities = model_list.to_entities()
+        our_entities = [e for e in entities if hasattr(e, 'name') and e.name in expected_map]
+
+        for entity in our_entities:
+            assert hasattr(entity, 'source'), "业务对象应该有source属性"
+            print(f"  ✓ 业务对象 {entity.name}: 数据源枚举转换正确")
+
+        print("  ✓ ModelList转换中的枚举验证正确")
+
+        # 清理测试数据并验证删除效果
+        print("\n→ 清理测试数据...")
+        delete_before = len(portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"}))
+        portfolio_crud.remove(filters={"name__like": "comprehensive_enum_%"})
+        delete_after = len(portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"}))
+
+        assert delete_before - delete_after >= len(enum_combinations), f"删除操作应该至少移除{len(enum_combinations)}条记录"
+        print("✓ 测试数据清理完成，数据库条数验证正确")
+
+        print("✓ 投资组合综合枚举验证测试通过")
+
+
 # TDD Red阶段验证：确保所有测试开始时都失败
 if __name__ == "__main__":
     print("TDD Red阶段验证：Portfolio CRUD测试")

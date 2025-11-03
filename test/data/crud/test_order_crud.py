@@ -1158,6 +1158,294 @@ class TestOrderCRUDBusinessLogic:
             raise
 
 
+@pytest.mark.enum
+@pytest.mark.database
+class TestOrderCRUDEnumValidation:
+    """OrderCRUD枚举传参验证测试 - 整合自独立的枚举测试文件"""
+
+    # 明确配置CRUD类
+    CRUD_TEST_CONFIG = {'crud_class': OrderCRUD}
+
+    def test_direction_enum_conversions(self):
+        """测试交易方向枚举转换功能"""
+        print("\n" + "="*60)
+        print("开始测试: 交易方向枚举转换")
+        print("="*60)
+
+        order_crud = OrderCRUD()
+
+        # 测试多头方向枚举传参
+        print("\n→ 测试多头方向枚举传参...")
+        test_order_long = MOrder(
+            engine_id="test_engine_enum",
+            run_id="test_run_enum",
+            portfolio_id="test_portfolio_enum",
+            code="000001.SZ",
+            direction=DIRECTION_TYPES.LONG,  # 直接传入枚举对象
+            order_type=ORDER_TYPES.LIMITORDER,
+            volume=1000,
+            limit_price=10.50,
+            status=ORDERSTATUS_TYPES.NEW,
+            source=SOURCE_TYPES.TEST
+        )
+
+        # 插入数据
+        result = order_crud.add(test_order_long)
+        assert result is not None, "枚举传参的订单应该成功插入"
+        print("✓ 多头方向枚举传参成功")
+
+        # 查询验证
+        orders = order_crud.find(filters={"engine_id": "test_engine_enum", "portfolio_id": "test_portfolio_enum"})
+        assert len(orders) > 0, "应该能查询到插入的订单"
+
+        # 验证枚举转换正确性
+        retrieved_order = orders[0]
+        assert retrieved_order.direction == DIRECTION_TYPES.LONG, "查询结果应该是LONG枚举对象"
+        print("✓ 多头方向枚举转换验证正确")
+
+        # 测试空头方向枚举传参
+        print("\n→ 测试空头方向枚举传参...")
+        test_order_short = MOrder(
+            engine_id="test_engine_enum",
+            run_id="test_run_enum",
+            portfolio_id="test_portfolio_enum",
+            code="000002.SZ",
+            direction=DIRECTION_TYPES.SHORT,  # 直接传入枚举对象
+            order_type=ORDER_TYPES.MARKETORDER,
+            volume=2000,
+            status=ORDERSTATUS_TYPES.NEW,
+            source=SOURCE_TYPES.TEST
+        )
+
+        result = order_crud.add(test_order_short)
+        assert result is not None, "空头枚举传参的订单应该成功插入"
+        print("✓ 空头方向枚举传参成功")
+
+        # 清理测试数据
+        enum_orders = order_crud.find(filters={"engine_id": "test_engine_enum"})
+        for order in enum_orders:
+            order_crud.remove({"uuid": order.uuid})
+        print("✓ 测试数据清理完成")
+
+        print("✓ 交易方向枚举转换测试通过")
+
+    def test_order_status_enum_conversions(self):
+        """测试订单状态枚举转换功能"""
+        print("\n" + "="*60)
+        print("开始测试: 订单状态枚举转换")
+        print("="*60)
+
+        order_crud = OrderCRUD()
+
+        # 测试所有有效状态的枚举传参
+        valid_statuses = [
+            ORDERSTATUS_TYPES.NEW,
+            ORDERSTATUS_TYPES.SUBMITTED,
+            ORDERSTATUS_TYPES.PARTIAL_FILLED,
+            ORDERSTATUS_TYPES.FILLED,
+            ORDERSTATUS_TYPES.CANCELED
+        ]
+
+        print(f"\n→ 测试 {len(valid_statuses)} 种订单状态枚举传参...")
+
+        for i, status in enumerate(valid_statuses):
+            test_order = MOrder(
+                engine_id="test_engine_status",
+                run_id="test_run_status",
+                portfolio_id="test_portfolio_status",
+                code=f"00000{i+1}.SZ",
+                direction=DIRECTION_TYPES.LONG,
+                order_type=ORDER_TYPES.LIMITORDER,
+                volume=1000,
+                limit_price=10.0 + i,
+                status=status,  # 直接传入枚举对象
+                source=SOURCE_TYPES.TEST
+            )
+
+            result = order_crud.add(test_order)
+            assert result is not None, f"状态 {status.name} 的订单应该成功插入"
+            print(f"  ✓ {status.name} 状态枚举传参成功")
+
+        # 验证查询时的枚举转换
+        print("\n→ 验证查询时的枚举转换...")
+        orders = order_crud.find(filters={"engine_id": "test_engine_status"})
+        assert len(orders) == len(valid_statuses), "应该查询到所有状态的订单"
+
+        for order in orders:
+            assert order.status in valid_statuses, "查询结果应该是有效的枚举对象"
+            status_name = order.status.name
+            print(f"  ✓ 订单 {order.code} 状态: {status_name}")
+
+        # 测试状态过滤查询（枚举传参）
+        print("\n→ 测试状态过滤查询（枚举传参）...")
+        filled_orders = order_crud.find(
+            filters={
+                "engine_id": "test_engine_status",
+                "status": ORDERSTATUS_TYPES.FILLED  # 枚举传参
+            }
+        )
+        print(f"  ✓ FILLED状态订单: {len(filled_orders)} 条")
+
+        # 清理测试数据
+        status_orders = order_crud.find(filters={"engine_id": "test_engine_status"})
+        for order in status_orders:
+            order_crud.remove({"uuid": order.uuid})
+        print("✓ 测试数据清理完成")
+
+        print("✓ 订单状态枚举转换测试通过")
+
+    def test_order_type_enum_conversions(self):
+        """测试订单类型枚举转换功能"""
+        print("\n" + "="*60)
+        print("开始测试: 订单类型枚举转换")
+        print("="*60)
+
+        order_crud = OrderCRUD()
+
+        # 测试不同订单类型的枚举传参
+        order_types = [
+            (ORDER_TYPES.LIMITORDER, "限价单"),
+            (ORDER_TYPES.MARKETORDER, "市价单")
+        ]
+
+        print(f"\n→ 测试 {len(order_types)} 种订单类型枚举传参...")
+
+        for i, (order_type, type_name) in enumerate(order_types):
+            test_order = MOrder(
+                engine_id="test_engine_type",
+                run_id="test_run_type",
+                portfolio_id="test_portfolio_type",
+                code=f"60000{i+1}.SH",
+                direction=DIRECTION_TYPES.LONG,
+                order_type=order_type,  # 直接传入枚举对象
+                volume=1000,
+                limit_price=10.0 + i if order_type == ORDER_TYPES.LIMITORDER else None,
+                status=ORDERSTATUS_TYPES.NEW,
+                source=SOURCE_TYPES.TEST
+            )
+
+            result = order_crud.add(test_order)
+            assert result is not None, f"{type_name} 订单应该成功插入"
+            print(f"  ✓ {type_name} 枚举传参成功")
+
+        # 验证查询时的枚举转换
+        print("\n→ 验证查询时的枚举转换...")
+        orders = order_crud.find(filters={"engine_id": "test_engine_type"})
+        assert len(orders) == len(order_types), "应该查询到所有类型的订单"
+
+        for order in orders:
+            assert order.order_type in [ot for ot, _ in order_types], "查询结果应该是有效的枚举对象"
+            type_name = dict(order_types)[order.order_type]
+            print(f"  ✓ 订单 {order.code} 类型: {type_name}")
+
+        # 测试订单类型过滤查询（枚举传参）
+        print("\n→ 测试订单类型过滤查询（枚举传参）...")
+        limit_orders = order_crud.find(
+            filters={
+                "engine_id": "test_engine_type",
+                "order_type": ORDER_TYPES.LIMITORDER  # 枚举传参
+            }
+        )
+        print(f"  ✓ 限价单订单: {len(limit_orders)} 条")
+
+        # 清理测试数据
+        type_orders = order_crud.find(filters={"engine_id": "test_engine_type"})
+        for order in type_orders:
+            order_crud.remove({"uuid": order.uuid})
+        print("✓ 测试数据清理完成")
+
+        print("✓ 订单类型枚举转换测试通过")
+
+    def test_comprehensive_enum_validation(self):
+        """测试综合枚举验证功能"""
+        print("\n" + "="*60)
+        print("开始测试: 综合枚举验证")
+        print("="*60)
+
+        order_crud = OrderCRUD()
+
+        # 创建包含所有枚举字段的测试订单
+        test_orders = []
+        enum_combinations = [
+            # (方向, 订单类型, 状态, 描述)
+            (DIRECTION_TYPES.LONG, ORDER_TYPES.LIMITORDER, ORDERSTATUS_TYPES.NEW, "做多限价单新建"),
+            (DIRECTION_TYPES.SHORT, ORDER_TYPES.MARKETORDER, ORDERSTATUS_TYPES.FILLED, "做空市价单成交"),
+            (DIRECTION_TYPES.LONG, ORDER_TYPES.LIMITORDER, ORDERSTATUS_TYPES.CANCELED, "做多限价单取消"),
+        ]
+
+        print(f"\n→ 创建 {len(enum_combinations)} 个综合枚举测试订单...")
+
+        # 先清理可能存在的旧测试数据
+        existing_orders = order_crud.find(filters={"engine_id": "test_engine_comprehensive"})
+        for order in existing_orders:
+            order_crud.remove({"uuid": order.uuid})
+
+        for i, (direction, order_type, status, desc) in enumerate(enum_combinations):
+            test_order = MOrder(
+                engine_id="test_engine_comprehensive",
+                run_id="test_run_comprehensive",
+                portfolio_id="test_portfolio_comprehensive",
+                code=f"COMPREHENSIVE_{i+1:03d}.SZ",  # 使用更唯一的代码
+                direction=direction,      # 枚举传参
+                order_type=order_type,    # 枚举传参
+                volume=1000 + i * 100,
+                limit_price=10.0 + i if order_type == ORDER_TYPES.LIMITORDER else None,
+                status=status,            # 枚举传参
+                source=SOURCE_TYPES.TEST  # 枚举传参
+            )
+
+            result = order_crud.add(test_order)
+            assert result is not None, f"{desc} 订单应该成功插入"
+            test_orders.append(test_order)
+            print(f"  ✓ {desc} 创建成功")
+
+        # 验证所有枚举字段的存储和查询
+        print("\n→ 验证所有枚举字段的存储和查询...")
+        orders = order_crud.find(filters={"engine_id": "test_engine_comprehensive"})
+        assert len(orders) == len(enum_combinations), "应该查询到所有综合测试订单"
+
+        # 创建代码到预期枚举组合的映射
+        expected_map = {
+            f"COMPREHENSIVE_{i+1:03d}.SZ": enum_combinations[i]
+            for i in range(len(enum_combinations))
+        }
+
+        for order in orders:
+            expected_direction, expected_type, expected_status, _ = expected_map[order.code]
+
+            # 验证枚举字段正确性
+            assert order.direction == expected_direction, f"订单 {order.code} 方向枚举不匹配，预期{expected_direction.name}，实际{order.direction.name}"
+            assert order.order_type == expected_type, f"订单 {order.code} 类型枚举不匹配，预期{expected_type.name}，实际{order.order_type.name}"
+            assert order.status == expected_status, f"订单 {order.code} 状态枚举不匹配，预期{expected_status.name}，实际{order.status.name}"
+            assert order.source == SOURCE_TYPES.TEST, f"订单 {order.code} 数据源枚举不匹配"
+
+            print(f"  ✓ 订单 {order.code}: {order.direction.name}/{order.order_type.name}/{order.status.name}")
+
+        # 验证ModelList转换功能
+        print("\n→ 验证ModelList转换功能...")
+        model_list = order_crud.find(filters={"engine_id": "test_engine_comprehensive"})
+
+        assert len(model_list) == len(enum_combinations), "ModelList应该包含所有测试订单"
+
+        # 验证to_entities()方法中的枚举转换
+        entities = model_list.to_entities()
+        for entity in entities:
+            assert isinstance(entity.direction, DIRECTION_TYPES), "业务对象direction应该是枚举类型"
+            assert isinstance(entity.order_type, ORDER_TYPES), "业务对象order_type应该是枚举类型"
+            assert isinstance(entity.status, ORDERSTATUS_TYPES), "业务对象status应该是枚举类型"
+            assert isinstance(entity.source, SOURCE_TYPES), "业务对象source应该是枚举类型"
+
+        print("  ✓ ModelList转换中的枚举验证正确")
+
+        # 清理测试数据
+        comprehensive_orders = order_crud.find(filters={"engine_id": "test_engine_comprehensive"})
+        for order in comprehensive_orders:
+            order_crud.remove({"uuid": order.uuid})
+        print("✓ 测试数据清理完成")
+
+        print("✓ 综合枚举验证测试通过")
+
+
 # TDD Red阶段验证：确保所有测试开始时都失败
 if __name__ == "__main__":
     print("TDD Red阶段验证：Order CRUD测试")
