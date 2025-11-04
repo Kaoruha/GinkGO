@@ -281,7 +281,7 @@ class TestAnalyzerRecordCRUDQuery:
             raise
 
     def test_find_by_value_range(self):
-        """测试根据分析器值范围查询AnalyzerRecord"""
+        """测试根据分析器值范围查询AnalyzerRecord - 统一测试流程"""
         print("\n" + "="*60)
         print("开始测试: 根据分析器值范围查询AnalyzerRecord")
         print("="*60)
@@ -289,25 +289,96 @@ class TestAnalyzerRecordCRUDQuery:
         analyzer_record_crud = AnalyzerRecordCRUD()
 
         try:
-            # 查询夏普比率大于2的记录
-            print("→ 查询夏普比率 > 2.0 的记录...")
+            # 1. 确认当前数据库为空（仅测试数据）
+            print("→ 步骤1: 确认数据库中测试相关数据为空...")
+            initial_count = analyzer_record_crud.count(filters={"source": SOURCE_TYPES.TEST.value})
+            print(f"✓ 初始测试数据记录数: {initial_count}")
+
+            # 2. 插入测试数据
+            print("→ 步骤2: 插入测试数据...")
+
+            # 插入高夏普比率测试数据
+            test_sharpe_high = MAnalyzerRecord(
+                portfolio_id="TEST_HIGH_001",
+                engine_id="TEST_ENGINE_001",
+                analyzer_id="sharpe_ratio_analyzer",
+                value=Decimal("2.5"),  # > 2.0
+                timestamp=datetime(2023, 1, 1),
+                source=SOURCE_TYPES.TEST.value
+            )
+            analyzer_record_crud.add(test_sharpe_high)
+            print("✓ 插入高夏普比率测试数据 (2.5)")
+
+            test_sharpe_high2 = MAnalyzerRecord(
+                portfolio_id="TEST_HIGH_002",
+                engine_id="TEST_ENGINE_001",
+                analyzer_id="sharpe_ratio_analyzer",
+                value=Decimal("3.0"),  # > 2.0
+                timestamp=datetime(2023, 1, 2),
+                source=SOURCE_TYPES.TEST.value
+            )
+            analyzer_record_crud.add(test_sharpe_high2)
+            print("✓ 插入高夏普比率测试数据 (3.0)")
+
+            # 插入低夏普比率测试数据（应该不被查询到）
+            test_sharpe_low = MAnalyzerRecord(
+                portfolio_id="TEST_LOW_001",
+                engine_id="TEST_ENGINE_001",
+                analyzer_id="sharpe_ratio_analyzer",
+                value=Decimal("1.5"),  # < 2.0，不应被查询到
+                timestamp=datetime(2023, 1, 1),
+                source=SOURCE_TYPES.TEST.value
+            )
+            analyzer_record_crud.add(test_sharpe_low)
+            print("✓ 插入低夏普比率测试数据 (1.5，用于边界测试)")
+
+            # 插入低回撤测试数据
+            test_drawdown_low = MAnalyzerRecord(
+                portfolio_id="TEST_DRAWDOWN_001",
+                engine_id="TEST_ENGINE_001",
+                analyzer_id="max_drawdown_analyzer",
+                value=Decimal("0.05"),  # < 0.1
+                timestamp=datetime(2023, 1, 1),
+                source=SOURCE_TYPES.TEST.value
+            )
+            analyzer_record_crud.add(test_drawdown_low)
+            print("✓ 插入低回撤测试数据 (0.05)")
+
+            # 插入高回撤测试数据（应该不被查询到）
+            test_drawdown_high = MAnalyzerRecord(
+                portfolio_id="TEST_DRAWDOWN_002",
+                engine_id="TEST_ENGINE_001",
+                analyzer_id="max_drawdown_analyzer",
+                value=Decimal("0.15"),  # > 0.1，不应被查询到
+                timestamp=datetime(2023, 1, 2),
+                source=SOURCE_TYPES.TEST.value
+            )
+            analyzer_record_crud.add(test_drawdown_high)
+            print("✓ 插入高回撤测试数据 (0.15，用于边界测试)")
+
+            # 3. 查询测试
+            print("→ 步骤3: 执行查询操作...")
+
+            # 查询夏普比率 > 2.0 的记录
             high_sharpe_records = analyzer_record_crud.find(filters={
                 "analyzer_id": "sharpe_ratio_analyzer",
-                "value__gt": Decimal("2.0")
+                "value__gt": Decimal("2.0"),
+                "source": SOURCE_TYPES.TEST.value
             })
             print(f"✓ 查询到 {len(high_sharpe_records)} 条高夏普比率记录")
 
-            # 查询回撤率小于0.1的记录
-            print("→ 查询最大回撤 < 0.1 的记录...")
+            # 查询回撤率 < 0.1 的记录
             low_drawdown_records = analyzer_record_crud.find(filters={
                 "analyzer_id": "max_drawdown_analyzer",
-                "value__lt": Decimal("0.1")
+                "value__lt": Decimal("0.1"),
+                "source": SOURCE_TYPES.TEST.value
             })
             print(f"✓ 查询到 {len(low_drawdown_records)} 条低回撤记录")
 
-            # 验证查询结果
-            assert len(high_sharpe_records) > 0, "应该查询到夏普比率大于2.0的记录"
-            assert len(low_drawdown_records) > 0, "应该查询到最大回撤小于0.1的记录"
+            # 4. 精确断言：根据插入数据预期查询结果
+            print("→ 步骤4: 验证查询结果...")
+            assert len(high_sharpe_records) == 2, f"夏普比率>2.0的记录应为2条，实际为{len(high_sharpe_records)}条"
+            assert len(low_drawdown_records) == 1, f"最大回撤<0.1的记录应为1条，实际为{len(low_drawdown_records)}条"
 
             for record in high_sharpe_records[:3]:
                 assert record.analyzer_id == "sharpe_ratio_analyzer", f"分析器ID应该为sharpe_ratio_analyzer，实际: {record.analyzer_id}"
