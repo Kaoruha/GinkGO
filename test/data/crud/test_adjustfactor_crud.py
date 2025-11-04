@@ -225,6 +225,30 @@ class TestAdjustFactorCRUDQuery:
         adjustfactor_crud = AdjustfactorCRUD()
 
         try:
+            # 插入测试数据以确保查询过滤功能正常工作
+            print("→ 插入测试数据以验证查询过滤功能...")
+            test_adjustfactor_low = MAdjustfactor(
+                code="TEST_LOW_001",
+                foreadjustfactor=Decimal("0.8"),  # 前复权因子 < 1.0 (股票拆分场景)
+                backadjustfactor=Decimal("1.0"),
+                adjustfactor=Decimal("1.2"),
+                timestamp=datetime(2023, 1, 1),
+                source=SOURCE_TYPES.TEST.value  # 配置为测试类型，自动清理
+            )
+            adjustfactor_crud.add(test_adjustfactor_low)
+            print("✓ 插入低前复权因子测试数据 (0.8)")
+
+            test_adjustfactor_low2 = MAdjustfactor(
+                code="TEST_LOW_002",
+                foreadjustfactor=Decimal("0.5"),  # 前复权因子 < 1.0 (10拆20场景)
+                backadjustfactor=Decimal("1.0"),
+                adjustfactor=Decimal("1.4"),
+                timestamp=datetime(2023, 1, 2),
+                source=SOURCE_TYPES.TEST.value
+            )
+            adjustfactor_crud.add(test_adjustfactor_low2)
+            print("✓ 插入低前复权因子测试数据 (0.5)")
+
             # 查询复权因子大于1.1的记录
             print("→ 查询复权因子 > 1.1 的记录...")
             high_factors = adjustfactor_crud.find(filters={
@@ -232,16 +256,17 @@ class TestAdjustFactorCRUDQuery:
             })
             print(f"✓ 查询到 {len(high_factors)} 条高复权因子记录")
 
-            # 查询前复权因子小于1.0的记录
+            # 查询前复权因子小于1.0的记录（包括我们刚插入的测试数据）
             print("→ 查询前复权因子 < 1.0 的记录...")
             low_fore_factors = adjustfactor_crud.find(filters={
-                "foreadjustfactor__lt": Decimal("1.0")
+                "foreadjustfactor__lt": Decimal("1.0"),
+                "source": SOURCE_TYPES.TEST.value  # 只查询测试数据
             })
             print(f"✓ 查询到 {len(low_fore_factors)} 条低前复权因子记录")
 
             # 验证查询结果
             assert len(high_factors) > 0, "应该查询到复权因子大于1.1的记录"
-            assert len(low_fore_factors) > 0, "应该查询到前复权因子小于1.0的记录"
+            assert len(low_fore_factors) > 0, f"应该查询到前复权因子小于1.0的记录，实际数量: {len(low_fore_factors)}"
 
             # 验证查询结果的正确性
             for factor in high_factors[:3]:

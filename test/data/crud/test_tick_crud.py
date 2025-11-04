@@ -101,7 +101,7 @@ class TestTickCRUDInsert:
             # 验证数据库记录数变化
             after_count = len(tick_crud.find(filters={"code": test_code, "source": SOURCE_TYPES.TEST.value}))
             print(f"✓ 操作后{test_code}数据库记录数: {after_count}")
-            assert after_count - before_count >= 3, f"应至少增加3条数据，实际增加{after_count - before_count}条"
+            assert after_count - before_count == 3, f"应增加3条数据，实际增加{after_count - before_count}条"
 
             # 验证可以查询出插入的数据
             print("\n→ 验证插入的数据...")
@@ -156,16 +156,20 @@ class TestTickCRUDInsert:
             tick_crud.add(test_tick)
             print("✓ 单条插入成功")
 
-            # 验证数据
+            # 验证数据 - 使用精确的时间戳匹配
             print("\n→ 验证插入的数据...")
-            query_result = tick_crud.find(filters={"code": test_code})
-            print(f"✓ 查询到 {len(query_result)} 条记录")
-            assert len(query_result) >= 1
+            query_result = tick_crud.find(filters={
+                "code": test_code,
+                "timestamp": test_tick.timestamp  # 精确匹配时间戳
+            })
+            print(f"✓ 查询到 {len(query_result)} 条匹配的记录")
+            assert len(query_result) == 1, f"应该查询到1条匹配的记录，实际为{len(query_result)}条"
 
-            inserted_tick = query_result[-1]  # 取最后一条记录
+            inserted_tick = query_result[0]  # 取唯一匹配的记录
             print(f"✓ 插入的Tick验证: 价格={inserted_tick.price}, 成交量={inserted_tick.volume}")
             assert inserted_tick.code == test_code
             assert float(inserted_tick.price) == 10.55
+            assert inserted_tick.volume == 1200
 
         except Exception as e:
             print(f"✗ 单条插入失败: {e}")
@@ -1087,7 +1091,7 @@ class TestTickCRUDDelete:
             # 验证数据库记录数变化
             after_count = len(tick_crud.find(filters={"code": "TESTTICK_Tick"}))
             print(f"✓ 操作后000001.SZ数据库记录数: {after_count}")
-            assert after_count - before_count >= 2, f"应至少增加2条数据，实际增加{after_count - before_count}条"
+            assert after_count - before_count == 3, f"应增加3条数据，实际增加{after_count - before_count}条"
 
             # 获取ModelList进行转换测试
             print("\n→ 获取ModelList...")
