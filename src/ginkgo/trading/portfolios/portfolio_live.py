@@ -3,7 +3,7 @@ import datetime
 from rich.console import Console
 from typing import Dict
 
-from ginkgo.trading.portfolios.base_portfolio import BasePortfolio
+from ginkgo.trading.bases.portfolio_base import PortfolioBase
 from ginkgo.trading.entities.bar import Bar
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.position import Position
@@ -34,7 +34,7 @@ from ginkgo.interfaces.notification_interface import INotificationService, Notif
 console = Console()
 
 
-class PortfolioLive(BasePortfolio):
+class PortfolioLive(PortfolioBase):
     """
     Portfolio for live system.
     """
@@ -282,7 +282,7 @@ class PortfolioLive(BasePortfolio):
         for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
             func(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
         
-        self.log("WARN", f"Dealing with CANCELED ORDER. {self.now}")
+        self.log("WARN", f"Dealing with CANCELED ORDER. {self.get_time_provider().now()}")
         
         # 检查事件时间
         if self.is_event_from_future(event):

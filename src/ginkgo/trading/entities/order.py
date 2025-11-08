@@ -7,7 +7,7 @@ from functools import singledispatchmethod
 
 from ginkgo.libs import base_repr, datetime_normalize, GLOG, to_decimal, Number
 from ginkgo.trading.core.base import Base
-from ginkgo.trading.entities.time_related import TimeRelated
+from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.enums import (
     DIRECTION_TYPES,
     ORDER_TYPES,
@@ -17,7 +17,7 @@ from ginkgo.enums import (
 )
 
 
-class Order(Base, TimeRelated):
+class Order(Base, TimeMixin):
     """
     Order Class
     """
@@ -71,7 +71,7 @@ class Order(Base, TimeRelated):
         """
         # 初始化多重继承的父类
         Base.__init__(self, uuid=uuid, component_type=COMPONENT_TYPES.ORDER, *args, **kwargs)
-        TimeRelated.__init__(self, timestamp=timestamp, *args, **kwargs)
+        TimeMixin.__init__(self, timestamp=timestamp, *args, **kwargs)
 
         try:
             self.set(portfolio_id, engine_id, run_id, code, direction, order_type, status,
