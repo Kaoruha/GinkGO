@@ -456,7 +456,7 @@ class TestPortfolioCRUDQuery:
 
             # 测试2: to_entities转换
             print("\n→ 测试to_entities转换...")
-            from ginkgo.trading.portfolios import BasePortfolio
+            from ginkgo.trading.bases.portfolio_base import PortfolioBase
             entities = model_list.to_entities()
             print(f"✓ 实体列表类型: {type(entities).__name__}")
             print(f"✓ 实体列表长度: {len(entities)}")
@@ -466,7 +466,7 @@ class TestPortfolioCRUDQuery:
             first_entity = entities[0]
             print(f"✓ 第一个实体类型: {type(first_entity).__name__}")
             # Portfolio转换为BasePortfolio业务对象
-            assert isinstance(first_entity, BasePortfolio), "应转换为BasePortfolio业务对象"
+            assert isinstance(first_entity, PortfolioBase), "应转换为PortfolioBase业务对象"
 
             # 验证业务对象字段
             assert "convert_test_portfolio" in first_entity.name
