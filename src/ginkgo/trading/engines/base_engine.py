@@ -92,6 +92,11 @@ class BaseEngine(BacktestBase, ABC):
         """检查引擎是否处于活跃状态"""
         return self._state == ENGINESTATUS_TYPES.RUNNING
 
+    @property
+    def run_id(self) -> str:
+        """获取当前运行会话ID"""
+        return self._run_id
+
     def start(self) -> bool:
         """
         启动引擎

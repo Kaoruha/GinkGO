@@ -20,7 +20,7 @@ from ginkgo.trading.feeders.interfaces import (
 )
 from ginkgo.trading.events import EventPriceUpdate, EventBase
 from ginkgo.trading.entities.bar import Bar
-from ginkgo.trading.entities.time_related import TimeRelated
+from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.time.interfaces import ITimeProvider
 from ginkgo.trading.time.providers import TimeBoundaryValidator
 from ginkgo.libs import datetime_normalize, cache_with_expiration

@@ -32,7 +32,7 @@ from ginkgo.trading.entities.tick import Tick
 from ginkgo.trading.entities.tradeday import TradeDay
 from ginkgo.trading.entities.transfer import Transfer
 from ginkgo.trading.entities.adjustfactor import Adjustfactor
-from ginkgo.trading.entities.time_related import TimeRelated
+from ginkgo.trading.mixins.time_mixin import TimeMixin
 
 # === 计算模块（向后兼容） ===
 # 从computation模块导入所有技术指标
@@ -49,7 +49,7 @@ __all__ = [
     
     # 业务实体
     "Bar", "Order", "Position", "Signal", "StockInfo", 
-    "Tick", "TradeDay", "Transfer", "Adjustfactor", "TimeRelated",
+    "Tick", "TradeDay", "Transfer", "Adjustfactor", "TimeMixin",
     
     # 引擎和核心组件（暂时注释，等修复后启用）
     # "HistoricEngine", "LiveEngine", "BasePortfolio", 

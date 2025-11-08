@@ -13,7 +13,7 @@ The EventDrivenBacktest class will provide a way to run an event-driven backtest
 from typing import TYPE_CHECKING, List, Optional, Dict, Any
 
 if TYPE_CHECKING:
-    from ginkgo.trading.portfolios.base_portfolio import BasePortfolio
+    from ginkgo.trading.bases.portfolio_base import PortfolioBase
     from ginkgo.trading.routing import MatchMakingBase
     from ginkgo.trading.events.base_event import EventBase
     from ginkgo.trading.feeders.base_feeder import BaseFeeder as BaseFeed
@@ -135,7 +135,7 @@ class EventEngine(BaseEngine):
         """获取当前时间 - 子类应重写此方法"""
         return datetime.datetime.now()
 
-    def bind_portfolio(self, portfolio: "BasePortfolio") -> None:
+    def bind_portfolio(self, portfolio: "PortfolioBase") -> None:
         # ID of this engine is the unique in backtest.
         if portfolio in self.portfolios:
             return

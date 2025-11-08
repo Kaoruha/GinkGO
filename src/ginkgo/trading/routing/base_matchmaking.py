@@ -12,14 +12,14 @@ from ginkgo.libs import datetime_normalize, to_decimal, Number
 from ginkgo.trading.events import EventPriceUpdate
 from ginkgo.enums import PRICEINFO_TYPES, DIRECTION_TYPES
 from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.trading.entities.time_related import TimeRelated
+from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.engines.base_engine import BaseEngine
 
 
-class MatchMakingBase(BacktestBase, TimeRelated):
+class class.*TimeMixin) TimeMixin):
     def __init__(self, name: str = "MatchMaking", timestamp=None, *args, **kwargs):
         BacktestBase.__init__(self, name=name, *args, **kwargs)
-        TimeRelated.__init__(self, timestamp=timestamp, *args, **kwargs)
+        TimeMixin.__init__(self, timestamp=timestamp, *args, **kwargs)
         self._price_cache = pd.DataFrame()
         self._order_book: Dict[str, List] = {}
         self._commission_rate = Decimal("0.0003")

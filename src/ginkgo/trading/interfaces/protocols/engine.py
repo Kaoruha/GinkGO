@@ -357,7 +357,7 @@ class IEngine(Protocol):
         投资组合列表 (Portfolios List)
 
         Returns:
-            List[BasePortfolio]: 引擎管理的投资组合列表
+            List[PortfolioBase]: 引擎管理的投资组合列表
 
         Note:
             - 返回所有投资组合的引用

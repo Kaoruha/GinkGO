@@ -48,11 +48,11 @@ class ComponentFactoryService:
     def _initialize_base_class_mapping(self):
         """Initialize the mapping of file types to their base classes."""
         try:
-            from ginkgo.trading.strategy.strategies import BaseStrategy as BaseStrategy
+            from ginkgo.trading.strategies import BaseStrategy as BaseStrategy
             from ginkgo.trading.analysis.analyzers import BaseAnalyzer
-            from ginkgo.trading.strategy.selectors import BaseSelector
-            from ginkgo.trading.strategy.sizers import BaseSizer
-            from ginkgo.trading.strategy.risk_managements import BaseRiskManagement as BaseRisk
+            from ginkgo.trading.selectors import BaseSelector
+            from ginkgo.trading.sizers import BaseSizer
+            from ginkgo.trading.risk_managementss import BaseRiskManagement as BaseRisk
 
             self._base_class_mapping = {
                 FILE_TYPES.STRATEGY: BaseStrategy,

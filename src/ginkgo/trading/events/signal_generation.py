@@ -32,9 +32,16 @@ class EventSignalGeneration(EventBase):
     @property
     def business_timestamp(self):
         """
-        业务数据时间戳 - 返回信号数据的时间，如果没有信号数据则返回事件时间
+        业务数据时间戳 - 返回信号的业务时间戳（信号触发的业务时间），
+        如果信号没有业务时间戳则回退到信号的时间戳，最后才回退到事件时间
         """
-        return self.value.timestamp if self.value else self.timestamp
+        if self.value is None:
+            return self.timestamp
+        # 优先使用信号的business_timestamp，这是信号触发的真正业务时间
+        if hasattr(self.value, 'business_timestamp') and self.value.business_timestamp is not None:
+            return self.value.business_timestamp
+        # 回退到信号的timestamp（信号创建时间）
+        return self.value.timestamp
 
     def __repr__(self):
         return base_repr(self, EventSignalGeneration.__name__, 16, 60)
