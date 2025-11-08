@@ -77,8 +77,12 @@ class EventOrderRelated(EventBase):
         return self.value.volume if self.value else None
 
     @property
-    def frozen(self):
-        return self.value.frozen if self.value else None
+    def frozen_money(self):
+        return self.value.frozen_money if self.value else None
+
+    @property
+    def frozen_volume(self):
+        return self.value.frozen_volume if self.value else None
 
     @property
     def transaction_price(self):

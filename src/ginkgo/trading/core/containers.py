@@ -64,22 +64,22 @@ def _get_profit_analyzer_class():
 # Strategy classes
 def _get_dual_thrust_strategy_class():
     """Lazy import for DualThrust strategy."""
-    from ginkgo.trading.strategy.strategies.dual_thrust import StrategyDualThrust
+    from ginkgo.trading.strategies.dual_thrust import StrategyDualThrust
     return StrategyDualThrust
 
 def _get_random_strategy_class():
     """Lazy import for Random strategy."""
-    from ginkgo.trading.strategy.strategies.random_choice import StrategyRandomChoice
+    from ginkgo.trading.strategies.random_choice import StrategyRandomChoice
     return StrategyRandomChoice
 
 def _get_volume_activate_strategy_class():
     """Lazy import for VolumeActivate strategy."""
-    from ginkgo.trading.strategy.strategies.volume_activate import StrategyVolumeActivate
+    from ginkgo.trading.strategies.volume_activate import StrategyVolumeActivate
     return StrategyVolumeActivate
 
 def _get_trend_follow_strategy_class():
     """Lazy import for TrendFollow strategy."""
-    from ginkgo.trading.strategy.strategies.trend_follow import StrategyTrendFollow
+    from ginkgo.trading.strategies.trend_follow import StrategyTrendFollow
     return StrategyTrendFollow
 
 # Portfolio classes

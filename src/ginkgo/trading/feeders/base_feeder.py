@@ -3,18 +3,18 @@ import pandas as pd
 
 from ginkgo.libs import datetime_normalize, cache_with_expiration
 from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.trading.entities.time_related import TimeRelated
+from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.events.base_event import EventBase
 
 
-class BaseFeeder(BacktestBase, TimeRelated):
+class class.*TimeMixin) TimeMixin):
     """
     Feed something like price info, news...
     """
 
     def __init__(self, name="basic_feeder", timestamp=None, bar_service=None, *args, **kwargs):
         BacktestBase.__init__(self, name=name, *args, **kwargs)
-        TimeRelated.__init__(self, timestamp=timestamp, *args, **kwargs)
+        TimeMixin.__init__(self, timestamp=timestamp, *args, **kwargs)
         self._engine_put = None
 
         # 依赖注入：数据服务（支持测试Mock）

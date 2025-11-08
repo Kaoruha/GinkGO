@@ -11,11 +11,11 @@ from abc import abstractmethod, ABCMeta
 from typing import Optional
 from ginkgo.enums import EVENT_TYPES, SOURCE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize
-from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.trading.time.interfaces import ITimeProvider
+from ginkgo.trading.mixins.time_mixin import TimeMixin
+from ginkgo.trading.mixins.context_mixin import ContextMixin
 
 
-class EventBase(BacktestBase, metaclass=ABCMeta):
+class EventBase(TimeMixin, ContextMixin, metaclass=ABCMeta):
     """
     事件基类
 
@@ -29,38 +29,17 @@ class EventBase(BacktestBase, metaclass=ABCMeta):
 
     def __init__(self, name: str = "EventBase", *args, **kwargs) -> None:
         # Extract EventBase-specific parameters before calling super()
-        self._time_provider: Optional[ITimeProvider] = kwargs.pop("time_provider", None)
-        event_uuid = kwargs.pop("uuid", None)
-        engine_id = kwargs.pop("engine_id", None)
-        portfolio_id = kwargs.pop("portfolio_id", None)
-        run_id = kwargs.pop("run_id", None)
-        
+        uuid_value = kwargs.pop("uuid", None)
+
         super(EventBase, self).__init__(*args, **kwargs)
         self._name = ""
         self.set_name(name)
-        
-        # Time provider integration - use provided time_provider or fallback to system time
-        if self._time_provider is not None:
-            self._timestamp = self._time_provider.now()
-        else:
-            # Fallback use global clock adapter (tz-aware)
-            try:
-                from ginkgo.trading.time.clock import now as clock_now
-                self._timestamp = clock_now()
-            except Exception:
-                self._timestamp = datetime.datetime.now(datetime.timezone.utc)
-        
-        # Set Event UUID（事件自身唯一标识）
-        if event_uuid is not None:
-            self._uuid = event_uuid
+
+        # Set Event UUID（如果没有提供则生成）
+        if uuid_value is not None:
+            self._uuid = uuid_value
         else:
             self._uuid = uuid.uuid4().hex
-            
-        # Set engine_id / portfolio_id / run_id
-        # 说明：不再为 engine_id/portfolio_id/run_id 生成随机值，统一由引擎/组合在注入时设置，确保关联到真实运行上下文。
-        self._engine_id = engine_id if engine_id is not None else None
-        self._portfolio_id = portfolio_id if portfolio_id is not None else None
-        self._run_id = run_id if run_id is not None else None
             
         self._event_type = None
         self._source = SOURCE_TYPES.SIM
@@ -99,22 +78,7 @@ class EventBase(BacktestBase, metaclass=ABCMeta):
             raise ValueError("engine_id must be a string.")
         self._engine_id = value
 
-    def set_time_provider(self, time_provider: ITimeProvider) -> None:
-        """设置时间提供者并更新时间戳"""
-        self._time_provider = time_provider
-        self._timestamp = time_provider.now()
-
-    def refresh_timestamp(self) -> None:
-        """刷新时间戳（如果有时间提供者）"""
-        if self._time_provider is not None:
-            self._timestamp = self._time_provider.now()
-        else:
-            try:
-                from ginkgo.trading.time.clock import now as clock_now
-                self._timestamp = clock_now()
-            except Exception:
-                self._timestamp = datetime.datetime.now(datetime.timezone.utc)
-
+    
     @property
     def name(self) -> str:
         return self._name

@@ -10,20 +10,20 @@ from decimal import Decimal
 
 
 from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.trading.entities.time_related import TimeRelated
+from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.data.containers import container
 from ginkgo.libs import datetime_normalize, to_decimal, Number
 from ginkgo.enums import GRAPHY_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES
 
 
-class BaseAnalyzer(BacktestBase, TimeRelated):
+class BaseAnalyzer(BacktestBase, TimeMixin):
     # 类级别的监控统计（所有实例共享）
     _execution_stats = {}
     _performance_log = []
 
     def __init__(self, name: str, timestamp=None, *args, **kwargs):
         BacktestBase.__init__(self, name=name, *args, **kwargs)
-        TimeRelated.__init__(self, timestamp=timestamp, *args, **kwargs)
+        TimeMixin.__init__(self, timestamp=timestamp, *args, **kwargs)
         self._active_stage = []
         self._record_stage = RECORDSTAGE_TYPES.NEWDAY
         self._analyzer_id = ""
