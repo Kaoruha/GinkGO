@@ -4,11 +4,14 @@ import datetime
 from functools import singledispatchmethod
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize, GLOG
+from ginkgo.trading.mixins.time_mixin import TimeMixin
+from ginkgo.trading.mixins.context_mixin import ContextMixin
+from ginkgo.trading.mixins.named_mixin import NamedMixin
+from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
 from ginkgo.trading.core.base import Base
-from ginkgo.trading.entities.time_related import TimeRelated
 
 
-class Signal(Base, TimeRelated):
+class Signal(TimeMixin, ContextMixin, NamedMixin, LoggableMixin, Base):
     """
     Signal Class.
     """
@@ -18,7 +21,6 @@ class Signal(Base, TimeRelated):
         portfolio_id: str = "",
         engine_id: str = "",
         run_id: str = "",  # 新增run_id参数
-        timestamp: any = None,
         code: str = "Default Signal Code",
         direction: DIRECTION_TYPES = None,
         reason: str = "no reason",
@@ -31,13 +33,28 @@ class Signal(Base, TimeRelated):
         *args,
         **kwargs,
     ) -> None:
-        # 初始化多重继承的父类
-        from ginkgo.enums import COMPONENT_TYPES
-        Base.__init__(self, uuid=uuid, component_type=COMPONENT_TYPES.SIGNAL, *args, **kwargs)
-        TimeRelated.__init__(self, timestamp=timestamp, *args, **kwargs)
+        # 显式初始化各个Mixin，确保正确的初始化顺序
+        name = f"Signal_{code}_{direction}"
 
+        # TimeMixin初始化
+        TimeMixin.__init__(self, **kwargs)
+
+        # ContextMixin初始化 - 不传递参数，让set方法处理
+        ContextMixin.__init__(self, **kwargs)
+
+        # NamedMixin初始化 - 传递name参数
+        NamedMixin.__init__(self, name=name, **kwargs)
+
+        # LoggableMixin初始化
+        LoggableMixin.__init__(self, **kwargs)
+
+        # Base初始化
+        from ginkgo.enums import COMPONENT_TYPES
+        Base.__init__(self, uuid=uuid, component_type=COMPONENT_TYPES.SIGNAL)
+
+        # 通过set方法设置所有业务属性（包括上下文信息）
         try:
-            self.set(portfolio_id, engine_id, run_id, timestamp, code, direction, reason, source, volume, weight, strength, confidence)
+            self.set(portfolio_id, engine_id, run_id, code, direction, reason, source, volume, weight, strength, confidence)
         except Exception as e:
             GLOG.ERROR(f"Error initializing Signal: {e}")
             raise Exception("Error initializing Signal: {e}")
@@ -55,7 +72,6 @@ class Signal(Base, TimeRelated):
         portfolio_id: str,
         engine_id: str,
         run_id: str,  # 新增run_id参数
-        timestamp: any,
         code: str,
         direction: DIRECTION_TYPES,
         reason: str,
@@ -86,11 +102,6 @@ class Signal(Base, TimeRelated):
             raise TypeError(f"run_id must be str, got {type(run_id).__name__}")
         if not run_id:
             raise ValueError("run_id cannot be empty.")
-
-        # timestamp验证和设置（委托给TimeRelated）
-        if timestamp is None:
-            raise ValueError("timestamp cannot be None.")
-        self.timestamp = timestamp  # 使用TimeRelated的timestamp属性
 
         # code类型和值验证
         if not isinstance(code, str):

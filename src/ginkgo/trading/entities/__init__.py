@@ -21,7 +21,7 @@ from ginkgo.trading.entities.tick import Tick
 from ginkgo.trading.entities.tradeday import TradeDay
 from ginkgo.trading.entities.transfer import Transfer
 from ginkgo.trading.entities.adjustfactor import Adjustfactor
-from ginkgo.trading.entities.time_related import TimeRelated
+from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.entities.capital_adjustment import CapitalAdjustment
 from ginkgo.trading.entities.mapping import Mapping
 
@@ -41,7 +41,7 @@ __all__ = [
     "CapitalAdjustment",
 
     # 辅助实体
-    "TimeRelated",
+    "TimeMixin",
 
     # 通用映射实体
     "Mapping",
