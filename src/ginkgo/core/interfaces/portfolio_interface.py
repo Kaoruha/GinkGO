@@ -12,9 +12,9 @@ from enum import Enum
 
 from ginkgo.core.interfaces.strategy_interface import IStrategy
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.trading.strategy.sizers.base_sizer import BaseSizer
-from ginkgo.trading.strategy.selectors.base_selector import BaseSelector
-from ginkgo.trading.strategy.risk_managements.base_risk import BaseRiskManagement
+from ginkgo.trading.sizers.base_sizer import BaseSizer
+from ginkgo.trading.selectors.base_selector import BaseSelector
+from ginkgo.trading.risk_managementss.base_risk import BaseRiskManagement
 
 
 class PortfolioStatus(Enum):
@@ -50,7 +50,7 @@ class IPortfolio(ABC):
         self._analyzers = []
         self._sizers = []
         self._selectors = []
-        self._risk_managements = []
+        self._risk_managementss = []
         
         # 组合配置
         self._rebalance_frequency = RebalanceFrequency.DAILY
@@ -87,9 +87,9 @@ class IPortfolio(ABC):
         return self._selectors
     
     @property
-    def risk_managements(self) -> List[BaseRiskManagement]:
+    def risk_managementss(self) -> List[BaseRiskManagement]:
         """风险管理器列表"""
-        return self._risk_managements
+        return self._risk_managementss
     
     @property
     def current_cash(self) -> float:
@@ -150,10 +150,10 @@ class IPortfolio(ABC):
         if selector not in self._selectors:
             self._selectors.append(selector)
             
-    def add_risk_management(self, risk_mgmt: BaseRiskManagement) -> None:
+    def add_risk_managements(self, risk_mgmt: BaseRiskManagement) -> None:
         """添加风险管理器"""
-        if risk_mgmt not in self._risk_managements:
-            self._risk_managements.append(risk_mgmt)
+        if risk_mgmt not in self._risk_managementss:
+            self._risk_managementss.append(risk_mgmt)
     
     def set_strategy_weight(self, strategy_name: str, weight: float) -> None:
         """设置策略权重"""

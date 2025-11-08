@@ -190,11 +190,11 @@ class ComponentService(BusinessService):
             Dictionary mapping FILE_TYPES to base classes
         """
         try:
-            from ginkgo.trading.strategy.strategies.base_strategy import BaseStrategy
+            from ginkgo.trading.strategies.base_strategy import BaseStrategy
             from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
-            from ginkgo.trading.strategy.sizers.base_sizer import BaseSizer
-            from ginkgo.trading.strategy.selectors.base_selector import BaseSelector
-            from ginkgo.trading.strategy.risk_managements.base_risk import BaseRiskManagement
+            from ginkgo.trading.sizers.base_sizer import BaseSizer
+            from ginkgo.trading.selectors.base_selector import BaseSelector
+            from ginkgo.trading.risk_managementss.base_risk import BaseRiskManagement
 
             return {
                 FILE_TYPES.STRATEGY: BaseStrategy,

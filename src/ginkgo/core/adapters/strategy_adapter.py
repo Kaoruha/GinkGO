@@ -10,7 +10,7 @@ import numpy as np
 
 from ginkgo.core.adapters.base_adapter import BaseAdapter, AdapterError
 from ginkgo.core.interfaces.strategy_interface import IStrategy, IMLStrategy
-from ginkgo.trading.strategy.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.strategies.base_strategy import BaseStrategy
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.enums import STRATEGY_TYPES, DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import GLOG

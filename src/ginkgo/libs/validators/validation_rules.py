@@ -35,7 +35,7 @@ class ValidationRules:
             )
         ],
         'required_imports': [
-            'ginkgo.trading.strategy.strategies.base_strategy',
+            'ginkgo.trading.strategies.base_strategy',
             'ginkgo.trading.signal'
         ],
         'forbidden_operations': [
@@ -103,7 +103,7 @@ class ValidationRules:
             )
         ],
         'required_imports': [
-            'ginkgo.trading.strategy.risk_managements.base_risk'
+            'ginkgo.trading.risk_managementss.base_risk'
         ],
         'forbidden_operations': [
             'os.system',
@@ -130,7 +130,7 @@ class ValidationRules:
             )
         ],
         'required_imports': [
-            'ginkgo.trading.strategy.sizers.base_sizer'
+            'ginkgo.trading.sizers.base_sizer'
         ],
         'forbidden_operations': [
             'os.system',

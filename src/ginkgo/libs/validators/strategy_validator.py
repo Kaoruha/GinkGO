@@ -43,7 +43,7 @@ class StrategyValidator(BaseValidator):
                 details=f"Must define a class that inherits from {self.required_base_class}",
                 suggestions=[
                     f"Create a class that inherits from {self.required_base_class}",
-                    "Import the base class: from ginkgo.trading.strategy.strategies.base_strategy import BaseStrategy"
+                    "Import the base class: from ginkgo.trading.strategies.base_strategy import BaseStrategy"
                 ]
             ))
             return results
