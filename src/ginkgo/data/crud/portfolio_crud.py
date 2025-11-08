@@ -190,15 +190,15 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
             models: List of MPortfolio models with enum fields already fixed
 
         Returns:
-            List of BasePortfolio business objects
+            List of PortfolioBase business objects
         """
-        from ginkgo.trading.portfolios.base_portfolio import BasePortfolio
+        from ginkgo.trading.bases.portfolio_base import PortfolioBase
 
         business_objects = []
         for model in models:
             try:
-                # Create BasePortfolio from MPortfolio model
-                portfolio = BasePortfolio(
+                # Create PortfolioBase from MPortfolio model
+                portfolio = PortfolioBase(
                     name=model.name,
                     timestamp=model.create_at
                 )
@@ -213,7 +213,7 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
 
                 business_objects.append(portfolio)
             except Exception as e:
-                GLOG.ERROR(f"Failed to convert MPortfolio to BasePortfolio: {e}")
+                GLOG.ERROR(f"Failed to convert MPortfolio to PortfolioBase: {e}")
                 # Fallback: return original model
                 business_objects.append(model)
 

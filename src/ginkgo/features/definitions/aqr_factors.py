@@ -130,7 +130,7 @@ class AQRFactors(BaseDefinition):
         "mean_reversion": ["MEAN_REVERSION_ST", "MEAN_REVERSION_LT"],
         
         # 风险管理
-        "risk_management": ["RISK_PARITY", "EQUAL_RISK_CONTRIB", "LOW_RISK"],
+        "risk_managements": ["RISK_PARITY", "EQUAL_RISK_CONTRIB", "LOW_RISK"],
         
         # 时间维度
         "short_term": ["TSMOM_1M", "CSMOM_1M", "TREND_1M", "MEAN_REVERSION_ST"],

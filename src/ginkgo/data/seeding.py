@@ -62,7 +62,7 @@ def _init_example_files() -> int:
     file_root = os.path.join(GCONF.WORKING_PATH, "src", "ginkgo", "backtest")
     file_type_map = {
         "analysis/analyzers": FILE_TYPES.ANALYZER,
-        "strategy/risk_managements": FILE_TYPES.RISKMANAGER,
+        "strategy/risk_managementss": FILE_TYPES.RISKMANAGER,
         "strategy/selectors": FILE_TYPES.SELECTOR,
         "strategy/sizers": FILE_TYPES.SIZER,
         "strategy/strategies": FILE_TYPES.STRATEGY,

@@ -10,7 +10,7 @@ from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 from enum import Enum
 
-from ginkgo.trading.portfolios.base_portfolio import BasePortfolio
+from ginkgo.trading.bases.portfolio_base import PortfolioBase
 
 
 class EngineMode(Enum):
@@ -89,7 +89,7 @@ class IEngine(ABC):
         pass
     
     @abstractmethod
-    def run(self, portfolio: BasePortfolio) -> Dict[str, Any]:
+    def run(self, portfolio: PortfolioBase) -> Dict[str, Any]:
         """
         运行回测
         
@@ -320,7 +320,7 @@ class IMatrixEngine(IEngine):
         pass
     
     @abstractmethod
-    def process_vectorized(self, data: Dict[str, Any], portfolio: BasePortfolio) -> Dict[str, Any]:
+    def process_vectorized(self, data: Dict[str, Any], portfolio: PortfolioBase) -> Dict[str, Any]:
         """
         向量化处理
         

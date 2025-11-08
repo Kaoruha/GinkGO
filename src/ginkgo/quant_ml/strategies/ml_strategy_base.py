@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime, timedelta
 from abc import abstractmethod
 
-from ginkgo.trading.strategy.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.strategies.base_strategy import BaseStrategy
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.bar import Bar
 from ginkgo.core.interfaces.model_interface import IModel
