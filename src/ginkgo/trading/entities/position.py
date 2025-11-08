@@ -7,10 +7,10 @@ from decimal import Decimal
 from ginkgo.libs import base_repr, Number, to_decimal, GLOG, datetime_normalize
 from ginkgo.enums import DIRECTION_TYPES, COMPONENT_TYPES
 from ginkgo.trading.core.base import Base
-from ginkgo.trading.entities.time_related import TimeRelated
+from ginkgo.trading.mixins.time_mixin import TimeMixin
 
 
-class Position(Base, TimeRelated):
+class Position(Base, TimeMixin):
     """
     Holding Position Class.
     """
@@ -39,7 +39,7 @@ class Position(Base, TimeRelated):
     ):
         # 初始化多重继承的父类
         Base.__init__(self, uuid=uuid, component_type=COMPONENT_TYPES.POSITION, *args, **kwargs)
-        TimeRelated.__init__(self, timestamp=timestamp, init_time=init_time, *args, **kwargs)
+        TimeMixin.__init__(self, timestamp=timestamp, init_time=init_time, *args, **kwargs)
 
         # 初始化日志系统
         self.loggers = []  # 先初始化空列表
@@ -333,16 +333,10 @@ class Position(Base, TimeRelated):
     def settlement_days(self, *args, **kwargs) -> int:
         """
         结算天数配置：0=T+0(当日可卖), 1=T+1(次日可卖), 2=T+2等
+
+        注意：此属性为只读，只能在构造函数中设置。在持仓创建后不应修改。
         """
         return self._settlement_days
-
-    @settlement_days.setter
-    def settlement_days(self, value: int) -> None:
-        """设置结算天数"""
-        if not isinstance(value, int) or value < 0:
-            self.log("ERROR", f"Invalid settlement_days value: {value}, must be non-negative integer")
-            return
-        self._settlement_days = value
 
     @property
     def total_position(self, *args, **kwargs) -> int:
@@ -727,6 +721,19 @@ class Position(Base, TimeRelated):
 
         # Update last_update timestamp after settlement processing (delegate to TimeRelated)
         self.last_update = new_time
+
+    def process_settlement_queue(self, new_time: datetime.datetime) -> None:
+        """
+        公共接口：处理结算队列
+
+        这是PortfolioT1Backtest调用的公共接口，内部委托给_on_time_advance方法。
+        提供了一致的接口设计，便于外部组件调用结算处理逻辑。
+
+        Args:
+            new_time(datetime.datetime): 新的当前时间
+        """
+        self.log("DEBUG", f"Processing settlement queue for position {self.code} at time {new_time}")
+        return self._on_time_advance(new_time)
 
     def add_realized_pnl(self, pnl: Number) -> bool:
         """
