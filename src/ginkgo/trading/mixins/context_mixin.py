@@ -42,6 +42,10 @@ class ContextMixin:
         """绑定投资组合实例（公共接口）"""
         self._bound_portfolio = portfolio
 
+        # 如果portfolio已绑定engine，自动绑定engine以实现灵活的上下文传播
+        if hasattr(portfolio, '_bound_engine') and portfolio._bound_engine is not None:
+            self.bind_engine(portfolio._bound_engine)
+
     @property
     def engine_id(self) -> Optional[str]:
         """获取引擎ID - 从绑定引擎获取，未绑定时返回None"""
