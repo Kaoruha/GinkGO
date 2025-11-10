@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Dict, List, Any
 from datetime import datetime
 
-from ginkgo.trading.risk_managementss.base_risk import BaseRiskManagement
+from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.events.base_event import EventBase
