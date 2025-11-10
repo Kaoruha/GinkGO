@@ -28,7 +28,7 @@ class TimeMixin:
         self._time_provider: Any = None
 
         # 当前时间（如果不使用time_provider，则用此变量存储）
-        self._now: datetime.datetime = None
+        self.current_timestamp: Optional[datetime.datetime] = None
 
         # 实体创建/初始化时间
         self._init_time: datetime.datetime = current_time
@@ -120,7 +120,7 @@ class TimeMixin:
     def advance_time(self, time: any, *args, **kwargs) -> bool:
         """
         Advance time to next frame.
-        Timestamp update. Just support from past to future.
+        完全以TimeProvider为基准进行时间推进。
 
         After time advancement, calls _on_time_advance() for subclass-specific processing.
 
@@ -144,36 +144,25 @@ class TimeMixin:
                 self.log("ERROR", "Time format not support, can not update time")
             return False
 
-        if self._now is None:
-            self._now = time
+        # 关键：完全以TimeProvider为准
+        if self._time_provider is None:
             if has_log:
-                self.log("DEBUG", f"{type(self).__name__} Time Init: None --> {self._now}")
-            # Call time advance hook for initial setup
-            self._on_time_advance(time)
-            return True
-
-        if time < self.now:
-            if has_log:
-                self.log("ERROR", "We can not go back such as a TIME TRAVALER.")
+                self.log("ERROR", "TimeProvider not set. Call set_time_provider() first.")
             return False
 
-        elif time == self.now:
+        # 使用TimeProvider的时间推进逻辑（包含时间倒退检查等）
+        success = self._time_provider.set_current_time(time)
+        if not success:
             if has_log:
-                self.log("WARNING", "Time not goes on.")
+                self.log("ERROR", "TimeProvider rejected time advancement")
             return False
 
-        else:
-            # time > self.now
-            # Go next frame
-            old = self._now
-            self._now = time
-            if has_log:
-                self.log("DEBUG", f"{type(self).__name__} Time Elapses: {old} --> {self.now}")
-            console.print(f":swimmer: {type(self).__name__} Time Elapses: {old} --> {self.now}")
+        # 同步更新current_timestamp（用于兼容性）
+        self.current_timestamp = self._time_provider.now()
 
-            # Call time advance hook for subclass-specific processing
-            self._on_time_advance(time)
-            return True
+        # 调用时间推进钩子
+        self._on_time_advance(time)
+        return True
 
     def is_before(self, other_time: any) -> bool:
         """
@@ -184,14 +173,14 @@ class TimeMixin:
         Returns:
             bool: True if current time is before other_time
         """
-        if self._now is None:
+        if self.current_timestamp is None:
             return True  # No time set means we're before any time
 
         other_time = datetime_normalize(other_time)
         if other_time is None:
             return False
 
-        return self._now < other_time
+        return self.current_timestamp < other_time
 
     def is_after(self, other_time: any) -> bool:
         """
@@ -202,14 +191,14 @@ class TimeMixin:
         Returns:
             bool: True if current time is after other_time
         """
-        if self._now is None:
+        if self.current_timestamp is None:
             return False  # No time set means we're not after any time
 
         other_time = datetime_normalize(other_time)
         if other_time is None:
             return True
 
-        return self._now > other_time
+        return self.current_timestamp > other_time
 
     def time_elapsed_since(self, start_time: any) -> datetime.timedelta:
         """
@@ -220,14 +209,14 @@ class TimeMixin:
         Returns:
             timedelta: Time elapsed since start_time
         """
-        if self._now is None:
+        if self.current_timestamp is None:
             raise ValueError("Current time not set, cannot calculate elapsed time")
 
         start_time = datetime_normalize(start_time)
         if start_time is None:
             raise ValueError("Invalid start_time format")
 
-        return self._now - start_time
+        return self.current_timestamp - start_time
 
     def can_advance_to(self, target_time: any) -> bool:
         """
@@ -242,17 +231,17 @@ class TimeMixin:
         if target_time is None:
             return False
 
-        if self._now is None:
+        if self.current_timestamp is None:
             return True  # Can advance from None to any valid time
 
-        return target_time >= self._now
+        return target_time >= self.current_timestamp
 
     def reset_time(self) -> None:
         """
         Reset time state to None.
         Useful for testing or restarting time progression.
         """
-        self._now = None
+        self.current_timestamp = None
 
     def _on_time_advance(self, new_time: datetime.datetime) -> None:
         """
@@ -326,11 +315,14 @@ class TimeMixin:
     def get_current_time(self) -> Optional[datetime.datetime]:
         """
         获取当前时间（ITimeAwareComponent接口）
+        直接从TimeProvider获取时间
 
         Returns:
             Optional[datetime.datetime]: 当前时间，如果未设置则返回None
         """
-        return self._now
+        if self._time_provider is None:
+            return None
+        return self._time_provider.now()
 
     # ==================== 时间边界验证（带缓存） ====================
 

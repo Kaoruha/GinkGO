@@ -97,6 +97,26 @@ class BaseEngine(BacktestBase, ABC):
         """获取当前运行会话ID"""
         return self._run_id
 
+    def generate_run_id(self, force: bool = False) -> str:
+        """
+        生成新的运行会话ID
+
+        Args:
+            force (bool): 是否强制生成新的run_id（即使当前已存在）
+
+        Returns:
+            str: 生成的run_id
+        """
+        from ..core.identity import IdentityUtils
+
+        # 只有在强制生成或当前run_id为空时才生成新的
+        if force or self._run_id is None:
+            self._run_sequence += 1
+            self._run_id = IdentityUtils.generate_run_id(self._engine_id, self._run_sequence)
+            self.log("INFO", f"Generated new run_id: {self._run_id} for engine_id={self.engine_id}")
+
+        return self._run_id
+
     def start(self) -> bool:
         """
         启动引擎
@@ -116,8 +136,7 @@ class BaseEngine(BacktestBase, ABC):
             # 判断是否需要生成新会话
             if self._run_id is None or self._state == ENGINESTATUS_TYPES.STOPPED:
                 # 生成新会话
-                self._run_sequence += 1
-                self._run_id = IdentityUtils.generate_run_id(self._engine_id, self._run_sequence)
+                self.generate_run_id()
                 self.log("INFO", f"Engine '{self.name}' started new session: engine_id={self.engine_id}, run_id={self.run_id}")
             else:
                 # 从暂停状态恢复，保持原有run_id
