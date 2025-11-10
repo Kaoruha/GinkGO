@@ -1,6 +1,6 @@
 from typing import List, Dict
 from decimal import Decimal
-from ginkgo.trading.risk_managementss.base_risk import BaseRiskManagement
+from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.events import EventPriceUpdate

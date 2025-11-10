@@ -1,4 +1,4 @@
-from ginkgo.trading.risk_managementss.base_risk import BaseRiskManagement
+from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 
 
 class NoRiskManagement(BaseRiskManagement):
