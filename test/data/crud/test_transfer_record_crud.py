@@ -286,9 +286,7 @@ class TestTransferRecordCRUDQuery:
         try:
             # 查询特定投资组合的转账记录
             print("→ 查询投资组合 test_portfolio_001 的转账记录...")
-            portfolio_transfers = transfer_crud.find(filters={
-                "portfolio_id": "test_portfolio_001"
-            })
+            portfolio_transfers = transfer_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(portfolio_transfers)} 条记录")
 
             # 验证查询结果

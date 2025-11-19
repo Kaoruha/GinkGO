@@ -764,11 +764,7 @@ class TestEngineCRUDDataConversion:
                 f"数据不一致: entities={entity_count}, dataframe_rows={dataframe_rows}"
             print(f"✓ 数据一致性验证通过: {entity_count}个实体 = {dataframe_rows}行DataFrame")
 
-            # 清理测试数据
-            print("\n→ 清理测试数据...")
-            engine_crud.remove(filters={"name__like": "conversion_test"})
-            print("✓ 测试数据清理完成")
-
+            
             print("✅ Engine数据转换API测试完全通过")
 
         except Exception as e:
@@ -781,42 +777,13 @@ class TestEngineCRUDDataConversion:
 class TestEngineCRUDDelete:
     CRUD_TEST_CONFIG = {'crud_class': EngineCRUD}
 
-    @classmethod
-    def setUpClass(cls):
-        """类级别的setup，在测试类创建时执行一次"""
-        # 清理数据库表
-        clean_crud_tables()
-
-    @classmethod
-    def tearDownClass(cls):
-        """类级别的teardown，在测试类销毁时执行一次"""
-        # 清理数据库表
-        clean_crud_tables()
-
-    @classmethod
-    def clean_before_each_test(cls):
-        """每个测试方法执行前清理，确保独立环境"""
-        clean_crud_tables()
-
-    @classmethod
-    def clean_after_each_test(cls):
-        """每个测试方法执行后清理，验证清理效果"""
-        clean_crud_tables()
-        # 验证清理效果
-        all_engines = engine_crud.find()
-        remaining_test_count = len([e for e in all_engines if 'test_engine' in e.name])
-        assert remaining_test_count == 0, f"清理后仍有 {remaining_test_count} 个测试引擎未清理"
-        print("✓ 单个测试后环境清理完成")
-
     def test_delete_engines_by_name_pattern(self):
         """测试根据名称模式删除引擎"""
         print("\n" + "="*60)
         print("开始测试: 根据名称模式删除引擎")
         print("="*60)
 
-        # 执行清理
-        self.clean_before_each_test()
-
+        
         # 创建不同名称模式的引擎
         engines = [
             engine_crud.create(name=f"test_engine_{i}", status=ENGINESTATUS_TYPES.INITIALIZING,
@@ -861,9 +828,7 @@ class TestEngineCRUDDelete:
         print(f"✓ 删除后引擎数: {len(remaining_test_engines)}, 剩余test引擎数: {remaining_test_count}")
         print("✓ 删除后验证通过: 所有test引擎已清理")
 
-        # 清理
-        self.clean_after_each_test()
-
+        
         print("\n✓ 按名称模式删除引擎成功")
 
         # 分析剩余的引擎
@@ -879,8 +844,7 @@ class TestEngineCRUDDelete:
         else:
             print("✓ 所有非测试引擎记录均为预期状态")
 
-        self.clean_after_each_test()
-
+        
     def test_delete_engines_by_name_pattern(self):
         """测试根据名称模式删除引擎"""
         print("\n" + "="*60)

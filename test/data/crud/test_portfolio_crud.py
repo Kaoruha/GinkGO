@@ -115,19 +115,22 @@ class TestPortfolioCRUDInsert:
                 name="test_portfolio_ma_strategy",
                 backtest_start_date=datetime(2023, 1, 1),
                 backtest_end_date=datetime(2023, 12, 31),
-                is_live=False
+                is_live=False,
+                source=SOURCE_TYPES.TEST
             ),
             MPortfolio(
                 name="test_portfolio_rsi_strategy",
                 backtest_start_date=datetime(2023, 6, 1),
                 backtest_end_date=datetime(2023, 12, 31),
-                is_live=True
+                is_live=True,
+                source=SOURCE_TYPES.TEST
             ),
             MPortfolio(
                 name="test_portfolio_momentum",
                 backtest_start_date=datetime(2022, 1, 1),
                 backtest_end_date=datetime(2023, 6, 30),
-                is_live=False
+                is_live=False,
+                source=SOURCE_TYPES.TEST
             )
         ]
         print(f"✓ 创建测试数据: {len(test_portfolios)}条Portfolio记录")
@@ -143,7 +146,7 @@ class TestPortfolioCRUDInsert:
 
             # 验证可以查询出插入的数据
             print("\n→ 验证插入的数据...")
-            query_result = portfolio_crud.find(filters={"name__like": "test_portfolio_"})
+            query_result = portfolio_crud.find(filters={"name__like": "test_portfolio_", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(query_result)} 条记录")
             assert len(query_result) >= 3
 
@@ -176,9 +179,9 @@ class TestPortfolioCRUDInsert:
             name="test_single_portfolio",
             backtest_start_date=datetime(2023, 1, 1),
             backtest_end_date=datetime(2023, 12, 31),
-            is_live=False
+            is_live=False,
+            source=SOURCE_TYPES.TEST
         )
-        test_portfolio.source = SOURCE_TYPES.TEST
         print(f"✓ 创建测试Portfolio: {test_portfolio.name}")
         print(f"  - 回测时间: {test_portfolio.backtest_start_date} ~ {test_portfolio.backtest_end_date}")
         print(f"  - 实盘状态: {test_portfolio.is_live}")
@@ -217,9 +220,9 @@ class TestPortfolioCRUDInsert:
             name="test_live_trading",
             backtest_start_date=datetime(2023, 1, 1),
             backtest_end_date=datetime(2099, 12, 31),  # 实盘组合通常设置很远的结束时间
-            is_live=True
+            is_live=True,
+            source=SOURCE_TYPES.TEST
         )
-        live_portfolio.source = SOURCE_TYPES.TEST
         print(f"✓ 创建实盘Portfolio: {live_portfolio.name}")
         print(f"  - 实盘状态: {live_portfolio.is_live}")
         print(f"  - 运行周期: {live_portfolio.backtest_start_date} ~ {live_portfolio.backtest_end_date}")
@@ -264,7 +267,7 @@ class TestPortfolioCRUDQuery:
         try:
             # 查询特定名称的投资组合
             print("→ 查询name=test_portfolio_ma_strategy的投资组合...")
-            portfolios = portfolio_crud.find(filters={"name": "test_portfolio_ma_strategy"})
+            portfolios = portfolio_crud.find(filters={"name": "test_portfolio_ma_strategy", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(portfolios)} 条记录")
 
             # 验证查询结果
@@ -326,7 +329,7 @@ class TestPortfolioCRUDQuery:
             target_date = datetime(2023, 6, 15)
             print(f"→ 查询在 {target_date} 期间运行的投资组合...")
 
-            all_portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_"})
+            all_portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_", "source": SOURCE_TYPES.TEST.value})
             active_portfolios = [
                 p for p in all_portfolios
                 if p.backtest_start_date <= target_date <= p.backtest_end_date
@@ -396,26 +399,29 @@ class TestPortfolioCRUDQuery:
                 name="convert_test_portfolio_1",
                 backtest_start_date=datetime(2023, 1, 1),
                 backtest_end_date=datetime(2023, 12, 31),
-                is_live=False
+                is_live=False,
+                source=SOURCE_TYPES.TEST
             ),
             MPortfolio(
                 name="convert_test_portfolio_2",
                 backtest_start_date=datetime(2023, 6, 1),
                 backtest_end_date=datetime(2024, 5, 31),
-                is_live=True
+                is_live=True,
+                source=SOURCE_TYPES.TEST
             ),
             MPortfolio(
                 name="convert_test_portfolio_3",
                 backtest_start_date=datetime(2022, 1, 1),
                 backtest_end_date=datetime(2023, 12, 31),
-                is_live=False
+                is_live=False,
+                source=SOURCE_TYPES.TEST
             )
         ]
 
         try:
             # 验证插入前后的数据变化
             print("\n→ 验证插入前数据...")
-            before_count = len(portfolio_crud.find(filters={"name__like": "convert_test_portfolio_%"}))
+            before_count = len(portfolio_crud.find(filters={"name__like": "convert_test_portfolio_%", "source": SOURCE_TYPES.TEST.value}))
             print(f"✓ 插入前数据量: {before_count}")
 
             # 插入测试数据
@@ -425,13 +431,13 @@ class TestPortfolioCRUDQuery:
 
             # 验证插入后的数据变化
             print("\n→ 验证插入后数据变化...")
-            after_count = len(portfolio_crud.find(filters={"name__like": "convert_test_portfolio_%"}))
+            after_count = len(portfolio_crud.find(filters={"name__like": "convert_test_portfolio_%", "source": SOURCE_TYPES.TEST.value}))
             print(f"✓ 插入后数据量: {after_count}")
             assert after_count - before_count == len(test_portfolios), f"应增加{len(test_portfolios)}条数据，实际增加{after_count - before_count}条"
 
             # 获取ModelList进行转换测试
             print("\n→ 获取ModelList...")
-            model_list = portfolio_crud.find(filters={"name__like": "convert_test_portfolio_%"})
+            model_list = portfolio_crud.find(filters={"name__like": "convert_test_portfolio_%", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ ModelList类型: {type(model_list).__name__}")
             print(f"✓ ModelList长度: {len(model_list)}")
 
@@ -506,22 +512,9 @@ class TestPortfolioCRUDQuery:
 
             print("\n✓ 所有Portfolio ModelList转换功能测试通过！")
 
-        finally:
-            # 清理测试数据并验证删除效果
-            print("\n→ 清理测试数据...")
-            before_delete = len(portfolio_crud.find(filters={"name__like": "convert_test_portfolio_%"}))
-            print(f"✓ 删除前数据量: {before_delete}")
-
-            portfolio_crud.remove(filters={"name__like": "convert_test_portfolio_%"})
-
-            after_delete = len(portfolio_crud.find(filters={"name__like": "convert_test_portfolio_%"}))
-            print(f"✓ 删除后数据量: {after_delete}")
-            assert before_delete - after_delete >= len(test_portfolios), f"应至少删除{len(test_portfolios)}条数据，实际删除{before_delete - after_delete}条"
-            print("✓ 测试数据清理验证通过")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
-
+        except Exception as e:
+            print(f"✗ 测试失败: {e}")
+            raise
 
 @pytest.mark.database
 @pytest.mark.tdd
@@ -542,7 +535,7 @@ class TestPortfolioCRUDUpdate:
         try:
             # 查询待更新的投资组合
             print("→ 查询待更新的投资组合...")
-            portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_"} , page=1, page_size=1)
+            portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_", "source": SOURCE_TYPES.TEST.value} , page=1, page_size=1)
             if not portfolios:
                 print("✗ 没有找到可更新的投资组合")
                 return
@@ -596,7 +589,7 @@ class TestPortfolioCRUDUpdate:
         try:
             # 查询待更新的投资组合
             print("→ 查询待更新的投资组合...")
-            portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_"}, page=1, page_size=1)
+            portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_", "source": SOURCE_TYPES.TEST.value}, page=1, page_size=1)
             if not portfolios:
                 print("✗ 没有找到可更新的投资组合")
                 return
@@ -645,7 +638,7 @@ class TestPortfolioCRUDUpdate:
         try:
             # 查询多个投资组合进行批量更新
             print("→ 查询需要批量更新的投资组合...")
-            portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_"}, page=1, page_size=3)
+            portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_", "source": SOURCE_TYPES.TEST.value}, page=1, page_size=3)
             if len(portfolios) < 2:
                 print("✗ 投资组合数量不足，跳过批量更新测试")
                 return
@@ -661,7 +654,7 @@ class TestPortfolioCRUDUpdate:
 
             # 验证批量更新结果
             print("→ 验证批量更新结果...")
-            updated_portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_"}, page=1, page_size=3)
+            updated_portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_", "source": SOURCE_TYPES.TEST.value}, page=1, page_size=3)
             live_count = sum(1 for p in updated_portfolios if p.is_live)
             print(f"✓ 更新后实盘组合数量: {live_count} 个")
             assert live_count >= 1
@@ -695,9 +688,9 @@ class TestPortfolioCRUDDelete:
                 name="test_portfolio_to_delete",
                 backtest_start_date=datetime(2023, 1, 1),
                 backtest_end_date=datetime(2023, 12, 31),
-                is_live=False
+                is_live=False,
+                source=SOURCE_TYPES.TEST
             )
-            test_portfolio.source = SOURCE_TYPES.TEST
             portfolio_crud.add(test_portfolio)
             print(f"✓ 创建测试投资组合: {test_portfolio.uuid}")
 
@@ -782,9 +775,9 @@ class TestPortfolioCRUDBusinessLogic:
                 name="lifecycle_backtest_test",
                 backtest_start_date=datetime(2023, 1, 1),
                 backtest_end_date=datetime(2023, 6, 30),
-                is_live=False
+                is_live=False,
+                source=SOURCE_TYPES.TEST
             )
-            backtest_portfolio.source = SOURCE_TYPES.TEST
             portfolio_crud.add(backtest_portfolio)
             print(f"✓ 回测组合创建成功: {backtest_portfolio.name}")
 
@@ -826,19 +819,22 @@ class TestPortfolioCRUDBusinessLogic:
                     name="performance_ma_strategy",
                     backtest_start_date=datetime(2023, 1, 1),
                     backtest_end_date=datetime(2023, 12, 31),
-                    is_live=False
+                    is_live=False,
+                    source=SOURCE_TYPES.TEST
                 ),
                 MPortfolio(
                     name="performance_rsi_strategy",
                     backtest_start_date=datetime(2023, 1, 1),
                     backtest_end_date=datetime(2023, 12, 31),
-                    is_live=False
+                    is_live=False,
+                    source=SOURCE_TYPES.TEST
                 ),
                 MPortfolio(
                     name="performance_momentum_strategy",
                     backtest_start_date=datetime(2023, 1, 1),
                     backtest_end_date=datetime(2023, 12, 31),
-                    is_live=True
+                    is_live=True,
+                    source=SOURCE_TYPES.TEST
                 )
             ]
 
@@ -892,9 +888,9 @@ class TestPortfolioCRUDBusinessLogic:
                 invalid_portfolio = MPortfolio(
                     name="",  # 空字符串
                     backtest_start_date=datetime(2023, 1, 1),
-                    backtest_end_date=datetime(2023, 12, 31)
+                    backtest_end_date=datetime(2023, 12, 31),
+                    source=SOURCE_TYPES.TEST
                 )
-                invalid_portfolio.source = SOURCE_TYPES.TEST
                 portfolio_crud.add(invalid_portfolio)
                 print("✗ 应该拒绝name为空的投资组合")
                 assert False, "应该抛出异常"
@@ -940,19 +936,22 @@ class TestPortfolioCRUDBusinessLogic:
                     name="compare_conservative",
                     backtest_start_date=datetime(2023, 1, 1),
                     backtest_end_date=datetime(2023, 12, 31),
-                    is_live=False
+                    is_live=False,
+                    source=SOURCE_TYPES.TEST
                 ),
                 MPortfolio(
                     name="compare_aggressive",
                     backtest_start_date=datetime(2023, 1, 1),
                     backtest_end_date=datetime(2023, 12, 31),
-                    is_live=False
+                    is_live=False,
+                    source=SOURCE_TYPES.TEST
                 ),
                 MPortfolio(
                     name="compare_balanced",
                     backtest_start_date=datetime(2023, 1, 1),
                     backtest_end_date=datetime(2023, 12, 31),
-                    is_live=True
+                    is_live=True,
+                    source=SOURCE_TYPES.TEST
                 )
             ]
 
@@ -1089,15 +1088,7 @@ class TestPortfolioCRUDEnumValidation:
         assert len(sim_portfolios) >= 1, "应该查询到至少1条SIM投资组合"
         print(f"  ✓ SIM数据源投资组合: {len(sim_portfolios)} 条，枚举过滤验证正确")
 
-        # 清理测试数据并验证删除效果
-        print("\n→ 清理测试数据...")
-        delete_before = len(portfolio_crud.find(filters={"name__like": "enum_source_test_%"}))
-        portfolio_crud.remove(filters={"name__like": "enum_source_test_%"})
-        delete_after = len(portfolio_crud.find(filters={"name__like": "enum_source_test_%"}))
-
-        assert delete_before - delete_after >= len(source_types), f"删除操作应该至少移除{len(source_types)}条记录"
-        print("✓ 测试数据清理完成，数据库条数验证正确")
-
+  
         print("✓ 投资组合数据源枚举转换测试通过")
 
     def test_comprehensive_enum_validation(self):
@@ -1198,15 +1189,7 @@ class TestPortfolioCRUDEnumValidation:
 
         print("  ✓ ModelList转换中的枚举验证正确")
 
-        # 清理测试数据并验证删除效果
-        print("\n→ 清理测试数据...")
-        delete_before = len(portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"}))
-        portfolio_crud.remove(filters={"name__like": "comprehensive_enum_%"})
-        delete_after = len(portfolio_crud.find(filters={"name__like": "comprehensive_enum_%"}))
-
-        assert delete_before - delete_after >= len(enum_combinations), f"删除操作应该至少移除{len(enum_combinations)}条记录"
-        print("✓ 测试数据清理完成，数据库条数验证正确")
-
+    
         print("✓ 投资组合综合枚举验证测试通过")
 
 

@@ -243,7 +243,7 @@ class TestCompleteComponentChainIntegration:
 
         # 创建撮合引擎
         self.broker = MockSimpleBroker()
-        self.matchmaking = BrokerMatchMaking(
+        self.matchmaking = Router(
             broker=self.broker,
             name="CompleteChainMatchMaking",
             async_runtime_enabled=False

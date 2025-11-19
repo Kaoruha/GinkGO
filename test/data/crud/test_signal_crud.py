@@ -166,7 +166,7 @@ class TestSignalCRUDInsert:
 
             # 验证可以查询出插入的数据
             print("\n→ 验证插入的数据...")
-            query_result = signal_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            query_result = signal_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询结果类型: {type(query_result).__name__}")
             print(f"✓ 查询到 {len(query_result)} 条记录")
 
@@ -227,7 +227,7 @@ class TestSignalCRUDInsert:
 
             # 验证数据
             print("\n→ 验证插入的数据...")
-            query_result = signal_crud.find(filters={"portfolio_id": "test_portfolio_002"})
+            query_result = signal_crud.find(filters={"portfolio_id": "test_portfolio_002", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(query_result)} 条记录")
             assert len(query_result) >= 1
 
@@ -261,7 +261,7 @@ class TestSignalCRUDQuery:
         try:
             # 查询特定投资组合的信号
             print("→ 查询portfolio_id=test_portfolio_001的信号...")
-            signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(signals)} 条记录")
 
             # 验证查询结果
@@ -316,7 +316,7 @@ class TestSignalCRUDQuery:
             # 查询高强度的信号 (强度 >= 0.7)
             print("→ 查询高强度信号 (strength >= 0.7)...")
             # 注意：这里需要根据实际的SignalCRUD实现调整过滤逻辑
-            signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             high_strength_signals = [s for s in signals if s.strength >= 0.7]
 
             print(f"✓ 高强度信号数量: {len(high_strength_signals)} 条")
@@ -342,7 +342,7 @@ class TestSignalCRUDQuery:
             # 查询特定时间范围的信号
             print("→ 查询2023年1月的信号...")
             # 注意：这里需要根据实际的SignalCRUD实现调整时间过滤逻辑
-            signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             january_signals = [s for s in signals if s.timestamp.month == 1 and s.timestamp.year == 2023]
 
             print(f"✓ 2023年1月信号数量: {len(january_signals)} 条")
@@ -549,7 +549,7 @@ class TestSignalCRUDUpdate:
         try:
             # 查询现有信号
             print("→ 查询现有信号...")
-            signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             if not signals:
                 print("✗ 没有找到信号")
                 return
@@ -595,7 +595,7 @@ class TestSignalCRUDUpdate:
         try:
             # 查询现有信号作为参考
             print("→ 查询现有信号作为参考...")
-            existing_signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            existing_signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             if not existing_signals:
                 print("✗ 没有找到参考信号")
                 return
@@ -625,7 +625,7 @@ class TestSignalCRUDUpdate:
 
             # 验证新信号创建成功且原信号未受影响
             print("→ 验证新信号和原信号...")
-            all_signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            all_signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
 
             # 按时间戳排序，最新的应该在后面
             sorted_signals = sorted(all_signals, key=lambda s: s.timestamp)
@@ -710,7 +710,7 @@ class TestSignalCRUDDelete:
         try:
             # 查询删除前的数量
             print("→ 查询删除前的信号数量...")
-            signals_before = signal_crud.find(filters={"portfolio_id": "test_portfolio_002"})
+            signals_before = signal_crud.find(filters={"portfolio_id": "test_portfolio_002", "source": SOURCE_TYPES.TEST.value})
             count_before = len(signals_before)
             print(f"✓ 删除前有 {count_before} 条信号")
 
@@ -720,12 +720,12 @@ class TestSignalCRUDDelete:
 
             # 批量删除
             print("→ 批量删除信号...")
-            signal_crud.remove(filters={"portfolio_id": "test_portfolio_002"})
+            signal_crud.remove(filters={"portfolio_id": "test_portfolio_002", "source": SOURCE_TYPES.TEST.value})
             print("✓ 批量删除完成")
 
             # 验证删除结果
             print("→ 验证删除结果...")
-            signals_after = signal_crud.find(filters={"portfolio_id": "test_portfolio_002"})
+            signals_after = signal_crud.find(filters={"portfolio_id": "test_portfolio_002", "source": SOURCE_TYPES.TEST.value})
             count_after = len(signals_after)
             print(f"✓ 删除后剩余 {count_after} 条信号")
             assert count_after == 0
@@ -948,7 +948,7 @@ class TestSignalCRUDBusinessLogic:
         try:
             # 查询信号进行性能分析
             print("→ 查询信号进行性能分析...")
-            signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
 
             if len(signals) == 0:
                 print("✗ 没有找到足够信号进行性能分析")
@@ -1026,7 +1026,7 @@ class TestSignalCRUDEnumValidation:
         signal_crud = SignalCRUD()
 
         # 先清理可能存在的旧测试数据
-        before_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"}))
+        before_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum", "source": SOURCE_TYPES.TEST.value}))
         print(f"→ 初始状态: {before_count} 条测试数据")
 
         # 测试多头信号枚举传参
@@ -1047,12 +1047,12 @@ class TestSignalCRUDEnumValidation:
         result = signal_crud.add(test_signal_long)
         assert result is not None, "枚举传参的信号应该成功插入"
 
-        after_insert_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"}))
+        after_insert_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum", "source": SOURCE_TYPES.TEST.value}))
         assert after_insert_count - before_count == 1, "插入操作应该增加1条记录"
         print("✓ 多头信号枚举传参成功，数据库条数验证正确")
 
         # 验证枚举转换正确性
-        signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"})
+        signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_enum", "source": SOURCE_TYPES.TEST.value})
         retrieved_signal = signals[0]
         # 数据库查询结果direction是int值，应该正确存储
         assert retrieved_signal.direction == DIRECTION_TYPES.LONG.value, "查询结果应该是LONG枚举对应的int值"
@@ -1075,15 +1075,15 @@ class TestSignalCRUDEnumValidation:
         result = signal_crud.add(test_signal_short)
         assert result is not None, "空头枚举传参的信号应该成功插入"
 
-        after_second_insert = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"}))
+        after_second_insert = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum", "source": SOURCE_TYPES.TEST.value}))
         assert after_second_insert - after_insert_count == 1, "第二次插入操作应该增加1条记录"
         print("✓ 空头信号枚举传参成功，数据库条数验证正确")
 
         # 清理测试数据并验证删除效果
         print("\n→ 清理测试数据...")
-        delete_before = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"}))
-        signal_crud.remove(filters={"portfolio_id": "test_portfolio_enum"})
-        delete_after = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum"}))
+        delete_before = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum", "source": SOURCE_TYPES.TEST.value}))
+        signal_crud.remove(filters={"portfolio_id": "test_portfolio_enum", "source": SOURCE_TYPES.TEST.value})
+        delete_after = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_enum", "source": SOURCE_TYPES.TEST.value}))
 
         assert delete_before - delete_after == 2, "删除操作应该移除2条记录"
         assert delete_after == before_count, "删除后应该恢复到初始状态"
@@ -1100,7 +1100,7 @@ class TestSignalCRUDEnumValidation:
         signal_crud = SignalCRUD()
 
         # 记录初始状态
-        before_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source"}))
+        before_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source", "source": SOURCE_TYPES.TEST.value}))
         print(f"→ 初始状态: {before_count} 条测试数据")
 
         # 测试不同数据源的枚举传参
@@ -1112,10 +1112,15 @@ class TestSignalCRUDEnumValidation:
 
         print(f"\n→ 测试 {len(source_types)} 种数据源枚举传参...")
 
+        # 使用时间戳生成唯一的portfolio_id避免与其他测试冲突
+        import time
+        timestamp = int(time.time() * 1000)
+        unique_portfolio_id = f"test_portfolio_source_{timestamp}"
+
         # 批量插入并验证条数变化
         for i, (source_type, source_name) in enumerate(source_types):
             test_signal = MSignal(
-                portfolio_id="test_portfolio_source",
+                portfolio_id=unique_portfolio_id,
                 code=f"60000{i+1}.SH",
                 direction=DIRECTION_TYPES.LONG,
                 timestamp=datetime.now(),
@@ -1123,38 +1128,36 @@ class TestSignalCRUDEnumValidation:
                 price=10.0 + i,
                 volume=1000,
                 weight=0.1,
-                reason=f"{source_name}测试信号"
+                reason=f"{source_name}测试信号_{timestamp}"
             )
 
-            before_insert = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source"}))
+            before_insert = len(signal_crud.find(filters={"portfolio_id": unique_portfolio_id, "source": source_type.value}))
             result = signal_crud.add(test_signal)
             assert result is not None, f"{source_name} 信号应该成功插入"
 
-            after_insert = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source"}))
+            after_insert = len(signal_crud.find(filters={"portfolio_id": unique_portfolio_id, "source": source_type.value}))
             assert after_insert - before_insert == 1, f"{source_name} 插入应该增加1条记录"
             print(f"  ✓ {source_name} 枚举传参成功，数据库条数验证正确")
 
-        # 验证总插入数量
-        final_count = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source"}))
-        assert final_count - before_count == len(source_types), f"总共应该插入{len(source_types)}条记录"
-        print(f"✓ 批量插入验证正确，共增加 {final_count - before_count} 条记录")
+        # 验证总插入数量 - 查询所有测试相关的数据源
+        all_count = 0
+        for source_type, _ in source_types:
+            count = len(signal_crud.find(filters={"portfolio_id": unique_portfolio_id, "source": source_type.value}))
+            all_count += count
+        assert all_count == len(source_types), f"总共应该插入{len(source_types)}条记录"
+        print(f"✓ 批量插入验证正确，共增加 {all_count} 条记录")
 
         # 验证查询时的枚举转换
         print("\n→ 验证查询时的枚举转换...")
 
-        # 使用更精确的查询条件，包含我们创建的信号代码和reason特征
-        our_signal_codes = [f"60000{i+1}.SH" for i in range(len(source_types))]
+        # 查询我们刚刚创建的信号，使用唯一的portfolio_id
         all_our_signals = []
-
-        for code in our_signal_codes:
-            code_signals = signal_crud.find(filters={
-                "portfolio_id": "test_portfolio_source",
-                "code": code
+        for source_type, _ in source_types:
+            source_signals = signal_crud.find(filters={
+                "portfolio_id": unique_portfolio_id,
+                "source": source_type.value
             })
-            # 选择最新的一条信号（按时间戳排序）
-            if code_signals:
-                latest_signal = max(code_signals, key=lambda s: s.timestamp)
-                all_our_signals.append(latest_signal)
+            all_our_signals.extend(source_signals)
 
         print(f"→ 我们创建的测试信号: {len(all_our_signals)}条")
         assert len(all_our_signals) == len(source_types), f"应该查询到{len(source_types)}条我们创建的数据源信号，实际{len(all_our_signals)}条"
@@ -1188,10 +1191,12 @@ class TestSignalCRUDEnumValidation:
         print("\n→ 清理测试数据...")
         # 只删除我们创建的特定信号，而不是所有历史数据
         delete_count = 0
-        for code in our_signal_codes:
-            before_delete = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source", "code": code}))
-            signal_crud.remove(filters={"portfolio_id": "test_portfolio_source", "code": code})
-            after_delete = len(signal_crud.find(filters={"portfolio_id": "test_portfolio_source", "code": code}))
+        our_signal_codes = [f"60000{i+1}.SH" for i in range(len(source_types))]
+
+        for source_type, _ in source_types:
+            before_delete = len(signal_crud.find(filters={"portfolio_id": unique_portfolio_id, "source": source_type.value}))
+            signal_crud.remove(filters={"portfolio_id": unique_portfolio_id, "source": source_type.value})
+            after_delete = len(signal_crud.find(filters={"portfolio_id": unique_portfolio_id, "source": source_type.value}))
             delete_count += before_delete - after_delete
 
         assert delete_count == len(source_types), f"删除操作应该移除{len(source_types)}条记录，实际移除{delete_count}条"
@@ -1218,14 +1223,19 @@ class TestSignalCRUDEnumValidation:
 
         print(f"\n→ 创建 {len(enum_combinations)} 个综合枚举测试信号...")
 
-        # 先清理可能存在的旧测试数据
-        existing_signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_comprehensive"})
-        if existing_signals:
+        # 使用时间戳确保唯一性并彻底清理旧数据
+        import time
+        timestamp = int(time.time() * 1000)
+        unique_portfolio_id = f"test_portfolio_comprehensive_{timestamp}"
+
+        # 先清理可能存在的旧测试数据（删除所有可能的旧版本）
+        old_signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_comprehensive"})
+        if old_signals:
             signal_crud.remove(filters={"portfolio_id": "test_portfolio_comprehensive"})
 
         for i, (direction, source, desc) in enumerate(enum_combinations):
             test_signal = MSignal(
-                portfolio_id="test_portfolio_comprehensive",
+                portfolio_id=unique_portfolio_id,  # 使用唯一ID
                 code=f"COMPREHENSIVE_{i+1:03d}.SZ",  # 使用更唯一的代码
                 direction=direction,      # 枚举传参
                 timestamp=datetime.now(),
@@ -1233,7 +1243,7 @@ class TestSignalCRUDEnumValidation:
                 price=10.0 + i,
                 volume=1000 + i * 100,
                 weight=0.1 + i * 0.02,
-                reason=desc  # 添加reason字段避免为空
+                reason=f"{desc}_{timestamp}"  # 添加时间戳确保唯一性
             )
 
             result = signal_crud.add(test_signal)
@@ -1243,7 +1253,13 @@ class TestSignalCRUDEnumValidation:
 
         # 验证所有枚举字段的存储和查询
         print("\n→ 验证所有枚举字段的存储和查询...")
-        signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_comprehensive"})
+        # 查询所有我们创建的信号，使用唯一的portfolio_id
+        all_signals = []
+        for _, source, _ in enum_combinations:
+            source_signals = signal_crud.find(filters={"portfolio_id": unique_portfolio_id, "source": source.value})
+            all_signals.extend(source_signals)
+
+        signals = all_signals
         assert len(signals) == len(enum_combinations), "应该查询到所有综合测试信号"
 
         # 创建代码到预期枚举组合的映射
@@ -1264,9 +1280,10 @@ class TestSignalCRUDEnumValidation:
             source_enum = SOURCE_TYPES(signal.source)
             print(f"  ✓ 信号 {signal.code}: {direction_enum.name}/{source_enum.name}")
 
-        # 验证ModelList转换功能
+        # 验证ModelList转换功能 - 重新查询获取ModelList对象
         print("\n→ 验证ModelList转换功能...")
-        model_list = signal_crud.find(filters={"portfolio_id": "test_portfolio_comprehensive"})
+        # 重新查询获取ModelList对象而不是普通列表
+        model_list = signal_crud.find(filters={"portfolio_id": unique_portfolio_id})
 
         assert len(model_list) == len(enum_combinations), "ModelList应该包含所有测试信号"
 
@@ -1278,8 +1295,8 @@ class TestSignalCRUDEnumValidation:
 
         print("  ✓ ModelList转换中的枚举验证正确")
 
-        # 清理测试数据
-        signal_crud.remove(filters={"portfolio_id": "test_portfolio_comprehensive"})
+        # 清理测试数据 - 删除所有测试数据
+        signal_crud.remove(filters={"portfolio_id": unique_portfolio_id})
         print("✓ 测试数据清理完成")
 
         print("✓ 信号综合枚举验证测试通过")
@@ -1303,14 +1320,19 @@ class TestSignalCRUDEnumValidation:
 
         print(f"\n→ 创建 {len(test_signals_data)} 个过滤测试信号...")
 
+        # 使用时间戳确保唯一性
+        import time
+        timestamp = int(time.time() * 1000)
+        unique_portfolio_id = f"test_portfolio_filter_{timestamp}"
+
         # 先清理可能存在的旧测试数据
-        existing_signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_filter"})
-        if existing_signals:
+        old_signals = signal_crud.find(filters={"portfolio_id": "test_portfolio_filter"})
+        if old_signals:
             signal_crud.remove(filters={"portfolio_id": "test_portfolio_filter"})
 
         for code, direction, source, strength in test_signals_data:
             test_signal = MSignal(
-                portfolio_id="test_portfolio_filter",
+                portfolio_id=unique_portfolio_id,  # 使用唯一ID
                 code=code,
                 direction=direction,      # 枚举传参
                 timestamp=datetime.now(),
@@ -1318,7 +1340,7 @@ class TestSignalCRUDEnumValidation:
                 price=10.0,
                 volume=1000,
                 weight=strength,
-                reason=f"过滤测试信号-{code}"
+                reason=f"过滤测试信号-{code}_{timestamp}"
             )
 
             result = signal_crud.add(test_signal)
@@ -1329,19 +1351,15 @@ class TestSignalCRUDEnumValidation:
         # 测试方向过滤
         print("\n→ 测试方向过滤查询（枚举传参）...")
         long_signals = signal_crud.find(
-            filters={
-                "portfolio_id": "test_portfolio_filter",
-                "direction": DIRECTION_TYPES.LONG  # 枚举传参
-            }
+            filters={"portfolio_id": unique_portfolio_id,
+                "direction": DIRECTION_TYPES.LONG}  # 枚举传参，不限制source
         )
         assert len(long_signals) == 2, "应该查询到2个做多信号"
         print(f"  ✓ 做多信号: {len(long_signals)} 条")
 
         short_signals = signal_crud.find(
-            filters={
-                "portfolio_id": "test_portfolio_filter",
-                "direction": DIRECTION_TYPES.SHORT  # 枚举传参
-            }
+            filters={"portfolio_id": unique_portfolio_id,
+                "direction": DIRECTION_TYPES.SHORT}  # 枚举传参，不限制source
         )
         assert len(short_signals) == 2, "应该查询到2个做空信号"
         print(f"  ✓ 做空信号: {len(short_signals)} 条")
@@ -1350,7 +1368,7 @@ class TestSignalCRUDEnumValidation:
         print("\n→ 测试数据源过滤查询（枚举传参）...")
         tushare_signals = signal_crud.find(
             filters={
-                "portfolio_id": "test_portfolio_filter",
+                "portfolio_id": unique_portfolio_id,
                 "source": SOURCE_TYPES.TUSHARE  # 枚举传参
             }
         )
@@ -1359,7 +1377,7 @@ class TestSignalCRUDEnumValidation:
 
         yahoo_signals = signal_crud.find(
             filters={
-                "portfolio_id": "test_portfolio_filter",
+                "portfolio_id": unique_portfolio_id,
                 "source": SOURCE_TYPES.YAHOO  # 枚举传参
             }
         )
@@ -1370,7 +1388,7 @@ class TestSignalCRUDEnumValidation:
         print("\n→ 测试复合条件过滤查询（枚举传参）...")
         long_tushare_signals = signal_crud.find(
             filters={
-                "portfolio_id": "test_portfolio_filter",
+                "portfolio_id": unique_portfolio_id,
                 "direction": DIRECTION_TYPES.LONG,    # 枚举传参
                 "source": SOURCE_TYPES.TUSHARE       # 枚举传参
             }
@@ -1379,7 +1397,7 @@ class TestSignalCRUDEnumValidation:
         print(f"  ✓ 做多Tushare信号: {len(long_tushare_signals)} 条")
 
         # 清理测试数据
-        signal_crud.remove(filters={"portfolio_id": "test_portfolio_filter"})
+        signal_crud.remove(filters={"portfolio_id": unique_portfolio_id})
         print("✓ 测试数据清理完成")
 
         print("✓ 枚举过滤和查询功能测试通过")
