@@ -92,11 +92,9 @@ class TestTransferCRUDInsert:
         try:
             # 查询插入前的数据数量
             print("\n→ 查询插入前的数据数量...")
-            before_count = len(transfer_crud.find(filters={
-                "portfolio_id": "test_portfolio_001",
+            before_count = len(transfer_crud.find(filters={"portfolio_id": "test_portfolio_001",
                 "timestamp__gte": base_time,
-                "timestamp__lte": base_time + timedelta(hours=2)
-            }))
+                "timestamp__lte": base_time + timedelta(hours=2), "source": SOURCE_TYPES.TEST.value}))
             print(f"✓ 插入前数据数量: {before_count} 条")
 
             # 批量插入
@@ -106,11 +104,9 @@ class TestTransferCRUDInsert:
 
             # 验证插入后的数据增量
             print("\n→ 验证插入后的数据增量...")
-            query_result = transfer_crud.find(filters={
-                "portfolio_id": "test_portfolio_001",
+            query_result = transfer_crud.find(filters={"portfolio_id": "test_portfolio_001",
                 "timestamp__gte": base_time,
-                "timestamp__lte": base_time + timedelta(hours=2)
-            })
+                "timestamp__lte": base_time + timedelta(hours=2), "source": SOURCE_TYPES.TEST.value})
             after_count = len(query_result)
             inserted_count = after_count - before_count
             expected_count = len(test_transfers)
@@ -159,10 +155,8 @@ class TestTransferCRUDInsert:
         try:
             # 查询插入前的数据数量
             print("\n→ 查询插入前的数据数量...")
-            before_count = len(transfer_crud.find(filters={
-                "portfolio_id": "test_portfolio_002",
-                "timestamp": datetime(2023, 1, 3, 10, 30)
-            }))
+            before_count = len(transfer_crud.find(filters={"portfolio_id": "test_portfolio_002",
+                "timestamp": datetime(2023, 1, 3, 10, 30), "source": SOURCE_TYPES.TEST.value}))
             print(f"✓ 插入前数据数量: {before_count} 条")
 
             # 单条插入
@@ -172,10 +166,8 @@ class TestTransferCRUDInsert:
 
             # 验证插入后的数据增量
             print("\n→ 验证插入后的数据增量...")
-            query_result = transfer_crud.find(filters={
-                "portfolio_id": "test_portfolio_002",
-                "timestamp": datetime(2023, 1, 3, 10, 30)
-            })
+            query_result = transfer_crud.find(filters={"portfolio_id": "test_portfolio_002",
+                "timestamp": datetime(2023, 1, 3, 10, 30), "source": SOURCE_TYPES.TEST.value})
             after_count = len(query_result)
             inserted_count = after_count - before_count
             expected_count = 1
@@ -215,9 +207,7 @@ class TestTransferCRUDQuery:
         try:
             # 查询特定投资组合的资金划转记录
             print("→ 查询portfolio_id=test_portfolio_001的资金划转记录...")
-            portfolio_transfers = transfer_crud.find(filters={
-                "portfolio_id": "test_portfolio_001"
-            })
+            portfolio_transfers = transfer_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(portfolio_transfers)} 条记录")
 
             # 验证查询结果

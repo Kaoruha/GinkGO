@@ -112,16 +112,7 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs) -> str:
     Returns:
         对象的字符串表示
     """
-    # 排除的属性名
-    excluded_methods = {"delete", "query", "registry", "metadata", "to_dataframe", "value"}
-    # 根据属性名的特殊处理规则
-    special_ins_param = [
-        "engine", "matchmaking", "datafeeder", "portfolio",
-        "selector", "sizer", "data_feeder",
-    ]
-    special_list_param = ["portfolios", "strategies", "interested", "signals", "loggers", "risk_managers"]
-    special_dict_param = ["positions", "analyzers"]
-
+    methods = ["delete", "query", "registry", "metadata", "to_dataframe", "value"]
     r = []
     count = label_len if label_len else 12
 
@@ -131,61 +122,54 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs) -> str:
     mem += f"{hex(id(obj))}"
     r.append(mem)
 
-    # 遍历所有属性
     for param in obj.__dir__():
-        # 排除私有属性和方法
-        if param.startswith("_") or param in excluded_methods:
+        if param in methods:
             continue
 
-        # 单次访问属性，如果失败则跳过
-        try:
-            s = obj.__getattribute__(param)
-        except Exception:
-            # 跳过无法访问的属性
+        if param.startswith("_"):
             continue
 
-        # 排除方法和函数
-        if isinstance(s, (MethodType, FunctionType)):
+        if isinstance(obj.__getattribute__(param), MethodType):
             continue
 
-        # 构建属性行
+        if isinstance(obj.__getattribute__(param), FunctionType):
+            continue
+
         tmp = " " * (count - len(str(param)))
         tmp += f"{str(param).upper()}"
-
-        # 根据属性值进行特殊处理
+        s = obj.__getattribute__(param)
         filter_s = str(s).strip(b"\x00".decode())
-
+        
+        special_ins_param = [
+            "engine", "matchmaking", "datafeeder", "portfolio", 
+            "selector", "sizer", "data_feeder",
+        ]
+        special_list_param = ["portfolios", "strategies", "interested", "signals", "loggers", "risk_managers"]
+        special_dict_param = ["positions", "analyzers"]
+        
         if isinstance(s, pd.DataFrame):
-            # DataFrame显示形状
             filter_s = f"{str(s.shape)}"
-        elif param in special_ins_param:
-            # 特殊实例显示内存地址和名称
+        if param in special_ins_param:
             filter_s = f"[{hex(id(s))}] {str(s.name)}" if s is not None else "None"
-        elif param in special_dict_param:
-            # 字典类型显示键数量
+        if param in special_dict_param:
             filter_s = f"{len(s.keys())}"
-        elif param in special_list_param:
-            # 列表类型显示元素数量
+        if param in special_list_param:
             filter_s = f"{len(s)}"
-        elif isinstance(s, Enum):
-            # 枚举类型显示值
+        if isinstance(s, Enum):
             filter_s += f" : {s.value}"
-        elif param == "subscribers":
-            # 特殊处理subscribers
+        if param == "subscribers":
             filter_s = ""
             for i in range(len(s)):
                 if i != 0:
                     filter_s += ","
                 filter_s += s[i].name
-
-        # 截断过长的显示
+        
         max_len = total_len - count - 6
         l = len(filter_s) + chinese_count(filter_s)
         if l > max_len:
             cc = chinese_count(filter_s)
             end = int(max_len - 3 - cc / 2)
             filter_s = filter_s[:end] + "..."
-
         tmp += f" : {filter_s}"
         r.append(tmp)
 

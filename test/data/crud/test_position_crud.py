@@ -184,7 +184,8 @@ class TestPositionCRUDInsert:
             print("\n→ 验证插入的数据...")
             query_result = position_crud.find(filters={
                 "portfolio_id": "test_portfolio_001",
-                "engine_id": "test_engine_001"
+                "engine_id": "test_engine_001",
+                "source": SOURCE_TYPES.TEST.value
             })
             print(f"✓ 查询结果类型: {type(query_result).__name__}")
             print(f"✓ 查询到 {len(query_result)} 条记录")
@@ -248,7 +249,8 @@ class TestPositionCRUDInsert:
             print("\n→ 验证插入的数据...")
             query_result = position_crud.find(filters={
                 "portfolio_id": "test_portfolio_002",
-                "code": "000858.SZ"
+                "code": "000858.SZ",
+                "source": SOURCE_TYPES.TEST.value
             })
             print(f"✓ 查询到 {len(query_result)} 条记录")
             assert len(query_result) >= 1
@@ -284,7 +286,8 @@ class TestPositionCRUDQuery:
             # 查询特定投资组合的持仓
             print("→ 查询投资组合test_portfolio_001的持仓...")
             portfolio_positions = position_crud.find(filters={
-                "portfolio_id": "test_portfolio_001"
+                "portfolio_id": "test_portfolio_001",
+                "source": SOURCE_TYPES.TEST.value
             })
             print(f"✓ 查询到 {len(portfolio_positions)} 条记录")
 

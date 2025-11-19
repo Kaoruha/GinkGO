@@ -139,7 +139,7 @@ class TestBrokerMatchMakingBasics:
     def setup_method(self):
         """测试前设置"""
         self.broker = MockBroker()
-        self.matchmaking = BrokerMatchMaking(
+        self.matchmaking = Router(
             broker=self.broker,
             name="TestMatchMaking",
             async_runtime_enabled=False  # 使用同步模式进行测试
@@ -153,7 +153,7 @@ class TestBrokerMatchMakingBasics:
         assert self.matchmaking.broker is self.broker
         assert self.matchmaking.broker_type == "MockBroker"
         assert self.matchmaking.execution_mode == "BACKTEST"
-        assert self.matchmaking.name == "BrokerMatchMaking(MockBroker)"
+        assert self.matchmaking.name == "Router(MockBroker)"
 
         # 验证订单跟踪初始化
         assert hasattr(self.matchmaking, '_pending_orders_queue')
@@ -265,7 +265,7 @@ class TestBrokerMatchMakingExecutionModes:
 
         # 使用立即执行Broker
         immediate_broker = MockBroker(immediate_execution=True)
-        matchmaking = BrokerMatchMaking(
+        matchmaking = Router(
             broker=immediate_broker,
             async_runtime_enabled=False
         )
@@ -299,7 +299,7 @@ class TestBrokerMatchMakingExecutionModes:
 
         # 使用异步Broker
         async_broker = MockBroker(immediate_execution=False)
-        matchmaking = BrokerMatchMaking(
+        matchmaking = Router(
             broker=async_broker,
             async_runtime_enabled=True  # 启用异步运行时
         )
@@ -316,7 +316,7 @@ class TestBrokerMatchMakingExecutionModes:
 
         # 使用人工确认Broker
         manual_broker = MockManualBroker()
-        matchmaking = BrokerMatchMaking(
+        matchmaking = Router(
             broker=manual_broker,
             async_runtime_enabled=False
         )
@@ -340,7 +340,7 @@ class TestBrokerMatchMakingOrderLifecycle:
     def setup_method(self):
         """测试前设置"""
         self.broker = MockBroker(immediate_execution=True)
-        self.matchmaking = BrokerMatchMaking(
+        self.matchmaking = Router(
             broker=self.broker,
             async_runtime_enabled=False
         )
@@ -392,7 +392,7 @@ class TestBrokerMatchMakingOrderLifecycle:
 
         # 使用异步Broker（支持撤销）
         async_broker = MockBroker(immediate_execution=False)
-        matchmaking = BrokerMatchMaking(
+        matchmaking = Router(
             broker=async_broker,
             async_runtime_enabled=False
         )
@@ -433,7 +433,7 @@ class TestBrokerMatchMakingOrderLifecycle:
 
         partial_fill_broker.submit_order = submit_partial
 
-        matchmaking = BrokerMatchMaking(
+        matchmaking = Router(
             broker=partial_fill_broker,
             async_runtime_enabled=False
         )
@@ -472,7 +472,7 @@ class TestBrokerMatchMakingOrderLifecycle:
 
         rejecting_broker.submit_order = submit_reject
 
-        matchmaking = BrokerMatchMaking(
+        matchmaking = Router(
             broker=rejecting_broker,
             async_runtime_enabled=False
         )
@@ -506,7 +506,7 @@ class TestBrokerMatchMakingErrorHandling:
     def setup_method(self):
         """测试前设置"""
         self.broker = MockBroker()
-        self.matchmaking = BrokerMatchMaking(
+        self.matchmaking = Router(
             broker=self.broker,
             async_runtime_enabled=False
         )
@@ -519,7 +519,7 @@ class TestBrokerMatchMakingErrorHandling:
         failing_broker = MockBroker()
         failing_broker.connect = AsyncMock(return_value=False)
 
-        matchmaking = BrokerMatchMaking(
+        matchmaking = Router(
             broker=failing_broker,
             async_runtime_enabled=False
         )
@@ -542,7 +542,7 @@ class TestBrokerMatchMakingErrorHandling:
 
         failing_broker.submit_order = submit_failure
 
-        matchmaking = BrokerMatchMaking(
+        matchmaking = Router(
             broker=failing_broker,
             async_runtime_enabled=False
         )
@@ -615,7 +615,7 @@ class TestBrokerMatchMakingPerformance:
     def setup_method(self):
         """测试前设置"""
         self.broker = MockBroker()
-        self.matchmaking = BrokerMatchMaking(
+        self.matchmaking = Router(
             broker=self.broker,
             async_runtime_enabled=False
         )

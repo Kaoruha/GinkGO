@@ -114,12 +114,10 @@ class TestAnalyzerRecordCRUDInsert:
 
             # 验证可以查询出插入的数据
             print("\n→ 验证插入的数据...")
-            query_result = analyzer_record_crud.find(filters={
-                "portfolio_id": "test_portfolio_001",
+            query_result = analyzer_record_crud.find(filters={"portfolio_id": "test_portfolio_001",
                 "engine_id": "test_engine_001",
                 "timestamp__gte": base_time,
-                "timestamp__lte": base_time + timedelta(hours=4)
-            })
+                "timestamp__lte": base_time + timedelta(hours=4), "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(query_result)} 条记录")
             assert len(query_result) >= 4
 
@@ -167,11 +165,9 @@ class TestAnalyzerRecordCRUDInsert:
 
             # 验证数据
             print("\n→ 验证插入的数据...")
-            query_result = analyzer_record_crud.find(filters={
-                "analyzer_id": "volatility_analyzer",
+            query_result = analyzer_record_crud.find(filters={"analyzer_id": "volatility_analyzer",
                 "portfolio_id": "test_portfolio_002",
-                "timestamp": datetime(2023, 1, 3, 10, 30)
-            })
+                "timestamp": datetime(2023, 1, 3, 10, 30), "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(query_result)} 条记录")
             assert len(query_result) >= 1
 
@@ -204,9 +200,7 @@ class TestAnalyzerRecordCRUDQuery:
         try:
             # 查询特定投资组合的分析器记录
             print("→ 查询portfolio_id=test_portfolio_001的分析器记录...")
-            portfolio_records = analyzer_record_crud.find(filters={
-                "portfolio_id": "test_portfolio_001"
-            })
+            portfolio_records = analyzer_record_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
 
             # 验证返回类型
             from ginkgo.data.crud.model_conversion import ModelList

@@ -143,7 +143,7 @@ class TestOrderCRUDInsert:
 
             # 验证可以查询出插入的数据
             print("\n→ 验证插入的数据...")
-            query_result = order_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            query_result = order_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(query_result)} 条记录")
 
             # 验证返回值类型 - find方法应返回ModelList
@@ -209,10 +209,8 @@ class TestOrderCRUDInsert:
 
             # 验证数据
             print("\n→ 验证插入的数据...")
-            query_result = order_crud.find(filters={
-                "portfolio_id": "test_portfolio_002",
-                "code": "000001.SZ"
-            })
+            query_result = order_crud.find(filters={"portfolio_id": "test_portfolio_002",
+                "code": "000001.SZ", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(query_result)} 条记录")
             assert len(query_result) >= 1
 
@@ -258,7 +256,7 @@ class TestOrderCRUDQuery:
         try:
             # 查询特定投资组合的订单
             print("→ 查询portfolio_id=test_portfolio_001的订单...")
-            orders = order_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            orders = order_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(orders)} 条记录")
 
             # 验证查询结果
@@ -389,7 +387,7 @@ class TestOrderCRUDUpdate:
         try:
             # 查询多个订单进行批量更新
             print("→ 查询需要批量更新的订单...")
-            orders = order_crud.find(filters={"portfolio_id": "test_portfolio_001"})
+            orders = order_crud.find(filters={"portfolio_id": "test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             if len(orders) < 2:
                 print("✗ 订单数量不足，跳过批量更新测试")
                 return
@@ -405,10 +403,8 @@ class TestOrderCRUDUpdate:
 
             # 验证批量更新结果
             print("→ 验证批量更新结果...")
-            filled_orders = order_crud.find(filters={
-                "portfolio_id": "test_portfolio_001",
-                "status": ORDERSTATUS_TYPES.FILLED
-            })
+            filled_orders = order_crud.find(filters={"portfolio_id": "test_portfolio_001",
+                "status": ORDERSTATUS_TYPES.FILLED, "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 更新为FILLED状态的订单: {len(filled_orders)} 条")
             assert len(filled_orders) >= 2
 
@@ -481,7 +477,7 @@ class TestOrderCRUDDelete:
         try:
             # 查询删除前的数量
             print("→ 查询删除前的订单数量...")
-            orders_before = order_crud.find(filters={"portfolio_id": "test_portfolio_002"})
+            orders_before = order_crud.find(filters={"portfolio_id": "test_portfolio_002", "source": SOURCE_TYPES.TEST.value})
             count_before = len(orders_before)
             print(f"✓ 删除前有 {count_before} 条订单")
 
@@ -497,7 +493,7 @@ class TestOrderCRUDDelete:
 
             # 验证删除结果
             print("→ 验证删除结果...")
-            orders_after = order_crud.find(filters={"portfolio_id": "test_portfolio_002"})
+            orders_after = order_crud.find(filters={"portfolio_id": "test_portfolio_002", "source": SOURCE_TYPES.TEST.value})
             count_after = len(orders_after)
             print(f"✓ 删除后剩余 {count_after} 条订单")
             assert count_after == 0
@@ -930,20 +926,16 @@ class TestOrderCRUDBusinessLogic:
         try:
             # 复合条件查询
             print("→ 执行复合条件查询...")
-            complex_orders = order_crud.find(filters={
-                "portfolio_id": "test_portfolio_001",
+            complex_orders = order_crud.find(filters={"portfolio_id": "test_portfolio_001",
                 "direction": DIRECTION_TYPES.LONG,
-                "order_type": ORDER_TYPES.LIMITORDER
-            })
+                "order_type": ORDER_TYPES.LIMITORDER, "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 复合查询结果: {len(complex_orders)} 条记录")
 
             # 时间范围查询
             print("→ 执行时间范围查询...")
-            time_orders = order_crud.find(filters={
-                "portfolio_id": "test_portfolio_001",
+            time_orders = order_crud.find(filters={"portfolio_id": "test_portfolio_001",
                 "start_time": datetime(2023, 1, 1),
-                "end_time": datetime(2023, 12, 31)
-            })
+                "end_time": datetime(2023, 12, 31), "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 时间范围查询结果: {len(time_orders)} 条记录")
 
             # 验证查询结果的业务逻辑
@@ -1098,21 +1090,9 @@ class TestOrderCRUDBusinessLogic:
 
             print("\n✓ 所有ModelList转换功能测试通过！")
 
-        finally:
-            # 清理测试数据并验证删除效果
-            try:
-                test_orders_to_delete = order_crud.find(filters={"portfolio_id": "convert_test_portfolio"})
-                before_delete = len(order_crud.find(filters={"source": SOURCE_TYPES.TEST.value}))
-
-                for order in test_orders_to_delete:
-                    order_crud.remove({"uuid": order.uuid})
-
-                after_delete = len(order_crud.find(filters={"source": SOURCE_TYPES.TEST.value}))
-                deleted_count = before_delete - after_delete
-                print(f"✓ 清理测试数据: 删除了{deleted_count}条记录")
-                assert deleted_count >= 2, f"应至少删除2条测试数据，实际删除{deleted_count}条"
-            except Exception as cleanup_error:
-                print(f"⚠️ 清理测试数据时出错: {cleanup_error}")
+        except Exception as e:
+            print(f"✗ 测试失败: {e}")
+            raise
 
     def test_order_data_integrity(self):
         """测试Order数据完整性和约束"""
@@ -1195,7 +1175,7 @@ class TestOrderCRUDEnumValidation:
         print("✓ 多头方向枚举传参成功")
 
         # 查询验证
-        orders = order_crud.find(filters={"engine_id": "test_engine_enum", "portfolio_id": "test_portfolio_enum"})
+        orders = order_crud.find(filters={"engine_id": "test_engine_enum", "portfolio_id": "test_portfolio_enum", "source": SOURCE_TYPES.TEST.value})
         assert len(orders) > 0, "应该能查询到插入的订单"
 
         # 验证枚举转换正确性
@@ -1221,12 +1201,7 @@ class TestOrderCRUDEnumValidation:
         assert result is not None, "空头枚举传参的订单应该成功插入"
         print("✓ 空头方向枚举传参成功")
 
-        # 清理测试数据
-        enum_orders = order_crud.find(filters={"engine_id": "test_engine_enum"})
-        for order in enum_orders:
-            order_crud.remove({"uuid": order.uuid})
-        print("✓ 测试数据清理完成")
-
+        
         print("✓ 交易方向枚举转换测试通过")
 
     def test_order_status_enum_conversions(self):
@@ -1286,12 +1261,7 @@ class TestOrderCRUDEnumValidation:
         )
         print(f"  ✓ FILLED状态订单: {len(filled_orders)} 条")
 
-        # 清理测试数据
-        status_orders = order_crud.find(filters={"engine_id": "test_engine_status"})
-        for order in status_orders:
-            order_crud.remove({"uuid": order.uuid})
-        print("✓ 测试数据清理完成")
-
+        
         print("✓ 订单状态枚举转换测试通过")
 
     def test_order_type_enum_conversions(self):
@@ -1348,12 +1318,7 @@ class TestOrderCRUDEnumValidation:
         )
         print(f"  ✓ 限价单订单: {len(limit_orders)} 条")
 
-        # 清理测试数据
-        type_orders = order_crud.find(filters={"engine_id": "test_engine_type"})
-        for order in type_orders:
-            order_crud.remove({"uuid": order.uuid})
-        print("✓ 测试数据清理完成")
-
+        
         print("✓ 订单类型枚举转换测试通过")
 
     def test_comprehensive_enum_validation(self):
@@ -1375,11 +1340,7 @@ class TestOrderCRUDEnumValidation:
 
         print(f"\n→ 创建 {len(enum_combinations)} 个综合枚举测试订单...")
 
-        # 先清理可能存在的旧测试数据
-        existing_orders = order_crud.find(filters={"engine_id": "test_engine_comprehensive"})
-        for order in existing_orders:
-            order_crud.remove({"uuid": order.uuid})
-
+        
         for i, (direction, order_type, status, desc) in enumerate(enum_combinations):
             test_order = MOrder(
                 engine_id="test_engine_comprehensive",
@@ -1437,12 +1398,7 @@ class TestOrderCRUDEnumValidation:
 
         print("  ✓ ModelList转换中的枚举验证正确")
 
-        # 清理测试数据
-        comprehensive_orders = order_crud.find(filters={"engine_id": "test_engine_comprehensive"})
-        for order in comprehensive_orders:
-            order_crud.remove({"uuid": order.uuid})
-        print("✓ 测试数据清理完成")
-
+        
         print("✓ 综合枚举验证测试通过")
 
 

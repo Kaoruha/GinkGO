@@ -178,7 +178,7 @@ class TestPOCBacktestEngineValidation:
 
         # 7. 创建撮合引擎
         self.broker = POCSimulationBroker(slippage_rate=0.001, commission_rate=0.0003)
-        self.matchmaking = BrokerMatchMaking(
+        self.matchmaking = Router(
             broker=self.broker,
             name="POCMatchMaking",
             async_runtime_enabled=False

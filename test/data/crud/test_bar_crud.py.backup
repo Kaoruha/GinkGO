@@ -137,10 +137,9 @@ class TestBarCRUDInsert:
             assert first_bar.volume == 1000000
             print("✓ 所有字段验证通过")
 
-        finally:
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+        except Exception as e:
+            print(f"✗ 测试失败: {e}")
+            raise
 
     def test_add_single(self):
         """测试单条插入Bar数据 - 使用真实数据库"""
@@ -214,14 +213,9 @@ class TestBarCRUDInsert:
             assert saved_bar.timestamp == datetime(2023, 8, 1, 9, 30)
             print(f"✓ 时间戳验证通过: {saved_bar.timestamp}")
 
-        finally:
-            # 清理测试数据
-            print("\n→ 清理测试数据...")
-            bar_crud.remove(filters={"code": "SINGLE001.SZ"})
-            print("✓ 测试数据已清理")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+        except Exception as e:
+            print(f"✗ 测试失败: {e}")
+            raise
 
     def test_remove(self):
         """测试删除Bar数据 - 使用真实数据库"""
@@ -358,16 +352,9 @@ class TestBarCRUDInsert:
             assert exists3_after is False, "REMOVE003.SZ应该被删除（时间范围匹配）"
             print(f"✓ 时间范围删除正确：REMOVE003.SZ已删除")
 
-        finally:
-            # 清理所有测试数据
-            print("\n→ 清理所有测试数据...")
-            bar_crud.remove(filters={"code": "REMOVE001.SZ"})
-            bar_crud.remove(filters={"code": "REMOVE002.SZ"})
-            bar_crud.remove(filters={"code": "REMOVE003.SZ"})
-            print("✓ 所有测试数据已清理")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+        except Exception as e:
+            print(f"✗ 测试失败: {e}")
+            raise
 
     def test_pagination(self):
         """测试分页查询功能 - 使用真实数据库"""
@@ -478,14 +465,10 @@ class TestBarCRUDInsert:
             print(f"✓ 超范围页码返回: {len(page100)}条")
             assert len(page100) == 0, "超范围页码应返回空列表"
 
-        finally:
-            # 清理测试数据
-            print("\n→ 清理测试数据...")
-            bar_crud.remove(filters={"code": "PAGE001.SZ"})
-            print("✓ 测试数据已清理")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+      
+    except Exception as e:
+        print(f"✗ 测试失败: {e}")
+        raise
 
     def test_ordering(self):
         """测试排序功能 - 使用真实数据库"""
@@ -502,19 +485,19 @@ class TestBarCRUDInsert:
         test_bars = [
             MBar(code="ORDER001.SZ", timestamp=datetime(2023, 11, 3, 9, 30),
                  open=Decimal('103.0'), close=Decimal('103.5'),
-                 high=Decimal('104.0'), low=Decimal('102.5'), volume=1300000, frequency=1),
+                 high=Decimal('104.0'), low=Decimal('102.5'), volume=1300000, frequency=1, source=SOURCE_TYPES.TEST),
             MBar(code="ORDER001.SZ", timestamp=datetime(2023, 11, 1, 9, 30),
                  open=Decimal('101.0'), close=Decimal('101.5'),
-                 high=Decimal('102.0'), low=Decimal('100.5'), volume=1100000, frequency=1),
+                 high=Decimal('102.0'), low=Decimal('100.5'), volume=1100000, frequency=1, source=SOURCE_TYPES.TEST),
             MBar(code="ORDER001.SZ", timestamp=datetime(2023, 11, 5, 9, 30),
                  open=Decimal('105.0'), close=Decimal('105.5'),
-                 high=Decimal('106.0'), low=Decimal('104.5'), volume=1500000, frequency=1),
+                 high=Decimal('106.0'), low=Decimal('104.5'), volume=1500000, frequency=1, source=SOURCE_TYPES.TEST),
             MBar(code="ORDER001.SZ", timestamp=datetime(2023, 11, 2, 9, 30),
                  open=Decimal('102.0'), close=Decimal('102.5'),
-                 high=Decimal('103.0'), low=Decimal('101.5'), volume=1200000, frequency=1),
+                 high=Decimal('103.0'), low=Decimal('101.5'), volume=1200000, frequency=1, source=SOURCE_TYPES.TEST),
             MBar(code="ORDER001.SZ", timestamp=datetime(2023, 11, 4, 9, 30),
                  open=Decimal('104.0'), close=Decimal('104.5'),
-                 high=Decimal('105.0'), low=Decimal('103.5'), volume=1400000, frequency=1),
+                 high=Decimal('105.0'), low=Decimal('103.5'), volume=1400000, frequency=1, source=SOURCE_TYPES.TEST),
         ]
 
         try:
@@ -589,14 +572,10 @@ class TestBarCRUDInsert:
             assert dates_combined == [5, 4, 3], f"组合查询应返回[5,4,3]，实际{dates_combined}"
             print("✓ 排序与分页组合正确")
 
-        finally:
-            # 清理测试数据
-            print("\n→ 清理测试数据...")
-            bar_crud.remove(filters={"code": "ORDER001.SZ"})
-            print("✓ 测试数据已清理")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+        
+    except Exception as e:
+        print(f"✗ 测试失败: {e}")
+        raise
 
     def test_complex_filters(self):
         """测试复杂筛选条件组合 - 使用真实数据库"""
@@ -614,20 +593,20 @@ class TestBarCRUDInsert:
             # FILTER_A.SZ - 大成交量
             MBar(code="FILTER_A.SZ", timestamp=datetime(2023, 11, 1, 9, 30),
                  open=Decimal('100.0'), close=Decimal('101.0'),
-                 high=Decimal('102.0'), low=Decimal('99.0'), volume=5000000, frequency=1),
+                 high=Decimal('102.0'), low=Decimal('99.0'), volume=5000000, frequency=1, source=SOURCE_TYPES.TEST),
             MBar(code="FILTER_A.SZ", timestamp=datetime(2023, 11, 5, 9, 30),
                  open=Decimal('105.0'), close=Decimal('106.0'),
-                 high=Decimal('107.0'), low=Decimal('104.0'), volume=6000000, frequency=1),
+                 high=Decimal('107.0'), low=Decimal('104.0'), volume=6000000, frequency=1, source=SOURCE_TYPES.TEST),
             MBar(code="FILTER_A.SZ", timestamp=datetime(2023, 11, 10, 9, 30),
                  open=Decimal('110.0'), close=Decimal('111.0'),
-                 high=Decimal('112.0'), low=Decimal('109.0'), volume=7000000, frequency=1),
+                 high=Decimal('112.0'), low=Decimal('109.0'), volume=7000000, frequency=1, source=SOURCE_TYPES.TEST),
             # FILTER_B.SZ - 小成交量
             MBar(code="FILTER_B.SZ", timestamp=datetime(2023, 11, 3, 9, 30),
                  open=Decimal('50.0'), close=Decimal('51.0'),
-                 high=Decimal('52.0'), low=Decimal('49.0'), volume=1000000, frequency=1),
+                 high=Decimal('52.0'), low=Decimal('49.0'), volume=1000000, frequency=1, source=SOURCE_TYPES.TEST),
             MBar(code="FILTER_B.SZ", timestamp=datetime(2023, 11, 7, 9, 30),
                  open=Decimal('55.0'), close=Decimal('56.0'),
-                 high=Decimal('57.0'), low=Decimal('54.0'), volume=1500000, frequency=1),
+                 high=Decimal('57.0'), low=Decimal('54.0'), volume=1500000, frequency=1, source=SOURCE_TYPES.TEST),
         ]
 
         try:
@@ -692,12 +671,13 @@ class TestBarCRUDInsert:
             print(f"✓ FILTER_B.SZ + volume≥10M: {len(result4)}条")
             assert len(result4) == 0, "严格条件应返回空结果"
 
-            # 测试5: 复杂条件 + 排序 + 分页
+            # 测试5: 复杂条件 + 排序 + 分页（仅限测试数据）
             print("\n→ 测试组合5: 复杂筛选 + 排序 + 分页...")
             result5 = bar_crud.find(
                 filters={
                     "timestamp__gte": datetime(2023, 11, 1, 0, 0),
-                    "volume__gte": 1000000
+                    "volume__gte": 1000000,
+                    "source": SOURCE_TYPES.TEST.value  # 仅查询测试数据
                 },
                 order_by="volume",
                 desc_order=True,
@@ -707,19 +687,14 @@ class TestBarCRUDInsert:
             print(f"✓ volume降序 + 分页前3条: {len(result5)}条")
             volumes5 = [bar.volume for bar in result5]
             print(f"  - 成交量序列: {volumes5}")
-            # 降序前3: 7M, 6M, 5M
+            # 降序前3: 7M, 6M, 5M（仅限测试数据）
             assert volumes5 == [7000000, 6000000, 5000000], "降序前3应为[7M,6M,5M]"
 
-        finally:
-            # 清理测试数据
-            print("\n→ 清理测试数据...")
-            bar_crud.remove(filters={"code": "FILTER_A.SZ"})
-            bar_crud.remove(filters={"code": "FILTER_B.SZ"})
-            print("✓ 测试数据已清理")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+        
 
+    except Exception as e:
+        print(f"✗ 测试失败: {e}")
+        raise
 
 @pytest.mark.database
 class TestBarCRUDQuery:
@@ -802,15 +777,10 @@ class TestBarCRUDQuery:
             assert result2[0].code == "QUERY002.SZ"
             print("✓ 不同代码查询互不干扰")
 
-        finally:
-            # 清理测试数据
-            print("\n→ 清理测试数据...")
-            bar_crud.remove(filters={"code": "QUERY001.SZ"})
-            bar_crud.remove(filters={"code": "QUERY002.SZ"})
-            print("✓ 测试数据已清理")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+        
+    except Exception as e:
+        print(f"✗ 测试失败: {e}")
+        raise
 
     def test_find_by_date_range(self):
         """测试按时间范围查询 - 使用真实数据库"""
@@ -912,14 +882,10 @@ class TestBarCRUDQuery:
             assert result_exact[0].timestamp.date() == datetime(2023, 5, 15).date()
             print("✓ 精确日期查询正确")
 
-        finally:
-            # 清理测试数据
-            print("\n→ 清理测试数据...")
-            bar_crud.remove(filters={"code": "DATERANGE001.SZ"})
-            print("✓ 测试数据已清理")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+        
+    except Exception as e:
+        print(f"✗ 测试失败: {e}")
+        raise
 
     def test_find_as_dataframe(self):
         """测试DataFrame格式返回 - 使用真实数据库"""
@@ -1031,14 +997,10 @@ class TestBarCRUDQuery:
             assert model_list.count() == 2, f"ModelList.count()应为2，实际{model_list.count()}"
             print("✓ ModelList功能验证正确")
 
-        finally:
-            # 清理测试数据
-            print("\n→ 清理测试数据...")
-            bar_crud.remove(filters={"code": "DATAFRAME001.SZ"})
-            print("✓ 测试数据已清理")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+        
+    except Exception as e:
+        print(f"✗ 测试失败: {e}")
+        raise
 
     def test_model_list_conversions(self):
         """测试ModelList的to_dataframe和to_entities转换功能"""
@@ -1183,14 +1145,10 @@ class TestBarCRUDQuery:
 
             print("\n✓ 所有ModelList转换功能测试通过！")
 
-        finally:
-            # 清理测试数据
-            print("\n→ 清理测试数据...")
-            bar_crud.remove(filters={"code__like": "CONVERT%"})
-            print("✓ 测试数据已清理")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+        
+    except Exception as e:
+        print(f"✗ 测试失败: {e}")
+        raise
 
     def test_count_and_exists(self):
         """测试count()和exists()工具方法 - 使用真实数据库"""
@@ -1291,16 +1249,11 @@ class TestBarCRUDQuery:
             print(f"✓ NONEXISTENT999.SZ数量: {count_none}")
             assert count_none == 0, f"不存在的code应返回0，实际{count_none}"
 
-        finally:
-            # 清理测试数据
-            print("\n→ 清理测试数据...")
-            bar_crud.remove(filters={"code": "COUNT001.SZ"})
-            bar_crud.remove(filters={"code": "COUNT002.SZ"})
-            print("✓ 测试数据已清理")
-            print("="*60)
-            print("测试完成!")
-            print("="*60)
+        
 
+    except Exception as e:
+        print(f"✗ 测试失败: {e}")
+        raise
 
 @pytest.mark.database
 @pytest.mark.tdd
@@ -1796,15 +1749,7 @@ class TestBarCRUDEnumValidation:
         assert len(our_daily_bars) >= 1, "应该查询到至少1条我们创建的日线Bar"
         print(f"  ✓ 日线频率Bar: {len(our_daily_bars)} 条，枚举过滤验证正确")
 
-        # 清理测试数据并验证删除效果
-        print("\n→ 清理测试数据...")
-        delete_before = len(bar_crud.find(filters={"code": "ENUM_FREQ_TEST"}))
-        bar_crud.remove(filters={"code": "ENUM_FREQ_TEST"})
-        delete_after = len(bar_crud.find(filters={"code": "ENUM_FREQ_TEST"}))
-
-        assert delete_before - delete_after >= len(frequency_types), f"删除操作应该至少移除{len(frequency_types)}条记录"
-        print("✓ 测试数据清理完成，数据库条数验证正确")
-
+        
         print("✓ K线频率枚举转换测试通过")
 
     def test_source_enum_conversions(self):
@@ -1879,15 +1824,7 @@ class TestBarCRUDEnumValidation:
         assert len(tushare_bars) >= 1, "应该查询到至少1条Tushare Bar"
         print(f"  ✓ Tushare数据源Bar: {len(tushare_bars)} 条，枚举过滤验证正确")
 
-        # 清理测试数据并验证删除效果
-        print("\n→ 清理测试数据...")
-        delete_before = len(bar_crud.find(filters={"code__like": "ENUM_SOURCE_%"}))
-        bar_crud.remove(filters={"code__like": "ENUM_SOURCE_%"})
-        delete_after = len(bar_crud.find(filters={"code__like": "ENUM_SOURCE_%"}))
-
-        assert delete_before - delete_after >= len(source_types), f"删除操作应该至少移除{len(source_types)}条记录"
-        print("✓ 测试数据清理完成，数据库条数验证正确")
-
+        
         print("✓ K线数据源枚举转换测试通过")
 
     def test_comprehensive_enum_validation(self):
@@ -1983,13 +1920,5 @@ class TestBarCRUDEnumValidation:
 
         print("  ✓ ModelList转换中的枚举验证正确")
 
-        # 清理测试数据并验证删除效果
-        print("\n→ 清理测试数据...")
-        delete_before = len(bar_crud.find(filters={"code__like": "COMPREHENSIVE_BAR_%"}))
-        bar_crud.remove(filters={"code__like": "COMPREHENSIVE_BAR_%"})
-        delete_after = len(bar_crud.find(filters={"code__like": "COMPREHENSIVE_BAR_%"}))
-
-        assert delete_before - delete_after >= len(enum_combinations), f"删除操作应该至少移除{len(enum_combinations)}条记录"
-        print("✓ 测试数据清理完成，数据库条数验证正确")
-
+        
         print("✓ K线综合枚举验证测试通过")

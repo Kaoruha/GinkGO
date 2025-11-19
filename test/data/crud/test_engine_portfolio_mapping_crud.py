@@ -137,10 +137,8 @@ class TestEnginePortfolioMappingCRUDInsert:
 
             # 验证数据
             print("\n→ 验证插入的数据...")
-            query_result = mapping_crud.find(filters={
-                "engine_id": "single_test_engine_001",
-                "portfolio_id": "single_test_portfolio_001"
-            })
+            query_result = mapping_crud.find(filters={"engine_id": "single_test_engine_001",
+                "portfolio_id": "single_test_portfolio_001", "source": SOURCE_TYPES.TEST.value})
             print(f"✓ 查询到 {len(query_result)} 条记录")
             assert len(query_result) >= 1
 
