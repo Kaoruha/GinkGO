@@ -17,6 +17,7 @@ from rich.console import Console
 
 
 from typing import List
+from decimal import Decimal
 from ginkgo.trading.bases.portfolio_base import PortfolioBase
 from ginkgo.trading.entities.bar import Bar
 from ginkgo.trading.entities.position import Position
@@ -111,6 +112,7 @@ class PortfolioT1Backtest(PortfolioBase):
             func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
         for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ENDDAY]:
             func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
+
         super(PortfolioT1Backtest, self).advance_time(time, *args, **kwargs)
         self.update_worth()
         self.update_profit()
@@ -126,15 +128,28 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # ===== 步骤4: T+1信号批量处理 =====
         # 推进到新时间后，批量处理上期的延迟信号
-        for signal in self.signals:
-            e = EventSignalGeneration(signal)
-            self.put(e)
+        delayed_signals_count = len(self._signals)
+        # 取消详细的Portfolio状态打印以避免性能开销
+        # print(f"🕰️ [TIME ADVANCE] Portfolio time advance to {time}: {self}")
+        self.log("INFO", f"🕰️ Portfolio time advance to {time}, {delayed_signals_count} delayed signals")
+
+        if delayed_signals_count > 0:
+            self.log("WARNING", f"⚡ [T+1 PROCESSING] Processing {delayed_signals_count} delayed T+1 signals from previous period")
+            for i, signal in enumerate(self._signals):
+                self.log("WARNING", f"🔄 [T+1 REPUBLISH #{i+1}] Re-publishing delayed signal: {signal.direction.name} for {signal.code}, timestamp={signal.business_timestamp}")
+                e = EventSignalGeneration(signal)
+                self.log("WARNING", f"📤 [T+1 PUT] Putting EventSignalGeneration to event engine")
+                self.put(e)
+                self.log("WARNING", f"✅ [T+1 REPUBLISH #{i+1}] Successfully republished")
+        else:
+            self.log("WARNING", "⭕ [T+1 EMPTY] No delayed T+1 signals to process")
 
         # Reset past signals
+        old_count = len(self._signals)
         self._signals = []
+        self.log("WARNING", f"🧹 [T+1 CLEANUP] Cleared {old_count} delayed signals from queue")
 
         # ===== 步骤5: 新时间状态初始化 =====
-        print(self)
         for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.NEWDAY]:
             func(RECORDSTAGE_TYPES.NEWDAY, self.get_info())
         for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.NEWDAY]:
@@ -168,26 +183,26 @@ class PortfolioT1Backtest(PortfolioBase):
 
         current_time = self.get_time_provider().now()
         self.log("INFO", f"Got a new Signal about {event.code} {event.direction}. {current_time}")
-        self.log(
-            "DEBUG", f"{self.name} got a {event.direction} signal about {event.code}  --> {event.direction}. {current_time}"
-        )
-        self.log("WARNING", f"*** on_signal called with event.business_timestamp={event.business_timestamp}, current_time={current_time} ***")
-        self.log("WARNING", f"*** Time comparison: {event.business_timestamp} == {current_time} ? {event.business_timestamp == current_time} ***")
-        self.log("WARNING", f"*** Types: business_timestamp type={type(event.business_timestamp)}, current_time type={type(current_time)} ***")
-        self.log("WARNING", f"*** Timezones: business_timestamp tzinfo={getattr(event.business_timestamp, 'tzinfo', None)}, current_time tzinfo={getattr(current_time, 'tzinfo', None)} ***")
+        # 检查是否是未来时间，如果是则使用CRITICAL等级
+        if event.business_timestamp and current_time and event.business_timestamp > current_time:
+            self.log("CRITICAL", f"🚨 [FUTURE TIME] on_signal called with FUTURE event.business_timestamp={event.business_timestamp}, current_time={current_time} ***")
+        else:
+            self.log("INFO", f"*** on_signal called with event.business_timestamp={event.business_timestamp}, current_time={current_time} ***")
 
         # Check Feature Message.
         future_check = self.is_event_from_future(event)
-        self.log("WARNING", f"*** is_event_from_future returned: {future_check} ***")
+        self.log("INFO", f"*** is_event_from_future returned: {future_check} ***")
         if future_check:
-            self.log("WARNING", f"*** Event from future, dropping signal ***")
+            self.log("CRITICAL", f"🚨 [FUTURE TIME] Event from future, dropping signal: event.business_timestamp={event.business_timestamp} > current_time={current_time} ***")
             return
         # Check Everything.
         all_set_check = self.is_all_set()
-        self.log("WARNING", f"*** is_all_set returned: {all_set_check} ***")
+        self.log("INFO", f"*** is_all_set returned: {all_set_check} ***")
         if not all_set_check:
-            self.log("WARNING", f"*** Portfolio not fully set, dropping signal ***")
+            self.log("INFO", f"*** Portfolio not fully set, dropping signal ***")
             return
+        else:
+            self.log("INFO", f"*** Portfolio all_set OK, proceeding with signal processing ***")
 
         # 批处理模式处理
         self.log("INFO", f"=== BATCH PROCESSING CHECK ===")
@@ -203,18 +218,20 @@ class PortfolioT1Backtest(PortfolioBase):
                 current_time_normalized = normalize_time_for_comparison(current_time)
 
                 # T+1延迟机制：如果信号时间 >= 当前时间，则延迟到下一个时间点处理
+                self.log("INFO", f"T+1 Decision: business_time={business_time_normalized} >= current_time={current_time_normalized} ? {business_time_normalized >= current_time_normalized}")
                 if business_time_normalized >= current_time_normalized:
                     if business_time_normalized > current_time_normalized:
                         self.log(
-                            "WARNING",
-                            f"Future signal detected in Batch Mode from {event.business_timestamp} (current: {current_time}), delaying to next period.",
+                            "CRITICAL",
+                            f"🚨 [FUTURE TIME] Batch Mode: Future signal from {event.business_timestamp} (current: {current_time}), delaying to next period.",
                         )
                     else:
                         self.log(
-                            "DEBUG",
+                            "INFO",
                             f"T+1 Batch Mode: delaying current day signal {event.code} to next period. {current_time}",
                         )
-                    self.signals.append(event.value)
+                    self._signals.append(event.payload)
+                    self.log("INFO", f"Signal added to _signals queue. Total signals: {len(self._signals)}")
                     return
 
                 # 使用批处理感知的信号处理
@@ -243,32 +260,55 @@ class PortfolioT1Backtest(PortfolioBase):
         # T+1延迟机制：如果信号时间 >= 当前时间，则延迟到下一个时间点处理
         # 这确保只有过去的信号才会被立即处理，当天和未来的信号都会被延迟
         if business_time_normalized >= current_time_normalized:
+            self.log("WARNING", f"🚦 [T+1 DECISION] DELAYING signal (business_time >= current_time)")
             if business_time_normalized > current_time_normalized:
                 self.log(
-                    "WARNING",
-                    f"Future signal detected from {event.business_timestamp} (current: {current_time}), delaying to next period.",
+                    "CRITICAL",
+                    f"🚨 [FUTURE TIME] Individual Mode: Future signal from {event.business_timestamp} (current: {current_time}), delaying to next period.",
                 )
             else:
                 self.log(
-                    "DEBUG",
-                    f"T+1 delaying current day signal from {event.business_timestamp} (current: {current_time}), will process in next period.",
+                    "WARNING",
+                    f"⏰ [T+1 DELAY] Delaying current day signal from {event.business_timestamp} (current: {current_time}), will process in next period.",
                 )
-            self.signals.append(event.value)
+            self._signals.append(event.payload)
+            self.log("WARNING", f"📥 [T+1 QUEUE] Signal added to _signals queue. Total signals: {len(self._signals)}")
             return
 
         # 1. Transfer signal to sizer
-        order = self.sizer.cal(self.get_info(), event.value)
+        self.log("WARNING", f"🎯 [SIGNAL TO ORDER] Calling sizer.cal() for signal {event.code} {event.direction}")
+        portfolio_info = self.get_info()
+        self.log("WARNING", f"🎯 [PORTFOLIO INFO] cash={portfolio_info.get('cash', 'N/A')}, positions={len(portfolio_info.get('positions', {}))}")
+
+        self.log("WARNING", f"🔧 [SIZER CALL] About to call sizer.cal()...")
+        try:
+            order = self.sizer.cal(portfolio_info, event.payload)
+            self.log("WARNING", f"📋 [SIZER RESULT] sizer.cal() returned: {type(order).__name__ if order else 'None'} - {order}")
+        except Exception as e:
+            self.log("ERROR", f"❌ [SIZER EXCEPTION] sizer.cal() failed with exception: {type(e).__name__}: {e}")
+            import traceback
+            self.log("ERROR", f"📋 [SIZER TRACEBACK] {traceback.format_exc()}")
+            order = None
+
         # 2. Get the order return
         if order is None:
-            self.log("INFO", f"No ORDER about {event.code} generated by sizer. {self.business_timestamp}")
+            self.log("ERROR", f"❌ [SIZER FAILED] No ORDER about {event.code} generated by sizer. Signal: {event.direction}, Portfolio cash: {self.get_info().get('cash', 'N/A')}")
             return
-        self.log("INFO", f"Generate an ORDER about {order.code} {order.direction} by sizer. {self.business_timestamp}")
+        else:
+            self.log("WARNING", f"✅ [ORDER GENERATED] {order.direction.name} {order.volume} shares of {order.code} @ {order.limit_price or 'MARKET'} (uuid: {order.uuid[:8]})")
+        self.log("WARNING", f"📋 [ORDER INFO] Generated ORDER about {order.code} {order.direction} by sizer. {self.business_timestamp}")
 
         # 3. Transfer the order to risk_managers
-        for risk_manager in self.risk_managers:
+        self.log("WARNING", f"🛡️ [RISK MANAGEMENT] Processing order through {len(self.risk_managers)} risk managers")
+        for i, risk_manager in enumerate(self.risk_managers):
+            order_before_rm = order
             order = risk_manager.cal(self.get_info(), order)
             if order is None:
-                break
+                self.log("WARNING", f"⚠️ ORDER BLOCKED by risk manager #{i+1} ({risk_manager.__class__.__name__}) for {event.code}")
+                return
+            else:
+                if order_before_rm.volume != order.volume:
+                    self.log("INFO", f"📊 RISK MANAGER #{i+1} adjusted volume: {order_before_rm.volume} → {order.volume}")
 
         # 4. Get the adjusted order, if so put eventorder to engine
         if order is None:
@@ -280,25 +320,67 @@ class PortfolioT1Backtest(PortfolioBase):
             return
         order.frozen_money = round(order.frozen_money, 2)
         order.remain = round(order.remain, 2)
+        # 若未显式设置remain，则以冻结金额为准，便于部分成交按剩余冻结处理
+        if order.remain is None or to_decimal(order.remain) == 0:
+            order.remain = to_decimal(order.frozen_money)
+
+        # 5. Cash/Position freezing
         if order.direction == DIRECTION_TYPES.LONG:
+            # ===== LONG SIGNAL PROCESSING START =====
+            self.log("INFO", f"🔥 [LONG SIGNAL] === START PROCESSING {event.code} ===")
+            self.log("INFO", f"🔥 [LONG SIGNAL] Portfolio BEFORE: cash={self.cash:.2f}, frozen={self.frozen:.2f}, total_available={self.cash + self.frozen:.2f}")
+            self.log("INFO", f"🔥 [LONG SIGNAL] Order details: volume={order.volume}, frozen_money={order.frozen_money:.2f}, limit_price={order.limit_price}, uuid={order.uuid[:8]}")
+            self.log("INFO", f"💰 CASH FREEZE: Attempting to freeze {order.frozen_money} for LONG order {event.code}")
+            self.log("INFO", f"💰 Current cash before freeze: {self.cash}")
             freeze_ok = self.freeze(order.frozen_money)
             if not freeze_ok:
-                self.log("INFO", f"Can not afford the ORDER about {event.code}. {self.business_timestamp}")
+                self.log("WARNING", f"❌ INSUFFICIENT CASH: Cannot afford ORDER about {event.code}. Need: {order.frozen_money}, Have: {self.cash}")
+                self.log("ERROR", f"🔥 [LONG SIGNAL] === FAILED PROCESSING {event.code} (INSUFFICIENT CASH) ===")
                 return
+            self.log("INFO", f"✅ CASH FROZEN: {order.frozen_money}, Remaining cash: {self.cash}")
+            self.log("INFO", f"🔥 [LONG SIGNAL] Portfolio AFTER FREEZE: cash={self.cash:.2f}, frozen={self.frozen:.2f}")
+            self.log("INFO", f"🔥 [LONG SIGNAL] === SUCCESSFULLY FROZEN {event.code} ===")
+            # ===== LONG SIGNAL PROCESSING END =====
         elif order.direction == DIRECTION_TYPES.SHORT:
+            self.log("INFO", f"📉 POSITION FREEZE: Attempting to freeze {order.volume} shares for SHORT order {event.code}")
             if order.code not in self.positions.keys():
-                self.log("INFO", f"Do not have position about {order.code}. {self.business_timestamp}")
+                self.log("WARNING", f"❌ NO POSITION: Do not have position about {order.code}. {self.business_timestamp}")
                 return
+            current_pos_volume = self.get_position(order.code).volume
+            self.log("INFO", f"📉 Current position: {current_pos_volume} shares, Need to freeze: {order.volume}")
             freeze_ok = self.get_position(order.code).freeze(order.volume)
             if not freeze_ok:
-                self.log("INFO", f"Do not have enough position about {order.code}. {self.business_timestamp}")
+                self.log("WARNING", f"❌ INSUFFICIENT POSITION: Do not have enough position about {order.code}. Need: {order.volume}, Have: {current_pos_volume}")
                 return
-        event = EventOrderAck(order, broker_order_id=f"BROKER_{order.uuid[:8]}")
+            self.log("INFO", f"✅ POSITION FROZEN: {order.volume} shares of {event.code}")
+        # 6. Create and submit order event to engine
+        self.log("INFO", f"📤 ORDER SUBMISSION: Creating EventOrderAck for {order.direction.name} {order.volume} shares of {order.code}")
+        # 调试：检查引擎绑定状态
+        self.log("INFO", f"🔍 [EVENT DEBUG] Creating EventOrderAck - portfolio_id={self.uuid}, engine_id={self.engine_id}, run_id={self.run_id}")
+        self.log("INFO", f"🔍 [EVENT DEBUG] Bound engine: {self.bound_engine}, Engine ID: {self.bound_engine.engine_id if self.bound_engine else None}")
+
+        event = EventOrderAck(
+            order,
+            portfolio_id=self.uuid,
+            engine_id=self.engine_id,
+            run_id=self.run_id
+        )
+        event.broker_order_id = f"BROKER_{order.uuid[:8]}"
+
+        # Set the order as payload for unified access
+        event.payload = order
+
+        # Call analyzer hooks
         for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERSEND]:
             func(RECORDSTAGE_TYPES.ORDERSEND, self.get_info())
         for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERSEND]:
             func(RECORDSTAGE_TYPES.ORDERSEND, self.get_info())
+
+        # Submit to engine
+        self.log("WARNING", f"🚀 [ORDER TO ENGINE] Submitting order event to engine for matchmaking - Event: {event.uuid[:8] if hasattr(event, 'uuid') else 'N/A'}")
+        self.log("WARNING", f"📋 [EVENT DETAILS] Event type: {type(event).__name__}, Order: {event.order.code if hasattr(event, 'order') else 'N/A'}")
         self.put(event)
+        self.log("WARNING", f"✅ [ORDER FLOW COMPLETE] Signal → Order → Risk Management → Freezing → Engine submission")
 
     def on_price_received(self, event: EventPriceUpdate):
         # Check Everything.
@@ -380,57 +462,7 @@ class PortfolioT1Backtest(PortfolioBase):
                         func(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
                     self.put(e)
 
-    def on_order_partially_filled(self, event: EventOrderPartiallyFilled):
-        self.log("INFO", f"Got An Order Filled... {self.business_timestamp}")
-        # debug breakpoint removed
-        if self.is_event_from_future(event):
-            return
-
-        if not event.order_status == ORDERSTATUS_TYPES.FILLED:
-            self.log(
-                "CRITICAL",
-                f"On Order Filled only handle the FILLEDORDER, cant handle a {event.order_status} one. Check the Code. {self.business_timestamp}",
-            )
-            return
-        for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERFILLED]:
-            func(RECORDSTAGE_TYPES.ORDERFILLED, self.get_info())
-        for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERFILLED]:
-            func(RECORDSTAGE_TYPES.ORDERFILLED, self.get_info())
-        if event.direction == DIRECTION_TYPES.LONG:
-            self.log("WARN", f"DEALING with LONG FILLED ORDER. {self.business_timestamp}")
-            self.deal_long_filled(event)
-        elif event.direction == DIRECTION_TYPES.SHORT:
-            self.log("WARN", f"DEALING with SHORT FILLED ORDER. {self.business_timestamp}")
-            self.deal_short_filled(event)
-        self.log("INFO", f"Got An Order Filled Done. {self.business_timestamp}")
-        self.update_worth()
-        self.update_profit()
-
-    def on_order_cancel_ack(self, event: EventOrderCancelAck):
-        self.log("INFO", f"Got An Order Cancelled... {self.business_timestamp}")
-        # debug breakpoint removed
-        for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
-            func(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
-        for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
-            func(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
-        self.log("WARN", f"Dealing with CANCELED ORDER. {self.business_timestamp}")
-        if self.is_event_from_future(event):
-            return
-        if event.direction == DIRECTION_TYPES.LONG:
-            self.log("WARN", f"START UNFREEZE LONG. {self.business_timestamp}")
-            self.unfreeze(event.frozen)
-            self.add_cash(event.frozen)
-            self.log("INFO", f"Dealing ORDER about {event.code} CANCELED. add frozen cash {event.frozen} {self.business_timestamp}")
-            self.log("WARN", f"DONE UNFREEZE LONG. {self.business_timestamp}")
-        elif event.direction == DIRECTION_TYPES.SHORT:
-            self.log("WARN", f"START UNFREEZE SHOTR. {self.business_timestamp}")
-            code = event.code
-            pos = self.positions[code]
-            pos.unfreeze(event.volume)
-            self.log("WARN", f"DONE UNFREEZE SHORT. {self.business_timestamp}")
-        self.update_worth()
-        self.update_profit()
-
+  
     # ===== 新增：订单生命周期事件处理（ACK/部分成交/拒绝/过期/撤销确认） =====
     def on_order_ack(self, event) -> None:
         try:
@@ -454,6 +486,11 @@ class PortfolioT1Backtest(PortfolioBase):
             for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERPARTIALLYFILLED]:
                 func(RECORDSTAGE_TYPES.ORDERPARTIALLYFILLED, self.get_info())
 
+            order = getattr(event, "order", None)
+            if order is None:
+                self.log("ERROR", "Partial fill event missing order payload")
+                return
+
             qty = int(getattr(event, "filled_quantity", 0) or 0)
             price = to_decimal(getattr(event, "fill_price", 0) or 0)
             fee = to_decimal(getattr(event, "commission", 0) or 0)
@@ -461,19 +498,37 @@ class PortfolioT1Backtest(PortfolioBase):
                 self.log("WARN", f"Partial fill ignored due to invalid qty/price: {qty}/{price}")
                 return
 
-            direction = event.order.direction if hasattr(event, "order") else None
+            direction = getattr(order, "direction", None) or getattr(event, "direction", None)
             code = event.code
+            fill_cost = price * qty + fee
 
-            # LONG 部分成交：消耗冻结资金（成交额+手续费），增加/建立持仓
+            # 更新订单累计成交与剩余冻结
+            try:
+                order.transaction_volume = min(order.volume, order.transaction_volume + qty)
+            except Exception as e:
+                self.log("ERROR", f"Failed to update transaction_volume: {e}")
+
+            if not hasattr(order, "remain") or order.remain is None:
+                order.remain = order.frozen_money
+            order.remain = to_decimal(order.remain)
+            order.remain = max(Decimal("0"), order.remain - fill_cost)
+
+            is_final = getattr(event, "order_status", None) == ORDERSTATUS_TYPES.FILLED or order.transaction_volume >= order.volume
+
+            # LONG 部分成交：只扣除已成交成本，保留剩余冻结；末次成交或标记FILLED时释放差额
             if direction == DIRECTION_TYPES.LONG:
-                cost_used = price * qty + fee
-                self.unfreeze(cost_used)
+                unfreeze_remain = order.remain if is_final else None
+                self.deduct_from_frozen(cost=fill_cost, unfreeze_remain=unfreeze_remain)
+                if is_final:
+                    order.remain = Decimal("0")
                 self.add_fee(fee)
 
                 pos = self.get_position(code)
                 if pos is None:
                     p = Position(
                         portfolio_id=self.uuid,
+                        engine_id=self.engine_id,
+                        run_id=self.run_id,
                         code=code,
                         cost=price,
                         volume=qty,
@@ -486,9 +541,12 @@ class PortfolioT1Backtest(PortfolioBase):
                 else:
                     pos.deal(DIRECTION_TYPES.LONG, price, qty)
 
-                self.log("INFO", f"PARTIAL LONG filled {code}: {qty}@{price}, fee={fee}")
+                self.log(
+                    "INFO",
+                    f"PARTIAL LONG filled {code}: {qty}@{price}, fee={fee}, remain_frozen={order.remain}",
+                )
 
-            # SHORT 部分成交：入账现金（成交额-手续费），消耗持仓冻结量
+            # SHORT 部分成交：入账现金（成交额-手续费），已冻结仓位随成交递减，剩余冻结保持
             elif direction == DIRECTION_TYPES.SHORT:
                 proceeds = price * qty - fee
                 self.add_cash(proceeds)
@@ -536,29 +594,114 @@ class PortfolioT1Backtest(PortfolioBase):
 
     def on_order_cancel_ack(self, event) -> None:
         try:
+            self.log("INFO", f"Got An Order Cancelled... {self.business_timestamp}")
+            # 处理ORDERCANCELED阶段的hooks
+            for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
+                func(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
+            for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERCANCELED]:
+                func(RECORDSTAGE_TYPES.ORDERCANCELED, self.get_info())
+
+            # 处理ORDERCANCELACK阶段的hooks
             for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERCANCELACK]:
                 func(RECORDSTAGE_TYPES.ORDERCANCELACK, self.get_info())
             for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERCANCELACK]:
                 func(RECORDSTAGE_TYPES.ORDERCANCELACK, self.get_info())
+
+            self.log("WARN", f"Dealing with CANCELED ORDER. {self.business_timestamp}")
+            if self.is_event_from_future(event):
+                return
+
+            order = getattr(event, "order", None)
+            direction = getattr(event, "direction", None) or (order.direction if hasattr(order, "direction") else None)
+
+            if direction == DIRECTION_TYPES.LONG:
+                remain = None
+                if order is not None:
+                    remain = getattr(order, "remain", None)
+                    if remain is None:
+                        remain = getattr(order, "frozen_money", 0)
+                if remain is None:
+                    self.log("ERROR", f"Cancel event missing remain for {event.code}")
+                    return
+                remain = to_decimal(remain)
+                if remain > 0:
+                    self.unfreeze(remain)
+                    if order is not None:
+                        order.remain = Decimal("0")
+                self.log("INFO", f"Dealing ORDER about {event.code} CANCELED. unfrozen cash {remain} {self.business_timestamp}")
+            elif direction == DIRECTION_TYPES.SHORT:
+                code = event.code
+                pos = self.positions.get(code)
+                cancel_vol = int(getattr(event, "cancelled_quantity", 0) or 0)
+                if pos is None:
+                    self.log("ERROR", f"Cancel SHORT but position missing for {code}")
+                else:
+                    if cancel_vol > 0:
+                        pos.unfreeze(cancel_vol)
+                self.log("WARN", f"DONE UNFREEZE SHORT. {self.business_timestamp}")
+
             self.log(
                 "INFO",
-                f"CANCEL-ACK: order={event.order_id[:8]} code={event.code} cancelled_qty={event.cancelled_quantity}"
+                f"CANCEL-ACK: order={getattr(event, 'order_id', 'N/A')[:8]} code={event.code} cancelled_qty={getattr(event, 'cancelled_quantity', 'N/A')}"
             )
+            self.update_worth()
+            self.update_profit()
+
         except Exception as e:
             self.log("ERROR", f"on_order_cancel_ack failed: {e}")
 
+    def on_order_filled(self, event) -> None:
+        """订单完全成交事件处理器 - 特殊的partially_filled (remain=0)"""
+        try:
+            # 触发分析器记录
+            for func in self._analyzer_activate_hook.get(RECORDSTAGE_TYPES.ORDERFILLED, []):
+                func(RECORDSTAGE_TYPES.ORDERFILLED, self.get_info())
+            for func in self._analyzer_record_hook.get(RECORDSTAGE_TYPES.ORDERFILLED, []):
+                func(RECORDSTAGE_TYPES.ORDERFILLED, self.get_info())
+
+            self.log("INFO", f"Portfolio {self.name}: Order completely filled")
+
+            # 委托给现有的部分成交处理器，复用所有现有逻辑
+            # ORDERFILLED本质上是remain=0的特殊ORDERPARTIALLYFILLED
+            self.on_order_partially_filled(event)
+        except Exception as e:
+            self.log("ERROR", f"on_order_filled failed: {e}")
+
     def deal_long_filled(self, event: EventOrderPartiallyFilled, *args, **kwargs):
+        # ===== LONG ORDER FILLED START =====
+        self.log("INFO", f"💰 [LONG FILLED] === START PROCESSING FILLED ORDER {event.code} ===")
+        self.log("INFO", f"💰 [LONG FILLED] Portfolio BEFORE UNFREEZE: cash={self.cash:.2f}, frozen={self.frozen:.2f}")
+        self.log("INFO", f"💰 [LONG FILLED] Event details: code={event.code}, transaction_volume={event.transaction_volume}, transaction_price={event.transaction_price:.2f}")
+        self.log("INFO", f"💰 [LONG FILLED] Financial details: frozen={event.frozen:.2f}, remain={event.remain:.2f}, fee={event.fee:.2f}")
+
         if self.frozen < event.frozen:
             self.log("CRITICAL", f"Over flow, can not unfreeze {event.frozen} from {self.frozen}. {self.business_timestamp}")
+            self.log("ERROR", f"💰 [LONG FILLED] === FAILED PROCESSING {event.code} (OVERFLOW) ===")
             return
         if event.remain < 0:
             self.log("CRITICAL", f"Order can not remain under 0.")
+            self.log("ERROR", f"💰 [LONG FILLED] === FAILED PROCESSING {event.code} (NEGATIVE REMAIN) ===")
             return
-        self.unfreeze(event.frozen)
-        self.add_cash(event.remain)
+
+        # 🚨 重要修复：使用新的deduct_from_frozen方法正确处理部分成交
+        transaction_cost = event.frozen - event.remain
+        self.log("INFO", f"🔍 [LONG FILLED] Transaction cost: ${transaction_cost:.2f} (converted to Position)")
+        self.log("INFO", f"🔍 [LONG FILLED] Unfreezing remaining unfilled amount: ${event.remain:.2f}")
+        self.log("INFO", f"🔍 [LONG FILLED] Event details: original_frozen={event.frozen:.2f}, remain={event.remain:.2f}, transaction_cost={transaction_cost:.2f}")
+
+        # 使用新的公共方法：扣除成交花费，只将剩余未成交部分解冻
+        self.deduct_from_frozen(cost=transaction_cost, unfreeze_remain=event.remain)
+
+        self.log("INFO", f"💰 [LONG FILLED] Processed transaction cost {transaction_cost:.2f} and unfroze remain {event.remain:.2f}")
+        self.log("INFO", f"💰 [LONG FILLED] Portfolio AFTER: cash={self.cash:.2f}, frozen={self.frozen:.2f}")
+
         self.add_fee(event.fee)
+        self.log("INFO", f"💰 [LONG FILLED] Added fee: {event.fee:.2f}, New cash: {self.cash:.2f}")
+
         p = Position(
             portfolio_id=self.uuid,
+            engine_id=self.engine_id,
+            run_id=self.run_id,
             code=event.code,
             cost=event.transaction_price,
             volume=event.transaction_volume,
@@ -568,7 +711,15 @@ class PortfolioT1Backtest(PortfolioBase):
             uuid=uuid.uuid4().hex,
         )
         self.add_position(p)
+        self.log("INFO", f"💰 [LONG FILLED] Created position: {event.code}, volume={event.transaction_volume}, cost={event.transaction_price:.2f}")
+
+        position_count = len(self.positions)
+        total_position_value = sum(pos.worth for pos in self.positions.values() if hasattr(pos, 'worth'))
+        self.log("INFO", f"💰 [LONG FILLED] Portfolio SUMMARY: cash={self.cash:.2f}, frozen={self.frozen:.2f}, positions={position_count}, total_position_worth={total_position_value:.2f}")
+
         self.log("WARN", f"Fill a LONG ORDER DONE. {self.business_timestamp}")
+        self.log("INFO", f"💰 [LONG FILLED] === SUCCESSFULLY PROCESSED FILLED ORDER {event.code} ===")
+        # ===== LONG ORDER FILLED END =====
 
     def deal_short_filled(self, event: EventOrderPartiallyFilled, *args, **kwargs):
         if event.remain < 0:
@@ -580,12 +731,34 @@ class PortfolioT1Backtest(PortfolioBase):
         if event.transaction_volume > self.positions[event.code].frozen_volume:
             self.log("CRITICAL", f"Can not handler the short order about over flow. {self.business_timestamp}")
             return
-        self.add_cash(event.remain)
-        self.log("INFO", f"Got an short filled order, add remain cash: {event.remain}. {self.business_timestamp}")
+        # 🚨 修复：不应该添加event.remain，因为这部分资金应该已经通过unfreeze正确处理了
+        # self.add_cash(event.remain)  # 已注释掉，这是导致资金重复计算的错误
+        self.log("INFO", f"💰 [SHORT FILLED] Fixed: NOT adding remain cash {event.remain:.2f} (already handled by unfreeze). {self.business_timestamp}")
         self.add_fee(event.fee)
         self.positions[event.code].deal(DIRECTION_TYPES.SHORT, event.transaction_price, event.transaction_volume)
         self.clean_positions()
         self.log("WARN", f"Fill a SHORT ORDER DONE. {self.business_timestamp}")
 
     def __repr__(self) -> str:
-        return base_repr(self, PortfolioT1Backtest.__name__, 24, 70)
+        """安全的__repr__实现，避免循环递归导致的性能问题"""
+        try:
+            # 基本信息，避免访问可能引起递归的属性
+            cash = float(self.cash) if hasattr(self, 'cash') else 0.0
+            frozen = float(self.frozen) if hasattr(self, 'frozen') else 0.0
+            worth = float(self.worth) if hasattr(self, 'worth') else 0.0
+            position_count = len(self.positions) if hasattr(self, 'positions') else 0
+            strategy_count = len(self._strategies) if hasattr(self, '_strategies') else 0
+
+            return (f"{PortfolioT1Backtest.__name__}(\n"
+                   f"  name: {getattr(self, 'name', 'Unknown')}\n"
+                   f"  uuid: {getattr(self, 'uuid', 'Unknown')[:8]}...\n"
+                   f"  cash: {cash:,.2f}\n"
+                   f"  frozen: {frozen:,.2f}\n"
+                   f"  worth: {worth:,.2f}\n"
+                   f"  positions: {position_count}\n"
+                   f"  strategies: {strategy_count}\n"
+                   f"  time: {getattr(self, 'business_timestamp', 'N/A')}\n"
+                   f")")
+        except Exception:
+            # 异常时返回最简信息
+            return f"{PortfolioT1Backtest.__name__}(name={getattr(self, 'name', 'Unknown')})"

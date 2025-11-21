@@ -233,10 +233,21 @@ class EventEngine(BaseEngine):
         self._pause_flag.clear()
 
         # 启动已存在的线程对象（每个线程只能启动一次）
+        self.log("INFO", f"🔍 Before thread start: _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}")
         if not self._main_thread_started and not self._main_thread.is_alive():
-            self._main_flag.clear()
+            self.log("INFO", f"🔄 Clearing main_flag before thread start: {not self._main_flag.is_set()}")
+            self._main_flag.clear()  # 确保清除标志
+            self.log("INFO", f"🚀 Starting main thread...")
             self._main_thread.start()
             self._main_thread_started = True
+            self.log("INFO", f"✅ Main thread started, main_flag cleared: {not self._main_flag.is_set()}")
+
+            # 🔍 检查线程启动后main_flag状态
+            import time
+            time.sleep(0.01)  # 给线程一点启动时间
+            self.log("INFO", f"🔍 After thread start delay: main_flag.is_set()={self._main_flag.is_set()}")
+        else:
+            self.log("INFO", f"⚠️ Thread not started: _main_thread_started={self._main_thread_started}, is_alive={self._main_thread.is_alive()}")
 
         # 根据开关状态决定是否启动定时器线程
         if self._enable_timer and not self._timer_thread_started and not self._timer_thread.is_alive():
@@ -265,6 +276,11 @@ class EventEngine(BaseEngine):
         """
         Stop the Engine
         """
+        import traceback
+        self.log("INFO", f"🔥 STOP() CALLED! Call stack:")
+        for line in traceback.format_stack()[-5:-1]:
+            self.log("INFO", f"    {line.strip()}")
+
         if not super(EventEngine, self).stop():
             return False
 
@@ -302,7 +318,7 @@ class EventEngine(BaseEngine):
         self.log("INFO", f"Engine {self.name} {self.uuid} Stop.")
         self.log("INFO", "Each Portfolio status.")
         for i in self.portfolios:
-            self.log("INFO", i)
+            self.log("INFO", f"Portfolio: {i.name} (ID: {i.uuid})")
         return True
 
     def put(self, event: "EventBase") -> None:

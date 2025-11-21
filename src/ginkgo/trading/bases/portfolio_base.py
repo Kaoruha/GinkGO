@@ -97,7 +97,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         Base.__init__(self)
 
         # Portfolio核心业务属性
-        self._cash: Decimal = Decimal("100000")
+        self._cash: Decimal = Decimal("0")
         self._worth: Decimal = self._cash
         self._profit: Decimal = Decimal("0")
         self._frozen: Decimal = Decimal("0")
@@ -236,10 +236,12 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             current cash
         """
         money = to_decimal(money)
+        old_cash = self._cash
         if money <= 0:
             self.log("ERROR", f"The money should not under 0. {money} is illegal.")
         else:
             self._cash += money
+            self.log("INFO", f"💰 [CASH MONITOR] add_cash: +{money} (old: {old_cash} -> new: {self._cash}) [CALLER: ADD_CASH]")
             self.update_worth()
         return self.cash
 
@@ -356,12 +358,12 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         self._selectors.append(selector)
         # 绑定portfolio引用，让selector可以直接从portfolio获取ID
         selector.bind_portfolio(self)
-        # 如果portfolio已绑定engine，也绑定给selector
+        # 如果portfolio已绑定引擎，也绑定引擎到selector
         if self._bound_engine is not None:
             selector.bind_engine(self._bound_engine)
-        # 传递时间提供者给selector
-        if self.get_time_provider() is not None:
-            selector.set_time_provider(self.get_time_provider())
+        # 如果portfolio有TimeProvider，也设置给selector
+        if self._time_provider is not None:
+            selector.set_time_provider(self._time_provider)
 
     def bind_engine(self, engine: BaseEngine):
         """
@@ -370,10 +372,14 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         if not isinstance(engine, BaseEngine):
             raise TypeError(f"Expected BaseEngine, got {type(engine)}")
 
-        # 绑定引擎到portfolio自身
-        super(PortfolioBase, self).bind_engine(engine)
+        # 绑定引擎到portfolio自身 - 使用统一的ContextMixin
+        ContextMixin.bind_engine(self, engine)
 
-        # 通过ContextMixin的公共接口同步给所有已绑定的组件
+        # 如果引擎有TimeProvider，设置给Portfolio
+        if engine._time_provider is not None:
+            self.set_time_provider(engine._time_provider)
+
+        # 通过统一的ContextMixin同步给所有已绑定的组件
         # 策略组件（支持多个）
         for strategy in self._strategies:
             strategy.bind_engine(engine)
@@ -426,6 +432,12 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             self.strategies.append(strategy)
             # 绑定portfolio引用给strategy
             strategy.bind_portfolio(self)
+            # 如果portfolio已绑定引擎，也绑定引擎到strategy
+            if self._bound_engine is not None:
+                strategy.bind_engine(self._bound_engine)
+            # 如果portfolio有TimeProvider，也设置给strategy
+            if self._time_provider is not None:
+                strategy.set_time_provider(self._time_provider)
 
     def add_position(self, position: Position) -> None:
         code = position.code
@@ -456,13 +468,14 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         Freeze the capital.
         """
         money = to_decimal(money)
-        if money >= self.cash:
+        if money > self.cash:
             self.log("WARN", f"We cant freeze {money}, we only have {self.cash}.")
             return False
         self.log("DEBUG", f"TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
         console.print(f":ice: TRYING FREEZE {money}. CURRENFROZEN: {self._frozen} ")
         self._frozen += money
         self._cash -= money
+        self.log("INFO", f"💰 [CASH MONITOR] freeze_cash: -{money} (old: {self._cash + money} -> new: {self._cash}, frozen: {self._frozen})")
         self.log("DEBUG", f"DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
         console.print(f":money_bag: DONE FREEZE ${money}. CURRENFROZEN: ${self._frozen}. CURRENTCASH: ${self.cash} ")
         return True
@@ -478,12 +491,76 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                 console.print(f":prohibited: Cant unfreeze ${money}, the max unfreeze is only ${self.frozen}")
                 return
             else:
+                old_cash = self._cash
+                old_frozen = self._frozen
+                self._cash += self._frozen  # 恢复全部frozen的cash
                 self._frozen = 0
+                self.log("INFO", f"💰 [CASH MONITOR] unfreeze: +{old_frozen} (old: {old_cash} -> new: {self._cash}, frozen: {old_frozen} -> {self._frozen})")
                 self.log("DEBUG", f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
         else:
             self.log("DEBUG", f"TRYING UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
+            old_cash = self._cash
+            old_frozen = self._frozen
             self._frozen -= money
+            self._cash += money  # 🚨 关键修复：unfreeze时需要恢复cash！
+            self.log("INFO", f"💰 [CASH MONITOR] unfreeze: +{money} (old: {old_cash} -> new: {self._cash}, frozen: {old_frozen} -> {self._frozen})")
             self.log("DEBUG", f"DONE UNFREEZE ${money}. CURRENTFROZEN: ${self.frozen}")
+        return self.frozen
+
+    def deduct_from_frozen(self, cost: any, unfreeze_remain: any = None) -> Decimal:
+        """
+        Deduct transaction cost from frozen funds without returning to cash.
+        Only unfreeze the remaining amount if specified.
+
+        Args:
+            cost: Transaction cost to deduct from frozen funds
+            unfreeze_remain: Amount to unfreeze back to cash (optional)
+
+        Returns:
+            Remaining frozen balance
+
+        Example:
+            # Partially filled order: deduct cost and unfreeze remaining amount
+            portfolio.deduct_from_frozen(transaction_cost=1000, unfreeze_remain=500)
+
+            # Fully filled order: only deduct cost from frozen funds
+            portfolio.deduct_from_frozen(transaction_cost=1500)
+        """
+        cost = to_decimal(cost)
+
+        old_cash = self._cash
+        old_frozen = self._frozen
+
+        # Check if we have enough frozen funds
+        if cost > self.frozen:
+            self.log("ERROR", f"Cannot deduct ${cost} from frozen ${self.frozen}")
+            raise ValueError(f"Insufficient frozen funds: have ${self.frozen}, need ${cost}")
+
+        # Deduct cost from frozen funds (cost is converted to position, not cash)
+        self._frozen -= cost
+
+        # Handle unfreeze_remain: None means unfreeze all remaining funds
+        if unfreeze_remain is None:
+            # Unfreeze all remaining frozen funds
+            unfreeze_amount = self._frozen
+            if unfreeze_amount > 0:
+                self._frozen = 0
+                self._cash += unfreeze_amount
+        else:
+            unfreeze_remain = to_decimal(unfreeze_remain)
+            # Check if we have enough frozen funds for unfreeze
+            if unfreeze_remain > self.frozen:
+                self.log("ERROR", f"Cannot unfreeze ${unfreeze_remain} from remaining frozen ${self.frozen}")
+                raise ValueError(f"Insufficient frozen funds: have ${self.frozen}, need ${unfreeze_remain}")
+
+            # Unfreeze specified amount back to cash
+            if unfreeze_remain > 0:
+                self._frozen -= unfreeze_remain
+                self._cash += unfreeze_remain
+
+        self.log("INFO", f"💰 [CASH MONITOR] deduct_from_frozen: cost={cost}, unfreeze={unfreeze_remain}")
+        self.log("INFO", f"💰 [CASH MONITOR] cash: {old_cash} -> {self._cash}, frozen: {old_frozen} -> {self._frozen}")
+
         return self.frozen
 
     # ========== 抽象方法 ==========
@@ -713,3 +790,27 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         stats = self._batch_processor.get_stats()
         stats["enabled"] = True
         return stats
+
+    def _on_time_advance(self, new_time: datetime.datetime) -> None:
+        """
+        时间推进钩子 - 调用所有组件的时间推进方法
+
+        在时间推进时，Portfolio需要通知所有绑定的Selector组件，
+        让Selector有机会推送新的兴趣集合到引擎。
+
+        Args:
+            new_time: 新的业务时间
+        """
+        # 调用父类的时间推进钩子
+        super()._on_time_advance(new_time)
+
+        # 调用所有Selector的advance_time方法
+        for selector in self._selectors:
+            try:
+                selector.advance_time(new_time)
+                self.log("DEBUG", f"Called advance_time on selector: {selector.name}")
+            except Exception as e:
+                self.log("ERROR", f"Selector {selector.name} advance_time failed: {e}")
+
+        if not self._selectors:
+            self.log("WARN", "No selectors bound to portfolio, interest set will remain empty")

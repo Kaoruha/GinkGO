@@ -28,14 +28,14 @@ class EventOrderRelated(EventBase):
         self.portfolio_id = order.portfolio_id
         self.engine_id = order.engine_id
 
+        # 统一使用payload
+        self.payload = order
+
     @property
     def order_id(self) -> str:
         return self._order_id
 
-    @property
-    def value(self) -> Order:
-        return self._order
-
+    
     @property
     def timestamp(self):
         """
@@ -48,57 +48,57 @@ class EventOrderRelated(EventBase):
         """
         业务数据时间戳 - 返回订单数据的时间，如果没有订单数据则返回事件时间
         """
-        return self.value.timestamp if self.value else self.timestamp
+        return self.payload.timestamp if self.payload else self.timestamp
 
     @property
     def code(self):
-        return self.value.code if self.value else None
+        return self.payload.code if self.payload else None
 
     @property
     def direction(self):
-        return self.value.direction if self.value else None
+        return self.payload.direction if self.payload else None
 
 # 删除重复的order_id属性定义（第32-33行已定义）
 
     @property
     def order_type(self):
-        return self.value.order_type if self.value else None
+        return self.payload.order_type if self.payload else None
 
     @property
     def order_status(self):
-        return self.value.status if self.value else None
+        return self.payload.status if self.payload else None
 
     @property
     def limit_price(self):
-        return self.value.limit_price if self.value else None
+        return self.payload.limit_price if self.payload else None
 
     @property
     def volume(self):
-        return self.value.volume if self.value else None
+        return self.payload.volume if self.payload else None
 
     @property
     def frozen_money(self):
-        return self.value.frozen_money if self.value else None
+        return self.payload.frozen_money if self.payload else None
 
     @property
     def frozen_volume(self):
-        return self.value.frozen_volume if self.value else None
+        return self.payload.frozen_volume if self.payload else None
 
     @property
     def transaction_price(self):
-        return self.value.transaction_price if self.value else None
+        return self.payload.transaction_price if self.payload else None
 
     @property
     def transaction_volume(self):
-        return self.value.transaction_volume if self.value else None
+        return self.payload.transaction_volume if self.payload else None
 
     @property
     def remain(self):
-        return self.value.remain if self.value else None
+        return self.payload.remain if self.payload else None
 
     @property
     def fee(self):
-        return self.value.fee if self.value else None
+        return self.payload.fee if self.payload else None
 
     def __repr__(self):
         return base_repr(self, EventOrderRelated.__name__, 24, 70)
