@@ -32,7 +32,7 @@ from ginkgo.trading.events import (
 )
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.entities.bar import Bar
-from ginkgo.trading.routing.broker_matchmaking import BrokerMatchMaking
+from ginkgo.trading.routing.router import Router
 from ginkgo.trading.brokers.sim_broker import SimBroker
 
 
@@ -43,7 +43,7 @@ def main():
 
     # 2) 撮合：BrokerMatchMaking + SimBroker（ACK→异步部分/完全成交）
     broker = SimBroker(config={})
-    matchmaking = BrokerMatchMaking(broker)
+    matchmaking = Router(broker)
     engine.bind_matchmaking(matchmaking)
     engine.register(EVENT_TYPES.ORDERSUBMITTED, matchmaking.on_order_received)
     engine.register(EVENT_TYPES.PRICEUPDATE, matchmaking.on_price_received)
