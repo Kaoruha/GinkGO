@@ -27,7 +27,7 @@ from ginkgo.trading.events import (
 )
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.entities.bar import Bar
-from ginkgo.trading.routing.broker_matchmaking import BrokerMatchMaking
+from ginkgo.trading.routing.router import Router
 from ginkgo.trading.brokers.sim_broker import SimBroker
 
 
@@ -38,7 +38,7 @@ def main():
 
     # 2) 创建并绑定基于 Broker 的路由中心（SimBroker）
     broker = SimBroker(config={})
-    matchmaking = BrokerMatchMaking(broker)
+    matchmaking = Router(broker)
     engine.bind_matchmaking(matchmaking)
 
     # 3) 注册路由中心的事件处理器（订单提交 + 价格更新）
