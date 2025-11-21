@@ -13,7 +13,8 @@
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import datetime
 from decimal import Decimal
@@ -56,7 +57,7 @@ class SimpleBacktest:
             name="BacktestExample",
             mode=EXECUTION_MODE.BACKTEST,
             logical_time_start=start_date,
-            timer_interval=0.01  # 从1秒改为0.01秒，减少100倍延迟
+            timer_interval=0.01,  # 从1秒改为0.01秒，减少100倍延迟
         )
         self.engine.set_end_time(end_date)
 
@@ -75,19 +76,12 @@ class SimpleBacktest:
         # 5. 创建Router/Broker架构
         print("🔗 创建Router/Broker架构...")
         self.broker = SimBroker(
-            name="SimBroker",
-            attitude=ATTITUDE_TYPES.OPTIMISTIC,
-            commission_rate=0.0003,
-            commission_min=5
+            name="SimBroker", attitude=ATTITUDE_TYPES.OPTIMISTIC, commission_rate=0.0003, commission_min=5
         )
-        self.router = Router(
-            name="UnifiedRouter",
-            brokers=[self.broker]
-        )
+        self.router = Router(name="UnifiedRouter", brokers=[self.broker])
 
         # 6. 按正确顺序绑定组件（自动事件注册）
         print("🔗 绑定组件关系...")
-        self.portfolio.bind_engine(self.engine)
         self.engine.add_portfolio(self.portfolio)
 
         # 绑定Router到引擎（关键步骤：Router需要引擎来推送事件）
@@ -125,6 +119,7 @@ class SimpleBacktest:
 
         # 简单等待完成，不设置固定延迟
         import time
+
         start_check = time.time()
         timeout = 300  # 5分钟超时保护
 
@@ -141,9 +136,9 @@ class SimpleBacktest:
 
     def generate_report(self):
         """生成回测报告"""
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("📊 Ginkgo事件驱动回测报告")
-        print("="*60)
+        print("=" * 60)
 
         # 调试 portfolio.worth 计算
         print(f"🔍 [DEBUG] Portfolio worth breakdown:")
@@ -153,7 +148,7 @@ class SimpleBacktest:
 
         total_position_worth = 0
         for code, position in self.portfolio.positions.items():
-            position_worth = position.worth if hasattr(position, 'worth') else 0
+            position_worth = position.worth if hasattr(position, "worth") else 0
             total_position_worth += position_worth
             print(f"   Position {code}: worth={position_worth}")
 
@@ -167,8 +162,8 @@ class SimpleBacktest:
 
         # 交易统计
         signal_count = self.strategy.signal_count
-        order_count = len(self.portfolio.orders) if hasattr(self.portfolio, 'orders') else 0
-        position_count = len(self.portfolio.positions) if hasattr(self.portfolio, 'positions') else 0
+        order_count = len(self.portfolio.orders) if hasattr(self.portfolio, "orders") else 0
+        position_count = len(self.portfolio.positions) if hasattr(self.portfolio, "positions") else 0
 
         print(f"初始资金: ¥{self.initial_cash:,}")
         print(f"期末价值: ¥{final_value:,.2f}")
@@ -178,12 +173,14 @@ class SimpleBacktest:
         print(f"持仓数量: {position_count}")
 
         # 显示最近的信号
-        if hasattr(self.strategy, 'signal_history') and self.strategy.signal_history:
+        if hasattr(self.strategy, "signal_history") and self.strategy.signal_history:
             print(f"\n📈 最近5个信号:")
             for i, signal in enumerate(self.strategy.signal_history[-5:]):
-                direction_name = signal.get('direction', 'Unknown')
-                direction = "买入" if direction_name == "LONG" else "卖出" if direction_name == "SHORT" else direction_name
-                timestamp = signal.get('timestamp', 'Unknown')
+                direction_name = signal.get("direction", "Unknown")
+                direction = (
+                    "买入" if direction_name == "LONG" else "卖出" if direction_name == "SHORT" else direction_name
+                )
+                timestamp = signal.get("timestamp", "Unknown")
                 print(f"  {i+1}. {direction} {signal.get('code')} @ {timestamp}")
 
         # 显示持仓情况
@@ -204,17 +201,17 @@ class SimpleBacktest:
         print("✅ Router/Broker订单处理架构")
         print("✅ 事件驱动回测流程")
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("🎉 回测完成！验证了Ginkgo框架的事件驱动架构")
-        print("="*60)
+        print("=" * 60)
 
         self.results = {
-            'initial_cash': self.initial_cash,
-            'final_value': final_value,
-            'total_return_pct': f"{total_return*100:.2f}%",
-            'signal_count': signal_count,
-            'order_count': order_count,
-            'position_count': position_count
+            "initial_cash": self.initial_cash,
+            "final_value": final_value,
+            "total_return_pct": f"{total_return*100:.2f}%",
+            "signal_count": signal_count,
+            "order_count": order_count,
+            "position_count": position_count,
         }
 
         return self.results
