@@ -59,6 +59,7 @@ class LogicalTimeProvider(ITimeProvider):
             GLOG.ERROR(f"Time regression rejected. Current: {self._current_time}, Requested: {timestamp}")
             return False
 
+        # 允许重复设置相同时间（多个组件调用相同的advance_time）
         self._current_time = timestamp
         return True
     

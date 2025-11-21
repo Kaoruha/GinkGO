@@ -147,7 +147,12 @@ class TimeMixin:
         # 关键：完全以TimeProvider为准
         if self._time_provider is None:
             if has_log:
-                self.log("ERROR", "TimeProvider not set. Call set_time_provider() first.")
+                component_info = f"Component: {self.__class__.__name__}"
+                if hasattr(self, 'name'):
+                    component_info += f" (name: {getattr(self, 'name', 'Unknown')})"
+                if hasattr(self, 'uuid'):
+                    component_info += f" (uuid: {getattr(self, 'uuid', 'Unknown')[:8]})"
+                self.log("ERROR", f"TimeProvider not set. Call set_time_provider() first. {component_info}")
             return False
 
         # 使用TimeProvider的时间推进逻辑（包含时间倒退检查等）

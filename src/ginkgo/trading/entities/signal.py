@@ -2,6 +2,7 @@ import pandas as pd
 import uuid
 import datetime
 from functools import singledispatchmethod
+from typing import Any
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize, GLOG
 from ginkgo.trading.mixins.time_mixin import TimeMixin
@@ -30,14 +31,15 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, LoggableMixin, Base):
         strength: float = 0.5,  # 信号强度，默认中等强度
         confidence: float = 0.5,  # 信号置信度，默认中等置信度
         uuid: str = "",  # 新增uuid参数支持，空值时自动生成
+        business_timestamp: Any = None,  # 业务时间戳，用于回测时的事件时间
         *args,
         **kwargs,
     ) -> None:
         # 显式初始化各个Mixin，确保正确的初始化顺序
         name = f"Signal_{code}_{direction}"
 
-        # TimeMixin初始化
-        TimeMixin.__init__(self, **kwargs)
+        # TimeMixin初始化 - 传递business_timestamp参数
+        TimeMixin.__init__(self, business_timestamp=business_timestamp, **kwargs)
 
         # ContextMixin初始化 - 不传递参数，让set方法处理
         ContextMixin.__init__(self, **kwargs)
@@ -55,6 +57,9 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, LoggableMixin, Base):
         # 通过set方法设置所有业务属性（包括上下文信息）
         try:
             self.set(portfolio_id, engine_id, run_id, code, direction, reason, source, volume, weight, strength, confidence)
+
+            # 注意：business_timestamp已经在TimeMixin中处理，不需要再次设置
+
         except Exception as e:
             GLOG.ERROR(f"Error initializing Signal: {e}")
             raise Exception("Error initializing Signal: {e}")

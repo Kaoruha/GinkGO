@@ -31,13 +31,38 @@ class EngineBindableMixin:
         Raises:
             ValueError: 如果引擎无效或缺少必要属性
         """
-        # 验证引擎必要属性
-        if not hasattr(engine, "put"):
-            raise ValueError("Invalid engine: missing required attribute 'put'.")
-
-        # 1. 保存引擎引用和事件发布函数
+        # 保存引擎引用和事件发布函数
         self._bound_engine = engine
         self._engine_put = engine.put
+
+        # 设置TimeProvider - 这是关键的修复！
+        if hasattr(engine, '_time_provider'):
+            self.set_time_provider(engine._time_provider)
+
+    def set_event_publisher(self, publisher) -> None:
+        """
+        设置事件发布器（通常是引擎的put函数）
+
+        Args:
+            publisher: 事件发布函数
+        """
+        self._engine_put = publisher
+
+    def publish_event(self, event) -> None:
+        """
+        发布事件到绑定的引擎
+
+        Args:
+            event: 要发布的事件
+        """
+        if self._engine_put is None:
+            # 使用log方法（如果继承者有的话）
+            if hasattr(self, 'log'):
+                self.log("ERROR", "Engine put not bind. Events can not put back to the engine.")
+            else:
+                print(f"ERROR: Engine put not bind in {self.__class__.__name__}. Events can not put back to the engine.")
+            return
+        self._engine_put(event)
 
     @property
     def engine_put(self):

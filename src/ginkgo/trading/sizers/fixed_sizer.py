@@ -131,7 +131,7 @@ class FixedSizer(BaseSizer):
                     frozen_money=planned_cost,
                     transaction_price=0,
                     transaction_volume=0,
-                    remain=0,
+                    remain=planned_cost,
                     fee=0,
                     timestamp=current_time,
                 )

@@ -90,8 +90,8 @@ class StrategyTrendFollow(BaseStrategy):
         super(StrategyTrendFollow, self).cal(portfolio_info, event)
         
         # 获取历史数据
-        date_start = self.now - datetime.timedelta(days=(self._slow_ma_period + 10))
-        df = get_bars(event.code, date_start, self.now, as_dataframe=True)
+        date_start = self.business_timestamp - datetime.timedelta(days=(self._slow_ma_period + 10))
+        df = get_bars(event.code, date_start, self.business_timestamp, as_dataframe=True)
 
         if df.shape[0] < self._slow_ma_period + 5:
             return []
