@@ -1,111 +1,90 @@
 """
-Engine相关Mixin
+统一上下文管理Mixin
 
-提供engine_id, run_id, portfolio_id等引擎相关标识的统一管理
+整合引擎绑定和上下文信息管理，提供完整的引擎集成功能：
+- 引擎实例绑定和管理
+- 上下文ID信息的存储和访问（engine_id, run_id, portfolio_id）
+- 事件发布功能
+- 动态获取引擎状态
+
+设计原则：
+- 统一管理所有与引擎相关的交互
+- 确保组件能够动态访问引擎的最新状态
+- 避免Mixin之间的复杂协调问题
 """
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ginkgo.trading.engines.base_engine import BaseEngine
 
 
 class ContextMixin:
-    """引擎相关的Mixin，管理engine_id、run_id、portfolio_id等标识"""
+    """统一的上下文管理Mixin，整合引擎绑定和上下文信息"""
 
-    def __init__(self, engine_id: str = None, run_id: str = None, portfolio_id: str = None, *args, **kwargs):
+    def __init__(self, engine=None, *args, **kwargs):
         """
-        初始化引擎相关标识
+        初始化上下文管理
 
         Args:
-            engine_id: 引擎ID
-            run_id: 运行会话ID
-            portfolio_id: 投资组合ID
+            engine: 引擎实例（可选）
         """
-        self._engine_id: Optional[str] = engine_id
-        self._run_id: Optional[str] = run_id
-        self._portfolio_id: Optional[str] = portfolio_id
-        self._bound_engine = None  # 确保属性存在
-        self._bound_portfolio = None  # 确保属性存在
+        # 引擎绑定相关
+        self._bound_engine: Optional["BaseEngine"] = None
+        self._engine_put = None
+        self._bound_portfolio = None
+
+        # 如果提供了engine，直接绑定
+        if engine is not None:
+            self.bind_engine(engine)
         super().__init__(*args, **kwargs)
 
-    def _set_bound_engine(self, engine) -> None:
-        """内部方法：设置绑定的引擎引用"""
+    def bind_engine(self, engine: "BaseEngine") -> None:
+        """
+        统一的引擎绑定方法，整合引擎绑定和上下文设置
+
+        Args:
+            engine: 要绑定的引擎实例
+        """
+        # 保存引擎引用和事件发布函数
         self._bound_engine = engine
+        self._engine_put = engine.put
 
     def _set_bound_portfolio(self, portfolio) -> None:
         """内部方法：设置绑定的投资组合引用"""
         self._bound_portfolio = portfolio
 
-    def bind_engine(self, engine) -> None:
-        """绑定引擎实例（公共接口）"""
-        self._bound_engine = engine
-
     def bind_portfolio(self, portfolio) -> None:
         """绑定投资组合实例（公共接口）"""
         self._bound_portfolio = portfolio
 
-        # 如果portfolio已绑定engine，自动绑定engine以实现灵活的上下文传播
+        # 如果portfolio已绑定引擎，自动绑定当前组件
         if hasattr(portfolio, '_bound_engine') and portfolio._bound_engine is not None:
             self.bind_engine(portfolio._bound_engine)
 
     @property
-    def engine_id(self) -> Optional[str]:
-        """获取引擎ID - 从绑定引擎获取，未绑定时返回None"""
-        if self._bound_engine is not None:
-            return self._bound_engine.engine_id
-        return None
+    def engine_put(self):
+        """获取引擎的事件发布函数"""
+        return self._engine_put
 
-    @engine_id.setter
-    def engine_id(self, value: str) -> None:
-        """设置引擎ID"""
-        self._engine_id = value
+    @property
+    def bound_engine(self):
+        """获取绑定的引擎实例"""
+        return self._bound_engine
+
+    @property
+    def engine_id(self) -> Optional[str]:
+        """获取引擎ID - 从绑定的引擎动态获取"""
+        return self._bound_engine.engine_id if self._bound_engine else None
 
     @property
     def run_id(self) -> Optional[str]:
-        """获取运行会话ID - 从绑定引擎获取，未绑定时返回None"""
-        if self._bound_engine is not None:
-            return self._bound_engine.run_id
-        return None
-
-    @run_id.setter
-    def run_id(self, value: str) -> None:
-        """设置运行会话ID"""
-        self._run_id = value
+        """获取运行会话ID - 从绑定的引擎动态获取"""
+        return self._bound_engine.run_id if self._bound_engine else None
 
     @property
     def portfolio_id(self) -> Optional[str]:
-        """获取投资组合ID - 从绑定portfolio获取，未绑定时返回None"""
-        if self._bound_portfolio is not None:
-            return self._bound_portfolio.uuid
-        return None
+        """获取投资组合ID - 从绑定的portfolio动态获取"""
+        return self._bound_portfolio.uuid if self._bound_portfolio else None
 
-    @portfolio_id.setter
-    def portfolio_id(self, value: str) -> None:
-        """设置投资组合ID"""
-        self._portfolio_id = value
-
-    def set_engine_context(self, engine_id: str = None, run_id: str = None, portfolio_id: str = None) -> None:
-        """
-        批量设置引擎上下文
-
-        Args:
-            engine_id: 引擎ID
-            run_id: 运行会话ID
-            portfolio_id: 投资组合ID
-        """
-        if engine_id is not None:
-            self.engine_id = engine_id
-        if run_id is not None:
-            self.run_id = run_id
-        if portfolio_id is not None:
-            self.portfolio_id = portfolio_id
-
-    def sync_engine_context(self, engine) -> None:
-        """
-        从引擎同步上下文ID信息，不涉及事件发布
-
-        Args:
-            engine: 引擎实例
-        """
-        if hasattr(engine, "engine_id") and engine.engine_id:
-            self.engine_id = engine.engine_id
-        if hasattr(engine, "run_id") and engine.run_id:
-            self.run_id = engine.run_id
+    

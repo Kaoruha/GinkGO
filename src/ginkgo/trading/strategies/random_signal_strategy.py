@@ -4,8 +4,9 @@ RandomSignalStrategy - 随机信号生成策略
 用于测试和验证的简单策略：
 - 基于概率随机生成买入/卖出信号
 - 支持自定义概率分布和信号强度
-- 可配置的目标股票代码池
-- 独立于市场数据的随机决策
+- 响应从portfolio传递的价格事件，不再维护自己的标的目录
+- 只对portfolio关注的股票（通过selector配置）生成信号
+- 独立于价格数据的随机决策
 """
 
 import random
@@ -25,7 +26,8 @@ class RandomSignalStrategy(BaseStrategy):
     特性：
     - 基于配置的概率随机生成交易信号
     - 支持买入/卖出/观望三种决策
-    - 可配置目标股票代码池
+    - 响应从portfolio传递的价格事件，不再维护自己的标的目录
+    - 只对portfolio关注的股票（通过selector配置）生成信号
     - 独立于价格数据，纯粹基于随机数
     - 适用于回测框架验证和压力测试
     """
@@ -33,16 +35,16 @@ class RandomSignalStrategy(BaseStrategy):
     def __init__(self,
                  buy_probability: float = 0.3,
                  sell_probability: float = 0.3,
-                 target_codes: Optional[List[str]] = None,
-                 signal_reason_template: str = "随机信号-{direction}-{index}"):
+                 signal_reason_template: str = "随机信号-{direction}-{index}",
+                 max_signals: int = -1):
         """
         初始化随机信号策略
 
         Args:
             buy_probability: 买入信号概率 (0.0-1.0)
             sell_probability: 卖出信号概率 (0.0-1.0)
-            target_codes: 目标股票代码列表，默认为几个主要股票
             signal_reason_template: 信号原因模板
+            max_signals: 最大信号数量限制，-1表示无限
         """
         super().__init__()
 
@@ -56,14 +58,11 @@ class RandomSignalStrategy(BaseStrategy):
             self.buy_probability = self.buy_probability / total
             self.sell_probability = self.sell_probability / total
 
-        # 目标股票代码池
-        self.target_codes = target_codes or [
-            "000001.SZ", "000002.SZ", "600000.SH",
-            "600036.SH", "000858.SZ"
-        ]
-
         # 信号原因模板
         self.signal_reason_template = signal_reason_template
+
+        # 最大信号数量限制
+        self.max_signals = max_signals
 
         # 策略状态
         self.signal_count = 0
@@ -72,6 +71,12 @@ class RandomSignalStrategy(BaseStrategy):
 
         # 随机数种子（可复现测试）
         self.random_seed = None
+
+        # 调试计数器
+        self.call_count = 0
+
+        # 关注的股票代码列表（用于兼容性）
+        self.target_codes = []
 
     def set_random_seed(self, seed: int) -> None:
         """
@@ -87,38 +92,76 @@ class RandomSignalStrategy(BaseStrategy):
         """
         策略主要计算逻辑
 
-        基于随机数生成交易信号，不依赖价格数据
+        基于从portfolio传递的价格事件生成随机交易信号，不再维护自己的标的目录
 
         Args:
             portfolio_info: Portfolio信息
-            event: 价格更新事件
+            event: 价格更新事件（包含股票代码和价格信息）
             *args, **kwargs: 其他参数
 
         Returns:
             List[Signal]: 生成的信号列表
         """
+        # 检查信号数量限制
+        if self.max_signals >= 0 and self.signal_count >= self.max_signals:
+            return []
+
+        # 调试：统计策略调用次数并打印完整事件信息
+        self.call_count += 1
+        print(f"\n🔍 [#{self.call_count}] STRATEGY RECEIVED EVENT:")
+        print(f"   Type: {type(event).__name__}")
+        print(f"   Code: {getattr(event, 'code', 'None')}")
+        print(f"   Timestamp: {getattr(event, 'timestamp', 'None')}")
+        print(f"   Business Timestamp: {getattr(event, 'business_timestamp', 'None')}")
+        print(f"   Close: {getattr(event, 'close', 'None')}")
+        print(f"   Event ID: {getattr(event, 'uuid', 'None')}")
+
         signals = []
 
-        # 更新策略状态
-        current_time = getattr(event, 'timestamp', None) or getattr(event, 'business_timestamp', None)
+        # 获取事件中的股票代码
+        event_code = getattr(event, 'code', None)
+        if not event_code:
+            print(f"   ❌ No event code, returning empty signals")
+            return signals
 
-        # 为每个目标股票生成信号决策
-        for code in self.target_codes:
-            # 生成随机决策
-            decision = self._make_random_decision()
+        # 更新策略状态 - 使用TimeProvider获取当前业务时间
+        print(f"   🔍 [TIMESTAMP DEBUG] Getting time provider...")
+        time_provider = self.get_time_provider()
+        print(f"   🔍 [TIMESTAMP DEBUG] Time provider: {time_provider}")
+        print(f"   🔍 [TIMESTAMP DEBUG] Time provider type: {type(time_provider)}")
 
-            if decision != "hold":  # 不为观望时生成信号
-                signal = self._create_signal(
-                    code=code,
-                    direction=decision,
-                    timestamp=current_time,
-                    event=event
-                )
+        try:
+            current_time = time_provider.now()
+            print(f"   🕐 Current business time: {current_time}")
+            print(f"   🔍 [TIMESTAMP DEBUG] Time provider.now() SUCCESS")
+        except Exception as e:
+            print(f"   ❌ [TIMESTAMP DEBUG] Time provider.now() FAILED: {e}")
+            # 使用事件时间作为回退
+            current_time = getattr(event, 'business_timestamp', None) or getattr(event, 'timestamp', None)
+            print(f"   🔧 [TIMESTAMP DEBUG] Using event time fallback: {current_time}")
 
-                if signal:
-                    signals.append(signal)
-                    self._record_signal(signal, event)
+        print(f"   🔍 [TIMESTAMP DEBUG] Final current_time: {current_time} (type: {type(current_time)})")
 
+        # 为当前事件的股票生成随机决策
+        decision = self._make_random_decision()
+        print(f"   🎲 Random decision: {decision}")
+
+        if decision != "hold":  # 不为观望时生成信号
+            signal = self._create_signal(
+                code=event_code,
+                direction=decision,
+                timestamp=current_time,
+                event=event
+            )
+
+            if signal:
+                signals.append(signal)
+                print(f"   ✅ Created signal: {signal.direction.name} for {signal.code}")
+                self._record_signal(signal, event)
+            else:
+                print(f"   ❌ Failed to create signal")
+
+        print(f"   📤 Returning {len(signals)} signals")
         return signals
 
     def _make_random_decision(self) -> str:
@@ -172,13 +215,23 @@ class RandomSignalStrategy(BaseStrategy):
                 index=self.signal_count
             )
 
-            # 创建信号
+            # 创建信号 - ID现在从绑定的引擎动态获取
+            print(f"   🔍 [SIGNAL DEBUG] Creating signal with business_timestamp={timestamp}")
             signal = Signal(
+                portfolio_id=self.portfolio_id,  # 从绑定的portfolio动态获取
+                engine_id=self.engine_id,         # 从绑定的引擎动态获取
+                run_id=self.run_id,               # 从绑定的引擎动态获取
                 code=code,
                 direction=direction_enum,
                 reason=reason,
-                timestamp=timestamp
+                business_timestamp=timestamp      # 使用TimeProvider的业务时间
             )
+            print(f"   🔍 [SIGNAL DEBUG] Signal created. signal.business_timestamp={signal.business_timestamp}")
+            print(f"   🔍 [SIGNAL DEBUG] Signal timestamp={signal.timestamp}")
+            print(f"   🔍 [SIGNAL DEBUG] hasattr signal.business_timestamp: {hasattr(signal, 'business_timestamp')}")
+            if hasattr(signal, 'business_timestamp'):
+                print(f"   🔍 [SIGNAL DEBUG] signal.business_timestamp type: {type(signal.business_timestamp)}")
+                print(f"   🔍 [SIGNAL DEBUG] signal.business_timestamp value: {signal.business_timestamp}")
 
             # 设置信号来源
             if hasattr(signal, 'set_source'):
@@ -204,7 +257,7 @@ class RandomSignalStrategy(BaseStrategy):
             "code": signal.code,
             "direction": signal.direction.name,
             "reason": signal.reason,
-            "timestamp": signal.timestamp,
+            "timestamp": signal.business_timestamp,  # 存储业务时间而不是系统时间
             "trigger_event_code": getattr(event, 'code', None),
             "trigger_event_price": getattr(event, 'close', None)
         }
@@ -224,8 +277,6 @@ class RandomSignalStrategy(BaseStrategy):
             "buy_probability": self.buy_probability,
             "sell_probability": self.sell_probability,
             "hold_probability": 1.0 - self.buy_probability - self.sell_probability,
-            "target_codes_count": len(self.target_codes),
-            "target_codes": self.target_codes.copy(),
             "total_signals_generated": self.signal_count,
             "last_signal_time": self.last_signal_time,
             "signal_history_count": len(self.signal_history),
@@ -282,15 +333,13 @@ class RandomSignalStrategy(BaseStrategy):
 
     def update_parameters(self,
                          buy_probability: Optional[float] = None,
-                         sell_probability: Optional[float] = None,
-                         target_codes: Optional[List[str]] = None) -> None:
+                         sell_probability: Optional[float] = None) -> None:
         """
         更新策略参数
 
         Args:
             buy_probability: 新的买入概率
             sell_probability: 新的卖出概率
-            target_codes: 新的目标股票代码列表
         """
         if buy_probability is not None:
             self.buy_probability = max(0.0, min(1.0, buy_probability))
@@ -303,9 +352,6 @@ class RandomSignalStrategy(BaseStrategy):
             total = self.buy_probability + self.sell_probability
             self.buy_probability = self.buy_probability / total
             self.sell_probability = self.sell_probability / total
-
-        if target_codes is not None:
-            self.target_codes = target_codes.copy()
 
     def log_error(self, message: str) -> None:
         """

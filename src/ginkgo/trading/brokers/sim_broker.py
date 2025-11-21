@@ -1,7 +1,7 @@
 """
-SimBroker - 模拟撮合Broker
+SimBroker - 回测模拟撮合Broker
 
-基于MatchMakingSim的逻辑，提供统一的Broker接口进行模拟撮合。
+基于新的BaseBroker和IBroker接口，提供统一的回测模拟撮合功能。
 支持滑点、态度设置、手续费计算等回测功能。
 """
 
@@ -11,208 +11,160 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from scipy import stats
 
-from ginkgo.trading.brokers.base_broker import (
-    BaseBroker,
-    ExecutionResult,
-    ExecutionStatus,
-    AccountInfo,
-    BrokerCapabilities,
-)
+from ginkgo.trading.bases.base_broker import BaseBroker
+from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
 from ginkgo.trading.entities import Order
-from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ATTITUDE_TYPES
+from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ATTITUDE_TYPES, ORDERSTATUS_TYPES
 from ginkgo.libs import to_decimal, Number
-from ginkgo.libs import GLOG
 
 
-class SimBroker(BaseBroker):
+class SimBroker(BaseBroker, IBroker):
     """
-    模拟撮合Broker
+    回测模拟撮合Broker
 
-    基于MatchMakingSim的逻辑，提供统一的Broker接口进行模拟撮合。
+    基于新的BaseBroker和IBroker接口，提供回测专用的模拟撮合功能。
     支持滑点、态度设置、手续费计算等回测功能。
 
     核心特点：
-    - 同步执行：立即返回最终状态（FILLED/CANCELLED）
+    - 立即执行：支持同步立即执行（回测模式）
     - 模拟撮合：基于随机价格和滑点模型
     - 完整验证：订单验证、资金检查、价格限制
+    - 内存管理：使用BaseBroker的市场数据缓存
     """
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, name: str = "SimBroker", **config):
         """
         初始化SimBroker
 
         Args:
+            name: Broker名称
             config: 配置字典，包含：
                 - attitude: 撮合态度 (OPTIMISTIC/PESSIMISTIC/RANDOM)
                 - commission_rate: 手续费率 (默认0.0003)
                 - commission_min: 最小手续费 (默认5)
                 - slip_base: 滑点基数 (默认0.01)
         """
-        super().__init__(config)
+        super().__init__(name=name)
 
         # 模拟交易配置
-        from ginkgo.enums import ATTITUDE_TYPES
-
         self._attitude = config.get("attitude", ATTITUDE_TYPES.RANDOM)
         self._commission_rate = Decimal(str(config.get("commission_rate", 0.0003)))
         self._commission_min = config.get("commission_min", 5)
         self._slip_base = config.get("slip_base", 0.01)
-        # 回测同步成交流程开关（默认启用）：
-        # - True: submit_order 同步返回最终结果
-        # - False: 返回ACK并异步产生成交结果
-        self._sync_fills: bool = bool(config.get("sync_fills", True))
 
-        # 市场数据缓存
-        self._current_market_data: Dict[str, pd.Series] = {}
+        # 设置市场属性（用于Router市场映射）
+        self.market = "SIM"  # 通用模拟市场，支持所有品种
 
-        # Portfolio信息提供器（延迟绑定）
-        self._portfolio_provider = None
+        self.log("INFO", f"SimBroker initialized with attitude={self._attitude.name}, commission_rate={self._commission_rate}")
 
-    def _init_capabilities(self) -> BrokerCapabilities:
-        """初始化SimBroker的能力描述"""
-        caps = BrokerCapabilities()
-        caps.execution_type = "sync"  # 同步执行
-        caps.supports_streaming = False
-        caps.supports_batch_ops = True  # 支持批量操作
-        caps.supports_market_data = False
-        caps.supports_positions = False
-        caps.max_orders_per_second = 1000  # 模拟环境无限制
-        caps.max_concurrent_orders = 1000
-        caps.order_timeout_seconds = 0  # 立即执行
-        caps.supported_order_types = ["MARKET", "LIMIT"]
-        caps.supported_time_in_force = ["DAY", "GTC"]
-        return caps
-
-    def _detect_execution_mode(self) -> str:
+    # ============= IBroker接口实现 =============
+    def submit_order_event(self, event) -> BrokerExecutionResult:
         """
-        SimBroker专用于回测模式
-
-        Returns:
-            str: 'backtest'
-        """
-        return "backtest"
-
-    def bind_portfolio_provider(self, provider):
-        """
-        绑定Portfolio信息提供器
+        提交订单事件 - 同步立即执行（回测模式）
 
         Args:
-            provider: Portfolio信息获取函数，通常是portfolio.get_info
+            event: 订单事件对象
+
+        Returns:
+            BrokerExecutionResult: 执行结果（立即返回最终状态）
         """
-        self._portfolio_provider = provider
+        order = event.payload
+        self.log("INFO", f"📝 [SIMBROKER] ORDER EVENT RECEIVED: {order.direction.name} {order.volume} {order.code} (uuid: {order.uuid[:8]})")
+        self.log("DEBUG", f"🔍 [EVENT CONTEXT] portfolio_id={getattr(event, 'portfolio_id', 'N/A')}, "
+                        f"engine_id={getattr(event, 'engine_id', 'N/A')}, "
+                        f"run_id={getattr(event, 'run_id', 'N/A')}")
 
-    # ============= 连接管理 =============
-    async def connect(self) -> bool:
-        """模拟连接（总是成功）"""
-        self._connected = True
-        from ginkgo.libs import GLOG
-        GLOG.DEBUG(f"SimBroker connected successfully")
-        return True
+        # 保存事件上下文，用于后续Position创建
+        self._current_event = event
 
-    async def disconnect(self) -> bool:
-        """模拟断连"""
-        self._connected = False
-        from ginkgo.libs import GLOG
-        GLOG.DEBUG(f"SimBroker disconnected")
-        return True
+        # 基础验证
+        if not self.validate_order(order):
+            self.log("ERROR", f"❌ [SIMBROKER] Order validation failed: {order.uuid[:8]}")
+            return BrokerExecutionResult(
+                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                error_message="Order validation failed by SimBroker"
+            )
 
-    # ============= 订单管理 =============
-    async def submit_order(self, order: "Order") -> ExecutionResult:
+        broker_order_id = f"SIM_{order.uuid[:8]}"
+        self.log("DEBUG", f"🔧 [SIMBROKER] Generated broker_order_id: {broker_order_id}")
+
+        # 直接同步撮合（回测模式特点）
+        try:
+            self.log("DEBUG", f"⚡ [SIMBROKER] Starting synchronous execution...")
+            result = self._simulate_execution_sync(order, broker_order_id)
+            self.log("INFO", f"✅ [SIMBROKER] EXECUTION COMPLETE: {result.status.name} "
+                           f"{result.filled_volume} {order.code} @ {result.filled_price} (trade_id: {result.trade_id})")
+            self.log("INFO", f"💰 [SIMBROKER] Commission: {result.commission}, Error: {result.error_message}")
+
+            # 如果订单完全成交，打印详细信息
+            if result.status == ORDERSTATUS_TYPES.FILLED:
+                self.log("INFO", f"🎉 [SIMBROKER] ORDER FULLY EXECUTED!")
+                self.log("INFO", f"📊 [SIMBROKER] EXECUTION SUMMARY: {result.filled_volume} shares @ {result.filled_price}, commission={result.commission}")
+            else:
+                self.log("WARN", f"⚠️ [SIMBROKER] ORDER NOT FILLED: status={result.status.name}")
+                self.log("WARN", f"🔍 [SIMBROKER] DETAILS: filled_volume={result.filled_volume}, filled_price={result.filled_price}, error='{result.error_message}'")
+                self.log("WARN", f"🔍 [SIMBROKER] BROKER_ORDER_ID: {result.broker_order_id}, TRADE_ID: {result.trade_id}")
+            return result
+        except Exception as e:
+            self.log("ERROR", f"❌ [SIMBROKER] Execution error: {e}")
+            return BrokerExecutionResult(
+                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                broker_order_id=broker_order_id,
+                error_message=f"SimBroker execution error: {str(e)}"
+            )
+
+    
+    def validate_order(self, order: Order) -> bool:
         """
-        提交订单（T5语义）：返回ACK并异步产生成交结果
+        验证订单基础有效性
 
         Args:
             order: 订单对象
 
         Returns:
-            ExecutionResult: 提交ACK结果（SUBMITTED）
+            bool: 是否有效
         """
-        if not self.is_connected:
-            return ExecutionResult(
-                order_id=order.uuid,
-                status=ExecutionStatus.FAILED,
-                message="SimBroker not connected",
-                execution_mode=self.execution_mode,
-                requires_confirmation=False,
-            )
+        self.log("DEBUG", f"🔍 [SIMBROKER] VALIDATING ORDER: {order.uuid[:8]}")
 
-        # 基础验证
-        if not self.validate_order(order):
-            return ExecutionResult(
-                order_id=order.uuid,
-                status=ExecutionStatus.REJECTED,
-                message="Order validation failed",
-                execution_mode=self.execution_mode,
-                requires_confirmation=False,
-            )
+        if not order or not hasattr(order, 'uuid'):
+            self.log("ERROR", f"❌ [SIMBROKER] Invalid order object: no uuid attribute")
+            return False
 
-        broker_order_id = f"SIM_{order.uuid[:8]}"
+        if not order.code or not isinstance(order.code, str):
+            self.log("ERROR", f"❌ [SIMBROKER] Invalid order code: '{order.code}'")
+            return False
 
-        # 同步/异步路径
-        if self._sync_fills:
-            # 直接同步撮合并返回最终状态（可能包含“同步分笔”）
-            try:
-                results = self._simulate_execution_core(order, broker_order_id)
-                last: ExecutionResult = results[-1] if results else ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.FAILED,
-                    broker_order_id=broker_order_id,
-                    message="No execution result",
-                    execution_mode=self.execution_mode,
-                )
-                for r in results:
-                    self._update_order_status(r)
-                return last
-            except Exception as e:
-                err = ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.FAILED,
-                    broker_order_id=broker_order_id,
-                    message=f"Sync fill error: {e}",
-                    execution_mode=self.execution_mode,
-                )
-                self._update_order_status(err)
-                return err
-        else:
-            # 旧路径：ACK + 异步成交
-            ack = ExecutionResult(
-                order_id=order.uuid,
-                status=ExecutionStatus.SUBMITTED,
-                broker_order_id=broker_order_id,
-                message="Order accepted by SimBroker",
-                execution_mode=self.execution_mode,
-                requires_confirmation=False,
-            )
-            self._update_order_status(ack)
+        if order.volume <= 0:
+            self.log("ERROR", f"❌ [SIMBROKER] Invalid volume: {order.volume} <= 0")
+            return False
 
-            # 启动异步成交流程
-            import asyncio as _asyncio
-            _asyncio.create_task(self._process_order_fills(order, broker_order_id))
+        # 检查是否有市场数据
+        self.log("DEBUG", f"📊 [SIMBROKER] Checking market data for {order.code}...")
+        market_data = self.get_market_data(order.code)
+        if market_data is None:
+            self.log("ERROR", f"❌ [SIMBROKER] No market data for {order.code}")
+            return False
 
-            return ack
+        self.log("DEBUG", f"✅ [SIMBROKER] Market data found for {order.code}: type={type(market_data)}")
+        if hasattr(market_data, 'close'):
+            self.log("DEBUG", f"💰 [SIMBROKER] Close price: {market_data.close}")
 
-    async def _process_order_fills(self, order: "Order", broker_order_id: str):
-        """异步处理成交，支持部分成交"""
-        import asyncio as _asyncio
-        try:
-            await _asyncio.sleep(0.05)
-            results = self._simulate_execution_core(order, broker_order_id)
-            for idx, r in enumerate(results):
-                if idx > 0:
-                    await _asyncio.sleep(0.05)
-                self._update_order_status(r)
+        self.log("DEBUG", f"✅ [SIMBROKER] Order validation PASSED for {order.uuid[:8]}")
+        return True
 
-        except Exception as e:
-            err = ExecutionResult(
-                order_id=order.uuid,
-                status=ExecutionStatus.FAILED,
-                broker_order_id=broker_order_id,
-                message=f"Async fill error: {e}",
-                execution_mode=self.execution_mode,
-            )
-            self._update_order_status(err)
+    def supports_immediate_execution(self) -> bool:
+        """SimBroker支持立即执行（回测模式）"""
+        return True
 
-    async def cancel_order(self, order_id: str) -> ExecutionResult:
+    def requires_manual_confirmation(self) -> bool:
+        """SimBroker不需要人工确认"""
+        return False
+
+    def supports_api_trading(self) -> bool:
+        """SimBroker不支持真实API交易"""
+        return False
+
+    def cancel_order(self, order_id: str) -> BrokerExecutionResult:
         """
         取消订单（模拟环境中订单立即执行，无法取消）
 
@@ -220,295 +172,134 @@ class SimBroker(BaseBroker):
             order_id: 订单ID
 
         Returns:
-            ExecutionResult: 取消结果
+            BrokerExecutionResult: 取消结果
         """
-        # 检查订单是否存在于缓存中
-        cached_result = self.get_cached_order_status(order_id)
-        if cached_result and cached_result.is_final_status:
-            return ExecutionResult(
-                order_id=order_id,
-                status=ExecutionStatus.REJECTED,
-                message="Cannot cancel already executed order in simulation",
-            )
-
-        return ExecutionResult(
-            order_id=order_id, status=ExecutionStatus.CANCELED, message="Order cancelled in simulation"
+        self.log("WARN", f"🚫 CANCEL REQUESTED: {order_id} (SimBroker orders execute immediately)")
+        return BrokerExecutionResult(
+            status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+            error_message="Cannot cancel: SimBroker orders execute immediately"
         )
 
-    async def query_order(self, order_id: str) -> ExecutionResult:
+    # ============= 核心同步执行逻辑 =============
+    def _simulate_execution_sync(self, order: Order, broker_order_id: str) -> BrokerExecutionResult:
         """
-        查询订单状态（模拟环境返回缓存状态）
-
-        Args:
-            order_id: 订单ID
-
-        Returns:
-            ExecutionResult: 订单状态
-        """
-        cached_result = self.get_cached_order_status(order_id)
-        if cached_result:
-            return cached_result
-
-        return ExecutionResult(
-            order_id=order_id, status=ExecutionStatus.FAILED, message="Order not found in simulation cache"
-        )
-
-    # ============= 账户管理 =============
-    async def get_account_info(self) -> "AccountInfo":
-        """
-        获取真实Portfolio账户信息
-
-        Returns:
-            AccountInfo: 从Portfolio获取的真实账户信息
-        """
-        # 直接调用portfolio_provider获取真实状态
-        portfolio_state = self._portfolio_provider()
-
-        # 正确映射Portfolio字段到AccountInfo字段
-        cash = portfolio_state.get("cash", 0.0)
-        frozen = portfolio_state.get("frozen", 0.0)
-        worth = portfolio_state.get("worth", 0.0)
-        profit = portfolio_state.get("profit", 0.0)
-
-        # 计算市值 = 总价值 - 现金 - 冻结资金
-        market_value = max(0.0, worth - cash - frozen)
-
-        return AccountInfo(
-            total_asset=worth,  # Portfolio的worth对应总资产
-            available_cash=cash,  # Portfolio的cash对应可用资金
-            frozen_cash=frozen,  # Portfolio的frozen对应冻结资金
-            market_value=market_value,  # 计算得出的持仓市值
-            total_pnl=profit,  # Portfolio的profit对应总盈亏
-        )
-
-    async def get_positions(self) -> List["Position"]:
-        """
-        获取真实Portfolio持仓信息
-
-        Returns:
-            List[Position]: 从Portfolio获取的真实持仓列表
-        """
-        # 直接调用portfolio_provider获取真实持仓
-        portfolio_state = self._portfolio_provider()
-        return portfolio_state.get("positions", [])
-
-    # ============= 核心模拟逻辑 =============
-    async def _simulate_execution(self, order: "Order", market_data: pd.Series) -> ExecutionResult:
-        """
-        执行模拟撮合 - 从MatchMakingSim提取的核心逻辑
+        同步模拟撮合核心逻辑 - 立即返回最终执行结果
 
         Args:
             order: 订单对象
-            market_data: 市场数据
+            broker_order_id: Broker订单ID
 
         Returns:
-            ExecutionResult: 执行结果
+            BrokerExecutionResult: 执行结果
         """
+        self.log("DEBUG", f"🎯 [SIMBROKER] SIMULATE EXECUTION START: {order.uuid[:8]}")
+
         try:
-            # 1. 价格验证
+            # 1. 获取市场数据
+            self.log("DEBUG", f"📊 [SIMBROKER] Step 1: Getting market data for {order.code}...")
+            market_data = self.get_market_data(order.code)
+            if market_data is None:
+                self.log("ERROR", f"❌ [SIMBROKER] No market data for {order.code}")
+                return BrokerExecutionResult(
+                    status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                    broker_order_id=broker_order_id,
+                    error_message=f"No market data available for {order.code}"
+                )
+            self.log("DEBUG", f"✅ [SIMBROKER] Market data obtained for {order.code}")
+
+            # 2. 价格验证
+            self.log("DEBUG", f"💰 [SIMBROKER] Step 2: Validating price data...")
             if not self._is_price_valid(order.code, market_data):
-                return ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.CANCELED,
-                    message="Invalid price data",
-                    execution_mode=self.execution_mode,
-                    requires_confirmation=False,
+                self.log("ERROR", f"❌ [SIMBROKER] Invalid price data for {order.code}")
+                return BrokerExecutionResult(
+                    status=ORDERSTATUS_TYPES.CANCELED,
+                    broker_order_id=broker_order_id,
+                    error_message="Invalid price data"
                 )
+            self.log("DEBUG", f"✅ [SIMBROKER] Price validation passed")
 
-            # 2. 订单类型检查
+            # 3. 订单类型检查
+            self.log("DEBUG", f"📋 [SIMBROKER] Step 3: Checking if order can be filled...")
             if not self._can_order_be_filled(order, market_data):
-                return ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.CANCELED,
-                    message="Order cannot be filled at current price",
-                    execution_mode=self.execution_mode,
-                    requires_confirmation=False,
+                self.log("ERROR", f"❌ [SIMBROKER] Order cannot be filled at current price")
+                return BrokerExecutionResult(
+                    status=ORDERSTATUS_TYPES.CANCELED,
+                    broker_order_id=broker_order_id,
+                    error_message="Order cannot be filled at current price"
                 )
+            self.log("DEBUG", f"✅ [SIMBROKER] Order can be filled")
 
-            # 3. 涨跌停检查
+            # 4. 涨跌停检查
+            self.log("DEBUG", f"🚫 [SIMBROKER] Step 4: Checking price limits...")
             if self._is_limit_blocked(order, market_data):
-                return ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.CANCELED,
-                    message="Price limit up/down",
-                    execution_mode=self.execution_mode,
-                    requires_confirmation=False,
+                self.log("ERROR", f"❌ [SIMBROKER] Price limit blocked for {order.code}")
+                return BrokerExecutionResult(
+                    status=ORDERSTATUS_TYPES.CANCELED,
+                    broker_order_id=broker_order_id,
+                    error_message="Price limit up/down"
                 )
+            self.log("DEBUG", f"✅ [SIMBROKER] No price limit restrictions")
 
-            # 4. 计算成交价格（已包含滑点效应）
+            # 5. 计算成交价格（已包含滑点效应）
+            self.log("DEBUG", f"🧮 [SIMBROKER] Step 5: Calculating transaction price...")
             transaction_price = self._calculate_transaction_price(order, market_data)
+            self.log("DEBUG", f"💰 [SIMBROKER] Transaction price calculated: {transaction_price}")
 
-            # 5. 调整成交数量（资金检查）
+            # 6. 调整成交数量（资金检查）
+            self.log("DEBUG", f"📊 [SIMBROKER] Step 6: Adjusting volume for funds...")
             transaction_volume = self._adjust_volume_for_funds(order, transaction_price)
+            self.log("DEBUG", f"📈 [SIMBROKER] Transaction volume: {transaction_volume}")
             if transaction_volume == 0:
-                return ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.CANCELED,
-                    message="Insufficient funds for execution",
-                    execution_mode=self.execution_mode,
-                    requires_confirmation=False,
+                self.log("ERROR", f"❌ [SIMBROKER] Insufficient funds for execution")
+                return BrokerExecutionResult(
+                    status=ORDERSTATUS_TYPES.CANCELED,
+                    broker_order_id=broker_order_id,
+                    error_message="Insufficient funds for execution"
                 )
 
-            # 6. 计算费用
+            # 7. 计算费用
+            self.log("DEBUG", f"💸 [SIMBROKER] Step 7: Calculating commission...")
             transaction_money = transaction_price * transaction_volume
-            fees = self._calculate_commission(transaction_money, order.direction == DIRECTION_TYPES.LONG)
+            commission = self._calculate_commission(transaction_money, order.direction == DIRECTION_TYPES.LONG)
+            self.log("DEBUG", f"💰 [SIMBROKER] Transaction money: {transaction_money}, Commission: {commission}")
 
-            # 7. 创建执行结果
-            result = ExecutionResult(
-                order_id=order.uuid,
-                status=ExecutionStatus.FILLED,
-                broker_order_id=f"SIM_{order.uuid[:8]}",
-                filled_quantity=transaction_volume,
+            # 8. SimBroker不管理持仓，只负责撮合和生成事件
+            self.log("DEBUG", f"🏠 [SIMBROKER] Step 8: SIMBROKER DOES NOT MANAGE POSITIONS")
+            self.log("DEBUG", f"📊 [SIMBROKER] Position management is Portfolio's responsibility")
+            self.log("DEBUG", f"✅ [SIMBROKER] Order execution completed, portfolio will manage positions")
+
+            # 9. SimBroker只负责撮合，事件发布由Router处理
+            self.log("DEBUG", f"📋 [SIMBROKER] Step 9: SimBroker matching completed")
+            self.log("DEBUG", f"📋 [SIMBROKER] Router will handle event creation and publishing")
+            self.log("INFO", f"✅ [SIMBROKER] Matching complete: {transaction_volume} {order.code} @ {transaction_price}")
+
+            # 10. 创建执行结果（包含完整Order对象）
+            result = BrokerExecutionResult(
+                status=ORDERSTATUS_TYPES.FILLED,
+                broker_order_id=broker_order_id,
+                filled_volume=transaction_volume,
                 filled_price=float(transaction_price),
-                remaining_quantity=0.0,
-                average_price=float(transaction_price),
-                fees=float(fees),
-                message="Simulated execution completed",
-                execution_mode=self.execution_mode,
-                requires_confirmation=False,
+                commission=float(commission),
+                trade_id=f"SIM_TRADE_{order.uuid[:8]}",
+                order=order  # 传入完整的Order对象，用于生成事件的payload
             )
 
-            # 8. 更新缓存并触发回调
-            self._update_order_status(result)
-
+            self.log("INFO", f"🎉 [SIMBROKER] SIMULATION SUCCESS: FILLED {transaction_volume} {order.code} @ {transaction_price}")
             return result
 
         except Exception as e:
-            from ginkgo.libs import GLOG
-            GLOG.ERROR(f"Simulation execution error: {e}")
-            return ExecutionResult(
-                order_id=order.uuid,
-                status=ExecutionStatus.FAILED,
-                message=f"Simulation error: {str(e)}",
-                execution_mode=self.execution_mode,
-                requires_confirmation=False,
+            self.log("ERROR", f"❌ [SIMBROKER] Simulation execution error: {e}")
+            import traceback
+            self.log("ERROR", f"❌ [SIMBROKER] Traceback: {traceback.format_exc()}")
+            return BrokerExecutionResult(
+                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                broker_order_id=broker_order_id,
+                error_message=f"Simulation error: {str(e)}"
             )
 
-    # ============= 新增：同步撮合核心（回测同步路径与异步路径共用） =============
-    def _simulate_execution_core(self, order: "Order", broker_order_id: str) -> List[ExecutionResult]:
-        """
-        同步模拟撮合核心逻辑：返回按顺序的 ExecutionResult 列表。
-        可能为 [FILLED] 或 [PARTIALLY_FILLED, FILLED]
-        """
-        results: List[ExecutionResult] = []
+    # ============= 价格和费用计算方法 =============
 
-        market_data = self._get_market_data(order.code)
-        if market_data is None:
-            results.append(
-                ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.FAILED,
-                    broker_order_id=broker_order_id,
-                    message=f"No market data available for {order.code}",
-                    execution_mode=self.execution_mode,
-                )
-            )
-            return results
-
-        if not self._is_price_valid(order.code, market_data):
-            results.append(
-                ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.CANCELED,
-                    broker_order_id=broker_order_id,
-                    message="Invalid price data",
-                    execution_mode=self.execution_mode,
-                )
-            )
-            return results
-
-        if not self._can_order_be_filled(order, market_data):
-            results.append(
-                ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.CANCELED,
-                    broker_order_id=broker_order_id,
-                    message="Order cannot be filled at current price",
-                    execution_mode=self.execution_mode,
-                )
-            )
-            return results
-
-        if self._is_limit_blocked(order, market_data):
-            results.append(
-                ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.CANCELED,
-                    broker_order_id=broker_order_id,
-                    message="Price limit up/down",
-                    execution_mode=self.execution_mode,
-                )
-            )
-            return results
-
-        price = self._calculate_transaction_price(order, market_data)
-        volume = self._adjust_volume_for_funds(order, price)
-        if volume == 0:
-            results.append(
-                ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.CANCELED,
-                    broker_order_id=broker_order_id,
-                    message="Insufficient funds for execution",
-                    execution_mode=self.execution_mode,
-                )
-            )
-            return results
-
-        # 分笔策略（可选同原逻辑）
-        do_partial = int(order.volume) >= 200
-        if do_partial:
-            first = int(min(order.volume // 2, volume))
-            second = int(volume - first)
-            if first > 0:
-                results.append(
-                    ExecutionResult(
-                        order_id=order.uuid,
-                        status=ExecutionStatus.PARTIALLY_FILLED,
-                        broker_order_id=broker_order_id,
-                        filled_quantity=float(first),
-                        filled_price=float(price),
-                        remaining_quantity=float(max(0, order.volume - first)),
-                        average_price=float(price),
-                        fees=float(self._calculate_commission(price * first, order.direction == DIRECTION_TYPES.LONG)),
-                        message="Partial fill",
-                        execution_mode=self.execution_mode,
-                    )
-                )
-            if second > 0:
-                results.append(
-                    ExecutionResult(
-                        order_id=order.uuid,
-                        status=ExecutionStatus.FILLED,
-                        broker_order_id=broker_order_id,
-                        filled_quantity=float(second),
-                        filled_price=float(price),
-                        remaining_quantity=0.0,
-                        average_price=float(price),
-                        fees=float(self._calculate_commission(price * second, order.direction == DIRECTION_TYPES.LONG)),
-                        message="Final fill",
-                        execution_mode=self.execution_mode,
-                    )
-                )
-        else:
-            results.append(
-                ExecutionResult(
-                    order_id=order.uuid,
-                    status=ExecutionStatus.FILLED,
-                    broker_order_id=broker_order_id,
-                    filled_quantity=float(volume),
-                    filled_price=float(price),
-                    remaining_quantity=0.0,
-                    average_price=float(price),
-                    fees=float(self._calculate_commission(price * volume, order.direction == DIRECTION_TYPES.LONG)),
-                    message="Order filled",
-                    execution_mode=self.execution_mode,
-                )
-            )
-
-        return results
-
-    def _calculate_transaction_price(self, order: "Order", market_data: pd.Series) -> Decimal:
+    def _calculate_transaction_price(self, order: Order, market_data: Any) -> Decimal:
         """
         计算成交价格 - 从MatchMakingSim.get_random_transaction_price()提取
 
@@ -523,8 +314,19 @@ class SimBroker(BaseBroker):
             return to_decimal(order.limit_price)
 
         # 市价单使用随机价格模拟滑点
+        # 处理Bar对象或字典格式
+        if hasattr(market_data, 'low') and hasattr(market_data, 'high'):
+            low_price = market_data.low
+            high_price = market_data.high
+        elif isinstance(market_data, dict):
+            low_price = market_data.get("low")
+            high_price = market_data.get("high")
+        else:
+            # 如果无法获取价格数据，使用当前价格
+            low_price = high_price = getattr(market_data, 'close', None) or 0
+
         return self._get_random_transaction_price(
-            order.direction, market_data["low"], market_data["high"], self._attitude
+            order.direction, low_price, high_price, self._attitude
         )
 
     def _get_random_transaction_price(self, direction: DIRECTION_TYPES, low: Number, high: Number, attitude) -> Decimal:
@@ -589,9 +391,9 @@ class SimBroker(BaseBroker):
 
         return commission
 
-    def _adjust_volume_for_funds(self, order: "Order", price: Decimal) -> int:
+    def _adjust_volume_for_funds(self, order: Order, price: Decimal) -> int:
         """
-        根据资金调整成交数量
+        根据资金调整成交数量（简化版本，假设资金充足）
 
         Args:
             order: 订单对象
@@ -600,51 +402,24 @@ class SimBroker(BaseBroker):
         Returns:
             int: 调整后的成交数量
         """
-        if order.direction == DIRECTION_TYPES.SHORT:
-            return order.volume  # 卖出不需要资金检查
+        # 回测模式下，假设资金充足，直接返回订单数量
+        # 实际资金检查由Portfolio层面的风控处理
+        return order.volume
 
-        # 买入需要检查资金充足性
-        volume = order.volume
-        while volume >= 100:  # 股票交易最小单位
-            transaction_money = price * volume
-            fees = self._calculate_commission(transaction_money, True)
-            total_cost = transaction_money + fees
-
-            if hasattr(order, "frozen") and total_cost <= order.frozen:
-                return volume
-            volume -= 100
-
-        return 0  # 资金不足
-
-    # ============= 辅助方法 =============
-    def _get_market_data(self, code: str) -> Optional[pd.Series]:
-        """
-        获取市场数据（需要从外部设置）
-
-        Args:
-            code: 股票代码
-
-        Returns:
-            Optional[pd.Series]: 市场数据
-        """
-        return self._current_market_data.get(code)
-
-    def set_market_data(self, code: str, market_data: pd.Series):
-        """
-        设置当前市场数据
-
-        Args:
-            code: 股票代码
-            market_data: 市场数据
-        """
-        self._current_market_data[code] = market_data
-
-    def _is_price_valid(self, code: str, price_data: pd.Series) -> bool:
+    def _is_price_valid(self, code: str, price_data: Any) -> bool:
         """价格有效性检查"""
-        required_fields = ["open", "high", "low", "close", "volume"]
-        return all(field in price_data.index for field in required_fields)
+        if price_data is None:
+            return False
 
-    def _can_order_be_filled(self, order: "Order", price_data: pd.Series) -> bool:
+        # 检查必要字段是否存在
+        if hasattr(price_data, 'index'):  # pandas Series
+            required_fields = ["open", "high", "low", "close", "volume"]
+            return all(field in price_data.index for field in required_fields)
+        else:  # 其他类型（如字典或对象）
+            return all(hasattr(price_data, field) or (isinstance(price_data, dict) and field in price_data)
+                      for field in ["open", "high", "low", "close", "volume"])
+
+    def _can_order_be_filled(self, order: Order, price_data: Any) -> bool:
         """
         订单是否可以成交 - 基于价格位置和态度的概率成交机制
 
@@ -659,9 +434,17 @@ class SimBroker(BaseBroker):
         if not (hasattr(order, "order_type") and order.order_type == ORDER_TYPES.LIMITORDER):
             return True
 
-        limit_price = order.limit_price
-        low_price = price_data["low"]
-        high_price = price_data["high"]
+        # 获取价格数据
+        if hasattr(price_data, 'low'):
+            low_price = float(price_data.low)
+            high_price = float(price_data.high)
+        elif isinstance(price_data, dict):
+            low_price = float(price_data.get("low", 0))
+            high_price = float(price_data.get("high", 0))
+        else:
+            return True  # 无法获取价格数据，默认可成交
+
+        limit_price = float(order.limit_price)
 
         # 基本可行性检查：限价必须在当日价格区间内
         if order.direction == DIRECTION_TYPES.LONG:
@@ -671,34 +454,37 @@ class SimBroker(BaseBroker):
             if limit_price > high_price:
                 return False
 
-        # 计算价格位置权重（0-1之间）
-        price_range = high_price - low_price
-        if price_range == 0:  # 防止除零
-            position_weight = 0.8  # 无波动时给予较高概率
-        else:
-            if order.direction == DIRECTION_TYPES.LONG:  # 买单
-                # 买单：越接近最低价，成交概率越高
-                position_weight = 1.0 - (limit_price - low_price) / price_range
-            else:  # 卖单
-                # 卖单：越接近最高价，成交概率越高
-                position_weight = (limit_price - low_price) / price_range
-
-        # 基础成交概率：30%-85%范围
-        base_probability = 0.3 + position_weight * 0.55
-
-        # 态度调整：乐观增加概率，悲观减少概率
+        # 简化的成交概率模型
         if self._attitude == ATTITUDE_TYPES.OPTIMISTIC:
-            final_probability = min(0.95, base_probability * 1.3)  # 乐观增加30%，上限95%
+            return True  # 乐观态度，总是成交
         elif self._attitude == ATTITUDE_TYPES.PESSIMISTIC:
-            final_probability = max(0.15, base_probability * 0.7)  # 悲观减少30%，下限15%
-        else:  # NEUTRAL
-            final_probability = base_probability
+            return random.random() > 0.3  # 悲观态度，70%成交概率
+        else:  # RANDOM
+            return random.random() > 0.2  # 随机态度，80%成交概率
 
-        # 随机数决定是否成交
-        return random.random() < final_probability  # 临时返回，待实现概率逻辑  # 市价单总是可以成交
-
-    def _is_limit_blocked(self, order: "Order", price_data: pd.Series) -> bool:
-        """检查是否因涨跌停无法成交"""
-        # 这里可以添加涨跌停逻辑
-        # 比如检查价格是否触及涨跌停板
+    def _is_limit_blocked(self, order: Order, price_data: Any) -> bool:
+        """检查是否因涨跌停无法成交（简化版本）"""
+        # 简化版本，不实现涨跌停逻辑
         return False
+
+    # ============= 状态查询方法 =============
+    def get_broker_status(self) -> Dict[str, Any]:
+        """
+        获取SimBroker状态
+
+        Returns:
+            Dict[str, Any]: 状态信息
+        """
+        return {
+            'name': self.name,
+            'market': getattr(self, 'market', 'SIM'),
+            'execution_mode': 'backtest',
+            'attitude': self._attitude.name if hasattr(self._attitude, 'name') else str(self._attitude),
+            'commission_rate': float(self._commission_rate) if self._commission_rate else 0.0,
+            'commission_min': float(self._commission_min) if self._commission_min else 0.0,
+            'market_data_count': len(self._current_market_data) if hasattr(self, '_current_market_data') else 0,
+            'position_count': len(self._current_positions) if hasattr(self, '_current_positions') else 0,
+            'supports_immediate_execution': self.supports_immediate_execution(),
+            'requires_manual_confirmation': self.requires_manual_confirmation(),
+            'supports_api_trading': self.supports_api_trading()
+        }

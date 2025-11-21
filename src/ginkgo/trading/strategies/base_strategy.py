@@ -5,14 +5,18 @@ from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.core.backtest_base import BacktestBase
 from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.mixins.context_mixin import ContextMixin
+from ginkgo.trading.mixins.named_mixin import NamedMixin
+from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
 
 
-class BaseStrategy(ContextMixin, TimeMixin, BacktestBase):
+class BaseStrategy(ContextMixin, TimeMixin, NamedMixin, LoggableMixin, BacktestBase):
     def __init__(self, name: str = "Strategy", **kwargs):
         # 显式初始化各个Mixin和基类，确保正确的初始化顺序
         ContextMixin.__init__(self, **kwargs)
         TimeMixin.__init__(self, **kwargs)
-        BacktestBase.__init__(self, name=name, **kwargs)
+        NamedMixin.__init__(self, name=name, **kwargs)
+        LoggableMixin.__init__(self, **kwargs)
+        BacktestBase.__init__(self, **kwargs)
         self._raw = {}
         self._data_feeder = None
 

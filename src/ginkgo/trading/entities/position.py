@@ -295,6 +295,30 @@ class Position(Base, TimeMixin):
             return Decimal('0')
         return self._price
 
+    @price.setter
+    def price(self, value: Number) -> None:
+        """
+        设置当前价格
+
+        Args:
+            value: 新的价格值
+        """
+        try:
+            price_decimal = to_decimal(value)
+
+            # 验证价格非负
+            if price_decimal < 0:
+                self.log("CRITICAL", f"Rejected negative price update: {price_decimal} for {self._code}")
+                return
+
+            self._price = price_decimal
+            self._update_last_update()
+
+        except (ValueError, TypeError) as e:
+            self.log("ERROR", f"Error setting price to {value}: {e}")
+        except Exception as e:
+            self.log("ERROR", f"Unexpected error setting price: {e}")
+
     @property
     def cost(self, *args, **kwargs) -> Decimal:
         """

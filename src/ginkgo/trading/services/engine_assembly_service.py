@@ -564,7 +564,7 @@ class EngineAssemblyService(BaseService):
         try:
             # Resolve broker from config (default: SimBroker for backtest)
             broker = self._create_broker_from_config(engine_data or {})
-            match = BrokerMatchMaking(broker)
+            match = Router(broker)
             engine.bind_matchmaking(match)
             # 明确注入事件回注接口，匹配 set_event_publisher 约定
             if hasattr(match, "set_event_publisher"):
