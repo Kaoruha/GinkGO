@@ -7,7 +7,7 @@ from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.events.base_event import EventBase
 
 
-class class.*TimeMixin) TimeMixin):
+class BaseFeeder(BacktestBase, TimeMixin):
     """
     Feed something like price info, news...
     """

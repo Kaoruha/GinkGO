@@ -127,16 +127,15 @@ class IBacktestDataFeeder(IDataFeeder):
     - 模拟数据生成
     """
     
-    @abstractmethod
-    def advance_to_time(self, target_time: datetime) -> List[EventBase]:
+    def advance_time(self, target_time: datetime, *args, **kwargs) -> bool:
         """
-        推进到指定时间，返回该时间点的所有事件
-        
+        推进到指定时间，主动推送事件到引擎
+
         Args:
             target_time: 目标时间
-            
+
         Returns:
-            List[EventBase]: 生成的事件列表
+            bool: 是否成功推进时间
         """
         pass
     
