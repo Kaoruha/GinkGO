@@ -15,6 +15,7 @@ from typing import List, Dict, Any, Callable, Optional
 from rich.progress import Progress
 
 from ginkgo.trading.feeders.base_feeder import BaseFeeder
+from ginkgo.trading.mixins.engine_bindable_mixin import EngineBindableMixin
 from ginkgo.trading.feeders.interfaces import (
     IBacktestDataFeeder, DataFeedStatus
 )
@@ -27,7 +28,7 @@ from ginkgo.libs import datetime_normalize, cache_with_expiration
 from ginkgo.enums import SOURCE_TYPES
 
 
-class BacktestFeeder(BaseFeeder, IBacktestDataFeeder):
+class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
     """
     回测数据馈送器
     
@@ -38,6 +39,9 @@ class BacktestFeeder(BaseFeeder, IBacktestDataFeeder):
     __abstract__ = False
 
     def __init__(self, name="backtest_feeder", bar_service=None, *args, **kwargs):
+        # 初始化EngineBindableMixin
+        EngineBindableMixin.__init__(self, *args, **kwargs)
+        # 初始化父类
         super(BacktestFeeder, self).__init__(name=name, bar_service=bar_service, *args, **kwargs)
 
         self.status = DataFeedStatus.IDLE
@@ -108,6 +112,8 @@ class BacktestFeeder(BaseFeeder, IBacktestDataFeeder):
     
     def set_time_provider(self, time_controller: ITimeProvider) -> None:
         """设置时间控制器"""
+        # 调用父类TimeMixin的set_time_provider
+        super().set_time_provider(time_controller)
         self.time_controller = time_controller
         # 自动初始化时间边界验证器
         self.time_boundary_validator = TimeBoundaryValidator(time_controller)
@@ -125,16 +131,21 @@ class BacktestFeeder(BaseFeeder, IBacktestDataFeeder):
     
     # === IBacktestDataFeeder 扩展接口实现 ===
     
-    def advance_to_time(self, target_time: datetime) -> None:
+    def advance_time(self, target_time: datetime, *args, **kwargs) -> bool:
         """推进到指定时间，主动推送价格事件到引擎"""
         try:
-            # 更新内部时间
-            self.advance_time(target_time)
+            # 调用父类TimeMixin的advance_time
+            success = super().advance_time(target_time, *args, **kwargs)
+            if not success:
+                return False
+
+            print(f"📅 DATAFEEDER ADVANCE_TIME: {target_time.date()}")
+            print(f"📅 DATAFEEDER CURRENT INTERESTED ({len(self._interested_codes)}): {self._interested_codes}")
 
             # 使用事件更新的兴趣集
             if len(self._interested_codes) == 0:
                 self.log("WARN", f"No interested symbols at {target_time}")
-                return
+                return True
 
             # 为每个股票生成并推送价格更新事件
             event_count = 0
@@ -145,12 +156,15 @@ class BacktestFeeder(BaseFeeder, IBacktestDataFeeder):
                         self.event_publisher(event)
                         event_count += 1
 
+            print(f"📅 DATAFEEDER GENERATED {event_count} price events for {len(self._interested_codes)} symbols")
             self.log("INFO", f"Published {event_count} events for time {target_time}")
+            return True
 
         except Exception as e:
-            self.log("ERROR", f"Error advancing to time {target_time}: {e}")
+            self.log("ERROR", f"Error advancing time to {target_time}: {e}")
+            return False
     
-    @TimeRelated.validate_time(['start_time', 'end_time'])
+    @TimeMixin.validate_time(['start_time', 'end_time'])
     def get_historical_data(self,
                           symbols: List[str],
                           start_time: datetime,
@@ -202,14 +216,7 @@ class BacktestFeeder(BaseFeeder, IBacktestDataFeeder):
         """保持接口，委托父类统一实现；时间边界由本类的 validate_time_access 生效。"""
         return super(BacktestFeeder, self).get_daybar(code, date, *args, **kwargs)
 
-    def advance_time(self, time: any, *args, **kwargs):
-        """时间推进回调 - 增强版本"""
-        # 调用父类方法保持兼容性
-        super(BacktestFeeder, self).advance_time(time, *args, **kwargs)
         
-        # 新增：自动触发数据广播
-        self.log("INFO", f"⏰ Time goes by: {time}, engine should call advance_to_time() explicitly")
-    
     # === 内部实现方法 ===
     
     def _generate_price_events(self, code: str, target_time: datetime) -> List[EventBase]:
@@ -252,6 +259,8 @@ class BacktestFeeder(BaseFeeder, IBacktestDataFeeder):
             merged = set(self._interested_codes)
             merged.update(codes)
             self._interested_codes = sorted(list(merged))
+            print(f"📅 DATAFEEDER INTEREST UPDATE: Received {len(codes)} codes: {codes}")
+            print(f"📅 DATAFEEDER TOTAL INTERESTED: {len(self._interested_codes)} codes: {self._interested_codes}")
             self.log("INFO", f"Updated interested codes: {len(self._interested_codes)} symbols")
         except Exception as e:
             self.log("ERROR", f"Failed to update interested codes: {e}")

@@ -16,7 +16,7 @@ from ginkgo.trading.mixins.time_mixin import TimeMixin
 from ginkgo.trading.engines.base_engine import BaseEngine
 
 
-class class.*TimeMixin) TimeMixin):
+class MatchMakingBase(BacktestBase, TimeMixin):
     def __init__(self, name: str = "MatchMaking", timestamp=None, *args, **kwargs):
         BacktestBase.__init__(self, name=name, *args, **kwargs)
         TimeMixin.__init__(self, timestamp=timestamp, *args, **kwargs)

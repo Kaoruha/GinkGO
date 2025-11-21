@@ -58,7 +58,7 @@ from .circuit_breaker import (
 
 # T6: 添加MatchMaking相关导入
 from .base_matchmaking import MatchMakingBase
-from .broker_matchmaking import BrokerMatchMaking
+from .router import Router
 
 __all__ = [
     # 核心接口
@@ -102,7 +102,7 @@ __all__ = [
     
     # T6: MatchMaking类
     'MatchMakingBase',
-    'BrokerMatchMaking',
+    'Router',
     
     # 测试工具
     'MockTarget',
