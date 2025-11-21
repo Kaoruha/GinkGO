@@ -70,7 +70,7 @@ class TestBrokerMatchMakingProperties:
     def test_name_property(self):
         """测试名称属性"""
         # TODO: 测试name属性返回正确格式
-        # 验证格式为"BrokerMatchMaking(BrokerType)"
+        # 验证格式为"Router(BrokerType)"
         assert False, "TDD Red阶段:测试用例尚未实现"
 
     def test_broker_property(self):
