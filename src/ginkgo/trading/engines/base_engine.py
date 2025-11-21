@@ -395,6 +395,13 @@ class BaseEngine(NamedMixin, LoggableMixin, BacktestBase, ABC):
         """添加投资组合"""
         if portfolio not in self._portfolios:
             self._portfolios.append(portfolio)
+
+            # 绑定引擎到portfolio
+            portfolio.bind_engine(self)
+
+            # 设置事件发布器
+            portfolio.set_event_publisher(self.put_event)
+
             self.log("INFO", f"Portfolio {portfolio.name} added to engine {self.name}")
 
     def remove_portfolio(self, portfolio) -> None:
