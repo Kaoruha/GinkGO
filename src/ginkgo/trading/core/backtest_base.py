@@ -18,16 +18,12 @@ class BacktestBase(Base):
     """
 
     def __init__(self, name: str = "backtest_base", uuid_str: str = "",
-                 component_type: str = "", engine_id: str = "",
-                 portfolio_id: str = "", run_id: str = "",
-                 *args, **kwargs) -> None:
+                 component_type: str = "", *args, **kwargs) -> None:
         # 初始化基类，支持组件类型
         super().__init__(uuid=uuid_str, component_type=component_type, *args, **kwargs)
 
-        # 统一的三层ID管理
-        self._engine_id: str = engine_id or ""
-        self._portfolio_id: str = portfolio_id or ""
-        self._run_id: str = run_id or ""
+        # 注意：ID管理已移至ContextMixin，避免MRO冲突
+        # 组件应该通过继承ContextMixin来获得ID管理功能
 
         self._engine_put = None
         self.set_name(str(name))
@@ -37,37 +33,8 @@ class BacktestBase(Base):
     
 
     
-    def bind_engine(self, engine: "BaseEngine") -> None:
-        """
-        绑定到引擎，同步引擎层面的ID信息（engine_id, run_id）
-
-        注意：portfolio_id由投资组合层面管理，不从引擎同步
-
-        Args:
-            engine (BaseEngine): 要绑定的引擎实例
-
-        Raises:
-            ValueError: 如果引擎无效或缺少必要属性
-        """
-        # 验证引擎必要属性
-        if not hasattr(engine, "put"):
-            raise ValueError("Invalid engine: missing required attribute 'put'.")
-
-        # 同步引擎ID
-        if hasattr(engine, "engine_id") and engine.engine_id:
-            self._engine_id = engine.engine_id
-        elif hasattr(engine, "uuid") and engine.uuid:
-            # 备用方案：使用引擎的UUID
-            self._engine_id = engine.uuid
-        else:
-            raise ValueError("Invalid engine: missing engine_id or uuid.")
-
-        # 同步运行ID（如果引擎已启动）
-        if hasattr(engine, "run_id") and engine.run_id:
-            self._run_id = engine.run_id
-
-        # 保存引擎的事件发布函数
-        self._engine_put = engine.put
+    # 注意：bind_engine功能已移至EngineBindableMixin，避免MRO冲突
+    # 组件应该通过继承EngineBindableMixin来获得引擎绑定功能
 
     @property
     def name(self) -> str:
@@ -121,4 +88,8 @@ class BacktestBase(Base):
 
 
     def __repr__(self) -> str:
-        return base_repr(self, self._name, 12, 60)
+        # Safe repr that avoids circular references
+        try:
+            return f"<{self.__class__.__name__} name={getattr(self, '_name', 'Unknown')} id={id(self)}>"
+        except Exception:
+            return f"<{self.__class__.__name__} id={id(self)}>"

@@ -15,6 +15,7 @@ from datetime import datetime
 from ginkgo.libs import cache_with_expiration, retry
 from ginkgo.enums import FILE_TYPES
 from ginkgo.data.services.base_service import ManagementService
+from ginkgo.data.crud.model_conversion import ModelList
 
 
 class PortfolioService(ManagementService):
@@ -179,10 +180,11 @@ class PortfolioService(ManagementService):
         # Check if name conflicts with existing portfolio (if name is being updated)
         if "name" in updates:
             try:
-                existing_portfolios = self.get_portfolios(name=name, as_dataframe=True)
-                if not existing_portfolios.empty:
+                existing_portfolios = self.get_portfolios(name=name)
+                if len(existing_portfolios) > 0:
                     # Check if the existing portfolio is not the one we're updating
-                    existing_uuids = existing_portfolios["uuid"].tolist()
+                    df = existing_portfolios.to_dataframe()
+                    existing_uuids = df["uuid"].tolist()
                     if portfolio_id not in existing_uuids:
                         result["error"] = f"Portfolio with name '{name}' already exists"
                         return result
@@ -343,8 +345,8 @@ class PortfolioService(ManagementService):
         return result
 
     def get_portfolios(
-        self, name: str = None, is_live: bool = None, as_dataframe: bool = True, **kwargs
-    ) -> Union[pd.DataFrame, List[Any]]:
+        self, name: str = None, is_live: bool = None, **kwargs
+    ):
         """
         Retrieves portfolios from the database with caching.
 
@@ -369,7 +371,7 @@ class PortfolioService(ManagementService):
         # Always exclude soft-deleted records
         filters["is_del"] = False
 
-        return self.crud_repo.find(filters=filters, as_dataframe=as_dataframe, **kwargs)
+        return self.crud_repo.find(filters=filters, **kwargs)
 
     def get_portfolio(self, portfolio_id: str, as_dataframe: bool = False) -> Union[pd.DataFrame, Any, None]:
         """

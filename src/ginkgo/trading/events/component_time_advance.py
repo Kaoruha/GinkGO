@@ -53,9 +53,9 @@ class EventComponentTimeAdvance(EventBase):
         """
         super(EventComponentTimeAdvance, self).__init__(*args, **kwargs)
 
-        # 创建信息载体并封装到value中
+        # 创建信息载体并封装到payload中
         info = ComponentTimeAdvanceInfo(target_time, component_type)
-        self.set_value(info)
+        self.payload = info
 
         # 设置事件类型和名称
         self.set_type(EVENT_TYPES.COMPONENT_TIME_ADVANCE)
@@ -67,12 +67,12 @@ class EventComponentTimeAdvance(EventBase):
     @property
     def target_time(self) -> datetime:
         """便捷访问：目标时间"""
-        return self.value.target_time
+        return self.payload.target_time
 
     @property
     def component_type(self) -> str:
         """便捷访问：组件类型"""
-        return self.value.component_type
+        return self.payload.component_type
 
     def __repr__(self):
         return base_repr(

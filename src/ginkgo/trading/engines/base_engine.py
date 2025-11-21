@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 import threading
 from ginkgo.trading.core.backtest_base import BacktestBase
+from ginkgo.trading.mixins.named_mixin import NamedMixin
+from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
 from ginkgo.libs import base_repr
 from ginkgo.trading.core.status import EngineStatus, EventStats, QueueInfo
 from typing import Dict, Any, Optional, List, Tuple
@@ -10,7 +12,7 @@ from ginkgo.enums import ENGINESTATUS_TYPES, COMPONENT_TYPES, EXECUTION_MODE
 import time
 
 
-class BaseEngine(BacktestBase, ABC):
+class BaseEngine(NamedMixin, LoggableMixin, BacktestBase, ABC):
     """
     Enhanced Base Engine with Unified ID Management
     
@@ -36,20 +38,19 @@ class BaseEngine(BacktestBase, ABC):
 
         # 生成或使用提供的引擎ID
         if engine_id:
-            calculated_engine_id = engine_id
+            self._engine_id = engine_id
         else:
-            calculated_engine_id = IdentityUtils.generate_component_uuid("engine")
+            self._engine_id = IdentityUtils.generate_component_uuid("engine")
 
-        super(BaseEngine, self).__init__(
-            name=name,
-            component_type=COMPONENT_TYPES.ENGINE,
-            engine_id=calculated_engine_id,
-            *args, **kwargs
-        )
-
-        self._state: ENGINESTATUS_TYPES = ENGINESTATUS_TYPES.IDLE
+        self._run_id = None
         self._run_sequence: int = 0
-        self._run_id: str = None
+        self._state: ENGINESTATUS_TYPES = ENGINESTATUS_TYPES.IDLE
+        self._datafeeder = None  # 数据馈送器引用
+
+        # 初始化Mixin（按继承顺序：NamedMixin → LoggableMixin → BacktestBase）
+        NamedMixin.__init__(self, name=name, *args, **kwargs)
+        LoggableMixin.__init__(self, *args, **kwargs)
+        BacktestBase.__init__(self, name=name, component_type=COMPONENT_TYPES.ENGINE, *args, **kwargs)
 
         # 默认事件队列配置
         self._event_timeout: float = 10.0
@@ -93,6 +94,11 @@ class BaseEngine(BacktestBase, ABC):
         return self._state == ENGINESTATUS_TYPES.RUNNING
 
     @property
+    def engine_id(self) -> str:
+        """获取引擎ID"""
+        return self._engine_id
+
+    @property
     def run_id(self) -> str:
         """获取当前运行会话ID"""
         return self._run_id
@@ -116,6 +122,32 @@ class BaseEngine(BacktestBase, ABC):
             self.log("INFO", f"Generated new run_id: {self._run_id} for engine_id={self.engine_id}")
 
         return self._run_id
+
+    def set_engine_id(self, engine_id: str) -> None:
+        """
+        手动设置引擎ID（仅在start前调用）
+
+        Args:
+            engine_id: 新的引擎ID
+        """
+        if self._state != ENGINESTATUS_TYPES.IDLE:
+            raise RuntimeError("Cannot change engine_id after engine has started")
+
+        self._engine_id = engine_id
+        self.log("INFO", f"Engine ID updated to: {engine_id}")
+
+    def set_run_id(self, run_id: str) -> None:
+        """
+        手动设置运行会话ID（仅在start前调用）
+
+        Args:
+            run_id: 新的运行会话ID
+        """
+        if self._state != ENGINESTATUS_TYPES.IDLE:
+            raise RuntimeError("Cannot change run_id after engine has started")
+
+        self._run_id = run_id
+        self.log("INFO", f"Run ID updated to: {run_id}")
 
     def start(self) -> bool:
         """
@@ -476,5 +508,269 @@ class BaseEngine(BacktestBase, ABC):
         if self._processing_start_time is None:
             self._processing_start_time = time.time()
 
+    def check_components_binding(self) -> None:
+        """
+        检查所有组件的绑定状态、时间设置和事件注册
+
+        在引擎启动前调用，用于诊断组件绑定问题
+        """
+        print(f"\n🔍 引擎运行前综合检查: {self.name}")
+        print("=" * 70)
+
+        # 1. 检查引擎基本状态
+        print(f"📊 1️⃣ 引擎基本信息:")
+        print(f"  模式: {self.mode}")
+        print(f"  状态: {self.status}")
+        print(f"  当前时间: {self.now}")
+        print(f"  引擎ID: {getattr(self, 'engine_id', 'Not set')}")
+        print(f"  运行ID: {getattr(self, 'run_id', 'Not set')}")
+
+        # 2. 检查TimeProvider
+        print(f"\n📊 2️⃣ TimeProvider状态:")
+        if hasattr(self, '_time_provider') and self._time_provider:
+            print(f"  ✅ 类型: {type(self._time_provider).__name__}")
+            print(f"  ✅ 当前时间: {self._time_provider.now()}")
+        else:
+            print(f"  ❌ TimeProvider未设置")
+
+        # 3. 检查DataFeeder
+        print(f"\n📊 3️⃣ DataFeeder状态:")
+        if hasattr(self, '_datafeeder') and self._datafeeder:
+            feeder = self._datafeeder
+            print(f"  ✅ 名称: {feeder.name}")
+            print(f"  ✅ 类型: {type(feeder).__name__}")
+
+            # 检查TimeProvider绑定
+            tp_status = "✅" if hasattr(feeder, 'time_controller') and feeder.time_controller else "❌"
+            tp_name = type(feeder.time_controller).__name__ if hasattr(feeder, 'time_controller') and feeder.time_controller else "None"
+            print(f"  {tp_status} TimeProvider: {tp_name}")
+
+            # 检查EventPublisher绑定
+            pub_status = "✅" if hasattr(feeder, 'event_publisher') and feeder.event_publisher else "❌"
+            print(f"  {pub_status} EventPublisher: {'已设置' if hasattr(feeder, 'event_publisher') and feeder.event_publisher else '未设置'}")
+
+            # 检查BarService
+            if hasattr(feeder, 'bar_service'):
+                bar_status = "✅" if feeder.bar_service else "❌"
+                print(f"  {bar_status} BarService: {'已设置' if feeder.bar_service else '未设置'}")
+
+            # 检查感兴趣的股票
+            codes = getattr(feeder, '_interested_codes', [])
+            print(f"  ℹ️  感兴趣的股票: {codes}")
+
+            # 检查engine绑定
+            engine_bound = hasattr(feeder, '_bound_engine') and feeder._bound_engine is not None
+            engine_status = "✅" if engine_bound else "❌"
+            print(f"  {engine_status} Engine绑定: {'已绑定' if engine_bound else '未绑定'}")
+
+        else:
+            print(f"  ❌ DataFeeder未设置")
+
+        # 4. 检查Portfolio及其所有组件
+        print(f"\n📊 4️⃣ Portfolio及组件状态:")
+        if self.portfolios:
+            for i, portfolio in enumerate(self.portfolios):
+                print(f"  📦 Portfolio {i+1}: {portfolio.name}")
+                print(f"    ✅ 类型: {type(portfolio).__name__}")
+                print(f"    ✅ Portfolio ID: {getattr(portfolio, 'portfolio_id', 'Not set')}")
+
+                # 检查Portfolio的TimeProvider
+                tp_status = "✅" if hasattr(portfolio, '_time_provider') and portfolio._time_provider else "❌"
+                tp_name = type(portfolio._time_provider).__name__ if hasattr(portfolio, '_time_provider') and portfolio._time_provider else "None"
+                print(f"    {tp_status} TimeProvider: {tp_name}")
+
+                # 检查Portfolio的engine_put
+                put_status = "✅" if hasattr(portfolio, '_engine_put') and portfolio._engine_put else "❌"
+                print(f"    {put_status} Engine事件发布: {'已设置' if hasattr(portfolio, '_engine_put') and portfolio._engine_put else '未设置'}")
+
+                # 检查Portfolio的engine绑定
+                engine_bound = hasattr(portfolio, '_bound_engine') and portfolio._bound_engine is not None
+                engine_status = "✅" if engine_bound else "❌"
+                print(f"    {engine_status} Engine绑定: {'已绑定' if engine_bound else '未绑定'}")
+
+                print(f"    💰 现金: {portfolio.cash}")
+                print(f"    💎 价值: {portfolio.worth}")
+
+                # 检查策略组件
+                strategies = getattr(portfolio, 'strategies', [])
+                print(f"    🎯 策略数量: {len(strategies)}")
+                for j, strategy in enumerate(strategies):
+                    print(f"      策略 {j+1}: {strategy.name}")
+                    print(f"        类型: {type(strategy).__name__}")
+                    signal_count = getattr(strategy, 'signal_count', 'Unknown')
+                    print(f"        信号数: {signal_count}")
+
+                    # 检查策略的engine绑定
+                    strategy_engine_bound = hasattr(strategy, '_bound_engine') and strategy._bound_engine is not None
+                    strategy_engine_status = "✅" if strategy_engine_bound else "❌"
+                    print(f"        {strategy_engine_status} Engine绑定: {'已绑定' if strategy_engine_bound else '未绑定'}")
+
+                    # 检查策略的TimeProvider
+                    strategy_tp = hasattr(strategy, '_time_provider') and strategy._time_provider
+                    strategy_tp_status = "✅" if strategy_tp else "❌"
+                    print(f"        {strategy_tp_status} TimeProvider: {'已设置' if strategy_tp else '未设置'}")
+
+                # 检查Selector组件
+                selectors = getattr(portfolio, '_selectors', [])
+                print(f"    🔍 Selector数量: {len(selectors)}")
+                for j, selector in enumerate(selectors):
+                    print(f"      Selector {j+1}: {selector.name}")
+                    print(f"        类型: {type(selector).__name__}")
+                    selected = getattr(selector, '_interested', [])
+                    print(f"        选择股票: {selected}")
+
+                    # 检查selector的engine绑定
+                    selector_engine_bound = hasattr(selector, '_bound_engine') and selector._bound_engine is not None
+                    selector_engine_status = "✅" if selector_engine_bound else "❌"
+                    print(f"        {selector_engine_status} Engine绑定: {'已绑定' if selector_engine_bound else '未绑定'}")
+
+                    # 检查selector的TimeProvider
+                    selector_tp = hasattr(selector, '_time_provider') and selector._time_provider
+                    selector_tp_status = "✅" if selector_tp else "❌"
+                    print(f"        {selector_tp_status} TimeProvider: {'已设置' if selector_tp else '未设置'}")
+
+                    # 检查selector的engine_put
+                    selector_put = hasattr(selector, '_engine_put') and selector._engine_put
+                    selector_put_status = "✅" if selector_put else "❌"
+                    print(f"        {selector_put_status} Engine事件发布: {'已设置' if selector_put else '未设置'}")
+
+                # 检查Sizer组件
+                sizer = getattr(portfolio, '_sizer', None)
+                print(f"    📏 Sizer: {'已设置' if sizer else '未设置'}")
+                if sizer:
+                    print(f"      类型: {type(sizer).__name__}")
+
+                    # 检查sizer的engine绑定
+                    sizer_engine_bound = hasattr(sizer, '_bound_engine') and sizer._bound_engine is not None
+                    sizer_engine_status = "✅" if sizer_engine_bound else "❌"
+                    print(f"      {sizer_engine_status} Engine绑定: {'已绑定' if sizer_engine_bound else '未绑定'}")
+
+                    # 检查sizer的TimeProvider
+                    sizer_tp = hasattr(sizer, '_time_provider') and sizer._time_provider
+                    sizer_tp_status = "✅" if sizer_tp else "❌"
+                    print(f"      {sizer_tp_status} TimeProvider: {'已设置' if sizer_tp else '未设置'}")
+        else:
+            print(f"  ❌ 没有Portfolio")
+
+        # 5. 检查事件处理器注册
+        print(f"\n📊 5️⃣ 事件处理器注册状态:")
+        if hasattr(self, '_handlers') and self._handlers:
+            from ginkgo.enums import EVENT_TYPES
+
+            # 定义关键事件类型
+            critical_events = [
+                EVENT_TYPES.TIME_ADVANCE,
+                EVENT_TYPES.COMPONENT_TIME_ADVANCE,
+                EVENT_TYPES.INTERESTUPDATE,
+                EVENT_TYPES.PRICEUPDATE,
+                EVENT_TYPES.SIGNALGENERATION,
+                EVENT_TYPES.ORDERACK,
+                EVENT_TYPES.ORDERPARTIALLYFILLED,
+            ]
+
+            for event_type in critical_events:
+                handlers = self._handlers.get(event_type, [])
+                status = "✅" if handlers else "❌"
+                event_name = getattr(event_type, 'name', str(event_type))
+                print(f"  {status} {event_name}: {len(handlers)} 个处理器")
+
+                # 显示处理器详情（仅有关键事件）
+                if handlers and event_type in [EVENT_TYPES.PRICEUPDATE, EVENT_TYPES.SIGNALGENERATION]:
+                    for j, handler in enumerate(handlers):
+                        print(f"    处理器 {j+1}: {handler}")
+        else:
+            print(f"  ❌ 事件处理器未初始化")
+
+        # 6. 检查队列状态
+        print(f"\n📊 6️⃣ 事件队列状态:")
+        queue_info = self.get_queue_info()
+        print(f"  队列大小: {queue_info.queue_size}/{queue_info.max_size}")
+        queue_status = "正常"
+        if queue_info.is_full:
+            queue_status = "满"
+        elif queue_info.is_empty:
+            queue_status = "空"
+        print(f"  队列状态: {queue_status}")
+
+        # 7. 总结
+        print(f"\n📋 7️⃣ 综合检查总结:")
+        issues = []
+
+        # 检查关键组件
+        if not hasattr(self, '_time_provider') or not self._time_provider:
+            issues.append("❌ TimeProvider未设置")
+        if not hasattr(self, '_datafeeder') or not self._datafeeder:
+            issues.append("❌ DataFeeder未设置")
+        if not self.portfolios:
+            issues.append("❌ 没有Portfolio")
+
+        # 检查Portfolio组件
+        for portfolio in self.portfolios:
+            if not hasattr(portfolio, '_engine_put') or not portfolio._engine_put:
+                issues.append(f"❌ Portfolio {portfolio.name} 缺少engine_put")
+            for selector in getattr(portfolio, '_selectors', []):
+                if not hasattr(selector, '_engine_put') or not selector._engine_put:
+                    issues.append(f"❌ Selector {selector.name} 缺少engine_put")
+
+        # 检查关键事件处理器
+        critical_events = [EVENT_TYPES.PRICEUPDATE, EVENT_TYPES.SIGNALGENERATION]
+        for event_type in critical_events:
+            if not hasattr(self, '_handlers') or not self._handlers.get(event_type):
+                issues.append(f"❌ 缺少 {event_type.name} 事件处理器")
+
+        if issues:
+            print(f"  发现问题:")
+            for issue in issues:
+                print(f"    {issue}")
+            print(f"  ⚠️  请在启动引擎前修复上述问题")
+        else:
+            print(f"  ✅ 所有关键组件和事件处理器都已正确设置")
+            print(f"  🚀 引擎可以安全启动")
+
+        print(f"\n" + "=" * 70)
+        print(f"✅ 引擎运行前综合检查完成")
+        print(f"🚀 引擎准备启动\n")
+
+        # 3秒倒数已取消，直接启动引擎
+        # import time
+        # print("⏰ 引擎启动倒数: ", end="", flush=True)
+        # for i in range(3, 0, -1):
+        #     print(f"{i}... ", end="", flush=True)
+        #     time.sleep(1)
+        # print("启动引擎!\n")
+
+    def set_data_feeder(self, feeder) -> None:
+        """
+        设置数据馈送器（通用引擎功能）
+
+        Args:
+            feeder: 数据馈送器实例
+        """
+        # 统一使用_datafeeder字段名
+        self._datafeeder = feeder
+        self.log("INFO", f"Data feeder {feeder.name} bound to engine")
+
+        # 绑定引擎到feeder
+        if hasattr(feeder, 'bind_engine'):
+            try:
+                feeder.bind_engine(self)
+                self.log("INFO", f"Engine bound for feeder {feeder.name}")
+            except Exception as e:
+                self.log("ERROR", f"Failed to bind engine for feeder {feeder.name}: {e}")
+                raise
+
+        # 绑定Engine的put方法作为event_publisher（向后兼容）
+        if hasattr(feeder, 'set_event_publisher'):
+            try:
+                feeder.set_event_publisher(self.put)
+                self.log("INFO", f"Event publisher bound for feeder {feeder.name}")
+            except Exception as e:
+                self.log("ERROR", f"Failed to set event publisher for feeder {feeder.name}: {e}")
+                raise
+
     def __repr__(self) -> str:
-        return base_repr(self, self._name, 16, 60)
+        # Safe repr that avoids circular references
+        try:
+            return f"<{self.__class__.__name__} name={getattr(self, '_name', 'Unknown')} id={id(self)}>"
+        except Exception:
+            return f"<{self.__class__.__name__} id={id(self)}>"

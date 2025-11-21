@@ -141,32 +141,17 @@ class EventBase(TimeMixin, ContextMixin, metaclass=ABCMeta):
         self._source = source
 
     @property
-    def value(self):
-        """获取事件载荷数据"""
-        return self._value
-
-    @value.setter
-    def value(self, value):
-        """设置事件载荷数据"""
-        self._value = value
-
-    @property
     def payload(self):
         """获取事件载荷数据（value字段的别名，提供更直观的API）"""
         return self._value
 
     @payload.setter
     def payload(self, value):
-        """设置事件载荷数据（value字段的别名，提供更直观的API）"""
+        """设置事件载荷数据"""
         self._value = value
-
-    def set_value(self, value):
-        """设置事件载荷数据（便捷方法）"""
-        self._value = value
-        return self
 
     def set_payload(self, value):
-        """设置事件载荷数据（便捷方法，payload别名）"""
+        """设置事件载荷数据（便捷方法）"""
         self._value = value
         return self
 

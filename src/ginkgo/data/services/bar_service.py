@@ -16,6 +16,7 @@ from ginkgo.libs import GCONF, datetime_normalize, to_decimal, RichProgress, cac
 from ginkgo.data import mappers
 from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES
 from ginkgo.data.services.base_service import DataService
+from ginkgo.data.crud.model_conversion import ModelList
 
 
 class BarService(DataService):
@@ -349,10 +350,9 @@ class BarService(DataService):
         start_date: datetime = None,
         end_date: datetime = None,
         frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
-        as_dataframe: bool = True,
         adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE,
         **kwargs,
-    ) -> Union[pd.DataFrame, List[Any]]:
+    ):
         """
         Retrieves bar data from the database with optional price adjustment.
 
@@ -361,12 +361,11 @@ class BarService(DataService):
             start_date: Start date filter
             end_date: End date filter
             frequency: Data frequency filter
-            as_dataframe: Return format
             adjustment_type: Price adjustment type (NONE/FORE/BACK)
             **kwargs: Additional filters
 
         Returns:
-            Bar data as DataFrame or list of models, optionally price-adjusted
+            ModelList - 用户可以调用to_dataframe()或to_entities()来转换数据
         """
         # 提取filters参数并从kwargs中移除，避免重复传递
         filters = kwargs.pop("filters", {})
@@ -389,20 +388,20 @@ class BarService(DataService):
         if frequency:
             filters["frequency"] = frequency
 
-        # Get original bar data - 现在可以安全传递，不会有参数冲突
-        original_data = self.crud_repo.find(filters=filters, as_dataframe=as_dataframe, **kwargs)
+        # Get original bar data - 返回ModelList，用户自己决定转换方式
+        model_list = self.crud_repo.find(filters=filters, **kwargs)
 
         # Return original data if no adjustment needed
         if adjustment_type == ADJUSTMENT_TYPES.NONE:
-            return original_data
+            return model_list
 
         # Apply price adjustment if requested
         if code is None:
             # Multi-stock adjustment when no specific code provided
-            return self._apply_price_adjustment_multi_stock(original_data, adjustment_type, as_dataframe)
+            return self._apply_price_adjustment_multi_stock(model_list, adjustment_type)
         else:
             # Single-stock adjustment when code is provided
-            return self._apply_price_adjustment(original_data, code, adjustment_type, as_dataframe)
+            return self._apply_price_adjustment(model_list, code, adjustment_type)
 
     def get_bars_adjusted(
         self,
@@ -452,22 +451,20 @@ class BarService(DataService):
     # 未来版本需要重构以提升性能
     def _apply_price_adjustment(
         self,
-        bars_data: Union[pd.DataFrame, List[Any]],
+        bars_data: ModelList,
         code: str,
         adjustment_type: ADJUSTMENT_TYPES,
-        as_dataframe: bool,
-    ) -> Union[pd.DataFrame, List[Any]]:
+    ) -> ModelList:
         """
         Applies price adjustment factors to bar data.
 
         Args:
-            bars_data: Original bar data (DataFrame or list of models)
+            bars_data: Original bar data as ModelList
             code: Stock code for getting adjustment factors
             adjustment_type: Type of adjustment (FORE/BACK)
-            as_dataframe: Whether bars_data is DataFrame format
 
         Returns:
-            Price-adjusted bar data in the same format as input
+            Price-adjusted bar data as ModelList
         """
         if not code:
             self._logger.ERROR("Stock code required for price adjustment")
@@ -481,7 +478,7 @@ class BarService(DataService):
 
         try:
             # Convert to DataFrame if needed for processing
-            if as_dataframe:
+            if isinstance(bars_data, pd.DataFrame):
                 bars_df = bars_data.copy()
             else:
                 # Convert list of models to DataFrame
@@ -520,7 +517,7 @@ class BarService(DataService):
             adjusted_df = self._calculate_adjusted_prices(bars_df, adjustfactors_df, adjustment_type)
 
             # Return in original format
-            if as_dataframe:
+            if isinstance(bars_data, pd.DataFrame):
                 return adjusted_df
             else:
                 # Convert back to list of models
@@ -600,10 +597,9 @@ class BarService(DataService):
     # 未来版本需要重构以提升批量处理性能
     def _apply_price_adjustment_multi_stock(
         self,
-        bars_data: Union[pd.DataFrame, List[Any]],
+        bars_data: ModelList,
         adjustment_type: ADJUSTMENT_TYPES,
-        as_dataframe: bool,
-    ) -> Union[pd.DataFrame, List[Any]]:
+    ) -> ModelList:
         """
         Applies price adjustment factors to bar data for multiple stocks.
 
@@ -625,7 +621,7 @@ class BarService(DataService):
             return bars_data
 
         try:
-            if as_dataframe:
+            if isinstance(bars_data, pd.DataFrame):
                 # DataFrame processing - group by stock code
                 if "code" not in bars_data.columns:
                     self._logger.ERROR("Cannot apply multi-stock adjustment: 'code' column missing")
@@ -639,7 +635,7 @@ class BarService(DataService):
 
                 for code in unique_codes:
                     stock_data = bars_data[bars_data["code"] == code].copy()
-                    adjusted_stock_data = self._apply_price_adjustment(stock_data, code, adjustment_type, True)
+                    adjusted_stock_data = self._apply_price_adjustment(stock_data, code, adjustment_type)
                     adjusted_dfs.append(adjusted_stock_data)
 
                 # Combine all adjusted data
