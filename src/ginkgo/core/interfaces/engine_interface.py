@@ -11,6 +11,7 @@ from datetime import datetime
 from enum import Enum
 
 from ginkgo.trading.bases.portfolio_base import PortfolioBase
+from ginkgo.enums import ENGINESTATUS_TYPES
 
 
 class EngineMode(Enum):
@@ -21,14 +22,6 @@ class EngineMode(Enum):
     AUTO = "auto"
 
 
-class EngineStatus(Enum):
-    """引擎状态枚举"""
-    IDLE = "idle"
-    INITIALIZING = "initializing"
-    RUNNING = "running"
-    PAUSED = "paused"
-    COMPLETED = "completed"
-    ERROR = "error"
 
 
 class IEngine(ABC):
@@ -37,7 +30,7 @@ class IEngine(ABC):
     def __init__(self, name: str = "UnknownEngine", mode: EngineMode = EngineMode.AUTO):
         self.name = name
         self.mode = mode
-        self.status = EngineStatus.IDLE
+        self.status = ENGINESTATUS_TYPES.IDLE
         self.created_at = datetime.now()
         self.started_at = None
         self.completed_at = None
@@ -71,12 +64,12 @@ class IEngine(ABC):
     @property
     def is_running(self) -> bool:
         """是否正在运行"""
-        return self.status == EngineStatus.RUNNING
+        return self.status == ENGINESTATUS_TYPES.RUNNING
     
     @property
     def is_completed(self) -> bool:
         """是否已完成"""
-        return self.status == EngineStatus.COMPLETED
+        return self.status == ENGINESTATUS_TYPES.COMPLETED
     
     @abstractmethod
     def initialize(self, config: Dict[str, Any] = None) -> None:
@@ -103,10 +96,10 @@ class IEngine(ABC):
     
     def start(self) -> None:
         """开始运行"""
-        if self.status not in [EngineStatus.IDLE, EngineStatus.PAUSED]:
+        if self.status not in [ENGINESTATUS_TYPES.IDLE, ENGINESTATUS_TYPES.PAUSED]:
             raise RuntimeError(f"引擎当前状态 {self.status.value} 不允许启动")
-            
-        self.status = EngineStatus.RUNNING
+
+        self.status = ENGINESTATUS_TYPES.RUNNING
         self.started_at = datetime.now()
         
         # 执行启动回调
@@ -118,8 +111,8 @@ class IEngine(ABC):
     
     def stop(self) -> None:
         """停止运行"""
-        if self.status == EngineStatus.RUNNING:
-            self.status = EngineStatus.COMPLETED
+        if self.status == ENGINESTATUS_TYPES.RUNNING:
+            self.status = ENGINESTATUS_TYPES.COMPLETED
             self.completed_at = datetime.now()
             
             # 计算执行时间
@@ -137,17 +130,17 @@ class IEngine(ABC):
     
     def pause(self) -> None:
         """暂停运行"""
-        if self.status == EngineStatus.RUNNING:
-            self.status = EngineStatus.PAUSED
+        if self.status == ENGINESTATUS_TYPES.RUNNING:
+            self.status = ENGINESTATUS_TYPES.PAUSED
     
     def resume(self) -> None:
         """恢复运行"""
-        if self.status == EngineStatus.PAUSED:
-            self.status = EngineStatus.RUNNING
+        if self.status == ENGINESTATUS_TYPES.PAUSED:
+            self.status = ENGINESTATUS_TYPES.RUNNING
     
     def reset(self) -> None:
         """重置引擎状态"""
-        self.status = EngineStatus.IDLE
+        self.status = ENGINESTATUS_TYPES.IDLE
         self.started_at = None
         self.completed_at = None
         self._performance_stats = {
@@ -181,8 +174,8 @@ class IEngine(ABC):
         """切换引擎模式"""
         if not self.can_switch_mode(target_mode):
             return False
-            
-        if self.status == EngineStatus.RUNNING:
+
+        if self.status == ENGINESTATUS_TYPES.RUNNING:
             return False  # 运行中不允许切换
             
         self.mode = target_mode
@@ -224,7 +217,7 @@ class IEngine(ABC):
     def log_error(self, error: Exception) -> None:
         """记录错误"""
         self._performance_stats['error_count'] += 1
-        self.status = EngineStatus.ERROR
+        self.status = ENGINESTATUS_TYPES.ERROR
         
         # 执行错误回调
         for callback in self._on_error_callbacks:
