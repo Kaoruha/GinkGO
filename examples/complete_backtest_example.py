@@ -30,6 +30,7 @@ from ginkgo.enums import EVENT_TYPES
 from ginkgo.trading.routing.router import Router
 from ginkgo.trading.brokers.sim_broker import SimBroker
 from ginkgo.enums import ATTITUDE_TYPES
+from ginkgo.trading.analysis.analyzers.net_value import NetValue
 
 
 class SimpleBacktest:
@@ -45,6 +46,7 @@ class SimpleBacktest:
         self.feeder = None
         self.router = None
         self.broker = None
+        self.net_value_analyzer = None
         self.results = {}
 
     def setup(self, start_date: datetime.datetime, end_date: datetime.datetime):
@@ -73,14 +75,17 @@ class SimpleBacktest:
         # 4. 创建数据源
         self.feeder = BacktestFeeder(name="example_feeder")
 
-        # 5. 创建Router/Broker架构
+        # 5. 创建NetValue分析器
+        self.net_value_analyzer = NetValue(name="net_value_analyzer")
+
+        # 6. 创建Router/Broker架构
         print("🔗 创建Router/Broker架构...")
         self.broker = SimBroker(
             name="SimBroker", attitude=ATTITUDE_TYPES.OPTIMISTIC, commission_rate=0.0003, commission_min=5
         )
         self.router = Router(name="UnifiedRouter", brokers=[self.broker])
 
-        # 6. 按正确顺序绑定组件（自动事件注册）
+        # 7. 按正确顺序绑定组件（自动事件注册）
         print("🔗 绑定组件关系...")
         self.engine.add_portfolio(self.portfolio)
 
@@ -91,6 +96,9 @@ class SimpleBacktest:
         self.portfolio.bind_sizer(sizer)
         self.portfolio.bind_selector(selector)
 
+        # 添加NetValue分析器到投资组合
+        self.portfolio.add_analyzer(self.net_value_analyzer)
+
         self.engine.set_data_feeder(self.feeder)
         # DataFeeder的INTERESTUPDATE事件现在应该通过_auto_register_component_events自动注册
         # self.engine.register(EVENT_TYPES.INTERESTUPDATE, self.feeder.on_interest_update)
@@ -98,6 +106,7 @@ class SimpleBacktest:
         print(f"✅ 绑定完成: {start_date.date()} ~ {end_date.date()}")
         print(f"💰 初始资金: ¥{self.initial_cash:,}")
         print(f"🎯 目标股票: {selector._interested}")
+        print(f"📊 净值分析器: {self.net_value_analyzer.name} 已添加")
 
     def run_backtest(self):
         """运行回测 - 纯引擎组装和运行，去除监控延迟"""
@@ -189,6 +198,25 @@ class SimpleBacktest:
             for code, position in self.portfolio.positions.items():
                 print(f"  {code}: {position.volume}股, 价值 ¥{float(position.worth):,.2f}")
 
+        # 净值分析结果
+        print(f"\n📊 净值分析:")
+        if self.net_value_analyzer and hasattr(self.net_value_analyzer, 'current_net_value'):
+            current_net_value = self.net_value_analyzer.current_net_value
+            print(f"  当前净值: ¥{current_net_value:,.2f}")
+            if hasattr(self.net_value_analyzer, '_size') and self.net_value_analyzer._size > 0:
+                print(f"  净值记录数: {self.net_value_analyzer._size}")
+                # 计算净值统计
+                if self.net_value_analyzer._size > 1:
+                    values = self.net_value_analyzer._values[:self.net_value_analyzer._size]
+                    max_net_value = max(values)
+                    min_net_value = min(values)
+                    print(f"  最高净值: ¥{max_net_value:,.2f}")
+                    print(f"  最低净值: ¥{min_net_value:,.2f}")
+                    max_drawdown = (max_net_value - min_net_value) / max_net_value * 100
+                    print(f"  最大回撤: {max_drawdown:.2f}%")
+        else:
+            print("  净值分析器未启用或无数据")
+
         print("\n🎯 架构验证:")
         print("✅ TimeControlledEventEngine - 时间控制引擎")
         print("✅ PortfolioT1Backtest - T+1投资组合")
@@ -197,6 +225,7 @@ class SimpleBacktest:
         print("✅ BacktestFeeder - 数据源")
         print("✅ SimBroker - 模拟经纪商")
         print("✅ Router - 统一路由器")
+        print("✅ NetValue分析器 - 净值跟踪")
         print("✅ 自动事件注册机制")
         print("✅ Router/Broker订单处理架构")
         print("✅ 事件驱动回测流程")
@@ -205,6 +234,21 @@ class SimpleBacktest:
         print("🎉 回测完成！验证了Ginkgo框架的事件驱动架构")
         print("=" * 60)
 
+        # 净值分析结果
+        net_value_result = {}
+        if self.net_value_analyzer and hasattr(self.net_value_analyzer, 'current_net_value'):
+            net_value_result = {
+                "current_net_value": float(self.net_value_analyzer.current_net_value),
+                "record_count": int(self.net_value_analyzer._size) if hasattr(self.net_value_analyzer, '_size') else 0
+            }
+            if hasattr(self.net_value_analyzer, '_size') and self.net_value_analyzer._size > 1:
+                values = self.net_value_analyzer._values[:self.net_value_analyzer._size]
+                net_value_result.update({
+                    "max_net_value": float(max(values)),
+                    "min_net_value": float(min(values)),
+                    "max_drawdown_pct": f"{(max(values) - min(values)) / max(values) * 100:.2f}%"
+                })
+
         self.results = {
             "initial_cash": self.initial_cash,
             "final_value": final_value,
@@ -212,6 +256,7 @@ class SimpleBacktest:
             "signal_count": signal_count,
             "order_count": order_count,
             "position_count": position_count,
+            "net_value": net_value_result
         }
 
         return self.results

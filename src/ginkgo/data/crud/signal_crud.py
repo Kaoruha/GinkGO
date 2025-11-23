@@ -69,6 +69,12 @@ class SignalCRUD(BaseCRUD[MSignal]):
             # 数据源 - 枚举值
             'source': {
                 'type': 'SOURCE_TYPES',  # 使用枚举类型名称
+            },
+
+            # 业务时间戳 - datetime 或字符串，可选
+            'business_timestamp': {
+                'type': ['datetime', 'string', 'none'],
+                'required': False
             }
         }
 
@@ -89,6 +95,11 @@ class SignalCRUD(BaseCRUD[MSignal]):
         else:
             source_value = SOURCE_TYPES.validate_input(source_value)
 
+        # 确保business_timestamp有默认值，避免验证失败
+        business_timestamp = kwargs.get("business_timestamp")
+        if business_timestamp is None:
+            business_timestamp = kwargs.get("timestamp")  # 回退到timestamp
+
         return MSignal(
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
@@ -97,6 +108,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
             direction=direction_value,
             reason=kwargs.get("reason"),
             source=source_value,
+            business_timestamp=datetime_normalize(business_timestamp),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MSignal]:
@@ -112,6 +124,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
                 direction=DIRECTION_TYPES.validate_input(item.direction),
                 reason=item.reason,
                 source=SOURCE_TYPES.validate_input(item.source if hasattr(item, 'source') else SOURCE_TYPES.SIM),
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
             )
         return None
 
@@ -349,3 +362,37 @@ class SignalCRUD(BaseCRUD[MSignal]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get signal portfolio ids: {e}")
             return []
+
+    def find_by_business_time(
+        self,
+        portfolio_id: str,
+        start_business_time: Optional[Any] = None,
+        end_business_time: Optional[Any] = None,
+        as_dataframe: bool = False,
+    ) -> Union[List[MSignal], pd.DataFrame]:
+        """
+        Business helper: Find signals by business time range.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            start_business_time: Start of business time range (optional)
+            end_business_time: End of business time range (optional)
+            as_dataframe: Return as DataFrame if True
+
+        Returns:
+            List of MSignal models or DataFrame
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+
+        return self.find(
+            filters=filters,
+            order_by="business_timestamp",
+            desc_order=True,
+            as_dataframe=as_dataframe,
+            output_type="model"
+        )

@@ -594,6 +594,9 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         if hasattr(analyzer, "activate") and callable(analyzer.activate):
             analyzer.portfolio_id = self.portfolio_id
             analyzer.engine_id = self.engine_id
+            # 如果portfolio已有时间提供者，立即设置给analyzer
+            if self._time_provider is not None:
+                analyzer.set_time_provider(self._time_provider)
             self._analyzers[analyzer.name] = analyzer
 
             # 根据analyzer配置的阶段添加到相应的hook
