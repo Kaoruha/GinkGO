@@ -47,7 +47,7 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
             },
 
             # 投资组合描述 - 可选字符串
-            'description': {
+            'desc': {
                 'type': 'string',
                 'min': 0,
                 'max': 255
@@ -68,66 +68,13 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
                 'type': 'bool'
             },
 
-            # 投资组合核心业务字段
-            'initial_capital': {
-                'type': ['decimal', 'float', 'int'],
-                'min': 0
-            },
-            'current_capital': {
-                'type': ['decimal', 'float', 'int'],
-                'min': 0
-            },
-            'cash': {
-                'type': ['decimal', 'float', 'int'],
-                'min': 0
-            },
-            'frozen': {
-                'type': ['decimal', 'float', 'int'],
-                'min': 0
-            },
-            'total_fee': {
-                'type': ['decimal', 'float', 'int'],
-                'min': 0
-            },
-            'total_profit': {
-                'type': ['decimal', 'float', 'int'],
-                'min': None  # 允许负数
-            },
-            'risk_level': {
-                'type': ['decimal', 'float', 'int'],
-                'min': 0.0,
-                'max': 1.0
-            },
-
-            # 性能指标字段
-            'max_drawdown': {
-                'type': ['decimal', 'float', 'int'],
-                'min': 0
-            },
-            'sharpe_ratio': {
-                'type': ['decimal', 'float', 'int'],
-                'min': None  # 允许负数
-            },
-            'win_rate': {
-                'type': ['decimal', 'float', 'int'],
-                'min': 0.0,
-                'max': 1.0
-            },
-            'total_trades': {
-                'type': 'int',
-                'min': 0
-            },
-            'winning_trades': {
-                'type': 'int',
-                'min': 0
-            }
-        }
+                    }
 
     def _create_from_params(self, **kwargs) -> MPortfolio:
         """Hook method: Create MPortfolio from parameters."""
         return MPortfolio(
             name=kwargs.get("name", "test_portfolio"),
-            description=kwargs.get("description"),
+            desc=kwargs.get("desc"),
             backtest_start_date=datetime_normalize(kwargs.get("backtest_start_date", datetime.now())),
             backtest_end_date=datetime_normalize(kwargs.get("backtest_end_date", datetime.now())),
             is_live=kwargs.get("is_live", False),
@@ -151,7 +98,7 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         if hasattr(item, 'name'):
             return MPortfolio(
                 name=getattr(item, 'name', 'test_portfolio'),
-                description=getattr(item, 'description', None),
+                desc=getattr(item, 'desc', None),
                 backtest_start_date=datetime_normalize(getattr(item, 'backtest_start_date', datetime.now())),
                 backtest_end_date=datetime_normalize(getattr(item, 'backtest_end_date', datetime.now())),
                 is_live=getattr(item, 'is_live', False),
@@ -227,17 +174,17 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
     def find_by_uuid(self, uuid: str, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
         """Find portfolio by UUID."""
         return self.find(filters={"uuid": uuid}, page_size=1,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_name_pattern(self, name_pattern: str, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
         """Find portfolios by name pattern."""
         return self.find(filters={"name__like": name_pattern}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_live_status(self, is_live: bool, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
         """Find portfolios by live status."""
         return self.find(filters={"is_live": is_live}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_all_uuids(self) -> List[str]:
         """

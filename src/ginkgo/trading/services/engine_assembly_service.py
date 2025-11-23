@@ -805,7 +805,7 @@ class EngineAssemblyService(BaseService):
         if hasattr(portfolio, "set_event_publisher"):
             portfolio.set_event_publisher(engine.put)
         # Bind portfolio to engine
-        engine.bind_portfolio(portfolio)
+        engine.add_portfolio(portfolio)
         
         # Register portfolio event handlers
         engine.register(EVENT_TYPES.PRICEUPDATE, portfolio.on_price_received)
@@ -901,11 +901,8 @@ class EngineAssemblyService(BaseService):
             for portfolio_config in portfolios_config:
                 portfolio = self._create_portfolio_from_config(portfolio_config)
                 if portfolio:
-                    # 统一使用引擎绑定接口
-                    if hasattr(engine, "bind_portfolio"):
-                        engine.bind_portfolio(portfolio)
-                    elif hasattr(engine, "add_portfolio"):
-                        engine.add_portfolio(portfolio)
+                    # 统一使用引擎添加接口
+                    engine.add_portfolio(portfolio)
                     self._logger.DEBUG(f"✅ Added portfolio: {portfolio.name}")
             
         except Exception as e:

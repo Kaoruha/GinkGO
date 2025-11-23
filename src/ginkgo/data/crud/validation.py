@@ -142,7 +142,7 @@ def validate_data_by_config(data: dict, field_config: dict) -> dict:
                 field_name,
                 None
             )
-    
+
     # 2. 逐字段验证和转换
     for field_name, field_spec in field_config.items():
         field_value = data[field_name]

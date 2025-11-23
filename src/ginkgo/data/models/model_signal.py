@@ -3,7 +3,7 @@ import datetime
 
 from typing import Optional
 from functools import singledispatchmethod
-from sqlalchemy import Column, String, Integer, DECIMAL, Enum
+from sqlalchemy import Column, String, Integer, DECIMAL, Enum, DateTime
 from clickhouse_sqlalchemy import types
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +27,9 @@ class MSignal(MClickBase, MBacktestRecordBase):
     strength: Mapped[float] = mapped_column(types.Float32, default=0.5)
     confidence: Mapped[float] = mapped_column(types.Float32, default=0.5)
 
+    # 业务时间戳 - 信号生成对应的业务时间（如价格数据时间）
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
+
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
         raise NotImplementedError("Unsupported type")
@@ -38,6 +41,7 @@ class MSignal(MClickBase, MBacktestRecordBase):
         engine_id: str,
         run_id: str = "",  # 新增run_id参数
         timestamp: Optional[any] = None,
+        business_timestamp: Optional[any] = None,
         code: Optional[str] = None,
         direction: Optional[DIRECTION_TYPES] = None,
         reason: Optional[str] = None,
@@ -54,6 +58,8 @@ class MSignal(MClickBase, MBacktestRecordBase):
         self.run_id = run_id  # 新增run_id字段赋值
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         if code is not None:
             self.code = code
         if direction is not None:

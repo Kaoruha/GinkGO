@@ -153,14 +153,14 @@ class FileCRUD(BaseCRUD[MFile]):
         Business helper: Find file by ID.
         """
         return self.find(filters={"uuid": file_id}, page_size=1,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_filename(self, filename: str, as_dataframe: bool = False) -> Union[List[MFile], pd.DataFrame]:
         """
         Business helper: Find files by filename pattern.
         """
         return self.find(filters={"name__like": filename}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_type(self, file_type: str, as_dataframe: bool = False) -> Union[List[MFile], pd.DataFrame]:
         """
@@ -181,7 +181,7 @@ class FileCRUD(BaseCRUD[MFile]):
             file_type = type_mapping.get(file_type.upper(), FILE_TYPES.OTHER)
         
         return self.find(filters={"type": file_type}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_size_range(self, min_size: int, max_size: int,
                           as_dataframe: bool = False) -> Union[List[MFile], pd.DataFrame]:
@@ -189,7 +189,7 @@ class FileCRUD(BaseCRUD[MFile]):
         Business helper: Find files by size range (not supported by MFile model).
         """
         GLOG.DEBUG("File size range search not supported by MFile model")
-        return self.find(filters={}, as_dataframe=as_dataframe, output_type="model")
+        return self.find(filters={}, as_dataframe=as_dataframe)
 
     def get_total_size_by_type(self, file_type: str) -> int:
         """

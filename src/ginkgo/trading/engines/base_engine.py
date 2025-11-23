@@ -1,18 +1,15 @@
 from abc import ABC, abstractmethod
 import threading
-from ginkgo.trading.core.backtest_base import BacktestBase
 from ginkgo.trading.mixins.named_mixin import NamedMixin
 from ginkgo.trading.mixins.loggable_mixin import LoggableMixin
-from ginkgo.libs import base_repr
-from ginkgo.trading.core.status import EngineStatus, EventStats, QueueInfo
-from typing import Dict, Any, Optional, List, Tuple
-from enum import Enum
-from queue import Queue, Empty, Full
+# EngineStatus相关功能已移动到具体的Engine实现中
+from typing import Dict, Any, Optional, List
 from ginkgo.enums import ENGINESTATUS_TYPES, COMPONENT_TYPES, EXECUTION_MODE
+# 队列相关功能已移动到EventEngine
 import time
 
 
-class BaseEngine(NamedMixin, LoggableMixin, BacktestBase, ABC):
+class BaseEngine(NamedMixin, LoggableMixin, ABC):
     """
     Enhanced Base Engine with Unified ID Management
     
@@ -34,41 +31,35 @@ class BaseEngine(NamedMixin, LoggableMixin, BacktestBase, ABC):
         """
         from ..core.identity import IdentityUtils
 
+        # === 唯一标识符 ===
+        import uuid as uuid_lib
+        self.uuid = str(uuid_lib.uuid4())
+        self.component_type = COMPONENT_TYPES.ENGINE
+
+        # === 引擎核心属性 ===
         self._mode = mode
-
-        # 生成或使用提供的引擎ID
-        if engine_id:
-            self._engine_id = engine_id
-        else:
-            self._engine_id = IdentityUtils.generate_component_uuid("engine")
-
+        self._engine_id = engine_id or self._generate_engine_id()
         self._run_id = None
         self._run_sequence: int = 0
         self._state: ENGINESTATUS_TYPES = ENGINESTATUS_TYPES.IDLE
-        self._datafeeder = None  # 数据馈送器引用
 
-        # 初始化Mixin（按继承顺序：NamedMixin → LoggableMixin → BacktestBase）
-        NamedMixin.__init__(self, name=name, *args, **kwargs)
-        LoggableMixin.__init__(self, *args, **kwargs)
-        BacktestBase.__init__(self, name=name, component_type=COMPONENT_TYPES.ENGINE, *args, **kwargs)
+        # 初始化Mixin（使用super().__init__自动处理MRO）
+        super().__init__(name=name, *args, **kwargs)
 
-        # 默认事件队列配置
-        self._event_timeout: float = 10.0
-        self._event_queue = Queue(maxsize=10000)  # 默认队列大小
-        self._queue_lock = threading.Lock()  # 队列操作锁
-
-        # 队列调整状态
-        self._is_resizing = False
-        self._resize_lock = threading.Lock()
-
-        # 通用组件
+        # === 基础组件管理 ===
         self._portfolios: List = []
         self._is_running: bool = False
+        self._datafeeder = None  # 数据馈送器引用
 
-        # 状态跟踪统计
-        self._processed_events_count: int = 0
-        self._processing_start_time: Optional[float] = None
-        self._last_processing_time: Optional[float] = None
+    def _generate_engine_id(self) -> str:
+        """生成引擎ID"""
+        try:
+            from ..core.identity import IdentityUtils
+            return IdentityUtils.generate_component_uuid("engine")
+        except ImportError:
+            # 如果IdentityUtils不可用，使用简单UUID
+            import uuid
+            return f"engine_{uuid.uuid4().hex[:8]}"
 
     @property
     def status(self) -> str:
@@ -222,155 +213,9 @@ class BaseEngine(NamedMixin, LoggableMixin, BacktestBase, ABC):
             self.log("ERROR", f"Failed to stop engine: {str(e)}")
             return False
 
-    @property
-    def event_timeout(self) -> float:
-        """事件超时时间"""
-        return self._event_timeout
+      # === 队列相关功能已移动到EventEngine ===
 
-    def set_event_timeout(self, timeout: float) -> None:
-        """设置事件超时时间（供Service使用）"""
-        self._event_timeout = timeout
-
-    @property
-    def is_resizing_queue(self) -> bool:
-        """检查队列是否正在调整中"""
-        return self._is_resizing
-
-    def set_event_queue_size(self, size: int) -> bool:
-        """动态调整事件队列大小（双缓冲方案，保证事件不丢失）
-
-        Args:
-            size: 新的队列大小
-
-        Returns:
-            bool: 是否成功启动调整（False表示正在调整中）
-        """
-        if size <= 0:
-            raise ValueError("Queue size must be positive")
-
-        # 检查是否正在调整中
-        if self._is_resizing:
-            self.log("WARN", f"Queue resize already in progress, cannot resize to {size}")
-            return False
-
-        # 获取调整锁，确保只有一个调整操作
-        if not self._resize_lock.acquire(blocking=False):
-            self.log("WARN", f"Cannot acquire resize lock, resize in progress")
-            return False
-
-        try:
-            # 设置调整状态
-            self._is_resizing = True
-
-            old_queue = self._event_queue
-            old_size = getattr(old_queue, 'maxsize', 0)
-
-            if old_size == size:
-                self.log("INFO", f"Queue size already {size}, no resize needed")
-                self._is_resizing = False
-                self._resize_lock.release()
-                return True
-
-            # 创建临时队列接收新事件
-            temp_queue = Queue(maxsize=size)
-            # 创建目标队列
-            new_queue = Queue(maxsize=size)
-
-            with self._queue_lock:
-                # 原子性切换到临时队列，新事件将进入temp_queue
-                self._event_queue = temp_queue
-
-            self.log("INFO", f"Queue resize started: {old_size} -> {size}, using temporary buffer")
-
-            # 在后台转移事件
-            transfer_thread = threading.Thread(
-                target=self._transfer_events_with_buffer,
-                args=(old_queue, temp_queue, new_queue, old_size, size),
-                daemon=True
-            )
-            transfer_thread.start()
-            return True
-
-        except Exception as e:
-            # 异常时重置状态
-            self._is_resizing = False
-            self._resize_lock.release()
-            self.log("ERROR", f"Queue resize failed: {e}")
-            raise
-
-    def _transfer_events_with_buffer(self, old_queue: Queue, temp_queue: Queue,
-                                   new_queue: Queue, old_size: int, new_size: int) -> None:
-        """使用双缓冲方案转移事件"""
-        events_transferred = 0
-        events_from_buffer = 0
-
-        try:
-            # 第一阶段：转移旧队列中的事件
-            self.log("DEBUG", "Phase 1: Transferring events from old queue")
-            while not old_queue.empty():
-                try:
-                    event = old_queue.get_nowait()
-                    new_queue.put(event, block=True)  # 阻塞等待，不丢弃
-                    events_transferred += 1
-                except Empty:
-                    break
-                except Exception as e:
-                    self.log("ERROR", f"Error transferring old event: {e}")
-                    break
-
-            # 第二阶段：转移临时队列中的事件（在调整期间到达的新事件）
-            self.log("DEBUG", "Phase 2: Transferring events from temporary buffer")
-            while True:
-                try:
-                    # 短暂超时获取临时队列事件，避免无限等待
-                    event = temp_queue.get(timeout=0.1)
-                    new_queue.put(event, block=True)  # 阻塞等待，不丢弃
-                    events_from_buffer += 1
-                except Empty:
-                    # 临时队列空了，检查是否还有新事件到来
-                    if temp_queue.empty():
-                        break
-                    continue
-                except Exception as e:
-                    self.log("ERROR", f"Error transferring buffered event: {e}")
-                    break
-
-            # 第三阶段：原子性替换到新队列
-            with self._queue_lock:
-                # 确保没有其他线程已经替换了队列
-                if self._event_queue is temp_queue:
-                    self._event_queue = new_queue
-
-            total_events = events_transferred + events_from_buffer
-            self.log("INFO", f"Queue resize completed: {old_size} -> {new_size}, "
-                     f"transferred {events_transferred} old events, {events_from_buffer} new events, "
-                     f"total {total_events} events")
-
-        except Exception as e:
-            self.log("ERROR", f"Queue resize failed: {e}")
-            # 出错时恢复使用临时队列
-            with self._queue_lock:
-                if self._event_queue is temp_queue:
-                    self._event_queue = temp_queue
-
-        finally:
-            # 无论如何都要重置调整状态并释放锁
-            self._is_resizing = False
-            self._resize_lock.release()
-
-    def put_event(self, event) -> None:
-        """向事件队列添加事件（线程安全）"""
-        with self._queue_lock:
-            self._event_queue.put(event, block=True)  # 阻塞等待，确保不丢失
-
-    def get_event(self, timeout: Optional[float] = None):
-        """从事件队列获取事件（线程安全）"""
-        with self._queue_lock:
-            if timeout:
-                return self._event_queue.get(timeout=timeout)
-            else:
-                return self._event_queue.get()
-
+    
     @property
     def run_sequence(self) -> int:
         """当前运行序列号"""
@@ -392,17 +237,28 @@ class BaseEngine(NamedMixin, LoggableMixin, BacktestBase, ABC):
         return self._portfolios
 
     def add_portfolio(self, portfolio) -> None:
-        """添加投资组合"""
-        if portfolio not in self._portfolios:
-            self._portfolios.append(portfolio)
+        """
+        添加投资组合到引擎（基类实现）
 
-            # 绑定引擎到portfolio
-            portfolio.bind_engine(self)
+        Args:
+            portfolio: 投资组合实例
+        """
+        # 重复检查
+        if portfolio in self._portfolios:
+            self.log("DEBUG", f"Portfolio {portfolio.name} already exists in engine {self.name}")
+            return
 
-            # 设置事件发布器
-            portfolio.set_event_publisher(self.put_event)
+        # 基础验证
+        if not hasattr(portfolio, 'name'):
+            raise AttributeError("Portfolio must have 'name' attribute")
+        if not hasattr(portfolio, 'bind_engine'):
+            raise AttributeError("Portfolio must implement 'bind_engine' method")
 
-            self.log("INFO", f"Portfolio {portfolio.name} added to engine {self.name}")
+        # 添加到列表并绑定
+        self._portfolios.append(portfolio)
+        portfolio.bind_engine(self)
+
+        self.log("INFO", f"Portfolio {portfolio.name} added to engine {self.name}")
 
     def remove_portfolio(self, portfolio) -> None:
         """移除投资组合"""
@@ -426,10 +282,7 @@ class BaseEngine(NamedMixin, LoggableMixin, BacktestBase, ABC):
         """
         pass
 
-    def put_event(self, event) -> None:
-        """向事件队列添加事件"""
-        self._event_queue.put(event)
-
+    
     def get_engine_summary(self) -> Dict[str, Any]:
         """
         获取引擎状态摘要
@@ -450,71 +303,28 @@ class BaseEngine(NamedMixin, LoggableMixin, BacktestBase, ABC):
             'portfolios_count': len(self._portfolios)
         }
 
-    def get_engine_status(self) -> EngineStatus:
+    def get_engine_status(self) -> Dict[str, Any]:
         """
         获取引擎基础状态信息
 
         Returns:
-            EngineStatus: 引擎状态对象
+            Dict: 引擎状态信息
         """
-        return EngineStatus(
-            is_running=self._is_running,
-            current_time=None,  # BaseEngine不包含时间信息
-            execution_mode=self._mode,
-            processed_events=self._processed_events_count,
-            queue_size=self._event_queue.qsize(),
-            status=self._state
-        )
+        return {
+            'engine_name': self.name,
+            'engine_id': self.engine_id,
+            'run_id': self.run_id,
+            'state': self._state.value,
+            'status': self.status,
+            'is_active': self.is_active,
+            'is_running': self._is_running,
+            'mode': self._mode.value,
+            'component_type': self.component_type.value,
+            'portfolios_count': len(self._portfolios),
+            'run_sequence': self.run_sequence
+        }
 
-    def get_event_stats(self) -> EventStats:
-        """
-        获取事件处理统计信息
-
-        Returns:
-            EventStats: 事件统计对象
-        """
-        current_time = time.time()
-
-        # 计算处理速率
-        processing_rate = 0.0
-        if self._processing_start_time is not None and self._processed_events_count > 0:
-            elapsed_time = current_time - self._processing_start_time
-            if elapsed_time > 0:
-                processing_rate = self._processed_events_count / elapsed_time
-
-        return EventStats(
-            processed_events=self._processed_events_count,
-            registered_handlers=0,  # BaseEngine不包含处理器注册
-            queue_size=self._event_queue.qsize(),
-            processing_rate=processing_rate
-        )
-
-    def get_queue_info(self) -> QueueInfo:
-        """
-        获取事件队列信息
-
-        Returns:
-            QueueInfo: 队列信息对象
-        """
-        queue_size = self._event_queue.qsize()
-        max_size = self._event_queue.maxsize if hasattr(self._event_queue, 'maxsize') else 10000
-
-        return QueueInfo(
-            queue_size=queue_size,
-            max_size=max_size,
-            is_full=queue_size >= max_size,
-            is_empty=queue_size == 0
-        )
-
-    def _increment_event_count(self) -> None:
-        """内部方法：递增事件处理计数"""
-        self._processed_events_count += 1
-        self._last_processing_time = time.time()
-
-        # 记录开始处理时间
-        if self._processing_start_time is None:
-            self._processing_start_time = time.time()
-
+    
     def check_components_binding(self) -> None:
         """
         检查所有组件的绑定状态、时间设置和事件注册
@@ -764,15 +574,6 @@ class BaseEngine(NamedMixin, LoggableMixin, BacktestBase, ABC):
                 self.log("INFO", f"Engine bound for feeder {feeder.name}")
             except Exception as e:
                 self.log("ERROR", f"Failed to bind engine for feeder {feeder.name}: {e}")
-                raise
-
-        # 绑定Engine的put方法作为event_publisher（向后兼容）
-        if hasattr(feeder, 'set_event_publisher'):
-            try:
-                feeder.set_event_publisher(self.put)
-                self.log("INFO", f"Event publisher bound for feeder {feeder.name}")
-            except Exception as e:
-                self.log("ERROR", f"Failed to set event publisher for feeder {feeder.name}: {e}")
                 raise
 
     def __repr__(self) -> str:

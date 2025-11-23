@@ -258,7 +258,7 @@ class IEngine(Protocol):
 
     # ========== 事件管理 ==========
 
-    def put_event(self, event: Any) -> None:
+    def put(self, event: Any) -> None:
         """
         投递事件 (Put Event)
 
@@ -523,7 +523,7 @@ class IEngine(Protocol):
             event: 要发布的事件
 
         Note:
-            - 实际调用put_event方法
+            - 实际调用put方法
             - 提供更简洁的接口
             - 保持向后兼容性
         """

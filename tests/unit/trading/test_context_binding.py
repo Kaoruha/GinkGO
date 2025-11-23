@@ -49,7 +49,7 @@ class TestContextBinding:
         portfolio.add_strategy(strategy)
         portfolio.bind_sizer(sizer)
         portfolio.bind_selector(selector)
-        engine.bind_portfolio(portfolio)
+        engine.add_portfolio(portfolio)
 
         # 4. 验证上下文
         assert portfolio.engine_id == "test_engine_1"
@@ -80,7 +80,7 @@ class TestContextBinding:
         engine._run_id = "test_run_2"
 
         # 4. 绑定引擎到portfolio
-        engine.bind_portfolio(portfolio)
+        engine.add_portfolio(portfolio)
 
         # 5. 验证上下文
         assert portfolio.engine_id == "test_engine_2"
@@ -109,7 +109,7 @@ class TestContextBinding:
         portfolio.bind_selector(selector)
 
         # 3. 绑定引擎
-        engine.bind_portfolio(portfolio)
+        engine.add_portfolio(portfolio)
 
         # 4. 验证上下文
         assert portfolio.engine_id == "test_engine_3"
@@ -143,7 +143,7 @@ class TestContextBinding:
         engine = EventEngine()
         engine.engine_id = "test_engine_4"
         engine._run_id = "test_run_4"
-        engine.bind_portfolio(portfolio)
+        engine.add_portfolio(portfolio)
 
         # 3. 验证绑定后状态
         assert portfolio.engine_id == "test_engine_4"
@@ -166,7 +166,7 @@ class TestContextBinding:
         portfolio.add_strategy(strategy)
         portfolio.bind_sizer(sizer)
         portfolio.bind_selector(selector)
-        engine.bind_portfolio(portfolio)
+        engine.add_portfolio(portfolio)
 
         # 验证所有组件的上下文都一致
         expected_engine_id = "consistency_test_engine"

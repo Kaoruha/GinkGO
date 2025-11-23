@@ -184,7 +184,7 @@ class TestIEngineProtocol:
 
             # ========== 事件管理 ==========
 
-            def put_event(self, event) -> None:
+            def put(self, event) -> None:
                 # 模拟事件投递
                 pass
 
@@ -250,7 +250,7 @@ class TestIEngineProtocol:
                 }
 
             def put(self, event) -> None:
-                self.put_event(event)
+                self.put(event)
 
             # ========== 身份管理 ==========
 
@@ -301,7 +301,7 @@ class TestIEngineProtocol:
         assert hasattr(engine, 'start'), "引擎必须有start方法"
         assert hasattr(engine, 'pause'), "引擎必须有pause方法"
         assert hasattr(engine, 'stop'), "引擎必须有stop方法"
-        assert hasattr(engine, 'put_event'), "引擎必须有put_event方法"
+        # assert hasattr(engine, 'put_event'), "引擎必须有put_event方法"  # 已统一为put方法
         assert hasattr(engine, 'get_event'), "引擎必须有get_event方法"
         assert hasattr(engine, 'handle_event'), "引擎必须有handle_event方法"
         assert hasattr(engine, 'run'), "引擎必须有run方法"
@@ -382,8 +382,8 @@ class TestIEngineProtocol:
         event2 = EventFactory.create_price_update_event(code="000002.SZ")
 
         # 测试事件投递
-        engine.put_event(event1)  # 应该不抛出异常
-        engine.put_event(event2)  # 应该不抛出异常
+        engine.put(event1)  # 应该不抛出异常
+        engine.put(event2)  # 应该不抛出异常
 
         # 测试事件获取
         result = engine.get_event(timeout=0.1)  # 应该不抛出异常
@@ -488,7 +488,7 @@ class TestIEngineProtocol:
 
         # 验证缺少必需方法
         required_methods = [
-            'pause', 'stop', 'put_event', 'get_event', 'handle_event',
+            'pause', 'stop', 'put', 'get_event', 'handle_event',
             'run', 'add_portfolio', 'remove_portfolio', 'set_event_timeout',
             'set_event_queue_size', 'get_engine_summary', 'put'
         ]
@@ -591,7 +591,7 @@ class TestIEngineProtocol:
                 self._run_id = None
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def get_event(self, timeout=None):
@@ -630,7 +630,7 @@ class TestIEngineProtocol:
                 }
 
             def put(self, event):
-                self.put_event(event)
+                self.put(event)
 
         return SimpleMockEngine()
 
@@ -758,7 +758,7 @@ class TestIEngineProtocolRuntimeValidation:
 
         # 投递事件
         for event in events:
-            engine.put_event(event)
+            engine.put(event)
 
         put_time = time.time()
 
@@ -866,7 +866,7 @@ class TestIEngineProtocolRuntimeValidation:
                 self._run_id = None
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def get_event(self, timeout=None):
@@ -905,7 +905,7 @@ class TestIEngineProtocolRuntimeValidation:
                 }
 
             def put(self, event):
-                self.put_event(event)
+                self.put(event)
 
         return PerformanceMockEngine()
 
@@ -981,7 +981,7 @@ class TestIEngineProtocolEdgeCases:
 
         event_start = time.time()
         for event in many_events:
-            engine.put_event(event)
+            engine.put(event)
         event_time = time.time()
 
         assert event_time - event_start < 5.0, "事件投递应该很快"
@@ -992,7 +992,7 @@ class TestIEngineProtocolEdgeCases:
 
         # 测试None事件
         try:
-            engine.put_event(None)  # 应该不崩溃
+            engine.put(None)  # 应该不崩溃
         except Exception as e:
             # 如果抛出异常，应该是预期的
             assert isinstance(e, (TypeError, AttributeError))
@@ -1128,7 +1128,7 @@ class TestIEngineProtocolEdgeCases:
                 self._run_id = None
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 # 处理None事件
                 if event is None:
                     return
@@ -1175,7 +1175,7 @@ class TestIEngineProtocolEdgeCases:
                 }
 
             def put(self, event):
-                self.put_event(event)
+                self.put(event)
 
         return EdgeCaseMockEngine()
 

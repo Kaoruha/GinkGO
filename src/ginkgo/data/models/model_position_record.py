@@ -25,6 +25,7 @@ class MPositionRecord(MClickBase, MBacktestRecordBase):
     frozen_money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     fee: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -44,6 +45,7 @@ class MPositionRecord(MClickBase, MBacktestRecordBase):
         fee: Optional[Number] = None,
         source: Optional[SOURCE_TYPES] = None,
         timestamp: any = None,
+        business_timestamp: Optional[any] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -67,6 +69,8 @@ class MPositionRecord(MClickBase, MBacktestRecordBase):
             self.source = source
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
@@ -81,6 +85,8 @@ class MPositionRecord(MClickBase, MBacktestRecordBase):
         self.price = df["price"]
         self.fee = df["fee"]
 
+        if "business_timestamp" in df.keys() and pd.notna(df["business_timestamp"]):
+            self.business_timestamp = datetime_normalize(df["business_timestamp"])
         if "source" in df.keys():
             self.source = df["source"]
         self.update_at = datetime.datetime.now()

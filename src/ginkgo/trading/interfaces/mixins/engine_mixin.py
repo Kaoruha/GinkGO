@@ -266,7 +266,7 @@ class EngineMixin:
 
     # ========== 事件处理增强 ==========
 
-    def put_event(self, event) -> None:
+    def put(self, event) -> None:
         """
         增强的事件投递方法
 
@@ -276,8 +276,8 @@ class EngineMixin:
         event_id = self._track_event_start(event)
 
         try:
-            # 调用父类的put_event
-            super().put_event(event)
+            # 调用父类的put
+            super().put(event)
         except Exception as e:
             # 追踪事件失败
             self._track_event_end(event_id, success=False, error=e)
@@ -293,7 +293,7 @@ class EngineMixin:
         start_time = time.time()
 
         try:
-            # 尝试获取事件ID（如果已经在put_event中创建）
+            # 尝试获取事件ID（如果已经在put中创建）
             # 这里简化处理，实际实现可能需要更复杂的逻辑
             if hasattr(event, '_event_id'):
                 event_id = event._event_id

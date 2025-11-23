@@ -38,6 +38,7 @@ class MCapitalAdjustment(MClickBase, ModelConversion):
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now, comment="调整时间")
     reason: Mapped[str] = mapped_column(types.String, default="", comment="调整原因")
     source: Mapped[int] = mapped_column(types.Int8, default=0, comment="数据源")
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -51,6 +52,7 @@ class MCapitalAdjustment(MClickBase, ModelConversion):
         timestamp: Optional[any] = None,
         reason: Optional[str] = None,
         source: Optional[SOURCE_TYPES] = None,
+        business_timestamp: Optional[any] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -63,6 +65,8 @@ class MCapitalAdjustment(MClickBase, ModelConversion):
             self.reason = reason
         if source is not None:
             self.source = SOURCE_TYPES.validate_input(source)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
@@ -70,6 +74,8 @@ class MCapitalAdjustment(MClickBase, ModelConversion):
         self.amount = to_decimal(df["amount"])
         self.timestamp = datetime_normalize(df["timestamp"])
         self.reason = df.get("reason", "")
+        if "business_timestamp" in df.keys() and pd.notna(df["business_timestamp"]):
+            self.business_timestamp = datetime_normalize(df["business_timestamp"])
         if "source" in df.keys():
             self.source = SOURCE_TYPES.validate_input(df["source"])
 
@@ -81,6 +87,10 @@ class MCapitalAdjustment(MClickBase, ModelConversion):
             self.source = SOURCE_TYPES.validate_input(kwargs['source'])
             # 从kwargs中移除source，避免重复赋值
             del kwargs['source']
+        # 处理business_timestamp字段
+        if 'business_timestamp' in kwargs:
+            self.business_timestamp = datetime_normalize(kwargs['business_timestamp'])
+            del kwargs['business_timestamp']
         # 设置其他字段
         for key, value in kwargs.items():
             if hasattr(self, key):

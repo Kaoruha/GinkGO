@@ -169,7 +169,7 @@ class TestComplexT1Scenarios:
         self.portfolio.set_time_provider(self.time_provider)
 
         # 绑定Portfolio到引擎
-        self.engine.bind_portfolio(self.portfolio)
+        self.engine.add_portfolio(self.portfolio)
 
         # 注册事件处理器
         self.engine.register(EVENT_TYPES.PRICEUPDATE, self.portfolio.on_price_received)

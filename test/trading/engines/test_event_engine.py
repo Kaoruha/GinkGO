@@ -700,7 +700,7 @@ class TestEventHandlerRegistration:
 class TestEventDispatchMechanics:
     """4. 事件分发机制测试"""
 
-    def test_put_event_to_queue(self):
+    def test_put_to_queue(self):
         """测试向队列放入事件"""
         engine = EventEngine()
 
@@ -1508,7 +1508,7 @@ class TestEventEngineComponentBinding:
         assert len(engine.portfolios) == 0, "初始投资组合列表应该为空"
 
         # 执行绑定
-        engine.bind_portfolio(portfolio)
+        engine.add_portfolio(portfolio)
 
         # 验证绑定结果
         assert len(engine.portfolios) == 1, "应该有一个投资组合"
@@ -1516,7 +1516,7 @@ class TestEventEngineComponentBinding:
         assert portfolio._engine_put is not None, "事件发布器应该被注入"
 
         # 验证重复绑定不会重复添加
-        engine.bind_portfolio(portfolio)
+        engine.add_portfolio(portfolio)
         assert len(engine.portfolios) == 1, "重复绑定不应该重复添加"
 
         # 验证BasePortfolio具有必要的方法

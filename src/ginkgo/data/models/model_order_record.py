@@ -4,7 +4,7 @@ from typing import Optional
 
 from decimal import Decimal
 from functools import singledispatchmethod
-from sqlalchemy import String, Integer, DECIMAL, Enum
+from sqlalchemy import String, Integer, DECIMAL, Enum, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from clickhouse_sqlalchemy import types
 
@@ -32,6 +32,7 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
     transaction_volume: Mapped[int] = mapped_column(Integer, default=0)
     remain: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     fee: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -55,6 +56,7 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
         remain: Optional[Number] = None,
         fee: Optional[Number] = None,
         timestamp: Optional[any] = None,
+        business_timestamp: Optional[any] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
@@ -86,6 +88,8 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
             self.fee = to_decimal(fee)
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         if source is not None:
             self.set_source(source)
 
@@ -106,6 +110,8 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
         self.remain = to_decimal(df["remain"])
         self.fee = to_decimal(df["fee"])
         self.timestamp = datetime_normalize(df["timestamp"])
+        if "business_timestamp" in df.keys() and pd.notna(df["business_timestamp"]):
+            self.business_timestamp = datetime_normalize(df["business_timestamp"])
         self.portfolio_id = df["portfolio_id"]
         if "source" in df.keys():
             self.source = df["source"]
@@ -127,6 +133,10 @@ class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
         if 'source' in kwargs:
             self.set_source(kwargs['source'])
             del kwargs['source']
+        # 处理business_timestamp字段
+        if 'business_timestamp' in kwargs:
+            self.business_timestamp = datetime_normalize(kwargs['business_timestamp'])
+            del kwargs['business_timestamp']
         # 设置其他字段
         for key, value in kwargs.items():
             if hasattr(self, key):

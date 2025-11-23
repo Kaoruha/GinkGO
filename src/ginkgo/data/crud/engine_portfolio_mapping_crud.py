@@ -120,7 +120,7 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping], ModelConvers
         filters = {"engine_id": engine_id}
 
         return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_portfolio(self, portfolio_id: str,
                          as_dataframe: bool = False) -> Union[List[MEnginePortfolioMapping], pd.DataFrame]:
@@ -130,7 +130,7 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping], ModelConvers
         filters = {"portfolio_id": portfolio_id}
         
         return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_portfolios_for_engine(self, engine_id: str) -> List[str]:
         """

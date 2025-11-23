@@ -51,37 +51,54 @@ class EventEngine(BaseEngine):
         # 调用父类构造
         super(EventEngine, self).__init__(name=name, mode=mode, *args, **kwargs)
 
-        # 定时器配置
+        # === 初始化事件处理核心组件 ===
+        self._init_event_processing()
+
+        # === 定时器和线程管理 ===
         self._timer_interval = timer_interval
         self._enable_timer = False  # 定时器开关，默认关闭
-
         self._main_flag = threading.Event()
         self._main_thread: Thread = Thread(target=self.main_loop, args=(self._main_flag,))
         self._main_thread.daemon = True
-        self._main_thread_started = False  # 跟踪主线程是否已启动
+        self._main_thread_started = False
         self._timer_flag = threading.Event()
         self._timer_thread: Thread = Thread(target=self.timer_loop, args=(self._timer_flag,))
         self._timer_thread.daemon = True
-        self._timer_thread_started = False  # 跟踪定时器线程是否已启动
+        self._timer_thread_started = False
         self._pause_flag = threading.Event()  # 暂停标志
-        self._handlers: dict[EVENT_TYPES, callable] = {}
+
+        # === 事件处理器注册 ===
+        self._handlers: dict[EVENT_TYPES, list] = {}
         self._general_handlers: list = []
         self._timer_handlers: list = []
-        # 统一使用父类的 _event_queue，不再使用 _queue
+
+        # === 其他组件 ===
         self._datafeeder = None
         self._matchmaking = None
 
-        # 事件统计（基础功能）
+    def _init_event_processing(self):
+        """初始化事件处理组件"""
+        # 事件队列配置
+        self._event_timeout: float = 10.0
+        self._event_queue = Queue(maxsize=10000)  # 默认队列大小
+        self._queue_lock = threading.Lock()  # 队列操作锁
+
+        # 队列调整状态
+        self._is_resizing = False
+        self._resize_lock = threading.Lock()
+
+        # 序列号管理
+        self._sequence_number = 0
+        self._sequence_lock = threading.Lock()
+
+        # 统计信息 - 默认启用
         self._event_stats = {
             'total_events': 0,
             'completed_events': 0,
             'failed_events': 0,
+            'processing_start_time': None
         }
-        self._stats_lock = threading.Lock()  # 统计数据的线程安全锁
-
-        # 事件增强功能
-        self._sequence_number = 0  # 事件序列号
-        self._sequence_lock = threading.Lock()  # 序列号生成的线程安全锁
+        self._stats_lock = threading.Lock()
 
     @property
     def datafeeder(self):
@@ -135,18 +152,25 @@ class EventEngine(BaseEngine):
         """获取当前时间 - 子类应重写此方法"""
         return datetime.datetime.now()
 
-    def bind_portfolio(self, portfolio: "PortfolioBase") -> None:
-        # ID of this engine is the unique in backtest.
-        if portfolio in self.portfolios:
-            return
-        self.add_portfolio(portfolio)
-        self.log("DEBUG", f"{type(self)}:{self.name} bind PORTFOLIO {portfolio.name}.")
-        portfolio.bind_engine(self)
-        # 明确注入事件发布器，统一回注接口
+    def add_portfolio(self, portfolio: "PortfolioBase") -> None:
+        """
+        添加投资组合到事件引擎
+
+        在BaseEngine基础功能之上，添加EventEngine特有的绑定逻辑：
+        1. 调用父类基础绑定
+        2. 设置事件发布器
+        3. 绑定数据馈送器（如果存在）
+        """
+        # 调用父类方法进行基础绑定
+        super().add_portfolio(portfolio)
+
+        # 设置事件发布器 - EventEngine特有功能
         portfolio.set_event_publisher(self.put)
-        self.log("DEBUG", f"{type(self)}:{self.name} has {len(self.portfolios)} PORTFOLIOs.")
+
+        # 绑定数据馈送器（如果存在）
         if self._datafeeder is not None:
             portfolio.bind_data_feeder(self._datafeeder)
+            self.log("DEBUG", f"Data feeder bound to portfolio {portfolio.name}")
 
     def run(self) -> None:
         """实现BaseEngine的抽象方法"""
@@ -323,48 +347,58 @@ class EventEngine(BaseEngine):
 
     def put(self, event: "EventBase") -> None:
         """
-        Put event to queue.
-        Args:
-            event(Event): Event
-        Returns:
-            None
+        统一事件入队方法 - 默认启用增强和统计
+
+        所有事件都会被增强和统计，确保数据完整性和可追踪性
         """
-        # 统一增强所有事件
+        # 1. 事件增强 - 强制执行
         enhanced_event = self._enhance_event(event)
 
-        # 事件计数（基础功能）
+        # 2. 统计计数 - 强制执行
         with self._stats_lock:
             self._event_stats['total_events'] += 1
+            if self._event_stats['processing_start_time'] is None:
+                self._event_stats['processing_start_time'] = time.time()
 
-        self._event_queue.put(enhanced_event)
-        self.log("DEBUG", f"{type(self)}:{self.name} got an {enhanced_event.event_type} in queue.")
+        # 3. 线程安全入队
+        with self._queue_lock:
+            self._event_queue.put(enhanced_event)
+
+        self.log("DEBUG", f"Event queued: {enhanced_event.event_type} seq={enhanced_event.sequence_number}")
 
     def _process(self, event: "EventBase") -> None:
+        """安全事件处理 - 默认启用统计"""
         self.log("DEBUG", f"Process {event.event_type}")
 
         try:
+            # 具体事件处理器
             if event.event_type in self._handlers:
                 [handler(event) for handler in self._handlers[event.event_type]]
                 self.log("DEBUG", f"{self.name} Deal with {event.event_type}.")
             else:
                 self.log("WARN", f"There is no handler for {event.event_type}")
 
-            # General handlers
+            # 通用事件处理器
             [handler(event) for handler in self._general_handlers]
 
-            # 成功计数（基础功能）
+            # 统计成功 - 强制执行
             with self._stats_lock:
                 self._event_stats['completed_events'] += 1
 
-            # 调用BaseEngine的事件计数机制
-            self._increment_event_count()
+            # 调用父类的事件计数机制（如果存在）
+            if hasattr(super(), '_increment_event_count'):
+                super()._increment_event_count()
 
         except Exception as e:
-            # 失败计数（基础功能）
+            # 统计失败 - 强制执行
             with self._stats_lock:
                 self._event_stats['failed_events'] += 1
             self.log("ERROR", f"Event processing failed: {e}")
             raise
+
+    def handle_event(self, event) -> None:
+        """统一的handle_event实现 - 使用_process方法"""
+        self._process(event)
 
     def register(self, type: "EVENT_TYPES", handler: callable) -> bool:
         """
@@ -666,3 +700,141 @@ class EventEngine(BaseEngine):
             is_full=queue_size >= max_size,
             is_empty=queue_size == 0
         )
+
+    # === 队列管理方法（从BaseEngine移动过来） ===
+
+    @property
+    def event_timeout(self) -> float:
+        """事件超时时间"""
+        return self._event_timeout
+
+    def set_event_timeout(self, timeout: float) -> None:
+        """设置事件超时时间"""
+        self._event_timeout = timeout
+
+    @property
+    def is_resizing_queue(self) -> bool:
+        """检查队列是否正在调整中"""
+        return self._is_resizing
+
+    def set_event_queue_size(self, size: int) -> bool:
+        """动态调整事件队列大小（双缓冲方案，保证事件不丢失）
+
+        Args:
+            size: 新的队列大小
+
+        Returns:
+            bool: 是否成功启动调整（False表示正在调整中）
+        """
+        if size <= 0:
+            raise ValueError("Queue size must be positive")
+
+        # 检查是否正在调整中
+        if self._is_resizing:
+            self.log("WARN", f"Queue resize already in progress, cannot resize to {size}")
+            return False
+
+        # 获取调整锁，确保只有一个调整操作
+        if not self._resize_lock.acquire(blocking=False):
+            self.log("WARN", f"Cannot acquire resize lock, resize in progress")
+            return False
+
+        try:
+            # 设置调整状态
+            self._is_resizing = True
+
+            old_queue = self._event_queue
+            old_size = getattr(old_queue, 'maxsize', 0)
+
+            if old_size == size:
+                self.log("INFO", f"Queue size already {size}, no resize needed")
+                self._is_resizing = False
+                self._resize_lock.release()
+                return True
+
+            # 创建临时队列接收新事件
+            temp_queue = Queue(maxsize=size)
+            # 创建目标队列
+            new_queue = Queue(maxsize=size)
+
+            with self._queue_lock:
+                # 原子性切换到临时队列，新事件将进入temp_queue
+                self._event_queue = temp_queue
+
+            self.log("INFO", f"Queue resize started: {old_size} -> {size}, using temporary buffer")
+
+            # 在后台转移事件
+            transfer_thread = threading.Thread(
+                target=self._transfer_events_with_buffer,
+                args=(old_queue, temp_queue, new_queue, old_size, size),
+                daemon=True
+            )
+            transfer_thread.start()
+            return True
+
+        except Exception as e:
+            # 异常时重置状态
+            self._is_resizing = False
+            self._resize_lock.release()
+            self.log("ERROR", f"Queue resize failed: {e}")
+            raise
+
+    def _transfer_events_with_buffer(self, old_queue: Queue, temp_queue: Queue,
+                                   new_queue: Queue, old_size: int, new_size: int) -> None:
+        """使用双缓冲方案转移事件"""
+        events_transferred = 0
+        events_from_buffer = 0
+
+        try:
+            # 第一阶段：转移旧队列中的事件
+            self.log("DEBUG", "Phase 1: Transferring events from old queue")
+            while not old_queue.empty():
+                try:
+                    event = old_queue.get_nowait()
+                    new_queue.put(event, block=True)  # 阻塞等待，不丢弃
+                    events_transferred += 1
+                except Empty:
+                    break
+                except Exception as e:
+                    self.log("ERROR", f"Error transferring old event: {e}")
+                    break
+
+            # 第二阶段：转移临时队列中的事件（在调整期间到达的新事件）
+            self.log("DEBUG", "Phase 2: Transferring events from temporary buffer")
+            while True:
+                try:
+                    # 短暂超时获取临时队列事件，避免无限等待
+                    event = temp_queue.get(timeout=0.1)
+                    new_queue.put(event, block=True)  # 阻塞等待，不丢弃
+                    events_from_buffer += 1
+                except Empty:
+                    # 临时队列空了，检查是否还有新事件到来
+                    if temp_queue.empty():
+                        break
+                    continue
+                except Exception as e:
+                    self.log("ERROR", f"Error transferring buffered event: {e}")
+                    break
+
+            # 第三阶段：原子性替换到新队列
+            with self._queue_lock:
+                # 确保没有其他线程已经替换了队列
+                if self._event_queue is temp_queue:
+                    self._event_queue = new_queue
+
+            total_events = events_transferred + events_from_buffer
+            self.log("INFO", f"Queue resize completed: {old_size} -> {new_size}, "
+                     f"transferred {events_transferred} old events, {events_from_buffer} new events, "
+                     f"total {total_events} events")
+
+        except Exception as e:
+            self.log("ERROR", f"Queue resize failed: {e}")
+            # 出错时恢复使用临时队列
+            with self._queue_lock:
+                if self._event_queue is temp_queue:
+                    self._event_queue = temp_queue
+
+        finally:
+            # 无论如何都要重置调整状态并释放锁
+            self._is_resizing = False
+            self._resize_lock.release()

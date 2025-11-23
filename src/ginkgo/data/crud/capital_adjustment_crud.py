@@ -45,6 +45,9 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
                 "type": "enum",
                 "choices": [SOURCE_TYPES.SIM, SOURCE_TYPES.LIVE, SOURCE_TYPES.BACKTEST, SOURCE_TYPES.OTHER],
             },
+
+            # 业务时间戳 - datetime 或字符串，可选
+            "business_timestamp": {"type": ["datetime", "string", "none"]},
         }
 
     def _create_from_params(self, **kwargs) -> MCapitalAdjustment:
@@ -57,6 +60,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
             amount=to_decimal(kwargs.get("amount", 0)),
             reason=kwargs.get("reason", ""),
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MCapitalAdjustment]:
@@ -72,6 +76,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
                     amount=to_decimal(item.get("amount", 0)),
                     reason=item.get("reason", ""),
                     source=SOURCE_TYPES.validate_input(item.get("source", SOURCE_TYPES.SIM)),
+                    business_timestamp=datetime_normalize(item.get("business_timestamp", None)),
                 )
         # 处理对象类型输入
         elif hasattr(item, "portfolio_id") and hasattr(item, "amount"):
@@ -81,6 +86,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
                 amount=to_decimal(getattr(item, "amount", 0)),
                 reason=getattr(item, "reason", ""),
                 source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.SIM)),
+                business_timestamp=datetime_normalize(getattr(item, "business_timestamp", None)),
             )
         return None
 
@@ -152,7 +158,7 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
             filters["timestamp__lte"] = datetime_normalize(end_date)
 
         return self.find(
-            filters=filters, order_by="timestamp", desc_order=True, as_dataframe=as_dataframe, output_type="model"
+            filters=filters, order_by="timestamp", desc_order=True, as_dataframe=as_dataframe
         )
 
     def get_total_adjustment(
@@ -174,4 +180,38 @@ class CapitalAdjustmentCRUD(BaseCRUD[MCapitalAdjustment]):
             desc_order=True,
             as_dataframe=as_dataframe,
             output_type="model",
+        )
+
+    def find_by_business_time(
+        self,
+        portfolio_id: str,
+        start_business_time: Optional[Any] = None,
+        end_business_time: Optional[Any] = None,
+        as_dataframe: bool = False,
+    ) -> Union[List[MCapitalAdjustment], pd.DataFrame]:
+        """
+        Business helper: Find capital adjustments by business time range.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            start_business_time: Start of business time range (optional)
+            end_business_time: End of business time range (optional)
+            as_dataframe: Return as DataFrame if True
+
+        Returns:
+            List of MCapitalAdjustment models or DataFrame
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+
+        return self.find(
+            filters=filters,
+            order_by="business_timestamp",
+            desc_order=True,
+            as_dataframe=as_dataframe,
+            output_type="model"
         )

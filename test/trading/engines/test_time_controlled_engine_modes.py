@@ -142,7 +142,7 @@ class TestLiveModeManager:
 
         event = EventPriceUpdate(price_info=test_bar)
 
-        live_engine.put_event(event)
+        live_engine.put(event)
 
         # 7. 关闭引擎
         live_engine.stop()
@@ -202,7 +202,7 @@ class TestLiveModeManager:
         # 并发投递事件
         def deliver_events(start_idx, end_idx):
             for i in range(start_idx, end_idx):
-                live_engine.put_event(test_events[i])
+                live_engine.put(test_events[i])
 
         # 创建多个线程并发投递事件
         threads = []
@@ -323,7 +323,7 @@ class TestLiveModeManager:
                     timestamp=dt.now(timezone.utc)
                 )
                 event = EventPriceUpdate(price_info=bar)
-                live_engine.put_event(event)
+                live_engine.put(event)
 
         # 等待事件处理
         time_module.sleep(0.1)
@@ -455,7 +455,7 @@ class TestLiveModeManager:
                 timestamp=dt.now(timezone.utc)
             )
             event = EventPriceUpdate(price_info=bar)
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待事件处理
         time_module.sleep(0.1)
@@ -574,7 +574,7 @@ class TestLiveModeManager:
                         timestamp=dt.now(timezone.utc)
                     )
                     event = EventPriceUpdate(price_info=bar)
-                    live_engine.put_event(event)
+                    live_engine.put(event)
 
                     # 更新队列指标（模拟）
                     with metrics_lock:
@@ -1089,10 +1089,10 @@ class TestExecutionModeSwitching:
 
         # 回测模式：推进时间并发送事件
         backtest_engine._time_provider.advance_time_to(test_time)
-        backtest_engine.put_event(time_event)
+        backtest_engine.put(time_event)
 
         # 实盘模式：直接发送事件（时间不可手动推进）
-        live_engine.put_event(time_event)
+        live_engine.put(time_event)
 
         # 等待事件处理
         time_module.sleep(0.1)

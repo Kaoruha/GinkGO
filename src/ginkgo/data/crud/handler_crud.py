@@ -101,21 +101,21 @@ class HandlerCRUD(BaseCRUD[MHandler]):
         Business helper: Find handler by UUID.
         """
         return self.find(filters={"uuid": uuid}, page_size=1,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_name_pattern(self, name_pattern: str, as_dataframe: bool = False) -> Union[List[MHandler], pd.DataFrame]:
         """
         Business helper: Find handlers by name pattern.
         """
         return self.find(filters={"name__like": name_pattern}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_lib_path(self, lib_path: str, as_dataframe: bool = False) -> Union[List[MHandler], pd.DataFrame]:
         """
         Business helper: Find handlers by library path.
         """
         return self.find(filters={"lib_path": lib_path}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_all_uuids(self) -> List[str]:
         """

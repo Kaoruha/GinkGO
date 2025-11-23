@@ -28,6 +28,7 @@ class MPosition(MMysqlBase, MBacktestRecordBase):
     frozen_money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     fee: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -50,6 +51,7 @@ class MPosition(MMysqlBase, MBacktestRecordBase):
         price: Optional[Number] = None,
         fee: Optional[Number] = None,
         source: Optional[SOURCE_TYPES] = None,
+        business_timestamp: Optional[any] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -78,6 +80,8 @@ class MPosition(MMysqlBase, MBacktestRecordBase):
             self.fee = to_decimal(fee)
         if source is not None:
             self.set_source(source)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
@@ -94,6 +98,8 @@ class MPosition(MMysqlBase, MBacktestRecordBase):
         self.price = df["price"]
         self.fee = df["fee"]
 
+        if "business_timestamp" in df.keys() and pd.notna(df["business_timestamp"]):
+            self.business_timestamp = datetime_normalize(df["business_timestamp"])
         if "source" in df.keys():
             self.set_source(df["source"])
         self.update_at = datetime.datetime.now()
@@ -106,6 +112,10 @@ class MPosition(MMysqlBase, MBacktestRecordBase):
             self.set_source(kwargs['source'])
             # 从kwargs中移除source，避免重复赋值
             del kwargs['source']
+        # 处理business_timestamp字段
+        if 'business_timestamp' in kwargs:
+            self.business_timestamp = datetime_normalize(kwargs['business_timestamp'])
+            del kwargs['business_timestamp']
         # 设置其他字段
         for key, value in kwargs.items():
             if hasattr(self, key):

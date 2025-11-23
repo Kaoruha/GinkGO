@@ -56,6 +56,7 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
     # 其他信息
     reject_reason: Mapped[str] = mapped_column(String(200), nullable=True, comment="拒绝原因")
     notes: Mapped[str] = mapped_column(String(500), nullable=True, comment="备注")
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, comment="业务时间戳")
 
     def __init__(self,
                  signal_id=None, strategy_id=None, portfolio_id=None,
@@ -65,7 +66,7 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
                  actual_price=None, actual_volume=None, actual_timestamp=None,
                  tracking_status=None, notification_sent_at=None, execution_confirmed_at=None,
                  price_deviation=None, volume_deviation=None, time_delay_seconds=None,
-                 reject_reason=None, notes=None, source=None, **kwargs):
+                 reject_reason=None, notes=None, business_timestamp=None, source=None, **kwargs):
         """Initialize MSignalTracker with automatic enum/int handling"""
         super().__init__(**kwargs)
 
@@ -124,6 +125,8 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
             self.reject_reason = reject_reason
         if notes is not None:
             self.notes = notes
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         if source is not None:
             self.source = SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.TUSHARE.value
 
@@ -157,6 +160,7 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         time_delay_seconds: Optional[int] = None,
         reject_reason: Optional[str] = None,
         notes: Optional[str] = None,
+        business_timestamp: Optional[datetime.datetime] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
@@ -208,9 +212,11 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
             self.reject_reason = reject_reason
         if notes is not None:
             self.notes = notes
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         if source is not None:
             self.source = SOURCE_TYPES.validate_input(source) or -1
-        
+
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
@@ -260,9 +266,11 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
             self.reject_reason = df["reject_reason"]
         if "notes" in df.keys() and pd.notna(df["notes"]):
             self.notes = df["notes"]
+        if "business_timestamp" in df.keys() and pd.notna(df["business_timestamp"]):
+            self.business_timestamp = datetime_normalize(df["business_timestamp"])
         if "source" in df.keys():
             self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
-        
+
         self.update_at = datetime.datetime.now()
 
     def calculate_deviations(self):

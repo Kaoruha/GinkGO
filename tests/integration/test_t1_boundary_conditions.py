@@ -117,7 +117,7 @@ class TestT1BoundaryConditions:
         self.portfolio.set_time_provider(self.time_provider)
 
         # 绑定Portfolio到引擎
-        self.engine.bind_portfolio(self.portfolio)
+        self.engine.add_portfolio(self.portfolio)
 
         # 注册事件处理器
         from ginkgo.enums import EVENT_TYPES

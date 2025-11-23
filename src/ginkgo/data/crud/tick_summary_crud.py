@@ -139,7 +139,7 @@ class TickSummaryCRUD(BaseCRUD[MTickSummary]):
             filters["timestamp__lte"] = datetime_normalize(end_date)
 
         return self.find(filters=filters, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_date(self, date: Any, codes: Optional[List[str]] = None,
                     as_dataframe: bool = False) -> Union[List[MTickSummary], pd.DataFrame]:
@@ -152,14 +152,14 @@ class TickSummaryCRUD(BaseCRUD[MTickSummary]):
             filters["code__in"] = codes
 
         return self.find(filters=filters, order_by="code", 
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_daily_summary(self, date: Any, code: str) -> Optional[dict]:
         """
         Business helper: Get daily tick summary for a specific stock.
         """
         result = self.find(filters={"code": code, "timestamp": datetime_normalize(date)},
-                          page_size=1, as_dataframe=False, output_type="model")
+                          page_size=1, as_dataframe=False)
         
         if result:
             summary = result[0]

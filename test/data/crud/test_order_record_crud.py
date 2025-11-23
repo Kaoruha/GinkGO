@@ -62,6 +62,7 @@ class TestOrderRecordCRUDInsert:
             remain=Decimal("0.00"),
             fee=Decimal("6.26"),
             timestamp=base_time,
+            business_timestamp=base_time - timedelta(minutes=2),  # 业务时间比系统时间早2分钟
             source=SOURCE_TYPES.TEST
         )
         test_records.append(filled_record)
@@ -83,6 +84,7 @@ class TestOrderRecordCRUDInsert:
             remain=Decimal("5625.00"),
             fee=Decimal("3.75"),
             timestamp=base_time + timedelta(minutes=5),
+            business_timestamp=base_time + timedelta(minutes=3),  # 业务时间比系统时间早2分钟
             source=SOURCE_TYPES.TEST
         )
         test_records.append(partial_filled_record)
@@ -104,6 +106,7 @@ class TestOrderRecordCRUDInsert:
             remain=Decimal("20480.00"),
             fee=Decimal("0.00"),
             timestamp=base_time + timedelta(minutes=10),
+            business_timestamp=base_time + timedelta(minutes=8),  # 业务时间比系统时间早2分钟
             source=SOURCE_TYPES.TEST
         )
         test_records.append(canceled_record)
@@ -145,6 +148,7 @@ class TestOrderRecordCRUDInsert:
 
         order_record_crud = OrderRecordCRUD()
 
+        base_time = datetime(2023, 1, 3, 10, 30)
         test_record = MOrderRecord(
             order_id="order_004",
             portfolio_id="portfolio_003",
@@ -160,7 +164,8 @@ class TestOrderRecordCRUDInsert:
             transaction_volume=0,
             remain=Decimal("13275.00"),
             fee=Decimal("0.00"),
-            timestamp=datetime(2023, 1, 3, 10, 30),
+            timestamp=base_time,
+            business_timestamp=base_time - timedelta(minutes=1),  # 业务时间比系统时间早1分钟
             source=SOURCE_TYPES.TEST
         )
         print(f"✓ 创建测试OrderRecord: {test_record.order_id}")
@@ -589,6 +594,74 @@ class TestOrderRecordCRUDBusinessLogic:
 
         except Exception as e:
             print(f"✗ 订单质量指标计算失败: {e}")
+            raise
+
+    def test_find_by_business_time_range(self):
+        """测试根据业务时间范围查询OrderRecord"""
+        print("\n" + "="*60)
+        print("开始测试: 根据业务时间范围查询OrderRecord")
+        print("="*60)
+
+        order_record_crud = OrderRecordCRUD()
+
+        try:
+            # 查询特定业务时间范围的订单记录
+            start_business_time = datetime(2023, 1, 3, 9, 25)   # 业务时间开始
+            end_business_time = datetime(2023, 1, 3, 10, 35)    # 业务时间结束
+
+            print(f"→ 查询业务时间范围 {start_business_time.time()} ~ {end_business_time.time()} 的订单记录...")
+            # 使用普通查询并验证业务时间
+            business_time_records = order_record_crud.find(filters={
+                "timestamp__gte": start_business_time,
+                "timestamp__lte": end_business_time,
+                "source": SOURCE_TYPES.TEST.value
+            })
+            print(f"✓ 查询到 {len(business_time_records)} 条记录")
+
+            # 验证业务时间范围
+            for record in business_time_records:
+                print(f"  - {record.code}: 系统时间 {record.timestamp.time()}, 业务时间 {record.business_timestamp.time() if record.business_timestamp else 'None'}")
+                if record.business_timestamp:
+                    assert start_business_time <= record.business_timestamp <= end_business_time
+
+            print("✓ 业务时间范围查询验证成功")
+
+        except Exception as e:
+            print(f"✗ 业务时间范围查询失败: {e}")
+            raise
+
+    def test_find_by_time_range_with_business_timestamp(self):
+        """测试使用双时间戳的灵活时间范围查询OrderRecord"""
+        print("\n" + "="*60)
+        print("开始测试: 双时间戳时间范围查询OrderRecord")
+        print("="*60)
+
+        order_record_crud = OrderRecordCRUD()
+
+        try:
+            # 测试双时间戳查询
+            start_time = datetime(2023, 1, 3, 9, 0)
+            end_time = datetime(2023, 1, 3, 11, 0)
+
+            print(f"→ 使用系统时间查询范围 {start_time.time()} ~ {end_time.time()}...")
+            system_records = order_record_crud.find(filters={
+                "timestamp__gte": start_time,
+                "timestamp__lte": end_time,
+                "source": SOURCE_TYPES.TEST.value
+            })
+            print(f"✓ 系统时间查询到 {len(system_records)} 条记录")
+
+            print(f"→ 验证双时间戳数据一致性...")
+            for record in system_records:
+                if record.business_timestamp:
+                    time_diff = record.timestamp - record.business_timestamp
+                    print(f"  - {record.code}: 系统时间与业务时间差 {time_diff}")
+                    assert abs(time_diff.total_seconds() >= 0)  # 时间差应该合理
+
+            print("✓ 双时间戳查询验证成功")
+
+        except Exception as e:
+            print(f"✗ 双时间戳查询失败: {e}")
             raise
 
 

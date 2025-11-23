@@ -89,8 +89,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         )
         self.log("DEBUG", f"{self.name}: _main_thread.is_alive()={self._main_thread.is_alive()}")
 
-        # mode属性（用于兼容性）
-        self.mode = self._mode
+        # mode属性通过继承BaseEngine的mode属性获取
 
         # 时间提供者
         self._time_provider: Optional[ITimeProvider] = None
@@ -101,8 +100,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
         # 运行时状态
         self._enhanced_processing_enabled = True
+        # TimeControlledEngine专用的事件序列号（用于时间同步增强）
         self._event_sequence_number = 0
-        self._sequence_lock = threading.Lock()
+        self._event_sequence_lock = threading.Lock()
 
         # 自动时间推进配置
         self._backtest_interval: timedelta = timedelta(days=1)  # 回测时间推进间隔（默认日级）
@@ -642,21 +642,20 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             self.log("ERROR", f"End of day sequence error: {e}")
 
     def add_portfolio(self, portfolio) -> None:
-        """添加Portfolio并自动注册事件处理器"""
-        # 先调用父类的add_portfolio
+        """
+        添加投资组合到时间控制引擎
+
+        继承EventEngine的所有事件处理功能，只添加时间控制特有的逻辑
+        """
+        # 调用父类方法（包含BaseEngine + EventEngine的完整逻辑）
         super().add_portfolio(portfolio)
 
-        # 自动注册组件的事件处理器
+        # TimeControlledEventEngine特有逻辑：自动注册事件处理器
         self._auto_register_component_events(portfolio)
 
-    def bind_portfolio(self, portfolio: "PortfolioBase") -> None:
-        """绑定Portfolio并自动注册事件处理器"""
-        # 调用父类方法进行基础绑定
-        super().bind_portfolio(portfolio)
+        self.log("DEBUG", f"Auto-registered event handlers for portfolio {portfolio.name}")
 
-        # 自动注册组件的事件处理器
-        self._auto_register_component_events(portfolio)
-
+    
     def _auto_register_component_events(self, component) -> None:
         """自动注册组件的事件处理器"""
         from ginkgo.enums import EVENT_TYPES

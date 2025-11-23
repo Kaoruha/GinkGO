@@ -32,12 +32,15 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
     fee: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now)
 
+    # 业务时间戳 - 订单对应的业务时间（如信号触发的市场时间）
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, comment="业务时间戳")
+
     def __init__(self,
                  portfolio_id=None, engine_id=None, run_id=None,
                  uuid=None, code=None, direction=None, order_type=None, status=None,
                  volume=None, limit_price=None, frozen=None, transaction_price=None,
                  transaction_volume=None, remain=None, fee=None, timestamp=None,
-                 source=None, **kwargs):
+                 business_timestamp=None, source=None, **kwargs):
         """Initialize MOrder with automatic enum/int handling"""
         super().__init__(**kwargs)
 
@@ -80,6 +83,8 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
             self.fee = to_decimal(fee)
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         if source is not None:
             self.source = SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.TUSHARE.value
 
@@ -106,6 +111,7 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
         remain: Optional[Number] = None,
         fee: Optional[Number] = None,
         timestamp: Optional[any] = None,
+        business_timestamp: Optional[any] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
@@ -139,6 +145,8 @@ class MOrder(MMysqlBase, MBacktestRecordBase):
             self.fee = to_decimal(fee)
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         if source is not None:
             self.source = SOURCE_TYPES.validate_input(source) or -1
         self.update_at = datetime.datetime.now()

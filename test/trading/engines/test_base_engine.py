@@ -227,7 +227,7 @@ class TestBaseEngineComponentManagement:
         assert isinstance(engine._event_queue, Queue)
 
         sentinel = object()
-        engine.put_event(sentinel)
+        engine.put(sentinel)
         assert engine._event_queue.get_nowait() is sentinel
 
     def test_component_container_structure(self):
