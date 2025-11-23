@@ -6,7 +6,7 @@ from collections import OrderedDict
 from functools import wraps
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn, TimeRemainingColumn
-from ..core.config import GinkgoConfig
+from ginkgo.libs.core.config import GinkgoConfig
 
 console = Console()
 _gconf = GinkgoConfig()

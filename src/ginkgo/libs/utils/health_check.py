@@ -9,7 +9,7 @@ import subprocess
 from typing import Dict, List, Callable, Optional
 from rich.console import Console
 from rich.emoji import Emoji
-from .. import GLOG, GCONF
+from ginkgo.libs import GLOG, GCONF
 
 console = Console()
 

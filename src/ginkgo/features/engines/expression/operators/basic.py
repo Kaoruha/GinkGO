@@ -7,7 +7,7 @@ Basic Operators - 基础运算操作符
 
 import pandas as pd
 import numpy as np
-from ..registry import register_operator
+from ginkgo.features.engines.expression.registry import register_operator
 from ginkgo.libs import GLOG
 
 

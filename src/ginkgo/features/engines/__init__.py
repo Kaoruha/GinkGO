@@ -7,12 +7,12 @@
 - Expression子模块: 表达式解析组件
 """
 
-from .factor_engine import FactorEngine
-from .expression_engine import ExpressionEngine
+from ginkgo.features.engines.factor_engine import FactorEngine
+from ginkgo.features.engines.expression_engine import ExpressionEngine
 
 # 导出expression子模块的核心组件
-from .expression.parser import ExpressionParser
-from .expression.registry import OperatorRegistry
+from ginkgo.features.engines.expression.parser import ExpressionParser
+from ginkgo.features.engines.expression.registry import OperatorRegistry
 
 __all__ = [
     "FactorEngine",

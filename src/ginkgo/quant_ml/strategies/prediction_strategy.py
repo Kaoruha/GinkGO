@@ -9,14 +9,14 @@ import pandas as pd
 from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime, timedelta
 
-from .ml_strategy_base import MLStrategyBase
-from ginkgo.backtest.entities.signal import Signal
-from ginkgo.backtest.entities.bar import Bar
-from ginkgo.enums import DIRECTION_TYPES, SIGNAL_TYPES
+from ginkgo.quant_ml.strategies.ml_strategy_base import MLBaseStrategy
+from ginkgo.trading.entities.signal import Signal
+from ginkgo.trading.entities.bar import Bar
+from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.libs import GLOG
 
 
-class PredictionStrategy(MLStrategyBase):
+class PredictionStrategy(MLBaseStrategy):
     """
     预测策略
     
@@ -146,8 +146,7 @@ class PredictionStrategy(MLStrategyBase):
                 direction=direction,
                 size=position_size,
                 timestamp=bar.timestamp,
-                price=bar.close,
-                signal_type=SIGNAL_TYPES.NORMAL
+                price=bar.close
             )
             
             # 添加策略信息

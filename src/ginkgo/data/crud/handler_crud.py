@@ -1,13 +1,13 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MHandler
-from ...enums import SOURCE_TYPES
-from ...libs import GLOG
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MHandler
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.libs import GLOG
 
 
 @restrict_crud_access
@@ -15,6 +15,10 @@ class HandlerCRUD(BaseCRUD[MHandler]):
     """
     Handler CRUD operations.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MHandler
 
     def __init__(self):
         super().__init__(MHandler)
@@ -54,6 +58,37 @@ class HandlerCRUD(BaseCRUD[MHandler]):
             )
         return None
 
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'source': SOURCE_TYPES
+        }
+
+    def _convert_models_to_business_objects(self, models: List) -> List:
+        """
+        🎯 Convert models to business objects.
+
+        Args:
+            models: List of models with enum fields already fixed
+
+        Returns:
+            List of models (business object doesn't exist yet)
+        """
+        # For now, return models as-is since business object doesn't exist yet
+        return models
+
+    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
+        """
+        Hook method: Convert objects for business layer.
+        """
+        return items
+
     def _convert_output_items(self, items: List[MHandler], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MHandler objects for business layer.
@@ -66,21 +101,21 @@ class HandlerCRUD(BaseCRUD[MHandler]):
         Business helper: Find handler by UUID.
         """
         return self.find(filters={"uuid": uuid}, page_size=1,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_name_pattern(self, name_pattern: str, as_dataframe: bool = False) -> Union[List[MHandler], pd.DataFrame]:
         """
         Business helper: Find handlers by name pattern.
         """
         return self.find(filters={"name__like": name_pattern}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_lib_path(self, lib_path: str, as_dataframe: bool = False) -> Union[List[MHandler], pd.DataFrame]:
         """
         Business helper: Find handlers by library path.
         """
         return self.find(filters={"lib_path": lib_path}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_all_uuids(self) -> List[str]:
         """

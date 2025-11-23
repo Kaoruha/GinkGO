@@ -11,16 +11,16 @@ from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime, timedelta
 from abc import abstractmethod
 
-from ginkgo.backtest.strategy.strategies.base_strategy import BaseStrategy
-from ginkgo.backtest.entities.signal import Signal
-from ginkgo.backtest.entities.bar import Bar
+from ginkgo.trading.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.entities.signal import Signal
+from ginkgo.trading.entities.bar import Bar
 from ginkgo.core.interfaces.model_interface import IModel
-from ginkgo.enums import DIRECTION_TYPES, SIGNAL_TYPES, STRATEGY_TYPES
+from ginkgo.enums import DIRECTION_TYPES, STRATEGY_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.quant_ml.features import FeatureProcessor, AlphaFactors
 
 
-class MLStrategyBase(BaseStrategy):
+class MLBaseStrategy(BaseStrategy):
     """
     机器学习策略基类
     

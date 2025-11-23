@@ -1,12 +1,12 @@
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MEngine
-from ...enums import SOURCE_TYPES, ENGINESTATUS_TYPES
-from ...libs import datetime_normalize, GLOG, cache_with_expiration
-from ..access_control import restrict_crud_access
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MEngine
+from ginkgo.enums import SOURCE_TYPES, ENGINESTATUS_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
+from ginkgo.data.access_control import restrict_crud_access
 
 
 @restrict_crud_access
@@ -14,6 +14,10 @@ class EngineCRUD(BaseCRUD[MEngine]):
     """
     Engine CRUD operations.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MEngine
 
     def __init__(self):
         super().__init__(MEngine)
@@ -28,8 +32,16 @@ class EngineCRUD(BaseCRUD[MEngine]):
         return {
             # 引擎名称 - 非空字符串
             "name": {"type": "string", "min": 1, "max": 100},  # 限制名称长度
-            # status字段移除验证配置，使用模型默认值 ENGINESTATUS_TYPES.IDLE
-            # source字段移除验证配置，使用模型默认值 SOURCE_TYPES.SIM
+            # status字段 - 枚举类型，由验证器处理转换
+            "status": {
+                "type": "ENGINESTATUS_TYPES",  # 使用枚举类型名称
+                "default": ENGINESTATUS_TYPES.IDLE.value
+            },
+            # source字段 - 枚举类型，由验证器处理转换
+            "source": {
+                "type": "SOURCE_TYPES",  # 使用枚举类型名称
+                "default": SOURCE_TYPES.SIM.value
+            },
             # 是否实时交易 - 布尔值
             "is_live": {"type": "bool"},
         }
@@ -38,11 +50,28 @@ class EngineCRUD(BaseCRUD[MEngine]):
         """
         Hook method: Create MEngine from parameters.
         """
+        # 处理枚举字段，确保插入数据库的是数值
+        status_value = kwargs.get("status", ENGINESTATUS_TYPES.IDLE)
+        if isinstance(status_value, ENGINESTATUS_TYPES):
+            status_value = status_value.value
+        else:
+            status_value = ENGINESTATUS_TYPES.validate_input(status_value)
+
+        source_value = kwargs.get("source", SOURCE_TYPES.SIM)
+        if isinstance(source_value, SOURCE_TYPES):
+            source_value = source_value.value
+        else:
+            source_value = SOURCE_TYPES.validate_input(source_value)
+
         return MEngine(
             name=kwargs.get("name", "test_engine"),
-            status=ENGINESTATUS_TYPES.validate_input(kwargs.get("status", ENGINESTATUS_TYPES.IDLE)),
+            status=status_value,
             is_live=kwargs.get("is_live", False),
-            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
+            source=source_value,
+            config_hash=kwargs.get("config_hash", ""),
+            current_run_id=kwargs.get("current_run_id", ""),
+            run_count=kwargs.get("run_count", 0),
+            config_snapshot=kwargs.get("config_snapshot", "{}"),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MEngine]:
@@ -55,8 +84,44 @@ class EngineCRUD(BaseCRUD[MEngine]):
                 status=ENGINESTATUS_TYPES.validate_input(getattr(item, "status", ENGINESTATUS_TYPES.IDLE)),
                 is_live=getattr(item, "is_live", False),
                 source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.SIM)),
+                config_hash=getattr(item, "config_hash", ""),
+                current_run_id=getattr(item, "current_run_id", ""),
+                run_count=getattr(item, "run_count", 0),
+                config_snapshot=getattr(item, "config_snapshot", "{}"),
             )
         return None
+
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'status': ENGINESTATUS_TYPES,
+            'source': SOURCE_TYPES
+        }
+
+    def _convert_models_to_business_objects(self, models: List) -> List:
+        """
+        🎯 Convert models to business objects.
+
+        Args:
+            models: List of models with enum fields already fixed
+
+        Returns:
+            List of models (business object doesn't exist yet)
+        """
+        # For now, return models as-is since business object doesn't exist yet
+        return models
+
+    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
+        """
+        Hook method: Convert objects for business layer.
+        """
+        return items
 
     def _convert_output_items(self, items: List[MEngine], output_type: str = "model") -> List[Any]:
         """
@@ -69,7 +134,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         """
         Business helper: Find engine by UUID.
         """
-        return self.find(filters={"uuid": uuid}, page_size=1, as_dataframe=as_dataframe, output_type="model")
+        return self.find(filters={"uuid": uuid}, page_size=1, as_dataframe=as_dataframe)
 
     def find_by_status(
         self, status: ENGINESTATUS_TYPES, as_dataframe: bool = False

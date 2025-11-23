@@ -16,7 +16,7 @@
 # from ginkgo.enums import FILE_TYPES, DIRECTION_TYPES, ORDER_TYPES
 # from ginkgo.libs.data.normalize import datetime_normalize
 # from ginkgo.libs import GLOG, GinkgoLogger
-# from ginkgo.backtest.portfolios.portfolio_live import PortfolioLive
+# from ginkgo.trading.portfolios.portfolio_live import PortfolioLive
 
 # app = FastAPI()
 # api_logger = GinkgoLogger("ginkgo_api", ["ginkgo_api.log"])

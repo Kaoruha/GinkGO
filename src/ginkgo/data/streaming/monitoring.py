@@ -32,7 +32,7 @@ except ImportError:
 
     GLOG = logging.getLogger(__name__)
 
-from . import StreamingState
+from ginkgo.data.streaming import StreamingState
 
 
 class MemoryLevel(Enum):

@@ -8,16 +8,18 @@ Features:
 - 字段约束验证（范围、枚举、正则表达式）
 - 统一异常处理
 - 配置化验证规则
+- 优化的枚举类型处理
 
 Usage:
     from ginkgo.data.crud.validation import ValidationError, validate_data_by_config
-    
+
     field_config = {
         'code': {'type': 'string', 'pattern': r'^[0-9]{6}\\.(SZ|SH)$'},
         'price': {'type': ['decimal', 'float'], 'min': 0.001},
-        'volume': {'type': ['int', 'string'], 'min': 0}
+        'volume': {'type': ['int', 'string'], 'min': 0},
+        'status': {'type': 'ENGINESTATUS_TYPES', 'default': ENGINESTATUS_TYPES.IDLE.value}
     }
-    
+
     try:
         validated_data = validate_data_by_config(data, field_config)
     except ValidationError as e:
@@ -25,9 +27,75 @@ Usage:
 """
 
 import re
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Type
 from decimal import Decimal
 from datetime import datetime
+
+# 导入枚举类型用于直接映射
+try:
+    from ginkgo.enums import (
+        ENGINESTATUS_TYPES, SOURCE_TYPES, DIRECTION_TYPES,
+        ORDER_TYPES, ORDERSTATUS_TYPES, FREQUENCY_TYPES,
+        MARKET_TYPES, ATTITUDE_TYPES, FILE_TYPES,
+        RECORDSTAGE_TYPES, GRAPHY_TYPES, PARAMETER_TYPES,
+        CAPITALADJUSTMENT_TYPES, ADJUSTMENT_TYPES, STRATEGY_TYPES,
+        MODEL_TYPES, ENGINE_TYPES, ENGINE_ARCHITECTURE,
+        EXECUTION_MODE, EXECUTION_STATUS, TRACKING_STATUS,
+        ACCOUNT_TYPE, COMPONENT_TYPES, ENTITY_TYPES, TIME_MODE,
+        TICKDIRECTION_TYPES, EVENT_TYPES, PRICEINFO_TYPES,
+        TRANSFERDIRECTION_TYPES, TRANSFERSTATUS_TYPES,
+        CURRENCY_TYPES, LIVE_MODE
+    )
+except ImportError:
+    # 如果导入失败，使用空的枚举映射
+    ENGINESTATUS_TYPES = SOURCE_TYPES = DIRECTION_TYPES = None
+    ORDER_TYPES = ORDERSTATUS_TYPES = FREQUENCY_TYPES = None
+    MARKET_TYPES = ATTITUDE_TYPES = FILE_TYPES = None
+    RECORDSTAGE_TYPES = GRAPHY_TYPES = PARAMETER_TYPES = None
+    CAPITALADJUSTMENT_TYPES = ADJUSTMENT_TYPES = STRATEGY_TYPES = None
+    MODEL_TYPES = ENGINE_TYPES = ENGINE_ARCHITECTURE = None
+    EXECUTION_MODE = EXECUTION_STATUS = TRACKING_STATUS = None
+    ACCOUNT_TYPE = COMPONENT_TYPES = ENTITY_TYPES = TIME_MODE = None
+    TICKDIRECTION_TYPES = EVENT_TYPES = PRICEINFO_TYPES = None
+    TRANSFERDIRECTION_TYPES = TRANSFERSTATUS_TYPES = None
+    CURRENCY_TYPES = LIVE_MODE = None
+
+
+# 枚举类映射表 - 避免globals()查找，提高性能和类型安全性
+ENUM_MAP = {
+    'ENGINESTATUS_TYPES': ENGINESTATUS_TYPES,
+    'SOURCE_TYPES': SOURCE_TYPES,
+    'DIRECTION_TYPES': DIRECTION_TYPES,
+    'ORDER_TYPES': ORDER_TYPES,
+    'ORDERSTATUS_TYPES': ORDERSTATUS_TYPES,
+    'FREQUENCY_TYPES': FREQUENCY_TYPES,
+    'MARKET_TYPES': MARKET_TYPES,
+    'ATTITUDE_TYPES': ATTITUDE_TYPES,
+    'FILE_TYPES': FILE_TYPES,
+    'RECORDSTAGE_TYPES': RECORDSTAGE_TYPES,
+    'GRAPHY_TYPES': GRAPHY_TYPES,
+    'PARAMETER_TYPES': PARAMETER_TYPES,
+    'CAPITALADJUSTMENT_TYPES': CAPITALADJUSTMENT_TYPES,
+    'ADJUSTMENT_TYPES': ADJUSTMENT_TYPES,
+    'STRATEGY_TYPES': STRATEGY_TYPES,
+    'MODEL_TYPES': MODEL_TYPES,
+    'ENGINE_TYPES': ENGINE_TYPES,
+    'ENGINE_ARCHITECTURE': ENGINE_ARCHITECTURE,
+    'EXECUTION_MODE': EXECUTION_MODE,
+    'EXECUTION_STATUS': EXECUTION_STATUS,
+    'TRACKING_STATUS': TRACKING_STATUS,
+    'ACCOUNT_TYPE': ACCOUNT_TYPE,
+    'COMPONENT_TYPES': COMPONENT_TYPES,
+    'ENTITY_TYPES': ENTITY_TYPES,
+    'TIME_MODE': TIME_MODE,
+    'TICKDIRECTION_TYPES': TICKDIRECTION_TYPES,
+    'EVENT_TYPES': EVENT_TYPES,
+    'PRICEINFO_TYPES': PRICEINFO_TYPES,
+    'TRANSFERDIRECTION_TYPES': TRANSFERDIRECTION_TYPES,
+    'TRANSFERSTATUS_TYPES': TRANSFERSTATUS_TYPES,
+    'CURRENCY_TYPES': CURRENCY_TYPES,
+    'LIVE_MODE': LIVE_MODE,
+}
 
 
 class ValidationError(Exception):
@@ -74,7 +142,7 @@ def validate_data_by_config(data: dict, field_config: dict) -> dict:
                 field_name,
                 None
             )
-    
+
     # 2. 逐字段验证和转换
     for field_name, field_spec in field_config.items():
         field_value = data[field_name]
@@ -149,12 +217,12 @@ def convert_to_type(value: Any, type_config: Union[str, List[str]]) -> Any:
 
 def _convert_single_type(value: Any, type_name: str) -> Any:
     """
-    单一类型转换
-    
+    单一类型转换 - 支持枚举类型
+
     Args:
         value: 待转换的值
         type_name: 目标类型名称
-        
+
     Returns:
         转换后的值
     """
@@ -162,24 +230,50 @@ def _convert_single_type(value: Any, type_name: str) -> Any:
     if type_name in ['int', 'float', 'decimal']:
         if isinstance(value, (dict, list, tuple, set)):
             raise ValueError(f"Cannot convert {type(value).__name__} to {type_name}")
-    
+
     if type_name == 'string':
         if isinstance(value, (dict, list, tuple, set)):
             raise ValueError(f"Cannot convert {type(value).__name__} to string")
-    
+
     # 如果已经是目标类型，直接返回
     type_checkers = {
         'string': lambda x: isinstance(x, str),
         'int': lambda x: isinstance(x, int) and not isinstance(x, bool),
-        'float': lambda x: isinstance(x, float),  
+        'float': lambda x: isinstance(x, float),
         'decimal': lambda x: isinstance(x, Decimal),
         'datetime': lambda x: isinstance(x, datetime),
         'bool': lambda x: isinstance(x, bool),
         'bytes': lambda x: isinstance(x, bytes),
     }
-    
+
     if type_name in type_checkers and type_checkers[type_name](value):
         return value
+
+    # 检查枚举类型
+    if type_name in ENUM_MAP:
+        enum_class = ENUM_MAP[type_name]
+        if enum_class is None:
+            raise ValueError(f"Enum type '{type_name}' not available")
+
+        # 如果已经是枚举对象，验证其有效性
+        if hasattr(value, '__class__') and hasattr(value, '__members__') and hasattr(value, 'value'):
+            if value.__class__ is enum_class:
+                # 验证是否为有效的枚举值
+                try:
+                    enum_class(value.value)  # 这会抛出ValueError如果值无效
+                    return value  # 直接返回枚举对象
+                except ValueError:
+                    raise ValueError(f"Invalid enum value: {value}")
+            else:
+                # 枚举类型不匹配，这里不能直接return，让后续逻辑处理
+                pass
+        else:
+            # 尝试将值转换为枚举
+            try:
+                return enum_class.validate_input(value)
+            except (ValueError, TypeError):
+                # 枚举转换失败，这里不能continue，让后续逻辑处理
+                pass
     
     # 类型转换逻辑
     if type_name == 'string':
@@ -226,7 +320,7 @@ def _convert_single_type(value: Any, type_name: str) -> Any:
         if isinstance(value, str):
             try:
                 # 使用 Ginkgo 的日期时间规范化函数
-                from ...libs import datetime_normalize
+                from ginkgo.libs import datetime_normalize
                 return datetime_normalize(value)
             except Exception:
                 raise ValueError(f"Cannot parse datetime from string '{value}'")

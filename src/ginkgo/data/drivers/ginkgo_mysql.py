@@ -2,9 +2,9 @@ import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from ...libs import GLOG, GinkgoLogger
-from ...libs.utils.health_check import check_mysql_ready
-from .base_driver import DatabaseDriverBase
+from ginkgo.libs import GLOG, GinkgoLogger
+from ginkgo.libs.utils.health_check import check_mysql_ready
+from ginkgo.data.drivers.base_driver import DatabaseDriverBase
 
 
 class GinkgoMysql(DatabaseDriverBase):
@@ -96,6 +96,7 @@ class GinkgoMysql(DatabaseDriverBase):
                 "charset": "utf8mb4",
                 "autocommit": False,  # 流式查询需要禁用自动提交
                 "cursorclass": "SSCursor",  # 服务器端游标类
+                "max_allowed_packet": 10485760  # 10MB - 合理的BLOB大小限制
             }
         )
 

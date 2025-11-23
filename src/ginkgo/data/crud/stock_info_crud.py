@@ -1,12 +1,14 @@
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MStockInfo
-from ...enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES
-from ...libs import datetime_normalize, GLOG, cache_with_expiration
-from ..access_control import restrict_crud_access
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MStockInfo
+from ginkgo.enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
+from ginkgo.data.access_control import restrict_crud_access
+from ginkgo.trading.entities import StockInfo
+from ginkgo.data.crud.model_conversion import ModelList
 
 
 @restrict_crud_access
@@ -14,6 +16,13 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
     """
     StockInfo CRUD operations.
     """
+
+
+    # 类级别声明，支持自动注册
+
+
+    _model_class = MStockInfo
+
 
     def __init__(self):
         super().__init__(MStockInfo)
@@ -72,11 +81,7 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
                 'type': ['datetime', 'string']
             },
             
-            # 退市时间 - datetime 或字符串 (使用默认值处理 None)
-            'delist_date': {
-                'type': ['datetime', 'string']
-            },
-            
+                
             # 数据源 - 枚举值
             'source': {
                 'type': 'enum',
@@ -85,7 +90,8 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
                     SOURCE_TYPES.YAHOO,
                     SOURCE_TYPES.AKSHARE,
                     SOURCE_TYPES.BAOSTOCK,
-                    SOURCE_TYPES.OTHER
+                    SOURCE_TYPES.OTHER,
+                    SOURCE_TYPES.TEST
                 ]
             }
         }
@@ -153,7 +159,7 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
         return items
 
     # Business Helper Methods
-    def find_by_market(self, market: str, as_dataframe: bool = False) -> Union[List[MStockInfo], pd.DataFrame]:
+    def find_by_market(self, market: str) -> ModelList[MStockInfo]:
         """
         Business helper: Find stocks by market.
         """
@@ -169,20 +175,20 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
                 "OTHER": MARKET_TYPES.OTHER,
             }
             market = market_mapping.get(market.upper(), MARKET_TYPES.OTHER)
-        
-        return self.find(filters={"market": market}, as_dataframe=as_dataframe, output_type="model")
 
-    def find_by_industry(self, industry: str, as_dataframe: bool = False) -> Union[List[MStockInfo], pd.DataFrame]:
+        return self.find(filters={"market": market})
+
+    def find_by_industry(self, industry: str) -> ModelList[MStockInfo]:
         """
         Business helper: Find stocks by industry.
         """
-        return self.find(filters={"industry": industry}, as_dataframe=as_dataframe, output_type="model")
+        return self.find(filters={"industry": industry})
 
-    def search_by_name(self, name_pattern: str, as_dataframe: bool = False) -> Union[List[MStockInfo], pd.DataFrame]:
+    def search_by_name(self, name_pattern: str) -> ModelList[MStockInfo]:
         """
         Business helper: Search stocks by name pattern.
         """
-        return self.find(filters={"code_name__like": name_pattern}, as_dataframe=as_dataframe, output_type="model")
+        return self.find(filters={"code_name__like": name_pattern})
 
     def get_all_codes(self, market: Optional[str] = None) -> List[str]:
         """
@@ -199,3 +205,40 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get stock codes: {e}")
             return []
+
+    # ============================================================================
+    # BaseCRUD Hook Methods - Enum Mapping and Business Object Conversion
+    # ============================================================================
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings for StockInfo.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'market': MARKET_TYPES,     # market字段对应MARKET_TYPES枚举
+            'currency': CURRENCY_TYPES,  # currency字段对应CURRENCY_TYPES枚举
+            'source': SOURCE_TYPES      # source字段对应SOURCE_TYPES枚举
+        }
+
+    def _convert_models_to_business_objects(self, models: List[MStockInfo]) -> List[StockInfo]:
+        """
+        🎯 Convert MStockInfo models to StockInfo business objects.
+
+        Args:
+            models: List of MStockInfo models with enum fields already fixed
+
+        Returns:
+            List of StockInfo business objects
+        """
+        business_objects = []
+        for model in models:
+            # Convert to business object (此时枚举字段已经是正确的枚举对象)
+            stock_info = StockInfo.from_model(model)
+            business_objects.append(stock_info)
+
+        return business_objects
+
+    

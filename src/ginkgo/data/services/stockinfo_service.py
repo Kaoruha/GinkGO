@@ -9,9 +9,10 @@ Enhanced with comprehensive error handling, retry mechanisms, and structured ret
 import pandas as pd
 from typing import List, Any, Union, Dict
 
-from ...libs import RichProgress, cache_with_expiration, retry
-from .. import mappers
-from .base_service import DataService
+from ginkgo.libs import RichProgress, cache_with_expiration, retry
+from ginkgo.data import mappers
+from ginkgo.data.services.base_service import DataService
+from ginkgo.data.crud.model_conversion import ModelList
 
 
 class StockinfoService(DataService):
@@ -219,16 +220,17 @@ class StockinfoService(DataService):
 
         return result
 
-    def get_stockinfos(self, as_dataframe: bool = True, *args, **kwargs) -> Union[pd.DataFrame, List[Any]]:
+    def get_stockinfos(self, *args, **kwargs) -> ModelList:
         """Retrieves stock information from the database."""
         # For read operations, we can either get a new session or assume it's read-only
         # For simplicity, we'll let CRUD handle the session for reads if not provided externally.
-        return self.crud_repo.find(as_dataframe=as_dataframe, *args, **kwargs)
+        return self.crud_repo.find(*args, **kwargs)
 
     def get_stockinfo_codes_set(self) -> set:
         """Gets a set of all stock codes for efficient O(1) lookups."""
-        df = self.get_stockinfos(as_dataframe=True)
-        if df is not None and not df.empty:
+        model_list = self.get_stockinfos()
+        if model_list is not None and len(model_list) > 0:
+            df = model_list.to_dataframe()
             return set(df["code"].values)
         return set()
 
@@ -250,8 +252,8 @@ class StockinfoService(DataService):
             Stock info model or None if not found
         """
         try:
-            results = self.crud_repo.find(filters={"code": code}, page_size=1)
-            return results[0] if results else None
+            model_list = self.crud_repo.find(filters={"code": code}, page_size=1)
+            return model_list[0] if model_list else None
         except Exception as e:
             self._logger.ERROR(f"Failed to get stock info for {code}: {e}")
             return None

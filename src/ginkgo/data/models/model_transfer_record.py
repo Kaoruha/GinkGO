@@ -8,17 +8,18 @@ from sqlalchemy import DateTime, String, DECIMAL, Enum
 from clickhouse_sqlalchemy import types
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ...libs import base_repr, datetime_normalize, Number, to_decimal
-from .model_clickbase import MClickBase
-from ...enums import SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
+from ginkgo.data.crud.model_conversion import ModelConversion
+from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, TRANSFERSTATUS_TYPES, TRANSFERDIRECTION_TYPES
 
 
-class MTransferRecord(MClickBase):
+class MTransferRecord(MClickBase, MBacktestRecordBase, ModelConversion):
     __abstract__ = False
     __tablename__ = "transfer_record"
 
     portfolio_id: Mapped[str] = mapped_column(String(), default="")
-    engine_id: Mapped[str] = mapped_column(String(), default="")
     direction: Mapped[int] = mapped_column(types.Int8, default=-1)
     market: Mapped[int] = mapped_column(types.Int8, default=-1)
     money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
@@ -70,6 +71,27 @@ class MTransferRecord(MClickBase):
         if "source" in df.keys():
             self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
         self.update_at = datetime.datetime.now()
+
+    def __init__(self, **kwargs):
+        """初始化MTransferRecord实例，自动处理枚举字段转换"""
+        super().__init__()
+        # 处理枚举字段转换
+        if 'direction' in kwargs:
+            self.direction = TRANSFERDIRECTION_TYPES.validate_input(kwargs['direction']) or -1
+            del kwargs['direction']
+        if 'market' in kwargs:
+            self.market = MARKET_TYPES.validate_input(kwargs['market']) or -1
+            del kwargs['market']
+        if 'status' in kwargs:
+            self.status = TRANSFERSTATUS_TYPES.validate_input(kwargs['status']) or -1
+            del kwargs['status']
+        if 'source' in kwargs:
+            self.set_source(kwargs['source'])
+            del kwargs['source']
+        # 设置其他字段
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
     def __repr__(self) -> None:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

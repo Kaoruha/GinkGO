@@ -101,7 +101,7 @@ def run(
     """
     from ginkgo.libs.utils.display import display_dataframe
     from ginkgo.data.containers import container
-    from ginkgo.backtest.core.containers import container as backtest_container
+    from ginkgo.trading.core.containers import container as backtest_container
 
     engine_service = container.engine_service()
     engine_df = engine_service.get_engine(engine, as_dataframe=True) if engine else None
@@ -304,10 +304,10 @@ def showorder(
         else:
             rs = raw
 
-        # 配置列显示
+        # T6: 配置列显示，更新术语为run_id
         backtest_results_columns_config = {
-            "uuid": {"display_name": "Backtest ID", "style": "dim"},
-            "backtest_id": {"display_name": "Backtest ID", "style": "cyan"},
+            "uuid": {"display_name": "UUID", "style": "dim"},
+            "backtest_id": {"display_name": "Run ID", "style": "cyan"},  # T6: 显示名称改为Run ID
             "profit": {"display_name": "Profit", "style": "green"},
             "start_at": {"display_name": "Start At", "style": "dim"},
             "finish_at": {"display_name": "Finish At", "style": "dim"},
@@ -378,7 +378,7 @@ def showresult(
         # 配置列显示
         backtest_results_columns_config = {
             "uuid": {"display_name": "UUID", "style": "dim"},
-            "backtest_id": {"display_name": "Backtest ID", "style": "cyan"},
+            "backtest_id": {"display_name": "Run ID", "style": "cyan"},  # T6: 显示名称改为Run ID
             "profit": {"display_name": "Profit", "style": "green"},
             "start_at": {"display_name": "Start At", "style": "dim"},
             "finish_at": {"display_name": "Finish At", "style": "dim"},
@@ -441,7 +441,7 @@ def showresult(
         )
         return
 
-    from ginkgo.backtest.plots.result_plot import ResultPlot
+    from ginkgo.trading.plots.result_plot import ResultPlot
 
     # Got analyzer id
     analyzer_ids = index

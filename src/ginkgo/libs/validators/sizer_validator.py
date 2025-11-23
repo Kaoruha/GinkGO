@@ -8,8 +8,8 @@ import inspect
 import re
 from typing import List, Any
 
-from .base_validator import BaseValidator, ValidationResult, ValidationLevel
-from .validation_rules import ValidationRules
+from ginkgo.libs.validators.base_validator import BaseValidator, ValidationResult, ValidationLevel
+from ginkgo.libs.validators.validation_rules import ValidationRules
 
 
 class SizerValidator(BaseValidator):
@@ -43,7 +43,7 @@ class SizerValidator(BaseValidator):
                 details=f"Must define a class that inherits from {self.required_base_class}",
                 suggestions=[
                     f"Create a class that inherits from {self.required_base_class}",
-                    "Import the base class: from ginkgo.backtest.sizers.base_sizer import BaseSizer"
+                    "Import the base class: from ginkgo.trading.sizers.base_sizer import BaseSizer"
                 ]
             ))
             return results

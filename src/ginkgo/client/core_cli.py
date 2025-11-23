@@ -319,7 +319,7 @@ def run(
     try:
         console.print(f"[bold blue]:rocket: Running backtest: {engine_id}[/bold blue]")
         
-        from ginkgo.backtest.core.containers import container as backtest_container
+        from ginkgo.trading.core.containers import container as backtest_container
         
         if debug_mode:
             from ginkgo.libs import GCONF
@@ -479,7 +479,7 @@ def test(
     module: Annotated[Optional[str], typer.Option("--module", "-m", help="Test specific module")] = None,
 ):
     """
-    :test_tube: Run tests (simplified from 'unittest run').
+    :test_tube: Run tests (simplified from 'pytest run').
     """
     try:
         console.print("[bold blue]:test_tube: Running tests...[/bold blue]")
@@ -508,4 +508,4 @@ def test(
             
     except Exception as e:
         console.print(f"[red]:x: Failed to run tests: {e}[/red]")
-        console.print("Try: ginkgo unittest run --a")
+        console.print("Try: ginkgo test run --all")

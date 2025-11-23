@@ -23,7 +23,7 @@ except ImportError:
     SKLEARN_AVAILABLE = False
 
 from ginkgo.libs import GLOG
-from ginkgo.data.operations import get_bars_page_filtered
+from ginkgo import services
 
 
 class FeatureProcessor:
@@ -311,11 +311,12 @@ class FeatureProcessor:
             all_data = []
             
             for code in codes:
-                # 使用ginkgo的数据接口
-                bars = get_bars_page_filtered(
+                # 使用DI架构获取数据服务
+                bar_service = services.data.bar_service()
+                bars = bar_service.get_bars_filtered(
                     code=code,
-                    start=start_date,
-                    end=end_date,
+                    start_date=start_date,
+                    end_date=end_date,
                     adjusted=adjusted
                 )
                 

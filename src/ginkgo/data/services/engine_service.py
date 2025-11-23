@@ -12,9 +12,9 @@ from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 from datetime import datetime
 
-from ...libs import cache_with_expiration, retry
-from ...enums import ENGINESTATUS_TYPES
-from .base_service import ManagementService
+from ginkgo.libs import cache_with_expiration, retry
+from ginkgo.enums import ENGINESTATUS_TYPES, SOURCE_TYPES
+from ginkgo.data.services.base_service import ManagementService
 
 
 class EngineService(ManagementService):
@@ -68,6 +68,7 @@ class EngineService(ManagementService):
                     is_live=is_live,
                     status=ENGINESTATUS_TYPES.IDLE,
                     desc=description or f"{'Live' if is_live else 'Backtest'} engine: {name}",
+                    source=SOURCE_TYPES.SIM,
                     session=session,
                 )
 

@@ -1,0 +1,862 @@
+"""
+交易对象工厂 - TDD测试数据生成
+
+提供标准化的测试对象创建，减少测试中的样板代码：
+1. 实体对象工厂（订单、持仓、信号）
+2. 事件对象工厂（价格更新、交易确认）
+3. 投资组合场景工厂（不同市场状况）
+
+设计原则：
+- 提供合理的默认值
+- 支持参数覆盖
+- 保证数据一致性
+- 简化TDD测试编写
+
+Author: TDD Framework
+Created: 2024-01-15
+"""
+
+from decimal import Decimal
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
+import uuid
+import random
+
+# 核心导入
+try:
+    from ginkgo.trading.entities.order import Order
+    from ginkgo.trading.entities.position import Position
+    from ginkgo.trading.entities.signal import Signal
+    from ginkgo.trading.events.price_update import EventPriceUpdate
+    from ginkgo.enums import (
+        DIRECTION_TYPES,
+        ORDER_TYPES,
+        ORDERSTATUS_TYPES,
+        SOURCE_TYPES,
+        EVENT_TYPES
+    )
+    GINKGO_AVAILABLE = True
+except ImportError:
+    GINKGO_AVAILABLE = False
+
+
+class OrderFactory:
+    """订单对象工厂"""
+
+    @staticmethod
+    def create_market_order(
+        code: str = "000001.SZ",
+        direction: DIRECTION_TYPES = DIRECTION_TYPES.LONG,
+        volume: int = 1000,
+        **overrides
+    ) -> Order:
+        """创建市价订单"""
+        if not GINKGO_AVAILABLE:
+            return None
+
+        # 使用正确的Order构造函数，提供所有必需参数
+        order = Order(
+            portfolio_id=overrides.get("portfolio_id", "test_portfolio"),
+            engine_id=overrides.get("engine_id", "test_engine"),
+            run_id=overrides.get("run_id", "test_run"),
+            code=code,
+            direction=direction,
+            order_type=ORDER_TYPES.MARKETORDER,
+            status=ORDERSTATUS_TYPES.NEW,
+            volume=volume,
+            limit_price=overrides.get("limit_price", 0.0),  # 市价单可以是0
+            timestamp=overrides.get("timestamp", datetime.now())
+        )
+
+        # 应用其他覆盖参数（排除已使用的）
+        used_keys = {"portfolio_id", "engine_id", "run_id", "limit_price", "timestamp"}
+        for key, value in overrides.items():
+            if key not in used_keys and hasattr(order, key):
+                setattr(order, key, value)
+
+        return order
+
+    @staticmethod
+    def create_limit_order(
+        code: str = "000001.SZ",
+        direction: DIRECTION_TYPES = DIRECTION_TYPES.LONG,
+        volume: int = 1000,
+        limit_price: Decimal = Decimal('10.50'),
+        **overrides
+    ) -> Order:
+        """创建限价订单"""
+        if not GINKGO_AVAILABLE:
+            return None
+
+        # 计算冻结金额（买单冻结资金，卖单冻结股票）
+        frozen_money = 0.0
+        frozen_volume = 0
+        if direction == DIRECTION_TYPES.LONG:
+            frozen_money = float(limit_price * volume)
+        else:
+            frozen_volume = volume
+
+        # 使用正确的Order构造函数，提供所有必需参数
+        order = Order(
+            portfolio_id=overrides.get("portfolio_id", "test_portfolio"),
+            engine_id=overrides.get("engine_id", "test_engine"),
+            run_id=overrides.get("run_id", "test_run"),
+            code=code,
+            direction=direction,
+            order_type=ORDER_TYPES.LIMITORDER,
+            status=ORDERSTATUS_TYPES.NEW,
+            volume=volume,
+            limit_price=float(limit_price),
+            frozen_money=overrides.get("frozen_money", frozen_money),
+            frozen_volume=overrides.get("frozen_volume", frozen_volume),
+            timestamp=overrides.get("timestamp", datetime.now())
+        )
+
+        # 应用其他覆盖参数（排除已使用的）
+        used_keys = {"portfolio_id", "engine_id", "run_id", "frozen_money", "frozen_volume", "timestamp"}
+        for key, value in overrides.items():
+            if key not in used_keys and hasattr(order, key):
+                setattr(order, key, value)
+
+        return order
+
+    @staticmethod
+    def create_filled_order(
+        code: str = "000001.SZ",
+        direction: DIRECTION_TYPES = DIRECTION_TYPES.LONG,
+        volume: int = 1000,
+        transaction_price: Decimal = Decimal('10.50'),
+        **overrides
+    ) -> Order:
+        """创建已成交订单"""
+        order = OrderFactory.create_limit_order(
+            code=code,
+            direction=direction,
+            volume=volume,
+            limit_price=transaction_price
+        )
+
+        if order:
+            order.status = ORDERSTATUS_TYPES.FILLED
+            order.transaction_volume = volume
+            order.transaction_price = transaction_price
+            order.fee = transaction_price * volume * Decimal('0.0003')  # 标准手续费
+
+        # 应用覆盖参数
+        for key, value in overrides.items():
+            if hasattr(order, key):
+                setattr(order, key, value)
+
+        return order
+
+
+class PositionFactory:
+    """持仓对象工厂"""
+
+    @staticmethod
+    def create_long_position(
+        code: str = "000001.SZ",
+        volume: int = 1000,
+        average_cost: Decimal = Decimal('10.0'),
+        current_price: Decimal = Decimal('10.5'),
+        **overrides
+    ) -> Position:
+        """创建多头持仓"""
+        if not GINKGO_AVAILABLE:
+            return None
+
+        position = Position()
+        position.code = code
+        position.volume = volume
+        position.average_cost = average_cost
+        position.current_price = current_price
+        position.market_value = current_price * volume
+        position.profit_loss = (current_price - average_cost) * volume
+        position.profit_loss_ratio = float((current_price - average_cost) / average_cost)
+
+        # 应用覆盖参数
+        for key, value in overrides.items():
+            if hasattr(position, key):
+                setattr(position, key, value)
+
+        return position
+
+    @staticmethod
+    def create_losing_position(
+        code: str = "000001.SZ",
+        volume: int = 1000,
+        loss_ratio: float = 0.15,  # 默认亏损15%
+        **overrides
+    ) -> Position:
+        """创建亏损持仓"""
+        cost = Decimal('10.0')
+        current_price = cost * (1 - Decimal(str(loss_ratio)))
+
+        return PositionFactory.create_long_position(
+            code=code,
+            volume=volume,
+            average_cost=cost,
+            current_price=current_price,
+            **overrides
+        )
+
+    @staticmethod
+    def create_profitable_position(
+        code: str = "000001.SZ",
+        volume: int = 1000,
+        profit_ratio: float = 0.25,  # 默认盈利25%
+        **overrides
+    ) -> Position:
+        """创建盈利持仓"""
+        cost = Decimal('10.0')
+        current_price = cost * (1 + Decimal(str(profit_ratio)))
+
+        return PositionFactory.create_long_position(
+            code=code,
+            volume=volume,
+            average_cost=cost,
+            current_price=current_price,
+            **overrides
+        )
+
+
+class SignalFactory:
+    """信号对象工厂"""
+
+    @staticmethod
+    def create_buy_signal(
+        code: str = "000001.SZ",
+        strength: float = 0.8,
+        reason: str = "技术指标买入信号",
+        **overrides
+    ) -> Signal:
+        """创建买入信号"""
+        if not GINKGO_AVAILABLE:
+            return None
+
+        signal = Signal()
+        signal.code = code
+        signal.direction = DIRECTION_TYPES.LONG
+        signal.strength = strength
+        signal.reason = reason
+        signal.timestamp = datetime.now()
+        signal.signal_id = f"buy_signal_{uuid.uuid4().hex[:8]}"
+
+        # 应用覆盖参数
+        for key, value in overrides.items():
+            if hasattr(signal, key):
+                setattr(signal, key, value)
+
+        return signal
+
+    @staticmethod
+    def create_sell_signal(
+        code: str = "000001.SZ",
+        strength: float = 0.8,
+        reason: str = "技术指标卖出信号",
+        **overrides
+    ) -> Signal:
+        """创建卖出信号"""
+        signal = SignalFactory.create_buy_signal(
+            code=code,
+            strength=strength,
+            reason=reason,
+            **overrides
+        )
+
+        if signal:
+            signal.direction = DIRECTION_TYPES.SHORT
+
+        return signal
+
+    @staticmethod
+    def create_risk_signal(
+        code: str = "000001.SZ",
+        risk_type: str = "stop_loss",
+        **overrides
+    ) -> Signal:
+        """创建风控信号"""
+        reason_map = {
+            "stop_loss": "止损风控信号",
+            "take_profit": "止盈风控信号",
+            "position_limit": "仓位限制风控信号"
+        }
+
+        return SignalFactory.create_sell_signal(
+            code=code,
+            strength=1.0,  # 风控信号强度最高
+            reason=reason_map.get(risk_type, f"{risk_type}风控信号"),
+            **overrides
+        )
+
+
+class EventFactory:
+    """事件对象工厂"""
+
+    @staticmethod
+    def create_price_update_event(
+        code: str = "000001.SZ",
+        open_price: Decimal = Decimal('10.0'),
+        high_price: Decimal = Decimal('10.8'),
+        low_price: Decimal = Decimal('9.8'),
+        close_price: Decimal = Decimal('10.5'),
+        volume: int = 100000,
+        **overrides
+    ) -> EventPriceUpdate:
+        """创建价格更新事件"""
+        if not GINKGO_AVAILABLE:
+            return None
+
+        event = EventPriceUpdate()
+        event.code = code
+        event.open = open_price
+        event.high = high_price
+        event.low = low_price
+        event.close = close_price
+        event.volume = volume
+        event.timestamp = datetime.now()
+
+        # 应用覆盖参数
+        for key, value in overrides.items():
+            if hasattr(event, key):
+                setattr(event, key, value)
+
+        return event
+
+    @staticmethod
+    def create_price_drop_event(
+        code: str = "000001.SZ",
+        drop_ratio: float = 0.10,  # 默认下跌10%
+        base_price: Decimal = Decimal('10.0'),
+        **overrides
+    ) -> EventPriceUpdate:
+        """创建价格下跌事件"""
+        new_price = base_price * (1 - Decimal(str(drop_ratio)))
+
+        return EventFactory.create_price_update_event(
+            code=code,
+            open_price=base_price,
+            high_price=base_price,
+            low_price=new_price * Decimal('0.98'),  # 最低价比收盘价再低2%
+            close_price=new_price,
+            **overrides
+        )
+
+    @staticmethod
+    def create_price_rise_event(
+        code: str = "000001.SZ",
+        rise_ratio: float = 0.10,  # 默认上涨10%
+        base_price: Decimal = Decimal('10.0'),
+        **overrides
+    ) -> EventPriceUpdate:
+        """创建价格上涨事件"""
+        new_price = base_price * (1 + Decimal(str(rise_ratio)))
+
+        return EventFactory.create_price_update_event(
+            code=code,
+            open_price=base_price,
+            high_price=new_price * Decimal('1.02'),  # 最高价比收盘价高2%
+            low_price=base_price,
+            close_price=new_price,
+            **overrides
+        )
+
+
+class PortfolioFactory:
+    """投资组合工厂"""
+
+    @staticmethod
+    def create_basic_portfolio(
+        total_value: Decimal = Decimal('100000.0'),
+        cash_ratio: float = 0.5,  # 现金占比50%
+        positions: Optional[List[Dict]] = None
+    ) -> Dict[str, Any]:
+        """创建基础投资组合"""
+        cash = total_value * Decimal(str(cash_ratio))
+
+        if positions is None:
+            # 默认持仓：单个股票占20%
+            position_value = total_value * Decimal('0.2')
+            positions = [{
+                "code": "000001.SZ",
+                "volume": 1000,
+                "cost": Decimal('20.0'),
+                "current_price": Decimal('20.0'),
+                "market_value": position_value
+            }]
+
+        portfolio = {
+            "uuid": f"portfolio_{uuid.uuid4().hex[:8]}",
+            "cash": cash,
+            "total_value": total_value,
+            "positions": {}
+        }
+
+        # 添加持仓
+        for pos_data in positions:
+            code = pos_data["code"]
+            portfolio["positions"][code] = {
+                "code": code,
+                "volume": pos_data["volume"],
+                "cost": pos_data["cost"],
+                "current_price": pos_data["current_price"],
+                "market_value": pos_data["market_value"],
+                "profit_loss": (pos_data["current_price"] - pos_data["cost"]) * pos_data["volume"],
+                "profit_loss_ratio": float((pos_data["current_price"] - pos_data["cost"]) / pos_data["cost"])
+            }
+
+        return portfolio
+
+    @staticmethod
+    def create_high_risk_portfolio() -> Dict[str, Any]:
+        """创建高风险投资组合（仓位过重）"""
+        return PortfolioFactory.create_basic_portfolio(
+            cash_ratio=0.1,  # 现金仅10%
+            positions=[
+                {
+                    "code": "000001.SZ",
+                    "volume": 3000,
+                    "cost": Decimal('15.0'),
+                    "current_price": Decimal('15.0'),
+                    "market_value": Decimal('45000.0')  # 45%仓位
+                },
+                {
+                    "code": "000002.SZ",
+                    "volume": 2000,
+                    "cost": Decimal('20.0'),
+                    "current_price": Decimal('22.5'),
+                    "market_value": Decimal('45000.0')  # 45%仓位
+                }
+            ]
+        )
+
+    @staticmethod
+    def create_conservative_portfolio() -> Dict[str, Any]:
+        """创建保守投资组合（低仓位）"""
+        return PortfolioFactory.create_basic_portfolio(
+            cash_ratio=0.8,  # 现金80%
+            positions=[
+                {
+                    "code": "000001.SZ",
+                    "volume": 500,
+                    "cost": Decimal('20.0'),
+                    "current_price": Decimal('20.0'),
+                    "market_value": Decimal('10000.0')  # 10%仓位
+                }
+            ]
+        )
+
+
+class MarketScenarioFactory:
+    """市场场景工厂"""
+
+    @staticmethod
+    def create_bull_market_scenario(days: int = 30) -> List[EventPriceUpdate]:
+        """创建牛市场景"""
+        events = []
+        base_price = Decimal('10.0')
+        current_price = base_price
+
+        for i in range(days):
+            # 牛市：整体上涨趋势，日涨幅1-3%
+            daily_return = random.uniform(0.01, 0.03)
+            current_price *= (1 + Decimal(str(daily_return)))
+
+            event = EventFactory.create_price_update_event(
+                open_price=current_price * Decimal('0.99'),
+                high_price=current_price * Decimal('1.02'),
+                low_price=current_price * Decimal('0.98'),
+                close_price=current_price,
+                volume=random.randint(80000, 120000)
+            )
+            events.append(event)
+
+        return events
+
+    @staticmethod
+    def create_bear_market_scenario(days: int = 30) -> List[EventPriceUpdate]:
+        """创建熊市场景"""
+        events = []
+        base_price = Decimal('10.0')
+        current_price = base_price
+
+        for i in range(days):
+            # 熊市：整体下跌趋势，日跌幅1-4%
+            daily_return = random.uniform(-0.04, -0.01)
+            current_price *= (1 + Decimal(str(daily_return)))
+
+            event = EventFactory.create_price_update_event(
+                open_price=current_price * Decimal('1.01'),
+                high_price=current_price * Decimal('1.02'),
+                low_price=current_price * Decimal('0.97'),
+                close_price=current_price,
+                volume=random.randint(100000, 150000)  # 熊市成交量通常更大
+            )
+            events.append(event)
+
+        return events
+
+    @staticmethod
+    def create_volatile_market_scenario(days: int = 30) -> List[EventPriceUpdate]:
+        """创建震荡市场景"""
+        events = []
+        base_price = Decimal('10.0')
+        current_price = base_price
+
+        for i in range(days):
+            # 震荡市：涨跌幅度较大但无明确趋势
+            daily_return = random.uniform(-0.05, 0.05)
+            current_price *= (1 + Decimal(str(daily_return)))
+
+            # 确保价格不偏离基准价格太远
+            if current_price > base_price * Decimal('1.2'):
+                current_price = base_price * Decimal('1.2')
+            elif current_price < base_price * Decimal('0.8'):
+                current_price = base_price * Decimal('0.8')
+
+            event = EventFactory.create_price_update_event(
+                close_price=current_price,
+                volume=random.randint(60000, 140000)
+            )
+            events.append(event)
+
+        return events
+
+
+# ===== 增强框架工厂 =====
+
+class EnhancedEventFactory:
+    """增强事件工厂 - 支持事件上下文和追踪"""
+
+    @staticmethod
+    def create_enhanced_price_update_event(
+        code: str = "000001.SZ",
+        close_price: Decimal = Decimal('10.5'),
+        correlation_id: Optional[str] = None,
+        causation_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        engine_id: str = "test_engine",
+        run_id: str = "test_run",
+        sequence_number: int = 1,
+        **overrides
+    ) -> EventPriceUpdate:
+        """创建增强的价格更新事件"""
+        event = EventFactory.create_price_update_event(
+            code=code,
+            close_price=close_price,
+            **overrides
+        )
+
+        if event:
+            # 添加增强字段
+            event.correlation_id = correlation_id or f"corr_{uuid.uuid4().hex[:8]}"
+            event.causation_id = causation_id
+            event.session_id = session_id or f"session_{uuid.uuid4().hex[:8]}"
+            event.engine_id = engine_id
+            event.run_id = run_id
+            event.sequence_number = sequence_number
+            event.event_type = "price_update"
+
+        return event
+
+    @staticmethod
+    def create_event_chain(
+        code: str = "000001.SZ",
+        start_price: Decimal = Decimal('10.0'),
+        price_changes: List[float] = None,
+        **kwargs
+    ) -> List[EventPriceUpdate]:
+        """创建事件链条"""
+        if price_changes is None:
+            price_changes = [0.01, 0.02, -0.01, 0.03]  # 默认价格变化
+
+        events = []
+        current_price = start_price
+        correlation_id = kwargs.get('correlation_id', f"chain_{uuid.uuid4().hex[:8]}")
+
+        for i, change in enumerate(price_changes):
+            current_price *= (1 + Decimal(str(change)))
+            event = EnhancedEventFactory.create_enhanced_price_update_event(
+                code=code,
+                close_price=current_price,
+                correlation_id=correlation_id,
+                causation_id=events[-1].correlation_id if events else None,
+                sequence_number=i + 1,
+                **kwargs
+            )
+            events.append(event)
+
+        return events
+
+
+class ProtocolTestFactory:
+    """Protocol接口测试工厂"""
+
+    @staticmethod
+    def create_strategy_implementation(
+        strategy_name: str = "TestStrategy",
+        implementation_type: str = "basic"
+    ):
+        """创建策略实现用于Protocol测试"""
+        if implementation_type == "basic":
+            class TestStrategy:
+                def __init__(self):
+                    self.name = strategy_name
+
+                def cal(self, portfolio_info, event):
+                    return []
+
+                def get_strategy_info(self):
+                    return {"name": self.name, "type": "basic"}
+
+                def validate_parameters(self, params):
+                    return True
+
+                def initialize(self, context):
+                    pass
+
+                def finalize(self):
+                    return {}
+
+            return TestStrategy()
+
+        elif implementation_type == "advanced":
+            class AdvancedTestStrategy:
+                def __init__(self):
+                    self.name = strategy_name
+                    self.signals_generated = []
+
+                def cal(self, portfolio_info, event):
+                    # 生成一些测试信号
+                    if hasattr(event, 'code') and hasattr(event, 'close_price'):
+                        if float(event.close_price) > 10.0:  # 简单的买入条件
+                            signal = SignalFactory.create_buy_signal(code=event.code)
+                            self.signals_generated.append(signal)
+                            return [signal]
+                    return []
+
+                def get_strategy_info(self):
+                    return {
+                        "name": self.name,
+                        "type": "advanced",
+                        "signals_count": len(self.signals_generated)
+                    }
+
+                def validate_parameters(self, params):
+                    required_params = ['threshold', 'max_position']
+                    return all(param in params for param in required_params)
+
+                def initialize(self, context):
+                    self.context = context
+
+                def finalize(self):
+                    return {
+                        "total_signals": len(self.signals_generated),
+                        "context": getattr(self, 'context', {})
+                    }
+
+            return AdvancedTestStrategy()
+
+    @staticmethod
+    def create_risk_manager_implementation(
+        manager_name: str = "TestRiskManager",
+        risk_type: str = "position_ratio"
+    ):
+        """创建风控管理器实现用于Protocol测试"""
+        if risk_type == "position_ratio":
+            class TestPositionRatioRiskManager:
+                def __init__(self):
+                    self.name = manager_name
+                    self.max_position_ratio = 0.2
+
+                def validate_order(self, portfolio_info, order):
+                    # 简单的仓位限制逻辑
+                    total_value = portfolio_info.get('total_value', 100000)
+                    order_value = order.quantity * order.limit_price if order.limit_price else 0
+                    max_allowed = total_value * self.max_position_ratio
+
+                    if order_value > max_allowed:
+                        # 调整订单数量
+                        adjusted_quantity = int(max_allowed / (order.limit_price or 1))
+                        order.quantity = max(adjusted_quantity, 0)
+
+                    return order
+
+                def generate_risk_signals(self, portfolio_info, event):
+                    return []  # 默认不生成风控信号
+
+                def check_risk_limits(self, portfolio_info):
+                    return []
+
+                def update_risk_parameters(self, parameters):
+                    self.max_position_ratio = parameters.get('max_position_ratio', 0.2)
+
+                def get_risk_metrics(self, portfolio_info):
+                    return {"max_position_ratio": self.max_position_ratio}
+
+            return TestPositionRatioRiskManager()
+
+        elif risk_type == "stop_loss":
+            class TestStopLossRiskManager:
+                def __init__(self):
+                    self.name = manager_name
+                    self.loss_limit = 0.1
+
+                def validate_order(self, portfolio_info, order):
+                    return order  # 不调整订单
+
+                def generate_risk_signals(self, portfolio_info, event):
+                    signals = []
+                    positions = portfolio_info.get('positions', {})
+
+                    for code, position in positions.items():
+                        if position.get('profit_loss_ratio', 0) < -self.loss_limit:
+                            signal = SignalFactory.create_sell_signal(
+                                code=code,
+                                reason=f"止损: 亏损超过{self.loss_limit:.1%}"
+                            )
+                            signals.append(signal)
+
+                    return signals
+
+                def check_risk_limits(self, portfolio_info):
+                    return []
+
+                def update_risk_parameters(self, parameters):
+                    self.loss_limit = parameters.get('loss_limit', 0.1)
+
+                def get_risk_metrics(self, portfolio_info):
+                    return {"loss_limit": self.loss_limit}
+
+            return TestStopLossRiskManager()
+
+
+class MixinTestFactory:
+    """Mixin功能测试工厂"""
+
+    @staticmethod
+    def create_strategy_with_mixin(base_class=None, mixin_classes=None):
+        """创建带有Mixin的策略类"""
+        if base_class is None:
+            # 创建一个基础策略类
+            class BaseStrategy:
+                def __init__(self):
+                    self.name = "BaseStrategy"
+
+                def cal(self, portfolio_info, event):
+                    return []
+
+        if mixin_classes is None:
+            from test.fixtures.mock_data_service_factory import MockStrategy
+            mixin_classes = [MockStrategy]
+
+        # 动态创建带有Mixin的类
+        class EnhancedStrategy(base_class, *mixin_classes):
+            def __init__(self, *args, **kwargs):
+                base_class.__init__(self, *args, **kwargs)
+                for mixin_class in mixin_classes:
+                    if hasattr(mixin_class, '__init__'):
+                        mixin_class.__init__(self)
+
+        return EnhancedStrategy
+
+    @staticmethod
+    def create_portfolio_with_enhancement(
+        portfolio_class=None,
+        enhancement_features=None
+    ):
+        """创建增强功能的投资组合"""
+        if portfolio_class is None:
+            # 创建基础投资组合类
+            class BasePortfolio:
+                def __init__(self):
+                    self.name = "BasePortfolio"
+                    self.positions = {}
+                    self.cash = Decimal('100000')
+
+                def get_portfolio_info(self):
+                    return {
+                        "name": self.name,
+                        "positions": self.positions,
+                        "cash": self.cash
+                    }
+
+        if enhancement_features is None:
+            enhancement_features = ['event_enhancement', 'time_provider']
+
+        # 添加增强功能
+        class EnhancedPortfolio(portfolio_class):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.enhancement_features = enhancement_features
+                self.event_history = []
+
+                if 'time_provider' in enhancement_features:
+                    from test.fixtures.mock_data_service_factory import MockTimeProviderService
+                    self.time_provider = MockTimeProviderService()
+
+            def process_enhanced_event(self, event):
+                """处理增强事件"""
+                if 'event_enhancement' in self.enhancement_features:
+                    self.event_history.append({
+                        'event': event,
+                        'timestamp': self.time_provider.now() if hasattr(self, 'time_provider') else datetime.now()
+                    })
+
+                return super().process_event(event) if hasattr(super(), 'process_event') else None
+
+        return EnhancedPortfolio
+
+
+# ===== 使用示例 =====
+"""
+TDD测试中的工厂使用示例：
+
+def test_order_execution():
+    # 使用工厂创建测试数据
+    order = OrderFactory.create_limit_order(
+        code="000001.SZ",
+        volume=1000,
+        limit_price=Decimal('10.50')
+    )
+
+    portfolio = PortfolioFactory.create_basic_portfolio()
+
+    # 执行测试逻辑
+    ...
+
+def test_risk_management_in_bear_market():
+    # 创建熊市场景
+    bear_events = MarketScenarioFactory.create_bear_market_scenario(days=10)
+
+    # 创建有风险的投资组合
+    risky_portfolio = PortfolioFactory.create_high_risk_portfolio()
+
+    # 测试风控系统响应
+    ...
+
+def test_protocol_interface():
+    # Protocol接口测试
+    strategy = ProtocolTestFactory.create_strategy_implementation("TestStrategy", "advanced")
+
+    # 使用protocol_test装饰器验证接口实现
+    ...
+
+def test_enhanced_events():
+    # 增强事件测试
+    event_chain = EnhancedEventFactory.create_event_chain(
+        code="000001.SZ",
+        price_changes=[0.01, 0.02, -0.01]
+    )
+
+    # 验证事件关联性
+    ...
+
+def test_mixin_functionality():
+    # Mixin功能测试
+    EnhancedStrategy = MixinTestFactory.create_strategy_with_mixin()
+    strategy = EnhancedStrategy()
+
+    # 验证Mixin功能是否正确添加
+    ...
+"""

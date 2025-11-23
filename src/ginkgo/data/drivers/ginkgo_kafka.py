@@ -4,9 +4,9 @@ from kafka import KafkaProducer, KafkaConsumer
 from kafka.structs import TopicPartition
 from kafka.admin import KafkaAdminClient, NewTopic
 
-from ...libs.core.config import GCONF
-from ...libs import GLOG
-from ...libs.core.logger import GinkgoLogger
+from ginkgo.libs.core.config import GCONF
+from ginkgo.libs import GLOG
+from ginkgo.libs.core.logger import GinkgoLogger
 
 data_logger = GinkgoLogger("ginkgo_data", ["ginkgo_data.log"])
 

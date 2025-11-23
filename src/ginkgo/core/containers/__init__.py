@@ -1,35 +1,19 @@
 """
 Core模块DI容器
 
-提供核心模块的依赖注入支持，管理适配器、工厂、工具等组件的依赖关系。
+提供核心模块的依赖注入支持，管理配置、日志、线程等核心服务。
+使用dependency-injector库统一管理依赖注入。
 """
 
-# Import from the correct core_containers module
-try:
-    # Import from the core_containers.py file in the parent directory
-    from ..core_containers import container, core_container, Container
-    
-    # For backward compatibility, also export the old name
-    CoreContainer = Container
-    
-except ImportError:
-    # Fallback to old container if new one is not available
-    try:
-        from .core_container import CoreContainer
-        
-        # Create dummy instances for compatibility
-        container = None
-        core_container = None
-    except ImportError:
-        # If even the fallback fails, create basic dummy classes
-        class CoreContainer:
-            pass
-        
-        container = None
-        core_container = None
+# 直接从新容器导入，移除旧容器兼容逻辑
+from ginkgo.core.core_containers import container, core_container, Container
+
+# 保持向后兼容的别名
+CoreContainer = Container
 
 __all__ = [
     'CoreContainer',
+    'Container',
     'container',
     'core_container'
 ]

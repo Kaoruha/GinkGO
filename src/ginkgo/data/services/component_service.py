@@ -9,8 +9,8 @@ from file content and parameters.
 from typing import List, Any, Optional, Type
 import inspect
 
-from ...enums import FILE_TYPES
-from .base_service import BusinessService
+from ginkgo.enums import FILE_TYPES
+from ginkgo.data.services.base_service import BusinessService
 
 
 class ComponentService(BusinessService):
@@ -190,14 +190,14 @@ class ComponentService(BusinessService):
             Dictionary mapping FILE_TYPES to base classes
         """
         try:
-            from ...backtest.strategy.strategies.base_strategy import StrategyBase
-            from ...backtest.analysis.analyzers.base_analyzer import BaseAnalyzer
-            from ...backtest.strategy.sizers.base_sizer import BaseSizer
-            from ...backtest.strategy.selectors.base_selector import BaseSelector
-            from ...backtest.strategy.risk_managements.base_risk import BaseRiskManagement
+            from ginkgo.trading.strategies.base_strategy import BaseStrategy
+            from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+            from ginkgo.trading.sizers.base_sizer import BaseSizer
+            from ginkgo.trading.selectors.base_selector import BaseSelector
+            from ginkgo.trading.risk_managementss.base_risk import BaseRiskManagement
 
             return {
-                FILE_TYPES.STRATEGY: StrategyBase,
+                FILE_TYPES.STRATEGY: BaseStrategy,
                 FILE_TYPES.ANALYZER: BaseAnalyzer,
                 FILE_TYPES.SIZER: BaseSizer,
                 FILE_TYPES.SELECTOR: BaseSelector,

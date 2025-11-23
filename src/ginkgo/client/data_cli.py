@@ -130,8 +130,8 @@ def plot(
     """
     :chart_with_upwards_trend: Plot candlestick charts with technical indicators.
     """
-    from ginkgo.backtest.analysis.plots import CandlePlot, CandleWithIndexPlot, ResultPlot
-    from ginkgo.backtest.computation import (
+    from ginkgo.trading.analysis.plots import CandlePlot, CandleWithIndexPlot, ResultPlot
+    from ginkgo.trading.computation import (
         SimpleMovingAverage,
         WeightedMovingAverage,
         ExponentialMovingAverage,
@@ -246,7 +246,8 @@ def list(
         pass
     elif data == DataType.ORDER:
         if filter == "":
-            GLOG.WARN("Please input backtest_id to filter the order.")
+            # T6: 更新提示信息，使用run_id术语
+            GLOG.WARN("Please input run_id (or portfolio_id) to filter the order.")
             return
         else:
             raw = get_orders(portfolio_id=filter, as_dataframe=True)
@@ -1077,8 +1078,8 @@ def test(
         containers = True
         # Database tests are NOT included in --all for safety
     
-    # Build the command to delegate to unittest CLI
-    cmd = [sys.executable, "-m", "ginkgo.client.unittest_cli", "run", "--module", "data"]
+    # Build the command to delegate to pytest CLI
+    cmd = [sys.executable, "-m", "ginkgo.client.test_cli", "run", "--module", "data"]
     
     if unit:
         cmd.append("--unit")

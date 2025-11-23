@@ -1,13 +1,15 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MPosition
-from ...enums import SOURCE_TYPES
-from ...libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.models import MPosition
+from ginkgo.trading.entities import Position
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
 
 
 @restrict_crud_access
@@ -15,6 +17,10 @@ class PositionCRUD(BaseCRUD[MPosition]):
     """
     Position CRUD operations.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MPosition
 
     def __init__(self):
         super().__init__(MPosition)
@@ -88,6 +94,11 @@ class PositionCRUD(BaseCRUD[MPosition]):
             'source': {
                 'type': 'enum',
                 'choices': [s for s in SOURCE_TYPES]
+            },
+
+            # 业务时间戳 - datetime 或字符串，可选
+            'business_timestamp': {
+                'type': ['datetime', 'string', 'none']
             }
         }
 
@@ -106,6 +117,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
             price=to_decimal(kwargs.get("price", 0)),
             fee=to_decimal(kwargs.get("fee", 0)),
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MPosition]:
@@ -124,8 +136,38 @@ class PositionCRUD(BaseCRUD[MPosition]):
                 price=to_decimal(getattr(item, 'price', 0)),
                 fee=to_decimal(getattr(item, 'fee', 0)),
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
             )
         return None
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings for Position.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'source': SOURCE_TYPES  # 数据源字段映射
+        }
+
+    def _convert_models_to_business_objects(self, models: List[MPosition]) -> List[Position]:
+        """
+        🎯 Convert MPosition models to Position business objects.
+
+        Args:
+            models: List of MPosition models with enum fields already fixed
+
+        Returns:
+            List of Position business objects
+        """
+        business_objects = []
+        for model in models:
+            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
+            position = Position.from_model(model)
+            business_objects.append(position)
+
+        return business_objects
 
     def _convert_output_items(self, items: List[MPosition], output_type: str = "model") -> List[Any]:
         """
@@ -134,8 +176,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
         return items
 
     # Business Helper Methods
-    def find_by_portfolio(self, portfolio_id: str, min_volume: int = 0,
-                         as_dataframe: bool = False) -> Union[List[MPosition], pd.DataFrame]:
+    def find_by_portfolio(self, portfolio_id: str, min_volume: int = 0) -> ModelList[MPosition]:
         """
         Business helper: Find positions by portfolio ID.
         """
@@ -143,11 +184,9 @@ class PositionCRUD(BaseCRUD[MPosition]):
         if min_volume > 0:
             filters["volume__gte"] = min_volume
             
-        return self.find(filters=filters, order_by="cost", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+        return self.find(filters=filters, order_by="cost", desc_order=True)
 
-    def find_by_code(self, code: str, portfolio_id: Optional[str] = None,
-                    as_dataframe: bool = False) -> Union[List[MPosition], pd.DataFrame]:
+    def find_by_code(self, code: str, portfolio_id: Optional[str] = None) -> ModelList[MPosition]:
         """
         Business helper: Find positions by stock code.
         """
@@ -155,29 +194,26 @@ class PositionCRUD(BaseCRUD[MPosition]):
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
             
-        return self.find(filters=filters, order_by="volume", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+        return self.find(filters=filters, order_by="volume", desc_order=True)
 
     def get_position(self, portfolio_id: str, code: str) -> Optional[MPosition]:
         """
         Business helper: Get specific position.
         """
-        result = self.find(filters={"portfolio_id": portfolio_id, "code": code},
-                          page_size=1, as_dataframe=False, output_type="model")
+        result = self.find(filters={"portfolio_id": portfolio_id, "code": code}, page_size=1)
         return result[0] if result else None
 
-    def get_active_positions(self, portfolio_id: str, min_volume: int = 1,
-                           as_dataframe: bool = False) -> Union[List[MPosition], pd.DataFrame]:
+    def get_active_positions(self, portfolio_id: str, min_volume: int = 1) -> ModelList[MPosition]:
         """
         Business helper: Get active positions (volume > 0).
         """
-        return self.find_by_portfolio(portfolio_id, min_volume, as_dataframe)
+        return self.find_by_portfolio(portfolio_id, min_volume)
 
     def get_portfolio_value(self, portfolio_id: str) -> dict:
         """
         Business helper: Get portfolio total value.
         """
-        positions = self.find_by_portfolio(portfolio_id, as_dataframe=False)
+        positions = self.find_by_portfolio(portfolio_id)
         
         total_cost = sum(float(pos.cost) for pos in positions if pos.cost)
         # Calculate market value as price * volume for positions with volume > 0
@@ -205,5 +241,43 @@ class PositionCRUD(BaseCRUD[MPosition]):
         """
         Close a position (set volume to 0).
         """
-        return self.update_position(portfolio_id, code, 
+        return self.update_position(portfolio_id, code,
                                    volume=0, frozen_volume=0)
+
+    def find_by_business_time(
+        self,
+        portfolio_id: str,
+        start_business_time: Optional[Any] = None,
+        end_business_time: Optional[Any] = None,
+        min_volume: int = 0,
+        as_dataframe: bool = False,
+    ) -> Union[List[MPosition], pd.DataFrame]:
+        """
+        Business helper: Find positions by business time range.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            start_business_time: Start of business time range (optional)
+            end_business_time: End of business time range (optional)
+            min_volume: Minimum volume filter (default: 0)
+            as_dataframe: Return as DataFrame if True
+
+        Returns:
+            List of MPosition models or DataFrame
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if min_volume > 0:
+            filters["volume__gte"] = min_volume
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+
+        return self.find(
+            filters=filters,
+            order_by="business_timestamp",
+            desc_order=True,
+            as_dataframe=as_dataframe,
+            output_type="model"
+        )

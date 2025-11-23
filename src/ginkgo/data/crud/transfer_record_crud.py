@@ -1,20 +1,20 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MTransferRecord
-from ...backtest import Transfer
-from ...enums import (
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MTransferRecord
+from ginkgo.trading import Transfer
+from ginkgo.enums import (
     CAPITALADJUSTMENT_TYPES,
     MARKET_TYPES,
     SOURCE_TYPES,
     TRANSFERDIRECTION_TYPES,
     TRANSFERSTATUS_TYPES,
 )
-from ...libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
 
 
 @restrict_crud_access
@@ -22,6 +22,10 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
     """
     TransferRecord CRUD operations.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MTransferRecord
 
     def __init__(self):
         super().__init__(MTransferRecord)
@@ -105,6 +109,41 @@ class TransferRecordCRUD(BaseCRUD[MTransferRecord]):
                 source=SOURCE_TYPES.validate_input(getattr(item, "source", SOURCE_TYPES.SIM)),
             )
         return None
+
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'capitaladjustment': CAPITALADJUSTMENT_TYPES,
+            'market': MARKET_TYPES,
+            'source': SOURCE_TYPES,
+            'transferdirection': TRANSFERDIRECTION_TYPES,
+            'transferstatus': TRANSFERSTATUS_TYPES
+        }
+
+    def _convert_models_to_business_objects(self, models: List) -> List:
+        """
+        🎯 Convert models to business objects.
+
+        Args:
+            models: List of models with enum fields already fixed
+
+        Returns:
+            List of models (business object doesn't exist yet)
+        """
+        # For now, return models as-is since business object doesn't exist yet
+        return models
+
+    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
+        """
+        Hook method: Convert objects for business layer.
+        """
+        return items
 
     def _convert_output_items(
         self, items: List[MTransferRecord], output_type: str = "model"

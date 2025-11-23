@@ -5,7 +5,7 @@
 支持通过FactorEngine进行动态计算。
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class MovingAverageIndicators(BaseDefinition):

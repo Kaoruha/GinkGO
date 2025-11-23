@@ -4,22 +4,23 @@ from typing import Optional
 
 from decimal import Decimal
 from functools import singledispatchmethod
-from sqlalchemy import String, Integer, DECIMAL, Enum
+from sqlalchemy import String, Integer, DECIMAL, Enum, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from clickhouse_sqlalchemy import types
 
-from .model_clickbase import MClickBase
-from ...enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
-from ...libs import base_repr, datetime_normalize, Number, to_decimal
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
+from ginkgo.data.crud.model_conversion import ModelConversion
+from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 
 
-class MOrderRecord(MClickBase):
+class MOrderRecord(MClickBase, MBacktestRecordBase, ModelConversion):
     __abstract__ = False
     __tablename__ = "order_record"
 
     order_id: Mapped[str] = mapped_column(String(), default="")
     portfolio_id: Mapped[str] = mapped_column(String(), default="")
-    engine_id: Mapped[str] = mapped_column(String(), default="")
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     direction: Mapped[int] = mapped_column(types.Int8, default=-1)
     order_type: Mapped[int] = mapped_column(types.Int8, default=-1)
@@ -31,6 +32,7 @@ class MOrderRecord(MClickBase):
     transaction_volume: Mapped[int] = mapped_column(Integer, default=0)
     remain: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     fee: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -54,6 +56,7 @@ class MOrderRecord(MClickBase):
         remain: Optional[Number] = None,
         fee: Optional[Number] = None,
         timestamp: Optional[any] = None,
+        business_timestamp: Optional[any] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
@@ -85,8 +88,10 @@ class MOrderRecord(MClickBase):
             self.fee = to_decimal(fee)
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         if source is not None:
-            self.source = source
+            self.set_source(source)
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
@@ -105,10 +110,37 @@ class MOrderRecord(MClickBase):
         self.remain = to_decimal(df["remain"])
         self.fee = to_decimal(df["fee"])
         self.timestamp = datetime_normalize(df["timestamp"])
+        if "business_timestamp" in df.keys() and pd.notna(df["business_timestamp"]):
+            self.business_timestamp = datetime_normalize(df["business_timestamp"])
         self.portfolio_id = df["portfolio_id"]
         if "source" in df.keys():
             self.source = df["source"]
         self.update_at = datetime.datetime.now()
+
+    def __init__(self, **kwargs):
+        """初始化MOrderRecord实例，自动处理枚举字段转换"""
+        super().__init__()
+        # 处理枚举字段转换
+        if 'direction' in kwargs:
+            self.direction = DIRECTION_TYPES.validate_input(kwargs['direction']) or -1
+            del kwargs['direction']
+        if 'order_type' in kwargs:
+            self.order_type = ORDER_TYPES.validate_input(kwargs['order_type']) or -1
+            del kwargs['order_type']
+        if 'status' in kwargs:
+            self.status = ORDERSTATUS_TYPES.validate_input(kwargs['status']) or -1
+            del kwargs['status']
+        if 'source' in kwargs:
+            self.set_source(kwargs['source'])
+            del kwargs['source']
+        # 处理business_timestamp字段
+        if 'business_timestamp' in kwargs:
+            self.business_timestamp = datetime_normalize(kwargs['business_timestamp'])
+            del kwargs['business_timestamp']
+        # 设置其他字段
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 60)

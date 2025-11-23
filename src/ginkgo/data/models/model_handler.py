@@ -5,12 +5,13 @@ from functools import singledispatchmethod
 from sqlalchemy import String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .model_mysqlbase import MMysqlBase
-from ...enums import SOURCE_TYPES
-from ...libs import base_repr
+from ginkgo.data.models.model_mysqlbase import MMysqlBase
+from ginkgo.data.crud.model_conversion import ModelConversion
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.libs import base_repr
 
 
-class MHandler(MMysqlBase):
+class MHandler(MMysqlBase, ModelConversion):
     __abstract__ = False
     __tablename__ = "handler"
 
@@ -38,8 +39,21 @@ class MHandler(MMysqlBase):
         if func_name is not None:
             self.func_name = func_name
         if source is not None:
-            self.source = source
+            self.set_source(source)
         self.update_at = datetime.datetime.now()
+
+    def __init__(self, **kwargs):
+        """初始化MHandler实例，自动处理枚举字段转换"""
+        super().__init__()
+        # 处理source字段的枚举转换
+        if 'source' in kwargs:
+            self.set_source(kwargs['source'])
+            # 从kwargs中移除source，避免重复赋值
+            del kwargs['source']
+        # 设置其他字段
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 46)

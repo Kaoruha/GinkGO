@@ -1,14 +1,14 @@
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MBar
-from ...backtest import Bar
-from ...enums import FREQUENCY_TYPES, SOURCE_TYPES
-from ...libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
-from ...libs.utils.error_handler import unified_error_handler
-from ..access_control import restrict_crud_access
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MBar
+from ginkgo.trading import Bar
+from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ginkgo.libs.utils.error_handler import unified_error_handler
+from ginkgo.data.access_control import restrict_crud_access
 
 
 @restrict_crud_access
@@ -16,6 +16,10 @@ class BarCRUD(BaseCRUD[MBar]):
     """
     Bar CRUD operations with configurable field validation.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MBar
 
     def __init__(self):
         super().__init__(MBar)
@@ -84,6 +88,47 @@ class BarCRUD(BaseCRUD[MBar]):
             )
         return None
 
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings for Bar.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'frequency': FREQUENCY_TYPES,  # K线频率字段映射
+            'source': SOURCE_TYPES          # 数据源字段映射
+        }
+
+    def _convert_models_to_business_objects(self, models: List[MBar]) -> List[Bar]:
+        """
+        🎯 Convert MBar models to Bar business objects.
+
+        Args:
+            models: List of MBar models with enum fields already fixed
+
+        Returns:
+            List of Bar business objects
+        """
+        business_objects = []
+        for model in models:
+            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
+            # 注意：Bar业务对象不需要source字段，只有MBar模型需要
+            bar = Bar(
+                code=model.code,
+                open=model.open,
+                high=model.high,
+                low=model.low,
+                close=model.close,
+                volume=model.volume,
+                amount=model.amount,
+                frequency=model.frequency,
+                timestamp=model.timestamp,
+            )
+            business_objects.append(bar)
+
+        return business_objects
+
     def _convert_output_items(self, items: List[MBar], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MBar objects to Bar objects.
@@ -100,6 +145,7 @@ class BarCRUD(BaseCRUD[MBar]):
                     amount=item.amount,
                     frequency=item.frequency,
                     timestamp=item.timestamp,
+                    # 注意：Bar业务对象不需要source字段
                 )
                 for item in items
             ]
@@ -136,13 +182,19 @@ class BarCRUD(BaseCRUD[MBar]):
             output_type="bar" if not as_dataframe else "model",
         )
 
-    def get_latest_bars(self, code: str, limit: int = 1, as_dataframe: bool = False) -> Union[List[Bar], pd.DataFrame]:
+    def get_latest_bars(self, code: str, limit: int = 1, page: Optional[int] = None, as_dataframe: bool = False) -> Union[List[Bar], pd.DataFrame]:
         """
-        Business helper: Get latest bars for a code.
+        Business helper: Get latest bars for a code with pagination support.
+
+        Args:
+            code: Stock code to query
+            limit: Number of bars to return (default: 1)
+            page: Page number (0-based, None means start from page 0)
+            as_dataframe: Return as DataFrame if True
         """
         return self.find(
             filters={"code": code},
-            page=0,
+            page=page,
             page_size=limit,
             order_by="timestamp",
             desc_order=True,

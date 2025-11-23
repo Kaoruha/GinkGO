@@ -1,6 +1,6 @@
 import redis
 import time
-from ...libs import GLOG, GinkgoLogger, retry
+from ginkgo.libs import GLOG, GinkgoLogger, retry
 
 data_logger = GinkgoLogger("ginkgo_data", ["ginkgo_data.log"])
 

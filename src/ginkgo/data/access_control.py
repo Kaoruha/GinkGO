@@ -8,7 +8,7 @@ CRUD访问控制模块
 import inspect
 import functools
 from typing import Union, List, Any, Type
-from ..libs import GLOG
+from ginkgo.libs import GLOG
 
 
 class CRUDAccessViolationError(Exception):
@@ -48,7 +48,7 @@ def _is_service_layer_call() -> bool:
 
                 # 检查是否继承自BaseService
                 try:
-                    from .services.base_service import BaseService
+                    from ginkgo.data.services.base_service import BaseService
 
                     if isinstance(caller_class, type) and issubclass(caller_class, BaseService):
                         return True
@@ -228,7 +228,7 @@ def create_protected_crud_factory():
     """
 
     def protected_get_crud(model_name: str):
-        from .utils import get_crud
+        from ginkgo.data.utils import get_crud
 
         if not _is_service_layer_call():
             caller_info = _get_caller_info()

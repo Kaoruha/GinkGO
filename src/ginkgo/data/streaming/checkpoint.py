@@ -30,7 +30,7 @@ except ImportError:
 
     GLOG = logging.getLogger(__name__)
 
-from . import QueryState, ProgressInfo, StreamingState
+from ginkgo.data.streaming import QueryState, ProgressInfo, StreamingState
 
 
 @dataclass

@@ -7,17 +7,17 @@ from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DECIMAL, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .model_clickbase import MClickBase
-from ...libs import base_repr, datetime_normalize, Number, to_decimal
-from ...enums import SOURCE_TYPES
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
+from ginkgo.enums import SOURCE_TYPES
 
 
-class MPositionRecord(MClickBase):
+class MPositionRecord(MClickBase, MBacktestRecordBase):
     __abstract__ = False
     __tablename__ = "position_record"
 
     portfolio_id: Mapped[str] = mapped_column(String(), default="")
-    engine_id: Mapped[str] = mapped_column(String(), default="")
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     cost: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     volume: Mapped[int] = mapped_column(Integer, default=0)
@@ -25,6 +25,7 @@ class MPositionRecord(MClickBase):
     frozen_money: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     fee: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -44,6 +45,7 @@ class MPositionRecord(MClickBase):
         fee: Optional[Number] = None,
         source: Optional[SOURCE_TYPES] = None,
         timestamp: any = None,
+        business_timestamp: Optional[any] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -67,6 +69,8 @@ class MPositionRecord(MClickBase):
             self.source = source
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
@@ -81,6 +85,8 @@ class MPositionRecord(MClickBase):
         self.price = df["price"]
         self.fee = df["fee"]
 
+        if "business_timestamp" in df.keys() and pd.notna(df["business_timestamp"]):
+            self.business_timestamp = datetime_normalize(df["business_timestamp"])
         if "source" in df.keys():
             self.source = df["source"]
         self.update_at = datetime.datetime.now()

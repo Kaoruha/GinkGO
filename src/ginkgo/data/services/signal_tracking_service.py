@@ -2,12 +2,12 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from ..crud.signal_tracker_crud import SignalTrackerCRUD
-from ..models.model_signal_tracker import MSignalTracker
-from ...backtest.entities.signal import Signal
-from ...enums import EXECUTION_MODE, TRACKING_STATUS, ACCOUNT_TYPE
-from ...libs import GLOG, time_logger
-from .base_service import ServiceResult, BusinessService
+from ginkgo.data.crud.signal_tracker_crud import SignalTrackerCRUD
+from ginkgo.data.models.model_signal_tracker import MSignalTracker
+from ginkgo.trading.entities.signal import Signal
+from ginkgo.enums import EXECUTION_MODE, TRACKING_STATUS, ACCOUNT_TYPE
+from ginkgo.libs import GLOG, time_logger
+from ginkgo.data.services.base_service import ServiceResult, BusinessService
 
 
 class SignalTrackingService(BusinessService):

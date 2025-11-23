@@ -1,12 +1,12 @@
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MAdjustfactor
-from ...enums import SOURCE_TYPES
-from ...libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
-from ..access_control import restrict_crud_access
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MAdjustfactor
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ginkgo.data.access_control import restrict_crud_access
 
 
 @restrict_crud_access
@@ -28,6 +28,9 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
     - adjustfactor.remove({"code": "000001.SZ"}) - Delete by filters
     - adjustfactor.count({"code": "000001.SZ"}) - Count records
     """
+
+    # 类级别声明，支持自动注册
+    _model_class = MAdjustfactor
 
     def __init__(self):
         super().__init__(MAdjustfactor)
@@ -110,6 +113,30 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             )
         return None
 
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings for Adjustfactor.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'source': SOURCE_TYPES  # 数据源字段映射
+        }
+
+    def _convert_models_to_business_objects(self, models: List[MAdjustfactor]) -> List[MAdjustfactor]:
+        """
+        🎯 Convert MAdjustfactor models to business objects.
+
+        Args:
+            models: List of MAdjustfactor models with enum fields already fixed
+
+        Returns:
+            List of MAdjustfactor models (Adjustfactor business object doesn't exist yet)
+        """
+        # For now, return models as-is since Adjustfactor business object doesn't exist yet
+        return models
+
     def _convert_output_items(self, items: List[MAdjustfactor], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MAdjustfactor objects for business layer.
@@ -150,7 +177,6 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             order_by="timestamp",
             desc_order=desc_order,
             as_dataframe=as_dataframe,
-            output_type="model",
         )
 
     def find_latest_factor(
@@ -171,7 +197,6 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             order_by="timestamp",
             desc_order=True,
             as_dataframe=as_dataframe,
-            output_type="model",
         )
 
     def find_by_date_range(
@@ -191,7 +216,7 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
             filters["code__in"] = codes
 
         return self.find(
-            filters=filters, order_by="timestamp", desc_order=True, as_dataframe=as_dataframe, output_type="model"
+            filters=filters, order_by="timestamp", desc_order=True, as_dataframe=as_dataframe
         )
 
     def delete_by_code(self, code: str, start_date: Optional[Any] = None, end_date: Optional[Any] = None) -> None:
@@ -225,6 +250,7 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
         """
         Business helper: Get adjustment factor summary for a stock.
         """
+
         filters = {"code": code}
 
         if start_date:
@@ -232,7 +258,7 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
 
-        factors = self.find(filters=filters, as_dataframe=False, output_type="model")
+        factors = self.find(filters=filters, as_dataframe=False)
 
         if not factors:
             return {

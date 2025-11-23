@@ -1,12 +1,13 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Any, Dict
 import pandas as pd
 
-from .base_crud import BaseCRUD
-from ..models import MParam
-from ...enums import SOURCE_TYPES
-from ...libs import GLOG, cache_with_expiration
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.data.models import MParam
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.libs import GLOG, cache_with_expiration
 
 
 @restrict_crud_access
@@ -14,6 +15,10 @@ class ParamCRUD(BaseCRUD[MParam]):
     """
     Param CRUD operations.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MParam
 
     def __init__(self):
         super().__init__(MParam)
@@ -56,6 +61,37 @@ class ParamCRUD(BaseCRUD[MParam]):
             )
         return None
 
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'source': SOURCE_TYPES
+        }
+
+    def _convert_models_to_business_objects(self, models: List) -> List:
+        """
+        🎯 Convert models to business objects.
+
+        Args:
+            models: List of models with enum fields already fixed
+
+        Returns:
+            List of models (business object doesn't exist yet)
+        """
+        # For now, return models as-is since business object doesn't exist yet
+        return models
+
+    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
+        """
+        Hook method: Convert objects for business layer.
+        """
+        return items
+
     def _convert_output_items(self, items: List[MParam], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MParam objects for business layer.
@@ -63,15 +99,13 @@ class ParamCRUD(BaseCRUD[MParam]):
         return items
 
     # Business Helper Methods
-    def find_by_mapping_id(self, mapping_id: str, as_dataframe: bool = False) -> Union[List[MParam], pd.DataFrame]:
+    def find_by_mapping_id(self, mapping_id: str) -> ModelList[MParam]:
         """
         Business helper: Find parameter by mapping ID.
         """
-        return self.find(filters={"mapping_id": mapping_id}, order_by="index",
-                        as_dataframe=as_dataframe, output_type="model")
+        return self.find(filters={"mapping_id": mapping_id}, order_by="index")
 
-    def find_by_index_range(self, mapping_id: str, min_index: int, max_index: int,
-                           as_dataframe: bool = False) -> Union[List[MParam], pd.DataFrame]:
+    def find_by_index_range(self, mapping_id: str, min_index: int, max_index: int) -> ModelList[MParam]:
         """
         Business helper: Find parameters by index range.
         """
@@ -80,21 +114,19 @@ class ParamCRUD(BaseCRUD[MParam]):
             "index__gte": min_index,
             "index__lte": max_index
         }
-        return self.find(filters=filters, order_by="index",
-                        as_dataframe=as_dataframe, output_type="model")
+        return self.find(filters=filters, order_by="index")
 
-    def find_by_value_pattern(self, value_pattern: str, as_dataframe: bool = False) -> Union[List[MParam], pd.DataFrame]:
+    def find_by_value_pattern(self, value_pattern: str) -> ModelList[MParam]:
         """
         Business helper: Find parameters by value pattern.
         """
-        return self.find(filters={"value__like": value_pattern}, order_by="update_at", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+        return self.find(filters={"value__like": value_pattern}, order_by="update_at", desc_order=True)
 
     def get_param_value(self, mapping_id: str, index: int, default_value: str = "") -> str:
         """
         Business helper: Get parameter value by mapping ID and index.
         """
-        result = self.find(filters={"mapping_id": mapping_id, "index": index}, as_dataframe=False)
+        result = self.find(filters={"mapping_id": mapping_id, "index": index})
         if result:
             return result[0].value or default_value
         return default_value

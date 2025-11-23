@@ -6,17 +6,18 @@ from decimal import Decimal
 from typing import Optional
 from sqlalchemy import String, DECIMAL
 from sqlalchemy.orm import Mapped, mapped_column
-from clickhouse_sqlalchemy import types
+from clickhouse_sqlalchemy import types, engines
 
-from .model_clickbase import MClickBase
-from ...libs import base_repr, to_decimal
-from ...enums import ENTITY_TYPES, SOURCE_TYPES
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.crud.model_conversion import ModelConversion
+from ginkgo.libs import base_repr, to_decimal
+from ginkgo.enums import ENTITY_TYPES, SOURCE_TYPES
 
 
-class MFactor(MClickBase):
+class MFactor(MClickBase, ModelConversion):
     """
     因子数据模型 - 支持多种实体类型的因子存储
-    
+
     存储各种类型实体的因子值，包括：
     - 个股因子 (STOCK): 技术指标、基本面指标等
     - 市场因子 (MARKET): 市场情绪、波动率等
@@ -30,6 +31,15 @@ class MFactor(MClickBase):
     """
     __abstract__ = False
     __tablename__ = "factors"
+
+    # ClickHouse优化配置：按实体ID+因子名+时间排序
+    # 优化场景：查询单个实体的某个因子的历史数据
+    __table_args__ = (
+        engines.MergeTree(
+            order_by=("entity_id", "factor_name", "timestamp")
+        ),
+        {"extend_existing": True},
+    )
 
     # 实体标识字段
     entity_type: Mapped[int] = mapped_column(types.Int8, default=-1)  # 实体类型枚举值

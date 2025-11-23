@@ -11,8 +11,8 @@ from datetime import datetime
 import threading
 import time
 
-from ...libs import GLOG, time_logger, retry
-from ..drivers import GinkgoProducer, GinkgoConsumer, kafka_topic_llen
+from ginkgo.libs import GLOG, time_logger, retry
+from ginkgo.data.drivers import GinkgoProducer, GinkgoConsumer, kafka_topic_llen
 
 
 class KafkaCRUD:

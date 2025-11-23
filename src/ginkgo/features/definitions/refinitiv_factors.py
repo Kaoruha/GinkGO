@@ -7,7 +7,7 @@ Refinitiv (原Thomson Reuters)提供的专业金融因子，
 数据来源: Refinitiv - 专业金融数据和分析解决方案提供商
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class RefinitivFactors(BaseDefinition):

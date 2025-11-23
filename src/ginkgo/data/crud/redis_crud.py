@@ -8,8 +8,8 @@ import json
 from typing import Any, Dict, List, Optional, Set, Union
 from datetime import datetime
 
-from ...libs import GLOG, time_logger, retry
-from ..drivers import create_redis_connection
+from ginkgo.libs import GLOG, time_logger, retry
+from ginkgo.data.drivers import create_redis_connection
 
 
 class RedisCRUD:

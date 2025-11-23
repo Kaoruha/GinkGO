@@ -27,11 +27,11 @@ except ImportError:
 
     GLOG = logging.getLogger(__name__)
 
-from .base_streaming_engine import BaseStreamingEngine
-from .mysql_streaming_engine import MySQLStreamingEngine
-from .clickhouse_streaming_engine import ClickHouseStreamingEngine
-from .. import StreamingEngineError
-from ..config import StreamingConfig
+from ginkgo.data.streaming.engines.base_streaming_engine import BaseStreamingEngine
+from ginkgo.data.streaming.engines.mysql_streaming_engine import MySQLStreamingEngine
+from ginkgo.data.streaming.engines.clickhouse_streaming_engine import ClickHouseStreamingEngine
+from ginkgo.data.streaming import StreamingEngineError
+from ginkgo.data.streaming.config import StreamingConfig
 
 
 class DatabaseType(Enum):

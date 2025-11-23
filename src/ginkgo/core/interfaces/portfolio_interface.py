@@ -11,10 +11,10 @@ from datetime import datetime
 from enum import Enum
 
 from ginkgo.core.interfaces.strategy_interface import IStrategy
-from ginkgo.backtest.analysis.analyzers.base_analyzer import BaseAnalyzer
-from ginkgo.backtest.strategy.sizers.base_sizer import SizerBase
-from ginkgo.backtest.strategy.selectors.base_selector import SelectorBase
-from ginkgo.backtest.strategy.risk_managements.base_risk import RiskManagementBase
+from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.trading.sizers.base_sizer import BaseSizer
+from ginkgo.trading.selectors.base_selector import BaseSelector
+from ginkgo.trading.risk_managementss.base_risk import BaseRiskManagement
 
 
 class PortfolioStatus(Enum):
@@ -50,7 +50,7 @@ class IPortfolio(ABC):
         self._analyzers = []
         self._sizers = []
         self._selectors = []
-        self._risk_managements = []
+        self._risk_managementss = []
         
         # 组合配置
         self._rebalance_frequency = RebalanceFrequency.DAILY
@@ -77,19 +77,19 @@ class IPortfolio(ABC):
         return self._analyzers
     
     @property
-    def sizers(self) -> List[SizerBase]:
+    def sizers(self) -> List[BaseSizer]:
         """仓位调整器列表"""
         return self._sizers
     
     @property
-    def selectors(self) -> List[SelectorBase]:
+    def selectors(self) -> List[BaseSelector]:
         """选择器列表"""
         return self._selectors
     
     @property
-    def risk_managements(self) -> List[RiskManagementBase]:
+    def risk_managementss(self) -> List[BaseRiskManagement]:
         """风险管理器列表"""
-        return self._risk_managements
+        return self._risk_managementss
     
     @property
     def current_cash(self) -> float:
@@ -140,20 +140,20 @@ class IPortfolio(ABC):
         if analyzer not in self._analyzers:
             self._analyzers.append(analyzer)
             
-    def add_sizer(self, sizer: SizerBase) -> None:
+    def add_sizer(self, sizer: BaseSizer) -> None:
         """添加仓位调整器"""
         if sizer not in self._sizers:
             self._sizers.append(sizer)
             
-    def add_selector(self, selector: SelectorBase) -> None:
+    def add_selector(self, selector: BaseSelector) -> None:
         """添加选择器"""
         if selector not in self._selectors:
             self._selectors.append(selector)
             
-    def add_risk_management(self, risk_mgmt: RiskManagementBase) -> None:
+    def add_risk_managements(self, risk_mgmt: BaseRiskManagement) -> None:
         """添加风险管理器"""
-        if risk_mgmt not in self._risk_managements:
-            self._risk_managements.append(risk_mgmt)
+        if risk_mgmt not in self._risk_managementss:
+            self._risk_managementss.append(risk_mgmt)
     
     def set_strategy_weight(self, strategy_name: str, weight: float) -> None:
         """设置策略权重"""

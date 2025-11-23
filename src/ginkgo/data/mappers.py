@@ -8,10 +8,10 @@ This isolates transformation logic and makes it reusable.
 import pandas as pd
 from typing import List, Any
 
-from ..libs import datetime_normalize, to_decimal, GCONF
-from .models import MAdjustfactor, MStockInfo, MBar
-from .crud.tick_crud import get_tick_model
-from ..enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES, FREQUENCY_TYPES, TICKDIRECTION_TYPES
+from ginkgo.libs import datetime_normalize, to_decimal, GCONF
+from ginkgo.data.models import MAdjustfactor, MStockInfo, MBar
+from ginkgo.data.crud.tick_crud import get_tick_model
+from ginkgo.enums import SOURCE_TYPES, CURRENCY_TYPES, MARKET_TYPES, FREQUENCY_TYPES, TICKDIRECTION_TYPES
 
 def dataframe_to_adjustfactor_models(df: pd.DataFrame, code: str) -> List[MAdjustfactor]:
     """

@@ -11,11 +11,11 @@ from dependency_injector import containers, providers
 from ginkgo.libs import GLOG
 
 # 导入引擎层
-from .engines import FactorEngine, ExpressionEngine, ExpressionParser, OperatorRegistry
+from ginkgo.features.engines import FactorEngine, ExpressionEngine, ExpressionParser, OperatorRegistry
 # 导入服务层
-from .services import FactorService, ExpressionService
+from ginkgo.features.services import FactorService, ExpressionService
 # 导入自动发现机制
-from .definitions.registry import factor_registry, auto_discover_factor_libraries
+from ginkgo.features.definitions.registry import factor_registry, auto_discover_factor_libraries
 
 
 class FeatureContainer(containers.DynamicContainer):

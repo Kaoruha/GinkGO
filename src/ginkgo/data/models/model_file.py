@@ -4,12 +4,12 @@ import datetime
 from typing import Optional
 from functools import singledispatchmethod
 from sqlalchemy import String, Enum, LargeBinary
-from sqlalchemy.dialects.mysql import TINYINT
+from sqlalchemy.dialects.mysql import TINYINT, MEDIUMBLOB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .model_mysqlbase import MMysqlBase
-from ...enums import FILE_TYPES, SOURCE_TYPES
-from ...libs import base_repr, datetime_normalize
+from ginkgo.data.models.model_mysqlbase import MMysqlBase
+from ginkgo.enums import FILE_TYPES, SOURCE_TYPES
+from ginkgo.libs import base_repr, datetime_normalize
 
 
 class MFile(MMysqlBase):
@@ -18,7 +18,7 @@ class MFile(MMysqlBase):
 
     type: Mapped[int] = mapped_column(TINYINT, default=-1)
     name: Mapped[str] = mapped_column(String(40), default="ginkgo_file")
-    data: Mapped[bytes] = mapped_column(LargeBinary, default=b"")
+    data: Mapped[bytes] = mapped_column(MEDIUMBLOB, default=b"")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -40,15 +40,27 @@ class MFile(MMysqlBase):
         if data is not None:
             self.data = data
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            self.set_source(source)
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         # TODO
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            self.set_source(df["source"])
         self.update_at = datetime.datetime.now()
+
+    def __init__(self, **kwargs):
+        """初始化MFile实例，自动处理枚举字段转换"""
+        super().__init__()
+        # 处理type字段的枚举转换
+        if 'type' in kwargs:
+            from ginkgo.enums import FILE_TYPES
+            result = FILE_TYPES.validate_input(kwargs['type'])
+            self.type = result if result is not None else -1
+            del kwargs['type']
+        # 调用父类构造函数处理source字段
+        super().__init__(**kwargs)
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 60)

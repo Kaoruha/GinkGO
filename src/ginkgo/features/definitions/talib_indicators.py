@@ -7,7 +7,7 @@ Technical Analysis Library (TA-Lib)的150+个技术指标，
 数据来源: TA-Lib官方库 - https://github.com/mrjbq7/ta-lib
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class TALibIndicators(BaseDefinition):

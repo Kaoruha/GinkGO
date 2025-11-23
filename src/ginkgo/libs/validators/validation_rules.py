@@ -25,7 +25,7 @@ class ValidationRules:
     
     # 策略组件规则
     STRATEGY_RULES = {
-        'required_base_class': 'StrategyBase',
+        'required_base_class': 'BaseStrategy',
         'required_methods': [
             MethodSignature(
                 name='cal',
@@ -35,8 +35,8 @@ class ValidationRules:
             )
         ],
         'required_imports': [
-            'ginkgo.backtest.strategy.strategies.base_strategy',
-            'ginkgo.backtest.signal'
+            'ginkgo.trading.strategies.base_strategy',
+            'ginkgo.trading.signal'
         ],
         'forbidden_operations': [
             # 禁止的危险操作
@@ -70,7 +70,7 @@ class ValidationRules:
             )
         ],
         'required_imports': [
-            'ginkgo.backtest.analysis.analyzers.base_analyzer'
+            'ginkgo.trading.analysis.analyzers.base_analyzer'
         ],
         'forbidden_operations': [
             'os.system',
@@ -103,7 +103,7 @@ class ValidationRules:
             )
         ],
         'required_imports': [
-            'ginkgo.backtest.strategy.risk_managements.base_risk'
+            'ginkgo.trading.risk_managementss.base_risk'
         ],
         'forbidden_operations': [
             'os.system',
@@ -130,7 +130,7 @@ class ValidationRules:
             )
         ],
         'required_imports': [
-            'ginkgo.backtest.strategy.sizers.base_sizer'
+            'ginkgo.trading.sizers.base_sizer'
         ],
         'forbidden_operations': [
             'os.system',
@@ -260,7 +260,7 @@ class ValidationRules:
         """
         patterns = {
             'strategy': [
-                r'class\s+\w+\s*\(\s*StrategyBase\s*\)',
+                r'class\s+\w+\s*\(\s*BaseStrategy\s*\)',
                 r'def\s+cal\s*\(',
                 r'return\s+.*Signal.*'
             ],

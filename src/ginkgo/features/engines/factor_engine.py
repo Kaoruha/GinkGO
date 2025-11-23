@@ -16,7 +16,7 @@ from ginkgo.libs import GLOG
 from ginkgo.libs import cache_with_expiration, time_logger, retry
 from ginkgo.enums import ENTITY_TYPES, SOURCE_TYPES
 from ginkgo.data.services.base_service import ServiceResult
-from .expression.parser import ExpressionParser, ParseError
+from ginkgo.features.engines.expression.parser import ExpressionParser, ParseError
 
 
 class FactorEngine:

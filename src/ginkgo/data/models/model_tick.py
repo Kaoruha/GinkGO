@@ -8,9 +8,9 @@ from sqlalchemy import Column, String, Integer, DECIMAL, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 from clickhouse_sqlalchemy import types
 
-from .model_clickbase import MClickBase
-from ...libs import datetime_normalize, base_repr, Number, to_decimal
-from ...enums import SOURCE_TYPES, TICKDIRECTION_TYPES
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.libs import datetime_normalize, base_repr, Number, to_decimal
+from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 
 
 class MTick(MClickBase):
@@ -60,6 +60,24 @@ class MTick(MClickBase):
         if "source" in df.keys():
             self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
         self.update_at = datetime.datetime.now()
+
+    def __init__(self, **kwargs):
+        """初始化MTick实例，自动处理枚举字段转换"""
+        super().__init__()
+        # 处理direction和source字段的枚举转换
+        if 'direction' in kwargs:
+            from ginkgo.enums import TICKDIRECTION_TYPES
+            result = TICKDIRECTION_TYPES.validate_input(kwargs['direction'])
+            self.direction = result if result is not None else -1
+            del kwargs['direction']
+        if 'source' in kwargs:
+            self.set_source(kwargs['source'])
+            # 从kwargs中移除source，避免重复赋值
+            del kwargs['source']
+        # 设置其他字段
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
     def __repr__(self) -> None:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

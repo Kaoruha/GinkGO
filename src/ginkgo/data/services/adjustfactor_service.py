@@ -11,9 +11,10 @@ from datetime import datetime, timedelta
 from typing import List, Union, Any, Dict
 import pandas as pd
 
-from ...libs import GCONF, datetime_normalize, cache_with_expiration, retry, to_decimal
-from .. import mappers
-from .base_service import DataService
+from ginkgo.libs import GCONF, datetime_normalize, cache_with_expiration, retry, to_decimal
+from ginkgo.data import mappers
+from ginkgo.data.services.base_service import DataService
+from ginkgo.data.crud.model_conversion import ModelList
 
 
 class AdjustfactorService(DataService):
@@ -251,9 +252,8 @@ class AdjustfactorService(DataService):
         code: str = None,
         start_date: datetime = None,
         end_date: datetime = None,
-        as_dataframe: bool = True,
         **kwargs,
-    ) -> Union[pd.DataFrame, List[Any]]:
+    ):
         """
         Retrieves adjustment factor data from the database with caching.
 
@@ -278,7 +278,7 @@ class AdjustfactorService(DataService):
         if end_date:
             filters["timestamp__lte"] = end_date
 
-        return self.crud_repo.find(filters=filters, as_dataframe=as_dataframe, **kwargs)
+        return self.crud_repo.find(filters=filters, **kwargs)
 
     def get_latest_adjustfactor_for_code(self, code: str) -> datetime:
         """

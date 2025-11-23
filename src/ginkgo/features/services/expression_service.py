@@ -10,7 +10,7 @@ import pandas as pd
 from ginkgo.libs import GLOG
 from ginkgo.data.services.base_service import ServiceResult
 
-from ..engines import ExpressionEngine
+from ginkgo.features.engines import ExpressionEngine
 
 
 class ExpressionService:

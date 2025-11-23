@@ -5,9 +5,9 @@
 所有模型都遵循ginkgo的IModel接口规范。
 """
 
-from .lightgbm import LightGBMModel
-from .xgboost import XGBoostModel  
-from .sklearn import RandomForestModel
+from ginkgo.quant_ml.models.lightgbm import LightGBMModel
+from ginkgo.quant_ml.models.xgboost import XGBoostModel  
+from ginkgo.quant_ml.models.sklearn import RandomForestModel
 
 __all__ = [
     "LightGBMModel",

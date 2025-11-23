@@ -5,7 +5,7 @@
 包括标准布林带及相关信号指标。
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class BandIndicators(BaseDefinition):

@@ -27,9 +27,9 @@ except ImportError:
 
     GLOG = logging.getLogger(__name__)
 
-from .base_streaming_engine import BaseStreamingEngine, CursorType, StreamingMetrics
-from .. import StreamingState, StreamingEngineError
-from ..config import StreamingConfig
+from ginkgo.data.streaming.engines.base_streaming_engine import BaseStreamingEngine, CursorType, StreamingMetrics
+from ginkgo.data.streaming import StreamingState, StreamingEngineError
+from ginkgo.data.streaming.config import StreamingConfig
 
 
 class MySQLStreamingEngine(BaseStreamingEngine):

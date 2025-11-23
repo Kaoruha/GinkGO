@@ -6,15 +6,24 @@ from decimal import Decimal
 from functools import singledispatchmethod
 from sqlalchemy import Column, String, Integer, DECIMAL, Enum
 from sqlalchemy.orm import Mapped, mapped_column
+from clickhouse_sqlalchemy import engines
 
-from .model_clickbase import MClickBase
-from ...libs import datetime_normalize, base_repr, Number, to_decimal
-from ...enums import SOURCE_TYPES, TICKDIRECTION_TYPES
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.libs import datetime_normalize, base_repr, Number, to_decimal
+from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 
 
 class MTickSummary(MClickBase):
     __abstract__ = False
     __tablename__ = "tick_summary"
+
+    # ClickHouse优化配置：按代码+时间排序
+    __table_args__ = (
+        engines.MergeTree(
+            order_by=("code", "timestamp")
+        ),
+        {"extend_existing": True},
+    )
 
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     price: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)

@@ -9,8 +9,8 @@
 - Alpha因子集成
 """
 
-from .feature_processor import FeatureProcessor
-from .alpha_factors import AlphaFactors
+from ginkgo.quant_ml.features.feature_processor import FeatureProcessor
+from ginkgo.quant_ml.features.alpha_factors import AlphaFactors
 
 __all__ = [
     "FeatureProcessor",

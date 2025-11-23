@@ -59,19 +59,57 @@ def docker_check():
 def env_check():
     env = os.environ.get("VIRTUAL_ENV")
     conda_env = os.environ.get("CONDA_DEFAULT_ENV")
+    uv_env = os.environ.get("UV_ACTIVE_ENV")
+    uv_venv = os.environ.get("UV_VENV")  # UV also sets this in some cases
+
     notice_info = "NOTICE"
-    if env is None and conda_env is None or conda_env == "base":
-        print(f"[{blue(notice_info)}] You should active a {bg_red('virtual enviroment')}")
-        msg = f"[{blue(notice_info)}] To active, run: {green('python3 -m virtualenv venv;source venv/bin/activate')} or {green('conda create -n ginkgo python=3.12.8; conda activate ginkgo')} "
-        print(msg)
-        return None
-    return env or conda_env
+
+    # Check for uv virtual environment
+    if uv_env or uv_venv:
+        # Verify uv environment by checking for pyvenv.cfg
+        uv_env_path = uv_env or uv_venv
+        if uv_env_path and os.path.exists(f"{uv_env_path}/pyvenv.cfg"):
+            print(f"[{green('ACTIVE')}] UV virtual environment detected: {lightblue(uv_env_path)}")
+            return uv_env_path
+
+    # Check for conda environment
+    if conda_env and conda_env != "base":
+        print(f"[{green('ACTIVE')}] Conda environment detected: {lightblue(conda_env)}")
+        return conda_env
+
+    # Check for venv environment
+    if env:
+        print(f"[{green('ACTIVE')}] Virtual environment detected: {lightblue(env)}")
+        return env
+
+    # No active environment found
+    print(f"[{blue(notice_info)}] You should activate a {bg_red('virtual environment')}")
+    msg = f"[{blue(notice_info)}] To activate, run one of the following:\n"
+    msg += f"  • {green('python3 -m virtualenv venv; source venv/bin/activate')} (venv)\n"
+    msg += f"  • {green('conda create -n ginkgo python=3.12.8; conda activate ginkgo')} (conda)\n"
+    msg += f"  • {green('uv venv; source .venv/bin/activate')} (uv - recommended for faster operations)"
+    print(msg)
+    return None
 
 
 def env_print(working_directory, env, python_version):
     print(f"Working_directory: {lightblue(working_directory)}")
     print(f"ENV: {lightblue(env)}")
     print(f"Python : {lightblue(python_version)}")
+
+    # Show package manager info
+    package_manager = get_package_manager()
+    env_type = "Unknown"
+
+    if is_uv_environment():
+        env_type = "UV Virtual Environment"
+    elif os.environ.get("CONDA_DEFAULT_ENV"):
+        env_type = "Conda Environment"
+    elif os.environ.get("VIRTUAL_ENV"):
+        env_type = "Virtual Environment (venv)"
+
+    print(f"Environment Type: {lightblue(env_type)}")
+    print(f"Package Manager: {lightblue(package_manager.upper())}")
 
 
 def copy_config(path_conf, path_secure, update_config):
@@ -103,49 +141,118 @@ def copy_config(path_conf, path_secure, update_config):
             shutil.copy(origin_path, target_path)
 
 
+def is_uv_environment():
+    """Check if we're running in a UV environment."""
+    uv_env = os.environ.get("UV_ACTIVE_ENV")
+    uv_venv = os.environ.get("UV_VENV")
+    env = os.environ.get("VIRTUAL_ENV")
+
+    # Check UV environment variables
+    if uv_env or uv_venv:
+        return True
+
+    # Check if virtual environment path indicates UV
+    if env and (".venv" in env or env.endswith("/.venv")):
+        return True
+
+    # Check pyvenv.cfg for UV markers
+    if env and os.path.exists(f"{env}/pyvenv.cfg"):
+        try:
+            with open(f"{env}/pyvenv.cfg", "r") as f:
+                content = f.read().lower()
+                if "uv" in content:
+                    return True
+        except:
+            pass
+
+    return False
+
+
+def get_package_manager():
+    """Determine the appropriate package manager to use."""
+    if is_uv_environment():
+        # Check if uv command is available
+        try:
+            subprocess.run(["uv", "--version"], check=True, capture_output=True)
+            return "uv"
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print(f"[{lightyellow('WARNING')}] UV environment detected but uv command not found. Falling back to pip.")
+            return "pip"
+    else:
+        return "pip"
+
+
 def install_ginkgo():
-    # Install Ginkgo Package using modern pip with pyproject.toml
+    # Install Ginkgo Package using UV or pip
+    package_manager = get_package_manager()
+
     try:
-        print("Installing Ginkgo package in development mode...")
-        subprocess.run(["pip", "install", "-e", "."], check=True)
+        print(f"Installing Ginkgo package in development mode using {package_manager}...")
+        if package_manager == "uv":
+            # For UV, use uv sync to install from pyproject.toml
+            subprocess.run(["uv", "sync"], check=True)
+        else:
+            subprocess.run(["pip", "install", "-e", "."], check=True)
         print("Ginkgo package installed successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Failed to install Ginkgo package: {e}")
         print("Trying alternative installation method...")
-        subprocess.run(["pip", "install", "setuptools", "wheel"])
-        subprocess.run(["pip", "install", "-e", "."])
-    
+        if package_manager == "uv":
+            # Try to create lockfile first, then sync
+            subprocess.run(["uv", "lock"])
+            subprocess.run(["uv", "sync"])
+        else:
+            subprocess.run(["pip", "install", "setuptools", "wheel"])
+            subprocess.run(["pip", "install", "-e", "."])
+
     # Install additional required packages
-    subprocess.run(["pip", "install", "pyyaml", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"])
+    print(f"Installing additional required packages using {package_manager}...")
+    if package_manager == "uv":
+        subprocess.run(["uv", "add", "pyyaml"])
+    else:
+        subprocess.run(["pip", "install", "pyyaml", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"])
 
 
 def install_dependencies(path_pip):
     # 安装依赖
-    source = "https://mirrors.aliyun.com/pypi/simple/"
-    command = ["pip", "install", "--upgrade", "pip", "-i", source]
-    try:
-        subprocess.run(command, check=True)
-        print("Pip upgrade success.")
-    except Exception as e:
-        print(e)
-    finally:
-        pass
+    package_manager = get_package_manager()
 
-    command = ["pip", "install", "wheel", "--default-timeout=20", "-i", source]
-    try:
-        subprocess.run(command, check=True)
-    except Exception as e:
-        print(e)
-    finally:
-        pass
+    if package_manager == "uv":
+        print("Installing dependencies using UV (fast mode)...")
 
-    command = ["pip", "install", "-r", path_pip, "--default-timeout=20", "-i", source]
-    try:
-        subprocess.run(command, check=True)
-    except Exception as e:
-        print(e)
-    finally:
-        pass
+        # For UV, use sync to install all dependencies from pyproject.toml
+        try:
+            subprocess.run(["uv", "sync"], check=True)
+            print("Dependencies installation success via UV.")
+        except Exception as e:
+            print(f"Failed to install dependencies via UV: {e}")
+            print("Falling back to pip...")
+            subprocess.run(["pip", "install", "-r", path_pip, "--default-timeout=20", "-i", "https://mirrors.aliyun.com/pypi/simple/"])
+    else:
+        print("Installing dependencies using pip...")
+        source = "https://mirrors.aliyun.com/pypi/simple/"
+
+        # Upgrade pip
+        command = ["pip", "install", "--upgrade", "pip", "-i", source]
+        try:
+            subprocess.run(command, check=True)
+            print("Pip upgrade success.")
+        except Exception as e:
+            print(e)
+
+        # Install wheel
+        command = ["pip", "install", "wheel", "--default-timeout=20", "-i", source]
+        try:
+            subprocess.run(command, check=True)
+        except Exception as e:
+            print(e)
+
+        # Install requirements
+        command = ["pip", "install", "-r", path_pip, "--default-timeout=20", "-i", source]
+        try:
+            subprocess.run(command, check=True)
+        except Exception as e:
+            print(e)
 
 
 def set_config_path(path_log, working_directory):
@@ -468,7 +575,8 @@ def main():
     path_gink_sec = f"{working_directory}/src/ginkgo/config/secure.backup"
 
     print("======================================")
-    print("Balabala Banner")  # TODO
+    print(f"{green('Ginkgo Trading Framework')} Installation Script")
+    print(f"{lightblue('Enhanced with UV support for faster dependency management!')}")
     print("======================================")
 
     os_check()

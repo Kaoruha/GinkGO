@@ -1,13 +1,15 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MEngineHandlerMapping
-from ...enums import SOURCE_TYPES
-from ...libs import GLOG, cache_with_expiration
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MEngineHandlerMapping
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.libs import GLOG, cache_with_expiration
+from ginkgo.data.crud.model_conversion import ModelConversion
+from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping
 
 
 @restrict_crud_access
@@ -16,6 +18,11 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
     EngineHandlerMapping CRUD operations.
     """
 
+    # 类级别声明，支持自动注册
+
+    _model_class = MEngineHandlerMapping
+
+  
     def __init__(self):
         super().__init__(MEngineHandlerMapping)
 
@@ -54,6 +61,43 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
             )
         return None
 
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'source': SOURCE_TYPES
+        }
+
+    def _convert_models_to_business_objects(self, models: List) -> List:
+        """
+        🎯 Convert MEngineHandlerMapping models to Mapping business objects.
+
+        Args:
+            models: List of models with enum fields already fixed
+
+        Returns:
+            List of Mapping business objects
+        """
+        from ginkgo.trading.entities.mapping import Mapping
+
+        business_objects = []
+        for model in models:
+            # 转换为通用Mapping业务对象
+            mapping = Mapping.from_model(model, mapping_type="EngineHandlerMapping")
+            business_objects.append(mapping)
+        return business_objects
+
+    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
+        """
+        Hook method: Convert objects for business layer.
+        """
+        return items
+
     def _convert_output_items(self, items: List[MEngineHandlerMapping], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MEngineHandlerMapping objects for business layer.
@@ -69,7 +113,7 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
         filters = {"engine_id": engine_id}
         
         return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_handler(self, handler_id: str,
                        as_dataframe: bool = False) -> Union[List[MEngineHandlerMapping], pd.DataFrame]:
@@ -79,7 +123,7 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
         filters = {"handler_id": handler_id}
         
         return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_handlers_for_engine(self, engine_id: str) -> List[str]:
         """

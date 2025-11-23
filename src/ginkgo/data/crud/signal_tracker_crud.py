@@ -1,14 +1,14 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models.model_signal_tracker import MSignalTracker
-from ...backtest.entities.signal import Signal
-from ...enums import DIRECTION_TYPES, SOURCE_TYPES, EXECUTION_MODE, TRACKING_STATUS, ACCOUNT_TYPE
-from ...libs import datetime_normalize, GLOG, to_decimal, cache_with_expiration
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models.model_signal_tracker import MSignalTracker
+from ginkgo.trading.entities.signal import Signal
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EXECUTION_MODE, TRACKING_STATUS, ACCOUNT_TYPE
+from ginkgo.libs import datetime_normalize, GLOG, to_decimal, cache_with_expiration
 
 
 @restrict_crud_access
@@ -18,6 +18,10 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
     
     提供基础的数据库访问接口
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MSignalTracker
 
     def __init__(self):
         super().__init__(MSignalTracker)
@@ -56,6 +60,9 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             "reject_reason": {"required": False, "type": str},
             "notes": {"required": False, "type": str},
             "source": {"required": False, "type": int, "default": -1},
+
+            # 业务时间戳 - datetime 或字符串，可选
+            "business_timestamp": {"required": False, "type": ["datetime", "string", "none"]},
         }
 
     def _create_from_params(self, **kwargs) -> MSignalTracker:
@@ -91,7 +98,8 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             time_delay_seconds=kwargs.get("time_delay_seconds"),
             reject_reason=kwargs.get("reject_reason"),
             notes=kwargs.get("notes"),
-            source=SOURCE_TYPES.from_int(kwargs.get("source", -1))
+            source=SOURCE_TYPES.from_int(kwargs.get("source", -1)),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
         
         return tracker
@@ -120,7 +128,8 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
                 expected_price=float(getattr(item, 'price', 0)),
                 expected_volume=getattr(item, 'volume', 0),
                 expected_timestamp=item.timestamp,
-                source=SOURCE_TYPES.STRATEGY
+                source=SOURCE_TYPES.STRATEGY,
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
             )
             return tracker
         elif isinstance(item, dict):
@@ -135,7 +144,11 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
                 item['expected_direction'] = item['expected_direction'].value if hasattr(item['expected_direction'], 'value') else item['expected_direction']
             if 'tracking_status' in item:
                 item['tracking_status'] = item['tracking_status'].value if hasattr(item['tracking_status'], 'value') else item['tracking_status']
-            
+
+            # 处理business_timestamp
+            if 'business_timestamp' in item:
+                item['business_timestamp'] = datetime_normalize(item['business_timestamp'])
+
             tracker.update(**item)
             return tracker
         elif isinstance(item, pd.Series):
@@ -146,10 +159,38 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             GLOG.WARN(f"Unsupported input type: {type(item)}")
             return None
 
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings for SignalTracker.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'execution_mode': EXECUTION_MODE,    # 执行模式字段映射
+            'account_type': ACCOUNT_TYPE,        # 账户类型字段映射
+            'expected_direction': DIRECTION_TYPES,  # 预期方向字段映射
+            'tracking_status': TRACKING_STATUS,     # 追踪状态字段映射
+            'source': SOURCE_TYPES                # 数据源字段映射
+        }
+
+    def _convert_models_to_business_objects(self, models: List[MSignalTracker]) -> List[Any]:
+        """
+        🎯 Convert MSignalTracker models to business objects.
+
+        Args:
+            models: List of MSignalTracker models with enum fields already fixed
+
+        Returns:
+            List of business objects (keeping as MSignalTracker for now)
+        """
+        # For now, return models as-is since SignalTracker doesn't have a direct business object
+        return models
+
     def _convert_output_items(self, items: List[MSignalTracker], output_type: str = "model") -> List[Any]:
         """
         转换输出项
-        
+
         Args:
             items: MSignalTracker 对象列表
             output_type: 输出类型 ("model", "dict", "dataframe")
@@ -192,7 +233,8 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
                     'notes': item.notes,
                     'source': item.source,
                     'timestamp': item.timestamp,
-                    'update_at': item.update_at
+                    'update_at': item.update_at,
+                    'business_timestamp': getattr(item, 'business_timestamp', None)
                 })
             return pd.DataFrame(data)
         else:
@@ -370,3 +412,45 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         """
         items = self.get_items_filtered()
         return list(set(item.portfolio_id for item in items if item.portfolio_id))
+
+    def find_by_business_time(
+        self,
+        portfolio_id: str,
+        start_business_time: Optional[Any] = None,
+        end_business_time: Optional[Any] = None,
+        account_type: Optional[ACCOUNT_TYPE] = None,
+        tracking_status: Optional[TRACKING_STATUS] = None,
+        limit: int = 1000,
+        as_dataframe: bool = False,
+    ) -> Union[List[MSignalTracker], pd.DataFrame]:
+        """
+        Business helper: Find signal trackers by business time range.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            start_business_time: Start of business time range (optional)
+            end_business_time: End of business time range (optional)
+            account_type: Account type filter (optional)
+            tracking_status: Tracking status filter (optional)
+            limit: Return record limit
+            as_dataframe: Return as DataFrame if True
+
+        Returns:
+            List of MSignalTracker models or DataFrame
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+        if account_type is not None:
+            filters["account_type"] = account_type
+        if tracking_status is not None:
+            filters["tracking_status"] = tracking_status
+
+        results = self.get_items_filtered(**filters, limit=limit)
+
+        if as_dataframe:
+            return self._convert_output_items(results)
+        return results

@@ -4,23 +4,26 @@ import pandas as pd
 from typing import Optional
 from functools import singledispatchmethod
 from decimal import Decimal
-from sqlalchemy import String, DECIMAL
+from sqlalchemy import String, DECIMAL, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ...enums import SOURCE_TYPES
-from .model_clickbase import MClickBase
-from ...libs import base_repr, datetime_normalize, Number, to_decimal
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 
 
-class MAnalyzerRecord(MClickBase):
+class MAnalyzerRecord(MClickBase, MBacktestRecordBase):
     __abstract__ = False
     __tablename__ = "analyzer_record"
 
     portfolio_id: Mapped[str] = mapped_column(String(), default="Default Portfolio")
-    engine_id: Mapped[str] = mapped_column(String(), default="Default Engine")
-    value: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
+    value: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
     analyzer_id: Mapped[str] = mapped_column(String(), default="Default Analyzer")
     name: Mapped[str] = mapped_column(String(), default="Default Analyter")
+
+    # 业务时间戳 - 分析器计算对应的业务时间（如价格数据时间）
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -32,6 +35,7 @@ class MAnalyzerRecord(MClickBase):
         portfolio_id: str,
         engine_id: str,
         timestamp: Optional[any] = None,
+        business_timestamp: Optional[any] = None,
         value: Optional[Number] = None,
         analyzer_id: Optional[str] = None,
         name: Optional[str] = None,
@@ -43,6 +47,8 @@ class MAnalyzerRecord(MClickBase):
         self.engine_id = engine_id
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
         if value is not None:
             self.value = to_decimal(value)
         if name is not None:

@@ -3,6 +3,7 @@ import yaml
 import shutil
 import base64
 import threading
+import time
 from pathlib import Path
 
 
@@ -17,7 +18,11 @@ class GinkgoConfig(object):
         return GinkgoConfig._instance
 
     def __init__(self) -> None:
-        pass
+        # 初始化缓存变量
+        self._config_cache = {}
+        self._config_mtime = 0
+        self._secure_cache = {}
+        self._secure_mtime = 0
 
     @property
     def setting_path(self) -> str:
@@ -39,7 +44,7 @@ class GinkgoConfig(object):
     def ensure_dir(self, path: str) -> None:
         if os.path.exists(path) and os.path.isdir(path):
             return
-        Path(path).makedirs(parents=True, exist_ok=True)
+        Path(path).mkdir(parents=True, exist_ok=True)
 
     def generate_config_file(self, path=None) -> None:
         if path is None:
@@ -62,41 +67,52 @@ class GinkgoConfig(object):
     def _read_config(self) -> dict:
         self.generate_config_file()
         try:
-            with open(self.setting_path, "r") as file:
-                r = yaml.safe_load(file)
-            return r
+            # 检查文件修改时间
+            current_mtime = os.path.getmtime(self.setting_path)
+
+            # 如果文件已修改或缓存为空，重新读取
+            if current_mtime != self._config_mtime or not self._config_cache:
+                with open(self.setting_path, "r") as file:
+                    config_data = yaml.safe_load(file)
+                self._config_cache = config_data
+                self._config_mtime = current_mtime
+                print(f"[GCONF] Config cache updated (mtime: {current_mtime})")
+
+            return self._config_cache
         except Exception as e:
-            print(e)
+            print(f"[GCONF] Error reading config: {e}")
             return {}
 
     def _read_secure(self) -> dict:
         self.generate_config_file()
         try:
-            with open(self.secure_path, "r") as file:
-                r = yaml.safe_load(file)
-            return r
+            # 检查文件修改时间
+            current_mtime = os.path.getmtime(self.secure_path)
+
+            # 如果文件已修改或缓存为空，重新读取
+            if current_mtime != self._secure_mtime or not self._secure_cache:
+                with open(self.secure_path, "r") as file:
+                    secure_data = yaml.safe_load(file)
+                self._secure_cache = secure_data
+                self._secure_mtime = current_mtime
+                print(f"[GCONF] Secure cache updated (mtime: {current_mtime})")
+
+            return self._secure_cache
         except Exception as e:
+            print(f"[GCONF] Error reading secure config: {e}")
             return {}
 
     def _get_config(self, key: str, default: any = None, section: str = None) -> any:
-        if section:
-            env_key = f"GINKGO_{section.upper()}_{key.upper()}"
+        # 统一从缓存读取，不再使用环境变量
+        if section is None:
+            config = self._read_config()
         else:
-            env_key = f"GINKGO_{key.upper()}"
-        value = os.environ.get(env_key, None)
-        if value is None:
-            if section is None:
-                config = self._read_config()
+            secure_data = self._read_secure()
+            if section in ["clickhouse", "mysql", "mongodb", "redis", "kafka"]:
+                config = secure_data.get("database", {}).get(section, {})
             else:
-                secure_data = self._read_secure()
-                if section in ["clickhouse", "mysql", "mongodb", "redis", "kafka"]:
-                    config = secure_data.get("database", {}).get(section, {})
-                else:
-                    config = secure_data.get(section, {})
-            value = config.get(key, default)
-            if value is not None:
-                os.environ[env_key] = str(value)
-        return value
+                config = secure_data.get(section, {})
+        return config.get(key, default)
 
     def _write_config(self, key: str, value: any) -> None:
         try:
@@ -127,7 +143,13 @@ class GinkgoConfig(object):
 
     @property
     def LOGGING_PATH(self) -> str:
-        return self._get_config("log_path")
+        path = self._get_config("log_path")
+        if path is None:
+            # 提供默认日志路径
+            import os
+            default_path = os.path.join(os.path.expanduser("~"), ".ginkgo", "logs")
+            return default_path
+        return path
 
     def set_logging_path(self, path: str) -> None:
         self._write_config("log_path", path)
@@ -152,15 +174,15 @@ class GinkgoConfig(object):
 
     @property
     def LOGGING_DEFAULT_FILE(self) -> str:
-        return self._get_config("log_default_file")
+        return self._get_config("log_default_file", "ginkgo.log")
 
     @property
     def LOGGING_LEVEL_CONSOLE(self) -> str:
-        return self._get_config("log_level_console")
+        return self._get_config("log_level_console", "DEBUG")
 
     @property
     def LOGGING_LEVEL_FILE(self) -> str:
-        return self._get_config("log_level_file")
+        return self._get_config("log_level_file", "CRITICAL")
 
     @property
     def LOGGING_COLOR(self) -> dict:
@@ -235,26 +257,27 @@ class GinkgoConfig(object):
     @property
     def CLICKPORT(self) -> int:
         port = self._get_config("port", section="clickhouse")
-        if self.DEBUGMODE:
-            return f"1{port}"
-        else:
-            return port
+        final_port = f"1{port}" if self.DEBUGMODE else port
+        # 更新环境变量为最终的DEBUG模式计算值
+        os.environ["GINKGO_CLICKHOUSE_PORT"] = str(final_port)
+        return final_port
 
     @property
     def MYSQLPORT(self) -> int:
         port = self._get_config("port", section="mysql")
-        if self.DEBUGMODE:
-            return f"1{port}"
-        else:
-            return port
+        final_port = f"1{port}" if self.DEBUGMODE else port
+        # 更新环境变量为最终的DEBUG模式计算值
+        os.environ["GINKGO_MYSQL_PORT"] = str(final_port)
+        return final_port
 
     @property
     def MONGOPORT(self) -> int:
         port = self._get_config("port", section="mongodb")
-        if not self.DEBUGMODE:
-            return f"1{port}"
-        else:
-            return port
+        final_port = f"1{port}" if not self.DEBUGMODE else port
+        # 更新环境变量为最终的DEBUG模式计算值
+        if final_port is not None:
+            os.environ["GINKGO_MONGODB_PORT"] = str(final_port)
+        return final_port
 
     @property
     def KAFKAHOST(self) -> str:
@@ -303,7 +326,8 @@ class GinkgoConfig(object):
         key = "GINKGO_DEFAULT_STARTDATE"
         date = os.environ.get(key, None)
         if date is None:
-            date = self._read_config()["default_start"]
+            config = self._read_config()
+            date = config.get("default_start", "19000101")  # 提供默认值
             date = str(date)
             os.environ[key] = date
         return date
@@ -313,7 +337,8 @@ class GinkgoConfig(object):
         key = "GINKGO_DEFAULT_ENDDATE"
         date = os.environ.get(key, None)
         if date is None:
-            date = self._read_config()["default_end"]
+            config = self._read_config()
+            date = config.get("default_end", "21000101")  # 提供默认值
             date = str(date)
             os.environ[key] = date
         return date

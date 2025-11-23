@@ -5,7 +5,7 @@
 包含小盘效应、ST效应、新股效应、涨跌停、融资融券、北向资金等A股独有特征。
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class ChinaAFactors(BaseDefinition):

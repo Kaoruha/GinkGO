@@ -36,8 +36,8 @@ bar_crud = services.data.cruds.bar()
 stockinfo_service = services.data.services.stockinfo_service()
 
 # 回测服务
-engine = services.backtest.engines.historic()
-portfolio = services.backtest.portfolios.base()
+engine = services.trading.engines.historic()
+portfolio = services.trading.portfolios.base()
 ```
 
 ### 策略开发模式
@@ -273,6 +273,94 @@ ginkgo system config set --debug off   # Disable after operations
 ```python
 from ginkgo.libs import GLOG, GCONF, GTM
 ```
+
+## TDD测试框架设计流程
+
+### 标准化TDD测试设计方法
+
+#### 第一阶段：实体分析和架构理解
+
+**步骤1：源码分析**
+- 使用`Read`工具分析现有实体实现
+- 识别核心属性、方法和业务逻辑
+- 理解继承关系和依赖模式
+
+**步骤2：架构组件分析**
+- 分析项目整体架构职责分离
+- 明确各组件边界（Strategy/Sizer/RiskManagement等）
+- 避免跨职责的功能设计
+
+#### 第二阶段：测试边界确定
+
+**边界原则：**
+- **保留**：实体自身的核心功能和属性管理
+- **删除**：属于其他专门组件的功能
+- **扩展**：基于量化交易需求的合理增强
+
+**确认流程：**
+- 逐一与用户确认每个测试类别
+- 说明作用、业务价值和具体测试场景
+- 根据用户反馈调整或删除不合适的类别
+
+#### 第三阶段：测试用例设计模式
+
+**基础功能测试模式（7个标准类别）：**
+1. **Construction** - 构造和初始化测试
+2. **Properties** - 属性访问测试
+3. **DataSetting** - 数据设置测试（singledispatchmethod）
+4. **Validation** - 参数/业务规则验证测试
+5. **StateManagement** - 状态管理测试
+6. **BusinessLogic** - 核心业务逻辑测试
+7. **Constraints** - 约束检查测试（如枚举类型）
+
+**扩展功能测试模式：**
+- 基于量化交易特有需求设计
+- 每个扩展模块包含5-8个测试方法
+- 使用`@pytest.mark.financial`标记
+
+#### 第四阶段：测试文件生成规范
+
+**文件结构标准：**
+```python
+# 1. 文档字符串 - 说明测试目的和覆盖范围
+# 2. 导入声明 - 路径设置和依赖导入（TODO标记）
+# 3. 测试类 - 按功能模块分组，使用@pytest.mark.tdd标记
+# 4. 测试方法 - 详细TODO注释 + assert False占位
+```
+
+**命名规范：**
+- 测试类：`TestEntityFunctionality`
+- 测试方法：`test_specific_scenario()`
+- 文件：`test_entity.py`
+
+**标记策略：**
+- `@pytest.mark.tdd` - 所有TDD测试
+- `@pytest.mark.financial` - 量化交易特有功能
+
+#### 第五阶段：质量控制
+
+**Red阶段验证：**
+- 运行单个测试确认失败
+- 统计测试用例总数
+- 验证pytest配置正确
+
+**一致性检查：**
+- TODO注释格式统一
+- 错误消息格式："TDD Red阶段：测试用例尚未实现"
+- 测试方法命名符合规范
+
+### 成功案例
+
+**已完成的实体测试框架：**
+- **Position** - 11个测试类，70个测试方法
+- **Signal** - 9个测试类，62个测试方法
+- **Order** - 10个测试类，70个测试方法
+
+**方法优势：**
+- **系统性**：完整的分析到实现流程
+- **可重复**：标准化模式适用于任何实体
+- **用户驱动**：每个决策都经过用户确认
+- **边界清晰**：职责分离原则确保设计合理
 
 ## Important Notes
 

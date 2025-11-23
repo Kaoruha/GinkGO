@@ -3,13 +3,13 @@ Ginkgo 组件校验器模块
 提供用户自定义组件的校验和测试功能，确保组件能够顺利接入框架
 """
 
-from .base_validator import BaseValidator, ValidationResult, ValidationLevel
-from .strategy_validator import StrategyValidator
-from .analyzer_validator import AnalyzerValidator
-from .risk_validator import RiskValidator
-from .sizer_validator import SizerValidator
-from .component_tester import ComponentTester
-from .validation_rules import ValidationRules
+from ginkgo.libs.validators.base_validator import BaseValidator, ValidationResult, ValidationLevel
+from ginkgo.libs.validators.strategy_validator import StrategyValidator
+from ginkgo.libs.validators.analyzer_validator import AnalyzerValidator
+from ginkgo.libs.validators.risk_validator import RiskValidator
+from ginkgo.libs.validators.sizer_validator import SizerValidator
+from ginkgo.libs.validators.component_tester import ComponentTester
+from ginkgo.libs.validators.validation_rules import ValidationRules
 
 # 导出所有校验器类
 __all__ = [

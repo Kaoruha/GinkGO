@@ -7,7 +7,7 @@ FRED宏观经济因子库 - 配置式定义
 数据来源: Federal Reserve Economic Data (FRED) - https://fred.stlouisfed.org/
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class FREDMacroFactors(BaseDefinition):

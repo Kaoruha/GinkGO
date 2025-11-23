@@ -11,7 +11,7 @@
 - CircuitBreaker: 断路器模式实现
 """
 
-from .error_handler import ErrorHandler, ErrorClassifier, ErrorSeverity, RecoveryAction, RetryStrategy
+from ginkgo.data.streaming.recovery.error_handler import ErrorHandler, ErrorClassifier, ErrorSeverity, RecoveryAction, RetryStrategy
 
 # 暂时注释未实现的模块
 # from .recovery_manager import RecoveryManager, RecoveryContext, RecoveryResult

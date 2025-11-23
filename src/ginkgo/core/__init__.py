@@ -9,7 +9,7 @@ Following the successful data module pattern.
 import inspect
 
 # Import the container to access services
-from .containers import container
+from ginkgo.core.containers import container
 
 # Import decorators for API enhancement
 try:
@@ -85,19 +85,19 @@ def get_core_utility(utility_type: str):
 
 try:
     # Import interfaces if available
-    from . import interfaces
+    from ginkgo.core import interfaces
 except ImportError as e:
     interfaces = None
 
 try:
     # Import adapters if available
-    from . import adapters
+    from ginkgo.core import adapters
 except ImportError as e:
     adapters = None
 
 try:
     # Import factories if available
-    from . import factories
+    from ginkgo.core import factories
 except ImportError as e:
     factories = None
 

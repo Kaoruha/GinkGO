@@ -1,4 +1,4 @@
-from typing import TypeVar, Generic, List, Optional, Any, Union, Dict, Callable
+from typing import TypeVar, Generic, List, Optional, Any, Union, Dict, Callable, Type
 from abc import ABC, abstractmethod
 import pandas as pd
 from decimal import Decimal
@@ -6,12 +6,145 @@ from datetime import datetime
 from sqlalchemy import and_, delete, select, text, update
 from sqlalchemy.orm import Session
 
-from ..drivers import get_db_connection, add, add_all
-from ..models import MClickBase, MMysqlBase
-from ...libs import GLOG, time_logger, retry, cache_with_expiration
-from ..access_control import restrict_crud_access
+from ginkgo.data.drivers import get_db_connection, add, add_all
+from ginkgo.data.models import MClickBase, MMysqlBase
+from ginkgo.libs import GLOG, time_logger, retry, cache_with_expiration
+from ginkgo.data.access_control import restrict_crud_access
+from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping
+from ginkgo.data.crud.model_conversion import ModelList
 
 T = TypeVar("T", bound=Union[MClickBase, MMysqlBase])
+
+
+class CRUDResult:
+    """
+    CRUD查询结果包装器
+
+    统一处理CRUD操作的结果，支持链式转换：
+    - to_entities(): 转换为实体
+    - to_dataframe(): 转换为DataFrame
+    - first(): 获取第一个结果
+    - count(): 获取结果数量
+    """
+
+    def __init__(self, models: List[T], crud_instance: 'BaseCRUD'):
+        """
+        初始化CRUD结果包装器
+
+        Args:
+            models: 原始模型对象列表
+            crud_instance: CRUD实例，用于转换方法
+        """
+        self._models = models
+        self._crud_instance = crud_instance
+        self._business_objects_cache = None
+        self._dataframe_cache = None
+
+    def to_business_objects(self) -> List[Any]:
+        """
+        转换为业务对象
+
+        Returns:
+            List of business objects with enum fields converted
+        """
+        if self._business_objects_cache is None:
+            self._business_objects_cache = self._crud_instance._convert_to_business_objects(self._models)
+        return self._business_objects_cache
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """
+        转换为DataFrame
+
+        Returns:
+            pandas DataFrame containing the data
+        """
+        if self._dataframe_cache is None:
+            if not self._models:
+                self._dataframe_cache = pd.DataFrame()
+            else:
+                # 先将模型列表转换为DataFrame
+                df = pd.DataFrame([model.__dict__ for model in self._models])
+                # 移除非数据列
+                columns_to_remove = ['_sa_instance_state']
+                for col in columns_to_remove:
+                    if col in df.columns:
+                        df = df.drop(col, axis=1)
+                # 应用enum转换
+                self._dataframe_cache = self._crud_instance._process_dataframe_output(df)
+        return self._dataframe_cache
+
+    def first(self) -> Optional[T]:
+        """
+        获取第一个结果
+
+        Returns:
+            First model in the result list, or None if empty
+        """
+        return self._models[0] if self._models else None
+
+    def count(self) -> int:
+        """
+        获取结果数量
+
+        Returns:
+            Number of results
+        """
+        return len(self._models)
+
+    def is_empty(self) -> bool:
+        """
+        检查结果是否为空
+
+        Returns:
+            True if no results, False otherwise
+        """
+        return len(self._models) == 0
+
+    def filter(self, predicate: Callable[[T], bool]) -> 'CRUDResult':
+        """
+        过滤结果
+
+        Args:
+            predicate: 过滤函数，接受model参数，返回bool
+
+        Returns:
+            New CRUDResult with filtered models
+        """
+        filtered_models = [model for model in self._models if predicate(model)]
+        return CRUDResult(filtered_models, self._crud_instance)
+
+    def map(self, func: Callable[[T], Any]) -> List[Any]:
+        """
+        映射结果
+
+        Args:
+            func: 映射函数，接受model参数
+
+        Returns:
+            List of mapped results
+        """
+        return [func(model) for model in self._models]
+
+    def __iter__(self):
+        """支持迭代"""
+        return iter(self._models)
+
+    def __len__(self):
+        """支持len()函数"""
+        return len(self._models)
+
+    def __getitem__(self, index):
+        """支持索引访问"""
+        return self._models[index]
+
+    def __bool__(self):
+        """支持布尔判断"""
+        return bool(self._models)
+
+    def __repr__(self):
+        """字符串表示"""
+        model_type = type(self._models[0]).__name__ if self._models else "No models"
+        return f"CRUDResult(count={len(self._models)}, type={model_type})"
 
 
 @restrict_crud_access
@@ -26,12 +159,25 @@ class BaseCRUD(Generic[T], ABC):
     - Automatic database detection (ClickHouse vs MySQL)
     - Database-specific operation handling (ClickHouse limitations)
     - Unified validation architecture via _get_field_config() hook method
+    - Unified conversion interface with ModelConversion capabilities
 
     Validation Architecture:
     - create() → _validate_before_database() → validate_data_by_config(_get_field_config())
     - Subclasses define validation rules by overriding _get_field_config()
     - All validation is configuration-driven and executed automatically
+
+    Subclass Requirements:
+    - Must override _model_class with the appropriate Model class
+    - Must implement _get_field_config() for validation
     """
+
+    # 抽象属性：子类必须重写
+    # 用法说明：
+    # 1. 子类必须设置 _model_class = MYourModel 来指定对应的Model类
+    # 2. __init_subclass__ 会验证 _model_class 是否被正确设置
+    # 3. 自动注册机制会使用 _model_class 来建立 Model-CRUD 映射关系
+    # 4. 如果 _model_class = None，则抛出 NotImplementedError（特殊类如TickCRUD除外）
+    _model_class: Optional[Type[T]] = None
 
     # ClickHouse string fields that need null byte cleaning (from external sources or user input)
     CLICKHOUSE_STRING_FIELDS = [
@@ -44,12 +190,64 @@ class BaseCRUD(Generic[T], ABC):
     ]
 
     def __init__(self, model_class: type[T]):
+        """
+        初始化CRUD实例
+
+        Args:
+            model_class: 对应的Model类，如 MBar, MStockInfo 等
+
+        用法说明：
+        1. model_class 参数用于设置实例变量 self.model_class
+        2. 与类级别的 _model_class 不同：_model_class 用于注册，model_class 用于运行时
+        3. 子类通常调用 super().__init__(MYourModel) 来传递正确的Model类
+        """
         self.model_class = model_class
         self._is_clickhouse = issubclass(model_class, MClickBase)
         self._is_mysql = issubclass(model_class, MMysqlBase)
 
         if not (self._is_clickhouse or self._is_mysql):
             raise ValueError(f"Model {model_class} must inherit from MClickBase or MMysqlBase")
+
+    def __init_subclass__(cls, **kwargs):
+        """
+        🎯 关键：CRUD子类创建时自动注册关系和验证
+        当任何CRUD子类被定义时，这个方法会被Python自动调用
+
+        _model_class 生命周期和作用：
+        1. 类定义时：Python调用 __init_subclass__，验证 cls._model_class 是否设置
+        2. 验证阶段：检查 _model_class 是否继承自 MClickBase 或 MMysqlBase
+        3. 注册阶段：使用 _model_class 调用 ModelCRUDMapping.register(model_class, cls)
+        4. 运行时：可通过 self.model_class 访问实例变量（由__init__设置）
+
+        特殊情况：
+        - TickCRUD 等动态Model类可以豁免 _model_class 验证
+        - 其他所有CRUD子类必须设置 _model_class
+        """
+        super().__init_subclass__(**kwargs)
+
+        # 验证子类是否重写了 _model_class（特殊情况如TickCRUD可以豁免）
+        if cls._model_class is None and cls.__name__ not in ['TickCRUD']:
+            raise NotImplementedError(
+                f"CRUD subclass '{cls.__name__}' must override '_model_class' attribute. "
+                f"Example: _model_class = MYourModel"
+            )
+
+        # 验证 _model_class 是否继承自正确的基类（特殊情况跳过验证）
+        if cls.__name__ not in ['TickCRUD']:
+            model_class = cls._model_class
+            if not (issubclass(model_class, MClickBase) or issubclass(model_class, MMysqlBase)):
+                raise TypeError(
+                    f"CRUD subclass '{cls.__name__}': _model_class must inherit from "
+                    f"MClickBase or MMysqlBase, but got {model_class.__bases__}"
+                )
+
+            # 自动建立Model-CRUD映射关系
+            # 这里使用从类级别 _model_class 获取的 model_class 进行注册
+            # 建立映射后，可以通过 ModelCRUDMapping.get_crud_class(MBar) 找到 BarCRUD
+            ModelCRUDMapping.register(model_class, cls)
+            GLOG.DEBUG(f"Auto-registered: {model_class.__name__} → {cls.__name__}")
+        else:
+            GLOG.DEBUG(f"Skipped auto-registration for {cls.__name__} (dynamic model class)")
 
     def _get_connection(self):
         """Get appropriate database connection based on model type"""
@@ -107,7 +305,7 @@ class BaseCRUD(Generic[T], ABC):
         Raises:
             ValidationError: 当验证失败时
         """
-        from .validation import validate_data_by_config, ValidationError
+        from ginkgo.data.crud.validation import validate_data_by_config, ValidationError
 
         try:
             validated = data.copy()
@@ -236,7 +434,7 @@ class BaseCRUD(Generic[T], ABC):
             session: Optional SQLAlchemy session to use for the operation.
 
         Returns:
-            Added model instance with updated fields
+            Added model instance
         """
         try:
             return self._do_add(item, session)
@@ -246,7 +444,7 @@ class BaseCRUD(Generic[T], ABC):
 
     @time_logger
     @retry(max_try=3)
-    def add_batch(self, items: List[Any], session: Optional[Session] = None) -> tuple[int, int]:
+    def add_batch(self, items: List[Any], session: Optional[Session] = None) -> ModelList:
         """
         Template method: Add multiple items to database in batch.
         支持自动类型转换，不进行数据验证，依赖数据库约束确保数据完整性。
@@ -257,12 +455,14 @@ class BaseCRUD(Generic[T], ABC):
             session: Optional SQLAlchemy session to use for the operation.
 
         Returns:
-            Tuple of (clickhouse_count, mysql_count)
+            ModelList of added model instances with conversion capabilities
         """
         try:
             # 只进行类型转换，不进行数据验证
             converted_items = self._convert_input_batch(items)
-            return self._do_add_batch(converted_items, session)
+            result = self._do_add_batch(converted_items, session)
+            # 返回实际插入的对象（已解绑session），而不是原始转换的对象
+            return ModelList(converted_items, self)
         except Exception as e:
             GLOG.ERROR(f"Failed to add {self.model_class.__name__} items in batch: {e}")
             raise
@@ -280,7 +480,7 @@ class BaseCRUD(Generic[T], ABC):
             **kwargs: Parameters to create the object
 
         Returns:
-            Added model instance with updated fields
+            Created model instance
         """
         try:
             # 先验证参数数据
@@ -300,10 +500,9 @@ class BaseCRUD(Generic[T], ABC):
         order_by: Optional[str] = None,
         desc_order: bool = False,
         as_dataframe: bool = False,
-        output_type: str = "model",
         distinct_field: Optional[str] = None,
         session: Optional[Session] = None,
-    ) -> Union[List[Any], pd.DataFrame]:
+    ) -> ModelList[T]:
         """
         Template method: Find items with enhanced filters and pagination.
         Supports operator filters like field__gte, field__lte, field__in.
@@ -316,25 +515,31 @@ class BaseCRUD(Generic[T], ABC):
             page_size: Number of items per page
             order_by: Field name to order by
             desc_order: Whether to use descending order
-            as_dataframe: Return DataFrame instead of objects
-            output_type: Output format ("model" or subclass-defined)
+            as_dataframe: DEPRECATED - Use models.to_dataframe() instead
             distinct_field: Field name for DISTINCT query (returns unique values of this field)
             session: Optional SQLAlchemy session to use for the operation.
 
         Returns:
-            List of objects or DataFrame (type depends on output_type)
-            If distinct_field is provided, returns List[Any] of unique field values
+            ModelList[T] - 支持to_dataframe()和to_entities()方法
         """
         try:
-            return self._do_find(
-                filters, page, page_size, order_by, desc_order, as_dataframe, output_type, distinct_field, session
+            # Execute query using existing _do_find method
+            raw_results = self._do_find(
+                filters, page, page_size, order_by, desc_order, False, "model", distinct_field, session
             )
+
+            # Ensure we always return a list
+            if isinstance(raw_results, list):
+                models = raw_results
+            else:
+                models = [raw_results] if raw_results else []
+
+            # Return ModelList with conversion capabilities
+            return ModelList(models, self)
+
         except Exception as e:
             GLOG.ERROR(f"Failed to find {self.model_class.__name__} items: {e}")
-            if as_dataframe:
-                return pd.DataFrame()
-            else:
-                return []
+            return ModelList([], self)
 
     def remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> None:
         """
@@ -441,16 +646,59 @@ class BaseCRUD(Generic[T], ABC):
     # Hook Methods - Subclasses can override these without worrying about decorators
     # ============================================================================
 
+    def _validate_item_enum_fields(self, item: Any) -> Any:
+        """
+        🎯 Validate and convert enum fields in an item based on _get_enum_mappings().
+        Ensures enum fields are properly converted to their integer values for database storage.
+
+        Args:
+            item: Item to validate (model instance, entity, or dict)
+
+        Returns:
+            Validated item with enum fields converted to integers
+        """
+        enum_mappings = self._get_enum_mappings()
+        if not enum_mappings:
+            return item  # No enum mappings, return as-is
+
+        # Handle different item types
+        if hasattr(item, '__dict__'):
+            # Model instance or object with attributes
+            for field, enum_class in enum_mappings.items():
+                if hasattr(item, field):
+                    value = getattr(item, field)
+                    if value is not None:
+                        converted_value = self._normalize_single_enum_value(value, enum_class, field)
+                        if converted_value is not None:
+                            try:
+                                setattr(item, field, converted_value)
+                            except AttributeError:
+                                # Skip read-only properties (common in business entities)
+                                from ginkgo.libs import GLOG
+                                GLOG.DEBUG(f"Skipping read-only property {field} for {type(item).__name__}")
+        elif isinstance(item, dict):
+            # Dictionary
+            for field, enum_class in enum_mappings.items():
+                if field in item and item[field] is not None:
+                    converted_value = self._normalize_single_enum_value(item[field], enum_class, field)
+                    if converted_value is not None:
+                        item[field] = converted_value
+
+        return item
+
     def _do_add(self, item: T, session: Optional[Session] = None) -> T:
         """
         Hook method: Override to customize single item addition logic.
         """
+        # 🎯 Validate enum fields before adding to database
+        validated_item = self._validate_item_enum_fields(item)
+
         if session:
-            result = add(item, session=session)
+            result = add(validated_item, session=session)
         else:
             conn = self._get_connection()
             with conn.get_session() as s:
-                result = add(item, session=s)
+                result = add(validated_item, session=s)
         GLOG.DEBUG(f"Added {self.model_class.__name__} item successfully")
         return result
 
@@ -459,12 +707,14 @@ class BaseCRUD(Generic[T], ABC):
         Hook method: Override to customize batch addition logic.
         """
         converted_items = self._convert_input_batch(items)
+
         if session:
             result = add_all(converted_items, session=session)
         else:
             conn = self._get_connection()
             with conn.get_session() as s:
                 result = add_all(converted_items, session=s)
+
         GLOG.DEBUG(f"Added {len(converted_items)} {self.model_class.__name__} items in batch")
         return result
 
@@ -588,7 +838,7 @@ class BaseCRUD(Generic[T], ABC):
         with session_context as s:
             if self._is_clickhouse:
                 # ClickHouse requires native SQL for DELETE operations
-                from ...enums import EnumBase  # Import for enum conversion
+                from ginkgo.enums import EnumBase  # Import for enum conversion
                 sql_parts = []
                 params = {}
 
@@ -715,7 +965,8 @@ class BaseCRUD(Generic[T], ABC):
             # Use exists() for better performance than count()
             exists = s.query(query.exists()).scalar()
             GLOG.DEBUG(f"Checked existence of {self.model_class.__name__} records: {exists}")
-            return exists
+            # Explicitly convert to bool (ClickHouse may return 1/0 instead of True/False)
+            return bool(exists)
 
     def _do_soft_remove(self, filters: Dict[str, Any], session: Optional[Session] = None) -> None:
         """
@@ -757,22 +1008,27 @@ class BaseCRUD(Generic[T], ABC):
         """
         Convert a batch of input items to model instances.
         Attempts automatic conversion for each item.
+        🎯 Also validates enum fields for all items.
 
         Args:
             items: List of input items (may be mixed types)
 
         Returns:
-            List of converted model instances
+            List of converted model instances with validated enum fields
         """
         converted = []
         for item in items:
             if isinstance(item, self.model_class):
-                converted.append(item)
+                # 🎯 Validate enum fields for existing model instances
+                validated_item = self._validate_item_enum_fields(item)
+                converted.append(validated_item)
             else:
                 # Try to convert using subclass conversion method
                 converted_item = self._convert_input_item(item)
                 if converted_item is not None:
-                    converted.append(converted_item)
+                    # 🎯 Validate enum fields for converted items
+                    validated_item = self._validate_item_enum_fields(converted_item)
+                    converted.append(validated_item)
                 else:
                     GLOG.DEBUG(f"Cannot convert item {type(item)} to {self.model_class.__name__}")
         return converted
@@ -802,11 +1058,203 @@ class BaseCRUD(Generic[T], ABC):
         """
         return items  # Default: return model instances as-is
 
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Hook method: Override to define field-to-enum mappings.
+        Subclasses should return a dictionary mapping field names to enum classes.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+            Example: {'market': MARKET_TYPES, 'currency': CURRENCY_TYPES}
+        """
+        return {}  # Default: no enum conversions
+
+    def _process_dataframe_output(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        🎯 Hook method: Process DataFrame output with enum conversions.
+        Applies enum mappings to DataFrame columns.
+
+        Args:
+            df: Raw DataFrame from database
+
+        Returns:
+            DataFrame with enum fields properly converted
+        """
+        enum_mappings = self._get_enum_mappings()
+        if not enum_mappings:
+            return df
+
+        df_converted = df.copy()
+        for column, enum_class in enum_mappings.items():
+            if column in df_converted.columns:
+                df_converted[column] = df_converted[column].apply(
+                    lambda x: self._safe_enum_convert(x, enum_class)
+                )
+
+        return df_converted
+
+    def _convert_to_business_objects(self, raw_results: List[T]) -> List[Any]:
+        """
+        🎯 Hook method: Convert raw models to business objects.
+        First fixes enum fields, then calls business object conversion hook.
+
+        Args:
+            raw_results: List of raw model instances from database
+
+        Returns:
+            List of converted business objects
+        """
+        # First fix enum fields in raw models
+        enum_mappings = self._get_enum_mappings()
+        for model in raw_results:
+            for column, enum_class in enum_mappings.items():
+                if hasattr(model, column):
+                    current_value = getattr(model, column)
+                    converted_value = self._safe_enum_convert(current_value, enum_class)
+                    if converted_value is not None:
+                        setattr(model, column, converted_value)
+
+        # Then call business object conversion hook
+        return self._convert_models_to_business_objects(raw_results)
+
+    def _convert_models_to_business_objects(self, models: List[T]) -> List[Any]:
+        """
+        🎯 Hook method: Convert enum-fixed models to business objects.
+        Subclasses should override this method to implement specific business logic.
+
+        Args:
+            models: List of models with enum fields already fixed
+
+        Returns:
+            List of business objects
+        """
+        return models  # Default: return models as-is
+
+    def _convert_models_to_dataframe(self, models: List[T]) -> pd.DataFrame:
+        """
+        🎯 Convert models to pandas DataFrame with enum conversion.
+
+        Args:
+            models: List of model instances
+
+        Returns:
+            pandas DataFrame with enum fields converted to their proper representation
+        """
+        if not models:
+            return pd.DataFrame()
+
+        # First fix enum fields in models
+        enum_mappings = self._get_enum_mappings()
+        for model in models:
+            for column, enum_class in enum_mappings.items():
+                if hasattr(model, column):
+                    current_value = getattr(model, column)
+                    converted_value = self._safe_enum_convert(current_value, enum_class)
+                    if converted_value is not None:
+                        setattr(model, column, converted_value)
+
+        # Convert to DataFrame
+        data = []
+        for model in models:
+            model_dict = model.__dict__.copy()
+            # Remove SQLAlchemy internal state
+            model_dict.pop('_sa_instance_state', None)
+            data.append(model_dict)
+
+        return pd.DataFrame(data)
+
+    def _safe_enum_convert(self, value, enum_class):
+        """
+        Utility method: Safe enum conversion with error handling.
+
+        Args:
+            value: Value to convert (typically int)
+            enum_class: Enum class to convert to
+
+        Returns:
+            Enum instance or original value if conversion fails
+        """
+        try:
+            if value is None:
+                return None
+            return enum_class(value)
+        except (ValueError, TypeError):
+            return value  # Return original value if conversion fails
+
+    def _convert_enum_values(self, filters: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        🎯 Convert enum values based on _get_enum_mappings() for precise enum handling.
+        Only processes fields defined in enum_mappings, avoiding unnecessary type checks.
+
+        Args:
+            filters: Original filters dictionary
+
+        Returns:
+            Filters dictionary with enum values converted to integers
+        """
+        enum_mappings = self._get_enum_mappings()
+        if not enum_mappings:
+            return filters  # No enum mappings, return as-is
+
+        converted_filters = filters.copy()
+
+        for field, enum_class in enum_mappings.items():
+            # Handle direct field matches
+            if field in converted_filters:
+                value = converted_filters[field]
+                converted_filters[field] = self._normalize_single_enum_value(value, enum_class, field)
+
+            # Handle operator suffixed fields (e.g., status__in, direction__gte)
+            for suffix in ['__gte', '__lte', '__gt', '__lt', '__in', '__like']:
+                field_with_suffix = field + suffix
+                if field_with_suffix in converted_filters:
+                    value = converted_filters[field_with_suffix]
+                    converted_filters[field_with_suffix] = self._normalize_single_enum_value(value, enum_class, field)
+
+        return converted_filters
+
+    def _normalize_single_enum_value(self, value, enum_class, field_name: str):
+        """
+        🎯 Normalize a single enum value based on the expected enum class.
+
+        Args:
+            value: The value to normalize (enum, int, or list)
+            enum_class: The expected enum class
+            field_name: Field name for logging purposes
+
+        Returns:
+            Normalized value (enum converted to int, int validated, or original value)
+        """
+        if value is None:
+            return None
+
+        if isinstance(value, enum_class):
+            # Convert enum to its integer value
+            return value.value
+        elif isinstance(value, list):
+            # Handle lists containing enum values
+            return [
+                item.value if isinstance(item, enum_class) else item
+                for item in value if item is not None
+            ]
+        elif isinstance(value, int):
+            # Validate that the integer is a valid enum value
+            try:
+                enum_class(value)  # This will raise ValueError if invalid
+                return value
+            except ValueError:
+                from ginkgo.libs import GLOG
+                GLOG.WARN(f"Invalid enum value {value} for field {field_name}, expected {enum_class.__name__}")
+                return value  # Return original value instead of None
+        else:
+            # Not an enum field value, return as-is
+            return value
+
     def _parse_filters(self, filters: Dict[str, Any]) -> List[Any]:
         """
         Parse enhanced filters with operator support.
         Supports operators: gte, lte, gt, lt, in, like
-        Automatically converts enum objects to integers for database compatibility.
+        Uses _get_enum_mappings() for precise enum-to-integer conversion.
 
         Args:
             filters: Dictionary with field__operator keys
@@ -815,18 +1263,12 @@ class BaseCRUD(Generic[T], ABC):
         Returns:
             List of SQLAlchemy filter conditions
         """
-        from ...enums import EnumBase  # Import at method level to avoid circular imports
-        
+        # 🎯 First, convert enum values based on mappings for precise handling
+        converted_filters = self._convert_enum_values(filters)
+
         conditions = []
 
-        for key, value in filters.items():
-            # Convert enum objects to integers for database compatibility
-            if isinstance(value, EnumBase):
-                value = value.value
-            elif isinstance(value, list):
-                # Handle list values (e.g., for __in operator)
-                value = [item.value if isinstance(item, EnumBase) else item for item in value]
-            
+        for key, value in converted_filters.items():
             if "__" in key:
                 field, operator = key.split("__", 1)
                 if hasattr(self.model_class, field):
@@ -844,6 +1286,7 @@ class BaseCRUD(Generic[T], ABC):
                     elif operator == "like":
                         conditions.append(attr.like(f"%{value}%"))
                     else:
+                        from ginkgo.libs import GLOG
                         GLOG.DEBUG(f"Unknown filter operator: {operator}")
             else:
                 # Standard equality filter
@@ -883,8 +1326,8 @@ class BaseCRUD(Generic[T], ABC):
             
         try:
             # 导入流式查询模块（延迟导入避免循环依赖）
-            from ..streaming.config import get_config
-            from ..streaming.engines import BaseStreamingEngine
+            from ginkgo.data.streaming.config import get_config
+            from ginkgo.data.streaming.engines import BaseStreamingEngine
             
             # 加载配置
             self._streaming_config = get_config()
@@ -917,13 +1360,13 @@ class BaseCRUD(Generic[T], ABC):
             try:
                 # 延迟导入和创建引擎
                 if self._is_mysql:
-                    from ..streaming.engines.mysql_streaming_engine import MySQLStreamingEngine
+                    from ginkgo.data.streaming.engines.mysql_streaming_engine import MySQLStreamingEngine
                     self._streaming_engine = MySQLStreamingEngine(
                         self._get_connection(), 
                         self._streaming_config
                     )
                 elif self._is_clickhouse:
-                    from ..streaming.engines.clickhouse_streaming_engine import ClickHouseStreamingEngine
+                    from ginkgo.data.streaming.engines.clickhouse_streaming_engine import ClickHouseStreamingEngine
                     self._streaming_engine = ClickHouseStreamingEngine(
                         self._get_connection(),
                         self._streaming_config
@@ -1017,7 +1460,7 @@ class BaseCRUD(Generic[T], ABC):
         
         if progress_callback:
             # 创建进度观察者
-            from ..streaming.engines.base_streaming_engine import ProgressObserver
+            from ginkgo.data.streaming.engines.base_streaming_engine import ProgressObserver
             
             class CallbackObserver(ProgressObserver):
                 def __init__(self, callback):
@@ -1065,7 +1508,7 @@ class BaseCRUD(Generic[T], ABC):
         checkpoint_state = None
         if self._streaming_config.recovery.enable_checkpoint:
             try:
-                from ..streaming.managers.checkpoint_manager import CheckpointManager
+                from ginkgo.data.streaming.managers.checkpoint_manager import CheckpointManager
                 # 这里需要Redis连接，暂时跳过具体实现
                 # checkpoint_manager = CheckpointManager(redis_client)
                 # checkpoint_state = checkpoint_manager.load_checkpoint(query_id)

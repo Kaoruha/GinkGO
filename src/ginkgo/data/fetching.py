@@ -8,18 +8,18 @@ import pandas as pd
 import time
 from datetime import datetime, timedelta
 
-from .sources import GinkgoTushare, GinkgoTDX
-from .utils import get_crud, is_code_in_stocklist
-from ..libs import (
+from ginkgo.data.sources import GinkgoTushare, GinkgoTDX
+from ginkgo.data.utils import get_crud, is_code_in_stocklist
+from ginkgo.libs import (
     GCONF,
     GLOG,
     datetime_normalize,
     to_decimal,
     RichProgress,
 )
-from .models import MAdjustfactor, MBar, MStockInfo
-from ..backtest import Tick
-from ..enums import SOURCE_TYPES, FREQUENCY_TYPES, CURRENCY_TYPES, MARKET_TYPES, TICKDIRECTION_TYPES
+from ginkgo.data.models import MAdjustfactor, MBar, MStockInfo
+from ginkgo.trading import Tick
+from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES, CURRENCY_TYPES, MARKET_TYPES, TICKDIRECTION_TYPES
 
 # --- Adjustfactor --- #
 def _get_adjustfactor_fetch_range(code: str, fast_mode: bool) -> tuple:
