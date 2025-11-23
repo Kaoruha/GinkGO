@@ -134,7 +134,7 @@ class TestSignalT1Delay:
         self.engine._run_id = "test_run_t300"  # 手动设置run_id用于测试
 
         # 绑定Portfolio到引擎（自动设置事件发布器）
-        self.engine.bind_portfolio(self.portfolio)
+        self.engine.add_portfolio(self.portfolio)
 
         # 初始化事件统计
         self.signals_received = 0

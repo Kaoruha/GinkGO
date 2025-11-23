@@ -30,8 +30,8 @@ def _init_example_engine() -> Dict[str, Any]:
 
     # 1. Force delete existing engines using hard delete
     existing_engines = engine_service.get_engines(name=engine_name, as_dataframe=True)
-    if not existing_engines.empty:
-        engine_ids = existing_engines["uuid"].tolist()
+    if len(existing_engines) > 0:
+        engine_ids = [engine.uuid for engine in existing_engines]
         deleted_count = 0
         try:
             with engine_service.crud_repo.get_session() as session:
@@ -44,7 +44,7 @@ def _init_example_engine() -> Dict[str, Any]:
 
     # 2. Verify deletion completed
     remaining = engine_service.get_engines(name=engine_name, as_dataframe=True)
-    if remaining.empty:
+    if len(remaining) == 0:
         console.print(f":white_check_mark: Verified engine deletion completed.")
     else:
         console.print(f":warning: Still {len(remaining)} engines remaining, but continuing creation.")
@@ -85,8 +85,8 @@ def _init_example_files() -> int:
 
             # Remove existing files with same name and type using hard delete
             existing_files = file_service.get_files(name=preset_name, file_type=file_type, as_dataframe=True)
-            if not existing_files.empty:
-                file_ids = existing_files["uuid"].tolist()
+            if len(existing_files) > 0:
+                file_ids = [file.uuid for file in existing_files]
                 deleted_count = 0
                 try:
                     with file_service.crud_repo.get_session() as session:
@@ -120,8 +120,8 @@ def _init_example_portfolio() -> Dict[str, Any]:
 
     # 1. Force delete existing portfolios using hard delete
     existing_portfolios = portfolio_service.get_portfolios(name=portfolio_name, as_dataframe=True)
-    if not existing_portfolios.empty:
-        portfolio_ids = existing_portfolios["uuid"].tolist()
+    if len(existing_portfolios) > 0:
+        portfolio_ids = [portfolio.uuid for portfolio in existing_portfolios]
         deleted_count = 0
         try:
             with portfolio_service.crud_repo.get_session() as session:
@@ -134,7 +134,7 @@ def _init_example_portfolio() -> Dict[str, Any]:
 
     # 2. Verify deletion completed
     remaining = portfolio_service.get_portfolios(name=portfolio_name, as_dataframe=True)
-    if remaining.empty:
+    if len(remaining) == 0:
         console.print(f":white_check_mark: Verified portfolio deletion completed.")
     else:
         console.print(f":warning: Still {len(remaining)} portfolios remaining, but continuing creation.")
@@ -153,7 +153,7 @@ def _validate_sample_data() -> bool:
         stockinfo_service = container.stockinfo_service()
         stocks = stockinfo_service.get_stockinfos(page_size=5, as_dataframe=True)
 
-        if stocks.empty:
+        if len(stocks) == 0:
             console.print(
                 ":warning: No stock information found. Run 'ginkgo data update --stockinfo' to populate sample data."
             )
@@ -250,16 +250,16 @@ def run():
             # Get file by name and type
             files = file_service.get_files(name=config["file_name"], file_type=config["file_type"], as_dataframe=True)
 
-            if files.empty:
+            if len(files) == 0:
                 console.print(f":warning: Component not found: {config['file_name']}")
                 continue
 
-            component_file = files.iloc[0]
+            component_file = files[0]  # ModelList supports indexing
 
             # Create portfolio-file mapping
             mapping = portfolio_service.add_file_to_portfolio(
                 portfolio_id=portfolio_id,
-                file_id=component_file["uuid"],
+                file_id=component_file.uuid,
                 name=config["mapping_name"],
                 file_type=config["file_type"],
             )

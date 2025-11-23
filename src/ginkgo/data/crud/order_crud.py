@@ -117,6 +117,11 @@ class OrderCRUD(BaseCRUD[MOrder]):
             'source': {
                 'type': 'enum',
                 'choices': [s for s in SOURCE_TYPES]
+            },
+
+            # 业务时间戳 - datetime 或字符串，可选
+            'business_timestamp': {
+                'type': ['datetime', 'string', 'none']
             }
         }
 
@@ -164,6 +169,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
             remain=kwargs.get("remain", 0.0),
             fee=kwargs.get("fee", 0.0),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
             source=source_value,
         )
 
@@ -187,6 +193,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
                 remain=to_decimal(getattr(item, 'remain', 0)),
                 fee=to_decimal(getattr(item, 'fee', 0)),
                 timestamp=datetime_normalize(getattr(item, 'timestamp')),
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
@@ -551,7 +558,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
         
-        orders = self.find(filters=filters, as_dataframe=False, output_type="model")
+        orders = self.find(filters=filters, as_dataframe=False)
         
         if not orders:
             return {

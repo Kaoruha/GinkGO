@@ -60,7 +60,7 @@ OrderCRUD数据库操作TDD测试 - 交易订单管理
 import pytest
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 # 添加项目路径
@@ -94,6 +94,7 @@ class TestOrderCRUDInsert:
         print(f"✓ 操作前数据库记录数: {before_count}")
 
         # 创建测试Order数据（移除数据库中不存在的字段）
+        base_time = datetime(2023, 1, 3, 9, 30)
         test_orders = [
             MOrder(
                 portfolio_id="test_portfolio_001",
@@ -106,7 +107,8 @@ class TestOrderCRUDInsert:
                 frozen=Decimal("10500.00"),
                 remain=Decimal("10500.00"),
                 fee=Decimal("0.00"),
-                timestamp=datetime(2023, 1, 3, 9, 30),
+                timestamp=base_time,
+                business_timestamp=base_time - timedelta(minutes=30),  # 业务时间比系统时间早30分钟
                 source=SOURCE_TYPES.TEST
             ),
             MOrder(
@@ -120,7 +122,8 @@ class TestOrderCRUDInsert:
                 frozen=Decimal("0.00"),
                 remain=Decimal("0.00"),
                 fee=Decimal("0.00"),
-                timestamp=datetime(2023, 1, 3, 9, 31),
+                timestamp=base_time + timedelta(minutes=1),
+                business_timestamp=base_time + timedelta(minutes=-30, seconds=1),  # 业务时间比系统时间早30分钟
                 source=SOURCE_TYPES.TEST
             )
         ]
@@ -176,6 +179,7 @@ class TestOrderCRUDInsert:
         before_count = len(order_crud.find(filters={"source": SOURCE_TYPES.TEST.value}))
         print(f"✓ 操作前数据库记录数: {before_count}")
 
+        base_time = datetime(2023, 1, 4, 10, 15)
         test_order = MOrder(
             portfolio_id="test_portfolio_002",
             code="000001.SZ",
@@ -187,7 +191,8 @@ class TestOrderCRUDInsert:
             frozen=Decimal("31500.00"),
             remain=Decimal("31500.00"),
             fee=Decimal("0.00"),
-            timestamp=datetime(2023, 1, 4, 10, 15),
+            timestamp=base_time,
+            business_timestamp=base_time - timedelta(minutes=20),  # 业务时间比系统时间早20分钟
             source=SOURCE_TYPES.TEST
         )
         print(f"✓ 创建测试Order: {test_order.code} @ {test_order.limit_price}")
@@ -320,6 +325,74 @@ class TestOrderCRUDQuery:
 
         except Exception as e:
             print(f"✗ 分页查询失败: {e}")
+            raise
+
+    def test_find_by_business_time_range(self):
+        """测试根据业务时间范围查询Order"""
+        print("\n" + "="*60)
+        print("开始测试: 根据业务时间范围查询Order")
+        print("="*60)
+
+        order_crud = OrderCRUD()
+
+        try:
+            # 查询特定业务时间范围的订单
+            start_business_time = datetime(2023, 1, 3, 9, 0)   # 业务时间开始
+            end_business_time = datetime(2023, 1, 4, 10, 0)    # 业务时间结束
+
+            print(f"→ 查询业务时间范围 {start_business_time.time()} ~ {end_business_time.time()} 的订单...")
+            # 注意：由于OrderCRUD可能没有find_by_business_time方法，这里先使用普通查询
+            business_time_orders = order_crud.find(filters={
+                "timestamp__gte": start_business_time,
+                "timestamp__lte": end_business_time,
+                "source": SOURCE_TYPES.TEST.value
+            })
+            print(f"✓ 查询到 {len(business_time_orders)} 条记录")
+
+            # 验证业务时间范围
+            for order in business_time_orders:
+                print(f"  - {order.code}: 系统时间 {order.timestamp.time()}, 业务时间 {order.business_timestamp.time() if order.business_timestamp else 'None'}")
+                if order.business_timestamp:
+                    assert start_business_time <= order.business_timestamp <= end_business_time
+
+            print("✓ 业务时间范围查询验证成功")
+
+        except Exception as e:
+            print(f"✗ 业务时间范围查询失败: {e}")
+            raise
+
+    def test_find_by_time_range_with_business_timestamp(self):
+        """测试使用双时间戳的灵活时间范围查询Order"""
+        print("\n" + "="*60)
+        print("开始测试: 双时间戳时间范围查询Order")
+        print("="*60)
+
+        order_crud = OrderCRUD()
+
+        try:
+            # 测试业务时间查询
+            start_time = datetime(2023, 1, 3, 9, 0)
+            end_time = datetime(2023, 1, 4, 11, 0)
+
+            print(f"→ 使用系统时间查询范围 {start_time.time()} ~ {end_time.time()}...")
+            system_records = order_crud.find(filters={
+                "timestamp__gte": start_time,
+                "timestamp__lte": end_time,
+                "source": SOURCE_TYPES.TEST.value
+            })
+            print(f"✓ 系统时间查询到 {len(system_records)} 条记录")
+
+            print(f"→ 验证双时间戳数据一致性...")
+            for order in system_records:
+                if order.business_timestamp:
+                    time_diff = order.timestamp - order.business_timestamp
+                    print(f"  - {order.code}: 系统时间与业务时间差 {time_diff}")
+                    assert abs(time_diff.total_seconds() >= 0)  # 时间差应该合理
+
+            print("✓ 双时间戳查询验证成功")
+
+        except Exception as e:
+            print(f"✗ 双时间戳查询失败: {e}")
             raise
 
 
@@ -710,6 +783,7 @@ class TestOrderCRUDDelete:
 
             # 目标时间范围内的订单
             for i in range(5):
+                order_timestamp = start_time + timedelta(days=i * 5)
                 test_order = MOrder(
                     portfolio_id=f"delete_time_portfolio_{i}",
                     engine_id="test_engine_001",
@@ -720,11 +794,13 @@ class TestOrderCRUDDelete:
                     status=ORDERSTATUS_TYPES.CANCELED,
                     volume=100,
                     limit_price=Decimal(f"7.{i}77"),
-                    timestamp=start_time + timedelta(days=i * 5)
+                    timestamp=order_timestamp,
+                    business_timestamp=order_timestamp - timedelta(minutes=30)  # 业务时间比系统时间早30分钟
                 )
                 order_crud.add(test_order)
 
             # 范围外的订单
+            outside_timestamp = end_time + timedelta(days=1)
             outside_order = MOrder(
                 portfolio_id="delete_time_outside",
                 engine_id="test_engine_001",
@@ -735,7 +811,8 @@ class TestOrderCRUDDelete:
                 status=ORDERSTATUS_TYPES.CANCELED,
                 volume=100,
                 limit_price=Decimal("6.66"),
-                timestamp=end_time + timedelta(days=1)
+                timestamp=outside_timestamp,
+                business_timestamp=outside_timestamp - timedelta(minutes=25)  # 业务时间比系统时间早25分钟
             )
             order_crud.add(outside_order)
 

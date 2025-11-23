@@ -1254,7 +1254,7 @@ class TestEndToEnd:
 
                 # 创建时间推进事件
                 time_event = EventTimeAdvance(target_time=event_datetime)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 创建价格更新事件
                 bar = Bar(
@@ -1269,7 +1269,7 @@ class TestEndToEnd:
                     timestamp=event_datetime
                 )
                 price_event = EventPriceUpdate(price_info=bar, timestamp=event_datetime)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 等待事件处理
                 time_module.sleep(0.05)
@@ -1355,7 +1355,7 @@ class TestEndToEnd:
         # 1. 初始化阶段
         track_workflow_state('initialization_phase')
         init_event = EventTimeAdvance(dt.now(timezone.utc))
-        engine.put_event(init_event)
+        engine.put(init_event)
 
         # 2. 数据处理阶段
         track_workflow_state('data_processing_phase')
@@ -1368,7 +1368,7 @@ class TestEndToEnd:
                 timestamp=dt.now(timezone.utc)
             )
             price_event = EventPriceUpdate(price_info=tick)
-            engine.put_event(price_event)
+            engine.put(price_event)
 
         # 3. 策待处理完成
         time_module.sleep(0.1)
@@ -1376,17 +1376,17 @@ class TestEndToEnd:
         # 4. 策略执行阶段
         track_workflow_state('strategy_execution_phase')
         strategy_event = EventTimeAdvance(dt.now(timezone.utc))
-        engine.put_event(strategy_event)
+        engine.put(strategy_event)
 
         # 5. 风控管理阶段
         track_workflow_state('risk_management_phase')
         risk_event = EventTimeAdvance(dt.now(timezone.utc))
-        engine.put_event(risk_event)
+        engine.put(risk_event)
 
         # 6. 完成阶段
         track_workflow_state('completion_phase')
         completion_event = EventTimeAdvance(dt.now(timezone.utc))
-        engine.put_event(completion_event)
+        engine.put(completion_event)
 
         # 等待所有事件处理
         time_module.sleep(0.2)

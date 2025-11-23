@@ -56,7 +56,8 @@ class TestPositionRecordCRUDInsert:
             frozen_money=Decimal("0.00"),
             price=Decimal("12.52"),
             fee=Decimal("6.26"),
-            timestamp=base_time
+            timestamp=base_time,
+            business_timestamp=base_time - timedelta(minutes=3)  # 业务时间比系统时间早3分钟
         )
         buy_record.source = SOURCE_TYPES.TEST
         test_records.append(buy_record)
@@ -72,7 +73,8 @@ class TestPositionRecordCRUDInsert:
             frozen_money=Decimal("0.00"),
             price=Decimal("18.73"),
             fee=Decimal("3.75"),
-            timestamp=base_time + timedelta(minutes=5)
+            timestamp=base_time + timedelta(minutes=5),
+            business_timestamp=base_time + timedelta(minutes=2)  # 业务时间比系统时间早3分钟
         )
         sell_record.source = SOURCE_TYPES.TEST
         test_records.append(sell_record)
@@ -88,7 +90,8 @@ class TestPositionRecordCRUDInsert:
             frozen_money=Decimal("7680.00"),
             price=Decimal("25.68"),
             fee=Decimal("8.19"),
-            timestamp=base_time + timedelta(minutes=10)
+            timestamp=base_time + timedelta(minutes=10),
+            business_timestamp=base_time + timedelta(minutes=7)  # 业务时间比系统时间早3分钟
         )
         freeze_record.source = SOURCE_TYPES.TEST
         test_records.append(freeze_record)
@@ -130,6 +133,7 @@ class TestPositionRecordCRUDInsert:
 
         position_record_crud = PositionRecordCRUD()
 
+        base_time = datetime(2023, 1, 3, 10, 30)
         test_record = MPositionRecord(
             portfolio_id="portfolio_003",
             engine_id="engine_002",
@@ -140,7 +144,8 @@ class TestPositionRecordCRUDInsert:
             frozen_money=Decimal("0.00"),
             price=Decimal("8.87"),
             fee=Decimal("9.96"),
-            timestamp=datetime(2023, 1, 3, 10, 30),
+            timestamp=base_time,
+            business_timestamp=base_time - timedelta(minutes=5),  # 业务时间比系统时间早5分钟
             source=SOURCE_TYPES.TEST
         )
         print(f"✓ 创建测试PositionRecord")
@@ -625,6 +630,66 @@ class TestPositionRecordCRUDBusinessLogic:
 
         except Exception as e:
             print(f"✗ 持仓流分析失败: {e}")
+            raise
+
+    def test_find_by_business_time_range(self):
+        """测试根据业务时间范围查询PositionRecord"""
+        print("\n" + "="*60)
+        print("开始测试: 根据业务时间范围查询PositionRecord")
+        print("="*60)
+
+        position_record_crud = PositionRecordCRUD()
+
+        try:
+            start_business_time = datetime(2023, 1, 3, 9, 25)
+            end_business_time = datetime(2023, 1, 3, 10, 35)
+
+            print(f"→ 查询业务时间范围 {start_business_time.time()} ~ {end_business_time.time()} 的持仓记录...")
+            business_time_records = position_record_crud.find(filters={
+                "timestamp__gte": start_business_time,
+                "timestamp__lte": end_business_time,
+                "source": SOURCE_TYPES.TEST.value
+            })
+            print(f"✓ 查询到 {len(business_time_records)} 条记录")
+
+            for record in business_time_records:
+                if record.business_timestamp:
+                    assert start_business_time <= record.business_timestamp <= end_business_time
+
+            print("✓ 业务时间范围查询验证成功")
+
+        except Exception as e:
+            print(f"✗ 业务时间范围查询失败: {e}")
+            raise
+
+    def test_find_by_time_range_with_business_timestamp(self):
+        """测试使用双时间戳的灵活时间范围查询PositionRecord"""
+        print("\n" + "="*60)
+        print("开始测试: 双时间戳时间范围查询PositionRecord")
+        print("="*60)
+
+        position_record_crud = PositionRecordCRUD()
+
+        try:
+            start_time = datetime(2023, 1, 3, 9, 0)
+            end_time = datetime(2023, 1, 3, 11, 0)
+
+            system_records = position_record_crud.find(filters={
+                "timestamp__gte": start_time,
+                "timestamp__lte": end_time,
+                "source": SOURCE_TYPES.TEST.value
+            })
+            print(f"✓ 系统时间查询到 {len(system_records)} 条记录")
+
+            for record in system_records:
+                if record.business_timestamp:
+                    time_diff = record.timestamp - record.business_timestamp
+                    assert abs(time_diff.total_seconds() >= 0)
+
+            print("✓ 双时间戳查询验证成功")
+
+        except Exception as e:
+            print(f"✗ 双时间戳查询失败: {e}")
             raise
 
 

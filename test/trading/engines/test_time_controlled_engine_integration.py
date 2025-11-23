@@ -163,7 +163,7 @@ class TestTimeControlledEngineIntegration:
 
                 # 创建时间推进事件
                 time_event = EventTimeAdvance(target_time=event_datetime)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 创建价格更新事件
                 tick = Tick(
@@ -174,7 +174,7 @@ class TestTimeControlledEngineIntegration:
                     timestamp=event_datetime
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=event_datetime)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 等待引擎处理事件
                 time_module.sleep(0.05)  # 给引擎时间处理事件
@@ -335,7 +335,7 @@ class TestTimeControlledEngineIntegration:
 
                 # 创建时间推进事件
                 time_event = EventTimeAdvance(target_time=event_datetime)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 创建价格更新事件（工作日价格波动更大，周末较小）
                 price_variation = 0.2 if not is_weekend else 0.05
@@ -349,7 +349,7 @@ class TestTimeControlledEngineIntegration:
                     timestamp=event_datetime
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=event_datetime)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 等待引擎处理事件
                 time_module.sleep(0.05)  # 给引擎时间处理事件
@@ -619,7 +619,7 @@ class TestTimeControlledEngineIntegration:
             for i, engine in enumerate(engines):
                 # 时间推进事件
                 time_event = EventTimeAdvance(target_time=time_point)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 价格更新事件
                 tick = Tick(
@@ -630,7 +630,7 @@ class TestTimeControlledEngineIntegration:
                     timestamp=time_point
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=time_point)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 等待引擎处理事件
             time_module.sleep(0.05)  # 给引擎时间处理事件
@@ -1385,7 +1385,7 @@ class TestPerformanceAndStress:
             engine._time_provider.advance_time_to(new_time)
 
             time_event = EventTimeAdvance(target_time=new_time)
-            engine.put_event(time_event)
+            engine.put(time_event)
 
             # 价格更新
             tick = Tick(
@@ -1396,7 +1396,7 @@ class TestPerformanceAndStress:
                 timestamp=new_time
             )
             price_event = EventPriceUpdate(price_info=tick, timestamp=new_time)
-            engine.put_event(price_event)
+            engine.put(price_event)
 
         # 等待处理完成
         time.sleep(0.5)
@@ -1481,7 +1481,7 @@ class TestPerformanceAndStress:
                     engine._time_provider.advance_time_to(event_time)
 
                     time_event = EventTimeAdvance(target_time=event_time)
-                    engine.put_event(time_event)
+                    engine.put(time_event)
 
                     # 生成对应的价格更新事件
                     tick = Tick(
@@ -1492,7 +1492,7 @@ class TestPerformanceAndStress:
                         timestamp=event_time
                     )
                     price_event = EventPriceUpdate(price_info=tick, timestamp=event_time)
-                    engine.put_event(price_event)
+                    engine.put(price_event)
 
                 # 每100个批次进行一次内存检查
                 if batch % 100 == 0:

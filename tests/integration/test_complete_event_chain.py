@@ -163,7 +163,7 @@ class TestCompleteEventFlow:
         self.portfolio.advance_time(base_time)
 
         # 绑定Portfolio到引擎（这会自动处理引擎绑定和事件发布器）
-        self.engine.bind_portfolio(self.portfolio)
+        self.engine.add_portfolio(self.portfolio)
 
         # 设置引擎ID
         test_engine_id = "test_engine_complete_flow"
@@ -221,7 +221,7 @@ class TestCompleteEventFlow:
         self.engine.engine_id = test_engine_id
 
         # 绑定Portfolio到引擎（这会自动处理引擎绑定和事件发布器）
-        self.engine.bind_portfolio(self.portfolio)
+        self.engine.add_portfolio(self.portfolio)
 
         # 手动注册Portfolio的事件处理器，保持方法单一职责
         self.engine.register(EVENT_TYPES.SIGNALGENERATION, self.portfolio.on_signal)
@@ -387,7 +387,7 @@ class TestMultiComponentCollaboration:
         self.portfolio.add_risk_manager(self.risk_manager)
 
         # 绑定Portfolio到引擎并注册事件处理器
-        self.engine.bind_portfolio(self.portfolio)
+        self.engine.add_portfolio(self.portfolio)
         self.engine.register(EVENT_TYPES.PRICEUPDATE, self.portfolio.on_price_received)
         self.engine.register(EVENT_TYPES.SIGNALGENERATION, self.portfolio.on_signal)
 
@@ -514,7 +514,7 @@ class TestDelayedExecutionCycle:
         self.portfolio.add_risk_manager(self.risk_manager)
 
         # 绑定Portfolio到引擎并注册事件处理器
-        self.engine.bind_portfolio(self.portfolio)
+        self.engine.add_portfolio(self.portfolio)
         self.engine.register(EVENT_TYPES.PRICEUPDATE, self.portfolio.on_price_received)
         self.engine.register(EVENT_TYPES.SIGNALGENERATION, self.portfolio.on_signal)
 
@@ -661,7 +661,7 @@ class TestEventFlowIntegrity:
         self.portfolio.add_risk_manager(self.risk_manager)
 
         # 绑定Portfolio到引擎并注册事件处理器
-        self.engine.bind_portfolio(self.portfolio)
+        self.engine.add_portfolio(self.portfolio)
         self.engine.register(EVENT_TYPES.PRICEUPDATE, self.portfolio.on_price_received)
         self.engine.register(EVENT_TYPES.SIGNALGENERATION, self.portfolio.on_signal)
 
@@ -805,7 +805,7 @@ class TestOrderFlowAndMatching:
         self.portfolio.advance_time(base_time)
 
         # 绑定Portfolio到Engine
-        self.engine.bind_portfolio(self.portfolio)
+        self.engine.add_portfolio(self.portfolio)
 
         # 手动注册事件处理器
         self.engine.register(EVENT_TYPES.SIGNALGENERATION, self.portfolio.on_signal)

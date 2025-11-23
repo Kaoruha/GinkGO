@@ -39,7 +39,7 @@ class TestEngineMixin:
             def stop(self):
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):
@@ -75,7 +75,7 @@ class TestEngineMixin:
             def stop(self):
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):
@@ -123,7 +123,7 @@ class TestEngineMixin:
             def stop(self):
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):
@@ -169,7 +169,7 @@ class TestEngineMixin:
             def stop(self):
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):
@@ -210,7 +210,7 @@ class TestEngineMixin:
             def stop(self):
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):
@@ -251,7 +251,7 @@ class TestEngineMixin:
             def stop(self):
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):
@@ -291,7 +291,7 @@ class TestEngineMixin:
             def stop(self):
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):
@@ -328,7 +328,7 @@ class TestEngineMixin:
             def stop(self):
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):
@@ -378,7 +378,7 @@ class TestEngineMixin:
                 self.stop_called = True
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):
@@ -417,7 +417,7 @@ class TestEngineMixin:
             def stop(self):
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):
@@ -467,7 +467,7 @@ class TestEngineMixin:
             def stop(self):
                 return True
 
-            def put_event(self, event):
+            def put(self, event):
                 pass
 
             def handle_event(self, event):

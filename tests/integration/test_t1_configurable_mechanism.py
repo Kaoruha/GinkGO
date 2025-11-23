@@ -100,7 +100,7 @@ class TestT1ConfigurableMechanism:
         self.portfolio.set_time_provider(self.time_provider)
 
         # 绑定Portfolio到引擎
-        self.engine.bind_portfolio(self.portfolio)
+        self.engine.add_portfolio(self.portfolio)
 
         # 添加模拟测试数据
         self.add_test_price_data()

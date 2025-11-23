@@ -96,7 +96,7 @@ class TestPriceUpdateToPortfolioFlow:
         price_event.run_id = engine.run_id
 
         # 发布事件并直接处理
-        engine.put_event(price_event)
+        engine.put(price_event)
         # 直接处理事件而不启动引擎循环
         engine._process(price_event)
 
@@ -252,7 +252,7 @@ class TestPortfolioOrderAckGenerationFlow:
         engine.register_event_handler(EVENT_TYPES.ORDERPARTIALLYFILLED, capture_partial_fill_event)
 
         # 发送价格更新事件，触发完整流程
-        engine.put_event(price_event)
+        engine.put(price_event)
         engine._process(price_event)
 
         # 验证事件链：PriceUpdate → SignalGeneration → OrderAck → OrderPartiallyFilled

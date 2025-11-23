@@ -123,7 +123,7 @@ class DummyEngine(BacktestBase):
         self.started = True
         return True
 
-    def bind_portfolio(self, portfolio: "DummyPortfolio") -> None:
+    def add_portfolio(self, portfolio: "DummyPortfolio") -> None:
         if portfolio in self.portfolios:
             return
         self.portfolios.append(portfolio)

@@ -54,7 +54,8 @@ class TestAnalyzerRecordCRUDInsert:
             analyzer_id="sharpe_ratio_analyzer",
             name="Sharpe Ratio Analyzer",
             value=Decimal("1.25"),
-            timestamp=base_time
+            timestamp=base_time,
+            business_timestamp=base_time - timedelta(minutes=30)  # 业务时间比系统时间早30分钟
         )
         return_record.source = SOURCE_TYPES.TEST
         test_records.append(return_record)
@@ -66,19 +67,21 @@ class TestAnalyzerRecordCRUDInsert:
             analyzer_id="max_drawdown_analyzer",
             name="Maximum Drawdown Analyzer",
             value=Decimal("0.085"),
-            timestamp=base_time + timedelta(hours=1)
+            timestamp=base_time + timedelta(hours=1),
+            business_timestamp=base_time + timedelta(hours=1, minutes=-30)  # 业务时间比系统时间早30分钟
         )
         drawdown_record.source = SOURCE_TYPES.TEST
         test_records.append(drawdown_record)
 
-        # 胜胜率分析器记录
+        # 胜率分析器记录
         winrate_record = MAnalyzerRecord(
             portfolio_id="test_portfolio_001",
             engine_id="test_engine_001",
             analyzer_id="win_rate_analyzer",
             name="Win Rate Analyzer",
             value=Decimal("0.65"),
-            timestamp=base_time + timedelta(hours=2)
+            timestamp=base_time + timedelta(hours=2),
+            business_timestamp=base_time + timedelta(hours=2, minutes=-30)  # 业务时间比系统时间早30分钟
         )
         winrate_record.source = SOURCE_TYPES.TEST
         test_records.append(winrate_record)
@@ -90,7 +93,8 @@ class TestAnalyzerRecordCRUDInsert:
             analyzer_id="calmar_ratio_analyzer",
             name="Calmar Ratio Analyzer",
             value=Decimal("2.8"),
-            timestamp=base_time + timedelta(hours=3)
+            timestamp=base_time + timedelta(hours=3),
+            business_timestamp=base_time + timedelta(hours=3, minutes=-30)  # 业务时间比系统时间早30分钟
         )
         calmar_record.source = SOURCE_TYPES.TEST
         test_records.append(calmar_record)
@@ -272,6 +276,84 @@ class TestAnalyzerRecordCRUDQuery:
 
         except Exception as e:
             print(f"✗ 时间范围查询失败: {e}")
+            raise
+
+    def test_find_by_business_time_range(self):
+        """测试根据业务时间范围查询AnalyzerRecord"""
+        print("\n" + "="*60)
+        print("开始测试: 根据业务时间范围查询AnalyzerRecord")
+        print("="*60)
+
+        analyzer_record_crud = AnalyzerRecordCRUD()
+
+        try:
+            # 查询特定业务时间范围的分析器记录
+            start_business_time = datetime(2023, 1, 3, 9, 0)  # 业务时间开始
+            end_business_time = datetime(2023, 1, 3, 12, 0)   # 业务时间结束
+
+            print(f"→ 查询业务时间范围 {start_business_time.time()} ~ {end_business_time.time()} 的分析器记录...")
+            business_time_records = analyzer_record_crud.find_by_business_time(
+                portfolio_id="test_portfolio_001",
+                start_business_time=start_business_time,
+                end_business_time=end_business_time
+            )
+            print(f"✓ 查询到 {len(business_time_records)} 条记录")
+
+            # 验证业务时间范围
+            for record in business_time_records:
+                print(f"  - {record.name}: {record.value} (系统时间: {record.timestamp.time()}, 业务时间: {record.business_timestamp.time() if record.business_timestamp else 'None'})")
+                if record.business_timestamp:
+                    assert start_business_time <= record.business_timestamp <= end_business_time
+
+            print("✓ 业务时间范围查询验证成功")
+
+        except Exception as e:
+            print(f"✗ 业务时间范围查询失败: {e}")
+            raise
+
+    def test_find_by_time_range_with_business_timestamp(self):
+        """测试使用双时间戳的灵活时间范围查询AnalyzerRecord"""
+        print("\n" + "="*60)
+        print("开始测试: 双时间戳时间范围查询AnalyzerRecord")
+        print("="*60)
+
+        analyzer_record_crud = AnalyzerRecordCRUD()
+
+        try:
+            # 测试业务时间查询
+            start_time = datetime(2023, 1, 3, 9, 0)
+            end_time = datetime(2023, 1, 3, 12, 0)
+
+            print(f"→ 使用业务时间查询范围 {start_time.time()} ~ {end_time.time()}...")
+            business_records = analyzer_record_crud.find_by_time_range(
+                portfolio_id="test_portfolio_001",
+                start_time=start_time,
+                end_time=end_time,
+                use_business_time=True
+            )
+            print(f"✓ 业务时间查询到 {len(business_records)} 条记录")
+
+            print(f"→ 使用系统时间查询相同范围...")
+            system_records = analyzer_record_crud.find_by_time_range(
+                portfolio_id="test_portfolio_001",
+                start_time=start_time,
+                end_time=end_time,
+                use_business_time=False
+            )
+            print(f"✓ 系统时间查询到 {len(system_records)} 条记录")
+
+            # 验证双时间戳差异
+            print("→ 验证双时间戳数据一致性...")
+            for record in business_records:
+                if record.business_timestamp:
+                    time_diff = record.timestamp - record.business_timestamp
+                    print(f"  - {record.name}: 系统时间与业务时间差 {time_diff}")
+                    assert abs(time_diff.total_seconds()) == 30 * 60  # 应该是30分钟差异
+
+            print("✓ 双时间戳查询验证成功")
+
+        except Exception as e:
+            print(f"✗ 双时间戳查询失败: {e}")
             raise
 
     def test_find_by_value_range(self):

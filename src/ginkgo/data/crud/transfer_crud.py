@@ -184,21 +184,21 @@ class TransferCRUD(BaseCRUD[MTransfer]):
             filters["timestamp__lte"] = datetime_normalize(end_date)
             
         return self.find(filters=filters, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_status(self, status: TRANSFERSTATUS_TYPES, as_dataframe: bool = False) -> Union[List[MTransfer], pd.DataFrame]:
         """
         Business helper: Find transfers by status.
         """
         return self.find(filters={"status": status}, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_direction(self, direction: TRANSFERDIRECTION_TYPES, as_dataframe: bool = False) -> Union[List[MTransfer], pd.DataFrame]:
         """
         Business helper: Find transfers by direction.
         """
         return self.find(filters={"direction": direction}, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_total_transfer_amount(self, portfolio_id: str, direction: TRANSFERDIRECTION_TYPES,
                                  start_date: Optional[Any] = None, end_date: Optional[Any] = None) -> float:
@@ -215,7 +215,7 @@ class TransferCRUD(BaseCRUD[MTransfer]):
         Business helper: Get all unique portfolio IDs.
         """
         # This would require a distinct query, simplified implementation
-        all_transfers = self.find(filters={}, as_dataframe=False, output_type="model")
+        all_transfers = self.find(filters={}, as_dataframe=False)
         return list(set(t.portfolio_id for t in all_transfers if t.portfolio_id))
 
     def update_status(self, portfolio_id: str, status: TRANSFERSTATUS_TYPES) -> None:

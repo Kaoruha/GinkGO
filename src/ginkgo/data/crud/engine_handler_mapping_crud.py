@@ -113,7 +113,7 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
         filters = {"engine_id": engine_id}
         
         return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_handler(self, handler_id: str,
                        as_dataframe: bool = False) -> Union[List[MEngineHandlerMapping], pd.DataFrame]:
@@ -123,7 +123,7 @@ class EngineHandlerMappingCRUD(BaseCRUD[MEngineHandlerMapping]):
         filters = {"handler_id": handler_id}
         
         return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_handlers_for_engine(self, engine_id: str) -> List[str]:
         """

@@ -269,7 +269,7 @@ class TestBacktestEngineEventQueue:
 
         # 测试事件放入和获取
         test_event = Mock()
-        engine.put_event(test_event)
+        engine.put(test_event)
 
         retrieved_event = engine.get_event(timeout=0.1)
         assert retrieved_event is test_event

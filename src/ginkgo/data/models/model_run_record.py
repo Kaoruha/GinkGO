@@ -66,6 +66,7 @@ class MRunRecord(MMysqlBase, MBacktestRecordBase):
     final_portfolio_value: Mapped[Optional[str]] = mapped_column(String(32), default="0", comment="最终组合价值")
     total_pnl: Mapped[Optional[str]] = mapped_column(String(32), default="0", comment="总盈亏")
     max_drawdown: Mapped[Optional[str]] = mapped_column(String(32), default="0", comment="最大回撤")
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, comment="业务时间戳")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -89,6 +90,7 @@ class MRunRecord(MMysqlBase, MBacktestRecordBase):
         final_portfolio_value: str = "0",
         total_pnl: str = "0",
         max_drawdown: str = "0",
+        business_timestamp: Optional[datetime.datetime] = None,
         source: Optional[SOURCE_TYPES] = None,
         *args,
         **kwargs,
@@ -106,7 +108,10 @@ class MRunRecord(MMysqlBase, MBacktestRecordBase):
         self.final_portfolio_value = final_portfolio_value
         self.total_pnl = total_pnl
         self.max_drawdown = max_drawdown
-        
+
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
+
         if start_time is not None:
             self.start_time = datetime_normalize(start_time)
         else:
@@ -163,7 +168,10 @@ class MRunRecord(MMysqlBase, MBacktestRecordBase):
             self.total_pnl = str(df["total_pnl"])
         if "max_drawdown" in df.index:
             self.max_drawdown = str(df["max_drawdown"])
-        
+
+        if "business_timestamp" in df.index and pd.notna(df["business_timestamp"]):
+            self.business_timestamp = datetime_normalize(df["business_timestamp"])
+
         if "source" in df.index:
             self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
             

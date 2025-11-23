@@ -44,17 +44,6 @@ class EngineCRUD(BaseCRUD[MEngine]):
             },
             # 是否实时交易 - 布尔值
             "is_live": {"type": "bool"},
-            # run_count字段 - 正整数，最小值0
-            "run_count": {
-                "type": "int",
-                "min": 0
-            },
-            # config_hash字段 - 字符串
-            "config_hash": {"type": "string"},
-            # current_run_id字段 - 字符串
-            "current_run_id": {"type": "string"},
-            # config_snapshot字段 - 字符串
-            "config_snapshot": {"type": "string"},
         }
 
     def _create_from_params(self, **kwargs) -> MEngine:
@@ -145,7 +134,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
         """
         Business helper: Find engine by UUID.
         """
-        return self.find(filters={"uuid": uuid}, page_size=1, as_dataframe=as_dataframe, output_type="model")
+        return self.find(filters={"uuid": uuid}, page_size=1, as_dataframe=as_dataframe)
 
     def find_by_status(
         self, status: ENGINESTATUS_TYPES, as_dataframe: bool = False

@@ -98,13 +98,13 @@ class TestEventPublishing:
         # 验证发布器被正确设置
         assert False, "TDD Red阶段:测试用例尚未实现"
 
-    def test_put_event_with_publisher(self):
+    def test_put_with_publisher(self):
         """测试有发布器时的事件发送"""
         # TODO: 测试设置发布器后put方法
         # 验证事件被正确发布到引擎
         assert False, "TDD Red阶段:测试用例尚未实现"
 
-    def test_put_event_without_publisher(self):
+    def test_put_without_publisher(self):
         """测试无发布器时的事件发送"""
         # TODO: 测试未设置发布器时put方法
         # 验证错误日志被记录

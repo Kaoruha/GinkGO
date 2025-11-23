@@ -2168,7 +2168,7 @@ class TestBacktestModeManager:
             time_advance_event = EventTimeAdvance(
                 target_time=new_time
             )
-            engine.put_event(time_advance_event)
+            engine.put(time_advance_event)
 
             # 等待引擎处理事件
             time.sleep(0.2)  # 给引擎足够时间处理事件
@@ -2246,7 +2246,7 @@ class TestBacktestModeManager:
             time_advance_event = EventTimeAdvance(
                 target_time=new_time
             )
-            engine.put_event(time_advance_event)
+            engine.put(time_advance_event)
 
             # 价格更新事件
             tick = Tick(
@@ -2260,7 +2260,7 @@ class TestBacktestModeManager:
                 price_info=tick,
                 timestamp=current_time
             )
-            engine.put_event(price_event)
+            engine.put(price_event)
 
             # 处理事件 - 给引擎足够时间处理所有事件
             import time
@@ -2360,7 +2360,7 @@ class TestBacktestModeManager:
             timestamp=current_time
         )
         bar_event.context['data_type'] = 'bar'  # 标识为K线数据
-        engine.put_event(bar_event)
+        engine.put(bar_event)
 
         # 等待引擎处理事件
         time.sleep(0.2)  # 给引擎足够时间处理事件
@@ -2378,7 +2378,7 @@ class TestBacktestModeManager:
             timestamp=current_time
         )
         tick_event.context['data_type'] = 'tick'  # 标识为Tick数据
-        engine.put_event(tick_event)
+        engine.put(tick_event)
 
         # 等待引擎处理事件
         time.sleep(0.2)  # 给引擎足够时间处理事件
@@ -2483,7 +2483,7 @@ class TestBacktestModeManager:
             time_event = EventTimeAdvance(
                 target_time=new_time
             )
-            engine.put_event(time_event)
+            engine.put(time_event)
 
             # 价格更新事件
             tick = Tick(
@@ -2497,7 +2497,7 @@ class TestBacktestModeManager:
                 price_info=tick,
                 timestamp=current_time
             )
-            engine.put_event(price_event)
+            engine.put(price_event)
 
             # 等待引擎处理事件
             time.sleep(0.05)  # 给引擎时间处理事件
@@ -2646,7 +2646,7 @@ class TestLiveModeManager:
             bar=test_bar
         )
 
-        live_engine.put_event(event)
+        live_engine.put(event)
 
         # 7. 关闭引擎
         live_engine.stop()
@@ -2712,7 +2712,7 @@ class TestLiveModeManager:
         # 并发投递事件
         def deliver_events(start_idx, end_idx):
             for i in range(start_idx, end_idx):
-                live_engine.put_event(test_events[i])
+                live_engine.put(test_events[i])
 
         # 创建多个线程并发投递事件
         threads = []
@@ -2842,7 +2842,7 @@ class TestLiveModeManager:
                     timestamp=dt.now(pytz.UTC),
                     bar=bar
                 )
-                live_engine.put_event(event)
+                live_engine.put(event)
 
         # 等待事件处理
         time.sleep(0.1)
@@ -2985,7 +2985,7 @@ class TestLiveModeManager:
                 timestamp=dt.now(pytz.UTC),
                 bar=bar
             )
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待事件处理
         time.sleep(0.1)
@@ -3110,7 +3110,7 @@ class TestLiveModeManager:
                         timestamp=dt.now(pytz.UTC),
                         bar=bar
                     )
-                    live_engine.put_event(event)
+                    live_engine.put(event)
 
                     # 更新队列指标（模拟）
                     with metrics_lock:
@@ -3556,7 +3556,7 @@ class TestTimeControlledEngineIntegration:
 
                 # 创建时间推进事件
                 time_event = EventTimeAdvance(target_time=event_datetime)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 创建价格更新事件
                 tick = Tick(
@@ -3567,7 +3567,7 @@ class TestTimeControlledEngineIntegration:
                     timestamp=event_datetime
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=event_datetime)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 等待引擎处理事件
                 time.sleep(0.05)  # 给引擎时间处理事件
@@ -3728,7 +3728,7 @@ class TestTimeControlledEngineIntegration:
 
                 # 创建时间推进事件
                 time_event = EventTimeAdvance(target_time=event_datetime)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 创建价格更新事件（工作日价格波动更大，周末较小）
                 price_variation = 0.2 if not is_weekend else 0.05
@@ -3742,7 +3742,7 @@ class TestTimeControlledEngineIntegration:
                     timestamp=event_datetime
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=event_datetime)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 等待引擎处理事件
                 time.sleep(0.05)  # 给引擎时间处理事件
@@ -4012,7 +4012,7 @@ class TestTimeControlledEngineIntegration:
             for i, engine in enumerate(engines):
                 # 时间推进事件
                 time_event = EventTimeAdvance(target_time=time_point)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 价格更新事件
                 tick = Tick(
@@ -4023,7 +4023,7 @@ class TestTimeControlledEngineIntegration:
                     timestamp=time_point
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=time_point)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 等待引擎处理事件
             time.sleep(0.05)  # 给引擎时间处理事件
@@ -5194,7 +5194,7 @@ class TestPerformanceAndStress:
             engine._time_provider.advance_time_to(new_time)
 
             time_event = EventTimeAdvance(target_time=new_time)
-            engine.put_event(time_event)
+            engine.put(time_event)
 
             # 价格更新
             tick = Tick(
@@ -5205,7 +5205,7 @@ class TestPerformanceAndStress:
                 timestamp=new_time
             )
             price_event = EventPriceUpdate(price_info=tick, timestamp=new_time)
-            engine.put_event(price_event)
+            engine.put(price_event)
 
         # 等待处理完成
         time.sleep(0.5)
@@ -5289,7 +5289,7 @@ class TestPerformanceAndStress:
                 engine._time_provider.advance_time_to(event_time)
 
                 time_event = EventTimeAdvance(target_time=event_time)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 生成对应的价格更新事件
                 tick = Tick(
@@ -5300,7 +5300,7 @@ class TestPerformanceAndStress:
                     timestamp=event_time
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=event_time)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
             # 每100个批次进行一次内存检查
             if batch % 100 == 0:
@@ -6918,7 +6918,7 @@ class TestLiveModeManagerCore:
                 bar=bar
             )
             test_events.append(event)
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待异步处理完成
         time.sleep(0.5)
@@ -6952,7 +6952,7 @@ class TestLiveModeManagerCore:
         )
 
         put_time = time.time()
-        live_engine.put_event(new_event)
+        live_engine.put(new_event)
         put_duration = time.time() - put_time
 
         # 事件投递应该很快返回（不等待处理完成）
@@ -7031,7 +7031,7 @@ class TestLiveModeManagerCore:
                 timestamp=dt.now(pytz.UTC),
                 bar=bar
             )
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待所有事件处理完成
         time.sleep(1.0)
@@ -7152,7 +7152,7 @@ class TestLiveModeManagerCore:
                 timestamp=dt.now(pytz.UTC),
                 bar=bar
             )
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待所有事件处理完成
         time.sleep(2.0)
@@ -7211,7 +7211,7 @@ class TestLiveModeManagerCore:
                 timestamp=dt.now(pytz.UTC),
                 bar=bar
             )
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待处理完成
         time.sleep(1.0)
@@ -7293,7 +7293,7 @@ class TestLiveModeManagerCore:
                 bar=bar
             )
             concurrent_events.append(event)
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待所有事件处理完成
         time.sleep(1.0)
@@ -7363,7 +7363,7 @@ class TestLiveModeManagerCore:
                 timestamp=dt.now(pytz.UTC),
                 bar=bar
             )
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待高并发处理完成
         time.sleep(1.5)
@@ -7447,7 +7447,7 @@ class TestLiveModeManagerCore:
 
             # 测量事件投递时间
             put_start = time.time()
-            live_engine.put_event(event)
+            live_engine.put(event)
             put_end = time.time()
             put_duration = put_end - put_start
 
@@ -7485,7 +7485,7 @@ class TestLiveModeManagerCore:
                 timestamp=dt.now(pytz.UTC),
                 bar=bar
             )
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         rapid_fire_duration = time.time() - rapid_fire_start
         print(f"快速投递{rapid_fire_count}个事件耗时: {rapid_fire_duration:.6f}秒")
@@ -7525,7 +7525,7 @@ class TestLiveModeManagerCore:
 
             # 投递事件
             availability_start = time.time()
-            live_engine.put_event(event)
+            live_engine.put(event)
             availability_end = time.time()
 
             # 验证即使在处理过程中，事件投递仍然快速
@@ -7660,7 +7660,7 @@ class TestLiveModeManagerCore:
                 timestamp=dt.now(pytz.UTC),
                 bar=bar
             )
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待正常处理完成
         time.sleep(1.0)
@@ -7702,7 +7702,7 @@ class TestLiveModeManagerCore:
                 timestamp=dt.now(pytz.UTC),
                 bar=bar
             )
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待异常处理完成
         time.sleep(1.0)
@@ -7768,7 +7768,7 @@ class TestLiveModeManagerCore:
                 timestamp=dt.now(pytz.UTC),
                 bar=bar
             )
-            live_engine.put_event(event)
+            live_engine.put(event)
 
         # 等待混合处理完成
         time.sleep(1.5)
@@ -10004,7 +10004,7 @@ class TestBacktestDeterminism:
 
                 # 创建时间推进事件
                 time_event = EventTimeAdvance(target_time=target_time)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 创建价格更新事件
                 tick = Tick(
@@ -10015,7 +10015,7 @@ class TestBacktestDeterminism:
                     timestamp=target_time
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=target_time)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 处理事件
                 for _ in range(5):
@@ -10107,7 +10107,7 @@ class TestBacktestDeterminism:
 
             # 时间推进事件
             time_event = EventTimeAdvance(target_time=event_time)
-            engine.put_event(time_event)
+            engine.put(time_event)
 
             # 价格更新事件
             tick = Tick(
@@ -10118,7 +10118,7 @@ class TestBacktestDeterminism:
                 timestamp=event_time
             )
             price_event = EventPriceUpdate(price_info=tick, timestamp=event_time)
-            engine.put_event(price_event)
+            engine.put(price_event)
 
             # 处理事件
             for _ in range(5):
@@ -10156,7 +10156,7 @@ class TestBacktestDeterminism:
             if recorded_event['type'] == 'EventTimeAdvance':
                 replay_engine._time_provider.advance_time_to(recorded_event['engine_time'])
                 time_event = EventTimeAdvance(target_time=recorded_event['engine_time'])
-                replay_engine.put_event(time_event)
+                replay_engine.put(time_event)
             elif recorded_event['type'] == 'EventPriceUpdate':
                 # 解析价格信息重新构造Tick
                 tick = Tick(
@@ -10167,7 +10167,7 @@ class TestBacktestDeterminism:
                     timestamp=recorded_event['timestamp']
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=recorded_event['timestamp'])
-                replay_engine.put_event(price_event)
+                replay_engine.put(price_event)
 
             # 处理事件
             for _ in range(5):
@@ -10256,7 +10256,7 @@ class TestBacktestDeterminism:
                     timestamp=event_time
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=event_time)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 处理事件
                 for _ in range(5):
@@ -10370,7 +10370,7 @@ class TestBacktestDeterminism:
 
             # 创建事件
             time_event = EventTimeAdvance(target_time=target_time)
-            engine.put_event(time_event)
+            engine.put(time_event)
 
             tick = Tick(
                 code="TIME_ORDER_TEST",
@@ -10380,7 +10380,7 @@ class TestBacktestDeterminism:
                 timestamp=target_time
             )
             price_event = EventPriceUpdate(price_info=tick, timestamp=target_time)
-            engine.put_event(price_event)
+            engine.put(price_event)
 
             # 处理事件
             for _ in range(5):
@@ -10479,7 +10479,7 @@ class TestBacktestDeterminism:
 
                 # 时间推进事件（应该触发A, B处理器）
                 time_event = EventTimeAdvance(target_time=event_time)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 价格更新事件（应该触发C, D处理器）
                 tick = Tick(
@@ -10490,7 +10490,7 @@ class TestBacktestDeterminism:
                     timestamp=event_time
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=event_time)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 处理事件
                 for _ in range(10):
@@ -10618,7 +10618,7 @@ class TestBacktestDeterminism:
                     timestamp=event_time
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=event_time)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 处理事件
                 for _ in range(5):
@@ -10747,7 +10747,7 @@ class TestBacktestDeterminism:
 
                 # 时间推进事件
                 time_event = EventTimeAdvance(target_time=event_time)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 价格更新事件
                 tick = Tick(
@@ -10758,7 +10758,7 @@ class TestBacktestDeterminism:
                     timestamp=event_time
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=event_time)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 处理事件
                 for _ in range(5):
@@ -10845,7 +10845,7 @@ class TestBacktestDeterminism:
 
                 # 时间推进事件
                 time_event = EventTimeAdvance(target_time=event_time)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 价格更新事件
                 tick = Tick(
@@ -10856,7 +10856,7 @@ class TestBacktestDeterminism:
                     timestamp=event_time
                 )
                 price_event = EventPriceUpdate(price_info=tick, timestamp=event_time)
-                engine.put_event(price_event)
+                engine.put(price_event)
 
                 # 处理事件
                 for _ in range(5):
@@ -11030,7 +11030,7 @@ class TestTimeControlledEngineEndToEnd:
                 # 推进时间
                 engine._time_provider.advance_time_to(event_time)
                 time_event = EventTimeAdvance(target_time=event_time, engine_id=engine.engine_id, run_id=engine.run_id)
-                engine.put_event(time_event)
+                engine.put(time_event)
 
                 # 为每个标的生成价格数据
                 for symbol in backtest_config['symbols']:
@@ -11052,7 +11052,7 @@ class TestTimeControlledEngineEndToEnd:
                     )
 
                     price_event = EventPriceUpdate(price_info=bar, timestamp=event_time, engine_id=engine.engine_id, run_id=engine.run_id)
-                    engine.put_event(price_event)
+                    engine.put(price_event)
 
                 # 等待事件处理
                 time_module.sleep(0.01)

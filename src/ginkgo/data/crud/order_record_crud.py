@@ -94,6 +94,11 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             # 时间戳 - datetime 或字符串
             'timestamp': {
                 'type': ['datetime', 'string']
+            },
+
+            # 业务时间戳 - datetime 或字符串，可选
+            'business_timestamp': {
+                'type': ['datetime', 'string', 'none']
             }
         }
 
@@ -144,6 +149,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             remain=to_decimal(kwargs.get("remain", 0)),
             fee=to_decimal(kwargs.get("fee", 0)),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MOrderRecord]:
@@ -166,6 +172,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
                 remain=item.remain if hasattr(item, 'remain') else 0,
                 fee=item.fee if hasattr(item, 'fee') else 0,
                 timestamp=item.timestamp,
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
             )
         return None
 
@@ -196,12 +203,6 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         """
         # For now, return models as-is since business object doesn't exist yet
         return models
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
 
     def _convert_output_items(self, items: List[MOrderRecord], output_type: str = "model") -> List[Any]:
         """
@@ -404,12 +405,50 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
         
-        records = self.find(filters=filters, as_dataframe=False, output_type="model")
+        records = self.find(filters=filters, as_dataframe=False)
         
         total_amount = sum(
             float(record.transaction_price) * record.volume + float(record.fee)
             for record in records
             if record.transaction_price and record.volume
         )
-        
+
         return total_amount
+
+    def find_by_business_time(
+        self,
+        portfolio_id: str,
+        start_business_time: Optional[Any] = None,
+        end_business_time: Optional[Any] = None,
+        status: Optional[ORDERSTATUS_TYPES] = None,
+        as_dataframe: bool = False,
+    ) -> Union[List[MOrderRecord], pd.DataFrame]:
+        """
+        Business helper: Find order records by business time range.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            start_business_time: Start of business time range (optional)
+            end_business_time: End of business time range (optional)
+            status: Order status filter (optional)
+            as_dataframe: Return as DataFrame if True
+
+        Returns:
+            List of MOrderRecord models or DataFrame
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+        if status:
+            filters["status"] = status
+
+        return self.find(
+            filters=filters,
+            order_by="business_timestamp",
+            desc_order=True,
+            as_dataframe=as_dataframe,
+            output_type="model"
+        )

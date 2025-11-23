@@ -60,6 +60,9 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             "reject_reason": {"required": False, "type": str},
             "notes": {"required": False, "type": str},
             "source": {"required": False, "type": int, "default": -1},
+
+            # 业务时间戳 - datetime 或字符串，可选
+            "business_timestamp": {"required": False, "type": ["datetime", "string", "none"]},
         }
 
     def _create_from_params(self, **kwargs) -> MSignalTracker:
@@ -95,7 +98,8 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             time_delay_seconds=kwargs.get("time_delay_seconds"),
             reject_reason=kwargs.get("reject_reason"),
             notes=kwargs.get("notes"),
-            source=SOURCE_TYPES.from_int(kwargs.get("source", -1))
+            source=SOURCE_TYPES.from_int(kwargs.get("source", -1)),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
         
         return tracker
@@ -124,7 +128,8 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
                 expected_price=float(getattr(item, 'price', 0)),
                 expected_volume=getattr(item, 'volume', 0),
                 expected_timestamp=item.timestamp,
-                source=SOURCE_TYPES.STRATEGY
+                source=SOURCE_TYPES.STRATEGY,
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
             )
             return tracker
         elif isinstance(item, dict):
@@ -139,7 +144,11 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
                 item['expected_direction'] = item['expected_direction'].value if hasattr(item['expected_direction'], 'value') else item['expected_direction']
             if 'tracking_status' in item:
                 item['tracking_status'] = item['tracking_status'].value if hasattr(item['tracking_status'], 'value') else item['tracking_status']
-            
+
+            # 处理business_timestamp
+            if 'business_timestamp' in item:
+                item['business_timestamp'] = datetime_normalize(item['business_timestamp'])
+
             tracker.update(**item)
             return tracker
         elif isinstance(item, pd.Series):
@@ -224,7 +233,8 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
                     'notes': item.notes,
                     'source': item.source,
                     'timestamp': item.timestamp,
-                    'update_at': item.update_at
+                    'update_at': item.update_at,
+                    'business_timestamp': getattr(item, 'business_timestamp', None)
                 })
             return pd.DataFrame(data)
         else:
@@ -402,3 +412,45 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         """
         items = self.get_items_filtered()
         return list(set(item.portfolio_id for item in items if item.portfolio_id))
+
+    def find_by_business_time(
+        self,
+        portfolio_id: str,
+        start_business_time: Optional[Any] = None,
+        end_business_time: Optional[Any] = None,
+        account_type: Optional[ACCOUNT_TYPE] = None,
+        tracking_status: Optional[TRACKING_STATUS] = None,
+        limit: int = 1000,
+        as_dataframe: bool = False,
+    ) -> Union[List[MSignalTracker], pd.DataFrame]:
+        """
+        Business helper: Find signal trackers by business time range.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            start_business_time: Start of business time range (optional)
+            end_business_time: End of business time range (optional)
+            account_type: Account type filter (optional)
+            tracking_status: Tracking status filter (optional)
+            limit: Return record limit
+            as_dataframe: Return as DataFrame if True
+
+        Returns:
+            List of MSignalTracker models or DataFrame
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+        if account_type is not None:
+            filters["account_type"] = account_type
+        if tracking_status is not None:
+            filters["tracking_status"] = tracking_status
+
+        results = self.get_items_filtered(**filters, limit=limit)
+
+        if as_dataframe:
+            return self._convert_output_items(results)
+        return results

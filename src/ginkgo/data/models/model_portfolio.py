@@ -21,7 +21,7 @@ class MPortfolio(MMysqlBase):
     __tablename__ = "portfolio"
 
     name: Mapped[str] = mapped_column(String(64), default="default_live")
-    description: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    desc: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     backtest_start_date: Mapped[datetime.datetime] = mapped_column(DateTime)
     backtest_end_date: Mapped[datetime.datetime] = mapped_column(DateTime)
     is_live: Mapped[bool] = mapped_column(Boolean, default=False)

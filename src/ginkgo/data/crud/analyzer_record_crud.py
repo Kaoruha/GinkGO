@@ -53,6 +53,11 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             'timestamp': {
                 'type': ['datetime', 'string']
             },
+
+            # 业务时间戳 - datetime 或字符串，可选
+            'business_timestamp': {
+                'type': ['datetime', 'string', 'none']
+            },
             
             # 分析结果值 - 数值
             'value': {
@@ -77,9 +82,10 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         """
         return MAnalyzerRecord(
             portfolio_id=kwargs.get("portfolio_id"),
-            engine_id=kwargs.get("engine_id"), 
+            engine_id=kwargs.get("engine_id"),
             analyzer_name=kwargs.get("analyzer_name"),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
             value=to_decimal(kwargs.get("value", 0)),
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
         )
@@ -94,6 +100,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
                 engine_id=getattr(item, 'engine_id', ''),
                 analyzer_name=getattr(item, 'analyzer_name'),
                 timestamp=datetime_normalize(getattr(item, 'timestamp', datetime.now())),
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
                 value=to_decimal(getattr(item, 'value', 0)),
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
@@ -146,7 +153,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             filters["timestamp__lte"] = datetime_normalize(end_date)
 
         return self.find(filters=filters, order_by="timestamp", desc_order=True, 
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_analyzer(self, analyzer_name: str, portfolio_id: Optional[str] = None,
                         as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
@@ -158,7 +165,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             filters["portfolio_id"] = portfolio_id
             
         return self.find(filters=filters, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_latest_values(self, portfolio_id: str, as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
         """
@@ -189,3 +196,49 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get engine ids from analyzer records: {e}")
             return []
+
+    def find_by_business_time(self, portfolio_id: str, start_business_time: Optional[Any] = None,
+                             end_business_time: Optional[Any] = None, analyzer_name: Optional[str] = None,
+                             as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
+        """
+        Business helper: Find analyzer records by business timestamp range.
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if analyzer_name:
+            filters["analyzer_name"] = analyzer_name
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+
+        return self.find(filters=filters, order_by="business_timestamp", desc_order=True,
+                        as_dataframe=as_dataframe)
+
+    def find_by_time_range(self, portfolio_id: str, start_time: Optional[Any] = None,
+                          end_time: Optional[Any] = None, use_business_time: bool = True,
+                          analyzer_name: Optional[str] = None, as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
+        """
+        Business helper: Find analyzer records by time range (can use either timestamp or business_timestamp).
+
+        Args:
+            portfolio_id: Portfolio ID to filter
+            start_time: Start time of the range
+            end_time: End time of the range
+            use_business_time: If True, use business_timestamp; if False, use timestamp
+            analyzer_name: Optional analyzer name filter
+            as_dataframe: Return results as DataFrame if True
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if analyzer_name:
+            filters["analyzer_name"] = analyzer_name
+
+        time_field = "business_timestamp" if use_business_time else "timestamp"
+        if start_time:
+            filters[f"{time_field}__gte"] = datetime_normalize(start_time)
+        if end_time:
+            filters[f"{time_field}__lte"] = datetime_normalize(end_time)
+
+        return self.find(filters=filters, order_by=time_field, desc_order=True,
+                        as_dataframe=as_dataframe)

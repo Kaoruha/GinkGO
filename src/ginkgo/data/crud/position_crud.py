@@ -94,6 +94,11 @@ class PositionCRUD(BaseCRUD[MPosition]):
             'source': {
                 'type': 'enum',
                 'choices': [s for s in SOURCE_TYPES]
+            },
+
+            # 业务时间戳 - datetime 或字符串，可选
+            'business_timestamp': {
+                'type': ['datetime', 'string', 'none']
             }
         }
 
@@ -112,6 +117,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
             price=to_decimal(kwargs.get("price", 0)),
             fee=to_decimal(kwargs.get("fee", 0)),
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MPosition]:
@@ -130,6 +136,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
                 price=to_decimal(getattr(item, 'price', 0)),
                 fee=to_decimal(getattr(item, 'fee', 0)),
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
             )
         return None
 
@@ -234,5 +241,43 @@ class PositionCRUD(BaseCRUD[MPosition]):
         """
         Close a position (set volume to 0).
         """
-        return self.update_position(portfolio_id, code, 
+        return self.update_position(portfolio_id, code,
                                    volume=0, frozen_volume=0)
+
+    def find_by_business_time(
+        self,
+        portfolio_id: str,
+        start_business_time: Optional[Any] = None,
+        end_business_time: Optional[Any] = None,
+        min_volume: int = 0,
+        as_dataframe: bool = False,
+    ) -> Union[List[MPosition], pd.DataFrame]:
+        """
+        Business helper: Find positions by business time range.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            start_business_time: Start of business time range (optional)
+            end_business_time: End of business time range (optional)
+            min_volume: Minimum volume filter (default: 0)
+            as_dataframe: Return as DataFrame if True
+
+        Returns:
+            List of MPosition models or DataFrame
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if min_volume > 0:
+            filters["volume__gte"] = min_volume
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+
+        return self.find(
+            filters=filters,
+            order_by="business_timestamp",
+            desc_order=True,
+            as_dataframe=as_dataframe,
+            output_type="model"
+        )

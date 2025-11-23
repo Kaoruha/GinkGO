@@ -51,6 +51,9 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             "fee": {"type": ["decimal", "float", "int"], "min": 0},
             # 时间戳 - datetime 或字符串
             "timestamp": {"type": ["datetime", "string"]},
+
+            # 业务时间戳 - datetime 或字符串，可选
+            "business_timestamp": {"type": ["datetime", "string", "none"]},
         }
 
     def _create_from_params(self, **kwargs) -> MPositionRecord:
@@ -68,6 +71,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
             frozen_money=to_decimal(kwargs.get("frozen_money", 0)),
             price=to_decimal(kwargs.get("price", 0)),
             fee=to_decimal(kwargs.get("fee", 0)),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MPositionRecord]:
@@ -87,6 +91,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
                 frozen_money=to_decimal(item.get('frozen_money', 0)),
                 price=to_decimal(item.get('price', 0)),
                 fee=to_decimal(item.get('fee', 0)),
+                business_timestamp=datetime_normalize(item.get('business_timestamp', None)),
             )
         elif hasattr(item, 'portfolio_id') and hasattr(item, 'code') and hasattr(item, 'volume'):
             return MPositionRecord(
@@ -100,6 +105,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
                 frozen_money=to_decimal(getattr(item, 'frozen_money', 0)),
                 price=to_decimal(getattr(item, 'price', 0)),
                 fee=to_decimal(getattr(item, 'fee', 0)),
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
             )
         return None
 
@@ -127,12 +133,6 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         """
         # For now, return models as-is since business object doesn't exist yet
         return models
-
-    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
-        """
-        Hook method: Convert objects for business layer.
-        """
-        return items
 
     def _convert_output_items(self, items: List[MPositionRecord], output_type: str = "model") -> List[Any]:
         """
@@ -343,7 +343,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         if as_of_date:
             filters["timestamp__lte"] = datetime_normalize(as_of_date)
         
-        positions = self.find(filters=filters, as_dataframe=False, output_type="model")
+        positions = self.find(filters=filters, as_dataframe=False)
         
         if not positions:
             return {
@@ -387,7 +387,7 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
         
-        positions = self.find(filters=filters, as_dataframe=False, output_type="model")
+        positions = self.find(filters=filters, as_dataframe=False)
         
         if not positions:
             return {
@@ -439,3 +439,45 @@ class PositionRecordCRUD(BaseCRUD[MPositionRecord]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get position record portfolio ids: {e}")
             return []
+
+    def find_by_business_time(
+        self,
+        portfolio_id: str,
+        start_business_time: Optional[Any] = None,
+        end_business_time: Optional[Any] = None,
+        code: Optional[str] = None,
+        min_volume: Optional[int] = None,
+        as_dataframe: bool = False,
+    ) -> Union[List[MPositionRecord], pd.DataFrame]:
+        """
+        Business helper: Find position records by business time range.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            start_business_time: Start of business time range (optional)
+            end_business_time: End of business time range (optional)
+            code: Stock code filter (optional)
+            min_volume: Minimum volume filter (optional)
+            as_dataframe: Return as DataFrame if True
+
+        Returns:
+            List of MPositionRecord models or DataFrame
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+        if code:
+            filters["code"] = code
+        if min_volume is not None:
+            filters["volume__gte"] = min_volume
+
+        return self.find(
+            filters=filters,
+            order_by="business_timestamp",
+            desc_order=True,
+            as_dataframe=as_dataframe,
+            output_type="model"
+        )
