@@ -1,0 +1,56 @@
+# T6: 回测引擎示例配置
+# 这是UnifiedTradingEngineFactory的示例配置文件
+
+engine:
+  type: "historic"          # 引擎类型：historic/backtest/live/time_controlled
+  name: "SampleBacktestEngine"
+  run_id: "bt_sample_20240101"  # T6: 使用run_id作为统一标识符
+  start_date: "2023-01-01"
+  end_date: "2023-12-31"
+
+# 数据馈送器配置
+data_feeder:
+  type: "historical"         # historical/backtest/live/realtime
+  settings:
+    symbols: 
+      - "000001.SZ"         # 平安银行
+      - "000002.SZ"         # 万科A
+    preload_data: true      # 是否预加载数据
+    time_boundary_check: true  # 时间边界检查
+
+# 路由中心配置
+routing:
+  enabled: true             # 启用事件路由
+  circuit_breaker:          # 熔断器配置
+    enabled: false
+    threshold: 100
+
+# 投资组合配置
+portfolios:
+  - type: "base"
+    name: "DemoPortfolio"
+    initial_capital: 1000000  # 初始资金100万
+    
+    # 策略配置（需要实际的file_id）
+    strategies: []
+    #  - file_id: "strategy_uuid_here"
+    #    mapping_id: "mapping_uuid_here"
+    #    name: "示例策略"
+    
+    # 风险管理器配置
+    risk_managers: []
+    #  - file_id: "risk_uuid_here" 
+    #    mapping_id: "mapping_uuid_here"
+    #    name: "仓位风险管理"
+    
+    # 分析器配置
+    analyzers: []
+    #  - file_id: "analyzer_uuid_here"
+    #    mapping_id: "mapping_uuid_here"
+    #    name: "性能分析器"
+
+# 全局设置
+settings:
+  log_level: "INFO"         # DEBUG/INFO/WARN/ERROR
+  debug: false              # 调试模式
+  enable_notifications: true  # 启用通知

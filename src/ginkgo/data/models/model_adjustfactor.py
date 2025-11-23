@@ -8,12 +8,13 @@ from sqlalchemy import String, DECIMAL, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from clickhouse_sqlalchemy import engines
 
-from .model_clickbase import MClickBase
-from ...enums import SOURCE_TYPES
-from ...libs import base_repr, datetime_normalize, Number, to_decimal
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.crud.model_conversion import ModelConversion
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
 
 
-class MAdjustfactor(MClickBase):
+class MAdjustfactor(MClickBase, ModelConversion):
     __abstract__ = False
     __tablename__ = "adjustfactor"
     

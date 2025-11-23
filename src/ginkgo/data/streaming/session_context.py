@@ -27,8 +27,8 @@ except ImportError:
 
     GLOG = logging.getLogger(__name__)
 
-from .monitoring import memory_monitor, session_manager, resource_optimizer, MemoryLevel, SessionState, MemorySnapshot
-from . import StreamingState
+from ginkgo.data.streaming.monitoring import memory_monitor, session_manager, resource_optimizer, MemoryLevel, SessionState, MemorySnapshot
+from ginkgo.data.streaming import StreamingState
 
 
 @dataclass

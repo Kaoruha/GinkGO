@@ -6,11 +6,11 @@ import pandas as pd
 from datetime import datetime
 from decimal import Decimal
 
-from .base_crud import BaseCRUD
-from ..models import MFactor
-from ...enums import ENTITY_TYPES, SOURCE_TYPES
-from ...libs import datetime_normalize, GLOG, Number, to_decimal
-from ..access_control import restrict_crud_access
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MFactor
+from ginkgo.enums import ENTITY_TYPES, SOURCE_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal
+from ginkgo.data.access_control import restrict_crud_access
 
 
 @restrict_crud_access
@@ -29,6 +29,10 @@ class FactorCRUD(BaseCRUD[MFactor]):
     - FUND: 基金因子 (基金评级, 业绩指标等)
     - CRYPTO: 加密货币因子 (链上活跃度, 挖矿难度等)
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MFactor
 
     def __init__(self):
         super().__init__(MFactor)
@@ -101,6 +105,37 @@ class FactorCRUD(BaseCRUD[MFactor]):
                 GLOG.DEBUG(f"Failed to convert Series to MFactor: {e}")
                 return None
         return None
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings for Factor.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'entity_type': ENTITY_TYPES,  # 实体类型字段映射
+            'source': SOURCE_TYPES        # 数据源字段映射
+        }
+
+    def _convert_models_to_business_objects(self, models: List[MFactor]) -> List[MFactor]:
+        """
+        🎯 Convert MFactor models to business objects.
+
+        Args:
+            models: List of MFactor models with enum fields already fixed
+
+        Returns:
+            List of MFactor models (Factor business object doesn't exist yet)
+        """
+        # For now, return models as-is since Factor business object doesn't exist yet
+        return models
+
+    def _convert_output_items(self, items: List[MFactor], output_type: str = "model") -> List[Any]:
+        """
+        Hook method: Convert MFactor objects for business layer.
+        """
+        return items
 
     # ============================================================================
     # 因子特化查询方法

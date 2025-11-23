@@ -1,14 +1,14 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MTransfer
-from ...enums import SOURCE_TYPES, TRANSFERDIRECTION_TYPES, TRANSFERSTATUS_TYPES, MARKET_TYPES
-from ...libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
-from ...backtest import Transfer
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MTransfer
+from ginkgo.enums import SOURCE_TYPES, TRANSFERDIRECTION_TYPES, TRANSFERSTATUS_TYPES, MARKET_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ginkgo.trading import Transfer
 
 
 @restrict_crud_access
@@ -16,6 +16,10 @@ class TransferCRUD(BaseCRUD[MTransfer]):
     """
     Transfer CRUD operations.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MTransfer
 
     def __init__(self):
         super().__init__(MTransfer)
@@ -110,6 +114,38 @@ class TransferCRUD(BaseCRUD[MTransfer]):
             )
         return None
 
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings for Transfer.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'direction': TRANSFERDIRECTION_TYPES,  # 转账方向字段映射
+            'status': TRANSFERSTATUS_TYPES,         # 转账状态字段映射
+            'market': MARKET_TYPES,                # 市场类型字段映射
+            'source': SOURCE_TYPES                # 数据源字段映射
+        }
+
+    def _convert_models_to_business_objects(self, models: List[MTransfer]) -> List[Transfer]:
+        """
+        🎯 Convert MTransfer models to Transfer business objects.
+
+        Args:
+            models: List of MTransfer models with enum fields already fixed
+
+        Returns:
+            List of Transfer business objects
+        """
+        business_objects = []
+        for model in models:
+            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
+            transfer = Transfer.from_model(model)
+            business_objects.append(transfer)
+
+        return business_objects
+
     def _convert_output_items(self, items: List[MTransfer], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MTransfer objects to Transfer objects.
@@ -148,21 +184,21 @@ class TransferCRUD(BaseCRUD[MTransfer]):
             filters["timestamp__lte"] = datetime_normalize(end_date)
             
         return self.find(filters=filters, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_status(self, status: TRANSFERSTATUS_TYPES, as_dataframe: bool = False) -> Union[List[MTransfer], pd.DataFrame]:
         """
         Business helper: Find transfers by status.
         """
         return self.find(filters={"status": status}, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_direction(self, direction: TRANSFERDIRECTION_TYPES, as_dataframe: bool = False) -> Union[List[MTransfer], pd.DataFrame]:
         """
         Business helper: Find transfers by direction.
         """
         return self.find(filters={"direction": direction}, order_by="timestamp", desc_order=True,
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_total_transfer_amount(self, portfolio_id: str, direction: TRANSFERDIRECTION_TYPES,
                                  start_date: Optional[Any] = None, end_date: Optional[Any] = None) -> float:
@@ -179,7 +215,7 @@ class TransferCRUD(BaseCRUD[MTransfer]):
         Business helper: Get all unique portfolio IDs.
         """
         # This would require a distinct query, simplified implementation
-        all_transfers = self.find(filters={}, as_dataframe=False, output_type="model")
+        all_transfers = self.find(filters={}, as_dataframe=False)
         return list(set(t.portfolio_id for t in all_transfers if t.portfolio_id))
 
     def update_status(self, portfolio_id: str, status: TRANSFERSTATUS_TYPES) -> None:

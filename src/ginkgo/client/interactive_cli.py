@@ -206,10 +206,10 @@ class MyPrompt(Cmd):
 
     def do_unittest(self, msg):
         # TODO
-        print("call ginkgo unittest later")
+        print("call ginkgo test later")
 
     def help_unittest(self):
-        print("Usage: unittest --[mode]")
+        print("Usage: pytest run --[mode] (unittest deprecated)")
         print("  -db     Run database units.")
         print("  -data   Run data-source relative units.")
         print("  -base   Run framework basic units.")

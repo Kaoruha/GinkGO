@@ -7,16 +7,24 @@ from functools import singledispatchmethod
 from sqlalchemy import Enum
 from sqlalchemy import String, Integer, DECIMAL
 from sqlalchemy.orm import Mapped, mapped_column
-from clickhouse_sqlalchemy import types
+from clickhouse_sqlalchemy import types, engines
 
-from .model_clickbase import MClickBase
-from ...libs import base_repr, datetime_normalize, Number, to_decimal
-from ...enums import FREQUENCY_TYPES, SOURCE_TYPES
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.libs import base_repr, datetime_normalize, Number, to_decimal
+from ginkgo.enums import FREQUENCY_TYPES, SOURCE_TYPES
 
 
 class MBar(MClickBase):
     __abstract__ = False
     __tablename__ = "bar"
+
+    # ClickHouse优化配置：按代码+时间排序
+    __table_args__ = (
+        engines.MergeTree(
+            order_by=("code", "timestamp")
+        ),
+        {"extend_existing": True},
+    )
 
     code: Mapped[str] = mapped_column(String(), default="ginkgo_test_code")
     open: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
@@ -26,6 +34,16 @@ class MBar(MClickBase):
     volume: Mapped[int] = mapped_column(Integer, default=0)
     amount: Mapped[Decimal] = mapped_column(DECIMAL(16, 2), default=0)
     frequency: Mapped[int] = mapped_column(types.Int8, default=-1)
+
+    def __init__(self, **kwargs):
+        # 处理枚举类型转换
+        if 'frequency' in kwargs and kwargs['frequency'] is not None:
+            kwargs['frequency'] = FREQUENCY_TYPES.validate_input(kwargs['frequency']) or -1
+        if 'source' in kwargs and kwargs['source'] is not None:
+            kwargs['source'] = SOURCE_TYPES.validate_input(kwargs['source']) or -1
+
+        # 调用父类构造函数
+        super().__init__(**kwargs)
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:

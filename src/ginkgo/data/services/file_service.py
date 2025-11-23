@@ -11,9 +11,9 @@ import os
 from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 
-from ...libs import cache_with_expiration, GCONF, retry
-from ...enums import FILE_TYPES
-from .base_service import ManagementService
+from ginkgo.libs import cache_with_expiration, GCONF, retry
+from ginkgo.enums import FILE_TYPES
+from ginkgo.data.services.base_service import ManagementService
 
 
 class FileService(ManagementService):
@@ -440,7 +440,7 @@ class FileService(ManagementService):
 
         file_type_map = {
             "analysis/analyzers": FILE_TYPES.ANALYZER,
-            "strategy/risk_managements": FILE_TYPES.RISKMANAGER,
+            "strategy/risk_managementss": FILE_TYPES.RISKMANAGER,
             "strategy/selectors": FILE_TYPES.SELECTOR,
             "strategy/sizers": FILE_TYPES.SIZER,
             "strategy/strategies": FILE_TYPES.STRATEGY,

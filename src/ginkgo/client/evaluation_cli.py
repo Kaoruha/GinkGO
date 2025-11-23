@@ -35,7 +35,7 @@ def evaluate_stability(
     """
     :chart_with_upwards_trend: Evaluate backtest stability using slice analysis.
     """
-    from ginkgo.backtest.evaluation import BacktestEvaluator
+    from ginkgo.trading.evaluation import BacktestEvaluator
     from ginkgo.data.operations import get_portfolio_ids_from_analyzer_records, get_engine_ids_from_analyzer_records
     from ginkgo.libs.utils.display import display_dataframe
     
@@ -113,7 +113,7 @@ def create_monitor(
     """
     :telescope: Create monitoring baseline from backtest data.
     """
-    from ginkgo.backtest.evaluation import BacktestEvaluator
+    from ginkgo.trading.evaluation import BacktestEvaluator
     
     try:
         console.print(f":hourglass_flowing_sand: [yellow]Creating monitoring baseline from portfolio {portfolio}, engine {engine}...[/yellow]")
@@ -157,7 +157,7 @@ def monitor_live(
     """
     :eyes: Start live monitoring using baseline (demo mode).
     """
-    from ginkgo.backtest.evaluation import BacktestEvaluator
+    from ginkgo.trading.evaluation import BacktestEvaluator
     import time
     
     try:

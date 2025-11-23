@@ -231,7 +231,7 @@ class CompositeAdapter(BaseAdapter):
                     self.log_adaptation(source, result, success=True)
                     return result
                 except Exception as e:
-                    GLOG.WARNING(f"子适配器 {adapter.name} 适配失败: {e}")
+                    GLOG.WARN(f"子适配器 {adapter.name} 适配失败: {e}")
                     continue
         
         error_msg = f"所有子适配器都无法将 {type(source).__name__} 适配为 {target_type.__name__ if target_type else 'Unknown'}"
@@ -305,7 +305,7 @@ class ConditionalAdapter(BaseAdapter):
                     self.log_adaptation(source, result, success=True)
                     return result
                 except Exception as e:
-                    GLOG.WARNING(f"条件适配器 {adapter.name} 适配失败: {e}")
+                    GLOG.WARN(f"条件适配器 {adapter.name} 适配失败: {e}")
                     continue
         
         # 使用默认适配器
@@ -315,7 +315,7 @@ class ConditionalAdapter(BaseAdapter):
                 self.log_adaptation(source, result, success=True)
                 return result
             except Exception as e:
-                GLOG.WARNING(f"默认适配器 {self._default_adapter.name} 适配失败: {e}")
+                GLOG.WARN(f"默认适配器 {self._default_adapter.name} 适配失败: {e}")
         
         error_msg = f"没有适配器可以将 {type(source).__name__} 适配为 {target_type.__name__ if target_type else 'Unknown'}"
         self.log_adaptation(source, None, success=False, error=error_msg)

@@ -5,7 +5,7 @@
 包括Pin Bar、Gap等经典技术分析模式。
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class PatternDetectionIndicators(BaseDefinition):

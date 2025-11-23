@@ -10,7 +10,7 @@ Expression Engine - 表达式执行引擎
 from typing import Dict, List, Optional, Any
 import pandas as pd
 from ginkgo.libs import GLOG
-from .expression.parser import ExpressionParser
+from ginkgo.features.engines.expression.parser import ExpressionParser
 # from .expression.operator_registry import OperatorRegistry
 
 
@@ -28,7 +28,7 @@ class ExpressionEngine:
         """初始化表达式引擎"""
         self.parser = ExpressionParser()
         # self.operator_registry = OperatorRegistry()
-        GLOG.info("ExpressionEngine initialized")
+        GLOG.INFO("ExpressionEngine initialized")
     
     def parse_expression(self, expression: str) -> Dict[str, Any]:
         """
@@ -81,7 +81,7 @@ class ExpressionEngine:
                 return ast.execute(data)
             
             # 如果ast是字典，需要根据类型创建相应的AST节点
-            from .expression.ast_nodes import (
+            from ginkgo.features.engines.expression.ast_nodes import (
                 FieldNode, NumberNode, BinaryOpNode, FunctionNode, ConditionalNode
             )
             
@@ -110,7 +110,7 @@ class ExpressionEngine:
                         args.append(self._evaluate_ast(arg, data))
                     
                     # 调用函数
-                    from .expression.registry import OperatorRegistry
+                    from ginkgo.features.engines.expression.registry import OperatorRegistry
                     return OperatorRegistry.execute_function(
                         ast['function_name'], args, data
                     )
@@ -138,7 +138,7 @@ class ExpressionEngine:
     def register_operator(self, name: str, func: callable):
         """注册自定义运算符"""
         # self.operator_registry.register(name, func)
-        GLOG.info(f"Operator registered: {name}")
+        GLOG.INFO(f"Operator registered: {name}")
     
     def batch_execute(self, expressions: Dict[str, str], data: pd.DataFrame) -> pd.DataFrame:
         """

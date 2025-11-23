@@ -11,8 +11,8 @@ import os
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 
-from .base_validator import ValidationResult, ValidationLevel
-from .validation_rules import ValidationRules
+from ginkgo.libs.validators.base_validator import ValidationResult, ValidationLevel
+from ginkgo.libs.validators.validation_rules import ValidationRules
 
 
 class ComponentTester:
@@ -219,7 +219,7 @@ class ComponentTester:
                     obj = getattr(module, name)
                     if (hasattr(obj, '__bases__') and 
                         len(obj.__bases__) > 0 and
-                        obj.__bases__[0].__name__ in ['StrategyBase', 'BaseAnalyzer', 'BaseRiskManagement', 'BaseSizer']):
+                        obj.__bases__[0].__name__ in ['BaseStrategy', 'BaseAnalyzer', 'BaseRiskManagement', 'BaseSizer']):
                         return obj
                 
                 return None
@@ -291,7 +291,7 @@ class ComponentTester:
             analyzer = component_class("test_analyzer")
             
             # 设置测试时间
-            analyzer.on_time_goes_by(datetime.now())
+            analyzer.advance_time(datetime.now())
             
             # 测试激活方法
             from ginkgo.enums import RECORDSTAGE_TYPES
@@ -468,7 +468,7 @@ class ComponentTester:
                 # 测试分析器方法
                 from ginkgo.enums import RECORDSTAGE_TYPES
                 portfolio_info = self.test_data['portfolio_info']
-                instance.on_time_goes_by(datetime.now())
+                instance.advance_time(datetime.now())
                 instance.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
                 instance.activate(RECORDSTAGE_TYPES.NEWDAY, portfolio_info)
                 

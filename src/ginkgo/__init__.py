@@ -5,23 +5,30 @@ Provides unified access to all module services.
 
 Usage:
     from ginkgo import services
-    
-    # Data services (already perfect)
+
+    # Data services - 完善的数据访问层
     bar_crud = services.data.cruds.bar()
     stockinfo_service = services.data.stockinfo_service()
-    
-    # Backtest services
-    engine = services.backtest.engines.historic()
-    
-    # Core services
-    adapter = services.core.adapters.mode()
-    
-    # ML services
-    model = services.ml.models.sklearn()
+    tick_service = services.data.tick_service()
+
+    # Trading services - 交易引擎和组件
+    engine = services.trading.engines.time_controlled()
+    portfolio = services.trading.base_portfolio()
+
+    # Core services - 核心基础服务
+    config_service = services.core.services.config()
+    logger_service = services.core.services.logger()
+    thread_service = services.core.services.thread()
+
+    # Features services - 因子工程服务
+    feature_container = services.features
+
+    # ML services - 机器学习服务 (如可用)
+    ml_container = services.ml
 """
 
 # Import data module container (already well implemented)
-from .data.containers import container as data
+from ginkgo.data.containers import container as data
 
 
 class Services:
@@ -47,7 +54,7 @@ class Services:
     def get_module_status(self):
         """Get detailed status of all modules."""
         status = {}
-        for module_name in ['data', 'backtest', 'core', 'ml', 'features']:
+        for module_name in ['data', 'trading', 'core', 'ml', 'features']:
             try:
                 module = getattr(self, module_name)
                 if module is not None:
@@ -107,15 +114,15 @@ class Services:
             return None
     
     @property
-    def backtest(self):
-        """Lazy load backtest module container"""
+    def trading(self):
+        """Lazy load trading module container"""
         try:
-            from ginkgo.backtest.core.containers import backtest_container
+            from ginkgo.trading.core.containers import backtest_container
             return backtest_container
         except Exception as e:
-            self._module_errors['backtest'] = str(e)
+            self._module_errors['trading'] = str(e)
             if self._debug_mode:
-                print(f":x: Backtest module error: {e}")
+                print(f":x: Trading module error: {e}")
                 import traceback
                 traceback.print_exc()
             return None
@@ -171,7 +178,7 @@ class Services:
         """List all available modules"""
         available = ["data"]  # data module is always available
         
-        for module_name in ["backtest", "core", "ml", "features"]:
+        for module_name in ["trading", "core", "ml", "features"]:
             try:
                 module = getattr(self, module_name)
                 if module is not None:

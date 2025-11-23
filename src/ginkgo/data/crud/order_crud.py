@@ -1,14 +1,15 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
+from sqlalchemy.orm import Session
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MOrder
-from ...backtest import Order
-from ...enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
-from ...libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MOrder
+from ginkgo.trading import Order
+from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
 
 
 @restrict_crud_access
@@ -16,6 +17,10 @@ class OrderCRUD(BaseCRUD[MOrder]):
     """
     Order CRUD operations.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MOrder
 
     def __init__(self):
         super().__init__(MOrder)
@@ -48,20 +53,17 @@ class OrderCRUD(BaseCRUD[MOrder]):
             
             # 交易方向 - 枚举值
             'direction': {
-                'type': 'enum',
-                'choices': [d for d in DIRECTION_TYPES]
+                'type': 'DIRECTION_TYPES',  # 使用枚举类型名称
             },
-            
+
             # 订单类型 - 枚举值
             'order_type': {
-                'type': 'enum',
-                'choices': [o for o in ORDER_TYPES]
+                'type': 'ORDER_TYPES',  # 使用枚举类型名称
             },
-            
+
             # 订单状态 - 枚举值
             'status': {
-                'type': 'enum',
-                'choices': [s for s in ORDERSTATUS_TYPES]
+                'type': 'ORDERSTATUS_TYPES',  # 使用枚举类型名称
             },
             
             # 订单数量 - 正数
@@ -115,6 +117,11 @@ class OrderCRUD(BaseCRUD[MOrder]):
             'source': {
                 'type': 'enum',
                 'choices': [s for s in SOURCE_TYPES]
+            },
+
+            # 业务时间戳 - datetime 或字符串，可选
+            'business_timestamp': {
+                'type': ['datetime', 'string', 'none']
             }
         }
 
@@ -122,13 +129,38 @@ class OrderCRUD(BaseCRUD[MOrder]):
         """
         Hook method: Create MOrder from parameters.
         """
+        # 处理枚举字段，确保插入数据库的是数值
+        direction_value = kwargs.get("direction")
+        if isinstance(direction_value, DIRECTION_TYPES):
+            direction_value = direction_value.value
+        else:
+            direction_value = DIRECTION_TYPES.validate_input(direction_value)
+
+        order_type_value = kwargs.get("order_type")
+        if isinstance(order_type_value, ORDER_TYPES):
+            order_type_value = order_type_value.value
+        else:
+            order_type_value = ORDER_TYPES.validate_input(order_type_value)
+
+        status_value = kwargs.get("status", ORDERSTATUS_TYPES.NEW)
+        if isinstance(status_value, ORDERSTATUS_TYPES):
+            status_value = status_value.value
+        else:
+            status_value = ORDERSTATUS_TYPES.validate_input(status_value)
+
+        source_value = kwargs.get("source", SOURCE_TYPES.SIM)
+        if isinstance(source_value, SOURCE_TYPES):
+            source_value = source_value.value
+        else:
+            source_value = SOURCE_TYPES.validate_input(source_value)
+
         return MOrder(
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
             code=kwargs.get("code"),
-            direction=DIRECTION_TYPES.validate_input(kwargs.get("direction")),
-            order_type=ORDER_TYPES.validate_input(kwargs.get("order_type")),
-            status=ORDERSTATUS_TYPES.validate_input(kwargs.get("status", ORDERSTATUS_TYPES.NEW)),
+            direction=direction_value,
+            order_type=order_type_value,
+            status=status_value,
             volume=kwargs.get("volume"),
             limit_price=to_decimal(kwargs.get("limit_price", 0)),
             frozen=kwargs.get("frozen", 0),
@@ -137,7 +169,8 @@ class OrderCRUD(BaseCRUD[MOrder]):
             remain=kwargs.get("remain", 0.0),
             fee=kwargs.get("fee", 0.0),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
-            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
+            source=source_value,
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MOrder]:
@@ -160,9 +193,59 @@ class OrderCRUD(BaseCRUD[MOrder]):
                 remain=to_decimal(getattr(item, 'remain', 0)),
                 fee=to_decimal(getattr(item, 'fee', 0)),
                 timestamp=datetime_normalize(getattr(item, 'timestamp')),
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
             )
         return None
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings for Order.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'direction': DIRECTION_TYPES,      # 交易方向字段映射
+            'order_type': ORDER_TYPES,        # 订单类型字段映射
+            'status': ORDERSTATUS_TYPES,      # 订单状态字段映射
+            'source': SOURCE_TYPES            # 数据源字段映射
+        }
+
+    def _convert_models_to_business_objects(self, models: List[MOrder]) -> List[Order]:
+        """
+        🎯 Convert MOrder models to Order business objects.
+
+        Args:
+            models: List of MOrder models with enum fields already fixed
+
+        Returns:
+            List of Order business objects
+        """
+        business_objects = []
+        for model in models:
+            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
+            order = Order(
+                portfolio_id=model.portfolio_id,
+                engine_id=model.engine_id,
+                run_id=model.run_id,
+                code=model.code,
+                direction=model.direction,
+                order_type=model.order_type,
+                volume=model.volume,
+                limit_price=model.limit_price,
+                frozen_money=model.frozen,
+                transaction_price=model.transaction_price,
+                transaction_volume=model.transaction_volume,
+                remain=model.remain,
+                fee=model.fee,
+                timestamp=model.timestamp,
+                status=model.status,
+                uuid=model.uuid,
+            )
+            business_objects.append(order)
+
+        return business_objects
 
     def _convert_output_items(self, items: List[MOrder], output_type: str = "model") -> List[Any]:
         """
@@ -171,16 +254,55 @@ class OrderCRUD(BaseCRUD[MOrder]):
         if output_type == "order":
             return [
                 Order(
+                    portfolio_id=item.portfolio_id,
+                    engine_id=item.engine_id,
+                    run_id=item.run_id,
                     code=item.code,
                     direction=item.direction,
                     order_type=item.order_type,
                     volume=item.volume,
                     limit_price=item.limit_price,
+                    frozen_money=item.frozen,
+                    transaction_price=item.transaction_price,
+                    transaction_volume=item.transaction_volume,
+                    remain=item.remain,
+                    fee=item.fee,
                     timestamp=item.timestamp,
                     status=item.status,
+                    uuid=item.uuid,
                 )
                 for item in items
             ]
+        elif output_type == "model":
+            # 对于默认的model输出，也需要转换枚举字段
+            converted_items = []
+            for item in items:
+                # 转换direction字段
+                if hasattr(item, 'direction') and isinstance(item.direction, int):
+                    direction_enum = DIRECTION_TYPES.from_int(item.direction)
+                    if direction_enum:
+                        item.direction = direction_enum
+
+                # 转换order_type字段
+                if hasattr(item, 'order_type') and isinstance(item.order_type, int):
+                    order_type_enum = ORDER_TYPES.from_int(item.order_type)
+                    if order_type_enum:
+                        item.order_type = order_type_enum
+
+                # 转换status字段
+                if hasattr(item, 'status') and isinstance(item.status, int):
+                    status_enum = ORDERSTATUS_TYPES.from_int(item.status)
+                    if status_enum:
+                        item.status = status_enum
+
+                # 转换source字段
+                if hasattr(item, 'source') and isinstance(item.source, int):
+                    source_enum = SOURCE_TYPES.from_int(item.source)
+                    if source_enum:
+                        item.source = source_enum
+
+                converted_items.append(item)
+            return converted_items
         return items
 
     # Business Helper Methods
@@ -436,7 +558,7 @@ class OrderCRUD(BaseCRUD[MOrder]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
         
-        orders = self.find(filters=filters, as_dataframe=False, output_type="model")
+        orders = self.find(filters=filters, as_dataframe=False)
         
         if not orders:
             return {
@@ -479,6 +601,33 @@ class OrderCRUD(BaseCRUD[MOrder]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get order codes: {e}")
             return []
+
+    def modify(self, filters: Dict[str, Any], updates: Dict[str, Any], session: Optional[Session] = None) -> None:
+        """
+        Override modify to handle enum type conversions.
+
+        Args:
+            filters: Dictionary of field -> value filters for selection
+            updates: Dictionary of field -> value updates to apply (supports both enum and int values)
+            session: Optional SQLAlchemy session to use for the operation
+        """
+        # 处理枚举类型转换
+        converted_updates = {}
+
+        for field, value in updates.items():
+            if field == "direction" and isinstance(value, DIRECTION_TYPES):
+                converted_updates[field] = value.value
+            elif field == "order_type" and isinstance(value, ORDER_TYPES):
+                converted_updates[field] = value.value
+            elif field == "status" and isinstance(value, ORDERSTATUS_TYPES):
+                converted_updates[field] = value.value
+            elif field == "source" and isinstance(value, SOURCE_TYPES):
+                converted_updates[field] = value.value
+            else:
+                converted_updates[field] = value
+
+        # 调用父类的modify方法
+        super().modify(filters, converted_updates, session)
 
     def get_portfolio_ids(self) -> List[str]:
         """

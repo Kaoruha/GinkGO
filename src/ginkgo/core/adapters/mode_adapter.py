@@ -8,9 +8,9 @@ from typing import Dict, Any, List, Type, Union
 import pandas as pd
 import numpy as np
 
-from .base_adapter import BaseAdapter, AdapterError
+from ginkgo.core.adapters.base_adapter import BaseAdapter, AdapterError
 from ginkgo.core.interfaces.strategy_interface import IStrategy
-from ginkgo.backtest.entities.signal import Signal
+from ginkgo.trading.entities.signal import Signal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import GLOG
 

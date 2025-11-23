@@ -1,9 +1,9 @@
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from ...libs import GLOG, GinkgoLogger
-from ...libs.utils.health_check import check_clickhouse_ready
-from .base_driver import DatabaseDriverBase
+from ginkgo.libs import GLOG, GinkgoLogger
+from ginkgo.libs.utils.health_check import check_clickhouse_ready
+from ginkgo.data.drivers.base_driver import DatabaseDriverBase
 
 
 class GinkgoClickhouse(DatabaseDriverBase):

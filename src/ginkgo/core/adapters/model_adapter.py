@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Type, Optional, Union
 import pandas as pd
 import numpy as np
 
-from .base_adapter import BaseAdapter, AdapterError
+from ginkgo.core.adapters.base_adapter import BaseAdapter, AdapterError
 from ginkgo.core.interfaces.model_interface import IModel
 from ginkgo.enums import MODEL_TYPES
 from ginkgo.libs import GLOG

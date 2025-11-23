@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional, Union
 import pandas as pd
 from datetime import datetime
 
-from ginkgo.backtest.entities.signal import Signal
+from ginkgo.trading.entities.signal import Signal
 from ginkgo.enums import STRATEGY_TYPES, DIRECTION_TYPES
 
 

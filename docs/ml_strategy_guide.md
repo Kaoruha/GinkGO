@@ -12,7 +12,7 @@ Ginkgo现在支持机器学习策略，可以轻松地将训练好的ML模型集
 ### 1. 基本使用
 
 ```python
-from ginkgo.backtest.strategy.strategies import StrategyMLPredictor
+from ginkgo.trading.strategy.strategies import StrategyMLPredictor
 
 # 创建ML策略实例
 strategy = StrategyMLPredictor(
@@ -62,7 +62,7 @@ strategy = StrategyMLPredictor(
 ### 3. 自定义ML策略
 
 ```python
-from ginkgo.backtest.strategy.strategies import StrategyMLBase
+from ginkgo.trading.strategy.strategies import StrategyMLBase
 from ginkgo.enums import DIRECTION_TYPES
 
 class CustomMLStrategy(StrategyMLBase):

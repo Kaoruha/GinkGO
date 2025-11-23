@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional, List, Union
 from datetime import datetime
 import inspect
 
-from ...libs import GLOG, cache_with_expiration, retry
+from ginkgo.libs import GLOG, cache_with_expiration, retry
 
 
 class ServiceResult:
@@ -110,6 +110,29 @@ class ServiceResult:
             bool: 是否成功
         """
         return self.success
+    
+    def is_failure(self) -> bool:
+        """
+        检查操作是否失败
+        
+        Returns:
+            bool: 是否失败
+        """
+        return not self.success
+    
+    def __str__(self) -> str:
+        """
+        字符串表示
+        
+        Returns:
+            str: 结果的字符串表示
+        """
+        if self.success:
+            data_str = f", data={self.data}" if self.data else ""
+            return f"ServiceResult(success=True{data_str})"
+        else:
+            error_str = f", error={self.error}" if self.error else ""
+            return f"ServiceResult(success=False{error_str})"
 
 
 class BaseService(ABC):

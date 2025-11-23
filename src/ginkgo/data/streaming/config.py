@@ -27,7 +27,7 @@ except ImportError:
 
     GLOG = logging.getLogger(__name__)
 
-from . import StreamingConfigError
+from ginkgo.data.streaming import StreamingConfigError
 
 
 @dataclass

@@ -3,7 +3,7 @@ from ginkgo.data.containers import container
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telebot.util import quick_markup
 from ginkgo.enums import FILE_TYPES
-from ginkgo.backtest.analysis.plots.result_plot import ResultPlot
+from ginkgo.trading.analysis.plots.result_plot import ResultPlot
 import telebot
 import shutil
 import yaml

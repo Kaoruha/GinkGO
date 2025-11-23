@@ -7,12 +7,13 @@ from sqlalchemy import Column, String, DateTime, Integer, Enum
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .model_mysqlbase import MMysqlBase
-from ...enums import SOURCE_TYPES, FREQUENCY_TYPES, CURRENCY_TYPES, MARKET_TYPES
-from ...libs import datetime_normalize, base_repr
+from ginkgo.data.models.model_mysqlbase import MMysqlBase
+from ginkgo.data.crud.model_conversion import ModelConversion
+from ginkgo.enums import SOURCE_TYPES, FREQUENCY_TYPES, CURRENCY_TYPES, MARKET_TYPES
+from ginkgo.libs import datetime_normalize, base_repr
 
 
-class MStockInfo(MMysqlBase):
+class MStockInfo(MMysqlBase, ModelConversion):
     __abstract__ = False
     __tablename__ = "stock_info"
 
@@ -23,6 +24,41 @@ class MStockInfo(MMysqlBase):
     market: Mapped[int] = mapped_column(TINYINT, default=-1)
     list_date: Mapped[datetime.datetime] = mapped_column(DateTime)
     delist_date: Mapped[datetime.datetime] = mapped_column(DateTime)
+
+    def __init__(self, code=None, code_name=None, industry=None, currency=None,
+                 market=None, list_date=None, delist_date=None, source=None, **kwargs):
+        """Initialize MStockInfo with automatic enum/int handling"""
+        super().__init__(**kwargs)
+
+        self.code = code or "ginkgo_test_code"
+        self.code_name = code_name or "ginkgo_test_name"
+        self.industry = industry or "ginkgo_test_industry"
+
+        # Handle currency and market - accept both int and enum
+        if currency is not None:
+            validated = CURRENCY_TYPES.validate_input(currency); self.currency = validated if validated is not None else CURRENCY_TYPES.CNY.value
+        else:
+            self.currency = CURRENCY_TYPES.CNY.value
+
+        if market is not None:
+            validated = MARKET_TYPES.validate_input(market); self.market = validated if validated is not None else MARKET_TYPES.CHINA.value
+        else:
+            self.market = MARKET_TYPES.CHINA.value
+
+        if list_date is not None:
+            self.list_date = datetime_normalize(list_date)
+        else:
+            self.list_date = datetime.datetime.now()
+
+        if delist_date is not None:
+            self.delist_date = datetime_normalize(delist_date)
+        else:
+            self.delist_date = datetime.datetime(2099, 12, 31)
+
+        if source is not None:
+            self.source = SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.TUSHARE.value
+        else:
+            self.source = SOURCE_TYPES.TUSHARE.value
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:

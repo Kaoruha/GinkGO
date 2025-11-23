@@ -1,9 +1,9 @@
 import tushare as ts
 import threading
 import pandas as pd
-from ...libs import datetime_normalize, GCONF, retry, time_logger, GLOG
+from ginkgo.libs import datetime_normalize, GCONF, retry, time_logger, GLOG
 from rich.console import Console
-from .source_base import GinkgoSourceBase
+from ginkgo.data.sources.source_base import GinkgoSourceBase
 
 console = Console()
 

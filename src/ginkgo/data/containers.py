@@ -38,20 +38,20 @@ Usage Examples:
 from dependency_injector import containers, providers
 
 # Import your services, CRUDs, and data sources
-from .sources import GinkgoTushare, GinkgoTDX
-from .utils import get_crud, get_available_crud_names  # get_crud is used to instantiate CRUD classes
-from .services.adjustfactor_service import AdjustfactorService
-from .services.stockinfo_service import StockinfoService
-from .services.bar_service import BarService
-from .services.tick_service import TickService
-from .services.file_service import FileService
-from .services.engine_service import EngineService
-from .services.portfolio_service import PortfolioService
-from .services.component_service import ComponentService
-from .services.redis_service import RedisService
-from .services.kafka_service import KafkaService
-from .services.signal_tracking_service import SignalTrackingService
-from .services.factor_service import FactorService
+from ginkgo.data.sources import GinkgoTushare, GinkgoTDX
+from ginkgo.data.utils import get_crud, get_available_crud_names  # get_crud is used to instantiate CRUD classes
+from ginkgo.data.services.adjustfactor_service import AdjustfactorService
+from ginkgo.data.services.stockinfo_service import StockinfoService
+from ginkgo.data.services.bar_service import BarService
+from ginkgo.data.services.tick_service import TickService
+from ginkgo.data.services.file_service import FileService
+from ginkgo.data.services.engine_service import EngineService
+from ginkgo.data.services.portfolio_service import PortfolioService
+from ginkgo.data.services.component_service import ComponentService
+from ginkgo.data.services.redis_service import RedisService
+from ginkgo.data.services.kafka_service import KafkaService
+from ginkgo.data.services.signal_tracking_service import SignalTrackingService
+from ginkgo.data.services.factor_service import FactorService
 
 
 class Container(containers.DeclarativeContainer):
@@ -161,7 +161,7 @@ def create_tick_crud(code: str):
     Example:
         tick_crud = container.create_tick_crud('000001.SZ')
     """
-    from .crud.tick_crud import TickCRUD
+    from ginkgo.data.crud.tick_crud import TickCRUD
 
     return TickCRUD(code)
 

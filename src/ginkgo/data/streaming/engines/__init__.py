@@ -11,10 +11,10 @@
 - EngineFactory: 引擎工厂，自动选择合适的引擎
 """
 
-from .base_streaming_engine import BaseStreamingEngine, StreamingCursor, ProgressObserver, CursorType, StreamingMetrics
-from .mysql_streaming_engine import MySQLStreamingEngine
-from .clickhouse_streaming_engine import ClickHouseStreamingEngine
-from .engine_factory import (
+from ginkgo.data.streaming.engines.base_streaming_engine import BaseStreamingEngine, StreamingCursor, ProgressObserver, CursorType, StreamingMetrics
+from ginkgo.data.streaming.engines.mysql_streaming_engine import MySQLStreamingEngine
+from ginkgo.data.streaming.engines.clickhouse_streaming_engine import ClickHouseStreamingEngine
+from ginkgo.data.streaming.engines.engine_factory import (
     StreamingEngineFactory,
     QueryOptimizer,
     QueryAnalysis,

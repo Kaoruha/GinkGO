@@ -6,7 +6,7 @@ Redis服务 - 统一管理Redis缓存操作
 from typing import Dict, List, Optional, Set, Any
 from datetime import datetime, timedelta
 import json
-from .base_service import DataService
+from ginkgo.data.services.base_service import DataService
 
 
 class RedisService(DataService):
@@ -21,7 +21,7 @@ class RedisService(DataService):
             **additional_deps: 其他依赖
         """
         if redis_crud is None:
-            from ..crud import RedisCRUD
+            from ginkgo.data.crud import RedisCRUD
             redis_crud = RedisCRUD()
         
         # Redis服务中，crud_repo和data_source都是RedisCRUD

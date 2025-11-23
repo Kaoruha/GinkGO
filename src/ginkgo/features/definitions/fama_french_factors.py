@@ -5,7 +5,7 @@ Eugene Fama和Kenneth French提出的经典因子模型，
 包含市场、规模、价值、盈利能力、投资模式等学术界公认的风险因子。
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class FamaFrenchFactors(BaseDefinition):

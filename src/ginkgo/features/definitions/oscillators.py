@@ -5,7 +5,7 @@
 包括RSI、ATR等技术分析中的振荡器指标。
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class OscillatorIndicators(BaseDefinition):

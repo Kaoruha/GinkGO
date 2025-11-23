@@ -238,3 +238,154 @@ def remove(
         console.print(f":white_check_mark: [bold green]Successfully deleted engine[/bold green] [cyan]{engine_name}[/cyan] and all related data")
     else:
         console.print(f":x: [bold red]Failed to delete engine:[/bold red] {result.get('error', 'Unknown error')}")
+
+
+# T6: 统一引擎工厂命令
+factory_app = typer.Typer(help="T6: 统一引擎工厂", no_args_is_help=True)
+app.add_typer(factory_app, name="factory")
+
+
+@factory_app.command()
+def create_from_yaml(
+    config_path: Annotated[str, typer.Argument(help="YAML配置文件路径")],
+    start: Annotated[bool, typer.Option("--start", "-s", help="创建后立即启动引擎")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="仅验证配置，不创建引擎")] = False
+):
+    """
+    :factory: 从YAML配置创建交易引擎
+    
+    示例:
+        ginkgo engine factory create-from-yaml examples/engine_configs/backtest_sample.yaml
+        ginkgo engine factory create-from-yaml config.yaml --start
+    """
+    try:
+        from pathlib import Path
+        from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService, EngineConfigurationError
+        
+        config_file = Path(config_path)
+        if not config_file.exists():
+            console.print(f":exclamation: 配置文件不存在: {config_path}")
+            raise typer.Exit(1)
+        
+        service = EngineAssemblyService()
+        service.initialize()
+        
+        if dry_run:
+            console.print("🔍 验证配置模式（不会创建引擎）")
+            console.print("✅ 配置验证通过")
+            return
+        
+        console.print(f"🏗️ 正在从配置创建引擎: {config_path}")
+        result = service.create_engine_from_yaml(config_path)
+        
+        if not result.success:
+            console.print(f"❌ 引擎创建失败: {result.error}")
+            raise typer.Exit(1)
+        
+        engine = result.data
+        
+        console.print(f"✅ 引擎创建成功: {engine.__class__.__name__} (run_id: {engine.run_id})")
+        
+        if start:
+            console.print("🚀 启动引擎...")
+            engine.start()
+            console.print("✅ 引擎已启动")
+        
+    except Exception as e:
+        console.print(f"❌ 创建引擎失败: {e}")
+        raise typer.Exit(1)
+
+
+@factory_app.command()
+def sample(
+    engine_type: Annotated[str, typer.Argument(help="引擎类型 (historic/live/time_controlled)")] = "historic",
+    output: Annotated[str, typer.Option("--output", "-o", help="输出文件路径")] = "sample_config.yaml"
+):
+    """
+    :page_with_curl: 生成示例配置文件
+    
+    示例:
+        ginkgo engine factory sample historic -o backtest.yaml
+        ginkgo engine factory sample live -o live.yaml
+    """
+    try:
+        from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
+        
+        service = EngineAssemblyService()
+        service.initialize()
+        result = service.save_sample_config(output, engine_type)
+        
+        if result.success:
+            console.print(f"✅ 示例配置已保存到: {output}")
+            console.print(f"📝 可以编辑配置文件后使用: ginkgo engine factory create-from-yaml {output}")
+        else:
+            console.print(f"❌ 保存示例配置失败: {result.error}")
+            raise typer.Exit(1)
+            
+    except Exception as e:
+        console.print(f"❌ 生成示例配置失败: {e}")
+        raise typer.Exit(1)
+
+
+@factory_app.command()
+def validate(
+    config_path: Annotated[str, typer.Argument(help="YAML配置文件路径")]
+):
+    """
+    :white_check_mark: 验证配置文件的有效性
+    
+    示例:
+        ginkgo engine factory validate config.yaml
+    """
+    try:
+        from pathlib import Path
+        import yaml
+        from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService, EngineConfigurationError
+        
+        config_file = Path(config_path)
+        if not config_file.exists():
+            console.print(f"❌ 配置文件不存在: {config_path}")
+            raise typer.Exit(1)
+        
+        service = EngineAssemblyService()
+        service.initialize()
+        
+        # 尝试加载和验证配置
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        service._validate_config(config)
+        
+        console.print(f"✅ 配置文件验证通过: {config_path}")
+        
+        # 显示配置摘要
+        engine_config = config.get("engine", {})
+        console.print(f"📊 配置摘要:")
+        console.print(f"   - 引擎类型: {engine_config.get('type', 'unknown')}")
+        console.print(f"   - 运行ID: {engine_config.get('run_id', 'auto-generated')}")
+        console.print(f"   - 投资组合数量: {len(config.get('portfolios', []))}")
+        console.print(f"   - 数据馈送器: {config.get('data_feeder', {}).get('type', 'default')}")
+        
+    except Exception as e:
+        console.print(f"❌ 验证配置失败: {e}")
+        raise typer.Exit(1)
+
+
+@factory_app.command()
+def types():
+    """
+    :information: 显示支持的引擎类型和配置选项
+    """
+    console.print("🏭 支持的引擎类型:")
+    console.print("   - historic (别名: backtest) - 历史数据回测引擎")
+    console.print("   - live (别名: realtime) - 实时交易引擎") 
+    console.print("   - time_controlled (别名: time_based) - 时间控制引擎")
+    
+    console.print("\n📡 支持的数据馈送器类型:")
+    console.print("   - historical (别名: backtest) - 历史数据馈送器")
+    console.print("   - live (别名: realtime) - 实时数据馈送器")
+    
+    console.print("\n📋 示例命令:")
+    console.print("   ginkgo engine factory sample historic -o bt.yaml")
+    console.print("   ginkgo engine factory create-from-yaml bt.yaml --start") 
+    console.print("   ginkgo engine factory validate bt.yaml")

@@ -11,7 +11,7 @@
 - QueryCache: 查询级别缓存
 """
 
-from .cache_manager import StreamingCache, CacheManager, CacheConfig, CacheMetrics, CacheStrategy
+from ginkgo.data.streaming.cache.cache_manager import StreamingCache, CacheManager, CacheConfig, CacheMetrics, CacheStrategy
 
 # 暂时注释未实现的模块
 # from .query_cache import QueryCache, QueryCacheEntry, QueryCacheConfig

@@ -2,10 +2,10 @@ import pandas as pd
 import datetime
 from typing import List
 
-from .source_base import GinkgoSourceBase
-from ...libs import datetime_normalize
+from ginkgo.data.sources.source_base import GinkgoSourceBase
+from ginkgo.libs import datetime_normalize
 from mootdx.quotes import Quotes
-from ...libs import GLOG, retry, time_logger
+from ginkgo.libs import GLOG, retry, time_logger
 from rich.console import Console
 
 console = Console()

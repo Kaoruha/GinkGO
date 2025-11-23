@@ -23,9 +23,9 @@ import pandas as pd
 import numpy as np
 from decimal import Decimal
 
-from ...libs import GLOG, datetime_normalize, to_decimal, retry, time_logger, cache_with_expiration
-from ...enums import ENTITY_TYPES, SOURCE_TYPES
-from .base_service import DataService, ServiceResult
+from ginkgo.libs import GLOG, datetime_normalize, to_decimal, retry, time_logger, cache_with_expiration
+from ginkgo.enums import ENTITY_TYPES, SOURCE_TYPES
+from ginkgo.data.services.base_service import DataService, ServiceResult
 
 
 class FactorService(DataService):

@@ -4,18 +4,18 @@ import threading
 from typing import List, Optional, Union, Any
 from sqlalchemy import inspect, select, func
 
-from .base_driver import DatabaseDriverBase
-from .ginkgo_clickhouse import GinkgoClickhouse
-from .ginkgo_mongo import GinkgoMongo
-from .ginkgo_mysql import GinkgoMysql
-from .ginkgo_redis import GinkgoRedis
-from .ginkgo_kafka import (
+from ginkgo.data.drivers.base_driver import DatabaseDriverBase
+from ginkgo.data.drivers.ginkgo_clickhouse import GinkgoClickhouse
+from ginkgo.data.drivers.ginkgo_mongo import GinkgoMongo
+from ginkgo.data.drivers.ginkgo_mysql import GinkgoMysql
+from ginkgo.data.drivers.ginkgo_redis import GinkgoRedis
+from ginkgo.data.drivers.ginkgo_kafka import (
     GinkgoProducer,
     GinkgoConsumer,
     kafka_topic_llen,
 )
-from ..models import MClickBase, MMysqlBase
-from ...libs import try_wait_counter, GLOG, GCONF, time_logger, retry, skip_if_ran, cache_with_expiration
+from ginkgo.data.models import MClickBase, MMysqlBase
+from ginkgo.libs import try_wait_counter, GLOG, GCONF, time_logger, retry, skip_if_ran, cache_with_expiration
 
 max_try = 5
 
@@ -269,11 +269,16 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
         try:
             mysql_conn = get_mysql_connection()
 
-            # 使用上下文管理器改进会话管理
+            # 使用上下文管理器改进会话管理，支持对象解绑
             with mysql_conn.get_session() as session:
                 session.add_all(mysql_list)
                 mysql_count = len(mysql_list)
                 GLOG.DEBUG(f"MySQL committed {len(mysql_list)} records.")
+
+                # 在session关闭前进行批量解绑，创建干净的脱管对象
+                # 常见做法：flush确保状态完整，expunge_all批量脱管
+                session.flush()          # 确保最新状态写入数据库
+                session.expunge_all()    # 批量脱管所有ORM实例
 
         except Exception as e:
             GLOG.ERROR(f"MySQL batch operation failed: {e}")

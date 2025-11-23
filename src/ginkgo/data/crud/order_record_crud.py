@@ -1,15 +1,15 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from .validation import ValidationError
-from ..models import MOrderRecord
-from ...enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
-from ...libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
-from ...backtest import Order
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.crud.validation import ValidationError
+from ginkgo.data.models import MOrderRecord
+from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES, ORDERSTATUS_TYPES, SOURCE_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, Number, to_decimal, cache_with_expiration
+from ginkgo.trading import Order
 
 
 @restrict_crud_access
@@ -17,6 +17,10 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
     """
     OrderRecord CRUD operations.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MOrderRecord
 
     def __init__(self):
         super().__init__(MOrderRecord)
@@ -90,6 +94,11 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             # 时间戳 - datetime 或字符串
             'timestamp': {
                 'type': ['datetime', 'string']
+            },
+
+            # 业务时间戳 - datetime 或字符串，可选
+            'business_timestamp': {
+                'type': ['datetime', 'string', 'none']
             }
         }
 
@@ -140,6 +149,7 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
             remain=to_decimal(kwargs.get("remain", 0)),
             fee=to_decimal(kwargs.get("fee", 0)),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
+            business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MOrderRecord]:
@@ -162,8 +172,37 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
                 remain=item.remain if hasattr(item, 'remain') else 0,
                 fee=item.fee if hasattr(item, 'fee') else 0,
                 timestamp=item.timestamp,
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
             )
         return None
+
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'direction': DIRECTION_TYPES,
+            'order': ORDER_TYPES,
+            'orderstatus': ORDERSTATUS_TYPES,
+            'source': SOURCE_TYPES
+        }
+
+    def _convert_models_to_business_objects(self, models: List) -> List:
+        """
+        🎯 Convert models to business objects.
+
+        Args:
+            models: List of models with enum fields already fixed
+
+        Returns:
+            List of models (business object doesn't exist yet)
+        """
+        # For now, return models as-is since business object doesn't exist yet
+        return models
 
     def _convert_output_items(self, items: List[MOrderRecord], output_type: str = "model") -> List[Any]:
         """
@@ -366,12 +405,50 @@ class OrderRecordCRUD(BaseCRUD[MOrderRecord]):
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
         
-        records = self.find(filters=filters, as_dataframe=False, output_type="model")
+        records = self.find(filters=filters, as_dataframe=False)
         
         total_amount = sum(
             float(record.transaction_price) * record.volume + float(record.fee)
             for record in records
             if record.transaction_price and record.volume
         )
-        
+
         return total_amount
+
+    def find_by_business_time(
+        self,
+        portfolio_id: str,
+        start_business_time: Optional[Any] = None,
+        end_business_time: Optional[Any] = None,
+        status: Optional[ORDERSTATUS_TYPES] = None,
+        as_dataframe: bool = False,
+    ) -> Union[List[MOrderRecord], pd.DataFrame]:
+        """
+        Business helper: Find order records by business time range.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            start_business_time: Start of business time range (optional)
+            end_business_time: End of business time range (optional)
+            status: Order status filter (optional)
+            as_dataframe: Return as DataFrame if True
+
+        Returns:
+            List of MOrderRecord models or DataFrame
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+        if status:
+            filters["status"] = status
+
+        return self.find(
+            filters=filters,
+            order_by="business_timestamp",
+            desc_order=True,
+            as_dataframe=as_dataframe,
+            output_type="model"
+        )

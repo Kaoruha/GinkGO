@@ -26,8 +26,8 @@ The functions here are kept for backward compatibility and legacy code support.
 """
 from typing import List, Any, Union
 
-from .crud import BaseCRUD
-from . import crud # Import crud package to access CRUD classes
+from ginkgo.data.crud import BaseCRUD
+from ginkgo.data import crud # Import crud package to access CRUD classes
 
 # Centralized CRUD instance management
 _crud_instances = {}

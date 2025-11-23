@@ -7,7 +7,7 @@ Bloomberg Terminal提供的机构级因子和指标，
 数据来源: Bloomberg Terminal - 全球领先的金融数据和分析平台
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class BloombergFactors(BaseDefinition):

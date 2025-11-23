@@ -6,7 +6,7 @@
 """
 
 import sys
-from .registry import factor_registry
+from ginkgo.features.definitions.registry import factor_registry
 
 # 自动发现所有因子库
 try:

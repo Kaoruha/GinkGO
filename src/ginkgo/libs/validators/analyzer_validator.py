@@ -8,8 +8,8 @@ import inspect
 import re
 from typing import List, Any
 
-from .base_validator import BaseValidator, ValidationResult, ValidationLevel
-from .validation_rules import ValidationRules
+from ginkgo.libs.validators.base_validator import BaseValidator, ValidationResult, ValidationLevel
+from ginkgo.libs.validators.validation_rules import ValidationRules
 
 
 class AnalyzerValidator(BaseValidator):
@@ -43,7 +43,7 @@ class AnalyzerValidator(BaseValidator):
                 details=f"Must define a class that inherits from {self.required_base_class}",
                 suggestions=[
                     f"Create a class that inherits from {self.required_base_class}",
-                    "Import the base class: from ginkgo.backtest.analysis.analyzers.base_analyzer import BaseAnalyzer"
+                    "Import the base class: from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer"
                 ]
             ))
             return results

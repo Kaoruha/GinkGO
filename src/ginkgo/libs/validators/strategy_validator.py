@@ -8,8 +8,8 @@ import inspect
 import re
 from typing import List, Any
 
-from .base_validator import BaseValidator, ValidationResult, ValidationLevel
-from .validation_rules import ValidationRules
+from ginkgo.libs.validators.base_validator import BaseValidator, ValidationResult, ValidationLevel
+from ginkgo.libs.validators.validation_rules import ValidationRules
 
 
 class StrategyValidator(BaseValidator):
@@ -43,7 +43,7 @@ class StrategyValidator(BaseValidator):
                 details=f"Must define a class that inherits from {self.required_base_class}",
                 suggestions=[
                     f"Create a class that inherits from {self.required_base_class}",
-                    "Import the base class: from ginkgo.backtest.strategy.strategies.base_strategy import StrategyBase"
+                    "Import the base class: from ginkgo.trading.strategies.base_strategy import BaseStrategy"
                 ]
             ))
             return results

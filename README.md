@@ -22,11 +22,42 @@ Event-Driven Flow: PriceUpdate → Strategy → Signal → Portfolio → Order �
 
 Core Components:
 ├── Data Layer        # Multi-database unified access
-├── Strategy Layer    # Trading strategies with risk control  
+├── Strategy Layer    # Trading strategies with risk control
 ├── Execution Layer   # Order matching and portfolio management
 ├── Analysis Layer    # Performance analysis and visualization
 └── Service Layer     # Dependency injection and global utilities
 ```
+
+### ⏰ TimeRelated Architecture Design
+
+**Design Principle**: TimeRelated mixin provides time advancement capabilities for components that need active time progression in backtesting scenarios.
+
+**Entity Classification**:
+
+📦 **Data Containers** (No TimeRelated inheritance needed):
+- `Bar`, `Tick`, `Adjustfactor`: Pure data containers with timestamp attributes
+- These entities store **data timestamps** but don't need **time progression**
+- Their timestamp represents when the data occurred, not current processing time
+
+🎯 **Business Logic Entities** (TimeRelated inheritance appropriate):
+- `Order`, `Signal`: May need time progression for business logic (expiry, decay)
+- `Position`: May track holding duration and time-based calculations
+- `Transfer`: May need time progression for transaction processing
+
+🏗️ **System Components** (TimeRelated inheritance essential):
+- Backtesting engines: Drive time progression across the entire system
+- Strategy components: Need current time awareness for decision making
+- Portfolio managers: Require time progression for state updates
+
+**Key Methods**:
+- `advance_time(target_time)`: Move forward in time (no backward movement allowed)
+- `now`: Current processing time (distinct from data timestamps)
+- `is_before(other_time)` / `is_after(other_time)`: Time comparison utilities
+- `time_elapsed_since(start_time)`: Calculate time differences
+- `can_advance_to(target_time)`: Validate time advancement
+- `reset_time()`: Reset time state for testing/restarting
+
+This design ensures clean separation between **data time** (when something happened) and **processing time** (current system state), critical for accurate backtesting.
 
 ## 🚀 Quick Start
 
@@ -162,7 +193,7 @@ ginkgo worker scale 6                 # Scale to 6 workers
 ```bash
 # Testing
 ginkgo test --all                     # Run all tests (simplified)
-ginkgo unittest run --a               # Full unittest command
+ginkgo test run --all                 # Full test command
 
 # Development services
 ginkgo dev server                     # Start FastAPI server
@@ -181,8 +212,8 @@ ginkgo evaluation run                 # Performance evaluation
 ### Basic Strategy Template
 
 ```python
-from ginkgo.backtest.strategy.strategies.base_strategy import BaseStrategy
-from ginkgo.backtest.entities import Signal
+from ginkgo.trading.strategy.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.entities import Signal
 from ginkgo.enums import DIRECTION_TYPES
 
 class MyStrategy(BaseStrategy):
@@ -200,7 +231,7 @@ class MyStrategy(BaseStrategy):
 ### Risk Management Integration
 
 ```python
-from ginkgo.backtest.strategy.risk_managements import (
+from ginkgo.trading.strategy.risk_managements import (
     PositionRatioRisk, 
     LossLimitRisk, 
     ProfitLimitRisk
@@ -230,8 +261,8 @@ from ginkgo import services
 bar_crud = services.data.cruds.bar()
 stockinfo_service = services.data.services.stockinfo_service()
 
-# Backtest services  
-engine = services.backtest.engines.historic()
+# Trading services  
+engine = services.trading.engines.historic()
 ```
 
 ### Common Operations

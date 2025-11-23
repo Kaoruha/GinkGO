@@ -26,15 +26,15 @@ Ginkgo Features Module - 特征因子解析引擎
     validation = expr_service.validate_expressions(expressions)
 """
 
-from .containers import feature_container
+from ginkgo.features.containers import feature_container
 
 # 导出核心模块
-from . import definitions
-from . import engines  
-from . import services
+from ginkgo.features import definitions
+from ginkgo.features import engines  
+from ginkgo.features import services
 
 # 导出主要类供直接使用
-from .definitions import (
+from ginkgo.features.definitions import (
     Alpha158Factors,
     MovingAverageIndicators,
     OscillatorIndicators,
@@ -42,14 +42,14 @@ from .definitions import (
     PatternDetectionIndicators
 )
 
-from .engines import (
+from ginkgo.features.engines import (
     FactorEngine,
     ExpressionEngine,
     ExpressionParser,
     OperatorRegistry
 )
 
-from .services import (
+from ginkgo.features.services import (
     FactorService,
     ExpressionService
 )

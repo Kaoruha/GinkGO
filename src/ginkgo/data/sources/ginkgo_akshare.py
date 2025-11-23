@@ -1,5 +1,5 @@
 import pandas as pd
-from .source_base import GinkgoSourceBase
+from ginkgo.data.sources.source_base import GinkgoSourceBase
 
 
 class GinkgoAkShare(GinkgoSourceBase):

@@ -187,7 +187,7 @@ class FunctionNode(ASTNode):
         """执行函数调用"""
         try:
             # 延迟导入避免循环依赖
-            from .registry import OperatorRegistry
+            from ginkgo.features.engines.expression.registry import OperatorRegistry
             
             # 执行所有参数节点
             arg_values = []

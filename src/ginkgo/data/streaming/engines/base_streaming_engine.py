@@ -30,8 +30,8 @@ except ImportError:
 
     GLOG = logging.getLogger(__name__)
 
-from .. import StreamingState, ProgressInfo, QueryState, StreamingEngineError
-from ..config import StreamingConfig
+from ginkgo.data.streaming import StreamingState, ProgressInfo, QueryState, StreamingEngineError
+from ginkgo.data.streaming.config import StreamingConfig
 
 
 class CursorType(Enum):

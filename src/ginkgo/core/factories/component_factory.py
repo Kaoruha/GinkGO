@@ -5,7 +5,7 @@
 """
 
 from typing import Dict, Any, Optional, Type
-from .base_factory import BaseFactory
+from ginkgo.core.factories.base_factory import BaseFactory
 
 
 class ComponentFactory(BaseFactory):

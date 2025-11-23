@@ -129,35 +129,68 @@ def base_repr(obj, name, label_len=12, total_len=80, *args, **kwargs) -> str:
         if param.startswith("_"):
             continue
 
-        if isinstance(obj.__getattribute__(param), MethodType):
+        # 单次访问属性，避免多次调用导致的问题
+        try:
+            s = obj.__getattribute__(param)
+        except Exception:
+            # 跳过无法访问的属性
             continue
 
-        if isinstance(obj.__getattribute__(param), FunctionType):
+        # 排除方法和函数
+        if isinstance(s, (MethodType, FunctionType)):
             continue
 
         tmp = " " * (count - len(str(param)))
         tmp += f"{str(param).upper()}"
-        s = obj.__getattribute__(param)
-        filter_s = str(s).strip(b"\x00".decode())
+
+        # 安全地转换为字符串，避免递归
+        try:
+            # 检查是否是基础类型，可以直接转换
+            if isinstance(s, (int, float, str, bool, type(None))):
+                filter_s = str(s)
+            elif isinstance(s, (list, tuple)):
+                # 对于序列，显示长度和类型
+                filter_s = f"[{len(s)} items] {type(s).__name__}"
+            elif isinstance(s, dict):
+                # 对于字典，显示键数量
+                filter_s = f"{{{len(s)} keys}} {type(s).__name__}"
+            else:
+                # 对于复杂对象，使用安全的表示
+                class_name = s.__class__.__name__
+                obj_id = hex(id(s))
+                filter_s = f"<{class_name} at {obj_id}>"
+        except RecursionError:
+            # 遇到递归时使用安全的表示
+            filter_s = f"<object at {hex(id(s))}>"
+        except Exception:
+            # 其他异常时使用类型表示
+            filter_s = f"<{type(s).__name__} object>"
         
         special_ins_param = [
-            "engine", "matchmaking", "datafeeder", "portfolio", 
+            "engine", "matchmaking", "datafeeder", "portfolio",
             "selector", "sizer", "data_feeder",
         ]
-        special_list_param = ["portfolios", "strategies", "interested", "signals", "loggers", "risk_managers"]
+        special_list_param = ["portfolios", "strategies", "interested", "signals", "loggers", "risk_managers", "selectors"]
         special_dict_param = ["positions", "analyzers"]
-        
+
         if isinstance(s, pd.DataFrame):
             filter_s = f"{str(s.shape)}"
-        if param in special_ins_param:
+        elif param == "bound_engine":
+            # 特殊处理bound_engine属性
+            if s is not None:
+                engine_name = getattr(s, 'name', s.__class__.__name__)
+                filter_s = f"[{hex(id(s))}] {engine_name}"
+            else:
+                filter_s = "None"
+        elif param in special_ins_param:
             filter_s = f"[{hex(id(s))}] {str(s.name)}" if s is not None else "None"
-        if param in special_dict_param:
+        elif param in special_dict_param:
             filter_s = f"{len(s.keys())}"
-        if param in special_list_param:
+        elif param in special_list_param:
             filter_s = f"{len(s)}"
-        if isinstance(s, Enum):
+        elif isinstance(s, Enum):
             filter_s += f" : {s.value}"
-        if param == "subscribers":
+        elif param == "subscribers":
             filter_s = ""
             for i in range(len(s)):
                 if i != 0:

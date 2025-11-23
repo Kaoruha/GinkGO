@@ -1,0 +1,58 @@
+# T6: 实盘引擎示例配置
+# 这是UnifiedTradingEngineFactory的实盘交易配置文件
+
+engine:
+  type: "live"              # 实盘引擎类型
+  name: "LiveTradingEngine"
+  run_id: "live_prod_20240101"  # T6: 统一运行标识符
+
+# 实时数据馈送器配置
+data_feeder:
+  type: "live"              # 实时数据馈送器
+  settings:
+    symbols:
+      - "000001.SZ"
+    subscription_timeout: 30.0  # 订阅超时（秒）
+    heartbeat_interval: 30.0    # 心跳间隔（秒）
+    auto_reconnect: true        # 自动重连
+    max_reconnect_attempts: 5   # 最大重连次数
+    rate_limit_enabled: true    # 启用限流
+    rate_limit_rps: 10.0        # 每秒请求数限制
+
+# 路由中心配置
+routing:
+  enabled: true
+  circuit_breaker:
+    enabled: true           # 实盘建议启用熔断器
+    threshold: 50           # 较低的熔断阈值
+
+# 投资组合配置
+portfolios:
+  - type: "base"
+    name: "LivePortfolio"
+    initial_capital: 500000  # 实盘初始资金50万
+    
+    # 实盘策略配置（需要更保守的策略）
+    strategies: []
+    
+    # 实盘风险管理（必须配置）
+    risk_managers: []
+    
+    # 实盘监控分析器
+    analyzers: []
+
+# 全局设置
+settings:
+  log_level: "INFO"
+  debug: true               # 实盘建议开启调试模式
+  enable_notifications: true  # 实盘必须启用通知
+  
+# 实盘特有配置
+live_settings:
+  trading_hours:            # 交易时间限制
+    start: "09:30"
+    end: "15:00"
+  max_daily_loss: 50000     # 每日最大损失限制
+  position_limits:          # 持仓限制
+    max_single_position: 0.2  # 单只股票最大仓位20%
+    max_total_position: 0.8   # 总仓位最大80%

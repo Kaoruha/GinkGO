@@ -10,8 +10,8 @@ from ginkgo.libs import GLOG
 from ginkgo.data.services.base_service import ServiceResult
 from ginkgo.enums import ENTITY_TYPES
 
-from ..engines import FactorEngine, ExpressionEngine
-from ..definitions import Alpha158Factors
+from ginkgo.features.engines import FactorEngine, ExpressionEngine
+from ginkgo.features.definitions import Alpha158Factors
 
 
 class FactorService:
@@ -37,7 +37,7 @@ class FactorService:
         self.expression_engine = expression_engine
         
         # 导入因子注册表用于查询
-        from ..definitions.registry import factor_registry
+        from ginkgo.features.definitions.registry import factor_registry
         self.factor_registry = factor_registry
         
         GLOG.INFO("FactorService initialized successfully")

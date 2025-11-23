@@ -9,8 +9,8 @@ Expression Parser - 表达式解析器
 
 import re
 from typing import List, Union, Optional
-from .ast_nodes import *
-from .registry import OperatorRegistry
+from ginkgo.features.engines.expression.ast_nodes import *
+from ginkgo.features.engines.expression.registry import OperatorRegistry
 from ginkgo.libs import GLOG
 
 
@@ -21,6 +21,10 @@ class ParseError(Exception):
         self.position = position
         self.expression = expression
         super().__init__(self._format_error())
+    
+    def __str__(self):
+        """简洁的字符串表示，只返回消息内容"""
+        return self.message
     
     def _format_error(self):
         """格式化错误信息"""
@@ -80,7 +84,7 @@ class ExpressionParser:
     def _import_operators(self):
         """导入操作符模块确保它们被注册"""
         try:
-            from .operators import basic, statistical, temporal, technical
+            from ginkgo.features.engines.expression.operators import basic, statistical, temporal, technical
         except ImportError as e:
             GLOG.WARNING(f"Failed to import some operator modules: {e}")
     
@@ -376,15 +380,22 @@ class ExpressionParser:
             
         Returns:
             List[str]: 依赖的字段列表
+            
+        Raises:
+            ParseError: 解析失败时抛出
         """
         try:
             ast = self.parse(expression)
             dependencies = set()
             self._collect_dependencies(ast, dependencies)
             return list(dependencies)
+        except ParseError:
+            # ParseError直接向上传播
+            raise
         except Exception as e:
+            # 其他异常记录日志后重新抛出ParseError
             GLOG.ERROR(f"Failed to get dependencies: {e}")
-            return []
+            raise ParseError(f"Failed to analyze dependencies: {e}")
     
     def _collect_dependencies(self, node: ASTNode, dependencies: set):
         """递归收集AST中的字段依赖"""

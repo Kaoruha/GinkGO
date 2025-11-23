@@ -117,13 +117,13 @@ sys.path.insert(0, '/home/kaoru/Applications/Ginkgo/src')
 # Import commonly used Ginkgo modules
 from ginkgo.libs import GCONF, GLOG, GTM
 from ginkgo.data import *
-from ginkgo.backtest import *
+from ginkgo.trading import *
 
 print("\\n:sparkles: Ginkgo Interactive Shell")
 print("Available imports:")
 print("  - GCONF, GLOG, GTM from ginkgo.libs")
 print("  - All modules from ginkgo.data")
-print("  - All modules from ginkgo.backtest")
+print("  - All modules from ginkgo.trading")
 print("\\nType 'help()' for Python help, or 'exit()' to quit.\\n")
 """
 

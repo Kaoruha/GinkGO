@@ -459,8 +459,8 @@ def test(
         unit = True
         integration = True
     
-    # Build the command to delegate to unittest CLI
-    cmd = [sys.executable, "-m", "ginkgo.client.unittest_cli", "run"]
+    # Build the command to delegate to pytest CLI
+    cmd = [sys.executable, "-m", "ginkgo.client.test_cli", "run"]
     
     if unit:
         cmd.append("--containers")

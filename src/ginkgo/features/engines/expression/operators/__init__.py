@@ -9,9 +9,9 @@ Operators Module - 操作符实现
 """
 
 # 导入所有操作符模块，确保它们被注册到OperatorRegistry
-from . import basic
-from . import statistical
-from . import temporal
-from . import technical
+from ginkgo.features.engines.expression.operators import basic
+from ginkgo.features.engines.expression.operators import statistical
+from ginkgo.features.engines.expression.operators import temporal
+from ginkgo.features.engines.expression.operators import technical
 
 __all__ = ["basic", "statistical", "temporal", "technical"]

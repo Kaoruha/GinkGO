@@ -7,9 +7,9 @@ Expression Module - 表达式解析层
 - 操作符注册和管理
 """
 
-from .parser import ExpressionParser
-from .ast_nodes import *
-from .registry import OperatorRegistry
+from ginkgo.features.engines.expression.parser import ExpressionParser
+from ginkgo.features.engines.expression.ast_nodes import *
+from ginkgo.features.engines.expression.registry import OperatorRegistry
 
 __all__ = [
     "ExpressionParser",

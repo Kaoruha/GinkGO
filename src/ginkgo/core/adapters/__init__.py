@@ -5,10 +5,10 @@
 特别是策略模式适配和ML集成适配。
 """
 
-from .base_adapter import BaseAdapter
-from .mode_adapter import ModeAdapter
-from .strategy_adapter import StrategyAdapter
-from .model_adapter import ModelAdapter
+from ginkgo.core.adapters.base_adapter import BaseAdapter
+from ginkgo.core.adapters.mode_adapter import ModeAdapter
+from ginkgo.core.adapters.strategy_adapter import StrategyAdapter
+from ginkgo.core.adapters.model_adapter import ModelAdapter
 
 __all__ = [
     'BaseAdapter',

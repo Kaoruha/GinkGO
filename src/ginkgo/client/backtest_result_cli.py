@@ -186,7 +186,7 @@ def show(
 def _display_plot_mode(result: "pd.DataFrame", output_path: Optional[str]):
     """matplotlib图表模式显示"""
     try:
-        from ginkgo.backtest.plots.result_plot import ResultPlot
+        from ginkgo.trading.plots.result_plot import ResultPlot
         
         # 准备数据格式 (ResultPlot需要特定格式)
         analyzer_name = result.iloc[0]["name"] if result.shape[0] > 0 else "Analyzer"

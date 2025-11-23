@@ -18,10 +18,10 @@ from rich.console import Console
 from multiprocessing import Process
 
 
-from .config import GCONF
-from ..utils.common import retry
-from .logger import GinkgoLogger
-from ...notifier.notifier_beep import beep
+from ginkgo.libs.core.config import GCONF
+from ginkgo.libs.utils.common import retry
+from ginkgo.libs.core.logger import GinkgoLogger
+from ginkgo.notifier.notifier_beep import beep
 
 
 console = Console()
@@ -485,7 +485,7 @@ if __name__ == "__main__":
     def run_live(self, id: str, *args, **kwargs):
         # TODO
         console.print(f"Try run live engine {id}")
-        from ginkgo.backtest.execution.engines.live_engine import LiveEngine
+        from ginkgo.trading.engines.live_engine import LiveEngine
 
         e = LiveEngine(id)
         e.start()
@@ -494,7 +494,7 @@ if __name__ == "__main__":
         # TODO
         GDATA.clean_live_status()
         content = f"""
-from ginkgo.backtest.execution.engines.live_engine import LiveEngine
+from ginkgo.trading.engines.live_engine import LiveEngine
 
 
 if __name__ == "__main__":

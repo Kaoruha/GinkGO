@@ -5,7 +5,7 @@ Alpha158是量化交易中广泛使用的158个技术因子集合，
 基于表达式引擎，包含价格、均线、波动率、动量、极值、分位数、RSV等多个类别。
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class Alpha158Factors(BaseDefinition):

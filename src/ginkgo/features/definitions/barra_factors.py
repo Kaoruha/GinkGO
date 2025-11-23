@@ -5,7 +5,7 @@ MSCI Barra全球股票风险模型的标准因子，
 包含风格因子、行业因子等工业界广泛应用的风险因子体系。
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class BarraFactors(BaseDefinition):

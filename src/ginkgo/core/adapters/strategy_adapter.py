@@ -8,10 +8,10 @@ from typing import Dict, Any, List, Type, Optional, Union
 import pandas as pd
 import numpy as np
 
-from .base_adapter import BaseAdapter, AdapterError
+from ginkgo.core.adapters.base_adapter import BaseAdapter, AdapterError
 from ginkgo.core.interfaces.strategy_interface import IStrategy, IMLStrategy
-from ginkgo.backtest.strategy.strategies.base_strategy import BaseStrategy
-from ginkgo.backtest.entities.signal import Signal
+from ginkgo.trading.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.entities.signal import Signal
 from ginkgo.enums import STRATEGY_TYPES, DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.libs import GLOG
 

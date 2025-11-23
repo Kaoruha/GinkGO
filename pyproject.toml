@@ -30,7 +30,7 @@ classifiers = [
     "Topic :: Office/Business :: Financial :: Investment",
     "Topic :: Scientific/Engineering :: Information Analysis",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 
 # 核心依赖 - 从requirements.txt中提取的关键包
 dependencies = [
@@ -44,9 +44,12 @@ dependencies = [
     "charset-normalizer>=3.4.0",
     "click>=8.1.0",
     "clickhouse-connect>=0.8.0",
+    "clickhouse-sqlalchemy>=0.3.2",
     "cloudpickle>=3.1.0",
     "colorama>=0.4.6",
+    "cryptography>=46.0.3",
     "dask>=2025.7.0",
+    "dependency-injector>=4.48.2",
     "fastapi>=0.116.0",
     "gunicorn>=23.0.0",
     "hiredis>=2.4.0",
@@ -54,8 +57,10 @@ dependencies = [
     "huggingface-hub>=0.34.0",
     "jinja2>=3.1.0",
     "jsonschema>=4.25.0",
+    "kafka-python>=2.2.15",
     "lz4>=4.4.0",
     "mmh3>=5.2.0",
+    "mootdx>=0.11.7",
     "mypy>=1.17.0",
     "numpy>=2.3.0",
     "packaging>=24.1.0",
@@ -70,6 +75,7 @@ dependencies = [
     "pygments>=2.19.0",
     "pyjwt>=2.10.0",
     "pymysql>=1.1.0",
+    "pytest-cov>=7.0.0",
     "python-dateutil>=2.9.0",
     "python-dotenv>=1.1.0",
     "pytz>=2025.2",
@@ -77,10 +83,12 @@ dependencies = [
     "redis>=4.6.0",
     "requests>=2.32.0",
     "rich>=13.0.0",
+    "scipy>=1.16.3",
     "six>=1.17.0",
     "sqlalchemy>=2.0.0",
     "starlette>=0.47.0",
     "tabulate>=0.9.0",
+    "telebot>=0.0.5",
     "tenacity>=8.5.0",
     "termcolor>=2.4.0",
     "tqdm>=4.67.0",
@@ -161,21 +169,81 @@ warn_unreachable = true
 strict_equality = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# 测试发现配置
+testpaths = ["test"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+minversion = "6.0"
+
+# 运行配置 - 合并自test/pytest.ini的完整配置
 addopts = [
-    "--strict-markers",
-    "--strict-config",
-    "--verbose",
-    "--cov=ginkgo",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-    "--cov-report=xml",
+    "-v",                    # 详细输出
+    "--strict-markers",      # 严格标记模式
+    "--strict-config",       # 严格配置模式
+    "--tb=short",           # 简短traceback
+    "--color=yes",          # 彩色输出
+    "--durations=10",       # 显示最慢的10个测试
 ]
+
+# 标记定义 - 精简版本
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
+    "unit: 快速的单元级测试",
+    "integration: 组件协同/端到端测试",
+    "slow: 执行时间较长的测试",
+    "database: 依赖数据库或持久化资源的测试",
+    "network: 需要外部网络资源的测试",
+    "performance: 性能或压力测试",
+    "backtest: 回测场景相关测试",
+    "live: 实盘场景相关测试",
+    "db_cleanup: 需要数据库清理的测试（自动清理测试数据）",
+    "tdd: TDD开发的测试用例",
+    "enum: 枚举处理相关的测试用例",
 ]
+
+# 警告过滤
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::UserWarning:ginkgo.*",
+]
+
+# 日志配置
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+# 所需插件
+required_plugins = ["pytest-cov"]
+
+[tool.coverage.run]
+source = ["src/ginkgo"]
+omit = [
+    "*/tests/*",
+    "*/test/*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/migrations/*",
+    "*/alembic/*",
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+skip_covered = false
+
+[tool.coverage.html]
+directory = "htmlcov"

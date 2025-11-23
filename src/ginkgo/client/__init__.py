@@ -1,1 +1,1 @@
-from . import evaluation_cli
+from ginkgo.client import evaluation_cli

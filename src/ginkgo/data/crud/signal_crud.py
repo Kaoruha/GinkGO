@@ -1,14 +1,14 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MSignal
-from ...backtest import Signal
-from ...enums import DIRECTION_TYPES, SOURCE_TYPES
-from ...libs import datetime_normalize, GLOG, cache_with_expiration
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MSignal
+from ginkgo.trading import Signal
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 
 
 @restrict_crud_access
@@ -16,6 +16,10 @@ class SignalCRUD(BaseCRUD[MSignal]):
     """
     Signal CRUD operations.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MSignal
 
     def __init__(self):
         super().__init__(MSignal)
@@ -48,8 +52,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
             
             # 交易方向 - 枚举值
             'direction': {
-                'type': 'enum',
-                'choices': [d for d in DIRECTION_TYPES]
+                'type': 'DIRECTION_TYPES',  # 使用枚举类型名称
             },
             
             # 时间戳 - datetime 或字符串
@@ -65,8 +68,13 @@ class SignalCRUD(BaseCRUD[MSignal]):
             
             # 数据源 - 枚举值
             'source': {
-                'type': 'enum',
-                'choices': [s for s in SOURCE_TYPES]
+                'type': 'SOURCE_TYPES',  # 使用枚举类型名称
+            },
+
+            # 业务时间戳 - datetime 或字符串，可选
+            'business_timestamp': {
+                'type': ['datetime', 'string', 'none'],
+                'required': False
             }
         }
 
@@ -74,14 +82,33 @@ class SignalCRUD(BaseCRUD[MSignal]):
         """
         Hook method: Create MSignal from parameters.
         """
+        # 处理枚举字段，确保插入数据库的是数值
+        direction_value = kwargs.get("direction")
+        if isinstance(direction_value, DIRECTION_TYPES):
+            direction_value = direction_value.value
+        else:
+            direction_value = DIRECTION_TYPES.validate_input(direction_value)
+
+        source_value = kwargs.get("source", SOURCE_TYPES.SIM)
+        if isinstance(source_value, SOURCE_TYPES):
+            source_value = source_value.value
+        else:
+            source_value = SOURCE_TYPES.validate_input(source_value)
+
+        # 确保business_timestamp有默认值，避免验证失败
+        business_timestamp = kwargs.get("business_timestamp")
+        if business_timestamp is None:
+            business_timestamp = kwargs.get("timestamp")  # 回退到timestamp
+
         return MSignal(
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
             code=kwargs.get("code"),
-            direction=DIRECTION_TYPES.validate_input(kwargs.get("direction")),
+            direction=direction_value,
             reason=kwargs.get("reason"),
-            source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
+            source=source_value,
+            business_timestamp=datetime_normalize(business_timestamp),
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MSignal]:
@@ -97,8 +124,50 @@ class SignalCRUD(BaseCRUD[MSignal]):
                 direction=DIRECTION_TYPES.validate_input(item.direction),
                 reason=item.reason,
                 source=SOURCE_TYPES.validate_input(item.source if hasattr(item, 'source') else SOURCE_TYPES.SIM),
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
             )
         return None
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings for Signal.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'direction': DIRECTION_TYPES,  # 交易方向字段映射
+            'source': SOURCE_TYPES        # 数据源字段映射
+        }
+
+    def _convert_models_to_business_objects(self, models: List[MSignal]) -> List[Signal]:
+        """
+        🎯 Convert MSignal models to Signal business objects.
+
+        Args:
+            models: List of MSignal models with enum fields already fixed
+
+        Returns:
+            List of Signal business objects
+        """
+        business_objects = []
+        for model in models:
+            # 转换为业务对象 (此时枚举字段已经是正确的枚举对象)
+            signal = Signal(
+                portfolio_id=model.portfolio_id,
+                engine_id=model.engine_id,
+                run_id=model.run_id,  # 添加run_id字段
+                timestamp=model.timestamp,
+                code=model.code,
+                direction=model.direction,
+                reason=model.reason,
+                source=model.source,  # 添加source字段
+                strength=model.strength,  # 添加strength字段
+                confidence=model.confidence,  # 添加confidence字段
+            )
+            business_objects.append(signal)
+
+        return business_objects
 
     def _convert_output_items(self, items: List[MSignal], output_type: str = "model") -> List[Any]:
         """
@@ -109,10 +178,14 @@ class SignalCRUD(BaseCRUD[MSignal]):
                 Signal(
                     portfolio_id=item.portfolio_id,
                     engine_id=item.engine_id,
+                    run_id=item.run_id,  # 添加run_id字段
                     timestamp=item.timestamp,
                     code=item.code,
                     direction=item.direction,
                     reason=item.reason,
+                    source=item.source,  # 添加source字段
+                    strength=item.strength,  # 添加strength字段
+                    confidence=item.confidence,  # 添加confidence字段
                 )
                 for item in items
             ]
@@ -204,16 +277,22 @@ class SignalCRUD(BaseCRUD[MSignal]):
         )
 
     def get_latest_signals(
-        self, portfolio_id: str, limit: int = 10, as_dataframe: bool = False
+        self, portfolio_id: str, limit: int = 10, page: Optional[int] = None, as_dataframe: bool = False
     ) -> Union[List[Signal], pd.DataFrame]:
         """
-        Business helper: Get latest signals for a portfolio.
+        Business helper: Get latest signals for a portfolio with pagination support.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            limit: Number of signals to return (default: 10)
+            page: Page number (0-based, None means start from page 0)
+            as_dataframe: Return as DataFrame if True
         """
         return self.find_by_portfolio(
-            portfolio_id=portfolio_id, 
-            page=0,  # Add page=0 to enable pagination
-            page_size=limit, 
-            desc_order=True, 
+            portfolio_id=portfolio_id,
+            page=page,  # Use dynamic page parameter
+            page_size=limit,
+            desc_order=True,
             as_dataframe=as_dataframe
         )
 
@@ -283,3 +362,37 @@ class SignalCRUD(BaseCRUD[MSignal]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get signal portfolio ids: {e}")
             return []
+
+    def find_by_business_time(
+        self,
+        portfolio_id: str,
+        start_business_time: Optional[Any] = None,
+        end_business_time: Optional[Any] = None,
+        as_dataframe: bool = False,
+    ) -> Union[List[MSignal], pd.DataFrame]:
+        """
+        Business helper: Find signals by business time range.
+
+        Args:
+            portfolio_id: Portfolio ID to query
+            start_business_time: Start of business time range (optional)
+            end_business_time: End of business time range (optional)
+            as_dataframe: Return as DataFrame if True
+
+        Returns:
+            List of MSignal models or DataFrame
+        """
+        filters = {"portfolio_id": portfolio_id}
+
+        if start_business_time:
+            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
+        if end_business_time:
+            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
+
+        return self.find(
+            filters=filters,
+            order_by="business_timestamp",
+            desc_order=True,
+            as_dataframe=as_dataframe,
+            output_type="model"
+        )

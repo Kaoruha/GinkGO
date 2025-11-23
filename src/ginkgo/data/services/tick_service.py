@@ -12,10 +12,11 @@ from datetime import datetime, timedelta
 from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 
-from ...libs import datetime_normalize, RichProgress, cache_with_expiration, retry, to_decimal, ensure_tick_table
-from .. import mappers
-from ...enums import TICKDIRECTION_TYPES, ADJUSTMENT_TYPES
-from .base_service import DataService
+from ginkgo.libs import datetime_normalize, RichProgress, cache_with_expiration, retry, to_decimal, ensure_tick_table
+from ginkgo.data import mappers
+from ginkgo.enums import TICKDIRECTION_TYPES, ADJUSTMENT_TYPES
+from ginkgo.data.services.base_service import DataService
+from ginkgo.data.crud.model_conversion import ModelList
 
 
 class TickService(DataService):
@@ -26,15 +27,15 @@ class TickService(DataService):
 
         # 集成RedisService
         if redis_service is None:
-            from .redis_service import RedisService
+            from ginkgo.data.services.redis_service import RedisService
 
             redis_service = RedisService()
         self.redis_service = redis_service
 
         # Initialize AdjustfactorService for price adjustment support
         if adjustfactor_service is None:
-            from .adjustfactor_service import AdjustfactorService
-            from ..crud.adjustfactor_crud import AdjustfactorCRUD
+            from ginkgo.data.services.adjustfactor_service import AdjustfactorService
+            from ginkgo.data.crud.adjustfactor_crud import AdjustfactorCRUD
 
             adjustfactor_service = AdjustfactorService(
                 crud_repo=AdjustfactorCRUD(), data_source=data_source, stockinfo_service=stockinfo_service
@@ -52,7 +53,7 @@ class TickService(DataService):
         Returns:
             TickCRUD: CRUD instance for the specified stock code
         """
-        from ..crud.tick_crud import TickCRUD
+        from ginkgo.data.crud.tick_crud import TickCRUD
 
         return TickCRUD(code)
 
@@ -93,8 +94,8 @@ class TickService(DataService):
         # Check if data exists and fast_mode is enabled
         if fast_mode:
             try:
-                existing_data = self.get_ticks(code=code, start_date=start_date, end_date=end_date, as_dataframe=True)
-                if not existing_data.empty:
+                existing_data = self.get_ticks(code=code, start_date=start_date, end_date=end_date)
+                if len(existing_data) > 0:
                     result["success"] = True
                     result["skipped"] = True
                     result["warnings"].append(f"Data already exists in DB ({len(existing_data)} records), skipped")
@@ -145,7 +146,7 @@ class TickService(DataService):
         # Enhanced database operations with error handling
         try:
             # Use dynamic CRUD repo based on stock code
-            from ..crud.tick_crud import TickCRUD
+            from ginkgo.data.crud.tick_crud import TickCRUD
 
             tick_crud = TickCRUD(code)
 
@@ -212,8 +213,8 @@ class TickService(DataService):
 
         # Get stock info to determine valid date range
         try:
-            stock_info = self.stockinfo_service.get_stockinfos(filters={"code": code}, as_dataframe=True)
-            if stock_info.empty:
+            stock_info = self.stockinfo_service.get_stockinfos(filters={"code": code})
+            if len(stock_info) == 0:
                 batch_result["failures"].append({"error": f"No stock info found for {code}"})
                 self._logger.ERROR(f"No stock info found for {code}")
                 return batch_result
@@ -441,10 +442,9 @@ class TickService(DataService):
         code: str = None,
         start_date: datetime = None,
         end_date: datetime = None,
-        as_dataframe: bool = True,
         adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE,
         **kwargs,
-    ) -> Union[pd.DataFrame, List[Any]]:
+    ):
         """
         Retrieves tick data from the database with optional price adjustment.
 
@@ -474,14 +474,14 @@ class TickService(DataService):
         if not code:
             raise ValueError("Code parameter is required for tick data operations")
         tick_crud = self.get_crud(code)
-        original_data = tick_crud.find(filters=filters, as_dataframe=as_dataframe, **kwargs)
+        model_list = tick_crud.find(filters=filters, **kwargs)
 
         # Return original data if no adjustment needed
         if adjustment_type == ADJUSTMENT_TYPES.NONE:
-            return original_data
+            return model_list
 
         # Apply price adjustment if requested
-        return self._apply_price_adjustment(original_data, code, adjustment_type, as_dataframe)
+        return self._apply_price_adjustment(model_list, code, adjustment_type)
 
     def get_ticks_adjusted(
         self,
@@ -528,11 +528,10 @@ class TickService(DataService):
     # 未来版本需要重构以提升Tick数据复权性能
     def _apply_price_adjustment(
         self,
-        ticks_data: Union[pd.DataFrame, List[Any]],
+        ticks_data: ModelList,
         code: str,
         adjustment_type: ADJUSTMENT_TYPES,
-        as_dataframe: bool,
-    ) -> Union[pd.DataFrame, List[Any]]:
+    ) -> ModelList:
         """
         Applies price adjustment factors to tick data.
 
@@ -597,7 +596,7 @@ class TickService(DataService):
                 return adjusted_df
             else:
                 # Convert back to list of models
-                from ..models.model_tick import MTick
+                from ginkgo.data.models.model_tick import MTick
 
                 adjusted_ticks = []
                 for _, row in adjusted_df.iterrows():

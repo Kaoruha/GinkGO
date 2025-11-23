@@ -6,8 +6,8 @@
 - ExpressionService: 表达式处理服务
 """
 
-from .factor_service import FactorService
-from .expression_service import ExpressionService
+from ginkgo.features.services.factor_service import FactorService
+from ginkgo.features.services.expression_service import ExpressionService
 
 __all__ = [
     "FactorService",

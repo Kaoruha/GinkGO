@@ -5,7 +5,7 @@ WorldQuant公开的101个Alpha因子表达式，
 展现了实战导向的复杂因子构造方法和排名技术的应用。
 """
 
-from .base import BaseDefinition
+from ginkgo.features.definitions.base import BaseDefinition
 
 
 class WorldQuantAlpha101(BaseDefinition):
@@ -149,7 +149,7 @@ class WorldQuantAlpha101(BaseDefinition):
         "high_frequency": ["ALPHA_002", "ALPHA_003", "ALPHA_012", "ALPHA_053"],
         "swing_trading": ["ALPHA_001", "ALPHA_009", "ALPHA_010", "ALPHA_051"],
         "portfolio_construction": ["ALPHA_090", "ALPHA_097", "ALPHA_100"],
-        "risk_management": ["ALPHA_034", "ALPHA_064", "ALPHA_082"],
+        "risk_managements": ["ALPHA_034", "ALPHA_064", "ALPHA_082"],
         
         # 核心推荐因子
         "top_performers": ["ALPHA_001", "ALPHA_002", "ALPHA_009", "ALPHA_051", "ALPHA_101"],

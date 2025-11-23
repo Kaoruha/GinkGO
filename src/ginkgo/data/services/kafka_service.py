@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import json
 import threading
 import uuid
-from .base_service import DataService
+from ginkgo.data.services.base_service import DataService
 
 
 class KafkaService(DataService):
@@ -23,7 +23,7 @@ class KafkaService(DataService):
             **additional_deps: 其他依赖
         """
         if kafka_crud is None:
-            from ..crud import KafkaCRUD
+            from ginkgo.data.crud import KafkaCRUD
             kafka_crud = KafkaCRUD()
         
         # Kafka服务中，crud_repo和data_source都是KafkaCRUD

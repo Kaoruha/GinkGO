@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from ...libs import time_logger, retry, GLOG, GinkgoLogger, cache_with_expiration
+from ginkgo.libs import time_logger, retry, GLOG, GinkgoLogger, cache_with_expiration
 
 
 class DatabaseDriverBase(ABC):

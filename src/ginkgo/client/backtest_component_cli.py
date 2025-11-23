@@ -1,4 +1,5 @@
 import typer
+import pandas as pd
 import subprocess
 from pathlib import Path
 from enum import Enum
@@ -7,7 +8,6 @@ from typing_extensions import Annotated
 from rich.prompt import Prompt
 from rich.table import Column, Table
 from rich.console import Console
-import pandas as pd
 
 # All heavy imports moved to function level for faster CLI startup
 
@@ -28,7 +28,10 @@ def create():
 
 @app.command(name="list")
 def list(
-    type: Annotated[Optional[str], typer.Option("--type", "-t", help="Filter by component type (strategy, analyzer, selector, sizer, risk)")] = None,
+    type: Annotated[
+        Optional[str],
+        typer.Option("--type", "-t", help="Filter by component type (strategy, analyzer, selector, sizer, risk)"),
+    ] = None,
     name: Annotated[Optional[str], typer.Option("--name", "-n", help="Filter by component name")] = None,
     include_removed: Annotated[bool, typer.Option("--all", "-a", help="Include removed components")] = False,
 ):
@@ -38,52 +41,54 @@ def list(
     from ginkgo.enums import FILE_TYPES
     from ginkgo.data.containers import Container
     from ginkgo.libs.utils.display import display_dataframe
-    
+
     # Build filters
     filters = {}
     if name:
-        filters['name'] = name
+        filters["name"] = name
     if type:
         # Map string type to FILE_TYPES
         type_mapping = {
-            'strategy': FILE_TYPES.STRATEGY,
-            'analyzer': FILE_TYPES.ANALYZER,
-            'selector': FILE_TYPES.SELECTOR,
-            'sizer': FILE_TYPES.SIZER,
-            'risk': FILE_TYPES.RISKMANAGER,
+            "strategy": FILE_TYPES.STRATEGY,
+            "analyzer": FILE_TYPES.ANALYZER,
+            "selector": FILE_TYPES.SELECTOR,
+            "sizer": FILE_TYPES.SIZER,
+            "risk": FILE_TYPES.RISKMANAGER,
         }
         if type.lower() in type_mapping:
-            filters['type'] = type_mapping[type.lower()]
+            filters["type"] = type_mapping[type.lower()]
         else:
             console.print(f":exclamation: Invalid component type: [light_coral]{type}[/light_coral]")
             console.print("Valid types: strategy, analyzer, selector, sizer, risk")
             return
-    
+
     # Get component files
     try:
         file_crud = Container.file_crud()
         files = file_crud.find(filters=filters)
-        
+
         # Convert objects to dataframe
         if files:
             data_rows = []
             for file_obj in files:
-                data_rows.append({
-                    'uuid': file_obj.uuid,
-                    'name': file_obj.name,
-                    'type': file_obj.type.name if hasattr(file_obj.type, 'name') else str(file_obj.type),
-                    'path': getattr(file_obj, 'path', ''),
-                    'update_at': getattr(file_obj, 'update_at', ''),
-                    'is_del': getattr(file_obj, 'is_del', False)
-                })
+                data_rows.append(
+                    {
+                        "uuid": file_obj.uuid,
+                        "name": file_obj.name,
+                        "type": file_obj.type.name if hasattr(file_obj.type, "name") else str(file_obj.type),
+                        "path": getattr(file_obj, "path", ""),
+                        "update_at": getattr(file_obj, "update_at", ""),
+                        "is_del": getattr(file_obj, "is_del", False),
+                    }
+                )
             files_df = pd.DataFrame(data_rows)
         else:
             files_df = pd.DataFrame()
-        
+
         # Filter out removed files unless requested
-        if files_df.shape[0] > 0 and not include_removed and 'is_del' in files_df.columns:
-            files_df = files_df[files_df['is_del'] == False]
-        
+        if files_df.shape[0] > 0 and not include_removed and "is_del" in files_df.columns:
+            files_df = files_df[files_df["is_del"] == False]
+
         # Display results
         # 配置列显示
         components_columns_config = {
@@ -91,16 +96,16 @@ def list(
             "name": {"display_name": "Name", "style": "cyan"},
             "type": {"display_name": "Type", "style": "green"},
             "path": {"display_name": "Path", "style": "dim"},
-            "update_at": {"display_name": "Update At", "style": "dim"}
+            "update_at": {"display_name": "Update At", "style": "dim"},
         }
-        
+
         display_dataframe(
             data=files_df,
             columns_config=components_columns_config,
             title=":dna: [bold]Components:[/bold]",
-            console=console
+            console=console,
         )
-        
+
     except Exception as e:
         console.print(f":x: [bold red]Failed to list components:[/bold red] {e}")
 
@@ -115,32 +120,34 @@ def update(
     :memo: Update component file metadata.
     """
     from ginkgo.data.containers import Container
-    
+
     # Verify file exists
     file_crud = Container.file_crud()
     file_obj = file_crud.get(id)
     if not file_obj:
         console.print(f":exclamation: Component file [light_coral]{id}[/light_coral] not found.")
         return
-    
+
     # Update fields
     updates = {}
     if name:
-        updates['name'] = name
+        updates["name"] = name
     if description:
-        updates['desc'] = description
-    
+        updates["desc"] = description
+
     if not updates:
         console.print(":information: No updates specified.")
         return
-    
+
     try:
         file_crud.update(id, **updates)
-        console.print(f":white_check_mark: [bold green]Updated component file[/bold green] [cyan]{file_obj.name}[/cyan]")
-        
+        console.print(
+            f":white_check_mark: [bold green]Updated component file[/bold green] [cyan]{file_obj.name}[/cyan]"
+        )
+
         for field, value in updates.items():
             console.print(f"  {field}: [cyan]{value}[/cyan]")
-            
+
     except Exception as e:
         console.print(f":x: [bold red]Failed to update component:[/bold red] {e}")
 
@@ -157,9 +164,7 @@ def edit(
         editors = ["nvim", "vim"]
         for editor in editors:
             try:
-                result = subprocess.run(
-                    ["which", editor], capture_output=True, text=True
-                )
+                result = subprocess.run(["which", editor], capture_output=True, text=True)
                 if result.returncode == 0:
                     return editor
             except FileNotFoundError:
@@ -174,7 +179,7 @@ def edit(
         console.print(f"The file {id} not exist.")
         return
 
-    file_path = getattr(file_obj, 'path', '')
+    file_path = getattr(file_obj, "path", "")
     file_name = file_obj.name
     console.print(f"EDIT file: {file_name}")
     console.print(f"PATH: {file_path}")
@@ -205,7 +210,7 @@ def cat(
         console.print(f"The file {id} not exist.")
         return
 
-    file_path = getattr(file_obj, 'path', '')
+    file_path = getattr(file_obj, "path", "")
     file_name = file_obj.name
 
     if not Path(file_path).exists():
@@ -239,7 +244,7 @@ def remove(
         return
 
     file_name = file_res.iloc[0]["name"]
-    
+
     if not Confirm.ask(f":question: Remove component file [cyan]{file_name}[/cyan]?", default=False):
         console.print(":relieved_face: Operation cancelled.")
         return
@@ -253,21 +258,27 @@ def remove(
 
 @app.command()
 def validate(
-    component: Annotated[Optional[str], typer.Option("--component", "-c", "--c", help=":id: Component ID to validate")] = None,
-    file_path: Annotated[Optional[str], typer.Option("--file", "-f", "--f", help=":page_facing_up: File path to validate")] = None,
-    type: Annotated[Optional[str], typer.Option("--type", "-t", help=":gear: Component type (strategy, analyzer, risk, sizer)")] = None,
+    component: Annotated[
+        Optional[str], typer.Option("--component", "-c", "--c", help=":id: Component ID to validate")
+    ] = None,
+    file_path: Annotated[
+        Optional[str], typer.Option("--file", "-f", "--f", help=":page_facing_up: File path to validate")
+    ] = None,
+    type: Annotated[
+        Optional[str], typer.Option("--type", "-t", help=":gear: Component type (strategy, analyzer, risk, sizer)")
+    ] = None,
 ):
     """
     :white_check_mark: Validate component compliance with framework standards.
     """
     try:
         from ginkgo.libs import validate_component
-        
+
         if validate_component is None:
             console.print(":x: [bold red]Validation module not available.[/bold red]")
             console.print("Please ensure the validators module is properly installed.")
             return
-        
+
         # 参数验证
         if not component and not file_path:
             console.print(":exclamation: [bold red]Must specify either --component or --file[/bold red]")
@@ -275,23 +286,27 @@ def validate(
             console.print("  ginkgo backtest component validate --component abc123 --type strategy")
             console.print("  ginkgo backtest component validate --file ./my_strategy.py --type strategy")
             return
-        
+
         if not type:
             console.print(":exclamation: [bold red]Component type is required[/bold red]")
             console.print("Valid types: strategy, analyzer, risk, sizer")
             return
-        
+
         # 执行校验
         if component:
-            console.print(f":mag: [bold blue]Validating component[/bold blue] [cyan]{component}[/cyan] as [green]{type}[/green]...")
+            console.print(
+                f":mag: [bold blue]Validating component[/bold blue] [cyan]{component}[/cyan] as [green]{type}[/green]..."
+            )
             result = validate_component(type, component_id=component)
         else:
-            console.print(f":mag: [bold blue]Validating file[/bold blue] [cyan]{file_path}[/cyan] as [green]{type}[/green]...")
+            console.print(
+                f":mag: [bold blue]Validating file[/bold blue] [cyan]{file_path}[/cyan] as [green]{type}[/green]..."
+            )
             result = validate_component(type, file_path=file_path)
-        
+
         # 显示结果
         _display_validation_result(result)
-        
+
     except Exception as e:
         console.print(f":x: [bold red]Validation failed:[/bold red] {e}")
 
@@ -299,27 +314,31 @@ def validate(
 @app.command()
 def test(
     component: Annotated[str, typer.Option("--component", "-c", "--c", help=":id: Component ID to test")],
-    test_type: Annotated[str, typer.Option("--type", "-t", help=":test_tube: Test type (unit, integration, performance)")] = "integration",
+    test_type: Annotated[
+        str, typer.Option("--type", "-t", help=":test_tube: Test type (unit, integration, performance)")
+    ] = "integration",
 ):
     """
     :test_tube: Run component tests in a safe sandbox environment.
     """
     try:
         from ginkgo.libs import test_component
-        
+
         if test_component is None:
             console.print(":x: [bold red]Testing module not available.[/bold red]")
             console.print("Please ensure the validators module is properly installed.")
             return
-        
-        console.print(f":test_tube: [bold blue]Running {test_type} tests[/bold blue] for component [cyan]{component}[/cyan]...")
-        
+
+        console.print(
+            f":test_tube: [bold blue]Running {test_type} tests[/bold blue] for component [cyan]{component}[/cyan]..."
+        )
+
         # 执行测试
         result = test_component(component, test_type)
-        
+
         # 显示结果
         _display_validation_result(result)
-        
+
     except Exception as e:
         console.print(f":x: [bold red]Testing failed:[/bold red] {e}")
 
@@ -327,7 +346,7 @@ def test(
 def _display_validation_result(result):
     """
     显示校验结果
-    
+
     Args:
         result: ValidationResult对象
     """
@@ -339,25 +358,25 @@ def _display_validation_result(result):
             status_text = "PASSED WITH WARNINGS"
         else:
             status_icon = ":white_check_mark:"
-            status_color = "green" 
+            status_color = "green"
             status_text = "PASSED"
     else:
         status_icon = ":x:"
         status_color = "red"
         status_text = "FAILED"
-    
+
     # 显示主要结果
     console.print(f"\n{status_icon} [bold {status_color}]{status_text}[/bold {status_color}]")
     console.print(f"[bold]Message:[/bold] {result.message}")
-    
+
     # 显示详细信息
     if result.details:
         console.print(f"[bold]Details:[/bold] {result.details}")
-    
+
     # 显示建议
     if result.suggestions:
         console.print(f"\n[bold yellow]Suggestions:[/bold yellow]")
         for i, suggestion in enumerate(result.suggestions, 1):
             console.print(f"  {i}. {suggestion}")
-    
+
     console.print("")  # 空行

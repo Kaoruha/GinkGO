@@ -1,20 +1,26 @@
-from ..access_control import restrict_crud_access
+from ginkgo.data.access_control import restrict_crud_access
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime
 
-from .base_crud import BaseCRUD
-from ..models import MEnginePortfolioMapping
-from ...enums import SOURCE_TYPES
-from ...libs import GLOG, cache_with_expiration
+from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.models import MEnginePortfolioMapping
+from ginkgo.enums import SOURCE_TYPES
+from ginkgo.libs import GLOG, cache_with_expiration
+from ginkgo.data.crud.model_conversion import ModelConversion
+from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping
 
 
 @restrict_crud_access
-class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping]):
+class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping], ModelConversion):
     """
     EnginePortfolioMapping CRUD operations.
     """
+
+    # 类级别声明，支持自动注册
+
+    _model_class = MEnginePortfolioMapping
 
     def __init__(self):
         super().__init__(MEnginePortfolioMapping)
@@ -60,6 +66,43 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping]):
             )
         return None
 
+
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'source': SOURCE_TYPES
+        }
+
+    def _convert_models_to_business_objects(self, models: List) -> List:
+        """
+        🎯 Convert MEnginePortfolioMapping models to Mapping business objects.
+
+        Args:
+            models: List of models with enum fields already fixed
+
+        Returns:
+            List of Mapping business objects
+        """
+        from ginkgo.trading.entities.mapping import Mapping
+
+        business_objects = []
+        for model in models:
+            # 转换为通用Mapping业务对象
+            mapping = Mapping.from_model(model, mapping_type="EnginePortfolioMapping")
+            business_objects.append(mapping)
+        return business_objects
+
+    def _convert_output_items(self, items: List, output_type: str = "model") -> List[Any]:
+        """
+        Hook method: Convert objects for business layer.
+        """
+        return items
+
     def _convert_output_items(self, items: List[MEnginePortfolioMapping], output_type: str = "model") -> List[Any]:
         """
         Hook method: Convert MEnginePortfolioMapping objects for business layer.
@@ -67,15 +110,17 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping]):
         return items
 
     # Business Helper Methods
+    
+    
     def find_by_engine(self, engine_id: str,
                       as_dataframe: bool = False) -> Union[List[MEnginePortfolioMapping], pd.DataFrame]:
         """
         Business helper: Find portfolio mappings by engine ID.
         """
         filters = {"engine_id": engine_id}
-        
+
         return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def find_by_portfolio(self, portfolio_id: str,
                          as_dataframe: bool = False) -> Union[List[MEnginePortfolioMapping], pd.DataFrame]:
@@ -85,7 +130,7 @@ class EnginePortfolioMappingCRUD(BaseCRUD[MEnginePortfolioMapping]):
         filters = {"portfolio_id": portfolio_id}
         
         return self.find(filters=filters, order_by="uuid",
-                        as_dataframe=as_dataframe, output_type="model")
+                        as_dataframe=as_dataframe)
 
     def get_portfolios_for_engine(self, engine_id: str) -> List[str]:
         """

@@ -66,9 +66,9 @@ def _get_alpha_factors_class():
     return AlphaFactors
 
 def _get_ml_strategy_base_class():
-    """Lazy import for MLStrategyBase class."""
-    from ginkgo.quant_ml.strategies.ml_strategy_base import MLStrategyBase
-    return MLStrategyBase
+    """Lazy import for MLBaseStrategy class."""
+    from ginkgo.quant_ml.strategies.ml_strategy_base import MLBaseStrategy
+    return MLBaseStrategy
 
 def _get_prediction_strategy_class():
     """Lazy import for PredictionStrategy class."""

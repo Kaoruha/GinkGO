@@ -6,9 +6,9 @@ from functools import singledispatchmethod
 from sqlalchemy import String, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .model_mysqlbase import MMysqlBase
-from ...enums import SOURCE_TYPES, EVENT_TYPES
-from ...libs import base_repr
+from ginkgo.data.models.model_mysqlbase import MMysqlBase
+from ginkgo.enums import SOURCE_TYPES, EVENT_TYPES
+from ginkgo.libs import base_repr
 
 
 class MEnginePortfolioMapping(MMysqlBase):
@@ -43,7 +43,7 @@ class MEnginePortfolioMapping(MMysqlBase):
         if portfolio_name is not None:
             self.portfolio_name = portfolio_name
         if source is not None:
-            self.source = source
+            self.set_source(source)
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
@@ -53,8 +53,21 @@ class MEnginePortfolioMapping(MMysqlBase):
         self.engine_name = df["engine_name"]
         self.portfolio_name = df["portfolio_name"]
         if "source" in df.keys():
-            self.source = df["source"]
+            self.set_source(df["source"])
         self.update_at = datetime.datetime.now()
+
+    def __init__(self, **kwargs):
+        """初始化MEnginePortfolioMapping实例，自动处理枚举字段转换"""
+        super().__init__()
+        # 处理source字段的枚举转换
+        if 'source' in kwargs:
+            self.set_source(kwargs['source'])
+            # 从kwargs中移除source，避免重复赋值
+            del kwargs['source']
+        # 设置其他字段
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 46)

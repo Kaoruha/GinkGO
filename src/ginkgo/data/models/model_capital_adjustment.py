@@ -4,38 +4,41 @@ from typing import Optional
 
 from decimal import Decimal
 from functools import singledispatchmethod
-from sqlalchemy import Column, String, Integer, DECIMAL, Enum
-from clickhouse_sqlalchemy import types
+from sqlalchemy import String, DECIMAL, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
+from clickhouse_sqlalchemy import engines, types
 
-from .model_clickbase import MClickBase
-from ...libs import datetime_normalize, base_repr, Number, to_decimal
-from ...enums import SOURCE_TYPES, CAPITALADJUSTMENT_TYPES
+from ginkgo.data.models.model_clickbase import MClickBase
+from ginkgo.data.crud.model_conversion import ModelConversion
+from ginkgo.libs import datetime_normalize, base_repr, Number, to_decimal
+from ginkgo.enums import SOURCE_TYPES
 
 
-class MCapitalAdjustment(MClickBase):
+class MCapitalAdjustment(MClickBase, ModelConversion):
     __abstract__ = False
     __tablename__ = "capital_adjustment"
 
+    # ClickHouse优化配置：按投资组合+时间排序
+    __table_args__ = (
+        engines.MergeTree(
+            order_by=("portfolio_id", "timestamp")
+        ),
+        {"extend_existing": True},
+    )
+
     """
-    'category', 'name', 'fenhong', 'peigujia'
-    'songzhuangu', 'peigu', 'suogu', 'panqianliutong', 'panhouliutong',
-    'qianzongguben', 'houzongguben', 'fenshu', 'xingquanjia'
+    资金调整数据模型
+
+    表示投资组合的资金调整操作，包括入金、出金、费用扣除等。
+    与CapitalAdjustment业务对象完全对齐。
     """
 
-    code: Mapped[str] = mapped_column(String(32), default="ginkgo_test_code")
-    type: Mapped[int] = mapped_column(types.Int8, default=-1)
-    fenhong: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
-    peigujia: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
-    songzhuangu: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
-    peigu: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
-    suogu: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
-    panqianliutong: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
-    panhouliutong: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
-    qianzongguben: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
-    houzongguben: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
-    fenshu: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
-    xingquanjia: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0)
+    portfolio_id: Mapped[str] = mapped_column(types.String, default="", comment="投资组合ID")
+    amount: Mapped[Decimal] = mapped_column(DECIMAL(20, 8), default=0, comment="调整金额")
+    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now, comment="调整时间")
+    reason: Mapped[str] = mapped_column(types.String, default="", comment="调整原因")
+    source: Mapped[int] = mapped_column(types.Int8, default=0, comment="数据源")
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="业务时间戳")
 
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
@@ -44,72 +47,54 @@ class MCapitalAdjustment(MClickBase):
     @update.register(str)
     def _(
         self,
-        code: str,
+        portfolio_id: str,
+        amount: Optional[Number] = None,
         timestamp: Optional[any] = None,
-        type: CAPITALADJUSTMENT_TYPES = None,
-        fenhong: Optional[Number] = None,
-        peigujia: Optional[Number] = None,
-        songzhuangu: Optional[Number] = None,
-        peigu: Optional[Number] = None,
-        suogu: Optional[Number] = None,
-        panqianliutong: Optional[Number] = None,
-        panhouliutong: Optional[Number] = None,
-        qianzongguben: Optional[Number] = None,
-        houzongguben: Optional[Number] = None,
-        fenshu: Optional[Number] = None,
-        xingquanjia: Optional[Number] = None,
+        reason: Optional[str] = None,
         source: Optional[SOURCE_TYPES] = None,
+        business_timestamp: Optional[any] = None,
         *args,
         **kwargs,
     ) -> None:
-        self.code = code
+        self.portfolio_id = portfolio_id
+        if amount is not None:
+            self.amount = to_decimal(amount)
         if timestamp is not None:
             self.timestamp = datetime_normalize(timestamp)
-        if type is not None:
-            self.type = CAPITALADJUSTMENT_TYPES.validate_input(type) or -1
-        if fenhong is not None:
-            self.fenhong = to_decimal(fenhong)
-        if peigujia is not None:
-            self.peigujia = to_decimal(peigujia)
-        if songzhuangu is not None:
-            self.songzhuangu = to_decimal(songzhuangu)
-        if peigu is not None:
-            self.peigu = to_decimal(peigu)
-        if suogu is not None:
-            self.suogu = to_decimal(suogu)
-        if panqianliutong is not None:
-            self.panqianliutong = to_decimal(panqianliutong)
-        if panhouliutong is not None:
-            self.panhouliutong = to_decimal(panhouliutong)
-        if qianzongguben is not None:
-            self.qianzongguben = to_decimal(qianzongguben)
-        if houzongguben is not None:
-            self.houzongguben = to_decimal(houzongguben)
-        if fenshu is not None:
-            self.fenshu = to_decimal(fenshu)
-        if xingquanjia is not None:
-            self.xingquanjia = to_decimal(xingquanjia)
+        if reason is not None:
+            self.reason = reason
         if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or -1
+            self.source = SOURCE_TYPES.validate_input(source)
+        if business_timestamp is not None:
+            self.business_timestamp = datetime_normalize(business_timestamp)
 
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.code = df["code"]
-        self.type = CAPITALADJUSTMENT_TYPES.validate_input(df["type"]) or -1
-        self.fenhong = to_decimal(df["fenhong"])
-        self.peigujia = to_decimal(df["peigujia"])
-        self.songzhuangu = to_decimal(df["songzhuangu"])
-        self.peigu = to_decimal(df["peigu"])
-        self.suogu = to_decimal(df["suogu"])
-        self.panqianliutong = to_decimal(df["panqianliutong"])
-        self.panhouliutong = to_decimal(df["panhouliutong"])
-        self.qianzongguben = to_decimal(df["qianzongguben"])
-        self.houzongguben = to_decimal(df["houzongguben"])
-        self.fenshu = to_decimal(df["fenshu"])
-        self.xingquanjia = to_decimal(df["xingquanjia"])
+        self.portfolio_id = df["portfolio_id"]
+        self.amount = to_decimal(df["amount"])
         self.timestamp = datetime_normalize(df["timestamp"])
+        self.reason = df.get("reason", "")
+        if "business_timestamp" in df.keys() and pd.notna(df["business_timestamp"]):
+            self.business_timestamp = datetime_normalize(df["business_timestamp"])
         if "source" in df.keys():
-            self.source = SOURCE_TYPES.validate_input(df["source"]) or -1
+            self.source = SOURCE_TYPES.validate_input(df["source"])
 
-    def __repr__(self) -> None:
+    def __init__(self, **kwargs):
+        """初始化MCapitalAdjustment实例，自动处理枚举字段转换"""
+        super().__init__()
+        # 处理source字段的枚举转换
+        if 'source' in kwargs:
+            self.source = SOURCE_TYPES.validate_input(kwargs['source'])
+            # 从kwargs中移除source，避免重复赋值
+            del kwargs['source']
+        # 处理business_timestamp字段
+        if 'business_timestamp' in kwargs:
+            self.business_timestamp = datetime_normalize(kwargs['business_timestamp'])
+            del kwargs['business_timestamp']
+        # 设置其他字段
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+    def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
