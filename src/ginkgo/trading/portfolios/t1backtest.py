@@ -449,6 +449,7 @@ class PortfolioT1Backtest(PortfolioBase):
                             direction=signal.direction,
                             reason=signal.reason,
                             source=signal.source,
+                            business_timestamp=signal.business_timestamp,  # 添加业务时间戳
                         )
                         self.log("DEBUG", f"Signal saved to database: {signal.code} {signal.direction}")
                     except Exception as e:

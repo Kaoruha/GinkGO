@@ -234,11 +234,12 @@ class BaseAnalyzer(BacktestBase, TimeMixin):
         Returns:
             None
         """
-        if self.now is None:
+        current_time = self.get_current_time()
+        if current_time is None:
             return
 
         value = to_decimal(value)
-        date = self.now.strftime("%Y-%m-%d %H:%M:%S")
+        date = current_time.strftime("%Y-%m-%d %H:%M:%S")
         
         # 检查是否需要扩容
         if self._size >= self._capacity:
@@ -279,9 +280,10 @@ class BaseAnalyzer(BacktestBase, TimeMixin):
         """
         Add record to database.
         """
-        if self.now is None:
+        current_time = self.get_current_time()
+        if current_time is None:
             return
-        date = self.now.strftime("%Y-%m-%d %H:%M:%S")
+        date = current_time.strftime("%Y-%m-%d %H:%M:%S")
         if date not in self.data["timestamp"].values:
             return
         value = self.get_data(date)

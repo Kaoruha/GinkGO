@@ -90,7 +90,7 @@ SignalCRUD数据库操作TDD测试 - 交易信号管理
 import pytest
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent.parent.parent
@@ -119,6 +119,7 @@ class TestSignalCRUDInsert:
         print(f"✓ 创建SignalCRUD实例: {signal_crud.__class__.__name__}")
 
         # 创建测试Signal数据
+        base_time = datetime(2023, 1, 3, 9, 30)
         test_signals = [
             MSignal(
                 portfolio_id="test_portfolio_001",
@@ -129,7 +130,8 @@ class TestSignalCRUDInsert:
                 reason="突破移动平均线",
                 strength=0.8,
                 confidence=0.75,
-                timestamp=datetime(2023, 1, 3, 9, 30),
+                timestamp=base_time,
+                business_timestamp=base_time - timedelta(minutes=15),  # 业务时间比系统时间早15分钟
                 source=SOURCE_TYPES.TEST
             ),
             MSignal(
@@ -141,7 +143,8 @@ class TestSignalCRUDInsert:
                 reason="RSI超买信号",
                 strength=0.6,
                 confidence=0.85,
-                timestamp=datetime(2023, 1, 3, 9, 31),
+                timestamp=base_time + timedelta(minutes=1),
+                business_timestamp=base_time + timedelta(minutes=-15, seconds=30),  # 业务时间比系统时间早15分钟
                 source=SOURCE_TYPES.TEST
             )
         ]
@@ -201,6 +204,7 @@ class TestSignalCRUDInsert:
 
         signal_crud = SignalCRUD()
 
+        base_time = datetime(2023, 1, 4, 10, 15)
         test_signal = MSignal(
             portfolio_id="test_portfolio_002",
             engine_id="test_engine_001",
@@ -210,7 +214,8 @@ class TestSignalCRUDInsert:
             reason="MACD金叉信号",
             strength=0.9,
             confidence=0.88,
-            timestamp=datetime(2023, 1, 4, 10, 15),
+            timestamp=base_time,
+            business_timestamp=base_time - timedelta(minutes=10),  # 业务时间比系统时间早10分钟
             source=SOURCE_TYPES.TEST
         )
         print(f"✓ 创建测试Signal: {test_signal.code}, 强度={test_signal.strength}, 置信度={test_signal.confidence}")
@@ -528,6 +533,74 @@ class TestSignalCRUDQuery:
             print("="*60)
             print("测试完成!")
             print("="*60)
+
+    def test_find_by_business_time_range(self):
+        """测试根据业务时间范围查询Signal"""
+        print("\n" + "="*60)
+        print("开始测试: 根据业务时间范围查询Signal")
+        print("="*60)
+
+        signal_crud = SignalCRUD()
+
+        try:
+            # 查询特定业务时间范围的信号
+            start_business_time = datetime(2023, 1, 3, 9, 15)   # 业务时间开始
+            end_business_time = datetime(2023, 1, 4, 10, 30)    # 业务时间结束
+
+            print(f"→ 查询业务时间范围 {start_business_time.time()} ~ {end_business_time.time()} 的信号...")
+            # 使用普通查询并验证业务时间
+            business_time_signals = signal_crud.find(filters={
+                "timestamp__gte": start_business_time,
+                "timestamp__lte": end_business_time,
+                "source": SOURCE_TYPES.TEST.value
+            })
+            print(f"✓ 查询到 {len(business_time_signals)} 条记录")
+
+            # 验证业务时间范围
+            for signal in business_time_signals:
+                print(f"  - {signal.code}: 系统时间 {signal.timestamp.time()}, 业务时间 {signal.business_timestamp.time() if signal.business_timestamp else 'None'}")
+                if signal.business_timestamp:
+                    assert start_business_time <= signal.business_timestamp <= end_business_time
+
+            print("✓ 业务时间范围查询验证成功")
+
+        except Exception as e:
+            print(f"✗ 业务时间范围查询失败: {e}")
+            raise
+
+    def test_find_by_time_range_with_business_timestamp(self):
+        """测试使用双时间戳的灵活时间范围查询Signal"""
+        print("\n" + "="*60)
+        print("开始测试: 双时间戳时间范围查询Signal")
+        print("="*60)
+
+        signal_crud = SignalCRUD()
+
+        try:
+            # 测试双时间戳查询
+            start_time = datetime(2023, 1, 3, 9, 0)
+            end_time = datetime(2023, 1, 4, 11, 0)
+
+            print(f"→ 使用系统时间查询范围 {start_time.time()} ~ {end_time.time()}...")
+            system_records = signal_crud.find(filters={
+                "timestamp__gte": start_time,
+                "timestamp__lte": end_time,
+                "source": SOURCE_TYPES.TEST.value
+            })
+            print(f"✓ 系统时间查询到 {len(system_records)} 条记录")
+
+            print(f"→ 验证双时间戳数据一致性...")
+            for signal in system_records:
+                if signal.business_timestamp:
+                    time_diff = signal.timestamp - signal.business_timestamp
+                    print(f"  - {signal.code}: 系统时间与业务时间差 {time_diff}")
+                    assert abs(time_diff.total_seconds() >= 0)  # 时间差应该合理
+
+            print("✓ 双时间戳查询验证成功")
+
+        except Exception as e:
+            print(f"✗ 双时间戳查询失败: {e}")
+            raise
 
 
 @pytest.mark.database
@@ -1173,7 +1246,7 @@ class TestSignalCRUDEnumValidation:
         print("\n→ 测试数据源过滤查询（枚举传参）...")
         tushare_signals = signal_crud.find(
             filters={
-                "portfolio_id": "test_portfolio_source",
+                "portfolio_id": unique_portfolio_id,
                 "source": SOURCE_TYPES.TUSHARE  # 枚举传参
             }
         )
