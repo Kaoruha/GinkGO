@@ -1,23 +1,18 @@
 <!--
 Sync Impact Report:
-Version change: none → 1.0.0
-Modified principles: N/A (initial creation)
-Added sections:
-- Security & Compliance Principle (敏感文件安全检查)
-- Architecture Excellence Principle (架构设计原则)
-- Code Quality Principle (代码质量原则)
-- Testing Excellence Principle (测试原则)
-- Performance Excellence Principle (性能原则)
-- Documentation Excellence Principle (文档原则)
+Version change: 1.0.0 → 1.1.0
+Modified principles:
+- Code Quality Principle - 新增避免hasattr错误规避原则
+Added sections: N/A
 Removed sections: N/A
 Files Updated for Consistency:
-✅ /home/kaoru/Ginkgo/.gitignore - 添加了全面的敏感文件保护规则
-✅ 移除了版本控制中的敏感文件: src/ginkgo/config/secure.yml, src/ginkgo/config/secure.backup
-Templates requiring updates: N/A (no templates exist yet)
+⚠ pending: .specify/templates/plan-template.md - 需更新以反映新的错误处理原则
+⚠ pending: .specify/templates/tasks-template.md - 可能需要任务分类更新
+⚠ pending: .specify/templates/commands/*.md - 命令模板可能需要更新
 Follow-up TODOs:
-- 考虑创建pre-commit hooks来自动执行敏感文件扫描
-- 考虑在CI/CD流水线中集成章程合规性检查
-- 定期审查和更新敏感文件检测规则
+- 在CI/CD中添加hasattr使用检测规则
+- 更新代码质量检查工具以包含hasattr规避检查
+- 建立最佳实践文档说明正确的错误处理模式
 -->
 
 # Ginkgo 项目章程
@@ -25,9 +20,9 @@ Follow-up TODOs:
 ## 基本信息
 
 - **项目名称**: Ginkgo
-- **章程版本**: 1.0.0
+- **章程版本**: 1.1.0
 - **制定日期**: 2025-11-03
-- **最后修订**: 2025-11-03
+- **最后修订**: 2025-11-23
 - **项目描述**: Python量化交易库，专注于事件驱动回测、多数据库支持和完整的风险管理系统
 
 ## 核心原则
@@ -59,7 +54,18 @@ Follow-up TODOs:
 
 **类型安全**: 所有新代码必须提供类型注解，支持静态类型检查。
 
+**错误处理最佳实践**: 严禁使用hasattr等反射机制来回避类型错误或属性检查，必须采用正确的类型检查和错误处理模式。
+
+**具体要求**:
+- 禁止使用hasattr(obj, 'attr')来判断属性是否存在，应使用正确的接口设计或类型检查
+- 禁止使用try-except配合hasattr来规避类型不匹配错误
+- 必须明确定义对象接口和属性，避免动态属性访问的不确定性
+- 对于可选属性，应使用可选类型注解(Optional[T])和合理的默认值
+- 错误处理应基于明确的异常类型，而非属性存在性检查
+
 **命名规范**: 遵循既定的命名约定，如CRUD操作的add_/get_/update_/delete_前缀，模型继承MClickBase/MMysqlBase等。
+
+**理由**: 使用hasattr回避错误会导致代码可读性差、调试困难、类型安全问题。正确的错误处理模式能提供更清晰的代码逻辑、更好的类型安全性和更可靠的运行时行为。
 
 ### 4. 测试原则 (Testing Excellence)
 
