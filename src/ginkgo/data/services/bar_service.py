@@ -15,7 +15,7 @@ import pandas as pd
 from ginkgo.libs import GCONF, datetime_normalize, to_decimal, RichProgress, cache_with_expiration, retry
 from ginkgo.data import mappers
 from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES
-from ginkgo.data.services.base_service import DataService
+from ginkgo.data.services.base_service import DataService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
 
 
@@ -41,7 +41,7 @@ class BarService(DataService):
         start_date: datetime = None,
         end_date: datetime = None,
         frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
-    ) -> Dict[str, Any]:
+    ) -> ServiceResult:
         """
         Synchronizes bar data for a single stock code within specified date range.
 
@@ -52,28 +52,22 @@ class BarService(DataService):
             frequency: Data frequency (currently only DAY supported)
 
         Returns:
-            Dict containing sync results with success status, statistics, and error info
+            ServiceResult - 包装同步结果数据，使用result.data获取详细信息
         """
-        result = {
-            "code": code,
-            "success": False,
-            "records_processed": 0,
-            "records_added": 0,
-            "error": None,
-            "warnings": [],
-            "date_range": None,
-        }
-
-        # Validate stock code
-        if not self.stockinfo_service.is_code_in_stocklist(code):
-            result["error"] = f"Stock code {code} not in stock list"
-            self._logger.DEBUG(f"Skipping bar sync for {code} as it's not in the stock list.")
-            return result
+        start_time = time.time()
+        self._log_operation_start("sync_for_code_with_date_range", code=code, start_date=start_date,
+                                end_date=end_date, frequency=frequency.value)
 
         try:
+            # Validate stock code
+            if not self.stockinfo_service.is_code_in_stocklist(code):
+                return ServiceResult.failure(
+                    message=f"Stock code {code} not in stock list",
+                    data={"code": code, "records_added": 0}
+                )
+
             # Validate and set date range
             validated_start, validated_end = self._validate_and_set_date_range(start_date, end_date)
-            result["date_range"] = f"{validated_start.date()} to {validated_end.date()}"
 
             self._logger.INFO(
                 f"Syncing {frequency.value} bars for {code} from {validated_start.date()} to {validated_end.date()}"
@@ -83,82 +77,103 @@ class BarService(DataService):
             try:
                 raw_data = self._fetch_raw_data(code, validated_start, validated_end, frequency)
                 if raw_data is None or raw_data.empty:
-                    result["success"] = True
-                    result["warnings"].append("No new data available from source")
-                    self._logger.INFO(f"No new bar data for {code} from source.")
-                    return result
+                    return ServiceResult.success(
+                        data={"code": code, "records_added": 0, "records_processed": 0, "date_range": f"{validated_start.date()} to {validated_end.date()}"},
+                        message="No new data available from source"
+                    )
             except Exception as e:
-                result["error"] = f"Failed to fetch data from source: {str(e)}"
-                self._logger.ERROR(f"Failed to fetch bars for {code} from source: {e}")
-                return result
-
-            result["records_processed"] = len(raw_data)
+                return ServiceResult.error(
+                    error=f"Failed to fetch data from source: {str(e)}"
+                )
 
             # Validate data quality
             if not self._validate_bar_data(raw_data):
-                result["warnings"].append("Data quality issues detected")
+                self._logger.WARN("Data quality issues detected")
 
             # Convert data to models with error handling
             try:
                 models_to_add = mappers.dataframe_to_bar_models(raw_data, code, frequency)
                 if not models_to_add:
-                    result["success"] = True
-                    result["warnings"].append("No valid models generated from data")
-                    return result
+                    return ServiceResult.success(
+                        data={"code": code, "records_added": 0, "records_processed": 0},
+                        message="No valid models generated from data"
+                    )
             except Exception as e:
                 # Fallback: try row-by-row conversion
                 self._logger.WARN(f"Batch conversion failed for {code}, attempting row-by-row: {e}")
                 models_to_add = self._convert_rows_individually(raw_data, code, frequency)
                 if not models_to_add:
-                    result["error"] = f"Data mapping failed: {str(e)}"
-                    return result
-                result["warnings"].append("Used row-by-row conversion due to batch failure")
+                    return ServiceResult.failure(
+                        message=f"Data mapping failed: {str(e)}",
+                        data={"code": code, "records_added": 0, "records_processed": 0}
+                    )
 
             # Smart duplicate checking and database operations
-            try:
-                final_models = self._filter_existing_data(models_to_add, code, frequency)
+            final_models = self._filter_existing_data(models_to_add, code, frequency)
 
-                if not final_models:
-                    result["success"] = True
-                    result["warnings"].append("All data already exists in database")
-                    return result
+            if not final_models:
+                return ServiceResult.success(
+                    data={"code": code, "records_added": 0, "records_processed": len(raw_data)},
+                    message="All data already exists in database"
+                )
 
-                # Only remove existing data if we have a limited date range (for data consistency)
-                if start_date is not None or end_date is not None:
-                    min_date = min(item.timestamp for item in final_models)
-                    max_date = max(item.timestamp for item in final_models)
-                    removed_count = self.crud_repo.remove(
-                        filters={
-                            "code": code,
-                            "timestamp__gte": min_date,
-                            "timestamp__lte": max_date,
-                            "frequency": frequency,
-                        }
-                    )
-                    if removed_count is not None and removed_count > 0:
-                        result["warnings"].append(f"Removed {removed_count} existing records for consistency")
-                    time.sleep(0.2)  # Brief pause for database consistency
+            # Use BaseCRUD.replace method for atomic operation
+            if start_date is not None or end_date is not None:
+                # For limited date range, replace data in that range
+                min_date = min(item.timestamp for item in final_models)
+                max_date = max(item.timestamp for item in final_models)
+                filters = {
+                    "code": code,
+                    "timestamp__gte": min_date,
+                    "timestamp__lte": max_date,
+                    "frequency": frequency,
+                }
+            else:
+                # For full sync, replace all data for this code and frequency
+                filters = {
+                    "code": code,
+                    "frequency": frequency,
+                }
 
-                self.crud_repo.add_batch(final_models)
-                result["records_added"] = len(final_models)
-                result["success"] = True
-                self._logger.INFO(f"Bar data for {code} saved successfully: {len(final_models)} records")
+            replaced_models = self.crud_repo.replace(filters=filters, new_items=final_models)
+            records_added = len(replaced_models)
 
-            except Exception as e:
-                result["error"] = f"Database operation failed: {str(e)}"
-                self._logger.ERROR(f"Failed to save bar data for {code}: {e}")
-                return result
+            # If replace returned empty (no existing data), use add_batch instead
+            if records_added == 0:
+                inserted_models = self.crud_repo.add_batch(final_models)
+                records_added = len(inserted_models)
+                self._logger.INFO(f"Successfully inserted {records_added} new bar records for {code}")
+                removed_count = 0
+            else:
+                self._logger.INFO(f"Successfully replaced {records_added} bar records for {code}")
+                removed_count = len(replaced_models)  # All were replaced
+
+            duration = time.time() - start_time
+            self._log_operation_end("sync_for_code_with_date_range", True, duration)
+
+            return ServiceResult.success(
+                data={
+                    "code": code,
+                    "records_added": records_added,
+                    "records_processed": len(raw_data),
+                    "date_range": f"{validated_start.date()} to {validated_end.date()}",
+                    "removed_count": removed_count
+                },
+                message=f"Bar data for {code} saved successfully: {records_added} records"
+            )
 
         except Exception as e:
-            result["error"] = f"Unexpected error during sync: {str(e)}"
+            duration = time.time() - start_time
+            self._log_operation_end("sync_for_code_with_date_range", False, duration)
             self._logger.ERROR(f"Unexpected error syncing {code}: {e}")
-
-        return result
+            return ServiceResult.error(
+                error=f"Unexpected error during sync: {str(e)}"
+            )
 
     @retry(max_try=3)
     def sync_for_code(
         self, code: str, fast_mode: bool = True, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
-    ) -> Dict[str, Any]:
+    ) -> ServiceResult:
         """
         Synchronizes bar data for a single stock code with enhanced error handling.
 
@@ -168,21 +183,40 @@ class BarService(DataService):
             frequency: Data frequency (currently only DAY supported)
 
         Returns:
-            Dict containing sync results with success status, statistics, and error info
+            ServiceResult - 包装同步结果，使用result.data获取详细信息
         """
-        # Determine date range based on fast_mode
-        start_date, end_date = self._get_fetch_date_range(code, fast_mode)
+        start_time = time.time()
+        self._log_operation_start("sync_for_code", code=code, fast_mode=fast_mode, frequency=frequency.value)
 
-        # Call the new date range method
-        result = self.sync_for_code_with_date_range(code, start_date, end_date, frequency)
+        try:
+            # Determine date range based on fast_mode
+            start_date, end_date = self._get_fetch_date_range(code, fast_mode)
 
-        # For backward compatibility with existing deletion logic in non-fast mode
-        if not fast_mode and result["success"] and result["records_added"] > 0:
-            # Ensure we handle the old delete-and-replace behavior for non-fast mode
-            # The new method already handles this, but we add this check for clarity
-            pass
+            # Call the new date range method
+            sync_result = self.sync_for_code_with_date_range(code, start_date, end_date, frequency)
 
-        return result
+            # Convert dict result to ServiceResult
+            duration = time.time() - start_time
+            self._log_operation_end("sync_for_code", sync_result.success, duration)
+
+            if sync_result.success:
+                return ServiceResult.success(
+                    data=sync_result.data,
+                    message=f"Successfully synced {sync_result.data.get('records_added', 0)} bar records for {code}"
+                )
+            else:
+                return ServiceResult.failure(
+                    message=sync_result.error,
+                    data=sync_result.data
+                )
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("sync_for_code", False, duration)
+            self._logger.ERROR(f"Failed to sync bar data for {code}: {e}")
+            return ServiceResult.error(
+                error=f"Sync operation failed: {str(e)}"
+            )
 
     def sync_batch_codes_with_date_range(
         self,
@@ -190,7 +224,7 @@ class BarService(DataService):
         start_date: datetime = None,
         end_date: datetime = None,
         frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
-    ) -> Dict[str, Any]:
+    ) -> ServiceResult:
         """
         Synchronizes bar data for multiple stock codes within specified date range.
 
@@ -243,14 +277,14 @@ class BarService(DataService):
                     result = self.sync_for_code_with_date_range(code, validated_start, validated_end, frequency)
 
                     batch_result["results"].append(result)
-                    batch_result["total_records_processed"] += result["records_processed"]
-                    batch_result["total_records_added"] += result["records_added"]
+                    batch_result["total_records_processed"] += result.data.get("records_processed", 0)
+                    batch_result["total_records_added"] += result.data.get("records_added", 0)
 
-                    if result["success"]:
+                    if result.success:
                         batch_result["successful_codes"] += 1
                     else:
                         batch_result["failed_codes"] += 1
-                        batch_result["failures"].append({"code": code, "error": result["error"]})
+                        batch_result["failures"].append({"code": code, "error": result.error})
 
                     progress.update(task, advance=1)
 
@@ -264,11 +298,14 @@ class BarService(DataService):
         self._logger.INFO(
             f"Batch sync completed: {batch_result['successful_codes']} successful, {batch_result['failed_codes']} failed"
         )
-        return batch_result
+        return ServiceResult.success(
+            data=batch_result,
+            message=f"Batch sync completed: {batch_result['successful_codes']}/{batch_result['total_codes']} successful"
+        )
 
     def sync_batch_codes(
         self, codes: List[str], fast_mode: bool = True, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
-    ) -> Dict[str, Any]:
+    ) -> ServiceResult:
         """
         Synchronizes bar data for multiple stock codes with comprehensive error tracking.
 
@@ -278,7 +315,7 @@ class BarService(DataService):
             frequency: Data frequency
 
         Returns:
-            Dict containing batch sync results and statistics
+            ServiceResult containing batch sync results and statistics
         """
         # For backward compatibility, we need to determine date ranges for each code individually
         # since fast_mode behavior is per-code
@@ -295,49 +332,58 @@ class BarService(DataService):
                 "failures": [],
             }
 
-            valid_codes = [code for code in codes if self.stockinfo_service.is_code_in_stocklist(code)]
-            invalid_codes = [code for code in codes if code not in valid_codes]
+            try:
+                valid_codes = [code for code in codes if self.stockinfo_service.is_code_in_stocklist(code)]
+                invalid_codes = [code for code in codes if code not in valid_codes]
 
-            # Track invalid codes
-            for invalid_code in invalid_codes:
-                batch_result["failures"].append({"code": invalid_code, "error": "Stock code not in stock list"})
-                batch_result["failed_codes"] += 1
+                # Track invalid codes
+                for invalid_code in invalid_codes:
+                    batch_result["failures"].append({"code": invalid_code, "error": "Stock code not in stock list"})
+                    batch_result["failed_codes"] += 1
 
-            self._logger.INFO(
-                f"Starting batch sync for {len(valid_codes)} valid codes out of {len(codes)} provided (fast mode)."
-            )
+                self._logger.INFO(
+                    f"Starting batch sync for {len(valid_codes)} valid codes out of {len(codes)} provided (fast mode)."
+                )
 
-            with RichProgress() as progress:
-                task = progress.add_task("[cyan]Syncing Bar Data", total=len(valid_codes))
+                with RichProgress() as progress:
+                    task = progress.add_task("[cyan]Syncing Bar Data", total=len(valid_codes))
 
-                for code in valid_codes:
-                    try:
-                        progress.update(task, description=f"Processing {code}")
-                        result = self.sync_for_code(code, fast_mode, frequency)
+                    for code in valid_codes:
+                        try:
+                            progress.update(task, description=f"Processing {code}")
+                            result = self.sync_for_code(code, fast_mode, frequency)
 
-                        batch_result["results"].append(result)
-                        batch_result["total_records_processed"] += result["records_processed"]
-                        batch_result["total_records_added"] += result["records_added"]
+                            batch_result["results"].append(result)
+                            batch_result["total_records_processed"] += result.data.get("records_processed", 0)
+                            batch_result["total_records_added"] += result.data.get("records_added", 0)
 
-                        if result["success"]:
-                            batch_result["successful_codes"] += 1
-                        else:
+                            if result.success:
+                                batch_result["successful_codes"] += 1
+                            else:
+                                batch_result["failed_codes"] += 1
+                                batch_result["failures"].append({"code": code, "error": result.error})
+
+                            progress.update(task, advance=1)
+
+                        except Exception as e:
+                            self._logger.ERROR(f"Unexpected error syncing {code}: {e}")
                             batch_result["failed_codes"] += 1
-                            batch_result["failures"].append({"code": code, "error": result["error"]})
+                            batch_result["failures"].append({"code": code, "error": f"Unexpected error: {str(e)}"})
+                            progress.update(task, advance=1)
+                            continue
 
-                        progress.update(task, advance=1)
+                self._logger.INFO(
+                    f"Batch sync completed: {batch_result['successful_codes']} successful, {batch_result['failed_codes']} failed"
+                )
 
-                    except Exception as e:
-                        self._logger.ERROR(f"Unexpected error syncing {code}: {e}")
-                        batch_result["failed_codes"] += 1
-                        batch_result["failures"].append({"code": code, "error": f"Unexpected error: {str(e)}"})
-                        progress.update(task, advance=1)
-                        continue
+                return ServiceResult.success(
+                    data=batch_result,
+                    message=f"Batch sync completed: {batch_result['successful_codes']}/{batch_result['total_codes']} successful"
+                )
 
-            self._logger.INFO(
-                f"Batch sync completed: {batch_result['successful_codes']} successful, {batch_result['failed_codes']} failed"
-            )
-            return batch_result
+            except Exception as e:
+                self._logger.ERROR(f"Batch sync failed: {str(e)}")
+                return ServiceResult.error(f"Batch sync operation failed: {str(e)}")
         else:
             # In non-fast mode, all codes use the same date range, so we can use the batch date range method
             start_date = datetime_normalize(GCONF.DEFAULTSTART)
@@ -351,8 +397,13 @@ class BarService(DataService):
         end_date: datetime = None,
         frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
         adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE,
+        page: int = None,
+        page_size: int = None,
+        order_by: str = "timestamp",
+        desc_order: bool = False,
+        *args,
         **kwargs,
-    ):
+    ) -> ServiceResult:
         """
         Retrieves bar data from the database with optional price adjustment.
 
@@ -362,85 +413,84 @@ class BarService(DataService):
             end_date: End date filter
             frequency: Data frequency filter
             adjustment_type: Price adjustment type (NONE/FORE/BACK)
-            **kwargs: Additional filters
+            page: Page number (0-based)
+            page_size: Number of items per page
+            order_by: Field name to order by (default: timestamp)
+            desc_order: Whether to use descending order (default: False)
+            *args: Additional positional arguments (for future extension)
+            **kwargs: Additional keyword arguments (for future extension)
 
         Returns:
-            ModelList - 用户可以调用to_dataframe()或to_entities()来转换数据
+            ServiceResult - 包装ModelList数据，使用result.data获取数据
+                           data支持to_dataframe()和to_entities()方法
         """
-        # 提取filters参数并从kwargs中移除，避免重复传递
-        filters = kwargs.pop("filters", {})
+        start_time = time.time()
+        self._log_operation_start("get_bars", code=code, start_date=start_date,
+                                end_date=end_date, frequency=frequency.value,
+                                adjustment_type=adjustment_type.value)
 
-        # 具体参数优先级高于filters中的对应字段
-        if code:
-            filters["code"] = code
-        if start_date:
-            # 如果是date对象，转换为datetime（当天开始）
-            from datetime import datetime, date
-            if isinstance(start_date, date) and not isinstance(start_date, datetime):
-                start_date = datetime.combine(start_date, datetime.min.time())
-            filters["timestamp__gte"] = start_date
-        if end_date:
-            # 如果是date对象，转换为datetime（当天结束）
-            from datetime import datetime, date
-            if isinstance(end_date, date) and not isinstance(end_date, datetime):
-                end_date = datetime.combine(end_date, datetime.max.time())
-            filters["timestamp__lte"] = end_date
-        if frequency:
-            filters["frequency"] = frequency
+        try:
+            # 构建filters字典
+            filters = {}
 
-        # Get original bar data - 返回ModelList，用户自己决定转换方式
-        model_list = self.crud_repo.find(filters=filters, **kwargs)
+            if code:
+                filters["code"] = code
+            if start_date:
+                # 使用datetime_normalize处理时间
+                normalized_start = datetime_normalize(start_date)
+                filters["timestamp__gte"] = normalized_start
+            if end_date:
+                # 使用datetime_normalize处理时间
+                normalized_end = datetime_normalize(end_date)
+                filters["timestamp__lte"] = normalized_end
+            if frequency:
+                filters["frequency"] = frequency
 
-        # Return original data if no adjustment needed
-        if adjustment_type == ADJUSTMENT_TYPES.NONE:
-            return model_list
+            # Get original bar data - 返回ModelList
+            model_list = self.crud_repo.find(
+                filters=filters,
+                page=page,
+                page_size=page_size,
+                order_by=order_by,
+                desc_order=desc_order,
+                *args,
+                **kwargs
+            )
 
-        # Apply price adjustment if requested
-        if code is None:
-            # Multi-stock adjustment when no specific code provided
-            return self._apply_price_adjustment_multi_stock(model_list, adjustment_type)
-        else:
-            # Single-stock adjustment when code is provided
-            return self._apply_price_adjustment(model_list, code, adjustment_type)
+            # Return original data if no adjustment needed
+            if adjustment_type == ADJUSTMENT_TYPES.NONE:
+                duration = time.time() - start_time
+                self._log_operation_end("get_bars", True, duration)
+                return ServiceResult.success(
+                    data=model_list,
+                    message=f"Retrieved {len(model_list)} bar records without adjustment"
+                )
 
-    def get_bars_adjusted(
-        self,
-        code: str,
-        adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE,
-        start_date: datetime = None,
-        end_date: datetime = None,
-        frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
-        as_dataframe: bool = True,
-        **kwargs,
-    ) -> Union[pd.DataFrame, List[Any]]:
-        """
-        Convenience method to get price-adjusted bar data.
+            # Apply price adjustment if requested
+            if code is None:
+                # Multi-stock adjustment when no specific code provided
+                adjusted_data = self._apply_price_adjustment_multi_stock(model_list, adjustment_type)
+            else:
+                # Single-stock adjustment when code is provided - 使用高性能矩阵化计算
+                adjusted_data = self._apply_price_adjustment_to_modellist(model_list, code, adjustment_type)
 
-        Args:
-            code: Stock code (required for adjustment)
-            adjustment_type: Price adjustment type (FORE/BACK)
-            start_date: Start date filter
-            end_date: End date filter
-            frequency: Data frequency filter
-            as_dataframe: Return format
-            **kwargs: Additional filters
+            duration = time.time() - start_time
+            self._log_operation_end("get_bars", True, duration)
 
-        Returns:
-            Price-adjusted bar data as DataFrame or list of models
-        """
-        if adjustment_type == ADJUSTMENT_TYPES.NONE:
-            self._logger.WARN("Use get_bars() for unadjusted data")
+            return ServiceResult.success(
+                data=adjusted_data,
+                message=f"Retrieved and adjusted {len(adjusted_data)} bar records [adjustment_type: {adjustment_type.value}]"
+            )
 
-        return self.get_bars(
-            code=code,
-            start_date=start_date,
-            end_date=end_date,
-            frequency=frequency,
-            as_dataframe=as_dataframe,
-            adjustment_type=adjustment_type,
-            **kwargs,
-        )
+        except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("get_bars", False, duration)
+            self._logger.ERROR(f"Failed to get bar data: {e}")
+            return ServiceResult.error(
+                error=f"Database operation failed: {str(e)}"
+            )
 
+    
     # TODO: 复权方法性能优化
     # 当前复权实现存在性能问题，在大数据量处理时效率较低
     # 需要优化的方向：
@@ -587,6 +637,264 @@ class BarService(DataService):
 
         return result_df
 
+    def _apply_price_adjustment_to_modellist(
+        self,
+        bars_data: ModelList,
+        code: str,
+        adjustment_type: ADJUSTMENT_TYPES,
+    ) -> ModelList:
+        """
+        对ModelList应用复权计算，返回ModelList格式
+
+        内部使用DataFrame进行高性能矩阵化计算，但最终转换为ModelList保持接口一致性
+
+        Args:
+            bars_data: 原始K线数据ModelList
+            code: 股票代码
+            adjustment_type: 复权类型
+
+        Returns:
+            复权后的K线数据ModelList
+        """
+        if not code:
+            self._logger.ERROR("Stock code required for price adjustment")
+            return bars_data
+
+        # Handle empty data
+        if not bars_data:
+            return bars_data
+
+        try:
+            # Step 1: 转换为DataFrame进行高性能计算
+            df_bars = self._convert_modellist_to_dataframe(bars_data)
+
+            if df_bars.empty:
+                return bars_data
+
+            # Step 2: 获取预计算的复权系数
+            factors_df = self._get_precomputed_adjustment_factors(
+                code=code,
+                dates=df_bars['timestamp'].unique(),
+                adjustment_type=adjustment_type
+            )
+
+            if factors_df.empty:
+                self._logger.DEBUG(f"No precomputed adjustment factors found for {code}, returning original data")
+                return bars_data
+
+            # Step 3: 矩阵化复权计算
+            adjusted_df = self._apply_matrix_adjustment(df_bars, factors_df, adjustment_type)
+
+            # Step 4: 转换回ModelList格式
+            adjusted_modellist = self._convert_dataframe_to_modellist(adjusted_df)
+
+            return adjusted_modellist
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to apply price adjustment for {code}: {e}")
+            return bars_data
+
+    def _get_precomputed_adjustment_factors(
+        self,
+        code: str,
+        dates,
+        adjustment_type: ADJUSTMENT_TYPES,
+    ) -> pd.DataFrame:
+        """
+        获取预计算的复权系数
+
+        Args:
+            code: 股票代码
+            dates: 需要查询的日期数组
+            adjustment_type: 复权类型
+
+        Returns:
+            DataFrame包含timestamp和复权系数列
+        """
+        try:
+            # 确定复权因子列名
+            if adjustment_type == ADJUSTMENT_TYPES.FORE:
+                factor_column = 'foreadjustfactor'
+            else:  # ADJUSTMENT_TYPES.BACK
+                factor_column = 'backadjustfactor'
+
+            # 调用AdjustfactorService获取预计算复权因子
+            # TODO: 实现get_precomputed_factors方法
+            # 目前使用原始adjustfactor数据作为fallback
+            start_date = min(dates)
+            end_date = max(dates)
+
+            # 获取原始adjustfactor数据
+            result = self.adjustfactor_service.get_adjustfactors(
+                code=code, start_date=start_date, end_date=end_date
+            )
+
+            if not result.success or len(result.data) == 0:
+                return pd.DataFrame(columns=['timestamp', factor_column])
+
+            # 使用ServiceResult.data中的ModelList转换为DataFrame
+            df_factors = result.data.to_dataframe()
+
+            if df_factors.empty:
+                return pd.DataFrame(columns=['timestamp', factor_column])
+
+            # 简化处理：目前假设fore/back因子需要基于adjustfactor计算
+            # TODO: 替换为真正的预计算因子查询
+            if factor_column in df_factors.columns:
+                # 如果已经有预计算的因子，直接返回
+                return df_factors[['timestamp', factor_column]].copy()
+            else:
+                # 基于adjustfactor计算临时因子（仅用于测试）
+                if 'adjustfactor' in df_factors.columns and not df_factors.empty():
+                    latest_factor = df_factors['adjustfactor'].iloc[-1]
+                    if adjustment_type == ADJUSTMENT_TYPES.FORE:
+                        # 前复权系数 = 最新因子 / 历史因子
+                        df_factors[factor_column] = latest_factor / df_factors['adjustfactor']
+                    else:
+                        # 后复权系数 = 历史因子 / 最早因子
+                        earliest_factor = df_factors['adjustfactor'].iloc[0]
+                        df_factors[factor_column] = df_factors['adjustfactor'] / earliest_factor
+
+                    return df_factors[['timestamp', factor_column]].copy()
+
+            return pd.DataFrame(columns=['timestamp', factor_column])
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get precomputed adjustment factors for {code}: {e}")
+            return pd.DataFrame(columns=['timestamp', 'foreadjustfactor', 'backadjustfactor'])
+
+    def _apply_matrix_adjustment(
+        self,
+        bars_df: pd.DataFrame,
+        factors_df: pd.DataFrame,
+        adjustment_type: ADJUSTMENT_TYPES,
+    ) -> pd.DataFrame:
+        """
+        高性能矩阵化复权计算
+
+        利用pandas向量化操作，批量应用复权因子到所有价格数据
+
+        Args:
+            bars_df: K线数据DataFrame
+            factors_df: 复权因子DataFrame
+            adjustment_type: 复权类型
+
+        Returns:
+            复权后的DataFrame
+        """
+        if bars_df.empty or factors_df.empty:
+            return bars_df
+
+        try:
+            # 确定复权因子列名
+            factor_column = 'foreadjustfactor' if adjustment_type == ADJUSTMENT_TYPES.FORE else 'backadjustfactor'
+
+            # 合并K线数据和复权系数
+            merged_df = bars_df.merge(
+                factors_df[['timestamp', factor_column]],
+                on='timestamp',
+                how='left'
+            )
+
+            # 填充缺失复权系数为1.0（无复权）
+            merged_df[factor_column] = merged_df[factor_column].fillna(1.0)
+
+            # 向量化复权计算 - 一次性应用到所有价格字段
+            price_columns = ['open', 'high', 'low', 'close']
+            for col in price_columns:
+                if col in merged_df.columns:
+                    merged_df[col] = merged_df[col] * merged_df[factor_column]
+
+            # 成交额也需要复权调整
+            if 'amount' in merged_df.columns:
+                merged_df['amount'] = merged_df['amount'] * merged_df[factor_column]
+
+            # 删除临时复权系数列，返回干净的DataFrame
+            result_df = merged_df.drop(columns=[factor_column])
+
+            return result_df
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to apply matrix adjustment: {e}")
+            return bars_df
+
+    def _convert_modellist_to_dataframe(self, bars_data) -> pd.DataFrame:
+        """
+        将ModelList转换为DataFrame
+
+        Args:
+            bars_data: ModelList数据
+
+        Returns:
+            DataFrame格式数据
+        """
+        if isinstance(bars_data, pd.DataFrame):
+            return bars_data.copy()
+
+        if hasattr(bars_data, 'to_dataframe'):
+            return bars_data.to_dataframe()
+
+        # 手动转换
+        return pd.DataFrame([{
+            'code': bar.code,
+            'timestamp': bar.timestamp,
+            'open': float(bar.open),
+            'high': float(bar.high),
+            'low': float(bar.low),
+            'close': float(bar.close),
+            'volume': bar.volume,
+            'amount': float(bar.amount) if bar.amount else 0,
+            'frequency': getattr(bar, 'frequency', None),
+            'adjustflag': getattr(bar, 'adjustflag', None)
+        } for bar in bars_data])
+
+    def _convert_dataframe_to_modellist(self, df: pd.DataFrame):
+        """
+        将DataFrame转换为ModelList
+
+        Args:
+            df: DataFrame数据
+
+        Returns:
+            ModelList格式数据
+        """
+        if df.empty:
+            from ginkgo.data.crud.model_conversion import ModelList
+            return ModelList([], self.crud_repo)
+
+        try:
+            from ginkgo.data.models.model_bar import MBar
+            from ginkgo.libs.data.number import to_decimal
+            from ginkgo.data.crud.model_conversion import ModelList
+
+            bars = []
+            for _, row in df.iterrows():
+                bar = MBar()
+                bar.code = row['code']
+                bar.timestamp = row['timestamp']
+                bar.open = to_decimal(row['open'])
+                bar.high = to_decimal(row['high'])
+                bar.low = to_decimal(row['low'])
+                bar.close = to_decimal(row['close'])
+                bar.volume = int(row['volume'])
+                bar.amount = to_decimal(row['amount']) if pd.notna(row.get('amount')) else None
+
+                # 保持其他字段（如果存在）
+                if 'frequency' in row and pd.notna(row['frequency']):
+                    bar.frequency = row['frequency']
+                if 'adjustflag' in row and pd.notna(row['adjustflag']):
+                    bar.adjustflag = row['adjustflag']
+
+                bars.append(bar)
+
+            return ModelList(bars, self.crud_repo)
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to convert DataFrame to ModelList: {e}")
+            # 返回空ModelList
+            from ginkgo.data.crud.model_conversion import ModelList
+            return ModelList([], self.crud_repo)
+
     # TODO: 多股票复权方法性能优化
     # 当前多股票批量复权实现存在性能问题，在大数据量处理时效率较低
     # 需要优化的方向：
@@ -679,7 +987,7 @@ class BarService(DataService):
             self._logger.ERROR(f"Failed to apply multi-stock price adjustment: {e}")
             return bars_data
 
-    def get_latest_timestamp_for_code(self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> datetime:
+    def get_latest_timestamp_for_code(self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> ServiceResult:
         """
         Gets the latest timestamp for a specific code and frequency.
 
@@ -688,16 +996,41 @@ class BarService(DataService):
             frequency: Data frequency
 
         Returns:
-            Latest timestamp or default start date if no data exists
+            ServiceResult - 包装latest timestamp数据，使用result.data获取时间戳
         """
-        latest_records = self.crud_repo.find(
-            filters={"code": code, "frequency": frequency}, page_size=1, order_by="timestamp", desc_order=True
-        )
+        start_time = time.time()
+        self._log_operation_start("get_latest_timestamp_for_code", code=code, frequency=frequency.value)
 
-        if latest_records:
-            return latest_records[0].timestamp
-        else:
-            return datetime_normalize(GCONF.DEFAULTSTART)
+        try:
+            latest_records = self.crud_repo.find(
+                filters={"code": code, "frequency": frequency}, page_size=1, order_by="timestamp", desc_order=True
+            )
+
+            if latest_records:
+                timestamp = latest_records[0].timestamp
+                duration = time.time() - start_time
+                self._log_operation_end("get_latest_timestamp_for_code", True, duration)
+                return ServiceResult.success(
+                    data=timestamp,
+                    message=f"Found latest timestamp {timestamp} for {code}"
+                )
+            else:
+                # 返回默认开始日期
+                default_timestamp = datetime_normalize(GCONF.DEFAULTSTART)
+                duration = time.time() - start_time
+                self._log_operation_end("get_latest_timestamp_for_code", True, duration)
+                return ServiceResult.success(
+                    data=default_timestamp,
+                    message=f"No data found for {code}, returning default start date {default_timestamp}"
+                )
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("get_latest_timestamp_for_code", False, duration)
+            self._logger.ERROR(f"Failed to get latest timestamp for {code}: {e}")
+            return ServiceResult.error(
+                error=f"Database query failed: {str(e)}"
+            )
 
     def _get_fetch_date_range(self, code: str, fast_mode: bool) -> tuple:
         """Determines the date range for fetching data."""
@@ -706,7 +1039,12 @@ class BarService(DataService):
         if not fast_mode:
             start_date = self._get_intelligent_start_date(code)
         else:
-            start_date = self.get_latest_timestamp_for_code(code) + timedelta(days=1)
+            latest_timestamp_result = self.get_latest_timestamp_for_code(code)
+            if latest_timestamp_result.success and latest_timestamp_result.data:
+                start_date = latest_timestamp_result.data + timedelta(days=1)
+            else:
+                # 如果获取最新时间戳失败，使用默认的开始日期
+                start_date = datetime.now() - timedelta(days=365)  # 默认一年前
 
         return start_date, end_date
 
@@ -877,7 +1215,7 @@ class BarService(DataService):
             self._logger.WARN(f"Error filtering existing data for {code}: {e}, proceeding with all models")
             return models_to_add
 
-    def count_bars(self, code: str = None, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY, **kwargs) -> int:
+    def count_bars(self, code: str = None, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY, **kwargs) -> ServiceResult:
         """
         Counts the number of bar records matching the filters.
 
@@ -887,17 +1225,36 @@ class BarService(DataService):
             **kwargs: Additional filters
 
         Returns:
-            Number of matching records
+            ServiceResult - 包装计数结果，使用result.data获取数量
         """
-        filters = kwargs.copy()
-        if code:
-            filters["code"] = code
-        if frequency:
-            filters["frequency"] = frequency
+        start_time = time.time()
+        self._log_operation_start("count_bars", code=code, frequency=frequency.value)
 
-        return self.crud_repo.count(filters=filters)
+        try:
+            filters = kwargs.copy()
+            if code:
+                filters["code"] = code
+            if frequency:
+                filters["frequency"] = frequency
 
-    def get_available_codes(self, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> List[str]:
+            count = self.crud_repo.count(filters=filters)
+            duration = time.time() - start_time
+            self._log_operation_end("count_bars", True, duration)
+
+            return ServiceResult.success(
+                data=count,
+                message=f"Found {count} bar records matching criteria"
+            )
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("count_bars", False, duration)
+            self._logger.ERROR(f"Failed to count bar records: {e}")
+            return ServiceResult.error(
+                error=f"Database query failed: {str(e)}"
+            )
+
+    def get_available_codes(self, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> ServiceResult:
         """
         Gets list of available stock codes for a given frequency.
 
@@ -905,10 +1262,31 @@ class BarService(DataService):
             frequency: Data frequency
 
         Returns:
-            List of unique stock codes
+            ServiceResult - 包装股票代码列表，使用result.data获取列表
         """
+        start_time = time.time()
+        self._log_operation_start("get_available_codes", frequency=frequency.value)
+
         try:
-            return self.crud_repo.find(filters={"frequency": frequency}, distinct_field="code")
+            codes = self.crud_repo.find(filters={"frequency": frequency}, distinct_field="code")
+
+            # Ensure we return a list
+            if not isinstance(codes, list):
+                codes = list(codes) if codes else []
+
+            codes = sorted(codes)
+            duration = time.time() - start_time
+            self._log_operation_end("get_available_codes", True, duration)
+
+            return ServiceResult.success(
+                data=codes,
+                message=f"Found {len(codes)} available stock codes for {frequency.value} frequency"
+            )
+
         except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("get_available_codes", False, duration)
             self._logger.ERROR(f"Failed to get available codes: {e}")
-            return []
+            return ServiceResult.error(
+                error=f"Database query failed: {str(e)}"
+            )
