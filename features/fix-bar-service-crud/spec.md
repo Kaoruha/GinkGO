@@ -43,6 +43,13 @@
 - 实现高效的批量数据插入和更新
 - 提供灵活的数据查询接口，支持多种过滤条件
 - 强化缓存机制和错误处理
+- **统一使用ServiceResult包装所有方法返回值，调用方需通过result.data获取数据**
+
+### ServiceResult标准化
+- 所有Bar Service方法返回ServiceResult包装的结果
+- ModelList数据通过ServiceResult.data字段访问，保持to_dataframe()和to_entities()方法可用
+- 系统级错误使用ServiceResult.error()，业务逻辑失败使用ServiceResult.failure()
+- 移除向后兼容性考虑，修正所有调用方代码使用ServiceResult.data解包模式
 
 ## 技术约束
 
@@ -59,10 +66,11 @@
 - 数据一致性检查准确率≥99.9%
 
 ### 兼容性要求
-- 保持现有API接口的向后兼容性
+- **移除向后兼容性，统一迁移到ServiceResult包装模式**
 - 支持现有数据源（Tushare等）
 - 兼容ClickHouse和MySQL数据库
 - 支持Python 3.12+环境
+- **所有调用方代码需要修改以使用ServiceResult.data解包获取数据**
 
 ## 成功标准
 
@@ -86,9 +94,11 @@
 
 ### 代码质量
 - 架构边界清晰，职责分离明确
-- 所有数据访问都有统一的错误处理和日志
+- 所有数据访问都有统一的ServiceResult错误处理和日志
 - 代码可维护性和可测试性显著提升
 - 符合依赖注入和面向接口设计原则
+- **统一ServiceResult返回格式，调用方使用result.data获取ModelList数据**
+- **系统级错误使用ServiceResult.error()，业务逻辑失败使用ServiceResult.failure()**
 
 ## 关键实体
 
@@ -116,6 +126,52 @@
 - date_range: 日期范围
 - issue_count: 问题数量
 - issues_found: 发现的问题列表
+
+### ServiceResult（服务结果）
+- success: 操作是否成功（布尔值）
+- error: 系统级错误信息（字符串）
+- message: 成功消息（字符串）
+- warnings: 警告信息列表（数组）
+- data: 返回的数据对象（ModelList等）
+- metadata: 元数据信息（字典）
+
+## ServiceResult标准化实施
+
+### 转换策略
+- **ModelList处理**: 将现有的ModelList返回值包装到ServiceResult.data字段中
+- **访问方式**: 调用方通过`result.data.to_dataframe()`或`result.data.to_entities()`获取数据
+- **向后兼容**: 不考虑向后兼容性，统一修改所有调用方代码
+
+### 错误处理标准
+- **ServiceResult.error()**: 系统级错误（数据库连接失败、网络超时、数据源不可用）
+- **ServiceResult.failure()**: 业务逻辑失败（参数验证失败、业务规则冲突）
+- **warnings数组**: 数据质量问题、非关键性警告信息
+
+### 方法覆盖范围
+- **查询方法**: get_bars, get_bars_adjusted, get_latest_bars等
+- **同步方法**: sync_for_code, sync_batch_codes, sync_for_code_with_date_range等
+- **批处理方法**: 所有涉及数据批量操作的方法
+- **验证方法**: 数据质量检查、验证相关的方法
+
+### 调用方修改模式
+```python
+# 修改前
+bars = bar_service.get_bars(code="000001.SZ")
+
+# 修改后
+result = bar_service.get_bars(code="000001.SZ")
+if result.success:
+    bars = result.data
+    df = bars.to_dataframe()  # 获取DataFrame
+    entities = bars.to_entities()  # 获取业务对象列表
+else:
+    if result.error:
+        # 处理系统级错误
+        handle_system_error(result.error)
+    elif not result.success:
+        # 处理业务逻辑失败
+        handle_business_failure(result.error)
+```
 
 ## 风险和缓解措施
 
