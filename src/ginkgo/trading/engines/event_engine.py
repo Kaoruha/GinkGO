@@ -194,7 +194,11 @@ class EventEngine(BaseEngine):
             # 从事件队列中获取事件
             try:
                 event = self._event_queue.get(timeout=1.0)  # 1秒超时
+                event_id = id(event)
+                order_uuid = event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'
+                self.log("INFO", f"🔍 [EVENT ENGINE MAIN LOOP] Got event from queue: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
                 self._process(event)
+                self.log("INFO", f"🔍 [EVENT ENGINE MAIN LOOP] Event processing completed: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
             except Empty:
                 # 队列为空，继续循环
                 continue
@@ -362,18 +366,32 @@ class EventEngine(BaseEngine):
 
         # 3. 线程安全入队
         with self._queue_lock:
+            event_id = id(enhanced_event)
+            order_uuid = enhanced_event.order.uuid[:8] if hasattr(enhanced_event, 'order') and enhanced_event.order else 'NO_ORDER'
+            self.log("INFO", f"🔍 [EVENT ENGINE TRACKING] Putting event into queue: event_type={enhanced_event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
             self._event_queue.put(enhanced_event)
+            self.log("INFO", f"🔍 [EVENT ENGINE TRACKING] Event put into queue successfully: event_type={enhanced_event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
 
         self.log("DEBUG", f"Event queued: {enhanced_event.event_type} seq={enhanced_event.sequence_number}")
 
     def _process(self, event: "EventBase") -> None:
         """安全事件处理 - 默认启用统计"""
+        event_id = id(event)
+        order_uuid = event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'
+        self.log("INFO", f"🔍 [EVENT ENGINE PROCESSING] Processing event: event_type={event.event_type}, order_uuid={order_uuid}, event_id={event_id}")
         self.log("DEBUG", f"Process {event.event_type}")
 
         try:
             # 具体事件处理器
             if event.event_type in self._handlers:
-                [handler(event) for handler in self._handlers[event.event_type]]
+                handlers_count = len(self._handlers[event.event_type])
+                self.log("INFO", f"🔍 [EVENT ENGINE PROCESSING] Found {handlers_count} handlers for {event.event_type}")
+                for i, handler in enumerate(self._handlers[event.event_type]):
+                    handler_id = id(handler)
+                    handler_name = getattr(handler, '__name__', 'unknown')
+                    self.log("INFO", f"🔍 [EVENT ENGINE PROCESSING] Calling handler {i+1}/{handlers_count}: {handler_name}, handler_id={handler_id}")
+                    result = handler(event)
+                    self.log("INFO", f"🔍 [EVENT ENGINE PROCESSING] Handler {i+1} completed: result={type(result)}")
                 self.log("DEBUG", f"{self.name} Deal with {event.event_type}.")
             else:
                 self.log("WARN", f"There is no handler for {event.event_type}")

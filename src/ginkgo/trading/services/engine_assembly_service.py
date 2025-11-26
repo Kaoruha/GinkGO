@@ -814,7 +814,7 @@ class EngineAssemblyService(BaseService):
         engine.register(EVENT_TYPES.SIGNALGENERATION, portfolio.on_signal)
         # Lifecycle events (ACK/Partial/Reject/Expire/CancelAck)
         engine.register(EVENT_TYPES.ORDERACK, portfolio.on_order_ack)
-        engine.register(EVENT_TYPES.ORDERPARTIALLYFILLED, portfolio.on_order_partially_filled)
+        # ORDERPARTIALLYFILLED is handled by Router to avoid duplicate processing
         engine.register(EVENT_TYPES.ORDERREJECTED, portfolio.on_order_rejected)
         engine.register(EVENT_TYPES.ORDEREXPIRED, portfolio.on_order_expired)
         engine.register(EVENT_TYPES.ORDERCANCELACK, portfolio.on_order_cancel_ack)

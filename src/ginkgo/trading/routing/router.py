@@ -376,14 +376,16 @@ class Router(BaseRouter):
 
             # 发布订单成交事件
             self.log("INFO", f"🔥 [ROUTER] Creating event with engine_id={engine_id}, run_id={run_id}")
-            event = result.to_event(engine_id=engine_id, run_id=run_id, event_publisher=self.publish_event)
+            event = result.to_event(engine_id=engine_id, run_id=run_id)
             self.log("INFO", f"🔥 [ROUTER] Event created: {type(event).__name__ if event else 'None'}")
             if event:
                 self.log("INFO", f"🔥 [ROUTER] Event portfolio_id: {event.portfolio_id}")
                 self.log("INFO", f"🔥 [ROUTER] Event engine_id: {event.engine_id}")
                 self.log("INFO", f"🔥 [ROUTER] ✅ Event created successfully, calling publish_event...")
+                self.log("INFO", f"🔥 [ROUTER EVENT TRACKING] About to publish event: order_uuid={event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'}, event_id={id(event)}")
                 # 立即推送事件到引擎
                 self.publish_event(event)
+                self.log("INFO", f"🔥 [ROUTER EVENT TRACKING] Event published to engine: order_uuid={event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'}, event_id={id(event)}")
                 self.log("INFO", f"🔥 [ROUTER] ✅ Event published to engine")
             else:
                 self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create event!")

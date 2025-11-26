@@ -111,13 +111,15 @@ class PortfolioT1Backtest(PortfolioBase):
         # Go next TimePhase - 统一使用hook机制
         self.update_worth()
         self.update_profit()
-
+        self.log("INFO", "🔧 About to process analyzer hooks")
         for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ENDDAY]:
             func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
         for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ENDDAY]:
             func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
 
+        self.log("INFO", "🔧 About to call super().advance_time")
         super(PortfolioT1Backtest, self).advance_time(time, *args, **kwargs)
+        self.log("INFO", "✅ super().advance_time completed")
 
         # ===== 步骤3: 批处理模式处理 =====
         if self._batch_processing_enabled and self._batch_processor:
@@ -158,10 +160,12 @@ class PortfolioT1Backtest(PortfolioBase):
         self.log("WARNING", f"🧹 [T+1 CLEANUP] Cleared {old_count} delayed signals from queue")
 
         # ===== 步骤5: 新时间状态初始化 =====
-        for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.NEWDAY]:
-            func(RECORDSTAGE_TYPES.NEWDAY, self.get_info())
-        for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.NEWDAY]:
-            func(RECORDSTAGE_TYPES.NEWDAY, self.get_info())
+        for func in self._analyzer_activate_hook.get(RECORDSTAGE_TYPES.NEWDAY, []):
+            if func is not None and callable(func):
+                func(RECORDSTAGE_TYPES.NEWDAY, self.get_info())
+        for func in self._analyzer_record_hook.get(RECORDSTAGE_TYPES.NEWDAY, []):
+            if func is not None and callable(func):
+                func(RECORDSTAGE_TYPES.NEWDAY, self.get_info())
 
     def on_signal(self, event: EventSignalGeneration):
         """
@@ -291,11 +295,17 @@ class PortfolioT1Backtest(PortfolioBase):
                 )
             else:
                 self.log(
-                    "WARNING",
-                    f"⏰ [T+1 DELAY] Delaying current day signal from {event.business_timestamp} (current: {current_time}), will process in next period.",
+                    "INFO",
+                    f"🚦 [T+1 DELAY] Signal from {event.business_timestamp} (current: {current_time}) DELAYED to next day due to T+1 trading rule!",
                 )
             self._signals.append(event.payload)
-            self.log("WARNING", f"📥 [T+1 QUEUE] Signal added to _signals queue. Total signals: {len(self._signals)}")
+            self.log(
+                "INFO", f"📥 [T+1 QUEUE] Signal added to delay queue. Total delayed signals: {len(self._signals)}"
+            )
+            self.log(
+                "INFO",
+                f"⚠️ [T+1 MECHANISM] No order will be generated today. Signal will be processed on next trading day.",
+            )
             return
 
         # 1. Transfer signal to sizer
@@ -590,12 +600,22 @@ class PortfolioT1Backtest(PortfolioBase):
                 or order.transaction_volume >= order.volume
             )
 
-            # LONG 部分成交：只扣除已成交成本，保留剩余冻结；末次成交或标记FILLED时释放差额
+            # LONG 部分成交：从冻结资金扣除成交成本，根据是否最终成交决定是否释放剩余资金
             if direction == DIRECTION_TYPES.LONG:
-                unfreeze_remain = order.remain if is_final else None
+                self.log("INFO", f"🔍 [PARTIAL FILL] BEFORE: UUID={order.uuid[:8] if hasattr(order, 'uuid') else 'NO_UUID'}, order.remain={order.remain:.2f}, self.frozen={self.frozen:.2f}, fill_cost={fill_cost:.2f}, is_final={is_final}")
+
+                # 如果不是最终成交，不解冻剩余资金；如果是最终成交，解冻所有剩余资金
+                unfreeze_remain = order.remain if is_final else Decimal("0")
+
+                # 从冻结资金中扣除成交成本
                 self.deduct_from_frozen(cost=fill_cost, unfreeze_remain=unfreeze_remain)
+
+                # 同步更新订单的剩余冻结金额
+                order.remain = max(Decimal("0"), order.remain - fill_cost)
                 if is_final:
                     order.remain = Decimal("0")
+
+                self.log("INFO", f"🔍 [PARTIAL FILL] AFTER: order={order.uuid[:8]}, order.remain={order.remain:.2f}, self.frozen={self.frozen:.2f}")
                 self.add_fee(fee)
 
                 pos = self.get_position(code)

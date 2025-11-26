@@ -41,14 +41,13 @@ class BrokerExecutionResult:
         # 存储完整的Order对象（用于生成事件的payload）
         self.order = order
 
-    def to_event(self, engine_id: str = None, run_id: str = None, event_publisher: Callable = None):
+    def to_event(self, engine_id: str = None, run_id: str = None):
         """
-        转换为对应的Event并发布
+        转换为对应的Event
 
         Args:
             engine_id: 引擎ID（由Router提供）
             run_id: 运行ID（由Router提供）
-            event_publisher: 事件发布函数
 
         Returns:
             Event: 转换后的事件对象
@@ -97,10 +96,6 @@ class BrokerExecutionResult:
             )
         else:
             return None
-
-        # 如果提供了事件发布器，直接发布事件
-        if event_publisher and hasattr(event_publisher, '__call__'):
-            event_publisher(event)
 
         return event
 

@@ -34,6 +34,17 @@ CapitalAdjustment CRUD数据库操作TDD测试 - 资金调整管理
 5. 数据转换测试 (Data Conversion Tests)
    - 模型列表转换 (model_list_conversions): 业务对象与数据库模型转换
 
+6. 替换操作 (Replace Operations)
+   - 批量替换 (replace): 原子性替换资金调整数据
+
+TODO: 添加replace方法测试用例
+- 测试replace方法的原子操作 (备份→删除→插入→失败时恢复)
+- 测试没有匹配数据时的行为 (应返回空结果，不插入新数据)
+- 测试类型错误检查 (传入错误Model类型时应抛出TypeError)
+- 测试空new_items的处理
+- 测试批量替换的性能和正确性
+- 测试ClickHouse和MySQL数据库的兼容性
+
 数据模型：
 - MCapitalAdjustment: 资金调整数据模型，包含投资组合ID、金额、时间戳、原因、数据源等
 - 支持多种调整类型：入金、出金、费用扣除、收益分配、风险准备金等

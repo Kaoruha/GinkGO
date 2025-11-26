@@ -11,9 +11,9 @@ from datetime import datetime, timedelta
 from typing import List, Union, Any, Dict
 import pandas as pd
 
-from ginkgo.libs import GCONF, datetime_normalize, cache_with_expiration, retry, to_decimal
+from ginkgo.libs import GCONF, datetime_normalize, cache_with_expiration, retry, to_decimal, time_logger
 from ginkgo.data import mappers
-from ginkgo.data.services.base_service import DataService
+from ginkgo.data.services.base_service import DataService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
 
 
@@ -22,7 +22,7 @@ class AdjustfactorService(DataService):
         """Initializes the service with its dependencies."""
         super().__init__(crud_repo=crud_repo, data_source=data_source, stockinfo_service=stockinfo_service)
 
-    def sync_for_code(self, code: str, fast_mode: bool = True) -> Dict[str, Any]:
+    def sync_for_code(self, code: str, fast_mode: bool = True) -> ServiceResult:
         """
         Synchronizes adjustment factors for a single stock code.
         This method is transactional and includes enhanced error handling.
@@ -32,22 +32,13 @@ class AdjustfactorService(DataService):
             fast_mode: If True, only fetch data from last available date
 
         Returns:
-            Dictionary with sync results and statistics
+            ServiceResult with sync results and statistics
         """
-        result = {
-            "code": code,
-            "success": False,
-            "records_processed": 0,
-            "records_added": 0,
-            "error": None,
-            "warnings": [],
-        }
 
         # Validate stock code
         if not self.stockinfo_service.is_code_in_stocklist(code):
-            result["error"] = f"Code {code} not in stock list"
             self._logger.DEBUG(f"Skipping adjustfactor sync for {code} as it's not in the stock list.")
-            return result
+            return ServiceResult.error(f"Code {code} not in stock list")
 
         start_date = self._get_fetch_start_date(code, fast_mode)
         end_date = datetime.now()
@@ -57,40 +48,72 @@ class AdjustfactorService(DataService):
         try:
             raw_data = self._fetch_adjustfactor_data(code, start_date, end_date)
         except Exception as e:
-            result["error"] = f"Failed to fetch data from source: {e}"
-            return result
+            return ServiceResult.error(f"Failed to fetch data from source: {e}")
 
         if raw_data is None:
-            result["error"] = "Failed to fetch data from source"
-            return result
+            return ServiceResult.error("Failed to fetch data from source")
 
         if raw_data.empty:
-            result["success"] = True
-            result["warnings"].append("No new data available from source")
             self._logger.INFO(f"No new adjustfactor data for {code} from source.")
-            return result
+            return ServiceResult.success(
+                data={
+                    "code": code,
+                    "records_processed": 0,
+                    "records_added": 0,
+                    "warnings": ["No new data available from source"]
+                },
+                message=f"No new adjustfactor data available for {code}"
+            )
 
-        result["records_processed"] = len(raw_data)
+        records_processed = len(raw_data)
 
         # Convert data with error handling
         models_to_add, mapping_errors = self._convert_to_models(raw_data, code)
-        if mapping_errors:
-            result["warnings"].extend(mapping_errors)
+        warnings = mapping_errors if mapping_errors else []
 
         if not models_to_add:
-            result["error"] = "No valid records after data conversion"
-            return result
+            return ServiceResult.error("No valid records after data conversion")
 
-        # Database operations with enhanced transaction handling
-        success = self._save_to_database(code, models_to_add, fast_mode)
-        if success:
-            result["success"] = True
-            result["records_added"] = len(models_to_add)
-            self._logger.INFO(f"Successfully synced {len(models_to_add)} adjustfactors for {code}")
-        else:
-            result["error"] = "Database operation failed"
+        # Database operations using new atomic replace/add method
+        try:
+            # Use new BaseCRUD.replace method for atomic operation
+            if not fast_mode:
+                # For non-fast_mode, replace data in the time range of new records
+                min_date = min(item.timestamp for item in models_to_add)
+                max_date = max(item.timestamp for item in models_to_add)
+                filters = {
+                    "code": code,
+                    "timestamp__gte": min_date,
+                    "timestamp__lte": max_date
+                }
+            else:
+                # For fast_mode, replace all records for this code
+                filters = {"code": code}
 
-        return result
+            replaced_models = self.crud_repo.replace(filters=filters, new_items=models_to_add)
+            records_added = len(replaced_models)
+
+            # If replace returned empty (no existing data), use add_batch instead
+            if records_added == 0:
+                inserted_models = self.crud_repo.add_batch(models_to_add)
+                records_added = len(inserted_models)
+                self._logger.INFO(f"Successfully inserted {records_added} new adjustfactors for {code}")
+            else:
+                self._logger.INFO(f"Successfully replaced {records_added} adjustfactors for {code}")
+
+            return ServiceResult.success(
+                data={
+                    "code": code,
+                    "records_processed": records_processed,
+                    "records_added": records_added,
+                    "warnings": warnings
+                },
+                message=f"Successfully synced {records_added} adjustfactors for {code}"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to sync adjustfactors for {code}: {e}")
+            return ServiceResult.error(f"Database sync operation failed: {str(e)}")
 
     @retry(max_try=3)
     def _fetch_adjustfactor_data(self, code: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
@@ -149,40 +172,7 @@ class AdjustfactorService(DataService):
 
         return models_to_add, errors
 
-    def _save_to_database(self, code: str, models_to_add: List[Any], fast_mode: bool) -> bool:
-        """
-        Saves adjustment factor models to database with enhanced error handling.
-
-        Args:
-            code: Stock code
-            models_to_add: List of adjustment factor models
-            fast_mode: Whether to use fast mode (incremental update)
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            if not fast_mode:
-                # Remove existing data in date range
-                min_date = min(item.timestamp for item in models_to_add)
-                max_date = max(item.timestamp for item in models_to_add)
-                removed_count = self.crud_repo.remove(
-                    filters={"code": code, "timestamp__gte": min_date, "timestamp__lte": max_date}
-                )
-                removed_count = removed_count or 0  # Handle None return value
-                if removed_count > 0:
-                    self._logger.INFO(f"Removed {removed_count} existing records for {code}")
-
-            # Add new data
-            self.crud_repo.add_batch(models_to_add)
-
-            self._logger.INFO(f"Successfully saved {len(models_to_add)} adjustfactors for {code}")
-            return True
-
-        except Exception as e:
-            self._logger.ERROR(f"Failed to save adjustfactors for {code}. Error: {e}")
-            return False
-
+    
     def sync_batch_codes(self, codes: List[str], fast_mode: bool = True) -> Dict[str, Any]:
         """
         Synchronizes adjustment factors for multiple stock codes with error tolerance.
@@ -247,13 +237,15 @@ class AdjustfactorService(DataService):
 
         return batch_result
 
+    @time_logger
+    @retry(max_try=3)
     def get_adjustfactors(
         self,
         code: str = None,
         start_date: datetime = None,
         end_date: datetime = None,
         **kwargs,
-    ):
+    ) -> ServiceResult:
         """
         Retrieves adjustment factor data from the database with caching.
 
@@ -265,20 +257,209 @@ class AdjustfactorService(DataService):
             **kwargs: Additional filters
 
         Returns:
-            Adjustment factor data as DataFrame or list of models
+            ServiceResult containing adjustment factor data
         """
-        # 提取filters参数并从kwargs中移除，避免重复传递
-        filters = kwargs.pop("filters", {})
+        try:
+            # 提取filters参数并从kwargs中移除，避免重复传递
+            filters = kwargs.pop("filters", {})
 
-        # 具体参数优先级高于filters中的对应字段
-        if code:
-            filters["code"] = code
-        if start_date:
-            filters["timestamp__gte"] = start_date
-        if end_date:
-            filters["timestamp__lte"] = end_date
+            # 具体参数优先级高于filters中的对应字段
+            if code:
+                filters["code"] = code
+            if start_date:
+                filters["timestamp__gte"] = start_date
+            if end_date:
+                filters["timestamp__lte"] = end_date
 
-        return self.crud_repo.find(filters=filters, **kwargs)
+            # 调用CRUD并包装结果
+            data = self.crud_repo.find(filters=filters, **kwargs)
+            return ServiceResult.success(data)
+
+        except Exception as e:
+            error_msg = f"Failed to get adjustfactors: {e}"
+            self._logger.ERROR(error_msg)
+            return ServiceResult.error(error_msg)
+
+    def calculate_precomputed_factors_for_code(self, code: str) -> ServiceResult:
+        """
+        为单个股票代码计算预计算的复权系数（原子安全版本）
+
+        使用DataFrame进行高效的向量计算，基于原始的复权因子，
+        计算该股票每个时间点的前复权和后复权系数。
+        采用数据备份 + 恢复机制保证操作原子性，避免数据丢失。
+
+        Args:
+            code: 要处理的股票代码
+
+        Returns:
+            ServiceResult: 处理结果统计，包含操作状态和恢复信息
+        """
+        start_time = time.time()
+        self._log_operation_start("calculate_precomputed_factors_for_code", code=code)
+
+        # 优化：预先导入需要的模块，避免循环内重复导入
+        from ginkgo.data.models.model_adjustfactor import MAdjustfactor
+
+        # 备份信息
+        backup_info = None
+        original_records = []
+
+        try:
+            # 第一步：验证股票代码
+            if not code:
+                return ServiceResult.error("股票代码不能为空")
+
+            # 第二步：获取并备份原始数据
+            original_records = self.crud_repo.find(filters={"code": code})
+
+            if len(original_records) < 2:
+                return ServiceResult.success(
+                    data={"code": code, "processed_records": 0, "backup_used": False},
+                    message=f"股票 {code} 复权因子记录少于2条，无需处理"
+                )
+
+            # 创建备份信息
+            backup_info = {
+                "original_records": original_records,
+                "record_count": len(original_records),
+                "time_range": (min(r.timestamp for r in original_records),
+                               max(r.timestamp for r in original_records)),
+                "backup_timestamp": datetime.now()
+            }
+
+            self._logger.INFO(f"股票 {code} 备份 {len(original_records)} 条复权因子记录")
+
+            # 第三步：执行计算逻辑
+            self._logger.INFO(f"开始计算股票 {code} 的复权系数")
+
+            # 转换为DataFrame进行高效计算
+            df_records = original_records.to_dataframe()
+            df_records = df_records.sort_values('timestamp').reset_index(drop=True)
+
+            # 检查必要的字段
+            if 'adjustfactor' not in df_records.columns:
+                return ServiceResult.error(f"股票 {code} 数据缺少adjustfactor字段")
+
+            # 优化：一次性处理adjustfactor列：转换类型 + 处理0值 + 统计
+            df_records['adjustfactor'] = pd.to_numeric(df_records['adjustfactor'], errors='coerce').fillna(1.0)
+            zero_mask = df_records['adjustfactor'] == 0
+            zero_count = zero_mask.sum()
+            if zero_count > 0:
+                self._logger.WARN(f"股票 {code} 发现 {zero_count} 条记录的adjustfactor为0，将替换为1.0")
+                df_records.loc[zero_mask, 'adjustfactor'] = 1.0
+
+            # 使用DataFrame向量化计算复权系数
+            original_factors = df_records['adjustfactor'].values
+
+            # 验证原始因子数据
+            if len(original_factors) == 0 or all(f == 1.0 for f in original_factors):
+                self._logger.WARN(f"股票 {code} 的adjustfactor值全为1.0，计算结果可能与原始数据相同")
+
+            # 计算前复权系数：相对于最新时间的系数
+            latest_factor = original_factors[-1]
+            fore_factors = latest_factor / original_factors
+
+            # 计算后复权系数：相对于最早时间的系数
+            earliest_factor = original_factors[0]
+            back_factors = original_factors / earliest_factor
+
+            # 优化：一次性更新DataFrame中的复权因子列（避免重复赋值）
+            df_records['foreadjustfactor'] = fore_factors
+            df_records['backadjustfactor'] = back_factors
+
+            # 优化：更详细的统计日志
+            self._logger.INFO(
+                f"股票 {code} 复权因子计算完成 | "
+                f"记录数: {len(df_records)} | "
+                f"前复权范围: {fore_factors.min():.6f}-{fore_factors.max():.6f} | "
+                f"后复权范围: {back_factors.min():.6f}-{back_factors.max():.6f}"
+            )
+
+            # 第五步：将DataFrame转换为MAdjustfactor列表
+            try:
+                # 优化：将导入语句移到方法顶部，避免循环内重复导入
+                updated_entities = []
+                for _, row in df_records.iterrows():
+                    # 使用MAdjustfactor的Series更新功能，代码更简洁
+                    entity = MAdjustfactor()
+                    entity.update(row)  # singledispatch自动匹配Series更新
+                    updated_entities.append(entity)
+
+                self._logger.DEBUG(f"将DataFrame转换为 {len(updated_entities)} 个MAdjustfactor实体")
+
+            except Exception as conversion_error:
+                self._logger.ERROR(f"DataFrame转换为MAdjustfactor失败: {conversion_error}")
+                return ServiceResult.error(f"数据转换失败: {str(conversion_error)}")
+
+            if len(updated_entities) == 0:
+                return ServiceResult.error(f"股票 {code} 计算后没有有效记录需要更新")
+
+            # 第六步：执行原子替换操作
+            self._logger.INFO(f"股票 {code} 开始原子替换：删除 {len(original_records)} 条，插入 {len(updated_entities)} 条")
+
+            try:
+                # 使用BaseCRUD的原子replace方法
+                replaced_models = self.crud_repo.replace(filters={"code": code}, new_items=updated_entities)
+                processed_count = len(replaced_models)
+                self._logger.DEBUG(f"成功替换股票 {code} 的 {processed_count} 条复权因子记录")
+
+                # 原子操作成功
+                duration = time.time() - start_time
+                self._log_operation_end("calculate_precomputed_factors_for_code", True, duration)
+
+                return ServiceResult.success(
+                    data={
+                        "code": code,
+                        "original_records": len(original_records),
+                        "processed_records": processed_count,
+                        "backup_used": False,
+                        "backup_restored": False,
+                        "fore_factor_range": (float(fore_factors.min()), float(fore_factors.max())),
+                        "back_factor_range": (float(back_factors.min()), float(back_factors.max())),
+                        "original_factor_range": (float(original_factors.min()), float(original_factors.max())),
+                        "processing_time_seconds": duration
+                    },
+                    message=f"股票 {code} 成功计算并原子替换 {processed_count} 条复权因子记录"
+                )
+
+            except Exception as operation_error:
+                # replace操作失败，无需回滚（BaseCRUD已处理原子性）
+                self._logger.ERROR(f"股票 {code} 复权因子替换失败: {str(operation_error)}")
+
+                duration = time.time() - start_time
+                self._log_operation_end("calculate_precomputed_factors_for_code", False, duration)
+
+                return ServiceResult.error(
+                    data={
+                        "code": code,
+                        "original_records": len(original_records),
+                        "processed_records": 0,
+                        "backup_used": True,
+                        "backup_restored": False,
+                        "error_details": str(operation_error),
+                        "processing_time_seconds": duration
+                    },
+                    error=f"复权因子替换失败: {str(operation_error)}"
+                )
+
+        except Exception as e:
+            # 第七步：全局异常处理
+            duration = time.time() - start_time
+            self._log_operation_end("calculate_precomputed_factors_for_code", False, duration)
+            error_msg = f"计算股票 {code} 预计算复权因子失败: {str(e)}"
+            self._logger.ERROR(error_msg)
+
+            # 如果有备份数据，尝试恢复
+            if backup_info and len(backup_info["original_records"]) > 0:
+                try:
+                    self._logger.ERROR(f"尝试从备份恢复股票 {code} 数据")
+                    self.crud_repo.add_batch(backup_info["original_records"])
+                    error_msg += " (已从备份恢复原始数据)"
+                except Exception as restore_error:
+                    self._logger.CRITICAL(f"股票 {code} 备份恢复也失败: {str(restore_error)}")
+                    error_msg += f" (备份恢复也失败: {str(restore_error)})"
+
+            return ServiceResult.error(error_msg)
 
     def get_latest_adjustfactor_for_code(self, code: str) -> datetime:
         """
@@ -337,234 +518,6 @@ class AdjustfactorService(DataService):
         latest_timestamp = self.get_latest_adjustfactor_for_code(code)
         return latest_timestamp + timedelta(days=1)
 
-    def recalculate_adjust_factors_for_code(self, code: str) -> Dict[str, Any]:
-        """
-        Recalculates fore/back adjust factors for a single stock code based on existing adj_factor data.
 
-        This method implements the separated architecture where:
-        1. Original adj_factor data is already in database (via update command)
-        2. This method calculates fore/back factors independently
-
-        Args:
-            code: Stock code to recalculate
-
-        Returns:
-            Dict containing calculation results and statistics
-        """
-        result = {
-            "code": code,
-            "success": False,
-            "records_processed": 0,
-            "records_updated": 0,
-            "error": None,
-            "warnings": [],
-        }
-
-        # Validate stock code
-        if not self.stockinfo_service.is_code_in_stocklist(code):
-            result["error"] = f"Code {code} not in stock list"
-            self._logger.DEBUG(f"Skipping adjust factor calculation for {code} as it's not in the stock list.")
-            return result
-
-        try:
-            # Get all existing adjustfactor records for this code
-            existing_records = self.crud_repo.find(
-                filters={"code": code}, order_by="timestamp", desc_order=False  # Ascending order for calculation
-            )
-
-            if not existing_records:
-                result["error"] = f"No adjustfactor data found for {code}"
-                self._logger.WARN(f"No adjustfactor data found for {code}")
-                return result
-
-            result["records_processed"] = len(existing_records)
-
-            # Calculate fore/back adjust factors for all records (including single record)
-            try:
-                updated_records = self._calculate_fore_back_factors(existing_records, code)
-
-                # Use efficient remove + add_batch approach for ClickHouse compatibility
-                # 1. Remove all existing records for this code
-                self.crud_repo.remove(filters={"code": code})
-
-                # 2. Batch insert updated records
-                self.crud_repo.add_batch(updated_records)
-
-                result["records_updated"] = len(updated_records)
-                result["success"] = True
-                self._logger.INFO(
-                    f"Successfully recalculated adjust factors for {code}: {len(updated_records)} records"
-                )
-
-            except Exception as calc_error:
-                result["error"] = f"Failed to calculate adjust factors: {str(calc_error)}"
-                self._logger.ERROR(f"Failed to calculate adjust factors for {code}: {calc_error}")
-                return result
-
-        except Exception as e:
-            result["error"] = f"Database operation failed: {str(e)}"
-            self._logger.ERROR(f"Failed to recalculate adjust factors for {code}: {e}")
-
-        return result
-
-    def recalculate_adjust_factors_batch(self, codes: List[str] = None) -> Dict[str, Any]:
-        """
-        Batch recalculates fore/back adjust factors for multiple stock codes.
-
-        Args:
-            codes: List of stock codes. If None, processes all available codes
-
-        Returns:
-            Dict containing batch calculation results and statistics
-        """
-        from ginkgo.libs import RichProgress
-
-        # Get codes to process
-        if codes is None:
-            codes = self.get_available_codes()
-            self._logger.INFO(f"Processing all available codes: {len(codes)} stocks")
-        else:
-            # Filter out invalid codes
-            valid_codes = [code for code in codes if self.stockinfo_service.is_code_in_stocklist(code)]
-            if len(valid_codes) != len(codes):
-                invalid_codes = set(codes) - set(valid_codes)
-                self._logger.WARN(f"Filtered out invalid codes: {invalid_codes}")
-            codes = valid_codes
-
-        batch_result = {
-            # Standard fields (consistent with single method)
-            "success": True,  # Overall success flag
-            "error": None,  # Overall error message
-            "warnings": [],  # Overall warnings
-            # Batch-specific fields
-            "total_codes": len(codes),
-            "successful_codes": 0,
-            "failed_codes": 0,
-            "total_records_processed": 0,
-            "total_records_updated": 0,
-            "results": [],  # List of individual results
-            "failures": [],  # List of failure details
-        }
-
-        if not codes:
-            batch_result["failures"].append({"error": "No valid codes to process"})
-            return batch_result
-
-        with RichProgress() as progress:
-            task = progress.add_task("[cyan]Recalculating Adjust Factors", total=len(codes))
-
-            for code in codes:
-                try:
-                    progress.update(task, description=f"Processing {code}")
-                    result = self.recalculate_adjust_factors_for_code(code)
-
-                    batch_result["results"].append(result)
-                    batch_result["total_records_processed"] += result["records_processed"]
-
-                    if result["success"]:
-                        batch_result["successful_codes"] += 1
-                        batch_result["total_records_updated"] += result["records_updated"]
-                        progress.update(task, advance=1, description=f":white_check_mark: {code}")
-                    else:
-                        batch_result["failed_codes"] += 1
-                        batch_result["failures"].append(
-                            {"code": code, "error": result["error"], "warnings": result.get("warnings", [])}
-                        )
-                        progress.update(task, advance=1, description=f":x: {code}")
-
-                except Exception as e:
-                    batch_result["failed_codes"] += 1
-                    error_msg = f"Unexpected error processing {code}: {e}"
-                    batch_result["failures"].append({"code": code, "error": error_msg, "warnings": []})
-                    self._logger.ERROR(error_msg)
-                    progress.update(task, advance=1, description=f":x: {code}")
-                    continue
-
-        # Set final success status and error information
-        batch_result["success"] = batch_result["failed_codes"] == 0
-
-        if batch_result["failed_codes"] > 0:
-            batch_result["error"] = (
-                f"Failed to calculate {batch_result['failed_codes']} out of {batch_result['total_codes']} codes"
-            )
-
-        # Collect warnings from individual results
-        all_warnings = []
-        for result in batch_result["results"]:
-            if result.get("warnings"):
-                all_warnings.extend(result["warnings"])
-        batch_result["warnings"] = all_warnings
-
-        # Log summary
-        self._logger.INFO(
-            f"Batch adjust factor calculation completed: {batch_result['successful_codes']}/{batch_result['total_codes']} successful"
-        )
-        if batch_result["failures"]:
-            self._logger.WARN(f"Failed to calculate {batch_result['failed_codes']} codes")
-            for failure in batch_result["failures"][:5]:  # Show first 5 failures
-                self._logger.WARN(f"  - {failure.get('code', 'Unknown')}: {failure['error']}")
-
-        return batch_result
-
-    def _calculate_fore_back_factors(self, records: List[Any], code: str) -> List[Any]:
-        """
-        Calculates fore/back adjust factors for a list of records.
-
-        Calculation logic:
-        - Fore adjust factor = latest_adj_factor / current_adj_factor (newest as base)
-        - Back adjust factor = current_adj_factor / earliest_adj_factor (oldest as base)
-
-        Args:
-            records: List of adjustfactor records sorted by timestamp (ascending)
-            code: Stock code for logging
-
-        Returns:
-            List of updated records with calculated fore/back factors
-        """
-        if not records:
-            raise ValueError(f"No records provided for {code}")
-
-        if len(records) == 1:
-            # Single record case
-            records[0].foreadjustfactor = to_decimal(1.0)
-            records[0].backadjustfactor = to_decimal(1.0)
-            return records
-
-        try:
-            # Extract and validate adj_factors - keep as Decimal for precision
-            adj_factors = []
-            valid_records = []
-
-            for record in records:
-                if record.adjustfactor > 0:
-                    adj_factors.append(record.adjustfactor)  # Keep as Decimal
-                    valid_records.append(record)
-                else:
-                    self._logger.WARN(f"Invalid adj_factor {record.adjustfactor} for {code} at {record.timestamp}")
-
-            if len(valid_records) == 0:
-                raise ValueError(f"All adj_factors are invalid for {code}")
-
-            # Calculate factors using Decimal arithmetic for precision
-            latest_factor = adj_factors[-1]  # Last element (newest) - Decimal
-            earliest_factor = adj_factors[0]  # First element (oldest) - Decimal
-
-            for i, record in enumerate(valid_records):
-                current_factor = adj_factors[i]  # Decimal
-
-                # Fore adjust factor: latest as base - Decimal division
-                fore_factor = latest_factor / current_factor
-
-                # Back adjust factor: earliest as base - Decimal division
-                back_factor = current_factor / earliest_factor
-
-                # Direct assignment - already Decimal, no conversion needed
-                record.foreadjustfactor = fore_factor
-                record.backadjustfactor = back_factor
-
-            self._logger.DEBUG(f"Calculated adjust factors for {code}: {len(valid_records)} records")
-            return valid_records
-
-        except Exception as e:
-            self._logger.ERROR(f"Error calculating adjust factors for {code}: {e}")
-            raise
+    
+    

@@ -7,9 +7,18 @@ EngineCRUD数据库操作TDD测试
 - 查询 (find)
 - 更新 (update)
 - 删除 (remove)
+- 替换 (replace)
 
 Engine是回测引擎数据模型，记录回测引擎的配置、状态和运行信息。
 为策略回测、性能分析和引擎管理提供支持。
+
+TODO: 添加replace方法测试用例
+- 测试replace方法的原子操作 (备份→删除→插入→失败时恢复)
+- 测试没有匹配数据时的行为 (应返回空结果，不插入新数据)
+- 测试类型错误检查 (传入错误Model类型时应抛出TypeError)
+- 测试空new_items的处理
+- 测试批量替换的性能和正确性
+- 测试ClickHouse和MySQL数据库的兼容性
 """
 import pytest
 import sys
