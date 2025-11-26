@@ -191,8 +191,13 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
         try:
             for symbol in symbols:
                 if data_type == "bar":
-                    df = self.bar_service.get_bars(symbol, start_date=start_time.date(),
-                                end_date=end_time.date(), as_dataframe=True)
+                    result = self.bar_service.get_bars(symbol, start_date=start_time.date(),
+                                    end_date=end_time.date())
+                    if result.success and result.data:
+                        df = result.data.to_dataframe()
+                    else:
+                        self.log("ERROR", f"Failed to get bars for {symbol}: {result.error}")
+                        continue
                     if not df.empty:
                         dfs.append(df)
                 else:
@@ -225,22 +230,28 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
 
         try:
             # 通过注入的bar_service获取MBar模型数据
-            bars = self.bar_service.get_bars(
+            result = self.bar_service.get_bars(
                 code=code,
                 start_date=target_time.date(),
-                end_date=target_time.date(),
-                as_dataframe=False
+                end_date=target_time.date()
             )
 
-            if not bars:
+            if not result.success or result.data.empty():
                 self.log("WARN", f"❌ No data found for {code} at {target_time}")
                 return events
 
-            # 转换MBar → Bar实体
-            self.log("INFO", f"✅ Creating Bar and EventPriceUpdate for {code}")
-            bar = Bar.from_model(bars[0])
+            # 转换ModelList → 业务对象列表
+            bar_entities = result.data.to_entities()
 
-            event = EventPriceUpdate(price_info=bar)
+            # 转换第一个Bar实体
+            bar = bar_entities[0] if bar_entities else None
+            if bar is None:
+                self.log("WARN", f"❌ Failed to convert bar entity for {code}")
+                return events
+
+            # 创建价格更新事件，使用Bar实体作为payload
+            self.log("INFO", f"✅ Creating EventPriceUpdate for {code}")
+            event = EventPriceUpdate(payload=bar)
             event.set_source(SOURCE_TYPES.BACKTESTFEEDER)
             events.append(event)
 

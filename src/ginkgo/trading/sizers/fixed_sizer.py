@@ -93,15 +93,15 @@ class FixedSizer(BaseSizer):
                 last_month_day = current_time + datetime.timedelta(days=-30)
                 yester_day = current_time + datetime.timedelta(days=-1)
                 # 使用新的API：as_dataframe已废弃，使用to_dataframe()方法
-                past_price_models = get_bars(code, start_date=last_month_day, end_date=yester_day)
-                if len(past_price_models) == 0:
+                result = get_bars(code, start_date=last_month_day, end_date=yester_day)
+                if not result.success or len(result.data) == 0:
                     self.log(
                         "CRITICAL",
                         f"{code} has no data from {last_month_day} to {yester_day}.It should not happened. {current_time}",
                     )
                     return None
                 # 转换为DataFrame
-                past_price = past_price_models.to_dataframe()
+                past_price = result.data.to_dataframe()
                 if past_price.shape[0] == 0:
                     self.log(
                         "CRITICAL",

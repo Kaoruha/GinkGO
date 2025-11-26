@@ -84,6 +84,24 @@ class BaseFeeder(BacktestBase, TimeMixin):
 
     def _load_daybar(self, code: str, dt, *args, **kwargs) -> pd.DataFrame:
         """默认的数据加载实现（可被子类覆盖）。"""
-        return self.bar_service.get_bars(code, start_date=dt.date(), end_date=dt.date(), as_dataframe=True)
+        try:
+            # 调用BarService，获取ServiceResult包装的结果
+            result = self.bar_service.get_bars(
+                code=code,
+                start_date=dt.date(),
+                end_date=dt.date()
+            )
+
+            # 检查ServiceResult并解包数据
+            if result.success and result.data:
+                # BarService现在返回ModelList，使用to_dataframe()转换
+                return result.data.to_dataframe()
+            else:
+                self.log("ERROR", f"Failed to get bars data: {result.error}")
+                return pd.DataFrame()
+
+        except Exception as e:
+            self.log("ERROR", f"Error in _load_daybar for {code} at {dt}: {e}")
+            return pd.DataFrame()
 
     # 订阅/广播机制已移除，兴趣集合通过 EventInterestUpdate 维护
