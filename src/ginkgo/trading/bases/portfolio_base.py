@@ -625,8 +625,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                     except Exception as e:
                         self._handle_analyzer_error(a, e, stage, portfolio_info)
                         return False
-
-                    return record_func
+                return record_func
 
             self._analyzer_record_hook[analyzer.record_stage].append(make_record_func(analyzer))
             self.log("DEBUG", f"Added Analyzer {analyzer.name} record to stage {analyzer.record_stage} hook.")
@@ -808,12 +807,26 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         super()._on_time_advance(new_time)
 
         # 调用所有Selector的advance_time方法
-        for selector in self._selectors:
+        self.log("INFO", f"🔧 About to advance time for {len(self._selectors)} selectors")
+        for i, selector in enumerate(self._selectors):
             try:
+                self.log("INFO", f"🔧 About to call advance_time on selector #{i+1}: {selector.name}")
+                if selector is None:
+                    self.log("ERROR", f"❌ Selector #{i+1} is None!")
+                    continue
+                if not hasattr(selector, 'advance_time'):
+                    self.log("ERROR", f"❌ Selector {selector.name} has no advance_time method!")
+                    continue
+                if not callable(selector.advance_time):
+                    self.log("ERROR", f"❌ Selector {selector.name}.advance_time is not callable!")
+                    continue
+
                 selector.advance_time(new_time)
-                self.log("DEBUG", f"Called advance_time on selector: {selector.name}")
+                self.log("INFO", f"✅ Successfully called advance_time on selector: {selector.name}")
             except Exception as e:
-                self.log("ERROR", f"Selector {selector.name} advance_time failed: {e}")
+                self.log("ERROR", f"❌ Selector {selector.name} advance_time failed: {e}")
+                import traceback
+                self.log("ERROR", f"📋 Selector traceback: {traceback.format_exc()}")
 
         if not self._selectors:
             self.log("WARN", "No selectors bound to portfolio, interest set will remain empty")
