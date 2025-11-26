@@ -11,6 +11,14 @@ TransferRecord CRUD数据库操作TDD测试
 TransferRecord是资金转账记录数据模型，存储投资组合的资金流转信息。
 为量化交易系统中的资金管理和风险控制提供支持，包括入金、出金、转账等记录。
 支持回测引擎的资金流转追踪和实时资金状态监控。
+
+TODO: 添加replace方法测试用例
+- 测试replace方法的原子操作 (备份→删除→插入→失败时恢复)
+- 测试没有匹配数据时的行为 (应返回空结果，不插入新数据)
+- 测试类型错误检查 (传入错误Model类型时应抛出TypeError)
+- 测试空new_items的处理
+- 测试批量替换的性能和正确性
+- 测试ClickHouse和MySQL数据库的兼容性
 """
 import pytest
 import sys
