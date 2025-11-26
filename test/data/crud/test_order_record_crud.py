@@ -8,6 +8,14 @@ OrderRecord CRUD数据库操作TDD测试
 - 更新 (update)
 - 删除 (remove)
 
+TODO: 添加replace方法测试用例
+- 测试replace方法的原子操作 (备份→删除→插入→失败时恢复)
+- 测试没有匹配数据时的行为 (应返回空结果，不插入新数据)
+- 测试类型错误检查 (传入错误Model类型时应抛出TypeError)
+- 测试空new_items的处理
+- 测试批量替换的性能和正确性
+- 测试ClickHouse和MySQL数据库的兼容性
+
 OrderRecord是订单执行记录数据模型，存储订单的详细执行过程和结果。
 为订单执行分析、性能评估和交易质量评估提供支持。
 """

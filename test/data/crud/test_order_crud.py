@@ -30,6 +30,14 @@ OrderCRUD数据库操作TDD测试 - 交易订单管理
    - 按投资组合删除 (delete_by_portfolio): 清理特定投资组合订单
    - 批量删除 (batch_delete): 高效批量删除操作
 
+TODO: 添加replace方法测试用例
+- 测试replace方法的原子操作 (备份→删除→插入→失败时恢复)
+- 测试没有匹配数据时的行为 (应返回空结果，不插入新数据)
+- 测试类型错误检查 (传入错误Model类型时应抛出TypeError)
+- 测试空new_items的处理
+- 测试批量替换的性能和正确性
+- 测试ClickHouse和MySQL数据库的兼容性
+
 5. 业务逻辑测试 (Business Logic Tests)
    - 订单生命周期 (order_lifecycle): 从创建到完成的完整流程
    - 订单状态转换 (order_status_transitions): 状态变更规则验证

@@ -102,7 +102,11 @@ class Container(containers.DeclarativeContainer):
     )
 
     bar_service = providers.Singleton(
-        BarService, crud_repo=bar_crud, data_source=ginkgo_tushare_source, stockinfo_service=stockinfo_service
+        BarService,
+        crud_repo=bar_crud,
+        data_source=ginkgo_tushare_source,
+        stockinfo_service=stockinfo_service,
+        adjustfactor_service=adjustfactor_service  # 添加缺失的adjustfactor_service依赖
     )
 
     # TickService requires special handling because TickCRUD needs a code parameter

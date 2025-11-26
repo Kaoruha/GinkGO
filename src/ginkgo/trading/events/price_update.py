@@ -14,13 +14,13 @@ class EventPriceUpdate(EventBase):
     PriceUpdate Only after new price info comes.
     """
 
-    def __init__(self, price_info: Bar or Tick = None, *args, **kwargs) -> None:
+    def __init__(self, payload: Bar or Tick = None, *args, **kwargs) -> None:
         super(EventPriceUpdate, self).__init__(*args, **kwargs)
         self.set_type(EVENT_TYPES.PRICEUPDATE)
         self._price_type = None
 
-        if price_info:
-            self.set(price_info)
+        if payload:
+            self.set(payload)
 
     @property
     def price_type(self):

@@ -39,7 +39,16 @@ Position CRUD数据库操作TDD测试 - 持仓管理
    - 清空持仓 (clear_positions): 清空所有持仓
    - 安全删除 (safe_delete): 检查依赖关系后删除
 
-5. 业务逻辑测试 (Business Logic Tests)
+5. 替换操作 (Replace Operations)
+   TODO: 添加replace方法测试用例
+   - 测试replace方法的原子操作 (备份→删除→插入→失败时恢复)
+   - 测试没有匹配数据时的行为 (应返回空结果，不插入新数据)
+   - 测试类型错误检查 (传入错误Model类型时应抛出TypeError)
+   - 测试空new_items的处理
+   - 测试批量替换的性能和正确性
+   - 测试ClickHouse和MySQL数据库的兼容性
+
+6. 业务逻辑测试 (Business Logic Tests)
    - 持仓生命周期 (position_lifecycle): 从建仓到平仓的完整流程
    - 持仓成本计算 (cost_calculation): 持仓成本计算验证
    - 盈亏计算 (profit_loss_calculation): 盈亏计算准确性验证
@@ -47,7 +56,7 @@ Position CRUD数据库操作TDD测试 - 持仓管理
    - 持仓调整 (position_adjustment): 持仓调整和再平衡
    - 空头持仓管理 (short_position_management): 空头持仓特殊处理
 
-6. 持仓分析测试 (Position Analysis Tests)
+7. 持仓分析测试 (Position Analysis Tests)
    - 持仓分布分析 (position_distribution): 持仓分布统计
    - 集中度分析 (concentration_analysis): 持仓集中度计算
    - 风险敞口分析 (risk_exposure): 风险敞口计算

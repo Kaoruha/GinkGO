@@ -7,10 +7,19 @@ EngineHandlerMapping CRUD数据库操作TDD测试
 - 查询 (find)
 - 更新 (update)
 - 删除 (remove)
+- 替换 (replace)
 
 EngineHandlerMapping是引擎处理器映射数据模型，存储回测引擎与事件处理器的对应关系。
 为量化交易系统的事件驱动架构提供支持，支持引擎的事件处理器配置和管理。
 包括处理器类型管理、事件处理流程配置、处理器生命周期管理等功能。
+
+TODO: 添加replace方法测试用例
+- 测试replace方法的原子操作 (备份→删除→插入→失败时恢复)
+- 测试没有匹配数据时的行为 (应返回空结果，不插入新数据)
+- 测试类型错误检查 (传入错误Model类型时应抛出TypeError)
+- 测试空new_items的处理
+- 测试批量替换的性能和正确性
+- 测试ClickHouse和MySQL数据库的兼容性
 """
 import pytest
 import sys

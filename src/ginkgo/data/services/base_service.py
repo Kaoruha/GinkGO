@@ -23,7 +23,7 @@ from ginkgo.libs import GLOG, cache_with_expiration, retry
 class ServiceResult:
     """Standardized service operation result structure."""
 
-    def __init__(self, success: bool = False, error: str = None, data: Any = None, message: str = None):
+    def __init__(self, success: bool = False, error: str = "", data: Any = None, message: str = ""):
         self.success = success
         self.error = error
         self.message = message
@@ -61,35 +61,35 @@ class ServiceResult:
         return result
     
     @classmethod
-    def success(cls, data: Any = None, message: str = None) -> 'ServiceResult':
+    def success(cls, data: Any = None, message: str = "") -> 'ServiceResult':
         """
         创建成功的服务结果
-        
+
         Args:
             data: 返回的数据
             message: 成功消息
-            
+
         Returns:
             ServiceResult: 成功的结果对象
         """
-        return cls(success=True, data=data, message=message)
+        return cls(success=True, error="", data=data, message=message)
     
     @classmethod
-    def error(cls, error: str, data: Any = None) -> 'ServiceResult':
+    def error(cls, error: str = "", data: Any = None) -> 'ServiceResult':
         """
         创建失败的服务结果
-        
+
         Args:
             error: 错误消息
             data: 可选的错误相关数据
-            
+
         Returns:
             ServiceResult: 失败的结果对象
         """
-        return cls(success=False, error=error, data=data)
+        return cls(success=False, error=error, message=error, data=data)
     
     @classmethod
-    def failure(cls, message: str, data: Any = None) -> 'ServiceResult':
+    def failure(cls, message: str = "", data: Any = None) -> 'ServiceResult':
         """
         创建失败的服务结果（别名方法）
         
@@ -100,7 +100,7 @@ class ServiceResult:
         Returns:
             ServiceResult: 失败的结果对象
         """
-        return cls(success=False, error=message, data=data)
+        return cls(success=False, error=message, message=message, data=data)
     
     def is_success(self) -> bool:
         """

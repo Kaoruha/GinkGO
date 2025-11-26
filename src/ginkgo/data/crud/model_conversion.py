@@ -131,6 +131,50 @@ class ModelList(list, Generic[T]):
         filtered_models = [model for model in self if predicate(model)]
         return ModelList(filtered_models, self._crud_instance)
 
+    def empty(self) -> bool:
+        """
+        检查ModelList是否为空
+
+        提供与pandas DataFrame.empty()相同的接口
+
+        Returns:
+            bool: 如果列表为空返回True，否则返回False
+        """
+        return len(self) == 0
+
+    def shape(self) -> tuple[int, int]:
+        """
+        获取ModelList的形状，模拟DataFrame.shape()
+
+        Returns:
+            tuple: (行数, 1) 格式的形状，与DataFrame兼容
+        """
+        return (len(self), 1)
+
+    def head(self, n: int = 5) -> 'ModelList[T]':
+        """
+        获取前n个元素，模拟DataFrame.head()
+
+        Args:
+            n: 返回的元素数量
+
+        Returns:
+            ModelList: 包含前n个元素的新ModelList
+        """
+        return ModelList(self[:n], self._crud_instance)
+
+    def tail(self, n: int = 5) -> 'ModelList[T]':
+        """
+        获取后n个元素，模拟DataFrame.tail()
+
+        Args:
+            n: 返回的元素数量
+
+        Returns:
+            ModelList: 包含后n个元素的新ModelList
+        """
+        return ModelList(self[-n:] if n > 0 else [], self._crud_instance)
+
     def __repr__(self):
         model_type = type(self[0]).__name__ if self else "No models"
         return f"ModelList(count={len(self)}, type={model_type})"

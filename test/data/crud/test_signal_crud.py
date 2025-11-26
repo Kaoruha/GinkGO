@@ -35,14 +35,23 @@ SignalCRUD数据库操作TDD测试 - 交易信号管理
    - 按状态删除 (delete_by_status): 删除特定状态信号
    - 批量清理 (batch_cleanup): 高效批量清理
 
-5. 信号分析测试 (Signal Analysis Tests)
+5. 替换操作 (Replace Operations)
+   TODO: 添加replace方法测试用例
+   - 测试replace方法的原子操作 (备份→删除→插入→失败时恢复)
+   - 测试没有匹配数据时的行为 (应返回空结果，不插入新数据)
+   - 测试类型错误检查 (传入错误Model类型时应抛出TypeError)
+   - 测试空new_items的处理
+   - 测试批量替换的性能和正确性
+   - 测试ClickHouse和MySQL数据库的兼容性
+
+6. 信号分析测试 (Signal Analysis Tests)
    - 信号统计分析 (signal_statistics): 信号生成统计
    - 信号质量分析 (signal_quality_analysis): 信号质量评估
    - 信号绩效分析 (signal_performance): 信号执行绩效分析
    - 策略对比分析 (strategy_comparison): 不同策略信号对比
    - 信号时效性分析 (signal_timeliness): 信号时效性分析
 
-6. 业务逻辑测试 (Business Logic Tests)
+7. 业务逻辑测试 (Business Logic Tests)
    - 信号生命周期 (signal_lifecycle): 从生成到执行的完整流程
    - 信号优先级管理 (signal_priority): 信号优先级和排序
    - 信号冲突处理 (signal_conflict_handling): 冲突信号处理

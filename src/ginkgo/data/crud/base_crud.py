@@ -585,6 +585,98 @@ class BaseCRUD(Generic[T], ABC):
             GLOG.ERROR(f"Failed to modify {self.model_class.__name__} items: {e}")
             raise
 
+    def replace(self, filters: Dict[str, Any], new_items: List[T], session: Optional[Session] = None) -> ModelList:
+        """
+        Template method: Atomically replace items with new ones.
+
+        Universal implementation for both ClickHouse and MySQL:
+        1. Type validation for new items
+        2. Query existing items that match filters
+        3. If no existing items found, return empty result (no insertion)
+        4. Delete existing items
+        5. Insert new items
+        6. Restore backup if insertion fails
+
+        Args:
+            filters: Dictionary of field -> value filters for items to replace
+            new_items: List of new items to replace the filtered ones
+            session: Optional SQLAlchemy session to use for the operation.
+
+        Returns:
+            ModelList of inserted items with their database identifiers
+            Returns empty ModelList if no existing items match filters
+
+        Raises:
+            Exception: If the operation fails and restoration fails
+        """
+        if not filters:
+            raise ValueError("Filters cannot be empty for replace operation")
+
+        if not new_items:
+            GLOG.WARN(f"No new items provided for {self.model_class.__name__} replace operation")
+            return ModelList([], self)
+
+        # Type validation: ensure all new_items are correct model type
+        for item in new_items:
+            if not isinstance(item, self.model_class):
+                raise TypeError(
+                    f"Item type mismatch: expected {self.model_class.__name__}, "
+                    f"got {type(item).__name__}"
+                )
+
+        # Step 1: Query existing items
+        backup_items = []
+        try:
+            existing_items = self.find(filters=filters, session=session)
+            backup_items = list(existing_items)
+
+            if len(backup_items) == 0:
+                GLOG.INFO(
+                    f"No existing {self.model_class.__name__} items found matching filters. "
+                    f"No replacement performed."
+                )
+                # Return empty result without performing any insertion
+                return ModelList([], self)
+
+            GLOG.DEBUG(f"Found {len(backup_items)} existing {self.model_class.__name__} items to replace")
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to query existing {self.model_class.__name__} items: {e}")
+            raise
+
+        # Step 2: Delete existing items
+        try:
+            removed_count = self.remove(filters=filters, session=session)
+            GLOG.DEBUG(f"Deleted {removed_count} existing {self.model_class.__name__} items")
+        except Exception as e:
+            GLOG.ERROR(f"Failed to delete {self.model_class.__name__} items: {e}")
+            raise
+
+        # Step 3: Insert new items
+        try:
+            inserted_items = self.add_batch(new_items, session=session)
+            GLOG.INFO(
+                f"Successfully replaced {len(backup_items)} with {len(new_items)} "
+                f"{self.model_class.__name__} items"
+            )
+            return inserted_items
+        except Exception as e:
+            GLOG.ERROR(f"Failed to insert new {self.model_class.__name__} items, attempting restoration: {e}")
+
+            # Step 4: Restore from backup if insertion fails
+            try:
+                if backup_items:
+                    self.add_batch(backup_items, session=session)
+                    GLOG.INFO(f"Successfully restored {len(backup_items)} backed up {self.model_class.__name__} items")
+            except Exception as restore_error:
+                GLOG.CRITICAL(
+                    f"CRITICAL: Failed to restore {self.model_class.__name__} backup! "
+                    f"Original error: {e}, Restore error: {restore_error}"
+                )
+                raise Exception(f"Replace operation failed and restoration failed: {restore_error}")
+
+            raise Exception(f"Replace operation failed: {e}")
+
     def count(self, filters: Optional[Dict[str, Any]] = None, session: Optional[Session] = None) -> int:
         """
         Template method: Count items with optional filters.
