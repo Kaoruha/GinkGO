@@ -15,23 +15,23 @@
 
 **目标**: 建立ServiceHub架构基础环境
 
-- [ ] T001 创建ServiceHub架构文件 in src/ginkgo/service_hub.py
-- [ ] T002 [P] 分析当前Services到ServiceHub的迁移路径 in src/ginkgo/__init__.py
-- [ ] T003 [P] 识别所有直接调用Bar CRUD的代码位置 in backtest/ and trading/ directories
-- [ ] T004 [P] 分析Bar CRUD组件的接口变更 in src/ginkgo/data/crud/bar_crud.py
-- [ ] T005 验证当前daybar同步机制的性能瓶颈 in src/ginkgo/data/services/bar_service.py
+- [X] T001 创建ServiceHub架构文件 in src/ginkgo/service_hub.py
+- [X] T002 [P] 分析当前Services到ServiceHub的迁移路径 in src/ginkgo/__init__.py
+- [X] T003 [P] 识别所有直接调用Bar CRUD的代码位置 in backtest/ and trading/ directories
+- [X] T004 [P] 分析Bar CRUD组件的接口变更 in src/ginkgo/data/crud/bar_crud.py
+- [X] T005 验证当前daybar同步机制的性能瓶颈 in src/ginkgo/data/services/bar_service.py
 - [ ] T006 创建ServiceHub性能基准测试脚本 in test/performance/
 
 ## Phase 2: Foundational (架构重构基础)
 
 **目标**: 重构Services为ServiceHub，建立新的访问入口
 
-- [ ] T007 实现ServiceHub类定义 in src/ginkgo/service_hub.py
-- [ ] T008 设计ServiceHub的懒加载机制 in src/ginkgo/service_hub.py
-- [ ] T009 实现ServiceHub的错误处理和诊断功能 in src/ginkgo/service_hub.py
-- [ ] T010 创建ServiceHub与Container的集成机制 in src/ginkgo/service_hub.py
-- [ ] T011 更新全局导出，保持向后兼容性 in src/ginkgo/__init__.py
-- [ ] T012 [P] 编写ServiceHub的单元测试 in test/unit/service_hub/
+- [X] T007 实现ServiceHub类定义 in src/ginkgo/service_hub.py
+- [X] T008 设计ServiceHub的懒加载机制 in src/ginkgo/service_hub.py
+- [X] T009 实现ServiceHub的错误处理和诊断功能 in src/ginkgo/service_hub.py
+- [X] T010 创建ServiceHub与Container的集成机制 in src/ginkgo/service_hub.py
+- [X] T011 更新全局导出，保持向后兼容性 in src/ginkgo/__init__.py
+- [X] T012 [P] 编写ServiceHub的单元测试 in test/unit/service_hub/
 
 ## Phase 3: User Story 1 - ServiceHub架构重构
 
@@ -53,16 +53,16 @@
 
 **独立测试标准**: Bar Service所有方法通过ServiceHub正常工作，与更新后CRUD兼容，所有方法返回ServiceResult包装
 
-- [ ] T020 [US2] 在ServiceHub中修复Bar Service的依赖注入配置 in src/ginkgo/service_hub.py
-- [ ] T021 [US2] 修复Bar Service构造函数中的依赖注入问题 in src/ginkgo/data/services/bar_service.py
-- [ ] T022 [US2] 修复get_bars方法与更新后CRUD的兼容性 in src/ginkgo/data/services/bar_service.py
-- [ ] T023 [US2] 修复get_bars_adjusted方法的复权计算逻辑 in src/ginkgo/data/services/bar_service.py
-- [ ] **T024 [新增] 统一Bar Service返回值使用ServiceResult包装 in src/ginkgo/data/services/bar_service.py**
-- [ ] T025 [US2] 修复sync_for_code方法的依赖注入调用 in src/ginkgo/data/services/bar_service.py
-- [ ] T026 [US2] [P] 验证通过ServiceHub访问Bar Service的所有方法 in test/unit/data/services/
-- [ ] **T027 [新增] [P] 测试ServiceResult包装的正确性 in test/unit/data/services/**
-- [US2] [028] [US2] [P] 测试Bar Service与ClickHouse数据存储的集成 in test/integration/data/
-- [US2] [029] [US2] 创建ServiceHub-Bar Service集成测试用例 in test/e2e/servicehub_bar_integration_test.py
+- [X] T020 [US2] 在ServiceHub中修复Bar Service的依赖注入配置 in src/ginkgo/service_hub.py
+- [X] T021 [US2] 修复Bar Service构造函数中的依赖注入问题 in src/ginkgo/data/services/bar_service.py
+- [X] T022 [US2] 修复get_bars方法与更新后CRUD的兼容性 in src/ginkgo/data/services/bar_service.py
+- [X] T023 [US2] 修复get_bars_adjusted方法的复权计算逻辑 in src/ginkgo/data/services/bar_service.py
+- [X] **T024 [新增] 统一Bar Service返回值使用ServiceResult包装 in src/ginkgo/data/services/bar_service.py**
+- [X] T025 [US2] 修复sync_for_code方法的依赖注入调用 in src/ginkgo/data/services/bar_service.py
+- [X] T026 [US2] [P] 验证通过ServiceHub访问Bar Service的所有方法 in test/unit/data/services/
+- [X] **T027 [新增] [P] 测试ServiceResult包装的正确性 in test/unit/data/services/**
+- [X] [US2] [028] [US2] [P] 测试Bar Service与ClickHouse数据存储的集成 in test/integration/data/
+- [X] [US2] [029] [US2] 创建ServiceHub-Bar Service集成测试用例 in test/e2e/servicehub_bar_integration_test.py
 
 ## Phase 5: User Story 3 - daybar同步机制优化
 
