@@ -50,7 +50,7 @@ class BacktestFeeder(BaseFeeder):
                     continue
                 bar = Bar()
                 bar.set(price_df.iloc[0])
-                event = EventPriceUpdate(price_info=bar)
+                event = EventPriceUpdate(payload=bar)
                 event.set_source(SOURCE_TYPES.BACKTESTFEEDER)
                 self.put(event)
         except Exception as e:
@@ -76,9 +76,22 @@ class BacktestFeeder(BaseFeeder):
             self.log.CRITICAL(f"CurrentDate: {self.now} you can not get the past({datetime}) info.")
             return pd.DataFrame()
 
-        df = get_bars(code, start_date=datetime, end_date=datetime, as_dataframe=True)
-        return df
+        try:
+            # 使用BarService获取数据，适配新的ServiceResult结构
+            bar_service = self.bar_service
+            result = bar_service.get_bars(code, start_date=datetime, end_date=datetime)
 
+            if result.success and result.data:
+                # 将ModelList转换为DataFrame
+                return result.data.to_dataframe()
+            else:
+                self.log("ERROR", f"Failed to get bars data: {result.error}")
+                return pd.DataFrame()
+
+        except Exception as e:
+            self.log("ERROR", f"Error in get_daybar for {code}: {e}")
+            return pd.DataFrame()
+        
     # def is_code_on_market(self, code, date, *args, **kwargs) -> bool:
     #     df = self.get_daybar(code, date)
     #     return True if df.shape[0] == 1 else False
