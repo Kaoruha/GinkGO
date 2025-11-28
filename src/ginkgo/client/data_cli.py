@@ -147,7 +147,8 @@ def plot(
         code = random_pick_one_code()
 
     if data == DataType.DAYBAR:
-        info_df = get_stockinfos()
+        info_model_list = get_stockinfos()
+        info_df = info_model_list.to_dataframe()
         info = info_df[info_df['code'] == code].iloc[0] if len(info_df[info_df['code'] == code]) > 0 else None
         if info is None:
             console.print(f"Stock {code} not found")
@@ -160,10 +161,10 @@ def plot(
                 console.print(f":x: Invalid adjustment type: {adj_type}. Must be 'fore' or 'back'.")
                 return
             adjustment_type = ADJUSTMENT_TYPES.FORE if adj_type.lower() == 'fore' else ADJUSTMENT_TYPES.BACK
-            raw = get_bars_adjusted(code=code, adjustment_type=adjustment_type, start_date=start, end_date=end, as_dataframe=True)
+            raw = get_bars_adjusted(code=code, adjustment_type=adjustment_type, start_date=start, end_date=end, ).to_dataframe()
             console.print(f":arrows_counterclockwise: Using {adj_type} adjustment for price data")
         else:
-            raw = get_bars(code=code, start_date=start, end_date=end, as_dataframe=True)
+            raw = get_bars(code=code, start_date=start, end_date=end, ).to_dataframe()
         
         code_name = info.code_name
         industry = info.industry
@@ -250,7 +251,7 @@ def list(
             GLOG.WARN("Please input run_id (or portfolio_id) to filter the order.")
             return
         else:
-            raw = get_orders(portfolio_id=filter, as_dataframe=True)
+            raw = get_orders(portfolio_id=filter, ).to_dataframe()
             print(raw)
             rs = raw
         pass
@@ -316,7 +317,8 @@ def show(
     pd.set_option("display.unicode.east_asian_width", True)
 
     if data == DataType.STOCKINFO:
-        raw = get_stockinfos()
+        raw_model_list = get_stockinfos()
+        raw = raw_model_list.to_dataframe()
         if code != "":
             raw = raw[raw["code"] == code]
         if raw.shape[0] == 0:
@@ -332,7 +334,7 @@ def show(
                 ]
             ]
     elif data == DataType.ADJUST:
-        raw = get_adjustfactors(code=code, as_dataframe=True)
+        raw = get_adjustfactors(code=code, ).to_dataframe()
         if raw.shape[0] == 0:
             rs = raw
         else:
@@ -355,10 +357,10 @@ def show(
                 console.print(f":x: Invalid adjustment type: {adj_type}. Must be 'fore' or 'back'.")
                 return
             adjustment_type = ADJUSTMENT_TYPES.FORE if adj_type.lower() == 'fore' else ADJUSTMENT_TYPES.BACK
-            raw = get_bars_adjusted(code=code, adjustment_type=adjustment_type, start_date=start, end_date=end, as_dataframe=True)
+            raw = get_bars_adjusted(code=code, adjustment_type=adjustment_type, start_date=start, end_date=end, ).to_dataframe()
             console.print(f":arrows_counterclockwise: Using {adj_type} adjustment for price data")
         else:
-            raw = get_bars(code=code, start_date=start, end_date=end, as_dataframe=True)
+            raw = get_bars(code=code, start_date=start, end_date=end, ).to_dataframe()
         
         if raw.shape[0] == 0:
             rs = raw
@@ -396,10 +398,10 @@ def show(
                 console.print(f":x: Invalid adjustment type: {adj_type}. Must be 'fore' or 'back'.")
                 return
             adjustment_type = ADJUSTMENT_TYPES.FORE if adj_type.lower() == 'fore' else ADJUSTMENT_TYPES.BACK
-            raw = get_ticks_adjusted(code=code, adjustment_type=adjustment_type, start_date=start, end_date=end, as_dataframe=True)
+            raw = get_ticks_adjusted(code=code, adjustment_type=adjustment_type, start_date=start, end_date=end, ).to_dataframe()
             console.print(f":arrows_counterclockwise: Using {adj_type} adjustment for tick data")
         else:
-            raw = get_ticks(code=code, start_date=start, end_date=end, as_dataframe=True)
+            raw = get_ticks(code=code, start_date=start, end_date=end, ).to_dataframe()
         
         t1 = datetime.datetime.now()
         if raw.shape[0] == 0:
@@ -472,7 +474,9 @@ def update(
     l = []
     if code == None:
         info = get_stockinfos()
-        for i, r in info.iterrows():
+        # Convert ModelList to DataFrame to use iterrows()
+        info_df = info.to_dataframe()
+        for i, r in info_df.iterrows():
             c = r["code"]
             l.append(c)
     else:
@@ -510,7 +514,8 @@ def update(
         if adjust:
             if code == None:
                 stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
+                stockinfos_df = stockinfos.to_dataframe()
+                for i, r in stockinfos_df.iterrows():
                     stock_code = r["code"]
                     kafka_service.send_adjustfactor_update_signal(stock_code, fast)
             else:
@@ -520,7 +525,8 @@ def update(
         if day:
             if code == None:
                 stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
+                stockinfos_df = stockinfos.to_dataframe()
+                for i, r in stockinfos_df.iterrows():
                     stock_code = r["code"]
                     kafka_service.send_daybar_update_signal(stock_code, fast)
             else:
@@ -530,7 +536,8 @@ def update(
         if tick:
             if code == None:
                 stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
+                stockinfos_df = stockinfos.to_dataframe()
+                for i, r in stockinfos_df.iterrows():
                     stock_code = r["code"]
                     kafka_service.send_tick_update_signal(stock_code, fast, max_update)
             else:
@@ -542,7 +549,8 @@ def update(
             fetch_and_update_stockinfo()
             fetch_and_update_tradeday()
             stockinfos = get_stockinfos()
-            for i, r in stockinfos.iterrows():
+            stockinfos_df = stockinfos.to_dataframe()
+            for i, r in stockinfos_df.iterrows():
                 stock_code = r["code"]
                 fetch_and_update_cn_daybar(stock_code, fast)
                 fetch_and_update_adjustfactor(stock_code, fast)
@@ -558,7 +566,8 @@ def update(
         if adjust:
             if code == None:
                 stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
+                stockinfos_df = stockinfos.to_dataframe()
+                for i, r in stockinfos_df.iterrows():
                     stock_code = r["code"]
                     fetch_and_update_adjustfactor(stock_code, fast)
             else:
@@ -568,7 +577,8 @@ def update(
         if day:
             if code == None:
                 stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
+                stockinfos_df = stockinfos.to_dataframe()
+                for i, r in stockinfos_df.iterrows():
                     stock_code = r["code"]
                     fetch_and_update_cn_daybar(stock_code, fast)
             else:
@@ -578,7 +588,8 @@ def update(
         if tick:
             if code == None:
                 stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
+                stockinfos_df = stockinfos.to_dataframe()
+                for i, r in stockinfos_df.iterrows():
                     stock_code = r["code"]
                     fetch_and_update_tick(stock_code, fast, max_update)
             else:
@@ -793,7 +804,7 @@ def stats():
     
     # 获取股票信息统计
     try:
-        stockinfos = stockinfo_service.get_stockinfos(as_dataframe=True)
+        stockinfos = stockinfo_service.get_stockinfos()
         stock_count = len(stockinfos) if stockinfos is not None and len(stockinfos) > 0 else 0
         stats_table.add_row(
             ":chart_with_upwards_trend: Stock Info", 
@@ -919,11 +930,11 @@ def health():
         # 检查股票信息完整性
         task1 = progress.add_task("Checking stock info integrity...", total=None)
         try:
-            stockinfos = stockinfo_service.get_stockinfos(as_dataframe=True)
+            stockinfos = stockinfo_service.get_stockinfos()
             if stockinfos is None or len(stockinfos) == 0:
                 health_issues.append(":x: No stock information found in database")
             else:
-                stock_codes = set(stockinfos['code'].tolist())
+                stock_codes = set(stockinfos.to_dataframe()['code'].tolist())
                 health_info.append(f":white_check_mark: Found {len(stock_codes)} stocks in database")
                 
                 # 检查必要字段

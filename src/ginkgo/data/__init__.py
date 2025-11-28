@@ -18,7 +18,7 @@ from ginkgo.data import seeding
 # Import utils for general utility functions that don't require service injection
 from ginkgo.data.utils import get_crud  # get_crud is still needed for direct CRUD access in getters
 
-from ginkgo.libs import time_logger, retry, skip_if_ran
+from ginkgo.libs import time_logger, retry, skip_if_ran, GLOG
 from ginkgo.enums import ADJUSTMENT_TYPES
 
 # --- Public API Functions ---
