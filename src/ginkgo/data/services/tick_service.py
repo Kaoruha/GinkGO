@@ -223,7 +223,7 @@ class TickService(DataService):
             self._logger.ERROR(f"Failed to get stock info for {code}: {e}")
             return batch_result
 
-        list_date = datetime_normalize(stock_info.iloc[0]["list_date"])
+        list_date = datetime_normalize(stock_info.to_dataframe().iloc[0]["list_date"])
         current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Initialize Redis cache for tracking processed dates using RedisService

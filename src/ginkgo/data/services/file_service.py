@@ -132,7 +132,7 @@ class FileService(ManagementService):
                 if source_file.empty:
                     result["error"] = f"Source file with ID {clone_id} not found"
                     return result
-                file_type = FILE_TYPES(source_file.iloc[0]["type"])
+                file_type = FILE_TYPES(source_file.to_dataframe().iloc[0]["type"])
                 result["warnings"].append(f"Using original file type: {file_type.value}")
 
             # Create the copy using enhanced add_file method
