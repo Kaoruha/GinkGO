@@ -1,18 +1,24 @@
 <!--
 Sync Impact Report:
-Version change: 1.0.0 → 1.1.0
+Version change: 1.1.0 → 1.2.0
 Modified principles:
-- Code Quality Principle - 新增避免hasattr错误规避原则
+- Testing Excellence Principle - 重大扩展TDD流程，增加用户确认机制、测试分类体系和真实环境测试要求
 Added sections: N/A
 Removed sections: N/A
 Files Updated for Consistency:
-⚠ pending: .specify/templates/plan-template.md - 需更新以反映新的错误处理原则
-⚠ pending: .specify/templates/tasks-template.md - 可能需要任务分类更新
-⚠ pending: .specify/templates/commands/*.md - 命令模板可能需要更新
+⚠ pending: .specify/templates/plan-template.md - 需要更新测试流程部分，反映TDD确认机制和真实环境测试
+⚠ pending: .specify/templates/spec-template.md - 需要更新测试要求部分，包含用户确认流程
+⚠ pending: .specify/templates/tasks-template.md - 需要更新任务分类，增加TDD确认任务类型
+⚠ pending: .specify/templates/checklist-template.md - 需要更新测试检查项，包含用户确认验证和真实环境测试
+✅ updated: .specify/templates/agent-file-template.md - 已预填Ginkgo技术栈和开发指导，包含完整代码规范
 Follow-up TODOs:
-- 在CI/CD中添加hasattr使用检测规则
-- 更新代码质量检查工具以包含hasattr规避检查
-- 建立最佳实践文档说明正确的错误处理模式
+- 建立TDD用户确认的标准操作流程文档
+- 开发测试用例确认的沟通模板和检查清单
+- 在CI/CD中集成TDD流程检查，确保用户确认机制被正确执行
+- 培训团队成员新的TDD确认流程和测试分类体系
+- 建立测试用例设计的最佳实践库，包含20行简洁沟通示例
+- 配置测试环境使用真实数据源，确保测试数据的一致性和可靠性
+- 建立测试数据库管理和数据清理机制，支持真实环境测试的隔离性
 -->
 
 # Ginkgo 项目章程
@@ -20,9 +26,9 @@ Follow-up TODOs:
 ## 基本信息
 
 - **项目名称**: Ginkgo
-- **章程版本**: 1.1.0
+- **章程版本**: 1.2.0
 - **制定日期**: 2025-11-03
-- **最后修订**: 2025-11-23
+- **最后修订**: 2025-11-28
 - **项目描述**: Python量化交易库，专注于事件驱动回测、多数据库支持和完整的风险管理系统
 
 ## 核心原则
@@ -44,7 +50,7 @@ Follow-up TODOs:
 
 **事件驱动优先**: 所有交易功能必须基于事件驱动架构设计，遵循PriceUpdate → Strategy → Signal → Portfolio → Order → Fill的标准流程。
 
-**依赖注入模式**: 必须使用统一的依赖注入容器，通过`from ginkgo import services`访问所有服务组件。
+**依赖注入模式**: 必须使用ServiceHub统一访问服务，通过`from ginkgo import service_hub`访问所有服务组件。为向后兼容，仍支持`from ginkgo import services`，但建议迁移到service_hub。
 
 **职责分离**: 严格分离数据层、策略层、执行层、分析层和服务层的职责，避免跨层功能耦合。
 
@@ -69,11 +75,33 @@ Follow-up TODOs:
 
 ### 4. 测试原则 (Testing Excellence)
 
-**TDD流程**: 新功能开发必须遵循TDD流程，先写测试再实现功能。
+**TDD开发流程**: 新功能开发必须严格遵循TDD流程，确保每个测试用例都经过用户确认。
 
-**测试分类**: 按照unit、integration、database、network等标记进行测试分类，确保测试覆盖的完整性。
+**具体要求**:
+- **测试驱动开发**: 必须先编写失败的测试用例，然后实现最小可行代码使测试通过
+- **用户确认机制**: 每个测试用例设计完成后必须等待用户确认，确保测试逻辑正确覆盖业务需求
+- **分步确认流程**: 从基础逻辑方案到最终实现细节，每个阶段都需要用户确认
+- **简洁沟通**: 每次测试用例讨论和确认必须控制在20行以内，保持沟通高效
+- **迭代优化**: 根据用户反馈持续优化测试用例，确保测试完整性和准确性
 
-**测试隔离**: 数据库相关测试必须使用测试数据库，避免影响生产数据。
+**测试分类体系**:
+- **单元测试(@pytest.mark.unit)**: 验证单个函数、方法或类的功能正确性
+- **集成测试(@pytest.mark.integration)**: 验证多个组件协作的功能正确性
+- **数据库测试(@pytest.mark.database)**: 验证数据持久化和查询逻辑
+- **网络测试(@pytest.mark.network)**: 验证外部API调用和数据源交互
+- **性能测试(@pytest.mark.performance)**: 验证系统性能指标和响应时间
+- **量化测试(@pytest.mark.financial)**: 验证量化交易特有的业务逻辑和计算精度
+
+**测试隔离原则**:
+- 数据库测试必须使用独立的测试数据库，确保不影响生产数据
+- 每个测试用例必须独立，不依赖其他测试的执行结果
+- **真实环境测试**: 禁止使用Mock数据，所有测试必须使用真实的数据源和环境配置，确保测试结果反映实际运行情况
+- **数据一致性**: 测试前确保测试数据库的数据状态与预期一致，测试后清理数据避免影响后续测试
+- **网络依赖**: 测试需要真实网络连接和数据源访问，不允许使用网络Mock，确保测试覆盖真实的API调用场景
+
+**理由**: 使用真实环境测试能够发现Mock数据可能隐藏的实际问题，如数据格式变化、API限制、网络延迟等。真实环境测试提供更高的可信度和实用性，确保代码在生产环境中的稳定性。
+
+**理由**: 严格的TDD流程和用户确认机制能够确保代码质量，减少后期重构成本，同时保证功能实现与业务需求的一致性。简洁的沟通模式提高开发效率，测试分类体系确保覆盖全面。
 
 ### 5. 性能原则 (Performance Excellence)
 
