@@ -13,6 +13,7 @@ from typing import List, Union, Any, Dict
 import pandas as pd
 
 from ginkgo.libs import GCONF, datetime_normalize, to_decimal, RichProgress, cache_with_expiration, retry
+from ginkgo.libs.data.results import DataValidationResult, DataIntegrityCheckResult, DataSyncResult
 from ginkgo.data import mappers
 from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES
 from ginkgo.data.services.base_service import DataService, ServiceResult
@@ -35,7 +36,7 @@ class BarService(DataService):
         self.adjustfactor_service = adjustfactor_service
 
     @retry(max_try=3)
-    def sync_for_code_with_date_range(
+    def sync_by_range(
         self,
         code: str,
         start_date: datetime = None,
@@ -43,30 +44,38 @@ class BarService(DataService):
         frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
     ) -> ServiceResult:
         """
-        Synchronizes bar data for a single stock code within specified date range.
+        按指定日期范围同步单个股票的K线数据（核心同步方法）。
 
         Args:
-            code: Stock code (e.g., '000001.SZ')
-            start_date: Start date for data sync (if None, determined by existing logic)
-            end_date: End date for data sync (if None, defaults to today)
-            frequency: Data frequency (currently only DAY supported)
+            code: 股票代码 (e.g., '000001.SZ')
+            start_date: 同步开始日期 (如果为None，由现有逻辑确定)
+            end_date: 同步结束日期 (如果为None，默认为今天)
+            frequency: 数据频率 (目前只支持DAY)
 
         Returns:
-            ServiceResult - 包装同步结果数据，使用result.data获取详细信息
+            ServiceResult - 包装同步结果数据，使用result.data获取DataSyncResult详细信息
         """
         start_time = time.time()
-        self._log_operation_start("sync_for_code_with_date_range", code=code, start_date=start_date,
+        self._log_operation_start("sync_by_range", code=code, start_date=start_date,
                                 end_date=end_date, frequency=frequency.value)
 
         try:
             # Validate stock code
             if not self.stockinfo_service.is_code_in_stocklist(code):
+                sync_result = DataSyncResult.create_for_entity(
+                    entity_type="bars",
+                    entity_identifier=code,
+                    sync_strategy="range"
+                )
+                sync_result.add_error(0, f"Stock code {code} not in stock list")
                 return ServiceResult.failure(
                     message=f"Stock code {code} not in stock list",
-                    data={"code": code, "records_added": 0}
+                    data=sync_result
                 )
 
-            # Validate and set date range
+            # Convert dates to datetime objects and validate
+            start_date = datetime_normalize(start_date) if start_date else None
+            end_date = datetime_normalize(end_date) if end_date else None
             validated_start, validated_end = self._validate_and_set_date_range(start_date, end_date)
 
             self._logger.INFO(
@@ -77,8 +86,16 @@ class BarService(DataService):
             try:
                 raw_data = self._fetch_raw_data(code, validated_start, validated_end, frequency)
                 if raw_data is None or raw_data.empty:
+                    sync_result = DataSyncResult.create_for_entity(
+                        entity_type="bars",
+                        entity_identifier=code,
+                        sync_range=(validated_start, validated_end),
+                        sync_strategy="range"
+                    )
+                    sync_result.set_metadata("date_range", f"{validated_start.date()} to {validated_end.date()}")
+                    sync_result.add_warning("No new data available from source")
                     return ServiceResult.success(
-                        data={"code": code, "records_added": 0, "records_processed": 0, "date_range": f"{validated_start.date()} to {validated_end.date()}"},
+                        data=sync_result,
                         message="No new data available from source"
                     )
             except Exception as e:
@@ -94,8 +111,15 @@ class BarService(DataService):
             try:
                 models_to_add = mappers.dataframe_to_bar_models(raw_data, code, frequency)
                 if not models_to_add:
+                    sync_result = DataSyncResult.create_for_entity(
+                        entity_type="bars",
+                        entity_identifier=code,
+                        sync_range=(validated_start, validated_end),
+                        sync_strategy="range"
+                    )
+                    sync_result.add_warning("No valid models generated from data")
                     return ServiceResult.success(
-                        data={"code": code, "records_added": 0, "records_processed": 0},
+                        data=sync_result,
                         message="No valid models generated from data"
                     )
             except Exception as e:
@@ -103,17 +127,34 @@ class BarService(DataService):
                 self._logger.WARN(f"Batch conversion failed for {code}, attempting row-by-row: {e}")
                 models_to_add = self._convert_rows_individually(raw_data, code, frequency)
                 if not models_to_add:
+                    sync_result = DataSyncResult.create_for_entity(
+                        entity_type="bars",
+                        entity_identifier=code,
+                        sync_range=(validated_start, validated_end),
+                        sync_strategy="range"
+                    )
+                    sync_result.add_error(0, f"Data mapping failed: {str(e)}")
                     return ServiceResult.failure(
                         message=f"Data mapping failed: {str(e)}",
-                        data={"code": code, "records_added": 0, "records_processed": 0}
+                        data=sync_result
                     )
 
             # Smart duplicate checking and database operations
             final_models = self._filter_existing_data(models_to_add, code, frequency)
 
             if not final_models:
+                sync_result = DataSyncResult.create_for_entity(
+                    entity_type="bars",
+                    entity_identifier=code,
+                    sync_range=(validated_start, validated_end),
+                    sync_strategy="range"
+                )
+                sync_result.records_processed = len(raw_data)
+                sync_result.records_skipped = len(raw_data)  # 全部跳过
+                sync_result.is_idempotent = True
+                sync_result.add_warning("All data already exists in database")
                 return ServiceResult.success(
-                    data={"code": code, "records_added": 0, "records_processed": len(raw_data)},
+                    data=sync_result,
                     message="All data already exists in database"
                 )
 
@@ -151,14 +192,28 @@ class BarService(DataService):
             duration = time.time() - start_time
             self._log_operation_end("sync_for_code_with_date_range", True, duration)
 
+            # Create DataSyncResult to wrap sync statistics
+            sync_result = DataSyncResult(
+                entity_type="bars",
+                entity_identifier=code,
+                sync_range=(validated_start, validated_end),
+                records_processed=len(raw_data),
+                records_added=records_added,
+                records_updated=0,  # Current implementation only adds new records
+                records_skipped=0,   # No skipping in current implementation
+                records_failed=0,
+                sync_duration=duration,
+                is_idempotent=True,
+                sync_strategy="incremental"
+            )
+
+            # Set additional metadata
+            sync_result.set_metadata("frequency", frequency.value)
+            sync_result.set_metadata("removed_count", removed_count)
+            sync_result.set_metadata("data_source", type(self.data_source).__name__)
+
             return ServiceResult.success(
-                data={
-                    "code": code,
-                    "records_added": records_added,
-                    "records_processed": len(raw_data),
-                    "date_range": f"{validated_start.date()} to {validated_end.date()}",
-                    "removed_count": removed_count
-                },
+                data=sync_result,
                 message=f"Bar data for {code} saved successfully: {records_added} records"
             )
 
@@ -169,6 +224,52 @@ class BarService(DataService):
             return ServiceResult.error(
                 error=f"Unexpected error during sync: {str(e)}"
             )
+
+    @retry(max_try=3)
+    def sync_full(
+        self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
+    ) -> ServiceResult:
+        """
+        全量同步单个股票的K线数据（从历史开始到今天）。
+
+        Args:
+            code: 股票代码 (e.g., '000001.SZ')
+            frequency: 数据频率 (目前只支持DAY)
+
+        Returns:
+            ServiceResult - 包装同步结果数据，使用result.data获取DataSyncResult详细信息
+        """
+        from datetime import datetime
+        return self.sync_by_range(code, None, datetime.now(), frequency)
+
+    @retry(max_try=3)
+    def sync_incremental(
+        self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
+    ) -> ServiceResult:
+        """
+        增量同步单个股票的K线数据（从最后可用日期开始到今天）。
+
+        Args:
+            code: 股票代码 (e.g., '000001.SZ')
+            frequency: 数据频率 (目前只支持DAY)
+
+        Returns:
+            ServiceResult - 包装同步结果数据，使用result.data获取DataSyncResult详细信息
+        """
+        from datetime import datetime
+
+        # 获取最后可用日期
+        last_date_result = self.get_latest_timestamp(code, frequency)
+        if last_date_result.success and last_date_result.data:
+            last_date = last_date_result.data
+            # 从最后一天的下一天开始同步
+            from datetime import timedelta
+            start_date = last_date + timedelta(days=1)
+        else:
+            # 如果没有历史数据，从很久以前开始（相当于全量同步）
+            start_date = None
+
+        return self.sync_by_range(code, start_date, datetime.now(), frequency)
 
     @retry(max_try=3)
     def sync_for_code(
@@ -193,16 +294,20 @@ class BarService(DataService):
             start_date, end_date = self._get_fetch_date_range(code, fast_mode)
 
             # Call the new date range method
-            sync_result = self.sync_for_code_with_date_range(code, start_date, end_date, frequency)
+            sync_result = self.sync_by_range(code, start_date, end_date, frequency)
 
             # Convert dict result to ServiceResult
             duration = time.time() - start_time
             self._log_operation_end("sync_for_code", sync_result.success, duration)
 
             if sync_result.success:
+                # Extract DataSyncResult from the nested ServiceResult
+                data_sync_result = sync_result.data
+                records_added = data_sync_result.records_added if hasattr(data_sync_result, 'records_added') else 0
+
                 return ServiceResult.success(
-                    data=sync_result.data,
-                    message=f"Successfully synced {sync_result.data.get('records_added', 0)} bar records for {code}"
+                    data=data_sync_result,
+                    message=f"Successfully synced {records_added} bar records for {code}"
                 )
             else:
                 return ServiceResult.failure(
@@ -218,7 +323,7 @@ class BarService(DataService):
                 error=f"Sync operation failed: {str(e)}"
             )
 
-    def sync_batch_codes_with_date_range(
+    def sync_batch_by_range(
         self,
         codes: List[str],
         start_date: datetime = None,
@@ -250,11 +355,16 @@ class BarService(DataService):
 
         # Validate date range first
         try:
+            start_date = datetime_normalize(start_date) if start_date else None
+            end_date = datetime_normalize(end_date) if end_date else None
             validated_start, validated_end = self._validate_and_set_date_range(start_date, end_date)
             batch_result["date_range"] = f"{validated_start.date()} to {validated_end.date()}"
         except ValueError as e:
             batch_result["failures"].append({"error": f"Invalid date range: {str(e)}"})
-            return batch_result
+            return ServiceResult.failure(
+                error=f"Invalid date range: {str(e)}",
+                data=batch_result
+            )
 
         valid_codes = [code for code in codes if self.stockinfo_service.is_code_in_stocklist(code)]
         invalid_codes = [code for code in codes if code not in valid_codes]
@@ -274,11 +384,11 @@ class BarService(DataService):
             for code in valid_codes:
                 try:
                     progress.update(task, description=f"Processing {code}")
-                    result = self.sync_for_code_with_date_range(code, validated_start, validated_end, frequency)
+                    result = self.sync_by_range(code, validated_start, validated_end, frequency)
 
                     batch_result["results"].append(result)
-                    batch_result["total_records_processed"] += result.data.get("records_processed", 0)
-                    batch_result["total_records_added"] += result.data.get("records_added", 0)
+                    batch_result["total_records_processed"] += result.data.records_processed
+                    batch_result["total_records_added"] += result.data.records_added
 
                     if result.success:
                         batch_result["successful_codes"] += 1
@@ -298,10 +408,125 @@ class BarService(DataService):
         self._logger.INFO(
             f"Batch sync completed: {batch_result['successful_codes']} successful, {batch_result['failed_codes']} failed"
         )
+
+        # 创建DataSyncResult来包装批量同步结果
+        sync_result = DataSyncResult.create_for_entity(
+            entity_type="bars",
+            entity_identifier=f"batch_{len(codes)}_codes",
+            sync_strategy="batch_range"
+        )
+
+        # 设置统计数据
+        sync_result.records_processed = batch_result["total_records_processed"]
+        sync_result.records_added = batch_result["total_records_added"]
+        sync_result.records_updated = 0  # 批量同步暂时不跟踪更新
+
+        # 设置成功率
+        success_rate = batch_result["successful_codes"] / batch_result["total_codes"] if batch_result["total_codes"] > 0 else 0
+        sync_result.success_rate = success_rate
+
+        # 将批量详细信息存储在附加数据中
+        sync_result.batch_details = batch_result
+
         return ServiceResult.success(
-            data=batch_result,
+            data=sync_result,
             message=f"Batch sync completed: {batch_result['successful_codes']}/{batch_result['total_codes']} successful"
         )
+
+    @retry(max_try=3)
+    def sync_batch_full(
+        self, codes: List[str], frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
+    ) -> ServiceResult:
+        """
+        批量全量同步多个股票的K线数据（所有股票从历史开始到今天）。
+
+        Args:
+            codes: 股票代码列表
+            frequency: 数据频率 (目前只支持DAY)
+
+        Returns:
+            ServiceResult - 包装批量同步结果
+        """
+        from datetime import datetime
+        return self.sync_batch_by_range(codes, None, datetime.now(), frequency)
+
+    @retry(max_try=3)
+    def sync_batch_incremental(
+        self, codes: List[str], frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
+    ) -> ServiceResult:
+        """
+        批量增量同步多个股票的K线数据（每个股票从最后可用日期开始到今天）。
+
+        Args:
+            codes: 股票代码列表
+            frequency: 数据频率 (目前只支持DAY)
+
+        Returns:
+            ServiceResult - 包装批量同步结果
+        """
+        from datetime import datetime, timedelta
+
+        # 为每个股票代码获取最后的日期
+        batch_result = {
+            "total_codes": len(codes),
+            "successful_codes": 0,
+            "failed_codes": 0,
+            "total_records_processed": 0,
+            "total_records_added": 0,
+            "results": [],
+            "failures": [],
+            "date_ranges": {}
+        }
+
+        try:
+            # 获取每个代码的最后可用日期
+            date_ranges = {}
+            for code in codes:
+                try:
+                    last_date_result = self.get_latest_timestamp(code, frequency)
+                    if last_date_result.success and last_date_result.data:
+                        last_date = last_date_result.data
+                        start_date = last_date + timedelta(days=1)
+                    else:
+                        start_date = None
+                    date_ranges[code] = start_date
+                    batch_result["date_ranges"][code] = start_date.isoformat() if start_date else None
+                except Exception as e:
+                    batch_result["failures"].append({"code": code, "error": f"Failed to get last date: {str(e)}"})
+                    batch_result["failed_codes"] += 1
+
+            # 执行同步
+            end_date = datetime.now()
+            for code in codes:
+                try:
+                    start_date = date_ranges.get(code)
+                    result = self.sync_by_range(code, start_date, end_date, frequency)
+
+                    if result.success:
+                        batch_result["successful_codes"] += 1
+                        if result.data:
+                            batch_result["total_records_processed"] += result.data.records_processed
+                            batch_result["total_records_added"] += result.data.records_added
+                        batch_result["results"].append({"code": code, "success": True, "result": result.data})
+                    else:
+                        batch_result["failed_codes"] += 1
+                        batch_result["failures"].append({"code": code, "error": result.error})
+                        batch_result["results"].append({"code": code, "success": False, "error": result.error})
+
+                except Exception as e:
+                    batch_result["failed_codes"] += 1
+                    batch_result["failures"].append({"code": code, "error": str(e)})
+                    batch_result["results"].append({"code": code, "success": False, "error": str(e)})
+
+            return ServiceResult.success(
+                data=batch_result,
+                message=f"Batch incremental sync completed: {batch_result['successful_codes']}/{batch_result['total_codes']} successful"
+            )
+
+        except Exception as e:
+            return ServiceResult.error(
+                error=f"Batch incremental sync failed: {str(e)}"
+            )
 
     def sync_batch_codes(
         self, codes: List[str], fast_mode: bool = True, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
@@ -354,8 +579,17 @@ class BarService(DataService):
                             result = self.sync_for_code(code, fast_mode, frequency)
 
                             batch_result["results"].append(result)
-                            batch_result["total_records_processed"] += result.data.get("records_processed", 0)
-                            batch_result["total_records_added"] += result.data.get("records_added", 0)
+
+                            # Extract data from DataSyncResult if available
+                            if result.success and hasattr(result.data, 'records_processed'):
+                                data_sync_result = result.data
+                                batch_result["total_records_processed"] += data_sync_result.records_processed
+                                batch_result["total_records_added"] += data_sync_result.records_added
+                            else:
+                                # Fallback for backward compatibility
+                                data_dict = result.data if isinstance(result.data, dict) else {}
+                                batch_result["total_records_processed"] += data_dict.get("records_processed", 0)
+                                batch_result["total_records_added"] += data_dict.get("records_added", 0)
 
                             if result.success:
                                 batch_result["successful_codes"] += 1
@@ -376,8 +610,39 @@ class BarService(DataService):
                     f"Batch sync completed: {batch_result['successful_codes']} successful, {batch_result['failed_codes']} failed"
                 )
 
+                # Create DataSyncResult to wrap batch sync statistics
+                from datetime import datetime
+                start_time_dt = start_date or datetime(2020, 1, 1)
+                end_time_dt = end_date or datetime.now()
+
+                batch_sync_result = DataSyncResult(
+                    entity_type="bars",
+                    entity_identifier=f"batch_{len(codes)}_stocks",
+                    sync_range=(start_time_dt, end_time_dt),
+                    records_processed=batch_result["total_records_processed"],
+                    records_added=batch_result["total_records_added"],
+                    records_updated=0,  # Current implementation only tracks added records
+                    records_skipped=0,   # No skipping in current implementation
+                    records_failed=batch_result["failed_codes"],
+                    sync_duration=0.0,  # Would need to track actual duration
+                    is_idempotent=True,
+                    sync_strategy="batch"
+                )
+
+                # Set batch-specific metadata
+                batch_sync_result.set_metadata("frequency", frequency.value)
+                batch_sync_result.set_metadata("total_codes", batch_result["total_codes"])
+                batch_sync_result.set_metadata("successful_codes", batch_result["successful_codes"])
+                batch_sync_result.set_metadata("failed_codes", batch_result["failed_codes"])
+                batch_sync_result.set_metadata("success_rate", batch_result["successful_codes"] / batch_result["total_codes"] if batch_result["total_codes"] > 0 else 0)
+                batch_sync_result.set_metadata("data_source", type(self.data_source).__name__)
+                batch_sync_result.set_metadata("batch_results", batch_result["results"])
+
+                if batch_result["failures"]:
+                    batch_sync_result.set_metadata("failure_details", batch_result["failures"])
+
                 return ServiceResult.success(
-                    data=batch_result,
+                    data=batch_sync_result,
                     message=f"Batch sync completed: {batch_result['successful_codes']}/{batch_result['total_codes']} successful"
                 )
 
@@ -388,7 +653,7 @@ class BarService(DataService):
             # In non-fast mode, all codes use the same date range, so we can use the batch date range method
             start_date = datetime_normalize(GCONF.DEFAULTSTART)
             end_date = datetime.now()
-            return self.sync_batch_codes_with_date_range(codes, start_date, end_date, frequency)
+            return self.sync_batch_by_range(codes, start_date, end_date, frequency)
 
     def get_bars(
         self,
@@ -987,7 +1252,7 @@ class BarService(DataService):
             self._logger.ERROR(f"Failed to apply multi-stock price adjustment: {e}")
             return bars_data
 
-    def get_latest_timestamp_for_code(self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> ServiceResult:
+    def get_latest_timestamp(self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> ServiceResult:
         """
         Gets the latest timestamp for a specific code and frequency.
 
@@ -1290,3 +1555,362 @@ class BarService(DataService):
             return ServiceResult.error(
                 error=f"Database query failed: {str(e)}"
             )
+
+    def validate_bars(
+        self,
+        code: str,
+        start_date: str = None,
+        end_date: str = None,
+        frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
+    ) -> DataValidationResult:
+        """
+        Validates bar data for business rules and data quality.
+
+        Args:
+            code: Stock code
+            start_date: Start date in YYYYMMDD format
+            end_date: End date in YYYYMMDD format
+            frequency: Data frequency
+
+        Returns:
+            DataValidationResult - Comprehensive validation results with quality scoring
+        """
+        from datetime import datetime
+        from dateutil.parser import parse
+
+        start_time = time.time()
+        self._log_operation_start("validate_bars", code=code, start_date=start_date, end_date=end_date)
+
+        # Create validation result
+        result = DataValidationResult.create_for_entity(
+            entity_type="bars",
+            entity_identifier=code,
+            validation_type="business_rules"
+        )
+
+        try:
+            # Get bars data for validation
+            bars_result = self.get_bars(code=code, start_date=start_date, end_date=end_date, frequency=frequency, page_size=10000)
+
+            if not bars_result.success or not bars_result.data:
+                result.add_error(f"No bar data found for validation: {bars_result.message}")
+                duration = time.time() - start_time
+                result.validation_timestamp = datetime.now()
+                result.set_metadata("validation_duration", duration)
+                return result
+
+            bars = bars_result.data
+            result.set_metadata("total_records", len(bars))
+            result.set_metadata("frequency", frequency.value if frequency else None)
+
+            # OHLC relationship validation
+            ohlc_violations = []
+            for i, bar in enumerate(bars):
+                if bar.high < max(bar.open, bar.close):
+                    result.add_error(f"OHLC violation: High({bar.high}) < max(Open({bar.open}), Close({bar.close})) at {bar.timestamp}")
+                    ohlc_violations.append(f"High < max(Open, Close) at {bar.timestamp}")
+
+                if bar.low > min(bar.open, bar.close):
+                    result.add_error(f"OHLC violation: Low({bar.low}) > min(Open({bar.open}), Close({bar.close})) at {bar.timestamp}")
+                    ohlc_violations.append(f"Low > min(Open, Close) at {bar.timestamp}")
+
+                # Price validation
+                if any(price <= 0 for price in [bar.open, bar.high, bar.low, bar.close]):
+                    result.add_error(f"Non-positive price detected at {bar.timestamp}: O={bar.open}, H={bar.high}, L={bar.low}, C={bar.close}")
+
+                # Volume validation
+                if bar.volume < 0:
+                    result.add_error(f"Negative volume detected at {bar.timestamp}: {bar.volume}")
+
+            result.set_metadata("ohlc_violations", ohlc_violations)
+
+            # Duplicate timestamp validation
+            timestamps = [bar.timestamp for bar in bars]
+            unique_timestamps = set(timestamps)
+            if len(timestamps) != len(unique_timestamps):
+                duplicate_count = len(timestamps) - len(unique_timestamps)
+                result.add_error(f"Found {duplicate_count} duplicate timestamps")
+
+                # Find specific duplicates
+                from collections import Counter
+                timestamp_counts = Counter(timestamps)
+                duplicates = [ts for ts, count in timestamp_counts.items() if count > 1]
+                result.set_metadata("duplicate_timestamps", [dt.isoformat() for dt in duplicates])
+
+            # Time sequence validation (for daily data)
+            if frequency == FREQUENCY_TYPES.DAY and len(bars) > 1:
+                sorted_bars = sorted(bars, key=lambda x: x.timestamp)
+                for i in range(1, len(sorted_bars)):
+                    if sorted_bars[i].timestamp <= sorted_bars[i-1].timestamp:
+                        result.add_error(f"Timestamp sequence violation: {sorted_bars[i].timestamp} <= {sorted_bars[i-1].timestamp}")
+
+            # Price continuity validation (check for extreme jumps)
+            if len(bars) > 1:
+                sorted_bars = sorted(bars, key=lambda x: x.timestamp)
+                for i in range(1, len(sorted_bars)):
+                    prev_close = sorted_bars[i-1].close
+                    curr_open = sorted_bars[i].open
+
+                    if prev_close > 0:
+                        jump_ratio = abs(curr_open - prev_close) / prev_close
+                        if jump_ratio > 0.2:  # 20% jump threshold
+                            result.add_warning(f"Large price jump detected: {jump_ratio*100:.1f}% from {prev_close} to {curr_open} at {sorted_bars[i].timestamp}")
+
+            # Date range validation
+            if start_date and end_date:
+                try:
+                    start_dt = parse(start_date)
+                    end_dt = parse(end_date)
+                    result.set_metadata("expected_range", (start_dt.date().isoformat(), end_dt.date().isoformat()))
+
+                    # Check if we have data within expected range
+                    actual_dates = [bar.timestamp.date() for bar in bars]
+                    if actual_dates:
+                        result.set_metadata("actual_range", (min(actual_dates).isoformat(), max(actual_dates).isoformat()))
+
+                except Exception as e:
+                    result.add_warning(f"Date range parsing issue: {e}")
+
+            duration = time.time() - start_time
+            self._log_operation_end("validate_bars", result.error_count == 0, duration)
+
+            result.validation_timestamp = datetime.now()
+            result.set_metadata("validation_duration", duration)
+            result.set_metadata("validation_summary", {
+                "total_records": len(bars),
+                "error_count": result.error_count,
+                "warning_count": result.warning_count,
+                "quality_score": result.data_quality_score
+            })
+
+            return result
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("validate_bars", False, duration)
+            self._logger.ERROR(f"Failed to validate bars: {e}")
+
+            result.add_error(f"Validation process failed: {str(e)}")
+            result.validation_timestamp = datetime.now()
+            result.set_metadata("validation_duration", duration)
+            result.is_valid = False
+
+            return result
+
+    def check_bars_integrity(
+        self,
+        code: str,
+        start_date: str = None,
+        end_date: str = None,
+        frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
+    ) -> DataIntegrityCheckResult:
+        """
+        Checks data integrity for bar data including completeness and consistency.
+
+        Args:
+            code: Stock code
+            start_date: Start date in YYYYMMDD format
+            end_date: End date in YYYYMMDD format
+            frequency: Data frequency
+
+        Returns:
+            DataIntegrityCheckResult - Comprehensive integrity check results
+        """
+        from datetime import datetime, timedelta
+        from dateutil.parser import parse
+        import pandas as pd
+
+        start_time = time.time()
+        self._log_operation_start("check_bars_integrity", code=code, start_date=start_date, end_date=end_date)
+
+        # Determine check range
+        if start_date and end_date:
+            try:
+                start_dt = parse(start_date)
+                end_dt = parse(end_date)
+                check_range = (start_dt, end_dt)
+            except Exception:
+                # Default to recent data if date parsing fails
+                end_dt = datetime.now()
+                start_dt = end_dt - timedelta(days=30)
+                check_range = (start_dt, end_dt)
+        else:
+            # Default to last 30 days
+            end_dt = datetime.now()
+            start_dt = end_dt - timedelta(days=30)
+            check_range = (start_dt, end_dt)
+
+        # Create integrity check result
+        result = DataIntegrityCheckResult.create_for_entity(
+            entity_type="bars",
+            entity_identifier=code,
+            check_range=check_range,
+            check_duration=0.0
+        )
+
+        try:
+            # Get actual data
+            bars_result = self.get_bars(code=code, start_date=start_date, end_date=end_date, frequency=frequency, page_size=10000)
+
+            if not bars_result.success:
+                result.add_issue("data_retrieval_failure", f"Failed to retrieve data: {bars_result.message}")
+                result.check_duration = time.time() - start_time
+                return result
+
+            bars = bars_result.data if bars_result.data else []
+            result.total_records = len(bars)
+
+            # Set basic metadata
+            result.set_metadata("frequency", frequency.value if frequency else None)
+            result.set_metadata("code", code)
+
+            if not bars:
+                # No data found - this could be expected or an issue
+                result.missing_records = 0  # We don't know expected count yet
+                result.add_issue("no_data_found", f"No bar data found for {code} in specified range")
+                result.add_recommendation("Check if stock exists and data source covers this period")
+                result.check_duration = time.time() - start_time
+                return result
+
+            # Analyze data completeness for daily frequency
+            if frequency and frequency == FREQUENCY_TYPES.DAY:
+                expected_trading_days = self._calculate_expected_trading_days(check_range[0], check_range[1])
+                result.set_metadata("expected_trading_days", len(expected_trading_days))
+
+                actual_trading_days = set(bar.timestamp.date() for bar in bars)
+                result.set_metadata("actual_trading_days", len(actual_trading_days))
+
+                missing_days = expected_trading_days - actual_trading_days
+                result.missing_records = len(missing_days)
+
+                if missing_days:
+                    missing_dates = sorted([day.isoformat() for day in missing_days])
+                    result.set_metadata("missing_dates", missing_dates)
+                    result.add_issue("missing_trading_days", f"Missing {len(missing_days)} trading days")
+                    result.add_recommendation("Check market holidays and data source coverage")
+
+                # Check for weekends in data (shouldn't exist for daily data)
+                weekend_records = [bar for bar in bars if bar.timestamp.weekday() >= 5]
+                if weekend_records:
+                    result.add_issue("weekend_data_found", f"Found {len(weekend_records)} weekend records")
+                    result.set_metadata("weekend_records", len(weekend_records))
+
+            # Check for duplicate timestamps
+            timestamps = [bar.timestamp for bar in bars]
+            unique_timestamps = set(timestamps)
+            duplicate_count = len(timestamps) - len(unique_timestamps)
+
+            if duplicate_count > 0:
+                result.duplicate_records = duplicate_count
+                result.add_issue("duplicate_timestamps", f"Found {duplicate_count} duplicate timestamps")
+
+                # Find specific duplicates
+                from collections import Counter
+                timestamp_counts = Counter(timestamps)
+                duplicates = [ts for ts, count in timestamp_counts.items() if count > 1]
+                result.set_metadata("duplicate_timestamps", [dt.isoformat() for dt in duplicates])
+                result.add_recommendation("Remove duplicate records and investigate data source")
+
+            # Check for data gaps (more than expected interval)
+            if len(bars) > 1:
+                sorted_bars = sorted(bars, key=lambda x: x.timestamp)
+                gaps = []
+
+                for i in range(1, len(sorted_bars)):
+                    prev_ts = sorted_bars[i-1].timestamp
+                    curr_ts = sorted_bars[i].timestamp
+
+                    # For daily data, gap > 2 days might indicate missing data
+                    if frequency == FREQUENCY_TYPES.DAY:
+                        gap_days = (curr_ts.date() - prev_ts.date()).days
+                        if gap_days > 2:  # Allow for weekends
+                            gaps.append({
+                                "start": prev_ts.isoformat(),
+                                "end": curr_ts.isoformat(),
+                                "gap_days": gap_days
+                            })
+
+                if gaps:
+                    result.add_issue("data_gaps", f"Found {len(gaps)} significant data gaps")
+                    result.set_metadata("data_gaps", gaps)
+
+            # Check price consistency
+            price_anomalies = []
+            for i, bar in enumerate(bars):
+                # Check for zero or negative prices
+                if bar.close <= 0:
+                    price_anomalies.append(f"Zero/negative close price at {bar.timestamp}: {bar.close}")
+
+                # Check for extreme price changes
+                if i > 0:
+                    prev_close = bars[i-1].close
+                    if prev_close > 0:
+                        change_pct = abs(bar.close - prev_close) / prev_close
+                        if change_pct > 0.5:  # 50% change threshold
+                            price_anomalies.append(f"Extreme price change: {change_pct*100:.1f}% at {bar.timestamp}")
+
+            if price_anomalies:
+                result.add_issue("price_anomalies", f"Found {len(price_anomalies)} price anomalies")
+                result.set_metadata("price_anomalies", price_anomalies[:10])  # Store first 10
+
+            # Calculate final integrity score
+            result._recalculate_integrity_score()
+
+            # Set final metadata
+            result.check_duration = time.time() - start_time
+            result.set_metadata("check_summary", {
+                "total_records": result.total_records,
+                "missing_records": result.missing_records,
+                "duplicate_records": result.duplicate_records,
+                "integrity_score": result.integrity_score,
+                "is_healthy": result.is_healthy()
+            })
+
+            # Add recommendations based on findings
+            if result.missing_records > 0:
+                result.add_recommendation("Investigate missing trading days and update data source")
+
+            if result.duplicate_records > 0:
+                result.add_recommendation("Clean up duplicate timestamps to ensure data consistency")
+
+            if result.integrity_score < 90:
+                result.add_recommendation("Review data quality and consider data source improvements")
+
+            self._log_operation_end("check_bars_integrity", result.is_healthy(), result.check_duration)
+            return result
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("check_bars_integrity", False, duration)
+            self._logger.ERROR(f"Failed to check bars integrity: {e}")
+
+            result.add_issue("integrity_check_failure", f"Integrity check process failed: {str(e)}")
+            result.check_duration = duration
+            result.integrity_score = 0.0
+
+            return result
+
+    def _calculate_expected_trading_days(self, start_date: datetime, end_date: datetime) -> set:
+        """
+        Calculate expected trading days (excluding weekends) for a date range.
+
+        Args:
+            start_date: Start date
+            end_date: End date
+
+        Returns:
+            set of datetime.date objects representing expected trading days
+        """
+        from datetime import timedelta
+
+        trading_days = set()
+        current_date = start_date.date()
+        end_date_only = end_date.date()
+
+        while current_date <= end_date_only:
+            # Exclude weekends (Saturday=5, Sunday=6)
+            if current_date.weekday() < 5:
+                trading_days.add(current_date)
+            current_date += timedelta(days=1)
+
+        return trading_days
