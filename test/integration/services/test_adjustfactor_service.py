@@ -112,13 +112,13 @@ class AdjustfactorServiceTest(unittest.TestCase):
         except Exception:
             pass
 
-    def test_sync_for_code_success(self):
+    def test_sync_incremental_success(self):
         """测试成功同步单个股票的调整因子"""
         # 配置 Mock
         self.mock_data_source.fetch_cn_stock_adjustfactor.return_value = self.MOCK_ADJUSTFACTOR_SUCCESS
         
         # 执行同步
-        result = self.service.sync_for_code("000001.SZ", fast_mode=True)
+        result = self.service.sync_incremental("000001.SZ")
         
         # 验证返回结果
         self.assertIsInstance(result, dict)
@@ -129,13 +129,13 @@ class AdjustfactorServiceTest(unittest.TestCase):
         self.assertIsNone(result['error'])
         self.assertIsInstance(result['warnings'], list)
 
-    def test_sync_for_code_invalid_stock_code(self):
+    def test_sync_incremental_invalid_stock_code(self):
         """测试无效股票代码的处理"""
         # 配置 Mock：股票代码不在列表中
         self.mock_stockinfo_service.is_code_in_stocklist.return_value = False
         
         # 执行同步
-        result = self.service.sync_for_code("INVALID.SZ", fast_mode=True)
+        result = self.service.sync_incremental("INVALID.SZ")
         
         # 验证返回结果
         self.assertFalse(result['success'])
@@ -144,13 +144,13 @@ class AdjustfactorServiceTest(unittest.TestCase):
         self.assertEqual(result['records_added'], 0)
         self.assertIn("not in stock list", result['error'])
 
-    def test_sync_for_code_empty_data(self):
+    def test_sync_incremental_empty_data(self):
         """测试处理空数据响应"""
         # 配置 Mock 返回空数据
         self.mock_data_source.fetch_cn_stock_adjustfactor.return_value = self.MOCK_EMPTY_DATA
         
         # 执行同步
-        result = self.service.sync_for_code("000001.SZ", fast_mode=True)
+        result = self.service.sync_incremental("000001.SZ")
         
         # 验证返回结果
         self.assertTrue(result['success'])  # 空数据也是成功的情况
@@ -158,7 +158,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         self.assertEqual(result['records_added'], 0)
         self.assertIn("No new data available", result['warnings'][0])
 
-    def test_sync_for_code_api_failure(self):
+    def test_sync_incremental_api_failure(self):
         """测试API调用失败的处理"""
         # 配置 Mock 抛出异常 - 重试3次都失败
         self.mock_data_source.fetch_cn_stock_adjustfactor.side_effect = [
@@ -168,7 +168,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         ]
         
         # 执行同步
-        result = self.service.sync_for_code("000001.SZ", fast_mode=True)
+        result = self.service.sync_incremental("000001.SZ")
         
         # 验证返回结果
         self.assertFalse(result['success'])
@@ -176,7 +176,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         self.assertEqual(result['records_added'], 0)
         self.assertIn("Failed to fetch data", result['error'])
 
-    def test_sync_for_code_partial_invalid_data(self):
+    def test_sync_incremental_partial_invalid_data(self):
         """测试部分数据无效的容错处理"""
         # 配置 Mock 返回部分无效数据
         self.mock_data_source.fetch_cn_stock_adjustfactor.return_value = self.MOCK_ADJUSTFACTOR_PARTIAL_INVALID
@@ -201,7 +201,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
             ]
             
             # 执行同步
-            result = self.service.sync_for_code("000001.SZ", fast_mode=True)
+            result = self.service.sync_incremental("000001.SZ")
             
             # 验证结果
             self.assertTrue(result['success'])  # 有部分成功就算成功
@@ -221,7 +221,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         ]
         
         # 执行同步
-        result = self.service.sync_for_code("000001.SZ", fast_mode=True)
+        result = self.service.sync_incremental("000001.SZ")
         
         # 验证重试后成功
         self.assertTrue(result['success'])
@@ -230,7 +230,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         # 验证调用了3次（前两次失败，第三次成功）
         self.assertEqual(self.mock_data_source.fetch_cn_stock_adjustfactor.call_count, 3)
 
-    def test_sync_batch_codes_success(self):
+    def test_sync_batch_incremental_success(self):
         """测试批量同步成功场景"""
         # 配置 Mock
         self.mock_data_source.fetch_cn_stock_adjustfactor.return_value = self.MOCK_ADJUSTFACTOR_SUCCESS
@@ -238,7 +238,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         codes = ["000001.SZ", "000002.SZ", "000003.SZ"]
         
         # 执行批量同步
-        result = self.service.sync_batch_codes(codes, fast_mode=True)
+        result = self.service.sync_batch_incremental(codes)
         
         # 验证批量结果
         self.assertEqual(result['total_codes'], 3)
@@ -249,7 +249,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         self.assertEqual(len(result['results']), 3)
         self.assertEqual(len(result['failures']), 0)
 
-    def test_sync_batch_codes_partial_failure(self):
+    def test_sync_batch_incremental_partial_failure(self):
         """测试批量同步部分失败场景"""
         # 配置 Mock：第二个股票失败
         def mock_fetch_side_effect(code, start_date, end_date):
@@ -262,7 +262,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         codes = ["000001.SZ", "000002.SZ", "000003.SZ"]
         
         # 执行批量同步
-        result = self.service.sync_batch_codes(codes, fast_mode=True)
+        result = self.service.sync_batch_incremental(codes)
         
         # 验证批量结果
         self.assertEqual(result['total_codes'], 3)
@@ -271,7 +271,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         self.assertEqual(len(result['failures']), 1)
         self.assertEqual(result['failures'][0]['code'], '000002.SZ')
 
-    def test_sync_batch_codes_all_invalid_codes(self):
+    def test_sync_batch_incremental_all_invalid_codes(self):
         """测试批量同步全部无效股票代码"""
         # 配置 Mock：所有股票代码都无效
         self.mock_stockinfo_service.is_code_in_stocklist.return_value = False
@@ -279,7 +279,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         codes = ["INVALID1.SZ", "INVALID2.SZ", "INVALID3.SZ"]
         
         # 执行批量同步
-        result = self.service.sync_batch_codes(codes, fast_mode=True)
+        result = self.service.sync_batch_incremental(codes)
         
         # 验证批量结果
         self.assertEqual(result['total_codes'], 3)
@@ -394,14 +394,14 @@ class AdjustfactorServiceTest(unittest.TestCase):
         )
         
         # 测试完整模式（应该会删除并重新插入）
-        result_full = self.service.sync_for_code("000001.SZ", fast_mode=False)
+        result_full = self.service.sync_incremental("000001.SZ", fast_mode=False)
         # 如果失败，打印错误信息用于调试
         if not result_full['success']:
             print(f"Full mode failed: {result_full}")
         self.assertTrue(result_full['success'])
         
         # 测试快速模式（增量更新）
-        result_fast = self.service.sync_for_code("000001.SZ", fast_mode=True)
+        result_fast = self.service.sync_incremental("000001.SZ")
         self.assertTrue(result_fast['success'])
 
     def test_database_transaction_rollback(self):
@@ -411,7 +411,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         
         # 模拟数据库操作失败
         with patch.object(self.crud_repo, 'add_batch', side_effect=Exception("Database error")):
-            result = self.service.sync_for_code("000001.SZ", fast_mode=True)
+            result = self.service.sync_incremental("000001.SZ")
             
             # 验证失败结果
             self.assertFalse(result['success'])
@@ -426,7 +426,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
             Exception("API error"),
             Exception("API error")
         ]
-        result = self.service.sync_for_code("000001.SZ", fast_mode=True)
+        result = self.service.sync_incremental("000001.SZ")
         
         # 验证错误处理结果
         self.assertFalse(result['success'])
@@ -439,7 +439,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         self.mock_data_source.fetch_cn_stock_adjustfactor.return_value = self.MOCK_ADJUSTFACTOR_SUCCESS
         
         # 执行同步
-        result = self.service.sync_for_code("000001.SZ", fast_mode=True)
+        result = self.service.sync_incremental("000001.SZ")
         
         # 验证结果
         self.assertTrue(result['success'])
@@ -456,7 +456,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         self.mock_data_source.fetch_cn_stock_adjustfactor.return_value = self.MOCK_EXTREME_VALUES_DATA
         
         # 执行同步
-        result = self.service.sync_for_code("TEST001.SZ", fast_mode=True)
+        result = self.service.sync_incremental("TEST001.SZ")
         
         # 验证极值也能正确处理
         self.assertTrue(result['success'])
@@ -477,7 +477,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         
         # 注意：在实际场景中，API会为单个股票返回数据
         # 但这里测试mapper函数对多股票数据的容错性
-        result = self.service.sync_for_code("000002.SZ", fast_mode=True)
+        result = self.service.sync_incremental("000002.SZ")
         
         # 验证能够处理多股票数据（mapper会使用传入的code参数）
         self.assertTrue(result['success'])
@@ -495,7 +495,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         self.mock_data_source.fetch_cn_stock_adjustfactor.return_value = test_data
         
         # 执行同步
-        result = self.service.sync_for_code("000001.SZ", fast_mode=True)
+        result = self.service.sync_incremental("000001.SZ")
         
         # 验证能正确处理不同日期格式
         # （这取决于datetime_normalize函数的实现）
@@ -514,7 +514,7 @@ class AdjustfactorServiceTest(unittest.TestCase):
         self.mock_data_source.fetch_cn_stock_adjustfactor.return_value = high_precision_data
         
         # 执行同步
-        result = self.service.sync_for_code("000001.SZ", fast_mode=True)
+        result = self.service.sync_incremental("000001.SZ")
         
         # 验证高精度数值的处理
         self.assertTrue(result['success'])

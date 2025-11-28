@@ -172,7 +172,7 @@ class TickServiceTest(unittest.TestCase):
         date_str = date.strftime("%Y-%m-%d")
         return self.MOCK_TICK_DATE_RANGE_DATA.get(date_str, pd.DataFrame())
 
-    def test_sync_for_code_on_date_success(self):
+    def test_sync_incremental_on_date_success(self):
         """测试成功同步单个股票单日的tick数据"""
         # 配置 Mock
         self.mock_data_source.fetch_history_transaction_detail.return_value = self.MOCK_TICK_SUCCESS
@@ -180,7 +180,7 @@ class TickServiceTest(unittest.TestCase):
         test_date = datetime(2025, 7, 25)
         
         # 执行同步
-        result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("000001.SZ", test_date)
         
         # 验证返回结果
         self.assertIsInstance(result, dict)
@@ -192,7 +192,7 @@ class TickServiceTest(unittest.TestCase):
         self.assertIsInstance(result['warnings'], list)
         self.assertFalse(result['skipped'])
 
-    def test_sync_for_code_on_date_invalid_stock_code(self):
+    def test_sync_incremental_on_date_invalid_stock_code(self):
         """测试无效股票代码的处理"""
         # 配置 Mock：股票代码不在列表中
         self.mock_stockinfo_service.is_code_in_stocklist.return_value = False
@@ -200,7 +200,7 @@ class TickServiceTest(unittest.TestCase):
         test_date = datetime(2025, 7, 25)
         
         # 执行同步
-        result = self.service.sync_for_code_on_date("INVALID.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("INVALID.SZ", test_date)
         
         # 验证返回结果
         self.assertFalse(result['success'])
@@ -209,7 +209,7 @@ class TickServiceTest(unittest.TestCase):
         self.assertEqual(result['records_added'], 0)
         self.assertIn("not in stock list", result['error'])
 
-    def test_sync_for_code_on_date_empty_data(self):
+    def test_sync_incremental_on_date_empty_data(self):
         """测试处理空数据响应"""
         # 配置 Mock 返回空数据
         self.mock_data_source.fetch_history_transaction_detail.return_value = self.MOCK_EMPTY_DATA
@@ -217,7 +217,7 @@ class TickServiceTest(unittest.TestCase):
         test_date = datetime(2025, 7, 25)
         
         # 执行同步
-        result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("000001.SZ", test_date)
         
         # 验证返回结果
         self.assertTrue(result['success'])  # 空数据也是成功的情况
@@ -225,7 +225,7 @@ class TickServiceTest(unittest.TestCase):
         self.assertEqual(result['records_added'], 0)
         self.assertIn("No data available from source", result['warnings'][0])
 
-    def test_sync_for_code_on_date_api_failure(self):
+    def test_sync_incremental_on_date_api_failure(self):
         """测试API调用失败的处理（重试3次）"""
         # 配置 Mock 抛出异常 - 重试3次都失败
         self.mock_data_source.fetch_history_transaction_detail.side_effect = [
@@ -237,7 +237,7 @@ class TickServiceTest(unittest.TestCase):
         test_date = datetime(2025, 7, 25)
         
         # 执行同步
-        result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("000001.SZ", test_date)
         
         # 验证返回结果
         self.assertFalse(result['success'])
@@ -245,7 +245,7 @@ class TickServiceTest(unittest.TestCase):
         self.assertEqual(result['records_added'], 0)
         self.assertIn("Failed to fetch data from source", result['error'])
 
-    def test_sync_for_code_on_date_data_validation_failure(self):
+    def test_sync_incremental_on_date_data_validation_failure(self):
         """测试数据验证检测到严重问题 - 实现会直接返回失败"""
         # 配置 Mock 返回包含严重无效数据的结果
         self.mock_data_source.fetch_history_transaction_detail.return_value = self.MOCK_TICK_INVALID_DATA
@@ -253,7 +253,7 @@ class TickServiceTest(unittest.TestCase):
         test_date = datetime(2025, 7, 25)
         
         # 执行同步
-        result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("000001.SZ", test_date)
         
         # 验证结果 - 数据质量验证失败应该导致处理失败
         self.assertFalse(result['success'], "数据质量验证失败应该导致处理失败")
@@ -269,7 +269,7 @@ class TickServiceTest(unittest.TestCase):
         # 严重问题包括：负价格、负成交量、无效买卖方向等
 
 
-    def test_sync_for_code_on_date_fast_mode_skip(self):
+    def test_sync_incremental_on_date_fast_mode_skip(self):
         """测试快速模式下跳过已存在数据"""
         # 配置 Mock：get_ticks返回已存在的数据
         existing_data = pd.DataFrame({
@@ -288,7 +288,7 @@ class TickServiceTest(unittest.TestCase):
             test_date = datetime(2025, 7, 25)
             
             # 执行同步（快速模式）
-            result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+            result = self.service.sync_for_code_on_date("000001.SZ", test_date)
             
             # 验证跳过结果
             self.assertTrue(result['success'])
@@ -297,7 +297,7 @@ class TickServiceTest(unittest.TestCase):
             self.assertEqual(result['records_added'], 0)
             self.assertIn("Data already exists in DB", result['warnings'][0])
 
-    def test_sync_for_code_on_date_partial_mapping_failure(self):
+    def test_sync_incremental_on_date_partial_mapping_failure(self):
         """测试部分数据映射失败的容错处理"""
         # 配置 Mock 返回数据
         self.mock_data_source.fetch_history_transaction_detail.return_value = self.MOCK_TICK_SUCCESS
@@ -326,7 +326,7 @@ class TickServiceTest(unittest.TestCase):
             ]
             
             # 执行同步
-            result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+            result = self.service.sync_for_code_on_date("000001.SZ", test_date)
             
             # 验证结果
             self.assertTrue(result['success'])  # 有部分成功就算成功
@@ -348,7 +348,7 @@ class TickServiceTest(unittest.TestCase):
         test_date = datetime(2025, 7, 25)
         
         # 执行同步
-        result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("000001.SZ", test_date)
         
         # 验证重试后成功
         self.assertTrue(result['success'])
@@ -365,7 +365,7 @@ class TickServiceTest(unittest.TestCase):
         test_date = datetime(2025, 7, 25)
         
         # 执行同步
-        result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("000001.SZ", test_date)
         
         # 验证大批量数据处理
         self.assertTrue(result['success'])
@@ -386,19 +386,19 @@ class TickServiceTest(unittest.TestCase):
             mock_tick_crud.add_batch.side_effect = Exception("Database error")
             mock_tick_crud_class.return_value = mock_tick_crud
             
-            result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+            result = self.service.sync_for_code_on_date("000001.SZ", test_date)
             
             # 验证失败结果
             self.assertFalse(result['success'])
             self.assertIn("Database operation failed", result['error'])
 
-    def test_sync_for_code_batch_success(self):
+    def test_sync_incremental_batch_success(self):
         """测试多日期批量同步成功场景"""
         # 配置 Mock
         self.mock_data_source.fetch_history_transaction_detail.return_value = self.MOCK_TICK_SUCCESS
         
         # 执行批量同步（限制3天避免测试时间过长）
-        result = self.service.sync_for_code("000001.SZ", fast_mode=True, max_backtrack_days=3)
+        result = self.service.sync_incremental("000001.SZ", max_backtrack_days=3)
         
         # 验证批量结果
         self.assertIsInstance(result, dict)
@@ -410,13 +410,13 @@ class TickServiceTest(unittest.TestCase):
         self.assertIsInstance(result['results'], list)
         self.assertIsInstance(result['failures'], list)
 
-    def test_sync_for_code_invalid_stock_code(self):
+    def test_sync_incremental_invalid_stock_code(self):
         """测试批量同步无效股票代码"""
         # 配置 Mock：股票代码无效
         self.mock_stockinfo_service.is_code_in_stocklist.return_value = False
         
         # 执行批量同步
-        result = self.service.sync_for_code("INVALID.SZ", fast_mode=True, max_backtrack_days=1)
+        result = self.service.sync_incremental("INVALID.SZ", max_backtrack_days=1)
         
         # 验证批量结果
         self.assertEqual(result['code'], 'INVALID.SZ')
@@ -424,13 +424,13 @@ class TickServiceTest(unittest.TestCase):
         self.assertEqual(len(result['failures']), 1)
         self.assertIn("not in stock list", result['failures'][0]['error'])
 
-    def test_sync_for_code_no_stock_info(self):
+    def test_sync_incremental_no_stock_info(self):
         """测试无法获取股票信息的情况"""
         # 配置 Mock：无股票信息
         self.mock_stockinfo_service.get_stockinfos.return_value = pd.DataFrame()
         
         # 执行批量同步
-        result = self.service.sync_for_code("000001.SZ", fast_mode=True, max_backtrack_days=1)
+        result = self.service.sync_incremental("000001.SZ", max_backtrack_days=1)
         
         # 验证结果
         self.assertEqual(result['code'], '000001.SZ')
@@ -588,7 +588,7 @@ class TickServiceTest(unittest.TestCase):
         test_date = datetime(2025, 7, 25)
         
         # 执行同步
-        result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("000001.SZ", test_date)
         
         # 验证结果
         self.assertTrue(result['success'])
@@ -620,7 +620,7 @@ class TickServiceTest(unittest.TestCase):
         test_date = datetime(2025, 7, 25)
         
         # 执行同步
-        result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("000001.SZ", test_date)
         
         # 验证买卖方向数据处理
         self.assertTrue(result['success'])
@@ -648,7 +648,7 @@ class TickServiceTest(unittest.TestCase):
         test_date = datetime(2025, 7, 25)
         
         # 执行同步
-        result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("000001.SZ", test_date)
         
         # 验证高频数据处理
         self.assertTrue(result['success'])
@@ -665,7 +665,7 @@ class TickServiceTest(unittest.TestCase):
         ]
         
         test_date = datetime(2025, 7, 25)
-        result = self.service.sync_for_code_on_date("000001.SZ", test_date, fast_mode=True)
+        result = self.service.sync_for_code_on_date("000001.SZ", test_date)
         
         # 验证错误处理结果
         self.assertFalse(result['success'])
@@ -674,7 +674,7 @@ class TickServiceTest(unittest.TestCase):
 
     # ==================== 时间范围更新测试 ====================
     
-    def test_sync_for_code_with_date_range_real_format(self):
+    def test_sync_incremental_with_date_range_real_format(self):
         """测试使用真实TDX格式的时间范围同步"""
         # 配置Mock：根据日期返回对应数据
         self.mock_data_source.fetch_history_transaction_detail.side_effect = self._mock_fetch_tick_by_date
@@ -717,7 +717,7 @@ class TickServiceTest(unittest.TestCase):
         # 验证缓存信息
         self.assertIn('cache_info', result)
     
-    def test_sync_for_code_with_date_range_cache_resume(self):
+    def test_sync_incremental_with_date_range_cache_resume(self):
         """测试时间范围同步的缓存中断恢复功能"""
         # 配置Mock
         self.mock_data_source.fetch_history_transaction_detail.side_effect = self._mock_fetch_tick_by_date
@@ -742,7 +742,7 @@ class TickServiceTest(unittest.TestCase):
             self.assertEqual(result['resumed_from_cache'], 1)  # 2024-01-15从缓存恢复
             self.assertEqual(len(result['results']), 2)  # 只处理16和17日
     
-    def test_sync_batch_codes_with_date_range_real_format(self):
+    def test_sync_batch_incremental_with_date_range_real_format(self):
         """测试批量股票的时间范围同步"""
         # 配置Mock
         self.mock_data_source.fetch_history_transaction_detail.side_effect = self._mock_fetch_tick_by_date
@@ -774,7 +774,7 @@ class TickServiceTest(unittest.TestCase):
             self.assertIn('successful_dates', code_result)
             self.assertIn('total_records_added', code_result)
     
-    def test_sync_for_code_with_date_range_mixed_scenarios(self):
+    def test_sync_incremental_with_date_range_mixed_scenarios(self):
         """测试混合场景：有数据、无数据、数据质量问题"""
         # 配置Mock
         self.mock_data_source.fetch_history_transaction_detail.side_effect = self._mock_fetch_tick_by_date
@@ -800,7 +800,7 @@ class TickServiceTest(unittest.TestCase):
         # 验证无缓存恢复
         self.assertEqual(result['resumed_from_cache'], 0)
     
-    def test_sync_for_code_with_date_range_invalid_date_range(self):
+    def test_sync_incremental_with_date_range_invalid_date_range(self):
         """测试无效日期范围处理"""
         # 结束日期早于开始日期
         start_date = datetime(2024, 1, 20)
