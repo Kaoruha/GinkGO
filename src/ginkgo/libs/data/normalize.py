@@ -58,12 +58,12 @@ def datetime_normalize(time: any) -> datetime.datetime:
         "%Y/%m/%d %H:%M:%S",        # Forward slash with time: "2023/12/31 23:59:59"
         "%Y/%m/%d %H:%M",           # Forward slash without seconds: "2023/12/31 23:59"
         "%Y/%m/%d",                 # Forward slash date only: "2023/12/31"
+        "%Y-%m-%d",                 # Date only: "2023-12-31"
+        "%Y%m%d",                   # Compact date: "20231231" (IMPORTANT: Before time formats to avoid wrong matching)
         "%Y%m%d%H%M%S",             # Compact format: "20231231235959"
         "%Y%m%d%H%M",               # Compact format without seconds: "202312312359"
         "%Y%m%dT%H%M%S",            # Compact ISO format: "20231231T235959"
         "%Y%m%dT%H%M",              # Compact ISO format without seconds: "20231231T2359"
-        "%Y-%m-%d",                 # Date only: "2023-12-31"
-        "%Y%m%d"                    # Compact date: "20231231"
     ]
     
     for fmt in formats:
