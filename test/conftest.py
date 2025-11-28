@@ -1080,3 +1080,35 @@ def event_trace_test(test_func):
         # 验证事件追踪完整性
         return result
     return wrapper
+
+
+# ===== Mock数据源fixtures =====
+
+@pytest.fixture(scope="session", autouse=True)
+def mock_tushare_data_source():
+    """
+    全局Mock Tushare数据源fixture
+
+    使用patch自动替换GinkgoTushare类实例化，让所有调用GinkgoTushare()的地方
+    都返回MockGinkgoTushare实例，无需手动设置data_source属性。
+    """
+    try:
+        # 导入Mock数据源和patch工具
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+        from unittest.mock import patch
+        from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
+
+        # 使用patch自动替换GinkgoTushare类
+        with patch('ginkgo.data.sources.ginkgo_tushare.GinkgoTushare', MockGinkgoTushare):
+            print("✅ 全局Mock数据源已启用 - 自动patch GinkgoTushare类")
+            yield
+
+    except ImportError as e:
+        print(f"⚠️ Mock数据源导入失败，使用真实数据源: {e}")
+        yield
+    except Exception as e:
+        print(f"⚠️ Mock数据源patch失败，使用真实数据源: {e}")
+        yield
