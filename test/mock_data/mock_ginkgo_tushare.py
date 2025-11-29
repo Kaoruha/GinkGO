@@ -59,9 +59,20 @@ class MockGinkgoTushare:
         return pd.DataFrame()
 
     def fetch_cn_stockinfo(self, *args, **kwargs) -> pd.DataFrame:
-        """Mock获取股票基本信息"""
+        """Mock获取股票基本信息，优先使用缓存的真实数据"""
         print("📋 Mock股票基本信息")
-        # 基于预存数据生成股票信息
+
+        # 优先使用缓存的真实Tushare数据
+        real_data_file = os.path.join(self.mock_data_dir, "stockinfo_real_data.csv")
+        if os.path.exists(real_data_file):
+            try:
+                df = pd.read_csv(real_data_file)
+                console.print(f":crab: Got {len(df)} records about stock info (real cached data).")
+                return df
+            except Exception as e:
+                print(f"⚠️ 读取缓存数据失败: {e}, 使用Mock数据")
+
+        # 回退到基于预存数据生成股票信息
         bar_files = [k for k in self._data_cache.keys() if 'bar_data' in k]
         if not bar_files:
             return pd.DataFrame()
@@ -75,12 +86,15 @@ class MockGinkgoTushare:
                 'symbol': [code.split('.')[0] for code in codes],
                 'name': [f'股票{code.split('.')[0]}' for code in codes],
                 'area': ['深圳' if code.endswith('.SZ') else '上海' for code in codes],
+                'industry': ['未知行业' for _ in codes],
                 'market': ['主板' for _ in codes],
                 'exchange': [code.split('.')[1] for code in codes],
                 'list_status': ['L' for _ in codes],  # 上市状态
-                'list_date': ['19910403' for _ in codes]  # 上市日期
+                'list_date': ['19910403' for _ in codes],  # 上市日期
+                'curr_type': ['CNY' for _ in codes],
+                'delist_date': [None for _ in codes]
             })
-            console.print(f":crab: Got {len(stock_info)} records about stock info (mock).")
+            console.print(f":crab: Got {len(stock_info)} records about stock info (mock data).")
             return stock_info
 
         return pd.DataFrame()

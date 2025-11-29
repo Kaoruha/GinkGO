@@ -4,52 +4,87 @@ StockInfo Data Service (Class-based)
 This service handles the business logic for synchronizing stock information.
 
 Enhanced with comprehensive error handling, retry mechanisms, and structured returns.
+Following BarService standard for unified architecture.
 """
 
+import time
 import pandas as pd
-from typing import List, Any, Union, Dict
+from typing import List, Any, Union, Dict, Optional
+from datetime import datetime
 
-from ginkgo.libs import RichProgress, cache_with_expiration, retry
+from ginkgo.libs import RichProgress, cache_with_expiration, retry, time_logger
+from ginkgo.libs.data.results import DataSyncResult, DataValidationResult, DataIntegrityCheckResult
 from ginkgo.data import mappers
-from ginkgo.data.services.base_service import DataService
+from ginkgo.data.services.base_service import DataService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
 
 
 class StockinfoService(DataService):
-    def __init__(self, crud_repo, data_source):
-        """Initializes the service with its dependencies."""
-        super().__init__(crud_repo=crud_repo, data_source=data_source)
+    def __init__(self, crud_repo, data_source, **additional_deps):
+        """
+        Initializes the service with its dependencies following BarService pattern.
+
+        Args:
+            crud_repo: CRUD repository for database operations
+            data_source: Data source for fetching stock information
+            **additional_deps: Additional dependencies (ServiceHub pattern)
+        """
+        super().__init__(crud_repo=crud_repo, data_source=data_source, **additional_deps)
 
     @retry(max_try=3)
-    def sync_all(self) -> Dict[str, Any]:
+    @time_logger
+    def sync(self) -> ServiceResult:
         """
         Synchronizes stock information for all stocks with comprehensive error handling.
         Uses error tolerance mechanism - individual failures don't affect other records.
 
         Returns:
-            Dictionary containing comprehensive sync results and statistics
+            ServiceResult containing DataSyncResult with comprehensive sync statistics
         """
-        result = {
-            "success": 0,  # Count of successfully processed records
-            "failed": 0,  # Count of failed records
-            "total": 0,  # Total records processed
-            "error": None,  # API-level error message
-            "warnings": [],  # Warning messages (only when present)
-            "failed_records": [],  # Details of failed records (only when present)
-        }
+        start_time = time.time()
+        self._log_operation_start("sync")
 
         try:
-            raw_data = self.data_source.fetch_cn_stockinfo()
+            # Fetch stock information from data source
+            raw_data = self._data_source.fetch_cn_stockinfo()
             if raw_data is None or raw_data.empty:
-                result["warnings"].append("No stock info data returned from source")
+                sync_result = DataSyncResult.create_for_entity(
+                    entity_type="stockinfo",
+                    entity_identifier="all",
+                    sync_strategy="full_sync"
+                )
+                sync_result.add_warning("No stock info data returned from source")
                 self._logger.WARN("No stock info data returned from source.")
-                return result
-        except Exception as e:
-            result["error"] = f"Failed to fetch stock info from source: {str(e)}"
-            self._logger.ERROR(f"Failed to fetch stock info from source: {e}")
-            return result
+                return ServiceResult.failure(
+                    data=sync_result,
+                    message="No stock info data available from source - sync task failed"
+                )
 
-        result["total"] = len(raw_data)
+        except Exception as e:
+            sync_result = DataSyncResult.create_for_entity(
+                entity_type="stockinfo",
+                entity_identifier="all",
+                sync_strategy="full_sync"
+            )
+            sync_result.add_error(0, f"Failed to fetch stock info from source: {str(e)}")
+            duration = time.time() - start_time
+            self._log_operation_end("sync", False, duration)
+            return ServiceResult.failure(
+                message=f"Failed to fetch stock info from source: {str(e)}",
+                data=sync_result
+            )
+
+        # Initialize sync result
+        sync_result = DataSyncResult.create_for_entity(
+            entity_type="stockinfo",
+            entity_identifier="all",
+            sync_strategy="full_sync"
+        )
+        sync_result.set_metadata("initial_records", len(raw_data))
+
+        success_count = 0
+        failed_count = 0
+        failed_records = []
 
         with RichProgress() as progress:
             task = progress.add_task("[cyan]Upserting Stock Info", total=len(raw_data))
@@ -59,12 +94,12 @@ class StockinfoService(DataService):
                 try:
                     item = mappers.row_to_stockinfo_upsert_dict(row)
                 except Exception as e:
-                    # Skip this record if mapping fails (e.g., invalid date format)
-                    result["failed"] += 1
+                    # Skip this record if mapping fails
+                    failed_count += 1
                     code = row.get("ts_code", "Unknown")
                     code_name = row.get("name", "Unknown")
                     error_msg = f"Failed to map stock info for {code}: {e}"
-                    result["failed_records"].append({"code": code, "code_name": code_name, "error": str(e)})
+                    failed_records.append({"code": code, "code_name": code_name, "error": str(e)})
                     progress.update(task, advance=1, description=f":x: {code} {code_name}")
                     self._logger.ERROR(error_msg)
                     continue
@@ -74,46 +109,69 @@ class StockinfoService(DataService):
 
                 try:
                     # Each stock info update uses its own transaction
-                    if self.crud_repo.exists(filters={"code": code}):
-                        self.crud_repo.modify(filters={"code": code}, updates=item)
-                        result["success"] += 1
+                    if self._crud_repo.exists(filters={"code": code}):
+                        self._crud_repo.modify(filters={"code": code}, updates=item)
+                        success_count += 1
                         progress.update(task, advance=1, description=f":arrows_counterclockwise: {code} {code_name}")
                         self._logger.DEBUG(f"Successfully updated stock info for {code}")
                     else:
-                        self.crud_repo.create(**item)
-                        result["success"] += 1
+                        self._crud_repo.create(**item)
+                        success_count += 1
                         progress.update(task, advance=1, description=f":white_check_mark: {code} {code_name}")
                         self._logger.DEBUG(f"Successfully added stock info for {code}")
 
                 except Exception as e:
-                    result["failed"] += 1
+                    failed_count += 1
                     error_msg = f"Failed to upsert stock info for {code}: {e}"
-                    result["failed_records"].append({"code": code, "code_name": code_name, "error": str(e)})
+                    failed_records.append({"code": code, "code_name": code_name, "error": str(e)})
                     progress.update(task, advance=1, description=f":x: {code} {code_name}")
                     self._logger.ERROR(error_msg)
-
-                    # Continue processing other records instead of failing completely
                     continue
+
+        # Update sync result statistics
+        duration = time.time() - start_time
+        sync_result.records_processed = len(raw_data)
+        sync_result.records_added = success_count
+        sync_result.records_updated = 0  # StockinfoService uses upsert, counted as added
+        sync_result.records_skipped = 0  # No skipping in current implementation
+        sync_result.records_failed = failed_count
+        sync_result.sync_duration = duration
+        sync_result.is_idempotent = True
+
+        # Add failed records to sync result
+        for failed_record in failed_records:
+            sync_result.add_error(
+                failed_record["code"],
+                f"{failed_record['code_name']}: {failed_record['error']}"
+            )
+
+        # Add warning if there were failures
+        if failed_count > 0:
+            sync_result.add_warning(f"Failed to update {failed_count} stock records")
+            for record in failed_records[:5]:  # Show first 5 failures
+                self._logger.WARN(f"  - {record['code']} ({record['code_name']}): {record['error']}")
+            if len(failed_records) > 5:
+                self._logger.WARN(f"  ... and {len(failed_records) - 5} more failures")
 
         # Generate summary report
         self._logger.INFO(
-            f"Stock info sync completed: {result['success']}/{result['total']} successful, "
-            f"{result['failed']} failed"
+            f"Stock info sync completed: {success_count}/{len(raw_data)} successful, "
+            f"{failed_count} failed"
         )
 
-        # Add warning if there were failures
-        if result["failed_records"]:
-            result["warnings"].append(f"Failed to update {result['failed']} stock records")
-            for record in result["failed_records"][:5]:  # Show first 5 failures
-                self._logger.WARN(f"  - {record['code']} ({record['code_name']}): {record['error']}")
-            if len(result["failed_records"]) > 5:
-                self._logger.WARN(f"  ... and {len(result['failed_records']) - 5} more failures")
+        self._log_operation_end("sync", True, duration)
 
-        # Clean up empty arrays to keep response minimal (keep failed_records for compatibility)
-        if not result["warnings"]:
-            del result["warnings"]
-
-        return result
+        # Return success result
+        if failed_count == 0:
+            return ServiceResult.success(
+                data=sync_result,
+                message=f"Stock info sync completed successfully: {success_count} records processed"
+            )
+        else:
+            return ServiceResult.success(
+                data=sync_result,
+                message=f"Stock info sync completed with {failed_count} failures: {success_count} successful"
+            )
 
     @retry(max_try=3)
     def retry_failed_records(self, failed_records: List[dict]) -> Dict[str, Any]:
@@ -144,7 +202,7 @@ class StockinfoService(DataService):
 
         # Re-fetch latest data to ensure we have current information
         try:
-            raw_data = self.data_source.fetch_cn_stockinfo()
+            raw_data = self._data_source.fetch_cn_stockinfo()
             if raw_data is None or raw_data.empty:
                 result["error"] = "Cannot retry: No stock info data available from source"
                 result["failed"] = len(failed_records)  # All failed
@@ -185,13 +243,13 @@ class StockinfoService(DataService):
                 item = upsert_dict[code]
 
                 try:
-                    if self.crud_repo.exists(filters={"code": code}):
-                        self.crud_repo.modify(filters={"code": code}, updates=item)
+                    if self._crud_repo.exists(filters={"code": code}):
+                        self._crud_repo.modify(filters={"code": code}, updates=item)
                         result["success"] += 1
                         progress.update(task, advance=1, description=f":arrows_counterclockwise: {code} {code_name}")
                         self._logger.INFO(f"Successfully retried and updated stock info for {code}")
                     else:
-                        self.crud_repo.create(**item)
+                        self._crud_repo.create(**item)
                         result["success"] += 1
                         progress.update(task, advance=1, description=f":white_check_mark: {code} {code_name}")
                         self._logger.INFO(f"Successfully retried and added stock info for {code}")
@@ -220,40 +278,192 @@ class StockinfoService(DataService):
 
         return result
 
-    def get_stockinfos(self, *args, **kwargs) -> ModelList:
-        """Retrieves stock information from the database."""
-        # For read operations, we can either get a new session or assume it's read-only
-        # For simplicity, we'll let CRUD handle the session for reads if not provided externally.
-        return self.crud_repo.find(*args, **kwargs)
-
-    def get_stockinfo_codes_set(self) -> set:
-        """Gets a set of all stock codes for efficient O(1) lookups."""
-        model_list = self.get_stockinfos()
-        if model_list is not None and len(model_list) > 0:
-            df = model_list.to_dataframe()
-            return set(df["code"].values)
-        return set()
-
-    def is_code_in_stocklist(self, code: str) -> bool:
+    @time_logger
+    def get(self, *args, **kwargs) -> ServiceResult:
         """
-        Checks if a code exists in the stock list using the cached set.
-        This method is not transactional and can use a default session.
-        """
-        return code in self.get_stockinfo_codes_set()
-
-    def get_stockinfo_by_code(self, code: str):
-        """
-        Gets stock information for a specific code.
-
-        Args:
-            code: Stock code (e.g., '000001.SZ')
+        Retrieves stock information from the database following BarService standard.
 
         Returns:
-            Stock info model or None if not found
+            ServiceResult containing ModelList of stock information
         """
         try:
-            model_list = self.crud_repo.find(filters={"code": code}, page_size=1)
-            return model_list[0] if model_list else None
+            model_list = self._crud_repo.find(*args, **kwargs)
+            return ServiceResult.success(
+                data=model_list,
+                message=f"Successfully retrieved {len(model_list) if model_list else 0} stock records"
+            )
         except Exception as e:
-            self._logger.ERROR(f"Failed to get stock info for {code}: {e}")
-            return None
+            self._logger.ERROR(f"Failed to retrieve stock information: {e}")
+            return ServiceResult.failure(
+                message=f"Failed to retrieve stock information: {str(e)}"
+            )
+
+    @time_logger
+    def count(self, *args, **kwargs) -> ServiceResult:
+        """
+        Counts stock information records following BarService standard.
+
+        Returns:
+            ServiceResult containing count of stock records
+        """
+        try:
+            model_list = self._crud_repo.find(*args, **kwargs)
+            count = len(model_list) if model_list else 0
+            return ServiceResult.success(
+                data=count,
+                message=f"Successfully counted {count} stock records"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to count stock information: {e}")
+            return ServiceResult.failure(
+                message=f"Failed to count stock information: {str(e)}"
+            )
+
+    @time_logger
+    def validate(self, *args, **kwargs) -> ServiceResult:
+        """
+        Validates stock information data quality following BarService standard.
+
+        Returns:
+            ServiceResult containing DataValidationResult
+        """
+        try:
+            # Get data to validate
+            model_list = self._crud_repo.find(*args, **kwargs)
+
+            validation_result = DataValidationResult.create_for_entity(
+                entity_type="stockinfo",
+                entity_identifier="validation_check"
+            )
+
+            if not model_list or len(model_list) == 0:
+                validation_result.add_warning("No stock info data to validate")
+                return ServiceResult.success(
+                    data=validation_result,
+                    message="No stock info data to validate"
+                )
+
+            # Perform validation checks
+            valid_count = 0
+            total_count = len(model_list)
+
+            df = model_list.to_dataframe()
+
+            # Check required fields
+            if 'code' in df.columns:
+                missing_codes = df['code'].isna().sum()
+                if missing_codes > 0:
+                    validation_result.add_error(f"Found {missing_codes} records with missing codes")
+
+            if 'name' in df.columns:
+                missing_names = df['name'].isna().sum()
+                if missing_names > 0:
+                    validation_result.add_error(f"Found {missing_names} records with missing names")
+
+            valid_count = total_count - validation_result.error_count
+            validation_result.set_metadata("total_records", total_count)
+            validation_result.set_metadata("valid_records", valid_count)
+            validation_result.set_metadata("invalid_records", total_count - valid_count)
+
+            # Set overall validation status
+            if validation_result.error_count == 0:
+                validation_result.set_metadata("is_valid", True)
+                message = f"All {total_count} stock records passed validation"
+            else:
+                validation_result.set_metadata("is_valid", False)
+                message = f"Found {validation_result.error_count} validation issues in {total_count} records"
+
+            return ServiceResult.success(
+                data=validation_result,
+                message=message
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to validate stock information: {e}")
+            validation_result = DataValidationResult.create_for_entity(
+                entity_type="stockinfo",
+                entity_identifier="validation_check"
+            )
+            validation_result.add_error(f"Validation exception: {str(e)}")
+            return ServiceResult.failure(
+                message=f"Failed to validate stock information: {str(e)}",
+                data=validation_result
+            )
+
+    @time_logger
+    def check_integrity(self, *args, **kwargs) -> ServiceResult:
+        """
+        Checks data integrity of stock information following BarService standard.
+
+        Returns:
+            ServiceResult containing DataIntegrityCheckResult
+        """
+        try:
+            # Get data to check
+            model_list = self._crud_repo.find(*args, **kwargs)
+
+            integrity_result = DataIntegrityCheckResult.create_for_entity(
+                entity_type="stockinfo",
+                entity_identifier="integrity_check",
+                check_range=(datetime.now(), datetime.now())
+            )
+
+            if not model_list or len(model_list) == 0:
+                integrity_result.add_issue("no_data", "No stock info data available for integrity check")
+                return ServiceResult.success(
+                    data=integrity_result,
+                    message="No stock info data available for integrity check"
+                )
+
+            # Perform integrity checks
+            df = model_list.to_dataframe()
+            total_records = len(df)
+
+            # Check for duplicate codes
+            if 'code' in df.columns:
+                duplicate_codes = df['code'].duplicated().sum()
+                if duplicate_codes > 0:
+                    integrity_result.add_issue("duplicate_codes", f"Found {duplicate_codes} duplicate stock codes")
+
+            # Check data consistency
+            missing_codes = df['code'].isna().sum() if 'code' in df.columns else total_records
+            if missing_codes > 0:
+                integrity_result.add_issue("missing_codes", f"Found {missing_codes} records with missing codes")
+
+            missing_names = df['name'].isna().sum() if 'name' in df.columns else total_records
+            if missing_names > 0:
+                integrity_result.add_issue("missing_names", f"Found {missing_names} records with missing names")
+
+            # Calculate integrity score
+            issues_count = len(integrity_result.integrity_issues)
+            integrity_score = max(0, 100 - (issues_count / total_records * 100)) if total_records > 0 else 0
+
+            integrity_result.set_metadata("total_records", total_records)
+            integrity_result.set_metadata("integrity_score", integrity_score)
+            integrity_result.set_metadata("issues_count", issues_count)
+
+            # Set overall health status
+            integrity_result.set_metadata("is_healthy", integrity_score >= 90)
+
+            if integrity_score >= 90:
+                message = f"Stock info data integrity check passed: {integrity_score:.1f}% score"
+            else:
+                message = f"Stock info data integrity issues found: {integrity_score:.1f}% score"
+
+            return ServiceResult.success(
+                data=integrity_result,
+                message=message
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to check stock info integrity: {e}")
+            integrity_result = DataIntegrityCheckResult.create_for_entity(
+                entity_type="stockinfo",
+                entity_identifier="integrity_check",
+                check_range=(datetime.now(), datetime.now())
+            )
+            integrity_result.add_issue("check_exception", str(e))
+            return ServiceResult.failure(
+                message=f"Failed to check stock info integrity: {str(e)}",
+                data=integrity_result
+            )
