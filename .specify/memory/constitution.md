@@ -1,24 +1,21 @@
 <!--
 Sync Impact Report:
-Version change: 1.1.0 → 1.2.0
+Version change: 1.3.0 → 1.3.1
 Modified principles:
-- Testing Excellence Principle - 重大扩展TDD流程，增加用户确认机制、测试分类体系和真实环境测试要求
-Added sections: N/A
+- 任务管理原则(Task Management Excellence) - 细化定期清理任务列表的具体实施要求
+Added sections:
+- N/A (原则细化，无新增章节)
 Removed sections: N/A
 Files Updated for Consistency:
-⚠ pending: .specify/templates/plan-template.md - 需要更新测试流程部分，反映TDD确认机制和真实环境测试
-⚠ pending: .specify/templates/spec-template.md - 需要更新测试要求部分，包含用户确认流程
-⚠ pending: .specify/templates/tasks-template.md - 需要更新任务分类，增加TDD确认任务类型
-⚠ pending: .specify/templates/checklist-template.md - 需要更新测试检查项，包含用户确认验证和真实环境测试
+✅ updated: .specify/templates/plan-template.md - 已在Constitution Check中添加任务管理原则检查项
+⚠ pending: .specify/templates/spec-template.md - 需要在用户故事部分考虑任务管理约束
+✅ updated: .specify/templates/tasks-template.md - 已添加任务管理原则遵循章节
 ✅ updated: .specify/templates/agent-file-template.md - 已预填Ginkgo技术栈和开发指导，包含完整代码规范
 Follow-up TODOs:
-- 建立TDD用户确认的标准操作流程文档
-- 开发测试用例确认的沟通模板和检查清单
-- 在CI/CD中集成TDD流程检查，确保用户确认机制被正确执行
-- 培训团队成员新的TDD确认流程和测试分类体系
-- 建立测试用例设计的最佳实践库，包含20行简洁沟通示例
-- 配置测试环境使用真实数据源，确保测试数据的一致性和可靠性
-- 建立测试数据库管理和数据清理机制，支持真实环境测试的隔离性
+- 建立定期任务清理机制，自动归档已完成任务
+- 实施任务数量监控和警告系统
+- 开发任务优先级动态调整工具
+- 培训团队使用精简任务管理最佳实践
 -->
 
 # Ginkgo 项目章程
@@ -26,9 +23,9 @@ Follow-up TODOs:
 ## 基本信息
 
 - **项目名称**: Ginkgo
-- **章程版本**: 1.2.0
+- **章程版本**: 1.3.1
 - **制定日期**: 2025-11-03
-- **最后修订**: 2025-11-28
+- **最后修订**: 2025-12-01
 - **项目描述**: Python量化交易库，专注于事件驱动回测、多数据库支持和完整的风险管理系统
 
 ## 核心原则
@@ -111,7 +108,22 @@ Follow-up TODOs:
 
 **懒加载**: 动态导入和懒加载机制必须用于优化启动时间。
 
-### 6. 文档原则 (Documentation Excellence)
+### 6. 任务管理原则 (Task Management Excellence)
+
+**精简任务列表**: 任务跟踪系统必须保持简洁高效，最多显示5个活跃任务，优先移除已完成任务。
+
+**具体要求**:
+- 任务列表必须限制在最多5个，超出部分自动隐藏或归档
+- 已完成的任务必须立即从活跃列表中移除，保持界面清洁
+- **定期清理机制**: 必须建立定期任务清理流程，在每轮开发周期结束后主动整理任务列表
+- 任务优先级必须明确，高优先级任务优先显示
+- 任务状态必须实时更新，确保团队协作效率
+- 长期项目应分阶段管理，每个阶段专注于有限数量的核心任务
+- **用户体验优化**: 避免任务列表过长影响开发体验和团队专注度
+
+**理由**: 过长的任务列表会降低团队专注度，增加认知负担。保持任务列表精简能够提高开发效率，减少混乱，让团队成员专注于当前最重要的工作。定期清理机制确保任务管理工具始终处于最佳状态。
+
+### 7. 文档原则 (Documentation Excellence)
 
 **中文优先**: 所有文档和注释必须使用中文，确保团队理解和维护的便利性。
 
