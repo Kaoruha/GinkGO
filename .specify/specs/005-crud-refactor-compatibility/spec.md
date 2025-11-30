@@ -12,7 +12,8 @@
 - Q: Service方法完整性策略 → A: 定义核心方法集合，各service可根据需要扩展，但同样功能的方法名称也需要统一
 - Q: 向后兼容性策略 → A: 允许破坏性更改，但必须提供迁移指南和废弃警告
 - Q: Service修复实施优先级 → A: 按依赖关系优先级，先修复基础service，再修复依赖它的service
-- Q: 核心方法集合定义 → A: 标准CRUD方法：sync_*（同步）、get_*（查询）、count_*（计数）、validate_*（验证）
+- Q: 核心方法集合定义 → A: 标准方法：sync_range/sync_batch/sync_smart（同步）、get/count（查询）、validate/check_integrity（验证）
+- Q: 方法命名规则 → A: 面向对象设计，方法名表达动作，避免重复服务名+对象名
 - Q: 数据同步幂等性策略 → A: 智能增量同步，基于业务标识符确保幂等性
 - Q: 数据完整性检查机制 → A: 多层次检查机制，包括基础记录数检查、业务规则验证和数据质量评分
 
@@ -94,6 +95,12 @@
 **Data Service统一化需求**:
 - **FR-011**: 所有data service MUST继承相应的BaseService基类（DataService/ManagementService/BusinessService）
 - **FR-012**: 所有data service方法 MUST返回ServiceResult对象，而不是原始数据或字典
+- **FR-012-A**: ServiceResult返回格式规范：
+  - 成功情况：`ServiceResult.success(data=result_object, message="操作成功")`
+  - 同步方法：`data`字段包裹DataSyncResult/DataValidationResult/DataIntegrityCheckResult等结果对象
+  - 查询方法：`data`字段包裹查询结果（ModelList、原始数据等）
+  - 失败情况：`ServiceResult.failure(message="错误信息", data=error_result_object)`
+  - 系统错误：`ServiceResult.error(error="系统级错误信息")`
 - **FR-013**: 所有data service MUST使用@retry装饰器处理网络和数据源异常
 - **FR-014**: 所有data service MUST使用@time_logger装饰器监控性能
 - **FR-015**: 所有data service MUST提供详细的错误信息和操作状态反馈
