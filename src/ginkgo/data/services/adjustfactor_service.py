@@ -4,6 +4,8 @@ Adjustfactor Data Service (Class-based)
 This service, implemented as a class, handles the business logic for
 synchronizing adjustment factor data. It relies on dependency injection
 for its data source and CRUD repository, and manages transactions.
+
+Enhanced with comprehensive error handling, retry mechanisms, and structured returns.
 """
 
 import time
@@ -12,6 +14,7 @@ from typing import List, Union, Any, Dict
 import pandas as pd
 
 from ginkgo.libs import GCONF, datetime_normalize, cache_with_expiration, retry, to_decimal, time_logger
+from ginkgo.libs.data.results import DataValidationResult, DataIntegrityCheckResult, DataSyncResult
 from ginkgo.data import mappers
 from ginkgo.data.services.base_service import DataService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
@@ -22,98 +25,173 @@ class AdjustfactorService(DataService):
         """Initializes the service with its dependencies."""
         super().__init__(crud_repo=crud_repo, data_source=data_source, stockinfo_service=stockinfo_service)
 
-    def sync_for_code(self, code: str, fast_mode: bool = True) -> ServiceResult:
+    @retry(max_try=3)
+    def sync(self, code: str, start_date: datetime = None, end_date: datetime = None, **kwargs) -> ServiceResult:
         """
         Synchronizes adjustment factors for a single stock code.
         This method is transactional and includes enhanced error handling.
 
         Args:
             code: Stock code to sync
-            fast_mode: If True, only fetch data from last available date
+            start_date: Start date for sync (optional)
+            end_date: End date for sync (optional)
+            **kwargs: Additional parameters (fast_mode, etc.)
 
         Returns:
-            ServiceResult with sync results and statistics
+            ServiceResult with DataSyncResult data
         """
+        fast_mode = kwargs.get('fast_mode', True)
+        start_time = time.time()
+        self._log_operation_start("sync", code=code, start_date=start_date, end_date=end_date, fast_mode=fast_mode)
 
-        # Validate stock code
-        if not self.stockinfo_service.is_code_in_stocklist(code):
-            self._logger.DEBUG(f"Skipping adjustfactor sync for {code} as it's not in the stock list.")
-            return ServiceResult.error(f"Code {code} not in stock list")
-
-        start_date = self._get_fetch_start_date(code, fast_mode)
-        end_date = datetime.now()
-        self._logger.INFO(f"Syncing adjustfactors for {code} from {start_date.date()} to {end_date.date()}")
-
-        # Fetch data with retry mechanism
         try:
-            raw_data = self._fetch_adjustfactor_data(code, start_date, end_date)
-        except Exception as e:
-            return ServiceResult.error(f"Failed to fetch data from source: {e}")
+            # Validate stock code
+            if not self._stockinfo_service.exists(code):
+                sync_result = DataSyncResult.create_for_entity(
+                    entity_type="adjustfactors",
+                    entity_identifier=code,
+                    sync_strategy="single"
+                )
+                sync_result.add_error(0, f"Stock code {code} not in stock list")
+                return ServiceResult.failure(
+                    message=f"Stock code {code} not in stock list",
+                    data=sync_result
+                )
 
-        if raw_data is None:
-            return ServiceResult.error("Failed to fetch data from source")
-
-        if raw_data.empty:
-            self._logger.INFO(f"No new adjustfactor data for {code} from source.")
-            return ServiceResult.success(
-                data={
-                    "code": code,
-                    "records_processed": 0,
-                    "records_added": 0,
-                    "warnings": ["No new data available from source"]
-                },
-                message=f"No new adjustfactor data available for {code}"
-            )
-
-        records_processed = len(raw_data)
-
-        # Convert data with error handling
-        models_to_add, mapping_errors = self._convert_to_models(raw_data, code)
-        warnings = mapping_errors if mapping_errors else []
-
-        if not models_to_add:
-            return ServiceResult.error("No valid records after data conversion")
-
-        # Database operations using new atomic replace/add method
-        try:
-            # Use new BaseCRUD.replace method for atomic operation
-            if not fast_mode:
-                # For non-fast_mode, replace data in the time range of new records
-                min_date = min(item.timestamp for item in models_to_add)
-                max_date = max(item.timestamp for item in models_to_add)
-                filters = {
-                    "code": code,
-                    "timestamp__gte": min_date,
-                    "timestamp__lte": max_date
-                }
+            # Set date range
+            if start_date is None or end_date is None:
+                start_date = self._get_fetch_start_date(code, fast_mode)
+                end_date = datetime.now()
             else:
-                # For fast_mode, replace all records for this code
-                filters = {"code": code}
+                start_date = datetime_normalize(start_date)
+                end_date = datetime_normalize(end_date)
 
-            replaced_models = self.crud_repo.replace(filters=filters, new_items=models_to_add)
-            records_added = len(replaced_models)
+            self._logger.INFO(f"Syncing adjustfactors for {code} from {start_date.date()} to {end_date.date()}")
 
-            # If replace returned empty (no existing data), use add_batch instead
-            if records_added == 0:
-                inserted_models = self.crud_repo.add_batch(models_to_add)
-                records_added = len(inserted_models)
-                self._logger.INFO(f"Successfully inserted {records_added} new adjustfactors for {code}")
-            else:
-                self._logger.INFO(f"Successfully replaced {records_added} adjustfactors for {code}")
+            # Fetch data with retry mechanism
+            try:
+                raw_data = self._fetch_adjustfactor_data(code, start_date, end_date)
+            except Exception as e:
+                sync_result = DataSyncResult.create_for_entity(
+                    entity_type="adjustfactors",
+                    entity_identifier=code,
+                    sync_range=(start_date, end_date),
+                    sync_strategy="single"
+                )
+                sync_result.add_error(0, f"Failed to fetch data from source: {e}")
+                return ServiceResult.failure(
+                    message=f"Failed to fetch data from source: {e}",
+                    data=sync_result
+                )
 
-            return ServiceResult.success(
-                data={
-                    "code": code,
-                    "records_processed": records_processed,
-                    "records_added": records_added,
-                    "warnings": warnings
-                },
-                message=f"Successfully synced {records_added} adjustfactors for {code}"
-            )
+            if raw_data is None or raw_data.empty:
+                sync_result = DataSyncResult.create_for_entity(
+                    entity_type="adjustfactors",
+                    entity_identifier=code,
+                    sync_range=(start_date, end_date),
+                    sync_strategy="single"
+                )
+                sync_result.set_metadata("fast_mode", fast_mode)
+                sync_result.add_warning("No new data available from source")
+                return ServiceResult.success(
+                    data=sync_result,
+                    message=f"No new adjustfactor data available for {code}"
+                )
+
+            records_processed = len(raw_data)
+
+            # Convert data with error handling
+            models_to_add, mapping_errors = self._convert_to_models(raw_data, code)
+            warnings = mapping_errors if mapping_errors else []
+
+            if not models_to_add:
+                sync_result = DataSyncResult.create_for_entity(
+                    entity_type="adjustfactors",
+                    entity_identifier=code,
+                    sync_range=(start_date, end_date),
+                    sync_strategy="single"
+                )
+                sync_result.add_error(0, "No valid records after data conversion")
+                return ServiceResult.failure(
+                    message="No valid records after data conversion",
+                    data=sync_result
+                )
+
+            # Database operations using new atomic replace/add method
+            try:
+                # Use new BaseCRUD.replace method for atomic operation
+                if not fast_mode:
+                    # For non-fast_mode, replace data in the time range of new records
+                    min_date = min(item.timestamp for item in models_to_add)
+                    max_date = max(item.timestamp for item in models_to_add)
+                    filters = {
+                        "code": code,
+                        "timestamp__gte": min_date,
+                        "timestamp__lte": max_date
+                    }
+                else:
+                    # For fast_mode, replace all records for this code
+                    filters = {"code": code}
+
+                replaced_models = self._crud_repo.replace(filters=filters, new_items=models_to_add)
+                records_added = len(replaced_models)
+
+                # If replace returned empty (no existing data), use add_batch instead
+                if records_added == 0:
+                    inserted_models = self._crud_repo.add_batch(models_to_add)
+                    records_added = len(inserted_models)
+                    self._logger.INFO(f"Successfully inserted {records_added} new adjustfactors for {code}")
+                else:
+                    self._logger.INFO(f"Successfully replaced {records_added} adjustfactors for {code}")
+
+                # Create successful sync result
+                sync_result = DataSyncResult.create_for_entity(
+                    entity_type="adjustfactors",
+                    entity_identifier=code,
+                    sync_range=(start_date, end_date),
+                    sync_strategy="single"
+                )
+                sync_result.records_processed = records_processed
+                sync_result.records_added = records_added
+                sync_result.set_metadata("fast_mode", fast_mode)
+                for warning in warnings:
+                    sync_result.add_warning(warning)
+
+                duration = time.time() - start_time
+                self._log_operation_end("sync", True, duration)
+
+                return ServiceResult.success(
+                    data=sync_result,
+                    message=f"Successfully synced {records_added} adjustfactors for {code}"
+                )
+
+            except Exception as e:
+                self._logger.ERROR(f"Failed to sync adjustfactors for {code}: {e}")
+                sync_result = DataSyncResult.create_for_entity(
+                    entity_type="adjustfactors",
+                    entity_identifier=code,
+                    sync_range=(start_date, end_date),
+                    sync_strategy="single"
+                )
+                sync_result.add_error(0, f"Database sync operation failed: {str(e)}")
+                return ServiceResult.failure(
+                    message=f"Database sync operation failed: {str(e)}",
+                    data=sync_result
+                )
 
         except Exception as e:
-            self._logger.ERROR(f"Failed to sync adjustfactors for {code}: {e}")
-            return ServiceResult.error(f"Database sync operation failed: {str(e)}")
+            duration = time.time() - start_time
+            self._log_operation_end("sync", False, duration)
+            sync_result = DataSyncResult.create_for_entity(
+                entity_type="adjustfactors",
+                entity_identifier=code,
+                sync_strategy="single"
+            )
+            sync_result.add_error(0, f"Unexpected error during sync: {str(e)}")
+            return ServiceResult.failure(
+                message=f"Unexpected error during sync: {str(e)}",
+                data=sync_result
+            )
 
     @retry(max_try=3)
     def _fetch_adjustfactor_data(self, code: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
@@ -129,7 +207,7 @@ class AdjustfactorService(DataService):
             DataFrame with adjustment factor data or None if failed
         """
         try:
-            raw_data = self.data_source.fetch_cn_stock_adjustfactor(code, start_date, end_date)
+            raw_data = self._data_source.fetch_cn_stock_adjustfactor(code, start_date, end_date)
             return raw_data
         except Exception as e:
             self._logger.ERROR(f"Failed to fetch adjustfactors for {code} from source: {e}")
@@ -173,7 +251,7 @@ class AdjustfactorService(DataService):
         return models_to_add, errors
 
     
-    def sync_batch_codes(self, codes: List[str], fast_mode: bool = True) -> Dict[str, Any]:
+    def sync_batch(self, codes: List[str], fast_mode: bool = True) -> Dict[str, Any]:
         """
         Synchronizes adjustment factors for multiple stock codes with error tolerance.
 
@@ -202,19 +280,19 @@ class AdjustfactorService(DataService):
             for code in codes:
                 try:
                     progress.update(task, description=f"Processing {code}")
-                    result = self.sync_for_code(code, fast_mode)
+                    result = self.sync(code, fast_mode=fast_mode)
 
                     batch_result["results"].append(result)
-                    batch_result["total_records_processed"] += result["records_processed"]
+                    batch_result["total_records_processed"] += result.data.records_processed
 
-                    if result["success"]:
+                    if result.success:
                         batch_result["successful_codes"] += 1
-                        batch_result["total_records_added"] += result["records_added"]
+                        batch_result["total_records_added"] += result.data.records_added
                         progress.update(task, advance=1, description=f":white_check_mark: {code}")
                     else:
                         batch_result["failed_codes"] += 1
                         batch_result["failures"].append(
-                            {"code": code, "error": result["error"], "warnings": result.get("warnings", [])}
+                            {"code": code, "error": result.message, "warnings": result.data.warnings if result.data else []}
                         )
                         progress.update(task, advance=1, description=f":x: {code}")
 
@@ -239,7 +317,7 @@ class AdjustfactorService(DataService):
 
     @time_logger
     @retry(max_try=3)
-    def get_adjustfactors(
+    def get(
         self,
         code: str = None,
         start_date: datetime = None,
@@ -272,7 +350,7 @@ class AdjustfactorService(DataService):
                 filters["timestamp__lte"] = end_date
 
             # 调用CRUD并包装结果
-            data = self.crud_repo.find(filters=filters, **kwargs)
+            data = self._crud_repo.find(filters=filters, **kwargs)
             return ServiceResult.success(data)
 
         except Exception as e:
@@ -280,7 +358,7 @@ class AdjustfactorService(DataService):
             self._logger.ERROR(error_msg)
             return ServiceResult.error(error_msg)
 
-    def calculate_precomputed_factors_for_code(self, code: str) -> ServiceResult:
+    def calculate(self, code: str) -> ServiceResult:
         """
         为单个股票代码计算预计算的复权系数（原子安全版本）
 
@@ -295,7 +373,7 @@ class AdjustfactorService(DataService):
             ServiceResult: 处理结果统计，包含操作状态和恢复信息
         """
         start_time = time.time()
-        self._log_operation_start("calculate_precomputed_factors_for_code", code=code)
+        self._log_operation_start("calculate", code=code)
 
         # 优化：预先导入需要的模块，避免循环内重复导入
         from ginkgo.data.models.model_adjustfactor import MAdjustfactor
@@ -310,7 +388,7 @@ class AdjustfactorService(DataService):
                 return ServiceResult.error("股票代码不能为空")
 
             # 第二步：获取并备份原始数据
-            original_records = self.crud_repo.find(filters={"code": code})
+            original_records = self._crud_repo.find(filters={"code": code})
 
             if len(original_records) < 2:
                 return ServiceResult.success(
@@ -399,13 +477,13 @@ class AdjustfactorService(DataService):
 
             try:
                 # 使用BaseCRUD的原子replace方法
-                replaced_models = self.crud_repo.replace(filters={"code": code}, new_items=updated_entities)
+                replaced_models = self._crud_repo.replace(filters={"code": code}, new_items=updated_entities)
                 processed_count = len(replaced_models)
                 self._logger.DEBUG(f"成功替换股票 {code} 的 {processed_count} 条复权因子记录")
 
                 # 原子操作成功
                 duration = time.time() - start_time
-                self._log_operation_end("calculate_precomputed_factors_for_code", True, duration)
+                self._log_operation_end("calculate", True, duration)
 
                 return ServiceResult.success(
                     data={
@@ -427,7 +505,7 @@ class AdjustfactorService(DataService):
                 self._logger.ERROR(f"股票 {code} 复权因子替换失败: {str(operation_error)}")
 
                 duration = time.time() - start_time
-                self._log_operation_end("calculate_precomputed_factors_for_code", False, duration)
+                self._log_operation_end("calculate", False, duration)
 
                 return ServiceResult.error(
                     data={
@@ -445,15 +523,15 @@ class AdjustfactorService(DataService):
         except Exception as e:
             # 第七步：全局异常处理
             duration = time.time() - start_time
-            self._log_operation_end("calculate_precomputed_factors_for_code", False, duration)
-            error_msg = f"计算股票 {code} 预计算复权因子失败: {str(e)}"
+            self._log_operation_end("calculate", False, duration)
+            error_msg = f"计算股票 {code} 复权因子失败: {str(e)}"
             self._logger.ERROR(error_msg)
 
             # 如果有备份数据，尝试恢复
             if backup_info and len(backup_info["original_records"]) > 0:
                 try:
                     self._logger.ERROR(f"尝试从备份恢复股票 {code} 数据")
-                    self.crud_repo.add_batch(backup_info["original_records"])
+                    self._crud_repo.add_batch(backup_info["original_records"])
                     error_msg += " (已从备份恢复原始数据)"
                 except Exception as restore_error:
                     self._logger.CRITICAL(f"股票 {code} 备份恢复也失败: {str(restore_error)}")
@@ -471,14 +549,14 @@ class AdjustfactorService(DataService):
         Returns:
             Latest timestamp or default start date if no data exists
         """
-        latest_records = self.crud_repo.find(filters={"code": code}, page_size=1, order_by="timestamp", desc_order=True)
+        latest_records = self._crud_repo.find(filters={"code": code}, page_size=1, order_by="timestamp", desc_order=True)
 
         if latest_records:
             return latest_records[0].timestamp
         else:
             return datetime_normalize(GCONF.DEFAULTSTART)
 
-    def count_adjustfactors(self, code: str = None, **kwargs) -> int:
+    def count(self, code: str = None, **kwargs) -> ServiceResult:
         """
         Counts the number of adjustment factor records matching the filters.
 
@@ -487,16 +565,23 @@ class AdjustfactorService(DataService):
             **kwargs: Additional filters
 
         Returns:
-            Number of matching records
+            ServiceResult with count data
         """
-        # 提取filters参数并从kwargs中移除，避免重复传递
-        filters = kwargs.pop("filters", {})
+        try:
+            # 提取filters参数并从kwargs中移除，避免重复传递
+            filters = kwargs.pop("filters", {})
 
-        # 具体参数优先级高于filters中的对应字段
-        if code:
-            filters["code"] = code
+            # 具体参数优先级高于filters中的对应字段
+            if code:
+                filters["code"] = code
 
-        return self.crud_repo.count(filters=filters)
+            count = self._crud_repo.count(filters=filters)
+            return ServiceResult.success(count)
+
+        except Exception as e:
+            error_msg = f"Failed to count adjustfactors: {e}"
+            self._logger.ERROR(error_msg)
+            return ServiceResult.error(error_msg)
 
     def get_available_codes(self) -> List[str]:
         """
@@ -505,18 +590,264 @@ class AdjustfactorService(DataService):
         Returns:
             List of unique stock codes
         """
-        return self.crud_repo.find(distinct_field="code")
+        return self._crud_repo.find(distinct_field="code")
 
     def _get_fetch_start_date(self, code: str, fast_mode: bool) -> datetime:
         if not fast_mode:
             try:
-                date = self.stockinfo_service.get_stockinfo_by_code(code).list_date
+                stockinfo_result = self._stockinfo_service.get(filters={"code": code}, page_size=1)
+                stockinfo = stockinfo_result.data[0] if stockinfo_result.success and stockinfo_result.data else None
+                date = stockinfo.list_date if stockinfo and hasattr(stockinfo, 'list_date') else datetime_normalize(GCONF.DEFAULTSTART)
             except Exception as e:
                 date = datetime_normalize(GCONF.DEFAULTSTART)
             return date
 
         latest_timestamp = self.get_latest_adjustfactor_for_code(code)
         return latest_timestamp + timedelta(days=1)
+
+    def validate(self, code: str, start_date: datetime = None, end_date: datetime = None, **kwargs) -> ServiceResult:
+        """
+        Validates adjustfactor data for business rules and data quality.
+
+        Args:
+            code: Stock code to validate
+            start_date: Start date for validation (optional)
+            end_date: End date for validation (optional)
+            **kwargs: Additional parameters
+
+        Returns:
+            ServiceResult with DataValidationResult data
+        """
+        start_time = time.time()
+        self._log_operation_start("validate", code=code, start_date=start_date, end_date=end_date)
+
+        try:
+            # Get validation data
+            get_result = self.get(code=code, start_date=start_date, end_date=end_date)
+            if not get_result.success:
+                validation_result = DataValidationResult.create_for_entity(
+                    entity_type="adjustfactors",
+                    entity_identifier=code
+                )
+                validation_result.add_error("data_fetch_failed", f"Failed to fetch data for validation: {get_result.message}")
+                return ServiceResult.failure(
+                    message=f"Failed to fetch data for validation: {get_result.message}",
+                    data=validation_result
+                )
+
+            records = get_result.data
+            validation_result = DataValidationResult.create_for_entity(
+                entity_type="adjustfactors",
+                entity_identifier=code,
+                validation_range=(start_date, end_date) if start_date and end_date else None
+            )
+
+            # Check if we have data
+            if not records or len(records) == 0:
+                validation_result.add_warning("no_data", "No adjustfactor records found for validation")
+                duration = time.time() - start_time
+                self._log_operation_end("validate", True, duration)
+                return ServiceResult.success(
+                    data=validation_result,
+                    message="No data found for validation"
+                )
+
+            # Convert to DataFrame for analysis
+            try:
+                df = records.to_dataframe()
+            except Exception as e:
+                validation_result.add_error("data_conversion_failed", f"Failed to convert data to DataFrame: {e}")
+                duration = time.time() - start_time
+                self._log_operation_end("validate", False, duration)
+                return ServiceResult.failure(
+                    message=f"Data conversion failed: {e}",
+                    data=validation_result
+                )
+
+            total_records = len(df)
+            validation_result.records_validated = total_records
+
+            # Validate adjustfactor column exists
+            if 'adjustfactor' not in df.columns:
+                validation_result.add_error("missing_column", "adjustfactor column is missing")
+                validation_result.data_quality_score = 0.0
+            else:
+                # Check for null/NaN values
+                null_mask = df['adjustfactor'].isnull()
+                null_count = null_mask.sum()
+                if null_count > 0:
+                    validation_result.add_error("null_values", f"Found {null_count} null adjustfactor values")
+                    validation_result.records_failed += null_count
+
+                # Check for zero or negative values
+                zero_mask = df['adjustfactor'] <= 0
+                zero_count = zero_mask.sum()
+                if zero_count > 0:
+                    validation_result.add_error("invalid_values", f"Found {zero_count} zero or negative adjustfactor values")
+                    validation_result.records_failed += zero_count
+
+                # Check for extreme values (adjustment factors should be reasonable)
+                extreme_mask = (df['adjustfactor'] > 100) | (df['adjustfactor'] < 0.01)
+                extreme_count = extreme_mask.sum()
+                if extreme_count > 0:
+                    validation_result.add_warning("extreme_values", f"Found {extreme_count} extreme adjustfactor values (>100 or <0.01)")
+
+                # Calculate data quality score
+                if total_records > 0:
+                    valid_records = total_records - validation_result.records_failed
+                    validation_result.data_quality_score = valid_records / total_records
+                else:
+                    validation_result.data_quality_score = 0.0
+
+            duration = time.time() - start_time
+            self._log_operation_end("validate", validation_result.is_valid, duration)
+
+            return ServiceResult.success(
+                data=validation_result,
+                message=f"Validation completed for {total_records} adjustfactor records"
+            )
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("validate", False, duration)
+            validation_result = DataValidationResult.create_for_entity(
+                entity_type="adjustfactors",
+                entity_identifier=code
+            )
+            validation_result.add_error("validation_failed", f"Validation process failed: {str(e)}")
+            return ServiceResult.failure(
+                message=f"Validation failed: {str(e)}",
+                data=validation_result
+            )
+
+    def check_integrity(self, code: str, start_date: datetime = None, end_date: datetime = None, **kwargs) -> ServiceResult:
+        """
+        Checks data integrity for adjustfactor data including completeness and consistency.
+
+        Args:
+            code: Stock code to check
+            start_date: Start date for integrity check (optional)
+            end_date: End date for integrity check (optional)
+            **kwargs: Additional parameters
+
+        Returns:
+            ServiceResult with DataIntegrityCheckResult data
+        """
+        start_time = time.time()
+        self._log_operation_start("check_integrity", code=code, start_date=start_date, end_date=end_date)
+
+        try:
+            # Determine check range
+            if start_date and end_date:
+                check_range = (start_date, end_date)
+            else:
+                # Default to last 90 days
+                end_date = datetime.now()
+                start_date = end_date - timedelta(days=90)
+                check_range = (start_date, end_date)
+
+            # Create integrity check result
+            result = DataIntegrityCheckResult.create_for_entity(
+                entity_type="adjustfactors",
+                entity_identifier=code,
+                check_range=check_range
+            )
+
+            # Get data for integrity check
+            get_result = self.get(code=code, start_date=check_range[0], end_date=check_range[1])
+            if not get_result.success:
+                result.add_issue("data_fetch_failed", f"Failed to fetch data for integrity check: {get_result.message}")
+                result.integrity_score = 0.0
+                duration = time.time() - start_time
+                self._log_operation_end("check_integrity", False, duration)
+                return ServiceResult.failure(
+                    message=f"Failed to fetch data for integrity check: {get_result.message}",
+                    data=result
+                )
+
+            records = get_result.data
+            if not records or len(records) == 0:
+                result.add_warning("no_data", "No adjustfactor records found for integrity check")
+                result.integrity_score = 1.0  # No data is considered complete
+                duration = time.time() - start_time
+                self._log_operation_end("check_integrity", True, duration)
+                return ServiceResult.success(
+                    data=result,
+                    message="No data found for integrity check"
+                )
+
+            # Convert to DataFrame for analysis
+            try:
+                df = records.to_dataframe()
+            except Exception as e:
+                result.add_issue("data_conversion_failed", f"Failed to convert data to DataFrame: {e}")
+                result.integrity_score = 0.0
+                duration = time.time() - start_time
+                self._log_operation_end("check_integrity", False, duration)
+                return ServiceResult.failure(
+                    message=f"Data conversion failed: {e}",
+                    data=result
+                )
+
+            total_records = len(df)
+            result.records_checked = total_records
+
+            # Check for duplicate timestamps
+            duplicate_timestamps = df['timestamp'].duplicated().sum()
+            if duplicate_timestamps > 0:
+                result.add_issue("duplicate_timestamps", f"Found {duplicate_timestamps} duplicate timestamps")
+
+            # Check for missing timestamps in sequence
+            if 'timestamp' in df.columns:
+                df_sorted = df.sort_values('timestamp')
+                time_gaps = df_sorted['timestamp'].diff().dt.days
+                # Look for gaps larger than 30 days (might indicate missing data)
+                large_gaps = (time_gaps > 30).sum()
+                if large_gaps > 0:
+                    result.add_warning("large_time_gaps", f"Found {large_gaps} time gaps larger than 30 days")
+
+            # Check for data consistency
+            if 'adjustfactor' in df.columns:
+                # Check for sudden large changes in adjustment factors
+                df_sorted = df.sort_values('timestamp')
+                adj_changes = df_sorted['adjustfactor'].pct_change().abs()
+                large_changes = (adj_changes > 0.5).sum()  # Changes larger than 50%
+                if large_changes > 0:
+                    result.add_warning("large_adjustment_changes", f"Found {large_changes} large adjustment factor changes (>50%)")
+
+            # Calculate overall integrity score
+            issues_count = len(result.issues)
+            warnings_count = len(result.warnings)
+
+            # Deduct points for issues and warnings
+            score_deduction = (issues_count * 0.3) + (warnings_count * 0.1)
+            result.integrity_score = max(0.0, 1.0 - score_deduction)
+
+            duration = time.time() - start_time
+            self._log_operation_end("check_integrity", result.is_healthy(), duration)
+
+            return ServiceResult.success(
+                data=result,
+                message=f"Integrity check completed for {total_records} adjustfactor records"
+            )
+
+        except Exception as e:
+            duration = time.time() - start_time
+            self._log_operation_end("check_integrity", False, duration)
+            self._logger.ERROR(f"Failed to check adjustfactor integrity: {e}")
+
+            result = DataIntegrityCheckResult.create_for_entity(
+                entity_type="adjustfactors",
+                entity_identifier=code
+            )
+            result.add_issue("integrity_check_failure", f"Integrity check process failed: {str(e)}")
+            result.check_duration = duration
+            result.integrity_score = 0.0
+
+            return ServiceResult.failure(
+                message=f"Integrity check failed: {str(e)}",
+                data=result
+            )
 
 
     

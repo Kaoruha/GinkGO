@@ -467,3 +467,20 @@ class StockinfoService(DataService):
                 message=f"Failed to check stock info integrity: {str(e)}",
                 data=integrity_result
             )
+
+    def exists(self, code: str) -> bool:
+        """
+        Check if a stock code exists in the stock list.
+
+        Args:
+            code: Stock code to check (e.g., '000001.SZ')
+
+        Returns:
+            bool: True if the stock code exists, False otherwise
+        """
+        try:
+            records = self._crud_repo.find(filters={"code": code}, page_size=1)
+            return len(records) > 0
+        except Exception as e:
+            self._logger.ERROR(f"Failed to check if code {code} exists: {e}")
+            return False
