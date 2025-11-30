@@ -15,7 +15,7 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
 from ginkgo.data.services.bar_service import BarService
-from ginkgo.data.services.base_service import DataService
+from ginkgo.data.services.base_service import DataService, ServiceResult
 from ginkgo.data.containers import container
 from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES
 
@@ -33,25 +33,25 @@ class TestBarServiceConstruction:
         assert bar_service is not None
         assert isinstance(bar_service, BarService)
 
-        # 验证crud_repo已设置
-        assert hasattr(bar_service, 'crud_repo')
-        assert bar_service.crud_repo is not None
+        # 验证crud_repo已设置（私有属性）
+        assert hasattr(bar_service, '_crud_repo')
+        assert bar_service._crud_repo is not None
 
-        # 验证data_source已设置
-        assert hasattr(bar_service, 'data_source')
-        assert bar_service.data_source is not None
+        # 验证data_source已设置（私有属性）
+        assert hasattr(bar_service, '_data_source')
+        assert bar_service._data_source is not None
 
-        # 验证stockinfo_service已设置
-        assert hasattr(bar_service, 'stockinfo_service')
-        assert bar_service.stockinfo_service is not None
+        # 验证stockinfo_service已设置（私有属性）
+        assert hasattr(bar_service, '_stockinfo_service')
+        assert bar_service._stockinfo_service is not None
 
     def test_adjustfactor_service_auto_creation(self):
         """测试adjustfactor_service自动创建"""
         bar_service = container.bar_service()
 
         # 验证adjustfactor_service不为None
-        assert hasattr(bar_service, 'adjustfactor_service')
-        assert bar_service.adjustfactor_service is not None
+        assert hasattr(bar_service, '_adjustfactor_service')
+        assert bar_service._adjustfactor_service is not None
 
     def test_service_inherits_data_service(self):
         """测试继承DataService基类"""
@@ -62,22 +62,22 @@ class TestBarServiceConstruction:
 
         # 验证基类属性可用
         assert hasattr(bar_service, '_logger')
-        assert hasattr(bar_service, 'crud_repo')
-        assert hasattr(bar_service, 'data_source')
-        assert hasattr(bar_service, 'stockinfo_service')
+        assert hasattr(bar_service, '_crud_repo')
+        assert hasattr(bar_service, '_data_source')
+        assert hasattr(bar_service, '_stockinfo_service')
 
 
 @pytest.mark.database
 @pytest.mark.db_cleanup
 class TestBarServiceGetBars:
-    """2. get_bars核心查询测试 - 使用真实数据库"""
+    """2. get核心查询测试 - 使用真实数据库"""
 
     CLEANUP_CONFIG = {
         'bar': {'code__in': ['000001.SZ', '000002.SZ']}
     }
 
-    def test_get_bars_basic_query(self):
-        """测试基础get_bars查询"""
+    def test_get_basic_query(self):
+        """测试基础get查询"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
         from ginkgo import service_hub
@@ -86,23 +86,51 @@ class TestBarServiceGetBars:
         with patch('ginkgo.data.sources.ginkgo_tushare.GinkgoTushare', MockGinkgoTushare):
             bar_service = service_hub.data.bar_service()
 
-            # 步骤1: 同步测试数据到数据库
-            sync_result = bar_service.sync_by_range(
+            # 步骤1: 直接添加需要的stockinfo测试数据到数据库
+            from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
+            from ginkgo.enums import SOURCE_TYPES, MARKET_TYPES, CURRENCY_TYPES
+            from ginkgo.libs import datetime_normalize
+
+            stockinfo_crud = StockInfoCRUD()
+            # 清理旧的测试数据
+            try:
+                stockinfo_crud.remove({"code__in": ["000001.SZ", "000002.SZ"]})
+            except:
+                pass
+
+            # 添加测试需要的股票信息
+            for code in ["000001.SZ", "000002.SZ"]:
+                try:
+                    stockinfo_crud.create(
+                        code=code,
+                        code_name=f"测试股票{code.split('.')[0]}",
+                        industry="测试行业",
+                        currency=CURRENCY_TYPES.CNY,
+                        market=MARKET_TYPES.CHINA,
+                        list_date=datetime_normalize("19900101"),
+                        delist_date=datetime_normalize("20991231"),
+                        source=SOURCE_TYPES.TUSHARE
+                    )
+                except Exception:
+                    pass  # 如果记录已存在，忽略
+
+            # 步骤2: 同步Bar测试数据到数据库
+            sync_result = bar_service.sync_range(
                 code="000001.SZ",
                 start_date="20231201",
                 end_date="20231205"
             )
             assert sync_result.success, f"数据同步失败: {sync_result.message}"
 
-            # 步骤2: 测试get_bars基础查询
-            bars_result = bar_service.get_bars(
+            # 步骤3: 测试get基础查询
+            bars_result = bar_service.get(
                 code="000001.SZ",
                 start_date="20231201",
                 end_date="20231205"
             )
 
             # 步骤3: 验证查询结果
-            assert bars_result.success, f"get_bars查询失败: {bars_result.message}"
+            assert bars_result.success, f"get查询失败: {bars_result.message}"
             assert hasattr(bars_result, 'data'), "缺少data属性"
             assert bars_result.data is not None, "data不能为空"
 
@@ -138,8 +166,8 @@ class TestBarServiceGetBars:
                 assert hasattr(first_entity, attr), f"实体缺少必要属性: {attr}"
 
 
-    def test_get_bars_with_date_range_filter(self):
-        """测试get_bars日期范围过滤和复权功能"""
+    def test_get_with_date_range_filter(self):
+        """测试get日期范围过滤和复权功能"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
         from ginkgo import service_hub
@@ -151,7 +179,7 @@ class TestBarServiceGetBars:
             bar_service = service_hub.data.bar_service()
 
             # 同步较大范围的测试数据
-            sync_result = bar_service.sync_by_range(
+            sync_result = bar_service.sync_range(
                 code="000001.SZ",
                 start_date="20231201",
                 end_date="20231215"
@@ -159,7 +187,7 @@ class TestBarServiceGetBars:
             assert sync_result.success, f"数据同步失败: {sync_result.message}"
 
             # 测试精确日期范围过滤
-            bars_result = bar_service.get_bars(
+            bars_result = bar_service.get(
                 code="000001.SZ",
                 start_date="20231205",
                 end_date="20231210",
@@ -194,7 +222,7 @@ class TestBarServiceGetBars:
             assert "adjusted" in bars_result.message, "消息应该包含已调整字样"
 
             # 测试边界日期查询
-            edge_result = bar_service.get_bars(
+            edge_result = bar_service.get(
                 code="000001.SZ",
                 start_date="20231201",
                 end_date="20231201",  # 只查询一天
@@ -207,8 +235,8 @@ class TestBarServiceGetBars:
             # 验证不复权消息
             assert "without adjustment" in edge_result.message, "无复权消息应该正确"
 
-    def test_get_bars_with_back_adjustment(self):
-        """测试get_bars后复权查询"""
+    def test_get_with_back_adjustment(self):
+        """测试get后复权查询"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
         from ginkgo import service_hub
@@ -219,7 +247,7 @@ class TestBarServiceGetBars:
             bar_service = service_hub.data.bar_service()
 
             # 同步测试数据
-            sync_result = bar_service.sync_by_range(
+            sync_result = bar_service.sync_range(
                 code="000001.SZ",
                 start_date="20231201",
                 end_date="20231205"
@@ -227,7 +255,7 @@ class TestBarServiceGetBars:
             assert sync_result.success, f"数据同步失败: {sync_result.message}"
 
             # 测试后复权查询
-            bars_result = bar_service.get_bars(
+            bars_result = bar_service.get(
                 code="000001.SZ",
                 start_date="20231201",
                 end_date="20231205",
@@ -243,8 +271,8 @@ class TestBarServiceGetBars:
             model_list = bars_result.data
             assert len(model_list) > 0, "后复权查询应该返回数据"
 
-    def test_get_bars_empty_result(self):
-        """测试get_bars查询无数据"""
+    def test_get_empty_result(self):
+        """测试get查询无数据"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
         from ginkgo import service_hub
@@ -254,7 +282,7 @@ class TestBarServiceGetBars:
             bar_service = service_hub.data.bar_service()
 
             # 测试查询不存在的股票代码
-            bars_result = bar_service.get_bars(
+            bars_result = bar_service.get(
                 code="999999.SZ",  # 不存在的股票代码
                 start_date="20231201",
                 end_date="20231205"
@@ -270,7 +298,7 @@ class TestBarServiceGetBars:
             assert len(df) == 0, "DataFrame应该为空"
 
             # 测试查询存在的股票但无数据的日期范围
-            future_result = bar_service.get_bars(
+            future_result = bar_service.get(
                 code="000001.SZ",
                 start_date="20991201",  # 未来日期
                 end_date="20991205"
@@ -286,8 +314,8 @@ class TestBarServiceGetBars:
 class TestBarServiceCount:
     """4. 计数和统计测试 - 使用真实数据库"""
 
-    def test_count_bars_basic(self):
-        """测试count_bars基础计数"""
+    def test_count_basic(self):
+        """测试count基础计数"""
         from ginkgo.data.containers import container
         from ginkgo.data.services.base_service import ServiceResult
         from ginkgo.libs import GCONF
@@ -297,7 +325,7 @@ class TestBarServiceCount:
             bar_service = container.bar_service()
 
             # 测试返回ServiceResult包装
-            result = bar_service.count_bars()
+            result = bar_service.count()
 
             # 验证返回ServiceResult
             assert isinstance(result, ServiceResult)
@@ -313,7 +341,7 @@ class TestBarServiceCount:
         except Exception as e:
             pytest.skip(f"BarService初始化失败，跳过测试: {e}")
 
-    def test_count_bars_with_code_filter(self):
+    def test_count_with_code_filter(self):
         """测试按股票代码计数"""
         from ginkgo.data.containers import container
         from ginkgo.data.services.base_service import ServiceResult
@@ -324,7 +352,7 @@ class TestBarServiceCount:
             bar_service = container.bar_service()
 
             # 测试按代码过滤计数
-            result = bar_service.count_bars(code="000001.SZ")
+            result = bar_service.count(code="000001.SZ")
 
             # 验证返回ServiceResult
             assert isinstance(result, ServiceResult)
@@ -337,7 +365,7 @@ class TestBarServiceCount:
         except Exception as e:
             pytest.skip(f"BarService初始化失败，跳过测试: {e}")
 
-    def test_count_bars_with_frequency_filter(self):
+    def test_count_with_frequency_filter(self):
         """测试按频率计数"""
         from ginkgo.data.containers import container
         from ginkgo.data.services.base_service import ServiceResult
@@ -349,7 +377,7 @@ class TestBarServiceCount:
             bar_service = container.bar_service()
 
             # 测试按频率过滤计数
-            result = bar_service.count_bars(frequency=FREQUENCY_TYPES.DAY)
+            result = bar_service.count(frequency=FREQUENCY_TYPES.DAY)
 
             # 验证返回ServiceResult
             assert isinstance(result, ServiceResult)
@@ -413,7 +441,7 @@ class TestBarServiceCount:
         except Exception as e:
             pytest.skip(f"BarService初始化失败，跳过测试: {e}")
 
-    def test_count_bars_with_invalid_parameters(self):
+    def test_count_with_invalid_parameters(self):
         """测试无效参数处理"""
         from ginkgo.data.containers import container
         from ginkgo.data.services.base_service import ServiceResult
@@ -424,13 +452,13 @@ class TestBarServiceCount:
             bar_service = container.bar_service()
 
             # 测试无效股票代码
-            result = bar_service.count_bars(code="")
+            result = bar_service.count(code="")
 
             # 验证优雅处理
             assert isinstance(result, ServiceResult)
 
             # 测试None参数
-            result = bar_service.count_bars(code=None)
+            result = bar_service.count(code=None)
 
             # 验证不抛出异常
             assert isinstance(result, ServiceResult)
@@ -495,7 +523,7 @@ class TestBarServiceCount:
 
             # 测试所有计数相关方法返回格式一致
             methods_to_test = [
-                'count_bars',
+                'count',
                 'get_available_codes'
             ]
 
@@ -536,7 +564,7 @@ class TestBarServiceDataValidation:
             bar_service = container.bar_service()
 
             # 测试基础验证功能
-            result = bar_service.validate_bars('000001.SZ', '20240101', '20240102')
+            result = bar_service.validate('000001.SZ', '20240101', '20240102')
 
             # 验证返回DataValidationResult
             assert isinstance(result, DataValidationResult)
@@ -561,7 +589,7 @@ class TestBarServiceDataValidation:
             bar_service = container.bar_service()
 
             # 测试无效数据验证
-            result = bar_service.validate_bars('INVALID_CODE', 'invalid_date', 'invalid_date')
+            result = bar_service.validate('INVALID_CODE', 'invalid_date', 'invalid_date')
 
             # 验证返回DataValidationResult
             assert isinstance(result, DataValidationResult)
@@ -586,7 +614,7 @@ class TestBarServiceDataValidation:
             bar_service = container.bar_service()
 
             # 测试有效日期范围
-            result = bar_service.validate_bars('000001.SZ', '20240101', '20240131')
+            result = bar_service.validate('000001.SZ', '20240101', '20240131')
 
             # 验证返回DataValidationResult
             assert isinstance(result, DataValidationResult)
@@ -597,7 +625,7 @@ class TestBarServiceDataValidation:
         except Exception as e:
             pytest.skip(f"BarService初始化失败，跳过测试: {e}")
 
-    def test_validate_bars_with_sample_data(self):
+    def test_validate_with_sample_data(self):
         """测试使用样本数据验证"""
         from ginkgo.data.containers import container
         from ginkgo.libs.data.results import DataValidationResult
@@ -608,7 +636,7 @@ class TestBarServiceDataValidation:
             bar_service = container.bar_service()
 
             # 使用已知存在的数据范围
-            result = bar_service.validate_bars('000001.SZ', '20240101', '20240103')
+            result = bar_service.validate('000001.SZ', '20240101', '20240103')
 
             # 验证返回DataValidationResult
             assert isinstance(result, DataValidationResult)
@@ -619,7 +647,7 @@ class TestBarServiceDataValidation:
         except Exception as e:
             pytest.skip(f"BarService初始化失败，跳过测试: {e}")
 
-    def test_check_bars_integrity_with_sample_data(self):
+    def test_check_integrity_with_sample_data(self):
         """测试使用样本数据进行完整性检查"""
         from ginkgo.data.containers import container
         from ginkgo.libs.data.results import DataIntegrityCheckResult
@@ -630,7 +658,7 @@ class TestBarServiceDataValidation:
             bar_service = container.bar_service()
 
             # 测试基础完整性检查
-            result = bar_service.check_bars_integrity('000001.SZ', '20240101', '20240103')
+            result = bar_service.check_integrity('000001.SZ', '20240101', '20240103')
 
             # 验证返回DataIntegrityCheckResult
             assert isinstance(result, DataIntegrityCheckResult)
@@ -654,7 +682,7 @@ class TestBarServiceDataValidation:
         try:
             bar_service = container.bar_service()
 
-            result = bar_service.validate_bars(
+            result = bar_service.validate(
                 "000001.SZ",
                 "20240101",
                 "20240102"
@@ -683,7 +711,7 @@ class TestBarServiceDataValidation:
         try:
             bar_service = container.bar_service()
 
-            result = bar_service.check_bars_integrity('000001.SZ', '20240101', '20240105')
+            result = bar_service.check_integrity('000001.SZ', '20240101', '20240105')
 
             if isinstance(result, DataIntegrityCheckResult):
                 # 验证评分计算
@@ -709,7 +737,7 @@ class TestBarServiceDataValidation:
             bar_service = container.bar_service()
 
             # 测试有缺失字段的数据
-            result = bar_service.validate_bars('000001.SZ', '20240101', '20240101')
+            result = bar_service.validate('000001.SZ', '20240101', '20240101')
 
             # 验证返回DataValidationResult
             assert isinstance(result, DataValidationResult)
@@ -731,7 +759,7 @@ class TestBarServiceDataValidation:
             bar_service = container.bar_service()
 
             # 测试OHLC逻辑验证
-            result = bar_service.validate_bars('000001.SZ', '20240101', '20240102')
+            result = bar_service.validate('000001.SZ', '20240101', '20240102')
 
             # 验证返回DataValidationResult
             assert isinstance(result, DataValidationResult)
@@ -748,7 +776,7 @@ class TestBarServiceDataValidation:
         except Exception as e:
             pytest.skip(f"BarService初始化失败，跳过测试: {e}")
 
-    def test_validate_bars_with_invalid_date_range(self):
+    def test_validate_with_invalid_date_range(self):
         """测试无效日期范围的数据验证"""
         from ginkgo.data.containers import container
         from ginkgo.libs.data.results import DataValidationResult
@@ -759,7 +787,7 @@ class TestBarServiceDataValidation:
             bar_service = container.bar_service()
 
             # 测试无效日期范围（开始晚于结束）
-            result = bar_service.validate_bars('000001.SZ', '20240131', '20240101')
+            result = bar_service.validate('000001.SZ', '20240131', '20240101')
 
             # 验证返回DataValidationResult
             assert isinstance(result, DataValidationResult)
@@ -770,7 +798,7 @@ class TestBarServiceDataValidation:
         except Exception as e:
             pytest.skip(f"BarService初始化失败，跳过测试: {e}")
 
-    def test_check_bars_integrity_with_large_gap(self):
+    def test_check_integrity_with_large_gap(self):
         """测试大数据缺口的完整性检查"""
         from ginkgo.data.containers import container
         from ginkgo.libs.data.results import DataIntegrityCheckResult
@@ -781,7 +809,7 @@ class TestBarServiceDataValidation:
             bar_service = container.bar_service()
 
             # 测试大时间范围（可能有数据缺口）
-            result = bar_service.check_bars_integrity('000001.SZ', '20230101', '20231231')
+            result = bar_service.check_integrity('000001.SZ', '20230101', '20231231')
 
             # 验证返回DataIntegrityCheckResult
             assert isinstance(result, DataIntegrityCheckResult)
@@ -814,7 +842,7 @@ class TestBarServiceDataValidation:
             ]
 
             for start_date, end_date in edge_cases:
-                result = bar_service.validate_bars('000001.SZ', start_date, end_date)
+                result = bar_service.validate('000001.SZ', start_date, end_date)
 
                 # 验证返回DataValidationResult
                 assert isinstance(result, DataValidationResult)
@@ -843,7 +871,7 @@ class TestBarServiceDataValidation:
         try:
             bar_service = container.bar_service()
 
-            result = bar_service.validate_bars(invalid_code, '20240101', '20240102')
+            result = bar_service.validate(invalid_code, '20240101', '20240102')
 
             # 验证返回DataValidationResult
             assert isinstance(result, DataValidationResult)
@@ -871,7 +899,7 @@ class TestBarServiceDataValidation:
             start_time = time.time()
 
             # 测试较大数据范围的验证
-            result = bar_service.validate_bars('000001.SZ', '20230101', '20231231')
+            result = bar_service.validate('000001.SZ', '20230101', '20231231')
 
             end_time = time.time()
             execution_time = end_time - start_time
@@ -894,8 +922,8 @@ class TestBarServiceDataValidation:
 class TestBarServiceErrorHandling:
     """9. 错误处理测试 - 使用真实数据库"""
 
-    def test_get_bars_handles_database_error(self):
-        """测试get_bars处理数据库错误"""
+    def test_get_handles_database_error(self):
+        """测试get处理数据库错误"""
         from ginkgo.data.containers import container
         from ginkgo.data.services.base_service import ServiceResult
         from ginkgo.libs import GCONF
@@ -905,7 +933,7 @@ class TestBarServiceErrorHandling:
             bar_service = container.bar_service()
 
             # 测试极端参数不应该崩溃
-            result = bar_service.get_bars(
+            result = bar_service.get(
                 code="NONEXISTENT",
                 start_date="19000101",
                 end_date="21000101"
@@ -928,7 +956,7 @@ class TestBarServiceErrorHandling:
             bar_service = container.bar_service()
 
             # 测试无效数据范围
-            result = bar_service.sync_by_range(
+            result = bar_service.sync_range(
                 code="INVALID",
                 start_date="invalid_start",
                 end_date="invalid_end"
@@ -955,7 +983,7 @@ class TestBarServiceErrorHandling:
             bar_service = container.bar_service()
 
             # 测试无复权因子数据的股票
-            result = bar_service.get_bars(
+            result = bar_service.get(
                 code="000001.SZ",
                 start_date="20240101",
                 end_date="20240102"
@@ -970,7 +998,7 @@ class TestBarServiceErrorHandling:
         except Exception as e:
             pytest.skip(f"BarService初始化失败，跳过测试: {e}")
 
-    def test_count_bars_handles_database_connection_error(self):
+    def test_count_handles_database_connection_error(self):
         """测试计数处理数据库连接错误"""
         from ginkgo.data.containers import container
         from ginkgo.data.services.base_service import ServiceResult
@@ -981,7 +1009,7 @@ class TestBarServiceErrorHandling:
             bar_service = container.bar_service()
 
             # 测试可能导致错误的参数
-            result = bar_service.count_bars(code="", start_date=None, end_date=None)
+            result = bar_service.count(code="", start_date=None, end_date=None)
 
             # 验证返回ServiceResult格式
             assert isinstance(result, ServiceResult)
@@ -989,7 +1017,7 @@ class TestBarServiceErrorHandling:
         except Exception as e:
             pytest.skip(f"BarService初始化失败，跳过测试: {e}")
 
-    def test_validate_bars_handles_corrupted_data(self):
+    def test_validate_handles_corrupted_data(self):
         """测试数据验证处理损坏数据"""
         from ginkgo.data.containers import container
         from ginkgo.libs.data.results import DataValidationResult
@@ -1000,7 +1028,7 @@ class TestBarServiceErrorHandling:
             bar_service = container.bar_service()
 
             # 测试极端参数
-            result = bar_service.validate_bars(
+            result = bar_service.validate(
                 "",
                 "",
                 ""
@@ -1015,7 +1043,7 @@ class TestBarServiceErrorHandling:
         except Exception as e:
             pytest.skip(f"BarService初始化失败，跳过测试: {e}")
 
-    def test_check_bars_integrity_handles_edge_cases(self):
+    def test_check_integrity_handles_edge_cases(self):
         """测试完整性检查处理边界情况"""
         from ginkgo.data.containers import container
         from ginkgo.libs.data.results import DataIntegrityCheckResult
@@ -1026,9 +1054,9 @@ class TestBarServiceErrorHandling:
             bar_service = container.bar_service()
 
             # 测试边界情况
-            result1 = bar_service.check_bars_integrity("", "20240101", "20240101")
-            result2 = bar_service.check_bars_integrity("000001.SZ", "", "")
-            result3 = bar_service.check_bars_integrity("000001.SZ", "21000101", "21000101")
+            result1 = bar_service.check_integrity("", "20240101", "20240101")
+            result2 = bar_service.check_integrity("000001.SZ", "", "")
+            result3 = bar_service.check_integrity("000001.SZ", "21000101", "21000101")
 
             # 所有情况都应该返回DataIntegrityCheckResult对象，而不是抛出异常
             assert isinstance(result1, DataIntegrityCheckResult)
@@ -1057,7 +1085,7 @@ class TestBarServiceErrorHandling:
             bar_service = container.bar_service()
 
             # 测试各种无效日期范围组合
-            result = bar_service.validate_bars('000001.SZ', start_date, end_date)
+            result = bar_service.validate('000001.SZ', start_date, end_date)
 
             # 验证返回有效结果对象
             from ginkgo.libs.data.results import DataValidationResult
@@ -1078,9 +1106,9 @@ class TestBarServiceErrorHandling:
 
             # 测试可能出错的方法调用
             test_cases = [
-                lambda: bar_service.get_bars(code="", start_date="", end_date=""),
-                lambda: bar_service.count_bars(code="INVALID"),
-                lambda: bar_service.sync_by_range(code="", start_date="", end_date="")
+                lambda: bar_service.get(code="", start_date="", end_date=""),
+                lambda: bar_service.count(code="INVALID"),
+                lambda: bar_service.sync_range(code="", start_date="", end_date="")
             ]
 
             for test_case in test_cases:
@@ -1110,9 +1138,9 @@ class TestBarServiceErrorHandling:
 
             # 测试各种错误场景
             error_scenarios = [
-                lambda: bar_service.get_bars(code="NONEXISTENT", start_date="invalid", end_date="invalid"),
-                lambda: bar_service.count_bars(code=""),
-                lambda: bar_service.validate_bars(code="", start_date="", end_date="")
+                lambda: bar_service.get(code="NONEXISTENT", start_date="invalid", end_date="invalid"),
+                lambda: bar_service.count(code=""),
+                lambda: bar_service.validate(code="", start_date="", end_date="")
             ]
 
             for scenario in error_scenarios:
@@ -1145,8 +1173,8 @@ class TestBarServiceSyncMethods:
         'bar': {'code__in': ['000001.SZ', '000002.SZ']}
     }
 
-    def test_sync_by_range_basic_functionality(self):
-        """测试sync_by_range基础功能"""
+    def test_sync_range_basic_functionality(self):
+        """测试sync_range基础功能"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
         from ginkgo import service_hub
@@ -1156,10 +1184,10 @@ class TestBarServiceSyncMethods:
             bar_service = service_hub.data.bar_service()
 
             # 记录同步前的数据库状态
-            before_count = bar_service.crud_repo.count(filters={'code': '000001.SZ'})
+            before_count = bar_service._crud_repo.count(filters={'code': '000001.SZ'})
 
             # 执行同步
-            result = bar_service.sync_by_range(
+            result = bar_service.sync_range(
                 code="000001.SZ",
                 start_date="20231201",
                 end_date="20231205"
@@ -1170,7 +1198,7 @@ class TestBarServiceSyncMethods:
             assert result.data is not None, "同步结果数据不能为空"
 
             # 记录同步后的数据库状态
-            after_count = bar_service.crud_repo.count(filters={'code': '000001.SZ'})
+            after_count = bar_service._crud_repo.count(filters={'code': '000001.SZ'})
 
             # 验证数据增量与同步统计一致
             actual_increment = after_count - before_count
@@ -1190,7 +1218,7 @@ class TestBarServiceSyncMethods:
                 assert abs(actual_success_rate - expected_success_rate) < 0.01, \
                     f"成功率计算错误: 期望{expected_success_rate:.4f}, 实际{actual_success_rate:.4f}"
 
-    def test_sync_by_range_idempotency(self):
+    def test_sync_range_idempotency(self):
         """测试同步的幂等性"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
@@ -1201,7 +1229,7 @@ class TestBarServiceSyncMethods:
             bar_service = service_hub.data.bar_service()
 
             # 第一次同步
-            result1 = bar_service.sync_by_range(
+            result1 = bar_service.sync_range(
                 code="000001.SZ",
                 start_date="20231201",
                 end_date="20231205"
@@ -1211,7 +1239,7 @@ class TestBarServiceSyncMethods:
             first_sync_processed = result1.data.records_processed
 
             # 第二次同步相同范围
-            result2 = bar_service.sync_by_range(
+            result2 = bar_service.sync_range(
                 code="000001.SZ",
                 start_date="20231201",
                 end_date="20231205"
@@ -1235,7 +1263,7 @@ class TestBarServiceSyncMethods:
             assert result2.data.records_processed >= first_sync_processed, \
                 "第二次同步应该处理相同数量的记录以检查重复"
 
-    def test_sync_by_range_error_handling(self):
+    def test_sync_range_error_handling(self):
         """测试同步错误处理"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
@@ -1249,7 +1277,7 @@ class TestBarServiceSyncMethods:
             # 目前跳过，记录为待实现
             pytest.skip("等待StockInfoService测试完善后再实现")
 
-    def test_sync_batch_by_range_batch_processing(self):
+    def test_sync_batch_batch_processing(self):
         """测试批量同步的批处理功能"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
@@ -1265,11 +1293,11 @@ class TestBarServiceSyncMethods:
             end_date = "20231203"
 
             # 记录同步前的数据库状态
-            before_000001 = bar_service.crud_repo.count(filters={'code': '000001.SZ'})
-            before_000002 = bar_service.crud_repo.count(filters={'code': '000002.SZ'})
+            before_000001 = bar_service._crud_repo.count(filters={'code': '000001.SZ'})
+            before_000002 = bar_service._crud_repo.count(filters={'code': '000002.SZ'})
 
             # 执行批量同步
-            result = bar_service.sync_batch_by_range(codes=codes, start_date=start_date, end_date=end_date)
+            result = bar_service.sync_batch(codes=codes, start_date=start_date, end_date=end_date)
 
             # 验证批量同步成功
             assert result.success, f"批量同步失败: {result.message}"
@@ -1289,8 +1317,8 @@ class TestBarServiceSyncMethods:
             assert batch_result.records_processed >= 2, "每个股票都应该有数据处理"
 
             # 记录同步后的数据库状态
-            after_000001 = bar_service.crud_repo.count(filters={'code': '000001.SZ'})
-            after_000002 = bar_service.crud_repo.count(filters={'code': '000002.SZ'})
+            after_000001 = bar_service._crud_repo.count(filters={'code': '000001.SZ'})
+            after_000002 = bar_service._crud_repo.count(filters={'code': '000002.SZ'})
 
             # 验证数据增量
             increment_000001 = after_000001 - before_000001
@@ -1304,7 +1332,7 @@ class TestBarServiceSyncMethods:
             assert total_increment == batch_result.records_added, \
                 f"数据库增量({total_increment})与同步统计({batch_result.records_added})不一致"
 
-    def test_sync_batch_by_range_error_isolation(self):
+    def test_sync_batch_error_isolation(self):
         """测试批量同步的错误隔离"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
@@ -1320,7 +1348,7 @@ class TestBarServiceSyncMethods:
             end_date = "20231203"
 
             # 执行批量同步
-            result = bar_service.sync_batch_by_range(codes=codes, start_date=start_date, end_date=end_date)
+            result = bar_service.sync_batch(codes=codes, start_date=start_date, end_date=end_date)
 
             # 验证批量同步执行（部分成功）
             assert result.success, "批量同步应该执行完成"
@@ -1348,7 +1376,7 @@ class TestBarServiceSyncMethods:
             success_rate = batch_result.get_success_rate()
             assert 0.0 <= success_rate <= 100.0, "成功率应该在0-100%之间"
 
-    def test_sync_full_functionality(self):
+    def test_sync_smart_functionality(self):
         """测试全量同步功能"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
@@ -1359,10 +1387,10 @@ class TestBarServiceSyncMethods:
             bar_service = service_hub.data.bar_service()
 
             # 记录同步前的数据库状态
-            before_count = bar_service.crud_repo.count()
+            before_count = bar_service._crud_repo.count()
 
             # 执行全量同步
-            result = bar_service.sync_full(code="000001.SZ")
+            result = bar_service.sync_smart(code="000001.SZ")
 
             # 验证全量同步成功
             assert result.success, f"全量同步失败: {result.message}"
@@ -1379,7 +1407,7 @@ class TestBarServiceSyncMethods:
             assert sync_result.records_added >= 0, "新增的记录数应该非负"
 
             # 记录同步后的数据库状态
-            after_count = bar_service.crud_repo.count()
+            after_count = bar_service._crud_repo.count()
 
             # 验证数据增量
             actual_increment = after_count - before_count
@@ -1404,10 +1432,10 @@ class TestBarServiceSyncMethods:
             bar_service = service_hub.data.bar_service()
 
             # 记录初始数据库状态
-            initial_count = bar_service.crud_repo.count(filters={'code': '000002.SZ'})
+            initial_count = bar_service._crud_repo.count(filters={'code': '000002.SZ'})
 
             # 阶段1: 部分同步（模拟中断）
-            partial_result = bar_service.sync_by_range(
+            partial_result = bar_service.sync_range(
                 code="000002.SZ",
                 start_date="20231201",
                 end_date="20231210"
@@ -1415,13 +1443,13 @@ class TestBarServiceSyncMethods:
             assert partial_result.success, f"部分同步失败: {partial_result.message}"
 
             # 验证部分同步成功
-            partial_count = bar_service.crud_repo.count(filters={'code': '000002.SZ'})
+            partial_count = bar_service._crud_repo.count(filters={'code': '000002.SZ'})
             partial_increment = partial_count - initial_count
             assert partial_increment == partial_result.data.records_added, \
                 "部分同步的数据库增量应该与同步统计一致"
 
             # 阶段2: 模拟中断后恢复（从最后同步点前2天开始）
-            recovery_result = bar_service.sync_by_range(
+            recovery_result = bar_service.sync_range(
                 code="000002.SZ",
                 start_date="20231209",  # 从部分同步的最后2天前开始
                 end_date="20251129"     # 到当前时间
@@ -1429,7 +1457,7 @@ class TestBarServiceSyncMethods:
             assert recovery_result.success, f"恢复同步失败: {recovery_result.message}"
 
             # 验证恢复同步成功
-            recovery_count = bar_service.crud_repo.count(filters={'code': '000002.SZ'})
+            recovery_count = bar_service._crud_repo.count(filters={'code': '000002.SZ'})
             recovery_increment = recovery_count - partial_count
 
             # 验证恢复同步添加了数据（包括重复检查后的新增数据）
@@ -1437,7 +1465,7 @@ class TestBarServiceSyncMethods:
             assert recovery_increment >= 0, "数据库增量应该非负"
 
             # 阶段3: 验证断点续传的幂等性
-            verify_result = bar_service.sync_by_range(
+            verify_result = bar_service.sync_range(
                 code="000002.SZ",
                 start_date="20231209",
                 end_date="20251129"
@@ -1449,7 +1477,7 @@ class TestBarServiceSyncMethods:
                 "验证同步的新增数据应该小于等于恢复同步"
 
             # 最终验证：总数据量应该合理
-            final_count = bar_service.crud_repo.count(filters={'code': '000002.SZ'})
+            final_count = bar_service._crud_repo.count(filters={'code': '000002.SZ'})
             total_increment = final_count - initial_count
 
             assert total_increment > 0, "整个过程应该有净数据增量"
@@ -1462,9 +1490,9 @@ class TestBarServiceMethodFunctionality:
     """测试BarService重构后方法的实际功能和错误处理"""
 
     
-    def test_check_bars_integrity_basic_functionality(self):
+    def test_check_integrity_basic_functionality(self):
         """
-        测试check_bars_integrity基础完整性检查功能
+        测试check_integrity基础完整性检查功能
 
         验证数据完整性检查机制的核心功能
         """
@@ -1478,7 +1506,7 @@ class TestBarServiceMethodFunctionality:
             bar_service = service_hub.data.bar_service()
 
             # 同步一些测试数据
-            sync_result = bar_service.sync_by_range(
+            sync_result = bar_service.sync_range(
                 code="000001.SZ",
                 start_date="20231201",
                 end_date="20231205"
@@ -1486,33 +1514,40 @@ class TestBarServiceMethodFunctionality:
             assert sync_result.success, f"数据同步失败: {sync_result.message}"
 
             # 测试正常数据的完整性检查
-            result = bar_service.check_bars_integrity('000001.SZ', '20231201', '20231205')
+            result = bar_service.check_integrity('000001.SZ', '20231201', '20231205')
 
-            # 验证返回DataIntegrityCheckResult
-            assert isinstance(result, DataIntegrityCheckResult), "应该返回DataIntegrityCheckResult"
+            # 验证返回ServiceResult
+            assert isinstance(result, ServiceResult), "应该返回ServiceResult"
+            assert result.success, f"完整性检查应该成功: {result.message}"
+            assert result.data is not None, "应该包含DataIntegrityCheckResult数据"
+
+            # 提取DataIntegrityCheckResult
+            integrity_result = result.data
+            assert isinstance(integrity_result, DataIntegrityCheckResult), "data应该包含DataIntegrityCheckResult"
 
             # 验证完整性检查的核心属性
-            assert hasattr(result, 'missing_records'), "应该有缺失记录数属性"
-            assert hasattr(result, 'duplicate_records'), "应该有重复记录数属性"
-            assert hasattr(result, 'integrity_score'), "应该有完整性评分属性"
-            assert hasattr(result, 'metadata'), "应该有元数据属性"
+            assert hasattr(integrity_result, 'missing_records'), "应该有缺失记录数属性"
+            assert hasattr(integrity_result, 'duplicate_records'), "应该有重复记录数属性"
+            assert hasattr(integrity_result, 'integrity_score'), "应该有完整性评分属性"
+            assert hasattr(integrity_result, 'metadata'), "应该有元数据属性"
 
             # 验证预期交易日数在metadata中
-            assert 'expected_trading_days' in result.metadata, "预期交易日数应该在metadata中"
+            assert 'expected_trading_days' in integrity_result.metadata, "预期交易日数应该在metadata中"
 
             # 验证数据类型的合理性
-            assert isinstance(result.metadata['expected_trading_days'], int), "预期交易日数应该是整数"
-            assert isinstance(result.missing_records, int), "缺失记录数应该是整数"
-            assert isinstance(result.duplicate_records, int), "重复记录数应该是整数"
-            assert isinstance(result.integrity_score, float), "完整性评分应该是浮点数"
+            assert isinstance(integrity_result.metadata['expected_trading_days'], int), "预期交易日数应该是整数"
+            assert isinstance(integrity_result.missing_records, int), "缺失记录数应该是整数"
+            assert isinstance(integrity_result.duplicate_records, int), "重复记录数应该是整数"
+            assert isinstance(integrity_result.integrity_score, float), "完整性评分应该是浮点数"
 
             # 验证完整性评分
-            score = result.integrity_score
+            score = integrity_result.integrity_score
             assert 0.0 <= score <= 100.0, f"完整性评分应该在0-100之间，实际：{score}"
 
             # 测试不存在股票的完整性检查
-            result_invalid = bar_service.check_bars_integrity('999999.SZ', '20231201', '20231205')
-            assert isinstance(result_invalid, DataIntegrityCheckResult)
+            result_invalid = bar_service.check_integrity('999999.SZ', '20231201', '20231205')
+            assert isinstance(result_invalid, ServiceResult)
             # 不存在的股票应该有完整性检查结果
-            assert result_invalid.total_records == 0, "不存在的股票记录数应该为0"
-            assert len(result_invalid.integrity_issues) > 0, "不存在的股票应该有完整性问题"
+            integrity_invalid = result_invalid.data
+            assert integrity_invalid.total_records == 0, "不存在的股票记录数应该为0"
+            assert len(integrity_invalid.integrity_issues) > 0, "不存在的股票应该有完整性问题"
