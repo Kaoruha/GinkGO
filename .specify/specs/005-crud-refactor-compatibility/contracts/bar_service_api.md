@@ -7,14 +7,37 @@
 
 BarService API定义了数据同步、验证和查询的标准接口，所有方法都返回ServiceResult格式。
 
-## 方法签名
+## 统一命名规则
 
-### sync_bars()
+### 设计原则
+- 面向对象设计：方法名表达动作，避免重复服务名+对象名
+- 统一模式：所有Data Service使用相同的方法命名规则
+- 清晰语义：通过方法后缀区分不同的同步模式
 
-**功能**: 智能增量同步Bar数据
+### 标准方法模式
+
+#### 同步方法
+- `sync_range()` - 按日期范围同步
+- `sync_batch()` - 批量同步多个对象
+- `sync_smart()` - 智能同步（根据已有数据推断范围）
+- `sync_date()` - 按指定日期同步（TickService特有）
+
+#### 查询方法
+- `get()` - 查询数据
+- `count()` - 计数数据
+
+#### 验证方法
+- `validate()` - 数据验证
+- `check_integrity()` - 完整性检查
+
+## BarService API
+
+### sync_range()
+
+**功能**: 按日期范围智能增量同步Bar数据
 
 ```python
-def sync_bars(
+def sync_range(
     self,
     code: str,
     start_date: datetime = None,
@@ -31,12 +54,12 @@ def sync_bars(
 
 **返回**: ServiceResult包含DataSyncResult
 
-### sync_bars_batch()
+### sync_batch()
 
 **功能**: 批量同步多个股票
 
 ```python
-def sync_bars_batch(
+def sync_batch(
     self,
     codes: List[str],
     start_date: datetime = None,
