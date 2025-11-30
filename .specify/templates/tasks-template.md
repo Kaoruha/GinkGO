@@ -267,6 +267,16 @@ With multiple developers:
 
 ---
 
+## 任务管理原则遵循
+
+根据章程第6条任务管理原则，请确保：
+
+- **任务数量控制**: 活跃任务列表不得超过5个任务，超出部分应归档或延期
+- **定期清理**: 在每个开发阶段完成后，主动清理已完成和过期的任务
+- **优先级明确**: 高优先级任务优先显示和执行
+- **状态实时更新**: 任务状态必须及时更新，保持团队协作效率
+- **用户体验优化**: 保持任务列表简洁，避免过长影响开发体验
+
 ## Notes
 
 - [P] tasks = different files, no dependencies
@@ -276,3 +286,4 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
+- **任务管理原则**: 遵循章程要求，保持任务列表精简高效
