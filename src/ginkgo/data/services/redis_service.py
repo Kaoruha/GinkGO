@@ -49,8 +49,8 @@ class RedisService(DataService):
             cache_key = f"{data_type}_update_{code}"
             date_str = date.strftime("%Y-%m-%d")
             
-            self.crud_repo.sadd(cache_key, date_str)
-            self.crud_repo.expire(cache_key, 60 * 60 * 24 * 30)  # 30天TTL
+            self._crud_repo.sadd(cache_key, date_str)
+            self._crud_repo.expire(cache_key, 60 * 60 * 24 * 30)  # 30天TTL
             
             self._logger.DEBUG(f"Saved sync progress: {code} - {date_str}")
             return True
@@ -71,7 +71,7 @@ class RedisService(DataService):
         """
         try:
             cache_key = f"{data_type}_update_{code}"
-            return self.crud_repo.smembers(cache_key)
+            return self._crud_repo.smembers(cache_key)
         except Exception as e:
             self._logger.ERROR(f"Failed to get sync progress: {e}")
             return set()
@@ -105,7 +105,7 @@ class RedisService(DataService):
         """
         try:
             cache_key = f"{data_type}_update_{code}"
-            deleted = self.crud_repo.delete(cache_key)
+            deleted = self._crud_repo.delete(cache_key)
             self._logger.INFO(f"Cleared sync progress for {code} ({data_type}), deleted: {deleted}")
             return True
         except Exception as e:
@@ -128,7 +128,7 @@ class RedisService(DataService):
             else:
                 cache_pattern = "*_update_*"
             
-            deleted = self.crud_repo.delete_pattern(cache_pattern)
+            deleted = self._crud_repo.delete_pattern(cache_pattern)
             self._logger.INFO(f"Cleared {deleted} sync progress cache entries with pattern '{cache_pattern}'")
             return deleted
         except Exception as e:
@@ -198,7 +198,7 @@ class RedisService(DataService):
                 "metadata": metadata or {}
             }
             
-            self.crud_repo.set(cache_key, task_data, 60 * 60 * 24 * 7)  # 7天TTL
+            self._crud_repo.set(cache_key, task_data, 60 * 60 * 24 * 7)  # 7天TTL
             return True
         except Exception as e:
             self._logger.ERROR(f"Failed to save task status: {e}")
@@ -208,7 +208,7 @@ class RedisService(DataService):
         """获取任务状态"""
         try:
             cache_key = f"task_status_{task_id}"
-            return self.crud_repo.get(cache_key)
+            return self._crud_repo.get(cache_key)
         except Exception as e:
             self._logger.ERROR(f"Failed to get task status: {e}")
             return None
@@ -218,7 +218,7 @@ class RedisService(DataService):
     def set_cache(self, key: str, value: Any, expire_seconds: int = 3600):
         """设置缓存"""
         try:
-            return self.crud_repo.set(key, value, expire_seconds)
+            return self._crud_repo.set(key, value, expire_seconds)
         except Exception as e:
             self._logger.ERROR(f"Failed to set cache: {e}")
             return False
@@ -226,7 +226,7 @@ class RedisService(DataService):
     def get_cache(self, key: str) -> Optional[Any]:
         """获取缓存"""
         try:
-            return self.crud_repo.get(key)
+            return self._crud_repo.get(key)
         except Exception as e:
             self._logger.ERROR(f"Failed to get cache: {e}")
             return None
@@ -234,7 +234,7 @@ class RedisService(DataService):
     def delete_cache(self, key: str) -> bool:
         """删除缓存"""
         try:
-            return self.crud_repo.delete(key)
+            return self._crud_repo.delete(key)
         except Exception as e:
             self._logger.ERROR(f"Failed to delete cache: {e}")
             return False
@@ -242,7 +242,7 @@ class RedisService(DataService):
     def exists(self, key: str) -> bool:
         """检查key是否存在"""
         try:
-            return self.crud_repo.exists(key)
+            return self._crud_repo.exists(key)
         except Exception as e:
             self._logger.ERROR(f"Failed to check key existence: {e}")
             return False
@@ -261,7 +261,7 @@ class RedisService(DataService):
         """
         try:
             maincontrol_key = "ginkgo_maincontrol"
-            success = self.crud_repo.set(maincontrol_key, str(pid))
+            success = self._crud_repo.set(maincontrol_key, str(pid))
             if success:
                 self._logger.INFO(f"Registered main process: {pid}")
             return success
@@ -278,7 +278,7 @@ class RedisService(DataService):
         """
         try:
             maincontrol_key = "ginkgo_maincontrol"
-            success = self.crud_repo.delete(maincontrol_key)
+            success = self._crud_repo.delete(maincontrol_key)
             if success:
                 self._logger.INFO("Unregistered main process")
             return success
@@ -295,7 +295,7 @@ class RedisService(DataService):
         """
         try:
             maincontrol_key = "ginkgo_maincontrol"
-            pid_str = self.crud_repo.get(maincontrol_key)
+            pid_str = self._crud_repo.get(maincontrol_key)
             return int(pid_str) if pid_str else None
         except Exception as e:
             self._logger.ERROR(f"Failed to get main process PID: {e}")
@@ -313,7 +313,7 @@ class RedisService(DataService):
         """
         try:
             watchdog_key = "ginkgo_watchdog"
-            success = self.crud_repo.set(watchdog_key, str(pid))
+            success = self._crud_repo.set(watchdog_key, str(pid))
             if success:
                 self._logger.INFO(f"Registered watchdog process: {pid}")
             return success
@@ -330,7 +330,7 @@ class RedisService(DataService):
         """
         try:
             watchdog_key = "ginkgo_watchdog"
-            success = self.crud_repo.delete(watchdog_key)
+            success = self._crud_repo.delete(watchdog_key)
             if success:
                 self._logger.INFO("Unregistered watchdog process")
             return success
@@ -347,7 +347,7 @@ class RedisService(DataService):
         """
         try:
             watchdog_key = "ginkgo_watchdog"
-            pid_str = self.crud_repo.get(watchdog_key)
+            pid_str = self._crud_repo.get(watchdog_key)
             return int(pid_str) if pid_str else None
         except Exception as e:
             self._logger.ERROR(f"Failed to get watchdog PID: {e}")
@@ -369,12 +369,12 @@ class RedisService(DataService):
                 general_pool = "ginkgo_thread_pool"
                 data_pool = "ginkgo_dataworker_pool"
                 # 数据工作进程需要加入两个池
-                success1 = self.crud_repo.sadd(general_pool, str(pid))
-                success2 = self.crud_repo.sadd(data_pool, str(pid))
+                success1 = self._crud_repo.sadd(general_pool, str(pid))
+                success2 = self._crud_repo.sadd(data_pool, str(pid))
                 success = success1 and success2
             else:
                 pool_key = "ginkgo_thread_pool"
-                success = self.crud_repo.sadd(pool_key, str(pid)) > 0
+                success = self._crud_repo.sadd(pool_key, str(pid)) > 0
             
             if success:
                 self._logger.DEBUG(f"Added worker {pid} to {pool_type} pool")
@@ -399,12 +399,12 @@ class RedisService(DataService):
                 general_pool = "ginkgo_thread_pool"
                 data_pool = "ginkgo_dataworker_pool"
                 # 从两个池中移除
-                success1 = self.crud_repo.srem(general_pool, str(pid))
-                success2 = self.crud_repo.srem(data_pool, str(pid))
+                success1 = self._crud_repo.srem(general_pool, str(pid))
+                success2 = self._crud_repo.srem(data_pool, str(pid))
                 success = success1 or success2  # 只要有一个成功就算成功
             else:
                 pool_key = "ginkgo_thread_pool"
-                success = self.crud_repo.srem(pool_key, str(pid)) > 0
+                success = self._crud_repo.srem(pool_key, str(pid)) > 0
             
             if success:
                 self._logger.DEBUG(f"Removed worker {pid} from {pool_type} pool")
@@ -429,7 +429,7 @@ class RedisService(DataService):
             else:
                 pool_key = "ginkgo_thread_pool"
             
-            return self.crud_repo.scard(pool_key)
+            return self._crud_repo.scard(pool_key)
         except Exception as e:
             self._logger.ERROR(f"Failed to get worker pool size: {e}")
             return 0
@@ -450,7 +450,7 @@ class RedisService(DataService):
             else:
                 pool_key = "ginkgo_thread_pool"
             
-            pid_strings = self.crud_repo.smembers(pool_key)
+            pid_strings = self._crud_repo.smembers(pool_key)
             return {int(pid_str) for pid_str in pid_strings if pid_str.isdigit()}
         except Exception as e:
             self._logger.ERROR(f"Failed to get all workers: {e}")
@@ -477,7 +477,7 @@ class RedisService(DataService):
             status_data['updated_at'] = time.time()
             
             # 直接存储dict，让RedisCRUD自动处理JSON序列化
-            success = self.crud_repo.set(task_key, status_data, ttl)
+            success = self._crud_repo.set(task_key, status_data, ttl)
             if success:
                 self._logger.DEBUG(f"Set task status: {task_key}")
             return success
@@ -497,7 +497,7 @@ class RedisService(DataService):
         """
         try:
             # 直接获取dict，RedisCRUD自动处理JSON反序列化
-            status_data = self.crud_repo.get(task_key)
+            status_data = self._crud_repo.get(task_key)
             return status_data
         except Exception as e:
             self._logger.ERROR(f"Failed to get task status by key: {e}")
@@ -544,7 +544,7 @@ class RedisService(DataService):
             cleaned_count = 0
             
             # 获取所有任务键
-            task_keys = self.crud_repo.keys("ginkgo_task_*")
+            task_keys = self._crud_repo.keys("ginkgo_task_*")
             
             for task_key in task_keys:
                 task_status = self.get_task_status_by_key(task_key)
@@ -552,7 +552,7 @@ class RedisService(DataService):
                     last_update = task_status['updated_at']
                     if current_time - last_update > max_idle_time:
                         # 任务超过最大空闲时间，删除
-                        if self.crud_repo.delete(task_key):
+                        if self._crud_repo.delete(task_key):
                             cleaned_count += 1
                             self._logger.DEBUG(f"Cleaned dead task: {task_key}")
             
@@ -576,7 +576,7 @@ class RedisService(DataService):
         """
         try:
             active_tasks = {}
-            task_keys = self.crud_repo.keys(pattern)
+            task_keys = self._crud_repo.keys(pattern)
             
             for task_key in task_keys:
                 task_status = self.get_task_status_by_key(task_key)
@@ -639,7 +639,7 @@ class RedisService(DataService):
     def get_redis_info(self) -> Dict[str, Any]:
         """获取Redis服务器信息"""
         try:
-            return self.crud_repo.info()
+            return self._crud_repo.info()
         except Exception as e:
             self._logger.ERROR(f"Failed to get Redis info: {e}")
             return {"connected": False, "error": str(e)}
@@ -673,7 +673,7 @@ class RedisService(DataService):
             
             # 序列化并存储
             cache_json = json.dumps(cache_data, default=str)
-            success = self.crud_repo.set(full_cache_key, cache_json, expiration_seconds)
+            success = self._crud_repo.set(full_cache_key, cache_json, expiration_seconds)
             
             if success:
                 self._logger.DEBUG(f"Set function cache: {func_name} -> {cache_key}")
@@ -697,7 +697,7 @@ class RedisService(DataService):
             import json
             
             full_cache_key = f"ginkgo_func_cache_{func_name}_{cache_key}"
-            cache_json = self.crud_repo.get(full_cache_key)
+            cache_json = self._crud_repo.get(full_cache_key)
             
             if cache_json:
                 cache_data = json.loads(cache_json)
@@ -727,11 +727,11 @@ class RedisService(DataService):
             else:
                 cache_pattern = "ginkgo_func_cache_*"
             
-            cache_keys = self.crud_repo.keys(cache_pattern)
+            cache_keys = self._crud_repo.keys(cache_pattern)
             cleared_count = 0
             
             for cache_key in cache_keys:
-                if self.crud_repo.delete(cache_key):
+                if self._crud_repo.delete(cache_key):
                     cleared_count += 1
             
             if cleared_count > 0:
@@ -761,7 +761,7 @@ class RedisService(DataService):
             else:
                 cache_pattern = "ginkgo_func_cache_*"
             
-            cache_keys = self.crud_repo.keys(cache_pattern)
+            cache_keys = self._crud_repo.keys(cache_pattern)
             
             stats = {
                 "total_entries": len(cache_keys),
@@ -775,7 +775,7 @@ class RedisService(DataService):
             
             for cache_key in cache_keys:
                 try:
-                    cache_json = self.crud_repo.get(cache_key)
+                    cache_json = self._crud_repo.get(cache_key)
                     if cache_json:
                         cache_data = json.loads(cache_json)
                         func_name_from_cache = cache_data.get("func_name", "unknown")
@@ -819,12 +819,12 @@ class RedisService(DataService):
         """
         try:
             cache_pattern = "ginkgo_func_cache_*"
-            cache_keys = self.crud_repo.keys(cache_pattern)
+            cache_keys = self._crud_repo.keys(cache_pattern)
             
             checked_count = 0
             for cache_key in cache_keys:
                 # 尝试获取TTL，如果返回-2则表示键已过期或不存在
-                ttl = self.crud_repo.ttl(cache_key)
+                ttl = self._crud_repo.ttl(cache_key)
                 if ttl == -2:  # Key doesn't exist (expired)
                     checked_count += 1
                     
@@ -846,10 +846,10 @@ class RedisService(DataService):
             test_key = "ginkgo_func_cache_test"
             test_value = "test"
             
-            success = self.crud_repo.set(test_key, test_value, 1)  # 1秒过期
+            success = self._crud_repo.set(test_key, test_value, 1)  # 1秒过期
             if success:
-                retrieved = self.crud_repo.get(test_key)
-                self.crud_repo.delete(test_key)  # 清理测试键
+                retrieved = self._crud_repo.get(test_key)
+                self._crud_repo.delete(test_key)  # 清理测试键
                 return retrieved == test_value
             
             return False
@@ -872,7 +872,7 @@ class RedisService(DataService):
             tuple: (下一个游标, 成员列表)
         """
         try:
-            return self.crud_repo.sscan(pool_name, cursor=cursor, count=count)
+            return self._crud_repo.sscan(pool_name, cursor=cursor, count=count)
         except Exception as e:
             self._logger.ERROR(f"Failed to scan thread pool {pool_name}: {e}")
             return (0, [])
@@ -890,7 +890,7 @@ class RedisService(DataService):
             tuple: (下一个游标, 成员列表)
         """
         try:
-            return self.crud_repo.sscan(pool_name, cursor=cursor, count=count)
+            return self._crud_repo.sscan(pool_name, cursor=cursor, count=count)
         except Exception as e:
             self._logger.ERROR(f"Failed to scan worker pool {pool_name}: {e}")
             return (0, [])
@@ -907,7 +907,7 @@ class RedisService(DataService):
             int: 添加后列表长度
         """
         try:
-            return self.crud_repo.lpush(list_name, value)
+            return self._crud_repo.lpush(list_name, value)
         except Exception as e:
             self._logger.ERROR(f"Failed to add to thread list {list_name}: {e}")
             return 0
@@ -925,7 +925,7 @@ class RedisService(DataService):
             int: 实际移除的元素数量
         """
         try:
-            return self.crud_repo.lrem(list_name, count, value)
+            return self._crud_repo.lrem(list_name, count, value)
         except Exception as e:
             self._logger.ERROR(f"Failed to remove from thread list {list_name}: {e}")
             return 0
@@ -941,7 +941,7 @@ class RedisService(DataService):
             Optional[str]: 弹出的元素
         """
         try:
-            return self.crud_repo.lpop(list_name)
+            return self._crud_repo.lpop(list_name)
         except Exception as e:
             self._logger.ERROR(f"Failed to pop from thread list {list_name}: {e}")
             return None
@@ -957,7 +957,7 @@ class RedisService(DataService):
             int: 列表长度
         """
         try:
-            return self.crud_repo.llen(list_name)
+            return self._crud_repo.llen(list_name)
         except Exception as e:
             self._logger.ERROR(f"Failed to get thread list length {list_name}: {e}")
             return 0
@@ -976,7 +976,7 @@ class RedisService(DataService):
             cleaned_count = 0
             for pid in worker_pids:
                 status_key = f"ginkgo_worker_status_{pid}"
-                if self.crud_repo.delete(status_key):
+                if self._crud_repo.delete(status_key):
                     cleaned_count += 1
                     
             if cleaned_count > 0:
@@ -998,7 +998,7 @@ class RedisService(DataService):
             bool: 是否成功添加
         """
         try:
-            result = self.crud_repo.sadd(pool_name, str(pid))
+            result = self._crud_repo.sadd(pool_name, str(pid))
             return result > 0
         except Exception as e:
             self._logger.ERROR(f"Failed to add to thread pool set {pool_name}: {e}")
@@ -1016,7 +1016,7 @@ class RedisService(DataService):
             bool: 是否成功移除
         """
         try:
-            result = self.crud_repo.srem(pool_name, str(pid))
+            result = self._crud_repo.srem(pool_name, str(pid))
             return result > 0
         except Exception as e:
             self._logger.ERROR(f"Failed to remove from thread pool set {pool_name}: {e}")
@@ -1033,7 +1033,7 @@ class RedisService(DataService):
             Optional[str]: 线程信息
         """
         try:
-            return self.crud_repo.get(cache_key)
+            return self._crud_repo.get(cache_key)
         except Exception as e:
             self._logger.ERROR(f"Failed to get thread from cache {cache_key}: {e}")
             return None
@@ -1050,7 +1050,7 @@ class RedisService(DataService):
             bool: 是否设置成功
         """
         try:
-            return self.crud_repo.set(cache_key, value)
+            return self._crud_repo.set(cache_key, value)
         except Exception as e:
             self._logger.ERROR(f"Failed to set thread cache {cache_key}: {e}")
             return False

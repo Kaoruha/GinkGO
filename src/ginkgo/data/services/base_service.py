@@ -171,11 +171,12 @@ class BaseService(ABC):
 
     def _initialize_dependencies(self):
         """
-        Initialize dependencies as instance attributes.
+        Initialize dependencies as private attributes for better encapsulation.
         Override in subclasses for custom dependency handling.
         """
         for name, dependency in self._dependencies.items():
-            setattr(self, name, dependency)
+            # Make all dependencies private with _ prefix
+            setattr(self, f'_{name}', dependency)
 
     @property
     def service_name(self) -> str:

@@ -303,6 +303,8 @@ class RichProgress:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.progress.stop()
+        # 在进度条与后续输出之间插入空行，避免粘连
+        self.progress.console.print()
 
 
 cache_data = OrderedDict()
