@@ -6,7 +6,7 @@ Redis服务 - 统一管理Redis缓存操作
 from typing import Dict, List, Optional, Set, Any
 from datetime import datetime, timedelta
 import json
-from ginkgo.data.services.base_service import DataService
+from ginkgo.data.services.base_service import DataService, ServiceResult
 
 
 class RedisService(DataService):
@@ -239,13 +239,17 @@ class RedisService(DataService):
             self._logger.ERROR(f"Failed to delete cache: {e}")
             return False
     
-    def exists(self, key: str) -> bool:
+    def exists(self, key: str) -> ServiceResult:
         """检查key是否存在"""
         try:
-            return self._crud_repo.exists(key)
+            key_exists = self._crud_repo.exists(key)
+            return ServiceResult.success(
+                data=key_exists,  # 直接封装bool值
+                message=f"Key '{key}' exists: {key_exists}"
+            )
         except Exception as e:
             self._logger.ERROR(f"Failed to check key existence: {e}")
-            return False
+            return ServiceResult.error(f"Failed to check key existence: {str(e)}")
 
     # ==================== 进程管理 ====================
     
