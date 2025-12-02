@@ -292,10 +292,10 @@ class DataService(BaseService):
 
         try:
             if batch and isinstance(data, list):
-                self.crud_repo.add_batch(data)
+                self._crud_repo.add_batch(data)
                 result.set_data("records_added", len(data))
             else:
-                saved_data = self.crud_repo.add(data)
+                saved_data = self._crud_repo.add(data)
                 result.set_data("records_added", 1)
                 result.set_data("saved_record", saved_data)
 
@@ -339,7 +339,7 @@ class ManagementService(BaseService):
         """
         try:
             filters = {field: identifier}
-            results = self.crud_repo.find(filters=filters, page_size=1)
+            results = self._crud_repo.find(filters=filters, page_size=1)
             return len(results) > 0
         except Exception as e:
             self._logger.WARN(f"Error checking entity existence: {e}")
@@ -359,7 +359,7 @@ class ManagementService(BaseService):
         """
         try:
             filters = {"uuid": entity_id}
-            results = self.crud_repo.find(filters=filters, page_size=1)
+            results = self._crud_repo.find(filters=filters, page_size=1)
 
             if results:
                 entity = results[0]
