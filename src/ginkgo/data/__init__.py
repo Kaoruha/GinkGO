@@ -269,9 +269,6 @@ def delete_file(file_id: str) -> bool:
     return container.file_service().delete_file(file_id)
 
 
-def get_files(name: str = None, file_type=None, as_dataframe: bool = True, **kwargs):
-    """Get files with optional filters."""
-    return container.file_service().get_files(name, file_type, as_dataframe, **kwargs)
 
 
 def get_file_content(file_id: str) -> bytes:
