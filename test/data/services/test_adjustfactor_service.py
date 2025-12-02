@@ -134,7 +134,8 @@ class AdjustfactorServiceTest(unittest.TestCase):
     def test_sync_incremental_invalid_stock_code(self):
         """测试无效股票代码的处理"""
         # 配置 Mock：股票代码不在列表中
-        self.mock_stockinfo_service.exists.return_value = False
+        from ginkgo.data.services.base_service import ServiceResult
+        self.mock_stockinfo_service.exists.return_value = ServiceResult.success(data=False)
 
         # 执行同步
         result = self.service.sync("INVALID.SZ")
