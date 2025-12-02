@@ -15,7 +15,7 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
 from ginkgo.data.services.bar_service import BarService
-from ginkgo.data.services.base_service import DataService, ServiceResult
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.containers import container
 from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES
 
@@ -53,12 +53,12 @@ class TestBarServiceConstruction:
         assert hasattr(bar_service, '_adjustfactor_service')
         assert bar_service._adjustfactor_service is not None
 
-    def test_service_inherits_data_service(self):
-        """测试继承DataService基类"""
+    def test_service_inherits_base_service(self):
+        """测试继承BaseService基类"""
         bar_service = container.bar_service()
 
-        # 验证BarService正确继承DataService
-        assert isinstance(bar_service, DataService)
+        # 验证BarService正确继承BaseService
+        assert isinstance(bar_service, BaseService)
 
         # 验证基类属性可用
         assert hasattr(bar_service, '_logger')
@@ -339,7 +339,7 @@ class TestBarServiceCount:
                 assert result.data >= 0
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_count_with_code_filter(self):
         """测试按股票代码计数"""
@@ -363,7 +363,7 @@ class TestBarServiceCount:
                 assert result.data >= 0
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_count_with_frequency_filter(self):
         """测试按频率计数"""
@@ -388,7 +388,7 @@ class TestBarServiceCount:
                 assert result.data >= 0
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_get_available_codes(self):
         """测试获取可用股票代码列表"""
@@ -414,7 +414,7 @@ class TestBarServiceCount:
                     assert isinstance(code, str)
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_get_latest_timestamp(self):
         """测试获取最新时间戳"""
@@ -439,7 +439,7 @@ class TestBarServiceCount:
                 assert hasattr(result.data, 'day')
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_count_with_invalid_parameters(self):
         """测试无效参数处理"""
@@ -464,7 +464,7 @@ class TestBarServiceCount:
             assert isinstance(result, ServiceResult)
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_get_available_codes_handles_empty_database(self):
         """测试空数据库时的代码获取"""
@@ -488,7 +488,7 @@ class TestBarServiceCount:
                 # 可以为空列表，但不应该为None
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_get_latest_timestamp_with_nonexistent_code(self):
         """测试不存在代码的最新时间戳获取"""
@@ -510,7 +510,7 @@ class TestBarServiceCount:
             # 但不应该抛出异常
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_service_result_interface_consistency(self):
         """测试ServiceResult接口一致性"""
@@ -546,7 +546,7 @@ class TestBarServiceCount:
             assert hasattr(result, 'error')
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
 
 @pytest.mark.database
@@ -566,17 +566,20 @@ class TestBarServiceDataValidation:
             # 测试基础验证功能
             result = bar_service.validate('000001.SZ', '20240101', '20240102')
 
-            # 验证返回DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            # 验证返回ServiceResult，且data中包含DataValidationResult
+            from ginkgo.data.services.base_service import ServiceResult
+            assert isinstance(result, ServiceResult)
+            assert isinstance(result.data, DataValidationResult)
 
-            # 验证基础属性存在
-            assert hasattr(result, 'is_valid')
-            assert hasattr(result, 'error_count')
-            assert hasattr(result, 'warning_count')
-            assert hasattr(result, 'data_quality_score')
+            # 验证DataValidationResult基础属性存在
+            validation_result = result.data
+            assert hasattr(validation_result, 'is_valid')
+            assert hasattr(validation_result, 'error_count')
+            assert hasattr(validation_result, 'warning_count')
+            assert hasattr(validation_result, 'data_quality_score')
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_validate_bar_data_rejects_invalid(self):
         """测试验证拒绝无效数据"""
@@ -592,16 +595,16 @@ class TestBarServiceDataValidation:
             result = bar_service.validate('INVALID_CODE', 'invalid_date', 'invalid_date')
 
             # 验证返回DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            assert isinstance(result.data, DataValidationResult)
 
             # 验证检测到问题
-            assert result.error_count > 0 or result.warning_count > 0
+            assert result.data.error_count > 0 or result.data.warning_count > 0
 
             # 验证评分受到影响
-            assert result.data_quality_score < 100.0
+            assert result.data.data_quality_score < 100.0
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_validate_and_set_date_range(self):
         """测试日期范围验证和设置"""
@@ -617,13 +620,13 @@ class TestBarServiceDataValidation:
             result = bar_service.validate('000001.SZ', '20240101', '20240131')
 
             # 验证返回DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            assert isinstance(result.data, DataValidationResult)
 
             # 验证日期范围处理 - 日期信息通过参数传递，不在结果对象中存储
             # 测试已通过参数传递了正确的日期范围
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_validate_with_sample_data(self):
         """测试使用样本数据验证"""
@@ -639,13 +642,13 @@ class TestBarServiceDataValidation:
             result = bar_service.validate('000001.SZ', '20240101', '20240103')
 
             # 验证返回DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            assert isinstance(result.data, DataValidationResult)
 
             # 验证能够处理实际数据 - processed_records信息不在DataValidationResult中直接存储
             # 验证结果通过其他属性（error_count, warning_count等）反映
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_check_integrity_with_sample_data(self):
         """测试使用样本数据进行完整性检查"""
@@ -661,16 +664,16 @@ class TestBarServiceDataValidation:
             result = bar_service.check_integrity('000001.SZ', '20240101', '20240103')
 
             # 验证返回DataIntegrityCheckResult
-            assert isinstance(result, DataIntegrityCheckResult)
+            assert isinstance(result.data, DataIntegrityCheckResult)
 
             # 验证完整性检查属性
             # total_expected_days信息在metadata中，不是直接属性
-            assert hasattr(result, 'missing_records')
-            assert hasattr(result, 'duplicate_records')
-            assert hasattr(result, 'integrity_score')
+            assert hasattr(result.data, 'missing_records')
+            assert hasattr(result.data, 'duplicate_records')
+            assert hasattr(result.data, 'integrity_score')
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_validation_result_scoring(self):
         """测试验证结果评分计算"""
@@ -690,16 +693,16 @@ class TestBarServiceDataValidation:
 
             if isinstance(result, DataValidationResult):
                 # 验证评分在合理范围内
-                assert 0.0 <= result.data_quality_score <= 100.0
+                assert 0.0 <= result.data.data_quality_score <= 100.0
 
                 # 验证评分逻辑
-                expected_score = 100.0 - (result.error_count * 10) - (result.warning_count * 2)
+                expected_score = 100.0 - (result.data.error_count * 10) - (result.data.warning_count * 2)
                 expected_score = max(0.0, expected_score)
-                assert abs(result.data_quality_score - expected_score) < 0.1, \
-                    f"评分计算错误：期望{expected_score}，实际{result.data_quality_score}"
+                assert abs(result.data.data_quality_score - expected_score) < 0.1, \
+                    f"评分计算错误：期望{expected_score}，实际{result.data.data_quality_score}"
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_integrity_check_completeness(self):
         """测试完整性检查完整度计算"""
@@ -715,16 +718,16 @@ class TestBarServiceDataValidation:
 
             if isinstance(result, DataIntegrityCheckResult):
                 # 验证评分计算
-                score = result.integrity_score
+                score = result.data.integrity_score
                 assert 0.0 <= score <= 100.0
 
                 # 验证记录统计
-                assert result.missing_records >= 0
-                assert result.duplicate_records >= 0
+                assert result.data.missing_records >= 0
+                assert result.data.duplicate_records >= 0
                 # total_expected_days 和 completeness_ratio 不是直接属性
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_validate_bar_data_with_missing_columns(self):
         """测试缺失列的数据验证"""
@@ -740,13 +743,13 @@ class TestBarServiceDataValidation:
             result = bar_service.validate('000001.SZ', '20240101', '20240101')
 
             # 验证返回DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            assert isinstance(result.data, DataValidationResult)
 
             # 验证能够检测到字段问题
             # 具体验证逻辑依赖于BarService的实现
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_validate_bar_data_with_invalid_ohlc_logic(self):
         """测试OHLC逻辑错误的数据验证"""
@@ -762,19 +765,19 @@ class TestBarServiceDataValidation:
             result = bar_service.validate('000001.SZ', '20240101', '20240102')
 
             # 验证返回DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            assert isinstance(result.data, DataValidationResult)
 
             # 验证OHLC逻辑检查
             # 如果数据有问题，应该检测到
-            if result.error_count > 0:
+            if result.data.error_count > 0:
                 # 检查是否包含OHLC相关错误 - 通过errors列表检查
-                error_text = ' '.join(result.errors).lower()
+                error_text = ' '.join(result.data.errors).lower()
                 has_ohlc_issue = any(keyword in error_text for keyword in
                                     ['ohlc', 'high', 'low', 'open', 'close'])
                 # OHLC问题检测是可选的，不是必须的
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_validate_with_invalid_date_range(self):
         """测试无效日期范围的数据验证"""
@@ -790,13 +793,13 @@ class TestBarServiceDataValidation:
             result = bar_service.validate('000001.SZ', '20240131', '20240101')
 
             # 验证返回DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            assert isinstance(result.data, DataValidationResult)
 
             # 验证检测到日期范围问题
-            assert result.error_count > 0 or result.warning_count > 0
+            assert result.data.error_count > 0 or result.data.warning_count > 0
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_check_integrity_with_large_gap(self):
         """测试大数据缺口的完整性检查"""
@@ -812,16 +815,16 @@ class TestBarServiceDataValidation:
             result = bar_service.check_integrity('000001.SZ', '20230101', '20231231')
 
             # 验证返回DataIntegrityCheckResult
-            assert isinstance(result, DataIntegrityCheckResult)
+            assert isinstance(result.data, DataIntegrityCheckResult)
 
             # 验证处理大时间范围 - 通过总记录数验证
-            assert result.total_records >= 0
+            assert result.data.total_records >= 0
 
             # 验证完整性评分在合理范围内
-            assert 0.0 <= result.integrity_score <= 100.0
+            assert 0.0 <= result.data.integrity_score <= 100.0
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_validate_and_set_date_range_edge_cases(self):
         """测试日期范围边界情况"""
@@ -845,13 +848,13 @@ class TestBarServiceDataValidation:
                 result = bar_service.validate('000001.SZ', start_date, end_date)
 
                 # 验证返回DataValidationResult
-                assert isinstance(result, DataValidationResult)
+                assert isinstance(result.data, DataValidationResult)
 
                 # 验证能够处理边界情况 - validation_summary不是DataValidationResult的属性
                 # 边界情况处理通过其他属性和错误信息反映
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     @pytest.mark.parametrize("invalid_code", [
         "",           # 空字符串
@@ -874,16 +877,16 @@ class TestBarServiceDataValidation:
             result = bar_service.validate(invalid_code, '20240101', '20240102')
 
             # 验证返回DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            assert isinstance(result.data, DataValidationResult)
 
             # 验证检测到无效代码
-            assert result.error_count > 0 or result.warning_count > 0
+            assert result.data.error_count > 0 or result.data.warning_count > 0
 
             # 验证评分受到影响
-            assert result.data_quality_score < 100.0
+            assert result.data.data_quality_score < 100.0
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_data_validation_performance_with_large_dataset(self):
         """测试大数据集的验证性能"""
@@ -905,7 +908,7 @@ class TestBarServiceDataValidation:
             execution_time = end_time - start_time
 
             # 验证返回DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            assert isinstance(result.data, DataValidationResult)
 
             # 性能断言（根据实际情况调整）
             assert execution_time < 30.0, f"数据验证耗时过长: {execution_time:.2f}秒"
@@ -915,7 +918,7 @@ class TestBarServiceDataValidation:
                 assert result.processed_records >= 0
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
 
 @pytest.mark.database
@@ -943,7 +946,7 @@ class TestBarServiceErrorHandling:
             assert isinstance(result, ServiceResult)
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_sync_handles_data_source_error(self):
         """测试同步处理数据源错误"""
@@ -970,7 +973,7 @@ class TestBarServiceErrorHandling:
                 assert result.error is not None
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_price_adjustment_handles_missing_factors(self):
         """测试价格调整处理缺失复权因子"""
@@ -996,7 +999,7 @@ class TestBarServiceErrorHandling:
             assert result.success is True
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_count_handles_database_connection_error(self):
         """测试计数处理数据库连接错误"""
@@ -1015,7 +1018,7 @@ class TestBarServiceErrorHandling:
             assert isinstance(result, ServiceResult)
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_validate_handles_corrupted_data(self):
         """测试数据验证处理损坏数据"""
@@ -1035,13 +1038,13 @@ class TestBarServiceErrorHandling:
             )
 
             # 验证返回DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            assert isinstance(result.data, DataValidationResult)
 
             # 验证错误检测
-            assert result.error_count > 0 or result.warning_count > 0
+            assert result.data.error_count > 0 or result.data.warning_count > 0
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_check_integrity_handles_edge_cases(self):
         """测试完整性检查处理边界情况"""
@@ -1058,13 +1061,13 @@ class TestBarServiceErrorHandling:
             result2 = bar_service.check_integrity("000001.SZ", "", "")
             result3 = bar_service.check_integrity("000001.SZ", "21000101", "21000101")
 
-            # 所有情况都应该返回DataIntegrityCheckResult对象，而不是抛出异常
-            assert isinstance(result1, DataIntegrityCheckResult)
-            assert isinstance(result2, DataIntegrityCheckResult)
-            assert isinstance(result3, DataIntegrityCheckResult)
+            # 所有情况都应该返回ServiceResult，且data中包含DataIntegrityCheckResult对象，而不是抛出异常
+            assert isinstance(result1.data, DataIntegrityCheckResult)
+            assert isinstance(result2.data, DataIntegrityCheckResult)
+            assert isinstance(result3.data, DataIntegrityCheckResult)
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     @pytest.mark.parametrize("invalid_date_range", [
         ("20240101", "20231231"),  # 开始晚于结束
@@ -1089,10 +1092,10 @@ class TestBarServiceErrorHandling:
 
             # 验证返回有效结果对象
             from ginkgo.libs.data.results import DataValidationResult
-            assert isinstance(result, DataValidationResult)
+            assert isinstance(result.data, DataValidationResult)
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_service_result_consistency_in_error_cases(self):
         """测试错误情况下ServiceResult格式一致性"""
@@ -1125,7 +1128,7 @@ class TestBarServiceErrorHandling:
                     pass
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_error_message_quality(self):
         """测试错误消息质量"""
@@ -1161,7 +1164,7 @@ class TestBarServiceErrorHandling:
                     pass
 
         except Exception as e:
-            pytest.skip(f"BarService初始化失败，跳过测试: {e}")
+            raise Exception(f"BarService初始化失败: {e}")
 
 
 @pytest.mark.database
@@ -1265,17 +1268,27 @@ class TestBarServiceSyncMethods:
 
     def test_sync_range_error_handling(self):
         """测试同步错误处理"""
-        from unittest.mock import patch
-        from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
-        from ginkgo import service_hub
+        from ginkgo.data.containers import container
+        from ginkgo.data.services.base_service import ServiceResult
+        from ginkgo.libs import GCONF
+        GCONF.set_debug(True)
 
-        # 使用Mock数据源
-        with patch('ginkgo.data.sources.ginkgo_tushare.GinkgoTushare', MockGinkgoTushare):
-            bar_service = service_hub.data.bar_service()
+        try:
+            bar_service = container.bar_service()
 
-            # TODO: 这个测试需要StockInfoService的完善支持
-            # 目前跳过，记录为待实现
-            pytest.skip("等待StockInfoService测试完善后再实现")
+            # 测试无效股票代码的错误处理
+            result = bar_service.sync_range('INVALID.CODE.XX', '20240101', '20240103')
+
+            # 验证返回ServiceResult
+            assert isinstance(result, ServiceResult)
+
+            # 验证错误处理 - 应该有某种错误响应但不崩溃
+            # 具体验证逻辑取决于BarService的错误处理实现
+            if not result.success:
+                assert len(result.message) > 0  # 应该有错误消息
+
+        except Exception as e:
+            raise Exception(f"BarService初始化失败: {e}")
 
     def test_sync_batch_batch_processing(self):
         """测试批量同步的批处理功能"""

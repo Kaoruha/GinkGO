@@ -1,38 +1,152 @@
 """
-Redis服务 - 统一管理Redis缓存操作
-提供数据同步进度跟踪、任务状态管理等功能
+Redis缓存服务 - 扁平化架构实现
+
+提供Redis缓存操作、数据同步进度跟踪、任务状态管理等功能
 """
 
 from typing import Dict, List, Optional, Set, Any
 from datetime import datetime, timedelta
 import json
-from ginkgo.data.services.base_service import DataService, ServiceResult
+
+from ginkgo.data.services.base_service import BaseService, ServiceResult
+from ginkgo.libs.utils.common import time_logger, retry
 
 
-class RedisService(DataService):
-    """Redis缓存服务 - 继承自DataService保持架构一致性"""
-    
-    def __init__(self, redis_crud=None, **additional_deps):
+class RedisService(BaseService):
+    """Redis缓存服务 - 直接继承BaseService"""
+
+    def __init__(self, redis_crud=None, **deps):
         """
         初始化Redis服务
-        
+
         Args:
             redis_crud: RedisCRUD实例，如果为None则自动创建
-            **additional_deps: 其他依赖
+            **deps: 其他依赖
         """
         if redis_crud is None:
             from ginkgo.data.crud import RedisCRUD
             redis_crud = RedisCRUD()
-        
-        # Redis服务中，crud_repo和data_source都是RedisCRUD
-        super().__init__(
-            crud_repo=redis_crud,
-            data_source=redis_crud,  # Redis既是数据源也是存储
-            **additional_deps
-        )
-        
+
+        super().__init__(crud_repo=redis_crud, **deps)
+
         # 为了向后兼容，保留redis属性
         self.redis = redis_crud.redis
+
+    # ==================== 标准接口实现 ====================
+
+    def get(self, key: str = None, **filters) -> ServiceResult:
+        """获取缓存值"""
+        try:
+            if key:
+                value = self._crud_repo.get(key)
+                return ServiceResult.success(
+                    data={'value': value},
+                    message=f"成功获取键{key}的值"
+                )
+            else:
+                # 如果没有提供key，返回所有键的信息
+                pattern = filters.get('pattern', '*')
+                keys = self._crud_repo.keys(pattern)
+                return ServiceResult.success(
+                    data={'keys': keys, 'count': len(keys)},
+                    message=f"找到{len(keys)}个匹配键"
+                )
+        except Exception as e:
+            return ServiceResult.error(f"获取缓存失败: {str(e)}")
+
+    def count(self, pattern: str = "*") -> ServiceResult:
+        """统计键数量"""
+        try:
+            keys = self._crud_repo.keys(pattern)
+            return ServiceResult.success(
+                data={'count': len(keys)},
+                message=f"模式{pattern}共有{len(keys)}个键"
+            )
+        except Exception as e:
+            return ServiceResult.error(f"统计键数量失败: {str(e)}")
+
+    def validate(self, key: str, value: Any = None) -> ServiceResult:
+        """验证缓存数据"""
+        try:
+            if not key:
+                return ServiceResult.error("键不能为空")
+
+            if not isinstance(key, str):
+                return ServiceResult.error("键必须是字符串")
+
+            # 检查键长度
+            if len(key) > 250:
+                return ServiceResult.error("键长度不能超过250字符")
+
+            return ServiceResult.success(message="缓存数据验证通过")
+        except Exception as e:
+            return ServiceResult.error(f"缓存数据验证失败: {str(e)}")
+
+    def check_integrity(self, key: str) -> ServiceResult:
+        """检查缓存完整性"""
+        try:
+            # 检查键是否存在
+            if not self._crud_repo.exists(key):
+                return ServiceResult.error(f"键{key}不存在")
+
+            # 检查值是否可读
+            value = self._crud_repo.get(key)
+
+            # 检查TTL
+            ttl = self._crud_repo.ttl(key)
+
+            return ServiceResult.success(
+                data={'key': key, 'ttl': ttl, 'value_valid': True, 'value_type': type(value).__name__},
+                message=f"键{key}完整性检查通过"
+            )
+        except Exception as e:
+            return ServiceResult.error(f"完整性检查失败: {str(e)}")
+
+    @time_logger
+    def set(self, key: str, value: Any, ttl: int = 3600) -> ServiceResult:
+        """设置缓存值"""
+        try:
+            # 尝试JSON序列化
+            try:
+                if isinstance(value, (dict, list)):
+                    value = json.dumps(value, ensure_ascii=False)
+            except (TypeError, ValueError):
+                pass  # 保持原值
+
+            # 设置缓存
+            self._crud_repo.set(key, value, ex=ttl)
+
+            return ServiceResult.success(
+                data={'key': key, 'ttl': ttl},
+                message=f"成功设置键{key}的缓存"
+            )
+        except Exception as e:
+            return ServiceResult.error(f"设置缓存失败: {str(e)}")
+
+    @time_logger
+    def delete(self, key: str) -> ServiceResult:
+        """删除缓存"""
+        try:
+            result = self._crud_repo.delete(key)
+            return ServiceResult.success(
+                data={'deleted': bool(result)},
+                message=f"键{key}删除{'成功' if result else '失败'}"
+            )
+        except Exception as e:
+            return ServiceResult.error(f"删除缓存失败: {str(e)}")
+
+    def exists(self, key: str) -> ServiceResult:
+        """检查键是否存在"""
+        try:
+            exists = bool(self._crud_repo.exists(key))
+            return ServiceResult.success(
+                data={'exists': exists},
+                message=f"键{key}{'存在' if exists else '不存在'}"
+            )
+        except Exception as e:
+            return ServiceResult.error(f"检查键存在性失败: {str(e)}")
+
+    # ==================== 业务特定方法 ====================
 
     # ==================== 数据同步进度管理 ====================
     
@@ -57,15 +171,15 @@ class RedisService(DataService):
         except Exception as e:
             self._logger.ERROR(f"Failed to save sync progress: {e}")
             return False
-    
+
     def get_sync_progress(self, code: str, data_type: str = "tick") -> Set[str]:
         """
         获取已同步的日期集合
-        
+
         Args:
             code: 股票代码
             data_type: 数据类型
-            
+
         Returns:
             已同步日期的字符串集合
         """
@@ -1058,3 +1172,203 @@ class RedisService(DataService):
         except Exception as e:
             self._logger.ERROR(f"Failed to set thread cache {cache_key}: {e}")
             return False
+
+    # ==================== Redis状态重置 ====================
+
+    def clear_all_cache(self, pattern: str = "*", exclude_patterns: List[str] = None) -> ServiceResult:
+        """
+        清理所有缓存的键，用于重置Redis状态
+
+        Args:
+            pattern: 键匹配模式，默认为 "*" 清理所有键
+            exclude_patterns: 要排除的键模式列表，保护重要数据
+
+        Returns:
+            ServiceResult: 包含清理统计信息
+
+        Example:
+            # 清理所有键
+            result = redis_service.clear_all_cache()
+
+            # 清理特定模式的键，排除重要数据
+            result = redis_service.clear_all_cache(
+                pattern="*",
+                exclude_patterns=["*_config_*", "*_auth_*"]
+            )
+        """
+        try:
+            if exclude_patterns is None:
+                exclude_patterns = []
+
+            # 获取所有匹配的键
+            all_keys = self._crud_repo.keys(pattern)
+
+            # 过滤掉要排除的键
+            import fnmatch
+            excluded_keys = set()
+            for exclude_pattern in exclude_patterns:
+                for key in all_keys:
+                    if fnmatch.fnmatch(key, exclude_pattern):
+                        excluded_keys.add(key)
+
+            keys_to_delete = [key for key in all_keys if key not in excluded_keys]
+
+            deleted_count = 0
+            failed_count = 0
+
+            # 批量删除键
+            for key in keys_to_delete:
+                try:
+                    if self._crud_repo.delete(key):
+                        deleted_count += 1
+                    else:
+                        failed_count += 1
+                except Exception as e:
+                    failed_count += 1
+                    self._logger.WARN(f"Failed to delete key {key}: {e}")
+
+            # 记录清理结果
+            self._logger.INFO(f"Redis cache cleared: {deleted_count} deleted, {failed_count} failed, {len(excluded_keys)} excluded")
+
+            return ServiceResult.success(
+                data={
+                    "total_keys_found": len(all_keys),
+                    "keys_excluded": len(excluded_keys),
+                    "keys_to_delete": len(keys_to_delete),
+                    "deleted_count": deleted_count,
+                    "failed_count": failed_count,
+                    "exclude_patterns": exclude_patterns
+                },
+                message=f"Redis缓存清理完成: 删除{deleted_count}个键，排除{len(excluded_keys)}个键"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to clear Redis cache: {e}")
+            return ServiceResult.error(f"清理Redis缓存失败: {str(e)}")
+
+    def clear_ginkgo_cache_only(self) -> ServiceResult:
+        """
+        仅清理Ginkgo相关的缓存，保护其他应用数据
+
+        Returns:
+            ServiceResult: 包含清理统计信息
+        """
+        # Ginkgo相关的键模式
+        ginkgo_patterns = [
+            "ginkgo_*",          # 通用ginkgo前缀
+            "*_update_*",        # 同步进度缓存
+            "task_status_*",     # 任务状态缓存
+            "ginkgo_func_cache_*",  # 函数缓存
+            "ginkgo_heartbeat_*",   # 进程心跳
+            "ginkgo_thread_pool",   # 线程池
+            "ginkgo_dataworker_pool",  # 数据工作池
+            "test_*",            # 测试键
+        ]
+
+        return self.clear_all_cache(
+            pattern="ginkgo_*",
+            exclude_patterns=[]
+        )
+
+    def get_cache_statistics(self) -> ServiceResult:
+        """
+        获取缓存统计信息，用于监控和诊断
+
+        Returns:
+            ServiceResult: 包含详细的缓存统计信息
+        """
+        try:
+            # 获取所有键
+            all_keys = self._crud_repo.keys("*")
+            total_keys = len(all_keys)
+
+            # 按前缀分组统计
+            prefix_stats = {}
+            ginkgo_keys = []
+
+            for key in all_keys:
+                # 统计Ginkgo相关键
+                if key.startswith("ginkgo_") or key.startswith("task_status_") or key.startswith("test_"):
+                    ginkgo_keys.append(key)
+
+                # 按前缀分组
+                prefix = key.split('_')[0] if '_' in key else 'no_prefix'
+                if prefix not in prefix_stats:
+                    prefix_stats[prefix] = {"count": 0, "size_estimate": 0}
+                prefix_stats[prefix]["count"] += 1
+
+            # 获取内存使用情况
+            redis_info = self._crud_repo.info()
+            memory_info = {
+                "used_memory": redis_info.get("used_memory", 0),
+                "used_memory_human": redis_info.get("used_memory_human", "0B"),
+                "maxmemory": redis_info.get("maxmemory", 0),
+            }
+
+            return ServiceResult.success(
+                data={
+                    "total_keys": total_keys,
+                    "ginkgo_keys_count": len(ginkgo_keys),
+                    "ginkgo_keys": ginkgo_keys,
+                    "other_keys_count": total_keys - len(ginkgo_keys),
+                    "prefix_statistics": prefix_stats,
+                    "memory_info": memory_info,
+                    "redis_info": redis_info
+                },
+                message=f"缓存统计: 共{total_keys}个键，其中{len(ginkgo_keys)}个Ginkgo键"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get cache statistics: {e}")
+            return ServiceResult.error(f"获取缓存统计失败: {str(e)}")
+
+    def vacuum_redis(self, aggressive: bool = False) -> ServiceResult:
+        """
+        Redis数据库清理和优化
+
+        Args:
+            aggressive: 是否进行激进清理（包括可能影响性能的键）
+
+        Returns:
+            ServiceResult: 包含清理结果
+        """
+        try:
+            # 首先获取统计信息
+            stats_result = self.get_cache_statistics()
+            if not stats_result.success:
+                return stats_result
+
+            stats = stats_result.data
+
+            # 清理Ginkgo相关键
+            ginkgo_result = self.clear_ginkgo_cache_only()
+
+            # 激进模式：清理过期的键和空键
+            expired_cleaned = 0
+            if aggressive:
+                all_keys = self._crud_repo.keys("*")
+                for key in all_keys:
+                    try:
+                        ttl = self._crud_repo.ttl(key)
+                        # 检查已过期但未自动清理的键
+                        if ttl == -2:  # 键已过期但存在
+                            if self._crud_repo.delete(key):
+                                expired_cleaned += 1
+                    except Exception:
+                        continue
+
+            self._logger.INFO(f"Redis vacuum completed: Ginkgo cache cleared, {expired_cleaned} expired keys removed")
+
+            return ServiceResult.success(
+                data={
+                    "original_stats": stats,
+                    "ginkgo_cleanup": ginkgo_result.data,
+                    "expired_keys_cleaned": expired_cleaned,
+                    "aggressive_mode": aggressive
+                },
+                message=f"Redis清理完成: Ginkgo缓存已清理，额外清理{expired_cleaned}个过期键"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to vacuum Redis: {e}")
+            return ServiceResult.error(f"Redis清理失败: {str(e)}")

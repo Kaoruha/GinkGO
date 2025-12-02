@@ -13,10 +13,10 @@ import pandas as pd
 
 from ginkgo.libs import cache_with_expiration, GCONF, retry
 from ginkgo.enums import FILE_TYPES
-from ginkgo.data.services.base_service import ManagementService, ServiceResult
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 
 
-class FileService(ManagementService):
+class FileService(BaseService):
     def __init__(self, crud_repo):
         """Initializes the service with its dependencies."""
         super().__init__(crud_repo=crud_repo)

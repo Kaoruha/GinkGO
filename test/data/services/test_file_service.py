@@ -16,7 +16,7 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
 from ginkgo.data.services.file_service import FileService
-from ginkgo.data.services.base_service import ManagementService, ServiceResult
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.containers import container
 from ginkgo.enums import FILE_TYPES
 
@@ -371,7 +371,7 @@ def test_strategy():
         # 验证实例创建成功
         assert file_service is not None
         assert isinstance(file_service, FileService)
-        assert isinstance(file_service, ManagementService)
+        assert isinstance(file_service, BaseService)
 
         # 验证crud_repo已设置（私有属性）
         assert hasattr(file_service, '_crud_repo')
