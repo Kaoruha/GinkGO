@@ -15,12 +15,12 @@ import pandas as pd
 from ginkgo.libs import datetime_normalize, RichProgress, cache_with_expiration, retry, to_decimal, ensure_tick_table
 from ginkgo.data import mappers
 from ginkgo.enums import TICKDIRECTION_TYPES, ADJUSTMENT_TYPES
-from ginkgo.data.services.base_service import DataService, ServiceResult
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.libs.data.results import DataSyncResult, DataValidationResult, DataIntegrityCheckResult
 
 
-class TickService(DataService):
+class TickService(BaseService):
     def __init__(self, data_source, stockinfo_service, crud_repo=None, redis_service=None, adjustfactor_service=None):
         """Initializes the service with its dependencies."""
         # TickService handles CRUD creation dynamically, so crud_repo is optional

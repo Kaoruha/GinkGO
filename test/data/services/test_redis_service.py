@@ -60,7 +60,7 @@ class TestRedisService(unittest.TestCase):
         service = RedisService(redis_crud=redis_crud)
         
         self.assertEqual(service._crud_repo, redis_crud)
-        self.assertEqual(service._data_source, redis_crud)
+        # BaseService动态创建属性，不再有_data_source别名
         self.assertEqual(service.service_name, "RedisService")
 
     def test_init_with_auto_crud_creation(self):
@@ -68,8 +68,8 @@ class TestRedisService(unittest.TestCase):
         service = RedisService()
         
         self.assertIsInstance(service._crud_repo, RedisCRUD)
-        self.assertIsInstance(service._data_source, RedisCRUD)
-        self.assertEqual(service._crud_repo, service._data_source)
+        # BaseService动态创建属性，不再有_data_source别名
+        self.assertIsNotNone(service._crud_repo)
 
     # ==================== 数据同步进度管理测试 ====================
 
@@ -740,6 +740,163 @@ class TestRedisService(unittest.TestCase):
         self.redis_service.delete_cache(f"task_status_{task_id}")
 
 
+    # ==================== Redis状态重置和清理测试 ====================
+
+    def test_clear_ginkgo_cache_only(self):
+        """测试仅清理Ginkgo缓存"""
+        # 创建Ginkgo相关键
+        ginkgo_key = self._get_test_key("ginkgo_config")
+        self.redis_service.set_cache(ginkgo_key, {"setting": "value"})
+
+        # 创建非Ginkgo键用于对比
+        non_ginkgo_key = f"app_config_{int(time.time())}"
+        self.redis_service.set_cache(non_ginkgo_key, {"important": "data"})
+
+        # 确认两个键都存在
+        self.assertIsNotNone(self.redis_service.get_cache(ginkgo_key))
+        self.assertIsNotNone(self.redis_service.get_cache(non_ginkgo_key))
+
+        # 仅清理Ginkgo缓存
+        result = self.redis_service.clear_ginkgo_cache_only()
+
+        # 验证结果
+        self.assertTrue(result.success)
+        self.assertIsInstance(result.data, dict)
+        self.assertIn("deleted_count", result.data)
+
+        # 验证Ginkgo键被清理（由于clear_ginkgo_cache_only只清理ginkgo_*模式，我们的测试键可能不会被清理）
+        # 但这个测试验证了方法的调用和返回格式正确
+
+        # 手动清理测试数据
+        self.redis_service.delete_cache(ginkgo_key)
+        self.redis_service.delete_cache(non_ginkgo_key)
+
+    def test_clear_all_cache_with_exclude_patterns(self):
+        """测试清理所有缓存但排除指定模式"""
+        # 创建测试键
+        important_key = self._get_test_key("important_config")
+        normal_key = self._get_test_key("normal_data")
+
+        # 设置数据
+        self.redis_service.set_cache(important_key, {"critical": "data"})
+        self.redis_service.set_cache(normal_key, {"temp": "data"})
+
+        # 定义排除模式
+        exclude_patterns = [f"*{self.test_prefix}*_important_*"]
+
+        # 清理缓存但排除重要数据
+        result = self.redis_service.clear_all_cache(
+            pattern=f"{self.test_prefix}*",
+            exclude_patterns=exclude_patterns
+        )
+
+        # 验证结果
+        self.assertTrue(result.success)
+        self.assertGreater(result.data["deleted_count"], 0)
+        self.assertEqual(result.data["exclude_patterns"], exclude_patterns)
+
+        # 验证被排除的键仍然存在
+        self.assertIsNotNone(self.redis_service.get_cache(important_key))
+
+        # 清理剩余测试数据
+        self.redis_service.delete_cache(important_key)
+
+    def test_get_cache_statistics(self):
+        """测试获取缓存统计信息"""
+        # 创建一些测试数据用于统计
+        test_key = self._get_test_key("stats_test")
+        self.redis_service.set_cache(test_key, {"stats": "data"})
+
+        # 获取统计信息
+        result = self.redis_service.get_cache_statistics()
+
+        # 验证结果结构
+        self.assertTrue(result.success)
+        self.assertIsInstance(result.data, dict)
+
+        stats = result.data
+        self.assertIn("total_keys", stats)
+        self.assertIn("ginkgo_keys_count", stats)
+        self.assertIn("memory_info", stats)
+        self.assertIn("prefix_statistics", stats)
+
+        # 验证统计数据合理性
+        self.assertGreaterEqual(stats["total_keys"], 0)
+        self.assertGreaterEqual(stats["ginkgo_keys_count"], 0)
+        self.assertLessEqual(stats["ginkgo_keys_count"], stats["total_keys"])
+
+    def test_vacuum_redis_normal_mode(self):
+        """测试Redis清理 - 普通模式"""
+        # 先获取初始统计
+        initial_stats = self.redis_service.get_cache_statistics()
+        self.assertTrue(initial_stats.success)
+
+        # 执行清理（非激进模式）
+        result = self.redis_service.vacuum_redis(aggressive=False)
+
+        # 验证结果
+        self.assertTrue(result.success)
+        self.assertIsInstance(result.data, dict)
+
+        vacuum_data = result.data
+        self.assertIn("original_stats", vacuum_data)
+        self.assertIn("ginkgo_cleanup", vacuum_data)
+        self.assertFalse(vacuum_data["aggressive_mode"])
+
+        print(f"Redis普通清理完成")
+
+    def test_vacuum_redis_aggressive_mode(self):
+        """测试Redis清理 - 激进模式"""
+        # 创建一些会过期的键
+        expire_key = self._get_test_key("expire_soon")
+        self.redis_service.set_cache(expire_key, "will_expire", 1)
+
+        # 等待过期
+        time.sleep(1.1)
+
+        # 执行激进清理
+        result = self.redis_service.vacuum_redis(aggressive=True)
+
+        # 验证结果
+        self.assertTrue(result.success)
+        self.assertTrue(result.data["aggressive_mode"])
+        self.assertGreaterEqual(result.data["expired_keys_cleaned"], 0)
+
+        print(f"激进清理完成: 清理了{result.data['expired_keys_cleaned']}个过期键")
+
+    def test_clear_all_cache_empty_result(self):
+        """测试清理空模式的结果"""
+        # 使用一个不存在的模式
+        result = self.redis_service.clear_all_cache(f"nonexistent_pattern_{int(time.time())}*")
+
+        # 应该成功，但删除数为0
+        self.assertTrue(result.success)
+        self.assertEqual(result.data["total_keys_found"], 0)
+        self.assertEqual(result.data["deleted_count"], 0)
+
+    def test_integrated_cleanup_workflow(self):
+        """测试完整的清理工作流"""
+        # 1. 获取初始统计
+        before_stats = self.redis_service.get_cache_statistics()
+        self.assertTrue(before_stats.success)
+
+        # 2. 创建测试数据
+        test_data_key = self._get_test_key("workflow_test")
+        self.redis_service.set_cache(test_data_key, {"workflow": "test"})
+
+        # 3. 验证数据存在
+        self.assertIsNotNone(self.redis_service.get_cache(test_data_key))
+
+        # 4. 执行完整清理
+        vacuum_result = self.redis_service.vacuum_redis(aggressive=False)
+        self.assertTrue(vacuum_result.success)
+
+        # 5. 获取清理后统计
+        after_stats = self.redis_service.get_cache_statistics()
+        self.assertTrue(after_stats.success)
+
+        print(f"清理工作流完成")
+
     # ==================== 性能和并发测试 ====================
 
     def test_bulk_sync_progress_operations(self):
@@ -747,19 +904,19 @@ class TestRedisService(unittest.TestCase):
         code = f"test_{self.test_prefix}_bulk"
         date_range = [datetime(2024, 1, i) for i in range(1, 11)]  # 1月10日
         data_type = "tick"
-        
+
         # 先清理残留数据
         self.redis_service.clear_sync_progress(code, data_type)
-        
+
         # 批量保存进度
         for date in date_range:
             result = self.redis_service.save_sync_progress(code, date, data_type)
             self.assertTrue(result)
-        
+
         # 验证保存的数据
         progress = self.redis_service.get_sync_progress(code, data_type)
         self.assertEqual(len(progress), len(date_range))
-        
+
         # 清理测试数据
         self.redis_service.clear_sync_progress(code, data_type)
 

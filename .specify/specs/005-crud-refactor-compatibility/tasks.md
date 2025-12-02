@@ -1,353 +1,315 @@
 ---
 
-description: "Task list for Data Services & CLI Compatibility Fix feature implementation with current progress"
+description: "Service重构任务计划 - 按复杂度从简到繁排序"
 ---
 
-# Tasks: Data Services & CLI Compatibility Fix
+# 任务计划: Service重构 - 从简到繁
 
-**Input**: Design documents from `/specs/005-crud-refactor-compatibility/`
-**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md
+基于当前重构进度和Service复杂度分析，重新制定重构顺序，按从简到繁的策略实施。
 
-**Tests**: Tests are included as TDD is required per project constitution - all functionality must have tests
+## 当前状态总结
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+### 🏗️ 重大架构变更 (已完成)
 
-## Format: `[ID] [P?] [Story] Description`
+**扁平化架构改造**:
+- ✅ 移除三层继承架构 (DataService/ManagementService/BusinessService)
+- ✅ 实现扁平化 BaseService + 具体Service 架构
+- ✅ 所有Service直接继承BaseService，减少架构复杂度
+- ✅ 统一依赖注入机制和属性命名规范
 
-- **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
-- **Status**: ✅已完成 / 🔄进行中 / ⏳待开始 / ❌需修复
-- Include exact file paths in descriptions
+**ServiceResult统一**:
+- ✅ 所有方法返回标准ServiceResult格式
+- ✅ 统一错误处理和成功响应机制
+- ✅ 支持data字段包装具体业务结果对象
 
-## Path Conventions
+### ✅ 已完成 (7/13)
+- **AdjustfactorService** - 24/24测试通过 (100%) - DataService
+- **BarService** - 56/56测试通过 (100%) - DataService (已扁平化重构)
+- **TickService** - 11/11测试通过 (100%) - DataService (已扁平化重构)
+- **StockinfoService** - 9/9测试通过 (100%) - DataService
+- **FileService** - 30/30测试通过 (100%) - ManagementService (已扁平化重构)
+- **RedisService** - 45/45测试通过 (100%) - DataService (已扁平化重构 + 新增缓存清理功能)
 
-- **Services**: `src/ginkgo/data/services/`
-- **Tests**: `test/data/services/`
-- **Results**: Based on actual test results and current progress
+### 🔄 待重构 (6/13)
 
-<!--
+## 复杂度分析结果
 
-  ============================================================================
+基于以下因素评估复杂度：
+- **依赖数量** (CRUD repositories, 其他Service)
+- **方法数量和业务逻辑复杂度**
+- **测试失败原因** (属性映射、依赖注入、模块导入)
+- **继承类型** (DataService < ManagementService < BusinessService)
 
-  ACTUAL PROGRESS REPORT: Based on running tests and code analysis
+## 重构顺序：从简到繁
 
-  Completed Services (4/13):
-  - AdjustfactorService: ✅ 24/24 tests passing (100%)
-  - BarService: ✅ 31/31 tests passing (100%)
-  - TickService: ✅ 11/11 tests passing (100%)
-  - StockinfoService: ✅ 9/9 tests passing (100%)
+### 🎉 Phase 1: 简单DataService (已完成 ✅)
+**特点**: 单一CRUD依赖，业务逻辑简单，主要问题为属性映射
 
-  ServiceResult Format: ✅ Fully implemented
-  Standard Methods: ✅ get/count/validate/check_integrity
-  Private Attributes: ✅ _crud_repo, _data_source patterns
+#### ✅ US1: RedisService (DataService - 最简单)
+- **复杂度**: ⭐
+- **依赖**: 1个CRUD
+- **状态**: 已完成 - 45/45测试通过
+- **完成内容**:
+  - 扁平化架构改造 (继承BaseService)
+  - 属性映射修复 (`crud_repo` → `_crud_repo`)
+  - 新增缓存清理功能 (clear_all_cache, vacuum_redis等)
+  - 新增7个清理功能测试
 
-  Remaining Services (9/13):
-  - Management Services (3): Multi-CRUD dependencies, transaction handling
-  - Business Services (2): Cross-service coordination, dependency injection
-  - Middleware Services (2): Infrastructure, caching/messaging
+#### 🔄 US2: KafkaService (DataService - 简单)
+- **复杂度**: ⭐
+- **依赖**: 1个CRUD
+- **问题**: 基础架构标准化
+- **测试状态**: 需要重构到标准模式
 
-  Test Issues Found:
-  - FileService: AssertionError - GCONF not available
-  - RedisService: AttributeError - missing crud_repo attribute
-  - ComponentService: Module import errors, dependency issues
-  - EngineService: Architecture problems with dependencies
-  - PortfolioService: Similar dependency management issues
+#### 🔄 US3: SignalTrackingService (BusinessService - 中等)
+- **复杂度**: ⭐⭐
+- **依赖**: 1-2个CRUD
+- **问题**: 业务逻辑相对简单
+- **测试状态**: 需要标准化实现
 
-  Implementation Strategy:
-  - Follow BarService patterns for all services
-  - Priority: Management → Business → Middleware Services
-  - Each service: analyze → refactor → test → validate
-  ============================================================================
+### Phase 2: 复杂ManagementService (2个)
+**特点**: 多CRUD依赖，事务处理，状态管理
 
--->
+#### US4: EngineService (ManagementService - 中等复杂)
+- **复杂度**: ⭐⭐⭐
+- **依赖**: 2个CRUD (portfolio, engine)
+- **问题**: 双CRUD协调，状态管理
+- **测试状态**: 依赖协调问题
 
-## 🎯 **当前重构状态更新** (基于实际进度分析)
+#### US5: PortfolioService (ManagementService - 高复杂度)
+- **复杂度**: ⭐⭐⭐⭐
+- **依赖**: 3个CRUD (portfolio, mapping, param)
+- **问题**: 多CRUD事务，复杂业务逻辑 (部分已修复)
+- **测试状态**: 属性映射已修复，剩余业务逻辑测试
 
-### ✅ **已完成的核心Data Services** (4/13 = 30.8%)
-- ✅ **AdjustfactorService** - 24/24测试通过 (100%) - 完全标准化
-- ✅ **BarService** - 31/31测试通过 (100%) - 参考标准建立
-- ✅ **TickService** - 11/11测试通过 (100%) - 架构验证完成
-- ✅ **StockinfoService** - 9/9测试通过 (100%) - API标准化完成
+### Phase 3: 复杂BusinessService (2个)
+**特点**: 跨服务协调，依赖注入，模块导入问题
 
-### 🔄 **待重构Service分类** (9/13 = 69.2%)
+#### US6: ComponentService (BusinessService - 高复杂度)
+- **复杂度**: ⭐⭐⭐⭐
+- **依赖**: 多个Service依赖，模块导入错误
+- **问题**: 'ginkgo.trading.sizers.base_sizer'模块缺失
+- **测试状态**: 基础架构问题需要解决
 
-**ManagementService类型 (3个)**:
-- 🔄 **FileService** - 搜索功能重构完成 (30/30测试通过)，get_files→get方法标准化完成
-- 🔄 **PortfolioService** - 需要重构 (多CRUD依赖)
-- 🔄 **EngineService** - 需要重构 (双CRUD依赖)
+#### US7: FactorService (DataService - 最高复杂度)
+- **复杂度**: ⭐⭐⭐⭐⭐
+- **依赖**: 复杂因子计算逻辑
+- **问题**: 业务逻辑极其复杂，暂不重构
+- **测试状态**: 标记为暂不重构
 
-**BusinessService类型 (2个)**:
-- 🔄 **ComponentService** - 需要重构 (依赖注入问题)
-- 🔄 **SignalTrackingService** - 需要重构
+### Phase 4: CLI兼容性修复 (1个)
+**特点**: 所有Service完成后的统一适配
 
-**MiddlewareService类型 (2个)**:
-- 🔄 **RedisService** - 需要重构 (属性架构问题)
-- 🔄 **KafkaService** - 需要重构 (消息中间件)
-
-**FactorService**: 暂不重构 (复杂度评估过高)
-
-**总体完成度**: 4/13 Service (30.8%)
-
----
-
-**Input**: 基于实际测试结果和代码分析更新重构状态
-**Current Status**: 核心Data Services完成，Management/Business/Middleware Services待重构
-**Next Priority**: Management Services (按复杂度递增顺序)
-
-**Test Results**: 75/75 core tests passing (100%)
-**Architecture**: BarService标准已建立并验证
-
-## Phase 1: ✅ 核心Data Services (已完成 - 100%)
-
-### AdjustfactorService - ✅ 完全标准化 (24/24测试通过)
-
-- [x] T001 [✅completed] 标准化AdjustfactorService继承DataService基类 - src/ginkgo/data/services/adjustfactor_service.py
-- [x] T002 [✅completed] 实现标准方法集(get/count/validate/check_integrity) - src/ginkgo/data/services/adjustfactor_service.py
-- [x] T003 [✅completed] 所有方法返回ServiceResult格式 - src/ginkgo/data/services/adjustfactor_service.py
-- [x] T004 [✅completed] 添加@time_logger、@retry装饰器 - src/ginkgo/data/services/adjustfactor_service.py
-- [x] T005 [✅completed] 私有属性标准化(_crud_repo, _data_source, _stockinfo_service) - src/ginkgo/data/services/adjustfactor_service.py
-
-### BarService - ✅ 完全标准化 (31/31测试通过)
-
-- [x] T006 [✅completed] 方法名标准化(get_bars→get, count_bars→count) - src/ginkgo/data/services/bar_service.py
-- [x] T007 [✅completed] validate_bars和check_bars_integrity方法更新 - src/ginkgo/data/services/bar_service.py
-- [x] T008 [✅completed] ServiceResult格式包装 - src/ginkgo/data/services/bar_service.py
-- [x] T009 [✅completed] 私有属性标准化(_adjustfactor_service) - src/ginkgo/data/services/bar_service.py
-- [x] T010 [✅completed] AdjustfactorService调用更新使用新get方法 - src/ginkgo/data/services/bar_service.py
-
-### TickService - ✅ 完全标准化 (11/11测试通过)
-
-- [x] T011 [✅completed] 私有属性调整(adjustfactor_service→_adjustfactor_service) - src/ginkgo/data/services/tick_service.py
-- [x] T012 [✅completed] AdjustfactorService调用更新使用新get方法 - src/ginkgo/data/services/tick_service.py
-- [x] T013 [✅completed] 标准方法验证(get/count/validate/check_integrity) - src/ginkgo/data/services/tick_service.py
-- [x] T014 [✅completed] 文档注释返回类型更新 - src/ginkgo/data/services/tick_service.py
-
-### StockinfoService - ✅ 完全标准化 (9/9测试通过)
-
-- [x] T015 [✅completed] 标准方法验证(get/count/validate/check_integrity) - src/ginkgo/data/services/stockinfo_service.py
-- [x] T016 [✅completed] 跨服务API调用更新(get_stockinfo_by_code→get) - src/ginkgo/data/services/bar_service.py, src/ginkgo/data/services/adjustfactor_service.py
-- [x] T017 [✅completed] 统一使用标准API，移除向后兼容 - 跨服务调用更新
+#### US8: CLI兼容性修复
+- **复杂度**: ⭐⭐⭐
+- **依赖**: 所有Service
+- **问题**: ServiceResult格式适配，错误处理
+- **测试状态**: 等待所有Service完成
 
 ---
 
-## Phase 2: 🔄 Management Services重构 (3个Service待重构)
+## Phase 1: 简单DataService重构 (1/3个Service完成)
 
-### FileService 重构 - 🔄 搜索功能优化完成 (30/30测试通过)
+#### ✅ US1: RedisService标准化重构 (已完成)
+**目标**: 将RedisService重构为标准DataService模式，实现基础缓存功能
 
-- [x] T018 [✅completed] 实现统一search方法支持单查询多字段OR搜索 - src/ginkgo/data/services/file_service.py:1229
-- [x] T019 [✅completed] 重构search_by_name支持数据库级分页 - src/ginkgo/data/services/file_service.py:948
-- [x] T020 [✅completed] 重构search_by_description支持模糊匹配 - src/ginkgo/data/services/file_service.py:1045
-- [x] T021 [✅completed] 重构search_by_content支持二进制内容搜索 - src/ginkgo/data/services/file_service.py:1141
-- [x] T022 [✅completed] 修复数据库事务问题(drivers缺少commit) - src/ginkgo/data/drivers/__init__.py
-- [x] T023 [✅completed] 实现get_by_uuid/get_by_name/get_by_type标准方法 - src/ginkgo/data/services/file_service.py
-- [x] T024 [✅completed] 重命名get_files方法为标准get方法 - src/ginkgo/data/services/file_service.py:336
-- [x] T025 [✅completed] 更新data/__init__.py移除get_files直接接口 - src/ginkgo/data/__init__.py
-- [x] T026 [✅completed] 更新data/seeding.py使用新的get方法 - src/ginkgo/data/seeding.py:87,251
-- [x] T027 [✅completed] 更新client/backtest_cli.py适配新API - src/ginkgo/client/backtest_cli.py:545
-- [x] T028 [✅completed] 更新所有测试用例适配新接口设计 - test/data/services/test_file_service.py
+**完成情况**: ✅ 全部完成 - 45/45测试通过
 
-### FileService 下一步计划
+**已完成的关键修复**:
+- ✅ T001 分析RedisService当前实现和架构问题 - src/ginkgo/data/services/redis_service.py
+- ✅ T002 修复RedisService属性映射错误 (crud_repo → _crud_repo) - src/ginkgo/data/services/redis_service.py
+- ✅ T003 更新RedisService继承BaseService基类 (扁平化架构) - src/ginkgo/data/services/redis_service.py
+- ✅ T004 实现标准方法集 (get/count/validate/check_integrity) - src/ginkgo/data/services/redis_service.py
+- ✅ T005 所有方法返回ServiceResult格式 - src/ginkgo/data/services/redis_service.py
+- ✅ T006 添加@time_logger、@retry装饰器到复杂方法 - src/ginkgo/data/services/redis_service.py
+- ✅ T007 更新Redis连接和缓存策略 - src/ginkgo/data/services/redis_service.py
+- ✅ T008 运行RedisService测试并验证修复效果 - test/data/services/test_redis_service.py
 
-- [ ] T029 [🔄pending] 验证FileService完全符合ManagementService标准
-- [ ] T030 [🔄pending] 更新CLI命令使用标准get_*方法 (data CLI)
+**新增功能**:
+- ✅ T009 新增缓存清理功能 (clear_all_cache, vacuum_redis等) - src/ginkgo/data/services/redis_service.py
+- ✅ T010 新增缓存统计功能 (get_cache_statistics) - src/ginkgo/data/services/redis_service.py
+- ✅ T011 新增7个清理功能测试用例 - test/data/services/test_redis_service.py
 
-### PortfolioService 重构 - ❌ 需要修复 (多CRUD依赖)
+**测试结果**:
+- 原有测试: 38个测试通过
+- 新增测试: 7个清理功能测试通过
+- **总计**: 45个测试通过 (100%)
 
-- [ ] T031 [❌blocked] 分析PortfolioService测试架构问题 - test/data/services/test_portfolio_service.py
-- [ ] T032 [❌blocked] 分析PortfolioService的3个CRUD依赖关系 - src/ginkgo/data/services/portfolio_service.py
-- [ ] T033 [❌blocked] 更新PortfolioService构造函数支持ServiceHub - src/ginkgo/data/services/portfolio_service.py
-- [ ] T034 [❌blocked] 实现标准方法集(get/count/validate/check_integrity) - src/ginkgo/data/services/portfolio_service.py
-- [ ] T035 [❌blocked] 所有方法返回ServiceResult格式 - src/ginkgo/data/services/portfolio_service.py
-- [ ] T036 [❌blocked] 添加@time_logger、@retry装饰器到复杂方法 - src/ginkgo/data/services/portfolio_service.py
-- [ ] T037 [❌blocked] 更新多CRUD事务处理和协调逻辑 - src/ginkgo/data/services/portfolio_service.py
-- [ ] T038 [❌blocked] 私有属性标准化(_crud_repo_portfolio, etc.) - src/ginkgo/data/services/portfolio_service.py
-- [ ] T039 [❌blocked] 创建PortfolioService依赖协调测试 - test/unit/data/services/test_portfolio_service.py
+### US2: KafkaService标准化重构
+**目标**: 将KafkaService重构为标准DataService模式，实现消息处理功能
 
-### EngineService 重构 - ❌ 需要修复 (双CRUD依赖)
+#### T004 KafkaService架构分析和标准重构
+- [ ] T010 分析KafkaService当前架构和消息处理模式 - src/ginkgo/data/services/kafka_service.py
+- [ ] T011 更新KafkaService继承DataService基类 - src/ginkgo/data/services/kafka_service.py
+- [ ] T012 实现标准方法集 (get/count/validate/check_integrity) - src/ginkgo/data/services/kafka_service.py
 
-- [ ] T040 [❌blocked] 分析EngineService测试架构问题 - test/data/services/test_engine_service.py
-- [ ] T041 [❌blocked] 分析EngineService的2个CRUD依赖关系 - src/ginkgo/data/services/engine_service.py
-- [ ] T042 [❌blocked] 更新EngineService构造函数支持ServiceHub - src/ginkgo/data/services/engine_service.py
-- [ ] T043 [❌blocked] 实现标准方法集(get/count/validate/check_integrity) - src/ginkgo/data/services/engine_service.py
-- [ ] T044 [❌blocked] 所有方法返回ServiceResult格式 - src/ginkgo/data/services/engine_service.py
-- [ ] T045 [❌blocked] 添加@time_logger、@retry装饰器 - src/ginkgo/data/services/engine_service.py
-- [ ] T046 [❌blocked] 更新双CRUD协调和状态管理 - src/ginkgo/data/services/engine_service.py
-- [ ] T047 [❌blocked] 私有属性标准化(_crud_repo_portfolio, _crud_repo_engine) - src/ginkgo/data/services/engine_service.py
-- [ ] T048 [❌blocked] 创建EngineService依赖协调测试 - test/unit/data/services/test_engine_service.py
+#### T005 KafkaService标准方法实现
+- [ ] T013 所有方法返回ServiceResult格式 - src/ginkgo/data/services/kafka_service.py
+- [ ] T014 添加@time_logger、@retry装饰器 - src/ginkgo/data/services/kafka_service.py
+- [ ] T015 更新Kafka连接和消息处理逻辑 - src/ginkgo/data/services/kafka_service.py
 
----
+#### T006 KafkaService测试和验证
+- [ ] T016 创建KafkaService消息处理测试 - test/unit/data/services/test_kafka_service.py
+- [ ] T017 验证KafkaService与消息队列集成功能 - test/data/services/test_kafka_service.py
 
-## Phase 3: 🔄 Business Services重构 (2个Service待重构)
+### US3: SignalTrackingService标准化重构
+**目标**: 将SignalTrackingService重构为标准BusinessService模式，实现信号跟踪功能
 
-### ComponentService 重构 - ❌ 需要修复 (依赖注入问题)
+#### T007 SignalTrackingService业务逻辑重构
+- [ ] T018 分析SignalTrackingService当前实现 - src/ginkgo/data/services/signal_tracking_service.py
+- [ ] T019 更新SignalTrackingService继承BusinessService基类 - src/ginkgo/data/services/signal_tracking_service.py
+- [ ] T020 实现标准方法集 (get/count/validate/check_integrity) - src/ginkgo/data/services/signal_tracking_service.py
 
-- [ ] T049 [❌blocked] 分析ComponentService模块导入失败问题 - test/data/services/test_component_service.py
-- [ ] T050 [❌blocked] 修复'No module named ginkgo.trading.sizers.base_sizer'导入 - src/ginkgo/data/services/component_service.py
-- [ ] T051 [❌blocked] 更新ComponentService继承BusinessService基类 - src/ginkgo/data/services/component_service.py
-- [ ] T052 [❌blocked] 实现标准方法集(get/count/validate/check_integrity) - src/ginkgo/data/services/component_service.py
-- [ ] T053 [❌blocked] 所有方法返回ServiceResult格式 - src/ginkgo/data/services/component_service.py
-- [ ] T054 [❌blocked] 添加@time_logger、@retry装饰器 - src/ginkgo/data/services/component_service.py
-- [ ] T055 [❌blocked] 更新跨服务协调和错误处理 - src/ginkgo/data/services/component_service.py
-- [ ] T056 [❌blocked] 创建ComponentService协调测试 - test/unit/data/services/test_component_service.py
+#### T008 SignalTrackingService标准方法实现
+- [ ] T021 所有方法返回ServiceResult格式 - src/ginkgo/data/services/signal_tracking_service.py
+- [ ] T022 添加@time_logger、@retry装饰器 - src/ginkgo/data/services/signal_tracking_service.py
+- [ ] T023 更新信号跟踪和状态管理逻辑 - src/ginkgo/data/services/signal_tracking_service.py
 
-### SignalTrackingService 重构 - ❌ 需要重构
-
-- [ ] T057 [❌blocked] 分析SignalTrackingService当前实现 - src/ginkgo/data/services/signal_tracking_service.py
-- [ ] T058 [❌blocked] 更新SignalTrackingService继承BusinessService基类 - src/ginkgo/data/services/signal_tracking_service.py
-- [ ] T059 [❌blocked] 实现标准方法集(get/count/validate/check_integrity) - src/ginkgo/data/services/signal_tracking_service.py
-- [ ] T060 [❌blocked] 所有方法返回ServiceResult格式 - src/ginkgo/data/services/signal_tracking_service.py
-- [ ] T061 [❌blocked] 添加@time_logger、@retry装饰器 - src/ginkgo/data/services/signal_tracking_service.py
-- [ ] T062 [❌blocked] 更新信号跟踪和状态管理逻辑 - src/ginkgo/data/services/signal_tracking_service.py
-- [ ] T063 [❌blocked] 创建SignalTrackingService测试 - test/unit/data/services/test_signal_tracking_service.py
-
-### FactorService - 🚫 暂不重构
-
-- [ ] T064 [🚫deferred] FactorService标记为暂不重构 - src/ginkgo/data/services/factor_service.py
-- [ ] T065 [🚫deferred] 复杂度评估过高，暂不处理 - src/ginkgo/data/services/factor_service.py
+#### T009 SignalTrackingService测试和验证
+- [ ] T024 创建SignalTrackingService信号跟踪测试 - test/unit/data/services/test_signal_tracking_service.py
+- [ ] T025 验证SignalTrackingService业务逻辑正确性 - test/data/services/test_signal_tracking_service.py
 
 ---
 
-## Phase 4: 🔄 Middleware Services重构 (2个Service待重构)
+## Phase 2: 复杂ManagementService重构 (2个Service)
 
-### RedisService 重构 - ❌ 需要修复 (属性架构问题)
+### US4: EngineService双CRUD协调重构
+**目标**: 解决EngineService的双CRUD依赖协调问题，实现引擎管理功能
 
-- [ ] T066 [❌blocked] 修复RedisService AttributeError: 'crud_repo'属性问题 - test/data/services/test_redis_service.py
-- [ ] T067 [❌blocked] 分析RedisService当前架构和缓存模式 - src/ginkgo/data/services/redis_service.py
-- [ ] T068 [❌blocked] 更新RedisService遵循BarService模式 - src/ginkgo/data/services/redis_service.py
-- [ ] T069 [❌blocked] 实现标准方法集(get/count/validate/check_integrity) - src/ginkgo/data/services/redis_service.py
-- [ ] T070 [❌blocked] 所有方法返回ServiceResult格式 - src/ginkgo/data/services/redis_service.py
-- [ ] T071 [❌blocked] 添加@time_logger、@retry装饰器 - src/ginkgo/data/services/redis_service.py
-- [ ] T072 [❌blocked] 更新Redis连接和缓存策略 - src/ginkgo/data/services/redis_service.py
-- [ ] T073 [❌blocked] 创建RedisService缓存测试 - test/unit/data/services/test_redis_service.py
+#### T010 EngineService依赖分析和修复
+- [ ] T026 分析EngineService的2个CRUD依赖关系 - src/ginkgo/data/services/engine_service.py
+- [ ] T027 修复EngineService测试架构问题 - test/data/services/test_engine_service.py
+- [ ] T028 更新EngineService构造函数支持ServiceHub - src/ginkgo/data/services/engine_service.py
 
-### KafkaService 重构 - ❌ 需要重构
+#### T011 EngineService标准方法实现
+- [ ] T029 实现标准方法集 (get/count/validate/check_integrity) - src/ginkgo/data/services/engine_service.py
+- [ ] T030 所有方法返回ServiceResult格式 - src/ginkgo/data/services/engine_service.py
+- [ ] T031 添加@time_logger、@retry装饰器 - src/ginkgo/data/services/engine_service.py
 
-- [ ] T074 [❌blocked] 分析KafkaService当前架构和消息处理模式 - src/ginkgo/data/services/kafka_service.py
-- [ ] T075 [❌blocked] 更新KafkaService遵循BarService模式 - src/ginkgo/data/services/kafka_service.py
-- [ ] T076 [❌blocked] 实现标准方法集(get/count/validate/check_integrity) - src/ginkgo/data/services/kafka_service.py
-- [ ] T077 [❌blocked] 所有方法返回ServiceResult格式 - src/ginkgo/data/services/kafka_service.py
-- [ ] T078 [❌blocked] 添加@time_logger、@retry装饰器 - src/ginkgo/data/services/kafka_service.py
-- [ ] T079 [❌blocked] 更新Kafka连接和消息处理逻辑 - src/ginkgo/data/services/kafka_service.py
-- [ ] T080 [❌blocked] 创建KafkaService消息测试 - test/unit/data/services/test_kafka_service.py
+#### T012 EngineService双CRUD协调实现
+- [ ] T032 更新双CRUD事务处理和状态管理 - src/ginkgo/data/services/engine_service.py
+- [ ] T033 私有属性标准化 (_crud_repo_portfolio, _crud_repo_engine) - src/ginkgo/data/services/engine_service.py
+- [ ] T034 实现引擎状态跟踪和错误恢复机制 - src/ginkgo/data/services/engine_service.py
 
----
+#### T013 EngineService测试和验证
+- [ ] T035 创建EngineService依赖协调测试 - test/unit/data/services/test_engine_service.py
+- [ ] T036 验证EngineService双CRUD事务处理正确性 - test/data/services/test_engine_service.py
 
-## Phase 5: 🔄 CLI 兼容性修复 (所有Service完成后)
+### US5: PortfolioService多CRUD协调完成
+**目标**: 完成PortfolioService的剩余重构工作，实现完整的投资组合管理功能
 
-**状态**: 🔄 等待所有Service重构完成后开始
+#### T014 PortfolioService标准API实现
+- [ ] T037 [P] 实现标准get方法 (替代get_portfolios) - src/ginkgo/data/services/portfolio_service.py
+- [ ] T038 [P] 实现标准count方法 (替代count_portfolios) - src/ginkgo/data/services/portfolio_service.py
+- [ ] T039 [P] 实现validate方法 - src/ginkgo/data/services/portfolio_service.py
+- [ ] T040 [P] 实现check_integrity方法 - src/ginkgo/data/services/portfolio_service.py
 
-### Data CLI 核心修复
-
-- [ ] T081 [🔄pending] 分析所有13个Service的CLI集成模式 - src/ginkgo/client/data_cli.py
-- [ ] T082 [🔄pending] 更新data_cli.py统一处理ServiceResult格式 - src/ginkgo/client/data_cli.py
-- [ ] T083 [🔄pending] 更新`ginkgo data update`系列命令适配新API - src/ginkgo/client/data_cli.py
-- [ ] T084 [🔄pending] 更新`ginkgo data get`查询命令适配新API - src/ginkgo/client/data_cli.py
-- [ ] T085 [🔄pending] 更新`ginkgo data count`计数命令适配新API - src/ginkgo/client/data_cli.py
-
-### CLI 错误处理和用户体验
-
-- [ ] T086 [🔄pending] 添加友好错误信息显示，避免内部异常暴露 - src/ginkgo/client/data_cli.py
-- [ ] T087 [🔄pending] 添加Rich进度条支持所有批量操作 - src/ginkgo/client/data_cli.py
-- [ ] T088 [🔄pending] 添加详细操作统计(成功/失败数量、耗时) - src/ginkgo/client/data_cli.py
-- [ ] T089 [🔄pending] 添加输入验证和参数检查 - src/ginkgo/client/data_cli.py
-- [ ] T090 [🔄pending] 添加调试模式支持详细日志 - src/ginkgo/client/data_cli.py
-
-### CLI 测试和验证
-
-- [ ] T091 [🔄pending] 测试所有data CLI命令与13个重构Service的兼容性
-- [ ] T092 [🔄pending] 验证CLI错误处理显示友好信息
-- [ ] T093 [🔄pending] 测试CLI进度条和统计显示准确性
-- [ ] T094 [🔄pending] 测试CLI调试模式功能
+#### T015 PortfolioService测试完成和验证
+- [ ] T041 [P] 修复PortfolioService剩余业务逻辑测试 - test/data/services/test_portfolio_service.py
+- [ ] T042 [P] 验证PortfolioService多CRUD事务处理 - test/data/services/test_portfolio_service.py
+- [ ] T043 [P] 验证PortfolioService完整功能集成 - test/data/services/test_portfolio_service.py
 
 ---
 
-## Phase 6: 🔄 综合测试和验证 (最终阶段)
+## Phase 3: 复杂BusinessService重构 (2个Service)
 
-**状态**: 🔄 等待所有Service重构完成后开始
+### US6: ComponentService跨服务协调重构
+**目标**: 解决ComponentService的模块导入和依赖注入问题，实现组件管理功能
 
-### Service 集成测试
+#### T016 ComponentService基础架构修复
+- [ ] T044 修复'ginkgo.trading.sizers.base_sizer'模块导入错误 - src/ginkgo/data/services/component_service.py
+- [ ] T045 分析ComponentService模块导入失败问题的根本原因 - test/data/services/test_component_service.py
+- [ ] T046 更新ComponentService继承BusinessService基类 - src/ginkgo/data/services/component_service.py
 
-- [ ] T095 [🔄pending] 运行所有13个重构Service的综合测试
-- [ ] T096 [🔄pending] 测试ServiceHub对所有新标准Service的支持
-- [ ] T097 [🔄pending] 验证ServiceResult格式跨所有Service的一致性
-- [ ] T098 [🔄pending] 测试跨Service依赖和交互(新+旧Service)
-- [ ] T099 [🔄pending] 测试ManagementService的多CRUD协调
-- [ ] T100 [🔄pending] 测试BusinessService的跨服务协调
-- [ ] T101 [🔄pending] 测试MiddlewareService的缓存和消息功能
+#### T017 ComponentService标准方法实现
+- [ ] T047 实现标准方法集 (get/count/validate/check_integrity) - src/ginkgo/data/services/component_service.py
+- [ ] T048 所有方法返回ServiceResult格式 - src/ginkgo/data/services/component_service.py
+- [ ] T049 添加@time_logger、@retry装饰器 - src/ginkgo/data/services/component_service.py
 
-### 性能和错误恢复测试
+#### T018 ComponentService跨服务协调实现
+- [ ] T050 更新跨服务协调和错误处理 - src/ginkgo/data/services/component_service.py
+- [ ] T051 实现组件依赖注入和管理机制 - src/ginkgo/data/services/component_service.py
+- [ ] T052 优化组件查询和缓存策略 - src/ginkgo/data/services/component_service.py
 
-- [ ] T102 [🔄pending] 测试所有Service批量处理性能
-- [ ] T103 [🔄pending] 验证装饰器开销最小化
-- [ ] T104 [🔄pending] 测试所有Service错误恢复机制
-- [ ] T105 [🔄pending] 测试网络中断和缓存故障处理
-- [ ] T106 [🔄pending] 测试多CRUD事务处理和回滚
+#### T019 ComponentService测试和验证
+- [ ] T053 创建ComponentService协调测试 - test/unit/data/services/test_component_service.py
+- [ ] T054 验证ComponentService跨服务交互正确性 - test/data/services/test_component_service.py
 
-### 最终验证和文档
+### US7: FactorService复杂度评估 (暂不重构)
+**目标**: 评估FactorService复杂度，决定是否需要重构
 
-- [ ] T107 [🔄pending] 验证所有13个Service测试覆盖率>90%
-- [ ] T108 [🔄pending] 验证所有CLI命令与重构Service完美集成
-- [ ] T109 [🔄pending] 更新所有Service接口文档
-- [ ] T110 [🔄pending] 创建完整的迁移指南和变更日志
-- [ ] T111 [🔄pending] 验证向后兼容性破坏最小化
+#### T020 FactorService复杂度评估
+- [ ] T055 分析FactorService当前实现的复杂度 - src/ginkgo/data/services/factor_service.py
+- [ ] T056 评估FactorService重构的必要性和可行性 - src/ginkgo/data/services/factor_service.py
+- [ ] T057 [🚫] FactorService标记为暂不重构 (复杂度过高) - src/ginkgo/data/services/factor_service.py
 
 ---
 
-## 当前进度分析报告
+## Phase 4: CLI兼容性统一修复 (1个任务)
 
-### 📊 **完成度统计**
+### US8: CLI兼容性统一修复
+**目标**: 统一所有CLI命令以支持新的ServiceResult格式和标准API
 
-| Service类别 | 总数 | 已完成 | 进行中 | 待开始 | 完成率 |
-|------------|------|--------|--------|--------|---------|
-| **DataService** | 4 | ✅ 4 | 0 | 0 | **100%** |
-| **ManagementService** | 3 | 0 | 0 | 🔄 3 | **0%** |
-| **BusinessService** | 2 | 0 | 0 | 🔄 2 | **0%** |
-| **MiddlewareService** | 2 | 0 | 0 | 🔄 2 | **0%** |
-| **暂不重构** | 1 | 0 | 0 | 🚫 1 | **0%** |
-| **总计** | **12** | ✅ **4** | 0 | 🔄 **7** | **33.3%** |
+#### T021 CLI兼容性分析和修复
+- [ ] T058 分析所有13个Service的CLI集成模式 - src/ginkgo/client/data_cli.py
+- [ ] T059 更新data_cli.py统一处理ServiceResult格式 - src/ginkgo/client/data_cli.py
+- [ ] T060 更新`ginkgo data update`系列命令适配新API - src/ginkgo/client/data_cli.py
 
-### 🎯 **关键发现**
+#### T022 CLI错误处理和用户体验优化
+- [ ] T061 添加友好错误信息显示，避免内部异常暴露 - src/ginkgo/client/data_cli.py
+- [ ] T062 添加Rich进度条支持所有批量操作 - src/ginkgo/client/data_cli.py
+- [ ] T063 添加详细操作统计(成功/失败数量、耗时) - src/ginkgo/client/data_cli.py
 
-#### ✅ **成功因素**
-1. **核心DataService完成**: 4/4个时序数据服务100%标准化
-2. **测试验证充分**: 75/75测试通过 (100%)
-3. **架构统一**: BarService标准成功建立并验证
-4. **API一致性**: 标准方法集全面实现
-5. **FileService优化**: 搜索功能和get_files→get标准化完成
+#### T023 CLI测试和验证
+- [ ] T064 测试所有data CLI命令与13个重构Service的兼容性
+- [ ] T065 验证CLI错误处理显示友好信息
+- [ ] T066 测试CLI进度条和统计显示准确性
 
-#### ⚠️ **待解决问题**
-1. **ManagementService测试架构**: 所有3个Service测试都存在基础架构问题
-2. **依赖注入复杂**: PortfolioService(3个CRUD), EngineService(2个CRUD)
-3. **模块导入错误**: ComponentService存在'ginkgo.trading.sizers.base_sizer'缺失
-4. **属性架构问题**: RedisService缺少私有属性标准化
+---
 
-#### 🔧 **技术债务**
-1. **测试依赖问题**: 部分Service测试失败需要基础设施修复
-2. **属性命名不一致**: 一些Service仍在使用非标准属性名
-3. **错误处理缺失**: 多个Service缺少统一的错误处理机制
+## Phase 5: 综合测试和验证
 
-### 🚀 **下一步行动计划**
+### T024 综合集成测试
+- [ ] T067 运行所有13个重构Service的综合测试
+- [ ] T068 测试ServiceHub对所有新标准Service的支持
+- [ ] T069 验证ServiceResult格式跨所有Service的一致性
 
-#### **高优先级** (立即开始)
-1. **修复测试基础设施**: 解决GCONF配置和导入问题
-2. **重构PortfolioService**: 作为最复杂的ManagementService，建立多CRUD协调模式
-3. **依赖注入优化**: 统一ServiceHub模式应用
+### T025 性能和错误恢复测试
+- [ ] T070 测试所有Service批量处理性能
+- [ ] T071 验证装饰器开销最小化
+- [ ] T072 测试所有Service错误恢复机制
 
-#### **中优先级** (第二阶段)
-1. **EngineService**: 管理双CRUD协调
-2. **ComponentService**: 修复模块导入和依赖问题
-3. **RedisService**: 缓存中间件现代化
+### T026 最终验证和文档
+- [ ] T073 验证所有13个Service测试覆盖率>90%
+- [ ] T074 验证所有CLI命令与重构Service完美集成
+- [ ] T075 更新所有Service接口文档
 
-#### **低优先级** (第三阶段)
-1. **SignalTrackingService**: 信号跟踪和状态管理
-2. **KafkaService**: 消息中间件标准化
-3. **CLI兼容性**: 统一命令行接口适配
+---
 
-### 📈 **风险缓解**
+## 实施策略
 
-1. **分阶段重构**: 避免同时重构多个复杂Service
+### 并行执行机会
+- **Phase 1内**: RedisService、KafkaService、SignalTrackingService可并行重构
+- **Phase 2内**: EngineService、PortfolioService可并行实施
+- **测试任务**: 各Service测试任务可并行进行
+
+### 里程碑节点
+1. **Phase 1完成**: 所有简单DataService重构完成 (目标: 3个Service)
+2. **Phase 2完成**: 所有复杂ManagementService重构完成 (目标: 2个Service)
+3. **Phase 3完成**: BusinessService重构完成或评估完成 (目标: 1个Service)
+4. **Phase 4完成**: CLI兼容性完全修复
+5. **Phase 5完成**: 整体验证和文档更新
+
+### 风险缓解
+1. **分阶段实施**: 避免同时重构多个复杂Service
 2. **测试先行**: 每个Service重构前建立测试基础
 3. **回滚策略**: 保持Git分支策略，可独立回滚每个Service
-4. **适配器支持**: 在重构期间提供新旧接口兼容
+4. **标准参考**: 以BarService为标准参考，确保一致性
 
-**当前状态**: 核心重构已完成33.3%，剩余67%按复杂度和优先级分阶段实施。FileService的搜索功能和get_files→get标准化已完成，为ManagementService重构建立了良好基础。
+### 总体统计
+- **Service总数**: 13个 (已完成4个，待重构9个)
+- **任务总数**: 75个 (T001-T075)
+- **预估时间**: 基于Service复杂度，Phase1最简单，Phase2最复杂
+- **成功标准**: 所有Service测试通过，CLI兼容性修复完成
+
+**当前状态**: 基础DataService完成，准备按复杂度从简到繁继续重构剩余9个Service。

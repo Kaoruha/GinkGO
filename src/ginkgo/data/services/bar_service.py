@@ -16,11 +16,11 @@ from ginkgo.libs import GCONF, datetime_normalize, to_decimal, RichProgress, cac
 from ginkgo.libs.data.results import DataValidationResult, DataIntegrityCheckResult, DataSyncResult
 from ginkgo.data import mappers
 from ginkgo.enums import FREQUENCY_TYPES, ADJUSTMENT_TYPES
-from ginkgo.data.services.base_service import DataService, ServiceResult
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
 
 
-class BarService(DataService):
+class BarService(BaseService):
     def __init__(self, crud_repo, data_source, stockinfo_service, adjustfactor_service=None):
         """Initializes the service with its dependencies."""
         super().__init__(crud_repo=crud_repo, data_source=data_source, stockinfo_service=stockinfo_service)
@@ -35,7 +35,14 @@ class BarService(DataService):
             )
         self._adjustfactor_service = adjustfactor_service
 
-    @retry(max_try=3)
+        # BaseService 已提供所有需要的通用方法：
+        # - _log_operation_start, _log_operation_end
+        # - create_result
+        # 直接继承使用即可
+
+    # ==================== BaseService标准接口实现 ====================
+
+    
     def sync_range(
         self,
         code: str,
@@ -69,7 +76,7 @@ class BarService(DataService):
                     sync_strategy="range"
                 )
                 sync_result.add_error(0, f"Stock code {code} not in stock list")
-                return ServiceResult.failure(
+                return ServiceResult.error(
                     message=f"Stock code {code} not in stock list",
                     data=sync_result
                 )
@@ -135,7 +142,7 @@ class BarService(DataService):
                         sync_strategy="range"
                     )
                     sync_result.add_error(0, f"Data mapping failed: {str(e)}")
-                    return ServiceResult.failure(
+                    return ServiceResult.error(
                         message=f"Data mapping failed: {str(e)}",
                         data=sync_result
                     )
@@ -312,7 +319,7 @@ class BarService(DataService):
                     message=f"Successfully synced {records_added} bar records for {code}"
                 )
             else:
-                return ServiceResult.failure(
+                return ServiceResult.error(
                     message=sync_result.error,
                     data=sync_result.data
                 )
@@ -364,7 +371,7 @@ class BarService(DataService):
             batch_result["date_range"] = f"{validated_start.date()} to {validated_end.date()}"
         except ValueError as e:
             batch_result["failures"].append({"error": f"Invalid date range: {str(e)}"})
-            return ServiceResult.failure(
+            return ServiceResult.error(
                 error=f"Invalid date range: {str(e)}",
                 data=batch_result
             )
@@ -698,6 +705,12 @@ class BarService(DataService):
                                 adjustment_type=adjustment_type.value)
 
         try:
+            # 基本参数验证 - 至少需要一个查询条件
+            if not code and not start_date and not end_date:
+                return ServiceResult.error(
+                    "查询参数不能为空，至少需要提供code、start_date或end_date中的一个"
+                )
+
             # 构建filters字典
             filters = {}
 
@@ -1611,7 +1624,7 @@ class BarService(DataService):
                 duration = time.time() - start_time
                 result.validation_timestamp = datetime.now()
                 result.set_metadata("validation_duration", duration)
-                return ServiceResult.failure(
+                return ServiceResult.error(
                     message=f"Bar data validation failed: {bars_result.message}",
                     data=result
                 )
@@ -1715,7 +1728,7 @@ class BarService(DataService):
             result.set_metadata("validation_duration", duration)
             result.is_valid = False
 
-            return ServiceResult.failure(
+            return ServiceResult.error(
                 message=f"Bar data validation failed: {str(e)}",
                 data=result
             )
@@ -1780,7 +1793,7 @@ class BarService(DataService):
             if not bars_result.success:
                 result.add_issue("data_retrieval_failure", f"Failed to retrieve data: {bars_result.message}")
                 result.check_duration = time.time() - start_time
-                return ServiceResult.failure(
+                return ServiceResult.error(
                     message=f"Bar data integrity check failed: {bars_result.message}",
                     data=result
                 )
@@ -1922,7 +1935,7 @@ class BarService(DataService):
             result.check_duration = duration
             result.integrity_score = 0.0
 
-            return ServiceResult.failure(
+            return ServiceResult.error(
                 message=f"Bar data integrity check failed: {str(e)}",
                 data=result
             )

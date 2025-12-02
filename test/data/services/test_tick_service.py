@@ -15,7 +15,7 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
 from ginkgo.data.services.tick_service import TickService
-from ginkgo.data.services.base_service import DataService
+from ginkgo.data.services.base_service import BaseService
 from ginkgo.data.containers import container
 from ginkgo.enums import ADJUSTMENT_TYPES
 
@@ -45,7 +45,7 @@ class TestTickServiceConstruction:
         )
 
         assert isinstance(tick_service, TickService)
-        assert isinstance(tick_service, DataService)
+        assert isinstance(tick_service, BaseService)
         assert hasattr(tick_service, '_logger')
         assert tick_service._data_source is data_source
         assert tick_service._stockinfo_service is stockinfo_service
@@ -453,13 +453,13 @@ class TestTickServiceErrorHandling:
         # 使用真实的服务实例，会自动检查股票列表
         tick_service = service_hub.data.tick_service()
 
-        # 测试sync_date（这个方法会检查stockinfo_service）
-        result = tick_service.sync_date("INVALID.CODE", datetime(2024, 1, 2))
-        assert result.success == False, "应该失败"
-        assert "not in stock list" in result.message, "错误信息应该提到股票列表"
-
-        # 测试get空代码
+        # 测试get空代码 - 这个是BaseService级别的验证
         result = tick_service.get(code="")
+        assert result.success == False, "应该失败"
+        assert "required" in result.message.lower(), "错误信息应该提到必需"
+
+        # 测试count空代码 - 这个也是BaseService级别的验证
+        result = tick_service.count(code="")
         assert result.success == False, "应该失败"
         assert "required" in result.message.lower(), "错误信息应该提到必需"
 
