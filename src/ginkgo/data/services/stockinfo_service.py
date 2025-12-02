@@ -468,7 +468,7 @@ class StockinfoService(DataService):
                 data=integrity_result
             )
 
-    def exists(self, code: str) -> bool:
+    def exists(self, code: str) -> ServiceResult:
         """
         Check if a stock code exists in the stock list.
 
@@ -476,11 +476,15 @@ class StockinfoService(DataService):
             code: Stock code to check (e.g., '000001.SZ')
 
         Returns:
-            bool: True if the stock code exists, False otherwise
+            ServiceResult containing existence check result
         """
         try:
             records = self._crud_repo.find(filters={"code": code}, page_size=1)
-            return len(records) > 0
+            exists = len(records) > 0
+            return ServiceResult.success(
+                data=exists,  # 直接封装bool值
+                message=f"Stock code {code} exists: {exists}"
+            )
         except Exception as e:
             self._logger.ERROR(f"Failed to check if code {code} exists: {e}")
-            return False
+            return ServiceResult.error(f"Failed to check if code {code} exists: {str(e)}")

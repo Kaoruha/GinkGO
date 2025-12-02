@@ -46,7 +46,8 @@ class AdjustfactorService(DataService):
 
         try:
             # Validate stock code
-            if not self._stockinfo_service.exists(code):
+            exists_result = self._stockinfo_service.exists(code)
+            if not exists_result.success or not exists_result.data:
                 sync_result = DataSyncResult.create_for_entity(
                     entity_type="adjustfactors",
                     entity_identifier=code,
