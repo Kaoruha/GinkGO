@@ -84,7 +84,7 @@ def _init_example_files() -> int:
             preset_name = f"preset_{file_name.split('.')[0]}"
 
             # Remove existing files with same name and type using hard delete
-            existing_files = file_service.get_files(name=preset_name, file_type=file_type, as_dataframe=True)
+            existing_files = file_service.get(name=preset_name, file_type=file_type, as_dataframe=True)
             if len(existing_files) > 0:
                 file_ids = [file.uuid for file in existing_files]
                 deleted_count = 0
@@ -248,7 +248,7 @@ def run():
     for config in component_configs:
         try:
             # Get file by name and type
-            files = file_service.get_files(name=config["file_name"], file_type=config["file_type"], as_dataframe=True)
+            files = file_service.get(name=config["file_name"], file_type=config["file_type"], as_dataframe=True)
 
             if len(files) == 0:
                 console.print(f":warning: Component not found: {config['file_name']}")

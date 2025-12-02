@@ -542,7 +542,7 @@ def _clean_orphaned_data(console):
 
     portfolios = portfolio_service.get_portfolios(as_dataframe=True)
     engines = engine_service.get_engines(as_dataframe=True)
-    files = file_service.get_files(as_dataframe=True)
+    files = file_service.get(as_dataframe=True)
 
     portfolio_ids = set(portfolios["uuid"].tolist()) if portfolios.shape[0] > 0 else set()
     engine_ids = set(engines["uuid"].tolist()) if engines.shape[0] > 0 else set()
