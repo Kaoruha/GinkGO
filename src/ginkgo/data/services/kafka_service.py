@@ -1,5 +1,6 @@
 """
-Kafka服务 - 统一管理Kafka消息队列操作
+Kafka消息队列服务 - 扁平化架构实现
+
 提供消息发布/订阅、主题管理、队列监控等功能
 """
 
@@ -8,33 +9,109 @@ from datetime import datetime, timedelta
 import json
 import threading
 import uuid
-from ginkgo.data.services.base_service import DataService
+
+from ginkgo.data.services.base_service import BaseService, ServiceResult
+from ginkgo.libs.utils.common import time_logger, retry
 
 
-class KafkaService(DataService):
-    """Kafka消息队列服务 - 继承自DataService保持架构一致性"""
-    
-    def __init__(self, kafka_crud=None, **additional_deps):
+class KafkaService(BaseService):
+    """Kafka消息队列服务 - 直接继承BaseService"""
+
+    def __init__(self, kafka_crud=None, **deps):
         """
         初始化Kafka服务
-        
+
         Args:
             kafka_crud: KafkaCRUD实例，如果为None则自动创建
-            **additional_deps: 其他依赖
+            **deps: 其他依赖
         """
         if kafka_crud is None:
             from ginkgo.data.crud import KafkaCRUD
             kafka_crud = KafkaCRUD()
-        
-        # Kafka服务中，crud_repo和data_source都是KafkaCRUD
-        super().__init__(
-            crud_repo=kafka_crud,
-            data_source=kafka_crud,  # Kafka既是数据源也是存储
-            **additional_deps
-        )
-        
+
+        super().__init__(kafka_crud=kafka_crud, **deps)
+
         # 为了向后兼容，保留kafka属性
         self.kafka = kafka_crud
+
+    # ==================== 标准接口实现 ====================
+
+    def get(self, topic: str = None, **filters) -> ServiceResult:
+        """获取Kafka主题信息"""
+        try:
+            if topic:
+                # 获取特定主题信息
+                topic_info = self._kafka_crud.get_topic_info(topic)
+                return ServiceResult.success(
+                    data={'topic': topic, 'info': topic_info},
+                    message=f"成功获取主题{topic}信息"
+                )
+            else:
+                # 获取所有主题
+                topics = self._kafka_crud.list_topics()
+                return ServiceResult.success(
+                    data={'topics': topics, 'count': len(topics)},
+                    message=f"找到{len(topics)}个主题"
+                )
+        except Exception as e:
+            return ServiceResult.error(f"获取Kafka主题信息失败: {str(e)}")
+
+    def count(self, topic: str = None) -> ServiceResult:
+        """统计主题数量或消息数量"""
+        try:
+            if topic:
+                # 统计特定主题的消息数量
+                message_count = self._kafka_crud.get_message_count(topic)
+                return ServiceResult.success(
+                    data={'topic': topic, 'message_count': message_count},
+                    message=f"主题{topic}共有{message_count}条消息"
+                )
+            else:
+                # 统计所有主题数量
+                topics = self._kafka_crud.list_topics()
+                return ServiceResult.success(
+                    data={'topic_count': len(topics)},
+                    message=f"共有{len(topics)}个主题"
+                )
+        except Exception as e:
+            return ServiceResult.error(f"统计Kafka主题数量失败: {str(e)}")
+
+    def validate(self, topic: str, message: Any = None) -> ServiceResult:
+        """验证Kafka数据"""
+        try:
+            if not topic:
+                return ServiceResult.error("主题名不能为空")
+
+            if not isinstance(topic, str):
+                return ServiceResult.error("主题名必须是字符串")
+
+            # 检查主题名格式
+            if not topic.replace('_', '').replace('-', '').isalnum():
+                return ServiceResult.error("主题名只能包含字母、数字、下划线和连字符")
+
+            return ServiceResult.success(message="Kafka数据验证通过")
+        except Exception as e:
+            return ServiceResult.error(f"Kafka数据验证失败: {str(e)}")
+
+    def check_integrity(self, topic: str) -> ServiceResult:
+        """检查Kafka主题完整性"""
+        try:
+            # 检查主题是否存在
+            topics = self._kafka_crud.list_topics()
+            if topic not in topics:
+                return ServiceResult.error(f"主题{topic}不存在")
+
+            # 检查主题分区信息
+            partitions = self._kafka_crud.get_topic_partitions(topic)
+
+            return ServiceResult.success(
+                data={'topic': topic, 'partitions': partitions, 'healthy': True},
+                message=f"主题{topic}完整性检查通过"
+            )
+        except Exception as e:
+            return ServiceResult.error(f"完整性检查失败: {str(e)}")
+
+    # ==================== 消息队列操作方法 ====================
         
         # 消息处理状态跟踪
         self._message_handlers = {}  # {topic: handler_function}

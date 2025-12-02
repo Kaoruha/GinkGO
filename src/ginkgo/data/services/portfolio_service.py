@@ -80,8 +80,8 @@ class PortfolioService(ManagementService):
             result["warnings"].append(f"Could not check portfolio existence: {str(e)}")
 
         try:
-            with self.crud_repo.get_session() as session:
-                portfolio_record = self.crud_repo.create(
+            with self._crud_repo.get_session() as session:
+                portfolio_record = self._crud_repo.create(
                     name=name,
                     backtest_start_date=backtest_start_date,
                     backtest_end_date=backtest_end_date,
@@ -192,8 +192,8 @@ class PortfolioService(ManagementService):
                 result["warnings"].append(f"Could not check name conflict: {str(e)}")
 
         try:
-            with self.crud_repo.get_session() as session:
-                updated_count = self.crud_repo.modify(filters={"uuid": portfolio_id}, updates=updates, session=session)
+            with self._crud_repo.get_session() as session:
+                updated_count = self._crud_repo.modify(filters={"uuid": portfolio_id}, updates=updates, session=session)
 
                 result["success"] = True
                 result["updated_count"] = updated_count if updated_count is not None else 1
@@ -236,10 +236,10 @@ class PortfolioService(ManagementService):
             return result
 
         try:
-            with self.crud_repo.get_session() as session:
+            with self._crud_repo.get_session() as session:
                 # Clean up portfolio-file mappings and parameters first
                 try:
-                    file_mappings = self.portfolio_file_mapping_crud.find(
+                    file_mappings = self._portfolio_file_mapping_crud.find(
                         filters={"portfolio_id": portfolio_id}, session=session
                     )
 
@@ -247,7 +247,7 @@ class PortfolioService(ManagementService):
                     for mapping in file_mappings:
                         # Delete associated parameters (hard delete)
                         try:
-                            params_deleted = self.param_crud.remove(
+                            params_deleted = self._param_crud.remove(
                                 filters={"mapping_id": mapping.uuid}, session=session
                             )
                             parameters_deleted += params_deleted if params_deleted is not None else 0
@@ -259,7 +259,7 @@ class PortfolioService(ManagementService):
                     result["parameters_deleted"] = parameters_deleted
 
                     # Delete portfolio-file mappings (hard delete)
-                    mappings_deleted = self.portfolio_file_mapping_crud.remove(
+                    mappings_deleted = self._portfolio_file_mapping_crud.remove(
                         filters={"portfolio_id": portfolio_id}, session=session
                     )
                     result["mappings_deleted"] = mappings_deleted if mappings_deleted is not None else 0
@@ -273,7 +273,7 @@ class PortfolioService(ManagementService):
                     result["warnings"].append(f"Failed to clean up portfolio mappings and parameters: {str(e)}")
 
                 # Delete the portfolio (hard delete)
-                deleted_count = self.crud_repo.remove(filters={"uuid": portfolio_id}, session=session)
+                deleted_count = self._crud_repo.remove(filters={"uuid": portfolio_id}, session=session)
 
                 result["success"] = True
                 result["deleted_count"] = deleted_count if deleted_count is not None else 1
@@ -371,7 +371,7 @@ class PortfolioService(ManagementService):
         # Always exclude soft-deleted records
         filters["is_del"] = False
 
-        return self.crud_repo.find(filters=filters, **kwargs)
+        return self._crud_repo.find(filters=filters, **kwargs)
 
     def get_portfolio(self, portfolio_id: str, as_dataframe: bool = False) -> Union[pd.DataFrame, Any, None]:
         """
@@ -384,10 +384,11 @@ class PortfolioService(ManagementService):
         Returns:
             Portfolio data or None if not found
         """
-        # Use CRUD's find method directly with uuid filter
-        result = self.crud_repo.find(filters={"uuid": portfolio_id, "is_del": False}, as_dataframe=as_dataframe)
+        # Use get_portfolios method to ensure consistency and allow proper test mocking
+        result = self.get_portfolios(filters={"uuid": portfolio_id}, as_dataframe=as_dataframe)
+
         if as_dataframe:
-            return result if result is not None and not result.empty else pd.DataFrame()
+            return result if result is not None and not result.empty else None
         else:
             return result[0] if result else None
 
@@ -412,7 +413,7 @@ class PortfolioService(ManagementService):
         # Always exclude soft-deleted records
         filters["is_del"] = False
 
-        return self.crud_repo.count(filters=filters)
+        return self._crud_repo.count(filters=filters)
 
     def portfolio_exists(self, name: str) -> bool:
         """
@@ -424,7 +425,7 @@ class PortfolioService(ManagementService):
         Returns:
             True if portfolio exists
         """
-        return self.crud_repo.exists(filters={"name": name, "is_del": False})
+        return self._crud_repo.exists(filters={"name": name, "is_del": False})
 
     @retry(max_try=3)
     def add_file_to_portfolio(
@@ -482,8 +483,8 @@ class PortfolioService(ManagementService):
             result["warnings"].append(f"Could not check existing mapping: {str(e)}")
 
         try:
-            with self.portfolio_file_mapping_crud.get_session() as session:
-                mapping_record = self.portfolio_file_mapping_crud.create(
+            with self._portfolio_file_mapping_crud.get_session() as session:
+                mapping_record = self._portfolio_file_mapping_crud.create(
                     portfolio_id=portfolio_id, file_id=file_id, name=name, type=file_type, session=session
                 )
 
@@ -531,10 +532,10 @@ class PortfolioService(ManagementService):
             return result
 
         try:
-            with self.portfolio_file_mapping_crud.get_session() as session:
+            with self._portfolio_file_mapping_crud.get_session() as session:
                 # Delete associated parameters first
                 try:
-                    parameters_deleted = self.param_crud.soft_remove(
+                    parameters_deleted = self._param_crud.soft_remove(
                         filters={"mapping_id": mapping_id}, session=session
                     )
                     result["parameters_deleted"] = parameters_deleted if parameters_deleted is not None else 0
@@ -544,7 +545,7 @@ class PortfolioService(ManagementService):
                     result["warnings"].append(f"Failed to delete parameters: {str(e)}")
 
                 # Delete the mapping
-                removed_count = self.portfolio_file_mapping_crud.soft_remove(
+                removed_count = self._portfolio_file_mapping_crud.soft_remove(
                     filters={"uuid": mapping_id}, session=session
                 )
 
@@ -589,7 +590,7 @@ class PortfolioService(ManagementService):
         # Always exclude soft-deleted records
         filters["is_del"] = False
 
-        return self.portfolio_file_mapping_crud.find(filters=filters, as_dataframe=as_dataframe, **kwargs)
+        return self._portfolio_file_mapping_crud.find(filters=filters, as_dataframe=as_dataframe, **kwargs)
 
     def get_files_for_portfolio(
         self, portfolio_id: str, file_type: FILE_TYPES = None, as_dataframe: bool = True
@@ -610,13 +611,13 @@ class PortfolioService(ManagementService):
         )
 
     @retry(max_try=3)
-    def add_parameter(self, mapping_id: str, index: int, value: str) -> Dict[str, Any]:
+    def add_parameter(self, mapping_id: str, order: int, value: str) -> Dict[str, Any]:
         """
         Adds a parameter to a portfolio-file mapping with comprehensive error handling.
 
         Args:
             mapping_id: UUID of the portfolio-file mapping
-            index: Parameter order/index
+            order: Parameter order/index
             value: Parameter value
 
         Returns:
@@ -625,7 +626,7 @@ class PortfolioService(ManagementService):
         result = {
             "success": False,
             "mapping_id": mapping_id,
-            "index": index,
+            "order": order,
             "value": value,
             "error": None,
             "warnings": [],
@@ -637,8 +638,8 @@ class PortfolioService(ManagementService):
             result["error"] = "Mapping ID cannot be empty"
             return result
 
-        if index is None or index < 0:
-            result["error"] = "Parameter index must be a non-negative integer"
+        if order is None or order < 0:
+            result["error"] = "Parameter order must be a non-negative integer"
             return result
 
         if value is None:
@@ -650,16 +651,16 @@ class PortfolioService(ManagementService):
             value = str(value)[:1000]
 
         try:
-            with self.param_crud.get_session() as session:
-                param_record = self.param_crud.create(
-                    mapping_id=mapping_id, index=index, value=str(value), session=session
+            with self._param_crud.get_session() as session:
+                param_record = self._param_crud.create(
+                    mapping_id=mapping_id, index=order, value=str(value), order=order, session=session
                 )
 
                 result["success"] = True
                 result["parameter_info"] = {
                     "uuid": param_record.uuid,
                     "mapping_id": param_record.mapping_id,
-                    "index": param_record.index,
+                    "order": param_record.order,
                     "value": param_record.value,
                 }
                 self._logger.INFO(f"Successfully added parameter to mapping {mapping_id}")
@@ -681,7 +682,7 @@ class PortfolioService(ManagementService):
         Returns:
             Parameters for the mapping
         """
-        return self.param_crud.find(
+        return self._param_crud.find(
             filters={"mapping_id": mapping_id, "is_del": False}, order_by="order", as_dataframe=as_dataframe
         )
 
@@ -715,7 +716,7 @@ class PortfolioService(ManagementService):
 
             result["mappings_checked"] = len(all_mappings)
 
-            with self.portfolio_file_mapping_crud.get_session() as session:
+            with self._portfolio_file_mapping_crud.get_session() as session:
                 for _, mapping in all_mappings.iterrows():
                     mapping_id = mapping["uuid"]
                     portfolio_id = mapping["portfolio_id"]
@@ -723,7 +724,7 @@ class PortfolioService(ManagementService):
 
                     try:
                         # Check if portfolio exists
-                        portfolio_exists = self.crud_repo.exists(filters={"uuid": portfolio_id})
+                        portfolio_exists = self._crud_repo.exists(filters={"uuid": portfolio_id})
 
                         # Check if file exists
                         file_exists = False
@@ -740,7 +741,7 @@ class PortfolioService(ManagementService):
                         if not portfolio_exists or not file_exists:
                             # Remove parameters first
                             try:
-                                params_deleted = self.param_crud.soft_remove(
+                                params_deleted = self._param_crud.soft_remove(
                                     filters={"mapping_id": mapping_id}, session=session
                                 )
                                 result["cleaned_parameters"] += params_deleted if params_deleted is not None else 0
@@ -751,7 +752,7 @@ class PortfolioService(ManagementService):
 
                             # Remove mapping
                             try:
-                                mapping_deleted = self.portfolio_file_mapping_crud.soft_remove(
+                                mapping_deleted = self._portfolio_file_mapping_crud.soft_remove(
                                     filters={"uuid": mapping_id}, session=session
                                 )
                                 if mapping_deleted and mapping_deleted > 0:
