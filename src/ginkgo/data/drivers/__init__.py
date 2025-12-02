@@ -191,6 +191,7 @@ def add(value, *args, **kwargs) -> any:
             session.flush()  # 获取数据库生成的ID等信息
             session.refresh(value)  # 确保所有属性都被加载
             session.expunge(value)  # 将对象从session中分离，但保留属性
+            # 上下文管理器会在退出时自动commit
             return value
     except Exception as e:
         GLOG.ERROR(f"Failed to add data to database: {e}")
@@ -273,7 +274,8 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
             with mysql_conn.get_session() as session:
                 session.add_all(mysql_list)
                 mysql_count = len(mysql_list)
-                GLOG.DEBUG(f"MySQL committed {len(mysql_list)} records.")
+                # 上下文管理器会在退出时自动commit
+                GLOG.DEBUG(f"MySQL will commit {len(mysql_list)} records.")
 
                 # 在session关闭前进行批量解绑，创建干净的脱管对象
                 # 常见做法：flush确保状态完整，expunge_all批量脱管
