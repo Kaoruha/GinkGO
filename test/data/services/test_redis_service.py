@@ -43,7 +43,7 @@ class TestRedisService(unittest.TestCase):
             self.redis_service.delete_cache(key)
         
         # 清理可能的模式键
-        crud = self.redis_service.crud_repo
+        crud = self.redis_service._crud_repo
         pattern_keys = crud.keys(f"{self.test_prefix}*")
         for key in pattern_keys:
             crud.delete(key)
@@ -59,17 +59,17 @@ class TestRedisService(unittest.TestCase):
         redis_crud = RedisCRUD()
         service = RedisService(redis_crud=redis_crud)
         
-        self.assertEqual(service.crud_repo, redis_crud)
-        self.assertEqual(service.data_source, redis_crud)
+        self.assertEqual(service._crud_repo, redis_crud)
+        self.assertEqual(service._data_source, redis_crud)
         self.assertEqual(service.service_name, "RedisService")
 
     def test_init_with_auto_crud_creation(self):
         """测试自动创建RedisCRUD"""
         service = RedisService()
         
-        self.assertIsInstance(service.crud_repo, RedisCRUD)
-        self.assertIsInstance(service.data_source, RedisCRUD)
-        self.assertEqual(service.crud_repo, service.data_source)
+        self.assertIsInstance(service._crud_repo, RedisCRUD)
+        self.assertIsInstance(service._data_source, RedisCRUD)
+        self.assertEqual(service._crud_repo, service._data_source)
 
     # ==================== 数据同步进度管理测试 ====================
 
@@ -522,14 +522,18 @@ class TestRedisService(unittest.TestCase):
         self.redis_service.set_cache(key, value)
         
         # 确认键存在
-        self.assertTrue(self.redis_service.exists(key))
+        result = self.redis_service.exists(key)
+        self.assertTrue(result.success)
+        self.assertTrue(result.data)
         
         # 删除缓存
         result = self.redis_service.delete_cache(key)
         self.assertTrue(result)
         
         # 确认键不存在
-        self.assertFalse(self.redis_service.exists(key))
+        result = self.redis_service.exists(key)
+        self.assertTrue(result.success)
+        self.assertFalse(result.data)
 
     def test_delete_cache_not_found(self):
         """测试删除不存在的缓存"""
@@ -552,7 +556,8 @@ class TestRedisService(unittest.TestCase):
         
         # 检查键存在
         result = self.redis_service.exists(key)
-        self.assertTrue(result)
+        self.assertTrue(result.success)
+        self.assertTrue(result.data)
 
     def test_exists_false(self):
         """测试检查键是否存在 - 不存在"""
@@ -560,7 +565,8 @@ class TestRedisService(unittest.TestCase):
         
         # 检查不存在的键
         result = self.redis_service.exists(key)
-        self.assertFalse(result)
+        self.assertTrue(result.success)
+        self.assertFalse(result.data)
 
 
     # ==================== 系统监控测试 ====================
