@@ -2,9 +2,10 @@ from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models.model_signal_tracker import MSignalTracker
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EXECUTION_MODE, TRACKING_STATUS, ACCOUNT_TYPE
@@ -29,88 +30,75 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
     def _get_field_config(self) -> dict:
         """
         定义 SignalTracker 数据的字段配置
-        
+        基于业务场景分析，只包含真正的必填字段
+
         Returns:
             dict: 字段配置字典
         """
         return {
-            # 必填字段
-            "signal_id": {"required": True, "type": str},
-            "strategy_id": {"required": True, "type": str},
-            "portfolio_id": {"required": True, "type": str},
-            "execution_mode": {"required": True, "type": int},
-            "account_type": {"required": True, "type": int},
-            "expected_code": {"required": True, "type": str},
-            "expected_direction": {"required": True, "type": int},
-            "expected_price": {"required": True, "type": float},
-            "expected_volume": {"required": True, "type": int},
-            "expected_timestamp": {"required": True, "type": datetime},
-            
-            # 可选字段
-            "engine_id": {"required": False, "type": str, "default": ""},
-            "actual_price": {"required": False, "type": float},
-            "actual_volume": {"required": False, "type": int},
-            "actual_timestamp": {"required": False, "type": datetime},
-            "tracking_status": {"required": False, "type": int, "default": 0},
-            "notification_sent_at": {"required": False, "type": datetime},
-            "execution_confirmed_at": {"required": False, "type": datetime},
-            "price_deviation": {"required": False, "type": float},
-            "volume_deviation": {"required": False, "type": float},
-            "time_delay_seconds": {"required": False, "type": int},
-            "reject_reason": {"required": False, "type": str},
-            "notes": {"required": False, "type": str},
-            "source": {"required": False, "type": int, "default": -1},
+            # 核心关联信息 - 业务必填
+            "signal_id": {"type": str},
+            "portfolio_id": {"type": str},
 
-            # 业务时间戳 - datetime 或字符串，可选
-            "business_timestamp": {"required": False, "type": ["datetime", "string", "none"]},
+            # 执行预期参数 - 业务必填
+            "expected_code": {"type": str},
+            "expected_direction": {
+                "type": "enum",
+                "choices": [d for d in DIRECTION_TYPES]
+            },
+            "expected_price": {"type": ["decimal", "float", "int"]},
+            "expected_volume": {"type": int},
+            "expected_timestamp": {"type": ["datetime", "string"]},
+
+            # 业务时间 - 核心字段，所有时间计算的基础
+            "business_timestamp": {"type": ["datetime", "string"]},
+
+            # 场景相关字段 - 根据具体业务场景必填
+            "engine_id": {"type": str},  # 回测场景必填
+            "run_id": {"type": str},     # 回测场景必填，区分多次执行
+            "account_type": {
+                "type": "enum",
+                "choices": [a for a in ACCOUNT_TYPE]
+            },  # 区分回测/模拟盘/实盘
+            "execution_mode": {
+                "type": "enum",
+                "choices": [e for e in EXECUTION_MODE]
+            },  # 自动执行还是人工确认
         }
 
     def _create_from_params(self, **kwargs) -> MSignalTracker:
         """
-        从参数创建 SignalTracker 对象
-        
-        Returns:
-            MSignalTracker: 创建的 SignalTracker 对象
+        Hook method: Create MSignalTracker from parameters.
         """
-        tracker = MSignalTracker()
-        
-        # 处理必填字段
-        tracker.update(
+        return MSignalTracker(
+            # 核心关联信息 - 业务必填
             signal_id=kwargs.get("signal_id"),
-            strategy_id=kwargs.get("strategy_id"),
             portfolio_id=kwargs.get("portfolio_id"),
-            execution_mode=EXECUTION_MODE.from_int(kwargs.get("execution_mode")),
-            account_type=ACCOUNT_TYPE.from_int(kwargs.get("account_type")),
+
+            # 执行预期参数 - 业务必填
             expected_code=kwargs.get("expected_code"),
-            expected_direction=DIRECTION_TYPES.from_int(kwargs.get("expected_direction")),
-            expected_price=kwargs.get("expected_price"),
-            expected_volume=kwargs.get("expected_volume"),
-            expected_timestamp=kwargs.get("expected_timestamp"),
-            engine_id=kwargs.get("engine_id", ""),
-            actual_price=kwargs.get("actual_price"),
-            actual_volume=kwargs.get("actual_volume"),
-            actual_timestamp=kwargs.get("actual_timestamp"),
-            tracking_status=TRACKING_STATUS.from_int(kwargs.get("tracking_status", 0)),
-            notification_sent_at=kwargs.get("notification_sent_at"),
-            execution_confirmed_at=kwargs.get("execution_confirmed_at"),
-            price_deviation=kwargs.get("price_deviation"),
-            volume_deviation=kwargs.get("volume_deviation"),
-            time_delay_seconds=kwargs.get("time_delay_seconds"),
-            reject_reason=kwargs.get("reject_reason"),
-            notes=kwargs.get("notes"),
-            source=SOURCE_TYPES.from_int(kwargs.get("source", -1)),
+            expected_direction=DIRECTION_TYPES.validate_input(kwargs.get("expected_direction")),
+            expected_price=to_decimal(kwargs.get("expected_price")),
+            expected_volume=int(kwargs.get("expected_volume")),
+            expected_timestamp=datetime_normalize(kwargs.get("expected_timestamp")),
+
+            # 业务时间 - 核心字段
             business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
+
+            # 场景相关字段
+            engine_id=kwargs.get("engine_id", ""),
+            run_id=kwargs.get("run_id", ""),
+            account_type=ACCOUNT_TYPE.validate_input(kwargs.get("account_type", ACCOUNT_TYPE.PAPER)),
+            execution_mode=EXECUTION_MODE.validate_input(kwargs.get("execution_mode", EXECUTION_MODE.SIMULATION)),
         )
-        
-        return tracker
 
     def _convert_input_item(self, item: Any) -> Optional[MSignalTracker]:
         """
         转换输入项为 MSignalTracker 对象
-        
+
         Args:
             item: 输入项 (Signal, dict, pd.Series 等)
-            
+
         Returns:
             Optional[MSignalTracker]: 转换后的对象
         """
@@ -118,43 +106,52 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             return item
         elif isinstance(item, Signal):
             # 从Signal对象创建追踪记录
-            tracker = MSignalTracker()
-            tracker.update(
+            return MSignalTracker(
                 signal_id=item.uuid,
-                strategy_id=getattr(item, 'strategy_id', ''),
                 portfolio_id=item.portfolio_id,
                 expected_code=item.code,
-                expected_direction=item.direction,
+                expected_direction=DIRECTION_TYPES.validate_input(getattr(item, 'direction', DIRECTION_TYPES.LONG)),
                 expected_price=float(getattr(item, 'price', 0)),
                 expected_volume=getattr(item, 'volume', 0),
-                expected_timestamp=item.timestamp,
-                source=SOURCE_TYPES.STRATEGY,
-                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
+                expected_timestamp=datetime_normalize(getattr(item, 'timestamp')),
+                business_timestamp=datetime_normalize(getattr(item, 'business_timestamp')),
+                engine_id=getattr(item, 'engine_id', ''),
+                run_id=getattr(item, 'run_id', ''),
+                account_type=ACCOUNT_TYPE.validate_input(getattr(item, 'account_type', ACCOUNT_TYPE.PAPER)),
+                execution_mode=EXECUTION_MODE.validate_input(getattr(item, 'execution_mode', EXECUTION_MODE.SIMULATION)),
             )
-            return tracker
         elif isinstance(item, dict):
-            # 从字典创建追踪记录
-            tracker = MSignalTracker()
-            # 设置枚举字段的值
-            if 'execution_mode' in item:
-                item['execution_mode'] = item['execution_mode'].value if hasattr(item['execution_mode'], 'value') else item['execution_mode']
-            if 'account_type' in item:
-                item['account_type'] = item['account_type'].value if hasattr(item['account_type'], 'value') else item['account_type']
-            if 'expected_direction' in item:
-                item['expected_direction'] = item['expected_direction'].value if hasattr(item['expected_direction'], 'value') else item['expected_direction']
-            if 'tracking_status' in item:
-                item['tracking_status'] = item['tracking_status'].value if hasattr(item['tracking_status'], 'value') else item['tracking_status']
-
-            # 处理business_timestamp
-            if 'business_timestamp' in item:
-                item['business_timestamp'] = datetime_normalize(item['business_timestamp'])
-
-            tracker.update(**item)
-            return tracker
+            # 从字典创建追踪记录，使用模型构造函数
+            return MSignalTracker(
+                signal_id=item.get('signal_id'),
+                portfolio_id=item.get('portfolio_id'),
+                expected_code=item.get('expected_code'),
+                expected_direction=DIRECTION_TYPES.validate_input(item.get('expected_direction')),
+                expected_price=to_decimal(item.get('expected_price')),
+                expected_volume=item.get('expected_volume'),
+                expected_timestamp=datetime_normalize(item.get('expected_timestamp')),
+                business_timestamp=datetime_normalize(item.get('business_timestamp')),
+                engine_id=item.get('engine_id', ''),
+                run_id=item.get('run_id', ''),
+                account_type=ACCOUNT_TYPE.validate_input(item.get('account_type')),
+                execution_mode=EXECUTION_MODE.validate_input(item.get('execution_mode')),
+            )
         elif isinstance(item, pd.Series):
-            tracker = MSignalTracker()
-            tracker.update(item)
-            return tracker
+            # 从pandas Series创建追踪记录
+            return MSignalTracker(
+                signal_id=item.get("signal_id"),
+                portfolio_id=item.get("portfolio_id"),
+                expected_code=item.get("expected_code"),
+                expected_direction=DIRECTION_TYPES.validate_input(item.get("expected_direction")),
+                expected_price=to_decimal(item.get("expected_price")),
+                expected_volume=item.get("expected_volume"),
+                expected_timestamp=datetime_normalize(item.get("expected_timestamp")),
+                business_timestamp=datetime_normalize(item.get("business_timestamp")),
+                engine_id=item.get("engine_id", ""),
+                run_id=item.get("run_id", ""),
+                account_type=ACCOUNT_TYPE.validate_input(item.get("account_type")),
+                execution_mode=EXECUTION_MODE.validate_input(item.get("execution_mode")),
+            )
         else:
             GLOG.WARN(f"Unsupported input type: {type(item)}")
             return None
@@ -189,65 +186,17 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
 
     def _convert_output_items(self, items: List[MSignalTracker], output_type: str = "model") -> List[Any]:
         """
-        转换输出项
-
-        Args:
-            items: MSignalTracker 对象列表
-            output_type: 输出类型 ("model", "dict", "dataframe")
-            
-        Returns:
-            List[Any]: 转换后的对象列表
+        Hook method: Convert MSignalTracker objects for business layer.
         """
-        if output_type == "model":
-            return items
-        elif output_type == "dict":
-            return [item.__dict__ for item in items]
-        elif output_type == "dataframe":
-            if not items:
-                return pd.DataFrame()
-            data = []
-            for item in items:
-                data.append({
-                    'uuid': item.uuid,
-                    'signal_id': item.signal_id,
-                    'strategy_id': item.strategy_id,
-                    'portfolio_id': item.portfolio_id,
-                    'engine_id': item.engine_id,
-                    'execution_mode': item.execution_mode,
-                    'account_type': item.account_type,
-                    'expected_code': item.expected_code,
-                    'expected_direction': item.expected_direction,
-                    'expected_price': item.expected_price,
-                    'expected_volume': item.expected_volume,
-                    'expected_timestamp': item.expected_timestamp,
-                    'actual_price': item.actual_price,
-                    'actual_volume': item.actual_volume,
-                    'actual_timestamp': item.actual_timestamp,
-                    'tracking_status': item.tracking_status,
-                    'notification_sent_at': item.notification_sent_at,
-                    'execution_confirmed_at': item.execution_confirmed_at,
-                    'price_deviation': item.price_deviation,
-                    'volume_deviation': item.volume_deviation,
-                    'time_delay_seconds': item.time_delay_seconds,
-                    'reject_reason': item.reject_reason,
-                    'notes': item.notes,
-                    'source': item.source,
-                    'timestamp': item.timestamp,
-                    'update_at': item.update_at,
-                    'business_timestamp': getattr(item, 'business_timestamp', None)
-                })
-            return pd.DataFrame(data)
-        else:
-            GLOG.WARN(f"Unsupported output type: {output_type}")
-            return items
+        return items
 
     def find_by_signal_id(self, signal_id: str) -> Optional[MSignalTracker]:
         """
         根据信号ID查找追踪记录
-        
+
         Args:
             signal_id: 信号ID
-            
+
         Returns:
             Optional[MSignalTracker]: 追踪记录
         """
@@ -258,103 +207,80 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         self,
         portfolio_id: str,
         account_type: Optional[ACCOUNT_TYPE] = None,
-        tracking_status: Optional[TRACKING_STATUS] = None,
-        limit: int = 1000
-    ) -> List[MSignalTracker]:
+        execution_mode: Optional[EXECUTION_MODE] = None
+    ) -> ModelList[MSignalTracker]:
         """
         根据投资组合查找追踪记录
-        
+
         Args:
             portfolio_id: 投资组合ID
             account_type: 账户类型筛选
-            tracking_status: 追踪状态筛选
-            limit: 返回记录数限制
-            
+            execution_mode: 执行模式筛选
+
         Returns:
-            List[MSignalTracker]: 追踪记录列表
+            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()和to_entities()方法
         """
         filters = {"portfolio_id": portfolio_id}
-        
+
         if account_type is not None:
             filters["account_type"] = account_type
-        if tracking_status is not None:
-            filters["tracking_status"] = tracking_status
-        
-        return self.get_items_filtered(**filters, limit=limit)
+        if execution_mode is not None:
+            filters["execution_mode"] = execution_mode
+
+        return self.find(filters=filters, limit=1000)
 
     def find_by_engine(
         self,
         engine_id: str,
-        account_type: Optional[ACCOUNT_TYPE] = None,
-        tracking_status: Optional[TRACKING_STATUS] = None,
-        limit: int = 1000
-    ) -> List[MSignalTracker]:
+        run_id: Optional[str] = None,
+        account_type: Optional[ACCOUNT_TYPE] = None
+    ) -> ModelList[MSignalTracker]:
         """
         根据引擎查找追踪记录
-        
+
         Args:
             engine_id: 引擎ID
+            run_id: 运行会话ID筛选
             account_type: 账户类型筛选
-            tracking_status: 追踪状态筛选
-            limit: 返回记录数限制
-            
+
         Returns:
-            List[MSignalTracker]: 追踪记录列表
+            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()和to_entities()方法
         """
         filters = {"engine_id": engine_id}
-        
+
+        if run_id is not None:
+            filters["run_id"] = run_id
         if account_type is not None:
             filters["account_type"] = account_type
-        if tracking_status is not None:
-            filters["tracking_status"] = tracking_status
-        
-        return self.get_items_filtered(**filters, limit=limit)
 
-    def find_by_strategy(
+        return self.find(filters=filters, limit=1000)
+
+    def find_by_tracking_status(
         self,
-        strategy_id: str,
-        account_type: Optional[ACCOUNT_TYPE] = None,
-        tracking_status: Optional[TRACKING_STATUS] = None,
-        limit: int = 1000
-    ) -> List[MSignalTracker]:
-        """
-        根据策略查找追踪记录
-        
-        Args:
-            strategy_id: 策略ID
-            account_type: 账户类型筛选
-            tracking_status: 追踪状态筛选
-            limit: 返回记录数限制
-            
-        Returns:
-            List[MSignalTracker]: 追踪记录列表
-        """
-        filters = {"strategy_id": strategy_id}
-        
-        if account_type is not None:
-            filters["account_type"] = account_type
-        if tracking_status is not None:
-            filters["tracking_status"] = tracking_status
-        
-        return self.get_items_filtered(**filters, limit=limit)
-
-    def find_by_tracking_status(self, tracking_status: TRACKING_STATUS, limit: int = 1000) -> List[MSignalTracker]:
+        tracking_status: TRACKING_STATUS,
+        account_type: Optional[ACCOUNT_TYPE] = None
+    ) -> ModelList[MSignalTracker]:
         """
         根据追踪状态查找记录
-        
+
         Args:
             tracking_status: 追踪状态
-            limit: 返回记录数限制
-            
+            account_type: 账户类型筛选
+
         Returns:
-            List[MSignalTracker]: 追踪记录列表
+            ModelList[MSignalTracker]: 追踪记录列表，支持to_dataframe()和to_entities()方法
         """
-        return self.get_items_filtered(tracking_status=tracking_status, limit=limit)
+        filters = {"tracking_status": tracking_status}
+
+        if account_type is not None:
+            filters["account_type"] = account_type
+
+        return self.find(filters=filters, limit=1000)
 
     def delete_by_portfolio(self, portfolio_id: str) -> None:
         """
         删除指定投资组合的所有追踪记录
-        
+
         Args:
             portfolio_id: 投资组合ID
         """
@@ -363,94 +289,8 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
     def delete_by_engine(self, engine_id: str) -> None:
         """
         删除指定引擎的所有追踪记录
-        
+
         Args:
             engine_id: 引擎ID
         """
         self.delete_by_filters(engine_id=engine_id)
-
-    def count_by_portfolio(self, portfolio_id: str) -> int:
-        """
-        统计投资组合的追踪记录数量
-        
-        Args:
-            portfolio_id: 投资组合ID
-            
-        Returns:
-            int: 记录数量
-        """
-        return self.count_filtered(portfolio_id=portfolio_id)
-
-    def count_by_tracking_status(self, tracking_status: TRACKING_STATUS) -> int:
-        """
-        统计指定状态的追踪记录数量
-        
-        Args:
-            tracking_status: 追踪状态
-            
-        Returns:
-            int: 记录数量
-        """
-        return self.count_filtered(tracking_status=tracking_status)
-
-    def get_all_signal_ids(self) -> List[str]:
-        """
-        获取所有信号ID
-        
-        Returns:
-            List[str]: 信号ID列表
-        """
-        items = self.get_items_filtered()
-        return list(set(item.signal_id for item in items if item.signal_id))
-
-    def get_portfolio_ids(self) -> List[str]:
-        """
-        获取所有投资组合ID
-        
-        Returns:
-            List[str]: 投资组合ID列表
-        """
-        items = self.get_items_filtered()
-        return list(set(item.portfolio_id for item in items if item.portfolio_id))
-
-    def find_by_business_time(
-        self,
-        portfolio_id: str,
-        start_business_time: Optional[Any] = None,
-        end_business_time: Optional[Any] = None,
-        account_type: Optional[ACCOUNT_TYPE] = None,
-        tracking_status: Optional[TRACKING_STATUS] = None,
-        limit: int = 1000,
-        as_dataframe: bool = False,
-    ) -> Union[List[MSignalTracker], pd.DataFrame]:
-        """
-        Business helper: Find signal trackers by business time range.
-
-        Args:
-            portfolio_id: Portfolio ID to query
-            start_business_time: Start of business time range (optional)
-            end_business_time: End of business time range (optional)
-            account_type: Account type filter (optional)
-            tracking_status: Tracking status filter (optional)
-            limit: Return record limit
-            as_dataframe: Return as DataFrame if True
-
-        Returns:
-            List of MSignalTracker models or DataFrame
-        """
-        filters = {"portfolio_id": portfolio_id}
-
-        if start_business_time:
-            filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
-        if end_business_time:
-            filters["business_timestamp__lte"] = datetime_normalize(end_business_time)
-        if account_type is not None:
-            filters["account_type"] = account_type
-        if tracking_status is not None:
-            filters["tracking_status"] = tracking_status
-
-        results = self.get_items_filtered(**filters, limit=limit)
-
-        if as_dataframe:
-            return self._convert_output_items(results)
-        return results

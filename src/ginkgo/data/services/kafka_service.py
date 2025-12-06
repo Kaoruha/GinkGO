@@ -29,10 +29,28 @@ class KafkaService(BaseService):
             from ginkgo.data.crud import KafkaCRUD
             kafka_crud = KafkaCRUD()
 
-        super().__init__(kafka_crud=kafka_crud, **deps)
+        super().__init__(crud_repo=kafka_crud, **deps)
 
         # 为了向后兼容，保留kafka属性
         self.kafka = kafka_crud
+
+        # 消息处理状态跟踪
+        self._message_handlers = {}  # {topic: handler_function}
+        self._consumer_threads = {}  # {topic: thread}
+        self._stop_events = {}      # {topic: threading.Event}
+
+        # 消息发送统计
+        self._send_stats = {
+            "total_sent": 0,
+            "failed_sends": 0,
+            "last_send_time": None
+        }
+
+        # 消息接收统计
+        self._receive_stats = {
+            "total_received": 0,
+            "last_receive_time": None
+        }
 
     # ==================== 标准接口实现 ====================
 
@@ -41,14 +59,14 @@ class KafkaService(BaseService):
         try:
             if topic:
                 # 获取特定主题信息
-                topic_info = self._kafka_crud.get_topic_info(topic)
+                topic_info = self._crud_repo.get_topic_info(topic)
                 return ServiceResult.success(
                     data={'topic': topic, 'info': topic_info},
                     message=f"成功获取主题{topic}信息"
                 )
             else:
                 # 获取所有主题
-                topics = self._kafka_crud.list_topics()
+                topics = self._crud_repo.list_topics()
                 return ServiceResult.success(
                     data={'topics': topics, 'count': len(topics)},
                     message=f"找到{len(topics)}个主题"
@@ -61,14 +79,14 @@ class KafkaService(BaseService):
         try:
             if topic:
                 # 统计特定主题的消息数量
-                message_count = self._kafka_crud.get_message_count(topic)
+                message_count = self._crud_repo.get_message_count(topic)
                 return ServiceResult.success(
                     data={'topic': topic, 'message_count': message_count},
                     message=f"主题{topic}共有{message_count}条消息"
                 )
             else:
                 # 统计所有主题数量
-                topics = self._kafka_crud.list_topics()
+                topics = self._crud_repo.list_topics()
                 return ServiceResult.success(
                     data={'topic_count': len(topics)},
                     message=f"共有{len(topics)}个主题"
@@ -97,12 +115,12 @@ class KafkaService(BaseService):
         """检查Kafka主题完整性"""
         try:
             # 检查主题是否存在
-            topics = self._kafka_crud.list_topics()
+            topics = self._crud_repo.list_topics()
             if topic not in topics:
                 return ServiceResult.error(f"主题{topic}不存在")
 
             # 检查主题分区信息
-            partitions = self._kafka_crud.get_topic_partitions(topic)
+            partitions = self._crud_repo.get_topic_partitions(topic)
 
             return ServiceResult.success(
                 data={'topic': topic, 'partitions': partitions, 'healthy': True},
@@ -111,26 +129,6 @@ class KafkaService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"完整性检查失败: {str(e)}")
 
-    # ==================== 消息队列操作方法 ====================
-        
-        # 消息处理状态跟踪
-        self._message_handlers = {}  # {topic: handler_function}
-        self._consumer_threads = {}  # {topic: thread}
-        self._stop_events = {}      # {topic: threading.Event}
-        
-        # 消息发送统计
-        self._send_stats = {
-            "total_sent": 0,
-            "failed_sends": 0,
-            "last_send_time": None
-        }
-        
-        # 消息接收统计
-        self._receive_stats = {
-            "total_received": 0,
-            "last_receive_time": None
-        }
-    
     # ==================== 消息发布服务 ====================
     
     def publish_message(self, topic: str, message: Any, key: str = None,
@@ -171,7 +169,7 @@ class KafkaService(BaseService):
                 enhanced_message = message
             
             # 发送消息
-            success = self.crud_repo.send_message(topic, enhanced_message, key)
+            success = self._crud_repo.send_message(topic, enhanced_message, key)
             
             # 更新统计信息
             if success:
@@ -226,7 +224,7 @@ class KafkaService(BaseService):
                     processed_messages.append(msg)
             
             # 批量发送
-            success_count = self.crud_repo.send_batch_messages(topic, processed_messages)
+            success_count = self._crud_repo.send_batch_messages(topic, processed_messages)
             
             # 更新统计信息
             self._send_stats["total_sent"] += success_count
@@ -363,7 +361,7 @@ class KafkaService(BaseService):
                 del self._stop_events[topic]
             
             # 关闭对应的消费者
-            self.crud_repo.close_consumer(topic)
+            self._crud_repo.close_consumer(topic)
             
             self._logger.INFO(f"Stopped consuming topic: {topic}")
             return True
@@ -420,7 +418,7 @@ class KafkaService(BaseService):
                     return False
             
             # 开始消费
-            self.crud_repo.consume_with_callback(
+            self._crud_repo.consume_with_callback(
                 topic=topic,
                 callback=message_processor,
                 group_id=group_id,
@@ -446,7 +444,7 @@ class KafkaService(BaseService):
             Dict: 主题状态信息
         """
         try:
-            basic_info = self.crud_repo.get_topic_info(topic)
+            basic_info = self._crud_repo.get_topic_info(topic)
             
             # 添加服务层的状态信息
             status = basic_info.copy()
@@ -520,7 +518,7 @@ class KafkaService(BaseService):
         Returns:
             Dict: 统计信息
         """
-        kafka_status = self.crud_repo.get_kafka_status()
+        kafka_status = self._crud_repo.get_kafka_status()
         
         return {
             "kafka_connection": kafka_status,
@@ -532,31 +530,201 @@ class KafkaService(BaseService):
             "subscription_details": self.list_active_subscriptions()
         }
     
+    def get_unconsumed_messages_count(self, topic: str, group_id: str = None) -> ServiceResult:
+        """
+        查询指定主题的未消费消息数量
+
+        Args:
+            topic: 主题名称
+            group_id: 消费者组ID，None表示默认组
+
+        Returns:
+            ServiceResult: 包含未消费消息数量和详细信息
+        """
+        try:
+            if not topic:
+                return ServiceResult.error("主题名不能为空")
+
+            # 验证主题是否存在
+            topics = self._crud_repo.list_topics()
+            if topic not in topics:
+                return ServiceResult.error(f"主题{topic}不存在")
+
+            # 获取主题总消息数
+            total_messages = self._crud_repo.get_message_count(topic)
+
+            # 尝试获取消费者组的偏移信息（如果CRUD支持）
+            try:
+                # 这里假设KafkaCRUD有获取偏移信息的方法
+                if hasattr(self._crud_repo, 'get_consumer_group_offset'):
+                    current_offset = self._crud_repo.get_consumer_group_offset(topic, group_id)
+                    latest_offset = self._crud_repo.get_latest_offset(topic)
+
+                    if current_offset is not None and latest_offset is not None:
+                        unconsumed_count = latest_offset - current_offset
+                    else:
+                        unconsumed_count = total_messages
+                else:
+                    # 如果不支持偏移查询，返回总消息数作为估算
+                    unconsumed_count = total_messages
+                    return ServiceResult.success(
+                        data={
+                            'topic': topic,
+                            'group_id': group_id or 'default',
+                            'total_messages': total_messages,
+                            'unconsumed_messages': unconsumed_count,
+                            'estimation': True,
+                            'message': '未消费消息数量为估算值'
+                        },
+                        message=f"主题{topic}估算未消费消息数: {unconsumed_count}"
+                    )
+            except Exception:
+                # 查询偏移信息失败，使用总消息数
+                unconsumed_count = total_messages
+
+            return ServiceResult.success(
+                data={
+                    'topic': topic,
+                    'group_id': group_id or 'default',
+                    'total_messages': total_messages,
+                    'unconsumed_messages': unconsumed_count,
+                    'timestamp': datetime.now().isoformat()
+                },
+                message=f"主题{topic}未消费消息数量: {unconsumed_count}"
+            )
+
+        except Exception as e:
+            return ServiceResult.error(f"查询未消费消息数量失败: {str(e)}")
+
+    def get_consumer_group_lag(self, topic: str, group_id: str = None) -> ServiceResult:
+        """
+        查询消费者组延迟（Lag）信息
+
+        Args:
+            topic: 主题名称
+            group_id: 消费者组ID
+
+        Returns:
+            ServiceResult: 包含延迟详情
+        """
+        try:
+            if not topic:
+                return ServiceResult.error("主题名不能为空")
+
+            # 查询未消费消息数量
+            lag_result = self.get_unconsumed_messages_count(topic, group_id)
+            if not lag_result.success:
+                return lag_result
+
+            data = lag_result.data
+            unconsumed_count = data['unconsumed_messages']
+
+            # 估算延迟时间（基于消息时间戳）
+            try:
+                if hasattr(self._crud_repo, 'get_latest_message_timestamp'):
+                    latest_timestamp = self._crud_repo.get_latest_message_timestamp(topic)
+                    if latest_timestamp:
+                        current_time = datetime.now()
+                        lag_seconds = (current_time - latest_timestamp).total_seconds()
+                        lag_minutes = lag_seconds / 60
+                        lag_hours = lag_seconds / 3600
+                    else:
+                        lag_seconds = None
+                        lag_minutes = None
+                        lag_hours = None
+                else:
+                    lag_seconds = None
+                    lag_minutes = None
+                    lag_hours = None
+            except Exception:
+                lag_seconds = None
+                lag_minutes = None
+                lag_hours = None
+
+            return ServiceResult.success(
+                data={
+                    'topic': topic,
+                    'group_id': group_id or 'default',
+                    'unconsumed_messages': unconsumed_count,
+                    'lag_seconds': lag_seconds,
+                    'lag_minutes': lag_minutes,
+                    'lag_hours': lag_hours,
+                    'lag_level': self._calculate_lag_level(unconsumed_count, lag_minutes),
+                    'timestamp': datetime.now().isoformat()
+                },
+                message=f"消费者组延迟: {unconsumed_count}条消息"
+            )
+
+        except Exception as e:
+            return ServiceResult.error(f"查询消费者组延迟失败: {str(e)}")
+
+    def _calculate_lag_level(self, message_count: int, lag_minutes: float = None) -> str:
+        """
+        计算延迟级别
+
+        Args:
+            message_count: 未消费消息数量
+            lag_minutes: 延迟分钟数
+
+        Returns:
+            str: 延迟级别
+        """
+        if lag_minutes is None:
+            # 基于消息数量估算
+            if message_count == 0:
+                return "无延迟"
+            elif message_count < 100:
+                return "低延迟"
+            elif message_count < 1000:
+                return "中等延迟"
+            else:
+                return "高延迟"
+        else:
+            # 基于时间延迟估算
+            if lag_minutes < 1:
+                return "无延迟"
+            elif lag_minutes < 10:
+                return "低延迟"
+            elif lag_minutes < 60:
+                return "中等延迟"
+            else:
+                return "高延迟"
+
     def get_queue_metrics(self, topics: List[str] = None) -> Dict[str, Any]:
         """
         获取队列指标
-        
+
         Args:
             topics: 主题列表，None表示所有订阅的主题
-            
+
         Returns:
             Dict: 队列指标
         """
         if topics is None:
             topics = list(self._message_handlers.keys())
-        
+
         metrics = {
             "timestamp": datetime.now().isoformat(),
             "topics": {}
         }
-        
+
         for topic in topics:
             try:
-                topic_info = self.get_topic_status(topic)
-                metrics["topics"][topic] = topic_info
+                # 获取未消费消息数量
+                lag_result = self.get_unconsumed_messages_count(topic)
+
+                if lag_result.success:
+                    lag_data = lag_result.data
+                    metrics["topics"][topic] = {
+                        "unconsumed_messages": lag_data["unconsumed_messages"],
+                        "total_messages": lag_data["total_messages"],
+                        "consumer_lag": lag_data.get("lag_level", "未知")
+                    }
+                else:
+                    metrics["topics"][topic] = {"error": lag_result.error}
             except Exception as e:
                 metrics["topics"][topic] = {"error": str(e)}
-        
+
         return metrics
     
     def reset_statistics(self) -> bool:
@@ -595,7 +763,7 @@ class KafkaService(BaseService):
             Dict: 健康状态信息
         """
         base_health = self.get_health_status()
-        kafka_status = self.crud_repo.get_kafka_status()
+        kafka_status = self._crud_repo.get_kafka_status()
         
         # 检查消费者线程健康状态
         consumer_health = {}
@@ -642,7 +810,7 @@ class KafkaService(BaseService):
             self._message_handlers.clear()
             
             # 关闭所有Kafka消费者连接
-            self.crud_repo.close_all_consumers()
+            self._crud_repo.close_all_consumers()
             
             self._logger.INFO("KafkaService shutdown completed")
             return True

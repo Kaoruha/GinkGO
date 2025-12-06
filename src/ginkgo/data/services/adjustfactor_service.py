@@ -16,14 +16,224 @@ import pandas as pd
 from ginkgo.libs import GCONF, datetime_normalize, cache_with_expiration, retry, to_decimal, time_logger
 from ginkgo.libs.data.results import DataValidationResult, DataIntegrityCheckResult, DataSyncResult
 from ginkgo.data import mappers
-from ginkgo.data.services.base_service import DataService, ServiceResult
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
 
 
-class AdjustfactorService(DataService):
+class AdjustfactorService(BaseService):
     def __init__(self, crud_repo, data_source, stockinfo_service):
         """Initializes the service with its dependencies."""
         super().__init__(crud_repo=crud_repo, data_source=data_source, stockinfo_service=stockinfo_service)
+
+    # 注意：add、update、delete方法已移除，复权因子通过sync方法批量更新
+
+    def get(self, code: str = None, **filters) -> ServiceResult:
+        """
+        获取复权因子信息记录
+
+        Args:
+            code: 股票代码（可选）
+            **filters: 过滤条件
+
+        Returns:
+            ServiceResult: 操作结果
+        """
+        self._log_operation_start("get", code=code, **filters)
+        try:
+            # 构建查询过滤器
+            query_filters = filters.copy()
+            if code:
+                query_filters["code"] = code
+
+            # 执行查询
+            data = self._crud_repo.find(filters=query_filters)
+
+            self._log_operation_end("get", True)
+            return ServiceResult.success(data=data, message="复权因子信息获取成功")
+
+        except Exception as e:
+            error_msg = f"获取复权因子信息失败: {str(e)}"
+            self._logger.ERROR(error_msg)
+            self._log_operation_end("get", False)
+            return ServiceResult.error(error_msg)
+
+    def exists(self, **filters) -> ServiceResult:
+        """
+        检查复权因子是否存在
+
+        Args:
+            **filters: 过滤条件
+
+        Returns:
+            ServiceResult: 操作结果，包含exists字段
+        """
+        self._log_operation_start("exists", **filters)
+        try:
+            # 基本的存在性检查
+            code = filters.get("code")
+            if code:
+                count_result = self.count(code=code)
+                exists = count_result.success and count_result.data > 0
+            else:
+                exists = False
+
+            self._log_operation_end("exists", True)
+            return ServiceResult.success(data={"exists": exists}, message="复权因子存在性检查完成")
+
+        except Exception as e:
+            error_msg = f"检查复权因子存在性失败: {str(e)}"
+            self._logger.ERROR(error_msg)
+            self._log_operation_end("exists", False)
+            return ServiceResult.error(error_msg)
+
+    def count(self, code: str = None, **filters) -> ServiceResult:
+        """
+        统计复权因子数量
+
+        Args:
+            code: 股票代码（可选）
+            **filters: 过滤条件
+
+        Returns:
+            ServiceResult: 操作结果，包含count字段
+        """
+        self._log_operation_start("count", code=code, **filters)
+        try:
+            # 构建查询过滤器
+            query_filters = filters.copy()
+            if code:
+                query_filters["code"] = code
+
+            count = self._crud_repo.count(filters=query_filters)
+
+            self._log_operation_end("count", True)
+            return ServiceResult.success(data={"count": count}, message="复权因子数量统计完成")
+
+        except Exception as e:
+            error_msg = f"统计复权因子数量失败: {str(e)}"
+            self._logger.ERROR(error_msg)
+            self._log_operation_end("count", False)
+            return ServiceResult.error(error_msg)
+
+    def health_check(self) -> ServiceResult:
+        """
+        健康检查
+
+        Returns:
+            ServiceResult: 健康状态
+        """
+        try:
+            # 检查依赖服务
+            data_source_healthy = self._data_source and hasattr(self._data_source, 'fetch_cn_stock_adjustfactor')
+            stockinfo_service_healthy = self._stockinfo_service and hasattr(self._stockinfo_service, 'get')
+
+            # 检查数据库连接
+            total_count = 0
+            try:
+                total_count = self.count().data or 0
+            except:
+                total_count = 0
+
+            health_data = {
+                "service_name": self._service_name,
+                "status": "healthy" if data_source_healthy and stockinfo_service_healthy else "unhealthy",
+                "dependencies": {
+                    "data_source": "healthy" if data_source_healthy else "unavailable",
+                    "stockinfo_service": "healthy" if stockinfo_service_healthy else "unavailable"
+                },
+                "total_records": total_count
+            }
+
+            return ServiceResult.success(data=health_data, message="AdjustfactorService健康检查完成")
+
+        except Exception as e:
+            error_msg = f"健康检查失败: {str(e)}"
+            self._logger.ERROR(error_msg)
+            return ServiceResult.error(error_msg)
+
+    def validate(self, data: Dict) -> ServiceResult:
+        """
+        验证复权因子数据
+
+        Args:
+            data: 要验证的数据
+
+        Returns:
+            ServiceResult: 验证结果
+        """
+        try:
+            if not isinstance(data, dict):
+                return ServiceResult.error("数据必须是字典格式")
+
+            # 检查必填字段
+            required_fields = ['code', 'timestamp', 'adjustfactor']
+            missing_fields = [field for field in required_fields if field not in data]
+
+            if missing_fields:
+                return ServiceResult.error(f"缺少必填字段: {', '.join(missing_fields)}")
+
+            # 验证股票代码格式
+            code = data.get('code')
+            if not code or not isinstance(code, str) or len(code.strip()) == 0:
+                return ServiceResult.error("股票代码格式无效")
+
+            # 验证复权因子
+            adjustfactor = data.get('adjustfactor')
+            if adjustfactor is None or (isinstance(adjustfactor, (int, float)) and adjustfactor <= 0):
+                return ServiceResult.error("复权因子必须为正数")
+
+            return ServiceResult.success(data={"valid": True}, message="复权因子数据验证通过")
+
+        except Exception as e:
+            error_msg = f"验证复权因子数据失败: {str(e)}"
+            self._logger.ERROR(error_msg)
+            return ServiceResult.error(error_msg)
+
+    def check_integrity(self, code: str = None, **filters) -> ServiceResult:
+        """
+        检查复权因子数据完整性
+
+        Args:
+            code: 股票代码（可选）
+            **filters: 过滤条件
+
+        Returns:
+            ServiceResult: 完整性检查结果
+        """
+        try:
+            integrity_issues = []
+
+            if code:
+                # 检查特定股票代码的完整性
+                get_result = self.get(code=code)
+                if not get_result.success:
+                    integrity_issues.append(f"获取股票{code}数据失败: {get_result.error}")
+                else:
+                    records = get_result.data
+                    if not records or len(records) == 0:
+                        integrity_issues.append(f"股票{code}没有复权因子数据")
+            else:
+                # 检查整体服务完整性
+                if not self._data_source:
+                    integrity_issues.append("DataSource依赖不可用")
+                if not self._stockinfo_service:
+                    integrity_issues.append("StockinfoService依赖不可用")
+
+            is_valid = len(integrity_issues) == 0
+
+            return ServiceResult.success(
+                data={
+                    "valid": is_valid,
+                    "issues": integrity_issues,
+                    "code": code
+                },
+                message="复权因子完整性检查完成" if is_valid else f"发现{len(integrity_issues)}个完整性问题"
+            )
+
+        except Exception as e:
+            error_msg = f"检查复权因子完整性失败: {str(e)}"
+            self._logger.ERROR(error_msg)
+            return ServiceResult.error(error_msg)
 
     @retry(max_try=3)
     def sync(self, code: str, start_date: datetime = None, end_date: datetime = None, **kwargs) -> ServiceResult:
