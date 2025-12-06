@@ -25,14 +25,27 @@ from decimal import Decimal
 
 from ginkgo.libs import GLOG, datetime_normalize, to_decimal, retry, time_logger, cache_with_expiration
 from ginkgo.enums import ENTITY_TYPES, SOURCE_TYPES
-from ginkgo.data.services.base_service import DataService, ServiceResult
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 
 
-class FactorService(DataService):
+class FactorService(BaseService):
     """
     因子管理服务类
-    
+
     提供因子的计算、存储、查询和分析功能，支持多种实体类型的因子管理。
+
+    TODO: 这个Service需要完成标准化方法的实现：
+    - add() - 添加因子信息记录
+    - update() - 更新因子信息记录
+    - delete() - 删除因子信息记录
+    - get() - 获取因子信息记录
+    - exists() - 检查因子存在性
+    - count() - 统计因子数量
+    - health_check() - 健康检查
+    - validate() - 验证因子数据
+    - check_integrity() - 检查因子数据完整性
+
+    当前只有特殊业务方法，缺少标准化的CRUD接口。
     """
 
     def __init__(self, factor_crud, **additional_deps):

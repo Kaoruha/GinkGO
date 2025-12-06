@@ -15,11 +15,11 @@ from datetime import datetime
 from ginkgo.libs import RichProgress, cache_with_expiration, retry, time_logger
 from ginkgo.libs.data.results import DataSyncResult, DataValidationResult, DataIntegrityCheckResult
 from ginkgo.data import mappers
-from ginkgo.data.services.base_service import DataService, ServiceResult
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
 
 
-class StockinfoService(DataService):
+class StockinfoService(BaseService):
     def __init__(self, crud_repo, data_source, **additional_deps):
         """
         Initializes the service with its dependencies following BarService pattern.
@@ -30,6 +30,43 @@ class StockinfoService(DataService):
             **additional_deps: Additional dependencies (ServiceHub pattern)
         """
         super().__init__(crud_repo=crud_repo, data_source=data_source, **additional_deps)
+
+    # 注意：add、update、delete方法已移除，股票信息通过sync_all方法批量更新
+
+    def health_check(self) -> ServiceResult:
+        """
+        健康检查
+
+        Returns:
+            ServiceResult: 健康状态
+        """
+        try:
+            # 检查依赖服务
+            data_source_healthy = self._data_source and hasattr(self._data_source, 'fetch_cn_stockinfo')
+
+            # 检查数据库连接
+            total_count = 0
+            try:
+                count_result = self.count()
+                total_count = count_result.data if count_result.success else 0
+            except:
+                total_count = 0
+
+            health_data = {
+                "service_name": self._service_name,
+                "status": "healthy" if data_source_healthy else "unhealthy",
+                "dependencies": {
+                    "data_source": "healthy" if data_source_healthy else "unavailable"
+                },
+                "total_records": total_count
+            }
+
+            return ServiceResult.success(data=health_data, message="StockinfoService健康检查完成")
+
+        except Exception as e:
+            error_msg = f"健康检查失败: {str(e)}"
+            self._logger.ERROR(error_msg)
+            return ServiceResult.error(error_msg)
 
     @retry(max_try=3)
     @time_logger

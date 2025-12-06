@@ -36,27 +36,25 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
     expected_direction: Mapped[int] = mapped_column(Integer, comment="交易方向")
     expected_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 4), comment="预期价格")
     expected_volume: Mapped[int] = mapped_column(Integer, comment="预期数量")
-    expected_timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), comment="预期执行时间")
-    
+    expected_timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), comment="预期执行时间（T+1后的业务时间）")
+
     # 实际执行参数
     actual_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 4), nullable=True, comment="实际价格")
     actual_volume: Mapped[int] = mapped_column(Integer, nullable=True, comment="实际数量")
-    actual_timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="实际执行时间")
+    actual_timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="实际执行时间（成交时的业务时间）")
     
     # 状态追踪
     tracking_status: Mapped[int] = mapped_column(Integer, default=0, comment="追踪状态")
-    notification_sent_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now, comment="通知发送时间")
-    execution_confirmed_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="执行确认时间")
+    notification_sent_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now, comment="通知发送系统时间")
+    execution_confirmed_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="执行确认系统时间")
     
-    # 偏差指标
-    price_deviation: Mapped[Decimal] = mapped_column(DECIMAL(8, 4), nullable=True, comment="价格偏差")
-    volume_deviation: Mapped[Decimal] = mapped_column(DECIMAL(8, 4), nullable=True, comment="数量偏差")
-    time_delay_seconds: Mapped[int] = mapped_column(Integer, nullable=True, comment="时间延迟(秒)")
-    
-    # 其他信息
+  # 其他信息
     reject_reason: Mapped[str] = mapped_column(String(200), nullable=True, comment="拒绝原因")
     notes: Mapped[str] = mapped_column(String(500), nullable=True, comment="备注")
-    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, comment="业务时间戳")
+
+    # 时间戳字段
+    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now, comment="系统创建时间戳（全局统一字段）")
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, comment="信号业务时间（价格数据时间）")
 
     def __init__(self,
                  signal_id=None, strategy_id=None, portfolio_id=None,
@@ -65,8 +63,8 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
                  expected_volume=None, expected_timestamp=None,
                  actual_price=None, actual_volume=None, actual_timestamp=None,
                  tracking_status=None, notification_sent_at=None, execution_confirmed_at=None,
-                 price_deviation=None, volume_deviation=None, time_delay_seconds=None,
-                 reject_reason=None, notes=None, business_timestamp=None, source=None, **kwargs):
+                 time_delay_seconds=None,
+                 reject_reason=None, notes=None, timestamp=None, business_timestamp=None, source=None, **kwargs):
         """Initialize MSignalTracker with automatic enum/int handling"""
         super().__init__(**kwargs)
 
@@ -125,8 +123,13 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
             self.reject_reason = reject_reason
         if notes is not None:
             self.notes = notes
+
+        # 时间戳字段
+        if timestamp is not None:
+            self.timestamp = datetime_normalize(timestamp)
         if business_timestamp is not None:
             self.business_timestamp = datetime_normalize(business_timestamp)
+
         if source is not None:
             self.source = SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.TUSHARE.value
 

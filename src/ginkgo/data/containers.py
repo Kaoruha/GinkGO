@@ -123,7 +123,6 @@ class Container(containers.DeclarativeContainer):
         PortfolioService,
         crud_repo=portfolio_crud,
         portfolio_file_mapping_crud=portfolio_file_mapping_crud,
-        param_crud=param_crud,
     )
 
     component_service = providers.Singleton(
