@@ -19,85 +19,8 @@ class ComponentService(BaseService):
         """Initializes the service with its dependencies."""
         super().__init__(file_service=file_service, portfolio_service=portfolio_service)
 
-    # 标准化方法
-    def add(self, **data) -> ServiceResult:
-        """
-        添加组件信息记录
-
-        Args:
-            **data: 组件信息数据
-
-        Returns:
-            ServiceResult: 操作结果
-        """
-        self._log_operation_start("add", **data)
-        try:
-            # 由于ComponentService主要是功能性服务，不直接管理数据存储
-            # 这里提供基本的参数验证
-            if not data.get("file_id"):
-                return ServiceResult.error("文件ID不能为空")
-
-            if not data.get("file_type"):
-                return ServiceResult.error("文件类型不能为空")
-
-            self._log_operation_end("add", True)
-            return ServiceResult.success(data=data, message="组件信息添加成功")
-
-        except Exception as e:
-            error_msg = f"添加组件信息失败: {str(e)}"
-            self._logger.ERROR(error_msg)
-            self._log_operation_end("add", False)
-            return ServiceResult.error(error_msg)
-
-    def update(self, component_id: str, **data) -> ServiceResult:
-        """
-        更新组件信息记录
-
-        Args:
-            component_id: 组件ID
-            **data: 更新的数据
-
-        Returns:
-            ServiceResult: 操作结果
-        """
-        self._log_operation_start("update", component_id=component_id, **data)
-        try:
-            if not component_id or not component_id.strip():
-                return ServiceResult.error("组件ID不能为空")
-
-            # 组件信息通常存储在文件中，这里提供接口兼容性
-            self._log_operation_end("update", True)
-            return ServiceResult.success(data={"component_id": component_id, **data}, message="组件信息更新成功")
-
-        except Exception as e:
-            error_msg = f"更新组件信息失败: {str(e)}"
-            self._logger.ERROR(error_msg)
-            self._log_operation_end("update", False)
-            return ServiceResult.error(error_msg)
-
-    def delete(self, component_id: str) -> ServiceResult:
-        """
-        删除组件信息记录
-
-        Args:
-            component_id: 组件ID
-
-        Returns:
-            ServiceResult: 操作结果
-        """
-        self._log_operation_start("delete", component_id=component_id)
-        try:
-            if not component_id or not component_id.strip():
-                return ServiceResult.error("组件ID不能为空")
-
-            self._log_operation_end("delete", True)
-            return ServiceResult.success(data={"component_id": component_id}, message="组件信息删除成功")
-
-        except Exception as e:
-            error_msg = f"删除组件信息失败: {str(e)}"
-            self._logger.ERROR(error_msg)
-            self._log_operation_end("delete", False)
-            return ServiceResult.error(error_msg)
+    # 注意：add、update、delete方法已移除，ComponentService专注于组件实例化功能
+# 组件的基础CRUD通过FileService管理
 
     def get(self, component_id: str = None, **filters) -> ServiceResult:
         """
