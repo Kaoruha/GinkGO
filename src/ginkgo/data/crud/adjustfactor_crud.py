@@ -297,3 +297,72 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
         except Exception as e:
             GLOG.ERROR(f"Failed to get adjustment factor codes: {e}")
             return []
+
+    def modify(self, filters: Dict[str, Any], updates: Dict[str, Any]) -> int:
+        """
+        Modify method using replace for ClickHouse compatibility.
+
+        For all databases (ClickHouse and MySQL), uses replace method:
+        1. Find existing records matching filters
+        2. Create updated records with new values
+        3. Use replace method for atomic delete-then-insert operation
+
+        Args:
+            filters: Dictionary of field -> value filters for selection
+            updates: Dictionary of field -> value updates to apply
+
+        Returns:
+            int: Number of records updated
+        """
+        if not filters or not updates:
+            GLOG.ERROR("Modify operation requires both filters and updates")
+            return 0
+
+        try:
+            # Step 1: Find existing records matching filters
+            existing_records = self.find(filters=filters)
+
+            if not existing_records:
+                GLOG.DEBUG(f"No records found matching filters {filters}")
+                return 0
+
+            # Step 2: Create updated records
+            updated_records = []
+            for record in existing_records:
+                # Create a copy of the record with updated fields
+                updated_data = {
+                    'timestamp': record.timestamp,
+                    'code': record.code,
+                    'foreadjustfactor': record.foreadjustfactor,
+                    'backadjustfactor': record.backadjustfactor,
+                    'adjustfactor': record.adjustfactor,
+                    'source': record.source
+                }
+
+                # Apply updates
+                for field, new_value in updates.items():
+                    if hasattr(record, field):
+                        if field == 'timestamp':
+                            updated_data[field] = datetime_normalize(new_value)
+                        elif field in ['foreadjustfactor', 'backadjustfactor', 'adjustfactor']:
+                            updated_data[field] = to_decimal(new_value)
+                        elif field == 'source':
+                            updated_data[field] = SOURCE_TYPES.validate_input(new_value)
+                        else:
+                            updated_data[field] = new_value
+                    else:
+                        GLOG.WARNING(f"Field {field} not found in MAdjustfactor model")
+
+                # Convert to MAdjustfactor object
+                updated_record = self._create_from_params(**updated_data)
+                updated_records.append(updated_record)
+
+            # Step 3: Use replace method for atomic delete-then-insert operation
+            replaced_items = self.replace(filters=filters, new_items=updated_records)
+            GLOG.DEBUG(f"Replaced {len(replaced_items)} records using modify operation")
+
+            return len(replaced_items)
+
+        except Exception as e:
+            GLOG.ERROR(f"Modify operation failed: {e}")
+            raise

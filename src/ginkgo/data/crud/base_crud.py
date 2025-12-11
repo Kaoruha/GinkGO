@@ -980,8 +980,13 @@ class BaseCRUD(Generic[T], ABC):
                 filter_conditions = self._parse_filters(filters)
                 if filter_conditions:
                     stmt = delete(self.model_class).where(and_(*filter_conditions))
-                    s.execute(stmt)
-                    GLOG.DEBUG(f"Deleted {self.model_class.__name__} records from MySQL")
+                    result = s.execute(stmt)
+                    deleted_rows = result.rowcount if result else 0
+                    GLOG.DEBUG(f"Deleted {deleted_rows} {self.model_class.__name__} records from MySQL")
+                    return deleted_rows
+                else:
+                    GLOG.DEBUG(f"No filter conditions provided for MySQL delete operation")
+                    return 0
             s.commit()
 
     def _do_modify(self, filters: Dict[str, Any], updates: Dict[str, Any], session: Optional[Session] = None) -> None:
