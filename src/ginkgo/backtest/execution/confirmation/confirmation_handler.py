@@ -15,7 +15,7 @@ from decimal import Decimal
 
 from ....libs import GLOG
 from ....data.services.base_service import ServiceResult
-from ....enums import EXECUTION_STATUS, TRACKING_STATUS, DIRECTION_TYPES
+from ....enums import EXECUTION_STATUS, TRACKINGSTATUS_TYPES, DIRECTION_TYPES
 from ..events.execution_confirmation import (
     EventExecutionConfirmed,
     EventExecutionRejected,
@@ -209,7 +209,7 @@ class ConfirmationHandler:
             tracking_record = tracking_result.data
             
             # 2. 验证状态
-            if tracking_record.tracking_status != TRACKING_STATUS.PENDING:
+            if tracking_record.tracking_status != TRACKINGSTATUS_TYPES.PENDING:
                 return ServiceResult.error(
                     f"Signal {signal_id} is not in pending status: {tracking_record.tracking_status}"
                 )
@@ -295,7 +295,7 @@ class ConfirmationHandler:
             tracking_record = tracking_result.data
             
             # 2. 验证状态
-            if tracking_record.tracking_status != TRACKING_STATUS.PENDING:
+            if tracking_record.tracking_status != TRACKINGSTATUS_TYPES.PENDING:
                 return ServiceResult.error(
                     f"Signal {signal_id} is not in pending status: {tracking_record.tracking_status}"
                 )
@@ -303,7 +303,7 @@ class ConfirmationHandler:
             # 3. 更新追踪记录状态
             update_result = self.tracking_service.update_tracking_status(
                 tracking_record.uuid,
-                TRACKING_STATUS.REJECTED,
+                TRACKINGSTATUS_TYPES.REJECTED,
                 reason
             )
             
@@ -360,7 +360,7 @@ class ConfirmationHandler:
             tracking_record = tracking_result.data
             
             # 2. 验证状态
-            if tracking_record.tracking_status != TRACKING_STATUS.PENDING:
+            if tracking_record.tracking_status != TRACKINGSTATUS_TYPES.PENDING:
                 return ServiceResult.error(
                     f"Signal {signal_id} is not in pending status: {tracking_record.tracking_status}"
                 )
@@ -431,7 +431,7 @@ class ConfirmationHandler:
             # 2. 更新追踪记录状态
             update_result = self.tracking_service.update_tracking_status(
                 tracking_record.uuid,
-                TRACKING_STATUS.CANCELED,
+                TRACKINGSTATUS_TYPES.CANCELED,
                 reason
             )
             

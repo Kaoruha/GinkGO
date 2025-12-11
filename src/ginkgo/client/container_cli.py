@@ -209,9 +209,6 @@ def dependencies():
     # Business Services Branch
     business_branch = tree.add(":office_building: [bold magenta]Business Services[/bold magenta]")
     
-    comp_branch = business_branch.add(":puzzle_piece: [magenta]ComponentService[/magenta]")
-    comp_branch.add("└── :file_folder: [dim]file_service[/dim]")
-    
     kafka_branch = business_branch.add("📨 [magenta]KafkaService[/magenta]") 
     kafka_branch.add("└── 🗄️ [dim]redis_service[/dim]")
     
