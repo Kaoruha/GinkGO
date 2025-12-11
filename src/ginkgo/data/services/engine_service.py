@@ -37,25 +37,22 @@ class EngineService(BaseService):
     @time_logger
     @retry(max_try=3)
     def get(self, engine_id: str = None, name: str = None, is_live: bool = None,
-            status: ENGINESTATUS_TYPES = None, as_dataframe: bool = True, **kwargs) -> ServiceResult:
+            status: ENGINESTATUS_TYPES = None) -> ServiceResult:
         """
-        获取引擎数据
+        Get engine data
 
         Args:
-            engine_id: 引擎UUID
-            name: 引擎名称
-            is_live: 是否实盘
-            status: 引擎状态
-            as_dataframe: 是否返回DataFrame
-            **kwargs: 其他过滤条件
+            engine_id: Engine UUID
+            name: Engine name
+            is_live: Whether live trading
+            status: Engine status
 
         Returns:
-            ServiceResult: 查询结果
+            ServiceResult: Query result with ModelList data
         """
         try:
-            filters = kwargs.get('filters', {})
-
-            # 构建过滤条件
+            # Build filter conditions
+            filters = {}
             if engine_id:
                 filters['uuid'] = engine_id
             if name:
@@ -65,36 +62,34 @@ class EngineService(BaseService):
             if status:
                 filters['status'] = status
 
-            # 默认排除已删除记录
+            # Exclude deleted records by default
             filters['is_del'] = False
 
-            # 执行查询
-            result = self._crud_repo.find(filters=filters, as_dataframe=as_dataframe)
+            # Execute query - always return ModelList
+            result = self._crud_repo.find(filters=filters, as_dataframe=False)
 
-            return ServiceResult.success(result, f"成功获取引擎数据")
+            return ServiceResult.success(result, f"Successfully retrieved engine data")
 
         except Exception as e:
-            return ServiceResult.error(f"获取引擎数据失败: {str(e)}")
+            return ServiceResult.error(f"Failed to get engine data: {str(e)}")
 
     @time_logger
     @retry(max_try=3)
-    def count(self, name: str = None, is_live: bool = None, status: ENGINESTATUS_TYPES = None, **kwargs) -> ServiceResult:
+    def count(self, name: str = None, is_live: bool = None, status: ENGINESTATUS_TYPES = None) -> ServiceResult:
         """
-        统计引擎数量
+        Count engine quantity
 
         Args:
-            name: 引擎名称
-            is_live: 是否实盘
-            status: 引擎状态
-            **kwargs: 其他过滤条件
+            name: Engine name
+            is_live: Whether live trading
+            status: Engine status
 
         Returns:
-            ServiceResult: 统计结果
+            ServiceResult: Statistics result
         """
         try:
-            filters = kwargs.get('filters', {})
-
-            # 构建过滤条件
+            # Build filter conditions
+            filters = {}
             if name:
                 filters['name'] = name
             if is_live is not None:
@@ -102,73 +97,73 @@ class EngineService(BaseService):
             if status:
                 filters['status'] = status
 
-            # 默认排除已删除记录
+            # Exclude deleted records by default
             filters['is_del'] = False
 
-            # 执行统计
+            # Execute count
             count = self._crud_repo.count(filters=filters)
 
-            return ServiceResult.success({'count': count}, f"成功统计引擎数量: {count}")
+            return ServiceResult.success({'count': count}, f"Successfully counted engines: {count}")
 
         except Exception as e:
-            return ServiceResult.error(f"统计引擎数量失败: {str(e)}")
+            return ServiceResult.error(f"Failed to count engines: {str(e)}")
 
     @time_logger
     def validate(self, engine_id: str = None, engine_data: dict = None) -> ServiceResult:
         """
-        验证引擎数据
+        Validate engine data
 
         Args:
-            engine_id: 引擎UUID
-            engine_data: 引擎数据字典
+            engine_id: Engine UUID
+            engine_data: Engine data dictionary
 
         Returns:
-            ServiceResult: 验证结果
+            ServiceResult: Validation result
         """
         try:
             validation_errors = []
 
             if engine_id:
-                # 验证引擎是否存在
+                # Validate if engine exists
                 engine = self._crud_repo.find(filters={'uuid': engine_id, 'is_del': False})
                 if not engine:
-                    validation_errors.append(f"引擎 {engine_id} 不存在")
+                    validation_errors.append(f"Engine {engine_id} does not exist")
 
             if engine_data:
-                # 验证引擎数据格式
+                # Validate engine data format
                 if 'name' in engine_data:
                     if not engine_data['name'] or not str(engine_data['name']).strip():
-                        validation_errors.append("引擎名称不能为空")
+                        validation_errors.append("Engine name cannot be empty")
                     if len(str(engine_data['name'])) > 50:
-                        validation_errors.append("引擎名称长度不能超过50个字符")
+                        validation_errors.append("Engine name length cannot exceed 50 characters")
 
                 if 'is_live' in engine_data and not isinstance(engine_data['is_live'], bool):
-                    validation_errors.append("is_live必须为布尔值")
+                    validation_errors.append("is_live must be boolean")
 
                 if 'status' in engine_data:
                     try:
                         ENGINESTATUS_TYPES(engine_data['status'])
                     except (ValueError, TypeError):
-                        validation_errors.append("无效的引擎状态")
+                        validation_errors.append("Invalid engine status")
 
             if validation_errors:
-                return ServiceResult.error("数据验证失败", data={'errors': validation_errors})
+                return ServiceResult.error("Data validation failed", data={'errors': validation_errors})
 
-            return ServiceResult.success({}, "数据验证通过")
+            return ServiceResult.success({}, "Data validation passed")
 
         except Exception as e:
-            return ServiceResult.error(f"验证引擎数据时发生错误: {str(e)}")
+            return ServiceResult.error(f"Error occurred while validating engine data: {str(e)}")
 
     @time_logger
     def check_integrity(self, engine_id: str = None) -> ServiceResult:
         """
-        检查引擎数据完整性
+        Check engine data integrity
 
         Args:
-            engine_id: 引擎UUID，None表示检查所有引擎
+            engine_id: Engine UUID, None means check all engines
 
         Returns:
-            ServiceResult: 完整性检查结果
+            ServiceResult: Integrity check result
         """
         try:
             integrity_issues = []
@@ -229,8 +224,11 @@ class EngineService(BaseService):
 
             # 名称长度限制
             engine_name = name.strip()
+            warnings = []
             if len(engine_name) > 50:
+                original_name = engine_name
                 engine_name = engine_name[:50]
+                warnings.append(f"引擎名称过长，已从 {len(original_name)} 字符截断至 {len(engine_name)} 字符")
 
             # 检查引擎名称是否已存在
             if self._crud_repo.exists(filters={'name': engine_name, 'is_del': False}):
@@ -258,10 +256,14 @@ class EngineService(BaseService):
             }
 
             GLOG.INFO(f"成功创建引擎 '{engine_name}' (实盘: {is_live})")
-            return ServiceResult.success(
+            result = ServiceResult.success(
                 data={"engine_info": engine_info},
                 message=f"引擎创建成功"
             )
+            # 添加警告信息
+            if warnings:
+                result.warnings.extend(warnings)
+            return result
 
         except Exception as e:
             GLOG.ERROR(f"创建引擎失败 '{name}': {e}")
@@ -302,9 +304,16 @@ class EngineService(BaseService):
                     name = name[:50]
 
                 # 检查名称冲突
-                existing_engines = self._crud_repo.get_by_name(name.strip())
-                if existing_engines and existing_engines.uuid != engine_id:
-                    return ServiceResult.error(f"引擎名称 '{name}' 已存在")
+                existing_engines = self._crud_repo.find(filters={'name': name.strip(), 'is_del': False})
+                if existing_engines:
+                    # 检查是否有其他引擎使用此名称
+                    conflict_found = False
+                    for engine in existing_engines:
+                        if engine.uuid != engine_id:
+                            conflict_found = True
+                            break
+                    if conflict_found:
+                        return ServiceResult.error(f"引擎名称 '{name}' 已存在")
 
                 updates["name"] = name.strip()
 
@@ -325,22 +334,20 @@ class EngineService(BaseService):
                 )
 
             # 执行更新
-            with self._crud_repo.get_session() as session:
-                updated_count = self._crud_repo.modify(
-                    filters={"uuid": engine_id},
-                    updates=updates,
-                    session=session
-                )
+            self._crud_repo.modify(
+                filters={"uuid": engine_id},
+                updates=updates
+            )
 
-                if updated_count == 0:
-                    return ServiceResult.error(f"未找到ID为 {engine_id} 的引擎")
+            # 获取更新后的引擎信息
+            updated_engines = self._crud_repo.find(filters={"uuid": engine_id})
+            if not updated_engines:
+                return ServiceResult.error(f"更新后找不到引擎 {engine_id}")
+            updated_engine = updated_engines[0]
 
-                # 获取更新后的引擎信息
-                updated_engine = self._crud_repo.get_by_uuid(engine_id)
+            GLOG.INFO(f"成功更新引擎 {engine_id}，更新字段: {list(updates.keys())}")
 
-                GLOG.info(f"成功更新引擎 {engine_id}，更新字段: {list(updates.keys())}")
-
-                return ServiceResult.success(
+            return ServiceResult.success(
                     data={
                         "engine_id": engine_id,
                         "engine_info": {
@@ -357,18 +364,18 @@ class EngineService(BaseService):
                 )
 
         except Exception as e:
-            GLOG.error(f"更新引擎失败 {engine_id}: {str(e)}")
+            GLOG.ERROR(f"更新引擎失败 {engine_id}: {str(e)}")
             return ServiceResult.error(f"更新引擎失败: {str(e)}")
 
     @time_logger
     @retry(max_try=3)
-    def set_status(self, engine_id: str, status: ENGINESTATUS_TYPES) -> ServiceResult:
+    def set_status(self, engine_id: str, status) -> ServiceResult:
         """
         更新引擎状态
 
         Args:
             engine_id: 引擎UUID
-            status: 新的引擎状态
+            status: 新的引擎状态 (支持 ENGINESTATUS_TYPES 枚举或 int 值)
 
         Returns:
             ServiceResult: 操作结果
@@ -378,7 +385,18 @@ class EngineService(BaseService):
             if not engine_id or not engine_id.strip():
                 return ServiceResult.error("引擎ID不能为空")
 
-            if not isinstance(status, ENGINESTATUS_TYPES):
+            # 支持枚举和整数两种类型
+            status_value = None
+            if isinstance(status, ENGINESTATUS_TYPES):
+                status_value = status.value
+            elif isinstance(status, int):
+                status_value = status
+                # 验证整数是否为有效的枚举值
+                try:
+                    status = ENGINESTATUS_TYPES(status)
+                except ValueError:
+                    return ServiceResult.error(f"无效的引擎状态值: {status}")
+            else:
                 return ServiceResult.error(f"无效的引擎状态类型: {type(status)}")
 
             # 检查引擎是否存在
@@ -389,10 +407,10 @@ class EngineService(BaseService):
             if not exists_result.data.get("exists", False):
                 return ServiceResult.error(f"引擎不存在: {engine_id}")
 
-            # 更新状态
+            # 更新状态 - 使用数值而不是枚举对象
             with self._crud_repo.get_session() as session:
                 updated_count = self._crud_repo.modify(
-                    filters={"uuid": engine_id}, updates={"status": status}, session=session
+                    filters={"uuid": engine_id}, updates={"status": status_value}, session=session
                 )
 
                 if updated_count == 0:
@@ -442,17 +460,19 @@ class EngineService(BaseService):
                         filters={"engine_id": engine_id}, session=session
                     )
                     if mappings_deleted and mappings_deleted > 0:
-                        GLOG.info(f"删除引擎 {engine_id} 的 {mappings_deleted} 个投资组合映射")
+                        GLOG.INFO(f"删除引擎 {engine_id} 的 {mappings_deleted} 个投资组合映射")
                 except Exception as e:
                     warnings.append(f"清理投资组合映射时出错: {str(e)}")
 
-                # 删除引擎记录
-                deleted_count = self._crud_repo.remove(filters={"uuid": engine_id}, session=session)
+                # 软删除引擎记录 (设置is_del=True)
+                self._crud_repo.soft_remove(filters={"uuid": engine_id})
 
-                if deleted_count == 0:
-                    return ServiceResult.error(f"未找到ID为 {engine_id} 的引擎")
+                # 验证删除是否成功
+                existing_engines = self._crud_repo.find(filters={"uuid": engine_id, "is_del": False})
+                if existing_engines:
+                    return ServiceResult.error(f"删除失败，引擎 {engine_id} 仍然存在")
 
-                GLOG.info(f"成功删除引擎 {engine_id}")
+                GLOG.INFO(f"成功删除引擎 {engine_id}")
 
                 return ServiceResult.success(
                     data={
@@ -465,7 +485,7 @@ class EngineService(BaseService):
                 )
 
         except Exception as e:
-            GLOG.error(f"删除引擎失败 {engine_id}: {str(e)}")
+            GLOG.ERROR(f"删除引擎失败 {engine_id}: {str(e)}")
             return ServiceResult.error(f"删除引擎失败: {str(e)}")
 
     @time_logger
@@ -524,12 +544,12 @@ class EngineService(BaseService):
                         "engine_id": engine_id,
                         "error": f"意外错误: {str(e)}"
                     })
-                    GLOG.error(f"删除引擎 {engine_id} 时发生异常: {e}")
+                    GLOG.ERROR(f"删除引擎 {engine_id} 时发生异常: {e}")
 
             # 判断整体成功状态
             overall_success = failed_deletions == 0
 
-            GLOG.info(
+            GLOG.INFO(
                 f"批量删除引擎完成: 成功 {successful_deletions}, 失败 {failed_deletions}, "
                 f"清理映射 {total_mappings_deleted} 个"
             )
@@ -557,7 +577,7 @@ class EngineService(BaseService):
             )
 
         except Exception as e:
-            GLOG.error(f"批量删除引擎失败: {str(e)}")
+            GLOG.ERROR(f"批量删除引擎失败: {str(e)}")
             return ServiceResult.error(f"批量删除引擎失败: {str(e)}")
 
     # 注意：重复的查询方法已删除
@@ -615,7 +635,7 @@ class EngineService(BaseService):
                     session=session,
                 )
 
-                GLOG.info(f"成功将投资组合 {portfolio_id} 映射到引擎 {engine_id}")
+                GLOG.INFO(f"成功将投资组合 {portfolio_id} 映射到引擎 {engine_id}")
 
                 return ServiceResult.success(
                     data={
@@ -634,7 +654,7 @@ class EngineService(BaseService):
                 )
 
         except Exception as e:
-            GLOG.error(f"添加映射失败 引擎 {engine_id} - 投资组合 {portfolio_id}: {str(e)}")
+            GLOG.ERROR(f"添加映射失败 引擎 {engine_id} - 投资组合 {portfolio_id}: {str(e)}")
             return ServiceResult.error(f"添加映射失败: {str(e)}")
 
     @time_logger

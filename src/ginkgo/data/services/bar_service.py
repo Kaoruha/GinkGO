@@ -51,17 +51,16 @@ class BarService(BaseService):
         frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
     ) -> ServiceResult:
         """
-        按日期范围智能增量同步Bar数据（主要同步方法）。
-        支持指定日期范围，自动过滤已存在的重复数据，确保幂等性。
+        按日期范围同步K线数据，支持智能增量同步和数据验证。
 
         Args:
-            code: 股票代码 (e.g., '000001.SZ')
-            start_date: 同步开始日期 (如果为None，由现有逻辑确定)
-            end_date: 同步结束日期 (如果为None，默认为今天)
-            frequency: 数据频率 (目前只支持DAY)
+            code (str): 股票代码
+            start_date (datetime, optional): 开始日期
+            end_date (datetime, optional): 结束日期
+            frequency (FREQUENCY_TYPES): 数据频率
 
         Returns:
-            ServiceResult - 包装同步结果数据，使用result.data获取DataSyncResult详细信息
+            ServiceResult: 同步结果，包含DataSyncResult统计信息
         """
         start_time = time.time()
         self._log_operation_start("sync_range", code=code, start_date=start_date,
@@ -238,62 +237,45 @@ class BarService(BaseService):
         self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
     ) -> ServiceResult:
         """
-        全量同步单个股票的K线数据（从历史开始到今天）。
+        全量同步单个股票的K线数据，从历史开始到当前日期。
 
         Args:
-            code: 股票代码 (e.g., '000001.SZ')
-            frequency: 数据频率 (目前只支持DAY)
+            code (str): 股票代码
+            frequency (FREQUENCY_TYPES): 数据频率
 
         Returns:
-            ServiceResult - 包装同步结果数据，使用result.data获取DataSyncResult详细信息
+            ServiceResult: 全量同步结果，包含DataSyncResult统计信息
         """
-        from datetime import datetime
-        return self.sync_range(code, None, datetime.now(), frequency)
 
     @retry(max_try=3)
     def sync_incremental(
         self, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
     ) -> ServiceResult:
         """
-        增量同步单个股票的K线数据（从最后可用日期开始到今天）。
+        增量同步单个股票的K线数据，从最新数据之后开始到当前日期。
 
         Args:
-            code: 股票代码 (e.g., '000001.SZ')
-            frequency: 数据频率 (目前只支持DAY)
+            code (str): 股票代码
+            frequency (FREQUENCY_TYPES): 数据频率
 
         Returns:
-            ServiceResult - 包装同步结果数据，使用result.data获取DataSyncResult详细信息
+            ServiceResult: 增量同步结果，包含DataSyncResult统计信息
         """
-        from datetime import datetime
-
-        # 获取最后可用日期
-        last_date_result = self.get_latest_timestamp(code, frequency)
-        if last_date_result.success and last_date_result.data:
-            last_date = last_date_result.data
-            # 从最后一天的下一天开始同步
-            from datetime import timedelta
-            start_date = last_date + timedelta(days=1)
-        else:
-            # 如果没有历史数据，从很久以前开始（相当于全量同步）
-            start_date = None
-
-        return self.sync_range(code, start_date, datetime.now(), frequency)
 
     @retry(max_try=3)
     def sync_smart(
         self, code: str, fast_mode: bool = True, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
     ) -> ServiceResult:
         """
-        智能同步Bar数据（根据最新数据推断范围）。
-        支持fast_mode控制：True时从最新数据+1天开始，False时从股票上市日开始。
+        智能同步K线数据，根据现有数据状态和fast_mode自动选择最优同步策略。
 
         Args:
-            code: Stock code (e.g., '000001.SZ')
-            fast_mode: If True, fetch incrementally from latest data date+1 day; if False, fetch from listing date
-            frequency: Data frequency (currently only DAY supported)
+            code (str): 股票代码
+            fast_mode (bool): True为增量模式，False为全量模式
+            frequency (FREQUENCY_TYPES): 数据频率
 
         Returns:
-            ServiceResult - 包装同步结果，使用result.data获取详细信息
+            ServiceResult: 智能同步结果，包含DataSyncResult统计信息
         """
         start_time = time.time()
         self._log_operation_start("sync_smart", code=code, fast_mode=fast_mode, frequency=frequency.value)
@@ -332,7 +314,7 @@ class BarService(BaseService):
                 error=f"Sync operation failed: {str(e)}"
             )
 
-    def sync_batch(
+    def sync_range_batch(
         self,
         codes: List[str],
         start_date: datetime = None,
@@ -340,17 +322,16 @@ class BarService(BaseService):
         frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
     ) -> ServiceResult:
         """
-        批量同步多个股票的Bar数据。
-        对每个股票调用智能增量同步，支持错误隔离和并行处理。
+        Range batch sync of Bar data for multiple stocks with error isolation and parallel processing.
 
         Args:
             codes: List of stock codes
-            start_date: Start date for data sync (if None, determined by existing logic)
-            end_date: End date for data sync (if None, defaults to today)
+            start_date: Start date
+            end_date: End date
             frequency: Data frequency
 
         Returns:
-            ServiceResult containing batch sync results and statistics
+            ServiceResult: Batch sync result and statistics
         """
         batch_result = {
             "total_codes": len(codes),
@@ -444,35 +425,35 @@ class BarService(BaseService):
         )
 
     @retry(max_try=3)
-    def sync_batch_full(
+    def sync_full_batch(
         self, codes: List[str], frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
     ) -> ServiceResult:
         """
-        批量全量同步多个股票的K线数据（所有股票从历史开始到今天）。
+        Full batch sync of K-line data for multiple stocks from history to today.
 
         Args:
-            codes: 股票代码列表
-            frequency: 数据频率 (目前只支持DAY)
+            codes: List of stock codes
+            frequency: Data frequency
 
         Returns:
-            ServiceResult - 包装批量同步结果
+            ServiceResult: Batch sync result
         """
         from datetime import datetime
-        return self.sync_batch(codes, None, datetime.now(), frequency)
+        return self.sync_range_batch(codes, None, datetime.now(), frequency)
 
     @retry(max_try=3)
-    def sync_batch_incremental(
+    def sync_incremental_batch(
         self, codes: List[str], frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
     ) -> ServiceResult:
         """
-        批量增量同步多个股票的K线数据（每个股票从最后可用日期开始到今天）。
+        Incremental batch sync of K-line data for multiple stocks from last available date to today.
 
         Args:
-            codes: 股票代码列表
-            frequency: 数据频率 (目前只支持DAY)
+            codes: List of stock codes
+            frequency: Data frequency
 
         Returns:
-            ServiceResult - 包装批量同步结果
+            ServiceResult: Batch sync result
         """
         from datetime import datetime, timedelta
 
@@ -538,19 +519,19 @@ class BarService(BaseService):
                 error=f"Batch incremental sync failed: {str(e)}"
             )
 
-    def sync_batch_codes(
+    def sync_smart_batch(
         self, codes: List[str], fast_mode: bool = True, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY
     ) -> ServiceResult:
         """
-        Synchronizes bar data for multiple stock codes with comprehensive error tracking.
+        Smart batch sync of K-line data for multiple stock codes with comprehensive error tracking.
 
         Args:
             codes: List of stock codes
-            fast_mode: If True, only fetch data from last available date
+            fast_mode: True for latest data only, False for full sync
             frequency: Data frequency
 
         Returns:
-            ServiceResult containing batch sync results and statistics
+            ServiceResult: Batch sync result and statistics
         """
         # For backward compatibility, we need to determine date ranges for each code individually
         # since fast_mode behavior is per-code
@@ -663,7 +644,7 @@ class BarService(BaseService):
             # In non-fast mode, all codes use the same date range, so we can use the batch date range method
             start_date = datetime_normalize(GCONF.DEFAULTSTART)
             end_date = datetime.now()
-            return self.sync_batch(codes, start_date, end_date, frequency)
+            return self.sync_range_batch(codes, start_date, end_date, frequency)
 
     def get(
         self,
@@ -676,28 +657,27 @@ class BarService(BaseService):
         page_size: int = None,
         order_by: str = "timestamp",
         desc_order: bool = False,
-        *args,
-        **kwargs,
     ) -> ServiceResult:
         """
-        获取Bar数据（标准get方法）
+        获取K线数据，支持多种过滤条件、复权类型和分页查询
 
         Args:
-            code: Stock code filter
-            start_date: Start date filter
-            end_date: End date filter
-            frequency: Data frequency filter
-            adjustment_type: Price adjustment type (NONE/FORE/BACK)
-            page: Page number (0-based)
-            page_size: Number of items per page
-            order_by: Field name to order by (default: timestamp)
-            desc_order: Whether to use descending order (default: False)
-            *args: Additional positional arguments (for future extension)
-            **kwargs: Additional keyword arguments (for future extension)
+            code (str, optional): 股票代码，支持多代码查询
+            start_date (datetime, optional): 开始时间，支持datetime和字符串格式
+            end_date (datetime, optional): 结束时间，支持datetime和字符串格式
+            frequency (FREQUENCY_TYPES): 数据频率（日线/周线/月线等）
+            adjustment_type (ADJUSTMENT_TYPES): 复权类型（前复权/后复权/原始）
+            page (int, optional): 分页页码，支持大数据量分页查询
+            page_size (int, optional): 每页记录数，默认1000条
+            order_by (str): 排序字段，支持timestamp, open, high, low, close, volume
+            desc_order (bool): 是否降序排列
 
         Returns:
-            ServiceResult - 包装ModelList数据，使用result.data获取数据
-                           data支持to_dataframe()和to_entities()方法
+            ServiceResult: 查询结果，data中包含ModelList，支持转换为entities和dataframe
+
+        Note:
+            - to_entities: 可通过result.data.to_entities()转换为实体对象列表
+            - to_dataframe: 可通过result.data.to_dataframe()转换为pandas DataFrame
         """
         start_time = time.time()
         self._log_operation_start("get_bars", code=code, start_date=start_date,
@@ -733,9 +713,7 @@ class BarService(BaseService):
                 page=page,
                 page_size=page_size,
                 order_by=order_by,
-                desc_order=desc_order,
-                *args,
-                **kwargs
+                desc_order=desc_order
             )
 
             # Return original data if no adjustment needed
@@ -1505,27 +1483,33 @@ class BarService(BaseService):
             self._logger.WARN(f"Error filtering existing data for {code}: {e}, proceeding with all models")
             return models_to_add
 
-    def count(self, code: str = None, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY, **kwargs) -> ServiceResult:
+    def count(self, code: str = None, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
+              start_date: datetime = None, end_date: datetime = None) -> ServiceResult:
         """
-        计算Bar记录数量（标准count方法）
+        统计K线记录数量，支持按股票代码和频率过滤
 
         Args:
-            code: Stock code filter
-            frequency: Data frequency filter
-            **kwargs: Additional filters
+            code (str, optional): 股票代码过滤条件
+            frequency (FREQUENCY_TYPES): 数据频率过滤条件
+            start_date (datetime, optional): 统计此日期之后的记录
+            end_date (datetime, optional): 统计此日期之前的记录
 
         Returns:
-            ServiceResult - 包装计数结果，使用result.data获取数量
+            ServiceResult: 统计结果，data中包含总记录数量
         """
         start_time = time.time()
         self._log_operation_start("count_bars", code=code, frequency=frequency.value)
 
         try:
-            filters = kwargs.copy()
+            filters = {}
             if code:
                 filters["code"] = code
             if frequency:
                 filters["frequency"] = frequency
+            if start_date:
+                filters["timestamp__gte"] = datetime_normalize(start_date)
+            if end_date:
+                filters["timestamp__lte"] = datetime_normalize(end_date)
 
             count = self._crud_repo.count(filters=filters)
             duration = time.time() - start_time

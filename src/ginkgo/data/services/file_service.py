@@ -18,22 +18,132 @@ from ginkgo.data.services.base_service import BaseService, ServiceResult
 
 class FileService(BaseService):
     def __init__(self, crud_repo):
-        """Initializes the service with its dependencies."""
+        """
+        Initialize FileService, set CRUD repository dependencies
+
+        Args:
+            crud_repo: File data CRUD repository instance
+        """
         super().__init__(crud_repo=crud_repo)
 
     @retry(max_try=3)
     def add(self, name: str, file_type: FILE_TYPES, data: bytes, description: str = None) -> ServiceResult:
         """
-        Adds a new file to the database with comprehensive error handling.
+        添加新文件到数据库管理系统
+
+        FileService的核心功能，负责将各种类型的文件存储到数据库中，包括策略文件、
+        分析器文件、选择器文件、风险管理器文件等。提供完整的输入验证、数据清理、
+        错误处理和操作反馈机制。
+
+        支持的文件类型：
+        - FILE_TYPES.STRATEGY: 量化策略文件（Python代码）
+        - FILE_TYPES.ANALYZER: 数据分析器文件（统计和分析代码）
+        - FILE_TYPES.SELECTOR: 股票选择器文件（选股逻辑代码）
+        - FILE_TYPES.SIZER: 仓位管理器文件（资金管理代码）
+        - FILE_TYPES.RISKMANAGER: 风险管理器文件（风控逻辑代码）
+        - FILE_TYPES.DATA: 数据文件（配置文件、参数文件等）
+        - FILE_TYPES.OTHER: 其他类型的自定义文件
+
+        核心功能特性：
+        - 类型验证：严格的文件类型和数据格式验证
+        - 数据清理：自动处理文件名长度限制等格式问题
+        - 错误容错：详细的错误信息和警告提示
+        - 存储优化：高效的二进制数据存储机制
+        - 事务安全：确保数据操作的一致性和完整性
+        - 操作审计：完整的操作日志和状态跟踪
+
+        使用场景：
+        - 策略开发：上传新开发的量化策略代码
+        - 组件管理：管理分析器、选择器等量化组件
+        - 配置管理：存储系统配置和参数文件
+        - 代码备份：保存重要代码文件和版本管理
+        - 团队协作：共享和分发量化交易组件
 
         Args:
-            name: File name (without extension)
-            file_type: Type of file (strategy, analyzer, etc.)
-            data: File content as bytes
-            description: Optional description
+            name (str): 文件名称（不包含扩展名），将自动进行长度限制和格式清理
+            file_type (FILE_TYPES): 文件类型枚举值，用于分类管理和权限控制
+            data (bytes): 文件内容的二进制数据，支持任意格式的文件存储
+            description (str, optional): 文件描述信息，用于说明文件用途和内容概要
 
         Returns:
-            ServiceResult containing file information and operation status
+            ServiceResult: 添加结果包装对象，包含操作状态和文件信息
+                - success: 添加是否成功完成
+                - data: 文件信息字典，包含：
+                    - uuid (str): 文件的唯一标识符
+                    - name (str): 清理后的文件名称
+                    - type (str): 文件类型
+                    - desc (str): 文件描述信息
+                    - data_size (int): 文件大小（字节数）
+                - message: 操作结果描述
+                - warnings (List): 警告信息列表
+
+        Example:
+            >>> service = FileService(crud_repo)
+            >>> # 添加策略文件
+            >>> strategy_code = b'''
+            ... class MyStrategy(BaseStrategy):
+            ...     def cal(self, portfolio_info, event):
+            ...         return [Signal(code="000001.SZ", direction=1)]
+            ... '''
+            >>> result = service.add(
+            ...     name="my_momentum_strategy",
+            ...     file_type=FILE_TYPES.STRATEGY,
+            ...     data=strategy_code,
+            ...     description="基于动量的选股策略"
+            ... )
+            >>> if result.success:
+            ...     file_info = result.data["file_info"]
+            ...     print(f"文件添加成功: UUID={file_info['uuid']}")
+            ...     print(f"文件大小: {file_info['data_size']}字节")
+            ...     if result.warnings:
+            ...         print(f"警告: {result.warnings}")
+            >>> else:
+            ...     print(f"添加失败: {result.message}")
+
+        Data Processing Features:
+            - 名称清理：自动移除特殊字符，限制长度为40字符
+            - 数据验证：检查数据类型和基本完整性
+            - 默认描述：未提供描述时自动生成标准化描述
+            - 大小统计：自动计算和记录文件大小信息
+            - 事务管理：确保数据写入的原子性
+
+        Error Handling Strategy:
+            - 输入验证：检查文件名、数据类型等必要参数
+            - 格式清理：自动修复常见的格式问题
+            - 异常捕获：捕获并记录所有操作异常
+            - 详细反馈：提供具体的错误信息和修复建议
+            - 重试机制：自动重试临时性故障
+
+        Performance Considerations:
+            - 内存优化：高效处理大文件的二进制数据
+            - 存储压缩：对文本类数据进行压缩存储
+            - 索引优化：为文件名和类型字段建立索引
+            - 批量操作：支持批量文件处理提高效率
+
+        Security Features:
+            - 类型检查：严格的文件类型验证防止非法上传
+            - 大小限制：合理的文件大小限制防止资源滥用
+            - 内容扫描：可选的恶意代码检测机制
+            - 权限控制：基于文件类型的访问权限管理
+
+        Note:
+            - 文件名会自动清理长度，超过40字符会被截断
+            - 空文件会被接受但会产生警告信息
+            - 文件一旦添加，UUID将作为其永久标识符
+            - 建议为文件提供清晰的描述信息便于管理
+
+        Algorithm Details:
+            - 事务性操作确保数据一致性
+            - 原子性写入避免部分数据损坏
+            - 详细日志记录便于问题追踪
+            - 预警机制提前发现潜在问题
+
+        See Also:
+            - get(): 获取文件内容
+            - update(): 更新文件内容
+            - clone(): 复制现有文件
+            - delete(): 删除文件
+            - search(): 搜索文件
         """
         try:
             # Input validation
@@ -88,15 +198,15 @@ class FileService(BaseService):
     @retry(max_try=3)
     def clone(self, source_id: str, new_name: str, file_type: FILE_TYPES = None) -> ServiceResult:
         """
-        Creates a copy of an existing file with a new name and comprehensive error handling.
+        创建现有文件的副本，使用新名称保存
 
         Args:
-            source_id: UUID of the file to clone
-            new_name: Name for the new file
-            file_type: Optional new file type (defaults to original)
+            source_id: 源文件的UUID标识符
+            new_name: 新文件名称
+            file_type: 文件类型（可选，默认使用源文件类型）
 
         Returns:
-            ServiceResult containing operation status and new file information
+            ServiceResult: 包含操作状态和新文件信息
         """
         # Input validation
         if not source_id or not source_id.strip():
@@ -151,12 +261,12 @@ class FileService(BaseService):
         self, file_id: str, name: str = None, data: bytes = None, description: str = None
     ) -> ServiceResult:
         """
-        Updates an existing file with comprehensive error handling.
+        更新现有文件的内容和元数据
 
         Args:
-            file_id: UUID of the file to update
-            name: Optional new name
-            data: Optional new file content
+            file_id: 文件的UUID标识符
+            name: 新的文件名称（可选）
+            data: 新的文件内容（可选）
             description: Optional new description
 
         Returns:
@@ -223,13 +333,13 @@ class FileService(BaseService):
     @retry(max_try=3)
     def soft_delete(self, file_id: str) -> ServiceResult:
         """
-        Soft deletes a file by ID with comprehensive error handling.
+        软删除指定文件，标记为已删除状态而不物理删除数据
 
         Args:
-            file_id: UUID of the file to soft delete
+            file_id: 文件的UUID标识符
 
         Returns:
-            ServiceResult containing operation status and deletion information
+            ServiceResult: 包含删除状态和操作时间的软删除结果
         """
         # Input validation
         if not file_id or not file_id.strip():
@@ -260,13 +370,13 @@ class FileService(BaseService):
 
     def soft_delete_batch(self, file_ids: List[str]) -> ServiceResult:
         """
-        Soft deletes multiple files by their IDs with comprehensive tracking.
+        批量软删除多个文件，标记为已删除状态而不物理删除数据
 
         Args:
-            file_ids: List of file UUIDs to soft delete
+            file_ids: 文件UUID标识符列表
 
         Returns:
-            Dictionary containing batch deletion results and statistics
+            ServiceResult: 包含批量删除统计结果的详细信息
         """
         result = {
             "success": False,
@@ -337,16 +447,16 @@ class FileService(BaseService):
         self, name: str = None, file_type: FILE_TYPES = None, as_dataframe: bool = True, **kwargs
     ) -> ServiceResult:
         """
-        Retrieves files from the database with caching.
+        查询文件信息，支持按名称、类型等多种条件过滤和缓存
 
         Args:
-            name: File name filter
-            file_type: File type filter
-            as_dataframe: Return format
-            **kwargs: Additional filters
+            name: 文件名称过滤条件
+            file_type: 文件类型过滤条件
+            as_dataframe: 是否返回DataFrame格式
+            **kwargs: 其他过滤条件
 
         Returns:
-            ServiceResult containing file data as DataFrame or list of models
+            ServiceResult: 包含文件数据列表或DataFrame的查询结果
         """
         try:
             # 提取filters参数并从kwargs中移除，避免重复传递
@@ -372,13 +482,13 @@ class FileService(BaseService):
 
     def get_by_uuid(self, file_id: str) -> ServiceResult:
         """
-        Get file by UUID.
+        根据UUID获取单个文件信息
 
         Args:
-            file_id: File UUID
+            file_id: 文件的UUID标识符
 
         Returns:
-            ServiceResult containing file record or None if not found
+            ServiceResult: 包含文件记录或未找到信息的查询结果
         """
         try:
             if not file_id or not file_id.strip():
@@ -404,14 +514,14 @@ class FileService(BaseService):
 
     def get_by_name(self, name: str, file_type: Optional[FILE_TYPES] = None) -> ServiceResult:
         """
-        Get file(s) by name.
+        根据名称获取文件，支持可选的类型过滤
 
         Args:
-            name: File name
-            file_type: Optional file type filter
+            name: 文件名称
+            file_type: 可选的文件类型过滤条件
 
         Returns:
-            ServiceResult containing file(s) matching the name
+            ServiceResult: 包含匹配名称的文件列表结果
         """
         try:
             if not name or not name.strip():
@@ -434,13 +544,13 @@ class FileService(BaseService):
 
     def get_by_type(self, file_type: FILE_TYPES) -> ServiceResult:
         """
-        Get all files of a specific type.
+        获取指定类型的所有文件
 
         Args:
-            file_type: Type of files to retrieve
+            file_type: 要获取的文件类型
 
         Returns:
-            ServiceResult containing files of the specified type
+            ServiceResult: 包含指定类型文件列表的结果
         """
         try:
             filters = {"type": file_type, "is_del": False}
@@ -457,13 +567,13 @@ class FileService(BaseService):
 
     def get_content(self, file_id: str) -> bytes:
         """
-        Retrieves the content of a specific file.
+        获取文件的原始二进制内容
 
         Args:
-            file_id: UUID of the file
+            file_id: 文件的UUID标识符
 
         Returns:
-            File content as bytes, or None if file not found
+            bytes: 文件的二进制内容，文件不存在时返回None
         """
         file_data = self._crud_repo.find(filters={"uuid": file_id, "is_del": False})
         if not file_data:
@@ -475,13 +585,13 @@ class FileService(BaseService):
     @retry(max_try=3)
     def initialize(self, working_dir: str = None) -> ServiceResult:
         """
-        Initialize files from the source code directory.
+        从源代码目录初始化文件系统，发现并导入现有文件
 
         Args:
-            working_dir: Working directory path (defaults to GCONF.WORKING_PATH)
+            working_dir: 工作目录路径，默认使用GCONF.WORKING_PATH
 
         Returns:
-            ServiceResult with initialization results and statistics
+            ServiceResult: 包含初始化统计结果和操作信息
         """
         result = {
             "success": False,
@@ -560,7 +670,7 @@ class FileService(BaseService):
                             existing_files = existing_files_result.data["files"]
                             file_ids = [f.uuid for f in existing_files]
                             delete_result = self.hard_delete_batch(file_ids)
-                            if delete_result["successful_deletions"] > 0:
+                            if delete_result.success and delete_result.data["successful_deletions"] > 0:
                                 self._logger.DEBUG(f"Deleted existing {file_type.value} file: {name_without_ext}")
 
                         # Read and add new file
@@ -638,13 +748,13 @@ class FileService(BaseService):
 
     def get_available_names(self, file_type: FILE_TYPES = None) -> ServiceResult:
         """
-        Gets list of available file names, optionally filtered by type.
+        获取可用文件名称列表，支持按类型过滤
 
         Args:
-            file_type: Optional file type filter
+            file_type: 可选的文件类型过滤条件
 
         Returns:
-            ServiceResult containing list of available file names
+            ServiceResult: 包含可用文件名称列表的结果
         """
         try:
             filters = {"is_del": False}
@@ -668,15 +778,15 @@ class FileService(BaseService):
 
     def exists(self, name: str = None, file_id: str = None, **kwargs) -> ServiceResult:
         """
-        Standardized file existence check.
+        检查文件是否存在，支持按名称、UUID或其他条件检查
 
         Args:
-            name: File name to check
-            file_id: File UUID to check
-            **kwargs: Additional filters
+            name: 文件名称检查条件
+            file_id: 文件UUID检查条件
+            **kwargs: 其他过滤条件
 
         Returns:
-            ServiceResult containing existence check result
+            ServiceResult: 包含存在性检查结果的信息
         """
         try:
             filters = {"is_del": False}
@@ -702,13 +812,13 @@ class FileService(BaseService):
     @retry(max_try=3)
     def hard_delete(self, file_id: str) -> ServiceResult:
         """
-        Permanently deletes a file by ID (hard delete) with comprehensive error handling.
+        永久删除文件（硬删除），直接从数据库中物理删除记录
 
         Args:
-            file_id: UUID of the file to delete
+            file_id: 要删除的文件UUID标识符
 
         Returns:
-            ServiceResult containing operation status and deletion information
+            ServiceResult: 包含删除状态和操作信息的硬删除结果
         """
         # Input validation
         if not file_id or not file_id.strip():
@@ -740,13 +850,13 @@ class FileService(BaseService):
 
     def hard_delete_batch(self, file_ids: List[str]) -> ServiceResult:
         """
-        Permanently deletes multiple files by their IDs (hard delete) with comprehensive tracking.
+        批量永久删除多个文件（硬删除），直接从数据库中物理删除
 
         Args:
-            file_ids: List of file UUIDs to delete
+            file_ids: 要删除的文件UUID标识符列表
 
         Returns:
-            Dictionary containing batch deletion results and statistics
+            ServiceResult: 包含批量删除统计结果的详细信息
         """
         result = {
             "success": False,
@@ -815,10 +925,10 @@ class FileService(BaseService):
 
     def get_available_types(self) -> ServiceResult:
         """
-        Gets list of file types that have files in the database with error handling.
+        获取数据库中已有文件的文件类型列表
 
         Returns:
-            ServiceResult containing available file types and operation status
+            ServiceResult: 包含可用文件类型列表和操作状态的结果
         """
         try:
             unique_types = self._crud_repo.find(distinct_field="type", filters={"is_del": False})
@@ -855,14 +965,14 @@ class FileService(BaseService):
     
     def count(self, file_type: FILE_TYPES = None, **kwargs) -> ServiceResult:
         """
-        Count files matching the given filters.
+        统计匹配过滤条件的文件数量
 
         Args:
-            file_type: File type filter
-            **kwargs: Additional filters
+            file_type: 文件类型过滤条件
+            **kwargs: 其他过滤条件
 
         Returns:
-            ServiceResult containing count of matching files
+            ServiceResult: 包含文件统计数量的结果
         """
         try:
             # 提取filters参数并从kwargs中移除，避免重复传递
@@ -886,16 +996,16 @@ class FileService(BaseService):
 
     def validate(self, name: str = None, file_type: FILE_TYPES = None, data: bytes = None, **kwargs) -> ServiceResult:
         """
-        Validate file data and metadata.
+        验证文件数据和元数据的有效性
 
         Args:
-            name: File name to validate
-            file_type: File type to validate
-            data: File data to validate
-            **kwargs: Additional validation parameters
+            name: 文件名称验证
+            file_type: 文件类型验证
+            data: 文件数据验证
+            **kwargs: 其他验证参数
 
         Returns:
-            ServiceResult with validation outcome
+            ServiceResult: 包含详细验证结果和错误信息
         """
         from ginkgo.libs.data.results import DataValidationResult
 
@@ -955,18 +1065,18 @@ class FileService(BaseService):
         page_size: int = 50
     ) -> ServiceResult:
         """
-        Search files by name with fuzzy matching capabilities and pagination.
+        按文件名称搜索文件，支持模糊匹配和分页功能
 
         Args:
-            keyword: Search keyword
-            file_type: Optional file type filter
-            exact_match: Whether to use exact match or contains
-            case_sensitive: Whether search is case sensitive
-            page: Page number (0-based)
-            page_size: Number of results per page
+            keyword: 搜索关键词
+            file_type: 可选的文件类型过滤
+            exact_match: 是否精确匹配
+            case_sensitive: 是否区分大小写
+            page: 页码（从0开始）
+            page_size: 每页结果数量
 
         Returns:
-            ServiceResult containing search results with pagination info
+            ServiceResult: 包含搜索结果和分页信息的查询结果
         """
         try:
             # Input validation
@@ -1052,17 +1162,18 @@ class FileService(BaseService):
         page_size: int = 50
     ) -> ServiceResult:
         """
-        Search files by description with fuzzy matching capabilities.
+        按描述信息搜索文件，支持模糊匹配和分页功能
 
         Args:
-            keyword: Search keyword
-            file_type: Optional file type filter
-            exact_match: Whether to use exact match or contains
-            case_sensitive: Whether search is case sensitive
-            limit: Maximum number of results to return
+            keyword: 搜索关键词
+            file_type: 可选的文件类型过滤
+            exact_match: 是否精确匹配
+            case_sensitive: 是否区分大小写
+            page: 页码（从0开始）
+            page_size: 每页结果数量
 
         Returns:
-            ServiceResult containing search results
+            ServiceResult: 包含搜索结果和分页信息的查询结果
         """
         try:
             # Input validation
@@ -1146,15 +1257,16 @@ class FileService(BaseService):
         page_size: int = 50
     ) -> ServiceResult:
         """
-        Search files by content (binary data search using text encoding).
+        按文件内容搜索文件，在二进制数据中搜索文本内容
 
         Args:
-            keyword: Search keyword
-            file_type: Optional file type filter
-            limit: Maximum number of results to return
+            keyword: 搜索关键词
+            file_type: 可选的文件类型过滤
+            page: 页码（从0开始）
+            page_size: 每页结果数量
 
         Returns:
-            ServiceResult containing search results
+            ServiceResult: 包含搜索结果和分页信息的查询结果
         """
         try:
             # Input validation
@@ -1237,19 +1349,19 @@ class FileService(BaseService):
         page_size: int = 50
     ) -> ServiceResult:
         """
-        Unified search method that can search across multiple fields using a single database query.
+        统一搜索方法，可在多个字段中搜索并返回合并结果
 
         Args:
-            keyword: Search keyword
-            search_in: List of fields to search in ["name", "description"]
-            file_type: Optional file type filter
-            exact_match: Whether to use exact match or contains
-            case_sensitive: Whether search is case sensitive (not implemented yet)
-            page: Page number (0-based)
-            page_size: Number of results per page
+            keyword: 搜索关键词
+            search_in: 搜索字段列表，如["name", "description"]
+            file_type: 可选的文件类型过滤
+            exact_match: 是否精确匹配
+            case_sensitive: 是否区分大小写
+            page: 页码（从0开始）
+            page_size: 每页结果数量
 
         Returns:
-            ServiceResult containing search results from all specified fields
+            ServiceResult: 包含所有指定字段的搜索结果
         """
         try:
             # Input validation
@@ -1354,15 +1466,15 @@ class FileService(BaseService):
 
     def check_integrity(self, name: str = None, file_type: FILE_TYPES = None, **kwargs) -> ServiceResult:
         """
-        Check integrity of file data in database.
+        检查数据库中文件数据的完整性和一致性
 
         Args:
-            name: File name to check
-            file_type: File type to check
-            **kwargs: Additional integrity check parameters
+            name: 文件名称检查条件
+            file_type: 文件类型检查条件
+            **kwargs: 其他完整性检查参数
 
         Returns:
-            ServiceResult with integrity check outcome
+            ServiceResult: 包含详细完整性检查结果和问题报告
         """
         from ginkgo.libs.data.results import DataIntegrityCheckResult
 
