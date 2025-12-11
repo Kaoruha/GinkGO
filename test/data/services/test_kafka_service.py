@@ -180,7 +180,8 @@ class TestKafkaService(unittest.TestCase):
 
         result = self.kafka_service.publish_message(self.test_topic, message)
 
-        self.assertTrue(result)
+        self.assertTrue(result.success)
+        self.assertTrue(result.data)  # 原本返回True
 
     def test_publish_message_with_key(self):
         """测试带键发布消息"""
@@ -192,7 +193,8 @@ class TestKafkaService(unittest.TestCase):
 
         result = self.kafka_service.publish_message(self.test_topic, message, key=key)
 
-        self.assertTrue(result)
+        self.assertTrue(result.success)
+        self.assertTrue(result.data)  # 原本返回True
 
     def test_count_all_topics(self):
         """测试统计所有主题数量"""
@@ -209,7 +211,7 @@ class TestKafkaService(unittest.TestCase):
 
     # ==================== 未消费消息查询测试 ====================
 
-    def test_get_unconsumed_messages_count(self):
+    def test_get_unconsumed_count(self):
         """测试查询未消费消息数量"""
         # 创建测试主题
         self._create_test_topic(self.test_topic)
@@ -222,7 +224,7 @@ class TestKafkaService(unittest.TestCase):
         # 等待消息发送完成
         time.sleep(1)
 
-        result = self.kafka_service.get_unconsumed_messages_count(self.test_topic)
+        result = self.kafka_service.get_unconsumed_count(self.test_topic)
 
         self.assertTrue(result.success)
         self.assertIsInstance(result.data, dict)
@@ -231,10 +233,14 @@ class TestKafkaService(unittest.TestCase):
         self.assertIn('total_messages', result.data)
         self.assertIn('unconsumed_messages', result.data)
 
-    def test_get_unconsumed_messages_count_no_topic(self):
+        # 验证队列长度变化：发送了3条消息，未消费消息应该是3
+        self.assertEqual(result.data['total_messages'], 3, "总消息数应该是3")
+        self.assertEqual(result.data['unconsumed_messages'], 3, "未消费消息数应该是3")
+
+    def test_get_unconsumed_count_no_topic(self):
         """测试查询不存在主题的未消费消息"""
         topic = "nonexistent_topic_test"
-        result = self.kafka_service.get_unconsumed_messages_count(topic)
+        result = self.kafka_service.get_unconsumed_count(topic)
 
         self.assertFalse(result.success)
         self.assertIn("不存在", result.error)
@@ -261,6 +267,11 @@ class TestKafkaService(unittest.TestCase):
         self.assertIn('unconsumed_messages', result.data)
         self.assertIn('lag_level', result.data)
 
+        # 验证队列长度变化：发送了2条消息，未消费消息应该是2
+        self.assertEqual(result.data['unconsumed_messages'], 2, "未消费消息数应该是2")
+        # 验证延迟级别：2条消息应该为低延迟
+        self.assertEqual(result.data['lag_level'], "低延迟", "2条消息应该被判定为低延迟")
+
     def test_calculate_lag_level_by_count(self):
         """测试基于消息数量的延迟级别计算"""
         # 测试各种延迟级别
@@ -284,12 +295,13 @@ class TestKafkaService(unittest.TestCase):
 
         result = self.kafka_service.get_queue_metrics([self.test_topic])
 
-        self.assertIsInstance(result, dict)
-        self.assertIn("timestamp", result)
-        self.assertIn("topics", result)
+        self.assertTrue(result.success)
+        self.assertIsInstance(result.data, dict)
+        self.assertIn("timestamp", result.data)
+        self.assertIn("topics", result.data)
 
-        if self.test_topic in result["topics"]:
-            topic_info = result["topics"][self.test_topic]
+        if self.test_topic in result.data["topics"]:
+            topic_info = result.data["topics"][self.test_topic]
             self.assertIn("unconsumed_messages", topic_info)
             self.assertIn("consumer_lag", topic_info)
 

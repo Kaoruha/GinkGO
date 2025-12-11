@@ -25,7 +25,13 @@ class TestTickServiceConstruction:
     """1. 构造和初始化测试"""
 
     def test_tick_service_initialization(self):
-        """测试TickService基本初始化"""
+        """
+        测试TickService基本初始化
+
+        评审不足：
+        - 在测试方法内进行import，应该移到文件顶部
+        - 依赖创建较复杂，可能可以考虑使用mock
+        """
         from ginkgo.data.sources.ginkgo_tdx import GinkgoTDX
         from ginkgo.data.services.stockinfo_service import StockinfoService
         from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
@@ -61,7 +67,14 @@ class TestTickServiceSyncMethods:
     }
 
     def test_sync_date_data_increment(self):
-        """测试sync_date数据增量"""
+        """
+        测试sync_date数据增量
+
+        评审不足：
+        - 这是一个集成测试而非纯单元测试，更适合作为集成测试
+        - 测试执行时间可能较长
+        - 在测试方法内进行大量重复的依赖创建代码
+        """
         from ginkgo.data.services.tick_service import TickService
         from ginkgo.data.services.stockinfo_service import StockinfoService
         from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
@@ -110,7 +123,14 @@ class TestTickServiceSyncMethods:
         print(f"✅ sync_date成功，新增了 {increment} 条tick数据")
 
     def test_sync_range_date_range(self):
-        """测试sync_range日期范围同步"""
+        """
+        测试sync_range日期范围同步
+
+        评审不足：
+        - 测试覆盖有限：只测试了单日范围，没有测试真正的多日范围
+        - 缺少数据增量验证：没有验证同步前后的数据变化
+        - 与前一个测试有大量重复的依赖创建代码
+        """
         from ginkgo.data.services.tick_service import TickService
         from ginkgo.data.services.stockinfo_service import StockinfoService
         from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
@@ -133,14 +153,21 @@ class TestTickServiceSyncMethods:
 
         # 日期范围同步
         start_date = datetime(2024, 1, 2)
-        end_date = datetime(2024, 1, 2)
+        end_date = datetime(2024, 1, 3)  # 结束日期应该晚于开始日期
 
         result = tick_service.sync_range("000001.SZ", start_date, end_date)
         assert result.success, f"范围同步失败: {result.message}"
         print(f"✅ sync_range验证成功")
 
     def test_sync_batch_multiple_codes(self):
-        """测试sync_batch多股票同步"""
+        """
+        测试sync_batch多股票同步
+
+        评审不足：
+        - 缺少详细的验证：没有验证每个股票的同步结果
+        - 没有测试部分成功的情况（如某个股票同步失败）
+        - 同样存在大量重复的依赖创建代码
+        """
         from ginkgo.data.services.tick_service import TickService
         from ginkgo.data.services.stockinfo_service import StockinfoService
         from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
@@ -174,7 +201,14 @@ class TestTickServiceSyncMethods:
         print(f"✅ sync_batch验证成功")
 
     def test_sync_smart_functionality(self):
-        """测试sync_smart智能同步"""
+        """
+        测试sync_smart智能同步
+
+        评审不足：
+        - 测试相对简单，只验证了执行成功，没有验证智能逻辑
+        - 缺少对智能同步策略的验证（如自动选择同步日期范围）
+        - 没有测试边界情况（如max_backtrack_days=0或负数）
+        """
         from ginkgo.data.services.tick_service import TickService
         from ginkgo.data.services.stockinfo_service import StockinfoService
         from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
@@ -211,7 +245,13 @@ class TestTickServiceGet:
     }
 
     def test_get_after_sync_increment(self):
-        """测试get方法 - 同步前后数据对比"""
+        """
+        测试get方法 - 同步前后数据对比
+
+        评审不足：
+        - 测试方法较长，逻辑相对复杂，但覆盖完整
+        - 无明显不足，设计合理
+        """
         from ginkgo.data.services.tick_service import TickService
         from ginkgo.data.services.stockinfo_service import StockinfoService
         from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
@@ -276,7 +316,14 @@ class TestTickServiceGet:
         print(f"✅ ModelList方法验证成功 - to_dataframe: {len(df)}行, to_entities: {len(entities)}个实体")
 
     def test_get_price_adjustment(self):
-        """测试get方法价格调整功能"""
+        """
+        测试get方法价格调整功能
+
+        评审不足：
+        - 测试相对简单，只验证了查询成功，没有验证复权计算的正确性
+        - 没有对比不同复权类型的价格差异
+        - 缺少对复权结果数据结构的验证
+        """
         from ginkgo.data.services.tick_service import TickService
         from ginkgo.data.services.stockinfo_service import StockinfoService
         from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
@@ -321,7 +368,13 @@ class TestTickServiceCount:
     }
 
     def test_count_data_increment(self):
-        """测试count方法 - 同步前后计数对比"""
+        """
+        测试count方法 - 同步前后计数对比
+
+        评审不足：
+        - 与其他测试有重复的依赖创建代码，但在当前结构下是合理的
+        - 测试设计简洁有效，无明显不足
+        """
         from ginkgo.data.services.tick_service import TickService
         from ginkgo.data.services.stockinfo_service import StockinfoService
         from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
@@ -375,7 +428,14 @@ class TestTickServiceDataValidation:
     }
 
     def test_validate_data_quality(self):
-        """测试数据质量验证"""
+        """
+        测试数据质量验证
+
+        评审不足：
+        - 测试相对基础，没有验证具体的质量评分逻辑
+        - 没有测试不同质量数据场景（如低质量数据）
+        - 缺少对验证失败场景的测试
+        """
         from ginkgo.data.services.tick_service import TickService
         from ginkgo.data.services.stockinfo_service import StockinfoService
         from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
@@ -401,14 +461,26 @@ class TestTickServiceDataValidation:
         assert sync_result.success
 
         # 验证数据质量
-        validation_result = tick_service.validate("000001.SZ", datetime(2024, 1, 2), datetime(2024, 1, 2))
+        # 先获取数据，然后验证数据质量
+        from ginkgo.data.crud.tick_crud import TickCRUD
+        tick_crud = TickCRUD()
+        tick_data = tick_crud.find(filters={"code": "000001.SZ"})
+
+        validation_result = tick_service.validate(tick_data)
         assert validation_result.success, f"验证失败: {validation_result.message}"
         assert hasattr(validation_result.data, 'is_valid'), "应该返回验证结果"
         assert hasattr(validation_result.data, 'data_quality_score'), "应该包含质量评分"
         print(f"✅ validate验证成功")
 
     def test_check_integrity_completeness(self):
-        """测试数据完整性检查"""
+        """
+        测试数据完整性检查
+
+        评审不足：
+        - 测试相对基础，没有测试不同完整性场景
+        - 没有同步数据就直接检查完整性，可能缺少数据基础
+        - 缺少对完整性评分逻辑的验证
+        """
         from ginkgo.data.services.tick_service import TickService
         from ginkgo.data.services.stockinfo_service import StockinfoService
         from ginkgo.data.crud.stock_info_crud import StockInfoCRUD
@@ -447,7 +519,14 @@ class TestTickServiceErrorHandling:
     """6. 错误处理测试"""
 
     def test_invalid_code_handling(self):
-        """测试无效股票代码的错误处理"""
+        """
+        测试无效股票代码的错误处理
+
+        评审不足：
+        - 测试设计合理，覆盖了核心错误处理逻辑
+        - 可以增加更多边界情况测试（如None值、特殊字符等）
+        - 无明显不足，设计优秀
+        """
         from ginkgo import service_hub
 
         # 使用真实的服务实例，会自动检查股票列表
