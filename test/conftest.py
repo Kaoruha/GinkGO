@@ -605,12 +605,32 @@ def auto_clean_test_data(request):
         from ginkgo.data.crud.position_crud import PositionCRUD
     except ImportError:
         PositionCRUD = None
+    try:
+        from ginkgo.data.crud.signal_tracker_crud import SignalTrackerCRUD
+    except ImportError:
+        SignalTrackerCRUD = None
+    try:
+        from ginkgo.data.crud.param_crud import ParamCRUD
+    except ImportError:
+        ParamCRUD = None
+    try:
+        from ginkgo.data.crud.file_crud import FileCRUD
+    except ImportError:
+        FileCRUD = None
+    try:
+        from ginkgo.data.crud.portfolio_crud import PortfolioCRUD
+    except ImportError:
+        PortfolioCRUD = None
 
     crud_map = {
         'bar': BarCRUD,
         'tick': TickCRUD,
         'order': OrderCRUD,
         'position': PositionCRUD,
+        'signal_tracker': SignalTrackerCRUD,
+        'param': ParamCRUD,
+        'file': FileCRUD,
+        'portfolio': PortfolioCRUD,
     }
 
     # 清理函数
@@ -1101,8 +1121,8 @@ def mock_tushare_data_source():
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
 
-        # 使用patch自动替换GinkgoTushare类
-        with patch('ginkgo.data.sources.ginkgo_tushare.GinkgoTushare', MockGinkgoTushare):
+        # 使用patch自动替换GinkgoTushare类 - 修复导入路径
+        with patch('ginkgo.data.sources.GinkgoTushare', MockGinkgoTushare):
             print("✅ 全局Mock数据源已启用 - 自动patch GinkgoTushare类")
             yield
 

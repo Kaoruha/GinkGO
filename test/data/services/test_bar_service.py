@@ -1310,7 +1310,7 @@ class TestBarServiceSyncMethods:
             before_000002 = bar_service._crud_repo.count(filters={'code': '000002.SZ'})
 
             # 执行批量同步
-            result = bar_service.sync_batch(codes=codes, start_date=start_date, end_date=end_date)
+            result = bar_service.sync_range_batch(codes=codes, start_date=start_date, end_date=end_date)
 
             # 验证批量同步成功
             assert result.success, f"批量同步失败: {result.message}"
@@ -1361,7 +1361,7 @@ class TestBarServiceSyncMethods:
             end_date = "20231203"
 
             # 执行批量同步
-            result = bar_service.sync_batch(codes=codes, start_date=start_date, end_date=end_date)
+            result = bar_service.sync_range_batch(codes=codes, start_date=start_date, end_date=end_date)
 
             # 验证批量同步执行（部分成功）
             assert result.success, "批量同步应该执行完成"
@@ -1390,7 +1390,7 @@ class TestBarServiceSyncMethods:
             assert 0.0 <= success_rate <= 100.0, "成功率应该在0-100%之间"
 
     def test_sync_smart_functionality(self):
-        """测试全量同步功能"""
+        """测试智能同步功能"""
         from unittest.mock import patch
         from test.mock_data.mock_ginkgo_tushare import MockGinkgoTushare
         from ginkgo import service_hub
@@ -1402,12 +1402,12 @@ class TestBarServiceSyncMethods:
             # 记录同步前的数据库状态
             before_count = bar_service._crud_repo.count()
 
-            # 执行全量同步
+            # 执行智能同步
             result = bar_service.sync_smart(code="000001.SZ")
 
-            # 验证全量同步成功
-            assert result.success, f"全量同步失败: {result.message}"
-            assert result.data is not None, "全量同步结果数据不能为空"
+            # 验证智能同步成功
+            assert result.success, f"智能同步失败: {result.message}"
+            assert result.data is not None, "智能同步结果数据不能为空"
 
             # 验证返回DataSyncResult格式
             from ginkgo.libs.data.results.data_sync_result import DataSyncResult
@@ -1415,7 +1415,7 @@ class TestBarServiceSyncMethods:
 
             sync_result = result.data
 
-            # 验证全量同步的统计信息
+            # 验证智能同步的统计信息
             assert sync_result.records_processed >= 0, "处理的记录数应该非负"
             assert sync_result.records_added >= 0, "新增的记录数应该非负"
 

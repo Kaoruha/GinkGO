@@ -16,6 +16,8 @@ class MockGinkgoTushare:
     """Mock Tushare数据源，模拟GinkgoTushare的所有方法，但从CSV文件读取数据"""
 
     def __init__(self, *args, **kwargs) -> None:
+        print("🎭 MockGinkgoTushare 初始化被调用 - Mock生效！")
+        print(f"   参数: args={args}, kwargs={kwargs}")
         self.pro = None  # Mock不需要真实连接
         self.mock_data_dir = "test/mock_data"
         self._data_cache = {}
