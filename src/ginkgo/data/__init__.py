@@ -121,7 +121,7 @@ def fetch_and_update_cn_daybar_batch_with_date_range(codes: list, start_date=Non
     if isinstance(end_date, str):
         end_date = datetime.strptime(end_date, "%Y%m%d")
 
-    return container.bar_service().sync_batch_codes_with_date_range(codes, start_date, end_date)
+    return container.bar_service().sync_range_batch(codes, start_date, end_date)
 
 
 @retry

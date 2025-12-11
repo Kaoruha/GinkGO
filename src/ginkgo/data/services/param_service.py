@@ -16,11 +16,22 @@ class ParamService(BaseService):
     """
 
     def __init__(self):
+        """
+        初始化ParamService实例，设置参数CRUD仓库
+
+        Returns:
+            None: 构造函数无返回值
+        """
         super().__init__()
         self._crud_repo = ParamCRUD()
 
     def _initialize_dependencies(self) -> None:
-        """初始化依赖注入"""
+        """
+        初始化依赖注入，为ParamService设置必要的组件
+
+        Returns:
+            None: 方法无返回值
+        """
         # ParamService通常不需要额外依赖，如果有可以在这里添加
         pass
 
@@ -28,16 +39,16 @@ class ParamService(BaseService):
     @retry(max_try=3)
     def add(self, mapping_id: str, index: int, value: str, **kwargs) -> ServiceResult:
         """
-        添加参数
+        添加新参数到指定映射的索引位置
 
         Args:
-            mapping_id: 映射ID
-            index: 参数索引
+            mapping_id: 映射标识符
+            index: 参数索引位置
             value: 参数值
-            **kwargs: 其他参数
+            **kwargs: 其他可选参数
 
         Returns:
-            ServiceResult: 添加结果
+            ServiceResult: 包含添加结果的ServiceResult对象
         """
         try:
             # 输入验证
@@ -52,8 +63,7 @@ class ParamService(BaseService):
 
             # 检查是否已存在相同的参数
             existing_param = self._crud_repo.find(
-                filters={"mapping_id": mapping_id, "index": index, "is_del": False},
-                limit=1
+                filters={"mapping_id": mapping_id, "index": index, "is_del": False}
             )
             if existing_param:
                 return ServiceResult.error(f"映射 {mapping_id} 的索引 {index} 处已存在参数")
@@ -88,17 +98,17 @@ class ParamService(BaseService):
     def update(self, param_id: str = None, mapping_id: str = None, index: int = None,
                value: str = None, **kwargs) -> ServiceResult:
         """
-        更新参数
+        更新现有参数的值，支持通过UUID或映射ID+索引定位
 
         Args:
-            param_id: 参数UUID（优先级高）
-            mapping_id: 映射ID（与index配合使用）
-            index: 参数索引（与mapping_id配合使用）
+            param_id: 参数UUID（优先级高于mapping_id+index）
+            mapping_id: 映射标识符（与index配合使用）
+            index: 参数索引位置（与mapping_id配合使用）
             value: 新的参数值
-            **kwargs: 其他参数
+            **kwargs: 其他可选参数
 
         Returns:
-            ServiceResult: 更新结果
+            ServiceResult: 包含更新结果的ServiceResult对象
         """
         try:
             updates = {}
@@ -124,7 +134,7 @@ class ParamService(BaseService):
                 return ServiceResult.error("未找到要更新的参数")
 
             # 获取更新后的参数信息
-            updated_param = self._crud_repo.find(filters=filters, limit=1)
+            updated_param = self._crud_repo.find(filters=filters)
             if updated_param:
                 param = updated_param[0]
                 GLOG.INFO(f"成功更新参数: uuid={param.uuid}")
@@ -151,16 +161,16 @@ class ParamService(BaseService):
     @retry(max_try=3)
     def delete(self, param_id: str = None, mapping_id: str = None, index: int = None, **kwargs) -> ServiceResult:
         """
-        删除参数
+        删除指定参数，支持通过UUID或映射ID+索引定位
 
         Args:
-            param_id: 参数UUID（优先级高）
-            mapping_id: 映射ID（与index配合使用）
-            index: 参数索引（与mapping_id配合使用）
-            **kwargs: 其他参数
+            param_id: 参数UUID（优先级高于mapping_id+index）
+            mapping_id: 映射标识符（与index配合使用）
+            index: 参数索引位置（与mapping_id配合使用）
+            **kwargs: 其他可选参数
 
         Returns:
-            ServiceResult: 删除结果
+            ServiceResult: 包含删除结果的ServiceResult对象
         """
         try:
             # 构建删除条件
@@ -192,17 +202,17 @@ class ParamService(BaseService):
     def get(self, param_id: str = None, mapping_id: str = None, index: int = None,
             as_dataframe: bool = True, **kwargs) -> ServiceResult:
         """
-        获取参数
+        查询参数数据，支持多种查询条件和输出格式
 
         Args:
-            param_id: 参数UUID（优先级高）
-            mapping_id: 映射ID
-            index: 参数索引
+            param_id: 参数UUID（精确查询）
+            mapping_id: 映射标识符（过滤条件）
+            index: 参数索引位置（过滤条件）
             as_dataframe: 是否返回DataFrame格式
             **kwargs: 其他过滤条件
 
         Returns:
-            ServiceResult: 查询结果
+            ServiceResult: 包含查询结果的ServiceResult对象
         """
         try:
             # 构建查询条件
@@ -233,14 +243,14 @@ class ParamService(BaseService):
     @time_logger
     def count(self, mapping_id: str = None, **kwargs) -> ServiceResult:
         """
-        统计参数数量
+        统计参数总数，支持按映射ID过滤
 
         Args:
-            mapping_id: 映射ID过滤
+            mapping_id: 映射标识符（可选过滤条件）
             **kwargs: 其他过滤条件
 
         Returns:
-            ServiceResult: 统计结果
+            ServiceResult: 包含统计数量的ServiceResult对象
         """
         try:
             filters = kwargs.get('filters', {})
@@ -262,16 +272,16 @@ class ParamService(BaseService):
     @time_logger
     def exists(self, param_id: str = None, mapping_id: str = None, index: int = None, **kwargs) -> ServiceResult:
         """
-        检查参数是否存在
+        检查指定参数是否存在，支持多种定位方式
 
         Args:
-            param_id: 参数UUID（优先级高）
-            mapping_id: 映射ID
-            index: 参数索引
+            param_id: 参数UUID（精确检查）
+            mapping_id: 映射标识符（与index配合使用）
+            index: 参数索引位置（与mapping_id配合使用）
             **kwargs: 其他过滤条件
 
         Returns:
-            ServiceResult: 检查结果
+            ServiceResult: 包含存在性检查结果的ServiceResult对象
         """
         try:
             # 构建检查条件
@@ -300,16 +310,17 @@ class ParamService(BaseService):
     @retry(max_try=3)
     def health_check(self) -> ServiceResult:
         """
-        健康检查
+        检查ParamService及其依赖组件的健康状态
 
         Returns:
-            ServiceResult: 健康检查结果
+            ServiceResult: 包含健康状态信息的ServiceResult对象
         """
         try:
             # 检查CRUD连接
             param_count = self._crud_repo.count(filters={"is_del": False})
 
             health_status = {
+                "service_name": "ParamService",
                 "status": "healthy",
                 "param_count": param_count,
                 "crud_connection": "ok"
@@ -325,17 +336,17 @@ class ParamService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def get_params_by_mapping(self, mapping_id: str, as_dataframe: bool = True, **kwargs) -> ServiceResult:
+    def get_by_mapping(self, mapping_id: str, as_dataframe: bool = True, **kwargs) -> ServiceResult:
         """
-        根据映射ID获取所有参数
+        获取指定映射的所有参数，按索引顺序排序
 
         Args:
-            mapping_id: 映射ID
+            mapping_id: 映射标识符
             as_dataframe: 是否返回DataFrame格式
             **kwargs: 其他过滤条件
 
         Returns:
-            ServiceResult: 参数列表
+            ServiceResult: 包含参数列表的ServiceResult对象
         """
         try:
             if not mapping_id or not mapping_id.strip():
@@ -344,11 +355,12 @@ class ParamService(BaseService):
             filters = {"mapping_id": mapping_id.strip(), "is_del": False}
             filters.update(kwargs.get('filters', {}))
 
-            # 按索引排序返回
+            # 按索引升序排序返回
             params = self._crud_repo.find(
                 filters=filters,
                 as_dataframe=as_dataframe,
-                order_by=[("index", "asc")]
+                order_by="index",
+                desc_order=False
             )
 
             return ServiceResult.success(
@@ -362,17 +374,23 @@ class ParamService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def update_params_batch(self, mapping_id: str, params: Dict[int, str], **kwargs) -> ServiceResult:
+    def update_batch(self, mapping_id: str, params: Dict[int, str], **kwargs) -> ServiceResult:
         """
-        批量更新映射的参数
+        批量更新指定映射的多个参数，返回详细的操作结果
 
         Args:
-            mapping_id: 映射ID
-            params: 参数字典 {index: value}
-            **kwargs: 其他参数
+            mapping_id: 映射标识符
+            params: 参数字典 {索引: 值}
+            **kwargs: 其他可选参数
 
         Returns:
-            ServiceResult: 批量更新结果
+            ServiceResult: 包含批量更新统计和错误详情的ServiceResult对象
+
+        TODO: 当前实现为伪批量操作，逐个调用update方法，缺乏事务保证。
+              未来需要重构为真正的原子级批量操作：
+              1. 使用数据库事务确保原子性
+              2. 任何失败时自动回滚所有更改
+              3. 优化为单次SQL批量操作提升性能
         """
         try:
             if not mapping_id or not mapping_id.strip():
@@ -432,17 +450,17 @@ class ParamService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def copy_params(self, source_mapping: str, target_mapping: str, **kwargs) -> ServiceResult:
+    def copy(self, source_mapping: str, target_mapping: str, **kwargs) -> ServiceResult:
         """
-        复制参数从源映射到目标映射
+        将源映射的所有参数复制到目标映射，支持清空目标选项
 
         Args:
-            source_mapping: 源映射ID
-            target_mapping: 目标映射ID
-            **kwargs: 其他参数
+            source_mapping: 源映射标识符
+            target_mapping: 目标映射标识符
+            **kwargs: 可选参数（clear_target: 是否清空目标映射）
 
         Returns:
-            ServiceResult: 复制结果
+            ServiceResult: 包含复制统计和错误详情的ServiceResult对象
         """
         try:
             if not source_mapping or not source_mapping.strip():
@@ -455,7 +473,7 @@ class ParamService(BaseService):
                 return ServiceResult.error("源映射和目标映射不能相同")
 
             # 获取源映射的所有参数
-            source_result = self.get_params_by_mapping(source_mapping, as_dataframe=False)
+            source_result = self.get_by_mapping(source_mapping, as_dataframe=False)
             if not source_result.is_success():
                 return ServiceResult.error(f"获取源映射参数失败: {source_result.error}")
 
@@ -468,7 +486,7 @@ class ParamService(BaseService):
 
             # 清空目标映射的现有参数（可选）
             if kwargs.get('clear_target', False):
-                clear_result = self.delete_mapping_params(target_mapping)
+                clear_result = self.delete_batch_by_mapping(target_mapping)
                 if not clear_result.is_success():
                     GLOG.WARN(f"清空目标映射参数失败: {clear_result.error}")
 
@@ -524,16 +542,16 @@ class ParamService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def delete_mapping_params(self, mapping_id: str, **kwargs) -> ServiceResult:
+    def delete_batch_by_mapping(self, mapping_id: str, **kwargs) -> ServiceResult:
         """
-        删除指定映射的所有参数
+        批量删除指定映射的所有参数记录
 
         Args:
-            mapping_id: 映射ID
-            **kwargs: 其他参数
+            mapping_id: 映射标识符
+            **kwargs: 其他可选参数
 
         Returns:
-            ServiceResult: 删除结果
+            ServiceResult: 包含删除数量的ServiceResult对象
         """
         try:
             if not mapping_id or not mapping_id.strip():
@@ -554,16 +572,16 @@ class ParamService(BaseService):
             return ServiceResult.error(f"删除映射参数失败: {str(e)}")
 
     @time_logger
-    def get_params_summary(self, mapping_id: str = None, **kwargs) -> ServiceResult:
+    def get_summary(self, mapping_id: str = None, **kwargs) -> ServiceResult:
         """
-        获取参数汇总信息
+        获取参数统计汇总信息，支持全局或特定映射分析
 
         Args:
-            mapping_id: 可选的映射ID过滤
+            mapping_id: 可选的映射标识符（为空则统计全局）
             **kwargs: 其他过滤条件
 
         Returns:
-            ServiceResult: 汇总信息
+            ServiceResult: 包含统计汇总数据的ServiceResult对象
         """
         try:
             filters = {"is_del": False}
@@ -586,7 +604,7 @@ class ParamService(BaseService):
 
             if mapping_id:
                 # 获取特定映射的详细信息
-                params_result = self.get_params_by_mapping(mapping_id, as_dataframe=False)
+                params_result = self.get_by_mapping(mapping_id, as_dataframe=False)
                 if params_result.is_success():
                     params = params_result.data
                     if params:
@@ -615,23 +633,23 @@ class ParamService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def validate_params(self, mapping_id: str, **kwargs) -> ServiceResult:
+    def validate(self, mapping_id: str, **kwargs) -> ServiceResult:
         """
-        验证映射参数的完整性和有效性
+        验证映射参数的完整性和有效性，检查重复索引等问题
 
         Args:
-            mapping_id: 映射ID
-            **kwargs: 验证选项
+            mapping_id: 映射标识符
+            **kwargs: 验证选项（check_continuity: 检查索引连续性, max_value_length: 最大值长度）
 
         Returns:
-            ServiceResult: 验证结果
+            ServiceResult: 包含验证结果和问题详情的ServiceResult对象
         """
         try:
             if not mapping_id or not mapping_id.strip():
                 return ServiceResult.error("映射ID不能为空")
 
             # 获取该映射的所有参数
-            params_result = self.get_params_by_mapping(mapping_id, as_dataframe=False)
+            params_result = self.get_by_mapping(mapping_id, as_dataframe=False)
             if not params_result.is_success():
                 return ServiceResult.error(f"获取映射参数失败: {params_result.error}")
 

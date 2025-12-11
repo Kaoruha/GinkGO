@@ -16,7 +16,7 @@ Usage Examples:
     # Most CRUDs are automatically available through container.cruds
     
     # Special cases that need parameters:
-    tick_crud = container.create_tick_crud('000001.SZ')  # TickCRUD needs stock code
+    # tick_crud will be defined inside Container
     
     # Access services:
     kafka_service = container.kafka_service()
@@ -44,14 +44,15 @@ from ginkgo.data.services.adjustfactor_service import AdjustfactorService
 from ginkgo.data.services.stockinfo_service import StockinfoService
 from ginkgo.data.services.bar_service import BarService
 from ginkgo.data.services.tick_service import TickService
+from ginkgo.data.crud.tick_crud import TickCRUD
 from ginkgo.data.services.file_service import FileService
 from ginkgo.data.services.engine_service import EngineService
 from ginkgo.data.services.portfolio_service import PortfolioService
-from ginkgo.data.services.component_service import ComponentService
 from ginkgo.data.services.redis_service import RedisService
 from ginkgo.data.services.kafka_service import KafkaService
 from ginkgo.data.services.signal_tracking_service import SignalTrackingService
 from ginkgo.data.services.factor_service import FactorService
+from ginkgo.data.services.param_service import ParamService
 
 
 class Container(containers.DeclarativeContainer):
@@ -110,13 +111,18 @@ class Container(containers.DeclarativeContainer):
     )
 
     # TickService requires special handling because TickCRUD needs a code parameter
-    # TickService implements get_crud method to dynamically create TickCRUD instances
-    tick_service = providers.Singleton(TickService, data_source=ginkgo_tdx_source, stockinfo_service=stockinfo_service)
+    # Pass TickCRUD class directly, service will use it as factory: self._crud_repo(code).function()
+    tick_service = providers.Singleton(
+        TickService,
+        data_source=ginkgo_tdx_source,
+        stockinfo_service=stockinfo_service,
+        crud_repo=TickCRUD
+    )
 
     file_service = providers.Singleton(FileService, crud_repo=file_crud)
 
     engine_service = providers.Singleton(
-        EngineService, crud_repo=engine_crud, engine_portfolio_mapping_crud=engine_portfolio_mapping_crud
+        EngineService, crud_repo=engine_crud, engine_portfolio_mapping_crud=engine_portfolio_mapping_crud, param_crud=param_crud
     )
 
     portfolio_service = providers.Singleton(
@@ -125,10 +131,7 @@ class Container(containers.DeclarativeContainer):
         portfolio_file_mapping_crud=portfolio_file_mapping_crud,
     )
 
-    component_service = providers.Singleton(
-        ComponentService, file_service=file_service, portfolio_service=portfolio_service
-    )
-
+    
     redis_service = providers.Singleton(RedisService, redis_crud=redis_crud)
 
     kafka_service = providers.Singleton(KafkaService, kafka_crud=kafka_crud)
@@ -143,6 +146,11 @@ class Container(containers.DeclarativeContainer):
     factor_service = providers.Singleton(
         FactorService,
         factor_crud=factor_crud
+    )
+
+    # Param service with ParamCRUD dependency
+    param_service = providers.Singleton(
+        ParamService
     )
 
 

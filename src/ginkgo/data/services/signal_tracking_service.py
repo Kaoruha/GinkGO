@@ -5,27 +5,27 @@ from decimal import Decimal
 from ginkgo.data.crud.signal_tracker_crud import SignalTrackerCRUD
 from ginkgo.data.models.model_signal_tracker import MSignalTracker
 from ginkgo.trading.entities.signal import Signal
-from ginkgo.enums import EXECUTION_MODE, TRACKING_STATUS, ACCOUNT_TYPE
+from ginkgo.enums import EXECUTION_MODE, TRACKINGSTATUS_TYPES, ACCOUNT_TYPE
 from ginkgo.libs import GLOG, time_logger, retry, to_decimal, datetime_normalize
 from ginkgo.data.services.base_service import ServiceResult, BaseService
 
 
 class SignalTrackingService(BaseService):
     """
-    信号追踪服务层
+    Signal Tracking Service Layer
 
-    提供信号执行追踪的完整业务逻辑，包括创建追踪记录、确认执行、
-    统计分析等功能，遵循扁平化架构设计
+    Provides complete business logic for signal execution tracking, including creating tracking records,
+    confirming execution, statistical analysis, etc., following flat architecture design
     """
 
     def __init__(self, tracker_crud: SignalTrackerCRUD):
         """
-        初始化信号追踪服务
+        Initialize signal tracking service
 
         Args:
-            tracker_crud: 信号追踪数据访问对象
+            tracker_crud: Signal tracking data access object
         """
-        # 调用父类构造函数，遵循扁平化架构模式
+        # Call parent constructor, following flat architecture pattern
         super().__init__(crud_repo=tracker_crud)
         self._crud_repo = tracker_crud
 
@@ -39,64 +39,60 @@ class SignalTrackingService(BaseService):
         engine_id: Optional[str] = None
     ) -> ServiceResult:
         """
-        为信号创建追踪记录
-        
+        Create tracking record for signal
+
         Args:
-            signal: 交易信号
-            execution_mode: 执行模式
-            account_type: 账户类型
-            engine_id: 引擎ID
-            
+            signal: Trading signal
+            execution_mode: Execution mode
+            account_type: Account type
+            engine_id: Engine ID
+
         Returns:
-            ServiceResult[MSignalTracker]: 服务结果
+            ServiceResult[MSignalTracker]: Service result
         """
         try:
-            # 获取信号业务时间（关键字段）
+            # Get signal business time (key field)
             signal_business_time = signal.business_timestamp or signal.timestamp
 
-            # 🎯 根据账户类型计算预期执行时间（T+1业务逻辑）
-            if account_type == ACCOUNT_TYPE.BACKTEST:
-                # 回测：下一个数据周期执行（避免未来信息）
-                from ginkgo.trading.portfolios.t1backtest import normalize_time_for_comparison
-                current_time = signal_business_time
-                expected_time = normalize_time_for_comparison(signal_business_time + self._get_next_period_interval())
-            else:
-                # 实盘：可以立即执行（当前时间就是未来时间）
-                expected_time = signal_business_time
+            # Create MSignalTracker object directly
+            from ginkgo.data.models.model_signal_tracker import MSignalTracker
 
-            tracking_data = {
-                "signal_id": signal.uuid,
-                "strategy_id": getattr(signal, 'strategy_id', ''),
-                "portfolio_id": signal.portfolio_id,
-                "engine_id": engine_id or "",
-                "execution_mode": execution_mode,
-                "account_type": account_type,
-                "expected_code": signal.code,
-                "expected_direction": signal.direction,
-                "expected_price": float(getattr(signal, 'price', 0)),
-                "expected_volume": getattr(signal, 'volume', 0),
+            tracker = MSignalTracker(
+                signal_id=signal.uuid,
+                strategy_id=getattr(signal, 'strategy_id', ''),
+                portfolio_id=signal.portfolio_id,
+                engine_id=engine_id or "",
+                execution_mode=execution_mode,
+                account_type=account_type,
+                expected_code=signal.code,
+                expected_direction=signal.direction,
+                expected_price=float(getattr(signal, 'price', 0)),
+                expected_volume=getattr(signal, 'volume', 0),
 
-                # 🎯 时间字段设计（按最终方案）
-                "timestamp": datetime.now(),                          # 系统创建时间（全局统一字段）
-                "business_timestamp": signal_business_time,            # 信号业务时间（价格数据时间，核心字段）
-                "expected_timestamp": expected_time,                   # 预期执行时间（T+1后的业务时间）
-                "notification_sent_at": datetime.now(),                # 通知发送系统时间
-                "tracking_status": TRACKING_STATUS.NOTIFIED,
-                "time_delay_seconds": None,                            # 确认执行时计算
-            }
-            
-            tracker = self._crud_repo.add(tracking_data)
-            
+                # Time fields - simplified approach
+                timestamp=datetime.now(),                    # System creation time
+                business_timestamp=signal_business_time,     # Signal business time
+                expected_timestamp=signal_business_time,     # Expected execution time (simplified)
+                notification_sent_at=datetime.now(),         # Notification sent time
+                tracking_status=TRACKINGSTATUS_TYPES.NOTIFIED,
+                time_delay_seconds=None,                     # Calculated when execution is confirmed
+            )
+
+            tracker = self._crud_repo.add(tracker)
+
+            if tracker is None:
+                return ServiceResult.error("Failed to create signal tracking: database insertion returned None")
+
             GLOG.INFO(f"Created signal tracking for signal_id: {signal.uuid}")
             return ServiceResult.success(tracker)
             
         except Exception as e:
             GLOG.ERROR(f"Failed to create signal tracking: {e}")
-            return ServiceResult.error(f"创建信号追踪失败: {e}")
+            return ServiceResult.error(f"Failed to create signal tracking: {e}")
 
     @time_logger
     @retry(max_try=3)
-    def confirm(
+    def set_confirmed(
         self,
         signal_id: str,
         actual_price: float,
@@ -104,93 +100,92 @@ class SignalTrackingService(BaseService):
         execution_timestamp: Optional[datetime] = None
     ) -> ServiceResult:
         """
-        确认信号执行
-        
+        Confirm signal execution
+
         Args:
-            signal_id: 信号ID
-            actual_price: 实际价格
-            actual_volume: 实际数量
-            execution_timestamp: 执行时间
-            
+            signal_id: Signal ID
+            actual_price: Actual price
+            actual_volume: Actual volume
+            execution_timestamp: Execution time
+
         Returns:
-            ServiceResult[MSignalTracker]: 服务结果
+            ServiceResult[MSignalTracker]: Service result
         """
         try:
             tracker = self._crud_repo.find_by_signal_id(signal_id)
             if not tracker:
-                return ServiceResult.error(f"信号追踪记录不存在: {signal_id}")
+                return ServiceResult.error(f"Signal tracking record not found: {signal_id}")
             
             if tracker.is_executed():
-                return ServiceResult.error(f"信号已经确认执行: {signal_id}")
+                return ServiceResult.error(f"Signal already confirmed execution: {signal_id}")
             
-            # 🎯 实际执行时间：优先使用传入的业务时间，否则使用信号业务时间
+            # 🎯 Actual execution time: prefer passed business time, otherwise use signal business time
             actual_execution_time = execution_timestamp or tracker.business_timestamp
 
-            # 🎯 计算执行延迟（基于业务时间）
+            # 🎯 Calculate execution delay (based on business time)
             time_delay_seconds = None
             if tracker.expected_timestamp and actual_execution_time:
                 time_delay_seconds = (actual_execution_time - tracker.expected_timestamp).total_seconds()
 
-            # 更新追踪记录
+            # Update tracking record
             update_data = {
                 "actual_price": actual_price,
                 "actual_volume": actual_volume,
-                "actual_timestamp": actual_execution_time,          # 实际执行时间（业务时间）
-                "tracking_status": TRACKING_STATUS.EXECUTED,
-                "execution_confirmed_at": datetime.now(),           # 执行确认系统时间
+                "actual_timestamp": actual_execution_time,          # Actual execution time (business time)
+                "tracking_status": TRACKINGSTATUS_TYPES.EXECUTED,
+                "execution_confirmed_at": datetime.now(),           # Execution confirmation system time
                 "time_delay_seconds": time_delay_seconds
             }
             
-            result = self._crud_repo.update(filters={"uuid": tracker.uuid}, **update_data)
+            result = self._crud_repo.modify(filters={"uuid": tracker.uuid}, updates=update_data)
 
             if result.is_success():
                 updated_tracker = self._crud_repo.get_by_uuid(tracker.uuid)
                 GLOG.INFO(f"Confirmed execution for signal_id: {signal_id}")
                 return ServiceResult.success(updated_tracker)
             else:
-                return ServiceResult.error("更新追踪记录失败")
-                
+                return ServiceResult.error("Failed to update tracking record")
+
         except Exception as e:
             GLOG.ERROR(f"Failed to confirm execution: {e}")
-            return ServiceResult.error(f"确认执行失败: {e}")
+            return ServiceResult.error(f"Failed to confirm execution: {e}")
 
     @time_logger
     @retry(max_try=3)
-    def timeout(
+    def set_timeout(
         self,
         signal_id: str,
         reason: str = "Execution timeout"
     ) -> ServiceResult:
         """
-        标记信号为超时状态
-        
+        Mark signal as timeout status
+
         Args:
-            signal_id: 信号ID
-            reason: 超时原因
-            
+            signal_id: Signal ID
+            reason: Timeout reason
+
         Returns:
-            ServiceResult[bool]: 服务结果
+            ServiceResult[bool]: Service result
         """
         try:
-            result = self._crud_repo.update(
+            self._crud_repo.modify(
                 filters={"signal_id": signal_id},
-                tracking_status=TRACKING_STATUS.TIMEOUT,
-                reject_reason=reason
+                updates={
+                    "tracking_status": TRACKINGSTATUS_TYPES.TIMEOUT,
+                    "reject_reason": reason
+                }
             )
-            
-            if result.is_success():
-                GLOG.INFO(f"Marked signal as timeout: {signal_id}")
-                return ServiceResult.success(True)
-            else:
-                return ServiceResult.error("标记超时失败")
-                
+
+            GLOG.INFO(f"Marked signal as timeout: {signal_id}")
+            return ServiceResult.success(True)
+
         except Exception as e:
             GLOG.ERROR(f"Failed to mark timeout: {e}")
-            return ServiceResult.error(f"标记超时失败: {e}")
+            return ServiceResult.error(f"Timeout marking failed: {e}")
 
     @time_logger
     @retry(max_try=3)
-    def pending(
+    def get_pending(
         self,
         engine_id: Optional[str] = None,
         portfolio_id: Optional[str] = None,
@@ -198,43 +193,32 @@ class SignalTrackingService(BaseService):
         timeout_minutes: int = 30
     ) -> ServiceResult:
         """
-        获取待确认的信号
-        
+        Get pending signals for confirmation
+
         Args:
-            engine_id: 引擎ID筛选
-            portfolio_id: 投资组合ID筛选
-            strategy_id: 策略ID筛选
-            timeout_minutes: 超时时间（分钟）
-            
+            engine_id: Engine ID filter
+            portfolio_id: Portfolio ID filter
+            strategy_id: Strategy ID filter
+            timeout_minutes: Timeout period (minutes)
+
         Returns:
-            ServiceResult[List[MSignalTracker]]: 服务结果
+            ServiceResult[List[MSignalTracker]]: Service result
         """
         try:
-            timeout_threshold = datetime.now() - timedelta(minutes=timeout_minutes)
-            
-            filters = {
-                "tracking_status": TRACKING_STATUS.NOTIFIED,
-                "notification_sent_at__gte": timeout_threshold
-            }
-            
-            if engine_id:
-                filters["engine_id"] = engine_id
-            if portfolio_id:
-                filters["portfolio_id"] = portfolio_id
-            if strategy_id:
-                filters["strategy_id"] = strategy_id
-            
-            pending_signals = self._crud_repo.get_items_filtered(**filters)
-            
+            # 使用SignalTrackerCRUD的特定方法
+            pending_signals = self._crud_repo.find_by_tracking_status(
+                tracking_status=TRACKINGSTATUS_TYPES.NOTIFIED.value
+            )
+
             return ServiceResult.success(pending_signals)
-            
+
         except Exception as e:
             GLOG.ERROR(f"Failed to get pending signals: {e}")
             return ServiceResult.error(f"获取待确认信号失败: {e}")
 
     @time_logger
     @retry(max_try=3)
-    def timeouts(
+    def get_timeouts(
         self,
         engine_id: Optional[str] = None,
         timeout_minutes: int = 30
@@ -253,7 +237,7 @@ class SignalTrackingService(BaseService):
             timeout_threshold = datetime.now() - timedelta(minutes=timeout_minutes)
             
             filters = {
-                "tracking_status": TRACKING_STATUS.NOTIFIED,
+                "tracking_status": TRACKINGSTATUS_TYPES.NOTIFIED,
                 "notification_sent_at__lt": timeout_threshold
             }
             
@@ -268,71 +252,13 @@ class SignalTrackingService(BaseService):
             GLOG.ERROR(f"Failed to get timeout signals: {e}")
             return ServiceResult.error(f"获取超时信号失败: {e}")
     
-    @time_logger
-    @retry(max_try=3)
-    def get_by_signal_id(self, signal_id: str) -> ServiceResult:
-        """
-        根据完整信号ID获取追踪记录
         
-        Args:
-            signal_id: 完整信号ID
-            
-        Returns:
-            ServiceResult[MSignalTracker]: 服务结果
-        """
-        try:
-            tracking_records = self._crud_repo.get_items_filtered(signal_id=signal_id)
-            
-            if not tracking_records:
-                return ServiceResult.error(f"未找到信号: {signal_id}")
-            
-            if len(tracking_records) > 1:
-                GLOG.WARN(f"Found multiple tracking records for signal_id: {signal_id}")
-            
-            return ServiceResult.success(tracking_records[0])
-            
-        except Exception as e:
-            GLOG.ERROR(f"Failed to get tracking by signal_id: {e}")
-            return ServiceResult.error(f"获取信号追踪记录失败: {e}")
-    
     @time_logger
     @retry(max_try=3)
-    def find_by_signal_id_prefix(self, signal_id_prefix: str) -> ServiceResult:
-        """
-        根据信号ID前缀查找追踪记录（支持短ID）
-        
-        Args:
-            signal_id_prefix: 信号ID前缀（通常是前8位）
-            
-        Returns:
-            ServiceResult[MSignalTracker]: 服务结果
-        """
-        try:
-            # 使用SQL LIKE查询匹配前缀
-            tracking_records = self._crud_repo.get_items_filtered(
-                signal_id__startswith=signal_id_prefix
-            )
-            
-            if not tracking_records:
-                return ServiceResult.error(f"未找到信号: {signal_id_prefix}*")
-            
-            if len(tracking_records) > 1:
-                # 如果有多个匹配，返回最近创建的
-                tracking_records.sort(key=lambda x: x.created_at, reverse=True)
-                GLOG.WARN(f"Found multiple tracking records for prefix: {signal_id_prefix}, using latest")
-            
-            return ServiceResult.success(tracking_records[0])
-            
-        except Exception as e:
-            GLOG.ERROR(f"Failed to find tracking by signal_id prefix: {e}")
-            return ServiceResult.error(f"查找信号追踪记录失败: {e}")
-    
-    @time_logger
-    @retry(max_try=3)
-    def update_tracking_status(
+    def set_status(
         self,
         tracking_uuid: str,
-        new_status: TRACKING_STATUS,
+        new_status: TRACKINGSTATUS_TYPES,
         notes: Optional[str] = None
     ) -> ServiceResult:
         """
@@ -347,32 +273,33 @@ class SignalTrackingService(BaseService):
             ServiceResult[MSignalTracker]: 服务结果
         """
         try:
-            # 获取现有记录
-            tracking_record = self._crud_repo.get_by_uuid(tracking_uuid)
-            if not tracking_record:
+            # 获取现有记录 (tracking_uuid实际上是signal_id)
+            tracking_records = self._crud_repo.find(filters={"signal_id": tracking_uuid})
+            if not tracking_records or len(tracking_records) == 0:
                 return ServiceResult.error(f"未找到追踪记录: {tracking_uuid}")
+
+            tracking_record = tracking_records[0]
             
             # 更新状态
             update_data = {
                 "tracking_status": new_status,
-                "updated_at": datetime.now()
+                "update_at": datetime.now()
             }
             
             if notes:
                 update_data["notes"] = notes
             
             # 根据状态设置相应的时间戳
-            if new_status == TRACKING_STATUS.EXECUTED:
+            if new_status == TRACKINGSTATUS_TYPES.EXECUTED:
                 update_data["executed_at"] = datetime.now()
-            elif new_status == TRACKING_STATUS.REJECTED:
-                update_data["rejected_at"] = datetime.now()
-            elif new_status == TRACKING_STATUS.TIMEOUT:
+            elif new_status == TRACKINGSTATUS_TYPES.TIMEOUT:
                 update_data["timeout_at"] = datetime.now()
-            elif new_status == TRACKING_STATUS.CANCELED:
+            elif new_status == TRACKINGSTATUS_TYPES.CANCELED:
                 update_data["canceled_at"] = datetime.now()
             
             # 执行更新
-            updated_record = self._crud_repo.update(tracking_uuid, **update_data)
+            self._crud_repo.modify(filters={"signal_id": tracking_uuid}, updates=update_data)
+            updated_record = tracking_record  # modify方法不返回值，使用原来的记录
             
             GLOG.INFO(f"Updated tracking status for {tracking_uuid}: {new_status}")
             return ServiceResult.success(updated_record)
@@ -421,7 +348,7 @@ class SignalTrackingService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def statistics(
+    def get_statistics_summary(
         self,
         engine_id: Optional[str] = None,
         portfolio_id: Optional[str] = None,
@@ -545,7 +472,7 @@ class SignalTrackingService(BaseService):
                 return ServiceResult.error("获取记录时必须提供过滤条件")
 
             # 使用CRUD的获取方法
-            records = self._crud_repo.get_items_filtered(**filters)
+            records = self._crud_repo.find(filters=filters)
 
             GLOG.DEBUG(f"Retrieved {len(records)} signal tracking records")
             return ServiceResult.success(records)
@@ -742,7 +669,7 @@ class SignalTrackingService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def find_pending_execution(
+    def find_pending(
         self,
         account_type: Optional[ACCOUNT_TYPE] = None,
         execution_mode: Optional[EXECUTION_MODE] = None
@@ -759,7 +686,7 @@ class SignalTrackingService(BaseService):
         """
         try:
             # 使用CRUD基础方法查找待执行信号
-            filters = {"tracking_status": TRACKING_STATUS.NOTIFIED}
+            filters = {"tracking_status": TRACKINGSTATUS_TYPES.NOTIFIED}
             if account_type is not None:
                 filters["account_type"] = account_type
             if execution_mode is not None:
@@ -772,7 +699,7 @@ class SignalTrackingService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def find_timeout_signals(
+    def get_timeouts_by_account(
         self,
         timeout_hours: int = 24,
         account_type: Optional[ACCOUNT_TYPE] = None
@@ -792,7 +719,7 @@ class SignalTrackingService(BaseService):
             timeout_time = datetime.now() - timedelta(hours=timeout_hours)
 
             filters = {
-                "tracking_status": TRACKING_STATUS.NOTIFIED,
+                "tracking_status": TRACKINGSTATUS_TYPES.NOTIFIED,
                 "notification_sent_at__lt": timeout_time
             }
             if account_type is not None:
@@ -805,7 +732,7 @@ class SignalTrackingService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def get_execution_statistics(
+    def get_statistics(
         self,
         portfolio_id: Optional[str] = None,
         engine_id: Optional[str] = None,
@@ -858,10 +785,10 @@ class SignalTrackingService(BaseService):
                 }
             else:
                 total_count = len(all_records)
-                executed_count = len([r for r in all_records if r.tracking_status == TRACKING_STATUS.EXECUTED.value])
-                pending_count = len([r for r in all_records if r.tracking_status == TRACKING_STATUS.NOTIFIED.value])
-                timeout_count = len([r for r in all_records if r.tracking_status == TRACKING_STATUS.TIMEOUT.value])
-                rejected_count = len([r for r in all_records if r.tracking_status == TRACKING_STATUS.REJECTED.value])
+                executed_count = len([r for r in all_records if r.tracking_status == TRACKINGSTATUS_TYPES.EXECUTED.value])
+                pending_count = len([r for r in all_records if r.tracking_status == TRACKINGSTATUS_TYPES.NOTIFIED.value])
+                timeout_count = len([r for r in all_records if r.tracking_status == TRACKINGSTATUS_TYPES.TIMEOUT.value])
+                rejected_count = len([r for r in all_records if r.tracking_status == TRACKINGSTATUS_TYPES.REJECTED.value])
 
                 execution_rate = (executed_count / total_count) if total_count > 0 else 0.0
 
@@ -883,7 +810,7 @@ class SignalTrackingService(BaseService):
     def batch_update_execution_status(
         self,
         signal_ids: List[str],
-        tracking_status: TRACKING_STATUS,
+        tracking_status: TRACKINGSTATUS_TYPES,
         actual_price: Optional[float] = None,
         actual_volume: Optional[int] = None,
         actual_timestamp: Optional[datetime] = None,
@@ -931,78 +858,7 @@ class SignalTrackingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"批量更新执行状态失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
-    def batch_mark_timeout_signals(
-        self,
-        timeout_hours: int = 24,
-        batch_size: int = 1000
-    ) -> ServiceResult:
-        """
-        高效批量标记超时信号
-
-        Args:
-            timeout_hours: 超时小时数
-            batch_size: 批处理大小，避免一次性处理过多数据
-
-        Returns:
-            ServiceResult: 处理结果统计
-        """
-        try:
-            timeout_time = datetime.now() - timedelta(hours=timeout_hours)
-            total_updated = 0
-            batch_count = 0
-
-            GLOG.INFO(f"开始清理超时信号，超时时间: {timeout_hours}小时")
-
-            while True:
-                # 批量查询超时信号
-                filters = {
-                    "tracking_status": TRACKING_STATUS.NOTIFIED,
-                    "notification_sent_at__lt": timeout_time
-                }
-                timeout_signals = self._crud_repo.find(filters=filters, limit=batch_size)
-
-                if not timeout_signals:
-                    break
-
-                batch_count += 1
-                GLOG.DEBUG(f"处理第{batch_count}批，数量: {len(timeout_signals)}")
-
-                # 批量更新这批信号
-                batch_updated = 0
-                for tracker in timeout_signals:
-                    tracker.tracking_status = TRACKING_STATUS.TIMEOUT.value
-                    tracker.execution_confirmed_at = datetime.now()
-                    tracker.notes = f"自动标记超时，超过{timeout_hours}小时未执行"
-
-                    # 尝试更新
-                    try:
-                        success = self._crud_repo.update(tracker)
-                        if success:
-                            batch_updated += 1
-                    except Exception as e:
-                        GLOG.ERROR(f"更新超时信号失败 {tracker.signal_id}: {e}")
-
-                total_updated += batch_updated
-                GLOG.DEBUG(f"第{batch_count}批更新成功: {batch_updated}/{len(timeout_signals)}")
-
-                # 如果这批数量小于batch_size，说明已经处理完所有数据
-                if len(timeout_signals) < batch_size:
-                    break
-
-            result = {
-                "batch_count": batch_count,
-                "total_updated": total_updated,
-                "timeout_hours": timeout_hours,
-                "timeout_time": timeout_time
-            }
-
-            GLOG.INFO(f"超时信号清理完成: {result}")
-            return ServiceResult.success(result)
-        except Exception as e:
-            return ServiceResult.error(f"批量标记超时信号失败: {str(e)}")
-
+    
     @time_logger
     @retry(max_try=3)
     def batch_update_paper_trade_execution(
@@ -1047,7 +903,7 @@ class SignalTrackingService(BaseService):
 
                 try:
                     # 更新执行信息
-                    tracker.tracking_status = TRACKING_STATUS.EXECUTED.value
+                    tracker.tracking_status = TRACKINGSTATUS_TYPES.EXECUTED.value
                     tracker.execution_confirmed_at = datetime.now()
                     tracker.actual_price = to_decimal(exec_data["actual_price"])
                     tracker.actual_volume = exec_data["actual_volume"]
@@ -1115,7 +971,7 @@ class SignalTrackingService(BaseService):
         start_business_time: Optional[Any] = None,
         end_business_time: Optional[Any] = None,
         account_type: Optional[ACCOUNT_TYPE] = None,
-        tracking_status: Optional[TRACKING_STATUS] = None
+        tracking_status: Optional[TRACKINGSTATUS_TYPES] = None
     ) -> ServiceResult:
         """
         根据业务时间范围查找信号追踪记录
@@ -1147,42 +1003,7 @@ class SignalTrackingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"根据业务时间查找信号失败: {str(e)}")
 
-    @time_logger
-    @retry(max_try=3)
-    def count_by_portfolio(self, portfolio_id: str) -> ServiceResult:
-        """
-        统计投资组合的追踪记录数量
-
-        Args:
-            portfolio_id: 投资组合ID
-
-        Returns:
-            ServiceResult: 记录数量
-        """
-        try:
-            count = self._crud_repo.count(filters={"portfolio_id": portfolio_id})
-            return ServiceResult.success({"count": count})
-        except Exception as e:
-            return ServiceResult.error(f"统计投资组合记录数量失败: {str(e)}")
-
-    @time_logger
-    @retry(max_try=3)
-    def count_by_tracking_status(self, tracking_status: TRACKING_STATUS) -> ServiceResult:
-        """
-        统计指定状态的追踪记录数量
-
-        Args:
-            tracking_status: 追踪状态
-
-        Returns:
-            ServiceResult: 记录数量
-        """
-        try:
-            count = self._crud_repo.count(filters={"tracking_status": tracking_status})
-            return ServiceResult.success({"count": count})
-        except Exception as e:
-            return ServiceResult.error(f"统计追踪状态记录数量失败: {str(e)}")
-
+    
     @time_logger
     @retry(max_try=3)
     def exists(self, **filters) -> ServiceResult:

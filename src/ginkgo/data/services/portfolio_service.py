@@ -20,7 +20,13 @@ from ginkgo.data.crud.model_conversion import ModelList
 
 class PortfolioService(BaseService):
     def __init__(self, crud_repo, portfolio_file_mapping_crud):
-        """Initializes the service with its dependencies."""
+        """
+        初始化PortfolioService，设置投资组合和文件映射仓储依赖
+
+        Args:
+            crud_repo: 投资组合数据CRUD仓储实例
+            portfolio_file_mapping_crud: 投资组合文件映射CRUD仓储实例
+        """
         super().__init__(
             crud_repo=crud_repo, portfolio_file_mapping_crud=portfolio_file_mapping_crud
         )
@@ -112,64 +118,54 @@ class PortfolioService(BaseService):
         **kwargs
     ) -> ServiceResult:
         """
-        Updates an existing portfolio with comprehensive error handling.
+        更新现有投资组合的信息，支持部分字段更新
 
         Args:
-            portfolio_id: UUID of the portfolio to update
-            name: Optional new name
-            backtest_start_date: Optional new start date
-            backtest_end_date: Optional new end date
-            is_live: Optional new live status
-            description: Optional new description
+            portfolio_id: 投资组合UUID标识符
+            name: 新的投资组合名称（可选）
+            backtest_start_date: 新的回测开始日期（可选）
+            backtest_end_date: 新的回测结束日期（可选）
+            is_live: 新的实盘状态（可选）
+            description: 新的描述信息（可选）
 
         Returns:
-            Dictionary containing operation status and update information
+            ServiceResult: 包含更新状态和操作结果的详细信息
         """
-        result = {
-            "success": False,
-            "portfolio_id": portfolio_id,
-            "error": None,
-            "warnings": [],
-            "updates_applied": [],
-            "updated_count": 0,
-        }
+        warnings = []
+        updates_applied = []
 
         # Input validation
         if not portfolio_id or not portfolio_id.strip():
-            result["error"] = "Portfolio ID cannot be empty"
-            return result
+            return ServiceResult.error("Portfolio ID cannot be empty")
 
         updates = {}
         if name is not None:
             if not name.strip():
-                result["error"] = "Portfolio name cannot be empty"
-                return result
+                return ServiceResult.error("Portfolio name cannot be empty")
             if len(name) > 100:
-                result["warnings"].append("Portfolio name truncated to 100 characters")
+                warnings.append("Portfolio name truncated to 100 characters")
                 name = name[:100]
             updates["name"] = name
-            result["updates_applied"].append("name")
+            updates_applied.append("name")
 
         if backtest_start_date is not None:
             updates["backtest_start_date"] = backtest_start_date
-            result["updates_applied"].append("backtest_start_date")
+            updates_applied.append("backtest_start_date")
 
         if backtest_end_date is not None:
             updates["backtest_end_date"] = backtest_end_date
-            result["updates_applied"].append("backtest_end_date")
+            updates_applied.append("backtest_end_date")
 
         if is_live is not None:
             updates["is_live"] = is_live
-            result["updates_applied"].append("is_live")
+            updates_applied.append("is_live")
 
         if description is not None:
             updates["desc"] = description
-            result["updates_applied"].append("description")
+            updates_applied.append("description")
 
         if not updates:
-            result["success"] = True  # No updates is not an error
-            result["warnings"].append("No updates provided for portfolio update")
-            return result
+            return ServiceResult.success({}, "No updates provided for portfolio update", warnings)
 
         # Check if name conflicts with existing portfolio (if name is being updated)
         if "name" in updates:
@@ -180,28 +176,25 @@ class PortfolioService(BaseService):
                     df = existing_portfolios.to_dataframe()
                     existing_uuids = df["uuid"].tolist()
                     if portfolio_id not in existing_uuids:
-                        result["error"] = f"Portfolio with name '{name}' already exists"
-                        return result
+                        return ServiceResult.error(f"Portfolio with name '{name}' already exists")
             except Exception as e:
-                result["warnings"].append(f"Could not check name conflict: {str(e)}")
+                warnings.append(f"Could not check name conflict: {str(e)}")
 
         try:
-            with self._crud_repo.get_session() as session:
-                updated_count = self._crud_repo.modify(filters={"uuid": portfolio_id}, updates=updates, session=session)
+            self._crud_repo.modify(filters={"uuid": portfolio_id}, updates=updates)
 
-                result["success"] = True
-                result["updated_count"] = updated_count if updated_count is not None else 1
-
-                if result["updated_count"] == 0:
-                    result["warnings"].append(f"No portfolio found with ID {portfolio_id} to update")
-
-                self._logger.INFO(f"Successfully updated portfolio {portfolio_id} with {len(updates)} changes")
+            GLOG.INFO(f"Successfully updated portfolio {portfolio_id} with {len(updates)} changes")
 
         except Exception as e:
-            result["error"] = f"Database operation failed: {str(e)}"
-            self._logger.ERROR(f"Failed to update portfolio {portfolio_id}: {e}")
+            return ServiceResult.error(f"Database operation failed: {str(e)}")
 
-        return result
+        # 返回更新结果
+        result_data = {
+            "portfolio_id": portfolio_id,
+            "updates_applied": updates_applied,
+            "warnings": warnings
+        }
+        return ServiceResult.success(result_data, f"Portfolio updated successfully")
 
     @time_logger
     @retry(max_try=3)
@@ -233,57 +226,48 @@ class PortfolioService(BaseService):
             parameters_deleted = 0
             warnings = []
 
-            with self._crud_repo.get_session() as session:
-                # 清理投资组合-文件映射和参数
-                try:
-                    file_mappings = self._portfolio_file_mapping_crud.find(
-                        filters={"portfolio_id": portfolio_id}, session=session
-                    )
-
-                    for mapping in file_mappings:
-                        # 删除关联参数
-                        try:
-                            params_deleted_count = self._param_crud.remove(
-                                filters={"mapping_id": mapping.uuid}, session=session
-                            )
-                            if params_deleted_count:
-                                parameters_deleted += params_deleted_count
-                        except Exception as e:
-                            warnings.append(f"删除映射参数失败 {mapping.uuid}: {str(e)}")
-
-                    # 删除投资组合-文件映射
-                    mappings_deleted_count = self._portfolio_file_mapping_crud.remove(
-                        filters={"portfolio_id": portfolio_id}, session=session
-                    )
-                    if mappings_deleted_count:
-                        mappings_deleted += mappings_deleted_count
-
-                except Exception as e:
-                    warnings.append(f"清理映射关系时出错: {str(e)}")
-
-                # 软删除投资组合
-                deleted_count = self._crud_repo.soft_remove(
-                    filters={"uuid": portfolio_id}, session=session
+            # 清理投资组合-文件映射和参数
+            try:
+                file_mappings = self._portfolio_file_mapping_crud.find(
+                    filters={"portfolio_id": portfolio_id}
                 )
 
-                if deleted_count == 0:
-                    return ServiceResult.error(f"删除投资组合失败: {portfolio_id}")
+                for mapping in file_mappings:
+                    # 删除关联参数
+                    try:
+                        self._param_crud.remove(
+                            filters={"mapping_id": mapping.uuid}
+                        )
+                    except Exception as e:
+                        warnings.append(f"删除映射参数失败 {mapping.uuid}: {str(e)}")
 
-                GLOG.INFO(f"成功删除投资组合 {portfolio_id}")
+                # 删除投资组合-文件映射
+                self._portfolio_file_mapping_crud.remove(
+                    filters={"portfolio_id": portfolio_id}
+                )
 
-                result_data = {
-                    "portfolio_id": portfolio_id,
-                    "deleted_count": deleted_count,
-                    "mappings_deleted": mappings_deleted,
-                    "parameters_deleted": parameters_deleted,
-                    "warnings": warnings
-                }
+            except Exception as e:
+                warnings.append(f"清理映射关系时出错: {str(e)}")
 
-                message = f"投资组合删除成功: {portfolio_id}"
-                if warnings:
-                    message += f" (附带{len(warnings)}个警告)"
+            # 软删除投资组合
+            self._crud_repo.soft_remove(
+                filters={"uuid": portfolio_id}
+            )
 
-                return ServiceResult.success(result_data, message)
+            GLOG.INFO(f"成功删除投资组合 {portfolio_id}")
+
+            result_data = {
+                "portfolio_id": portfolio_id,
+                "mappings_deleted": mappings_deleted,
+                "parameters_deleted": parameters_deleted,
+                "warnings": warnings
+            }
+
+            message = f"投资组合删除成功: {portfolio_id}"
+            if warnings:
+                message += f" (附带{len(warnings)}个警告)"
+
+            return ServiceResult.success(result_data, message)
 
         except Exception as e:
             GLOG.ERROR(f"删除投资组合失败 {portfolio_id}: {str(e)}")
@@ -297,16 +281,17 @@ class PortfolioService(BaseService):
         self, portfolio_id: str, component_id: str, component_name: str, component_type: FILE_TYPES
     ) -> ServiceResult:
         """
-        为投资组合挂载组件（策略、分析器、风控等）
+        为投资组合挂载量化交易组件，建立组合与组件的关联关系
 
         Args:
-            portfolio_id: 投资组合UUID
-            component_id: 组件文件UUID
-            component_name: 组件名称
-            component_type: 组件类型
+            portfolio_id: 投资组合UUID标识符
+            component_id: 组件文件的UUID标识符
+            component_name: 组件在投资组合中的显示名称
+            component_type: 组件类型枚举值，确定组件功能分类
 
         Returns:
-            ServiceResult: 挂载结果
+            ServiceResult: 包含挂载状态和操作信息的详细结果
+
         """
         try:
             # 输入验证
@@ -380,21 +365,17 @@ class PortfolioService(BaseService):
             if not mount_id or not mount_id.strip():
                 return ServiceResult.error("挂载ID不能为空")
 
-            with self._portfolio_file_mapping_crud.get_session() as session:
-                # 软删除挂载关系
-                removed_count = self._portfolio_file_mapping_crud.soft_remove(
-                    filters={"uuid": mount_id}, session=session
-                )
+            # 软删除挂载关系
+            self._portfolio_file_mapping_crud.soft_remove(
+                filters={"uuid": mount_id}
+            )
 
-                if removed_count == 0:
-                    return ServiceResult.error(f"挂载关系不存在: {mount_id}")
+            GLOG.INFO(f"成功卸载组件挂载 {mount_id}")
 
-                GLOG.INFO(f"成功卸载组件挂载 {mount_id}")
-
-                return ServiceResult.success(
-                    {"mount_id": mount_id, "removed_count": removed_count},
-                    f"组件卸载成功: {mount_id}"
-                )
+            return ServiceResult.success(
+                {"mount_id": mount_id},
+                f"组件卸载成功: {mount_id}"
+            )
 
         except Exception as e:
             GLOG.ERROR(f"卸载组件失败 {mount_id}: {str(e)}")
@@ -464,10 +445,10 @@ class PortfolioService(BaseService):
         try:
             if portfolio_id:
                 # 按UUID查询
-                portfolio = self._crud_repo.get_by_uuid(portfolio_id)
-                if not portfolio:
+                portfolios = self._crud_repo.find(filters={"uuid": portfolio_id, "is_del": False})
+                if not portfolios:
                     return ServiceResult.error(f"投资组合不存在: {portfolio_id}")
-                return ServiceResult.success([portfolio], "获取投资组合成功")
+                return ServiceResult.success(portfolios, "获取投资组合成功")
 
             elif name:
                 # 按名称查询
@@ -579,7 +560,7 @@ class PortfolioService(BaseService):
 
             # 检查数据库连接
             try:
-                self._crud_repo.find(limit=1)
+                self._crud_repo.find()
                 health_info["checks"]["database_connection"] = {"status": "passed", "message": "数据库连接正常"}
             except Exception as db_error:
                 return ServiceResult.error(f"数据库连接失败: {str(db_error)}")

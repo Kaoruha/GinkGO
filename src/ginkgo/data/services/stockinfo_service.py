@@ -22,12 +22,12 @@ from ginkgo.data.crud.model_conversion import ModelList
 class StockinfoService(BaseService):
     def __init__(self, crud_repo, data_source, **additional_deps):
         """
-        Initializes the service with its dependencies following BarService pattern.
+        Initialize stock information service following BarService pattern.
 
         Args:
-            crud_repo: CRUD repository for database operations
-            data_source: Data source for fetching stock information
-            **additional_deps: Additional dependencies (ServiceHub pattern)
+            crud_repo: Database CRUD operation repository
+            data_source: Stock information data source
+            **additional_deps: Additional dependencies
         """
         super().__init__(crud_repo=crud_repo, data_source=data_source, **additional_deps)
 
@@ -35,10 +35,10 @@ class StockinfoService(BaseService):
 
     def health_check(self) -> ServiceResult:
         """
-        健康检查
+        Perform service health check, verifying data source and database connection status.
 
         Returns:
-            ServiceResult: 健康状态
+            ServiceResult: Health status and dependency check results
         """
         try:
             # 检查依赖服务
@@ -72,11 +72,12 @@ class StockinfoService(BaseService):
     @time_logger
     def sync(self) -> ServiceResult:
         """
-        Synchronizes stock information for all stocks with comprehensive error handling.
-        Uses error tolerance mechanism - individual failures don't affect other records.
+        Sync all stock basic information data from data source to database.
+
+        Uses fault-tolerant mechanism where individual stock sync failures won't affect others.
 
         Returns:
-            ServiceResult containing DataSyncResult with comprehensive sync statistics
+            ServiceResult: Sync result with processing statistics and error details
         """
         start_time = time.time()
         self._log_operation_start("sync")
@@ -119,51 +120,113 @@ class StockinfoService(BaseService):
         )
         sync_result.set_metadata("initial_records", len(raw_data))
 
-        success_count = 0
+        # Parse and validate all data first
+        valid_items = []
         failed_count = 0
         failed_records = []
 
+        self._logger.INFO(f"Processing {len(raw_data)} stock records for sync...")
+
+        # Step 1: Convert all rows to dict format with error tolerance
+        for _, row in raw_data.iterrows():
+            try:
+                item = mappers.row_to_stockinfo_upsert_dict(row)
+                valid_items.append(item)
+            except Exception as e:
+                # Skip this record if mapping fails
+                failed_count += 1
+                code = row.get("ts_code", "Unknown")
+                code_name = row.get("name", "Unknown")
+                error_msg = f"Failed to map stock info for {code}: {e}"
+                failed_records.append({"code": code, "code_name": code_name, "error": str(e)})
+                self._logger.ERROR(error_msg)
+
+        if not valid_items:
+            sync_result.records_processed = len(raw_data)
+            sync_result.records_added = 0
+            sync_result.records_failed = failed_count
+            sync_result.sync_duration = time.time() - start_time
+            return ServiceResult.failure(
+                message="No valid stock info records to process",
+                data=sync_result
+            )
+
+        self._logger.INFO(f"Successfully parsed {len(valid_items)} records, {failed_count} failed mapping")
+
+        # Step 2: Check existing records in batch
+        all_codes = [item["code"] for item in valid_items]
+        try:
+            # Get all existing codes in one query
+            existing_records = self._crud_repo.find(filters={"code__in": all_codes})
+            existing_codes = set()
+            for record in existing_records:
+                if hasattr(record, 'code'):
+                    existing_codes.add(record.code)
+
+            self._logger.INFO(f"Found {len(existing_codes)} existing records out of {len(all_codes)} total codes")
+
+        except Exception as e:
+            self._logger.WARN(f"Failed to check existing codes, treating all as new: {e}")
+            existing_codes = set()
+
+        # Step 3: Separate new and update items
+        new_items = []
+        update_items = []
+
+        for item in valid_items:
+            code = item["code"]
+            if code in existing_codes:
+                update_items.append(item)
+            else:
+                new_items.append(item)
+
+        self._logger.INFO(f"New records: {len(new_items)}, Update records: {len(update_items)}")
+
+        # Step 4: Batch process new items
+        success_count = 0
         with RichProgress() as progress:
-            task = progress.add_task("[cyan]Upserting Stock Info", total=len(raw_data))
-
-            for _, row in raw_data.iterrows():
-                # Try to convert each row individually with error tolerance
+            # Process new items in batch
+            if new_items:
+                task_new = progress.add_task("[green]Adding New Stock Info", total=len(new_items))
                 try:
-                    item = mappers.row_to_stockinfo_upsert_dict(row)
+                    self._crud_repo.add_batch(new_items)
+                    success_count += len(new_items)
+                    self._logger.INFO(f"Successfully batch inserted {len(new_items)} new stock records")
+                    progress.update(task_new, completed=len(new_items))
                 except Exception as e:
-                    # Skip this record if mapping fails
-                    failed_count += 1
-                    code = row.get("ts_code", "Unknown")
-                    code_name = row.get("name", "Unknown")
-                    error_msg = f"Failed to map stock info for {code}: {e}"
-                    failed_records.append({"code": code, "code_name": code_name, "error": str(e)})
-                    progress.update(task, advance=1, description=f":x: {code} {code_name}")
-                    self._logger.ERROR(error_msg)
-                    continue
+                    # Fallback to individual inserts if batch fails
+                    self._logger.WARN(f"Batch insert failed, falling back to individual inserts: {e}")
+                    for item in new_items:
+                        try:
+                            self._crud_repo.create(**item)
+                            success_count += 1
+                            progress.update(task_new, advance=1)
+                        except Exception as individual_e:
+                            failed_count += 1
+                            code = item.get("code", "Unknown")
+                            code_name = item.get("code_name", "Unknown")
+                            error_msg = f"Failed to insert {code}: {individual_e}"
+                            failed_records.append({"code": code, "code_name": code_name, "error": str(individual_e)})
+                            progress.update(task_new, advance=1)
 
-                code = item["code"]
-                code_name = item.get("code_name", "Unknown")
-
-                try:
-                    # Each stock info update uses its own transaction
-                    if self._crud_repo.exists(filters={"code": code}):
+            # Process update items individually (for now, as modify is needed)
+            if update_items:
+                task_update = progress.add_task("[blue]Updating Stock Info", total=len(update_items))
+                for item in update_items:
+                    try:
+                        code = item["code"]
+                        code_name = item.get("code_name", "Unknown")
                         self._crud_repo.modify(filters={"code": code}, updates=item)
                         success_count += 1
-                        progress.update(task, advance=1, description=f":arrows_counterclockwise: {code} {code_name}")
+                        progress.update(task_update, advance=1)
                         self._logger.DEBUG(f"Successfully updated stock info for {code}")
-                    else:
-                        self._crud_repo.create(**item)
-                        success_count += 1
-                        progress.update(task, advance=1, description=f":white_check_mark: {code} {code_name}")
-                        self._logger.DEBUG(f"Successfully added stock info for {code}")
-
-                except Exception as e:
-                    failed_count += 1
-                    error_msg = f"Failed to upsert stock info for {code}: {e}"
-                    failed_records.append({"code": code, "code_name": code_name, "error": str(e)})
-                    progress.update(task, advance=1, description=f":x: {code} {code_name}")
-                    self._logger.ERROR(error_msg)
-                    continue
+                    except Exception as e:
+                        failed_count += 1
+                        code = item.get("code", "Unknown")
+                        code_name = item.get("code_name", "Unknown")
+                        error_msg = f"Failed to update {code}: {e}"
+                        failed_records.append({"code": code, "code_name": code_name, "error": str(e)})
+                        progress.update(task_update, advance=1)
 
         # Update sync result statistics
         duration = time.time() - start_time
@@ -210,142 +273,110 @@ class StockinfoService(BaseService):
                 message=f"Stock info sync completed with {failed_count} failures: {success_count} successful"
             )
 
-    @retry(max_try=3)
-    def retry_failed_records(self, failed_records: List[dict]) -> Dict[str, Any]:
+    
+    @time_logger
+    def get(self, code: str = None, name: str = None, exchange: str = None,
+            industry: str = None, market: str = None, status: str = None,
+            limit: int = None, offset: int = None, order_by: str = None,
+            desc_order: bool = False) -> ServiceResult:
         """
-        Retry updating failed stock records with comprehensive error handling.
+        Query stock basic information with specific filter conditions.
 
         Args:
-            failed_records: List of failed record dictionaries from sync_all()
+            code: Stock code or code list
+            name: Stock name or name fragment
+            exchange: Exchange code
+            industry: Industry classification
+            market: Market type
+            status: Listing status
+            limit: Query result count limit
+            offset: Pagination offset
+            order_by: Sort field
+            desc_order: Whether to sort in descending order
 
         Returns:
-            Dictionary containing comprehensive retry results and statistics
-        """
-        result = {
-            "success": 0,  # Count of successfully processed records
-            "failed": 0,  # Count of failed records
-            "total": len(failed_records) if failed_records else 0,  # Total records to process
-            "error": None,  # API-level error message
-            "warnings": [],  # Warning messages (only when present)
-            "failed_records": [],  # Details of failed records (only when present)
-        }
+            ServiceResult: Query result with ModelList object and statistics
 
-        if not failed_records:
-            result["warnings"].append("No failed records to retry")
-            self._logger.INFO("No failed records to retry")
-            return result
-
-        self._logger.INFO(f"Retrying {len(failed_records)} failed stock records")
-
-        # Re-fetch latest data to ensure we have current information
-        try:
-            raw_data = self._data_source.fetch_cn_stockinfo()
-            if raw_data is None or raw_data.empty:
-                result["error"] = "Cannot retry: No stock info data available from source"
-                result["failed"] = len(failed_records)  # All failed
-                self._logger.ERROR(result["error"])
-                return result
-        except Exception as e:
-            result["error"] = f"Cannot retry: Failed to fetch stock info from source: {str(e)}"
-            result["failed"] = len(failed_records)  # All failed
-            self._logger.ERROR(result["error"])
-            return result
-
-        # Convert to lookup dict for efficient access
-        try:
-            upsert_list = mappers.dataframe_to_stockinfo_upsert_list(raw_data)
-            upsert_dict = {item["code"]: item for item in upsert_list}
-        except Exception as e:
-            result["error"] = f"Failed to process source data: {str(e)}"
-            result["failed"] = len(failed_records)  # All failed
-            self._logger.ERROR(result["error"])
-            return result
-
-        with RichProgress() as progress:
-            task = progress.add_task("[yellow]Retrying Failed Records", total=len(failed_records))
-
-            for failed_record in failed_records:
-                code = failed_record["code"]
-                code_name = failed_record.get("code_name", "Unknown")
-
-                if code not in upsert_dict:
-                    result["failed"] += 1
-                    result["failed_records"].append(
-                        {"code": code, "code_name": code_name, "error": "Code not found in current data"}
-                    )
-                    progress.update(task, advance=1, description=f":warning: {code} (not found)")
-                    self._logger.WARN(f"Code {code} not found in current data, skipping retry")
-                    continue
-
-                item = upsert_dict[code]
-
-                try:
-                    if self._crud_repo.exists(filters={"code": code}):
-                        self._crud_repo.modify(filters={"code": code}, updates=item)
-                        result["success"] += 1
-                        progress.update(task, advance=1, description=f":arrows_counterclockwise: {code} {code_name}")
-                        self._logger.INFO(f"Successfully retried and updated stock info for {code}")
-                    else:
-                        self._crud_repo.create(**item)
-                        result["success"] += 1
-                        progress.update(task, advance=1, description=f":white_check_mark: {code} {code_name}")
-                        self._logger.INFO(f"Successfully retried and added stock info for {code}")
-
-                except Exception as e:
-                    result["failed"] += 1
-                    error_msg = f"Retry failed for {code}: {e}"
-                    result["failed_records"].append({"code": code, "code_name": code_name, "error": str(e)})
-                    progress.update(task, advance=1, description=f":x: {code} {code_name}")
-                    self._logger.ERROR(error_msg)
-
-        # Generate summary report
-        self._logger.INFO(
-            f"Retry completed: {result['success']}/{result['total']} successful, " f"{result['failed']} still failed"
-        )
-
-        # Add warning if there were failures
-        if result["failed_records"]:
-            result["warnings"].append(f"Still failed after retry: {len(result['failed_records'])} records")
-            for record in result["failed_records"][:3]:
-                self._logger.WARN(f"  - {record['code']} ({record['code_name']}): {record['error']}")
-
-        # Clean up empty arrays to keep response minimal (keep failed_records for compatibility)
-        if not result["warnings"]:
-            del result["warnings"]
-
-        return result
-
-    @time_logger
-    def get(self, *args, **kwargs) -> ServiceResult:
-        """
-        Retrieves stock information from the database following BarService standard.
-
-        Returns:
-            ServiceResult containing ModelList of stock information
+        Note:
+            Returned ModelList object supports to_entities() and to_dataframe() conversion methods
         """
         try:
-            model_list = self._crud_repo.find(*args, **kwargs)
+            # Build filters from specific parameters
+            filters = {}
+            if code is not None:
+                filters['code'] = code
+            if name is not None:
+                filters['name__contains'] = name
+            if exchange is not None:
+                filters['exchange'] = exchange
+            if industry is not None:
+                filters['industry'] = industry
+            if market is not None:
+                filters['market'] = market
+            if status is not None:
+                filters['status'] = status
+
+            # Handle pagination and sorting
+            query_params = {}
+            if limit is not None:
+                query_params['limit'] = limit
+            if offset is not None:
+                query_params['offset'] = offset
+            if order_by is not None:
+                query_params['order_by'] = order_by
+                query_params['desc_order'] = desc_order
+
+            # Use CRUD repository to get data
+            model_list = self._crud_repo.find(filters=filters, **query_params)
+
             return ServiceResult.success(
                 data=model_list,
                 message=f"Successfully retrieved {len(model_list) if model_list else 0} stock records"
             )
+
         except Exception as e:
-            self._logger.ERROR(f"Failed to retrieve stock information: {e}")
+            self._logger.ERROR(f"Failed to get stock information: {e}")
             return ServiceResult.failure(
-                message=f"Failed to retrieve stock information: {str(e)}"
+                message=f"Failed to get stock information: {str(e)}"
             )
 
     @time_logger
-    def count(self, *args, **kwargs) -> ServiceResult:
+    def count(self, code: str = None, name: str = None, exchange: str = None,
+              industry: str = None, market: str = None, status: str = None) -> ServiceResult:
         """
-        Counts stock information records following BarService standard.
+        Count stock information records with specific filter conditions.
+
+        Args:
+            code: Stock code or code list
+            name: Stock name or name fragment
+            exchange: Exchange code
+            industry: Industry classification
+            market: Market type
+            status: Listing status
 
         Returns:
-            ServiceResult containing count of stock records
+            ServiceResult: Result containing count statistics
         """
         try:
-            model_list = self._crud_repo.find(*args, **kwargs)
+            # Build filters from specific parameters
+            filters = {}
+            if code is not None:
+                filters['code'] = code
+            if name is not None:
+                filters['name__contains'] = name
+            if exchange is not None:
+                filters['exchange'] = exchange
+            if industry is not None:
+                filters['industry'] = industry
+            if market is not None:
+                filters['market'] = market
+            if status is not None:
+                filters['status'] = status
+
+            # Use CRUD repository to count data
+            model_list = self._crud_repo.find(filters=filters)
             count = len(model_list) if model_list else 0
+
             return ServiceResult.success(
                 data=count,
                 message=f"Successfully counted {count} stock records"
@@ -359,10 +390,13 @@ class StockinfoService(BaseService):
     @time_logger
     def validate(self, *args, **kwargs) -> ServiceResult:
         """
-        Validates stock information data quality following BarService standard.
+        Validate stock information data quality, checking required fields and data integrity.
+
+        Args:
+            *args, **kwargs: Filter conditions for data validation
 
         Returns:
-            ServiceResult containing DataValidationResult
+            ServiceResult: Validation result containing DataValidationResult
         """
         try:
             # Get data to validate
@@ -430,10 +464,13 @@ class StockinfoService(BaseService):
     @time_logger
     def check_integrity(self, *args, **kwargs) -> ServiceResult:
         """
-        Checks data integrity of stock information following BarService standard.
+        Check stock information data integrity, finding duplicate records and missing fields.
+
+        Args:
+            *args, **kwargs: Filter conditions for data integrity check
 
         Returns:
-            ServiceResult containing DataIntegrityCheckResult
+            ServiceResult: Check result containing DataIntegrityCheckResult
         """
         try:
             # Get data to check
@@ -507,13 +544,13 @@ class StockinfoService(BaseService):
 
     def exists(self, code: str) -> ServiceResult:
         """
-        Check if a stock code exists in the stock list.
+        Check if stock code exists in stock list.
 
         Args:
-            code: Stock code to check (e.g., '000001.SZ')
+            code: Stock code, e.g., '000001.SZ'
 
         Returns:
-            ServiceResult containing existence check result
+            ServiceResult: Boolean existence check result
         """
         try:
             records = self._crud_repo.find(filters={"code": code}, page_size=1)
