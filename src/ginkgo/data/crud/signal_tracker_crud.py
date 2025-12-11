@@ -8,7 +8,7 @@ from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models.model_signal_tracker import MSignalTracker
 from ginkgo.trading.entities.signal import Signal
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EXECUTION_MODE, TRACKING_STATUS, ACCOUNT_TYPE
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EXECUTION_MODE, TRACKINGSTATUS_TYPES, ACCOUNT_TYPE
 from ginkgo.libs import datetime_normalize, GLOG, to_decimal, cache_with_expiration
 
 
@@ -38,6 +38,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         return {
             # 核心关联信息 - 业务必填
             "signal_id": {"type": str},
+            "strategy_id": {"type": str},
             "portfolio_id": {"type": str},
 
             # 执行预期参数 - 业务必填
@@ -73,6 +74,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         return MSignalTracker(
             # 核心关联信息 - 业务必填
             signal_id=kwargs.get("signal_id"),
+            strategy_id=kwargs.get("strategy_id", ""),  # 提供默认值
             portfolio_id=kwargs.get("portfolio_id"),
 
             # 执行预期参数 - 业务必填
@@ -124,6 +126,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             # 从字典创建追踪记录，使用模型构造函数
             return MSignalTracker(
                 signal_id=item.get('signal_id'),
+                strategy_id=item.get('strategy_id', ''),
                 portfolio_id=item.get('portfolio_id'),
                 expected_code=item.get('expected_code'),
                 expected_direction=DIRECTION_TYPES.validate_input(item.get('expected_direction')),
@@ -167,7 +170,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             'execution_mode': EXECUTION_MODE,    # 执行模式字段映射
             'account_type': ACCOUNT_TYPE,        # 账户类型字段映射
             'expected_direction': DIRECTION_TYPES,  # 预期方向字段映射
-            'tracking_status': TRACKING_STATUS,     # 追踪状态字段映射
+            'tracking_status': TRACKINGSTATUS_TYPES,     # 追踪状态字段映射
             'source': SOURCE_TYPES                # 数据源字段映射
         }
 
@@ -227,7 +230,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         if execution_mode is not None:
             filters["execution_mode"] = execution_mode
 
-        return self.find(filters=filters, limit=1000)
+        return self.find(filters=filters)
 
     def find_by_engine(
         self,
@@ -253,11 +256,11 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         if account_type is not None:
             filters["account_type"] = account_type
 
-        return self.find(filters=filters, limit=1000)
+        return self.find(filters=filters)
 
     def find_by_tracking_status(
         self,
-        tracking_status: TRACKING_STATUS,
+        tracking_status: TRACKINGSTATUS_TYPES,
         account_type: Optional[ACCOUNT_TYPE] = None
     ) -> ModelList[MSignalTracker]:
         """
@@ -275,7 +278,7 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
         if account_type is not None:
             filters["account_type"] = account_type
 
-        return self.find(filters=filters, limit=1000)
+        return self.find(filters=filters)
 
     def delete_by_portfolio(self, portfolio_id: str) -> None:
         """
