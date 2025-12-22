@@ -77,7 +77,7 @@ class SimpleBacktest:
         print(f"   - max_signals: {self.strategy.max_signals}")
         print(f"   - random_seed: {self.strategy.random_seed}")
         print(f"   - name: {self.strategy.name}")
-        sizer = FixedSizer(volume=1000)
+        sizer = FixedSizer(volume=100)
         selector = FixedSelector(name="stock_selector", codes=["000001.SZ", "000002.SZ"])
 
         # 4. 创建数据源
