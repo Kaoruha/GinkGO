@@ -68,9 +68,17 @@ class SimpleBacktest:
         self.portfolio.add_cash(Decimal(str(self.initial_cash)))
 
         # 3. 创建策略组件
-        self.strategy = RandomSignalStrategy(buy_probability=0.9, sell_probability=0.05, max_signals=1)
+        self.strategy = RandomSignalStrategy(buy_probability=0.9, sell_probability=0.05, max_signals=4)
+        self.strategy.set_random_seed(12345)  # 固定随机种子
+        # 🔍 调试：确认Example策略配置
+        print(f"🔍 [EXAMPLE DEBUG] Example Strategy Config:")
+        print(f"   - buy_probability: {self.strategy.buy_probability}")
+        print(f"   - sell_probability: {self.strategy.sell_probability}")
+        print(f"   - max_signals: {self.strategy.max_signals}")
+        print(f"   - random_seed: {self.strategy.random_seed}")
+        print(f"   - name: {self.strategy.name}")
         sizer = FixedSizer(volume=1000)
-        selector = FixedSelector(name="stock_selector", codes=["000001.SZ"])
+        selector = FixedSelector(name="stock_selector", codes=["000001.SZ", "000002.SZ"])
 
         # 4. 创建数据源
         self.feeder = BacktestFeeder(name="example_feeder")
@@ -172,13 +180,15 @@ class SimpleBacktest:
         # 交易统计
         signal_count = self.strategy.signal_count
         order_count = len(self.portfolio.orders) if hasattr(self.portfolio, "orders") else 0
+        filled_order_count = len(self.portfolio.filled_orders) if hasattr(self.portfolio, "filled_orders") else 0
         position_count = len(self.portfolio.positions) if hasattr(self.portfolio, "positions") else 0
 
         print(f"初始资金: ¥{self.initial_cash:,}")
         print(f"期末价值: ¥{final_value:,.2f}")
         print(f"总收益率: {total_return*100:.2f}%")
         print(f"策略信号数: {signal_count}")
-        print(f"订单数量: {order_count}")
+        print(f"确认订单数: {order_count}")
+        print(f"成交订单数: {filled_order_count}")
         print(f"持仓数量: {position_count}")
 
         # 显示最近的信号
