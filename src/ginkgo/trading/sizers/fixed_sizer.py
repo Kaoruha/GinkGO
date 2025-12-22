@@ -41,7 +41,7 @@ class FixedSizer(BaseSizer):
         size = initial_size
         while size > 0:
             last_price = to_decimal(last_price)
-            planned_cost = last_price * size * Decimal("1.1")
+            planned_cost = last_price * size * Decimal("1.003")
             if cash >= planned_cost:
                 return (size, planned_cost)
             size -= 100
