@@ -220,7 +220,7 @@ class MARKET_TYPES(EnumBase):
 class ATTITUDE_TYPES(EnumBase):
     VOID = -1
     OTHER = 0
-    PESSMISTIC = 1
+    PESSIMISTIC = 1
     OPTIMISTIC = 2
     RANDOM = 3
 
