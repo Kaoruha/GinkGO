@@ -474,8 +474,10 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
             if component_type == "portfolio":
                 # 阶段1：推进Portfolio时间
-                for portfolio in self.portfolios:
+                self.log("DEBUG", f"{self.name}: 🔍 [PORTFOLIO LOOP] Found {len(self.portfolios)} portfolios")
+                for i, portfolio in enumerate(self.portfolios):
                     try:
+                        self.log("DEBUG", f"{self.name}: 🔍 [PORTFOLIO LOOP #{i+1}] About to call advance_time on {portfolio.name} (uuid: {getattr(portfolio, 'uuid', 'N/A')})")
                         portfolio.advance_time(target_time)
                         # Portfolio内部会发送EventInterestUpdate（如果兴趣集有变化）
                         self.log("DEBUG", f"{self.name}: Portfolio {portfolio.name} advanced to {target_time}")
@@ -658,6 +660,16 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         # TimeControlledEventEngine特有逻辑：自动注册事件处理器
         self._auto_register_component_events(portfolio)
 
+        # 如果Router已存在，自动注册Portfolio到Router
+        router = getattr(self, '_router', None)
+        if router is not None:
+            try:
+                router.register_portfolio(portfolio)
+                self.log("INFO", f"Portfolio {portfolio.uuid[:8]} auto-registered to router {router.name}")
+            except Exception as e:
+                self.log("ERROR", f"Failed to register portfolio {portfolio.uuid[:8]} to router: {e}")
+                raise
+
         self.log("DEBUG", f"Auto-registered event handlers for portfolio {portfolio.name}")
 
     
@@ -670,7 +682,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             "PortfolioT1Backtest": {
                 EVENT_TYPES.PRICEUPDATE: "on_price_received",  # 注意：PortfolioT1Backtest使用on_price_received
                 EVENT_TYPES.SIGNALGENERATION: "on_signal",
-                EVENT_TYPES.ORDERPARTIALLYFILLED: "on_order_partially_filled",  # 添加订单成交事件处理
+                # EVENT_TYPES.ORDERPARTIALLYFILLED: "on_order_partially_filled",  # 移除：让Router处理
                 EVENT_TYPES.POSITIONUPDATE: "on_position_update",
                 EVENT_TYPES.CAPITALUPDATE: "on_capital_update",
                 EVENT_TYPES.PORTFOLIOUPDATE: "on_portfolio_update",
@@ -744,6 +756,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
     def bind_router(self, router) -> None:
         """绑定Router到引擎"""
+        # 存储Router引用
+        self._router = router
+
         # Router需要引擎来推送事件
         router.bind_engine(self)
         self.log("INFO", f"Router {router.name} bound to engine")

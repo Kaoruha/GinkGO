@@ -171,15 +171,9 @@ class Router(BaseRouter):
         Args:
             event: 订单确认事件 (EventOrderAck)
         """
-        # 🔍 详细日志跟踪ORDERACK事件
-        self.log("INFO", f"🔥 [ROUTER] ORDERACK事件接收开始")
-        self.log("INFO", f"🔥 [ROUTER] 事件详情: {type(event).__name__}")
-        self.log("INFO", f"🔥 [ROUTER] 事件portfolio_id: {getattr(event, 'portfolio_id', 'None')}")
-
         order = event.payload
-        self.log("INFO", f"🔥 [ROUTER] 订单信息: {order.direction.name} {order.volume} {order.code}")
-        self.log("INFO", f"🔥 [ROUTER] 订单UUID: {order.uuid}")
-        self.log("INFO", f"📦 ORDER RECEIVED: {order.direction.name} {order.volume} {order.code}")
+        # 添加Router订单确认的关键事件流日志
+        print(f"[ROUTER_ACK] {order.direction.name} {order.code} {order.volume}shares Message:{getattr(event, 'ack_message', 'ACK')} Portfolio:{getattr(event, 'portfolio_id', 'N/A')[:8]} Order:{order.uuid[:8]}")
 
         # 基础验证
         if not self._validate_order_basic(order):
@@ -399,14 +393,10 @@ class Router(BaseRouter):
             run_id = getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None
 
             # 发布订单成交事件
-            self.log("INFO", f"🔥 [ROUTER] Creating event with engine_id={engine_id}, run_id={run_id}")
             event = result.to_event(engine_id=engine_id, run_id=run_id)
-            self.log("INFO", f"🔥 [ROUTER] Event created: {type(event).__name__ if event else 'None'}")
             if event:
-                self.log("INFO", f"🔥 [ROUTER] Event portfolio_id: {event.portfolio_id}")
-                self.log("INFO", f"🔥 [ROUTER] Event engine_id: {event.engine_id}")
-                self.log("INFO", f"🔥 [ROUTER] ✅ Event created successfully, calling publish_event...")
-                self.log("INFO", f"🔥 [ROUTER EVENT TRACKING] About to publish event: order_uuid={event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'}, event_id={id(event)}")
+                # 添加Router事件创建的关键事件流日志
+                print(f"[ROUTER_EVENT] {result.order.direction.name} {result.order.code} {result.filled_volume}shares @ {result.filled_price} Event:{type(event).__name__} Portfolio:{event.portfolio_id[:8]} Order:{result.order.uuid[:8]}")
                 # 立即推送事件到引擎
                 self.publish_event(event)
                 self.log("INFO", f"🔥 [ROUTER EVENT TRACKING] Event published to engine: order_uuid={event.order.uuid[:8] if hasattr(event, 'order') and event.order else 'NO_ORDER'}, event_id={id(event)}")
@@ -414,8 +404,22 @@ class Router(BaseRouter):
             else:
                 self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create event!")
 
-        elif result.status == ORDERSTATUS_TYPES.NEW:  # REJECTED
+        elif result.status == ORDERSTATUS_TYPES.REJECTED:
             self.log("WARN", f"❌ ORDER REJECTED: {result.error_message}")
+
+            # 🔥 [CRITICAL FIX] 创建拒绝事件
+            event = result.to_event(engine_id=self._bound_engine.engine_id if self._bound_engine else None,
+                                    run_id=getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None)
+            if event:
+                self.log("INFO", f"🔥 [ROUTER] Creating ORDER_REJECTED event: {type(event).__name__}")
+                self.log("INFO", f"🔥 [ROUTER] Event portfolio_id: {event.portfolio_id}")
+                self.log("INFO", f"🔥 [ROUTER] Rejection reason: {result.error_message}")
+
+                # 发布拒绝事件到引擎
+                self.publish_event(event)
+                self.log("INFO", f"🔥 [ROUTER] ORDER_REJECTED event published to engine")
+            else:
+                self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create ORDER_REJECTED event!")
 
         elif result.status == ORDERSTATUS_TYPES.SUBMITTED:
             # 对于异步提交，这里不需要发布事件，将在回调中处理
@@ -702,17 +706,23 @@ class Router(BaseRouter):
         Args:
             portfolio: Portfolio对象，需要包含portfolio_id和on_order_partially_filled方法
         """
-        portfolio_id = getattr(portfolio, 'uuid', None)
-        if portfolio_id is None:
-            self.log("ERROR", "Portfolio missing uuid, cannot register")
-            return
+        try:
+            portfolio_id = getattr(portfolio, 'uuid', None)
+            if portfolio_id is None:
+                error_msg = "Portfolio missing uuid, cannot register"
+                self.log("ERROR", error_msg)
+                raise ValueError(error_msg)
 
-        if not hasattr(portfolio, 'on_order_partially_filled'):
-            self.log("ERROR", f"Portfolio {portfolio_id} missing on_order_partially_filled method")
-            return
+            if not hasattr(portfolio, 'on_order_partially_filled'):
+                error_msg = f"Portfolio {portfolio_id} missing on_order_partially_filled method"
+                self.log("ERROR", error_msg)
+                raise AttributeError(error_msg)
 
-        self._portfolio_handlers[portfolio_id] = portfolio
-        self.log("INFO", f"Portfolio {portfolio_id} registered for ORDERPARTIALLYFILLED routing")
+            self._portfolio_handlers[portfolio_id] = portfolio
+            self.log("INFO", f"Portfolio {portfolio_id} registered for ORDERPARTIALLYFILLED routing")
+        except Exception as e:
+            self.log("ERROR", f"Failed to register portfolio to router: {e}")
+            raise
 
     def on_order_partially_filled(self, event) -> None:
         """
@@ -757,9 +767,9 @@ class Router(BaseRouter):
 
         # 路由事件到对应的Portfolio
         try:
-            self.log("INFO", f"🔥 [ROUTER] 开始调用Portfolio.on_order_partially_filled...")
+            print(f"[ROUTER_CALL] {event.order.code} {event.order.direction.name} Portfolio:{portfolio_id[:8]}")
             portfolio.on_order_partially_filled(event)
-            self.log("INFO", f"🔥 [ROUTER] Portfolio.on_order_partially_filled调用成功")
+            print(f"[ROUTER_DONE] {event.order.code} {event.order.direction.name} Portfolio:{portfolio_id[:8]}")
 
             # 检查Portfolio的持仓状态
             if hasattr(portfolio, 'get_positions'):
@@ -778,6 +788,53 @@ class Router(BaseRouter):
             self.log("ERROR", f"🔥 [ROUTER] 异常堆栈: {traceback.format_exc()}")
 
         self.log("INFO", f"🔥 [ROUTER] ORDERPARTIALLYFILLED事件处理完成")
+
+    def on_order_rejected(self, event) -> None:
+        """
+        处理ORDERREJECTED事件，按portfolio_id路由到对应的Portfolio
+
+        Args:
+            event: EventOrderRejected事件
+        """
+        self.log("INFO", f"🔥 [ROUTER] ORDERREJECTED事件接收")
+        self.log("INFO", f"🔥 [ROUTER] portfolio_id: {event.portfolio_id}")
+
+        portfolio = self._portfolio_handlers.get(event.portfolio_id)
+        if portfolio is None:
+            # 🔥 [CRITICAL] 找不到Portfolio会导致冻结资金永远无法解冻
+            self.log("CRITICAL", f"🚨 [SYSTEM ERROR] No registered portfolio found for portfolio_id: {event.portfolio_id}")
+            self.log("CRITICAL", f"🚨 [SYSTEM ERROR] This will cause frozen funds to be permanently locked!")
+            self.log("CRITICAL", f"🚨 [SYSTEM ERROR] Event details: order_id={event.order_id}, code={event.order.code}, reason={event.reject_reason}")
+            # 尝试手动解冻资金来避免永久锁定
+            self._emergency_unfreeze_funds(event)
+            return
+
+        self.log("INFO", f"🔥 [ROUTER] 拒绝订单: {event.order.code} {event.order.direction.name}")
+        self.log("INFO", f"🔥 [ROUTER] 拒绝原因: {event.reject_reason}")
+
+        # 路由事件到对应的Portfolio
+        portfolio.on_order_rejected(event)
+
+        self.log("INFO", f"🔥 [ROUTER] Portfolio当前现金: {portfolio.cash}")
+        self.log("INFO", f"🔥 [ROUTER] ORDERREJECTED事件路由完成")
+
+    def _emergency_unfreeze_funds(self, event) -> None:
+        """
+        紧急情况下尝试解冻资金，避免永久锁定
+
+        Args:
+            event: 拒绝事件，包含订单信息用于计算解冻金额
+        """
+        try:
+            order = event.order
+            # 尝试解冻该订单冻结的资金
+            unfreeze_amount = order.frozen_money or 0
+            if unfreeze_amount > 0:
+                self.log("CRITICAL", f"🚨 [EMERGENCY] Attempting to unfreeze {unfreeze_amount} for rejected order {event.order_id[:8]}")
+                # 记录紧急情况，让管理员手动处理
+                self.log("CRITICAL", f"🚨 [EMERGENCY] Manual intervention required to unfreeze {unfreeze_amount}")
+        except Exception as e:
+            self.log("CRITICAL", f"🚨 [EMERGENCY] Failed to emergency unfreeze funds: {e}")
 
     def get_registered_portfolios(self) -> Dict[str, Any]:
         """
