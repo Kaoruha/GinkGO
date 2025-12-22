@@ -96,6 +96,9 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         # Base初始化
         Base.__init__(self)
 
+        # 标记为 Portfolio 组件（用于 ContextMixin 识别）
+        self._is_portfolio = True
+
         # Portfolio核心业务属性
         self._cash: Decimal = Decimal("0")
         self._worth: Decimal = self._cash
@@ -380,19 +383,20 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             self.set_time_provider(engine._time_provider)
 
         # 通过统一的ContextMixin同步给所有已绑定的组件
-        # 策略组件（支持多个）
+        # 策略组件（支持多个）- 先 bind_portfolio 设置 _context，后 bind_engine
         for strategy in self._strategies:
-            strategy.bind_engine(engine)
+            strategy.bind_portfolio(self)     # 先绑定 Portfolio（设置 PortfolioContext）
+            strategy.bind_engine(engine)      # 后绑定 Engine（保留引擎引用，不覆盖 context）
 
         # Sizer组件（单个）- 需要engine_id创建Order
         if self._sizer is not None:
-            self._sizer.bind_engine(engine)
-            self._sizer.bind_portfolio(self)
+            self._sizer.bind_portfolio(self)  # 先绑定 Portfolio（设置 PortfolioContext）
+            self._sizer.bind_engine(engine)   # 后绑定 Engine（保留引擎引用，不覆盖 context）
 
         # Selector组件（支持多个）
         for selector in self._selectors:
-            selector.bind_engine(engine)
-            selector.bind_portfolio(self)
+            selector.bind_portfolio(self)     # 先绑定 Portfolio（设置 PortfolioContext）
+            selector.bind_engine(engine)      # 后绑定 Engine（保留引擎引用，不覆盖 context）
 
         # 分析器组件（支持多个）
         # Analyzer不需要绑定到Portfolio，直接存储即可
