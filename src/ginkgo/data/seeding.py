@@ -119,11 +119,22 @@ class DataSeeder:
             raise
 
     def _cleanup_existing_data(self):
-        """清理现有的present_数据，确保幂等性"""
-        GLOG.INFO("步骤 0: 清理现有present_数据")
+        """清理现有的present_和preset_数据，确保幂等性"""
+        GLOG.INFO("步骤 0: 清理现有present_和preset_数据")
         try:
             # 使用MappingService和ParamService的清理功能
             mapping_service = container.mapping_service()
+            engine_service = container.engine_service()
+
+            # 清理 preset_ 相关的引擎
+            preset_engines = engine_service.get()
+            if preset_engines.success and preset_engines.data:
+                for engine in preset_engines.data:
+                    if engine.name.startswith('preset_'):
+                        GLOG.INFO(f"删除旧的preset引擎: {engine.name}")
+                        delete_result = engine_service.delete(engine.uuid)
+                        if delete_result.success:
+                            self.console.print(f"🧹 删除了旧的preset引擎: {engine.name}")
 
             # 清理映射关系
             mapping_result = mapping_service.cleanup_by_names("present_%")
@@ -185,58 +196,6 @@ class DataSeeder:
         if engine.success:
             self.results['engines_count'] += 1
         self.results['engine'] = engine
-
-        # 创建或更新预设引擎，确保有正确的broker attitude
-        self._create_or_update_preset_engine()
-
-    def _create_or_update_preset_engine(self):
-        """创建或更新预设引擎，确保broker attitude设置为OPTIMISTIC"""
-        from ginkgo.data.services.engine_service import EngineService
-        from ginkgo.enums import ATTITUDE_TYPES
-
-        try:
-            engine_service = container.engine_service()
-            preset_engine_name = "preset_backtest_engine"
-
-            # 检查预设引擎是否已存在
-            existing_engines = engine_service.get(name=preset_engine_name)
-
-            if existing_engines.success and existing_engines.data:
-                # 更新现有引擎的broker_attitude
-                GLOG.INFO(f"更新预设引擎 {preset_engine_name} 的broker attitude为OPTIMISTIC")
-                # 注意：这里可能需要实现update方法或直接更新数据库
-                # 暂时使用直接SQL更新
-                from ginkgo.data.drivers import create_mysql_connection
-                from sqlalchemy import text
-
-                conn = create_mysql_connection()
-                with conn.session as session:
-                    session.execute(text(
-                        "UPDATE engine SET broker_attitude = :attitude WHERE name = :name"
-                    ), {"attitude": ATTITUDE_TYPES.OPTIMISTIC.value, "name": preset_engine_name})
-                    session.commit()
-                    GLOG.INFO(f"✅ 成功更新预设引擎 {preset_engine_name} 的broker attitude")
-            else:
-                # 创建新的预设引擎
-                GLOG.INFO(f"创建新的预设引擎 {preset_engine_name}")
-                import datetime
-                engine_result = engine_service.add(
-                    name=preset_engine_name,
-                    is_live=False,
-                    broker_attitude=ATTITUDE_TYPES.OPTIMISTIC,  # 确保预设引擎使用OPTIMISTIC态度
-                    backtest_start_date=datetime.datetime(2023, 1, 1),
-                    backtest_end_date=datetime.datetime(2023, 1, 30)
-                )
-
-                if engine_result.success:
-                    GLOG.INFO(f"✅ 成功创建预设引擎 {preset_engine_name}，broker attitude=OPTIMISTIC")
-                else:
-                    GLOG.ERROR(f"❌ 创建预设引擎失败: {engine_result.error}")
-
-        except Exception as e:
-            GLOG.ERROR(f"❌ 创建/更新预设引擎时出错: {e}")
-            import traceback
-            traceback.print_exc()
 
     def _init_files(self):
         """Initialize example files using file service."""
@@ -315,12 +274,12 @@ class DataSeeder:
         # 2. Create new engine with time range matching complete_backtest_example.py
         GLOG.DEBUG(f"创建新引擎: {engine_name} (is_live=False)")
 
-        # 按照complete_backtest_example.py设置时间范围: 2023-01-01 到 2023-01-30
+        # 按照complete_backtest_example.py设置时间范围: 2023-01-03 到 2023-01-10
         import datetime
-        backtest_start_date = datetime.datetime(2023, 1, 1)
-        backtest_end_date = datetime.datetime(2023, 1, 30)
+        backtest_start_date = datetime.datetime(2023, 1, 3)
+        backtest_end_date = datetime.datetime(2023, 1, 10)
 
-        # 按照complete_backtest_example.py设置时间范围和broker attitude: 2023-01-01 到 2023-01-30
+        # 按照complete_backtest_example.py设置时间范围和broker attitude: 2023-01-03 到 2023-01-10
         from ginkgo.enums import ATTITUDE_TYPES
 
         engine = engine_service.add(
