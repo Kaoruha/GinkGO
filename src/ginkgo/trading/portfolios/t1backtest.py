@@ -94,6 +94,7 @@ class PortfolioT1Backtest(PortfolioBase):
 
         new_time = datetime_normalize(time)
 
+        
         # ===== 步骤1: T+1结算处理 =====
         # 处理所有持仓的结算队列，将到期的冻结持仓转为可用
         settled_positions = 0
@@ -148,21 +149,17 @@ class PortfolioT1Backtest(PortfolioBase):
                 f"⚡ [T+1 PROCESSING] Processing {delayed_signals_count} delayed T+1 signals from previous period",
             )
             for i, signal in enumerate(self._signals):
-                self.log(
-                    "WARNING",
-                    f"🔄 [T+1 REPUBLISH #{i+1}] Re-publishing delayed signal: {signal.direction.name} for {signal.code}, timestamp={signal.business_timestamp}",
-                )
+                self.log("INFO", f"[T1_PROCESSING] #{i+1} Re-publishing {signal.direction.name} {signal.code}")
                 e = EventSignalGeneration(signal)
-                self.log("WARNING", f"📤 [T+1 PUT] Putting EventSignalGeneration to event engine")
+                event_uuid = getattr(e, 'uuid', 'N/A')[:8]
+                signal_uuid = getattr(signal, 'uuid', 'N/A')[:8]
+                print(f"[T1_PUBLISH] #{i+1}/{len(self._signals)} {signal.direction.name} {signal.code} {signal.business_timestamp} Event:{event_uuid} Signal:{signal_uuid} Portfolio:{self.uuid[:8]}")
+
                 self.put(e)
-                self.log("WARNING", f"✅ [T+1 REPUBLISH #{i+1}] Successfully republished")
-        else:
-            self.log("WARNING", "⭕ [T+1 EMPTY] No delayed T+1 signals to process")
 
         # Reset past signals
         old_count = len(self._signals)
         self._signals = []
-        self.log("WARNING", f"🧹 [T+1 CLEANUP] Cleared {old_count} delayed signals from queue")
 
         # ===== 步骤5: 新时间状态初始化 =====
         for func in self._analyzer_activate_hook.get(RECORDSTAGE_TYPES.NEWDAY, []):
@@ -181,6 +178,14 @@ class PortfolioT1Backtest(PortfolioBase):
         3.1 drop the signal
         3.2 put order to event engine
         """
+        signal_payload = event.payload if hasattr(event, 'payload') else None
+
+        # 添加Signal接收的关键事件流日志
+        if signal_payload:
+            print(f"[SIGNAL_RECV] {signal_payload.direction.name} {signal_payload.code} {signal_payload.business_timestamp} Portfolio:{self.uuid[:8]} Signal:{signal_payload.uuid[:8]}")
+        else:
+            print(f"[SIGNAL_ERROR] Signal payload missing Event:{event.uuid[:8] if hasattr(event, 'uuid') else 'N/A'}")
+            return
 
         def normalize_time_for_comparison(t):
             """标准化时间用于比较，解决时区不匹配问题"""
@@ -201,49 +206,13 @@ class PortfolioT1Backtest(PortfolioBase):
 
         current_time = self.get_time_provider().now()
 
-        # 🔍 调试：跟踪信号处理的时序
-        from ginkgo.libs import GCONF
-        if GCONF.DEBUGMODE:
-            print(f"🔥 [PORTFOLIO] on_signal called: {event.direction.name} {event.code}")
-            print(f"🔥 [PORTFOLIO]   signal.business_timestamp: {event.business_timestamp}")
-            print(f"🔥 [PORTFOLIO]   current_time: {current_time}")
-
-        self.log("INFO", f"Got a new Signal about {event.code} {event.direction}. {current_time}")
-        # 检查是否是未来时间，如果是则使用CRITICAL等级
+        # Check future event
         if event.business_timestamp and current_time and event.business_timestamp > current_time:
-            self.log(
-                "CRITICAL",
-                f"🚨 [FUTURE TIME] on_signal called with FUTURE event.business_timestamp={event.business_timestamp}, current_time={current_time} ***",
-            )
-        else:
-            self.log(
-                "INFO",
-                f"*** on_signal called with event.business_timestamp={event.business_timestamp}, current_time={current_time} ***",
-            )
-
-        # Check Feature Message.
-        future_check = self.is_event_from_future(event)
-        self.log("INFO", f"*** is_event_from_future returned: {future_check} ***")
-        if future_check:
-            self.log(
-                "CRITICAL",
-                f"🚨 [FUTURE TIME] Event from future, dropping signal: event.business_timestamp={event.business_timestamp} > current_time={current_time} ***",
-            )
             return
-        # Check Everything.
-        all_set_check = self.is_all_set()
-        self.log("INFO", f"*** is_all_set returned: {all_set_check} ***")
-        if not all_set_check:
-            self.log("INFO", f"*** Portfolio not fully set, dropping signal ***")
-            return
-        else:
-            self.log("INFO", f"*** Portfolio all_set OK, proceeding with signal processing ***")
 
-        # 批处理模式处理
-        self.log("INFO", f"=== BATCH PROCESSING CHECK ===")
-        self.log("INFO", f"batch_processing_enabled: {self._batch_processing_enabled}")
-        self.log("INFO", f"batch_processor exists: {self._batch_processor is not None}")
-        self.log("INFO", f"==============================")
+        # Check portfolio setup
+        if not self.is_all_set():
+            return
 
         if self._batch_processing_enabled and self._batch_processor:
             try:
@@ -312,9 +281,7 @@ class PortfolioT1Backtest(PortfolioBase):
                     f"🚦 [T+1 DELAY] Signal from {event.business_timestamp} (current: {current_time}) DELAYED to next day due to T+1 trading rule!",
                 )
             self._signals.append(event.payload)
-            self.log(
-                "INFO", f"📥 [T+1 QUEUE] Signal added to delay queue. Total delayed signals: {len(self._signals)}"
-            )
+            print(f"[T1_DELAY] {signal_payload.direction.name} {signal_payload.code} SignalTime:{event.business_timestamp} CurrentTime:{current_time} TotalDelayed:{len(self._signals)} Portfolio:{self.uuid[:8]}")
             self.log(
                 "INFO",
                 f"⚠️ [T+1 MECHANISM] No order will be generated today. Signal will be processed on next trading day.",
@@ -332,23 +299,14 @@ class PortfolioT1Backtest(PortfolioBase):
         self.log("WARNING", f"🔧 [SIZER CALL] About to call sizer.cal()...")
         try:
             order = self.sizer.cal(portfolio_info, event.payload)
-            self.log(
-                "WARNING",
-                f"📋 [SIZER RESULT] sizer.cal() returned: {type(order).__name__ if order else 'None'} - {order}",
-            )
+            # 添加Sizer结果的关键事件流日志
+            if order:
+                print(f"[SIZED] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Portfolio:{self.uuid[:8]} Order:{order.uuid[:8]}")
+            else:
+                print(f"[SIZED_FAIL] {event.payload.direction.name} {event.payload.code} Reason:Sizer returned None Portfolio:{self.uuid[:8]} Signal:{event.payload.uuid[:8]}")
+                return
         except Exception as e:
-            self.log("ERROR", f"❌ [SIZER EXCEPTION] sizer.cal() failed with exception: {type(e).__name__}: {e}")
-            import traceback
-
-            self.log("ERROR", f"📋 [SIZER TRACEBACK] {traceback.format_exc()}")
-            order = None
-
-        # 2. Get the order return
-        if order is None:
-            self.log(
-                "ERROR",
-                f"❌ [SIZER FAILED] No ORDER about {event.code} generated by sizer. Signal: {event.direction}, Portfolio cash: {self.get_info().get('cash', 'N/A')}",
-            )
+            print(f"[SIZED_ERROR] {event.payload.direction.name} {event.payload.code} Error:{e} Portfolio:{self.uuid[:8]} Signal:{event.payload.uuid[:8]}")
             return
         else:
             self.log(
@@ -457,6 +415,8 @@ class PortfolioT1Backtest(PortfolioBase):
         # Set the order as payload for unified access
         event.payload = order
 
+        print(f"[ORDER] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Frozen:{order.frozen_money} Order:{order.uuid[:8]} Portfolio:{self.uuid[:8]}")
+
         # Call analyzer hooks
         for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERSEND]:
             func(RECORDSTAGE_TYPES.ORDERSEND, self.get_info())
@@ -476,6 +436,11 @@ class PortfolioT1Backtest(PortfolioBase):
         self.log("WARNING", f"✅ [ORDER FLOW COMPLETE] Signal → Order → Risk Management → Freezing → Engine submission")
 
     def on_price_received(self, event: EventPriceUpdate):
+        # 🔍 [DEBUG] 追踪on_price_received调用
+        event_uuid = getattr(event, 'uuid', 'N/A')[:8]
+        event_code = getattr(event, 'code', 'N/A')
+        event_price = getattr(event, 'close', 'N/A')
+        
         # Check Everything.
         code = ""
         try:
@@ -483,27 +448,7 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             pass
 
-        # 🔍 调试：跟踪Portfolio处理价格事件的顺序
-        from ginkgo.libs import GCONF
-        if GCONF.DEBUGMODE:
-            print(f"🔥 [PORTFOLIO] on_price_received called: code={code}, price={getattr(event, 'close', 'None')}, time={getattr(event, 'timestamp', 'None')}")
-
         self.log("INFO", f"Got new price {code if code != '' else ""}. {self.business_timestamp}")
-
-        # 🔍 调试：检查is_all_set条件
-        from ginkgo.libs import GCONF
-        if GCONF.DEBUGMODE:
-            is_all_set = self.is_all_set()
-            print(f"🔥 [PORTFOLIO] is_all_set: {is_all_set}")
-            if not is_all_set:
-                print(f"🔥 [PORTFOLIO] Exiting early due to is_all_set=False")
-                # 调试具体哪个组件未设置
-                print(f"🔥 [PORTFOLIO] Portfolio components:")
-                print(f"   - engine bound: {hasattr(self, '_engine') and self._engine is not None}")
-                print(f"   - time provider: {hasattr(self, '_time_provider') and self._time_provider is not None}")
-                print(f"   - selector: {hasattr(self, '_selector') and self._selector is not None}")
-                print(f"   - sizer: {hasattr(self, '_sizer') and self._sizer is not None}")
-                print(f"   - strategies count: {len(self.strategies) if hasattr(self, 'strategies') else 0}")
 
         if not self.is_all_set():
             return
@@ -525,20 +470,10 @@ class PortfolioT1Backtest(PortfolioBase):
 
         # GLOG.INFO(f"Under {len(self.strategies)} Strategies Calculating... {self.business_timestamp}")
         for strategy in self.strategies:
-            # 🔍 调试：跟踪策略调用
-            if GCONF.DEBUGMODE:
-                print(f"🔥 [PORTFOLIO] Calling strategy {strategy.name}.cal() for code={event.code}")
-
             # 3. Get signal return, if so put eventsignal to engine
             signals = []
             try:
                 signals = strategy.cal(self.get_info(), event)
-
-                if GCONF.DEBUGMODE:
-                    print(f"🔥 [PORTFOLIO] Strategy {strategy.name}.cal() returned {len(signals)} signals")
-                    if signals:
-                        for i, signal in enumerate(signals):
-                            print(f"   - Signal {i+1}: {signal.direction.name} {signal.code}")
 
                 # 防御性处理：确保signals是列表类型
                 if signals is None:
@@ -564,8 +499,12 @@ class PortfolioT1Backtest(PortfolioBase):
             for signal in signals:
                 if signal:
                     # 🔍 调试：跟踪信号处理
-                    if GCONF.DEBUGMODE:
-                        print(f"🔥 [PORTFOLIO] Processing signal: {signal.direction.name} {signal.code} at {signal.business_timestamp}")
+                    signal_uuid = getattr(signal, 'uuid', 'N/A')[:8]
+                    print(f"\n💼 [PORTFOLIO SIGNAL PROCESS] Portfolio UUID: {self.uuid[:8]}")
+                    print(f"    Strategy Signal: {signal.direction.name} {signal.code} at {signal.business_timestamp}")
+                    print(f"    Signal UUID: {signal_uuid}")
+                    print(f"    Signal Reason: {signal.reason}")
+                    print(f"    From Strategy: {strategy.name if strategy else 'Unknown'}")
 
                     # 将信号保存到数据库
                     try:
@@ -586,11 +525,20 @@ class PortfolioT1Backtest(PortfolioBase):
 
                     e = EventSignalGeneration(signal)
                     e.set_source(SOURCE_TYPES.STRATEGY)
+                    # 🔍 [CRITICAL] LOG: 追踪事件发布
+                    event_uuid = getattr(e, 'uuid', 'N/A')[:8]
+                    print(f"📤 [PUBLISHING] EventSignalGeneration: Event UUID={event_uuid}, Signal UUID={signal_uuid}")
+                    print(f"    Event ID: {id(e)}, Signal Code: {signal.code}")
+                    print(f"    From Portfolio: {self.name} (UUID: {self.uuid[:8]})")
+
                     for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.SIGNALGENERATION]:
                         func(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
                     for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.SIGNALGENERATION]:
                         func(RECORDSTAGE_TYPES.SIGNALGENERATION, self.get_info())
+
+                    print(f"📤 [PUTTING] EventSignalGeneration to engine: {event_uuid}")
                     self.put(e)
+                    print(f"✅ [PUBLISHED] EventSignalGeneration sent to engine: {event_uuid}")
 
     # ===== 新增：订单生命周期事件处理（ACK/部分成交/拒绝/过期/撤销确认） =====
     def on_order_ack(self, event) -> None:
@@ -609,9 +557,6 @@ class PortfolioT1Backtest(PortfolioBase):
             self.log("ERROR", f"on_order_ack failed: {e}")
 
     def on_order_partially_filled(self, event) -> None:
-        # 🎯 调试：验证方法是否被调用
-        self.log("INFO", f"🔔 [PARTIAL FILL RECEIVED] Portfolio received partial fill event: {event.code}")
-
         try:
             if self.is_event_from_future(event):
                 return
@@ -625,24 +570,29 @@ class PortfolioT1Backtest(PortfolioBase):
                 self.log("ERROR", "Partial fill event missing order payload")
                 return
 
+            qty = int(getattr(event, "filled_quantity", 0) or 0)
+            price = to_decimal(getattr(event, "fill_price", 0) or 0)
+            fee = to_decimal(getattr(event, "commission", 0) or 0)
+            if qty <= 0 or price <= 0:
+                self.log("WARN", f"🚫 [FILL REJECTED] Partial fill ignored due to invalid qty/price: {qty}/{price}")
+                self.log("WARN", f"🚫 [FILL REJECTED] Order NOT added to filled_orders list: {order.code} {order.direction.name}")
+                return
+
+            # 🔥 [CRITICAL FIX] 只有在验证通过后才添加到成交订单列表
             # 🎯 订单统计更新：跟踪已成交的订单
             if order not in self._orders:
                 self._orders.append(order)
                 self.log("INFO", f"📊 [ORDER TRACKING] Added filled order to tracking: {order.code} {order.direction.name} {order.volume} shares")
 
-            # 添加到成交订单列表
+            # 添加到成交订单列表 (只有真实成交的订单)
             self._filled_orders.append(order)
-            self.log("INFO", f"📊 [FILLED ORDER TRACKING] Added filled order: {order.code} {order.direction.name} {order.volume} shares")
-
-            qty = int(getattr(event, "filled_quantity", 0) or 0)
-            price = to_decimal(getattr(event, "fill_price", 0) or 0)
-            fee = to_decimal(getattr(event, "commission", 0) or 0)
-            if qty <= 0 or price <= 0:
-                self.log("WARN", f"Partial fill ignored due to invalid qty/price: {qty}/{price}")
-                return
+            self.log("INFO", f"📊 [FILLED ORDER TRACKING] Added VALID filled order: {order.code} {order.direction.name} {order.volume} shares @ {price}")
 
             direction = getattr(order, "direction", None) or getattr(event, "direction", None)
             code = event.code
+
+            # 添加订单部分成交的关键事件流日志
+            print(f"[FILL] {direction.name} {code} {qty}shares @ {price} Fee:{fee} TotalFilled:{order.transaction_volume}/{order.volume} Order:{order.uuid[:8]} Portfolio:{self.uuid[:8]}")
             fill_cost = price * qty + fee
 
             # 更新订单累计成交与剩余冻结
@@ -694,8 +644,12 @@ class PortfolioT1Backtest(PortfolioBase):
                         uuid=uuid.uuid4().hex,
                     )
                     self.add_position(p)
+                    # 添加Position创建的关键事件流日志
+                    print(f"[POSITION] LONG {code} {qty}shares @ {price} Fee:{fee} Portfolio:{self.uuid[:8]} Position:{p.uuid[:8]}")
                 else:
                     pos.deal(DIRECTION_TYPES.LONG, price, qty)
+                    # 添加Position更新的关键事件流日志
+                    print(f"[POSITION] LONG {code} +{qty}shares @ {price} Total:{pos.volume} Portfolio:{self.uuid[:8]} Position:{pos.uuid[:8]}")
 
                 self.log(
                     "INFO",
@@ -725,6 +679,8 @@ class PortfolioT1Backtest(PortfolioBase):
 
         except Exception as e:
             self.log("ERROR", f"on_order_partially_filled failed: {e}")
+            import traceback
+            self.log("ERROR", f"on_order_partially_filled traceback: {traceback.format_exc()}")
 
     def on_order_rejected(self, event) -> None:
         try:
@@ -733,6 +689,8 @@ class PortfolioT1Backtest(PortfolioBase):
             for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ORDERREJECTED]:
                 func(RECORDSTAGE_TYPES.ORDERREJECTED, self.get_info())
             self.log("WARN", f"REJECTED: order={event.order_id[:8]} code={event.code} reason={event.reject_reason}")
+            # 添加订单拒绝的关键事件流日志
+            print(f"[REJECT] {getattr(event.order, 'direction', 'UNKNOWN').name} {event.code} Reason:{event.reject_reason} Order:{event.order_id[:8]} Portfolio:{self.uuid[:8]}")
             # BrokerMatchMaking 会同时发送取消事件以触发资金解冻；此处仅记录
         except Exception as e:
             self.log("ERROR", f"on_order_rejected failed: {e}")
@@ -889,19 +847,7 @@ class PortfolioT1Backtest(PortfolioBase):
             f"💰 [LONG FILLED] Created position: {event.code}, volume={event.transaction_volume}, cost={event.transaction_price:.2f}",
         )
 
-        # 🎯 成交订单统计更新
-        # EventOrderPartiallyFilled应该包含order属性
-        order = getattr(event, 'order', None)
-        if order is not None:
-            self._filled_orders.append(order)
-            self.log("INFO", f"📊 [FILLED ORDER TRACKING] Added filled order: {event.code} {event.transaction_volume} shares")
-        else:
-            # 如果没有order属性，记录一下调试信息
-            self.log("INFO", f"🔍 [FILLED ORDER DEBUG] No order attribute in event for {event.code}")
-            self.log("INFO", f"🔍 [FILLED ORDER DEBUG] Event attributes: {dir(event)}")
-            # 至少记录成交信息用于统计
-            self._filled_orders.append(f"Filled: {event.code} {event.transaction_volume} shares @ {event.transaction_price}")
-            self.log("INFO", f"📊 [FILLED ORDER TRACKING] Added filled order info: {event.code} {event.transaction_volume} shares")
+        # 🎯 成交订单统计更新 - 已在on_order_partially_filled方法中处理，此处避免重复统计
 
         position_count = len(self.positions)
         total_position_value = sum(pos.worth for pos in self.positions.values() if hasattr(pos, "worth"))
