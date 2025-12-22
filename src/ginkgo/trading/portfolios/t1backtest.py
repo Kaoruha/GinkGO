@@ -512,6 +512,7 @@ class PortfolioT1Backtest(PortfolioBase):
                         signal_crud.create(
                             portfolio_id=signal.portfolio_id,
                             engine_id=signal.engine_id,
+                            run_id=signal.run_id,
                             timestamp=signal.timestamp,
                             code=signal.code,
                             direction=signal.direction,

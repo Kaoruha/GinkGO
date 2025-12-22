@@ -43,6 +43,10 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         self._run_sequence: int = 0
         self._state: ENGINESTATUS_TYPES = ENGINESTATUS_TYPES.IDLE
 
+        # === 创建 EngineContext 实例 ===
+        from ..context.engine_context import EngineContext
+        self._engine_context = EngineContext(self._engine_id)
+
         # 初始化Mixin（使用super().__init__自动处理MRO）
         super().__init__(name=name, *args, **kwargs)
 
@@ -110,9 +114,20 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         if force or self._run_id is None:
             self._run_sequence += 1
             self._run_id = IdentityUtils.generate_run_id(self._engine_id, self._run_sequence)
+            # 同时更新 EngineContext
+            self._engine_context.set_run_id(self._run_id)
             self.log("INFO", f"Generated new run_id: {self._run_id} for engine_id={self.engine_id}")
 
         return self._run_id
+
+    def get_engine_context(self):
+        """
+        获取引擎上下文对象
+
+        Returns:
+            EngineContext: 引擎上下文实例
+        """
+        return self._engine_context
 
     def set_engine_id(self, engine_id: str) -> None:
         """
@@ -125,6 +140,8 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
             raise RuntimeError("Cannot change engine_id after engine has started")
 
         self._engine_id = engine_id
+        # 同步更新 EngineContext
+        self._engine_context.set_engine_id(engine_id)
         self.log("INFO", f"Engine ID updated to: {engine_id}")
 
     def set_run_id(self, run_id: str) -> None:
