@@ -706,3 +706,84 @@ class ParamService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"参数验证失败: {str(e)}")
             return ServiceResult.error(f"参数验证失败: {str(e)}")
+
+    # ==================== 清理方法 ====================
+
+    @time_logger
+    def cleanup_orphaned_params(self) -> ServiceResult:
+        """清理孤立的参数（关联对象不存在的参数）"""
+        try:
+            from ginkgo.data.containers import container
+
+            # 获取所有有效的Portfolio UUIDs
+            portfolio_crud = container.cruds.portfolio()
+            portfolios = portfolio_crud.find()
+            valid_portfolio_uuids = [p.uuid for p in portfolios if not p.is_del]
+
+            if not valid_portfolio_uuids:
+                # 如果没有有效的Portfolio，删除所有参数
+                deleted_count = self._crud_repo.count(filters={"is_del": False})
+                if deleted_count > 0:
+                    self._crud_repo.remove(filters={"is_del": False})
+                    GLOG.INFO(f"清理了 {deleted_count} 个孤立参数（无有效Portfolio）")
+            else:
+                # 获取所有关联不存在Portfolio的参数
+                all_params = self._crud_repo.find(filters={"is_del": False})
+                orphaned_count = 0
+
+                for param in all_params:
+                    if param.mapping_id not in valid_portfolio_uuids:
+                        # 删除孤立参数
+                        result = self._crud_repo.remove(filters={"uuid": param.uuid})
+                        if result > 0:
+                            orphaned_count += 1
+
+                if orphaned_count > 0:
+                    GLOG.INFO(f"清理了 {orphaned_count} 个孤立参数")
+                else:
+                    GLOG.DEBUG("未发现孤立的参数")
+
+            deleted_count = orphaned_count if valid_portfolio_uuids else self._crud_repo.count(filters={"is_del": False})
+
+            return ServiceResult.success({
+                "deleted_count": deleted_count
+            }, f"清理完成，处理了 {deleted_count} 个孤立参数")
+
+        except Exception as e:
+            GLOG.ERROR(f"清理孤立参数失败: {str(e)}")
+            return ServiceResult.error(f"清理孤立参数失败: {str(e)}")
+
+    @time_logger
+    def cleanup_by_names(self, name_pattern: str = "present_%") -> ServiceResult:
+        """根据名称模式清理相关的所有参数"""
+        try:
+            from ginkgo.data.containers import container
+
+            # 获取匹配名称模式的Portfolio UUIDs
+            portfolio_crud = container.cruds.portfolio()
+            # 使用like查询匹配名称模式
+            portfolios = portfolio_crud.find(filters={"name__like": name_pattern})
+            target_portfolio_uuids = [p.uuid for p in portfolios if not p.is_del]
+
+            if not target_portfolio_uuids:
+                GLOG.DEBUG(f"未找到匹配名称模式 '{name_pattern}' 的Portfolio")
+                return ServiceResult.success({
+                    "deleted_count": 0
+                }, f"未找到匹配名称模式 '{name_pattern}' 的Portfolio")
+
+            # 删除这些Portfolio相关的所有参数
+            deleted_count = 0
+            for portfolio_uuid in target_portfolio_uuids:
+                result = self._crud_repo.remove(filters={"mapping_id": portfolio_uuid, "is_del": False})
+                deleted_count += result
+
+            GLOG.INFO(f"根据名称模式 '{name_pattern}' 清理了 {deleted_count} 个参数")
+            GLOG.DEBUG(f"  - 参数数量: {deleted_count} 个")
+
+            return ServiceResult.success({
+                "deleted_count": deleted_count
+            }, f"根据名称模式清理了 {deleted_count} 个参数")
+
+        except Exception as e:
+            GLOG.ERROR(f"根据名称模式清理参数失败: {str(e)}")
+            return ServiceResult.error(f"根据名称模式清理参数失败: {str(e)}")

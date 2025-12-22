@@ -137,19 +137,30 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
 
     def _convert_input_item(self, item: Any) -> Optional[MStockInfo]:
         """
-        Hook method: Convert stock info objects to MStockInfo.
+        Hook method: Convert StockInfo business objects to MStockInfo data models.
+        只处理StockInfo业务对象，符合架构设计原则。
         """
-        if hasattr(item, 'code') and hasattr(item, 'code_name'):
+        from ginkgo.trading.entities import StockInfo
+
+        # 只处理StockInfo业务对象
+        if isinstance(item, StockInfo):
+            # 获取source信息，如果业务对象有设置的话
+            source = getattr(item, '_source', SOURCE_TYPES.TUSHARE)
+
             return MStockInfo(
-                code=getattr(item, 'code'),
-                code_name=getattr(item, 'code_name', ''),
-                industry=getattr(item, 'industry', ''),
-                market=MARKET_TYPES.validate_input(getattr(item, 'market', MARKET_TYPES.CHINA)),
-                list_date=datetime_normalize(getattr(item, 'list_date', datetime.now())),
-                delist_date=datetime_normalize(getattr(item, 'delist_date', datetime.now())),
-                currency=CURRENCY_TYPES.validate_input(getattr(item, 'currency', CURRENCY_TYPES.CNY)),
-                source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.TUSHARE)),
+                code=item.code,
+                code_name=item.code_name,
+                industry=item.industry,
+                market=item.market,
+                list_date=item.list_date,
+                delist_date=item.delist_date,
+                currency=item.currency,
+                source=source,
+                uuid=item.uuid if item.uuid else None
             )
+
+        # 不再支持字典格式，强制使用业务对象
+        self._logger.WARNING(f"Unsupported type for StockInfo conversion: {type(item)}. Please use StockInfo business object.")
         return None
 
     def _convert_output_items(self, items: List[MStockInfo], output_type: str = "model") -> List[Any]:

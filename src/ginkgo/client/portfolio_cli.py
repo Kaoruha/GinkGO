@@ -1,429 +1,235 @@
+"""
+Ginkgo Portfolio CLI - 投资组合管理命令
+"""
+
 import typer
-from enum import Enum
 from typing import Optional
-from typing_extensions import Annotated
 from rich.console import Console
-from rich.prompt import Confirm
+from rich.table import Table
 
-# All heavy imports moved to function level for faster CLI startup
-
-app = typer.Typer(
-    help=":briefcase: Module for [bold medium_spring_green]PORTFOLIO[/] management. [grey62]Create portfolios and manage component bindings.[/grey62]",
-    no_args_is_help=True,
-)
-console = Console()
+app = typer.Typer(help=":bank: Portfolio management", rich_markup_mode="rich")
+console = Console(emoji=True, legacy_windows=False)
 
 
 @app.command()
-def list():
+def list(
+    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
+    limit: int = typer.Option(20, "--limit", "-l", help="Page size"),
+    raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
+):
     """
-    :open_file_folder: List all portfolios.
+    :clipboard: List all portfolios.
     """
-    import pandas as pd
-    from ginkgo.libs.utils.display import display_dataframe
     from ginkgo.data.containers import container
-    
-    portfolio_service = container.portfolio_service()
-    portfolios_df = portfolio_service.get_portfolios(as_dataframe=True)
-    
-    if portfolios_df.shape[0] == 0:
-        console.print(":exclamation: [yellow]No portfolios found.[/yellow]")
-        return
-    
-    # 配置列显示
-    columns_config = {
-        "uuid": {"display_name": "Portfolio ID", "style": "dim"},
-        "name": {"display_name": "Name", "style": "cyan"},
-        "backtest_start_date": {"display_name": "Start Date", "style": "dim"},
-        "backtest_end_date": {"display_name": "End Date", "style": "dim"},
-        "update_at": {"display_name": "Update At", "style": "dim"}
-    }
-    
-    display_dataframe(
-        data=portfolios_df,
-        columns_config=columns_config,
-        title=":briefcase: [bold]Portfolios:[/bold]",
-        console=console
-    )
+
+    console.print(":clipboard: Listing portfolios...")
+
+    try:
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.get()
+
+        if result.success:
+            portfolios_data = result.data
+
+            # Raw output mode
+            if raw:
+                import json
+                if hasattr(portfolios_data, 'to_dataframe'):
+                    portfolios_df = portfolios_data.to_dataframe()
+                    raw_data = portfolios_df.to_dict('records')
+                elif isinstance(portfolios_data, list):
+                    raw_data = [item.__dict__ if hasattr(item, '__dict__') else item for item in portfolios_data]
+                else:
+                    raw_data = portfolios_data
+
+                console.print(json.dumps(raw_data, indent=2, ensure_ascii=False, default=str))
+                return
+
+            if hasattr(portfolios_data, 'to_dataframe'):
+                import pandas as pd
+                portfolios_df = portfolios_data.to_dataframe()
+            elif isinstance(portfolios_data, list):
+                portfolios_df = pd.DataFrame(portfolios_data)
+            else:
+                portfolios_df = pd.DataFrame()
+
+            if portfolios_df.empty:
+                console.print(":memo: No portfolios found.")
+                return
+
+            # Display portfolios
+            table = Table(title=":bank: Portfolios")
+            table.add_column("UUID", style="dim", width=36)
+            table.add_column("Name", style="cyan", width=20)
+            table.add_column("Initial Capital", style="green", width=15)
+            table.add_column("Type", style="yellow", width=10)
+            table.add_column("Status", style="white", width=10)
+
+            for _, portfolio in portfolios_df.iterrows():
+                initial_capital = f"¥{float(portfolio.get('initial_capital', 0)):,.2f}"
+                portfolio_type = "Live" if portfolio.get('is_live', False) else "Backtest"
+                status = portfolio.get('status', 'Unknown')
+
+                table.add_row(
+                    str(portfolio.get('uuid', ''))[:36],
+                    str(portfolio.get('name', ''))[:18],
+                    initial_capital,
+                    portfolio_type,
+                    status
+                )
+
+            console.print(table)
+        else:
+            console.print(f":x: Failed to get portfolios: {result.error}")
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
 
 
 @app.command()
 def create(
-    name: Annotated[str, typer.Argument(help=":label: Portfolio name")],
-    start_date: Annotated[str, typer.Option("--start", "-s", help=":calendar: Backtest start date (YYYYMMDD)")],
-    end_date: Annotated[str, typer.Option("--end", "-e", help=":calendar: Backtest end date (YYYYMMDD)")],
-    description: Annotated[Optional[str], typer.Option("--desc", help=":memo: Portfolio description")] = None,
+    name: str = typer.Option(..., "--name", "-n", help="Portfolio name"),
+    initial_capital: float = typer.Option(1000000.0, "--capital", "-c", help="Initial capital"),
+    is_live: bool = typer.Option(False, "--live", help="Live portfolio"),
+    description: Optional[str] = typer.Option(None, "--description", "-d", help="Portfolio description"),
 ):
     """
-    :hammer_and_wrench: Create a new portfolio.
+    :heavy_plus_sign: Create a new portfolio.
     """
     from ginkgo.data.containers import container
-    
-    portfolio_service = container.portfolio_service()
-    result = portfolio_service.create_portfolio(
-        name=name,
-        backtest_start_date=start_date,
-        backtest_end_date=end_date,
-        is_live=False,
-        description=description or ""
-    )
-    
-    if result.get("success", False):
-        console.print(f":white_check_mark: [bold green]Created portfolio[/bold green] [cyan]{name}[/cyan]")
-        console.print(f":id: Portfolio ID: [dim]{result.get('portfolio_id', 'N/A')}[/dim]")
-        console.print(f":calendar: Period: {start_date} - {end_date}")
-    else:
-        console.print(f":x: [bold red]Failed to create portfolio:[/bold red] {result.get('error', 'Unknown error')}")
+
+    console.print(f":heavy_plus_sign: Creating portfolio: {name}")
+
+    try:
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.create(
+            name=name,
+            initial_capital=initial_capital,
+            is_live=is_live,
+            description=description or ""
+        )
+
+        if result.success:
+            portfolio_uuid = result.data.uuid if hasattr(result.data, 'uuid') else result.data
+            console.print(f":white_check_mark: Portfolio '{name}' created successfully")
+            console.print(f"  • Portfolio ID: {portfolio_uuid}")
+            console.print(f"  • Initial Capital: ¥{initial_capital:,.2f}")
+            console.print(f"  • Type: {'Live' if is_live else 'Backtest'}")
+            console.print(f"  • Description: {description or 'No description'}")
+        else:
+            console.print(f":x: Portfolio creation failed: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
 
 
 @app.command()
-def bind(
-    portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID")] = None,
-    component: Annotated[Optional[str], typer.Option("--component", "-c", "--c", help=":id: Component (file) ID")] = None,
-    type: Annotated[Optional[str], typer.Option("--type", "-t", help=":gear: Component type (analyzer, index, riskmanager, selector, sizer, strategy, engine, handler)")] = None,
-    name: Annotated[Optional[str], typer.Option("--name", "-n", help=":label: Custom component name")] = None,
+def get(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    details: bool = typer.Option(False, "--details", "-d", help="Show detailed portfolio information"),
+    performance: bool = typer.Option(False, "--performance", "-p", help="Show performance metrics"),
 ):
     """
-    :link: Bind a component to a portfolio.
+    :eyes: Show portfolio details and composition.
     """
     from ginkgo.data.containers import container
-    
-    from ginkgo.enums import FILE_TYPES
-    from ginkgo.libs.utils.display import display_dataframe
-    
-    # 获取服务
-    portfolio_service = container.portfolio_service()
-    file_service = container.file_service()
-    
-    # Convert string type to FILE_TYPES enum if provided
-    if type is not None:
-        try:
-            type = FILE_TYPES.enum_convert(type)
-            if type is None:
-                valid_types = [item.name.lower() for item in FILE_TYPES if item.name != 'OTHER']
-                console.print(f":x: [bold red]Invalid component type.[/bold red] Valid types: {', '.join(valid_types)}")
-                return
-        except Exception as e:
-            valid_types = [item.name.lower() for item in FILE_TYPES if item.name != 'OTHER']
-            console.print(f":x: [bold red]Invalid component type.[/bold red] Valid types: {', '.join(valid_types)}")
-            return
-    
-    # Check portfolio
-    if portfolio is None:
-        portfolios_df = get_portfolios_page_filtered()
-        # 配置列显示
-        columns_config = {
-            "uuid": {"display_name": "Portfolio ID", "style": "dim"},
-            "name": {"display_name": "Name", "style": "cyan"},
-            "backtest_start_date": {"display_name": "Start Date", "style": "dim"},
-            "backtest_end_date": {"display_name": "End Date", "style": "dim"},
-            "update_at": {"display_name": "Update At", "style": "dim"}
-        }
-        
-        display_dataframe(
-            data=portfolios_df,
-            columns_config=columns_config,
-            title=":briefcase: [bold]Available Portfolios:[/bold]",
-            console=console
-        )
-        return
-    
-    portfolio_df = get_portfolio(portfolio)
-    if portfolio_df.shape[0] == 0:
-        console.print(f":exclamation: Portfolio [light_coral]{portfolio}[/light_coral] not found.")
-        portfolios_df = get_portfolios_page_filtered()
-        # 配置列显示
-        columns_config = {
-            "uuid": {"display_name": "Portfolio ID", "style": "dim"},
-            "name": {"display_name": "Name", "style": "cyan"},
-            "backtest_start_date": {"display_name": "Start Date", "style": "dim"},
-            "backtest_end_date": {"display_name": "End Date", "style": "dim"},
-            "update_at": {"display_name": "Update At", "style": "dim"}
-        }
-        
-        display_dataframe(
-            data=portfolios_df,
-            columns_config=columns_config,
-            title=":briefcase: [bold]Available Portfolios:[/bold]",
-            console=console
-        )
-        return
-    
-    # Check component
-    if component is None:
-        # Filter by type if provided
-        if type is not None:
-            files_df = get_files_page_filtered(as_dataframe=True, type=type)
-        else:
-            files_df = get_files_page_filtered(as_dataframe=True)
-        # Filter out removed files
-        if files_df.shape[0] > 0 and 'is_del' in files_df.columns:
-            files_df = files_df[files_df['is_del'] == False]
-        # 配置列显示
-        components_columns_config = {
-            "uuid": {"display_name": "Component ID", "style": "dim"},
-            "name": {"display_name": "Name", "style": "cyan"},
-            "type": {"display_name": "Type", "style": "green"},
-            "path": {"display_name": "Path", "style": "dim"},
-            "update_at": {"display_name": "Update At", "style": "dim"}
-        }
-        
-        display_dataframe(
-            data=files_df,
-            columns_config=components_columns_config,
-            title=":dna: [bold]Available Components:[/bold]",
-            console=console
-        )
-        return
-    
-    file_df = get_file(component)
-    if file_df.shape[0] == 0:
-        console.print(f":exclamation: Component [light_coral]{component}[/light_coral] not found.")
-        # Filter by type if provided
-        if type is not None:
-            files_df = get_files_page_filtered(as_dataframe=True, type=type)
-        else:
-            files_df = get_files_page_filtered(as_dataframe=True)
-        # Filter out removed files
-        if files_df.shape[0] > 0 and 'is_del' in files_df.columns:
-            files_df = files_df[files_df['is_del'] == False]
-        # 配置列显示
-        components_columns_config = {
-            "uuid": {"display_name": "Component ID", "style": "dim"},
-            "name": {"display_name": "Name", "style": "cyan"},
-            "type": {"display_name": "Type", "style": "green"},
-            "path": {"display_name": "Path", "style": "dim"},
-            "update_at": {"display_name": "Update At", "style": "dim"}
-        }
-        
-        display_dataframe(
-            data=files_df,
-            columns_config=components_columns_config,
-            title=":dna: [bold]Available Components:[/bold]",
-            console=console
-        )
-        return
-    
-    # Get type from component file if not provided
-    if type is None:
-        file_type = file_df.iloc[0]["type"]
-        console.print(f":gear: Using component type: [cyan]{file_type}[/cyan]")
-    else:
-        # 直接使用FILE_TYPES，不需要映射
-        file_type = type
-    
-    # Get name from component file if not provided
-    component_name = name if name else file_df.iloc[0]["name"]
-    if name is None:
-        console.print(f":label: Using component name: [cyan]{component_name}[/cyan]")
-    
-    # Check if mapping already exists
-    from ginkgo.data.operations import get_portfolio_file_mappings_page_filtered
-    existing_mappings = get_portfolio_file_mappings_page_filtered(portfolio=portfolio)
-    if existing_mappings.shape[0] > 0:
-        # Check if this file_id is already bound to this portfolio
-        duplicate_mapping = existing_mappings[existing_mappings['file_id'] == component]
-        if duplicate_mapping.shape[0] > 0:
-            existing_info = duplicate_mapping.iloc[0]
-            console.print(f":exclamation: [bold red]Mapping already exists![/bold red]")
-            console.print(f"Portfolio [yellow]{portfolio}[/yellow] is already bound to file [cyan]{component}[/cyan]")
-            console.print(f"Existing mapping details:")
-            console.print(f"  - Mapping ID: [dim]{existing_info['uuid']}[/dim]")
-            console.print(f"  - Name: [cyan]{existing_info['name']}[/cyan]")
-            console.print(f"  - Type: [green]{existing_info['type']}[/green]")
-            console.print(f"  - Created: [dim]{existing_info['create_at']}[/dim]")
-            return
-    
+
+    console.print(f":eyes: Showing portfolio {portfolio_id}...")
+
     try:
-        mapping = add_portfolio_file_mapping(
-            portfolio=portfolio,
-            file_id=component,
-            name=component_name,
-            type=file_type
-        )
-        console.print(f":white_check_mark: [bold green]Successfully bound {file_type}[/bold green] [cyan]{component_name}[/cyan] to portfolio [yellow]{portfolio}[/yellow]")
-        console.print(f":id: Mapping ID: [dim]{mapping['uuid']}[/dim]")
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.get(portfolio_id=portfolio_id)
+
+        if result.success:
+            portfolio = result.data
+            table = Table(title=f":bank: Portfolio Details")
+            table.add_column("Property", style="cyan", width=15)
+            table.add_column("Value", style="white", width=50)
+
+            table.add_row("ID", str(portfolio.uuid))
+            table.add_row("Name", str(portfolio.name))
+            table.add_row("Initial Capital", f"¥{portfolio.initial_capital:,.2f}")
+            table.add_row("Start Date", str(portfolio.backtest_start_date))
+            table.add_row("End Date", str(portfolio.backtest_end_date))
+            table.add_row("Is Live", "Yes" if portfolio.is_live else "No")
+            table.add_row("Description", str(portfolio.description or "No description"))
+
+            console.print(table)
+
+            if details:
+                # TODO: Show portfolio composition
+                console.print("\n:gear: Portfolio Composition:")
+                console.print(":information: Portfolio composition details not yet implemented")
+
+            if performance:
+                # TODO: Show performance metrics
+                console.print("\n:chart_with_upwards_trend: Performance Metrics:")
+                console.print(":information: Performance metrics not yet implemented")
+
+        else:
+            console.print(f":x: Failed to get portfolio: {result.error}")
+            raise typer.Exit(1)
+
     except Exception as e:
-        console.print(f":x: [bold red]Failed to bind component:[/bold red] {e}")
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
 
 
 @app.command()
-def update(
-    portfolio: Annotated[str, typer.Argument(help=":id: Portfolio ID")],
-    name: Annotated[Optional[str], typer.Option("--name", "-n", help=":label: New portfolio name")] = None,
-    description: Annotated[Optional[str], typer.Option("--desc", "-d", help=":memo: New portfolio description")] = None,
-    start_date: Annotated[Optional[str], typer.Option("--start", "-s", help=":calendar: New start date (YYYYMMDD)")] = None,
-    end_date: Annotated[Optional[str], typer.Option("--end", "-e", help=":calendar: New end date (YYYYMMDD)")] = None,
+def status(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
 ):
     """
-    :memo: Update portfolio metadata.
+    :gear: Get portfolio status.
     """
-    from ginkgo.data.operations import get_portfolio, update_portfolio
-    
-    # Verify portfolio exists
-    portfolio_df = get_portfolio(portfolio)
-    if portfolio_df.shape[0] == 0:
-        console.print(f":exclamation: Portfolio [light_coral]{portfolio}[/light_coral] not found.")
-        return
-    
-    # Update fields
-    updates = {}
-    if name:
-        updates['name'] = name
-    if description:
-        updates['desc'] = description
-    if start_date:
-        updates['backtest_start_date'] = start_date
-    if end_date:
-        updates['backtest_end_date'] = end_date
-    
-    if not updates:
-        console.print(":information: No updates specified.")
-        return
-    
+    from ginkgo.data.containers import container
+
+    console.print(f":gear: Getting portfolio {portfolio_id} status...")
+
     try:
-        update_portfolio(portfolio, **updates)
-        console.print(f":white_check_mark: [bold green]Updated portfolio[/bold green] [cyan]{portfolio_df.iloc[0]['name']}[/cyan]")
-        
-        for field, value in updates.items():
-            console.print(f"  {field}: [cyan]{value}[/cyan]")
-            
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.get(portfolio_id=portfolio_id)
+
+        if result.success:
+            portfolio = result.data
+            console.print(f":gear: Portfolio Status: {portfolio.status}")
+            # TODO: Add more detailed status information
+        else:
+            console.print(f":x: Failed to get portfolio status: {result.error}")
+            raise typer.Exit(1)
+
     except Exception as e:
-        console.print(f":x: [bold red]Failed to update portfolio:[/bold red] {e}")
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
 
 
 @app.command()
-def unbind(
-    portfolio: Annotated[Optional[str], typer.Option("--portfolio", "-p", "--p", help=":id: Portfolio ID")] = None,
-    component: Annotated[Optional[str], typer.Option("--component", "-c", "--c", help=":id: Component (file) ID")] = None,
-    force: Annotated[bool, typer.Option("--force", "-f", help=":exclamation: Skip confirmation")] = False,
+def delete(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    confirm: bool = typer.Option(False, "--confirm", help="Confirm deletion"),
 ):
     """
-    :unlink: Unbind a component from a portfolio.
+    :wastebasket: Delete portfolio.
     """
-    from ginkgo.data.operations import (
-        get_portfolio, get_portfolio_file_mappings_page_filtered, delete_portfolio_file_mapping, get_portfolios_page_filtered
-    )
-    
-    # Check portfolio
-    if portfolio is None:
-        portfolios_df = get_portfolios_page_filtered()
-        # 配置列显示
-        columns_config = {
-            "uuid": {"display_name": "Portfolio ID", "style": "dim"},
-            "name": {"display_name": "Name", "style": "cyan"},
-            "backtest_start_date": {"display_name": "Start Date", "style": "dim"},
-            "backtest_end_date": {"display_name": "End Date", "style": "dim"},
-            "update_at": {"display_name": "Update At", "style": "dim"}
-        }
-        
-        display_dataframe(
-            data=portfolios_df,
-            columns_config=columns_config,
-            title=":briefcase: [bold]Available Portfolios:[/bold]",
-            console=console
-        )
-        return
-    
-    portfolio_df = get_portfolio(portfolio)
-    if portfolio_df.shape[0] == 0:
-        console.print(f":exclamation: Portfolio [light_coral]{portfolio}[/light_coral] not found.")
-        portfolios_df = get_portfolios_page_filtered()
-        # 配置列显示
-        columns_config = {
-            "uuid": {"display_name": "Portfolio ID", "style": "dim"},
-            "name": {"display_name": "Name", "style": "cyan"},
-            "backtest_start_date": {"display_name": "Start Date", "style": "dim"},
-            "backtest_end_date": {"display_name": "End Date", "style": "dim"},
-            "update_at": {"display_name": "Update At", "style": "dim"}
-        }
-        
-        display_dataframe(
-            data=portfolios_df,
-            columns_config=columns_config,
-            title=":briefcase: [bold]Available Portfolios:[/bold]",
-            console=console
-        )
-        return
-    
-    # Check component
-    if component is None:
-        mappings_df = get_portfolio_file_mappings_page_filtered(portfolio=portfolio)
-        # 配置列显示
-        bound_components_columns_config = {
-            "uuid": {"display_name": "Mapping ID", "style": "dim"},
-            "name": {"display_name": "Component Name", "style": "cyan"},
-            "type": {"display_name": "Type", "style": "green"},
-            "file_id": {"display_name": "File ID", "style": "dim"},
-            "update_at": {"display_name": "Update At", "style": "dim"}
-        }
-        
-        display_dataframe(
-            data=mappings_df,
-            columns_config=bound_components_columns_config,
-            title=f":link: [bold]Bound Components for Portfolio {portfolio}:[/bold]",
-            console=console
-        )
-        return
-    
-    # Find the mapping
-    mappings_df = get_portfolio_file_mappings_page_filtered(portfolio=portfolio)
-    target_mapping = mappings_df[mappings_df["file_id"] == component]
-    
-    if target_mapping.shape[0] == 0:
-        console.print(f":exclamation: Component [light_coral]{component}[/light_coral] is not bound to portfolio [light_coral]{portfolio}[/light_coral].")
-        mappings_df = get_portfolio_file_mappings_page_filtered(portfolio=portfolio)
-        # 配置列显示
-        bound_components_columns_config = {
-            "uuid": {"display_name": "Mapping ID", "style": "dim"},
-            "name": {"display_name": "Component Name", "style": "cyan"},
-            "type": {"display_name": "Type", "style": "green"},
-            "file_id": {"display_name": "File ID", "style": "dim"},
-            "update_at": {"display_name": "Update At", "style": "dim"}
-        }
-        
-        display_dataframe(
-            data=mappings_df,
-            columns_config=bound_components_columns_config,
-            title=f":link: [bold]Bound Components for Portfolio {portfolio}:[/bold]",
-            console=console
-        )
-        return
-    
-    if target_mapping.shape[0] > 1:
-        console.print(f":warning: [yellow]Multiple bindings found for component[/yellow] [light_coral]{component}[/light_coral]. Auto-removing all {target_mapping.shape[0]} bindings.")
-        
-        # Display all mappings to be removed
-        for idx, mapping in target_mapping.iterrows():
-            console.print(f"  - Mapping ID: [dim]{mapping['uuid']}[/dim] | Name: [cyan]{mapping['name']}[/cyan] | Type: [green]{mapping['type']}[/green]")
-        
-        # Delete all mappings
-        deleted_count = 0
-        for idx, mapping in target_mapping.iterrows():
-            try:
-                delete_portfolio_file_mapping(mapping["uuid"])
-                deleted_count += 1
-            except Exception as e:
-                console.print(f":x: [red]Failed to delete mapping {mapping['uuid']}:[/red] {e}")
-        
-        console.print(f":white_check_mark: [bold green]Successfully removed {deleted_count} duplicate bindings[/bold green] for component [cyan]{component}[/cyan]")
-        return
-    
-    mapping_row = target_mapping.iloc[0]
-    component_name = mapping_row["name"]
-    component_type = mapping_row["type"]
-    
-    if not force:
-        if not Confirm.ask(f":question: Unbind {component_type.value} [cyan]{component_name}[/cyan] from portfolio?", default=True):
-            console.print(":relieved_face: Operation cancelled.")
-            return
-    
+    if not confirm:
+        console.print(":x: Please use --confirm to delete portfolio")
+        raise typer.Exit(1)
+
+    console.print(f":wastebasket: Deleting portfolio: {portfolio_id}")
+
     try:
-        delete_portfolio_file_mapping(mapping_row["uuid"])
-        console.print(f":white_check_mark: [bold green]Successfully unbound[/bold green] [cyan]{component_name}[/cyan] from portfolio [yellow]{portfolio}[/yellow]")
+        from ginkgo.data.containers import container
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.delete(portfolio_id)
+
+        if result.success:
+            console.print(":white_check_mark: Portfolio deleted successfully")
+        else:
+            console.print(f":x: Failed to delete portfolio: {result.error}")
+            raise typer.Exit(1)
+
     except Exception as e:
-        console.print(f":x: [bold red]Failed to unbind component:[/bold red] {e}")
-
-
-
-
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)

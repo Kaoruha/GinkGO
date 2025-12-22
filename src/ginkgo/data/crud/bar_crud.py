@@ -72,9 +72,13 @@ class BarCRUD(BaseCRUD[MBar]):
 
     def _convert_input_item(self, item: Any) -> Optional[MBar]:
         """
-        Hook method: Convert Bar objects to MBar.
+        Hook method: Convert Bar business objects to MBar data models.
+        只处理Bar业务对象，符合架构设计原则。
         """
         if isinstance(item, Bar):
+            # 获取source信息，如果业务对象有设置的话
+            source = getattr(item, '_source', SOURCE_TYPES.TUSHARE)
+
             return MBar(
                 code=item.code,
                 open=item.open,
@@ -85,7 +89,12 @@ class BarCRUD(BaseCRUD[MBar]):
                 amount=item.amount,
                 frequency=item.frequency,
                 timestamp=item.timestamp,
+                source=source,
+                uuid=item.uuid if item.uuid else None
             )
+
+        # 不再支持字典格式，强制使用业务对象
+        self._logger.WARNING(f"Unsupported type for Bar conversion: {type(item)}. Please use Bar business object.")
         return None
 
     def _get_enum_mappings(self) -> Dict[str, Any]:

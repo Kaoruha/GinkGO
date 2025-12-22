@@ -14,9 +14,11 @@ from datetime import datetime
 
 from ginkgo.libs import RichProgress, cache_with_expiration, retry, time_logger
 from ginkgo.libs.data.results import DataSyncResult, DataValidationResult, DataIntegrityCheckResult
-from ginkgo.data import mappers
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
+from ginkgo.trading.entities import StockInfo
+from ginkgo.enums import MARKET_TYPES, CURRENCY_TYPES, SOURCE_TYPES
+from ginkgo.libs import datetime_normalize, GCONF
 
 
 class StockinfoService(BaseService):
@@ -127,17 +129,36 @@ class StockinfoService(BaseService):
 
         self._logger.INFO(f"Processing {len(raw_data)} stock records for sync...")
 
-        # Step 1: Convert all rows to dict format with error tolerance
+        # Step 1: Convert all rows to StockInfo business objects with error tolerance
         for _, row in raw_data.iterrows():
             try:
-                item = mappers.row_to_stockinfo_upsert_dict(row)
-                valid_items.append(item)
+                # Handle delist_date: use default end date if None
+                delist_date = row["delist_date"]
+                if pd.notna(delist_date):
+                    delist_date = datetime_normalize(delist_date)
+                else:
+                    # Use GCONF.DEFAULTEND as default delist date for active stocks
+                    delist_date = datetime_normalize(GCONF.DEFAULTEND)
+
+                # Create StockInfo business object in Service layer
+                stock_info = StockInfo(
+                    code=row["ts_code"],
+                    code_name=row["name"],
+                    industry=row["industry"],
+                    market=MARKET_TYPES.CHINA,
+                    currency=CURRENCY_TYPES.CNY,
+                    list_date=datetime_normalize(row["list_date"]),
+                    delist_date=delist_date
+                )
+                # Store source information as attribute for CRUD layer
+                stock_info._source = SOURCE_TYPES.TUSHARE
+                valid_items.append(stock_info)
             except Exception as e:
-                # Skip this record if mapping fails
+                # Skip this record if object creation fails
                 failed_count += 1
                 code = row.get("ts_code", "Unknown")
                 code_name = row.get("name", "Unknown")
-                error_msg = f"Failed to map stock info for {code}: {e}"
+                error_msg = f"Failed to create StockInfo for {code}: {e}"
                 failed_records.append({"code": code, "code_name": code_name, "error": str(e)})
                 self._logger.ERROR(error_msg)
 
@@ -154,7 +175,7 @@ class StockinfoService(BaseService):
         self._logger.INFO(f"Successfully parsed {len(valid_items)} records, {failed_count} failed mapping")
 
         # Step 2: Check existing records in batch
-        all_codes = [item["code"] for item in valid_items]
+        all_codes = [item.code for item in valid_items]
         try:
             # Get all existing codes in one query
             existing_records = self._crud_repo.find(filters={"code__in": all_codes})
@@ -174,7 +195,7 @@ class StockinfoService(BaseService):
         update_items = []
 
         for item in valid_items:
-            code = item["code"]
+            code = item.code
             if code in existing_codes:
                 update_items.append(item)
             else:
@@ -209,24 +230,45 @@ class StockinfoService(BaseService):
                             failed_records.append({"code": code, "code_name": code_name, "error": str(individual_e)})
                             progress.update(task_new, advance=1)
 
-            # Process update items individually (for now, as modify is needed)
+            # Process update items in batch (remove all + batch add)
             if update_items:
                 task_update = progress.add_task("[blue]Updating Stock Info", total=len(update_items))
-                for item in update_items:
-                    try:
-                        code = item["code"]
-                        code_name = item.get("code_name", "Unknown")
-                        self._crud_repo.modify(filters={"code": code}, updates=item)
-                        success_count += 1
-                        progress.update(task_update, advance=1)
-                        self._logger.DEBUG(f"Successfully updated stock info for {code}")
-                    except Exception as e:
-                        failed_count += 1
-                        code = item.get("code", "Unknown")
-                        code_name = item.get("code_name", "Unknown")
-                        error_msg = f"Failed to update {code}: {e}"
-                        failed_records.append({"code": code, "code_name": code_name, "error": str(e)})
-                        progress.update(task_update, advance=1)
+
+                # Step 1: Remove all existing records in batch
+                codes_to_update = [item.code for item in update_items]
+                try:
+                    self._crud_repo.remove(filters={"code__in": codes_to_update})
+                    self._logger.DEBUG(f"Removed {len(codes_to_update)} existing records for update")
+                except Exception as e:
+                    self._logger.WARN(f"Failed to remove existing records: {e}")
+                    # Fallback to individual removal
+                    for item in update_items:
+                        try:
+                            self._crud_repo.remove(filters={"code": item.code})
+                        except Exception as remove_e:
+                            self._logger.WARN(f"Failed to remove {item.code}: {remove_e}")
+
+                # Step 2: Batch add all update items
+                try:
+                    self._crud_repo.add_batch(update_items)
+                    success_count += len(update_items)
+                    progress.update(task_update, completed=len(update_items))
+                    self._logger.DEBUG(f"Successfully updated {len(update_items)} stock records")
+                except Exception as e:
+                    # Fallback to individual adds if batch fails
+                    self._logger.WARN(f"Batch update failed, falling back to individual updates: {e}")
+                    for item in update_items:
+                        try:
+                            self._crud_repo.add_batch([item])
+                            success_count += 1
+                            progress.update(task_update, advance=1)
+                        except Exception as individual_e:
+                            failed_count += 1
+                            code = item.code
+                            code_name = item.code_name
+                            error_msg = f"Failed to update {code}: {individual_e}"
+                            failed_records.append({"code": code, "code_name": code_name, "error": str(error_msg)})
+                            progress.update(task_update, advance=1)
 
         # Update sync result statistics
         duration = time.time() - start_time
@@ -319,9 +361,9 @@ class StockinfoService(BaseService):
             # Handle pagination and sorting
             query_params = {}
             if limit is not None:
-                query_params['limit'] = limit
+                query_params['page_size'] = limit
             if offset is not None:
-                query_params['offset'] = offset
+                query_params['page'] = offset
             if order_by is not None:
                 query_params['order_by'] = order_by
                 query_params['desc_order'] = desc_order

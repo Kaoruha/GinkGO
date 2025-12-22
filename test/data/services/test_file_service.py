@@ -977,8 +977,9 @@ class TestFileServiceInitializationIdempotency:
 
         file_service = container.file_service()
 
-        # 记录运行时间
+        # 记录运行时间和文件处理数量
         run_times = []
+        processed_counts = []
 
         for run_num in range(3):  # 运行3次
             start_time = time.time()
@@ -992,6 +993,7 @@ class TestFileServiceInitializationIdempotency:
 
             processed = result.data.get('total_files_processed', 0)
             added = result.data.get('total_files_added', 0)
+            processed_counts.append(processed)
 
             print(f"Run {run_num + 1}: {run_time:.2f}s, {processed} processed, {added} added")
 
@@ -1003,9 +1005,9 @@ class TestFileServiceInitializationIdempotency:
         assert max_time <= avg_time * 2, f"Performance too variable: max {max_time:.2f}s vs avg {avg_time:.2f}s"
 
         # 验证每次都能处理相同数量的文件
-        for i in range(len(run_times) - 1):
-            current_processed = run_times[i]
-            next_processed = run_times[i + 1]
+        for i in range(len(processed_counts) - 1):
+            current_processed = processed_counts[i]
+            next_processed = processed_counts[i + 1]
             # 处理的文件数量应该相同
             assert abs(current_processed - next_processed) <= 1, "File count should be consistent"
 

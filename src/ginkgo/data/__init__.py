@@ -5,6 +5,28 @@ This module is the main, simplified entry point to the data layer.
 It leverages a Dependency Injection Container for managing services and their dependencies.
 
 V6 updates: Added price adjustment support with new convenience APIs
+
+⚠️ DEPRECATION NOTICE:
+Most functions in this module are deprecated and will be removed in future versions.
+Please use the service APIs directly via the container:
+
+    # Old way (deprecated):
+    from ginkgo.data import get_bars
+    result = get_bars(code="000001.SZ", start_date="20230101", end_date="20231231")
+
+    # New way (recommended):
+    from ginkgo.data.containers import container
+    result = container.bar_service().get(code="000001.SZ", start_date="20230101", end_date="20231231")
+
+Available services:
+- container.bar_service()
+- container.tick_service()
+- container.stockinfo_service()
+- container.adjustfactor_service()
+- container.file_service()
+- container.engine_service()
+- container.portfolio_service()
+- container.component_service()
 """
 
 import inspect
@@ -19,7 +41,9 @@ from ginkgo.data import seeding
 from ginkgo.data.utils import get_crud  # get_crud is still needed for direct CRUD access in getters
 
 from ginkgo.libs import time_logger, retry, skip_if_ran, GLOG
-from ginkgo.enums import ADJUSTMENT_TYPES
+from ginkgo.enums import ADJUSTMENT_TYPES, FREQUENCY_TYPES
+import pandas as pd
+from datetime import datetime
 
 # --- Public API Functions ---
 
@@ -28,7 +52,7 @@ from ginkgo.enums import ADJUSTMENT_TYPES
 @time_logger
 def fetch_and_update_adjustfactor(code: str, fast_mode: bool = True, *args, **kwargs):
     """Public API: Synchronizes adjustment factors for a stock code."""
-    container.adjustfactor_service().sync_for_code(code, fast_mode)
+    container.adjustfactor_service().sync(code, fast_mode=fast_mode)
 
 
 @retry
@@ -47,7 +71,7 @@ def calc_adjust_factors(code: str, *args, **kwargs):
     Returns:
         Dict containing calculation results with statistics and status
     """
-    return container.adjustfactor_service().recalculate_adjust_factors_for_code(code, *args, **kwargs)
+    return container.adjustfactor_service().calculate(code, *args, **kwargs)
 
 
 @retry
@@ -66,7 +90,7 @@ def recalculate_adjust_factors_for_code(code: str, *args, **kwargs):
     Returns:
         Dict containing calculation results with success status and statistics
     """
-    return container.adjustfactor_service().recalculate_adjust_factors_for_code(code, *args, **kwargs)
+    return container.adjustfactor_service().calculate(code, *args, **kwargs)
 
 
 @retry
@@ -91,7 +115,7 @@ def fetch_and_update_tradeday(*args, **kwargs):
 @time_logger
 def fetch_and_update_cn_daybar(code: str, fast_mode: bool = True, *args, **kwargs):
     """Public API: Synchronizes daily bar data for a stock code."""
-    container.bar_service().sync_for_code(code, fast_mode)
+    container.bar_service().sync_smart(code, fast_mode=fast_mode)
 
 
 @retry
@@ -106,7 +130,7 @@ def fetch_and_update_cn_daybar_with_date_range(code: str, start_date=None, end_d
     if isinstance(end_date, str):
         end_date = datetime.strptime(end_date, "%Y%m%d")
 
-    return container.bar_service().sync_for_code_with_date_range(code, start_date, end_date)
+    return container.bar_service().sync_range(code, start_date, end_date, frequency=FREQUENCY_TYPES.DAY)
 
 
 @retry
@@ -126,16 +150,63 @@ def fetch_and_update_cn_daybar_batch_with_date_range(codes: list, start_date=Non
 
 @retry
 @time_logger
-def fetch_and_update_tick(code: str, fast_mode: bool = False, max_backtrack_days: int = 0, *args, **kwargs):
+def fetch_and_update_tick(code: str, fast_mode: bool = False, *args, **kwargs):
     """Public API: Synchronizes tick data for a stock code."""
-    container.tick_service().sync_for_code(code, fast_mode, max_backtrack_days)
+    container.tick_service().sync_smart(code)
 
 
 @retry
 @time_logger
-def fetch_and_update_tick_on_date(code: str, date, fast_mode: bool = False, *args, **kwargs):
-    """Public API: Synchronizes tick data for a stock code on a specific date."""
-    return container.tick_service().sync_for_code_on_date(code, date, fast_mode)
+def fetch_and_update_tick_incremental(code: str, *args, **kwargs):
+    """增量同步：从数据库最新日期开始同步到当下"""
+    return container.tick_service().sync_smart(code)
+
+
+@retry
+@time_logger
+def fetch_and_update_tick_full(code: str, force_overwrite: bool = False, *args, **kwargs):
+    """全量同步：从当前日期开始逐日回溯检查和同步
+
+    已移动到TickService.sync_backfill_by_date()，这里保持向后兼容
+    """
+    return container.tick_service().sync_backfill_by_date(code=code, force_overwrite=force_overwrite)
+
+
+@retry
+@time_logger
+def fetch_and_update_tick_all(*args, **kwargs):
+    """全代码同步：同步所有股票的tick数据
+
+    已迁移到KafkaService.send_tick_all_signal()，这里保持向后兼容
+    建议使用container.kafka_service().send_tick_all_signal(full=False, force=False)
+    """
+    from ginkgo.data.containers import container
+
+    stockinfo_service = container.stockinfo_service()
+    stock_result = stockinfo_service.get()
+
+    if not stock_result.success or not stock_result.data:
+        raise Exception("Failed to get stock list")
+
+    success_count = 0
+    error_count = 0
+
+    for stock in stock_result.data:
+        try:
+            result = fetch_and_update_tick_incremental(stock.code)
+            if result:
+                success_count += 1
+            else:
+                error_count += 1
+        except Exception as e:
+            error_count += 1
+            print(f"Error syncing {stock.code}: {e}")
+
+    return {
+        "total": len(stock_result.data),
+        "success": success_count,
+        "error": error_count
+    }
 
 
 @time_logger
@@ -149,23 +220,40 @@ def init_example_data(*args, **kwargs):
 
 
 def get_adjustfactors(*args, **kwargs):
-    """Get adjustment factors using AdjustfactorService with caching."""
+    """Get adjustment factors using AdjustfactorService with caching.
+
+    ⚠️ DEPRECATED: This function is deprecated. Use container.adjustfactor_service().get_adjustfactors() instead.
+    """
+    import warnings
+    warnings.warn(
+        "ginkgo.data.get_adjustfactors() is deprecated. Use container.adjustfactor_service().get_adjustfactors() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return container.adjustfactor_service().get_adjustfactors(*args, **kwargs)
 
 
-def get_bars(*args, **kwargs):
-    """Get bar data using BarService with caching."""
-    return container.bar_service().get_bars(*args, **kwargs)
 
 
 def get_ticks(*args, **kwargs):
-    """Get tick data using TickService with caching."""
-    return container.tick_service().get_ticks(*args, **kwargs)
+    """Get tick data using TickService with caching.
+
+    ⚠️ DEPRECATED: This function is deprecated. Use container.tick_service().get(*args, **kwargs) instead.
+    """
+    import warnings
+    warnings.warn(
+        "ginkgo.data.get_ticks() is deprecated. Use container.tick_service().get(*args, **kwargs) instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return container.tick_service().get(*args, **kwargs)
 
 
 def get_bars_adjusted(code: str, adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE, *args, **kwargs):
     """
     Get price-adjusted bar data (convenience method).
+
+    ⚠️ DEPRECATED: This function is deprecated. Use container.bar_service().get_bars_adjusted() instead.
 
     Args:
         code: Stock code (required for adjustment)
@@ -175,12 +263,20 @@ def get_bars_adjusted(code: str, adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_
     Returns:
         Price-adjusted bar data as DataFrame or list of models
     """
+    import warnings
+    warnings.warn(
+        "ginkgo.data.get_bars_adjusted() is deprecated. Use container.bar_service().get_bars_adjusted() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return container.bar_service().get_bars_adjusted(code, adjustment_type, *args, **kwargs)
 
 
 def get_ticks_adjusted(code: str, adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT_TYPES.FORE, *args, **kwargs):
     """
     Get price-adjusted tick data (convenience method).
+
+    ⚠️ DEPRECATED: This function is deprecated. Use container.tick_service().get_ticks_adjusted() instead.
 
     Args:
         code: Stock code (required for adjustment)
@@ -190,6 +286,12 @@ def get_ticks_adjusted(code: str, adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT
     Returns:
         Price-adjusted tick data as DataFrame or list of models
     """
+    import warnings
+    warnings.warn(
+        "ginkgo.data.get_ticks_adjusted() is deprecated. Use container.tick_service().get_ticks_adjusted() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return container.tick_service().get_ticks_adjusted(code, adjustment_type, *args, **kwargs)
 
 
@@ -197,7 +299,16 @@ def get_ticks_adjusted(code: str, adjustment_type: ADJUSTMENT_TYPES = ADJUSTMENT
 
 
 def get_stockinfos(*args, **kwargs):
-    return container.stockinfo_service().get_stockinfos(*args, **kwargs)
+    """
+    ⚠️ DEPRECATED: This function is deprecated. Use container.stockinfo_service().get(*args, **kwargs) instead.
+    """
+    import warnings
+    warnings.warn(
+        "ginkgo.data.get_stockinfos() is deprecated. Use container.stockinfo_service().get(*args, **kwargs) instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return container.stockinfo_service().get(*args, **kwargs)
 
 
 def get_stockinfo_codes_set():

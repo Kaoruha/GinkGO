@@ -53,6 +53,8 @@ from ginkgo.data.services.kafka_service import KafkaService
 from ginkgo.data.services.signal_tracking_service import SignalTrackingService
 from ginkgo.data.services.factor_service import FactorService
 from ginkgo.data.services.param_service import ParamService
+from ginkgo.data.services.mapping_service import MappingService
+from ginkgo.data.services.parameter_metadata_service import ParameterMetadataService
 
 
 class Container(containers.DeclarativeContainer):
@@ -85,6 +87,7 @@ class Container(containers.DeclarativeContainer):
     engine_portfolio_mapping_crud = providers.Singleton(get_crud, "engine_portfolio_mapping")
     portfolio_file_mapping_crud = providers.Singleton(get_crud, "portfolio_file_mapping")
     param_crud = providers.Singleton(get_crud, "param")
+    engine_handler_mapping_crud = providers.Singleton(get_crud, "engine_handler_mapping")
     redis_crud = providers.Singleton(get_crud, "redis")
     kafka_crud = providers.Singleton(get_crud, "kafka")
     factor_crud = providers.Singleton(get_crud, "factor")
@@ -110,13 +113,12 @@ class Container(containers.DeclarativeContainer):
         adjustfactor_service=adjustfactor_service  # 添加缺失的adjustfactor_service依赖
     )
 
-    # TickService requires special handling because TickCRUD needs a code parameter
-    # Pass TickCRUD class directly, service will use it as factory: self._crud_repo(code).function()
+    # TickService with TickCRUD instance
     tick_service = providers.Singleton(
         TickService,
         data_source=ginkgo_tdx_source,
         stockinfo_service=stockinfo_service,
-        crud_repo=TickCRUD
+        crud_repo=TickCRUD()
     )
 
     file_service = providers.Singleton(FileService, crud_repo=file_crud)
@@ -131,7 +133,18 @@ class Container(containers.DeclarativeContainer):
         portfolio_file_mapping_crud=portfolio_file_mapping_crud,
     )
 
-    
+    # Mapping Service for managing all mapping relationships
+    mapping_service = providers.Singleton(
+        MappingService,
+        engine_portfolio_mapping_crud=engine_portfolio_mapping_crud,
+        portfolio_file_mapping_crud=portfolio_file_mapping_crud,
+        engine_handler_mapping_crud=engine_handler_mapping_crud,
+        param_crud=param_crud,
+    )
+
+    # Parameter Metadata Service for parameter name mapping
+    parameter_metadata_service = providers.Singleton(ParameterMetadataService)
+
     redis_service = providers.Singleton(RedisService, redis_crud=redis_crud)
 
     kafka_service = providers.Singleton(KafkaService, kafka_crud=kafka_crud)
@@ -151,6 +164,16 @@ class Container(containers.DeclarativeContainer):
     # Param service with ParamCRUD dependency
     param_service = providers.Singleton(
         ParamService
+    )
+
+  
+    # Mapping service with all mapping CRUD dependencies
+    mapping_service = providers.Singleton(
+        MappingService,
+        engine_portfolio_mapping_crud=engine_portfolio_mapping_crud,
+        portfolio_file_mapping_crud=portfolio_file_mapping_crud,
+        engine_handler_mapping_crud=engine_handler_mapping_crud,
+        param_crud=param_crud
     )
 
 

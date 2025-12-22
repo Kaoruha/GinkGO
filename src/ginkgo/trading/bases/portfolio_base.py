@@ -395,9 +395,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             selector.bind_portfolio(self)
 
         # 分析器组件（支持多个）
-        for analyzer in self._analyzers.values():
-            analyzer.bind_engine(engine)
-            analyzer.bind_portfolio(self)
+        # Analyzer不需要绑定到Portfolio，直接存储即可
+        # Analyzer通过Portfolio的事件钩子机制工作，不需要显式绑定
 
     def set_time_provider(self, time_provider) -> None:
         """

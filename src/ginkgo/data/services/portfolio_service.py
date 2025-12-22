@@ -36,8 +36,6 @@ class PortfolioService(BaseService):
     def add(
         self,
         name: str,
-        backtest_start_date: str,
-        backtest_end_date: str,
         is_live: bool = False,
         description: str = None,
         **kwargs
@@ -47,8 +45,6 @@ class PortfolioService(BaseService):
 
         Args:
             name: 投资组合名称
-            backtest_start_date: 回测开始日期 (YYYY-MM-DD)
-            backtest_end_date: 回测结束日期 (YYYY-MM-DD)
             is_live: 是否为实盘交易组合
             description: 可选描述
 
@@ -63,9 +59,6 @@ class PortfolioService(BaseService):
             if len(name) > 100:  # 合理的名称长度限制
                 name = name[:100]
 
-            if not backtest_start_date or not backtest_end_date:
-                return ServiceResult.error("回测开始和结束日期是必需的")
-
             # 检查投资组合名称是否已存在
             try:
                 exists_result = self.exists(name=name)
@@ -78,8 +71,6 @@ class PortfolioService(BaseService):
             with self._crud_repo.get_session() as session:
                 portfolio_record = self._crud_repo.create(
                     name=name,
-                    backtest_start_date=backtest_start_date,
-                    backtest_end_date=backtest_end_date,
                     is_live=is_live,
                     desc=description or f"{'Live' if is_live else 'Backtest'} portfolio: {name}",
                     session=session,
@@ -88,8 +79,6 @@ class PortfolioService(BaseService):
                 portfolio_info = {
                     "uuid": portfolio_record.uuid,
                     "name": portfolio_record.name,
-                    "backtest_start_date": portfolio_record.backtest_start_date,
-                    "backtest_end_date": portfolio_record.backtest_end_date,
                     "is_live": portfolio_record.is_live,
                     "desc": portfolio_record.desc,
                 }
@@ -111,8 +100,6 @@ class PortfolioService(BaseService):
         self,
         portfolio_id: str,
         name: str = None,
-        backtest_start_date: str = None,
-        backtest_end_date: str = None,
         is_live: bool = None,
         description: str = None,
         **kwargs
@@ -123,8 +110,6 @@ class PortfolioService(BaseService):
         Args:
             portfolio_id: 投资组合UUID标识符
             name: 新的投资组合名称（可选）
-            backtest_start_date: 新的回测开始日期（可选）
-            backtest_end_date: 新的回测结束日期（可选）
             is_live: 新的实盘状态（可选）
             description: 新的描述信息（可选）
 
@@ -148,14 +133,7 @@ class PortfolioService(BaseService):
             updates["name"] = name
             updates_applied.append("name")
 
-        if backtest_start_date is not None:
-            updates["backtest_start_date"] = backtest_start_date
-            updates_applied.append("backtest_start_date")
-
-        if backtest_end_date is not None:
-            updates["backtest_end_date"] = backtest_end_date
-            updates_applied.append("backtest_end_date")
-
+        
         if is_live is not None:
             updates["is_live"] = is_live
             updates_applied.append("is_live")
@@ -604,7 +582,7 @@ class PortfolioService(BaseService):
                 return ServiceResult.error("数据必须是字典格式")
 
             # 必填字段验证
-            required_fields = ['name', 'backtest_start_date', 'backtest_end_date']
+            required_fields = ['name']
             missing_fields = [field for field in required_fields if not portfolio_data.get(field)]
 
             if missing_fields:
@@ -623,19 +601,6 @@ class PortfolioService(BaseService):
 
             if len(name) > 100:
                 return ServiceResult.error("投资组合名称不能超过100个字符")
-
-            # 日期格式验证
-            try:
-                from datetime import datetime
-                start_date = datetime.strptime(portfolio_data['backtest_start_date'], '%Y-%m-%d')
-                end_date = datetime.strptime(portfolio_data['backtest_end_date'], '%Y-%m-%d')
-
-                # 日期逻辑验证
-                if start_date >= end_date:
-                    return ServiceResult.error("回测开始日期不能晚于或等于结束日期")
-
-            except ValueError:
-                return ServiceResult.error("日期格式不正确，应为YYYY-MM-DD")
 
             # 布尔值验证
             if 'is_live' in portfolio_data and not isinstance(portfolio_data['is_live'], bool):
@@ -687,20 +652,6 @@ class PortfolioService(BaseService):
 
                 if not portfolio.name:
                     portfolio_issues.append("缺少投资组合名称")
-                if not portfolio.backtest_start_date:
-                    portfolio_issues.append("缺少回测开始日期")
-                if not portfolio.backtest_end_date:
-                    portfolio_issues.append("缺少回测结束日期")
-
-                # 检查日期逻辑
-                if portfolio.backtest_start_date and portfolio.backtest_end_date:
-                    try:
-                        start_date = datetime.strptime(portfolio.backtest_start_date, '%Y-%m-%d')
-                        end_date = datetime.strptime(portfolio.backtest_end_date, '%Y-%m-%d')
-                        if start_date >= end_date:
-                            portfolio_issues.append("回测开始日期不能晚于或等于结束日期")
-                    except ValueError:
-                        portfolio_issues.append("日期格式不正确")
 
                 if portfolio_issues:
                     issues.append({

@@ -1126,8 +1126,6 @@ class BaseCRUD(Generic[T], ABC):
                     # 🎯 Validate enum fields for converted items
                     validated_item = self._validate_item_enum_fields(converted_item)
                     converted.append(validated_item)
-                else:
-                    GLOG.DEBUG(f"Cannot convert item {type(item)} to {self.model_class.__name__}")
         return converted
 
     def _convert_input_item(self, item: Any) -> Optional[T]:
