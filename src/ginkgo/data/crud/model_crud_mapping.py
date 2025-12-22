@@ -120,7 +120,7 @@ class MappingDevelopmentTools:
                     missing.append(model.__name__)
 
             if missing:
-                GLOG.WARNING(f"❌ 缺少注册的Model: {missing}")
+                GLOG.WARN(f"❌ 缺少注册的Model: {missing}")
             else:
                 GLOG.INFO("✅ 所有Model都已注册")
 

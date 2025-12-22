@@ -27,7 +27,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
     def _get_field_config(self) -> dict:
         """
         定义 Signal 数据的字段配置 - 所有字段都是必填的
-        
+
         Returns:
             dict: 字段配置字典
         """
@@ -37,35 +37,41 @@ class SignalCRUD(BaseCRUD[MSignal]):
                 'type': 'string',
                 'min': 1
             },
-            
+
             # 引擎ID - 非空字符串
             'engine_id': {
-                'type': 'string', 
+                'type': 'string',
                 'min': 1
             },
-            
+
+            # 运行会话ID - 非空字符串
+            'run_id': {
+                'type': 'string',
+                'min': 1
+            },
+
             # 股票代码 - 非空字符串
             'code': {
                 'type': 'string',
                 'min': 1
             },
-            
+
             # 交易方向 - 枚举值
             'direction': {
                 'type': 'DIRECTION_TYPES',  # 使用枚举类型名称
             },
-            
+
             # 时间戳 - datetime 或字符串
             'timestamp': {
                 'type': ['datetime', 'string']
             },
-            
+
             # 原因 - 可选字符串
             'reason': {
                 'type': 'string',
                 'min': 0  # 允许空字符串
             },
-            
+
             # 数据源 - 枚举值
             'source': {
                 'type': 'SOURCE_TYPES',  # 使用枚举类型名称
@@ -103,6 +109,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
         return MSignal(
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
+            run_id=kwargs.get("run_id", ""),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
             code=kwargs.get("code"),
             direction=direction_value,
@@ -119,6 +126,7 @@ class SignalCRUD(BaseCRUD[MSignal]):
             return MSignal(
                 portfolio_id=item.portfolio_id,
                 engine_id=item.engine_id,
+                run_id=item.run_id,
                 timestamp=item.timestamp,
                 code=item.code,
                 direction=DIRECTION_TYPES.validate_input(item.direction),

@@ -211,7 +211,7 @@ class StreamingCache:
                 # 检查内存限制
                 if self._would_exceed_memory_limit(data_size):
                     if not self._make_space(data_size):
-                        GLOG.WARNING(f"Cannot cache data: would exceed memory limit")
+                        GLOG.WARN(f"Cannot cache data: would exceed memory limit")
                         return False
 
                 # 检查条目数量限制

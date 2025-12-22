@@ -277,7 +277,7 @@ class ClickHouseStreamingEngine(BaseStreamingEngine):
                 GLOG.DEBUG("ClickHouse streaming cursor cleaned up successfully")
 
         except Exception as e:
-            GLOG.WARNING(f"Error cleaning up ClickHouse cursor: {e}")
+            GLOG.WARN(f"Error cleaning up ClickHouse cursor: {e}")
 
     def _adjust_batch_size_for_columnar(self) -> int:
         """
@@ -318,7 +318,7 @@ class ClickHouseStreamingEngine(BaseStreamingEngine):
             return self._current_batch_size
 
         except Exception as e:
-            GLOG.WARNING(f"Failed to adjust ClickHouse batch size: {e}")
+            GLOG.WARN(f"Failed to adjust ClickHouse batch size: {e}")
             return self._current_batch_size
 
     def _optimize_batch_for_columnar(self, batch: List[Any]) -> List[Any]:
@@ -349,7 +349,7 @@ class ClickHouseStreamingEngine(BaseStreamingEngine):
             return batch
 
         except Exception as e:
-            GLOG.WARNING(f"Failed to optimize batch for columnar storage: {e}")
+            GLOG.WARN(f"Failed to optimize batch for columnar storage: {e}")
             return batch
 
     def _check_memory_usage(self) -> None:
@@ -366,13 +366,13 @@ class ClickHouseStreamingEngine(BaseStreamingEngine):
             warning_threshold = self.config.monitoring.memory_warning_threshold * 0.8
 
             if memory_info.percent > warning_threshold:
-                GLOG.WARNING(
+                GLOG.WARN(
                     f"High memory usage detected for ClickHouse: {memory_info.percent:.1f}% "
                     f"({memory_mb:.1f}MB used)"
                 )
 
         except Exception as e:
-            GLOG.WARNING(f"Failed to check ClickHouse memory usage: {e}")
+            GLOG.WARN(f"Failed to check ClickHouse memory usage: {e}")
 
     def _pre_query_setup(self) -> None:
         """ClickHouse查询前设置"""
@@ -386,7 +386,7 @@ class ClickHouseStreamingEngine(BaseStreamingEngine):
             self._optimize_clickhouse_session()
 
         except Exception as e:
-            GLOG.WARNING(f"ClickHouse pre-query setup failed: {e}")
+            GLOG.WARN(f"ClickHouse pre-query setup failed: {e}")
 
     def _check_clickhouse_capabilities(self) -> None:
         """检查ClickHouse版本和流式查询支持"""
@@ -422,7 +422,7 @@ class ClickHouseStreamingEngine(BaseStreamingEngine):
                     self._shard_awareness = (cluster_result[0] > 0) if cluster_result else False
 
         except Exception as e:
-            GLOG.WARNING(f"Failed to check ClickHouse capabilities: {e}")
+            GLOG.WARN(f"Failed to check ClickHouse capabilities: {e}")
             self._clickhouse_version = "Unknown"
             self._supports_streaming = True
             self._shard_awareness = False
@@ -471,7 +471,7 @@ class ClickHouseStreamingEngine(BaseStreamingEngine):
             GLOG.DEBUG("ClickHouse session optimizations applied")
 
         except Exception as e:
-            GLOG.WARNING(f"Failed to optimize ClickHouse session: {e}")
+            GLOG.WARN(f"Failed to optimize ClickHouse session: {e}")
 
     @contextmanager
     def streaming_transaction(self):

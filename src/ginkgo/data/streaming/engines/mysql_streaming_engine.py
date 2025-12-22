@@ -210,7 +210,7 @@ class MySQLStreamingEngine(BaseStreamingEngine):
                 GLOG.DEBUG("MySQL streaming cursor cleaned up successfully")
 
         except Exception as e:
-            GLOG.WARNING(f"Error cleaning up MySQL cursor: {e}")
+            GLOG.WARN(f"Error cleaning up MySQL cursor: {e}")
 
     def _adjust_batch_size(self) -> int:
         """
@@ -242,7 +242,7 @@ class MySQLStreamingEngine(BaseStreamingEngine):
             return self._current_batch_size
 
         except Exception as e:
-            GLOG.WARNING(f"Failed to adjust batch size: {e}")
+            GLOG.WARN(f"Failed to adjust batch size: {e}")
             return self._current_batch_size
 
     def _check_memory_usage(self) -> None:
@@ -257,10 +257,10 @@ class MySQLStreamingEngine(BaseStreamingEngine):
 
             # 内存告警
             if memory_info.percent > self.config.monitoring.memory_warning_threshold:
-                GLOG.WARNING(f"High memory usage detected: {memory_info.percent:.1f}% " f"({memory_mb:.1f}MB used)")
+                GLOG.WARN(f"High memory usage detected: {memory_info.percent:.1f}% " f"({memory_mb:.1f}MB used)")
 
         except Exception as e:
-            GLOG.WARNING(f"Failed to check memory usage: {e}")
+            GLOG.WARN(f"Failed to check memory usage: {e}")
 
     def _pre_query_setup(self) -> None:
         """MySQL查询前设置"""
@@ -274,7 +274,7 @@ class MySQLStreamingEngine(BaseStreamingEngine):
             self._optimize_mysql_session()
 
         except Exception as e:
-            GLOG.WARNING(f"MySQL pre-query setup failed: {e}")
+            GLOG.WARN(f"MySQL pre-query setup failed: {e}")
 
     def _check_mysql_capabilities(self) -> None:
         """检查MySQL版本和流式查询支持"""
@@ -304,10 +304,10 @@ class MySQLStreamingEngine(BaseStreamingEngine):
                 self._supports_streaming = major_version >= 5
 
                 if not self._supports_streaming:
-                    GLOG.WARNING(f"MySQL version {self._mysql_version} may not fully support streaming")
+                    GLOG.WARN(f"MySQL version {self._mysql_version} may not fully support streaming")
 
         except Exception as e:
-            GLOG.WARNING(f"Failed to check MySQL capabilities: {e}")
+            GLOG.WARN(f"Failed to check MySQL capabilities: {e}")
             self._mysql_version = "Unknown"
             self._supports_streaming = True  # 假设支持
 
@@ -348,7 +348,7 @@ class MySQLStreamingEngine(BaseStreamingEngine):
             GLOG.DEBUG("MySQL session optimizations applied")
 
         except Exception as e:
-            GLOG.WARNING(f"Failed to optimize MySQL session: {e}")
+            GLOG.WARN(f"Failed to optimize MySQL session: {e}")
 
     @contextmanager
     def streaming_transaction(self):

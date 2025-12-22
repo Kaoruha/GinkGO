@@ -279,7 +279,7 @@ class XGBoostModel(IModel):
         required_params = ['objective']
         for param in required_params:
             if param not in self._hyperparameters:
-                GLOG.WARNING(f"缺少必需参数: {param}")
+                GLOG.WARN(f"缺少必需参数: {param}")
                 return False
         
         # 检查GPU相关配置
@@ -289,7 +289,7 @@ class XGBoostModel(IModel):
                 xgb.DMatrix(np.random.random((10, 5)))
                 GLOG.INFO("GPU配置验证通过")
             except Exception as e:
-                GLOG.WARNING(f"GPU配置可能有问题: {e}")
+                GLOG.WARN(f"GPU配置可能有问题: {e}")
                 return False
         
         return True

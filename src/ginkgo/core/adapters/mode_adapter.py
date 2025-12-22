@@ -94,7 +94,7 @@ class ModeAdapter(BaseAdapter):
             try:
                 return strategy.cal_vectorized(data)
             except Exception as e:
-                GLOG.WARNING(f"策略 {strategy.name} 向量化计算失败，使用逐行适配: {e}")
+                GLOG.WARN(f"策略 {strategy.name} 向量化计算失败，使用逐行适配: {e}")
         
         # 逐行模拟事件驱动
         signal_matrix = pd.DataFrame(0.0, index=close_data.index, columns=close_data.columns)

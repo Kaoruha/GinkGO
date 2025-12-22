@@ -58,7 +58,7 @@ class PredictionStrategy(MLBaseStrategy):
         """
         try:
             if len(data) < self.prediction_horizon + 20:
-                GLOG.WARNING("数据长度不足以创建训练集")
+                GLOG.WARN("数据长度不足以创建训练集")
                 return pd.DataFrame(), pd.DataFrame()
             
             # 计算未来收益率作为目标变量
@@ -71,7 +71,7 @@ class PredictionStrategy(MLBaseStrategy):
             valid_data = data.dropna()
             
             if len(valid_data) < 50:
-                GLOG.WARNING("有效训练数据不足")
+                GLOG.WARN("有效训练数据不足")
                 return pd.DataFrame(), pd.DataFrame()
             
             # 排除目标变量和非特征列
@@ -201,7 +201,7 @@ class PredictionStrategy(MLBaseStrategy):
             return np.clip(base_confidence, 0.0, 1.0)
             
         except Exception as e:
-            GLOG.WARNING(f"置信度计算失败: {e}")
+            GLOG.WARN(f"置信度计算失败: {e}")
             return 0.5  # 默认置信度
     
     def _calculate_position_size(self, 
@@ -235,7 +235,7 @@ class PredictionStrategy(MLBaseStrategy):
             return max(0.001, min(adjusted_size, self.max_position_size))
             
         except Exception as e:
-            GLOG.WARNING(f"头寸大小计算失败: {e}")
+            GLOG.WARN(f"头寸大小计算失败: {e}")
             return 0.01  # 默认小头寸
     
     def _calculate_risk_multiplier(self, portfolio_info: Any) -> float:
@@ -274,7 +274,7 @@ class PredictionStrategy(MLBaseStrategy):
             return np.clip(risk_multiplier, 0.1, 2.0)
             
         except Exception as e:
-            GLOG.WARNING(f"风险乘数计算失败: {e}")
+            GLOG.WARN(f"风险乘数计算失败: {e}")
             return 1.0
     
     def update_prediction_accuracy(self, actual_returns: pd.Series) -> None:
@@ -346,7 +346,7 @@ class PredictionStrategy(MLBaseStrategy):
             GLOG.INFO(f"策略性能更新 - 方向准确率: {direction_accuracy:.3f}, IC: {ic:.3f}, MAE: {mae:.4f}")
             
         except Exception as e:
-            GLOG.WARNING(f"性能指标更新失败: {e}")
+            GLOG.WARN(f"性能指标更新失败: {e}")
     
     def get_strategy_summary(self) -> Dict[str, Any]:
         """获取策略摘要"""

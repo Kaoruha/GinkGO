@@ -351,7 +351,7 @@ class AdjustfactorCRUD(BaseCRUD[MAdjustfactor]):
                         else:
                             updated_data[field] = new_value
                     else:
-                        GLOG.WARNING(f"Field {field} not found in MAdjustfactor model")
+                        GLOG.WARN(f"Field {field} not found in MAdjustfactor model")
 
                 # Convert to MAdjustfactor object
                 updated_record = self._create_from_params(**updated_data)
