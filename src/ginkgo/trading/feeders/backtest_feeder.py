@@ -254,6 +254,9 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
             # 转换ModelList → 业务对象列表
             bar_entities = result.data.to_entities()
 
+            # 🔍 [DEBUG] 检查返回的Bar数量
+            print(f"🔍 [BAR COUNT] {code}: Found {len(bar_entities)} bars for {target_time.date()}")
+
             # 转换第一个Bar实体
             bar = bar_entities[0] if bar_entities else None
             if bar is None:
