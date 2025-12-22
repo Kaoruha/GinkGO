@@ -72,24 +72,30 @@ class IdentityUtils:
     @staticmethod
     def generate_run_id(engine_id: str, sequence: int = 1) -> str:
         """
-        生成运行ID
-        
+        生成运行ID（限制32字符以内）
+
         基于引擎ID和序列号生成唯一的运行ID，支持同一引擎
         的多次执行。
-        
+
         Args:
             engine_id (str): 引擎ID
             sequence (int): 执行序列号，默认从1开始
-            
+
         Returns:
-            str: 格式为 {engine_id}_run_{timestamp}_{sequence:03d}
-            
+            str: 紧凑格式，确保不超过32字符
+
         Examples:
             >>> IdentityUtils.generate_run_id("engine_abc_123", 1)
-            'engine_abc_123_run_20240101_120000_001'
+            'eng_abc_123_r240101_1200_001'
         """
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        return f"{engine_id}_run_{timestamp}_{sequence:03d}"
+        # 紧凑时间戳格式：YYMMDD_HHMM
+        timestamp = datetime.now().strftime('%y%m%d_%H%M')
+        # 截断 engine_id 到 15 字符，保留唯一性部分
+        engine_short = engine_id[:15]
+        # 使用简短分隔符：_r_ 代替 _run_
+        run_id = f"{engine_short}_r_{timestamp}_{sequence:03d}"
+        # 确保不超过32字符
+        return run_id[:32]
     
     @staticmethod
     def parse_run_id(run_id: str) -> Dict[str, Any]:
