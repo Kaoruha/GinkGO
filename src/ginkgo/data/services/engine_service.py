@@ -13,6 +13,7 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.libs import cache_with_expiration, retry, time_logger, GLOG
+from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.enums import ENGINESTATUS_TYPES, SOURCE_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 
@@ -32,6 +33,8 @@ class EngineService(BaseService):
             engine_portfolio_mapping_crud=engine_portfolio_mapping_crud,
             param_crud=param_crud
         )
+        # Store mapping repo for easier access
+        self._mapping_repo = engine_portfolio_mapping_crud
 
     # Standard interface methods
     @time_logger
@@ -234,14 +237,26 @@ class EngineService(BaseService):
             if self._crud_repo.exists(filters={'name': engine_name, 'is_del': False}):
                 return ServiceResult.error(f"引擎名称 '{engine_name}' 已存在")
 
-            # 创建引擎记录
-            engine_record = self._crud_repo.create(
-                name=engine_name,
-                is_live=is_live,
-                status=ENGINESTATUS_TYPES.IDLE,
-                desc=description or f"{'实盘' if is_live else '回测'}引擎: {engine_name}",
-                source=SOURCE_TYPES.SIM,
-            )
+            # 创建引擎记录，包含时间范围参数
+            create_params = {
+                'name': engine_name,
+                'is_live': is_live,
+                'status': ENGINESTATUS_TYPES.IDLE,
+                'desc': description or f"{'实盘' if is_live else '回测'}引擎: {engine_name}",
+                'source': SOURCE_TYPES.SIM,
+            }
+
+            # 添加时间范围参数（如果提供）
+            if 'backtest_start_date' in kwargs:
+                create_params['backtest_start_date'] = kwargs['backtest_start_date']
+            if 'backtest_end_date' in kwargs:
+                create_params['backtest_end_date'] = kwargs['backtest_end_date']
+
+            # 添加broker_attitude参数（如果提供）
+            if 'broker_attitude' in kwargs:
+                create_params['broker_attitude'] = kwargs['broker_attitude']
+
+            engine_record = self._crud_repo.create(**create_params)
 
             engine_info = {
                 "uuid": engine_record.uuid,
@@ -915,3 +930,30 @@ class EngineService(BaseService):
                 param.index: param.value for param in params
             }
         }
+
+    def fuzzy_search(
+        self,
+        query: str,
+        fields: Optional[List[str]] = None
+    ) -> ServiceResult:
+        """
+        Fuzzy search engines across multiple fields with OR logic.
+
+        Args:
+            query: Search string
+            fields: Fields to search in. Default: ['uuid', 'name', 'is_live', 'status']
+
+        Returns:
+            ServiceResult with list of engines data
+        """
+        try:
+            if not query or not query.strip():
+                return ServiceResult.success(ModelList([], self._crud_repo))
+
+            # Delegate to CRUD layer for database-level fuzzy search
+            results = self._crud_repo.fuzzy_search(query, fields)
+
+            return ServiceResult.success(results)
+
+        except Exception as e:
+            return ServiceResult.error(f"Engine fuzzy search failed: {str(e)}")
