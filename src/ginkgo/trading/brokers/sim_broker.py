@@ -207,6 +207,12 @@ class SimBroker(BaseBroker, IBroker):
                 )
             self.log("DEBUG", f"✅ [SIMBROKER] Market data obtained for {order.code}")
 
+            # 🔍 添加详细的市场数据日志
+            if hasattr(market_data, 'close'):
+                self.log("INFO", f"📈 [SIMBROKER] MARKET_DATA {order.code}: close={market_data.close}, open={getattr(market_data, 'open', 'N/A')}, high={getattr(market_data, 'high', 'N/A')}, low={getattr(market_data, 'low', 'N/A')}, volume={getattr(market_data, 'volume', 'N/A')}, timestamp={getattr(market_data, 'timestamp', 'N/A')}")
+            else:
+                self.log("INFO", f"📈 [SIMBROKER] MARKET_DATA {order.code}: {market_data}")
+
             # 2. 价格验证
             self.log("DEBUG", f"💰 [SIMBROKER] Step 2: Validating price data...")
             if not self._is_price_valid(order.code, market_data):
@@ -242,8 +248,15 @@ class SimBroker(BaseBroker, IBroker):
 
             # 5. 计算成交价格（已包含滑点效应）
             self.log("DEBUG", f"🧮 [SIMBROKER] Step 5: Calculating transaction price...")
+
+            # 🔍 详细记录价格计算前的信息
+            self.log("INFO", f"💰 [SIMBROKER] PRICE_CALC {order.code}: direction={order.direction.name}, type={getattr(order, 'order_type', 'MARKET')}, volume={order.volume}, attitude={self._attitude}")
+
             transaction_price = self._calculate_transaction_price(order, market_data)
-            self.log("DEBUG", f"💰 [SIMBROKER] Transaction price calculated: {transaction_price}")
+
+            # 🔍 详细记录价格计算结果
+            close_price = getattr(market_data, 'close', 0)
+            self.log("INFO", f"💰 [SIMBROKER] TRANSACTION_PRICE {order.code}: result={transaction_price}, close={close_price}, high={getattr(market_data, 'high', 'N/A')}, low={getattr(market_data, 'low', 'N/A')}, diff={transaction_price - close_price}")
 
             # 6. 调整成交数量（资金检查）
             self.log("DEBUG", f"📊 [SIMBROKER] Step 6: Adjusting volume for funds...")
@@ -310,24 +323,37 @@ class SimBroker(BaseBroker, IBroker):
         Returns:
             Decimal: 成交价格
         """
+        self.log("DEBUG", f"🧮 [SIMBROKER] Calculating price for {order.code} {order.direction.name}")
+
         if hasattr(order, "order_type") and order.order_type == ORDER_TYPES.LIMITORDER:
-            return to_decimal(order.limit_price)
+            limit_price = to_decimal(order.limit_price)
+            self.log("INFO", f"📊 [SIMBROKER] LIMIT ORDER - using limit price: {limit_price}")
+            return limit_price
 
         # 市价单使用随机价格模拟滑点
+        self.log("DEBUG", f"📊 [SIMBROKER] MARKET ORDER - calculating from range")
+
         # 处理Bar对象或字典格式
         if hasattr(market_data, 'low') and hasattr(market_data, 'high'):
             low_price = market_data.low
             high_price = market_data.high
+            close_price = getattr(market_data, 'close', None)
         elif isinstance(market_data, dict):
             low_price = market_data.get("low")
             high_price = market_data.get("high")
+            close_price = market_data.get("close")
         else:
             # 如果无法获取价格数据，使用当前价格
-            low_price = high_price = getattr(market_data, 'close', None) or 0
+            low_price = high_price = close_price = getattr(market_data, 'close', None) or 0
 
-        return self._get_random_transaction_price(
+        self.log("INFO", f"📊 [SIMBROKER] PRICE_RANGE {order.code}: low={low_price}, high={high_price}, close={close_price}, direction={order.direction.name}, attitude={self._attitude}")
+
+        result = self._get_random_transaction_price(
             order.direction, low_price, high_price, self._attitude
         )
+
+        self.log("INFO", f"🎲 [SIMBROKER] RANDOM PRICE CALCULATION result: {result}")
+        return result
 
     def _get_random_transaction_price(self, direction: DIRECTION_TYPES, low: Number, high: Number, attitude) -> Decimal:
         """
@@ -347,27 +373,44 @@ class SimBroker(BaseBroker, IBroker):
         mean = (low + high) / 2
         std_dev = (high - low) / 6
 
+        self.log("DEBUG", f"🎲 [SIMBROKER] RANDOM_PARAMS: low={low}, high={high}, mean={mean}, std_dev={std_dev}, direction={direction.name}, attitude={attitude}")
+
         from ginkgo.enums import ATTITUDE_TYPES
         from scipy import stats
 
+        # 记录随机种子状态
+        import random
+        import numpy as np
+        py_seed = random.getstate()[1][0] if len(random.getstate()[1]) > 0 else 'N/A'
+        np_seed = np.random.get_state()[1][0] if len(np.random.get_state()[1]) > 0 else 'N/A'
+        self.log("DEBUG", f"🎲 [SIMBROKER] RANDOM_STATE: py_seed={py_seed}, np_seed={np_seed}")
+
         if attitude == ATTITUDE_TYPES.RANDOM:
+            self.log("DEBUG", f"🎲 [SIMBROKER] Using NORMAL distribution")
             rs = stats.norm.rvs(loc=mean, scale=std_dev, size=1)
         else:
             skewness_right = mean
             skewness_left = -mean
             if attitude == ATTITUDE_TYPES.OPTIMISTIC:
+                self.log("DEBUG", f"🎲 [SIMBROKER] Using OPTIMISTIC skewnorm")
                 if direction == DIRECTION_TYPES.LONG:
                     rs = stats.skewnorm.rvs(skewness_right, loc=mean, scale=std_dev, size=1)
                 else:
                     rs = stats.skewnorm.rvs(skewness_left, loc=mean, scale=std_dev, size=1)
             elif attitude == ATTITUDE_TYPES.PESSIMISTIC:
+                self.log("DEBUG", f"🎲 [SIMBROKER] Using PESSIMISTIC skewnorm")
                 if direction == DIRECTION_TYPES.LONG:
                     rs = stats.skewnorm.rvs(skewness_left, loc=mean, scale=std_dev, size=1)
                 else:
                     rs = stats.skewnorm.rvs(skewness_right, loc=mean, scale=std_dev, size=1)
 
-        rs = max(low, min(high, rs[0]))  # 限制在合理范围内
-        return to_decimal(round(rs, 2))
+        raw_result = rs[0]
+        rs = max(low, min(high, raw_result))  # 限制在合理范围内
+        result = to_decimal(round(rs, 2))
+
+        self.log("INFO", f"🎲 [SIMBROKER] RANDOM_GENERATION: raw={raw_result}, clipped={rs}, final={result}")
+
+        return result
 
     def _calculate_commission(self, transaction_money: Number, is_long: bool) -> Decimal:
         """
