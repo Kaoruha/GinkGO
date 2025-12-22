@@ -3,10 +3,12 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.models import MEngine
-from ginkgo.enums import SOURCE_TYPES, ENGINESTATUS_TYPES
+from ginkgo.enums import SOURCE_TYPES, ENGINESTATUS_TYPES, ATTITUDE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
+from sqlalchemy.orm import Session
 
 
 @restrict_crud_access
@@ -44,6 +46,9 @@ class EngineCRUD(BaseCRUD[MEngine]):
             },
             # 是否实时交易 - 布尔值
             "is_live": {"type": "bool"},
+            # 时间范围字段 - 可选的日期时间
+            "backtest_start_date": {"type": "datetime", "required": False},
+            "backtest_end_date": {"type": "datetime", "required": False},
         }
 
     def _create_from_params(self, **kwargs) -> MEngine:
@@ -63,6 +68,13 @@ class EngineCRUD(BaseCRUD[MEngine]):
         else:
             source_value = SOURCE_TYPES.validate_input(source_value)
 
+        # 处理broker_attitude字段
+        broker_attitude_value = kwargs.get("broker_attitude", ATTITUDE_TYPES.OPTIMISTIC)
+        if isinstance(broker_attitude_value, ATTITUDE_TYPES):
+            broker_attitude_value = broker_attitude_value.value
+        else:
+            broker_attitude_value = ATTITUDE_TYPES.validate_input(broker_attitude_value) or 2
+
         return MEngine(
             name=kwargs.get("name", "test_engine"),
             status=status_value,
@@ -72,6 +84,9 @@ class EngineCRUD(BaseCRUD[MEngine]):
             current_run_id=kwargs.get("current_run_id", ""),
             run_count=kwargs.get("run_count", 0),
             config_snapshot=kwargs.get("config_snapshot", "{}"),
+            backtest_start_date=kwargs.get("backtest_start_date"),
+            backtest_end_date=kwargs.get("backtest_end_date"),
+            broker_attitude=broker_attitude_value
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MEngine]:
@@ -88,6 +103,7 @@ class EngineCRUD(BaseCRUD[MEngine]):
                 current_run_id=getattr(item, "current_run_id", ""),
                 run_count=getattr(item, "run_count", 0),
                 config_snapshot=getattr(item, "config_snapshot", "{}"),
+                broker_attitude=ATTITUDE_TYPES.validate_input(getattr(item, "broker_attitude", ATTITUDE_TYPES.OPTIMISTIC)),
             )
         return None
 
@@ -201,3 +217,132 @@ class EngineCRUD(BaseCRUD[MEngine]):
         Update engine status.
         """
         return self.modify({"uuid": uuid}, {"status": status})
+
+    def fuzzy_search(
+        self,
+        query: str,
+        fields: Optional[List[str]] = None
+    ) -> ModelList[MEngine]:
+        """
+        Fuzzy search engines across multiple fields with OR logic.
+
+        This method uses multiple separate queries and combines results to avoid
+        SQLAlchemy session issues while providing OR-like functionality.
+
+        Supports intelligent string matching for:
+        - UUID: Partial UUID match
+        - Name: Partial name match (case-insensitive)
+        - Type: "backtest"/"live" → is_live bool field
+        - Status: String names like "live"/"running" → ENGINESTATUS_TYPES values
+
+        Args:
+            query: Search string
+            fields: Fields to search in. Default: ['uuid', 'name', 'is_live', 'status']
+
+        Returns:
+            ModelList of matching engines
+        """
+        if not query or not query.strip():
+            return ModelList([], self)
+
+        from ginkgo.libs import GLOG
+
+        query_lower = query.lower().strip()
+
+        # Default fields to search
+        if fields is None:
+            fields = ['uuid', 'name', 'is_live', 'status']
+
+        all_results = []
+        seen_uuids = set()
+
+        # UUID search - partial match
+        if 'uuid' in fields:
+            try:
+                results = self.find(filters={"uuid__like": f"%{query_lower}%", "is_del": False})
+                if hasattr(results, '__iter__'):
+                    for item in results:
+                        if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
+                            all_results.append(item)
+                            seen_uuids.add(item.uuid)
+            except Exception as e:
+                GLOG.WARN(f"UUID fuzzy search failed: {e}")
+
+        # Name search - partial match
+        if 'name' in fields:
+            try:
+                results = self.find(filters={"name__like": f"%{query_lower}%", "is_del": False})
+                if hasattr(results, '__iter__'):
+                    for item in results:
+                        if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
+                            all_results.append(item)
+                            seen_uuids.add(item.uuid)
+            except Exception as e:
+                GLOG.WARN(f"Name fuzzy search failed: {e}")
+
+        # Type search - map "backtest"/"live" to is_live boolean
+        if 'is_live' in fields:
+            try:
+                if query_lower in ['live', 'real', 'production']:
+                    results = self.find(filters={"is_live": True, "is_del": False})
+                elif query_lower in ['backtest', 'test', 'simulation', 'sim']:
+                    results = self.find(filters={"is_live": False, "is_del": False})
+                else:
+                    results = []
+
+                if hasattr(results, '__iter__'):
+                    for item in results:
+                        if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
+                            all_results.append(item)
+                            seen_uuids.add(item.uuid)
+            except Exception as e:
+                GLOG.WARN(f"Type fuzzy search failed: {e}")
+
+        # Status search - map string names to ENGINESTATUS_TYPES values
+        if 'status' in fields:
+            status_matches = []
+
+            # Map common status strings to enum values
+            status_mappings = {
+                'idle': ENGINESTATUS_TYPES.IDLE.value,
+                'initial': ENGINESTATUS_TYPES.INITIALIZING.value,
+                'initializing': ENGINESTATUS_TYPES.INITIALIZING.value,
+                'init': ENGINESTATUS_TYPES.INITIALIZING.value,
+                'run': ENGINESTATUS_TYPES.RUNNING.value,
+                'running': ENGINESTATUS_TYPES.RUNNING.value,
+                'pause': ENGINESTATUS_TYPES.PAUSED.value,
+                'paused': ENGINESTATUS_TYPES.PAUSED.value,
+                'stop': ENGINESTATUS_TYPES.STOPPED.value,
+                'stopped': ENGINESTATUS_TYPES.STOPPED.value,
+            }
+
+            # Find matching status values
+            for key, value in status_mappings.items():
+                if key in query_lower:
+                    status_matches.append(value)
+
+            # Also try exact enum name matching
+            try:
+                # Remove ENGINESTATUS_TYPES prefix if present
+                clean_query = query_lower.replace('enginestatus_types.', '')
+                enum_value = ENGINESTATUS_TYPES.validate_input(clean_query.upper())
+                if enum_value is not None:
+                    status_matches.append(enum_value.value)
+            except:
+                pass
+
+            # Search for each matching status
+            if status_matches:
+                try:
+                    # Use IN operator to search for multiple status values
+                    results = self.find(filters={"status__in": status_matches, "is_del": False})
+                    if hasattr(results, '__iter__'):
+                        for item in results:
+                            if hasattr(item, 'uuid') and item.uuid not in seen_uuids:
+                                all_results.append(item)
+                                seen_uuids.add(item.uuid)
+                except Exception as e:
+                    GLOG.WARN(f"Status fuzzy search failed: {e}")
+
+        # Return ModelList for consistency with other CRUD methods
+        return ModelList(all_results, self)
