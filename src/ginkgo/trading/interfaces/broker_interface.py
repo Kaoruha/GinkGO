@@ -86,7 +86,7 @@ class BrokerExecutionResult:
                 engine_id=engine_id,
                 run_id=run_id
             )
-        elif self.status == ORDERSTATUS_TYPES.NEW:  # REJECTED
+        elif self.status == ORDERSTATUS_TYPES.REJECTED:
             event = EventOrderRejected(
                 order=self.order,
                 reject_reason=self.error_message or "Order rejected",
