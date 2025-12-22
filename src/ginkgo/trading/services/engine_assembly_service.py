@@ -1020,6 +1020,7 @@ class EngineAssemblyService(BaseService):
 
                         sys.modules["ginkgo.data"] = type(sys)("ginkgo.data")
                         sys.modules["ginkgo.data"].get_bars = get_bars_stub
+                        sys.modules["ginkgo.data"].container = data_container
 
                         # 动态导入模块
                         self._logger.DEBUG(f"Importing module from {temp_file_path}")
@@ -1111,24 +1112,11 @@ class EngineAssemblyService(BaseService):
                                 print(f"   - random_seed: {component.random_seed}")
                                 print(f"   - name: {component.name}")
                         else:
-                            # 提供默认参数fallback
-                            if "Selector" in component_class.__name__:
-                                # FixedSelector默认参数: name, codes (使用多个股票)
-                                component = component_class("default_selector", ["000001.SZ", "000002.SZ"])
-                            elif "Sizer" in component_class.__name__:
-                                # FixedSizer默认参数: volume
-                                component = component_class(1000)
-                            elif "Strategy" in component_class.__name__:
-                                # RandomSignalStrategy参数: buy_probability, sell_probability, signal_reason_template, max_signals
-                                if "RandomSignalStrategy" in component_class.__name__:
-                                    component = component_class(
-                                        buy_probability=0.9, sell_probability=0.05, max_signals=4
-                                    )
-                                else:
-                                    # 其他策略使用name参数作为默认
-                                    component = component_class("RandomStrategy")
-                            else:
-                                component = component_class()
+                            # 🔧 修复：移除硬编码默认值，强制使用数据库配置
+                            # 如果没有参数或参数解析失败，应该明确报错
+                            error_msg = f"No parameters found or parameter processing failed for component {component_class.__name__} in mapping {mapping_uuid}"
+                            self._logger.ERROR(f"🔥 [CONFIG ERROR] {error_msg}")
+                            return None, error_msg
 
                         return component, None
 
