@@ -4,7 +4,7 @@ from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES, SOURCE
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.entities.signal import Signal
 # from ginkgo.trading.computation.technical.average_true_range import AverageTrueRange as ATR  # Temporarily disabled
-from ginkgo.data import get_bars
+from ginkgo.data.containers import container
 
 import datetime
 import pandas as pd
@@ -59,7 +59,10 @@ class ATRSizer(BaseSizer):
                 return None
             start_date = self.now - datetime.timedelta(days=self.period + 7)
             end_date = self.now
-            df = get_bars(code, start_date, end_date)
+            result = container.bar_service().get(code=code, start_date=start_date, end_date=end_date)
+            if not result.success or not result.data:
+                return None
+            df = result.data.to_dataframe()
             print(df)
             
             # 检查数据是否足够

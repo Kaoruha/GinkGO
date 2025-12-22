@@ -172,7 +172,14 @@ def run_backtest(message):
         return
 
     uuid = extract_arg(message.text)[0]
-    from ginkgo.client.backtest_cli import run as run_backtest
+    # TODO: Fix this reference - backtest_cli has been removed
+    # from ginkgo.client.backtest_cli import run as run_backtest
+    # For now, create a placeholder or use flat_cli
+    from ginkgo.client import flat_cli
+    def run_backtest(engine_id):
+        """Placeholder function for running backtest"""
+        # This should be implemented properly
+        pass
 
     global is_running
 

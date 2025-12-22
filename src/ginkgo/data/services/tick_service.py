@@ -8,6 +8,7 @@ Enhanced with comprehensive error handling, retry mechanisms, and structured ret
 """
 
 import time
+import os
 from datetime import datetime, timedelta
 from typing import List, Union, Any, Optional, Dict
 import pandas as pd
@@ -173,28 +174,28 @@ class TickService(BaseService):
                     records_removed = removed_count
                     GLOG.INFO(f"Removed {removed_count} existing tick records for {code}")
 
-                # Convert to raw data format for TickCRUD (dict or Tick objects)
-                print(f"[DEBUG] Converting {len(raw_data)} raw records to dicts")
-                tick_dicts = self._convert_to_dicts(raw_data, code)
-                print(f"[DEBUG] Converted to {len(tick_dicts)} dict records")
+                # Convert data to Tick business entities with error handling
+                print(f"[DEBUG] Converting {len(raw_data)} raw records to Tick entities")
+                tick_entities = mappers.dataframe_to_tick_entities(raw_data, code)
+                print(f"[DEBUG] Converted to {len(tick_entities)} Tick entities")
 
                 # Insert new data in optimized batches for large tick datasets
                 total_added = 0
 
                 # Batch processing for better performance
-                for i in range(0, len(tick_dicts), batch_size):
-                    batch = tick_dicts[i : i + batch_size]
+                for i in range(0, len(tick_entities), batch_size):
+                    batch = tick_entities[i : i + batch_size]
                     try:
-                        print(f"[DEBUG] Attempting to insert batch of {len(batch)} items for {code}")
-                        print(f"[DEBUG] First item in batch: {batch[0] if batch else 'N/A'}")
+                        print(f"[DEBUG] Attempting to insert batch of {len(batch)} Tick entities for {code}")
+                        print(f"[DEBUG] First entity in batch: {batch[0] if batch else 'N/A'}")
                         result = self._crud_repo.add_batch(batch)
                         batch_added = len(result) if result else 0
                         total_added += batch_added
-                        print(f"[DEBUG] Batch insert successful: {batch_added} items added")
+                        print(f"[DEBUG] Batch insert successful: {batch_added} entities added")
 
                         # Progress feedback for large datasets
-                        if len(tick_dicts) > 5000 and i % (batch_size * 5) == 0:
-                            GLOG.DEBUG(f"Processed {i + batch_added}/{len(tick_dicts)} ticks for {code}")
+                        if len(tick_entities) > 5000 and i % (batch_size * 5) == 0:
+                            GLOG.DEBUG(f"Processed {i + batch_added}/{len(tick_entities)} ticks for {code}")
 
                     except Exception as e:
                         records_failed += len(batch)
@@ -260,43 +261,7 @@ class TickService(BaseService):
                                message=f"Unexpected error during tick sync: {e}",
                                data=sync_result)
 
-    def _convert_to_dicts(self, raw_data: pd.DataFrame, code: str) -> List[Dict]:
-        """Convert raw tick data to dictionary format for TickCRUD."""
-        tick_dicts = []
-        for _, row in raw_data.iterrows():
-            try:
-                # 转换方向值
-                direction_value = row.get('buyorsell', 0)
-                direction_enum = None
-                if direction_value is not None:
-                    try:
-                        # 如果是数字，使用from_int
-                        direction_int = int(direction_value)
-                        direction_enum = TICKDIRECTION_TYPES.from_int(direction_int)
-                        if direction_enum is None:
-                            direction_enum = TICKDIRECTION_TYPES.NEUTRAL
-                    except (ValueError, TypeError):
-                        # 如果不是数字，使用enum_convert
-                        direction_enum = TICKDIRECTION_TYPES.enum_convert(str(direction_value))
-                        if direction_enum is None:
-                            direction_enum = TICKDIRECTION_TYPES.NEUTRAL
-
-                # 创建字典格式数据，TickCRUD内部会进行模型转换
-                tick_dict = {
-                    'code': code,
-                    'timestamp': datetime_normalize(row['timestamp']),
-                    'price': float(row['price']),
-                    'volume': int(row.get('volume', 0)),
-                    'direction': direction_enum,  # 传递枚举对象，可读性更强
-                    'source': SOURCE_TYPES.TDX  # 传递枚举对象
-                }
-                tick_dicts.append(tick_dict)
-            except Exception as e:
-                GLOG.WARN(f"Failed to convert tick row to dict: {e}, row data: {dict(row)}")
-                continue
-
-        return tick_dicts
-
+  
     @retry(max_try=3)
     def _fetch_data_with_validation(self, code: str, date: datetime) -> pd.DataFrame:
         """
@@ -915,3 +880,281 @@ class TickService(BaseService):
             },
             message=f"批量同步完成: {total_success}/{len(codes)} 成功，成功率 {success_rate:.1%}"
         )
+
+    @time_logger
+    @retry(max_try=3)
+    def sync_backfill_by_date(self, code: str, force_overwrite: bool = False, **kwargs) -> ServiceResult:
+        """
+        逐日回溯全量同步tick数据：从当前日期开始逐日检查和同步
+
+        同步逻辑：
+        1. 从当前日期开始，逐日向前检查
+        2. 如果数据库中有该日数据且非force模式，跳过该日
+        3. 如果数据库中无该日数据，从source获取并入库
+        4. 如果是force模式且数据库中有数据，删除后重新获取
+        5. 直到日期早于上市日期或连续失败超过限制
+
+        Args:
+            code: 股票代码
+            force_overwrite: 是否强制覆盖已有数据（False=跳过已有，True=删除重新获取）
+            **kwargs: 其他参数（暂未使用，预留扩展）
+
+        Returns:
+            ServiceResult: 回溯同步结果，包含详细统计信息
+        """
+        start_time = time.time()
+
+        # 从环境变量或内部默认获取安全参数
+        max_continuous_failures = int(os.getenv('TICK_SYNC_MAX_FAILURES', '365'))
+        default_listing_date = datetime(1970, 1, 1)
+
+        try:
+            # 验证股票代码
+            if not code:
+                return ServiceResult(success=False, message="股票代码不能为空")
+
+            if not self._stockinfo_service.exists(code):
+                return ServiceResult(success=False, message=f"股票代码 {code} 不在股票列表中")
+
+            # 获取股票上市日期
+            listing_date = default_listing_date
+            try:
+                stock_result = self._stockinfo_service.get(code)
+                if stock_result.success and stock_result.data:
+                    df = stock_result.data.to_dataframe()
+                    if not df.empty:
+                        listing_date_raw = df.iloc[0]['list_date']
+                        if pd.notna(listing_date_raw):
+                            if isinstance(listing_date_raw, datetime):
+                                listing_date = listing_date_raw
+                            else:
+                                # 解析字符串格式的上市日期
+                                listing_date_str = str(listing_date_raw).split(' ')[0].replace('-', '')
+                                listing_date = datetime.strptime(listing_date_str, "%Y%m%d")
+                                GLOG.INFO(f"股票 {code} 上市日期: {listing_date.date()}")
+                        else:
+                            GLOG.WARN(f"股票 {code} 上市日期为空，使用默认日期: {listing_date.date()}")
+                    else:
+                        GLOG.WARN(f"股票 {code} 信息查询结果为空，使用默认上市日期: {listing_date.date()}")
+                else:
+                    GLOG.WARN(f"股票 {code} 信息查询失败，使用默认上市日期: {listing_date.date()}")
+            except Exception as e:
+                GLOG.WARN(f"获取股票 {code} 上市日期失败: {e}，使用默认日期: {listing_date.date()}")
+
+            # 初始化同步统计
+            total_processed = 0
+            total_added = 0
+            total_skipped = 0
+            total_failed = 0
+            continuous_failures = 0
+            sync_errors = []
+            processed_dates = []
+
+            # 从当前日期开始逐日回溯
+            current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+            GLOG.INFO(f"开始逐日回溯同步股票 {code} 的tick数据")
+            GLOG.INFO(f"同步参数: force_overwrite={force_overwrite}, max_continuous_failures={max_continuous_failures}")
+            GLOG.INFO(f"上市日期: {listing_date.date()}, 开始日期: {current_date.date()}")
+
+            while current_date >= listing_date:
+                date_str = current_date.strftime('%Y-%m-%d')
+
+                # 检查连续失败计数器
+                if continuous_failures >= max_continuous_failures:
+                    GLOG.WARN(f"连续失败 {continuous_failures} 次，达到最大限制，停止同步")
+                    sync_errors.append((date_str, f"连续失败次数超过限制 ({max_continuous_failures})"))
+                    break
+
+                # 跳过周末（周六=5，周日=6）
+                if current_date.weekday() >= 5:
+                    GLOG.DEBUG(f"跳过周末: {date_str}")
+                    current_date -= timedelta(days=1)
+                    continue
+
+                try:
+                    # 检查数据库中是否已有该日数据
+                    day_start = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                    day_end = current_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+                    existing_data_result = self.get(
+                        code=code,
+                        start_date=day_start,
+                        end_date=day_end
+                    )
+
+                    has_existing_data = (
+                        existing_data_result.success and
+                        existing_data_result.data and
+                        len(existing_data_result.data) > 0
+                    )
+
+                    # 决定是否同步该日数据
+                    should_sync = False
+                    sync_reason = ""
+
+                    if has_existing_data:
+                        if force_overwrite:
+                            should_sync = True
+                            sync_reason = "强制覆盖已有数据"
+                        else:
+                            should_sync = False
+                            sync_reason = "跳过已有数据"
+                            total_skipped += 1
+                            GLOG.DEBUG(f"{date_str}: {sync_reason} ({len(existing_data_result.data)} 条记录)")
+                    else:
+                        should_sync = True
+                        sync_reason = "数据库无数据，需要获取"
+
+                    if should_sync:
+                        GLOG.INFO(f"{date_str}: {sync_reason}")
+
+                        # 执行单日同步
+                        day_result = self.sync_date(
+                            code=code,
+                            date=current_date,
+                            fast_mode=False  # 全量同步总是检查数据
+                        )
+
+                        total_processed += 1
+
+                        if day_result.success and day_result.data:
+                            sync_data = day_result.data
+                            total_added += sync_data.records_added
+
+                            if sync_data.records_added > 0:
+                                GLOG.INFO(f"{date_str}: 成功添加 {sync_data.records_added} 条tick记录")
+                                continuous_failures = 0  # 重置连续失败计数器
+                            else:
+                                GLOG.DEBUG(f"{date_str}: 无新增tick记录")
+                                continuous_failures += 1
+
+                            processed_dates.append({
+                                'date': date_str,
+                                'records_added': sync_data.records_added,
+                                'records_processed': sync_data.records_processed,
+                                'success': True,
+                                'reason': sync_reason
+                            })
+
+                        else:
+                            total_failed += 1
+                            continuous_failures += 1
+                            error_msg = day_result.message or "未知错误"
+                            sync_errors.append((date_str, error_msg))
+                            GLOG.ERROR(f"{date_str}: 同步失败 - {error_msg}")
+
+                            processed_dates.append({
+                                'date': date_str,
+                                'records_added': 0,
+                                'records_processed': 0,
+                                'success': False,
+                                'reason': f"同步失败: {error_msg}"
+                            })
+
+                    # 移动到前一日
+                    current_date -= timedelta(days=1)
+
+                except Exception as e:
+                    total_failed += 1
+                    continuous_failures += 1
+                    error_msg = str(e)
+                    sync_errors.append((date_str, error_msg))
+                    GLOG.ERROR(f"{date_str}: 处理异常 - {error_msg}")
+
+                    processed_dates.append({
+                        'date': date_str,
+                        'records_added': 0,
+                        'records_processed': 0,
+                        'success': False,
+                        'reason': f"处理异常: {error_msg}"
+                    })
+
+                    # 移动到前一日继续处理
+                    current_date -= timedelta(days=1)
+
+            # 创建同步结果
+            sync_duration = time.time() - start_time
+            sync_result = DataSyncResult.create_for_entity(
+                entity_type="tick",
+                entity_identifier=code,
+                sync_range=(listing_date, datetime.now()),
+                sync_strategy="backfill_by_date"
+            )
+
+            sync_result.records_processed = total_processed
+            sync_result.records_added = total_added
+            sync_result.records_skipped = total_skipped
+            sync_result.records_failed = total_failed
+            sync_result.sync_duration = sync_duration
+            sync_result.is_idempotent = True
+
+            # 设置详细元数据
+            sync_result.set_metadata("listing_date", listing_date.date())
+            sync_result.set_metadata("force_overwrite", force_overwrite)
+            sync_result.set_metadata("max_continuous_failures", max_continuous_failures)
+            sync_result.set_metadata("continuous_failures", continuous_failures)
+            sync_result.set_metadata("processed_dates_count", len(processed_dates))
+            sync_result.set_metadata("processed_dates", processed_dates[-10:] if len(processed_dates) > 10 else processed_dates)  # 只保留最后10条记录
+
+            # 添加错误信息
+            for error in sync_errors:
+                sync_result.add_error(error[0], error[1])
+
+            # 添加警告信息
+            if continuous_failures >= max_continuous_failures:
+                sync_result.add_warning(f"因连续失败次数达到限制({max_continuous_failures})而提前终止同步")
+
+            # 判断成功状态
+            success = total_failed < total_processed  # 至少有一些成功就算整体成功
+            if total_processed == 0:
+                success = True  # 没有处理任何日期也算成功（可能所有数据都已存在）
+
+            # 构建详细消息
+            if force_overwrite:
+                mode_desc = "强制覆盖模式"
+            else:
+                mode_desc = "智能跳过模式"
+
+            message = (
+                f"股票 {code} tick数据逐日回溯同步完成 ({mode_desc}):\n"
+                f"• 处理日期: {total_processed} 天\n"
+                f"• 新增记录: {total_added:,} 条\n"
+                f"• 跳过日期: {total_skipped} 天\n"
+                f"• 失败日期: {total_failed} 天\n"
+                f"• 用时: {sync_duration:.1f} 秒\n"
+                f"• 上市日期: {listing_date.date()}"
+            )
+
+            if success:
+                GLOG.INFO(f"✅ {message}")
+            else:
+                GLOG.ERROR(f"❌ {message}")
+
+            return ServiceResult(
+                success=success,
+                message=message,
+                data=sync_result
+            )
+
+        except Exception as e:
+            sync_duration = time.time() - start_time
+            error_msg = f"逐日回溯同步过程中发生未预期错误: {str(e)}"
+            GLOG.ERROR(error_msg)
+
+            # 创建错误结果
+            sync_result = DataSyncResult.create_for_entity(
+                entity_type="tick",
+                entity_identifier=code,
+                sync_range=(None, None),
+                sync_strategy="backfill_by_date"
+            )
+            sync_result.records_failed = 1
+            sync_result.sync_duration = sync_duration
+            sync_result.add_error("system_error", error_msg)
+
+            return ServiceResult(
+                success=False,
+                message=error_msg,
+                data=sync_result
+            )

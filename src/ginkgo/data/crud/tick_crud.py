@@ -486,9 +486,25 @@ class TickCRUD:
         return code
 
     def _convert_to_model(self, item, model_class):
-        """将item转换为指定的Model类"""
+        """将item转换为指定的Model类 - 优先处理Tick业务对象"""
+        # 优先处理Tick业务对象
+        from ginkgo.trading.entities import Tick
+        if isinstance(item, Tick):
+            # 获取source信息，如果业务对象有设置的话
+            source = getattr(item, '_source', SOURCE_TYPES.TDX)
+
+            return model_class(
+                timestamp=datetime_normalize(item.timestamp),
+                code=item.code,
+                price=item.price,
+                volume=item.volume,
+                direction=TICKDIRECTION_TYPES.validate_input(item.direction),
+                source=SOURCE_TYPES.validate_input(source),
+                uuid=item.uuid if item.uuid else None
+            )
+
         # 处理字典类型的数据
-        if isinstance(item, dict) and 'timestamp' in item and 'code' in item:
+        elif isinstance(item, dict) and 'timestamp' in item and 'code' in item:
             return model_class(
                 timestamp=datetime_normalize(item.get('timestamp')),
                 code=item.get('code'),
@@ -497,7 +513,7 @@ class TickCRUD:
                 direction=TICKDIRECTION_TYPES.validate_input(item.get('direction', TICKDIRECTION_TYPES.VOID)) or -1,
                 source=SOURCE_TYPES.validate_input(item.get('source', SOURCE_TYPES.TDX)) or -1,
             )
-        # 处理对象类型的数据
+        # 处理其他对象类型的数据
         elif hasattr(item, 'timestamp') and hasattr(item, 'code'):
             return model_class(
                 timestamp=datetime_normalize(getattr(item, 'timestamp')),

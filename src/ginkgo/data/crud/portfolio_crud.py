@@ -53,30 +53,18 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
                 'max': 255
             },
 
-            # 回测开始时间 - datetime 或字符串
-            'backtest_start_date': {
-                'type': ['datetime', 'string']
-            },
-
-            # 回测结束时间 - datetime 或字符串
-            'backtest_end_date': {
-                'type': ['datetime', 'string']
-            },
-
             # 是否实盘 - 布尔值
             'is_live': {
                 'type': 'bool'
             },
 
-                    }
+        }
 
     def _create_from_params(self, **kwargs) -> MPortfolio:
         """Hook method: Create MPortfolio from parameters."""
         return MPortfolio(
             name=kwargs.get("name", "test_portfolio"),
             desc=kwargs.get("desc"),
-            backtest_start_date=datetime_normalize(kwargs.get("backtest_start_date", datetime.now())),
-            backtest_end_date=datetime_normalize(kwargs.get("backtest_end_date", datetime.now())),
             is_live=kwargs.get("is_live", False),
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
             initial_capital=kwargs.get("initial_capital", 100000.0),
@@ -99,8 +87,6 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
             return MPortfolio(
                 name=getattr(item, 'name', 'test_portfolio'),
                 desc=getattr(item, 'desc', None),
-                backtest_start_date=datetime_normalize(getattr(item, 'backtest_start_date', datetime.now())),
-                backtest_end_date=datetime_normalize(getattr(item, 'backtest_end_date', datetime.now())),
                 is_live=getattr(item, 'is_live', False),
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
                 initial_capital=getattr(item, 'initial_capital', 100000.0),
@@ -152,8 +138,6 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
                 # Set the portfolio properties from the model
                 portfolio._uuid = model.uuid
                 portfolio._name = model.name
-                portfolio._backtest_start_date = model.backtest_start_date
-                portfolio._backtest_end_date = model.backtest_end_date
                 portfolio._is_live = model.is_live
                 portfolio._create_at = model.create_at
                 portfolio._update_at = model.update_at

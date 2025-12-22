@@ -254,7 +254,7 @@ class KafkaCRUD:
                         "value": message.value,
                         "timestamp": datetime.fromtimestamp(message.timestamp / 1000) if message.timestamp else None
                     }
-                    
+
                     # 调用回调函数处理消息
                     if callback(message_data):
                         processed_count += 1

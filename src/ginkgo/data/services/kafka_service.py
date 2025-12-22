@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime, timedelta
 import json
 import threading
+import time
 import uuid
 
 from ginkgo.data.services.base_service import BaseService, ServiceResult
@@ -840,7 +841,12 @@ class KafkaService(BaseService):
             ServiceResult: 健康状态信息
         """
         try:
-            base_health = self.get_health_status()
+            # 基础健康状态
+            base_health = {
+                "service": "KafkaService",
+                "status": "healthy",
+                "timestamp": time.time()
+            }
             kafka_status = self._crud_repo.get_kafka_status()
 
             # 检查消费者线程健康状态
@@ -911,29 +917,31 @@ class KafkaService(BaseService):
             "code": ""
         })
 
-    def send_adjustfactor_update_signal(self, code: str, fast: bool = True) -> bool:
+    def send_adjustfactor_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
         """Send adjustment factor update signal"""
         return self.publish_message("ginkgo_data_update", {
             "type": "adjust",
             "code": code,
-            "fast": fast
+            "full": full,
+            "force": force
         })
 
-    def send_daybar_update_signal(self, code: str, fast: bool = True) -> bool:
+    def send_daybar_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
         """Send daily bar data update signal"""
         return self.publish_message("ginkgo_data_update", {
             "type": "bar",
             "code": code,
-            "fast": fast
+            "full": full,
+            "force": force
         })
 
-    def send_tick_update_signal(self, code: str, fast: bool = False, max_update: int = 0) -> bool:
+    def send_tick_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
         """Send tick data update signal"""
         return self.publish_message("ginkgo_data_update", {
             "type": "tick",
             "code": code,
-            "fast": fast,
-            "max_update": max_update
+            "full": full,
+            "force": force
         })
 
     def send_worker_kill_signal(self) -> bool:
@@ -942,6 +950,68 @@ class KafkaService(BaseService):
             "type": "kill",
             "code": ""
         })
+
+    def send_tick_all_signal(self, full: bool = False, force: bool = False) -> bool:
+        """发送所有股票的tick同步信号"""
+        from ginkgo.data.containers import container
+        stockinfo_service = container.stockinfo_service()
+        stock_result = stockinfo_service.get()
+
+        if not stock_result.success or not stock_result.data:
+            return False
+
+        success_count = 0
+        for stock in stock_result.data:
+            # 为每个股票发送单独的同步消息
+            success = self.send_tick_update_signal(
+                code=stock.code,
+                full=full,
+                force=force
+            )
+            if success:
+                success_count += 1
+
+        return success_count == len(stock_result.data)
+
+    def send_bar_all_signal(self, full: bool = False, force: bool = False) -> bool:
+        """发送所有股票的bar同步信号"""
+        from ginkgo.data.containers import container
+        stockinfo_service = container.stockinfo_service()
+        stock_result = stockinfo_service.get()
+
+        if not stock_result.success or not stock_result.data:
+            return False
+
+        success_count = 0
+        for stock in stock_result.data:
+            # 为每个股票发送单独的同步消息
+            success = self.send_daybar_update_signal(
+                code=stock.code,
+                full=full,
+                force=force
+            )
+            if success:
+                success_count += 1
+
+        return success_count == len(stock_result.data)
+
+    def send_adjustfactor_all_signal(self, full: bool = False, force: bool = False) -> bool:
+        """发送所有股票的adjustfactor同步信号"""
+        from ginkgo.data.containers import container
+        stockinfo_service = container.stockinfo_service()
+        stock_result = stockinfo_service.get()
+
+        if not stock_result.success or not stock_result.data:
+            return False
+
+        success_count = 0
+        for stock in stock_result.data:
+            # 发送复权因子同步消息（单个股票同步完成后会自动计算）
+            success = self.send_adjustfactor_update_signal(code=stock.code, full=False, force=False)
+            if success:
+                success_count += 1
+
+        return success_count == len(stock_result.data)
 
     def __del__(self):
         """Destructor, ensure resource cleanup"""

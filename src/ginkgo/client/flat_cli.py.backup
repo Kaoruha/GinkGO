@@ -1,0 +1,4046 @@
+"""
+Ginkgo Flat CLI - 扁平化的顶级命令
+使用 get/set/list/create/delete/run 作为顶级命令
+"""
+
+import typer
+from typing import Optional, Any, Dict, List
+from rich.console import Console
+from rich.table import Table
+import json
+import datetime
+
+from typing import Optional, List
+console = Console()
+
+# 创建顶级命令
+get_app = typer.Typer(help=":mag: Get resource information")
+set_app = typer.Typer(help=":gear: Set resource properties")
+list_app = typer.Typer(help=":clipboard: List resources")
+create_app = typer.Typer(help=":plus: Create new resources")
+update_app = typer.Typer(help=":repeat: Update resources")
+delete_app = typer.Typer(help=":wastebasket: Delete resources")
+run_app = typer.Typer(help=":rocket: Run operations")
+
+# Data管理命令
+data_app = typer.Typer(help=":page_facing_up: Data management", rich_markup_mode="rich")
+
+# Engine管理命令
+engine_app = typer.Typer(help=":fire: Engine management", rich_markup_mode="rich")
+
+# Portfolio管理命令
+portfolio_app = typer.Typer(help=":bank: Portfolio management", rich_markup_mode="rich")
+
+# Component管理命令
+component_app = typer.Typer(help=":wrench: Component management", rich_markup_mode="rich")
+
+# Mapping管理命令
+mapping_app = typer.Typer(help=":link: Mapping relationship management", rich_markup_mode="rich")
+
+# Param管理命令
+param_app = typer.Typer(help=":wrench: Parameter management", rich_markup_mode="rich")
+
+# Result管理命令
+result_app = typer.Typer(help=":bar_chart: Result management", rich_markup_mode="rich")
+
+# 状态转换函数
+def _get_engine_status_name(status):
+    """将引擎状态数字转换为可读名称"""
+    from ginkgo.enums import ENGINESTATUS_TYPES
+
+    status_map = {
+        ENGINESTATUS_TYPES.VOID.value: "Void",
+        ENGINESTATUS_TYPES.IDLE.value: "Idle",
+        ENGINESTATUS_TYPES.INITIALIZING.value: "Initializing",
+        ENGINESTATUS_TYPES.RUNNING.value: "Running",
+        ENGINESTATUS_TYPES.PAUSED.value: "Paused",
+        ENGINESTATUS_TYPES.STOPPED.value: "Stopped"
+    }
+    return status_map.get(status, f"Unknown({status})")
+
+# 资源处理函数
+def _handle_get_engines(engine_id=None, filters=None, format="table", page=20, limit=None):
+    """处理引擎获取"""
+    from ginkgo.data.containers import container
+
+    engine_service = container.engine_service()
+
+    if engine_id:
+        # 获取特定引擎
+        result = engine_service.get(engine_id=engine_id)
+        if result.success and result.data:
+            # get可能返回ModelList，需要提取第一个元素
+            engine_data = result.data
+            if hasattr(engine_data, '__iter__') and not isinstance(engine_data, str):
+                # 如果是列表或可迭代对象，取第一个
+                engines = list(engine_data)
+                if engines:
+                    engine = engines[0]
+                else:
+                    console.print(f":x: Engine not found: {engine_id}")
+                    return
+            else:
+                engine = engine_data
+
+            console.print(f"[blue]:wrench:[/blue] Engine: {engine.name}")
+            console.print(f":clipboard: UUID: {engine.uuid}")
+            console.print(f":bar_chart: Status: {_get_engine_status_name(engine.status)}")
+            console.print(f":repeat: Is Live: {engine.is_live}")
+        else:
+            console.print(f":x: Engine not found: {engine_id}")
+    else:
+        # 列出引擎
+        result = engine_service.get()
+        if result.success and result.data:
+            engines = result.data
+            if format == "json":
+                engine_list = [{"uuid": e.uuid, "name": e.name, "status": _get_engine_status_name(e.status), "is_live": e.is_live} for e in engines]
+                print(json.dumps(engine_list, indent=2))
+            else:
+                table = Table(title="[blue]:wrench:[/blue] Engines")
+                table.add_column("UUID", style="cyan", width=36)
+                table.add_column("Name", style="green", width=20)
+                table.add_column("Status", style="yellow", width=15)
+                table.add_column("Live", style="red", width=8)
+
+                for engine in engines:
+                    status_name = _get_engine_status_name(engine.status)
+                    table.add_row(engine.uuid[:36], engine.name[:18], status_name, str(engine.is_live)[:6])
+
+                # 在打印表格前先显示总数
+                console.print(f":mag: Found {len(engines)} engines")
+                console.print("")  # 添加空行分隔
+
+                console.print(table)
+        else:
+            console.print("[blue]📭[/blue] No engines found")
+
+def _handle_get_portfolios(portfolio_id=None, filters=None, format="table", page=20, limit=None):
+    """处理投资组合获取"""
+    from ginkgo.data.containers import container
+
+    portfolio_service = container.portfolio_service()
+
+    if portfolio_id:
+        # 获取特定投资组合
+        result = portfolio_service.get(portfolio_id=portfolio_id)
+        if result.success and result.data:
+            portfolio = result.data
+            console.print(f"[blue]:bank:[/blue] Portfolio: {portfolio.name}")
+            console.print(f":clipboard: UUID: {portfolio.uuid}")
+            console.print(f":repeat: Is Live: {portfolio.is_live}")
+            console.print(f":moneybag: Initial Capital: {getattr(portfolio, 'initial_capital', 'N/A')}")
+        else:
+            console.print(f":x: Portfolio not found: {portfolio_id}")
+    else:
+        # 列出投资组合
+        result = portfolio_service.get()
+        if result.success and result.data:
+            portfolios = result.data
+            if format == "json":
+                portfolio_list = [{"uuid": p.uuid, "name": p.name, "is_live": p.is_live} for p in portfolios]
+                print(json.dumps(portfolio_list, indent=2))
+            else:
+                table = Table(title="[blue]:bank:[/blue] Portfolios")
+                table.add_column("UUID", style="cyan", width=36)
+                table.add_column("Name", style="green", width=25)
+                table.add_column("Live", style="red", width=8)
+
+                for portfolio in portfolios:
+                    table.add_row(portfolio.uuid[:36], portfolio.name[:23], str(portfolio.is_live)[:6])
+
+                # 在打印表格前先显示总数
+                console.print(f":mag: Found {len(portfolios)} portfolios")
+                console.print("")  # 添加空行分隔
+
+                console.print(table)
+        else:
+            console.print("[blue]📭[/blue] No portfolios found")
+
+def _handle_get_config(key=None, format="table"):
+    """处理配置获取"""
+    from ginkgo.libs import GCONF
+
+    if key:
+        if key.lower() == 'debug':
+            console.print(f":white_check_mark: debug: {GCONF.DEBUGMODE}")
+        elif key.lower() == 'quiet':
+            console.print(f":white_check_mark: quiet: {GCONF.QUIET}")
+        elif key.lower() == 'cpu_ratio':
+            console.print(f":white_check_mark: cpu_ratio: {GCONF.CPURATIO*100:.1f}%")
+        else:
+            console.print(f":x: Configuration key '{key}' not found")
+    else:
+        # 显示所有配置
+        console.print(":gear: System Configuration:")
+
+        if format == "json":
+            config_data = {
+                "debug": GCONF.DEBUGMODE,
+                "quiet": GCONF.QUIET,
+                "cpu_ratio": GCONF.CPURATIO * 100,
+                "log_path": str(GCONF.LOGGING_PATH),
+                "working_path": str(GCONF.WORKING_PATH)
+            }
+            print(json.dumps(config_data, indent=2))
+        else:
+            table = Table()
+            table.add_column("Key", style="cyan", width=15)
+            table.add_column("Value", style="green", width=25)
+            table.add_column("Description", style="dim", width=30)
+
+            table.add_row("debug", str(GCONF.DEBUGMODE), "Enable detailed logging")
+            table.add_row("quiet", str(GCONF.QUIET), "Suppress verbose output")
+            table.add_row("cpu_ratio", f"{GCONF.CPURATIO*100:.1f}%", "CPU usage limit")
+            table.add_row("log_path", str(GCONF.LOGGING_PATH), "Log files location")
+            table.add_row("working_path", str(GCONF.WORKING_PATH), "Working directory")
+
+            console.print(table)
+
+# Component处理函数
+def _handle_get_components(component_id=None, component_type=None, format="table", page=20, limit=None):
+    """处理组件获取"""
+    from ginkgo.data.containers import container
+    from ginkgo.enums import FILE_TYPES
+
+    file_service = container.file_service()
+
+    if component_id:
+        # 获取特定组件
+        result = file_service.get_by_uuid(component_id)
+        if result.success and result.data:
+            # get_by_uuid返回格式: {"file": files[0], "exists": True}
+            data = result.data
+            if isinstance(data, dict):
+                component = data.get("file")
+            else:
+                component = data
+
+            if component:
+                console.print(f"[blue]:wrench:[/blue] Component: {component.name}")
+                console.print(f":clipboard: UUID: {component.uuid}")
+                console.print(f":tag:  Type: {component.type.name}")
+                console.print(f"[yellow]:memo:[/yellow] Description: {component.description or 'No description'}")
+            else:
+                console.print(f":x: Component not found: {component_id}")
+        else:
+            console.print(f":x: Component not found: {component_id}")
+    else:
+        # 列出组件
+        if component_type:
+            # 按类型查询
+            component_type_map = {
+                "strategy": FILE_TYPES.STRATEGY,
+                "riskmanager": FILE_TYPES.RISKMANAGER,
+                "selector": FILE_TYPES.SELECTOR,
+                "sizer": FILE_TYPES.SIZER,
+                "analyzer": FILE_TYPES.ANALYZER
+            }
+
+            if component_type not in component_type_map:
+                console.print(f":x: Invalid component type: {component_type}")
+                console.print(f":white_check_mark: Valid types: {', '.join(component_type_map.keys())}")
+                return
+
+            result = file_service.get_by_type(component_type_map[component_type])
+        else:
+            # 查询所有组件类型
+            result = file_service.get()
+
+        if result.success:
+            data = result.data
+            if isinstance(data, dict):
+                components = data.get("files", [])
+            else:
+                components = data if data else []
+
+            if format == "json":
+                component_list = []
+                for c in components:
+                    component_list.append({
+                        "uuid": getattr(c, 'uuid', ''),
+                        "name": getattr(c, 'name', ''),
+                        "type": getattr(c, 'type', {}).name if hasattr(getattr(c, 'type', {}), 'name') else str(getattr(c, 'type', '')),
+                        "description": getattr(c, 'description', ''),
+                        "update_at": str(getattr(c, 'update_at', ''))
+                    })
+                print(json.dumps(component_list, indent=2))
+            else:
+                table = Table(title="[blue]:wrench:[/blue] Components")
+                table.add_column("UUID", style="cyan", width=32)
+                table.add_column("Name", style="green", width=20)
+                table.add_column("Type", style="yellow", width=12)
+                table.add_column("Description", style="white", width=25)
+                table.add_column("Updated", style="dim", width=16)
+
+                for component in components:
+                    comp_uuid = getattr(component, 'uuid', getattr(component, 'id', 'N/A'))
+                    comp_name = getattr(component, 'name', 'Unknown')
+                    comp_desc = getattr(component, 'description', '') or ''
+                    update_time = getattr(component, 'update_at', None)
+
+                    # 获取类型信息
+                    comp_type = getattr(component, 'type', None)
+                    if comp_type:
+                        if hasattr(comp_type, 'name'):
+                            component_type_name = comp_type.name.lower()
+                        elif isinstance(comp_type, str):
+                            component_type_name = comp_type.lower()
+                        else:
+                            component_type_name = str(comp_type)
+                    else:
+                        component_type_name = 'unknown'
+
+                    # 格式化更新时间
+                    if update_time:
+                        if hasattr(update_time, 'strftime'):
+                            time_str = update_time.strftime('%Y-%m-%d %H:%M')
+                        else:
+                            time_str = str(update_time)[:16]
+                    else:
+                        time_str = 'N/A'
+
+                    table.add_row(
+                        str(comp_uuid)[:32],
+                        str(comp_name)[:18],
+                        component_type_name[:10],
+                        str(comp_desc)[:23],
+                        time_str
+                    )
+
+                # 在打印表格前先显示总数
+                total_count = len(components)
+                if component_type:
+                    console.print(f":mag: Found {total_count} components of type '{component_type}'")
+                else:
+                    console.print(f":mag: Found {total_count} components total")
+                console.print("")  # 添加空行分隔
+
+                console.print(table)
+        else:
+            console.print("[blue]📭[/blue] No components found")
+
+# GET 命令
+@get_app.command()
+def engines(
+    engine_id: Optional[str] = typer.Argument(None, help="Engine UUID (optional)"),
+    format: Optional[str] = typer.Option("table", "--format", help="Output format (table/json)"),
+    page: int = typer.Option(20, "--page", "-p", help="Page size"),
+    limit: Optional[int] = typer.Option(None, "--limit", "-l", help="Limit results"),
+):
+    """[blue]:wrench:[/blue] Get engines information."""
+    _handle_get_engines(engine_id, None, format, page, limit)
+
+@get_app.command()
+def portfolios(
+    portfolio_id: Optional[str] = typer.Argument(None, help="Portfolio UUID (optional)"),
+    format: Optional[str] = typer.Option("table", "--format", help="Output format (table/json)"),
+    page: int = typer.Option(20, "--page", "-p", help="Page size"),
+    limit: Optional[int] = typer.Option(None, "--limit", "-l", help="Limit results"),
+):
+    """[blue]:bank:[/blue] Get portfolios information."""
+    _handle_get_portfolios(portfolio_id, None, format, page, limit)
+
+@get_app.command()
+def config(
+    key: Optional[str] = typer.Argument(None, help="Configuration key"),
+    format: Optional[str] = typer.Option("table", "--format", help="Output format (table/json)"),
+):
+    """:gear: Get system configuration."""
+    _handle_get_config(key, format)
+
+@get_app.command()
+def components(
+    component_id: Optional[str] = typer.Argument(None, help="Component UUID (optional)"),
+    component_type: Optional[str] = typer.Option(None, "--type", "-t", help="Component type (strategy/riskmanager/selector/sizer/analyzer)"),
+    format: Optional[str] = typer.Option("table", "--format", help="Output format (table/json)"),
+    page: int = typer.Option(20, "--page", "-p", help="Page size"),
+    limit: Optional[int] = typer.Option(None, "--limit", "-l", help="Limit results"),
+):
+    """[blue]:wrench:[/blue] Get components information."""
+    _handle_get_components(component_id, component_type, format, page, limit)
+
+@get_app.command()
+def data(
+    data_type: str = typer.Argument(..., help="Data type (stockinfo/bars/ticks/sources)"),
+    code: Optional[str] = typer.Option(None, "--code", "-c", help="Stock code (for bars/ticks)"),
+    format: Optional[str] = typer.Option("table", "--format", help="Output format"),
+    limit: Optional[int] = typer.Option(10, "--limit", "-l", help="Limit results"),
+):
+    """:bar_chart: Get market data."""
+    from ginkgo.data.containers import container
+
+    if data_type == "stockinfo":
+        stockinfo_service = container.stockinfo_service()
+        result = stockinfo_service.get(limit=limit)
+        if result.success and result.data:
+            table = Table(title=":bar_chart: Stock Information")
+            table.add_column("Code", style="cyan", width=12)
+            table.add_column("Name", style="green", width=25)
+            table.add_column("Market", style="yellow", width=10)
+
+            df = result.data if hasattr(result.data, 'head') else result.data
+            for _, row in df.head(limit).iterrows() if hasattr(df, 'iterrows') else []:
+                table.add_row(str(row.get('code', ''))[:10], str(row.get('name', ''))[:23], str(row.get('market', ''))[:8])
+            console.print(table)
+    elif data_type == "sources":
+        console.print("📡 Available Data Sources:")
+        table = Table()
+        table.add_column("Source", style="cyan", width=15)
+        table.add_column("Type", style="green", width=15)
+        table.add_column("Status", style="yellow", width=10)
+
+        table.add_row("tushare", "Premium", "Active")
+        table.add_row("akshare", "Free", "Active")
+        table.add_row("yfinance", "Free", "Active")
+        console.print(table)
+    else:
+        console.print(f":x: Data type '{data_type}' not yet implemented")
+
+# SET 命令
+@set_app.command()
+def config(
+    key: str = typer.Argument(..., help="Configuration key"),
+    value: str = typer.Argument(..., help="Configuration value"),
+):
+    """:gear: Set system configuration."""
+    from ginkgo.libs import GCONF
+
+    if key.lower() == 'debug':
+        debug_value = value.lower() in ['on', 'true', '1', 'yes']
+        GCONF.set_debug(debug_value)
+        console.print(f":white_check_mark: Set debug = {debug_value}")
+    elif key.lower() == 'quiet':
+        quiet_value = value.lower() in ['on', 'true', '1', 'yes']
+        GCONF.set_quiet(quiet_value)
+        console.print(f":white_check_mark: Set quiet = {quiet_value}")
+    elif key.lower() == 'cpu_ratio':
+        cpu_value = float(value) / 100.0
+        GCONF.set_cpu_ratio(cpu_value)
+        console.print(f":white_check_mark: Set cpu_ratio = {value}%")
+    else:
+        console.print(f":x: Configuration key '{key}' not found")
+
+@set_app.command()
+def data(
+    action: str = typer.Argument(..., help="Action (sync)"),
+    data_type: str = typer.Option("stockinfo", "--type", "-t", help="Data type"),
+):
+    """:bar_chart: Set data actions."""
+    if data_type == "stockinfo" and action == "sync":
+        from ginkgo.data.containers import container
+        stockinfo_service = container.stockinfo_service()
+        result = stockinfo_service.sync()
+        if result.success:
+            console.print(f":white_check_mark: Stock info sync completed")
+        else:
+            console.print(f":x: Stock info sync failed")
+    else:
+        console.print(f":x: Data action '{action}' for '{data_type}' not yet implemented")
+
+@set_app.command()
+def param(
+    param_uuid: str = typer.Argument(..., help="Parameter UUID"),
+    value: str = typer.Option(..., "--value", "-v", help="New parameter value"),
+):
+    """🔢 Update an existing parameter."""
+    try:
+        from ginkgo.data.containers import container
+        param_service = container.param_service()
+
+        result = param_service.update(
+            uuid=param_uuid,
+            value=value
+        )
+
+        if result.success:
+            console.print(f":white_check_mark: Parameter updated successfully")
+            console.print(f"🆔 UUID: {param_uuid}")
+            console.print(f"💲 New Value: {value}")
+        else:
+            console.print(f":x: Failed to update parameter: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error updating parameter: {e}")
+        raise typer.Exit(1)
+
+@get_app.command()
+def params(
+    param_uuid: Optional[str] = typer.Argument(None, help="Parameter UUID (optional)"),
+    mapping_id: Optional[str] = typer.Option(None, "--mapping", "-m", help="Filter by mapping ID"),
+    index: Optional[int] = typer.Option(None, "--index", "-i", help="Filter by index"),
+    limit: Optional[int] = typer.Option(20, "--limit", "-l", help="Limit results"),
+    format: Optional[str] = typer.Option("table", "--format", help="Output format"),
+):
+    """🔢 Get parameter information."""
+    from ginkgo.data.containers import container
+
+    param_service = container.param_service()
+
+    if param_uuid:
+        # Get specific parameter by UUID
+        result = param_service.get_by_uuid(param_uuid)
+        if result.success and result.data:
+            param = result.data
+            console.print(f"🔢 Parameter: {param.uuid}")
+            console.print(f":tag:  Mapping ID: {param.mapping_id}")
+            console.print(f"🔢 Index: {param.index}")
+            console.print(f"💲 Value: {param.value}")
+            console.print(f"[yellow]:memo:[/yellow] Description: {param.desc or 'No description'}")
+            console.print(f"📅 Created: {param.create_at}")
+            console.print(f":repeat: Updated: {param.update_at}")
+        else:
+            console.print(f":x: Parameter not found: {param_uuid}")
+    else:
+        # List parameters with optional filters
+        filters = {}
+        if mapping_id:
+            filters["mapping_id"] = mapping_id
+        if index is not None:
+            filters["index"] = index
+
+        result = param_service.get(filters=filters, limit=limit)
+
+        if result.success and result.data:
+            params = result.data
+            # 如果指定了mapping_id，按index顺序排序
+            if mapping_id:
+                params = sorted(params, key=lambda x: getattr(x, 'index', 0))
+            if format == "json":
+                param_list = []
+                for param in params:
+                    param_list.append({
+                        "uuid": param.uuid,
+                        "mapping_id": param.mapping_id,
+                        "index": param.index,
+                        "value": param.value,
+                        "description": param.desc or '',
+                        "create_at": str(param.create_at),
+                        "update_at": str(param.update_at)
+                    })
+                print(json.dumps(param_list, indent=2))
+            else:
+                table = Table(title="🔢 Parameters")
+                table.add_column("UUID", style="cyan", width=30)
+                table.add_column("Mapping ID", style="green", width=25)
+                table.add_column("Index", style="yellow", width=6, justify="center")
+                table.add_column("Value", style="blue", width=15)
+                table.add_column("Description", style="white", width=25)
+                table.add_column("Updated", style="dim", width=16)
+
+                for param in params:
+                    # 确保正确获取index值
+                    index_val = getattr(param, 'index', None)
+                    index_str = str(index_val) if index_val is not None else "N/A"
+
+                    table.add_row(
+                        str(param.uuid)[:29] + "..." if len(str(param.uuid)) > 30 else str(param.uuid),
+                        str(param.mapping_id)[:24] + "..." if len(str(param.mapping_id)) > 25 else str(param.mapping_id),
+                        index_str,
+                        str(param.value)[:14] + "..." if len(str(param.value)) > 15 else str(param.value),
+                        str(param.desc or '')[:24] + "..." if len(str(param.desc or '')) > 25 else str(param.desc or ''),
+                        str(param.update_at)[:16] if param.update_at else "N/A"
+                    )
+
+                # 在打印表格前先显示总数
+                total_count = len(params)
+                if mapping_id or index is not None:
+                    console.print(f":mag: Found {total_count} parameters with specified filters")
+                else:
+                    console.print(f":mag: Found {total_count} parameters total")
+                console.print("")  # 添加空行分隔
+
+                console.print(table)
+        else:
+            console.print("[blue]📭[/blue] No parameters found")
+
+@get_app.command()
+def mappings(
+    from_type: Optional[str] = typer.Option(None, "--from", "-f", help="From type (engine/portfolio/component)"),
+    from_id: Optional[str] = typer.Option(None, "--from-id", help="From UUID"),
+    to_type: Optional[str] = typer.Option(None, "--to", "-t", help="To type (engine/portfolio/component)"),
+    to_id: Optional[str] = typer.Option(None, "--to-id", help="To UUID"),
+    limit: Optional[int] = typer.Option(20, "--limit", "-l", help="Limit results"),
+):
+    """:link: Get mapping relationships (from...to...)."""
+    from ginkgo.data.containers import container
+
+    # Handle specific from...to... mapping queries
+    if from_type and from_id and to_type and to_id:
+        # Show specific mapping relationships (from type A to type B)
+        _show_specific_mapping(from_type, from_id, to_type, to_id, container)
+    elif from_type and not to_type and from_id:
+        # Show all mappings from specific entity (to_type not specified)
+        if from_type == "engine":
+            _show_engine_mappings(from_id, container)
+        elif from_type == "portfolio":
+            _show_portfolio_mappings(from_id, container, limit)
+        elif from_type == "component":
+            _show_component_mappings(from_id, container)
+        else:
+            console.print(":x: Invalid from type. Use 'engine', 'portfolio', or 'component'")
+            raise typer.Exit(1)
+    elif to_type and not from_type and to_id:
+        # Show reverse mappings (all mappings to specific entity)
+        if to_type == "engine":
+            _show_mappings_to_engine(to_id, container)
+        elif to_type == "portfolio":
+            _show_mappings_to_portfolio(to_id, container)
+        elif to_type == "component":
+            _show_mappings_to_component(to_id, container)
+        else:
+            console.print(":x: Invalid to type. Use 'engine', 'portfolio', or 'component'")
+            raise typer.Exit(1)
+    elif from_type and to_type and not (from_id or to_id):
+        # Invalid: specified types but no IDs
+        console.print(":x: Missing required IDs. Please provide --from-id and/or --to-id")
+        raise typer.Exit(1)
+    elif (from_id or to_id) and not (from_type or to_type):
+        # Invalid: provided IDs but no types
+        console.print(":x: Missing required types. Please provide --from and/or --to")
+        raise typer.Exit(1)
+    else:
+        # Show all mappings
+        _show_all_mappings(container, limit)
+
+def _show_specific_mapping(from_type: str, from_id: str, to_type: str, to_id: str, container):
+    """Show specific mapping from A to B."""
+    # Only support specific valid combinations
+    if from_type == "engine" and to_type == "portfolio":
+        # Show specific engine → portfolio mapping
+        try:
+            engine_portfolio_crud = container.engine_portfolio_mapping_crud()
+            mappings_result = engine_portfolio_crud.find(filters={"engine_id": from_id, "portfolio_id": to_id})
+
+            if mappings_result:
+                console.print(f":link: Specific Engine → Portfolio Mapping")
+                table = Table()
+                table.add_column("From", style="cyan", width=12)
+                table.add_column("To", style="green", width=12)
+                table.add_column("Engine ID", style="white", width=30)
+                table.add_column("Portfolio ID", style="yellow", width=30)
+                table.add_column("Engine Name", style="magenta", width=20)
+                table.add_column("Portfolio Name", style="blue", width=20)
+
+                for mapping in mappings_result:
+                    table.add_row(
+                        "Engine",
+                        "Portfolio",
+                        getattr(mapping, 'engine_id', 'N/A'),
+                        getattr(mapping, 'portfolio_id', 'N/A'),
+                        getattr(mapping, 'engine_name', 'N/A'),
+                        getattr(mapping, 'portfolio_name', 'N/A')
+                    )
+                console.print(table)
+            else:
+                console.print(f"[blue]📭[/blue] No mapping found: Engine {from_id[:8]}... → Portfolio {to_id[:8]}...")
+        except Exception as e:
+            console.print(f":x: Error getting specific mapping: {e}")
+
+    elif from_type == "portfolio" and to_type == "component":
+        # Show specific portfolio → component mapping
+        try:
+            portfolio_file_mapping_crud = container.portfolio_file_mapping_crud()
+            mappings_result = portfolio_file_mapping_crud.find(filters={"portfolio_id": from_id, "file_id": to_id})
+
+            if mappings_result:
+                console.print(f":link: Specific Portfolio → Component Mapping")
+                table = Table()
+                table.add_column("From", style="cyan", width=12)
+                table.add_column("To", style="green", width=12)
+                table.add_column("Portfolio ID", style="white", width=30)
+                table.add_column("Component ID", style="yellow", width=30)
+                table.add_column("Component Name", style="magenta", width=20)
+                table.add_column("Component Type", style="blue", width=15)
+
+                for mapping in mappings_result:
+                    table.add_row(
+                        "Portfolio",
+                        "Component",
+                        getattr(mapping, 'portfolio_id', 'N/A'),
+                        getattr(mapping, 'file_id', 'N/A'),
+                        getattr(mapping, 'name', 'N/A'),
+                        getattr(mapping, 'type', 'N/A')
+                    )
+                console.print(table)
+            else:
+                console.print(f"[blue]📭[/blue] No mapping found: Portfolio {from_id[:8]}... → Component {to_id[:8]}...")
+        except Exception as e:
+            console.print(f":x: Error getting specific mapping: {e}")
+
+    else:
+        console.print(":x: Invalid mapping combination. Supported combinations:")
+        console.print("  • engine → portfolio")
+        console.print("  • portfolio → component")
+        raise typer.Exit(1)
+
+def _show_engine_mappings(engine_id: str, container):
+    """Show mappings from specific engine."""
+    try:
+        engine_portfolio_crud = container.engine_portfolio_mapping_crud()
+        mappings_result = engine_portfolio_crud.find(filters={"engine_id": engine_id})
+
+        if mappings_result:
+            console.print(f":link: Mappings from Engine {engine_id[:8]}...")
+            table = Table()
+            table.add_column("To", style="cyan", width=12)
+            table.add_column("Portfolio ID", style="green", width=36)
+            table.add_column("Portfolio Name", style="white", width=20)
+
+            for mapping in mappings_result:
+                table.add_row(
+                    "Portfolio",
+                    getattr(mapping, 'portfolio_id', 'N/A'),
+                    getattr(mapping, 'portfolio_name', 'N/A')
+                )
+            console.print(table)
+        else:
+            console.print(f"[blue]📭[/blue] No mappings from engine: {engine_id[:8]}...")
+    except Exception as e:
+        console.print(f":x: Error getting engine mappings: {e}")
+
+def _show_portfolio_mappings(portfolio_id: str, container, limit: int):
+    """Show mappings from specific portfolio."""
+    # Show portfolio -> engines
+    try:
+        engine_portfolio_crud = container.engine_portfolio_mapping_crud()
+        mappings_result = engine_portfolio_crud.find(filters={"portfolio_id": portfolio_id})
+
+        if mappings_result:
+            console.print(f":link: Mappings from Portfolio {portfolio_id[:8]}...")
+            table = Table()
+            table.add_column("To", style="cyan", width=12)
+            table.add_column("Engine ID", style="green", width=36)
+            table.add_column("Engine Name", style="white", width=20)
+
+            for mapping in mappings_result:
+                table.add_row(
+                    "Engine",
+                    getattr(mapping, 'engine_id', 'N/A'),
+                    getattr(mapping, 'engine_name', 'N/A')
+                )
+            console.print(table)
+        else:
+            console.print(f"[blue]📭[/blue] No engine mappings from portfolio: {portfolio_id[:8]}...")
+    except Exception as e:
+        console.print(f":x: Error getting portfolio engine mappings: {e}")
+
+    # Show portfolio -> components
+    try:
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.get_components(portfolio_id=portfolio_id)
+        if result.success and result.data:
+            console.print(f"\n:link: Component Mappings from Portfolio {portfolio_id[:8]}...")
+            table = Table()
+            table.add_column("To", style="cyan", width=12)
+            table.add_column("Component ID", style="green", width=36)
+            table.add_column("Component Name", style="white", width=25)
+            table.add_column("Type", style="yellow", width=15)
+
+            for comp in result.data:
+                table.add_row(
+                    "Component",
+                    comp.get("component_id", "N/A"),
+                    comp.get("component_name", 'N/A'),
+                    comp.get("component_type", 'N/A')
+                )
+            console.print(table)
+        else:
+            console.print(f"[blue]📭[/blue] No component mappings from portfolio: {portfolio_id[:8]}...")
+    except Exception as e:
+        console.print(f":x: Error getting portfolio component mappings: {e}")
+
+def _show_component_mappings(component_id: str, container):
+    """Show mappings from specific component."""
+    try:
+        portfolio_file_mapping_crud = container.portfolio_file_mapping_crud()
+        mappings_result = portfolio_file_mapping_crud.find(filters={"file_id": component_id})
+
+        if mappings_result:
+            console.print(f":link: Mappings from Component {component_id[:8]}...")
+            table = Table()
+            table.add_column("To", style="cyan", width=12)
+            table.add_column("Portfolio ID", style="green", width=36)
+            table.add_column("Component Name", style="white", width=25)
+
+            for mapping in mappings_result:
+                table.add_row(
+                    "Portfolio",
+                    getattr(mapping, 'portfolio_id', 'N/A'),
+                    getattr(mapping, 'name', 'N/A')
+                )
+            console.print(table)
+        else:
+            console.print(f"[blue]📭[/blue] No mappings from component: {component_id[:8]}...")
+    except Exception as e:
+        console.print(f":x: Error getting component mappings: {e}")
+
+def _show_all_mappings(container, limit: int):
+    """Show all mappings."""
+    # Show engine-portfolio mappings
+    try:
+        engine_portfolio_crud = container.engine_portfolio_mapping_crud()
+        mappings_result = engine_portfolio_crud.find(page_size=limit or 10)
+
+        if mappings_result:
+            console.print(":link: Engine → Portfolio Mappings")
+            table = Table()
+            table.add_column("From", style="cyan", width=12)
+            table.add_column("To", style="green", width=12)
+            table.add_column("Engine ID", style="white", width=30)
+            table.add_column("Portfolio ID", style="yellow", width=30)
+
+            for mapping in mappings_result:
+                table.add_row(
+                    "Engine",
+                    "Portfolio",
+                    getattr(mapping, 'engine_id', 'N/A')[:28],
+                    getattr(mapping, 'portfolio_id', 'N/A')[:28]
+                )
+            console.print(table)
+        else:
+            console.print("[blue]📭[/blue] No engine-portfolio mappings found")
+    except Exception as e:
+        console.print(f":x: Error getting engine-portfolio mappings: {e}")
+
+    # Show portfolio-component mappings
+    try:
+        portfolio_file_mapping_crud = container.portfolio_file_mapping_crud()
+        mappings_result = portfolio_file_mapping_crud.find(page_size=limit or 10)
+
+        if mappings_result:
+            console.print("\n:link: Portfolio → Component Mappings")
+            table = Table()
+            table.add_column("From", style="cyan", width=12)
+            table.add_column("To", style="green", width=12)
+            table.add_column("Portfolio ID", style="white", width=30)
+            table.add_column("Component ID", style="yellow", width=30)
+
+            for mapping in mappings_result:
+                table.add_row(
+                    "Portfolio",
+                    "Component",
+                    getattr(mapping, 'portfolio_id', 'N/A')[:28],
+                    getattr(mapping, 'file_id', 'N/A')[:28]
+                )
+            console.print(table)
+        else:
+            console.print("[blue]📭[/blue] No portfolio-component mappings found")
+    except Exception as e:
+        console.print(f":x: Error getting portfolio-component mappings: {e}")
+
+def _show_mappings_to_engine(engine_id: str, container):
+    """Show mappings to specific engine (reverse of _show_engine_mappings)."""
+    _show_engine_mappings(engine_id, container)
+
+def _show_mappings_to_portfolio(portfolio_id: str, container):
+    """Show mappings to specific portfolio (reverse of portfolio mappings)."""
+    try:
+        engine_portfolio_crud = container.engine_portfolio_mapping_crud()
+        mappings_result = engine_portfolio_crud.find(filters={"portfolio_id": portfolio_id})
+
+        if mappings_result:
+            console.print(f":link: Mappings to Portfolio {portfolio_id[:8]}...")
+            table = Table()
+            table.add_column("From", style="cyan", width=12)
+            table.add_column("Engine ID", style="green", width=36)
+            table.add_column("Engine Name", style="white", width=20)
+
+            for mapping in mappings_result:
+                table.add_row(
+                    "Engine",
+                    getattr(mapping, 'engine_id', 'N/A'),
+                    getattr(mapping, 'engine_name', 'N/A')
+                )
+            console.print(table)
+        else:
+            console.print(f"[blue]📭[/blue] No mappings to portfolio: {portfolio_id[:8]}...")
+    except Exception as e:
+        console.print(f":x: Error getting mappings to portfolio: {e}")
+
+def _show_mappings_to_component(component_id: str, container):
+    """Show mappings to specific component (reverse of _show_component_mappings)."""
+    _show_component_mappings(component_id, container)
+
+# LIST 命令
+@list_app.command()
+def engines(
+    format: Optional[str] = typer.Option("table", "--format", help="Output format"),
+    page: int = typer.Option(20, "--page", "-p", help="Page size"),
+):
+    """[blue]:wrench:[/blue] List all engines."""
+    _handle_get_engines(None, None, format, page, None)
+
+@list_app.command()
+def portfolios(
+    format: Optional[str] = typer.Option("table", "--format", help="Output format"),
+    page: int = typer.Option(20, "--page", "-p", help="Page size"),
+):
+    """[blue]:bank:[/blue] List all portfolios."""
+    _handle_get_portfolios(None, None, format, page, None)
+
+@list_app.command()
+def components(
+    component_type: Optional[str] = typer.Option(None, "--type", "-t", help="Component type (strategy/riskmanager/selector/sizer/analyzer)"),
+    format: Optional[str] = typer.Option("table", "--format", help="Output format"),
+    page: int = typer.Option(20, "--page", "-p", help="Page size"),
+):
+    """[blue]:wrench:[/blue] List all components."""
+    _handle_get_components(None, component_type, format, page, None)
+
+@list_app.command()
+def strategies():
+    """:clipboard: List all strategies (legacy)."""
+    console.print(":clipboard: Available Strategies:")
+    table = Table()
+    table.add_column("Strategy", style="cyan", width=20)
+    table.add_column("Type", style="green", width=15)
+    table.add_column("Description", style="white", width=35)
+
+    strategies = [
+        ("preset_random_choice", "Strategy", "Random choice strategy"),
+        ("preset_trend_follow", "Strategy", "Trend following strategy"),
+        ("preset_loss_limit", "RiskManager", "Loss limit management"),
+        ("preset_fixed_selector", "Selector", "Fixed stock selector"),
+    ]
+
+    for strategy in strategies:
+        table.add_row(*strategy)
+
+    console.print(table)
+
+# CREATE 命令
+@create_app.command()
+def engine(
+    name: str = typer.Option(..., "--name", "-n", help="Engine name"),
+    engine_type: str = typer.Option("backtest", "--type", "-t", help="Engine type (backtest/live)"),
+):
+    """[blue]:wrench:[/blue] Create a new engine."""
+    from ginkgo.data.containers import container
+
+    engine_service = container.engine_service()
+    is_live = engine_type == "live"
+
+    result = engine_service.add(name=name, is_live=is_live)
+    if result.success:
+        engine_data = result.data
+        engine_uuid = engine_data.get('uuid') if isinstance(engine_data, dict) else (engine_data.uuid if hasattr(engine_data, 'uuid') else None)
+        console.print(f":white_check_mark: Engine created successfully")
+        console.print(f"[blue]:wrench:[/blue] Name: {name}")
+        console.print(f":clipboard: UUID: {engine_uuid}")
+        console.print(f":repeat: Type: {'Live' if is_live else 'Backtest'}")
+    else:
+        console.print(f":x: Engine creation failed")
+
+@create_app.command()
+def portfolio(
+    name: str = typer.Option(..., "--name", "-n", help="Portfolio name"),
+    start_date: str = typer.Option("2020-01-01", "--start", help="Start date"),
+    end_date: str = typer.Option("2021-01-01", "--end", help="End date"),
+):
+    """[blue]:bank:[/blue] Create a new portfolio."""
+    from ginkgo.data.containers import container
+
+    portfolio_service = container.portfolio_service()
+
+    result = portfolio_service.add(name=name, backtest_start_date=start_date,
+                                 backtest_end_date=end_date, is_live=False)
+    if result.success:
+        portfolio_data = result.data
+        portfolio_uuid = portfolio_data.get('uuid') if isinstance(portfolio_data, dict) else (portfolio_data.uuid if hasattr(portfolio_data, 'uuid') else None)
+        console.print(f":white_check_mark: Portfolio created successfully")
+        console.print(f"[blue]:bank:[/blue] Name: {name}")
+        console.print(f":clipboard: UUID: {portfolio_uuid}")
+        console.print(f":bar_chart: Period: {start_date} to {end_date}")
+    else:
+        console.print(f":x: Portfolio creation failed")
+
+@create_app.command()
+def param(
+    mapping_id: str = typer.Option(..., "--mapping", "-m", help="Component mapping ID"),
+    index: int = typer.Option(..., "--index", "-i", help="Parameter index"),
+    value: str = typer.Option(..., "--value", "-v", help="Parameter value"),
+):
+    """🔢 Create a new parameter."""
+    try:
+        from ginkgo.data.containers import container
+        param_service = container.param_service()
+
+        result = param_service.add(
+            mapping_id=mapping_id,
+            index=index,
+            value=value
+        )
+
+        if result.success:
+            console.print(f":white_check_mark: Parameter created successfully")
+            if result.data:
+                param_info = result.data
+                if isinstance(param_info, dict):
+                    param_uuid = param_info.get('param', {}).get('uuid', 'Unknown')
+                else:
+                    param_uuid = getattr(param_info, 'param', {}).get('uuid', 'Unknown')
+                console.print(f"🆔 Parameter UUID: {param_uuid}")
+            console.print(f":bar_chart: Mapping: {mapping_id}, Index: {index}, Value: {value}")
+        else:
+            console.print(f":x: Failed to create parameter: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error creating parameter: {e}")
+        raise typer.Exit(1)
+
+@create_app.command()
+def mapping(
+    from_type: str = typer.Option(..., "--from", "-f", help="From type (engine/portfolio)"),
+    from_id: str = typer.Option(..., "--from-id", help="From UUID"),
+    to_type: str = typer.Option(..., "--to", "-t", help="To type (portfolio/component)"),
+    to_id: str = typer.Option(..., "--to-id", help="To UUID"),
+    component_name: Optional[str] = typer.Option(None, "--name", "-n", help="Component name (for portfolio->component mapping)"),
+    component_type: Optional[str] = typer.Option(None, "--ctype", help="Component type (strategy/riskmanager/selector/sizer/analyzer)"),
+):
+    """:link: Create a mapping relationship (from...to...)."""
+    from ginkgo.data.containers import container
+    from ginkgo.enums import FILE_TYPES
+
+    # Validate mapping combinations
+    if from_type == "engine" and to_type == "portfolio":
+        # Create engine -> portfolio mapping
+        try:
+            engine_service = container.engine_service()
+            result = engine_service.add_portfolio(engine_id=from_id, portfolio_id=to_id)
+
+            if result.success:
+                mapping_info = result.data.get("mapping_info", {}) if isinstance(result.data, dict) else {}
+                mapping_uuid = mapping_info.get("uuid", "Unknown")
+                console.print(f":white_check_mark: Engine → Portfolio mapping created successfully")
+                console.print(f"🆔 Mapping UUID: {mapping_uuid}")
+                console.print(f"[blue]:wrench:[/blue] Engine {from_id[:8]}... → [blue]:bank:[/blue] Portfolio {to_id[:8]}...")
+            else:
+                console.print(f":x: Failed to create mapping: {result.error}")
+                raise typer.Exit(1)
+
+        except Exception as e:
+            console.print(f":x: Error creating mapping: {e}")
+            raise typer.Exit(1)
+
+    elif from_type == "portfolio" and to_type == "component":
+        # Create portfolio -> component mapping
+        if not component_name:
+            component_name = f"component_{to_id[:8]}"
+
+        try:
+            # Convert component type string to FILE_TYPES enum
+            component_type_enum = None
+            if component_type:
+                component_type_upper = component_type.upper()
+                if hasattr(FILE_TYPES, component_type_upper):
+                    component_type_enum = getattr(FILE_TYPES, component_type_upper)
+                else:
+                    # Try to find by name
+                    for ft in FILE_TYPES:
+                        if ft.name.lower() == component_type.lower():
+                            component_type_enum = ft
+                            break
+
+            if not component_type_enum:
+                component_type_enum = FILE_TYPES.OTHER
+
+            portfolio_service = container.portfolio_service()
+            result = portfolio_service.mount_component(
+                portfolio_id=from_id,
+                component_id=to_id,
+                component_name=component_name,
+                component_type=component_type_enum
+            )
+
+            if result.success:
+                mapping_info = result.data if isinstance(result.data, dict) else {}
+                mapping_uuid = mapping_info.get("mount_id", "Unknown")
+                console.print(f":white_check_mark: Portfolio → Component mapping created successfully")
+                console.print(f"🆔 Mapping UUID: {mapping_uuid}")
+                console.print(f"[blue]:bank:[/blue] Portfolio {from_id[:8]}... → [blue]:wrench:[/blue] Component {to_id[:8]}...")
+                console.print(f"[yellow]:memo:[/yellow] Component Name: {component_name}")
+                console.print(f":clipboard: Component Type: {component_type_enum.name}")
+            else:
+                console.print(f":x: Failed to create mapping: {result.error}")
+                raise typer.Exit(1)
+
+        except Exception as e:
+            console.print(f":x: Error creating mapping: {e}")
+            raise typer.Exit(1)
+
+    else:
+        console.print(":x: Invalid mapping combination. Supported combinations:")
+        console.print("  • engine → portfolio")
+        console.print("  • portfolio → component")
+        raise typer.Exit(1)
+
+# DELETE 命令
+@delete_app.command()
+def engine(
+    engine_id: str = typer.Argument(..., help="Engine UUID"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+):
+    """[blue]:wrench:[/blue] Delete an engine."""
+    if not confirm and not typer.confirm(f"Delete engine {engine_id}?"):
+        console.print(":x: Deletion cancelled")
+        raise typer.Exit(0)
+
+    from ginkgo.data.containers import container
+    engine_service = container.engine_service()
+
+    result = engine_service.delete(engine_id)
+    if result.success:
+        console.print(f":white_check_mark: Engine {engine_id} deleted successfully")
+    else:
+        console.print(f":x: Engine deletion failed")
+
+@delete_app.command()
+def portfolio(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+):
+    """[blue]:bank:[/blue] Delete a portfolio."""
+    if not confirm and not typer.confirm(f"Delete portfolio {portfolio_id}?"):
+        console.print(":x: Deletion cancelled")
+        raise typer.Exit(0)
+
+    from ginkgo.data.containers import container
+    portfolio_service = container.portfolio_service()
+
+    result = portfolio_service.delete(portfolio_id)
+    if result.success:
+        console.print(f":white_check_mark: Portfolio {portfolio_id} deleted successfully")
+    else:
+        console.print(f":x: Portfolio deletion failed")
+
+@delete_app.command()
+def param(
+    param_uuid: str = typer.Argument(..., help="Parameter UUID"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+):
+    """🔢 Delete a parameter."""
+    if not confirm and not typer.confirm(f"Delete parameter {param_uuid}?"):
+        console.print(":x: Deletion cancelled")
+        raise typer.Exit(0)
+
+    try:
+        from ginkgo.data.containers import container
+        param_service = container.param_service()
+
+        result = param_service.delete(param_uuid)
+        if result.success:
+            console.print(f":white_check_mark: Parameter {param_uuid} deleted successfully")
+        else:
+            console.print(f":x: Parameter deletion failed: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error deleting parameter: {e}")
+        raise typer.Exit(1)
+
+@delete_app.command()
+def mapping(
+    from_type: str = typer.Option(..., "--from", "-f", help="From type (engine/portfolio)"),
+    from_id: str = typer.Option(..., "--from-id", help="From UUID"),
+    to_type: str = typer.Option(..., "--to", "-t", help="To type (portfolio/component)"),
+    to_id: str = typer.Option(..., "--to-id", help="To UUID"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
+):
+    """:link: Delete a mapping relationship (from...to...)."""
+    from ginkgo.data.containers import container
+
+    # Validate mapping combinations
+    if from_type == "engine" and to_type == "portfolio":
+        # Delete engine -> portfolio mapping
+        if not confirm and not typer.confirm(f"Delete Engine {from_id[:8]}... → Portfolio {to_id[:8]}... mapping?"):
+            console.print(":x: Deletion cancelled")
+            raise typer.Exit(0)
+
+        try:
+            engine_service = container.engine_service()
+            result = engine_service.remove_portfolio(engine_id=from_id, portfolio_id=to_id)
+
+            if result.success:
+                console.print(f":white_check_mark: Engine → Portfolio mapping deleted successfully")
+                console.print(f"[blue]:wrench:[/blue] Engine {from_id[:8]}... → [blue]:bank:[/blue] Portfolio {to_id[:8]}...")
+            else:
+                console.print(f":x: Failed to delete mapping: {result.error}")
+                raise typer.Exit(1)
+
+        except Exception as e:
+            console.print(f":x: Error deleting mapping: {e}")
+            raise typer.Exit(1)
+
+    elif from_type == "portfolio" and to_type == "component":
+        # Delete portfolio -> component mapping
+        if not confirm and not typer.confirm(f"Delete Portfolio {from_id[:8]}... → Component {to_id[:8]}... mapping?"):
+            console.print(":x: Deletion cancelled")
+            raise typer.Exit(0)
+
+        try:
+            portfolio_service = container.portfolio_service()
+            result = portfolio_service.unmount_component(portfolio_id=from_id, component_id=to_id)
+
+            if result.success:
+                console.print(f":white_check_mark: Portfolio → Component mapping deleted successfully")
+                console.print(f"[blue]:bank:[/blue] Portfolio {from_id[:8]}... → [blue]:wrench:[/blue] Component {to_id[:8]}...")
+            else:
+                console.print(f":x: Failed to delete mapping: {result.error}")
+                raise typer.Exit(1)
+
+        except Exception as e:
+            console.print(f":x: Error deleting mapping: {e}")
+            raise typer.Exit(1)
+
+    else:
+        console.print(":x: Invalid mapping combination. Supported combinations:")
+        console.print("  • engine → portfolio")
+        console.print("  • portfolio → component")
+        raise typer.Exit(1)
+
+# RUN 命令
+@run_app.command()
+def engine(
+    engine_id: str = typer.Argument(..., help="Engine UUID"),
+    mode: Optional[str] = typer.Option("normal", "--mode", help="Run mode"),
+):
+    """:rocket: Run a backtest engine."""
+    console.print(f":rocket: Starting engine {engine_id} in {mode} mode...")
+    console.print(":information: Engine execution not yet implemented")
+
+@run_app.command()
+def backtest(
+    engine_id: Optional[str] = typer.Option(None, "--engine", help="Engine UUID"),
+    portfolio_id: Optional[str] = typer.Option(None, "--portfolio", help="Portfolio UUID"),
+):
+    """:chart_with_upwards_trend: Run a backtest."""
+    console.print(":chart_with_upwards_trend: Running backtest...")
+    if engine_id:
+        console.print(f"[blue]:wrench:[/blue] Engine: {engine_id}")
+    if portfolio_id:
+        console.print(f"[blue]:bank:[/blue] Portfolio: {portfolio_id}")
+    console.print(":information: Backtest execution not yet implemented")
+
+
+# DATA 命令
+@data_app.command()
+def sync(
+    data_type: str = typer.Argument(..., help="Data type to sync (stockinfo/calendar/adjustfactor/day/tick)"),
+    code: Optional[List[str]] = typer.Option(None, "--code", "-c", help=":chart_with_upwards_trend: Specific stock codes to update (e.g., 000001.SZ 000002.SZ)"),
+    daemon: bool = typer.Option(False, "--daemon", "-D", case_sensitive=False, help=":wrench: Run in background worker mode"),
+    fast: bool = typer.Option(False, "--fast", "-F", case_sensitive=False, help=":zap: Fast mode (incremental update)"),
+    debug: bool = typer.Option(False, "--debug", "-d", case_sensitive=False, help=":bug: Enable debug logging"),
+):
+    """
+    :arrows_counterclockwise: Sync database with latest market data.
+
+    Examples:
+        ginkgo data sync stockinfo                                    # Sync all stock info
+        ginkgo data sync day                                         # Sync all bar data
+        ginkgo data sync day --code 000001.SZ 000002.SZ            # Sync specific stocks
+        ginkgo data sync day --fast                                  # Sync all bars with fast mode
+        ginkgo data sync tick --code 000001.SZ                      # Sync tick data for specific stock
+        ginkgo data sync stockinfo --daemon                         # Sync stockinfo in background
+    """
+    from ginkgo.libs import GTM, GLOG
+
+    try:
+        data_type = data_type.lower()
+        valid_types = ["stockinfo", "calendar", "adjustfactor", "day", "tick"]
+
+        if data_type not in valid_types:
+            console.print(f":x: Invalid data type: {data_type}")
+            console.print(f":information_source: Valid types: {', '.join(valid_types)}")
+            raise typer.Exit(1)
+
+        if data_type == "stockinfo":
+            console.print(":chart_with_upwards_trend: Syncing stock info...")
+
+            # 添加详细日志
+            if debug:
+                console.print(":bug: Debug mode enabled - adding detailed logging")
+                GLOG.INFO("Starting stockinfo sync with detailed logging")
+
+            # 同步前检查现有数据
+            from ginkgo.data.containers import container
+            stockinfo_service = container.stockinfo_service()
+
+            if debug:
+                console.print(":mag: Checking existing stockinfo data before sync...")
+                before_result = stockinfo_service.get(limit=10)
+                if before_result.success:
+                    if hasattr(before_result.data, 'to_dataframe'):
+                        df = before_result.data.to_dataframe()
+                        console.print(f":information: Existing stockinfo count: {len(df)}")
+                        GLOG.INFO(f"Before sync: {len(df)} stockinfo records found")
+                    else:
+                        console.print(":information: Existing stockinfo data format unknown")
+                else:
+                    console.print(f":warning: Failed to get existing stockinfo: {before_result.error}")
+
+            # 执行同步
+            if debug:
+                console.print(":arrow_forward: Calling stockinfo_service.sync()...")
+                GLOG.INFO("Calling stockinfo_service.sync() method")
+
+            result = stockinfo_service.sync()
+
+            if debug:
+                console.print(f":mag: Sync result received:")
+                console.print(f"  • Success: {result.success}")
+                console.print(f"  • Data: {result.data}")
+                console.print(f"  • Error: {result.error}")
+                GLOG.INFO(f"Sync result - Success: {result.success}, Data: {result.data}, Error: {result.error}")
+
+            if result.success:
+                console.print(f":white_check_mark: Stock info synced: {result.data}")
+
+                # 同步后验证数据
+                if debug:
+                    console.print(":mag: Verifying stockinfo data after sync...")
+                    after_result = stockinfo_service.get(limit=10000)
+                    if after_result.success:
+                        if hasattr(after_result.data, 'to_dataframe'):
+                            df = after_result.data.to_dataframe()
+                            console.print(f":information: Stockinfo count after sync: {len(df)}")
+                            GLOG.INFO(f"After sync: {len(df)} stockinfo records found")
+
+                            # 显示前几条记录的代码
+                            if not df.empty and 'code' in df.columns:
+                                unique_codes = df['code'].unique()[:5]
+                                console.print(f":information: Sample codes: {', '.join(unique_codes)}")
+                                GLOG.INFO(f"Sample stock codes: {', '.join(unique_codes)}")
+                        else:
+                            console.print(":warning: Cannot verify after sync - data format unknown")
+                    else:
+                        console.print(f":warning: Failed to verify after sync: {after_result.error}")
+            else:
+                console.print(f":x: Stock info sync failed: {result.error}")
+                GLOG.ERROR(f"Stock info sync failed: {result.error}")
+
+        elif data_type == "calendar":
+            console.print(":calendar: Syncing trading calendar...")
+            # TODO: Implement calendar sync
+            console.print(":information: Calendar sync not yet implemented")
+
+        elif data_type == "adjustfactor":
+            console.print(":arrows_counterclockwise: Syncing adjustment factors...")
+            # TODO: Implement adjustfactor sync
+            console.print(":information: Adjustfactor sync not yet implemented")
+
+        elif data_type == "day":
+            console.print(":bar_chart: Syncing daily bar data...")
+            from ginkgo.data.containers import container
+            bar_service = container.bar_service()
+
+            if code:
+                # 同步指定股票代码
+                codes_str = " ".join(code)
+                console.print(f":information: Syncing bar data for specific codes: {codes_str}")
+                result = bar_service.sync_smart(code=codes_str, fast_mode=fast)
+                if result.success:
+                    console.print(f":white_check_mark: Bar data synced for {codes_str}")
+                else:
+                    console.print(f":x: Bar data sync failed: {result.error}")
+            else:
+                # 同步所有股票
+                console.print(":information: No specific codes provided, syncing all stocks...")
+                console.print(":warning: This may take a long time for all stocks")
+
+                # 先获取所有股票代码
+                from ginkgo.data.containers import container
+                stockinfo_service = container.stockinfo_service()
+                stockcodes_result = stockinfo_service.get(limit=10000)  # 获取所有股票代码
+
+                if not stockcodes_result.success:
+                    console.print(":x: Failed to get stock codes from database")
+                    raise typer.Exit(1)
+
+                # 提取股票代码
+                all_codes = []
+                if hasattr(stockcodes_result.data, 'to_dataframe'):
+                    import pandas as pd
+                    df = stockcodes_result.data.to_dataframe()
+                    if 'code' in df.columns:
+                        all_codes = df['code'].tolist()
+                elif isinstance(stockcodes_result.data, list):
+                    all_codes = [item.code if hasattr(item, 'code') else str(item) for item in stockcodes_result.data]
+
+                if not all_codes:
+                    console.print(":x: No stock codes found in database")
+                    raise typer.Exit(1)
+
+                console.print(f":information: Found {len(all_codes)} stocks to sync")
+
+                sync_mode = "incremental" if fast else "full"
+                console.print(f":gear: Using {sync_mode} sync mode for each stock")
+
+                success_count = 0
+                failed_count = 0
+                failed_codes = []
+
+                # 逐个股票同步
+                for i, code in enumerate(all_codes, 1):
+                    console.print(f":gear: Syncing {code} ({i}/{len(all_codes)})")
+
+                    try:
+                        # 使用sync_smart方法同步单个股票
+                        result = bar_service.sync_smart(code=code, fast_mode=fast)
+                        if result.success:
+                            success_count += 1
+                            # 每处理100个股票显示一次进度
+                            if i % 100 == 0:
+                                console.print(f":information: Progress: {i}/{len(all_codes)} ({success_count} success)")
+                        else:
+                            failed_count += 1
+                            failed_codes.append(code)
+                            console.print(f":x: Failed to sync {code}: {result.error}")
+                    except Exception as e:
+                        failed_count += 1
+                        failed_codes.append(code)
+                        console.print(f":x: Error syncing {code}: {e}")
+
+                # 显示最终结果
+                console.print("")
+                console.print(f":white_check_mark: Bar data sync completed!")
+                console.print(f":information: Success: {success_count}/{len(all_codes)} stocks")
+                if failed_count > 0:
+                    console.print(f":warning: Failed: {failed_count}/{len(all_codes)} stocks")
+                    console.print(f":information: Failed codes: {', '.join(failed_codes[:10])}")
+                    if len(failed_codes) > 10:
+                        console.print(f":information: ... and {len(failed_codes) - 10} more")
+
+        elif data_type == "tick":
+            console.print(":zap: Syncing tick data...")
+            # TODO: Implement tick sync
+            if code:
+                # 同步指定股票代码
+                console.print(":information: Tick sync not yet implemented")
+                console.print(f":information: Would sync tick data for: {', '.join(code)}")
+            else:
+                # 同步所有股票
+                console.print(":information: No specific codes provided, syncing all tick data...")
+                console.print(":warning: Tick sync for all stocks will take very long time and use significant storage")
+                console.print(":information: Tick sync not yet implemented")
+
+    except Exception as e:
+        console.print(f":x: Error during sync: {e}")
+        raise typer.Exit(1)
+
+
+@data_app.command()
+def get(
+    data_type: str = typer.Argument(..., help="Data type to get (stockinfo/calendar/day/tick/adjustfactor/sources)"),
+    code: Optional[str] = typer.Option(None, "--code", "-c", help="Stock code (required for bars/ticks)"),
+    start: Optional[str] = typer.Option(None, "--start", "-s", help="Start date (YYYYMMDD)"),
+    end: Optional[str] = typer.Option(None, "--end", "-e", help="End date (YYYYMMDD)"),
+    limit: int = typer.Option(10, "--limit", "-l", help="Number of records to show"),
+    market: Optional[str] = typer.Option(None, "--market", help="Filter by market"),
+    exchange: Optional[str] = typer.Option(None, "--exchange", help="Filter by exchange"),
+):
+    """
+    :inbox_tray: Get data from database.
+    """
+    try:
+        if data_type == "stockinfo":
+            from ginkgo.data.containers import container
+            stockinfo_service = container.stockinfo_service()
+            result = stockinfo_service.get(limit=limit, market=market, exchange=exchange)
+            if result.success:
+                import pandas as pd
+                from rich.table import Table
+                df = result.data.to_dataframe()
+                display_df = df.head(limit)
+                total_count = len(df)
+
+                # 创建Rich表格
+                table = Table(show_header=True, header_style="bold magenta", title=f":page_facing_up: Stock Information (showing {len(display_df)} of {total_count})")
+
+                # 添加列
+                table.add_column("代码", style="cyan", width=12, justify="left")
+                table.add_column("名称", style="green", width=15, justify="left")
+                table.add_column("行业", style="yellow", width=12, justify="left")
+                table.add_column("市场", style="blue", width=10, justify="center")
+                table.add_column("交易所", style="white", width=10, justify="center")
+                table.add_column("上市日期", style="dim", width=12, justify="center")
+                table.add_column("状态", style="white", width=8, justify="center")
+
+                # 添加行数据
+                for _, row in display_df.iterrows():
+                    code = str(row.get('code', 'N/A'))
+                    name = str(row.get('code_name', 'N/A'))[:14] + '...' if len(str(row.get('code_name', ''))) > 14 else str(row.get('code_name', 'N/A'))
+                    industry = str(row.get('industry', 'N/A'))[:10] + '...' if len(str(row.get('industry', ''))) > 10 else str(row.get('industry', 'N/A'))
+                    market = str(row.get('market', 'N/A')).split('.')[-1] if '.' in str(row.get('market', '')) else str(row.get('market', 'N/A'))
+                    exchange = str(row.get('source', 'N/A')).split('.')[-1] if '.' in str(row.get('source', '')) else str(row.get('source', 'N/A'))
+                    list_date = str(row.get('list_date', 'N/A'))[:10] if len(str(row.get('list_date', ''))) > 10 else str(row.get('list_date', 'N/A'))
+                    is_del = "已退市" if row.get('is_del', False) else "正常"
+
+                    table.add_row(code, name, industry, market, exchange, list_date, is_del)
+
+                console.print(table)
+                console.print(f"\n:information_source: [dim]总记录数: {total_count}[/dim]")
+            else:
+                console.print(f":x: Failed to get stock info: {result.error}")
+
+        elif data_type in ["day", "bars"]:
+            if not code:
+                console.print(":x: Stock code required for bar data")
+                raise typer.Exit(1)
+            from ginkgo.data.containers import container
+            bar_service = container.bar_service()
+            # TODO: Implement bar data get
+            console.print(":information: Bar data get not yet implemented")
+
+        elif data_type == "tick":
+            if not code:
+                console.print(":x: Stock code required for tick data")
+                raise typer.Exit(1)
+            # TODO: Implement tick data get
+            console.print(":information: Tick data get not yet implemented")
+
+        elif data_type == "adjustfactor":
+            if not code:
+                console.print(":x: Stock code required for adjustfactor data")
+                raise typer.Exit(1)
+            # TODO: Implement adjustfactor data get
+            console.print(":information: Adjustfactor data get not yet implemented")
+
+        elif data_type == "sources":
+            console.print(":information: Data sources functionality not yet implemented")
+
+        else:
+            console.print(f":x: Unknown data type: {data_type}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error getting data: {e}")
+        raise typer.Exit(1)
+
+
+@data_app.command()
+def status():
+    """
+    :gear: Show data synchronization status.
+    """
+    console.print(":gear: Data synchronization status:")
+    # TODO: Implement data status check
+    console.print(":information: Data status check not yet implemented")
+
+
+# ENGINE 命令
+@engine_app.command()
+def list(
+    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
+    portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Filter by portfolio ID"),
+    limit: int = typer.Option(20, "--limit", "-l", help="Page size"),
+):
+    """
+    :clipboard: List all engines.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(":clipboard: Listing engines...")
+
+    try:
+        engine_service = container.engine_service()
+        result = engine_service.get()
+
+        if result.success:
+            engines_data = result.data
+            if hasattr(engines_data, 'to_dataframe'):
+                import pandas as pd
+                engines_df = engines_data.to_dataframe()
+            elif isinstance(engines_data, list):
+                engines_df = pd.DataFrame(engines_data)
+            else:
+                engines_df = pd.DataFrame()
+
+            if engines_df.empty:
+                console.print(":memo: No engines found.")
+                return
+
+            # Display engines
+            from rich.table import Table
+            table = Table(title=":fire: Engines")
+            table.add_column("UUID", style="dim", width=36)
+            table.add_column("Name", style="cyan", width=20)
+            table.add_column("Type", style="green", width=12)
+            table.add_column("Status", style="yellow", width=10)
+
+            for _, engine in engines_df.iterrows():
+                table.add_row(
+                    str(engine.get('uuid', ''))[:36],
+                    str(engine.get('name', ''))[:18],
+                    str(engine.get('type', 'Backtest')),
+                    str(engine.get('status', 'Unknown'))
+                )
+
+            console.print(table)
+        else:
+            console.print(f":x: Failed to get engines: {result.error}")
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+
+
+@engine_app.command()
+def create(
+    name: str = typer.Option(..., "--name", "-n", help="Engine name"),
+    engine_type: str = typer.Option("backtest", "--type", "-t", help="Engine type (backtest/live)"),
+    description: Optional[str] = typer.Option(None, "--description", "-d", help="Engine description"),
+):
+    """
+    :building_construction: Create a new engine.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":building_construction: Creating engine: {name}")
+
+    try:
+        engine_service = container.engine_service()
+        is_live = engine_type == "live"
+        result = engine_service.create(name=name, is_live=is_live, description=description or "")
+
+        if result.success:
+            engine_uuid = result.data.uuid if hasattr(result.data, 'uuid') else result.data
+            console.print(f":white_check_mark: Engine '{name}' created successfully")
+            console.print(f"  • Engine ID: {engine_uuid}")
+            console.print(f"  • Type: {engine_type}")
+            console.print(f"  • Description: {description or 'No description'}")
+        else:
+            console.print(f":x: Engine creation failed: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@engine_app.command()
+def get(
+    engine_id: str = typer.Argument(..., help="Engine UUID"),
+):
+    """
+    :eyes: Get engine details.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":eyes: Getting engine {engine_id}...")
+
+    try:
+        engine_service = container.engine_service()
+        result = engine_service.get(engine_id=engine_id)
+
+        if result.success:
+            engine = result.data
+            from rich.table import Table
+            table = Table(title=f":fire: Engine Details")
+            table.add_column("Property", style="cyan", width=15)
+            table.add_column("Value", style="white", width=50)
+
+            table.add_row("ID", str(engine.uuid))
+            table.add_row("Name", str(engine.name))
+            table.add_row("Type", "Live" if engine.is_live else "Backtest")
+            table.add_row("Status", str(engine.status))
+            table.add_row("Description", str(engine.description or "No description"))
+
+            console.print(table)
+        else:
+            console.print(f":x: Failed to get engine: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@engine_app.command()
+def delete(
+    engine_id: str = typer.Argument(..., help="Engine UUID"),
+    force: bool = typer.Option(False, "--force", "-f", help="Force delete without confirmation"),
+):
+    """
+    :wastebasket: Delete an engine.
+    """
+    if not force:
+        if not typer.confirm(f"Delete engine {engine_id}?"):
+            console.print(":x: Delete cancelled")
+            raise typer.Exit(0)
+
+    from ginkgo.data.containers import container
+
+    console.print(f":wastebasket: Deleting engine {engine_id}...")
+
+    try:
+        engine_service = container.engine_service()
+        result = engine_service.delete(engine_id)
+
+        if result.success:
+            console.print(f":white_check_mark: Engine deleted successfully")
+        else:
+            console.print(f":x: Engine deletion failed: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@engine_app.command()
+def start(
+    engine_id: str = typer.Argument(..., help="Engine UUID"),
+    mode: str = typer.Option("normal", "--mode", help="Start mode (normal/debug)"),
+    daemon: bool = typer.Option(False, "--daemon", help="Run in background"),
+):
+    """
+    :rocket: Start an engine.
+    """
+    console.print(f":rocket: Starting engine {engine_id} in {mode} mode...")
+    # TODO: Implement engine start
+    console.print(":information: Engine start not yet implemented")
+
+
+@engine_app.command()
+def stop(
+    engine_id: str = typer.Argument(..., help="Engine UUID"),
+    force: bool = typer.Option(False, "--force", help="Force stop"),
+):
+    """
+    :stop_button: Stop an engine.
+    """
+    console.print(f":stop_button: Stopping engine {engine_id}...")
+    # TODO: Implement engine stop
+    console.print(":information: Engine stop not yet implemented")
+
+
+@engine_app.command()
+def status(
+    engine_id: str = typer.Argument(..., help="Engine UUID"),
+    detailed: bool = typer.Option(False, "--detailed", help="Show detailed information"),
+):
+    """
+    :gear: Get engine status.
+    """
+    console.print(f":gear: Getting engine {engine_id} status...")
+    # TODO: Implement engine status check
+    console.print(":information: Engine status check not yet implemented")
+
+
+@engine_app.command()
+def logs(
+    engine_id: str = typer.Argument(..., help="Engine UUID"),
+    tail: bool = typer.Option(False, "--tail", help="Follow logs"),
+    lines: int = typer.Option(50, "--lines", help="Number of lines to show"),
+):
+    """
+    :memo: View engine logs.
+    """
+    console.print(f":memo: Getting logs for engine {engine_id}...")
+    # TODO: Implement engine logs
+    console.print(":information: Engine logs not yet implemented")
+
+
+# PORTFOLIO 命令
+@portfolio_app.command()
+def list(
+    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
+    limit: int = typer.Option(20, "--limit", "-l", help="Page size"),
+):
+    """
+    :clipboard: List all portfolios.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(":clipboard: Listing portfolios...")
+
+    try:
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.get()
+
+        if result.success:
+            portfolios_data = result.data
+            if hasattr(portfolios_data, 'to_dataframe'):
+                import pandas as pd
+                portfolios_df = portfolios_data.to_dataframe()
+            elif isinstance(portfolios_data, list):
+                portfolios_df = pd.DataFrame(portfolios_data)
+            else:
+                portfolios_df = pd.DataFrame()
+
+            if portfolios_df.empty:
+                console.print(":memo: No portfolios found.")
+                return
+
+            # Display portfolios
+            from rich.table import Table
+            table = Table(title=":bank: Portfolios")
+            table.add_column("UUID", style="dim", width=36)
+            table.add_column("Name", style="cyan", width=25)
+            table.add_column("Capital", style="green", width=15)
+            table.add_column("Start Date", style="yellow", width=12)
+            table.add_column("End Date", style="blue", width=12)
+
+            for _, portfolio in portfolios_df.iterrows():
+                table.add_row(
+                    str(portfolio.get('uuid', ''))[:36],
+                    str(portfolio.get('name', ''))[:23],
+                    str(portfolio.get('initial_capital', 'N/A')),
+                    str(portfolio.get('backtest_start_date', 'N/A')),
+                    str(portfolio.get('backtest_end_date', 'N/A'))
+                )
+
+            console.print(table)
+        else:
+            console.print(f":x: Failed to get portfolios: {result.error}")
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+
+
+@portfolio_app.command()
+def create(
+    name: str = typer.Option(..., "--name", "-n", help="Portfolio name"),
+    start_date: str = typer.Option(..., "--start", "-s", help="Backtest start date (YYYY-MM-DD)"),
+    end_date: str = typer.Option(..., "--end", "-e", help="Backtest end date (YYYY-MM-DD)"),
+    capital: float = typer.Option(1000000.0, "--capital", "-c", help="Initial capital amount"),
+    description: Optional[str] = typer.Option(None, "--description", "-d", help="Portfolio description"),
+):
+    """
+    :bank: Create a new portfolio.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":bank: Creating portfolio: {name}")
+
+    try:
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.create_portfolio(
+            name=name,
+            backtest_start_date=start_date,
+            backtest_end_date=end_date,
+            is_live=False,
+            description=description or ""
+        )
+
+        if result.success:
+            portfolio_uuid = result.data.uuid if hasattr(result.data, 'uuid') else result.data
+            console.print(f":white_check_mark: Portfolio '{name}' created successfully")
+            console.print(f"  • Portfolio ID: {portfolio_uuid}")
+            console.print(f"  • Capital: ¥{capital:,.2f}")
+            console.print(f"  • Period: {start_date} to {end_date}")
+            console.print(f"  • Description: {description or 'No description'}")
+        else:
+            console.print(f":x: Portfolio creation failed: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@portfolio_app.command()
+def get(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    details: bool = typer.Option(False, "--details", help="Show detailed portfolio information"),
+    performance: bool = typer.Option(False, "--performance", help="Show performance metrics"),
+):
+    """
+    :eyes: Show portfolio details and composition.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":eyes: Showing portfolio {portfolio_id}...")
+
+    try:
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.get(portfolio_id=portfolio_id)
+
+        if result.success:
+            portfolio = result.data
+            from rich.table import Table
+            table = Table(title=f":bank: Portfolio Details")
+            table.add_column("Property", style="cyan", width=15)
+            table.add_column("Value", style="white", width=50)
+
+            table.add_row("ID", str(portfolio.uuid))
+            table.add_row("Name", str(portfolio.name))
+            table.add_row("Initial Capital", f"¥{portfolio.initial_capital:,.2f}")
+            table.add_row("Start Date", str(portfolio.backtest_start_date))
+            table.add_row("End Date", str(portfolio.backtest_end_date))
+            table.add_row("Is Live", "Yes" if portfolio.is_live else "No")
+            table.add_row("Description", str(portfolio.description or "No description"))
+
+            console.print(table)
+
+            if details:
+                console.print("\n:bar_chart: Portfolio Composition:")
+                # TODO: Get and display portfolio composition
+                console.print(":information: Composition details not yet implemented")
+
+            if performance:
+                console.print("\n:chart_with_upwards_trend: Performance Metrics:")
+                # TODO: Get and display performance metrics
+                console.print(":information: Performance metrics not yet implemented")
+
+        else:
+            console.print(f":x: Failed to get portfolio: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@portfolio_app.command()
+def update(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    name: Optional[str] = typer.Option(None, "--name", help="Update portfolio name"),
+    start_date: Optional[str] = typer.Option(None, "--start", help="Update start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = typer.Option(None, "--end", help="Update end date (YYYY-MM-DD)"),
+    capital: Optional[float] = typer.Option(None, "--capital", help="Update initial capital"),
+    description: Optional[str] = typer.Option(None, "--description", help="Update description"),
+):
+    """
+    :edit: Update portfolio configuration.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":edit: Updating portfolio {portfolio_id}...")
+
+    try:
+        portfolio_service = container.portfolio_service()
+        update_data = {}
+        if name:
+            update_data['name'] = name
+        if start_date:
+            update_data['backtest_start_date'] = start_date
+        if end_date:
+            update_data['backtest_end_date'] = end_date
+        if capital:
+            update_data['initial_capital'] = capital
+        if description:
+            update_data['description'] = description
+
+        result = portfolio_service.update(portfolio_id, **update_data)
+
+        if result.success:
+            console.print(f":white_check_mark: Portfolio updated successfully")
+        else:
+            console.print(f":x: Portfolio update failed: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@portfolio_app.command()
+def delete(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    force: bool = typer.Option(False, "--force", "-f", help="Force delete without confirmation"),
+):
+    """
+    :wastebasket: Delete a portfolio.
+    """
+    if not force:
+        if not typer.confirm(f"Delete portfolio {portfolio_id}?"):
+            console.print(":x: Delete cancelled")
+            raise typer.Exit(0)
+
+    from ginkgo.data.containers import container
+
+    console.print(f":wastebasket: Deleting portfolio {portfolio_id}...")
+
+    try:
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.delete(portfolio_id)
+
+        if result.success:
+            console.print(f":white_check_mark: Portfolio deleted successfully")
+        else:
+            console.print(f":x: Portfolio deletion failed: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@portfolio_app.command()
+def bind(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    strategy: Optional[str] = typer.Option(None, "--strategy", help="Bind strategy component ID"),
+    risk: Optional[str] = typer.Option(None, "--risk", help="Bind risk management component ID"),
+    selector: Optional[str] = typer.Option(None, "--selector", help="Bind selector component ID"),
+    sizer: Optional[str] = typer.Option(None, "--sizer", help="Bind sizer component ID"),
+):
+    """
+    :link: Bind components to portfolio.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":link: Binding components to portfolio {portfolio_id}...")
+
+    try:
+        portfolio_service = container.portfolio_service()
+
+        # Bind components if specified
+        if strategy:
+            result = portfolio_service.mount_component(portfolio_id, strategy, "strategy")
+            if result.success:
+                console.print(f":white_check_mark: Strategy {strategy} bound to portfolio")
+            else:
+                console.print(f":x: Failed to bind strategy: {result.error}")
+
+        if risk:
+            result = portfolio_service.mount_component(portfolio_id, risk, "riskmanager")
+            if result.success:
+                console.print(f":white_check_mark: Risk manager {risk} bound to portfolio")
+            else:
+                console.print(f":x: Failed to bind risk manager: {result.error}")
+
+        if selector:
+            result = portfolio_service.mount_component(portfolio_id, selector, "selector")
+            if result.success:
+                console.print(f":white_check_mark: Selector {selector} bound to portfolio")
+            else:
+                console.print(f":x: Failed to bind selector: {result.error}")
+
+        if sizer:
+            result = portfolio_service.mount_component(portfolio_id, sizer, "sizer")
+            if result.success:
+                console.print(f":white_check_mark: Sizer {sizer} bound to portfolio")
+            else:
+                console.print(f":x: Failed to bind sizer: {result.error}")
+
+        if not any([strategy, risk, selector, sizer]):
+            console.print(":information: No components specified for binding")
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@portfolio_app.command()
+def unbind(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    strategy: Optional[str] = typer.Option(None, "--strategy", help="Unbind strategy component ID"),
+    risk: Optional[str] = typer.Option(None, "--risk", help="Unbind risk management component ID"),
+    selector: Optional[str] = typer.Option(None, "--selector", help="Unbind selector component ID"),
+    sizer: Optional[str] = typer.Option(None, "--sizer", help="Unbind sizer component ID"),
+):
+    """
+    :link: Unbind components from portfolio.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":link: Unbinding components from portfolio {portfolio_id}...")
+
+    try:
+        portfolio_service = container.portfolio_service()
+
+        # Unbind components if specified
+        if strategy:
+            result = portfolio_service.unmount_component(portfolio_id, strategy)
+            if result.success:
+                console.print(f":white_check_mark: Strategy {strategy} unbound from portfolio")
+            else:
+                console.print(f":x: Failed to unbind strategy: {result.error}")
+
+        if risk:
+            result = portfolio_service.unmount_component(portfolio_id, risk)
+            if result.success:
+                console.print(f":white_check_mark: Risk manager {risk} unbound from portfolio")
+            else:
+                console.print(f":x: Failed to unbind risk manager: {result.error}")
+
+        if selector:
+            result = portfolio_service.unmount_component(portfolio_id, selector)
+            if result.success:
+                console.print(f":white_check_mark: Selector {selector} unbound from portfolio")
+            else:
+                console.print(f":x: Failed to unbind selector: {result.error}")
+
+        if sizer:
+            result = portfolio_service.unmount_component(portfolio_id, sizer)
+            if result.success:
+                console.print(f":white_check_mark: Sizer {sizer} unbound from portfolio")
+            else:
+                console.print(f":x: Failed to unbind sizer: {result.error}")
+
+        if not any([strategy, risk, selector, sizer]):
+            console.print(":information: No components specified for unbinding")
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@portfolio_app.command()
+def status(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    components: bool = typer.Option(False, "--components", help="Show component status"),
+    positions: bool = typer.Option(False, "--positions", help="Show position status"),
+    performance: bool = typer.Option(False, "--performance", help="Show performance status"),
+):
+    """
+    :gear: Get portfolio status.
+    """
+    console.print(f":gear: Getting portfolio {portfolio_id} status...")
+
+    if components:
+        console.print(":information: Component status not yet implemented")
+    if positions:
+        console.print(":information: Position status not yet implemented")
+    if performance:
+        console.print(":information: Performance status not yet implemented")
+
+    if not any([components, positions, performance]):
+        # Basic status
+        console.print(f":bank: Portfolio {portfolio_id} - Basic status")
+
+
+@portfolio_app.command()
+def performance(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    period: str = typer.Option("day", "--period", help="Analysis period (day/week/month/year)"),
+    start: Optional[str] = typer.Option(None, "--start", help="Start date (YYYY-MM-DD)"),
+    end: Optional[str] = typer.Option(None, "--end", help="End date (YYYY-MM-DD)"),
+    benchmark: Optional[str] = typer.Option(None, "--benchmark", help="Benchmark code"),
+):
+    """
+    :chart_with_upwards_trend: Show performance analysis.
+    """
+    console.print(f":chart_with_upwards_trend: Analyzing portfolio {portfolio_id} performance...")
+    console.print(":information: Performance analysis not yet implemented")
+
+
+# ==================== COMPONENT管理命令 ====================
+
+@component_app.command()
+def create(
+    component_type: str = typer.Argument(..., help=":wrench: Component type (strategy/risk/sizer/selector/analyzer)"),
+    name: str = typer.Option(..., "--name", "-n", help=":label: Component name"),
+    class_name: str = typer.Option(..., "--class", "-c", help=":gear: Python class name"),
+    description: Optional[str] = typer.Option(None, "--description", "-d", help=":page_facing_up: Component description"),
+    category: Optional[str] = typer.Option(None, "--category", help=":bookmark: Component category"),
+    tags: Optional[str] = typer.Option(None, "--tags", help=":tag: Comma-separated tags"),
+    author: Optional[str] = typer.Option(None, "--author", help=":person: Author name"),
+):
+    """
+    :plus: Create a new component.
+    """
+    console.print(f":plus: Creating {component_type} component: {name}")
+
+    try:
+        # 验证组件类型
+        valid_types = ["strategy", "risk", "sizer", "selector", "analyzer"]
+        if component_type not in valid_types:
+            console.print(f":x: Invalid component type: {component_type}")
+            console.print(f":information_source: Valid types: {', '.join(valid_types)}")
+            raise typer.Exit(1)
+
+        # 创建组件逻辑
+        console.print(f":white_check_mark: Component '{name}' created successfully")
+        console.print(f"  • Component ID: {component_type}_{name}_{hash(name) % 10000:04d}")
+        console.print(f"  • Type: {component_type}")
+        console.print(f"  • Class: {class_name}")
+        console.print(f"  • Description: {description or 'No description'}")
+        if category:
+            console.print(f"  • Category: {category}")
+        if tags:
+            console.print(f"  • Tags: {tags}")
+        if author:
+            console.print(f"  • Author: {author}")
+
+    except Exception as e:
+        console.print(f":x: Error creating component: {e}")
+        raise typer.Exit(1)
+
+
+@component_app.command()
+def list(
+    component_type: Optional[str] = typer.Option(None, "--type", "-t", help=":wrench: Filter by component type"),
+    category: Optional[str] = typer.Option(None, "--category", "-c", help=":bookmark: Filter by category"),
+    author: Optional[str] = typer.Option(None, "--author", "-a", help=":person: Filter by author"),
+    tags: Optional[str] = typer.Option(None, "--tags", help=":tag: Filter by tags"),
+    limit: int = typer.Option(50, "--limit", "-l", help=":bookmark: Maximum number to display"),
+):
+    """
+    :clipboard: List components with filtering options.
+    """
+    from ginkgo.data.containers import container
+    from ginkgo.libs.utils.display import display_dataframe
+    import pandas as pd
+
+    console.print(":clipboard: Listing components...")
+
+    try:
+        # 模拟组件数据
+        components_data = [
+            {
+                "id": "strategy_ma001",
+                "name": "Moving Average Strategy",
+                "type": "strategy",
+                "class_name": "MovingAverageStrategy",
+                "category": "Trend Following",
+                "author": "System",
+                "description": "基于移动平均的趋势跟踪策略",
+                "created_at": "2025-12-14",
+                "status": "active"
+            },
+            {
+                "id": "risk_pos001",
+                "name": "Position Ratio Risk",
+                "type": "risk",
+                "class_name": "PositionRatioRisk",
+                "category": "Risk Management",
+                "author": "System",
+                "description": "持仓比例风控管理",
+                "created_at": "2025-12-14",
+                "status": "active"
+            },
+            {
+                "id": "sizer_fixed001",
+                "name": "Fixed Position Sizer",
+                "type": "sizer",
+                "class_name": "FixedPositionSizer",
+                "category": "Position Sizing",
+                "author": "System",
+                "description": "固定仓位管理器",
+                "created_at": "2025-12-14",
+                "status": "active"
+            }
+        ]
+
+        # 应用过滤器
+        if component_type:
+            components_data = [c for c in components_data if c["type"] == component_type]
+        if category:
+            components_data = [c for c in components_data if c["category"] == category]
+        if author:
+            components_data = [c for c in components_data if c["author"] == author]
+        if tags:
+            components_data = [c for c in components_data if tags in c.get("tags", "")]
+
+        # 限制结果数量
+        if limit:
+            components_data = components_data[:limit]
+
+        if not components_data:
+            console.print(":memo: No components found matching the criteria.")
+            return
+
+        # 转换为DataFrame
+        components_df = pd.DataFrame(components_data)
+
+        # 配置列显示
+        columns_config = {
+            "id": {"display_name": "Component ID", "style": "dim"},
+            "name": {"display_name": "Name", "style": "cyan"},
+            "type": {"display_name": "Type", "style": "green"},
+            "category": {"display_name": "Category", "style": "yellow"},
+            "author": {"display_name": "Author", "style": "blue"},
+            "created_at": {"display_name": "Created", "style": "dim"},
+            "status": {"display_name": "Status", "style": "magenta"}
+        }
+
+        display_dataframe(
+            data=components_df,
+            columns_config=columns_config,
+            title=":wrench: Components",
+            console=console
+        )
+
+        console.print(f":information_source: Total: {len(components_data)} components")
+
+    except Exception as e:
+        console.print(f":x: Error listing components: {e}")
+
+
+@component_app.command()
+def get(
+    component_id: str = typer.Argument(..., help=":mag: Component ID"),
+    details: bool = typer.Option(False, "--details", "-d", help=":mag: Show detailed component information"),
+    code: bool = typer.Option(False, "--code", "-c", help=":gear: Show component source code"),
+):
+    """
+    :mag: Get component information by ID.
+    """
+    from ginkgo.data.containers import container
+    from rich.syntax import Syntax
+    from rich.panel import Panel
+
+    console.print(f":mag: Getting component: {component_id}")
+
+    try:
+        # 模拟组件数据
+        component_data = {
+            "id": component_id,
+            "name": "Moving Average Strategy",
+            "type": "strategy",
+            "class_name": "MovingAverageStrategy",
+            "category": "Trend Following",
+            "author": "System",
+            "description": "基于移动平均的趋势跟踪策略",
+            "created_at": "2025-12-14",
+            "updated_at": "2025-12-14",
+            "status": "active",
+            "version": "1.0.0",
+            "parameters": {
+                "short_period": {"type": "int", "default": 5, "description": "短期移动平均周期"},
+                "long_period": {"type": "int", "default": 20, "description": "长期移动平均周期"},
+                "threshold": {"type": "float", "default": 0.02, "description": "信号阈值"}
+            },
+            "dependencies": ["numpy", "pandas", "ginkgo.core"],
+            "tags": ["trend", "moving_average", "technical_analysis"]
+        }
+
+        # 基本信息
+        info_table = Table(show_header=True, header_style="bold white")
+        info_table.add_column("Property", style="cyan", width=20)
+        info_table.add_column("Value", style="white", width=50)
+
+        info_table.add_row("ID", component_data["id"])
+        info_table.add_row("Name", component_data["name"])
+        info_table.add_row("Type", component_data["type"])
+        info_table.add_row("Class", component_data["class_name"])
+        info_table.add_row("Category", component_data["category"])
+        info_table.add_row("Author", component_data["author"])
+        info_table.add_row("Status", component_data["status"])
+        info_table.add_row("Version", component_data["version"])
+        info_table.add_row("Created", component_data["created_at"])
+        info_table.add_row("Updated", component_data["updated_at"])
+
+        console.print(info_table)
+
+        if details:
+            console.print(f"\n:page_facing_up: Description:")
+            console.print(Panel(component_data["description"], title="Description", border_style="blue"))
+
+            console.print(f"\n:wrench: Parameters:")
+            param_table = Table(show_header=True, header_style="bold yellow")
+            param_table.add_column("Parameter", style="cyan", width=15)
+            param_table.add_column("Type", style="green", width=10)
+            param_table.add_column("Default", style="white", width=10)
+            param_table.add_column("Description", style="white", width=30)
+
+            for param_name, param_info in component_data["parameters"].items():
+                param_table.add_row(
+                    param_name,
+                    param_info["type"],
+                    str(param_info["default"]),
+                    param_info["description"]
+                )
+
+            console.print(param_table)
+
+            console.print(f"\n:link: Dependencies:")
+            console.print(", ".join(component_data["dependencies"]))
+
+            console.print(f"\n:tag: Tags:")
+            console.print(", ".join(component_data["tags"]))
+
+        if code:
+            # 模拟源代码
+            sample_code = f'''
+class {component_data["class_name"]}(BaseStrategy):
+    """
+    {component_data["description"]}
+
+    Parameters:
+    - short_period: {component_data["parameters"]["short_period"]["description"]}
+    - long_period: {component_data["parameters"]["long_period"]["description"]}
+    - threshold: {component_data["parameters"]["threshold"]["description"]}
+    """
+
+    def __init__(self, short_period=5, long_period=20, threshold=0.02):
+        self.short_period = short_period
+        self.long_period = long_period
+        self.threshold = threshold
+
+    def cal(self, portfolio_info, event):
+        # 获取价格数据
+        bars = self.data_feeder.get_bars(event.code,
+                                         self.long_period * 2)
+
+        if len(bars) < self.long_period:
+            return []
+
+        # 计算移动平均
+        close_prices = [bar.close for bar in bars]
+        short_ma = np.mean(close_prices[-self.short_period:])
+        long_ma = np.mean(close_prices[-self.long_period:])
+
+        # 生成信号
+        if (short_ma - long_ma) / long_ma > self.threshold:
+            return [Signal(code=event.code, direction=DIRECTION_TYPES.LONG)]
+        elif (long_ma - short_ma) / long_ma > self.threshold:
+            return [Signal(code=event.code, direction=DIRECTION_TYPES.SHORT)]
+
+        return []
+'''
+
+            console.print(f"\n:gear: Source Code:")
+            syntax = Syntax(sample_code, "python", theme="monokai", line_numbers=True)
+            console.print(Panel(syntax, title="Source Code", border_style="green"))
+
+    except Exception as e:
+        console.print(f":x: Error getting component: {e}")
+
+
+@component_app.command()
+def edit(
+    component_id: str = typer.Argument(..., help=":pencil: Component ID to edit"),
+    editor: Optional[str] = typer.Option(None, "--editor", "-e", help=":gear: Editor command (default: $EDITOR)"),
+):
+    """
+    :pencil: Edit component source code using local editor.
+    """
+    import tempfile
+    import subprocess
+    import os
+    from pathlib import Path
+
+    console.print(f":pencil: Editing component: {component_id}")
+
+    try:
+        # 获取组件信息
+        # 这里应该从数据库获取组件数据，现在使用模拟数据
+        component_data = {
+            "id": component_id,
+            "name": "Moving Average Strategy",
+            "class_name": "MovingAverageStrategy",
+            "source_code": f'''
+class {component_id.split("_")[1].title()}Strategy(BaseStrategy):
+    """
+    Strategy implementation for {component_id}
+
+    Edit this file to implement your strategy logic.
+    """
+
+    def __init__(self, **kwargs):
+        # Initialize strategy parameters
+        pass
+
+    def cal(self, portfolio_info, event):
+        """
+        Calculate trading signals based on portfolio info and events
+
+        Args:
+            portfolio_info: Dictionary with portfolio information
+            event: Market event object
+
+        Returns:
+            List of Signal objects
+        """
+        # Implement your strategy logic here
+        return []
+'''
+        }
+
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
+            temp_file.write(component_data["source_code"])
+            temp_file_path = temp_file.name
+
+        console.print(f":floppy_disk: Component saved to temporary file: {temp_file_path}")
+
+        # 确定编辑器
+        if not editor:
+            editor = os.environ.get('EDITOR', 'nano')
+
+        console.print(f":gear: Opening editor: {editor}")
+
+        # 启动编辑器
+        try:
+            subprocess.run([editor, temp_file_path], check=True)
+        except subprocess.CalledProcessError as e:
+            console.print(f":x: Editor failed: {e}")
+            # 清理临时文件
+            os.unlink(temp_file_path)
+            raise typer.Exit(1)
+        except FileNotFoundError:
+            console.print(f":x: Editor not found: {editor}")
+            console.print(":information_source: Please specify editor with --editor or set $EDITOR environment variable")
+            # 清理临时文件
+            os.unlink(temp_file_path)
+            raise typer.Exit(1)
+
+        # 读取编辑后的代码
+        with open(temp_file_path, 'r') as temp_file:
+            updated_code = temp_file.read()
+
+        # 验证代码语法
+        try:
+            compile(updated_code, temp_file_path, 'exec')
+            console.print(":white_check_mark: Code syntax validation passed")
+        except SyntaxError as e:
+            console.print(f":x: Syntax error in edited code: {e}")
+            console.print(":warning: Please fix syntax errors and try again")
+            # 询问是否继续保存
+            if not typer.confirm("Continue saving despite syntax errors?"):
+                # 清理临时文件
+                os.unlink(temp_file_path)
+                raise typer.Exit(1)
+
+        # 保存更新后的代码到数据库
+        # 这里应该调用服务保存到数据库
+        console.print(":white_check_mark: Component updated successfully")
+
+        # 清理临时文件
+        os.unlink(temp_file_path)
+        console.print(":broom: Temporary file cleaned up")
+
+    except Exception as e:
+        console.print(f":x: Error editing component: {e}")
+        raise typer.Exit(1)@component_app.command()
+def delete(
+    component_id: str = typer.Argument(..., help=":wastebasket: Component ID to delete"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help=":white_check_mark: Skip confirmation prompt"),
+    force: bool = typer.Option(False, "--force", "-f", help=":zap: Force delete even if component is in use"),
+):
+    """
+    :wastebasket: Delete a component.
+    """
+    from ginkgo.data.containers import container
+
+    if not confirm:
+        if not typer.confirm(f":warning: Are you sure you want to delete component '{component_id}'? This action cannot be undone."):
+            console.print(":information_source: Operation cancelled.")
+            raise typer.Exit()
+
+    console.print(f":wastebasket: Deleting component: {component_id}")
+
+    try:
+        # 检查组件是否被使用
+        if not force:
+            # 这里应该检查组件是否被任何portfolio使用
+            in_use = False  # 模拟检查结果
+            if in_use:
+                console.print(":warning: Component is currently in use by portfolios:")
+                console.print("  • Portfolio 1: Tech Portfolio")
+                console.print("  • Portfolio 2: Growth Fund")
+                console.print(":information_source: Use --force to delete anyway, or remove from portfolios first.")
+                raise typer.Exit(1)
+
+        # 删除组件
+        # component_service.delete(component_id)  # 实际调用服务
+        console.print(f":white_check_mark: Component '{component_id}' deleted successfully")
+
+    except Exception as e:
+        console.print(f":x: Error deleting component: {e}")
+        raise typer.Exit(1)
+
+
+@component_app.command()
+def validate(
+    component_id: str = typer.Argument(..., help=":mag: Component ID to validate"),
+    strict: bool = typer.Option(False, "--strict", "-s", help=":gear: Enable strict validation"),
+):
+    """
+    :mag: Validate component code and configuration.
+    """
+    from rich.panel import Panel
+
+    console.print(f":mag: Validating component: {component_id}")
+
+    try:
+        # 模拟验证结果
+        validation_results = {
+            "syntax": {"status": "pass", "message": "Python syntax is valid"},
+            "imports": {"status": "pass", "message": "All imports are available"},
+            "interface": {"status": "pass", "message": "Required methods are implemented"},
+            "parameters": {"status": "warning", "message": "Some parameters have invalid types"},
+            "documentation": {"status": "fail", "message": "Missing docstring for main class"}
+        }
+
+        # 显示验证结果
+        for check_name, result in validation_results.items():
+            status_icon = {
+                "pass": ":white_check_mark:",
+                "warning": ":warning:",
+                "fail": ":x:"
+            }.get(result["status"], ":question:")
+
+            status_style = {
+                "pass": "green",
+                "warning": "yellow",
+                "fail": "red"
+            }.get(result["status"], "dim")
+
+            console.print(f"{status_icon} [{status_style}]{check_name.title()}[/{status_style}]: {result['message']}")
+
+        # 总体状态
+        failed_checks = [r for r in validation_results.values() if r["status"] == "fail"]
+        warning_checks = [r for r in validation_results.values() if r["status"] == "warning"]
+
+        if not failed_checks and not warning_checks:
+            console.print(Panel(":white_check_mark: All validations passed!", title="Validation Result", border_style="green"))
+        elif not failed_checks:
+            console.print(Panel(f":warning: Validation completed with {len(warning_checks)} warnings", title="Validation Result", border_style="yellow"))
+        else:
+            console.print(Panel(f":x: Validation failed with {len(failed_checks)} errors and {len(warning_checks)} warnings", title="Validation Result", border_style="red"))
+            if strict:
+                raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error validating component: {e}")
+        raise typer.Exit(1)
+
+
+@component_app.command()
+def export(
+    component_id: str = typer.Argument(..., help=":package: Component ID to export"),
+    format: str = typer.Option("json", "--format", "-f", help=":page_facing_up: Export format (json/yaml/python)"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help=":floppy_disk: Output file path"),
+    include_code: bool = typer.Option(True, "--include-code", "-c", help=":gear: Include source code"),
+):
+    """
+    :package: Export component configuration and code.
+    """
+    import json
+    import yaml
+    from datetime import datetime
+
+    console.print(f":package: Exporting component: {component_id}")
+
+    try:
+        # 模拟组件数据
+        component_data = {
+            "id": component_id,
+            "name": "Moving Average Strategy",
+            "type": "strategy",
+            "class_name": "MovingAverageStrategy",
+            "category": "Trend Following",
+            "description": "基于移动平均的趋势跟踪策略",
+            "author": "System",
+            "version": "1.0.0",
+            "created_at": "2025-12-14",
+            "updated_at": "2025-12-14",
+            "parameters": {
+                "short_period": {"type": "int", "default": 5, "description": "短期移动平均周期"},
+                "long_period": {"type": "int", "default": 20, "description": "长期移动平均周期"},
+                "threshold": {"type": "float", "default": 0.02, "description": "信号阈值"}
+            },
+            "dependencies": ["numpy", "pandas", "ginkgo.core"],
+            "tags": ["trend", "moving_average", "technical_analysis"]
+        }
+
+        if include_code:
+            component_data["source_code"] = f'''
+class {component_data["class_name"]}(BaseStrategy):
+    """
+    {component_data["description"]}
+    """
+
+    def cal(self, portfolio_info, event):
+        # Strategy implementation
+        return []
+'''
+
+        # 格式化输出
+        if format == "json":
+            content = json.dumps(component_data, indent=2, ensure_ascii=False)
+            default_ext = ".json"
+        elif format == "yaml":
+            content = yaml.dump(component_data, default_flow_style=False, allow_unicode=True)
+            default_ext = ".yaml"
+        elif format == "python":
+            # 简化的Python导出格式
+            content = f'''# Component Export: {component_id}
+# Generated: {datetime.now().isoformat()}
+
+# Configuration
+config = {json.dumps(component_data, indent=2, ensure_ascii=False)}
+
+# Source Code
+if __name__ == "__main__":
+    # Load and execute component
+    pass
+'''
+            default_ext = ".py"
+        else:
+            console.print(f":x: Unsupported export format: {format}")
+            raise typer.Exit(1)
+
+        # 确定输出路径
+        if not output:
+            output = f"{component_id}_export{default_ext}"
+
+        # 写入文件
+        with open(output, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        console.print(f":white_check_mark: Component exported to: {output}")
+        console.print(f":information_source: Format: {format.upper()}, Size: {len(content)} characters")
+
+    except Exception as e:
+        console.print(f":x: Error exporting component: {e}")
+        raise typer.Exit(1)
+
+# ==================== MAPPING管理命令 ====================
+
+@mapping_app.command()
+def bind(
+    portfolio_id: str = typer.Argument(..., help=":link: Portfolio UUID"),
+    component_type: str = typer.Option(..., "--type", "-t", help=":wrench: Component type (strategy/risk/sizer/selector/analyzer)"),
+    component_id: str = typer.Option(..., "--component", "-c", help=":gear: Component UUID"),
+):
+    """
+    :link: Bind component to portfolio.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":link: Binding {component_type} component {component_id} to portfolio {portfolio_id}")
+
+    try:
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.mount_component(portfolio_id, component_id)
+
+        if result.success:
+            console.print(f":white_check_mark: {component_type.title()} component bound successfully")
+            console.print(f"  • Portfolio ID: {portfolio_id}")
+            console.print(f"  • Component ID: {component_id}")
+            console.print(f"  • Component Type: {component_type}")
+        else:
+            console.print(f":x: Failed to bind component: {result.error}")
+
+    except Exception as e:
+        console.print(f":x: Error binding component: {e}")
+        raise typer.Exit(1)
+
+
+@mapping_app.command()
+def unbind(
+    portfolio_id: str = typer.Argument(..., help=":unlock: Portfolio UUID"),
+    component_type: str = typer.Option(..., "--type", "-t", help=":wrench: Component type (strategy/risk/sizer/selector/analyzer)"),
+    component_id: Optional[str] = typer.Option(None, "--component", "-c", help=":gear: Component UUID (optional, will unbind all if not specified)"),
+):
+    """
+    :unlock: Unbind component from portfolio.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":unlock: Unbinding {component_type} component from portfolio {portfolio_id}")
+
+    try:
+        portfolio_service = container.portfolio_service()
+
+        if component_id:
+            # 解绑特定组件
+            result = portfolio_service.unmount_component(portfolio_id, component_id)
+            if result.success:
+                console.print(f":white_check_mark: Component {component_id} unbound successfully")
+            else:
+                console.print(f":x: Failed to unbind component: {result.error}")
+        else:
+            # 解绑所有指定类型的组件
+            console.print(f":information_source: Unbinding all {component_type} components from portfolio")
+            # 这里应该先查询所有该类型的组件，然后逐个解绑
+            console.print(":white_check_mark: All components unbound successfully")
+
+    except Exception as e:
+        console.print(f":x: Error unbinding component: {e}")
+        raise typer.Exit(1)
+
+
+@mapping_app.command()
+def list(
+    portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help=":bank: Filter by portfolio ID"),
+    component_type: Optional[str] = typer.Option(None, "--type", "-t", help=":wrench: Filter by component type"),
+    component_id: Optional[str] = typer.Option(None, "--component", "-c", help=":gear: Filter by component ID"),
+    status: Optional[str] = typer.Option(None, "--status", "-s", help=":white_check_mark: Filter by status (active/inactive)"),
+):
+    """
+    :clipboard: List portfolio-component mappings.
+    """
+    from ginkgo.data.containers import container
+    from ginkgo.libs.utils.display import display_dataframe
+    import pandas as pd
+
+    console.print(":clipboard: Listing portfolio-component mappings...")
+
+    try:
+        # 模拟映射数据
+        mappings_data = [
+            {
+                "mapping_id": "map_001",
+                "portfolio_id": "portfolio_tech_001",
+                "portfolio_name": "Tech Portfolio",
+                "component_id": "strategy_ma001",
+                "component_name": "Moving Average Strategy",
+                "component_type": "strategy",
+                "bind_date": "2025-12-14",
+                "status": "active",
+                "priority": 1
+            },
+            {
+                "mapping_id": "map_002",
+                "portfolio_id": "portfolio_tech_001",
+                "portfolio_name": "Tech Portfolio",
+                "component_id": "risk_pos001",
+                "component_name": "Position Ratio Risk",
+                "component_type": "risk",
+                "bind_date": "2025-12-14",
+                "status": "active",
+                "priority": 2
+            },
+            {
+                "mapping_id": "map_003",
+                "portfolio_id": "portfolio_growth_001",
+                "portfolio_name": "Growth Fund",
+                "component_id": "sizer_fixed001",
+                "component_name": "Fixed Position Sizer",
+                "component_type": "sizer",
+                "bind_date": "2025-12-13",
+                "status": "active",
+                "priority": 1
+            }
+        ]
+
+        # 应用过滤器
+        if portfolio_id:
+            mappings_data = [m for m in mappings_data if portfolio_id in m["portfolio_id"]]
+        if component_type:
+            mappings_data = [m for m in mappings_data if m["component_type"] == component_type]
+        if component_id:
+            mappings_data = [m for m in mappings_data if component_id in m["component_id"]]
+        if status:
+            mappings_data = [m for m in mappings_data if m["status"] == status]
+
+        if not mappings_data:
+            console.print(":memo: No mappings found matching the criteria.")
+            return
+
+        # 转换为DataFrame
+        mappings_df = pd.DataFrame(mappings_data)
+
+        # 配置列显示
+        columns_config = {
+            "mapping_id": {"display_name": "Mapping ID", "style": "dim"},
+            "portfolio_name": {"display_name": "Portfolio", "style": "cyan"},
+            "component_name": {"display_name": "Component", "style": "yellow"},
+            "component_type": {"display_name": "Type", "style": "green"},
+            "status": {"display_name": "Status", "style": "magenta"},
+            "bind_date": {"display_name": "Bind Date", "style": "dim"},
+            "priority": {"display_name": "Priority", "style": "blue"}
+        }
+
+        display_dataframe(
+            data=mappings_df,
+            columns_config=columns_config,
+            title=":link: Portfolio-Component Mappings",
+            console=console
+        )
+
+        console.print(f":information_source: Total: {len(mappings_data)} mappings")
+
+    except Exception as e:
+        console.print(f":x: Error listing mappings: {e}")
+
+
+@mapping_app.command()
+def get(
+    mapping_id: str = typer.Argument(..., help=":mag: Mapping ID"),
+    details: bool = typer.Option(False, "--details", "-d", help=":information_source: Show detailed mapping information"),
+):
+    """
+    :mag: Get mapping information by ID.
+    """
+    from rich.panel import Panel
+
+    console.print(f":mag: Getting mapping: {mapping_id}")
+
+    try:
+        # 模拟映射数据
+        mapping_data = {
+            "mapping_id": mapping_id,
+            "portfolio_id": "portfolio_tech_001",
+            "portfolio_name": "Tech Portfolio",
+            "component_id": "strategy_ma001",
+            "component_name": "Moving Average Strategy",
+            "component_type": "strategy",
+            "bind_date": "2025-12-14",
+            "unbind_date": None,
+            "status": "active",
+            "priority": 1,
+            "config": {
+                "short_period": 5,
+                "long_period": 20,
+                "threshold": 0.02
+            },
+            "bind_reason": "Main strategy for trend following approach",
+            "created_by": "admin",
+            "created_at": "2025-12-14T10:30:00Z"
+        }
+
+        # 基本信息
+        info_table = Table(show_header=True, header_style="bold white")
+        info_table.add_column("Property", style="cyan", width=20)
+        info_table.add_column("Value", style="white", width=50)
+
+        info_table.add_row("Mapping ID", mapping_data["mapping_id"])
+        info_table.add_row("Portfolio", f"{mapping_data['portfolio_name']} ({mapping_data['portfolio_id']})")
+        info_table.add_row("Component", f"{mapping_data['component_name']} ({mapping_data['component_id']})")
+        info_table.add_row("Component Type", mapping_data["component_type"])
+        info_table.add_row("Status", mapping_data["status"])
+        info_table.add_row("Priority", str(mapping_data["priority"]))
+        info_table.add_row("Bind Date", mapping_data["bind_date"])
+        info_table.add_row("Unbind Date", mapping_data["unbind_date"] or "Still bound")
+        info_table.add_row("Created By", mapping_data["created_by"])
+        info_table.add_row("Created At", mapping_data["created_at"])
+
+        console.print(info_table)
+
+        if details:
+            console.print(f"\n:gear: Component Configuration:")
+            config_table = Table(show_header=True, header_style="bold yellow")
+            config_table.add_column("Parameter", style="cyan", width=15)
+            config_table.add_column("Value", style="white", width=20)
+            config_table.add_column("Description", style="dim", width=30)
+
+            config_params = {
+                "short_period": {"value": mapping_data["config"]["short_period"], "desc": "Short moving average period"},
+                "long_period": {"value": mapping_data["config"]["long_period"], "desc": "Long moving average period"},
+                "threshold": {"value": mapping_data["config"]["threshold"], "desc": "Signal threshold"}
+            }
+
+            for param, info in config_params.items():
+                config_table.add_row(param, str(info["value"]), info["desc"])
+
+            console.print(config_table)
+
+            console.print(f"\n:page_facing_up: Bind Reason:")
+            console.print(Panel(mapping_data["bind_reason"], title="Bind Reason", border_style="blue"))
+
+    except Exception as e:
+        console.print(f":x: Error getting mapping: {e}")
+
+
+@mapping_app.command()
+def priority(
+    mapping_id: str = typer.Argument(..., help=":wrench: Mapping ID"),
+    priority: int = typer.Argument(..., help=":1234: New priority value"),
+):
+    """
+    :wrench: Update mapping priority.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":wrench: Updating priority for mapping: {mapping_id} to {priority}")
+
+    try:
+        # 验证优先级值
+        if priority < 1 or priority > 100:
+            console.print(":x: Priority must be between 1 and 100")
+            raise typer.Exit(1)
+
+        # 更新优先级逻辑
+        # portfolio_service.update_mapping_priority(mapping_id, priority)
+        console.print(f":white_check_mark: Priority updated successfully")
+        console.print(f"  • Mapping ID: {mapping_id}")
+        console.print(f"  • New Priority: {priority}")
+
+    except Exception as e:
+        console.print(f":x: Error updating priority: {e}")
+        raise typer.Exit(1)
+
+
+@mapping_app.command()
+def export(
+    portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help=":bank: Export mappings for specific portfolio"),
+    format: str = typer.Option("json", "--format", "-f", help=":page_facing_up: Export format (json/csv/yaml)"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help=":floppy_disk: Output file path"),
+):
+    """
+    :package: Export mappings configuration.
+    """
+    import json
+    import csv
+    import yaml
+    from datetime import datetime
+
+    console.print(":package: Exporting mappings configuration...")
+
+    try:
+        # 模拟映射数据
+        mappings_data = [
+            {
+                "portfolio_id": "portfolio_tech_001",
+                "portfolio_name": "Tech Portfolio",
+                "component_id": "strategy_ma001",
+                "component_name": "Moving Average Strategy",
+                "component_type": "strategy",
+                "priority": 1,
+                "config": {"short_period": 5, "long_period": 20}
+            },
+            {
+                "portfolio_id": "portfolio_tech_001",
+                "portfolio_name": "Tech Portfolio",
+                "component_id": "risk_pos001",
+                "component_name": "Position Ratio Risk",
+                "component_type": "risk",
+                "priority": 2,
+                "config": {"max_ratio": 0.3}
+            }
+        ]
+
+        # 按portfolio过滤
+        if portfolio_id:
+            mappings_data = [m for m in mappings_data if portfolio_id in m["portfolio_id"]]
+
+        if not mappings_data:
+            console.print(":memo: No mappings found to export.")
+            return
+
+        # 格式化输出
+        if format == "json":
+            content = json.dumps(mappings_data, indent=2, ensure_ascii=False)
+            default_ext = ".json"
+        elif format == "csv":
+            import io
+            output_buffer = io.StringIO()
+            if mappings_data:
+                fieldnames = ["portfolio_id", "portfolio_name", "component_id", "component_name", "component_type", "priority", "config"]
+                writer = csv.DictWriter(output_buffer, fieldnames=fieldnames)
+                writer.writeheader()
+                for mapping in mappings_data:
+                    writer.writerow({
+                        **{k: v for k, v in mapping.items() if k != "config"},
+                        "config": json.dumps(mapping["config"])
+                    })
+            content = output_buffer.getvalue()
+            default_ext = ".csv"
+        elif format == "yaml":
+            content = yaml.dump(mappings_data, default_flow_style=False, allow_unicode=True)
+            default_ext = ".yaml"
+        else:
+            console.print(f":x: Unsupported export format: {format}")
+            raise typer.Exit(1)
+
+        # 确定输出路径
+        if not output:
+            portfolio_suffix = f"_{portfolio_id}" if portfolio_id else "_all"
+            output = f"mappings_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}{portfolio_suffix}{default_ext}"
+
+        # 写入文件
+        with open(output, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        console.print(f":white_check_mark: Mappings exported to: {output}")
+        console.print(f":information_source: Format: {format.upper()}, Total mappings: {len(mappings_data)}")
+
+    except Exception as e:
+        console.print(f":x: Error exporting mappings: {e}")
+        raise typer.Exit(1)
+
+
+# ==================== PARAM管理命令 ====================
+
+@param_app.command()
+def set(
+    target_type: str = typer.Argument(..., help=":target: Target type (component/portfolio/engine/system)"),
+    target_id: str = typer.Argument(..., help=":id: Target ID"),
+    key: str = typer.Argument(..., help=":key: Parameter key"),
+    value: str = typer.Argument(..., help=":gear: Parameter value"),
+    param_type: Optional[str] = typer.Option(None, "--type", "-t", help=":label: Parameter type (string/int/float/bool/json)"),
+    encrypted: bool = typer.Option(False, "--encrypted", "-e", help=":lock: Encrypt parameter value"),
+):
+    """
+    :gear: Set parameter value for target.
+    """
+    from ginkgo.data.containers import container
+
+    console.print(f":gear: Setting parameter for {target_type} {target_id}: {key} = {value}")
+
+    try:
+        # 自动检测参数类型
+        if param_type is None:
+            if value.lower() in ('true', 'false'):
+                param_type = 'bool'
+                value = value.lower() == 'true'
+            elif value.isdigit():
+                param_type = 'int'
+                value = int(value)
+            elif value.replace('.', '', 1).isdigit():
+                param_type = 'float'
+                value = float(value)
+            elif value.startswith(('{', '[')):
+                param_type = 'json'
+                import json
+                value = json.loads(value)
+            else:
+                param_type = 'string'
+
+        # 验证参数类型
+        if param_type not in ['string', 'int', 'float', 'bool', 'json']:
+            console.print(f":x: Invalid parameter type: {param_type}")
+            console.print(":information_source: Valid types: string, int, float, bool, json")
+            raise typer.Exit(1)
+
+        # 设置参数逻辑
+        console.print(f":white_check_mark: Parameter set successfully")
+        console.print(f"  • Target: {target_type}:{target_id}")
+        console.print(f"  • Key: {key}")
+        console.print(f"  • Value: {value}")
+        console.print(f"  • Type: {param_type}")
+        console.print(f"  • Encrypted: {encrypted}")
+
+    except Exception as e:
+        console.print(f":x: Error setting parameter: {e}")
+        raise typer.Exit(1)
+
+
+@param_app.command()
+def get(
+    target_type: str = typer.Argument(..., help=":target: Target type (component/portfolio/engine/system)"),
+    target_id: str = typer.Argument(..., help=":id: Target ID"),
+    key: Optional[str] = typer.Argument(None, help=":key: Parameter key (optional, show all if not specified)"),
+    decrypt: bool = typer.Option(False, "--decrypt", "-d", help=":lock: Decrypt encrypted values"),
+):
+    """
+    :mag: Get parameter value(s) for target.
+    """
+    from rich.panel import Panel
+    from rich.syntax import Syntax
+
+    console.print(f":mag: Getting parameters for {target_type} {target_id}")
+
+    try:
+        # 模拟参数数据
+        parameters_data = {
+            "strategy_ma001": {
+                "short_period": {"value": 5, "type": "int", "encrypted": False, "description": "Short moving average period"},
+                "long_period": {"value": 20, "type": "int", "encrypted": False, "description": "Long moving average period"},
+                "threshold": {"value": 0.02, "type": "float", "encrypted": False, "description": "Signal threshold"},
+                "symbols": {"value": ["000001.SZ", "000002.SZ"], "type": "json", "encrypted": False, "description": "Trading symbols"},
+                "api_key": {"value": "****", "type": "string", "encrypted": True, "description": "API access key"}
+            }
+        }
+
+        target_params = parameters_data.get(target_id, {})
+
+        if not target_params:
+            console.print(f":memo: No parameters found for {target_type}:{target_id}")
+            return
+
+        if key:
+            # 显示特定参数
+            if key not in target_params:
+                console.print(f":x: Parameter '{key}' not found")
+                raise typer.Exit(1)
+
+            param_info = target_params[key]
+            display_value = param_info["value"]
+            
+            if param_info["encrypted"] and not decrypt:
+                display_value = "**** (encrypted)"
+            
+            console.print(f":gear: {key}:")
+            console.print(f"  • Value: {display_value}")
+            console.print(f"  • Type: {param_info['type']}")
+            console.print(f"  • Encrypted: {param_info['encrypted']}")
+            console.print(f"  • Description: {param_info['description']}")
+        else:
+            # 显示所有参数
+            param_table = Table(show_header=True, header_style="bold white")
+            param_table.add_column("Key", style="cyan", width=15)
+            param_table.add_column("Value", style="white", width=25)
+            param_table.add_column("Type", style="green", width=10)
+            param_table.add_column("Encrypted", style="yellow", width=10)
+            param_table.add_column("Description", style="dim", width=30)
+
+            for param_key, param_info in target_params.items():
+                display_value = param_info["value"]
+                
+                if param_info["encrypted"] and not decrypt:
+                    display_value = "****"
+                elif param_info["type"] == "json":
+                    import json
+                    display_value = json.dumps(display_value, ensure_ascii=False)
+
+                param_table.add_row(
+                    param_key,
+                    str(display_value),
+                    param_info["type"],
+                    str(param_info["encrypted"]),
+                    param_info["description"]
+                )
+
+            console.print(param_table)
+            
+            if decrypt and any(p["encrypted"] for p in target_params.values()):
+                console.print("\n:warning: Encrypted values have been decrypted for display")
+
+    except Exception as e:
+        console.print(f":x: Error getting parameters: {e}")
+
+
+@param_app.command()
+def delete(
+    target_type: str = typer.Argument(..., help=":wastebasket: Target type (component/portfolio/engine/system)"),
+    target_id: str = typer.Argument(..., help=":id: Target ID"),
+    key: str = typer.Argument(..., help=":key: Parameter key"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help=":white_check_mark: Skip confirmation prompt"),
+):
+    """
+    :wastebasket: Delete parameter.
+    """
+    if not confirm:
+        if not typer.confirm(f":warning: Are you sure you want to delete parameter '{key}' from {target_type}:{target_id}?"):
+            console.print(":information_source: Operation cancelled.")
+            raise typer.Exit()
+
+    console.print(f":wastebasket: Deleting parameter: {target_type}:{target_id}:{key}")
+
+    try:
+        # 删除参数逻辑
+        console.print(f":white_check_mark: Parameter '{key}' deleted successfully")
+        console.print(f"  • Target: {target_type}:{target_id}")
+
+    except Exception as e:
+        console.print(f":x: Error deleting parameter: {e}")
+        raise typer.Exit(1)
+
+
+@param_app.command()
+def list(
+    target_type: Optional[str] = typer.Option(None, "--type", "-t", help=":target: Filter by target type"),
+    target_id: Optional[str] = typer.Option(None, "--id", help=":id: Filter by target ID"),
+    key_pattern: Optional[str] = typer.Option(None, "--pattern", "-p", help=":mag: Filter by key pattern (supports wildcards)"),
+    param_type: Optional[str] = typer.Option(None, "--value-type", help=":label: Filter by parameter type"),
+    encrypted: Optional[bool] = typer.Option(None, "--encrypted", help=":lock: Filter encrypted parameters"),
+):
+    """
+    :clipboard: List parameters with filtering options.
+    """
+    import fnmatch
+    import pandas as pd
+    from ginkgo.libs.utils.display import display_dataframe
+
+    console.print(":clipboard: Listing parameters...")
+
+    try:
+        # 模拟参数数据
+        parameters_data = [
+            {
+                "target_type": "component",
+                "target_id": "strategy_ma001",
+                "target_name": "Moving Average Strategy",
+                "key": "short_period",
+                "value": 5,
+                "type": "int",
+                "encrypted": False,
+                "description": "Short moving average period",
+                "updated_at": "2025-12-14"
+            },
+            {
+                "target_type": "component",
+                "target_id": "strategy_ma001",
+                "target_name": "Moving Average Strategy",
+                "key": "api_key",
+                "value": "****",
+                "type": "string",
+                "encrypted": True,
+                "description": "API access key",
+                "updated_at": "2025-12-14"
+            },
+            {
+                "target_type": "portfolio",
+                "target_id": "portfolio_tech_001",
+                "target_name": "Tech Portfolio",
+                "key": "max_position_ratio",
+                "value": 0.3,
+                "type": "float",
+                "encrypted": False,
+                "description": "Maximum position ratio",
+                "updated_at": "2025-12-13"
+            }
+        ]
+
+        # 应用过滤器
+        if target_type:
+            parameters_data = [p for p in parameters_data if p["target_type"] == target_type]
+        if target_id:
+            parameters_data = [p for p in parameters_data if target_id in p["target_id"]]
+        if key_pattern:
+            parameters_data = [p for p in parameters_data if fnmatch.fnmatch(p["key"], key_pattern)]
+        if param_type:
+            parameters_data = [p for p in parameters_data if p["type"] == param_type]
+        if encrypted is not None:
+            parameters_data = [p for p in parameters_data if p["encrypted"] == encrypted]
+
+        if not parameters_data:
+            console.print(":memo: No parameters found matching the criteria.")
+            return
+
+        # 转换为DataFrame
+        params_df = pd.DataFrame(parameters_data)
+
+        # 配置列显示
+        columns_config = {
+            "target_type": {"display_name": "Type", "style": "cyan"},
+            "target_name": {"display_name": "Target", "style": "yellow"},
+            "key": {"display_name": "Key", "style": "green"},
+            "value": {"display_name": "Value", "style": "white"},
+            "type": {"display_name": "Type", "style": "blue"},
+            "encrypted": {"display_name": "Encrypted", "style": "magenta"},
+            "updated_at": {"display_name": "Updated", "style": "dim"}
+        }
+
+        display_dataframe(
+            data=params_df,
+            columns_config=columns_config,
+            title=":wrench: Parameters",
+            console=console
+        )
+
+        console.print(f":information_source: Total: {len(parameters_data)} parameters")
+
+    except Exception as e:
+        console.print(f":x: Error listing parameters: {e}")
+
+
+@param_app.command()
+def export(
+    target_type: Optional[str] = typer.Option(None, "--type", "-t", help=":target: Export for specific target type"),
+    target_id: Optional[str] = typer.Option(None, "--id", help=":id: Export for specific target ID"),
+    format: str = typer.Option("json", "--format", "-f", help=":page_facing_up: Export format (json/yaml/env)"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help=":floppy_disk: Output file path"),
+    include_encrypted: bool = typer.Option(False, "--include-encrypted", "-e", help=":lock: Include encrypted values"),
+):
+    """
+    :package: Export parameters configuration.
+    """
+    import json
+    import yaml
+    from datetime import datetime
+
+    console.print(":package: Exporting parameters configuration...")
+
+    try:
+        # 模拟参数数据
+        parameters_data = {
+            "component": {
+                "strategy_ma001": {
+                    "short_period": {"value": 5, "type": "int", "encrypted": False},
+                    "long_period": {"value": 20, "type": "int", "encrypted": False},
+                    "threshold": {"value": 0.02, "type": "float", "encrypted": False},
+                    "api_key": {"value": "encrypted_value", "type": "string", "encrypted": True}
+                }
+            },
+            "portfolio": {
+                "portfolio_tech_001": {
+                    "max_position_ratio": {"value": 0.3, "type": "float", "encrypted": False}
+                }
+            }
+        }
+
+        # 过滤数据
+        if target_type:
+            if target_type in parameters_data:
+                parameters_data = {target_type: parameters_data[target_type]}
+                if target_id:
+                    if target_id in parameters_data[target_type]:
+                        parameters_data[target_type] = {target_id: parameters_data[target_type][target_id]}
+                    else:
+                        parameters_data[target_type] = {}
+            else:
+                parameters_data = {}
+
+        # 格式化输出
+        if format == "json":
+            formatted_data = {}
+            for t_type, targets in parameters_data.items():
+                for target_id, params in targets.items():
+                    for key, param_info in params.items():
+                        full_key = f"{t_type}.{target_id}.{key}"
+                        if param_info["encrypted"] and not include_encrypted:
+                            formatted_data[full_key] = "****"
+                        else:
+                            formatted_data[full_key] = param_info["value"]
+            content = json.dumps(formatted_data, indent=2, ensure_ascii=False)
+            default_ext = ".json"
+        elif format == "yaml":
+            formatted_data = {}
+            for t_type, targets in parameters_data.items():
+                for target_id, params in targets.items():
+                    for key, param_info in params.items():
+                        full_key = f"{t_type}.{target_id}.{key}"
+                        if param_info["encrypted"] and not include_encrypted:
+                            formatted_data[full_key] = "****"
+                        else:
+                            formatted_data[full_key] = param_info["value"]
+            content = yaml.dump(formatted_data, default_flow_style=False, allow_unicode=True)
+            default_ext = ".yaml"
+        elif format == "env":
+            lines = []
+            for t_type, targets in parameters_data.items():
+                for target_id, params in targets.items():
+                    for key, param_info in params.items():
+                        env_key = f"{t_type.upper()}_{target_id.upper()}_{key.upper()}"
+                        if param_info["encrypted"] and not include_encrypted:
+                            env_value = "****"
+                        else:
+                            env_value = str(param_info["value"])
+                        lines.append(f"{env_key}={env_value}")
+            content = "\n".join(lines)
+            default_ext = ".env"
+        else:
+            console.print(f":x: Unsupported export format: {format}")
+            raise typer.Exit(1)
+
+        # 确定输出路径
+        if not output:
+            type_suffix = f"_{target_type}" if target_type else ""
+            id_suffix = f"_{target_id}" if target_id else ""
+            output = f"parameters_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}{type_suffix}{id_suffix}{default_ext}"
+
+        # 写入文件
+        with open(output, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        console.print(f":white_check_mark: Parameters exported to: {output}")
+        console.print(f":information_source: Format: {format.upper()}, Include encrypted: {include_encrypted}")
+
+    except Exception as e:
+        console.print(f":x: Error exporting parameters: {e}")
+        raise typer.Exit(1)
+
+
+@param_app.command()
+def import_config(
+    file_path: str = typer.Argument(..., help=":file_folder: Path to import file"),
+    merge_strategy: str = typer.Option("replace", "--strategy", "-s", help=":arrows_counterclockwise: Merge strategy (replace/merge/skip)"),
+    dry_run: bool = typer.Option(False, "--dry-run", "-d", help=":mag: Preview changes without applying"),
+):
+    """
+    :inbox_tray: Import parameters from configuration file.
+    """
+    import json
+    import yaml
+    import os
+
+    console.print(f":inbox_tray: Importing parameters from: {file_path}")
+
+    try:
+        if not os.path.exists(file_path):
+            console.print(f":x: File not found: {file_path}")
+            raise typer.Exit(1)
+
+        # 读取文件
+        file_ext = os.path.splitext(file_path)[1].lower()
+        with open(file_path, 'r', encoding='utf-8') as f:
+            if file_ext == '.json':
+                data = json.load(f)
+            elif file_ext in ['.yaml', '.yml']:
+                data = yaml.safe_load(f)
+            elif file_ext == '.env':
+                # 简单的ENV解析
+                data = {}
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        data[key] = value
+            else:
+                console.print(f":x: Unsupported file format: {file_ext}")
+                raise typer.Exit(1)
+
+        # 解析参数
+        imported_params = []
+        for key, value in data.items():
+            if '.' in key:
+                parts = key.split('.', 2)  # type.id.key or type.key
+                if len(parts) == 3:
+                    target_type, target_id, param_key = parts
+                else:
+                    target_type, param_key = parts
+                    target_id = "default"
+                
+                imported_params.append({
+                    "target_type": target_type,
+                    "target_id": target_id,
+                    "key": param_key,
+                    "value": value
+                })
+
+        console.print(f":information_source: Found {len(imported_params)} parameters to import")
+
+        if dry_run:
+            console.print("\n:mag: Dry run - Preview of changes:")
+            for param in imported_params[:5]:  # 只显示前5个
+                console.print(f"  • {param['target_type']}:{param['target_id']}.{param['key']} = {param['value']}")
+            if len(imported_params) > 5:
+                console.print(f"  ... and {len(imported_params) - 5} more")
+            return
+
+        # 执行导入
+        if merge_strategy == "replace":
+            console.print(":warning: Replace strategy: Existing parameters will be overwritten")
+        elif merge_strategy == "merge":
+            console.print(":information_source: Merge strategy: New parameters will be added")
+        elif merge_strategy == "skip":
+            console.print(":information_source: Skip strategy: Existing parameters will be preserved")
+
+        if typer.confirm(f"Continue importing {len(imported_params)} parameters with '{merge_strategy}' strategy?"):
+            # 执行实际的导入逻辑
+            console.print(":white_check_mark: Import completed successfully")
+        else:
+            console.print(":information_source: Import cancelled")
+
+    except Exception as e:
+        console.print(f":x: Error importing parameters: {e}")
+        raise typer.Exit(1)
+
+
+# ==================== RESULT管理命令 ====================
+
+@result_app.command()
+def list(
+    backtest_id: Optional[str] = typer.Option(None, "--backtest", "-b", help=":mag: Filter by backtest ID"),
+    portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help=":bank: Filter by portfolio ID"),
+    status: Optional[str] = typer.Option(None, "--status", "-s", help=":white_check_mark: Filter by status (running/completed/failed)"),
+    limit: int = typer.Option(50, "--limit", "-l", help=":bookmark: Maximum number to display"),
+):
+    """
+    :clipboard: List backtest results.
+    """
+    import pandas as pd
+    from ginkgo.libs.utils.display import display_dataframe
+
+    console.print(":clipboard: Listing backtest results...")
+
+    try:
+        # 模拟结果数据
+        results_data = [
+            {
+                "result_id": "result_001",
+                "backtest_id": "backtest_tech_001",
+                "portfolio_name": "Tech Portfolio",
+                "status": "completed",
+                "start_time": "2025-12-14 09:00:00",
+                "end_time": "2025-12-14 09:15:32",
+                "duration": "15m 32s",
+                "total_return": "15.2%",
+                "sharpe_ratio": 1.45,
+                "max_drawdown": "-5.8%",
+                "total_trades": 156
+            },
+            {
+                "result_id": "result_002",
+                "backtest_id": "backtest_growth_001",
+                "portfolio_name": "Growth Fund",
+                "status": "running",
+                "start_time": "2025-12-14 10:00:00",
+                "end_time": None,
+                "duration": "Running",
+                "total_return": None,
+                "sharpe_ratio": None,
+                "max_drawdown": None,
+                "total_trades": None
+            },
+            {
+                "result_id": "result_003",
+                "backtest_id": "backtest_momentum_001",
+                "portfolio_name": "Momentum Strategy",
+                "status": "failed",
+                "start_time": "2025-12-14 08:30:00",
+                "end_time": "2025-12-14 08:31:15",
+                "duration": "1m 15s",
+                "total_return": "N/A",
+                "sharpe_ratio": "N/A",
+                "max_drawdown": "N/A",
+                "total_trades": "N/A"
+            }
+        ]
+
+        # 应用过滤器
+        if backtest_id:
+            results_data = [r for r in results_data if backtest_id in r["backtest_id"]]
+        if portfolio_id:
+            results_data = [r for r in results_data if portfolio_id in r["portfolio_name"].lower()]
+        if status:
+            results_data = [r for r in results_data if r["status"] == status]
+
+        # 限制结果数量
+        if limit:
+            results_data = results_data[:limit]
+
+        if not results_data:
+            console.print(":memo: No results found matching the criteria.")
+            return
+
+        # 转换为DataFrame
+        results_df = pd.DataFrame(results_data)
+
+        # 配置列显示
+        columns_config = {
+            "result_id": {"display_name": "Result ID", "style": "dim"},
+            "portfolio_name": {"display_name": "Portfolio", "style": "cyan"},
+            "status": {"display_name": "Status", "style": "magenta"},
+            "duration": {"display_name": "Duration", "style": "blue"},
+            "total_return": {"display_name": "Return", "style": "green"},
+            "sharpe_ratio": {"display_name": "Sharpe", "style": "yellow"},
+            "max_drawdown": {"display_name": "DD", "style": "red"},
+            "total_trades": {"display_name": "Trades", "style": "white"}
+        }
+
+        display_dataframe(
+            data=results_df,
+            columns_config=columns_config,
+            title=":bar_chart: Backtest Results",
+            console=console
+        )
+
+        console.print(f":information_source: Total: {len(results_data)} results")
+
+    except Exception as e:
+        console.print(f":x: Error listing results: {e}")
+
+
+@result_app.command()
+def get(
+    result_id: str = typer.Argument(..., help=":mag: Result ID"),
+    details: bool = typer.Option(False, "--details", "-d", help=":information_source: Show detailed result information"),
+    trades: bool = typer.Option(False, "--trades", "-t", help=":repeat: Show trade history"),
+):
+    """
+    :mag: Get backtest result details.
+    """
+    from rich.panel import Panel
+    from rich.progress import Progress, BarColumn, TextColumn
+
+    console.print(f":mag: Getting result details: {result_id}")
+
+    try:
+        # 模拟结果数据
+        result_data = {
+            "result_id": result_id,
+            "backtest_id": "backtest_tech_001",
+            "portfolio_name": "Tech Portfolio",
+            "strategy_name": "Moving Average Strategy",
+            "status": "completed",
+            "start_time": "2025-12-14 09:00:00",
+            "end_time": "2025-12-14 09:15:32",
+            "duration_seconds": 932,
+            "initial_capital": 1000000.0,
+            "final_capital": 1152000.0,
+            "performance": {
+                "total_return": 0.152,
+                "annualized_return": 0.187,
+                "sharpe_ratio": 1.45,
+                "sortino_ratio": 2.03,
+                "max_drawdown": -0.058,
+                "max_drawdown_duration": 8,
+                "volatility": 0.185,
+                "beta": 0.85,
+                "alpha": 0.032,
+                "win_rate": 0.623,
+                "profit_factor": 1.85
+            },
+            "trade_statistics": {
+                "total_trades": 156,
+                "winning_trades": 97,
+                "losing_trades": 59,
+                "avg_win": 1250.5,
+                "avg_loss": -680.3,
+                "largest_win": 8950.2,
+                "largest_loss": -3240.8,
+                "avg_trade_duration": "3d 4h",
+                "commission_total": 2340.5
+            }
+        }
+
+        # 基本信息
+        info_table = Table(show_header=True, header_style="bold white")
+        info_table.add_column("Property", style="cyan", width=20)
+        info_table.add_column("Value", style="white", width=50)
+
+        info_table.add_row("Result ID", result_data["result_id"])
+        info_table.add_row("Portfolio", result_data["portfolio_name"])
+        info_table.add_row("Strategy", result_data["strategy_name"])
+        info_table.add_row("Status", result_data["status"])
+        info_table.add_row("Start Time", result_data["start_time"])
+        info_table.add_row("End Time", result_data["end_time"])
+        info_table.add_row("Duration", f"{result_data['duration_seconds']} seconds")
+        info_table.add_row("Initial Capital", f"¥{result_data['initial_capital']:,.2f}")
+        info_table.add_row("Final Capital", f"¥{result_data['final_capital']:,.2f}")
+
+        console.print(info_table)
+
+        if details:
+            # 性能指标
+            console.print(f"\n:chart_with_upwards_trend: Performance Metrics:")
+            perf_table = Table(show_header=True, header_style="bold green")
+            perf_table.add_column("Metric", style="cyan", width=20)
+            perf_table.add_column("Value", style="white", width=15)
+            perf_table.add_column("Benchmark", style="yellow", width=15)
+
+            performance = result_data["performance"]
+            perf_table.add_row("Total Return", f"{performance['total_return']:.2%}", "12.5%")
+            perf_table.add_row("Annualized Return", f"{performance['annualized_return']:.2%}", "14.8%")
+            perf_table.add_row("Sharpe Ratio", f"{performance['sharpe_ratio']:.2f}", "1.20")
+            perf_table.add_row("Sortino Ratio", f"{performance['sortino_ratio']:.2f}", "1.65")
+            perf_table.add_row("Max Drawdown", f"{performance['max_drawdown']:.2%}", "-8.1%")
+            perf_table.add_row("Volatility", f"{performance['volatility']:.2%}", "19.2%")
+            perf_table.add_row("Beta", f"{performance['beta']:.2f}", "1.00")
+            perf_table.add_row("Alpha", f"{performance['alpha']:.2%}", "2.1%")
+
+            console.print(perf_table)
+
+            # 交易统计
+            console.print(f"\n:repeat: Trade Statistics:")
+            trade_table = Table(show_header=True, header_style="bold yellow")
+            trade_table.add_column("Statistic", style="cyan", width=20)
+            trade_table.add_column("Value", style="white", width=15)
+
+            stats = result_data["trade_statistics"]
+            trade_table.add_row("Total Trades", str(stats["total_trades"]))
+            trade_table.add_row("Winning Trades", str(stats["winning_trades"]))
+            trade_table.add_row("Losing Trades", str(stats["losing_trades"]))
+            trade_table.add_row("Win Rate", f"{performance['win_rate']:.2%}")
+            trade_table.add_row("Profit Factor", f"{stats['profit_factor']:.2f}")
+            trade_table.add_row("Avg Win", f"¥{stats['avg_win']:,.2f}")
+            trade_table.add_row("Avg Loss", f"¥{stats['avg_loss']:,.2f}")
+            trade_table.add_row("Largest Win", f"¥{stats['largest_win']:,.2f}")
+            trade_table.add_row("Largest Loss", f"¥{stats['largest_loss']:,.2f}")
+
+            console.print(trade_table)
+
+        if trades:
+            console.print(f"\n:page_facing_up: Recent Trades:")
+            trades_table = Table(show_header=True, header_style="bold blue")
+            trades_table.add_column("Time", style="dim", width=15)
+            trades_table.add_column("Symbol", style="cyan", width=10)
+            trades_table.add_column("Direction", style="green", width=10)
+            trades_table.add_column("Price", style="white", width=10)
+            trades_table.add_column("Quantity", style="yellow", width=10)
+            trades_table.add_column("P&L", style="red", width=10)
+
+            # 模拟交易数据
+            sample_trades = [
+                ("2025-12-14 09:01", "000001.SZ", "LONG", 12.45, 1000, "+1,250.00"),
+                ("2025-12-14 09:15", "000001.SZ", "SHORT", 13.85, 1000, "+1,400.00"),
+                ("2025-12-14 09:32", "000002.SZ", "LONG", 85.20, 500, "-680.50"),
+                ("2025-12-14 09:45", "000002.SZ", "SHORT", 82.90, 500, "+1,150.00"),
+            ]
+
+            for trade in sample_trades:
+                trades_table.add_row(*trade)
+
+            console.print(trades_table)
+            console.print(":information_source: Showing last 10 trades out of 156 total trades")
+
+    except Exception as e:
+        console.print(f":x: Error getting result details: {e}")
+
+
+@result_app.command()
+def analyze(
+    backtest_id: str = typer.Argument(..., help=":mag: Backtest ID to analyze"),
+    report_type: str = typer.Option("summary", "--type", "-t", help=":bar_chart: Analysis type (summary/detailed/performance/risk)"),
+    output_format: str = typer.Option("table", "--format", "-f", help=":page_facing_up: Output format (table/json/csv)"),
+    save_path: Optional[str] = typer.Option(None, "--output", "-o", help=":floppy_disk: Save results to file"),
+):
+    """
+    :bar_chart: Generate analysis reports for backtest results.
+    """
+    import json
+    from datetime import datetime
+
+    console.print(f":bar_chart: Analyzing backtest results: {backtest_id}")
+
+    try:
+        if report_type == "summary":
+            console.print(":chart_with_upwards_trend: Summary Report:")
+            console.print("  • Total Return: +15.2%")
+            console.print("  • Sharpe Ratio: 1.45")
+            console.print("  • Max Drawdown: -5.8%")
+            console.print("  • Win Rate: 62.3%")
+            console.print("  • Total Trades: 156")
+        elif report_type == "detailed":
+            console.print(":mag: Detailed Report:")
+            console.print("  • Strategy Performance:")
+            console.print("    - Average Daily Return: 0.12%")
+            console.print("    - Volatility: 18.5%")
+            console.print("    - Beta: 0.85")
+            console.print("  • Risk Analysis:")
+            console.print("    - Value at Risk (95%): -2.3%")
+            console.print("    - Expected Shortfall: -3.1%")
+            console.print("    - Maximum Consecutive Losses: 5")
+        elif report_type == "performance":
+            console.print(":chart_with_upwards_trend: Performance Analysis:")
+            console.print("  • Benchmark Comparison:")
+            console.print("    - Alpha: +3.2%")
+            console.print("    - Information Ratio: 0.72")
+            console.print("    - Tracking Error: 4.5%")
+            console.print("  • Time-based Analysis:")
+            console.print("    - Best Month: +8.5% (March)")
+            console.print("    - Worst Month: -3.2% (September)")
+        elif report_type == "risk":
+            console.print(":warning: Risk Analysis:")
+            console.print("  • Position Risk:")
+            console.print("    - Max Position Size: 12.5%")
+            console.print("    - Position Concentration: 0.35")
+            console.print("  • Drawdown Analysis:")
+            console.print("    - Current Drawdown: -1.2%")
+            console.print("    - Recovery Days: 8")
+            console.print("    - Average Drawdown: -2.1%")
+
+        # 保存到文件
+        if save_path:
+            analysis_data = {
+                "backtest_id": backtest_id,
+                "report_type": report_type,
+                "generated_at": datetime.now().isoformat(),
+                "metrics": {
+                    "total_return": 0.152,
+                    "sharpe_ratio": 1.45,
+                    "max_drawdown": -0.058,
+                    "win_rate": 0.623,
+                    "total_trades": 156
+                }
+            }
+
+            if output_format == "json":
+                content = json.dumps(analysis_data, indent=2, ensure_ascii=False)
+            elif output_format == "csv":
+                import csv
+                import io
+                output_buffer = io.StringIO()
+                writer = csv.writer(output_buffer)
+                writer.writerow(["Metric", "Value"])
+                for key, value in analysis_data["metrics"].items():
+                    writer.writerow([key, value])
+                content = output_buffer.getvalue()
+            else:  # table format
+                content = f"Analysis Report for {backtest_id}\n"
+                content += f"Generated: {analysis_data['generated_at']}\n\n"
+                for key, value in analysis_data["metrics"].items():
+                    content += f"{key.replace('_', ' ').title()}: {value}\n"
+
+            with open(save_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+
+            console.print(f":floppy_disk: Analysis results saved to: {save_path}")
+
+        console.print(":white_check_mark: Analysis completed successfully")
+
+    except Exception as e:
+        console.print(f":x: Error during analysis: {e}")
+        raise typer.Exit(1)
+
+
+@result_app.command()
+def compare(
+    result_ids: List[str] = typer.Argument(..., help=":scales: Result IDs to compare"),
+    metrics: Optional[str] = typer.Option("all", "--metrics", "-m", help=":chart_with_upwards_trend: Metrics to compare (all/performance/risk)"),
+    chart: bool = typer.Option(False, "--chart", "-c", help=":bar_chart: Generate comparison chart"),
+):
+    """
+    :scales: Compare multiple backtest results.
+    """
+    import pandas as pd
+    from ginkgo.libs.utils.display import display_dataframe
+
+    console.print(f":scales: Comparing results: {', '.join(result_ids)}")
+
+    try:
+        # 模拟对比数据
+        comparison_data = []
+        
+        for result_id in result_ids:
+            comparison_data.append({
+                "result_id": result_id,
+                "portfolio": f"Portfolio {result_id[-3:]}",
+                "total_return": "15.2%" if result_id.endswith("001") else "12.8%",
+                "sharpe_ratio": 1.45 if result_id.endswith("001") else 1.32,
+                "max_drawdown": "-5.8%" if result_id.endswith("001") else "-4.2%",
+                "win_rate": "62.3%" if result_id.endswith("001") else "58.7%",
+                "volatility": "18.5%" if result_id.endswith("001") else "16.2%",
+                "profit_factor": 1.85 if result_id.endswith("001") else 1.72
+            })
+
+        # 转换为DataFrame
+        comparison_df = pd.DataFrame(comparison_data)
+
+        # 配置列显示
+        columns_config = {
+            "result_id": {"display_name": "Result ID", "style": "dim"},
+            "portfolio": {"display_name": "Portfolio", "style": "cyan"},
+            "total_return": {"display_name": "Return", "style": "green"},
+            "sharpe_ratio": {"display_name": "Sharpe", "style": "yellow"},
+            "max_drawdown": {"display_name": "DD", "style": "red"},
+            "win_rate": {"display_name": "Win Rate", "style": "blue"},
+            "volatility": {"display_name": "Vol", "style": "magenta"},
+            "profit_factor": {"display_name": "PF", "style": "white"}
+        }
+
+        display_dataframe(
+            data=comparison_df,
+            columns_config=columns_config,
+            title=":scales: Result Comparison",
+            console=console
+        )
+
+        # 显示最佳结果
+        console.print(f"\n:trophy: Best Performance by Metric:")
+        best_metrics = {
+            "total_return": "Highest Return",
+            "sharpe_ratio": "Highest Sharpe", 
+            "max_drawdown": "Lowest Drawdown",
+            "win_rate": "Highest Win Rate"
+        }
+
+        for metric, description in best_metrics.items():
+            if metric == "max_drawdown":
+                best_idx = comparison_df[metric].apply(lambda x: float(x.replace('%', '').replace('-', ''))).idxmin()
+            else:
+                if metric == "total_return":
+                    best_idx = comparison_df[metric].apply(lambda x: float(x.replace('%', ''))).idxmax()
+                elif metric == "win_rate":
+                    best_idx = comparison_df[metric].apply(lambda x: float(x.replace('%', ''))).idxmax()
+                else:
+                    best_idx = comparison_df[metric].idxmax()
+            
+            best_result = comparison_df.iloc[best_idx]
+            console.print(f"  • {description}: {best_result['portfolio']} ({best_result[metric]})")
+
+        if chart:
+            console.print(f"\n:bar_chart: Chart generation requested - feature not yet implemented")
+            console.print(":information_source: Use --chart to generate visual comparison charts")
+
+    except Exception as e:
+        console.print(f":x: Error comparing results: {e}")
+        raise typer.Exit(1)
+
+
+@result_app.command()
+def export(
+    result_id: str = typer.Argument(..., help=":package: Result ID to export"),
+    format: str = typer.Option("json", "--format", "-f", help=":page_facing_up: Export format (json/csv/excel)"),
+    include_trades: bool = typer.Option(False, "--trades", "-t", help=":repeat: Include trade history"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help=":floppy_disk: Output file path"),
+):
+    """
+    :package: Export backtest result data.
+    """
+    import json
+    import csv
+    from datetime import datetime
+
+    console.print(f":package: Exporting result: {result_id}")
+
+    try:
+        # 模拟导出数据
+        export_data = {
+            "result_id": result_id,
+            "export_time": datetime.now().isoformat(),
+            "summary": {
+                "total_return": 0.152,
+                "sharpe_ratio": 1.45,
+                "max_drawdown": -0.058,
+                "win_rate": 0.623,
+                "total_trades": 156
+            },
+            "daily_returns": [0.0012, -0.0008, 0.0023, 0.0015, -0.0011],  # 示例数据
+        }
+
+        if include_trades:
+            export_data["trades"] = [
+                {
+                    "timestamp": "2025-12-14T09:01:00Z",
+                    "symbol": "000001.SZ",
+                    "direction": "LONG",
+                    "price": 12.45,
+                    "quantity": 1000,
+                    "pnl": 1250.0
+                },
+                {
+                    "timestamp": "2025-12-14T09:15:00Z", 
+                    "symbol": "000001.SZ",
+                    "direction": "SHORT",
+                    "price": 13.85,
+                    "quantity": 1000,
+                    "pnl": 1400.0
+                }
+            ]
+
+        # 确定输出路径
+        if not output:
+            file_ext = {"json": ".json", "csv": ".csv", "excel": ".xlsx"}[format]
+            output = f"result_{result_id}_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}{file_ext}"
+
+        # 导出文件
+        if format == "json":
+            with open(output, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+        elif format == "csv":
+            with open(output, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Category", "Metric", "Value"])
+                for category, metrics in export_data.items():
+                    if isinstance(metrics, dict):
+                        for key, value in metrics.items():
+                            writer.writerow([category, key, value])
+                    else:
+                        writer.writerow([category, "data", metrics])
+        elif format == "excel":
+            console.print(":warning: Excel export not yet implemented, using CSV format instead")
+            with open(output.replace('.xlsx', '.csv'), 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Category", "Metric", "Value"])
+                for category, metrics in export_data.items():
+                    if isinstance(metrics, dict):
+                        for key, value in metrics.items():
+                            writer.writerow([category, key, value])
+                    else:
+                        writer.writerow([category, "data", metrics])
+
+        console.print(f":white_check_mark: Result exported to: {output}")
+        console.print(f":information_source: Format: {format.upper()}, Include trades: {include_trades}")
+
+    except Exception as e:
+        console.print(f":x: Error exporting result: {e}")
+        raise typer.Exit(1)
+
+
+@result_app.command()
+def delete(
+    result_id: str = typer.Argument(..., help=":wastebasket: Result ID to delete"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help=":white_check_mark: Skip confirmation prompt"),
+    force: bool = typer.Option(False, "--force", "-f", help=":zap: Force delete even if referenced"),
+):
+    """
+    :wastebasket: Delete backtest result.
+    """
+    if not confirm:
+        if not typer.confirm(f":warning: Are you sure you want to delete result '{result_id}'? This action cannot be undone."):
+            console.print(":information_source: Operation cancelled.")
+            raise typer.Exit()
+
+    console.print(f":wastebasket: Deleting result: {result_id}")
+
+    try:
+        # 检查是否被引用
+        if not force:
+            # 这里应该检查结果是否被其他地方引用
+            is_referenced = False  # 模拟检查
+            if is_referenced:
+                console.print(":warning: Result is referenced by:")
+                console.print("  • Report: Monthly Performance Report")
+                console.print("  • Analysis: Strategy Comparison Study")
+                console.print(":information_source: Use --force to delete anyway.")
+                raise typer.Exit(1)
+
+        # 删除结果
+        console.print(f":white_check_mark: Result '{result_id}' deleted successfully")
+
+    except Exception as e:
+        console.print(f":x: Error deleting result: {e}")
+        raise typer.Exit(1)

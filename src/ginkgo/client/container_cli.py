@@ -98,30 +98,33 @@ def services():
     
     # 获取容器中的服务
     service_definitions = [
-        # Data Services
-        {"name": "stockinfo_service", "type": "DataService", "status": "Active", "deps": "stockinfo_crud, tushare_source", "desc": "Stock information management"},
-        {"name": "bar_service", "type": "DataService", "status": "Active", "deps": "bar_crud, tushare_source", "desc": "Bar data management"},
-        {"name": "tick_service", "type": "DataService", "status": "Active", "deps": "tick_crud, tushare_source", "desc": "Tick data management"},
+        # Data Services (New Architecture)
+        {"name": "stockinfo_service", "type": "DataService", "status": "Active", "deps": "stockinfo_crud, data_source", "desc": "Stock information management & sync"},
+        {"name": "bar_service", "type": "DataService", "status": "Active", "deps": "bar_crud, data_source", "desc": "K-line (bar) data management"},
+        {"name": "tick_service", "type": "DataService", "status": "Active", "deps": "tick_crud, data_source", "desc": "Tick-level data management"},
         {"name": "adjustfactor_service", "type": "DataService", "status": "Active", "deps": "adjustfactor_crud", "desc": "Price adjustment factors"},
-        
-        # Management Services
+        {"name": "factor_service", "type": "DataService", "status": "Active", "deps": "factor_crud", "desc": "Quantitative factor data"},
+        {"name": "signal_tracking_service", "type": "DataService", "status": "Active", "deps": "signal_tracker_crud", "desc": "Signal tracking & monitoring"},
+
+        # Management Services (New Architecture)
         {"name": "engine_service", "type": "ManagementService", "status": "Active", "deps": "engine_crud", "desc": "Backtest engine management"},
-        {"name": "portfolio_service", "type": "ManagementService", "status": "Active", "deps": "portfolio_crud", "desc": "Portfolio management"},
-        {"name": "file_service", "type": "ManagementService", "status": "Active", "deps": "file_crud", "desc": "File and component management"},
-        
-        # Business Services  
-        {"name": "component_service", "type": "BusinessService", "status": "Active", "deps": "file_service", "desc": "Component instantiation"},
-        {"name": "kafka_service", "type": "BusinessService", "status": "Active", "deps": "redis_service", "desc": "Message queue management"},
-        {"name": "redis_service", "type": "BusinessService", "status": "Active", "deps": "None", "desc": "Caching and session store"},
-        
-        # Data Sources
-        {"name": "ginkgo_tushare_source", "type": "DataSource", "status": "Active", "deps": "None", "desc": "Tushare data provider"},
-        {"name": "ginkgo_akshare_source", "type": "DataSource", "status": "Active", "deps": "None", "desc": "AKShare data provider"},
-        
-        # CRUD Services (examples)
+        {"name": "portfolio_service", "type": "ManagementService", "status": "Active", "deps": "portfolio_crud", "desc": "Portfolio management & optimization"},
+        {"name": "file_service", "type": "ManagementService", "status": "Active", "deps": "file_crud", "desc": "File & component management (idempotent)"},
+
+        # Infrastructure Services
+        {"name": "kafka_service", "type": "InfrastructureService", "status": "Active", "deps": "redis_service", "desc": "Message queue & task distribution"},
+        {"name": "redis_service", "type": "InfrastructureService", "status": "Active", "deps": "redis_driver", "desc": "Caching & session management"},
+        {"name": "param_service", "type": "InfrastructureService", "status": "Active", "deps": "param_crud", "desc": "Parameter management & configuration"},
+
+        # Data Sources (External)
+        {"name": "ginkgo_tushare_source", "type": "DataSource", "status": "Active", "deps": "None", "desc": "Tushare data provider (Premium)"},
+        {"name": "ginkgo_akshare_source", "type": "DataSource", "status": "Active", "deps": "None", "desc": "AKShare data provider (Free)"},
+
+        # CRUD Layer (Auto-generated)
         {"name": "cruds.bar", "type": "CRUD", "status": "Active", "deps": "bar_model", "desc": "Bar data CRUD operations"},
         {"name": "cruds.tick", "type": "CRUD", "status": "Active", "deps": "tick_model", "desc": "Tick data CRUD operations"},
         {"name": "cruds.stock_info", "type": "CRUD", "status": "Active", "deps": "stockinfo_model", "desc": "Stock info CRUD operations"},
+        {"name": "cruds.signal_tracker", "type": "CRUD", "status": "Active", "deps": "signal_tracker_model", "desc": "Signal tracker CRUD operations"},
     ]
     
     # 按类型分组显示
@@ -168,57 +171,61 @@ def dependencies():
     # 创建依赖关系树
     tree = Tree(":package: [bold blue]Ginkgo DI Container[/bold blue]")
     
-    # Data Services Branch
-    data_branch = tree.add(":file_cabinet: [bold green]Data Services[/bold green]")
-    
+    # Data Services Branch (New Architecture)
+    data_branch = tree.add(":file_cabinet: [bold green]Data Services (v2)[/bold green]")
+
     stockinfo_branch = data_branch.add(":chart_with_upwards_trend: [cyan]StockinfoService[/cyan]")
     stockinfo_branch.add("├── :wrench: [dim]stockinfo_crud[/dim]")
-    stockinfo_branch.add("└── :satellite: [dim]ginkgo_tushare_source[/dim]")
-    
-    bar_branch = data_branch.add(":bar_chart: [cyan]BarService[/cyan]") 
+    stockinfo_branch.add("└── :satellite: [dim]data_source[/dim]")
+
+    bar_branch = data_branch.add(":bar_chart: [cyan]BarService[/cyan]")
     bar_branch.add("├── :wrench: [dim]bar_crud[/dim]")
-    bar_branch.add("├── :satellite_antenna: [dim]ginkgo_tushare_source[/dim]")
-    bar_branch.add("└── :chart_with_upwards_trend: [dim]stockinfo_service[/dim]")
-    
+    bar_branch.add("└── :satellite_antenna: [dim]data_source[/dim]")
+
     tick_branch = data_branch.add(":zap: [cyan]TickService[/cyan]")
     tick_branch.add("├── :wrench: [dim]tick_crud[/dim]")
-    tick_branch.add("├── :satellite_antenna: [dim]ginkgo_tushare_source[/dim]")
-    tick_branch.add("└── :chart_with_upwards_trend: [dim]stockinfo_service[/dim]")
-    
+    tick_branch.add("└── :satellite_antenna: [dim]data_source[/dim]")
+
     adj_branch = data_branch.add(":arrows_counterclockwise: [cyan]AdjustfactorService[/cyan]")
     adj_branch.add("├── :wrench: [dim]adjustfactor_crud[/dim]")
-    adj_branch.add("├── :satellite_antenna: [dim]ginkgo_tushare_source[/dim]")
-    adj_branch.add("└── :chart_with_upwards_trend: [dim]stockinfo_service[/dim]")
-    
-    # Management Services Branch
-    mgmt_branch = tree.add(":hammer_and_wrench: [bold yellow]Management Services[/bold yellow]")
-    
+    adj_branch.add("└── :arrows_counterclockwise: [dim]data_source[/dim]")
+
+    factor_branch = data_branch.add(":microscope: [cyan]FactorService[/cyan]")
+    factor_branch.add("└── :wrench: [dim]factor_crud[/dim]")
+
+    signal_branch = data_branch.add(":satellite: [cyan]SignalTrackingService[/cyan]")
+    signal_branch.add("└── :wrench: [dim]signal_tracker_crud[/dim]")
+
+    # Management Services Branch (New Architecture)
+    mgmt_branch = tree.add(":hammer_and_wrench: [bold yellow]Management Services (v2)[/bold yellow]")
+
     engine_branch = mgmt_branch.add(":rocket: [yellow]EngineService[/yellow]")
     engine_branch.add("├── :wrench: [dim]engine_crud[/dim]")
     engine_branch.add("└── :memo: [dim]engine_portfolio_mapping_crud[/dim]")
-    
+
     portfolio_branch = mgmt_branch.add(":briefcase: [yellow]PortfolioService[/yellow]")
     portfolio_branch.add("├── :wrench: [dim]portfolio_crud[/dim]")
-    portfolio_branch.add("├── :memo: [dim]portfolio_file_mapping_crud[/dim]")
-    portfolio_branch.add("├── :gear: [dim]param_crud[/dim]")
-    portfolio_branch.add("└── :file_folder: [dim]file_crud[/dim]")
-    
+    portfolio_branch.add("└── :gear: [dim]param_crud[/dim]")
+
     file_branch = mgmt_branch.add(":file_folder: [yellow]FileService[/yellow]")
-    file_branch.add("└── :wrench: [dim]file_crud[/dim]")
-    
-    # Business Services Branch
-    business_branch = tree.add(":office_building: [bold magenta]Business Services[/bold magenta]")
-    
-    kafka_branch = business_branch.add("📨 [magenta]KafkaService[/magenta]") 
-    kafka_branch.add("└── 🗄️ [dim]redis_service[/dim]")
-    
-    redis_branch = business_branch.add("🗄️ [magenta]RedisService[/magenta]")
+    file_branch.add("└── :wrench: [dim]file_crud (idempotent)[/dim]")
+
+    # Infrastructure Services Branch
+    infra_branch = tree.add(":server: [bold blue]Infrastructure Services[/bold blue]")
+
+    kafka_branch = infra_branch.add("[blue]:email:[/blue] [blue]KafkaService[/blue]")
+    kafka_branch.add("└── [blue]:file_cabinet:[/blue] [dim]redis_service[/dim]")
+
+    redis_branch = infra_branch.add("[blue]:file_cabinet:[/blue] [blue]RedisService[/blue]")
     redis_branch.add("└── :memo: [dim]redis_driver[/dim]")
+
+    param_branch = infra_branch.add(":gear: [blue]ParamService[/blue]")
+    param_branch.add("└── :wrench: [dim]param_crud[/dim]")
     
     # Data Sources Branch
     sources_branch = tree.add(":satellite_antenna: [bold blue]Data Sources[/bold blue]")
     sources_branch.add(":office_building: [blue]GinkgoTushare[/blue] (Premium)")
-    sources_branch.add("🆓 [blue]GinkgoAKShare[/blue] (Free)")
+    sources_branch.add("[blue]:free:[/blue] [blue]GinkgoAKShare[/blue] (Free)")
     sources_branch.add(":zap: [blue]GinkgoTDX[/blue] (Real-time)")
     sources_branch.add(":earth_africa: [blue]GinkgoYahoo[/blue] (International)")
     
@@ -243,7 +250,7 @@ def dependencies():
 @app.command()
 def health():
     """
-    🏥 Perform health check on all container services.
+    [blue]🏥[/blue] Perform health check on all container services.
     """
     from ginkgo.data.containers import container
     from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -270,7 +277,7 @@ def health():
         
         try:
             # 测试container是否可以正常访问
-            if hasattr(container, 'stockinfo_service'):
+            if hasattr(container, 'stockinfo_service') and callable(getattr(container, 'stockinfo_service')):
                 health_results["healthy"].append(":white_check_mark: Container is accessible")
             else:
                 health_results["errors"].append(":x: Container access failed")
@@ -450,7 +457,7 @@ def test(
     # Default to unit tests if nothing specified
     if not any([unit, integration, all]):
         unit = True
-        console.print("ℹ️ [cyan]No test type specified. Running unit tests by default.[/cyan]")
+        console.print(":information: [cyan]No test type specified. Running unit tests by default.[/cyan]")
     
     if all:
         unit = True

@@ -116,24 +116,24 @@ class BarService(BaseService):
 
             # Convert data to models with error handling
             try:
-                models_to_add = mappers.dataframe_to_bar_models(raw_data, code, frequency)
-                if not models_to_add:
+                bar_entities = mappers.dataframe_to_bar_entities(raw_data, code, frequency)
+                if not bar_entities:
                     sync_result = DataSyncResult.create_for_entity(
                         entity_type="bars",
                         entity_identifier=code,
                         sync_range=(validated_start, validated_end),
                         sync_strategy="range"
                     )
-                    sync_result.add_warning("No valid models generated from data")
+                    sync_result.add_warning("No valid bar entities generated from data")
                     return ServiceResult.success(
                         data=sync_result,
-                        message="No valid models generated from data"
+                        message="No valid bar entities generated from data"
                     )
             except Exception as e:
                 # Fallback: try row-by-row conversion
                 self._logger.WARN(f"Batch conversion failed for {code}, attempting row-by-row: {e}")
-                models_to_add = self._convert_rows_individually(raw_data, code, frequency)
-                if not models_to_add:
+                bar_entities = self._convert_rows_individually(raw_data, code, frequency)
+                if not bar_entities:
                     sync_result = DataSyncResult.create_for_entity(
                         entity_type="bars",
                         entity_identifier=code,
@@ -147,9 +147,9 @@ class BarService(BaseService):
                     )
 
             # Smart duplicate checking and database operations
-            final_models = self._filter_existing_data(models_to_add, code, frequency)
+            final_entities = self._filter_existing_data(bar_entities, code, frequency)
 
-            if not final_models:
+            if not final_entities:
                 sync_result = DataSyncResult.create_for_entity(
                     entity_type="bars",
                     entity_identifier=code,
@@ -168,8 +168,8 @@ class BarService(BaseService):
             # Use BaseCRUD.replace method for atomic operation
             if start_date is not None or end_date is not None:
                 # For limited date range, replace data in that range
-                min_date = min(item.timestamp for item in final_models)
-                max_date = max(item.timestamp for item in final_models)
+                min_date = min(item.timestamp for item in final_entities)
+                max_date = max(item.timestamp for item in final_entities)
                 filters = {
                     "code": code,
                     "timestamp__gte": min_date,
@@ -183,18 +183,12 @@ class BarService(BaseService):
                     "frequency": frequency,
                 }
 
-            replaced_models = self._crud_repo.replace(filters=filters, new_items=final_models)
-            records_added = len(replaced_models)
-
-            # If replace returned empty (no existing data), use add_batch instead
-            if records_added == 0:
-                inserted_models = self._crud_repo.add_batch(final_models)
-                records_added = len(inserted_models)
-                self._logger.INFO(f"Successfully inserted {records_added} new bar records for {code}")
-                removed_count = 0
-            else:
-                self._logger.INFO(f"Successfully replaced {records_added} bar records for {code}")
-                removed_count = len(replaced_models)  # All were replaced
+            # Use remove + add_batch for better business object handling
+            self._crud_repo.remove(filters=filters)
+            inserted_entities = self._crud_repo.add_batch(final_entities)
+            records_added = len(inserted_entities)
+            removed_count = len(final_entities)  # All existing records were removed
+            self._logger.INFO(f"Successfully removed {removed_count} and inserted {records_added} bar records for {code}")
 
             duration = time.time() - start_time
             self._log_operation_end("sync_for_code_with_date_range", True, duration)
@@ -1412,8 +1406,8 @@ class BarService(BaseService):
             try:
                 # Create single-row DataFrame for mapper
                 single_row_df = pd.DataFrame([row])
-                row_models = mappers.dataframe_to_bar_models(single_row_df, code, frequency)
-                models.extend(row_models)
+                row_entities = mappers.dataframe_to_bar_entities(single_row_df, code, frequency)
+                models.extend(row_entities)
             except Exception as e:
                 self._logger.WARN(f"Failed to convert row {idx} for {code}: {e}")
                 continue
@@ -1445,24 +1439,24 @@ class BarService(BaseService):
 
         return start_date, end_date
 
-    def _filter_existing_data(self, models_to_add: List[Any], code: str, frequency: FREQUENCY_TYPES) -> List[Any]:
+    def _filter_existing_data(self, bar_entities: List[Any], code: str, frequency: FREQUENCY_TYPES) -> List[Any]:
         """
         Filters out existing data to avoid duplicates.
 
         Args:
-            models_to_add: List of models to potentially add
+            bar_entities: List of models to potentially add
             code: Stock code
             frequency: Data frequency
 
         Returns:
             List of models that don't already exist in database
         """
-        if not models_to_add:
+        if not bar_entities:
             return []
 
         try:
             # Get timestamps of models to add
-            timestamps_to_add = [model.timestamp for model in models_to_add]
+            timestamps_to_add = [model.timestamp for model in bar_entities]
 
             # Check which timestamps already exist in database
             existing_records = self._crud_repo.find(
@@ -1472,7 +1466,7 @@ class BarService(BaseService):
             existing_timestamps = {record.timestamp for record in existing_records}
 
             # Filter out existing records
-            new_models = [model for model in models_to_add if model.timestamp not in existing_timestamps]
+            new_models = [model for model in bar_entities if model.timestamp not in existing_timestamps]
 
             if len(existing_timestamps) > 0:
                 self._logger.DEBUG(f"Filtered out {len(existing_timestamps)} existing records for {code}")
@@ -1481,7 +1475,7 @@ class BarService(BaseService):
 
         except Exception as e:
             self._logger.WARN(f"Error filtering existing data for {code}: {e}, proceeding with all models")
-            return models_to_add
+            return bar_entities
 
     def count(self, code: str = None, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY,
               start_date: datetime = None, end_date: datetime = None) -> ServiceResult:

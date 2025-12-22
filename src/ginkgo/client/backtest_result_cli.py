@@ -53,7 +53,7 @@ def show(
         get_portfolio_file_mappings_page_filtered,
         get_analyzer_records_page_filtered,
     )
-    from ginkgo.data import get_engine_portfolio_mappings
+    from ginkgo.data.containers import container
     from ginkgo.enums import FILE_TYPES
 
     if engine is None:
@@ -76,7 +76,17 @@ def show(
         )
         return
     if portfolio is None:
-        mappings_df = get_engine_portfolio_mappings(engine)
+        # 使用新的Service API获取引擎-投资组合映射
+        engine_service = container.engine_service()
+        mappings_result = engine_service.get_engine_portfolio_mappings(engine)
+
+        if mappings_result.success:
+            mappings_df = mappings_result.data
+            if hasattr(mappings_df, 'to_dataframe'):
+                mappings_df = mappings_df.to_dataframe()
+        else:
+            console.print(f":x: Failed to get engine-portfolio mappings: {mappings_result.error}")
+            mappings_df = pd.DataFrame()  # 空DataFrame作为fallback
         msg = "You could choose portfolio below with param --portfolio"
         console.print(msg)
         

@@ -208,7 +208,8 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
     Returns:
         None
     """
-    GLOG.DEBUG("Try add multi data to session.")
+    GLOG.DEBUG(f"Try add {len(values)} multi data to session.")
+
     click_list = []
     click_count = 0
     mysql_list = []
@@ -219,7 +220,7 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
         elif isinstance(i, MMysqlBase):
             mysql_list.append(i)
         else:
-            GLOG.DEBUG("Just support clickhouse and mysql now. Ignore other type.")
+            GLOG.DEBUG(f"Just support clickhouse and mysql now. Ignore other type: {type(i)}")
 
     if len(click_list) > 0:
         try:

@@ -214,6 +214,11 @@ class Router(BaseRouter):
         Args:
             event: 价格事件
         """
+        # 🔍 调试：跟踪Router处理价格事件的顺序
+        from ginkgo.libs import GCONF
+        if GCONF.DEBUGMODE:
+            print(f"🔥 [ROUTER] on_price_received called: code={getattr(event, 'code', 'None')}, price={getattr(event, 'close', 'None')}, time={getattr(event, 'timestamp', 'None')}")
+
         price_data = event.payload
 
         # 检查是否有回测模式的Broker需要价格数据
@@ -221,10 +226,15 @@ class Router(BaseRouter):
             if self._detect_execution_mode(broker) == "backtest":
                 if hasattr(broker, 'update_price_data'):
                     broker.update_price_data(price_data)
+                    if GCONF.DEBUGMODE:
+                        print(f"🔥 [ROUTER] Price data updated for broker: {broker.__class__.__name__}")
                     break  # 回测通常只有一个，找到就停止
 
         # 触发待处理订单（价格更新可能影响撮合逻辑）
         self._process_pending_orders()
+
+        if GCONF.DEBUGMODE:
+            print(f"🔥 [ROUTER] on_price_received completed")
 
     def _handle_sync_execution(self, order: Order, broker: IBroker, event) -> None:
         """
@@ -329,9 +339,21 @@ class Router(BaseRouter):
 
     def _process_pending_orders(self):
         """处理所有待处理订单"""
-        pending_orders = self.get_pending_orders()
-        if not pending_orders:
-            return
+        # 🔍 调试：跟踪待处理订单的处理
+        from ginkgo.libs import GCONF
+        if GCONF.DEBUGMODE:
+            pending_orders = self.get_pending_orders()
+            if pending_orders:
+                print(f"🔥 [ROUTER] _process_pending_orders: found {len(pending_orders)} pending orders")
+                for order in pending_orders:
+                    print(f"   - Order: {order.direction.name} {order.volume} {order.code}")
+            else:
+                print(f"🔥 [ROUTER] _process_pending_orders: no pending orders")
+                return
+        else:
+            pending_orders = self.get_pending_orders()
+            if not pending_orders:
+                return
 
         self.clear_pending_orders()
 
@@ -339,6 +361,8 @@ class Router(BaseRouter):
             # 重新为每个订单选择Broker并执行
             selected_broker = self.get_broker_for_order(order)
             if selected_broker:
+                if GCONF.DEBUGMODE:
+                    print(f"🔥 [ROUTER] Submitting pending order to broker: {order.direction.name} {order.volume} {order.code}")
                 self._submit_order_to_broker(order, selected_broker)
 
     def _submit_order_to_broker(self, order: Order, broker: IBroker):

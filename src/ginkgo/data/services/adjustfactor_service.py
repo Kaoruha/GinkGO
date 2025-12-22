@@ -199,7 +199,7 @@ class AdjustfactorService(BaseService):
                     filters=latest_filters,
                     order_by='timestamp',
                     desc_order=True,
-                    limit=1
+                    page_size=1
                 )
                 if latest_records:
                     return latest_records[0].timestamp
