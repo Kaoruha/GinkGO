@@ -735,7 +735,7 @@ class DataSeeder:
 
             elif component_type == FILE_TYPES.SIZER.value:
                 if "fixed_sizer" in file_name_lower:
-                    return {0: "default_sizer", 1: "100"}
+                    return {0: "default_sizer", 1: "1000"}
                 elif "ratio_sizer" in file_name_lower:
                     return {0: "ratio_sizer", 1: json.dumps(0.1)}
                 elif "atr_sizer" in file_name_lower:
@@ -757,7 +757,7 @@ class DataSeeder:
             elif component_type == FILE_TYPES.STRATEGY.value:
                 return {0: "default_strategy"}
             elif component_type == FILE_TYPES.SIZER.value:
-                return {0: "default_sizer", 1: "100"}
+                return {0: "default_sizer", 1: "1000"}
             elif component_type == FILE_TYPES.RISKMANAGER.value:
                 return {0: "0.1"}
 
@@ -788,7 +788,7 @@ class DataSeeder:
             # 定义组件参数配置 - 修复参数顺序和数量
             component_parameters = {
                 "fixed_selector": {0: "default_selector", 1: json.dumps(["000001.SZ", "000002.SZ"])},  # selector参数：name, codes
-                "fixed_sizer": {0: "100"},         # sizer参数：volume (name使用默认值)
+                "fixed_sizer": {0: "1000"},         # sizer参数：volume (name使用默认值)
                 "random_choice": {0: "RandomChoiceTest"}  # strategy参数：name
             }
 
