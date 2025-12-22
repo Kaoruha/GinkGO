@@ -181,6 +181,7 @@ class ORDERSTATUS_TYPES(EnumBase):
     PARTIAL_FILLED = 3
     FILLED = 4
     CANCELED = 5
+    REJECTED = 6
 
 
 class TRANSFERSTATUS_TYPES(EnumBase):
