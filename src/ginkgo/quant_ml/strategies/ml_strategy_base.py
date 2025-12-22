@@ -171,7 +171,7 @@ class MLBaseStrategy(BaseStrategy):
         """重新训练模型"""
         try:
             if len(self.feature_data) < self.lookback_period:
-                GLOG.WARNING(f"训练数据不足: {len(self.feature_data)} < {self.lookback_period}")
+                GLOG.WARN(f"训练数据不足: {len(self.feature_data)} < {self.lookback_period}")
                 return
             
             GLOG.INFO("开始重新训练ML模型")
@@ -181,7 +181,7 @@ class MLBaseStrategy(BaseStrategy):
             features, targets = self._prepare_training_data(train_data)
             
             if features.empty or targets.empty:
-                GLOG.WARNING("训练数据准备失败")
+                GLOG.WARN("训练数据准备失败")
                 return
             
             # 特征处理
@@ -315,7 +315,7 @@ class MLBaseStrategy(BaseStrategy):
                     ic = recent_predictions['prediction'].corr(recent_predictions['actual_return'])
                     metrics['information_coefficient'] = ic
             except Exception as e:
-                GLOG.WARNING(f"计算预测准确性失败: {e}")
+                GLOG.WARN(f"计算预测准确性失败: {e}")
         
         return metrics
     
@@ -371,7 +371,7 @@ class MLBaseStrategy(BaseStrategy):
                 try:
                     self.model = self.model.__class__.load(model_path)
                 except FileNotFoundError:
-                    GLOG.WARNING("模型文件未找到，将重新训练")
+                    GLOG.WARN("模型文件未找到，将重新训练")
             
             GLOG.INFO(f"策略状态已加载: {filepath}")
             

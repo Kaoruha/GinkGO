@@ -62,7 +62,7 @@ class FeatureContainer(containers.DynamicContainer):
             discovered_libraries = auto_discover_factor_libraries()
             
             if not discovered_libraries:
-                GLOG.WARNING("未发现任何因子库，使用空的definitions聚合")
+                GLOG.WARN("未发现任何因子库，使用空的definitions聚合")
                 # 动态设置空的definitions聚合
                 self.set_provider('definitions', providers.FactoryAggregate())
                 return

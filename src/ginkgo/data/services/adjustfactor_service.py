@@ -255,7 +255,7 @@ class AdjustfactorService(BaseService):
                 model.split_ratio = to_decimal(row.get('split_ratio', 1.0))
                 models.append(model)
             except Exception as e:
-                self._logger.WARNING(f"Failed to convert adjustfactor row to model: {e}")
+                self._logger.WARN(f"Failed to convert adjustfactor row to model: {e}")
                 continue
 
         return models
@@ -612,7 +612,7 @@ class AdjustfactorService(BaseService):
             zero_mask = df_records[factor_col] == 0
             zero_count = zero_mask.sum()
             if zero_count > 0:
-                self._logger.WARNING(f"股票 {code} 发现 {zero_count} 条记录的adjustfactor为0，将替换为1.0")
+                self._logger.WARN(f"股票 {code} 发现 {zero_count} 条记录的adjustfactor为0，将替换为1.0")
                 df_records.loc[zero_mask, factor_col] = 1.0
 
             # 使用DataFrame向量化计算复权系数
@@ -620,7 +620,7 @@ class AdjustfactorService(BaseService):
 
             # 验证原始因子数据
             if len(original_factors) == 0 or all(f == 1.0 for f in original_factors):
-                self._logger.WARNING(f"股票 {code} 的adjustfactor值全为1.0，计算结果可能与原始数据相同")
+                self._logger.WARN(f"股票 {code} 的adjustfactor值全为1.0，计算结果可能与原始数据相同")
 
             # 计算前复权系数：相对于最新时间的系数
             latest_factor = original_factors[-1]

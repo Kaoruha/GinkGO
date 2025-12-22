@@ -93,7 +93,7 @@ class BaseDefinition(ABC):
             Dict[str, str]: 该分类下的表达式映射
         """
         if category not in cls.CATEGORIES:
-            GLOG.WARNING(f"Category '{category}' not found in {cls.NAME}")
+            GLOG.WARN(f"Category '{category}' not found in {cls.NAME}")
             return {}
         
         expression_names = cls.CATEGORIES[category]

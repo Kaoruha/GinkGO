@@ -94,7 +94,7 @@ class BarCRUD(BaseCRUD[MBar]):
             )
 
         # 不再支持字典格式，强制使用业务对象
-        self._logger.WARNING(f"Unsupported type for Bar conversion: {type(item)}. Please use Bar business object.")
+        self._logger.WARN(f"Unsupported type for Bar conversion: {type(item)}. Please use Bar business object.")
         return None
 
     def _get_enum_mappings(self) -> Dict[str, Any]:

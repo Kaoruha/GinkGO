@@ -986,14 +986,14 @@ class EngineAssemblyService(BaseService):
                         param_details = [(p.index, p.value) for p in sorted_params]
                         self._logger.INFO(f"✅ [PARAM QUERY] Found {len(component_params)} params: {param_details}")
                     else:
-                        self._logger.WARNING(f"❌ [PARAM QUERY] No params found for mapping_id: {mapping_uuid}")
+                        self._logger.WARN(f"❌ [PARAM QUERY] No params found for mapping_id: {mapping_uuid}")
                         # 尝试查询所有参数来调试
                         all_params = param_crud.find()
                         if all_params:
-                            self._logger.WARNING(f"🔍 [DEBUG] Total params in database: {len(all_params)}")
+                            self._logger.WARN(f"🔍 [DEBUG] Total params in database: {len(all_params)}")
                             # 显示前5个参数的mapping_id
                             for i, param in enumerate(all_params[:5]):
-                                self._logger.WARNING(f"🔍 [DEBUG] Param {i+1}: mapping_id={param.mapping_id}, index={param.index}, value={param.value}")
+                                self._logger.WARN(f"🔍 [DEBUG] Param {i+1}: mapping_id={param.mapping_id}, index={param.index}, value={param.value}")
 
                     # 动态执行代码来获取组件类
                     import importlib.util

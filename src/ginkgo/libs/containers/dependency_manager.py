@@ -93,7 +93,7 @@ class DependencyManager:
             for existing_rule in self._dependency_rules[rule.source_module]:
                 if (existing_rule.target_module == rule.target_module and 
                     existing_rule.service_name == rule.service_name):
-                    self._logger.WARNING(f"依赖规则已存在，将被覆盖: {source_key}")
+                    self._logger.WARN(f"依赖规则已存在，将被覆盖: {source_key}")
                     self._dependency_rules[rule.source_module].remove(existing_rule)
                     break
             

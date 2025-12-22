@@ -160,7 +160,7 @@ class StockInfoCRUD(BaseCRUD[MStockInfo]):
             )
 
         # 不再支持字典格式，强制使用业务对象
-        self._logger.WARNING(f"Unsupported type for StockInfo conversion: {type(item)}. Please use StockInfo business object.")
+        self._logger.WARN(f"Unsupported type for StockInfo conversion: {type(item)}. Please use StockInfo business object.")
         return None
 
     def _convert_output_items(self, items: List[MStockInfo], output_type: str = "model") -> List[Any]:

@@ -177,7 +177,7 @@ class FeatureProcessor:
             # 确保特征顺序一致
             missing_features = set(self.feature_names_) - set(X.columns)
             if missing_features:
-                GLOG.WARNING(f"缺少特征: {missing_features}")
+                GLOG.WARN(f"缺少特征: {missing_features}")
             
             # 只保留训练时的特征
             available_features = [f for f in self.feature_names_ if f in X.columns]
@@ -238,7 +238,7 @@ class FeatureProcessor:
             result_df = df.copy()
             
             if datetime_col not in df.columns:
-                GLOG.WARNING(f"未找到时间列 {datetime_col}，跳过时序特征创建")
+                GLOG.WARN(f"未找到时间列 {datetime_col}，跳过时序特征创建")
                 return result_df
             
             # 确保时间列为datetime类型
@@ -345,7 +345,7 @@ class FeatureProcessor:
                 GLOG.INFO(f"加载数据完成，股票数: {len(codes)}, 记录数: {len(result)}")
                 return result
             else:
-                GLOG.WARNING("未加载到任何数据")
+                GLOG.WARN("未加载到任何数据")
                 return pd.DataFrame()
                 
         except Exception as e:

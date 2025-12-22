@@ -323,7 +323,7 @@ class BaseStreamingEngine(ABC):
             try:
                 observer.on_progress_update(progress)
             except Exception as e:
-                GLOG.WARNING(f"Observer {observer.__class__.__name__} failed to handle progress update: {e}")
+                GLOG.WARN(f"Observer {observer.__class__.__name__} failed to handle progress update: {e}")
 
     def _notify_batch_processed(self, batch_size: int) -> None:
         """通知批次处理完成"""
@@ -331,7 +331,7 @@ class BaseStreamingEngine(ABC):
             try:
                 observer.on_batch_processed(self._current_batch_index, batch_size)
             except Exception as e:
-                GLOG.WARNING(f"Observer {observer.__class__.__name__} failed to handle batch processed: {e}")
+                GLOG.WARN(f"Observer {observer.__class__.__name__} failed to handle batch processed: {e}")
 
     def _notify_error(self, error: Exception) -> None:
         """通知错误发生"""
@@ -339,7 +339,7 @@ class BaseStreamingEngine(ABC):
             try:
                 observer.on_error(error)
             except Exception as e:
-                GLOG.WARNING(f"Observer {observer.__class__.__name__} failed to handle error: {e}")
+                GLOG.WARN(f"Observer {observer.__class__.__name__} failed to handle error: {e}")
 
     # ==================== 内部辅助方法 ====================
 

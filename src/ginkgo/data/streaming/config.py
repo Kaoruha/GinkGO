@@ -246,7 +246,7 @@ class ConfigManager:
                     config_dict.update(ginkgo_streaming_config)
                     GLOG.DEBUG("Loaded streaming config from Ginkgo global config")
             except Exception as e:
-                GLOG.WARNING(f"Failed to load from Ginkgo config: {e}")
+                GLOG.WARN(f"Failed to load from Ginkgo config: {e}")
 
         # 3. 从指定的配置文件加载
         if config_path:
@@ -314,7 +314,7 @@ class ConfigManager:
                     self._set_nested_value(config_dict, config_path, value)
                     GLOG.DEBUG(f"Set config {config_path} = {value} from environment variable {env_var}")
                 except (ValueError, TypeError) as e:
-                    GLOG.WARNING(f"Invalid environment variable {env_var} = {env_value}: {e}")
+                    GLOG.WARN(f"Invalid environment variable {env_var} = {env_value}: {e}")
 
     def _set_nested_value(self, config_dict: Dict, path: str, value: Any) -> None:
         """设置嵌套字典的值"""
