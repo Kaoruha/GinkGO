@@ -210,6 +210,25 @@ class MappingService(BaseService):
         except Exception as e:
             return ServiceResult.error(f"获取Engine-Portfolio映射失败: {str(e)}")
 
+    @time_logger
+    @retry(max_try=3)
+    def delete_engine_portfolio_mapping(self, engine_uuid: str, portfolio_uuid: str) -> ServiceResult:
+        """删除Engine-Portfolio映射关系"""
+        try:
+            filters = {"engine_id": engine_uuid, "portfolio_id": portfolio_uuid}
+            deleted_count = self._engine_portfolio_mapping_crud.remove(filters=filters)
+
+            if deleted_count == 0:
+                return ServiceResult.error("未找到要删除的映射关系")
+
+            GLOG.INFO(f"删除Engine-Portfolio映射: {engine_uuid} -> {portfolio_uuid}")
+            return ServiceResult.success({
+                "deleted_count": deleted_count
+            }, f"成功删除映射关系")
+
+        except Exception as e:
+            return ServiceResult.error(f"删除Engine-Portfolio映射失败: {str(e)}")
+
     # Portfolio-File组件映射方法
     @time_logger
     @retry(max_try=3)
@@ -260,6 +279,25 @@ class MappingService(BaseService):
 
         except Exception as e:
             return ServiceResult.error(f"获取Portfolio-File绑定失败: {str(e)}")
+
+    @time_logger
+    @retry(max_try=3)
+    def delete_portfolio_file_binding(self, portfolio_uuid: str, file_uuid: str) -> ServiceResult:
+        """删除Portfolio-File组件绑定关系"""
+        try:
+            filters = {"portfolio_id": portfolio_uuid, "file_id": file_uuid}
+            deleted_count = self._portfolio_file_mapping_crud.remove(filters=filters)
+
+            if deleted_count == 0:
+                return ServiceResult.error("未找到要删除的绑定关系")
+
+            GLOG.INFO(f"删除Portfolio-File绑定: {file_uuid} -> Portfolio {portfolio_uuid}")
+            return ServiceResult.success({
+                "deleted_count": deleted_count
+            }, f"成功删除绑定关系")
+
+        except Exception as e:
+            return ServiceResult.error(f"删除Portfolio-File绑定失败: {str(e)}")
 
     # 批量绑定方法
     @time_logger
