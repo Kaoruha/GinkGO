@@ -372,11 +372,17 @@ def drop_table(model, *args, **kwargs) -> None:
 def create_all_tables() -> None:
     """
     Create tables with all models without __abstract__ = True.
+
+    NOTE: 导入 models 包以触发所有模型的导入和注册到 SQLAlchemy metadata。
+    所有继承自 MClickBase 和 MMysqlBase 且 __abstract__ != True 的模型都会被创建。
     Args:
         None
     Returns:
         None
     """
+    # 导入 models 包，触发所有子模块的导入，使模型类注册到 metadata
+    import ginkgo.data.models
+
     # Create Tables in clickhouse
     MClickBase.metadata.create_all(get_click_connection().engine)
     # Create Tables in mysql

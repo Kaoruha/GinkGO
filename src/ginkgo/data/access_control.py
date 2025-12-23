@@ -46,13 +46,16 @@ def _is_service_layer_call() -> bool:
                 if caller_class.__name__.endswith("Service"):
                     return True
 
-                # 检查是否继承自BaseService
+                # 检查是否继承自BaseService - 延迟导入避免循环依赖
                 try:
-                    from ginkgo.data.services.base_service import BaseService
+                    # 延迟导入 BaseService，只在需要时导入
+                    import importlib
+                    base_service_module = importlib.import_module("ginkgo.data.services.base_service")
+                    BaseService = base_service_module.BaseService
 
                     if isinstance(caller_class, type) and issubclass(caller_class, BaseService):
                         return True
-                except ImportError:
+                except (ImportError, AttributeError):
                     pass
 
     finally:
