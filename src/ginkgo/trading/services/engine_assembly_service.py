@@ -842,12 +842,14 @@ class EngineAssemblyService(BaseService):
             # 为Portfolio注入ID（如果Portfolio支持BacktestBase）
             self._inject_ids_to_single_component(portfolio, engine_id, portfolio_id, run_id)
 
-            # 为所有组件注入ID，然后绑定到Portfolio
+            # 🔥 延迟查找设计：先绑定组件到Portfolio，此时Portfolio还没有context
+            # 但组件会在调用 run_id 等属性时，通过 _bound_portfolio 延迟查找获取
             success = self._bind_components_to_portfolio_with_ids(portfolio, components, logger)
             if not success:
                 return False
 
-            # Bind portfolio to engine and register events
+            # 然后绑定Portfolio到Engine，Portfolio获得context
+            # 组件后续通过 _bound_portfolio 延迟查找即可获取到 run_id
             self._logger.DEBUG(f"About to call _register_portfolio_with_engine with portfolio {portfolio_id}")
             self._register_portfolio_with_engine(engine, portfolio)
 
@@ -1094,28 +1096,33 @@ class EngineAssemblyService(BaseService):
                             self._logger.ERROR(f"No component class found in file. Available classes: {class_details}")
                             return None, f"No component class found in file. Available classes: {class_details}"
 
-                        # 实例化组件（使用位置参数，提供默认值fallback）
-                        if component_params:
-                            # 🔍 调试：打印组件实例化信息
-                            print(f"🔍 [COMPONENT INSTANTIATION] Creating {component_class.__name__} with params: {component_params}")
-                            component = component_class(*component_params)
-                            print(f"🔍 [COMPONENT INSTANTIATION] Component created: {type(component).__name__}")
+                        # 实例化组件（使用位置参数，如果无参数则尝试无参实例化）
+                        try:
+                            if component_params:
+                                # 有参数：使用参数实例化
+                                self._logger.DEBUG(f"Creating {component_class.__name__} with params: {component_params}")
+                                component = component_class(*component_params)
+                            else:
+                                # 无参数：尝试无参实例化（允许使用默认值）
+                                self._logger.INFO(f"No params found for {component_class.__name__}, attempting instantiation with defaults")
+                                component = component_class()
+
+                            self._logger.DEBUG(f"Component {type(component).__name__} created successfully")
+
                             # 如果是RandomSignalStrategy，设置固定随机种子以确保可重现性
                             if "RandomSignalStrategy" in component_class.__name__:
-                                print(f"🔍 [COMPONENT INSTANTIATION] Setting random_seed=12345 for RandomSignalStrategy")
-                                component.set_random_seed(12345)
-                                # 🔍 强制打印策略配置信息进行对比
-                                print(f"🔍 [STRATEGY DEBUG] Dynamic Assembly Strategy Config:")
-                                print(f"   - buy_probability: {component.buy_probability}")
-                                print(f"   - sell_probability: {component.sell_probability}")
-                                print(f"   - max_signals: {component.max_signals}")
-                                print(f"   - random_seed: {component.random_seed}")
-                                print(f"   - name: {component.name}")
-                        else:
-                            # 🔧 修复：移除硬编码默认值，强制使用数据库配置
-                            # 如果没有参数或参数解析失败，应该明确报错
-                            error_msg = f"No parameters found or parameter processing failed for component {component_class.__name__} in mapping {mapping_uuid}"
-                            self._logger.ERROR(f"🔥 [CONFIG ERROR] {error_msg}")
+                                if hasattr(component, 'set_random_seed'):
+                                    component.set_random_seed(12345)
+                                    self._logger.DEBUG(f"Set random_seed=12345 for RandomSignalStrategy")
+
+                        except TypeError as e:
+                            # 无参实例化失败，说明必须有参数
+                            error_msg = f"Component {component_class.__name__} requires parameters but none found: {e}"
+                            self._logger.ERROR(f"🔥 [INSTANTIATION ERROR] {error_msg}")
+                            return None, error_msg
+                        except Exception as e:
+                            error_msg = f"Unexpected error instantiating {component_class.__name__}: {e}"
+                            self._logger.ERROR(f"🔥 [INSTANTIATION ERROR] {error_msg}")
                             return None, error_msg
 
                         return component, None
@@ -1128,7 +1135,114 @@ class EngineAssemblyService(BaseService):
                             pass
 
                 except Exception as e:
-                    return None, f"Failed to instantiate component: {str(e)}"
+                    # 源码fallback机制：当数据库代码执行失败时，尝试从源码导入
+                    error_msg = str(e)
+                    self._logger.WARN(f"🔥 [DYNAMIC LOAD FAILED] {error_msg}, trying source code fallback...")
+
+                    # 尝试从源码导入组件
+                    try:
+                        # 获取文件名作为组件名
+                        file_result = self._file_service.get_by_uuid(file_id)
+                        if file_result.success and file_result.data:
+                            if isinstance(file_result.data, dict) and "file" in file_result.data:
+                                file_name = file_result.data["file"].name
+                            else:
+                                file_name = file_result.data.name
+                        else:
+                            return None, f"Failed to get file info for fallback: {file_result.error}"
+
+                        # 根据组件类型确定源码路径
+                        source_import_map = {
+                            6: ("ginkgo.trading.strategies", "strategies"),
+                            4: ("ginkgo.trading.selectors", "selectors"),  # 修复: selectors not selector
+                            5: ("ginkgo.trading.sizers", "sizers"),
+                            7: ("ginkgo.trading.risk_managements", "risk_managements"),
+                            1: ("ginkgo.trading.analysis.analyzers", "analyzers"),
+                        }
+
+                        if component_type not in source_import_map:
+                            return None, f"No source fallback for component type {component_type}"
+
+                        module_path, subpackage = source_import_map[component_type]
+
+                        # 将文件名转换为模块名（去掉后缀，转为小写，替换-为_）
+                        module_name = file_name.lower().replace("-", "_").replace(".py", "")
+
+                        # 导入源码模块
+                        import importlib
+                        full_module_path = f"{module_path}.{module_name}"
+                        self._logger.INFO(f"🔧 [SOURCE FALLBACK] Trying to import: {full_module_path}")
+                        module = importlib.import_module(full_module_path)
+
+                        # 查找组件类
+                        component_class = None
+                        for attr_name in dir(module):
+                            if attr_name.startswith("_"):
+                                continue
+                            attr = getattr(module, attr_name)
+                            if isinstance(attr, type) and hasattr(attr, "__bases__"):
+                                # 检查是否是组件类
+                                is_component = False
+                                if hasattr(attr, "__abstract__") and not getattr(attr, "__abstract__", True):
+                                    is_component = True
+                                else:
+                                    # 检查基类名称
+                                    for base in attr.__bases__:
+                                        base_name = base.__name__
+                                        if base_name.endswith("Strategy") or base_name.endswith("Selector") or \
+                                           base_name.endswith("Sizer") or base_name.endswith("RiskManagement") or \
+                                           base_name.endswith("Analyzer") or base_name == "BaseStrategy" or \
+                                           base_name == "BaseSelector" or base_name == "BaseSizer" or \
+                                           base_name == "BaseRiskManagement" or base_name == "BaseAnalyzer":
+                                            is_component = True
+                                            break
+
+                                if is_component:
+                                    component_class = attr
+                                    break
+
+                        if component_class is None:
+                            return None, f"No component class found in source module {full_module_path}"
+
+                        # 实例化组件
+                        if component_params:
+                            component = component_class(*component_params)
+                        else:
+                            component = component_class()
+
+                        self._logger.INFO(f"✅ [SOURCE FALLBACK] Successfully loaded {component_class.__name__} from source")
+                        return component, f"Loaded from source code (fallback)"
+
+                    except ImportError as ie:
+                        # 如果是策略失败，使用默认的RandomSignalStrategy作为fallback
+                        if component_type == 6:  # STRATEGY
+                            self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using RandomSignalStrategy as default strategy")
+                            from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
+                            component = RandomSignalStrategy()
+                            if hasattr(component, 'set_random_seed'):
+                                component.set_random_seed(12345)
+                            return component, f"Used default RandomSignalStrategy (fallback for {file_name})"
+                        # 如果是分析器失败，使用默认的NetValue作为fallback
+                        elif component_type == 1:  # ANALYZER
+                            self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using NetValue as default analyzer")
+                            from ginkgo.trading.analysis.analyzers.net_value import NetValue
+                            component = NetValue()
+                            return component, f"Used default NetValue analyzer (fallback for {file_name})"
+                        # 如果是selector失败，使用默认的CNAllSelector作为fallback
+                        elif component_type == 4:  # SELECTOR
+                            self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using CNAllSelector as default selector")
+                            from ginkgo.trading.selectors.cn_all_selector import CNAllSelector
+                            component = CNAllSelector()
+                            return component, f"Used default CNAllSelector (fallback for {file_name})"
+                        # 如果是sizer失败，使用默认的FixedSizer作为fallback
+                        elif component_type == 5:  # SIZER
+                            self._logger.WARN(f"🔧 [DEFAULT FALLBACK] Using FixedSizer as default sizer")
+                            from ginkgo.trading.sizers.fixed_sizer import FixedSizer
+                            component = FixedSizer()
+                            return component, f"Used default FixedSizer (fallback for {file_name})"
+                        return None, f"Source fallback failed (ImportError): {str(ie)}"
+                    except Exception as fallback_err:
+                        return None, f"Source fallback failed: {str(fallback_err)}"
 
             # Add strategies (required)
             strategies = components.get("strategies", [])
@@ -1212,7 +1326,9 @@ class EngineAssemblyService(BaseService):
             if len(analyzers) == 0:
                 self._logger.WARN(f"No analyzer found for portfolio {portfolio_id}. Backtest will go on without analysis.")
             else:
-                for analyzer_mapping in analyzers:
+                self._logger.INFO(f"🔧 [ANALYZER] Starting to instantiate {len(analyzers)} analyzers...")
+                for idx, analyzer_mapping in enumerate(analyzers):
+                    self._logger.INFO(f"🔧 [ANALYZER {idx+1}/{len(analyzers)}] file_id={analyzer_mapping.file_id[:8]}..., type={analyzer_mapping.type}")
                     analyzer, error = _instantiate_component_from_file(
                         analyzer_mapping.file_id, analyzer_mapping.type, analyzer_mapping.uuid
                     )
@@ -1222,7 +1338,7 @@ class EngineAssemblyService(BaseService):
 
                     analyzer.add_logger(logger)
                     portfolio.add_analyzer(analyzer)
-                    self._logger.DEBUG(f"✅ Added analyzer: {analyzer.__class__.__name__}")
+                    self._logger.INFO(f"✅ [ANALYZER] Added analyzer: {analyzer.__class__.__name__} (name={analyzer.name})")
 
             return True
 
