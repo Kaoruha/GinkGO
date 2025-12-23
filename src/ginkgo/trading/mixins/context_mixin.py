@@ -110,19 +110,41 @@ class ContextMixin:
 
     @property
     def engine_id(self) -> Optional[str]:
-        """获取引擎ID - 从上下文动态获取"""
-        return self._context.engine_id if self._context else None
+        """获取引擎ID - 从上下文动态获取，支持延迟查找"""
+        # 优先从自身 context 获取
+        if self._context:
+            return self._context.engine_id
+
+        # 延迟查找：尝试从绑定的 portfolio 获取
+        if self._bound_portfolio and hasattr(self._bound_portfolio, '_context') and self._bound_portfolio._context:
+            return self._bound_portfolio._context.engine_id
+
+        return None
 
     @property
     def run_id(self) -> Optional[str]:
-        """获取运行会话ID - 从上下文动态获取"""
-        return self._context.run_id if self._context else None
+        """获取运行会话ID - 从上下文动态获取，支持延迟查找"""
+        # 优先从自身 context 获取
+        if self._context:
+            return self._context.run_id
+
+        # 延迟查找：如果自身没有 context，尝试从绑定的 portfolio 获取
+        # 这样即使装配时 Portfolio 还没有 context，在调用时也能动态获取
+        if self._bound_portfolio and hasattr(self._bound_portfolio, '_context') and self._bound_portfolio._context:
+            return self._bound_portfolio._context.run_id
+
+        return None
 
     @property
     def portfolio_id(self) -> Optional[str]:
-        """获取投资组合ID - 从上下文动态获取"""
+        """获取投资组合ID - 从上下文动态获取，支持延迟查找"""
+        # 优先从自身 context 获取
         if self._context and hasattr(self._context, 'portfolio_id'):
             return self._context.portfolio_id
-        # 兼容旧逻辑
-        return self._bound_portfolio.uuid if self._bound_portfolio else None
+
+        # 延迟查找：尝试从绑定的 portfolio 获取
+        if self._bound_portfolio and hasattr(self._bound_portfolio, 'uuid'):
+            return self._bound_portfolio.uuid
+
+        return None
 
