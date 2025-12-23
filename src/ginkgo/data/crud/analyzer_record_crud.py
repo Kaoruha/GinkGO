@@ -25,7 +25,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
     def _get_field_config(self) -> dict:
         """
         定义 AnalyzerRecord 数据的字段配置 - 所有字段都是必填的
-        
+
         Returns:
             dict: 字段配置字典
         """
@@ -35,20 +35,32 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
                 'type': 'string',
                 'min': 1
             },
-            
+
             # 引擎ID - 非空字符串
             'engine_id': {
                 'type': 'string',
                 'min': 1
             },
-            
+
+            # 运行会话ID - 非空字符串
+            'run_id': {
+                'type': 'string',
+                'min': 1
+            },
+
             # 分析器名称 - 非空字符串
-            'analyzer_name': {
+            'name': {
                 'type': 'string',
                 'min': 1,
                 'max': 50
             },
-            
+
+            # 分析器ID - 可选
+            'analyzer_id': {
+                'type': 'string',
+                'min': 0
+            },
+
             # 时间戳 - datetime 或字符串
             'timestamp': {
                 'type': ['datetime', 'string']
@@ -58,12 +70,12 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
             'business_timestamp': {
                 'type': ['datetime', 'string', 'none']
             },
-            
+
             # 分析结果值 - 数值
             'value': {
                 'type': ['decimal', 'float', 'int']
             },
-            
+
             # 数据源 - 枚举值
             'source': {
                 'type': 'enum',
@@ -83,7 +95,9 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         return MAnalyzerRecord(
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
-            analyzer_name=kwargs.get("analyzer_name"),
+            run_id=kwargs.get("run_id", ""),
+            name=kwargs.get("name", kwargs.get("analyzer_name", "")),
+            analyzer_id=kwargs.get("analyzer_id", ""),
             timestamp=datetime_normalize(kwargs.get("timestamp")),
             business_timestamp=datetime_normalize(kwargs.get("business_timestamp")),
             value=to_decimal(kwargs.get("value", 0)),
@@ -94,11 +108,12 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         """
         Hook method: Convert analyzer record objects to MAnalyzerRecord.
         """
-        if hasattr(item, 'portfolio_id') and hasattr(item, 'analyzer_name'):
+        if hasattr(item, 'portfolio_id') and (hasattr(item, 'name') or hasattr(item, 'analyzer_name')):
             return MAnalyzerRecord(
                 portfolio_id=getattr(item, 'portfolio_id'),
                 engine_id=getattr(item, 'engine_id', ''),
-                analyzer_name=getattr(item, 'analyzer_name'),
+                name=getattr(item, 'name', getattr(item, 'analyzer_name', '')),
+                analyzer_id=getattr(item, 'analyzer_id', ''),
                 timestamp=datetime_normalize(getattr(item, 'timestamp', datetime.now())),
                 business_timestamp=datetime_normalize(getattr(item, 'business_timestamp', None)),
                 value=to_decimal(getattr(item, 'value', 0)),
@@ -137,22 +152,22 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         return items
 
     # Business Helper Methods
-    def find_by_portfolio(self, portfolio_id: str, analyzer_name: Optional[str] = None, 
+    def find_by_portfolio(self, portfolio_id: str, analyzer_name: Optional[str] = None,
                          start_date: Optional[Any] = None, end_date: Optional[Any] = None,
                          as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
         """
         Business helper: Find analyzer records by portfolio.
         """
         filters = {"portfolio_id": portfolio_id}
-        
+
         if analyzer_name:
-            filters["analyzer_name"] = analyzer_name
+            filters["name"] = analyzer_name
         if start_date:
             filters["timestamp__gte"] = datetime_normalize(start_date)
         if end_date:
             filters["timestamp__lte"] = datetime_normalize(end_date)
 
-        return self.find(filters=filters, order_by="timestamp", desc_order=True, 
+        return self.find(filters=filters, order_by="timestamp", desc_order=True,
                         as_dataframe=as_dataframe)
 
     def find_by_analyzer(self, analyzer_name: str, portfolio_id: Optional[str] = None,
@@ -160,10 +175,10 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         """
         Business helper: Find records by analyzer name.
         """
-        filters = {"analyzer_name": analyzer_name}
+        filters = {"name": analyzer_name}
         if portfolio_id:
             filters["portfolio_id"] = portfolio_id
-            
+
         return self.find(filters=filters, order_by="timestamp", desc_order=True,
                         as_dataframe=as_dataframe)
 
@@ -206,7 +221,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         filters = {"portfolio_id": portfolio_id}
 
         if analyzer_name:
-            filters["analyzer_name"] = analyzer_name
+            filters["name"] = analyzer_name
         if start_business_time:
             filters["business_timestamp__gte"] = datetime_normalize(start_business_time)
         if end_business_time:
@@ -232,7 +247,7 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
         filters = {"portfolio_id": portfolio_id}
 
         if analyzer_name:
-            filters["analyzer_name"] = analyzer_name
+            filters["name"] = analyzer_name
 
         time_field = "business_timestamp" if use_business_time else "timestamp"
         if start_time:
@@ -242,3 +257,40 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
 
         return self.find(filters=filters, order_by=time_field, desc_order=True,
                         as_dataframe=as_dataframe)
+
+    def get_by_run_id(self, run_id: str, portfolio_id: Optional[str] = None,
+                      analyzer_name: Optional[str] = None, page_size: int = 1000,
+                      as_dataframe: bool = False) -> Union[List[MAnalyzerRecord], pd.DataFrame]:
+        """
+        按 run_id 查询 analyzer 记录（支持 result 命令）
+
+        Args:
+            run_id: 运行会话ID（必需）
+            portfolio_id: 投资组合ID（可选，为空则查询所有portfolio）
+            analyzer_name: 分析器名称（可选，为空则查询所有analyzer）
+            page_size: 分页大小（限制返回条数）
+            as_dataframe: 返回 pandas DataFrame
+
+        Returns:
+            List[MAnalyzerRecord] 或 pd.DataFrame
+
+        Examples:
+            # 查询某次运行的所有 analyzer 记录
+            records = crud.get_by_run_id("present_engine_r_251223_0200_001")
+
+            # 查询某次运行的特定 portfolio 和 analyzer
+            records = crud.get_by_run_id(
+                run_id="present_engine_r_251223_0200_001",
+                portfolio_id="present_portfolio_uuid",
+                analyzer_name="net_value"
+            )
+        """
+        filters = {"run_id": run_id}
+
+        if portfolio_id:
+            filters["portfolio_id"] = portfolio_id
+        if analyzer_name:
+            filters["name"] = analyzer_name
+
+        return self.find(filters=filters, order_by="timestamp", desc_order=True,
+                        page_size=page_size, as_dataframe=as_dataframe)
