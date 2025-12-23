@@ -11,12 +11,13 @@ from decimal import Decimal
 
 from ginkgo.trading.core.backtest_base import BacktestBase
 from ginkgo.trading.mixins.time_mixin import TimeMixin
+from ginkgo.trading.mixins.context_mixin import ContextMixin
 from ginkgo.data.containers import container
 from ginkgo.libs import datetime_normalize, to_decimal, Number
 from ginkgo.enums import GRAPHY_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES
 
 
-class BaseAnalyzer(BacktestBase, TimeMixin):
+class BaseAnalyzer(BacktestBase, TimeMixin, ContextMixin):
     # 类级别的监控统计（所有实例共享）
     _execution_stats = {}
     _performance_log = []
@@ -24,10 +25,11 @@ class BaseAnalyzer(BacktestBase, TimeMixin):
     def __init__(self, name: str, timestamp=None, *args, **kwargs):
         BacktestBase.__init__(self, name=name, *args, **kwargs)
         TimeMixin.__init__(self, timestamp=timestamp, *args, **kwargs)
+        ContextMixin.__init__(self, *args, **kwargs)
         self._active_stage = []
         self._record_stage = RECORDSTAGE_TYPES.NEWDAY
         self._analyzer_id = ""
-        self._portfolio_id = ""
+        self._portfolio_id = ""  # 保留作为后备，但优先从上下文读取
         self._graph_type = GRAPHY_TYPES.OTHER
         
         # 高效数据存储结构 - 替代原有的DataFrame
@@ -100,14 +102,32 @@ class BaseAnalyzer(BacktestBase, TimeMixin):
 
     @property
     def portfolio_id(self) -> str:
+        """
+        获取投资组合ID - 优先从上下文对象读取，回退到本地缓存
+        """
+        # 优先从 ContextMixin 的 _context 获取
+        if self._context and hasattr(self._context, 'portfolio_id'):
+            return self._context.portfolio_id
+        # 回退到绑定的 portfolio 对象
+        if self._bound_portfolio and hasattr(self._bound_portfolio, 'portfolio_id'):
+            return self._bound_portfolio.portfolio_id
+        # 最后回退到本地缓存（向后兼容）
         return self._portfolio_id
 
     @portfolio_id.setter
     def portfolio_id(self, value: str) -> None:
+        """
+        设置投资组合ID - 更新本地缓存
+
+        注意：实际运行时的值由 Engine 管理的上下文提供，
+        这里的缓存主要用于组件独立运行时的向后兼容。
+        """
         self._portfolio_id = value
 
     def set_portfolio_id(self, value: str) -> None:
-        """向后兼容方法，建议使用 portfolio_id 属性赋值"""
+        """
+        设置 portfolio_id（向后兼容方法）
+        """
         self.portfolio_id = value
 
     @property
@@ -145,7 +165,7 @@ class BaseAnalyzer(BacktestBase, TimeMixin):
     def activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """
         激活分析器进行计算（模板方法）- 带性能监控和错误处理
-        
+
         Args:
             stage(RECORDSTAGE_TYPES): 当前记录阶段
             portfolio_info(dict): 投资组合信息字典，包含positions, cash, worth等信息
@@ -155,7 +175,7 @@ class BaseAnalyzer(BacktestBase, TimeMixin):
         # Base类负责阶段检查，确保只在配置的阶段激活
         if stage not in self._active_stage:
             return
-        
+
         start_time = time.perf_counter()
         try:
             # 调用子类实现的具体激活逻辑
@@ -173,7 +193,7 @@ class BaseAnalyzer(BacktestBase, TimeMixin):
     def record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """
         记录分析器数据到数据库（模板方法）- 带性能监控和错误处理
-        
+
         Args:
             stage(RECORDSTAGE_TYPES): 当前记录阶段
             portfolio_info(dict): 投资组合信息字典，包含positions, cash, worth等信息
@@ -183,7 +203,7 @@ class BaseAnalyzer(BacktestBase, TimeMixin):
         # Base类负责阶段检查，确保只在配置的阶段记录
         if stage != self._record_stage:
             return
-        
+
         start_time = time.perf_counter()
         try:
             # 调用子类实现的具体记录逻辑
@@ -278,26 +298,47 @@ class BaseAnalyzer(BacktestBase, TimeMixin):
 
     def add_record(self, *args, **kwargs) -> None:
         """
-        Add record to database.
+        Add record to database using AnalyzerService.
+
+        所有 ID 信息（portfolio_id, engine_id, run_id）都通过 ContextMixin 从上下文对象获取。
         """
+        run_id = self.run_id
+        if not run_id:
+            print(f"[ANALYZER DEBUG] {self.name}.add_record() returning early: run_id is None")
+            print(f"  _context={self._context}")
+            if self._context:
+                print(f"  _context.run_id={self._context.run_id}")
+            return
+
         current_time = self.get_current_time()
         if current_time is None:
+            print(f"[ANALYZER DEBUG] {self.name}.add_record() returning early: current_time is None")
             return
+
         date = current_time.strftime("%Y-%m-%d %H:%M:%S")
-        if date not in self.data["timestamp"].values:
+        # 使用 _index_map 检查，避免类型不匹配问题（str vs numpy.datetime64）
+        if date not in self._index_map:
+            print(f"[ANALYZER DEBUG] {self.name}.add_record() returning early: date '{date}' not in _index_map")
+            print(f"  _index_map keys: {list(self._index_map.keys())[:5]}...")
             return
+
         value = self.get_data(date)
         if value is not None:
-            analyzer_crud = container.cruds.analyzer_record()
-            analyzer_crud.create(
-                portfolio_id=self._portfolio_id,
-                engine_id=self._engine_id,
+            print(f"[ANALYZER DEBUG] {self.name}.add_record() saving: run_id={run_id}, date={date}, value={value}")
+            # 使用 AnalyzerService 添加记录
+            analyzer_service = container.analyzer_service()
+            analyzer_service.add_record(
+                portfolio_id=self.portfolio_id,
+                engine_id=self.engine_id,
+                run_id=run_id,
                 timestamp=date,
+                business_timestamp=date,  # 业务时间戳使用当前时间
                 value=value,
                 name=self.name,
                 analyzer_id=self._analyzer_id,
-                source=SOURCE_TYPES.OTHER,
             )
+        else:
+            print(f"[ANALYZER DEBUG] {self.name}.add_record() returning early: value is None for date={date}")
 
     @property
     def mean(self) -> Decimal:
