@@ -155,6 +155,8 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
             raise RuntimeError("Cannot change run_id after engine has started")
 
         self._run_id = run_id
+        # 同步更新 EngineContext
+        self._engine_context.set_run_id(run_id)
         self.log("INFO", f"Run ID updated to: {run_id}")
 
     def start(self) -> bool:

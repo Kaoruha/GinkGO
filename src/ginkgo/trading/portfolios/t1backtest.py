@@ -162,6 +162,9 @@ class PortfolioT1Backtest(PortfolioBase):
         self._signals = []
 
         # ===== 步骤5: 新时间状态初始化 =====
+        activate_count = len(self._analyzer_activate_hook.get(RECORDSTAGE_TYPES.NEWDAY, []))
+        record_count = len(self._analyzer_record_hook.get(RECORDSTAGE_TYPES.NEWDAY, []))
+        print(f"[NEWDAY HOOK] activate_count={activate_count}, record_count={record_count}")
         for func in self._analyzer_activate_hook.get(RECORDSTAGE_TYPES.NEWDAY, []):
             if func is not None and callable(func):
                 func(RECORDSTAGE_TYPES.NEWDAY, self.get_info())
