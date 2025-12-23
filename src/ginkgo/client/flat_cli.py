@@ -237,6 +237,193 @@ def get(
         console.print(f":x: Error: {e}")
 
 
+@result_app.command("show")
+def show(
+    run_id: Optional[str] = typer.Option(None, "--run-id", "-r", help=":abc: Run session ID"),
+    portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help=":bank: Portfolio ID"),
+    analyzer: Optional[str] = typer.Option(None, "--analyzer", "-a", help=":bar_chart: Analyzer name"),
+    mode: str = typer.Option("table", "--mode", "-m", help=":display: Display mode (table/terminal/plot)"),
+    limit: int = typer.Option(50, "--limit", "-l", help=":1234: Max records to display"),
+):
+    """
+    :chart_with_upwards_trend: Show analyzer results by run_id.
+
+    Examples:
+        ginkgo result show                    # List available runs
+        ginkgo result show --run-id eng_abc_r_251223_1200_001
+        ginkgo result show --run-id xxx --portfolio yyy --analyzer net_value --mode terminal
+    """
+    from ginkgo.data.containers import container
+    from ginkgo.libs.utils.display import (
+        display_dataframe,
+        display_terminal_chart,
+    )
+    import pandas as pd
+
+    result_service = container.result_service()
+
+    # 如果没有指定 run_id，列出所有可用的运行会话
+    if run_id is None:
+        list_result = result_service.list_runs()
+        if not list_result.success:
+            console.print(f":x: [red]获取运行会话列表失败[/red]")
+            console.print(f"[yellow]{list_result.error}[/yellow]")
+            raise typer.Exit(1)
+
+        runs = list_result.data
+        if not runs:
+            console.print(":exclamation: [yellow]没有找到可用的运行会话[/yellow]")
+            console.print("[dim]请先运行回测: ginkgo engine run <engine_id>[/dim]")
+            raise typer.Exit(0)
+
+        # 转换为 DataFrame 显示
+        df = pd.DataFrame(runs)
+
+        columns_config = {
+            "engine_name": {"display_name": "Engine", "style": "green"},
+            "run_id": {"display_name": "Run ID", "style": "cyan"},
+            "portfolio_name": {"display_name": "Portfolio", "style": "yellow"},
+            "timestamp": {"display_name": "Run Time", "style": "dim"},
+            "record_count": {"display_name": "Records", "style": "blue"}
+        }
+
+        display_dataframe(
+            data=df,
+            columns_config=columns_config,
+            title=":chart_with_upwards_trend: [bold]可用的运行会话[/bold]",
+            console=console
+        )
+        console.print("\n[yellow]使用 --run-id 参数查看详细结果[/yellow]")
+        console.print("[dim]示例: ginkgo result show --run-id <run_id>[/dim]")
+        raise typer.Exit(0)
+
+    # 获取运行摘要
+    summary_result = result_service.get_run_summary(run_id)
+    if not summary_result.success:
+        console.print(f":x: [red]未找到 run_id={run_id} 的记录[/red]")
+        console.print(f"[yellow]{summary_result.error}[/yellow]")
+        raise typer.Exit(1)
+
+    summary = summary_result.data
+    console.print(f":information_source: [bold]运行会话摘要:[/bold]")
+    console.print(f"  Run ID: {summary['run_id']}")
+    console.print(f"  Engine ID: {summary['engine_id']}")
+    console.print(f"  总记录数: {summary['total_records']}")
+    console.print("")
+
+    # 自动选择 portfolio（如果只有一个）
+    if portfolio_id is None:
+        if summary['portfolio_count'] > 1:
+            console.print(f":briefcase: [bold]可用的投资组合 ({summary['portfolio_count']}个):[/bold]")
+            for pid in summary['portfolios']:
+                console.print(f"  - {pid}")
+            console.print("")
+            console.print("[yellow]请使用 --portfolio 参数指定投资组合[/yellow]")
+            raise typer.Exit(0)
+        else:
+            portfolio_id = summary['portfolios'][0]
+            console.print(f":briefcase: [cyan]使用投资组合: {portfolio_id}[/cyan]")
+            console.print("")
+
+    # 自动选择 analyzer（如果只有一个）
+    if analyzer is None:
+        analyzers_result = result_service.get_portfolio_analyzers(run_id, portfolio_id)
+        if analyzers_result.success:
+            analyzers = analyzers_result.data
+            if len(analyzers) > 1:
+                console.print(f":bar_chart: [bold]可用的分析器 ({len(analyzers)}个):[/bold]")
+                for name in analyzers:
+                    console.print(f"  - {name}")
+                console.print("")
+                console.print("[yellow]请使用 --analyzer 参数指定分析器[/yellow]")
+                raise typer.Exit(0)
+            else:
+                analyzer = analyzers[0]
+                console.print(f":bar_chart: [cyan]使用分析器: {analyzer}[/cyan]")
+                console.print("")
+
+    # 获取数据
+    data_result = result_service.get_analyzer_values(
+        run_id=run_id,
+        portfolio_id=portfolio_id,
+        analyzer_name=analyzer
+    )
+
+    if not data_result.success:
+        console.print(f":x: [red]获取数据失败[/red]")
+        console.print(f"[yellow]{data_result.error}[/yellow]")
+        raise typer.Exit(1)
+
+    # 转换为 DataFrame
+    result_df = data_result.data.to_dataframe()
+
+    if result_df is None or result_df.shape[0] == 0:
+        console.print(":exclamation: [yellow]没有数据可显示[/yellow]")
+        raise typer.Exit(0)
+
+    # 显示数据
+    if mode == "table":
+        columns_config = {
+            "timestamp": {"display_name": "Date", "style": "cyan"},
+            "value": {"display_name": "Value", "style": "yellow"}
+        }
+        title = f":bar_chart: [bold]{analyzer}[/bold] [dim]({run_id})[/dim]"
+        display_dataframe(
+            data=result_df.head(limit),
+            columns_config=columns_config,
+            title=title,
+            console=console
+        )
+
+    elif mode == "terminal":
+        console.print(f"[dim]显示 {result_df.shape[0]} 条记录[/dim]")
+        display_terminal_chart(
+            data=result_df.head(limit) if limit > 0 else result_df,
+            title=f"{analyzer} [{run_id}]",
+            max_points=limit,
+            console=console
+        )
+
+    else:
+        console.print(f":x: [red]不支持的显示模式: {mode}[/red]")
+        console.print("[yellow]支持的模式: table, terminal[/yellow]")
+        raise typer.Exit(1)
+
+
+@result_app.command()
+def get(
+    result_id: str = typer.Argument(..., help=":mag: Result ID"),
+    details: bool = typer.Option(False, "--details", "-d", help=":information_source: Show detailed result information"),
+    trades: bool = typer.Option(False, "--trades", "-t", help=":repeat: Show trade history"),
+):
+    """
+    :mag: Get backtest result details.
+    """
+    console.print(f":mag: Getting result details: {result_id}")
+
+    try:
+        # TODO: Implement actual result retrieval
+        console.print(":information: Result details not yet implemented")
+
+        # 模拟数据
+        console.print(f":white_check_mark: Found result: {result_id}")
+
+        if details:
+            console.print("\n:gear: Detailed Results:")
+            console.print("  • Total Return: 15.2%")
+            console.print("  • Annualized Return: 18.7%")
+            console.print("  • Sharpe Ratio: 1.45")
+            console.print("  • Max Drawdown: -8.3%")
+
+        if trades:
+            console.print("\n:repeat: Trade History:")
+            console.print("  • 2025-01-01: BUY 000001.SZ @ 10.50 (100 shares)")
+            console.print("  • 2025-01-05: SELL 000001.SZ @ 11.20 (100 shares)")
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+
+
 # 将所有应用注册到get_app中
 get_app.add_typer(component_app, name="component", help=":wrench: Get component information")
 get_app.add_typer(mapping_app, name="mapping", help=":link: Get mapping information")
