@@ -53,7 +53,18 @@ class KafkaCRUD:
     def _test_connection(self) -> bool:
         """
         测试Kafka连接可用性
-        
+
+        TODO: 添加超时机制防止命令挂起
+
+        问题：
+        - 如果 Kafka 服务不可用或网络延迟高，GinkgoConsumer 创建或 close() 可能无限等待
+        - 导致 ginkgo kafka health 命令挂起，被系统以 SIGKILL (exit code 137) 终止
+
+        建议修复：
+        - 使用 threading.Thread + timeout 防止无限等待
+        - 或者设置 Kafka 客户端级别的超时参数
+        - 建议超时时间：5-10 秒
+
         Returns:
             bool: 连接是否可用
         """
@@ -442,6 +453,16 @@ class KafkaCRUD:
     def list_topics(self) -> List[str]:
         """
         列出所有可用的主题
+
+        TODO: 添加超时机制防止 topics() 调用阻塞
+
+        问题：
+        - temp_consumer.consumer.topics() 可能阻塞，如果 Kafka 集群响应慢
+        - 影响 ginkgo kafka health 命令的响应时间
+
+        建议修复：
+        - 使用 poll() 或设置请求超时
+        - 参考 _test_connection 的超时机制
 
         Returns:
             List[str]: 主题列表
