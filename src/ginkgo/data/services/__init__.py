@@ -24,6 +24,8 @@ from ginkgo.data.services.portfolio_service import PortfolioService
 from ginkgo.data.services.redis_service import RedisService
 from ginkgo.data.services.kafka_service import KafkaService
 from ginkgo.data.services.factor_service import FactorService
+from ginkgo.data.services.result_service import ResultService
+from ginkgo.data.services.signal_tracking_service import SignalTrackingService
 
 # Legacy aliases (Backward compatibility)
 DataService = BaseService
