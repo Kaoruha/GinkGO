@@ -3,7 +3,7 @@ Ginkgo Portfolio CLI - 投资组合管理命令
 """
 
 import typer
-from typing import Optional
+from typing import Optional, List
 from rich.console import Console
 from rich.table import Table
 
@@ -127,7 +127,7 @@ def create(
 
 @app.command()
 def get(
-    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
     details: bool = typer.Option(False, "--details", "-d", help="Show detailed portfolio information"),
     performance: bool = typer.Option(False, "--performance", "-p", help="Show performance metrics"),
 ):
@@ -140,10 +140,23 @@ def get(
 
     try:
         portfolio_service = container.portfolio_service()
-        result = portfolio_service.get(portfolio_id=portfolio_id)
 
-        if result.success:
-            portfolio = result.data
+        # 先尝试按 UUID 查找
+        result = portfolio_service.get(portfolio_id=portfolio_id)
+        # 如果 UUID 查找失败，尝试按名称查找
+        if not result.success or not result.data or (hasattr(result.data, '__len__') and len(result.data) == 0):
+            result = portfolio_service.get(name=portfolio_id)
+
+        if result.success and result.data:
+            # 获取第一个 portfolio 实体（ModelList 支持）
+            if hasattr(result.data, '__len__') and len(result.data) > 0:
+                portfolio = result.data[0]
+            elif hasattr(result.data, 'uuid'):
+                portfolio = result.data
+            else:
+                console.print(":x: Portfolio data format error")
+                raise typer.Exit(1)
+
             table = Table(title=f":bank: Portfolio Details")
             table.add_column("Property", style="cyan", width=15)
             table.add_column("Value", style="white", width=50)
@@ -151,10 +164,10 @@ def get(
             table.add_row("ID", str(portfolio.uuid))
             table.add_row("Name", str(portfolio.name))
             table.add_row("Initial Capital", f"¥{portfolio.initial_capital:,.2f}")
-            table.add_row("Start Date", str(portfolio.backtest_start_date))
-            table.add_row("End Date", str(portfolio.backtest_end_date))
+            table.add_row("Current Capital", f"¥{portfolio.current_capital:,.2f}")
+            table.add_row("Cash", f"¥{portfolio.cash:,.2f}")
             table.add_row("Is Live", "Yes" if portfolio.is_live else "No")
-            table.add_row("Description", str(portfolio.description or "No description"))
+            table.add_row("Description", str(portfolio.desc or "No description"))
 
             console.print(table)
 
@@ -179,7 +192,7 @@ def get(
 
 @app.command()
 def status(
-    portfolio_id: str = typer.Argument(..., help="Portfolio UUID"),
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
 ):
     """
     :gear: Get portfolio status.
@@ -190,14 +203,34 @@ def status(
 
     try:
         portfolio_service = container.portfolio_service()
-        result = portfolio_service.get(portfolio_id=portfolio_id)
 
-        if result.success:
-            portfolio = result.data
-            console.print(f":gear: Portfolio Status: {portfolio.status}")
+        # 先尝试按 UUID 查找，失败后按名称查找
+        result = portfolio_service.get(portfolio_id=portfolio_id)
+        if not result.success or not result.data or (hasattr(result.data, '__len__') and len(result.data) == 0):
+            result = portfolio_service.get(name=portfolio_id)
+
+        if result.success and result.data:
+            # 获取第一个 portfolio 实体（ModelList 支持）
+            if hasattr(result.data, '__len__') and len(result.data) > 0:
+                portfolio = result.data[0]
+            elif hasattr(result.data, 'uuid'):
+                portfolio = result.data
+            else:
+                console.print(":x: Portfolio data format error")
+                raise typer.Exit(1)
+
+            # 使用 is_live 作为状态（MPortfolio 没有 status 字段）
+            status_str = "Live" if portfolio.is_live else "Backtest"
+            console.print(f":gear: Portfolio Status: {status_str}")
+            console.print(f"  - Name: {portfolio.name}")
+            console.print(f"  - UUID: {portfolio.uuid}")
+            console.print(f"  - Initial Capital: ¥{portfolio.initial_capital:,.2f}")
+            console.print(f"  - Current Capital: ¥{portfolio.current_capital:,.2f}")
+            console.print(f"  - Cash: ¥{portfolio.cash:,.2f}")
             # TODO: Add more detailed status information
         else:
-            console.print(f":x: Failed to get portfolio status: {result.error}")
+            console.print(f":x: Portfolio not found: {portfolio_id}")
+            console.print(":information: Use 'ginkgo portfolio list' to see available portfolios")
             raise typer.Exit(1)
 
     except Exception as e:
@@ -228,6 +261,209 @@ def delete(
             console.print(":white_check_mark: Portfolio deleted successfully")
         else:
             console.print(f":x: Failed to delete portfolio: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@app.command("bind-component")
+def bind_component(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
+    file_id: str = typer.Argument(..., help="File UUID or name"),
+    component_type: str = typer.Option(..., "--type", "-t", help="Component type (strategy/risk/selector/sizer/analyzer)"),
+    params: List[str] = typer.Option([], "--param", "-p", help="Component parameters in format 'index:value', can be used multiple times"),
+):
+    """
+    :link: Bind a component to a portfolio.
+
+    Examples:
+        ginkgo portfolio bind-component my_portfolio my_strategy --type strategy
+        ginkgo portfolio bind-component my_portfolio my_strategy --type strategy --param 0:0.5 --param 1:100
+    """
+    from ginkgo.data.containers import container
+    from ginkgo.enums import FILE_TYPES
+
+    console.print(f":link: Binding component {file_id} to portfolio {portfolio_id}...")
+
+    try:
+        # 解析 portfolio_id
+        portfolio_service = container.portfolio_service()
+
+        # 先尝试按UUID精确查找
+        portfolio_result = portfolio_service.get(portfolio_id=portfolio_id)
+        if portfolio_result.success and portfolio_result.data and len(portfolio_result.data) > 0:
+            resolved_portfolio_uuid = portfolio_result.data[0].uuid
+            portfolio_name = portfolio_result.data[0].name
+        else:
+            # 尝试按name查找
+            portfolio_result = portfolio_service.get(name=portfolio_id)
+            if portfolio_result.success and portfolio_result.data and len(portfolio_result.data) > 0:
+                resolved_portfolio_uuid = portfolio_result.data[0].uuid
+                portfolio_name = portfolio_result.data[0].name
+            else:
+                console.print(f":x: Portfolio not found: '{portfolio_id}'")
+                raise typer.Exit(1)
+
+        # 解析 file_id
+        file_service = container.file_service()
+
+        # 先尝试按UUID精确查找
+        file_result = file_service.get_by_uuid(file_id)
+        if file_result.success and file_result.data:
+            # 处理字典格式 {"file": MFile, "exists": True}
+            if isinstance(file_result.data, dict) and 'file' in file_result.data:
+                mfile = file_result.data['file']
+                resolved_file_uuid = mfile.uuid
+                file_name = mfile.name
+            else:
+                resolved_file_uuid = file_result.data.uuid
+                file_name = file_result.data.name
+        else:
+            # 尝试按name查找
+            file_result = file_service.get_by_name(file_id)
+            if file_result.success and file_result.data and len(file_result.data) > 0:
+                resolved_file_uuid = file_result.data[0].uuid
+                file_name = file_result.data[0].name
+            else:
+                console.print(f":x: File not found: '{file_id}'")
+                raise typer.Exit(1)
+
+        # 解析 component_type
+        type_mapping = {
+            "strategy": FILE_TYPES.STRATEGY,
+            "risk": FILE_TYPES.RISKMANAGER,
+            "riskmanager": FILE_TYPES.RISKMANAGER,
+            "selector": FILE_TYPES.SELECTOR,
+            "sizer": FILE_TYPES.SIZER,
+            "analyzer": FILE_TYPES.ANALYZER,
+        }
+
+        file_type = type_mapping.get(component_type.lower())
+        if file_type is None:
+            console.print(f":x: Invalid component type: '{component_type}'")
+            console.print("Valid types: strategy, risk, selector, sizer, analyzer")
+            raise typer.Exit(1)
+
+        # 解析参数
+        parameters = {}
+        if params:
+            for param in params:
+                if ':' not in param:
+                    console.print(f":x: Invalid parameter format: '{param}'. Use 'index:value' format.")
+                    raise typer.Exit(1)
+                try:
+                    index_str, value = param.split(':', 1)
+                    index = int(index_str)
+                    parameters[index] = value
+                except ValueError:
+                    console.print(f":x: Invalid parameter format: '{param}'. Index must be an integer.")
+                    raise typer.Exit(1)
+
+        # 使用 MappingService 创建绑定
+        mapping_service = container.mapping_service()
+        result = mapping_service.create_portfolio_file_binding(
+            portfolio_uuid=resolved_portfolio_uuid,
+            file_uuid=resolved_file_uuid,
+            file_name=file_name,
+            file_type=file_type
+        )
+
+        if result.success:
+            console.print(f":white_check_mark: Component binding created successfully")
+            console.print(f"  • Portfolio: {portfolio_name} ({resolved_portfolio_uuid[:8]}...)")
+            console.print(f"  • Component: {file_name} ({resolved_file_uuid[:8]}...)")
+            console.print(f"  • Type: {component_type}")
+
+            # 如果有参数，创建参数
+            if parameters:
+                mapping = result.data  # MPortfolioFileMapping 对象
+                param_result = mapping_service.create_component_parameters(
+                    mapping_uuid=mapping.uuid,
+                    file_uuid=resolved_file_uuid,
+                    parameters=parameters
+                )
+
+                if param_result.success:
+                    console.print(f"  • Parameters: {len(parameters)} parameter(s) set")
+                    for idx, val in sorted(parameters.items()):
+                        console.print(f"    - [{idx}]: {val}")
+                else:
+                    console.print(f":warning: Binding created but parameter setting failed: {param_result.error}")
+        else:
+            console.print(f":white_check_mark: {result.message}")
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@app.command("unbind-component")
+def unbind_component(
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
+    file_id: str = typer.Argument(..., help="File UUID or name"),
+    confirm: bool = typer.Option(False, "--confirm", help="Confirm unbinding"),
+):
+    """
+    :broken_link: Unbind a component from a portfolio.
+    """
+    if not confirm:
+        console.print(":x: Please use --confirm to unbind component")
+        raise typer.Exit(1)
+
+    from ginkgo.data.containers import container
+
+    console.print(f":broken_link: Unbinding component {file_id} from portfolio {portfolio_id}...")
+
+    try:
+        # 解析 portfolio_id
+        portfolio_service = container.portfolio_service()
+
+        # 先尝试按UUID精确查找
+        portfolio_result = portfolio_service.get(portfolio_id=portfolio_id)
+        if portfolio_result.success and portfolio_result.data and len(portfolio_result.data) > 0:
+            resolved_portfolio_uuid = portfolio_result.data[0].uuid
+        else:
+            # 尝试按name查找
+            portfolio_result = portfolio_service.get(name=portfolio_id)
+            if portfolio_result.success and portfolio_result.data and len(portfolio_result.data) > 0:
+                resolved_portfolio_uuid = portfolio_result.data[0].uuid
+            else:
+                console.print(f":x: Portfolio not found: '{portfolio_id}'")
+                raise typer.Exit(1)
+
+        # 解析 file_id
+        file_service = container.file_service()
+
+        # 先尝试按UUID精确查找
+        file_result = file_service.get_by_uuid(file_id)
+        if file_result.success and file_result.data:
+            # 处理字典格式 {"file": MFile, "exists": True}
+            if isinstance(file_result.data, dict) and 'file' in file_result.data:
+                resolved_file_uuid = file_result.data['file'].uuid
+            else:
+                resolved_file_uuid = file_result.data.uuid
+        else:
+            # 尝试按name查找
+            file_result = file_service.get_by_name(file_id)
+            if file_result.success and file_result.data and len(file_result.data) > 0:
+                resolved_file_uuid = file_result.data[0].uuid
+            else:
+                console.print(f":x: File not found: '{file_id}'")
+                raise typer.Exit(1)
+
+        # 使用 MappingService 删除绑定
+        mapping_service = container.mapping_service()
+        result = mapping_service.delete_portfolio_file_binding(
+            portfolio_uuid=resolved_portfolio_uuid,
+            file_uuid=resolved_file_uuid
+        )
+
+        if result.success:
+            console.print(f":white_check_mark: Component binding deleted successfully")
+        else:
+            console.print(f":x: Failed to delete binding: {result.error}")
             raise typer.Exit(1)
 
     except Exception as e:
