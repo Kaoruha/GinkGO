@@ -518,7 +518,7 @@ def cat(
 
 @app.command()
 def status(
-    engine_id: str = typer.Argument(..., help="Engine UUID"),
+    engine_id: str = typer.Argument(..., help="Engine UUID or name"),
 ):
     """
     :gear: Get engine status.
@@ -528,8 +528,15 @@ def status(
     console.print(f":gear: Getting engine {engine_id} status...")
 
     try:
+        # 解析 engine_id（支持名称和UUID）
+        resolved_uuid = resolve_engine_id(engine_id)
+        if resolved_uuid is None:
+            console.print(f":x: Engine not found: '{engine_id}'")
+            console.print(":information: Use 'ginkgo engine list' to see available engines")
+            raise typer.Exit(1)
+
         engine_service = container.engine_service()
-        result = engine_service.get(engine_id=engine_id)
+        result = engine_service.get(engine_id=resolved_uuid)
 
         if result.success:
             engines = result.data
@@ -899,6 +906,199 @@ def delete(
             console.print(":white_check_mark: Engine deleted successfully")
         else:
             console.print(f":x: Failed to delete engine: {result.error}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@app.command("bind-portfolio")
+def bind_portfolio(
+    engine_id: Optional[str] = typer.Argument(None, help="Engine UUID or name (if not provided, will list available engines)"),
+    portfolio_id: Optional[str] = typer.Argument(None, help="Portfolio UUID or name (if not provided, will list available portfolios)"),
+):
+    """
+    :link: Bind an engine to a portfolio.
+    """
+    from ginkgo.data.containers import container
+
+    # 如果没有提供 engine_id，显示可用的引擎
+    if engine_id is None:
+        console.print(":information: [bold]No engine ID provided.[/bold]")
+        console.print(":clipboard: Listing available engines:")
+        console.print()
+        list_engines(status=None, portfolio_id=None, filter=None, limit=20, raw=False)
+        console.print()
+        console.print(":information: Use 'ginkgo engine bind-portfolio <engine_uuid_or_name> <portfolio_uuid_or_name>' to create binding")
+        raise typer.Exit(0)
+
+    # 如果没有提供 portfolio_id，显示可用的投资组合
+    if portfolio_id is None:
+        console.print(":information: [bold]No portfolio ID provided.[/bold]")
+        console.print(":clipboard: Listing available portfolios:")
+        console.print()
+
+        portfolio_service = container.portfolio_service()
+        result = portfolio_service.get()
+
+        if result.success and result.data:
+            if hasattr(result.data, 'to_dataframe'):
+                import pandas as pd
+                portfolios_df = result.data.to_dataframe()
+            elif isinstance(result.data, list):
+                portfolios_df = pd.DataFrame(result.data)
+            else:
+                portfolios_df = pd.DataFrame()
+
+            if portfolios_df.empty:
+                console.print(":memo: No portfolios found.")
+            else:
+                # 显示 portfolios 表格
+                table = Table(title="Portfolios")
+                table.add_column("UUID", style="cyan", width=40)
+                table.add_column("Name", style="white")
+                table.add_column("Initial Capital", style="green")
+                table.add_column("Type", style="yellow")
+                table.add_column("Status", style="blue")
+
+                for _, row in portfolios_df.iterrows():
+                    uuid_str = str(row.get('uuid', ''))[:40]
+                    name = str(row.get('name', ''))
+                    capital = f"¥{float(row.get('initial_capital', 0)):,.2f}"
+                    ptype = "Live" if row.get('is_live', False) else "Backtest"
+                    status = "Active" if not row.get('is_del', True) else "Deleted"
+
+                    table.add_row(uuid_str, name, capital, ptype, status)
+
+                console.print(table)
+        else:
+            console.print(":memo: No portfolios found.")
+
+        console.print()
+        console.print(":information: Use 'ginkgo engine bind-portfolio <engine_uuid_or_name> <portfolio_uuid_or_name>' to create binding")
+        raise typer.Exit(0)
+
+    console.print(f":link: Binding engine {engine_id} to portfolio {portfolio_id}...")
+
+    try:
+        # 解析 engine_id
+        resolved_engine_uuid = resolve_engine_id(engine_id)
+        if resolved_engine_uuid is None:
+            console.print(f":x: Engine not found: '{engine_id}'")
+            raise typer.Exit(1)
+
+        # 解析 portfolio_id
+        portfolio_service = container.portfolio_service()
+
+        # 先尝试按UUID精确查找
+        portfolio_result = portfolio_service.get(portfolio_id=portfolio_id)
+        if portfolio_result.success and portfolio_result.data and len(portfolio_result.data) > 0:
+            resolved_portfolio_uuid = portfolio_result.data[0].uuid
+            portfolio_name = portfolio_result.data[0].name
+        else:
+            # 尝试按name查找
+            portfolio_result = portfolio_service.get(name=portfolio_id)
+            if portfolio_result.success and portfolio_result.data and len(portfolio_result.data) > 0:
+                resolved_portfolio_uuid = portfolio_result.data[0].uuid
+                portfolio_name = portfolio_result.data[0].name
+            else:
+                console.print(f":x: Portfolio not found: '{portfolio_id}'")
+                raise typer.Exit(1)
+
+        # 获取engine name
+        engine_service = container.engine_service()
+        engine_result = engine_service.get(engine_id=resolved_engine_uuid)
+        engine_name = engine_result.data[0].name if engine_result.success and engine_result.data else "unknown"
+
+        # 先检查绑定是否已存在
+        mapping_service = container.mapping_service()
+        existing_result = mapping_service.get_engine_portfolio_mapping(
+            engine_uuid=resolved_engine_uuid,
+            portfolio_uuid=resolved_portfolio_uuid
+        )
+
+        if existing_result.success and existing_result.data and len(existing_result.data) > 0:
+            # 绑定已存在
+            console.print(f":information: Engine-Portfolio binding already exists")
+            console.print(f"  • Engine: {engine_name} ({resolved_engine_uuid[:8]}...)")
+            console.print(f"  • Portfolio: {portfolio_name} ({resolved_portfolio_uuid[:8]}...)")
+            console.print(":information: Use 'ginkgo engine unbind-portfolio' to remove the binding")
+            return
+
+        # 使用 MappingService 创建新绑定
+        result = mapping_service.create_engine_portfolio_mapping(
+            engine_uuid=resolved_engine_uuid,
+            portfolio_uuid=resolved_portfolio_uuid,
+            engine_name=engine_name,
+            portfolio_name=portfolio_name
+        )
+
+        if result.success:
+            console.print(f":white_check_mark: Engine-Portfolio binding created successfully")
+            console.print(f"  • Engine: {engine_name} ({resolved_engine_uuid[:8]}...)")
+            console.print(f"  • Portfolio: {portfolio_name} ({resolved_portfolio_uuid[:8]}...)")
+        else:
+            console.print(f":white_check_mark: {result.message}")
+
+    except Exception as e:
+        console.print(f":x: Error: {e}")
+        raise typer.Exit(1)
+
+
+@app.command("unbind-portfolio")
+def unbind_portfolio(
+    engine_id: str = typer.Argument(..., help="Engine UUID or name"),
+    portfolio_id: str = typer.Argument(..., help="Portfolio UUID or name"),
+    confirm: bool = typer.Option(False, "--confirm", help="Confirm unbinding"),
+):
+    """
+    :broken_link: Unbind an engine from a portfolio.
+    """
+    if not confirm:
+        console.print(":x: Please use --confirm to unbind portfolio")
+        raise typer.Exit(1)
+
+    from ginkgo.data.containers import container
+
+    console.print(f":broken_link: Unbinding engine {engine_id} from portfolio {portfolio_id}...")
+
+    try:
+        # 解析 engine_id
+        resolved_engine_uuid = resolve_engine_id(engine_id)
+        if resolved_engine_uuid is None:
+            console.print(f":x: Engine not found: '{engine_id}'")
+            raise typer.Exit(1)
+
+        # 解析 portfolio_id
+        portfolio_service = container.portfolio_service()
+
+        # 先尝试按UUID精确查找
+        portfolio_result = portfolio_service.get(portfolio_id=portfolio_id)
+        if portfolio_result.success and portfolio_result.data and len(portfolio_result.data) > 0:
+            resolved_portfolio_uuid = portfolio_result.data[0].uuid
+            portfolio_name = portfolio_result.data[0].name
+        else:
+            # 尝试按name查找
+            portfolio_result = portfolio_service.get(name=portfolio_id)
+            if portfolio_result.success and portfolio_result.data and len(portfolio_result.data) > 0:
+                resolved_portfolio_uuid = portfolio_result.data[0].uuid
+                portfolio_name = portfolio_result.data[0].name
+            else:
+                console.print(f":x: Portfolio not found: '{portfolio_id}'")
+                raise typer.Exit(1)
+
+        # 使用 MappingService 删除绑定
+        mapping_service = container.mapping_service()
+        result = mapping_service.delete_engine_portfolio_mapping(
+            engine_uuid=resolved_engine_uuid,
+            portfolio_uuid=resolved_portfolio_uuid
+        )
+
+        if result.success:
+            console.print(f":white_check_mark: Engine-Portfolio binding deleted successfully")
+        else:
+            console.print(f":x: Failed to delete binding: {result.error}")
             raise typer.Exit(1)
 
     except Exception as e:
