@@ -16,7 +16,9 @@ console = Console()
 
 
 @app.command()
-def list():
+def list(
+    raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
+):
     """
     :open_file_folder: List all available data sources and their status.
     """
@@ -72,7 +74,13 @@ def list():
             "service_key": "baostock_source"
         }
     ]
-    
+
+    # Raw output mode
+    if raw:
+        import json
+        console.print(json.dumps(data_sources, indent=2, ensure_ascii=False, default=str))
+        return
+
     for source in data_sources:
         try:
             # 尝试测试连接状态
@@ -105,13 +113,13 @@ def list():
             ":bar_chart: Comprehensive data coverage\n"
             ":zap: High update frequency\n"
             ":key: Requires token registration",
-            title="💎 Recommended",
+            title=":gem: Recommended",
             border_style="green"
         ),
         Panel(
-            "🆓 **AKShare**: Good for beginners\n"
+            ":free: **AKShare**: Good for beginners\n"
             ":chart_with_upwards_trend: Basic market data\n"
-            "🌐 No registration needed\n"
+            ":globe_with_meridians: No registration needed\n"
             ":alarm_clock: May have rate limits",
             title=":dart: Free Option",
             border_style="blue"
@@ -172,10 +180,14 @@ def test(
                 return
             
             # 测试连接
-            if hasattr(data_source, '_test_connection'):
-                connection_ok = data_source._test_connection()
+            if hasattr(data_source, '_test_connection') and callable(getattr(data_source, '_test_connection')):
+                try:
+                    connection_ok = data_source._test_connection()
+                except Exception as e:
+                    console.print(f":warning: Connection test failed: {e}")
+                    connection_ok = False
             else:
-                connection_ok = True  # 假设连接正常
+                connection_ok = True  # 假设连接正常，无测试方法
             
             progress.update(task1, completed=True)
             
@@ -189,7 +201,7 @@ def test(
             task2 = progress.add_task(f"Testing data retrieval for {code}...", total=None)
             
             # 尝试获取股票信息
-            if hasattr(data_source, 'fetch_cn_stockinfo') and source_name in ['tushare', 'akshare']:
+            if hasattr(data_source, 'fetch_cn_stockinfo') and callable(getattr(data_source, 'fetch_cn_stockinfo')) and source_name in ['tushare', 'akshare']:
                 try:
                     stock_data = data_source.fetch_cn_stockinfo()
                     if stock_data is not None and len(stock_data) > 0:
@@ -200,7 +212,7 @@ def test(
                     console.print(f":x: [red]Stock info retrieval failed: {e}[/red]")
             
             # 尝试获取日线数据
-            if hasattr(data_source, 'fetch_cn_stock_day') and source_name in ['tushare', 'akshare']:
+            if hasattr(data_source, 'fetch_cn_stock_day') and callable(getattr(data_source, 'fetch_cn_stock_day')) and source_name in ['tushare', 'akshare']:
                 try:
                     end_date = datetime.datetime.now()
                     start_date = end_date - datetime.timedelta(days=30)  # 获取最近30天数据
@@ -286,8 +298,8 @@ def status():
         f":one_oclock: Current Time: [cyan]{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/cyan]\n"
         f":wrench: Container Status: [green]Active[/green]\n"
         f":bar_chart: Services Loaded: [blue]All[/blue]\n"
-        f"🌐 Network: [green]Connected[/green]",
-        title="🖥️ System Status",
+        f":globe_with_meridians: Network: [green]Connected[/green]",
+        title=":desktop_computer: System Status",
         border_style="green"
     )
     status_panels.append(system_status)
@@ -298,7 +310,7 @@ def status():
         f":green_circle: AKShare: [green]Ready[/green]\n"
         f":yellow_circle: TDX: [yellow]Limited[/yellow]\n"
         f":green_circle: Yahoo: [green]Ready[/green]",
-        title="🏥 Health Status",
+        title="[blue]🏥[/blue] Health Status",
         border_style="blue"
     )
     status_panels.append(health_status)

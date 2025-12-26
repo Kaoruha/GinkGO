@@ -1,6 +1,7 @@
 # from ginkgo.trading.strategies.volume_activate import StrategyVolumeActivate  # Temporarily disabled due to import issues
 from ginkgo.trading.strategies.base_strategy import BaseStrategy
 # from ginkgo.trading.strategies.random_choice import StrategyRandomChoice  # Temporarily disabled due to import issues
+from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
 
 # Machine Learning Strategies
 try:

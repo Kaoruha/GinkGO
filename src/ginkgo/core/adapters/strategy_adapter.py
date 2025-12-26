@@ -150,7 +150,7 @@ class BaseStrategyAdapter(IStrategy):
             try:
                 self.base_strategy.__init__(**kwargs)
             except Exception as e:
-                GLOG.WARNING(f"策略初始化失败: {e}")
+                GLOG.WARN(f"策略初始化失败: {e}")
     
     def cal(self, *args, **kwargs) -> List[Signal]:
         """事件驱动模式信号计算"""
@@ -168,7 +168,7 @@ class BaseStrategyAdapter(IStrategy):
                     # 尝试转换单个结果
                     return [result] if hasattr(result, 'code') else []
             else:
-                GLOG.WARNING(f"策略 {self.name} 没有cal方法")
+                GLOG.WARN(f"策略 {self.name} 没有cal方法")
                 return []
                 
         except Exception as e:
@@ -269,7 +269,7 @@ class MLStrategyAdapter(IMLStrategy):
                 # 如果只有predict方法，尝试转换
                 return self._convert_prediction_to_signals(*args, **kwargs)
             else:
-                GLOG.WARNING(f"ML策略 {self.name} 没有cal或predict方法")
+                GLOG.WARN(f"ML策略 {self.name} 没有cal或predict方法")
                 return []
         except Exception as e:
             GLOG.ERROR(f"ML策略 {self.name} 计算失败: {e}")

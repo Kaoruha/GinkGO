@@ -219,7 +219,7 @@ class StreamingSessionManager:
         if current_snapshot.level in [MemoryLevel.CRITICAL, MemoryLevel.EMERGENCY]:
             self._memory_warnings_count += 1
 
-            GLOG.WARNING(
+            GLOG.WARN(
                 f"High memory usage in session {context.session_id}: "
                 f"{current_snapshot.percent:.1f}% "
                 f"(processed: {context.records_processed} records)"
@@ -227,7 +227,7 @@ class StreamingSessionManager:
 
             # 如果连续警告，考虑降低批次大小等优化措施
             if self._memory_warnings_count >= 3:
-                GLOG.WARNING(f"Multiple memory warnings for session {context.session_id}, consider optimization")
+                GLOG.WARN(f"Multiple memory warnings for session {context.session_id}, consider optimization")
                 self._memory_warnings_count = 0  # 重置计数器
 
     def _cleanup_session_context(self, context: StreamingSessionContext):
@@ -306,7 +306,7 @@ class MemoryAwareSessionContext:
             new_batch_size = max(int(self._current_batch_size * 0.8), 100)  # 最小批次大小
 
             if new_batch_size != self._current_batch_size:
-                GLOG.WARNING(
+                GLOG.WARN(
                     f"Reducing batch size due to memory pressure: " f"{self._current_batch_size} -> {new_batch_size}"
                 )
                 self._current_batch_size = new_batch_size

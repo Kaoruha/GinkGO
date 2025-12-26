@@ -70,26 +70,36 @@ class IdentityUtils:
         return f"engine_{config_hash}_{random_suffix}"
     
     @staticmethod
-    def generate_run_id(engine_id: str, sequence: int = 1) -> str:
+    def generate_run_id(engine_id: str = None, sequence: int = 1) -> str:
         """
-        生成运行ID
-        
-        基于引擎ID和序列号生成唯一的运行ID，支持同一引擎
-        的多次执行。
-        
+        生成运行ID（限制32字符以内）
+
+        使用时间戳+UUID确保唯一性，不再依赖engine_id和序列号。
+
         Args:
-            engine_id (str): 引擎ID
-            sequence (int): 执行序列号，默认从1开始
-            
+            engine_id (str): 引擎ID（已废弃，保留用于兼容性）
+            sequence (int): 执行序列号（已废弃，保留用于兼容性）
+
         Returns:
-            str: 格式为 {engine_id}_run_{timestamp}_{sequence:03d}
-            
+            str: 紧凑格式，确保不超过32字符
+
         Examples:
             >>> IdentityUtils.generate_run_id("engine_abc_123", 1)
-            'engine_abc_123_run_20240101_120000_001'
+            '2512231200_a3b5c7d9e2f1a4b6'
         """
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        return f"{engine_id}_run_{timestamp}_{sequence:03d}"
+        import uuid
+
+        # 时间戳格式：YYMMDD_HHMM
+        timestamp = datetime.now().strftime('%y%m%d%H%M')
+
+        # 生成 UUID 并截取前 16 位
+        uuid_short = uuid.uuid4().hex[:16]
+
+        # 组合：timestamp_uuid (确保不超过32字符)
+        run_id = f"{timestamp}_{uuid_short}"
+
+        # 限制 32 字符
+        return run_id[:32]
     
     @staticmethod
     def parse_run_id(run_id: str) -> Dict[str, Any]:

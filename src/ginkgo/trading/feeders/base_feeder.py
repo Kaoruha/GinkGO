@@ -86,7 +86,7 @@ class BaseFeeder(BacktestBase, TimeMixin):
         """默认的数据加载实现（可被子类覆盖）。"""
         try:
             # 调用BarService，获取ServiceResult包装的结果
-            result = self.bar_service.get_bars(
+            result = self.bar_service.get(
                 code=code,
                 start_date=dt.date(),
                 end_date=dt.date()

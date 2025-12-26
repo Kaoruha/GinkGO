@@ -5,7 +5,6 @@ from ginkgo.trading.events import EventSignalGeneration
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.strategies.base_strategy import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.data import get_bars
 
 
 class StrategyRandomChoice(BaseStrategy):
@@ -20,7 +19,10 @@ class StrategyRandomChoice(BaseStrategy):
         self.loss = 0
 
     def cal(self, portfolio_info, event, *args, **kwargs):
-        super(StrategyRandomChoice, self).cal(portfolio_info, event)
+        # super(StrategyRandomChoice, self).cal(portfolio_info, event)
+
+        # 使用print强制输出调用信息
+        print(f"DEBUG: StrategyRandomChoice.cal() called - event code: {getattr(event, 'code', 'unknown')}")
 
         ching = random.randint(0, 100)
         direction = None
@@ -29,18 +31,18 @@ class StrategyRandomChoice(BaseStrategy):
         elif ching > 70:
             direction = DIRECTION_TYPES.SHORT
 
-        self.log("DEBUG", f"Roll: {ching}, direction: {direction} at {self.now}")
+        print(f"DEBUG: Roll: {ching}, direction: {direction} at {portfolio_info.get('now', 'unknown')}")
 
         # 🔑 关键修复：使用 is None 并且在direction为None时直接返回
         if direction is None:
-            self.log("DEBUG", f"No signal generated (neutral range: 40-70)")
+            print(f"DEBUG: No signal generated (neutral range: 40-70)")
             return []
 
         s = Signal(
-            portfolio_id=portfolio_info["uuid"],
-            engine_id=self.engine_id,
-            timestamp=portfolio_info["now"],
-            code=event.code,
+            portfolio_id=portfolio_info.get("uuid", "unknown"),
+            engine_id=getattr(self, 'engine_id', 'unknown'),
+            timestamp=portfolio_info.get("now", datetime.datetime.now()),
+            code=getattr(event, 'code', 'unknown'),
             direction=direction,
             reason=f"测试用策略，随机Roll的 {ching}",
             source=SOURCE_TYPES.STRATEGY,

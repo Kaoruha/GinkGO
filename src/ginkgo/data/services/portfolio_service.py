@@ -12,170 +12,138 @@ from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 from datetime import datetime
 
-from ginkgo.libs import cache_with_expiration, retry
+from ginkgo.libs import cache_with_expiration, retry, time_logger, GLOG
 from ginkgo.enums import FILE_TYPES
-from ginkgo.data.services.base_service import ManagementService
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
 
 
-class PortfolioService(ManagementService):
-    def __init__(self, crud_repo, portfolio_file_mapping_crud, param_crud):
-        """Initializes the service with its dependencies."""
-        super().__init__(
-            crud_repo=crud_repo, portfolio_file_mapping_crud=portfolio_file_mapping_crud, param_crud=param_crud
-        )
-
-    @retry(max_try=3)
-    def create_portfolio(
-        self,
-        name: str,
-        backtest_start_date: str,
-        backtest_end_date: str,
-        is_live: bool = False,
-        description: str = None,
-    ) -> Dict[str, Any]:
+class PortfolioService(BaseService):
+    def __init__(self, crud_repo, portfolio_file_mapping_crud):
         """
-        Creates a new investment portfolio with comprehensive error handling.
+        初始化PortfolioService，设置投资组合和文件映射仓储依赖
 
         Args:
-            name: Portfolio name
-            backtest_start_date: Start date for backtesting (YYYY-MM-DD)
-            backtest_end_date: End date for backtesting (YYYY-MM-DD)
-            is_live: Whether this is a live trading portfolio
-            description: Optional description
+            crud_repo: 投资组合数据CRUD仓储实例
+            portfolio_file_mapping_crud: 投资组合文件映射CRUD仓储实例
+        """
+        super().__init__(
+            crud_repo=crud_repo, portfolio_file_mapping_crud=portfolio_file_mapping_crud
+        )
+
+    @time_logger
+    @retry(max_try=3)
+    def add(
+        self,
+        name: str,
+        is_live: bool = False,
+        description: str = None,
+        **kwargs
+    ) -> ServiceResult:
+        """
+        创建新的投资组合
+
+        Args:
+            name: 投资组合名称
+            is_live: 是否为实盘交易组合
+            description: 可选描述
 
         Returns:
-            Dictionary containing portfolio information and operation status
+            ServiceResult: 操作结果
         """
-        result = {
-            "success": False,
-            "name": name,
-            "backtest_start_date": backtest_start_date,
-            "backtest_end_date": backtest_end_date,
-            "is_live": is_live,
-            "error": None,
-            "warnings": [],
-            "portfolio_info": None,
-        }
-
-        # Input validation
-        if not name or not name.strip():
-            result["error"] = "Portfolio name cannot be empty"
-            return result
-
-        if len(name) > 100:  # Reasonable name length limit
-            result["warnings"].append("Portfolio name truncated to 100 characters")
-            name = name[:100]
-
-        if not backtest_start_date or not backtest_end_date:
-            result["error"] = "Backtest start and end dates are required"
-            return result
-
-        # Check if portfolio name already exists
         try:
-            if self.portfolio_exists(name):
-                result["error"] = f"Portfolio with name '{name}' already exists"
-                return result
-        except Exception as e:
-            result["warnings"].append(f"Could not check portfolio existence: {str(e)}")
+            # 输入验证
+            if not name or not name.strip():
+                return ServiceResult.error("投资组合名称不能为空")
 
-        try:
-            with self.crud_repo.get_session() as session:
-                portfolio_record = self.crud_repo.create(
+            if len(name) > 100:  # 合理的名称长度限制
+                name = name[:100]
+
+            # 检查投资组合名称是否已存在
+            try:
+                exists_result = self.exists(name=name)
+                if exists_result.is_success() and exists_result.data.get("exists", False):
+                    return ServiceResult.error(f"投资组合名称 '{name}' 已存在")
+            except Exception as e:
+                GLOG.WARN(f"无法检查投资组合存在性: {str(e)}")
+
+            # 创建投资组合
+            with self._crud_repo.get_session() as session:
+                portfolio_record = self._crud_repo.create(
                     name=name,
-                    backtest_start_date=backtest_start_date,
-                    backtest_end_date=backtest_end_date,
                     is_live=is_live,
                     desc=description or f"{'Live' if is_live else 'Backtest'} portfolio: {name}",
                     session=session,
                 )
 
-                result["success"] = True
-                result["portfolio_info"] = {
+                portfolio_info = {
                     "uuid": portfolio_record.uuid,
                     "name": portfolio_record.name,
-                    "backtest_start_date": portfolio_record.backtest_start_date,
-                    "backtest_end_date": portfolio_record.backtest_end_date,
                     "is_live": portfolio_record.is_live,
                     "desc": portfolio_record.desc,
                 }
-                self._logger.INFO(f"Successfully created portfolio '{name}' (live: {is_live})")
+
+                GLOG.INFO(f"成功创建投资组合 '{name}' (实盘: {is_live})")
+
+                return ServiceResult.success(
+                    data=portfolio_info,
+                    message=f"投资组合创建成功: {name}"
+                )
 
         except Exception as e:
-            result["error"] = f"Database operation failed: {str(e)}"
-            self._logger.ERROR(f"Failed to create portfolio '{name}': {e}")
+            GLOG.ERROR(f"创建投资组合失败 '{name}': {str(e)}")
+            return ServiceResult.error(f"创建投资组合失败: {str(e)}")
 
-        return result
-
+    @time_logger
     @retry(max_try=3)
-    def update_portfolio(
+    def update(
         self,
         portfolio_id: str,
         name: str = None,
-        backtest_start_date: str = None,
-        backtest_end_date: str = None,
         is_live: bool = None,
         description: str = None,
-    ) -> Dict[str, Any]:
+        **kwargs
+    ) -> ServiceResult:
         """
-        Updates an existing portfolio with comprehensive error handling.
+        更新现有投资组合的信息，支持部分字段更新
 
         Args:
-            portfolio_id: UUID of the portfolio to update
-            name: Optional new name
-            backtest_start_date: Optional new start date
-            backtest_end_date: Optional new end date
-            is_live: Optional new live status
-            description: Optional new description
+            portfolio_id: 投资组合UUID标识符
+            name: 新的投资组合名称（可选）
+            is_live: 新的实盘状态（可选）
+            description: 新的描述信息（可选）
 
         Returns:
-            Dictionary containing operation status and update information
+            ServiceResult: 包含更新状态和操作结果的详细信息
         """
-        result = {
-            "success": False,
-            "portfolio_id": portfolio_id,
-            "error": None,
-            "warnings": [],
-            "updates_applied": [],
-            "updated_count": 0,
-        }
+        warnings = []
+        updates_applied = []
 
         # Input validation
         if not portfolio_id or not portfolio_id.strip():
-            result["error"] = "Portfolio ID cannot be empty"
-            return result
+            return ServiceResult.error("Portfolio ID cannot be empty")
 
         updates = {}
         if name is not None:
             if not name.strip():
-                result["error"] = "Portfolio name cannot be empty"
-                return result
+                return ServiceResult.error("Portfolio name cannot be empty")
             if len(name) > 100:
-                result["warnings"].append("Portfolio name truncated to 100 characters")
+                warnings.append("Portfolio name truncated to 100 characters")
                 name = name[:100]
             updates["name"] = name
-            result["updates_applied"].append("name")
+            updates_applied.append("name")
 
-        if backtest_start_date is not None:
-            updates["backtest_start_date"] = backtest_start_date
-            result["updates_applied"].append("backtest_start_date")
-
-        if backtest_end_date is not None:
-            updates["backtest_end_date"] = backtest_end_date
-            result["updates_applied"].append("backtest_end_date")
-
+        
         if is_live is not None:
             updates["is_live"] = is_live
-            result["updates_applied"].append("is_live")
+            updates_applied.append("is_live")
 
         if description is not None:
             updates["desc"] = description
-            result["updates_applied"].append("description")
+            updates_applied.append("description")
 
         if not updates:
-            result["success"] = True  # No updates is not an error
-            result["warnings"].append("No updates provided for portfolio update")
-            return result
+            return ServiceResult.success({}, "No updates provided for portfolio update", warnings)
 
         # Check if name conflicts with existing portfolio (if name is being updated)
         if "name" in updates:
@@ -186,595 +154,526 @@ class PortfolioService(ManagementService):
                     df = existing_portfolios.to_dataframe()
                     existing_uuids = df["uuid"].tolist()
                     if portfolio_id not in existing_uuids:
-                        result["error"] = f"Portfolio with name '{name}' already exists"
-                        return result
+                        return ServiceResult.error(f"Portfolio with name '{name}' already exists")
             except Exception as e:
-                result["warnings"].append(f"Could not check name conflict: {str(e)}")
+                warnings.append(f"Could not check name conflict: {str(e)}")
 
         try:
-            with self.crud_repo.get_session() as session:
-                updated_count = self.crud_repo.modify(filters={"uuid": portfolio_id}, updates=updates, session=session)
+            self._crud_repo.modify(filters={"uuid": portfolio_id}, updates=updates)
 
-                result["success"] = True
-                result["updated_count"] = updated_count if updated_count is not None else 1
-
-                if result["updated_count"] == 0:
-                    result["warnings"].append(f"No portfolio found with ID {portfolio_id} to update")
-
-                self._logger.INFO(f"Successfully updated portfolio {portfolio_id} with {len(updates)} changes")
+            GLOG.INFO(f"Successfully updated portfolio {portfolio_id} with {len(updates)} changes")
 
         except Exception as e:
-            result["error"] = f"Database operation failed: {str(e)}"
-            self._logger.ERROR(f"Failed to update portfolio {portfolio_id}: {e}")
+            return ServiceResult.error(f"Database operation failed: {str(e)}")
 
-        return result
-
-    @retry(max_try=3)
-    def delete_portfolio(self, portfolio_id: str) -> Dict[str, Any]:
-        """
-        Deletes a portfolio by ID with comprehensive error handling and cleanup.
-
-        Args:
-            portfolio_id: UUID of the portfolio to delete
-
-        Returns:
-            Dictionary containing operation status and deletion information
-        """
-        result = {
-            "success": False,
+        # 返回更新结果
+        result_data = {
             "portfolio_id": portfolio_id,
-            "error": None,
-            "warnings": [],
-            "deleted_count": 0,
-            "mappings_deleted": 0,
-            "parameters_deleted": 0,
+            "updates_applied": updates_applied,
+            "warnings": warnings
         }
+        return ServiceResult.success(result_data, f"Portfolio updated successfully")
 
-        # Input validation
-        if not portfolio_id or not portfolio_id.strip():
-            result["error"] = "Portfolio ID cannot be empty"
-            return result
-
-        try:
-            with self.crud_repo.get_session() as session:
-                # Clean up portfolio-file mappings and parameters first
-                try:
-                    file_mappings = self.portfolio_file_mapping_crud.find(
-                        filters={"portfolio_id": portfolio_id}, session=session
-                    )
-
-                    parameters_deleted = 0
-                    for mapping in file_mappings:
-                        # Delete associated parameters (hard delete)
-                        try:
-                            params_deleted = self.param_crud.remove(
-                                filters={"mapping_id": mapping.uuid}, session=session
-                            )
-                            parameters_deleted += params_deleted if params_deleted is not None else 0
-                        except Exception as e:
-                            result["warnings"].append(
-                                f"Failed to delete parameters for mapping {mapping.uuid}: {str(e)}"
-                            )
-
-                    result["parameters_deleted"] = parameters_deleted
-
-                    # Delete portfolio-file mappings (hard delete)
-                    mappings_deleted = self.portfolio_file_mapping_crud.remove(
-                        filters={"portfolio_id": portfolio_id}, session=session
-                    )
-                    result["mappings_deleted"] = mappings_deleted if mappings_deleted is not None else 0
-
-                    if result["mappings_deleted"] > 0:
-                        self._logger.INFO(
-                            f"Deleted {result['mappings_deleted']} file mappings and {result['parameters_deleted']} parameters for portfolio {portfolio_id}"
-                        )
-
-                except Exception as e:
-                    result["warnings"].append(f"Failed to clean up portfolio mappings and parameters: {str(e)}")
-
-                # Delete the portfolio (hard delete)
-                deleted_count = self.crud_repo.remove(filters={"uuid": portfolio_id}, session=session)
-
-                result["success"] = True
-                result["deleted_count"] = deleted_count if deleted_count is not None else 1
-
-                if result["deleted_count"] == 0:
-                    result["warnings"].append(f"No portfolio found with ID {portfolio_id} to delete")
-
-                self._logger.INFO(f"Successfully deleted portfolio {portfolio_id} and related data")
-
-        except Exception as e:
-            result["error"] = f"Database operation failed: {str(e)}"
-            self._logger.ERROR(f"Failed to delete portfolio {portfolio_id}: {e}")
-
-        return result
-
-    def delete_portfolios(self, portfolio_ids: List[str]) -> Dict[str, Any]:
+    @time_logger
+    @retry(max_try=3)
+    def delete(self, portfolio_id: str, **kwargs) -> ServiceResult:
         """
-        Deletes multiple portfolios by their IDs with comprehensive tracking.
+        删除投资组合（包括清理相关文件映射和参数）
 
         Args:
-            portfolio_ids: List of portfolio UUIDs to delete
+            portfolio_id: 投资组合UUID
 
         Returns:
-            Dictionary containing batch deletion results and statistics
+            ServiceResult: 删除结果
         """
-        result = {
-            "success": False,
-            "total_requested": len(portfolio_ids),
-            "successful_deletions": 0,
-            "failed_deletions": 0,
-            "total_mappings_deleted": 0,
-            "total_parameters_deleted": 0,
-            "warnings": [],
-            "failures": [],
-        }
+        try:
+            # 输入验证
+            if not portfolio_id or not portfolio_id.strip():
+                return ServiceResult.error("投资组合ID不能为空")
 
-        # Input validation
-        if not portfolio_ids:
-            result["warnings"].append("Empty portfolio list provided")
-            result["success"] = True  # Empty list is not an error
-            return result
+            # 检查投资组合是否存在
+            exists_result = self.exists(portfolio_id=portfolio_id)
+            if not exists_result.is_success():
+                return ServiceResult.error(f"检查投资组合存在性失败: {exists_result.error}")
 
-        for portfolio_id in portfolio_ids:
+            if not exists_result.data.get("exists", False):
+                return ServiceResult.error(f"投资组合不存在: {portfolio_id}")
+
+            deleted_count = 0
+            mappings_deleted = 0
+            parameters_deleted = 0
+            warnings = []
+
+            # 清理投资组合-文件映射和参数
             try:
-                delete_result = self.delete_portfolio(portfolio_id)
-                if delete_result["success"]:
-                    result["successful_deletions"] += delete_result["deleted_count"]
-                    result["total_mappings_deleted"] += delete_result["mappings_deleted"]
-                    result["total_parameters_deleted"] += delete_result["parameters_deleted"]
-                    if delete_result["warnings"]:
-                        result["warnings"].extend(delete_result["warnings"])
-                else:
-                    result["failed_deletions"] += 1
-                    result["failures"].append({"portfolio_id": portfolio_id, "error": delete_result["error"]})
-            except Exception as e:
-                result["failed_deletions"] += 1
-                result["failures"].append({"portfolio_id": portfolio_id, "error": f"Unexpected error: {str(e)}"})
-                self._logger.ERROR(f"Failed to delete portfolio {portfolio_id}: {e}")
-                continue
-
-        # Determine overall success
-        result["success"] = result["failed_deletions"] == 0
-
-        self._logger.INFO(
-            f"Batch portfolio deletion completed: {result['successful_deletions']} successful, "
-            f"{result['failed_deletions']} failed, {result['total_mappings_deleted']} mappings and "
-            f"{result['total_parameters_deleted']} parameters cleaned up"
-        )
-        return result
-
-    def get_portfolios(
-        self, name: str = None, is_live: bool = None, **kwargs
-    ):
-        """
-        Retrieves portfolios from the database with caching.
-
-        Args:
-            name: Portfolio name filter
-            is_live: Live status filter
-            as_dataframe: Return format
-            **kwargs: Additional filters
-
-        Returns:
-            Portfolio data as DataFrame or list of models
-        """
-        # 提取filters参数并从kwargs中移除，避免重复传递
-        filters = kwargs.pop("filters", {})
-
-        # 具体参数优先级高于filters中的对应字段
-        if name:
-            filters["name"] = name
-        if is_live is not None:
-            filters["is_live"] = is_live
-
-        # Always exclude soft-deleted records
-        filters["is_del"] = False
-
-        return self.crud_repo.find(filters=filters, **kwargs)
-
-    def get_portfolio(self, portfolio_id: str, as_dataframe: bool = False) -> Union[pd.DataFrame, Any, None]:
-        """
-        Retrieves a single portfolio by ID.
-
-        Args:
-            portfolio_id: UUID of the portfolio
-            as_dataframe: Return format
-
-        Returns:
-            Portfolio data or None if not found
-        """
-        # Use CRUD's find method directly with uuid filter
-        result = self.crud_repo.find(filters={"uuid": portfolio_id, "is_del": False}, as_dataframe=as_dataframe)
-        if as_dataframe:
-            return result if result is not None and not result.empty else pd.DataFrame()
-        else:
-            return result[0] if result else None
-
-    def count_portfolios(self, is_live: bool = None, **kwargs) -> int:
-        """
-        Counts the number of portfolios matching the filters.
-
-        Args:
-            is_live: Live status filter
-            **kwargs: Additional filters
-
-        Returns:
-            Number of matching portfolios
-        """
-        # 提取filters参数并从kwargs中移除，避免重复传递
-        filters = kwargs.pop("filters", {})
-
-        # 具体参数优先级高于filters中的对应字段
-        if is_live is not None:
-            filters["is_live"] = is_live
-
-        # Always exclude soft-deleted records
-        filters["is_del"] = False
-
-        return self.crud_repo.count(filters=filters)
-
-    def portfolio_exists(self, name: str) -> bool:
-        """
-        Checks if a portfolio exists by name.
-
-        Args:
-            name: Portfolio name
-
-        Returns:
-            True if portfolio exists
-        """
-        return self.crud_repo.exists(filters={"name": name, "is_del": False})
-
-    @retry(max_try=3)
-    def add_file_to_portfolio(
-        self, portfolio_id: str, file_id: str, name: str, file_type: FILE_TYPES
-    ) -> Dict[str, Any]:
-        """
-        Associates a file with a portfolio with comprehensive error handling.
-
-        Args:
-            portfolio_id: UUID of the portfolio
-            file_id: UUID of the file
-            name: Name for this mapping
-            file_type: Type of file being mapped
-
-        Returns:
-            Dictionary containing mapping information and operation status
-        """
-        result = {
-            "success": False,
-            "portfolio_id": portfolio_id,
-            "file_id": file_id,
-            "name": name,
-            "file_type": file_type.name if hasattr(file_type, "name") else str(file_type),
-            "error": None,
-            "warnings": [],
-            "mapping_info": None,
-        }
-
-        # Input validation
-        if not portfolio_id or not portfolio_id.strip():
-            result["error"] = "Portfolio ID cannot be empty"
-            return result
-
-        if not file_id or not file_id.strip():
-            result["error"] = "File ID cannot be empty"
-            return result
-
-        if not name or not name.strip():
-            result["error"] = "Mapping name cannot be empty"
-            return result
-
-        if len(name) > 200:  # Reasonable mapping name length limit
-            result["warnings"].append("Mapping name truncated to 200 characters")
-            name = name[:200]
-
-        # Check if mapping already exists
-        try:
-            existing_mappings = self.get_portfolio_file_mappings(portfolio_id=portfolio_id, as_dataframe=True)
-            if not existing_mappings.empty:
-                # Check if same file is already mapped
-                if file_id in existing_mappings["file_id"].values:
-                    result["error"] = f"File {file_id} is already mapped to portfolio {portfolio_id}"
-                    return result
-        except Exception as e:
-            result["warnings"].append(f"Could not check existing mapping: {str(e)}")
-
-        try:
-            with self.portfolio_file_mapping_crud.get_session() as session:
-                mapping_record = self.portfolio_file_mapping_crud.create(
-                    portfolio_id=portfolio_id, file_id=file_id, name=name, type=file_type, session=session
+                file_mappings = self._portfolio_file_mapping_crud.find(
+                    filters={"portfolio_id": portfolio_id}
                 )
 
-                result["success"] = True
-                result["mapping_info"] = {
-                    "uuid": mapping_record.uuid,
-                    "portfolio_id": mapping_record.portfolio_id,
-                    "file_id": mapping_record.file_id,
-                    "name": mapping_record.name,
-                    "type": (
-                        mapping_record.type.name if hasattr(mapping_record.type, "name") else str(mapping_record.type)
-                    ),
-                }
-                self._logger.INFO(f"Successfully mapped file {file_id} to portfolio {portfolio_id}")
-
-        except Exception as e:
-            result["error"] = f"Database operation failed: {str(e)}"
-            self._logger.ERROR(f"Failed to map file {file_id} to portfolio {portfolio_id}: {e}")
-
-        return result
-
-    @retry(max_try=3)
-    def remove_file_from_portfolio(self, mapping_id: str) -> Dict[str, Any]:
-        """
-        Removes a file association from a portfolio with comprehensive error handling.
-
-        Args:
-            mapping_id: UUID of the portfolio-file mapping
-
-        Returns:
-            Dictionary containing operation status and removal information
-        """
-        result = {
-            "success": False,
-            "mapping_id": mapping_id,
-            "error": None,
-            "warnings": [],
-            "removed_count": 0,
-            "parameters_deleted": 0,
-        }
-
-        # Input validation
-        if not mapping_id or not mapping_id.strip():
-            result["error"] = "Mapping ID cannot be empty"
-            return result
-
-        try:
-            with self.portfolio_file_mapping_crud.get_session() as session:
-                # Delete associated parameters first
-                try:
-                    parameters_deleted = self.param_crud.soft_remove(
-                        filters={"mapping_id": mapping_id}, session=session
-                    )
-                    result["parameters_deleted"] = parameters_deleted if parameters_deleted is not None else 0
-                    if result["parameters_deleted"] > 0:
-                        self._logger.INFO(f"Deleted {result['parameters_deleted']} parameters for mapping {mapping_id}")
-                except Exception as e:
-                    result["warnings"].append(f"Failed to delete parameters: {str(e)}")
-
-                # Delete the mapping
-                removed_count = self.portfolio_file_mapping_crud.soft_remove(
-                    filters={"uuid": mapping_id}, session=session
-                )
-
-                result["success"] = True
-                result["removed_count"] = removed_count if removed_count is not None else 1
-
-                if result["removed_count"] == 0:
-                    result["warnings"].append(f"No mapping found with ID {mapping_id} to remove")
-
-                self._logger.INFO(f"Successfully removed file mapping {mapping_id}")
-
-        except Exception as e:
-            result["error"] = f"Database operation failed: {str(e)}"
-            self._logger.ERROR(f"Failed to remove file mapping {mapping_id}: {e}")
-
-        return result
-
-    def get_portfolio_file_mappings(
-        self, portfolio_id: str = None, file_type: FILE_TYPES = None, as_dataframe: bool = True, **kwargs
-    ) -> Union[pd.DataFrame, List[Any]]:
-        """
-        Retrieves portfolio-file mappings with caching.
-
-        Args:
-            portfolio_id: Portfolio ID filter
-            file_type: File type filter
-            as_dataframe: Return format
-            **kwargs: Additional filters
-
-        Returns:
-            Mapping data as DataFrame or list of models
-        """
-        # 提取filters参数并从kwargs中移除，避免重复传递
-        filters = kwargs.pop("filters", {})
-
-        # 具体参数优先级高于filters中的对应字段
-        if portfolio_id:
-            filters["portfolio_id"] = portfolio_id
-        if file_type:
-            filters["type"] = file_type
-
-        # Always exclude soft-deleted records
-        filters["is_del"] = False
-
-        return self.portfolio_file_mapping_crud.find(filters=filters, as_dataframe=as_dataframe, **kwargs)
-
-    def get_files_for_portfolio(
-        self, portfolio_id: str, file_type: FILE_TYPES = None, as_dataframe: bool = True
-    ) -> Union[pd.DataFrame, List[Any]]:
-        """
-        Gets all files associated with a portfolio, optionally filtered by type.
-
-        Args:
-            portfolio_id: UUID of the portfolio
-            file_type: Optional file type filter
-            as_dataframe: Return format
-
-        Returns:
-            File mappings for the portfolio
-        """
-        return self.get_portfolio_file_mappings(
-            portfolio_id=portfolio_id, file_type=file_type, as_dataframe=as_dataframe
-        )
-
-    @retry(max_try=3)
-    def add_parameter(self, mapping_id: str, index: int, value: str) -> Dict[str, Any]:
-        """
-        Adds a parameter to a portfolio-file mapping with comprehensive error handling.
-
-        Args:
-            mapping_id: UUID of the portfolio-file mapping
-            index: Parameter order/index
-            value: Parameter value
-
-        Returns:
-            Dictionary containing parameter information and operation status
-        """
-        result = {
-            "success": False,
-            "mapping_id": mapping_id,
-            "index": index,
-            "value": value,
-            "error": None,
-            "warnings": [],
-            "parameter_info": None,
-        }
-
-        # Input validation
-        if not mapping_id or not mapping_id.strip():
-            result["error"] = "Mapping ID cannot be empty"
-            return result
-
-        if index is None or index < 0:
-            result["error"] = "Parameter index must be a non-negative integer"
-            return result
-
-        if value is None:
-            result["error"] = "Parameter value cannot be None"
-            return result
-
-        if len(str(value)) > 1000:  # Reasonable parameter value length limit
-            result["warnings"].append("Parameter value truncated to 1000 characters")
-            value = str(value)[:1000]
-
-        try:
-            with self.param_crud.get_session() as session:
-                param_record = self.param_crud.create(
-                    mapping_id=mapping_id, index=index, value=str(value), session=session
-                )
-
-                result["success"] = True
-                result["parameter_info"] = {
-                    "uuid": param_record.uuid,
-                    "mapping_id": param_record.mapping_id,
-                    "index": param_record.index,
-                    "value": param_record.value,
-                }
-                self._logger.INFO(f"Successfully added parameter to mapping {mapping_id}")
-
-        except Exception as e:
-            result["error"] = f"Database operation failed: {str(e)}"
-            self._logger.ERROR(f"Failed to add parameter to mapping {mapping_id}: {e}")
-
-        return result
-
-    def get_parameters_for_mapping(self, mapping_id: str, as_dataframe: bool = True) -> Union[pd.DataFrame, List[Any]]:
-        """
-        Gets all parameters for a portfolio-file mapping.
-
-        Args:
-            mapping_id: UUID of the portfolio-file mapping
-            as_dataframe: Return format
-
-        Returns:
-            Parameters for the mapping
-        """
-        return self.param_crud.find(
-            filters={"mapping_id": mapping_id, "is_del": False}, order_by="order", as_dataframe=as_dataframe
-        )
-
-    @retry(max_try=3)
-    def clean_orphaned_mappings(self) -> Dict[str, Any]:
-        """
-        Cleans up orphaned portfolio-file mappings and parameters with comprehensive error handling.
-
-        Returns:
-            Dictionary containing operation status and cleanup statistics
-        """
-        result = {
-            "success": False,
-            "cleaned_mappings": 0,
-            "cleaned_parameters": 0,
-            "mappings_checked": 0,
-            "error": None,
-            "warnings": [],
-            "skipped_mappings": 0,
-        }
-
-        try:
-            # Get all portfolio-file mappings
-            all_mappings = self.get_portfolio_file_mappings(as_dataframe=True)
-
-            if all_mappings.empty:
-                result["success"] = True
-                result["warnings"].append("No portfolio-file mappings found to clean")
-                self._logger.INFO("No portfolio-file mappings found to clean")
-                return result
-
-            result["mappings_checked"] = len(all_mappings)
-
-            with self.portfolio_file_mapping_crud.get_session() as session:
-                for _, mapping in all_mappings.iterrows():
-                    mapping_id = mapping["uuid"]
-                    portfolio_id = mapping["portfolio_id"]
-                    file_id = mapping["file_id"]
-
+                for mapping in file_mappings:
+                    # 删除关联参数
                     try:
-                        # Check if portfolio exists
-                        portfolio_exists = self.crud_repo.exists(filters={"uuid": portfolio_id})
-
-                        # Check if file exists
-                        file_exists = False
-                        try:
-                            from ginkgo.data.utils import get_crud
-
-                            file_crud = get_crud("file")
-                            file_exists = file_crud.exists(filters={"uuid": file_id})
-                        except Exception as e:
-                            result["warnings"].append(f"Could not check file existence for {file_id}: {str(e)}")
-                            result["skipped_mappings"] += 1
-                            continue
-
-                        if not portfolio_exists or not file_exists:
-                            # Remove parameters first
-                            try:
-                                params_deleted = self.param_crud.soft_remove(
-                                    filters={"mapping_id": mapping_id}, session=session
-                                )
-                                result["cleaned_parameters"] += params_deleted if params_deleted is not None else 0
-                            except Exception as e:
-                                result["warnings"].append(
-                                    f"Failed to delete parameters for mapping {mapping_id}: {str(e)}"
-                                )
-
-                            # Remove mapping
-                            try:
-                                mapping_deleted = self.portfolio_file_mapping_crud.soft_remove(
-                                    filters={"uuid": mapping_id}, session=session
-                                )
-                                if mapping_deleted and mapping_deleted > 0:
-                                    result["cleaned_mappings"] += 1
-                                    self._logger.DEBUG(
-                                        f"Cleaned orphaned mapping {mapping_id} (portfolio_exists: {portfolio_exists}, file_exists: {file_exists})"
-                                    )
-                            except Exception as e:
-                                result["warnings"].append(f"Failed to delete mapping {mapping_id}: {str(e)}")
-
+                        self._param_crud.remove(
+                            filters={"mapping_id": mapping.uuid}
+                        )
                     except Exception as e:
-                        result["warnings"].append(f"Error processing mapping {mapping_id}: {str(e)}")
-                        result["skipped_mappings"] += 1
-                        continue
+                        warnings.append(f"删除映射参数失败 {mapping.uuid}: {str(e)}")
 
-            result["success"] = True
-            self._logger.INFO(
-                f"Cleaned {result['cleaned_mappings']} orphaned mappings and {result['cleaned_parameters']} parameters "
-                f"(checked {result['mappings_checked']} mappings, skipped {result['skipped_mappings']})"
+                # 删除投资组合-文件映射
+                self._portfolio_file_mapping_crud.remove(
+                    filters={"portfolio_id": portfolio_id}
+                )
+
+            except Exception as e:
+                warnings.append(f"清理映射关系时出错: {str(e)}")
+
+            # 软删除投资组合
+            self._crud_repo.soft_remove(
+                filters={"uuid": portfolio_id}
+            )
+
+            GLOG.INFO(f"成功删除投资组合 {portfolio_id}")
+
+            result_data = {
+                "portfolio_id": portfolio_id,
+                "mappings_deleted": mappings_deleted,
+                "parameters_deleted": parameters_deleted,
+                "warnings": warnings
+            }
+
+            message = f"投资组合删除成功: {portfolio_id}"
+            if warnings:
+                message += f" (附带{len(warnings)}个警告)"
+
+            return ServiceResult.success(result_data, message)
+
+        except Exception as e:
+            GLOG.ERROR(f"删除投资组合失败 {portfolio_id}: {str(e)}")
+            return ServiceResult.error(f"删除投资组合失败: {str(e)}")
+
+    # ==================== 投资组合组件管理方法 ====================
+
+    @time_logger
+    @retry(max_try=3)
+    def mount_component(
+        self, portfolio_id: str, component_id: str, component_name: str, component_type: FILE_TYPES
+    ) -> ServiceResult:
+        """
+        为投资组合挂载量化交易组件，建立组合与组件的关联关系
+
+        Args:
+            portfolio_id: 投资组合UUID标识符
+            component_id: 组件文件的UUID标识符
+            component_name: 组件在投资组合中的显示名称
+            component_type: 组件类型枚举值，确定组件功能分类
+
+        Returns:
+            ServiceResult: 包含挂载状态和操作信息的详细结果
+
+        """
+        try:
+            # 输入验证
+            if not portfolio_id or not portfolio_id.strip():
+                return ServiceResult.error("投资组合ID不能为空")
+
+            if not component_id or not component_id.strip():
+                return ServiceResult.error("组件ID不能为空")
+
+            if not component_name or not component_name.strip():
+                return ServiceResult.error("组件名称不能为空")
+
+            # 检查投资组合是否存在
+            exists_result = self.exists(portfolio_id=portfolio_id)
+            if not exists_result.is_success():
+                return ServiceResult.error(f"检查投资组合存在性失败: {exists_result.error}")
+
+            if not exists_result.data.get("exists", False):
+                return ServiceResult.error(f"投资组合不存在: {portfolio_id}")
+
+            # 检查组件是否已经挂载
+            try:
+                existing_components = self.get_components(portfolio_id=portfolio_id)
+                if existing_components.is_success():
+                    for component in existing_components.data:
+                        if component.get("file_id") == component_id:
+                            return ServiceResult.error(f"组件已挂载到投资组合: {component_name}")
+            except Exception as e:
+                GLOG.WARN(f"检查组件挂载状态失败: {str(e)}")
+
+            # 创建挂载关系
+            with self._portfolio_file_mapping_crud.get_session() as session:
+                mapping_record = self._portfolio_file_mapping_crud.create(
+                    portfolio_id=portfolio_id,
+                    file_id=component_id,
+                    name=component_name,
+                    type=component_type,
+                    session=session
+                )
+
+                mount_info = {
+                    "mount_id": mapping_record.uuid,
+                    "portfolio_id": portfolio_id,
+                    "component_id": component_id,
+                    "component_name": component_name,
+                    "component_type": component_type.name if hasattr(component_type, "name") else str(component_type),
+                }
+
+                GLOG.INFO(f"成功为投资组合 {portfolio_id} 挂载组件 {component_name}")
+
+                return ServiceResult.success(mount_info, f"组件挂载成功: {component_name}")
+
+        except Exception as e:
+            GLOG.ERROR(f"挂载组件失败 {component_name}: {str(e)}")
+            return ServiceResult.error(f"挂载组件失败: {str(e)}")
+
+    @time_logger
+    @retry(max_try=3)
+    def unmount_component(self, mount_id: str) -> ServiceResult:
+        """
+        卸载投资组合的组件
+
+        Args:
+            mount_id: 挂载关系UUID
+
+        Returns:
+            ServiceResult: 卸载结果
+        """
+        try:
+            # 输入验证
+            if not mount_id or not mount_id.strip():
+                return ServiceResult.error("挂载ID不能为空")
+
+            # 软删除挂载关系
+            self._portfolio_file_mapping_crud.soft_remove(
+                filters={"uuid": mount_id}
+            )
+
+            GLOG.INFO(f"成功卸载组件挂载 {mount_id}")
+
+            return ServiceResult.success(
+                {"mount_id": mount_id},
+                f"组件卸载成功: {mount_id}"
             )
 
         except Exception as e:
-            result["error"] = f"Database operation failed: {str(e)}"
-            self._logger.ERROR(f"Failed to clean orphaned mappings: {e}")
+            GLOG.ERROR(f"卸载组件失败 {mount_id}: {str(e)}")
+            return ServiceResult.error(f"卸载组件失败: {str(e)}")
 
-        return result
+    @time_logger
+    def get_components(self, portfolio_id: str = None, component_type: FILE_TYPES = None) -> ServiceResult:
+        """
+        获取投资组合的组件列表
+
+        Args:
+            portfolio_id: 投资组合UUID
+            component_type: 组件类型过滤
+
+        Returns:
+            ServiceResult: 组件列表
+        """
+        try:
+            filters = {"is_del": False}
+
+            if portfolio_id:
+                filters["portfolio_id"] = portfolio_id
+
+            if component_type:
+                filters["type"] = component_type
+
+            mappings = self._portfolio_file_mapping_crud.find(filters=filters)
+
+            # 转换为统一的组件信息格式
+            components = []
+            for mapping in mappings or []:
+                component_info = {
+                    "mount_id": mapping.uuid,
+                    "portfolio_id": mapping.portfolio_id,
+                    "component_id": mapping.file_id,
+                    "component_name": mapping.name,
+                    "component_type": mapping.type.name if hasattr(mapping.type, "name") else str(mapping.type),
+                    "created_at": mapping.created_at.isoformat() if hasattr(mapping, 'created_at') else None,
+                }
+                components.append(component_info)
+
+            return ServiceResult.success(components, f"获取到{len(components)}个组件")
+
+        except Exception as e:
+            GLOG.ERROR(f"获取组件列表失败: {str(e)}")
+            return ServiceResult.error(f"获取组件列表失败: {str(e)}")
+
+  
+    # ==================== 标准接口方法 ====================
+
+    @time_logger
+    @retry(max_try=3)
+    def get(self, portfolio_id: str = None, name: str = None, is_live: bool = None, as_dataframe: bool = False, **kwargs) -> ServiceResult:
+        """
+        获取投资组合数据
+
+        Args:
+            portfolio_id: 投资组合UUID
+            name: 投资组合名称
+            is_live: 是否实盘组合
+            as_dataframe: 是否返回DataFrame
+            **kwargs: 其他过滤条件
+
+        Returns:
+            ServiceResult: 查询结果
+        """
+        try:
+            if portfolio_id:
+                # 按UUID查询
+                portfolios = self._crud_repo.find(filters={"uuid": portfolio_id, "is_del": False})
+                if not portfolios:
+                    return ServiceResult.error(f"投资组合不存在: {portfolio_id}")
+                return ServiceResult.success(portfolios, "获取投资组合成功")
+
+            elif name:
+                # 按名称查询
+                portfolios = self._crud_repo.find(filters={"name": name, "is_del": False})
+                return ServiceResult.success(portfolios, f"获取到{len(portfolios)}个投资组合")
+
+            else:
+                # 按条件查询
+                filters = kwargs.get('filters', {})
+                filters['is_del'] = False
+
+                if is_live is not None:
+                    filters['is_live'] = is_live
+
+                portfolios = self._crud_repo.find(filters=filters)
+                return ServiceResult.success(portfolios, f"获取到{len(portfolios)}个投资组合")
+
+        except Exception as e:
+            GLOG.ERROR(f"获取投资组合失败: {str(e)}")
+            return ServiceResult.error(f"获取投资组合失败: {str(e)}")
+
+    @time_logger
+    @retry(max_try=3)
+    def count(self, name: str = None, is_live: bool = None, **kwargs) -> ServiceResult:
+        """
+        统计投资组合数量
+
+        Args:
+            name: 投资组合名称筛选
+            is_live: 是否实盘组合筛选
+            **kwargs: 其他过滤条件
+
+        Returns:
+            ServiceResult: 统计结果
+        """
+        try:
+            filters = kwargs.get('filters', {})
+            filters['is_del'] = False
+
+            if name:
+                filters['name'] = name
+            if is_live is not None:
+                filters['is_live'] = is_live
+
+            count = self._crud_repo.count(filters=filters)
+
+            return ServiceResult.success(
+                {"count": count},
+                f"统计到{count}个投资组合"
+            )
+
+        except Exception as e:
+            GLOG.ERROR(f"统计投资组合失败: {str(e)}")
+            return ServiceResult.error(f"统计投资组合失败: {str(e)}")
+
+    @time_logger
+    @retry(max_try=3)
+    def exists(self, portfolio_id: str = None, name: str = None, **kwargs) -> ServiceResult:
+        """
+        检查投资组合是否存在
+
+        Args:
+            portfolio_id: 投资组合UUID
+            name: 投资组合名称
+            **kwargs: 其他检查条件
+
+        Returns:
+            ServiceResult: 检查结果
+        """
+        try:
+            if not portfolio_id and not name:
+                return ServiceResult.error("必须提供portfolio_id或name参数")
+
+            if portfolio_id:
+                exists = self._crud_repo.exists(filters={"uuid": portfolio_id, "is_del": False})
+            else:
+                exists = self._crud_repo.exists(filters={"name": name, "is_del": False})
+
+            return ServiceResult.success(
+                {"exists": exists},
+                f"投资组合{'存在' if exists else '不存在'}"
+            )
+
+        except Exception as e:
+            GLOG.ERROR(f"检查投资组合存在性失败: {str(e)}")
+            return ServiceResult.error(f"检查投资组合存在性失败: {str(e)}")
+
+    @time_logger
+    @retry(max_try=3)
+    def health_check(self) -> ServiceResult:
+        """
+        服务健康检查
+
+        Returns:
+            ServiceResult: 健康检查结果
+        """
+        try:
+            health_info = {
+                "service_name": "PortfolioService",
+                "status": "healthy",
+                "checks": {}
+            }
+
+            # 检查CRUD依赖
+            if self._crud_repo is None:
+                return ServiceResult.error("PortfolioCRUD依赖未初始化")
+
+            health_info["checks"]["crud_dependency"] = {"status": "passed", "message": "PortfolioCRUD依赖正常"}
+
+            # 检查数据库连接
+            try:
+                self._crud_repo.find()
+                health_info["checks"]["database_connection"] = {"status": "passed", "message": "数据库连接正常"}
+            except Exception as db_error:
+                return ServiceResult.error(f"数据库连接失败: {str(db_error)}")
+
+            # 检查服务功能
+            try:
+                count_result = self.count()
+                if count_result.is_success():
+                    total_count = count_result.data.get("count", 0)
+                    health_info["checks"]["service_functionality"] = {
+                        "status": "passed",
+                        "message": f"服务功能正常，共{total_count}个投资组合"
+                    }
+                    health_info["total_portfolios"] = total_count
+                else:
+                    return ServiceResult.error("服务功能检查失败")
+            except Exception as func_error:
+                return ServiceResult.error(f"服务功能检查失败: {str(func_error)}")
+
+            message = f"PortfolioService运行正常，共{health_info.get('total_portfolios', 0)}个投资组合"
+            return ServiceResult.success(health_info, message)
+
+        except Exception as e:
+            GLOG.ERROR(f"PortfolioService健康检查失败: {str(e)}")
+            return ServiceResult.error(f"健康检查失败: {str(e)}")
+
+    @time_logger
+    @retry(max_try=3)
+    def validate(self, portfolio_data: Dict[str, Any]) -> ServiceResult:
+        """
+        验证投资组合数据有效性
+
+        Args:
+            portfolio_data: 待验证的投资组合数据
+
+        Returns:
+            ServiceResult: 验证结果
+        """
+        try:
+            if not isinstance(portfolio_data, dict):
+                return ServiceResult.error("数据必须是字典格式")
+
+            # 必填字段验证
+            required_fields = ['name']
+            missing_fields = [field for field in required_fields if not portfolio_data.get(field)]
+
+            if missing_fields:
+                return ServiceResult.error(
+                    data={
+                        "valid": False,
+                        "missing_fields": missing_fields
+                    },
+                    error=f"缺少必填字段: {', '.join(missing_fields)}"
+                )
+
+            # 名称长度验证
+            name = portfolio_data['name']
+            if not name or not name.strip():
+                return ServiceResult.error("投资组合名称不能为空")
+
+            if len(name) > 100:
+                return ServiceResult.error("投资组合名称不能超过100个字符")
+
+            # 布尔值验证
+            if 'is_live' in portfolio_data and not isinstance(portfolio_data['is_live'], bool):
+                return ServiceResult.error("is_live字段必须是布尔值")
+
+            return ServiceResult.success(
+                data={"valid": True},
+                message="投资组合数据验证通过"
+            )
+
+        except Exception as e:
+            GLOG.ERROR(f"投资组合数据验证失败: {str(e)}")
+            return ServiceResult.error(f"数据验证失败: {str(e)}")
+
+    @time_logger
+    @retry(max_try=3)
+    def check_integrity(self, portfolio_id: str = None) -> ServiceResult:
+        """
+        检查投资组合数据完整性
+
+        Args:
+            portfolio_id: 投资组合UUID，为空则检查所有
+
+        Returns:
+            ServiceResult: 完整性检查结果
+        """
+        try:
+            issues = []
+
+            if portfolio_id:
+                # 检查单个投资组合
+                get_result = self.get(portfolio_id=portfolio_id)
+                if not get_result.is_success():
+                    return ServiceResult.error(f"获取投资组合失败: {get_result.error}")
+
+                portfolios = get_result.data
+            else:
+                # 检查所有投资组合
+                get_result = self.get()
+                if not get_result.is_success():
+                    return ServiceResult.error(f"获取投资组合列表失败: {get_result.error}")
+
+                portfolios = get_result.data
+
+            total_count = len(portfolios) if portfolios else 0
+
+            for portfolio in portfolios or []:
+                portfolio_issues = []
+
+                if not portfolio.name:
+                    portfolio_issues.append("缺少投资组合名称")
+
+                if portfolio_issues:
+                    issues.append({
+                        "portfolio_id": portfolio.uuid,
+                        "portfolio_name": portfolio.name,
+                        "issues": portfolio_issues
+                    })
+
+            integrity_score = 1.0
+            if total_count > 0:
+                integrity_score = (total_count - len(issues)) / total_count
+
+            result = {
+                "total_portfolios": total_count,
+                "portfolios_with_issues": len(issues),
+                "integrity_score": integrity_score,
+                "issues": issues
+            }
+
+            message = f"完整性检查完成，{total_count}个投资组合中{len(issues)}个存在问题"
+            return ServiceResult.success(result, message)
+
+        except Exception as e:
+            GLOG.ERROR(f"投资组合完整性检查失败: {str(e)}")
+            return ServiceResult.error(f"完整性检查失败: {str(e)}")

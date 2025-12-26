@@ -22,8 +22,6 @@ class MPortfolio(MMysqlBase):
 
     name: Mapped[str] = mapped_column(String(64), default="default_live")
     desc: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    backtest_start_date: Mapped[datetime.datetime] = mapped_column(DateTime)
-    backtest_end_date: Mapped[datetime.datetime] = mapped_column(DateTime)
     is_live: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # 投资组合核心业务字段
@@ -51,8 +49,6 @@ class MPortfolio(MMysqlBase):
         self,
         name: str,
         description: Optional[str] = None,
-        backtest_start_date: Optional[any] = None,
-        backtest_end_date: Optional[any] = None,
         is_live: Optional[bool] = None,
         source: Optional[SOURCE_TYPES] = None,
         initial_capital: Optional[float] = None,
@@ -73,10 +69,6 @@ class MPortfolio(MMysqlBase):
         self.name = name
         if description is not None:
             self.description = description
-        if backtest_start_date is not None:
-            self.backtest_start_date = datetime_normalize(backtest_start_date)
-        if backtest_end_date is not None:
-            self.backtest_end_date = datetime_normalize(backtest_end_date)
         if is_live is not None:
             self.is_live = is_live
         if source is not None:
@@ -116,8 +108,6 @@ class MPortfolio(MMysqlBase):
     def _(self, df: pd.DataFrame, *args, **kwargs) -> None:
         # TODO
         self.name = df["name"]
-        self.backtest_start_date = datetime_normalize(df["backtest_start_date"])
-        self.backtest_end_date = datetime_normalize(df["backtest_end_date"])
         self.is_live = df["is_live"]
         if "source" in df.keys():
             self.source = df["source"]

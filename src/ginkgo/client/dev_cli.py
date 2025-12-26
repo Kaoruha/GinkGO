@@ -116,12 +116,22 @@ sys.path.insert(0, '/home/kaoru/Applications/Ginkgo/src')
 
 # Import commonly used Ginkgo modules
 from ginkgo.libs import GCONF, GLOG, GTM
-from ginkgo.data import *
-from ginkgo.trading import *
+from ginkgo.data.containers import container
+# Import key services for easy access
+stockinfo_service = container.stockinfo_service()
+bar_service = container.bar_service()
+tick_service = container.tick_service()
+portfolio_service = container.portfolio_service()
 
-print("\\n:sparkles: Ginkgo Interactive Shell")
+print("\\n:sparkles: Ginkgo Interactive Shell (New Service Architecture)")
 print("Available imports:")
 print("  - GCONF, GLOG, GTM from ginkgo.libs")
+print("  - container from ginkgo.data.containers")
+print("  - stockinfo_service, bar_service, tick_service, portfolio_service")
+print("\\nService Usage Examples:")
+print("  - stockinfo_service.get()")
+print("  - bar_service.get_bars_page_filtered()")
+print("  - portfolio_service.get_portfolios()")
 print("  - All modules from ginkgo.data")
 print("  - All modules from ginkgo.trading")
 print("\\nType 'help()' for Python help, or 'exit()' to quit.\\n")

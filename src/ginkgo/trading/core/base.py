@@ -125,3 +125,90 @@ class Base(object):
 
         df = pd.DataFrame.from_dict(item, orient="index").transpose()
         return df
+
+    def _convert_to_float(self, value, default: float = 0.0) -> float:
+        """
+        将值转换为浮点数，处理从数据库传来的字符串参数
+
+        Args:
+            value: 需要转换的值
+            default: 转换失败时的默认值
+
+        Returns:
+            float: 转换后的浮点数
+        """
+        if value is None:
+            return default
+
+        if isinstance(value, float):
+            return value
+
+        if isinstance(value, int):
+            return float(value)
+
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return default
+
+        return default
+
+    def _convert_to_int(self, value, default: int = 0) -> int:
+        """
+        将值转换为整数，处理从数据库传来的字符串参数
+
+        Args:
+            value: 需要转换的值
+            default: 转换失败时的默认值
+
+        Returns:
+            int: 转换后的整数
+        """
+        if value is None:
+            return default
+
+        if isinstance(value, int):
+            return value
+
+        if isinstance(value, float):
+            return int(value)
+
+        if isinstance(value, str):
+            try:
+                return int(float(value))  # 支持"3.0"这样的字符串
+            except (ValueError, TypeError):
+                return default
+
+        return default
+
+    def _convert_to_bool(self, value, default: bool = False) -> bool:
+        """
+        将值转换为布尔值，处理从数据库传来的字符串参数
+
+        Args:
+            value: 需要转换的值
+            default: 转换失败时的默认值
+
+        Returns:
+            bool: 转换后的布尔值
+        """
+        if value is None:
+            return default
+
+        if isinstance(value, bool):
+            return value
+
+        if isinstance(value, (int, float)):
+            return bool(value)
+
+        if isinstance(value, str):
+            lower_val = value.lower().strip()
+            if lower_val in ('true', '1', 'yes', 'on'):
+                return True
+            elif lower_val in ('false', '0', 'no', 'off'):
+                return False
+            else:
+                return default
+
+        return default

@@ -18,6 +18,18 @@ def datetime_normalize(time: any) -> datetime.datetime:
         return None
 
     if isinstance(time, datetime.datetime):
+        # 🔧 修复：确保纯粹的datetime.datetime，处理pandas.Timestamp情况
+        # 检查是否是pandas.Timestamp的子类或实例
+        time_type = str(type(time))
+        if 'Timestamp' in time_type or time_type.startswith('<class \'pandas.'):
+            # 转换pandas.Timestamp到标准datetime
+            try:
+                import pandas as pd
+                if isinstance(time, pd.Timestamp):
+                    return time.to_pydatetime()
+            except ImportError:
+                # 如果pandas不可用，尝试其他方法
+                pass
         return time
 
     if isinstance(time, datetime.date):
@@ -25,9 +37,26 @@ def datetime_normalize(time: any) -> datetime.datetime:
 
     if isinstance(time, np.datetime64):
         # numpy datetime64 to python datetime
-        # Convert to pandas timestamp first, then to python datetime
-        ts = time.astype('datetime64[us]').astype(datetime.datetime)
-        return ts
+        # Use a more reliable conversion method to ensure pure datetime.datetime
+        # Convert to unix timestamp first, then to datetime
+        try:
+            # Convert to datetime64[s] to get seconds since epoch
+            unix_timestamp = time.astype('datetime64[s]').astype(int)
+            return datetime.datetime.fromtimestamp(unix_timestamp)
+        except (ValueError, OSError, OverflowError):
+            # Fallback: try converting to microsecond timestamp
+            try:
+                unix_timestamp_micro = time.astype('datetime64[us]').astype(int) / 1_000_000
+                return datetime.datetime.fromtimestamp(unix_timestamp_micro)
+            except (ValueError, OSError, OverflowError):
+                # Last resort: convert through pandas if available
+                try:
+                    import pandas as pd
+                    pd_ts = pd.Timestamp(time)
+                    return pd_ts.to_pydatetime()
+                except ImportError:
+                    # If pandas not available, return current time as fallback
+                    return datetime.datetime.now()
 
     if isinstance(time, int):
         # Handle Unix timestamp (seconds since epoch) for integers
@@ -58,12 +87,12 @@ def datetime_normalize(time: any) -> datetime.datetime:
         "%Y/%m/%d %H:%M:%S",        # Forward slash with time: "2023/12/31 23:59:59"
         "%Y/%m/%d %H:%M",           # Forward slash without seconds: "2023/12/31 23:59"
         "%Y/%m/%d",                 # Forward slash date only: "2023/12/31"
+        "%Y-%m-%d",                 # Date only: "2023-12-31"
+        "%Y%m%d",                   # Compact date: "20231231" (IMPORTANT: Before time formats to avoid wrong matching)
         "%Y%m%d%H%M%S",             # Compact format: "20231231235959"
         "%Y%m%d%H%M",               # Compact format without seconds: "202312312359"
         "%Y%m%dT%H%M%S",            # Compact ISO format: "20231231T235959"
         "%Y%m%dT%H%M",              # Compact ISO format without seconds: "20231231T2359"
-        "%Y-%m-%d",                 # Date only: "2023-12-31"
-        "%Y%m%d"                    # Compact date: "20231231"
     ]
     
     for fmt in formats:

@@ -6,6 +6,7 @@
 
 import uuid
 import datetime
+import sys
 from rich.console import Console
 from typing import TYPE_CHECKING, List, Dict, Optional
 from abc import ABC, abstractmethod
@@ -95,6 +96,9 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
 
         # Base初始化
         Base.__init__(self)
+
+        # 标记为 Portfolio 组件（用于 ContextMixin 识别）
+        self._is_portfolio = True
 
         # Portfolio核心业务属性
         self._cash: Decimal = Decimal("0")
@@ -380,24 +384,26 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             self.set_time_provider(engine._time_provider)
 
         # 通过统一的ContextMixin同步给所有已绑定的组件
-        # 策略组件（支持多个）
+        # 策略组件（支持多个）- 先 bind_portfolio 设置 _context，后 bind_engine
         for strategy in self._strategies:
-            strategy.bind_engine(engine)
+            strategy.bind_portfolio(self)     # 先绑定 Portfolio（设置 PortfolioContext）
+            strategy.bind_engine(engine)      # 后绑定 Engine（保留引擎引用，不覆盖 context）
 
         # Sizer组件（单个）- 需要engine_id创建Order
         if self._sizer is not None:
-            self._sizer.bind_engine(engine)
-            self._sizer.bind_portfolio(self)
+            self._sizer.bind_portfolio(self)  # 先绑定 Portfolio（设置 PortfolioContext）
+            self._sizer.bind_engine(engine)   # 后绑定 Engine（保留引擎引用，不覆盖 context）
 
         # Selector组件（支持多个）
         for selector in self._selectors:
-            selector.bind_engine(engine)
-            selector.bind_portfolio(self)
+            selector.bind_portfolio(self)     # 先绑定 Portfolio（设置 PortfolioContext）
+            selector.bind_engine(engine)      # 后绑定 Engine（保留引擎引用，不覆盖 context）
 
-        # 分析器组件（支持多个）
+        # 分析器组件（支持多个）- 需要更新 context 引用
+        # 当 portfolio 绑定到 engine 后，analyzer 需要重新绑定以获取正确的 engine_context
         for analyzer in self._analyzers.values():
-            analyzer.bind_engine(engine)
-            analyzer.bind_portfolio(self)
+            analyzer.bind_portfolio(self)    # 重新绑定 Portfolio（更新 PortfolioContext）
+            analyzer.bind_engine(engine)     # 绑定 Engine（设置引擎引用）
 
     def set_time_provider(self, time_provider) -> None:
         """
@@ -586,14 +592,22 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         """
         Add Analyzer.
         """
+        sys.stdout.write(f"[DEBUG] add_analyzer called: {analyzer.name}, has activate: {hasattr(analyzer, 'activate')}, active_stage: {analyzer.active_stage}\n")
+        sys.stdout.flush()
         if analyzer.name in self._analyzers:
             self.log(
                 "WARN", f"Analyzer {analyzer.name} already in the analyzers. Please Rename the ANALYZER and try again."
             )
             return
         if hasattr(analyzer, "activate") and callable(analyzer.activate):
-            analyzer.portfolio_id = self.portfolio_id
-            analyzer.engine_id = self.engine_id
+            # 绑定 portfolio，让 analyzer 通过 ContextMixin 获取 run_id 等上下文信息
+            if hasattr(analyzer, "bind_portfolio"):
+                analyzer.bind_portfolio(self)
+                self.log("DEBUG", f"[add_analyzer] {analyzer.name} bind_portfolio done, _context={analyzer._context}")
+            else:
+                # 兼容旧代码，如果没有 bind_portfolio 方法则手动设置
+                analyzer.portfolio_id = self.portfolio_id
+                analyzer.engine_id = self.engine_id
             # 如果portfolio已有时间提供者，立即设置给analyzer
             if self._time_provider is not None:
                 analyzer.set_time_provider(self._time_provider)
@@ -614,7 +628,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                     return activate_func
 
                 self._analyzer_activate_hook[stage].append(make_activate_func(analyzer))
-                self.log("DEBUG", f"Added Analyzer {analyzer.name} activate to stage {stage} hook.")
+                self.log("INFO", f"Added Analyzer {analyzer.name} activate to stage {stage} hook.")
 
             # record hook: 添加到配置的record_stage
             # 修复Lambda闭包陷阱 - 使用函数创建正确的闭包
@@ -628,7 +642,7 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
                 return record_func
 
             self._analyzer_record_hook[analyzer.record_stage].append(make_record_func(analyzer))
-            self.log("DEBUG", f"Added Analyzer {analyzer.name} record to stage {analyzer.record_stage} hook.")
+            self.log("INFO", f"Added Analyzer {analyzer.name} record to stage {analyzer.record_stage} hook.")
 
         else:
             self.log("WARN", f"Analyzer {analyzer.name} not support activate function. Please check.")

@@ -69,101 +69,266 @@ class GinkgoThreadManager:
     def get_redis_key_about_worker_status(self, pid: str, *args, **kwargs) -> str:
         return f"{str(pid)}_status"
 
-    def process_task(self, type: str, code: str, fast: bool = None,max_update:int=0, *args, **kwargs):
+    def process_task(self, type: str, code: str, full: bool = False, force: bool = False, *args, **kwargs):
         pid = os.getpid()
+
+        # 打印Kafka消息解析详情
+        print("=" * 80)
+        print(f"🔍 Kafka Message解析 - PID: {pid}")
+        print(f"   type: {type}")
+        print(f"   code: {code}")
+        print(f"   full: {full}")
+        print(f"   force: {force}")
+
+        # 根据消息类型打印处理逻辑映射
         if type == "stockinfo":
-            worker_logger.INFO("Dealing with update stock_info command.")
+            print("   处理逻辑: stockinfo 同步")
+        elif type == "calender":
+            print("   处理逻辑: 交易日历同步")
+        elif type == "bar":
+            strategy = f"日K线同步({{'强制覆盖' if force else '跳过已有'}})"
+            print(f"   处理逻辑: {strategy}")
+            print(f"   实际调用: fetch_and_update_cn_daybar(code={code})")
+        elif type == "tick":
+            if full:
+                sync_mode = f"全量同步({{'强制覆盖' if force else '跳过已有'}})"
+                print(f"   处理逻辑: Tick {sync_mode}")
+                print(f"   实际调用: TickService.sync_backfill_by_date(code={code}, force_overwrite={force})")
+            else:
+                sync_mode = f"增量同步({{'强制覆盖' if force else '跳过已有'}})"
+                print(f"   处理逻辑: Tick {sync_mode}")
+                print(f"   实际调用: fetch_and_update_tick(code={code})")
+        elif type == "adjust":
+            strategy = f"复权因子同步({{'强制覆盖' if force else '跳过已有'}}) + 计算"
+            print(f"   处理逻辑: {strategy}")
+            print(f"   实际调用: fetch_and_update_adjustfactor(code={code}) + calculate({code})")
+        else:
+            print("   处理逻辑: 未知类型")
+
+        print("=" * 80)
+
+        # 实际任务处理逻辑
+        if type == "stockinfo":
+            # 使用container service方法
+            worker_logger.INFO("🔄 Syncing stock information for all stocks")
             try:
                 self.upsert_worker_status(pid=pid, task_name="update_stock_info", status="RUNNING")
-                from ginkgo.data import fetch_and_update_stockinfo
 
-                fetch_and_update_stockinfo()
-                self.upsert_worker_status(pid=pid, task_name="update_stock_info", status="COMPLETE")
+                from ginkgo.data.containers import container
+                stockinfo_service = container.stockinfo_service()
+
+                # 同步所有股票信息
+                result = stockinfo_service.sync_all()
+
+                if result.success:
+                    worker_logger.INFO("✅ Stock information sync completed")
+                    if result.data and 'records_processed' in result.data:
+                        worker_logger.INFO(f"📊 Processed {result.data['records_processed']} stock records")
+                else:
+                    worker_logger.ERROR(f"❌ Stock information sync failed: {result.error}")
+
+                self.upsert_worker_status(pid=pid, task_name="update_stock_info", status="COMPLETE" if result.success else "ERROR")
             except Exception as e:
-                worker_logger.ERROR(f"Error occured when dealing with update stock_info command. {e}")
+                worker_logger.ERROR(f"💥 Stock information sync error: {str(e)}")
                 self.upsert_worker_status(pid=pid, task_name="update_stock_info", status="ERROR")
-            finally:
-                pass
         elif type == "calender":
-            worker_logger.INFO("Dealing with update calandar command.")
+            # 使用container CRUD方法（TradeDay目前没有专门的Service）
+            worker_logger.INFO("🔄 Updating trading calendar (placeholder)")
             try:
                 self.upsert_worker_status(pid=pid, task_name="update_calender", status="RUNNING")
-                from ginkgo.data import fetch_and_update_tradeday
 
+                # TradeDay同步目前是占位符实现，没有实际的同步服务
+                # TODO: 需要实现TradeDayService或找到合适的数据源
+                from ginkgo.data import fetch_and_update_tradeday
                 fetch_and_update_tradeday()
+
+                # 或者使用container中的TradeDayCRUD进行基础操作
+                # from ginkgo.data.containers import container
+                # trade_day_crud = container.cruds.trade_day()
+
+                worker_logger.INFO("✅ Trading calendar update completed (placeholder)")
                 self.upsert_worker_status(pid=pid, task_name="update_calender", status="COMPLETE")
             except Exception as e:
-                data_logger.ERROR(e)
+                worker_logger.ERROR(f"💥 Trading calendar update error: {str(e)}")
                 self.upsert_worker_status(pid=pid, task_name="update_calender", status="ERROR")
-            finally:
-                pass
         elif type == "adjust":
+            # 使用container service方法
             worker_logger.INFO(
-                f"Dealing with the command updating adjustfactor about {code}. {'in fast mode' if fast else 'in complete mode'}."
+                f"🔄 Syncing adjustfactor data for {code}. full={full}, force={force}"
             )
             try:
-                self.upsert_worker_status(pid=pid, task_name=f"update_adjustfactor_{code}", status="RUNNING")
-                from ginkgo.data import fetch_and_update_adjustfactor
+                self.upsert_worker_status(
+                    pid=pid,
+                    task_name=f"update_adjustfactor_{code}_full_{force}",
+                    status="RUNNING",
+                )
 
-                fetch_and_update_adjustfactor(code, fast)
-                self.upsert_worker_status(pid=pid, task_name=f"update_adjustfactor_{code}", status="COMPLETE")
+                from ginkgo.data.containers import container
+                adjustfactor_service = container.adjustfactor_service()
+
+                # 同步adjustfactor数据
+                result = adjustfactor_service.sync(code, fast_mode=not full)
+
+                if result.success:
+                    worker_logger.INFO(f"✅ Adjustfactor sync completed for {code}")
+                    if result.data and 'records_processed' in result.data:
+                        worker_logger.INFO(f"📊 Processed {result.data['records_processed']} records for {code}")
+
+                    # 同步完成后立即计算复权因子
+                    try:
+                        calc_result = adjustfactor_service.calculate(code)
+                        if calc_result.success:
+                            worker_logger.INFO(f"✅ Adjustment factor calculation completed for {code}")
+                            if calc_result.data and 'records_processed' in calc_result.data:
+                                worker_logger.INFO(f"📊 Calculated {calc_result.data['records_processed']} adjustment factors for {code}")
+                        else:
+                            worker_logger.ERROR(f"❌ Adjustment factor calculation failed for {code}: {calc_result.error}")
+                    except Exception as e:
+                        worker_logger.ERROR(f"💥 Error calculating adjustment factors for {code}: {str(e)}")
+                else:
+                    worker_logger.ERROR(f"❌ Adjustfactor sync failed for {code}: {result.error}")
+
+                self.upsert_worker_status(
+                    pid=pid,
+                    task_name=f"update_adjustfactor_{code}_full_{force}",
+                    status="COMPLETE" if result.success else "ERROR",
+                )
             except Exception as e:
-                worker_logger.ERROR(e)
-                self.upsert_worker_status(pid=pid, task_name=f"update_adjustfactor_{code}", status="ERROR")
-            finally:
-                pass
+                worker_logger.ERROR(f"💥 Adjustfactor sync error for {code}: {str(e)}")
+                self.upsert_worker_status(
+                    pid=pid,
+                    task_name=f"update_adjustfactor_{code}_full_{force}",
+                    status="ERROR",
+                )
         elif type == "bar":
+            # 使用container service方法
             worker_logger.INFO(
-                f"Dealing with the command updating daybar about {code} {'in fast mode' if fast else 'in complete mode'}."
+                f"🔄 Syncing bar data for {code}. full={full}, force={force}"
             )
             try:
                 self.upsert_worker_status(
                     pid=pid,
-                    task_name=f"update_daybar_{code}_{'fast_mode' if fast else 'normal_model'}",
+                    task_name=f"update_daybar_{code}_full_{force}",
                     status="RUNNING",
                 )
-                from ginkgo.data import fetch_and_update_cn_daybar
 
-                fetch_and_update_cn_daybar(code=code, fast_mode=fast)
+                from ginkgo.data.containers import container
+                bar_service = container.bar_service()
+
+                if full:
+                    # 全量同步：使用sync_range从上市日期开始
+                    result = bar_service.sync_range(code=code, start_date=None, end_date=None)
+                else:
+                    # 增量同步
+                    result = bar_service.sync_smart(code=code, fast_mode=not force)
+
+                if result.success:
+                    worker_logger.INFO(f"✅ Bar sync completed for {code}")
+                    if result.data:
+                        # 如果data是DataSyncResult对象，直接访问其属性
+                        if hasattr(result.data, 'records_processed'):
+                            worker_logger.INFO(f"📊 Processed {result.data.records_processed} records for {code}")
+                        # 如果data是字典，检查键
+                        elif isinstance(result.data, dict) and 'records_processed' in result.data:
+                            worker_logger.INFO(f"📊 Processed {result.data['records_processed']} records for {code}")
+                else:
+                    worker_logger.ERROR(f"❌ Bar sync failed for {code}: {result.error}")
+
                 self.upsert_worker_status(
                     pid=pid,
-                    task_name=f"update_daybar_{code}_{'fast_mode' if fast else 'normal_model'}",
-                    status="COMPLETE",
+                    task_name=f"update_daybar_{code}_full_{force}",
+                    status="COMPLETE" if result.success else "ERROR",
                 )
             except Exception as e:
-                data_logger.ERROR(e)
+                worker_logger.ERROR(f"💥 Bar sync error for {code}: {str(e)}")
                 self.upsert_worker_status(
                     pid=pid,
-                    task_name=f"update_daybar_{code}_{'fast_mode' if fast else 'normal_model'}",
+                    task_name=f"update_daybar_{code}_full_{force}",
                     status="ERROR",
                 )
-            finally:
-                pass
         elif type == "tick":
-            worker_logger.INFO(
-                f"Dealing with the command updating tick about {code} {'in fast mode' if fast else 'in complete mode'}."
-            )
-            try:
-                self.upsert_worker_status(
-                    pid=pid,
-                    task_name=f"update_tick_{code}_{'fast_mode' if fast else 'normal_model'}",
-                    status="RUNNING",
+            # 根据full/force参数映射到实际的同步策略
+            if full:
+                # 全量同步模式：使用sync_backfill_by_date方法
+                sync_mode = f"backfill_{'force' if force else 'skip'}"
+                worker_logger.INFO(
+                    f"Dealing with tick backfill sync for {code} ({sync_mode} mode)."
                 )
-                from ginkgo.data import fetch_and_update_tick
+                task_name = f"tick_backfill_{code}_{sync_mode}"
 
-                fetch_and_update_tick(code=code, fast_mode=fast, max_backtrack_day=max_update)
-                self.upsert_worker_status(
-                    pid=pid,
-                    task_name=f"update_tick_{code}_{'fast_mode' if fast else 'normal_model'}",
-                    status="COMPLETE",
+                try:
+                    self.upsert_worker_status(
+                        pid=pid,
+                        task_name=task_name,
+                        status="RUNNING",
+                    )
+                    from ginkgo.data.containers import container
+
+                    # 调用TickService的逐日回溯方法
+                    tick_service = container.tick_service()
+                    result = tick_service.sync_backfill_by_date(code=code, force_overwrite=force)
+
+                    if result.success:
+                        worker_logger.INFO(f"✅ Tick backfill sync completed for {code}")
+                    else:
+                        worker_logger.ERROR(f"❌ Tick backfill sync failed for {code}: {result.message}")
+
+                    self.upsert_worker_status(
+                        pid=pid,
+                        task_name=task_name,
+                        status="COMPLETE" if result.success else "ERROR",
+                    )
+                except Exception as e:
+                    worker_logger.ERROR(f"💥 Tick backfill sync error for {code}: {str(e)}")
+                    self.upsert_worker_status(
+                        pid=pid,
+                        task_name=task_name,
+                        status="ERROR",
+                    )
+            else:
+                # 增量同步模式：使用container service方法
+                sync_mode = f"incremental_{'force' if force else 'skip'}"
+                worker_logger.INFO(
+                    f"🔄 Tick incremental sync for {code} ({sync_mode} mode)."
                 )
-            except Exception as e:
-                data_logger.ERROR(e)
-                self.upsert_worker_status(
-                    pid=pid,
-                    task_name=f"update_tick_{code}_{'fast_mode' if fast else 'normal_model'}",
-                    status="ERROR",
-                )
+                task_name = f"tick_incremental_{code}_{sync_mode}"
+
+                try:
+                    self.upsert_worker_status(
+                        pid=pid,
+                        task_name=task_name,
+                        status="RUNNING",
+                    )
+                    from ginkgo.data.containers import container
+                    tick_service = container.tick_service()
+
+                    # 增量同步：从最新日期开始同步到当前，根据force参数决定是否强制覆盖
+                    result = tick_service.sync_smart(code=code, fast_mode=not force)
+
+                    if result.success:
+                        worker_logger.INFO(f"✅ Tick incremental sync completed for {code}")
+                        if result.data:
+                            # 如果data是DataSyncResult对象，直接访问其属性
+                            if hasattr(result.data, 'records_processed'):
+                                worker_logger.INFO(f"📊 Processed {result.data.records_processed} records for {code}")
+                            # 如果data是字典，检查键
+                            elif isinstance(result.data, dict) and 'records_processed' in result.data:
+                                worker_logger.INFO(f"📊 Processed {result.data['records_processed']} records for {code}")
+                    else:
+                        worker_logger.ERROR(f"❌ Tick incremental sync failed for {code}: {result.error}")
+
+                    self.upsert_worker_status(
+                        pid=pid,
+                        task_name=task_name,
+                        status="COMPLETE" if result.success else "ERROR",
+                    )
+                except Exception as e:
+                    worker_logger.ERROR(f"💥 Tick incremental sync error for {code}: {str(e)}")
+                    self.upsert_worker_status(
+                        pid=pid,
+                        task_name=task_name,
+                        status="ERROR",
+                    )
         elif type == "other":
             worker_logger.WARN(f"Got the command no in list. {value}")
             self.upsert_worker_status(
@@ -186,9 +351,13 @@ class GinkgoThreadManager:
         # 测试Kafka连接状态
         try:
             kafka_health = self.kafka_service.health_check()
-            worker_logger.INFO(f":green_heart: Kafka health check: {kafka_health.get('status', 'unknown')}")
+            if kafka_health.success:
+                status = kafka_health.data.get('status', 'unknown') if kafka_health.data else 'unknown'
+                worker_logger.INFO(f":green_heart: Kafka health check: {status}")
+            else:
+                worker_logger.WARN(f":warning: Kafka health check failed: {kafka_health.error}")
         except Exception as e:
-            worker_logger.WARN(f":warning: Kafka health check failed: {e}")
+            worker_logger.WARN(f":warning: Kafka health check failed: {str(e)}")
         
         # 定义消息处理回调函数
         def data_worker_message_handler(message_data):
@@ -210,14 +379,10 @@ class GinkgoThreadManager:
                 
                 type = value["type"]
                 code = value["code"]
-                fast = None
-                max_update = 0
-                if "fast" in value.keys():
-                    fast = value["fast"]
-                if "max_update" in value.keys():
-                    max_update = value['max_update']
-                    
-                worker_logger.INFO(f":clipboard: Parsed task: type={type}, code={code}, fast={fast}, max_update={max_update}")
+                full = value.get("full", False)
+                force = value.get("force", False)
+
+                worker_logger.INFO(f":clipboard: Parsed task: type={type}, code={code}, full={full}, force={force}")
                 
                 if type == "kill":
                     # 通过返回False来停止消费
@@ -227,18 +392,18 @@ class GinkgoThreadManager:
                 
                 try:
                     worker_logger.INFO(f":rocket: Starting task execution: {type}")
-                    self.process_task(type=type, code=code, fast=fast, max_update=max_update)
+                    self.process_task(type=type, code=code, full=full, force=force)
                     worker_logger.INFO(f":white_check_mark: Task execution completed successfully")
                     return True  # 消息处理成功
                 except Exception as e2:
-                    worker_logger.ERROR(f":x: Error processing task {type} {code}: {e2}")
+                    worker_logger.ERROR(f":x: Error processing task {type} {code}: {str(e2)}")
                     import traceback
                     worker_logger.ERROR(f":magnifying_glass_tilted_left: Traceback: {traceback.format_exc()}")
                     time.sleep(2)
                     return False  # 消息处理失败
                     
             except Exception as e:
-                worker_logger.ERROR(f"💥 Error in message handler: {e}")
+                worker_logger.ERROR(f"💥 Error in message handler: {str(e)}")
                 import traceback
                 worker_logger.ERROR(f":magnifying_glass_tilted_left: Handler traceback: {traceback.format_exc()}")
                 return False
@@ -273,7 +438,7 @@ class GinkgoThreadManager:
             worker_logger.INFO(f"Worker PID:{pid} interrupted by user.")
             self.upsert_worker_status(pid=pid, task_name="", status="killed")
         except Exception as e:
-            worker_logger.ERROR(f"Worker error: {e}")
+            worker_logger.ERROR(f"Worker error: {str(e)}")
             self.upsert_worker_status(pid=pid, task_name="", status="ERROR")
         finally:
             # 取消订阅和清理
@@ -310,7 +475,7 @@ if __name__ == "__main__":
             console.print(f":sun_with_face: Data Worker is [steel_blue1]RUNNING[/steel_blue1] now.")
             time.sleep(0.5)
         except Exception as e:
-            worker_logger.ERROR(f"DataWorker can not start. {e}")
+            worker_logger.ERROR(f"DataWorker can not start. {str(e)}")
         finally:
             if os.path.exists(file_name):
                 os.remove(file_name)

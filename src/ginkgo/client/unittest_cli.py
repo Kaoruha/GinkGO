@@ -306,7 +306,7 @@ def run(
     # Default behavior: run unit tests if no specific layer is specified
     if not any([unit, integration, database, performance, containers, all]):
         unit = True
-        console.print("ℹ️ [cyan]No test layer specified. Running unit tests by default.[/cyan]")
+        console.print(":information: [cyan]No test layer specified. Running unit tests by default.[/cyan]")
     
     # Handle --all option
     if all:
@@ -376,7 +376,7 @@ def run(
             # Show warning and get confirmation
             if not y:
                 if not print_database_test_warning():
-                    console.print("ℹ️ [cyan]Database tests cancelled by user[/cyan]")
+                    console.print(":information: [cyan]Database tests cancelled by user[/cyan]")
                     return
         
         database_path = test_root / "database"

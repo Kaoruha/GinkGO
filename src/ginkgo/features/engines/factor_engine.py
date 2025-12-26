@@ -147,7 +147,7 @@ class FactorEngine:
                      f"({success_rate:.1f}%), {total_factors_stored} factors stored")
             
             if errors:
-                GLOG.WARNING(f"Encountered {len(errors)} errors during processing")
+                GLOG.WARN(f"Encountered {len(errors)} errors during processing")
             
         except Exception as e:
             result.error = f"Factor calculation failed: {str(e)}"
@@ -248,7 +248,7 @@ class FactorEngine:
             else:
                 result.success = True
                 result.set_data("factors_stored", 0)
-                GLOG.WARNING(f"No factors calculated for {entity_id}")
+                GLOG.WARN(f"No factors calculated for {entity_id}")
             
         except Exception as e:
             result.error = f"Failed to calculate factors for {entity_id}: {str(e)}"
@@ -330,7 +330,7 @@ class FactorEngine:
             factor_series = ast.execute(bars_data)
             
             if factor_series is None or len(factor_series) == 0:
-                GLOG.WARNING(f"Factor {factor_name} calculation returned empty result")
+                GLOG.WARN(f"Factor {factor_name} calculation returned empty result")
                 return []
             
             # 转换为因子记录

@@ -69,8 +69,8 @@ def _get_dual_thrust_strategy_class():
 
 def _get_random_strategy_class():
     """Lazy import for Random strategy."""
-    from ginkgo.trading.strategies.random_choice import StrategyRandomChoice
-    return StrategyRandomChoice
+    from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
+    return RandomSignalStrategy
 
 def _get_volume_activate_strategy_class():
     """Lazy import for VolumeActivate strategy."""
@@ -103,11 +103,11 @@ def _create_engine_assembly_service():
     """Create engine assembly service with all required dependencies."""
     from ginkgo.data.containers import container as data_container
     from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
-    
+
     return EngineAssemblyService(
         engine_service=data_container.engine_service(),
         portfolio_service=data_container.portfolio_service(),
-        component_service=data_container.component_service(),
+        file_service=data_container.file_service(),
         analyzer_record_crud=data_container.cruds.analyzer_record()
     )
 

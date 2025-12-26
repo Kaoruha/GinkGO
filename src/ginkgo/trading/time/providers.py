@@ -99,9 +99,8 @@ class LogicalTimeProvider(ITimeProvider):
         if start_time.tzinfo is None:
             start_time = start_time.replace(tzinfo=self._timezone)
         self._start_time = start_time
-        # 如果当前时间早于新的起始时间，重置当前时间
-        if self._current_time < start_time:
-            self._current_time = start_time
+        # Force reset current time to start time
+        self._current_time = start_time
 
     def set_end_time(self, end_time: datetime) -> None:
         """设置回测结束时间

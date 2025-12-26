@@ -24,13 +24,13 @@
 #     #     print(df)
 
 #     # def test_fetch_and_update_cn_daybar(self):
-#     #     fetch_and_update_cn_daybar("600594.SH", fast_mode=True)
+#     #     fetch_and_update_cn_daybar("600594.SH")
 
 #     # def test_fetch_and_update_cn_tick_on_date(self):
-#     #     fetch_and_update_tick_on_date(code="600594.SH", date="2020-04-01", fast_mode=True)
+#     #     fetch_and_update_tick_on_date(code="600594.SH", date="2020-04-01")
 
 #     # def test_fetch_and_update_cn_tick(self):
-#     #     fetch_and_update_tick(code="600594.SH", fast_mode=True)
+#     #     fetch_and_update_tick(code="600594.SH")
 
 #     # def test_engine_add(self):
 #     #     from ginkgo.data import add_engine, get_engines

@@ -1,126 +1,300 @@
 """
-Redis服务 - 统一管理Redis缓存操作
-提供数据同步进度跟踪、任务状态管理等功能
+Redis Cache Service - Flat Architecture Implementation
+
+Provides Redis cache operations, data sync progress tracking, task state management and other functions
 """
 
 from typing import Dict, List, Optional, Set, Any
 from datetime import datetime, timedelta
 import json
-from ginkgo.data.services.base_service import DataService
+
+from ginkgo.data.services.base_service import BaseService, ServiceResult
+from ginkgo.libs.utils.common import time_logger, retry
 
 
-class RedisService(DataService):
-    """Redis缓存服务 - 继承自DataService保持架构一致性"""
-    
-    def __init__(self, redis_crud=None, **additional_deps):
+class RedisService(BaseService):
+    """Redis Cache Service - directly inherits BaseService"""
+
+    def __init__(self, redis_crud=None, **deps):
         """
-        初始化Redis服务
-        
+        Initialize Redis service
+
         Args:
-            redis_crud: RedisCRUD实例，如果为None则自动创建
-            **additional_deps: 其他依赖
+            redis_crud: RedisCRUD instance, auto-created if None
+            **deps: Other dependencies
         """
         if redis_crud is None:
             from ginkgo.data.crud import RedisCRUD
             redis_crud = RedisCRUD()
-        
-        # Redis服务中，crud_repo和data_source都是RedisCRUD
-        super().__init__(
-            crud_repo=redis_crud,
-            data_source=redis_crud,  # Redis既是数据源也是存储
-            **additional_deps
-        )
-        
-        # 为了向后兼容，保留redis属性
+
+        super().__init__(crud_repo=redis_crud, **deps)
+
+        # Keep redis property for backward compatibility
         self.redis = redis_crud.redis
+
+    # ==================== Standard Interface Implementation ====================
+
+    def get(self, key: str = None, **filters) -> ServiceResult:
+        """
+        Get Redis cache data, supports single key retrieval and batch key pattern matching
+
+        Args:
+            key: Specific key name to query, supports Redis key naming conventions
+            **filters: Query filters and additional parameters - pattern: key pattern matching, supports Redis wildcards - count_only: only return key count, not specific key list
+
+        Returns:
+            ServiceResult: Query result containing cache data or key list
+        """
+
+    def count(self, pattern: str = "*") -> ServiceResult:
+        """
+        Count Redis keys matching pattern, using wildcard pattern matching
+
+        Args:
+            pattern: Key name pattern, supports Redis wildcards (*,?,[])
+
+        Returns:
+            ServiceResult: Statistical result containing key count
+        """
+        try:
+            keys = self._crud_repo.keys(pattern)
+            return ServiceResult.success(
+                data={'count': len(keys)},
+                message=f"模式{pattern}共有{len(keys)}个键"
+            )
+        except Exception as e:
+            return ServiceResult.error(f"统计键数量失败: {str(e)}")
+
+    def validate(self, key: str, value: Any = None) -> ServiceResult:
+        """
+        Validate Redis key name validity and data integrity, check format and length limits
+
+        Args:
+            key: Redis key name to validate
+            value: Value to validate (optional)
+
+        Returns:
+            ServiceResult: Detailed information containing validation results
+        """
+        try:
+            if not key:
+                return ServiceResult.error("Key cannot be empty")
+
+            if not isinstance(key, str):
+                return ServiceResult.error("Key must be a string")
+
+            # Check key length
+            if len(key) > 250:
+                return ServiceResult.error("Key length cannot exceed 250 characters")
+
+            return ServiceResult.success(message="Cache data validation passed")
+        except Exception as e:
+            return ServiceResult.error(f"Cache data validation failed: {str(e)}")
+
+    def check_integrity(self, key: str) -> ServiceResult:
+        """
+        Check data integrity of Redis key, verify existence and readability
+
+        Args:
+            key: Redis key name to check
+
+        Returns:
+            ServiceResult: Integrity check results and key information
+        """
+        try:
+            # Check if key exists
+            if not self._crud_repo.exists(key):
+                return ServiceResult.error(f"Key {key} does not exist")
+
+            # 检查值是否可读
+            value = self._crud_repo.get(key)
+
+            # 检查TTL
+            ttl = self._crud_repo.ttl(key)
+
+            return ServiceResult.success(
+                data={'key': key, 'ttl': ttl, 'value_valid': True, 'value_type': type(value).__name__},
+                message=f"键{key}完整性检查通过"
+            )
+        except Exception as e:
+            return ServiceResult.error(f"完整性检查失败: {str(e)}")
+
+    @time_logger
+    def set(self, key: str, value: Any, ttl: int = 3600) -> ServiceResult:
+        """
+        设置Redis缓存键值对，支持自动JSON序列化和TTL过期时间
+
+        Args:
+            key: Redis键名
+            value: 要缓存的值，支持任意类型
+            ttl: 过期时间（秒），默认3600秒
+
+        Returns:
+            ServiceResult: 包含设置状态的操作结果
+        """
+        try:
+            # 尝试JSON序列化
+            try:
+                if isinstance(value, (dict, list)):
+                    value = json.dumps(value, ensure_ascii=False)
+            except (TypeError, ValueError):
+                pass  # 保持原值
+
+            # 设置缓存
+            self._crud_repo.set(key, value, ex=ttl)
+
+            return ServiceResult.success(
+                data={'key': key, 'ttl': ttl},
+                message=f"成功设置键{key}的缓存"
+            )
+        except Exception as e:
+            return ServiceResult.error(f"设置缓存失败: {str(e)}")
+
+    @time_logger
+    def delete(self, key: str) -> ServiceResult:
+        """
+        删除指定的Redis缓存键，支持单个键删除操作
+
+        Args:
+            key: 要删除的Redis键名
+
+        Returns:
+            ServiceResult: 包含删除状态和操作结果的详细信息
+        """
+        try:
+            result = self._crud_repo.delete(key)
+            return ServiceResult.success(
+                data={'deleted': bool(result)},
+                message=f"键{key}删除{'成功' if result else '失败'}"
+            )
+        except Exception as e:
+            return ServiceResult.error(f"删除缓存失败: {str(e)}")
+
+    # ==================== 业务特定方法 ====================
 
     # ==================== 数据同步进度管理 ====================
     
     def save_sync_progress(self, code: str, date: datetime, data_type: str = "tick"):
         """
-        保存数据同步进度
-        
+        保存数据同步进度到Redis集合，支持增量同步跟踪
+
         Args:
             code: 股票代码
             date: 同步的日期
             data_type: 数据类型 (tick, bar, adjustfactor等)
+
+        Returns:
+            ServiceResult: 保存结果
         """
         try:
             cache_key = f"{data_type}_update_{code}"
             date_str = date.strftime("%Y-%m-%d")
-            
-            self.crud_repo.sadd(cache_key, date_str)
-            self.crud_repo.expire(cache_key, 60 * 60 * 24 * 30)  # 30天TTL
-            
+
+            self._crud_repo.sadd(cache_key, date_str)
+            self._crud_repo.expire(cache_key, 60 * 60 * 24 * 30)  # 30天TTL
+
             self._logger.DEBUG(f"Saved sync progress: {code} - {date_str}")
-            return True
+            return ServiceResult.success(
+                data=True,
+                message=f"Successfully saved sync progress for {code}"
+            )
         except Exception as e:
             self._logger.ERROR(f"Failed to save sync progress: {e}")
-            return False
-    
-    def get_sync_progress(self, code: str, data_type: str = "tick") -> Set[str]:
+            return ServiceResult.error(
+                message=f"Failed to save sync progress for {code}: {str(e)}"
+            )
+
+    def get_sync_progress(self, code: str, data_type: str = "tick") -> ServiceResult:
         """
-        获取已同步的日期集合
-        
+        获取指定股票和数据类型的已同步日期集合，用于增量同步跟踪
+
         Args:
             code: 股票代码
-            data_type: 数据类型
-            
+            data_type: 数据类型 (tick, bar, adjustfactor等)
+
         Returns:
-            已同步日期的字符串集合
+            ServiceResult: 查询结果，包含同步日期集合
         """
         try:
             cache_key = f"{data_type}_update_{code}"
-            return self.crud_repo.smembers(cache_key)
+            progress_set = self._crud_repo.smembers(cache_key)
+            return ServiceResult.success(
+                data=progress_set,
+                message=f"Successfully retrieved sync progress for {code}"
+            )
         except Exception as e:
             self._logger.ERROR(f"Failed to get sync progress: {e}")
-            return set()
+            return ServiceResult.error(
+                message=f"Failed to get sync progress for {code}: {str(e)}"
+            )
     
-    def check_date_synced(self, code: str, date: datetime, data_type: str = "tick") -> bool:
+    def check_date_synced(self, code: str, date: datetime, data_type: str = "tick") -> ServiceResult:
         """
-        检查指定日期是否已同步
-        
+        检查指定股票和日期的数据是否已经同步，避免重复同步操作
+
         Args:
             code: 股票代码
             date: 要检查的日期
-            data_type: 数据类型
-            
+            data_type: 数据类型 (tick, bar, adjustfactor等)
+
         Returns:
-            True if already synced
+            ServiceResult: 包含布尔值的结果，True表示已同步，False表示未同步
         """
-        synced_dates = self.get_sync_progress(code, data_type)
-        date_str = date.strftime("%Y-%m-%d")
-        return date_str in synced_dates
+        try:
+            synced_dates_result = self.get_sync_progress(code, data_type)
+            if not synced_dates_result.success:
+                return ServiceResult.error(
+                    message=f"Failed to get sync progress for {code}: {synced_dates_result.message}"
+                )
+
+            synced_dates = synced_dates_result.data
+            date_str = date.strftime("%Y-%m-%d")
+            is_synced = date_str in synced_dates
+
+            return ServiceResult.success(
+                data=is_synced,
+                message=f"Date {date_str} sync status for {code}: {'synced' if is_synced else 'not synced'}"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to check date sync status: {e}")
+            return ServiceResult.error(
+                message=f"Failed to check date sync status for {code}: {str(e)}"
+            )
     
-    def clear_sync_progress(self, code: str, data_type: str = "tick") -> bool:
+    def clear_sync_progress(self, code: str, data_type: str = "tick") -> ServiceResult:
         """
-        清除指定股票的同步进度缓存
-        
+        清除指定股票和数据类型的同步进度缓存，用于强制重新同步
+
         Args:
             code: 股票代码
-            data_type: 数据类型
-            
+            data_type: 数据类型 (tick, bar, adjustfactor等)
+
         Returns:
-            成功返回True
+            ServiceResult: 包含操作结果和状态信息
         """
         try:
             cache_key = f"{data_type}_update_{code}"
-            deleted = self.crud_repo.delete(cache_key)
+            deleted = self._crud_repo.delete(cache_key)
             self._logger.INFO(f"Cleared sync progress for {code} ({data_type}), deleted: {deleted}")
-            return True
+            return ServiceResult.success(
+                data=deleted,
+                message=f"Successfully cleared sync progress for {code} ({data_type})"
+            )
         except Exception as e:
             self._logger.ERROR(f"Failed to clear sync progress: {e}")
-            return False
+            return ServiceResult.error(
+                message=f"Failed to clear sync progress for {code}: {str(e)}"
+            )
 
     def clear_all_sync_progress(self, data_type: str = None) -> int:
         """
-        清除所有同步进度缓存
-        
+        批量清除所有股票的同步进度缓存，用于重置同步状态
+
         Args:
-            data_type: 数据类型，如果提供则只清除该类型的缓存，否则清除所有类型
-            
+            data_type: 数据类型，如提供则只清除该类型，否则清除所有类型
+
         Returns:
-            清除的缓存数量
+            int: 清除的缓存键数量
         """
         try:
             if data_type:
@@ -128,66 +302,86 @@ class RedisService(DataService):
             else:
                 cache_pattern = "*_update_*"
             
-            deleted = self.crud_repo.delete_pattern(cache_pattern)
+            deleted = self._crud_repo.delete_pattern(cache_pattern)
             self._logger.INFO(f"Cleared {deleted} sync progress cache entries with pattern '{cache_pattern}'")
             return deleted
         except Exception as e:
             self._logger.ERROR(f"Failed to clear all sync progress cache: {e}")
             return 0
     
-    def get_progress_summary(self, code: str, start_date: datetime, end_date: datetime, 
-                           data_type: str = "tick") -> Dict[str, Any]:
+    def get_progress_summary(self, code: str, start_date: datetime, end_date: datetime,
+                           data_type: str = "tick") -> ServiceResult:
         """
-        获取指定日期范围的同步进度摘要
-        
+        生成指定股票在日期范围内的同步进度摘要，用于监控同步完成情况
+
         Args:
             code: 股票代码
             start_date: 开始日期
             end_date: 结束日期
-            data_type: 数据类型
-            
+            data_type: 数据类型 (tick, bar, adjustfactor等)
+
         Returns:
-            包含进度信息的字典
+            ServiceResult: 包含同步统计、缺失日期、完成率等信息的详细报告
         """
-        synced_dates = self.get_sync_progress(code, data_type)
-        
-        total_dates = 0
-        synced_count = 0
-        missing_dates = []
-        
-        current_date = start_date
-        while current_date <= end_date:
-            total_dates += 1
-            date_str = current_date.strftime("%Y-%m-%d")
-            
-            if date_str in synced_dates:
-                synced_count += 1
-            else:
-                missing_dates.append(current_date.date())
-            
-            current_date += timedelta(days=1)
-        
-        return {
-            "code": code,
-            "data_type": data_type,
-            "total_dates": total_dates,
-            "synced_count": synced_count,
-            "missing_count": len(missing_dates),
-            "missing_dates": missing_dates,
-            "completion_rate": synced_count / total_dates if total_dates > 0 else 0,
-            "first_missing_date": missing_dates[0] if missing_dates else None
-        }
+        try:
+            synced_dates_result = self.get_sync_progress(code, data_type)
+            if not synced_dates_result.success:
+                return ServiceResult.error(
+                    message=f"Failed to get sync progress for {code}: {synced_dates_result.message}"
+                )
+            synced_dates = synced_dates_result.data
+
+            total_dates = 0
+            synced_count = 0
+            missing_dates = []
+
+            current_date = start_date
+            while current_date <= end_date:
+                total_dates += 1
+                date_str = current_date.strftime("%Y-%m-%d")
+
+                if date_str in synced_dates:
+                    synced_count += 1
+                else:
+                    missing_dates.append(current_date.date())
+
+                current_date += timedelta(days=1)
+
+            summary_data = {
+                "code": code,
+                "data_type": data_type,
+                "total_dates": total_dates,
+                "synced_count": synced_count,
+                "missing_count": len(missing_dates),
+                "missing_dates": missing_dates,
+                "completion_rate": synced_count / total_dates if total_dates > 0 else 0,
+                "first_missing_date": missing_dates[0] if missing_dates else None
+            }
+
+            return ServiceResult.success(
+                data=summary_data,
+                message=f"Progress summary generated for {code}: {synced_count}/{total_dates} dates synced"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to generate progress summary: {e}")
+            return ServiceResult.error(
+                message=f"Failed to generate progress summary: {str(e)}"
+            )
 
     # ==================== 任务状态管理 ====================
     
-    def save_task_status(self, task_id: str, status: str, metadata: Dict[str, Any] = None):
+    def save_task_status(self, task_id: str, status: str, metadata: Dict[str, Any] = None) -> ServiceResult:
         """
-        保存任务状态
-        
+        保存任务状态信息到Redis缓存，用于跟踪异步任务执行状态
+
         Args:
-            task_id: 任务ID
+            task_id: 任务唯一标识符
             status: 任务状态 (RUNNING, SUCCESS, FAILED, PENDING)
-            metadata: 任务元数据
+            metadata: 任务元数据字典，包含额外信息
+
+        Returns:
+            ServiceResult: 包含保存结果的对象
         """
         try:
             cache_key = f"task_status_{task_id}"
@@ -197,71 +391,152 @@ class RedisService(DataService):
                 "updated_at": datetime.now().isoformat(),
                 "metadata": metadata or {}
             }
-            
-            self.crud_repo.set(cache_key, task_data, 60 * 60 * 24 * 7)  # 7天TTL
-            return True
+
+            self._crud_repo.set(cache_key, task_data, 60 * 60 * 24 * 7)  # 7天TTL
+            return ServiceResult.success(
+                data=True,
+                message=f"Task status saved successfully for task {task_id}: {status}"
+            )
         except Exception as e:
             self._logger.ERROR(f"Failed to save task status: {e}")
-            return False
+            return ServiceResult.error(
+                message=f"Failed to save task status for task {task_id}: {str(e)}"
+            )
     
-    def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """获取任务状态"""
+    def get_task_status(self, task_id: str) -> ServiceResult:
+        """
+        从Redis缓存获取任务状态信息，用于检查任务执行情况
+
+        Args:
+            task_id: 任务唯一标识符
+
+        Returns:
+            ServiceResult: 包含任务状态数据的对象，不存在时data为None
+        """
         try:
             cache_key = f"task_status_{task_id}"
-            return self.crud_repo.get(cache_key)
+            task_data = self._crud_repo.get(cache_key)
+
+            return ServiceResult.success(
+                data=task_data,
+                message=f"Task status retrieved for task {task_id}"
+            )
         except Exception as e:
             self._logger.ERROR(f"Failed to get task status: {e}")
-            return None
+            return ServiceResult.error(
+                message=f"Failed to get task status for task {task_id}: {str(e)}"
+            )
 
     # ==================== 通用缓存操作 ====================
     
-    def set_cache(self, key: str, value: Any, expire_seconds: int = 3600):
-        """设置缓存"""
+    def set_cache(self, key: str, value: Any, expire_seconds: int = 3600) -> ServiceResult:
+        """
+        设置通用缓存键值对，支持自动过期时间
+
+        Args:
+            key: 缓存键名
+            value: 缓存值，支持任意类型
+            expire_seconds: 过期时间（秒），默认1小时
+
+        Returns:
+            ServiceResult: 设置结果
+        """
         try:
-            return self.crud_repo.set(key, value, expire_seconds)
+            success = self._crud_repo.set(key, value, expire_seconds)
+            if success:
+                return ServiceResult.success(
+                    data=success,
+                    message=f"Successfully set cache for key: {key}"
+                )
+            else:
+                return ServiceResult.error(
+                    message=f"Failed to set cache for key: {key}"
+                )
         except Exception as e:
             self._logger.ERROR(f"Failed to set cache: {e}")
-            return False
+            return ServiceResult.error(
+                message=f"Failed to set cache for key {key}: {str(e)}"
+            )
     
-    def get_cache(self, key: str) -> Optional[Any]:
-        """获取缓存"""
+    def get_cache(self, key: str) -> ServiceResult:
+        """
+        获取通用缓存值，支持任意数据类型返回
+
+        Args:
+            key: 缓存键名
+
+        Returns:
+            ServiceResult: 查询结果，包含缓存值
+        """
         try:
-            return self.crud_repo.get(key)
+            value = self._crud_repo.get(key)
+            return ServiceResult.success(
+                data=value,
+                message=f"Successfully retrieved cache for key: {key}"
+            )
         except Exception as e:
             self._logger.ERROR(f"Failed to get cache: {e}")
-            return None
+            return ServiceResult.error(
+                message=f"Failed to get cache for key {key}: {str(e)}"
+            )
     
-    def delete_cache(self, key: str) -> bool:
-        """删除缓存"""
+    def delete_cache(self, key: str) -> ServiceResult:
+        """
+        删除指定的缓存键值对
+
+        Args:
+            key: 要删除的缓存键名
+
+        Returns:
+            ServiceResult: 删除结果
+        """
         try:
-            return self.crud_repo.delete(key)
+            deleted = self._crud_repo.delete(key)
+            return ServiceResult.success(
+                data=deleted,
+                message=f"Successfully {'deleted' if deleted else 'key not found'} cache key: {key}"
+            )
         except Exception as e:
             self._logger.ERROR(f"Failed to delete cache: {e}")
-            return False
+            return ServiceResult.error(
+                message=f"Failed to delete cache for key {key}: {str(e)}"
+            )
     
-    def exists(self, key: str) -> bool:
-        """检查key是否存在"""
+    def exists(self, key: str) -> ServiceResult:
+        """
+        检查指定缓存键是否存在
+
+        Args:
+            key: 要检查的缓存键名
+
+        Returns:
+            ServiceResult: 包含布尔值的存在性检查结果
+        """
         try:
-            return self.crud_repo.exists(key)
+            key_exists = self._crud_repo.exists(key)
+            return ServiceResult.success(
+                data=key_exists,  # 直接封装bool值
+                message=f"Key '{key}' exists: {key_exists}"
+            )
         except Exception as e:
             self._logger.ERROR(f"Failed to check key existence: {e}")
-            return False
+            return ServiceResult.error(f"Failed to check key existence: {str(e)}")
 
     # ==================== 进程管理 ====================
     
     def register_main_process(self, pid: int) -> bool:
         """
-        注册主控进程
-        
+        注册主控进程到Redis，用于系统进程管理
+
         Args:
-            pid: 进程ID
-            
+            pid: 主控进程的进程ID
+
         Returns:
-            注册是否成功
+            bool: 注册成功返回True，失败返回False
         """
         try:
             maincontrol_key = "ginkgo_maincontrol"
-            success = self.crud_repo.set(maincontrol_key, str(pid))
+            success = self._crud_repo.set(maincontrol_key, str(pid))
             if success:
                 self._logger.INFO(f"Registered main process: {pid}")
             return success
@@ -271,14 +546,14 @@ class RedisService(DataService):
     
     def unregister_main_process(self) -> bool:
         """
-        注销主控进程
-        
+        注销主控进程，清理Redis中的进程注册信息
+
         Returns:
-            注销是否成功
+            bool: 注销成功返回True，失败返回False
         """
         try:
             maincontrol_key = "ginkgo_maincontrol"
-            success = self.crud_repo.delete(maincontrol_key)
+            success = self._crud_repo.delete(maincontrol_key)
             if success:
                 self._logger.INFO("Unregistered main process")
             return success
@@ -288,14 +563,14 @@ class RedisService(DataService):
     
     def get_main_process_pid(self) -> Optional[int]:
         """
-        获取主控进程PID
-        
+        从Redis获取已注册的主控进程PID
+
         Returns:
-            主控进程PID，如果不存在返回None
+            Optional[int]: 主控进程PID，未找到时返回None
         """
         try:
             maincontrol_key = "ginkgo_maincontrol"
-            pid_str = self.crud_repo.get(maincontrol_key)
+            pid_str = self._crud_repo.get(maincontrol_key)
             return int(pid_str) if pid_str else None
         except Exception as e:
             self._logger.ERROR(f"Failed to get main process PID: {e}")
@@ -303,17 +578,17 @@ class RedisService(DataService):
     
     def register_watchdog(self, pid: int) -> bool:
         """
-        注册看门狗进程
-        
+        注册看门狗进程到Redis，用于监控主控进程
+
         Args:
-            pid: 看门狗进程ID
-            
+            pid: 看门狗进程的进程ID
+
         Returns:
-            注册是否成功
+            bool: 注册成功返回True，失败返回False
         """
         try:
             watchdog_key = "ginkgo_watchdog"
-            success = self.crud_repo.set(watchdog_key, str(pid))
+            success = self._crud_repo.set(watchdog_key, str(pid))
             if success:
                 self._logger.INFO(f"Registered watchdog process: {pid}")
             return success
@@ -323,14 +598,14 @@ class RedisService(DataService):
     
     def unregister_watchdog(self) -> bool:
         """
-        注销看门狗进程
-        
+        注销看门狗进程，清理Redis中的监控进程信息
+
         Returns:
-            注销是否成功
+            bool: 注销成功返回True，失败返回False
         """
         try:
             watchdog_key = "ginkgo_watchdog"
-            success = self.crud_repo.delete(watchdog_key)
+            success = self._crud_repo.delete(watchdog_key)
             if success:
                 self._logger.INFO("Unregistered watchdog process")
             return success
@@ -340,14 +615,14 @@ class RedisService(DataService):
     
     def get_watchdog_pid(self) -> Optional[int]:
         """
-        获取看门狗进程PID
-        
+        从Redis获取已注册的看门狗进程PID
+
         Returns:
-            看门狗进程PID，如果不存在返回None
+            Optional[int]: 看门狗进程PID，未找到时返回None
         """
         try:
             watchdog_key = "ginkgo_watchdog"
-            pid_str = self.crud_repo.get(watchdog_key)
+            pid_str = self._crud_repo.get(watchdog_key)
             return int(pid_str) if pid_str else None
         except Exception as e:
             self._logger.ERROR(f"Failed to get watchdog PID: {e}")
@@ -355,26 +630,26 @@ class RedisService(DataService):
     
     def add_worker_to_pool(self, pid: int, pool_type: str = "general") -> bool:
         """
-        将工作进程添加到进程池
-        
+        将工作进程添加到指定的进程池，支持多类型进程池管理
+
         Args:
             pid: 工作进程ID
             pool_type: 进程池类型 ('general' 或 'data_worker')
-            
+
         Returns:
-            添加是否成功
+            bool: 添加成功返回True，失败返回False
         """
         try:
             if pool_type == "data_worker":
                 general_pool = "ginkgo_thread_pool"
                 data_pool = "ginkgo_dataworker_pool"
                 # 数据工作进程需要加入两个池
-                success1 = self.crud_repo.sadd(general_pool, str(pid))
-                success2 = self.crud_repo.sadd(data_pool, str(pid))
+                success1 = self._crud_repo.sadd(general_pool, str(pid))
+                success2 = self._crud_repo.sadd(data_pool, str(pid))
                 success = success1 and success2
             else:
                 pool_key = "ginkgo_thread_pool"
-                success = self.crud_repo.sadd(pool_key, str(pid)) > 0
+                success = self._crud_repo.sadd(pool_key, str(pid)) > 0
             
             if success:
                 self._logger.DEBUG(f"Added worker {pid} to {pool_type} pool")
@@ -385,26 +660,26 @@ class RedisService(DataService):
     
     def remove_worker_from_pool(self, pid: int, pool_type: str = "general") -> bool:
         """
-        从进程池中移除工作进程
-        
+        从指定进程池中移除工作进程，支持进程池动态管理
+
         Args:
             pid: 工作进程ID
             pool_type: 进程池类型 ('general' 或 'data_worker')
-            
+
         Returns:
-            移除是否成功
+            bool: 移除成功返回True，失败返回False
         """
         try:
             if pool_type == "data_worker":
                 general_pool = "ginkgo_thread_pool"
                 data_pool = "ginkgo_dataworker_pool"
                 # 从两个池中移除
-                success1 = self.crud_repo.srem(general_pool, str(pid))
-                success2 = self.crud_repo.srem(data_pool, str(pid))
+                success1 = self._crud_repo.srem(general_pool, str(pid))
+                success2 = self._crud_repo.srem(data_pool, str(pid))
                 success = success1 or success2  # 只要有一个成功就算成功
             else:
                 pool_key = "ginkgo_thread_pool"
-                success = self.crud_repo.srem(pool_key, str(pid)) > 0
+                success = self._crud_repo.srem(pool_key, str(pid)) > 0
             
             if success:
                 self._logger.DEBUG(f"Removed worker {pid} from {pool_type} pool")
@@ -415,13 +690,13 @@ class RedisService(DataService):
     
     def get_worker_pool_size(self, pool_type: str = "general") -> int:
         """
-        获取工作进程池大小
-        
+        获取指定类型进程池的当前工作进程数量
+
         Args:
             pool_type: 进程池类型 ('general' 或 'data_worker')
-            
+
         Returns:
-            进程池中的工作进程数量
+            int: 进程池中的工作进程数量
         """
         try:
             if pool_type == "data_worker":
@@ -429,20 +704,20 @@ class RedisService(DataService):
             else:
                 pool_key = "ginkgo_thread_pool"
             
-            return self.crud_repo.scard(pool_key)
+            return self._crud_repo.scard(pool_key)
         except Exception as e:
             self._logger.ERROR(f"Failed to get worker pool size: {e}")
             return 0
     
     def get_all_workers(self, pool_type: str = "general") -> Set[int]:
         """
-        获取进程池中的所有工作进程PID
-        
+        获取指定进程池中所有工作进程的PID集合
+
         Args:
             pool_type: 进程池类型 ('general' 或 'data_worker')
-            
+
         Returns:
-            工作进程PID集合
+            Set[int]: 工作进程PID集合
         """
         try:
             if pool_type == "data_worker":
@@ -450,7 +725,7 @@ class RedisService(DataService):
             else:
                 pool_key = "ginkgo_thread_pool"
             
-            pid_strings = self.crud_repo.smembers(pool_key)
+            pid_strings = self._crud_repo.smembers(pool_key)
             return {int(pid_str) for pid_str in pid_strings if pid_str.isdigit()}
         except Exception as e:
             self._logger.ERROR(f"Failed to get all workers: {e}")
@@ -460,15 +735,15 @@ class RedisService(DataService):
     
     def set_task_status(self, task_key: str, status_data: Dict[str, Any], ttl: int = 3600) -> bool:
         """
-        设置任务状态
-        
+        设置任务状态数据，支持自定义TTL和时间戳
+
         Args:
             task_key: 任务键名
-            status_data: 任务状态数据
-            ttl: 过期时间（秒）
-            
+            status_data: 任务状态数据字典
+            ttl: 过期时间（秒），默认1小时
+
         Returns:
-            设置是否成功
+            bool: 设置成功返回True，失败返回False
         """
         try:
             import time
@@ -477,7 +752,7 @@ class RedisService(DataService):
             status_data['updated_at'] = time.time()
             
             # 直接存储dict，让RedisCRUD自动处理JSON序列化
-            success = self.crud_repo.set(task_key, status_data, ttl)
+            success = self._crud_repo.set(task_key, status_data, ttl)
             if success:
                 self._logger.DEBUG(f"Set task status: {task_key}")
             return success
@@ -487,17 +762,17 @@ class RedisService(DataService):
     
     def get_task_status_by_key(self, task_key: str) -> Optional[Dict[str, Any]]:
         """
-        通过完整键名获取任务状态（高级接口）
-        
+        通过完整键名获取任务状态，提供灵活的任务查询
+
         Args:
             task_key: 完整的任务键名
-            
+
         Returns:
-            任务状态数据，如果不存在返回None
+            Optional[Dict[str, Any]]: 任务状态数据，不存在时返回None
         """
         try:
             # 直接获取dict，RedisCRUD自动处理JSON反序列化
-            status_data = self.crud_repo.get(task_key)
+            status_data = self._crud_repo.get(task_key)
             return status_data
         except Exception as e:
             self._logger.ERROR(f"Failed to get task status by key: {e}")
@@ -505,14 +780,14 @@ class RedisService(DataService):
     
     def update_task_status(self, task_key: str, updates: Dict[str, Any]) -> bool:
         """
-        更新任务状态（部分更新）
-        
+        部分更新任务状态，支持字段级别的状态更新
+
         Args:
             task_key: 任务键名
-            updates: 要更新的字段
-            
+            updates: 要更新的字段字典
+
         Returns:
-            更新是否成功
+            bool: 更新成功返回True，失败返回False
         """
         try:
             current_status = self.get_task_status_by_key(task_key)
@@ -529,13 +804,13 @@ class RedisService(DataService):
     
     def cleanup_dead_tasks(self, max_idle_time: int = 3600) -> int:
         """
-        清理死掉的任务（超过最大空闲时间的任务）
-        
+        清理超过最大空闲时间的死任务，维护Redis存储空间
+
         Args:
-            max_idle_time: 最大空闲时间（秒）
-            
+            max_idle_time: 最大空闲时间（秒），默认1小时
+
         Returns:
-            清理的任务数量
+            int: 清理的任务数量
         """
         try:
             import time
@@ -544,7 +819,7 @@ class RedisService(DataService):
             cleaned_count = 0
             
             # 获取所有任务键
-            task_keys = self.crud_repo.keys("ginkgo_task_*")
+            task_keys = self._crud_repo.keys("ginkgo_task_*")
             
             for task_key in task_keys:
                 task_status = self.get_task_status_by_key(task_key)
@@ -552,7 +827,7 @@ class RedisService(DataService):
                     last_update = task_status['updated_at']
                     if current_time - last_update > max_idle_time:
                         # 任务超过最大空闲时间，删除
-                        if self.crud_repo.delete(task_key):
+                        if self._crud_repo.delete(task_key):
                             cleaned_count += 1
                             self._logger.DEBUG(f"Cleaned dead task: {task_key}")
             
@@ -566,17 +841,17 @@ class RedisService(DataService):
     
     def get_active_tasks(self, pattern: str = "ginkgo_task_*") -> Dict[str, Dict[str, Any]]:
         """
-        获取所有活跃任务
-        
+        获取所有活跃任务，支持自定义匹配模式
+
         Args:
-            pattern: 任务键匹配模式
-            
+            pattern: 任务键匹配模式，支持Redis通配符
+
         Returns:
-            活跃任务字典 {task_key: task_status}
+            Dict[str, Dict[str, Any]]: 活跃任务字典 {task_key: task_status}
         """
         try:
             active_tasks = {}
-            task_keys = self.crud_repo.keys(pattern)
+            task_keys = self._crud_repo.keys(pattern)
             
             for task_key in task_keys:
                 task_status = self.get_task_status_by_key(task_key)
@@ -590,15 +865,15 @@ class RedisService(DataService):
     
     def set_process_heartbeat(self, pid: int, status: str = "alive", metadata: Dict[str, Any] = None) -> bool:
         """
-        设置进程心跳
-        
+        设置进程心跳信息，用于进程健康监控
+
         Args:
             pid: 进程ID
             status: 进程状态
-            metadata: 额外元数据
-            
+            metadata: 额外元数据字典
+
         Returns:
-            设置是否成功
+            bool: 设置成功返回True，失败返回False
         """
         try:
             import time
@@ -619,13 +894,13 @@ class RedisService(DataService):
     
     def get_process_heartbeat(self, pid: int) -> Optional[Dict[str, Any]]:
         """
-        获取进程心跳信息
-        
+        获取指定进程的心跳信息，检查进程存活状态
+
         Args:
             pid: 进程ID
-            
+
         Returns:
-            心跳信息，如果不存在返回None
+            Optional[Dict[str, Any]]: 心跳信息数据，不存在时返回None
         """
         try:
             heartbeat_key = f"ginkgo_heartbeat_{pid}"
@@ -637,28 +912,33 @@ class RedisService(DataService):
     # ==================== 系统监控 ====================
     
     def get_redis_info(self) -> Dict[str, Any]:
-        """获取Redis服务器信息"""
+        """
+        获取Redis服务器信息和状态，用于系统监控
+
+        Returns:
+            Dict[str, Any]: Redis服务器信息字典，包含内存、连接数等统计数据
+        """
         try:
-            return self.crud_repo.info()
+            return self._crud_repo.info()
         except Exception as e:
             self._logger.ERROR(f"Failed to get Redis info: {e}")
             return {"connected": False, "error": str(e)}
 
     # ==================== 函数缓存管理 ====================
     
-    def set_function_cache(self, func_name: str, cache_key: str, result: Any, 
+    def set_function_cache(self, func_name: str, cache_key: str, result: Any,
                           expiration_seconds: int = 3600) -> bool:
         """
-        设置函数缓存
-        
+        设置函数执行结果的缓存，用于提高重复调用的性能
+
         Args:
             func_name: 函数名称
             cache_key: 缓存键（包含参数信息）
-            result: 缓存结果
-            expiration_seconds: 过期时间（秒）
-            
+            result: 缓存的函数执行结果
+            expiration_seconds: 过期时间（秒），默认1小时
+
         Returns:
-            设置是否成功
+            bool: 设置成功返回True，失败返回False
         """
         try:
             import json
@@ -673,7 +953,7 @@ class RedisService(DataService):
             
             # 序列化并存储
             cache_json = json.dumps(cache_data, default=str)
-            success = self.crud_repo.set(full_cache_key, cache_json, expiration_seconds)
+            success = self._crud_repo.set(full_cache_key, cache_json, expiration_seconds)
             
             if success:
                 self._logger.DEBUG(f"Set function cache: {func_name} -> {cache_key}")
@@ -684,20 +964,20 @@ class RedisService(DataService):
     
     def get_function_cache(self, func_name: str, cache_key: str) -> Optional[Any]:
         """
-        获取函数缓存
-        
+        获取函数执行结果的缓存，避免重复计算
+
         Args:
             func_name: 函数名称
             cache_key: 缓存键（包含参数信息）
-            
+
         Returns:
-            缓存的结果，如果不存在或过期返回None
+            Optional[Any]: 缓存的结果，不存在或过期时返回None
         """
         try:
             import json
             
             full_cache_key = f"ginkgo_func_cache_{func_name}_{cache_key}"
-            cache_json = self.crud_repo.get(full_cache_key)
+            cache_json = self._crud_repo.get(full_cache_key)
             
             if cache_json:
                 cache_data = json.loads(cache_json)
@@ -710,14 +990,14 @@ class RedisService(DataService):
     
     def clear_function_cache(self, func_name: str = None, pattern: str = None) -> int:
         """
-        清除函数缓存
-        
+        清除函数缓存，支持按函数名或自定义模式清理
+
         Args:
             func_name: 特定函数名称，如果提供则只清除该函数的缓存
             pattern: 自定义匹配模式，如果提供则覆盖func_name
-            
+
         Returns:
-            清除的缓存数量
+            int: 清除的缓存条目数量
         """
         try:
             if pattern:
@@ -727,11 +1007,11 @@ class RedisService(DataService):
             else:
                 cache_pattern = "ginkgo_func_cache_*"
             
-            cache_keys = self.crud_repo.keys(cache_pattern)
+            cache_keys = self._crud_repo.keys(cache_pattern)
             cleared_count = 0
             
             for cache_key in cache_keys:
-                if self.crud_repo.delete(cache_key):
+                if self._crud_repo.delete(cache_key):
                     cleared_count += 1
             
             if cleared_count > 0:
@@ -744,13 +1024,13 @@ class RedisService(DataService):
     
     def get_function_cache_stats(self, func_name: str = None) -> Dict[str, Any]:
         """
-        获取函数缓存统计信息
-        
+        获取函数缓存统计信息，用于缓存性能分析
+
         Args:
             func_name: 特定函数名称，如果提供则只统计该函数的缓存
-            
+
         Returns:
-            缓存统计信息
+            Dict[str, Any]: 缓存统计信息，包含条目数、大小、时间分布等
         """
         try:
             import json
@@ -761,7 +1041,7 @@ class RedisService(DataService):
             else:
                 cache_pattern = "ginkgo_func_cache_*"
             
-            cache_keys = self.crud_repo.keys(cache_pattern)
+            cache_keys = self._crud_repo.keys(cache_pattern)
             
             stats = {
                 "total_entries": len(cache_keys),
@@ -775,7 +1055,7 @@ class RedisService(DataService):
             
             for cache_key in cache_keys:
                 try:
-                    cache_json = self.crud_repo.get(cache_key)
+                    cache_json = self._crud_repo.get(cache_key)
                     if cache_json:
                         cache_data = json.loads(cache_json)
                         func_name_from_cache = cache_data.get("func_name", "unknown")
@@ -810,21 +1090,21 @@ class RedisService(DataService):
     
     def cleanup_expired_function_cache(self) -> int:
         """
-        清理过期的函数缓存条目
-        
-        Note: Redis会自动清理过期的键，但这个方法可以用于手动检查
-        
+        检查并统计过期的函数缓存条目数量
+
+        Note: Redis会自动清理过期的键，但这个方法可以用于手动检查和统计
+
         Returns:
-            检查的缓存条目数量
+            int: 检查的缓存条目数量
         """
         try:
             cache_pattern = "ginkgo_func_cache_*"
-            cache_keys = self.crud_repo.keys(cache_pattern)
+            cache_keys = self._crud_repo.keys(cache_pattern)
             
             checked_count = 0
             for cache_key in cache_keys:
                 # 尝试获取TTL，如果返回-2则表示键已过期或不存在
-                ttl = self.crud_repo.ttl(cache_key)
+                ttl = self._crud_repo.ttl(cache_key)
                 if ttl == -2:  # Key doesn't exist (expired)
                     checked_count += 1
                     
@@ -836,20 +1116,20 @@ class RedisService(DataService):
     
     def is_function_cache_enabled(self) -> bool:
         """
-        检查函数缓存功能是否可用
-        
+        检查函数缓存功能是否可用，通过测试Redis连接和基本操作
+
         Returns:
-            True if function caching is available
+            bool: 函数缓存功能可用时返回True
         """
         try:
             # 简单测试Redis连接和基本操作
             test_key = "ginkgo_func_cache_test"
             test_value = "test"
             
-            success = self.crud_repo.set(test_key, test_value, 1)  # 1秒过期
+            success = self._crud_repo.set(test_key, test_value, 1)  # 1秒过期
             if success:
-                retrieved = self.crud_repo.get(test_key)
-                self.crud_repo.delete(test_key)  # 清理测试键
+                retrieved = self._crud_repo.get(test_key)
+                self._crud_repo.delete(test_key)  # 清理测试键
                 return retrieved == test_value
             
             return False
@@ -861,114 +1141,114 @@ class RedisService(DataService):
     
     def scan_thread_pool(self, pool_name: str = "ginkgo_thread_pool", cursor: int = 0, count: int = 100) -> tuple:
         """
-        扫描线程池成员
-        
+        扫描线程池成员，支持游标式分批扫描
+
         Args:
             pool_name: 线程池名称
-            cursor: 扫描游标
-            count: 每次扫描数量
-            
+            cursor: 扫描游标，用于分批扫描
+            count: 每次扫描的成员数量
+
         Returns:
             tuple: (下一个游标, 成员列表)
         """
         try:
-            return self.crud_repo.sscan(pool_name, cursor=cursor, count=count)
+            return self._crud_repo.sscan(pool_name, cursor=cursor, count=count)
         except Exception as e:
             self._logger.ERROR(f"Failed to scan thread pool {pool_name}: {e}")
             return (0, [])
     
     def scan_worker_pool(self, pool_name: str = "ginkgo_dataworker_pool", cursor: int = 0, count: int = 100) -> tuple:
         """
-        扫描工作进程池成员
-        
+        扫描数据工作进程池成员，支持大数据量的分批扫描
+
         Args:
             pool_name: 工作进程池名称
-            cursor: 扫描游标
-            count: 每次扫描数量
-            
+            cursor: 扫描游标，用于分批扫描
+            count: 每次扫描的成员数量
+
         Returns:
             tuple: (下一个游标, 成员列表)
         """
         try:
-            return self.crud_repo.sscan(pool_name, cursor=cursor, count=count)
+            return self._crud_repo.sscan(pool_name, cursor=cursor, count=count)
         except Exception as e:
             self._logger.ERROR(f"Failed to scan worker pool {pool_name}: {e}")
             return (0, [])
     
     def add_to_thread_list(self, list_name: str, value: str) -> int:
         """
-        向线程列表添加元素
-        
+        向线程列表头部添加元素，支持队列管理
+
         Args:
             list_name: 列表名称
             value: 要添加的值
-            
+
         Returns:
             int: 添加后列表长度
         """
         try:
-            return self.crud_repo.lpush(list_name, value)
+            return self._crud_repo.lpush(list_name, value)
         except Exception as e:
             self._logger.ERROR(f"Failed to add to thread list {list_name}: {e}")
             return 0
     
     def remove_from_thread_list(self, list_name: str, value: str, count: int = 0) -> int:
         """
-        从线程列表移除元素
-        
+        从线程列表移除指定元素，支持精确控制移除数量
+
         Args:
             list_name: 列表名称
             value: 要移除的值
-            count: 移除数量（0表示移除所有）
-            
+            count: 移除数量（0表示移除所有匹配元素）
+
         Returns:
             int: 实际移除的元素数量
         """
         try:
-            return self.crud_repo.lrem(list_name, count, value)
+            return self._crud_repo.lrem(list_name, count, value)
         except Exception as e:
             self._logger.ERROR(f"Failed to remove from thread list {list_name}: {e}")
             return 0
     
     def pop_from_thread_list(self, list_name: str) -> Optional[str]:
         """
-        从线程列表弹出元素
-        
+        从线程列表头部弹出元素，实现队列操作
+
         Args:
             list_name: 列表名称
-            
+
         Returns:
-            Optional[str]: 弹出的元素
+            Optional[str]: 弹出的元素，列表为空时返回None
         """
         try:
-            return self.crud_repo.lpop(list_name)
+            return self._crud_repo.lpop(list_name)
         except Exception as e:
             self._logger.ERROR(f"Failed to pop from thread list {list_name}: {e}")
             return None
     
     def get_thread_list_length(self, list_name: str) -> int:
         """
-        获取线程列表长度
-        
+        获取线程列表的当前长度，用于队列状态监控
+
         Args:
             list_name: 列表名称
-            
+
         Returns:
             int: 列表长度
         """
         try:
-            return self.crud_repo.llen(list_name)
+            return self._crud_repo.llen(list_name)
         except Exception as e:
             self._logger.ERROR(f"Failed to get thread list length {list_name}: {e}")
             return 0
     
     def clean_worker_status_keys(self, worker_pids: List[str]) -> int:
         """
-        清理工作进程状态键
-        
+        批量清理指定工作进程的状态键，释放Redis存储空间
+
         Args:
             worker_pids: 工作进程PID列表
-            
+
         Returns:
             int: 清理的键数量
         """
@@ -976,7 +1256,7 @@ class RedisService(DataService):
             cleaned_count = 0
             for pid in worker_pids:
                 status_key = f"ginkgo_worker_status_{pid}"
-                if self.crud_repo.delete(status_key):
+                if self._crud_repo.delete(status_key):
                     cleaned_count += 1
                     
             if cleaned_count > 0:
@@ -988,17 +1268,17 @@ class RedisService(DataService):
     
     def add_to_thread_pool_set(self, pool_name: str, pid: str) -> bool:
         """
-        向线程池Set添加PID
-        
+        向线程池Set添加进程ID，确保唯一性
+
         Args:
             pool_name: 池名称
             pid: 进程ID
-            
+
         Returns:
-            bool: 是否成功添加
+            bool: 成功添加返回True，已存在则返回False
         """
         try:
-            result = self.crud_repo.sadd(pool_name, str(pid))
+            result = self._crud_repo.sadd(pool_name, str(pid))
             return result > 0
         except Exception as e:
             self._logger.ERROR(f"Failed to add to thread pool set {pool_name}: {e}")
@@ -1006,17 +1286,17 @@ class RedisService(DataService):
     
     def remove_from_thread_pool_set(self, pool_name: str, pid: str) -> bool:
         """
-        从线程池Set移除PID
-        
+        从线程池Set移除进程ID
+
         Args:
             pool_name: 池名称
             pid: 进程ID
-            
+
         Returns:
-            bool: 是否成功移除
+            bool: 成功移除返回True，不存在则返回False
         """
         try:
-            result = self.crud_repo.srem(pool_name, str(pid))
+            result = self._crud_repo.srem(pool_name, str(pid))
             return result > 0
         except Exception as e:
             self._logger.ERROR(f"Failed to remove from thread pool set {pool_name}: {e}")
@@ -1024,33 +1304,233 @@ class RedisService(DataService):
     
     def get_thread_from_cache(self, cache_key: str) -> Optional[str]:
         """
-        从缓存获取线程信息
-        
+        从缓存获取线程相关信息
+
         Args:
             cache_key: 缓存键
-            
+
         Returns:
-            Optional[str]: 线程信息
+            Optional[str]: 线程信息，不存在时返回None
         """
         try:
-            return self.crud_repo.get(cache_key)
+            return self._crud_repo.get(cache_key)
         except Exception as e:
             self._logger.ERROR(f"Failed to get thread from cache {cache_key}: {e}")
             return None
     
     def set_thread_cache(self, cache_key: str, value: str) -> bool:
         """
-        设置线程缓存
-        
+        设置线程相关信息到缓存
+
         Args:
             cache_key: 缓存键
             value: 缓存值
-            
+
         Returns:
-            bool: 是否设置成功
+            bool: 设置成功返回True，失败返回False
         """
         try:
-            return self.crud_repo.set(cache_key, value)
+            return self._crud_repo.set(cache_key, value)
         except Exception as e:
             self._logger.ERROR(f"Failed to set thread cache {cache_key}: {e}")
             return False
+
+    # ==================== Redis状态重置 ====================
+
+    def clear_all_cache(self, pattern: str = "*", exclude_patterns: List[str] = None) -> ServiceResult:
+        """
+        清理所有缓存的键，用于重置Redis状态
+
+        Args:
+            pattern: 键匹配模式，默认为 "*" 清理所有键
+            exclude_patterns: 要排除的键模式列表，保护重要数据
+
+        Returns:
+            ServiceResult: 包含清理统计信息
+
+        Example:
+            # 清理所有键
+            result = redis_service.clear_all_cache()
+
+            # 清理特定模式的键，排除重要数据
+            result = redis_service.clear_all_cache(
+                pattern="*",
+                exclude_patterns=["*_config_*", "*_auth_*"]
+            )
+        """
+        try:
+            if exclude_patterns is None:
+                exclude_patterns = []
+
+            # 获取所有匹配的键
+            all_keys = self._crud_repo.keys(pattern)
+
+            # 过滤掉要排除的键
+            import fnmatch
+            excluded_keys = set()
+            for exclude_pattern in exclude_patterns:
+                for key in all_keys:
+                    if fnmatch.fnmatch(key, exclude_pattern):
+                        excluded_keys.add(key)
+
+            keys_to_delete = [key for key in all_keys if key not in excluded_keys]
+
+            deleted_count = 0
+            failed_count = 0
+
+            # 批量删除键
+            for key in keys_to_delete:
+                try:
+                    if self._crud_repo.delete(key):
+                        deleted_count += 1
+                    else:
+                        failed_count += 1
+                except Exception as e:
+                    failed_count += 1
+                    self._logger.WARN(f"Failed to delete key {key}: {e}")
+
+            # 记录清理结果
+            self._logger.INFO(f"Redis cache cleared: {deleted_count} deleted, {failed_count} failed, {len(excluded_keys)} excluded")
+
+            return ServiceResult.success(
+                data={
+                    "total_keys_found": len(all_keys),
+                    "keys_excluded": len(excluded_keys),
+                    "keys_to_delete": len(keys_to_delete),
+                    "deleted_count": deleted_count,
+                    "failed_count": failed_count,
+                    "exclude_patterns": exclude_patterns
+                },
+                message=f"Redis缓存清理完成: 删除{deleted_count}个键，排除{len(excluded_keys)}个键"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to clear Redis cache: {e}")
+            return ServiceResult.error(f"清理Redis缓存失败: {str(e)}")
+
+    def clear_ginkgo_cache_only(self) -> ServiceResult:
+        """
+        仅清理Ginkgo相关的缓存，保护其他应用数据
+
+        Returns:
+            ServiceResult: 包含清理统计信息
+        """
+        # Ginkgo相关的键模式
+        ginkgo_patterns = [
+            "ginkgo_*",          # 通用ginkgo前缀
+            "*_update_*",        # 同步进度缓存
+            "task_status_*",     # 任务状态缓存
+            "ginkgo_func_cache_*",  # 函数缓存
+            "ginkgo_heartbeat_*",   # 进程心跳
+            "ginkgo_thread_pool",   # 线程池
+            "ginkgo_dataworker_pool",  # 数据工作池
+            "test_*",            # 测试键
+        ]
+
+        return self.clear_all_cache(
+            pattern="ginkgo_*",
+            exclude_patterns=[]
+        )
+
+    def get_cache_statistics(self) -> ServiceResult:
+        """
+        获取缓存统计信息，用于监控和诊断
+
+        Returns:
+            ServiceResult: 包含详细的缓存统计信息
+        """
+        try:
+            # 获取所有键
+            all_keys = self._crud_repo.keys("*")
+            total_keys = len(all_keys)
+
+            # 按前缀分组统计
+            prefix_stats = {}
+            ginkgo_keys = []
+
+            for key in all_keys:
+                # 统计Ginkgo相关键
+                if key.startswith("ginkgo_") or key.startswith("task_status_") or key.startswith("test_"):
+                    ginkgo_keys.append(key)
+
+                # 按前缀分组
+                prefix = key.split('_')[0] if '_' in key else 'no_prefix'
+                if prefix not in prefix_stats:
+                    prefix_stats[prefix] = {"count": 0, "size_estimate": 0}
+                prefix_stats[prefix]["count"] += 1
+
+            # 获取内存使用情况
+            redis_info = self._crud_repo.info()
+            memory_info = {
+                "used_memory": redis_info.get("used_memory", 0),
+                "used_memory_human": redis_info.get("used_memory_human", "0B"),
+                "maxmemory": redis_info.get("maxmemory", 0),
+            }
+
+            return ServiceResult.success(
+                data={
+                    "total_keys": total_keys,
+                    "ginkgo_keys_count": len(ginkgo_keys),
+                    "ginkgo_keys": ginkgo_keys,
+                    "other_keys_count": total_keys - len(ginkgo_keys),
+                    "prefix_statistics": prefix_stats,
+                    "memory_info": memory_info,
+                    "redis_info": redis_info
+                },
+                message=f"缓存统计: 共{total_keys}个键，其中{len(ginkgo_keys)}个Ginkgo键"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get cache statistics: {e}")
+            return ServiceResult.error(f"获取缓存统计失败: {str(e)}")
+
+    def vacuum_redis(self, aggressive: bool = False) -> ServiceResult:
+        """
+        Redis数据库清理和优化
+
+        Args:
+            aggressive: 是否进行激进清理（包括可能影响性能的键）
+
+        Returns:
+            ServiceResult: 包含清理结果
+        """
+        try:
+            # 首先获取统计信息
+            stats_result = self.get_cache_statistics()
+            if not stats_result.success:
+                return stats_result
+
+            stats = stats_result.data
+
+            # 清理Ginkgo相关键
+            ginkgo_result = self.clear_ginkgo_cache_only()
+
+            # 激进模式：清理过期的键和空键
+            expired_cleaned = 0
+            if aggressive:
+                all_keys = self._crud_repo.keys("*")
+                for key in all_keys:
+                    try:
+                        ttl = self._crud_repo.ttl(key)
+                        # 检查已过期但未自动清理的键
+                        if ttl == -2:  # 键已过期但存在
+                            if self._crud_repo.delete(key):
+                                expired_cleaned += 1
+                    except Exception:
+                        continue
+
+            self._logger.INFO(f"Redis vacuum completed: Ginkgo cache cleared, {expired_cleaned} expired keys removed")
+
+            return ServiceResult.success(
+                data={
+                    "original_stats": stats,
+                    "ginkgo_cleanup": ginkgo_result.data,
+                    "expired_keys_cleaned": expired_cleaned,
+                    "aggressive_mode": aggressive
+                },
+                message=f"Redis清理完成: Ginkgo缓存已清理，额外清理{expired_cleaned}个过期键"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to vacuum Redis: {e}")
+            return ServiceResult.error(f"Redis清理失败: {str(e)}")

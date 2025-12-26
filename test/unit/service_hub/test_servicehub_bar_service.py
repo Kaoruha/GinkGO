@@ -213,7 +213,7 @@ class TestServiceHubBarServiceFunctionality:
 
     def test_servicehub_bar_service_sync_methods(self):
         """测试Bar Service的同步方法"""
-        # 测试sync_for_code, sync_batch等方法
+        # 测试sync_bars_fast, sync_bars_batch等方法
         pytest.skip("需要具体实现后补充")
 
     def test_servicehub_bar_service_validation_methods(self):

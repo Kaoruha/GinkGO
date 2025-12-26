@@ -8,28 +8,28 @@ Usage Examples:
 
     # Access CRUDs through the auto-discovered aggregate:
     from ginkgo.data.containers import container
-    
+
     bar_crud = container.cruds.bar()
     signal_crud = container.cruds.signal()
     order_record_crud = container.cruds.order_record()
-    
+
     # Most CRUDs are automatically available through container.cruds
-    
+
     # Special cases that need parameters:
-    tick_crud = container.create_tick_crud('000001.SZ')  # TickCRUD needs stock code
-    
+    # tick_crud will be defined inside Container
+
     # Access services:
     kafka_service = container.kafka_service()
     redis_service = container.redis_service()
-    
+
     # For dependency injection:
     from dependency_injector.wiring import inject, Provide
-    
+
     @inject
     def your_function(bar_crud = Provide[Container.cruds.bar]):
         # Use bar_crud here
         pass
-        
+
     # Backward compatibility - explicit providers still work:
     engine_crud = container.engine_crud()
     portfolio_crud = container.portfolio_crud()
@@ -44,14 +44,19 @@ from ginkgo.data.services.adjustfactor_service import AdjustfactorService
 from ginkgo.data.services.stockinfo_service import StockinfoService
 from ginkgo.data.services.bar_service import BarService
 from ginkgo.data.services.tick_service import TickService
+from ginkgo.data.crud.tick_crud import TickCRUD
 from ginkgo.data.services.file_service import FileService
 from ginkgo.data.services.engine_service import EngineService
 from ginkgo.data.services.portfolio_service import PortfolioService
-from ginkgo.data.services.component_service import ComponentService
 from ginkgo.data.services.redis_service import RedisService
 from ginkgo.data.services.kafka_service import KafkaService
 from ginkgo.data.services.signal_tracking_service import SignalTrackingService
 from ginkgo.data.services.factor_service import FactorService
+from ginkgo.data.services.result_service import ResultService
+from ginkgo.data.services.analyzer_service import AnalyzerService
+from ginkgo.data.services.param_service import ParamService
+from ginkgo.data.services.mapping_service import MappingService
+from ginkgo.data.services.parameter_metadata_service import ParameterMetadataService
 
 
 class Container(containers.DeclarativeContainer):
@@ -84,9 +89,11 @@ class Container(containers.DeclarativeContainer):
     engine_portfolio_mapping_crud = providers.Singleton(get_crud, "engine_portfolio_mapping")
     portfolio_file_mapping_crud = providers.Singleton(get_crud, "portfolio_file_mapping")
     param_crud = providers.Singleton(get_crud, "param")
+    engine_handler_mapping_crud = providers.Singleton(get_crud, "engine_handler_mapping")
     redis_crud = providers.Singleton(get_crud, "redis")
     kafka_crud = providers.Singleton(get_crud, "kafka")
     factor_crud = providers.Singleton(get_crud, "factor")
+    analyzer_record_crud = providers.Singleton(get_crud, "analyzer_record")
 
     # Services (Dependencies are injected here)
     # StockinfoService must be defined before AdjustfactorService as it's a dependency
@@ -106,44 +113,69 @@ class Container(containers.DeclarativeContainer):
         crud_repo=bar_crud,
         data_source=ginkgo_tushare_source,
         stockinfo_service=stockinfo_service,
-        adjustfactor_service=adjustfactor_service  # 添加缺失的adjustfactor_service依赖
+        adjustfactor_service=adjustfactor_service,  # 添加缺失的adjustfactor_service依赖
     )
 
-    # TickService requires special handling because TickCRUD needs a code parameter
-    # TickService implements get_crud method to dynamically create TickCRUD instances
-    tick_service = providers.Singleton(TickService, data_source=ginkgo_tdx_source, stockinfo_service=stockinfo_service)
+    # TickService with TickCRUD instance
+    tick_service = providers.Singleton(
+        TickService, data_source=ginkgo_tdx_source, stockinfo_service=stockinfo_service, crud_repo=TickCRUD()
+    )
 
     file_service = providers.Singleton(FileService, crud_repo=file_crud)
 
     engine_service = providers.Singleton(
-        EngineService, crud_repo=engine_crud, engine_portfolio_mapping_crud=engine_portfolio_mapping_crud
+        EngineService,
+        crud_repo=engine_crud,
+        engine_portfolio_mapping_crud=engine_portfolio_mapping_crud,
+        param_crud=param_crud,
     )
 
     portfolio_service = providers.Singleton(
         PortfolioService,
         crud_repo=portfolio_crud,
         portfolio_file_mapping_crud=portfolio_file_mapping_crud,
+    )
+
+    # Mapping Service for managing all mapping relationships
+    mapping_service = providers.Singleton(
+        MappingService,
+        engine_portfolio_mapping_crud=engine_portfolio_mapping_crud,
+        portfolio_file_mapping_crud=portfolio_file_mapping_crud,
+        engine_handler_mapping_crud=engine_handler_mapping_crud,
         param_crud=param_crud,
     )
 
-    component_service = providers.Singleton(
-        ComponentService, file_service=file_service, portfolio_service=portfolio_service
-    )
+    # Parameter Metadata Service for parameter name mapping
+    parameter_metadata_service = providers.Singleton(ParameterMetadataService)
 
     redis_service = providers.Singleton(RedisService, redis_crud=redis_crud)
 
     kafka_service = providers.Singleton(KafkaService, kafka_crud=kafka_crud)
-    
+
     # Signal tracking service with SignalTrackerCRUD dependency
     signal_tracking_service = providers.Singleton(
-        SignalTrackingService, 
-        tracker_crud=providers.Singleton(get_crud, "signal_tracker")
+        SignalTrackingService, tracker_crud=providers.Singleton(get_crud, "signal_tracker")
     )
-    
+
     # Factor service with FactorCRUD dependency
-    factor_service = providers.Singleton(
-        FactorService,
-        factor_crud=factor_crud
+    factor_service = providers.Singleton(FactorService, factor_crud=factor_crud)
+
+    # Param service with ParamCRUD dependency
+    param_service = providers.Singleton(ParamService)
+
+    # Result service with AnalyzerRecordCRUD dependency
+    result_service = providers.Singleton(ResultService, analyzer_crud=analyzer_record_crud)
+
+    # Analyzer service with AnalyzerRecordCRUD dependency
+    analyzer_service = providers.Singleton(AnalyzerService, analyzer_crud=analyzer_record_crud)
+
+    # Mapping service with all mapping CRUD dependencies
+    mapping_service = providers.Singleton(
+        MappingService,
+        engine_portfolio_mapping_crud=engine_portfolio_mapping_crud,
+        portfolio_file_mapping_crud=portfolio_file_mapping_crud,
+        engine_handler_mapping_crud=engine_handler_mapping_crud,
+        param_crud=param_crud,
     )
 
 

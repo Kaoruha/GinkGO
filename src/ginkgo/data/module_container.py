@@ -21,7 +21,6 @@ from ginkgo.data.services.tick_service import TickService
 from ginkgo.data.services.file_service import FileService
 from ginkgo.data.services.engine_service import EngineService
 from ginkgo.data.services.portfolio_service import PortfolioService
-from ginkgo.data.services.component_service import ComponentService
 from ginkgo.data.services.redis_service import RedisService
 from ginkgo.data.services.kafka_service import KafkaService
 
@@ -98,7 +97,7 @@ class DataContainer(BaseContainer):
         self.bind(
             "engine_service",
             EngineService,
-            dependencies=["engine_crud", "engine_portfolio_mapping_crud"]
+            dependencies=["engine_crud", "engine_portfolio_mapping_crud", "param_crud"]
         )
         
         # PortfolioService
@@ -108,13 +107,7 @@ class DataContainer(BaseContainer):
             dependencies=["portfolio_crud", "portfolio_file_mapping_crud", "param_crud"]
         )
         
-        # ComponentService
-        self.bind(
-            "component_service",
-            ComponentService,
-            dependencies=["file_service", "portfolio_service"]
-        )
-        
+                
         # RedisService
         self.bind(
             "redis_service",

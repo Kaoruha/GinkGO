@@ -9,7 +9,7 @@ from ginkgo.trading.entities.order import Order
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
 from ginkgo.libs import to_decimal
-from ginkgo.data import get_bars
+from ginkgo.data.containers import container
 
 
 class FixedSizer(BaseSizer):
@@ -26,7 +26,7 @@ class FixedSizer(BaseSizer):
             volume(str): The volume of each order.
         """
         super(FixedSizer, self).__init__(name, *args, **kwargs)
-        self._volume = int(volume)
+        self._volume = self._convert_to_int(volume, 150)
 
     @property
     def volume(self) -> float:
@@ -41,7 +41,7 @@ class FixedSizer(BaseSizer):
         size = initial_size
         while size > 0:
             last_price = to_decimal(last_price)
-            planned_cost = last_price * size * Decimal("1.1")
+            planned_cost = last_price * size * Decimal("1.003")
             if cash >= planned_cost:
                 return (size, planned_cost)
             size -= 100
@@ -92,8 +92,8 @@ class FixedSizer(BaseSizer):
                 # If LONG, get the price info of last month, in case the data is not available, use yesterday's price
                 last_month_day = current_time + datetime.timedelta(days=-30)
                 yester_day = current_time + datetime.timedelta(days=-1)
-                # 使用新的API：as_dataframe已废弃，使用to_dataframe()方法
-                result = get_bars(code, start_date=last_month_day, end_date=yester_day)
+                # 使用BarService的get方法
+                result = container.bar_service().get(code=code, start_date=last_month_day, end_date=yester_day)
                 if not result.success or len(result.data) == 0:
                     self.log(
                         "CRITICAL",

@@ -32,7 +32,7 @@ def purge(
     confirm: bool = typer.Option(False, "--yes", help="跳过确认提示")
 ):
     """清理指定队列的所有消息"""
-    console.print(f"[bold red]🗑️ Purging queue: {queue_name}[/]")
+    console.print(f"[bold red][red]:wastebasket:[/red] Purging queue: {queue_name}[/]")
     _purge_queue_messages(queue_name, confirm)
 
 
@@ -49,14 +49,14 @@ def monitor(
 @app.command()
 def health():
     """执行Kafka队列健康检查"""
-    console.print("[bold green]🏥 Running Kafka health check...[/]")
+    console.print("[bold green][blue]🏥[/blue] Running Kafka health check...[/]")
     _run_health_check()
 
 
 @app.command()
 def consumer_groups():
     """列出所有Consumer Groups状态"""
-    console.print("[bold cyan]👥 Listing consumer groups...[/]")
+    console.print("[bold cyan][blue]👥[/blue] Listing consumer groups...[/]")
     _list_consumer_groups()
 
 
@@ -82,7 +82,8 @@ def _check_queue_status():
         kafka_service = container.kafka_service()
         
         # 获取服务统计信息
-        stats = kafka_service.get_service_statistics()
+        stats_result = kafka_service.get_statistics()
+        stats = stats_result.data if stats_result.success else {}
         
         # 创建状态表格
         table = Table(title="Kafka Queue Status")
@@ -116,8 +117,8 @@ def _check_queue_status():
         # 显示订阅信息
         active_subscriptions = stats.get("active_subscriptions", 0)
         running_consumers = stats.get("running_consumers", 0)
-        table.add_row("Active Subscriptions", str(active_subscriptions), "📑")
-        table.add_row("Running Consumers", str(running_consumers), "🏃")
+        table.add_row("Active Subscriptions", str(active_subscriptions), "[blue]📑[/blue]")
+        table.add_row("Running Consumers", str(running_consumers), "[blue]🏃[/blue]")
         
         console.print(table)
         
@@ -142,7 +143,8 @@ def _check_queue_status():
             console.print(detail_table)
         
         # 执行健康检查
-        health = kafka_service.health_check()
+        health_result = kafka_service.health_check()
+        health = health_result.data if health_result.success else {}
         health_status = health.get("status", "unknown")
         health_color = "green" if health_status == "healthy" else "red"
         console.print(f"\n[bold {health_color}]Overall Health: {health_status.upper()}[/]")
@@ -154,23 +156,151 @@ def _check_queue_status():
 
 
 def _reset_kafka_queues(queue_name: Optional[str], force: bool):
-    """重置Kafka队列 - 伪函数"""
-    # TODO: 实现队列重置
-    # - 停止相关Consumer
-    # - 清理队列消息
-    # - 重置Consumer Group
-    # - 清理Redis状态
-    pass
+    """重置Kafka队列 - 基于install.py的kafka_reset逻辑"""
+    try:
+        from ginkgo.libs.core.threading import GinkgoThreadManager
+        from ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
+        from rich.prompt import Confirm
+
+        if not force:
+            if queue_name:
+                console.print(f"[yellow]:warning: You are about to reset the Kafka queue: '{queue_name}'[/]")
+                console.print("[red]This will delete all messages and recreate the topic![/]")
+            else:
+                console.print("[yellow]:warning: You are about to reset ALL Kafka queues![/]")
+                console.print("[red]This will delete all topics and recreate them![/]")
+
+            if not Confirm.ask("[bold red]Are you sure you want to continue?[/]"):
+                console.print("[blue]Operation cancelled.[/]")
+                return
+
+        console.print("[yellow]:arrows_counterclockwise: Resetting Kafka queues...[/]")
+
+        # 1. 停止所有workers (相当于GTM.reset_all_workers())
+        console.print("[blue]Step 1: Stopping all workers...[/]")
+        gtm = GinkgoThreadManager()
+        try:
+            worker_count = gtm.get_worker_count()
+            if worker_count > 0:
+                console.print(f"[yellow]Found {worker_count} workers, stopping them...[/]")
+                gtm.reset_all_workers()
+                console.print("[green]:white_check_mark: All workers stopped[/]")
+            else:
+                console.print("[blue]No active workers found[/]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Could not stop workers: {e}[/]")
+
+        # 2. 重置Kafka主题 (相当于kafka_topic_set())
+        console.print("[blue]Step 2: Recreating Kafka topics...[/]")
+        try:
+            kafka_topic_set()
+            console.print("[green]:white_check_mark: Kafka topics reset successfully[/]")
+        except Exception as e:
+            console.print(f"[red]Error resetting Kafka topics: {e}[/]")
+            console.print("[yellow]Please check your Kafka connection and configuration[/]")
+            return
+
+        # 3. 显示重置结果
+        console.print("\n[bold green]:party_popper: Kafka queues reset completed![/]")
+
+        if queue_name:
+            console.print(f"[blue]✓ Queue '{queue_name}' has been reset[/]")
+        else:
+            console.print("[blue]✓ All Kafka queues have been reset[/]")
+
+        console.print("\n[bold blue]:information: Next steps:[/]")
+        console.print("• Run 'ginkgo worker start --count 4' to restart workers")
+        console.print("• Run 'ginkgo kafka status' to verify queue status")
+
+    except Exception as e:
+        console.print(f"[bold red]Error during Kafka reset: {e}[/]")
+        import traceback
+        console.print(f"[red]{traceback.format_exc()}[/]")
 
 
 def _purge_queue_messages(queue_name: str, confirm: bool):
-    """清理队列消息 - 伪函数"""
-    # TODO: 实现消息清理
-    # - 确认操作
-    # - 创建临时Consumer
-    # - 快速消费所有消息
-    # - 统计清理数量
-    pass
+    """清理队列消息 - 使用KafkaService实现"""
+    try:
+        from ginkgo.data.containers import container
+        from rich.prompt import Confirm
+        import time
+
+        if not confirm:
+            console.print(f"[yellow]:warning: You are about to purge ALL messages from queue: '{queue_name}'[/]")
+            console.print("[red]This will permanently delete all pending messages![/]")
+            if not Confirm.ask("[bold red]Are you sure you want to continue?[/]"):
+                console.print("[blue]Operation cancelled.[/]")
+                return
+
+        console.print(f"[red]:wastebasket: Purging messages from queue: {queue_name}[/]")
+
+        # 获取KafkaService实例
+        kafka_service = container.kafka_service()
+
+        # 检查主题是否存在
+        console.print("[blue]Step 1: Checking topic existence...[/]")
+        if not kafka_service.topic_exists(queue_name):
+            console.print(f"[yellow]Topic '{queue_name}' does not exist[/]")
+            return
+
+        # 获取清理前的消息数量
+        console.print("[blue]Step 2: Getting initial message count...[/]")
+        initial_count = kafka_service.get_message_count(queue_name)
+        console.print(f"[blue]Initial messages in queue: {initial_count}[/]")
+
+        # 使用KafkaCRUD来消费和删除消息
+        console.print("[blue]Step 3: Consuming and discarding messages...[/]")
+        kafka_crud = kafka_service._crud_repo
+
+        try:
+            # 创建临时consumer来消费所有消息
+            consumer = kafka_crud._get_or_create_consumer(queue_name, f"purge_{int(time.time())}")
+            if not consumer or not consumer.consumer:
+                console.print("[red]Failed to create consumer for purging[/]")
+                return
+
+            messages_purged = 0
+            timeout_seconds = 30  # 最多等待30秒
+
+            start_time = time.time()
+            while time.time() - start_time < timeout_seconds:
+                # 消费一批消息
+                messages = kafka_crud.consume_messages(queue_name, timeout_ms=1000, max_records=1000)
+                if not messages:
+                    # 没有更多消息了
+                    break
+
+                messages_purged += len(messages)
+                console.print(f"[blue]Purged {messages_purged} messages...[/]", end="\r")
+
+                # 提交offset确保消息被消费
+                kafka_crud.commit_offset(queue_name, f"purge_{int(time.time())}")
+
+            # 关闭consumer
+            kafka_crud.close_consumer(queue_name, f"purge_{int(time.time())}")
+
+            # 检查清理后的消息数量
+            console.print("\n[blue]Step 4: Verifying purge completion...[/]")
+            final_count = kafka_service.get_message_count(queue_name)
+
+            # 显示结果
+            console.print(f"\n[bold green]:white_check_mark: Queue purge completed![/]")
+            console.print(f"[blue]✓ Messages purged: {messages_purged}[/]")
+            console.print(f"[blue]✓ Initial count: {initial_count}[/]")
+            console.print(f"[blue]✓ Final count: {final_count}[/]")
+
+            if final_count == 0:
+                console.print("[green]✓ Queue is now empty[/]")
+            else:
+                console.print(f"[yellow]⚠ Queue still has {final_count} messages (may be new messages arriving)[/]")
+
+        except Exception as e:
+            console.print(f"[red]Error during message purging: {e}[/]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error purging queue messages: {e}[/]")
+        import traceback
+        console.print(f"[red]{traceback.format_exc()}[/]")
 
 
 def _start_queue_monitor(duration: int, interval: int):
@@ -216,7 +346,8 @@ def _start_queue_monitor(duration: int, interval: int):
             kafka_table.add_column("Value", style="green")
             
             try:
-                stats = kafka_service.get_service_statistics()
+                stats_result = kafka_service.get_statistics()
+                stats = stats_result.data if stats_result.success else {}
                 kafka_conn = stats.get("kafka_connection", {})
                 send_stats = stats.get("send_statistics", {})
                 receive_stats = stats.get("receive_statistics", {})
@@ -259,7 +390,8 @@ def _start_queue_monitor(duration: int, interval: int):
             subscription_table.add_column("Thread", style="yellow")
             
             try:
-                stats = kafka_service.get_service_statistics()
+                stats_result = kafka_service.get_statistics()
+                stats = stats_result.data if stats_result.success else {}
                 subscription_details = stats.get("subscription_details", [])
                 
                 if subscription_details:

@@ -74,7 +74,7 @@ class FactorLibraryRegistry:
                             GLOG.INFO(f"发现因子库: {library_name} ({obj.__name__})")
                             
                 except ImportError as e:
-                    GLOG.WARNING(f"无法导入模块 {module_name}: {e}")
+                    GLOG.WARN(f"无法导入模块 {module_name}: {e}")
                 except Exception as e:
                     GLOG.ERROR(f"处理模块 {module_name} 时出错: {e}")
                     
@@ -158,7 +158,7 @@ class FactorLibraryRegistry:
                 GLOG.INFO(f"库 '{library_name}' 注册完成: {len(deduplicated_expressions)}个因子")
             
         except Exception as e:
-            GLOG.WARNING(f"收集 {library_name} 元数据时出错: {e}")
+            GLOG.WARN(f"收集 {library_name} 元数据时出错: {e}")
 
     def _deduplicate_factors(self, library_name: str, expressions: dict) -> tuple:
         """
@@ -186,7 +186,7 @@ class FactorLibraryRegistry:
                 })
                 
                 # 记录警告但不中断流程
-                GLOG.WARNING(f"库 '{library_name}' 跳过重复因子 '{factor_name}' "
+                GLOG.WARN(f"库 '{library_name}' 跳过重复因子 '{factor_name}' "
                            f"(首次定义已在position {list(expressions.keys()).index(factor_name)})")
             else:
                 # 首次遇到的因子，正常注册

@@ -2,18 +2,18 @@
 # -*- coding: utf-8 -*-
 
 """
-因子管理服务
+Factor Management Service
 
-提供因子数据的计算、存储、查询和分析功能，支持多种实体类型：
-- 个股因子：技术指标、基本面指标等
-- 市场因子：市场情绪、波动率等  
-- 宏观因子：GDP、CPI、利率等
-- 行业因子：行业轮动、估值等
-- 商品因子：库存、期货溢价等
-- 汇率因子：汇率波动率、利差等
-- 债券因子：收益率曲线、信用利差等
-- 基金因子：基金评级、业绩指标等
-- 加密货币因子：链上数据、挖矿指标等
+Provides factor data calculation, storage, query and analysis functions, supporting multiple entity types:
+- Stock factors: Technical indicators, fundamental indicators, etc.
+- Market factors: Market sentiment, volatility, etc.
+- Macro factors: GDP, CPI, interest rates, etc.
+- Industry factors: Industry rotation, valuation, etc.
+- Commodity factors: Inventory, futures premium, etc.
+- FX factors: Exchange rate volatility, interest rate differentials, etc.
+- Bond factors: Yield curve, credit spread, etc.
+- Fund factors: Fund ratings, performance indicators, etc.
+- Crypto factors: On-chain data, mining indicators, etc.
 """
 
 import time
@@ -25,29 +25,42 @@ from decimal import Decimal
 
 from ginkgo.libs import GLOG, datetime_normalize, to_decimal, retry, time_logger, cache_with_expiration
 from ginkgo.enums import ENTITY_TYPES, SOURCE_TYPES
-from ginkgo.data.services.base_service import DataService, ServiceResult
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 
 
-class FactorService(DataService):
+class FactorService(BaseService):
     """
-    因子管理服务类
-    
-    提供因子的计算、存储、查询和分析功能，支持多种实体类型的因子管理。
+    Factor Management Service Class
+
+    Provides factor calculation, storage, query and analysis functions, supporting factor management for multiple entity types.
+
+    TODO: This service needs to complete standard method implementations:
+    - add() - Add factor information record
+    - update() - Update factor information record
+    - delete() - Delete factor information record
+    - get() - Get factor information record
+    - exists() - Check factor existence
+    - count() - Count factor quantity
+    - health_check() - Health check
+    - validate() - Validate factor data
+    - check_integrity() - Check factor data integrity
+
+    Currently only has special business methods, lacking standardized CRUD interface.
     """
 
     def __init__(self, factor_crud, **additional_deps):
         """
-        初始化因子服务
-        
+        Initialize factor service
+
         Args:
-            factor_crud: 因子CRUD操作对象
-            **additional_deps: 其他依赖服务
+            factor_crud: Factor CRUD operation object
+            **additional_deps: Other dependency services
         """
         super().__init__(crud_repo=factor_crud, data_source=None, **additional_deps)
         self.factor_crud = factor_crud
 
     # ============================================================================
-    # 因子数据存储和查询
+    # Factor Data Storage and Query
     # ============================================================================
 
     @time_logger
@@ -57,28 +70,28 @@ class FactorService(DataService):
         factors_data: List[Dict[str, Any]]
     ) -> ServiceResult:
         """
-        批量添加因子数据
-        
+        Batch add factor data
+
         Args:
-            factors_data: 因子数据列表，每个元素为包含因子信息的字典
-            
+            factors_data: List of factor data, each element is a dictionary containing factor information
+
         Returns:
-            ServiceResult: 操作结果
+            ServiceResult: Operation result
         """
         result = self.create_result()
         
         try:
-            # 数据验证和转换
+            # Data validation and conversion
             validated_factors = []
             for i, factor_data in enumerate(factors_data):
                 try:
-                    # 确保必要字段存在
+                    # Ensure required fields exist
                     required_fields = ['entity_type', 'entity_id', 'factor_name', 'factor_value']
                     for field in required_fields:
                         if field not in factor_data:
                             raise ValueError(f"Missing required field: {field}")
-                    
-                    # 类型转换
+
+                    # Type conversion
                     processed_factor = {
                         'entity_type': factor_data['entity_type'],
                         'entity_id': str(factor_data['entity_id']),
@@ -99,7 +112,7 @@ class FactorService(DataService):
                 result.error = "No valid factor data to add"
                 return result
             
-            # 批量添加到数据库
+            # Batch add to database
             add_result = self.factor_crud.add_batch(validated_factors)
             
             result.success = True
@@ -126,19 +139,19 @@ class FactorService(DataService):
         as_dataframe: bool = True
     ) -> ServiceResult:
         """
-        查询指定实体的因子数据
-        
+        Query factor data for specified entity
+
         Args:
-            entity_type: 实体类型
-            entity_id: 实体标识
-            factor_names: 因子名称列表
-            start_time: 开始时间
-            end_time: 结束时间  
-            factor_category: 因子分类
-            as_dataframe: 是否返回DataFrame格式
-            
+            entity_type: Entity type
+            entity_id: Entity identifier
+            factor_names: List of factor names
+            start_time: Start time
+            end_time: End time
+            factor_category: Factor category
+            as_dataframe: Whether to return DataFrame format
+
         Returns:
-            ServiceResult: 查询结果
+            ServiceResult: Query result
         """
         result = self.create_result()
         
@@ -175,17 +188,17 @@ class FactorService(DataService):
         as_dataframe: bool = True
     ) -> ServiceResult:
         """
-        获取指定实体的最新因子值
-        
+        Get latest factor values for specified entity
+
         Args:
-            entity_type: 实体类型
-            entity_id: 实体标识
-            factor_names: 因子名称列表
-            factor_category: 因子分类
-            as_dataframe: 是否返回DataFrame格式
-            
+            entity_type: Entity type
+            entity_id: Entity identifier
+            factor_names: List of factor names
+            factor_category: Factor category
+            as_dataframe: Whether to return DataFrame format
+
         Returns:
-            ServiceResult: 最新因子数据
+            ServiceResult: Latest factor data
         """
         result = self.create_result()
         
@@ -211,7 +224,7 @@ class FactorService(DataService):
         return result
 
     # ============================================================================
-    # 因子分析功能
+    # Factor Analysis Functions
     # ============================================================================
 
     @time_logger
@@ -381,10 +394,10 @@ class FactorService(DataService):
         return result
 
     # ============================================================================
-    # 数据管理功能
+    # Data Management Functions
     # ============================================================================
 
-    @cache_with_expiration(expiration_seconds=300)  # 缓存5分钟
+    @cache_with_expiration(expiration_seconds=300)  # Cache for 5 minutes
     def get_available_entities(
         self, 
         entity_type: Optional[Union[ENTITY_TYPES, str, int]] = None
@@ -415,7 +428,7 @@ class FactorService(DataService):
             
         return result
 
-    @cache_with_expiration(expiration_seconds=300)  # 缓存5分钟
+    @cache_with_expiration(expiration_seconds=300)  # Cache for 5 minutes
     def get_available_factors(
         self,
         entity_type: Optional[Union[ENTITY_TYPES, str, int]] = None,
