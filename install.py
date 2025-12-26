@@ -478,6 +478,16 @@ def set_jupyterlab_config():
         activate_script_path = os.path.join(env_path, "bin", "activate")
         deactivate_script_path = os.path.join(env_path, "bin", "deactivate")
 
+        # 确保deactivate脚本存在
+        if not os.path.exists(deactivate_script_path):
+            # 创建基本的deactivate脚本
+            Path(deactivate_script_path).parent.mkdir(parents=True, exist_ok=True)
+            with open(deactivate_script_path, "w") as f:
+                f.write("#!/bin/bash\n# deactivate script\n")
+            # 设置执行权限
+            current_permissions = Path(deactivate_script_path).stat().st_mode
+            Path(deactivate_script_path).chmod(current_permissions | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
     activate_env_variables = [
         "Custom Jupyter configuration for this VirtualEnv",
         "export JUPYTER_CONFIG_DIR",
@@ -501,12 +511,20 @@ def set_jupyterlab_config():
         file.writelines(lines)
 
     deactivate_env_variables = ["Unset Jupyter configuration", "unset JUPYTER_CONFIG_DIR", "unset JUPYTER_DATA_DIR"]
-    # 打开并读取文件内容
-    with open(deactivate_script_path, "r") as file:
-        lines = file.readlines()
-    # 筛选掉包含 activate_env_variables 中任意一个变量的行
-    lines = [line for line in lines if not any(env_var in line for env_var in deactivate_env_variables)]
-    # Add Env set
+
+    # 检查deactivate脚本是否存在，如果不存在则创建
+    lines = []
+    if os.path.exists(deactivate_script_path):
+        # 打开并读取文件内容
+        with open(deactivate_script_path, "r") as file:
+            lines = file.readlines()
+        # 筛选掉包含 deactivate_env_variables 中任意一个变量的行
+        lines = [line for line in lines if not any(env_var in line for env_var in deactivate_env_variables)]
+    else:
+        # 如果文件不存在，创建基础内容
+        lines = []
+
+    # Add jupyter deactivation configuration
     lines.append("#! /bin/bash\n")
     lines.append("# Unset Jupyter configuration\n")
     lines.append(f"unset JUPYTER_CONFIG_DIR\n")
@@ -671,7 +689,8 @@ def main():
             print(f"{red('Docker startup failed, skipping service setup')}")
             sys.exit(1)
     create_entrypoint()
-    set_jupyterlab_config()
+    # TODO: Jupyter configuration temporarily disabled
+    # set_jupyterlab_config()
 
 
 if __name__ == "__main__":

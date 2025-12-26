@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EXECUTION_MODE, TRACKING_STATUS, ACCOUNT_TYPE
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, EXECUTION_MODE, TRACKINGSTATUS_TYPES, ACCOUNT_TYPE
 from ginkgo.libs import base_repr, datetime_normalize, to_decimal
 
 
@@ -36,27 +36,25 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
     expected_direction: Mapped[int] = mapped_column(Integer, comment="交易方向")
     expected_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 4), comment="预期价格")
     expected_volume: Mapped[int] = mapped_column(Integer, comment="预期数量")
-    expected_timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), comment="预期执行时间")
-    
+    expected_timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), comment="预期执行时间（T+1后的业务时间）")
+
     # 实际执行参数
     actual_price: Mapped[Decimal] = mapped_column(DECIMAL(16, 4), nullable=True, comment="实际价格")
     actual_volume: Mapped[int] = mapped_column(Integer, nullable=True, comment="实际数量")
-    actual_timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="实际执行时间")
+    actual_timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="实际执行时间（成交时的业务时间）")
     
     # 状态追踪
     tracking_status: Mapped[int] = mapped_column(Integer, default=0, comment="追踪状态")
-    notification_sent_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now, comment="通知发送时间")
-    execution_confirmed_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="执行确认时间")
+    notification_sent_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now, comment="通知发送系统时间")
+    execution_confirmed_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="执行确认系统时间")
     
-    # 偏差指标
-    price_deviation: Mapped[Decimal] = mapped_column(DECIMAL(8, 4), nullable=True, comment="价格偏差")
-    volume_deviation: Mapped[Decimal] = mapped_column(DECIMAL(8, 4), nullable=True, comment="数量偏差")
-    time_delay_seconds: Mapped[int] = mapped_column(Integer, nullable=True, comment="时间延迟(秒)")
-    
-    # 其他信息
+  # 其他信息
     reject_reason: Mapped[str] = mapped_column(String(200), nullable=True, comment="拒绝原因")
     notes: Mapped[str] = mapped_column(String(500), nullable=True, comment="备注")
-    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, comment="业务时间戳")
+
+    # 时间戳字段
+    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now, comment="系统创建时间戳（全局统一字段）")
+    business_timestamp: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, comment="信号业务时间（价格数据时间）")
 
     def __init__(self,
                  signal_id=None, strategy_id=None, portfolio_id=None,
@@ -65,8 +63,8 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
                  expected_volume=None, expected_timestamp=None,
                  actual_price=None, actual_volume=None, actual_timestamp=None,
                  tracking_status=None, notification_sent_at=None, execution_confirmed_at=None,
-                 price_deviation=None, volume_deviation=None, time_delay_seconds=None,
-                 reject_reason=None, notes=None, business_timestamp=None, source=None, **kwargs):
+                 time_delay_seconds=None,
+                 reject_reason=None, notes=None, timestamp=None, business_timestamp=None, source=None, **kwargs):
         """Initialize MSignalTracker with automatic enum/int handling"""
         super().__init__(**kwargs)
 
@@ -106,17 +104,13 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
 
         # 状态追踪 - 自动转换枚举
         if tracking_status is not None:
-            self.tracking_status = TRACKING_STATUS.validate_input(tracking_status) or TRACKING_STATUS.NOTIFIED.value
+            self.tracking_status = TRACKINGSTATUS_TYPES.validate_input(tracking_status) or TRACKINGSTATUS_TYPES.NOTIFIED.value
         if notification_sent_at is not None:
             self.notification_sent_at = datetime_normalize(notification_sent_at)
         if execution_confirmed_at is not None:
             self.execution_confirmed_at = datetime_normalize(execution_confirmed_at)
 
-        # 偏差指标
-        if price_deviation is not None:
-            self.price_deviation = to_decimal(price_deviation)
-        if volume_deviation is not None:
-            self.volume_deviation = to_decimal(volume_deviation)
+        # 时间延迟指标
         if time_delay_seconds is not None:
             self.time_delay_seconds = time_delay_seconds
 
@@ -125,8 +119,13 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
             self.reject_reason = reject_reason
         if notes is not None:
             self.notes = notes
+
+        # 时间戳字段
+        if timestamp is not None:
+            self.timestamp = datetime_normalize(timestamp)
         if business_timestamp is not None:
             self.business_timestamp = datetime_normalize(business_timestamp)
+
         if source is not None:
             self.source = SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.TUSHARE.value
 
@@ -152,7 +151,7 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         actual_price: Optional[float] = None,
         actual_volume: Optional[int] = None,
         actual_timestamp: Optional[datetime.datetime] = None,
-        tracking_status: Optional[TRACKING_STATUS] = None,
+        tracking_status: Optional[TRACKINGSTATUS_TYPES] = None,
         notification_sent_at: Optional[datetime.datetime] = None,
         execution_confirmed_at: Optional[datetime.datetime] = None,
         price_deviation: Optional[float] = None,
@@ -193,17 +192,13 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         
         # 状态信息
         if tracking_status is not None:
-            self.tracking_status = TRACKING_STATUS.validate_input(tracking_status) or 0
+            self.tracking_status = TRACKINGSTATUS_TYPES.validate_input(tracking_status) or 0
         if notification_sent_at is not None:
             self.notification_sent_at = datetime_normalize(notification_sent_at)
         if execution_confirmed_at is not None:
             self.execution_confirmed_at = datetime_normalize(execution_confirmed_at)
         
-        # 偏差指标
-        if price_deviation is not None:
-            self.price_deviation = to_decimal(price_deviation)
-        if volume_deviation is not None:
-            self.volume_deviation = to_decimal(volume_deviation)
+        # 时间延迟指标
         if time_delay_seconds is not None:
             self.time_delay_seconds = time_delay_seconds
         
@@ -247,7 +242,7 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
         
         # 状态信息
         if "tracking_status" in df.keys():
-            self.tracking_status = TRACKING_STATUS.validate_input(df["tracking_status"]) or 0
+            self.tracking_status = TRACKINGSTATUS_TYPES.validate_input(df["tracking_status"]) or 0
         if "notification_sent_at" in df.keys():
             self.notification_sent_at = datetime_normalize(df["notification_sent_at"])
         if "execution_confirmed_at" in df.keys() and pd.notna(df["execution_confirmed_at"]):
@@ -288,15 +283,15 @@ class MSignalTracker(MMysqlBase, MBacktestRecordBase):
 
     def is_executed(self) -> bool:
         """判断是否已执行"""
-        return self.tracking_status == TRACKING_STATUS.EXECUTED.value
+        return self.tracking_status == TRACKINGSTATUS_TYPES.EXECUTED.value
 
     def is_pending(self) -> bool:
         """判断是否等待确认"""
-        return self.tracking_status == TRACKING_STATUS.NOTIFIED.value
+        return self.tracking_status == TRACKINGSTATUS_TYPES.NOTIFIED.value
 
     def is_timeout(self) -> bool:
         """判断是否超时"""
-        return self.tracking_status == TRACKING_STATUS.TIMEOUT.value
+        return self.tracking_status == TRACKINGSTATUS_TYPES.TIMEOUT.value
 
     def get_account_type_name(self) -> str:
         """获取账户类型名称"""

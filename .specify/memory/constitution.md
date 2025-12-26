@@ -1,18 +1,21 @@
 <!--
 Sync Impact Report:
-Version change: 1.0.0 → 1.1.0
+Version change: 1.3.0 → 1.3.1
 Modified principles:
-- Code Quality Principle - 新增避免hasattr错误规避原则
-Added sections: N/A
+- 任务管理原则(Task Management Excellence) - 细化定期清理任务列表的具体实施要求
+Added sections:
+- N/A (原则细化，无新增章节)
 Removed sections: N/A
 Files Updated for Consistency:
-⚠ pending: .specify/templates/plan-template.md - 需更新以反映新的错误处理原则
-⚠ pending: .specify/templates/tasks-template.md - 可能需要任务分类更新
-⚠ pending: .specify/templates/commands/*.md - 命令模板可能需要更新
+✅ updated: .specify/templates/plan-template.md - 已在Constitution Check中添加任务管理原则检查项
+⚠ pending: .specify/templates/spec-template.md - 需要在用户故事部分考虑任务管理约束
+✅ updated: .specify/templates/tasks-template.md - 已添加任务管理原则遵循章节
+✅ updated: .specify/templates/agent-file-template.md - 已预填Ginkgo技术栈和开发指导，包含完整代码规范
 Follow-up TODOs:
-- 在CI/CD中添加hasattr使用检测规则
-- 更新代码质量检查工具以包含hasattr规避检查
-- 建立最佳实践文档说明正确的错误处理模式
+- 建立定期任务清理机制，自动归档已完成任务
+- 实施任务数量监控和警告系统
+- 开发任务优先级动态调整工具
+- 培训团队使用精简任务管理最佳实践
 -->
 
 # Ginkgo 项目章程
@@ -20,9 +23,9 @@ Follow-up TODOs:
 ## 基本信息
 
 - **项目名称**: Ginkgo
-- **章程版本**: 1.1.0
+- **章程版本**: 1.3.1
 - **制定日期**: 2025-11-03
-- **最后修订**: 2025-11-23
+- **最后修订**: 2025-12-01
 - **项目描述**: Python量化交易库，专注于事件驱动回测、多数据库支持和完整的风险管理系统
 
 ## 核心原则
@@ -44,7 +47,7 @@ Follow-up TODOs:
 
 **事件驱动优先**: 所有交易功能必须基于事件驱动架构设计，遵循PriceUpdate → Strategy → Signal → Portfolio → Order → Fill的标准流程。
 
-**依赖注入模式**: 必须使用统一的依赖注入容器，通过`from ginkgo import services`访问所有服务组件。
+**依赖注入模式**: 必须使用ServiceHub统一访问服务，通过`from ginkgo import service_hub`访问所有服务组件。为向后兼容，仍支持`from ginkgo import services`，但建议迁移到service_hub。
 
 **职责分离**: 严格分离数据层、策略层、执行层、分析层和服务层的职责，避免跨层功能耦合。
 
@@ -69,11 +72,33 @@ Follow-up TODOs:
 
 ### 4. 测试原则 (Testing Excellence)
 
-**TDD流程**: 新功能开发必须遵循TDD流程，先写测试再实现功能。
+**TDD开发流程**: 新功能开发必须严格遵循TDD流程，确保每个测试用例都经过用户确认。
 
-**测试分类**: 按照unit、integration、database、network等标记进行测试分类，确保测试覆盖的完整性。
+**具体要求**:
+- **测试驱动开发**: 必须先编写失败的测试用例，然后实现最小可行代码使测试通过
+- **用户确认机制**: 每个测试用例设计完成后必须等待用户确认，确保测试逻辑正确覆盖业务需求
+- **分步确认流程**: 从基础逻辑方案到最终实现细节，每个阶段都需要用户确认
+- **简洁沟通**: 每次测试用例讨论和确认必须控制在20行以内，保持沟通高效
+- **迭代优化**: 根据用户反馈持续优化测试用例，确保测试完整性和准确性
 
-**测试隔离**: 数据库相关测试必须使用测试数据库，避免影响生产数据。
+**测试分类体系**:
+- **单元测试(@pytest.mark.unit)**: 验证单个函数、方法或类的功能正确性
+- **集成测试(@pytest.mark.integration)**: 验证多个组件协作的功能正确性
+- **数据库测试(@pytest.mark.database)**: 验证数据持久化和查询逻辑
+- **网络测试(@pytest.mark.network)**: 验证外部API调用和数据源交互
+- **性能测试(@pytest.mark.performance)**: 验证系统性能指标和响应时间
+- **量化测试(@pytest.mark.financial)**: 验证量化交易特有的业务逻辑和计算精度
+
+**测试隔离原则**:
+- 数据库测试必须使用独立的测试数据库，确保不影响生产数据
+- 每个测试用例必须独立，不依赖其他测试的执行结果
+- **真实环境测试**: 禁止使用Mock数据，所有测试必须使用真实的数据源和环境配置，确保测试结果反映实际运行情况
+- **数据一致性**: 测试前确保测试数据库的数据状态与预期一致，测试后清理数据避免影响后续测试
+- **网络依赖**: 测试需要真实网络连接和数据源访问，不允许使用网络Mock，确保测试覆盖真实的API调用场景
+
+**理由**: 使用真实环境测试能够发现Mock数据可能隐藏的实际问题，如数据格式变化、API限制、网络延迟等。真实环境测试提供更高的可信度和实用性，确保代码在生产环境中的稳定性。
+
+**理由**: 严格的TDD流程和用户确认机制能够确保代码质量，减少后期重构成本，同时保证功能实现与业务需求的一致性。简洁的沟通模式提高开发效率，测试分类体系确保覆盖全面。
 
 ### 5. 性能原则 (Performance Excellence)
 
@@ -83,7 +108,22 @@ Follow-up TODOs:
 
 **懒加载**: 动态导入和懒加载机制必须用于优化启动时间。
 
-### 6. 文档原则 (Documentation Excellence)
+### 6. 任务管理原则 (Task Management Excellence)
+
+**精简任务列表**: 任务跟踪系统必须保持简洁高效，最多显示5个活跃任务，优先移除已完成任务。
+
+**具体要求**:
+- 任务列表必须限制在最多5个，超出部分自动隐藏或归档
+- 已完成的任务必须立即从活跃列表中移除，保持界面清洁
+- **定期清理机制**: 必须建立定期任务清理流程，在每轮开发周期结束后主动整理任务列表
+- 任务优先级必须明确，高优先级任务优先显示
+- 任务状态必须实时更新，确保团队协作效率
+- 长期项目应分阶段管理，每个阶段专注于有限数量的核心任务
+- **用户体验优化**: 避免任务列表过长影响开发体验和团队专注度
+
+**理由**: 过长的任务列表会降低团队专注度，增加认知负担。保持任务列表精简能够提高开发效率，减少混乱，让团队成员专注于当前最重要的工作。定期清理机制确保任务管理工具始终处于最佳状态。
+
+### 7. 文档原则 (Documentation Excellence)
 
 **中文优先**: 所有文档和注释必须使用中文，确保团队理解和维护的便利性。
 

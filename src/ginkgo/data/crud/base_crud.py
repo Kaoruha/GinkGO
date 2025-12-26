@@ -980,8 +980,13 @@ class BaseCRUD(Generic[T], ABC):
                 filter_conditions = self._parse_filters(filters)
                 if filter_conditions:
                     stmt = delete(self.model_class).where(and_(*filter_conditions))
-                    s.execute(stmt)
-                    GLOG.DEBUG(f"Deleted {self.model_class.__name__} records from MySQL")
+                    result = s.execute(stmt)
+                    deleted_rows = result.rowcount if result else 0
+                    GLOG.DEBUG(f"Deleted {deleted_rows} {self.model_class.__name__} records from MySQL")
+                    return deleted_rows
+                else:
+                    GLOG.DEBUG(f"No filter conditions provided for MySQL delete operation")
+                    return 0
             s.commit()
 
     def _do_modify(self, filters: Dict[str, Any], updates: Dict[str, Any], session: Optional[Session] = None) -> None:
@@ -1121,8 +1126,6 @@ class BaseCRUD(Generic[T], ABC):
                     # 🎯 Validate enum fields for converted items
                     validated_item = self._validate_item_enum_fields(converted_item)
                     converted.append(validated_item)
-                else:
-                    GLOG.DEBUG(f"Cannot convert item {type(item)} to {self.model_class.__name__}")
         return converted
 
     def _convert_input_item(self, item: Any) -> Optional[T]:
@@ -1433,7 +1436,7 @@ class BaseCRUD(Generic[T], ABC):
             self._streaming_initialized = True
             
         except Exception as e:
-            GLOG.WARNING(f"Failed to initialize streaming for {self.model_class.__name__}: {e}")
+            GLOG.WARN(f"Failed to initialize streaming for {self.model_class.__name__}: {e}")
             self._streaming_enabled = False
             self._streaming_initialized = True
 
@@ -1525,7 +1528,7 @@ class BaseCRUD(Generic[T], ABC):
             
             # 自动降级到传统查询（如果启用了降级）
             if self._streaming_config and self._streaming_config.recovery.enable_fallback:
-                GLOG.WARNING(f"Falling back to traditional query for {self.model_class.__name__}")
+                GLOG.WARN(f"Falling back to traditional query for {self.model_class.__name__}")
                 return self._fallback_to_traditional_query(filters, batch_size, order_by, desc_order)
             else:
                 raise
@@ -1606,7 +1609,7 @@ class BaseCRUD(Generic[T], ABC):
                 # checkpoint_state = checkpoint_manager.load_checkpoint(query_id)
                 pass
             except Exception as e:
-                GLOG.WARNING(f"Failed to load checkpoint for query {query_id}: {e}")
+                GLOG.WARN(f"Failed to load checkpoint for query {query_id}: {e}")
         
         # 构建查询
         base_query = self._build_streaming_query(filters, **kwargs)
@@ -1748,7 +1751,7 @@ class BaseCRUD(Generic[T], ABC):
             查询结果批次
         """
         if not self._streaming_enabled:
-            GLOG.WARNING("Streaming not enabled, falling back to traditional query")
+            GLOG.WARN("Streaming not enabled, falling back to traditional query")
             yield from self._fallback_to_traditional_query(filters, batch_size, order_by, desc_order)
             return
         
@@ -1913,7 +1916,7 @@ class BaseCRUD(Generic[T], ABC):
                     )
                     actual_callback(progress_info)
                 except Exception as e:
-                    GLOG.WARNING(f"Progress callback failed: {e}")
+                    GLOG.WARN(f"Progress callback failed: {e}")
             
             yield batch
     
@@ -2041,7 +2044,7 @@ class BaseCRUD(Generic[T], ABC):
             GLOG.DEBUG(f"Saved checkpoint progress: {total_processed} records processed")
             
         except Exception as e:
-            GLOG.WARNING(f"Failed to save checkpoint progress: {e}")
+            GLOG.WARN(f"Failed to save checkpoint progress: {e}")
     
     def _estimate_total_records(self, filters: Optional[Dict[str, Any]]) -> Optional[int]:
         """估算总记录数（用于进度计算）"""
@@ -2078,7 +2081,7 @@ class BaseCRUD(Generic[T], ABC):
             查询结果批次
         """
         if not self._streaming_enabled:
-            GLOG.WARNING("Streaming not enabled, falling back to traditional query")
+            GLOG.WARN("Streaming not enabled, falling back to traditional query")
             yield from self._fallback_to_traditional_query(filters, batch_size, order_by, desc_order)
             return
         
@@ -2102,7 +2105,7 @@ class BaseCRUD(Generic[T], ABC):
                 if memory_limit_mb:
                     initial_snapshot = memory_monitor.get_current_snapshot()
                     if initial_snapshot.process_mb > memory_limit_mb:
-                        GLOG.WARNING(
+                        GLOG.WARN(
                             f"Current memory usage ({initial_snapshot.process_mb:.1f}MB) "
                             f"exceeds limit ({memory_limit_mb}MB), reducing batch size"
                         )
@@ -2131,7 +2134,7 @@ class BaseCRUD(Generic[T], ABC):
                         # 动态调整批次大小
                         new_batch_size = max(current_batch_size // 2, 100)
                         if new_batch_size != current_batch_size:
-                            GLOG.WARNING(
+                            GLOG.WARN(
                                 f"Memory limit exceeded ({current_memory:.1f}MB > {memory_limit_mb}MB), "
                                 f"reducing batch size: {current_batch_size} -> {new_batch_size}"
                             )

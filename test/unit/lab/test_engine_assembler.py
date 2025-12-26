@@ -19,8 +19,8 @@
 #         from ginkgo.data import init_example_data, fetch_and_update_cn_daybar, fetch_and_update_stockinfo
 
 #         fetch_and_update_stockinfo()
-#         fetch_and_update_cn_daybar("600594.SH", fast_mode=True)
-#         fetch_and_update_cn_daybar("600000.SH", fast_mode=True)
+#         fetch_and_update_cn_daybar("600594.SH")
+#         fetch_and_update_cn_daybar("600000.SH")
 
 #         init_example_data()
 #         import time

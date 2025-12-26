@@ -86,7 +86,7 @@ class ExpressionParser:
         try:
             from ginkgo.features.engines.expression.operators import basic, statistical, temporal, technical
         except ImportError as e:
-            GLOG.WARNING(f"Failed to import some operator modules: {e}")
+            GLOG.WARN(f"Failed to import some operator modules: {e}")
     
     def parse(self, expression: str) -> ASTNode:
         """

@@ -277,7 +277,7 @@ class TestDataInitIntegration(unittest.TestCase):
         
         # Action: Fetch in fast mode. This should only get data after our manual entry.
         print("DEBUG: About to call fetch_and_update_adjustfactor()")
-        fetch_and_update_adjustfactor(code=test_code, fast_mode=True, no_skip=True)
+        fetch_and_update_adjustfactor(code=test_code, no_skip=True)
         print("DEBUG: fetch_and_update_adjustfactor() completed")
 
         # Verification
@@ -312,7 +312,7 @@ class TestDataInitIntegration(unittest.TestCase):
 
         # Action
         print("DEBUG: About to call fetch_and_update_cn_daybar()")
-        fetch_and_update_cn_daybar(code=test_code, fast_mode=True, no_skip=True)
+        fetch_and_update_cn_daybar(code=test_code, no_skip=True)
         print("DEBUG: fetch_and_update_cn_daybar() completed")
 
         # Verification
@@ -331,7 +331,7 @@ class TestDataInitIntegration(unittest.TestCase):
         print(f"Running test_04_adjustment_factors_calculation_integration for {test_code}...")
         
         # Setup: Ensure we have some adjustment factor data
-        fetch_and_update_adjustfactor(code=test_code, fast_mode=True)
+        fetch_and_update_adjustfactor(code=test_code)
         
         # Verify we have raw adjustment factor data
         adjustfactor_df = get_adjustfactors(filters={"code": test_code}, as_dataframe=True)
@@ -374,9 +374,9 @@ class TestDataInitIntegration(unittest.TestCase):
         
         # Setup: Ensure we have bar data and adjustment factors
         print("DEBUG: About to call fetch_and_update_cn_daybar() for bars adjusted test")
-        fetch_and_update_cn_daybar(code=test_code, fast_mode=True, no_skip=True)
+        fetch_and_update_cn_daybar(code=test_code, no_skip=True)
         print("DEBUG: About to call fetch_and_update_adjustfactor() for bars adjusted test")
-        fetch_and_update_adjustfactor(code=test_code, fast_mode=True, no_skip=True)
+        fetch_and_update_adjustfactor(code=test_code, no_skip=True)
         print("DEBUG: About to call calc_adjust_factors() for bars adjusted test")
         calc_adjust_factors(test_code)
         
@@ -456,7 +456,7 @@ class TestDataInitIntegration(unittest.TestCase):
         print(f"Running test_07_recalculate_adjust_factors_for_code_integration for {test_code}...")
         
         # Setup: Ensure we have adjustment factor data
-        fetch_and_update_adjustfactor(code=test_code, fast_mode=True)
+        fetch_and_update_adjustfactor(code=test_code)
         
         # Action: Recalculate adjustment factors
         recalc_result = recalculate_adjust_factors_for_code(test_code)

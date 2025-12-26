@@ -208,7 +208,7 @@ class CheckpointManager:
         try:
             checkpoint = self.get_checkpoint(checkpoint_id)
             if not checkpoint:
-                GLOG.WARNING(f"Checkpoint not found: {checkpoint_id}")
+                GLOG.WARN(f"Checkpoint not found: {checkpoint_id}")
                 return False
 
             # 更新字段
@@ -266,7 +266,7 @@ class CheckpointManager:
 
                 # 检查是否过期
                 if checkpoint.expires_at and time.time() > checkpoint.expires_at:
-                    GLOG.WARNING(f"Checkpoint {checkpoint_id} has expired")
+                    GLOG.WARN(f"Checkpoint {checkpoint_id} has expired")
                     self.delete_checkpoint(checkpoint_id)
                     return None
 
@@ -407,7 +407,7 @@ class CheckpointManager:
                     # 简单key-value存储
                     self.storage_backend.set(key, data)
                 else:
-                    GLOG.WARNING("Storage backend does not support set operation")
+                    GLOG.WARN("Storage backend does not support set operation")
 
         except Exception as e:
             GLOG.ERROR(f"Failed to save checkpoint: {e}")
@@ -427,7 +427,7 @@ class CheckpointManager:
                     if isinstance(data_str, bytes):
                         data_str = data_str.decode("utf-8")
                 else:
-                    GLOG.WARNING("Storage backend does not support get operation")
+                    GLOG.WARN("Storage backend does not support get operation")
                     return None
 
             if data_str:
@@ -535,7 +535,7 @@ class ProgressTrackingManager:
         try:
             tracker = self.active_trackers.get(tracker_id)
             if not tracker:
-                GLOG.WARNING(f"Progress tracker not found: {tracker_id}")
+                GLOG.WARN(f"Progress tracker not found: {tracker_id}")
                 return False
 
             current_time = time.time()
@@ -601,7 +601,7 @@ class ProgressTrackingManager:
         try:
             tracker = self.active_trackers.get(tracker_id)
             if not tracker:
-                GLOG.WARNING(f"Progress tracker not found: {tracker_id}")
+                GLOG.WARN(f"Progress tracker not found: {tracker_id}")
                 return False
 
             if callback not in tracker.progress_callbacks:
@@ -648,14 +648,14 @@ class ProgressTrackingManager:
             try:
                 callback(progress_info)
             except Exception as e:
-                GLOG.WARNING(f"Progress callback failed: {e}")
+                GLOG.WARN(f"Progress callback failed: {e}")
 
         # 全局回调
         for callback in self.global_callbacks:
             try:
                 callback(tracker.tracker_id, progress_info)
             except Exception as e:
-                GLOG.WARNING(f"Global progress callback failed: {e}")
+                GLOG.WARN(f"Global progress callback failed: {e}")
 
 
 # 全局实例

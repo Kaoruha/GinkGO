@@ -127,7 +127,7 @@ class ConfigDrivenDI:
             directory = Path(directory)
         
         if not directory.exists():
-            self._logger.WARNING(f"配置目录不存在: {directory}")
+            self._logger.WARN(f"配置目录不存在: {directory}")
             return
         
         # 加载所有配置文件

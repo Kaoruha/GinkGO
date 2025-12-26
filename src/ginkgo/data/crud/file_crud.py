@@ -23,6 +23,17 @@ class FileCRUD(BaseCRUD[MFile]):
     def __init__(self):
         super().__init__(MFile)
 
+    def _get_enum_mappings(self) -> Dict[str, Any]:
+        """
+        🎯 Define field-to-enum mappings for FileCRUD.
+
+        Returns:
+            Dictionary mapping field names to enum classes
+        """
+        return {
+            'type': FILE_TYPES,
+        }
+
     def _get_field_config(self) -> dict:
         """
         定义 File 数据的字段配置 - 必填字段验证
@@ -77,6 +88,7 @@ class FileCRUD(BaseCRUD[MFile]):
             name=kwargs.get("filename", kwargs.get("name", "ginkgo_file")),
             data=kwargs.get("data", b""),
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
+            desc=kwargs.get("desc"),  # 添加desc参数
         )
 
     def _convert_input_item(self, item: Any) -> Optional[MFile]:
@@ -107,18 +119,6 @@ class FileCRUD(BaseCRUD[MFile]):
             )
         return None
 
-
-    def _get_enum_mappings(self) -> Dict[str, Any]:
-        """
-        🎯 Define field-to-enum mappings.
-
-        Returns:
-            Dictionary mapping field names to enum classes
-        """
-        return {
-            'file': FILE_TYPES,
-            'source': SOURCE_TYPES
-        }
 
     def _convert_models_to_business_objects(self, models: List) -> List:
         """

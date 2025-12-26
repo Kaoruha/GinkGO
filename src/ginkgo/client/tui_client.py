@@ -38,7 +38,7 @@ from textual.widgets._toggle_button import ToggleButton
 from textual.widgets.option_list import Option
 from textual.widgets.text_area import Selection
 
-from ginkgo.data import get_stockinfos
+from ginkgo.data.containers import container
 
 import asyncio
 import datetime
@@ -119,8 +119,29 @@ class DataPanel(Container):
         """
         当组件加载时执行一些逻辑并存储变量。
         """
-        # 在这里执行加载时的逻辑
-        self.stockinfos = get_stockinfos()
+        # 在这里执行加载时的逻辑 - 使用新的Service API
+        stockinfo_service = container.stockinfo_service()
+        get_result = stockinfo_service.get()
+
+        if get_result.success:
+            stockinfo_data = get_result.data
+            import pandas as pd
+
+            # 处理ModelList和其他数据格式
+            try:
+                if hasattr(stockinfo_data, 'to_dataframe'):  # ModelList有此方法
+                    self.stockinfos = stockinfo_data.to_dataframe()
+                elif isinstance(stockinfo_data, pd.DataFrame):
+                    self.stockinfos = stockinfo_data
+                else:
+                    self.stockinfos = pd.DataFrame(stockinfo_data)
+            except Exception as e:
+                # TUI中静默处理错误，使用空DataFrame
+                self.stockinfos = pd.DataFrame(columns=['code', 'code_name', 'industry'])
+        else:
+            # 如果获取失败，使用空的DataFrame
+            import pandas as pd
+            self.stockinfos = pd.DataFrame(columns=['code', 'code_name', 'industry'])
         self.debounce_timer= None  # 防抖计时器
         self.input_filter = ""
 

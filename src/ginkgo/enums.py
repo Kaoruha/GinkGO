@@ -181,6 +181,7 @@ class ORDERSTATUS_TYPES(EnumBase):
     PARTIAL_FILLED = 3
     FILLED = 4
     CANCELED = 5
+    REJECTED = 6
 
 
 class TRANSFERSTATUS_TYPES(EnumBase):
@@ -220,7 +221,7 @@ class MARKET_TYPES(EnumBase):
 class ATTITUDE_TYPES(EnumBase):
     VOID = -1
     OTHER = 0
-    PESSMISTIC = 1
+    PESSIMISTIC = 1
     OPTIMISTIC = 2
     RANDOM = 3
 
@@ -421,14 +422,15 @@ class EXECUTION_STATUS(EnumBase):
     ERROR = 7                   # 执行错误
 
 
-class TRACKING_STATUS(EnumBase):
+class TRACKINGSTATUS_TYPES(EnumBase):
     """信号追踪状态枚举"""
-    
+
     VOID = -1
-    NOTIFIED = 0                # 已通知
-    EXECUTED = 1                # 已执行
-    TIMEOUT = 2                 # 超时
-    CANCELED = 3                # 已取消
+    PENDING = 0                 # 待处理
+    NOTIFIED = 1                # 已通知
+    EXECUTED = 2                # 已执行
+    TIMEOUT = 3                 # 超时
+    CANCELED = 4                # 已取消
 
 
 class ACCOUNT_TYPE(EnumBase):

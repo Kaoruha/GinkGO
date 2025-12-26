@@ -154,7 +154,7 @@ class MemoryMonitor:
         """启动内存监控"""
         with self._lock:
             if self._monitoring:
-                GLOG.WARNING("Memory monitoring is already running")
+                GLOG.WARN("Memory monitoring is already running")
                 return
 
             self._monitoring = True
@@ -327,7 +327,7 @@ class MemoryMonitor:
             try:
                 callback(snapshot)
             except Exception as e:
-                GLOG.WARNING(f"Memory level callback failed: {e}")
+                GLOG.WARN(f"Memory level callback failed: {e}")
 
 
 class SessionManager:
@@ -422,11 +422,11 @@ class SessionManager:
         with self._lock:
             session = self.sessions.get(session_id)
             if not session:
-                GLOG.WARNING(f"Session not found: {session_id}")
+                GLOG.WARN(f"Session not found: {session_id}")
                 return False
 
             if session.state == SessionState.CLOSED:
-                GLOG.WARNING(f"Cannot activate closed session: {session_id}")
+                GLOG.WARN(f"Cannot activate closed session: {session_id}")
                 return False
 
             session.state = SessionState.ACTIVE
@@ -517,7 +517,7 @@ class SessionManager:
         """启动会话清理"""
         with self._lock:
             if self._cleanup_enabled:
-                GLOG.WARNING("Session cleanup is already running")
+                GLOG.WARN("Session cleanup is already running")
                 return
 
             self._cleanup_enabled = True
@@ -625,7 +625,7 @@ class ResourceOptimizer:
 
     def _handle_memory_warning(self, snapshot: MemorySnapshot):
         """处理内存警告"""
-        GLOG.WARNING(f"Memory usage warning: {snapshot.percent:.1f}% ({snapshot.used_mb:.1f}MB)")
+        GLOG.WARN(f"Memory usage warning: {snapshot.percent:.1f}% ({snapshot.used_mb:.1f}MB)")
 
         # 轻量级优化：垃圾回收
         self.memory_monitor.force_garbage_collection()
@@ -640,7 +640,7 @@ class ResourceOptimizer:
             # 关闭最老的空闲会话
             oldest_session = min(idle_sessions, key=lambda x: x.last_active)
             self.session_manager.close_session(oldest_session.session_id)
-            GLOG.WARNING(f"Closed idle session due to critical memory: {oldest_session.session_id}")
+            GLOG.WARN(f"Closed idle session due to critical memory: {oldest_session.session_id}")
 
         # 强制垃圾回收
         self.memory_monitor.force_garbage_collection()

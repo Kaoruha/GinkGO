@@ -69,17 +69,16 @@ class SimBroker(BaseBroker, IBroker):
             BrokerExecutionResult: 执行结果（立即返回最终状态）
         """
         order = event.payload
-        self.log("INFO", f"📝 [SIMBROKER] ORDER EVENT RECEIVED: {order.direction.name} {order.volume} {order.code} (uuid: {order.uuid[:8]})")
-        self.log("DEBUG", f"🔍 [EVENT CONTEXT] portfolio_id={getattr(event, 'portfolio_id', 'N/A')}, "
-                        f"engine_id={getattr(event, 'engine_id', 'N/A')}, "
-                        f"run_id={getattr(event, 'run_id', 'N/A')}")
+        # 添加SimBroker接收订单的关键事件流日志
+        print(f"[BROKER_RECV] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Portfolio:{getattr(event, 'portfolio_id', 'N/A')[:8]} Broker:SIM Order:{order.uuid[:8]}")
 
         # 保存事件上下文，用于后续Position创建
         self._current_event = event
 
         # 基础验证
         if not self.validate_order(order):
-            self.log("ERROR", f"❌ [SIMBROKER] Order validation failed: {order.uuid[:8]}")
+            # 添加SimBroker验证失败的订单拒绝日志
+            print(f"[BROKER_REJECT] {order.direction.name} {order.code} Reason:Validation Failed Broker:SIM Order:{order.uuid[:8]}")
             return BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
                 error_message="Order validation failed by SimBroker"
@@ -92,18 +91,18 @@ class SimBroker(BaseBroker, IBroker):
         try:
             self.log("DEBUG", f"⚡ [SIMBROKER] Starting synchronous execution...")
             result = self._simulate_execution_sync(order, broker_order_id)
+
+            # 添加SimBroker撮合完成的关键事件流日志
+            if result.status == ORDERSTATUS_TYPES.FILLED:
+                print(f"[BROKER_FILL] {order.direction.name} {order.code} {result.filled_volume}shares @ {result.filled_price} Fee:{result.commission} Broker:SIM Order:{order.uuid[:8]}")
+            elif result.status == ORDERSTATUS_TYPES.PARTIALLY_FILLED:
+                print(f"[BROKER_PARTIAL] {order.direction.name} {order.code} {result.filled_volume}shares @ {result.filled_price} Fee:{result.commission} Broker:SIM Order:{order.uuid[:8]}")
+            elif result.status == ORDERSTATUS_TYPES.REJECTED:
+                print(f"[BROKER_REJECT] {order.direction.name} {order.code} Reason:{result.error_message} Broker:SIM Order:{order.uuid[:8]}")
+
             self.log("INFO", f"✅ [SIMBROKER] EXECUTION COMPLETE: {result.status.name} "
                            f"{result.filled_volume} {order.code} @ {result.filled_price} (trade_id: {result.trade_id})")
-            self.log("INFO", f"💰 [SIMBROKER] Commission: {result.commission}, Error: {result.error_message}")
-
-            # 如果订单完全成交，打印详细信息
-            if result.status == ORDERSTATUS_TYPES.FILLED:
-                self.log("INFO", f"🎉 [SIMBROKER] ORDER FULLY EXECUTED!")
-                self.log("INFO", f"📊 [SIMBROKER] EXECUTION SUMMARY: {result.filled_volume} shares @ {result.filled_price}, commission={result.commission}")
-            else:
-                self.log("WARN", f"⚠️ [SIMBROKER] ORDER NOT FILLED: status={result.status.name}")
-                self.log("WARN", f"🔍 [SIMBROKER] DETAILS: filled_volume={result.filled_volume}, filled_price={result.filled_price}, error='{result.error_message}'")
-                self.log("WARN", f"🔍 [SIMBROKER] BROKER_ORDER_ID: {result.broker_order_id}, TRADE_ID: {result.trade_id}")
+            self.log("WARN", f"🔍 [SIMBROKER] BROKER_ORDER_ID: {result.broker_order_id}, TRADE_ID: {result.trade_id}")
             return result
         except Exception as e:
             self.log("ERROR", f"❌ [SIMBROKER] Execution error: {e}")
@@ -207,6 +206,12 @@ class SimBroker(BaseBroker, IBroker):
                 )
             self.log("DEBUG", f"✅ [SIMBROKER] Market data obtained for {order.code}")
 
+            # 🔍 添加详细的市场数据日志
+            if hasattr(market_data, 'close'):
+                self.log("INFO", f"📈 [SIMBROKER] MARKET_DATA {order.code}: close={market_data.close}, open={getattr(market_data, 'open', 'N/A')}, high={getattr(market_data, 'high', 'N/A')}, low={getattr(market_data, 'low', 'N/A')}, volume={getattr(market_data, 'volume', 'N/A')}, timestamp={getattr(market_data, 'timestamp', 'N/A')}")
+            else:
+                self.log("INFO", f"📈 [SIMBROKER] MARKET_DATA {order.code}: {market_data}")
+
             # 2. 价格验证
             self.log("DEBUG", f"💰 [SIMBROKER] Step 2: Validating price data...")
             if not self._is_price_valid(order.code, market_data):
@@ -242,8 +247,15 @@ class SimBroker(BaseBroker, IBroker):
 
             # 5. 计算成交价格（已包含滑点效应）
             self.log("DEBUG", f"🧮 [SIMBROKER] Step 5: Calculating transaction price...")
+
+            # 🔍 详细记录价格计算前的信息
+            self.log("INFO", f"💰 [SIMBROKER] PRICE_CALC {order.code}: direction={order.direction.name}, type={getattr(order, 'order_type', 'MARKET')}, volume={order.volume}, attitude={self._attitude}")
+
             transaction_price = self._calculate_transaction_price(order, market_data)
-            self.log("DEBUG", f"💰 [SIMBROKER] Transaction price calculated: {transaction_price}")
+
+            # 🔍 详细记录价格计算结果
+            close_price = getattr(market_data, 'close', 0)
+            self.log("INFO", f"💰 [SIMBROKER] TRANSACTION_PRICE {order.code}: result={transaction_price}, close={close_price}, high={getattr(market_data, 'high', 'N/A')}, low={getattr(market_data, 'low', 'N/A')}, diff={transaction_price - close_price}")
 
             # 6. 调整成交数量（资金检查）
             self.log("DEBUG", f"📊 [SIMBROKER] Step 6: Adjusting volume for funds...")
@@ -252,7 +264,7 @@ class SimBroker(BaseBroker, IBroker):
             if transaction_volume == 0:
                 self.log("ERROR", f"❌ [SIMBROKER] Insufficient funds for execution")
                 return BrokerExecutionResult(
-                    status=ORDERSTATUS_TYPES.CANCELED,
+                    status=ORDERSTATUS_TYPES.REJECTED,
                     broker_order_id=broker_order_id,
                     error_message="Insufficient funds for execution"
                 )
@@ -310,24 +322,37 @@ class SimBroker(BaseBroker, IBroker):
         Returns:
             Decimal: 成交价格
         """
+        self.log("DEBUG", f"🧮 [SIMBROKER] Calculating price for {order.code} {order.direction.name}")
+
         if hasattr(order, "order_type") and order.order_type == ORDER_TYPES.LIMITORDER:
-            return to_decimal(order.limit_price)
+            limit_price = to_decimal(order.limit_price)
+            self.log("INFO", f"📊 [SIMBROKER] LIMIT ORDER - using limit price: {limit_price}")
+            return limit_price
 
         # 市价单使用随机价格模拟滑点
+        self.log("DEBUG", f"📊 [SIMBROKER] MARKET ORDER - calculating from range")
+
         # 处理Bar对象或字典格式
         if hasattr(market_data, 'low') and hasattr(market_data, 'high'):
             low_price = market_data.low
             high_price = market_data.high
+            close_price = getattr(market_data, 'close', None)
         elif isinstance(market_data, dict):
             low_price = market_data.get("low")
             high_price = market_data.get("high")
+            close_price = market_data.get("close")
         else:
             # 如果无法获取价格数据，使用当前价格
-            low_price = high_price = getattr(market_data, 'close', None) or 0
+            low_price = high_price = close_price = getattr(market_data, 'close', None) or 0
 
-        return self._get_random_transaction_price(
+        self.log("INFO", f"📊 [SIMBROKER] PRICE_RANGE {order.code}: low={low_price}, high={high_price}, close={close_price}, direction={order.direction.name}, attitude={self._attitude}")
+
+        result = self._get_random_transaction_price(
             order.direction, low_price, high_price, self._attitude
         )
+
+        self.log("INFO", f"🎲 [SIMBROKER] RANDOM PRICE CALCULATION result: {result}")
+        return result
 
     def _get_random_transaction_price(self, direction: DIRECTION_TYPES, low: Number, high: Number, attitude) -> Decimal:
         """
@@ -347,27 +372,44 @@ class SimBroker(BaseBroker, IBroker):
         mean = (low + high) / 2
         std_dev = (high - low) / 6
 
+        self.log("DEBUG", f"🎲 [SIMBROKER] RANDOM_PARAMS: low={low}, high={high}, mean={mean}, std_dev={std_dev}, direction={direction.name}, attitude={attitude}")
+
         from ginkgo.enums import ATTITUDE_TYPES
         from scipy import stats
 
+        # 记录随机种子状态
+        import random
+        import numpy as np
+        py_seed = random.getstate()[1][0] if len(random.getstate()[1]) > 0 else 'N/A'
+        np_seed = np.random.get_state()[1][0] if len(np.random.get_state()[1]) > 0 else 'N/A'
+        self.log("DEBUG", f"🎲 [SIMBROKER] RANDOM_STATE: py_seed={py_seed}, np_seed={np_seed}")
+
         if attitude == ATTITUDE_TYPES.RANDOM:
+            self.log("DEBUG", f"🎲 [SIMBROKER] Using NORMAL distribution")
             rs = stats.norm.rvs(loc=mean, scale=std_dev, size=1)
         else:
             skewness_right = mean
             skewness_left = -mean
             if attitude == ATTITUDE_TYPES.OPTIMISTIC:
+                self.log("DEBUG", f"🎲 [SIMBROKER] Using OPTIMISTIC skewnorm")
                 if direction == DIRECTION_TYPES.LONG:
                     rs = stats.skewnorm.rvs(skewness_right, loc=mean, scale=std_dev, size=1)
                 else:
                     rs = stats.skewnorm.rvs(skewness_left, loc=mean, scale=std_dev, size=1)
             elif attitude == ATTITUDE_TYPES.PESSIMISTIC:
+                self.log("DEBUG", f"🎲 [SIMBROKER] Using PESSIMISTIC skewnorm")
                 if direction == DIRECTION_TYPES.LONG:
                     rs = stats.skewnorm.rvs(skewness_left, loc=mean, scale=std_dev, size=1)
                 else:
                     rs = stats.skewnorm.rvs(skewness_right, loc=mean, scale=std_dev, size=1)
 
-        rs = max(low, min(high, rs[0]))  # 限制在合理范围内
-        return to_decimal(round(rs, 2))
+        raw_result = rs[0]
+        rs = max(low, min(high, raw_result))  # 限制在合理范围内
+        result = to_decimal(round(rs, 2))
+
+        self.log("INFO", f"🎲 [SIMBROKER] RANDOM_GENERATION: raw={raw_result}, clipped={rs}, final={result}")
+
+        return result
 
     def _calculate_commission(self, transaction_money: Number, is_long: bool) -> Decimal:
         """
@@ -393,17 +435,40 @@ class SimBroker(BaseBroker, IBroker):
 
     def _adjust_volume_for_funds(self, order: Order, price: Decimal) -> int:
         """
-        根据资金调整成交数量（简化版本，假设资金充足）
+        根据资金调整成交数量（进行真实资金检查）
 
         Args:
             order: 订单对象
             price: 成交价格
 
         Returns:
-            int: 调整后的成交数量
+            int: 调整后的成交数量，如果资金不足返回0
         """
-        # 回测模式下，假设资金充足，直接返回订单数量
-        # 实际资金检查由Portfolio层面的风控处理
+        # 🔥 [CRITICAL FIX] 使用Order中的冻结资金信息进行检查
+        # Portfolio在创建Order时已经计算并冻结了必要的资金
+        if not order.portfolio_id:
+            self.log("WARN", f"⚠️ [FUNDS CHECK] Order missing portfolio_id, assuming sufficient funds")
+            return order.volume
+
+        # 使用Order中已经冻结的资金信息
+        frozen_funds = getattr(order, 'frozen_money', 0)
+        if frozen_funds is None or frozen_funds == 0:
+            self.log("WARN", f"⚠️ [FUNDS CHECK] Order missing frozen_money, assuming sufficient funds")
+            return order.volume
+
+        # 计算实际需要的资金（包含手续费）
+        required_funds = price * order.volume
+        commission = max(required_funds * self._commission_rate, Decimal(str(self._commission_min)))
+        total_required = required_funds + commission
+
+        # 检查冻结的资金是否足够
+        if frozen_funds < total_required:
+            self.log("WARN", f"❌ [FUNDS CHECK] Insufficient frozen funds: have {frozen_funds}, need {total_required}")
+            self.log("DEBUG", f"💰 [FUNDS CHECK] Order details: {order.code} {order.volume} shares @ {price}")
+            self.log("DEBUG", f"💰 [FUNDS CHECK] Commission calculation: {required_funds} * {self._commission_rate} = {commission}")
+            return 0
+
+        self.log("DEBUG", f"✅ [FUNDS CHECK] Sufficient frozen funds: {frozen_funds} >= {total_required}")
         return order.volume
 
     def _is_price_valid(self, code: str, price_data: Any) -> bool:

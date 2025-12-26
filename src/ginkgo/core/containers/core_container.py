@@ -435,4 +435,4 @@ core_container = CoreContainer()
 #     registry.register(core_container)
 #     GLOG.DEBUG("Core容器已注册到全局注册表")
 # except ImportError as e:
-#     GLOG.WARNING(f"Core容器注册失败: {e}")
+#     GLOG.WARN(f"Core容器注册失败: {e}")

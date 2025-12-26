@@ -191,6 +191,7 @@ def add(value, *args, **kwargs) -> any:
             session.flush()  # 获取数据库生成的ID等信息
             session.refresh(value)  # 确保所有属性都被加载
             session.expunge(value)  # 将对象从session中分离，但保留属性
+            # 上下文管理器会在退出时自动commit
             return value
     except Exception as e:
         GLOG.ERROR(f"Failed to add data to database: {e}")
@@ -207,7 +208,8 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
     Returns:
         None
     """
-    GLOG.DEBUG("Try add multi data to session.")
+    GLOG.DEBUG(f"Try add {len(values)} multi data to session.")
+
     click_list = []
     click_count = 0
     mysql_list = []
@@ -218,7 +220,7 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
         elif isinstance(i, MMysqlBase):
             mysql_list.append(i)
         else:
-            GLOG.DEBUG("Just support clickhouse and mysql now. Ignore other type.")
+            GLOG.DEBUG(f"Just support clickhouse and mysql now. Ignore other type: {type(i)}")
 
     if len(click_list) > 0:
         try:
@@ -273,7 +275,8 @@ def add_all(values: List[Any], *args, **kwargs) -> None:
             with mysql_conn.get_session() as session:
                 session.add_all(mysql_list)
                 mysql_count = len(mysql_list)
-                GLOG.DEBUG(f"MySQL committed {len(mysql_list)} records.")
+                # 上下文管理器会在退出时自动commit
+                GLOG.DEBUG(f"MySQL will commit {len(mysql_list)} records.")
 
                 # 在session关闭前进行批量解绑，创建干净的脱管对象
                 # 常见做法：flush确保状态完整，expunge_all批量脱管
@@ -369,11 +372,17 @@ def drop_table(model, *args, **kwargs) -> None:
 def create_all_tables() -> None:
     """
     Create tables with all models without __abstract__ = True.
+
+    NOTE: 导入 models 包以触发所有模型的导入和注册到 SQLAlchemy metadata。
+    所有继承自 MClickBase 和 MMysqlBase 且 __abstract__ != True 的模型都会被创建。
     Args:
         None
     Returns:
         None
     """
+    # 导入 models 包，触发所有子模块的导入，使模型类注册到 metadata
+    import ginkgo.data.models
+
     # Create Tables in clickhouse
     MClickBase.metadata.create_all(get_click_connection().engine)
     # Create Tables in mysql

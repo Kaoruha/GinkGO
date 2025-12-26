@@ -72,7 +72,7 @@ def dataframe_to_bar_models(df: pd.DataFrame, code: str, frequency: FREQUENCY_TY
         # Skip rows with invalid data
         if pd.isna(r["open"]) or pd.isna(r["close"]) or pd.isna(r["high"]) or pd.isna(r["low"]):
             continue
-            
+
         items.append(
             MBar(
                 code=code,
@@ -89,20 +89,80 @@ def dataframe_to_bar_models(df: pd.DataFrame, code: str, frequency: FREQUENCY_TY
         )
     return items
 
-def dataframe_to_tick_models(df: pd.DataFrame, code: str) -> List[Any]:
-    """Maps a DataFrame from TDX to a list of dynamic tick models for the specific stock code."""
-    # Get the dynamic tick model class for this stock code
-    tick_model_class = get_tick_model(code)
-    
+def dataframe_to_bar_entities(df: pd.DataFrame, code: str, frequency: FREQUENCY_TYPES = FREQUENCY_TYPES.DAY) -> List[Any]:
+    """Maps a DataFrame from Tushare to a list of Bar business entities."""
+    from ginkgo.trading.entities import Bar
+
+    items = []
+    for _, r in df.iterrows():
+        # Skip rows with invalid data
+        if pd.isna(r["open"]) or pd.isna(r["close"]) or pd.isna(r["high"]) or pd.isna(r["low"]):
+            continue
+
+        # Create Bar business entity in Service layer
+        bar = Bar(
+            code=code,
+            open=to_decimal(r["open"]),
+            high=to_decimal(r["high"]),
+            low=to_decimal(r["low"]),
+            close=to_decimal(r["close"]),
+            volume=int(r["vol"]) if pd.notna(r["vol"]) else 0,
+            amount=to_decimal(r["amount"]) if pd.notna(r["amount"]) else to_decimal(0),
+            frequency=frequency,
+            timestamp=datetime_normalize(r["trade_date"])
+        )
+        # Store source information as attribute for CRUD layer
+        bar._source = SOURCE_TYPES.TUSHARE
+        items.append(bar)
+    return items
+
+def dataframe_to_tick_entities(df: pd.DataFrame, code: str) -> List[Any]:
+    """Maps a DataFrame from TDX to a list of Tick business entities."""
+    from ginkgo.trading.entities import Tick
+
     items = []
     for _, r in df.iterrows():
         # Skip rows with invalid data
         if pd.isna(r["price"]) or pd.isna(r["volume"]) or pd.isna(r["timestamp"]):
             continue
-            
+
+        # Convert buyorsell to TICKDIRECTION_TYPES
+        direction_value = r.get("buyorsell", 0)  # 0 = NEUTRAL
+        if pd.notna(direction_value):
+            try:
+                direction = TICKDIRECTION_TYPES(direction_value)
+            except (ValueError, TypeError):
+                direction = TICKDIRECTION_TYPES.NEUTRAL
+        else:
+            direction = TICKDIRECTION_TYPES.NEUTRAL
+
+        # Create Tick business entity in Service layer
+        tick = Tick(
+            code=code,
+            price=to_decimal(r["price"]),
+            volume=int(r["volume"]),
+            direction=direction,
+            timestamp=r["timestamp"]
+        )
+        # Store source information as attribute for CRUD layer
+        tick._source = SOURCE_TYPES.TDX
+        items.append(tick)
+    return items
+
+def dataframe_to_tick_models(df: pd.DataFrame, code: str) -> List[Any]:
+    """Maps a DataFrame from TDX to a list of dynamic tick models for the specific stock code."""
+    # Get the dynamic tick model class for this stock code
+    tick_model_class = get_tick_model(code)
+
+    items = []
+    for _, r in df.iterrows():
+        # Skip rows with invalid data
+        if pd.isna(r["price"]) or pd.isna(r["volume"]) or pd.isna(r["timestamp"]):
+            continue
+
         # Convert buyorsell to TICKDIRECTION_TYPES
         direction = TICKDIRECTION_TYPES(r["buyorsell"]) if "buyorsell" in r and pd.notna(r["buyorsell"]) else TICKDIRECTION_TYPES.UNKNOWN
-        
+
         items.append(
             tick_model_class(
                 code=code,

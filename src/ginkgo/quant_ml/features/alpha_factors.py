@@ -41,9 +41,9 @@ class AlphaFactors:
         self.use_talib = use_talib and TALIB_AVAILABLE
         
         if not self.use_talib and TALIB_AVAILABLE:
-            GLOG.WARNING("TA-Lib可用但未启用，建议使用TA-Lib提高计算效率")
+            GLOG.WARN("TA-Lib可用但未启用，建议使用TA-Lib提高计算效率")
         elif self.use_talib and not TALIB_AVAILABLE:
-            GLOG.WARNING("TA-Lib未安装，使用纯pandas实现")
+            GLOG.WARN("TA-Lib未安装，使用纯pandas实现")
             self.use_talib = False
         
         GLOG.INFO(f"初始化Alpha因子计算器，TA-Lib: {self.use_talib}")

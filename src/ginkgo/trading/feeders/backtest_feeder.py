@@ -191,7 +191,7 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
         try:
             for symbol in symbols:
                 if data_type == "bar":
-                    result = self.bar_service.get_bars(symbol, start_date=start_time.date(),
+                    result = self.bar_service.get(symbol, start_date=start_time.date(),
                                     end_date=end_time.date())
                     if result.success and result.data:
                         df = result.data.to_dataframe()
@@ -230,18 +230,32 @@ class BacktestFeeder(EngineBindableMixin, BaseFeeder, IBacktestDataFeeder):
 
         try:
             # 通过注入的bar_service获取MBar模型数据
-            result = self.bar_service.get_bars(
+            print(f"🔍 DATAFEEDER DEBUG: Querying data for {code} at {target_time.date()}")
+            print(f"🔍 DATAFEEDER DEBUG: bar_service type: {type(self.bar_service)}")
+            print(f"🔍 DATAFEEDER DEBUG: bar_service bound: {self.bar_service is not None}")
+
+            result = self.bar_service.get(
                 code=code,
                 start_date=target_time.date(),
                 end_date=target_time.date()
             )
 
+            print(f"🔍 DATAFEEDER DEBUG: result.success: {result.success}")
+            if hasattr(result, 'data'):
+                print(f"🔍 DATAFEEDER DEBUG: result.data type: {type(result.data)}")
+                if hasattr(result.data, 'empty'):
+                    print(f"🔍 DATAFEEDER DEBUG: result.data.empty: {result.data.empty()}")
+
             if not result.success or result.data.empty():
                 self.log("WARN", f"❌ No data found for {code} at {target_time}")
+                print(f"❌ DATAFEEDER WARNING: No data found for {code} at {target_time}")
                 return events
 
             # 转换ModelList → 业务对象列表
             bar_entities = result.data.to_entities()
+
+            # 🔍 [DEBUG] 检查返回的Bar数量
+            print(f"🔍 [BAR COUNT] {code}: Found {len(bar_entities)} bars for {target_time.date()}")
 
             # 转换第一个Bar实体
             bar = bar_entities[0] if bar_entities else None

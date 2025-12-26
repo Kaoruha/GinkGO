@@ -287,11 +287,11 @@ class StreamingEngineFactory:
                 elif "clickhouse" in url_str:
                     return DatabaseType.CLICKHOUSE
 
-            GLOG.WARNING("Could not detect database type, defaulting to UNKNOWN")
+            GLOG.WARN("Could not detect database type, defaulting to UNKNOWN")
             return DatabaseType.UNKNOWN
 
         except Exception as e:
-            GLOG.WARNING(f"Error detecting database type: {e}")
+            GLOG.WARN(f"Error detecting database type: {e}")
             return DatabaseType.UNKNOWN
 
     def create_engine(
@@ -451,7 +451,7 @@ class StreamingEngineFactory:
             GLOG.DEBUG(f"Recorded usage for {engine_type} engine")
 
         except Exception as e:
-            GLOG.WARNING(f"Failed to record engine usage: {e}")
+            GLOG.WARN(f"Failed to record engine usage: {e}")
 
     def get_performance_stats(self) -> Dict[str, EnginePerformance]:
         """获取引擎性能统计"""

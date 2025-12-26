@@ -118,8 +118,31 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         self.set_event_queue_size(max_event_queue_size)
         self.set_event_timeout(event_timeout_seconds)
 
+        # 时间范围配置（将在_initialize_components中使用）
+        self._start_date = None
+        self._end_date = None
+
         # 初始化组件
         self._initialize_components()
+
+    def set_time_range(self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> None:
+        """统一设置时间范围
+
+        Args:
+            start_date: 回测开始时间
+            end_date: 回测结束时间
+        """
+        self._start_date = start_date
+        self._end_date = end_date
+
+        # 如果时间提供者已存在且是LogicalTimeProvider，直接设置时间范围
+        if self.mode == EXECUTION_MODE.BACKTEST and self._time_provider:
+            if start_date:
+                self._time_provider.set_start_time(start_date)
+            if end_date:
+                self._time_provider.set_end_time(end_date)
+
+            self.log("INFO", f"Time range set: {start_date} to {end_date}")
 
     def start(self) -> bool:
         """启动引擎（带调试信息）"""
@@ -202,33 +225,15 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         super().put(event)
 
     def register(self, event_type: EVENT_TYPES, handler: Callable) -> bool:
-        """注册事件处理器 - 保持与父类兼容"""
-        # 处理器增强包装
-        if self._enhanced_processing_enabled:
-            enhanced_handler = self._wrap_handler(handler, event_type)
-            # 存储映射关系以便注销
-            if not hasattr(self, "_handler_mappings"):
-                self._handler_mappings = {}
-            self._handler_mappings[(event_type, handler)] = enhanced_handler
-        else:
-            enhanced_handler = handler
-
-        # 调用父类注册方法
-        return super().register(event_type, enhanced_handler)
+        """注册事件处理器 - 直接使用父类方法，移除不必要的包装"""
+        # ❌ 移除 _wrap_handler 机制，避免重复注册和性能开销
+        # 直接调用父类注册方法，保持与example一致的行为
+        return super().register(event_type, handler)
 
     def unregister(self, event_type: EVENT_TYPES, handler: Callable) -> bool:
-        """注销事件处理器 - 保持与父类兼容"""
-        # 如果启用了增强处理，需要找到对应的增强处理器
-        if (
-            self._enhanced_processing_enabled
-            and hasattr(self, "_handler_mappings")
-            and (event_type, handler) in self._handler_mappings
-        ):
-
-            enhanced_handler = self._handler_mappings.pop((event_type, handler))
-            return super().unregister(event_type, enhanced_handler)
-        else:
-            return super().unregister(event_type, handler)
+        """注销事件处理器 - 直接使用父类方法"""
+        # ❌ 移除 _wrap_handler 相关的复杂逻辑，简化为直接调用父类方法
+        return super().unregister(event_type, handler)
 
     def main_loop(self, main_flag: threading.Event) -> None:
         """统一主循环 - 事件驱动架构
@@ -469,8 +474,10 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
             if component_type == "portfolio":
                 # 阶段1：推进Portfolio时间
-                for portfolio in self.portfolios:
+                self.log("DEBUG", f"{self.name}: 🔍 [PORTFOLIO LOOP] Found {len(self.portfolios)} portfolios")
+                for i, portfolio in enumerate(self.portfolios):
                     try:
+                        self.log("DEBUG", f"{self.name}: 🔍 [PORTFOLIO LOOP #{i+1}] About to call advance_time on {portfolio.name} (uuid: {getattr(portfolio, 'uuid', 'N/A')})")
                         portfolio.advance_time(target_time)
                         # Portfolio内部会发送EventInterestUpdate（如果兴趣集有变化）
                         self.log("DEBUG", f"{self.name}: Portfolio {portfolio.name} advanced to {target_time}")
@@ -653,6 +660,16 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         # TimeControlledEventEngine特有逻辑：自动注册事件处理器
         self._auto_register_component_events(portfolio)
 
+        # 如果Router已存在，自动注册Portfolio到Router
+        router = getattr(self, '_router', None)
+        if router is not None:
+            try:
+                router.register_portfolio(portfolio)
+                self.log("INFO", f"Portfolio {portfolio.uuid[:8]} auto-registered to router {router.name}")
+            except Exception as e:
+                self.log("ERROR", f"Failed to register portfolio {portfolio.uuid[:8]} to router: {e}")
+                raise
+
         self.log("DEBUG", f"Auto-registered event handlers for portfolio {portfolio.name}")
 
     
@@ -665,6 +682,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             "PortfolioT1Backtest": {
                 EVENT_TYPES.PRICEUPDATE: "on_price_received",  # 注意：PortfolioT1Backtest使用on_price_received
                 EVENT_TYPES.SIGNALGENERATION: "on_signal",
+                # EVENT_TYPES.ORDERPARTIALLYFILLED: "on_order_partially_filled",  # 移除：让Router处理
                 EVENT_TYPES.POSITIONUPDATE: "on_position_update",
                 EVENT_TYPES.CAPITALUPDATE: "on_capital_update",
                 EVENT_TYPES.PORTFOLIOUPDATE: "on_portfolio_update",
@@ -738,6 +756,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
 
     def bind_router(self, router) -> None:
         """绑定Router到引擎"""
+        # 存储Router引用
+        self._router = router
+
         # Router需要引擎来推送事件
         router.bind_engine(self)
         self.log("INFO", f"Router {router.name} bound to engine")

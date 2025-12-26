@@ -245,7 +245,7 @@ class LightGBMModel(IModel):
         required_params = ['objective', 'metric']
         for param in required_params:
             if param not in self._hyperparameters:
-                GLOG.WARNING(f"缺少必需参数: {param}")
+                GLOG.WARN(f"缺少必需参数: {param}")
                 return False
         return True
     

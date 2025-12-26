@@ -1,318 +1,255 @@
+"""
+Ginkgo Worker CLI - Worker管理命令
+"""
+
 import typer
-from enum import Enum
-from typing_extensions import Annotated
+from typing import Optional
 from rich.console import Console
+from rich.table import Table
+import psutil
 
-# All heavy imports moved to function level for faster CLI startup
-
-app = typer.Typer(
-    help=":construction_worker: Module for [bold medium_spring_green]WORKER[/]. [grey62]Worker process management.[/grey62]",
-    no_args_is_help=True,
-)
-
-console = Console()
+app = typer.Typer(help=":gear: Worker management", rich_markup_mode="rich")
+console = Console(emoji=True, legacy_windows=False)
 
 
-class ToggleType(str, Enum):
-    ON = "on"
-    OFF = "off"
-
-
-@app.command("status")
-def worker_status():
-    """
-    :bar_chart: Show worker process status summary.
-    """
-    import datetime
-    from ginkgo.libs import GCONF, GTM
-    from ginkgo.libs.utils.display import display_dataframe
-    
-    GTM.clean_worker_pool()
-    GTM.clean_thread_pool()
-    GTM.clean_worker_status()
-    
-    total_workers = GTM.get_worker_count()
-    target_workers = int(GCONF.CPURATIO * 12)
-    cpu_usage = GCONF.CPURATIO * 100
-    
-    console.print(f"[bold]Worker Status Summary:[/bold]")
-    console.print(f"Total Workers    : {total_workers}")
-    console.print(f"Target Workers   : {target_workers}")
-    console.print(f"CPU Ratio        : {cpu_usage:.1f}%")
-    
-    status = GTM.get_workers_status()
-    
-    if len(status) > 0:
-        running = sum(1 for item in status.values() if item["status"] == "RUNNING")
-        idle = sum(1 for item in status.values() if item["status"] == "IDLE")
-        complete = sum(1 for item in status.values() if item["status"] == "COMPLETE")
-        error = sum(1 for item in status.values() if item["status"] == "ERROR")
-        other = len(status) - running - idle - complete - error
-        
-        console.print(f"Running Workers  : {running}")
-        console.print(f"Idle Workers     : {idle}")
-        console.print(f"Complete Workers : {complete}")
-        if error > 0:
-            console.print(f"Error Workers    : {error}")
-        if other > 0:
-            console.print(f"Other Status     : {other}")
-        
-        # Create detailed worker status table
-        console.print("")
-        if status:
-            # 转换为status dict为dataframe
-            import pandas as pd
-            status_data = []
-            for worker_id, worker_info in status.items():
-                status_data.append({
-                    "worker_id": worker_id,
-                    "task_name": worker_info.get("task_name", "N/A"),
-                    "status": worker_info.get("status", "UNKNOWN"),
-                    "memory_mb": worker_info.get("memory_mb", "N/A"),
-                    "running_time": worker_info.get("running_time", "N/A")
-                })
-            
-            status_df = pd.DataFrame(status_data)
-            
-            # 配置列显示
-            worker_status_columns_config = {
-                "worker_id": {"display_name": "Worker ID", "style": "cyan"},
-                "task_name": {"display_name": "Task Name", "style": "blue"},
-                "status": {"display_name": "Status", "style": "green"},
-                "memory_mb": {"display_name": "Memory", "style": "yellow"},
-                "running_time": {"display_name": "Running Time", "style": "magenta"}
-            }
-            
-            display_dataframe(
-                data=status_df,
-                columns_config=worker_status_columns_config,
-                title="Worker Process Details",
-                console=console
-            )
-        else:
-            console.print("No worker status data available.")
-    else:
-        console.print("No detailed worker status available.")
-
-
-@app.command("list")
-def worker_list():
-    """
-    :clipboard: List all worker processes.
-    """
-    from ginkgo.libs import GTM
-    
-    GTM.clean_worker_pool()
-    GTM.clean_thread_pool()
-    GTM.clean_worker_status()
-
-    console.print(f"Total Workers: {GTM.get_worker_count()}")
-
-    # Create worker status table
-    status = GTM.get_workers_status()
-    if status:
-        # 转换为status dict为dataframe
-        import pandas as pd
-        status_data = []
-        for worker_id, worker_info in status.items():
-            status_data.append({
-                "worker_id": worker_id,
-                "task_name": worker_info.get("task_name", "N/A"),
-                "status": worker_info.get("status", "UNKNOWN"),
-                "memory_mb": worker_info.get("memory_mb", "N/A"),
-                "running_time": worker_info.get("running_time", "N/A")
-            })
-        
-        status_df = pd.DataFrame(status_data)
-        
-        # 配置列显示
-        worker_status_columns_config = {
-            "worker_id": {"display_name": "Worker ID", "style": "cyan"},
-            "task_name": {"display_name": "Task Name", "style": "blue"},
-            "status": {"display_name": "Status", "style": "green"},
-            "memory_mb": {"display_name": "Memory", "style": "yellow"},
-            "running_time": {"display_name": "Running Time", "style": "magenta"}
-        }
-        
-        display_dataframe(
-            data=status_df,
-            columns_config=worker_status_columns_config,
-            title="Worker Processes",
-            console=console
-        )
-    else:
-        console.print("No worker status data available.")
-
-
-@app.command("start")
-def worker_start(
-    count: Annotated[int, typer.Option(help=":1234: Number of workers to start")] = None,
-    auto: Annotated[bool, typer.Option(help=":robot: Auto-calculate worker count based on CPU ratio")] = False,
+@app.command()
+def run(
+    debug: bool = typer.Option(False, "--debug", "-d", help="Run worker in debug mode"),
 ):
     """
-    :green_circle: Start worker processes.
+    :gear: Run a worker in foreground.
     """
-    from ginkgo.libs import GCONF, GTM
-    
-    current_count = GTM.get_worker_count()
-
-    if auto:
-        target_count = int(GCONF.CPURATIO * 12)
-        count = target_count - current_count
-        console.print(f":penguin: Target Worker: {target_count}, Current Worker: {current_count}")
-    elif count is None:
-        console.print("Specify either --count or --auto option.")
-        return
-
-    if count > 0:
-        GTM.start_multi_worker(count)
-        console.print(f":construction_worker: Started {count} worker processes.")
-    elif count < 0:
-        from ginkgo.data.containers import container
-        kafka_service = container.kafka_service()
-
-        for i in range(abs(count)):
-            kafka_service.send_worker_kill_signal()
-        console.print(f":stop_sign: Stopped {abs(count)} worker processes.")
-    else:
-        console.print("No action needed. Worker count is already at target.")
-
-    console.print(f"Total Workers: {GTM.get_worker_count()}")
-
-
-@app.command("stop")
-def worker_stop(
-    count: Annotated[int, typer.Option(help=":1234: Number of workers to stop")] = None,
-    all: Annotated[bool, typer.Option(help=":octagonal_sign: Stop all workers")] = False,
-):
-    """
-    :red_circle: Stop worker processes.
-    """
-    from ginkgo.libs import GTM
-    
-    if all:
-        GTM.reset_all_workers()
-        console.print(":octagonal_sign: All workers stopped.")
-    elif count is not None:
-        from ginkgo.data.containers import container
-        kafka_service = container.kafka_service()
-
-        for i in range(count):
-            kafka_service.send_worker_kill_signal()
-        console.print(f":stop_sign: Stopped {count} worker processes.")
-    else:
-        console.print("Specify either --count or --all option.")
-        return
-
-    console.print(f"Remaining Workers: {GTM.get_worker_count()}")
-
-
-@app.command("restart")
-def worker_restart(
-    count: Annotated[int, typer.Option(help=":1234: Number of workers to restart")] = None,
-):
-    """
-    :arrows_counterclockwise: Restart worker processes.
-    """
-    from ginkgo.libs import GTM
-    
-    if count is None:
-        # Restart all workers
-        current_count = GTM.get_worker_count()
-        GTM.reset_all_workers()
-        console.print(f":octagonal_sign: Stopped all {current_count} workers.")
-
-        if current_count > 0:
-            GTM.start_multi_worker(current_count)
-            console.print(f":construction_worker: Restarted {current_count} workers.")
-    else:
-        # Restart specific number of workers
-        from ginkgo.data.containers import container
-        kafka_service = container.kafka_service()
-
-        for i in range(count):
-            kafka_service.send_worker_kill_signal()
-        console.print(f":stop_sign: Stopped {count} workers.")
-
-        GTM.start_multi_worker(count)
-        console.print(f":construction_worker: Started {count} new workers.")
-
-    console.print(f"Total Workers: {GTM.get_worker_count()}")
-
-
-@app.command("scale")
-def worker_scale(
-    target: Annotated[int, typer.Argument(help="Target number of workers")],
-):
-    """
-    :chart_with_upwards_trend: Scale worker processes to target count.
-    """
-    from ginkgo.libs import GTM
-    
-    current_count = GTM.get_worker_count()
-    difference = target - current_count
-
-    console.print(f"Current Workers: {current_count}")
-    console.print(f"Target Workers : {target}")
-
-    if difference > 0:
-        GTM.start_multi_worker(difference)
-        console.print(f":construction_worker: Started {difference} additional workers.")
-    elif difference < 0:
-        from ginkgo.data.containers import container
-        kafka_service = container.kafka_service()
-
-        for i in range(abs(difference)):
-            kafka_service.send_worker_kill_signal()
-        console.print(f":stop_sign: Stopped {abs(difference)} workers.")
-    else:
-        console.print("Worker count is already at target.")
-
-    console.print(f"Final Worker Count: {GTM.get_worker_count()}")
-
-
-@app.command("run")
-def worker_run(
-    debug: Annotated[bool, typer.Option("--debug", "-d", help="Enable debug logging")] = False,
-    worker_id: Annotated[str, typer.Option("--id", help="Custom worker ID for identification")] = None
-):
-    """
-    :play_button: Run a single worker in foreground mode for debugging.
-    """
-    from ginkgo.libs import GTM, GLOG
-    import signal
-    import sys
-    
-    # 设置日志级别
-    if debug:
-        GLOG.set_level("DEBUG")
-        console.print("[bold yellow]Debug mode enabled[/bold yellow]")
-    
-    # 显示启动信息
-    if worker_id:
-        console.print(f"[bold blue]Starting worker '{worker_id}' in foreground...[/bold blue]")
-    else:
-        console.print("[bold blue]Starting worker in foreground...[/bold blue]")
-    
-    console.print("[yellow]Press Ctrl+C to stop the worker[/yellow]")
-    
-    # 设置信号处理
-    def signal_handler(signum, frame):
-        console.print("\n[bold red]Received interrupt signal, stopping worker...[/bold red]")
-        sys.exit(0)
-    
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
     try:
-        # 直接运行worker（不创建daemon进程）
-        gtm = GTM
-        gtm.run_data_worker()
-    except KeyboardInterrupt:
-        console.print("\n[bold yellow]Worker stopped by user[/bold yellow]")
-    except Exception as e:
-        console.print(f"[bold red]Worker error: {e}[/bold red]")
+        from ginkgo.libs.core.threading import GinkgoThreadManager
+        from ginkgo.libs.core.logger import GinkgoLogger
+
         if debug:
-            import traceback
-            console.print(f"[red]{traceback.format_exc()}[/red]")
-        sys.exit(1)
+            print("Starting worker in debug mode...")
+
+        # 创建ThreadManager实例
+        gtm = GinkgoThreadManager()
+
+        # 在前台运行单个worker
+        console.print(":gear: Starting worker in foreground mode...")
+        console.print(":information: Press Ctrl+C to stop the worker")
+
+        try:
+            gtm.run_data_worker()
+        except KeyboardInterrupt:
+            console.print("\n:information: Worker stopped by user")
+        except Exception as e:
+            console.print(f":x: Worker error: {e}")
+            raise typer.Exit(1)
+
+    except ImportError as e:
+        console.print(f":x: Failed to import ThreadManager: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def status(
+    pid: Optional[str] = typer.Option(None, "--pid", "-p", help="Show status for specific worker PID"),
+    detailed: bool = typer.Option(False, "--detailed", help="Show detailed worker information"),
+    raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
+):
+    """
+    :bar_chart: Show worker status.
+    """
+    try:
+        from ginkgo.libs.core.threading import GinkgoThreadManager
+        import datetime
+
+        gtm = GinkgoThreadManager()
+
+        if pid:
+            # 显示特定worker的状态
+            worker_status = gtm.get_worker_status(pid)
+
+            if not worker_status:
+                console.print(f":x: Worker PID {pid} not found or has no status information")
+                return
+
+            # Raw output mode
+            if raw:
+                import json
+                console.print(json.dumps(worker_status, indent=2, ensure_ascii=False, default=str))
+                return
+
+            console.print(f":magnifying_glass_tilted_left: Worker Status - PID: {pid}")
+
+            # 显示worker详细信息
+            table = Table(title=f":gear: Worker Details - PID {pid}")
+            table.add_column("Property", style="cyan", width=20)
+            table.add_column("Value", style="white", width=40)
+
+            for key, value in worker_status.items():
+                if key != "pid":
+                    table.add_row(key.replace("_", " ").title(), str(value))
+
+            console.print(table)
+
+        else:
+            # 显示所有worker的状态
+            console.print(":magnifying_glass_tilted_left: All Workers Status")
+            workers_status = gtm.get_workers_status()
+            worker_count = gtm.get_worker_count()
+
+            if not workers_status:
+                console.print(":memo: No active workers found")
+                return
+
+            # Raw output mode
+            if raw:
+                import json
+                console.print(json.dumps(workers_status, indent=2, ensure_ascii=False, default=str))
+                return
+
+            # 创建worker状态表格
+            table = Table(title=f":gear: Worker Pool - Total: {worker_count}")
+            table.add_column("PID", style="cyan", width=8)
+            table.add_column("Task", style="green", width=20)
+            table.add_column("Status", style="yellow", width=10)
+            table.add_column("Running Time", style="blue", width=12)
+            table.add_column("CPU", style="red", width=8)
+            table.add_column("Memory", style="magenta", width=10)
+
+            for pid, status in workers_status.items():
+                try:
+                    # 获取进程CPU和内存使用情况
+                    if pid and pid.isdigit():
+                        process = psutil.Process(int(pid))
+                        cpu_percent = f"{process.cpu_percent():.1f}%"
+                        memory_mb = f"{process.memory_info().rss / 1024 / 1024:.1f}MB"
+                    else:
+                        cpu_percent = "N/A"
+                        memory_mb = "N/A"
+                except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
+                    cpu_percent = "N/A"
+                    memory_mb = "N/A"
+
+                task_name = status.get("task_name", "N/A")
+                worker_status = status.get("status", "N/A")
+                running_time = status.get("running_time", "N/A")
+
+                table.add_row(
+                    str(pid)[:8],
+                    str(task_name)[:18],
+                    str(worker_status)[:8],
+                    str(running_time)[:10],
+                    str(cpu_percent)[:6],
+                    str(memory_mb)[:8]
+                )
+
+            console.print(table)
+
+            if detailed:
+                console.print("\n:information: Detailed Worker Information:")
+                for pid, status in workers_status.items():
+                    console.print(f"  • PID {pid}: {status}")
+
+    except ImportError as e:
+        console.print(f":x: Failed to import ThreadManager: {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f":x: Error getting worker status: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def scale(
+    count: int = typer.Argument(..., help="Target number of workers"),
+    force: bool = typer.Option(False, "--force", "-f", help="Force scaling without confirmation"),
+):
+    """
+    :arrows_counterclockwise: Scale workers to specified count.
+    """
+    try:
+        from ginkgo.libs.core.threading import GinkgoThreadManager
+
+        gtm = GinkgoThreadManager()
+        current_count = gtm.get_worker_count()
+
+        console.print(f":information: Current worker count: {current_count}")
+        console.print(f":information: Target worker count: {count}")
+
+        if count < 0:
+            console.print(":x: Worker count cannot be negative")
+            raise typer.Exit(1)
+
+        if count == current_count:
+            console.print(":information: Worker count is already at target")
+            return
+
+        if not force:
+            # 请求确认
+            if count > current_count:
+                action = f"start {count - current_count} workers"
+            else:
+                action = f"stop {current_count - count} workers"
+
+            console.print(f":warning: This will {action}. Are you sure?")
+            try:
+                from rich.prompt import Prompt
+                confirmation = Prompt.ask("Type 'yes' to continue", default="no")
+                if confirmation.lower() != 'yes':
+                    console.print(":information: Operation cancelled")
+                    return
+            except (EOFError, KeyboardInterrupt):
+                console.print(":information: Operation cancelled")
+                return
+
+        # 扩展worker数量
+        if count > current_count:
+            # 启动新workers
+            workers_to_start = count - current_count
+            console.print(f":information: Starting {workers_to_start} new workers...")
+            gtm.start_multi_worker(count=workers_to_start)
+            console.print(f":white_check_mark: Successfully started {workers_to_start} workers")
+
+        elif count < current_count:
+            # 停止多余的workers
+            workers_to_stop = current_count - count
+            console.print(f":warning: Stopping {workers_to_stop} workers...")
+            gtm.reset_all_workers()
+            # 重新启动需要的worker数量
+            if count > 0:
+                gtm.start_multi_worker(count=count)
+            console.print(f":white_check_mark: Successfully scaled workers to {count}")
+
+        # 显示新的状态
+        new_count = gtm.get_worker_count()
+        console.print(f":information: New worker count: {new_count}")
+
+    except ImportError as e:
+        console.print(f":x: Failed to import ThreadManager: {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f":x: Error scaling workers: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def stop():
+    """
+    :stop_button: Stop all workers.
+    """
+    try:
+        from ginkgo.libs.core.threading import GinkgoThreadManager
+
+        gtm = GinkgoThreadManager()
+        current_count = gtm.get_worker_count()
+
+        if current_count == 0:
+            console.print(":information: No workers are currently running")
+            return
+
+        console.print(f":information: Stopping {current_count} workers...")
+        gtm.reset_all_workers()
+        console.print(":white_check_mark: All workers stopped successfully")
+
+    except ImportError as e:
+        console.print(f":x: Failed to import ThreadManager: {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f":x: Error stopping workers: {e}")
+        raise typer.Exit(1)

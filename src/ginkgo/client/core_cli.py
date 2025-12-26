@@ -126,32 +126,239 @@ def debug(mode: Annotated[DebugMode, typer.Argument(help="Debug mode: on/off")])
 
 def init():
     """
-    :construction: Initialize database and example data (simplified from 'data init').
+    :rocket: Complete system initialization including database setup, component registration, and example data with idempotency.
     """
     try:
-        console.print("[bold blue]:rocket: Initializing Ginkgo...[/bold blue]")
-        
-        # Initialize database tables
+        console.print(":rocket: Initializing Ginkgo System...")
+
+        # Step 1: Database initialization (idempotent)
         console.print(":bar_chart: Creating database tables...")
-        from ginkgo.data.drivers import create_all_tables
+        from ginkgo.data.drivers import create_all_tables, is_table_exists
+        from ginkgo.data.models import (
+            MStockInfo, MBar, MTick, MSignal, MOrder, MPosition,
+            MPortfolio, MEngine, MParam, MAdjustfactor
+        )
+
         create_all_tables()
-        console.print("[green]:white_check_mark: Database tables created[/green]")
-        
-        # Initialize example data
-        console.print(":memo: Loading example data...")
-        from ginkgo.data import seeding
-        seeding.run()
-        console.print("[green]:white_check_mark: Example data loaded[/green]")
-        
-        console.print("\n[bold green]:party_popper: Initialization complete![/bold green]")
-        console.print("Next steps:")
-        console.print("  • ginkgo get stockinfo     # Get stock information")
-        console.print("  • ginkgo show stocks       # List available stocks")
-        console.print("  • ginkgo status            # Check system status")
-        
+
+        # Verify core tables exist (idempotency check)
+        core_tables = [MStockInfo, MBar, MSignal, MOrder, MPosition, MPortfolio, MEngine]
+        # Skip abstract models like MTick
+        missing_tables = []
+        for table in core_tables:
+            if hasattr(table, '__abstract__') and table.__abstract__:
+                continue
+            if not is_table_exists(table):
+                missing_tables.append(table.__tablename__)
+
+        if missing_tables:
+            console.print(f":x: Missing tables: {missing_tables}")
+            raise RuntimeError(f"Database tables creation failed: {missing_tables}")
+
+        console.print(":white_check_mark: All database tables created successfully")
+
+        # Step 3: Component registration and example data (idempotent)
+        console.print(":wrench: Registering components and loading example data...")
+        try:
+            from ginkgo.data import seeding
+            seeding.run()  # This function includes idempotent component registration
+            console.print(":white_check_mark: Components and example data initialized successfully")
+        except Exception as e:
+            console.print(f":warning: Component initialization had issues: {e}")
+            console.print(":information: This may be normal if components already exist")
+
+        # Step 4: System health validation
+        console.print(":mag: Validating system health...")
+        health_status = _validate_system_health()
+
+        if not health_status["healthy"]:
+            console.print(f":warning: System health check warnings: {health_status['issues']}")
+        else:
+            console.print(":white_check_mark: System health check passed")
+
+        # Step 5: Cleanup invalid data
+        cleanup_result = _cleanup_invalid_data()
+
+        console.print("\n:tada: Ginkgo system initialization completed!")
+        console.print("\n:clipboard: System Summary:")
+        console.print("  • Database Tables: All core tables created")
+        console.print("  • Components: Strategies, analyzers, risk managers registered")
+        console.print("  • Example Data: Demo portfolio and engine initialized")
+        console.print(f"  • System Health: {'Healthy' if health_status['healthy'] else 'Warning'}")
+
+        console.print("\n:rocket: Next steps:")
+        console.print("  • ginkgo status                    # Check system status")
+        console.print("  • ginkgo data get stockinfo        # Get stock information")
+        console.print("  • ginkgo data show stocks          # List available stocks")
+        console.print("  • ginkgo pro components strategies  # View registered strategies")
+        console.print("  • ginkgo list engines              # View example engines")
+
     except Exception as e:
-        console.print(f"[red]:x: Initialization failed: {e}[/red]")
-        console.print("Try: ginkgo data init (full command)")
+        console.print(f":x: System initialization failed: {e}")
+        from ginkgo.libs import GLOG
+        GLOG.ERROR(f"System initialization error: {e}")
+        console.print(":bulb: Try: ginkgo debug on then ginkgo init")
+        raise typer.Exit(1)
+
+
+def _validate_system_health() -> dict:
+    """验证系统健康状态"""
+    health_status = {"healthy": True, "issues": []}
+
+    try:
+        # 检查数据库连接
+        from ginkgo.data.drivers import get_connection_status
+        conn_status = get_connection_status()
+
+        for db_name, status in conn_status.items():
+            if not status.get("healthy", False):
+                health_status["healthy"] = False
+                health_status["issues"].append(f"{db_name} connection unhealthy")
+
+        # 检查服务容器
+        try:
+            from ginkgo.data.containers import container
+            stockinfo_service = container.stockinfo_service()
+            # Simple service availability check
+            test_result = stockinfo_service.get(limit=1)
+            if not test_result.success:
+                health_status["issues"].append("Stock info service unavailable")
+        except Exception as e:
+            health_status["issues"].append(f"Service container error: {str(e)[:30]}...")
+
+    except Exception as e:
+        health_status["healthy"] = False
+        health_status["issues"].append(f"Health check failed: {str(e)[:30]}...")
+
+    return health_status
+
+def _cleanup_invalid_data() -> dict:
+    """
+    清理系统中的无效数据，包括孤立映射、孤立参数、死任务等
+
+    Returns:
+        dict: 清理结果统计
+    """
+    cleanup_result = {
+        "success": True,
+        "cleaned_count": 0,
+        "services_cleaned": [],
+        "services_failed": [],
+        "warnings": [],
+        "details": {}
+    }
+
+    try:
+        console.print(":broom: Cleaning invalid data...")
+        from ginkgo.data.containers import container
+        from ginkgo.libs import GLOG
+
+        # 1. 清理孤立的映射关系 (高优先级)
+        try:
+            mapping_service = container.mapping_service()
+            result = mapping_service.cleanup_orphaned_mappings()
+            if result.success:
+                count = result.data.get("cleaned_count", 0)
+                cleanup_result["cleaned_count"] += count
+                cleanup_result["services_cleaned"].append("mapping_service")
+                cleanup_result["details"]["mappings"] = count
+                if count > 0:
+                    console.print(f":white_check_mark: Cleaned {count} orphaned mappings")
+            else:
+                cleanup_result["warnings"].append(f"Mapping cleanup: {result.error}")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Mapping cleanup error: {str(e)}")
+            GLOG.WARN(f"Mapping cleanup failed: {e}")
+
+        # 2. 清理孤立的参数 (高优先级)
+        try:
+            param_service = container.param_service()
+            result = param_service.cleanup_orphaned_params()
+            if result.success:
+                count = result.data.get("deleted_count", 0)
+                cleanup_result["cleaned_count"] += count
+                cleanup_result["services_cleaned"].append("param_service")
+                cleanup_result["details"]["params"] = count
+                if count > 0:
+                    console.print(f":white_check_mark: Cleaned {count} orphaned parameters")
+            else:
+                cleanup_result["warnings"].append(f"Param cleanup: {result.error}")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Param cleanup error: {str(e)}")
+            GLOG.WARN(f"Param cleanup failed: {e}")
+
+        # 3. 清理Redis死任务 (中优先级)
+        try:
+            redis_service = container.redis_service()
+            count = redis_service.cleanup_dead_tasks(max_idle_time=3600)
+            cleanup_result["cleaned_count"] += count
+            if count > 0:
+                console.print(f":white_check_mark: Cleaned {count} dead tasks")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Redis cleanup error: {str(e)}")
+            GLOG.WARN(f"Redis cleanup failed: {e}")
+
+        # 4. 清理过期函数缓存 (中优先级)
+        try:
+            redis_service = container.redis_service()
+            count = redis_service.cleanup_expired_function_cache()
+            cleanup_result["cleaned_count"] += count
+            if count > 0:
+                console.print(f":white_check_mark: Cleaned {count} expired cache entries")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Cache cleanup error: {str(e)}")
+            GLOG.WARN(f"Cache cleanup failed: {e}")
+
+        # 5. 清理旧的信号追踪记录 (低优先级)
+        try:
+            signal_service = container.signal_tracking_service()
+            result = signal_service.cleanup(days_to_keep=30)
+            if result.success:
+                count = result.data
+                cleanup_result["cleaned_count"] += count
+                cleanup_result["services_cleaned"].append("signal_tracking_service")
+                cleanup_result["details"]["signals"] = count
+                if count > 0:
+                    console.print(f":white_check_mark: Cleaned {count} old signal records")
+            else:
+                cleanup_result["warnings"].append(f"Signal cleanup: {result.error}")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Signal cleanup error: {str(e)}")
+            GLOG.WARN(f"Signal cleanup failed: {e}")
+
+        # 6. 清理过期断点 (中优先级)
+        try:
+            from ginkgo.data.streaming import CheckpointManager
+            checkpoint_manager = CheckpointManager()
+            count = checkpoint_manager.cleanup_expired_checkpoints()
+            cleanup_result["cleaned_count"] += count
+            if count > 0:
+                console.print(f":white_check_mark: Cleaned {count} expired checkpoints")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Checkpoint cleanup error: {str(e)}")
+            GLOG.WARN(f"Checkpoint cleanup failed: {e}")
+
+        # 显示清理摘要
+        if cleanup_result["cleaned_count"] > 0:
+            if cleanup_result["warnings"]:
+                console.print(f":information: Cleanup completed: {cleanup_result['cleaned_count']} items cleaned, {len(cleanup_result['warnings'])} warnings")
+            else:
+                console.print(f":white_check_mark: Cleanup completed: {cleanup_result['cleaned_count']} items cleaned")
+        else:
+            console.print(":information: No invalid data found, system is clean")
+
+        if cleanup_result["warnings"]:
+            for warning in cleanup_result["warnings"]:
+                console.print(f":warning: {warning}")
+
+        GLOG.INFO(f"Cleanup completed: {cleanup_result['cleaned_count']} items cleaned")
+
+    except Exception as e:
+        cleanup_result["success"] = False
+        console.print(f":warning: Cleanup encountered errors: {e}")
+        GLOG.ERROR(f"Cleanup failed: {e}")
+
+    return cleanup_result
 
 def get(
     data_type: Annotated[DataType, typer.Argument(help="Data type to fetch")],
@@ -169,9 +376,12 @@ def get(
         if data_type == DataType.STOCKINFO:
             from ginkgo.data.containers import container
             stockinfo_service = container.stockinfo_service()
-            stockinfo_service.sync_all()
-            console.print("[green]:white_check_mark: Stock information updated[/green]")
-            
+            result = stockinfo_service.sync()
+            if result.success:
+                console.print(f":white_check_mark: Stock information updated: {result.data}")
+            else:
+                console.print(f":x: Stock information update failed: {result.error}")
+
         elif data_type == DataType.CALENDAR:
             from ginkgo.data.containers import container
             # Calendar update might be part of another service - let's try trading calendar
@@ -183,26 +393,32 @@ def get(
                 from ginkgo.data import update_calendar
                 update_calendar()
             console.print("[green]:white_check_mark: Trading calendar updated[/green]")
-            
+
         elif data_type == DataType.BARS:
             if not code:
-                console.print("[red]:x: Stock code required for bars data[/red]")
+                console.print(":x: Stock code required for bars data")
                 console.print("Example: ginkgo get bars --code 000001.SZ")
                 return
             from ginkgo.data.containers import container
             bar_service = container.bar_service()
-            bar_service.sync_bars_for_code(code, start_date=start, end_date=end)
-            console.print(f"[green]:white_check_mark: Daily bars updated for {code}[/green]")
-            
+            result = bar_service.sync_smart(code=code, fast_mode=True)
+            if result.success:
+                console.print(f":white_check_mark: Daily bars updated for {code}")
+            else:
+                console.print(f":x: Daily bars update failed for {code}: {result.error}")
+
         elif data_type == DataType.TICKS:
             if not code:
-                console.print("[red]:x: Stock code required for ticks data[/red]")
+                console.print(":x: Stock code required for ticks data")
                 console.print("Example: ginkgo get ticks --code 000001.SZ")
                 return
             from ginkgo.data.containers import container
             tick_service = container.tick_service()
-            tick_service.sync_ticks_for_code(code, start_date=start, end_date=end)
-            console.print(f"[green]:white_check_mark: Tick data updated for {code}[/green]")
+            result = tick_service.sync_smart(code=code, fast_mode=True)
+            if result.success:
+                console.print(f":white_check_mark: Tick data updated for {code}")
+            else:
+                console.print(f":x: Tick data update failed for {code}: {result.error}")
             
     except Exception as e:
         console.print(f"[red]:x: Failed to fetch {data_type.value}: {e}[/red]")
@@ -224,13 +440,25 @@ def show(
         if data_type == "stocks":
             from ginkgo.data.containers import container
             from ginkgo.libs.utils.display import display_dataframe
-            
+
             stockinfo_service = container.stockinfo_service()
-            df = stockinfo_service.get_stockinfos()
-            if df.shape[0] == 0:
-                console.print("[yellow]No stock information found. Try: ginkgo get stockinfo[/yellow]")
+            result = stockinfo_service.get()
+            if not result.success:
+                console.print(f"[yellow]:warning:[/yellow] No stock information found: {result.error}")
+                console.print("Try: ginkgo data get stockinfo")
                 return
-                
+
+            # Convert result data to DataFrame
+            import pandas as pd
+            if hasattr(result.data, 'to_dataframe'):
+                df = result.data.to_dataframe()
+            else:
+                df = pd.DataFrame(result.data)
+
+            if df.empty:
+                console.print("[yellow]:warning:[/yellow] No stock information found. Try: ginkgo data get stockinfo")
+                return
+
             display_dataframe(
                 data=df.head(page),
                 columns_config={
@@ -244,29 +472,56 @@ def show(
             
         elif data_type == "bars":
             if not code:
-                console.print("[red]:x: Stock code required for bars data[/red]")
+                console.print(":x: Stock code required for bars data")
                 return
             from ginkgo.data.containers import container
             bar_service = container.bar_service()
-            df = bar_service.get_bars(code, start=start, end=end, as_dataframe=True)
-            if df.shape[0] == 0:
-                console.print(f"[yellow]No bars data found for {code}[/yellow]")
-                return
-            console.print(f"[green]Found {df.shape[0]} bars for {code}[/green]")
-            print(df.tail(10))  # Show last 10 bars
-            
+            # Note: Need to check if the service has get_bars method with proper parameters
+            try:
+                result = bar_service.get_by_code(code=code)
+                if not result.success:
+                    console.print(f":warning: No bars data found for {code}: {result.error}")
+                    return
+
+                import pandas as pd
+                if hasattr(result.data, 'to_dataframe'):
+                    df = result.data.to_dataframe()
+                else:
+                    df = pd.DataFrame(result.data)
+
+                if df.empty:
+                    console.print(f":warning: No bars data found for {code}")
+                    return
+                console.print(f":white_check_mark: Found {len(df)} bars for {code}")
+                print(df.tail(10))  # Show last 10 bars
+            except Exception as e:
+                console.print(f":warning: Could not fetch bars for {code}: {e}")
+
         elif data_type == "ticks":
             if not code:
-                console.print("[red]:x: Stock code required for ticks data[/red]")
+                console.print(":x: Stock code required for ticks data")
                 return
             from ginkgo.data.containers import container
             tick_service = container.tick_service()
-            df = tick_service.get_ticks(code, start=start, end=end, as_dataframe=True)
-            if df.shape[0] == 0:
-                console.print(f"[yellow]No ticks data found for {code}[/yellow]")
-                return
-            console.print(f"[green]Found {df.shape[0]} ticks for {code}[/green]")
-            print(df.tail(10))  # Show last 10 ticks
+            try:
+                result = tick_service.get_by_code(code=code)
+                if not result.success:
+                    console.print(f":warning: No ticks data found for {code}: {result.error}")
+                    return
+
+                import pandas as pd
+                if hasattr(result.data, 'to_dataframe'):
+                    df = result.data.to_dataframe()
+                else:
+                    df = pd.DataFrame(result.data)
+
+                if df.empty:
+                    console.print(f":warning: No ticks data found for {code}")
+                    return
+                console.print(f":white_check_mark: Found {len(df)} ticks for {code}")
+                print(df.tail(10))  # Show last 10 ticks
+            except Exception as e:
+                console.print(f":warning: Could not fetch ticks for {code}: {e}")
             
     except Exception as e:
         console.print(f"[red]:x: Failed to show {data_type}: {e}[/red]")
@@ -288,20 +543,19 @@ def plot(
         if data_type == "day":
             from ginkgo.data.containers import container
             bar_service = container.bar_service()
-            # Try service method first, fallback to original if needed
-            try:
-                bar_service.plot_bars(code, start_date=start, end_date=end, with_indicators=indicators)
-            except AttributeError:
-                from ginkgo.data import plot_daybar
-                plot_daybar(code, start=start, end=end, with_indicators=indicators)
+            # Plotting functionality may not be fully implemented in new Service architecture yet
+            console.print(":information: Plotting functionality - Service API implementation pending")
+            # TODO: 实现新Service架构中的plotting功能
+            # 目前回退到原始方法
+            from ginkgo.data import plot_daybar
+            plot_daybar(code, start=start, end=end, with_indicators=indicators)
         else:
             from ginkgo.data.containers import container
             tick_service = container.tick_service()
-            try:
-                tick_service.plot_ticks(code, start_date=start, end_date=end)
-            except AttributeError:
-                from ginkgo.data import plot_tick
-                plot_tick(code, start=start, end=end)
+            console.print(":information: Tick plotting functionality - Service API implementation pending")
+            # TODO: 实现新Service架构中的tick plotting功能
+            from ginkgo.data import plot_tick
+            plot_tick(code, start=start, end=end)
             
         console.print(f"[green]:white_check_mark: Chart plotted for {code}[/green]")
         

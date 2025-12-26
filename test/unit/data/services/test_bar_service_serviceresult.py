@@ -69,10 +69,10 @@ class TestBarServiceServiceResult:
         assert isinstance(result, ServiceResult)
         assert result.data is not None
 
-    def test_get_latest_timestamp_for_code_success(self, bar_service):
+    def test_get_latest_timestamp_success(self, bar_service):
         """测试get_latest_timestamp_for_code成功时返回ServiceResult包装"""
         # 使用不存在的股票代码，应该返回默认时间
-        result = bar_service.get_latest_timestamp_for_code("999999.SZ")
+        result = bar_service.get_latest_timestamp("999999.SZ")
 
         # 验证返回ServiceResult
         assert isinstance(result, ServiceResult)
@@ -80,10 +80,10 @@ class TestBarServiceServiceResult:
         assert result.data is not None  # 应该是默认时间
         assert isinstance(result.data, datetime)
 
-    def test_get_latest_timestamp_for_code_no_data_returns_default(self, bar_service):
+    def test_get_latest_timestamp_no_data_returns_default(self, bar_service):
         """测试get_latest_timestamp_for_code无数据时返回默认时间"""
         # 使用空字符串
-        result = bar_service.get_latest_timestamp_for_code("")
+        result = bar_service.get_latest_timestamp("")
 
         # 验证返回ServiceResult
         assert isinstance(result, ServiceResult)
@@ -91,10 +91,10 @@ class TestBarServiceServiceResult:
         assert result.data is not None  # 应该是默认时间
         assert isinstance(result.data, datetime)
 
-    def test_get_latest_timestamp_for_code_error(self, bar_service):
+    def test_get_latest_timestamp_error(self, bar_service):
         """测试get_latest_timestamp_for_code失败时返回ServiceResult.error()"""
         # 使用None参数
-        result = bar_service.get_latest_timestamp_for_code(None)
+        result = bar_service.get_latest_timestamp(None)
 
         # 验证返回ServiceResult
         assert isinstance(result, ServiceResult)
@@ -102,30 +102,30 @@ class TestBarServiceServiceResult:
         assert result.data is not None
         assert isinstance(result.data, datetime)
 
-    def test_sync_for_code_success(self, bar_service):
-        """测试sync_for_code成功时返回ServiceResult.success()"""
+    def test_sync_incremental_success(self, bar_service):
+        """测试sync_incremental成功时返回ServiceResult.success()"""
         # 使用不存在的股票代码
-        result = bar_service.sync_for_code("999999.SZ")
+        result = bar_service.sync_incremental("999999.SZ")
 
         # 验证返回ServiceResult
         assert isinstance(result, ServiceResult)
         assert result.success is False  # 股票代码不存在，应该失败
         assert "not in stock list" in result.message.lower()
 
-    def test_sync_for_code_failure(self, bar_service):
-        """测试sync_for_code失败时返回ServiceResult.failure()"""
+    def test_sync_incremental_failure(self, bar_service):
+        """测试sync_incremental失败时返回ServiceResult.failure()"""
         # 使用空字符串
-        result = bar_service.sync_for_code("")
+        result = bar_service.sync_incremental("")
 
         # 验证返回ServiceResult.failure()
         assert isinstance(result, ServiceResult)
         assert result.success is False
         assert result.error is not None or result.message is not None
 
-    def test_sync_for_code_exception(self, bar_service):
-        """测试sync_for_code异常处理"""
+    def test_sync_incremental_exception(self, bar_service):
+        """测试sync_incremental异常处理"""
         # 使用None参数
-        result = bar_service.sync_for_code(None)
+        result = bar_service.sync_incremental(None)
 
         # 验证返回ServiceResult
         assert isinstance(result, ServiceResult)
@@ -158,9 +158,9 @@ class TestBarServiceServiceResult:
         """测试ServiceResult接口的一致性"""
         # 测试所有公共方法都返回ServiceResult
         methods_to_test = [
-            ('get_latest_timestamp_for_code', ['000001.SZ']),
+            ('get_latest_timestamp', ['000001.SZ']),
             ('get_bars', [{}]),  # 使用空字典
-            ('sync_for_code', ['999999.SZ'])
+            ('sync_incremental', ['999999.SZ'])
         ]
 
         for method_name, args in methods_to_test:
@@ -177,7 +177,7 @@ class TestBarServiceServiceResult:
     def test_datetime_handling_in_service_result(self, bar_service):
         """测试ServiceResult中的datetime处理（验证之前的修复）"""
         # 这个测试专门验证datetime ServiceResult处理问题
-        result = bar_service.get_latest_timestamp_for_code("000001.SZ")
+        result = bar_service.get_latest_timestamp("000001.SZ")
 
         # 验证即使内部处理datetime，也能正确返回ServiceResult
         assert isinstance(result, ServiceResult)

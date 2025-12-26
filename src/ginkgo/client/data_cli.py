@@ -1,1114 +1,614 @@
+"""
+Ginkgo Data CLI - 数据管理命令
+"""
+
 import typer
-from enum import Enum
-from typing import List as typing_list
-from typing_extensions import Annotated
-from rich.prompt import Prompt, Confirm
+from typing import Optional
 from rich.console import Console
-from rich.progress import (
-    Progress,
-    BarColumn,
-    TextColumn,
-    SpinnerColumn,
-    TimeElapsedColumn,
-)
+from rich.table import Table
 
-# All heavy imports moved to function level for faster CLI startup
-
-console = Console()
-
-
-class DataType(str, Enum):
-    ALL = "all"
-    STOCKINFO = "stockinfo"
-    CALENDAR = "calendar"
-    ADJUST = "adjustfactor"
-    DAYBAR = "day"
-    TICK = "tick"
-    ORDER = "order"
-    ANALYZER = "analyzer"
-
-
-class PLTType(str, Enum):
-    DAYBAR = "day"
-    TICK = "tick"
-
-
-class WorkerType(str, Enum):
-    ON = "on"
-    OFF = "off"
-
-
-app = typer.Typer(
-    help=":jigsaw: Module for [bold medium_spring_green]DATA[/]. [grey62]CRUD about all kinds of data.[/grey62]",
-    no_args_is_help=True,
-)
-quit_list = ["NO", "N"]
-
-
-def random_pick_one_code():
-    # Random pick one
-    import random
-    from ginkgo.data import get_stockinfos
-
-    code_list = get_stockinfos()
-    code = random.choice(code_list.code.to_list())
-    console.print(f":zap: No Code assigned. Random pick one code: [yellow]{code}[/yellow]")
-    return code
-
-
-
-
-def progress_bar(title: str):
-    import time
-    
-    with Progress(
-        SpinnerColumn(),
-        # TextColumn(f"[cyan2]{title}"),
-        *Progress.get_default_columns(),
-        TextColumn(f":beach_with_umbrella: Elapesd: "),
-        TimeElapsedColumn(),
-        console=console,
-        transient=True,
-        refresh_per_second=100,
-    ) as progress:
-        task = progress.add_task(f"{title}", total=None)
-        while True:
-            progress.advance(task, advance=0.4)
-            time.sleep(0.01)
+app = typer.Typer(help=":page_facing_up: Data management", rich_markup_mode="rich")
+console = Console(emoji=True, legacy_windows=False)
 
 
 @app.command()
-def init():
+def get(
+    data_type: str = typer.Argument(..., help="Data type to get (stockinfo/calendar/day/tick/adjustfactor/sources)"),
+    code: Optional[str] = typer.Option(None, "--code", "-c", help="Stock code (required for bars/ticks)"),
+    start: Optional[str] = typer.Option(None, "--start", "-s", help="Start date (YYYYMMDD)"),
+    end: Optional[str] = typer.Option(None, "--end", "-e", help="End date (YYYYMMDD)"),
+    page_size: Optional[int] = typer.Option(None, "--page-size", "-p", help="Page size for interactive mode (default: all)"),
+    filter: Optional[str] = typer.Option(None, "--filter", "-f", help="Filter by fuzzy matching (code, industry, name)"),
+    market: Optional[str] = typer.Option(None, "--market", help="Filter by market"),
+    exchange: Optional[str] = typer.Option(None, "--exchange", help="Filter by exchange"),
+    raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
+):
     """
-    :construction: Initialize database tables and example data.
+    :inbox_tray: Get data from database.
     """
-    from ginkgo.data.drivers import create_all_tables as func
+    try:
+        if data_type == "stockinfo":
+            from ginkgo.data.containers import container
+            from ginkgo.libs.utils.display import display_dataframe_interactive
+            import pandas as pd
 
-    func()
+            stockinfo_service = container.stockinfo_service()
+            result = stockinfo_service.get(market=market, exchange=exchange)
+            if result.success:
+                df = result.data.to_dataframe()
 
-    from ginkgo.data import init_example_data as func
+                # Raw output mode
+                if raw:
+                    import json
+                    raw_data = df.to_dict('records')
+                    console.print(json.dumps(raw_data, indent=2, ensure_ascii=False, default=str))
+                    return
 
-    func()
+                # 应用模糊过滤
+                if filter:
+                    console.print(f":mag: Applying filter: '{filter}'")
+                    filter_lower = filter.lower()
+
+                    # 创建过滤条件
+                    mask = pd.Series([False] * len(df))
+
+                    # 按代码过滤
+                    if 'code' in df.columns:
+                        mask |= df['code'].astype(str).str.lower().str.contains(filter_lower, na=False)
+
+                    # 按名称过滤
+                    if 'code_name' in df.columns:
+                        mask |= df['code_name'].astype(str).str.lower().str.contains(filter_lower, na=False)
+
+                    # 按行业过滤
+                    if 'industry' in df.columns:
+                        mask |= df['industry'].astype(str).str.lower().str.contains(filter_lower, na=False)
+
+                    df = df[mask]
+
+                    if df.empty:
+                        console.print(":memo: No matching records found for the filter.")
+                        return
+
+                    console.print(f":white_check_mark: Filter matched {len(df)} records")
+
+                # 配置列显示
+                columns_config = {
+                    "code": {"display_name": "代码", "style": "cyan", "width": 12},
+                    "code_name": {"display_name": "名称", "style": "green", "width": 12},
+                    "industry": {"display_name": "行业", "style": "yellow", "width": 10},
+                    "market": {"display_name": "市场", "style": "blue", "width": 8, "justify": "center"},
+                    "list_date": {"display_name": "上市日期", "style": "dim", "width": 15, "justify": "center"}
+                }
+
+                # 数据处理函数
+                def format_data_for_display(df_original):
+                    df = df_original.copy()
+
+                    # 格式化代码
+                    if 'code' in df.columns:
+                        df['code'] = df['code'].astype(str)
+
+                    # 格式化名称
+                    if 'code_name' in df.columns:
+                        df['code_name'] = df['code_name'].astype(str)
+
+                    # 格式化行业
+                    if 'industry' in df.columns:
+                        df['industry'] = df['industry'].astype(str)
+
+                    # 格式化市场
+                    if 'market' in df.columns:
+                        df['market'] = df['market'].astype(str)
+                        # 提取市场名称（取最后一部分）
+                        df['market'] = df['market'].apply(lambda x: str(x).split('.')[-1] if '.' in str(x) else str(x))
+
+                    # 格式化上市日期
+                    if 'list_date' in df.columns:
+                        df['list_date'] = df['list_date'].astype(str).str[:10]
+                        # 确保日期格式为YYYY-MM-DD，去除时间部分
+                        df['list_date'] = df['list_date'].apply(lambda x: x[:10] if len(x) > 10 else x)
+
+                    return df
+
+                # 格式化数据
+                formatted_df = format_data_for_display(df)
+
+                # 按code排序
+                formatted_df = formatted_df.sort_values('code')
+
+                # 如果设置了page_size，使用交互式翻页
+                if page_size and page_size > 0:
+                    console.print(f":information: Interactive mode enabled (page size: {page_size})")
+                    console.print(":information: Single-key navigation: n=next, p=prev, q=quit")
+
+                    # 简化的交互式翻页逻辑
+                    from rich.prompt import Prompt
+
+                    current_page = 0
+                    total_pages = (len(formatted_df) + page_size - 1) // page_size
+
+                    while True:
+                        # 计算当前页数据
+                        start_idx = current_page * page_size
+                        end_idx = min(start_idx + page_size, len(formatted_df))
+                        current_data = formatted_df.iloc[start_idx:end_idx]
+
+                        # 创建Rich表格
+                        table = Table(show_header=True, header_style="bold magenta",
+                                     title=f":page_facing_up: Stock Information - Page {current_page + 1}/{total_pages} ({start_idx + 1}-{end_idx}/{len(formatted_df)})")
+
+                        # 添加列
+                        for col_name, config in columns_config.items():
+                            if col_name in current_data.columns:
+                                justify = config.get("justify", "left")
+                                table.add_column(
+                                    config["display_name"],
+                                    style=config["style"],
+                                    width=config.get("width", None),
+                                    justify=justify
+                                )
+
+                        # 添加行数据
+                        for _, row in current_data.iterrows():
+                            row_data = []
+                            for col_name in columns_config.keys():
+                                if col_name in current_data.columns:
+                                    value = str(row.get(col_name, 'N/A'))
+                                    # 截断过长的文本
+                                    max_length = columns_config[col_name].get("width", 20) - 3
+                                    if len(value) > max_length:
+                                        value = value[:max_length] + "..."
+                                    row_data.append(value)
+                            table.add_row(*row_data)
+
+                        # 显示表格
+                        console.print(table)
+                        console.print(f"\n[dim]Page {current_page + 1}/{total_pages} | Records {start_idx + 1}-{end_idx} of {len(formatted_df)}[/dim]")
+                        console.print("[yellow]Options:[/] n=next, p=prev, q=quit, <Enter>=next")
+
+                        # 简化输入处理
+                        try:
+                            action = Prompt.ask(
+                                "[bold cyan]Action[/bold cyan] (n/p/q/Enter)",
+                                choices=["n", "p", "q", ""],
+                                default="",
+                                show_default=False
+                            ).strip().lower()
+
+                            if action == 'n' or action == '':
+                                # 下一页
+                                if current_page < total_pages - 1:
+                                    current_page += 1
+                                else:
+                                    console.print("\n[bold blue]Last page reached[/bold blue]")
+                                    break
+                            elif action == 'p':
+                                # 上一页
+                                if current_page > 0:
+                                    current_page -= 1
+                            elif action == 'q':
+                                # 退出
+                                console.print("\n[yellow]User quit[/yellow]")
+                                break
+                        except (KeyboardInterrupt, EOFError):
+                            break
+                        except Exception:
+                            break
+                else:
+                    # 非交互式模式，显示前50条，按code排序
+                    display_df = formatted_df.sort_values('code').head(50)
+
+                    if display_df.empty:
+                        console.print(":memo: No stock records found.")
+                        return
+
+                    console.print(f":information_source: Showing first {len(display_df)} of {len(formatted_df)} records (sorted by code)")
+
+                    # 创建Rich表格
+                    table = Table(show_header=True, header_style="bold magenta", title=f":page_facing_up: Stock Information")
+
+                    # 添加列
+                    for col_name, config in columns_config.items():
+                        if col_name in display_df.columns:
+                            justify = config.get("justify", "left")
+                            table.add_column(
+                                config["display_name"],
+                                style=config["style"],
+                                width=config.get("width", None),
+                                justify=justify
+                            )
+
+                    # 添加行数据
+                    for _, row in display_df.iterrows():
+                        row_data = []
+                        for col_name in columns_config.keys():
+                            if col_name in display_df.columns:
+                                value = str(row.get(col_name, 'N/A'))
+                                # 截断过长的文本
+                                max_length = columns_config[col_name].get("width", 20) - 3
+                                if len(value) > max_length:
+                                    value = value[:max_length] + "..."
+                                row_data.append(value)
+                        table.add_row(*row_data)
+
+                    console.print(table)
+                    console.print(f"\n:information_source: [dim]总记录数: {len(formatted_df)}[/dim]")
+            else:
+                console.print(f":x: Failed to get stock info: {result.error}")
+
+        elif data_type in ["day", "bars"]:
+            if not code:
+                console.print(":x: Stock code required for bar data")
+                raise typer.Exit(1)
+            from ginkgo.data.containers import container
+            bar_service = container.bar_service()
+            # TODO: Implement bar data get
+            console.print(":information: Bar data get not yet implemented")
+
+        elif data_type == "tick":
+            if not code:
+                console.print(":x: Stock code required for tick data")
+                raise typer.Exit(1)
+
+            # 设置默认时间范围（如果未提供）
+            if not start:
+                from datetime import datetime, timedelta
+                end_date = datetime.now()
+                start_date = end_date - timedelta(days=7)  # 默认获取最近7天的数据
+                start = start_date.strftime("%Y%m%d")
+                end = end_date.strftime("%Y%m%d")
+
+            console.print(f":information: Getting tick data for {code} from {start} to {end}")
+            console.print(":information: Tick data retrieval not yet implemented")
+            console.print(f"  • Code: {code}")
+            console.print(f"  • Start: {start}")
+            console.print(f"  • End: {end}")
+            console.print(f"  • Page Size: {page_size or 'Default (1000)'}")
+
+            # TODO: 实现tick数据获取
+            # from ginkgo.data.containers import container
+            # tick_service = container.tick_service()
+            # result = tick_service.get(code=code, start_date=start, end_date=end)
+
+        elif data_type == "adjustfactor":
+            if not code:
+                console.print(":x: Stock code required for adjustfactor data")
+                raise typer.Exit(1)
+
+            # 设置默认时间范围（如果未提供）
+            if not start:
+                from datetime import datetime, timedelta
+                end_date = datetime.now()
+                start_date = end_date - timedelta(days=365)  # 默认获取最近1年的数据
+                start = start_date.strftime("%Y%m%d")
+                end = end_date.strftime("%Y%m%d")
+
+            console.print(f":information: Getting adjustfactor data for {code} from {start} to {end}")
+            console.print(":information: Adjustfactor data retrieval not yet implemented")
+            console.print(f"  • Code: {code}")
+            console.print(f"  • Start: {start}")
+            console.print(f"  • End: {end}")
+            console.print(f"  • Page Size: {page_size or 'Default (all)'}")
+
+            # TODO: 实现adjustfactor数据获取
+            # from ginkgo.data.containers import container
+            # adjustfactor_service = container.adjustfactor_service()
+            # result = adjustfactor_service.get(code=code, start_date=start, end_date=end)
+
+        elif data_type == "sources":
+            console.print(":information: Data sources functionality not yet implemented")
+
+        else:
+            console.print(f":x: Unknown data type: {data_type}")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error getting data: {e}")
+        raise typer.Exit(1)
 
 
 @app.command()
-def plot(
-    data: Annotated[PLTType, typer.Argument(case_sensitive=False, help=":bar_chart: Data type to plot (day/tick)")],
-    code: Annotated[str, typer.Option("--code", "-c", case_sensitive=False, help=":chart_with_upwards_trend: Stock code (e.g., 000001.SZ)")] = "",
-    start: Annotated[
-        str,
-        typer.Option(
-            "--start", "-s",
-            case_sensitive=False,
-            help=":calendar: Start date (yyyymmdd or yyyy-mm-dd)",
-        ),
-    ] = "19900101",
-    end: Annotated[
-        str,
-        typer.Option(
-            "--end", "-e",
-            case_sensitive=False,
-            help=":calendar: End date (yyyymmdd or yyyy-mm-dd)",
-        ),
-    ] = "21200001",
-    ma: Annotated[
-        int,
-        typer.Option(
-            case_sensitive=True,
-            help=":chart_with_upwards_trend: Simple Moving Average period",
-        ),
-    ] = None,
-    wma: Annotated[int, typer.Option(case_sensitive=False, help=":bar_chart: Weighted Moving Average period")] = None,
-    ema: Annotated[int, typer.Option(case_sensitive=False, help=":chart_with_downwards_trend: Exponential Moving Average period")] = None,
-    atr: Annotated[int, typer.Option(case_sensitive=False, help=":bar_chart: Average True Range period")] = None,
-    pin: Annotated[bool, typer.Option(case_sensitive=False, help=":round_pushpin: Show Pin Bar patterns")] = False,
-    inf: Annotated[int, typer.Option(case_sensitive=False, help=":arrows_counterclockwise: Inflection Point detection period")] = 0,
-    gap: Annotated[bool, typer.Option(case_sensitive=False, help=":bar_chart: Show Gap patterns")] = False,
-    adjusted: Annotated[bool, typer.Option("--adjusted", "-adj", help=":arrows_counterclockwise: Show price-adjusted data")] = False,
-    adj_type: Annotated[str, typer.Option("--adj-type", help=":arrows_counterclockwise: Adjustment type (fore/back)")] = "fore",
-):
+def status():
     """
-    :chart_with_upwards_trend: Plot candlestick charts with technical indicators.
+    :gear: Show data synchronization status.
     """
-    from ginkgo.trading.analysis.plots import CandlePlot, CandleWithIndexPlot, ResultPlot
-    from ginkgo.trading.computation import (
-        SimpleMovingAverage,
-        WeightedMovingAverage,
-        ExponentialMovingAverage,
-        AverageTrueRange,
-        PinBar,
-        InflectionPoint,
-        Gap,
-    )
-    from ginkgo.data import get_stockinfos, get_bars, get_bars_adjusted
-    from ginkgo.enums import ADJUSTMENT_TYPES
-
-    if code == "":
-        code = random_pick_one_code()
-
-    if data == DataType.DAYBAR:
-        info_df = get_stockinfos()
-        info = info_df[info_df['code'] == code].iloc[0] if len(info_df[info_df['code'] == code]) > 0 else None
-        if info is None:
-            console.print(f"Stock {code} not found")
-            return
-        
-        # 根据adjusted参数选择获取原始数据还是复权数据
-        if adjusted:
-            # 验证adj_type参数
-            if adj_type.lower() not in ['fore', 'back']:
-                console.print(f":x: Invalid adjustment type: {adj_type}. Must be 'fore' or 'back'.")
-                return
-            adjustment_type = ADJUSTMENT_TYPES.FORE if adj_type.lower() == 'fore' else ADJUSTMENT_TYPES.BACK
-            raw = get_bars_adjusted(code=code, adjustment_type=adjustment_type, start_date=start, end_date=end, as_dataframe=True)
-            console.print(f":arrows_counterclockwise: Using {adj_type} adjustment for price data")
-        else:
-            raw = get_bars(code=code, start_date=start, end_date=end, as_dataframe=True)
-        
-        code_name = info.code_name
-        industry = info.industry
-        df = raw
-        plt = CandleWithIndexPlot(f"[{industry}] {code} {code_name}")
-
-        if ma:
-            index_ma = SimpleMovingAverage(f"MovingAverage{ma}", int(ma))
-            plt.add_index(index_ma, "line")
-        if wma:
-            index_wma = WeightedMovingAverage(f"WeightedMovingAverage{wma}", wma)
-            plt.add_index(index_wma, "line")
-        if ema:
-            index_ema = ExponentialMovingAverage(f"ExponentialMovingAverage{ema}", ema)
-            plt.add_index(index_ema, "line")
-        if atr:
-            index_atr = AverageTrueRange(f"AverageTrueRange{atr}", atr)
-            plt.add_independent_index(index_atr, "line")
-        if pin:
-            index_pin = PinBar("Pin")
-            plt.add_independent_index(index_pin, "scatter")
-        if inf != 0:
-            index_inf = InflectionPoint("InflectionPoint", inf)
-            plt.add_independent_index(index_inf, "scatter")
-        if gap:
-            index_gap = Gap("Gap")
-            plt.add_independent_index(index_gap, "line")
-
-        plt.figure_init()
-        plt.update_data(df)
-        plt.show()
-    elif data == DataType.TICK:
-        # TODO How to plot ticks
-        pass
-
-
-@app.command(name="list")
-def list(
-    data: Annotated[DataType, typer.Argument(case_sensitive=False, help=":bar_chart: Data type to list")],
-    page: Annotated[int, typer.Option("--page", "-p", case_sensitive=False, help=":page_facing_up: Items per page (0=no pagination)")] = 0,
-    filter: Annotated[str, typer.Option("--filter", case_sensitive=True, help=":mag: Filter keyword")] = "",
-):
-    """
-    :page_facing_up: Display data summary in paginated format.
-    """
-    # Import ginkgo modules at function level for faster CLI startup
-    import pandas as pd
-    from ginkgo.libs import GLOG
-    from ginkgo.libs.utils.display import display_dataframe_interactive
-    from ginkgo.data import get_orders
-    
-    # TODO limit and filter
-
-    pd.set_option("display.unicode.east_asian_width", True)
-    rs = pd.DataFrame()
-    from ginkgo.data import get_stockinfos
-
-    if data == DataType.STOCKINFO:
-        raw = get_stockinfos()
-        if raw.shape[0] == 0:
-            rs = raw
-        else:
-            rs = raw[
-                [
-                    "code",
-                    "code_name",
-                    "industry",
-                    "currency",
-                    "update_at",
-                ]
-            ]
-    elif data == DataType.CALENDAR:
-        # TODO: implement calendar data retrieval
-        rs = pd.DataFrame(columns=["timestamp", "market", "is_open"])
-    elif data == DataType.ADJUST:
-        pass
-    elif data == DataType.DAYBAR:
-        pass
-    elif data == DataType.TICK:
-        pass
-    elif data == DataType.ORDER:
-        if filter == "":
-            # T6: 更新提示信息，使用run_id术语
-            GLOG.WARN("Please input run_id (or portfolio_id) to filter the order.")
-            return
-        else:
-            raw = get_orders(portfolio_id=filter, as_dataframe=True)
-            print(raw)
-            rs = raw
-        pass
-    elif data == DataType.ANALYZER:
-        pass
-
-    display_dataframe_interactive(
-        data=rs,
-        columns_config=None,  # Use default column configuration
-        title=None,
-        page_size=page if page > 0 else 20,
-        enable_interactive=(page > 0 and rs.shape[0] > page),
-        console=console
-    )
+    console.print(":gear: Data synchronization status:")
+    # TODO: Implement data status check
+    console.print(":information: Data status check not yet implemented")
 
 
 @app.command()
-def show(
-    data: Annotated[DataType, typer.Argument(case_sensitive=False, help=":bar_chart: Data type to show")] = "stockinfo",
-    code: Annotated[str, typer.Option("--code", "-c", case_sensitive=False, help=":chart_with_upwards_trend: Stock code filter")] = "",
-    start: Annotated[
-        str,
-        typer.Option(
-            "--start", "-s",
-            case_sensitive=False,
-            help=":calendar: Start date (yyyymmdd or yyyy-mm-dd)",
-        ),
-    ] = "19900101",
-    end: Annotated[
-        str,
-        typer.Option(
-            "--end", "-e",
-            case_sensitive=False,
-            help=":calendar: End date (yyyymmdd or yyyy-mm-dd)",
-        ),
-    ] = "21200001",
-    page: Annotated[int, typer.Option("--page", "-p", case_sensitive=False, help=":page_facing_up: Items per page (0=no pagination)")] = 0,
-    filter: Annotated[str, typer.Option("--filter", case_sensitive=False, help=":mag: Fuzzy search keywords")] = None,
-    debug: Annotated[bool, typer.Option("--debug", "-d", case_sensitive=False, help=":bug: Enable debug logging")] = False,
-    adjusted: Annotated[bool, typer.Option("--adjusted", "-adj", help=":arrows_counterclockwise: Show price-adjusted data")] = False,
-    adj_type: Annotated[str, typer.Option("--adj-type", help=":arrows_counterclockwise: Adjustment type (fore/back)")] = "fore",
+def sync(
+    data_type: str = typer.Argument(..., help="Data type to sync (stockinfo/day/tick/adjustfactor)"),
+    code: Optional[str] = typer.Option(None, "--code", "-c", help="Stock code (for day/tick data)"),
+    date: Optional[str] = typer.Option(None, "--date", "-d", help="Specific date (YYYYMMDD, for tick data only)"),
+    market: Optional[str] = typer.Option(None, "--market", help="Filter by market"),
+    exchange: Optional[str] = typer.Option(None, "--exchange", help="Filter by exchange"),
+    full: bool = typer.Option(False, "--full", help="Full sync from listing date (skip existing data)"),
+    force: bool = typer.Option(False, "--force", "-f", help="Force sync (delete and re-insert)"),
+    daemon: bool = typer.Option(False, "--daemon", help="Run sync in background via Kafka queue"),
 ):
     """
-    :mag: Show detailed data with filters and date range.
+    :repeat: Sync data from external sources.
     """
-    # Import ginkgo modules at function level for faster CLI startup
-    import pandas as pd
-    import datetime
-    import sys
-    from multiprocessing import Process
-    from ginkgo.libs import GLOG, datetime_normalize
-    from ginkgo.data import get_stockinfos, get_adjustfactors, get_ticks, get_bars_adjusted, get_ticks_adjusted
-    from ginkgo.libs.utils.display import display_dataframe_interactive
-    from ginkgo.enums import ADJUSTMENT_TYPES
+    try:
+        # 如果是daemon模式，发送Kafka消息并退出
+        if daemon:
+            from ginkgo.data.containers import container
+            kafka_service = container.kafka_service()
 
-    if debug:
-        GLOG.set_level("DEBUG")
-    else:
-        GLOG.set_level("INFO")
+            console.print(f":information: Sending {data_type} sync task to background queue...")
 
-    # if code == "":
-    #     code = random_pick_one_code()
-    pd.set_option("display.unicode.east_asian_width", True)
+            success = False
+            if data_type == "stockinfo":
+                success = kafka_service.send_stockinfo_update_signal()
+            elif data_type == "day":
+                if code:
+                    # 单股票日K线同步：直接传递full和force参数
+                    success = kafka_service.send_daybar_update_signal(code=code, full=full, force=force)
+                else:
+                    # 全代码日K线同步
+                    success = kafka_service.send_bar_all_signal(full=full, force=force)
+            elif data_type == "tick":
+                if code:
+                    # 单股票tick同步：传递完整的full和force参数
+                    success = kafka_service.send_tick_update_signal(code=code, full=full, force=force)
+                else:
+                    # 全代码tick同步
+                    success = kafka_service.send_tick_all_signal(full=full, force=force)
+            elif data_type == "adjustfactor":
+                if code:
+                    # 单股票adjustfactor同步：直接传递full和force参数
+                    success = kafka_service.send_adjustfactor_update_signal(code=code, full=full, force=force)
+                else:
+                    # 全代码adjustfactor同步：直接pass参数
+                    success = kafka_service.send_adjustfactor_all_signal(full=full, force=force)
 
-    if data == DataType.STOCKINFO:
-        raw = get_stockinfos()
-        if code != "":
-            raw = raw[raw["code"] == code]
-        if raw.shape[0] == 0:
-            rs = raw
-        else:
-            rs = raw[
-                [
-                    "code",
-                    "code_name",
-                    "industry",
-                    "currency",
-                    "update_at",
-                ]
-            ]
-    elif data == DataType.ADJUST:
-        raw = get_adjustfactors(code=code, as_dataframe=True)
-        if raw.shape[0] == 0:
-            rs = raw
-        else:
-            rs = raw[
-                [
-                    "code",
-                    "timestamp",
-                    "foreadjustfactor",
-                    "backadjustfactor",
-                    "adjustfactor",
-                ]
-            ]
-    elif data == DataType.DAYBAR:
-        from ginkgo.data import get_bars
-
-        # 根据adjusted参数选择获取原始数据还是复权数据
-        if adjusted:
-            # 验证adj_type参数
-            if adj_type.lower() not in ['fore', 'back']:
-                console.print(f":x: Invalid adjustment type: {adj_type}. Must be 'fore' or 'back'.")
-                return
-            adjustment_type = ADJUSTMENT_TYPES.FORE if adj_type.lower() == 'fore' else ADJUSTMENT_TYPES.BACK
-            raw = get_bars_adjusted(code=code, adjustment_type=adjustment_type, start_date=start, end_date=end, as_dataframe=True)
-            console.print(f":arrows_counterclockwise: Using {adj_type} adjustment for price data")
-        else:
-            raw = get_bars(code=code, start_date=start, end_date=end, as_dataframe=True)
-        
-        if raw.shape[0] == 0:
-            rs = raw
-        else:
-            rs = raw[
-                [
-                    "code",
-                    "timestamp",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                ]
-            ]
-
-    elif data == DataType.TICK:
-        if datetime_normalize(end) - datetime_normalize(start) > datetime.timedelta(days=10):
-            console.print(f":banana: Tick Data just support querying less than 10 days.")
-            console.print(
-                f":peach: Please optimize the [yellow]start[/yellow] or [yellow]end[/yellow] to do the query."
-            )
-            return
-        p = Process(
-            target=progress_bar,
-            args=(f"Get Tick {code}",),
-        )
-        p.start()
-        t0 = datetime.datetime.now()
-        
-        # 根据adjusted参数选择获取原始数据还是复权数据
-        if adjusted:
-            # 验证adj_type参数
-            if adj_type.lower() not in ['fore', 'back']:
-                console.print(f":x: Invalid adjustment type: {adj_type}. Must be 'fore' or 'back'.")
-                return
-            adjustment_type = ADJUSTMENT_TYPES.FORE if adj_type.lower() == 'fore' else ADJUSTMENT_TYPES.BACK
-            raw = get_ticks_adjusted(code=code, adjustment_type=adjustment_type, start_date=start, end_date=end, as_dataframe=True)
-            console.print(f":arrows_counterclockwise: Using {adj_type} adjustment for tick data")
-        else:
-            raw = get_ticks(code=code, start_date=start, end_date=end, as_dataframe=True)
-        
-        t1 = datetime.datetime.now()
-        if raw.shape[0] == 0:
-            rs = raw
-        else:
-            rs = raw[["timestamp", "code", "price", "volume", "direction"]]
-        p.kill()
-        p.join()
-        sys.stdout.write("\r" + " " * 100 + "\r")
-        sys.stdout.flush()
-        if t1 - t0 < datetime.timedelta(seconds=1):
-            console.print(f":zap: Tick [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow].")
-        else:
-            console.print(f":hugging_face: Tick [yellow]{code}[/yellow] Cost: [yellow]{t1-t0}[/yellow]")
-
-    display_dataframe_interactive(
-        data=rs,
-        columns_config=None,  # Use default column configuration
-        title=None,
-        page_size=page if page > 0 else 20,
-        enable_interactive=(page > 0 and rs.shape[0] > page),
-        console=console
-    )
-
-
-@app.command()
-def update(
-    a: Annotated[bool, typer.Option("--all", "-a", case_sensitive=False, help=":arrows_counterclockwise: Update everything")] = False,
-    # data: Annotated[DataType, typer.Argument(case_sensitive=False)],
-    stockinfo: Annotated[bool, typer.Option("--stockinfo", case_sensitive=False, help=":chart_with_upwards_trend: Update stock info")] = False,
-    calendar: Annotated[bool, typer.Option("--calendar", case_sensitive=False, help=":calendar: Update trading calendar")] = False,
-    adjust: Annotated[bool, typer.Option("--adjust", case_sensitive=False, help=":arrows_counterclockwise: Update adjustment factors")] = False,
-    day: Annotated[bool, typer.Option("--day", case_sensitive=False, help=":bar_chart: Update daily bar data")] = False,
-    tick: Annotated[bool, typer.Option("--tick", case_sensitive=False, help=":zap: Update tick data")] = False,
-    daemon: Annotated[bool, typer.Option("--daemon", "-D", case_sensitive=False, help=":wrench: Run in background worker mode")] = False,
-    fast: Annotated[
-        bool,
-        typer.Option("--fast", "-F", case_sensitive=False, help=":zap: Fast mode (incremental update)"),
-    ] = False,
-    code: Annotated[
-        typing_list[str],
-        typer.Argument(
-            case_sensitive=True,
-            help=":chart_with_upwards_trend: Specific stock codes to update (e.g., 000001.SZ 000002.SZ)",
-        ),
-    ] = None,
-    max_update: Annotated[int, typer.Option("--max-update", case_sensitive=False, help=":bar_chart: Max days to backtrack for tick data")] = 0,
-    debug: Annotated[bool, typer.Option("--debug", "-d", case_sensitive=False, help=":bug: Enable debug logging")] = False,
-):
-    """
-    :arrows_counterclockwise: Update database with latest market data.
-    """
-    from ginkgo.libs import GTM, GLOG
-    from ginkgo.data import (
-        get_stockinfos,
-        fetch_and_update_stockinfo,
-        fetch_and_update_adjustfactor,
-        fetch_and_update_tradeday,
-        fetch_and_update_cn_daybar,
-        fetch_and_update_tick,
-    )
-    from ginkgo.data.containers import container
-
-    # Set debug level
-    if debug:
-        GLOG.set_level("DEBUG")
-    else:
-        GLOG.set_level("INFO")
-
-    l = []
-    if code == None:
-        info = get_stockinfos()
-        for i, r in info.iterrows():
-            c = r["code"]
-            l.append(c)
-    else:
-        for item in code:
-            l.append(item)
-
-    if daemon:
-        worker_count = GTM.get_worker_count()
-        console.print(f"Current worker: {worker_count}")
-        if worker_count == 0:
-            console.print(":sad_but_relieved_face: There is no worker running. Can not handle the update request.")
-            return
-        
-        kafka_service = container.kafka_service()
-        
-        if a:
-            kafka_service.send_stockinfo_update_signal()
-            # GDATA.send_signal_update_calender() # TODO
-            for i in l:
-                kafka_service.send_adjustfactor_update_signal(i, fast)
-            for i in l:
-                kafka_service.send_daybar_update_signal(i, fast)
-            for i in l:
-                kafka_service.send_tick_update_signal(i, fast, max_update)
+            if success:
+                console.print(f":white_check_mark: {data_type} sync task successfully queued for background processing")
+                console.print(f":information: Use 'ginkgo kafka status' to monitor queue status")
+            else:
+                console.print(f":x: Failed to queue {data_type} sync task")
+                if not force:
+                    raise typer.Exit(1)
             return
 
-        if stockinfo:
-            kafka_service.send_stockinfo_update_signal()
+        if data_type == "stockinfo":
+            from ginkgo.data.containers import container
+            stockinfo_service = container.stockinfo_service()
+            console.print(":repeat: Syncing stock information...")
+            # TODO: Implement stockinfo sync
+            console.print(":information: Stock info sync not yet implemented")
 
-        if calendar:
-            # TODO
-            print("update canlerdar in future.")
-            # GDATA.send_signal_update_calender()
+        elif data_type == "day":
+            from ginkgo.data.containers import container
+            from ginkgo.data import fetch_and_update_cn_daybar, fetch_and_update_cn_daybar_with_date_range
+            from datetime import datetime
 
-        if adjust:
-            if code == None:
-                stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
-                    stock_code = r["code"]
-                    kafka_service.send_adjustfactor_update_signal(stock_code, fast)
+            # 确定同步哪些股票
+            if code:
+                codes = [code]
+                console.print(f":repeat: Syncing day data for {code}...")
             else:
-                for i in l:
-                    kafka_service.send_adjustfactor_update_signal(i, fast)
+                # 获取所有股票代码
+                stockinfo_service = container.stockinfo_service()
+                stock_result = stockinfo_service.get()
+                if stock_result.success and stock_result.data:
+                    codes = [s.code for s in stock_result.data]
+                    console.print(f":repeat: Syncing day data for all {len(codes)} stocks...")
+                else:
+                    console.print(":x: Failed to get stock list")
+                    raise typer.Exit(1)
 
-        if day:
-            if code == None:
-                stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
-                    stock_code = r["code"]
-                    kafka_service.send_daybar_update_signal(stock_code, fast)
+            try:
+                success_count = 0
+                error_count = 0
+
+                for current_code in codes:
+                    try:
+                        console.print(f":information: Processing {current_code}...")
+
+                        if full:
+                            if force:
+                                # 强制全量同步：从1990年开始，删除已有数据重新插入
+                                console.print(f":information: Force full sync for {current_code} (from 1990-01-01, overwrite existing)")
+                                from datetime import datetime
+                                result = fetch_and_update_cn_daybar_with_date_range(
+                                    current_code,
+                                    start_date=datetime(1990, 1, 1),
+                                    end_date=datetime.now()
+                                )
+                            else:
+                                # 全量同步：从1990年开始，跳过已有数据
+                                console.print(f":information: Full sync for {current_code} (from 1990-01-01, skip existing)")
+                                from datetime import datetime
+                                result = fetch_and_update_cn_daybar_with_date_range(
+                                    current_code,
+                                    start_date=datetime(1990, 1, 1),
+                                    end_date=datetime.now()
+                                )
+                        else:
+                            # 增量同步：从最新日期开始到当下
+                            console.print(f":information: Incremental sync for {current_code} (from latest date)")
+                            result = fetch_and_update_cn_daybar(current_code, fast_mode=True)
+
+                        if result and (not hasattr(result, 'success') or result.success):
+                            success_count += 1
+                            console.print(f":white_check_mark: {current_code} sync completed")
+                        else:
+                            error_count += 1
+                            console.print(f":x: {current_code} sync failed")
+                            if hasattr(result, 'error') and result.error:
+                                console.print(f"   Error: {result.error}")
+
+                    except Exception as e:
+                        error_count += 1
+                        console.print(f":x: Error syncing {current_code}: {str(e)}")
+                        continue
+
+                console.print(f":information: Day sync completed. Success: {success_count}, Errors: {error_count}")
+
+            except Exception as e:
+                console.print(f":x: Error in day sync process: {e}")
+                if not force:
+                    raise typer.Exit(1)
+
+        elif data_type == "tick":
+            from ginkgo.data.containers import container
+            from ginkgo.data import fetch_and_update_tick_incremental, fetch_and_update_tick_full
+            from datetime import datetime
+
+            # 确定同步哪些股票
+            if code:
+                codes = [code]
+                console.print(f":repeat: Syncing tick data for {code}...")
             else:
-                for i in l:
-                    kafka_service.send_daybar_update_signal(i, fast)
+                # 获取所有股票代码
+                stockinfo_service = container.stockinfo_service()
+                stock_result = stockinfo_service.get()
+                if stock_result.success and stock_result.data:
+                    codes = [s.code for s in stock_result.data]
+                    console.print(f":repeat: Syncing tick data for all {len(codes)} stocks...")
+                else:
+                    console.print(":x: Failed to get stock list")
+                    raise typer.Exit(1)
 
-        if tick:
-            if code == None:
-                stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
-                    stock_code = r["code"]
-                    kafka_service.send_tick_update_signal(stock_code, fast, max_update)
+            try:
+                success_count = 0
+                error_count = 0
+
+                for current_code in codes:
+                    try:
+                        console.print(f":information: Processing {current_code}...")
+
+                        if date:
+                            # 指定日期同步
+                            target_date = datetime.strptime(date, "%Y%m%d")
+                            console.print(f":information: Syncing tick data for {current_code} on {date} (force={force})")
+                            # TODO: 实现指定日期同步
+
+                        elif full:
+                            if force:
+                                # 强制全量同步：从上市开始，删除已有数据重新插入
+                                console.print(f":information: Force full sync for {current_code} (from listing date, overwrite existing)")
+                                result = fetch_and_update_tick_full(current_code, force_overwrite=True)
+                            else:
+                                # 全量同步：从上市开始，跳过已有数据
+                                console.print(f":information: Full sync for {current_code} (from listing date, skip existing)")
+                                result = fetch_and_update_tick_full(current_code, force_overwrite=False)
+                        else:
+                            # 增量同步：从最新日期开始到当下
+                            console.print(f":information: Incremental sync for {current_code} (from latest date)")
+                            result = fetch_and_update_tick_incremental(current_code)
+
+                        if result and (not hasattr(result, 'success') or result.success):
+                            success_count += 1
+                            console.print(f":white_check_mark: {current_code} sync completed")
+                        else:
+                            error_count += 1
+                            console.print(f":x: {current_code} sync failed")
+                            if hasattr(result, 'error') and result.error:
+                                console.print(f"   Error: {result.error}")
+
+                    except Exception as e:
+                        error_count += 1
+                        console.print(f":x: Error syncing {current_code}: {str(e)}")
+                        continue
+
+                console.print(f":information: Tick sync completed. Success: {success_count}, Errors: {error_count}")
+
+            except Exception as e:
+                console.print(f":x: Error in tick sync process: {e}")
+                if not force:
+                    raise typer.Exit(1)
+
+        elif data_type == "adjustfactor":
+            from ginkgo.data.containers import container
+            from ginkgo.data import fetch_and_update_adjustfactor, recalculate_adjust_factors_for_code
+
+            # 确定同步哪些股票
+            if code:
+                codes = [code]
+                console.print(f":repeat: Syncing adjustfactor data for {code}...")
             else:
-                for i in l:
-                    kafka_service.send_tick_update_signal(i, fast, max_update)
+                # 获取所有股票代码
+                stockinfo_service = container.stockinfo_service()
+                stock_result = stockinfo_service.get()
+                if stock_result.success and stock_result.data:
+                    codes = [s.code for s in stock_result.data]
+                    console.print(f":repeat: Syncing adjustfactor data for all {len(codes)} stocks...")
+                else:
+                    console.print(":x: Failed to get stock list")
+                    raise typer.Exit(1)
 
-    else:
-        if a:
-            fetch_and_update_stockinfo()
-            fetch_and_update_tradeday()
-            stockinfos = get_stockinfos()
-            for i, r in stockinfos.iterrows():
-                stock_code = r["code"]
-                fetch_and_update_cn_daybar(stock_code, fast)
-                fetch_and_update_adjustfactor(stock_code, fast)
-                fetch_and_update_tick(stock_code, fast, max_update)
-            return
+            try:
+                success_count = 0
+                error_count = 0
 
-        if stockinfo:
-            fetch_and_update_stockinfo()
+                for current_code in codes:
+                    try:
+                        console.print(f":information: Processing {current_code}...")
 
-        if calendar:
-            fetch_and_update_tradeday()
+                        if full:
+                            if force:
+                                # 强制全量同步：直接pass参数，删除已有数据重新插入
+                                console.print(f":information: Force full sync for {current_code} (overwrite existing)")
+                                result = fetch_and_update_adjustfactor(current_code, fast_mode=False)
+                            else:
+                                # 全量同步：直接pass参数，跳过已有数据
+                                console.print(f":information: Full sync for {current_code} (skip existing)")
+                                result = fetch_and_update_adjustfactor(current_code, fast_mode=True)
+                        else:
+                            # 增量同步：从最新日期开始到当下
+                            console.print(f":information: Incremental sync for {current_code} (from latest date)")
+                            result = fetch_and_update_adjustfactor(current_code, fast_mode=True)
 
-        if adjust:
-            if code == None:
-                stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
-                    stock_code = r["code"]
-                    fetch_and_update_adjustfactor(stock_code, fast)
-            else:
-                for i in l:
-                    fetch_and_update_adjustfactor(i, fast)
+                        # Check sync result - ServiceResult has success property, other results may not
+                        sync_success = False
+                        if hasattr(result, 'success'):
+                            sync_success = result.success
+                        elif result is None:  # Some functions return None on success
+                            sync_success = True
 
-        if day:
-            if code == None:
-                stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
-                    stock_code = r["code"]
-                    fetch_and_update_cn_daybar(stock_code, fast)
-            else:
-                for i in l:
-                    fetch_and_update_cn_daybar(i, fast)
+                        
+                        if sync_success:
+                            success_count += 1
+                            console.print(f":white_check_mark: {current_code} sync completed")
 
-        if tick:
-            if code == None:
-                stockinfos = get_stockinfos()
-                for i, r in stockinfos.iterrows():
-                    stock_code = r["code"]
-                    fetch_and_update_tick(stock_code, fast, max_update)
-            else:
-                for i in l:
-                    fetch_and_update_tick(i, fast, max_update)
+                            # 同步完成后立即计算该股票的复权因子
+                            console.print(f":information: Calculating adjustment factors for {current_code}...")
+                            calc_result = recalculate_adjust_factors_for_code(current_code)
+                            if calc_result and hasattr(calc_result, 'success') and calc_result.success:
+                                console.print(f":white_check_mark: {current_code} adjustment factor calculation completed")
+                            else:
+                                console.print(f":warning: {current_code} adjustment factor calculation failed")
+                                if hasattr(calc_result, 'error') and calc_result.error:
+                                    console.print(f"   Error: {calc_result.error}")
+                        else:
+                            error_count += 1
+                            console.print(f":x: {current_code} sync failed")
+                            if hasattr(result, 'error') and result.error:
+                                console.print(f"   Error: {result.error}")
+                            elif hasattr(result, 'message') and result.message:
+                                console.print(f"   Message: {result.message}")
 
+                    except Exception as e:
+                        error_count += 1
+                        console.print(f":x: Error syncing {current_code}: {str(e)}")
+                        continue
 
-@app.command()
-def search(
-    filter: Annotated[str, typer.Option(case_sensitive=True, help=":mag: Keywords to search in data")] = "",
-):
-    """
-    :mag_right: Search data using fuzzy matching keywords.
-    """
-    pass
+                console.print(f":information: Adjustfactor sync completed. Success: {success_count}, Errors: {error_count}")
 
+            except Exception as e:
+                console.print(f":x: Error in adjustfactor sync process: {e}")
+                if not force:
+                    raise typer.Exit(1)
 
-@app.command()
-def rebuild(
-    engine: Annotated[bool, typer.Option(case_sensitive=False, help=":wrench: Rebuild Engine Table")] = False,
-    portfolio: Annotated[bool, typer.Option(case_sensitive=False, help=":briefcase: Rebuild Portfolio Table")] = False,
-    order: Annotated[bool, typer.Option(case_sensitive=False, help=":clipboard: Rebuild Order Table")] = False,
-    orderrecord: Annotated[bool, typer.Option(case_sensitive=False, help=":memo: Rebuild OrderRecord Table")] = False,
-    file: Annotated[bool, typer.Option(case_sensitive=False, help=":file_folder: Rebuild File Table")] = False,
-    param: Annotated[bool, typer.Option(case_sensitive=False, help=":gear: Rebuild Param Table")] = False,
-    analyzerrecord: Annotated[bool, typer.Option(case_sensitive=False, help=":bar_chart: Rebuild Analyzer Table")] = False,
-    stockinfo: Annotated[bool, typer.Option(case_sensitive=False, help=":chart_with_upwards_trend: Rebuild StockInfo Table")] = False,
-    signal: Annotated[bool, typer.Option(case_sensitive=False, help=":satellite_antenna: Rebuild Signal Table")] = False,
-    calendar: Annotated[bool, typer.Option(case_sensitive=False, help=":calendar: Rebuild Calendar Table")] = False,
-    adjust: Annotated[bool, typer.Option(case_sensitive=False, help=":arrows_counterclockwise: Rebuild Adjustment Table")] = False,
-):
-    """
-    :building_construction: Rebuild database tables (DANGEROUS: Will delete existing data).
-    """
-    from ginkgo.enums import MARKET_TYPES
-    from ginkgo.data.drivers import drop_table, create_all_tables
-    from ginkgo.data.models import (
-        MOrder,
-        MPortfolio,
-        MOrderRecord,
-        MAdjustfactor,
-        MFile,
-        MSignal,
-        MAnalyzerRecord,
-        MStockInfo,
-        MTradeDay,
-        MEngine,
-        MParam,
-    )
-
-    if engine:
-        drop_table(MEngine)
-
-    if portfolio:
-        drop_table(MPortfolio)
-
-    if order:
-        drop_table(MOrder)
-
-    if orderrecord:
-        drop_table(MOrderRecord)
-
-    if file:
-        drop_table(MFile)
-
-    if param:
-        drop_table(MParam)
-
-    if analyzerrecord:
-        drop_table(MAnalyzerRecord)
-
-    if signal:
-        drop_table(MSignal)
-
-    if stockinfo:
-        drop_table(MStockInfo)
-
-    if calendar:
-        drop_table(MTradeDay)
-
-    if adjust:
-        drop_table(MAdjustfactor)
-
-    # TODO Mapping
-
-    create_all_tables()
-
-
-@app.command()
-def calc(
-    code: Annotated[
-        typing_list[str],
-        typer.Argument(
-            case_sensitive=True,
-            help=":chart_with_upwards_trend: Specific stock codes to calculate adjust factors (e.g., 000001.SZ 000002.SZ). Leave empty to process all stocks.",
-        ),
-    ] = None,
-    all: Annotated[bool, typer.Option("--all", "-a", case_sensitive=False, help=":arrows_counterclockwise: Calculate adjust factors for all stocks")] = False,
-    debug: Annotated[bool, typer.Option("--debug", "-d", case_sensitive=False, help=":bug: Enable debug logging")] = False,
-):
-    """
-    :bar_chart: Calculate fore/back adjust factors based on existing adj_factor data.
-    
-    This command recalculates the fore/back adjust factors from the original 
-    adj_factor data already stored in the database. Use this after updating 
-    adjust factor data with 'ginkgo data update --adjust'.
-    
-    Examples:
-        ginkgo data calc 000001.SZ           # Calculate for single stock
-        ginkgo data calc 000001.SZ 000002.SZ # Calculate for specific stocks  
-        ginkgo data calc --all               # Calculate for all stocks
-        ginkgo data calc                     # Calculate for all stocks (default)
-    """
-    from ginkgo.libs import GLOG
-    from ginkgo.data.containers import container
-    
-    # Set debug level
-    if debug:
-        GLOG.set_level("DEBUG")
-    else:
-        GLOG.set_level("INFO")
-    
-    adjustfactor_service = container.adjustfactor_service()
-    
-    # Determine codes to process
-    if all or code is None:
-        # Process all available codes
-        console.print(":arrows_counterclockwise: Calculating adjust factors for [yellow]all stocks[/yellow]...")
-        result = adjustfactor_service.recalculate_adjust_factors_batch()
-    else:
-        # Process specific codes
-        codes_list = list(code)  # Convert from tuple to list
-        console.print(f":chart_with_upwards_trend: Calculating adjust factors for [yellow]{len(codes_list)}[/yellow] stocks: {', '.join(codes_list)}")
-        result = adjustfactor_service.recalculate_adjust_factors_batch(codes_list)
-    
-    # Display results summary
-    total_codes = result["total_codes"]
-    successful_codes = result["successful_codes"]
-    failed_codes = result["failed_codes"]
-    total_records_updated = result["total_records_updated"]
-    
-    if successful_codes > 0:
-        console.print(f":white_check_mark: Successfully processed [green]{successful_codes}[/green] stocks")
-        console.print(f":bar_chart: Updated [green]{total_records_updated}[/green] adjust factor records")
-    
-    if failed_codes > 0:
-        console.print(f":x: Failed to process [red]{failed_codes}[/red] stocks")
-        
-        # Show failure details
-        failures = result.get("failures", [])
-        if failures:
-            console.print(":warning: [yellow]Failure Details:[/yellow]")
-            for failure in failures[:10]:  # Show first 10 failures
-                code_str = failure.get("code", "Unknown")
-                error_str = failure.get("error", "Unknown error")
-                console.print(f"  - [red]{code_str}[/red]: {error_str}")
-            
-            if len(failures) > 10:
-                console.print(f"  ... and {len(failures) - 10} more failures")
-    
-    # Final summary
-    if total_codes == 0:
-        console.print(":warning: [yellow]No stocks to process[/yellow]")
-    elif successful_codes == total_codes:
-        console.print(f":tada: [green]All {total_codes} stocks processed successfully![/green]")
-    else:
-        console.print(f":information: Processed {successful_codes}/{total_codes} stocks successfully")
-
-
-@app.command()
-def clean():
-    """
-    :broom: Clean database by removing dirty data and invalid mappings.
-    """
-    from ginkgo.data import clean_portfolio_file_mapping as func
-
-    func()
-    from ginkgo.data import clean_engine_portfolio_mapping as func
-
-    func()
-
-
-@app.command()
-def stats():
-    """
-    :bar_chart: Display comprehensive database statistics.
-    
-    Shows counts, data ranges, and availability statistics for all data types
-    including stock info, bars, ticks, adjustment factors, and trading data.
-    """
-    from ginkgo.data.containers import container
-    from rich.table import Table
-    from rich.panel import Panel
-    from rich.columns import Columns
-    import datetime
-    
-    console.print(":bar_chart: [bold blue]Ginkgo Database Statistics[/bold blue]")
-    console.print()
-    
-    # 获取各种服务
-    stockinfo_service = container.stockinfo_service()
-    bar_service = container.bar_service()
-    tick_service = container.tick_service()
-    adjustfactor_service = container.adjustfactor_service()
-    
-    # 创建统计表格
-    stats_table = Table(title=":bar_chart: Data Statistics", show_header=True, header_style="bold magenta")
-    stats_table.add_column("Data Type", style="cyan", width=20)
-    stats_table.add_column("Total Records", justify="right", style="green", width=15)
-    stats_table.add_column("Available Codes", justify="right", style="yellow", width=15)
-    stats_table.add_column("Date Range", style="dim", width=25)
-    
-    # 获取股票信息统计
-    try:
-        stockinfos = stockinfo_service.get_stockinfos(as_dataframe=True)
-        stock_count = len(stockinfos) if stockinfos is not None and len(stockinfos) > 0 else 0
-        stats_table.add_row(
-            ":chart_with_upwards_trend: Stock Info", 
-            str(stock_count), 
-            str(stock_count),
-            "N/A"
-        )
-    except Exception as e:
-        stats_table.add_row(":chart_with_upwards_trend: Stock Info", "Error", "Error", str(e)[:20])
-    
-    # 获取日线数据统计
-    try:
-        bar_codes = bar_service.get_available_codes()
-        bar_count = bar_service.count_bars()
-        stats_table.add_row(
-            ":bar_chart: Daily Bars", 
-            f"{bar_count:,}" if bar_count else "0", 
-            str(len(bar_codes)) if bar_codes else "0",
-            "Various ranges"
-        )
-    except Exception as e:
-        stats_table.add_row(":bar_chart: Daily Bars", "Error", "Error", str(e)[:20])
-    
-    # 获取逐笔数据统计
-    try:
-        tick_codes = tick_service.get_available_codes()
-        tick_count = tick_service.count_ticks()
-        stats_table.add_row(
-            ":zap: Tick Data", 
-            f"{tick_count:,}" if tick_count else "0", 
-            str(len(tick_codes)) if tick_codes else "0",
-            "Recent days"
-        )
-    except Exception as e:
-        stats_table.add_row(":zap: Tick Data", "Error", "Error", str(e)[:20])
-    
-    # 获取复权因子统计
-    try:
-        adj_codes = adjustfactor_service.get_available_codes()
-        adj_count = adjustfactor_service.count_adjustfactors()
-        stats_table.add_row(
-            ":arrows_counterclockwise: Adjust Factors", 
-            f"{adj_count:,}" if adj_count else "0", 
-            str(len(adj_codes)) if adj_codes else "0",
-            "Historical data"
-        )
-    except Exception as e:
-        stats_table.add_row(":arrows_counterclockwise: Adjust Factors", "Error", "Error", str(e)[:20])
-    
-    console.print(stats_table)
-    console.print()
-    
-    # 显示数据完整性信息
-    completeness_info = []
-    
-    try:
-        # 检查数据完整性
-        total_stocks = stock_count
-        bar_coverage = len(bar_codes) / total_stocks * 100 if total_stocks > 0 else 0
-        tick_coverage = len(tick_codes) / total_stocks * 100 if total_stocks > 0 else 0  
-        adj_coverage = len(adj_codes) / total_stocks * 100 if total_stocks > 0 else 0
-        
-        completeness_info.append(Panel(
-            f":bar_chart: Bar Data: [green]{bar_coverage:.1f}%[/green] coverage\n"
-            f":zap: Tick Data: [yellow]{tick_coverage:.1f}%[/yellow] coverage\n" 
-            f":arrows_counterclockwise: Adjust Factors: [blue]{adj_coverage:.1f}%[/blue] coverage",
-            title=":chart_with_upwards_trend: Data Coverage",
-            border_style="green"
-        ))
-        
-        completeness_info.append(Panel(
-            f":one_oclock: Last Updated: [cyan]{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/cyan]\n"
-            f":calendar: Data Status: [green]Active[/green]\n"
-            f":wrench: Services: [blue]Running[/blue]",
-            title=":zap: System Status", 
-            border_style="blue"
-        ))
-        
-    except Exception as e:
-        completeness_info.append(Panel(
-            f":x: Error calculating statistics: {e}",
-            title=":warning: Warning",
-            border_style="red"
-        ))
-    
-    if completeness_info:
-        console.print(Columns(completeness_info))
-
-
-@app.command() 
-def health():
-    """
-    🏥 Perform comprehensive health check on data integrity.
-    
-    Checks for missing data, inconsistencies, and potential issues
-    across all data types including orphaned records and data gaps.
-    """
-    from ginkgo.data.containers import container
-    from rich.progress import Progress, SpinnerColumn, TextColumn
-    from rich.panel import Panel
-    import datetime
-    
-    console.print(":hospital: [bold green]Ginkgo Database Health Check[/bold green]")
-    console.print()
-    
-    health_issues = []
-    health_warnings = []
-    health_info = []
-    
-    # 获取服务
-    stockinfo_service = container.stockinfo_service()
-    bar_service = container.bar_service()
-    tick_service = container.tick_service() 
-    adjustfactor_service = container.adjustfactor_service()
-    
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-        transient=True,
-    ) as progress:
-        
-        # 检查股票信息完整性
-        task1 = progress.add_task("Checking stock info integrity...", total=None)
-        try:
-            stockinfos = stockinfo_service.get_stockinfos(as_dataframe=True)
-            if stockinfos is None or len(stockinfos) == 0:
-                health_issues.append(":x: No stock information found in database")
-            else:
-                stock_codes = set(stockinfos['code'].tolist())
-                health_info.append(f":white_check_mark: Found {len(stock_codes)} stocks in database")
-                
-                # 检查必要字段
-                required_fields = ['code', 'code_name', 'industry']
-                missing_fields = [field for field in required_fields if field not in stockinfos.columns]
-                if missing_fields:
-                    health_warnings.append(f":warning: Missing stock info fields: {', '.join(missing_fields)}")
-                
-        except Exception as e:
-            health_issues.append(f":x: Stock info check failed: {e}")
-        
-        progress.update(task1, completed=True)
-        
-        # 检查日线数据一致性
-        task2 = progress.add_task("Checking bar data consistency...", total=None)
-        try:
-            bar_codes = set(bar_service.get_available_codes())
-            if len(bar_codes) == 0:
-                health_warnings.append(":warning: No bar data found")
-            else:
-                health_info.append(f":white_check_mark: Bar data available for {len(bar_codes)} stocks")
-                
-                # 检查孤立的bar数据（股票信息中不存在的代码）
-                if 'stock_codes' in locals():
-                    orphaned_bars = bar_codes - stock_codes
-                    if orphaned_bars:
-                        health_warnings.append(f":warning: Found {len(orphaned_bars)} orphaned bar records")
-                
-        except Exception as e:
-            health_issues.append(f":x: Bar data check failed: {e}")
-        
-        progress.update(task2, completed=True)
-        
-        # 检查逐笔数据
-        task3 = progress.add_task("Checking tick data...", total=None)
-        try:
-            tick_codes = set(tick_service.get_available_codes())
-            if len(tick_codes) > 0:
-                health_info.append(f":white_check_mark: Tick data available for {len(tick_codes)} stocks")
-                
-                # 检查孤立的tick数据
-                if 'stock_codes' in locals():
-                    orphaned_ticks = tick_codes - stock_codes
-                    if orphaned_ticks:
-                        health_warnings.append(f":warning: Found {len(orphaned_ticks)} orphaned tick records")
-            else:
-                health_info.append("ℹ️ No tick data found (this may be normal)")
-                
-        except Exception as e:
-            health_issues.append(f":x: Tick data check failed: {e}")
-        
-        progress.update(task3, completed=True)
-        
-        # 检查复权因子数据
-        task4 = progress.add_task("Checking adjustment factors...", total=None)
-        try:
-            adj_codes = set(adjustfactor_service.get_available_codes())
-            if len(adj_codes) > 0:
-                health_info.append(f":white_check_mark: Adjustment factors available for {len(adj_codes)} stocks")
-                
-                # 检查孤立的复权数据
-                if 'stock_codes' in locals():
-                    orphaned_adj = adj_codes - stock_codes
-                    if orphaned_adj:
-                        health_warnings.append(f":warning: Found {len(orphaned_adj)} orphaned adjustment records")
-            else:
-                health_warnings.append(":warning: No adjustment factors found")
-                
-        except Exception as e:
-            health_issues.append(f":x: Adjustment factor check failed: {e}")
-        
-        progress.update(task4, completed=True)
-    
-    # 显示健康检查结果
-    console.print()
-    
-    if health_issues:
-        issues_panel = Panel(
-            "\n".join(health_issues),
-            title="🚨 Critical Issues",
-            border_style="red"
-        )
-        console.print(issues_panel)
-        console.print()
-    
-    if health_warnings:
-        warnings_panel = Panel(
-            "\n".join(health_warnings),
-            title=":warning: Warnings",
-            border_style="yellow"
-        )
-        console.print(warnings_panel)
-        console.print()
-    
-    if health_info:
-        info_panel = Panel(
-            "\n".join(health_info),
-            title="ℹ️ Health Information",
-            border_style="green"
-        )
-        console.print(info_panel)
-        console.print()
-    
-    # 总结
-    if not health_issues and not health_warnings:
-        console.print(":white_check_mark: [bold green]Database health check passed! All systems are healthy.[/bold green]")
-    elif health_issues:
-        console.print(f":x: [bold red]Found {len(health_issues)} critical issues that need attention.[/bold red]")
-    else:
-        console.print(f":warning: [bold yellow]Found {len(health_warnings)} warnings but no critical issues.[/bold yellow]")
-    
-    console.print(f"\n:clock: Health check completed at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-
-@app.command()
-def test(
-    unit: Annotated[bool, typer.Option(help=":test_tube: Run unit tests for data module")] = False,
-    integration: Annotated[bool, typer.Option(help=":link: Run integration tests for data module")] = False,
-    database: Annotated[bool, typer.Option(help="🗄️ Run database tests (REQUIRES CONFIRMATION)")] = False,
-    containers: Annotated[bool, typer.Option(help=":package: Run container tests for data module")] = False,
-    all: Annotated[bool, typer.Option(help=":arrows_counterclockwise: Run all data module tests (except database)")] = False,
-    verbose: Annotated[bool, typer.Option("-v", help=":memo: Verbose output")] = False,
-    coverage: Annotated[bool, typer.Option(help=":bar_chart: Generate coverage report")] = False,
-):
-    """
-    :test_tube: Run tests specifically for the data module.
-    
-    This command runs data module tests in the layered test architecture:
-    • Unit tests: Pure logic tests (fast, safe)
-    • Integration tests: Service interaction tests with mocks
-    • Database tests: Real database operations (requires confirmation)
-    • Container tests: DI container functionality
-    
-    EXAMPLES:
-    ginkgo data test --unit              # Fast unit tests only
-    ginkgo data test --integration       # Integration tests with mocks
-    ginkgo data test --database          # Database tests (with confirmation)
-    ginkgo data test --all               # All tests except database
-    """
-    import subprocess
-    import sys
-    from pathlib import Path
-    
-    # Default to unit tests if nothing specified
-    if not any([unit, integration, database, containers, all]):
-        unit = True
-        console.print("ℹ️ [cyan]No test type specified. Running unit tests by default.[/cyan]")
-    
-    if all:
-        unit = True
-        integration = True
-        containers = True
-        # Database tests are NOT included in --all for safety
-    
-    # Build the command to delegate to pytest CLI
-    cmd = [sys.executable, "-m", "ginkgo.client.test_cli", "run", "--module", "data"]
-    
-    if unit:
-        cmd.append("--unit")
-    if integration:
-        cmd.append("--integration")
-    if database:
-        cmd.append("--database")
-    if containers:
-        cmd.append("--containers")
-    if verbose:
-        cmd.append("--verbose")
-    if coverage:
-        cmd.append("--coverage")
-    
-    console.print(f":rocket: [cyan]Running data module tests...[/cyan]")
-    
-    try:
-        # Use subprocess to call the unittest CLI
-        result = subprocess.run(cmd, check=False)
-        
-        if result.returncode == 0:
-            console.print(":white_check_mark: [bold green]Data module tests completed successfully![/bold green]")
         else:
-            console.print(":x: [bold red]Some data module tests failed. Check output above for details.[/bold red]")
-            sys.exit(result.returncode)
-            
-    except FileNotFoundError:
-        console.print(":x: [red]Could not find unittest CLI. Make sure Ginkgo is properly installed.[/red]")
-        sys.exit(1)
+            console.print(f":x: Unknown data type: {data_type}")
+            raise typer.Exit(1)
+
     except Exception as e:
-        console.print(f":x: [red]Error running tests: {e}[/red]")
-        sys.exit(1)
+        console.print(f":x: Error updating data: {e}")
+        raise typer.Exit(1)

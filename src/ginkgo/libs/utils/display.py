@@ -9,6 +9,7 @@ from types import FunctionType, MethodType
 import pandas as pd
 from enum import Enum
 import sys
+import os
 from typing import Optional, Dict, Any, Tuple
 from rich.console import Console
 from rich.table import Table
@@ -375,31 +376,135 @@ def display_dataframe_interactive(data: pd.DataFrame,
             status_parts.append(f"当前页面: 第{current_page + 1}/{total_pages}页 ({start_idx}-{end_idx})")
         console.print(" | ".join(status_parts))
         
-        # 3. 操作提示与输入（合并到同一行）
+        # 3. 单键翻页逻辑
         try:
+            import sys
+            import select
+            import time
+            import termios
+            import tty
+
+            if total_pages > 1:
+                console.print("\n[bold green]单键翻页模式[/bold green]")
+                console.print("按 [bold yellow]n[/bold yellow] 下一页, [bold yellow]p[/bold yellow] 上一页, [bold yellow]q[/bold yellow] 退出")
+
+                # 尝试设置终端为原始模式
+                old_settings = termios.tcgetattr(sys.stdin)
+                try:
+                    # 设置终端为原始模式（无缓冲）
+                    tty.setraw(sys.stdin.fileno())
+
+                    # 设置标准输入为非阻塞
+                    import fcntl
+                    fd = sys.stdin.fileno()
+                    flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+                    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
+                    while True:
+                        # 清空缓冲区
+                        try:
+                            while True:
+                                sys.stdin.read(1)
+                        except:
+                            pass
+
+                        # 非阻塞检查用户输入，等待0.5秒
+                        if select.select([sys.stdin], [], [], 0.5)[0]:
+                            try:
+                                key = sys.stdin.read(1).strip().lower()
+                                if key == 'n':
+                                    # 下一页
+                                    if current_page < total_pages - 1:
+                                        current_page += 1
+                                    else:
+                                        console.print(f"\n[bold blue]已到达最后一页 (第{total_pages}页)[/bold blue]")
+                                        break
+                                    continue
+                                elif key == 'p':
+                                    # 上一页
+                                    if current_page > 0:
+                                        current_page -= 1
+                                    continue
+                                elif key == 'q':
+                                    # 退出
+                                    console.print("\n[yellow]用户退出[/yellow]")
+                                    break
+                                # 忽略其他按键
+                            except:
+                                pass
+                        else:
+                            # 没有输入时，等待一段时间再检查
+                            time.sleep(0.1)
+                            continue
+
+                finally:
+                    # 恢复终端设置
+                    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+            else:
+                # 只有一页时
+                time.sleep(2)
+                break
+
+        except (KeyboardInterrupt, EOFError):
+            break
+        except (ImportError, AttributeError):
+            # 如果Unix终端设置失败，尝试Windows方案
+            try:
+                import msvcrt
+                import time
+
+                if total_pages > 1:
+                    console.print("\n[bold green]单键翻页模式[/bold green]")
+                    console.print("按 [bold yellow]n[/bold yellow] 下一页, [bold yellow]p[/bold yellow] 上一页, [bold yellow]q[/bold yellow] 退出")
+
+                    while True:
+                        if msvcrt.kbhit():
+                            key = msvcrt.getch().decode('utf-8', errors='ignore').lower()
+                            if key == 'n':
+                                if current_page < total_pages - 1:
+                                    current_page += 1
+                                else:
+                                    console.print(f"\n[bold blue]已到达最后一页 (第{total_pages}页)[/bold blue]")
+                                    break
+                            elif key == 'p':
+                                if current_page > 0:
+                                    current_page -= 1
+                            elif key == 'q':
+                                console.print("\n[yellow]用户退出[/yellow]")
+                                break
+                        else:
+                            time.sleep(0.1)
+                else:
+                    time.sleep(2)
+                    break
+
+            except ImportError:
+                # 如果所有单键方案都失败，回退到原有模式
+                raise
+            except Exception as e:
+                # 其他异常也回退到原有模式
+                raise
+
+        except (KeyboardInterrupt, EOFError):
+            break
+        except Exception as e:
+            # 如果非阻塞输入失败，回退到原有模式
             if total_pages > 1:
                 prompt_text = "按Enter下一页 | n(下一页) | p(上一页) | q(退出) > "
             else:
                 prompt_text = "按Enter或q(退出) > "
             user_input = Prompt.ask(prompt_text, default="").strip().lower()
-        except (KeyboardInterrupt, EOFError):
-            break
-        
-        # 处理用户输入（空输入=下一页，自动退出逻辑）
-        if user_input == "" or user_input.startswith('n'):
-            # 空输入或n命令 = 下一页
-            if current_page < total_pages - 1:
-                current_page += 1
-            else:
-                # 已经是最后一页，自动退出
+
+            if user_input == "" or user_input.startswith('n'):
+                if current_page < total_pages - 1:
+                    current_page += 1
+                else:
+                    break
+            elif user_input.startswith('p'):
+                if current_page > 0:
+                    current_page -= 1
+            elif user_input.startswith('q'):
                 break
-        elif user_input.startswith('p'):
-            # 上一页
-            if current_page > 0:
-                current_page -= 1
-        elif user_input.startswith('q'):
-            # 退出
-            break
 
 
 def display_terminal_chart(data: pd.DataFrame,

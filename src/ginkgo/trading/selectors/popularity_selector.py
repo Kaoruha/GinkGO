@@ -2,7 +2,7 @@ import datetime
 from rich.progress import Progress
 
 from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
-from ginkgo.data import get_stockinfos, get_bars
+from ginkgo.data.containers import container
 
 
 class PopularitySelector(BaseSelector):

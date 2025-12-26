@@ -68,9 +68,17 @@ class SimpleBacktest:
         self.portfolio.add_cash(Decimal(str(self.initial_cash)))
 
         # 3. 创建策略组件
-        self.strategy = RandomSignalStrategy(buy_probability=0.9, sell_probability=0.05, max_signals=1)
+        self.strategy = RandomSignalStrategy(buy_probability=0.9, sell_probability=0.05, max_signals=4)
+        self.strategy.set_random_seed(12345)  # 固定随机种子
+        # 🔍 调试：确认Example策略配置
+        print(f"🔍 [EXAMPLE DEBUG] Example Strategy Config:")
+        print(f"   - buy_probability: {self.strategy.buy_probability}")
+        print(f"   - sell_probability: {self.strategy.sell_probability}")
+        print(f"   - max_signals: {self.strategy.max_signals}")
+        print(f"   - random_seed: {self.strategy.random_seed}")
+        print(f"   - name: {self.strategy.name}")
         sizer = FixedSizer(volume=1000)
-        selector = FixedSelector(name="stock_selector", codes=["000001.SZ"])
+        selector = FixedSelector(name="stock_selector", codes=["000001.SZ", "000002.SZ"])
 
         # 4. 创建数据源
         self.feeder = BacktestFeeder(name="example_feeder")
@@ -114,6 +122,45 @@ class SimpleBacktest:
 
         # 运行前综合检查
         self.engine.check_components_binding()
+
+        # 🔍 [DEBUG] 打印engine的event_handler详情
+        print("\n🔍 [EVENT HANDLERS DEBUG] 打印Engine事件处理器注册情况:")
+        print(f"  Engine handlers dict keys: {list(self.engine._handlers.keys())}")
+
+        # 检查每种事件类型的处理器数量和详情
+        from ginkgo.enums import EVENT_TYPES
+        for event_type_name, event_type in EVENT_TYPES.__members__.items():
+            if event_type in self.engine._handlers:
+                handlers = self.engine._handlers[event_type]
+                print(f"  {event_type_name}: {len(handlers)} 个处理器")
+                for i, handler in enumerate(handlers):
+                    handler_info = str(handler)
+                    if hasattr(handler, '__self__'):
+                        obj_name = handler.__self__.__class__.__name__
+                        obj_uuid = getattr(handler.__self__, 'uuid', 'N/A')[:8]
+                        print(f"    处理器 {i+1}: {obj_name} (uuid: {obj_uuid}) - {handler_info}")
+                    else:
+                        print(f"    处理器 {i+1}: {handler_info}")
+
+        print("  " + "="*60)
+
+        # 🔍 [CRITICAL] 在engine.start()之前查看完整事件处理器注册情况
+        print("\n🔍 [FINAL EVENT HANDLERS BEFORE START]")
+        print(f"  Engine handlers dict keys: {list(self.engine._handlers.keys())}")
+
+        from ginkgo.enums import EVENT_TYPES
+        for event_type_name, event_type in EVENT_TYPES.__members__.items():
+            if event_type in self.engine._handlers:
+                handlers = self.engine._handlers[event_type]
+                print(f"  {event_type_name}: {len(handlers)} 个处理器")
+                for i, handler in enumerate(handlers):
+                    if hasattr(handler, '__self__'):
+                        obj_name = handler.__self__.__class__.__name__
+                        obj_uuid = getattr(handler.__self__, 'uuid', 'N/A')[:8]
+                        print(f"    处理器 {i+1}: {obj_name} (uuid: {obj_uuid})")
+                    else:
+                        print(f"    处理器 {i+1}: {type(handler).__name__}")
+        print("  " + "="*60)
 
         # 启动引擎并自动运行到完成
         print("⏱️  引擎自动运行中...")
@@ -172,13 +219,15 @@ class SimpleBacktest:
         # 交易统计
         signal_count = self.strategy.signal_count
         order_count = len(self.portfolio.orders) if hasattr(self.portfolio, "orders") else 0
+        filled_order_count = len(self.portfolio.filled_orders) if hasattr(self.portfolio, "filled_orders") else 0
         position_count = len(self.portfolio.positions) if hasattr(self.portfolio, "positions") else 0
 
         print(f"初始资金: ¥{self.initial_cash:,}")
         print(f"期末价值: ¥{final_value:,.2f}")
         print(f"总收益率: {total_return*100:.2f}%")
         print(f"策略信号数: {signal_count}")
-        print(f"订单数量: {order_count}")
+        print(f"确认订单数: {order_count}")
+        print(f"成交订单数: {filled_order_count}")
         print(f"持仓数量: {position_count}")
 
         # 显示最近的信号
@@ -191,6 +240,69 @@ class SimpleBacktest:
                 )
                 timestamp = signal.get("timestamp", "Unknown")
                 print(f"  {i+1}. {direction} {signal.get('code')} @ {timestamp}")
+
+        # 🔍 调试：检查订单和Position创建情况
+        print(f"\n🔍 [DEBUG] 订单和Position调试信息:")
+        print(f"  Portfolio.positions 字典长度: {len(self.portfolio.positions)}")
+        print(f"  Portfolio.positions 键值: {list(self.portfolio.positions.keys())}")
+
+        # 检查所有成交订单
+        if hasattr(self.portfolio, 'filled_orders') and self.portfolio.filled_orders:
+            print(f"  成交订单数量: {len(self.portfolio.filled_orders)}")
+            for i, order in enumerate(self.portfolio.filled_orders):
+                print(f"    订单{i+1}: {order.code} {order.direction} {order.transaction_volume}股 @ ¥{order.transaction_price}")
+
+        # 检查所有创建的Position
+        print(f"  检查股票代码是否在Portfolio.positions中:")
+        print(f"    000001.SZ: {'✅ 存在' if '000001.SZ' in self.portfolio.positions else '❌ 缺失'}")
+        print(f"    000002.SZ: {'✅ 存在' if '000002.SZ' in self.portfolio.positions else '❌ 缺失'}")
+
+        # 显示所有Position的详细信息
+        for code, position in self.portfolio.positions.items():
+            print(f"  📊 Position[{code}]:")
+            print(f"    volume: {position.volume} (可用持仓)")
+            print(f"    frozen_volume: {position.frozen_volume} (冻结持仓)")
+            print(f"    settlement_frozen_volume: {position.settlement_frozen_volume} (结算冻结)")
+            print(f"    total_position: {position.total_position} (总持仓)")
+            print(f"    worth: {position.worth} (价值)")
+            print(f"    cost: {position.cost} (成本价)")
+            print(f"    price: {position.price} (当前价)")
+            print(f"    uuid: {position.uuid}")
+            print(f"    portfolio_id: {position.portfolio_id}")
+
+        # 🔍 调试：分析订单重复执行问题
+        print(f"\n🔍 [CRITICAL] 订单重复执行分析:")
+        print(f"  策略信号总数: {self.strategy.signal_count}")
+        print(f"  理论订单数: 应该={self.strategy.signal_count}, 实际={len(self.portfolio.filled_orders)}")
+        print(f"  重复倍数: {len(self.portfolio.filled_orders) / self.strategy.signal_count if self.strategy.signal_count > 0 else 'N/A'}")
+
+        # 检查是否有重复的订单时间戳
+        if hasattr(self.portfolio, 'filled_orders') and self.portfolio.filled_orders:
+            timestamps = [order.timestamp for order in self.portfolio.filled_orders]
+            print(f"  订单时间戳: {timestamps}")
+            unique_timestamps = set(str(ts) for ts in timestamps)
+            print(f"  唯一时间戳: {len(unique_timestamps)}")
+            if len(unique_timestamps) < len(timestamps):
+                print(f"  ⚠️  发现重复时间戳！可能导致订单重复")
+
+        # 分析每个股票的订单统计
+        order_stats = {}
+        for order in self.portfolio.filled_orders:
+            code = order.code
+            if code not in order_stats:
+                order_stats[code] = {'count': 0, 'total_volume': 0}
+            order_stats[code]['count'] += 1
+            order_stats[code]['total_volume'] += order.transaction_volume
+
+        print(f"  📊 按股票统计订单:")
+        for code, stats in order_stats.items():
+            print(f"    {code}: {stats['count']}个订单, {stats['total_volume']}股")
+            # 检查Position是否匹配
+            if code in self.portfolio.positions:
+                position = self.portfolio.positions[code]
+                print(f"      Position: {position.volume}股 (差额: {stats['total_volume'] - position.volume}股)")
+            else:
+                print(f"      Position: 缺失! ❌")
 
         # 显示持仓情况
         if position_count > 0:
@@ -277,7 +389,7 @@ def main():
 
     # 设置回测参数
     start_date = datetime.datetime(2023, 1, 1)
-    end_date = datetime.datetime(2023, 1, 30)  # 延长到30天进行更充分测试
+    end_date = datetime.datetime(2023, 1, 30)  # 完整月份回测
 
     # 设置组件
     backtest.setup(start_date, end_date)
