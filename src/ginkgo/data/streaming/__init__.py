@@ -196,6 +196,9 @@ __all__ = [
     "RecoveryAction",
     "ProgressInfo",
     "QueryState",
+    # 管理器类
+    "CheckpointManager",
+    "ProgressTracker",
     # 异常类
     "StreamingError",
     "StreamingConfigError",
@@ -208,6 +211,10 @@ __all__ = [
     "__author__",
     "__description__",
 ]
+
+
+# 导入管理器类
+from ginkgo.data.streaming.checkpoint import CheckpointManager, ProgressTracker
 
 
 # 模块初始化日志

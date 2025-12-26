@@ -425,21 +425,41 @@ class SignalTrackingService(BaseService):
     def cleanup(self, days_to_keep: int = 30) -> ServiceResult:
         """
         清理旧的追踪记录
-        
+
         Args:
             days_to_keep: 保留天数
-            
+
         Returns:
             ServiceResult[int]: 删除的记录数
         """
         try:
             cutoff_date = datetime.now() - timedelta(days=days_to_keep)
-            
-            deleted_count = self._crud_repo.delete_by_date_range(end_date=cutoff_date)
-            
-            GLOG.INFO(f"Cleaned up {deleted_count} old signal tracking records")
+
+            # 查询需要删除的旧记录
+            old_records = self._crud_repo.find(page_size=10000)
+
+            # 筛选出需要删除的记录
+            to_delete = []
+            for record in old_records:
+                if record.create_at and record.create_at < cutoff_date:
+                    to_delete.append(record)
+
+            # 逐条删除
+            deleted_count = 0
+            for record in to_delete:
+                try:
+                    self._crud_repo.delete_by_uuid(record.uuid)
+                    deleted_count += 1
+                except Exception as e:
+                    GLOG.WARN(f"Failed to delete signal tracking record {record.uuid}: {e}")
+
+            if deleted_count > 0:
+                GLOG.INFO(f"Cleaned up {deleted_count} old signal tracking records")
+            else:
+                GLOG.DEBUG("No old signal tracking records to clean up")
+
             return ServiceResult.success(deleted_count)
-            
+
         except Exception as e:
             GLOG.ERROR(f"Failed to cleanup old records: {e}")
             return ServiceResult.error(f"清理旧记录失败: {e}")
