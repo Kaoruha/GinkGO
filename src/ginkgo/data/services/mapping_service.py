@@ -95,6 +95,28 @@ class MappingService(BaseService):
                     cleaned_count += count
                     cleaning_details.append(f"清理孤立File映射: {count} 个")
 
+                # 5. 清理孤立的Engine-Handler映射（Engine不存在）
+                stmt = text("""
+                    DELETE FROM engine_handler_mapping
+                    WHERE engine_id NOT IN (SELECT uuid FROM engine WHERE is_del = 0)
+                """)
+                result = session.execute(stmt)
+                count = result.rowcount
+                if count > 0:
+                    cleaned_count += count
+                    cleaning_details.append(f"清理孤立Engine-Handler映射(Engine): {count} 个")
+
+                # 6. 清理孤立的Engine-Handler映射（Handler不存在）
+                stmt = text("""
+                    DELETE FROM engine_handler_mapping
+                    WHERE handler_id NOT IN (SELECT uuid FROM handler WHERE is_del = 0)
+                """)
+                result = session.execute(stmt)
+                count = result.rowcount
+                if count > 0:
+                    cleaned_count += count
+                    cleaning_details.append(f"清理孤立Engine-Handler映射(Handler): {count} 个")
+
                 session.commit()
 
             if cleaned_count > 0:
@@ -140,22 +162,124 @@ class MappingService(BaseService):
                 result = session.execute(stmt, {"pattern": name_pattern})
                 engine_portfolio_deleted = result.rowcount
 
+                # 清理 Engine-Handler 映射
+                stmt = text("""
+                    DELETE FROM engine_handler_mapping
+                    WHERE engine_id IN (
+                        SELECT uuid FROM engine WHERE name LIKE :pattern
+                    ) OR handler_id IN (
+                        SELECT uuid FROM handler WHERE name LIKE :pattern
+                    )
+                """)
+                result = session.execute(stmt, {"pattern": name_pattern})
+                engine_handler_deleted = result.rowcount
+
                 session.commit()
 
-                total_deleted = portfolio_file_deleted + engine_portfolio_deleted
+                total_deleted = portfolio_file_deleted + engine_portfolio_deleted + engine_handler_deleted
 
                 GLOG.INFO(f"根据名称模式 '{name_pattern}' 清理了 {total_deleted} 个映射关系")
                 GLOG.DEBUG(f"  - Portfolio-File映射: {portfolio_file_deleted} 个")
                 GLOG.DEBUG(f"  - Engine-Portfolio映射: {engine_portfolio_deleted} 个")
+                GLOG.DEBUG(f"  - Engine-Handler映射: {engine_handler_deleted} 个")
 
                 return ServiceResult.success({
                     "total_deleted": total_deleted,
                     "portfolio_file_deleted": portfolio_file_deleted,
-                    "engine_portfolio_deleted": engine_portfolio_deleted
+                    "engine_portfolio_deleted": engine_portfolio_deleted,
+                    "engine_handler_deleted": engine_handler_deleted
                 }, f"根据名称模式清理了 {total_deleted} 个映射关系")
 
         except Exception as e:
             return ServiceResult.error(f"根据名称模式清理映射失败: {str(e)}")
+
+    @time_logger
+    def cleanup_orphaned_handler_mappings(self) -> ServiceResult:
+        """清理孤立的Engine-Handler映射关系（关联对象不存在的映射）
+
+        注意：此方法只清理映射关系，不会删除Handler实体本身
+        """
+        try:
+            from sqlalchemy import text
+
+            cleaned_count = 0
+            cleaning_details = []
+
+            with self._engine_handler_mapping_crud.get_session() as session:
+                # 1. 清理孤立的Engine-Handler映射（Engine不存在）
+                stmt = text("""
+                    DELETE FROM engine_handler_mapping
+                    WHERE engine_id NOT IN (SELECT uuid FROM engine WHERE is_del = 0)
+                """)
+                result = session.execute(stmt)
+                count = result.rowcount
+                if count > 0:
+                    cleaned_count += count
+                    cleaning_details.append(f"清理孤立Engine映射: {count} 个")
+
+                # 2. 清理孤立的Engine-Handler映射（Handler不存在）
+                stmt = text("""
+                    DELETE FROM engine_handler_mapping
+                    WHERE handler_id NOT IN (SELECT uuid FROM handler WHERE is_del = 0)
+                """)
+                result = session.execute(stmt)
+                count = result.rowcount
+                if count > 0:
+                    cleaned_count += count
+                    cleaning_details.append(f"清理孤立Handler映射: {count} 个")
+
+                session.commit()
+
+            if cleaned_count > 0:
+                GLOG.INFO(f"清理了 {cleaned_count} 个孤立Engine-Handler映射关系")
+                for detail in cleaning_details:
+                    GLOG.DEBUG(f"  - {detail}")
+            else:
+                GLOG.DEBUG("未发现孤立的Engine-Handler映射关系")
+
+            return ServiceResult.success({
+                "cleaned_count": cleaned_count,
+                "cleaning_details": cleaning_details
+            }, f"清理完成，处理了 {cleaned_count} 个孤立映射")
+
+        except Exception as e:
+            return ServiceResult.error(f"清理孤立Engine-Handler映射失败: {str(e)}")
+
+    @time_logger
+    def cleanup_handler_mappings_by_names(self, name_pattern: str = "present_%") -> ServiceResult:
+        """根据名称模式清理Engine-Handler映射关系
+
+        注意：此方法只清理映射关系，不会删除Handler实体本身
+
+        Args:
+            name_pattern: 名称模式，默认清理 present_ 开头的对象相关映射
+        """
+        try:
+            from sqlalchemy import text
+
+            with self._engine_handler_mapping_crud.get_session() as session:
+                # 清理 Engine-Handler 映射
+                stmt = text("""
+                    DELETE FROM engine_handler_mapping
+                    WHERE engine_id IN (
+                        SELECT uuid FROM engine WHERE name LIKE :pattern
+                    ) OR handler_id IN (
+                        SELECT uuid FROM handler WHERE name LIKE :pattern
+                    )
+                """)
+                result = session.execute(stmt, {"pattern": name_pattern})
+                deleted_count = result.rowcount
+
+                session.commit()
+
+            GLOG.INFO(f"根据名称模式 '{name_pattern}' 清理了 {deleted_count} 个Engine-Handler映射关系")
+
+            return ServiceResult.success({
+                "deleted_count": deleted_count
+            }, f"根据名称模式清理了 {deleted_count} 个Engine-Handler映射关系")
+
+        except Exception as e:
+            return ServiceResult.error(f"根据名称模式清理Engine-Handler映射失败: {str(e)}")
 
     # Engine-Portfolio映射方法
     @time_logger
