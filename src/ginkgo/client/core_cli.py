@@ -176,6 +176,8 @@ def init():
         else:
             console.print(":white_check_mark: System health check passed")
 
+        # Step 5: Cleanup invalid data
+        cleanup_result = _cleanup_invalid_data()
 
         console.print("\n:tada: Ginkgo system initialization completed!")
         console.print("\n:clipboard: System Summary:")
@@ -229,6 +231,134 @@ def _validate_system_health() -> dict:
         health_status["issues"].append(f"Health check failed: {str(e)[:30]}...")
 
     return health_status
+
+def _cleanup_invalid_data() -> dict:
+    """
+    清理系统中的无效数据，包括孤立映射、孤立参数、死任务等
+
+    Returns:
+        dict: 清理结果统计
+    """
+    cleanup_result = {
+        "success": True,
+        "cleaned_count": 0,
+        "services_cleaned": [],
+        "services_failed": [],
+        "warnings": [],
+        "details": {}
+    }
+
+    try:
+        console.print(":broom: Cleaning invalid data...")
+        from ginkgo.data.containers import container
+        from ginkgo.libs import GLOG
+
+        # 1. 清理孤立的映射关系 (高优先级)
+        try:
+            mapping_service = container.mapping_service()
+            result = mapping_service.cleanup_orphaned_mappings()
+            if result.success:
+                count = result.data.get("cleaned_count", 0)
+                cleanup_result["cleaned_count"] += count
+                cleanup_result["services_cleaned"].append("mapping_service")
+                cleanup_result["details"]["mappings"] = count
+                if count > 0:
+                    console.print(f":white_check_mark: Cleaned {count} orphaned mappings")
+            else:
+                cleanup_result["warnings"].append(f"Mapping cleanup: {result.error}")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Mapping cleanup error: {str(e)}")
+            GLOG.WARN(f"Mapping cleanup failed: {e}")
+
+        # 2. 清理孤立的参数 (高优先级)
+        try:
+            param_service = container.param_service()
+            result = param_service.cleanup_orphaned_params()
+            if result.success:
+                count = result.data.get("deleted_count", 0)
+                cleanup_result["cleaned_count"] += count
+                cleanup_result["services_cleaned"].append("param_service")
+                cleanup_result["details"]["params"] = count
+                if count > 0:
+                    console.print(f":white_check_mark: Cleaned {count} orphaned parameters")
+            else:
+                cleanup_result["warnings"].append(f"Param cleanup: {result.error}")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Param cleanup error: {str(e)}")
+            GLOG.WARN(f"Param cleanup failed: {e}")
+
+        # 3. 清理Redis死任务 (中优先级)
+        try:
+            redis_service = container.redis_service()
+            count = redis_service.cleanup_dead_tasks(max_idle_time=3600)
+            cleanup_result["cleaned_count"] += count
+            if count > 0:
+                console.print(f":white_check_mark: Cleaned {count} dead tasks")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Redis cleanup error: {str(e)}")
+            GLOG.WARN(f"Redis cleanup failed: {e}")
+
+        # 4. 清理过期函数缓存 (中优先级)
+        try:
+            redis_service = container.redis_service()
+            count = redis_service.cleanup_expired_function_cache()
+            cleanup_result["cleaned_count"] += count
+            if count > 0:
+                console.print(f":white_check_mark: Cleaned {count} expired cache entries")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Cache cleanup error: {str(e)}")
+            GLOG.WARN(f"Cache cleanup failed: {e}")
+
+        # 5. 清理旧的信号追踪记录 (低优先级)
+        try:
+            signal_service = container.signal_tracking_service()
+            result = signal_service.cleanup(days_to_keep=30)
+            if result.success:
+                count = result.data
+                cleanup_result["cleaned_count"] += count
+                cleanup_result["services_cleaned"].append("signal_tracking_service")
+                cleanup_result["details"]["signals"] = count
+                if count > 0:
+                    console.print(f":white_check_mark: Cleaned {count} old signal records")
+            else:
+                cleanup_result["warnings"].append(f"Signal cleanup: {result.error}")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Signal cleanup error: {str(e)}")
+            GLOG.WARN(f"Signal cleanup failed: {e}")
+
+        # 6. 清理过期断点 (中优先级)
+        try:
+            from ginkgo.data.streaming import CheckpointManager
+            checkpoint_manager = CheckpointManager()
+            count = checkpoint_manager.cleanup_expired_checkpoints()
+            cleanup_result["cleaned_count"] += count
+            if count > 0:
+                console.print(f":white_check_mark: Cleaned {count} expired checkpoints")
+        except Exception as e:
+            cleanup_result["warnings"].append(f"Checkpoint cleanup error: {str(e)}")
+            GLOG.WARN(f"Checkpoint cleanup failed: {e}")
+
+        # 显示清理摘要
+        if cleanup_result["cleaned_count"] > 0:
+            if cleanup_result["warnings"]:
+                console.print(f":information: Cleanup completed: {cleanup_result['cleaned_count']} items cleaned, {len(cleanup_result['warnings'])} warnings")
+            else:
+                console.print(f":white_check_mark: Cleanup completed: {cleanup_result['cleaned_count']} items cleaned")
+        else:
+            console.print(":information: No invalid data found, system is clean")
+
+        if cleanup_result["warnings"]:
+            for warning in cleanup_result["warnings"]:
+                console.print(f":warning: {warning}")
+
+        GLOG.INFO(f"Cleanup completed: {cleanup_result['cleaned_count']} items cleaned")
+
+    except Exception as e:
+        cleanup_result["success"] = False
+        console.print(f":warning: Cleanup encountered errors: {e}")
+        GLOG.ERROR(f"Cleanup failed: {e}")
+
+    return cleanup_result
 
 def get(
     data_type: Annotated[DataType, typer.Argument(help="Data type to fetch")],
