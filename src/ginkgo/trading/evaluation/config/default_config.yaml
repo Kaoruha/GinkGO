@@ -1,0 +1,173 @@
+# Ginkgo Strategy Evaluation Module - Default Configuration
+# 策略评估模块默认配置
+
+# 评估器定义
+evaluators:
+  # 策略基本评估
+  strategy_basic:
+    level: basic
+    component_type: STRATEGY
+    rules:
+      - base_strategy_inheritance
+      - cal_method_required
+
+  # 策略标准评估
+  strategy_standard:
+    level: standard
+    component_type: STRATEGY
+    extends: strategy_basic
+    rules:
+      - cal_signature_validation
+      - signal_fields_validation
+      - time_provider_usage
+
+  # 策略严格评估
+  strategy_strict:
+    level: strict
+    component_type: STRATEGY
+    extends: strategy_standard
+    rules:
+      - decorator_usage_check
+      - exception_handling_check
+      - logging_check
+      - parameter_validation
+
+# 规则定义
+rules:
+  # 结构规则
+  base_strategy_inheritance:
+    class: BaseStrategyInheritanceRule
+    severity: error
+    enabled: true
+    message: "策略类必须继承 BaseStrategy"
+
+  cal_method_required:
+    class: CalMethodRequiredRule
+    severity: error
+    enabled: true
+    message: "策略类必须实现 cal() 方法"
+
+  # 逻辑规则
+  cal_signature_validation:
+    class: CalSignatureValidationRule
+    severity: error
+    enabled: true
+    message: "cal() 方法签名必须为: cal(self, portfolio_info: Dict, event: EventBase) -> List[Signal]"
+
+  signal_fields_validation:
+    class: SignalFieldsValidationRule
+    severity: error
+    enabled: true
+    message: "Signal 对象必须包含所有必需字段"
+
+  time_provider_usage:
+    class: TimeProviderUsageRule
+    severity: warning
+    enabled: true
+    message: "应使用 self.get_time_provider() 获取业务时间"
+
+  # 最佳实践规则
+  decorator_usage_check:
+    class: DecoratorUsageCheckRule
+    severity: info
+    enabled: true
+    message: "建议使用 @time_logger 装饰器监控性能"
+
+  exception_handling_check:
+    class: ExceptionHandlingCheckRule
+    severity: warning
+    enabled: true
+    message: "建议在 cal() 方法中添加异常处理"
+
+  logging_check:
+    class: LoggingCheckRule
+    severity: info
+    enabled: true
+    message: "建议添加日志记录以便调试"
+
+  parameter_validation:
+    class: ParameterValidationRule
+    severity: warning
+    enabled: true
+    message: "建议添加参数验证"
+
+# 评估级别定义
+levels:
+  basic:
+    description: "基本结构检查"
+    rules_count: 2
+
+  standard:
+    description: "结构检查 + 逻辑验证"
+    rules_count: 5
+
+  strict:
+    description: "完整检查（包含最佳实践）"
+    rules_count: 9
+
+# 可视化配置
+visualization:
+  # 默认图表配置
+  default:
+    width: 1200
+    height: 600
+    dpi: 100
+    style: "plotly"
+
+  # 信号标注配置
+  signals:
+    buy:
+      marker: "^"
+      color: "green"
+      size: 100
+    sell:
+      marker: "v"
+      color: "red"
+      size: 100
+
+  # 技术指标配置
+  indicators:
+    enabled: false
+    ma_periods: [5, 10, 20, 60]
+
+# 报告配置
+reporting:
+  # 默认输出格式
+  default_format: "text"
+
+  # 模板路径
+  templates_path: "src/ginkgo/trading/evaluation/reporting/templates"
+
+  # 格式化器配置
+  formatters:
+    rich:
+      theme: "default"
+      table_style: "compact"
+
+    json:
+      indent: 2
+      ensure_ascii: false
+
+    markdown:
+      table_style: "github"
+
+# Pipeline 配置
+pipeline:
+  # 默认阶段
+  stages:
+    - name: "static_analysis"
+      enabled: true
+      fail_on_error: false
+
+    - name: "runtime_inspection"
+      enabled: true
+      fail_on_error: false
+
+    - name: "signal_tracing"
+      enabled: false
+      requires_data: true
+
+  # 执行策略
+  execution:
+    mode: "serial"  # serial | parallel
+    max_workers: 4
