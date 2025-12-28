@@ -454,7 +454,7 @@ def _handle_get_strategies(strategy_id=None, filters=None, format="table", page=
 
     # 示例策略列表
     strategies = [
-        ("preset_random_choice", "Strategy", "Random choice strategy for testing"),
+        ("random_signal", "Strategy", "Random signal strategy for testing"),
         ("preset_trend_follow", "Strategy", "Trend following strategy"),
         ("preset_mean_reversion", "Strategy", "Mean reversion strategy"),
         ("preset_loss_limit", "RiskManager", "Loss limit risk management"),

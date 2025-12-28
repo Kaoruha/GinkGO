@@ -42,9 +42,6 @@ def _lazy_import_cli(module_name):
     elif module_name == 'kafka_cli':
         from ginkgo.client import kafka_cli
         return kafka_cli
-    elif module_name == 'evaluation_cli':
-        from ginkgo.client import evaluation_cli
-        return evaluation_cli
     elif module_name == 'datasource_cli':
         from ginkgo.client import datasource_cli
         return datasource_cli
@@ -140,6 +137,18 @@ def _register_all_commands():
     _main_app.add_typer(param_cli.app, name="param", help=":wrench: Parameter management")
     _main_app.add_typer(kafka_cli.app, name="kafka", help=":satellite: Kafka queue management")
     _main_app.add_typer(worker_cli.app, name="worker", help=":gear: Worker management")
+
+    # Validation command (component code validation before backtesting)
+    from ginkgo.client.validation_cli import validate, console
+    _main_app.command(name="validate", help=":white_check_mark: Component validation (code check)")(validate)
+
+    # Note: validation_cli.app is NOT added as a typer to avoid double 'validate' command
+    # from ginkgo.client import validation_cli
+    # _main_app.add_typer(validation_cli.app, name="validate", help=":white_check_mark: Strategy validation (code check)")
+
+    # Evaluation command (backtest result analysis and monitoring)
+    from ginkgo.client import evaluation_cli
+    _main_app.add_typer(evaluation_cli.app, name="eval", help=":chart_with_upwards_trend: Backtest evaluation & monitoring")
 
     # 暂时保留flat_cli中的其他功能
     from ginkgo.client import flat_cli

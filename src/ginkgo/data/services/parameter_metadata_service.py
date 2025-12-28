@@ -72,7 +72,7 @@ class ParameterMetadataService(BaseService):
         """根据文件类型和组件名称获取参数映射"""
         # 定义参数映射规则
         strategy_params = {
-            "random_choice": {0: "buy_probability", 1: "sell_probability"},  # 买入/卖出概率
+            "random_signal": {0: "buy_probability", 1: "sell_probability"},  # RandomSignalStrategy 买入/卖出概率
             "bollinger_bands": {0: "period", 1: "std_dev"},
             "moving_average": {0: "short_period", 1: "long_period"},
             "rsi": {0: "period", 1: "overbought", 2: "oversold"},
@@ -130,8 +130,7 @@ class ParameterMetadataService(BaseService):
         """仅根据组件名称推断参数映射（通过名称模式匹配）"""
         param_mappings = {
             # Strategy components
-            "random_choice": {0: "buy_probability", 1: "sell_probability"},
-            "choice": {0: "buy_probability", 1: "sell_probability"},
+            "random_signal": {0: "buy_probability", 1: "sell_probability"},  # RandomSignalStrategy
             "bollinger": {0: "period", 1: "std_dev"},
             "moving": {0: "short_period", 1: "long_period"},
             "ma": {0: "short_period", 1: "long_period"},

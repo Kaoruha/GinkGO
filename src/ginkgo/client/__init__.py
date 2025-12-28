@@ -1,1 +1,0 @@
-from ginkgo.client import evaluation_cli

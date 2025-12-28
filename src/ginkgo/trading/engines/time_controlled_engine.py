@@ -754,6 +754,16 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         # 自动注册Feeder的事件处理器
         self._auto_register_component_events(feeder)
 
+        # 传播 data_feeder 给所有 portfolio 的子组件（strategies, sizer, selectors）
+        self.log("INFO", f"Propagating data_feeder to {len(self.portfolios)} portfolios")
+        for portfolio in self.portfolios:
+            if hasattr(portfolio, 'bind_data_feeder'):
+                try:
+                    portfolio.bind_data_feeder(feeder)
+                    self.log("INFO", f"Data feeder propagated to portfolio {portfolio.name} and its components")
+                except Exception as e:
+                    self.log("ERROR", f"Failed to propagate data_feeder to portfolio {portfolio.name}: {e}")
+
     def bind_router(self, router) -> None:
         """绑定Router到引擎"""
         # 存储Router引用

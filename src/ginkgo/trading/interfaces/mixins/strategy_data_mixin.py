@@ -58,7 +58,7 @@ class StrategyDataMixin:
 
     def get_bars_cached(self, symbol: str, count: int = 100, frequency: str = '1d',
                        start_date: Optional[datetime] = None, end_date: Optional[datetime] = None,
-                       use_cache: bool = True) -> List[Any]:
+                       use_cache: bool = True) -> List:
         """
         获取缓存的K线数据 (Get Cached Bar Data)
 
@@ -71,9 +71,40 @@ class StrategyDataMixin:
             use_cache: 是否使用缓存
 
         Returns:
-            List[Bar]: K线数据列表，失败时返回空列表
+            List: K线数据列表，失败时返回空列表
         """
-        cache_key = f"bars_{symbol}_{count}_{frequency}_{start_date}_{end_date}"
+        # 计算时间范围
+        if end_date is None:
+            # 使用业务时间（回测时由data_feeder.time_controller提供）
+            if hasattr(self, 'data_feeder') and self.data_feeder:
+                # 优先使用 time_controller.now()（回测时的业务时间，需要调用）
+                if hasattr(self.data_feeder, 'time_controller') and self.data_feeder.time_controller:
+                    end_date = self.data_feeder.time_controller.now()
+                    print(f"[DATA_MIXIN] 使用 time_controller.now(): {end_date}")
+                # 然后尝试 data_feeder.now（如果存在）
+                elif hasattr(self.data_feeder, 'now'):
+                    end_date = self.data_feeder.now
+                    print(f"[DATA_MIXIN] 使用 data_feeder.now: {end_date}")
+                else:
+                    end_date = datetime.now()
+                    print(f"[DATA_MIXIN] 使用 datetime.now: {end_date}")
+            else:
+                end_date = datetime.now()
+                print(f"[DATA_MIXIN] data_feeder 不存在，使用 datetime.now: {end_date}")
+
+        if start_date is None:
+            # 根据count和frequency推算start_date
+            if frequency == '1d':
+                delta = timedelta(days=count + 10)
+            elif frequency == '1h':
+                delta = timedelta(hours=count + 10)
+            elif frequency == '1m':
+                delta = timedelta(minutes=count + 10)
+            else:
+                delta = timedelta(days=count + 10)
+            start_date = end_date - delta
+
+        cache_key = f"bars_{symbol}_{start_date.date()}_{end_date.date()}"
 
         # 检查缓存
         if use_cache and self._is_cache_valid(cache_key):
@@ -82,17 +113,48 @@ class StrategyDataMixin:
 
         # 从data_feeder获取数据
         try:
-            if hasattr(self, 'data_feeder') and self.data_feeder:
-                bars = self.data_feeder.get_bars(
-                    symbol=symbol,
-                    count=count,
-                    frequency=frequency,
-                    start_date=start_date,
-                    end_date=end_date
-                )
-            else:
-                # data_feeder不存在时返回空列表
+            # 检查 data_feeder 是否存在
+            has_feeder = hasattr(self, 'data_feeder')
+            feeder_value = getattr(self, 'data_feeder', None) if has_feeder else None
+            has_bar_service = hasattr(feeder_value, 'bar_service') if feeder_value else False
+
+            if not has_feeder:
+                print(f"[DATA_MIXIN] 没有 data_feeder 属性")
                 return []
+            if not feeder_value:
+                print(f"[DATA_MIXIN] data_feeder 为 None")
+                return []
+            if not has_bar_service:
+                print(f"[DATA_MIXIN] data_feeder 没有 bar_service 属性")
+                return []
+
+            # 🔍 调试日志
+            print(f"[DATA_MIXIN] 查询数据 {symbol}, 时间范围: {start_date.date()} ~ {end_date.date()}")
+
+            # 直接使用 bar_service 获取数据
+            result = self.data_feeder.bar_service.get(
+                code=symbol,
+                start_date=start_date.date(),
+                end_date=end_date.date()
+            )
+
+            if not result.success or not result.data:
+                print(f"[DATA_MIXIN] 查询失败或无数据, success={result.success}, data={result.data}")
+                self._data_stats['cache_misses'] += 1
+                return []
+
+            # 转换为Bar实体列表
+            bars = result.data.to_entities()
+
+            print(f"[DATA_MIXIN] 查询到 {len(bars)} 条原始数据")
+
+            # 按时间排序，取最新的count条
+            bars = sorted(bars, key=lambda x: x.timestamp, reverse=True)
+            if len(bars) > count:
+                bars = bars[:count]
+
+            # 按时间升序排列
+            bars = list(reversed(bars))
 
             # 缓存结果
             if use_cache and bars:
@@ -104,6 +166,8 @@ class StrategyDataMixin:
         except Exception as e:
             self._data_stats['data_errors'] += 1
             GLOG.error(f"{self._get_name()}: 获取K线数据失败 {symbol}: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def get_current_price(self, symbol: str) -> Optional[float]:

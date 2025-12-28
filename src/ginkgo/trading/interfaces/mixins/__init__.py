@@ -23,12 +23,10 @@ Created: 2024-01-17
 
 from .engine_mixin import EngineMixin
 from .event_mixin import EventMixin
-from .parameter_validation_mixin import ParameterValidationMixin
 from .strategy_data_mixin import StrategyDataMixin
 
 __all__ = [
     'EngineMixin',
     'EventMixin',
-    'ParameterValidationMixin',
     'StrategyDataMixin',
 ]

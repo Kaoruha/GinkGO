@@ -223,7 +223,7 @@ class TestMappingService:
                     {"name": "fixed_selector"}
                 ],
                 "strategies": [
-                    {"name": "random_choice"}
+                    {"name": "random_signal"}
                 ]
             }
 
