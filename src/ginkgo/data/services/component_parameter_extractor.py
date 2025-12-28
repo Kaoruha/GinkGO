@@ -26,7 +26,7 @@ class ComponentParameterExtractor:
         动态提取组件的构造函数参数
 
         Args:
-            component_name: 组件名称 (如 "fixed_selector", "random_choice")
+            component_name: 组件名称 (如 "fixed_selector", "random_signal")
             file_content: 组件文件内容 (可选，优先使用数据库内容)
             component_type: 组件类型 (strategy/selector/sizer/risk_manager/analyzer)
             file_id: 文件ID (用于从数据库获取内容)

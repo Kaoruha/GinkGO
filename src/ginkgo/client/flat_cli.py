@@ -50,51 +50,135 @@ def _get_engine_status_name(status):
 @component_app.command()
 def list(
     component_type: Optional[str] = typer.Option(None, "--type", "-t", help="Filter by component type (strategy/risk/sizer/selector/analyzer)"),
-    page: int = typer.Option(20, "--page", "-p", help="Page size"),
+    filter: Optional[str] = typer.Option(None, "--filter", "-f", help="Filter by component name (fuzzy search)"),
+    raw: bool = typer.Option(False, "--raw", "-r", help="Output in JSON format"),
 ):
     """
-    :clipboard: List all components.
+    :clipboard: List all components from database.
+
+    Examples:
+      ginkgo component list                    # List all components (table format)
+      ginkgo component list --type strategy     # List strategies only
+      ginkgo component list --filter moving     # Fuzzy search by name
+      ginkgo component list -t risk -f loss     # Combine type and name filter
+      ginkgo component list --raw               # Output in JSON format
     """
     from ginkgo.data.containers import container
+    from ginkgo.enums import FILE_TYPES
+    import json
 
     console.print(":clipboard: Listing components...")
 
     try:
-        # TODO: Implement actual component listing
-        console.print(":information: Component listing not yet implemented")
+        # Get file_crud to query database
+        file_crud = container.file_crud()
 
-        # 模拟数据
-        components = [
-            {"uuid": "comp_001", "name": "Moving Average Strategy", "type": "strategy", "category": "Trend Following"},
-            {"uuid": "comp_002", "name": "Position Ratio Risk", "type": "risk", "category": "Risk Management"},
-            {"uuid": "comp_003", "name": "Equal Weight Sizer", "type": "sizer", "category": "Position Sizing"},
-        ]
+        # Map component type to FILE_TYPES
+        type_mapping = {
+            "strategy": FILE_TYPES.STRATEGY,
+            "risk": FILE_TYPES.RISKMANAGER,
+            "riskmanager": FILE_TYPES.RISKMANAGER,
+            "sizer": FILE_TYPES.SIZER,
+            "selector": FILE_TYPES.SELECTOR,
+            "analyzer": FILE_TYPES.ANALYZER,
+        }
 
-        if component_type:
-            components = [c for c in components if c["type"] == component_type]
+        # Query components from database
+        if component_type and component_type.lower() in type_mapping:
+            # Single type query: filter by type (1 query)
+            file_type = type_mapping[component_type.lower()]
+            components = file_crud.find(filters={"type": file_type.value}, page_size=10000)
+        else:
+            # All types query: get all components in ONE query, then filter client-side
+            # Query without type filter to get all components at once
+            all_components = file_crud.find(filters={}, page_size=10000)
+
+            # Filter to only include component types (exclude OTHER, VOID, ENGINE, HANDLER, INDEX)
+            component_type_values = {
+                FILE_TYPES.STRATEGY.value,
+                FILE_TYPES.RISKMANAGER.value,
+                FILE_TYPES.SELECTOR.value,
+                FILE_TYPES.SIZER.value,
+                FILE_TYPES.ANALYZER.value,
+            }
+
+            components = []
+            for comp in all_components:
+                type_value = comp.type.value if hasattr(comp.type, 'value') else comp.type
+                if type_value in component_type_values:
+                    components.append(comp)
+
+        # Apply name filter if provided
+        if filter:
+            filter_lower = filter.lower()
+            components = [c for c in components if filter_lower in str(c.name).lower()]
 
         if components:
-            table = Table(title=":wrench: Components")
-            table.add_column("UUID", style="dim", width=20)
-            table.add_column("Name", style="cyan", width=25)
-            table.add_column("Type", style="green", width=12)
-            table.add_column("Category", style="yellow", width=20)
+            # Reverse type mapping for display
+            value_to_type = {v.value: k for k, v in type_mapping.items()}
 
-            for comp in components[:page]:
-                table.add_row(
-                    comp["uuid"][:18],
-                    comp["name"][:23],
-                    comp["type"],
-                    comp["category"]
-                )
+            if raw:
+                # JSON output format
+                result = {
+                    "total": len(components),
+                    "components": []
+                }
 
-            console.print(table)
-            console.print(f"\n:information_source: [dim]Total: {len(components)} components[/dim]")
+                if component_type:
+                    result["type"] = component_type
+                if filter:
+                    result["filter"] = filter
+
+                for comp in components:
+                    # Get type value - handle both enum and int
+                    type_value = comp.type.value if hasattr(comp.type, 'value') else comp.type
+                    type_name = value_to_type.get(type_value, "unknown")
+
+                    component_data = {
+                        "uuid": str(comp.uuid),
+                        "name": str(comp.name),
+                        "type": type_name,
+                        "created_at": str(comp.create_at) if hasattr(comp, 'create_at') and comp.create_at else None,
+                        "updated_at": str(comp.update_at) if hasattr(comp, 'update_at') and comp.update_at else None,
+                    }
+                    result["components"].append(component_data)
+
+                # Output JSON
+                console.print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                # Table output format
+                table = Table(title=":wrench: Components")
+                table.add_column("UUID", style="dim", width=38)
+                table.add_column("Name", style="cyan", width=30)
+                table.add_column("Type", style="green", width=18, no_wrap=False)
+
+                for comp in components:
+                    # Get type value - handle both enum and int
+                    type_value = comp.type.value if hasattr(comp.type, 'value') else comp.type
+                    type_name = value_to_type.get(type_value, "unknown")
+
+                    table.add_row(
+                        str(comp.uuid),
+                        str(comp.name)[:29],
+                        type_name
+                    )
+
+                console.print(table)
+                console.print(f"\n:information_source: [dim]Total: {len(components)} components[/dim]")
+
+                if component_type:
+                    console.print(f"[dim]Type: {component_type}[/dim]")
+                if filter:
+                    console.print(f"[dim]Filter: '{filter}'[/dim]")
         else:
-            console.print(":memo: No components found.")
+            console.print(":memo: No components found in database.")
+            if filter:
+                console.print(f"[dim]Try a different filter term[/dim]")
 
     except Exception as e:
         console.print(f":x: Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @component_app.command()

@@ -132,12 +132,17 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         self._engine_put = publisher
 
     def bind_data_feeder(self, feeder, *args, **kwargs):
+        """传播 data_feeder 给所有子组件"""
         if self._sizer is not None:
             self._sizer.bind_data_feeder(feeder)
         for selector in self._selectors:
             selector.bind_data_feeder(feeder)
         for i in self._strategies:
             i.bind_data_feeder(feeder)
+        # 也传播给 risk_managers
+        for risk in self.risk_managers:
+            if hasattr(risk, 'bind_data_feeder'):
+                risk.bind_data_feeder(feeder)
 
     def put(self, event) -> None:
         """

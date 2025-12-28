@@ -346,17 +346,21 @@ class Signal(TimeMixin, ContextMixin, NamedMixin, LoggableMixin, Base):
         try:
             current_time = self._get_current_time()
 
-            # 处理时区兼容性问题
-            if self._timestamp.tzinfo is not None and current_time.tzinfo is None:
-                # Signal timestamp有时区，current_time没有时区 - 将current_time转换为本地时区的aware datetime
-                import datetime
-                local_tz = datetime.datetime.now().astimezone().tzinfo
-                current_time = current_time.replace(tzinfo=local_tz)
-            elif self._timestamp.tzinfo is None and current_time.tzinfo is not None:
-                # Signal timestamp没有时区，current_time有时区 - 移除current_time的时区
-                current_time = current_time.replace(tzinfo=None)
+            # 处理时区兼容性问题 - 统一转换为 naive datetime 进行比较
+            timestamp_to_check = self._timestamp
+            current_to_check = current_time
 
-            if self._timestamp > current_time:
+            # 如果 timestamp 有时区，转换为 naive
+            if timestamp_to_check.tzinfo is not None:
+                import datetime
+                timestamp_to_check = timestamp_to_check.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+
+            # 如果 current_time 有时区，转换为 naive
+            if current_to_check.tzinfo is not None:
+                import datetime
+                current_to_check = current_to_check.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+
+            if timestamp_to_check > current_to_check:
                 return False
         except (TypeError, AttributeError):
             # 处理其他比较问题或TimeRelated未初始化的情况

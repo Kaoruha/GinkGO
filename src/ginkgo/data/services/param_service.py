@@ -711,28 +711,34 @@ class ParamService(BaseService):
 
     @time_logger
     def cleanup_orphaned_params(self) -> ServiceResult:
-        """清理孤立的参数（关联对象不存在的参数）"""
+        """清理孤立的参数（关联对象不存在的参数）
+
+        注意：params 表通过 mapping_id 关联到 portfolio_file_mapping.uuid
+        而不是直接关联到 portfolio.uuid
+        """
         try:
             from ginkgo.data.containers import container
+            from ginkgo.data.crud.portfolio_file_mapping_crud import PortfolioFileMappingCRUD
 
-            # 获取所有有效的Portfolio UUIDs
-            portfolio_crud = container.cruds.portfolio()
-            portfolios = portfolio_crud.find()
-            valid_portfolio_uuids = [p.uuid for p in portfolios if not p.is_del]
+            # 获取所有有效的 portfolio_file_mapping UUIDs（不是 portfolio.uuid！）
+            mapping_crud = PortfolioFileMappingCRUD()
+            all_mappings = mapping_crud.find()
+            valid_mapping_uuids = [m.uuid for m in all_mappings if not m.is_del]
 
-            if not valid_portfolio_uuids:
-                # 如果没有有效的Portfolio，删除所有参数
+            if not valid_mapping_uuids:
+                # 如果没有有效的映射关系，删除所有参数
                 deleted_count = self._crud_repo.count(filters={"is_del": False})
                 if deleted_count > 0:
                     self._crud_repo.remove(filters={"is_del": False})
-                    GLOG.INFO(f"清理了 {deleted_count} 个孤立参数（无有效Portfolio）")
+                    GLOG.INFO(f"清理了 {deleted_count} 个孤立参数（无有效映射关系）")
             else:
-                # 获取所有关联不存在Portfolio的参数
+                # 获取所有关联不存在映射关系的参数
                 all_params = self._crud_repo.find(filters={"is_del": False})
                 orphaned_count = 0
 
                 for param in all_params:
-                    if param.mapping_id not in valid_portfolio_uuids:
+                    # 检查 param.mapping_id 是否在有效的 mapping uuids 中
+                    if param.mapping_id not in valid_mapping_uuids:
                         # 删除孤立参数
                         result = self._crud_repo.remove(filters={"uuid": param.uuid})
                         if result > 0:
@@ -743,7 +749,7 @@ class ParamService(BaseService):
                 else:
                     GLOG.DEBUG("未发现孤立的参数")
 
-            deleted_count = orphaned_count if valid_portfolio_uuids else self._crud_repo.count(filters={"is_del": False})
+            deleted_count = orphaned_count if valid_mapping_uuids else self._crud_repo.count(filters={"is_del": False})
 
             return ServiceResult.success({
                 "deleted_count": deleted_count
@@ -755,9 +761,14 @@ class ParamService(BaseService):
 
     @time_logger
     def cleanup_by_names(self, name_pattern: str = "present_%") -> ServiceResult:
-        """根据名称模式清理相关的所有参数"""
+        """根据名称模式清理相关的所有参数
+
+        注意：需要通过 portfolio 找到所有相关的 mapping uuids，
+        然后根据这些 mapping uuids 来删除参数
+        """
         try:
             from ginkgo.data.containers import container
+            from ginkgo.data.crud.portfolio_file_mapping_crud import PortfolioFileMappingCRUD
 
             # 获取匹配名称模式的Portfolio UUIDs
             portfolio_crud = container.cruds.portfolio()
@@ -771,13 +782,29 @@ class ParamService(BaseService):
                     "deleted_count": 0
                 }, f"未找到匹配名称模式 '{name_pattern}' 的Portfolio")
 
-            # 删除这些Portfolio相关的所有参数
-            deleted_count = 0
+            # 获取这些Portfolio的所有mapping UUIDs
+            mapping_crud = PortfolioFileMappingCRUD()
+            target_mapping_uuids = []
+
             for portfolio_uuid in target_portfolio_uuids:
-                result = self._crud_repo.remove(filters={"mapping_id": portfolio_uuid, "is_del": False})
+                mappings = mapping_crud.find(filters={"portfolio_id": portfolio_uuid, "is_del": False})
+                target_mapping_uuids.extend([m.uuid for m in mappings])
+
+            if not target_mapping_uuids:
+                GLOG.DEBUG(f"未找到匹配名称模式 '{name_pattern}' 的Portfolio的映射关系")
+                return ServiceResult.success({
+                    "deleted_count": 0
+                }, f"未找到匹配名称模式 '{name_pattern}' 的Portfolio的映射关系")
+
+            # 根据mapping UUIDs删除参数
+            deleted_count = 0
+            for mapping_uuid in target_mapping_uuids:
+                result = self._crud_repo.remove(filters={"mapping_id": mapping_uuid, "is_del": False})
                 deleted_count += result
 
             GLOG.INFO(f"根据名称模式 '{name_pattern}' 清理了 {deleted_count} 个参数")
+            GLOG.DEBUG(f"  - Portfolio数量: {len(target_portfolio_uuids)} 个")
+            GLOG.DEBUG(f"  - Mapping数量: {len(target_mapping_uuids)} 个")
             GLOG.DEBUG(f"  - 参数数量: {deleted_count} 个")
 
             return ServiceResult.success({

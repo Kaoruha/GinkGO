@@ -672,9 +672,7 @@ class DataSeeder:
                     return {0: "popularity_selector", 1: json.dumps(["000001.SZ", "000002.SZ"])}
 
             elif component_type == FILE_TYPES.STRATEGY.value:
-                if "random_choice" in file_name_lower:
-                    return {0: "default_strategy"}
-                elif "random_signal_strategy" in file_name_lower:
+                if "random_signal_strategy" in file_name_lower:
                     # 🎯 修复：完整的5个参数，顺序必须与构造函数完全匹配
                     # RandomSignalStrategy构造函数：__init__(name, buy_probability, sell_probability, signal_reason_template, max_signals)
                     import json
@@ -748,7 +746,6 @@ class DataSeeder:
             component_parameters = {
                 "fixed_selector": {0: "default_selector", 1: json.dumps(["000001.SZ", "000002.SZ"])},  # selector参数：name, codes
                 "fixed_sizer": {0: "1000"},         # sizer参数：volume (name使用默认值)
-                "random_choice": {0: "RandomChoiceTest"}  # strategy参数：name
             }
 
             parameters_created = 0

@@ -22,6 +22,150 @@ app = typer.Typer(
 console = Console()
 
 
+@app.command("strategy")
+def evaluate_strategy(
+    strategy_file: Annotated[str, typer.Argument(help=":page_facing_up: Path to the strategy file to evaluate")] = None,
+    level: Annotated[str, typer.Option("--level", "-l", help=":chart: Evaluation level (basic/standard/strict)")] = "standard",
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help=":speech_balloon: Show detailed output")] = False,
+    show_context: Annotated[bool, typer.Option("--show-context", "-c", help=":books: Show signal generation context analysis")] = False,
+):
+    """
+    :mag: Evaluate a trading strategy file.
+
+    This command validates strategy structure and logic before backtesting.
+
+    Examples:
+      ginkgo eval strategy my_strategy.py
+      ginkgo eval strategy my_strategy.py --level basic
+      ginkgo eval strategy my_strategy.py --show-context
+      ginkgo eval strategy my_strategy.py --level strict --verbose
+    """
+    from pathlib import Path
+    from ginkgo.trading.evaluation.core.enums import ComponentType, EvaluationLevel
+    from ginkgo.trading.evaluation.evaluators.base_evaluator import SimpleEvaluator
+    from ginkgo.trading.evaluation.rules.rule_registry import get_global_registry
+    from ginkgo.trading.evaluation.rules.structural_rules import (
+        BaseStrategyInheritanceRule,
+        CalMethodRequiredRule,
+        CalSignatureValidationRule,
+        SuperInitCallRule,
+    )
+    from ginkgo.trading.evaluation.rules.logical_rules import (
+        ReturnStatementRule,
+        SignalFieldRule,
+        DirectionValidationRule,
+        TimeProviderUsageRule,
+        ForbiddenOperationsRule,
+    )
+
+    # Validate level parameter
+    level_map = {
+        "basic": EvaluationLevel.BASIC,
+        "standard": EvaluationLevel.STANDARD,
+        "strict": EvaluationLevel.STRICT,
+    }
+    if level not in level_map:
+        console.print(f":x: [red]Invalid level '{level}'. Must be one of: basic, standard, strict[/red]")
+        raise typer.Exit(1)
+    eval_level = level_map[level]
+
+    # Check if file is provided
+    if strategy_file is None:
+        console.print("[error]Error: No strategy file specified[/error]")
+        console.print("\nUsage: ginkgo eval strategy <STRATEGY_FILE> [OPTIONS]")
+        raise typer.Exit(1)
+
+    file_path = Path(strategy_file)
+    if not file_path.exists():
+        console.print(f":x: [red]File not found: {strategy_file}[/red]")
+        raise typer.Exit(2)
+
+    # Register default rules
+    registry = get_global_registry()
+
+    # Basic level rules
+    registry.register_rule_class(
+        BaseStrategyInheritanceRule,
+        ComponentType.STRATEGY,
+        EvaluationLevel.BASIC,
+    )
+    registry.register_rule_class(
+        CalMethodRequiredRule,
+        ComponentType.STRATEGY,
+        EvaluationLevel.BASIC,
+    )
+    registry.register_rule_class(
+        SuperInitCallRule,
+        ComponentType.STRATEGY,
+        EvaluationLevel.BASIC,
+    )
+
+    # Standard level rules
+    registry.register_rule_class(
+        CalSignatureValidationRule,
+        ComponentType.STRATEGY,
+        EvaluationLevel.STANDARD,
+    )
+    registry.register_rule_class(
+        ReturnStatementRule,
+        ComponentType.STRATEGY,
+        EvaluationLevel.STANDARD,
+    )
+    registry.register_rule_class(
+        SignalFieldRule,
+        ComponentType.STRATEGY,
+        EvaluationLevel.STANDARD,
+    )
+    registry.register_rule_class(
+        DirectionValidationRule,
+        ComponentType.STRATEGY,
+        EvaluationLevel.STANDARD,
+    )
+    registry.register_rule_class(
+        TimeProviderUsageRule,
+        ComponentType.STRATEGY,
+        EvaluationLevel.STANDARD,
+    )
+    registry.register_rule_class(
+        ForbiddenOperationsRule,
+        ComponentType.STRATEGY,
+        EvaluationLevel.STANDARD,
+    )
+
+    # Create evaluator and run evaluation
+    evaluator = SimpleEvaluator(ComponentType.STRATEGY)
+
+    console.print(f":mag: Evaluating strategy: {file_path.name}")
+    console.print(f"Level: {level.upper()}")
+
+    try:
+        result = evaluator.evaluate(file_path, level=eval_level)
+
+        # Display results
+        console.print()
+        console.print(result)
+
+        # Show signal context if requested
+        if show_context:
+            _display_signal_context(file_path)
+
+        # Exit with appropriate code
+        if result.passed:
+            console.print("\n:white_check_mark: [green]Evaluation PASSED[/green]")
+        else:
+            console.print(f"\n:x: [red]Evaluation FAILED: {result.error_count} error(s), {result.warning_count} warning(s)[/red]")
+            raise typer.Exit(1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"\n[error]Error during evaluation: {e}[/error]")
+        if verbose:
+            import traceback
+            console.print(traceback.format_exc())
+        raise typer.Exit(5)
+
+
 @app.command("stability")
 def evaluate_stability(
     portfolio: Annotated[str, typer.Option("--portfolio", "-p", help=":briefcase: Portfolio ID")] = None,
@@ -279,5 +423,173 @@ def _display_baseline_summary(baseline: dict):
         std_val = f"{stats['std']:.4f}"
         range_val = f"{stats['min']:.2f} ~ {stats['max']:.2f}"
         metrics_table.add_row(metric_name, mean_val, std_val, range_val)
-        
+
     console.print(metrics_table)
+
+
+def _display_signal_context(file_path):
+    """
+    Display signal generation context analysis for a strategy.
+
+    Analyzes the cal() method to show:
+    - Data sources used
+    - Signal generation conditions
+    - Possible signal directions
+    - Key logic patterns
+    """
+    import ast
+    import re
+    from pathlib import Path
+
+    console.print("\n")
+    console.print(Panel(":books: [bold cyan]Signal Generation Context Analysis[/bold cyan]", border_style="cyan"))
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            source_code = f.read()
+
+        tree = ast.parse(source_code, filename=str(file_path))
+
+        # Analyze strategy
+        context = {
+            'data_sources': [],
+            'signal_conditions': [],
+            'directions': [],
+            'key_logic': [],
+            'imports': []
+        }
+
+        # Extract imports
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    context['imports'].append(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    context['imports'].append(node.module)
+
+        # Find and analyze cal() method
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                for item in node.body:
+                    if isinstance(item, ast.FunctionDef) and item.name == "cal":
+                        # Analyze cal() method
+                        _analyze_cal_method(item, source_code, context)
+                        break
+
+        # Display analysis results
+        _display_context_analysis(context, source_code, file_path)
+
+    except Exception as e:
+        console.print(f":warning: [yellow]Could not analyze signal context: {e}[/yellow]")
+
+
+def _analyze_cal_method(func_node, source_code, context):
+    """Analyze cal() method for signal generation patterns."""
+    import ast
+
+    # Get the source code of cal() method
+    if hasattr(func_node, 'lineno') and hasattr(func_node, 'end_lineno'):
+        lines = source_code.split('\n')
+        method_source = '\n'.join(lines[func_node.lineno-1:func_node.end_lineno])
+        context['method_source'] = method_source
+
+    # Walk through the method
+    for node in ast.walk(func_node):
+        # Find data source usage
+        if isinstance(node, ast.Attribute):
+            if node.attr in ['get_bars', 'get_ticks', 'data_feeder', 'get_time_provider']:
+                context['data_sources'].append(node.attr)
+
+        # Find DIRECTION_TYPES usage
+        if isinstance(node, ast.Attribute):
+            if isinstance(node.value, ast.Name):
+                if node.value.id == 'DIRECTION_TYPES':
+                    context['directions'].append(node.attr)
+
+        # Find conditional statements (if conditions)
+        if isinstance(node, ast.If):
+            condition = ast.unparse(node.test) if hasattr(ast, 'unparse') else str(node.test.lineno)
+            context['signal_conditions'].append({
+                'line': node.lineno,
+                'condition': condition[:100] if len(condition) > 100 else condition
+            })
+
+        # Find Signal() calls
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id == "Signal":
+                # Extract key arguments
+                args_info = {}
+                for kw in node.keywords:
+                    if kw.arg in ['direction', 'reason', 'code']:
+                        args_info[kw.arg] = ast.unparse(kw.value) if hasattr(ast, 'unparse') else kw.arg
+
+                context['key_logic'].append({
+                    'line': node.lineno,
+                    'type': 'Signal creation',
+                    'details': args_info
+                })
+
+
+def _display_context_analysis(context, source_code, file_path):
+    """Display the analyzed context in a formatted way."""
+    from pathlib import Path
+    from rich.table import Table
+    from rich.syntax import Syntax
+
+    # Strategy overview
+    console.print(f"[bold]Strategy File:[/bold] {Path(file_path).name}")
+
+    # Data sources table
+    if context['data_sources']:
+        data_table = Table(title=":floppy_disk: Data Sources Used")
+        data_table.add_column("Source", style="cyan")
+        data_table.add_column("Purpose", style="yellow")
+
+        source_purposes = {
+            'get_bars': 'K-line data retrieval',
+            'get_ticks': 'Tick data retrieval',
+            'data_feeder': 'Unified data access',
+            'get_time_provider': 'Time access'
+        }
+
+        for source in set(context['data_sources']):
+            purpose = source_purposes.get(source, 'Data access')
+            data_table.add_row(source, purpose)
+
+        console.print(data_table)
+
+    # Signal directions
+    if context['directions']:
+        directions_str = ", ".join(set(context['directions']))
+        console.print(f":arrow_up_down: [bold]Possible Directions:[/bold] {directions_str}")
+
+    # Signal conditions
+    if context['signal_conditions']:
+        condition_table = Table(title=":mag: Signal Generation Conditions")
+        condition_table.add_column("Line", style="cyan", width=6)
+        condition_table.add_column("Condition", style="yellow")
+
+        for cond in context['signal_conditions'][:10]:  # Show first 10
+            condition_table.add_row(str(cond['line']), cond['condition'][:80])
+
+        console.print(condition_table)
+
+    # Signal creation points
+    if context['key_logic']:
+        logic_table = Table(title=":light_bulb: Signal Creation Logic")
+        logic_table.add_column("Line", style="cyan", width=6)
+        logic_table.add_column("Type", style="green")
+        logic_table.add_column("Details", style="yellow")
+
+        for logic in context['key_logic'][:10]:
+            details_str = ", ".join([f"{k}={v}" for k, v in logic['details'].items()])
+            logic_table.add_row(str(logic['line']), logic['type'], details_str[:60])
+
+        console.print(logic_table)
+
+    # Show cal() method source if available
+    if 'method_source' in context and len(context['method_source']) < 1000:
+        console.print("\n:page_facing_up: [bold]cal() Method Source:[/bold]")
+        syntax = Syntax(context['method_source'], "python", theme="monokai", line_numbers=True)
+        console.print(syntax)
