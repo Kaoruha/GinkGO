@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines(时间推进控制)、Time Manager(时间管理器)
+# Downstream: EventBase(继承提供事件基础能力)、EVENT_TYPES(事件类型枚举TIME_ADVANCE)、base_repr(字符串表示)
+# Role: EventTimeAdvance时间推进事件继承EventBase，封装目标时间信息，提供time/timestamp等便捷属性
+
+
+
+
+
+
 """
 时间推进事件
 

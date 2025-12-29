@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: PortfolioLive实盘投资组合管理策略/持仓/资金和执行支持交易系统功能支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import time
 import datetime
 from decimal import Decimal

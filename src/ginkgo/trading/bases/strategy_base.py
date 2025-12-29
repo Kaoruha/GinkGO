@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BaseStrategy策略基类接口，提供cal计算、initialize初始化、finalize终结等核心方法，供具体策略继承实现交易逻辑
+
+
+
+
+
+
 """
 策略组件基类
 

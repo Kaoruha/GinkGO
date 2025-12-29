@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: StrategyDataMixin策略数据混入接口提供策略数据访问支持数据获取支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 StrategyDataMixin - 策略数据混入类
 

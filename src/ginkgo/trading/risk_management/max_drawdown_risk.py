@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager (最大回撤风控保护)、RiskBase (继承提供风控基础能力)
+# Downstream: EventPriceUpdate (监听价格更新事件)、Signal/Order实体(风控信号和订单处理)、DIRECTION_TYPES (方向枚举)
+# Role: MaxDrawdownRisk最大回撤风控监控回撤超阈值时强制减仓或停止交易支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 最大回撤风控模块
 

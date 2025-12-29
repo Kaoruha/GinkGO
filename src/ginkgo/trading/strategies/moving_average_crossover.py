@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines (调用cal方法)
+# Downstream: BaseStrategy (继承提供cal/initialize/finalize等核心能力)、StrategyDataMixin (提供数据访问能力)
+# Role: MovingAverageCrossover均线交叉策略继承BaseStrategy基于均线金叉死叉
+
+
+
+
+
+
 """
 Moving Average Crossover Strategy (金叉死叉策略)
 

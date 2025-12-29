@@ -1,3 +1,12 @@
+# Upstream: SimBroker/ManualBroker/LiveBroker (Broker子类继承)、Portfolio (使用Broker执行订单)
+# Downstream: TimeMixin (继承提供时间戳管理)、ContextMixin (继承提供上下文管理)、LoggableMixin (继承提供日志记录)
+# Role: BaseBroker经纪商基础抽象基类通过Mixin组装时间戳管理/上下文管理/日志记录等基础功能定义订单执行和成交处理的核心方法
+
+
+
+
+
+
 """
 BaseBroker基础类
 

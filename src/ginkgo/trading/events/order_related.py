@@ -1,3 +1,12 @@
+# Upstream: EventOrderAck/EventOrderPartiallyFilled/EventOrderRejected等订单事件(继承获得订单属性便捷访问)
+# Downstream: EventBase(继承提供事件基础能力)、EVENT_TYPES/ORDERSTATUS_TYPES(事件类型和订单状态枚举)、Order实体(订单对象作为payload)、base_repr(字符串表示)
+# Role: EventOrderRelated订单相关事件基类继承EventBase封装订单对象作为payload，定义14个便捷属性访问payload字段
+
+
+
+
+
+
 """
 EventOrderRelated 模块
 

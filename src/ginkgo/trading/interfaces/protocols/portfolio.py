@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Portfolio PortfolioProtocol组合协议定义组合接口标准提供相关功能和接口实现
+
+
+
+
+
+
 """
 IPortfolio Protocol Interface
 

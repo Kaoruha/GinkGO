@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 信号处理模块导出批量/资源优化/窗口等处理器组件支持交易系统功能支持信号批量处理和性能优化提升系统吞吐量
+
+
+
+
+
+
 """
 信号批处理模块
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Router路由器提供订单路由和匹配功能支持订单分发/撮合和执行管理实现交易流转和优化支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 统一Router - 支持多模式多市场的统一路由器
 

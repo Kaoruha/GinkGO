@@ -1,3 +1,12 @@
+# Upstream: Data Feeder(监听更新关注标的)、Portfolio(advance_time后发布)、Selector(pick选股后触发)
+# Downstream: EventBase(继承提供事件基础能力)、EVENT_TYPES(事件类型枚举INTERESTUPDATE)
+# Role: EventInterestUpdate利息更新事件继承EventBase，封装利息信息，提供便捷属性访问利息数据
+
+
+
+
+
+
 """
 关注标的更新事件（去除订阅/广播模式的粘连，统一用事件通告 Feeder）
 """

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实现 BaseLoadBalancer、RoundRobinBalancer、WeightedBalancer 等 10 个类的核心功能
+
+
+
+
+
+
 """
 负载均衡器实现
 

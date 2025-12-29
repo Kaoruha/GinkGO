@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: SliceDataManager切片数据管理器提供数据切片管理支持数据分段支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 Slice Data Manager
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Calmar Ratio分析器继承BaseAnalyzer计算CalmarRatio卡尔玛比率性能指标
+
+
+
+
+
+
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd

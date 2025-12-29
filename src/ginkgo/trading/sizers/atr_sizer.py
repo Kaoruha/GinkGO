@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: ATRSizer基于ATR的仓位管理器继承BaseSizer提供波动率自适应仓位计算和风险控制支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import Dict, Optional
 from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
 from ginkgo.enums import ORDER_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES, SOURCE_TYPES

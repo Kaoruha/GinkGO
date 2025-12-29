@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines (分发事件给Strategy和PortfolioManager)、Strategies (on_event接收并cal生成信号)
+# Downstream: EventBase (继承提供时间戳/上下文/组件基础能力)、Bar/Tick (载荷数据类型)、EVENT_TYPES/PRICEINFO_TYPES (枚举)
+# Role: EventPriceUpdate价格更新事件继承EventBase，封装Bar对象作为payload，提供便捷属性访问价格数据
+
+
+
+
+
+
 import datetime
 import pandas as pd
 from functools import singledispatchmethod

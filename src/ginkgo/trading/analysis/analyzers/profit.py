@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Profit利润分析器继承BaseAnalyzer计算总利润/盈亏比和平均收益评估盈利能力支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd

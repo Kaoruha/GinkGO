@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BaseIndicator技术指标基类定义指标计算框架和接口支持技术指标开发和扩展实现指标体系支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 import numpy as np
 from typing import Union, Dict, List, Tuple, Optional

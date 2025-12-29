@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 分析器模块导出基类/年化收益/夏普比率/最大回撤/波动率等性能分析器支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.trading.analysis.analyzers.annualized_returns import AnnualizedReturn
 from ginkgo.trading.analysis.analyzers.hold_pct import HoldPCT

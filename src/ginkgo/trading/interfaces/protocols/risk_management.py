@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: RiskManagementProtocol风控协议定义风控接口标准支持风控实现规范支持交易系统功能
+
+
+
+
+
+
 """
 IRiskManagement Protocol Interface
 

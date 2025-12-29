@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: EngineMixin引擎混入类提供引擎交互能力支持引擎绑定和方法调用功能集成实现组件协作支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 EngineMixin - 引擎功能混入类
 

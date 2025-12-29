@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Ast Helpers模块提供ASTHelpers AST辅助工具提供AST操作辅助函数支持代码分析功能支持回测评估和代码验证
+
+
+
+
+
+
 """
 AST helper utilities for static code analysis.
 

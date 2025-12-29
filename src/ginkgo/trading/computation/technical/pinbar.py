@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: PinbarPin柱识别继承BaseIndicator提供K线形态识别和反转信号分析功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 from ginkgo.trading.computation.technical.base_indicator import BaseIndicator
 

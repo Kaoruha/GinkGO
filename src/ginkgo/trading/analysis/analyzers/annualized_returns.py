@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Annualized Returns分析器继承BaseAnalyzer计算AnnualizedReturns年化收益率性能指标
+
+
+
+
+
+
 import pandas as pd
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.enums import RECORDSTAGE_TYPES

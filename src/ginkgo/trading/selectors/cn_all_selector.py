@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Cn All Selector选股器继承BaseSelector提供CNAllSelector全A股选股功能
+
+
+
+
+
+
 from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
 
 import datetime

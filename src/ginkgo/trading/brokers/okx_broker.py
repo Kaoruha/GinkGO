@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Okx Broker经纪商继承BaseBroker提供OKXBroker OKX交易模拟支持相关功能
+
+
+
+
+
+
 """
 OKXBroker - OKX交易所Broker实现
 

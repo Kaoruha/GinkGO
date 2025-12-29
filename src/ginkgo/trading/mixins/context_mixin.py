@@ -1,3 +1,12 @@
+# Upstream: 所有需要引擎绑定的组件(Strategy/Portfolio/Broker/Analyzer等)
+# Downstream: BaseEngine(引擎实例绑定)、EngineContext(引擎上下文)、PortfolioContext(投资组合上下文)
+# Role: ContextMixin上下文混入类提供portfolio_id/engine_id/run_id等上下文属性和方法，用于组件访问上下文信息
+
+
+
+
+
+
 """
 统一上下文管理Mixin
 

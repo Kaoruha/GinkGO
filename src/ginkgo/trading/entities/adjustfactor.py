@@ -1,3 +1,12 @@
+# Upstream: Data Services (AdjustfactorService同步复权因子)、Backtest Engines (复权K线价格)
+# Downstream: Base (继承提供uuid/component_type)、FREQUENCY_TYPES (枚举)
+# Role: Adjustfactor复权因子实体继承Base定义代码/时间/前复权/后复权/复权因子/UUID等核心属性
+
+
+
+
+
+
 import datetime
 import pandas as pd
 from types import FunctionType, MethodType

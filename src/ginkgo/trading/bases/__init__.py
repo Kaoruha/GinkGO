@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Bases基础组件模块导出交易基础类公共接口支持组件开发和扩展支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 组件基类模块
 

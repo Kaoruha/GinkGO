@@ -1,3 +1,12 @@
+# Upstream: Live Trading Engines (A股实盘交易)、Portfolio Manager (A股订单执行)
+# Downstream: LiveBrokerBase (继承提供实盘Broker基础功能)、券商API (具体券商SDK待实现)
+# Role: Ashare Broker经纪商继承BaseBroker提供AShareBroker A股交易模拟支持相关功能
+
+
+
+
+
+
 """
 AShareBroker - A股实盘交易Broker
 

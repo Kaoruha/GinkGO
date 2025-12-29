@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Volatility分析器继承BaseAnalyzer计算Volatility波动率性能指标支持相关功能
+
+
+
+
+
+
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd

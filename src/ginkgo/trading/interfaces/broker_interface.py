@@ -1,3 +1,12 @@
+# Upstream: SimBroker/ManualBroker/AutoBroker/AShareBroker等Broker实现(实现IBroker接口)
+# Downstream: BaseEngine/BrokerRouter (通过接口调用Broker)、EVENT_TYPES/ORDERSTATUS_TYPES (事件类型和订单状态枚举)
+# Role: IBroker交易代理接口定义提交订单/取消订单/持仓/订单/成交/账户信息等方法支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 统一Broker接口定义
 

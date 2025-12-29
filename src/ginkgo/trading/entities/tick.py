@@ -1,3 +1,12 @@
+# Upstream: Data Sources (TDX实时行情生成Tick)、Backtest Engines (处理高频Tick事件)
+# Downstream: Base (继承提供uuid/component_type)、TICKDIRECTION_TYPES/SOURCE_TYPES (枚举)
+# Role: Tick逐笔成交数据实体继承Base定义代码/价格/量/方向/时间/来源等核心属性支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import datetime
 import pandas as pd
 from decimal import Decimal

@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager (流动性风控防止交易困难)、RiskBase (继承提供风控基础能力)
+# Downstream: EventPriceUpdate (监听价格更新事件)、Signal/Order实体(风控信号和订单处理)、DIRECTION_TYPES (方向枚举)
+# Role: LiquidityRisk流动性风险管理器监控市场流动性防止大额冲击，提供cal方法和generate_signals方法
+
+
+
+
+
+
 """
 流动性风控模块
 

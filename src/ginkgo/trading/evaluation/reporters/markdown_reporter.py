@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Markdown Reporter模块提供Markdown报告器生成报告支持文档生成功能支持回测评估和代码验证
+
+
+
+
+
+
 """
 Markdown reporter for evaluation results.
 

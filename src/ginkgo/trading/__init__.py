@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 交易模块公共接口提供策略/风控/经纪商/投资组合等核心组件支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Ginkgo Backtest Module - 量化回测框架
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实现 RoutingStrategy、RoutingMode、RouteStatus 等 16 个类的核心功能
+
+
+
+
+
+
 """
 事件路由中心接口定义
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: ATR平均真实波幅指标继承BaseIndicator提供市场波动率分析和算法实现支持风险评估支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 import numpy as np
 from typing import List

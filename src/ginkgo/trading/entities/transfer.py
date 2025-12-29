@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager (创建资金流转记录)、Backtest Engines (记录出入金)
+# Downstream: Base (继承提供uuid/component_type)、TRANSFERDIRECTION_TYPES/TRANSFERSTATUS_TYPES/MARKET_TYPES (枚举)
+# Role: Transfer资金流转实体继承Base定义投资组合/引擎/运行/方向/市场/金额/状态/时间/UUID等核心属性
+
+
+
+
+
+
 import datetime
 import pandas as pd
 from functools import singledispatchmethod

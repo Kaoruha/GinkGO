@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Mixins模块导出时间管理/上下文管理/日志记录/命名/订单管理等Mixin类支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Trading Mixins模块
 

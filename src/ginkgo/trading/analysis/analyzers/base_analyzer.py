@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 定义 BaseAnalyzer 分析器基类，提供 _do_activate、_do_record 等模板方法，供子类实现具体的分析逻辑
+
+
+
+
+
+
 import pandas as pd
 import numpy as np
 import warnings

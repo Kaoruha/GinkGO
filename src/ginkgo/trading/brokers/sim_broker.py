@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines (回测模拟撮合)、Portfolio Manager (订单执行)
+# Downstream: BaseBroker (继承提供Broker基础功能)、IBroker接口(实现submit_order_event/get_market_data等Broker接口)、ATTITUDE_TYPES (撮合态度枚举OPTIMISTIC/PESSIMISTIC/RANDOM)
+# Role: SimBroker回测模拟撮合Broker继承BaseBroker和实现IBroker接口，提供立即执行同步返回、模拟撮合、完整验证订单等功能
+
+
+
+
+
+
 """
 SimBroker - 回测模拟撮合Broker
 

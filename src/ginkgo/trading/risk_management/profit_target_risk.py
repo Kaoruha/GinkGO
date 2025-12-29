@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager (添加止盈风控锁定收益)、RiskBase (继承提供风控基础能力)
+# Downstream: Signal/Order实体(风控信号和订单处理)、DIRECTION_TYPES (方向枚举)
+# Role: ProfitTargetRisk止盈风控当持仓盈利达到设定阈值时生成卖出信号，支持分批止盈动态调整移动止盈等配置
+
+
+
+
+
+
 """
 止盈风控管理器 - Green阶段最小实现
 

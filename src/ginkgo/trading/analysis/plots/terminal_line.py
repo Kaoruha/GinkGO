@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Terminal Line绘图继承BasePlot提供TerminalLine终端折线图表可视化支持相关功能
+
+
+
+
+
+
 import pandas as pd
 import shutil
 import plotext as plt

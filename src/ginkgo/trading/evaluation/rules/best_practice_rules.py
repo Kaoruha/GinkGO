@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实现 DecoratorUsageRule、ExceptionHandlingRule、LoggingRule 等 5 个类的核心功能
+
+
+
+
+
+
 """
 Best practice validation rules for strategy code quality.
 

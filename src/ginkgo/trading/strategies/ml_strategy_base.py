@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: ML strategy base class with cal/initialize/finalize methods
+
+
+
+
+
+
 """
 机器学习策略基类
 

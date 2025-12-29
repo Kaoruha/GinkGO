@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: MetricStabilityCalculator指标稳定性计算器计算指标稳定性支持指标分析支持交易系统功能
+
+
+
+
+
+
 """
 Metric Stability Calculator
 

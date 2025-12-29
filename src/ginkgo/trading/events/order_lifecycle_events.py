@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines(订单状态变化时创建事件)、Portfolio Manager(接收订单生命周期事件更新持仓)
+# Downstream: EventBase/EventOrderRelated(继承提供事件基础能力)、EVENT_TYPES(订单事件枚举ORDERACK/ORDERPARTIALLYFILLED/ORDERREJECTED/ORDEREXPIRED/ORDERCANCELACK)、Order实体(订单对象)
+# Role: 订单生命周期事件模块定义确认/成交/拒绝/过期/取消等事件类支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 订单生命周期事件
 

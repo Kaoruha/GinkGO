@@ -1,3 +1,12 @@
+# Upstream: Portfolio(添加选股组件)、Strategy(策略使用选股结果)
+# Downstream: TimeMixin/ContextMixin/EngineBindableMixin/NamedMixin/LoggableMixin(5个Mixin提供时间/上下文/引擎绑定/命名/日志能力)、Base(组件基础)、EventInterestUpdate(兴趣更新事件)、SOURCE_TYPES(来源枚举)
+# Role: SelectorBase选股组件基类组合5个Mixin定义数据供给器和pick抽象方法选股支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 选股组件基类
 

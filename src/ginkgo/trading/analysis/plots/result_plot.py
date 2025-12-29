@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: ResultPlot回测结果绘图继承BasePlot提供净值曲线/回撤和收益可视化功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from matplotlib.widgets import Cursor
 import matplotlib
 import matplotlib.pyplot as plt

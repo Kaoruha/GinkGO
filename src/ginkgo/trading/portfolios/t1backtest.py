@@ -1,3 +1,8 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: PortfolioT1Backtest回测投资组合管理策略/持仓/资金和执行支持交易系统功能支持相关功能
+
+
 """
 The `Portfolio` class is responsible for managing the positions and capital for the system.(Backtest and Live)
 
@@ -94,7 +99,6 @@ class PortfolioT1Backtest(PortfolioBase):
 
         new_time = datetime_normalize(time)
 
-        
         # ===== 步骤1: T+1结算处理 =====
         # 处理所有持仓的结算队列，将到期的冻结持仓转为可用
         settled_positions = 0
@@ -151,9 +155,11 @@ class PortfolioT1Backtest(PortfolioBase):
             for i, signal in enumerate(self._signals):
                 self.log("INFO", f"[T1_PROCESSING] #{i+1} Re-publishing {signal.direction.name} {signal.code}")
                 e = EventSignalGeneration(signal)
-                event_uuid = getattr(e, 'uuid', 'N/A')[:8]
-                signal_uuid = getattr(signal, 'uuid', 'N/A')[:8]
-                print(f"[T1_PUBLISH] #{i+1}/{len(self._signals)} {signal.direction.name} {signal.code} {signal.business_timestamp} Event:{event_uuid} Signal:{signal_uuid} Portfolio:{self.uuid[:8]}")
+                event_uuid = getattr(e, "uuid", "N/A")[:8]
+                signal_uuid = getattr(signal, "uuid", "N/A")[:8]
+                print(
+                    f"[T1_PUBLISH] #{i+1}/{len(self._signals)} {signal.direction.name} {signal.code} {signal.business_timestamp} Event:{event_uuid} Signal:{signal_uuid} Portfolio:{self.uuid[:8]}"
+                )
 
                 self.put(e)
 
@@ -181,11 +187,13 @@ class PortfolioT1Backtest(PortfolioBase):
         3.1 drop the signal
         3.2 put order to event engine
         """
-        signal_payload = event.payload if hasattr(event, 'payload') else None
+        signal_payload = event.payload if hasattr(event, "payload") else None
 
         # 添加Signal接收的关键事件流日志
         if signal_payload:
-            print(f"[SIGNAL_RECV] {signal_payload.direction.name} {signal_payload.code} {signal_payload.business_timestamp} Portfolio:{self.uuid[:8]} Signal:{signal_payload.uuid[:8]}")
+            print(
+                f"[SIGNAL_RECV] {signal_payload.direction.name} {signal_payload.code} {signal_payload.business_timestamp} Portfolio:{self.uuid[:8]} Signal:{signal_payload.uuid[:8]}"
+            )
         else:
             print(f"[SIGNAL_ERROR] Signal payload missing Event:{event.uuid[:8] if hasattr(event, 'uuid') else 'N/A'}")
             return
@@ -284,7 +292,9 @@ class PortfolioT1Backtest(PortfolioBase):
                     f"🚦 [T+1 DELAY] Signal from {event.business_timestamp} (current: {current_time}) DELAYED to next day due to T+1 trading rule!",
                 )
             self._signals.append(event.payload)
-            print(f"[T1_DELAY] {signal_payload.direction.name} {signal_payload.code} SignalTime:{event.business_timestamp} CurrentTime:{current_time} TotalDelayed:{len(self._signals)} Portfolio:{self.uuid[:8]}")
+            print(
+                f"[T1_DELAY] {signal_payload.direction.name} {signal_payload.code} SignalTime:{event.business_timestamp} CurrentTime:{current_time} TotalDelayed:{len(self._signals)} Portfolio:{self.uuid[:8]}"
+            )
             self.log(
                 "INFO",
                 f"⚠️ [T+1 MECHANISM] No order will be generated today. Signal will be processed on next trading day.",
@@ -304,12 +314,18 @@ class PortfolioT1Backtest(PortfolioBase):
             order = self.sizer.cal(portfolio_info, event.payload)
             # 添加Sizer结果的关键事件流日志
             if order:
-                print(f"[SIZED] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Portfolio:{self.uuid[:8]} Order:{order.uuid[:8]}")
+                print(
+                    f"[SIZED] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Portfolio:{self.uuid[:8]} Order:{order.uuid[:8]}"
+                )
             else:
-                print(f"[SIZED_FAIL] {event.payload.direction.name} {event.payload.code} Reason:Sizer returned None Portfolio:{self.uuid[:8]} Signal:{event.payload.uuid[:8]}")
+                print(
+                    f"[SIZED_FAIL] {event.payload.direction.name} {event.payload.code} Reason:Sizer returned None Portfolio:{self.uuid[:8]} Signal:{event.payload.uuid[:8]}"
+                )
                 return
         except Exception as e:
-            print(f"[SIZED_ERROR] {event.payload.direction.name} {event.payload.code} Error:{e} Portfolio:{self.uuid[:8]} Signal:{event.payload.uuid[:8]}")
+            print(
+                f"[SIZED_ERROR] {event.payload.direction.name} {event.payload.code} Error:{e} Portfolio:{self.uuid[:8]} Signal:{event.payload.uuid[:8]}"
+            )
             return
         else:
             self.log(
@@ -418,7 +434,9 @@ class PortfolioT1Backtest(PortfolioBase):
         # Set the order as payload for unified access
         event.payload = order
 
-        print(f"[ORDER] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Frozen:{order.frozen_money} Order:{order.uuid[:8]} Portfolio:{self.uuid[:8]}")
+        print(
+            f"[ORDER] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Frozen:{order.frozen_money} Order:{order.uuid[:8]} Portfolio:{self.uuid[:8]}"
+        )
 
         # Call analyzer hooks
         for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERSEND]:
@@ -440,10 +458,10 @@ class PortfolioT1Backtest(PortfolioBase):
 
     def on_price_received(self, event: EventPriceUpdate):
         # 🔍 [DEBUG] 追踪on_price_received调用
-        event_uuid = getattr(event, 'uuid', 'N/A')[:8]
-        event_code = getattr(event, 'code', 'N/A')
-        event_price = getattr(event, 'close', 'N/A')
-        
+        event_uuid = getattr(event, "uuid", "N/A")[:8]
+        event_code = getattr(event, "code", "N/A")
+        event_price = getattr(event, "close", "N/A")
+
         # Check Everything.
         code = ""
         try:
@@ -451,7 +469,7 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             pass
 
-        self.log("INFO", f"Got new price {code if code != '' else ""}. {self.business_timestamp}")
+        self.log("INFO", f"Got new price {code if code != '' else ''}. {self.business_timestamp}")
 
         if not self.is_all_set():
             return
@@ -502,7 +520,7 @@ class PortfolioT1Backtest(PortfolioBase):
             for signal in signals:
                 if signal:
                     # 🔍 调试：跟踪信号处理
-                    signal_uuid = getattr(signal, 'uuid', 'N/A')[:8]
+                    signal_uuid = getattr(signal, "uuid", "N/A")[:8]
                     print(f"\n💼 [PORTFOLIO SIGNAL PROCESS] Portfolio UUID: {self.uuid[:8]}")
                     print(f"    Strategy Signal: {signal.direction.name} {signal.code} at {signal.business_timestamp}")
                     print(f"    Signal UUID: {signal_uuid}")
@@ -530,7 +548,7 @@ class PortfolioT1Backtest(PortfolioBase):
                     e = EventSignalGeneration(signal)
                     e.set_source(SOURCE_TYPES.STRATEGY)
                     # 🔍 [CRITICAL] LOG: 追踪事件发布
-                    event_uuid = getattr(e, 'uuid', 'N/A')[:8]
+                    event_uuid = getattr(e, "uuid", "N/A")[:8]
                     print(f"📤 [PUBLISHING] EventSignalGeneration: Event UUID={event_uuid}, Signal UUID={signal_uuid}")
                     print(f"    Event ID: {id(e)}, Signal Code: {signal.code}")
                     print(f"    From Portfolio: {self.name} (UUID: {self.uuid[:8]})")
@@ -579,24 +597,35 @@ class PortfolioT1Backtest(PortfolioBase):
             fee = to_decimal(getattr(event, "commission", 0) or 0)
             if qty <= 0 or price <= 0:
                 self.log("WARN", f"🚫 [FILL REJECTED] Partial fill ignored due to invalid qty/price: {qty}/{price}")
-                self.log("WARN", f"🚫 [FILL REJECTED] Order NOT added to filled_orders list: {order.code} {order.direction.name}")
+                self.log(
+                    "WARN",
+                    f"🚫 [FILL REJECTED] Order NOT added to filled_orders list: {order.code} {order.direction.name}",
+                )
                 return
 
             # 🔥 [CRITICAL FIX] 只有在验证通过后才添加到成交订单列表
             # 🎯 订单统计更新：跟踪已成交的订单
             if order not in self._orders:
                 self._orders.append(order)
-                self.log("INFO", f"📊 [ORDER TRACKING] Added filled order to tracking: {order.code} {order.direction.name} {order.volume} shares")
+                self.log(
+                    "INFO",
+                    f"📊 [ORDER TRACKING] Added filled order to tracking: {order.code} {order.direction.name} {order.volume} shares",
+                )
 
             # 添加到成交订单列表 (只有真实成交的订单)
             self._filled_orders.append(order)
-            self.log("INFO", f"📊 [FILLED ORDER TRACKING] Added VALID filled order: {order.code} {order.direction.name} {order.volume} shares @ {price}")
+            self.log(
+                "INFO",
+                f"📊 [FILLED ORDER TRACKING] Added VALID filled order: {order.code} {order.direction.name} {order.volume} shares @ {price}",
+            )
 
             direction = getattr(order, "direction", None) or getattr(event, "direction", None)
             code = event.code
 
             # 添加订单部分成交的关键事件流日志
-            print(f"[FILL] {direction.name} {code} {qty}shares @ {price} Fee:{fee} TotalFilled:{order.transaction_volume}/{order.volume} Order:{order.uuid[:8]} Portfolio:{self.uuid[:8]}")
+            print(
+                f"[FILL] {direction.name} {code} {qty}shares @ {price} Fee:{fee} TotalFilled:{order.transaction_volume}/{order.volume} Order:{order.uuid[:8]} Portfolio:{self.uuid[:8]}"
+            )
             fill_cost = price * qty + fee
 
             # 更新订单累计成交与剩余冻结
@@ -617,7 +646,10 @@ class PortfolioT1Backtest(PortfolioBase):
 
             # LONG 部分成交：从冻结资金扣除成交成本，根据是否最终成交决定是否释放剩余资金
             if direction == DIRECTION_TYPES.LONG:
-                self.log("INFO", f"🔍 [PARTIAL FILL] BEFORE: UUID={order.uuid[:8] if hasattr(order, 'uuid') else 'NO_UUID'}, order.remain={order.remain:.2f}, self.frozen={self.frozen:.2f}, fill_cost={fill_cost:.2f}, is_final={is_final}")
+                self.log(
+                    "INFO",
+                    f"🔍 [PARTIAL FILL] BEFORE: UUID={order.uuid[:8] if hasattr(order, 'uuid') else 'NO_UUID'}, order.remain={order.remain:.2f}, self.frozen={self.frozen:.2f}, fill_cost={fill_cost:.2f}, is_final={is_final}",
+                )
 
                 # 如果不是最终成交，不解冻剩余资金；如果是最终成交，解冻所有剩余资金
                 unfreeze_remain = order.remain if is_final else Decimal("0")
@@ -630,7 +662,10 @@ class PortfolioT1Backtest(PortfolioBase):
                 if is_final:
                     order.remain = Decimal("0")
 
-                self.log("INFO", f"🔍 [PARTIAL FILL] AFTER: order={order.uuid[:8]}, order.remain={order.remain:.2f}, self.frozen={self.frozen:.2f}")
+                self.log(
+                    "INFO",
+                    f"🔍 [PARTIAL FILL] AFTER: order={order.uuid[:8]}, order.remain={order.remain:.2f}, self.frozen={self.frozen:.2f}",
+                )
                 self.add_fee(fee)
 
                 pos = self.get_position(code)
@@ -649,11 +684,15 @@ class PortfolioT1Backtest(PortfolioBase):
                     )
                     self.add_position(p)
                     # 添加Position创建的关键事件流日志
-                    print(f"[POSITION] LONG {code} {qty}shares @ {price} Fee:{fee} Portfolio:{self.uuid[:8]} Position:{p.uuid[:8]}")
+                    print(
+                        f"[POSITION] LONG {code} {qty}shares @ {price} Fee:{fee} Portfolio:{self.uuid[:8]} Position:{p.uuid[:8]}"
+                    )
                 else:
                     pos.deal(DIRECTION_TYPES.LONG, price, qty)
                     # 添加Position更新的关键事件流日志
-                    print(f"[POSITION] LONG {code} +{qty}shares @ {price} Total:{pos.volume} Portfolio:{self.uuid[:8]} Position:{pos.uuid[:8]}")
+                    print(
+                        f"[POSITION] LONG {code} +{qty}shares @ {price} Total:{pos.volume} Portfolio:{self.uuid[:8]} Position:{pos.uuid[:8]}"
+                    )
 
                 self.log(
                     "INFO",
@@ -684,6 +723,7 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             self.log("ERROR", f"on_order_partially_filled failed: {e}")
             import traceback
+
             self.log("ERROR", f"on_order_partially_filled traceback: {traceback.format_exc()}")
 
     def on_order_rejected(self, event) -> None:
@@ -694,7 +734,9 @@ class PortfolioT1Backtest(PortfolioBase):
                 func(RECORDSTAGE_TYPES.ORDERREJECTED, self.get_info())
             self.log("WARN", f"REJECTED: order={event.order_id[:8]} code={event.code} reason={event.reject_reason}")
             # 添加订单拒绝的关键事件流日志
-            print(f"[REJECT] {getattr(event.order, 'direction', 'UNKNOWN').name} {event.code} Reason:{event.reject_reason} Order:{event.order_id[:8]} Portfolio:{self.uuid[:8]}")
+            print(
+                f"[REJECT] {getattr(event.order, 'direction', 'UNKNOWN').name} {event.code} Reason:{event.reject_reason} Order:{event.order_id[:8]} Portfolio:{self.uuid[:8]}"
+            )
             # BrokerMatchMaking 会同时发送取消事件以触发资金解冻；此处仅记录
         except Exception as e:
             self.log("ERROR", f"on_order_rejected failed: {e}")

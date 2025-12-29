@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager(订单成交后更新持仓)、Broker(持仓管理)
+# Downstream: EventOrderRelated(继承提供订单相关事件基础能力)、EVENT_TYPES(事件类型枚举POSITIONUPDATE)
+# Role: EventPositionUpdate持仓更新事件继承EventBase，封装Position对象作为payload，提供便捷属性访问持仓信息
+
+
+
+
+
+
 from ginkgo.trading.events.order_related import EventOrderRelated
 from ginkgo.enums import EVENT_TYPES
 

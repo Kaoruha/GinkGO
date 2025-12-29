@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 接口协议模块导出引擎协议/组合协议/策略协议/风控协议等标准接口支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Trading Framework Protocol Interfaces
 

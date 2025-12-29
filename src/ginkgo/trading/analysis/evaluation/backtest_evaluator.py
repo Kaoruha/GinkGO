@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BacktestEvaluator回测评估器提供回测性能评估支持交易系统功能支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Backtest Evaluator
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: HoldPct持仓比例分析器继承BaseAnalyzer计算持仓比例和仓位占用评估资金使用效率支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.enums import RECORDSTAGE_TYPES
 

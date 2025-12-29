@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: FileInfo文件信息类提供文件元数据管理支持回测配置/策略文件和数据文件追踪及版本控制支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import datetime
 import pandas as pd
 from types import FunctionType, MethodType

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: SlicePeriodOptimizer切片周期优化器优化回测切片支持参数优化支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 Slice Period Optimizer
 

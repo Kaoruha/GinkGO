@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BaseRouter路由器抽象基类接口，定义订单路由和匹配的核心方法，供子类继承实现具体路由逻辑和订单分发功能
+
+
+
+
+
+
 """
 BaseRouter基础类
 

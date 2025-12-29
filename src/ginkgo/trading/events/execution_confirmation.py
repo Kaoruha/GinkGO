@@ -1,3 +1,12 @@
+# Upstream: Signal Tracker(信号执行追踪)、Portfolio Manager(执行状态变更)
+# Downstream: EventBase(继承提供事件基础能力)、EVENT_TYPES/EXECUTION_STATUS/DIRECTION_TYPES(事件类型/执行状态/方向枚举)
+# Role: 执行确认事件模块定义确认/拒绝/过期/取消等状态变更事件类支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 执行确认事件模块
 

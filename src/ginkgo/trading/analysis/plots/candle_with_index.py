@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Candle With Index绘图继承BasePlot提供CandleWithIndex指数K线图表可视化
+
+
+
+
+
+
 from matplotlib.widgets import Cursor, MultiCursor
 import matplotlib
 import matplotlib.pyplot as plt

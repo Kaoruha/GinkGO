@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实现熔断配置/熔断器/熔断管理器等类的核心功能封装相关业务逻辑支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 断路器实现
 

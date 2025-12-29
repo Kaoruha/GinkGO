@@ -1,3 +1,12 @@
+# Upstream: Data Sources (生成Bar数据)、Strategies (使用Bar计算指标)、Backtest Engines (存储Bar数据)
+# Downstream: Base (继承提供uuid/component_type)、FREQUENCY_TYPES (枚举DAY/MIN1/MIN5等)
+# Role: Bar K线数据实体继承Base定义代码/开高低收量额/频率/时间/UUID等核心属性支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import datetime
 import pandas as pd
 from types import FunctionType, MethodType

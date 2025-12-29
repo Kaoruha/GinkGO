@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BestPracticeEvaluator最佳实践评估器继承BaseEvaluator提供代码规范检查和优化建议
+
+
+
+
+
+
 """
 Best practice validator for strategy code quality recommendations.
 

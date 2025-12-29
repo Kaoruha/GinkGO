@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实体模块导出K线/Tick/信号/订单/持仓/转账/资金调整等业务实体类支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Entities Module - 业务实体对象
 

@@ -1,3 +1,12 @@
+# Upstream: 所有需要日志记录的组件(Base/Strategy/Portfolio/Broker/Analyzer等)
+# Downstream: GLOG(全局日志记录器)、自定义logger对象
+# Role: LoggableMixin日志混入类提供日志记录能力支持组件日志功能集成和多日志管理支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 日志管理Mixin
 

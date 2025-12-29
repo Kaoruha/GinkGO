@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实现策略继承/方法必需/初始化调用等5个类的核心功能支持交易系统功能支持策略验证和结构检查确保代码质量
+
+
+
+
+
+
 """
 Structural evaluation rules for strategy validation.
 

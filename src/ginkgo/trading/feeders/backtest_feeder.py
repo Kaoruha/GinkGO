@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Backtest Feeder数据馈送器继承BaseFeeder提供BacktestFeeder回测数据数据推送
+
+
+
+
+
+
 """
 The `Datahandler` class will provide access to historical price and volume data for a given set of securities.
 

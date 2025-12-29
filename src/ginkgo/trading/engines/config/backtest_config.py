@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BacktestConfig回测配置类继承BaseConfig提供回测参数配置和方案管理支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 回测配置类
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 交易核心模块依赖注入容器管理引擎/投资组合/策略等核心组件的依赖注入和服务访问支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Backtest Module Container
 

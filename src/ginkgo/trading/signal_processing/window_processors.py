@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: WindowProcessors窗口处理器提供滑动窗口处理支持时序数据处理支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 具体时间窗口处理器实现
 

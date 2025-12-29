@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: InflectionPoint拐点分析继承BaseIndicator提供价格拐点检测和趋势反转分析支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 import numpy as np
 from ginkgo.trading.computation.technical.base_indicator import BaseIndicator

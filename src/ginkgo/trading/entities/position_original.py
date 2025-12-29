@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Position Original实体定义PositionOriginal原始持仓数据结构和属性支持相关功能
+
+
+
+
+
+
 import pandas as pd
 import numpy
 from typing import List, Optional, Union

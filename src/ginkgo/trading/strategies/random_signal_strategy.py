@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager (测试验证使用随机策略)、BaseStrategy (继承提供策略基础能力)
+# Downstream: Signal实体(交易信号生成)、EventPriceUpdate (价格更新事件)、DIRECTION_TYPES/SOURCE_TYPES (方向和信号源枚举)、random (随机数生成)
+# Role: Random Signal Strategy策略继承BaseStrategy实现RandomSignalStrategy随机信号交易逻辑
+
+
+
+
+
+
 """
 RandomSignalStrategy - 随机信号生成策略
 

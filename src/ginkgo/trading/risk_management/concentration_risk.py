@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager (集中度风控分散投资)、RiskBase (继承提供风控基础能力)
+# Downstream: EventPriceUpdate (监听价格更新事件)、Signal/Order实体(风控信号和订单处理)、DIRECTION_TYPES (方向枚举)
+# Role: ConcentrationRisk集中度风控监控投资组合的集中度风险包括单一股票/行业/概念等维度防止投资过于集中
+
+
+
+
+
+
 """
 集中度风控模块
 

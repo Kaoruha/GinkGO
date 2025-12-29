@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager (创建订单)、Backtest Engines (执行订单并更新状态)、Risk Management (cal()方法拦截并调整订单)
+# Downstream: Base/TimeMixin (继承提供uuid/component_type和时间能力)、DIRECTION_TYPES/ORDER_TYPES/ORDERSTATUS_TYPES/SOURCE_TYPES (枚举)
+# Role: Order订单实体继承Base定义订单属性和交易相关信息支持订单管理支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 import datetime
 import uuid

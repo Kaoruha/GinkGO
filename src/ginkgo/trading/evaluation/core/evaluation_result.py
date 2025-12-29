@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实现 EvaluationIssue、EvaluationResult、SignalTrace 等 4 个类的核心功能
+
+
+
+
+
+
 """
 Evaluation result entities.
 

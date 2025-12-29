@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Database Loader模块提供DatabaseLoader数据库加载器提供数据加载功能支持评估数据获取功能支持回测评估和代码验证
+
+
+
+
+
+
 """
 Database strategy loader for validating strategies stored in the database.
 
