@@ -1,3 +1,12 @@
+# Upstream: EngineCRUD (引擎配置持久化)、EngineFactory (创建和查询引擎)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)、ModelConversion (提供实体转换能力)、ENGINESTATUS_TYPES/ATTITUDE_TYPES (枚举类型验证)
+# Role: MEngine引擎配置MySQL模型继承MMysqlBase定义核心字段提供引擎配置管理支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import datetime
 import pandas as pd
 

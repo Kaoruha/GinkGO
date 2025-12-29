@@ -1,5 +1,12 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# Upstream: Data Analysis (因子分析)、Strategy (策略使用因子数据)
+# Downstream: BaseService (继承提供服务基础能力)、FactorCRUD (因子CRUD操作)、ENTITY_TYPES (实体类型枚举STOCK/MARKET/COUNTRY/INDUSTRY等10种类型)
+# Role: FactorService因子管理业务服务支持股票/市场/国家/行业/商品/货币/债券/基金/指数等因子
+
+
+
+
+
+
 
 """
 Factor Management Service

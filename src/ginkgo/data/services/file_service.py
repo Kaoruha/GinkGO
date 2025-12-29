@@ -1,3 +1,12 @@
+# Upstream: CLI Commands (ginkgo file add/list/delete)、PortfolioService (文件绑定管理)
+# Downstream: BaseService (继承提供服务基础能力)、FileCRUD (文件CRUD操作)、FILE_TYPES (文件类型枚举STRATEGY/ANALYZER/SELECTOR/SIZER/RISKMANAGER/DATA/OTHER)
+# Role: FileService文件管理业务服务支持7种文件类型管理提供增删列表等文件操作方法支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 File Management Service (Class-based)
 

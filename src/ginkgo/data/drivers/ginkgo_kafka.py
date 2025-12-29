@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: GinkgoKafka Kafka驱动提供Kafka连接和消息队列操作支持流式处理支持交易系统功能支持相关功能
+
+
+
+
+
+
 import json
 from time import sleep
 from kafka import KafkaProducer, KafkaConsumer

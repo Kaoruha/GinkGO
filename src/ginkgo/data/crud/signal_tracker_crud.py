@@ -1,3 +1,12 @@
+# Upstream: SignalTrackingService (信号追踪业务服务)、Strategy Signal Tracking (信号执行追踪)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MSignalTracker (MySQL信号追踪模型)、EXECUTION_MODE/TRACKINGSTATUS_TYPES/ACCOUNT_TYPE/DIRECTION_TYPES (执行模式/追踪状态/账户类型/方向枚举)
+# Role: SignalTrackerCRUD信号追踪CRUD继承BaseCRUD提供追踪记录管理和查询功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict

@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: GinkgoBaoStock BaoStock数据源继承SourceBase提供A股数据获取支持交易系统功能
+
+
+
+
+
+
 import baostock as bs
 import pandas as pd
 import datetime

@@ -1,3 +1,12 @@
+# Upstream: All Concrete CRUD Classes (BarCRUD/TickCRUD/StockinfoCRUD等30+个CRUD继承)
+# Downstream: MClickBase/MMysqlBase (ClickHouse和MySQL数据模型基类)、ClickHouse/MySQL (数据库驱动)
+# Role: BaseCRUD基础CRUD抽象类定义CRUD操作接口和模板方法支持数据持久化支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import TypeVar, Generic, List, Optional, Any, Union, Dict, Callable, Type
 from abc import ABC, abstractmethod
 import pandas as pd

@@ -1,3 +1,12 @@
+# Upstream: Strategy Signal Tracking (信号执行追踪)、EventExecutionConfirmed (执行确认事件)
+# Downstream: BaseService (继承提供服务基础能力)、SignalTrackerCRUD (信号追踪CRUD操作)、MSignalTracker (信号追踪模型)、EXECUTION_MODE/TRACKINGSTATUS_TYPES/ACCOUNT_TYPE (执行模式/追踪状态/账户类型枚举)
+# Role: SignalTrackingService信号追踪服务提供信号执行追踪和统计功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from decimal import Decimal

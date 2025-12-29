@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: GinkgoRedis Redis驱动提供Redis连接和缓存操作支持缓存管理支持交易系统功能支持相关功能
+
+
+
+
+
+
 import redis
 import time
 from ginkgo.libs import GLOG, GinkgoLogger, retry

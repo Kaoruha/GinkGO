@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Model Engine Handler Mapping模型继承定义MEngineHandlerMapping引擎处理器映射相关数据结构
+
+
+
+
+
+
 import datetime
 import pandas as pd
 

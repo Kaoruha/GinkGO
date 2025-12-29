@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: StreamingEngineFactory流式引擎工厂提供流式引擎创建功能支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 流式查询引擎工厂和查询优化器
 

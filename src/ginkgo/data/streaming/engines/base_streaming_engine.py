@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: BaseStreamingEngine基础流式引擎定义流式数据处理抽象基类支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 流式查询引擎抽象基类
 

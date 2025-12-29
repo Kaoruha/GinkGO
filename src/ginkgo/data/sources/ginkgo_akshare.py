@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: GinkgoAKShare AKShare数据源继承SourceBase提供A股数据获取支持交易系统功能
+
+
+
+
+
+
 import pandas as pd
 from ginkgo.data.sources.source_base import GinkgoSourceBase
 

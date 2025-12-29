@@ -1,3 +1,12 @@
+# Upstream: TransferCRUD (资金划转记录持久化)、Portfolio Manager (出入金记录查询)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)、MBacktestRecordBase (继承提供回测记录基础字段)、TRANSFERDIRECTION_TYPES/MARKET_TYPES/TRANSFERSTATUS_TYPES (枚举类型验证)
+# Role: MTransfer资金划转MySQL模型继承MMysqlBase定义核心字段支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 import datetime
 from typing import Optional

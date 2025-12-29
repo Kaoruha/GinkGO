@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: GinkgoTDX TDX数据源继承SourceBase提供通达信数据获取支持交易系统功能支持交易系统功能
+
+
+
+
+
+
 import pandas as pd
 import datetime
 from typing import List

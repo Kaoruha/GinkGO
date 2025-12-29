@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Parameter Metadata Service服务提供ParameterMetadataService参数元数据管理和查询
+
+
+
+
+
+
 """
 Parameter Metadata Service - 参数元数据服务
 

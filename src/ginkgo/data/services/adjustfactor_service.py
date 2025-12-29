@@ -1,3 +1,12 @@
+# Upstream: BarService (K线复权计算使用)、Data Sync Commands (ginkgo data update adjustfactor)
+# Downstream: BaseService (继承提供服务基础能力@time_logger/@retry/@cache)、AdjustfactorCRUD (复权因子CRUD操作)、Data Sources (Tushare/其他数据源)、StockinfoService (股票信息验证)
+# Role: AdjustfactorService复权因子数据业务服务协调数据源和CRUD操作提供同步/获取/统计/验证等方法
+
+
+
+
+
+
 """
 Adjustfactor Data Service (扁平化架构)
 

@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: 定义 MTickSummary Tick数据模型，包含毫秒级时间戳、价格、成交量、买卖方向等字段，用于高频数据的存储和查询
+
+
+
+
+
+
 import pandas as pd
 import datetime
 from typing import Optional

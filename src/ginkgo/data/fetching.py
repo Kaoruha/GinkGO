@@ -1,3 +1,12 @@
+# Upstream: 数据服务层(StockinfoService调用process_stockinfo_data)
+# Downstream: 数据源(GinkgoTushare/GinkgoTDX提供外部数据获取)、CRUD层(AdjustfactorCRUD/StockInfoCRUD)、数据模型(MAdjustfactor/MBar/MStockInfo)、枚举类型(SOURCE_TYPES/FREQUENCY_TYPES/CURRENCY_TYPES/MARKET_TYPES/TICKDIRECTION_TYPES)
+# Role: 数据获取和持久化模块从Tushare/TDX等获取数据并使用CRUD层持久化到数据库支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Data Fetching and Persistence Logic
 

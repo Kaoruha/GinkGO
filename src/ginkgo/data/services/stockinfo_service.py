@@ -1,3 +1,12 @@
+# Upstream: BarService/AdjustfactorService (依赖StockInfo获取股票列表)、Trading Strategies (查询股票基础信息)
+# Downstream: BaseService (继承提供标准服务能力)、StockinfoCRUD (MySQL股票信息持久化)、GinkgoTushare (数据源)
+# Role: StockinfoService股票基础信息业务服务继承BaseService依赖CRUD和Tushare提供同步/获取等方法
+
+
+
+
+
+
 """
 StockInfo Data Service (Class-based)
 

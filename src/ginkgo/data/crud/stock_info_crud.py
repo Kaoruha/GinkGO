@@ -1,3 +1,12 @@
+# Upstream: StockinfoService (股票信息业务服务)、Data Query (查询股票代码/名称/行业等信息)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MStockInfo (MySQL股票信息模型)、StockInfo实体(业务股票信息实体)、MARKET_TYPES/CURRENCY_TYPES (市场类型和货币类型枚举)
+# Role: StockInfoCRUD股票信息CRUD继承BaseCRUD提供股票信息管理功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime

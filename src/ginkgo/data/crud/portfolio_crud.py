@@ -1,3 +1,12 @@
+# Upstream: PortfolioService (投资组合业务服务)、Engine (创建和查询portfolio)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MPortfolio (MySQL投资组合模型)、PortfolioBase (业务投资组合实体)
+# Role: PortfolioCRUD组合CRUD操作继承BaseCRUD提供组合管理和资金操作方法支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime

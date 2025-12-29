@@ -1,3 +1,12 @@
+# Upstream: Data Services (BarService/StockinfoService调用获取数据)、CLI Commands (ginkgo data update)
+# Downstream: GinkgoSourceBase (继承提供数据源基础能力)、tushare (第三方API库)
+# Role: GinkgoTushare数据源实现继承GinkgoSourceBase提供Tushare数据获取功能
+
+
+
+
+
+
 import tushare as ts
 import threading
 import pandas as pd

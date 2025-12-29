@@ -1,3 +1,12 @@
+# Upstream: TransferService (资金划转业务服务)、Portfolio Manager (出入金记录查询)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MTransfer (MySQL资金划转模型)、Transfer实体(业务资金划转实体)、TRANSFERDIRECTION_TYPES/TRANSFERSTATUS_TYPES/MARKET_TYPES (划转方向/状态/市场枚举)
+# Role: TransferCRUD资金划转CRUD继承BaseCRUD提供资金划转管理功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict

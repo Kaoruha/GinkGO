@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: MySQL基础数据模型继承MBase提供uuid/created_at/updated_at/is_del等字段
+
+
+
+
+
+
 import uuid
 import pandas as pd
 import datetime

@@ -1,3 +1,12 @@
+# Upstream: TickService (同步逐笔成交数据)、TickCRUD (CRUD操作)
+# Downstream: MClickBase (继承提供ClickHouse ORM能力)、TICKDIRECTION_TYPES (枚举类型验证)
+# Role: MTick逐笔成交ClickHouse模型继承MClickBase定义核心字段使用MergeTree
+
+
+
+
+
+
 import pandas as pd
 import datetime
 from typing import Optional

@@ -1,3 +1,12 @@
+# Upstream: CapitalService (资金调整同步)、Portfolio Manager (资金变动记录)
+# Downstream: MClickBase (继承提供ClickHouse ORM能力)、ModelConversion (提供实体转换能力)
+# Role: MCapitalAdjustment资金调整模型继承MClickBase定义资金调整数据结构支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 import datetime
 from typing import Optional

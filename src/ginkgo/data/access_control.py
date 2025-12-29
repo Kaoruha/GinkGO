@@ -1,3 +1,12 @@
+# Upstream: BaseCRUD及所有CRUD子类(使用@restrict_crud_access装饰器)、Services层(通过调用栈验证)
+# Downstream: inspect (调用栈分析)、functools (装饰器工具)、GLOG (日志记录)
+# Role: CRUD访问控制模块提供装饰器和验证机制确保CRUD方法只能在Service层调用支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 CRUD访问控制模块
 

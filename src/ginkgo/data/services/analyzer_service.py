@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: AnalyzerService分析器服务提供分析器管理和结果查询功能支持分析器操作支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 Analyzer Service Module
 

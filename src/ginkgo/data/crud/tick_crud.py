@@ -1,3 +1,12 @@
+# Upstream: TickService (逐笔成交数据业务服务)、Data Query (查询tick数据)
+# Downstream: BaseCRUD (继承提供标准CRUD能力)、MTick模型(动态分区表每个股票代码对应独立表)
+# Role: TickCRUD Tick数据CRUD继承BaseCRUD提供Tick数据管理功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict

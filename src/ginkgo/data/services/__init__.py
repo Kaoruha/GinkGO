@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: 数据服务模块导出K线/股票/Tick/文件/引擎/投资组合等服务封装业务逻辑和CRUD操作支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Services Package - Flat Architecture
 

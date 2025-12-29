@@ -1,3 +1,12 @@
+# Upstream: OrderCRUD (订单数据持久化)、Portfolio Manager (订单记录查询)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)、MBacktestRecordBase (继承提供回测记录基础字段)、DIRECTION_TYPES/ORDER_TYPES/ORDERSTATUS_TYPES (枚举类型验证)
+# Role: MOrder订单记录MySQL模型定义订单数据结构和业务字段支持交易追踪支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import datetime
 import pandas as pd
 from typing import Optional

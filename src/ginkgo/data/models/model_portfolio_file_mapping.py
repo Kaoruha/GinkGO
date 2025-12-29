@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Model Portfolio File Mapping模型继承定义MPortfolioFileMapping组合文件映射相关数据结构
+
+
+
+
+
+
 import pandas as pd
 import datetime
 

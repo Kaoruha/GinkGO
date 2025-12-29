@@ -1,3 +1,12 @@
+# Upstream: TradeDayService (交易日历业务服务)、Data Query (查询交易日历判断开市)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MTradeDay (MySQL交易日历模型)、MARKET_TYPES (市场类型枚举)
+# Role: TradeDayCRUD交易日CRUD继承BaseCRUD提供交易日历管理功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict

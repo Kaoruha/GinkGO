@@ -1,3 +1,12 @@
+# Upstream: ParamService (参数管理业务服务)、ComponentParameterExtractor (组件参数提取和存储)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MParam (MySQL参数模型)、SOURCE_TYPES (数据源枚举SIM/LIVE/BACKTEST/OTHER)
+# Role: ParamCRUD参数CRUD操作继承BaseCRUD提供参数配置增删改查和查询功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Any, Dict

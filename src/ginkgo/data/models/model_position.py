@@ -1,3 +1,12 @@
+# Upstream: PositionCRUD (持仓数据持久化)、Portfolio Manager (持仓记录查询)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)、MBacktestRecordBase (继承提供回测记录基础字段)
+# Role: MPosition持仓MySQL模型继承MMysqlBase定义持仓数据结构和字段支持回测支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import datetime
 import pandas as pd
 from typing import Union, Optional

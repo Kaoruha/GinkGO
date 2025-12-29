@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: 数据模型模块导出K线/Tick/股票/复权因子等数据模型类支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.data.models.model_adjustfactor import MAdjustfactor
 from ginkgo.data.models.model_analyzer_record import MAnalyzerRecord
 from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase

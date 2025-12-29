@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: FactorCRUD因子CRUD操作继承BaseCRUD支持因子数据增删改查和批量操作提供业务辅助方法
+
+
+
+
+
+
 
 from typing import List, Optional, Union, Any, Dict
 import pandas as pd

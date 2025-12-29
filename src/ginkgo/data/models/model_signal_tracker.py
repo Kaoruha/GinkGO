@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Model Signal Tracker模型继承定义MSignalTracker信号追踪相关数据结构
+
+
+
+
+
+
 import pandas as pd
 import datetime
 from typing import Optional
