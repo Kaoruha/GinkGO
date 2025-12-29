@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: EngineInterface引擎接口定义引擎协议规范回测引擎行为和执行支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 引擎统一接口定义
 

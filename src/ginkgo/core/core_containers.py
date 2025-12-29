@@ -1,3 +1,12 @@
+# Upstream: All Modules (全局访问core.containers.container获取配置和日志服务)
+# Downstream: dependency_injector (依赖注入框架)、GCONF/GLOG/GTM (全局单例)
+# Role: 核心模块依赖注入容器管理配置/日志/线程管理等核心服务支持懒加载和兼容支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Core Module Container
 

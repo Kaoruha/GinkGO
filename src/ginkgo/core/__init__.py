@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 核心模块公共接口，提供GCONF配置管理、GLOG日志记录、GTM线程管理等核心服务，使用依赖注入容器管理组件生命周期
+
+
+
+
+
+
 """
 Ginkgo Core Module - Public API
 

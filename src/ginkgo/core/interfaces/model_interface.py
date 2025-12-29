@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: ModelInterface模型接口定义模型协议规范ML模型交互和模型集成支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 ML模型统一接口定义
 

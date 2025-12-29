@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 实现 ModeAdapter、EventAdapter、VectorizedWrapper 等类的核心功能，封装相关业务逻辑
+
+
+
+
+
+
 """
 模式适配器
 

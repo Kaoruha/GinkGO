@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 实现 AdapterError、BaseAdapter、ChainableAdapter 等 5 个类的核心功能
+
+
+
+
+
+
 """
 基础适配器类
 
