@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: Kafka消息队列CLI提供状态/消费/生产/主题管理等Kafka操作命令支持分布式数据流处理支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import typer
 from typing import Optional
 from rich.console import Console

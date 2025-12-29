@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 扁平化命令CLI，提供_get_engine_status_name状态转换等工具函数，简化命令行操作和数据访问
+
+
+
+
+
+
 """
 Ginkgo Flat CLI - 扁平化的顶级命令
 包含未迁移到独立文件的CLI功能

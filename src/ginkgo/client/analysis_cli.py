@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 分析器CLI，提供analyzer分析器、indicator指标、metric度量、report报告等命令，分析回测结果并生成多维度性能指标
+
+
+
+
+
+
 """
 Ginkgo Analysis CLI - 统一的分析工具命令
 """

@@ -1,3 +1,12 @@
+# Upstream: CLI主入口(ginkgo backtest component命令调用)
+# Downstream: DataContainer(通过container访问FileCRUD)、FILE_TYPES枚举(组件类型映射)、Rich库(表格显示)
+# Role: 回测组件CLI提供创建/列表/更新/编辑/查看/删除/验证/测试等组件管理命令支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import typer
 import pandas as pd
 import subprocess

@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 提供数据源管理命令，包括list列出源、test测试连接、configure配置认证和status健康监控功能
+
+
+
+
+
+
 import typer
 from typing import Optional
 from typing_extensions import Annotated

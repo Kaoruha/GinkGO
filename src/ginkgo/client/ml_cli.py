@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 机器学习CLI，提供models列出、train训练、predict预测、factors因子计算和strategy策略测试命令
+
+
+
+
+
+
 """
 机器学习CLI命令
 

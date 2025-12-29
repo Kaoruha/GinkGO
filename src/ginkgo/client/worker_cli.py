@@ -1,3 +1,12 @@
+# Upstream: CLI主入口(ginkgo worker命令调用)
+# Downstream: GinkgoThreadManager(线程管理器run_data_worker/start_multi_worker/reset_all_workers/get_worker_status/get_worker_count)、Rich库(表格/进度显示)、psutil(进程CPU/内存监控)
+# Role: Worker进程管理CLI提供状态/启动/停止/重启等命令支持Kafka驱动的分布式worker线程管理
+
+
+
+
+
+
 """
 Ginkgo Worker CLI - Worker管理命令
 """

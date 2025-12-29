@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: TUI终端界面CLI实现仪表板/回测板/实盘板等6个面板类提供交互式终端用户界面支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from __future__ import annotations
 
 from functools import partial

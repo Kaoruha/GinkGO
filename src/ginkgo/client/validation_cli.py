@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 验证CLI实现数据馈送/时间提供者等核心类提供验证/检查/规则管理等命令支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """Validation CLI module."""
 """
 Validation CLI

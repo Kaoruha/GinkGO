@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 配置管理CLI，提供set设置、get获取、list列表、init初始化等配置操作，支持调试模式和参数管理
+
+
+
+
+
+
 """
 Ginkgo Config CLI - 统一的配置管理命令
 参考 cline 的简洁设计模式

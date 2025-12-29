@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 开发工具CLI，提供dev_server开发服务器、dev_test测试、dev_build构建等开发辅助命令，支持开发环境管理和快速迭代
+
+
+
+
+
+
 import typer
 from typing_extensions import Annotated
 from rich.console import Console

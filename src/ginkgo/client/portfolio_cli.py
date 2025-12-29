@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 投资组合管理CLI，提供list查看、create创建、bind/unbind组件绑定、status状态查询等Portfolio操作
+
+
+
+
+
+
 """
 Ginkgo Portfolio CLI - 投资组合管理命令
 """

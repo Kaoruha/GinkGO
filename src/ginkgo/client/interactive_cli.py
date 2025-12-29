@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: InteractiveCli交互式命令行客户端提供REPL交互模式支持实时命令操作和交易管理支持交易系统功能
+
+
+
+
+
+
 from cmd import Cmd
 from rich.console import Console
 import signal

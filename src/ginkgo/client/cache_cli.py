@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 缓存管理CLI，实现CacheType缓存类型的核心功能，提供clear清除、list列表、size大小查看等缓存管理命令
+
+
+
+
+
+
 import typer
 from enum import Enum
 from typing import Optional

@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 提供CLI通用工具函数包括获取参数/添加组件/显示树结构等辅助方法支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from rich.console import Console
 from rich.tree import Tree
 from typing import Optional
