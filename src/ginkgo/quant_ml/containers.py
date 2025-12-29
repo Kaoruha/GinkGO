@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 机器学习模块依赖注入容器，管理LightGBM、XGBoost、Sklearn模型服务和特征处理器等ML组件的依赖注入和生命周期
+
+
+
+
+
+
 """
 ML Module Container
 

@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: MLAlphaFactors ML alpha因子提供机器学习alpha因子计算支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 Alpha因子计算模块
 

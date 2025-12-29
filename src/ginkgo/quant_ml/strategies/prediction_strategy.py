@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: PredictionStrategy预测策略基于机器学习实现交易预测支持ML策略支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 预测策略实现
 

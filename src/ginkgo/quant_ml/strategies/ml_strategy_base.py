@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 定义策略基类接口，提供cal、initialize、finalize等核心方法，供具体策略继承实现交易逻辑
+
+
+
+
+
+
 """
 机器学习策略基类
 

@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: SklearnModel Sklearn模型封装Sklearn算法接口支持Scikit-learn集成
+
+
+
+
+
+
 """
 Sklearn模型实现
 

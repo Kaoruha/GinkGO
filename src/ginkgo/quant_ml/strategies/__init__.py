@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 机器学习策略模块公共接口，导出MLStrategyBase策略基类、PredictionStrategy预测策略等ML驱动策略实现
+
+
+
+
+
+
 """
 ML策略模块
 

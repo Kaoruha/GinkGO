@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: FeatureProcessor特征处理器提供特征工程处理功能支持ML特征准备和转换支持交易系统功能
+
+
+
+
+
+
 """
 特征处理器
 
