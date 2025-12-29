@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Ginkgo主模块公共接口，提供统一的services服务访问入口和service_hub服务枢纽，导出核心服务容器和依赖注入管理器
+
+
+
+
+
+
 """
 Ginkgo ServiceHub - 统一服务访问协调器
 
