@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 定义策略基类接口，提供cal、initialize、finalize等核心方法，供具体策略继承实现交易逻辑
+
+
+
+
+
+
 """
 策略适配器
 

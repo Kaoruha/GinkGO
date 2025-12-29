@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 实现 ModelAdapter、SklearnModelAdapter、XGBoostModelAdapter 等 7 个类的核心功能
+
+
+
+
+
+
 """
 模型适配器
 

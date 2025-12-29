@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 核心容器模块导出核心容器/应用容器等依赖注入容器提供组件注册和解析功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Core模块DI容器
 

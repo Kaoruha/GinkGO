@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: CoreContainer核心容器管理核心组件的注册和依赖注入支持DI容器支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 Core模块DI容器
 

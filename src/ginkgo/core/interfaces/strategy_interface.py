@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: StrategyInterface策略接口定义策略协议规范策略实现和行为支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 策略统一接口定义
 
