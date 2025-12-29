@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 定义容器框架异常类提供容器/服务未找到/重复服务/循环依赖等异常支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Container Framework Exceptions
 

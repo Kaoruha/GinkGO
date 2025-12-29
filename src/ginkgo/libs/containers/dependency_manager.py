@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: Dependency Manager容器提供DependencyManager依赖管理器提供依赖解析和管理功能依赖注入
+
+
+
+
+
+
 """
 跨模块依赖管理器
 

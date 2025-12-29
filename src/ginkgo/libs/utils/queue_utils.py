@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: QueueUtils队列工具提供队列操作和任务管理的辅助方法支持异步处理和任务调度优化支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 队列管理工具函数
 提供Kafka队列操作的通用工具函数

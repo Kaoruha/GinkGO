@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: GLOG日志核心提供统一日志记录和格式化输出功能支持Rich控制台输出和文件日志记录支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import List
 import os
 import inspect

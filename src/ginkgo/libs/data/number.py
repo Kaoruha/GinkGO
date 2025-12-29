@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: Number模块提供Number数字工具提供数字处理/转换和格式化功能支持相关业务功能支持交易系统功能
+
+
+
+
+
+
 import numpy as np
 from typing import Union
 from decimal import Decimal, InvalidOperation

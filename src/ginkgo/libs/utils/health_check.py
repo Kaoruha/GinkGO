@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: HealthCheck健康检查工具提供系统状态监控和组件可用性检测功能支持故障发现和告警支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 健康检查工具模块
 用于检查各种服务的健康状态和就绪情况

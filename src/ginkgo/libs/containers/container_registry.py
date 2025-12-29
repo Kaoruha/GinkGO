@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: Container Registry容器提供ContainerRegistry依赖注入支持交易系统功能
+
+
+
+
+
+
 """
 Container Registry
 

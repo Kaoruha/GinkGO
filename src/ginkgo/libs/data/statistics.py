@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: Statistics统计工具提供t_test等统计检验和分析功能支持统计分析支持交易系统功能支持相关功能
+
+
+
+
+
+
 import numpy as np
 import pandas as pd
 # scipy使用延迟导入避免启动时冲突

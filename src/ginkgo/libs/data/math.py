@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: Math数学工具提供统计计算和数学函数功能支持数值运算/数据处理和技术指标计算用于量化分析支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from decimal import Decimal
 
 from ginkgo.enums import DIRECTION_TYPES

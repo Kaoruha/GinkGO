@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 依赖注入容器模块导出基类/应用容器/容器注册表等容器实现支持交易系统功能提供依赖注入和服务管理支持组件生命周期
+
+
+
+
+
+
 """
 Ginkgo Modular DI Container Framework
 
