@@ -1,3 +1,12 @@
+# Upstream: CLI命令(ginkgo data seed初始化示例数据)
+# Downstream: DataContainer(通过container访问各服务)、EngineService/PortfolioService/FileService/MappingService/ParamService(业务服务创建引擎/组合/文件/映射/参数)
+# Role: 数据种子模块为回测/演示目的初始化数据库提供运行/分步/清理等方法支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Example Data Seeding - Refactored Version
 

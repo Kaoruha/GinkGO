@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Model Order Record模型继承定义MOrderRecord订单记录相关数据结构支持相关功能
+
+
+
+
+
+
 import datetime
 import pandas as pd
 from typing import Optional

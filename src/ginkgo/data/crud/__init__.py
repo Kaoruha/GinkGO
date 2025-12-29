@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: CRUD操作模块公共接口，导出BarCRUD、TickCRUD、StockinfoCRUD、FileCRUD等CRUD类，封装数据库增删改查操作
+
+
+
+
+
+
 
 from ginkgo.data.crud.adjustfactor_crud import AdjustfactorCRUD
 from ginkgo.data.crud.analyzer_record_crud import AnalyzerRecordCRUD

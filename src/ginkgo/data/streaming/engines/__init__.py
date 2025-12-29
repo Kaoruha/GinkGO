@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: 流式引擎模块导出基类/ClickHouse/MySQL等流式数据处理引擎支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 流式查询引擎模块
 

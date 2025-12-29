@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: ErrorHandler错误处理器提供异常捕获和恢复机制支持错误处理支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 智能错误处理和分类系统
 

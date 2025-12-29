@@ -1,3 +1,12 @@
+# Upstream: Data Services (缓存和任务状态管理)、Worker Management (分布式worker状态)
+# Downstream: BaseService (继承提供服务基础能力)、RedisCRUD (Redis CRUD操作)、redis-py (Redis Python客户端)
+# Role: RedisService Redis缓存业务服务提供获取/设置/删除/统计/存在检查/验证/过期/键/刷新等缓存操作方法
+
+
+
+
+
+
 """
 Redis Cache Service - Flat Architecture Implementation
 

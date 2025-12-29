@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: 数据库驱动模块导出ClickHouse/MySQL/MongoDB/Redis等数据库驱动封装底层连接
+
+
+
+
+
+
 import time
 import datetime
 import threading

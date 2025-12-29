@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: 数据模块依赖注入容器管理数据库驱动/CRUD操作层/数据服务层和数据源的依赖注入支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Dependency Injection Container
 

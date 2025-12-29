@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Order Record CrudCrud继承BaseCRUD提供OrderRecord数据操作支持交易系统功能
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict

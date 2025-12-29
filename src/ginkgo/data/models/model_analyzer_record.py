@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Model Analyzer Record模型继承定义MAnalyzerRecord分析器记录相关数据结构
+
+
+
+
+
+
 import datetime
 import pandas as pd
 

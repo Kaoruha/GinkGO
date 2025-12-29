@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: 数据模块公共接口V6提供CRUD操作/数据源访问/流式数据处理和依赖注入容器管理支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Ginkgo Data Module - Public API (V6)
 

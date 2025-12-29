@@ -1,3 +1,12 @@
+# Upstream: KafkaService (Kafka消息队列业务服务)、Data Sync (数据发布和订阅)
+# Downstream: GinkgoProducer/GinkgoConsumer (Kafka生产者和消费者驱动)、kafka_topic_llen (Kafka主题工具)
+# Role: KafkaCRUD Kafka配置CRUD继承BaseCRUD提供Kafka配置管理功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 KafkaCRUD - Kafka消息队列CRUD操作
 

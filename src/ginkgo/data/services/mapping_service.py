@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: MappingService映射服务提供组件映射关系管理功能支持映射配置和查询支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 Mapping Service - 统一管理所有映射关系
 

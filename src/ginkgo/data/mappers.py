@@ -1,3 +1,12 @@
+# Upstream: 数据服务层(BarService/StockinfoService使用转换外部数据到内部模型)
+# Downstream: 数据模型(MBar/MStockInfo/MAdjustfactor)、业务实体(Bar/Tick)、枚举类型(SOURCE_TYPES/CURRENCY_TYPES/MARKET_TYPES/FREQUENCY_TYPES/TICKDIRECTION_TYPES)
+# Role: Mappers数据映射器模块提供外部数据到内部模型的格式转换和数据隔离支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Data Mappers
 

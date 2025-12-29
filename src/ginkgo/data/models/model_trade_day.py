@@ -1,3 +1,12 @@
+# Upstream: TradeDayService (交易日历同步)、Data Services (查询交易日历)
+# Downstream: MMysqlBase (继承提供MySQL ORM能力)、ModelConversion (提供实体转换能力)、MARKET_TYPES (枚举类型验证)
+# Role: MTradeDay交易日历ClickHouse模型继承MClickBase使用MergeTree按market排序
+
+
+
+
+
+
 import pandas as pd
 import datetime
 

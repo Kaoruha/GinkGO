@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Engine Handler Mapping CrudCrud继承BaseCRUD提供EngineHandlerMapping数据操作
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict

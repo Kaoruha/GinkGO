@@ -1,3 +1,12 @@
+# Upstream: SignalCRUD (信号数据持久化)、Strategy Signal Tracking (记录策略信号)
+# Downstream: MClickBase (继承提供ClickHouse ORM能力)、MBacktestRecordBase (继承提供回测记录基础字段)、DIRECTION_TYPES (枚举类型验证)
+# Role: MSignal交易信号ClickHouse模型定义信号数据结构和字段支持策略信号支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 import datetime
 

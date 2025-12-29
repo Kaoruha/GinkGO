@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Model ConversionCRUD继承BaseCRUD提供ModelConversion模型转换提供模型和实体转换功能支持数据映射数据操作
+
+
+
+
+
+
 """
 Model转换功能模块
 

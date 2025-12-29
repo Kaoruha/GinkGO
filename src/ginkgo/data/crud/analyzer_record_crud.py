@@ -1,3 +1,12 @@
+# Upstream: ResultService (回测结果查询服务)、AnalyzerModule (分析器记录数据)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MAnalyzerRecord (ClickHouse分析器记录模型)
+# Role: AnalyzerRecordCRUD分析记录CRUD继承BaseCRUD提供分析记录管理功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime

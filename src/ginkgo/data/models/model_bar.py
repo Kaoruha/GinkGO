@@ -1,3 +1,12 @@
+# Upstream: BarCRUD (使用MBar进行K线数据持久化)、ClickHouse (数据库表定义)
+# Downstream: MClickBase (继承提供ClickHouse模型基础能力)、FREQUENCY_TYPES/SOURCE_TYPES (枚举类型)
+# Role: MBar K线数据ClickHouse模型，定义核心字段/MergeTree引擎/set()多态设置/枚举转换
+
+
+
+
+
+
 import datetime
 import pandas as pd
 

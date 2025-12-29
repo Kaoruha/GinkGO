@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: 流式会话管理实现Context/Manager/MemoryAware等核心业务逻辑支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 流式查询会话上下文管理器
 

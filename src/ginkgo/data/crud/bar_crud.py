@@ -1,3 +1,12 @@
+# Upstream: BarService (调用CRUD操作K线数据)、CLI Commands (ginkgo data update)
+# Downstream: BaseCRUD (继承泛型CRUD提供add/get/update/delete等标准方法)、MBar (ClickHouse K线数据模型)、ClickHouse (时序数据库)
+# Role: BarCRUD K线CRUD操作继承BaseCRUD提供K线数据增删改查和批量操作支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime

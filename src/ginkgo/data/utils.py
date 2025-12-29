@@ -1,3 +1,12 @@
+# Upstream: 遗留代码和向后兼容层(不推荐新代码使用)
+# Downstream: BaseCRUD/CRUD子类(通过get_crud工厂函数获取实例)
+# Role: 数据工具模块向后兼容层提供集中式CRUD实例管理和工厂函数支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Data Layer Utilities - Backward Compatibility Layer
 

@@ -1,3 +1,12 @@
+# Upstream: CLI Commands (ginkgo portfolio add/list/delete)、Engine (投资组合管理)
+# Downstream: BaseService (继承提供服务基础能力)、PortfolioCRUD (投资组合CRUD操作)、PortfolioFileMappingCRUD (文件映射CRUD)
+# Role: PortfolioService投资组合管理业务服务提供增删改查/存在检查/统计/绑定/解绑/按名称获取等方法
+
+
+
+
+
+
 """
 Portfolio Management Service (Class-based)
 

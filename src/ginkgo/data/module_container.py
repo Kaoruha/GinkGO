@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB, Redis, External APIs (Tushare, TDX)
+# Role: 数据模块依赖注入容器管理数据源/股票/K线/Tick等服务的依赖注入支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Data Module Container
 

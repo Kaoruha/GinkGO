@@ -1,3 +1,12 @@
+# Upstream: All Concrete Database Drivers (GinkgoClickHouse/GinkgoMySQL/GinkgoMongo/GinkgoRedis继承)
+# Downstream: sqlalchemy (数据库连接引擎)、GLOG (日志记录)
+# Role: BaseDriver基础驱动定义数据库驱动的抽象基类和接口规范数据库操作支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 数据库驱动基类
 提供统一的数据库连接管理、日志记录、健康检查等功能

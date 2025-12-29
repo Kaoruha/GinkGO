@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Component Parameter Extractor服务提供Component Parameter Extractor管理和查询
+
+
+
+
+
+
 """
 Component Parameter Extractor - 动态组件参数提取服务
 

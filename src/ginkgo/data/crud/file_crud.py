@@ -1,3 +1,12 @@
+# Upstream: FileService (文件管理业务服务)、PortfolioService (文件绑定管理)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MFile (MySQL文件模型)、FileInfo实体(业务文件信息实体)、FILE_TYPES (文件类型枚举STRATEGY/ANALYZER/SELECTOR/SIZER/RISKMANAGER/DATA/OTHER)
+# Role: FileCRUD文件CRUD操作继承BaseCRUD提供文件管理和业务查询方法支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime

@@ -1,3 +1,12 @@
+# Upstream: CLI Commands (ginkgo results show)、Analysis Modules (回测结果分析)
+# Downstream: BaseService (继承提供服务基础能力)、AnalyzerRecordCRUD (分析器记录CRUD操作)、MAnalyzerRecord (分析器记录模型)
+# Role: ResultService回测结果查询和分析业务服务提供运行摘要/分析器值/记录/投资组合摘要等方法
+
+
+
+
+
+
 """
 Result Service Module
 

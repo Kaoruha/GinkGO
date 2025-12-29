@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: 实现 MemoryLevel、SessionState、MemorySnapshot 等 8 个类的核心功能
+
+
+
+
+
+
 """
 流式查询内存监控和会话管理系统
 

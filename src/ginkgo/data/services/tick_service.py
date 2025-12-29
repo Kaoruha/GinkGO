@@ -1,3 +1,12 @@
+# Upstream: Data Sync Commands (ginkgo data update tick)、Analysis Modules (获取tick数据)
+# Downstream: BaseService (继承提供服务基础能力)、TickCRUD (CRUD操作)、Data Sources (TDX数据源)、StockinfoService (股票信息验证)
+# Role: TickService逐笔成交数据业务服务协调数据源和CRUD操作提供同步/获取等方法支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Tick Data Service (扁平化架构)
 

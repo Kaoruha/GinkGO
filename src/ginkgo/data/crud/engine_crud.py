@@ -1,3 +1,12 @@
+# Upstream: EngineService (引擎业务服务)、EngineFactory (创建和查询引擎配置)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MEngine (MySQL引擎模型)、ENGINESTATUS_TYPES/ATTITUDE_TYPES (引擎状态和Broker态度枚举)
+# Role: EngineCRUD引擎CRUD操作继承BaseCRUD提供引擎配置管理功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import List, Optional, Union, Any, Dict
 import pandas as pd
 from datetime import datetime

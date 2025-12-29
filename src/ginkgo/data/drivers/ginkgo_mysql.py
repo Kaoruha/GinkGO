@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: GinkgoMySQL MySQL驱动提供MySQL连接和ORM操作支持关系型数据库支持交易系统功能
+
+
+
+
+
+
 import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session

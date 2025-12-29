@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Model Backtest Record Base模型继承定义MBacktestRecordBase回测记录基类相关数据结构
+
+
+
+
+
+
 """
 回测记录Mixin基类
 

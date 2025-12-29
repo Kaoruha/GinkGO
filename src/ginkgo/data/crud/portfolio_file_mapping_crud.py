@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Portfolio File Mapping CrudCrud继承BaseCRUD提供PortfolioFileMapping数据操作
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Any, Dict

@@ -1,3 +1,12 @@
+# Upstream: AdjustfactorService (同步复权因子数据)、BarService (K线复权计算)
+# Downstream: MClickBase (继承提供ClickHouse ORM能力)、ModelConversion (提供实体转换能力)
+# Role: MAdjustfactor复权因子ClickHouse模型继承MClickBase定义代码/时间/前复权/后复权等字段
+
+
+
+
+
+
 import datetime
 import pandas as pd
 

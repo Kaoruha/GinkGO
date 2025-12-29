@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Upstream: FactorService (因子数据同步)、Analysis Modules (因子分析)
+# Downstream: MClickBase (继承提供ClickHouse ORM能力)、ModelConversion (提供实体转换能力)、ENTITY_TYPES (枚举类型验证)
+# Role: MFactor因子数据ClickHouse模型支持多实体类型因子存储和分析支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 
 import datetime
 from decimal import Decimal

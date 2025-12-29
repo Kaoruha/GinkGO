@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: GinkgoMongo MongoDB驱动提供MongoDB连接和文档操作支持文档存储支持交易系统功能
+
+
+
+
+
+
 from sqlalchemy import create_engine, MetaData, inspect, func, DDL
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base

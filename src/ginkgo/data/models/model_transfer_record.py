@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: Model Transfer Record模型继承定义MTransferRecord划转记录相关数据结构
+
+
+
+
+
+
 import pandas as pd
 import datetime
 from typing import Optional

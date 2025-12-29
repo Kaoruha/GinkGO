@@ -1,3 +1,12 @@
+# Upstream: RedisService (Redis缓存业务服务)、Worker Management (分布式worker状态)
+# Downstream: redis-py (Redis Python客户端)、create_redis_connection (Redis连接驱动)
+# Role: RedisCRUD Redis配置CRUD继承BaseCRUD提供Redis配置管理功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 RedisCRUD - Redis缓存CRUD操作
 

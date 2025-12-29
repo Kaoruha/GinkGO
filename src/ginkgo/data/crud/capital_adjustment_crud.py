@@ -1,3 +1,12 @@
+# Upstream: CapitalService (资金调整业务服务)、Portfolio Manager (资金变动记录查询)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MCapitalAdjustment (ClickHouse资金调整模型)、CapitalAdjustment实体(业务资金调整实体)、SOURCE_TYPES (数据源枚举SIM/LIVE/BACKTEST/OTHER)
+# Role: CapitalAdjustmentCRUD资金调整CRUD继承BaseCRUD提供资金操作和转换逻辑
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict

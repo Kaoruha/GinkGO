@@ -1,3 +1,12 @@
+# Upstream: PositionService (持仓业务服务)、Portfolio Manager (持仓记录查询和分析)
+# Downstream: BaseCRUD (继承提供标准CRUD能力和装饰器@time_logger/@retry/@cache)、MPosition (MySQL持仓模型)、Position (业务持仓实体)
+# Role: PositionCRUD持仓CRUD继承BaseCRUD提供持仓数据管理和查询功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict

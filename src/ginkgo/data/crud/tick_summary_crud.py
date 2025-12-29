@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: TickSummaryCRUD Tick汇总CRUD继承BaseCRUD提供Tick数据统计功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.data.access_control import restrict_crud_access
 
 from typing import List, Optional, Union, Any, Dict

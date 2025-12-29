@@ -1,3 +1,12 @@
+# Upstream: Trading Strategies, Analysis Modules, Backtest Engines
+# Downstream: ClickHouse, MySQL, MongoDB
+# Role: CacheManager缓存管理器提供数据缓存和过期管理功能支持缓存操作支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 流式查询缓存管理器
 
