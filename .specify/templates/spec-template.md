@@ -103,9 +103,15 @@
 - **FR-012**: Users MUST be able to [关键交互]
 - **FR-013**: System MUST [数据持久化 requirement]
 
+**代码维护与文档需求**:
+- **FR-014**: Code files MUST include three-line headers (Upstream/Downstream/Role) for AI understanding
+- **FR-015**: File updates MUST synchronize header descriptions with actual code functionality
+- **FR-016**: Header updates MUST be verified during code review process
+- **FR-017**: CI/CD pipeline MUST include header accuracy verification
+
 *标记不明确需求的示例*:
-- **FR-014**: System MUST [NEEDS CLARIFICATION: 具体功能未明确]
-- **FR-015**: System MUST support [NEEDS CLARIFICATION: 性能指标未指定]
+- **FR-018**: System MUST [NEEDS CLARIFICATION: 具体功能未明确]
+- **FR-019**: System MUST support [NEEDS CLARIFICATION: 性能指标未指定]
 
 ### Key Entities *(include if feature involves data)*
 

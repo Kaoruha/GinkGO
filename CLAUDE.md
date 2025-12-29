@@ -369,3 +369,10 @@ from ginkgo.libs import GLOG, GCONF, GTM
 - Event-driven architecture for backtesting with complete risk control
 - Rich library integration for beautiful CLI output
 - Lazy-loading and caching for performance optimization
+
+## Active Technologies
+- Python 3.12.8 + ast (标准库), pathlib, re, typing (003-code-context-headers)
+- 无需数据库操作（仅文件系统） (003-code-context-headers)
+
+## Recent Changes
+- 003-code-context-headers: Added Python 3.12.8 + ast (标准库), pathlib, re, typing

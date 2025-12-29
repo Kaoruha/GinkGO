@@ -1,21 +1,22 @@
 <!--
 Sync Impact Report:
-Version change: 1.3.0 → 1.3.1
+Version change: 1.3.1 → 1.4.0
 Modified principles:
-- 任务管理原则(Task Management Excellence) - 细化定期清理任务列表的具体实施要求
+- 代码注释同步原则(Code Header Synchronization) - 新增第8条核心原则
 Added sections:
-- N/A (原则细化，无新增章节)
+- 核心原则第8条: 代码注释同步原则
 Removed sections: N/A
 Files Updated for Consistency:
-✅ updated: .specify/templates/plan-template.md - 已在Constitution Check中添加任务管理原则检查项
-⚠ pending: .specify/templates/spec-template.md - 需要在用户故事部分考虑任务管理约束
-✅ updated: .specify/templates/tasks-template.md - 已添加任务管理原则遵循章节
-✅ updated: .specify/templates/agent-file-template.md - 已预填Ginkgo技术栈和开发指导，包含完整代码规范
+✅ updated: .specify/specs/003-default/spec.md - 已包含头部同步相关需求(FR-025, FR-031)
+✅ updated: .specify/specs/003-default/plan.md - 已包含CI/CD集成检查计划
+⚠ pending: .specify/templates/plan-template.md - 需要在Constitution Check中添加代码注释同步检查项
+⚠ pending: .specify/templates/spec-template.md - 需要在维护需求部分考虑头部同步约束
+✅ updated: .specify/templates/tasks-template.md - 已包含维护任务模板
 Follow-up TODOs:
-- 建立定期任务清理机制，自动归档已完成任务
-- 实施任务数量监控和警告系统
-- 开发任务优先级动态调整工具
-- 培训团队使用精简任务管理最佳实践
+- 在CI/CD流程中添加头部准确性自动检查
+- 实施代码审查时的头部同步检查清单
+- 定期运行验证脚本确保头部与代码一致性
+- 建立头部更新自动提醒机制
 -->
 
 # Ginkgo 项目章程
@@ -23,9 +24,9 @@ Follow-up TODOs:
 ## 基本信息
 
 - **项目名称**: Ginkgo
-- **章程版本**: 1.3.1
+- **章程版本**: 1.4.0
 - **制定日期**: 2025-11-03
-- **最后修订**: 2025-12-01
+- **最后修订**: 2025-12-29
 - **项目描述**: Python量化交易库，专注于事件驱动回测、多数据库支持和完整的风险管理系统
 
 ## 核心原则
@@ -130,6 +131,21 @@ Follow-up TODOs:
 **API文档**: 核心API必须提供详细的使用示例和参数说明。
 
 **架构文档**: 重要组件必须有清晰的架构说明和设计理念文档。
+
+### 8. 代码注释同步原则 (Code Header Synchronization)
+
+**头部注释同步**: 文件代码更新后，必须同步更新文件头部的描述内容，确保头部信息准确反映代码的实际功能。
+
+**具体要求**:
+- 修改类的功能、添加/删除主要类或函数时，必须更新Role描述
+- 修改模块依赖关系时，必须更新Upstream/Downstream描述
+- 在代码审查过程中检查头部信息的准确性
+- 定期运行验证脚本检查头部与代码的一致性
+- CI/CD流程中应包含头部准确性检查
+- 重构代码时必须重新评估头部描述的准确性
+- 使用`scripts/generate_headers.py --force`命令批量更新头部
+
+**理由**: 头部注释是AI理解代码结构的重要依据。如果代码变更后头部不同步，会导致AI产生错误的理解，影响代码维护和开发效率。保持头部同步能够确保大语言模型和开发者都能准确理解代码的职责和依赖关系。
 
 ## 治理结构
 

@@ -68,6 +68,14 @@
 - [ ] 核心API提供详细使用示例和参数说明
 - [ ] 重要组件有清晰的架构说明和设计理念文档
 
+### 代码注释同步原则 (Code Header Synchronization)
+- [ ] 修改类的功能、添加/删除主要类或函数时，更新Role描述
+- [ ] 修改模块依赖关系时，更新Upstream/Downstream描述
+- [ ] 代码审查过程中检查头部信息的准确性
+- [ ] 定期运行`scripts/verify_headers.py`检查头部一致性
+- [ ] CI/CD流程包含头部准确性检查
+- [ ] 使用`scripts/generate_headers.py --force`批量更新头部
+
 ## Project Structure
 
 ### Documentation (this feature)

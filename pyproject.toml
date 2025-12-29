@@ -104,6 +104,11 @@ dependencies = [
 
 # 可选依赖组
 [project.optional-dependencies]
+# 脚本工具依赖（用于代码上下文头部生成）
+scripts = [
+    "anthropic>=0.40.0",  # Claude API for LLM analysis
+    "openai>=1.0.0",      # OpenAI API as alternative LLM provider
+]
 # 开发环境依赖
 dev = [
     "black>=25.0.0",
