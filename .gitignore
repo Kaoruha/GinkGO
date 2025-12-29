@@ -210,3 +210,8 @@ personal.*
 *.old.credential
 
 src/ginkgo/config/secure.yml
+
+# Code Context Headers - LLM Analysis Cache
+.module_mapping.json
+scripts/__pycache__/
+scripts/**/*.pyc
