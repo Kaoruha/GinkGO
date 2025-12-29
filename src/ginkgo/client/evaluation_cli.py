@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 评估CLI提供策略评估/分析/比较/报告等命令支持回测结果的多维度性能分析支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Evaluation CLI
 

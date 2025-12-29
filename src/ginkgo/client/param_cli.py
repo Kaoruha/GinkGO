@@ -1,3 +1,12 @@
+# Upstream: CLI主入口(ginkgo param命令调用)
+# Downstream: DataContainer(通过container访问ParamCRUD)、Rich库(表格/确认框显示)
+# Role: 参数管理CLI，提供list列表、add添加、delete删除、update更新等命令，支持组件参数的动态配置和管理
+
+
+
+
+
+
 """
 Ginkgo Parameter CLI - 参数管理命令
 """

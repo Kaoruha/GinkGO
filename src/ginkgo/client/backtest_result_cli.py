@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 回测结果CLI，实现DisplayMode显示模式的核心功能，提供list列表、show显示、export导出、plot绘图等回测结果管理命令
+
+
+
+
+
+
 import typer
 from enum import Enum
 from typing import List as typing_list, Optional, TYPE_CHECKING

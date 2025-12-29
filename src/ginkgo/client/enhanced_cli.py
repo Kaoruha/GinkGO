@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 增强回测系统命令，提供config配置管理、strategy策略管理、engine引擎管理和system系统监控功能
+
+
+
+
+
+
 """
 Enhanced Backtest CLI Commands
 

@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 依赖注入容器CLI，提供list列出、info查看、test测试等容器管理命令，展示服务组件的注册和状态信息
+
+
+
+
+
+
 import typer
 from typing import Optional
 from typing_extensions import Annotated

@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 核心CLI命令，实现DebugMode调试模式、DataType数据类型、ComponentType组件类型等核心类的功能封装和业务逻辑
+
+
+
+
+
+
 """
 Core CLI Commands - 顶级核心命令
 提供最常用的简化命令，提升用户体验

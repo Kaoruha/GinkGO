@@ -1,3 +1,12 @@
+# Upstream: CLI主入口(ginkgo engine命令调用)
+# Downstream: EngineService/PortfolioService/MappingService/EngineAssemblyService(引擎/组合/映射/装配服务)、FileCRUD/EnginePortfolioMappingCRUD/PortfolioFileMappingCRUD/ParamCRUD(CRUD操作)、Rich库(表格/进度/面板显示)、psutil(进程监控)
+# Role: 引擎管理CLI提供列表/创建/查看/状态/运行/删除/绑定/解绑等生命周期管理支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Ginkgo Engine CLI - 引擎管理命令
 """

@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 提供组件管理命令的列表/策略/分析器/选股器/仓位管理/风控/详情/验证功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Ginkgo Components CLI - 统一的组件管理命令
 """

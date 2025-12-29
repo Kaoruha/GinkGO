@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: Component Cli Db模块提供提供 get_file_service 等工具函数支持相关业务功能
+
+
+
+
+
+
 """
 Ginkgo Component Management CLI - Database-based System
 基于数据库File表的组件管理CLI系统

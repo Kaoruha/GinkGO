@@ -1,3 +1,12 @@
+# Upstream: CLI主入口(ginkgo data命令调用)
+# Downstream: 数据服务层(通过container访问StockinfoService/BarService)、KafkaService(后台队列同步)、数据获取模块(fetch_and_update_cn_daybar/fetch_and_update_tick_incremental等)、Rich库(表格/进度条显示)
+# Role: 数据管理CLI，提供init初始化、update更新、sync同步、list列表等命令，支持股票信息、K线、Tick等多维度数据管理
+
+
+
+
+
+
 """
 Ginkgo Data CLI - 数据管理命令
 """

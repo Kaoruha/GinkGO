@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 统一CLI接口，提供get获取、set设置、list列表、create创建、delete删除、run运行等统一命令模式，简化CLI操作和学习曲线
+
+
+
+
+
+
 """
 Ginkgo Unified CLI - 统一的命令行接口
 使用 get/set/list/create/delete/run 统一命令模式

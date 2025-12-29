@@ -1,3 +1,12 @@
+# Upstream: Data Layer
+# Downstream: External APIs (Tushare, Yahoo, etc.)
+# Role: 记录管理CLI，提供signal信号、record记录、log日志、trace追踪等命令，支持交易记录和运行日志的查询与管理
+
+
+
+
+
+
 import typer
 from typing import Optional
 from typing_extensions import Annotated
