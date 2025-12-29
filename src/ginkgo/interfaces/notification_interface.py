@@ -1,3 +1,12 @@
+# Upstream: 业务逻辑层(依赖注入INotificationService接口实现通知解耦)
+# Downstream: 具体通知实现(GinkgoNotifier/MockNotificationService通过工厂创建)
+# Role: INotificationService通知服务接口定义消息/长信号/短信号/提醒等方法支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 通知接口 - 解耦通知功能与具体实现
 
