@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 定义技术指标表达式操作符提供rsi_operator/atr_operator/macd_operator等方法
+
+
+
+
+
+
 """
 Technical Operators - 技术指标操作符
 

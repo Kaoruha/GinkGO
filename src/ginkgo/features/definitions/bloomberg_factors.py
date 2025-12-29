@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Bloomberg Factors因子定义继承FactorBase提供BloombergFactors Bloomberg计算
+
+
+
+
+
+
 """
 Bloomberg因子库 - 配置式定义
 

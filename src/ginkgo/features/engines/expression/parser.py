@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 实现ParseError/Token/ExpressionParser等类的核心功能，封装相关业务逻辑
+
+
+
+
+
+
 """
 Expression Parser - 表达式解析器
 

@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Aqr Factors因子定义继承FactorBase提供AQRFactors AQR计算支持交易系统功能
+
+
+
+
+
+
 """
 AQR因子集合 - 配置式定义
 

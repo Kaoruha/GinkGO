@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 定义布林带技术指标计算函数提供BB_UPPER/BB_MIDDLE/BB_LOWER/BB_WIDTH等方法
+
+
+
+
+
+
 """
 布林带指标集合 - 配置式定义
 

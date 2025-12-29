@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Barra Factors因子定义继承FactorBase提供BarraFactors Barra计算
+
+
+
+
+
+
 """
 MSCI Barra因子集合 - 配置式定义
 

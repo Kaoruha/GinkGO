@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Pattern Detection因子定义继承FactorBase提供Pattern Detection计算
+
+
+
+
+
+
 """
 模式识别指标集合 - 配置式定义
 

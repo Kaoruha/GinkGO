@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: China A Factors ChinaAFactors中国A股因子定义中国市场特有因子提供相关功能和接口实现
+
+
+
+
+
+
 """
 中国A股特色因子集合 - 配置式定义
 

@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Alpha Factors因子定义继承FactorBase提供AlphaFactors alpha计算
+
+
+
+
+
+
 """
 Alpha158因子集合 - 配置式定义
 

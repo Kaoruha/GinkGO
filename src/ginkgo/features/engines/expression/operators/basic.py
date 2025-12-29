@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 定义基础数学表达式操作符提供pow_operator/log_operator/sqrt_operator等方法
+
+
+
+
+
+
 """
 Basic Operators - 基础运算操作符
 

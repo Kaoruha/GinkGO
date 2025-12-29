@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 因子服务模块导出表达式服务/因子服务等业务服务封装因子计算和表达式解析逻辑支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 服务层模块 - 高级业务逻辑封装
 

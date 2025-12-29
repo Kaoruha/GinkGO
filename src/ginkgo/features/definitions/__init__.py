@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 因子定义模块导出Alpha因子/技术指标/Barra风格因子/WorldQuantAlpha101等因子定义
+
+
+
+
+
+
 """
 因子和指标定义模块 - 动态自动发现
 

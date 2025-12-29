@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Oscillators因子定义继承FactorBase提供Oscillators计算支持交易系统功能
+
+
+
+
+
+
 """
 振荡器指标集合 - 配置式定义
 
