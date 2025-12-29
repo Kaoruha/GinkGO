@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Refinitiv Factors因子定义继承FactorBase提供RefinitivFactors Refinitiv计算
+
+
+
+
+
+
 """
 Refinitiv因子库 - 配置式定义
 

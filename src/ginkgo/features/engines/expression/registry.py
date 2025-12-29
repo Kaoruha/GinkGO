@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Registry引擎提供OperatorRegistry操作符注册表提供表达式操作符注册和查找功能计算和处理
+
+
+
+
+
+
 """
 Operator Registry - 操作符注册中心
 

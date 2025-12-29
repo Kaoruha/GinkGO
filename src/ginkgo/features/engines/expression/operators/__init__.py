@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role:   Init  引擎提供Operators操作符模块提供表达式操作符公共导出支持数学/统计/技术操作计算和处理
+
+
+
+
+
+
 """
 Operators Module - 操作符实现
 

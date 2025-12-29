@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Worldquant Alpha101因子定义继承FactorBase提供WorldquantAlpha101 WorldQuant计算
+
+
+
+
+
+
 """
 WorldQuant Alpha101因子集合 - 配置式定义
 

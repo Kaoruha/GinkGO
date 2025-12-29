@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Features因子模块依赖注入容器管理表达式/因子等引擎的依赖注入支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Features Module DI Container - 特征模块依赖注入容器
 

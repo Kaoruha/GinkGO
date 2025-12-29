@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Moving Averages因子定义继承FactorBase提供Moving Averages计算
+
+
+
+
+
+
 """
 移动平均指标集合 - 配置式定义
 

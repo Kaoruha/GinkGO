@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 定义TA-Lib技术指标计算函数提供SMA/EMA/MACD/RSI/ATR/BBANDS等150+方法
+
+
+
+
+
+
 """
 TA-Lib技术指标库 - 配置式定义
 

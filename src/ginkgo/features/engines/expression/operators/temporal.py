@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 定义时序分析表达式操作符提供returns_operator/delay_operator/delta_operator等方法
+
+
+
+
+
+
 """
 Temporal Operators - 时序操作符
 

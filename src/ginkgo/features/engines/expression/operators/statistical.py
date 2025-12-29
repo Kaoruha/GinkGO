@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 定义统计学表达式操作符提供variance_operator/stddev_operator/skew_operator等方法
+
+
+
+
+
+
 """
 Statistical Operators - 统计函数操作符
 

@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Fama French Factors因子定义继承FactorBase提供FamaFrenchFactors FamaFrench计算
+
+
+
+
+
+
 """
 Fama-French因子集合 - 配置式定义
 

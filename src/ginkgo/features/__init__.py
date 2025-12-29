@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 提供因子计算引擎和表达式解析器的统一接口，导出Alpha158、技术指标、因子服务等核心组件和便捷函数
+
+
+
+
+
+
 """
 Ginkgo Features Module - 特征因子解析引擎
 

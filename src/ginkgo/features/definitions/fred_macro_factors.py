@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: Fred Macro Factors因子定义继承FactorBase提供FredMacroFactors FRED宏观计算
+
+
+
+
+
+
 """
 FRED宏观经济因子库 - 配置式定义
 
