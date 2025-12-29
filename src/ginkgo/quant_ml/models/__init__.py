@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 机器学习模型模块公共接口，导出LightGBM模型、XGBoost模型、Sklearn模型封装等ML模型实现
+
+
+
+
+
+
 """
 机器学习模型实现
 

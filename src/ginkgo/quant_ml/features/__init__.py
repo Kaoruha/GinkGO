@@ -1,3 +1,12 @@
+# Upstream: External Applications
+# Downstream: Trading Strategies, Analysis Tools
+# Role: 机器学习因子模块公共接口，导出AlphaFactors因子、FeatureProcessor特征处理器等ML特征工程组件
+
+
+
+
+
+
 """
 特征工程模块
 
