@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: Cross Container Proxy容器提供CrossContainerProxy跨依赖注入支持相关功能
+
+
+
+
+
+
 """
 Cross Container Proxy
 

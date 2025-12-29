@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 实现 MethodSignature、ValidationRules 等类的核心功能，封装相关业务逻辑
+
+
+
+
+
+
 """
 校验规则定义模块
 定义各种组件类型的校验规则和标准

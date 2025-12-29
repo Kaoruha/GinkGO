@@ -1,3 +1,12 @@
+# Upstream: All Modules (全局访问GCONF获取配置)
+# Downstream: Standard Library (os/yaml/threading)
+# Role: GinkgoConfig全局配置管理器单例模式确保线程安全配置文件存储在~/.ginkgo提供get/set等方法
+
+
+
+
+
+
 import os
 import yaml
 import shutil

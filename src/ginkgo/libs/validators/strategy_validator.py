@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: Strategy Validator验证器检查StrategyValidator策略配置合理性支持相关功能
+
+
+
+
+
+
 """
 策略组件校验器
 专门用于校验用户自定义的策略组件

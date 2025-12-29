@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 基础校验器模块提供ValidationLevel/ValidationResult/BaseValidator等类
+
+
+
+
+
+
 """
 基础校验器模块
 定义校验器通用接口和校验结果数据结构

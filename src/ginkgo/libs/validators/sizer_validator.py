@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: SizerValidator仓位验证器检查仓位计算逻辑正确性支持仓位验证支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 仓位管理组件校验器
 专门用于校验用户自定义的仓位管理组件

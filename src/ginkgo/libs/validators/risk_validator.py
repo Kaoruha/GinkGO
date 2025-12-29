@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: Risk Validator RiskValidator风控验证器检查风控组件配置合理性提供相关功能和接口实现
+
+
+
+
+
+
 """
 风控组件校验器
 专门用于校验用户自定义的风控组件

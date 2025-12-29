@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: Analyzer Validator验证器检查AnalyzerValidator分析器配置合理性支持相关功能
+
+
+
+
+
+
 """
 分析器组件校验器
 专门用于校验用户自定义的分析器组件

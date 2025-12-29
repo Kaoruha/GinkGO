@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: 工具库统一入口，导出GLOG日志、GCONF配置、GTM线程管理、装饰器、验证器和健康检查等核心工具
+
+
+
+
+
+
 """
 Ginkgo 工具库统一入口
 重构后的模块化导入接口，保持向后兼容性

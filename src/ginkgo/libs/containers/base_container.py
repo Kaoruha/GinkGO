@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: Base Container容器提供BaseContainer基础依赖注入支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 Base Container Abstract Class
 

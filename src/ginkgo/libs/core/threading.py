@@ -1,3 +1,12 @@
+# Upstream: All Modules
+# Downstream: Standard Library
+# Role: GTM线程管理核心提供多线程控制和Kafka分布式Worker管理支持任务并发执行和负载均衡支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import List, Dict
 
 import os
