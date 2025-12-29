@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 接口Mixin模块导出引擎混入/事件混入/策略数据混入等接口混入类支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Trading Interface Mixins
 

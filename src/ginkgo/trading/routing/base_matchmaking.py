@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BaseMatchmaking基础撮合定义订单撮合抽象接口支持交易系统功能支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import TYPE_CHECKING, Dict, List
 
 

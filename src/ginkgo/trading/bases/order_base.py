@@ -1,3 +1,12 @@
+# Upstream: Order实体 (业务订单继承)、Strategy/Broker (订单组件使用)
+# Downstream: TimeMixin (继承提供时间戳管理)、ContextMixin (继承提供上下文管理engine_id/run_id/portfolio_id)、Base (组件基础)
+# Role: OrderBase订单组件基类组合TimeMixin和ContextMixin提供时间戳/上下文管理/引擎同步等基础功能
+
+
+
+
+
+
 """
 订单组件基类
 

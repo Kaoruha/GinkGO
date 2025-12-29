@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 评估规则模块导出基类/逻辑规则/最佳实践/结构规则等评估规则支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Evaluation rules for validating Ginkgo components.
 

@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager (添加止损风控保护)、RiskBase (继承提供风控基础能力双重机制cal+generate_signals)
+# Downstream: EventPriceUpdate (监听价格更新事件)、Signal/Order实体(风控信号和订单处理)、DIRECTION_TYPES (方向枚举LONG/SHORT)
+# Role: LossLimitRisk止损风控当亏损超阈值时主动生成平仓信号保护资金支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from typing import List, Dict
 from decimal import Decimal
 from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement

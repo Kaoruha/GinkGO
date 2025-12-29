@@ -1,3 +1,12 @@
+# Upstream: 所有Ginkgo组件实体(Signal/Order/Position/Strategy/Portfolio/Engine/Risk等)
+# Downstream: IdentityUtils(UUID生成工具)、pandas(DataFrame转换)、SOURCE_TYPES/COMPONENT_TYPES枚举(数据源和组件类型)
+# Role: Base抽象基类为所有Ginkgo组件提供统一的基础标识功能支持UUID管理/组件类型标识/数据源管理/DataFrame转换
+
+
+
+
+
+
 import pandas as pd
 
 from types import FunctionType, MethodType

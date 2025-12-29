@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: ML predictor strategy with cal method for signal generation
+
+
+
+
+
+
 """
 ML预测策略示例
 

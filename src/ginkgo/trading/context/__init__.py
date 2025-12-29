@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 上下文模块公共接口，导出EngineContext引擎上下文、PortfolioContext组合上下文等上下文管理类，提供组件运行环境信息
+
+
+
+
+
+
 """
 Context package for hierarchical context management in Ginkgo trading system.
 

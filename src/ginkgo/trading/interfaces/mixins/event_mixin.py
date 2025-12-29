@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: EventMixin事件混入类提供事件处理能力支持事件订阅/发布和分发机制集成实现事件通信支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 EventMixin - 事件数据模型增强
 

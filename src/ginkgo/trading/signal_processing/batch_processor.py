@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BatchProcessor批处理器提供批量信号处理功能支持信号批量处理支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 时间窗口批处理器核心实现
 

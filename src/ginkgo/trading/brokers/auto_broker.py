@@ -1,3 +1,12 @@
+# Upstream: Live Trading Engines (实盘自动API交易)、OKXBroker/AShareBroker等具体实现(继承获得API轮询能力)
+# Downstream: BaseBroker (继承提供Broker基础功能)、IBroker接口(实现Broker接口)、asyncio (异步轮询任务管理)
+# Role: AutoBroker自动API执行Broker基类用于实盘自动交易支持轮询状态支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 AutoBroker - 自动API执行器
 

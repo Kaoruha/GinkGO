@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Health健康监控继承BaseMonitor提供系统健康状态检查和组件监控功能支持故障诊断支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 T5架构健康监控模块
 

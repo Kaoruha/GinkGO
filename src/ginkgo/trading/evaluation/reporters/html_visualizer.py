@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Html Visualizer模块提供HTML可视化生成器生成HTML可视化报告支持Web展示功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 HTML-based Signal Visualizer for strategy validation.
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Status状态类提供组件状态管理支持运行状态/就绪状态和错误状态追踪用于系统监控和诊断支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 引擎状态查询接口定义
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: GoldenSection黄金分割分析继承BaseIndicator提供支撑阻力位和回调分析功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 from ginkgo.trading.computation.technical.base_indicator import BaseIndicator
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Fixed Sizer仓位管理继承BaseSizer提供FixedSizer固定下单功能支持相关功能
+
+
+
+
+
+
 import datetime
 import uuid
 from decimal import Decimal

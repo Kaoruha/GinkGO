@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager (添加趋势跟踪策略)、BaseStrategy (继承提供策略基础能力)
+# Downstream: Signal实体(交易信号生成)、DIRECTION_TYPES/SOURCE_TYPES (方向和信号源枚举)、get_bars (数据获取工具)
+# Role: Trend Follow策略继承BaseStrategy实现TrendFollow趋势跟踪交易逻辑支持相关功能
+
+
+
+
+
+
 import datetime
 from decimal import Decimal
 import pandas as pd

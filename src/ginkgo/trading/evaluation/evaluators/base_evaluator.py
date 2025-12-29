@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BaseEvaluator基础评估器定义代码评估接口和框架支持代码质量分析和检查及优化建议支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Base evaluator abstract class for component evaluation.
 

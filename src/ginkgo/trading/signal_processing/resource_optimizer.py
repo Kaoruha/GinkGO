@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: ResourceOptimizer资源优化器提供资源优化配置支持系统优化支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 资源优化算法模块
 

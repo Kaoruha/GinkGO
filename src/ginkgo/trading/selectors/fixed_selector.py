@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Fixed Selector选股器继承BaseSelector提供FixedSelector固定选股功能
+
+
+
+
+
+
 import json
 from typing import List, Union
 from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector

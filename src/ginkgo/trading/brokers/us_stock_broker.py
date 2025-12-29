@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Us Stock Broker经纪商继承BaseBroker提供USStockBroker美股交易模拟
+
+
+
+
+
+
 """
 USStockBroker - 美股实盘交易Broker
 

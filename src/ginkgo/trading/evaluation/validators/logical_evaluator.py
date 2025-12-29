@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: LogicalEvaluator逻辑评估器继承BaseEvaluator提供代码逻辑检查和错误识别功能
+
+
+
+
+
+
 """
 Logical evaluator for strategy business logic validation.
 

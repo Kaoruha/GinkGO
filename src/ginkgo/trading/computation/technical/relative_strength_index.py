@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: RSI相对强弱指标继承BaseIndicator提供超买超卖分析和动量指标功能支持趋势判断支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 import numpy as np
 from typing import List

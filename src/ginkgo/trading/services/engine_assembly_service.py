@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 引擎装配服务提供装配/验证/绑定等方法封装引擎与投资组合/策略/分析器等组件的组装逻辑定义异常支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Engine Assembly Service
 

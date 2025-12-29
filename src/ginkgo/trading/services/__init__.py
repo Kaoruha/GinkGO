@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 交易服务模块导出组件工厂/引擎装配/投资组合管理等业务服务支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Backtest Services Module
 

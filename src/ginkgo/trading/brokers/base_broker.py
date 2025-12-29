@@ -1,3 +1,12 @@
+# Upstream: SimBroker/ManualBroker/AutoBroker等具体Broker实现(继承获得通用功能)
+# Downstream: asyncio(异步编程)、datetime/timedelta(时间管理)、clock_now(业务时间)、Decimal(精度计算)、dataclasses/Enum/typing(类型定义)、uuid(UUID生成)
+# Role: BaseBroker交易代理基类实现IBroker接口，提供订单生命周期管理/持仓计算/成交记录/账户统计
+
+
+
+
+
+
 """
 交易代理基类实现
 

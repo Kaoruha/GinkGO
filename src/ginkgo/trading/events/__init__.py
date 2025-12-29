@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 事件模块公共接口导出EventBase/价格/信号/订单等事件类支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Ginkgo Trading Events Module
 

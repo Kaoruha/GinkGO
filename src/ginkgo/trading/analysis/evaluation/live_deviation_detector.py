@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: LiveDeviationDetector实盘偏差检测器检测实盘回测偏差支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 Live Deviation Detector
 

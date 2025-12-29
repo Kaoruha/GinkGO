@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: WeightedMovingAverage加权移动平均线继承BaseIndicator提供加权趋势分析功能
+
+
+
+
+
+
 import pandas as pd
 import numpy as np
 from typing import List

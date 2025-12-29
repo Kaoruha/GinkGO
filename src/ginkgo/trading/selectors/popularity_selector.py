@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Popularity Selector选股器继承BaseSelector提供PopularitySelector热度选股功能
+
+
+
+
+
+
 import datetime
 from rich.progress import Progress
 

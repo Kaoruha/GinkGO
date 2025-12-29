@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 分析模块导出基类/年化收益/夏普比率/最大回撤/波动率等分析器支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Analysis Module - 分析评估层
 

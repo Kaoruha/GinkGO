@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Base Feeder数据馈送器继承BaseFeeder提供BaseFeeder基础数据数据推送支持相关功能
+
+
+
+
+
+
 from typing import TYPE_CHECKING, Callable, Optional
 import pandas as pd
 

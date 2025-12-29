@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role:   Init  模块提供EvaluationValidators评估验证器模块提供验证功能支持代码验证功能支持回测评估和代码验证
+
+
+
+
+
+
 """
 Validation evaluators package.
 

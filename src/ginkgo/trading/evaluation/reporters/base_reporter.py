@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实现 BaseReporter、FileOutputReporter 等类的核心功能，封装相关业务逻辑
+
+
+
+
+
+
 """
 Base reporter abstract class for evaluation result reporting.
 

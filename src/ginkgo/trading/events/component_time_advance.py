@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines(分阶段组件时间推进控制)、Portfolio/Feeder(组件时间推进)
+# Downstream: EventBase(继承提供事件基础能力)、EVENT_TYPES(事件类型枚举COMPONENT_TIME_ADVANCE)、base_repr(字符串表示)
+# Role: 组件时间推进事件用于Engine分阶段控制时间推进顺序支持交易系统功能支持事件驱动架构和流程控制确保时序正确性
+
+
+
+
+
+
 """
 组件时间推进事件
 

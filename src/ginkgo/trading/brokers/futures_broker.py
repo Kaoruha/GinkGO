@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Futures Broker经纪商继承BaseBroker提供FuturesBroker期货交易模拟
+
+
+
+
+
+
 """
 FuturesBroker - 期货实盘交易Broker
 

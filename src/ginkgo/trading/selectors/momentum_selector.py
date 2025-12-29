@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Momentum Selector选股器继承BaseSelector提供MomentumSelector动量选股功能
+
+
+
+
+
+
 from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
 from ginkgo.data.containers import container
 from ginkgo.libs import datetime_normalize

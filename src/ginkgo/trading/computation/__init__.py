@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 计算模块公共接口，导出Alpha158因子、Technical技术指标、BollingerBands布林带、RSI相对强弱等计算器和指标
+
+
+
+
+
+
 """
 Computation Module - 计算层
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: PortfolioContext组合上下文提供组合状态和配置管理支持交易系统功能支持交易系统功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 PortfolioContext - Portfolio-level context management.
 

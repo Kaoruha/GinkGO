@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Volume Activate策略继承BaseStrategy实现VolumeActivate成交量激活交易逻辑
+
+
+
+
+
+
 import time
 import datetime
 from ginkgo.trading.events import EventSignalGeneration

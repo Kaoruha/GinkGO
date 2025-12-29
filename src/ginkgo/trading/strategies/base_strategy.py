@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines (cal方法), Portfolio Manager (实例管理), Concrete Strategies (继承)
+# Downstream: Data Layer (data_feeder), Event System (EventPriceUpdate), Mixins (Context/Time/Named/Loggable)
+# Role: Strategy base class with cal/initialize/finalize/data_feeder methods
+
+
+
+
+
+
 import pandas as pd
 from typing import List, Dict, Any
 from datetime import datetime

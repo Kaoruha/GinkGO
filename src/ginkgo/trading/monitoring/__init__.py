@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 监控模块公共接口，导出Dashboard仪表板、Health健康检查、Metrics指标监控、Tracing链路追踪等系统监控组件
+
+
+
+
+
+
 """
 T5架构监控可观测性模块
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: AlphaFactors alpha因子计算提供量价动量等因子计算支持因子分析支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 Alpha因子指标实现 - 基于QLib Alpha158
 实现常用的量化因子，支持事件引擎和矩阵引擎双模式

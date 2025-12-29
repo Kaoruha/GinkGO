@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Sync Facade经纪商继承BaseBroker提供SyncFacade同步门面提供交易模拟支持相关功能
+
+
+
+
+
+
 """
 SyncBrokerFacade
 

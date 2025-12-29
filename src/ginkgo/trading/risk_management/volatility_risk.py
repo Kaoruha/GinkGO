@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager (波动率风控调整仓位)、RiskBase (继承提供风控基础能力)
+# Downstream: EventPriceUpdate (监听价格更新事件)、Signal/Order实体(风控信号和订单处理)、DIRECTION_TYPES (方向枚举)、math (数学计算)
+# Role: VolatilityRisk波动率风险管理器监控价格波动防止过度波动，提供cal方法和generate_signals方法
+
+
+
+
+
+
 """
 波动率风控模块
 

@@ -1,3 +1,12 @@
+# Upstream: Live Trading Engines (实盘人工确认)、CLI Commands (用户确认命令)
+# Downstream: BaseBroker (继承提供Broker基础功能)、IBroker接口(实现Broker接口)、通知系统(Telegram/Email/Console)
+# Role: ManualBroker人工确认Broker专门用于实盘交易中需要人工确认的场景，订单提交后等待用户通过CLI确认
+
+
+
+
+
+
 """
 ManualBroker - 人工确认执行器
 

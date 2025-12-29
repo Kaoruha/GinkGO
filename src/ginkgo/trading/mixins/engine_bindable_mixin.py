@@ -1,3 +1,12 @@
+# Upstream: Selector/Sizer等需要引擎绑定和事件发布的组件
+# Downstream: BaseEngine(引擎实例绑定)、TimeProvider(时间提供者同步)
+# Role: EngineBindableMixin引擎绑定Mixin提供完整引擎绑定功能包括ID同步和事件发布定义方法
+
+
+
+
+
+
 """
 引擎绑定Mixin
 

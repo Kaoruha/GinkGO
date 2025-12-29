@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: StrategyProtocol策略协议定义策略接口标准支持策略实现规范支持交易系统功能支持相关功能
+
+
+
+
+
+
 """
 IStrategy Protocol Interface
 

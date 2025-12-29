@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: NetValue净值分析器继承BaseAnalyzer计算净值曲线和累计收益率评估策略表现支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.enums import RECORDSTAGE_TYPES
 

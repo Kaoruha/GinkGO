@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Terminal Candle绘图继承BasePlot提供TerminalCandle终端K线图表可视化
+
+
+
+
+
+
 import pandas as pd
 import shutil
 import plotext as plt

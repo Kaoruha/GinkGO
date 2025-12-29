@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: SimpleMovingAverage简单移动平均线继承BaseIndicator提供趋势分析和价格平滑功能
+
+
+
+
+
+
 import pandas as pd
 import numpy as np
 from typing import List, Union

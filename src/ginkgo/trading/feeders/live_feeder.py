@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实现 RateLimiter、ConnectionManager、LiveDataFeeder 等类的核心功能，封装相关业务逻辑
+
+
+
+
+
+
 """
 实盘数据馈送实现
 

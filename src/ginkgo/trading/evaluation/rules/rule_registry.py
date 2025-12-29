@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Rule Registry模块提供RuleRegistry规则注册表提供规则注册和查找功能支持规则管理功能支持回测评估和代码验证
+
+
+
+
+
+
 """
 Rule registry for managing evaluation rules.
 

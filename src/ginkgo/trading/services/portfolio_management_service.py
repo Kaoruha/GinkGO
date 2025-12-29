@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 投资组合管理服务提供创建/绑定组件/解绑/获取状态等方法封装投资组合与组件映射的业务逻辑和数据访问支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Portfolio Management Service
 

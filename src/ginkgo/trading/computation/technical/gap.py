@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Gap跳空分析继承BaseIndicator提供价格跳空检测和缺口分析功能支撑阻力识别支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 from ginkgo.trading.computation.technical.base_indicator import BaseIndicator
 

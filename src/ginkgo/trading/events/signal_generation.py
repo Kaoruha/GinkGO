@@ -1,3 +1,12 @@
+# Upstream: Strategies(生成Signal后创建EventSignalGeneration)、Portfolio Manager(接收Event并处理Signal)
+# Downstream: EventBase(继承提供时间戳/上下文/组件基础能力)、EVENT_TYPES(事件类型枚举SIGNALGENERATION)、Signal实体(payload载荷)
+# Role: 信号生成事件继承EventBase类型为SIGNALGENERATION携带Signal对象支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.trading.events.base_event import EventBase
 from ginkgo.enums import EVENT_TYPES
 from ginkgo.trading.entities.signal import Signal

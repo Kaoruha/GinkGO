@@ -1,3 +1,12 @@
+# Upstream: Portfolio Manager(资金变更通知)、Broker(订单资金冻结/解冻)
+# Downstream: EventBase(继承提供事件基础能力)、EVENT_TYPES(事件类型枚举CAPITALUPDATE)、ORDERSTATUS_TYPES(订单状态枚举)
+# Role: EventCapitalUpdate资金更新事件继承EventBase，封装CapitalAdjustment对象，提供便捷属性访问资金变动信息
+
+
+
+
+
+
 """
 EventCapitalUpdate 模块
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Text Reporter模块提供TextReporter文本报告器生成纯文本格式报告支持结果输出功能支持回测评估和代码验证
+
+
+
+
+
+
 """
 Text reporter for evaluation results using Rich formatting.
 

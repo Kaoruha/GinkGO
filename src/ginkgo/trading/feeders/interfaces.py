@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实现 DataFeedStatus、IDataFeeder、IBacktestDataFeeder 等 4 个类的核心功能
+
+
+
+
+
+
 """
 数据馈送接口定义
 

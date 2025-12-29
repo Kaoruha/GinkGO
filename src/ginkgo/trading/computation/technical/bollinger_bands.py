@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BollingerBands布林带指标继承BaseIndicator提供价格通道和波动率分析功能支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 import numpy as np
 from typing import List, Tuple

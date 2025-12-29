@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Interfaces经纪商继承BaseBroker提供BrokerInterfaces交易模拟支持相关功能
+
+
+
+
+
+
 """
 交易代理接口定义
 

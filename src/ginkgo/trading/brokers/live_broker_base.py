@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Live Broker Base LiveBrokerBase实盘经纪商基类定义实盘交易接口提供相关功能和接口实现
+
+
+
+
+
+
 """
 LiveBrokerBase - 实盘交易基础类
 

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Metrics指标监控继承BaseMonitor提供性能指标收集/统计和监控功能支持性能优化支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 T5架构指标收集模块
 

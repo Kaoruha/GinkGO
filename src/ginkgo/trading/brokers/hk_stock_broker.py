@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Hk Stock Broker经纪商继承BaseBroker提供HKStockBroker港股交易模拟
+
+
+
+
+
+
 """
 HKStockBroker - 港股实盘交易Broker
 

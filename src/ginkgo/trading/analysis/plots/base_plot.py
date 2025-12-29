@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: BasePlot基础绘图类提供图表可视化基类定义绘图接口和模板方法支持图表扩展开发和自定义支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import matplotlib.pyplot as plt
 import os
 from matplotlib.font_manager import fontManager

@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Alpha158Factory Alpha158因子工厂提供Alpha158因子计算支持因子构建支持交易系统功能
+
+
+
+
+
+
 """
 Alpha158因子工厂 - 基于QLib Alpha158实现
 提供批量创建和管理Alpha因子的接口

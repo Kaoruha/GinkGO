@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Technical技术指标模块提供技术指标公共接口和导出功能支持指标计算和分析用于策略开发支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from ginkgo.trading.computation.technical.simple_moving_average import SimpleMovingAverage
 from ginkgo.trading.computation.technical.weighted_moving_average import WeightedMovingAverage
 from ginkgo.trading.computation.technical.exponential_moving_average import ExponentialMovingAverage

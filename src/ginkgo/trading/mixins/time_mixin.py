@@ -1,3 +1,12 @@
+# Upstream: Base/Signal/Order/Position/Strategy/Portfolio等所有实体和组件(继承获得时间管理能力)
+# Downstream: datetime(Python标准库datetime模块)、datetime_normalize(日期时间标准化工具)、TimeBoundaryValidator(ITimeAwareComponent接口实现)、GLOG/Rich Console(日志输出)
+# Role: TimeMixin时间混入类提供时间管理和时区处理能力支持时间操作和时区转换及时间校准支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import datetime
 import inspect
 from contextlib import contextmanager

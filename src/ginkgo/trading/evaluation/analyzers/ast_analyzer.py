@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: Ast Analyzer模块提供ASTAnalyzer AST分析器提供代码AST分析支持代码结构分析功能支持回测评估和代码验证
+
+
+
+
+
+
 """
 AST analyzer for static code analysis of strategy classes.
 

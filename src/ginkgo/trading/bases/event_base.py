@@ -1,3 +1,12 @@
+# Upstream: All Event Types (EventPriceUpdate、EventOrder、EventSignal等30+个事件类继承)
+# Downstream: TimeMixin/ContextMixin/Base (继承提供时间戳管理、上下文管理和组件基础功能)
+# Role: EventBase事件基类定义事件类型/时间戳/payload等核心属性，提供事件序列化和反序列化功能
+
+
+
+
+
+
 """
 事件组件基类
 

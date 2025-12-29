@@ -1,3 +1,12 @@
+# Upstream: Signal实体(业务信号继承提供时间戳管理)
+# Downstream: TimeMixin(继承提供时间戳管理timestamp/business_timestamp)、Base(继承提供组件基础能力uuid/component_type/to_dataframe)
+# Role: SignalBase信号组件基类，组合TimeMixin和Base提供时间戳管理和组件基础功能，为所有信号组件提供统一接口
+
+
+
+
+
+
 """
 信号组件基类
 

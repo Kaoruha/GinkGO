@@ -1,3 +1,12 @@
+# Upstream: 所有需要名称管理的组件(Base/Strategy/Portfolio/Broker/Analyzer/Selector/Sizer/Risk等)
+# Downstream: 无外部依赖纯Mixin功能
+# Role: NamedMixin名称管理Mixin提供组件名称管理功能定义属性和方法支持组件名称的设置和获取支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 名称管理Mixin
 

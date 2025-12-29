@@ -1,3 +1,12 @@
+# Upstream: Concrete Engine Classes (EngineHistoric/EngineLive继承)、CLI Commands (ginkgo engine run创建实例)
+# Downstream: NamedMixin/LoggableMixin (继承提供命名和日志能力)、ABC (抽象基类)、EXECUTION_MODE/ENGINESTATUS_TYPES (运行模式枚举BACKTEST/LIVE/PAPER)
+# Role: BaseEngine交易引擎抽象基类定义核心属性和Portfolio管理支持事件驱动支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 from abc import ABC, abstractmethod
 import threading
 from ginkgo.trading.mixins.named_mixin import NamedMixin

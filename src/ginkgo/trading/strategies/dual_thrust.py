@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines (调用cal方法)
+# Downstream: BaseStrategy (继承提供cal/initialize/finalize等核心能力)
+# Role: Dual Thrust策略继承BaseStrategy实现DualThrust Dual Thrust交易逻辑
+
+
+
+
+
+
 import datetime
 from decimal import Decimal
 from ginkgo.trading.entities.signal import Signal

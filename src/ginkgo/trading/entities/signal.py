@@ -1,3 +1,12 @@
+# Upstream: Strategies (cal()返回Signal列表), Risk Management (generate_signals()生成平仓信号), Backtest Engines (转换Signal为Order), Portfolio Manager (接收并执行Signal)
+# Downstream: TimeMixin/ContextMixin/NamedMixin/LoggableMixin (4个Mixin提供时间/上下文/命名/日志能力), Base (提供uuid和component_type), DIRECTION_TYPES/SOURCE_TYPES (枚举)
+# Role: Signal交易信号实体策略决策到订单执行的桥梁继承5个Mixin定义核心属性支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 import pandas as pd
 import uuid
 import datetime

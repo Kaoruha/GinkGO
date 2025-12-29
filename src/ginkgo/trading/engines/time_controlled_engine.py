@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines (时间控制回测引擎)、Live Trading Engines (时间控制实盘引擎)
+# Downstream: EventEngine (继承提供事件驱动引擎基础能力)、ITimeAwareComponent (实现时间感知组件接口)、LogicalTimeProvider/SystemTimeProvider (逻辑时间/系统时间提供者)、TIME_MODE (时间模式枚举LOGICAL/SYSTEM)
+# Role: TimeControlledEventEngine时间控制的事件引擎T5架构核心引擎统一事件驱动引擎支持回测和实盘模式的时间控制
+
+
+
+
+
+
 """
 TimeControlledEventEngine - T5架构核心引擎
 

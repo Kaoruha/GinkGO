@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 实现 BaseRule、ASTBasedRule、RuntimeRule 等类的核心功能，封装相关业务逻辑
+
+
+
+
+
+
 """
 Base rule abstract class for evaluation rules.
 

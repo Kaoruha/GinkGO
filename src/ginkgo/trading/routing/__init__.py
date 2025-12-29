@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 路由模块公共接口，导出Router路由器、Center路由中心、Balancer负载均衡、CircuitBreaker熔断器等订单路由组件
+
+
+
+
+
+
 """
 事件路由系统
 

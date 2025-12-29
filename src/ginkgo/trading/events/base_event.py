@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: EventBase事件基类定义事件抽象接口和框架支持事件创建/序列化和传递机制实现事件驱动支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 EventBase 模块
 

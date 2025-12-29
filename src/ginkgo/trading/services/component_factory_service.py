@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines, Portfolio Manager
+# Downstream: Data Layer, Event System
+# Role: 组件工厂服务提供创建/获取/列出等方法封装策略/风控/选股器/仓位管理等组件的创建逻辑和数据访问支持交易系统功能和组件集成提供完整业务支持
+
+
+
+
+
+
 """
 Component Factory Service
 

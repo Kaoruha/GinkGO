@@ -1,3 +1,12 @@
+# Upstream: Backtest Engines (管理Portfolio实例)、Strategies/RiskManagers/Selectors (添加到Portfolio)
+# Downstream: TimeMixin/ContextMixin/EngineBindableMixin/NamedMixin/LoggableMixin (5个Mixin提供时间/上下文/引擎绑定/命名/日志能力)、Base/ABC (基础类和抽象基类)
+# Role: PortfolioBase投资组合抽象基类继承5个Mixin和Base/ABC提供7维能力管理策略/风控/选择器/持仓/订单/资金账户
+
+
+
+
+
+
 """
 投资组合组件基类
 
