@@ -33,3 +33,10 @@
 - Never commit secrets. Configure via `~/.ginkgo/config.yaml` and `~/.ginkgo/secure.yml` (use base64‑encoded credentials as in README).
 - For tests that touch external systems, scope with `database`/`network` markers and provide opt‑in flags.
 
+
+## Active Technologies
+- Python 3.12.8 + ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic (006-notification-system)
+- ClickHouse (时序数据), MySQL (关系数据), MongoDB (文档数据), Redis (缓存) (006-notification-system)
+
+## Recent Changes
+- 006-notification-system: Added Python 3.12.8 + ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic
