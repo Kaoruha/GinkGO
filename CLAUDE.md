@@ -373,6 +373,8 @@ from ginkgo.libs import GLOG, GCONF, GTM
 ## Active Technologies
 - Python 3.12.8 + ast (标准库), pathlib, re, typing (003-code-context-headers)
 - 无需数据库操作（仅文件系统） (003-code-context-headers)
+- Python 3.12.8 + ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic (006-notification-system)
+- ClickHouse (时序数据), MySQL (关系数据), MongoDB (文档数据), Redis (缓存) (006-notification-system)
 
 ## Recent Changes
 - 003-code-context-headers: Added Python 3.12.8 + ast (标准库), pathlib, re, typing

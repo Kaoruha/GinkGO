@@ -15,6 +15,8 @@ database:
     database: ginkgo
     username: ginkgoadm
     password: aGVsbG9tb25nbw==
+    host: localhost
+    port: 27017
   redis:
     host: localhost
     port: 6379

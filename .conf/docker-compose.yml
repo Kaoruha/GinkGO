@@ -187,6 +187,15 @@ services:
         limits:
           cpus: '2.00'
           memory: 4096M
+  # Mongo
+  mongo:
+    image: 'mongo:6.0.27-jammy'
+    restart: always
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
   # Feast Feature Server - API服务
   feast-server:
     build:

@@ -115,7 +115,7 @@ find_feature_dir_by_prefix() {
 
     # Handle results
     if [[ ${#matches[@]} -eq 0 ]]; then
-        # No match found - return the branch name path (will fail later with clear error)
+        # No match found - return the default path (will fail later with clear error)
         echo "$specs_dir/$prefix-default"
     elif [[ ${#matches[@]} -eq 1 ]]; then
         # Exactly one match - perfect!
