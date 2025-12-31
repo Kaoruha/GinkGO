@@ -29,12 +29,12 @@
 - ✅ pymongo 和 pydantic 已添加到 requirements
 - ✅ MongoDB 和 MySQL 配置文件已准备
 
-- [ ] T001 [P] Create directory structure for MongoDB infrastructure in src/ginkgo/data/models/, src/ginkgo/data/drivers/, src/ginkgo/data/crud/
-- [ ] T002 [P] Create directory structure for notification system in src/ginkgo/notifier/
-- [ ] T003 [P] Create directory structure for tests in test/unit/data/, test/unit/notifier/
-- [ ] T004 [P] Add pymongo and pydantic dependencies to project requirements
-- [ ] T005 Add MongoDB services (mongo-master, mongo-test) to .conf/docker-compose.yml (参考 mysql-master 配置，端口 27017/27018)
-- [ ] T006 Add MongoDB entrypoint script to .conf/mongo_entrypoint/ (初始化数据库、用户、集合)
+- [X] T001 [P] Create directory structure for MongoDB infrastructure in src/ginkgo/data/models/, src/ginkgo/data/drivers/, src/ginkgo/data/crud/
+- [X] T002 [P] Create directory structure for notification system in src/ginkgo/notifier/
+- [X] T003 [P] Create directory structure for tests in test/unit/data/, test/unit/notifier/
+- [X] T004 [P] Add pymongo and pydantic dependencies to project requirements
+- [X] T005 Add MongoDB services (mongo-master) to .conf/docker-compose.yml (参考 mysql-master 配置，端口 27017)
+- [X] T006 Add MongoDB entrypoint script to .conf/mongo_entrypoint/ (初始化数据库、用户、集合)
 
 ---
 

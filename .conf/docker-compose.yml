@@ -188,14 +188,19 @@ services:
           cpus: '2.00'
           memory: 4096M
   # Mongo
-  mongo:
+  mongo-master:
     image: 'mongo:6.0.27-jammy'
+    container_name: mongo-master
     restart: always
     ports:
       - '27017:27017'
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - ../.db/mongo:/data/db
+      - ../.logs/mongo:/var/log/mongodb
+      - ./mongo_entrypoint:/docker-entrypoint-initdb.d
   # Feast Feature Server - API服务
   feast-server:
     build:
