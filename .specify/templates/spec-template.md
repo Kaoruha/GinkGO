@@ -109,6 +109,14 @@
 - **FR-016**: Header updates MUST be verified during code review process
 - **FR-017**: CI/CD pipeline MUST include header accuracy verification
 
+**配置验证需求**:
+- **FR-018**: 配置类功能验证 MUST 包含配置文件存在性检查（不仅检查返回值）
+- **FR-019**: 配置类验证 MUST 确认值从配置文件读取，而非代码默认值
+- **FR-020**: 配置类验证 MUST 确认用户可通过修改配置文件改变行为
+- **FR-021**: 配置类验证 MUST 确认缺失配置时降级到默认值
+- **FR-022**: 外部依赖验证 MUST 包含存在性、正确性、版本兼容性三维度检查
+- **FR-023**: 禁止仅因默认值/Mock使测试通过就认为验证完成（假阳性预防）
+
 *标记不明确需求的示例*:
 - **FR-018**: System MUST [NEEDS CLARIFICATION: 具体功能未明确]
 - **FR-019**: System MUST support [NEEDS CLARIFICATION: 性能指标未指定]
