@@ -76,6 +76,15 @@
 - [ ] CI/CD流程包含头部准确性检查
 - [ ] 使用`scripts/generate_headers.py --force`批量更新头部
 
+### 验证完整性原则 (Verification Integrity)
+- [ ] 配置类功能验证包含配置文件检查（不仅检查返回值）
+- [ ] 验证配置文件包含对应配置项（如 grep config.yml notifications.timeout）
+- [ ] 验证值从配置文件读取，而非代码默认值（打印原始配置内容）
+- [ ] 验证用户可通过修改配置文件改变行为（修改配置后重新运行）
+- [ ] 验证缺失配置时降级到默认值（删除配置项后验证）
+- [ ] 外部依赖验证包含存在性、正确性、版本兼容性检查
+- [ ] 禁止仅因默认值/Mock使测试通过就认为验证完成
+
 ## Project Structure
 
 ### Documentation (this feature)
