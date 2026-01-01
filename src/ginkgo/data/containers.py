@@ -2,6 +2,8 @@
 # Downstream: ClickHouse, MySQL, MongoDB
 # Role: 数据模块依赖注入容器管理数据库驱动/CRUD操作层/数据服务层和数据源的依赖注入支持交易系统功能和组件集成提供完整业务支持
 
+from __future__ import annotations  # 启用延迟注解评估，避免循环导入
+
 
 
 
@@ -45,6 +47,7 @@ Usage Examples:
 """
 
 from dependency_injector import containers, providers
+from typing import TYPE_CHECKING
 
 # Import your services, CRUDs, and data sources
 from ginkgo.data.sources import GinkgoTushare, GinkgoTDX
@@ -66,6 +69,13 @@ from ginkgo.data.services.analyzer_service import AnalyzerService
 from ginkgo.data.services.param_service import ParamService
 from ginkgo.data.services.mapping_service import MappingService
 from ginkgo.data.services.parameter_metadata_service import ParameterMetadataService
+from ginkgo.user.services.user_service import UserService
+from ginkgo.user.services.user_group_service import UserGroupService
+
+# 使用 TYPE_CHECKING 避免运行时循环导入
+if TYPE_CHECKING:
+    from ginkgo.notifier.core.notification_service import NotificationService
+    from ginkgo.notifier.core.template_engine import TemplateEngine
 
 
 class Container(containers.DeclarativeContainer):
@@ -103,6 +113,16 @@ class Container(containers.DeclarativeContainer):
     kafka_crud = providers.Singleton(get_crud, "kafka")
     factor_crud = providers.Singleton(get_crud, "factor")
     analyzer_record_crud = providers.Singleton(get_crud, "analyzer_record")
+
+    # User management CRUDs
+    user_crud = providers.Singleton(get_crud, "user")
+    user_contact_crud = providers.Singleton(get_crud, "user_contact")
+    user_group_crud = providers.Singleton(get_crud, "user_group")
+    user_group_mapping_crud = providers.Singleton(get_crud, "user_group_mapping")
+
+    # Notification system CRUDs
+    notification_template_crud = providers.Singleton(get_crud, "notification_template")
+    notification_record_crud = providers.Singleton(get_crud, "notification_record")
 
     # Services (Dependencies are injected here)
     # StockinfoService must be defined before AdjustfactorService as it's a dependency
@@ -186,6 +206,38 @@ class Container(containers.DeclarativeContainer):
         engine_handler_mapping_crud=engine_handler_mapping_crud,
         param_crud=param_crud,
     )
+
+    # User management services
+    user_service = providers.Singleton(
+        UserService,
+        user_crud=user_crud,
+        user_contact_crud=user_contact_crud
+    )
+
+    user_group_service = providers.Singleton(
+        UserGroupService,
+        user_group_crud=user_group_crud,
+        user_group_mapping_crud=user_group_mapping_crud
+    )
+
+    # Notification System - 使用 Callable 延迟导入以避免循环依赖
+    # 这样只有在访问 template_engine 时才会真正导入 TemplateEngine 类
+    template_engine = providers.Callable(
+        lambda: __import__('ginkgo.notifier.core.template_engine', fromlist=['TemplateEngine']).TemplateEngine,
+        template_crud=notification_template_crud
+    ).provider
+
+    notification_service = providers.Callable(
+        lambda: __import__('ginkgo.notifier.core.notification_service', fromlist=['NotificationService']).NotificationService,
+        template_crud=notification_template_crud,
+        record_crud=notification_record_crud,
+        template_engine=template_engine,
+        contact_crud=user_contact_crud,
+        group_crud=user_group_crud,
+        group_mapping_crud=user_group_mapping_crud,
+        user_service=user_service,
+        user_group_service=user_group_service
+    ).provider
 
 
 # A singleton instance of the container, accessible throughout the application

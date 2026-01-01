@@ -171,8 +171,8 @@ def start_worker(worker: NotificationWorker) -> bool:
         return False
 
     GLOG.INFO("✓ Worker started successfully")
-    GLOG.info(f"  Status: {worker.status.name}")
-    GLOG.info(f"  Thread: {worker._worker_thread.name}")
+    GLOG.INFO(f"  Status: {worker.status.name}")
+    GLOG.INFO(f"  Thread: {worker._worker_thread.name}")
 
     return True
 
@@ -321,7 +321,9 @@ def main():
     except KeyboardInterrupt:
         GLOG.INFO("Received keyboard interrupt")
     except Exception as e:
-        GLOG.ERROR(f"Unexpected error: {e}", exc_info=True)
+        GLOG.ERROR(f"Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
     finally:
         # 清理资源

@@ -91,3 +91,18 @@ default_end: 21000101
 epsilon: 1e-5
 cpu_ratio: 0.8
 quiet: True
+
+# 通知系统配置
+notifications:
+  # Discord 渠道配置
+  discord:
+    timeout: 3       # Webhook 请求超时时间（秒）
+    max_retries: 3   # 最大重试次数
+
+  # Email 渠道配置
+  email:
+    timeout: 10      # SMTP 请求超时时间（秒）
+    max_retries: 3   # 最大重试次数
+
+  # 通知记录保留时间
+  record_ttl_days: 7  # 通知记录保留天数（TTL索引自动清理）

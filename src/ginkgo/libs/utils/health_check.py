@@ -149,17 +149,62 @@ def check_redis_ready(host: str = None, port: int = None,
         return False
 
 
-def check_kafka_ready(host: str = None, port: int = None, 
+def check_mongo_ready(host: str = None, port: int = None,
+                     username: str = None, password: str = None,
+                     timeout: int = 5) -> bool:
+    """
+    检查MongoDB是否就绪
+
+    Args:
+        host: MongoDB主机地址（默认从GCONF获取）
+        port: MongoDB端口（默认从GCONF获取）
+        username: 用户名（默认从GCONF获取）
+        password: 密码（默认从GCONF获取）
+        timeout: 超时时间（秒）
+
+    Returns:
+        bool: MongoDB是否就绪
+    """
+    try:
+        if host is None:
+            host = GCONF.MONGOHOST
+        if port is None:
+            port = int(GCONF.MONGOPORT)
+        if username is None:
+            username = GCONF.MONGOUSER
+        if password is None:
+            password = GCONF.MONGOPWD
+
+        import pymongo
+        from pymongo import MongoClient
+
+        # 构建 MongoDB URI
+        if username and password:
+            uri = f"mongodb://{username}:{password}@{host}:{port}/?authSource=admin"
+        else:
+            uri = f"mongodb://{host}:{port}/"
+
+        client = MongoClient(uri, serverSelectionTimeoutMS=timeout * 1000)
+        # 执行 ping 命令检查连接
+        result = client.admin.command('ping')
+        client.close()
+        return result.get('ok') == 1
+    except Exception as e:
+        GLOG.DEBUG(f"MongoDB health check failed: {e}")
+        return False
+
+
+def check_kafka_ready(host: str = None, port: int = None,
                      container_name: str = "kafka1", timeout: int = 10) -> bool:
     """
     检查Kafka是否就绪
-    
+
     Args:
         host: Kafka主机地址（默认从GCONF获取）
         port: Kafka端口（默认从GCONF获取）
         container_name: Kafka容器名称
         timeout: 超时时间（秒）
-        
+
     Returns:
         bool: Kafka是否就绪
     """
@@ -168,11 +213,11 @@ def check_kafka_ready(host: str = None, port: int = None,
             host = GCONF.KAFKAHOST
         if port is None:
             port = int(GCONF.KAFKAPORT)
-        
+
         # 先检查端口
         if not check_port_open(host, port, timeout):
             return False
-        
+
         # 尝试列出topics
         result = subprocess.run([
             "docker", "exec", container_name,
@@ -180,7 +225,7 @@ def check_kafka_ready(host: str = None, port: int = None,
             "--bootstrap-server", f"{host}:{port}",
             "--list"
         ], capture_output=True, text=True, timeout=timeout)
-        
+
         return result.returncode == 0
     except Exception as e:
         GLOG.DEBUG(f"Kafka health check failed: {e}")
@@ -324,7 +369,7 @@ def wait_for_services(services_config: Dict[str, Dict], max_wait: int = 300) -> 
 def get_ginkgo_services_config() -> Dict[str, Dict]:
     """
     获取Ginkgo项目的默认服务配置
-    
+
     Returns:
         Dict: 服务配置字典
     """
@@ -348,6 +393,11 @@ def get_ginkgo_services_config() -> Dict[str, Dict]:
             "check_function": lambda: check_kafka_ready(),
             "required": True,
             "timeout": 15
+        },
+        "MongoDB": {
+            "check_function": lambda: check_mongo_ready(),
+            "required": True,
+            "timeout": 10
         }
     }
 
@@ -370,26 +420,26 @@ def wait_for_ginkgo_services(max_wait: int = 300) -> bool:
 def ensure_services_ready(container_names: List[str] = None, max_wait: int = 300) -> bool:
     """
     确保服务就绪的便捷函数
-    
+
     Args:
         container_names: 需要检查的容器名称列表
         max_wait: 最大等待时间（秒）
-        
+
     Returns:
         bool: 所有服务是否就绪
     """
     if container_names is None:
-        container_names = ["kafka1", "kafka2", "kafka3", "clickhouse_master", "mysql_master", "redis_master"]
-    
+        container_names = ["kafka1", "kafka2", "kafka3", "clickhouse_master", "mysql_master", "redis_master", "mongo-master"]
+
     GLOG.INFO(f"{Emoji('magnifying_glass_tilted_right')} Checking Docker containers...")
     container_status = check_docker_containers_running(container_names)
-    
+
     failed_containers = [name for name, running in container_status.items() if not running]
     if failed_containers:
         GLOG.ERROR(f"{Emoji('cross_mark')} Containers not running: {', '.join(failed_containers)}")
         return False
-    
+
     GLOG.INFO(f"{Emoji('white_check_mark')} All containers are running")
-    
+
     GLOG.INFO(f"{Emoji('magnifying_glass_tilted_right')} Checking service readiness...")
     return wait_for_ginkgo_services(max_wait)

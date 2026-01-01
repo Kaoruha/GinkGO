@@ -72,10 +72,20 @@ class ModelConversion:
         """
         降级处理：当没有找到CRUD类时的基础DataFrame转换
 
+        支持多种模型类型：
+        - SQLAlchemy 模型：使用 __dict__ 属性
+        - Pydantic 模型：使用 model_dump() 方法
+
         Returns:
             基础的DataFrame（无enum转换）
         """
-        df = pd.DataFrame([self.__dict__])
+        # 检测是否为 Pydantic 模型
+        if hasattr(self, 'model_dump'):
+            data = [self.model_dump()]
+        else:
+            data = [self.__dict__]
+
+        df = pd.DataFrame(data)
         # 移除非数据列
         for col in ['_sa_instance_state']:
             if col in df.columns:

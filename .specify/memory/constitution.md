@@ -1,10 +1,9 @@
 <!--
 Sync Impact Report:
-Version change: 1.4.0 → 1.5.0
+Version change: 1.5.0 → 1.5.1
 Modified principles:
-- 验证完整性原则(Verification Integrity) - 新增第9条核心原则
-Added sections:
-- 核心原则第9条: 验证完整性原则
+- 验证完整性原则(Verification Integrity) - 扩展典型案例，增加服务端口一致性验证
+Added sections: N/A
 Removed sections: N/A
 Files Updated for Consistency:
 ✅ updated: .specify/specs/003-default/spec.md - 已包含头部同步相关需求(FR-025, FR-031)
@@ -19,6 +18,7 @@ Follow-up TODOs:
 - 建立头部更新自动提醒机制
 - 在CI/CD流程中添加配置文件完整性检查
 - 实施配置类验证的强制检查清单
+- 实施服务状态一致性验证（配置文件/GCONF/实际服务三者对比）
 -->
 
 # Ginkgo 项目章程
@@ -26,7 +26,7 @@ Follow-up TODOs:
 ## 基本信息
 
 - **项目名称**: Ginkgo
-- **章程版本**: 1.5.0
+- **章程版本**: 1.5.1
 - **制定日期**: 2025-11-03
 - **最后修订**: 2025-12-31
 - **项目描述**: Python量化交易库，专注于事件驱动回测、多数据库支持和完整的风险管理系统
@@ -185,11 +185,19 @@ Follow-up TODOs:
 ```
 
 **典型案例**:
-- **错误示例**: 仅测试 `GCONF.NOTIFICATION_DISCORD_TIMEOUT == 3`（可能来自默认值）
-- **正确示例**:
+- **配置验证错误示例**: 仅测试 `GCONF.NOTIFICATION_DISCORD_TIMEOUT == 3`（可能来自默认值）
+- **配置验证正确示例**:
   1. 检查 `~/.ginkgo/config.yml` 包含 `notifications.discord.timeout: 3`
   2. 修改配置为 `5`，重新运行验证值变为 `5`
   3. 删除配置，验证降级到默认值 `3`
+
+- **服务端口验证错误示例**: 仅测试 `GCONF.MONGOPORT == 27017`（配置值可能是127017但能读到）
+- **服务端口验证正确示例**:
+  1. 检查配置文件: `grep "port:" ~/.ginkgo/secure.yml` → `27017`
+  2. 检查GCONF读取: `python -c "print(GCONF.MONGOPORT)"` → `27017`
+  3. 检查实际服务: `docker ps | grep mongo` → `0.0.0.0:27017->27017/tcp`
+  4. 验证三者一致: `配置(27017) == GCONF(27017) == 服务(27017)` ✅
+  5. 实际连接测试: `ginkgo mongo test` → `Connected` ✅
 
 **理由**: 仅依赖返回值的验证会产生"假阳性"结果——测试通过但实现不完整。配置类如果只有默认值而无法从配置文件读取，用户将无法通过修改配置来调整系统行为。全面验证确保功能从设计到使用的完整链路都正常工作。
 

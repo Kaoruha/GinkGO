@@ -1,751 +1,171 @@
 # Implementation Plan: MongoDB 基础设施与通知系统
 
-**Feature Branch**: `006-notification-system`
-**Created**: 2025-12-30
-**Status**: Draft
+**Branch**: `006-notification-system` | **Date**: 2025-12-31 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/006-notification-system/spec.md`
 
----
+**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
 ## Summary
 
-创建完整的 MongoDB 基础设施层，使其与 ClickHouse 和 MySQL 并列为 Ginkgo 的第一等公民数据库。同时实现基于 MongoDB 的通知系统，支持 Discord 和 Email 渠道。用户管理使用 MySQL（包括用户核心数据、配置和用户组）。
+本特性旨在为 Ginkgo 量化交易库创建完整的 MongoDB 基础设施层，使其与 ClickHouse 和 MySQL 并列为第一等公民数据库。同时实现基于 MongoDB 的通知系统，支持 Webhook（Discord、钉钉、企业微信等）和 Email 渠道，用户管理使用 MySQL。
 
-**核心交付物**:
-1. **MMongoBase** - MongoDB 文档模型基类
-2. **GinkgoMongo** - MongoDB 驱动（基于 pymongo）
-3. **BaseMongoCRUD** - MongoDB CRUD 抽象基类
-4. **通知系统** - 基于 MongoDB 的通知记录 + MySQL 的用户管理
+**阶段组织策略**:
+- 本特性共 262 个任务，分为 61 个 Phase（每个阶段 3-5 个任务）
+- Phase 1-12: MongoDB 基础设施（US1）
+- Phase 13-23: 用户管理系统（US2）
+- Phase 24-29: 通知模板系统
+- Phase 30-35: Webhook + Email 渠道（US3, US4）
+- Phase 36-42: Kafka 异步处理（US5）
+- Phase 43-45: 用户组批量 + 查询（US6, US7）
+- Phase 46-61: 优化与文档
+- 每个 Phase 完成后立即清理已完成任务，保持活跃任务列表简洁（符合章程第6条"每阶段最多5个活跃任务"）
 
----
+**核心需求**:
+1. **MongoDB 基础设施**: 创建 MMongoBase 模型、GinkgoMongo 驱动和 BaseMongoCRUD，支持 PyMongo 连接池和 Pydantic ODM 模式
+2. **用户管理系统**: 支持 MUser/MUserContact/MUserGroup 模型，管理通知接收者及其联系方式（Email/Webhook（Discord/钉钉/企业微信等））
+3. **通知发送**: 通过 Webhook（Discord/钉钉/企业微信等）和 Email SMTP 发送通知，支持 Jinja2 模板引擎和变量替换
+4. **Kafka 异步处理**: 使用 Kafka 异步队列处理通知发送，单一 topic（notifications），Worker 根据 contact_type 路由，支持自动重试和降级策略
+5. **通知记录**: 使用 MongoDB 存储通知记录，支持 7 天 TTL 自动清理
+
+**技术方案**:
+- **MongoDB 集成**: 使用 PyMongo 连接池（max=10, min=2），Pydantic 模型 + PyMongo 手动映射，TTL 索引自动清理
+- **Kafka 可靠性**: acks=all + 幂等性 + 手动提交 offset，确保消息不丢失
+- **降级策略**: Kafka 不可用时自动降级为同步发送（直接调用 WebhookChannel/EmailChannel）
+- **模板引擎**: Jinja2 + StrictUndefined，支持变量缺失检测和默认值回退
+- **渠道差异化超时**: Webhook（Discord）3s 超时，Email 10s 超时
 
 ## Technical Context
 
-### 现有架构
-- **MClickBase** - ClickHouse 模型基类（时序数据）
-- **MMysqlBase** - MySQL 模型基类（关系数据）
-- **BaseCRUD** - 通用 CRUD 抽象类（支持 ClickHouse 和 MySQL）
-- **GinkgoClick/GinkgoMySQL** - 数据库驱动
-- **依赖注入** - 使用 `dependency_injector` 容器
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
 
-### 新增组件
-- **MMongoBase** - MongoDB 模型基类（文档数据）
-- **BaseMongoCRUD** - MongoDB CRUD 抽象类
-- **GinkgoMongo** - MongoDB 驱动（基于 pymongo）
-- **用户管理** - MySQL（MUser, MUserContact, MUserGroup）
-- **通知系统** - NotificationService, DiscordChannel, EmailChannel
-
----
+**Language/Version**: Python 3.12.8
+**Primary Dependencies**: ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic
+**Storage**: ClickHouse (时序数据), MySQL (关系数据), MongoDB (文档数据), Redis (缓存)
+**Testing**: pytest with TDD workflow, unit/integration/database/network标记分类
+**Target Platform**: Linux server (量化交易后端)
+**Project Type**: single (Python量化交易库)
+**Performance Goals**: 高频数据处理 (<100ms延迟), 批量数据操作 (>10K records/sec), 内存优化 (<2GB)
+**Constraints**: 必须启用debug模式进行数据库操作, 遵循事件驱动架构, 支持分布式worker
+**Scale/Scope**: 支持多策略并行回测, 处理千万级历史数据, 实时风控监控
 
 ## Constitution Check
 
-### ✅ 安全与合规原则
-- **凭证管理**: MySQL 连接通过 `~/.ginkgo/config.yaml`，MongoDB 连接通过 `~/.ginkgo/secure.yml`（敏感凭证单独存储）
-- **敏感信息脱敏**: 日志中自动脱敏敏感字段
-- **通知目标管理**: Discord频道和Email用户统一作为数据库中的"通知目标"
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-### ✅ 架构设计原则
-- **一致性**: MMongoBase 与 MClickBase/MMysqlBase 设计风格一致
-- **依赖注入**: 通过容器访问服务
-- **职责分离**: 模型层、CRUD层、服务层严格分离
+### 安全与合规原则 (Security & Compliance)
+- [x] 所有代码提交前已进行敏感文件检查（MongoDB 凭证、SMTP 密码存储在 `~/.ginkgo/secure.yml`，已添加到 .gitignore）
+- [x] API密钥、数据库凭证等敏感信息使用环境变量或配置文件管理（Webhook URL（Discord/钉钉/企业微信等）、SMTP 凭证存储在 secure.yml）
+- [x] 敏感配置文件已添加到.gitignore（`~/.ginkgo/secure.yml`）
 
-### ✅ 代码质量原则
-- **装饰器优化**: 使用 `@time_logger`、`@retry`、`@cache_with_expiration`
-- **类型注解**: 所有公共 API 提供完整类型注解
+### 架构设计原则 (Architecture Excellence)
+- [x] 设计遵循事件驱动架构（通知系统通过 Kafka 事件驱动，异步处理通知发送）
+- [x] 使用ServiceHub统一访问服务，通过`from ginkgo import services`访问服务组件（NotificationService、UserCRUD、TemplateCRUD 等）
+- [x] 严格分离数据层、策略层、执行层、分析层和服务层职责（数据层：MongoDB/MySQL 模型，服务层：NotificationService，执行层：Worker）
 
-### ✅ 测试原则
-- **TDD 流程**: 先编写测试用例，再实现功能
-- **Mock 测试**: 为 MongoDB/MySQL 操作提供 Mock
+### 代码质量原则 (Code Quality)
+- [x] 使用`@time_logger`、`@retry`、`@cache_with_expiration`装饰器（MongoDB CRUD 操作、Kafka 生产者/消费者、Webhook（Discord/钉钉/企业微信等）/Email 渠道）
+- [x] 提供类型注解，支持静态类型检查（所有 Pydantic 模型、CRUD 类、服务类）
+- [x] 禁止使用hasattr等反射机制回避类型错误（使用正确的类型检查和 Optional 类型）
+- [x] 遵循既定命名约定（MUser/MUserContact/MUserGroup MySQL 模型，MNotificationTemplate/MNotificationRecord MongoDB 模型，CRUD 操作前缀 add_/get_/update_/delete_）
 
-### ✅ 数据一致性原则
-- **级联软删除**: 用户删除时，级联标记其联系方式(UserContact)和组映射(UserGroupMapping)为 is_del=True
-- **通知顺序**: 按 Kafka FIFO 顺序处理，无优先级区分
+### 测试原则 (Testing Excellence)
+- [x] 遵循TDD流程，先写测试再实现功能（使用 `@pytest.mark.tdd` 标记，先写失败测试再实现）
+- [x] 测试按unit、integration、database、network标记分类（MongoDB 测试 @pytest.mark.database，Kafka 测试 @pytest.mark.network，Webhook（Discord/钉钉/企业微信等）/Email 测试 @pytest.mark.network）
+- [x] 数据库测试使用测试数据库，避免影响生产数据（使用独立的测试数据库 `ginkgo_test`）
 
-### ✅ 性能原则
-- **连接池**: MongoDB/MySQL 连接池
-- **批量操作**: 批量插入
-- **TTL 索引**: 自动清理过期通知记录（7天，私人小系统）
+### 性能原则 (Performance Excellence)
+- [x] 数据操作使用批量方法（MongoDB 批量插入通知记录，批量查询用户联系方式）
+- [x] 合理使用多级缓存（Redis 缓存用户联系方式、模板内容，方法级缓存 @cache_with_expiration）
+- [x] 使用懒加载机制优化启动时间（MongoDB 连接懒加载，Kafka 消费者懒加载）
 
-### ✅ 代码注释同步原则
-- 文件头部包含三行注释（Upstream/Downstream/Role）
+### 任务管理原则 (Task Management Excellence)
+- [x] 采用分阶段管理策略，每个阶段最多5个活跃任务（257个任务分为61个阶段，每阶段3-5个任务）
+- [x] 已完成任务立即从活跃列表移除（完成一个任务后立即标记完成并移除）
+- [x] 任务优先级明确，高优先级任务优先显示（P1 MongoDB 基础设施、P1 用户管理、P2 通知发送）
+- [x] 任务状态实时更新，确保团队协作效率（使用 tasks.md 跟踪任务状态）
 
----
+### 文档原则 (Documentation Excellence)
+- [x] 文档和注释使用中文（spec.md、plan.md、research.md、data-model.md、quickstart.md 全部使用中文）
+- [x] 核心API提供详细使用示例和参数说明（quickstart.md 包含完整的 CLI 和 Python API 示例）
+- [x] 重要组件有清晰的架构说明和设计理念文档（research.md 包含 MongoDB 集成、Kafka 异步处理、Jinja2 模板引擎等技术决策）
 
-## Phase 0: Research & Design ✅
+### 代码注释同步原则 (Code Header Synchronization)
+- [x] 修改类的功能、添加/删除主要类或函数时，更新Role描述（MUser/MUserContact/MUserGroup/MNotificationTemplate/MNotificationRecord 等模型）
+- [x] 修改模块依赖关系时，更新Upstream/Downstream描述（GinkgoMongo 驱动、NotificationService、WebhookChannel/EmailChannel）
+- [x] 代码审查过程中检查头部信息的准确性（CI/CD 流程包含头部检查）
+- [x] 定期运行`scripts/verify_headers.py`检查头部一致性（每次提交前运行）
+- [x] CI/CD流程包含头部准确性检查（GitHub Actions 集成）
+- [x] 使用`scripts/generate_headers.py --force`批量更新头部（重构代码后运行）
 
-**Status**: Completed
+## Project Structure
 
-**Key Decisions**:
-1. **数据库**:
-   - MongoDB → 通知记录、通知模板（TTL清理、灵活schema）
-   - MySQL → 用户核心数据、联系方式、用户组（事务、关系、一致性）
-2. **驱动**: pymongo（MongoDB）+ SQLAlchemy（MySQL）
-3. **模板引擎**: Jinja2（可选功能）
-4. **异步架构**: GTM Worker + Kafka
-5. **消息队列**: Kafka（通知系统通过 Kafka 构建异步发送和失败重试机制）
-   - 按渠道分 topic: `notifications-discord`, `notifications-email`
-   - Worker 处理时再根据 user_id 区分接收者
-6. **通知渠道**: Discord + Email
-7. **用户模型**:
-   - User = 通知接收者（可以是 person、channel、organization）
-   - Contact = 联系方式（Email/Discord 使用枚举存储）
-8. **失败重试**: Kafka 异步队列自动重试 + 失败记录到 MongoDB
+### Documentation (this feature)
 
----
-
-## Phase 1: Design & Contracts
-
-**Status**: In Progress
-
-**Artifacts**:
-- `plan.md` - 本文件，实现计划
-- `contracts/` - API 接口定义（待生成）
-
-### 目录结构
-
-```
-# === MongoDB 基础设施（仅用于通知）===
-src/ginkgo/data/models/
-├── model_mongobase.py              # MMongoBase 基类
-├── model_notification_record.py    # MNotificationRecord (MongoDB)
-└── model_notification_template.py  # MNotificationTemplate (MongoDB, 可选)
-
-src/ginkgo/data/drivers/
-└── ginkgo_mongo.py                  # GinkgoMongo 驱动
-
-src/ginkgo/data/crud/
-├── base_mongo_crud.py               # BaseMongoCRUD 抽象类
-├── notification_record_crud.py      # NotificationRecordCRUD (MongoDB)
-└── notification_template_crud.py    # NotificationTemplateCRUD (MongoDB, 可选)
-
-# === 用户管理（MySQL）===
-src/ginkgo/data/models/
-├── model_user.py                    # MUser (通知接收者)
-├── model_user_contact.py            # MUserContact (联系方式)
-├── model_user_group.py              # MUserGroup (用户组)
-└── model_user_group_mapping.py      # MUserGroupMapping (多对多映射，带外键)
-
-src/ginkgo/data/crud/
-├── user_crud.py                     # UserCRUD
-├── user_contact_crud.py             # UserContactCRUD
-├── user_group_crud.py               # UserGroupCRUD
-└── user_group_mapping_crud.py       # UserGroupMappingCRUD
-
-src/ginkgo/user/
-├── __init__.py
-└── services/
-    └── user_service.py              # UserService
-
-# === 通知系统业务逻辑 ===
-src/ginkgo/notifier/
-├── __init__.py
-├── core/
-│   ├── notification_service.py      # NotificationService (依赖 UserService)
-│   ├── template_engine.py           # Jinja2 模板引擎（可选）
-│   └── message_queue.py             # Kafka 生产者
-├── channels/
-│   ├── __init__.py
-│   ├── base_channel.py              # INotificationChannel 基类
-│   ├── discord_channel.py           # Discord Webhook
-│   └── email_channel.py             # Email SMTP
-├── templates/                       # 预定义模板（YAML）
-│   ├── __init__.py
-│   ├── trading_signal.yaml
-│   ├── backtest_complete.yaml
-│   ├── error_alert.yaml
-│   └── system_status.yaml
-└── workers/
-    └── notification_worker.py       # Kafka 消费者
-
-# === 单元测试 ===
-test/unit/data/
-├── test_model_mongobase.py
-├── test_ginkgo_mongo.py
-├── test_notification_record_crud.py
-├── test_user_crud.py
-├── test_user_contact_crud.py
-├── test_user_group_crud.py
-└── test_user_group_mapping_crud.py
-
-test/unit/notifier/
-├── test_core/
-│   ├── test_notification_service.py
-│   └── test_template_engine.py
-└── test_channels/
-    ├── test_discord_channel.py
-    └── test_email_channel.py
+```text
+specs/[###-feature]/
+├── plan.md              # This file (/speckit.plan command output)
+├── research.md          # Phase 0 output (/speckit.plan command)
+├── data-model.md        # Phase 1 output (/speckit.plan command)
+├── quickstart.md        # Phase 1 output (/speckit.plan command)
+├── contracts/           # Phase 1 output (/speckit.plan command)
+└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```
 
-**数据库选型说明**：
-| 模块 | 数据库 | 原因 |
-|------|--------|------|
-| 用户接收者 | MySQL | 事务、关系、唯一约束 |
-| 联系方式 | MySQL | 关系查询、事务一致性 |
-| 用户组 | MySQL | 关系查询 |
-| 通知记录 | MongoDB | TTL自动清理、灵活schema |
-| 通知模板 | MongoDB | 动态字段、渠道适配 |
+### Source Code (repository root)
+<!--
+  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+  for this feature. Delete unused options and expand the chosen structure with
+  real paths (e.g., apps/admin, packages/something). The delivered plan must
+  not include Option labels.
+-->
 
-**统一通知模型**：
-- **User** = 通知接收者（person/channel/organization）
-- **UserContact** = 联系方式（Email/Discord 枚举存储）
-  - Email: contact_value = 邮箱地址
-  - Discord: contact_value = Webhook URL（频道作为 channel 类型用户）
-  - is_primary: 标记默认联系方式（用户有多个同类型联系方式时的主要发送目标）
-- **渠道凭证**:
-  - Discord Webhook: 存储在 MUserContact.contact_value
-  - Email SMTP: 存储在 `~/.ginkgo/secure.yml`（全局配置）
+```text
+# Ginkgo 量化交易库结构
+src/
+├── ginkgo/                          # 主要库代码
+│   ├── core/                        # 核心组件
+│   │   ├── engines/                 # 回测引擎
+│   │   ├── events/                  # 事件系统
+│   │   ├── portfolios/              # 投资组合管理
+│   │   ├── risk/                    # 风险管理
+│   │   └── strategies/              # 策略基类
+│   ├── data/                        # 数据层
+│   │   ├── models/                  # 数据模型 (MBar, MTick, MStockInfo)
+│   │   ├── sources/                 # 数据源适配器
+│   │   ├── services/                # 数据服务
+│   │   └── cruds/                   # CRUD操作
+│   ├── trading/                     # 交易执行层
+│   │   ├── brokers/                 # 券商接口
+│   │   ├── orders/                  # 订单管理
+│   │   └── positions/               # 持仓管理
+│   ├── analysis/                    # 分析模块
+│   │   ├── analyzers/               # 分析器
+│   │   └── reports/                 # 报告生成
+│   ├── client/                      # CLI客户端
+│   │   ├── *_cli.py                 # 各种CLI命令
+│   └── libs/                        # 工具库
+│       ├── logging/                 # 日志工具
+│       ├── decorators/              # 装饰器
+│       └── utils/                   # 工具函数
 
----
-
-## Phase 2: Implementation Plan
-
-### P0 - MongoDB 基础设施（核心优先）
-
-#### Task 1: MMongoBase 模型基类
-**File**: `src/ginkgo/data/models/model_mongobase.py`
-
-#### Task 2: GinkgoMongo 驱动
-**File**: `src/ginkgo/data/drivers/ginkgo_mongo.py`
-
-#### Task 3: BaseMongoCRUD 抽象类
-**File**: `src/ginkgo/data/crud/base_mongo_crud.py`
-
-#### Task 4: 更新 models/__init__.py 和 drivers/__init__.py
-
-#### Task 5: 更新 BaseCRUD 支持 MMongoBase
-**File**: `src/ginkgo/data/crud/base_crud.py`
-
----
-
-### P1 - 用户管理（MySQL）
-
-#### Task 6: 枚举定义
-**File**: `src/ginkgo/enums.py`
-
-**Code Structure**:
-```python
-# 在 src/ginkgo/enums.py 中添加以下枚举类
-
-class USER_TYPES(EnumBase):
-    VOID = -1
-    OTHER = 0
-    PERSON = 1          # 个人用户
-    CHANNEL = 2         # 频道（如Discord频道）
-    ORGANIZATION = 3    # 组织/群组
-
-class CONTACT_TYPES(EnumBase):
-    VOID = -1
-    OTHER = 0
-    EMAIL = 1           # 邮箱地址
-    DISCORD = 2         # Discord Webhook
+tests/                               # 测试目录
+├── unit/                            # 单元测试
+├── integration/                     # 集成测试
+├── database/                        # 数据库测试
+└── network/                         # 网络测试
 ```
 
-#### Task 7: MUser 模型
-**File**: `src/ginkgo/data/models/model_user.py`
+**Structure Decision**: 采用量化交易库的单一项目结构，按功能模块分层组织代码，支持事件驱动架构和依赖注入模式。
 
-**Requirements**:
-- 继承 `MMysqlBase, ModelConversion`
-- 字段: `user_type` (TINYINT枚举), `name`, `is_active`
-- 使用 `TINYINT` 存储枚举，`validate_input()` 处理转换
+## Complexity Tracking
 
-**Code Structure**:
-```python
-# Upstream: NotificationService, UserContact Management
-# Downstream: MMysqlBase, USER_TYPES, ModelConversion
-# Role: MUser通知接收者模型存储用户/频道/组织信息支持通知系统用户管理
+> **Fill ONLY if Constitution Check has violations that must be justified**
 
-import pandas as pd
-import datetime
-
-from typing import Optional
-from functools import singledispatchmethod
-from sqlalchemy import String, DateTime
-from sqlalchemy.dialects.mysql import TINYINT
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
-from ginkgo.enums import SOURCE_TYPES, USER_TYPES
-from ginkgo.libs import datetime_normalize, base_repr
-
-
-class MUser(MMysqlBase, ModelConversion):
-    """通知接收者模型（用户/频道/组织）"""
-    __abstract__ = False
-    __tablename__ = "users"
-
-    user_type: Mapped[int] = mapped_column(TINYINT, default=-1)
-    name: Mapped[str] = mapped_column(String(100), default="")
-    is_active: Mapped[bool] = mapped_column(TINYINT(1), default=1)
-
-    def __init__(self, name=None, user_type=None, is_active=True, source=None, **kwargs):
-        """Initialize MUser with automatic enum/int handling"""
-        super().__init__(**kwargs)
-
-        self.name = name or ""
-
-        if user_type is not None:
-            self.user_type = USER_TYPES.validate_input(user_type) or USER_TYPES.PERSON.value
-        else:
-            self.user_type = USER_TYPES.PERSON.value
-
-        self.is_active = 1 if is_active else 0
-
-        if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.OTHER.value
-
-    @singledispatchmethod
-    def update(self, *args, **kwargs) -> None:
-        raise NotImplementedError("Unsupported type")
-
-    @update.register(str)
-    def _(
-        self,
-        name: str,
-        user_type: Optional[USER_TYPES] = None,
-        is_active: Optional[bool] = None,
-        *args,
-        **kwargs,
-    ) -> None:
-        self.name = name
-        if user_type is not None:
-            self.user_type = USER_TYPES.validate_input(user_type) or -1
-        if is_active is not None:
-            self.is_active = 1 if is_active else 0
-        self.update_at = datetime.datetime.now()
-
-    @update.register(pd.Series)
-    def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.name = df["name"]
-        if "user_type" in df.keys():
-            self.user_type = USER_TYPES.validate_input(df["user_type"]) or -1
-        if "is_active" in df.keys():
-            self.is_active = 1 if df["is_active"] else 0
-        self.update_at = datetime.datetime.now()
-
-    # 关系：联系方式列表
-    contacts = relationship("MUserContact", back_populates="user")
-
-    def __repr__(self) -> str:
-        return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
-```
-
-#### Task 8: MUserContact 模型
-**File**: `src/ginkgo/data/models/model_user_contact.py`
-
-**Requirements**:
-- 继承 `MMysqlBase, ModelConversion`
-- 字段: `user_id` (FK), `contact_type` (TINYINT枚举), `contact_value`, `is_enabled`, `is_primary`
-- 使用 `TINYINT` 存储枚举，`validate_input()` 处理转换
-
-**Code Structure**:
-```python
-# Upstream: NotificationService
-# Downstream: MMysqlBase, CONTACT_TYPES, ModelConversion
-# Role: MUserContact联系方式模型存储用户Email/Discord等联系方式支持通知发送
-
-import pandas as pd
-import datetime
-
-from typing import Optional
-from functools import singledispatchmethod
-from sqlalchemy import String, ForeignKey, DateTime
-from sqlalchemy.dialects.mysql import TINYINT
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
-from ginkgo.enums import SOURCE_TYPES, CONTACT_TYPES
-from ginkgo.libs import datetime_normalize, base_repr
-
-
-class MUserContact(MMysqlBase, ModelConversion):
-    """联系方式模型"""
-    __abstract__ = False
-    __tablename__ = "user_contacts"
-
-    user_id: Mapped[str] = mapped_column(String(32), ForeignKey("users.uuid"), nullable=False, index=True)
-    contact_type: Mapped[int] = mapped_column(TINYINT, default=-1)
-    contact_value: Mapped[str] = mapped_column(String(500), default="")
-    is_enabled: Mapped[bool] = mapped_column(TINYINT(1), default=1)
-    is_primary: Mapped[bool] = mapped_column(TINYINT(1), default=0)
-
-    def __init__(self, user_id=None, contact_type=None, contact_value=None,
-                 is_enabled=True, is_primary=False, source=None, **kwargs):
-        """Initialize MUserContact with automatic enum/int handling"""
-        super().__init__(**kwargs)
-
-        self.user_id = user_id or ""
-        self.contact_value = contact_value or ""
-
-        if contact_type is not None:
-            self.contact_type = CONTACT_TYPES.validate_input(contact_type) or CONTACT_TYPES.EMAIL.value
-        else:
-            self.contact_type = CONTACT_TYPES.EMAIL.value
-
-        self.is_enabled = 1 if is_enabled else 0
-        self.is_primary = 1 if is_primary else 0
-
-        if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.OTHER.value
-
-    @singledispatchmethod
-    def update(self, *args, **kwargs) -> None:
-        raise NotImplementedError("Unsupported type")
-
-    @update.register(str)
-    def _(
-        self,
-        user_id: str,
-        contact_value: str,
-        contact_type: Optional[CONTACT_TYPES] = None,
-        is_enabled: Optional[bool] = None,
-        is_primary: Optional[bool] = None,
-        *args,
-        **kwargs,
-    ) -> None:
-        self.user_id = user_id
-        self.contact_value = contact_value
-        if contact_type is not None:
-            self.contact_type = CONTACT_TYPES.validate_input(contact_type) or -1
-        if is_enabled is not None:
-            self.is_enabled = 1 if is_enabled else 0
-        if is_primary is not None:
-            self.is_primary = 1 if is_primary else 0
-        self.update_at = datetime.datetime.now()
-
-    @update.register(pd.Series)
-    def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.user_id = df["user_id"]
-        self.contact_value = df["contact_value"]
-        if "contact_type" in df.keys():
-            self.contact_type = CONTACT_TYPES.validate_input(df["contact_type"]) or -1
-        if "is_enabled" in df.keys():
-            self.is_enabled = 1 if df["is_enabled"] else 0
-        if "is_primary" in df.keys():
-            self.is_primary = 1 if df["is_primary"] else 0
-        self.update_at = datetime.datetime.now()
-
-    # 关系：所属用户
-    user = relationship("MUser", back_populates="contacts")
-
-    def __repr__(self) -> str:
-        return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
-```
-
-#### Task 9: MUserGroup 模型
-**File**: `src/ginkgo/data/models/model_user_group.py`
-
-**Requirements**:
-- 继承 `MMysqlBase, ModelConversion`
-- 字段: `group_id`, `group_name`, `description`, `is_active`
-- 不存储成员列表，通过 `MUserGroupMapping` 管理
-
-**Code Structure**:
-```python
-# Upstream: NotificationService
-# Downstream: MMysqlBase, ModelConversion
-# Role: MUserGroup用户组模型存储用户组信息支持批量通知发送
-
-import pandas as pd
-import datetime
-
-from typing import Optional
-from functools import singledispatchmethod
-from sqlalchemy import String
-from sqlalchemy.dialects.mysql import TINYINT
-from sqlalchemy.orm import Mapped, mapped_column
-
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.data.crud.model_conversion import ModelConversion
-from ginkgo.enums import SOURCE_TYPES
-from ginkgo.libs import datetime_normalize, base_repr
-
-
-class MUserGroup(MMysqlBase, ModelConversion):
-    """用户组模型"""
-    __abstract__ = False
-    __tablename__ = "user_groups"
-
-    group_id: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True, default="")
-    group_name: Mapped[str] = mapped_column(String(100), default="")
-    description: Mapped[Optional[str]] = mapped_column(String(500), default="")
-    is_active: Mapped[bool] = mapped_column(TINYINT(1), default=1)
-
-    def __init__(self, group_id=None, group_name=None, description=None,
-                 is_active=True, source=None, **kwargs):
-        """Initialize MUserGroup"""
-        super().__init__(**kwargs)
-
-        self.group_id = group_id or ""
-        self.group_name = group_name or ""
-        self.description = description or ""
-        self.is_active = 1 if is_active else 0
-
-        if source is not None:
-            self.source = SOURCE_TYPES.validate_input(source) or SOURCE_TYPES.OTHER.value
-
-    @singledispatchmethod
-    def update(self, *args, **kwargs) -> None:
-        raise NotImplementedError("Unsupported type")
-
-    @update.register(str)
-    def _(
-        self,
-        group_id: str,
-        group_name: Optional[str] = None,
-        description: Optional[str] = None,
-        is_active: Optional[bool] = None,
-        *args,
-        **kwargs,
-    ) -> None:
-        self.group_id = group_id
-        if group_name is not None:
-            self.group_name = group_name
-        if description is not None:
-            self.description = description
-        if is_active is not None:
-            self.is_active = 1 if is_active else 0
-        self.update_at = datetime.datetime.now()
-
-    @update.register(pd.Series)
-    def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.group_id = df["group_id"]
-        self.group_name = df.get("group_name", "")
-        self.description = df.get("description", "")
-        self.is_active = 1 if df.get("is_active", True) else 0
-        self.update_at = datetime.datetime.now()
-
-    def __repr__(self) -> str:
-        return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)
-```
-
-#### Task 9.5: MUserGroupMapping 模型
-**File**: `src/ginkgo/data/models/model_user_group_mapping.py`
-
-**Requirements**:
-- 继承 `MMysqlBase`（不继承 ModelConversion）
-- 字段: `user_id` (FK), `group_id` (FK), `user_name`, `group_name`
-- **添加外键约束**（与现有 mapping 的区别）
-- 参考项目 mapping 模式（如 MEnginePortfolioMapping）
-
-**Code Structure**:
-```python
-# Upstream: NotificationService
-# Downstream: MMysqlBase, MUser, MUserGroup (外键约束)
-# Role: MUserGroupMapping用户组映射模型多对多关联支持用户组成员管理
-
-import pandas as pd
-import datetime
-
-from typing import Optional
-from functools import singledispatchmethod
-from sqlalchemy import String, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
-
-from ginkgo.data.models.model_mysqlbase import MMysqlBase
-from ginkgo.enums import SOURCE_TYPES
-from ginkgo.libs import base_repr
-
-
-class MUserGroupMapping(MMysqlBase):
-    """用户组映射模型（多对多，带外键约束）"""
-    __abstract__ = False
-    __tablename__ = "user_group_mapping"
-
-    user_id: Mapped[str] = mapped_column(String(32), ForeignKey("users.uuid"), default="")
-    group_id: Mapped[str] = mapped_column(String(32), ForeignKey("user_groups.uuid"), default="")
-    user_name: Mapped[str] = mapped_column(String(100), default="")
-    group_name: Mapped[str] = mapped_column(String(100), default="")
-
-    def __init__(self, **kwargs):
-        """初始化MUserGroupMapping实例"""
-        super().__init__()
-        if 'source' in kwargs:
-            self.set_source(kwargs['source'])
-            del kwargs['source']
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-
-    @singledispatchmethod
-    def update(self, *args, **kwargs) -> None:
-        raise NotImplementedError("Unsupported type")
-
-    @update.register(str)
-    def _(
-        self,
-        user_id: str,
-        group_id: str,
-        user_name: Optional[str] = None,
-        group_name: Optional[str] = None,
-        source: Optional[SOURCE_TYPES] = None,
-        *args,
-        **kwargs,
-    ) -> None:
-        self.user_id = user_id
-        self.group_id = group_id
-        if user_name is not None:
-            self.user_name = user_name
-        if group_name is not None:
-            self.group_name = group_name
-        if source is not None:
-            self.set_source(source)
-        self.update_at = datetime.datetime.now()
-
-    @update.register(pd.Series)
-    def _(self, df: pd.Series, *args, **kwargs) -> None:
-        self.user_id = df["user_id"]
-        self.group_id = df["group_id"]
-        self.user_name = df["user_name"]
-        self.group_name = df["group_name"]
-        if "source" in df.keys():
-            self.set_source(df["source"])
-        self.update_at = datetime.datetime.now()
-
-    def __repr__(self) -> str:
-        return base_repr(self, "DB" + self.__tablename__.capitalize(), 20, 46)
-```
-
-#### Task 10: UserCRUD, UserContactCRUD, UserGroupCRUD, UserGroupMappingCRUD
-**Files**:
-- `src/ginkgo/data/crud/user_crud.py`
-- `src/ginkgo/data/crud/user_contact_crud.py`
-- `src/ginkgo/data/crud/user_group_crud.py`
-- `src/ginkgo/data/crud/user_group_mapping_crud.py`
-
-**Requirements**:
-- 继承 `BaseCRUD`
-- 使用 `@time_logger`, `@retry` 装饰器
-- UserContactCRUD 提供 `get_enabled_contacts(user_id)` 方法
-- UserGroupMappingCRUD 参考现有 mapping CRUD（如 EnginePortfolioMappingCRUD）
-
----
-
-### P2 - 通知系统核心功能
-
-#### Task 11: MNotificationRecord 模型
-**File**: `src/ginkgo/data/models/model_notification_record.py`
-
-**Requirements**:
-- 继承 `MMongoBase`
-- 字段: `message_id`, `content`, `content_type`, `channels`, `status`, `channel_results`, `attachments`
-- `priority` 字段保留（预留未来扩展，当前按 FIFO 处理）
-
-#### Task 12: NotificationRecordCRUD
-**File**: `src/ginkgo/data/crud/notification_record_crud.py`
-
-**Requirements**:
-- 继承 `BaseMongoCRUD[MNotificationRecord]`
-- 创建 TTL 索引（7天自动清理）
-
-#### Task 13: NotificationService
-**File**: `src/ginkgo/notifier/core/notification_service.py`
-
-**Requirements**:
-- 依赖 `UserService` (MySQL) 查询用户配置
-- 实现 `send()`, `send_to_users()`, `send_to_group()` 方法
-- 实现 `send_template()` 方法（可选）
-- 实现 `send_sync()` 方法（同步，用于测试）
-
-**Code Structure**:
-```python
-class NotificationService:
-    def __init__(self):
-        self.user_crud = container.user_crud()  # MySQL
-        self.contact_crud = container.user_contact_crud()  # MySQL
-        self.group_crud = container.user_group_crud()  # MySQL
-        self.record_crud = container.notification_record_crud()  # MongoDB
-        self.discord_channel = DiscordChannel()
-        self.email_channel = EmailChannel()
-
-    def send_to_users(self, message: NotificationMessage, user_ids: List[str]):
-        """发送通知到指定用户列表"""
-        # 1. 从MySQL查询用户的联系方式
-        contacts = self.contact_crud.get_enabled_contacts_by_user_ids(user_ids)
-
-        # 2. 按类型分组发送
-        for contact in contacts:
-            if contact.contact_type == ContactTypeEnum.EMAIL:
-                self.email_channel.send(message.content, contact.contact_value)
-            elif contact.contact_type == ContactTypeEnum.DISCORD:
-                self.discord_channel.send(message.content, contact.contact_value)
-```
-
-#### Task 14: Discord Channel
-**File**: `src/ginkgo/notifier/channels/discord_channel.py`
-
-#### Task 15: Email Channel
-**File**: `src/ginkgo/notifier/channels/email_channel.py`
-
----
-
-### P3 - 高级功能
-
-#### Task 16: Template Engine (可选)
-**File**: `src/ginkgo/notifier/core/template_engine.py`
-
-#### Task 17: Notification Worker
-**File**: `src/ginkgo/notifier/workers/notification_worker.py`
-
----
-
-
-## 数据库架构总结
-
-**混合数据库架构**:
-
-- **MySQL** (事务、关系、一致性):
-  - MUser (用户核心)
-  - MUserContact (联系方式)
-  - MUserGroup (用户组)
-
-- **MongoDB** (灵活schema、TTL自动清理):
-  - MNotificationRecord (通知记录)
-  - MNotificationTemplate (通知模板)
-  - TTL 索引 (7天自动清理)
-
-**交互流程**:
-1. 用户登录 → MySQL 验证
-2. 发送通知 → 查询MySQL获取配置 → 发送 → 记录到MongoDB
-3. 用户组管理 → MySQL 关系查询
-
----
-
-## CLI Commands
-
-```bash
-# MongoDB 初始化
-ginkgo data init --mongo
-
-# ========== 用户管理 ==========
-ginkgo user add                    # 添加用户（人/频道/组织）
-ginkgo user list                   # 列出所有用户
-ginkgo user show <user_id>         # 查看用户详情
-ginkgo user update <user_id>       # 更新用户信息
-ginkgo user delete <user_id>       # 删除用户
-
-# ========== 联系方式管理 ==========
-ginkgo user contact add            # 添加联系方式（email/discord）
-ginkgo user contact list           # 列出用户的所有联系方式
-ginkgo user contact enable         # 启用/禁用联系方式
-
-# ========== 用户组管理 ==========
-ginkgo user group create           # 创建用户组
-ginkgo user group list             # 列出所有用户组
-ginkgo user group show <group_id>  # 查看用户组详情
-ginkgo user group add-user         # 添加用户到组
-ginkgo user group remove-user      # 从组中移除用户
-
-# ========== 通知系统 ==========
-ginkgo notification init           # 初始化（同步预定义模板）
-ginkgo notification test            # 测试渠道连接
-ginkgo notification send --content "测试" --channels discord,email
-ginkgo notification send-to-users --user-ids user1,user2 --content "测试"
-ginkgo notification send-to-group --group-id traders --content "组消息"
-```
-
----
-
-## Next Steps
-
-**Recommended Command**: `/speckit.tasks` - 生成详细的任务分解
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

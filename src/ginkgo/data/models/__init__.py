@@ -21,6 +21,7 @@ from ginkgo.data.models.model_file import MFile
 from ginkgo.data.models.model_handler import MHandler
 from ginkgo.data.models.model_param import MParam
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
+from ginkgo.data.models.model_mongobase import MMongoBase
 from ginkgo.data.models.model_order import MOrder
 from ginkgo.data.models.model_order_record import MOrderRecord
 from ginkgo.data.models.model_portfolio import MPortfolio
@@ -35,6 +36,12 @@ from ginkgo.data.models.model_trade_day import MTradeDay
 from ginkgo.data.models.model_transfer import MTransfer
 from ginkgo.data.models.model_transfer_record import MTransferRecord
 from ginkgo.data.models.model_run_record import MRunRecord
+from ginkgo.data.models.model_user import MUser
+from ginkgo.data.models.model_user_contact import MUserContact
+from ginkgo.data.models.model_user_group import MUserGroup
+from ginkgo.data.models.model_user_group_mapping import MUserGroupMapping
+from ginkgo.data.models.model_notification_template import MNotificationTemplate
+from ginkgo.data.models.model_notification_record import MNotificationRecord
 
 
 __all__ = [
@@ -52,6 +59,7 @@ __all__ = [
     "MHandler",
     "MParam",
     "MMysqlBase",
+    "MMongoBase",
     "MOrder",
     "MOrderRecord",
     "MPortfolio",
@@ -66,4 +74,10 @@ __all__ = [
     "MTransfer",
     "MTransferRecord",
     "MRunRecord",
+    "MUser",
+    "MUserContact",
+    "MUserGroup",
+    "MUserGroupMapping",
+    "MNotificationTemplate",
+    "MNotificationRecord",
 ]
