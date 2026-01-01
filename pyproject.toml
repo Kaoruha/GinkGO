@@ -75,6 +75,7 @@ dependencies = [
     "pygments>=2.19.0",
     "pyjwt>=2.10.0",
     "pymysql>=1.1.0",
+    "pymongo>=4.15.0",
     "pytest-cov>=7.0.0",
     "python-dateutil>=2.9.0",
     "python-dotenv>=1.1.0",

@@ -121,7 +121,7 @@ psutil==7.0.0
 psycopg==3.2.9
 psycopg-pool==3.2.6
 psycopg==3.2.9
-pymongo==4.12.0
+pymongo==4.15.5
 ptyprocess==0.7.0
 pure_eval==0.2.3
 py-mini-racer==0.6.0

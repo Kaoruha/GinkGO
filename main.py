@@ -129,7 +129,7 @@ def _register_all_commands():
         return LazyTyper(module_name, app_name).app
 
     # 新的模块化命令架构 - 使用独立的CLI文件
-    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli
+    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli
 
     _main_app.add_typer(data_cli.app, name="data", help=":page_facing_up: Data management")
     _main_app.add_typer(engine_cli.app, name="engine", help=":fire: Engine management")
@@ -137,6 +137,11 @@ def _register_all_commands():
     _main_app.add_typer(param_cli.app, name="param", help=":wrench: Parameter management")
     _main_app.add_typer(kafka_cli.app, name="kafka", help=":satellite: Kafka queue management")
     _main_app.add_typer(worker_cli.app, name="worker", help=":gear: Worker management")
+    _main_app.add_typer(mongo_cli.app, name="mongo", help=":leaf: MongoDB management")
+    _main_app.add_typer(user_cli.app, name="user", help=":bust_in_silhouette: User management")
+    _main_app.add_typer(group_cli.app, name="group", help=":people_hugging: User group management")
+    _main_app.add_typer(templates_cli.app, name="templates", help=":memo: Notification template management")
+    _main_app.add_typer(notify_cli.app, name="notify", help=":bell: Notification sending")
 
     # Validation command (component code validation before backtesting)
     from ginkgo.client.validation_cli import validate, console

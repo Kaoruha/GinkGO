@@ -282,11 +282,10 @@ class GinkgoConfig(object):
     @property
     def MONGOPORT(self) -> int:
         port = self._get_config("port", section="mongodb")
-        final_port = f"1{port}" if not self.DEBUGMODE else port
-        # 更新环境变量为最终的DEBUG模式计算值
-        if final_port is not None:
-            os.environ["GINKGO_MONGODB_PORT"] = str(final_port)
-        return final_port
+        # 直接返回端口，不进行DEBUG模式处理
+        if port is not None:
+            os.environ["GINKGO_MONGODB_PORT"] = str(port)
+        return port
 
     @property
     def KAFKAHOST(self) -> str:
@@ -524,6 +523,82 @@ class GinkgoConfig(object):
         if isinstance(value, str):
             self._write_config("python_path", value)
             os.environ[key] = str(value)
+
+    # ==================== 通知超时配置 ====================
+
+    @property
+    def NOTIFICATION_DISCORD_TIMEOUT(self) -> int:
+        """
+        Discord Webhook 请求超时时间（秒）
+
+        默认值: 3秒
+        配置路径: notifications.discord.timeout
+        """
+        key = "GINKGO_NOTIFICATION_DISCORD_TIMEOUT"
+        timeout = os.environ.get(key, None)
+        if timeout is None:
+            # 尝试从配置文件读取
+            config = self._read_config()
+            notifications = config.get("notifications", {})
+            discord = notifications.get("discord", {})
+            timeout = discord.get("timeout", 3)  # 默认 3 秒
+            os.environ[key] = str(timeout)
+        return int(timeout)
+
+    @property
+    def NOTIFICATION_EMAIL_TIMEOUT(self) -> int:
+        """
+        Email SMTP 请求超时时间（秒）
+
+        默认值: 10秒
+        配置路径: notifications.email.timeout
+        """
+        key = "GINKGO_NOTIFICATION_EMAIL_TIMEOUT"
+        timeout = os.environ.get(key, None)
+        if timeout is None:
+            # 尝试从配置文件读取
+            config = self._read_config()
+            notifications = config.get("notifications", {})
+            email = notifications.get("email", {})
+            timeout = email.get("timeout", 10)  # 默认 10 秒
+            os.environ[key] = str(timeout)
+        return int(timeout)
+
+    @property
+    def NOTIFICATION_DISCORD_MAX_RETRIES(self) -> int:
+        """
+        Discord Webhook 最大重试次数
+
+        默认值: 3
+        配置路径: notifications.discord.max_retries
+        """
+        key = "GINKGO_NOTIFICATION_DISCORD_MAX_RETRIES"
+        retries = os.environ.get(key, None)
+        if retries is None:
+            config = self._read_config()
+            notifications = config.get("notifications", {})
+            discord = notifications.get("discord", {})
+            retries = discord.get("max_retries", 3)  # 默认 3 次
+            os.environ[key] = str(retries)
+        return int(retries)
+
+    @property
+    def NOTIFICATION_EMAIL_MAX_RETRIES(self) -> int:
+        """
+        Email SMTP 最大重试次数
+
+        默认值: 3
+        配置路径: notifications.email.max_retries
+        """
+        key = "GINKGO_NOTIFICATION_EMAIL_MAX_RETRIES"
+        retries = os.environ.get(key, None)
+        if retries is None:
+            config = self._read_config()
+            notifications = config.get("notifications", {})
+            email = notifications.get("email", {})
+            retries = email.get("max_retries", 3)  # 默认 3 次
+            os.environ[key] = str(retries)
+        return int(retries)
 
 
 GCONF = GinkgoConfig()
