@@ -29,7 +29,6 @@ from ginkgo.enums import NOTIFICATION_STATUS_TYPES, SOURCE_TYPES, CONTACT_TYPES
 # 使用 TYPE_CHECKING 避免运行时循环导入
 if TYPE_CHECKING:
     from ginkgo.notifier.core.template_engine import TemplateEngine
-    from ginkgo.notifier.core.message_queue import MessageQueue
     from ginkgo.libs.utils.kafka_health_checker import KafkaHealthChecker
 
 
@@ -54,7 +53,7 @@ class NotificationService(BaseService):
         contact_crud: Optional[UserContactCRUD] = None,
         group_crud: Optional[UserGroupCRUD] = None,
         group_mapping_crud: Optional[UserGroupMappingCRUD] = None,
-        message_queue: Optional[MessageQueue] = None,
+        kafka_producer: Optional['GinkgoProducer'] = None,
         kafka_health_checker: Optional[KafkaHealthChecker] = None
     ):
         """
@@ -69,7 +68,7 @@ class NotificationService(BaseService):
             group_mapping_crud: 用户组映射 CRUD 实例（可选，用于获取组成员）
             user_service: 用户服务实例（必需，用于模糊搜索）
             user_group_service: 用户组服务实例（必需，用于模糊搜索）
-            message_queue: Kafka 消息队列（可选，用于异步通知）
+            kafka_producer: Kafka 生产者（可选，用于异步通知）
             kafka_health_checker: Kafka 健康检查器（可选，用于降级逻辑）
         """
         super().__init__(crud_repo=record_crud)
@@ -83,7 +82,7 @@ class NotificationService(BaseService):
         self.user_group_service = user_group_service
 
         # Kafka 组件（可选，用于异步通知和降级逻辑）
-        self._message_queue = message_queue
+        self._kafka_producer = kafka_producer
         self._kafka_health_checker = kafka_health_checker
 
         # 注册的通知渠道 {channel_name: channel_instance}
@@ -575,6 +574,7 @@ class NotificationService(BaseService):
         user_uuid: str,
         content: str,
         title: Optional[str] = None,
+        channels: Optional[Union[str, List[str]]] = None,
         content_type: str = "text",
         priority: int = 1,
         **kwargs
@@ -583,11 +583,13 @@ class NotificationService(BaseService):
         根据用户联系方式发送通知
 
         自动查找用户的活跃联系方式，优先使用主联系方式。
+        可选传入 channels 参数覆盖自动查找。
 
         Args:
             user_uuid: 用户 UUID
             content: 通知内容
             title: 通知标题（可选）
+            channels: 渠道列表（可选，如果提供则覆盖自动查找）
             content_type: 内容类型
             priority: 优先级
             **kwargs: 其他参数
@@ -596,8 +598,9 @@ class NotificationService(BaseService):
             ServiceResult: 包含发送结果
         """
         try:
-            # 获取用户的可用渠道
-            channels = self._get_user_channels(user_uuid)
+            # 如果没有提供 channels，自动获取用户的可用渠道
+            if channels is None:
+                channels = self._get_user_channels(user_uuid)
 
             if not channels:
                 return ServiceResult.error(
@@ -612,7 +615,7 @@ class NotificationService(BaseService):
                 content_type=content_type,
                 priority=priority,
                 title=title,
-                **kwargs
+                **{k: v for k, v in kwargs.items() if k != 'channels'}
             )
 
         except Exception as e:
@@ -1470,7 +1473,7 @@ class NotificationService(BaseService):
             channels = [channels]
 
         # 检查 Kafka 组件是否已配置
-        if self._message_queue is None or self._kafka_health_checker is None:
+        if self._kafka_producer is None or self._kafka_health_checker is None:
             if force_async:
                 return ServiceResult.error(
                     "Kafka components not configured and force_async=True"
@@ -1515,7 +1518,8 @@ class NotificationService(BaseService):
 
         # Kafka 可用，尝试异步发送
         try:
-            success = self._message_queue.send_notification(
+            # 构建消息
+            message = self._build_kafka_message(
                 content=content,
                 channels=channels,
                 user_uuid=user_uuid,
@@ -1526,28 +1530,24 @@ class NotificationService(BaseService):
                 **kwargs
             )
 
-            if success:
-                return ServiceResult.success(
-                    data={
-                        "mode": "async",
-                        "message_id": f"kafka_{uuid_lib.uuid4().hex}",
-                        "channels": channels,
-                        "queued": True
-                    }
-                )
-            else:
-                # Kafka 发送失败，降级为同步发送
-                GLOG.WARN("Kafka send failed, degrading to sync mode")
-                return self.send(
-                    content=content,
-                    channels=channels,
-                    user_uuid=user_uuid,
-                    template_id=template_id,
-                    content_type=content_type,
-                    priority=priority,
-                    title=title,
-                    **kwargs
-                )
+            # 发送到 Kafka（异步，不阻塞）
+            success = self._kafka_producer.send_async("notifications", message)
+            if not success:
+                raise Exception("Kafka send_async returned False")
+
+            # 等待消息发送完成（避免程序退出时的超时错误）
+            self._kafka_producer.flush(timeout=2.0)
+
+            GLOG.DEBUG(f"Notification queued via Kafka for user {user_uuid}, channels: {channels}")
+
+            return ServiceResult.success(
+                data={
+                    "mode": "async",
+                    "message_id": f"kafka_{uuid_lib.uuid4().hex}",
+                    "channels": channels,
+                    "queued": True
+                }
+            )
 
         except Exception as e:
             GLOG.ERROR(f"Kafka async send error: {e}, degrading to sync mode")
@@ -1563,6 +1563,115 @@ class NotificationService(BaseService):
                 title=title,
                 **kwargs
             )
+
+    def send_sync(
+        self,
+        content: str,
+        channels: Union[str, List[str]],
+        user_uuid: Optional[str] = None,
+        template_id: Optional[str] = None,
+        content_type: str = "text",
+        priority: int = 1,
+        title: Optional[str] = None,
+        **kwargs
+    ) -> ServiceResult:
+        """
+        同步发送通知（直接调用渠道，不经过 Kafka）
+
+        此方法用于测试或需要立即确认发送结果的场景。
+        与 send() 方法的区别：
+        - send_sync: 强制同步模式，忽略 Kafka 配置
+        - send: 根据 Kafka 配置自动选择异步或同步模式
+
+        Args:
+            content: 通知内容
+            channels: 渠道名称或列表
+            user_uuid: 用户 UUID（可选）
+            template_id: 使用的模板 ID（可选）
+            content_type: 内容类型
+            priority: 优先级
+            title: 通知标题（可选）
+            **kwargs: 其他参数
+
+        Returns:
+            ServiceResult: 包含发送结果
+        """
+        # 标准化 channels 参数
+        if isinstance(channels, str):
+            channels = [channels]
+
+        GLOG.DEBUG(f"Sending sync notification for user {user_uuid}, channels: {channels}")
+
+        # 直接调用同步发送方法
+        return self.send(
+            content=content,
+            channels=channels,
+            user_uuid=user_uuid,
+            template_id=template_id,
+            content_type=content_type,
+            priority=priority,
+            title=title,
+            **kwargs
+        )
+
+    def _build_kafka_message(
+        self,
+        content: str,
+        channels: List[str],
+        user_uuid: Optional[str] = None,
+        template_id: Optional[str] = None,
+        content_type: str = "text",
+        priority: int = 1,
+        title: Optional[str] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        构建 Kafka 消息格式（与 NotificationWorker 兼容）
+
+        Args:
+            content: 消息内容
+            channels: 发送渠道列表
+            user_uuid: 用户UUID（可选）
+            template_id: 模板ID（可选）
+            content_type: 内容类型
+            priority: 优先级
+            title: 消息标题（可选）
+            **kwargs: 其他参数
+
+        Returns:
+            Dict: Kafka消息字典
+
+        Worker 期望的消息格式（simple 类型）:
+        {
+            "message_type": "simple",
+            "user_uuid": "user-123",
+            "content": "通知内容",
+            "title": "标题",
+            "channels": ["webhook"],
+            "priority": 1
+        }
+        """
+        from datetime import datetime
+
+        # 构建与 Worker 兼容的消息格式
+        message = {
+            "message_type": "simple",
+            "user_uuid": user_uuid,
+            "content": content,
+            "title": title,
+            "channels": channels if isinstance(channels, list) else [channels],
+            "priority": priority,
+        }
+
+        # 添加可选字段
+        if template_id:
+            message["template_id"] = template_id
+
+        # 添加其他参数
+        if kwargs:
+            message["kwargs"] = kwargs
+
+        return message
 
     def check_kafka_health(self) -> Dict[str, Any]:
         """
@@ -1586,19 +1695,92 @@ class NotificationService(BaseService):
         Returns:
             Dict: Kafka 状态信息
         """
-        if self._kafka_health_checker is None or self._message_queue is None:
+        if self._kafka_producer is None or self._kafka_health_checker is None:
             return {
                 "enabled": False,
                 "message": "Kafka components not configured"
             }
 
         health = self._kafka_health_checker.check_health()
-        queue_status = self._message_queue.get_queue_status()
 
         return {
             "enabled": True,
             "healthy": health.get("healthy", False),
             "should_degrade": self._kafka_health_checker.should_degrade(),
-            "health_summary": self._kafka_health_checker.get_health_summary(),
-            "queue_status": queue_status
+            "health_summary": self._kafka_health_checker.get_health_summary()
         }
+
+    # ==================== 查询方法 ====================
+
+    def get_records_by_user(
+        self,
+        user_uuid: str,
+        limit: int = 100,
+        status: Optional[int] = None
+    ) -> ServiceResult:
+        """
+        查询用户的通知记录
+
+        Args:
+            user_uuid: 用户 UUID
+            limit: 最大返回数量
+            status: 可选的状态过滤
+
+        Returns:
+            ServiceResult with list of notification records
+        """
+        try:
+            records = self.record_crud.get_by_user(
+                user_uuid=user_uuid,
+                limit=limit,
+                status=status
+            )
+
+            return ServiceResult.success(
+                data={
+                    "records": records,
+                    "count": len(records)
+                },
+                message=f"Found {len(records)} records for user {user_uuid}"
+            )
+
+        except Exception as e:
+            GLOG.ERROR(f"Error getting records for user '{user_uuid}': {e}")
+            return ServiceResult.error(
+                f"Failed to get records: {str(e)}"
+            )
+
+    def get_records_by_template_id(
+        self,
+        template_id: str,
+        limit: int = 100
+    ) -> ServiceResult:
+        """
+        根据模板 ID 查询通知记录
+
+        Args:
+            template_id: 模板 ID
+            limit: 最大返回数量
+
+        Returns:
+            ServiceResult with list of notification records
+        """
+        try:
+            records = self.record_crud.get_by_template_id(
+                template_id=template_id,
+                limit=limit
+            )
+
+            return ServiceResult.success(
+                data={
+                    "records": records,
+                    "count": len(records)
+                },
+                message=f"Found {len(records)} records for template {template_id}"
+            )
+
+        except Exception as e:
+            GLOG.ERROR(f"Error getting records for template '{template_id}': {e}")
+            return ServiceResult.error(
+                f"Failed to get records: {str(e)}"
+            )

@@ -9,7 +9,8 @@ Notifier Module
 Provides notification system functionality including:
 - Template engine for message rendering
 - Notification channels (Email, Webhook, Kafka)
-- Notification services
+- Notification services and workers
+- Dependency injection container for notification components
 """
 
 # 延迟导入以避免循环依赖
@@ -17,6 +18,9 @@ __all__ = [
     "TemplateEngine",
     "INotificationChannel",
     "WebhookChannel",
+    "NotificationService",
+    "NotificationWorker",
+    "container",
 ]
 
 def __getattr__(name):
@@ -29,4 +33,13 @@ def __getattr__(name):
     if name == "WebhookChannel":
         from ginkgo.notifier.channels.webhook_channel import WebhookChannel
         return WebhookChannel
+    if name == "NotificationService":
+        from ginkgo.notifier.core.notification_service import NotificationService
+        return NotificationService
+    if name == "NotificationWorker":
+        from ginkgo.notifier.workers.notification_worker import NotificationWorker
+        return NotificationWorker
+    if name == "container":
+        from ginkgo.notifier.containers import container
+        return container
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
