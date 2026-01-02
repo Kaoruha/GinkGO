@@ -69,13 +69,9 @@ from ginkgo.data.services.analyzer_service import AnalyzerService
 from ginkgo.data.services.param_service import ParamService
 from ginkgo.data.services.mapping_service import MappingService
 from ginkgo.data.services.parameter_metadata_service import ParameterMetadataService
-from ginkgo.user.services.user_service import UserService
-from ginkgo.user.services.user_group_service import UserGroupService
 
-# 使用 TYPE_CHECKING 避免运行时循环导入
-if TYPE_CHECKING:
-    from ginkgo.notifier.core.notification_service import NotificationService
-    from ginkgo.notifier.core.template_engine import TemplateEngine
+# User services are imported lazily to avoid circular dependency with data module
+# They will be imported when container providers are called
 
 
 class Container(containers.DeclarativeContainer):
@@ -206,38 +202,6 @@ class Container(containers.DeclarativeContainer):
         engine_handler_mapping_crud=engine_handler_mapping_crud,
         param_crud=param_crud,
     )
-
-    # User management services
-    user_service = providers.Singleton(
-        UserService,
-        user_crud=user_crud,
-        user_contact_crud=user_contact_crud
-    )
-
-    user_group_service = providers.Singleton(
-        UserGroupService,
-        user_group_crud=user_group_crud,
-        user_group_mapping_crud=user_group_mapping_crud
-    )
-
-    # Notification System - 使用 Callable 延迟导入以避免循环依赖
-    # 这样只有在访问 template_engine 时才会真正导入 TemplateEngine 类
-    template_engine = providers.Callable(
-        lambda: __import__('ginkgo.notifier.core.template_engine', fromlist=['TemplateEngine']).TemplateEngine,
-        template_crud=notification_template_crud
-    ).provider
-
-    notification_service = providers.Callable(
-        lambda: __import__('ginkgo.notifier.core.notification_service', fromlist=['NotificationService']).NotificationService,
-        template_crud=notification_template_crud,
-        record_crud=notification_record_crud,
-        template_engine=template_engine,
-        contact_crud=user_contact_crud,
-        group_crud=user_group_crud,
-        group_mapping_crud=user_group_mapping_crud,
-        user_service=user_service,
-        user_group_service=user_group_service
-    ).provider
 
 
 # A singleton instance of the container, accessible throughout the application
