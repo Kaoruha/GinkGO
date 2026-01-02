@@ -12,6 +12,7 @@ from ginkgo.data.crud.adjustfactor_crud import AdjustfactorCRUD
 from ginkgo.data.crud.analyzer_record_crud import AnalyzerRecordCRUD
 from ginkgo.data.crud.bar_crud import BarCRUD
 from ginkgo.data.crud.base_crud import BaseCRUD
+from ginkgo.data.crud.base_mongo_crud import BaseMongoCRUD
 from ginkgo.data.crud.capital_adjustment_crud import CapitalAdjustmentCRUD
 from ginkgo.data.crud.engine_crud import EngineCRUD
 from ginkgo.data.crud.engine_handler_mapping_crud import EngineHandlerMappingCRUD
@@ -36,6 +37,12 @@ from ginkgo.data.crud.tick_summary_crud import TickSummaryCRUD
 from ginkgo.data.crud.trade_day_crud import TradeDayCRUD
 from ginkgo.data.crud.transfer_crud import TransferCRUD
 from ginkgo.data.crud.transfer_record_crud import TransferRecordCRUD
+from ginkgo.data.crud.user_crud import UserCRUD
+from ginkgo.data.crud.user_contact_crud import UserContactCRUD
+from ginkgo.data.crud.user_group_crud import UserGroupCRUD
+from ginkgo.data.crud.user_group_mapping_crud import UserGroupMappingCRUD
+from ginkgo.data.crud.notification_template_crud import NotificationTemplateCRUD
+from ginkgo.data.crud.notification_record_crud import NotificationRecordCRUD
 from ginkgo.data.crud.validation import ValidationError
 
 __all__ = [
@@ -43,6 +50,7 @@ __all__ = [
     "AnalyzerRecordCRUD",
     "BarCRUD",
     "BaseCRUD",
+    "BaseMongoCRUD",
     "CapitalAdjustmentCRUD",
     "EngineCRUD",
     "EngineHandlerMappingCRUD",
@@ -67,5 +75,11 @@ __all__ = [
     "TradeDayCRUD",
     "TransferCRUD",
     "TransferRecordCRUD",
+    "UserCRUD",
+    "UserContactCRUD",
+    "UserGroupCRUD",
+    "UserGroupMappingCRUD",
+    "NotificationTemplateCRUD",
+    "NotificationRecordCRUD",
     "ValidationError",
 ]

@@ -1,22 +1,21 @@
 <!--
 Sync Impact Report:
-Version change: 1.3.1 → 1.4.0
+Version change: 1.5.1 → 1.6.0
 Modified principles:
-- 代码注释同步原则(Code Header Synchronization) - 新增第8条核心原则
-Added sections:
-- 核心原则第8条: 代码注释同步原则
+- 架构设计原则(Architecture Excellence) - 强化服务获取规范，强制要求所有Service必须从Container获取
+Added sections: N/A
 Removed sections: N/A
 Files Updated for Consistency:
-✅ updated: .specify/specs/003-default/spec.md - 已包含头部同步相关需求(FR-025, FR-031)
-✅ updated: .specify/specs/003-default/plan.md - 已包含CI/CD集成检查计划
-⚠ pending: .specify/templates/plan-template.md - 需要在Constitution Check中添加代码注释同步检查项
-⚠ pending: .specify/templates/spec-template.md - 需要在维护需求部分考虑头部同步约束
-✅ updated: .specify/templates/tasks-template.md - 已包含维护任务模板
+✅ updated: .specify/specs/006-notification-system/spec.md - 已包含服务容器相关需求
+✅ updated: .specify/specs/003-default/spec.md - 已包含服务容器架构需求
+⚠ pending: .specify/templates/plan-template.md - 需要添加服务容器检查项
+⚠ pending: .specify/templates/spec-template.md - 需要添加服务获取规范
+⚠ pending: start_notification_worker.py - 需要修改为从Container获取Service
+⚠ pending: tests/integration/notifier/test_worker_integration.py - 需要修改测试代码使用Container
 Follow-up TODOs:
-- 在CI/CD流程中添加头部准确性自动检查
-- 实施代码审查时的头部同步检查清单
-- 定期运行验证脚本确保头部与代码一致性
-- 建立头部更新自动提醒机制
+- 更新所有直接实例化Service的代码改为从Container获取
+- 在代码审查中添加服务获取规范检查
+- 建立服务容器使用最佳实践文档
 -->
 
 # Ginkgo 项目章程
@@ -24,9 +23,9 @@ Follow-up TODOs:
 ## 基本信息
 
 - **项目名称**: Ginkgo
-- **章程版本**: 1.4.0
+- **章程版本**: 1.6.0
 - **制定日期**: 2025-11-03
-- **最后修订**: 2025-12-29
+- **最后修订**: 2026-01-01
 - **项目描述**: Python量化交易库，专注于事件驱动回测、多数据库支持和完整的风险管理系统
 
 ## 核心原则
@@ -48,7 +47,42 @@ Follow-up TODOs:
 
 **事件驱动优先**: 所有交易功能必须基于事件驱动架构设计，遵循PriceUpdate → Strategy → Signal → Portfolio → Order → Fill的标准流程。
 
-**依赖注入模式**: 必须使用ServiceHub统一访问服务，通过`from ginkgo import service_hub`访问所有服务组件。为向后兼容，仍支持`from ginkgo import services`，但建议迁移到service_hub。
+**服务容器强制规范**: 所有Service必须从ServiceContainer获取，严禁直接实例化Service对象。
+
+**具体要求**:
+- **强制使用Container**: 所有Service实例必须通过`service_hub.get()`或`services.xxx()`获取，禁止使用`Service()`直接构造
+- **统一服务访问**: 为向后兼容，支持`from ginkgo import services`，但新代码必须迁移到`from ginkgo import service_hub`
+- **依赖注入管理**: Service的依赖关系由Container统一管理，禁止手动传递CRUD实例或其他依赖
+- **服务注册规范**: 新Service必须在Container中注册后才能被使用，注册时需声明所有依赖
+- **生命周期管理**: Service的生命周期由Container管理，禁止手动创建和销毁Service实例
+
+**禁止模式**:
+```python
+# ❌ 错误：直接实例化Service
+user_service = UserService(user_crud, user_contact_crud)
+notification_service = NotificationService(template_crud, record_crud, ...)
+
+# ❌ 错误：手动传递依赖
+worker = NotificationWorker(
+    notification_service=notification_service,  # 手动创建
+    record_crud=record_crud                     # 手动传递
+)
+```
+
+**正确模式**:
+```python
+# ✅ 正确：从Container获取Service
+from ginkgo import service_hub
+
+user_service = service_hub.users.user_service
+notification_service = service_hub.notifiers.notification_service
+
+# ✅ 正确：使用services别名（向后兼容）
+from ginkgo import services
+user_service = services.users.user_service
+```
+
+**理由**: 统一从Container获取Service能够确保依赖注入的一致性，避免手动管理依赖的复杂性，提高代码的可测试性和可维护性。直接实例化Service会导致依赖管理混乱、测试困难、配置不一致等问题。容器化服务管理是现代软件架构的最佳实践。
 
 **职责分离**: 严格分离数据层、策略层、执行层、分析层和服务层的职责，避免跨层功能耦合。
 
@@ -111,18 +145,18 @@ Follow-up TODOs:
 
 ### 6. 任务管理原则 (Task Management Excellence)
 
-**精简任务列表**: 任务跟踪系统必须保持简洁高效，最多显示5个活跃任务，优先移除已完成任务。
+**精简任务列表**: 任务跟踪系统必须保持简洁高效，采用分阶段管理策略，每个阶段最多5个活跃任务。
 
 **具体要求**:
-- 任务列表必须限制在最多5个，超出部分自动隐藏或归档
+- **分阶段管理**: 长期项目必须分阶段组织，每个开发阶段专注于有限数量的核心任务
+- 每个阶段的活跃任务列表必须限制在最多5个，超出部分自动隐藏或归档
 - 已完成的任务必须立即从活跃列表中移除，保持界面清洁
-- **定期清理机制**: 必须建立定期任务清理流程，在每轮开发周期结束后主动整理任务列表
+- **定期清理机制**: 必须建立定期任务清理流程，在每个阶段完成后主动整理任务列表
 - 任务优先级必须明确，高优先级任务优先显示
 - 任务状态必须实时更新，确保团队协作效率
-- 长期项目应分阶段管理，每个阶段专注于有限数量的核心任务
 - **用户体验优化**: 避免任务列表过长影响开发体验和团队专注度
 
-**理由**: 过长的任务列表会降低团队专注度，增加认知负担。保持任务列表精简能够提高开发效率，减少混乱，让团队成员专注于当前最重要的工作。定期清理机制确保任务管理工具始终处于最佳状态。
+**理由**: 过长的任务列表会降低团队专注度，增加认知负担。采用分阶段管理策略，每个阶段保持任务列表精简（最多5个活跃任务），能够提高开发效率，减少混乱，让团队成员专注于当前最重要的工作。定期清理机制确保任务管理工具始终处于最佳状态。
 
 ### 7. 文档原则 (Documentation Excellence)
 
@@ -146,6 +180,64 @@ Follow-up TODOs:
 - 使用`scripts/generate_headers.py --force`命令批量更新头部
 
 **理由**: 头部注释是AI理解代码结构的重要依据。如果代码变更后头部不同步，会导致AI产生错误的理解，影响代码维护和开发效率。保持头部同步能够确保大语言模型和开发者都能准确理解代码的职责和依赖关系。
+
+### 9. 验证完整性原则 (Verification Integrity)
+
+**全面验证**: 功能验证必须包含数据源检查、数据路径验证和可修改性验证，禁止仅依赖返回值判断完成状态。
+
+**具体要求**:
+- **配置类验证**: 验证配置文件本身是否包含对应配置项，而非仅检查返回值是否正确
+  - 必须验证配置文件存在对应配置节（如 `notifications.discord.timeout`）
+  - 必须验证值从配置文件读取，而非代码中的默认值
+  - 必须验证用户可通过修改配置文件改变行为
+  - 禁止仅因默认值使测试通过就认为验证完成
+
+- **外部依赖验证**: 对于文件系统、网络、数据库等外部依赖，必须验证：
+  - 依赖项存在性和可访问性（文件存在、网络可达、数据库可连接）
+  - 数据格式的正确性（配置语法、API响应格式、数据表结构）
+  - 依赖的版本兼容性（库版本、API版本、数据库schema版本）
+
+- **多维度验证**: 每个验证点必须包含三个维度：
+  1. **存在性**: 配置/资源/接口是否存在
+  2. **正确性**: 值/格式/行为是否符合预期
+  3. **可配置性**: 用户是否可以通过修改配置或代码改变行为
+
+- **假阳性预防**: 避免以下常见陷阱：
+  - 仅检查返回值（可能来自默认值或Mock）
+  - 仅检查代码逻辑（可能被环境差异影响）
+  - 仅检查开发环境（生产环境可能不同）
+
+**验证清单模板**:
+```yaml
+# 配置类功能验证示例
+- [ ] 配置文件包含配置项 (grep config.yml notifications.timeout)
+- [ ] 值从配置读取 (打印配置文件原始内容，而非GCONF返回值)
+- [ ] 修改配置生效 (修改配置文件，重新运行，验证值改变)
+- [ ] 缺失配置时降级 (删除配置项，验证使用默认值)
+```
+
+**典型案例**:
+- **配置验证错误示例**: 仅测试 `GCONF.NOTIFICATION_DISCORD_TIMEOUT == 3`（可能来自默认值）
+- **配置验证正确示例**:
+  1. 检查 `~/.ginkgo/config.yml` 包含 `notifications.discord.timeout: 3`
+  2. 修改配置为 `5`，重新运行验证值变为 `5`
+  3. 删除配置，验证降级到默认值 `3`
+
+- **服务端口验证错误示例**: 仅测试 `GCONF.MONGOPORT == 27017`（配置值可能是127017但能读到）
+- **服务端口验证正确示例**:
+  1. 检查配置文件: `grep "port:" ~/.ginkgo/secure.yml` → `27017`
+  2. 检查GCONF读取: `python -c "print(GCONF.MONGOPORT)"` → `27017`
+  3. 检查实际服务: `docker ps | grep mongo` → `0.0.0.0:27017->27017/tcp`
+  4. 验证三者一致: `配置(27017) == GCONF(27017) == 服务(27017)` ✅
+  5. 实际连接测试: `ginkgo mongo test` → `Connected` ✅
+
+**理由**: 仅依赖返回值的验证会产生"假阳性"结果——测试通过但实现不完整。配置类如果只有默认值而无法从配置文件读取，用户将无法通过修改配置来调整系统行为。全面验证确保功能从设计到使用的完整链路都正常工作。
+
+**典型场景**:
+- **配置系统**: GCONF/GENV 等配置管理类
+- **数据驱动**: 从YAML/JSON/数据库读取配置的功能
+- **外部集成**: 第三方API、数据库连接、文件系统操作
+- **CLI命令**: 命令行工具的参数解析和执行
 
 ## 治理结构
 
@@ -175,6 +267,8 @@ Follow-up TODOs:
 - CI/CD流水线必须集成敏感文件扫描
 - 代码质量检查必须包含章程合规性验证
 - 测试覆盖率必须达到设定的最低标准
+- 配置完整性检查必须验证配置文件包含必要配置项
+- 服务获取规范检查必须验证所有Service从Container获取
 
 ### 问责机制
 

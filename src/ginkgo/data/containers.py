@@ -2,6 +2,8 @@
 # Downstream: ClickHouse, MySQL, MongoDB
 # Role: 数据模块依赖注入容器管理数据库驱动/CRUD操作层/数据服务层和数据源的依赖注入支持交易系统功能和组件集成提供完整业务支持
 
+from __future__ import annotations  # 启用延迟注解评估，避免循环导入
+
 
 
 
@@ -45,6 +47,7 @@ Usage Examples:
 """
 
 from dependency_injector import containers, providers
+from typing import TYPE_CHECKING
 
 # Import your services, CRUDs, and data sources
 from ginkgo.data.sources import GinkgoTushare, GinkgoTDX
@@ -66,6 +69,9 @@ from ginkgo.data.services.analyzer_service import AnalyzerService
 from ginkgo.data.services.param_service import ParamService
 from ginkgo.data.services.mapping_service import MappingService
 from ginkgo.data.services.parameter_metadata_service import ParameterMetadataService
+
+# User services are imported lazily to avoid circular dependency with data module
+# They will be imported when container providers are called
 
 
 class Container(containers.DeclarativeContainer):
@@ -103,6 +109,16 @@ class Container(containers.DeclarativeContainer):
     kafka_crud = providers.Singleton(get_crud, "kafka")
     factor_crud = providers.Singleton(get_crud, "factor")
     analyzer_record_crud = providers.Singleton(get_crud, "analyzer_record")
+
+    # User management CRUDs
+    user_crud = providers.Singleton(get_crud, "user")
+    user_contact_crud = providers.Singleton(get_crud, "user_contact")
+    user_group_crud = providers.Singleton(get_crud, "user_group")
+    user_group_mapping_crud = providers.Singleton(get_crud, "user_group_mapping")
+
+    # Notification system CRUDs
+    notification_template_crud = providers.Singleton(get_crud, "notification_template")
+    notification_record_crud = providers.Singleton(get_crud, "notification_record")
 
     # Services (Dependencies are injected here)
     # StockinfoService must be defined before AdjustfactorService as it's a dependency

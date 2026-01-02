@@ -32,6 +32,119 @@ class GinkgoConfig(object):
         self._config_mtime = 0
         self._secure_cache = {}
         self._secure_mtime = 0
+        # 文件存在性缓存（避免每次查询文件系统）
+        self._has_local_config = None  # None=未检查, True=存在, False=不存在
+        self._has_local_secure = None
+        # 环境变量是否已初始化的标记
+        self._env_vars_initialized = False
+
+    def _ensure_env_vars(self) -> None:
+        """
+        确保环境变量已设置（从配置文件加载）
+        只执行一次，将配置文件中的值设置到环境变量
+        配置文件优先级最高：覆盖环境变量
+        """
+        if self._env_vars_initialized:
+            return
+
+        self.generate_config_file()
+
+        # 如果有本地配置文件，将配置设置到环境变量（覆盖环境变量）
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                # 通知配置
+                notifications = config.get("notifications", {})
+                discord = notifications.get("discord", {})
+                email = notifications.get("email", {})
+
+                os.environ["GINKGO_NOTIFICATION_DISCORD_TIMEOUT"] = str(discord.get("timeout", 3))
+                os.environ["GINKGO_NOTIFICATION_DISCORD_MAX_RETRIES"] = str(discord.get("max_retries", 3))
+                os.environ["GINKGO_NOTIFICATION_EMAIL_TIMEOUT"] = str(email.get("timeout", 10))
+                os.environ["GINKGO_NOTIFICATION_EMAIL_MAX_RETRIES"] = str(email.get("max_retries", 3))
+
+                # Email SMTP 配置（从 config.yml）
+                smtp_host = email.get("smtp_host", "")
+                smtp_port = email.get("smtp_port", "")
+                from_addr = email.get("from_address", "")
+                from_name = email.get("from_name", "Ginkgo Notification")
+                # 只有配置文件中有值时才设置（保留容器环境变量的优先级）
+                if smtp_host:
+                    os.environ["GINKGO_SMTP_HOST"] = smtp_host
+                if smtp_port:
+                    os.environ["GINKGO_SMTP_PORT"] = str(smtp_port)
+                if from_addr:
+                    os.environ["GINKGO_FROM_ADDRESS"] = from_addr
+                os.environ["GINKGO_FROM_NAME"] = from_name
+            except Exception as e:
+                print(f"[GCONF] Error loading config to env: {e}")
+
+        if self._has_local_secure:
+            try:
+                secure_data = self._read_secure()
+                database = secure_data.get("database", {})
+
+                # Kafka
+                kafka = database.get("kafka", {})
+                os.environ["GINKGO_KAFKA_HOST"] = kafka.get("host", "localhost")
+                os.environ["GINKGO_KAFKA_PORT"] = str(kafka.get("port", "9092"))
+
+                # Redis
+                redis = database.get("redis", {})
+                os.environ["GINKGO_REDIS_HOST"] = redis.get("host", "localhost")
+                os.environ["GINKGO_REDIS_PORT"] = str(redis.get("port", "6379"))
+
+                # ClickHouse
+                clickhouse = database.get("clickhouse", {})
+                os.environ["GINKGO_CLICKHOUSE_HOST"] = clickhouse.get("host", "localhost")
+                os.environ["GINKGO_CLICKHOUSE_PORT"] = str(clickhouse.get("port", "8123"))
+                os.environ["GINKGO_CLICKHOUSE_USER"] = clickhouse.get("username", "default")
+                os.environ["GINKGO_CLICKHOUSE_PASSWORD"] = self._decode_password(clickhouse.get("password", ""))
+                os.environ["GINKGO_CLICKHOUSE_DATABASE"] = clickhouse.get("database", "ginkgo")
+
+                # MySQL
+                mysql = database.get("mysql", {})
+                os.environ["GINKGO_MYSQL_HOST"] = mysql.get("host", "localhost")
+                os.environ["GINKGO_MYSQL_PORT"] = str(mysql.get("port", "3306"))
+                os.environ["GINKGO_MYSQL_USER"] = mysql.get("username", "root")
+                os.environ["GINKGO_MYSQL_PASSWORD"] = self._decode_password(mysql.get("password", ""))
+                os.environ["GINKGO_MYSQL_DATABASE"] = mysql.get("database", "ginkgo")
+
+                # MongoDB
+                mongodb = database.get("mongodb", {})
+                os.environ["GINKGO_MONGODB_HOST"] = mongodb.get("host", "localhost")
+                os.environ["GINKGO_MONGODB_PORT"] = str(mongodb.get("port", "27017"))
+                os.environ["GINKGO_MONGODB_USERNAME"] = mongodb.get("username", "root")
+                os.environ["GINKGO_MONGODB_PASSWORD"] = self._decode_password(mongodb.get("password", ""))
+                os.environ["GINKGO_MONGODB_DATABASE"] = mongodb.get("database", "ginkgo")
+
+                # 通知系统敏感配置（从 secure.yml）
+                notifications = secure_data.get("notifications", {})
+                email_secure = notifications.get("email", {})
+                smtp_user = email_secure.get("smtp_user", "")
+                smtp_pwd = email_secure.get("smtp_password", "")
+                if smtp_user:
+                    os.environ["GINKGO_SMTP_USER"] = smtp_user
+                if smtp_pwd:
+                    os.environ["GINKGO_SMTP_PASSWORD"] = smtp_pwd
+            except Exception as e:
+                print(f"[GCONF] Error loading secure config to env: {e}")
+
+        self._env_vars_initialized = True
+
+    def _decode_password(self, pwd: str) -> str:
+        """解码密码（Base64编码）"""
+        if not pwd:
+            return ""
+        # 尝试Base64解码，如果能解码就返回解码值
+        try:
+            import base64
+            decoded = base64.b64decode(pwd)
+            decoded = str(decoded, "utf-8")
+            return decoded.replace("\n", "")
+        except Exception:
+            # 解码失败，返回原值
+            return pwd
 
     @property
     def setting_path(self) -> str:
@@ -61,20 +174,39 @@ class GinkgoConfig(object):
 
         current_path = os.getcwd()
 
-        if not os.path.exists(os.path.join(path, "config.yml")):
+        # 处理 config.yml
+        config_path = os.path.join(path, "config.yml")
+        if not os.path.exists(config_path):
             origin_path = os.path.join(current_path, "src/ginkgo/config/config.yml")
-            target_path = os.path.join(path, "config.yml")
-            shutil.copy(origin_path, target_path)
-            print(f"Copy config.yml from {origin_path} to {target_path}")
+            if os.path.exists(origin_path):
+                shutil.copy(origin_path, config_path)
+                print(f"[GCONF] Copy config.yml from {origin_path} to {config_path}")
+                self._has_local_config = True  # ✅ 更新缓存
+            else:
+                print(f"[GCONF] Source config not found, will use environment variables")
+                self._has_local_config = False  # ✅ 更新缓存
+        else:
+            self._has_local_config = True  # ✅ 文件已存在
 
-        if not os.path.exists(os.path.join(path, "secure.yml")):
+        # 处理 secure.yml
+        secure_path = os.path.join(path, "secure.yml")
+        if not os.path.exists(secure_path):
             origin_path = os.path.join(current_path, "src/ginkgo/config/secure.backup")
-            target_path = os.path.join(path, "secure.yml")
-            print(f"Copy secure.yml from {origin_path} to {target_path}")
-            shutil.copy(origin_path, target_path)
+            if os.path.exists(origin_path):
+                shutil.copy(origin_path, secure_path)
+                print(f"[GCONF] Copy secure.yml from {origin_path} to {secure_path}")
+                self._has_local_secure = True  # ✅ 更新缓存
+            else:
+                print(f"[GCONF] Source secure config not found, will use environment variables")
+                self._has_local_secure = False  # ✅ 更新缓存
+        else:
+            self._has_local_secure = True  # ✅ 文件已存在
 
     def _read_config(self) -> dict:
         self.generate_config_file()
+        # 如果缓存标记为无本地文件，直接返回空字典
+        if self._has_local_config is False:
+            return {}
         try:
             # 检查文件修改时间
             current_mtime = os.path.getmtime(self.setting_path)
@@ -94,6 +226,9 @@ class GinkgoConfig(object):
 
     def _read_secure(self) -> dict:
         self.generate_config_file()
+        # 如果缓存标记为无本地文件，直接返回空字典
+        if self._has_local_secure is False:
+            return {}
         try:
             # 检查文件修改时间
             current_mtime = os.path.getmtime(self.secure_path)
@@ -112,16 +247,52 @@ class GinkgoConfig(object):
             return {}
 
     def _get_config(self, key: str, default: any = None, section: str = None) -> any:
-        # 统一从缓存读取，不再使用环境变量
+        """
+        配置获取优先级：
+        1. 配置文件（如果存在）
+        2. 环境变量 GINKGO_{KEY}
+        3. 默认值
+
+        支持嵌套路径：section 参数可以是 "notifications.email" 这样的路径
+        """
+        # 判断是否需要读取配置文件（使用缓存）
         if section is None:
-            config = self._read_config()
+            has_file = self._has_local_config
         else:
-            secure_data = self._read_secure()
-            if section in ["clickhouse", "mysql", "mongodb", "redis", "kafka"]:
-                config = secure_data.get("database", {}).get(section, {})
-            else:
-                config = secure_data.get(section, {})
-        return config.get(key, default)
+            has_file = self._has_local_secure
+
+        # 优先级1: 尝试从配置文件读取
+        if has_file:
+            try:
+                if section is None:
+                    config = self._read_config()
+                else:
+                    secure_data = self._read_secure()
+                    # 支持嵌套路径，如 "notifications.email"
+                    if "." in section:
+                        parts = section.split(".")
+                        config = secure_data
+                        for part in parts:
+                            config = config.get(part, {})
+                    elif section in ["clickhouse", "mysql", "mongodb", "redis", "kafka"]:
+                        config = secure_data.get("database", {}).get(section, {})
+                    else:
+                        config = secure_data.get(section, {})
+
+                # 如果配置文件中有该key且值不为None，直接返回
+                if key in config and config[key] is not None:
+                    return config[key]
+            except Exception as e:
+                print(f"[GCONF] Error reading config file: {e}")
+
+        # 优先级2: 尝试环境变量
+        env_key = f"GINKGO_{key.upper()}"
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            return env_value
+
+        # 优先级3: 返回默认值
+        return default
 
     def _write_config(self, key: str, value: any) -> None:
         try:
@@ -199,123 +370,141 @@ class GinkgoConfig(object):
 
     @property
     def CLICKDB(self) -> str:
-        return self._get_config("database", section="clickhouse")
+        """ClickHouse 数据库名（核心基础设施，有默认值）"""
+        return self._get_config("database", "ginkgo", section="clickhouse")
 
     @property
     def MYSQLDB(self) -> str:
-        return self._get_config("database", section="mysql")
+        """MySQL 数据库名（核心基础设施，有默认值）"""
+        return self._get_config("database", "ginkgo", section="mysql")
 
     @property
     def MONGODB(self) -> str:
-        return self._get_config("database", section="mongodb")
+        """MongoDB 数据库名（核心基础设施，有默认值）"""
+        return self._get_config("database", "ginkgo", section="mongodb")
 
     @property
     def CLICKUSER(self) -> str:
-        return self._get_config("username", section="clickhouse")
+        """ClickHouse 用户名（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_CLICKHOUSE_USER", "default")
 
     @property
     def MYSQLUSER(self) -> str:
-        return self._get_config("username", section="mysql")
+        """MySQL 用户名（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_MYSQL_USER", "root")
 
     @property
     def MONGOUSER(self) -> str:
-        return self._get_config("username", section="mongodb")
+        """MongoDB 用户名（敏感信息，无默认值）"""
+        self._ensure_env_vars()
+        if "GINKGO_MONGODB_USERNAME" not in os.environ or not os.environ["GINKGO_MONGODB_USERNAME"]:
+            raise ValueError("GINKGO_MONGODB_USERNAME not configured")
+        return os.environ["GINKGO_MONGODB_USERNAME"]
 
     @property
     def CLICKPWD(self) -> str:
-        """
-        Password for clickhouse
-        """
-        pwd = self._get_config("password", section="clickhouse")
-        pwd = base64.b64decode(pwd)
-        pwd = str(pwd, "utf-8")
-        pwd = pwd.replace("\n", "")
-        return pwd
+        """ClickHouse 密码（敏感信息，无默认值）"""
+        self._ensure_env_vars()
+        if "GINKGO_CLICKHOUSE_PASSWORD" not in os.environ or not os.environ["GINKGO_CLICKHOUSE_PASSWORD"]:
+            raise ValueError("GINKGO_CLICKHOUSE_PASSWORD not configured")
+        return os.environ["GINKGO_CLICKHOUSE_PASSWORD"]
 
     @property
     def MYSQLPWD(self) -> str:
-        """
-        Password for clickhouse
-        """
-        pwd = self._get_config("password", section="mysql")
-        pwd = base64.b64decode(pwd)
-        pwd = str(pwd, "utf-8")
-        pwd = pwd.replace("\n", "")
-        return pwd
+        """MySQL 密码（敏感信息，无默认值）"""
+        self._ensure_env_vars()
+        if "GINKGO_MYSQL_PASSWORD" not in os.environ or not os.environ["GINKGO_MYSQL_PASSWORD"]:
+            raise ValueError("GINKGO_MYSQL_PASSWORD not configured")
+        return os.environ["GINKGO_MYSQL_PASSWORD"]
 
     @property
     def MONGOPWD(self) -> str:
-        pwd = self._get_config("password", section="mongodb")
-        pwd = base64.b64decode(pwd)
-        pwd = str(pwd, "utf-8")
-        pwd = pwd.replace("\n", "")
-        return pwd
+        """MongoDB 密码（敏感信息，无默认值）"""
+        self._ensure_env_vars()
+        if "GINKGO_MONGODB_PASSWORD" not in os.environ or not os.environ["GINKGO_MONGODB_PASSWORD"]:
+            raise ValueError("GINKGO_MONGODB_PASSWORD not configured")
+        return os.environ["GINKGO_MONGODB_PASSWORD"]
 
     @property
-    def CLICKHOST(self) -> int:
-        return self._get_config("host", section="clickhouse")
+    def CLICKHOST(self) -> str:
+        """ClickHouse 主机（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_CLICKHOUSE_HOST", "localhost")
 
     @property
-    def MYSQLHOST(self) -> int:
-        return self._get_config("host", section="mysql")
+    def MYSQLHOST(self) -> str:
+        """MySQL 主机（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_MYSQL_HOST", "localhost")
 
     @property
-    def MONGOHOST(self) -> int:
-        return self._get_config("host", section="mongodb")
+    def MONGOHOST(self) -> str:
+        """MongoDB 主机（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_MONGODB_HOST", "localhost")
 
     @property
     def CLICKPORT(self) -> int:
-        port = self._get_config("port", section="clickhouse")
-        final_port = f"1{port}" if self.DEBUGMODE else port
-        # 更新环境变量为最终的DEBUG模式计算值
-        os.environ["GINKGO_CLICKHOUSE_PORT"] = str(final_port)
-        return final_port
+        """ClickHouse 端口（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        port = os.environ.get("GINKGO_CLICKHOUSE_PORT", "8123")
+        # DEBUG 模式：端口首位 +1（例如 8123 -> 18123）
+        # 检查是否已经是DEBUG模式端口（避免重复加前缀）
+        if self.DEBUGMODE and not str(port).startswith("1"):
+            port = f"1{port}"
+        return int(port)
 
     @property
     def MYSQLPORT(self) -> int:
-        port = self._get_config("port", section="mysql")
-        final_port = f"1{port}" if self.DEBUGMODE else port
-        # 更新环境变量为最终的DEBUG模式计算值
-        os.environ["GINKGO_MYSQL_PORT"] = str(final_port)
-        return final_port
+        """MySQL 端口（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        port = os.environ.get("GINKGO_MYSQL_PORT", "3306")
+        # DEBUG 模式：端口首位 +1（例如 3306 -> 13306）
+        # 检查是否已经是DEBUG模式端口（避免重复加前缀）
+        if self.DEBUGMODE and not str(port).startswith("1"):
+            port = f"1{port}"
+        return int(port)
 
     @property
     def MONGOPORT(self) -> int:
-        port = self._get_config("port", section="mongodb")
-        final_port = f"1{port}" if not self.DEBUGMODE else port
-        # 更新环境变量为最终的DEBUG模式计算值
-        if final_port is not None:
-            os.environ["GINKGO_MONGODB_PORT"] = str(final_port)
-        return final_port
+        """MongoDB 端口（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        return int(os.environ.get("GINKGO_MONGODB_PORT", "27017"))
 
     @property
     def KAFKAHOST(self) -> str:
-        return self._get_config("host", section="kafka")
+        """Kafka 主机（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_KAFKA_HOST", "localhost")
 
     @property
     def KAFKAPORT(self) -> str:
-        return self._get_config("port", section="kafka")
+        """Kafka 端口（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_KAFKA_PORT", "9092")
 
     @property
     def REDISHOST(self) -> str:
-        return self._get_config("host", section="redis")
+        """Redis 主机（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_REDIS_HOST", "localhost")
 
     @property
     def REDISPORT(self) -> str:
-        key = "GINKGO_REDIS_PORT"
-        port = os.environ.get(key, None)
-        if port is None:
-            port = self._read_secure()["database"]["redis"]["port"]
-            port = str(port)
-            os.environ[key] = port
-        return port
+        """Redis 端口（核心基础设施，有默认值）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_REDIS_PORT", "6379")
 
     @property
     def HEARTBEAT(self) -> float:
+        """心跳间隔（环境标识，有默认值）"""
         key = "GINKGO_HEARTBEAT"
         hb = os.environ.get(key, None)
         if hb is None:
-            hb = self._read_config()["heart_beat"]
+            config = self._read_config()
+            hb = config.get("heart_beat", "0.1")
             hb = str(hb)
             os.environ[key] = hb
         return float(hb)
@@ -354,16 +543,16 @@ class GinkgoConfig(object):
 
     @property
     def DEBUGMODE(self) -> bool:
+        """DEBUG模式开关（环境标识，有默认值）"""
         key = "GINKGO_DEBUG_MODE"
         mode = os.environ.get(key, None)
         if mode is None:
-            mode = self._read_config()["debug"]
+            # 从配置文件读取（安全访问，添加默认值）
+            config = self._read_config()
+            mode = config.get("debug", "False")
             mode = str(mode)
             os.environ[key] = mode
-        if mode.upper() == "TRUE":
-            return True
-        else:
-            return False
+        return mode.upper() == "TRUE"
 
     def set_debug(self, value: bool) -> None:
         key = "GINKGO_DEBUG_MODE"
@@ -480,10 +669,12 @@ class GinkgoConfig(object):
 
     @property
     def CPURATIO(self) -> float:
+        """CPU使用率（环境标识，有默认值）"""
         key = "GINKGO_CPU_RATIO"
         ratio = os.environ.get(key, None)
         if ratio is None:
-            ratio = self._read_config()["cpu_ratio"]
+            config = self._read_config()
+            ratio = config.get("cpu_ratio", "0.8")
             ratio = str(ratio)
             os.environ[key] = ratio
         return float(ratio)
@@ -496,26 +687,27 @@ class GinkgoConfig(object):
 
     @property
     def QUIET(self) -> bool:
+        """静默模式（环境标识，有默认值）"""
         key = "GINKGO_QUIET"
         quiet = os.environ.get(key, None)
         if quiet is None:
-            quiet = self._read_config()["quiet"]
+            config = self._read_config()
+            quiet = config.get("quiet", "False")
             quiet = str(quiet)
             os.environ[key] = quiet
-        if quiet.upper() == "TRUE":
-            return True
-        else:
-            return False
+        return quiet.upper() == "TRUE"
 
     @property
     def PYTHONPATH(self) -> str:
+        """Python路径（环境标识，有默认值）"""
         key = "GINKGO_PYTHON_PATH"
-        ratio = os.environ.get(key, None)
-        if ratio is None:
-            ratio = self._read_config()["python_path"]
-            ratio = str(ratio)
-            os.environ[key] = ratio
-        return str(ratio)
+        path = os.environ.get(key, None)
+        if path is None:
+            config = self._read_config()
+            path = config.get("python_path", "")
+            path = str(path)
+            os.environ[key] = path
+        return str(path)
 
     def set_python_path(self, value) -> None:
         # import pdb
@@ -524,6 +716,130 @@ class GinkgoConfig(object):
         if isinstance(value, str):
             self._write_config("python_path", value)
             os.environ[key] = str(value)
+
+    # ==================== 通知超时配置 ====================
+
+    @property
+    def NOTIFICATION_DISCORD_TIMEOUT(self) -> int:
+        """
+        Discord Webhook 请求超时时间（秒）
+
+        默认值: 3秒
+        配置路径: notifications.discord.timeout
+        """
+        key = "GINKGO_NOTIFICATION_DISCORD_TIMEOUT"
+        timeout = os.environ.get(key, None)
+        if timeout is None:
+            # 尝试从配置文件读取
+            config = self._read_config()
+            notifications = config.get("notifications", {})
+            discord = notifications.get("discord", {})
+            timeout = discord.get("timeout", 3)  # 默认 3 秒
+            os.environ[key] = str(timeout)
+        return int(timeout)
+
+    @property
+    def NOTIFICATION_EMAIL_TIMEOUT(self) -> int:
+        """
+        Email SMTP 请求超时时间（秒）
+
+        默认值: 10秒
+        配置路径: notifications.email.timeout
+        """
+        key = "GINKGO_NOTIFICATION_EMAIL_TIMEOUT"
+        timeout = os.environ.get(key, None)
+        if timeout is None:
+            # 尝试从配置文件读取
+            config = self._read_config()
+            notifications = config.get("notifications", {})
+            email = notifications.get("email", {})
+            timeout = email.get("timeout", 10)  # 默认 10 秒
+            os.environ[key] = str(timeout)
+        return int(timeout)
+
+    @property
+    def NOTIFICATION_DISCORD_MAX_RETRIES(self) -> int:
+        """
+        Discord Webhook 最大重试次数
+
+        默认值: 3
+        配置路径: notifications.discord.max_retries
+        """
+        key = "GINKGO_NOTIFICATION_DISCORD_MAX_RETRIES"
+        retries = os.environ.get(key, None)
+        if retries is None:
+            config = self._read_config()
+            notifications = config.get("notifications", {})
+            discord = notifications.get("discord", {})
+            retries = discord.get("max_retries", 3)  # 默认 3 次
+            os.environ[key] = str(retries)
+        return int(retries)
+
+    @property
+    def NOTIFICATION_EMAIL_MAX_RETRIES(self) -> int:
+        """
+        Email SMTP 最大重试次数
+
+        默认值: 3
+        配置路径: notifications.email.max_retries
+        """
+        key = "GINKGO_NOTIFICATION_EMAIL_MAX_RETRIES"
+        retries = os.environ.get(key, None)
+        if retries is None:
+            config = self._read_config()
+            notifications = config.get("notifications", {})
+            email = notifications.get("email", {})
+            retries = email.get("max_retries", 3)  # 默认 3 次
+            os.environ[key] = str(retries)
+        return int(retries)
+
+    # ==================== Email SMTP 配置 ====================
+
+    @property
+    def EMAIL_SMTP_HOST(self) -> str:
+        """Email SMTP 服务器地址（业务配置，无默认值）"""
+        self._ensure_env_vars()
+        if "GINKGO_SMTP_HOST" not in os.environ or not os.environ["GINKGO_SMTP_HOST"]:
+            raise ValueError("GINKGO_SMTP_HOST not configured")
+        return os.environ["GINKGO_SMTP_HOST"]
+
+    @property
+    def EMAIL_SMTP_PORT(self) -> int:
+        """Email SMTP 端口（业务配置，无默认值）"""
+        self._ensure_env_vars()
+        if "GINKGO_SMTP_PORT" not in os.environ or not os.environ["GINKGO_SMTP_PORT"]:
+            raise ValueError("GINKGO_SMTP_PORT not configured")
+        return int(os.environ["GINKGO_SMTP_PORT"])
+
+    @property
+    def EMAIL_SMTP_USER(self) -> str:
+        """Email SMTP 用户名（敏感信息，无默认值）"""
+        self._ensure_env_vars()
+        if "GINKGO_SMTP_USER" not in os.environ or not os.environ["GINKGO_SMTP_USER"]:
+            raise ValueError("GINKGO_SMTP_USER not configured")
+        return os.environ["GINKGO_SMTP_USER"]
+
+    @property
+    def EMAIL_SMTP_PASSWORD(self) -> str:
+        """Email SMTP 密码/应用专用密码（敏感信息，无默认值）"""
+        self._ensure_env_vars()
+        if "GINKGO_SMTP_PASSWORD" not in os.environ or not os.environ["GINKGO_SMTP_PASSWORD"]:
+            raise ValueError("GINKGO_SMTP_PASSWORD not configured")
+        return os.environ["GINKGO_SMTP_PASSWORD"]
+
+    @property
+    def EMAIL_FROM_ADDRESS(self) -> str:
+        """Email 发件人地址（业务配置，无默认值）"""
+        self._ensure_env_vars()
+        if "GINKGO_FROM_ADDRESS" not in os.environ or not os.environ["GINKGO_FROM_ADDRESS"]:
+            raise ValueError("GINKGO_FROM_ADDRESS not configured")
+        return os.environ["GINKGO_FROM_ADDRESS"]
+
+    @property
+    def EMAIL_FROM_NAME(self) -> str:
+        """Email 发件人名称（环境标识，有默认值）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_FROM_NAME", "Ginkgo Notification")
 
 
 GCONF = GinkgoConfig()
