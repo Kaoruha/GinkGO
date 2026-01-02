@@ -1,17 +1,22 @@
-# Upstream: Kafka Consumer (GinkgoConsumer), NotificationService
-# Downstream: INotificationChannel (WebhookChannel, EmailChannel)
-# Role: NotificationWorker Kafka消费者Worker消费notifications topic消息并调用相应渠道发送支持通知系统功能
+# Upstream: Kafka Consumer, NotificationService
+# Downstream: NotificationService (业务逻辑层)
+# Role: NotificationWorker Kafka消费者Worker解析消息并调用NotificationService业务方法
 
 
 """
 Notification Kafka Worker
 
-Kafka 消费者 Worker，从 `notifications` topic 消费消息并调用相应渠道发送。
+Kafka 消费者 Worker，从 `notifications` topic 消费消息并调用 NotificationService。
+
+设计原则：
+- Worker 只负责解析消息和路由到 NotificationService
+- 所有业务逻辑（查找联系方式、模板渲染、渠道发送）由 NotificationService 处理
+- 支持 user_uuid 和 group_name 参数，自动查找联系方式
+- 支持多种消息类型（simple, template, trading_signal, system_notification）
 
 功能：
 - 消费 Kafka 消息
-- 根据消息中的 channels 路由到对应渠道
-- 调用 WebhookChannel/EmailChannel 发送通知
+- 根据 message_type 调用对应的 NotificationService 方法
 - 记录发送结果到 MNotificationRecord
 - 失败重试逻辑
 """
@@ -28,8 +33,6 @@ from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer
 from ginkgo.data.crud import NotificationRecordCRUD
 from ginkgo.data.models import MNotificationRecord
 from ginkgo.enums import NOTIFICATION_STATUS_TYPES
-from ginkgo.notifier.channels.webhook_channel import WebhookChannel
-from ginkgo.notifier.channels.email_channel import EmailChannel
 
 
 class WorkerStatus(IntEnum):
@@ -41,11 +44,19 @@ class WorkerStatus(IntEnum):
     ERROR = 4
 
 
+class MessageType(IntEnum):
+    """消息类型"""
+    SIMPLE = 1              # 简单消息（content + channels）
+    TEMPLATE = 2            # 模板消息（template_id + context）
+    TRADING_SIGNAL = 3      # 交易信号
+    SYSTEM_NOTIFICATION = 4 # 系统通知
+
+
 class NotificationWorker:
     """
     通知 Kafka Worker
 
-    从 `notifications` topic 消费消息并调用相应渠道发送通知。
+    从 `notifications` topic 消费消息并调用 NotificationService。
     """
 
     # Kafka topic 名称
@@ -53,12 +64,11 @@ class NotificationWorker:
     WORKER_GROUP_ID = "notification_worker_group"
 
     # Worker 配置
-    MAX_RETRIES = 3  # 最大重试次数
-    RETRY_DELAY = 5  # 重试延迟（秒）
     POLL_TIMEOUT = 1.0  # Kafka 轮询超时（秒）
 
     def __init__(
         self,
+        notification_service,
         record_crud: NotificationRecordCRUD,
         group_id: Optional[str] = None,
         auto_offset_reset: str = "earliest"
@@ -67,10 +77,12 @@ class NotificationWorker:
         初始化 NotificationWorker
 
         Args:
+            notification_service: NotificationService 实例
             record_crud: NotificationRecordCRUD 实例
             group_id: Consumer group ID（可选，默认为 notification_worker_group）
             auto_offset_reset: Offset 重置策略（earliest/latest）
         """
+        self.notification_service = notification_service
         self.record_crud = record_crud
         self._group_id = group_id or self.WORKER_GROUP_ID
         self._auto_offset_reset = auto_offset_reset
@@ -136,6 +148,13 @@ class NotificationWorker:
                 offset=self._auto_offset_reset
             )
 
+            # 检查 Kafka 连接状态
+            if not self._consumer.is_connected:
+                GLOG.ERROR(f"Failed to connect to Kafka for topic '{self.NOTIFICATIONS_TOPIC}'")
+                with self._lock:
+                    self._status = WorkerStatus.ERROR
+                return False
+
             # 启动 Worker 线程
             self._worker_thread = threading.Thread(
                 target=self._run,
@@ -181,6 +200,13 @@ class NotificationWorker:
         if self._worker_thread and self._worker_thread.is_alive():
             self._worker_thread.join(timeout=timeout)
 
+        # 关闭 Kafka Consumer
+        if self._consumer:
+            try:
+                self._consumer.close()
+            except Exception as e:
+                GLOG.ERROR(f"Error closing Kafka Consumer: {e}")
+
         with self._lock:
             if self._worker_thread and self._worker_thread.is_alive():
                 GLOG.WARN("Worker did not stop within timeout")
@@ -218,12 +244,19 @@ class NotificationWorker:
                                 break
 
                             try:
-                                self._process_message(record.value)
-                                self._consumer.commit()
+                                success = self._process_message(record.value)
 
-                                with self._lock:
-                                    self._stats["messages_consumed"] += 1
-                                    self._stats["last_message_time"] = datetime.now()
+                                if success:
+                                    self._consumer.commit()
+
+                                    with self._lock:
+                                        self._stats["messages_consumed"] += 1
+                                        self._stats["messages_sent"] += 1
+                                        self._stats["last_message_time"] = datetime.now()
+                                else:
+                                    with self._lock:
+                                        self._stats["messages_consumed"] += 1
+                                        self._stats["messages_failed"] += 1
 
                             except Exception as e:
                                 GLOG.ERROR(f"Error processing message: {e}")
@@ -239,7 +272,7 @@ class NotificationWorker:
             # 清理资源
             if self._consumer:
                 try:
-                    self._consumer.consumer.close()
+                    self._consumer.close()
                 except Exception as e:
                     GLOG.ERROR(f"Error closing consumer: {e}")
 
@@ -253,6 +286,8 @@ class NotificationWorker:
         """
         处理单条消息
 
+        根据 message_type 调用对应的 NotificationService 方法。
+
         Args:
             message: Kafka 消息（已反序列化）
 
@@ -261,216 +296,278 @@ class NotificationWorker:
         """
         try:
             # 解析消息
+            message_type = message.get("message_type")
             message_id = message.get("message_id")
-            content = message.get("content")
-            channels = message.get("channels", [])
-            metadata = message.get("metadata", {})
-            kwargs = message.get("kwargs", {})
 
-            if not content or not channels:
-                GLOG.WARN(f"Invalid message: {message_id}, missing content or channels")
+            if not message_type:
+                GLOG.WARN(f"Missing message_type in {message_id}")
                 return False
 
-            user_uuid = metadata.get("user_uuid")
-            title = metadata.get("title")
+            GLOG.DEBUG(f"Processing {message_type} message: {message_id}")
 
-            GLOG.DEBUG(f"Processing message {message_id} for channels: {channels}")
-
-            # 发送到各个渠道
-            channel_results: Dict[str, Any] = {}
-            success_count = 0
-
-            for channel_name in channels:
-                try:
-                    result = self._send_to_channel(
-                        channel_name=channel_name,
-                        content=content,
-                        user_uuid=user_uuid,
-                        title=title,
-                        **kwargs
-                    )
-
-                    channel_results[channel_name] = result.to_dict()
-
-                    if result.success:
-                        success_count += 1
-                        GLOG.DEBUG(f"Sent to {channel_name} successfully: {message_id}")
-                    else:
-                        GLOG.WARN(f"Failed to send to {channel_name}: {result.error}")
-
-                except Exception as e:
-                    error_msg = f"Channel error: {str(e)}"
-                    channel_results[channel_name] = {
-                        "success": False,
-                        "error": error_msg
-                    }
-                    GLOG.ERROR(f"Error sending to {channel_name}: {e}")
-
-            # 更新通知记录状态
-            self._update_record_status(
-                message_id=message_id,
-                channel_results=channel_results,
-                success_count=success_count,
-                total_channels=len(channels)
-            )
-
-            # 更新统计
-            with self._lock:
-                if success_count == len(channels):
-                    self._stats["messages_sent"] += 1
-                elif success_count == 0:
-                    self._stats["messages_failed"] += 1
-
-            return success_count > 0
+            # 根据 message_type 路由到对应的处理方法
+            if message_type == "simple":
+                return self._process_simple_message(message)
+            elif message_type == "template":
+                return self._process_template_message(message)
+            elif message_type == "trading_signal":
+                return self._process_trading_signal_message(message)
+            elif message_type == "system_notification":
+                return self._process_system_notification_message(message)
+            else:
+                GLOG.WARN(f"Unknown message_type: {message_type}")
+                return False
 
         except Exception as e:
             GLOG.ERROR(f"Error processing message: {e}")
             return False
 
-    def _send_to_channel(
-        self,
-        channel_name: str,
-        content: str,
-        user_uuid: Optional[str] = None,
-        title: Optional[str] = None,
-        **kwargs
-    ) -> 'ChannelResult':
+    def _process_simple_message(self, message: Dict[str, Any]) -> bool:
         """
-        发送到指定渠道
+        处理简单消息
+
+        消息格式：
+        {
+            "message_type": "simple",
+            "user_uuid": "user-123" | "group_name": "traders" | "group_uuid": "group-456",
+            "content": "通知内容",
+            "title": "标题",
+            "channels": ["webhook", "email"]  // 可选，覆盖自动查找
+        }
 
         Args:
-            channel_name: 渠道名称（webhook/email）
-            content: 消息内容
-            user_uuid: 用户 UUID（用于获取联系方式）
-            title: 消息标题
-            **kwargs: 其他参数
+            message: Kafka 消息
 
         Returns:
-            ChannelResult: 发送结果
+            bool: 是否成功处理
         """
-        # 导入 ChannelResult 避免循环导入
-        from ginkgo.notifier.channels.base_channel import ChannelResult
+        user_uuid = message.get("user_uuid")
+        group_name = message.get("group_name")
+        group_uuid = message.get("group_uuid")
+        content = message.get("content")
+        title = message.get("title")
+        channels = message.get("channels")  # 可选，覆盖自动查找
+        priority = message.get("priority", 1)
 
-        if channel_name in ("webhook", "discord"):
-            return self._send_webhook(content, user_uuid, title, **kwargs)
-        elif channel_name == "email":
-            return self._send_email(content, user_uuid, title, **kwargs)
+        if not content:
+            GLOG.ERROR("Simple message missing content")
+            return False
+
+        # 调用 NotificationService
+        if user_uuid:
+            result = self.notification_service.send_to_user(
+                user_uuid=user_uuid,
+                content=content,
+                title=title,
+                channels=channels,
+                priority=priority
+            )
+        elif group_name:
+            result = self.notification_service.send_to_group(
+                group_name=group_name,
+                content=content,
+                title=title,
+                channels=channels,
+                priority=priority
+            )
+        elif group_uuid:
+            # 需要先查找 group_name
+            result = self.notification_service.send_to_group(
+                group_uuid=group_uuid,
+                content=content,
+                title=title,
+                channels=channels,
+                priority=priority
+            )
         else:
-            return ChannelResult(
-                success=False,
-                error=f"Unknown channel: {channel_name}"
-            )
+            GLOG.ERROR("Simple message missing user_uuid/group_name/group_uuid")
+            return False
 
-    def _send_webhook(
-        self,
-        content: str,
-        user_uuid: Optional[str] = None,
-        title: Optional[str] = None,
-        **kwargs
-    ) -> 'ChannelResult':
+        return result.success
+
+    def _process_template_message(self, message: Dict[str, Any]) -> bool:
         """
-        发送到 Webhook 渠道
+        处理模板消息
+
+        消息格式：
+        {
+            "message_type": "template",
+            "user_uuid": "user-123" | "group_name": "traders",
+            "template_id": "trading_signal",
+            "context": {"symbol": "AAPL", "price": 150.0},
+            "priority": 1
+        }
 
         Args:
-            content: 消息内容
-            user_uuid: 用户 UUID（用于获取 webhook URL）
-            title: 消息标题
-            **kwargs: 其他参数（color, fields, footer 等）
+            message: Kafka 消息
 
         Returns:
-            ChannelResult: 发送结果
+            bool: 是否成功处理
         """
-        # 如果提供了 user_uuid，需要从数据库获取 webhook URL
-        # 这里暂时简化处理，假设 kwargs 中有 webhook_url
-        webhook_url = kwargs.get("webhook_url")
+        user_uuid = message.get("user_uuid")
+        group_name = message.get("group_name")
+        group_uuid = message.get("group_uuid")
+        template_id = message.get("template_id")
+        context = message.get("context", {})
+        priority = message.get("priority", 1)
 
-        if not webhook_url:
-            return ChannelResult(
-                success=False,
-                error="Webhook URL not provided"
+        if not template_id:
+            GLOG.ERROR("Template message missing template_id")
+            return False
+
+        # 调用 NotificationService
+        if user_uuid:
+            result = self.notification_service.send_template_to_user(
+                user_uuid=user_uuid,
+                template_id=template_id,
+                context=context,
+                priority=priority
             )
+        elif group_name:
+            result = self.notification_service.send_template_to_group(
+                group_name=group_name,
+                template_id=template_id,
+                context=context,
+                priority=priority
+            )
+        elif group_uuid:
+            result = self.notification_service.send_template_to_group(
+                group_uuid=group_uuid,
+                template_id=template_id,
+                context=context,
+                priority=priority
+            )
+        else:
+            GLOG.ERROR("Template message missing user_uuid/group_name/group_uuid")
+            return False
 
-        channel = WebhookChannel(webhook_url=webhook_url)
+        return result.success
 
-        return channel.send(
-            content=content,
-            title=title,
-            **kwargs
-        )
-
-    def _send_email(
-        self,
-        content: str,
-        user_uuid: Optional[str] = None,
-        title: Optional[str] = None,
-        **kwargs
-    ) -> 'ChannelResult':
+    def _process_trading_signal_message(self, message: Dict[str, Any]) -> bool:
         """
-        发送到 Email 渠道
+        处理交易信号消息
+
+        消息格式：
+        {
+            "message_type": "trading_signal",
+            "user_uuid": "user-123" | "group_name": "traders",
+            "direction": "LONG" | "SHORT",
+            "code": "AAPL",
+            "price": 150.0,
+            "volume": 100,
+            "strategy": "策略名称",
+            "reason": "突破原因"
+        }
 
         Args:
-            content: 消息内容
-            user_uuid: 用户 UUID（用于获取邮箱地址）
-            title: 消息标题
-            **kwargs: 其他参数（html, to, cc 等）
+            message: Kafka 消息
 
         Returns:
-            ChannelResult: 发送结果
+            bool: 是否成功处理
         """
-        # 从 kwargs 获取邮箱地址和其他参数
-        to = kwargs.pop("to", None)
-        html = kwargs.pop("html", False)
+        user_uuid = message.get("user_uuid")
+        group_name = message.get("group_name")
+        group_uuid = message.get("group_uuid")
+        direction = message.get("direction")
+        code = message.get("code")
+        price = message.get("price")
+        volume = message.get("volume")
+        strategy = message.get("strategy")
+        reason = message.get("reason")
 
-        if not to:
-            return ChannelResult(
-                success=False,
-                error="Email 'to' address not provided"
+        if not all([direction, code]):
+            GLOG.ERROR("Trading signal message missing required fields")
+            return False
+
+        # 调用 NotificationService
+        if user_uuid:
+            result = self.notification_service.send_trading_signal(
+                user_uuid=user_uuid,
+                direction=direction,
+                code=code,
+                price=price,
+                volume=volume,
+                strategy=strategy,
+                reason=reason
             )
+        elif group_name:
+            result = self.notification_service.send_trading_signal(
+                group_name=group_name,
+                direction=direction,
+                code=code,
+                price=price,
+                volume=volume,
+                strategy=strategy,
+                reason=reason
+            )
+        elif group_uuid:
+            result = self.notification_service.send_trading_signal(
+                group_uuid=group_uuid,
+                direction=direction,
+                code=code,
+                price=price,
+                volume=volume,
+                strategy=strategy,
+                reason=reason
+            )
+        else:
+            GLOG.ERROR("Trading signal message missing user_uuid/group_name/group_uuid")
+            return False
 
-        channel = EmailChannel()
+        return result.success
 
-        return channel.send(
-            content=content,
-            title=title or "Notification",
-            to=to,
-            html=html,
-            **kwargs
-        )
-
-    def _update_record_status(
-        self,
-        message_id: str,
-        channel_results: Dict[str, Any],
-        success_count: int,
-        total_channels: int
-    ):
+    def _process_system_notification_message(self, message: Dict[str, Any]) -> bool:
         """
-        更新通知记录状态
+        处理系统通知消息
+
+        消息格式：
+        {
+            "message_type": "system_notification",
+            "user_uuid": "user-123" | "group_name": "admins",
+            "content": "系统告警内容",
+            "level": "INFO" | "WARNING" | "ERROR"
+        }
 
         Args:
-            message_id: 消息 ID
-            channel_results: 渠道发送结果
-            success_count: 成功数量
-            total_channels: 总渠道数量
+            message: Kafka 消息
+
+        Returns:
+            bool: 是否成功处理
         """
-        try:
-            # 根据 channel_results 更新状态
-            if success_count == total_channels:
-                status = NOTIFICATION_STATUS_TYPES.SENT.value
-            elif success_count == 0:
-                status = NOTIFICATION_STATUS_TYPES.FAILED.value
-            else:
-                status = NOTIFICATION_STATUS_TYPES.SENT.value  # 部分成功也标记为已发送
+        user_uuid = message.get("user_uuid")
+        group_name = message.get("group_name")
+        group_uuid = message.get("group_uuid")
+        content = message.get("content")
+        level = message.get("level", "INFO")
 
-            # 更新数据库记录
-            self.record_crud.update_status(
-                message_id=message_id,
-                status=status,
-                channel_results=channel_results
+        if not content:
+            GLOG.ERROR("System notification message missing content")
+            return False
+
+        # 调用 NotificationService
+        if user_uuid:
+            result = self.notification_service.send_system_notification(
+                user_uuid=user_uuid,
+                content=content,
+                level=level
             )
+        elif group_name:
+            result = self.notification_service.send_system_notification(
+                group_name=group_name,
+                content=content,
+                level=level
+            )
+        elif group_uuid:
+            result = self.notification_service.send_system_notification(
+                group_uuid=group_uuid,
+                content=content,
+                level=level
+            )
+        else:
+            GLOG.ERROR("System notification message missing user_uuid/group_name/group_uuid")
+            return False
 
-        except Exception as e:
-            GLOG.ERROR(f"Error updating record status for {message_id}: {e}")
+        return result.success
 
     def get_health_status(self) -> Dict[str, Any]:
         """
@@ -500,6 +597,7 @@ class NotificationWorker:
 # ============================================================================
 
 def create_notification_worker(
+    notification_service,
     record_crud: NotificationRecordCRUD,
     group_id: Optional[str] = None
 ) -> NotificationWorker:
@@ -507,6 +605,7 @@ def create_notification_worker(
     创建 NotificationWorker 实例（便捷函数）
 
     Args:
+        notification_service: NotificationService 实例
         record_crud: NotificationRecordCRUD 实例
         group_id: Consumer group ID（可选）
 
@@ -514,16 +613,25 @@ def create_notification_worker(
         NotificationWorker: Worker 实例
 
     Examples:
+        >>> from ginkgo.notifier.core.notification_service import NotificationService
         >>> from ginkgo.data.crud import NotificationRecordCRUD
         >>> from ginkgo.notifier.workers.notification_worker import create_notification_worker
         >>>
+        >>> # 创建服务
+        >>> service = NotificationService(...)
         >>> record_crud = NotificationRecordCRUD()
-        >>> worker = create_notification_worker(record_crud)
+        >>>
+        >>> # 创建 Worker
+        >>> worker = create_notification_worker(
+        >>>     notification_service=service,
+        >>>     record_crud=record_crud
+        >>> )
         >>>
         >>> if worker.start():
-        ...     print("Worker started successfully")
+        >>>     print("Worker started successfully")
     """
     return NotificationWorker(
+        notification_service=notification_service,
         record_crud=record_crud,
         group_id=group_id
     )
