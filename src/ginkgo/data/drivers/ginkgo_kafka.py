@@ -9,9 +9,11 @@
 
 import json
 from time import sleep
+from typing import Optional
 from kafka import KafkaProducer, KafkaConsumer
 from kafka.structs import TopicPartition
 from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import NoBrokersAvailable, KafkaConnectionError
 
 from ginkgo.libs.core.config import GCONF
 from ginkgo.libs import GLOG
@@ -22,56 +24,200 @@ data_logger = GinkgoLogger("ginkgo_data", ["ginkgo_data.log"])
 
 class GinkgoProducer(object):
     def __init__(self):
-        self.producer = KafkaProducer(
-            bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
-            value_serializer=lambda v: json.dumps(v).encode("utf-8"),  # 消息序列化
-        )
-        self._max_try = 5
+        try:
+            self.producer = KafkaProducer(
+                bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
+                value_serializer=lambda v: json.dumps(v).encode("utf-8"),  # 消息序列化
+                request_timeout_ms=10000,  # 10秒连接超时
+                metadata_max_age_ms=300000,  # 5分钟元数据更新间隔
+                retries=3,  # 自动重试3次
+                acks=1,  # 等待leader确认
+            )
+            self._max_try = 5
+            self._connected = True
+            GLOG.INFO(f"Kafka Producer connected to {GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}")
+            data_logger.INFO(f"Kafka Producer connected successfully")
+        except (NoBrokersAvailable, KafkaConnectionError) as e:
+            self._connected = False
+            self.producer = None
+            GLOG.ERROR(f"Kafka Producer connection failed: {e}")
+            data_logger.ERROR(f"Failed to connect to Kafka at {GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}: {e}")
+        except Exception as e:
+            self._connected = False
+            self.producer = None
+            GLOG.ERROR(f"Kafka Producer initialization error: {e}")
+            data_logger.ERROR(f"Unexpected error initializing Kafka Producer: {e}")
+
+    @property
+    def is_connected(self) -> bool:
+        """检查 Producer 是否已连接"""
+        return self._connected
 
     @property
     def max_try(self) -> int:
         return self._max_try
 
     def send(self, topic, msg):
+        """
+        同步发送消息（等待确认）
+
+        Args:
+            topic: Kafka topic
+            msg: 消息内容
+
+        Returns:
+            bool: 发送是否成功
+        """
+        if not self._connected or self.producer is None:
+            GLOG.ERROR("Kafka Producer not connected, cannot send message")
+            data_logger.ERROR("Send failed: Kafka Producer not connected")
+            return False
+
         try:
             future = self.producer.send(topic, msg)
             result = future.get(timeout=10)
             print(result)
             GLOG.DEBUG(f"Kafka send message. TOPIC: {topic}. {msg}")
             data_logger.INFO(f"Kafka send message. TOPIC: {topic}. {msg}")
+            return True
+        except (NoBrokersAvailable, KafkaConnectionError) as e:
+            GLOG.ERROR(f"Kafka connection error during send: {e}")
+            data_logger.ERROR(f"Kafka send failed (connection error): {e}")
+            self._connected = False  # 标记为断开连接
+            return False
         except Exception as e:
             GLOG.ERROR(f"Kafka send msg failed. {e}")
             data_logger.ERROR(f"Kafka send msg failed. {e}")
+            return False
         finally:
-            self.producer.flush()
+            if self.producer:
+                self.producer.flush()
+
+    def send_async(self, topic, msg):
+        """
+        异步发送消息（不等待确认）
+
+        这是真正的 fire-and-forget 模式，不会阻塞调用者。
+
+        Args:
+            topic: Kafka topic
+            msg: 消息内容
+
+        Returns:
+            bool: 发送是否成功（仅表示消息已加入发送队列）
+        """
+        if not self._connected or self.producer is None:
+            GLOG.ERROR("Kafka Producer not connected, cannot send message asynchronously")
+            data_logger.ERROR("Async send failed: Kafka Producer not connected")
+            return False
+
+        try:
+            self.producer.send(topic, msg)
+            GLOG.DEBUG(f"Kafka async send message. TOPIC: {topic}")
+            return True
+        except (NoBrokersAvailable, KafkaConnectionError) as e:
+            GLOG.ERROR(f"Kafka connection error during async send: {e}")
+            data_logger.ERROR(f"Kafka async send failed (connection error): {e}")
+            self._connected = False  # 标记为断开连接
+            return False
+        except Exception as e:
+            GLOG.ERROR(f"Kafka async send failed. {e}")
+            data_logger.ERROR(f"Kafka async send failed: {e}")
+            return False
+
+    def flush(self, timeout: Optional[float] = None):
+        """
+        刷新 Kafka Producer 缓冲区
+
+        确保所有已发送的消息被传输到 Kafka 服务器。
+        用于程序退出前确保消息不丢失。
+
+        Args:
+            timeout: 超时时间（秒），None 表示使用默认超时
+        """
+        try:
+            self.producer.flush(timeout=timeout)
+            GLOG.DEBUG(f"Kafka producer flushed (timeout={timeout})")
+        except Exception as e:
+            GLOG.ERROR(f"Kafka flush failed: {e}")
 
 
 class GinkgoConsumer(object):
     def __init__(self, topic: str, group_id: str = "", offset: str = "earliest"):
         self.consumer = None
-        if group_id == "":
-            self.consumer = KafkaConsumer(
-                topic,
-                bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
-                auto_offset_reset=offset,  # 从最早的消息开始消费
-                value_deserializer=lambda m: json.loads(m.decode("utf-8")),  # 消息反序列化
-                max_poll_interval_ms=1800000,
-                max_poll_records=1,
-            )
-        else:
-            self.consumer = KafkaConsumer(
-                topic,
-                bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
-                group_id=group_id,
-                auto_offset_reset=offset,  # 从最早的消息开始消费
-                # auto_offset_reset="latest",
-                value_deserializer=lambda m: json.loads(m.decode("utf-8")),  # 消息反序列化
-                max_poll_interval_ms=1800000,
-                max_poll_records=1,
-            )
+        self._connected = False
+        self._topic = topic
+
+        try:
+            if group_id == "":
+                self.consumer = KafkaConsumer(
+                    topic,
+                    bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
+                    auto_offset_reset=offset,  # 从最早的消息开始消费
+                    value_deserializer=lambda m: json.loads(m.decode("utf-8")),  # 消息反序列化
+                    max_poll_interval_ms=1800000,
+                    max_poll_records=1,
+                    request_timeout_ms=40000,  # 40秒连接超时 (必须大于 session_timeout_ms)
+                    session_timeout_ms=30000,  # 30秒会话超时
+                    heartbeat_interval_ms=3000,  # 3秒心跳间隔
+                )
+            else:
+                self.consumer = KafkaConsumer(
+                    topic,
+                    bootstrap_servers=[f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"],  # Kafka集群地址
+                    group_id=group_id,
+                    auto_offset_reset=offset,  # 从最早的消息开始消费
+                    value_deserializer=lambda m: json.loads(m.decode("utf-8")),  # 消息反序列化
+                    max_poll_interval_ms=1800000,
+                    max_poll_records=1,
+                    request_timeout_ms=40000,  # 40秒连接超时 (必须大于 session_timeout_ms)
+                    session_timeout_ms=30000,  # 30秒会话超时
+                    heartbeat_interval_ms=3000,  # 3秒心跳间隔
+                )
+            self._connected = True
+            GLOG.INFO(f"Kafka Consumer connected to topic '{topic}' (group_id={group_id or 'none'})")
+            data_logger.INFO(f"Kafka Consumer connected successfully to topic: {topic}")
+        except (NoBrokersAvailable, KafkaConnectionError) as e:
+            self._connected = False
+            self.consumer = None
+            GLOG.ERROR(f"Kafka Consumer connection failed: {e}")
+            data_logger.ERROR(f"Failed to connect to Kafka topic '{topic}': {e}")
+        except Exception as e:
+            self._connected = False
+            self.consumer = None
+            GLOG.ERROR(f"Kafka Consumer initialization error: {e}")
+            data_logger.ERROR(f"Unexpected error initializing Kafka Consumer: {e}")
+
+    @property
+    def is_connected(self) -> bool:
+        """检查 Consumer 是否已连接"""
+        return self._connected
+
+    @property
+    def topic(self) -> str:
+        """获取订阅的 topic"""
+        return self._topic
 
     def commit(self):
-        self.consumer.commit()
+        """提交当前 offset"""
+        if self.consumer and self._connected:
+            try:
+                self.consumer.commit()
+            except Exception as e:
+                GLOG.ERROR(f"Kafka commit failed: {e}")
+                data_logger.ERROR(f"Failed to commit Kafka offset: {e}")
+
+    def close(self):
+        """关闭 consumer 连接"""
+        if self.consumer:
+            try:
+                self.consumer.close()
+                self._connected = False
+                GLOG.INFO(f"Kafka Consumer closed for topic '{self._topic}'")
+                data_logger.INFO(f"Kafka Consumer closed: {self._topic}")
+            except Exception as e:
+                GLOG.ERROR(f"Error closing Kafka Consumer: {e}")
+                data_logger.ERROR(f"Failed to close Kafka Consumer: {e}")
 
 
 def kafka_topic_set():
@@ -87,6 +233,7 @@ def kafka_topic_set():
     topic_list = []
     topic_list.append(NewTopic(name="ginkgo_data_update", num_partitions=24, replication_factor=1))
     topic_list.append(NewTopic(name="live_control", num_partitions=1, replication_factor=1))
+    topic_list.append(NewTopic(name="notifications", num_partitions=3, replication_factor=1))
     topics = admin_client.list_topics()
     print("Kafka Topics:")
     print(topics)
