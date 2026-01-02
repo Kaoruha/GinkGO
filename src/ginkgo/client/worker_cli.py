@@ -15,6 +15,7 @@ import typer
 from typing import Optional
 from rich.console import Console
 from rich.table import Table
+from rich.panel import Panel
 import psutil
 
 app = typer.Typer(help=":gear: Worker management", rich_markup_mode="rich")
@@ -261,4 +262,162 @@ def stop():
         raise typer.Exit(1)
     except Exception as e:
         console.print(f":x: Error stopping workers: {e}")
+        raise typer.Exit(1)
+
+
+@app.command("start")
+def start_worker(
+    notification: bool = typer.Option(False, "--notification", help="Start notification worker for Kafka message processing"),
+    group_id: Optional[str] = typer.Option(None, "--group-id", "-g", help="Consumer group ID"),
+    auto_offset: str = typer.Option("earliest", "--auto-offset", "-a", help="Kafka auto offset reset (earliest/latest)"),
+    debug: bool = typer.Option(False, "--debug", "-d", help="Run worker in debug mode"),
+):
+    """
+    :rocket: Start a specialized worker.
+
+    Examples:
+      ginkgo worker start --notification
+      ginkgo worker start --notification --group-id custom_group
+      ginkgo worker start --notification --auto-offset latest
+    """
+    try:
+        if notification:
+            _start_notification_worker(group_id, auto_offset, debug)
+        else:
+            console.print(":x: Please specify worker type (--notification)")
+            console.print(":information: Available worker types:")
+            console.print("  --notification  Start notification worker (Kafka consumer)")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f":x: Error starting worker: {e}")
+        raise typer.Exit(1)
+
+
+def _start_notification_worker(
+    group_id: Optional[str],
+    auto_offset: str,
+    debug: bool
+):
+    """
+    Start notification worker for Kafka message processing.
+
+    Args:
+        group_id: Consumer group ID
+        auto_offset: Kafka auto offset reset policy
+        debug: Enable debug mode
+    """
+    try:
+        from ginkgo.notifier.workers.notification_worker import NotificationWorker, WorkerStatus
+        from ginkgo import service_hub
+
+        # Get services from service_hub
+        notification_service = service_hub.notifier.notification_service()
+        record_crud = service_hub.data.cruds.notification_record()
+
+        # Create worker
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud,
+            group_id=group_id or "notification_worker_group",
+            auto_offset_reset=auto_offset
+        )
+
+        # Display worker info
+        console.print(Panel.fit(
+            f"[bold cyan]:gear: Notification Worker[/bold cyan]\n"
+            f"[dim]Group ID:[/dim] {worker._group_id}\n"
+            f"[dim]Topic:[/dim] {worker.NOTIFICATIONS_TOPIC}\n"
+            f"[dim]Auto Offset:[/dim] {auto_offset}\n"
+            f"[dim]Debug:[/dim] {'On' if debug else 'Off'}",
+            title="[bold]Worker Configuration[/bold]",
+            border_style="cyan"
+        ))
+
+        if debug:
+            console.print("\n[yellow]:bug: Debug mode enabled - verbose logging active[/yellow]")
+
+        # Start worker
+        console.print("\n:rocket: [bold green]Starting worker...[/bold green]")
+        console.print(":information: Press Ctrl+C to stop the worker\n")
+
+        if not worker.start():
+            console.print("[red]:x: Failed to start worker[/red]")
+            raise typer.Exit(1)
+
+        # Wait for interrupt
+        try:
+            import signal
+            import time
+
+            def signal_handler(signum, frame):
+                console.print("\n\n:stop_button: [yellow]Stopping worker...[/yellow]")
+                console.print(":information: Waiting for messages to finish processing...")
+
+                worker.stop(timeout=30.0)
+
+                # Show final stats
+                stats = worker.stats
+                console.print(Panel.fit(
+                    f"[bold]Final Statistics[/bold]\n"
+                    f"[cyan]Messages Consumed:[/cyan] {stats['messages_consumed']}\n"
+                    f"[green]Messages Sent:[/green] {stats['messages_sent']}\n"
+                    f"[red]Messages Failed:[/red] {stats['messages_failed']}\n"
+                    f"[yellow]Messages Retried:[/yellow] {stats['messages_retried']}",
+                    title="[bold]Worker Summary[/bold]"
+                ))
+                console.print(":white_check_mark: Worker stopped successfully")
+                raise SystemExit(0)
+
+            # Register signal handlers
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+
+            # Debug mode: 显示统计信息
+            last_shown_count = 0
+            last_shown_time = time.time()
+            stats_interval = 60  # 每60秒显示一次
+            message_interval = 10  # 每消费10条消息显示一次
+
+            # Keep running until interrupted
+            while worker.is_running:
+                time.sleep(1)
+
+                # Debug mode: 周期性显示统计
+                if debug:
+                    current_time = time.time()
+                    current_count = worker.stats['messages_consumed']
+
+                    # 检查是否需要显示统计
+                    should_show = False
+                    reason = ""
+
+                    # 条件1: 每消费 message_interval 条消息显示一次
+                    if current_count > 0 and current_count >= last_shown_count + message_interval:
+                        should_show = True
+                        reason = f"every {message_interval} messages"
+
+                    # 条件2: 每隔 stats_interval 秒显示一次
+                    elif current_time - last_shown_time >= stats_interval:
+                        should_show = True
+                        reason = f"every {stats_interval}s"
+
+                    if should_show:
+                        stats = worker.stats
+                        console.print(f"[dim]:memo: [{reason}] Processed: {stats['messages_consumed']} | "
+                                   f"Sent: {stats['messages_sent']} | "
+                                   f"Failed: {stats['messages_failed']}[/dim]")
+                        last_shown_count = current_count
+                        last_shown_time = current_time
+
+        except SystemExit:
+            raise
+        except Exception as e:
+            console.print(f"\n[red]:x: Worker error: {e}[/red]")
+            worker.stop(timeout=5.0)
+            raise typer.Exit(1)
+
+    except ImportError as e:
+        console.print(f"[red]:x: Failed to import NotificationWorker: {e}[/red]")
+        console.print(":information: Make sure the notifier module is properly installed")
         raise typer.Exit(1)
