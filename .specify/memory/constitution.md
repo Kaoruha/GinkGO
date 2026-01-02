@@ -1,24 +1,21 @@
 <!--
 Sync Impact Report:
-Version change: 1.5.0 → 1.5.1
+Version change: 1.5.1 → 1.6.0
 Modified principles:
-- 验证完整性原则(Verification Integrity) - 扩展典型案例，增加服务端口一致性验证
+- 架构设计原则(Architecture Excellence) - 强化服务获取规范，强制要求所有Service必须从Container获取
 Added sections: N/A
 Removed sections: N/A
 Files Updated for Consistency:
-✅ updated: .specify/specs/003-default/spec.md - 已包含头部同步相关需求(FR-025, FR-031)
-✅ updated: .specify/specs/003-default/plan.md - 已包含CI/CD集成检查计划
-✅ updated: .specify/templates/plan-template.md - 已添加验证完整性检查项
-✅ updated: .specify/templates/spec-template.md - 已添加配置验证约束(FR-018~FR-023)
-✅ updated: .specify/templates/tasks-template.md - 已包含维护任务模板
+✅ updated: .specify/specs/006-notification-system/spec.md - 已包含服务容器相关需求
+✅ updated: .specify/specs/003-default/spec.md - 已包含服务容器架构需求
+⚠ pending: .specify/templates/plan-template.md - 需要添加服务容器检查项
+⚠ pending: .specify/templates/spec-template.md - 需要添加服务获取规范
+⚠ pending: start_notification_worker.py - 需要修改为从Container获取Service
+⚠ pending: tests/integration/notifier/test_worker_integration.py - 需要修改测试代码使用Container
 Follow-up TODOs:
-- 在CI/CD流程中添加头部准确性自动检查
-- 实施代码审查时的头部同步检查清单
-- 定期运行验证脚本确保头部与代码一致性
-- 建立头部更新自动提醒机制
-- 在CI/CD流程中添加配置文件完整性检查
-- 实施配置类验证的强制检查清单
-- 实施服务状态一致性验证（配置文件/GCONF/实际服务三者对比）
+- 更新所有直接实例化Service的代码改为从Container获取
+- 在代码审查中添加服务获取规范检查
+- 建立服务容器使用最佳实践文档
 -->
 
 # Ginkgo 项目章程
@@ -26,9 +23,9 @@ Follow-up TODOs:
 ## 基本信息
 
 - **项目名称**: Ginkgo
-- **章程版本**: 1.5.1
+- **章程版本**: 1.6.0
 - **制定日期**: 2025-11-03
-- **最后修订**: 2025-12-31
+- **最后修订**: 2026-01-01
 - **项目描述**: Python量化交易库，专注于事件驱动回测、多数据库支持和完整的风险管理系统
 
 ## 核心原则
@@ -50,7 +47,42 @@ Follow-up TODOs:
 
 **事件驱动优先**: 所有交易功能必须基于事件驱动架构设计，遵循PriceUpdate → Strategy → Signal → Portfolio → Order → Fill的标准流程。
 
-**依赖注入模式**: 必须使用ServiceHub统一访问服务，通过`from ginkgo import service_hub`访问所有服务组件。为向后兼容，仍支持`from ginkgo import services`，但建议迁移到service_hub。
+**服务容器强制规范**: 所有Service必须从ServiceContainer获取，严禁直接实例化Service对象。
+
+**具体要求**:
+- **强制使用Container**: 所有Service实例必须通过`service_hub.get()`或`services.xxx()`获取，禁止使用`Service()`直接构造
+- **统一服务访问**: 为向后兼容，支持`from ginkgo import services`，但新代码必须迁移到`from ginkgo import service_hub`
+- **依赖注入管理**: Service的依赖关系由Container统一管理，禁止手动传递CRUD实例或其他依赖
+- **服务注册规范**: 新Service必须在Container中注册后才能被使用，注册时需声明所有依赖
+- **生命周期管理**: Service的生命周期由Container管理，禁止手动创建和销毁Service实例
+
+**禁止模式**:
+```python
+# ❌ 错误：直接实例化Service
+user_service = UserService(user_crud, user_contact_crud)
+notification_service = NotificationService(template_crud, record_crud, ...)
+
+# ❌ 错误：手动传递依赖
+worker = NotificationWorker(
+    notification_service=notification_service,  # 手动创建
+    record_crud=record_crud                     # 手动传递
+)
+```
+
+**正确模式**:
+```python
+# ✅ 正确：从Container获取Service
+from ginkgo import service_hub
+
+user_service = service_hub.users.user_service
+notification_service = service_hub.notifiers.notification_service
+
+# ✅ 正确：使用services别名（向后兼容）
+from ginkgo import services
+user_service = services.users.user_service
+```
+
+**理由**: 统一从Container获取Service能够确保依赖注入的一致性，避免手动管理依赖的复杂性，提高代码的可测试性和可维护性。直接实例化Service会导致依赖管理混乱、测试困难、配置不一致等问题。容器化服务管理是现代软件架构的最佳实践。
 
 **职责分离**: 严格分离数据层、策略层、执行层、分析层和服务层的职责，避免跨层功能耦合。
 
@@ -236,6 +268,7 @@ Follow-up TODOs:
 - 代码质量检查必须包含章程合规性验证
 - 测试覆盖率必须达到设定的最低标准
 - 配置完整性检查必须验证配置文件包含必要配置项
+- 服务获取规范检查必须验证所有Service从Container获取
 
 ### 问责机制
 
