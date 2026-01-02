@@ -9,7 +9,7 @@ NotificationWorker Unit Tests
 测试覆盖：
 - Worker 初始化
 - Worker 启动和停止
-- 消息处理（Discord/Email）
+- 消息处理（通过 NotificationService）
 - 重试逻辑
 - 结果记录
 - 统计信息
@@ -34,10 +34,15 @@ class TestNotificationWorkerInit:
 
     def test_init_default(self):
         """测试默认初始化"""
+        notification_service = Mock()
         record_crud = Mock()
 
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
+        assert worker.notification_service == notification_service
         assert worker.record_crud == record_crud
         assert worker._group_id == "notification_worker_group"
         assert worker.status == WorkerStatus.STOPPED
@@ -45,9 +50,11 @@ class TestNotificationWorkerInit:
 
     def test_init_with_group_id(self):
         """测试使用自定义 group_id"""
+        notification_service = Mock()
         record_crud = Mock()
 
         worker = NotificationWorker(
+            notification_service=notification_service,
             record_crud=record_crud,
             group_id="custom_group"
         )
@@ -56,8 +63,12 @@ class TestNotificationWorkerInit:
 
     def test_stats_initial(self):
         """测试初始统计信息"""
+        notification_service = Mock()
         record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
         stats = worker.stats
 
@@ -74,14 +85,19 @@ class TestNotificationWorkerLifecycle:
     @patch('ginkgo.notifier.workers.notification_worker.GinkgoConsumer')
     def test_start_success(self, mock_consumer_class):
         """测试成功启动 Worker"""
+        notification_service = Mock()
         record_crud = Mock()
 
         # Mock consumer
         mock_consumer = Mock()
+        mock_consumer.is_connected = True
         mock_consumer.consumer.poll.return_value = {}
         mock_consumer_class.return_value = mock_consumer
 
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
         result = worker.start()
 
@@ -90,10 +106,17 @@ class TestNotificationWorkerLifecycle:
         assert worker.is_running is True
         mock_consumer_class.assert_called_once()
 
+        # 清理
+        worker.stop(timeout=1.0)
+
     def test_start_when_running(self):
         """测试重复启动"""
+        notification_service = Mock()
         record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
         # 模拟正在运行
         worker._status = WorkerStatus.RUNNING
@@ -105,14 +128,19 @@ class TestNotificationWorkerLifecycle:
     @patch('ginkgo.notifier.workers.notification_worker.GinkgoConsumer')
     def test_stop_success(self, mock_consumer_class):
         """测试成功停止 Worker"""
+        notification_service = Mock()
         record_crud = Mock()
 
         # Mock consumer
         mock_consumer = Mock()
+        mock_consumer.is_connected = True
         mock_consumer.consumer.poll.return_value = {}
         mock_consumer_class.return_value = mock_consumer
 
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
         worker.start()
 
         # 等待线程启动
@@ -125,8 +153,12 @@ class TestNotificationWorkerLifecycle:
 
     def test_stop_when_not_running(self):
         """测试停止未运行的 Worker"""
+        notification_service = Mock()
         record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
         result = worker.stop()
 
@@ -137,123 +169,131 @@ class TestNotificationWorkerLifecycle:
 class TestNotificationWorkerProcessMessage:
     """NotificationWorker 消息处理测试"""
 
-    def test_process_message_webhook_success(self):
-        """测试处理 Webhook 消息成功"""
+    def test_process_message_simple_success(self):
+        """测试处理 simple 消息成功"""
+        notification_service = Mock()
         record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
         message = {
+            "message_type": "simple",
             "message_id": "msg_123",
+            "user_uuid": "user_123",
             "content": "Test webhook message",
-            "channels": ["webhook"],
-            "metadata": {
-                "title": "Test Title"
-            },
-            "kwargs": {
-                "webhook_url": "https://example.com/webhook"
-            }
+            "title": "Test Title"
         }
 
-        # Mock record_crud.update_status
-        record_crud.update_status.return_value = 1
+        # Mock notification_service.send_to_user
+        notification_service.send_to_user.return_value = Mock(success=True)
 
-        with patch('ginkgo.notifier.workers.notification_worker.WebhookChannel') as mock_channel_class:
-            mock_channel = Mock()
-            mock_channel.send.return_value = Mock(
-                success=True,
-                to_dict=lambda: {"success": True}
-            )
-            mock_channel_class.return_value = mock_channel
+        result = worker._process_message(message)
 
-            result = worker._process_message(message)
+        assert result is True
+        notification_service.send_to_user.assert_called_once_with(
+            user_uuid="user_123",
+            content="Test webhook message",
+            title="Test Title",
+            channels=None,
+            priority=1
+        )
 
-            assert result is True
-            mock_channel.send.assert_called_once()
-
-    def test_process_message_email_success(self):
-        """测试处理 Email 消息成功"""
+    def test_process_message_template_success(self):
+        """测试处理 template 消息成功"""
+        notification_service = Mock()
         record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
         message = {
+            "message_type": "template",
             "message_id": "msg_456",
-            "content": "Test email message",
-            "channels": ["email"],
-            "metadata": {
-                "title": "Test Email"
-            },
-            "kwargs": {
-                "to": "test@example.com"
-            }
+            "user_uuid": "user_456",
+            "template_id": "test_template",
+            "context": {"name": "Test User"}
         }
 
-        # Mock record_crud.update_status
-        record_crud.update_status.return_value = 1
+        # Mock notification_service.send_template_to_user
+        notification_service.send_template_to_user.return_value = Mock(success=True)
 
-        with patch('ginkgo.notifier.workers.notification_worker.EmailChannel') as mock_channel_class:
-            mock_channel = Mock()
-            mock_channel.send.return_value = Mock(
-                success=True,
-                to_dict=lambda: {"success": True}
-            )
-            mock_channel_class.return_value = mock_channel
+        result = worker._process_message(message)
 
-            result = worker._process_message(message)
+        assert result is True
+        notification_service.send_template_to_user.assert_called_once_with(
+            user_uuid="user_456",
+            template_id="test_template",
+            context={"name": "Test User"},
+            priority=1
+        )
 
-            assert result is True
-            mock_channel.send.assert_called_once()
-
-    def test_process_message_multiple_channels(self):
-        """测试处理多渠道消息"""
+    def test_process_message_trading_signal(self):
+        """测试处理交易信号消息"""
+        notification_service = Mock()
         record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
         message = {
-            "message_id": "msg_789",
-            "content": "Test multi-channel message",
-            "channels": ["webhook", "email"],
-            "metadata": {},
-            "kwargs": {
-                "webhook_url": "https://example.com/webhook",
-                "to": "test@example.com"
-            }
+            "message_type": "trading_signal",
+            "message_id": "msg_signal",
+            "user_uuid": "user_signal",
+            "direction": "LONG",
+            "code": "AAPL",
+            "price": 150.0,
+            "volume": 100
         }
 
-        # Mock record_crud.update_status
-        record_crud.update_status.return_value = 1
+        # Mock notification_service.send_trading_signal
+        notification_service.send_trading_signal.return_value = Mock(success=True)
 
-        with patch('ginkgo.notifier.workers.notification_worker.WebhookChannel') as mock_webhook_class, \
-             patch('ginkgo.notifier.workers.notification_worker.EmailChannel') as mock_email_class:
+        result = worker._process_message(message)
 
-            mock_webhook = Mock()
-            mock_webhook.send.return_value = Mock(
-                success=True,
-                to_dict=lambda: {"success": True}
-            )
-            mock_webhook_class.return_value = mock_webhook
+        assert result is True
+        notification_service.send_trading_signal.assert_called_once()
 
-            mock_email = Mock()
-            mock_email.send.return_value = Mock(
-                success=True,
-                to_dict=lambda: {"success": True}
-            )
-            mock_email_class.return_value = mock_email
+    def test_process_message_system_notification(self):
+        """测试处理系统通知消息"""
+        notification_service = Mock()
+        record_crud = Mock()
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
-            result = worker._process_message(message)
+        message = {
+            "message_type": "system_notification",
+            "message_id": "msg_sys",
+            "user_uuid": "user_sys",
+            "content": "System alert",
+            "level": "ERROR"
+        }
 
-            assert result is True
-            mock_webhook.send.assert_called_once()
-            mock_email.send.assert_called_once()
+        # Mock notification_service.send_system_notification
+        notification_service.send_system_notification.return_value = Mock(success=True)
+
+        result = worker._process_message(message)
+
+        assert result is True
+        notification_service.send_system_notification.assert_called_once()
 
     def test_process_message_invalid(self):
         """测试处理无效消息"""
+        notification_service = Mock()
         record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
         message = {
             "message_id": "msg_invalid",
-            "channels": ["webhook"]
-            # 缺少 content
+            # 缺少 message_type
         }
 
         result = worker._process_message(message)
@@ -262,96 +302,38 @@ class TestNotificationWorkerProcessMessage:
 
 
 @pytest.mark.unit
-class TestNotificationWorkerSendToChannel:
-    """NotificationWorker 渠道发送测试"""
+class TestNotificationWorkerGroupMessaging:
+    """NotificationWorker 组消息测试"""
 
-    def test_send_to_webhook(self):
-        """测试发送到 Webhook"""
+    def test_process_simple_message_to_group(self):
+        """测试发送 simple 消息到用户组"""
+        notification_service = Mock()
         record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
-
-        with patch('ginkgo.notifier.workers.notification_worker.WebhookChannel') as mock_channel_class:
-            mock_channel = Mock()
-            mock_channel.send.return_value = Mock(success=True)
-            mock_channel_class.return_value = mock_channel
-
-            result = worker._send_to_channel(
-                channel_name="webhook",
-                content="Test content",
-                webhook_url="https://example.com/webhook"
-            )
-
-            assert result.success is True
-            mock_channel.send.assert_called_once()
-
-    def test_send_to_email(self):
-        """测试发送到 Email"""
-        record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
-
-        with patch('ginkgo.notifier.workers.notification_worker.EmailChannel') as mock_channel_class:
-            mock_channel = Mock()
-            mock_channel.send.return_value = Mock(success=True)
-            mock_channel_class.return_value = mock_channel
-
-            result = worker._send_to_channel(
-                channel_name="email",
-                content="Test content",
-                to="test@example.com"
-            )
-
-            assert result.success is True
-            mock_channel.send.assert_called_once()
-
-    def test_send_to_unknown_channel(self):
-        """测试发送到未知渠道"""
-        record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
-
-        result = worker._send_to_channel(
-            channel_name="unknown",
-            content="Test content"
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
         )
 
-        assert result.success is False
-        assert "Unknown channel" in result.error
+        message = {
+            "message_type": "simple",
+            "message_id": "msg_group",
+            "group_name": "test_group",
+            "content": "Group test message"
+        }
 
+        # Mock notification_service.send_to_group
+        notification_service.send_to_group.return_value = Mock(success=True)
 
-@pytest.mark.unit
-class TestNotificationWorkerUpdateRecord:
-    """NotificationWorker 记录更新测试"""
+        result = worker._process_message(message)
 
-    def test_update_record_all_success(self):
-        """测试更新记录（全部成功）"""
-        record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
-
-        worker._update_record_status(
-            message_id="msg_123",
-            channel_results={"webhook": {"success": True}},
-            success_count=1,
-            total_channels=1
+        assert result is True
+        notification_service.send_to_group.assert_called_once_with(
+            group_name="test_group",
+            content="Group test message",
+            title=None,
+            channels=None,
+            priority=1
         )
-
-        record_crud.update_status.assert_called_once()
-        call_args = record_crud.update_status.call_args
-        assert call_args[1]["status"] == 1  # SENT
-
-    def test_update_record_all_failed(self):
-        """测试更新记录（全部失败）"""
-        record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
-
-        worker._update_record_status(
-            message_id="msg_456",
-            channel_results={"webhook": {"success": False}},
-            success_count=0,
-            total_channels=1
-        )
-
-        record_crud.update_status.assert_called_once()
-        call_args = record_crud.update_status.call_args
-        assert call_args[1]["status"] == 2  # FAILED
 
 
 @pytest.mark.unit
@@ -360,8 +342,12 @@ class TestNotificationWorkerHealthStatus:
 
     def test_get_health_status_stopped(self):
         """测试获取健康状态（已停止）"""
+        notification_service = Mock()
         record_crud = Mock()
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
         status = worker.get_health_status()
 
@@ -372,14 +358,19 @@ class TestNotificationWorkerHealthStatus:
     @patch('ginkgo.notifier.workers.notification_worker.GinkgoConsumer')
     def test_get_health_status_running(self, mock_consumer_class):
         """测试获取健康状态（运行中）"""
+        notification_service = Mock()
         record_crud = Mock()
 
         # Mock consumer
         mock_consumer = Mock()
+        mock_consumer.is_connected = True
         mock_consumer.consumer.poll.return_value = {}
         mock_consumer_class.return_value = mock_consumer
 
-        worker = NotificationWorker(record_crud=record_crud)
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
         worker.start()
 
         # 等待线程启动
@@ -400,18 +391,25 @@ class TestConvenienceFunctions:
 
     def test_create_notification_worker(self):
         """测试创建 Worker 便捷函数"""
+        notification_service = Mock()
         record_crud = Mock()
 
-        worker = create_notification_worker(record_crud=record_crud)
+        worker = create_notification_worker(
+            notification_service=notification_service,
+            record_crud=record_crud
+        )
 
         assert isinstance(worker, NotificationWorker)
+        assert worker.notification_service == notification_service
         assert worker.record_crud == record_crud
 
     def test_create_notification_worker_with_group_id(self):
         """测试创建 Worker 便捷函数（带 group_id）"""
+        notification_service = Mock()
         record_crud = Mock()
 
         worker = create_notification_worker(
+            notification_service=notification_service,
             record_crud=record_crud,
             group_id="custom_group"
         )
