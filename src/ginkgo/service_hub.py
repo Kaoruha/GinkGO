@@ -89,7 +89,7 @@ class ServiceHub:
     def get_module_status(self) -> Dict[str, Dict[str, Any]]:
         """获取所有模块的详细状态"""
         status = {}
-        for module_name in ['data', 'trading', 'core', 'ml', 'features']:
+        for module_name in ['data', 'trading', 'core', 'ml', 'features', 'notifier']:
             try:
                 module = getattr(self, module_name)
                 if module is not None:
@@ -144,7 +144,7 @@ class ServiceHub:
         """列出所有可用模块"""
         available = ["data"]  # data模块始终可用
 
-        for module_name in ["trading", "core", "ml", "features"]:
+        for module_name in ["trading", "core", "ml", "features", "notifier"]:
             try:
                 module = getattr(self, module_name)
                 if module is not None:
@@ -316,6 +316,29 @@ class ServiceHub:
             self._module_errors['features'] = str(e)
             if self._debug_mode:
                 print(f":x: 因子模块错误: {e}")
+                import traceback
+                traceback.print_exc()
+            return None
+
+    @property
+    def notifier(self):
+        """通知模块访问器"""
+        if 'notifier' in self._module_cache:
+            return self._module_cache['notifier']
+
+        @self._measure_performance('notifier')
+        def _load_notifier():
+            from ginkgo.notifier.containers import container as notifier_container
+            return notifier_container
+
+        try:
+            container = _load_notifier()
+            self._module_cache['notifier'] = container
+            return container
+        except Exception as e:
+            self._module_errors['notifier'] = str(e)
+            if self._debug_mode:
+                print(f":x: 通知模块错误: {e}")
                 import traceback
                 traceback.print_exc()
             return None

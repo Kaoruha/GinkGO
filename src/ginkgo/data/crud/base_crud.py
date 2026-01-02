@@ -16,13 +16,13 @@ from sqlalchemy import and_, delete, select, text, update
 from sqlalchemy.orm import Session
 
 from ginkgo.data.drivers import get_db_connection, add, add_all
-from ginkgo.data.models import MClickBase, MMysqlBase
+from ginkgo.data.models import MClickBase, MMysqlBase, MMongoBase
 from ginkgo.libs import GLOG, time_logger, retry, cache_with_expiration
 from ginkgo.data.access_control import restrict_crud_access
 from ginkgo.data.crud.model_crud_mapping import ModelCRUDMapping
 from ginkgo.data.crud.model_conversion import ModelList
 
-T = TypeVar("T", bound=Union[MClickBase, MMysqlBase])
+T = TypeVar("T", bound=Union[MClickBase, MMysqlBase, MMongoBase])
 
 
 class CRUDResult:
@@ -64,6 +64,10 @@ class CRUDResult:
         """
         转换为DataFrame
 
+        支持多种模型类型：
+        - SQLAlchemy 模型：使用 __dict__ 属性
+        - Pydantic 模型：使用 model_dump() 方法
+
         Returns:
             pandas DataFrame containing the data
         """
@@ -71,13 +75,18 @@ class CRUDResult:
             if not self._models:
                 self._dataframe_cache = pd.DataFrame()
             else:
-                # 先将模型列表转换为DataFrame
-                df = pd.DataFrame([model.__dict__ for model in self._models])
-                # 移除非数据列
-                columns_to_remove = ['_sa_instance_state']
-                for col in columns_to_remove:
-                    if col in df.columns:
-                        df = df.drop(col, axis=1)
+                # 检测模型类型并使用相应的序列化方法
+                if self._models and hasattr(self._models[0], 'model_dump'):
+                    # Pydantic 模型 (MMongoBase)
+                    df = pd.DataFrame([model.model_dump() for model in self._models])
+                else:
+                    # SQLAlchemy 模型 (MClickBase, MMysqlBase)
+                    df = pd.DataFrame([model.__dict__ for model in self._models])
+                    # 移除非数据列
+                    columns_to_remove = ['_sa_instance_state']
+                    for col in columns_to_remove:
+                        if col in df.columns:
+                            df = df.drop(col, axis=1)
                 # 应用enum转换
                 self._dataframe_cache = self._crud_instance._process_dataframe_output(df)
         return self._dataframe_cache
@@ -203,7 +212,7 @@ class BaseCRUD(Generic[T], ABC):
         初始化CRUD实例
 
         Args:
-            model_class: 对应的Model类，如 MBar, MStockInfo 等
+            model_class: 对应的Model类，如 MBar, MStockInfo, MMongoBase 子类等
 
         用法说明：
         1. model_class 参数用于设置实例变量 self.model_class
@@ -213,9 +222,10 @@ class BaseCRUD(Generic[T], ABC):
         self.model_class = model_class
         self._is_clickhouse = issubclass(model_class, MClickBase)
         self._is_mysql = issubclass(model_class, MMysqlBase)
+        self._is_mongo = issubclass(model_class, MMongoBase)
 
-        if not (self._is_clickhouse or self._is_mysql):
-            raise ValueError(f"Model {model_class} must inherit from MClickBase or MMysqlBase")
+        if not (self._is_clickhouse or self._is_mysql or self._is_mongo):
+            raise ValueError(f"Model {model_class} must inherit from MClickBase, MMysqlBase, or MMongoBase")
 
     def __init_subclass__(cls, **kwargs):
         """
@@ -244,10 +254,10 @@ class BaseCRUD(Generic[T], ABC):
         # 验证 _model_class 是否继承自正确的基类（特殊情况跳过验证）
         if cls.__name__ not in ['TickCRUD']:
             model_class = cls._model_class
-            if not (issubclass(model_class, MClickBase) or issubclass(model_class, MMysqlBase)):
+            if not (issubclass(model_class, MClickBase) or issubclass(model_class, MMysqlBase) or issubclass(model_class, MMongoBase)):
                 raise TypeError(
                     f"CRUD subclass '{cls.__name__}': _model_class must inherit from "
-                    f"MClickBase or MMysqlBase, but got {model_class.__bases__}"
+                    f"MClickBase, MMysqlBase, or MMongoBase, but got {model_class.__bases__}"
                 )
 
             # 自动建立Model-CRUD映射关系
