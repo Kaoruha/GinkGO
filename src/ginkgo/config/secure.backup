@@ -28,7 +28,11 @@ tushare:
 telegram:
   token: {YourToken}
   password: {YourPassword}
-  chatids: 
+  chatids:
     - {YourIDs}
 deepseek:
   token: {YourToken}
+notifications:
+  email:
+    smtp_user: {YourEmail}
+    smtp_password: {YourAppPassword}

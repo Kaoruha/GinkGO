@@ -141,18 +141,27 @@ class KafkaHealthChecker:
             with self._lock:
                 self._check_in_progress = False
 
-    def should_degrade(self) -> bool:
+    def should_degrade(self, quick_check: bool = True) -> bool:
         """
         是否应该降级为同步发送模式
 
         根据连续失败次数判断。
 
+        Args:
+            quick_check: 是否快速检查（使用缓存，不执行耗时检查）
+
         Returns:
             bool: True 表示应该降级
         """
-        # 如果从未检查过，先检查一次
-        if self._is_healthy is None:
-            self.check_health()
+        # 快速模式：如果有缓存结果直接使用，否则假设健康（避免阻塞）
+        if quick_check:
+            if self._is_healthy is None:
+                # 首次调用，假设健康，让发送操作自己决定
+                return False
+        else:
+            # 完整检查：如果从未检查过，先检查一次
+            if self._is_healthy is None:
+                self.check_health()
 
         # 检查是否超过重试阈值
         if self._consecutive_failures >= self.RETRY_THRESHOLD:
@@ -297,8 +306,8 @@ class KafkaHealthChecker:
             Dict: 检查结果
         """
         try:
-            from ginkgo.notifier.core.message_queue import MessageQueue
-            topic = MessageQueue.NOTIFICATIONS_TOPIC
+            # 直接使用常量，不再依赖 MessageQueue
+            topic = "notifications"
 
             topic_info = self.kafka_crud.get_topic_info(topic)
 
