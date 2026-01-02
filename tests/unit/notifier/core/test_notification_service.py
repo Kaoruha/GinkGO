@@ -490,3 +490,236 @@ class TestNotificationServiceGetFailed:
         assert result.success is True
         assert result.data["count"] == 2
         record_crud.get_recent_failed.assert_called_once_with(limit=50)
+
+
+@pytest.mark.unit
+class TestNotificationServiceKafkaDegradation:
+    """NotificationService Kafka 降级机制测试"""
+
+    def test_kafka_degradation_on_unavailable(self):
+        """测试 Kafka 不可用时自动降级到同步模式"""
+        template_crud = Mock()
+        record_crud = Mock()
+        template_engine = Mock()
+        kafka_producer = Mock()
+        kafka_health_checker = Mock()
+
+        # 模拟 Kafka 不可用
+        kafka_health_checker.should_degrade.return_value = True
+        kafka_health_checker.get_health_summary.return_value = {
+            "healthy": False,
+            "reason": "No brokers available"
+        }
+
+        # 模拟同步渠道发送成功
+        mock_channel = Mock()
+        mock_channel.channel_name = "discord"
+        mock_channel.send.return_value = ChannelResult(
+            success=True,
+            message_id="test_msg_1"
+        )
+
+        service = NotificationService(
+            user_service=Mock(),
+            user_group_service=Mock(),
+            template_crud=template_crud,
+            record_crud=record_crud,
+            template_engine=template_engine,
+            kafka_producer=kafka_producer,
+            kafka_health_checker=kafka_health_checker
+        )
+        service.register_channel(mock_channel)
+
+        # 发送异步通知，应该降级到同步模式
+        result = service.send_async(
+            message_id="test_msg_1",
+            content="Test content",
+            channels=["discord"]
+        )
+
+        # 验证降级逻辑：调用同步发送而不是 Kafka
+        assert result.success is True
+        # Kafka send_async 不应该被调用（因为降级）
+        kafka_producer.send_async.assert_not_called()
+        # 验证健康检查被调用
+        kafka_health_checker.should_degrade.assert_called_once()
+        kafka_health_checker.get_health_summary.assert_called_once()
+
+    def test_kafka_no_degradation_when_healthy(self):
+        """测试 Kafka 健康时不降级，使用异步发送"""
+        template_crud = Mock()
+        record_crud = Mock()
+        template_engine = Mock()
+        kafka_producer = Mock()
+        kafka_health_checker = Mock()
+
+        # 模拟 Kafka 健康
+        kafka_health_checker.should_degrade.return_value = False
+        kafka_producer.send_async.return_value = True
+
+        service = NotificationService(
+            user_service=Mock(),
+            user_group_service=Mock(),
+            template_crud=template_crud,
+            record_crud=record_crud,
+            template_engine=template_engine,
+            kafka_producer=kafka_producer,
+            kafka_health_checker=kafka_health_checker
+        )
+
+        # 发送异步通知
+        result = service.send_async(
+            message_id="test_msg_1",
+            content="Test content",
+            channels=["discord"]
+        )
+
+        # 验证 Kafka 发送被调用
+        assert result.success is True
+        kafka_producer.send_async.assert_called_once()
+        kafka_health_checker.should_degrade.assert_called_once()
+
+    def test_kafka_force_async_fails_when_degraded(self):
+        """测试 force_async=True 且 Kafka 降级时返回错误"""
+        template_crud = Mock()
+        record_crud = Mock()
+        template_engine = Mock()
+        kafka_producer = Mock()
+        kafka_health_checker = Mock()
+
+        # 模拟 Kafka 不可用
+        kafka_health_checker.should_degrade.return_value = True
+        kafka_health_checker.get_health_summary.return_value = {
+            "healthy": False,
+            "reason": "Connection timeout"
+        }
+
+        service = NotificationService(
+            user_service=Mock(),
+            user_group_service=Mock(),
+            template_crud=template_crud,
+            record_crud=record_crud,
+            template_engine=template_engine,
+            kafka_producer=kafka_producer,
+            kafka_health_checker=kafka_health_checker
+        )
+
+        # 强制异步发送，Kafka 不可用时应返回错误
+        result = service.send_async(
+            message_id="test_msg_1",
+            content="Test content",
+            channels=["discord"],
+            force_async=True
+        )
+
+        # 验证返回错误
+        assert result.success is False
+        assert "Kafka unavailable" in result.error
+
+    def test_kafka_send_async_failure_degrades_to_sync(self):
+        """测试 Kafka send_async 失败时降级到同步模式"""
+        template_crud = Mock()
+        record_crud = Mock()
+        template_engine = Mock()
+        kafka_producer = Mock()
+        kafka_health_checker = Mock()
+
+        # 模拟 Kafka 健康检查通过，但发送失败
+        kafka_health_checker.should_degrade.return_value = False
+        kafka_producer.send_async.return_value = False  # 发送失败
+
+        # 模拟同步渠道发送成功
+        mock_channel = Mock()
+        mock_channel.channel_name = "discord"
+        mock_channel.send.return_value = ChannelResult(
+            success=True,
+            message_id="test_msg_1"
+        )
+
+        service = NotificationService(
+            user_service=Mock(),
+            user_group_service=Mock(),
+            template_crud=template_crud,
+            record_crud=record_crud,
+            template_engine=template_engine,
+            kafka_producer=kafka_producer,
+            kafka_health_checker=kafka_health_checker
+        )
+        service.register_channel(mock_channel)
+
+        # 发送异步通知
+        result = service.send_async(
+            message_id="test_msg_1",
+            content="Test content",
+            channels=["discord"]
+        )
+
+        # 验证降级到同步模式，发送成功
+        assert result.success is True
+        # 验证先尝试了 Kafka 发送
+        kafka_producer.send_async.assert_called_once()
+        # 验证降级日志应被记录（GLOG.WARN）
+
+    def test_kafka_health_check_methods(self):
+        """测试 Kafka 健康检查方法"""
+        template_crud = Mock()
+        record_crud = Mock()
+        template_engine = Mock()
+        kafka_producer = Mock()
+        kafka_health_checker = Mock()
+
+        # 模拟健康检查结果
+        kafka_health_checker.check_health.return_value = {
+            "healthy": True,
+            "broker_reachable": True,
+            "topic_exists": True
+        }
+        kafka_health_checker.get_health_summary.return_value = "All systems operational"
+        kafka_health_checker.should_degrade.return_value = False
+
+        service = NotificationService(
+            user_service=Mock(),
+            user_group_service=Mock(),
+            template_crud=template_crud,
+            record_crud=record_crud,
+            template_engine=template_engine,
+            kafka_producer=kafka_producer,
+            kafka_health_checker=kafka_health_checker
+        )
+
+        # 测试 check_kafka_health
+        health = service.check_kafka_health()
+        assert health["healthy"] is True
+        kafka_health_checker.check_health.assert_called_once()
+
+        # 测试 get_kafka_status
+        status = service.get_kafka_status()
+        assert status["enabled"] is True
+        assert status["healthy"] is True
+        assert status["should_degrade"] is False
+        assert status["health_summary"] == "All systems operational"
+
+    def test_kafka_health_check_not_configured(self):
+        """测试未配置 KafkaHealthChecker 时的行为"""
+        template_crud = Mock()
+        record_crud = Mock()
+        template_engine = Mock()
+
+        service = NotificationService(
+            user_service=Mock(),
+            user_group_service=Mock(),
+            template_crud=template_crud,
+            record_crud=record_crud,
+            template_engine=template_engine,
+            kafka_producer=None,
+            kafka_health_checker=None
+        )
+
+        # 测试 check_kafka_health 未配置时返回默认值
+        health = service.check_kafka_health()
+        assert health["configured"] is False
+        assert "not configured" in health["message"]
+
+        # 测试 get_kafka_status 未配置时
+        status = service.get_kafka_status()
+        assert status["enabled"] is False
