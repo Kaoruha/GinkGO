@@ -511,7 +511,18 @@ class CONTACT_TYPES(EnumBase):
     VOID = -1
     OTHER = 0
     EMAIL = 1            # 邮箱联系方式
-    WEBHOOK = 2          # Webhook联系方式（如Discord、钉钉等）
+    WEBHOOK = 2          # Webhook联系方式（如钉钉、企业微信等）
+    DISCORD = 3          # Discord联系方式
+
+
+class CONTACT_METHOD_STATUS_TYPES(EnumBase):
+    """联系方式状态枚举 - 用于管理用户联系方式的激活状态"""
+
+    VOID = -1
+    INACTIVE = 0         # 未激活
+    ACTIVE = 1           # 已激活
+    DISABLED = 2         # 已禁用
+    EXPIRED = 3          # 已过期
 
 
 class NOTIFICATION_STATUS_TYPES(EnumBase):
@@ -569,6 +580,7 @@ __all__ = [
     # 用户管理系统枚举 (US2)
     "USER_TYPES",
     "CONTACT_TYPES",
+    "CONTACT_METHOD_STATUS_TYPES",
     "NOTIFICATION_STATUS_TYPES",
     "TEMPLATE_TYPES",
 ]
