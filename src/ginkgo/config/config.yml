@@ -103,6 +103,10 @@ notifications:
   email:
     timeout: 10      # SMTP 请求超时时间（秒）
     max_retries: 3   # 最大重试次数
+    smtp_host: smtp.gmail.com      # SMTP 服务器地址
+    smtp_port: 587                  # SMTP 端口（TLS）
+    from_address: your_email@gmail.com  # 发件人邮箱
+    from_name: Ginkgo Notification  # 发件人名称
 
   # 通知记录保留时间
   record_ttl_days: 7  # 通知记录保留天数（TTL索引自动清理）
