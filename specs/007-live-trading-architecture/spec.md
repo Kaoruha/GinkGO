@@ -165,12 +165,12 @@ interest_map: {
 #### 市场数据Topics
 | **Topic** | **消息类型** | **发布者** | **订阅者** | **说明** |
 |-----------|------------|-----------|-----------|----------|
-| `ginkgo.live.market.data` | EventPriceUpdate | LiveCore.Data | ExecutionNode | A股市场行情 |
-| `ginkgo.live.market.data.hk` | EventPriceUpdate | LiveCore.Data | ExecutionNode | 港股市场行情 |
-| `ginkgo.live.market.data.us` | EventPriceUpdate | LiveCore.Data | ExecutionNode | 美股市场行情 |
-| `ginkgo.live.market.data.futures` | EventPriceUpdate | LiveCore.Data | ExecutionNode | 期货市场行情 |
+| `ginkgo.live.market.data` | EventPriceUpdate | LiveCore.Data | ExecutionNode | 所有市场行情（A股、港股、美股、期货，通过EventPriceUpdate.market字段区分） |
 
-**设计原因**: 避免为每只股票创建Topic（5000股票 vs 3-10个市场Topic）
+**设计原因**:
+- 避免为每只股票创建Topic（5000股票 vs 1个市场Topic）
+- 通过EventPriceUpdate.market字段区分市场类型（CN/HK/US/FUTURES）
+- 简化topic管理，提高Consumer Group的分区分配效率
 
 #### 订单Topics
 | **Topic** | **消息类型** | **发布者** | **订阅者** | **说明** |

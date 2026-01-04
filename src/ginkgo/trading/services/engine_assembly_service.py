@@ -25,7 +25,7 @@ from datetime import date
 from ginkgo.libs import GLOG, GinkgoLogger, datetime_normalize
 from ginkgo.enums import FILE_TYPES, EVENT_TYPES, ENGINESTATUS_TYPES
 from ginkgo.trading.engines import BaseEngine, BacktestEngine
-from ginkgo.trading.routing import Router
+from ginkgo.trading.gateway import TradeGateway
 from ginkgo.trading.feeders import BacktestFeeder
 from ginkgo.trading.brokers.sim_broker import SimBroker
 
@@ -762,14 +762,14 @@ class EngineAssemblyService(BaseService):
 
             engine.register(EVENT_TYPES.INTERESTUPDATE, feeder.on_interest_update)
 
-            # Set up router and broker (restored original binding logic)
-            from ginkgo.trading.routing.router import Router
+            # Set up gateway and broker (restored original binding logic)
+            from ginkgo.trading.gateway.trade_gateway import TradeGateway
             broker = self._create_broker_from_config(engine_data or {})
-            router = Router(brokers=[broker])
-            engine.bind_router(router)
+            gateway = TradeGateway(brokers=[broker])
+            engine.bind_router(gateway)
             # 明确注入事件回注接口，匹配 set_event_publisher 约定
-            if hasattr(router, "set_event_publisher"):
-                router.set_event_publisher(engine.put)
+            if hasattr(gateway, "set_event_publisher"):
+                gateway.set_event_publisher(engine.put)
 
             self._logger.DEBUG("Engine infrastructure setup completed")
             return True

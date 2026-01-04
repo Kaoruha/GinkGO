@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines, Portfolio Manager
 # Downstream: Data Layer, Event System
-# Role: 路由模块公共接口，导出Router路由器、Center路由中心、Balancer负载均衡、CircuitBreaker熔断器等订单路由组件
+# Role: 交易网关模块公共接口，导出TradeGateway交易网关、Center路由中心、Balancer负载均衡、CircuitBreaker熔断器等订单路由组件
 
 
 
@@ -67,7 +67,7 @@ from .circuit_breaker import (
 
 # T6: 添加MatchMaking相关导入
 from .base_matchmaking import MatchMakingBase
-from .router import Router
+from .trade_gateway import TradeGateway
 
 __all__ = [
     # 核心接口
@@ -111,7 +111,7 @@ __all__ = [
     
     # T6: MatchMaking类
     'MatchMakingBase',
-    'Router',
+    'TradeGateway',
     
     # 测试工具
     'MockTarget',
