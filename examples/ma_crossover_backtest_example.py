@@ -32,7 +32,7 @@ from ginkgo.trading.sizers.fixed_sizer import FixedSizer
 from ginkgo.trading.selectors.fixed_selector import FixedSelector
 from ginkgo.trading.feeders.backtest_feeder import BacktestFeeder
 from ginkgo.enums import EVENT_TYPES
-from ginkgo.trading.routing.router import Router
+from ginkgo.trading.gateway.trade_gateway import TradeGateway
 from ginkgo.trading.brokers.sim_broker import SimBroker
 from ginkgo.enums import ATTITUDE_TYPES
 from ginkgo.trading.analysis.analyzers.net_value import NetValue
@@ -109,20 +109,20 @@ class MACrossoverBacktest:
         # 5. 创建NetValue分析器
         self.net_value_analyzer = NetValue(name="net_value_analyzer")
 
-        # 6. 创建Router/Broker架构
-        print("🔗 创建Router/Broker架构...")
+        # 6. 创建TradeGateway/Broker架构
+        print("🔗 创建TradeGateway/Broker架构...")
         self.broker = SimBroker(
             name="SimBroker",
             attitude=ATTITUDE_TYPES.OPTIMISTIC,
             commission_rate=0.0003,  # 万分之三佣金
             commission_min=5  # 最低5元
         )
-        self.router = Router(name="UnifiedRouter", brokers=[self.broker])
+        self.gateway = TradeGateway(name="UnifiedTradeGateway", brokers=[self.broker])
 
         # 7. 按正确顺序绑定组件（自动事件注册）
         print("🔗 绑定组件关系...")
         self.engine.add_portfolio(self.portfolio)
-        self.engine.bind_router(self.router)
+        self.engine.bind_router(self.gateway)
         self.portfolio.add_strategy(self.strategy)
         self.portfolio.bind_sizer(sizer)
         self.portfolio.bind_selector(selector)

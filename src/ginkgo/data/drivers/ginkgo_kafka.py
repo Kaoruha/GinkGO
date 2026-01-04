@@ -231,9 +231,25 @@ def kafka_topic_set():
 
     # 创建一个新主题的配置
     topic_list = []
+
+    # === 全局Topics (回测、通知等) ===
     topic_list.append(NewTopic(name="ginkgo_data_update", num_partitions=24, replication_factor=1))
-    topic_list.append(NewTopic(name="live_control", num_partitions=1, replication_factor=1))
     topic_list.append(NewTopic(name="notifications", num_partitions=3, replication_factor=1))
+
+    # === 实盘交易架构Topics (007-live-trading-architecture) ===
+
+    # 市场数据Topic (所有市场：A股、港股、美股、期货，通过消息中的market字段区分)
+    topic_list.append(NewTopic(name="ginkgo.live.market.data", num_partitions=24, replication_factor=1))
+
+    # 订单Topics (高并发，需要更多分区)
+    topic_list.append(NewTopic(name="ginkgo.live.orders.submission", num_partitions=24, replication_factor=1))  # 订单提交
+    topic_list.append(NewTopic(name="ginkgo.live.orders.feedback", num_partitions=12, replication_factor=1))  # 订单回报
+
+    # 控制和调度Topics (低流量，少量分区)
+    topic_list.append(NewTopic(name="ginkgo.live.control.commands", num_partitions=3, replication_factor=1))  # 控制命令
+    topic_list.append(NewTopic(name="ginkgo.live.schedule.updates", num_partitions=3, replication_factor=1))  # 调度更新
+    topic_list.append(NewTopic(name="ginkgo.live.system.events", num_partitions=3, replication_factor=1))  # 系统事件
+
     topics = admin_client.list_topics()
     print("Kafka Topics:")
     print(topics)

@@ -1,6 +1,6 @@
 # Upstream: Backtest Engines, Portfolio Manager
 # Downstream: Data Layer, Event System
-# Role: Router路由器提供订单路由和匹配功能支持订单分发/撮合和执行管理实现交易流转和优化支持交易系统功能和组件集成提供完整业务支持
+# Role: TradeGateway交易网关提供订单路由和匹配功能支持订单分发/撮合和执行管理实现交易流转和优化支持交易系统功能和组件集成提供完整业务支持
 
 
 
@@ -8,9 +8,9 @@
 
 
 """
-统一Router - 支持多模式多市场的统一路由器
+统一TradeGateway - 支持多模式多市场的统一交易网关
 
-基于BaseRouter和OrderManagementMixin，支持：
+基于BaseTradeGateway和OrderManagementMixin，支持：
 - 回测、模拟盘、实盘三种执行模式
 - 多市场Broker路由（A股、港股、美股、期货等）
 - 统一的订单生命周期事件处理
@@ -20,7 +20,7 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from ginkgo.trading.bases.base_router import BaseRouter
+from ginkgo.trading.bases.base_trade_gateway import BaseTradeGateway
 from ginkgo.trading.interfaces.broker_interface import IBroker, BrokerExecutionResult
 from ginkgo.trading.entities import Order
 from ginkgo.enums import EVENT_TYPES, ORDERSTATUS_TYPES, DIRECTION_TYPES
@@ -30,9 +30,9 @@ from ginkgo.trading.events.order_lifecycle_events import (
 )
 
 
-class Router(BaseRouter):
+class TradeGateway(BaseTradeGateway):
     """
-    统一Router - 支持多模式多市场的路由器
+    统一TradeGateway - 支持多模式多市场的交易网关
 
     特性：
     - 支持回测、模拟盘、实盘三种模式
@@ -42,13 +42,13 @@ class Router(BaseRouter):
     - 纯内存操作，高性能
     """
 
-    def __init__(self, brokers: List[IBroker], name: str = "MultiMarketRouter"):
+    def __init__(self, brokers: List[IBroker], name: str = "MultiMarketTradeGateway"):
         """
-        初始化Router
+        初始化TradeGateway
 
         Args:
             brokers: Broker实例列表
-            name: Router名称
+            name: TradeGateway名称
         """
         super().__init__(name=name)
 
