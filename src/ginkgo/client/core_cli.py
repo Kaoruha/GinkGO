@@ -176,7 +176,25 @@ def init():
             console.print(f":warning: Component initialization had issues: {e}")
             console.print(":information: This may be normal if components already exist")
 
-        # Step 4: System health validation
+        # Step 4: Notification templates initialization (idempotent)
+        console.print(":bell: Initializing notification templates...")
+        try:
+            template_result = _init_notification_templates()
+            console.print(f":white_check_mark: Notification templates initialized ({template_result['created']} created, {template_result['skipped']} skipped)")
+        except Exception as e:
+            console.print(f":warning: Template initialization had issues: {e}")
+            console.print(":information: This may be normal if templates already exist")
+
+        # Step 5: System group initialization (idempotent)
+        console.print(":people_hugging: Initializing system groups...")
+        try:
+            group_result = _init_system_group()
+            console.print(f":white_check_mark: System group initialized: {group_result['name']}")
+        except Exception as e:
+            console.print(f":warning: System group initialization had issues: {e}")
+            console.print(":information: This may be normal if the group already exists")
+
+        # Step 6: System health validation
         console.print(":mag: Validating system health...")
         health_status = _validate_system_health()
 
@@ -185,7 +203,7 @@ def init():
         else:
             console.print(":white_check_mark: System health check passed")
 
-        # Step 5: Cleanup invalid data
+        # Step 7: Cleanup invalid data
         cleanup_result = _cleanup_invalid_data()
 
         console.print("\n:tada: Ginkgo system initialization completed!")
@@ -193,10 +211,13 @@ def init():
         console.print("  • Database Tables: All core tables created")
         console.print("  • Components: Strategies, analyzers, risk managers registered")
         console.print("  • Example Data: Demo portfolio and engine initialized")
+        console.print(f"  • Notification Templates: {template_result['created']} preset templates available")
+        console.print(f"  • System Group: {group_result['name']} ({group_result['status']})")
         console.print(f"  • System Health: {'Healthy' if health_status['healthy'] else 'Warning'}")
 
         console.print("\n:rocket: Next steps:")
         console.print("  • ginkgo status                    # Check system status")
+        console.print("  • ginkgo templates list            # View notification templates")
         console.print("  • ginkgo data get stockinfo        # Get stock information")
         console.print("  • ginkgo data show stocks          # List available stocks")
         console.print("  • ginkgo pro components strategies  # View registered strategies")
@@ -772,3 +793,157 @@ def test(
     except Exception as e:
         console.print(f"[red]:x: Failed to run tests: {e}[/red]")
         console.print("Try: ginkgo test run --all")
+
+def _init_notification_templates():
+    """
+    初始化预设通知模板（幂等操作）
+    
+    如果模板已存在则跳过，不会覆盖现有模板
+    """
+    from ginkgo.data.containers import container
+    from ginkgo.data.models import MNotificationTemplate
+    from ginkgo.enums import TEMPLATE_TYPES, SOURCE_TYPES
+    
+    template_crud = container.notification_template_crud()
+    
+    # 预设模板定义
+    presets = [
+        {
+            "template_id": "long_signal",
+            "template_name": "多头信号",
+            "template_type": TEMPLATE_TYPES.EMBEDDED.value,
+            "content": '{"title":"📈 多头信号 - {{ symbol }}","description":"**买入信号**\\n\\n{{ content }}","color":5763719,"fields":[{"name":"股票代码","value":"{{ symbol }}","inline":true},{"name":"当前价格","value":"{{ price }}","inline":true},{"name":"建议仓位","value":"{{ quantity }}","inline":true},{"name":"信号时间","value":"{{ timestamp }}","inline":true}],"footer":{"text":"Ginkgo 交易系统","icon_url":"https://i.imgur.com/your_logo.png"}}',
+            "tags": ["trading", "bullish", "discord"],
+            "desc": "多头买入信号，绿色主题"
+        },
+        {
+            "template_id": "short_signal",
+            "template_name": "空头信号",
+            "template_type": TEMPLATE_TYPES.EMBEDDED.value,
+            "content": '{"title":"📉 空头信号 - {{ symbol }}","description":"**卖出信号**\\n\\n{{ content }}","color":15548997,"fields":[{"name":"股票代码","value":"{{ symbol }}","inline":true},{"name":"当前价格","value":"{{ price }}","inline":true},{"name":"建议仓位","value":"{{ quantity }}","inline":true},{"name":"信号时间","value":"{{ timestamp }}","inline":true}],"footer":{"text":"Ginkgo 交易系统"}}',
+            "tags": ["trading", "bearish", "discord"],
+            "desc": "空头卖出信号，红色主题"
+        },
+        {
+            "template_id": "system_startup",
+            "template_name": "系统启动",
+            "template_type": TEMPLATE_TYPES.EMBEDDED.value,
+            "content": '{"title":"🚀 系统启动通知","description":"Ginkgo 交易系统已启动","color":3447003,"fields":[{"name":"主机名","value":"{{ hostname }}","inline":true},{"name":"启动时间","value":"{{ start_time }}","inline":true},{"name":"版本","value":"{{ version }}","inline":true},{"name":"环境","value":"{{ environment }}","inline":true}],"footer":{"text":"系统通知"}}',
+            "tags": ["system", "info", "discord"],
+            "desc": "系统启动通知模板"
+        },
+        {
+            "template_id": "system_alert",
+            "template_name": "系统告警",
+            "template_type": TEMPLATE_TYPES.EMBEDDED.value,
+            "content": '{"title":"⚠️ 系统告警 - {{ alert_type }}","description":"{{ message }}","color":15158332,"fields":[{"name":"告警级别","value":"{{ severity }}","inline":true},{"name":"模块","value":"{{ module }}","inline":true},{"name":"时间","value":"{{ timestamp }}","inline":true}],"footer":{"text":"系统监控"}}',
+            "tags": ["system", "alert", "error", "discord"],
+            "desc": "系统错误/告警通知"
+        },
+        {
+            "template_id": "backtest_complete",
+            "template_name": "回测完成",
+            "template_type": TEMPLATE_TYPES.EMBEDDED.value,
+            "content": '{"title":"📊 回测完成 - {{ strategy_name }}","description":"回测任务已完成","color":3066993,"fields":[{"name":"策略","value":"{{ strategy_name }}","inline":true},{"name":"收益率","value":"{{ return_rate }}","inline":true},{"name":"夏普比率","value":"{{ sharpe_ratio }}","inline":true},{"name":"交易次数","value":"{{ trade_count }}","inline":true},{"name":"时间范围","value":"{{ date_range }}"}],"footer":{"text":"Ginkgo 回测系统"}}',
+            "tags": ["backtest", "trading", "discord"],
+            "desc": "回测任务完成通知"
+        },
+        {
+            "template_id": "risk_alert",
+            "template_name": "风控告警",
+            "template_type": TEMPLATE_TYPES.EMBEDDED.value,
+            "content": '{"title":"🛡️ 风控告警 - {{ risk_type }}","description":"{{ message }}","color":15105570,"fields":[{"name":"告警类型","value":"{{ risk_type }}","inline":true},{"name":"投资组合","value":"{{ portfolio_id }}","inline":true},{"name":"触发条件","value":"{{ trigger_condition }}"},{"name":"当前值","value":"{{ current_value }}","inline":true},{"name":"阈值","value":"{{ threshold }}","inline":true}],"footer":{"text":"风控系统"}}',
+            "tags": ["risk", "alert", "trading", "discord"],
+            "desc": "风控触发告警"
+        },
+        {
+            "template_id": "data_sync_status",
+            "template_name": "数据同步状态",
+            "template_type": TEMPLATE_TYPES.EMBEDDED.value,
+            "content": '{"title":"💾 数据同步完成","description":"{{ data_type }} 数据已更新","color":10181038,"fields":[{"name":"数据类型","value":"{{ data_type }}","inline":true},{"name":"股票代码","value":"{{ symbol }}","inline":true},{"name":"更新时间","value":"{{ update_time }}","inline":true},{"name":"记录数","value":"{{ record_count }}","inline":true}],"footer":{"text":"数据服务"}}',
+            "tags": ["data", "info", "discord"],
+            "desc": "数据同步完成通知"
+        },
+        {
+            "template_id": "strategy_summary",
+            "template_name": "策略信号汇总",
+            "template_type": TEMPLATE_TYPES.MARKDOWN.value,
+            "content": '# 📊 策略信号汇总\\n\\n**生成时间**: {{ timestamp }}\\n\\n## 信号概览\\n\\n- **多头信号**: {{ long_count }} 个\\n- **空头信号**: {{ short_count }} 个\\n- **观望**: {{ neutral_count }} 个\\n\\n## 详细信号\\n\\n{% for signal in signals %}\\n### {{ signal.symbol }} - {{ signal.direction }}\\n\\n- 价格: {{ signal.price }}\\n- 仓位: {{ signal.quantity }}\\n- 置信度: {{ signal.confidence }}%\\n\\n{% endfor %}\\n\\n---\\n*由 Ginkgo 交易系统自动生成*',
+            "tags": ["trading", "summary", "discord"],
+            "desc": "多策略信号汇总报告"
+        }
+    ]
+    
+    created_count = 0
+    skipped_count = 0
+    
+    for preset in presets:
+        # 检查模板是否已存在
+        existing = template_crud.get_by_template_id(preset["template_id"])
+        
+        if existing:
+            skipped_count += 1
+            continue
+        
+        # 创建新模板
+        template = MNotificationTemplate(
+            template_id=preset["template_id"],
+            template_name=preset["template_name"],
+            template_type=preset["template_type"],
+            content=preset["content"],
+            tags=preset["tags"],
+            desc=preset["desc"],
+            is_active=True,
+            source=SOURCE_TYPES.OTHER.value
+        )
+        
+        template_crud.add(template)
+        created_count += 1
+    
+    return {
+        "created": created_count,
+        "skipped": skipped_count,
+        "total": len(presets)
+    }
+
+def _init_system_group():
+    """
+    初始化System用户组（幂等操作）
+
+    如果System组已存在则跳过，不会覆盖现有组
+    """
+    from ginkgo.data.containers import container
+    from ginkgo.data.models import MUserGroup
+    from ginkgo.enums import SOURCE_TYPES
+
+    group_crud = container.user_group_crud()
+
+    # 检查System组是否已存在
+    existing = group_crud.find_by_name_pattern("System")
+
+    if existing and len(existing) > 0:
+        # 组已存在
+        group = existing[0]
+        return {
+            "name": group.name,
+            "uuid": str(group.uuid),
+            "status": "already_exists",
+            "is_active": group.is_active
+        }
+
+    # 创建System组
+    system_group = MUserGroup(
+        name="System",
+        description="System group for system-level users and operations",
+        is_active=True,
+        source=SOURCE_TYPES.OTHER.value
+    )
+
+    group_crud.add(system_group)
+
+    return {
+        "name": system_group.name,
+        "uuid": str(system_group.uuid),
+        "status": "created",
+        "is_active": system_group.is_active
+    }

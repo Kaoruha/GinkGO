@@ -287,6 +287,7 @@ def start_worker(
             console.print(":x: Please specify worker type (--notification)")
             console.print(":information: Available worker types:")
             console.print("  --notification  Start notification worker (Kafka consumer)")
+            console.print(":information: For LiveCore, use: [cyan]ginkgo livecore start[/cyan]")
             raise typer.Exit(1)
 
     except Exception as e:

@@ -75,6 +75,7 @@ def create_user(
 
 @app.command("list")
 def list_users(
+    name: Optional[str] = typer.Option(None, "--name", "-n", help="Filter by name (partial match)"),
     user_type: Optional[str] = typer.Option(None, "--type", "-t", help="Filter by user type"),
     is_active: Optional[bool] = typer.Option(None, "--active/--inactive", help="Filter by active status"),
     limit: int = typer.Option(100, "--limit", "-l", help="Maximum number of results"),
@@ -84,6 +85,7 @@ def list_users(
 
     Example:
       ginkgo users list
+      ginkgo users list --name John
       ginkgo users list --type person --active
       ginkgo users list -l 50
     """
@@ -103,7 +105,7 @@ def list_users(
             }
             user_type_enum = type_map.get(user_type.lower())
 
-        result = user_service.list_users(user_type=user_type_enum, is_active=is_active, limit=limit)
+        result = user_service.list_users(user_type=user_type_enum, is_active=is_active, name=name, limit=limit)
 
         if result.success:
             users = result.data["users"]
