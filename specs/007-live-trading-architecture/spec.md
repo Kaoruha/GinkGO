@@ -7,6 +7,87 @@
 
 ## Architecture Design
 
+### Clarifications
+
+#### Session 2026-01-04
+
+- **Q: 除了PortfolioProcessor，其他组件是否都严格按照六边形架构约束来设计**
+  - **A: 是** - PortfolioProcessor暂时放宽架构约束以快速实现功能，其他所有组件（ExecutionNode、API Gateway、DataManager、TradeGatewayAdapter、Scheduler、Redis、Kafka）都必须严格按照六边形架构边界表中的约束执行。PortfolioProcessor的架构重构推迟到Phase 8（Polish阶段）进行。
+
+- **Q: PortfolioProcessor是否触碰到六边形架构的设计边界**
+  - **A: 是，但允许暂时违反** - 当前PortfolioProcessor持有ExecutionNode引用并使用callback机制提交订单，违反了"不能持有ExecutionNode引用"的约束。暂时允许此违反以快速实现功能，Phase 8重构为双队列模式。
+
+- **Q: PortfolioProcessor与ExecutionNode的通信机制**
+  - **A: input/output双队列** - PortfolioProcessor使用双队列与ExecutionNode解耦通信：
+    - **input_queue**: ExecutionNode → PortfolioProcessor（接收Kafka事件DTO）
+    - **output_queue**: PortfolioProcessor → ExecutionNode（发送订单等领域事件）
+    - ExecutionNode监听output_queue，序列化事件并发送到Kafka
+    - PortfolioProcessor不持有ExecutionNode引用（Phase 8目标）
+
+- **Q: "暂时允许违反架构边界"的具体含义**
+  - **A: 增量交付原则** - "暂时允许违反"是指**当前任务先接受部分过界实现，以后再重构**，这是增量开发和架构演进的实践原则：
+    - **目标导向**: 优先完成功能任务，允许架构暂时不完美
+    - **技术债务记录**: 明确记录违反的部分，承诺在后续阶段重构
+    - **分阶段重构**: Phase 3快速实现功能，Phase 8进行架构重构
+    - **双队列准备**: Phase 3已经创建output_queue基础，为Phase 8重构做准备
+    - **渐进式改进**: 从callback模式 → 双队列模式 → 完全解耦，逐步演进
+
+- **Q: 双队列模式的实际实施状态**
+  - **A: 已完成** - 已从callback模式完全切换到双队列模式：
+    - ✅ 移除PortfolioProcessor的callback注入逻辑
+    - ✅ 移除ExecutionNode.submit_order()方法
+    - ✅ Portfolio通过put()发布事件到PortfolioProcessor
+    - ✅ PortfolioProcessor._handle_portfolio_event()将事件放入output_queue
+    - ✅ ExecutionNode监听output_queue，序列化并发送到Kafka
+    - ✅ Portfolio不再持有ExecutionNode引用
+    - ✅ 完全符合六边形架构约束（Domain Kernel不依赖Adapter）
+
+- **Q: Portfolio内部的Selector、Sizer、Strategy是否可以访问数据库**
+  - **A: 暂时接受架构违反** - Portfolio内部的Selector、Sizer、Strategy可能有数据库查询，这违反了"Domain Kernel不能访问数据库"的六边形架构约束：
+    - **当前状态**: 允许Selector/Sizer/Strategy查询数据库（获取历史数据、股票信息等）
+    - **架构违反**: Domain Kernel（Portfolio及其组件）不应该直接访问数据库
+    - **重构时机**: **本Feature完成后，专门思考如何重构**（不是Phase 8，而是Feature完成后的独立任务）
+    - **重构范围**: 需要分析并设计ExecutionNode如何预加载数据并组装完整上下文DTO
+    - **技术债务**: 明确记录此违反，作为Feature完成后的架构优化任务
+
+### 六边形架构边界（Hexagonal Architecture）
+
+实盘交易架构采用**六边形架构（端口和适配器）**模式，严格区分领域内核与外部适配器。
+
+| 模块 | 架构层 | 必须做的事 | 禁止做的事 |
+|------|--------|-----------|------------|
+| **API Gateway** | Driving Adapter | 接收HTTP，鉴权，**转命令事件并发Kafka**（仅ControlCommand） | ❌写业务规则<br>❌碰Redis/DB<br>❌返回聚合根<br>❌发业务计算结果事件 |
+| **DataManager** | Driven Adapter | 取行情，发EventPriceUpdate | ❌算信号<br>❌本地缓存<br>❌下单 |
+| **TradeGatewayAdapter** | Driven Adapter | 把订单事件→券商API，回报事件发回 | ❌决定交易<br>❌改仓位<br>❌本地存成交 |
+| **ExecutionNode** | Runtime Container Adapter | 管理线程与队列，**负责把Processor产出事件发Kafka** | ❌调Processor业务方法<br>❌缓存权重/信号<br>❌直接用Instant.now() |
+| **Redis** | Driven Adapter | 只存`<portfolioId,nodeId,ts>`路由映射+TTL | ❌存权重、仓位、信号等业务数据 |
+| **Kafka Topics** | Port Contract | 传序列化DTO，带`_v`版本字段 | ❌传原始Entity或类名 |
+| **Scheduler** | Application Service | 定时/事件触发→调内核算映射→发schedule事件+写Redis原子 | ❌new PortfolioProcessor<br>❌事务内调外部HTTP<br>❌写业务公式 |
+| **PortfolioProcessor** | Domain Kernel | 纯内存：收DTO→算新聚合根+领域事件，**经队列交ExecutionNode发Kafka** | ❌**直接发Kafka**<br>❌开DB/Redis<br>❌依赖Spring<br>❌用Instant.now()（用Clock）<br>❌持有ExecutionNode引用 |
+
+**核心架构原则**：
+
+1. **PortfolioProcessor（领域内核）完全隔离**：
+   - 纯内存计算，不依赖外部系统
+   - 所有输出通过队列交给ExecutionNode
+   - 不能直接访问Kafka、Redis、DB
+
+2. **ExecutionNode（容器适配器）的唯一职责**：
+   - 管理Processor生命周期和线程
+   - 订阅Kafka并路由DTO到Processor
+   - **负责把Processor产出的领域事件序列化为DTO并发到Kafka**
+   - 不能调用Processor的业务方法
+
+3. **Redis只做路由存储**：
+   - 仅存储`portfolioId -> nodeId`映射关系
+   - TTL自动清理过期节点
+   - 不存储任何业务数据（仓位、信号、权重等）
+
+4. **Kafka传DTO不传Entity**：
+   - 所有消息使用dataclass/pydantic DTO
+   - 带`_v`版本字段支持演进
+   - 不传输领域Entity或Event对象
+
 ### 系统架构概述
 
 实盘交易架构采用**分布式事件驱动架构**，核心设计原则是**无状态组件**和**水平可扩展**。系统分为三大核心容器类型：
@@ -76,23 +157,162 @@ src/ginkgo/livecore/
 **部署特点**:
 - 单进程多线程部署（统一日志输出）
 - **无状态设计**：
-  - Scheduler调度数据存储在Redis中（execution_nodes, portfolio_assignments）
-  - 每次重启从Redis恢复最新状态
+  - **Redis只存储路由映射**：`<portfolioId, nodeId, timestamp>` + TTL自动清理
+  - **Redis不存储业务数据**：仓位、权重、信号等业务数据存在MySQL/ClickHouse
+  - 每次重启从Redis恢复路由映射，从数据库恢复Portfolio配置
   - 支持LiveCore重启后无缝恢复调度
-- 所有状态持久化到Redis/数据库
+- 业务数据持久化到MySQL/ClickHouse，路由映射存储在Redis
 - 通过Kafka与ExecutionNode通信
+
+**Redis数据结构**（仅路由映射）:
+```
+# Portfolio路由映射
+ginkgo:live:portfolio:{portfolio_id}:node -> {node_id, timestamp}
+TTL: 60秒
+
+# ExecutionNode心跳
+ginkgo:live:node:{node_id}:heartbeat -> {timestamp}
+TTL: 30秒
+
+# 调度计划（Scheduler写入）
+ginkgo:live:schedule:plan -> {portfolio_assignments: {...}}
+TTL: 永久
+```
 
 #### 3. ExecutionNode执行节点（Portfolio运行层）
 
-**职责**: 承载和管理多个Portfolio实例，处理市场数据事件并生成交易信号
+**架构层**: Runtime Container Adapter（运行时容器适配器）
+
+**职责**:
+1. **管理PortfolioProcessor生命周期**（创建、启动、停止、销毁、监控）
+2. 订阅Kafka并路由DTO到Processor
+3. **负责把Processor产出事件序列化为DTO并发到Kafka**
 
 **核心功能**:
-- 运行3-5个Portfolio实例（可配置）
-- 订阅Kafka市场数据Topic（Node级别订阅）
-- 内部通过`interest_map`路由消息到PortfolioProcessor
-- 实现backpressure机制防止消息溢出
-- 定时发送心跳到Redis（TTL=30秒）
-- 订阅Kafka ginkgo.live.schedule.updates topic接收配置更新通知
+- **PortfolioProcessor生命周期管理**:
+  - `load_portfolio(portfolio_id)`: 从数据库加载配置，创建Portfolio实例和Processor
+  - `unload_portfolio(portfolio_id)`: 优雅停止Processor并清理资源
+  - `reload_portfolio(portfolio_id)`: 配置更新时优雅重启Processor
+  - 监控Processor健康状态（线程存活、队列深度等）
+- **Kafka消息路由**:
+  - 订阅Kafka市场数据Topic（Node级别订阅）
+  - 反序列化Kafka DTO并路由到PortfolioProcessor
+  - 从output_queue取Processor产出的领域事件，序列化为DTO并发到Kafka
+- **内部路由机制**:
+  - 通过`interest_map`路由消息到PortfolioProcessor
+  - 实现backpressure机制防止消息溢出
+- **状态上报**:
+  - 定时发送心跳到Redis（TTL=30秒）
+  - 上报Portfolio状态到Redis（运行中、停止中、已停止等）
+  - 订阅Kafka ginkgo.live.schedule.updates topic接收配置更新通知
+
+**关键约束**（六边形架构边界）:
+- ✅ **可以**：管理Processor生命周期（创建、启动、停止、销毁）
+- ✅ **可以**：管理线程、队列、Kafka Producer/Consumer
+- ✅ **可以**：序列化/反序列化DTO
+- ✅ **可以**：把Processor产出事件发到Kafka
+- ✅ **可以**：监控Processor健康状态（线程、队列等）
+- ❌ **禁止**：调用Processor的业务方法（如on_price_update、on_order_filled）
+- ❌ **禁止**：修改Portfolio内部状态（持仓、资金等）
+- ❌ **禁止**：缓存业务数据（权重、仓位、信号等）
+- ❌ **禁止**：执行业务计算（策略、风控逻辑等）
+- ❌ **禁止**：直接用Instant.now()（必须传入Clock）
+
+**事件流设计**:
+```
+Kafka (DTO) → ExecutionNode.deserialize() → Processor.input_queue
+                                        ↓
+                                 PortfolioProcessor
+                                 (纯内存计算)
+                                        ↓
+                              Processor.output_queue
+                                        ↓
+                         ExecutionNode.serialize() → Kafka (DTO)
+```
+
+**ExecutionNode管理Processor示例**:
+```python
+class ExecutionNode:
+    """Runtime Container Adapter - 管理PortfolioProcessor生命周期"""
+
+    def __init__(self, node_id: str):
+        self.node_id = node_id
+        self.processors: Dict[str, PortfolioProcessor] = {}
+        self.portfolios: Dict[str, Portfolio] = {}  # ExecutionNode持有唯一实例
+
+    def load_portfolio(self, portfolio_id: str) -> bool:
+        """加载Portfolio并创建Processor"""
+        # 1. 从数据库加载配置
+        portfolio_config = self._load_config_from_db(portfolio_id)
+
+        # 2. 创建Portfolio实例（ExecutionNode持有）
+        portfolio = Portfolio(
+            portfolio_id=portfolio_id,
+            **portfolio_config
+        )
+        self.portfolios[portfolio_id] = portfolio
+
+        # 3. 创建队列
+        input_queue = Queue(maxsize=1000)
+        output_queue = Queue(maxsize=1000)
+
+        # 4. 创建Processor（传入Portfolio引用，不持有ExecutionNode引用）
+        processor = PortfolioProcessor(
+            portfolio=portfolio,
+            input_queue=input_queue,
+            output_queue=output_queue,
+            clock=self.clock
+        )
+
+        # 5. 启动Processor线程
+        processor.start()
+        self.processors[portfolio_id] = processor
+
+        # 6. 注册output_queue监听器（ExecutionNode负责序列化并发Kafka）
+        self._start_output_queue_listener(output_queue, portfolio_id)
+
+        return True
+
+    def unload_portfolio(self, portfolio_id: str) -> bool:
+        """优雅停止Processor"""
+        processor = self.processors.get(portfolio_id)
+        if not processor:
+            return False
+
+        # 1. 优雅停止Processor
+        processor.graceful_stop()  # 等待队列清空
+
+        # 2. 清理资源
+        del self.processors[portfolio_id]
+        del self.portfolios[portfolio_id]
+
+        return True
+
+    def _start_output_queue_listener(self, queue: Queue, portfolio_id: str):
+        """监听Processor的output_queue并序列化发Kafka"""
+        def listener_thread():
+            while self.is_running:
+                try:
+                    # 从队列取领域事件
+                    domain_event = queue.get(timeout=0.1)
+
+                    # 序列化为DTO
+                    dto = self._domain_event_to_dto(domain_event)
+
+                    # 发到Kafka
+                    self.kafka_producer.send("ginkgo.live.orders.submission", dto)
+
+                except Exception as e:
+                    GLOG.error(f"Error processing output_queue: {e}")
+
+        thread = threading.Thread(target=listener_thread, daemon=True)
+        thread.start()
+```
+
+**队列设计**:
+- **input_queue**：Processor从队列取DTO并处理（ExecutionNode放入）
+- **output_queue**：Processor把领域事件放入队列（ExecutionNode取出并发Kafka）
+- 两个队列解耦Processor和ExecutionNode，确保Processor不依赖Kafka
 
 **InterestMap机制**:
 ```
@@ -103,6 +323,65 @@ interest_map: {
     ...
 }
 ```
+
+#### 4. PortfolioProcessor处理器线程（领域内核）
+
+**架构层**: Domain Kernel（领域内核）
+
+**职责**: 纯内存计算，接收DTO→计算聚合根状态+生成领域事件→通过output_queue交给ExecutionNode发Kafka
+
+**核心功能**:
+- 从input_queue取DTO（ExecutionNode反序列化后放入）
+- 调用Portfolio.on_price_update()等业务方法（纯内存计算）
+- 生成领域事件（Signal、Order等）
+- **把领域事件放入output_queue**（ExecutionNode取出并序列化发Kafka）
+
+**关键约束**（六边形架构边界）:
+- ✅ **可以**：纯内存计算、生成领域事件
+- ✅ **可以**：访问Portfolio实例（策略、风控、持仓等）
+- ✅ **可以**：使用Clock接口获取时间（不能用Instant.now()）
+- ❌ **禁止**：**直接发Kafka**（必须通过output_queue）
+- ❌ **禁止**：**持有ExecutionNode引用**（解耦）
+- ❌ **禁止**：开DB/Redis连接
+- ❌ **禁止**：依赖Spring或任何DI框架
+
+**队列设计**:
+- **input_queue**: 接收Kafka DTO（ExecutionNode放入）
+- **output_queue**: 输出领域事件（ExecutionNode取出并序列化发Kafka）
+
+**线程模型**:
+```python
+class PortfolioProcessor(threading.Thread):
+    def __init__(self, portfolio: Portfolio,
+                 input_queue: Queue,
+                 output_queue: Queue,
+                 clock: Clock):
+        self.portfolio = portfolio  # Portfolio实例引用
+        self.input_queue = input_queue  # 输入队列（DTO）
+        self.output_queue = output_queue  # 输出队列（领域事件）
+        self.clock = clock  # 时间接口（不能用Instant.now()）
+
+    def run(self):
+        while self.is_running:
+            # 从队列取DTO
+            dto = self.input_queue.get(timeout=0.1)
+
+            # 转换为领域事件
+            event = self.dto_to_event(dto)
+
+            # 调用Portfolio业务方法（纯内存计算）
+            self.portfolio.on_price_update(event)
+
+            # Portfolio生成的领域事件通过callback返回
+            # Portfolio不直接发Kafka，而是通过output_queue
+            # (ExecutionNode监听output_queue并序列化发Kafka)
+```
+
+**与ExecutionNode的解耦**:
+- PortfolioProcessor不持有ExecutionNode引用
+- 通过input_queue/output_queue双向通信
+- ExecutionNode负责序列化/反序列化和Kafka通信
+- PortfolioProcessor只负责纯内存业务计算
 
 **部署特点**:
 - 可水平扩展至10+个实例
@@ -115,28 +394,29 @@ interest_map: {
 **关系定位**:
 - **LiveCore**: 中央控制服务容器，负责管理多个ExecutionNode实例
   - **DataManager**: 统一的数据源管理器，为所有ExecutionNode提供市场数据
-  - **LiveEngine**: 统一的订单执行引擎，处理所有ExecutionNode的订单
+  - **TradeGatewayAdapter**: 交易网关适配器，封装TradeGateway处理订单执行和回报
   - **Scheduler**: 调度器，负责Portfolio在ExecutionNode之间的分配和迁移
 
 - **ExecutionNode**: Portfolio执行节点，是Portfolio的实际运行环境
   - 运行3-5个Portfolio实例
   - 通过Kafka订阅LiveCore.Data发布的行情数据
-  - 通过Kafka向LiveCore.LiveEngine提交订单
+  - 通过Kafka向TradeGatewayAdapter提交订单
   - 通过Redis与LiveCore.Scheduler通信（心跳、状态、调度计划）
 
 **通信模式**:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         LiveCore (单实例)                        │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │  DataManager │  │  LiveEngine  │  │  Scheduler   │         │
-│  │  (数据源)     │  │  (订单执行)   │  │  (调度器)     │         │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘         │
-└─────────┼──────────────────┼──────────────────┼────────────────┘
-          │                  │                  │
-         Kafka              Kafka              Redis
-    (market.data)      (orders.submission)  (心跳/状态)
-          │                  │                  │
+│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────┐      │
+│  │  DataManager │  │TradeGatewayAdapter│  │  Scheduler   │      │
+│  │  (数据源)     │  │  (订单执行/回报)   │  │  (调度器)     │      │
+│  └──────┬───────┘  └────────┬─────────┘  └──────┬───────┘      │
+└─────────┼───────────────────┼───────────────────┼────────────────┘
+          │                   │                   │
+         Kafka               Kafka               Redis
+    (market.data)      (orders.submission/    (心跳/状态)
+                         feedback)
+          │                   │                   │
     ┌─────┴─────┬────────┬───┴────┬────────┬───┴────┐
     │           │        │         │        │        │
 ┌───▼────┐  ┌──▼─────┐ ┌▼──────┐ ┌▼──────┐ ┌▼──────┐ ┌▼──────┐
@@ -157,6 +437,73 @@ interest_map: {
 - **数据隔离**: 每个ExecutionNode独立处理自己的Portfolio，状态完全隔离
 - **集中管理**: Scheduler通过Redis统一管理所有ExecutionNode的心跳和调度计划
 - **弹性伸缩**: 支持动态添加/删除ExecutionNode，无需修改LiveCore代码
+
+### 消息层设计（Events vs Messages vs DTOs）
+
+Ginkgo实盘交易架构明确区分**事件**、**消息**和**DTO**三个概念：
+
+#### 事件（Events）- `src/ginkgo/trading/events/`
+- **用途**: 事件驱动引擎内部流转（领域层）
+- **基类**: 继承`EventBase`
+- **特点**: 有uuid、event_type、source等完整属性
+- **示例**: `EventPriceUpdate`, `EventOrderPartiallyFilled`, `EventSignalGeneration`
+- **传输**: 在内存中通过EventEngine分发，不经过Kafka
+
+#### 消息（Messages）- `src/ginkgo/messages/`
+- **用途**: Kafka控制命令传输（应用层）
+- **基类**: 使用dataclass或普通类，**不继承EventBase**
+- **特点**: 轻量级，专注于序列化/反序列化
+- **示例**: `ControlCommand`
+- **传输**: 通过Kafka JSON序列化传输
+
+#### DTO（Data Transfer Objects）- `src/ginkgo/dtos/`
+- **用途**: Kafka业务数据传输（端口适配器层）
+- **基类**: 使用Pydantic或dataclass，**带_v版本字段**
+- **特点**: 轻量级DTO，支持版本演进
+- **示例**: `PriceUpdateDTO_v1`, `OrderSubmissionDTO_v1`
+- **传输**: 通过Kafka JSON序列化传输
+- **关键约束**:
+  - ✅ 每个DTO必须带`_v`版本字段（如`PriceUpdateDTO_v1`）
+  - ❌ 禁止传输领域Entity或Event对象
+  - ❌ 禁止传输复杂嵌套对象
+
+**DTO设计示例**:
+```python
+@dataclass
+class PriceUpdateDTO_v1:
+    """价格更新DTO（版本1）"""
+    _v: str = "v1"  # 版本字段（必须）
+    code: str
+    price: Decimal
+    volume: int
+    timestamp_iso: str  # ISO格式字符串，不用datetime对象
+
+    def to_domain_event(self) -> EventPriceUpdate:
+        """转换为领域事件（ExecutionNode调用）"""
+        return EventPriceUpdate(
+            code=self.code,
+            price=self.price,
+            volume=self.volume,
+            timestamp=datetime.fromisoformat(self.timestamp_iso)
+        )
+
+    @classmethod
+    def from_domain_event(cls, event: EventPriceUpdate) -> "PriceUpdateDTO_v1":
+        """从领域事件创建DTO（ExecutionNode调用）"""
+        return cls(
+            code=event.code,
+            price=event.price,
+            volume=event.volume,
+            timestamp_iso=event.timestamp.isoformat()
+        )
+```
+
+**设计原因**:
+- **职责分离**: Event（领域内部）、Message（控制命令）、DTO（业务数据传输）三者职责清晰
+- **版本演进**: DTO带`_v`版本字段，支持向后兼容的API演进
+- **性能优化**: DTO不包含Event的复杂属性（如context、mixin）
+- **解耦**: 领域层不依赖Kafka，通过DTO实现端口适配
+- **清晰表达**: 代码结构清晰表达用途（events/ vs messages/）
 
 ### 通信架构（Kafka消息总线）
 
@@ -336,12 +683,12 @@ interest_map: {
 
 **Portfolio状态枚举**:
 ```python
-class PortfolioStatus(Enum):
-    RUNNING = "running"       # 正常运行，接收事件
-    STOPPING = "stopping"     # 停止中，不接收新事件，等待Queue清空
-    STOPPED = "stopped"       # 已停止，不处理事件
-    RELOADING = "reloading"   # 重载中，加载新配置
-    ERROR = "error"           # 错误状态
+class PORTFOLIO_RUNSTATE_TYPES(Enum):
+    RUNNING = "RUNNING"       # 正常运行，接收事件
+    STOPPING = "STOPPING"     # 停止中，不接收新事件，等待Queue清空
+    STOPPED = "STOPPED"       # 已停止，不处理事件
+    RELOADING = "RELOADING"   # 重载中，加载新配置
+    MIGRATING = "MIGRATING"   # 迁移中，迁移到其他节点
 ```
 
 **EventEngine停止推送+缓存逻辑**:
@@ -355,19 +702,19 @@ def send_event_to_portfolio(portfolio_id, event):
     status = redis.hget(status_key, "status")
 
     # STOPPING状态：缓存消息，不发送到Queue
-    if status == PortfolioStatus.STOPPING:
+    if status == PORTFOLIO_RUNSTATE_TYPES.STOPPING:
         GLOG.INFO(f"Portfolio {portfolio_id} is STOPPING, buffering event")
         buffer[portfolio_id].append(event)
         return True
 
     # STOPPED/RELOADING状态：缓存消息，不发送到Queue
-    if status in [PortfolioStatus.STOPPED, PortfolioStatus.RELOADING]:
+    if status in [PORTFOLIO_RUNSTATE_TYPES.STOPPED, PORTFOLIO_RUNSTATE_TYPES.RELOADING]:
         GLOG.WARN(f"Portfolio {portfolio_id} is {status}, buffering event")
         buffer[portfolio_id].append(event)
         return True
 
     # ERROR状态：缓存消息，不发送到Queue
-    if status == PortfolioStatus.ERROR:
+    if status == PORTFOLIO_RUNSTATE_TYPES.MIGRATING:  # 迁移状态作为错误状态处理
         GLOG.ERROR(f"Portfolio {portfolio_id} is ERROR, buffering event")
         buffer[portfolio_id].append(event)
         return True
@@ -402,7 +749,7 @@ def send_event_to_portfolio(portfolio_id, event):
     # ... 状态检查 ...
 
     # 缓存消息时检查上限
-    if status != PortfolioStatus.RUNNING:
+    if status != PORTFOLIO_RUNSTATE_TYPES.RUNNING:
         buffer_size = len(event_buffer.get(portfolio_id, []))
         if buffer_size >= MAX_BUFFER_SIZE:
             GLOG.ERROR(f"Buffer full for {portfolio_id} ({buffer_size} events), dropping event")
@@ -477,18 +824,18 @@ def check_buffer_health():
 |---------|---------------|---------------|--------------|----------|
 | **API Gateway** | 无 | `ginkgo.live.control.commands` | 读: 查询状态 | 发布控制命令 |
 | **LiveCore.Data** | `ginkgo.live.system.events` | `ginkgo.live.market.data*` | 无 | 获取行情，发布兴趣集事件 |
-| **LiveCore.LiveEngine** | `ginkgo.live.orders.submission`<br>`ginkgo.live.control.commands` | 无 | `ginkgo.live.orders.feedback` | 订阅订单提交，发布订单回报 |
+| **LiveCore.TradeGatewayAdapter** | `ginkgo.live.orders.submission`<br>`ginkgo.live.control.commands` | `ginkgo.live.orders.feedback` | 无 | 订阅订单提交，执行订单，发布订单回报 |
 | **LiveCore.Scheduler** | 无（定时任务） | `ginkgo.live.schedule.updates` | 读: 获取节点心跳<br>写: 更新调度计划 | 定时调度，读取节点状态 |
-| **ExecutionNode** | `ginkgo.live.market.data*`<br>`ginkgo.live.schedule.updates`<br>`ginkgo.live.control.commands`<br>`ginkgo.live.system.events` | `ginkgo.live.orders.submission`<br>`ginkgo.live.system.events`<br>`ginkgo.notifications` | 写: 心跳上报<br>写: Portfolio状态 | 订阅行情、配置更新、系统事件，发布订单和兴趣集 |
+| **ExecutionNode** | `ginkgo.live.market.data*`<br>`ginkgo.live.schedule.updates`<br>`ginkgo.live.control.commands`<br>`ginkgo.live.system.events`<br>`ginkgo.live.orders.feedback` | `ginkgo.live.orders.submission`<br>`ginkgo.live.system.events`<br>`ginkgo.notifications` | 写: 心跳上报<br>写: Portfolio状态 | 订阅行情、订单回报、配置更新，发布订单和兴趣集 |
 | **Notification系统** | `ginkgo.notifications` | 无 | 无 | 接收通知并发送通知 |
 
 **数据流向图**:
 ```
 市场数据源 → LiveCore.Data → Kafka(ginkgo.live.market.data*) → ExecutionNode
     ↓
-Portfolio策略 → ExecutionNode → Kafka(ginkgo.live.orders.submission) → LiveEngine → TradeGateway → 真实交易所
+Portfolio策略 → ExecutionNode → Kafka(ginkgo.live.orders.submission) → TradeGatewayAdapter → TradeGateway → 真实交易所
     ↓
-真实交易所 → LiveEngine → Kafka(ginkgo.live.orders.feedback) → ExecutionNode → Portfolio
+真实交易所 → TradeGatewayAdapter → Kafka(ginkgo.live.orders.feedback) → ExecutionNode → Portfolio
     ↓
 ExecutionNode心跳 → Redis(heartbeat:node:{id}) → Scheduler读取
     ↓
@@ -498,7 +845,7 @@ Portfolio配置更新 → API Gateway → Kafka(ginkgo.live.control.commands) + 
     ↓
 兴趣集变更 → ExecutionNode → Kafka(ginkgo.live.system.events) → LiveCore.Data
     ↓
-API控制 → API Gateway → Kafka(ginkgo.live.control.commands) → LiveEngine/ExecutionNode
+API控制 → API Gateway → Kafka(ginkgo.live.control.commands) → TradeGatewayAdapter/ExecutionNode
     ↓
 Scheduler调度 → Redis读取节点状态 → 计算分配方案 → Redis写入调度计划 → Kafka(ginkgo.live.schedule.updates) → ExecutionNode
     ↓
@@ -511,15 +858,15 @@ Scheduler调度 → Redis读取节点状态 → 计算分配方案 → Redis写�
 
 **方式1: Kafka命令（异步控制）**
 ```
-API Gateway → Kafka(ginkgo.live.control.commands) → LiveEngine
+API Gateway → Kafka(ginkgo.live.control.commands) → TradeGatewayAdapter/ExecutionNode
 适用场景: 启动/停止引擎、批量操作
 ```
 
 **方式2: Redis同步（状态查询）**
 ```
-API Gateway → Redis(读写) ← LiveEngine
+API Gateway → Redis(读写) ← TradeGatewayAdapter/ExecutionNode
 适用场景: 查询引擎状态、Node状态、调度方案
-LiveEngine定期更新Redis状态，API Gateway实时读取
+TradeGatewayAdapter/ExecutionNode定期更新Redis状态，API Gateway实时读取
 ```
 
 **方式3: HTTP RPC（直接调用，可选）**

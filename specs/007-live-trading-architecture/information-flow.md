@@ -83,7 +83,10 @@ Portfolio (on_price_update)
     ├─ 策略计算: strategy.cal() → Signal
     ├─ 风控检查: apply_risk_managements(signal)
     ├─ Sizer计算: sizer.cal(signal) → Order
-    └─ 订单提交: ExecutionNode.submit_order(order)
+    └─ 订单发布: portfolio.put(order) → output_queue
+    ↓
+ExecutionNode (output_queue监听器)
+    └─ 序列化Order并发送到Kafka
     ↓
 Kafka (ginkgo.live.orders.submission)
     ↓
@@ -99,8 +102,10 @@ LiveCore.TradeGateway
 - **两级警告机制**:
   - 70%阈值: `queue.qsize() >= 700` → 发送警告，5分钟间隔
   - 95%阈值: `queue.qsize() >= 950` → 丢弃最新消息 + 发送警告，1分钟间隔
-- **Order传递**: Portfolio直接调用`ExecutionNode.submit_order()`，不经过额外队列
-- **Queue用途**: 仅用于接收市场数据事件，不是Order发送队列
+- **双队列模式**:
+  - input_queue: ExecutionNode → Portfolio（接收市场数据事件）
+  - output_queue: Portfolio → ExecutionNode（发送订单等领域事件）
+- **Order传递**: Portfolio通过put()发布订单到output_queue，由ExecutionNode监听并发送到Kafka
 
 **信息类型**: EventPriceUpdate
 **频率**: ~5000条/秒
@@ -137,7 +142,9 @@ Portfolio (on_order_filled)
 [并行情径 - 订单提交]
 Portfolio (生成Order)
     ↓
-ExecutionNode.submit_order()
+portfolio.put(order) → output_queue
+    ↓
+ExecutionNode (output_queue监听器)
     ↓
 Kafka (ginkgo.live.orders.submission)
     ↓
@@ -594,7 +601,7 @@ def save_portfolio_state():
 
 **核心信息流**:
 1. **市场数据流**: Data → Kafka(ginkgo.live.market.data) → ExecutionNode → Portfolio (最高频，~5000条/秒)
-2. **订单流**: Portfolio → ExecutionNode.submit_order() → Kafka(orders.cn) → LiveEngine → TradeGateway → 交易所
+2. **订单流**: Portfolio.put(order) → output_queue → ExecutionNode监听器 → Kafka(orders.cn) → LiveEngine → TradeGateway → 交易所
 3. **回报流**: 交易所 → TradeGateway → LiveEngine → Kafka(orders.cn) → ExecutionNode → Portfolio (同步写数据库)
 4. **控制流**: API Gateway → Kafka(ginkgo.live.control.commands) → ExecutionNode (配置更新、控制命令)
 5. **调度流**: Scheduler → Kafka(ginkgo.live.schedule.updates) → ExecutionNode (Portfolio分配)
@@ -604,7 +611,9 @@ def save_portfolio_state():
 
 **关键设计决策**:
 - **两级警告机制**: 70%警告，95%丢弃消息 (可配置间隔)
-- **Order传递方式**: Portfolio直接调用ExecutionNode.submit_order()，不经过额外队列
+- **双队列模式**:
+  - input_queue: ExecutionNode → Portfolio（接收市场数据）
+  - output_queue: Portfolio → ExecutionNode（发送订单等事件）
 - **订单双向Topic**:
   - ginkgo.live.orders.submission: ExecutionNode → LiveEngine
   - ginkgo.live.orders.feedback: LiveEngine → ExecutionNode

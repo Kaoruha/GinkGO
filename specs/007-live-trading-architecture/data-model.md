@@ -497,8 +497,10 @@ PortfolioProcessor Queue (非阻塞put)
     ↓ (4. Portfolio处理)
 Portfolio.on_price_update(event)
     ↓ (5. 策略计算 → Signal → Sizer → Order)
-ExecutionNode.submit_order(order)
-    ↓ (6. Kafka PRODUCE)
+portfolio.put(order) → output_queue
+    ↓ (6. ExecutionNode监听器序列化并发送)
+ExecutionNode._start_output_queue_listener()
+    ↓ (7. Kafka PRODUCE)
 ginkgo.live.orders.submission {portfolio_id, code, volume, ...}
 ```
 
