@@ -35,6 +35,7 @@ from ginkgo.data.services.kafka_service import KafkaService
 from ginkgo.data.services.factor_service import FactorService
 from ginkgo.data.services.result_service import ResultService
 from ginkgo.data.services.signal_tracking_service import SignalTrackingService
+from ginkgo.data.services.order_service import OrderService, order_service
 
 # Legacy aliases (Backward compatibility)
 DataService = BaseService

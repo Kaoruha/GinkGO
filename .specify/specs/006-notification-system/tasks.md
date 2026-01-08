@@ -669,9 +669,9 @@
 - ✅ Kafka topics 已创建
 - ✅ GinkgoProducer 可以发送通知消息
 
-**Topic 创建说明**: Kafka 支持自动创建 topic（auto.create.topics.enable=true），当 Worker 首次消费 `notifications` topic 时自动创建。无需手动创建。
+**Topic 创建说明**: Kafka 支持自动创建 topic（auto.create.topics.enable=true），当 Worker 首次消费 `ginkgo.alerts` topic 时自动创建。无需手动创建。
 
-- [X] T158 [US5] Create Kafka topic: notifications (Kafka 自动创建，当 Worker 首次消费时)
+- [X] T158 [US5] Create Kafka topic: ginkgo.alerts (Kafka 自动创建，当 Worker 首次消费时)
 - [X] T159 [US5] Create GinkgoProducer in src/ginkgo/data/drivers/ginkgo_kafka.py
 - [X] T160 [US5] Implement: GinkgoProducer.send() (序列化, 发送到对应 topic)
 - [X] T161 [US5] Add error handling for Kafka connection failures
@@ -1184,7 +1184,7 @@
 
 10. **Kafka Topic 自动创建** ✅ (2026-01-02)
     - Kafka 支持自动创建 topic (auto.create.topics.enable=true)
-    - Worker 首次消费 `notifications` topic 时自动创建
+    - Worker 首次消费 `ginkgo.alerts` topic 时自动创建
     - 无需手动创建，简化部署流程
 
 11. **Kafka Producer flush() 方法** ✅ (2026-01-02)
@@ -1193,7 +1193,7 @@
     - 支持可配置超时时间
 
 12. **Kafka Topic 手动创建支持** ✅ (2026-01-02)
-    - 在 `kafka_topic_set()` 中添加 `notifications` topic 创建
+    - 在 `kafka_topic_set()` 中添加 `ginkgo.alerts` topic 创建
     - 配置：3 个分区，副本因子 1
     - 统一管理方式，与其他 topic 一致
 

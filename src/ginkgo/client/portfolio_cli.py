@@ -15,9 +15,172 @@ import typer
 from typing import Optional, List
 from rich.console import Console
 from rich.table import Table
+from rich.tree import Tree
+from rich import print as rprint
 
 app = typer.Typer(help=":bank: Portfolio management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
+
+
+def collect_portfolio_components(portfolio_id: str, container) -> dict:
+    """收集Portfolio的所有组件绑定和参数信息"""
+    from ginkgo.enums import FILE_TYPES
+
+    component_data = {
+        'strategies': [],
+        'risk_managers': [],
+        'analyzers': [],
+        'selectors': [],
+        'sizers': []
+    }
+
+    try:
+        # 1. 获取Portfolio的所有文件绑定关系
+        file_mapping_crud = container.cruds.portfolio_file_mapping()
+        all_file_mappings = file_mapping_crud.find(filters={"portfolio_id": portfolio_id})
+
+        # 2. 按类型分类文件映射
+        for mapping in all_file_mappings:
+            file_info = {
+                'name': mapping.name,
+                'file_id': mapping.file_id,
+                'type': mapping.type,
+                'mapping_uuid': mapping.uuid,
+                'parameters': []
+            }
+
+            if mapping.type == FILE_TYPES.STRATEGY.value:
+                component_data['strategies'].append(file_info)
+            elif mapping.type == FILE_TYPES.RISKMANAGER.value:
+                component_data['risk_managers'].append(file_info)
+            elif mapping.type == FILE_TYPES.ANALYZER.value:
+                component_data['analyzers'].append(file_info)
+            elif mapping.type == FILE_TYPES.SELECTOR.value:
+                component_data['selectors'].append(file_info)
+            elif mapping.type == FILE_TYPES.SIZER.value:
+                component_data['sizers'].append(file_info)
+
+        # 3. 获取所有参数
+        param_crud = container.cruds.param()
+        mapping_uuids = [mapping.uuid for mapping in all_file_mappings]
+
+        all_params = {}
+        for mapping_uuid in mapping_uuids:
+            params = param_crud.find(filters={"mapping_id": mapping_uuid})
+            if params:
+                sorted_params = sorted(params, key=lambda p: p.index)
+                all_params[mapping_uuid] = sorted_params
+
+        # 4. 将参数分配给对应的组件
+        for mapping in all_file_mappings:
+            mapping_uuid = mapping.uuid
+
+            if mapping_uuid in all_params:
+                params = all_params[mapping_uuid]
+
+                # 找到对应的组件
+                component_list = None
+                if mapping.type == FILE_TYPES.STRATEGY.value:
+                    component_list = component_data['strategies']
+                elif mapping.type == FILE_TYPES.RISKMANAGER.value:
+                    component_list = component_data['risk_managers']
+                elif mapping.type == FILE_TYPES.ANALYZER.value:
+                    component_list = component_data['analyzers']
+                elif mapping.type == FILE_TYPES.SELECTOR.value:
+                    component_list = component_data['selectors']
+                elif mapping.type == FILE_TYPES.SIZER.value:
+                    component_list = component_data['sizers']
+
+                # 将参数分配给对应的组件
+                if component_list:
+                    for component in component_list:
+                        if component['file_id'] == mapping.file_id:
+                            for param in params:
+                                import json
+                                try:
+                                    # 尝试解析JSON值
+                                    display_value = json.loads(param.value) if param.value and param.value.startswith('[') else param.value
+                                except:
+                                    display_value = param.value
+
+                                component['parameters'].append({
+                                    'index': param.index,
+                                    'value': display_value,
+                                    'raw_value': param.value
+                                })
+
+        return component_data
+
+    except Exception as e:
+        console.print(f"[red]:x: Error collecting component info: {e}[/red]")
+        return component_data
+
+
+def display_component_tree(console, component_data: dict):
+    """以文件树结构显示组件信息（与engine cat风格一致）"""
+
+    # 计算总的组件类型数量
+    component_types = []
+    if component_data['selectors']:
+        component_types.append(("selectors", "🎯", "Selectors"))
+    if component_data['strategies']:
+        component_types.append(("strategies", "🎯", "Strategies"))
+    if component_data['sizers']:
+        component_types.append(("sizers", "📏", "Sizers"))
+    if component_data['risk_managers']:
+        component_types.append(("risk_managers", "🛡️", "Risk Managers"))
+    if component_data['analyzers']:
+        component_types.append(("analyzers", "📊", "Analyzers"))
+
+    # 如果没有任何组件
+    if not component_types:
+        console.print("└── (No components bound to this portfolio)")
+        return
+
+    # 显示各种组件
+    for i, (key, icon, label) in enumerate(component_types):
+        items = component_data[key]
+        is_last_component = (i == len(component_types) - 1)
+
+        # 组件类型前缀
+        component_prefix = "└──" if is_last_component else "├──"
+        console.print(f"{component_prefix} {icon} {label} ({len(items)})")
+
+        # 检查是否有组件有参数
+        has_params_in_this_component = any(item.get('parameters') for item in items)
+
+        for j, item in enumerate(items):
+            is_last_file = (j == len(items) - 1)
+            has_file_params = item.get('parameters')
+
+            # 文件前缀：如果这个组件类型下有参数，或者这个文件有参数，需要保留垂直线
+            if has_params_in_this_component or has_file_params:
+                file_prefix = "│   └──" if is_last_file else "│   ├──"
+            else:
+                file_prefix = "    └──" if is_last_file else "    ├──"
+
+            console.print(f"{file_prefix} {item['name']} (file_id: {item['file_id'][:8]}...)")
+
+            # 显示该组件的参数
+            if has_file_params:
+                for k, param in enumerate(item['parameters']):
+                    is_last_param = (k == len(item['parameters']) - 1)
+
+                    # 参数前缀：只需要文件层的垂直线
+                    if is_last_file and is_last_param:
+                        param_prefix = "│       └──"
+                    elif is_last_file:
+                        param_prefix = "│       ├──"
+                    elif is_last_param:
+                        param_prefix = "│       └──"
+                    else:
+                        param_prefix = "│       ├──"
+
+                    console.print(f"{param_prefix} [{param['index']}]: {param['value']}")
+
+    # 结束标记（根据是否有组件决定缩进）
+    if component_types:
+        console.print(f"└── (End of component tree)")
 
 
 @app.command()
@@ -181,9 +344,18 @@ def get(
             console.print(table)
 
             if details:
-                # TODO: Show portfolio composition
-                console.print("\n:gear: Portfolio Composition:")
-                console.print(":information: Portfolio composition details not yet implemented")
+                # 显示Portfolio的组件绑定和参数
+                console.print("\n📁 Component Bindings:")
+                component_data = collect_portfolio_components(portfolio.uuid, container)
+
+                # 检查是否有任何组件绑定
+                total_components = sum(len(component_data[key]) for key in component_data.keys())
+
+                if total_components == 0:
+                    console.print(":information: No component bindings found for this portfolio")
+                    console.print(":information: Use 'ginkgo portfolio bind-component' to add components")
+                else:
+                    display_component_tree(console, component_data)
 
             if performance:
                 # TODO: Show performance metrics

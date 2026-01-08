@@ -70,8 +70,9 @@ from ginkgo.data.services.param_service import ParamService
 from ginkgo.data.services.mapping_service import MappingService
 from ginkgo.data.services.parameter_metadata_service import ParameterMetadataService
 
-# User services are imported lazily to avoid circular dependency with data module
-# They will be imported when container providers are called
+# User management services
+from ginkgo.user.services.user_service import UserService
+from ginkgo.user.services.user_group_service import UserGroupService
 
 
 class Container(containers.DeclarativeContainer):
@@ -193,6 +194,19 @@ class Container(containers.DeclarativeContainer):
 
     # Analyzer service with AnalyzerRecordCRUD dependency
     analyzer_service = providers.Singleton(AnalyzerService, analyzer_crud=analyzer_record_crud)
+
+    # User management services
+    user_service = providers.Singleton(
+        UserService,
+        user_crud=user_crud,
+        user_contact_crud=user_contact_crud
+    )
+
+    user_group_service = providers.Singleton(
+        UserGroupService,
+        user_group_crud=user_group_crud,
+        user_group_mapping_crud=user_group_mapping_crud
+    )
 
     # Mapping service with all mapping CRUD dependencies
     mapping_service = providers.Singleton(

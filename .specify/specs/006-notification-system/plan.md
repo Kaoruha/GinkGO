@@ -24,7 +24,7 @@
 1. **MongoDB 基础设施**: 创建 MMongoBase 模型、GinkgoMongo 驱动和 BaseMongoCRUD，支持 PyMongo 连接池和 Pydantic ODM 模式
 2. **用户管理系统**: 支持 MUser/MUserContact/MUserGroup 模型，管理通知接收者及其联系方式（Email/Webhook（Discord/钉钉/企业微信等））
 3. **通知发送**: 通过 Webhook（Discord/钉钉/企业微信等）和 Email SMTP 发送通知，支持 Jinja2 模板引擎和变量替换
-4. **Kafka 异步处理**: 使用 Kafka 异步队列处理通知发送，单一 topic（notifications），Worker 根据 contact_type 路由，支持自动重试和降级策略
+4. **Kafka 异步处理**: 使用 Kafka 异步队列处理通知发送，单一 topic（ginkgo.alerts），Worker 根据 contact_type 路由，支持自动重试和降级策略
 5. **通知记录**: 使用 MongoDB 存储通知记录，支持 7 天 TTL 自动清理
 
 **技术方案**:

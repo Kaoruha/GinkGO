@@ -544,6 +544,18 @@ class TEMPLATE_TYPES(EnumBase):
     EMBEDDED = 3         # 嵌入式模板（Discord Embed）
 
 
+# ==================== Portfolio运行时状态枚举 (Phase 5: 优雅重启) ====================
+
+class PORTFOLIO_RUNSTATE_TYPES(EnumBase):
+    """Portfolio 运行时状态枚举（Phase 5: 优雅重启机制）"""
+
+    RUNNING = "RUNNING"           # 正常运行
+    STOPPING = "STOPPING"         # 正在停止（准备重载）
+    STOPPED = "STOPPED"           # 已停止
+    RELOADING = "RELOADING"       # 正在重载配置
+    MIGRATING = "MIGRATING"       # 正在迁移到其他节点
+
+
 # ==================== 导出所有枚举 ====================
 
 __all__ = [
@@ -583,4 +595,6 @@ __all__ = [
     "CONTACT_METHOD_STATUS_TYPES",
     "NOTIFICATION_STATUS_TYPES",
     "TEMPLATE_TYPES",
+    # Portfolio运行时状态枚举 (Phase 5)
+    "PORTFOLIO_RUNSTATE_TYPES",
 ]
