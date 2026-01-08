@@ -17,6 +17,9 @@ Enhanced with comprehensive error handling, retry mechanisms, and structured ret
 """
 
 import time
+import importlib.util
+import tempfile
+import os
 from typing import List, Union, Any, Optional, Dict
 import pandas as pd
 from datetime import datetime
@@ -686,3 +689,330 @@ class PortfolioService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"投资组合完整性检查失败: {str(e)}")
             return ServiceResult.error(f"完整性检查失败: {str(e)}")
+
+    # ==================== Portfolio完整加载方法 ====================
+
+    @time_logger
+    @retry(max_try=3)
+    def load_portfolio_with_components(self, portfolio_id: str) -> ServiceResult:
+        """
+        加载完整的Portfolio实例（包含所有实例化的组件）
+
+        这个方法会：
+        1. 从数据库加载Portfolio信息
+        2. 查询所有组件配置（Strategy/Selector/Sizer/RiskManagement）
+        3. 动态实例化所有组件
+        4. 将组件绑定到Portfolio
+        5. 返回完整的Portfolio对象（可直接用于实盘交易）
+
+        Args:
+            portfolio_id: Portfolio UUID（数据库中的真实UUID）
+
+        Returns:
+            ServiceResult: 包含完整Portfolio实例的结果
+                - success: Portfolio对象（所有组件已绑定）
+                - error: 错误信息
+
+        使用示例:
+            >>> portfolio_service = services.data.portfolio_service()
+            >>> result = portfolio_service.load_portfolio_with_components(portfolio_id="xxx")
+            >>> if result.is_success():
+            >>>     portfolio = result.data
+            >>>     # portfolio已经包含了所有组件，可以直接使用
+            >>>     portfolio.on_price_update(event)
+        """
+        try:
+            # 1. 获取Portfolio基本信息
+            portfolio_result = self.get(portfolio_id=portfolio_id)
+            if not portfolio_result.is_success():
+                return ServiceResult.error(f"Portfolio不存在: {portfolio_id}")
+
+            portfolio_model = portfolio_result.data
+            if isinstance(portfolio_model, pd.DataFrame):
+                if portfolio_model.shape[0] == 0:
+                    return ServiceResult.error(f"Portfolio不存在: {portfolio_id}")
+                portfolio_model = portfolio_model.iloc[0]
+            elif hasattr(portfolio_model, '__iter__') and not isinstance(portfolio_model, dict):
+                # ModelList或类似的可迭代对象
+                portfolio_model = list(portfolio_model)[0] if len(portfolio_model) > 0 else None
+                if portfolio_model is None:
+                    return ServiceResult.error(f"Portfolio不存在: {portfolio_id}")
+
+            # 2. 创建PortfolioLive实例
+            from ginkgo.trading.portfolios.portfolio_live import PortfolioLive
+            from decimal import Decimal
+
+            portfolio = PortfolioLive(
+                uuid=portfolio_model.uuid,  # 使用数据库UUID
+                name=portfolio_model.name
+            )
+
+            # 设置初始资金
+            portfolio.add_cash(float(portfolio_model.initial_capital))
+            portfolio.initial_capital = float(portfolio_model.initial_capital)
+            if not hasattr(portfolio, 'frozen_cash'):
+                portfolio.frozen_cash = 0.0
+
+            # 3. 设置上下文（engine_id和run_id）
+            from ginkgo.trading.context.engine_context import EngineContext
+            from ginkgo.trading.context.portfolio_context import PortfolioContext
+
+            engine_context = EngineContext(engine_id="livecore")
+            engine_context.set_run_id(portfolio.uuid)
+            portfolio_context = PortfolioContext(
+                portfolio_id=portfolio.uuid,
+                engine_context=engine_context
+            )
+            portfolio._context = portfolio_context
+
+            # 4. 获取并加载组件
+            components_result = self.get_components(portfolio_id=portfolio_id)
+            if not components_result.is_success():
+                GLOG.WARN(f"获取组件失败: {components_result.error}，使用默认组件")
+                # 使用默认组件
+                self._bind_default_components(portfolio)
+            else:
+                components = components_result.data
+                if not components or len(components) == 0:
+                    GLOG.WARN(f"没有找到组件，使用默认组件")
+                    self._bind_default_components(portfolio)
+                else:
+                    # 分类并加载组件
+                    self._bind_components_from_config(portfolio, components)
+
+            GLOG.INFO(f"✓ Portfolio {portfolio_id[:8]}... 加载成功，包含所有组件")
+
+            return ServiceResult.success(portfolio, f"Portfolio加载成功")
+
+        except Exception as e:
+            GLOG.ERROR(f"加载Portfolio失败: {str(e)}")
+            import traceback
+            GLOG.ERROR(f"Traceback: {traceback.format_exc()}")
+            return ServiceResult.error(f"加载Portfolio失败: {str(e)}")
+
+    def _bind_default_components(self, portfolio):
+        """绑定默认组件到Portfolio"""
+        # 默认策略
+        from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
+        strategy = RandomSignalStrategy()
+        portfolio.add_strategy(strategy)
+        GLOG.INFO(f"✓ 添加默认策略: RandomSignalStrategy")
+
+        # 默认选股器
+        from ginkgo.trading.selectors.cn_all_selector import CNAllSelector
+        selector = CNAllSelector()
+        portfolio.bind_selector(selector)
+        GLOG.INFO(f"✓ 绑定默认选股器: CNAllSelector")
+
+        # 默认Sizer
+        from ginkgo.trading.sizers.fixed_sizer import FixedSizer
+        sizer = FixedSizer()
+        portfolio.bind_sizer(sizer)
+        GLOG.INFO(f"✓ 绑定默认Sizer: FixedSizer")
+
+        # 默认风控
+        from ginkgo.trading.risk_management.position_ratio_risk import PositionRatioRisk
+        risk_manager = PositionRatioRisk()
+        portfolio.add_risk_manager(risk_manager)
+        GLOG.INFO(f"✓ 添加默认风控: PositionRatioRisk")
+
+    def _bind_components_from_config(self, portfolio, components: list):
+        """从组件配置实例化并绑定到Portfolio"""
+        # 组件分类
+        strategies_list = []
+        selectors_list = []
+        sizers_list = []
+        risk_managers_list = []
+
+        for component in components:
+            comp_type = component.get('component_type')
+
+            # 处理component_type - 可能是字符串或数字
+            if isinstance(comp_type, str):
+                if comp_type.isdigit():
+                    comp_type_int = int(comp_type)
+                else:
+                    try:
+                        comp_type_int = FILE_TYPES[comp_type].value
+                    except:
+                        continue
+            else:
+                comp_type_int = int(comp_type)
+
+            # 根据类型分类
+            if comp_type_int == FILE_TYPES.STRATEGY.value:
+                strategies_list.append(component)
+            elif comp_type_int == FILE_TYPES.SELECTOR.value:
+                selectors_list.append(component)
+            elif comp_type_int == FILE_TYPES.SIZER.value:
+                sizers_list.append(component)
+            elif comp_type_int == FILE_TYPES.RISKMANAGER.value:
+                risk_managers_list.append(component)
+
+        GLOG.INFO(f"组件分类: 策略={len(strategies_list)}, 选股器={len(selectors_list)}, "
+                 f"Sizer={len(sizers_list)}, 风控={len(risk_managers_list)}")
+
+        # 1. 加载策略
+        if len(strategies_list) == 0:
+            from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
+            portfolio.add_strategy(RandomSignalStrategy())
+        else:
+            for strategy_config in strategies_list:
+                strategy = self._instantiate_component(strategy_config, 'strategy')
+                if strategy:
+                    portfolio.add_strategy(strategy)
+                    GLOG.INFO(f"✓ 添加策略: {strategy.__class__.__name__}")
+
+        # 2. 加载选股器
+        if len(selectors_list) == 0:
+            from ginkgo.trading.selectors.cn_all_selector import CNAllSelector
+            portfolio.bind_selector(CNAllSelector())
+        else:
+            selector_config = selectors_list[0]
+            selector = self._instantiate_component(selector_config, 'selector')
+            if selector:
+                portfolio.bind_selector(selector)
+                GLOG.INFO(f"✓ 绑定选股器: {selector.__class__.__name__}")
+
+        # 3. 加载Sizer
+        if len(sizers_list) == 0:
+            from ginkgo.trading.sizers.fixed_sizer import FixedSizer
+            portfolio.bind_sizer(FixedSizer())
+        else:
+            sizer_config = sizers_list[0]
+            sizer = self._instantiate_component(sizer_config, 'sizer')
+            if sizer:
+                portfolio.bind_sizer(sizer)
+                GLOG.INFO(f"✓ 绑定Sizer: {sizer.__class__.__name__}")
+
+        # 4. 加载风控
+        if len(risk_managers_list) == 0:
+            from ginkgo.trading.risk_management.position_ratio_risk import PositionRatioRisk
+            portfolio.add_risk_manager(PositionRatioRisk())
+        else:
+            for risk_config in risk_managers_list:
+                risk_manager = self._instantiate_component(risk_config, 'risk_management')
+                if risk_manager:
+                    portfolio.add_risk_manager(risk_manager)
+                    GLOG.INFO(f"✓ 添加风控: {risk_manager.__class__.__name__}")
+
+    def _instantiate_component(self, component_config: dict, component_type: str):
+        """从组件配置实例化组件"""
+        try:
+            file_id = component_config.get('component_id')
+            if not file_id:
+                return self._get_default_component(component_type)
+
+            # 获取参数
+            mount_id = component_config.get('mount_id')
+            component_params = []
+
+            if mount_id:
+                try:
+                    from ginkgo.data.containers import container
+                    param_crud = container.cruds.param()
+                    param_records = param_crud.find(filters={"mapping_id": mount_id})
+
+                    if param_records:
+                        sorted_params = sorted(param_records, key=lambda p: p.index)
+                        component_params = [param.value for param in sorted_params]
+                except Exception as e:
+                    GLOG.WARN(f"获取参数失败: {e}")
+
+            # 获取文件内容
+            from ginkgo import services
+            file_service = services.data.file_service()
+            file_result = file_service.get_by_uuid(file_id)
+
+            if not file_result.success or not file_result.data:
+                return self._get_default_component(component_type)
+
+            file_info = file_result.data
+            if isinstance(file_info, dict) and "file" in file_info:
+                mfile = file_info["file"]
+                if hasattr(mfile, "data") and mfile.data:
+                    if isinstance(mfile.data, bytes):
+                        code_content = mfile.data.decode("utf-8", errors="ignore")
+                    else:
+                        code_content = str(mfile.data)
+                else:
+                    return self._get_default_component(component_type)
+            else:
+                return self._get_default_component(component_type)
+
+            # 动态执行代码
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as temp_file:
+                temp_file.write(code_content)
+                temp_file_path = temp_file.name
+
+            try:
+                spec = importlib.util.spec_from_file_location("dynamic_component", temp_file_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                # 查找组件类
+                component_class = None
+                for attr_name in dir(module):
+                    if attr_name.startswith("_"):
+                        continue
+                    attr = getattr(module, attr_name)
+                    if isinstance(attr, type) and hasattr(attr, "__bases__"):
+                        is_component = False
+
+                        if hasattr(attr, "__abstract__") and not getattr(attr, "__abstract__", True):
+                            is_component = True
+                        else:
+                            for base in attr.__bases__:
+                                base_name = base.__name__
+                                if base_name.endswith("Strategy") or base_name.endswith("Selector") or \
+                                   base_name.endswith("Sizer") or base_name.endswith("RiskManagement") or \
+                                   base_name == "BaseStrategy" or base_name == "BaseSelector" or \
+                                   base_name == "BaseSizer" or base_name == "BaseRiskManagement":
+                                    is_component = True
+                                    break
+
+                        if is_component:
+                            component_class = attr
+                            break
+
+                if component_class is None:
+                    return self._get_default_component(component_type)
+
+                # 实例化组件
+                if component_params:
+                    component = component_class(*component_params)
+                else:
+                    component = component_class()
+
+                return component
+
+            finally:
+                try:
+                    os.unlink(temp_file_path)
+                except:
+                    pass
+
+        except Exception as e:
+            GLOG.ERROR(f"实例化组件失败: {e}")
+            return self._get_default_component(component_type)
+
+    def _get_default_component(self, component_type: str):
+        """获取默认组件作为fallback"""
+        if component_type == 'strategy':
+            from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
+            return RandomSignalStrategy()
+
+        elif component_type == 'selector':
+            from ginkgo.trading.selectors.cn_all_selector import CNAllSelector
+            return CNAllSelector()
+
+        elif component_type == 'sizer':
+            from ginkgo.trading.sizers.fixed_sizer import FixedSizer
+            return FixedSizer()
+
+        elif component_type == 'risk_management':
+            from ginkgo.trading.risk_management.position_ratio_risk import PositionRatioRisk
+            return PositionRatioRisk()
+
+        else:
+            return None
