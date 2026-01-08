@@ -103,8 +103,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         # LoggableMixin初始化
         LoggableMixin.__init__(self, **kwargs)
 
-        # Base初始化
-        Base.__init__(self)
+        # Base初始化 - 传递kwargs（包括uuid参数）
+        Base.__init__(self, **kwargs)
 
         # 标记为 Portfolio 组件（用于 ContextMixin 识别）
         self._is_portfolio = True
