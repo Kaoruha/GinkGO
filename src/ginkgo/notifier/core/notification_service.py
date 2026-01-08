@@ -144,14 +144,48 @@ class NotificationService(BaseService):
             if isinstance(channels, str):
                 channels = [channels]
 
+            # 如果提供了template_id，先渲染模板
+            final_content = content
+            final_content_type = content_type
+            final_title = title
+
+            if template_id:
+                template = self.template_crud.get_by_template_id(template_id)
+                if template:
+                    # 渲染模板（kwargs作为context传递）
+                    rendered_content = self.template_engine.render(
+                        template.content,
+                        context=kwargs
+                    )
+
+                    content_type_enum = template.get_template_type_enum()
+                    final_content_type = content_type_enum.name.lower()
+
+                    # 对于嵌入式模板，解析JSON并创建embed对象
+                    if final_content_type == "embedded":
+                        try:
+                            import json
+                            embed_obj = json.loads(rendered_content)
+                            # 将embed对象添加到kwargs
+                            kwargs['embed'] = embed_obj
+                            final_content = ""  # embed包含description，content设为空
+                            final_title = embed_obj.get("title", title)
+                        except json.JSONDecodeError as e:
+                            GLOG.ERROR(f"Failed to parse embedded template JSON: {e}")
+                            final_content = rendered_content
+                    else:
+                        # 文本/Markdown模板
+                        final_content = rendered_content
+                        final_title = template.subject or title
+
             # 生成唯一 message_id
             message_id = f"msg_{uuid_lib.uuid4().hex}"
 
             # 创建通知记录
             record = MNotificationRecord(
                 message_id=message_id,
-                content=content,
-                content_type=content_type,
+                content=final_content,
+                content_type=final_content_type,
                 channels=channels,
                 status=NOTIFICATION_STATUS_TYPES.PENDING.value,
                 priority=priority,
@@ -195,8 +229,8 @@ class NotificationService(BaseService):
 
                 try:
                     result = channel.send(
-                        content=content,
-                        title=title,
+                        content=final_content,
+                        title=final_title,
                         **kwargs
                     )
 
@@ -662,28 +696,21 @@ class NotificationService(BaseService):
             content_type = template.get_template_type_enum().name.lower()
             title = kwargs.pop("title", None) or template.subject
 
-            # 对于嵌入式模板，需要解析JSON并提取参数
+            # 对于嵌入式模板，解析JSON作为完整的embed对象
             if content_type == "embedded":
                 try:
                     import json
-                    embed_params = json.loads(rendered_content)
+                    embed_obj = json.loads(rendered_content)
 
-                    # 从嵌入式模板中提取参数
-                    final_title = embed_params.pop("title", title)
-                    final_content = embed_params.pop("content", "")
-                    final_content_type = embed_params.pop("content_type", content_type)
+                    # 将整个embed对象作为embed参数传递
+                    kwargs['embed'] = embed_obj
 
-                    # 将embed中的其他参数合并到kwargs
-                    for key, value in embed_params.items():
-                        if key not in kwargs:  # 不要覆盖用户显式传递的参数
-                            kwargs[key] = value
-
-                    # 发送通知
+                    # 发送通知（content为空，因为embed包含description）
                     return self.send_to_user(
                         user_uuid=user_uuid,
-                        content=final_content,
-                        title=final_title,
-                        content_type=final_content_type,
+                        content="",
+                        title=title,
+                        content_type=content_type,
                         priority=priority,
                         **kwargs
                     )
@@ -1784,3 +1811,190 @@ class NotificationService(BaseService):
             return ServiceResult.error(
                 f"Failed to get records: {str(e)}"
             )
+
+
+# ============================================================================
+# 简化的全局通知函数
+# ============================================================================
+
+_notification_service_instance = None
+
+def _get_notification_service() -> NotificationService:
+    """获取NotificationService单例"""
+    global _notification_service_instance
+    
+    if _notification_service_instance is not None:
+        return _notification_service_instance
+    
+    try:
+        from ginkgo.data.containers import container
+        from ginkgo.user.services.user_service import UserService
+        from ginkgo.user.services.user_group_service import UserGroupService
+        from ginkgo.notifier.core.template_engine import TemplateEngine
+        
+        template_crud = container.notification_template_crud()
+        record_crud = container.notification_record_crud()
+        template_engine = TemplateEngine(template_crud=template_crud)
+        
+        user_service = UserService(
+            user_crud=container.user_crud(),
+            user_contact_crud=container.user_contact_crud()
+        )
+        
+        group_service = UserGroupService(
+            user_group_crud=container.user_group_crud(),
+            user_group_mapping_crud=container.user_group_mapping_crud()
+        )
+        
+        _notification_service_instance = NotificationService(
+            user_service=user_service,
+            user_group_service=group_service,
+            template_crud=template_crud,
+            record_crud=record_crud,
+            template_engine=template_engine,
+            group_crud=container.user_group_crud(),
+            group_mapping_crud=container.user_group_mapping_crud(),
+            contact_crud=container.user_contact_crud()
+        )
+        
+        return _notification_service_instance
+        
+    except Exception as e:
+        GLOG.ERROR(f"Failed to initialize NotificationService: {e}")
+        return None
+
+
+def notify(
+    content: str,
+    level: str = "INFO",
+    details: Optional[Dict[str, Any]] = None,
+    module: str = "System",
+    async_mode: bool = True
+) -> bool:
+    """
+    发送系统通知（简化版，内部调用）
+
+    根据等级自动选择颜色和模板，自动发送到System组。
+    支持同步和异步模式。
+
+    Args:
+        content: 通知内容
+        level: 等级 (INFO/WARN/ERROR/ALERT)，默认 INFO
+        details: 详细信息字典
+        module: 模块名称，默认 "System"
+        async_mode: 异步模式（通过Kafka Worker），默认 True
+
+    Returns:
+        bool: 是否发送成功
+
+    Examples:
+        >>> # 异步发送（默认，不阻塞）
+        >>> notify("任务完成")
+        True
+        >>>
+        >>> # 同步发送（阻塞，等待结果）
+        >>> notify("系统警告", level="WARN", async_mode=False)
+        True
+        >>>
+        >>> # 错误通知
+        >>> notify("连接失败", level="ERROR", details={"重试": "3次"})
+        True
+    """
+    try:
+        service = _get_notification_service()
+        if service is None:
+            GLOG.ERROR("NotificationService not available")
+            return False
+
+        # 等级到模板ID的映射
+        level_templates = {
+            "INFO": "system_info",
+            "WARN": "system_warn",
+            "ERROR": "system_error",
+            "ALERT": "system_alert"
+        }
+
+        # 获取模板ID
+        template_id = level_templates.get(level.upper(), "system_alert")
+
+        # 构建模板上下文
+        context = {
+            "message": content,
+            "level": level.upper(),
+            "module": module,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        # 添加details作为字段
+        if details:
+            for key, value in details.items():
+                context[f"field_{key}"] = str(value)
+
+        # 根据async_mode选择发送方式
+        if async_mode:
+            # 异步模式：获取System组的所有用户，异步发送（不阻塞）
+            try:
+                # 获取System组的用户UUIDs
+                if service.group_crud and service.group_mapping_crud:
+                    group = service.group_crud.find(filters={"name": "System"}, page_size=1, as_dataframe=False)
+                    if group:
+                        group_uuid = group[0].uuid
+                        mappings = service.group_mapping_crud.find_by_group(group_uuid, as_dataframe=False)
+                        user_uuids = [m.user_uuid for m in mappings]
+
+                        # 向每个用户异步发送
+                        success_count = 0
+                        for user_uuid in user_uuids:
+                            result = service.send_async(
+                                content=content,
+                                channels=["webhook"],
+                                user_uuid=user_uuid,
+                                template_id=template_id,
+                                priority=2 if level.upper() in ("ERROR", "ALERT") else 1,
+                                **context
+                            )
+                            if result.is_success:
+                                success_count += 1
+
+                        GLOG.INFO(f"Notification queued for {success_count}/{len(user_uuids)} users: {content}")
+                        return success_count > 0
+                    else:
+                        GLOG.WARN("System group not found, falling back to sync mode")
+                        return service.send_template_to_group(
+                            group_name="System",
+                            template_id=template_id,
+                            context=context,
+                            priority=2 if level.upper() in ("ERROR", "ALERT") else 1
+                        ).is_success
+                else:
+                    GLOG.WARN("Group CRUD not initialized, falling back to sync mode")
+                    return service.send_template_to_group(
+                        group_name="System",
+                        template_id=template_id,
+                        context=context,
+                        priority=2 if level.upper() in ("ERROR", "ALERT") else 1
+                    ).is_success
+
+            except Exception as e:
+                GLOG.ERROR(f"Async send failed, falling back to sync: {e}")
+                # 降级到同步模式
+                return service.send_template_to_group(
+                    group_name="System",
+                    template_id=template_id,
+                    context=context,
+                    priority=2 if level.upper() in ("ERROR", "ALERT") else 1
+                ).is_success
+        else:
+            # 同步模式：直接发送（阻塞，等待结果）
+            result = service.send_template_to_group(
+                group_name="System",
+                template_id=template_id,
+                context=context,
+                priority=2 if level.upper() in ("ERROR", "ALERT") else 1
+            )
+
+            return result.is_success
+
+    except Exception as e:
+        GLOG.ERROR(f"Failed to send notification: {e}")
+        return False
