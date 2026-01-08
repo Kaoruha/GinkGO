@@ -5,6 +5,20 @@
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
+**架构澄清（2026-01-04更新）**:
+1. **双队列模式已实现** ✅ - PortfolioProcessor已完成从callback模式到双队列模式的切换：
+   - Portfolio使用put()发布事件 → PortfolioProcessor._handle_portfolio_event() → output_queue
+   - ExecutionNode监听output_queue，序列化事件并发送到Kafka
+   - 完全符合六边形架构约束（Domain Kernel不依赖Adapter）
+   - Portfolio不再持有ExecutionNode引用，submit_order()方法已移除
+
+2. **架构违反的暂时接受** ⚠️ - 增量交付原则：
+   - Portfolio内部的Selector/Sizer/Strategy可能查询数据库（获取历史数据）
+   - 这是技术债务，在Feature完成后进行独立重构任务（非Phase 8）
+   - 重构将分析ExecutionNode如何预加载数据并组装完整上下文DTO
+
+3. **其他组件严格约束** ✅ - ExecutionNode、API Gateway、DataManager、TradeGatewayAdapter、Scheduler、Redis、Kafka都严格按照六边形架构边界执行
+
 ## Summary
 
 本特性旨在为 Ginkgo 量化交易库实现完整的实盘交易架构支持，支持多Portfolio并行运行、动态调度和实时风控。
@@ -60,8 +74,9 @@
 
 ### 架构设计原则 (Architecture Excellence)
 - [x] 设计遵循事件驱动架构（实盘交易通过 Kafka 事件驱动，异步处理市场数据、订单、控制命令）
-- [x] 使用ServiceHub统一访问服务，通过`from ginkgo import services`访问服务组件（Portfolio CRUD、ExecutionNode管理等）
+- [x] **服务容器强制规范**：所有Service必须从ServiceContainer获取，通过`service_hub.xxx()`或`services.xxx()`访问，禁止直接实例化（PortfolioService、PositionCRUD等）
 - [x] 严格分离数据层、策略层、执行层、分析层和服务层职责（数据层：MySQL/ClickHouse模型，服务层：LiveEngine、Scheduler，执行层：ExecutionNode）
+- [x] **六边形架构约束**：除PortfolioProcessor暂时放宽外，其他组件严格按六边形架构边界执行（ExecutionNode、API Gateway、DataManager、TradeGatewayAdapter、Scheduler、Redis、Kafka）
 
 ### 代码质量原则 (Code Quality)
 - [x] 使用`@time_logger`、`@retry`、`@cache_with_expiration`装饰器（Kafka 生产者/消费者、Portfolio处理、数据库操作）
@@ -123,12 +138,17 @@ specs/007-live-trading-architecture/
 src/
 ├── ginkgo/                          # 主要库代码
 │   ├── core/                        # 核心组件（复用）
-│   │   ├── portfolios/              # 投资组合管理
-│   │   │   └── portfolio.py         # Portfolio基类（扩展实盘支持）
-│   │   └── events/                  # 事件系统（复用+扩展）
+│   │   └── events/                  # 事件系统（复用）
 │   │       ├── price_update.py      # EventPriceUpdate ✅ 复用
-│   │       ├── order_lifecycle_events.py  # EventOrderPartiallyFilled ✅ 复用
-│   │       └── event_live_control_command.py  # EventControlCommand 🆕 新建
+│   │       └── order_lifecycle_events.py  # EventOrderPartiallyFilled ✅ 复用
+│   ├── trading/                     # 交易执行层（复用和扩展）
+│   │   ├── bases/                   # 基础类
+│   │   │   └── portfolio_base.py    # PortfolioBase抽象基类 ✅ 复用
+│   │   └── portfolios/              # 投资组合实现
+│   │       └── portfolio_live.py    # PortfolioLive实盘投资组合 ✅ 扩展（移除回测逻辑）
+│   ├── messages/                    # 🆕 Kafka消息传输（DTO，非Event）
+│   │   ├── __init__.py
+│   │   └── control_command.py      # ControlCommand消息（用于ginkgo.live.control.commands）
 │   ├── data/                        # 数据层（复用）
 │   │   ├── models/                  # 数据模型
 │   │   │   ├── model_portfolio.py   # MPortfolio ✅ 复用
@@ -141,7 +161,7 @@ src/
 │   │   ├── engines/                 # 引擎
 │   │   │   └── engine_live.py       # 实盘引擎基类 ✅ 复用
 │   │   └── gateway/                 # 交易网关
-│   │       └── trade_gateway.py     # TradeGateway ✅ 复用（需改造适配Kafka）
+│   │       └── trade_gateway.py     # TradeGateway ✅ 复用
 │   ├── workers/                     # 🆕 Worker类型（独立进程）
 │   │   └── execution_node/          # ExecutionNode Worker
 │   │       ├── node.py              # ExecutionNode主类
@@ -152,8 +172,7 @@ src/
 │   └── livecore/                    # 🆕 LiveCore容器（多线程）
 │       ├── main.py                  # LiveCore主入口（启动所有组件线程）
 │       ├── data_manager.py          # 数据源管理器（发布市场数据到Kafka）
-│       ├── live_engine.py           # 实盘引擎容器线程（封装trading/engines/engine_live.py）
-│       ├── trade_gateway_adapter.py # 交易网关适配器（封装trading/gateway/trade_gateway.py）
+│       ├── trade_gateway_adapter.py # 交易网关适配器（订阅Kafka订单，封装TradeGateway执行）
 │       └── scheduler.py             # 调度器（无状态，调度数据存储在Redis）
 
 api/                                # 🆕 API Gateway（复用现有api/目录）
@@ -425,15 +444,66 @@ tests/                               # 测试目录
 
 ---
 
-## Next Steps
+## Progress Tracking
 
-1. **运行 `/speckit.tasks`**: 生成详细的任务分解（tasks.md）
-2. **Phase 0 实现**: 架构研究和技术决策（research.md已完成）
-3. **Phase 1 实现**: 数据模型设计和API契约（data-model.md、contracts/已完成）
-4. **Phase 2 实现**: 开始编码实现（按照tasks.md的任务顺序）
+### Phase 1: Setup (项目初始化) - ✅ 完成
+- [x] T001-T008: 所有8个任务已完成
+- [x] 依赖库安装、目录结构创建、Kafka/数据库配置、连接测试
+
+### Phase 2: Foundational (核心基础设施) - ✅ 完成
+- [x] T009-T016: 所有8个任务已完成
+- [x] Event复用验证、ControlCommand创建、数据模型验证、Kafka集成测试
+
+### Phase 3: User Story 1 - 单Portfolio实盘运行 - 🔄 进行中 (85%完成)
+**已完成 (11/13任务)**:
+- [x] T017: 创建ExecutionNode主类
+- [x] T018: 创建PortfolioProcessor线程类
+- [x] T019: 实现ExecutionNode.load_portfolio()方法
+- [x] T020: 实现ExecutionNode.subscribe_market_data()方法
+- [x] T021: 实现PortfolioProcessor.run()主循环
+- [x] T022: 扩展Portfolio添加on_price_update()方法
+- [x] T023: 扩展Portfolio添加on_order_filled()方法
+- [x] T024: 实现Portfolio.sync_state_to_db()方法
+- [x] T026: 实现双队列模式（移除callback）✅ **架构改进完成**
+- [x] T027: 创建LiveCore主入口（多线程容器）✅ **完成**
+- [x] T028: 创建TradeGateway适配器
+- [x] T029: 改造GinkgoProducer的acks=all
+
+**待办 (2/13任务)**:
+- [ ] T025: 编写Portfolio事件处理单元测试
+
+### 关键里程碑
+- ✅ **2026-01-04**: 双队列模式架构改进完成，PortfolioProcessor完全符合六边形架构约束
+- ✅ **2026-01-04**: ExecutionNode移除callback机制，改用output_queue监听器模式
+- ✅ **2026-01-04**: PortfolioLive清理完成，移除回测专用逻辑（reset_positions, cal_signals, cal_suggestions, advance_time, on_price_received）
+- ⚠️ **技术债务确认**: Portfolio内部组件数据库访问问题将在Feature完成后重构
 
 ---
 
-**文档版本**: 1.0.0
-**最后更新**: 2026-01-04
+## Next Steps
+
+### 立即执行 (当前优先级)
+1. **T025: 编写Portfolio事件处理单元测试** - 完成测试覆盖率
+
+### 短期计划 (Phase 3剩余)
+1. Phase 3基础框架已完成（85%），剩余T025测试任务
+2. 运行端到端集成测试验证实盘交易流程
+3. 性能测试和优化（目标：端到端延迟 < 200ms）
+
+### 中期计划 (Phase 4-8)
+1. Phase 4: 多Portfolio并行运行（InterestMap、Backpressure）
+2. Phase 5: Portfolio动态调度（Scheduler、心跳、优雅重启）
+3. Phase 6: 实时风控执行
+4. Phase 7: 系统监控和告警
+5. Phase 8: Polish和跨领域关注点
+
+### 长期计划 (Feature完成后)
+1. **独立重构任务**: 分析并设计ExecutionNode如何预加载数据并组装完整上下文DTO
+2. **移除数据库访问**: 重构Portfolio内部组件，使其符合Domain Kernel纯内存计算约束
+3. **架构优化**: 完全消除PortfolioProcessor的架构违反
+
+---
+
+**文档版本**: 2.0.0
+**最后更新**: 2026-01-04 (架构调整和进度更新)
 **负责人**: Ginkgo开发团队

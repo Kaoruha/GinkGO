@@ -4,6 +4,12 @@
 **Created**: 2026-01-04
 **Feature**: 007-live-trading-architecture
 
+> **架构说明**: 本文档中的伪代码主要用于说明业务逻辑，实际架构实现使用**双队列模式**：
+> - Portfolio通过`put()`发布订单事件到output_queue
+> - ExecutionNode监听output_queue，序列化订单并发送到Kafka
+> - 伪代码中的`submit_order()`等简洁表示对应实际的双队列通信机制
+> - 详见 [information-flow.md](./information-flow.md) 和 [plan.md](./plan.md)
+
 ## 场景分类概览
 
 | 类别 | 场景数量 | 优先级 | 说明 |
