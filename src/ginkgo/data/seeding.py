@@ -420,9 +420,23 @@ class DataSeeder:
         """Initialize example portfolio using portfolio service."""
         GLOG.INFO("=== 开始初始化示例投资组合 ===")
         portfolio_service = container.portfolio_service()
-        portfolio_name = "present_portfolio"
 
-        # 1. Remove existing portfolios with same name using direct database deletion
+        # 1. 创建回测Portfolio (is_live=False)
+        portfolio_name = "present_portfolio"
+        portfolio = self._create_single_portfolio(portfolio_service, portfolio_name, is_live=False)
+
+        # 2. 创建实盘Portfolio (is_live=True)
+        live_portfolio_name = "present_portfolio_live"
+        live_portfolio = self._create_single_portfolio(portfolio_service, live_portfolio_name, is_live=True)
+
+        return portfolio  # 返回回测portfolio以保持向后兼容
+
+    def _create_single_portfolio(self, portfolio_service, portfolio_name: str, is_live: bool) -> Dict[str, Any]:
+        """创建单个Portfolio的辅助方法"""
+        portfolio_type = "实盘" if is_live else "回测"
+        GLOG.INFO(f"创建{portfolio_type}投资组合: {portfolio_name}")
+
+        # 1. 删除已存在的同名portfolio
         try:
             from ginkgo.data.crud.portfolio_crud import PortfolioCRUD
             from sqlalchemy import text
@@ -430,29 +444,23 @@ class DataSeeder:
             portfolio_crud = PortfolioCRUD()
 
             with portfolio_crud.get_session() as session:
-                # 直接使用SQL删除同名投资组合
                 stmt = text("DELETE FROM portfolio WHERE name = :name")
                 result = session.execute(stmt, {"name": portfolio_name})
                 deleted_count = result.rowcount
                 session.commit()
 
                 if deleted_count > 0:
-                    GLOG.WARN(f"直接SQL删除 {deleted_count} 个现有投资组合: {portfolio_name}")
-                    self.console.print(f":broom: Direct SQL deleted {deleted_count} existing '{portfolio_name}' portfolios.")
-                else:
-                    GLOG.DEBUG(f"没有找到需要删除的投资组合: {portfolio_name}")
+                    GLOG.WARN(f"删除 {deleted_count} 个现有投资组合: {portfolio_name}")
+                    self.console.print(f":broom: Deleted {deleted_count} existing '{portfolio_name}' portfolios.")
 
         except Exception as e:
             GLOG.ERROR(f"投资组合删除失败: {portfolio_name}, 错误: {e}")
             self.console.print(f":warning: Portfolio deletion had issues: {str(e)}")
 
-        # 2. Create new portfolio (不设置时间范围，使用引擎的时间)
-        GLOG.DEBUG(f"创建新投资组合: {portfolio_name} (不设置时间范围，将使用引擎的时间)")
-        portfolio = portfolio_service.add(
-            name=portfolio_name, is_live=False
-        )
+        # 2. 创建新portfolio
+        portfolio = portfolio_service.add(name=portfolio_name, is_live=is_live)
+
         if portfolio.success:
-            # Extract UUID safely from portfolio result
             portfolio_uuid = None
             if hasattr(portfolio, 'data') and portfolio.data:
                 if hasattr(portfolio.data, 'uuid'):
@@ -460,10 +468,10 @@ class DataSeeder:
                 elif isinstance(portfolio.data, dict) and 'uuid' in portfolio.data:
                     portfolio_uuid = portfolio.data['uuid']
 
-            GLOG.INFO(f"投资组合创建成功: {portfolio_name} (UUID: {portfolio_uuid})")
-            self.console.print(f":briefcase: Example portfolio '{portfolio_name}' created.")
+            GLOG.INFO(f"{portfolio_type}投资组合创建成功: {portfolio_name} (UUID: {portfolio_uuid}, is_live={is_live})")
+            self.console.print(f":briefcase: {portfolio_type} portfolio '{portfolio_name}' created.")
         else:
-            GLOG.ERROR(f"投资组合创建失败: {portfolio_name}, 错误: {portfolio.error}")
+            GLOG.ERROR(f"{portfolio_type}投资组合创建失败: {portfolio_name}, 错误: {portfolio.error}")
             self.console.print(f":warning: Portfolio creation failed: {portfolio.error}")
 
         return portfolio
@@ -529,75 +537,120 @@ class DataSeeder:
         """Create portfolio-component mappings using MappingService."""
         GLOG.INFO("步骤 6: 创建Portfolio组件绑定关系")
         try:
-            # 获取名为present_portfolio的Portfolio
             portfolio_crud = container.cruds.portfolio()
-            portfolios = portfolio_crud.find(filters={"name": "present_portfolio"})
-
-            if len(portfolios) == 0:
-                GLOG.WARN("未找到名为present_portfolio的Portfolio，跳过组件绑定创建")
-                return
-
-            if len(portfolios) > 1:
-                GLOG.WARN(f"找到多个名为present_portfolio的Portfolio({len(portfolios)}个)，使用第一个")
-                self.console.print(f"⚠️ 找到{len(portfolios)}个present_portfolio，使用第一个")
-
-            portfolio = portfolios[0]
-            GLOG.INFO(f"使用Portfolio: {portfolio.name} ({portfolio.uuid})")
-
-            # 获取Engine UUID
-            engine_crud = container.cruds.engine()
-            engines = engine_crud.find(filters={"name": "present_engine"})
-
-            if len(engines) == 0:
-                GLOG.WARN("未找到名为present_engine的Engine，跳过组件绑定创建")
-                return
-
-            engine = engines[0]
-
-            # 使用MappingService创建绑定关系
             mapping_service = container.mapping_service()
 
-            # 定义绑定规则 - 按照complete_backtest_example.py配置组件
+            # 定义绑定规则
             binding_rules = {
-                "strategies": [{"name": "random_signal_strategy"}],  # 使用RandomSignalStrategy
-                "selectors": [{"name": "fixed_selector"}],  # 匹配fixed_selector.py
-                "sizers": [{"name": "fixed_sizer"}],       # 匹配fixed_sizer.py
-                # "risk_managers": [],  # 用户要求暂时不绑定风控
-                "analyzers": [{"name": "net_value"}]  # 使用NetValue Analyzer，与example一致
+                "strategies": [{"name": "random_signal_strategy"}],
+                "selectors": [{"name": "fixed_selector"}],
+                "sizers": [{"name": "fixed_sizer"}],
+                "analyzers": [{"name": "net_value"}]
             }
 
-            # 创建预设绑定关系
-            result = mapping_service.create_preset_bindings(
-                engine_uuid=engine.uuid,
-                portfolio_uuid=portfolio.uuid,
-                binding_rules=binding_rules
-            )
+            # 1. 为回测Portfolio创建组件绑定
+            backtest_portfolios = portfolio_crud.find(filters={"name": "present_portfolio"})
+            if len(backtest_portfolios) > 0:
+                backtest_portfolio = backtest_portfolios[0]
+                GLOG.INFO(f"为回测Portfolio创建组件绑定: {backtest_portfolio.name}")
 
-            if result.success:
-                binding_data = result.data
-                bindings_created = binding_data.get('bindings_created', 0)
-                self.results['mappings_count'] += bindings_created
+                # 获取Engine UUID
+                engine_crud = container.cruds.engine()
+                engines = engine_crud.find(filters={"name": "present_engine"})
 
-                GLOG.INFO(f"成功创建 {bindings_created} 个组件绑定关系")
-                self.console.print(f"✅ 创建了 {bindings_created} 个组件绑定关系")
+                if len(engines) > 0:
+                    engine = engines[0]
+                    result = mapping_service.create_preset_bindings(
+                        engine_uuid=engine.uuid,
+                        portfolio_uuid=backtest_portfolio.uuid,
+                        binding_rules=binding_rules
+                    )
 
-                # 为绑定的组件创建参数
-                self._create_parameters_for_portfolio_bindings(portfolio.uuid)
+                    if result.success:
+                        binding_data = result.data
+                        bindings_created = binding_data.get('bindings_created', 0)
+                        self.results['mappings_count'] += bindings_created
+                        GLOG.INFO(f"回测Portfolio: 成功创建 {bindings_created} 个组件绑定")
+                        self.console.print(f"✅ 回测Portfolio: 创建了 {bindings_created} 个组件绑定")
 
-                # 显示绑定详情
-                for detail in binding_data.get('binding_details', []):
-                    GLOG.INFO(f"   {detail}")
-                    self.console.print(f"   • {detail}")
-            else:
-                GLOG.ERROR(f"创建组件绑定失败: {result.error}")
-                self.results['errors'].append(f"组件绑定失败: {result.error}")
-                raise
+                        # 为绑定的组件创建参数
+                        self._create_parameters_for_portfolio_bindings(backtest_portfolio.uuid)
+                    else:
+                        GLOG.ERROR(f"回测Portfolio: 组件绑定失败: {result.error}")
+
+            # 2. 为实盘Portfolio创建组件绑定
+            live_portfolios = portfolio_crud.find(filters={"name": "present_portfolio_live"})
+            if len(live_portfolios) > 0:
+                live_portfolio = live_portfolios[0]
+                GLOG.INFO(f"为实盘Portfolio创建组件绑定: {live_portfolio.name}")
+
+                # 实盘Portfolio直接创建Portfolio-File绑定（不需要Engine）
+                bindings_created = self._create_portfolio_file_bindings_direct(
+                    mapping_service, live_portfolio.uuid, binding_rules
+                )
+
+                if bindings_created > 0:
+                    GLOG.INFO(f"实盘Portfolio: 成功创建 {bindings_created} 个组件绑定")
+                    self.console.print(f"✅ 实盘Portfolio: 创建了 {bindings_created} 个组件绑定")
+
+                    # 为绑定的组件创建参数
+                    self._create_parameters_for_portfolio_bindings(live_portfolio.uuid)
 
         except Exception as e:
             error_msg = f"创建组件绑定失败: {str(e)}"
             GLOG.ERROR(error_msg)
             self.results['errors'].append(error_msg)
             raise
+
+    def _create_portfolio_file_bindings_direct(
+        self, mapping_service, portfolio_uuid: str, binding_rules: dict
+    ) -> int:
+        """直接创建Portfolio-File绑定（不通过create_preset_bindings）"""
+        from ginkgo.data.containers import container
+        from ginkgo.enums import FILE_TYPES
+
+        file_service = container.file_service()
+        bindings_created = 0
+
+        for component_type, components in binding_rules.items():
+            type_mapping = {
+                "selectors": FILE_TYPES.SELECTOR,
+                "sizers": FILE_TYPES.SIZER,
+                "strategies": FILE_TYPES.STRATEGY,
+                "analyzers": FILE_TYPES.ANALYZER,
+                "risk_managers": FILE_TYPES.RISKMANAGER
+            }
+
+            file_type_enum = type_mapping.get(component_type)
+            if not file_type_enum:
+                continue
+
+            files_result = file_service.get_by_type(file_type_enum)
+            if not files_result.success:
+                continue
+
+            files_list = files_result.data.get('files', [])
+            if not files_list:
+                continue
+
+            for component_rule in components:
+                rule_name = component_rule.get("name")
+                if not rule_name:
+                    continue
+
+                matching_files = [f for f in files_list if rule_name in f.name.lower()]
+                if not matching_files:
+                    continue
+
+                file = matching_files[0]
+                binding_result = mapping_service.create_portfolio_file_binding(
+                    portfolio_uuid, file.uuid, file.name, file_type_enum
+                )
+
+                if binding_result.success:
+                    bindings_created += 1
+
+        return bindings_created
 
     def _create_parameters_for_portfolio_bindings(self, portfolio_uuid: str):
         """为指定Portfolio的所有组件绑定创建参数

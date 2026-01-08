@@ -418,6 +418,7 @@ class UserService(BaseService):
         self,
         user_type: Optional[Union[USER_TYPES, int]] = None,
         is_active: Optional[bool] = None,
+        name: Optional[str] = None,
         limit: int = 100
     ) -> ServiceResult:
         """
@@ -426,6 +427,7 @@ class UserService(BaseService):
         Args:
             user_type: Filter by user type
             is_active: Filter by active status
+            name: Filter by name (partial match, case-insensitive)
             limit: Maximum number of results
 
         Returns:
@@ -441,6 +443,11 @@ class UserService(BaseService):
                 filters["is_active"] = is_active
 
             users = self.user_crud.find(filters=filters, page_size=limit, as_dataframe=False)
+
+            # 按 name 过滤（在 Python 端实现模糊匹配）
+            if name:
+                name_lower = name.lower()
+                users = [u for u in users if name_lower in u.name.lower()]
 
             user_list = []
             for user in users:
