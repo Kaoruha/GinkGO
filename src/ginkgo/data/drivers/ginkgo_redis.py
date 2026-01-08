@@ -9,7 +9,7 @@
 
 import redis
 import time
-from ginkgo.libs import GLOG, GinkgoLogger, retry
+from ginkgo.libs import GLOG, GinkgoLogger, retry, time_logger
 
 data_logger = GinkgoLogger("ginkgo_data", ["ginkgo_data.log"])
 
@@ -26,6 +26,7 @@ class GinkgoRedis(object):
     def max_try(self) -> int:
         return self._max_try
 
+    @time_logger(threshold=0.5)
     @retry
     def connect(self) -> None:
         self._pool = redis.ConnectionPool(
