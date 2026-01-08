@@ -102,7 +102,7 @@
 **Independent Test**: 可以通过创建 Kafka Producer 发送通知消息并启动 Worker 消费来独立测试，验证异步处理流程。
 
 **Acceptance Scenarios**:
-1. **Given** Kafka 集群运行正常，**When** 发送通知到 `notifications` topic，**Then** Worker 根据 contact_type 路由到 WebhookChannel 或 EmailChannel
+1. **Given** Kafka 集群运行正常，**When** 发送通知到 `ginkgo.alerts` topic，**Then** Worker 根据 contact_type 路由到 WebhookChannel 或 EmailChannel
 2. **Given** 发送失败(如 Webhook 返回 500)，**When** Worker 重试逻辑执行，**Then** 消息重新入队并在后续重试
 3. **Given** 通知发送成功/失败，**When** Worker 处理完成，**Then** 结果记录到 MNotificationRecord(MongoDB)
 
@@ -151,7 +151,7 @@
 
 **Kafka 健康检查标准**(FR-019a):
 - 连接超时：尝试连接 Kafka 超过 10 秒无响应
-- Topic 不存在：`notifications` topic 不存在且无法创建
+- Topic 不存在：`ginkgo.alerts` topic 不存在且无法创建
 - Producer 初始化失败：Kafka Producer 初始化连续失败 3 次
 - Broker 不可达：所有 Kafka Broker 均无法连接(主机名解析失败、端口拒绝连接等)
 
@@ -196,7 +196,7 @@ notifications:
 
 **异步处理**:
 - **FR-015**: System MUST 使用 Kafka 异步队列处理通知发送
-- **FR-016**: System MUST 使用单一 Kafka topic `notifications`，Worker 根据 contact_type 字段(EMAIL/WEBHOOK/DISCORD)路由到对应渠道
+- **FR-016**: System MUST 使用单一 Kafka topic `ginkgo.alerts`，Worker 根据 contact_type 字段(EMAIL/WEBHOOK/DISCORD)路由到对应渠道
 - **FR-017**: System MUST 在 Worker 中根据 user_id 区分接收者并调用对应渠道
 - **FR-018**: System MUST 支持 Kafka 自动重试机制处理发送失败
 - **FR-019**: System MUST 将发送成功/失败结果记录到 MongoDB

@@ -12,7 +12,7 @@ services:
       - '80:80'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
-  kafka1: 
+  kafka1:
     image: 'bitnami/kafka:3.7.0'
     restart: always
     container_name: kafka1
@@ -35,6 +35,11 @@ services:
       - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
       - KAFKA_MAX_POLL_INTERVAL_MS=60000
       - KAFKA_MAX_POLL_RECORDS=1
+      # 消息保留配置（2小时）
+      - KAFKA_CFG_LOG_RETENTION_HOURS=2
+      - KAFKA_CFG_LOG_RETENTION_CHECK_INTERVAL_MS=300000
+      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824
+      - KAFKA_CFG_LOG_CLEANUP_POLICY=delete
     volumes:
       - ../.db/kafka1_data:/data
   kafka2:
@@ -60,6 +65,11 @@ services:
       - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
       - KAFKA_MAX_POLL_INTERVAL_MS=60000
       - KAFKA_MAX_POLL_RECORDS=1
+      # 消息保留配置（2小时）
+      - KAFKA_CFG_LOG_RETENTION_HOURS=2
+      - KAFKA_CFG_LOG_RETENTION_CHECK_INTERVAL_MS=300000
+      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824
+      - KAFKA_CFG_LOG_CLEANUP_POLICY=delete
     volumes:
       - ../.db/kafka2_data:/data
   kafka3:
@@ -85,6 +95,11 @@ services:
       - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
       - KAFKA_MAX_POLL_INTERVAL_MS=60000
       - KAFKA_MAX_POLL_RECORDS=1
+      # 消息保留配置（2小时）
+      - KAFKA_CFG_LOG_RETENTION_HOURS=2
+      - KAFKA_CFG_LOG_RETENTION_CHECK_INTERVAL_MS=300000
+      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824
+      - KAFKA_CFG_LOG_CLEANUP_POLICY=delete
     volumes:
       - ../.db/kafka3_data:/data
   redis-master:

@@ -122,12 +122,12 @@ def _create_engine_assembly_service():
 
 def _get_matchmaking_class():
     """Lazy import for universal MatchMaking class (Broker-based)."""
-    from ginkgo.trading.routing.router import Router
+    from ginkgo.trading.gateway.trade_gateway import TradeGateway
     return BrokerMatchMaking
 
 def _get_broker_matchmaking_class():
     """Lazy import for BrokerMatchMaking class."""
-    from ginkgo.trading.routing.router import Router
+    from ginkgo.trading.gateway.trade_gateway import TradeGateway
     return BrokerMatchMaking
 
 def _get_sim_broker_class():

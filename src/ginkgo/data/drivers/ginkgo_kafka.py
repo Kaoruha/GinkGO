@@ -18,6 +18,7 @@ from kafka.errors import NoBrokersAvailable, KafkaConnectionError
 from ginkgo.libs.core.config import GCONF
 from ginkgo.libs import GLOG
 from ginkgo.libs.core.logger import GinkgoLogger
+from ginkgo.libs.utils.common import time_logger, retry
 
 data_logger = GinkgoLogger("ginkgo_data", ["ginkgo_data.log"])
 
@@ -31,7 +32,8 @@ class GinkgoProducer(object):
                 request_timeout_ms=10000,  # 10秒连接超时
                 metadata_max_age_ms=300000,  # 5分钟元数据更新间隔
                 retries=3,  # 自动重试3次
-                acks=1,  # 等待leader确认
+                acks='all',  # 等待所有ISR副本确认（实盘交易可靠性要求）
+                enable_idempotence=True,  # 启用幂等性，防止消息重复
             )
             self._max_try = 5
             self._connected = True
@@ -57,6 +59,8 @@ class GinkgoProducer(object):
     def max_try(self) -> int:
         return self._max_try
 
+    @time_logger(threshold=1.0)
+    @retry(max_try=3)
     def send(self, topic, msg):
         """
         同步发送消息（等待确认）
@@ -76,7 +80,7 @@ class GinkgoProducer(object):
         try:
             future = self.producer.send(topic, msg)
             result = future.get(timeout=10)
-            print(result)
+            # result 是 RecordMetadata 对象，不需要打印
             GLOG.DEBUG(f"Kafka send message. TOPIC: {topic}. {msg}")
             data_logger.INFO(f"Kafka send message. TOPIC: {topic}. {msg}")
             return True
@@ -93,6 +97,8 @@ class GinkgoProducer(object):
             if self.producer:
                 self.producer.flush()
 
+    @time_logger(threshold=0.5)
+    @retry(max_try=3)
     def send_async(self, topic, msg):
         """
         异步发送消息（不等待确认）
@@ -125,6 +131,7 @@ class GinkgoProducer(object):
             data_logger.ERROR(f"Kafka async send failed: {e}")
             return False
 
+    @time_logger(threshold=0.3)
     def flush(self, timeout: Optional[float] = None):
         """
         刷新 Kafka Producer 缓冲区
@@ -140,6 +147,29 @@ class GinkgoProducer(object):
             GLOG.DEBUG(f"Kafka producer flushed (timeout={timeout})")
         except Exception as e:
             GLOG.ERROR(f"Kafka flush failed: {e}")
+
+    def close(self, timeout: Optional[float] = None):
+        """
+        关闭 Kafka Producer 连接
+
+        先 flush 确保所有消息发送完成，然后关闭连接。
+        用于程序退出时优雅关闭。
+
+        Args:
+            timeout: 超时时间（秒），None 表示使用默认超时
+        """
+        if self.producer:
+            try:
+                # 先 flush 确保消息发送完成
+                self.producer.flush(timeout=timeout)
+                # 关闭 producer
+                self.producer.close(timeout=timeout)
+                self._connected = False
+                GLOG.INFO("Kafka Producer closed")
+                data_logger.INFO("Kafka Producer closed successfully")
+            except Exception as e:
+                GLOG.ERROR(f"Error closing Kafka Producer: {e}")
+                data_logger.ERROR(f"Failed to close Kafka Producer: {e}")
 
 
 class GinkgoConsumer(object):
@@ -198,6 +228,8 @@ class GinkgoConsumer(object):
         """获取订阅的 topic"""
         return self._topic
 
+    @time_logger(threshold=0.2)
+    @retry(max_try=3)
     def commit(self):
         """提交当前 offset"""
         if self.consumer and self._connected:
@@ -231,9 +263,25 @@ def kafka_topic_set():
 
     # 创建一个新主题的配置
     topic_list = []
+
+    # === 全局Topics (回测、通知等) ===
     topic_list.append(NewTopic(name="ginkgo_data_update", num_partitions=24, replication_factor=1))
-    topic_list.append(NewTopic(name="live_control", num_partitions=1, replication_factor=1))
     topic_list.append(NewTopic(name="notifications", num_partitions=3, replication_factor=1))
+
+    # === 实盘交易架构Topics (007-live-trading-architecture) ===
+
+    # 市场数据Topic (所有市场：A股、港股、美股、期货，通过消息中的market字段区分)
+    topic_list.append(NewTopic(name="ginkgo.live.market.data", num_partitions=24, replication_factor=1))
+
+    # 订单Topics (高并发，需要更多分区)
+    topic_list.append(NewTopic(name="ginkgo.live.orders.submission", num_partitions=24, replication_factor=1))  # 订单提交
+    topic_list.append(NewTopic(name="ginkgo.live.orders.feedback", num_partitions=12, replication_factor=1))  # 订单回报
+
+    # 控制和调度Topics (低流量，少量分区)
+    topic_list.append(NewTopic(name="ginkgo.live.control.commands", num_partitions=3, replication_factor=1))  # 控制命令
+    topic_list.append(NewTopic(name="ginkgo.live.schedule.updates", num_partitions=3, replication_factor=1))  # 调度更新
+    topic_list.append(NewTopic(name="ginkgo.live.system.events", num_partitions=3, replication_factor=1))  # 系统事件
+
     topics = admin_client.list_topics()
     print("Kafka Topics:")
     print(topics)

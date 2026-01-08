@@ -699,7 +699,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             "BacktestFeeder": {
                 EVENT_TYPES.INTERESTUPDATE: "on_interest_update",
             },
-            "Router": {
+            "TradeGateway": {
                 EVENT_TYPES.PRICEUPDATE: "on_price_received",
                 EVENT_TYPES.ORDERACK: "on_order_ack",
                 EVENT_TYPES.ORDERPARTIALLYFILLED: "on_order_partially_filled",
