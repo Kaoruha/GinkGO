@@ -90,7 +90,7 @@ class TradeGatewayAdapter(Thread):
         3. 调用TradeGateway执行（同步，确认提交）
         4. 订单状态由数据库管理
         """
-        from ginkgo.trading.enums import DIRECTION_TYPES, ORDER_TYPES
+        from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES
 
         self.is_running = True
         print("TradeGatewayAdapter starting...")
