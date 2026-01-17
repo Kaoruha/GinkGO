@@ -80,7 +80,7 @@ class TaskTimer:
             # 启动调度器
             self.scheduler.start()
 
-            GLOG.info(f"TaskTimer started with {len(self._jobs)} jobs")
+            GLOG.INFO(f"TaskTimer started with {len(self._jobs)} jobs")
             return True
 
         except Exception as e:
@@ -179,9 +179,6 @@ class TaskTimer:
                     month=cron_parts[3],
                     day_of_week=cron_parts[4],
                     timezone='Asia/Shanghai',
-                    coalesce=True,
-                    max_instances=1,
-                    misfire_grace_time=300,
                 )
 
                 # 添加任务
