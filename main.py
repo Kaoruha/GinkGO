@@ -129,7 +129,7 @@ def _register_all_commands():
         return LazyTyper(module_name, app_name).app
 
     # 新的模块化命令架构 - 使用独立的CLI文件
-    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli
+    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli, config_cli
 
     _main_app.add_typer(data_cli.app, name="data", help=":page_facing_up: Data management")
     _main_app.add_typer(engine_cli.app, name="engine", help=":fire: Engine management")
@@ -146,6 +146,7 @@ def _register_all_commands():
     _main_app.add_typer(execution_cli.app, name="execution", help=":execution: ExecutionNode - Portfolio Execution Engine")
     _main_app.add_typer(scheduler_cli.app, name="scheduler", help=":calendar: Scheduler - Portfolio Dynamic Scheduler")
     _main_app.add_typer(tasktimer_cli.app, name="tasktimer", help=":alarm_clock: TaskTimer - Scheduled Task Manager")
+    _main_app.add_typer(config_cli.app, name="config", help=":gear: Configuration management")
 
     # Validation command (component code validation before backtesting)
     from ginkgo.client.validation_cli import validate, console
@@ -172,6 +173,7 @@ def _register_all_commands():
     _main_app.command(name="status", help=":bar_chart: System status")(core_cli.status)
     _main_app.command(name="version", help=":rabbit: Version info")(core_cli.version if hasattr(core_cli, 'version') else lambda: None)
     _main_app.command(name="serve", help=":earth_globe_americas: API server")(core_cli.serve if hasattr(core_cli, 'serve') else lambda: None)
+    _main_app.command(name="debug", help=":bug: Toggle debug mode")(core_cli.debug if hasattr(core_cli, 'debug') else lambda: None)
     # Configuration 已整合到 get/set config 命令中
 
     # Add standalone serve and version commands (if not available in core_cli)
