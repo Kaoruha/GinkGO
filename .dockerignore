@@ -1,0 +1,84 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+ENV/
+env/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs and databases
+*.log
+.logs/
+.db/
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache and temp
+*.tmp
+*.cache
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Docker
+.dockerignore
+Dockerfile*
+docker-compose*.yml
+.docker/
+
+# Config and secrets (use volume mounts instead)
+.env*
+*.yml
+*.yaml
+secure.yml
+.config/
+
+# Documentation
+*.md
+docs/
+examples/
+specs/
+.readthedocs.yml
+
+# Tests
+test/
+tests/
+.pytest_cache/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Misc
+*.bak
+*.backup
+*.old
+node_modules/
+web/
