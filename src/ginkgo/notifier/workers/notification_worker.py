@@ -33,6 +33,7 @@ from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer
 from ginkgo.data.crud import NotificationRecordCRUD
 from ginkgo.data.models import MNotificationRecord
 from ginkgo.enums import NOTIFICATION_STATUS_TYPES
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
 class WorkerStatus(IntEnum):
@@ -50,17 +51,18 @@ class MessageType(IntEnum):
     TEMPLATE = 2            # 模板消息（template_id + context）
     TRADING_SIGNAL = 3      # 交易信号
     SYSTEM_NOTIFICATION = 4 # 系统通知
+    CUSTOM_FIELDS = 5       # 自定义字段消息（支持 Discord fields）
 
 
 class NotificationWorker:
     """
     通知 Kafka Worker
 
-    从 `notifications` topic 消费消息并调用 NotificationService。
+    从 `ginkgo.notifications` topic 消费消息并调用 NotificationService。
     """
 
     # Kafka topic 名称
-    NOTIFICATIONS_TOPIC = "notifications"
+    NOTIFICATIONS_TOPIC = KafkaTopics.NOTIFICATIONS
     WORKER_GROUP_ID = "notification_worker_group"
 
     # Worker 配置
@@ -314,6 +316,8 @@ class NotificationWorker:
                 return self._process_trading_signal_message(message)
             elif message_type == "system_notification":
                 return self._process_system_notification_message(message)
+            elif message_type == "custom_fields":
+                return self._process_custom_fields_message(message)
             else:
                 GLOG.WARN(f"Unknown message_type: {message_type}")
                 return False
@@ -568,6 +572,104 @@ class NotificationWorker:
             return False
 
         return result.success
+
+    def _process_custom_fields_message(self, message: Dict[str, Any]) -> bool:
+        """
+        处理自定义字段消息（支持 Discord fields）
+
+        消息格式：
+        {
+            "message_type": "custom_fields",
+            "group_name": "System",
+            "content": "通知内容",
+            "title": "标题",
+            "level": "INFO",
+            "fields": [{"name": "字段名", "value": "字段值", "inline": False}],
+            "module": "System"
+        }
+
+        Args:
+            message: Kafka 消息
+
+        Returns:
+            bool: 是否成功处理
+        """
+        group_name = message.get("group_name", "System")
+        group_uuid = message.get("group_uuid")
+        content = message.get("content", "")
+        title = message.get("title")
+        level = message.get("level", "INFO")
+        fields = message.get("fields", [])
+        module = message.get("module", "System")
+
+        if not content:
+            GLOG.ERROR("Custom fields message missing content")
+            return False
+
+        if not fields:
+            GLOG.ERROR("Custom fields message missing fields")
+            return False
+
+        # 等级到颜色的映射
+        level_colors = {
+            "INFO": 3447003,      # 蓝色
+            "WARN": 15844367,     # 黄色
+            "ERROR": 15158332,    # 红色
+            "ALERT": 15158332,    # 红色
+            "SUCCESS": 3066993,   # 绿色
+        }
+        color = level_colors.get(level.upper(), 3447003)
+
+        # 获取组信息
+        if group_uuid:
+            group = self.notification_service.group_crud.find(
+                filters={"uuid": group_uuid}, page_size=1, as_dataframe=False
+            )
+        elif group_name:
+            group = self.notification_service.group_crud.find(
+                filters={"name": group_name}, page_size=1, as_dataframe=False
+            )
+        else:
+            GLOG.ERROR("Custom fields message missing group_name/group_uuid")
+            return False
+
+        if not group:
+            GLOG.ERROR(f"Group not found: {group_name or group_uuid}")
+            return False
+
+        group_uuid = group[0].uuid
+        mappings = self.notification_service.group_mapping_crud.find_by_group(
+            group_uuid, as_dataframe=False
+        )
+
+        success_count = 0
+        for mapping in mappings:
+            contacts = self.notification_service.contact_crud.find_by_user_id(
+                mapping.user_uuid, as_dataframe=False
+            )
+            for contact in contacts:
+                contact_type_enum = contact.get_contact_type_enum()
+                if contact_type_enum and contact_type_enum.name == "WEBHOOK" and contact.is_active:
+                    # 直接发送到 Discord webhook
+                    from datetime import datetime
+                    result = self.notification_service.send_discord_webhook(
+                        webhook_url=contact.address,
+                        content=content,
+                        title=title,
+                        color=color,
+                        fields=fields,
+                        footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
+                    )
+                    if result.is_success:
+                        success_count += 1
+                    break  # 每个用户只发送一次
+
+        if success_count > 0:
+            GLOG.info(f"[{module}] Custom fields notification sent to {success_count} users")
+            return True
+        else:
+            GLOG.WARN(f"[{module}] No custom fields notifications sent")
+            return False
 
     def get_health_status(self) -> Dict[str, Any]:
         """

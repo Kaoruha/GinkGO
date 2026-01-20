@@ -20,6 +20,7 @@ from rich.table import Table
 from rich.panel import Panel
 import signal
 import sys
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 app = typer.Typer(help=":execution: ExecutionNode - Portfolio Execution Engine", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
@@ -247,7 +248,7 @@ def pause(
             "timestamp": datetime.now().isoformat()
         }
 
-        success = producer.send("schedule.updates", command)
+        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, command)
 
         if success:
             console.print(":white_check_mark: [green]Pause command sent successfully[/green]")
@@ -289,7 +290,7 @@ def resume(
             "timestamp": datetime.now().isoformat()
         }
 
-        success = producer.send("schedule.updates", command)
+        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, command)
 
         if success:
             console.print(":white_check_mark: [green]Resume command sent successfully[/green]")
