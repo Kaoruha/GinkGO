@@ -451,7 +451,7 @@ class ExecutionNode:
             from ginkgo.notifier.core.notification_service import notify
             notify(
                 f"执行节点 {self.node_id} 已优雅退出",
-                level="INFO",
+                level="SUCCESS",  # 使用绿色表示成功退出
                 module="ExecutionNode",
                 details={
                     "节点ID": self.node_id,
@@ -1327,6 +1327,11 @@ class ExecutionNode:
                     time.sleep(0.1)  # 短暂休眠避免CPU空转
                     continue
 
+                # 检查 consumer 是否可用
+                if self.market_data_consumer.consumer is None:
+                    time.sleep(1)
+                    continue
+
                 for message in self.market_data_consumer.consumer:
                     if not self.is_running:
                         break
@@ -1354,7 +1359,7 @@ class ExecutionNode:
 
             except Exception as e:
                 if self.is_running:
-                    print(f"[ERROR] Error consuming market data: {e}")
+                    time.sleep(1)  # 消费异常时延迟
 
         print(f"Market data consumer thread stopped for node {self.node_id}")
 
@@ -1369,6 +1374,11 @@ class ExecutionNode:
                 # 暂停状态：不处理订单回报
                 if self.is_paused:
                     time.sleep(0.1)  # 短暂休眠避免CPU空转
+                    continue
+
+                # 检查 consumer 是否可用
+                if self.order_feedback_consumer.consumer is None:
+                    time.sleep(1)
                     continue
 
                 for message in self.order_feedback_consumer.consumer:
@@ -1402,7 +1412,7 @@ class ExecutionNode:
 
             except Exception as e:
                 if self.is_running:
-                    print(f"[ERROR] Error consuming order feedback: {e}")
+                    time.sleep(1)  # 消费异常时延迟
 
         print(f"Order feedback consumer thread stopped for node {self.node_id}")
 
