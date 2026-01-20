@@ -291,18 +291,27 @@ def start_docker(path_dockercompose):
     # 启动Docker
     print(f"{lightblue('Starting Docker services...')}")
 
+    # ExecutionNode 副本数（可通过环境变量配置）
+    executionnode_replicas = os.getenv("GINKGO_EXECUTIONNODE_REPLICAS", "1")
+
     if "Windows" == str(platform.system()):
         command = ["docker", "rm", "-f", "ginkgo_web"]
         subprocess.run(command, capture_output=True)
         command = ["docker", "rmi", "-f", "ginkgo_web:latest"]
         subprocess.run(command, capture_output=True)
-        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
+        base_cmd = f"docker compose -p ginkgo -f {path_dockercompose} up -d"
+        if int(executionnode_replicas) > 1:
+            base_cmd += f" --scale executionnode={executionnode_replicas}"
+        result = os.system(base_cmd)
     elif "Linux" == str(platform.system()):
         command = ["docker", "rm", "-f", "ginkgo_web"]
         subprocess.run(command, capture_output=True)
         command = ["docker", "rmi", "-f", "ginkgo_web:latest"]
         subprocess.run(command, capture_output=True)
-        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
+        base_cmd = f"docker compose -p ginkgo -f {path_dockercompose} up -d"
+        if int(executionnode_replicas) > 1:
+            base_cmd += f" --scale executionnode={executionnode_replicas}"
+        result = os.system(base_cmd)
 
     if result != 0:
         print(f"{red('Docker compose failed to start')}")
