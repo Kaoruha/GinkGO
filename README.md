@@ -70,11 +70,29 @@ Create virtual environment and install:
 python3 -m virtualenv venv && source venv/bin/activate
 python ./install.py
 
-# Using conda  
+# Using conda
 conda create -n ginkgo python=3.12.8
 conda activate ginkgo
 python ./install.py
 ```
+
+**Docker 服务配置（可选）**:
+
+```bash
+# 启动 2 个 ExecutionNode 副本（负载均衡）
+GINKGO_EXECUTIONNODE_REPLICAS=2 python ./install.py
+
+# 启动 3 个副本
+GINKGO_EXECUTIONNODE_REPLICAS=3 python ./install.py
+```
+
+安装脚本会自动启动以下 Docker 容器：
+- **Kafka 集群** (3节点) - 消息队列
+- **Redis** - 缓存和心跳
+- **MySQL/ClickHouse/MongoDB** - 数据存储
+- **TaskTimer** - 定时任务调度
+- **LiveCore** - 实时数据管理
+- **ExecutionNode** (可扩展) - Portfolio 执行节点
 
 ### ⭐ Global Command Access
 
@@ -83,7 +101,7 @@ python ./install.py
 ```bash
 # Works from anywhere, any Python environment, any directory
 ginkgo version                    # Check installation
-ginkgo status                     # System status overview  
+ginkgo status                     # System status overview
 ginkgo data update --stockinfo    # Update stock data
 ginkgo worker start --count 4     # Start data workers
 ginkgo backtest run {engine_id}   # Run backtests
@@ -93,8 +111,24 @@ ginkgo backtest run {engine_id}   # Run backtests
 
 This design makes Ginkgo perfect for:
 - **System services** and **cron jobs** (no environment switching)
-- **Production deployment** (consistent command interface)  
+- **Production deployment** (consistent command interface)
 - **Multi-environment usage** (same command works everywhere)
+
+### Docker 服务管理
+
+```bash
+# 查看运行状态
+docker compose -f .conf/docker-compose.yml -p ginkgo ps
+
+# 查看 ExecutionNode 状态
+ginkgo execution status
+
+# 扩容/缩容 ExecutionNode
+docker compose -f .conf/docker-compose.yml -p ginkgo up -d --scale executionnode=3
+
+# 查看日志
+docker compose -f .conf/docker-compose.yml -p ginkgo logs -f executionnode
+```
 
 ### Configuration
 
