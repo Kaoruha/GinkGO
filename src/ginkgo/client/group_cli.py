@@ -19,6 +19,42 @@ console = Console(emoji=True, legacy_windows=False)
 
 
 # ============================================================================
+# System 组保护辅助函数
+# ============================================================================
+
+SYSTEM_GROUP_NAME = "System"
+
+def _handle_system_group_protection(console: Console) -> None:
+    """
+    处理 System 组保护错误，显示友好的提示信息并退出
+
+    Args:
+        console: Rich Console 实例
+    """
+    console.print("[red]:lock: [bold]Error:[/bold] Cannot create 'System' group manually[/red]")
+    console.print("")
+    console.print("[yellow]:bulb: The 'System' group is reserved for system-level operations[/yellow]")
+    console.print("[yellow]It is automatically created by [cyan bold]ginkgo init[/cyan][/yellow]")
+    console.print("")
+    console.print("[dim]To create the System group, run:[/dim]")
+    console.print("[cyan]  ginkgo init[/cyan]")
+    raise typer.Exit(1)
+
+
+def is_system_group_protected(name: str) -> bool:
+    """
+    判断指定名称是否受 System 组保护
+
+    Args:
+        name: 要检查的组名
+
+    Returns:
+        如果是受保护的 System 组名，返回 True
+    """
+    return name == SYSTEM_GROUP_NAME
+
+
+# ============================================================================
 # Group Commands
 # ============================================================================
 
@@ -37,6 +73,10 @@ def create_group(
     """
     try:
         from ginkgo.data.containers import container
+
+        # System 组保护检查
+        if is_system_group_protected(name):
+            _handle_system_group_protection(console)
 
         group_service = container.user_group_service()
 

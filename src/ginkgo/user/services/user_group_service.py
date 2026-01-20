@@ -31,6 +31,9 @@ class UserGroupService(BaseService):
     group creation, user management, and cascade deletion.
     """
 
+    # System 组保护相关常量
+    SYSTEM_GROUP_NAME = "System"
+
     def __init__(self, user_group_crud: UserGroupCRUD, user_group_mapping_crud: UserGroupMappingCRUD):
         """
         Initialize UserGroupService with CRUD dependencies
@@ -42,6 +45,35 @@ class UserGroupService(BaseService):
         super().__init__(crud_repo=user_group_crud)
         self.user_group_crud = user_group_crud
         self.user_group_mapping_crud = user_group_mapping_crud
+
+    def _check_system_group_protection(self, name: str) -> Optional[ServiceResult]:
+        """
+        检查是否违反 System 组保护规则
+
+        Args:
+            name: 要创建的组名
+
+        Returns:
+            如果违反保护规则，返回错误结果；否则返回 None
+        """
+        if name == self.SYSTEM_GROUP_NAME:
+            return ServiceResult.error(
+                "Cannot create 'System' group manually",
+                message="The 'System' group is reserved for system-level operations and must be created via 'ginkgo init'"
+            )
+        return None
+
+    def is_system_group_protected(self, name: str) -> bool:
+        """
+        判断指定名称是否受 System 组保护
+
+        Args:
+            name: 要检查的组名
+
+        Returns:
+            如果是受保护的 System 组名，返回 True
+        """
+        return name == self.SYSTEM_GROUP_NAME
 
     @retry(max_try=3)
     def create_group(
@@ -62,6 +94,11 @@ class UserGroupService(BaseService):
             ServiceResult with created group info
         """
         try:
+            # System 组保护检查
+            protection_error = self._check_system_group_protection(name)
+            if protection_error:
+                return protection_error
+
             # Check if name already exists
             existing = self.user_group_crud.find(filters={"name": name}, page_size=1, as_dataframe=False)
             if existing:
