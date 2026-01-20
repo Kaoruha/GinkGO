@@ -3,10 +3,12 @@
 # Role: 定时任务调度器 - 使用APScheduler发送控制命令到Kafka
 
 import os
+import time
 import yaml
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from pathlib import Path
+import threading
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -14,9 +16,14 @@ from apscheduler.triggers.cron import CronTrigger
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.interfaces.dtos import ControlCommandDTO
 from ginkgo.messaging import GinkgoProducer
-from ginkgo.libs import GLOG, GCONF
+from ginkgo.libs import GCONF
 from ginkgo.livecore.utils.decorators import safe_job_wrapper
 from ginkgo.libs.utils.common import retry
+
+try:
+    from redis import Redis
+except ImportError:
+    Redis = None
 
 
 class TaskTimer:
@@ -28,6 +35,7 @@ class TaskTimer:
     2. 发送控制命令到Kafka（bar_snapshot、update_selector等）
     3. 从task_timer.yml加载配置
     4. 支持多个cron规则
+    5. 发送心跳到Redis（用于监控组件存活状态）
 
     配置文件：~/.ginkgo/task_timer.yml
     """
@@ -35,14 +43,20 @@ class TaskTimer:
     # 默认配置文件路径
     CONFIG_PATH = os.path.expanduser("~/.ginkgo/task_timer.yml")
 
-    def __init__(self, config_path: Optional[str] = None):
+    # 心跳配置
+    HEARTBEAT_INTERVAL = 10  # 10秒心跳间隔
+    HEARTBEAT_TTL = 30       # 30秒TTL
+
+    def __init__(self, config_path: Optional[str] = None, node_id: str = "task_timer_1"):
         """
         初始化TaskTimer
 
         Args:
             config_path: 配置文件路径（默认使用~/.ginkgo/task_timer.yml）
+            node_id: 节点ID，用于心跳标识
         """
         self.config_path = config_path or self.CONFIG_PATH
+        self.node_id = node_id
 
         # APScheduler
         self.scheduler = BackgroundScheduler(timezone='Asia/Shanghai')
@@ -54,7 +68,141 @@ class TaskTimer:
         self._config: Dict[str, Any] = {}
         self._jobs: List[str] = []
 
-        GLOG.INFO("TaskTimer initialized")
+        # Redis客户端（用于心跳）
+        self._redis_client: Optional[Redis] = None
+
+        # 心跳线程
+        self.heartbeat_thread: Optional[threading.Thread] = None
+
+        # 运行状态
+        self.is_running = False
+
+        print("[INFO] TaskTimer initialized")
+
+    def _get_redis_client(self) -> Optional[Redis]:
+        """获取Redis客户端"""
+        if Redis is None:
+            return None
+
+        if self._redis_client is None:
+            try:
+                self._redis_client = Redis(
+                    host=GCONF.REDISHOST,
+                    port=GCONF.REDISPORT,
+                    db=0,
+                    decode_responses=True
+                )
+            except Exception as e:
+                print(f"[WARN] Failed to create Redis client: {e}")
+        return self._redis_client
+
+    def _get_heartbeat_key(self) -> str:
+        """获取心跳Redis Key"""
+        return f"heartbeat:task_timer:{self.node_id}"
+
+    def _start_heartbeat_thread(self):
+        """启动心跳上报线程"""
+        if self.heartbeat_thread and self.heartbeat_thread.is_alive():
+            print("[WARN] Heartbeat thread already running")
+            return
+
+        # 清理旧的心跳数据
+        self._cleanup_old_heartbeat_data()
+
+        # 立即发送一次心跳
+        self._send_heartbeat()
+
+        # 启动心跳线程
+        self.heartbeat_thread = threading.Thread(
+            target=self._heartbeat_loop,
+            daemon=True,
+            name=f"heartbeat_{self.node_id}"
+        )
+        self.heartbeat_thread.start()
+        print(f"[INFO] Heartbeat thread started for {self.node_id}")
+
+    def _heartbeat_loop(self):
+        """心跳上报循环"""
+        while self.is_running:
+            try:
+                self._send_heartbeat()
+
+                # 等待下一次心跳
+                for _ in range(self.HEARTBEAT_INTERVAL):
+                    if not self.is_running:
+                        break
+                    time.sleep(1)
+
+            except Exception as e:
+                print(f"[ERROR] Error in heartbeat loop: {e}")
+                time.sleep(5)
+
+        print("[INFO] Heartbeat loop stopped")
+
+    def _send_heartbeat(self):
+        """发送心跳到Redis"""
+        try:
+            redis_client = self._get_redis_client()
+            if not redis_client:
+                return
+
+            heartbeat_key = self._get_heartbeat_key()
+
+            # 构建心跳数据（支持微服务模式）
+            import socket
+            heartbeat_data = {
+                "timestamp": datetime.now().isoformat(),
+                "component_type": "task_timer",
+                "component_id": self.node_id,
+                "host": socket.gethostname(),
+                "pid": os.getpid(),
+                "jobs_count": len(self._jobs),
+            }
+
+            heartbeat_value = __import__('json').dumps(heartbeat_data)
+
+            # 设置心跳并附带TTL
+            redis_client.setex(
+                heartbeat_key,
+                self.HEARTBEAT_TTL,
+                heartbeat_value
+            )
+
+        except Exception as e:
+            print(f"[ERROR] Failed to send heartbeat: {e}")
+
+    def _cleanup_old_heartbeat_data(self):
+        """清理旧的心跳数据"""
+        try:
+            redis_client = self._get_redis_client()
+            if not redis_client:
+                return
+
+            heartbeat_key = self._get_heartbeat_key()
+            deleted = redis_client.delete(heartbeat_key)
+            if deleted:
+                print(f"[INFO] Cleaned up old heartbeat data")
+
+        except Exception as e:
+            print(f"[WARN] Failed to cleanup old heartbeat data: {e}")
+
+    def get_jobs_status(self) -> Dict[str, Dict[str, Any]]:
+        """
+        获取所有任务状态
+
+        Returns:
+            Dict: 任务状态字典，包含下次执行时间等信息
+        """
+        jobs = self.scheduler.get_jobs()
+        status = {}
+
+        for job in jobs:
+            status[job.name] = {
+                "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
+                "trigger": str(job.trigger),
+            }
+
+        return status
 
     def start(self) -> bool:
         """
@@ -64,12 +212,12 @@ class TaskTimer:
             bool: 启动是否成功
         """
         try:
-            GLOG.INFO("TaskTimer starting...")
+            print("[INFO] TaskTimer starting...")
+
+            self.is_running = True
 
             # 初始化Kafka Producer
-            self._producer = GinkgoProducer(
-                bootstrap_servers=GCONF.get("kafka.bootstrap_servers", "localhost:9092")
-            )
+            self._producer = GinkgoProducer()
 
             # 加载配置
             self._load_config()
@@ -80,11 +228,63 @@ class TaskTimer:
             # 启动调度器
             self.scheduler.start()
 
-            GLOG.INFO(f"TaskTimer started with {len(self._jobs)} jobs")
+            # 启动心跳线程
+            self._start_heartbeat_thread()
+
+            print(f"[INFO] TaskTimer started with {len(self._jobs)} jobs")
+
+            # 发送启动通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify_with_fields
+
+                # 构建任务字段列表
+                scheduled_tasks = self._config.get("scheduled_tasks", [])
+                task_fields = [
+                    {"name": "节点ID", "value": self.node_id, "inline": True},
+                    {"name": "任务数量", "value": str(len(self._jobs)), "inline": True},
+                    {"name": "启动时间", "value": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "inline": True},
+                ]
+
+                # 添加每个任务的字段
+                for task in scheduled_tasks:
+                    status = "✓ 启用" if task.get("enabled", True) else "✗ 禁用"
+                    task_fields.append({
+                        "name": task['name'],
+                        "value": f"{task['cron']} - {status}",
+                        "inline": False
+                    })
+
+                notify_with_fields(
+                    content="TaskTimer启动成功",
+                    title="TaskTimer",
+                    level="INFO",
+                    module="TaskTimer",
+                    fields=task_fields
+                )
+            except Exception as notify_error:
+                print(f"[WARN] Failed to send start notification: {notify_error}")
+
             return True
 
         except Exception as e:
-            GLOG.ERROR(f"TaskTimer start failed: {e}")
+            print(f"[ERROR] TaskTimer start failed: {e}")
+            self.is_running = False
+
+            # 发送失败通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"TaskTimer启动失败: {e}",
+                    level="ERROR",
+                    module="TaskTimer",
+                    details={
+                        "节点ID": self.node_id,
+                        "错误信息": str(e),
+                    },
+                )
+            except Exception:
+                pass
+
             return False
 
     def stop(self) -> bool:
@@ -95,44 +295,168 @@ class TaskTimer:
             bool: 停止是否成功
         """
         try:
-            GLOG.INFO("TaskTimer stopping...")
+            print("[INFO] TaskTimer stopping...")
+
+            # 设置停止标志
+            self.is_running = False
 
             # 停止调度器
             if self.scheduler.running:
                 self.scheduler.shutdown(wait=True)
 
+            # 等待心跳线程退出
+            if self.heartbeat_thread and self.heartbeat_thread.is_alive():
+                self.heartbeat_thread.join(timeout=5)
+                if not self.heartbeat_thread.is_alive():
+                    print("[INFO] Heartbeat thread stopped")
+                else:
+                    print("[WARN] Heartbeat thread did not stop in time")
+
             # 关闭Kafka Producer
             if self._producer:
                 self._producer.close()
 
-            GLOG.INFO("TaskTimer stopped")
+            # 关闭Redis连接
+            if self._redis_client:
+                self._redis_client.close()
+
+            print("[INFO] TaskTimer stopped")
+
+            # 发送停止通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    "TaskTimer已停止",
+                    level="INFO",
+                    module="TaskTimer",
+                    details={
+                        "节点ID": self.node_id,
+                        "停止时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "运行任务数": len(self._jobs),
+                    },
+                )
+            except Exception as notify_error:
+                print(f"[WARN] Failed to send stop notification: {notify_error}")
+
             return True
 
         except Exception as e:
-            GLOG.ERROR(f"TaskTimer stop failed: {e}")
+            print(f"[ERROR] TaskTimer stop failed: {e}")
+
+            # 发送失败通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"TaskTimer停止失败: {e}",
+                    level="ERROR",
+                    module="TaskTimer",
+                    details={
+                        "节点ID": self.node_id,
+                        "错误信息": str(e),
+                    },
+                )
+            except Exception:
+                pass
+
+            return False
+
+    def reload_config(self) -> bool:
+        """
+        热重载配置文件
+
+        重新加载配置文件并更新定时任务，无需重启 TaskTimer。
+
+        Returns:
+            bool: 重载是否成功
+
+        使用方式:
+            task_timer.reload_config()
+        """
+        old_jobs = list(self._jobs)  # 记录旧任务列表
+
+        try:
+            print("[INFO] Reloading TaskTimer configuration...")
+
+            # 重新加载配置
+            self._load_config()
+
+            # 移除所有现有任务
+            self.scheduler.remove_all_jobs()
+            self._jobs.clear()
+            print("[INFO] Removed all existing jobs")
+
+            # 重新添加任务
+            self._add_jobs()
+
+            print(f"[INFO] Configuration reloaded successfully. Active jobs: {len(self._jobs)}")
+
+            # 发送重载成功通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    "TaskTimer配置重载成功",
+                    level="INFO",
+                    module="TaskTimer",
+                    details={
+                        "节点ID": self.node_id,
+                        "旧任务列表": old_jobs,
+                        "新任务列表": self._jobs,
+                        "任务数量变化": f"{len(old_jobs)} → {len(self._jobs)}",
+                        "重载时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    },
+                )
+            except Exception as notify_error:
+                print(f"[WARN] Failed to send reload notification: {notify_error}")
+
+            return True
+
+        except Exception as e:
+            print(f"[ERROR] Failed to reload configuration: {e}")
+
+            # 发送重载失败通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"TaskTimer配置重载失败: {e}",
+                    level="ERROR",
+                    module="TaskTimer",
+                    details={
+                        "节点ID": self.node_id,
+                        "错误信息": str(e),
+                    },
+                )
+            except Exception:
+                pass
+
             return False
 
     def _load_config(self) -> None:
         """加载配置文件"""
         try:
             if not os.path.exists(self.config_path):
-                GLOG.WARN(f"Config file not found: {self.config_path}, using defaults")
+                print(f"[WARN] Config file not found: {self.config_path}, using defaults")
                 self._config = self._get_default_config()
                 return
 
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 self._config = yaml.safe_load(f)
 
-            GLOG.INFO(f"Config loaded from {self.config_path}")
+            print(f"[INFO] Config loaded from {self.config_path}")
 
         except Exception as e:
-            GLOG.ERROR(f"Failed to load config: {e}")
+            print(f"[ERROR] Failed to load config: {e}")
             self._config = self._get_default_config()
 
     def _get_default_config(self) -> Dict[str, Any]:
         """获取默认配置"""
         return {
             "scheduled_tasks": [
+                {
+                    "name": "heartbeat_test",
+                    "cron": "0 0 * * *",  # 每天 00:00
+                    "command": "heartbeat_test",
+                    "enabled": True,
+                },
                 {
                     "name": "bar_snapshot",
                     "cron": "0 21 * * *",  # 每天21:00
@@ -162,13 +486,13 @@ class TaskTimer:
                 command = task_config.get("command")
 
                 if not job_name or not cron_expr or not command:
-                    GLOG.WARN(f"Invalid task config: {task_config}")
+                    print(f"[WARN] Invalid task config: {task_config}")
                     continue
 
                 # 解析cron表达式
                 cron_parts = cron_expr.split()
                 if len(cron_parts) != 5:
-                    GLOG.WARN(f"Invalid cron expression: {cron_expr}")
+                    print(f"[WARN] Invalid cron expression: {cron_expr}")
                     continue
 
                 # 创建CronTrigger
@@ -191,10 +515,14 @@ class TaskTimer:
                         id=job_name,
                     )
                     self._jobs.append(job_name)
-                    GLOG.INFO(f"Added job: {job_name} ({cron_expr})")
+                    print(f"[INFO] Added job: {job_name} ({cron_expr})")
+                else:
+                    # command不存在，记录警告日志
+                    print(f"[WARN] Unknown command '{command}' for task '{job_name}', job not registered")
+                    print(f"[WARN] Valid commands are: {', '.join(self._get_valid_commands())}")
 
         except Exception as e:
-            GLOG.ERROR(f"Failed to add jobs: {e}")
+            print(f"[ERROR] Failed to add jobs: {e}")
 
     def _get_job_function(self, command: str) -> Optional[callable]:
         """
@@ -210,9 +538,14 @@ class TaskTimer:
             "bar_snapshot": self._bar_snapshot_job,
             "update_selector": self._selector_update_job,
             "update_data": self._data_update_job,
+            "heartbeat_test": self._heartbeat_test_job,
         }
 
         return job_functions.get(command)
+
+    def _get_valid_commands(self) -> List[str]:
+        """获取有效的命令列表"""
+        return ["bar_snapshot", "update_selector", "update_data", "heartbeat_test"]
 
     @safe_job_wrapper
     def _bar_snapshot_job(self) -> None:
@@ -230,10 +563,35 @@ class TaskTimer:
 
             # 发布到Kafka（带重试）
             self._publish_to_kafka(command_dto.model_dump_json())
-            GLOG.INFO("Sent bar_snapshot command to Kafka")
+            print("[INFO] Sent bar_snapshot command to Kafka")
+
+            # 发送Discord通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    "K线快照命令已发送，DataManager将推送当日K线数据",
+                    level="INFO",
+                    module="TaskTimer",
+                    details={
+                        "命令": "BAR_SNAPSHOT",
+                        "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    },
+                )
+            except Exception as notify_error:
+                print(f"[WARN] Failed to send notification: {notify_error}")
 
         except Exception as e:
-            GLOG.ERROR(f"Bar snapshot job failed: {e}")
+            print(f"[ERROR] Bar snapshot job failed: {e}")
+            # 发送错误通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"K线快照任务执行失败: {e}",
+                    level="ERROR",
+                    module="TaskTimer",
+                )
+            except Exception:
+                pass
 
     @safe_job_wrapper
     def _selector_update_job(self) -> None:
@@ -251,10 +609,35 @@ class TaskTimer:
 
             # 发布到Kafka（带重试）
             self._publish_to_kafka(command_dto.model_dump_json())
-            GLOG.INFO("Sent update_selector command to Kafka")
+            print("[INFO] Sent update_selector command to Kafka")
+
+            # 发送Discord通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    "Selector更新命令已发送，ExecutionNode将触发selector.pick()",
+                    level="INFO",
+                    module="TaskTimer",
+                    details={
+                        "命令": "UPDATE_SELECTOR",
+                        "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    },
+                )
+            except Exception as notify_error:
+                print(f"[WARN] Failed to send notification: {notify_error}")
 
         except Exception as e:
-            GLOG.ERROR(f"Selector update job failed: {e}")
+            print(f"[ERROR] Selector update job failed: {e}")
+            # 发送错误通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"Selector更新任务执行失败: {e}",
+                    level="ERROR",
+                    module="TaskTimer",
+                )
+            except Exception:
+                pass
 
     @safe_job_wrapper
     def _data_update_job(self) -> None:
@@ -271,10 +654,71 @@ class TaskTimer:
 
             # 发布到Kafka（带重试）
             self._publish_to_kafka(command_dto.model_dump_json())
-            GLOG.INFO("Sent update_data command to Kafka")
+            print("[INFO] Sent update_data command to Kafka")
+
+            # 发送Discord通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    "数据更新命令已发送",
+                    level="INFO",
+                    module="TaskTimer",
+                    details={
+                        "命令": "UPDATE_DATA",
+                        "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    },
+                )
+            except Exception as notify_error:
+                print(f"[WARN] Failed to send notification: {notify_error}")
 
         except Exception as e:
-            GLOG.ERROR(f"Data update job failed: {e}")
+            print(f"[ERROR] Data update job failed: {e}")
+            # 发送错误通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"数据更新任务执行失败: {e}",
+                    level="ERROR",
+                    module="TaskTimer",
+                )
+            except Exception:
+                pass
+
+    @safe_job_wrapper
+    def _heartbeat_test_job(self) -> None:
+        """
+        心跳测试任务（每分钟触发）
+
+        用于验证TaskTimer正常运行的测试任务，仅发送Discord通知。
+        """
+        try:
+            # 发送Discord通知
+            from ginkgo.notifier.core.notification_service import notify
+            notify(
+                "TaskTimer心跳测试 - TaskTimer运行正常",
+                level="INFO",
+                module="TaskTimer",
+                details={
+                    "测试任务": "HEARTBEAT_TEST",
+                    "节点ID": self.node_id,
+                    "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "运行中任务数": len(self._jobs),
+                },
+            )
+            print("[INFO] Heartbeat test notification sent")
+
+        except Exception as e:
+            print(f"[ERROR] Heartbeat test job failed: {e}")
+            # 发送错误通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"心跳测试任务执行失败: {e}",
+                    level="ERROR",
+                    module="TaskTimer",
+                )
+            except Exception:
+                pass
 
     def validate_config(self) -> bool:
         """
@@ -285,7 +729,7 @@ class TaskTimer:
         """
         try:
             if not os.path.exists(self.config_path):
-                GLOG.ERROR(f"Config file not found: {self.config_path}")
+                print(f"[ERROR] Config file not found: {self.config_path}")
                 return False
 
             with open(self.config_path, 'r') as f:
@@ -294,30 +738,25 @@ class TaskTimer:
             # 验证scheduled_tasks
             scheduled_tasks = config.get("scheduled_tasks", [])
             if not isinstance(scheduled_tasks, list):
-                GLOG.ERROR("scheduled_tasks must be a list")
+                print("[ERROR] scheduled_tasks must be a list")
                 return False
 
             for task in scheduled_tasks:
                 # 验证必需字段
                 if "name" not in task or "cron" not in task or "command" not in task:
-                    GLOG.ERROR(f"Task missing required fields: {task}")
+                    print(f"[ERROR] Task missing required fields: {task}")
                     return False
 
                 # 验证命令类型
-                valid_commands = [
-                    "bar_snapshot",
-                    "update_selector",
-                    "update_data",
-                ]
-                if task["command"] not in valid_commands:
-                    GLOG.ERROR(f"Invalid command: {task['command']}")
+                if task["command"] not in self._get_valid_commands():
+                    print(f"[ERROR] Invalid command: {task['command']}")
                     return False
 
-            GLOG.INFO("Config validation passed")
+            print("[INFO] Config validation passed")
             return True
 
         except Exception as e:
-            GLOG.ERROR(f"Config validation failed: {e}")
+            print(f"[ERROR] Config validation failed: {e}")
             return False
 
     @retry(max_try=3, backoff_factor=2)
@@ -331,5 +770,5 @@ class TaskTimer:
         if self._producer:
             self._producer.send(
                 topic=KafkaTopics.CONTROL_COMMANDS,
-                message=message,
+                msg=message,
             )

@@ -84,6 +84,7 @@ except ImportError:
 
 from ginkgo.enums import SOURCE_TYPES
 from ginkgo.libs.utils.common import time_logger, retry
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
 # 获取日志记录器
@@ -438,6 +439,22 @@ class Scheduler(threading.Thread):
         logger.info(f"✅ Scheduler {self.node_id} stopped gracefully")
         logger.info(f"═══════════════════════════════════════════════════════")
         logger.info(f"")
+
+        # 发送停止通知
+        try:
+            from ginkgo.notifier.core.notification_service import notify
+            from datetime import datetime
+            notify(
+                f"Scheduler {self.node_id} 已停止",
+                level="INFO",
+                module="Scheduler",
+                details={
+                    "节点ID": self.node_id,
+                    "停止时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send stop notification: {e}")
 
     def _cleanup_redis_data(self):
         """
@@ -880,7 +897,7 @@ class Scheduler(threading.Thread):
 
             # [DEBUG] 打印Kafka消息
             logger.info(f"[KAFKA] Sending schedule command:")
-            logger.info(f"  Topic: schedule.updates")
+            logger.info(f"  Topic: {KafkaTopics.SCHEDULE_UPDATES}")
             logger.info(f"  Command: {command}")
             logger.info(f"  Portfolio: {change['portfolio_id'][:8]}...")
             logger.info(f"  Source: {change['from_node']}")
@@ -888,7 +905,7 @@ class Scheduler(threading.Thread):
 
             # 发送到Kafka
             success = self.kafka_producer.send(
-                topic="schedule.updates",
+                topic=KafkaTopics.SCHEDULE_UPDATES,
                 msg=command_data
             )
 

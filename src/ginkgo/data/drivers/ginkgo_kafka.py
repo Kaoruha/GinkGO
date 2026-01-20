@@ -19,6 +19,7 @@ from ginkgo.libs.core.config import GCONF
 from ginkgo.libs import GLOG
 from ginkgo.libs.core.logger import GinkgoLogger
 from ginkgo.libs.utils.common import time_logger, retry
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 data_logger = GinkgoLogger("ginkgo_data", ["ginkgo_data.log"])
 
@@ -33,7 +34,7 @@ class GinkgoProducer(object):
                 metadata_max_age_ms=300000,  # 5分钟元数据更新间隔
                 retries=3,  # 自动重试3次
                 acks='all',  # 等待所有ISR副本确认（实盘交易可靠性要求）
-                enable_idempotence=True,  # 启用幂等性，防止消息重复
+                max_in_flight_requests_per_connection=1,  # 保证消息顺序，防止重试时乱序
             )
             self._max_try = 5
             self._connected = True
@@ -260,50 +261,88 @@ def kafka_topic_set():
     )
     if admin_client is None:
         print("Can not connect to kafka now. Please try later.")
+        return
 
-    # 创建一个新主题的配置
-    topic_list = []
+    # 定义 topic 配置：分区数和副本数
+    topic_config = {
+        "ginkgo.data.update": (24, 1),
+        "ginkgo.notifications": (3, 1),
+        "ginkgo.live.market.data": (24, 1),
+        "ginkgo.live.market.data.cn": (24, 1),
+        "ginkgo.live.market.data.hk": (24, 1),
+        "ginkgo.live.market.data.us": (24, 1),
+        "ginkgo.live.market.data.futures": (24, 1),
+        "ginkgo.live.interest.updates": (12, 1),
+        "ginkgo.live.orders.submission": (24, 1),
+        "ginkgo.live.orders.feedback": (12, 1),
+        "ginkgo.live.control.commands": (3, 1),
+        "ginkgo.schedule.updates": (3, 1),
+        "ginkgo.live.schedule.updates": (3, 1),
+        "ginkgo.live.system.events": (3, 1),
+    }
 
-    # === 全局Topics (回测、通知等) ===
-    topic_list.append(NewTopic(name="ginkgo_data_update", num_partitions=24, replication_factor=1))
-    topic_list.append(NewTopic(name="notifications", num_partitions=3, replication_factor=1))
+    # 获取当前 Kafka 中所有的 topics
+    existing_topics = set(str(t) for t in admin_client.list_topics())
 
-    # === 实盘交易架构Topics (007-live-trading-architecture) ===
+    # 删除所有 topics（除了内部 topic）
+    topics_to_delete = existing_topics.copy()
+    topics_to_delete.discard("__consumer_offsets")  # 保留内部 topic
 
-    # 市场数据Topic (所有市场：A股、港股、美股、期货，通过消息中的market字段区分)
-    topic_list.append(NewTopic(name="ginkgo.live.market.data", num_partitions=24, replication_factor=1))
+    if topics_to_delete:
+        print(f"Deleting all {len(topics_to_delete)} topics for reset...")
+        for topic in sorted(topics_to_delete):
+            try:
+                admin_client.delete_topics(topics=[topic], timeout_ms=30000)
+                print(f"  ✓ Deleted topic: {topic}")
+                sleep(0.5)
+            except Exception as e:
+                print(f"  ✗ Failed to delete topic {topic}: {e}")
+        print()  # 空行分隔
 
-    # 订单Topics (高并发，需要更多分区)
-    topic_list.append(NewTopic(name="ginkgo.live.orders.submission", num_partitions=24, replication_factor=1))  # 订单提交
-    topic_list.append(NewTopic(name="ginkgo.live.orders.feedback", num_partitions=12, replication_factor=1))  # 订单回报
+    # 创建新 topics（逐个创建以避免部分失败导致整体失败）
+    print(f"\nCreating {len(topic_config)} topics...")
+    for topic_name, (partitions, replication) in topic_config.items():
+        try:
+            result = admin_client.create_topics(
+                new_topics=[NewTopic(name=topic_name, num_partitions=partitions, replication_factor=replication)],
+                validate_only=False
+            )
 
-    # 控制和调度Topics (低流量，少量分区)
-    topic_list.append(NewTopic(name="ginkgo.live.control.commands", num_partitions=3, replication_factor=1))  # 控制命令
-    topic_list.append(NewTopic(name="ginkgo.live.schedule.updates", num_partitions=3, replication_factor=1))  # 调度更新
-    topic_list.append(NewTopic(name="ginkgo.live.system.events", num_partitions=3, replication_factor=1))  # 系统事件
+            # 检查创建结果
+            # result.topic_errors 可能是 dict 或 list
+            topic_errors = result.topic_errors
+            if isinstance(topic_errors, dict):
+                for topic, future in topic_errors.items():
+                    if future.error_code == 0:
+                        print(f"  ✓ Created topic: {topic}")
+                    elif future.error_code == 36:  # TopicAlreadyExistsError
+                        print(f"  ⊙ Topic already exists: {topic}")
+                    else:
+                        print(f"  ✗ Failed to create topic {topic}: {future.error_message}")
+            elif isinstance(topic_errors, list) and topic_errors:
+                # 格式: [(topic_name, error_code, error_message), ...]
+                for item in topic_errors:
+                    if len(item) >= 2:
+                        topic, error_code = item[0], item[1]
+                        if error_code == 0:
+                            print(f"  ✓ Created topic: {topic}")
+                        elif error_code == 36:
+                            print(f"  ⊙ Topic already exists: {topic}")
+                        else:
+                            error_msg = item[2] if len(item) > 2 else "Unknown error"
+                            print(f"  ✗ Failed to create topic {topic}: {error_msg}")
+            else:
+                # 未知格式，尝试检查异常
+                print(f"  ⚠ Topic {topic_name}: {topic_errors}")
 
-    topics = admin_client.list_topics()
-    print("Kafka Topics:")
-    print(topics)
-    # black_topic = ["__consumer_offsets"]
-    black_topic = []
-    for i in topics:
-        name = str(i)
-        if name in black_topic:
-            continue
-        admin_client.delete_topics(topics=[name], timeout_ms=30000)
-        print(f"Delet Topic {name}")
-        sleep(1)
-    topics = admin_client.list_topics()
+        except Exception as e:
+            error_msg = str(e)
+            if "TopicAlreadyExistsError" in error_msg or "already exists" in error_msg.lower():
+                print(f"  ⊙ Topic already exists: {topic_name}")
+            else:
+                print(f"  ✗ Failed to create topic {topic_name}: {e}")
 
-    # 创建主题
-    try:
-        print("Try create topics.")
-        admin_client.create_topics(new_topics=topic_list, validate_only=False)
-    except Exception as e:
-        print(e)
-    finally:
-        admin_client.close()
+    admin_client.close()
 
 
 def kafka_topic_llen(topic: str):
