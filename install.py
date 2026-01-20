@@ -114,6 +114,7 @@ def env_print(working_directory, env, python_version):
 
 def copy_config(path_conf, path_secure, update_config):
     path = os.path.expanduser("~") + "/.ginkgo"
+    working_directory = os.path.dirname(os.path.abspath(__file__))
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -139,6 +140,18 @@ def copy_config(path_conf, path_secure, update_config):
             target_path = os.path.join(path, "secure.yml")
             print(f"Copy secure.yml from {origin_path} to {target_path}")
             shutil.copy(origin_path, target_path)
+
+    # Copy task_timer.yml (always copy if not exists)
+    path_task_timer = f"{working_directory}/src/ginkgo/config/task_timer.yml"
+    if os.path.exists(path_task_timer):
+        target_path = os.path.join(path, "task_timer.yml")
+        if not os.path.exists(target_path):
+            shutil.copy(path_task_timer, target_path)
+            print(f"Copy task_timer.yml from {path_task_timer} to {target_path}")
+        else:
+            print(f"task_timer.yml already exists at {target_path}, skipping copy")
+    else:
+        print(f"[WARNING] task_timer.yml template not found at {path_task_timer}")
 
 
 def is_uv_environment():
@@ -392,68 +405,6 @@ fi
         os.remove(temp_file_name)
 
 
-def set_system_service():
-    try:
-        from ginkgo.libs.core.config import GCONF
-    except ImportError as e:
-        print(f"⚠️  Could not import GCONF: {e}")
-        print("📝 System service setup will be available after full installation.")
-        return
-
-    # TODO uvicorn path need update conda
-    os_name = platform.system()
-    if os_name == "Linux":
-        # Remove systemd conf
-        print("remove ginkgo.service")
-        output_systemd_file = "/etc/systemd/system/ginkgo.service"
-        print("Stop ginkgo server")
-        os.system("sudo systemctl stop ginkgo")
-        print("Disable ginkgo server")
-        os.system("sudo systemctl disable ginkgo")
-        print("Remove ginkgo server")
-        os.system(f"sudo rm {output_systemd_file}")
-        python_path = GCONF.PYTHONPATH
-        dir1 = os.path.dirname(python_path)
-        uvicorn_path = os.path.join(dir1, "uvicorn")
-
-        # Write service conf
-        service_content = f"""
-[Unit]
-Description=Ginkgo API server, main control and main watchdog
-
-[Service]
-Type=simple
-User=kaoru
-ExecStart={uvicorn_path} main:app --host 0.0.0.0 --port 8000 --app-dir {GCONF.WORKING_PATH}/api --timeout-graceful-shutdown 5
-Restart=always
-RestartSec=3
-WorkingDirectory={GCONF.WORKING_PATH}
-
-[Install]
-WantedBy=multi-user.target
-"""
-        with tempfile.NamedTemporaryFile("w", delete=False) as tmp_service:
-            tmp_service.write(service_content)
-            temp_service_name = tmp_service.name
-
-        # 使用 sudo 命令将临时文件移动到目标目录
-        print("Copy ginkgo.server to systemd")
-        subprocess.run(["sudo", "mv", temp_service_name, output_systemd_file])
-        if os.path.exists(temp_service_name):
-            print("remove temp ginkgo.server")
-            os.remove(temp_service_name)
-        print("reload")
-        subprocess.run(["sudo", "systemctl", "daemon-reload"])
-        print("Start")
-        subprocess.run(["sudo", "systemctl", "start", "ginkgo.service"])
-        print("set auto start")
-        subprocess.run(["sudo", "systemctl", "enable", "ginkgo.service"])
-    elif os_name == "Darwin":
-        print("this is mac, set system server in future")
-    elif os_name == "Windows":
-        print("this is windows, set system server in future")
-
-
 def set_jupyterlab_config():
     env = os.environ.get("VIRTUAL_ENV")
     conda_env = os.environ.get("CONDA_PREFIX")
@@ -677,12 +628,10 @@ def main():
         if start_docker(path_dockercompose):
             # 等待服务就绪
             if wait_for_services():
-                set_system_service()
                 if args.kafkainit:
                     kafka_reset()
             else:
                 print(f"{red('Service startup verification failed, but continuing...')}")
-                set_system_service()
                 if args.kafkainit:
                     kafka_reset()
         else:

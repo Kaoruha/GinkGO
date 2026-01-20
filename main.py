@@ -129,7 +129,7 @@ def _register_all_commands():
         return LazyTyper(module_name, app_name).app
 
     # 新的模块化命令架构 - 使用独立的CLI文件
-    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli
+    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli
 
     _main_app.add_typer(data_cli.app, name="data", help=":page_facing_up: Data management")
     _main_app.add_typer(engine_cli.app, name="engine", help=":fire: Engine management")
@@ -145,6 +145,7 @@ def _register_all_commands():
     _main_app.add_typer(livecore_cli.app, name="livecore", help=":rocket: LiveCore - Live Trading Container")
     _main_app.add_typer(execution_cli.app, name="execution", help=":execution: ExecutionNode - Portfolio Execution Engine")
     _main_app.add_typer(scheduler_cli.app, name="scheduler", help=":calendar: Scheduler - Portfolio Dynamic Scheduler")
+    _main_app.add_typer(tasktimer_cli.app, name="tasktimer", help=":alarm_clock: TaskTimer - Scheduled Task Manager")
 
     # Validation command (component code validation before backtesting)
     from ginkgo.client.validation_cli import validate, console

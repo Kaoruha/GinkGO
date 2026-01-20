@@ -44,6 +44,7 @@ from ginkgo.trading.gateway.trade_gateway import TradeGateway
 from ginkgo.trading.interfaces.broker_interface import IBroker
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
 class TradeGatewayAdapter(Thread):
@@ -90,14 +91,15 @@ class TradeGatewayAdapter(Thread):
         3. 调用TradeGateway执行（同步，确认提交）
         4. 订单状态由数据库管理
         """
-        from ginkgo.trading.enums import DIRECTION_TYPES, ORDER_TYPES
+        from ginkgo.enums import DIRECTION_TYPES, ORDER_TYPES
+        from datetime import datetime
 
         self.is_running = True
         print("TradeGatewayAdapter starting...")
 
         # 创建Kafka消费者
         self.kafka_consumer = GinkgoConsumer(
-            "ginkgo.live.orders.submission",
+            KafkaTopics.ORDERS_SUBMISSION,
             group_id="trade_gateway_adapter"
         )
 
@@ -105,6 +107,22 @@ class TradeGatewayAdapter(Thread):
         self._start_monitor_thread()
 
         print("TradeGatewayAdapter started, consuming orders...")
+
+        # 发送启动通知
+        try:
+            from ginkgo.notifier.core.notification_service import notify
+            notify(
+                "TradeGatewayAdapter启动成功",
+                level="INFO",
+                module="TradeGatewayAdapter",
+                details={
+                    "组件": "TradeGatewayAdapter",
+                    "Broker数量": len(self.gateway.brokers) if hasattr(self.gateway, 'brokers') else 0,
+                    "启动时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                },
+            )
+        except Exception as notify_error:
+            print(f"[WARN] Failed to send start notification: {notify_error}")
 
         # 消费订单提交
         while self.is_running:
@@ -123,9 +141,28 @@ class TradeGatewayAdapter(Thread):
 
             except Exception as e:
                 if self.is_running:
-                    print("[ERROR] f""Error consuming orders: {e}")
+                    print("[ERROR] Error consuming orders: {e}")
 
         print("TradeGatewayAdapter stopped")
+
+        # 发送停止通知
+        try:
+            from ginkgo.notifier.core.notification_service import notify
+            notify(
+                "TradeGatewayAdapter已停止",
+                level="INFO",
+                module="TradeGatewayAdapter",
+                details={
+                    "组件": "TradeGatewayAdapter",
+                    "停止时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "总订单数": self.total_orders,
+                    "已成交": self.filled_orders,
+                    "超时": self.expired_orders,
+                    "失败": self.failed_orders,
+                },
+            )
+        except Exception as notify_error:
+            print(f"[WARN] Failed to send stop notification: {notify_error}")
 
     def _process_order(self, order_data: dict):
         """
@@ -305,7 +342,7 @@ class TradeGatewayAdapter(Thread):
             }
 
             # 发布到Kafka
-            self.kafka_producer.send("ginkgo.live.orders.feedback", event_data)
+            self.kafka_producer.send(KafkaTopics.ORDERS_FEEDBACK, event_data)
             print(f"Fill event sent to Kafka for order {fill_event.order.uuid[:8]}")
 
         except Exception as e:

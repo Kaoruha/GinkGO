@@ -19,6 +19,7 @@ Ginkgo is a Python quantitative trading library featuring:
 - **依赖注入**: 通过 `from ginkgo import services` 统一访问所有服务
 - **装饰器优化**: 使用 `@time_logger`、`@retry`、`@cache_with_expiration` 进行性能优化
 - **多数据库支持**: 统一接口访问 ClickHouse、MySQL、MongoDB、Redis
+- **分层架构**: LiveCore(数据层) 与 ExecutionNode(执行层) 通过Kafka解耦
 
 ### 全局实例
 - **`GLOG`**: 日志记录，支持Rich格式化
@@ -375,6 +376,7 @@ from ginkgo.libs import GLOG, GCONF, GTM
 - 无需数据库操作（仅文件系统） (003-code-context-headers)
 - Python 3.12.8 + ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic (006-notification-system)
 - ClickHouse (时序数据), MySQL (关系数据), MongoDB (文档数据), Redis (缓存) (006-notification-system)
+- Python 3.12.8 + ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic, APScheduler, websockets, pyyaml (008-live-data-module)
 
 ## Recent Changes
 - 003-code-context-headers: Added Python 3.12.8 + ast (标准库), pathlib, re, typing

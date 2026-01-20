@@ -49,6 +49,7 @@ from ginkgo.workers.execution_node.interest_map import InterestMap
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo import services
 from ginkgo.enums import PORTFOLIO_RUNSTATE_TYPES
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 # 获取日志记录器
 logger = logging.getLogger(__name__)
@@ -1267,7 +1268,7 @@ class ExecutionNode:
 
         # 创建Kafka消费者
         self.market_data_consumer = GinkgoConsumer(
-            "ginkgo.live.market.data",
+            KafkaTopics.MARKET_DATA,
             group_id=f"execution_node_{self.node_id}"
         )
 
@@ -1292,7 +1293,7 @@ class ExecutionNode:
 
         # 创建Kafka消费者
         self.order_feedback_consumer = GinkgoConsumer(
-            "ginkgo.live.orders.feedback",
+            KafkaTopics.ORDERS_FEEDBACK,
             group_id=f"execution_node_{self.node_id}"
         )
 
@@ -1536,7 +1537,7 @@ class ExecutionNode:
                         }
 
                         # 发送到Kafka
-                        success = self.order_producer.send("ginkgo.live.orders.submission", order_data)
+                        success = self.order_producer.send(KafkaTopics.ORDERS_SUBMISSION, order_data)
                         if success:
                             print(f"Order {event.uuid} sent to Kafka via output_queue")
                         else:
@@ -2214,7 +2215,7 @@ class ExecutionNode:
         """
         try:
             # 创建 Kafka 消费者（直接订阅 topic）
-            topic = "schedule.updates"
+            topic = KafkaTopics.SCHEDULE_UPDATES
             self.schedule_updates_consumer = GinkgoConsumer(
                 topic=topic,
                 group_id=f"execution_node_{self.node_id}",

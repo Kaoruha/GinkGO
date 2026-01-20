@@ -215,11 +215,19 @@ class TestTradeGatewayAdapterThread:
 
         # 启动线程
         adapter.start()
-        adapter.join(timeout=1)  # 等待最多1秒
 
-        # 验证线程运行过
-        assert adapter.is_running == False or adapter.is_alive() == False
+        # 等待线程启动
+        import time
+        time.sleep(0.1)
+
+        # 验证线程正在运行
+        assert adapter.is_running == True
+        assert adapter.is_alive() == True
         print(f"✅ 线程可以启动")
+
+        # 清理：停止线程
+        adapter.stop()
+        adapter.join(timeout=2)
 
 
 @pytest.mark.unit

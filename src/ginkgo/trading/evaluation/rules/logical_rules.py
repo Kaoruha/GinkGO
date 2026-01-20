@@ -473,7 +473,7 @@ class ForbiddenOperationsRule(ASTBasedRule):
                 ("crud.", "database"),
                 ("requests.", "network"),
                 ("urllib.", "network"),
-                ("open(", "file I/O"),
+                ("open", "file I/O"),
             ]
 
             if call_str:
