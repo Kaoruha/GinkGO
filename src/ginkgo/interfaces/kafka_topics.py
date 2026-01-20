@@ -66,7 +66,15 @@ class KafkaTopics:
     # ============================================
 
     # 调度更新（Scheduler → ExecutionNode）
-    SCHEDULE_UPDATES = "ginkgo.live.schedule.updates"
+    SCHEDULE_UPDATES = "ginkgo.schedule.updates"
+    SCHEDULE_UPDATES_LIVE = "ginkgo.live.schedule.updates"
+
+    # ============================================
+    # 数据更新 Topics (Data Update)
+    # ============================================
+
+    # 数据更新信号（stockinfo, bar, tick, adjustfactor 等）
+    DATA_UPDATE = "ginkgo.data.update"
 
     # ============================================
     # 系统事件 Topics (System Events)
@@ -97,7 +105,7 @@ class KafkaTopics:
         ORDERS_SUBMISSION,
         ORDERS_FEEDBACK,
         CONTROL_COMMANDS,
-        SCHEDULE_UPDATES,
+        SCHEDULE_UPDATES_LIVE,
         SYSTEM_EVENTS,
     ]
 
@@ -122,6 +130,8 @@ class KafkaTopics:
         ORDERS_FEEDBACK,
         CONTROL_COMMANDS,
         SCHEDULE_UPDATES,
+        SCHEDULE_UPDATES_LIVE,
+        DATA_UPDATE,
         SYSTEM_EVENTS,
         NOTIFICATIONS,
     ]

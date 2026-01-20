@@ -22,6 +22,7 @@ import uuid
 
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.libs.utils.common import time_logger, retry
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
 class KafkaService(BaseService):
@@ -921,14 +922,14 @@ class KafkaService(BaseService):
 
     def send_stockinfo_update_signal(self) -> bool:
         """Send stock basic info update signal"""
-        return self.publish_message("ginkgo_data_update", {
+        return self.publish_message(KafkaTopics.DATA_UPDATE, {
             "type": "stockinfo",
             "code": ""
         })
 
     def send_adjustfactor_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
         """Send adjustment factor update signal"""
-        return self.publish_message("ginkgo_data_update", {
+        return self.publish_message(KafkaTopics.DATA_UPDATE, {
             "type": "adjust",
             "code": code,
             "full": full,
@@ -937,7 +938,7 @@ class KafkaService(BaseService):
 
     def send_daybar_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
         """Send daily bar data update signal"""
-        return self.publish_message("ginkgo_data_update", {
+        return self.publish_message(KafkaTopics.DATA_UPDATE, {
             "type": "bar",
             "code": code,
             "full": full,
@@ -946,7 +947,7 @@ class KafkaService(BaseService):
 
     def send_tick_update_signal(self, code: str, full: bool = False, force: bool = False) -> bool:
         """Send tick data update signal"""
-        return self.publish_message("ginkgo_data_update", {
+        return self.publish_message(KafkaTopics.DATA_UPDATE, {
             "type": "tick",
             "code": code,
             "full": full,
@@ -955,7 +956,7 @@ class KafkaService(BaseService):
 
     def send_worker_kill_signal(self) -> bool:
         """Send worker stop signal"""
-        return self.publish_message("ginkgo_data_update", {
+        return self.publish_message(KafkaTopics.DATA_UPDATE, {
             "type": "kill",
             "code": ""
         })

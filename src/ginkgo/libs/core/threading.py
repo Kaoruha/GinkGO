@@ -31,6 +31,7 @@ from ginkgo.libs.core.config import GCONF
 from ginkgo.libs.utils.common import retry
 from ginkgo.libs.core.logger import GinkgoLogger
 from ginkgo.notifier.notifier_beep import beep
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
 console = Console()
@@ -355,7 +356,7 @@ class GinkgoThreadManager:
         self.upsert_worker_status(pid=pid, task_name="No Task", status="IDLE")
         
         worker_logger.INFO(f":arrows_counterclockwise: Worker PID:{pid} initializing...")
-        worker_logger.INFO(f":satellite_antenna: Start Listen Kafka Topic: ginkgo_data_update Group: ginkgo_data  PID:{pid}")
+        worker_logger.INFO(f":satellite_antenna: Start Listen Kafka Topic: {KafkaTopics.DATA_UPDATE} Group: ginkgo_data  PID:{pid}")
         
         # 测试Kafka连接状态
         try:
@@ -419,16 +420,16 @@ class GinkgoThreadManager:
         
         try:
             # 使用KafkaService订阅消息
-            worker_logger.INFO(f"📨 Attempting to subscribe to ginkgo_data_update...")
+            worker_logger.INFO(f"📨 Attempting to subscribe to {KafkaTopics.DATA_UPDATE}...")
             success = self.kafka_service.subscribe_topic(
-                topic="ginkgo_data_update",
+                topic=KafkaTopics.DATA_UPDATE,
                 handler=data_worker_message_handler,
                 group_id="ginkgo_data",
                 auto_start=True
             )
             
             if not success:
-                worker_logger.ERROR(":x: Failed to subscribe to ginkgo_data_update topic")
+                worker_logger.ERROR(f":x: Failed to subscribe to {KafkaTopics.DATA_UPDATE} topic")
                 return
             else:
                 worker_logger.INFO(":white_check_mark: Successfully subscribed to Kafka topic")
@@ -452,7 +453,7 @@ class GinkgoThreadManager:
         finally:
             # 取消订阅和清理
             try:
-                self.kafka_service.unsubscribe_topic("ginkgo_data_update")
+                self.kafka_service.unsubscribe_topic(KafkaTopics.DATA_UPDATE)
             except:
                 pass
             self.unregister_worker_pid(pid)

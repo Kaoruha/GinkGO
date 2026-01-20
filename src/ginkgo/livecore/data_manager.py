@@ -127,10 +127,44 @@ class DataManager(threading.Thread):
             self.start()
 
             GLOG.INFO("DataManager started successfully")
+
+            # 发送启动通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                from datetime import datetime
+                notify(
+                    "DataManager启动成功",
+                    level="INFO",
+                    module="DataManager",
+                    details={
+                        "组件": "DataManager",
+                        "数据源": self.live_feeder.__class__.__name__,
+                        "启动时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    },
+                )
+            except Exception as notify_error:
+                GLOG.WARNING(f"Failed to send start notification: {notify_error}")
+
             return True
 
         except Exception as e:
             GLOG.ERROR(f"DataManager start failed: {e}")
+
+            # 发送失败通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"DataManager启动失败: {e}",
+                    level="ERROR",
+                    module="DataManager",
+                    details={
+                        "组件": "DataManager",
+                        "错误信息": str(e),
+                    },
+                )
+            except Exception:
+                pass
+
             return False
 
     def stop(self) -> bool:
@@ -164,10 +198,43 @@ class DataManager(threading.Thread):
             self.join(timeout=10)
 
             GLOG.INFO("DataManager stopped")
+
+            # 发送停止通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                from datetime import datetime
+                notify(
+                    "DataManager已停止",
+                    level="INFO",
+                    module="DataManager",
+                    details={
+                        "组件": "DataManager",
+                        "停止时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    },
+                )
+            except Exception as notify_error:
+                GLOG.WARNING(f"Failed to send stop notification: {notify_error}")
+
             return True
 
         except Exception as e:
             GLOG.ERROR(f"DataManager stop failed: {e}")
+
+            # 发送失败通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"DataManager停止失败: {e}",
+                    level="ERROR",
+                    module="DataManager",
+                    details={
+                        "组件": "DataManager",
+                        "错误信息": str(e),
+                    },
+                )
+            except Exception:
+                pass
+
             return False
 
     def run(self) -> None:

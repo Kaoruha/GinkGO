@@ -376,3 +376,52 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
+
+  # TaskTimer - 定时任务调度器
+  tasktimer:
+    build:
+      context: ..
+      dockerfile: .conf/Dockerfile.tasktimer
+    image: ginkgo/tasktimer:latest
+    container_name: tasktimer
+    restart: always
+    depends_on:
+      - kafka1
+      - redis-master
+      - mongo-master
+      - mysql-test
+    environment:
+      # Kafka 配置（发送控制命令）
+      GINKGO_KAFKA_HOST: kafka1
+      GINKGO_KAFKA_PORT: 9092
+      # Redis 配置（心跳上报）
+      GINKGO_REDIS_HOST: redis-master
+      GINKGO_REDIS_PORT: 6379
+      # MongoDB 配置（NotificationService 存储通知记录）
+      GINKGO_MONGODB_HOST: mongo-master
+      GINKGO_MONGODB_PORT: 27017
+      GINKGO_MONGODB_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      GINKGO_MONGODB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      GINKGO_MONGODB_DATABASE: ginkgo
+      # MySQL 配置（NotificationService 存储模板和记录）
+      GINKGO_MYSQL_HOST: mysql-test
+      GINKGO_MYSQL_PORT: 3306
+      GINKGO_MYSQL_USER: ${MYSQL_USER}
+      GINKGO_MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      GINKGO_MYSQL_DATABASE: ginkgo
+      # 运行配置
+      GINKGO_DEBUG_MODE: "False"
+      LOG_LEVEL: INFO
+      PYTHONUNBUFFERED: 1
+    volumes:
+      # 映射用户配置目录中的 task_timer.yml（容器内读取 /root/.ginkgo/task_timer.yml）
+      - ${HOME}/.ginkgo/task_timer.yml:/root/.ginkgo/task_timer.yml:ro
+      - ../.logs/tasktimer:/ginkgo/.logs
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
