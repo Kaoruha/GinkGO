@@ -13,6 +13,7 @@ ExecutionNode 是实盘交易的执行引擎，负责：
 - 收集订单并提交到 Kafka
 """
 
+import os
 import typer
 from typing import Optional
 from rich.console import Console
@@ -28,7 +29,7 @@ console = Console(emoji=True, legacy_windows=False)
 
 @app.command()
 def start(
-    node_id: str = typer.Option("execution_node_1", "--node-id", "-n", help="ExecutionNode unique identifier"),
+    node_id: str = typer.Option(None, "--node-id", "-n", help="ExecutionNode unique identifier (default: GINKGO_NODE_ID env var or execution_node_1)"),
     portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Specific portfolio ID to load"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Run in debug mode with verbose logging"),
 ):
@@ -45,6 +46,13 @@ def start(
       ginkgo execution start --portfolio portfolio_123
       ginkgo execution start --debug
     """
+    # 使用环境变量、主机名或默认值
+    if node_id is None:
+        node_id = os.getenv("GINKGO_NODE_ID")
+    if node_id is None:
+        import socket
+        node_id = socket.gethostname()
+
     try:
         from ginkgo.workers.execution_node.node import ExecutionNode
 
