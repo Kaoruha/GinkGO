@@ -27,6 +27,38 @@ from ginkgo.notifier.channels.base_channel import INotificationChannel, ChannelR
 from ginkgo.enums import NOTIFICATION_STATUS_TYPES, SOURCE_TYPES, CONTACT_TYPES
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 
+
+# ============================================================================
+# Discord 颜色方案（十进制整数）
+# ============================================================================
+
+# 交易信号颜色（鲜亮醒目）
+DISCORD_COLOR_LONG = 5797806      # 🟢 鲜绿色 - 做多信号
+DISCORD_COLOR_SHORT = 16711735    # 🔴 鲜红色 - 做空信号
+DISCORD_COLOR_VOID = 34886848     # 🔷 鲜蓝色 - 平仓信号
+
+# 系统级别通知颜色
+DISCORD_COLOR_WHITE = 16777215    # ⚪ 白色 - 普通系统通知
+DISCORD_COLOR_ORANGE = 16744272   # 🟠 橙色 - 警告
+DISCORD_COLOR_YELLOW = 16776960   # 🟡 黄色 - 异常
+
+# 颜色映射表
+TRADING_SIGNAL_COLORS = {
+    "LONG": DISCORD_COLOR_LONG,
+    "SHORT": DISCORD_COLOR_SHORT,
+    "VOID": DISCORD_COLOR_VOID,
+}
+
+SYSTEM_LEVEL_COLORS = {
+    "INFO": DISCORD_COLOR_WHITE,       # 白色 - 普通信息
+    "SUCCESS": DISCORD_COLOR_WHITE,    # 白色 - 成功操作
+    "UPDATE": DISCORD_COLOR_WHITE,     # 白色 - 数据更新
+    "WARNING": DISCORD_COLOR_ORANGE,   # 橙色 - 警告提醒
+    "ERROR": DISCORD_COLOR_YELLOW,     # 黄色 - 错误信息
+    "ALERT": DISCORD_COLOR_ORANGE,     # 橙色 - 紧急告警
+}
+
+
 # 使用 TYPE_CHECKING 避免运行时循环导入
 if TYPE_CHECKING:
     from ginkgo.notifier.core.template_engine import TemplateEngine
@@ -1209,15 +1241,13 @@ class NotificationService(BaseService):
         try:
             # 根据交易方向设置颜色和标题
             direction_upper = direction.upper()
-            if direction_upper == "LONG":
-                color = 3066993  # 绿色
-                title = "买入信号"
-            elif direction_upper == "SHORT":
-                color = 15158332  # 红色
-                title = "卖出信号"
-            else:
-                color = 3447003  # 蓝色（默认）
-                title = f"交易信号: {direction}"
+            color = TRADING_SIGNAL_COLORS.get(direction_upper, DISCORD_COLOR_INFO)
+
+            # 中文方向文本和图标
+            direction_text_map = {"LONG": "做多", "SHORT": "做空", "VOID": "平仓"}
+            direction_text = direction_text_map.get(direction_upper, direction_upper)
+            icon = "📈" if direction_upper == "LONG" else "📉" if direction_upper == "SHORT" else "📊"
+            title = f"{icon} {direction_text}信号"
 
             # 构建字段
             fields = [
@@ -1304,24 +1334,19 @@ class NotificationService(BaseService):
             # 根据消息类型设置标题和颜色
             type_upper = message_type.upper()
 
-            if type_upper == "INFO":
-                color = 3447003  # 蓝色
-                title = "系统消息"
-            elif type_upper == "SUCCESS":
-                color = 3447003  # 蓝色
-                title = "操作成功"
-            elif type_upper == "WARNING":
-                color = 15844367  # 黄色（警告需要醒目）
-                title = "系统警告"
-            elif type_upper == "ERROR":
-                color = 16711935  # 紫红色（错误需要甄别，醒目但不与卖出信号红色冲突）
-                title = "系统错误"
-            elif type_upper == "UPDATE":
-                color = 3447003  # 蓝色
-                title = "数据更新"
-            else:
-                color = 3447003  # 蓝色（默认）
-                title = f"系统通知: {message_type}"
+            # 使用 SYSTEM_LEVEL_COLORS 映射获取颜色
+            color = SYSTEM_LEVEL_COLORS.get(type_upper, DISCORD_COLOR_WHITE)
+
+            # 设置标题
+            title_map = {
+                "INFO": "系统消息",
+                "SUCCESS": "操作成功",
+                "WARNING": "系统警告",
+                "ERROR": "系统错误",
+                "UPDATE": "数据更新",
+                "ALERT": "系统告警",
+            }
+            title = title_map.get(type_upper, f"系统通知: {message_type}")
 
             # 构建字段
             fields = []
@@ -1406,12 +1431,26 @@ class NotificationService(BaseService):
             ... )
         """
         try:
-            # 准备模板变量
+            # 获取交易方向对应的颜色和文本
+            direction_upper = direction.upper()
+            color = TRADING_SIGNAL_COLORS.get(direction_upper, DISCORD_COLOR_INFO)
+
+            # 中文方向文本
+            direction_text_map = {"LONG": "做多", "SHORT": "做空", "VOID": "平仓"}
+            direction_text = direction_text_map.get(direction_upper, direction_upper)
+
+            # 构建标题
+            title = f"{'📈' if direction_upper == 'LONG' else '📉' if direction_upper == 'SHORT' else '📊'} {direction_text}信号 - {code}"
+
+            # 准备模板变量（匹配 simple_signal 模板需求）
             context = {
-                "direction": direction.upper(),
-                "code": code,
-                "price": price,
-                "volume": volume
+                "title": title,
+                "content": f"**{direction_text}信号**\n\n{f'策略: {strategy_name}' if strategy_name else ''}",
+                "color": color,
+                "symbol": code,
+                "price": str(price),
+                "direction": direction_text,
+                "footer_text": "Ginkgo 交易系统"
             }
 
             if strategy_name:
@@ -2043,15 +2082,6 @@ def notify_with_fields(
             GLOG.ERROR(f"[{module}] NotificationService not available")
             return False
 
-        # 等级到颜色的映射
-        level_colors = {
-            "INFO": 3447003,      # 蓝色
-            "WARN": 15844367,     # 黄色
-            "ERROR": 15158332,    # 红色
-            "ALERT": 15158332,    # 红色
-            "SUCCESS": 3066993,   # 绿色
-        }
-
         # 异步模式：通过 Kafka 发送
         if async_mode:
             try:
@@ -2082,7 +2112,7 @@ def notify_with_fields(
                 GLOG.WARN(f"[{module}] Async send failed: {e}, falling back to sync mode")
 
         # 同步模式：直接发送到 Discord webhook
-        color = level_colors.get(level.upper(), 3447003)
+        color = SYSTEM_LEVEL_COLORS.get(level.upper(), DISCORD_COLOR_INFO)
 
         # 获取 System 组的 webhook URL
         if not service.group_crud or not service.group_mapping_crud:

@@ -22,8 +22,16 @@ import os
 
 import psutil
 
-bot = telebot.TeleBot(GCONF.Telegram_Token)
+# 延迟初始化 bot，避免模块导入时因未配置 token 而失败
+# 使用占位符 token（格式：botid:hash），实际使用时会检查是否配置
+_token = GCONF.Telegram_Token if GCONF.Telegram_Token else "123456:ABCDEF"
+bot = telebot.TeleBot(_token)
 is_running = False
+
+
+def _check_bot_enabled():
+    """检查 Telegram Bot 是否真正配置并可用"""
+    return GCONF.Telegram_Token is not None and GCONF.Telegram_Token != "123456:ABCDEF"
 
 
 def extract_arg(arg):
@@ -416,6 +424,10 @@ def echo(message: str) -> None:
     Returns:
         None
     """
+    # 检查 bot 是否真正配置
+    if not _check_bot_enabled():
+        return
+
     ids = GCONF.Telegram_ChatIDs
     if len(ids) > 20:
         ids = ids[:20]
@@ -427,4 +439,8 @@ def echo(message: str) -> None:
 
 
 def run_telebot():
+    # 检查 bot 是否真正配置
+    if not _check_bot_enabled():
+        print("[WARNING] Telegram Bot not configured, skipping bot startup")
+        return
     bot.infinity_polling()
