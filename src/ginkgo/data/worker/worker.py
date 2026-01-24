@@ -29,7 +29,7 @@ class DataWorker(threading.Thread):
     # Kafka配置
     CONTROL_COMMANDS_TOPIC: str = "ginkgo.live.control.commands"
     DEFAULT_CONSUMER_GROUP: str = "data_worker_group"
-    SYSTEM_EVENTS_TOPIC: str = "ginkgo.live.system.events"  # 系统事件主题
+    NOTIFICATIONS_TOPIC: str = "ginkgo.notifications"  # 通知主题
 
     # 心跳配置
     HEARTBEAT_KEY_PREFIX: str = "heartbeat:data_worker"
@@ -384,8 +384,8 @@ class DataWorker(threading.Thread):
             if details:
                 event.update(details)
 
-            # 发送到系统事件主题
-            self._producer.send(self.SYSTEM_EVENTS_TOPIC, event)
+            # 发送到通知主题（NotificationWorker会处理并发送Discord）
+            self._producer.send(self.NOTIFICATIONS_TOPIC, event)
             print(f"[DataWorker:{self._node_id}] System event sent: {event_type}")
 
         except Exception as e:
