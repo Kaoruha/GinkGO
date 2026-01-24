@@ -104,7 +104,7 @@
 ### 3.7 容器化和测试
 
 - [X] T030 [US1] 实现Docker healthcheck (is_healthy方法)
-- [ ] T031 [US1] [P] 编写单元测试tests/unit/data/worker/test_worker.py
+- [X] T031 [US1] [P] 编写单元测试tests/unit/data/worker/test_worker.py
 - [ ] T032 [US1] [P] 编写集成测试tests/integration/data/worker/test_kafka_integration.py
 - [ ] T033 [US1] [P] 编写容器测试验证启动和数据采集
 

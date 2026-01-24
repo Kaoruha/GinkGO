@@ -84,7 +84,7 @@ class DataWorker(threading.Thread):
         self._heartbeat_thread: Optional[threading.Thread] = None
 
         # 日志
-        self._logger = GinkgoLogger().get_logger()
+        self._logger = GinkgoLogger(logger_name="DataWorker").get_logger()
 
     @property
     def is_running(self) -> bool:
