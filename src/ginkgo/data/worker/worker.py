@@ -210,9 +210,20 @@ class DataWorker(threading.Thread):
 
                                 if message_value is not None:
                                     if isinstance(message_value, dict):
+                                        # 已反序列化为dict，直接处理
                                         self._process_kafka_message_dict(message_value)
+                                    elif isinstance(message_value, str):
+                                        # 仍是字符串，尝试手动解析JSON
+                                        try:
+                                            message_data = json.loads(message_value)
+                                            self._process_kafka_message_dict(message_data)
+                                        except json.JSONDecodeError as e:
+                                            print(f"[DataWorker:{self._node_id}] Failed to parse message as JSON: {e}")
+                                            print(f"[DataWorker:{self._node_id}] Raw message: {message_value[:200]}")
+                                            with self._lock:
+                                                self._stats["errors"] += 1
                                     else:
-                                        print(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}")
+                                        print(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}, value: {message_value}")
                                         with self._lock:
                                             self._stats["errors"] += 1
 
