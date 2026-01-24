@@ -204,13 +204,6 @@ class DataWorker(threading.Thread):
                     # 处理poll返回的消息字典 {TopicPartition: [messages]}
                     for tp, messages in raw_messages.items():
                         for message in messages:
-                            # 检查Kafka错误
-                            if message.error():
-                                print(f"[DataWorker:{self._node_id}] Kafka consumer error: {message.error()}")
-                                with self._lock:
-                                    self._stats["errors"] += 1
-                                continue
-
                             # 获取消息值 - GinkgoConsumer已经反序列化
                             message_value = message.value()
                             if message_value is not None:
