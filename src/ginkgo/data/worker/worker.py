@@ -376,7 +376,7 @@ class DataWorker(threading.Thread):
                 if details:
                     stats_str = f" (Messages: {details.get('messages_processed', 0)}, Bars: {details.get('bars_written', 0)}, Errors: {details.get('errors', 0)})"
                 content = f"DataWorker `{self._node_id}` stopped{stats_str}"
-                level = "INFO"
+                level = "WARN"
             elif event_type == "ERROR":
                 error_info = details.get("error", "Unknown error") if details else "Unknown error"
                 phase = details.get("phase", "unknown") if details else "unknown"
