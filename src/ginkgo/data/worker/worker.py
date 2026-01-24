@@ -355,7 +355,7 @@ class DataWorker(threading.Thread):
 
     def _send_system_event(self, event_type: str, details: Optional[Dict[str, Any]] = None):
         """
-        发送系统事件到Kafka
+        发送系统事件通知到Kafka
 
         Args:
             event_type: 事件类型 (STARTED, STOPPED, ERROR)
@@ -368,24 +368,54 @@ class DataWorker(threading.Thread):
         try:
             import socket
             import os
+            import uuid
 
-            event = {
-                "event_type": event_type,
-                "component_type": "data_worker",
-                "component_id": self._node_id,
-                "source": "data_worker",
-                "timestamp": datetime.now().isoformat(),
-                "host": socket.gethostname(),
-                "pid": os.getpid(),
-                "group_id": self._group_id,
-                "status": str(self._status),
+            # 构建通知标题和内容
+            title = f"DataWorker {event_type}"
+            if event_type == "STARTED":
+                content = f"DataWorker `{self._node_id}` started successfully\nHost: {socket.gethostname()}"
+                level = "INFO"
+            elif event_type == "STOPPED":
+                stats_str = ""
+                if details:
+                    stats_str = f"\nMessages: {details.get('messages_processed', 0)}, Bars: {details.get('bars_written', 0)}, Errors: {details.get('errors', 0)}"
+                content = f"DataWorker `{self._node_id}` stopped{stats_str}"
+                level = "INFO"
+            elif event_type == "ERROR":
+                error_info = details.get("error", "Unknown error") if details else "Unknown error"
+                phase = details.get("phase", "unknown") if details else "unknown"
+                content = f"DataWorker `{self._node_id}` error in {phase}: {error_info}"
+                level = "ERROR"
+            else:
+                content = f"DataWorker `{self._node_id}` event: {event_type}"
+                level = "INFO"
+
+            # 使用 NotificationWorker 期望的格式
+            message = {
+                "message_type": "simple",
+                "message_id": str(uuid.uuid4()),
+                "group_name": "admins",  # 发送到管理员组（需要配置）
+                "title": title,
+                "content": content,
+                "priority": 3 if event_type == "ERROR" else 1,  # ERROR 为高优先级
+                # 附加原始事件信息作为元数据
+                "metadata": {
+                    "component_type": "data_worker",
+                    "component_id": self._node_id,
+                    "event_type": event_type,
+                    "timestamp": datetime.now().isoformat(),
+                    "host": socket.gethostname(),
+                    "pid": os.getpid(),
+                    "group_id": self._group_id,
+                    "status": str(self._status),
+                }
             }
 
             if details:
-                event.update(details)
+                message["metadata"].update(details)
 
             # 发送到通知主题（NotificationWorker会处理并发送Discord）
-            self._producer.send(self.NOTIFICATIONS_TOPIC, event)
+            self._producer.send(self.NOTIFICATIONS_TOPIC, message)
             print(f"[DataWorker:{self._node_id}] System event sent: {event_type}")
 
         except Exception as e:
