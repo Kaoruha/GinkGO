@@ -29,6 +29,7 @@ class DataWorker(threading.Thread):
     # Kafka配置
     CONTROL_COMMANDS_TOPIC: str = "ginkgo.live.control.commands"
     DEFAULT_CONSUMER_GROUP: str = "data_worker_group"
+    SYSTEM_EVENTS_TOPIC: str = "ginkgo.live.system.events"  # 系统事件主题
 
     # 心跳配置
     HEARTBEAT_KEY_PREFIX: str = "heartbeat:data_worker"
@@ -71,6 +72,9 @@ class DataWorker(threading.Thread):
         # Kafka消费者（延迟初始化）
         self._consumer: Optional[Any] = None
 
+        # Kafka生产者（用于发送系统事件，延迟初始化）
+        self._producer: Optional[Any] = None
+
         # 统计信息
         self._stats: Dict[str, Any] = {
             "messages_processed": 0,
@@ -112,6 +116,9 @@ class DataWorker(threading.Thread):
             # 初始化Kafka消费者
             self._init_consumer()
 
+            # 初始化Kafka生产者（用于系统事件）
+            self._init_producer()
+
             # 启动心跳线程
             self._start_heartbeat_thread()
 
@@ -126,12 +133,20 @@ class DataWorker(threading.Thread):
                 self._status = WORKER_STATUS_TYPES.RUNNING
 
             print(f"[DataWorker:{self._node_id}] DataWorker started successfully")
+
+            # 发送系统事件：启动成功
+            self._send_system_event("STARTED")
+
             return True
 
         except Exception as e:
             print(f"[DataWorker:{self._node_id}] Failed to start DataWorker: {e}")
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.ERROR
+
+            # 发送系统事件：启动失败
+            self._send_system_event("ERROR", {"error": str(e), "phase": "start"})
+
             return False
 
     @time_logger
@@ -173,6 +188,23 @@ class DataWorker(threading.Thread):
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.STOPPED
 
+            # 收集最终统计信息
+            final_stats = self.get_stats()
+
+            # 发送系统事件：停止成功（在关闭producer之前）
+            self._send_system_event("STOPPED", {
+                "messages_processed": final_stats.get("messages_processed", 0),
+                "bars_written": final_stats.get("bars_written", 0),
+                "errors": final_stats.get("errors", 0),
+            })
+
+            # 关闭Kafka生产者
+            if self._producer:
+                try:
+                    self._producer.close()
+                except:
+                    pass
+
             print(f"[DataWorker:{self._node_id}] DataWorker stopped successfully")
             return True
 
@@ -180,6 +212,10 @@ class DataWorker(threading.Thread):
             print(f"[DataWorker:{self._node_id}] Error stopping DataWorker: {e}")
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.ERROR
+
+            # 发送系统事件：停止失败
+            self._send_system_event("ERROR", {"error": str(e), "phase": "stop"})
+
             return False
 
     def run(self):
@@ -254,6 +290,12 @@ class DataWorker(threading.Thread):
             print(f"[DataWorker:{self._node_id}] Worker received keyboard interrupt")
         except Exception as e:
             print(f"[DataWorker:{self._node_id}] Unexpected error in worker thread: {e}")
+            # 发送系统事件：严重错误
+            self._send_system_event("ERROR", {
+                "error": str(e),
+                "phase": "run",
+                "stats": self.get_stats()
+            })
         finally:
             print(f"[DataWorker:{self._node_id}] Worker thread exiting")
 
@@ -294,6 +336,60 @@ class DataWorker(threading.Thread):
         except Exception as e:
             print(f"[DataWorker:{self._node_id}] Failed to initialize Kafka consumer: {e}")
             raise
+
+    def _init_producer(self):
+        """初始化Kafka生产者（用于发送系统事件）"""
+        try:
+            from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+
+            self._producer = GinkgoProducer()
+
+            if self._producer.is_connected:
+                print(f"[DataWorker:{self._node_id}] Kafka producer initialized for system events")
+            else:
+                print(f"[DataWorker:{self._node_id}] Warning: Kafka producer not connected, system events will not be sent")
+
+        except Exception as e:
+            print(f"[DataWorker:{self._node_id}] Failed to initialize Kafka producer: {e}")
+            self._producer = None
+
+    def _send_system_event(self, event_type: str, details: Optional[Dict[str, Any]] = None):
+        """
+        发送系统事件到Kafka
+
+        Args:
+            event_type: 事件类型 (STARTED, STOPPED, ERROR)
+            details: 事件详情
+        """
+        if not self._producer or not self._producer.is_connected:
+            # Producer未初始化或未连接，静默跳过
+            return
+
+        try:
+            import socket
+            import os
+
+            event = {
+                "event_type": event_type,
+                "component_type": "data_worker",
+                "component_id": self._node_id,
+                "source": "data_worker",
+                "timestamp": datetime.now().isoformat(),
+                "host": socket.gethostname(),
+                "pid": os.getpid(),
+                "group_id": self._group_id,
+                "status": str(self._status),
+            }
+
+            if details:
+                event.update(details)
+
+            # 发送到系统事件主题
+            self._producer.send(self.SYSTEM_EVENTS_TOPIC, event)
+            print(f"[DataWorker:{self._node_id}] System event sent: {event_type}")
+
+        except Exception as e:
+            print(f"[DataWorker:{self._node_id}] Failed to send system event: {e}")
 
     def _get_kafka_bootstrap_servers(self) -> str:
         """获取Kafka bootstrap servers配置"""
