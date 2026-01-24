@@ -363,7 +363,7 @@ class DataWorker(threading.Thread):
                     redis_service.set(
                         heartbeat_key,
                         json.dumps(heartbeat_data, ensure_ascii=False),
-                        ttl=self.HEARTBEAT_TTL
+                        expire_seconds=self.HEARTBEAT_TTL
                     )
 
                     with self._lock:
