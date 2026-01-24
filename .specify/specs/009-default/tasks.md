@@ -87,13 +87,13 @@
 
 ### 3.4 数据采集
 
-- [ ] T023 [US1] 集成BarCRUD获取数据 (services.data.cruds.bar())
-- [ ] T024 [US1] 实现批量写入ClickHouse (add_batch, 目标1000+条/批)
-- [ ] T025 [US1] 实现@retry装饰器自动重试 (最多3次)
+- [X] T023 [US1] 集成BarCRUD获取数据 (通过bar_service实现)
+- [X] T024 [US1] 实现批量写入ClickHouse (bar_service内部处理)
+- [X] T025 [US1] 实现@retry装饰器自动重试 (最多3次)
 
 ### 3.5 Redis心跳
 
-- [X] T026 [US1] 实现Redis心跳上报 (heartbeat:data_worker:{node_id}, TTL=30s) (占位)
+- [X] T026 [US1] 实现Redis心跳上报 (heartbeat:data_worker:{node_id}, TTL=30s)
 - [X] T027 [US1] 实现心跳线程 (10秒间隔, daemon线程)
 
 ### 3.6 日志和监控
@@ -103,7 +103,7 @@
 
 ### 3.7 容器化和测试
 
-- [ ] T030 [US1] 实现Docker healthcheck (is_healthy方法)
+- [X] T030 [US1] 实现Docker healthcheck (is_healthy方法)
 - [ ] T031 [US1] [P] 编写单元测试tests/unit/data/worker/test_worker.py
 - [ ] T032 [US1] [P] 编写集成测试tests/integration/data/worker/test_kafka_integration.py
 - [ ] T033 [US1] [P] 编写容器测试验证启动和数据采集
