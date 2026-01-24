@@ -193,23 +193,32 @@ class DataWorker(threading.Thread):
         try:
             while not self._stop_event.is_set():
                 try:
-                    # 从Kafka消费消息
-                    message = self._consumer.poll(timeout_ms=1000)
+                    # 从Kafka消费消息 - GinkgoConsumer内部已经处理反序列化
+                    # 直接通过consumer属性访问底层KafkaConsumer
+                    raw_messages = self._consumer.consumer.poll(timeout_ms=1000)
 
-                    if message is None:
+                    if not raw_messages:
                         # 超时，继续轮询
                         continue
 
-                    # 解析消息
-                    if message.error():
-                        print(f"[DataWorker:{self._node_id}] Kafka consumer error: {message.error()}")
-                        with self._lock:
-                            self._stats["errors"] += 1
-                        continue
+                    # 处理poll返回的消息字典 {TopicPartition: [messages]}
+                    for tp, messages in raw_messages.items():
+                        for message in messages:
+                            # 检查Kafka错误
+                            if message.error():
+                                print(f"[DataWorker:{self._node_id}] Kafka consumer error: {message.error()}")
+                                with self._lock:
+                                    self._stats["errors"] += 1
+                                continue
 
-                    # 处理消息
-                    if message.value() is not None:
-                        self._process_kafka_message(message.value())
+                            # 获取消息值 - GinkgoConsumer已经反序列化
+                            message_value = message.value()
+                            if message_value is not None:
+                                # 如果已经是dict，直接处理；否则尝试JSON解析
+                                if isinstance(message_value, dict):
+                                    self._process_kafka_message_dict(message_value)
+                                else:
+                                    self._process_kafka_message(message_value)
 
                     # 手动提交offset
                     self._consumer.commit()
@@ -220,6 +229,8 @@ class DataWorker(threading.Thread):
 
                 except Exception as e:
                     print(f"[DataWorker:{self._node_id}] Error in worker loop: {e}")
+                    import traceback
+                    print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
                     with self._lock:
                         self._stats["errors"] += 1
                     # 短暂等待后继续
@@ -257,14 +268,12 @@ class DataWorker(threading.Thread):
             from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer
 
             # 创建Kafka消费者
+            # 注意：GinkgoConsumer在__init__内部已经处理了订阅
             self._consumer = GinkgoConsumer(
-                bootstrap_servers=self._get_kafka_bootstrap_servers(),
+                topic=self.CONTROL_COMMANDS_TOPIC,
                 group_id=self._group_id,
-                auto_offset_reset=self._auto_offset_reset
+                offset=self._auto_offset_reset
             )
-
-            # 订阅控制命令主题
-            self._consumer.subscribe([self.CONTROL_COMMANDS_TOPIC])
 
             print(f"[DataWorker:{self._node_id}] Kafka consumer initialized: topic={self.CONTROL_COMMANDS_TOPIC}, group_id={self._group_id}")
 
@@ -282,7 +291,7 @@ class DataWorker(threading.Thread):
 
     def _process_kafka_message(self, message_value: bytes):
         """
-        处理Kafka消息
+        处理Kafka消息（字节序列）
 
         Args:
             message_value: Kafka消息值（字节序列）
@@ -290,7 +299,24 @@ class DataWorker(threading.Thread):
         try:
             # 解析JSON消息
             message_data = json.loads(message_value.decode('utf-8'))
+            self._process_kafka_message_dict(message_data)
+        except json.JSONDecodeError as e:
+            print(f"[DataWorker:{self._node_id}] Failed to parse Kafka message as JSON: {e}")
+            with self._lock:
+                self._stats["errors"] += 1
+        except Exception as e:
+            print(f"[DataWorker:{self._node_id}] Error processing Kafka message: {e}")
+            with self._lock:
+                self._stats["errors"] += 1
 
+    def _process_kafka_message_dict(self, message_data: Dict[str, Any]):
+        """
+        处理Kafka消息（已解析的字典）
+
+        Args:
+            message_data: 已解析的消息数据（字典）
+        """
+        try:
             # 创建ControlCommandDTO对象
             command_dto = ControlCommandDTO(**message_data)
 
@@ -307,12 +333,8 @@ class DataWorker(threading.Thread):
             else:
                 print(f"[DataWorker:{self._node_id}] Command {command_dto.command} processing failed")
 
-        except json.JSONDecodeError as e:
-            print(f"[DataWorker:{self._node_id}] Failed to parse Kafka message as JSON: {e}")
-            with self._lock:
-                self._stats["errors"] += 1
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error processing Kafka message: {e}")
+            print(f"[DataWorker:{self._node_id}] Error processing Kafka message dict: {e}")
             with self._lock:
                 self._stats["errors"] += 1
 
@@ -321,8 +343,8 @@ class DataWorker(threading.Thread):
         def heartbeat_loop():
             while not self._stop_event.is_set():
                 try:
-                    # 通过service_hub获取Redis客户端
-                    from ginkgo import service_hub
+                    # 通过container获取Redis客户端
+                    from ginkgo.data.containers import container
 
                     # 构建心跳键
                     heartbeat_key = f"{self.HEARTBEAT_KEY_PREFIX}:{self._node_id}"
@@ -336,12 +358,12 @@ class DataWorker(threading.Thread):
                     }
 
                     # 写入Redis（带TTL）
-                    redis_client = service_hub.data.redis()
+                    redis_service = container.redis_service()
                     import json
-                    redis_client.setex(
+                    redis_service.set(
                         heartbeat_key,
-                        self.HEARTBEAT_TTL,
-                        json.dumps(heartbeat_data, ensure_ascii=False)
+                        json.dumps(heartbeat_data, ensure_ascii=False),
+                        ttl=self.HEARTBEAT_TTL
                     )
 
                     with self._lock:

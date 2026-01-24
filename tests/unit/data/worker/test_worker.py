@@ -175,7 +175,12 @@ class TestDataWorkerKafkaIntegration:
         worker._init_consumer()
 
         assert worker._consumer is not None
-        mock_consumer.subscribe.assert_called_once_with(["ginkgo.live.control.commands"])
+        # GinkgoConsumer在构造函数中处理订阅，不再需要单独调用subscribe
+        mock_consumer_class.assert_called_once_with(
+            topic="ginkgo.live.control.commands",
+            group_id="data_worker_group",
+            offset="earliest"
+        )
 
     @patch('os.environ.get')
     def test_get_kafka_bootstrap_servers_from_env(self, mock_environ_get, worker):
