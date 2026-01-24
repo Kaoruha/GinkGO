@@ -191,38 +191,57 @@ class DataWorker(threading.Thread):
         print(f"[DataWorker:{self._node_id}] Worker thread started")
 
         try:
-            # 使用阻塞式迭代器消费消息（与ExecutionNode一致）
-            for message in self._consumer.consumer:
-                # 检查停止信号
-                if self._stop_event.is_set():
-                    break
-
+            # 使用poll模式，可以定期检查stop_event（适合低频控制命令）
+            while not self._stop_event.is_set():
                 try:
-                    # 获取消息值 - GinkgoConsumer已反序列化，直接访问属性
-                    message_value = message.value
+                    # 从Kafka拉取消息，超时1秒
+                    raw_messages = self._consumer.consumer.poll(timeout_ms=1000)
 
-                    if message_value is not None:
-                        # 反序列化后的值已经是dict，直接处理
-                        if isinstance(message_value, dict):
-                            self._process_kafka_message_dict(message_value)
-                        else:
-                            print(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}")
-                            with self._lock:
-                                self._stats["errors"] += 1
+                    if not raw_messages:
+                        # 超时无消息，循环继续（此时会检查stop_event）
+                        continue
 
-                    # 手动提交offset
-                    self._consumer.commit()
+                    # 处理消息（max_poll_records=1，所以只有1条）
+                    for tp, messages in raw_messages.items():
+                        for message in messages:
+                            # 再次检查停止信号（处理多条消息时可以中断）
+                            if self._stop_event.is_set():
+                                break
 
-                    # 更新统计
-                    with self._lock:
-                        self._stats["messages_processed"] += 1
+                            try:
+                                # 获取消息值 - GinkgoConsumer已反序列化
+                                message_value = message.value
+
+                                if message_value is not None:
+                                    if isinstance(message_value, dict):
+                                        self._process_kafka_message_dict(message_value)
+                                    else:
+                                        print(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}")
+                                        with self._lock:
+                                            self._stats["errors"] += 1
+
+                                # 手动提交offset
+                                self._consumer.commit()
+
+                                # 更新统计
+                                with self._lock:
+                                    self._stats["messages_processed"] += 1
+
+                            except Exception as e:
+                                print(f"[DataWorker:{self._node_id}] Error processing message: {e}")
+                                import traceback
+                                print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+                                with self._lock:
+                                    self._stats["errors"] += 1
 
                 except Exception as e:
-                    print(f"[DataWorker:{self._node_id}] Error processing message: {e}")
+                    print(f"[DataWorker:{self._node_id}] Error in worker loop: {e}")
                     import traceback
                     print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
                     with self._lock:
                         self._stats["errors"] += 1
+                    # 出错后短暂等待再继续
+                    time.sleep(5)
 
         except KeyboardInterrupt:
             print(f"[DataWorker:{self._node_id}] Worker received keyboard interrupt")
