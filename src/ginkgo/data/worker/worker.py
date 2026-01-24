@@ -191,29 +191,24 @@ class DataWorker(threading.Thread):
         print(f"[DataWorker:{self._node_id}] Worker thread started")
 
         try:
-            while not self._stop_event.is_set():
+            # 使用阻塞式迭代器消费消息（与ExecutionNode一致）
+            for message in self._consumer.consumer:
+                # 检查停止信号
+                if self._stop_event.is_set():
+                    break
+
                 try:
-                    # 从Kafka消费消息 - GinkgoConsumer内部已经处理反序列化
-                    # 直接通过consumer属性访问底层KafkaConsumer
-                    raw_messages = self._consumer.consumer.poll(timeout_ms=1000)
+                    # 获取消息值 - GinkgoConsumer已反序列化，直接访问属性
+                    message_value = message.value
 
-                    if not raw_messages:
-                        # 超时，继续轮询
-                        continue
-
-                    # 处理poll返回的消息字典 {TopicPartition: [messages]}
-                    for tp, messages in raw_messages.items():
-                        for message in messages:
-                            # 获取消息值 - GinkgoConsumer已反序列化，直接访问属性
-                            message_value = message.value
-                            if message_value is not None:
-                                # 反序列化后的值已经是dict，直接处理
-                                if isinstance(message_value, dict):
-                                    self._process_kafka_message_dict(message_value)
-                                else:
-                                    print(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}")
-                                    with self._lock:
-                                        self._stats["errors"] += 1
+                    if message_value is not None:
+                        # 反序列化后的值已经是dict，直接处理
+                        if isinstance(message_value, dict):
+                            self._process_kafka_message_dict(message_value)
+                        else:
+                            print(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}")
+                            with self._lock:
+                                self._stats["errors"] += 1
 
                     # 手动提交offset
                     self._consumer.commit()
@@ -223,13 +218,11 @@ class DataWorker(threading.Thread):
                         self._stats["messages_processed"] += 1
 
                 except Exception as e:
-                    print(f"[DataWorker:{self._node_id}] Error in worker loop: {e}")
+                    print(f"[DataWorker:{self._node_id}] Error processing message: {e}")
                     import traceback
                     print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
                     with self._lock:
                         self._stats["errors"] += 1
-                    # 短暂等待后继续
-                    time.sleep(5)
 
         except KeyboardInterrupt:
             print(f"[DataWorker:{self._node_id}] Worker received keyboard interrupt")
