@@ -6,11 +6,11 @@ import threading
 import time
 import signal
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from ginkgo.libs.core.logger import GinkgoLogger
-from ginkgo.libs.utils.common import retry
+from ginkgo.libs.utils.common import retry, time_logger
 from ginkgo.interfaces.dtos.control_command_dto import ControlCommandDTO
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.enums import WORKER_STATUS_TYPES
@@ -28,21 +28,21 @@ class DataWorker(threading.Thread):
     """
 
     # Kafka配置
-    CONTROL_COMMANDS_TOPIC = "ginkgo.live.control.commands"
-    DEFAULT_CONSUMER_GROUP = "data_worker_group"
+    CONTROL_COMMANDS_TOPIC: str = "ginkgo.live.control.commands"
+    DEFAULT_CONSUMER_GROUP: str = "data_worker_group"
 
     # 心跳配置
-    HEARTBEAT_KEY_PREFIX = "heartbeat:data_worker"
-    HEARTBEAT_TTL = 30  # 秒
-    HEARTBEAT_INTERVAL = 10  # 秒
+    HEARTBEAT_KEY_PREFIX: str = "heartbeat:data_worker"
+    HEARTBEAT_TTL: int = 30  # 秒
+    HEARTBEAT_INTERVAL: int = 10  # 秒
 
     def __init__(
         self,
-        bar_crud,
+        bar_crud: Any,
         group_id: str = DEFAULT_CONSUMER_GROUP,
         auto_offset_reset: str = "earliest",
         node_id: Optional[str] = None
-    ):
+    ) -> None:
         """
         初始化DataWorker
 
@@ -55,25 +55,25 @@ class DataWorker(threading.Thread):
         super().__init__(daemon=False)
 
         # 依赖注入
-        self._bar_crud = bar_crud
+        self._bar_crud: Any = bar_crud
 
         # Kafka配置
-        self._group_id = group_id
-        self._auto_offset_reset = auto_offset_reset
+        self._group_id: str = group_id
+        self._auto_offset_reset: str = auto_offset_reset
 
         # 节点标识
-        self._node_id = node_id or f"data_worker_{threading.get_ident()}"
+        self._node_id: str = node_id or f"data_worker_{threading.get_ident()}"
 
         # 状态管理
-        self._status = WORKER_STATUS_TYPES.STOPPED
-        self._stop_event = threading.Event()
-        self._lock = threading.Lock()
+        self._status: WORKER_STATUS_TYPES = WORKER_STATUS_TYPES.STOPPED
+        self._stop_event: threading.Event = threading.Event()
+        self._lock: threading.Lock = threading.Lock()
 
         # Kafka消费者（延迟初始化）
-        self._consumer = None
+        self._consumer: Optional[Any] = None
 
         # 统计信息
-        self._stats = {
+        self._stats: Dict[str, Any] = {
             "messages_processed": 0,
             "bars_written": 0,
             "errors": 0,
@@ -81,7 +81,7 @@ class DataWorker(threading.Thread):
         }
 
         # 心跳线程
-        self._heartbeat_thread = None
+        self._heartbeat_thread: Optional[threading.Thread] = None
 
         # 日志
         self._logger = GinkgoLogger().get_logger()
@@ -97,6 +97,7 @@ class DataWorker(threading.Thread):
         """检查Worker是否健康（用于Docker healthcheck）"""
         return self.is_running and self._stop_event.is_set() == False
 
+    @time_logger
     def start(self) -> bool:
         """
         启动Worker
@@ -137,6 +138,7 @@ class DataWorker(threading.Thread):
                 self._status = WORKER_STATUS_TYPES.ERROR
             return False
 
+    @time_logger
     def stop(self, timeout: float = 30.0) -> bool:
         """
         停止Worker
@@ -368,6 +370,7 @@ class DataWorker(threading.Thread):
         )
         self._heartbeat_thread.start()
 
+    @time_logger(threshold=1.0)
     def _process_command(self, command: str, payload: Dict[str, Any]) -> bool:
         """
         处理控制命令
@@ -402,6 +405,7 @@ class DataWorker(threading.Thread):
                 self._stats["errors"] += 1
             return False
 
+    @time_logger(threshold=5.0)
     @retry(max_try=3)
     def _handle_bar_snapshot(self, payload: Dict[str, Any]) -> bool:
         """
