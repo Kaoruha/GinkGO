@@ -172,6 +172,7 @@ def _register_all_commands():
     _main_app.command(name="status", help=":bar_chart: System status")(core_cli.status)
     _main_app.command(name="version", help=":rabbit: Version info")(core_cli.version if hasattr(core_cli, 'version') else lambda: None)
     _main_app.command(name="serve", help=":earth_globe_americas: API server")(core_cli.serve if hasattr(core_cli, 'serve') else lambda: None)
+    _main_app.command(name="debug", help=":bug: Toggle debug mode")(core_cli.debug)
     # Configuration 已整合到 get/set config 命令中
 
     # Add standalone serve and version commands (if not available in core_cli)
