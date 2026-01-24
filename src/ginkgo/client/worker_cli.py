@@ -268,6 +268,7 @@ def stop():
 @app.command("start")
 def start_worker(
     notification: bool = typer.Option(False, "--notification", help="Start notification worker for Kafka message processing"),
+    data: bool = typer.Option(False, "--data", help="Start data worker for Kafka message processing"),
     group_id: Optional[str] = typer.Option(None, "--group-id", "-g", help="Consumer group ID"),
     auto_offset: str = typer.Option("earliest", "--auto-offset", "-a", help="Kafka auto offset reset (earliest/latest)"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Run worker in debug mode"),
@@ -277,16 +278,20 @@ def start_worker(
 
     Examples:
       ginkgo worker start --notification
+      ginkgo worker start --data
       ginkgo worker start --notification --group-id custom_group
-      ginkgo worker start --notification --auto-offset latest
+      ginkgo worker start --data --debug
     """
     try:
-        if notification:
+        if data:
+            _start_data_worker(group_id, auto_offset, debug)
+        elif notification:
             _start_notification_worker(group_id, auto_offset, debug)
         else:
-            console.print(":x: Please specify worker type (--notification)")
+            console.print(":x: Please specify worker type (--notification or --data)")
             console.print(":information: Available worker types:")
             console.print("  --notification  Start notification worker (Kafka consumer)")
+            console.print("  --data         Start data worker (Kafka consumer)")
             console.print(":information: For LiveCore, use: [cyan]ginkgo livecore start[/cyan]")
             raise typer.Exit(1)
 
@@ -421,4 +426,131 @@ def _start_notification_worker(
     except ImportError as e:
         console.print(f"[red]:x: Failed to import NotificationWorker: {e}[/red]")
         console.print(":information: Make sure the notifier module is properly installed")
+        raise typer.Exit(1)
+
+
+def _start_data_worker(
+    group_id: Optional[str],
+    auto_offset: str,
+    debug: bool
+):
+    """
+    Start data worker for Kafka message processing.
+
+    Args:
+        group_id: Consumer group ID
+        auto_offset: Kafka auto offset reset policy
+        debug: Enable debug mode
+    """
+    try:
+        from ginkgo.data.worker.worker import DataWorker
+        from ginkgo import service_hub
+        from ginkgo.enums import WORKER_STATUS_TYPES
+
+        # Get services from service_hub
+        bar_crud = service_hub.data.cruds.bar()
+
+        # Create worker
+        worker = DataWorker(
+            bar_crud=bar_crud,
+            group_id=group_id or "data_worker_group",
+            auto_offset_reset=auto_offset
+        )
+
+        # Display worker info
+        console.print(Panel.fit(
+            f"[bold cyan]:gear: Data Worker[/bold cyan]\n"
+            f"[dim]Group ID:[/dim] {worker._group_id}\n"
+            f"[dim]Topic:[/dim] ginkgo.live.control.commands\n"
+            f"[dim]Auto Offset:[/dim] {auto_offset}\n"
+            f"[dim]Debug:[/dim] {'On' if debug else 'Off'}",
+            title="[bold]Worker Configuration[/bold]",
+            border_style="cyan"
+        ))
+
+        if debug:
+            console.print("\n[yellow]:bug: Debug mode enabled - verbose logging active[/yellow]")
+
+        # Start worker
+        console.print("\n:rocket: [bold green]Starting worker...[/bold green]")
+        console.print(":information: Press Ctrl+C to stop the worker\n")
+
+        if not worker.start():
+            console.print("[red]:x: Failed to start worker[/red]")
+            raise typer.Exit(1)
+
+        # Wait for interrupt
+        try:
+            import signal
+            import time
+
+            def signal_handler(signum, frame):
+                console.print("\n\n:stop_button: [yellow]Stopping worker...[/yellow]")
+                console.print(":information: Waiting for messages to finish processing...")
+
+                worker.stop(timeout=30.0)
+
+                # Show final stats
+                stats = worker.get_stats()
+                console.print(Panel.fit(
+                    f"[bold]Final Statistics[/bold]\n"
+                    f"[cyan]Messages Processed:[/cyan] {stats.get('messages_processed', 0)}\n"
+                    f"[green]Bars Written:[/green] {stats.get('bars_written', 0)}\n"
+                    f"[red]Errors:[/red] {stats.get('errors', 0)}",
+                    title="[bold]Worker Summary[/bold]"
+                ))
+                console.print(":white_check_mark: Worker stopped successfully")
+                raise SystemExit(0)
+
+            # Register signal handlers
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+
+            # Debug mode: 显示统计信息
+            last_shown_count = 0
+            last_shown_time = time.time()
+            stats_interval = 60  # 每60秒显示一次
+            message_interval = 10  # 每处理10条消息显示一次
+
+            # Keep running until interrupted
+            while worker.is_running:
+                time.sleep(1)
+
+                # Debug mode: 周期性显示统计
+                if debug:
+                    current_time = time.time()
+                    current_count = worker.get_stats().get('messages_processed', 0)
+
+                    # 检查是否需要显示统计
+                    should_show = False
+                    reason = ""
+
+                    # 条件1: 每消费 message_interval 条消息显示一次
+                    if current_count > 0 and current_count >= last_shown_count + message_interval:
+                        should_show = True
+                        reason = f"every {message_interval} messages"
+
+                    # 条件2: 每隔 stats_interval 秒显示一次
+                    elif current_time - last_shown_time >= stats_interval:
+                        should_show = True
+                        reason = f"every {stats_interval}s"
+
+                    if should_show:
+                        stats = worker.get_stats()
+                        console.print(f"[dim]:memo: [{reason}] Processed: {stats.get('messages_processed', 0)} | "
+                                   f"Bars: {stats.get('bars_written', 0)} | "
+                                   f"Errors: {stats.get('errors', 0)}[/dim]")
+                        last_shown_count = current_count
+                        last_shown_time = current_time
+
+        except SystemExit:
+            raise
+        except Exception as e:
+            console.print(f"\n[red]:x: Worker error: {e}[/red]")
+            worker.stop(timeout=5.0)
+            raise typer.Exit(1)
+
+    except ImportError as e:
+        console.print(f"[red]:x: Failed to import DataWorker: {e}[/red]")
+        console.print(":information: Make sure the data.worker module is properly installed")
         raise typer.Exit(1)
