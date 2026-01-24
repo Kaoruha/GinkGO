@@ -155,26 +155,31 @@
   - 位置: `src/ginkgo/data/worker/worker.py`
   - 与data模块内聚，属于数据采集功能的一部分
 
-- **DataQualityReport**: 数据质量报告实体，包含采集量、成功率、异常统计
-  - 位置: `src/ginkgo/data/worker/models.py`
-
-- **WorkerStatus**: Worker状态实体，包含运行状态、最后心跳时间、任务执行统计
-  - 位置: `src/ginkgo/data/worker/models.py`
+- **WORKER_STATUS_TYPES**: Worker状态枚举，定义运行状态（STOPPED/STARTING/RUNNING/STOPPING/ERROR）
+  - 位置: `src/ginkgo/enums.py` (与项目其他枚举统一管理)
 
 **架构决策**: 采用方案2 - 各自模块的worker子目录
 ```
 src/ginkgo/
 ├── data/
 │   ├── worker/                       # 数据采集Worker (本功能)
-│   │   ├── worker.py                # DataWorker主类
-│   │   └── models.py                # WorkerStatus, DataQualityReport
+│   │   ├── __init__.py              # 导出 DataWorker
+│   │   └── worker.py                # DataWorker主类
 │   ├── crud/                         # 数据CRUD (BarCRUD等)
 │   └── services/                     # 数据服务
 ├── notifier/
 │   └── worker/                       # 通知Worker (已存在)
 │       └── worker.py                # NotificationWorker
-└── livecore/                         # 实盘交易核心 (TaskTimer等)
+├── client/
+│   └── worker_cli.py                 # 添加 --data 选项 (修改)
+├── libs/core/
+│   └── threading.py                  # GTM 集成 DataWorker (修改)
+└── enums.py                          # 添加 WORKER_STATUS_TYPES (修改)
 ```
+
+**启动方式**:
+- **前台 (调试)**: `ginkgo worker start --data --debug`
+- **后台 (容器)**: `docker-compose up data-worker`
 
 **Note**: 数据源配置已集成在现有CRUD方法中（如`BarCRUD.get_bars()`），通过GCONF管理，无需额外实体
 
