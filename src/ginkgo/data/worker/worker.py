@@ -204,14 +204,16 @@ class DataWorker(threading.Thread):
                     # 处理poll返回的消息字典 {TopicPartition: [messages]}
                     for tp, messages in raw_messages.items():
                         for message in messages:
-                            # 获取消息值 - GinkgoConsumer已经反序列化
-                            message_value = message.value()
+                            # 获取消息值 - GinkgoConsumer已反序列化，直接访问属性
+                            message_value = message.value
                             if message_value is not None:
-                                # 如果已经是dict，直接处理；否则尝试JSON解析
+                                # 反序列化后的值已经是dict，直接处理
                                 if isinstance(message_value, dict):
                                     self._process_kafka_message_dict(message_value)
                                 else:
-                                    self._process_kafka_message(message_value)
+                                    print(f"[DataWorker:{self._node_id}] Unexpected message type: {type(message_value)}")
+                                    with self._lock:
+                                        self._stats["errors"] += 1
 
                     # 手动提交offset
                     self._consumer.commit()
