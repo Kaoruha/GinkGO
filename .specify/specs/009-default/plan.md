@@ -221,8 +221,8 @@ tests/
 - `ginkgo.data.services.stockinfo_service` - 股票信息服务
 
 ### New Dependencies (需添加)
-- `ginkgo.workers.data_worker` - Data Worker模块
-- `ginkgo.client.data_worker_cli` - CLI命令
+- `ginkgo.data.worker.worker` - Data Worker模块
+- `ginkgo.client.worker_cli` - 添加 --data 选项（修改现有文件）
 
 ---
 
