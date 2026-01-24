@@ -17,7 +17,7 @@
 | **P2** | 配置热重载 | 修改配置验证热重载生效 | 5 |
 | **P3** | 数据质量监控与告警 | 模拟缺失验证告警通知 | 6 |
 
-**Total Tasks**: 50
+**Total Tasks**: 49
 
 ---
 
@@ -39,20 +39,22 @@
 
 **目标**: 实现所有User Story共享的基础组件
 
-### 2.1 DTO定义
+### 2.1 枚举定义
 
-- [ ] T006 [P] 创建DataCommandDTO在src/interfaces/dtos/data_command_dto.py (已存在ControlCommandDTO，复用)
-- [ ] T007 [P] 创建WorkerStatus枚举在src/data/worker/models.py
-- [ ] T008 [P] 创建DataQualityReport模型在src/data/worker/models.py
+- [ ] T006 [P] 复用ControlCommandDTO (已存在，在src/interfaces/dtos/control_command_dto.py)
+- [ ] T007 [P] 在src/ginkgo/enums.py添加WORKER_STATUS_TYPES枚举
 
 ### 2.2 CLI入口
 
-- [ ] T009 添加data-worker命令到src/client/data_worker_cli.py
-- [ ] T010 [P] 更新main.py添加dataworker子命令路由
+- [ ] T008 在src/ginkgo/client/worker_cli.py添加--data选项 (_start_data_worker函数)
 
 ### 2.3 容器入口点
 
-- [ ] T011 创建容器入口点src/data/worker/__init__.py (导出DataWorker主类)
+- [ ] T009 创建src/ginkgo/data/worker/__init__.py (导出DataWorker类)
+
+### 2.4 GTM集成
+
+- [ ] T010 在src/ginkgo/libs/core/threading.py添加DataWorker支持 (run_data_worker方法)
 
 ---
 
@@ -64,47 +66,47 @@
 
 ### 3.1 Worker核心类
 
-- [ ] T012 [US1] 创建DataWorker主类在src/data/worker/worker.py
-- [ ] T013 [US1] 实现threading.Thread继承和线程生命周期管理
-- [ ] T014 [US1] 实现WorkerStatus状态机 (STOPPED/STARTING/RUNNING/STOPPING/ERROR)
-- [ ] T015 [US1] 实现threading.Event优雅关闭机制
+- [ ] T011 [US1] 创建DataWorker主类在src/ginkgo/data/worker/worker.py
+- [ ] T012 [US1] 实现threading.Thread继承和线程生命周期管理
+- [ ] T013 [US1] 实现WorkerStatus状态机 (STOPPED/STARTING/RUNNING/STOPPING/ERROR)
+- [ ] T014 [US1] 实现threading.Event优雅关闭机制
 
 ### 3.2 Kafka集成
 
-- [ ] T016 [US1] 实现GinkgoConsumer订阅ginkgo.live.control.commands
-- [ ] T017 [US1] 实现Kafka消息解析和命令路由
-- [ ] T018 [US1] 实现手动offset commit (成功后commit)
-- [ ] T019 [US1] 配置consumer group为data_worker_group
+- [ ] T015 [US1] 实现GinkgoConsumer订阅ginkgo.live.control.commands
+- [ ] T016 [US1] 实现Kafka消息解析和命令路由
+- [ ] T017 [US1] 实现手动offset commit (成功后commit)
+- [ ] T018 [US1] 配置consumer group为data_worker_group
 
 ### 3.3 控制命令处理
 
-- [ ] T020 [US1] [P] 实现bar_snapshot命令处理
-- [ ] T021 [US1] [P] 实现update_selector命令处理
-- [ ] T022 [US1] [P] 实现update_data命令处理
-- [ ] T023 [US1] [P] 实现heartbeat_test命令处理
+- [ ] T019 [US1] [P] 实现bar_snapshot命令处理
+- [ ] T020 [US1] [P] 实现update_selector命令处理
+- [ ] T021 [US1] [P] 实现update_data命令处理
+- [ ] T022 [US1] [P] 实现heartbeat_test命令处理
 
 ### 3.4 数据采集
 
-- [ ] T024 [US1] 集成BarCRUD获取数据 (services.data.cruds.bar())
-- [ ] T025 [US1] 实现批量写入ClickHouse (add_batch, 目标1000+条/批)
-- [ ] T026 [US1] 实现@retry装饰器自动重试 (最多3次)
+- [ ] T023 [US1] 集成BarCRUD获取数据 (services.data.cruds.bar())
+- [ ] T024 [US1] 实现批量写入ClickHouse (add_batch, 目标1000+条/批)
+- [ ] T025 [US1] 实现@retry装饰器自动重试 (最多3次)
 
 ### 3.5 Redis心跳
 
-- [ ] T027 [US1] 实现Redis心跳上报 (heartbeat:data_worker:{node_id}, TTL=30s)
-- [ ] T028 [US1] 实现心跳线程 (10秒间隔, daemon线程)
+- [ ] T026 [US1] 实现Redis心跳上报 (heartbeat:data_worker:{node_id}, TTL=30s)
+- [ ] T027 [US1] 实现心跳线程 (10秒间隔, daemon线程)
 
 ### 3.6 日志和监控
 
-- [ ] T029 [US1] 集成GLOG记录操作和错误日志
-- [ ] T030 [US1] 实现统计信息收集 (messages_processed, bars_written等)
+- [ ] T028 [US1] 集成GLOG记录操作和错误日志
+- [ ] T029 [US1] 实现统计信息收集 (messages_processed, bars_written等)
 
 ### 3.7 容器化和测试
 
-- [ ] T031 [US1] 实现Docker healthcheck (is_healthy方法)
-- [ ] T032 [US1] [P] 编写单元测试tests/unit/data/worker/test_worker.py
-- [ ] T033 [US1] [P] 编写集成测试tests/integration/data/worker/test_kafka_integration.py
-- [ ] T034 [US1] [P] 编写容器测试验证启动和数据采集
+- [ ] T030 [US1] 实现Docker healthcheck (is_healthy方法)
+- [ ] T031 [US1] [P] 编写单元测试tests/unit/data/worker/test_worker.py
+- [ ] T032 [US1] [P] 编写集成测试tests/integration/data/worker/test_kafka_integration.py
+- [ ] T033 [US1] [P] 编写容器测试验证启动和数据采集
 
 ---
 
@@ -116,11 +118,11 @@
 
 ### Tasks
 
-- [ ] T035 [US2] [P] 实现配置文件监听 (通过Kafka reload命令触发)
-- [ ] T036 [US2] 实现GCONF配置读取和验证
-- [ ] T037 [US2] 实现配置缺失时降级到默认值
-- [ ] T038 [US2] 实现配置格式错误时的友好错误提示
-- [ ] T039 [US2] [P] 编写配置热重载测试
+- [ ] T034 [US2] [P] 实现配置文件监听 (通过Kafka reload命令触发)
+- [ ] T035 [US2] 实现GCONF配置读取和验证
+- [ ] T036 [US2] 实现配置缺失时降级到默认值
+- [ ] T037 [US2] 实现配置格式错误时的友好错误提示
+- [ ] T038 [US2] [P] 编写配置热重载测试
 
 ---
 
@@ -132,15 +134,15 @@
 
 ### 5.1 数据质量报告
 
-- [ ] T040 [US3] [P] 实现DataQualityReport生成 (采集量、成功率、异常统计)
-- [ ] T041 [US3] [P] 实现数据验证器 (检测异常数据如负价格)
-- [ ] T042 [US3] 推送质量报告到Kafka ginkgo.notifications主题
+- [ ] T039 [US3] [P] 实现DataQualityReport生成 (采集量、成功率、异常统计)
+- [ ] T040 [US3] [P] 实现数据验证器 (检测异常数据如负价格)
+- [ ] T041 [US3] 推送质量报告到Kafka ginkgo.notifications主题
 
 ### 5.2 告警机制
 
-- [ ] T043 [US3] [P] 实现数据缺失告警 (缺失率>20% ERROR, >5% WARNING)
-- [ ] T044 [US3] [P] 实现数据延迟告警 (>10分钟 ERROR, >5分钟 WARNING)
-- [ ] T045 [US3] [P] 编写数据质量监控测试
+- [ ] T042 [US3] [P] 实现数据缺失告警 (缺失率>20% ERROR, >5% WARNING)
+- [ ] T043 [US3] [P] 实现数据延迟告警 (>10分钟 ERROR, >5分钟 WARNING)
+- [ ] T044 [US3] [P] 编写数据质量监控测试
 
 ---
 
@@ -150,11 +152,11 @@
 
 ### Tasks
 
-- [ ] T046 [P] 添加三行代码头部注释 (Upstream/Downstream/Role)
-- [ ] T047 [P] 添加类型注解支持静态类型检查
-- [ ] T048 [P] 使用@time_logger装饰器监控性能
-- [ ] T049 [P] 更新quickstart.md添加完整使用文档
-- [ ] T050 端到端容器部署测试 (4实例验证负载均衡)
+- [ ] T045 [P] 添加三行代码头部注释 (Upstream/Downstream/Role)
+- [ ] T046 [P] 添加类型注解支持静态类型检查
+- [ ] T047 [P] 使用@time_logger装饰器监控性能
+- [ ] T048 [P] 更新quickstart.md添加完整使用文档
+- [ ] T049 端到端容器部署测试 (4实例验证负载均衡)
 
 ---
 
@@ -264,18 +266,7 @@ wait
 ```
 src/ginkgo/data/worker/
 ├── __init__.py
-├── worker.py              # DataWorker主类
-├── models.py               # WorkerStatus, DataQualityReport
-└── config.py               # 配置加载 (如需要)
-
-src/ginkgo/interfaces/dtos/
-└── data_command_dto.py     # Kafka控制命令DTO
-
-src/ginkgo/client/
-└── data_worker_cli.py      # CLI命令
-
-src/ginkgo/livecore/
-└── data_worker.py          # 容器入口点
+└── worker.py              # DataWorker主类
 
 .conf/
 ├── Dockerfile.dataworker
@@ -293,8 +284,10 @@ tests/
 ### 修改文件
 
 ```
-.conf/docker-compose.yml       # 添加data-worker服务
-src/main.py                     # 添加dataworker子命令路由
+src/ginkgo/enums.py                  # 添加 WORKER_STATUS_TYPES
+src/ginkgo/client/worker_cli.py      # 添加 --data 选项
+src/ginkgo/libs/core/threading.py    # GTM 集成 DataWorker
+.conf/docker-compose.yml             # 添加data-worker服务
 ```
 
 ---
@@ -308,3 +301,7 @@ src/main.py                     # 添加dataworker子命令路由
 5. **测试优先级**: 遵循TDD原则，先写测试再实现功能（FR-010）
 6. **代码注释**: 所有新文件必须包含三行头部注释（FR-039）
 7. **容器镜像**: 基于python:3.12.11-slim-bookworm，使用uv加速依赖安装
+8. **容器部署命令**:
+   - 启动服务: `docker-compose -f .conf/docker-compose.yml -p ginkgo up -d data-worker`
+   - 扩容到4实例: `docker-compose -f .conf/docker-compose.yml -p ginkgo up -d --scale data-worker=4`
+   - 查看状态: `docker-compose -f .conf/docker-compose.yml -p ginkgo ps`

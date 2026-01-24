@@ -107,41 +107,49 @@ specs/009-data-worker/
 ### Source Code (repository root)
 
 ```text
-src/ginkko/
+src/ginkgo/
 ├── data/                             # 数据模块
 │   ├── worker/                       # NEW: 数据采集Worker (方案2: 模块内聚)
-│   │   ├── __init__.py
-│   │   ├── worker.py                   # DataWorker主类 (Kafka consumer)
-│   │   └── models.py                   # WorkerStatus, DataQualityReport
-│   ├── crud/                          # BarCRUD等 (已存在)
-│   └── services/                      # 数据服务 (已存在)
+│   │   ├── __init__.py               # 导出 DataWorker
+│   │   └── worker.py                 # DataWorker主类 (Kafka consumer)
+│   ├── crud/                         # BarCRUD等 (已存在)
+│   └── services/                     # 数据服务 (已存在)
 │
 ├── notifier/
 │   └── worker/                       # EXISTING: 通知Worker (保持不变)
-│       └── worker.py
+│       └── worker.py                 # NotificationWorker
 │
 ├── interfaces/
 │   └── dtos/
-│       └── control_command_dto.py     # EXISTING: 控制命令DTO (已存在)
+│       └── control_command_dto.py    # EXISTING: 控制命令DTO (已存在)
 │
 ├── client/
-│   └── data_worker_cli.py              # NEW: CLI命令 (ginkgo data-worker ...)
+│   └── worker_cli.py                 # MODIFY: 添加 --data 选项
 │
-└── livecore/                         # 实盘交易核心 (TaskTimer等)
-      # 不添加data_worker.py - DataWorker属于data模块
+├── libs/core/
+│   └── threading.py                  # MODIFY: GTM 集成 DataWorker
+│
+└── enums.py                          # MODIFY: 添加 WORKER_STATUS_TYPES
 
 .conf/
-├── Dockerfile.dataworker               # NEW: Data Worker容器镜像
-├── data_worker.yml                     # NEW: Data Worker配置文件
-└── docker-compose.yml                  # UPDATE: 添加data-worker服务
+├── Dockerfile.dataworker             # NEW: Data Worker容器镜像
+├── data_worker.yml                   # NEW: Data Worker配置文件
+└── docker-compose.yml                # UPDATE: 添加data-worker服务
 
 tests/
-├── unit/data/worker/                   # NEW: 单元测试
-├── integration/data/worker/            # NEW: 集成测试
-└── network/data/worker/                # NEW: 网络测试 (真实数据源)
+├── unit/data/worker/                 # NEW: 单元测试
+│   └── test_worker.py
+├── integration/data/worker/          # NEW: 集成测试
+│   └── test_kafka_integration.py
+└── network/data/worker/              # NEW: 网络测试 (真实数据源)
+    └── test_data_source.py (如需要)
 ```
 
 **Structure Decision**: 采用方案2 - 各自模块的worker子目录。DataWorker归属data模块，与数据CRUD、Service等内聚，与notifier/worker模式保持一致。livecore保留给实盘交易核心组件（TaskTimer、ExecutionNode等）。
+
+**启动方式**:
+- 前台调试: `ginkgo worker start --data --debug`
+- 容器部署: `docker-compose up data-worker`
 
 ## Complexity Tracking
 
