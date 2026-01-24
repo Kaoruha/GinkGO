@@ -204,10 +204,6 @@ class DataWorker(threading.Thread):
                     # 处理消息（max_poll_records=1，所以只有1条）
                     for tp, messages in raw_messages.items():
                         for message in messages:
-                            # 再次检查停止信号（处理多条消息时可以中断）
-                            if self._stop_event.is_set():
-                                break
-
                             try:
                                 # 获取消息值 - GinkgoConsumer已反序列化
                                 message_value = message.value
@@ -220,7 +216,7 @@ class DataWorker(threading.Thread):
                                         with self._lock:
                                             self._stats["errors"] += 1
 
-                                # 手动提交offset
+                                # 手动提交offset（处理完成后立即提交）
                                 self._consumer.commit()
 
                                 # 更新统计
