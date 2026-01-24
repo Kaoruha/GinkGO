@@ -18,22 +18,13 @@ from ginkgo.enums import WORKER_STATUS_TYPES
 
 
 @pytest.fixture
-def mock_logger():
-    """Mock GinkgoLogger for tests"""
-    with patch('ginkgo.data.worker.worker.GinkgoLogger') as mock:
-        mock_logger_instance = MagicMock()
-        mock.return_value.get_logger.return_value = mock_logger_instance
-        yield mock_logger_instance
-
-
-@pytest.fixture
 def mock_bar_crud():
     """Mock BarCRUD for tests"""
     return Mock()
 
 
 @pytest.fixture
-def worker(mock_bar_crud, mock_logger):
+def worker(mock_bar_crud):
     """Create a DataWorker instance for testing"""
     return DataWorker(bar_crud=mock_bar_crud)
 
@@ -54,7 +45,7 @@ class TestDataWorkerConstruction:
         assert worker._stats["bars_written"] == 0
         assert worker._stats["errors"] == 0
 
-    def test_init_with_custom_params(self, mock_logger):
+    def test_init_with_custom_params(self):
         """TDD Red阶段：测试自定义参数初始化"""
         mock_bar_crud = Mock()
         worker = DataWorker(
