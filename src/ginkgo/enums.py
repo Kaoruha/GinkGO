@@ -556,6 +556,19 @@ class PORTFOLIO_RUNSTATE_TYPES(EnumBase):
     MIGRATING = "MIGRATING"       # 正在迁移到其他节点
 
 
+# ==================== Data Worker 状态枚举 (009-data-worker) ====================
+
+class WORKER_STATUS_TYPES(EnumBase):
+    """Worker 状态枚举（Data Worker 容器化部署）"""
+
+    VOID = -1
+    STOPPED = 0      # 已停止
+    STARTING = 1     # 启动中
+    RUNNING = 2      # 运行中
+    STOPPING = 3     # 停止中
+    ERROR = 4        # 错误状态
+
+
 # ==================== 导出所有枚举 ====================
 
 __all__ = [
@@ -597,4 +610,6 @@ __all__ = [
     "TEMPLATE_TYPES",
     # Portfolio运行时状态枚举 (Phase 5)
     "PORTFOLIO_RUNSTATE_TYPES",
+    # Data Worker 枚举 (009-data-worker)
+    "WORKER_STATUS_TYPES",
 ]

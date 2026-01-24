@@ -27,11 +27,11 @@
 
 ### Tasks
 
-- [ ] T001 创建data/worker模块目录结构
-- [ ] T002 创建tests目录结构 (unit/integration/network)
-- [ ] T003 [P] 创建Dockerfile.dataworker基于python:3.12.11-slim-bookworm
-- [ ] T004 [P] 创建data_worker.yml配置文件模板
-- [ ] T005 [P] 更新docker-compose.yml添加data-worker服务
+- [X] T001 创建data/worker模块目录结构
+- [X] T002 创建tests目录结构 (unit/integration/network)
+- [X] T003 [P] 创建Dockerfile.dataworker基于python:3.12.11-slim-bookworm
+- [X] T004 [P] 创建data_worker.yml配置文件模板
+- [X] T005 [P] 更新docker-compose.yml添加data-worker服务
 
 ---
 
@@ -41,20 +41,20 @@
 
 ### 2.1 枚举定义
 
-- [ ] T006 [P] 复用ControlCommandDTO (已存在，在src/interfaces/dtos/control_command_dto.py)
-- [ ] T007 [P] 在src/ginkgo/enums.py添加WORKER_STATUS_TYPES枚举
+- [X] T006 [P] 复用ControlCommandDTO (已存在，在src/interfaces/dtos/control_command_dto.py)
+- [X] T007 [P] 在src/ginkgo/enums.py添加WORKER_STATUS_TYPES枚举
 
 ### 2.2 CLI入口
 
-- [ ] T008 在src/ginkgo/client/worker_cli.py添加--data选项 (_start_data_worker函数)
+- [X] T008 在src/ginkgo/client/worker_cli.py添加--data选项 (_start_data_worker函数)
 
 ### 2.3 容器入口点
 
-- [ ] T009 创建src/ginkgo/data/worker/__init__.py (导出DataWorker类)
+- [X] T009 创建src/ginkgo/data/worker/__init__.py (导出DataWorker类)
 
 ### 2.4 GTM集成
 
-- [ ] T010 在src/ginkgo/libs/core/threading.py添加DataWorker支持 (run_data_worker方法)
+- [X] T010 在src/ginkgo/libs/core/threading.py添加DataWorker支持 (run_data_worker方法)
 
 ---
 
@@ -66,24 +66,24 @@
 
 ### 3.1 Worker核心类
 
-- [ ] T011 [US1] 创建DataWorker主类在src/ginkgo/data/worker/worker.py
-- [ ] T012 [US1] 实现threading.Thread继承和线程生命周期管理
-- [ ] T013 [US1] 实现WorkerStatus状态机 (STOPPED/STARTING/RUNNING/STOPPING/ERROR)
-- [ ] T014 [US1] 实现threading.Event优雅关闭机制
+- [X] T011 [US1] 创建DataWorker主类在src/ginkgo/data/worker/worker.py
+- [X] T012 [US1] 实现threading.Thread继承和线程生命周期管理
+- [X] T013 [US1] 实现WorkerStatus状态机 (STOPPED/STARTING/RUNNING/STOPPING/ERROR)
+- [X] T014 [US1] 实现threading.Event优雅关闭机制
 
 ### 3.2 Kafka集成
 
-- [ ] T015 [US1] 实现GinkgoConsumer订阅ginkgo.live.control.commands
-- [ ] T016 [US1] 实现Kafka消息解析和命令路由
-- [ ] T017 [US1] 实现手动offset commit (成功后commit)
-- [ ] T018 [US1] 配置consumer group为data_worker_group
+- [X] T015 [US1] 实现GinkgoConsumer订阅ginkgo.live.control.commands (占位)
+- [X] T016 [US1] 实现Kafka消息解析和命令路由 (占位)
+- [X] T017 [US1] 实现手动offset commit (成功后commit) (占位)
+- [X] T018 [US1] 配置consumer group为data_worker_group (占位)
 
 ### 3.3 控制命令处理
 
-- [ ] T019 [US1] [P] 实现bar_snapshot命令处理
-- [ ] T020 [US1] [P] 实现update_selector命令处理
-- [ ] T021 [US1] [P] 实现update_data命令处理
-- [ ] T022 [US1] [P] 实现heartbeat_test命令处理
+- [X] T019 [US1] [P] 实现bar_snapshot命令处理 (占位)
+- [X] T020 [US1] [P] 实现update_selector命令处理 (占位)
+- [X] T021 [US1] [P] 实现update_data命令处理 (占位)
+- [X] T022 [US1] [P] 实现heartbeat_test命令处理 (占位)
 
 ### 3.4 数据采集
 
@@ -93,13 +93,13 @@
 
 ### 3.5 Redis心跳
 
-- [ ] T026 [US1] 实现Redis心跳上报 (heartbeat:data_worker:{node_id}, TTL=30s)
-- [ ] T027 [US1] 实现心跳线程 (10秒间隔, daemon线程)
+- [X] T026 [US1] 实现Redis心跳上报 (heartbeat:data_worker:{node_id}, TTL=30s) (占位)
+- [X] T027 [US1] 实现心跳线程 (10秒间隔, daemon线程)
 
 ### 3.6 日志和监控
 
-- [ ] T028 [US1] 集成GLOG记录操作和错误日志
-- [ ] T029 [US1] 实现统计信息收集 (messages_processed, bars_written等)
+- [X] T028 [US1] 集成GLOG记录操作和错误日志
+- [X] T029 [US1] 实现统计信息收集 (messages_processed, bars_written等)
 
 ### 3.7 容器化和测试
 
