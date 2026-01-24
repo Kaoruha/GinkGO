@@ -17,7 +17,7 @@
 | **P2** | 配置热重载 | 修改配置验证热重载生效 | 5 |
 | **P3** | 数据质量监控与告警 | 模拟缺失验证告警通知 | 6 |
 
-**Total Tasks**: 26
+**Total Tasks**: 50
 
 ---
 
@@ -27,7 +27,7 @@
 
 ### Tasks
 
-- [ ] T001 创建workers/data_worker模块目录结构
+- [ ] T001 创建data/worker模块目录结构
 - [ ] T002 创建tests目录结构 (unit/integration/network)
 - [ ] T003 [P] 创建Dockerfile.dataworker基于python:3.12.11-slim-bookworm
 - [ ] T004 [P] 创建data_worker.yml配置文件模板
@@ -41,9 +41,9 @@
 
 ### 2.1 DTO定义
 
-- [ ] T006 [P] 创建DataCommandDTO在src/interfaces/dtos/data_command_dto.py
-- [ ] T007 [P] 创建WorkerStatus枚举在src/workers/data_worker/models.py
-- [ ] T008 [P] 创建DataQualityReport模型在src/workers/data_worker/models.py
+- [ ] T006 [P] 创建DataCommandDTO在src/interfaces/dtos/data_command_dto.py (已存在ControlCommandDTO，复用)
+- [ ] T007 [P] 创建WorkerStatus枚举在src/data/worker/models.py
+- [ ] T008 [P] 创建DataQualityReport模型在src/data/worker/models.py
 
 ### 2.2 CLI入口
 
@@ -52,7 +52,7 @@
 
 ### 2.3 容器入口点
 
-- [ ] T011 创建容器入口点src/livecore/data_worker.py
+- [ ] T011 创建容器入口点src/data/worker/__init__.py (导出DataWorker主类)
 
 ---
 
@@ -64,7 +64,7 @@
 
 ### 3.1 Worker核心类
 
-- [ ] T012 [US1] 创建DataWorker主类在src/workers/data_worker/worker.py
+- [ ] T012 [US1] 创建DataWorker主类在src/data/worker/worker.py
 - [ ] T013 [US1] 实现threading.Thread继承和线程生命周期管理
 - [ ] T014 [US1] 实现WorkerStatus状态机 (STOPPED/STARTING/RUNNING/STOPPING/ERROR)
 - [ ] T015 [US1] 实现threading.Event优雅关闭机制
@@ -102,8 +102,8 @@
 ### 3.7 容器化和测试
 
 - [ ] T031 [US1] 实现Docker healthcheck (is_healthy方法)
-- [ ] T032 [US1] [P] 编写单元测试tests/unit/workers/data_worker/test_worker.py
-- [ ] T033 [US1] [P] 编写集成测试tests/integration/workers/data_worker/test_kafka_integration.py
+- [ ] T032 [US1] [P] 编写单元测试tests/unit/data/worker/test_worker.py
+- [ ] T033 [US1] [P] 编写集成测试tests/integration/data/worker/test_kafka_integration.py
 - [ ] T034 [US1] [P] 编写容器测试验证启动和数据采集
 
 ---
@@ -262,7 +262,7 @@ wait
 ### 新建文件
 
 ```
-src/ginkgo/workers/data_worker/
+src/ginkgo/data/worker/
 ├── __init__.py
 ├── worker.py              # DataWorker主类
 ├── models.py               # WorkerStatus, DataQualityReport
@@ -282,11 +282,11 @@ src/ginkgo/livecore/
 └── data_worker.yml
 
 tests/
-├── unit/workers/data_worker/
+├── unit/data/worker/
 │   └── test_worker.py
-├── integration/workers/data_worker/
+├── integration/data/worker/
 │   └── test_kafka_integration.py
-└── network/workers/data_worker/
+└── network/data/worker/
     └── test_data_source.py (如需要)
 ```
 

@@ -107,25 +107,28 @@ specs/009-data-worker/
 ### Source Code (repository root)
 
 ```text
-src/ginkgo/
-├── workers/
-│   └── data_worker/                    # NEW: Data Worker模块
-│       ├── __init__.py
-│       ├── worker.py                   # DataWorker主类 (Kafka consumer)
-│       ├── config.py                   # 数据源配置加载
-│       ├── collector.py                # 数据采集器
-│       ├── validator.py                # 数据验证器
-│       └── quality.py                  # 数据质量报告
+src/ginkko/
+├── data/                             # 数据模块
+│   ├── worker/                       # NEW: 数据采集Worker (方案2: 模块内聚)
+│   │   ├── __init__.py
+│   │   ├── worker.py                   # DataWorker主类 (Kafka consumer)
+│   │   └── models.py                   # WorkerStatus, DataQualityReport
+│   ├── crud/                          # BarCRUD等 (已存在)
+│   └── services/                      # 数据服务 (已存在)
+│
+├── notifier/
+│   └── worker/                       # EXISTING: 通知Worker (保持不变)
+│       └── worker.py
 │
 ├── interfaces/
 │   └── dtos/
-│       └── data_command_dto.py         # NEW: Kafka控制命令DTO
+│       └── control_command_dto.py     # EXISTING: 控制命令DTO (已存在)
 │
 ├── client/
 │   └── data_worker_cli.py              # NEW: CLI命令 (ginkgo data-worker ...)
 │
-└── livecore/
-    └── data_worker.py                  # NEW: 容器入口点
+└── livecore/                         # 实盘交易核心 (TaskTimer等)
+      # 不添加data_worker.py - DataWorker属于data模块
 
 .conf/
 ├── Dockerfile.dataworker               # NEW: Data Worker容器镜像
@@ -133,12 +136,12 @@ src/ginkgo/
 └── docker-compose.yml                  # UPDATE: 添加data-worker服务
 
 tests/
-├── unit/workers/data_worker/           # NEW: 单元测试
-├── integration/workers/data_worker/    # NEW: 集成测试
-└── network/workers/data_worker/        # NEW: 网络测试 (真实数据源)
+├── unit/data/worker/                   # NEW: 单元测试
+├── integration/data/worker/            # NEW: 集成测试
+└── network/data/worker/                # NEW: 网络测试 (真实数据源)
 ```
 
-**Structure Decision**: 复用现有TaskTimer/NotificationWorker容器化模式，在`src/ginkgo/workers/`下新建`data_worker/`模块，保持与现有Worker一致的结构。
+**Structure Decision**: 采用方案2 - 各自模块的worker子目录。DataWorker归属data模块，与数据CRUD、Service等内聚，与notifier/worker模式保持一致。livecore保留给实盘交易核心组件（TaskTimer、ExecutionNode等）。
 
 ## Complexity Tracking
 

@@ -152,8 +152,29 @@
 ### Key Entities
 
 - **DataWorker**: 数据采集Worker主类，继承自threading.Thread，订阅Kafka消费控制命令
+  - 位置: `src/ginkgo/data/worker/worker.py`
+  - 与data模块内聚，属于数据采集功能的一部分
+
 - **DataQualityReport**: 数据质量报告实体，包含采集量、成功率、异常统计
+  - 位置: `src/ginkgo/data/worker/models.py`
+
 - **WorkerStatus**: Worker状态实体，包含运行状态、最后心跳时间、任务执行统计
+  - 位置: `src/ginkgo/data/worker/models.py`
+
+**架构决策**: 采用方案2 - 各自模块的worker子目录
+```
+src/ginkgo/
+├── data/
+│   ├── worker/                       # 数据采集Worker (本功能)
+│   │   ├── worker.py                # DataWorker主类
+│   │   └── models.py                # WorkerStatus, DataQualityReport
+│   ├── crud/                         # 数据CRUD (BarCRUD等)
+│   └── services/                     # 数据服务
+├── notifier/
+│   └── worker/                       # 通知Worker (已存在)
+│       └── worker.py                # NotificationWorker
+└── livecore/                         # 实盘交易核心 (TaskTimer等)
+```
 
 **Note**: 数据源配置已集成在现有CRUD方法中（如`BarCRUD.get_bars()`），通过GCONF管理，无需额外实体
 
