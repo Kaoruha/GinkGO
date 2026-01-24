@@ -9,7 +9,6 @@ import json
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-from ginkgo.libs.core.logger import GinkgoLogger
 from ginkgo.libs.utils.common import retry, time_logger
 from ginkgo.interfaces.dtos.control_command_dto import ControlCommandDTO
 from ginkgo.interfaces.kafka_topics import KafkaTopics
@@ -83,9 +82,6 @@ class DataWorker(threading.Thread):
         # 心跳线程
         self._heartbeat_thread: Optional[threading.Thread] = None
 
-        # 日志
-        self._logger = GinkgoLogger(logger_name="DataWorker").get_logger()
-
     @property
     def is_running(self) -> bool:
         """检查Worker是否正在运行"""
@@ -107,7 +103,7 @@ class DataWorker(threading.Thread):
         """
         with self._lock:
             if self._status != WORKER_STATUS_TYPES.STOPPED:
-                self._logger.warning(f"Worker already started or in transition, current status: {self._status}")
+                print(f"[DataWorker:{self._node_id}] Worker already started or in transition, current status: {self._status}")
                 return False
 
             self._status = WORKER_STATUS_TYPES.STARTING
@@ -129,11 +125,11 @@ class DataWorker(threading.Thread):
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.RUNNING
 
-            self._logger.info(f"DataWorker started successfully (node_id: {self._node_id})")
+            print(f"[DataWorker:{self._node_id}] DataWorker started successfully")
             return True
 
         except Exception as e:
-            self._logger.error(f"Failed to start DataWorker: {e}")
+            print(f"[DataWorker:{self._node_id}] Failed to start DataWorker: {e}")
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.ERROR
             return False
@@ -151,7 +147,7 @@ class DataWorker(threading.Thread):
         """
         with self._lock:
             if self._status != WORKER_STATUS_TYPES.RUNNING:
-                self._logger.warning(f"Worker is not running, current status: {self._status}")
+                print(f"[DataWorker:{self._node_id}] Worker is not running, current status: {self._status}")
                 return False
 
             self._status = WORKER_STATUS_TYPES.STOPPING
@@ -177,11 +173,11 @@ class DataWorker(threading.Thread):
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.STOPPED
 
-            self._logger.info(f"DataWorker stopped successfully (node_id: {self._node_id})")
+            print(f"[DataWorker:{self._node_id}] DataWorker stopped successfully")
             return True
 
         except Exception as e:
-            self._logger.error(f"Error stopping DataWorker: {e}")
+            print(f"[DataWorker:{self._node_id}] Error stopping DataWorker: {e}")
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.ERROR
             return False
@@ -192,7 +188,7 @@ class DataWorker(threading.Thread):
 
         这是threading.Thread的入口方法，由start()方法调用
         """
-        self._logger.info(f"Worker thread started (node_id: {self._node_id})")
+        print(f"[DataWorker:{self._node_id}] Worker thread started")
 
         try:
             while not self._stop_event.is_set():
@@ -206,7 +202,7 @@ class DataWorker(threading.Thread):
 
                     # 解析消息
                     if message.error():
-                        self._logger.error(f"Kafka consumer error: {message.error()}")
+                        print(f"[DataWorker:{self._node_id}] Kafka consumer error: {message.error()}")
                         with self._lock:
                             self._stats["errors"] += 1
                         continue
@@ -223,18 +219,18 @@ class DataWorker(threading.Thread):
                         self._stats["messages_processed"] += 1
 
                 except Exception as e:
-                    self._logger.error(f"Error in worker loop: {e}")
+                    print(f"[DataWorker:{self._node_id}] Error in worker loop: {e}")
                     with self._lock:
                         self._stats["errors"] += 1
                     # 短暂等待后继续
                     time.sleep(5)
 
         except KeyboardInterrupt:
-            self._logger.info("Worker received keyboard interrupt")
+            print(f"[DataWorker:{self._node_id}] Worker received keyboard interrupt")
         except Exception as e:
-            self._logger.error(f"Unexpected error in worker thread: {e}")
+            print(f"[DataWorker:{self._node_id}] Unexpected error in worker thread: {e}")
         finally:
-            self._logger.info(f"Worker thread exiting (node_id: {self._node_id})")
+            print(f"[DataWorker:{self._node_id}] Worker thread exiting")
 
     def wait_for_completion(self):
         """等待Worker完成（阻塞调用）"""
@@ -242,7 +238,7 @@ class DataWorker(threading.Thread):
             while self.is_running:
                 time.sleep(1)
         except KeyboardInterrupt:
-            self._logger.info("Interrupted, stopping worker...")
+            print(f"[DataWorker:{self._node_id}] Interrupted, stopping worker...")
             self.stop()
 
     def get_stats(self) -> Dict[str, Any]:
@@ -270,10 +266,10 @@ class DataWorker(threading.Thread):
             # 订阅控制命令主题
             self._consumer.subscribe([self.CONTROL_COMMANDS_TOPIC])
 
-            self._logger.info(f"Kafka consumer initialized: topic={self.CONTROL_COMMANDS_TOPIC}, group_id={self._group_id}")
+            print(f"[DataWorker:{self._node_id}] Kafka consumer initialized: topic={self.CONTROL_COMMANDS_TOPIC}, group_id={self._group_id}")
 
         except Exception as e:
-            self._logger.error(f"Failed to initialize Kafka consumer: {e}")
+            print(f"[DataWorker:{self._node_id}] Failed to initialize Kafka consumer: {e}")
             raise
 
     def _get_kafka_bootstrap_servers(self) -> str:
@@ -298,11 +294,7 @@ class DataWorker(threading.Thread):
             # 创建ControlCommandDTO对象
             command_dto = ControlCommandDTO(**message_data)
 
-            self._logger.info(
-                f"Received control command: {command_dto.command}, "
-                f"source: {command_dto.source}, "
-                f"params: {command_dto.params}"
-            )
+            print(f"[DataWorker:{self._node_id}] Received control command: {command_dto.command}, source: {command_dto.source}")
 
             # 处理命令
             success = self._process_command(
@@ -311,16 +303,16 @@ class DataWorker(threading.Thread):
             )
 
             if success:
-                self._logger.info(f"Command {command_dto.command} processed successfully")
+                print(f"[DataWorker:{self._node_id}] Command {command_dto.command} processed successfully")
             else:
-                self._logger.error(f"Command {command_dto.command} processing failed")
+                print(f"[DataWorker:{self._node_id}] Command {command_dto.command} processing failed")
 
         except json.JSONDecodeError as e:
-            self._logger.error(f"Failed to parse Kafka message as JSON: {e}")
+            print(f"[DataWorker:{self._node_id}] Failed to parse Kafka message as JSON: {e}")
             with self._lock:
                 self._stats["errors"] += 1
         except Exception as e:
-            self._logger.error(f"Error processing Kafka message: {e}")
+            print(f"[DataWorker:{self._node_id}] Error processing Kafka message: {e}")
             with self._lock:
                 self._stats["errors"] += 1
 
@@ -355,10 +347,10 @@ class DataWorker(threading.Thread):
                     with self._lock:
                         self._stats["last_heartbeat"] = time.time()
 
-                    self._logger.debug(f"Heartbeat sent: {heartbeat_key}")
+                    print(f"[DataWorker:{self._node_id}] Heartbeat sent: {heartbeat_key}")
 
                 except Exception as e:
-                    self._logger.error(f"Error sending heartbeat: {e}")
+                    print(f"[DataWorker:{self._node_id}] Error sending heartbeat: {e}")
 
                 # 等待下一次心跳间隔
                 self._stop_event.wait(self.HEARTBEAT_INTERVAL)
@@ -383,7 +375,7 @@ class DataWorker(threading.Thread):
             bool: 处理是否成功
         """
         try:
-            self._logger.info(f"Processing command: {command}, params: {payload}")
+            print(f"[DataWorker:{self._node_id}] Processing command: {command}")
 
             if command == "bar_snapshot":
                 return self._handle_bar_snapshot(payload)
@@ -394,13 +386,13 @@ class DataWorker(threading.Thread):
             elif command == "heartbeat_test":
                 return self._handle_heartbeat_test(payload)
             else:
-                self._logger.warning(f"Unknown command: {command}")
+                print(f"[DataWorker:{self._node_id}] Unknown command: {command}")
                 return False
 
         except Exception as e:
-            self._logger.error(f"Error processing command {command}: {e}")
+            print(f"[DataWorker:{self._node_id}] Error processing command {command}: {e}")
             import traceback
-            self._logger.error(f"Traceback: {traceback.format_exc()}")
+            print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
             with self._lock:
                 self._stats["errors"] += 1
             return False
@@ -418,7 +410,7 @@ class DataWorker(threading.Thread):
             force = payload.get("force", False)  # 是否强制覆盖
             full = payload.get("full", False)  # 是否全量同步
 
-            self._logger.info(f"Handling bar_snapshot: code={code}, force={force}, full={full}")
+            print(f"[DataWorker:{self._node_id}] Handling bar_snapshot: code={code}, force={force}, full={full}")
 
             # 使用service_hub获取bar_service
             from ginkgo import service_hub
@@ -427,29 +419,29 @@ class DataWorker(threading.Thread):
 
             if full:
                 # 全量同步：使用sync_range从上市日期开始
-                self._logger.info(f"Starting full sync for {code}")
+                print(f"[DataWorker:{self._node_id}] Starting full sync for {code}")
                 result = bar_service.sync_range(code=code, start_date=None, end_date=None)
             else:
                 # 增量同步：使用sync_smart
-                self._logger.info(f"Starting incremental sync for {code}")
+                print(f"[DataWorker:{self._node_id}] Starting incremental sync for {code}")
                 result = bar_service.sync_smart(code=code, fast_mode=not force)
 
             if result.success:
-                self._logger.info(f"Bar sync completed for {code}")
+                print(f"[DataWorker:{self._node_id}] Bar sync completed for {code}")
                 # 更新统计
                 if result.data and hasattr(result.data, 'records_processed'):
-                    self._logger.info(f"Processed {result.data.records_processed} records for {code}")
+                    print(f"[DataWorker:{self._node_id}] Processed {result.data.records_processed} records for {code}")
                     with self._lock:
                         self._stats["bars_written"] += result.data.records_processed
                 return True
             else:
-                self._logger.error(f"Bar sync failed for {code}: {result.error}")
+                print(f"[DataWorker:{self._node_id}] Bar sync failed for {code}: {result.error}")
                 return False
 
         except Exception as e:
-            self._logger.error(f"Error handling bar_snapshot: {e}")
+            print(f"[DataWorker:{self._node_id}] Error handling bar_snapshot: {e}")
             import traceback
-            self._logger.error(f"Traceback: {traceback.format_exc()}")
+            print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
             return False
 
     def _handle_update_selector(self, payload: Dict[str, Any]) -> bool:
@@ -459,7 +451,7 @@ class DataWorker(threading.Thread):
         这个命令主要被ExecutionNode使用，DataWorker只需要确认接收
         """
         try:
-            self._logger.info("Handling update_selector command (acknowledged)")
+            print(f"[DataWorker:{self._node_id}] Handling update_selector command (acknowledged)")
 
             # update_selector主要由ExecutionNode处理
             # DataWorker只需要记录接收到命令
@@ -468,7 +460,7 @@ class DataWorker(threading.Thread):
             return True
 
         except Exception as e:
-            self._logger.error(f"Error handling update_selector: {e}")
+            print(f"[DataWorker:{self._node_id}] Error handling update_selector: {e}")
             return False
 
     def _handle_update_data(self, payload: Dict[str, Any]) -> bool:
@@ -487,7 +479,7 @@ class DataWorker(threading.Thread):
         用于验证Worker正常运行，发送通知确认心跳正常
         """
         try:
-            self._logger.info("Handling heartbeat_test command")
+            print(f"[DataWorker:{self._node_id}] Handling heartbeat_test command")
 
             # 发送心跳测试通知
             # TODO: 通过notification_service发送心跳测试通知
@@ -496,5 +488,5 @@ class DataWorker(threading.Thread):
             return True
 
         except Exception as e:
-            self._logger.error(f"Error handling heartbeat_test: {e}")
+            print(f"[DataWorker:{self._node_id}] Error handling heartbeat_test: {e}")
             return False
