@@ -343,8 +343,16 @@ class DataWorker(threading.Thread):
         def heartbeat_loop():
             while not self._stop_event.is_set():
                 try:
-                    # 通过container获取Redis客户端
-                    from ginkgo.data.containers import container
+                    # 通过RedisCRUD获取原始Redis客户端
+                    from ginkgo.data.crud import RedisCRUD
+
+                    redis_crud = RedisCRUD()
+                    redis_client = redis_crud.redis
+
+                    if not redis_client:
+                        print(f"[DataWorker:{self._node_id}] Failed to get Redis client")
+                        self._stop_event.wait(self.HEARTBEAT_INTERVAL)
+                        continue
 
                     # 构建心跳键
                     heartbeat_key = f"{self.HEARTBEAT_KEY_PREFIX}:{self._node_id}"
@@ -357,13 +365,12 @@ class DataWorker(threading.Thread):
                         "stats": self._stats.copy()
                     }
 
-                    # 写入Redis（带TTL）
-                    redis_service = container.redis_service()
+                    # 写入Redis（带TTL）- 使用原始Redis客户端的setex方法
                     import json
-                    redis_service.set(
+                    redis_client.setex(
                         heartbeat_key,
-                        json.dumps(heartbeat_data, ensure_ascii=False),
-                        expire_seconds=self.HEARTBEAT_TTL
+                        self.HEARTBEAT_TTL,
+                        json.dumps(heartbeat_data, ensure_ascii=False)
                     )
 
                     with self._lock:
