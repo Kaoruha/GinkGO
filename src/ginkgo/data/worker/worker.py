@@ -5,10 +5,13 @@
 import threading
 import time
 import signal
+import json
 from typing import Optional, Dict, Any
-from enum import IntEnum
+from datetime import datetime
 
 from ginkgo.libs.core.logger import GinkgoLogger
+from ginkgo.libs.utils.common import retry
+from ginkgo.interfaces.dtos.control_command_dto import ControlCommandDTO
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from ginkgo.enums import WORKER_STATUS_TYPES
 
@@ -192,11 +195,26 @@ class DataWorker(threading.Thread):
         try:
             while not self._stop_event.is_set():
                 try:
-                    # TODO: 实现Kafka消息消费逻辑
-                    # 当前为占位实现，等待Kafka集成完成
+                    # 从Kafka消费消息
+                    message = self._consumer.poll(timeout_ms=1000)
 
-                    # 模拟消息处理（临时）
-                    time.sleep(1)
+                    if message is None:
+                        # 超时，继续轮询
+                        continue
+
+                    # 解析消息
+                    if message.error():
+                        self._logger.error(f"Kafka consumer error: {message.error()}")
+                        with self._lock:
+                            self._stats["errors"] += 1
+                        continue
+
+                    # 处理消息
+                    if message.value() is not None:
+                        self._process_kafka_message(message.value())
+
+                    # 手动提交offset
+                    self._consumer.commit()
 
                     # 更新统计
                     with self._lock:
@@ -237,22 +255,105 @@ class DataWorker(threading.Thread):
 
     def _init_consumer(self):
         """初始化Kafka消费者"""
-        # TODO: 实现Kafka消费者初始化
-        # 当前为占位实现
-        self._logger.info("Kafka consumer initialization (placeholder)")
-        pass
+        try:
+            from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer
+
+            # 创建Kafka消费者
+            self._consumer = GinkgoConsumer(
+                bootstrap_servers=self._get_kafka_bootstrap_servers(),
+                group_id=self._group_id,
+                auto_offset_reset=self._auto_offset_reset
+            )
+
+            # 订阅控制命令主题
+            self._consumer.subscribe([self.CONTROL_COMMANDS_TOPIC])
+
+            self._logger.info(f"Kafka consumer initialized: topic={self.CONTROL_COMMANDS_TOPIC}, group_id={self._group_id}")
+
+        except Exception as e:
+            self._logger.error(f"Failed to initialize Kafka consumer: {e}")
+            raise
+
+    def _get_kafka_bootstrap_servers(self) -> str:
+        """获取Kafka bootstrap servers配置"""
+        # 从环境变量或GCONF读取
+        import os
+        host = os.environ.get("GINKGO_KAFKA_HOST", "localhost")
+        port = os.environ.get("GINKGO_KAFKA_PORT", "9092")
+        return f"{host}:{port}"
+
+    def _process_kafka_message(self, message_value: bytes):
+        """
+        处理Kafka消息
+
+        Args:
+            message_value: Kafka消息值（字节序列）
+        """
+        try:
+            # 解析JSON消息
+            message_data = json.loads(message_value.decode('utf-8'))
+
+            # 创建ControlCommandDTO对象
+            command_dto = ControlCommandDTO(**message_data)
+
+            self._logger.info(
+                f"Received control command: {command_dto.command}, "
+                f"source: {command_dto.source}, "
+                f"params: {command_dto.params}"
+            )
+
+            # 处理命令
+            success = self._process_command(
+                command=command_dto.command,
+                payload=command_dto.params
+            )
+
+            if success:
+                self._logger.info(f"Command {command_dto.command} processed successfully")
+            else:
+                self._logger.error(f"Command {command_dto.command} processing failed")
+
+        except json.JSONDecodeError as e:
+            self._logger.error(f"Failed to parse Kafka message as JSON: {e}")
+            with self._lock:
+                self._stats["errors"] += 1
+        except Exception as e:
+            self._logger.error(f"Error processing Kafka message: {e}")
+            with self._lock:
+                self._stats["errors"] += 1
 
     def _start_heartbeat_thread(self):
         """启动心跳线程"""
         def heartbeat_loop():
             while not self._stop_event.is_set():
                 try:
-                    # TODO: 实现Redis心跳上报
-                    # 当前为占位实现
+                    # 通过service_hub获取Redis客户端
+                    from ginkgo import service_hub
+
+                    # 构建心跳键
+                    heartbeat_key = f"{self.HEARTBEAT_KEY_PREFIX}:{self._node_id}"
+
+                    # 心跳数据
+                    heartbeat_data = {
+                        "node_id": self._node_id,
+                        "status": str(self._status),
+                        "timestamp": datetime.now().isoformat(),
+                        "stats": self._stats.copy()
+                    }
+
+                    # 写入Redis（带TTL）
+                    redis_client = service_hub.data.redis()
+                    import json
+                    redis_client.setex(
+                        heartbeat_key,
+                        self.HEARTBEAT_TTL,
+                        json.dumps(heartbeat_data, ensure_ascii=False)
+                    )
+
                     with self._lock:
                         self._stats["last_heartbeat"] = time.time()
 
-                    self._logger.debug(f"Heartbeat sent (node_id: {self._node_id})")
+                    self._logger.debug(f"Heartbeat sent: {heartbeat_key}")
 
                 except Exception as e:
                     self._logger.error(f"Error sending heartbeat: {e}")
@@ -279,7 +380,7 @@ class DataWorker(threading.Thread):
             bool: 处理是否成功
         """
         try:
-            self._logger.info(f"Processing command: {command}")
+            self._logger.info(f"Processing command: {command}, params: {payload}")
 
             if command == "bar_snapshot":
                 return self._handle_bar_snapshot(payload)
@@ -295,30 +396,101 @@ class DataWorker(threading.Thread):
 
         except Exception as e:
             self._logger.error(f"Error processing command {command}: {e}")
+            import traceback
+            self._logger.error(f"Traceback: {traceback.format_exc()}")
             with self._lock:
                 self._stats["errors"] += 1
             return False
 
+    @retry(max_try=3)
     def _handle_bar_snapshot(self, payload: Dict[str, Any]) -> bool:
-        """处理bar_snapshot命令"""
-        # TODO: T020 实现
-        self._logger.info("Handling bar_snapshot command (placeholder)")
-        return True
+        """
+        处理bar_snapshot命令 - K线快照采集
+
+        参考GTM的process_task实现，调用bar_service进行数据同步
+        """
+        try:
+            code = payload.get("code")  # 股票代码
+            force = payload.get("force", False)  # 是否强制覆盖
+            full = payload.get("full", False)  # 是否全量同步
+
+            self._logger.info(f"Handling bar_snapshot: code={code}, force={force}, full={full}")
+
+            # 使用service_hub获取bar_service
+            from ginkgo import service_hub
+
+            bar_service = service_hub.data.services.bar()
+
+            if full:
+                # 全量同步：使用sync_range从上市日期开始
+                self._logger.info(f"Starting full sync for {code}")
+                result = bar_service.sync_range(code=code, start_date=None, end_date=None)
+            else:
+                # 增量同步：使用sync_smart
+                self._logger.info(f"Starting incremental sync for {code}")
+                result = bar_service.sync_smart(code=code, fast_mode=not force)
+
+            if result.success:
+                self._logger.info(f"Bar sync completed for {code}")
+                # 更新统计
+                if result.data and hasattr(result.data, 'records_processed'):
+                    self._logger.info(f"Processed {result.data.records_processed} records for {code}")
+                    with self._lock:
+                        self._stats["bars_written"] += result.data.records_processed
+                return True
+            else:
+                self._logger.error(f"Bar sync failed for {code}: {result.error}")
+                return False
+
+        except Exception as e:
+            self._logger.error(f"Error handling bar_snapshot: {e}")
+            import traceback
+            self._logger.error(f"Traceback: {traceback.format_exc()}")
+            return False
 
     def _handle_update_selector(self, payload: Dict[str, Any]) -> bool:
-        """处理update_selector命令"""
-        # TODO: T021 实现
-        self._logger.info("Handling update_selector command (placeholder)")
-        return True
+        """
+        处理update_selector命令 - 更新选股器
+
+        这个命令主要被ExecutionNode使用，DataWorker只需要确认接收
+        """
+        try:
+            self._logger.info("Handling update_selector command (acknowledged)")
+
+            # update_selector主要由ExecutionNode处理
+            # DataWorker只需要记录接收到命令
+            # TODO: 如果需要在数据更新后通知Selector更新，可以在这里实现
+
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Error handling update_selector: {e}")
+            return False
 
     def _handle_update_data(self, payload: Dict[str, Any]) -> bool:
-        """处理update_data命令"""
-        # TODO: T022 实现
-        self._logger.info("Handling update_data command (placeholder)")
-        return True
+        """
+        处理update_data命令 - 更新数据
+
+        这是bar_snapshot的别名，使用相同的逻辑
+        """
+        # update_data本质上是bar_snapshot
+        return self._handle_bar_snapshot(payload)
 
     def _handle_heartbeat_test(self, payload: Dict[str, Any]) -> bool:
-        """处理heartbeat_test命令"""
-        # TODO: T023 实现
-        self._logger.info("Handling heartbeat_test command (placeholder)")
-        return True
+        """
+        处理heartbeat_test命令 - 心跳测试
+
+        用于验证Worker正常运行，发送通知确认心跳正常
+        """
+        try:
+            self._logger.info("Handling heartbeat_test command")
+
+            # 发送心跳测试通知
+            # TODO: 通过notification_service发送心跳测试通知
+            # 当前为占位实现
+
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Error handling heartbeat_test: {e}")
+            return False
