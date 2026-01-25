@@ -540,6 +540,12 @@ class DataWorker(threading.Thread):
 
             if command == "bar_snapshot":
                 return self._handle_bar_snapshot(payload)
+            elif command == "stockinfo":
+                return self._handle_stockinfo(payload)
+            elif command == "adjustfactor":
+                return self._handle_adjustfactor(payload)
+            elif command == "tick":
+                return self._handle_tick(payload)
             elif command == "update_selector":
                 return self._handle_update_selector(payload)
             elif command == "update_data":
@@ -655,4 +661,117 @@ class DataWorker(threading.Thread):
 
         except Exception as e:
             print(f"[DataWorker:{self._node_id}] Error handling heartbeat_test: {e}")
+            return False
+
+    def _handle_stockinfo(self, payload: Dict[str, Any]) -> bool:
+        """
+        处理stockinfo命令 - 股票信息更新
+
+        参考GTM的process_task实现
+        """
+        try:
+            code = payload.get("code")  # 可选，有code则更新指定股票，无code则更新所有
+            print(f"[DataWorker:{self._node_id}] Handling stockinfo: code={code}")
+
+            from ginkgo.data.containers import container
+            stockinfo_service = container.stockinfo_service()
+
+            if code:
+                # 更新指定股票信息
+                result = stockinfo_service.sync(code)
+            else:
+                # 更新所有股票信息
+                result = stockinfo_service.sync_all()
+
+            if result.success:
+                print(f"[DataWorker:{self._node_id}] Stockinfo sync completed")
+            else:
+                print(f"[DataWorker:{self._node_id}] Stockinfo sync failed: {result.error}")
+
+            return result.success
+
+        except Exception as e:
+            print(f"[DataWorker:{self._node_id}] Error handling stockinfo: {e}")
+            import traceback
+            print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+            return False
+
+    def _handle_adjustfactor(self, payload: Dict[str, Any]) -> bool:
+        """
+        处理adjustfactor命令 - 复权因子更新
+
+        参考GTM的process_task实现
+        """
+        try:
+            code = payload.get("code")  # 股票代码（必需）
+            if not code:
+                print(f"[DataWorker:{self._node_id}] Adjustfactor requires code parameter")
+                return False
+
+            print(f"[DataWorker:{self._node_id}] Handling adjustfactor: code={code}")
+
+            from ginkgo.data.containers import container
+            adjustfactor_service = container.adjustfactor_service()
+
+            # 同步复权因子
+            result = adjustfactor_service.sync(code)
+
+            if result.success:
+                print(f"[DataWorker:{self._node_id}] Adjustfactor sync completed for {code}")
+                # 同步完成后计算复权因子
+                calc_result = adjustfactor_service.calculate(code)
+                if calc_result.success:
+                    print(f"[DataWorker:{self._node_id}] Adjustment factor calculation completed for {code}")
+            else:
+                print(f"[DataWorker:{self._node_id}] Adjustfactor sync failed for {code}: {result.error}")
+
+            return result.success
+
+        except Exception as e:
+            print(f"[DataWorker:{self._node_id}] Error handling adjustfactor: {e}")
+            import traceback
+            print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
+            return False
+
+    def _handle_tick(self, payload: Dict[str, Any]) -> bool:
+        """
+        处理tick命令 - Tick数据更新
+
+        参考GTM的process_task实现
+        """
+        try:
+            code = payload.get("code")  # 股票代码（必需）
+            full = payload.get("full", False)  # 是否全量回填
+
+            if not code:
+                print(f"[DataWorker:{self._node_id}] Tick requires code parameter")
+                return False
+
+            print(f"[DataWorker:{self._node_id}] Handling tick: code={code}, full={full}")
+
+            from ginkgo.data.containers import container
+            tick_service = container.tick_service()
+
+            if full:
+                # 全量回填
+                print(f"[DataWorker:{self._node_id}] Starting tick backfill for {code}")
+                result = tick_service.sync_backfill_by_date(code=code, force_overwrite=True)
+            else:
+                # 增量更新
+                print(f"[DataWorker:{self._node_id}] Starting tick incremental update for {code}")
+                # TODO: 实现增量tick更新，当前GTM没有fetch_and_update_tick的service方法
+                print(f"[DataWorker:{self._node_id}] Tick incremental update not implemented, skipping")
+                return True
+
+            if result.success:
+                print(f"[DataWorker:{self._node_id}] Tick sync completed for {code}")
+            else:
+                print(f"[DataWorker:{self._node_id}] Tick sync failed for {code}: {result.error}")
+
+            return result.success
+
+        except Exception as e:
+            print(f"[DataWorker:{self._node_id}] Error handling tick: {e}")
+            import traceback
+            print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
             return False
