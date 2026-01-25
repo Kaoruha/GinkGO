@@ -733,25 +733,37 @@ class DataWorker(threading.Thread):
         """
         处理tick命令 - Tick数据更新
 
-        参考GTM的process_task实现
+        参数说明:
+            - code: 股票代码（必需）
+            - full: 是否全量回填，默认 False
+            - overwrite: 是否强制覆盖已有数据，默认 False
+
+        组合说明:
+            - full=False, overwrite=False: 日常增量更新（sync_smart，推荐）
+            - full=True, overwrite=False: 全量补全缺失数据
+            - full=True, overwrite=True: 数据修复（全量覆盖）
         """
         try:
             code = payload.get("code")  # 股票代码（必需）
             full = payload.get("full", False)  # 是否全量回填
+            overwrite = payload.get("overwrite", False)  # 是否强制覆盖
 
             if not code:
                 print(f"[DataWorker:{self._node_id}] Tick requires code parameter")
                 return False
 
-            print(f"[DataWorker:{self._node_id}] Handling tick: code={code}, full={full}")
+            print(f"[DataWorker:{self._node_id}] Handling tick: code={code}, full={full}, overwrite={overwrite}")
 
             from ginkgo.data.containers import container
             tick_service = container.tick_service()
 
             if full:
                 # 全量回填
-                print(f"[DataWorker:{self._node_id}] Starting tick backfill for {code}")
-                result = tick_service.sync_backfill_by_date(code=code, force_overwrite=True)
+                if overwrite:
+                    print(f"[DataWorker:{self._node_id}] Starting tick data repair (full + overwrite) for {code}")
+                else:
+                    print(f"[DataWorker:{self._node_id}] Starting tick backfill (full, skip existing) for {code}")
+                result = tick_service.sync_backfill_by_date(code=code, force_overwrite=overwrite)
             else:
                 # 增量更新 (使用 sync_smart)
                 print(f"[DataWorker:{self._node_id}] Starting tick incremental update for {code}")

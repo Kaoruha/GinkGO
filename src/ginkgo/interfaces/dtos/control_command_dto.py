@@ -13,6 +13,26 @@ class ControlCommandDTO(BaseModel):
 
     TaskTimer发送控制命令到Kafka，
     DataManager和ExecutionNode接收并执行对应操作。
+
+    命令参数说明 (params):
+        - BAR_SNAPSHOT:
+            - code: 股票代码（必需）
+            - full: 是否全量同步，默认 False
+        - TICK:
+            - code: 股票代码（必需）
+            - full: 是否全量回填（回溯到上市日），默认 False
+              - False: 增量更新（sync_smart，只同步最近7天缺失数据）
+              - True: 全量回填（从上市日开始逐日检查）
+            - overwrite: 是否强制覆盖已有数据，默认 False
+              - False: 跳过已有数据，只获取缺失数据
+              - True: 删除已有数据后重新获取（数据修复场景）
+            - 组合说明:
+              - full=False, overwrite=False: 日常增量更新（推荐）
+              - full=True, overwrite=False: 全量补全缺失数据
+              - full=True, overwrite=True: 数据修复（全量覆盖）
+        - STOCKINFO: 无参数（同步所有股票）
+        - ADJUSTFACTOR:
+            - code: 股票代码（必需）
     """
 
     # 命令标识
