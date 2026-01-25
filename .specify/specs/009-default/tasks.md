@@ -14,10 +14,9 @@
 | Priority | Story | Independent Test | Tasks Count |
 |----------|-------|-------------------|-------------|
 | **P1** | 数据采集Worker容器化部署 | 启动容器验证数据采集和Redis心跳 | 15 |
-| **P2** | 配置热重载 | 修改配置验证热重载生效 | 5 |
-| **P3** | 数据质量监控与告警 | 模拟缺失验证告警通知 | 6 |
+| **P2** | 数据质量监控与告警 | 模拟缺失验证告警通知 | 6 |
 
-**Total Tasks**: 49
+**Total Tasks**: 44 (Phase 4配置热重载已移除，无实际需求)
 
 ---
 
@@ -110,53 +109,37 @@
 
 ---
 
-## Phase 4: User Story 2 - 配置热重载 (P2)
-
-**目标**: 支持配置热重载，无需重启容器
-
-**独立测试**: 修改配置文件后验证Worker能够热重载配置
-
-### Tasks
-
-- [ ] T034 [US2] [P] 实现配置文件监听 (通过Kafka reload命令触发)
-- [ ] T035 [US2] 实现GCONF配置读取和验证
-- [ ] T036 [US2] 实现配置缺失时降级到默认值
-- [ ] T037 [US2] 实现配置格式错误时的友好错误提示
-- [ ] T038 [US2] [P] 编写配置热重载测试
-
----
-
-## Phase 5: User Story 3 - 数据质量监控与告警 (P3)
+## Phase 4: User Story 2 - 数据质量监控与告警 (P2)
 
 **目标**: 监控数据采集质量，发送告警通知
 
 **独立测试**: 模拟数据缺失验证告警通知发送
 
-### 5.1 数据质量报告
+### 4.1 数据质量报告
 
-- [ ] T039 [US3] [P] 实现DataQualityReport生成 (采集量、成功率、异常统计)
-- [ ] T040 [US3] [P] 实现数据验证器 (检测异常数据如负价格)
-- [ ] T041 [US3] 推送质量报告到Kafka ginkgo.notifications主题
+- [ ] T034 [US2] [P] 实现DataQualityReport生成 (采集量、成功率、异常统计)
+- [ ] T035 [US2] [P] 实现数据验证器 (检测异常数据如负价格)
+- [ ] T036 [US2] 推送质量报告到Kafka ginkgo.notifications主题
 
-### 5.2 告警机制
+### 4.2 告警机制
 
-- [ ] T042 [US3] [P] 实现数据缺失告警 (缺失率>20% ERROR, >5% WARNING)
-- [ ] T043 [US3] [P] 实现数据延迟告警 (>10分钟 ERROR, >5分钟 WARNING)
-- [ ] T044 [US3] [P] 编写数据质量监控测试
+- [ ] T037 [US2] [P] 实现数据缺失告警 (缺失率>20% ERROR, >5% WARNING)
+- [ ] T038 [US2] [P] 实现数据延迟告警 (>10分钟 ERROR, >5分钟 WARNING)
+- [ ] T039 [US2] [P] 编写数据质量监控测试
 
 ---
 
-## Phase 6: Polish & Cross-Cutting Concerns
+## Phase 5: Polish & Cross-Cutting Concerns
 
 **目标**: 代码质量、文档、部署验证
 
 ### Tasks
 
-- [X] T045 [P] 添加三行代码头部注释 (Upstream/Downstream/Role)
-- [X] T046 [P] 添加类型注解支持静态类型检查
-- [X] T047 [P] 使用@time_logger装饰器监控性能
-- [X] T048 [P] 更新quickstart.md添加完整使用文档
-- [ ] T049 端到端容器部署测试 (4实例验证负载均衡)
+- [X] T040 [P] 添加三行代码头部注释 (Upstream/Downstream/Role)
+- [X] T041 [P] 添加类型注解支持静态类型检查
+- [X] T042 [P] 使用@time_logger装饰器监控性能
+- [X] T043 [P] 更新quickstart.md添加完整使用文档
+- [ ] T044 端到端容器部署测试 (4实例验证负载均衡)
 
 ---
 
@@ -168,16 +151,14 @@
 graph TD
     Setup[Phase 1: Setup] --> Foundational[Phase 2: Foundational]
     Foundational --> US1[Phase 3: US1 - 核心数据采集]
-    US1 --> US2[Phase 4: US2 - 配置热重载]
-    US1 --> US3[Phase 5: US3 - 数据质量监控]
-    US2 --> Polish[Phase 6: Polish]
-    US3 --> Polish
+    US1 --> US2[Phase 4: US2 - 数据质量监控]
+    US2 --> Polish[Phase 5: Polish]
 ```
 
 ### Critical Path
 
 1. **Setup** → **Foundational** → **US1** → **Polish** (MVP)
-2. **US2** 和 **US3** 可以在US1完成后并行开发
+2. **US2** 可以在US1完成后并行开发（可选功能）
 
 ---
 
@@ -238,8 +219,7 @@ wait
 - Phase 3: US1核心功能 (Worker类、Kafka集成、bar_snapshot命令、Redis心跳、基础日志)
 
 **不包含**:
-- US2: 配置热重载
-- US3: 数据质量监控
+- US2: 数据质量监控
 - 完整测试覆盖 (仅基础验证)
 
 **成功标准**:
@@ -253,9 +233,8 @@ wait
 | 迭代 | 新增功能 | 交付时间 |
 |------|---------|---------|
 | MVP | 核心数据采集 | 第1周 |
-| +US2 | 配置热重载 | 第2周 |
-| +US3 | 数据质量监控 | 第3周 |
-| Polish | 完整测试和文档 | 第4周 |
+| +US2 | 数据质量监控 | 第2周 |
+| Polish | 完整测试和文档 | 第3周 |
 
 ---
 
