@@ -9,14 +9,19 @@
 
 本功能将GTM多进程数据采集Worker重构为容器化微服务。Data Worker作为Kafka消费者订阅控制命令，通过现有CRUD方法获取数据并批量写入ClickHouse，支持Docker Compose部署和水平扩展。
 
+**✅ 核心功能已完成** - DataWorker 支持 4 个核心数据采集命令：
+- bar_snapshot: K线数据采集
+- stockinfo: 股票基础信息同步
+- adjustfactor: 复权因子同步
+- tick: Tick数据同步
+
 ## User Stories
 
 | Priority | Story | Independent Test | Tasks Count |
 |----------|-------|-------------------|-------------|
 | **P1** | 数据采集Worker容器化部署 | 启动容器验证数据采集和Redis心跳 | 15 |
-| **P2** | 数据质量监控与告警 | 模拟缺失验证告警通知 | 6 |
 
-**Total Tasks**: 44 (Phase 4配置热重载已移除，无实际需求)
+**Total Tasks**: 15 (Phase 1-3 核心功能已完成，Phase 4 数据质量监控已移除)
 
 ---
 
@@ -79,10 +84,10 @@
 
 ### 3.3 控制命令处理
 
-- [X] T019 [US1] [P] 实现bar_snapshot命令处理 (占位)
-- [X] T020 [US1] [P] 实现update_selector命令处理 (占位)
-- [X] T021 [US1] [P] 实现update_data命令处理 (占位)
-- [X] T022 [US1] [P] 实现heartbeat_test命令处理 (占位)
+- [X] T019 [US1] 实现bar_snapshot命令处理 (支持增量/全量同步)
+- [X] T020 [US1] 实现stockinfo命令处理 (同步所有股票信息)
+- [X] T021 [US1] 实现adjustfactor命令处理 (同步并计算复权因子)
+- [X] T022 [US1] 实现tick命令处理 (支持增量/全量/覆盖模式)
 
 ### 3.4 数据采集
 
@@ -109,27 +114,7 @@
 
 ---
 
-## Phase 4: User Story 2 - 数据质量监控与告警 (P2)
-
-**目标**: 监控数据采集质量，发送告警通知
-
-**独立测试**: 模拟数据缺失验证告警通知发送
-
-### 4.1 数据质量报告
-
-- [ ] T034 [US2] [P] 实现DataQualityReport生成 (采集量、成功率、异常统计)
-- [ ] T035 [US2] [P] 实现数据验证器 (检测异常数据如负价格)
-- [ ] T036 [US2] 推送质量报告到Kafka ginkgo.notifications主题
-
-### 4.2 告警机制
-
-- [ ] T037 [US2] [P] 实现数据缺失告警 (缺失率>20% ERROR, >5% WARNING)
-- [ ] T038 [US2] [P] 实现数据延迟告警 (>10分钟 ERROR, >5分钟 WARNING)
-- [ ] T039 [US2] [P] 编写数据质量监控测试
-
----
-
-## Phase 5: Polish & Cross-Cutting Concerns
+## Phase 4: Polish & Cross-Cutting Concerns
 
 **目标**: 代码质量、文档、部署验证
 
@@ -139,7 +124,8 @@
 - [X] T041 [P] 添加类型注解支持静态类型检查
 - [X] T042 [P] 使用@time_logger装饰器监控性能
 - [X] T043 [P] 更新quickstart.md添加完整使用文档
-- [ ] T044 端到端容器部署测试 (4实例验证负载均衡)
+- [X] T044 [P] DTO消息队列规范 - 所有Kafka消息使用DTO包装
+- [X] T045 [P] 完成核心命令测试 (bar_snapshot/stockinfo/adjustfactor/tick)
 
 ---
 
@@ -284,3 +270,15 @@ src/ginkgo/libs/core/threading.py    # GTM 集成 DataWorker
    - 启动服务: `docker-compose -f .conf/docker-compose.yml -p ginkgo up -d data-worker`
    - 扩容到4实例: `docker-compose -f .conf/docker-compose.yml -p ginkgo up -d --scale data-worker=4`
    - 查看状态: `docker-compose -f .conf/docker-compose.yml -p ginkgo ps`
+
+9. **DataWorker 支持的核心命令**:
+   - `bar_snapshot`: K线数据采集 (支持 code/force/full 参数)
+   - `stockinfo`: 股票基础信息同步 (无参数，同步所有股票)
+   - `adjustfactor`: 复权因子同步 (需要 code 参数)
+   - `tick`: Tick数据采集 (支持 code/full/overwrite 参数)
+
+10. **DTO 消息队列规范**: 遵循章程原则10，所有Kafka消息使用DTO包装
+    - 发送端: `dto.model_dump_json()` 序列化
+    - 接收端: `ControlCommandDTO(**data)` 反序列化
+    - 使用命令常量: `ControlCommandDTO.Commands.BAR_SNAPSHOT`
+    - 使用类型判断方法: `dto.is_bar_snapshot()`

@@ -241,5 +241,6 @@ tests/
 ### 兼容性考虑
 
 - 保持Kafka topic `ginkgo.live.control.commands` 兼容
-- 保持控制命令格式兼容 (bar_snapshot, update_selector, update_data, heartbeat_test)
-- Redis心跳键格式统一为 `heartbeat:{service_type}:{instance_id}`
+- DataWorker 只处理数据采集命令：bar_snapshot, stockinfo, adjustfactor, tick
+- 其他命令（update_selector, update_data, heartbeat_test）由相应组件处理
+- Redis心跳键格式统一为 `heartbeat:data_worker:{instance_id}`
