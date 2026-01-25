@@ -1,21 +1,19 @@
 <!--
 Sync Impact Report:
-Version change: 1.5.1 → 1.6.0
+Version change: 1.6.0 → 1.7.0
 Modified principles:
-- 架构设计原则(Architecture Excellence) - 强化服务获取规范，强制要求所有Service必须从Container获取
-Added sections: N/A
+- 架构设计原则(Architecture Excellence) - 新增DTO消息队列规范，强制要求所有Kafka消息使用DTO包装和解析
+Added sections:
+- 原则10: DTO消息队列原则(DTO Message Pattern)
 Removed sections: N/A
 Files Updated for Consistency:
-✅ updated: .specify/specs/006-notification-system/spec.md - 已包含服务容器相关需求
-✅ updated: .specify/specs/003-default/spec.md - 已包含服务容器架构需求
-⚠ pending: .specify/templates/plan-template.md - 需要添加服务容器检查项
-⚠ pending: .specify/templates/spec-template.md - 需要添加服务获取规范
-⚠ pending: start_notification_worker.py - 需要修改为从Container获取Service
-⚠ pending: tests/integration/notifier/test_worker_integration.py - 需要修改测试代码使用Container
+✅ updated: .specify/templates/plan-template.md - 已添加DTO消息队列检查项
+⚠ pending: .specify/templates/spec-template.md - 需要添加DTO规范说明
+⚠ pending: .specify/templates/tasks-template.md - 需要添加DTO相关任务类型
 Follow-up TODOs:
-- 更新所有直接实例化Service的代码改为从Container获取
-- 在代码审查中添加服务获取规范检查
-- 建立服务容器使用最佳实践文档
+- 检查现有代码中直接发送字典的Kafka消息，改为使用DTO
+- 建立DTO使用最佳实践文档
+- 在代码审查中添加DTO使用规范检查
 -->
 
 # Ginkgo 项目章程
@@ -23,9 +21,9 @@ Follow-up TODOs:
 ## 基本信息
 
 - **项目名称**: Ginkgo
-- **章程版本**: 1.6.0
+- **章程版本**: 1.7.0
 - **制定日期**: 2025-11-03
-- **最后修订**: 2026-01-01
+- **最后修订**: 2026-01-26
 - **项目描述**: Python量化交易库，专注于事件驱动回测、多数据库支持和完整的风险管理系统
 
 ## 核心原则
@@ -239,6 +237,110 @@ user_service = services.users.user_service
 - **外部集成**: 第三方API、数据库连接、文件系统操作
 - **CLI命令**: 命令行工具的参数解析和执行
 
+### 10. DTO消息队列原则 (DTO Message Pattern)
+
+**DTO强制使用**: 所有消息队列（Kafka、RabbitMQ等）的消息发送和解析必须使用DTO（Data Transfer Object）包装，禁止直接发送字典或裸JSON字符串。
+
+**具体要求**:
+- **发送端规范**: 发送消息前必须创建对应的DTO对象，通过DTO的序列化方法（如`model_dump_json()`）转换为JSON字符串
+- **接收端规范**: 接收消息后必须将JSON字符串解析为字典，然后通过DTO构造函数（如`ControlCommandDTO(**data)`）反序列化为DTO对象
+- **类型安全**: DTO必须使用Pydantic BaseModel实现，确保字段类型验证和自动转换
+- **常量管理**: DTO内部必须定义命令/事件类型的常量类（如`Commands`、`EventTypes`），禁止硬编码字符串
+- **便利方法**: DTO必须提供类型判断方法（如`is_bar_snapshot()`、`is_stockinfo()`），简化接收端的类型检查逻辑
+- **版本兼容**: DTO必须支持字段可选性（Optional）和默认值，确保向后兼容性
+
+**禁止模式**:
+```python
+# ❌ 错误：直接发送字典
+producer.send("topic", {
+    "command": "stockinfo",
+    "params": {},
+    "source": "manual_test"
+})
+
+# ❌ 错误：直接构造JSON字符串
+json_str = json.dumps({"command": "bar_snapshot", "params": {"code": "000001.SZ"}})
+producer.send("topic", json_str)
+
+# ❌ 错误：接收端直接使用字典
+def handle_message(message_data):
+    if message_data["command"] == "bar_snapshot":  # 硬编码字符串
+        code = message_data["params"]["code"]
+```
+
+**正确模式**:
+```python
+# ✅ 正确：发送端使用DTO
+from ginkgo.interfaces.dtos import ControlCommandDTO
+
+dto = ControlCommandDTO(
+    command=ControlCommandDTO.Commands.STOCKINFO,
+    params={},
+    source="task_timer"
+)
+producer.send("ginkgo.live.control.commands", dto.model_dump_json())
+
+# ✅ 正确：接收端使用DTO
+from ginkgo.interfaces.dtos import ControlCommandDTO
+
+def handle_message(message_data):
+    dto = ControlCommandDTO(**message_data)
+
+    if dto.is_stockinfo():  # 使用类型判断方法
+        code = dto.get_param("code")
+    elif dto.is_bar_snapshot():
+        code = dto.get_param("code")
+        force = dto.get_param("force", False)
+```
+
+**DTO设计模板**:
+```python
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any
+from datetime import datetime
+
+class ControlCommandDTO(BaseModel):
+    """控制命令数据传输对象"""
+
+    # 命令标识
+    command: str = Field(..., description="命令类型")
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+    # 命令参数
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+    # 来源标识
+    source: Optional[str] = Field(default="unknown")
+    correlation_id: Optional[str] = Field(None)
+
+    # 命令常量
+    class Commands:
+        BAR_SNAPSHOT = "bar_snapshot"
+        STOCKINFO = "stockinfo"
+        ADJUSTFACTOR = "adjustfactor"
+        # ... 更多命令类型
+
+    # 类型判断方法
+    def is_bar_snapshot(self) -> bool:
+        return self.command == self.Commands.BAR_SNAPSHOT
+
+    def is_stockinfo(self) -> bool:
+        return self.command == self.Commands.STOCKINFO
+
+    # 参数获取方法
+    def get_param(self, key: str, default: Any = None) -> Any:
+        return self.params.get(key, default)
+```
+
+**理由**: 使用DTO能够确保消息的类型安全、版本兼容性和代码可维护性。直接发送字典会导致：
+1. **类型不安全**: 无法自动验证字段类型，容易产生运行时错误
+2. **硬编码字符串**: 命令/事件类型分散在代码各处，难以维护和重构
+3. **版本兼容困难**: 新增字段时容易破坏现有接收端
+4. **文档缺失**: 无法通过代码直接了解消息结构
+5. **测试困难**: Mock消息时需要手动构造字典，容易出错
+
+DTO模式是微服务架构中消息传递的最佳实践，广泛应用于分布式系统。
+
 ## 治理结构
 
 ### 章程修订流程
@@ -269,6 +371,7 @@ user_service = services.users.user_service
 - 测试覆盖率必须达到设定的最低标准
 - 配置完整性检查必须验证配置文件包含必要配置项
 - 服务获取规范检查必须验证所有Service从Container获取
+- DTO使用规范检查必须验证所有Kafka消息使用DTO包装
 
 ### 问责机制
 
