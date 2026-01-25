@@ -753,11 +753,9 @@ class DataWorker(threading.Thread):
                 print(f"[DataWorker:{self._node_id}] Starting tick backfill for {code}")
                 result = tick_service.sync_backfill_by_date(code=code, force_overwrite=True)
             else:
-                # 增量更新
+                # 增量更新 (使用 sync_smart)
                 print(f"[DataWorker:{self._node_id}] Starting tick incremental update for {code}")
-                # TODO: 实现增量tick更新，当前GTM没有fetch_and_update_tick的service方法
-                print(f"[DataWorker:{self._node_id}] Tick incremental update not implemented, skipping")
-                return True
+                result = tick_service.sync_smart(code=code, fast_mode=True)
 
             if result.success:
                 print(f"[DataWorker:{self._node_id}] Tick sync completed for {code}")
