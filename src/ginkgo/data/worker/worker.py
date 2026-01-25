@@ -546,12 +546,10 @@ class DataWorker(threading.Thread):
                 return self._handle_adjustfactor(payload)
             elif command == "tick":
                 return self._handle_tick(payload)
-            elif command == "update_selector":
-                return self._handle_update_selector(payload)
-            elif command == "update_data":
-                return self._handle_update_data(payload)
-            elif command == "heartbeat_test":
-                return self._handle_heartbeat_test(payload)
+            elif command in ("update_selector", "update_data", "heartbeat_test"):
+                # 这些命令不由 DataWorker 处理，忽略
+                print(f"[DataWorker:{self._node_id}] Command '{command}' not handled by DataWorker, ignoring")
+                return True
             else:
                 print(f"[DataWorker:{self._node_id}] Unknown command: {command}")
                 return False
@@ -614,53 +612,6 @@ class DataWorker(threading.Thread):
             print(f"[DataWorker:{self._node_id}] Error handling bar_snapshot: {e}")
             import traceback
             print(f"[DataWorker:{self._node_id}] Traceback: {traceback.format_exc()}")
-            return False
-
-    def _handle_update_selector(self, payload: Dict[str, Any]) -> bool:
-        """
-        处理update_selector命令 - 更新选股器
-
-        这个命令主要被ExecutionNode使用，DataWorker只需要确认接收
-        """
-        try:
-            print(f"[DataWorker:{self._node_id}] Handling update_selector command (acknowledged)")
-
-            # update_selector主要由ExecutionNode处理
-            # DataWorker只需要记录接收到命令
-            # TODO: 如果需要在数据更新后通知Selector更新，可以在这里实现
-
-            return True
-
-        except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error handling update_selector: {e}")
-            return False
-
-    def _handle_update_data(self, payload: Dict[str, Any]) -> bool:
-        """
-        处理update_data命令 - 更新数据
-
-        这是bar_snapshot的别名，使用相同的逻辑
-        """
-        # update_data本质上是bar_snapshot
-        return self._handle_bar_snapshot(payload)
-
-    def _handle_heartbeat_test(self, payload: Dict[str, Any]) -> bool:
-        """
-        处理heartbeat_test命令 - 心跳测试
-
-        用于验证Worker正常运行，发送通知确认心跳正常
-        """
-        try:
-            print(f"[DataWorker:{self._node_id}] Handling heartbeat_test command")
-
-            # 发送心跳测试通知
-            # TODO: 通过notification_service发送心跳测试通知
-            # 当前为占位实现
-
-            return True
-
-        except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error handling heartbeat_test: {e}")
             return False
 
     def _handle_stockinfo(self, payload: Dict[str, Any]) -> bool:
