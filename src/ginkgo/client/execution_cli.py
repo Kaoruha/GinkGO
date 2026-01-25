@@ -236,19 +236,19 @@ def pause(
     """
     try:
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
-        from datetime import datetime
+        from ginkgo.interfaces.dtos import ScheduleUpdateDTO
 
         console.print(f":pause_button: [yellow]Pausing ExecutionNode '{node_id}'...[/yellow]")
 
         # Send pause command to Kafka
         producer = GinkgoProducer()
-        command = {
-            "command": "node.pause",
-            "node_id": node_id,
-            "timestamp": datetime.now().isoformat()
-        }
+        command_dto = ScheduleUpdateDTO(
+            command=ScheduleUpdateDTO.Commands.NODE_PAUSE,
+            node_id=node_id,
+            source="cli"
+        )
 
-        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, command)
+        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, command_dto.model_dump_json())
 
         if success:
             console.print(":white_check_mark: [green]Pause command sent successfully[/green]")
@@ -278,19 +278,19 @@ def resume(
     """
     try:
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
-        from datetime import datetime
+        from ginkgo.interfaces.dtos import ScheduleUpdateDTO
 
         console.print(f":play_button: [green]Resuming ExecutionNode '{node_id}'...[/green]")
 
         # Send resume command to Kafka
         producer = GinkgoProducer()
-        command = {
-            "command": "node.resume",
-            "node_id": node_id,
-            "timestamp": datetime.now().isoformat()
-        }
+        command_dto = ScheduleUpdateDTO(
+            command=ScheduleUpdateDTO.Commands.NODE_RESUME,
+            node_id=node_id,
+            source="cli"
+        )
 
-        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, command)
+        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, command_dto.model_dump_json())
 
         if success:
             console.print(":white_check_mark: [green]Resume command sent successfully[/green]")

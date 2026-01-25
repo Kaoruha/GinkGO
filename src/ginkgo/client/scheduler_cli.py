@@ -346,6 +346,7 @@ def migrate(
     try:
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
         from ginkgo.data.crud import RedisCRUD
+        from ginkgo.interfaces.dtos import ScheduleUpdateDTO
 
         console.print(f":information: Migrating portfolio [cyan]{portfolio_id[:8]}...[/cyan]")
 
@@ -356,19 +357,19 @@ def migrate(
             console.print("[yellow]:warning: Auto-selection not implemented, please specify --target[/yellow]")
             raise typer.Exit(1)
 
-        # Create migration command
-        migration_command = {
-            "command": "portfolio.migrate",
-            "portfolio_id": portfolio_id,
-            "target_node": target_node,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Create migration command using DTO
+        migration_dto = ScheduleUpdateDTO(
+            command=ScheduleUpdateDTO.Commands.PORTFOLIO_MIGRATE,
+            portfolio_id=portfolio_id,
+            target_node=target_node,
+            source="cli"
+        )
 
         # Show migration plan
         console.print(f"\\n:clipboard: Migration Plan:")
         console.print(f"  • Portfolio: [cyan]{portfolio_id}[/cyan]")
         console.print(f"  • Target Node: [green]{target_node}[/green]")
-        console.print(f"  • Timestamp: {migration_command['timestamp']}")
+        console.print(f"  • Timestamp: {migration_dto.timestamp}")
 
         # Confirm unless force
         if not force:
@@ -381,7 +382,7 @@ def migrate(
         # Send migration command to Kafka
         console.print(f"\\n:satellite: Sending migration command to Kafka...")
         producer = GinkgoProducer()
-        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, migration_command)
+        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, migration_dto.model_dump_json())
 
         if success:
             console.print(":white_check_mark: [green]Migration command sent successfully[/green]")
@@ -412,21 +413,22 @@ def reload(
     """
     try:
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+        from ginkgo.interfaces.dtos import ScheduleUpdateDTO
 
         console.print(f":information: Reloading portfolio [cyan]{portfolio_id[:8]}...[/cyan]")
 
-        # Create reload command
-        reload_command = {
-            "command": "portfolio.reload",
-            "portfolio_id": portfolio_id,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Create reload command using DTO
+        reload_dto = ScheduleUpdateDTO(
+            command=ScheduleUpdateDTO.Commands.PORTFOLIO_RELOAD,
+            portfolio_id=portfolio_id,
+            source="cli"
+        )
 
         # Show reload plan
         console.print(f"\\n:clipboard: Reload Plan:")
         console.print(f"  • Portfolio: [cyan]{portfolio_id}[/cyan]")
         console.print(f"  • Action: Reload from database")
-        console.print(f"  • Timestamp: {reload_command['timestamp']}")
+        console.print(f"  • Timestamp: {reload_dto.timestamp}")
 
         # Confirm unless force
         if not force:
@@ -440,7 +442,7 @@ def reload(
         # Send reload command to Kafka
         console.print(f"\\n:satellite: Sending reload command to Kafka...")
         producer = GinkgoProducer()
-        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, reload_command)
+        success = producer.send(KafkaTopics.SCHEDULE_UPDATES, reload_dto.model_dump_json())
 
         if success:
             console.print(":white_check_mark: [green]Reload command sent successfully[/green]")
@@ -518,16 +520,16 @@ def recalculate(
         # Send recalculate command to Kafka
         console.print(f"\n:satellite: Sending recalculate command to [cyan]scheduler.commands[/cyan]...")
 
-        producer = GinkgoProducer()
-        command = {
-            "command": "recalculate",
-            "timestamp": datetime.now().isoformat(),
-            "params": {
-                "force": force
-            }
-        }
+        from ginkgo.interfaces.dtos import SchedulerCommandDTO
 
-        success = producer.send("scheduler.commands", command)
+        producer = GinkgoProducer()
+        command_dto = SchedulerCommandDTO(
+            command=SchedulerCommandDTO.Commands.RECALCULATE,
+            params={"force": force},
+            source="cli"
+        )
+
+        success = producer.send("scheduler.commands", command_dto.model_dump_json())
 
         if success:
             console.print(f":white_check_mark: [green]Recalculate command sent successfully[/green]")
@@ -624,16 +626,16 @@ def schedule(
         # Send schedule command to Kafka
         console.print(f"\n:satellite: Sending schedule command to [cyan]scheduler.commands[/cyan]...")
 
-        producer = GinkgoProducer()
-        command = {
-            "command": "schedule",
-            "timestamp": datetime.now().isoformat(),
-            "params": {
-                "force": force
-            }
-        }
+        from ginkgo.interfaces.dtos import SchedulerCommandDTO
 
-        success = producer.send("scheduler.commands", command)
+        producer = GinkgoProducer()
+        command_dto = SchedulerCommandDTO(
+            command=SchedulerCommandDTO.Commands.SCHEDULE,
+            params={"force": force},
+            source="cli"
+        )
+
+        success = producer.send("scheduler.commands", command_dto.model_dump_json())
 
         if success:
             console.print(f":white_check_mark: [green]Schedule command sent successfully[/green]")
@@ -659,18 +661,18 @@ def pause():
     """
     try:
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+        from ginkgo.interfaces.dtos import SchedulerCommandDTO
 
         console.print("\n:pause_button: [yellow]Pausing Scheduler...[/yellow]")
 
         # Send pause command to Kafka
         producer = GinkgoProducer()
-        command = {
-            "command": "pause",
-            "timestamp": datetime.now().isoformat(),
-            "params": {}
-        }
+        command_dto = SchedulerCommandDTO(
+            command=SchedulerCommandDTO.Commands.PAUSE,
+            source="cli"
+        )
 
-        success = producer.send("scheduler.commands", command)
+        success = producer.send("scheduler.commands", command_dto.model_dump_json())
 
         if success:
             console.print(":white_check_mark: [green]Pause command sent successfully[/green]")
@@ -697,18 +699,18 @@ def resume():
     """
     try:
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+        from ginkgo.interfaces.dtos import SchedulerCommandDTO
 
         console.print("\n:play_button: [green]Resuming Scheduler...[/green]")
 
         # Send resume command to Kafka
         producer = GinkgoProducer()
-        command = {
-            "command": "resume",
-            "timestamp": datetime.now().isoformat(),
-            "params": {}
-        }
+        command_dto = SchedulerCommandDTO(
+            command=SchedulerCommandDTO.Commands.RESUME,
+            source="cli"
+        )
 
-        success = producer.send("scheduler.commands", command)
+        success = producer.send("scheduler.commands", command_dto.model_dump_json())
 
         if success:
             console.print(":white_check_mark: [green]Resume command sent successfully[/green]")
@@ -738,18 +740,18 @@ def status():
     """
     try:
         from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+        from ginkgo.interfaces.dtos import SchedulerCommandDTO
 
         console.print("\n:information: Querying Scheduler status...")
 
         # Send status command to Kafka
         producer = GinkgoProducer()
-        command = {
-            "command": "status",
-            "timestamp": datetime.now().isoformat(),
-            "params": {}
-        }
+        command_dto = SchedulerCommandDTO(
+            command=SchedulerCommandDTO.Commands.STATUS,
+            source="cli"
+        )
 
-        success = producer.send("scheduler.commands", command)
+        success = producer.send("scheduler.commands", command_dto.model_dump_json())
 
         if success:
             console.print(":white_check_mark: [green]Status command sent successfully[/green]")
