@@ -29,9 +29,13 @@ class ControlCommandDTO(BaseModel):
     # 预定义命令类型
     class Commands:
         """预定义命令常量"""
-        BAR_SNAPSHOT = "bar_snapshot"  # K线快照：触发当日K线分析
+        BAR_SNAPSHOT = "bar_snapshot"  # K线快照：K线数据采集
         UPDATE_SELECTOR = "update_selector"  # 更新选择器：触发Selector重新选股
-        UPDATE_DATA = "update_data"  # 更新数据：触发外部数据源更新
+        UPDATE_DATA = "update_data"  # 更新数据：K线数据采集别名
+        STOCKINFO = "stockinfo"  # 股票信息：同步股票基础信息
+        ADJUSTFACTOR = "adjustfactor"  # 复权因子：同步并计算复权因子
+        TICK = "tick"  # Tick数据：Tick数据采集
+        HEARTBEAT_TEST = "heartbeat_test"  # 心跳测试：验证Worker存活
 
     def is_bar_snapshot(self) -> bool:
         """是否为K线快照命令"""
@@ -44,6 +48,22 @@ class ControlCommandDTO(BaseModel):
     def is_update_data(self) -> bool:
         """是否为更新数据命令"""
         return self.command == self.Commands.UPDATE_DATA
+
+    def is_stockinfo(self) -> bool:
+        """是否为股票信息命令"""
+        return self.command == self.Commands.STOCKINFO
+
+    def is_adjustfactor(self) -> bool:
+        """是否为复权因子命令"""
+        return self.command == self.Commands.ADJUSTFACTOR
+
+    def is_tick(self) -> bool:
+        """是否为Tick数据命令"""
+        return self.command == self.Commands.TICK
+
+    def is_heartbeat_test(self) -> bool:
+        """是否为心跳测试命令"""
+        return self.command == self.Commands.HEARTBEAT_TEST
 
     def get_param(self, key: str, default: Any = None) -> Any:
         """
