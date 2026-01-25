@@ -571,6 +571,11 @@ class DataWorker(threading.Thread):
             force = payload.get("force", False)  # 是否强制覆盖
             full = payload.get("full", False)  # 是否全量同步
 
+            # 如果没有code参数，忽略此命令（TaskTimer的bar_snapshot是给DataManager用的）
+            if not code:
+                print(f"[DataWorker:{self._node_id}] Ignoring bar_snapshot without code (for DataManager)")
+                return True
+
             print(f"[DataWorker:{self._node_id}] Handling bar_snapshot: code={code}, force={force}, full={full}")
 
             # 使用container获取bar_service
