@@ -667,21 +667,17 @@ class DataWorker(threading.Thread):
         """
         处理stockinfo命令 - 股票信息更新
 
-        参考GTM的process_task实现
+        StockinfoService.sync() 同步所有股票信息，不支持单个股票同步
         """
         try:
-            code = payload.get("code")  # 可选，有code则更新指定股票，无code则更新所有
-            print(f"[DataWorker:{self._node_id}] Handling stockinfo: code={code}")
+            code = payload.get("code")  # 参数会被忽略，sync()总是同步所有股票
+            print(f"[DataWorker:{self._node_id}] Handling stockinfo: code={code} (will sync all)")
 
             from ginkgo.data.containers import container
             stockinfo_service = container.stockinfo_service()
 
-            if code:
-                # 更新指定股票信息
-                result = stockinfo_service.sync(code)
-            else:
-                # 更新所有股票信息
-                result = stockinfo_service.sync_all()
+            # 同步所有股票信息（StockinfoService.sync() 不接受参数）
+            result = stockinfo_service.sync()
 
             if result.success:
                 print(f"[DataWorker:{self._node_id}] Stockinfo sync completed")
