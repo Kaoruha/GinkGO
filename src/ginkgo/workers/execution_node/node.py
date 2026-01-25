@@ -1525,19 +1525,21 @@ class ExecutionNode:
                         # from ginkgo.data.crud import OrderCRUD; from ginkgo.enums import ORDERSTATUS_TYPES
                         # order_crud = OrderCRUD(); event.status = ORDERSTATUS_TYPES.NEW; order_crud.insert(event)
 
-                        # 序列化订单为DTO并发送到Kafka
-                        order_data = {
-                            "order_id": str(event.uuid),
-                            "portfolio_id": event.portfolio_id,
-                            "code": event.code,
-                            "direction": event.direction.value,
-                            "volume": event.volume,
-                            "price": str(event.price) if event.price else None,
-                            "timestamp": event.timestamp.isoformat() if event.timestamp else None
-                        }
+                        # 使用DTO序列化订单并发送到Kafka
+                        from ginkgo.interfaces.dtos import OrderSubmissionDTO
+
+                        order_dto = OrderSubmissionDTO(
+                            order_id=str(event.uuid),
+                            portfolio_id=event.portfolio_id,
+                            code=event.code,
+                            direction=event.direction.value,
+                            volume=event.volume,
+                            price=str(event.price) if event.price else None,
+                            timestamp=event.timestamp.isoformat() if event.timestamp else None
+                        )
 
                         # 发送到Kafka
-                        success = self.order_producer.send(KafkaTopics.ORDERS_SUBMISSION, order_data)
+                        success = self.order_producer.send(KafkaTopics.ORDERS_SUBMISSION, order_dto.model_dump_json())
                         if success:
                             print(f"Order {event.uuid} sent to Kafka via output_queue")
                         else:

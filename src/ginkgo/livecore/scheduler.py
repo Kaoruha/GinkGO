@@ -885,20 +885,21 @@ class Scheduler(threading.Thread):
             change: 变更信息 {portfolio_id, from_node, to_node, timestamp}
         """
         try:
-            # 构造ExecutionNode期望的消息格式
-            command = "portfolio.migrate"
-            command_data = {
-                "command": command,
-                "portfolio_id": change['portfolio_id'],
-                "source_node": change['from_node'],
-                "target_node": change['to_node'],
-                "timestamp": change['timestamp']
-            }
+            from ginkgo.interfaces.dtos import ScheduleUpdateDTO
+
+            # 使用DTO构造消息
+            command_dto = ScheduleUpdateDTO(
+                command=ScheduleUpdateDTO.Commands.PORTFOLIO_MIGRATE,
+                portfolio_id=change['portfolio_id'],
+                source_node=change['from_node'],
+                target_node=change['to_node'],
+                source="scheduler"
+            )
 
             # [DEBUG] 打印Kafka消息
             logger.info(f"[KAFKA] Sending schedule command:")
             logger.info(f"  Topic: {KafkaTopics.SCHEDULE_UPDATES}")
-            logger.info(f"  Command: {command}")
+            logger.info(f"  Command: {command_dto.command}")
             logger.info(f"  Portfolio: {change['portfolio_id'][:8]}...")
             logger.info(f"  Source: {change['from_node']}")
             logger.info(f"  Target: {change['to_node']}")
@@ -906,7 +907,7 @@ class Scheduler(threading.Thread):
             # 发送到Kafka
             success = self.kafka_producer.send(
                 topic=KafkaTopics.SCHEDULE_UPDATES,
-                msg=command_data
+                msg=command_dto.model_dump_json()
             )
 
             if not success:
