@@ -573,10 +573,10 @@ class DataWorker(threading.Thread):
 
             print(f"[DataWorker:{self._node_id}] Handling bar_snapshot: code={code}, force={force}, full={full}")
 
-            # 使用service_hub获取bar_service
-            from ginkgo import service_hub
+            # 使用container获取bar_service
+            from ginkgo.data.containers import container
 
-            bar_service = service_hub.data.services.bar()
+            bar_service = container.bar_service()
 
             if full:
                 # 全量同步：使用sync_range从上市日期开始
