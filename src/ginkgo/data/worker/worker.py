@@ -36,6 +36,10 @@ class DataWorker(threading.Thread):
     HEARTBEAT_TTL: int = 30  # 秒
     HEARTBEAT_INTERVAL: int = 10  # 秒
 
+    # 批量通知配置
+    BATCH_NOTIFICATION_INTERVAL: int = 60  # 批量通知间隔（秒）
+    BATCH_NOTIFICATION_THRESHOLD: int = 10  # 批量通知阈值（条数）
+
     def __init__(
         self,
         bar_crud: Any,
@@ -82,6 +86,11 @@ class DataWorker(threading.Thread):
             "errors": 0,
             "last_heartbeat": None
         }
+
+        # 批量通知
+        self._pending_notifications: List[Dict[str, Any]] = []  # 待通知的命令列表
+        self._notification_count: int = 0  # 待通知计数
+        self._last_notification_time: float = 0  # 上次通知时间戳
 
         # 心跳线程
         self._heartbeat_thread: Optional[threading.Thread] = None
@@ -187,6 +196,9 @@ class DataWorker(threading.Thread):
 
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.STOPPED
+
+            # 刷新剩余的批量通知
+            self._send_batch_notifications(reason="Worker停止")
 
             # 收集最终统计信息
             final_stats = self.get_stats()
@@ -415,9 +427,10 @@ class DataWorker(threading.Thread):
 
     def _notify_task_start(self, command: str, payload: Dict[str, Any]) -> None:
         """
-        发送任务开始通知
+        收集任务开始通知（批量发送）
 
-        当DataWorker接收到控制命令并开始处理时发送通知
+        当DataWorker接收到控制命令并开始处理时，将通知添加到待发送队列。
+        达到阈值或时间间隔时批量发送，避免通知过于频繁。
 
         Args:
             command: 命令类型
@@ -456,33 +469,111 @@ class DataWorker(threading.Thread):
 
             params_str = ", ".join(param_parts) if param_parts else "所有数据"
 
-            content = f"DataWorker `{self._node_id}` 开始处理: {command_desc}"
-            if params_str:
-                content += f" ({params_str})"
+            # 添加到待通知队列
+            with self._lock:
+                self._pending_notifications.append({
+                    "command": command,
+                    "command_desc": command_desc,
+                    "params_str": params_str,
+                    "timestamp": datetime.now().isoformat()
+                })
+                self._notification_count += 1
 
-            # 构建通知详情
-            details = {
-                "node_id": self._node_id,
-                "command": command,
-                "params": payload,
-            }
-
-            # 发送通知
-            success = notify(
-                content=content,
-                level="INFO",
-                details=details,
-                module="DataWorker",
-                async_mode=True  # 异步发送，不阻塞
-            )
-
-            if success:
-                print(f"[DataWorker:{self._node_id}] Task start notification sent")
-            else:
-                print(f"[DataWorker:{self._node_id}] Failed to send task start notification")
+            # 检查是否需要发送批量通知
+            self._check_and_send_batch_notifications()
 
         except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Failed to send task start notification: {e}")
+            print(f"[DataWorker:{self._node_id}] Failed to queue task notification: {e}")
+
+    def _check_and_send_batch_notifications(self) -> None:
+        """
+        检查并发送批量通知
+
+        检查是否达到发送条件：
+        1. 达到阈值数量
+        2. 距上次通知超过时间间隔
+        """
+        try:
+            with self._lock:
+                # 没有待通知的任务
+                if not self._pending_notifications:
+                    return
+
+                current_time = time.time()
+                should_send = False
+
+                # 条件1: 达到阈值数量
+                if self._notification_count >= self.BATCH_NOTIFICATION_THRESHOLD:
+                    should_send = True
+                    reason = f"达到阈值({self.BATCH_NOTIFICATION_THRESHOLD}条)"
+
+                # 条件2: 距上次通知超过时间间隔
+                elif current_time - self._last_notification_time >= self.BATCH_NOTIFICATION_INTERVAL:
+                    should_send = True
+                    reason = f"超过时间间隔({self.BATCH_NOTIFICATION_INTERVAL}秒)"
+
+                if should_send:
+                    self._send_batch_notifications(reason=reason)
+
+        except Exception as e:
+            print(f"[DataWorker:{self._node_id}] Error checking batch notification: {e}")
+
+    def _send_batch_notifications(self, reason: str = "手动触发") -> None:
+        """
+        发送批量通知
+
+        Args:
+            reason: 触发原因
+        """
+        try:
+            from ginkgo.notifier.core.notification_service import notify
+
+            with self._lock:
+                if not self._pending_notifications:
+                    return
+
+                # 统计命令类型
+                command_summary = {}
+                for notif in self._pending_notifications:
+                    cmd = notif["command"]
+                    command_summary[cmd] = command_summary.get(cmd, 0) + 1
+
+                # 构建通知内容
+                count = len(self._pending_notifications)
+                summary_parts = [f"{cmd}({count}条)" for cmd, count in command_summary.items()]
+                summary_str = ", ".join(summary_parts)
+
+                content = f"DataWorker `{self._node_id}` 批量处理: {summary_str} ({reason})"
+
+                # 构建通知详情
+                details = {
+                    "node_id": self._node_id,
+                    "total_count": count,
+                    "command_summary": command_summary,
+                    "notifications": self._pending_notifications.copy()
+                }
+
+                # 发送通知
+                success = notify(
+                    content=content,
+                    level="INFO",
+                    details=details,
+                    module="DataWorker",
+                    async_mode=True
+                )
+
+                if success:
+                    print(f"[DataWorker:{self._node_id}] Batch notification sent: {count} commands ({reason})")
+                else:
+                    print(f"[DataWorker:{self._node_id}] Failed to send batch notification")
+
+                # 清空队列并重置计数器
+                self._pending_notifications.clear()
+                self._notification_count = 0
+                self._last_notification_time = time.time()
+
+        except Exception as e:
+            print(f"[DataWorker:{self._node_id}] Failed to send batch notification: {e}")
 
     def _get_kafka_bootstrap_servers(self) -> str:
         """获取Kafka bootstrap servers配置"""
