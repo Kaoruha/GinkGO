@@ -413,6 +413,77 @@ class DataWorker(threading.Thread):
         except Exception as e:
             print(f"[DataWorker:{self._node_id}] Failed to send system event: {e}")
 
+    def _notify_task_start(self, command: str, payload: Dict[str, Any]) -> None:
+        """
+        发送任务开始通知
+
+        当DataWorker接收到控制命令并开始处理时发送通知
+
+        Args:
+            command: 命令类型
+            payload: 命令参数
+        """
+        try:
+            from ginkgo.notifier.core.notification_service import notify
+
+            # 构建命令描述
+            command_descriptions = {
+                "bar_snapshot": "K线数据采集",
+                "stockinfo": "股票基础信息同步",
+                "adjustfactor": "复权因子同步",
+                "tick": "Tick数据采集",
+            }
+
+            command_desc = command_descriptions.get(command, command)
+
+            # 构建参数描述
+            param_parts = []
+            if command == "bar_snapshot":
+                if payload.get("code"):
+                    param_parts.append(f"code={payload.get('code')}")
+                if payload.get("full"):
+                    param_parts.append("full=True")
+            elif command == "tick":
+                if payload.get("code"):
+                    param_parts.append(f"code={payload.get('code')}")
+                if payload.get("full"):
+                    param_parts.append(f"full={payload.get('full')}")
+                if payload.get("overwrite"):
+                    param_parts.append(f"overwrite={payload.get('overwrite')}")
+            elif command == "adjustfactor":
+                if payload.get("code"):
+                    param_parts.append(f"code={payload.get('code')}")
+
+            params_str = ", ".join(param_parts) if param_parts else "所有数据"
+
+            content = f"DataWorker `{self._node_id}` 开始处理: {command_desc}"
+            if params_str:
+                content += f" ({params_str})"
+
+            # 构建通知详情
+            details = {
+                "node_id": self._node_id,
+                "command": command,
+                "params": payload,
+            }
+
+            # 发送通知
+            success = notify(
+                content=content,
+                level="INFO",
+                details=details,
+                module="DataWorker",
+                async_mode=True  # 异步发送，不阻塞
+            )
+
+            if success:
+                print(f"[DataWorker:{self._node_id}] Task start notification sent")
+            else:
+                print(f"[DataWorker:{self._node_id}] Failed to send task start notification")
+
+        except Exception as e:
+            print(f"[DataWorker:{self._node_id}] Failed to send task start notification: {e}")
+
     def _get_kafka_bootstrap_servers(self) -> str:
         """获取Kafka bootstrap servers配置"""
         # 从环境变量或GCONF读取
@@ -529,7 +600,7 @@ class DataWorker(threading.Thread):
         处理控制命令
 
         Args:
-            command: 命令类型 (bar_snapshot, update_selector, update_data, heartbeat_test)
+            command: 命令类型 (bar_snapshot, stockinfo, adjustfactor, tick)
             payload: 命令参数
 
         Returns:
@@ -537,6 +608,9 @@ class DataWorker(threading.Thread):
         """
         try:
             print(f"[DataWorker:{self._node_id}] Processing command: {command}")
+
+            # 发送任务开始通知
+            self._notify_task_start(command, payload)
 
             if command == "bar_snapshot":
                 return self._handle_bar_snapshot(payload)
