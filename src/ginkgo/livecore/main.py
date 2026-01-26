@@ -268,21 +268,15 @@ class LiveCore:
         self.threads.append(self.data_manager)
         ```
         """
-        print("DataManager thread starting... (placeholder, implementation in Phase 4)")
+        print("DataManager thread starting...")
 
-        # 创建占位符线程
-        data_thread = Thread(target=self._data_manager_placeholder, daemon=True)
-        data_thread.start()
-        self.threads.append(data_thread)
-
-        """
-        # Phase 4集成代码（取消注释）：
+        # Phase 4集成：启动真实的 DataManager
         from ginkgo.livecore.data_manager import DataManager
+
         self.data_manager = DataManager()
         self.data_manager.start()
         self.threads.append(self.data_manager)
         print("DataManager started successfully")
-        """
 
     def _data_manager_placeholder(self):
         """

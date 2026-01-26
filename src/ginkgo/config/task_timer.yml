@@ -5,7 +5,7 @@
 # 任务配置说明:
 #   - name: 任务名称（唯一标识）
 #   - cron: cron表达式（分 时 日 月 周）
-#   - command: 命令类型（bar_snapshot, update_selector, update_data, heartbeat_test）
+#   - command: 命令类型
 #   - enabled: 是否启用
 #
 # Cron表达式示例:
@@ -14,35 +14,63 @@
 #   "0 0 * * *"      - 每天零点
 #   "0 21 * * *"     - 每天21:00
 #   "*/5 * * * *"    - 每5分钟
+#
+# 每日数据更新流程（建议在非交易时间执行，如21:00-21:30）:
+#   1. stockinfo (21:00) - 更新所有股票信息
+#   2. adjustfactor (21:05) - 更新所有股票复权因子
+#   3. bar_snapshot (21:10) - 更新所有股票日K线
+#   4. tick (21:15) - 更新所有股票tick数据（可选，耗时较长）
 
 scheduled_tasks:
-  # 心跳测试任务（每分钟）
-  # 用于验证TaskTimer正常运行，发送Discord通知
-  # 建议在测试环境启用，生产环境可关闭
-  - name: heartbeat_test
-    cron: "* * * * *"
-    command: heartbeat_test
+  # ========== 数据更新任务 ==========
+
+  # 股票信息更新（每天21:00触发）
+  # DataManager接收后向DataWorker发送stockinfo命令
+  # 更新所有股票的基本信息（代码、名称、行业、上市日期等）
+  - name: daily_stockinfo
+    cron: "0 21 * * *"
+    command: stockinfo
     enabled: true
 
-  # K线快照任务（每天21:00触发）
-  # 发送bar_snapshot控制命令到Kafka
-  # DataManager接收后推送当日K线数据
-  - name: bar_snapshot
-    cron: "0 21 * * *"
+  # 复权因子更新（每天21:05触发）
+  # DataManager接收后向DataWorker发送adjustfactor命令
+  # 批量更新所有股票的复权因子数据
+  - name: daily_adjustfactor
+    cron: "5 21 * * *"
+    command: adjustfactor
+    enabled: true
+
+  # K线数据更新（每天21:10触发）
+  # DataManager接收后向DataWorker发送bar_snapshot命令
+  # 批量更新所有股票的日K线数据
+  - name: daily_bar
+    cron: "10 21 * * *"
     command: bar_snapshot
     enabled: true
 
+  # Tick数据更新（每天21:15触发，可选）
+  # DataManager接收后向DataWorker发送tick命令
+  # 批量更新所有股票的tick数据（耗时较长，建议根据需要启用）
+  # - name: daily_tick
+  #   cron: "15 21 * * *"
+  #   command: tick
+  #   enabled: false
+
+  # ========== 其他任务 ==========
+
   # Selector更新任务（每小时触发）
-  # 发送update_selector控制命令到Kafka
   # ExecutionNode接收后触发selector.pick()
+  # 用于动态选股策略
   - name: update_selector
     cron: "0 * * * *"
     command: update_selector
     enabled: true
 
-  # 数据更新任务（可选，19:00触发）
-  # 发送update_data控制命令到Kafka
-  # - name: update_data
-  #   cron: "0 19 * * *"
-  #   command: update_data
-  #   enabled: false
+  # 心跳测试任务（每天00:00触发）
+  # 用于验证TaskTimer正常运行，发送Discord通知
+  # 建议在测试环境启用，生产环境可关闭
+  - name: heartbeat_test
+    cron: "0 0 * * *"
+    command: heartbeat_test
+    enabled: true
+

@@ -39,8 +39,8 @@ class AlpacaFeeder(LiveDataFeeder):
     def __init__(self):
         """初始化AlpacaFeeder（配置写死）"""
         # 从secure.yml读取API密钥
-        api_key = GCONF.get("data_sources.alpaca.api_key", default="")
-        api_secret = GCONF.get("data_sources.alpaca.api_secret", default="")
+        api_key = GCONF.ALPACA_API_KEY
+        api_secret = GCONF.ALPACA_API_SECRET
 
         # 调用父类构造
         super().__init__(

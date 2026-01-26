@@ -39,7 +39,7 @@ class EastMoneyFeeder(LiveDataFeeder):
     def __init__(self):
         """初始化EastMoneyFeeder（配置写死）"""
         # 从secure.yml读取API密钥
-        api_key = GCONF.get("data_sources.eastmoney.api_key", default="")
+        api_key = GCONF.EASTMONEY_API_KEY
 
         # 调用父类构造（使用写死的配置）
         super().__init__(

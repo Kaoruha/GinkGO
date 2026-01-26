@@ -328,21 +328,23 @@ class TradeGatewayAdapter(Thread):
             fill_event: EventOrderPartiallyFilled事件
         """
         try:
-            # 序列化事件
-            event_data = {
-                "order_id": fill_event.order.uuid,
-                "portfolio_id": fill_event.portfolio_id,
-                "engine_id": fill_event.engine_id,
-                "run_id": fill_event.run_id,
-                "code": fill_event.order.code,
-                "direction": fill_event.order.direction.value,
-                "filled_quantity": fill_event.filled_quantity,
-                "fill_price": fill_event.fill_price,
-                "timestamp": fill_event.timestamp.isoformat()
-            }
+            from ginkgo.interfaces.dtos import OrderFeedbackDTO
+
+            # 使用DTO序列化事件
+            feedback_dto = OrderFeedbackDTO(
+                order_id=fill_event.order.uuid,
+                portfolio_id=fill_event.portfolio_id,
+                engine_id=fill_event.engine_id,
+                run_id=fill_event.run_id,
+                code=fill_event.order.code,
+                direction=fill_event.order.direction.value,
+                filled_quantity=fill_event.filled_quantity,
+                fill_price=fill_event.fill_price,
+                timestamp=fill_event.timestamp.isoformat()
+            )
 
             # 发布到Kafka
-            self.kafka_producer.send(KafkaTopics.ORDERS_FEEDBACK, event_data)
+            self.kafka_producer.send(KafkaTopics.ORDERS_FEEDBACK, feedback_dto.model_dump_json())
             print(f"Fill event sent to Kafka for order {fill_event.order.uuid[:8]}")
 
         except Exception as e:

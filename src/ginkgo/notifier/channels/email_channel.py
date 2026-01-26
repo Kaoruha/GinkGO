@@ -88,16 +88,29 @@ class EmailChannel(INotificationChannel):
         if self.smtp_host is not None:
             return
 
-        # 从 secure.yml 读取配置
-        self.smtp_host = GCONF.get("email.smtp_host", self.DEFAULT_SMTP_HOST)
-        self.smtp_port = GCONF.get("email.smtp_port", self.DEFAULT_SMTP_PORT)
-        self.smtp_user = GCONF.get("email.smtp_user", "")
-        self.smtp_password = GCONF.get("email.smtp_password", "")
+        # 尝试从GCONF读取配置，如果未配置则使用默认值
+        try:
+            self.smtp_host = GCONF.EMAIL_SMTP_HOST
+        except ValueError:
+            self.smtp_host = self.DEFAULT_SMTP_HOST
 
-        # 从通知超时配置中读取 email 超时（FR-014a）
-        timeout_config = GCONF.get("notifications.timeouts", {})
-        if isinstance(timeout_config, dict):
-            self.timeout = float(timeout_config.get("email", self.DEFAULT_TIMEOUT))
+        try:
+            self.smtp_port = GCONF.EMAIL_SMTP_PORT
+        except ValueError:
+            self.smtp_port = int(self.DEFAULT_SMTP_PORT)
+
+        try:
+            self.smtp_user = GCONF.EMAIL_SMTP_USER
+        except ValueError:
+            self.smtp_user = ""
+
+        try:
+            self.smtp_password = GCONF.EMAIL_SMTP_PASSWORD
+        except ValueError:
+            self.smtp_password = ""
+
+        # 从 GCONF 读取超时配置
+        self.timeout = float(GCONF.NOTIFICATION_EMAIL_TIMEOUT)
 
     def send(
         self,

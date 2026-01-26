@@ -43,7 +43,7 @@ class FuShuFeeder(LiveDataFeeder):
     def __init__(self):
         """初始化FuShuFeeder（配置写死）"""
         # 从secure.yml读取API密钥
-        api_key = GCONF.get("data_sources.fushu.api_key", default="")
+        api_key = GCONF.FUSHU_API_KEY
 
         # HTTP轮询模式，不需要host/port
         super().__init__(
