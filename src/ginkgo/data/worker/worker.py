@@ -1,6 +1,6 @@
-# Upstream: Kafka control commands (ginkgo.live.control.commands)
+# Upstream: Kafka data commands (ginkgo.data.commands)
 # Downstream: ClickHouse (bar data storage via BarCRUD), Redis (heartbeat storage)
-# Role: Data collection worker - consumes Kafka commands and fetches/updates market data
+# Role: Data collection worker - consumes Kafka data commands and fetches/updates market data
 
 import threading
 import time
@@ -19,7 +19,7 @@ class DataWorker(threading.Thread):
     """
     Data Worker - 数据采集Worker
 
-    订阅Kafka控制命令主题 (ginkgo.live.control.commands)，接收数据采集任务，
+    订阅Kafka数据采集命令主题 (ginkgo.data.commands)，接收数据采集任务，
     通过BarCRUD获取数据并批量写入ClickHouse。
 
     采用"容器即进程"模式，每个容器运行一个Worker实例，
@@ -27,7 +27,7 @@ class DataWorker(threading.Thread):
     """
 
     # Kafka配置
-    CONTROL_COMMANDS_TOPIC: str = "ginkgo.live.control.commands"
+    CONTROL_COMMANDS_TOPIC: str = KafkaTopics.DATA_COMMANDS  # 数据采集命令专用
     DEFAULT_CONSUMER_GROUP: str = "data_worker_group"
     NOTIFICATIONS_TOPIC: str = "ginkgo.notifications"  # 通知主题
 
@@ -35,10 +35,6 @@ class DataWorker(threading.Thread):
     HEARTBEAT_KEY_PREFIX: str = "heartbeat:data_worker"
     HEARTBEAT_TTL: int = 30  # 秒
     HEARTBEAT_INTERVAL: int = 10  # 秒
-
-    # 批量通知配置
-    BATCH_NOTIFICATION_INTERVAL: int = 60  # 批量通知间隔（秒）
-    BATCH_NOTIFICATION_THRESHOLD: int = 10  # 批量通知阈值（条数）
 
     def __init__(
         self,
@@ -86,11 +82,6 @@ class DataWorker(threading.Thread):
             "errors": 0,
             "last_heartbeat": None
         }
-
-        # 批量通知
-        self._pending_notifications: List[Dict[str, Any]] = []  # 待通知的命令列表
-        self._notification_count: int = 0  # 待通知计数
-        self._last_notification_time: float = 0  # 上次通知时间戳
 
         # 心跳线程
         self._heartbeat_thread: Optional[threading.Thread] = None
@@ -177,28 +168,36 @@ class DataWorker(threading.Thread):
             self._status = WORKER_STATUS_TYPES.STOPPING
 
         try:
-            # 设置停止事件
+            # 1. 先取消Kafka订阅，避免接收新消息
+            if self._consumer and self._consumer.consumer:
+                try:
+                    print(f"[DataWorker:{self._node_id}] Unsubscribing from Kafka topic...")
+                    self._consumer.consumer.unsubscribe()
+                except Exception as e:
+                    print(f"[DataWorker:{self._node_id}] Error unsubscribing: {e}")
+
+            # 2. 设置停止事件
             self._stop_event.set()
 
-            # 等待线程结束
+            # 3. 等待线程结束
             self.join(timeout=timeout)
 
-            # 停止心跳线程
+            # 4. 停止心跳线程
             if self._heartbeat_thread and self._heartbeat_thread.is_alive():
                 self._heartbeat_thread.join(timeout=5.0)
 
-            # 关闭Kafka消费者
+            # 5. 关闭Kafka消费者
             if self._consumer:
                 try:
+                    print(f"[DataWorker:{self._node_id}] Closing Kafka consumer...")
                     self._consumer.close()
-                except:
+                    print(f"[DataWorker:{self._node_id}] Kafka consumer closed")
+                except Exception as e:
+                    print(f"[DataWorker:{self._node_id}] Error closing consumer: {e}")
                     pass
 
             with self._lock:
                 self._status = WORKER_STATUS_TYPES.STOPPED
-
-            # 刷新剩余的批量通知
-            self._send_batch_notifications(reason="Worker停止")
 
             # 收集最终统计信息
             final_stats = self.get_stats()
@@ -427,10 +426,9 @@ class DataWorker(threading.Thread):
 
     def _notify_task_start(self, command: str, payload: Dict[str, Any]) -> None:
         """
-        收集任务开始通知（批量发送）
+        发送任务开始通知（立即发送，不批量）
 
-        当DataWorker接收到控制命令并开始处理时，将通知添加到待发送队列。
-        达到阈值或时间间隔时批量发送，避免通知过于频繁。
+        当DataWorker接收到控制命令并开始处理时，立即发送通知。
 
         Args:
             command: 命令类型
@@ -469,111 +467,37 @@ class DataWorker(threading.Thread):
 
             params_str = ", ".join(param_parts) if param_parts else "所有数据"
 
-            # 添加到待通知队列
-            with self._lock:
-                self._pending_notifications.append({
-                    "command": command,
-                    "command_desc": command_desc,
-                    "params_str": params_str,
-                    "timestamp": datetime.now().isoformat()
-                })
-                self._notification_count += 1
+            # 构建通知内容
+            content = f"DataWorker `{self._node_id}` 开始处理: {command_desc}"
+            if params_str != "所有数据":
+                content += f" ({params_str})"
 
-            # 检查是否需要发送批量通知
-            self._check_and_send_batch_notifications()
+            details = {
+                "node_id": self._node_id,
+                "command": command,
+                "command_desc": command_desc,
+                "params": payload
+            }
+
+            # 在新线程中发送通知，避免阻塞
+            import threading
+            def send_notification():
+                try:
+                    notify(
+                        content=content,
+                        level="INFO",
+                        details=details,
+                        module="DataWorker",
+                        async_mode=False
+                    )
+                except Exception as e:
+                    print(f"[DataWorker:{self._node_id}] Failed to send notification: {e}")
+
+            thread = threading.Thread(target=send_notification, daemon=True)
+            thread.start()
 
         except Exception as e:
             print(f"[DataWorker:{self._node_id}] Failed to queue task notification: {e}")
-
-    def _check_and_send_batch_notifications(self) -> None:
-        """
-        检查并发送批量通知
-
-        检查是否达到发送条件：
-        1. 达到阈值数量
-        2. 距上次通知超过时间间隔
-        """
-        try:
-            with self._lock:
-                # 没有待通知的任务
-                if not self._pending_notifications:
-                    return
-
-                current_time = time.time()
-                should_send = False
-
-                # 条件1: 达到阈值数量
-                if self._notification_count >= self.BATCH_NOTIFICATION_THRESHOLD:
-                    should_send = True
-                    reason = f"达到阈值({self.BATCH_NOTIFICATION_THRESHOLD}条)"
-
-                # 条件2: 距上次通知超过时间间隔
-                elif current_time - self._last_notification_time >= self.BATCH_NOTIFICATION_INTERVAL:
-                    should_send = True
-                    reason = f"超过时间间隔({self.BATCH_NOTIFICATION_INTERVAL}秒)"
-
-                if should_send:
-                    self._send_batch_notifications(reason=reason)
-
-        except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Error checking batch notification: {e}")
-
-    def _send_batch_notifications(self, reason: str = "手动触发") -> None:
-        """
-        发送批量通知
-
-        Args:
-            reason: 触发原因
-        """
-        try:
-            from ginkgo.notifier.core.notification_service import notify
-
-            with self._lock:
-                if not self._pending_notifications:
-                    return
-
-                # 统计命令类型
-                command_summary = {}
-                for notif in self._pending_notifications:
-                    cmd = notif["command"]
-                    command_summary[cmd] = command_summary.get(cmd, 0) + 1
-
-                # 构建通知内容
-                count = len(self._pending_notifications)
-                summary_parts = [f"{cmd}({count}条)" for cmd, count in command_summary.items()]
-                summary_str = ", ".join(summary_parts)
-
-                content = f"DataWorker `{self._node_id}` 批量处理: {summary_str} ({reason})"
-
-                # 构建通知详情
-                details = {
-                    "node_id": self._node_id,
-                    "total_count": count,
-                    "command_summary": command_summary,
-                    "notifications": self._pending_notifications.copy()
-                }
-
-                # 发送通知
-                success = notify(
-                    content=content,
-                    level="INFO",
-                    details=details,
-                    module="DataWorker",
-                    async_mode=True
-                )
-
-                if success:
-                    print(f"[DataWorker:{self._node_id}] Batch notification sent: {count} commands ({reason})")
-                else:
-                    print(f"[DataWorker:{self._node_id}] Failed to send batch notification")
-
-                # 清空队列并重置计数器
-                self._pending_notifications.clear()
-                self._notification_count = 0
-                self._last_notification_time = time.time()
-
-        except Exception as e:
-            print(f"[DataWorker:{self._node_id}] Failed to send batch notification: {e}")
 
     def _get_kafka_bootstrap_servers(self) -> str:
         """获取Kafka bootstrap servers配置"""
@@ -670,7 +594,7 @@ class DataWorker(threading.Thread):
                     with self._lock:
                         self._stats["last_heartbeat"] = time.time()
 
-                    print(f"[DataWorker:{self._node_id}] Heartbeat sent: {heartbeat_key}")
+                    print(f"[DataWorker:{self._node_id}] Heartbeat sent: {heartbeat_key} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
                 except Exception as e:
                     print(f"[DataWorker:{self._node_id}] Error sending heartbeat: {e}")
@@ -688,10 +612,17 @@ class DataWorker(threading.Thread):
     @time_logger(threshold=1.0)
     def _process_command(self, command: str, payload: Dict[str, Any]) -> bool:
         """
-        处理控制命令
+        处理数据采集命令
+
+        DataWorker 订阅 ginkgo.data.commands topic，
+        只会收到 4 个核心数据采集命令：
+        - bar_snapshot: K线数据采集
+        - stockinfo: 股票基础信息同步
+        - adjustfactor: 复权因子同步
+        - tick: Tick数据采集
 
         Args:
-            command: 命令类型 (bar_snapshot, stockinfo, adjustfactor, tick)
+            command: 命令类型
             payload: 命令参数
 
         Returns:
@@ -703,6 +634,7 @@ class DataWorker(threading.Thread):
             # 发送任务开始通知
             self._notify_task_start(command, payload)
 
+            # 路由到对应的处理函数
             if command == "bar_snapshot":
                 return self._handle_bar_snapshot(payload)
             elif command == "stockinfo":
@@ -711,11 +643,8 @@ class DataWorker(threading.Thread):
                 return self._handle_adjustfactor(payload)
             elif command == "tick":
                 return self._handle_tick(payload)
-            elif command in ("update_selector", "update_data", "heartbeat_test"):
-                # 这些命令不由 DataWorker 处理，忽略
-                print(f"[DataWorker:{self._node_id}] Command '{command}' not handled by DataWorker, ignoring")
-                return True
             else:
+                # 理论上不会到达这里（topic 只有这 4 个命令）
                 print(f"[DataWorker:{self._node_id}] Unknown command: {command}")
                 return False
 

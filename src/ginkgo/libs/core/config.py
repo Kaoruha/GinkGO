@@ -127,6 +127,23 @@ class GinkgoConfig(object):
                     os.environ["GINKGO_SMTP_USER"] = smtp_user
                 if smtp_pwd:
                     os.environ["GINKGO_SMTP_PASSWORD"] = smtp_pwd
+
+                # 数据源API密钥配置（从 secure.yml）
+                data_sources = secure_data.get("data_sources", {})
+                if data_sources:
+                    eastmoney = data_sources.get("eastmoney", {})
+                    if eastmoney.get("api_key"):
+                        os.environ["GINKGO_EASTMONEY_API_KEY"] = eastmoney["api_key"]
+
+                    alpaca = data_sources.get("alpaca", {})
+                    if alpaca.get("api_key"):
+                        os.environ["GINKGO_ALPACA_API_KEY"] = alpaca["api_key"]
+                    if alpaca.get("api_secret"):
+                        os.environ["GINKGO_ALPACA_API_SECRET"] = alpaca["api_secret"]
+
+                    fushu = data_sources.get("fushu", {})
+                    if fushu.get("api_key"):
+                        os.environ["GINKGO_FUSHU_API_KEY"] = fushu["api_key"]
             except Exception as e:
                 print(f"[GCONF] Error loading secure config to env: {e}")
 
@@ -840,6 +857,38 @@ class GinkgoConfig(object):
         """Email 发件人名称（环境标识，有默认值）"""
         self._ensure_env_vars()
         return os.environ.get("GINKGO_FROM_NAME", "Ginkgo Notification")
+
+    # ==================== 数据源API密钥配置 ====================
+
+    @property
+    def EASTMONEY_API_KEY(self) -> str:
+        """东方财富API密钥（可选配置）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_EASTMONEY_API_KEY", "")
+
+    @property
+    def ALPACA_API_KEY(self) -> str:
+        """Alpaca API密钥（可选配置）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_ALPACA_API_KEY", "")
+
+    @property
+    def ALPACA_API_SECRET(self) -> str:
+        """Alpaca API密钥（可选配置）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_ALPACA_API_SECRET", "")
+
+    @property
+    def FUSHU_API_KEY(self) -> str:
+        """FuShu API密钥（可选配置）"""
+        self._ensure_env_vars()
+        return os.environ.get("GINKGO_FUSHU_API_KEY", "")
+
+    @property
+    def STREAMING_CONFIG(self) -> dict:
+        """流式处理配置（从config.yml读取）"""
+        config = self._read_config()
+        return config.get("streaming", {})
 
 
 GCONF = GinkgoConfig()

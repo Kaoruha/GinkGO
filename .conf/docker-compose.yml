@@ -3,7 +3,7 @@ x-project-name: 'ginkgo'
 services:
   webui:
     image: ginkgo/webui:latest
-    container_name: ginkgo_web
+    container_name: ginkgo-web-ui
     restart: always
     build:
       context: ..
@@ -15,7 +15,7 @@ services:
   kafka1:
     image: 'bitnami/kafka:3.7.0'
     restart: always
-    container_name: kafka1
+    container_name: ginkgo-kafka1
     ports:
       - '9092:9094'
       - '9093:9093'
@@ -45,7 +45,7 @@ services:
   kafka2:
     image: 'bitnami/kafka:3.7.0'
     restart: always
-    container_name: kafka2
+    container_name: ginkgo-kafka2
     ports:
       - '9094:9094'
       - '9095:9093'
@@ -75,7 +75,7 @@ services:
   kafka3:
     image: 'bitnami/kafka:3.7.0'
     restart: always
-    container_name: kafka3
+    container_name: ginkgo-kafka3
     ports:
       - '9096:9094'
       - '9097:9093'
@@ -104,7 +104,7 @@ services:
       - ../.db/kafka3_data:/data
   redis-master:
     image: redis:alpine3.18
-    container_name: redis-master
+    container_name: ginkgo-redis-master
     restart: always
     ports:
       - "6379:6379"
@@ -114,7 +114,7 @@ services:
     command: redis-server /etc/redis/redis.conf --maxmemory 20480mb
   mysql-master:
     image: mysql:8.2.0
-    container_name: mysql-master
+    container_name: ginkgo-mysql-master
     command: 
       --max_connections=1000
       --character-set-server=utf8mb4
@@ -134,7 +134,7 @@ services:
 
   mysql-test:
     image: mysql:8.2.0
-    container_name: mysql-test
+    container_name: ginkgo-mysql-test
     command: 
       --max_connections=1000
       --character-set-server=utf8mb4
@@ -159,7 +159,7 @@ services:
 
   clickhouse-master:
     image: clickhouse/clickhouse-server:24.8.4.13-alpine
-    container_name: clickhouse-master
+    container_name: ginkgo-clickhouse-master
     restart: always
     ports:
       - "8123:8123"
@@ -180,7 +180,7 @@ services:
 
   clickhouse-test:
     image: clickhouse/clickhouse-server:24.8.4.13-alpine
-    container_name: clickhouse-test
+    container_name: ginkgo-clickhouse-test
     restart: always
     ports:
       - "18123:8123"
@@ -206,7 +206,7 @@ services:
   # Mongo
   mongo-master:
     image: 'mongo:6.0.27-jammy'
-    container_name: mongo-master
+    container_name: ginkgo-mongo-master
     restart: always
     ports:
       - '27017:27017'
@@ -223,7 +223,7 @@ services:
       context: ..
       dockerfile: .conf/Dockerfile.feast
     image: feast:0.51.click.redis.mysql
-    container_name: feast-server
+    container_name: ginkgo-feast-server
     restart: always
     depends_on:
       - redis-master
@@ -269,7 +269,7 @@ services:
       context: ..
       dockerfile: .conf/Dockerfile.feast
     image: feast:0.51.click.redis.mysql
-    container_name: feast-ui
+    container_name: ginkgo-feast-ui
     restart: always
     depends_on:
       - redis-master
@@ -316,7 +316,7 @@ services:
       context: ..
       dockerfile: .conf/Dockerfile.notify
     image: ginkgo/notification-worker:latest
-    container_name: notify-worker
+    container_name: ginkgo-notify-worker
     restart: always
     depends_on:
       - kafka1
@@ -383,7 +383,7 @@ services:
       context: ..
       dockerfile: .conf/Dockerfile.tasktimer
     image: ginkgo/tasktimer:latest
-    container_name: tasktimer
+    container_name: ginkgo-tasktimer
     restart: always
     depends_on:
       - kafka1
@@ -426,6 +426,63 @@ services:
           cpus: '0.10'
           memory: 128M
 
+  # LiveCore - 实盘交易控制平面容器
+  livecore:
+    build:
+      context: ..
+      dockerfile: .conf/Dockerfile.livecore
+    image: ginkgo/livecore:latest
+    container_name: ginkgo-livecore
+    restart: always
+    depends_on:
+      - kafka1
+      - redis-master
+      - mysql-master
+      - clickhouse-master
+      - mongo-master
+    environment:
+      # Kafka 配置
+      GINKGO_KAFKA_HOST: kafka1
+      GINKGO_KAFKA_PORT: 9092
+      # Redis 配置（心跳上报）
+      GINKGO_REDIS_HOST: redis-master
+      GINKGO_REDIS_PORT: 6379
+      # MongoDB 配置（NotificationService 存储通知记录）
+      GINKGO_MONGODB_HOST: mongo-master
+      GINKGO_MONGODB_PORT: 27017
+      GINKGO_MONGODB_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      GINKGO_MONGODB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      GINKGO_MONGODB_DATABASE: ginkgo
+      # MySQL 配置（DataManager 存储数据源配置）
+      GINKGO_MYSQL_HOST: mysql-master
+      GINKGO_MYSQL_PORT: 3306
+      GINKGO_MYSQL_USER: ${MYSQL_USER}
+      GINKGO_MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      GINKGO_MYSQL_DATABASE: ginkgo
+      # ClickHouse 配置（DataManager 查询历史数据）
+      GINKGO_CLICKHOUSE_HOST: clickhouse-master
+      GINKGO_CLICKHOUSE_PORT: 8123
+      GINKGO_CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      GINKGO_CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-""}
+      GINKGO_CLICKHOUSE_DATABASE: ginkgo
+      # 运行配置
+      GINKGO_DEBUG_MODE: "False"
+      LOG_LEVEL: INFO
+      PYTHONUNBUFFERED: 1
+      TZ: Asia/Shanghai
+    volumes:
+      # 映射用户配置目录中的 task_timer.yml（容器内读取 /root/.ginkgo/task_timer.yml）
+      - ${HOME}/.ginkgo/task_timer.yml:/root/.ginkgo/task_timer.yml:ro
+      - ../.logs/livecore:/ginkgo/.logs
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
   # Data Worker - 数据采集Worker
   data-worker:
     build:
@@ -436,6 +493,7 @@ services:
     depends_on:
       - kafka1
       - redis-master
+      - mongo-master
       - clickhouse-test
     environment:
       # Kafka 配置
@@ -444,6 +502,12 @@ services:
       # Redis 配置（心跳上报）
       GINKGO_REDIS_HOST: redis-master
       GINKGO_REDIS_PORT: 6379
+      # MongoDB 配置（NotificationService 存储通知记录）
+      GINKGO_MONGODB_HOST: mongo-master
+      GINKGO_MONGODB_PORT: 27017
+      GINKGO_MONGODB_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      GINKGO_MONGODB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      GINKGO_MONGODB_DATABASE: ginkgo
       # ClickHouse Test (DEBUG模式使用测试数据库)
       GINKGO_CLICKHOUSE_HOST: clickhouse-test
       GINKGO_CLICKHOUSE_PORT: 8123
@@ -457,12 +521,67 @@ services:
       GINKGO_MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       GINKGO_MYSQL_DATABASE: ginkgo
       # Worker 配置
-      WORKER_GROUP_ID: data_worker_group
+      WORKER_GROUP_ID: data-worker-group
       GINKGO_DEBUG_MODE: "False"
       LOG_LEVEL: INFO
       PYTHONUNBUFFERED: 1
+      TZ: Asia/Shanghai
     volumes:
       - ../.logs/dataworker:/ginkgo/.logs
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ExecutionNode - 实盘交易执行节点
+  execution-node:
+    build:
+      context: ..
+      dockerfile: .conf/Dockerfile.executionnode
+    image: ginkgo/execution-node:latest
+    restart: always
+    depends_on:
+      - kafka1
+      - redis-master
+      - mongo-master
+      - mysql-test
+      - clickhouse-test
+    environment:
+      # Kafka 配置
+      GINKGO_KAFKA_HOST: kafka1
+      GINKGO_KAFKA_PORT: 9092
+      # Redis 配置（心跳上报）
+      GINKGO_REDIS_HOST: redis-master
+      GINKGO_REDIS_PORT: 6379
+      # MongoDB 配置（NotificationService 存储通知记录）
+      GINKGO_MONGODB_HOST: mongo-master
+      GINKGO_MONGODB_PORT: 27017
+      GINKGO_MONGODB_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      GINKGO_MONGODB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      GINKGO_MONGODB_DATABASE: ginkgo
+      # ClickHouse Test (DEBUG模式使用测试数据库)
+      GINKGO_CLICKHOUSE_HOST: clickhouse-test
+      GINKGO_CLICKHOUSE_PORT: 8123
+      GINKGO_CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      GINKGO_CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-""}
+      GINKGO_CLICKHOUSE_DATABASE: ginkgo
+      # MySQL Test (Portfolio 配置加载)
+      GINKGO_MYSQL_HOST: mysql-test
+      GINKGO_MYSQL_PORT: 3306
+      GINKGO_MYSQL_USER: ${MYSQL_USER}
+      GINKGO_MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      GINKGO_MYSQL_DATABASE: ginkgo
+      # 运行配置
+      GINKGO_DEBUG_MODE: "False"
+      LOG_LEVEL: INFO
+      PYTHONUNBUFFERED: 1
+      TZ: Asia/Shanghai
+    volumes:
+      - ../.logs/executionnode:/ginkgo/.logs
     deploy:
       resources:
         limits:

@@ -287,28 +287,61 @@ def set_config_path(path_log, working_directory):
         print("📝 Configuration will be set on next run.")
 
 
-def start_docker(path_dockercompose):
+def start_docker(path_dockercompose, execution_nodes=1, data_workers=1):
+    """
+    启动Docker服务
+
+    Args:
+        path_dockercompose: docker-compose.yml 文件路径
+        execution_nodes: ExecutionNode 副本数量（默认: 2）
+        data_workers: DataWorker 副本数量（默认: 4）
+    """
     # 启动Docker
     print(f"{lightblue('Starting Docker services...')}")
+    print(f"{lightblue(f'ExecutionNode: {execution_nodes} replicas, DataWorker: {data_workers} replicas')}")
+
+    # 清理旧的 scale 容器（避免命名不一致）
+    print(f"{lightyellow('Cleaning up old scaled containers...')}")
+    os.system("docker rm -f ginkgo_data_worker_1 ginkgo-data-worker-1 ginkgo-data-worker-2 ginkgo-data-worker-3 ginkgo-data-worker-4 2>/dev/null")
+    os.system("docker rm -f ginkgo_execution_node_1 ginkgo-execution-node-1 ginkgo-execution-node-2 2>/dev/null")
 
     if "Windows" == str(platform.system()):
         command = ["docker", "rm", "-f", "ginkgo_web"]
         subprocess.run(command, capture_output=True)
         command = ["docker", "rmi", "-f", "ginkgo_web:latest"]
         subprocess.run(command, capture_output=True)
-        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
+        # 一次性启动所有服务并指定 scale 数量
+        print(f"{lightblue(f'Scaling execution-node to {execution_nodes} replicas...')}")
+        print(f"{lightblue(f'Scaling data-worker to {data_workers} replicas...')}")
+        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} up -d --scale execution-node={execution_nodes} --scale data-worker={data_workers}")
     elif "Linux" == str(platform.system()):
         command = ["docker", "rm", "-f", "ginkgo_web"]
         subprocess.run(command, capture_output=True)
         command = ["docker", "rmi", "-f", "ginkgo_web:latest"]
         subprocess.run(command, capture_output=True)
-        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} --compatibility up -d")
+        # 一次性启动所有服务并指定 scale 数量
+        print(f"{lightblue(f'Scaling execution-node to {execution_nodes} replicas...')}")
+        print(f"{lightblue(f'Scaling data-worker to {data_workers} replicas...')}")
+        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} up -d --scale execution-node={execution_nodes} --scale data-worker={data_workers}")
 
     if result != 0:
         print(f"{red('Docker compose failed to start')}")
         return False
 
     print(f"{green('Docker containers started, waiting for services to be ready...')}")
+    # 显示副本信息（使用 Docker Compose 自动生成的命名格式）
+    if execution_nodes > 0:
+        exec_list = ", ".join([f"ginkgo-execution-node-{i+1}" for i in range(min(execution_nodes, 4))])
+        if execution_nodes > 4:
+            exec_list += ", ..."
+        print(f"{green(f'ExecutionNode: {execution_nodes} replicas')}")
+        print(f"{green(f'  → {exec_list}')}")
+    if data_workers > 0:
+        worker_list = ", ".join([f"ginkgo-data-worker-{i+1}" for i in range(min(data_workers, 4))])
+        if data_workers > 4:
+            worker_list += ", ..."
+        print(f"{green(f'DataWorker: {data_workers} replicas')}")
+        print(f"{green(f'  → {worker_list}')}")
     return True
 
 
@@ -324,18 +357,49 @@ def build_binary(working_path):
 
 
 def kafka_reset():
+    """
+    重置 Kafka Topics
+
+    需要 Kafka 服务正在运行。如果 Kafka 不可用，会给出提示并跳过。
+    """
     try:
         from src.ginkgo.libs import GTM
         from src.ginkgo.data.drivers.ginkgo_kafka import kafka_topic_set
+        from kafka.errors import NoBrokersAvailable, KafkaConnectionError
 
         print("kill all workers.")
-        GTM.reset_all_workers()
-        # Kill LiveEngine
+        try:
+            GTM.reset_all_workers()
+        except Exception as e:
+            print(f"{lightyellow('Warning: Could not reset workers')}: {e}")
+
+        # 重置 Kafka Topics
         print("reset kafka topic.")
-        kafka_topic_set()
+        try:
+            kafka_topic_set()
+            print(f"{green('Kafka topics reset successfully!')}")
+        except NoBrokersAvailable:
+            print(f"{red('Kafka broker not available')}")
+            print(f"{lightyellow('Please ensure Kafka containers are running:')}")
+            print(f"  docker compose -p ginkgo ps")
+            print(f"{lightyellow('Start Kafka services if needed:')}")
+            print(f"  docker compose -p ginkgo up -d kafka1 kafka2 kafka3")
+            return False
+        except KafkaConnectionError as e:
+            print(f"{red('Kafka connection failed')}: {e}")
+            print(f"{lightyellow('Please check Kafka container status and logs:')}")
+            print(f"  docker compose -p ginkgo logs kafka1")
+            return False
+        except Exception as e:
+            print(f"{red('Kafka reset failed')}: {e}")
+            return False
+
     except ImportError as e:
         print(f"⚠️  Could not import Kafka components: {e}")
         print("📝 Kafka reset will be available after full installation.")
+        return False
+
+    return True
 
 
 def wait_for_services():
@@ -531,6 +595,20 @@ def main():
         help="Build Binary.",
         action="store_true",
     )
+    parser.add_argument(
+        "-en",
+        "--execution-nodes",
+        help="Number of ExecutionNode replicas (default: 1)",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        "-dw",
+        "--data-workers",
+        help="Number of DataWorker replicas (default: 1)",
+        type=int,
+        default=1,
+    )
     args = parser.parse_args()
 
     working_directory = os.path.dirname(os.path.abspath(__file__))
@@ -625,7 +703,7 @@ def main():
         build_binary()
 
     if args.server:
-        if start_docker(path_dockercompose):
+        if start_docker(path_dockercompose, args.execution_nodes, args.data_workers):
             # 等待服务就绪
             if wait_for_services():
                 if args.kafkainit:

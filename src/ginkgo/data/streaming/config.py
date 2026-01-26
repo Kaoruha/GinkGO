@@ -250,7 +250,7 @@ class ConfigManager:
         # 2. 尝试从Ginkgo全局配置加载
         if _has_ginkgo_config:
             try:
-                ginkgo_streaming_config = GCONF.get("streaming", {})
+                ginkgo_streaming_config = GCONF.STREAMING_CONFIG
                 if ginkgo_streaming_config:
                     config_dict.update(ginkgo_streaming_config)
                     GLOG.DEBUG("Loaded streaming config from Ginkgo global config")
