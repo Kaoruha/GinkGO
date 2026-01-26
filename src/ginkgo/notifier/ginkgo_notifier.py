@@ -88,33 +88,41 @@ class GinkgoNotifier(INotificationService):
     def beep(self) -> None:
         if GCONF.QUIET:
             return
-        
+
+        from ginkgo.interfaces.dtos import NotificationDTO
+
         # 优先使用KafkaService，fallback到原来的producer
         if self._kafka_service:
-            success = self._kafka_service.publish_message("notify", {"type": "beep"})
+            notification_dto = NotificationDTO(type=NotificationDTO.Types.BEEP)
+            success = self._kafka_service.publish_message("notify", notification_dto.model_dump())
             if success:
                 return
             GLOG.WARN("KafkaService failed, falling back to direct producer")
-        
+
         # Fallback到原来的实现
         if self._producer:
-            self._producer.send("notify", {"type": "beep"})
+            notification_dto = NotificationDTO(type=NotificationDTO.Types.BEEP)
+            self._producer.send("notify", notification_dto.model_dump_json())
         # beepbeep(2000, 1, 20, 30)
 
     def beep_coin(self) -> None:
         if GCONF.QUIET:
             return
-        
+
+        from ginkgo.interfaces.dtos import NotificationDTO
+
         # 优先使用KafkaService，fallback到原来的producer
         if self._kafka_service:
-            success = self._kafka_service.publish_message("notify", {"type": "beep_coin"})
+            notification_dto = NotificationDTO(type=NotificationDTO.Types.BEEP_COIN)
+            success = self._kafka_service.publish_message("notify", notification_dto.model_dump())
             if success:
                 return
             GLOG.WARN("KafkaService failed, falling back to direct producer")
-        
+
         # Fallback到原来的实现
         if self._producer:
-            self._producer.send("notify", {"type": "beep"})
+            notification_dto = NotificationDTO(type=NotificationDTO.Types.BEEP)
+            self._producer.send("notify", notification_dto.model_dump_json())
         # beepbeep(1920, 1, 30, 40)
         # beepbeep(2180, 1, 60, 230)
     

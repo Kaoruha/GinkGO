@@ -266,6 +266,7 @@ def kafka_topic_set():
     # 定义 topic 配置：分区数和副本数
     topic_config = {
         "ginkgo.data.update": (24, 1),
+        "ginkgo.data.commands": (3, 1),  # 新增：数据采集命令专用
         "ginkgo.notifications": (3, 1),
         "ginkgo.live.market.data": (24, 1),
         "ginkgo.live.market.data.cn": (24, 1),

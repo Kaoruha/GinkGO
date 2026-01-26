@@ -120,8 +120,9 @@ class PortfolioProcessor(Thread):
 
         # 初始化Kafka控制命令消费者
         try:
+            bootstrap_servers = f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"
             self._control_consumer = GinkgoConsumer(
-                bootstrap_servers=GCONF.get("kafka.bootstrap_servers", "localhost:9092"),
+                bootstrap_servers=bootstrap_servers,
                 group_id=f"portfolio_processor_{self.portfolio_id}"
             )
             self._control_consumer.subscribe([KafkaTopics.CONTROL_COMMANDS])

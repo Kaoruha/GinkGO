@@ -106,7 +106,8 @@ class DataManager(threading.Thread):
             GLOG.INFO("DataManager starting...")
 
             # 初始化Kafka Producer
-            self._producer = GinkgoProducer(bootstrap_servers=GCONF.get("kafka.bootstrap_servers", "localhost:9092"))
+            bootstrap_servers = f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"
+            self._producer = GinkgoProducer(bootstrap_servers=bootstrap_servers)
 
             # 初始化LiveDataFeeder
             with self._feeder_lock:
@@ -248,16 +249,17 @@ class DataManager(threading.Thread):
         GLOG.INFO("DataManager main loop started")
 
         # 创建Kafka Consumers
+        bootstrap_servers = f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"
         self._consumer_interest = GinkgoConsumer(
             topic=KafkaTopics.INTEREST_UPDATES,
             group_id="data_manager_interest_group",
-            bootstrap_servers=GCONF.get("kafka.bootstrap_servers", "localhost:9092"),
+            bootstrap_servers=bootstrap_servers,
         )
 
         self._consumer_control = GinkgoConsumer(
             topic=KafkaTopics.CONTROL_COMMANDS,
             group_id="data_manager_control_group",
-            bootstrap_servers=GCONF.get("kafka.bootstrap_servers", "localhost:9092"),
+            bootstrap_servers=bootstrap_servers,
         )
 
         while not self._stopped.is_set():
@@ -336,78 +338,23 @@ class DataManager(threading.Thread):
             dto: ControlCommandDTO
         """
         try:
-            if dto.is_bar_snapshot():
-                GLOG.INFO("Received bar_snapshot command")
-                self._send_daily_bars()
+            if dto.is_stockinfo():
+                GLOG.INFO("Received stockinfo command (handled by TaskTimer, ignoring)")
+            elif dto.is_adjustfactor():
+                GLOG.INFO("Received adjustfactor command (handled by TaskTimer, ignoring)")
+            elif dto.is_bar_snapshot():
+                GLOG.INFO("Received bar_snapshot command (handled by TaskTimer, ignoring)")
+            elif dto.is_tick():
+                GLOG.INFO("Received tick command (handled by TaskTimer, ignoring)")
             elif dto.is_update_selector():
                 GLOG.INFO("Received update_selector command (ignored by DataManager)")
             elif dto.is_update_data():
-                GLOG.INFO("Received update_data command (not implemented)")
+                GLOG.INFO("Received update_data command (deprecated, use individual commands)")
             else:
                 GLOG.WARN(f"Unknown control command: {dto.command}")
 
         except Exception as e:
             GLOG.ERROR(f"Failed to handle control command: {e}")
-
-    def _send_daily_bars(self) -> None:
-        """
-        推送当日K线数据
-
-        从BarService获取当日K线，封装为PriceUpdateDTO发布到Kafka。
-        Portfolio复用on_price_update()处理K线数据。
-        """
-        try:
-            from ginkgo import services
-
-            bar_crud = services.data.cruds.bar()
-
-            # 获取当日开始和结束时间
-            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            end_time = datetime.now()
-
-            today_str = today.strftime("%Y%m%d")
-
-            # 遍历所有订阅标的
-            for symbol in list(self.all_symbols):
-                try:
-                    # 获取当日K线数据
-                    bars = bar_crud.get_bars_page_filtered(
-                        code=symbol,
-                        start=today_str,
-                        end=end_time.strftime("%Y%m%d"),
-                        limit=1,
-                    )
-
-                    if bars and len(bars) > 0:
-                        bar = bars[0]
-
-                        # 转换为PriceUpdateDTO
-                        price_dto = PriceUpdateDTO(
-                            symbol=symbol,
-                            timestamp=bar.timestamp,
-                            price=bar.close,
-                            open_price=bar.open,
-                            high_price=bar.high,
-                            low_price=bar.low,
-                            volume=bar.volume,
-                            amount=bar.amount,
-                            source="bar_snapshot",
-                        )
-
-                        # 发布到Kafka（带重试）
-                        self._publish_to_kafka(
-                            topic=KafkaTopics.MARKET_DATA,
-                            message=price_dto.model_dump_json(),
-                        )
-                        GLOG.DEBUG(f"Published daily bar for {symbol}")
-
-                except Exception as e:
-                    GLOG.ERROR(f"Failed to send daily bar for {symbol}: {e}")
-
-            GLOG.INFO(f"Sent daily bars for {len(self.all_symbols)} symbols")
-
-        except Exception as e:
-            GLOG.ERROR(f"Failed to send daily bars: {e}")
 
     @retry(max_try=3, backoff_factor=2)
     def _publish_to_kafka(self, topic: str, message: str) -> None:

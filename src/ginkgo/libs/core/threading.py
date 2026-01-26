@@ -350,114 +350,35 @@ class GinkgoThreadManager:
             print(value)
 
     def run_data_worker(self, *args, **kwargs):
-        pid = os.getpid()
-        self.register_worker_pid(pid)
-        print(f"Current Worker: {self.get_worker_count()}")
-        self.upsert_worker_status(pid=pid, task_name="No Task", status="IDLE")
-        
-        worker_logger.INFO(f":arrows_counterclockwise: Worker PID:{pid} initializing...")
-        worker_logger.INFO(f":satellite_antenna: Start Listen Kafka Topic: {KafkaTopics.DATA_UPDATE} Group: ginkgo_data  PID:{pid}")
-        
-        # 测试Kafka连接状态
+        """Run data worker in containerized mode using DataWorker class."""
         try:
-            kafka_health = self.kafka_service.health_check()
-            if kafka_health.success:
-                status = kafka_health.data.get('status', 'unknown') if kafka_health.data else 'unknown'
-                worker_logger.INFO(f":green_heart: Kafka health check: {status}")
-            else:
-                worker_logger.WARN(f":warning: Kafka health check failed: {kafka_health.error}")
-        except Exception as e:
-            worker_logger.WARN(f":warning: Kafka health check failed: {str(e)}")
-        
-        # 定义消息处理回调函数
-        def data_worker_message_handler(message_data):
-            try:
-                # 增加详细的调试日志
-                worker_logger.INFO(f":dart: [PID:{pid}] Received Kafka message")
-                worker_logger.INFO(f":page_facing_up: Raw message data: {message_data}")
-                
-                beep(freq=900.7, repeat=2, delay=10, length=100)
-                
-                # 从KafkaService消息格式中提取原始数据（逻辑保持不变）
-                if "value" in message_data:
-                    value = message_data["value"]
-                    worker_logger.INFO(f":package: Extracted value from message: {value}")
-                else:
-                    # 如果是直接的消息内容
-                    value = message_data.get("content", message_data)
-                    worker_logger.INFO(f":package: Using direct content: {value}")
-                
-                type = value["type"]
-                code = value["code"]
-                full = value.get("full", False)
-                force = value.get("force", False)
+            from ginkgo.data.worker.worker import DataWorker
+            from ginkgo import service_hub
 
-                worker_logger.INFO(f":clipboard: Parsed task: type={type}, code={code}, full={full}, force={force}")
-                
-                if type == "kill":
-                    # 通过返回False来停止消费
-                    worker_logger.INFO(f"💀 Worker PID:{pid} received kill signal.")
-                    self.upsert_worker_status(pid=pid, task_name="", status="killed")
-                    return False
-                
-                try:
-                    worker_logger.INFO(f":rocket: Starting task execution: {type}")
-                    self.process_task(type=type, code=code, full=full, force=force)
-                    worker_logger.INFO(f":white_check_mark: Task execution completed successfully")
-                    return True  # 消息处理成功
-                except Exception as e2:
-                    worker_logger.ERROR(f":x: Error processing task {type} {code}: {str(e2)}")
-                    import traceback
-                    worker_logger.ERROR(f":magnifying_glass_tilted_left: Traceback: {traceback.format_exc()}")
-                    time.sleep(2)
-                    return False  # 消息处理失败
-                    
-            except Exception as e:
-                worker_logger.ERROR(f"💥 Error in message handler: {str(e)}")
-                import traceback
-                worker_logger.ERROR(f":magnifying_glass_tilted_left: Handler traceback: {traceback.format_exc()}")
-                return False
-        
-        try:
-            # 使用KafkaService订阅消息
-            worker_logger.INFO(f"📨 Attempting to subscribe to {KafkaTopics.DATA_UPDATE}...")
-            success = self.kafka_service.subscribe_topic(
-                topic=KafkaTopics.DATA_UPDATE,
-                handler=data_worker_message_handler,
-                group_id="ginkgo_data",
-                auto_start=True
+            # Get services from service_hub
+            bar_crud = service_hub.data.cruds.bar()
+
+            # Create DataWorker instance
+            worker = DataWorker(
+                bar_crud=bar_crud,
+                group_id="data_worker_group",
+                auto_offset_reset="earliest"
             )
-            
-            if not success:
-                worker_logger.ERROR(f":x: Failed to subscribe to {KafkaTopics.DATA_UPDATE} topic")
-                return
+
+            # Start worker
+            worker_logger.INFO(":rocket: Starting DataWorker...")
+            if worker.start():
+                worker_logger.INFO(":white_check_mark: DataWorker started successfully")
+                # Keep worker running
+                worker.wait_for_completion()
             else:
-                worker_logger.INFO(":white_check_mark: Successfully subscribed to Kafka topic")
-            
-            worker_logger.INFO(f":hourglass_not_done: Worker PID:{pid} is now waiting for messages...")
-            
-            # 保持进程运行，直到接收到kill信号
-            while True:
-                worker_status = self.get_worker_status(str(pid))
-                if worker_status and worker_status.get("status") == "killed":
-                    worker_logger.INFO(f"🛑 Worker PID:{pid} received kill status, shutting down...")
-                    break
-                time.sleep(1)
-                
-        except KeyboardInterrupt:
-            worker_logger.INFO(f"Worker PID:{pid} interrupted by user.")
-            self.upsert_worker_status(pid=pid, task_name="", status="killed")
+                worker_logger.ERROR(":x: Failed to start DataWorker")
+
+        except ImportError as e:
+            worker_logger.ERROR(f":x: Failed to import DataWorker: {e}")
+            worker_logger.ERROR(":information: Make sure the data.worker module is properly installed")
         except Exception as e:
-            worker_logger.ERROR(f"Worker error: {str(e)}")
-            self.upsert_worker_status(pid=pid, task_name="", status="ERROR")
-        finally:
-            # 取消订阅和清理
-            try:
-                self.kafka_service.unsubscribe_topic(KafkaTopics.DATA_UPDATE)
-            except:
-                pass
-            self.unregister_worker_pid(pid)
-            worker_logger.INFO(f"Worker PID:{pid} cleanup completed.")
+            worker_logger.ERROR(f":x: Error running DataWorker: {e}")
 
     def run_data_worker_daemon(self, *args, **kwargs):
         content = """

@@ -85,6 +85,15 @@
 - [ ] 外部依赖验证包含存在性、正确性、版本兼容性检查
 - [ ] 禁止仅因默认值/Mock使测试通过就认为验证完成
 
+### DTO消息队列原则 (DTO Message Pattern)
+- [ ] 所有Kafka消息发送使用DTO包装（ControlCommandDTO等）
+- [ ] 发送端使用DTO.model_dump_json()序列化
+- [ ] 接收端使用DTO(**data)反序列化
+- [ ] 使用DTO.Commands常量类定义命令/事件类型
+- [ ] 使用DTO.is_xxx()方法进行类型判断
+- [ ] 禁止直接发送字典或裸JSON字符串到Kafka
+- [ ] DTO使用Pydantic BaseModel实现类型验证
+
 ## Project Structure
 
 ### Documentation (this feature)
