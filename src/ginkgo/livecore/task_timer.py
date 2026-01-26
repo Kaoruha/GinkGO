@@ -535,7 +535,10 @@ class TaskTimer:
             任务函数
         """
         job_functions = {
+            "stockinfo": self._stockinfo_job,
+            "adjustfactor": self._adjustfactor_job,
             "bar_snapshot": self._bar_snapshot_job,
+            "tick": self._tick_job,
             "update_selector": self._selector_update_job,
             "update_data": self._data_update_job,
             "heartbeat_test": self._heartbeat_test_job,
@@ -545,35 +548,152 @@ class TaskTimer:
 
     def _get_valid_commands(self) -> List[str]:
         """获取有效的命令列表"""
-        return ["bar_snapshot", "update_selector", "update_data", "heartbeat_test"]
+        return ["stockinfo", "adjustfactor", "bar_snapshot", "tick", "update_selector", "update_data", "heartbeat_test"]
+
+    @safe_job_wrapper
+    def _stockinfo_job(self) -> None:
+        """
+        股票信息更新任务（21:00触发）
+
+        发送stockinfo命令到Kafka（ginkgo.data.commands），
+        DataWorker接收后更新所有股票的基本信息。
+        """
+        try:
+            # stockinfo 不需要指定 code，会同步所有股票
+            command_dto = ControlCommandDTO(
+                command=ControlCommandDTO.Commands.STOCKINFO,
+                params={},
+                source="task_timer"
+            )
+
+            # 直接发送到 ginkgo.data.commands
+            self._publish_to_data_commands(command_dto.model_dump_json())
+            print("[INFO] Sent stockinfo command to DataWorker")
+
+            # 发送Discord通知
+            self._send_notification("股票信息更新命令已发送", "STOCKINFO")
+
+        except Exception as e:
+            print(f"[ERROR] Stockinfo job failed: {e}")
+            self._send_error_notification("股票信息更新任务执行失败", e)
+
+    @safe_job_wrapper
+    def _adjustfactor_job(self) -> None:
+        """
+        复权因子更新任务（21:05触发）
+
+        获取所有股票代码，批量发送adjustfactor命令到Kafka（ginkgo.data.commands），
+        DataWorker接收后批量更新复权因子数据。
+        """
+        try:
+            # 获取所有股票代码
+            stock_codes = self._get_all_stock_codes()
+
+            if not stock_codes:
+                print("[WARN] No stocks found, skipping adjustfactor update")
+                return
+
+            total = len(stock_codes)
+            print(f"[INFO] Sending adjustfactor commands for {total} stocks")
+
+            # 批量发送命令（batch_size=100）
+            self._send_batch_commands("adjustfactor", stock_codes, batch_size=100)
+
+            print(f"[INFO] Completed adjustfactor update for {total} stocks")
+            self._send_notification(f"复权因子更新完成，共 {total} 只股票", "ADJUSTFACTOR")
+
+        except Exception as e:
+            print(f"[ERROR] Adjustfactor job failed: {e}")
+            self._send_error_notification("复权因子更新任务执行失败", e)
 
     @safe_job_wrapper
     def _bar_snapshot_job(self) -> None:
         """
-        K线快照任务（21:00触发）
+        K线数据更新任务（21:10触发）
 
-        发送bar_snapshot控制命令到Kafka，
-        DataManager接收后推送当日K线数据。
+        获取所有股票代码，批量发送bar_snapshot命令到Kafka（ginkgo.data.commands），
+        DataWorker接收后批量更新日K线数据。
+        """
+        try:
+            # 获取所有股票代码
+            stock_codes = self._get_all_stock_codes()
+
+            if not stock_codes:
+                print("[WARN] No stocks found, skipping bar_snapshot update")
+                return
+
+            total = len(stock_codes)
+            print(f"[INFO] Sending bar_snapshot commands for {total} stocks")
+
+            # 批量发送命令（batch_size=50，默认参数：当日K线，不强制覆盖）
+            payload = {"full": False, "force": False}
+            self._send_batch_commands("bar_snapshot", stock_codes, batch_size=50, payload=payload)
+
+            print(f"[INFO] Completed bar_snapshot update for {total} stocks")
+            self._send_notification(f"K线数据更新完成，共 {total} 只股票", "BAR_SNAPSHOT")
+
+        except Exception as e:
+            print(f"[ERROR] Bar snapshot job failed: {e}")
+            self._send_error_notification("K线数据更新任务执行失败", e)
+
+    @safe_job_wrapper
+    def _tick_job(self) -> None:
+        """
+        Tick数据更新任务（21:15触发，可选）
+
+        获取所有股票代码，批量发送tick命令到Kafka（ginkgo.data.commands），
+        DataWorker接收后批量更新tick数据（耗时较长）。
+        """
+        try:
+            # 获取所有股票代码
+            stock_codes = self._get_all_stock_codes()
+
+            if not stock_codes:
+                print("[WARN] No stocks found, skipping tick update")
+                return
+
+            total = len(stock_codes)
+            print(f"[INFO] Sending tick commands for {total} stocks (this may take a while)")
+
+            # 批量发送命令（batch_size=10，默认参数：增量同步，不强制覆盖）
+            payload = {"full": False, "overwrite": False}
+            self._send_batch_commands("tick", stock_codes, batch_size=10, payload=payload)
+
+            print(f"[INFO] Completed tick update for {total} stocks")
+            self._send_notification(f"Tick数据更新完成，共 {total} 只股票", "TICK")
+
+        except Exception as e:
+            print(f"[ERROR] Tick job failed: {e}")
+            self._send_error_notification("Tick数据更新任务执行失败", e)
+
+    @safe_job_wrapper
+    def _adjustfactor_job(self) -> None:
+        """
+        复权因子更新任务（21:05触发）
+
+        发送adjustfactor控制命令到Kafka，
+        DataManager接收后向DataWorker发送adjustfactor命令，
+        批量更新所有股票的复权因子数据。
         """
         try:
             command_dto = ControlCommandDTO(
-                command=ControlCommandDTO.Commands.BAR_SNAPSHOT,
+                command=ControlCommandDTO.Commands.ADJUSTFACTOR,
                 params={"timestamp": datetime.now().isoformat()},
             )
 
             # 发布到Kafka（带重试）
             self._publish_to_kafka(command_dto.model_dump_json())
-            print("[INFO] Sent bar_snapshot command to Kafka")
+            print("[INFO] Sent adjustfactor command to Kafka")
 
             # 发送Discord通知
             try:
                 from ginkgo.notifier.core.notification_service import notify
                 notify(
-                    "K线快照命令已发送，DataManager将推送当日K线数据",
+                    "复权因子更新命令已发送",
                     level="INFO",
                     module="TaskTimer",
                     details={
-                        "命令": "BAR_SNAPSHOT",
+                        "命令": "ADJUSTFACTOR",
                         "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     },
                 )
@@ -581,12 +701,59 @@ class TaskTimer:
                 print(f"[WARN] Failed to send notification: {notify_error}")
 
         except Exception as e:
-            print(f"[ERROR] Bar snapshot job failed: {e}")
+            print(f"[ERROR] Adjustfactor job failed: {e}")
             # 发送错误通知
             try:
                 from ginkgo.notifier.core.notification_service import notify
                 notify(
-                    f"K线快照任务执行失败: {e}",
+                    f"复权因子更新任务执行失败: {e}",
+                    level="ERROR",
+                    module="TaskTimer",
+                )
+            except Exception:
+                pass
+
+    @safe_job_wrapper
+    def _tick_job(self) -> None:
+        """
+        Tick数据更新任务（21:15触发，可选）
+
+        发送tick控制命令到Kafka，
+        DataManager接收后向DataWorker发送tick命令，
+        批量更新所有股票的tick数据（耗时较长）。
+        """
+        try:
+            command_dto = ControlCommandDTO(
+                command=ControlCommandDTO.Commands.TICK,
+                params={"timestamp": datetime.now().isoformat()},
+            )
+
+            # 发布到Kafka（带重试）
+            self._publish_to_kafka(command_dto.model_dump_json())
+            print("[INFO] Sent tick command to Kafka")
+
+            # 发送Discord通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    "Tick数据更新命令已发送（预计耗时较长）",
+                    level="INFO",
+                    module="TaskTimer",
+                    details={
+                        "命令": "TICK",
+                        "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    },
+                )
+            except Exception as notify_error:
+                print(f"[WARN] Failed to send notification: {notify_error}")
+
+        except Exception as e:
+            print(f"[ERROR] Tick job failed: {e}")
+            # 发送错误通知
+            try:
+                from ginkgo.notifier.core.notification_service import notify
+                notify(
+                    f"Tick数据更新任务执行失败: {e}",
                     level="ERROR",
                     module="TaskTimer",
                 )
@@ -604,90 +771,32 @@ class TaskTimer:
         try:
             command_dto = ControlCommandDTO(
                 command=ControlCommandDTO.Commands.UPDATE_SELECTOR,
-                params={"timestamp": datetime.now().isoformat()},
+                params={},
+                source="task_timer"
             )
 
             # 发布到Kafka（带重试）
             self._publish_to_kafka(command_dto.model_dump_json())
             print("[INFO] Sent update_selector command to Kafka")
-
-            # 发送Discord通知
-            try:
-                from ginkgo.notifier.core.notification_service import notify
-                notify(
-                    "Selector更新命令已发送，ExecutionNode将触发selector.pick()",
-                    level="INFO",
-                    module="TaskTimer",
-                    details={
-                        "命令": "UPDATE_SELECTOR",
-                        "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    },
-                )
-            except Exception as notify_error:
-                print(f"[WARN] Failed to send notification: {notify_error}")
+            self._send_notification("Selector更新命令已发送", "UPDATE_SELECTOR")
 
         except Exception as e:
             print(f"[ERROR] Selector update job failed: {e}")
-            # 发送错误通知
-            try:
-                from ginkgo.notifier.core.notification_service import notify
-                notify(
-                    f"Selector更新任务执行失败: {e}",
-                    level="ERROR",
-                    module="TaskTimer",
-                )
-            except Exception:
-                pass
+            self._send_error_notification("Selector更新任务执行失败", e)
 
     @safe_job_wrapper
     def _data_update_job(self) -> None:
         """
-        数据更新任务（19:00触发）
+        数据更新任务（已弃用）
 
-        发送update_data控制命令到Kafka。
+        注意：此命令已弃用，请使用独立的 stockinfo/adjustfactor/bar_snapshot/tick 命令。
         """
-        try:
-            command_dto = ControlCommandDTO(
-                command=ControlCommandDTO.Commands.UPDATE_DATA,
-                params={"timestamp": datetime.now().isoformat()},
-            )
-
-            # 发布到Kafka（带重试）
-            self._publish_to_kafka(command_dto.model_dump_json())
-            print("[INFO] Sent update_data command to Kafka")
-
-            # 发送Discord通知
-            try:
-                from ginkgo.notifier.core.notification_service import notify
-                notify(
-                    "数据更新命令已发送",
-                    level="INFO",
-                    module="TaskTimer",
-                    details={
-                        "命令": "UPDATE_DATA",
-                        "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    },
-                )
-            except Exception as notify_error:
-                print(f"[WARN] Failed to send notification: {notify_error}")
-
-        except Exception as e:
-            print(f"[ERROR] Data update job failed: {e}")
-            # 发送错误通知
-            try:
-                from ginkgo.notifier.core.notification_service import notify
-                notify(
-                    f"数据更新任务执行失败: {e}",
-                    level="ERROR",
-                    module="TaskTimer",
-                )
-            except Exception:
-                pass
+        print("[WARN] _data_update_job is deprecated, use individual commands instead")
 
     @safe_job_wrapper
     def _heartbeat_test_job(self) -> None:
         """
-        心跳测试任务（每分钟触发）
+        心跳测试任务（每天00:00触发）
 
         用于验证TaskTimer正常运行的测试任务，仅发送Discord通知。
         """
@@ -709,16 +818,126 @@ class TaskTimer:
 
         except Exception as e:
             print(f"[ERROR] Heartbeat test job failed: {e}")
-            # 发送错误通知
+            self._send_error_notification("心跳测试任务执行失败", e)
+        """
+        获取所有股票代码列表
+
+        Returns:
+            股票代码列表
+        """
+        try:
+            from ginkgo import services
+
+            stockinfo_service = services.data.services.stockinfo_service()
+            stocks = stockinfo_service.get_stockinfos()
+
+            if not stocks:
+                return []
+
+            return [stock.code for stock in stocks]
+
+        except Exception as e:
+            print(f"[ERROR] Failed to get stock codes: {e}")
+            return []
+
+    def _send_batch_commands(self, command: str, codes: list, batch_size: int = 50,
+                           payload: dict = None) -> None:
+        """
+        批量发送命令到 DataWorker
+
+        Args:
+            command: 命令类型
+            codes: 股票代码列表
+            batch_size: 每批次处理的股票数量
+            payload: 额外的命令参数
+        """
+        try:
+            payload = payload or {}
+            total = len(codes)
+            processed = 0
+
+            while processed < total:
+                # 获取当前批次
+                batch = codes[processed:processed + batch_size]
+
+                # 为每个股票发送命令
+                for code in batch:
+                    cmd_payload = {**payload, "code": code}
+                    command_dto = ControlCommandDTO(
+                        command=command,
+                        params=cmd_payload,
+                        source="task_timer"
+                    )
+                    self._publish_to_data_commands(command_dto.model_dump_json())
+
+                processed += len(batch)
+                print(f"[INFO] Progress: {processed}/{total} ({processed*100//total}%)")
+
+                # 短暂延迟，避免 Kafka 压力过大
+                import time
+                time.sleep(0.1)
+
+        except Exception as e:
+            print(f"[ERROR] Failed to send batch {command} commands: {e}")
+
+    def _publish_to_data_commands(self, message: str) -> None:
+        """
+        发布命令到 ginkgo.data.commands topic（带重试）
+
+        Args:
+            message: JSON格式的命令
+        """
+        if self._producer:
             try:
-                from ginkgo.notifier.core.notification_service import notify
-                notify(
-                    f"心跳测试任务执行失败: {e}",
-                    level="ERROR",
-                    module="TaskTimer",
+                self._producer.send(
+                    topic=KafkaTopics.DATA_COMMANDS,
+                    msg=message,
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[ERROR] Failed to publish to data.commands: {e}")
+
+    def _send_notification(self, message: str, command_name: str) -> None:
+        """
+        发送Discord通知
+
+        Args:
+            message: 通知消息
+            command_name: 命令名称
+        """
+        try:
+            from ginkgo.notifier.core.notification_service import notify
+            notify(
+                message,
+                level="INFO",
+                module="TaskTimer",
+                details={
+                    "命令": command_name,
+                    "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                },
+            )
+        except Exception as e:
+            print(f"[WARN] Failed to send notification: {e}")
+
+    def _send_error_notification(self, message: str, error: Exception) -> None:
+        """
+        发送错误通知
+
+        Args:
+            message: 错误消息
+            error: 异常对象
+        """
+        try:
+            from ginkgo.notifier.core.notification_service import notify
+            notify(
+                message,
+                level="ERROR",
+                module="TaskTimer",
+                details={
+                    "错误": str(error),
+                },
+            )
+        except Exception:
+            pass
 
     def validate_config(self) -> bool:
         """
@@ -764,11 +983,33 @@ class TaskTimer:
         """
         发布控制命令到Kafka（带重试）
 
+        根据命令类型自动路由到正确的 topic：
+        - 数据采集命令 (bar_snapshot, stockinfo, adjustfactor, tick) → ginkgo.data.commands
+        - 其他控制命令 → ginkgo.live.control.commands
+
         Args:
             message: JSON格式的控制命令
         """
         if self._producer:
-            self._producer.send(
-                topic=KafkaTopics.CONTROL_COMMANDS,
-                msg=message,
-            )
+            # 解析消息判断命令类型
+            try:
+                import json
+                message_data = json.loads(message)
+                command = message_data.get("command", "")
+
+                # 数据采集命令发送到专用 topic
+                if command in ("bar_snapshot", "stockinfo", "adjustfactor", "tick"):
+                    topic = KafkaTopics.DATA_COMMANDS
+                else:
+                    topic = KafkaTopics.CONTROL_COMMANDS
+
+                self._producer.send(
+                    topic=topic,
+                    msg=message,
+                )
+            except json.JSONDecodeError:
+                # 如果解析失败，发送到默认 topic
+                self._producer.send(
+                    topic=KafkaTopics.CONTROL_COMMANDS,
+                    msg=message,
+                )

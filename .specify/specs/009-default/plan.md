@@ -145,7 +145,37 @@ tests/
     └── test_data_source.py (如需要)
 ```
 
-**Structure Decision**: 采用方案2 - 各自模块的worker子目录。DataWorker归属data模块，与数据CRUD、Service等内聚，与notifier/worker模式保持一致。livecore保留给实盘交易核心组件（TaskTimer、ExecutionNode等）。
+**Structure Decision**: 采用方案2 - 各自模块的worker子目录。DataWorker归属data模块，与数据CRUD、Service等内聚，与notifier/worker模式保持一致。
+
+**容器化部署架构**:
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Docker Compose (ginkgo项目)                                  │
+│                                                               │
+│ ┌─────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│ │  TaskTimer   │  │  DataWorker   │  │ ExecutionNode│         │
+│ │  (定时任务)   │  │  (数据采集)    │  │  (策略执行)   │         │
+│ │               │  │  (scale:4)    │  │  (scale:2)    │         │
+│ └─────────────┘  └──────────────┘  └──────────────┘         │
+│                                                               │
+│ ┌─────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│ │ LiveCore     │  │ NotifyWorker │  │  Feast       │         │
+│ │ (实时推送)   │  │  (通知服务)   │  │  (特征存储)   │         │
+│ │               │  │               │  │              │         │
+│ └─────────────┘  └──────────────┘  └──────────────┘         │
+│                                                               │
+│ ┌───────────────────────────────────────────────────────┐   │
+│ │ 基础设施 (Redis, Kafka, MySQL, ClickHouse, MongoDB) │   │
+│ └───────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**组件职责**:
+- **TaskTimer**: 定时任务调度，发送数据更新命令到 DataWorker
+- **DataWorker**: 数据采集Worker，订阅 Kafka data commands，批量更新数据
+- **ExecutionNode**: 策略执行节点，运行 Portfolio 实例
+- **LiveCore**: 实时数据推送容器 (DataManager + Scheduler + TradeGatewayAdapter)
+- **NotifyWorker**: 通知服务，处理 Discord/Email 消息
 
 **启动方式**:
 - 前台调试: `ginkgo worker start --data --debug`

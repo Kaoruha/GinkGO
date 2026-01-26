@@ -77,6 +77,14 @@ class KafkaTopics:
     DATA_UPDATE = "ginkgo.data.update"
 
     # ============================================
+    # 数据采集 Topics (Data Collection)
+    # ============================================
+
+    # 数据采集命令（TaskTimer → DataWorker）
+    # 命令类型: bar_snapshot, stockinfo, adjustfactor, tick
+    DATA_COMMANDS = "ginkgo.data.commands"
+
+    # ============================================
     # 系统事件 Topics (System Events)
     # ============================================
 
@@ -132,6 +140,7 @@ class KafkaTopics:
         SCHEDULE_UPDATES,
         SCHEDULE_UPDATES_LIVE,
         DATA_UPDATE,
+        DATA_COMMANDS,  # 新增：数据采集命令
         SYSTEM_EVENTS,
         NOTIFICATIONS,
     ]
