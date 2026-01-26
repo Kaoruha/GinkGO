@@ -115,10 +115,11 @@ services:
   mysql-master:
     image: mysql:8.2.0
     container_name: ginkgo-mysql-master
-    command: 
+    command:
       --max_connections=1000
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_general_ci
+      --default-time-zone='+08:00'
     restart: always
     ports:
       - "3306:3306"
@@ -127,6 +128,7 @@ services:
       MYSQL_DATABASE: ginkgo
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Shanghai
     volumes:
       - ../.logs/mysql:/logs
       - ../.db/mysql:/var/lib/mysql
@@ -135,10 +137,11 @@ services:
   mysql-test:
     image: mysql:8.2.0
     container_name: ginkgo-mysql-test
-    command: 
+    command:
       --max_connections=1000
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_general_ci
+      --default-time-zone='+08:00'
     restart: always
     ports:
       - "13306:3306"
@@ -147,6 +150,7 @@ services:
       MYSQL_DATABASE: ginkgo
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Shanghai
     volumes:
       - ../.logs/mysql_test:/logs
       - ../.db/mysql_test:/var/lib/mysql
