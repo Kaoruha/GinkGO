@@ -1,12 +1,3 @@
-# Upstream: CLI主入口(ginkgo worker命令调用)
-# Downstream: GinkgoThreadManager(线程管理器run_data_worker/start_multi_worker/reset_all_workers/get_worker_status/get_worker_count)、Rich库(表格/进度显示)、psutil(进程CPU/内存监控)
-# Role: Worker进程管理CLI提供状态/启动/停止/重启等命令支持Kafka驱动的分布式worker线程管理
-
-
-
-
-
-
 """
 Ginkgo Worker CLI - Worker管理命令
 """
@@ -16,18 +7,26 @@ from typing import Optional
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-import psutil
 
 app = typer.Typer(help=":gear: Worker management", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
 
 
-@app.command()
-def run(
+# ==================== Data Worker 子命令 ====================
+
+data_app = typer.Typer(help=":page_facing_up: DataWorker management", rich_markup_mode="rich")
+
+
+@data_app.command("run")
+def data_run(
     debug: bool = typer.Option(False, "--debug", "-d", help="Run worker in debug mode"),
 ):
     """
-    :gear: Run a worker in foreground.
+    :gear: Run a data worker in foreground.
+
+    Examples:
+      ginkgo worker data run
+      ginkgo worker data run --debug
     """
     try:
         from ginkgo.libs.core.threading import GinkgoThreadManager
@@ -40,7 +39,7 @@ def run(
         gtm = GinkgoThreadManager()
 
         # 在前台运行单个worker
-        console.print(":gear: Starting worker in foreground mode...")
+        console.print(":gear: Starting data worker in foreground mode...")
         console.print(":information: Press Ctrl+C to stop the worker")
 
         try:
@@ -56,14 +55,20 @@ def run(
         raise typer.Exit(1)
 
 
-@app.command()
-def status(
+@data_app.command("status")
+def data_status(
     pid: Optional[str] = typer.Option(None, "--pid", "-p", help="Show status for specific worker PID"),
     detailed: bool = typer.Option(False, "--detailed", help="Show detailed worker information"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
 ):
     """
-    :bar_chart: Show worker status.
+    :bar_chart: Show data worker status.
+
+    Examples:
+      ginkgo worker data status
+      ginkgo worker data status --pid 123
+      ginkgo worker data status --detailed
+      ginkgo worker data status --raw
     """
     try:
         from ginkgo.libs.core.threading import GinkgoThreadManager
@@ -97,460 +102,275 @@ def status(
                     table.add_row(key.replace("_", " ").title(), str(value))
 
             console.print(table)
-
         else:
             # 显示所有worker的状态
-            console.print(":magnifying_glass_tilted_left: All Workers Status")
-            workers_status = gtm.get_workers_status()
-            worker_count = gtm.get_worker_count()
+            worker_list = gtm.get_workers_status()
 
-            if not workers_status:
-                console.print(":memo: No active workers found")
-                return
-
-            # Raw output mode
             if raw:
                 import json
-                console.print(json.dumps(workers_status, indent=2, ensure_ascii=False, default=str))
+                console.print(json.dumps(worker_list, indent=2, ensure_ascii=False, default=str))
                 return
 
-            # 创建worker状态表格
-            table = Table(title=f":gear: Worker Pool - Total: {worker_count}")
-            table.add_column("PID", style="cyan", width=8)
-            table.add_column("Task", style="green", width=20)
-            table.add_column("Status", style="yellow", width=10)
-            table.add_column("Running Time", style="blue", width=12)
-            table.add_column("CPU", style="red", width=8)
-            table.add_column("Memory", style="magenta", width=10)
+            # 汇总统计
+            total_workers = len(worker_list)
+            active_workers = len([w for w in worker_list if w.get("status") == "running"])
 
-            for pid, status in workers_status.items():
-                try:
-                    # 获取进程CPU和内存使用情况
-                    if pid and pid.isdigit():
-                        process = psutil.Process(int(pid))
-                        cpu_percent = f"{process.cpu_percent():.1f}%"
-                        memory_mb = f"{process.memory_info().rss / 1024 / 1024:.1f}MB"
-                    else:
-                        cpu_percent = "N/A"
-                        memory_mb = "N/A"
-                except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
-                    cpu_percent = "N/A"
-                    memory_mb = "N/A"
+            # 创建汇总表格
+            table = Table(title=":gear: Data Worker Status Summary")
+            table.add_column("Metric", style="cyan", width=25)
+            table.add_column("Count", justify="center", style="green")
+            table.add_column("Details", style="dim")
 
-                task_name = status.get("task_name", "N/A")
-                worker_status = status.get("status", "N/A")
-                running_time = status.get("running_time", "N/A")
-
-                table.add_row(
-                    str(pid)[:8],
-                    str(task_name)[:18],
-                    str(worker_status)[:8],
-                    str(running_time)[:10],
-                    str(cpu_percent)[:6],
-                    str(memory_mb)[:8]
-                )
+            table.add_row("Total Workers", str(total_workers), f"{active_workers} active")
+            table.add_row("Status", "OK" if active_workers > 0 else "IDLE", f"{total_workers - active_workers} idle")
 
             console.print(table)
 
-            if detailed:
-                console.print("\n:information: Detailed Worker Information:")
-                for pid, status in workers_status.items():
-                    console.print(f"  • PID {pid}: {status}")
+            if detailed and total_workers > 0:
+                console.print("\n")
+                detailed_table = Table(title=":gear: All Data Workers")
+                detailed_table.add_column("PID", justify="right", style="cyan")
+                detailed_table.add_column("Status")
+                detailed_table.add_column("CPU", justify="right")
+                detailed_table.add_column("Memory", justify="right")
+                detailed_table.add_column("Tasks", justify="center")
+
+                for w in worker_list:
+                    pid = w.get("pid", "N/A")
+                    status = w.get("status", "unknown")
+                    cpu = f"{w.get('cpu_percent', 0):.1f}%" if "cpu_percent" in w else "N/A"
+                    mem = f"{w.get('memory_mb', 0):.1f} MB" if "memory_mb" in w else "N/A"
+                    tasks = w.get("tasks", "N/A")
+
+                    # 状态样式
+                    if status == "running":
+                        status_style = "green"
+                    elif status == "idle":
+                        status_style = "yellow"
+                    else:
+                        status_style = "red"
+
+                    detailed_table.add_row(str(pid), f"[{status_style}]{status}[/{status_style}]", cpu, mem, str(tasks))
+
+                console.print(detailed_table)
 
     except ImportError as e:
         console.print(f":x: Failed to import ThreadManager: {e}")
         raise typer.Exit(1)
-    except Exception as e:
-        console.print(f":x: Error getting worker status: {e}")
-        raise typer.Exit(1)
 
 
-@app.command()
-def scale(
-    count: int = typer.Argument(..., help="Target number of workers"),
-    force: bool = typer.Option(False, "--force", "-f", help="Force scaling without confirmation"),
+# ==================== Backtest Worker 子命令 ====================
+
+backtest_app = typer.Typer(help=":backtest: BacktestWorker management", rich_markup_mode="rich")
+
+
+@backtest_app.command("run")
+def backtest_run(
+    worker_id: str = typer.Option(None, "--worker-id", "-w", help="BacktestWorker unique identifier"),
+    max_tasks: int = typer.Option(5, "--max-tasks", "-m", help="Maximum concurrent backtest tasks"),
+    debug: bool = typer.Option(False, "--debug", "-d", help="Run in debug mode"),
 ):
     """
-    :arrows_counterclockwise: Scale workers to specified count.
-    """
-    try:
-        from ginkgo.libs.core.threading import GinkgoThreadManager
-
-        gtm = GinkgoThreadManager()
-        current_count = gtm.get_worker_count()
-
-        console.print(f":information: Current worker count: {current_count}")
-        console.print(f":information: Target worker count: {count}")
-
-        if count < 0:
-            console.print(":x: Worker count cannot be negative")
-            raise typer.Exit(1)
-
-        if count == current_count:
-            console.print(":information: Worker count is already at target")
-            return
-
-        if not force:
-            # 请求确认
-            if count > current_count:
-                action = f"start {count - current_count} workers"
-            else:
-                action = f"stop {current_count - count} workers"
-
-            console.print(f":warning: This will {action}. Are you sure?")
-            try:
-                from rich.prompt import Prompt
-                confirmation = Prompt.ask("Type 'yes' to continue", default="no")
-                if confirmation.lower() != 'yes':
-                    console.print(":information: Operation cancelled")
-                    return
-            except (EOFError, KeyboardInterrupt):
-                console.print(":information: Operation cancelled")
-                return
-
-        # 扩展worker数量
-        if count > current_count:
-            # 启动新workers
-            workers_to_start = count - current_count
-            console.print(f":information: Starting {workers_to_start} new workers...")
-            gtm.start_multi_worker(count=workers_to_start)
-            console.print(f":white_check_mark: Successfully started {workers_to_start} workers")
-
-        elif count < current_count:
-            # 停止多余的workers
-            workers_to_stop = current_count - count
-            console.print(f":warning: Stopping {workers_to_stop} workers...")
-            gtm.reset_all_workers()
-            # 重新启动需要的worker数量
-            if count > 0:
-                gtm.start_multi_worker(count=count)
-            console.print(f":white_check_mark: Successfully scaled workers to {count}")
-
-        # 显示新的状态
-        new_count = gtm.get_worker_count()
-        console.print(f":information: New worker count: {new_count}")
-
-    except ImportError as e:
-        console.print(f":x: Failed to import ThreadManager: {e}")
-        raise typer.Exit(1)
-    except Exception as e:
-        console.print(f":x: Error scaling workers: {e}")
-        raise typer.Exit(1)
-
-
-@app.command()
-def stop():
-    """
-    :stop_button: Stop all workers.
-    """
-    try:
-        from ginkgo.libs.core.threading import GinkgoThreadManager
-
-        gtm = GinkgoThreadManager()
-        current_count = gtm.get_worker_count()
-
-        if current_count == 0:
-            console.print(":information: No workers are currently running")
-            return
-
-        console.print(f":information: Stopping {current_count} workers...")
-        gtm.reset_all_workers()
-        console.print(":white_check_mark: All workers stopped successfully")
-
-    except ImportError as e:
-        console.print(f":x: Failed to import ThreadManager: {e}")
-        raise typer.Exit(1)
-    except Exception as e:
-        console.print(f":x: Error stopping workers: {e}")
-        raise typer.Exit(1)
-
-
-@app.command("start")
-def start_worker(
-    notification: bool = typer.Option(False, "--notification", help="Start notification worker for Kafka message processing"),
-    data: bool = typer.Option(False, "--data", help="Start data worker for Kafka message processing"),
-    group_id: Optional[str] = typer.Option(None, "--group-id", "-g", help="Consumer group ID"),
-    auto_offset: str = typer.Option("earliest", "--auto-offset", "-a", help="Kafka auto offset reset (earliest/latest)"),
-    debug: bool = typer.Option(False, "--debug", "-d", help="Run worker in debug mode"),
-):
-    """
-    :rocket: Start a specialized worker.
+    :backtest: Run a backtest worker in foreground.
 
     Examples:
-      ginkgo worker start --notification
-      ginkgo worker start --data
-      ginkgo worker start --notification --group-id custom_group
-      ginkgo worker start --data --debug
+      ginkgo worker backtest run
+      ginkgo worker backtest run --worker-id worker_1
+      ginkgo worker backtest run --max-tasks 10
+      ginkgo worker backtest run --debug
     """
+    # 使用环境变量或默认值
+    if worker_id is None:
+        import os
+        worker_id = os.getenv("GINKGO_WORKER_ID")
+    if worker_id is None:
+        import socket
+        worker_id = f"backtest_worker_{socket.gethostname()}"
+
     try:
-        if data:
-            _start_data_worker(group_id, auto_offset, debug)
-        elif notification:
-            _start_notification_worker(group_id, auto_offset, debug)
-        else:
-            console.print(":x: Please specify worker type (--notification or --data)")
-            console.print(":information: Available worker types:")
-            console.print("  --notification  Start notification worker (Kafka consumer)")
-            console.print("  --data         Start data worker (Kafka consumer)")
-            console.print(":information: For LiveCore, use: [cyan]ginkgo livecore start[/cyan]")
-            raise typer.Exit(1)
+        from ginkgo.workers.backtest_worker.node import BacktestWorker
+
+        # 显示BacktestWorker信息
+        console.print(Panel.fit(
+            f"[bold cyan]:backtest: BacktestWorker[/bold cyan]\n"
+            f"[dim]Configuration:[/dim]\n"
+            f"  • Worker ID: {worker_id}\n"
+            f"  • Max Tasks: {max_tasks}\n"
+            f"[dim]Features:[/dim]\n"
+            f"  • Kafka task assignment\n"
+            f"  • Multi-task parallel execution\n"
+            f"  • Progress tracking (2s interval)\n"
+            f"  • Redis heartbeat (30s TTL)\n"
+            f"[dim]Debug:[/dim] {'On' if debug else 'Off'}",
+            title="[bold]Backtest Execution Engine[/bold]",
+            border_style="cyan"
+        ))
+
+        if debug:
+            console.print("\n[yellow]:bug: Debug mode enabled[/yellow]")
+
+        # 创建BacktestWorker实例
+        console.print(f"\n:rocket: [bold green]Creating BacktestWorker '{worker_id}'...[/bold green]")
+        worker = BacktestWorker(worker_id=worker_id)
+        worker.max_backtests = max_tasks
+
+        # 注册信号处理
+        import signal
+        def signal_handler(sig, frame):
+            console.print("\n\n[yellow]:warning: Received stop signal, shutting down...[/yellow]")
+            worker.stop()
+            import sys
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
+        # 启动Worker
+        console.print(f"\n:rocket: [bold green]Starting BacktestWorker...[/bold green]")
+        console.print(":information: Press Ctrl+C to stop\n")
+
+        worker.start()
+
+        console.print(":white_check_mark: [green]BacktestWorker started successfully[/green]")
+        console.print(f":information: Worker ID: {worker.worker_id}")
+        console.print(f":information: Max tasks: {worker.max_backtests}")
+        console.print(f":information: Ready to receive tasks from 'backtest.assignments' topic\n")
+
+        # 保持运行
+        console.print("[dim]Running... (Press Ctrl+C to stop)[/dim]\n")
+        import time
+        try:
+            while worker.is_running:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            console.print("\n\n[yellow]:warning: Shutting down...[/yellow]")
+            worker.stop()
+            console.print("[green]:white_check_mark: BacktestWorker stopped[/green]")
 
     except Exception as e:
-        console.print(f":x: Error starting worker: {e}")
-        raise typer.Exit(1)
+        console.print(f"\n[red]:x: Failed to start BacktestWorker: {e}[/red]")
+        raise typer.Exit(code=1)
 
 
-def _start_notification_worker(
-    group_id: Optional[str],
-    auto_offset: str,
-    debug: bool
+@backtest_app.command("status")
+def backtest_status(
+    worker_id: Optional[str] = typer.Option(None, "--worker-id", "-w", help="Worker ID to check"),
+    raw: bool = typer.Option(False, "--raw", "-r", help="Output raw data as JSON"),
 ):
     """
-    Start notification worker for Kafka message processing.
+    :bar_chart: Show backtest worker status.
 
-    Args:
-        group_id: Consumer group ID
-        auto_offset: Kafka auto offset reset policy
-        debug: Enable debug mode
+    Examples:
+      ginkgo worker backtest status
+      ginkgo worker backtest status --worker-id worker_1
+      ginkgo worker backtest status --raw
     """
     try:
-        from ginkgo.notifier.workers.notification_worker import NotificationWorker, WorkerStatus
-        from ginkgo import service_hub
+        from ginkgo.data.drivers import create_redis_connection
+        import json
 
-        # Get services from service_hub
-        notification_service = service_hub.notifier.notification_service()
-        record_crud = service_hub.data.cruds.notification_record()
+        redis = create_redis_connection()
 
-        # Create worker
-        worker = NotificationWorker(
-            notification_service=notification_service,
-            record_crud=record_crud,
-            group_id=group_id or "notification_worker_group",
-            auto_offset_reset=auto_offset
-        )
+        if worker_id:
+            # 显示特定worker的状态
+            key = f"backtest:worker:{worker_id}"
+            data = redis.get(key)
 
-        # Display worker info
-        console.print(Panel.fit(
-            f"[bold cyan]:gear: Notification Worker[/bold cyan]\n"
-            f"[dim]Group ID:[/dim] {worker._group_id}\n"
-            f"[dim]Topic:[/dim] {worker.NOTIFICATIONS_TOPIC}\n"
-            f"[dim]Auto Offset:[/dim] {auto_offset}\n"
-            f"[dim]Debug:[/dim] {'On' if debug else 'Off'}",
-            title="[bold]Worker Configuration[/bold]",
-            border_style="cyan"
-        ))
+            if not data:
+                console.print(f":x: BacktestWorker '{worker_id}' not found (offline or never started)")
+                return
 
-        if debug:
-            console.print("\n[yellow]:bug: Debug mode enabled - verbose logging active[/yellow]")
+            status = json.loads(data)
 
-        # Start worker
-        console.print("\n:rocket: [bold green]Starting worker...[/bold green]")
-        console.print(":information: Press Ctrl+C to stop the worker\n")
+            # Raw output mode
+            if raw:
+                console.print(json.dumps(status, indent=2, ensure_ascii=False, default=str))
+                return
 
-        if not worker.start():
-            console.print("[red]:x: Failed to start worker[/red]")
-            raise typer.Exit(1)
+            # 显示状态面板
+            console.print(Panel.fit(
+                f"[bold cyan]BacktestWorker Status[/bold cyan]\n\n"
+                f"[dim]Worker ID:[/dim] {status['worker_id']}\n"
+                f"[dim]Status:[/dim] {'[green]:white_check_mark: Running[/green]' if status['status'] == 'running' else '[red]:x: Stopped[/red]'}\n"
+                f"[dim]Tasks:[/dim] {status['running_tasks']} / {status['max_tasks']}\n"
+                f"[dim]Started At:[/dim] {status.get('started_at', 'N/A')}\n"
+                f"[dim]Last Heartbeat:[/dim] {status.get('last_heartbeat', 'N/A')}\n",
+                border_style="cyan"
+            ))
+        else:
+            # 显示所有backtest worker的状态
+            pattern = "backtest:worker:*"
+            keys = redis.keys(pattern)
 
-        # Wait for interrupt
-        try:
-            import signal
-            import time
+            if raw:
+                workers = []
+                for key in keys:
+                    workers.append(json.loads(redis.get(key)))
+                console.print(json.dumps(workers, indent=2, ensure_ascii=False, default=str))
+                return
 
-            def signal_handler(signum, frame):
-                console.print("\n\n:stop_button: [yellow]Stopping worker...[/yellow]")
-                console.print(":information: Waiting for messages to finish processing...")
+            if not keys:
+                console.print("[yellow]:warning: No active BacktestWorkers found[/yellow]")
+                return
 
-                worker.stop(timeout=30.0)
+            # 汇总统计
+            workers = []
+            for key in keys:
+                workers.append(json.loads(redis.get(key)))
 
-                # Show final stats
-                stats = worker.stats
-                console.print(Panel.fit(
-                    f"[bold]Final Statistics[/bold]\n"
-                    f"[cyan]Messages Consumed:[/cyan] {stats['messages_consumed']}\n"
-                    f"[green]Messages Sent:[/green] {stats['messages_sent']}\n"
-                    f"[red]Messages Failed:[/red] {stats['messages_failed']}\n"
-                    f"[yellow]Messages Retried:[/yellow] {stats['messages_retried']}",
-                    title="[bold]Worker Summary[/bold]"
-                ))
-                console.print(":white_check_mark: Worker stopped successfully")
-                raise SystemExit(0)
+            total_workers = len(workers)
+            active_workers = len([w for w in workers if w.get("status") == "running"])
 
-            # Register signal handlers
-            signal.signal(signal.SIGINT, signal_handler)
-            signal.signal(signal.SIGTERM, signal_handler)
+            # 创建汇总表格
+            table = Table(title=":gear: BacktestWorker Status Summary")
+            table.add_column("Metric", style="cyan", width=25)
+            table.add_column("Count", justify="center", style="green")
+            table.add_column("Details", style="dim")
 
-            # Debug mode: 显示统计信息
-            last_shown_count = 0
-            last_shown_time = time.time()
-            stats_interval = 60  # 每60秒显示一次
-            message_interval = 10  # 每消费10条消息显示一次
+            table.add_row("Total Workers", str(total_workers), f"{active_workers} active")
+            table.add_row("Status", "OK" if active_workers > 0 else "IDLE", f"{total_workers - active_workers} idle")
 
-            # Keep running until interrupted
-            while worker.is_running:
-                time.sleep(1)
+            console.print(table)
 
-                # Debug mode: 周期性显示统计
-                if debug:
-                    current_time = time.time()
-                    current_count = worker.stats['messages_consumed']
+            # 详细worker列表
+            if total_workers > 0:
+                console.print("\n")
+                detailed_table = Table(title=":gear: All BacktestWorkers")
+                detailed_table.add_column("Worker ID", style="cyan")
+                detailed_table.add_column("Status")
+                detailed_table.add_column("Tasks", justify="center")
+                detailed_table.add_column("Max Tasks", justify="center")
+                detailed_table.add_column("Last Heartbeat", style="dim")
 
-                    # 检查是否需要显示统计
-                    should_show = False
-                    reason = ""
+                for w in workers:
+                    wid = w.get("worker_id", "N/A")
+                    status = w.get("status", "unknown")
+                    running_tasks = w.get("running_tasks", 0)
+                    max_tasks = w.get("max_tasks", 0)
+                    last_heartbeat = w.get("last_heartbeat", "N/A")
 
-                    # 条件1: 每消费 message_interval 条消息显示一次
-                    if current_count > 0 and current_count >= last_shown_count + message_interval:
-                        should_show = True
-                        reason = f"every {message_interval} messages"
+                    # 状态样式
+                    if status == "running":
+                        status_display = "[green]:white_check_mark: Running[/green]"
+                    else:
+                        status_display = "[red]:x: Stopped[/red]"
 
-                    # 条件2: 每隔 stats_interval 秒显示一次
-                    elif current_time - last_shown_time >= stats_interval:
-                        should_show = True
-                        reason = f"every {stats_interval}s"
+                    detailed_table.add_row(
+                        str(wid),
+                        status_display,
+                        f"{running_tasks}",
+                        f"{max_tasks}",
+                        last_heartbeat[:19] if last_heartbeat != "N/A" else "N/A"
+                    )
 
-                    if should_show:
-                        stats = worker.stats
-                        console.print(f"[dim]:memo: [{reason}] Processed: {stats['messages_consumed']} | "
-                                   f"Sent: {stats['messages_sent']} | "
-                                   f"Failed: {stats['messages_failed']}[/dim]")
-                        last_shown_count = current_count
-                        last_shown_time = current_time
+                console.print(detailed_table)
 
-        except SystemExit:
-            raise
-        except Exception as e:
-            console.print(f"\n[red]:x: Worker error: {e}[/red]")
-            worker.stop(timeout=5.0)
-            raise typer.Exit(1)
-
-    except ImportError as e:
-        console.print(f"[red]:x: Failed to import NotificationWorker: {e}[/red]")
-        console.print(":information: Make sure the notifier module is properly installed")
-        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"\n[red]:x: Error getting status: {e}[/red]")
+        raise typer.Exit(code=1)
 
 
-def _start_data_worker(
-    group_id: Optional[str],
-    auto_offset: str,
-    debug: bool
-):
-    """
-    Start data worker for Kafka message processing.
+# ==================== 注册子命令 ====================
 
-    Args:
-        group_id: Consumer group ID
-        auto_offset: Kafka auto offset reset policy
-        debug: Enable debug mode
-    """
-    try:
-        from ginkgo.data.worker.worker import DataWorker
-        from ginkgo import service_hub
-        from ginkgo.enums import WORKER_STATUS_TYPES
-
-        # Get services from service_hub
-        bar_crud = service_hub.data.cruds.bar()
-
-        # Create worker
-        worker = DataWorker(
-            bar_crud=bar_crud,
-            group_id=group_id or "data_worker_group",
-            auto_offset_reset=auto_offset
-        )
-
-        # Display worker info
-        console.print(Panel.fit(
-            f"[bold cyan]:gear: Data Worker[/bold cyan]\n"
-            f"[dim]Group ID:[/dim] {worker._group_id}\n"
-            f"[dim]Topic:[/dim] ginkgo.live.control.commands\n"
-            f"[dim]Auto Offset:[/dim] {auto_offset}\n"
-            f"[dim]Debug:[/dim] {'On' if debug else 'Off'}",
-            title="[bold]Worker Configuration[/bold]",
-            border_style="cyan"
-        ))
-
-        if debug:
-            console.print("\n[yellow]:bug: Debug mode enabled - verbose logging active[/yellow]")
-
-        # Start worker
-        console.print("\n:rocket: [bold green]Starting worker...[/bold green]")
-        console.print(":information: Press Ctrl+C to stop the worker\n")
-
-        if not worker.start():
-            console.print("[red]:x: Failed to start worker[/red]")
-            raise typer.Exit(1)
-
-        # Wait for interrupt
-        try:
-            import signal
-            import time
-
-            def signal_handler(signum, frame):
-                console.print("\n\n:stop_button: [yellow]Stopping worker...[/yellow]")
-                console.print(":information: Waiting for messages to finish processing...")
-
-                worker.stop(timeout=30.0)
-
-                # Show final stats
-                stats = worker.get_stats()
-                console.print(Panel.fit(
-                    f"[bold]Final Statistics[/bold]\n"
-                    f"[cyan]Messages Processed:[/cyan] {stats.get('messages_processed', 0)}\n"
-                    f"[green]Bars Written:[/green] {stats.get('bars_written', 0)}\n"
-                    f"[red]Errors:[/red] {stats.get('errors', 0)}",
-                    title="[bold]Worker Summary[/bold]"
-                ))
-                console.print(":white_check_mark: Worker stopped successfully")
-                raise SystemExit(0)
-
-            # Register signal handlers
-            signal.signal(signal.SIGINT, signal_handler)
-            signal.signal(signal.SIGTERM, signal_handler)
-
-            # Debug mode: 显示统计信息
-            last_shown_count = 0
-            last_shown_time = time.time()
-            stats_interval = 60  # 每60秒显示一次
-            message_interval = 10  # 每处理10条消息显示一次
-
-            # Keep running until interrupted
-            while worker.is_running:
-                time.sleep(1)
-
-                # Debug mode: 周期性显示统计
-                if debug:
-                    current_time = time.time()
-                    current_count = worker.get_stats().get('messages_processed', 0)
-
-                    # 检查是否需要显示统计
-                    should_show = False
-                    reason = ""
-
-                    # 条件1: 每消费 message_interval 条消息显示一次
-                    if current_count > 0 and current_count >= last_shown_count + message_interval:
-                        should_show = True
-                        reason = f"every {message_interval} messages"
-
-                    # 条件2: 每隔 stats_interval 秒显示一次
-                    elif current_time - last_shown_time >= stats_interval:
-                        should_show = True
-                        reason = f"every {stats_interval}s"
-
-                    if should_show:
-                        stats = worker.get_stats()
-                        console.print(f"[dim]:memo: [{reason}] Processed: {stats.get('messages_processed', 0)} | "
-                                   f"Bars: {stats.get('bars_written', 0)} | "
-                                   f"Errors: {stats.get('errors', 0)}[/dim]")
-                        last_shown_count = current_count
-                        last_shown_time = current_time
-
-        except SystemExit:
-            raise
-        except Exception as e:
-            console.print(f"\n[red]:x: Worker error: {e}[/red]")
-            worker.stop(timeout=5.0)
-            raise typer.Exit(1)
-
-    except ImportError as e:
-        console.print(f"[red]:x: Failed to import DataWorker: {e}[/red]")
-        console.print(":information: Make sure the data.worker module is properly installed")
-        raise typer.Exit(1)
+app.add_typer(data_app, name="data", help=":page_facing_up: DataWorker")
+app.add_typer(backtest_app, name="backtest", help=":backtest: BacktestWorker")

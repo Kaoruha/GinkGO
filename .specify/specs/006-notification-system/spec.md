@@ -2,8 +2,9 @@
 
 **Feature Branch**: `006-notification-system`
 **Created**: 2025-12-30
-**Status**: Draft
+**Status**: Implementation Complete (2026-01-31)
 **Input**: 创建完整的 MongoDB 基础设施层，使其与 ClickHouse 和 MySQL 并列为 Ginkgo 的第一等公民数据库。同时实现基于 MongoDB 的通知系统，支持 Discord 和 Email 渠道。用户管理使用 MySQL。
+**Update (2026-01-31)**: 完成通知接收人系统架构重构，从独立MongoDB存储改为引用MySQL用户/用户组的设计。系统通知逻辑已更新为遍历notification_recipients表发送通知。
 
 ## 术语表 (Glossary)
 
@@ -27,6 +28,12 @@
 - Q: MongoDB 操作和通知发送的关键事件应使用什么日志级别？ → A: 分级日志(ERROR/WARNING/INFO/DEBUG)
 - Q: Discord Webhook 和 Email SMTP 的请求超时应设置为多少？ → A: 渠道差异化超时(Discord 3s, Email 10s)，在 config.yaml 中定义
 - Q: CLI 发送通知时，如何传递模板变量的值？ → A: `--var key=value` 重复使用参数(如 `--var symbol=AAPL --var price=100`)
+
+### Session 2026-01-31 (Architecture Refactoring)
+
+- Q: 通知接收人应该独立存储还是引用用户/用户组？ → A: 引用设计 - 通知接收人通过外键引用用户或用户组，而非独立存储联系方式
+- Q: 系统通知逻辑如何获取接收人？ → A: 遍历 notification_recipients 表，根据类型收集用户UUID，获取主联系方式发送通知
+- Q: 向后兼容性如何处理？ → A: 完全重构，删除旧的独立接收人数据，不考虑向后兼容
 
 ---
 
@@ -136,6 +143,22 @@
 
 ---
 
+### User Story 8 - 系统通知接收人管理 (Priority: P1)
+
+作为系统管理员，我需要配置全局系统通知接收人（引用用户或用户组），以便系统通知能够发送到正确的目标。
+
+**Why this priority**: 系统通知接收人是通知系统的重要功能，支持灵活的通知目标配置。
+
+**Independent Test**: 可以通过创建 MNotificationRecipient 记录并查询其联系方式来独立测试。
+
+**Acceptance Scenarios**:
+1. **Given** 用户已创建且有主联系方式，**When** 创建 USER 类型的通知接收人，**Then** 接收人成功保存并可查询到其联系方式
+2. **Given** 用户组已创建且包含有联系方式的成员，**When** 创建 USER_GROUP 类型的通知接收人，**Then** 接收人成功保存并可查询到所有成员的联系方式
+3. **Given** 通知接收人已配置，**When** 系统发送通知，**Then** 通知发送到所有配置接收人的主联系方式
+4. **Given** 接收人被删除，**When** 查询接收人列表，**Then** 已删除的接收人不显示（软删除）
+
+---
+
 ### Edge Cases
 
 - **MongoDB 连接失败**: 系统启动时 MongoDB 不可用，GinkgoMongo 应优雅降级并记录错误
@@ -174,6 +197,23 @@
 - **FR-008**: System MUST 支持 MUserGroupMapping 多对多映射(带外键约束)
 - **FR-009**: System MUST 支持级联软删除：用户删除时同步标记联系方式和组映射为 is_del=True
 - **FR-010**: System MUST 支持 is_primary 字段标记默认联系方式
+
+**系统通知接收人管理**:
+- **FR-010a**: System MUST 支持 MNotificationRecipient MySQL 模型存储全局通知接收人配置
+- **FR-010b**: System MUST 支持通知接收人类型枚举 RECIPIENT_TYPES (USER=1, USER_GROUP=2)
+- **FR-010c**: System MUST 支持通知接收人通过外键引用用户(user_id)或用户组(user_group_id)
+- **FR-010d**: System MUST 支持通知接收人默认标记(is_default)功能
+- **FR-010e**: System MUST 支持通知接收人软删除(is_del)机制
+- **FR-010f**: System MUST 提供 NotificationRecipientService 实现接收人的业务逻辑
+- **FR-010g**: System MUST 提供 NotificationRecipientCRUD 实现接收人的数据访问
+- **FR-010h**: System MUST 支持查询接收人的实际联系方式列表(get_recipient_contacts方法)
+- **FR-010i**: System MUST 支持系统通知遍历所有配置的接收人发送通知
+
+**系统通知逻辑**:
+- **FR-010j**: System MUST 在 notify() 方法中遍历 notification_recipients 表获取接收人
+- **FR-010k**: System MUST 根据 recipient_type 收集用户UUID(USER类型直接取user_id，USER_GROUP类型查询组映射)
+- **FR-010l**: System MUST 优先使用用户的主联系方式(is_primary=True)发送通知
+- **FR-010m**: System MUST 支持无接收人配置时的优雅降级(记录日志但不报错)
 
 **通知发送**:
 - **FR-011**: System MUST 支持通过 Webhook 发送通知(Discord、钉钉、企业微信等)
@@ -234,6 +274,13 @@ notifications:
 - **FR-033**: System MUST 提供 `ginkgo groups create/list/add-user/remove-user` 管理用户组
 - **FR-034**: System MUST 提供 `ginkgo templates create/list/update/delete` 管理通知模板
 - **FR-035**: System MUST 提供 `ginkgo notify send --user/--group/--message/--template` 发送通知(支持组合使用，支持 `--var key=value` 重复参数传递模板变量)
+- **FR-036**: System MUST 提供 `ginkgo notify recipients list` 列出所有通知接收人(支持 --type 和 --default 过滤)
+- **FR-037**: System MUST 提供 `ginkgo notify recipients add` 添加通知接收人(支持 --name, --type, --user/--group, --default, --desc 参数)
+- **FR-038**: System MUST 提供 `ginkgo notify recipients delete <uuid>` 删除通知接收人
+- **FR-039**: System MUST 提供 `ginkgo notify recipients update <uuid>` 更新通知接收人
+- **FR-040**: System MUST 提供 `ginkgo notify recipients contacts <uuid>` 查看接收人的实际联系方式列表
+- **FR-041**: System MUST 提供 `ginkgo notify recipients toggle <uuid>` 切换接收人的默认状态
+- **FR-042**: System MUST 提供 `ginkgo worker start --notification` 启动通知 Worker
 
 **FR-035 CLI 参数说明**:
 - `--user <uuids>`: 支持逗号分隔多个用户 UUID(如 `--user uuid1,uuid2,uuid3`)
@@ -272,6 +319,10 @@ notifications:
   - DISCORD: Discord 专用 Webhook 封装(支持 embeds、fields、author、icon_url 等 Discord 特性)
 - **NOTIFICATION_STATUS_TYPES**: 通知状态枚举 (PENDING=0, SENT=1, FAILED=2, RETRYING=3)
 - **TEMPLATE_TYPES**: 模板类型枚举 (VOID=-1, OTHER=0, TEXT=1, MARKDOWN=2, EMBEDDED=3)
+- **RECIPIENT_TYPES**: 通知接收人类型枚举 (VOID=-1, USER=1, USER_GROUP=2)
+  - USER: 单个用户接收人，引用 users 表
+  - USER_GROUP: 用户组接收人，引用 user_groups 表
+- **SOURCE_TYPES**: 数据来源枚举 (VOID=-1, OTHER=0, MANUAL=1, SYSTEM=2)
 
 **数据模型**:
 - **MUser**: 通知接收者(person 个人用户 / channel 频道 / organization 组织)
@@ -286,6 +337,11 @@ notifications:
 - **MUserGroupMapping**: 用户组成员映射(多对多，带外键)
   - MySQL 表名: `user_group_mappings`
   - 属性: user_id (外键引用 users.uuid), group_id (外键引用 user_groups.uuid), user_name, group_name
+- **MNotificationRecipient**: 系统通知接收人配置
+  - MySQL 表名: `notification_recipients`
+  - 属性: recipient_type (枚举: USER/USER_GROUP), user_id (外键引用 users.uuid, 可为空), user_group_id (外键引用 user_groups.uuid, 可为空), name, is_default, description, is_del, source
+  - 设计: 通过引用用户或用户组实现，而非独立存储联系方式
+  - 约束: USER类型必须有user_id，USER_GROUP类型必须有user_group_id
 - **MNotificationTemplate**: 通知模板(MongoDB)
   - 属性: template_id (唯一), template_name, template_type (枚举: TEXT/MARKDOWN/EMBEDDED), subject, content, variables (JSON对象，键值对映射，支持默认值和类型提示), is_active
   - 功能: 存储预定义的通知模板(如交易信号、回测完成、错误告警)
@@ -378,3 +434,82 @@ NotificationService 提供三层方法结构，满足不同使用场景：
 - **MongoDB 4.4+**: 支持 TTL 索引和聚合管道
 - **Kafka 2.8+**: 支持事务和自动重试
 - **Python 3.11+**: 类型注解和异步支持
+
+---
+
+## Implementation Notes (2026-01-31)
+
+### 通知接收人系统架构重构
+
+**设计变更**:
+- **旧设计**: 独立的 MongoDB notification_recipients 存储，直接包含联系方式
+- **新设计**: 引用式 MySQL notification_recipients 表，通过外键引用 users/user_groups
+
+**核心组件**:
+
+1. **MNotificationRecipient 模型** (`src/ginkgo/data/models/model_notification_recipient.py`)
+   - MySQL 表: `notification_recipients`
+   - 字段:
+     - `recipient_type`: RECIPIENT_TYPES 枚举 (USER=1, USER_GROUP=2)
+     - `user_id`: 外键引用 users.uuid (USER类型使用)
+     - `user_group_id`: 外键引用 user_groups.uuid (USER_GROUP类型使用)
+     - `name`: 接收人名称
+     - `is_default`: 是否为默认接收人
+     - `description`: 描述信息
+     - `is_del`: 软删除标记
+     - `source`: 数据来源 (SOURCE_TYPES枚举)
+
+2. **NotificationRecipientCRUD** (`src/ginkgo/data/crud/notification_recipient_crud.py`)
+   - 继承 BaseCRUD[MNotificationRecipient]
+   - 方法:
+     - `get_by_name(name)`: 根据名称查询
+     - `get_by_type(recipient_type)`: 根据类型查询
+     - `get_default_recipients()`: 获取所有默认接收人
+     - `clear_default_by_type(recipient_type)`: 清除指定类型的默认标记
+     - `update_by_uuid(uuid, **kwargs)`: 根据UUID更新
+
+3. **NotificationRecipientService** (`src/ginkgo/notifier/services/notification_recipient_service.py`)
+   - 继承 BaseService
+   - 方法:
+     - `add_recipient()`: 添加接收人
+     - `update_recipient()`: 更新接收人
+     - `delete_recipient()`: 删除接收人(软删除)
+     - `toggle_default()`: 切换默认状态
+     - `list_all()`: 列出所有接收人
+     - `get_recipient_contacts()`: 获取接收人的实际联系方式列表
+
+4. **系统通知逻辑修改** (`src/ginkgo/notifier/core/notification_service.py`)
+   - `notify()` 方法修改:
+     - 遍历 notification_recipients 表获取所有接收人
+     - 根据 recipient_type 收集用户UUID:
+       - USER类型: 直接使用 user_id
+       - USER_GROUP类型: 查询 user_group_mappings 获取所有成员
+     - 获取每个用户的主联系方式(is_primary=True)
+     - 发送通知到所有收集的联系方式
+
+5. **API Server 接口** (`apiserver/api/settings.py`)
+   - GET `/api/settings/notifications/recipients` - 列出接收人
+   - POST `/api/settings/notifications/recipients` - 创建接收人
+   - PUT `/api/settings/notifications/recipients/{uuid}` - 更新接收人
+   - DELETE `/api/settings/notifications/recipients/{uuid}` - 删除接收人
+   - PATCH `/api/settings/notifications/recipients/{uuid}/toggle` - 切换默认状态
+
+6. **CLI 命令** (`src/ginkgo/client/notify_cli.py`)
+   - `ginkgo notify recipients list` - 列出所有接收人
+   - `ginkgo notify recipients add` - 添加接收人
+   - `ginkgo notify recipients delete <uuid>` - 删除接收人
+   - `ginkgo notify recipients update <uuid>` - 更新接收人
+   - `ginkgo notify recipients contacts <uuid>` - 查看联系方式
+   - `ginkgo notify recipients toggle <uuid>` - 切换默认状态
+
+**测试验证**:
+- 创建 USER 类型的接收人并验证联系方式解析
+- 创建 USER_GROUP 类型的接收人并验证组内成员联系方式收集
+- 测试系统通知发送功能(通过 Discord Webhook)
+- 验证 CLI 命令功能完整性
+
+**关键修复**:
+- 修复 `result.is_success` 属性访问错误 → `result.is_success()` 方法调用
+- 修复 BaseCRUD 分页参数: `limit` → `page_size` + `page`
+- 修复 `add()` 方法返回值: 返回模型对象而非UUID字符串
+- 修复模板JSON解析问题: 直接发送通知，避免换行符导致解析错误

@@ -281,6 +281,35 @@ class BaseMongoCRUD(Generic[T], ABC):
             GLOG.ERROR(f"Failed to delete document {uuid}: {e}")
             raise
 
+    def delete_by_filters(self, filters: Dict[str, Any]) -> int:
+        """
+        按条件软删除文档（兼容 MySQL CRUD 接口）
+
+        Args:
+            filters: 查询过滤条件
+
+        Returns:
+            删除的文档数量
+        """
+        try:
+            collection = self._get_collection()
+
+            # 默认只删除未删除的文档
+            filters = filters.copy()
+            filters.setdefault("is_del", False)
+
+            result = collection.update_many(
+                filters,
+                {"$set": {"is_del": True, "update_at": pd.Timestamp.now().isoformat()}}
+            )
+
+            GLOG.DEBUG(f"Soft deleted {result.modified_count} documents")
+            return result.modified_count
+
+        except PyMongoError as e:
+            GLOG.ERROR(f"Failed to delete documents: {e}")
+            raise
+
     @time_logger
     @retry
     def hard_delete(self, uuid: str) -> bool:
@@ -331,6 +360,78 @@ class BaseMongoCRUD(Generic[T], ABC):
 
         except PyMongoError as e:
             GLOG.ERROR(f"Failed to count documents: {e}")
+            raise
+
+    # ==================== 兼容 MySQL CRUD 接口 ====================
+
+    def find(
+        self,
+        filters: Optional[Dict[str, Any]] = None,
+        as_dataframe: bool = False,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        sort: Optional[List[tuple]] = None
+    ) -> Any:
+        """
+        查询文档（兼容 MySQL CRUD 接口）
+
+        Args:
+            filters: 查询过滤条件（默认只查询未删除文档）
+            as_dataframe: 是否返回 DataFrame（默认返回模型列表）
+            limit: 返回结果数量限制
+            offset: 跳过文档数量
+            sort: 排序规则
+
+        Returns:
+            模型列表或 DataFrame
+        """
+        # 映射参数名：MySQL 使用 offset，MongoDB 使用 skip
+        skip = offset
+
+        results = self.get_all(
+            filter_dict=filters,
+            limit=limit,
+            skip=skip,
+            sort=sort
+        )
+
+        if as_dataframe:
+            return self._convert_models_to_dataframe(results)
+        return results
+
+    def modify(self, filters: Dict[str, Any], updates: Dict[str, Any]) -> int:
+        """
+        更新文档（兼容 MySQL CRUD 接口）
+
+        注意：此方法会更新所有匹配的文档，请确保 filters 精确
+
+        Args:
+            filters: 查询过滤条件
+            updates: 更新的字段字典
+
+        Returns:
+            更新的文档数量
+        """
+        try:
+            collection = self._get_collection()
+
+            # 自动更新 update_at 字段
+            updates.setdefault("update_at", pd.Timestamp.now().isoformat())
+
+            # 默认只操作未删除的文档
+            filters = filters.copy()
+            filters.setdefault("is_del", False)
+
+            result = collection.update_many(
+                filters,
+                {"$set": updates}
+            )
+
+            GLOG.DEBUG(f"Modified {result.modified_count} documents")
+            return result.modified_count
+
+        except PyMongoError as e:
+            GLOG.ERROR(f"Failed to modify documents: {e}")
             raise
 
     # ==================== 辅助方法 ====================

@@ -24,6 +24,7 @@ from ginkgo.data.services.base_service import BaseService, ServiceResult
 
 # Concrete service implementations
 from ginkgo.data.services.adjustfactor_service import AdjustfactorService
+from ginkgo.data.services.backtest_task_service import BacktestTaskService
 from ginkgo.data.services.stockinfo_service import StockinfoService
 from ginkgo.data.services.bar_service import BarService
 from ginkgo.data.services.tick_service import TickService

@@ -106,8 +106,7 @@ class DataManager(threading.Thread):
             GLOG.INFO("DataManager starting...")
 
             # 初始化Kafka Producer
-            bootstrap_servers = f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"
-            self._producer = GinkgoProducer(bootstrap_servers=bootstrap_servers)
+            self._producer = GinkgoProducer()
 
             # 初始化LiveDataFeeder
             with self._feeder_lock:

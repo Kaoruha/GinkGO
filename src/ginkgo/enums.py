@@ -534,6 +534,14 @@ class NOTIFICATION_STATUS_TYPES(EnumBase):
     RETRYING = 3         # 重试中
 
 
+class RECIPIENT_TYPES(EnumBase):
+    """通知接收人类型枚举 - 用于区分接收人来源"""
+
+    VOID = -1
+    USER = 1             # 单个用户
+    USER_GROUP = 2       # 用户组
+
+
 class TEMPLATE_TYPES(EnumBase):
     """通知模板类型枚举 - 支持多种格式"""
 
@@ -608,6 +616,7 @@ __all__ = [
     "CONTACT_METHOD_STATUS_TYPES",
     "NOTIFICATION_STATUS_TYPES",
     "TEMPLATE_TYPES",
+    "RECIPIENT_TYPES",
     # Portfolio运行时状态枚举 (Phase 5)
     "PORTFOLIO_RUNSTATE_TYPES",
     # Data Worker 枚举 (009-data-worker)

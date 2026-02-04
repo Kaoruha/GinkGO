@@ -116,7 +116,8 @@ def list_users(
 
             table = Table(title=f":bust_in_silhouette: Users ({result.data['count']} found)")
             table.add_column("UUID", style="cyan", no_wrap=True)
-            table.add_column("Name", style="green")
+            table.add_column("Username", style="green")
+            table.add_column("Display Name", style="blue")
             table.add_column("Description", style="dim", max_width=30)
             table.add_column("Type", style="yellow")
             table.add_column("Active", justify="center")
@@ -126,7 +127,8 @@ def list_users(
                 active_style = "green" if user["is_active"] else "red"
                 table.add_row(
                     user["uuid"],
-                    user["name"],
+                    user.get("username", ""),
+                    user.get("display_name", "")[:20],
                     (user.get("description") or "")[:30],
                     user["user_type"],
                     f"[{active_style}]{user['is_active']}[/{active_style}]",
@@ -162,8 +164,9 @@ def cat_user(
         if result.success:
             data = result.data
 
-            # Create tree structure
-            tree = Tree(f":kissing: [bold blue]{data['name']}[/bold blue]")
+            # Use display_name or username as the title
+            display_name = data.get('display_name') or data.get('username') or data.get('uuid', 'Unknown')
+            tree = Tree(f":kissing: [bold blue]{display_name}[/bold blue]")
 
             # Basic Info Branch
             info_branch = tree.add(":bookmark_tabs: [bold]Basic Info[/bold]")

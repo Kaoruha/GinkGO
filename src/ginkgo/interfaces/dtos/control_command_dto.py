@@ -54,6 +54,8 @@ class ControlCommandDTO(BaseModel):
         STOCKINFO = "stockinfo"  # 股票信息：同步股票基础信息
         ADJUSTFACTOR = "adjustfactor"  # 复权因子：同步并计算复权因子
         TICK = "tick"  # Tick数据：Tick数据采集
+        UPDATE_SELECTOR = "update_selector"  # 更新Selector：触发ExecutionNode的selector.pick()
+        UPDATE_DATA = "update_data"  # 更新数据：触发数据更新任务（已弃用）
 
     def is_bar_snapshot(self) -> bool:
         """是否为K线快照命令"""

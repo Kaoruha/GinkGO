@@ -83,7 +83,7 @@ class SimpleBacktest:
         # 4. 创建数据源
         self.feeder = BacktestFeeder(name="example_feeder")
 
-        # 5. 创建NetValue分析器
+        # 5. 创建NetValue分析器（Engine 级别）
         self.net_value_analyzer = NetValue(name="net_value_analyzer")
 
         # 6. 创建TradeGateway/Broker架构

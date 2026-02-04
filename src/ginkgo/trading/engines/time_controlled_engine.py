@@ -601,33 +601,6 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         except Exception as e:
             self.log("ERROR", f"Data update trigger error: {e}")
 
-    def _check_and_emit_bar_close(self, current_time: datetime) -> None:
-        """检查并发出K线结束事件"""
-        try:
-            from ginkgo.trading.events import EventBarClose
-
-            # 检查分钟K线结束
-            if current_time.second == 0 and current_time.microsecond == 0:
-                if current_time.minute % 1 == 0:  # 1分钟K线
-                    bar_event = EventBarClose(bar_type="1min", timestamp=current_time)
-                    self.put(bar_event)
-
-                if current_time.minute % 5 == 0:  # 5分钟K线
-                    bar_event = EventBarClose(bar_type="5min", timestamp=current_time)
-                    self.put(bar_event)
-
-                if current_time.minute % 15 == 0:  # 15分钟K线
-                    bar_event = EventBarClose(bar_type="15min", timestamp=current_time)
-                    self.put(bar_event)
-
-            # 检查日K线结束（收盘时）
-            if current_time.hour == 15 and current_time.minute == 0:
-                bar_event = EventBarClose(bar_type="1day", timestamp=current_time)
-                self.put(bar_event)
-
-        except Exception as e:
-            self.log("ERROR", f"Bar close event error: {e}")
-
     def _is_end_of_day(self, old_time: datetime, new_time: datetime) -> bool:
         """判断是否跨越了交易日"""
         # 简化判断：如果跨越了15:00（收盘时间），认为是日终
@@ -680,6 +653,100 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 raise
 
         self.log("DEBUG", f"Auto-registered event handlers for portfolio {portfolio.name}")
+
+    def add_analyzer(self, analyzer) -> None:
+        """
+        添加分析器到引擎（Engine 级别）
+
+        分析器通过 Hook 机制接收 Portfolio 事件：
+        - on_bar_closed: 每个周期结束时调用
+        - on_order_filled: 订单成交时调用
+        - on_position_changed: 持仓变化时调用
+        - on_backtest_end: 回测结束时调用
+
+        Args:
+            analyzer: 分析器实例，需实现 hook 方法
+        """
+        # 初始化分析器列表（如果不存在）
+        if not hasattr(self, '_analyzers'):
+            self._analyzers = []
+
+        # 添加分析器
+        self._analyzers.append(analyzer)
+        self.log("INFO", f"Analyzer {analyzer.name} ({analyzer.type}) added to engine")
+
+        # 注册分析器的 hook 方法为事件处理器
+        self._register_analyzer_hooks(analyzer)
+
+    def _register_analyzer_hooks(self, analyzer) -> None:
+        """注册分析器的 hook 方法为事件处理器（包装以添加 Portfolio 信息）"""
+        from ginkgo.enums import EVENT_TYPES
+
+        # 映射 hook 方法到事件类型
+        # 注意：实际使用的事件是 ORDERPARTIALLYFILLED，ORDERFILLED 是兼容旧版
+        hook_event_mapping = {
+            'on_order_filled': EVENT_TYPES.ORDERPARTIALLYFILLED,
+            'on_position_changed': EVENT_TYPES.POSITIONUPDATE,
+        }
+
+        def make_wrapped_handler(original_handler, analyzer_name, hook_method):
+            """工厂函数：创建包装处理器（修复闭包问题）"""
+            def wrapped_handler(event):
+                # 包装事件处理器，添加 Portfolio 信息
+                # 这里简化处理：将事件传递给所有 Portfolio
+                for portfolio in self.portfolios:
+                    try:
+                        # 从事件中提取数据，根据事件类型和 hook 方法分发
+                        if hook_method == 'on_order_filled':
+                            # ORDERFILLED 事件：传递 portfolio_uuid, order
+                            if hasattr(event, 'portfolio_uuid'):
+                                original_handler(event.portfolio_uuid, event)
+                            else:
+                                original_handler(portfolio.uuid, event)
+                        elif hook_method == 'on_position_changed':
+                            # POSITIONUPDATE 事件：传递 portfolio_uuid, position
+                            if hasattr(event, 'position'):
+                                original_handler(portfolio.uuid, event.position)
+                            else:
+                                original_handler(portfolio.uuid, event)
+                        else:
+                            # 通用处理
+                            original_handler(portfolio.uuid, event)
+                    except Exception as e:
+                        self.log("ERROR", f"Error in {analyzer_name}.{hook_method} for portfolio {portfolio.uuid}: {e}")
+            return wrapped_handler
+
+        registered_count = 0
+        for hook_method, event_type in hook_event_mapping.items():
+            if hasattr(analyzer, hook_method):
+                try:
+                    # 使用工厂函数创建包装处理器（避免闭包问题）
+                    original_handler = getattr(analyzer, hook_method)
+                    wrapped_handler = make_wrapped_handler(original_handler, analyzer.name, hook_method)
+
+                    self.register(event_type, wrapped_handler)
+                    registered_count += 1
+                    self.log("INFO", f"Analyzer {analyzer.name}: Registered {hook_method} -> {event_type.name} (wrapped)")
+                except Exception as e:
+                    self.log("ERROR", f"Failed to register {hook_method} for analyzer {analyzer.name}: {e}")
+
+        self.log("INFO", f"Analyzer {analyzer.name}: {registered_count} hooks registered")
+
+    def get_analyzers(self) -> list:
+        """获取所有分析器"""
+        return getattr(self, '_analyzers', [])
+
+    def notify_analyzers_backtest_end(self) -> None:
+        """通知所有分析器回测结束"""
+        analyzers = self.get_analyzers()
+        for analyzer in analyzers:
+            try:
+                if hasattr(analyzer, 'on_backtest_end'):
+                    analyzer.on_backtest_end()
+            except Exception as e:
+                self.log("ERROR", f"Error notifying analyzer {analyzer.name} of backtest end: {e}")
+
+        self.log("INFO", f"Notified {len(analyzers)} analyzers of backtest end")
 
     
     def _auto_register_component_events(self, component) -> None:

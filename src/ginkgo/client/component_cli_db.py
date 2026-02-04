@@ -505,7 +505,8 @@ def edit(
             raise typer.Exit(1)
 
         # 获取组件代码
-        content = file_service.get_content(component.uuid)
+        content_result = file_service.get_content(component.uuid)
+        content = content_result.data if content_result.is_success() else None
         if not content:
             console.print(f"[red]❌[/red] Failed to load component content")
             raise typer.Exit(1)
@@ -689,7 +690,8 @@ def validate(
             raise typer.Exit(1)
 
         # 获取组件代码
-        content = file_service.get_content(component.uuid)
+        content_result = file_service.get_content(component.uuid)
+        content = content_result.data if content_result.is_success() else None
         if not content:
             console.print(f"[red]❌[/red] Failed to load component content")
             raise typer.Exit(1)
@@ -803,7 +805,8 @@ def show(
             raise typer.Exit(1)
 
         # 获取组件代码
-        content = file_service.get_content(component.uuid)
+        content_result = file_service.get_content(component.uuid)
+        content = content_result.data if content_result.is_success() else None
         if not content:
             console.print(f"[red]❌[/red] Failed to load component content")
             raise typer.Exit(1)

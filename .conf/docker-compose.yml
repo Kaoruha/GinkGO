@@ -530,6 +530,8 @@ services:
       LOG_LEVEL: INFO
       PYTHONUNBUFFERED: 1
       TZ: Asia/Shanghai
+      # Tushare API Token
+      TUSHARE_TOKEN: ${TUSHARE_TOKEN}
     volumes:
       - ../.logs/dataworker:/ginkgo/.logs
     deploy:
@@ -586,6 +588,73 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - ../.logs/executionnode:/ginkgo/.logs
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # API Server - FastAPI REST API和WebSocket服务
+  api-server:
+    build:
+      context: ..
+      dockerfile: .conf/Dockerfile.api-server
+    image: ginkgo/api-server:latest
+    container_name: ginkgo-api-server
+    restart: always
+    depends_on:
+      - mysql-master
+      - clickhouse-master
+      - mongo-master
+      - redis-master
+      - kafka1
+    ports:
+      - "8000:8000"
+    environment:
+      # API服务配置
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      # JWT配置
+      SECRET_KEY: ${API_SECRET_KEY:-your-secret-key-change-in-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: 1440
+      # CORS配置
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      # 调试模式
+      DEBUG: "False"
+      # MySQL配置
+      GINKGO_MYSQLHOST: mysql-master
+      GINKGO_MYSQLPORT: 3306
+      GINKGO_MYSQLUSER: ${MYSQL_USER}
+      GINKGO_MYSQLPASSWD: ${MYSQL_PASSWORD}
+      GINKGO_MYSQLDATABASE: ginkgo
+      # MongoDB配置
+      GINKGO_MONGOHOST: mongo-master
+      GINKGO_MONGOPORT: 27017
+      GINKGO_MONGODATABASE: ginkgo
+      # ClickHouse配置
+      GINKGO_CLICKHOUSEHOST: clickhouse-master
+      GINKGO_CLICKHOUSEPORT: 9000
+      # Redis配置
+      GINKGO_REDISHOST: redis-master
+      GINKGO_REDISPORT: 6379
+      # Kafka配置
+      GINKGO_KAFKA_HOST: kafka1
+      GINKGO_KAFKA_PORT: 9092
+      # 运行配置
+      LOG_LEVEL: INFO
+      PYTHONUNBUFFERED: 1
+      TZ: Asia/Shanghai
+    volumes:
+      - ../.logs/apiserver:/app/.logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:

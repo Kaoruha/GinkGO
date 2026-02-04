@@ -10,6 +10,7 @@
 from ginkgo.data.models.model_adjustfactor import MAdjustfactor
 from ginkgo.data.models.model_analyzer_record import MAnalyzerRecord
 from ginkgo.data.models.model_backtest_record_base import MBacktestRecordBase
+from ginkgo.data.models.model_backtest_task import MBacktestTask
 from ginkgo.data.models.model_bar import MBar
 from ginkgo.data.models.model_capital_adjustment import MCapitalAdjustment
 from ginkgo.data.models.model_clickbase import MClickBase
@@ -38,16 +39,19 @@ from ginkgo.data.models.model_transfer_record import MTransferRecord
 from ginkgo.data.models.model_run_record import MRunRecord
 from ginkgo.data.models.model_user import MUser
 from ginkgo.data.models.model_user_contact import MUserContact
+from ginkgo.data.models.model_user_credential import MUserCredential
 from ginkgo.data.models.model_user_group import MUserGroup
 from ginkgo.data.models.model_user_group_mapping import MUserGroupMapping
 from ginkgo.data.models.model_notification_template import MNotificationTemplate
 from ginkgo.data.models.model_notification_record import MNotificationRecord
+from ginkgo.data.models.model_notification_recipient import MNotificationRecipient
 
 
 __all__ = [
     "MAdjustfactor",
     "MAnalyzerRecord",
     "MBacktestRecordBase",
+    "MBacktestTask",
     "MBar",
     "MCapitalAdjustment",
     "MClickBase",
@@ -76,8 +80,10 @@ __all__ = [
     "MRunRecord",
     "MUser",
     "MUserContact",
+    "MUserCredential",
     "MUserGroup",
     "MUserGroupMapping",
     "MNotificationTemplate",
     "MNotificationRecord",
+    "MNotificationRecipient",
 ]

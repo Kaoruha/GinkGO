@@ -378,6 +378,8 @@ from ginkgo.libs import GLOG, GCONF, GTM
 - ClickHouse (时序数据), MySQL (关系数据), MongoDB (文档数据), Redis (缓存) (006-notification-system)
 - Python 3.12.8 + ClickHouse, MySQL, MongoDB, Redis, Kafka, Typer, Rich, Pydantic, APScheduler, websockets, pyyaml (008-live-data-module)
 - ClickHouse (时序数据), MySQL (关系数据), MongoDB (文档数据), Redis (缓存/心跳) (009-data-worker)
+- Python 3.12.8 + FastAPI, uvicorn, Pydantic, kafka-python, websockets (001-web-ui-api - API Server)
+- TypeScript + Vue 3, Vite, Pinia, TailwindCSS, Ant Design Vue, Lightweight Charts, ECharts (001-web-ui-api - Web UI)
 
 ## Recent Changes
 - 003-code-context-headers: Added Python 3.12.8 + ast (标准库), pathlib, re, typing

@@ -1,0 +1,597 @@
+openapi: 3.0.3
+info:
+  title: Ginkgo Node Graph API
+  description: 节点图拖拉拽配置回测功能 API
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: 开发环境
+
+tags:
+  - name: node-graphs
+    description: 节点图配置管理
+  - name: templates
+    description: 节点图模板管理
+
+paths:
+  /api/node-graphs:
+    get:
+      tags: [node-graphs]
+      summary: 获取节点图配置列表
+      description: 获取当前用户的节点图配置列表，支持筛选和分页
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: is_template
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: 是否为模板
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: 页码
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: 每页数量
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NodeGraphSummary'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [node-graphs]
+      summary: 创建节点图配置
+      description: 创建新的节点图配置
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeGraphCreate'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeGraph'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/node-graphs/{uuid}:
+    get:
+      tags: [node-graphs]
+      summary: 获取节点图详情
+      description: 根据UUID获取节点图配置详情
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeGraph'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [node-graphs]
+      summary: 更新节点图配置
+      description: 更新节点图配置
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeGraphUpdate'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeGraph'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags: [node-graphs]
+      summary: 删除节点图配置
+      description: 删除节点图配置
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '204':
+          description: 删除成功
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/node-graphs/{uuid}/compile:
+    post:
+      tags: [node-graphs]
+      summary: 编译节点图为回测配置
+      description: 将节点图编译为 BacktestTaskCreate 格式的回测配置
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200':
+          description: 编译成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  backtest_config:
+                    $ref: '#/components/schemas/BacktestTaskCreate'
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/node-graphs/{uuid}/validate:
+    post:
+      tags: [node-graphs]
+      summary: 验证节点图配置
+      description: 验证节点图配置的有效性
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200':
+          description: 验证完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/node-graphs/templates:
+    get:
+      tags: [templates]
+      summary: 获取模板列表
+      description: 获取系统预设的节点图模板列表
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: 按分类筛选
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NodeTemplate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/node-graphs/templates/{uuid}:
+    get:
+      tags: [templates]
+      summary: 获取模板详情
+      description: 根据UUID获取节点图模板详情
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeTemplate'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Uuid:
+      name: uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: 资源UUID
+
+  schemas:
+    NodeGraphSummary:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        is_template:
+          type: boolean
+        is_public:
+          type: boolean
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    NodeGraph:
+      allOf:
+        - $ref: '#/components/schemas/NodeGraphSummary'
+        - type: object
+          properties:
+            graph_data:
+              $ref: '#/components/schemas/GraphData'
+            user_uuid:
+              type: string
+              format: uuid
+            parent_uuid:
+              type: string
+              format: uuid
+              nullable: true
+
+    NodeGraphCreate:
+      type: object
+      required:
+        - name
+        - graph_data
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        graph_data:
+          $ref: '#/components/schemas/GraphData'
+        is_template:
+          type: boolean
+          default: false
+        is_public:
+          type: boolean
+          default: false
+
+    NodeGraphUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        graph_data:
+          $ref: '#/components/schemas/GraphData'
+        is_template:
+          type: boolean
+        is_public:
+          type: boolean
+
+    GraphData:
+      type: object
+      required:
+        - nodes
+        - edges
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphEdge'
+        viewport:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            zoom:
+              type: number
+              minimum: 0.1
+              maximum: 2
+
+    GraphNode:
+      type: object
+      required:
+        - id
+        - type
+        - position
+        - data
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [engine, feeder, broker, portfolio, strategy, selector, sizer, risk, analyzer]
+        position:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+        data:
+          type: object
+          properties:
+            label:
+              type: string
+            config:
+              type: object
+              additionalProperties: true
+            componentUuid:
+              type: string
+              format: uuid
+              nullable: true
+            errors:
+              type: array
+              items:
+                type: string
+            description:
+              type: string
+              nullable: true
+
+    GraphEdge:
+      type: object
+      required:
+        - id
+        - source
+        - target
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        sourceHandle:
+          type: string
+          nullable: true
+        targetHandle:
+          type: string
+          nullable: true
+        type:
+          type: string
+          nullable: true
+        animated:
+          type: boolean
+          default: false
+
+    NodeTemplate:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        graph_data:
+          $ref: '#/components/schemas/GraphData'
+        is_system:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    BacktestTaskCreate:
+      type: object
+      required:
+        - name
+        - portfolio_uuids
+        - engine_config
+      properties:
+        name:
+          type: string
+        engine_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        portfolio_uuids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+        engine_config:
+          $ref: '#/components/schemas/EngineConfig'
+        component_config:
+          $ref: '#/components/schemas/ComponentConfig'
+
+    EngineConfig:
+      type: object
+      required:
+        - start_date
+        - end_date
+      properties:
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        broker_type:
+          type: string
+          enum: [backtest, okx]
+          default: backtest
+        initial_cash:
+          type: number
+          format: float
+          default: 100000
+        commission_rate:
+          type: number
+          format: float
+          default: 0.0003
+        slippage_rate:
+          type: number
+          format: float
+          default: 0.0001
+        broker_attitude:
+          type: integer
+          enum: [1, 2, 3]
+          default: 2
+
+    ComponentConfig:
+      type: object
+      properties:
+        max_position_ratio:
+          type: number
+          format: float
+          maximum: 1
+        stop_loss_ratio:
+          type: number
+          format: float
+          maximum: 1
+        take_profit_ratio:
+          type: number
+          format: float
+          maximum: 1
+        benchmark_return:
+          type: number
+          format: float
+          default: 0
+        frequency:
+          type: string
+          default: DAY
+
+    ValidationResult:
+      type: object
+      properties:
+        is_valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              node_id:
+                type: string
+                nullable: true
+              edge_id:
+                type: string
+                nullable: true
+              message:
+                type: string
+              severity:
+                type: string
+                enum: [error, warning]
+        warnings:
+          type: array
+          items:
+            type: string
+
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+
+    Unauthorized:
+      description: 未授权
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string

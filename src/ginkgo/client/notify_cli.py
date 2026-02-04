@@ -18,6 +18,10 @@ import json
 app = typer.Typer(help=":bell: Notification sending", rich_markup_mode="rich")
 console = Console(emoji=True, legacy_windows=False)
 
+# 创建 recipients 子命令组
+recipients_app = typer.Typer(help=":bust_in_silhouette: Notification recipients management", rich_markup_mode="rich")
+app.add_typer(recipients_app, name="recipients")
+
 
 # ============================================================================
 # Notification Commands
@@ -157,12 +161,12 @@ def send_notification(
 
                 results.append({
                     "user_uuid": user_uuid,
-                    "success": result.is_success,
+                    "success": result.is_success(),
                     "message": result.message,
                     "message_id": result.data.get("message_id") if result.data else None
                 })
 
-                if result.is_success:
+                if result.is_success():
                     success_count += 1
                     console.print(f"[green]:white_check_mark: Queued for {user_uuid[:16]}...[/green]")
                 else:
@@ -180,11 +184,11 @@ def send_notification(
 
                 results.append({
                     "user_uuid": user_uuid,
-                    "success": result.is_success,
+                    "success": result.is_success(),
                     "message_id": result.data.get("message_id") if result.data else None
                 })
 
-                if result.is_success:
+                if result.is_success():
                     success_count += 1
                 else:
                     failed_count += 1
@@ -295,11 +299,11 @@ def send_template_notification(
 
             results.append({
                 "user_uuid": user_uuid,
-                "success": result.is_success,
+                "success": result.is_success(),
                 "message_id": result.data.get("message_id") if result.data else None
             })
 
-            if result.is_success:
+            if result.is_success():
                 success_count += 1
             else:
                 failed_count += 1
@@ -369,7 +373,7 @@ def get_notification_history(
             console.print("[yellow]:warning: Please specify --user or use --failed[/yellow]")
             raise typer.Exit(1)
 
-        if result.is_success:
+        if result.is_success():
             data = result.data
             records = data.get("records", [])
             count = data.get("count", 0)
@@ -552,7 +556,7 @@ def notification_history(
             console.print("[yellow]Usage: ginkgo notify history --user <uuid_or_name>[/yellow]")
             raise typer.Exit(1)
 
-        if not result.is_success:
+        if not result.is_success():
             console.print(f"[red]:x: Failed to query history: {result.error}[/red]")
             raise typer.Exit(1)
 
@@ -666,3 +670,316 @@ def list_channels():
     console.print("\n[yellow]Usage:[/yellow]")
     console.print("  ginkgo notify send --user <uuid> --content \"message\"")
     console.print("  ginkgo notify send --group <id> --content \"Alert!\"")
+
+
+# ============================================================================
+# Notification Recipients Management Commands
+# ============================================================================
+
+@recipients_app.command("list")
+def list_recipients(
+    type: Optional[str] = typer.Option(None, "--type", "-t", help="Filter by recipient type (USER/USER_GROUP)"),
+    default_only: bool = typer.Option(False, "--default", "-d", help="Show only default recipients"),
+):
+    """
+    :list: List all notification recipients.
+
+    Examples:
+      ginkgo notify recipients list
+      ginkgo notify recipients list --type USER
+      ginkgo notify recipients list --default
+    """
+    try:
+        from ginkgo.data.containers import container
+
+        service = container.notification_recipient_service()
+        result = service.list_all(
+            recipient_type=type,
+            is_default=default_only if default_only else None
+        )
+
+        if result.is_success():
+            data = result.data
+            recipients = data.get("recipients", [])
+            count = data.get("count", 0)
+
+            if count == 0:
+                console.print("[yellow]:memo: No notification recipients found.[/yellow]")
+                return
+
+            table = Table(title=f":bust_in_silhouette: Notification Recipients ({count} total)")
+            table.add_column("UUID", style="dim", max_width=16)
+            table.add_column("Name", style="cyan")
+            table.add_column("Type", style="yellow")
+            table.add_column("Target", style="green")
+            table.add_column("Default", justify="center")
+            table.add_column("Description", style="white", max_width=30)
+
+            for r in recipients:
+                # 构建目标显示
+                if r["recipient_type"] == "USER":
+                    target = f"User: {r.get('user_info', {}).get('username', r.get('user_id', 'N/A'))[:20]}"
+                else:  # USER_GROUP
+                    target = f"Group: {r.get('user_group_info', {}).get('name', r.get('user_group_id', 'N/A'))[:20]}"
+
+                # 默认标记
+                default_str = "[cyan]:star: Default[/cyan]" if r["is_default"] else "[dim]-[/dim]"
+
+                # 描述
+                desc = r.get("description", "") or "-"
+                if len(desc) > 28:
+                    desc = desc[:28] + "..."
+
+                table.add_row(
+                    r["uuid"][:16] + "...",
+                    r["name"],
+                    r["recipient_type"],
+                    target[:30],
+                    default_str,
+                    desc
+                )
+
+            console.print(table)
+        else:
+            console.print(f"[red]:x: Failed to list recipients: {result.message}[/red]")
+
+    except Exception as e:
+        console.print(f"[red]:x: Error listing recipients: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@recipients_app.command("add")
+def add_recipient(
+    name: str = typer.Option(..., "--name", "-n", help="Recipient name"),
+    type: str = typer.Option(..., "--type", "-t", help="Recipient type (USER/USER_GROUP)"),
+    user_id: Optional[str] = typer.Option(None, "--user", "-u", help="User UUID (required for USER type)"),
+    group_id: Optional[str] = typer.Option(None, "--group", "-g", help="User group UUID (required for USER_GROUP type)"),
+    is_default: bool = typer.Option(False, "--default", "-d", help="Set as default recipient"),
+    description: Optional[str] = typer.Option(None, "--desc", help="Description"),
+):
+    """
+    :plus: Add a new notification recipient.
+
+    Examples:
+      ginkgo notify recipients add --name "Admin Alerts" --type USER --user <uuid> --default
+      ginkgo notify recipients add -n "Team Notifications" -t USER_GROUP -g <uuid> -d "Team alerts"
+    """
+    try:
+        from ginkgo.data.containers import container
+        from ginkgo.enums import RECIPIENT_TYPES, SOURCE_TYPES
+
+        service = container.notification_recipient_service()
+
+        # 验证类型
+        if isinstance(type, str):
+            type_enum = RECIPIENT_TYPES.enum_convert(type)
+            if type_enum is None:
+                console.print(f"[red]:x: Invalid recipient type: {type}[/red]")
+                raise typer.Exit(1)
+        else:
+            type_enum = RECIPIENT_TYPES.from_int(type)
+
+        # 验证关联字段
+        if type_enum == RECIPIENT_TYPES.USER:
+            if not user_id:
+                console.print("[red]:x: --user is required for USER type[/red]")
+                raise typer.Exit(1)
+            if group_id:
+                console.print("[yellow]:warning: --group will be ignored for USER type[/yellow]")
+            group_id = None
+        elif type_enum == RECIPIENT_TYPES.USER_GROUP:
+            if not group_id:
+                console.print("[red]:x: --group is required for USER_GROUP type[/red]")
+                raise typer.Exit(1)
+            if user_id:
+                console.print("[yellow]:warning: --user will be ignored for USER_GROUP type[/yellow]")
+            user_id = None
+        else:
+            console.print(f"[red]:x: Invalid recipient type: {type_enum}[/red]")
+            raise typer.Exit(1)
+
+        # 调用服务添加
+        result = service.add_recipient(
+            name=name,
+            recipient_type=type_enum,
+            user_id=user_id,
+            user_group_id=group_id,
+            is_default=is_default,
+            description=description,
+            source=SOURCE_TYPES.OTHER
+        )
+
+        if result.is_success():
+            data = result.data
+            console.print(f"[green]:white_check_mark: Recipient created successfully![/green]")
+            console.print(f"\n[cyan]UUID:[/cyan] {data['uuid']}")
+            console.print(f"[cyan]Name:[/cyan] {data['name']}")
+            console.print(f"[cyan]Type:[/cyan] {data['recipient_type']}")
+            if user_id:
+                console.print(f"[cyan]User ID:[/cyan] {user_id}")
+            if group_id:
+                console.print(f"[cyan]Group ID:[/cyan] {group_id}")
+            console.print(f"[cyan]Default:[/cyan] {data['is_default']}")
+        else:
+            console.print(f"[red]:x: Failed to create recipient: {result.message}[/red]")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f"[red]:x: Error adding recipient: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@recipients_app.command("delete")
+def delete_recipient(
+    uuid: str = typer.Argument(..., help="Recipient UUID to delete"),
+):
+    """
+    :trash: Delete a notification recipient.
+
+    Examples:
+      ginkgo notify recipients delete <uuid>
+    """
+    try:
+        from ginkgo.data.containers import container
+
+        service = container.notification_recipient_service()
+        result = service.delete_recipient(uuid=uuid)
+
+        if result.is_success():
+            console.print(f"[green]:white_check_mark: Recipient deleted successfully![/green]")
+        else:
+            console.print(f"[red]:x: Failed to delete recipient: {result.message}[/red]")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f"[red]:x: Error deleting recipient: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@recipients_app.command("update")
+def update_recipient(
+    uuid: str = typer.Argument(..., help="Recipient UUID to update"),
+    name: Optional[str] = typer.Option(None, "--name", "-n", help="New name"),
+    type: Optional[str] = typer.Option(None, "--type", "-t", help="New type (USER/USER_GROUP)"),
+    user_id: Optional[str] = typer.Option(None, "--user", "-u", help="New user UUID"),
+    group_id: Optional[str] = typer.Option(None, "--group", "-g", help="New user group UUID"),
+    is_default: Optional[bool] = typer.Option(None, "--default/--no-default", help="Set as default"),
+    description: Optional[str] = typer.Option(None, "--desc", help="New description"),
+):
+    """
+    :pencil: Update a notification recipient.
+
+    Examples:
+      ginkgo notify recipients update <uuid> --name "New Name"
+      ginkgo notify recipients update <uuid> --default
+      ginkgo notify recipients update <uuid> --user <new_uuid> --group <group_uuid>
+    """
+    try:
+        from ginkgo.data.containers import container
+        from ginkgo.enums import RECIPIENT_TYPES
+
+        service = container.notification_recipient_service()
+
+        # 如果提供了类型，需要转换
+        recipient_type = None
+        if type:
+            if isinstance(type, str):
+                recipient_type = RECIPIENT_TYPES.enum_convert(type)
+            elif isinstance(type, int):
+                recipient_type = RECIPIENT_TYPES.from_int(type)
+
+        # 调用服务更新
+        result = service.update_recipient(
+            uuid=uuid,
+            name=name,
+            recipient_type=recipient_type,
+            user_id=user_id,
+            user_group_id=group_id,
+            is_default=is_default,
+            description=description
+        )
+
+        if result.is_success():
+            console.print(f"[green]:white_check_mark: Recipient updated successfully![/green]")
+        else:
+            console.print(f"[red]:x: Failed to update recipient: {result.message}[/red]")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f"[red]:x: Error updating recipient: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@recipients_app.command("contacts")
+def show_recipient_contacts(
+    uuid: str = typer.Argument(..., help="Recipient UUID"),
+):
+    """
+    :satellite: Show actual contact addresses for a recipient.
+
+    Examples:
+      ginkgo notify recipients contacts <uuid>
+    """
+    try:
+        from ginkgo.data.containers import container
+
+        service = container.notification_recipient_service()
+        result = service.get_recipient_contacts(uuid=uuid)
+
+        if result.is_success():
+            data = result.data
+            console.print(Panel.fit(
+                f"[cyan]Recipient:[/cyan] {data['recipient_name']}\n"
+                f"[cyan]Type:[/cyan] {data['recipient_type']}\n"
+                f"[cyan]Total Contacts:[/cyan] {data['contact_count']}",
+                title="[bold]Recipient Contact Details[/bold]"
+            ))
+
+            if data["contact_count"] == 0:
+                console.print("\n[yellow]:warning: No contacts found for this recipient[/yellow]")
+                return
+
+            table = Table(title="Contact Addresses")
+            table.add_column("Type", style="cyan")
+            table.add_column("Address", style="green")
+
+            for contact in data["contacts"]:
+                table.add_row(contact["type"], contact["address"])
+
+            console.print(table)
+        else:
+            console.print(f"[red]:x: {result.message}[/red]")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f"[red]:x: Error getting recipient contacts: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@recipients_app.command("toggle")
+def toggle_default(
+    uuid: str = typer.Argument(..., help="Recipient UUID"),
+):
+    """
+    :toggle: Toggle default status for a recipient.
+
+    Examples:
+      ginkgo notify recipients toggle <uuid>
+    """
+    try:
+        from ginkgo.data.containers import container
+
+        service = container.notification_recipient_service()
+        result = service.toggle_default(uuid=uuid)
+
+        if result.is_success():
+            data = result.data
+            new_status = "is now [green]Default[/green]" if data["is_default"] else "is [dim]no longer default[/dim]"
+            console.print(f"[green]:white_check_mark: Recipient '{data['name']}' {new_status}")
+        else:
+            console.print(f"[red]:x: Failed to toggle recipient: {result.message}[/red]")
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f"[red]:x: Error toggling recipient: {e}[/red]")
+        raise typer.Exit(1)

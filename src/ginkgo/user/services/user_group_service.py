@@ -403,9 +403,9 @@ class UserGroupService(BaseService):
 
             member_list = []
             for mapping in mappings:
-                # Get user info to fetch user name
+                # Get user info to fetch user display name
                 users = user_crud.find(filters={"uuid": mapping.user_uuid}, page_size=1, as_dataframe=False)
-                user_name = users[0].name if users else "Unknown"
+                user_name = users[0].display_name if users else "Unknown"
 
                 member_list.append({
                     "mapping_uuid": mapping.uuid,
