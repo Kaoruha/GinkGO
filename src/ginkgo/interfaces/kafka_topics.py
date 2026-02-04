@@ -126,6 +126,61 @@ class KafkaTopics:
         MARKET_DATA_FUTURES,
     ]
 
+    # ============================================
+    # 回测 Topics (Backtest)
+    # ============================================
+
+    # 回测任务分配（API/Scheduler → BacktestWorker）
+    BACKTEST_ASSIGNMENTS = "ginkgo.backtest.assignments"
+
+    # 回测进度上报（BacktestWorker → API/WebSocket）
+    BACKTEST_PROGRESS = "ginkgo.backtest.progress"
+
+    # 回测结果发布（BacktestWorker → API/存储服务）
+    BACKTEST_RESULTS = "ginkgo.backtest.results"
+
+    # ============================================
+    # 通知 Topics (Notifications)
+    # ============================================
+
+    # 系统通知（告警、状态变化等）
+    NOTIFICATIONS = "ginkgo.notifications"
+
+    # ============================================
+    # Topic 分组（便于批量操作）
+    # ============================================
+
+    # 实盘交易专用Topics
+    LIVE_TOPICS = [
+        MARKET_DATA,
+        MARKET_DATA_CN,
+        MARKET_DATA_HK,
+        MARKET_DATA_US,
+        MARKET_DATA_FUTURES,
+        INTEREST_UPDATES,
+        ORDERS_SUBMISSION,
+        ORDERS_FEEDBACK,
+        CONTROL_COMMANDS,
+        SCHEDULE_UPDATES_LIVE,
+        SYSTEM_EVENTS,
+    ]
+
+    # 回测专用Topics
+    BACKTEST_TOPICS = [
+        BACKTEST_ASSIGNMENTS,
+        BACKTEST_PROGRESS,
+        BACKTEST_RESULTS,
+    ]
+
+    # 所有市场数据Topics
+    MARKET_DATA_TOPICS = [
+        MARKET_DATA,
+        MARKET_DATA_CN,
+        MARKET_DATA_HK,
+        MARKET_DATA_US,
+        MARKET_DATA_FUTURES,
+    ]
+
     # 所有Topics
     ALL_TOPICS = [
         MARKET_DATA,
@@ -143,4 +198,7 @@ class KafkaTopics:
         DATA_COMMANDS,  # 新增：数据采集命令
         SYSTEM_EVENTS,
         NOTIFICATIONS,
+        BACKTEST_ASSIGNMENTS,  # 新增：回测任务分配
+        BACKTEST_PROGRESS,     # 新增：回测进度
+        BACKTEST_RESULTS,      # 新增：回测结果
     ]

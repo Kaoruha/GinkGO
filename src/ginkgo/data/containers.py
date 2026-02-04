@@ -73,6 +73,8 @@ from ginkgo.data.services.parameter_metadata_service import ParameterMetadataSer
 # User management services
 from ginkgo.user.services.user_service import UserService
 from ginkgo.user.services.user_group_service import UserGroupService
+from ginkgo.notifier.services.notification_recipient_service import NotificationRecipientService
+from ginkgo.data.services.backtest_task_service import BacktestTaskService
 
 
 class Container(containers.DeclarativeContainer):
@@ -114,12 +116,17 @@ class Container(containers.DeclarativeContainer):
     # User management CRUDs
     user_crud = providers.Singleton(get_crud, "user")
     user_contact_crud = providers.Singleton(get_crud, "user_contact")
+    user_credential_crud = providers.Singleton(get_crud, "user_credential")
     user_group_crud = providers.Singleton(get_crud, "user_group")
     user_group_mapping_crud = providers.Singleton(get_crud, "user_group_mapping")
 
     # Notification system CRUDs
     notification_template_crud = providers.Singleton(get_crud, "notification_template")
     notification_record_crud = providers.Singleton(get_crud, "notification_record")
+    notification_recipient_crud = providers.Singleton(get_crud, "notification_recipient")
+
+    # Backtest task CRUD
+    backtest_task_crud = providers.Singleton(get_crud, "backtest_task")
 
     # Services (Dependencies are injected here)
     # StockinfoService must be defined before AdjustfactorService as it's a dependency
@@ -206,6 +213,22 @@ class Container(containers.DeclarativeContainer):
         UserGroupService,
         user_group_crud=user_group_crud,
         user_group_mapping_crud=user_group_mapping_crud
+    )
+
+    # Notification management services
+    # NotificationRecipientService manages global notification recipients (MySQL)
+    notification_recipient_service = providers.Singleton(
+        lambda: NotificationRecipientService(
+            recipient_crud=get_crud("notification_recipient"),
+            user_contact_crud=get_crud("user_contact"),
+            user_group_mapping_crud=get_crud("user_group_mapping")
+        )
+    )
+
+    # Backtest task service
+    backtest_task_service = providers.Singleton(
+        BacktestTaskService,
+        crud_repo=backtest_task_crud
     )
 
     # Mapping service with all mapping CRUD dependencies

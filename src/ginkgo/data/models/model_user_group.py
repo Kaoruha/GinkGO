@@ -38,6 +38,7 @@ class MUserGroup(MMysqlBase, ModelConversion):
 
     # 关系映射
     mappings = relationship("MUserGroupMapping", back_populates="group", cascade="all, delete-orphan")
+    notification_recipients = relationship("MNotificationRecipient", back_populates="user_group", foreign_keys="MNotificationRecipient.user_group_id")
 
     def __init__(
         self,

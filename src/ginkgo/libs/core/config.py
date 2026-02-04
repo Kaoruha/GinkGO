@@ -531,9 +531,18 @@ class GinkgoConfig(object):
         key = "TUSHARE_TOKEN"
         token = os.environ.get(key, None)
         if token is None:
-            token = self._read_secure()["tushare"]["token"]
-            token = str(token)
-            os.environ[key] = token
+            secure_data = self._read_secure()
+            # 安全地获取 tushare token
+            if isinstance(secure_data, dict):
+                tushare_config = secure_data.get("tushare", {})
+                if isinstance(tushare_config, dict):
+                    token = tushare_config.get("token", "")
+                    if token:
+                        token = str(token)
+                        os.environ[key] = token
+            # 如果没有找到 token，返回空字符串
+            if not token:
+                token = ""
         return token
 
     @property

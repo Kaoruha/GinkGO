@@ -1,0 +1,826 @@
+openapi: 3.1.0
+info:
+  title: Ginkgo API Server
+  description: Ginkgo量化交易系统API接口
+  version: 1.0.0
+  contact:
+    name: Ginkgo Team
+    email: support@ginkgo.trade
+
+servers:
+  - url: http://localhost:8000
+    description: 开发环境
+  - url: https://api.ginkgo.trade
+    description: 生产环境
+
+tags:
+  - name: auth
+    description: 认证授权
+  - name: dashboard
+    description: 仪表盘
+  - name: portfolio
+    description: 投资组合
+  - name: backtest
+    description: 回测任务
+  - name: components
+    description: 组件管理
+  - name: data
+    description: 数据管理
+  - name: arena
+    description: 竞技场
+  - name: notifications
+    description: 通知消息
+
+paths:
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: 用户登录
+      description: 使用用户名密码登录，返回访问令牌
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: 认证失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/dashboard/stats:
+    get:
+      tags: [dashboard]
+      summary: 获取仪表盘统计数据
+      description: 获取用户的关键指标统计
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+
+  /api/portfolio:
+    get:
+      tags: [portfolio]
+      summary: 获取Portfolio列表
+      description: 获取当前用户的所有Portfolio
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [BACKTEST, PAPER, LIVE]
+          description: 按运行模式筛选
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PortfolioSummary'
+    post:
+      tags: [portfolio]
+      summary: 创建Portfolio
+      description: 创建新的Portfolio
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioCreate'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioResponse'
+
+  /api/portfolio/{uuid}:
+    get:
+      tags: [portfolio]
+      summary: 获取Portfolio详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioDetail'
+        '404':
+          description: Portfolio不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/backtest:
+    get:
+      tags: [backtest]
+      summary: 获取回测任务列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, RUNNING, COMPLETED, FAILED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestListResponse'
+    post:
+      tags: [backtest]
+      summary: 创建回测任务
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacktestCreate'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestResponse'
+
+  /api/backtest/{uuid}/start:
+    post:
+      tags: [backtest]
+      summary: 启动回测任务
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 启动成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestResponse'
+
+  /api/backtest/{uuid}/paper:
+    post:
+      tags: [backtest]
+      summary: 转为Paper模式
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 转换成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioResponse'
+
+  /api/components:
+    get:
+      tags: [components]
+      summary: 获取组件列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [STRATEGY, SELECTOR, SIZER, RISKMANAGER, ANALYZER]
+        - name: keyword
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ComponentSummary'
+    post:
+      tags: [components]
+      summary: 创建自定义组件
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentCreate'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentResponse'
+
+  /api/components/{uuid}:
+    get:
+      tags: [components]
+      summary: 获取组件详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentDetail'
+    put:
+      tags: [components]
+      summary: 更新组件代码
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentUpdate'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentResponse'
+    delete:
+      tags: [components]
+      summary: 删除组件
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 删除成功
+
+  /api/data/stockinfo:
+    get:
+      tags: [data]
+      summary: 查询股票信息
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+            example: "000001.SZ"
+        - name: name
+          in: query
+          schema:
+            type: string
+        - name: market
+          in: query
+          schema:
+            type: string
+            enum: [SH, SZ, BJ]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockInfoListResponse'
+
+  /api/arena/portfolios:
+    get:
+      tags: [arena]
+      summary: 获取竞技场Portfolio列表
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArenaPortfolio'
+
+  /api/arena/comparison:
+    post:
+      tags: [arena]
+      summary: 获取Portfolio对比数据
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArenaComparisonRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArenaComparisonResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "admin"
+        password:
+          type: string
+          format: password
+          example: "password123"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expires_at:
+          type: string
+          format: date-time
+          example: "2026-02-01T10:00:00Z"
+        user:
+          type: object
+          properties:
+            uuid:
+              type: string
+            name:
+              type: string
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 401
+        message:
+          type: string
+          example: "Unauthorized"
+        details:
+          type: object
+          additionalProperties: true
+
+    DashboardStats:
+      type: object
+      properties:
+        total_asset:
+          type: number
+          format: float
+          example: 128500.00
+        today_pnl:
+          type: number
+          format: float
+          example: 1250.00
+        position_count:
+          type: integer
+          example: 8
+        running_strategies:
+          type: integer
+          example: 5
+        system_status:
+          type: string
+          enum: [ONLINE, OFFLINE, WARNING]
+          example: "ONLINE"
+
+    PortfolioCreate:
+      type: object
+      required:
+        - name
+        - initial_cash
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        initial_cash:
+          type: number
+          format: float
+          minimum: 0
+          example: 100000
+        risk_config:
+          type: object
+          properties:
+            stop_loss:
+              type: number
+              format: float
+            take_profit:
+              type: number
+              format: float
+
+    PortfolioSummary:
+      type: object
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        mode:
+          type: string
+          enum: [BACKTEST, PAPER, LIVE]
+        state:
+          type: string
+          enum: [INITIALIZED, RUNNING, PAUSED, STOPPED]
+        config_locked:
+          type: boolean
+        net_value:
+          type: number
+          format: float
+        created_at:
+          type: string
+          format: date-time
+
+    PortfolioDetail:
+      allOf:
+        - $ref: '#/components/schemas/PortfolioSummary'
+        - type: object
+          properties:
+            initial_cash:
+              type: number
+              format: float
+            current_cash:
+              type: number
+              format: float
+            positions:
+              type: array
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  volume:
+                    type: integer
+                  cost_price:
+                    type: number
+                    format: float
+                  current_price:
+                    type: number
+                    format: float
+            strategies:
+              type: array
+              items:
+                $ref: '#/components/schemas/StrategySummary'
+            risk_alerts:
+              type: array
+              items:
+                $ref: '#/components/schemas/RiskAlertSummary'
+
+    StrategySummary:
+      type: object
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        weight:
+          type: number
+          format: float
+        performance:
+          type: object
+          properties:
+            return:
+              type: number
+              format: float
+            sharpe:
+              type: number
+              format: float
+            max_drawdown:
+              type: number
+              format: float
+
+    BacktestCreate:
+      type: object
+      required:
+        - name
+        - start_date
+        - end_date
+        - initial_cash
+        - components
+      properties:
+        name:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        initial_cash:
+          type: number
+          format: float
+          minimum: 0
+        components:
+          type: object
+          properties:
+            strategy:
+              type: string
+            selector:
+              type: string
+            sizer:
+              type: string
+            risk_manager:
+              type: string
+
+    BacktestResponse:
+      type: object
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, RUNNING, COMPLETED, FAILED]
+        result:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    BacktestListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BacktestResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    ComponentCreate:
+      type: object
+      required:
+        - name
+        - type
+        - code
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        type:
+          type: string
+          enum: [STRATEGY, SELECTOR, SIZER, RISKMANAGER, ANALYZER]
+        code:
+          type: string
+        description:
+          type: string
+
+    ComponentResponse:
+      type: object
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        is_built_in:
+          type: boolean
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    ComponentDetail:
+      allOf:
+        - $ref: '#/components/schemas/ComponentResponse'
+        - type: object
+          properties:
+            code:
+              type: string
+            description:
+              type: string
+            version_history:
+              type: array
+              items:
+                type: object
+                properties:
+                  version:
+                    type: integer
+                  created_at:
+                    type: string
+                    format: date-time
+
+    StockInfoListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: "000001.SZ"
+              name:
+                type: string
+                example: "平安银行"
+              market:
+                type: string
+                example: "SZ"
+              industry:
+                type: string
+              list_date:
+                type: string
+                format: date
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    ArenaPortfolio:
+      type: object
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        return:
+          type: number
+          format: float
+        sharpe:
+          type: number
+          format: float
+        max_drawdown:
+          type: number
+          format: float
+        color:
+          type: string
+          example: "#1890ff"
+
+    ArenaComparisonRequest:
+      type: object
+      required:
+        - uuids
+        - timeRange
+      properties:
+        uuids:
+          type: array
+          items:
+            type: string
+          minItems: 2
+          maxItems: 8
+        timeRange:
+          type: string
+          enum: [7d, 30d, 90d, 1y]
+
+    ArenaComparisonResponse:
+      type: object
+      properties:
+        net_values:
+          type: object
+          properties:
+            date:
+              type: array
+              items:
+                type: string
+            values:
+              type: object
+              additionalProperties:
+                type: number
+        statistics:
+          type: array
+          items:
+            type: object
+            properties:
+              uuid:
+                type: string
+              name:
+                type: string
+              return:
+                type: number
+              sharpe:
+                type: number
+              max_drawdown:
+                type: number
+
+    RiskAlertSummary:
+      type: object
+      properties:
+        uuid:
+          type: string
+        type:
+          type: string
+          enum: [STOP_LOSS, TAKE_PROFIT, POSITION_LIMIT]
+        level:
+          type: string
+          enum: [INFO, WARNING, ERROR, CRITICAL]
+        message:
+          type: string
+        triggered_at:
+          type: string
+          format: date-time
+        handled:
+          type: boolean

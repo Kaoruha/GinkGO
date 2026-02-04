@@ -1241,7 +1241,7 @@ class NotificationService(BaseService):
         try:
             # 根据交易方向设置颜色和标题
             direction_upper = direction.upper()
-            color = TRADING_SIGNAL_COLORS.get(direction_upper, DISCORD_COLOR_INFO)
+            color = TRADING_SIGNAL_COLORS.get(direction_upper, DISCORD_COLOR_VOID)
 
             # 中文方向文本和图标
             direction_text_map = {"LONG": "做多", "SHORT": "做空", "VOID": "平仓"}
@@ -1433,7 +1433,7 @@ class NotificationService(BaseService):
         try:
             # 获取交易方向对应的颜色和文本
             direction_upper = direction.upper()
-            color = TRADING_SIGNAL_COLORS.get(direction_upper, DISCORD_COLOR_INFO)
+            color = TRADING_SIGNAL_COLORS.get(direction_upper, DISCORD_COLOR_VOID)
 
             # 中文方向文本
             direction_text_map = {"LONG": "做多", "SHORT": "做空", "VOID": "平仓"}
@@ -1914,7 +1914,7 @@ def notify(
     """
     发送系统通知（简化版，内部调用）
 
-    根据等级自动选择颜色和模板，自动发送到System组。
+    根据等级自动选择颜色和模板，自动发送到系统通知接收人。
     支持同步和异步模式。
 
     Args:
@@ -1954,86 +1954,136 @@ def notify(
             "ALERT": "system_alert"
         }
 
-        # 获取模板ID
-        template_id = level_templates.get(level.upper(), "system_alert")
+        # 构建通知内容（不使用模板，直接发送）
+        # 清理内容中的换行符，避免 Markdown 渲染问题
+        clean_content = content.replace('\n', ' ').replace('\r', '')
 
-        # 构建模板上下文
-        context = {
-            "message": content,
-            "level": level.upper(),
-            "module": module,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-
-        # 添加details作为字段
+        # 构建字段列表
+        fields = []
         if details:
             for key, value in details.items():
-                context[f"field_{key}"] = str(value)
+                fields.append({
+                    "name": str(key),
+                    "value": str(value),
+                    "inline": True
+                })
+
+        # 添加模块和时间字段
+        fields.append({"name": "模块", "value": module, "inline": True})
+        fields.append({"name": "时间", "value": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "inline": True})
+
+        # 获取所有系统通知接收人
+        from ginkgo.data.containers import container
+        from ginkgo.enums import RECIPIENT_TYPES
+
+        recipient_crud = container.notification_recipient_crud()
+        group_mapping_crud = container.user_group_mapping_crud()
+
+        # 获取所有启用的通知接收人
+        recipients = recipient_crud.find(filters={"is_del": False}, as_dataframe=False)
+
+        if not recipients:
+            GLOG.WARN("No notification recipients found, notification not sent")
+            return False
+
+        # 收集所有需要通知的用户UUID（去重）
+        user_uuids_set = set()
+
+        for recipient in recipients:
+            recipient_type = recipient.get_recipient_type_enum()
+
+            if recipient_type == RECIPIENT_TYPES.USER:
+                # 单个用户类型
+                if recipient.user_id:
+                    user_uuids_set.add(recipient.user_id)
+
+            elif recipient_type == RECIPIENT_TYPES.USER_GROUP:
+                # 用户组类型 - 获取组内所有用户
+                if recipient.user_group_id and group_mapping_crud:
+                    mappings = group_mapping_crud.find_by_group(
+                        recipient.user_group_id,
+                        as_dataframe=False
+                    )
+                    for mapping in mappings:
+                        user_uuids_set.add(mapping.user_uuid)
+
+        user_uuids = list(user_uuids_set)
+
+        if not user_uuids:
+            GLOG.WARN("No users found from notification recipients")
+            return False
+
+        # 构建标题
+        level_upper = level.upper()
+        title_map = {
+            "INFO": "ℹ️ 系统消息",
+            "SUCCESS": "✅ 操作成功",
+            "WARNING": "⚠️ 系统警告",
+            "ERROR": "❌ 系统错误",
+            "ALERT": "🚨 系统告警",
+        }
+        title = title_map.get(level_upper, f"系统通知: {level}")
+
+        # 获取颜色
+        color = SYSTEM_LEVEL_COLORS.get(level_upper, DISCORD_COLOR_WHITE)
+
+        success_count = 0
 
         # 根据async_mode选择发送方式
         if async_mode:
-            # 异步模式：获取System组的所有用户，异步发送（不阻塞）
-            try:
-                # 获取System组的用户UUIDs
-                if service.group_crud and service.group_mapping_crud:
-                    group = service.group_crud.find(filters={"name": "System"}, page_size=1, as_dataframe=False)
-                    if group:
-                        group_uuid = group[0].uuid
-                        mappings = service.group_mapping_crud.find_by_group(group_uuid, as_dataframe=False)
-                        user_uuids = [m.user_uuid for m in mappings]
+            # 异步模式：向每个用户异步发送（不阻塞）
+            for user_uuid in user_uuids:
+                result = service.send_async(
+                    content=clean_content,
+                    channels=["webhook"],
+                    user_uuid=user_uuid,
+                    priority=2 if level_upper in ("ERROR", "ALERT") else 1,
+                    title=title,
+                    color=color,
+                    fields=fields if fields else None,
+                    footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
+                )
+                if result.is_success:
+                    success_count += 1
 
-                        # 向每个用户异步发送
-                        success_count = 0
-                        for user_uuid in user_uuids:
-                            result = service.send_async(
-                                content=content,
-                                channels=["webhook"],
-                                user_uuid=user_uuid,
-                                template_id=template_id,
-                                priority=2 if level.upper() in ("ERROR", "ALERT") else 1,
-                                **context
-                            )
-                            if result.is_success:
-                                success_count += 1
-
-                        GLOG.INFO(f"Notification queued for {success_count}/{len(user_uuids)} users: {content}")
-                        return success_count > 0
-                    else:
-                        GLOG.WARN("System group not found, falling back to sync mode")
-                        return service.send_template_to_group(
-                            group_name="System",
-                            template_id=template_id,
-                            context=context,
-                            priority=2 if level.upper() in ("ERROR", "ALERT") else 1
-                        ).is_success
-                else:
-                    GLOG.WARN("Group CRUD not initialized, falling back to sync mode")
-                    return service.send_template_to_group(
-                        group_name="System",
-                        template_id=template_id,
-                        context=context,
-                        priority=2 if level.upper() in ("ERROR", "ALERT") else 1
-                    ).is_success
-
-            except Exception as e:
-                GLOG.ERROR(f"Async send failed, falling back to sync: {e}")
-                # 降级到同步模式
-                return service.send_template_to_group(
-                    group_name="System",
-                    template_id=template_id,
-                    context=context,
-                    priority=2 if level.upper() in ("ERROR", "ALERT") else 1
-                ).is_success
+            GLOG.INFO(f"Notification queued for {success_count}/{len(user_uuids)} users: {clean_content}")
+            return success_count > 0
         else:
             # 同步模式：直接发送（阻塞，等待结果）
-            result = service.send_template_to_group(
-                group_name="System",
-                template_id=template_id,
-                context=context,
-                priority=2 if level.upper() in ("ERROR", "ALERT") else 1
-            )
+            for user_uuid in user_uuids:
+                result = service.send_to_user(
+                    user_uuid=user_uuid,
+                    content=clean_content,
+                    title=title,
+                    channels=["webhook"],
+                    priority=2 if level_upper in ("ERROR", "ALERT") else 1
+                )
 
-            return result.is_success
+                # 如果发送成功，发送带格式的 Discord 消息
+                if result.is_success:
+                    success_count += 1
+
+            # 额外发送格式化的 Discord webhook 消息
+            for user_uuid in user_uuids:
+                try:
+                    contacts = service.contact_crud.get_by_user(user_uuid, is_active=True) if service.contact_crud else []
+                    for contact in contacts:
+                        contact_type = CONTACT_TYPES.from_int(contact.contact_type)
+                        if contact_type == CONTACT_TYPES.WEBHOOK and contact.is_primary:
+                            service.send_discord_webhook(
+                                webhook_url=contact.address,
+                                content=clean_content,
+                                title=title,
+                                color=color,
+                                fields=fields if fields else None,
+                                footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
+                            )
+                            break
+                except:
+                    pass
+
+            GLOG.INFO(f"Notification sent to {success_count}/{len(user_uuids)} users: {clean_content}")
+            return success_count > 0
 
     except Exception as e:
         GLOG.ERROR(f"Failed to send notification: {e}")
@@ -2052,6 +2102,7 @@ def notify_with_fields(
     发送系统通知（支持自定义字段）
 
     支持异步（Kafka）和同步（直接Discord webhook）两种模式。
+    使用系统通知接收人配置。
 
     Args:
         content: 通知内容（支持Markdown）
@@ -2082,13 +2133,54 @@ def notify_with_fields(
             GLOG.ERROR(f"[{module}] NotificationService not available")
             return False
 
+        # 获取所有系统通知接收人
+        from ginkgo.data.containers import container
+        from ginkgo.enums import RECIPIENT_TYPES
+
+        recipient_crud = container.notification_recipient_crud()
+        group_mapping_crud = container.user_group_mapping_crud()
+
+        # 获取所有启用的通知接收人
+        recipients = recipient_crud.find(filters={"is_del": False}, as_dataframe=False)
+
+        if not recipients:
+            GLOG.WARN(f"[{module}] No notification recipients found")
+            return False
+
+        # 收集所有需要通知的用户UUID（去重）
+        user_uuids_set = set()
+
+        for recipient in recipients:
+            recipient_type = recipient.get_recipient_type_enum()
+
+            if recipient_type == RECIPIENT_TYPES.USER:
+                # 单个用户类型
+                if recipient.user_id:
+                    user_uuids_set.add(recipient.user_id)
+
+            elif recipient_type == RECIPIENT_TYPES.USER_GROUP:
+                # 用户组类型 - 获取组内所有用户
+                if recipient.user_group_id and group_mapping_crud:
+                    mappings = group_mapping_crud.find_by_group(
+                        recipient.user_group_id,
+                        as_dataframe=False
+                    )
+                    for mapping in mappings:
+                        user_uuids_set.add(mapping.user_uuid)
+
+        user_uuids = list(user_uuids_set)
+
+        if not user_uuids:
+            GLOG.WARN(f"[{module}] No users found from notification recipients")
+            return False
+
         # 异步模式：通过 Kafka 发送
         if async_mode:
             try:
                 # 构建自定义字段消息
                 message = {
                     "message_type": "custom_fields",
-                    "group_name": "System",
+                    "user_uuids": user_uuids,  # 发送给这些用户
                     "content": content,
                     "title": title,
                     "level": level,
@@ -2101,7 +2193,7 @@ def notify_with_fields(
                     success = service._kafka_producer.send_async(KafkaTopics.NOTIFICATIONS, message)
                     if success:
                         service._kafka_producer.flush(timeout=2.0)
-                        GLOG.INFO(f"[{module}] Notification queued for async delivery")
+                        GLOG.INFO(f"[{module}] Notification queued for {len(user_uuids)} users (async)")
                         return True
                     else:
                         GLOG.WARN(f"[{module}] Kafka send_async failed, falling back to sync mode")
@@ -2112,42 +2204,31 @@ def notify_with_fields(
                 GLOG.WARN(f"[{module}] Async send failed: {e}, falling back to sync mode")
 
         # 同步模式：直接发送到 Discord webhook
-        color = SYSTEM_LEVEL_COLORS.get(level.upper(), DISCORD_COLOR_INFO)
-
-        # 获取 System 组的 webhook URL
-        if not service.group_crud or not service.group_mapping_crud:
-            GLOG.WARN(f"[{module}] Group CRUD not initialized")
-            return False
-
-        group = service.group_crud.find(filters={"name": "System"}, page_size=1, as_dataframe=False)
-        if not group:
-            GLOG.WARN(f"[{module}] System group not found")
-            return False
-
-        group_uuid = group[0].uuid
-        mappings = service.group_mapping_crud.find_by_group(group_uuid, as_dataframe=False)
+        color = SYSTEM_LEVEL_COLORS.get(level.upper(), DISCORD_COLOR_WHITE)
 
         success_count = 0
-        for mapping in mappings:
-            contacts = service.contact_crud.find_by_user_id(mapping.user_uuid, as_dataframe=False) if service.contact_crud else []
-            for contact in contacts:
-                contact_type_enum = contact.get_contact_type_enum()
-                if contact_type_enum and contact_type_enum.name == "WEBHOOK" and contact.is_active:
-                    # 直接发送到 Discord webhook
-                    result = service.send_discord_webhook(
-                        webhook_url=contact.address,
-                        content=content,
-                        title=title,
-                        color=color,
-                        fields=fields,
-                        footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
-                    )
-                    if result.is_success:
-                        success_count += 1
-                    break  # 每个用户只发送一次
+        for user_uuid in user_uuids:
+            # 获取用户的webhook联系方式
+            if service.contact_crud:
+                contacts = service.contact_crud.find_by_user_id(user_uuid, as_dataframe=False)
+                for contact in contacts:
+                    contact_type_enum = contact.get_contact_type_enum()
+                    if contact_type_enum and contact_type_enum.name == "WEBHOOK" and contact.is_active:
+                        # 直接发送到 Discord webhook
+                        result = service.send_discord_webhook(
+                            webhook_url=contact.address,
+                            content=content,
+                            title=title,
+                            color=color,
+                            fields=fields,
+                            footer={"text": f"{module} • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}
+                        )
+                        if result.is_success:
+                            success_count += 1
+                        break  # 每个用户只发送一次
 
         if success_count > 0:
-            GLOG.INFO(f"[{module}] Notification sent to {success_count} users (sync mode)")
+            GLOG.INFO(f"[{module}] Notification sent to {success_count}/{len(user_uuids)} users (sync mode)")
             return True
         else:
             GLOG.WARN(f"[{module}] No notifications sent")

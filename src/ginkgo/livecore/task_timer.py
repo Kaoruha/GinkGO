@@ -819,6 +819,8 @@ class TaskTimer:
         except Exception as e:
             print(f"[ERROR] Heartbeat test job failed: {e}")
             self._send_error_notification("心跳测试任务执行失败", e)
+
+    def _get_all_stock_codes(self) -> list:
         """
         获取所有股票代码列表
 
@@ -826,9 +828,9 @@ class TaskTimer:
             股票代码列表
         """
         try:
-            from ginkgo import services
+            from ginkgo import service_hub
 
-            stockinfo_service = services.data.services.stockinfo_service()
+            stockinfo_service = service_hub.data.stockinfo_service
             stocks = stockinfo_service.get_stockinfos()
 
             if not stocks:

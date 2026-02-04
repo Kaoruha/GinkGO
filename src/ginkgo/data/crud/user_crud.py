@@ -328,12 +328,13 @@ class UserCRUD(BaseCRUD[MUser]):
                     MUser.uuid == query.lower()
                 )
             else:
-                # 非UUID格式：在uuid和name字段中进行模糊匹配
+                # 非UUID格式：在uuid、username和display_name字段中进行模糊匹配
                 search_pattern = f"%{query}%"
                 query_obj = s.query(MUser).filter(
                     or_(
                         MUser.uuid.like(search_pattern),
-                        MUser.name.like(search_pattern)
+                        MUser.username.like(search_pattern),
+                        MUser.display_name.like(search_pattern)
                     )
                 )
 

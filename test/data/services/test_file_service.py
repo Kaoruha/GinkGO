@@ -191,7 +191,9 @@ def test_strategy():
         file_service = container.file_service()
 
         # 测试获取不存在文件的内容
-        content = file_service.get_content("non-existent-uuid")
+        content_result = file_service.get_content("non-existent-uuid")
+        assert content_result.success
+        content = content_result.data
         # 应该返回None或空bytes，检查返回类型
         assert content is None or isinstance(content, bytes)
 
@@ -265,7 +267,9 @@ def test_strategy():
         # 描述可能由数据库自动生成，不进行严格断言
 
         # 验证克隆文件的内容
-        cloned_content = file_service.get_content(cloned_file_info["uuid"])
+        cloned_content_result = file_service.get_content(cloned_file_info["uuid"])
+        assert cloned_content_result.success
+        cloned_content = cloned_content_result.data
         assert cloned_content == original_content
 
     def test_clone_file_auto_type(self):
@@ -349,7 +353,9 @@ def test_strategy():
 
         # 验证克隆文件也是空的
         cloned_file_info = clone_result.data["file_info"]
-        cloned_content = file_service.get_content(cloned_file_info["uuid"])
+        cloned_content_result = file_service.get_content(cloned_file_info["uuid"])
+        assert cloned_content_result.success
+        cloned_content = cloned_content_result.data
         assert cloned_content == b""
 
     def test_standard_methods_return_service_result(self):
@@ -430,7 +436,9 @@ class TestFileServiceIntegration:
         assert result.data["file"] is not None, "File should not be None"
 
         # 3. 获取文件内容
-        content = file_service.get_content(file_uuid)
+        content_result = file_service.get_content(file_uuid)
+        assert content_result.success
+        content = content_result.data
         # 内容可能为None（文件不存在）或bytes，都接受
 
         # 4. 测试标准方法
@@ -953,7 +961,9 @@ class TestFileServiceInitializationIdempotency:
             assert len(files) > 0, f"Should have files for {file_name}"
 
             file_uuid = files[0].uuid
-            content = file_service.get_content(file_uuid)
+            content_result = file_service.get_content(file_uuid)
+            assert content_result.success
+            content = content_result.data
             assert content is not None, f"Should get content for {file_name}"
 
             # 验证内容包含预期模式

@@ -51,10 +51,10 @@ class UserService(BaseService):
         is_active: bool = True
     ) -> ServiceResult:
         """
-        Add a new user
+        Add a new user (automatically creates credential with password=username)
 
         Args:
-            name: User name
+            name: User name (will be used as both username and display_name)
             user_type: User type (PERSON/CHANNEL/ORGANIZATION)
             description: User description
             is_active: Whether the user is active
@@ -79,9 +79,10 @@ class UserService(BaseService):
                     message="User type must be PERSON, CHANNEL, or ORGANIZATION"
                 )
 
-            # Create user
+            # Create user - name is used as both username and display_name
             user = MUser(
-                name=name,
+                username=name,
+                display_name=name,
                 description=description,
                 user_type=validated_type,
                 is_active=is_active,
@@ -100,12 +101,34 @@ class UserService(BaseService):
             # Extract UUID from created user object
             user_uuid = created_user.uuid
 
-            GLOG.INFO(f"Created user: {user_uuid}, name={name}, type={USER_TYPES.from_int(validated_type).name}")
+            # Auto-create credential with password=username
+            import bcrypt
+            from ginkgo.data.models.model_user_credential import MUserCredential
+
+            password_hash = bcrypt.hashpw(name.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            credential = MUserCredential(
+                user_id=user_uuid,
+                password_hash=password_hash,
+                is_active=is_active,
+                is_admin=False
+            )
+
+            created_credential = self.user_credential_crud.add(credential)
+            if not created_credential:
+                # Rollback: delete user if credential creation fails
+                self.user_crud.delete(filters={"uuid": user_uuid})
+                return ServiceResult.error(
+                    "Failed to create user credential",
+                    message="Credential creation failed, user rolled back"
+                )
+
+            GLOG.INFO(f"Created user: {user_uuid}, username={name}, type={USER_TYPES.from_int(validated_type).name}")
 
             return ServiceResult.success(
                 data={
                     "uuid": user_uuid,
-                    "name": name,
+                    "username": name,
+                    "display_name": name,
                     "description": description or "",
                     "user_type": USER_TYPES.from_int(validated_type).name,
                     "is_active": is_active
@@ -272,7 +295,8 @@ class UserService(BaseService):
             return ServiceResult.success(
                 data={
                     "uuid": user.uuid,
-                    "name": user.name,
+                    "username": user.username,
+                    "display_name": user.display_name,
                     "description": user.description,
                     "user_type": USER_TYPES.from_int(user.user_type).name,
                     "is_active": user.is_active,
@@ -369,7 +393,9 @@ class UserService(BaseService):
             # Build updates dict
             updates = {}
             if name is not None:
-                updates["name"] = name
+                # Update both username and display_name when name is provided
+                updates["username"] = name
+                updates["display_name"] = name
             if description is not None:
                 updates["description"] = description
             if is_active is not None:
@@ -399,7 +425,8 @@ class UserService(BaseService):
             return ServiceResult.success(
                 data={
                     "uuid": user_uuid,
-                    "name": updated_user.name,
+                    "username": updated_user.username,
+                    "display_name": updated_user.display_name,
                     "description": updated_user.description,
                     "user_type": USER_TYPES.from_int(updated_user.user_type).name,
                     "is_active": updated_user.is_active
@@ -444,16 +471,17 @@ class UserService(BaseService):
 
             users = self.user_crud.find(filters=filters, page_size=limit, as_dataframe=False)
 
-            # 按 name 过滤（在 Python 端实现模糊匹配）
+            # 按 name 过滤（在 Python 端实现模糊匹配，搜索 username 和 display_name）
             if name:
                 name_lower = name.lower()
-                users = [u for u in users if name_lower in u.name.lower()]
+                users = [u for u in users if name_lower in u.username.lower() or (u.display_name and name_lower in u.display_name.lower())]
 
             user_list = []
             for user in users:
                 user_list.append({
                     "uuid": user.uuid,
-                    "name": user.name,
+                    "username": user.username,
+                    "display_name": user.display_name,
                     "description": user.description,
                     "user_type": USER_TYPES.from_int(user.user_type).name,
                     "is_active": user.is_active,
@@ -721,7 +749,8 @@ class UserService(BaseService):
             for user in users:
                 user_list.append({
                     "uuid": user.uuid,
-                    "name": user.name,
+                    "username": user.username,
+                    "display_name": user.display_name,
                     "description": user.description,
                     "user_type": USER_TYPES.from_int(user.user_type).name,
                     "is_active": user.is_active,

@@ -574,7 +574,7 @@ class FileService(BaseService):
             self._logger.ERROR(f"Failed to get files by type: {e}")
             return ServiceResult.error(f"Failed to get files by type: {str(e)}")
 
-    def get_content(self, file_id: str) -> bytes:
+    def get_content(self, file_id: str) -> ServiceResult:
         """
         获取文件的原始二进制内容
 
@@ -582,12 +582,25 @@ class FileService(BaseService):
             file_id: 文件的UUID标识符
 
         Returns:
-            bytes: 文件的二进制内容，文件不存在时返回None
+            ServiceResult: 包含文件二进制内容(data字段)，文件不存在时返回None
         """
-        file_data = self._crud_repo.find(filters={"uuid": file_id, "is_del": False})
-        if not file_data:
-            return None
-        return file_data[0].data if hasattr(file_data[0], "data") else b""
+        try:
+            file_data = self._crud_repo.find(filters={"uuid": file_id, "is_del": False})
+            if not file_data:
+                return ServiceResult.success(
+                    data=None,
+                    message=f"File not found: {file_id}"
+                )
+            content = file_data[0].data if hasattr(file_data[0], "data") else b""
+            return ServiceResult.success(
+                data=content,
+                message=f"Successfully retrieved content for file: {file_id}"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get file content: {e}")
+            return ServiceResult.error(
+                f"Failed to get file content: {str(e)}"
+            )
 
     
     
