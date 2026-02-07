@@ -215,3 +215,10 @@ src/ginkgo/config/secure.yml
 .module_mapping.json
 scripts/__pycache__/
 scripts/**/*.pyc
+
+# Node.js / Web UI dependencies
+node_modules/
+web-ui/node_modules/
+
+# Web UI build output
+web-ui/dist/
