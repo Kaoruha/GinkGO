@@ -27,9 +27,11 @@ service.interceptors.request.use(
 // 响应拦截器
 service.interceptors.response.use(
   (response) => {
+    console.log('API响应成功:', response.config?.url, response.data)
     return response.data
   },
   (error: AxiosError) => {
+    console.error('API请求失败:', error.config?.url, error)
     const { response } = error
 
     if (response) {

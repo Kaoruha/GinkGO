@@ -149,7 +149,7 @@
                 @dragstart="handleDragStart($event, 'strategy', strategy)"
               >
                 <div class="item-name">{{ strategy.name }}</div>
-                <div class="item-type">{{ strategy.type }}</div>
+                <div class="item-type">{{ strategy.component_type }}</div>
               </div>
               <div
                 v-if="filteredStrategies.length === 0 && availableStrategies.length > 0"
@@ -187,7 +187,7 @@
                 @dragstart="handleDragStart($event, 'selector', selector)"
               >
                 <div class="item-name">{{ selector.name }}</div>
-                <div class="item-type">{{ selector.type }}</div>
+                <div class="item-type">{{ selector.component_type }}</div>
               </div>
               <div
                 v-if="filteredSelectors.length === 0 && availableSelectors.length > 0"
@@ -225,7 +225,7 @@
                 @dragstart="handleDragStart($event, 'sizer', sizer)"
               >
                 <div class="item-name">{{ sizer.name }}</div>
-                <div class="item-type">{{ sizer.type }}</div>
+                <div class="item-type">{{ sizer.component_type }}</div>
               </div>
               <div
                 v-if="filteredSizers.length === 0 && availableSizers.length > 0"
@@ -263,7 +263,7 @@
                 @dragstart="handleDragStart($event, 'risk', risk)"
               >
                 <div class="item-name">{{ risk.name }}</div>
-                <div class="item-type">{{ risk.type }}</div>
+                <div class="item-type">{{ risk.component_type }}</div>
               </div>
               <div
                 v-if="filteredRisks.length === 0 && availableRisks.length > 0"
@@ -312,11 +312,18 @@
           v-else
           :nodes="nodes"
           :edges="edges"
+          :available-components="{
+            strategies: availableStrategies,
+            selectors: availableSelectors,
+            sizers: availableSizers,
+            risks: availableRisks
+          }"
           @node-click="handleNodeClick"
           @edge-click="handleEdgeClick"
           @nodes-change="handleNodesChange"
           @edges-change="handleEdgesChange"
           @delete="handleDelete"
+          @connection-start="handleConnectionStart"
         />
       </div>
 
@@ -424,18 +431,41 @@ const validationErrors = ref<string[]>([])
 const validationStatus = ref<'success' | 'error' | 'warning'>('success')
 const validationTitle = ref('')
 
+// 初始化默认节点
+const initializeDefaultNodes = () => {
+  // 如果是编辑模式或已有节点，不重复初始化
+  if (isEditMode.value || nodes.value.length > 0) return
+
+  // 创建默认的Portfolio节点（居中）
+  const defaultPortfolioNode: GraphNode = {
+    id: 'portfolio-root',
+    type: 'PORTFOLIO',
+    position: { x: 400, y: 200 },
+    data: {
+      label: formData.name || '投资组合',
+      config: {
+        initial_cash: formData.initial_cash,
+        mode: formData.mode
+      },
+      description: '投资组合主节点'
+    }
+  }
+
+  nodes.value = [defaultPortfolioNode]
+}
+
 // 可用组件列表
 const availableStrategies = ref<ComponentSummary[]>([])
 const availableSelectors = ref<ComponentSummary[]>([])
 const availableSizers = ref<ComponentSummary[]>([])
 const availableRisks = ref<ComponentSummary[]>([])
 
-// 组件类型折叠状态
+// 组件类型折叠状态（默认全部展开）
 const expandedSections = ref({
-  strategy: false,
-  selector: false,
-  sizer: false,
-  risk: false
+  strategy: true,
+  selector: true,
+  sizer: true,
+  risk: true
 })
 
 // 搜索关键词
@@ -447,7 +477,7 @@ const filteredStrategies = computed(() => {
   const keyword = searchKeyword.value.toLowerCase()
   return availableStrategies.value.filter(c =>
     c.name.toLowerCase().includes(keyword) ||
-    c.type?.toLowerCase().includes(keyword) ||
+    c.component_type?.toLowerCase().includes(keyword) ||
     c.description?.toLowerCase().includes(keyword)
   )
 })
@@ -457,7 +487,7 @@ const filteredSelectors = computed(() => {
   const keyword = searchKeyword.value.toLowerCase()
   return availableSelectors.value.filter(c =>
     c.name.toLowerCase().includes(keyword) ||
-    c.type?.toLowerCase().includes(keyword) ||
+    c.component_type?.toLowerCase().includes(keyword) ||
     c.description?.toLowerCase().includes(keyword)
   )
 })
@@ -467,7 +497,7 @@ const filteredSizers = computed(() => {
   const keyword = searchKeyword.value.toLowerCase()
   return availableSizers.value.filter(c =>
     c.name.toLowerCase().includes(keyword) ||
-    c.type?.toLowerCase().includes(keyword) ||
+    c.component_type?.toLowerCase().includes(keyword) ||
     c.description?.toLowerCase().includes(keyword)
   )
 })
@@ -477,7 +507,7 @@ const filteredRisks = computed(() => {
   const keyword = searchKeyword.value.toLowerCase()
   return availableRisks.value.filter(c =>
     c.name.toLowerCase().includes(keyword) ||
-    c.type?.toLowerCase().includes(keyword) ||
+    c.component_type?.toLowerCase().includes(keyword) ||
     c.description?.toLowerCase().includes(keyword)
   )
 })
@@ -501,14 +531,27 @@ const portfolioUuid = computed(() => route.params.uuid as string | undefined)
 // 加载组件列表
 const loadComponents = async () => {
   try {
+    console.log('=== 开始加载组件 ===')
     const allComponents = await componentsApi.list()
+    console.log('API返回原始数据:', allComponents)
+    console.log('数据类型:', typeof allComponents, '是否为数组:', Array.isArray(allComponents))
 
     // component_type 是字符串类型: 'strategy', 'selector', 'sizer', 'risk', 'analyzer'
     availableStrategies.value = allComponents.filter((c: ComponentSummary) => c.component_type === 'strategy')
     availableSelectors.value = allComponents.filter((c: ComponentSummary) => c.component_type === 'selector')
     availableSizers.value = allComponents.filter((c: ComponentSummary) => c.component_type === 'sizer')
     availableRisks.value = allComponents.filter((c: ComponentSummary) => c.component_type === 'risk')
+
+    console.log('=== 过滤后的组件 ===')
+    console.log('策略:', availableStrategies.value.length, availableStrategies.value.map(c => c.name))
+    console.log('选股器:', availableSelectors.value.length)
+    console.log('仓位管理:', availableSizers.value.length)
+    console.log('风控:', availableRisks.value.length)
+
+    console.log('=== expandedSections状态 ===')
+    console.log('expandedSections:', expandedSections.value)
   } catch (error: any) {
+    console.error('加载组件失败:', error)
     message.error(`加载组件列表失败: ${error.message}`)
   }
 }
@@ -579,6 +622,12 @@ const handleNodeClick = (node: GraphNode) => {
 // 边点击
 const handleEdgeClick = (edge: GraphEdge) => {
   // TODO: 实现边的属性编辑
+}
+
+// 连接开始（从端口拖拽）
+const handleConnectionStart = (data: any) => {
+  // 可以在这里做一些准备工作
+  console.log('Connection started from:', data)
 }
 
 // 节点变化
@@ -722,9 +771,23 @@ const goBack = () => {
   router.back()
 }
 
+// 监听表单数据变化，更新Portfolio节点
+watch(() => formData, (newData) => {
+  const portfolioNode = nodes.value.find(n => n.id === 'portfolio-root')
+  if (portfolioNode) {
+    portfolioNode.data.label = newData.name || '投资组合'
+    portfolioNode.data.config = {
+      initial_cash: newData.initial_cash,
+      mode: newData.mode
+    }
+  }
+}, { deep: true })
+
 onMounted(() => {
   loadComponents()
   loadPortfolioData()
+  // 组件加载后初始化默认节点
+  initializeDefaultNodes()
 })
 </script>
 
