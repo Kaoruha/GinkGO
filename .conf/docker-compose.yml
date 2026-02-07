@@ -1,111 +1,124 @@
 # yaml 配置实例
 x-project-name: 'ginkgo'
 services:
-  webui:
-    image: ginkgo/webui:latest
-    container_name: ginkgo-web-ui
-    restart: always
-    build:
-      context: ..
-      dockerfile: .conf/Dockerfile.web
-    ports:
-      - '80:80'
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
+  # webui:
+  #   image: ginkgo/webui:latest
+  #   container_name: ginkgo-web-ui
+  #   restart: always
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "100m"
+  #       max-file: "3"
+  #   build:
+  #     context: ..
+  #     dockerfile: .conf/Dockerfile.web
+  #   ports:
+  #     - '80:80'
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf
   kafka1:
-    image: 'bitnami/kafka:3.7.0'
+    image: apache/kafka:4.0.0
     restart: always
     container_name: ginkgo-kafka1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     ports:
-      - '9092:9094'
+      - '9092:9092'
       - '9093:9093'
     environment:
-      - KAFKA_KRAFT_CLUSTER_ID=LelM2dIFQkiUFvXCEcqRWA
-      - KAFKA_ENABLE_KRAFT=yes
+      # KRaft 模式配置
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_NODE_ID=1
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      # 日志配置
+      - KAFKA_LOG_RETENTION_HOURS=2
+      - KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS=300000
+      - KAFKA_LOG_SEGMENT_BYTES=1073741824
+      - KAFKA_LOG_CLEANUP_POLICY=delete
+      # 其他配置
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
       - KAFKA_HEAP_OPTS=-Xmx512M -Xms256M
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_BROKER_ID=1
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:9092,EXTERNAL://localhost:9092
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
-      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
-      - KAFKA_MAX_POLL_INTERVAL_MS=60000
-      - KAFKA_MAX_POLL_RECORDS=1
-      # 消息保留配置（2小时）
-      - KAFKA_CFG_LOG_RETENTION_HOURS=2
-      - KAFKA_CFG_LOG_RETENTION_CHECK_INTERVAL_MS=300000
-      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824
-      - KAFKA_CFG_LOG_CLEANUP_POLICY=delete
     volumes:
-      - ../.db/kafka1_data:/data
+      - ../.db/kafka1_data:/var/lib/kafka/data
   kafka2:
-    image: 'bitnami/kafka:3.7.0'
+    image: apache/kafka:4.0.0
     restart: always
     container_name: ginkgo-kafka2
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     ports:
-      - '9094:9094'
+      - '9094:9092'
       - '9095:9093'
     environment:
-      - KAFKA_KRAFT_CLUSTER_ID=LelM2dIFQkiUFvXCEcqRWA
-      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_NODE_ID=2
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka2:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LOG_RETENTION_HOURS=2
+      - KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS=300000
+      - KAFKA_LOG_SEGMENT_BYTES=1073741824
+      - KAFKA_LOG_CLEANUP_POLICY=delete
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
       - KAFKA_HEAP_OPTS=-Xmx512M -Xms256M
-      - KAFKA_CFG_NODE_ID=2
-      - KAFKA_BROKER_ID=2
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka2:9092,EXTERNAL://localhost:9094
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
-      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
-      - KAFKA_MAX_POLL_INTERVAL_MS=60000
-      - KAFKA_MAX_POLL_RECORDS=1
-      # 消息保留配置（2小时）
-      - KAFKA_CFG_LOG_RETENTION_HOURS=2
-      - KAFKA_CFG_LOG_RETENTION_CHECK_INTERVAL_MS=300000
-      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824
-      - KAFKA_CFG_LOG_CLEANUP_POLICY=delete
     volumes:
-      - ../.db/kafka2_data:/data
+      - ../.db/kafka2_data:/var/lib/kafka/data
   kafka3:
-    image: 'bitnami/kafka:3.7.0'
+    image: apache/kafka:4.0.0
     restart: always
     container_name: ginkgo-kafka3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     ports:
-      - '9096:9094'
+      - '9096:9092'
       - '9097:9093'
     environment:
-      - KAFKA_KRAFT_CLUSTER_ID=LelM2dIFQkiUFvXCEcqRWA
-      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_NODE_ID=3
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka3:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LOG_RETENTION_HOURS=2
+      - KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS=300000
+      - KAFKA_LOG_SEGMENT_BYTES=1073741824
+      - KAFKA_LOG_CLEANUP_POLICY=delete
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
       - KAFKA_HEAP_OPTS=-Xmx512M -Xms256M
-      - KAFKA_CFG_NODE_ID=3
-      - KAFKA_BROKER_ID=3
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka3:9092,EXTERNAL://localhost:9096
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
-      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
-      - KAFKA_MAX_POLL_INTERVAL_MS=60000
-      - KAFKA_MAX_POLL_RECORDS=1
-      # 消息保留配置（2小时）
-      - KAFKA_CFG_LOG_RETENTION_HOURS=2
-      - KAFKA_CFG_LOG_RETENTION_CHECK_INTERVAL_MS=300000
-      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824
-      - KAFKA_CFG_LOG_CLEANUP_POLICY=delete
     volumes:
-      - ../.db/kafka3_data:/data
+      - ../.db/kafka3_data:/var/lib/kafka/data
   redis-master:
     image: redis:alpine3.18
     container_name: ginkgo-redis-master
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     ports:
       - "6379:6379"
     volumes:
@@ -115,6 +128,11 @@ services:
   mysql-master:
     image: mysql:8.2.0
     container_name: ginkgo-mysql-master
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     command:
       --max_connections=1000
       --character-set-server=utf8mb4
@@ -137,6 +155,11 @@ services:
   mysql-test:
     image: mysql:8.2.0
     container_name: ginkgo-mysql-test
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     command:
       --max_connections=1000
       --character-set-server=utf8mb4
@@ -165,6 +188,11 @@ services:
     image: clickhouse/clickhouse-server:24.8.4.13-alpine
     container_name: ginkgo-clickhouse-master
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     ports:
       - "8123:8123"
       - "9000:9000"
@@ -172,6 +200,7 @@ services:
     volumes:
       - ../.logs/clickhouse:/var/log/clickhouse-server
       - ./clickhouse_users.xml:/etc/clickhouse-server/users.xml
+      - ./clickhouse_log_config.xml:/etc/clickhouse-server/config.d/logger.xml:ro
       - ../.db/clickhouse:/var/lib/clickhouse:rw
     ulimits:
       nproc: 65546
@@ -186,6 +215,11 @@ services:
     image: clickhouse/clickhouse-server:24.8.4.13-alpine
     container_name: ginkgo-clickhouse-test
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     ports:
       - "18123:8123"
       - "19000:9000"
@@ -193,6 +227,7 @@ services:
     volumes:
       - ../.logs/clickhouse_test:/var/log/clickhouse-server
       - ./clickhouse_users.xml:/etc/clickhouse-server/users.xml
+      - ./clickhouse_log_config.xml:/etc/clickhouse-server/config.d/logger.xml:ro
       - ../.db/clickhouse_test:/var/lib/clickhouse:rw
     ulimits:
       nproc: 65546
@@ -212,6 +247,11 @@ services:
     image: 'mongo:6.0.27-jammy'
     container_name: ginkgo-mongo-master
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     ports:
       - '27017:27017'
     environment:
@@ -222,97 +262,97 @@ services:
       - ../.logs/mongo:/var/log/mongodb
       - ./mongo_entrypoint:/docker-entrypoint-initdb.d
   # Feast Feature Server - API服务
-  feast-server:
-    build:
-      context: ..
-      dockerfile: .conf/Dockerfile.feast
-    image: feast:0.51.click.redis.mysql
-    container_name: ginkgo-feast-server
-    restart: always
-    depends_on:
-      - redis-master
-      - clickhouse-master
-      - mysql-master
-    environment:
-      # 日志级别
-      LOG_LEVEL: info
-      # Feast服务配置
-      FEAST_SERVE_HOST: 0.0.0.0
-      FEAST_SERVE_PORT: 6566
-      # MySQL配置
-      FEAST_MYSQL_HOST: mysql-master
-      FEAST_MYSQL_PORT: 3306
-      FEAST_MYSQL_USER: ${FEAST_MYSQL_USER}
-      FEAST_MYSQL_PASSWORD: ${FEAST_MYSQL_PASSWORD}
-      FEAST_MYSQL_DATABASE: feast
-      # Redis配置
-      FEAST_REDIS_HOST: redis-master
-      FEAST_REDIS_PORT: 6379
-      # ClickHouse配置
-      FEAST_CLICKHOUSE_HOST: clickhouse-master
-      FEAST_CLICKHOUSE_PORT: 8123
-      FEAST_CLICKHOUSE_USER: ${FEAST_CLICKHOUSE_USER}
-      FEAST_CLICKHOUSE_PASSWORD: ${FEAST_CLICKHOUSE_PASSWORD}
-      FEAST_CLICKHOUSE_DATABASE: ginkgo
-      # Python环境配置
-      PYTHONPATH: /feast
-      PYTHONUNBUFFERED: 1
-    ports:
-      - "6566:6566"  # HTTP API端口
-    working_dir: /feast
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:6566/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s  # 增加启动等待时间
+  # feast-server:
+  #   build:
+  #     context: ..
+  #     dockerfile: .conf/Dockerfile.feast
+  #   image: feast:0.51.click.redis.mysql
+  #   container_name: ginkgo-feast-server
+  #   restart: always
+  #   depends_on:
+  #     - redis-master
+  #     - clickhouse-master
+  #     - mysql-master
+  #   environment:
+  #     # 日志级别
+  #     LOG_LEVEL: info
+  #     # Feast服务配置
+  #     FEAST_SERVE_HOST: 0.0.0.0
+  #     FEAST_SERVE_PORT: 6566
+  #     # MySQL配置
+  #     FEAST_MYSQL_HOST: mysql-master
+  #     FEAST_MYSQL_PORT: 3306
+  #     FEAST_MYSQL_USER: ${FEAST_MYSQL_USER}
+  #     FEAST_MYSQL_PASSWORD: ${FEAST_MYSQL_PASSWORD}
+  #     FEAST_MYSQL_DATABASE: feast
+  #     # Redis配置
+  #     FEAST_REDIS_HOST: redis-master
+  #     FEAST_REDIS_PORT: 6379
+  #     # ClickHouse配置
+  #     FEAST_CLICKHOUSE_HOST: clickhouse-master
+  #     FEAST_CLICKHOUSE_PORT: 8123
+  #     FEAST_CLICKHOUSE_USER: ${FEAST_CLICKHOUSE_USER}
+  #     FEAST_CLICKHOUSE_PASSWORD: ${FEAST_CLICKHOUSE_PASSWORD}
+  #     FEAST_CLICKHOUSE_DATABASE: ginkgo
+  #     # Python环境配置
+  #     PYTHONPATH: /feast
+  #     PYTHONUNBUFFERED: 1
+  #   ports:
+  #     - "6566:6566"  # HTTP API端口
+  #   working_dir: /feast
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -f http://localhost:6566/health || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 60s  # 增加启动等待时间
 
-  # Feast Web UI - 管理界面
-  feast-ui:
-    build:
-      context: ..
-      dockerfile: .conf/Dockerfile.feast
-    image: feast:0.51.click.redis.mysql
-    container_name: ginkgo-feast-ui
-    restart: always
-    depends_on:
-      - redis-master
-      - clickhouse-master
-      - mysql-master
-    environment:
-      # 日志级别
-      LOG_LEVEL: info
-      # Feast WebUI配置
-      FEAST_UI_HOST: ${FEAST_UI_HOST}
-      FEAST_UI_PORT: ${FEAST_UI_PORT}
-      # MySQL配置
-      FEAST_MYSQL_HOST: mysql-master
-      FEAST_MYSQL_PORT: 3306
-      FEAST_MYSQL_USER: ${FEAST_MYSQL_USER}
-      FEAST_MYSQL_PASSWORD: ${FEAST_MYSQL_PASSWORD}
-      FEAST_MYSQL_DATABASE: feast
-      # Redis配置
-      FEAST_REDIS_HOST: redis-master
-      FEAST_REDIS_PORT: 6379
-      # ClickHouse配置
-      FEAST_CLICKHOUSE_HOST: clickhouse-master
-      FEAST_CLICKHOUSE_PORT: 8123
-      FEAST_CLICKHOUSE_USER: ${FEAST_CLICKHOUSE_USER}
-      FEAST_CLICKHOUSE_PASSWORD: ${FEAST_CLICKHOUSE_PASSWORD}
-      FEAST_CLICKHOUSE_DATABASE: ginkgo
-      # Python环境配置
-      PYTHONPATH: /feast
-      PYTHONUNBUFFERED: 1
-    ports:
-      - "9999:9999"  # Web UI端口
-    working_dir: /feast
-    command: ["/feast/start-feast-ui.sh"]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9999 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+  # # Feast Web UI - 管理界面
+  # feast-ui:
+  #   build:
+  #     context: ..
+  #     dockerfile: .conf/Dockerfile.feast
+  #   image: feast:0.51.click.redis.mysql
+  #   container_name: ginkgo-feast-ui
+  #   restart: always
+  #   depends_on:
+  #     - redis-master
+  #     - clickhouse-master
+  #     - mysql-master
+  #   environment:
+  #     # 日志级别
+  #     LOG_LEVEL: info
+  #     # Feast WebUI配置
+  #     FEAST_UI_HOST: ${FEAST_UI_HOST}
+  #     FEAST_UI_PORT: ${FEAST_UI_PORT}
+  #     # MySQL配置
+  #     FEAST_MYSQL_HOST: mysql-master
+  #     FEAST_MYSQL_PORT: 3306
+  #     FEAST_MYSQL_USER: ${FEAST_MYSQL_USER}
+  #     FEAST_MYSQL_PASSWORD: ${FEAST_MYSQL_PASSWORD}
+  #     FEAST_MYSQL_DATABASE: feast
+  #     # Redis配置
+  #     FEAST_REDIS_HOST: redis-master
+  #     FEAST_REDIS_PORT: 6379
+  #     # ClickHouse配置
+  #     FEAST_CLICKHOUSE_HOST: clickhouse-master
+  #     FEAST_CLICKHOUSE_PORT: 8123
+  #     FEAST_CLICKHOUSE_USER: ${FEAST_CLICKHOUSE_USER}
+  #     FEAST_CLICKHOUSE_PASSWORD: ${FEAST_CLICKHOUSE_PASSWORD}
+  #     FEAST_CLICKHOUSE_DATABASE: ginkgo
+  #     # Python环境配置
+  #     PYTHONPATH: /feast
+  #     PYTHONUNBUFFERED: 1
+  #   ports:
+  #     - "9999:9999"  # Web UI端口
+  #   working_dir: /feast
+  #   command: ["/feast/start-feast-ui.sh"]
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -f http://localhost:9999 || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 60s
 
   # Notification Worker - 通知消息处理
   notify-worker:
@@ -322,6 +362,11 @@ services:
     image: ginkgo/notification-worker:latest
     container_name: ginkgo-notify-worker
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     depends_on:
       - kafka1
       - redis-master
@@ -389,6 +434,11 @@ services:
     image: ginkgo/tasktimer:latest
     container_name: ginkgo-tasktimer
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     depends_on:
       - kafka1
       - redis-master
@@ -438,6 +488,11 @@ services:
     image: ginkgo/livecore:latest
     container_name: ginkgo-livecore
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     depends_on:
       - kafka1
       - redis-master
@@ -494,6 +549,11 @@ services:
       dockerfile: .conf/Dockerfile.dataworker
     image: ginkgo/data-worker:latest
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     depends_on:
       - kafka1
       - redis-master
@@ -550,6 +610,11 @@ services:
       dockerfile: .conf/Dockerfile.executionnode
     image: ginkgo/execution-node:latest
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     depends_on:
       - kafka1
       - redis-master
@@ -598,68 +663,68 @@ services:
           memory: 256M
 
   # API Server - FastAPI REST API和WebSocket服务
-  api-server:
-    build:
-      context: ..
-      dockerfile: .conf/Dockerfile.api-server
-    image: ginkgo/api-server:latest
-    container_name: ginkgo-api-server
-    restart: always
-    depends_on:
-      - mysql-master
-      - clickhouse-master
-      - mongo-master
-      - redis-master
-      - kafka1
-    ports:
-      - "8000:8000"
-    environment:
-      # API服务配置
-      API_HOST: 0.0.0.0
-      API_PORT: 8000
-      # JWT配置
-      SECRET_KEY: ${API_SECRET_KEY:-your-secret-key-change-in-production}
-      ACCESS_TOKEN_EXPIRE_MINUTES: 1440
-      # CORS配置
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
-      # 调试模式
-      DEBUG: "False"
-      # MySQL配置
-      GINKGO_MYSQLHOST: mysql-master
-      GINKGO_MYSQLPORT: 3306
-      GINKGO_MYSQLUSER: ${MYSQL_USER}
-      GINKGO_MYSQLPASSWD: ${MYSQL_PASSWORD}
-      GINKGO_MYSQLDATABASE: ginkgo
-      # MongoDB配置
-      GINKGO_MONGOHOST: mongo-master
-      GINKGO_MONGOPORT: 27017
-      GINKGO_MONGODATABASE: ginkgo
-      # ClickHouse配置
-      GINKGO_CLICKHOUSEHOST: clickhouse-master
-      GINKGO_CLICKHOUSEPORT: 9000
-      # Redis配置
-      GINKGO_REDISHOST: redis-master
-      GINKGO_REDISPORT: 6379
-      # Kafka配置
-      GINKGO_KAFKA_HOST: kafka1
-      GINKGO_KAFKA_PORT: 9092
-      # 运行配置
-      LOG_LEVEL: INFO
-      PYTHONUNBUFFERED: 1
-      TZ: Asia/Shanghai
-    volumes:
-      - ../.logs/apiserver:/app/.logs
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: '1.00'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+  # api-server:
+  #   build:
+  #     context: ..
+  #     dockerfile: .conf/Dockerfile.api-server
+  #   image: ginkgo/api-server:latest
+  #   container_name: ginkgo-api-server
+  #   restart: always
+  #   depends_on:
+  #     - mysql-master
+  #     - clickhouse-master
+  #     - mongo-master
+  #     - redis-master
+  #     - kafka1
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     # API服务配置
+  #     API_HOST: 0.0.0.0
+  #     API_PORT: 8000
+  #     # JWT配置
+  #     SECRET_KEY: ${API_SECRET_KEY:-your-secret-key-change-in-production}
+  #     ACCESS_TOKEN_EXPIRE_MINUTES: 1440
+  #     # CORS配置
+  #     CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
+  #     # 调试模式
+  #     DEBUG: "False"
+  #     # MySQL配置
+  #     GINKGO_MYSQLHOST: mysql-master
+  #     GINKGO_MYSQLPORT: 3306
+  #     GINKGO_MYSQLUSER: ${MYSQL_USER}
+  #     GINKGO_MYSQLPASSWD: ${MYSQL_PASSWORD}
+  #     GINKGO_MYSQLDATABASE: ginkgo
+  #     # MongoDB配置
+  #     GINKGO_MONGOHOST: mongo-master
+  #     GINKGO_MONGOPORT: 27017
+  #     GINKGO_MONGODATABASE: ginkgo
+  #     # ClickHouse配置
+  #     GINKGO_CLICKHOUSEHOST: clickhouse-master
+  #     GINKGO_CLICKHOUSEPORT: 9000
+  #     # Redis配置
+  #     GINKGO_REDISHOST: redis-master
+  #     GINKGO_REDISPORT: 6379
+  #     # Kafka配置
+  #     GINKGO_KAFKA_HOST: kafka1
+  #     GINKGO_KAFKA_PORT: 9092
+  #     # 运行配置
+  #     LOG_LEVEL: INFO
+  #     PYTHONUNBUFFERED: 1
+  #     TZ: Asia/Shanghai
+  #   volumes:
+  #     - ../.logs/apiserver:/app/.logs
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 30s
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '1.00'
+  #         memory: 512M
+  #       reservations:
+  #         cpus: '0.25'
+  #         memory: 256M

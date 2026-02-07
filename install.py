@@ -313,7 +313,7 @@ def start_docker(path_dockercompose, execution_nodes=1, data_workers=1):
         # 一次性启动所有服务并指定 scale 数量
         print(f"{lightblue(f'Scaling execution-node to {execution_nodes} replicas...')}")
         print(f"{lightblue(f'Scaling data-worker to {data_workers} replicas...')}")
-        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} up -d --scale execution-node={execution_nodes} --scale data-worker={data_workers}")
+        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} up -d --build --force-recreate --scale execution-node={execution_nodes} --scale data-worker={data_workers}")
     elif "Linux" == str(platform.system()):
         command = ["docker", "rm", "-f", "ginkgo_web"]
         subprocess.run(command, capture_output=True)
@@ -322,7 +322,7 @@ def start_docker(path_dockercompose, execution_nodes=1, data_workers=1):
         # 一次性启动所有服务并指定 scale 数量
         print(f"{lightblue(f'Scaling execution-node to {execution_nodes} replicas...')}")
         print(f"{lightblue(f'Scaling data-worker to {data_workers} replicas...')}")
-        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} up -d --scale execution-node={execution_nodes} --scale data-worker={data_workers}")
+        result = os.system(f"docker compose -p ginkgo -f {path_dockercompose} up -d --build --force-recreate --scale execution-node={execution_nodes} --scale data-worker={data_workers}")
 
     if result != 0:
         print(f"{red('Docker compose failed to start')}")

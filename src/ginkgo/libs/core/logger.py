@@ -71,9 +71,10 @@ class GinkgoLogger:
         self._setup_handlers(console_log)
 
     def _setup_handlers(self, console_log):
-        self._setup_file_handler()
+        # 文件日志已禁用 - 仅保留控制台输出
+        # self._setup_file_handler()
         self._setup_console_handler(console_log)
-        self._setup_error_handler()
+        # self._setup_error_handler()
 
     def _should_log_error(self, msg: str) -> tuple[bool, str]:
         """
