@@ -35,6 +35,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         "/api/components", # 开发模式暂时跳过认证
         "/api/data",       # 开发模式暂时跳过认证
         "/api/dashboard",  # 开发模式暂时跳过认证
+        "/api/settings",   # 开发模式暂时跳过认证（设置页面）
     }
 
     async def dispatch(self, request: Request, call_next):

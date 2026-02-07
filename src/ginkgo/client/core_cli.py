@@ -194,7 +194,19 @@ def init():
             console.print(f":warning: System group initialization had issues: {e}")
             console.print(":information: This may be normal if the group already exists")
 
-        # Step 6: System health validation
+        # Step 6: Admin user initialization (idempotent)
+        console.print(":bust_in_silhouette: Initializing default admin user...")
+        try:
+            admin_result = _init_admin_user()
+            if admin_result['status'] == 'created':
+                console.print(f":white_check_mark: Admin user created: {admin_result['username']} (password: admin123)")
+            else:
+                console.print(f":information: Admin user already exists: {admin_result['username']}")
+        except Exception as e:
+            console.print(f":warning: Admin user initialization had issues: {e}")
+            console.print(":information: This may be normal if the user already exists")
+
+        # Step 7: System health validation
         console.print(":mag: Validating system health...")
         health_status = _validate_system_health()
 
@@ -203,7 +215,7 @@ def init():
         else:
             console.print(":white_check_mark: System health check passed")
 
-        # Step 7: Cleanup invalid data
+        # Step 8: Cleanup invalid data
         cleanup_result = _cleanup_invalid_data()
 
         console.print("\n:tada: Ginkgo system initialization completed!")
@@ -213,10 +225,17 @@ def init():
         console.print("  • Example Data: Demo portfolio and engine initialized")
         console.print(f"  • Notification Templates: {template_result['created']} preset templates available")
         console.print(f"  • System Group: {group_result['name']} ({group_result['status']})")
+        if admin_result['status'] == 'created':
+            console.print(f"  • Admin User: {admin_result['username']} (password: [yellow]admin123[/yellow]) - [red]Please change password after first login![/red]")
+        else:
+            console.print(f"  • Admin User: {admin_result.get('username', 'N/A')} ({admin_result['status']})")
         console.print(f"  • System Health: {'Healthy' if health_status['healthy'] else 'Warning'}")
 
         console.print("\n:rocket: Next steps:")
         console.print("  • ginkgo status                    # Check system status")
+        console.print("  • ginkgo users list                # List all users")
+        if admin_result['status'] == 'created':
+            console.print("  • [yellow]Login to Web UI: admin / admin123[/yellow]")
         console.print("  • ginkgo templates list            # View notification templates")
         console.print("  • ginkgo data get stockinfo        # Get stock information")
         console.print("  • ginkgo data show stocks          # List available stocks")
@@ -947,3 +966,93 @@ def _init_system_group():
         "status": "created",
         "is_active": system_group.is_active
     }
+
+
+def _init_admin_user():
+    """
+    初始化默认管理员用户（幂等操作）
+
+    创建用户名 admin，默认密码 admin123 的管理员账号
+    如果已存在则跳过，不会覆盖现有用户
+    """
+    import bcrypt
+    import uuid
+    from datetime import datetime
+    from ginkgo.data.containers import container
+    from sqlalchemy import text
+
+    user_crud = container.user_crud()
+    credential_crud = container.user_credential_crud()
+
+    with user_crud.get_session() as session:
+        # 检查 admin 用户是否已存在
+        result = session.execute(text("SELECT uuid, username, is_active FROM users WHERE username = :username"), {"username": "admin"})
+        existing = result.fetchone()
+
+        if existing:
+            # 用户已存在
+            return {
+                "username": existing[1],
+                "uuid": existing[0],
+                "status": "already_exists",
+                "is_active": bool(existing[2])
+            }
+
+        # 使用原生 SQL 创建 admin 用户（包含 name 字段）
+        user_uuid = uuid.uuid4().hex
+        now = datetime.now()
+
+        session.execute(text("""
+            INSERT INTO users (
+                uuid, name, username, display_name, email, description,
+                user_type, is_active, is_del, source, create_at, update_at
+            ) VALUES (
+                :uuid, :name, :username, :display_name, :email, :description,
+                :user_type, :is_active, :is_del, :source, :create_at, :update_at
+            )
+        """), {
+            "uuid": user_uuid,
+            "name": "admin",
+            "username": "admin",
+            "display_name": "Administrator",
+            "email": "admin@ginkgo.local",
+            "description": "Default system administrator account",
+            "user_type": 1,  # PERSON
+            "is_active": True,
+            "is_del": False,
+            "source": 0,  # OTHER
+            "create_at": now,
+            "update_at": now
+        })
+
+        # 创建登录凭证
+        password_hash = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        credential_uuid = uuid.uuid4().hex
+
+        session.execute(text("""
+            INSERT INTO user_credentials (
+                uuid, user_id, password_hash, is_admin, is_active,
+                create_at, update_at
+            ) VALUES (
+                :uuid, :user_id, :password_hash, :is_admin, :is_active,
+                :create_at, :update_at
+            )
+        """), {
+            "uuid": credential_uuid,
+            "user_id": user_uuid,
+            "password_hash": password_hash,
+            "is_admin": True,
+            "is_active": True,
+            "create_at": now,
+            "update_at": now
+        })
+
+        session.commit()
+
+        return {
+            "username": "admin",
+            "uuid": user_uuid,
+            "status": "created",
+            "is_active": True,
+            "is_admin": True
+        }
