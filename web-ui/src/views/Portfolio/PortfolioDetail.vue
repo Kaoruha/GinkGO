@@ -3,11 +3,16 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <a-button @click="goBack" class="back-btn">
+        <a-button
+          class="back-btn"
+          @click="goBack"
+        >
           <ArrowLeftOutlined /> 返回
         </a-button>
         <div class="title-section">
-          <h1 class="page-title">{{ portfolio?.name || '加载中...' }}</h1>
+          <h1 class="page-title">
+            {{ portfolio?.name || '加载中...' }}
+          </h1>
           <div class="tags">
             <a-tag :color="getModeColor(portfolio?.mode)">
               {{ getModeLabel(portfolio?.mode) }}
@@ -36,26 +41,44 @@
         >
           <PlayCircleOutlined /> 启动
         </a-button>
-        <a-button size="large" @click="showConfigModal = true">
+        <a-button
+          size="large"
+          @click="goToEditGraph"
+        >
+          <EditOutlined /> 编辑
+        </a-button>
+        <a-button
+          size="large"
+          @click="showConfigModal = true"
+        >
           <SettingOutlined /> 配置
         </a-button>
       </div>
     </div>
 
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading-container">
+    <div
+      v-if="loading"
+      class="loading-container"
+    >
       <a-spin size="large" />
     </div>
 
     <!-- 详情内容 -->
-    <div v-else-if="portfolio" class="detail-content">
+    <div
+      v-else-if="portfolio"
+      class="detail-content"
+    >
       <!-- 统计卡片 -->
       <div class="stats-row">
         <a-card class="stat-card">
           <div class="stat-item">
             <span class="stat-label">总净值</span>
             <span class="stat-value">{{ portfolio.net_value.toFixed(3) }}</span>
-            <span class="stat-change" :class="getChangeClass(portfolio.net_value)">
+            <span
+              class="stat-change"
+              :class="getChangeClass(portfolio.net_value)"
+            >
               {{ ((portfolio.net_value - 1) * 100).toFixed(2) }}%
             </span>
           </div>
@@ -82,17 +105,30 @@
       </div>
 
       <!-- 净值历史 (预留 TradingView 集成) -->
-      <a-card title="净值曲线" class="chart-card">
+      <a-card
+        title="净值曲线"
+        class="chart-card"
+      >
         <div class="chart-placeholder">
           <LineChartOutlined style="font-size: 48px; color: #d9d9d9;" />
           <p>图表功能正在开发中</p>
-          <p class="chart-tip">将集成 TradingView 图表组件</p>
+          <p class="chart-tip">
+            将集成 TradingView 图表组件
+          </p>
         </div>
       </a-card>
 
       <!-- 持仓详情 -->
-      <a-card title="持仓详情" class="positions-card">
-        <div v-if="portfolio.positions.length === 0" class="empty-text">暂无持仓</div>
+      <a-card
+        title="持仓详情"
+        class="positions-card"
+      >
+        <div
+          v-if="portfolio.positions.length === 0"
+          class="empty-text"
+        >
+          暂无持仓
+        </div>
         <a-table
           v-else
           :columns="positionColumns"
@@ -102,7 +138,9 @@
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'code'">
-              <a-tag color="blue">{{ record.code }}</a-tag>
+              <a-tag color="blue">
+                {{ record.code }}
+              </a-tag>
             </template>
             <template v-if="column.key === 'volume'">
               {{ formatNumber(record.volume) }}
@@ -126,7 +164,11 @@
       </a-card>
 
       <!-- 策略表现 -->
-      <a-card v-if="portfolio.strategies.length > 0" title="策略表现" class="strategies-card">
+      <a-card
+        v-if="portfolio.strategies.length > 0"
+        title="策略表现"
+        class="strategies-card"
+      >
         <div class="strategies-grid">
           <div
             v-for="strategy in portfolio.strategies"
@@ -135,7 +177,9 @@
           >
             <div class="strategy-header">
               <span class="strategy-name">{{ strategy.name }}</span>
-              <a-tag color="blue">{{ strategy.type }}</a-tag>
+              <a-tag color="blue">
+                {{ strategy.type }}
+              </a-tag>
             </div>
             <div class="strategy-stats">
               <div class="strategy-stat">
@@ -144,7 +188,10 @@
               </div>
               <div class="strategy-stat">
                 <span class="stat-label">收益率</span>
-                <span class="stat-value" :class="getChangeClass((strategy.performance?.return || 0) + 1)">
+                <span
+                  class="stat-value"
+                  :class="getChangeClass((strategy.performance?.return || 0) + 1)"
+                >
                   {{ ((strategy.performance?.return || 0) * 100).toFixed(2) }}%
                 </span>
               </div>
@@ -164,24 +211,48 @@
       </a-card>
 
       <!-- 风控告警 -->
-      <a-card v-if="portfolio.risk_alerts.length > 0" title="风控告警" class="alerts-card">
-        <a-list :data-source="portfolio.risk_alerts" row-key="uuid">
+      <a-card
+        v-if="portfolio.risk_alerts.length > 0"
+        title="风控告警"
+        class="alerts-card"
+      >
+        <a-list
+          :data-source="portfolio.risk_alerts"
+          row-key="uuid"
+        >
           <template #renderItem="{ item }">
             <a-list-item>
               <a-list-item-meta>
                 <template #title>
                   <a-space>
-                    <a-tag :color="getAlertLevelColor(item.level)">{{ item.level }}</a-tag>
+                    <a-tag :color="getAlertLevelColor(item.level)">
+                      {{ item.level }}
+                    </a-tag>
                     <span>{{ item.type }}</span>
-                    <a-tag v-if="item.handled" color="green">已处理</a-tag>
-                    <a-tag v-else color="orange">待处理</a-tag>
+                    <a-tag
+                      v-if="item.handled"
+                      color="green"
+                    >
+                      已处理
+                    </a-tag>
+                    <a-tag
+                      v-else
+                      color="orange"
+                    >
+                      待处理
+                    </a-tag>
                   </a-space>
                 </template>
-                <template #description>{{ item.message }}</template>
+                <template #description>
+                  {{ item.message }}
+                </template>
               </a-list-item-meta>
               <template #actions>
                 <span class="alert-time">{{ formatDate(item.triggered_at) }}</span>
-                <a v-if="!item.handled" @click="handleAlert(item)">处理</a>
+                <a
+                  v-if="!item.handled"
+                  @click="handleAlert(item)"
+                >处理</a>
               </template>
             </a-list-item>
           </template>
@@ -226,10 +297,18 @@ import {
   PlayCircleOutlined,
   PauseOutlined,
   SettingOutlined,
-  Badge,
-  LineChartOutlined
+  LineChartOutlined,
+  EditOutlined
 } from '@ant-design/icons-vue'
 import { portfolioApi, type PortfolioDetail } from '@/api/modules/portfolio'
+import {
+  getModeLabel,
+  getModeColor,
+  getStateLabel,
+  getStateColor,
+  getStateStatus
+} from '@/constants'
+import { formatDate, formatNumber } from '@/utils/format'
 
 const router = useRouter()
 const route = useRoute()
@@ -271,71 +350,6 @@ const loadData = async () => {
   }
 }
 
-// 格式化数字
-const formatNumber = (num: number) => {
-  return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-// 格式化日期
-const formatDate = (dateStr: string) => {
-  return dayjs(dateStr).format('YYYY-MM-DD HH:mm')
-}
-
-// 获取模式标签
-const getModeLabel = (mode?: string) => {
-  if (!mode) return ''
-  const labels: Record<string, string> = {
-    'BACKTEST': '回测',
-    'PAPER': '模拟',
-    'LIVE': '实盘'
-  }
-  return labels[mode] || mode
-}
-
-const getModeColor = (mode?: string) => {
-  if (!mode) return 'default'
-  const colors: Record<string, string> = {
-    'BACKTEST': 'blue',
-    'PAPER': 'orange',
-    'LIVE': 'green'
-  }
-  return colors[mode] || 'default'
-}
-
-// 获取状态标签
-const getStateLabel = (state?: string) => {
-  if (!state) return ''
-  const labels: Record<string, string> = {
-    'INITIALIZED': '已初始化',
-    'RUNNING': '运行中',
-    'PAUSED': '已暂停',
-    'STOPPED': '已停止'
-  }
-  return labels[state] || state
-}
-
-const getStateColor = (state?: string) => {
-  if (!state) return 'default'
-  const colors: Record<string, string> = {
-    'INITIALIZED': 'default',
-    'RUNNING': 'success',
-    'PAUSED': 'warning',
-    'STOPPED': 'default'
-  }
-  return colors[state] || 'default'
-}
-
-const getStateStatus = (state?: string) => {
-  if (!state) return 'default'
-  const statuses: Record<string, string> = {
-    'INITIALIZED': 'default',
-    'RUNNING': 'processing',
-    'PAUSED': 'warning',
-    'STOPPED': 'default'
-  }
-  return statuses[state] || 'default'
-}
-
 // 获取变化样式
 const getChangeClass = (value: number) => {
   if (value > 1) return 'value-up'
@@ -364,6 +378,11 @@ const getAlertLevelColor = (level: string) => {
 // 返回
 const goBack = () => {
   router.push('/portfolio')
+}
+
+// 跳转到图编辑器
+const goToEditGraph = () => {
+  router.push(`/portfolio/${route.params.uuid}/edit`)
 }
 
 // 启动

@@ -11,7 +11,10 @@
         draggable="true"
         @dragstart="handleDragStart(nodeType.type, $event)"
       >
-        <div class="node-icon" :class="`icon-${nodeType.type}`">
+        <div
+          class="node-icon"
+          :class="`icon-${nodeType.type}`"
+        >
           <component :is="nodeType.icon" />
         </div>
         <span class="node-label">{{ nodeType.label }}</span>

@@ -3,27 +3,38 @@
     <!-- 左侧导航栏 -->
     <aside class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
       <div class="h-14 flex items-center px-6 border-b border-gray-200">
-        <h1 class="text-xl font-bold text-primary">Ginkgo</h1>
+        <h1 class="text-xl font-bold text-primary">
+          Ginkgo
+        </h1>
       </div>
 
       <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
-        <template v-for="item in menuItems" :key="item.path">
+        <template
+          v-for="item in menuItems"
+          :key="item.path"
+        >
           <!-- 有子菜单的项目 -->
           <div v-if="item.children">
             <div
-              @click="toggleMenu(item.path)"
               class="flex items-center justify-between px-4 py-2.5 rounded-lg cursor-pointer transition-colors text-sm"
               :class="isMenuActive(item) ? 'bg-primary/10 text-primary' : 'text-gray-700 hover:bg-gray-100'"
+              @click="toggleMenu(item.path)"
             >
               <div class="flex items-center">
                 <span class="text-lg mr-3">{{ item.icon }}</span>
                 <span>{{ item.label }}</span>
               </div>
-              <span class="text-xs transition-transform" :class="expandedMenus[item.path] ? 'rotate-90' : ''">▶</span>
+              <span
+                class="text-xs transition-transform"
+                :class="expandedMenus[item.path] ? 'rotate-90' : ''"
+              >▶</span>
             </div>
 
             <!-- 子菜单 -->
-            <div v-show="expandedMenus[item.path]" class="ml-6 mt-1 space-y-1">
+            <div
+              v-show="expandedMenus[item.path]"
+              class="ml-6 mt-1 space-y-1"
+            >
               <router-link
                 v-for="child in item.children"
                 :key="child.path"
@@ -52,9 +63,13 @@
 
       <div class="p-3 border-t border-gray-200">
         <div class="flex items-center px-1">
-          <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-sm">{{ userInitial }}</div>
+          <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-sm">
+            {{ userInitial }}
+          </div>
           <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900">{{ username }}</p>
+            <p class="text-sm font-medium text-gray-900">
+              {{ username }}
+            </p>
           </div>
         </div>
       </div>
@@ -68,7 +83,9 @@
           <!-- 默认 header 内容（当路由没有提供 header 组件时显示） -->
           <template #default>
             <div class="flex items-center justify-between w-full">
-              <h2 class="text-lg font-semibold text-gray-900">{{ defaultPageTitle }}</h2>
+              <h2 class="text-lg font-semibold text-gray-900">
+                {{ defaultPageTitle }}
+              </h2>
               <div class="flex items-center space-x-4">
                 <span class="text-sm text-gray-500">{{ currentTime }}</span>
               </div>

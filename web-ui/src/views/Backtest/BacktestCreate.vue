@@ -2,12 +2,19 @@
   <div class="backtest-create-container">
     <!-- 页面头部 -->
     <div class="page-header">
-      <a-button @click="goBack" class="back-btn">
+      <a-button
+        class="back-btn"
+        @click="goBack"
+      >
         <ArrowLeftOutlined /> 返回
       </a-button>
       <div class="title-section">
-        <h1 class="page-title">创建回测任务</h1>
-        <p class="page-subtitle">配置回测参数并创建任务</p>
+        <h1 class="page-title">
+          创建回测任务
+        </h1>
+        <p class="page-subtitle">
+          配置回测参数并创建任务
+        </p>
       </div>
     </div>
 
@@ -21,17 +28,29 @@
         @finish="handleSubmit"
       >
         <!-- 步骤条 -->
-        <a-steps :current="currentStep" class="form-steps" size="small">
+        <a-steps
+          :current="currentStep"
+          class="form-steps"
+          size="small"
+        >
           <a-step title="选择投资组合" />
           <a-step title="配置参数" />
           <a-step title="分析器（可选）" />
         </a-steps>
 
         <!-- 步骤1：选择投资组合 -->
-        <div v-show="currentStep === 0" class="step-content">
+        <div
+          v-show="currentStep === 0"
+          class="step-content"
+        >
           <div class="form-section">
-            <h3 class="section-title">基本信息</h3>
-            <a-form-item label="任务名称" name="name">
+            <h3 class="section-title">
+              基本信息
+            </h3>
+            <a-form-item
+              label="任务名称"
+              name="name"
+            >
               <a-input
                 v-model:value="form.name"
                 placeholder="请输入任务名称"
@@ -41,7 +60,9 @@
           </div>
 
           <div class="form-section">
-            <h3 class="section-title">选择投资组合 <span class="required-mark">*</span></h3>
+            <h3 class="section-title">
+              选择投资组合 <span class="required-mark">*</span>
+            </h3>
             <a-form-item name="portfolio_uuids">
               <a-select
                 ref="portfolioSelectRef"
@@ -62,25 +83,39 @@
                 >
                   <div class="portfolio-option">
                     <span class="portfolio-name">{{ portfolio.name }}</span>
-                    <a-tag size="small" :color="getModeColor(portfolio.mode)">{{ getModeLabel(portfolio.mode) }}</a-tag>
+                    <a-tag
+                      size="small"
+                      :color="getModeColor(portfolio.mode)"
+                    >
+                      {{ getModeLabel(portfolio.mode) }}
+                    </a-tag>
                   </div>
                 </a-select-option>
               </a-select>
             </a-form-item>
 
             <!-- 已选Portfolio列表 -->
-            <div v-if="selectedPortfolios.length > 0" class="selected-portfolios-list">
+            <div
+              v-if="selectedPortfolios.length > 0"
+              class="selected-portfolios-list"
+            >
               <div class="selected-header">
                 <span>已选择 {{ selectedPortfolios.length }} 个投资组合</span>
               </div>
-              <a-collapse :bordered="false" ghost v-model:activeKey="portfolioCollapseActiveKeys">
+              <a-collapse
+                v-model:active-key="portfolioCollapseActiveKeys"
+                :bordered="false"
+                ghost
+              >
                 <a-collapse-panel
                   v-for="portfolio in selectedPortfolios"
                   :key="portfolio.uuid"
                   :header="portfolio.name"
                 >
                   <template #extra>
-                    <a-tag size="small">{{ getModeLabel(portfolio.mode) }}</a-tag>
+                    <a-tag size="small">
+                      {{ getModeLabel(portfolio.mode) }}
+                    </a-tag>
                   </template>
                   <a-tree
                     :tree-data="buildPortfolioTree(portfolio)"
@@ -90,11 +125,17 @@
                     class="component-tree"
                   >
                     <template #title="{ title, value }">
-                      <span v-if="value !== undefined" class="tree-node-value">
+                      <span
+                        v-if="value !== undefined"
+                        class="tree-node-value"
+                      >
                         <span class="tree-node-key">{{ title }}:</span>
                         <span class="tree-node-value-text">{{ formatValue(value) }}</span>
                       </span>
-                      <span v-else class="tree-node-title">{{ title }}</span>
+                      <span
+                        v-else
+                        class="tree-node-title"
+                      >{{ title }}</span>
                     </template>
                   </a-tree>
                 </a-collapse-panel>
@@ -103,28 +144,75 @@
           </div>
 
           <div class="step-actions">
-            <a-button size="large" @click="goBack">取消</a-button>
-            <a-button type="primary" size="large" @click="nextStep" :disabled="!canGoToStep1">
+            <a-button
+              size="large"
+              @click="goBack"
+            >
+              取消
+            </a-button>
+            <a-button
+              type="primary"
+              size="large"
+              :disabled="!canGoToStep1"
+              @click="nextStep"
+            >
               下一步
             </a-button>
           </div>
         </div>
 
         <!-- 步骤2：配置参数 -->
-        <div v-show="currentStep === 1" class="step-content">
+        <div
+          v-show="currentStep === 1"
+          class="step-content"
+        >
           <div class="form-section">
-            <h3 class="section-title">回测时间范围</h3>
+            <h3 class="section-title">
+              回测时间范围
+            </h3>
 
             <!-- 简化的快速选择 -->
-            <a-space :size="8" class="date-quick-select" wrap>
-              <a-button size="small" @click="setDateRange(0, 0, 0, 0, 0, 0, -1, false)">最近1年</a-button>
-              <a-button size="small" @click="setDateRange(0, 0, 0, 0, 0, 0, -5, false)">最近5年</a-button>
-              <a-button size="small" @click="setDateRange(2023, 1, 1, 2023, 12, 31, 0, false)">2023年</a-button>
-              <a-button size="small" @click="setDateRange(2024, 1, 1, 2024, 12, 31, 0, false)">2024年</a-button>
-              <a-button size="small" @click="setDateRange(0, 0, 0, 0, 0, 0, 0, true)">全周期(1992-)</a-button>
+            <a-space
+              :size="8"
+              class="date-quick-select"
+              wrap
+            >
+              <a-button
+                size="small"
+                @click="setDateRange(0, 0, 0, 0, 0, 0, -1, false)"
+              >
+                最近1年
+              </a-button>
+              <a-button
+                size="small"
+                @click="setDateRange(0, 0, 0, 0, 0, 0, -5, false)"
+              >
+                最近5年
+              </a-button>
+              <a-button
+                size="small"
+                @click="setDateRange(2023, 1, 1, 2023, 12, 31, 0, false)"
+              >
+                2023年
+              </a-button>
+              <a-button
+                size="small"
+                @click="setDateRange(2024, 1, 1, 2024, 12, 31, 0, false)"
+              >
+                2024年
+              </a-button>
+              <a-button
+                size="small"
+                @click="setDateRange(0, 0, 0, 0, 0, 0, 0, true)"
+              >
+                全周期(1992-)
+              </a-button>
             </a-space>
 
-            <a-row :gutter="16" class="date-row">
+            <a-row
+              :gutter="16"
+              class="date-row"
+            >
               <a-col :span="12">
                 <a-form-item
                   label="开始日期"
@@ -172,24 +260,43 @@
             </a-row>
           </div>
 
-          <a-collapse :bordered="false" class="config-collapse" v-model:activeKey="configActiveKey">
+          <a-collapse
+            v-model:active-key="configActiveKey"
+            :bordered="false"
+            class="config-collapse"
+          >
             <!-- 撮合器配置 -->
-            <a-collapse-panel key="broker" header="撮合器配置">
+            <a-collapse-panel
+              key="broker"
+              header="撮合器配置"
+            >
               <a-row :gutter="16">
                 <a-col :span="12">
-                  <a-form-item label="撮合态度" name="engine_config.broker_attitude">
+                  <a-form-item
+                    label="撮合态度"
+                    name="engine_config.broker_attitude"
+                  >
                     <a-select
                       v-model:value="form.engine_config.broker_attitude"
                       size="large"
                     >
-                      <a-select-option :value="1">悲观（成交难）</a-select-option>
-                      <a-select-option :value="2">乐观（成交易）</a-select-option>
-                      <a-select-option :value="3">随机</a-select-option>
+                      <a-select-option :value="1">
+                        悲观（成交难）
+                      </a-select-option>
+                      <a-select-option :value="2">
+                        乐观（成交易）
+                      </a-select-option>
+                      <a-select-option :value="3">
+                        随机
+                      </a-select-option>
                     </a-select>
                   </a-form-item>
                 </a-col>
                 <a-col :span="12">
-                  <a-form-item label="手续费率 (%)" name="engine_config.commission_rate">
+                  <a-form-item
+                    label="手续费率 (%)"
+                    name="engine_config.commission_rate"
+                  >
                     <a-input-number
                       v-model:value="form.engine_config.commission_rate"
                       :min="0"
@@ -204,7 +311,10 @@
               </a-row>
               <a-row :gutter="16">
                 <a-col :span="12">
-                  <a-form-item label="滑点率 (%)" name="engine_config.slippage_rate">
+                  <a-form-item
+                    label="滑点率 (%)"
+                    name="engine_config.slippage_rate"
+                  >
                     <a-input-number
                       v-model:value="form.engine_config.slippage_rate"
                       :min="0"
@@ -217,7 +327,10 @@
                   </a-form-item>
                 </a-col>
                 <a-col :span="12">
-                  <a-form-item label="最小手续费" name="engine_config.commission_min">
+                  <a-form-item
+                    label="最小手续费"
+                    name="engine_config.commission_min"
+                  >
                     <a-input-number
                       v-model:value="form.engine_config.commission_min"
                       :min="0"
@@ -232,19 +345,41 @@
           </a-collapse>
 
           <div class="step-actions">
-            <a-button size="large" @click="prevStep">上一步</a-button>
-            <a-button size="large" @click="nextStep">下一步</a-button>
-            <a-button type="primary" size="large" html-type="submit" :loading="submitting">
+            <a-button
+              size="large"
+              @click="prevStep"
+            >
+              上一步
+            </a-button>
+            <a-button
+              size="large"
+              @click="nextStep"
+            >
+              下一步
+            </a-button>
+            <a-button
+              type="primary"
+              size="large"
+              html-type="submit"
+              :loading="submitting"
+            >
               创建回测任务
             </a-button>
           </div>
         </div>
 
         <!-- 步骤3：分析器配置 -->
-        <div v-show="currentStep === 2" class="step-content">
+        <div
+          v-show="currentStep === 2"
+          class="step-content"
+        >
           <div class="form-section">
-            <h3 class="section-title">添加分析器 <span class="optional-mark">(可选)</span></h3>
-            <p class="section-desc">分析器在 Engine 级别统一管理，可接收所有 Portfolio 的数据进行分析</p>
+            <h3 class="section-title">
+              添加分析器 <span class="optional-mark">(可选)</span>
+            </h3>
+            <p class="section-desc">
+              分析器在 Engine 级别统一管理，可接收所有 Portfolio 的数据进行分析
+            </p>
 
             <a-button
               type="dashed"
@@ -255,7 +390,10 @@
               <PlusOutlined /> 添加分析器
             </a-button>
 
-            <div v-if="form.engine_config.analyzers.length > 0" class="analyzers-list">
+            <div
+              v-if="form.engine_config.analyzers.length > 0"
+              class="analyzers-list"
+            >
               <div
                 v-for="(analyzer, index) in form.engine_config.analyzers"
                 :key="index"
@@ -264,7 +402,11 @@
                 <div class="analyzer-main">
                   <span class="analyzer-name">{{ analyzer.name || analyzer.type }}</span>
                   <a-tag>{{ analyzer.type }}</a-tag>
-                  <a-button danger size="small" @click="removeAnalyzer(index)">
+                  <a-button
+                    danger
+                    size="small"
+                    @click="removeAnalyzer(index)"
+                  >
                     <DeleteOutlined /> 移除
                   </a-button>
                 </div>
@@ -276,8 +418,18 @@
           </div>
 
           <div class="step-actions">
-            <a-button size="large" @click="prevStep">上一步</a-button>
-            <a-button type="primary" size="large" html-type="submit" :loading="submitting">
+            <a-button
+              size="large"
+              @click="prevStep"
+            >
+              上一步
+            </a-button>
+            <a-button
+              type="primary"
+              size="large"
+              html-type="submit"
+              :loading="submitting"
+            >
               创建回测任务
             </a-button>
           </div>
@@ -290,11 +442,19 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { message, Modal, Empty } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import dayjs, { Dayjs } from 'dayjs'
 import { ArrowLeftOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { portfolioApi, type Portfolio, type PortfolioDetail } from '@/api/modules/portfolio'
 import { backtestApi, type BacktestCreate, type AnalyzerConfig, type Engine } from '@/api/modules/backtest'
+import {
+  MODE_LABELS,
+  STATE_COLORS,
+  BROKER_ATTITUDES,
+  getModeLabel,
+  getModeColor,
+  formatDateOnly
+} from '@/constants'
 
 const router = useRouter()
 
@@ -386,30 +546,6 @@ const disabledEndDate = (current: Dayjs) => {
   if (current.isAfter(dayjs())) return true
   if (form.start_date && current.isBefore(form.start_date)) return true
   return false
-}
-
-// 格式化函数
-const formatDate = (date: string | null) => {
-  if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD')
-}
-
-const getModeLabel = (mode: string) => {
-  const modeMap: Record<string, string> = {
-    BACKTEST: '回测',
-    LIVE: '实盘',
-    PAPER: '模拟',
-  }
-  return modeMap[mode] || mode
-}
-
-const getModeColor = (mode: string) => {
-  const colorMap: Record<string, string> = {
-    BACKTEST: 'blue',
-    LIVE: 'green',
-    PAPER: 'orange',
-  }
-  return colorMap[mode] || 'default'
 }
 
 // 分析器选择弹窗

@@ -1,5 +1,8 @@
 <template>
-  <div class="custom-node" :class="{ selected }">
+  <div
+    class="custom-node"
+    :class="{ selected }"
+  >
     <div class="node-header">
       <div class="node-icon">
         <component :is="nodeIcon" />
@@ -7,20 +10,30 @@
       <span class="node-label">{{ node.data.label }}</span>
     </div>
     <div class="node-body">
-      <div v-if="node.data.errors && node.data.errors.length > 0" class="node-errors">
-        <a-tooltip v-for="error in node.data.errors" :key="error" :title="error">
+      <div
+        v-if="node.data.errors && node.data.errors.length > 0"
+        class="node-errors"
+      >
+        <a-tooltip
+          v-for="error in node.data.errors"
+          :key="error"
+          :title="error"
+        >
           <WarningOutlined class="error-icon" />
         </a-tooltip>
       </div>
-      <div v-else class="node-summary">
+      <div
+        v-else
+        class="node-summary"
+      >
         {{ getNodeSummary() }}
       </div>
     </div>
     <!-- Handle 输出端口 -->
     <Handle
       v-for="output in outputs"
-      :key="output.name"
       :id="output.name"
+      :key="output.name"
       type="source"
       :position="Position.Right"
       :class="`handle handle-${output.name}`"
@@ -28,8 +41,8 @@
     <!-- Handle 输入端口 -->
     <Handle
       v-for="input in inputs"
-      :key="input.name"
       :id="input.name"
+      :key="input.name"
       type="target"
       :position="Position.Left"
       :class="`handle handle-${input.name} ${input.required ? 'required' : ''}`"
@@ -119,33 +132,44 @@ const getNodeSummary = () => {
 
 <style scoped lang="less">
 .custom-node {
-  padding: 12px;
-  border-radius: 8px;
+  padding: 16px;
+  border-radius: 12px;
   background: #fff;
   border: 2px solid #e8e8e8;
-  min-width: 150px;
+  width: 200px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: all 0.2s;
 
   &.selected {
     border-color: #1890ff;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    box-shadow: 0 4px 16px rgba(24, 144, 255, 0.25);
   }
 
   .node-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f0f0f0;
 
     .node-icon {
-      width: 20px;
-      height: 20px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f0f9ff;
+      border-radius: 6px;
       color: #1890ff;
+      font-size: 14px;
     }
 
     .node-label {
-      font-size: 13px;
-      font-weight: 500;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1a1a;
+      flex: 1;
     }
   }
 
@@ -161,16 +185,23 @@ const getNodeSummary = () => {
     }
 
     .node-summary {
-      font-size: 11px;
+      font-size: 12px;
       color: #666;
+      line-height: 1.5;
     }
   }
 
   .handle {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     background: #1890ff;
     border: 2px solid #fff;
+    border-radius: 2px;
+    transition: transform 0.2s;
+
+    &:hover {
+      transform: scale(1.2);
+    }
 
     &.required {
       background: #52c41a;
@@ -181,11 +212,11 @@ const getNodeSummary = () => {
     }
 
     &[class*="source"] {
-      right: -4px;
+      right: -5px;
     }
 
     &[class*="target"] {
-      left: -4px;
+      left: -5px;
     }
   }
 }

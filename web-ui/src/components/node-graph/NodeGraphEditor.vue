@@ -3,33 +3,64 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <a-button-group>
-        <a-button @click="validateGraph" :loading="validating">
-          <template #icon><CheckOutlined /></template>
+        <a-button
+          :loading="validating"
+          @click="validateGraph"
+        >
+          <template #icon>
+            <CheckOutlined />
+          </template>
           验证
         </a-button>
-        <a-button @click="saveGraph" :disabled="!isValid">
-          <template #icon><SaveOutlined /></template>
+        <a-button
+          :disabled="!isValid"
+          @click="saveGraph"
+        >
+          <template #icon>
+            <SaveOutlined />
+          </template>
           保存
         </a-button>
-        <a-button @click="compileGraph" :disabled="!isValid">
-          <template #icon><CodeOutlined /></template>
+        <a-button
+          :disabled="!isValid"
+          @click="compileGraph"
+        >
+          <template #icon>
+            <CodeOutlined />
+          </template>
           编译
         </a-button>
-        <a-button @click="createBacktest" type="primary" :disabled="!compiledConfig">
-          <template #icon><PlayCircleOutlined /></template>
+        <a-button
+          type="primary"
+          :disabled="!compiledConfig"
+          @click="createBacktest"
+        >
+          <template #icon>
+            <PlayCircleOutlined />
+          </template>
           创建回测任务
         </a-button>
       </a-button-group>
 
-      <div class="toolbar-spacer"></div>
+      <div class="toolbar-spacer" />
 
       <a-button-group>
-        <a-button @click="undo" :disabled="!canUndo">
-          <template #icon><UndoOutlined /></template>
+        <a-button
+          :disabled="!canUndo"
+          @click="undo"
+        >
+          <template #icon>
+            <UndoOutlined />
+          </template>
           撤销
         </a-button>
-        <a-button @click="redo" :disabled="!canRedo">
-          <template #icon><RedoOutlined /></template>
+        <a-button
+          :disabled="!canRedo"
+          @click="redo"
+        >
+          <template #icon>
+            <RedoOutlined />
+          </template>
           重做
         </a-button>
       </a-button-group>
@@ -61,14 +92,21 @@
           :node="selectedNode"
           @node-update="handleNodeUpdate"
         />
-        <div v-else class="empty-hint">
+        <div
+          v-else
+          class="empty-hint"
+        >
           <p>选择一个节点以编辑其属性</p>
         </div>
       </div>
     </div>
 
     <!-- 验证结果展示 -->
-    <div v-if="validationResult" class="validation-panel" :class="{ show: true }">
+    <div
+      v-if="validationResult"
+      class="validation-panel"
+      :class="{ show: true }"
+    >
       <GraphValidator
         :validation-result="validationResult"
         @close="validationResult = null"
@@ -84,8 +122,16 @@
     >
       <pre class="compile-preview">{{ JSON.stringify(compiledConfig, null, 2) }}</pre>
       <template #footer>
-        <a-button @click="compileModalVisible = false">关闭</a-button>
-        <a-button v-if="compiledConfig" type="primary" @click="createBacktest">创建回测任务</a-button>
+        <a-button @click="compileModalVisible = false">
+          关闭
+        </a-button>
+        <a-button
+          v-if="compiledConfig"
+          type="primary"
+          @click="createBacktest"
+        >
+          创建回测任务
+        </a-button>
       </template>
     </a-modal>
   </div>

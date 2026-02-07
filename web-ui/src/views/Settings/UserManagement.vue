@@ -2,8 +2,13 @@
   <div class="space-y-6">
     <!-- 页面标题 -->
     <div class="flex items-center justify-between">
-      <h1 class="text-title">用户管理</h1>
-      <a-button type="primary" @click="showCreateModal = true">
+      <h1 class="text-title">
+        用户管理
+      </h1>
+      <a-button
+        type="primary"
+        @click="showCreateModal = true"
+      >
         添加用户
       </a-button>
     </div>
@@ -23,11 +28,15 @@
             v-model:value="statusFilter"
             placeholder="状态筛选"
             style="width: 100%"
-            allowClear
+            allow-clear
             @change="handleSearch"
           >
-            <a-select-option value="active">启用</a-select-option>
-            <a-select-option value="disabled">禁用</a-select-option>
+            <a-select-option value="active">
+              启用
+            </a-select-option>
+            <a-select-option value="disabled">
+              禁用
+            </a-select-option>
           </a-select>
         </a-col>
       </a-row>
@@ -40,8 +49,8 @@
         :data-source="users"
         :loading="loading"
         :pagination="pagination"
-        @change="handleTableChange"
         row-key="uuid"
+        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
@@ -50,7 +59,11 @@
             </a-tag>
           </template>
           <template v-if="column.key === 'roles'">
-            <a-tag v-for="role in record.roles" :key="role" color="blue">
+            <a-tag
+              v-for="role in record.roles"
+              :key="role"
+              color="blue"
+            >
               {{ role }}
             </a-tag>
           </template>
@@ -59,20 +72,38 @@
           </template>
           <template v-if="column.key === 'action'">
             <a-space>
-              <a-button type="link" size="small" @click="editUser(record)">
+              <a-button
+                type="link"
+                size="small"
+                @click="editUser(record)"
+              >
                 编辑
               </a-button>
-              <a-button type="link" size="small" @click="openContactsDrawer(record)">
+              <a-button
+                type="link"
+                size="small"
+                @click="openContactsDrawer(record)"
+              >
                 联系方式
               </a-button>
-              <a-button type="link" size="small" @click="resetPassword(record)">
+              <a-button
+                type="link"
+                size="small"
+                @click="resetPassword(record)"
+              >
                 重置密码
               </a-button>
               <a-popconfirm
                 title="确定要删除此用户吗？"
                 @confirm="deleteUser(record)"
               >
-                <a-button type="link" size="small" danger>删除</a-button>
+                <a-button
+                  type="link"
+                  size="small"
+                  danger
+                >
+                  删除
+                </a-button>
               </a-popconfirm>
             </a-space>
           </template>
@@ -84,9 +115,9 @@
     <a-modal
       v-model:open="showCreateModal"
       :title="editingUser ? '编辑用户' : '添加用户'"
+      width="600px"
       @ok="handleSaveUser"
       @cancel="handleCancelEdit"
-      width="600px"
     >
       <a-form
         ref="formRef"
@@ -94,7 +125,10 @@
         :rules="rules"
         layout="vertical"
       >
-        <a-form-item label="用户名" name="username">
+        <a-form-item
+          label="用户名"
+          name="username"
+        >
           <a-input
             v-model:value="userForm.username"
             placeholder="请输入用户名"
@@ -102,22 +136,41 @@
           />
         </a-form-item>
 
-        <a-form-item v-if="!editingUser" label="密码" name="password">
+        <a-form-item
+          v-if="!editingUser"
+          label="密码"
+          name="password"
+        >
           <a-input-password
             v-model:value="userForm.password"
             placeholder="请输入密码"
           />
         </a-form-item>
 
-        <a-form-item label="显示名称" name="display_name">
-          <a-input v-model:value="userForm.display_name" placeholder="请输入显示名称" />
+        <a-form-item
+          label="显示名称"
+          name="display_name"
+        >
+          <a-input
+            v-model:value="userForm.display_name"
+            placeholder="请输入显示名称"
+          />
         </a-form-item>
 
-        <a-form-item label="邮箱" name="email">
-          <a-input v-model:value="userForm.email" placeholder="请输入邮箱" />
+        <a-form-item
+          label="邮箱"
+          name="email"
+        >
+          <a-input
+            v-model:value="userForm.email"
+            placeholder="请输入邮箱"
+          />
         </a-form-item>
 
-        <a-form-item label="角色" name="roles">
+        <a-form-item
+          label="角色"
+          name="roles"
+        >
           <a-select
             v-model:value="userForm.roles"
             mode="multiple"
@@ -126,10 +179,17 @@
           />
         </a-form-item>
 
-        <a-form-item label="状态" name="status">
+        <a-form-item
+          label="状态"
+          name="status"
+        >
           <a-radio-group v-model:value="userForm.status">
-            <a-radio value="active">启用</a-radio>
-            <a-radio value="disabled">禁用</a-radio>
+            <a-radio value="active">
+              启用
+            </a-radio>
+            <a-radio value="disabled">
+              禁用
+            </a-radio>
           </a-radio-group>
         </a-form-item>
       </a-form>
@@ -143,7 +203,10 @@
       placement="right"
     >
       <template #extra>
-        <a-button type="primary" @click="handleAddContact">
+        <a-button
+          type="primary"
+          @click="handleAddContact"
+        >
           添加联系方式
         </a-button>
       </template>
@@ -166,14 +229,25 @@
           </template>
           <template v-if="column.key === 'address'">
             <a-tooltip :title="record.address">
-              <span class="address-cell" @click="copyAddress(record.address)">
+              <span
+                class="address-cell"
+                @click="copyAddress(record.address)"
+              >
                 {{ record.address }}
               </span>
             </a-tooltip>
           </template>
           <template v-if="column.key === 'is_primary'">
-            <a-tag v-if="record.is_primary" color="orange">主要</a-tag>
-            <span v-else style="color: #999">-</span>
+            <a-tag
+              v-if="record.is_primary"
+              color="orange"
+            >
+              主要
+            </a-tag>
+            <span
+              v-else
+              style="color: #999"
+            >-</span>
           </template>
           <template v-if="column.key === 'is_active'">
             <a-switch
@@ -184,21 +258,39 @@
           </template>
           <template v-if="column.key === 'action'">
             <a-space :size="4">
-              <a-button type="link" size="small" @click="editContact(record)">编辑</a-button>
               <a-button
                 type="link"
                 size="small"
-                @click="setPrimaryContact(record)"
+                @click="editContact(record)"
+              >
+                编辑
+              </a-button>
+              <a-button
+                type="link"
+                size="small"
                 :disabled="record.is_primary"
+                @click="setPrimaryContact(record)"
               >
                 主要
               </a-button>
-              <a-button type="link" size="small" @click="testContact(record)">测试</a-button>
+              <a-button
+                type="link"
+                size="small"
+                @click="testContact(record)"
+              >
+                测试
+              </a-button>
               <a-popconfirm
                 title="确定要删除此联系方式吗？"
                 @confirm="deleteContact(record)"
               >
-                <a-button type="link" size="small" danger>删除</a-button>
+                <a-button
+                  type="link"
+                  size="small"
+                  danger
+                >
+                  删除
+                </a-button>
               </a-popconfirm>
             </a-space>
           </template>
@@ -219,25 +311,38 @@
         >
           <a-row :gutter="16">
             <a-col :span="12">
-              <a-form-item label="类型" name="contact_type">
+              <a-form-item
+                label="类型"
+                name="contact_type"
+              >
                 <a-select
                   v-model:value="contactForm.contact_type"
                   placeholder="请选择类型"
                   :disabled="!!editingContact"
                 >
-                  <a-select-option value="email">邮箱</a-select-option>
-                  <a-select-option value="webhook">Webhook</a-select-option>
+                  <a-select-option value="email">
+                    邮箱
+                  </a-select-option>
+                  <a-select-option value="webhook">
+                    Webhook
+                  </a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
             <a-col :span="12">
-              <a-form-item label="设为主要" name="is_primary">
+              <a-form-item
+                label="设为主要"
+                name="is_primary"
+              >
                 <a-switch v-model:checked="contactForm.is_primary" />
               </a-form-item>
             </a-col>
           </a-row>
 
-          <a-form-item label="地址" name="address">
+          <a-form-item
+            label="地址"
+            name="address"
+          >
             <a-textarea
               v-model:value="contactForm.address"
               placeholder="邮箱地址或 Webhook URL"
@@ -247,10 +352,15 @@
 
           <a-form-item>
             <a-space>
-              <a-button type="primary" @click="handleSaveContact">
+              <a-button
+                type="primary"
+                @click="handleSaveContact"
+              >
                 {{ editingContact ? '保存' : '添加' }}
               </a-button>
-              <a-button @click="handleCancelContact">取消</a-button>
+              <a-button @click="handleCancelContact">
+                取消
+              </a-button>
             </a-space>
           </a-form-item>
         </a-form>

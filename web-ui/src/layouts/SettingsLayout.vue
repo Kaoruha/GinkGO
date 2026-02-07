@@ -3,7 +3,9 @@
     <!-- 侧边栏 -->
     <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
       <div class="h-16 flex items-center px-6 border-b border-gray-200">
-        <h1 class="text-xl font-bold text-primary">Ginkgo</h1>
+        <h1 class="text-xl font-bold text-primary">
+          Ginkgo
+        </h1>
       </div>
 
       <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -20,7 +22,9 @@
 
         <!-- 设置子菜单 -->
         <div class="mb-4">
-          <div class="px-4 mb-2 text-xs font-semibold text-gray-500 uppercase">系统设置</div>
+          <div class="px-4 mb-2 text-xs font-semibold text-gray-500 uppercase">
+            系统设置
+          </div>
           <router-link
             v-for="item in settingsMenuItems"
             :key="item.path"
@@ -36,9 +40,13 @@
 
       <div class="p-4 border-t border-gray-200">
         <div class="flex items-center">
-          <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white">A</div>
+          <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white">
+            A
+          </div>
           <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900">Admin</p>
+            <p class="text-sm font-medium text-gray-900">
+              Admin
+            </p>
           </div>
         </div>
       </div>
@@ -48,7 +56,9 @@
     <div class="flex-1 flex flex-col">
       <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
         <div class="flex items-center space-x-4">
-          <h2 class="text-lg font-semibold text-gray-900">{{ pageTitle }}</h2>
+          <h2 class="text-lg font-semibold text-gray-900">
+            {{ pageTitle }}
+          </h2>
         </div>
         <div class="flex items-center space-x-4">
           <span class="text-sm text-gray-500">{{ currentTime }}</span>

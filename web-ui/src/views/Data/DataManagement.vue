@@ -3,10 +3,17 @@
     <!-- 页面标题 -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">数据管理</h1>
-        <p class="page-subtitle">管理股票信息、K线数据、Tick数据等市场数据</p>
+        <h1 class="page-title">
+          数据管理
+        </h1>
+        <p class="page-subtitle">
+          管理股票信息、K线数据、Tick数据等市场数据
+        </p>
       </div>
-      <a-button @click="refreshStats" :loading="refreshing">
+      <a-button
+        :loading="refreshing"
+        @click="refreshStats"
+      >
         <template #icon>
           <ReloadOutlined />
         </template>
@@ -15,7 +22,10 @@
     </div>
 
     <!-- 数据统计卡片 -->
-    <a-row :gutter="16" class="stats-row">
+    <a-row
+      :gutter="16"
+      class="stats-row"
+    >
       <a-col :span="6">
         <a-card class="stat-card stat-card-blue">
           <a-statistic
@@ -74,7 +84,9 @@
     <a-card class="data-sources-card">
       <div class="flex items-center justify-between">
         <div class="flex-1">
-          <div class="text-gray-500 text-sm mb-2">数据源状态</div>
+          <div class="text-gray-500 text-sm mb-2">
+            数据源状态
+          </div>
           <div class="flex flex-wrap gap-2">
             <a-tag
               v-for="source in dataSources"
@@ -90,10 +102,18 @@
     </a-card>
 
     <!-- Sticky 数据浏览头部 -->
-    <div class="data-browser-header" :class="{ 'is-sticky': isSticky }">
+    <div
+      class="data-browser-header"
+      :class="{ 'is-sticky': isSticky }"
+    >
       <div class="browser-header-content">
         <!-- Tab 切换 -->
-        <a-radio-group v-model:value="dataType" button-style="solid" size="large" @change="handleDataTypeChange">
+        <a-radio-group
+          v-model:value="dataType"
+          button-style="solid"
+          size="large"
+          @change="handleDataTypeChange"
+        >
           <a-radio-button value="stockinfo">
             <DatabaseOutlined class="mr-1" />
             股票信息
@@ -117,7 +137,10 @@
     <!-- 数据列表 -->
     <a-card class="data-table-card">
       <!-- 卡片标题：K线/Tick/复权因子使用，股票信息使用表格内标题 -->
-      <template v-if="dataType !== 'stockinfo'" #title>
+      <template
+        v-if="dataType !== 'stockinfo'"
+        #title
+      >
         <span class="text-lg font-semibold">{{ dataTypeTitle }}</span>
       </template>
 
@@ -126,7 +149,9 @@
         <div class="bars-layout">
           <!-- 左侧：股票选择 -->
           <div class="bars-sidebar">
-            <div class="sidebar-title">选择股票</div>
+            <div class="sidebar-title">
+              选择股票
+            </div>
             <a-select
               v-model:value="selectedBarCode"
               placeholder="选择股票代码"
@@ -134,15 +159,20 @@
               show-search
               :filter-option="filterStockOption"
               size="large"
-              @change="handleBarCodeChange"
               style="width: 100%"
+              @change="handleBarCodeChange"
             />
 
             <a-divider class="my-4" />
 
             <div class="sidebar-info">
-              <div class="text-sm text-gray-500 mb-2">已加载 {{ barDataPoints }} 条数据</div>
-              <div v-if="barDateRange" class="text-xs text-gray-400">
+              <div class="text-sm text-gray-500 mb-2">
+                已加载 {{ barDataPoints }} 条数据
+              </div>
+              <div
+                v-if="barDateRange"
+                class="text-xs text-gray-400"
+              >
                 {{ barDateRange }}
               </div>
             </div>
@@ -150,10 +180,18 @@
 
           <!-- 右侧：K线图表 -->
           <div class="bars-chart">
-            <div v-if="!selectedBarCode" class="chart-placeholder">
+            <div
+              v-if="!selectedBarCode"
+              class="chart-placeholder"
+            >
               <a-empty description="请选择股票代码查看K线图表" />
             </div>
-            <div v-else ref="barChartRef" class="chart-container" @mouseleave="hideTooltip"></div>
+            <div
+              v-else
+              ref="barChartRef"
+              class="chart-container"
+              @mouseleave="hideTooltip"
+            />
           </div>
         </div>
       </template>
@@ -163,7 +201,9 @@
         <div class="bars-layout">
           <!-- 左侧：股票选择 -->
           <div class="bars-sidebar">
-            <div class="sidebar-title">选择股票</div>
+            <div class="sidebar-title">
+              选择股票
+            </div>
             <a-select
               v-model:value="selectedTickCode"
               placeholder="选择股票代码"
@@ -171,30 +211,51 @@
               show-search
               :filter-option="filterStockOption"
               size="large"
-              @change="handleTickCodeChange"
               style="width: 100%"
+              @change="handleTickCodeChange"
             />
           </div>
 
           <!-- 右侧：Tick数据图表 -->
           <div class="bars-chart">
-            <div v-if="!selectedTickCode" class="chart-placeholder">
+            <div
+              v-if="!selectedTickCode"
+              class="chart-placeholder"
+            >
               <DotChartOutlined style="font-size: 48px; color: #ccc;" />
-              <p class="text-gray-400">请选择股票查看Tick数据</p>
+              <p class="text-gray-400">
+                请选择股票查看Tick数据
+              </p>
             </div>
             <div v-else>
               <!-- 时间范围快速选择 -->
               <div class="tick-time-range">
                 <span class="range-label">显示范围：</span>
-                <a-radio-group v-model:value="tickTimeRange" size="small" @change="handleTickTimeRangeChange">
-                  <a-radio-button value="last100">最近100笔</a-radio-button>
-                  <a-radio-button value="last500">最近500笔</a-radio-button>
-                  <a-radio-button value="last1000">最近1000笔</a-radio-button>
-                  <a-radio-button value="all">全部</a-radio-button>
+                <a-radio-group
+                  v-model:value="tickTimeRange"
+                  size="small"
+                  @change="handleTickTimeRangeChange"
+                >
+                  <a-radio-button value="last100">
+                    最近100笔
+                  </a-radio-button>
+                  <a-radio-button value="last500">
+                    最近500笔
+                  </a-radio-button>
+                  <a-radio-button value="last1000">
+                    最近1000笔
+                  </a-radio-button>
+                  <a-radio-button value="all">
+                    全部
+                  </a-radio-button>
                 </a-radio-group>
                 <span class="tick-info">共 {{ tickDataCount }} 笔</span>
               </div>
-              <div ref="tickChartRef" class="chart-container" style="height: calc(100% - 40px); min-height: 400px;"></div>
+              <div
+                ref="tickChartRef"
+                class="chart-container"
+                style="height: calc(100% - 40px); min-height: 400px;"
+              />
             </div>
           </div>
         </div>
@@ -222,94 +283,110 @@
                   v-model:value="searchText"
                   placeholder="搜索股票代码或名称"
                   style="width: 260px"
-                  @search="loadData"
                   allow-clear
                   size="small"
+                  @search="loadData"
                 />
               </div>
             </template>
-          <template #bodyCell="{ column, record }">
-            <!-- 股票信息 -->
-            <template v-if="dataType === 'stockinfo'">
-              <template v-if="column.key === 'code'">
-                <a-tag color="blue">{{ record.code }}</a-tag>
+            <template #bodyCell="{ column, record }">
+              <!-- 股票信息 -->
+              <template v-if="dataType === 'stockinfo'">
+                <template v-if="column.key === 'code'">
+                  <a-tag color="blue">
+                    {{ record.code }}
+                  </a-tag>
+                </template>
+                <template v-if="column.key === 'name'">
+                  <span :class="record.is_active ? '' : 'text-gray-400'">
+                    {{ record.name || '-' }}
+                  </span>
+                </template>
+                <template v-if="column.key === 'market'">
+                  <a-tag v-if="record.market">
+                    {{ record.market }}
+                  </a-tag>
+                  <span
+                    v-else
+                    class="text-gray-400"
+                  >-</span>
+                </template>
+                <template v-if="column.key === 'updated_at'">
+                  <span class="text-sm text-gray-500">
+                    {{ record.updated_at ? formatDate(record.updated_at) : '-' }}
+                  </span>
+                </template>
+                <template v-if="column.key === 'is_active'">
+                  <a-tag :color="record.is_active ? 'success' : 'default'">
+                    {{ record.is_active ? '正常' : '停牌' }}
+                  </a-tag>
+                </template>
               </template>
-              <template v-if="column.key === 'name'">
-                <span :class="record.is_active ? '' : 'text-gray-400'">
-                  {{ record.name || '-' }}
-                </span>
+
+              <!-- K线数据 -->
+              <template v-if="dataType === 'bars'">
+                <template v-if="column.key === 'code'">
+                  <a-tag color="blue">
+                    {{ record.code }}
+                  </a-tag>
+                </template>
+                <template v-if="column.key === 'close'">
+                  <span :class="getPriceClass(record.open, record.close)">
+                    {{ record.close?.toFixed(2) }}
+                  </span>
+                </template>
+                <template v-if="column.key === 'change'">
+                  <span :class="getChangeClass(record.open, record.close)">
+                    {{ getChangePercent(record.open, record.close) }}%
+                  </span>
+                </template>
               </template>
-              <template v-if="column.key === 'market'">
-                <a-tag v-if="record.market">{{ record.market }}</a-tag>
-                <span v-else class="text-gray-400">-</span>
+
+              <!-- Tick数据 -->
+              <template v-if="dataType === 'ticks'">
+                <template v-if="column.key === 'code'">
+                  <a-tag color="blue">
+                    {{ record.code }}
+                  </a-tag>
+                </template>
+                <template v-if="column.key === 'direction'">
+                  <a-tag :color="getDirectionColor(record.direction)">
+                    {{ getDirectionLabel(record.direction) }}
+                  </a-tag>
+                </template>
               </template>
-              <template v-if="column.key === 'updated_at'">
-                <span class="text-sm text-gray-500">
-                  {{ record.updated_at ? formatDate(record.updated_at) : '-' }}
-                </span>
-              </template>
-              <template v-if="column.key === 'is_active'">
-                <a-tag :color="record.is_active ? 'success' : 'default'">
-                  {{ record.is_active ? '正常' : '停牌' }}
-                </a-tag>
+
+              <!-- 复权因子 -->
+              <template v-if="dataType === 'adjustfactors'">
+                <template v-if="column.key === 'code'">
+                  <a-tag color="blue">
+                    {{ record.code }}
+                  </a-tag>
+                </template>
+                <template v-if="column.key === 'factor'">
+                  <span class="font-mono">{{ record.factor?.toFixed(6) }}</span>
+                </template>
               </template>
             </template>
+          </a-table>
+        </div>
 
-            <!-- K线数据 -->
-            <template v-if="dataType === 'bars'">
-              <template v-if="column.key === 'code'">
-                <a-tag color="blue">{{ record.code }}</a-tag>
-              </template>
-              <template v-if="column.key === 'close'">
-                <span :class="getPriceClass(record.open, record.close)">
-                  {{ record.close?.toFixed(2) }}
-                </span>
-              </template>
-              <template v-if="column.key === 'change'">
-                <span :class="getChangeClass(record.open, record.close)">
-                  {{ getChangePercent(record.open, record.close) }}%
-                </span>
-              </template>
-            </template>
-
-            <!-- Tick数据 -->
-            <template v-if="dataType === 'ticks'">
-              <template v-if="column.key === 'code'">
-                <a-tag color="blue">{{ record.code }}</a-tag>
-              </template>
-              <template v-if="column.key === 'direction'">
-                <a-tag :color="getDirectionColor(record.direction)">
-                  {{ getDirectionLabel(record.direction) }}
-                </a-tag>
-              </template>
-            </template>
-
-            <!-- 复权因子 -->
-            <template v-if="dataType === 'adjustfactors'">
-              <template v-if="column.key === 'code'">
-                <a-tag color="blue">{{ record.code }}</a-tag>
-              </template>
-              <template v-if="column.key === 'factor'">
-                <span class="font-mono">{{ record.factor?.toFixed(6) }}</span>
-              </template>
-            </template>
-          </template>
-        </a-table>
-      </div>
-
-      <!-- 固定在底部的翻页器（仅非K线模式） -->
-      <div v-if="dataType !== 'bars'" class="table-pagination">
-        <a-pagination
-          v-model:current="pagination.current"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :show-size-changer="true"
-          :show-quick-jumper="true"
-          :show-total="(total: number) => `共 ${total} 条记录`"
-          :page-size-options="['10', '20', '50', '100', '200']"
-          @change="handleTableChange"
-        />
-      </div>
+        <!-- 固定在底部的翻页器（仅非K线模式） -->
+        <div
+          v-if="dataType !== 'bars'"
+          class="table-pagination"
+        >
+          <a-pagination
+            v-model:current="pagination.current"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :show-size-changer="true"
+            :show-quick-jumper="true"
+            :show-total="(total: number) => `共 ${total} 条记录`"
+            :page-size-options="['10', '20', '50', '100', '200']"
+            @change="handleTableChange"
+          />
+        </div>
       </template>
     </a-card>
   </div>
@@ -339,7 +416,6 @@ import {
   type DataSource
 } from '@/api/modules/components'
 import { createChart, IChartApi, Time, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts'
-import * as echarts from 'echarts'
 
 const router = useRouter()
 
@@ -409,7 +485,10 @@ const loadingBarChart = ref(false)
 // Tick图表状态
 const selectedTickCode = ref<string>('')
 const tickChartRef = ref<HTMLDivElement>()
-const tickChartInstance = ref<echarts.ECharts | null>(null)
+const tickChartInstance = ref<IChartApi | null>(null)
+const tickPriceSeriesRef = ref<any>(null)
+const tickVolumeBuySeriesRef = ref<any>(null)
+const tickVolumeSellSeriesRef = ref<any>(null)
 const tickTimeRange = ref<string>('last1000')
 const tickDataCount = ref<number>(0)
 const tickAllData = ref<TickDataSummary[]>([])
@@ -719,7 +798,7 @@ const handleTickTimeRangeChange = () => {
   }
 }
 
-// 初始化Tick图表
+// 初始化Tick图表 - 使用lightweight-charts
 const initTickChart = (ticks: TickDataSummary[]) => {
   console.log('initTickChart called with ticks:', ticks.length)
 
@@ -734,7 +813,6 @@ const initTickChart = (ticks: TickDataSummary[]) => {
 
   if (rect.width === 0 || rect.height === 0) {
     console.error('Chart container has zero size, waiting for nextTick...')
-    // 容器尺寸为0，等待DOM渲染完成
     setTimeout(() => {
       if (tickChartRef.value) {
         const newRect = tickChartRef.value.getBoundingClientRect()
@@ -759,239 +837,237 @@ const initTickChart = (ticks: TickDataSummary[]) => {
 
   console.log('Sorted ticks, first:', sortedTicks[0], 'last:', sortedTicks[sortedTicks.length - 1])
 
-  // 计算成交量的范围，用于点的大小映射
-  const volumes = sortedTicks.map(t => t.volume)
-  const minVolume = Math.min(...volumes)
-  const maxVolume = Math.max(...volumes)
-  const volumeRange = maxVolume - minVolume || 1
-
-  // 准备散点图数据
-  // 买入数据 (direction=1)
-  const buyData = sortedTicks
-    .filter(t => t.direction === 1)
-    .map(tick => {
-      const timestamp = new Date(tick.timestamp).getTime()
-      return {
-        name: dayjs(tick.timestamp).format('HH:mm:ss'),
-        value: [timestamp, tick.price, tick.volume],
-        timestamp: tick.timestamp,
-        direction: '买入'
-      }
-    })
-
-  // 卖出数据 (direction=2)
-  const sellData = sortedTicks
-    .filter(t => t.direction === 2)
-    .map(tick => {
-      const timestamp = new Date(tick.timestamp).getTime()
-      return {
-        name: dayjs(tick.timestamp).format('HH:mm:ss'),
-        value: [timestamp, tick.price, tick.volume],
-        timestamp: tick.timestamp,
-        direction: '卖出'
-      }
-    })
-
-  console.log('Buy ticks:', buyData.length, 'Sell ticks:', sellData.length)
-
   // 销毁旧图表
   if (tickChartInstance.value) {
-    tickChartInstance.value.dispose()
+    tickChartInstance.value.remove()
     tickChartInstance.value = null
   }
+  tickPriceSeriesRef.value = null
+  tickVolumeBuySeriesRef.value = null
+  tickVolumeSellSeriesRef.value = null
 
-  // 创建ECharts实例
-  tickChartInstance.value = echarts.init(tickChartRef.value)
-
-  // 获取价格范围用于Y轴
-  const prices = sortedTicks.map(t => t.price)
-  const minPrice = Math.min(...prices)
-  const maxPrice = Math.max(...prices)
-  const priceMargin = (maxPrice - minPrice) * 0.1
-
-  const option = {
-    title: {
-      text: `${selectedTickCode.value} - Tick逐笔成交`,
-      left: 'center',
-      textStyle: { fontSize: 14, color: '#333' }
-    },
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#ddd',
-      borderWidth: 1,
-      textStyle: { color: '#333' },
-      formatter: (params: any) => {
-        if (!params.data) return ''
-        const tick = params.data
-        const timeStr = dayjs(tick.timestamp).format('YYYY-MM-DD HH:mm:ss')
-        const dirColor = tick.direction === '买入' ? '#ef5350' : '#26a69a'
-        return `
-          <div style="font-weight:600; margin-bottom:6px; color:${dirColor}">${tick.direction}</div>
-          <div style="margin-bottom:3px;"><span style="color:#999">代码:</span> ${selectedTickCode.value}</div>
-          <div style="margin-bottom:3px;"><span style="color:#999">时间:</span> ${timeStr}</div>
-          <div style="margin-bottom:3px;"><span style="color:#999">价格:</span> <strong>${tick.value[1].toFixed(2)}</strong></div>
-          <div><span style="color:#999">成交量:</span> ${tick.value[2]}</div>
-        `
-      }
-    },
-    grid: {
-      left: '8%',
-      right: '4%',
-      top: '12%',
-      bottom: '18%'
-    },
-    xAxis: {
-      type: 'time',
-      scale: true,
-      axisLabel: {
-        formatter: (value: number) => dayjs(value).format('HH:mm:ss'),
-        color: '#666'
-      },
-      axisLine: {
-        lineStyle: { color: '#ddd' }
-      }
-    },
-    yAxis: {
-      type: 'value',
-      scale: true,
-      axisLabel: {
-        formatter: (value: number) => value.toFixed(2),
-        color: '#666'
-      },
-      splitLine: {
-        lineStyle: {
-          color: '#f0f0f0',
-          type: 'dashed'
-        }
-      },
-      min: minPrice - priceMargin,
-      max: maxPrice + priceMargin
-    },
-    dataZoom: [
-      {
-        type: 'inside',
-        start: 0,
-        end: 100,
-        minSpan: 1,
-        maxSpan: 100,
-        zoomOnMouseWheel: true,
-        moveOnMouseMove: true,
-        moveOnMouseWheel: false,
-        preventDefaultMouseMove: false
-      },
-      {
-        type: 'slider',
-        start: 0,
-        end: 100,
-        minSpan: 1,
-        maxSpan: 100,
-        height: 30,
-        bottom: 5,
-        borderColor: '#e0e0e0',
-        fillerColor: 'rgba(33, 150, 243, 0.15)',
-        handleStyle: {
-          color: '#2196f3',
-          borderColor: '#2196f3'
-        },
-        textStyle: {
-          color: '#999',
-          fontSize: 11
-        },
-        brushSelect: true
-      }
-    ],
-    series: [
-      {
-        name: '买入',
-        type: 'scatter',
-        data: buyData,
-        symbolSize: (data: number[]) => {
-          // 根据成交量映射点的大小 (8-32)
-          const volume = data[2]
-          const normalized = (volume - minVolume) / volumeRange
-          return 8 + normalized * 24
-        },
-        itemStyle: {
-          color: '#ef5350',
-          opacity: 0.85,
-          borderColor: '#d32f2f',
-          borderWidth: 1
-        },
-        emphasis: {
-          itemStyle: {
-            color: '#ef5350',
-            opacity: 1,
-            borderColor: '#d32f2f',
-            borderWidth: 2,
-            shadowBlur: 10,
-            shadowColor: 'rgba(239, 83, 80, 0.5)'
-          }
-        },
-        large: false,
-        progressive: 200
-      },
-      {
-        name: '卖出',
-        type: 'scatter',
-        data: sellData,
-        symbolSize: (data: number[]) => {
-          // 根据成交量映射点的大小 (8-32)
-          const volume = data[2]
-          const normalized = (volume - minVolume) / volumeRange
-          return 8 + normalized * 24
-        },
-        itemStyle: {
-          color: '#26a69a',
-          opacity: 0.85,
-          borderColor: '#00796b',
-          borderWidth: 1
-        },
-        emphasis: {
-          itemStyle: {
-            color: '#26a69a',
-            opacity: 1,
-            borderColor: '#00796b',
-            borderWidth: 2,
-            shadowBlur: 10,
-            shadowColor: 'rgba(38, 166, 154, 0.5)'
-          }
-        },
-        large: false,
-        progressive: 200
-      }
-    ]
-  }
-
-  tickChartInstance.value.setOption(option)
-
-  // 响应式处理
-  const handleResize = () => {
-    if (tickChartInstance.value) {
-      tickChartInstance.value.resize()
+  // 准备价格线数据
+  const priceData = sortedTicks.map(tick => {
+    const timestamp = Math.floor(new Date(tick.timestamp).getTime() / 1000)
+    return {
+      time: timestamp as Time,
+      value: tick.price as number,
+      color: tick.direction === 1 ? '#ef5350' : '#26a69a'  // 买红卖绿
     }
-  }
-
-  window.addEventListener('resize', handleResize)
-
-  // 保存清理函数
-  ;(tickChartRef.value as any)._chartCleanup = () => {
-    window.removeEventListener('resize', handleResize)
-    if (tickChartInstance.value) {
-      tickChartInstance.value.dispose()
-      tickChartInstance.value = null
-    }
-  }
-
-  console.log('Tick chart created successfully')
-
-  // 监听dataZoom事件，实现无限滚动加载
-  tickChartInstance.value.on('dataZoom', (params: any) => {
-    checkAndLoadMoreTickData()
   })
+
+  // 准备买入成交量数据
+  const volumeBuyData = sortedTicks
+    .filter(t => t.direction === 1)
+    .map(tick => {
+      const timestamp = Math.floor(new Date(tick.timestamp).getTime() / 1000)
+      return {
+        time: timestamp as Time,
+        value: tick.volume as number,
+        color: '#ef5350'
+      }
+    })
+
+  // 准备卖出成交量数据
+  const volumeSellData = sortedTicks
+    .filter(t => t.direction === 2)
+    .map(tick => {
+      const timestamp = Math.floor(new Date(tick.timestamp).getTime() / 1000)
+      return {
+        time: timestamp as Time,
+        value: tick.volume as number,
+        color: '#26a69a'
+      }
+    })
+
+  console.log('Price data:', priceData.length, 'Buy volume:', volumeBuyData.length, 'Sell volume:', volumeSellData.length)
+
+  try {
+    // 创建图表
+    tickChartInstance.value = createChart(tickChartRef.value, {
+      width: tickChartRef.value.clientWidth,
+      height: tickChartRef.value.clientHeight,
+      layout: {
+        background: { type: 'solid', color: '#fafafa' },
+        textColor: '#333333',
+      },
+      grid: {
+        vertLines: { color: 'rgba(197, 203, 229, 0.1)' },
+        horzLines: { color: 'rgba(197, 203, 229, 0.1)' },
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
+      handleScale: {
+        axisPressedMouseMove: true,
+        mouseWheel: true,
+        pinch: true,
+      },
+      timeScale: {
+        borderColor: 'rgba(197, 203, 229, 0.2)',
+        timeVisible: true,
+        secondsVisible: true,
+        rightOffset: 0,
+        fixRightEdge: true,
+      },
+      rightPriceScale: {
+        borderVisible: true,
+        borderColor: 'rgba(197, 203, 229, 0.2)',
+      },
+      crosshair: {
+        mode: 0,
+        vertLine: {
+          color: '#758696',
+          width: 1,
+          style: 3,
+          labelBackgroundColor: '#4c525e',
+        },
+        horzLine: {
+          color: '#758696',
+          width: 1,
+          style: 3,
+          labelBackgroundColor: '#4c525e',
+        },
+      },
+    })
+
+    // 添加价格线系列 - 占用上部60%
+    tickPriceSeriesRef.value = tickChartInstance.value.addSeries(LineSeries, {
+      priceLineVisible: false,
+      lastValueVisible: true,
+      priceScaleId: 'price',
+    })
+    tickPriceSeriesRef.value.setData(priceData)
+
+    const priceScale = tickChartInstance.value.priceScale('price')
+    if (priceScale) {
+      priceScale.applyOptions({
+        scaleMargins: {
+          top: 0.05,
+          bottom: 0.45,  // 价格占用顶部5%-50%（45%空间）
+        },
+      })
+    }
+
+    // 添加买入成交量系列 - 占用下部左侧
+    tickVolumeBuySeriesRef.value = tickChartInstance.value.addSeries(HistogramSeries, {
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: 'volume',
+    })
+    tickVolumeBuySeriesRef.value.setData(volumeBuyData)
+
+    // 添加卖出成交量系列 - 共用同一个价格刻度
+    tickVolumeSellSeriesRef.value = tickChartInstance.value.addSeries(HistogramSeries, {
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: 'volume',
+    })
+    tickVolumeSellSeriesRef.value.setData(volumeSellData)
+
+    // 配置成交量价格刻度位置（底部）
+    const volumeScale = tickChartInstance.value.priceScale('volume')
+    if (volumeScale) {
+      volumeScale.applyOptions({
+        scaleMargins: {
+          top: 0.55,    // 成交量占用底部40%（55%-95%）
+          bottom: 0.05,
+        },
+        borderVisible: false,
+      })
+    }
+
+    // 滚动到最新数据
+    tickChartInstance.value.timeScale().scrollToPosition(0, false)
+
+    // 创建 tooltip 元素
+    const tooltip = document.createElement('div')
+    tooltip.className = 'tick-chart-tooltip'
+    tooltip.style.position = 'absolute'
+    tooltip.style.display = 'none'
+    tooltip.style.background = 'rgba(0, 0, 0, 0.8)'
+    tooltip.style.color = '#ffffff'
+    tooltip.style.padding = '8px 12px'
+    tooltip.style.borderRadius = '4px'
+    tooltip.style.fontSize = '12px'
+    tooltip.style.pointerEvents = 'none'
+    tooltip.style.zIndex = '1000'
+    tooltip.style.whiteSpace = 'pre-line'
+    tickChartRef.value.appendChild(tooltip)
+
+    // 订阅 crosshair 移动事件
+    tickChartInstance.value.subscribeCrosshairMove((param) => {
+      try {
+        if (!param || !param.time || !param.point || !tickChartRef.value) {
+          tooltip.style.display = 'none'
+          return
+        }
+
+        // 查找对应时间的数据
+        const time = param.time as number
+        const tickData = sortedTicks.find(t => {
+          const tickTime = Math.floor(new Date(t.timestamp).getTime() / 1000)
+          return tickTime === time
+        })
+
+        if (!tickData) {
+          tooltip.style.display = 'none'
+          return
+        }
+
+        const timeStr = dayjs(tickData.timestamp).format('YYYY-MM-DD HH:mm:ss')
+        const dirColor = tickData.direction === 1 ? '#ef5350' : '#26a69a'
+        const dirLabel = tickData.direction === 1 ? '买入' : '卖出'
+
+        let content = `<div style="font-weight:600; margin-bottom: 4px; color:${dirColor}">${dirLabel}</div>`
+        content += `<div>时间: ${timeStr}</div>`
+        content += `<div>价格: <strong>${tickData.price.toFixed(2)}</strong></div>`
+        content += `<div>成交量: ${tickData.volume}</div>`
+
+        tooltip.innerHTML = content
+        tooltip.style.display = 'block'
+
+        // 定位 tooltip
+        const chartRect = tickChartRef.value.getBoundingClientRect()
+        const x = param.point.x
+        const y = param.point.y
+
+        const tooltipRect = tooltip.getBoundingClientRect()
+        let left = x + 15
+        let top = y + 15
+
+        if (left + tooltipRect.width > chartRect.width) {
+          left = x - tooltipRect.width - 15
+        }
+        if (top + tooltipRect.height > chartRect.height) {
+          top = y - tooltipRect.height - 15
+        }
+
+        tooltip.style.left = `${left}px`
+        tooltip.style.top = `${top}px`
+      } catch (error) {
+        console.error('Tooltip error:', error)
+        tooltip.style.display = 'none'
+      }
+    })
+
+    // 监听可见时间范围变化，实现按需加载
+    tickChartInstance.value.timeScale().subscribeVisibleLogicalRangeChange(() => {
+      checkAndLoadMoreTickData()
+    })
+
+    console.log('Tick chart created successfully')
+  } catch (error) {
+    console.error('Tick chart creation error:', error)
+  }
 }
 
-// 检查并加载更多Tick数据
+// 检查并加载更多Tick数据 - 使用lightweight-charts API
 const checkAndLoadMoreTickData = () => {
   if (!tickChartInstance.value || !loadedTickRange.value) return
 
@@ -1002,29 +1078,16 @@ const checkAndLoadMoreTickData = () => {
   tickLoadMoreTimer = setTimeout(async () => {
     if (isLoadingMoreTick.value) return
 
-    // 获取当前显示的数据范围
-    const option = tickChartInstance.value.getOption()
-    const xAxis = option.xAxis[0] as any
+    // 获取当前可见的物理时间范围
+    const visibleRange = tickChartInstance.value.getTimeScale().getVisibleRange()
+    if (!visibleRange) return
 
-    if (!xAxis || !xAxis.rangeStart || !xAxis.rangeEnd) return
+    const { from, to } = visibleRange
+    const bufferTime = 60  // 60秒缓冲
 
-    // rangeStart和rangeEnd是百分比（0-100），需要转换为实际时间范围
-    const allData = tickAllData.value
-    if (allData.length === 0) return
-
-    const timestamps = allData.map(t => new Date(t.timestamp).getTime())
-    const minTime = Math.min(...timestamps)
-    const maxTime = Math.max(...timestamps)
-    const timeSpan = maxTime - minTime
-
-    // 计算当前可见范围的时间
-    const visibleStart = minTime + timeSpan * (xAxis.rangeStart / 100)
-    const visibleEnd = minTime + timeSpan * (xAxis.rangeEnd / 100)
-
-    // 检查是否接近边界（10%缓冲）
-    const buffer = timeSpan * 0.1
-    const needLoadOlder = visibleStart < (loadedTickRange.value.min + buffer)
-    const needLoadNewer = visibleEnd > (loadedTickRange.value.max - buffer)
+    // 检查是否需要加载更早或更晚的数据
+    const needLoadOlder = from < (loadedTickRange.value.min / 1000 + bufferTime)
+    const needLoadNewer = to > (loadedTickRange.value.max / 1000 - bufferTime)
 
     if (needLoadOlder || needLoadNewer) {
       await loadMoreTickData(needLoadOlder, needLoadNewer)
@@ -1801,6 +1864,23 @@ const destroyChart = () => {
   }
 }
 
+// 销毁Tick图表
+const destroyTickChart = () => {
+  if (tickChartInstance.value) {
+    tickChartInstance.value.remove()
+    tickChartInstance.value = null
+  }
+  // 清空series引用
+  tickPriceSeriesRef.value = null
+  tickVolumeBuySeriesRef.value = null
+  tickVolumeSellSeriesRef.value = null
+  // 清理 tooltip 元素
+  const existingTooltip = tickChartRef.value?.querySelector('.tick-chart-tooltip')
+  if (existingTooltip) {
+    existingTooltip.remove()
+  }
+}
+
 onMounted(() => {
   refreshStats()
   loadData()
@@ -1810,6 +1890,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
   destroyChart()
+  destroyTickChart()
 })
 </script>
 

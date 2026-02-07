@@ -14,7 +14,6 @@ import {
   ValidationError,
 } from '@/components/node-graph/types'
 import { canConnect } from '@/components/node-graph/types'
-import { nodeGraphApi } from '@/api/modules/nodeGraph'
 
 export function useNodeGraph(initialData?: GraphData) {
   // 节点列表

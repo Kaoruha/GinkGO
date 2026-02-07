@@ -96,9 +96,6 @@ importers:
       eslint-plugin-vue:
         specifier: ^9.18.1
         version: 9.33.0(eslint@8.57.1)
-      less:
-        specifier: ^4.5.1
-        version: 4.5.1
       postcss:
         specifier: ^8.4.32
         version: 8.5.6
@@ -2537,6 +2534,7 @@ snapshots:
   copy-anything@2.0.6:
     dependencies:
       is-what: 3.14.1
+    optional: true
 
   core-js@3.48.0: {}
 
@@ -2942,7 +2940,8 @@ snapshots:
 
   is-plain-object@3.0.1: {}
 
-  is-what@3.14.1: {}
+  is-what@3.14.1:
+    optional: true
 
   isexe@2.0.0: {}
 
@@ -2977,6 +2976,7 @@ snapshots:
       mime: 1.6.0
       needle: 3.3.1
       source-map: 0.6.1
+    optional: true
 
   levn@0.4.1:
     dependencies:
@@ -3104,7 +3104,8 @@ snapshots:
     dependencies:
       callsites: 3.1.0
 
-  parse-node-version@1.0.1: {}
+  parse-node-version@1.0.1:
+    optional: true
 
   path-browserify@1.0.1: {}
 

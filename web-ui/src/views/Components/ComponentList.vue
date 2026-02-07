@@ -23,7 +23,7 @@
             :value-style="{ color: '#52c41a' }"
           >
             <template #prefix>
-            <BarChartOutlined />
+              <BarChartOutlined />
             </template>
           </a-statistic>
         </a-card>
@@ -58,21 +58,36 @@
 
     <!-- 过滤器 -->
     <a-card class="mb-4">
-      <a-row :gutter="16" align="middle">
+      <a-row
+        :gutter="16"
+        align="middle"
+      >
         <a-col :span="8">
           <a-select
             v-model:value="filterType"
             placeholder="组件类型"
             style="width: 150px"
-            allowClear
+            allow-clear
             @change="loadComponents"
           >
-            <a-select-option value="">全部类型</a-select-option>
-            <a-select-option value="strategy">策略</a-select-option>
-            <a-select-option value="analyzer">分析器</a-select-option>
-            <a-select-option value="risk">风控</a-select-option>
-            <a-select-option value="sizer">仓位管理</a-select-option>
-            <a-select-option value="selector">选择器</a-select-option>
+            <a-select-option value="">
+              全部类型
+            </a-select-option>
+            <a-select-option value="strategy">
+              策略
+            </a-select-option>
+            <a-select-option value="analyzer">
+              分析器
+            </a-select-option>
+            <a-select-option value="risk">
+              风控
+            </a-select-option>
+            <a-select-option value="sizer">
+              仓位管理
+            </a-select-option>
+            <a-select-option value="selector">
+              选择器
+            </a-select-option>
           </a-select>
         </a-col>
         <a-col :span="8">
@@ -103,23 +118,41 @@
             </a-tag>
           </template>
           <template v-if="column.key === 'created_at'">
-            {{ formatDate(record.created_at) }}
+            {{ formatDateOnly(record.created_at) }}
           </template>
           <template v-if="column.key === 'updated_at'">
             {{ record.updated_at ? formatRelativeTime(record.updated_at) : '-' }}
           </template>
           <template v-if="column.key === 'action'">
             <a-space :size="8">
-              <a-button type="link" size="small" @click="viewComponent(record)">详情</a-button>
-              <a-button type="link" size="small" @click="openEditor(record)">
-                <template #icon><EditOutlined /></template>
+              <a-button
+                type="link"
+                size="small"
+                @click="viewComponent(record)"
+              >
+                详情
+              </a-button>
+              <a-button
+                type="link"
+                size="small"
+                @click="openEditor(record)"
+              >
+                <template #icon>
+                  <EditOutlined />
+                </template>
                 编辑
               </a-button>
               <a-popconfirm
                 title="确定要删除此组件吗？"
                 @confirm="deleteComponent(record)"
               >
-                <a-button type="link" size="small" danger>删除</a-button>
+                <a-button
+                  type="link"
+                  size="small"
+                  danger
+                >
+                  删除
+                </a-button>
               </a-popconfirm>
             </a-space>
           </template>
@@ -134,7 +167,11 @@
       width="900px"
       :footer="null"
     >
-      <a-descriptions v-if="currentComponent" :column="2" bordered>
+      <a-descriptions
+        v-if="currentComponent"
+        :column="2"
+        bordered
+      >
         <a-descriptions-item label="组件名称">
           {{ currentComponent.name }}
         </a-descriptions-item>
@@ -143,17 +180,32 @@
             {{ getComponentTypeLabel(currentComponent.component_type) }}
           </a-tag>
         </a-descriptions-item>
-        <a-descriptions-item label="创建时间" :span="2">
+        <a-descriptions-item
+          label="创建时间"
+          :span="2"
+        >
           {{ formatDateTime(currentComponent.created_at) }}
         </a-descriptions-item>
-        <a-descriptions-item label="更新时间" :span="2">
+        <a-descriptions-item
+          label="更新时间"
+          :span="2"
+        >
           {{ currentComponent.updated_at ? formatDateTime(currentComponent.updated_at) : '-' }}
         </a-descriptions-item>
-        <a-descriptions-item label="代码" :span="2">
-          <div v-if="currentComponent.code" class="bg-gray-900 text-gray-100 p-4 rounded">
+        <a-descriptions-item
+          label="代码"
+          :span="2"
+        >
+          <div
+            v-if="currentComponent.code"
+            class="bg-gray-900 text-gray-100 p-4 rounded"
+          >
             <pre class="text-sm whitespace-pre-wrap">{{ currentComponent.code }}</pre>
           </div>
-          <a-empty v-else description="无代码" />
+          <a-empty
+            v-else
+            description="无代码"
+          />
         </a-descriptions-item>
       </a-descriptions>
     </a-modal>
@@ -166,23 +218,55 @@
       @ok="handleCreateComponent"
       @cancel="resetCreateForm"
     >
-      <a-form layout="vertical" :model="createForm">
-        <a-form-item label="组件名称" required>
-          <a-input v-model:value="createForm.name" placeholder="请输入组件名称" />
+      <a-form
+        layout="vertical"
+        :model="createForm"
+      >
+        <a-form-item
+          label="组件名称"
+          required
+        >
+          <a-input
+            v-model:value="createForm.name"
+            placeholder="请输入组件名称"
+          />
         </a-form-item>
-        <a-form-item label="组件类型" required>
-          <a-select v-model:value="createForm.component_type" placeholder="请选择组件类型">
-            <a-select-option value="strategy">策略</a-select-option>
-            <a-select-option value="analyzer">分析器</a-select-option>
-            <a-select-option value="risk">风控</a-select-option>
-            <a-select-option value="sizer">仓位管理</a-select-option>
-            <a-select-option value="selector">选择器</a-select-option>
+        <a-form-item
+          label="组件类型"
+          required
+        >
+          <a-select
+            v-model:value="createForm.component_type"
+            placeholder="请选择组件类型"
+          >
+            <a-select-option value="strategy">
+              策略
+            </a-select-option>
+            <a-select-option value="analyzer">
+              分析器
+            </a-select-option>
+            <a-select-option value="risk">
+              风控
+            </a-select-option>
+            <a-select-option value="sizer">
+              仓位管理
+            </a-select-option>
+            <a-select-option value="selector">
+              选择器
+            </a-select-option>
           </a-select>
         </a-form-item>
         <a-form-item label="描述">
-          <a-textarea v-model:value="createForm.description" :rows="3" placeholder="请输入组件描述" />
+          <a-textarea
+            v-model:value="createForm.description"
+            :rows="3"
+            placeholder="请输入组件描述"
+          />
         </a-form-item>
-        <a-form-item label="代码" required>
+        <a-form-item
+          label="代码"
+          required
+        >
           <a-textarea
             v-model:value="createForm.code"
             :rows="15"
@@ -201,14 +285,30 @@
       @ok="handleEditComponent"
       @cancel="resetEditForm"
     >
-      <a-form layout="vertical" :model="editForm">
-        <a-form-item label="组件名称" required>
-          <a-input v-model:value="editForm.name" placeholder="请输入组件名称" />
+      <a-form
+        layout="vertical"
+        :model="editForm"
+      >
+        <a-form-item
+          label="组件名称"
+          required
+        >
+          <a-input
+            v-model:value="editForm.name"
+            placeholder="请输入组件名称"
+          />
         </a-form-item>
         <a-form-item label="描述">
-          <a-textarea v-model:value="editForm.description" :rows="3" placeholder="请输入组件描述" />
+          <a-textarea
+            v-model:value="editForm.description"
+            :rows="3"
+            placeholder="请输入组件描述"
+          />
         </a-form-item>
-        <a-form-item label="代码" required>
+        <a-form-item
+          label="代码"
+          required
+        >
           <a-textarea
             v-model:value="editForm.code"
             :rows="15"
@@ -238,6 +338,7 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
 import { componentsApi, type ComponentSummary, type ComponentDetail } from '@/api/modules/components'
 import { useComponentList } from '@/composables/useComponentList'
+import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
 
 // 扩展 dayjs 支持相对时间
 dayjs.extend(relativeTime)
@@ -321,20 +422,6 @@ const getComponentTypeLabel = (type: string) => {
     selector: '选择器'
   }
   return labels[type] || type
-}
-
-// 格式化日期
-const formatDate = (date: string) => {
-  return dayjs(date).format('YYYY-MM-DD')
-}
-
-const formatDateTime = (date: string) => {
-  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
-}
-
-// 格式化相对时间（如：5分钟前、3小时前、2天前）
-const formatRelativeTime = (date: string) => {
-  return dayjs(date).fromNow()
 }
 
 // 加载组件列表
