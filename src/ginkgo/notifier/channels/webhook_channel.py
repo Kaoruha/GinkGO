@@ -321,7 +321,7 @@ class WebhookChannel(INotificationChannel):
                 elif response.status_code == 429:
                     # 速率限制
                     retry_after = response.headers.get("Retry-After", self.retry_delay)
-                    GLOG.WARN(f"Discord rate limit, retry after {retry_after}s")
+                    print(f"[WARN] Discord rate limit, retry after {retry_after}s")
                     time.sleep(float(retry_after))
                     continue
                 elif response.status_code >= 500:
@@ -356,7 +356,7 @@ class WebhookChannel(INotificationChannel):
                 break
 
         # 所有重试都失败
-        GLOG.ERROR(f"Discord send failed after {self.max_retries} attempts: {last_error}")
+        print(f"[ERROR] Discord send failed after {self.max_retries} attempts: {last_error}")
         return ChannelResult(
             success=False,
             error=last_error,
