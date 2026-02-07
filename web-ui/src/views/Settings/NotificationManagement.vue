@@ -2,17 +2,25 @@
   <div class="space-y-6">
     <!-- 页面标题 -->
     <div class="flex items-center justify-between">
-      <h1 class="text-title">通知管理</h1>
-      <a-button type="primary" @click="showTemplateModal = true">
+      <h1 class="text-title">
+        通知管理
+      </h1>
+      <a-button
+        type="primary"
+        @click="showTemplateModal = true"
+      >
         新建通知模板
       </a-button>
     </div>
 
     <!-- 标签页 -->
     <a-card>
-      <a-tabs v-model:activeKey="activeTab">
+      <a-tabs v-model:active-key="activeTab">
         <!-- 通知模板 -->
-        <a-tab-pane key="templates" tab="通知模板">
+        <a-tab-pane
+          key="templates"
+          tab="通知模板"
+        >
           <div class="mb-4">
             <a-table
               :columns="templateColumns"
@@ -38,17 +46,31 @@
                 </template>
                 <template v-if="column.key === 'action'">
                   <a-space>
-                    <a-button type="link" size="small" @click="editTemplate(record)">
+                    <a-button
+                      type="link"
+                      size="small"
+                      @click="editTemplate(record)"
+                    >
                       编辑
                     </a-button>
-                    <a-button type="link" size="small" @click="testNotification(record)">
+                    <a-button
+                      type="link"
+                      size="small"
+                      @click="testNotification(record)"
+                    >
                       测试
                     </a-button>
                     <a-popconfirm
                       title="确定要删除此模板吗？"
                       @confirm="deleteTemplate(record)"
                     >
-                      <a-button type="link" size="small" danger>删除</a-button>
+                      <a-button
+                        type="link"
+                        size="small"
+                        danger
+                      >
+                        删除
+                      </a-button>
                     </a-popconfirm>
                   </a-space>
                 </template>
@@ -58,7 +80,10 @@
         </a-tab-pane>
 
         <!-- 通知历史 -->
-        <a-tab-pane key="history" tab="通知历史">
+        <a-tab-pane
+          key="history"
+          tab="通知历史"
+        >
           <div class="mb-4 flex gap-4">
             <a-input-search
               v-model:value="searchText"
@@ -70,12 +95,18 @@
               v-model:value="typeFilter"
               placeholder="类型筛选"
               style="width: 150px"
-              allowClear
+              allow-clear
               @change="loadHistory"
             >
-              <a-select-option value="email">邮件</a-select-option>
-              <a-select-option value="discord">Discord</a-select-option>
-              <a-select-option value="system">系统</a-select-option>
+              <a-select-option value="email">
+                邮件
+              </a-select-option>
+              <a-select-option value="discord">
+                Discord
+              </a-select-option>
+              <a-select-option value="system">
+                系统
+              </a-select-option>
             </a-select>
           </div>
 
@@ -102,7 +133,11 @@
                 {{ formatDateTime(record.created_at) }}
               </template>
               <template v-if="column.key === 'action'">
-                <a-button type="link" size="small" @click="viewDetail(record)">
+                <a-button
+                  type="link"
+                  size="small"
+                  @click="viewDetail(record)"
+                >
                   查看详情
                 </a-button>
               </template>
@@ -111,9 +146,15 @@
         </a-tab-pane>
 
         <!-- 接收人管理 -->
-        <a-tab-pane key="recipients" tab="接收人管理">
+        <a-tab-pane
+          key="recipients"
+          tab="接收人管理"
+        >
           <div class="mb-4 flex justify-between">
-            <a-button type="primary" @click="showRecipientModal = true">
+            <a-button
+              type="primary"
+              @click="showRecipientModal = true"
+            >
               添加接收人
             </a-button>
           </div>
@@ -130,36 +171,75 @@
                 </a-tag>
               </template>
               <template v-if="column.key === 'target'">
-                <div v-if="record.recipient_type === 'USER' && record.user_info" class="text-sm">
-                  <div class="font-medium">{{ record.user_info.display_name || record.user_info.username }}</div>
-                  <div class="text-xs text-gray-500">@{{ record.user_info.username }}</div>
+                <div
+                  v-if="record.recipient_type === 'USER' && record.user_info"
+                  class="text-sm"
+                >
+                  <div class="font-medium">
+                    {{ record.user_info.display_name || record.user_info.username }}
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    @{{ record.user_info.username }}
+                  </div>
                 </div>
-                <div v-else-if="record.recipient_type === 'USER_GROUP' && record.user_group_info" class="text-sm">
-                  <div class="font-medium">{{ record.user_group_info.name }}</div>
-                  <div class="text-xs text-gray-500">用户组</div>
+                <div
+                  v-else-if="record.recipient_type === 'USER_GROUP' && record.user_group_info"
+                  class="text-sm"
+                >
+                  <div class="font-medium">
+                    {{ record.user_group_info.name }}
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    用户组
+                  </div>
                 </div>
-                <span v-else class="text-gray-400">-</span>
+                <span
+                  v-else
+                  class="text-gray-400"
+                >-</span>
               </template>
               <template v-if="column.key === 'description'">
                 <span class="text-gray-500">{{ record.description || '-' }}</span>
               </template>
               <template v-if="column.key === 'is_default'">
-                <a-tag v-if="record.is_default" color="orange">默认</a-tag>
-                <span v-else class="text-gray-400">-</span>
+                <a-tag
+                  v-if="record.is_default"
+                  color="orange"
+                >
+                  默认
+                </a-tag>
+                <span
+                  v-else
+                  class="text-gray-400"
+                >-</span>
               </template>
               <template v-if="column.key === 'action'">
                 <a-space>
-                  <a-button type="link" size="small" @click="editRecipient(record)">
+                  <a-button
+                    type="link"
+                    size="small"
+                    @click="editRecipient(record)"
+                  >
                     编辑
                   </a-button>
-                  <a-button type="link" size="small" @click="testRecipient(record)">
+                  <a-button
+                    type="link"
+                    size="small"
+                    @click="testRecipient(record)"
+                  >
                     测试
                   </a-button>
                   <a-popconfirm
                     title="确定要删除此接收人吗？"
                     @confirm="deleteRecipient(record)"
                   >
-                    <a-button type="link" size="small" danger>删除</a-button>
+                    <a-button
+                      type="link"
+                      size="small"
+                      danger
+                    >
+                      删除
+                    </a-button>
                   </a-popconfirm>
                 </a-space>
               </template>
@@ -185,26 +265,53 @@
       >
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="模板名称" name="name">
-              <a-input v-model:value="templateForm.name" placeholder="请输入模板名称" />
+            <a-form-item
+              label="模板名称"
+              name="name"
+            >
+              <a-input
+                v-model:value="templateForm.name"
+                placeholder="请输入模板名称"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="通知类型" name="type">
-              <a-select v-model:value="templateForm.type" placeholder="选择类型">
-                <a-select-option value="email">邮件</a-select-option>
-                <a-select-option value="discord">Discord</a-select-option>
-                <a-select-option value="system">系统</a-select-option>
+            <a-form-item
+              label="通知类型"
+              name="type"
+            >
+              <a-select
+                v-model:value="templateForm.type"
+                placeholder="选择类型"
+              >
+                <a-select-option value="email">
+                  邮件
+                </a-select-option>
+                <a-select-option value="discord">
+                  Discord
+                </a-select-option>
+                <a-select-option value="system">
+                  系统
+                </a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
         </a-row>
 
-        <a-form-item label="主题" name="subject">
-          <a-input v-model:value="templateForm.subject" placeholder="请输入主题" />
+        <a-form-item
+          label="主题"
+          name="subject"
+        >
+          <a-input
+            v-model:value="templateForm.subject"
+            placeholder="请输入主题"
+          />
         </a-form-item>
 
-        <a-form-item label="内容模板" name="content">
+        <a-form-item
+          label="内容模板"
+          name="content"
+        >
           <a-textarea
             v-model:value="templateForm.content"
             placeholder="支持变量: {portfolio_name}, {signal}, {time} 等"
@@ -212,12 +319,27 @@
           />
         </a-form-item>
 
-        <a-form-item label="触发条件" name="trigger">
-          <a-select v-model:value="templateForm.trigger" mode="multiple" placeholder="选择触发条件">
-            <a-select-option value="signal_created">信号生成</a-select-option>
-            <a-select-option value="order_filled">订单成交</a-select-option>
-            <a-select-option value="risk_alert">风控警报</a-select-option>
-            <a-select-option value="backtest_completed">回测完成</a-select-option>
+        <a-form-item
+          label="触发条件"
+          name="trigger"
+        >
+          <a-select
+            v-model:value="templateForm.trigger"
+            mode="multiple"
+            placeholder="选择触发条件"
+          >
+            <a-select-option value="signal_created">
+              信号生成
+            </a-select-option>
+            <a-select-option value="order_filled">
+              订单成交
+            </a-select-option>
+            <a-select-option value="risk_alert">
+              风控警报
+            </a-select-option>
+            <a-select-option value="backtest_completed">
+              回测完成
+            </a-select-option>
           </a-select>
         </a-form-item>
       </a-form>
@@ -237,44 +359,79 @@
         :rules="recipientRules"
         layout="vertical"
       >
-        <a-form-item label="名称" name="name">
-          <a-input v-model:value="recipientForm.name" placeholder="请输入接收人名称" />
+        <a-form-item
+          label="名称"
+          name="name"
+        >
+          <a-input
+            v-model:value="recipientForm.name"
+            placeholder="请输入接收人名称"
+          />
         </a-form-item>
 
-        <a-form-item label="接收人类型" name="recipient_type">
-          <a-select v-model:value="recipientForm.recipient_type" placeholder="选择类型">
-            <a-select-option value="USER">单个用户</a-select-option>
-            <a-select-option value="USER_GROUP">用户组</a-select-option>
+        <a-form-item
+          label="接收人类型"
+          name="recipient_type"
+        >
+          <a-select
+            v-model:value="recipientForm.recipient_type"
+            placeholder="选择类型"
+          >
+            <a-select-option value="USER">
+              单个用户
+            </a-select-option>
+            <a-select-option value="USER_GROUP">
+              用户组
+            </a-select-option>
           </a-select>
         </a-form-item>
 
-        <a-form-item label="用户" name="user_id" v-if="recipientForm.recipient_type === 'USER'">
+        <a-form-item
+          v-if="recipientForm.recipient_type === 'USER'"
+          label="用户"
+          name="user_id"
+        >
           <a-select
             v-model:value="recipientForm.user_id"
             placeholder="选择用户"
             :filter-option="filterUser"
             show-search
           >
-            <a-select-option v-for="user in users" :key="user.uuid" :value="user.uuid">
+            <a-select-option
+              v-for="user in users"
+              :key="user.uuid"
+              :value="user.uuid"
+            >
               {{ user.display_name || user.username }} ({{ user.email }})
             </a-select-option>
           </a-select>
         </a-form-item>
 
-        <a-form-item label="用户组" name="user_group_id" v-if="recipientForm.recipient_type === 'USER_GROUP'">
+        <a-form-item
+          v-if="recipientForm.recipient_type === 'USER_GROUP'"
+          label="用户组"
+          name="user_group_id"
+        >
           <a-select
             v-model:value="recipientForm.user_group_id"
             placeholder="选择用户组"
             :filter-option="filterGroup"
             show-search
           >
-            <a-select-option v-for="group in userGroups" :key="group.uuid" :value="group.uuid">
+            <a-select-option
+              v-for="group in userGroups"
+              :key="group.uuid"
+              :value="group.uuid"
+            >
               {{ group.name }}
             </a-select-option>
           </a-select>
         </a-form-item>
 
-        <a-form-item label="描述" name="description">
+        <a-form-item
+          label="描述"
+          name="description"
+        >
           <a-textarea
             v-model:value="recipientForm.description"
             placeholder="请输入描述（可选）"
@@ -297,7 +454,11 @@
       width="700px"
       :footer="null"
     >
-      <a-descriptions :column="1" bordered v-if="currentDetail">
+      <a-descriptions
+        v-if="currentDetail"
+        :column="1"
+        bordered
+      >
         <a-descriptions-item label="类型">
           <a-tag :color="getTypeColor(currentDetail.type)">
             {{ getTypeLabel(currentDetail.type) }}
@@ -320,7 +481,10 @@
         <a-descriptions-item label="内容">
           <pre class="whitespace-pre-wrap">{{ currentDetail.content }}</pre>
         </a-descriptions-item>
-        <a-descriptions-item label="错误信息" v-if="currentDetail.error">
+        <a-descriptions-item
+          v-if="currentDetail.error"
+          label="错误信息"
+        >
           <span class="text-red-500">{{ currentDetail.error }}</span>
         </a-descriptions-item>
       </a-descriptions>

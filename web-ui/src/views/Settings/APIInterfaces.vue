@@ -1,22 +1,35 @@
 <template>
   <div class="space-y-6">
     <!-- 页面标题 -->
-    <h1 class="text-title">API接口设置</h1>
+    <h1 class="text-title">
+      API接口设置
+    </h1>
 
     <!-- API文档链接 -->
     <div class="card">
-      <h2 class="text-subtitle mb-4">API文档</h2>
+      <h2 class="text-subtitle mb-4">
+        API文档
+      </h2>
       <a-space size="large">
-        <a-button type="primary" @click="openDocs">
-          <template #icon><BookOutlined /></template>
+        <a-button
+          type="primary"
+          @click="openDocs"
+        >
+          <template #icon>
+            <BookOutlined />
+          </template>
           Swagger UI
         </a-button>
         <a-button @click="openRedoc">
-          <template #icon><FileTextOutlined /></template>
+          <template #icon>
+            <FileTextOutlined />
+          </template>
           ReDoc
         </a-button>
         <a-button @click="downloadOpenApi">
-          <template #icon><DownloadOutlined /></template>
+          <template #icon>
+            <DownloadOutlined />
+          </template>
           OpenAPI Spec
         </a-button>
       </a-space>
@@ -25,8 +38,13 @@
     <!-- API密钥管理 -->
     <div class="card">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-subtitle">API密钥</h2>
-        <a-button type="primary" @click="showCreateKeyModal = true">
+        <h2 class="text-subtitle">
+          API密钥
+        </h2>
+        <a-button
+          type="primary"
+          @click="showCreateKeyModal = true"
+        >
           创建新密钥
         </a-button>
       </div>
@@ -67,14 +85,24 @@
           </template>
           <template v-if="column.key === 'action'">
             <a-space>
-              <a-button type="link" size="small" @click="editKey(record)">
+              <a-button
+                type="link"
+                size="small"
+                @click="editKey(record)"
+              >
                 编辑
               </a-button>
               <a-popconfirm
                 title="确定要删除此密钥吗？"
                 @confirm="deleteKey(record)"
               >
-                <a-button type="link" size="small" danger>删除</a-button>
+                <a-button
+                  type="link"
+                  size="small"
+                  danger
+                >
+                  删除
+                </a-button>
               </a-popconfirm>
             </a-space>
           </template>
@@ -84,7 +112,9 @@
 
     <!-- API调用统计 -->
     <div class="card">
-      <h2 class="text-subtitle mb-4">API调用统计</h2>
+      <h2 class="text-subtitle mb-4">
+        API调用统计
+      </h2>
       <a-row :gutter="16">
         <a-col :span="6">
           <a-statistic
@@ -120,7 +150,9 @@
 
     <!-- 速率限制配置 -->
     <div class="card">
-      <h2 class="text-subtitle mb-4">速率限制配置</h2>
+      <h2 class="text-subtitle mb-4">
+        速率限制配置
+      </h2>
       <a-form
         :model="rateLimitConfig"
         layout="vertical"
@@ -149,7 +181,10 @@
           </a-col>
         </a-row>
         <a-form-item>
-          <a-button type="primary" html-type="submit">
+          <a-button
+            type="primary"
+            html-type="submit"
+          >
             保存配置
           </a-button>
         </a-form-item>
@@ -170,25 +205,56 @@
         :rules="keyRules"
         layout="vertical"
       >
-        <a-form-item label="名称" name="name">
-          <a-input v-model:value="keyForm.name" placeholder="请输入密钥名称" />
+        <a-form-item
+          label="名称"
+          name="name"
+        >
+          <a-input
+            v-model:value="keyForm.name"
+            placeholder="请输入密钥名称"
+          />
         </a-form-item>
 
-        <a-form-item label="过期时间" name="expiresIn">
-          <a-select v-model:value="keyForm.expiresIn" placeholder="选择过期时间">
-            <a-select-option value="30d">30天</a-select-option>
-            <a-select-option value="90d">90天</a-select-option>
-            <a-select-option value="1y">1年</a-select-option>
-            <a-select-option value="never">永不过期</a-select-option>
+        <a-form-item
+          label="过期时间"
+          name="expiresIn"
+        >
+          <a-select
+            v-model:value="keyForm.expiresIn"
+            placeholder="选择过期时间"
+          >
+            <a-select-option value="30d">
+              30天
+            </a-select-option>
+            <a-select-option value="90d">
+              90天
+            </a-select-option>
+            <a-select-option value="1y">
+              1年
+            </a-select-option>
+            <a-select-option value="never">
+              永不过期
+            </a-select-option>
           </a-select>
         </a-form-item>
 
-        <a-form-item label="权限范围" name="scopes">
+        <a-form-item
+          label="权限范围"
+          name="scopes"
+        >
           <a-checkbox-group v-model:value="keyForm.scopes">
-            <a-checkbox value="portfolio">Portfolio管理</a-checkbox>
-            <a-checkbox value="backtest">回测管理</a-checkbox>
-            <a-checkbox value="data">数据查询</a-checkbox>
-            <a-checkbox value="system">系统设置</a-checkbox>
+            <a-checkbox value="portfolio">
+              Portfolio管理
+            </a-checkbox>
+            <a-checkbox value="backtest">
+              回测管理
+            </a-checkbox>
+            <a-checkbox value="data">
+              数据查询
+            </a-checkbox>
+            <a-checkbox value="system">
+              系统设置
+            </a-checkbox>
           </a-checkbox-group>
         </a-form-item>
       </a-form>

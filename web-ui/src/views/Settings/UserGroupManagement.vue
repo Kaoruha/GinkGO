@@ -2,8 +2,13 @@
   <div class="space-y-6">
     <!-- 页面标题 -->
     <div class="flex items-center justify-between">
-      <h1 class="text-title">用户组管理</h1>
-      <a-button type="primary" @click="showCreateModal = true">
+      <h1 class="text-title">
+        用户组管理
+      </h1>
+      <a-button
+        type="primary"
+        @click="showCreateModal = true"
+      >
         添加用户组
       </a-button>
     </div>
@@ -22,32 +27,60 @@
             {{ record.description || '-' }}
           </template>
           <template v-if="column.key === 'user_count'">
-            <a-badge :count="record.user_count" :number-style="{ backgroundColor: '#52c41a' }" />
+            <a-badge
+              :count="record.user_count"
+              :number-style="{ backgroundColor: '#52c41a' }"
+            />
           </template>
           <template v-if="column.key === 'permissions'">
-            <a-tag v-for="perm in record.permissions?.slice(0, 3)" :key="perm" color="blue">
+            <a-tag
+              v-for="perm in record.permissions?.slice(0, 3)"
+              :key="perm"
+              color="blue"
+            >
               {{ perm }}
             </a-tag>
-            <a-tag v-if="record.permissions?.length > 3" color="default">
+            <a-tag
+              v-if="record.permissions?.length > 3"
+              color="default"
+            >
               +{{ record.permissions.length - 3 }}
             </a-tag>
           </template>
           <template v-if="column.key === 'action'">
             <a-space>
-              <a-button type="link" size="small" @click="editGroup(record)">
+              <a-button
+                type="link"
+                size="small"
+                @click="editGroup(record)"
+              >
                 编辑
               </a-button>
-              <a-button type="link" size="small" @click="openMembersDrawer(record)">
+              <a-button
+                type="link"
+                size="small"
+                @click="openMembersDrawer(record)"
+              >
                 成员管理
               </a-button>
-              <a-button type="link" size="small" @click="configPermissions(record)">
+              <a-button
+                type="link"
+                size="small"
+                @click="configPermissions(record)"
+              >
                 权限配置
               </a-button>
               <a-popconfirm
                 title="确定要删除此用户组吗？"
                 @confirm="deleteGroup(record)"
               >
-                <a-button type="link" size="small" danger>删除</a-button>
+                <a-button
+                  type="link"
+                  size="small"
+                  danger
+                >
+                  删除
+                </a-button>
               </a-popconfirm>
             </a-space>
           </template>
@@ -59,9 +92,9 @@
     <a-modal
       v-model:open="showCreateModal"
       :title="editingGroup ? '编辑用户组' : '添加用户组'"
+      width="600px"
       @ok="handleSaveGroup"
       @cancel="handleCancelEdit"
-      width="600px"
     >
       <a-form
         ref="formRef"
@@ -69,14 +102,20 @@
         :rules="rules"
         layout="vertical"
       >
-        <a-form-item label="组名称" name="name">
+        <a-form-item
+          label="组名称"
+          name="name"
+        >
           <a-input
             v-model:value="groupForm.name"
             placeholder="请输入组名称"
           />
         </a-form-item>
 
-        <a-form-item label="描述" name="description">
+        <a-form-item
+          label="描述"
+          name="description"
+        >
           <a-textarea
             v-model:value="groupForm.description"
             placeholder="请输入描述"
@@ -84,7 +123,10 @@
           />
         </a-form-item>
 
-        <a-form-item label="权限" name="permissions">
+        <a-form-item
+          label="权限"
+          name="permissions"
+        >
           <a-select
             v-model:value="groupForm.permissions"
             mode="multiple"
@@ -99,19 +141,26 @@
     <a-modal
       v-model:open="showPermissionModal"
       title="权限配置"
+      width="700px"
       @ok="handleSavePermissions"
       @cancel="showPermissionModal = false"
-      width="700px"
     >
       <a-form layout="vertical">
         <a-form-item label="用户组">
-          <a-input :value="currentGroup?.name" disabled />
+          <a-input
+            :value="currentGroup?.name"
+            disabled
+          />
         </a-form-item>
 
         <a-form-item label="权限列表">
           <a-checkbox-group v-model:value="selectedPermissions">
             <a-row>
-              <a-col v-for="perm in allPermissions" :key="perm.value" :span="12">
+              <a-col
+                v-for="perm in allPermissions"
+                :key="perm.value"
+                :span="12"
+              >
                 <a-checkbox :value="perm.value">
                   {{ perm.label }}
                   <span class="text-gray-500 text-sm">- {{ perm.description }}</span>
@@ -131,7 +180,10 @@
       placement="right"
     >
       <template #extra>
-        <a-button type="primary" @click="openAddMemberModal">
+        <a-button
+          type="primary"
+          @click="openAddMemberModal"
+        >
           添加成员
         </a-button>
       </template>
@@ -154,7 +206,13 @@
               title="确定要将此用户移出该组吗？"
               @confirm="removeMember(record)"
             >
-              <a-button type="link" size="small" danger>移除</a-button>
+              <a-button
+                type="link"
+                size="small"
+                danger
+              >
+                移除
+              </a-button>
             </a-popconfirm>
           </template>
         </template>

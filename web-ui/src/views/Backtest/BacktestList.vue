@@ -3,17 +3,38 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <h1 class="page-title">回测任务</h1>
-        <p class="page-subtitle">管理和监控您的所有回测任务</p>
+        <h1 class="page-title">
+          回测任务
+        </h1>
+        <p class="page-subtitle">
+          管理和监控您的所有回测任务
+        </p>
       </div>
       <div class="header-actions">
-        <a-radio-group v-model:value="filterState" button-style="solid" size="large" @change="handleFilterChange">
-          <a-radio-button value="">全部</a-radio-button>
-          <a-radio-button value="PENDING">等待中</a-radio-button>
-          <a-radio-button value="RUNNING">运行中</a-radio-button>
-          <a-radio-button value="COMPLETED">已完成</a-radio-button>
+        <a-radio-group
+          v-model:value="filterState"
+          button-style="solid"
+          size="large"
+          @change="handleFilterChange"
+        >
+          <a-radio-button value="">
+            全部
+          </a-radio-button>
+          <a-radio-button value="PENDING">
+            等待中
+          </a-radio-button>
+          <a-radio-button value="RUNNING">
+            运行中
+          </a-radio-button>
+          <a-radio-button value="COMPLETED">
+            已完成
+          </a-radio-button>
         </a-radio-group>
-        <a-button type="primary" size="large" @click="goToCreate">
+        <a-button
+          type="primary"
+          size="large"
+          @click="goToCreate"
+        >
           <PlusOutlined /> 创建回测
         </a-button>
       </div>
@@ -68,12 +89,23 @@
     </div>
 
     <!-- 回测任务列表 -->
-    <div v-if="loading" class="loading-container">
+    <div
+      v-if="loading"
+      class="loading-container"
+    >
       <a-spin size="large" />
     </div>
-    <div v-else-if="filteredBacktests.length === 0" class="empty-container">
+    <div
+      v-else-if="filteredBacktests.length === 0"
+      class="empty-container"
+    >
       <a-empty description="暂无回测任务">
-        <a-button type="primary" @click="goToCreate">创建第一个回测任务</a-button>
+        <a-button
+          type="primary"
+          @click="goToCreate"
+        >
+          创建第一个回测任务
+        </a-button>
       </a-empty>
     </div>
     <a-table
@@ -88,14 +120,14 @@
         <template v-if="column.key === 'name'">
           <div class="name-cell">
             <span class="task-name">{{ record.name }}</span>
-            <br />
+            <br>
             <span class="portfolio-name">{{ record.portfolio_name }}</span>
           </div>
         </template>
         <template v-if="column.key === 'state'">
-          <a-tag :color="getStateColor(record.state)">
-            <a-badge :status="getStateStatus(record.state)" />
-            {{ getStateLabel(record.state) }}
+          <a-tag :color="getBacktestStateColor(record.state)">
+            <a-badge :status="getBacktestStateStatus(record.state)" />
+            {{ getBacktestStateLabel(record.state) }}
           </a-tag>
         </template>
         <template v-if="column.key === 'progress'">
@@ -115,10 +147,22 @@
         </template>
         <template v-if="column.key === 'actions'">
           <a-space>
-            <a v-if="record.state === 'COMPLETED'" @click="viewResult(record)">查看结果</a>
-            <a v-if="record.state === 'PENDING'" @click="handleStart(record)">启动</a>
-            <a v-if="record.state === 'RUNNING'" @click="handleStop(record)">停止</a>
-            <a v-if="record.state !== 'RUNNING'" @click="handleDelete(record)">删除</a>
+            <a
+              v-if="record.state === 'COMPLETED'"
+              @click="viewResult(record)"
+            >查看结果</a>
+            <a
+              v-if="record.state === 'PENDING'"
+              @click="handleStart(record)"
+            >启动</a>
+            <a
+              v-if="record.state === 'RUNNING'"
+              @click="handleStop(record)"
+            >停止</a>
+            <a
+              v-if="record.state !== 'RUNNING'"
+              @click="handleDelete(record)"
+            >删除</a>
           </a-space>
         </template>
       </template>
@@ -131,24 +175,47 @@
       width="800px"
       :footer="null"
     >
-      <div v-if="selectedBacktest" class="result-content">
-        <a-descriptions bordered :column="2">
-          <a-descriptions-item label="任务名称">{{ selectedBacktest.name }}</a-descriptions-item>
-          <a-descriptions-item label="投资组合">{{ selectedBacktest.portfolio_name }}</a-descriptions-item>
-          <a-descriptions-item label="开始日期">{{ selectedBacktest.config?.start_date }}</a-descriptions-item>
-          <a-descriptions-item label="结束日期">{{ selectedBacktest.config?.end_date }}</a-descriptions-item>
+      <div
+        v-if="selectedBacktest"
+        class="result-content"
+      >
+        <a-descriptions
+          bordered
+          :column="2"
+        >
+          <a-descriptions-item label="任务名称">
+            {{ selectedBacktest.name }}
+          </a-descriptions-item>
+          <a-descriptions-item label="投资组合">
+            {{ selectedBacktest.portfolio_name }}
+          </a-descriptions-item>
+          <a-descriptions-item label="开始日期">
+            {{ selectedBacktest.config?.start_date }}
+          </a-descriptions-item>
+          <a-descriptions-item label="结束日期">
+            {{ selectedBacktest.config?.end_date }}
+          </a-descriptions-item>
         </a-descriptions>
 
-        <div v-if="selectedBacktest.result" class="result-stats">
+        <div
+          v-if="selectedBacktest.result"
+          class="result-stats"
+        >
           <div class="result-stat">
             <span class="stat-label">总收益率</span>
-            <span class="stat-value" :class="getChangeClass(selectedBacktest.result.total_return)">
+            <span
+              class="stat-value"
+              :class="getChangeClass(selectedBacktest.result.total_return)"
+            >
               {{ (selectedBacktest.result.total_return * 100).toFixed(2) }}%
             </span>
           </div>
           <div class="result-stat">
             <span class="stat-label">年化收益率</span>
-            <span class="stat-value" :class="getChangeClass(selectedBacktest.result.annual_return)">
+            <span
+              class="stat-value"
+              :class="getChangeClass(selectedBacktest.result.annual_return)"
+            >
               {{ (selectedBacktest.result.annual_return * 100).toFixed(2) }}%
             </span>
           </div>
@@ -185,6 +252,12 @@ import {
   CloseCircleOutlined
 } from '@ant-design/icons-vue'
 import { backtestApi, type BacktestTask, type BacktestTaskDetail } from '@/api/modules/backtest'
+import {
+  getBacktestStateLabel,
+  getBacktestStateColor,
+  getBacktestStateStatus
+} from '@/constants'
+import { formatDate } from '@/utils/format'
 
 const router = useRouter()
 
@@ -243,11 +316,6 @@ const handleFilterChange = () => {
   loadData()
 }
 
-// 格式化日期
-const formatDate = (dateStr: string) => {
-  return dayjs(dateStr).format('YYYY-MM-DD HH:mm')
-}
-
 // 格式化时长
 const formatDuration = (startAt?: string, endAt?: string) => {
   if (!startAt) return '-'
@@ -259,37 +327,6 @@ const formatDuration = (startAt?: string, endAt?: string) => {
   if (duration < 60) return `${duration}秒`
   if (duration < 3600) return `${Math.floor(duration / 60)}分钟`
   return `${Math.floor(duration / 3600)}小时${Math.floor((duration % 3600) / 60)}分钟`
-}
-
-// 获取状态标签
-const getStateLabel = (state: string) => {
-  const labels: Record<string, string> = {
-    'PENDING': '等待中',
-    'RUNNING': '运行中',
-    'COMPLETED': '已完成',
-    'FAILED': '失败'
-  }
-  return labels[state] || state
-}
-
-const getStateColor = (state: string) => {
-  const colors: Record<string, string> = {
-    'PENDING': 'default',
-    'RUNNING': 'processing',
-    'COMPLETED': 'success',
-    'FAILED': 'error'
-  }
-  return colors[state] || 'default'
-}
-
-const getStateStatus = (state: string) => {
-  const statuses: Record<string, string> = {
-    'PENDING': 'default',
-    'RUNNING': 'processing',
-    'COMPLETED': 'success',
-    'FAILED': 'error'
-  }
-  return statuses[state] || 'default'
 }
 
 // 获取变化样式

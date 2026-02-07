@@ -3,17 +3,38 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <h1 class="page-title">投资组合</h1>
-        <p class="page-subtitle">管理和监控您的所有投资组合</p>
+        <h1 class="page-title">
+          投资组合
+        </h1>
+        <p class="page-subtitle">
+          管理和监控您的所有投资组合
+        </p>
       </div>
       <div class="header-actions">
-        <a-radio-group v-model:value="filterMode" button-style="solid" size="large" @change="handleFilterChange">
-          <a-radio-button value="">全部</a-radio-button>
-          <a-radio-button value="BACKTEST">回测</a-radio-button>
-          <a-radio-button value="PAPER">模拟</a-radio-button>
-          <a-radio-button value="LIVE">实盘</a-radio-button>
+        <a-radio-group
+          v-model:value="filterMode"
+          button-style="solid"
+          size="large"
+          @change="handleFilterChange"
+        >
+          <a-radio-button value="">
+            全部
+          </a-radio-button>
+          <a-radio-button value="BACKTEST">
+            回测
+          </a-radio-button>
+          <a-radio-button value="PAPER">
+            模拟
+          </a-radio-button>
+          <a-radio-button value="LIVE">
+            实盘
+          </a-radio-button>
         </a-radio-group>
-        <a-button type="primary" size="large" @click="showCreateModal = true">
+        <a-button
+          type="primary"
+          size="large"
+          @click="goToCreate"
+        >
           <PlusOutlined />
           创建组合
         </a-button>
@@ -72,15 +93,29 @@
     </div>
 
     <!-- 投资组合列表 -->
-    <div v-if="loading" class="loading-container">
+    <div
+      v-if="loading"
+      class="loading-container"
+    >
       <a-spin size="large" />
     </div>
-    <div v-else-if="filteredPortfolios.length === 0" class="empty-container">
+    <div
+      v-else-if="filteredPortfolios.length === 0"
+      class="empty-container"
+    >
       <a-empty description="暂无投资组合">
-        <a-button type="primary" @click="showCreateModal = true">创建第一个投资组合</a-button>
+        <a-button
+          type="primary"
+          @click="showCreateModal = true"
+        >
+          创建第一个投资组合
+        </a-button>
       </a-empty>
     </div>
-    <div v-else class="portfolio-grid">
+    <div
+      v-else
+      class="portfolio-grid"
+    >
       <a-card
         v-for="portfolio in filteredPortfolios"
         :key="portfolio.uuid"
@@ -91,12 +126,20 @@
         <template #title>
           <div class="card-title">
             <span class="portfolio-name">{{ portfolio.name }}</span>
-            <a-tag :color="getModeColor(portfolio.mode)">{{ getModeLabel(portfolio.mode) }}</a-tag>
+            <a-tag :color="getModeColor(portfolio.mode)">
+              {{ getModeLabel(portfolio.mode) }}
+            </a-tag>
           </div>
         </template>
         <template #extra>
-          <a-dropdown :trigger="['click']" @click.stop>
-            <a class="more-btn" @click.prevent>
+          <a-dropdown
+            :trigger="['click']"
+            @click.stop
+          >
+            <a
+              class="more-btn"
+              @click.prevent
+            >
               <MoreOutlined />
             </a>
             <template #overlay>
@@ -118,7 +161,10 @@
             <span class="net-value-value">{{ portfolio.net_value.toFixed(3) }}</span>
             <span class="net-value-label">净值</span>
           </div>
-          <div class="net-value-change" :class="getNetValueChangeClass(portfolio.net_value)">
+          <div
+            class="net-value-change"
+            :class="getNetValueChangeClass(portfolio.net_value)"
+          >
             <ArrowUpOutlined v-if="portfolio.net_value > 1" />
             <ArrowDownOutlined v-else-if="portfolio.net_value < 1" />
             <MinusOutlined v-else />
@@ -163,7 +209,10 @@
           >
             <PlayCircleOutlined /> 启动
           </a-button>
-          <a-button size="small" @click.stop="goToDetail(portfolio.uuid)">
+          <a-button
+            size="small"
+            @click.stop="goToDetail(portfolio.uuid)"
+          >
             <EyeOutlined /> 详情
           </a-button>
         </div>
@@ -179,18 +228,45 @@
       @ok="handleCreate"
       @cancel="resetCreateForm"
     >
-      <a-form ref="createFormRef" :model="createForm" :rules="createRules" layout="vertical">
-        <a-form-item label="组合名称" name="name">
-          <a-input v-model:value="createForm.name" placeholder="请输入投资组合名称" size="large" />
+      <a-form
+        ref="createFormRef"
+        :model="createForm"
+        :rules="createRules"
+        layout="vertical"
+      >
+        <a-form-item
+          label="组合名称"
+          name="name"
+        >
+          <a-input
+            v-model:value="createForm.name"
+            placeholder="请输入投资组合名称"
+            size="large"
+          />
         </a-form-item>
-        <a-form-item label="运行模式" name="mode">
-          <a-radio-group v-model:value="createForm.mode" size="large">
-            <a-radio-button value="BACKTEST">回测模式</a-radio-button>
-            <a-radio-button value="PAPER">模拟交易</a-radio-button>
-            <a-radio-button value="LIVE">实盘交易</a-radio-button>
+        <a-form-item
+          label="运行模式"
+          name="mode"
+        >
+          <a-radio-group
+            v-model:value="createForm.mode"
+            size="large"
+          >
+            <a-radio-button value="BACKTEST">
+              回测模式
+            </a-radio-button>
+            <a-radio-button value="PAPER">
+              模拟交易
+            </a-radio-button>
+            <a-radio-button value="LIVE">
+              实盘交易
+            </a-radio-button>
           </a-radio-group>
         </a-form-item>
-        <a-form-item label="初始资金" name="initial_cash">
+        <a-form-item
+          label="初始资金"
+          name="initial_cash"
+        >
           <a-input-number
             v-model:value="createForm.initial_cash"
             :min="1000"
@@ -200,13 +276,15 @@
             style="width: 100%"
             size="large"
           >
-            <template #prefix>¥</template>
+            <template #prefix>
+              ¥
+            </template>
           </a-input-number>
         </a-form-item>
         <a-form-item label="风险配置">
           <a-textarea
             v-model:value="createForm.risk_config"
-            placeholder='JSON格式，例如：{"max_position_ratio": 0.3, "stop_loss_ratio": 0.05}'
+            placeholder="JSON格式，例如：{&quot;max_position_ratio&quot;: 0.3, &quot;stop_loss_ratio&quot;: 0.05}"
             :rows="4"
           />
         </a-form-item>
@@ -235,6 +313,14 @@ import {
   MinusOutlined
 } from '@ant-design/icons-vue'
 import { portfolioApi, type Portfolio } from '@/api/modules/portfolio'
+import {
+  getModeLabel,
+  getModeColor,
+  getStateLabel,
+  getStateColor,
+  getStateStatus
+} from '@/constants'
+import { formatDate } from '@/utils/format'
 
 const router = useRouter()
 
@@ -287,7 +373,9 @@ const createRules = {
 const loadData = async () => {
   loading.value = true
   try {
-    const data = await portfolioApi.list({ mode: filterMode.value as any })
+    // 只有当 filterMode 不为空时才传递 mode 参数
+    const params = filterMode.value ? { mode: filterMode.value } : {}
+    const data = await portfolioApi.list(params)
     portfolios.value = data
   } catch (error: any) {
     message.error(`加载失败: ${error.message || '未知错误'}`)
@@ -299,61 +387,6 @@ const loadData = async () => {
 // 筛选变化
 const handleFilterChange = () => {
   loadData()
-}
-
-// 格式化日期
-const formatDate = (dateStr: string) => {
-  return dayjs(dateStr).format('YYYY-MM-DD HH:mm')
-}
-
-// 获取模式标签
-const getModeLabel = (mode: string) => {
-  const labels: Record<string, string> = {
-    'BACKTEST': '回测',
-    'PAPER': '模拟',
-    'LIVE': '实盘'
-  }
-  return labels[mode] || mode
-}
-
-const getModeColor = (mode: string) => {
-  const colors: Record<string, string> = {
-    'BACKTEST': 'blue',
-    'PAPER': 'orange',
-    'LIVE': 'green'
-  }
-  return colors[mode] || 'default'
-}
-
-// 获取状态标签
-const getStateLabel = (state: string) => {
-  const labels: Record<string, string> = {
-    'INITIALIZED': '已初始化',
-    'RUNNING': '运行中',
-    'PAUSED': '已暂停',
-    'STOPPED': '已停止'
-  }
-  return labels[state] || state
-}
-
-const getStateColor = (state: string) => {
-  const colors: Record<string, string> = {
-    'INITIALIZED': 'default',
-    'RUNNING': 'success',
-    'PAUSED': 'warning',
-    'STOPPED': 'default'
-  }
-  return colors[state] || 'default'
-}
-
-const getStateStatus = (state: string) => {
-  const statuses: Record<string, string> = {
-    'INITIALIZED': 'default',
-    'RUNNING': 'processing',
-    'PAUSED': 'warning',
-    'STOPPED': 'default'
-  }
-  return statuses[state] || 'default'
 }
 
 // 净值变化样式
@@ -368,7 +401,12 @@ const goToDetail = (uuid: string) => {
   router.push(`/portfolio/${uuid}`)
 }
 
-// 创建组合
+// 跳转创建页面
+const goToCreate = () => {
+  router.push('/portfolio/create')
+}
+
+// 创建组合（保留用于模态框创建，如果需要的话）
 const handleCreate = async () => {
   creating.value = true
   try {

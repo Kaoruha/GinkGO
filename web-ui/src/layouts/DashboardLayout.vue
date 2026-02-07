@@ -3,27 +3,38 @@
     <!-- 侧边栏 -->
     <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
       <div class="h-16 flex items-center px-6 border-b border-gray-200">
-        <h1 class="text-xl font-bold text-primary">Ginkgo</h1>
+        <h1 class="text-xl font-bold text-primary">
+          Ginkgo
+        </h1>
       </div>
 
       <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
-        <template v-for="item in menuItems" :key="item.path">
+        <template
+          v-for="item in menuItems"
+          :key="item.path"
+        >
           <!-- 有子菜单的项目 -->
           <div v-if="item.children">
             <div
-              @click="toggleMenu(item.path)"
               class="flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer transition-colors"
               :class="isMenuActive(item) ? 'bg-primary/10 text-primary' : 'text-gray-700 hover:bg-gray-100'"
+              @click="toggleMenu(item.path)"
             >
               <div class="flex items-center">
                 <span class="text-xl mr-3">{{ item.icon }}</span>
                 <span>{{ item.label }}</span>
               </div>
-              <span class="text-sm transition-transform" :class="expandedMenus[item.path] ? 'rotate-90' : ''">▶</span>
+              <span
+                class="text-sm transition-transform"
+                :class="expandedMenus[item.path] ? 'rotate-90' : ''"
+              >▶</span>
             </div>
 
             <!-- 子菜单 -->
-            <div v-show="expandedMenus[item.path]" class="ml-6 mt-1 space-y-1">
+            <div
+              v-show="expandedMenus[item.path]"
+              class="ml-6 mt-1 space-y-1"
+            >
               <router-link
                 v-for="child in item.children"
                 :key="child.path"
@@ -56,7 +67,9 @@
             {{ userInitial }}
           </div>
           <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900">{{ username }}</p>
+            <p class="text-sm font-medium text-gray-900">
+              {{ username }}
+            </p>
           </div>
         </div>
       </div>
@@ -65,7 +78,9 @@
     <!-- 主内容区 -->
     <div class="flex-1 flex flex-col">
       <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-        <h2 class="text-lg font-semibold text-gray-900">{{ pageTitle }}</h2>
+        <h2 class="text-lg font-semibold text-gray-900">
+          {{ pageTitle }}
+        </h2>
         <div class="flex items-center space-x-4">
           <span class="text-sm text-gray-500">{{ currentTime }}</span>
         </div>

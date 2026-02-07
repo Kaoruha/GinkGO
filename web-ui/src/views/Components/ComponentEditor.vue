@@ -20,52 +20,101 @@
         <!-- 左侧：组件信息面板 -->
         <div class="w-60 bg-gray-50 border-r border-gray-200 overflow-y-auto flex-shrink-0">
           <div class="p-3">
-            <h3 class="text-xs font-semibold text-gray-600 mb-2">组件信息</h3>
+            <h3 class="text-xs font-semibold text-gray-600 mb-2">
+              组件信息
+            </h3>
             <div class="space-y-2">
               <div>
                 <label class="text-xs text-gray-500">组件名称</label>
-                <a-input v-model:value="componentForm.name" size="small" class="mt-1" />
+                <a-input
+                  v-model:value="componentForm.name"
+                  size="small"
+                  class="mt-1"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-500">描述</label>
-                <a-textarea v-model:value="componentForm.description" :rows="2" size="small" class="mt-1" />
+                <a-textarea
+                  v-model:value="componentForm.description"
+                  :rows="2"
+                  size="small"
+                  class="mt-1"
+                />
               </div>
             </div>
           </div>
 
           <!-- 参数配置 -->
           <div class="p-3 border-t border-gray-200">
-            <h3 class="text-xs font-semibold text-gray-600 mb-2">参数配置</h3>
+            <h3 class="text-xs font-semibold text-gray-600 mb-2">
+              参数配置
+            </h3>
             <div class="space-y-2">
-              <div v-for="(param, key) in parameters" :key="key" class="text-xs">
+              <div
+                v-for="(param, key) in parameters"
+                :key="key"
+                class="text-xs"
+              >
                 <label class="text-gray-500">{{ key }}</label>
-                <a-input v-model:value="param.value" size="small" />
+                <a-input
+                  v-model:value="param.value"
+                  size="small"
+                />
               </div>
             </div>
           </div>
 
           <!-- 测试数据输入 -->
           <div class="p-3 border-t border-gray-200">
-            <h3 class="text-xs font-semibold text-gray-600 mb-2">测试配置</h3>
+            <h3 class="text-xs font-semibold text-gray-600 mb-2">
+              测试配置
+            </h3>
             <div class="space-y-2">
               <div>
                 <label class="text-xs text-gray-500">测试股票代码</label>
-                <a-select v-model:value="testConfig.code" size="small" class="w-full mt-1" show-search>
-                  <a-select-option v-for="stock in testStocks" :key="stock.code" :value="stock.code">
+                <a-select
+                  v-model:value="testConfig.code"
+                  size="small"
+                  class="w-full mt-1"
+                  show-search
+                >
+                  <a-select-option
+                    v-for="stock in testStocks"
+                    :key="stock.code"
+                    :value="stock.code"
+                  >
                     {{ stock.code }} - {{ stock.name || '未知' }}
                   </a-select-option>
                 </a-select>
               </div>
               <div>
                 <label class="text-xs text-gray-500">测试日期范围</label>
-                <a-range-picker v-model:value="testConfig.dateRange" size="small" class="w-full mt-1" />
+                <a-range-picker
+                  v-model:value="testConfig.dateRange"
+                  size="small"
+                  class="w-full mt-1"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-500">初始资金</label>
-                <a-input-number v-model:value="testConfig.initialCash" :min="10000" :step="10000" size="small" class="w-full mt-1" />
+                <a-input-number
+                  v-model:value="testConfig.initialCash"
+                  :min="10000"
+                  :step="10000"
+                  size="small"
+                  class="w-full mt-1"
+                />
               </div>
-              <a-button @click="runTest" :loading="testing" type="primary" class="w-full mt-2" block>
-                <template #icon><PlayCircleOutlined /></template>
+              <a-button
+                :loading="testing"
+                type="primary"
+                class="w-full mt-2"
+                block
+                @click="runTest"
+              >
+                <template #icon>
+                  <PlayCircleOutlined />
+                </template>
                 运行测试
               </a-button>
             </div>
@@ -77,8 +126,14 @@
           <div class="flex-1 relative bg-white min-h-0">
             <!-- 保存按钮（右上角浮动） -->
             <div class="absolute top-3 right-3 z-10">
-              <a-button @click="saveComponent" :loading="saving" type="primary">
-                <template #icon><SaveOutlined /></template>
+              <a-button
+                :loading="saving"
+                type="primary"
+                @click="saveComponent"
+              >
+                <template #icon>
+                  <SaveOutlined />
+                </template>
                 保存
               </a-button>
             </div>
@@ -94,16 +149,29 @@
       </div>
 
       <!-- 底部：测试结果面板（可折叠） -->
-      <div class="border-t border-gray-200 bg-gray-50 flex-shrink-0 transition-all duration-300" :style="{ height: panelHeight }">
+      <div
+        class="border-t border-gray-200 bg-gray-50 flex-shrink-0 transition-all duration-300"
+        :style="{ height: panelHeight }"
+      >
         <!-- 折叠/展开按钮 -->
-        <div class="flex items-center justify-between px-3 py-1 border-b border-gray-200 bg-white cursor-pointer" @click="togglePanel">
+        <div
+          class="flex items-center justify-between px-3 py-1 border-b border-gray-200 bg-white cursor-pointer"
+          @click="togglePanel"
+        >
           <span class="text-xs font-medium text-gray-600">测试结果</span>
           <div class="flex items-center space-x-2">
             <!-- 测试状态摘要 -->
-            <span v-if="testResult" class="text-xs text-gray-500">
+            <span
+              v-if="testResult"
+              class="text-xs text-gray-500"
+            >
               收益率: <span :class="testResult.returnRate >= 0 ? 'text-green-600' : 'text-red-600'">{{ testResult.returnRate?.toFixed(2) }}%</span>
             </span>
-            <a-button size="small" type="text" class="p-0 h-6 w-6 flex items-center justify-center">
+            <a-button
+              size="small"
+              type="text"
+              class="p-0 h-6 w-6 flex items-center justify-center"
+            >
               <template #icon>
                 <DownOutlined v-if="!isPanelCollapsed" />
                 <UpOutlined v-else />
@@ -113,21 +181,44 @@
         </div>
 
         <!-- 面板内容 -->
-        <div v-show="!isPanelCollapsed" class="overflow-hidden" style="height: calc(100% - 32px)">
-          <a-tabs v-model:activeKey="activeTab" class="h-full">
+        <div
+          v-show="!isPanelCollapsed"
+          class="overflow-hidden"
+          style="height: calc(100% - 32px)"
+        >
+          <a-tabs
+            v-model:active-key="activeTab"
+            class="h-full"
+          >
             <template #rightExtra>
-              <a-button size="small" type="text" @click.stop="clearLogs">
-                <template #icon><ClearOutlined /></template>
+              <a-button
+                size="small"
+                type="text"
+                @click.stop="clearLogs"
+              >
+                <template #icon>
+                  <ClearOutlined />
+                </template>
               </a-button>
             </template>
 
             <!-- 日志面板 -->
-            <a-tab-pane key="logs" tab="日志">
+            <a-tab-pane
+              key="logs"
+              tab="日志"
+            >
               <div class="h-48 overflow-y-auto p-2 font-mono text-xs bg-white">
-                <div v-if="logs.length === 0" class="text-gray-400 text-center py-4">
+                <div
+                  v-if="logs.length === 0"
+                  class="text-gray-400 text-center py-4"
+                >
                   运行测试后查看日志
                 </div>
-                <div v-for="(log, index) in logs" :key="index" class="mb-1">
+                <div
+                  v-for="(log, index) in logs"
+                  :key="index"
+                  class="mb-1"
+                >
                   <span :class="getLogClass(log.level)">[{{ log.level }}]</span>
                   <span class="text-gray-400">{{ log.time }}</span>
                   <span :class="getLogClass(log.level)">{{ log.message }}</span>
@@ -136,29 +227,54 @@
             </a-tab-pane>
 
             <!-- 图表面板 -->
-            <a-tabPane key="charts" tab="图表">
+            <a-tabPane
+              key="charts"
+              tab="图表"
+            >
               <div class="h-48 overflow-y-auto p-2 bg-white">
-                <div v-if="!testResult" class="text-gray-400 text-center py-4">
+                <div
+                  v-if="!testResult"
+                  class="text-gray-400 text-center py-4"
+                >
                   运行测试后查看图表
                 </div>
-                <div v-else ref="chartContainer" class="w-full h-40"></div>
+                <div
+                  v-else
+                  ref="chartContainer"
+                  class="w-full h-40"
+                />
               </div>
             </a-tabPane>
 
             <!-- 输出面板 -->
-            <a-tabPane key="output" tab="输出">
+            <a-tabPane
+              key="output"
+              tab="输出"
+            >
               <div class="h-48 overflow-y-auto p-2 bg-white">
-                <pre v-if="testOutput" class="text-xs text-gray-700 whitespace-pre-wrap">{{ testOutput }}</pre>
-                <div v-else class="text-gray-400 text-center py-4">
+                <pre
+                  v-if="testOutput"
+                  class="text-xs text-gray-700 whitespace-pre-wrap"
+                >{{ testOutput }}</pre>
+                <div
+                  v-else
+                  class="text-gray-400 text-center py-4"
+                >
                   运行测试后查看输出
                 </div>
               </div>
             </a-tabPane>
 
             <!-- 统计面板 -->
-            <a-tabPane key="stats" tab="统计">
+            <a-tabPane
+              key="stats"
+              tab="统计"
+            >
               <div class="h-48 overflow-y-auto p-3 bg-white">
-                <div v-if="testResult" class="space-y-2 text-xs">
+                <div
+                  v-if="testResult"
+                  class="space-y-2 text-xs"
+                >
                   <div class="flex justify-between py-1 border-b border-gray-100">
                     <span class="text-gray-500">初始资金:</span>
                     <span class="text-gray-900">¥{{ testResult.initialCash?.toFixed(2) }}</span>
@@ -184,7 +300,10 @@
                     <span class="text-gray-900">{{ testResult.winRate?.toFixed(2) || '0.00' }}%</span>
                   </div>
                 </div>
-                <div v-else class="text-gray-400 text-center py-4">
+                <div
+                  v-else
+                  class="text-gray-400 text-center py-4"
+                >
                   点击"运行测试"查看统计
                 </div>
               </div>

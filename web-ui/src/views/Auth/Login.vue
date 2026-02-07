@@ -2,22 +2,29 @@
   <div class="min-h-screen flex items-center justify-center bg-gray-50">
     <div class="max-w-md w-full card">
       <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold text-primary mb-2">Ginkgo</h1>
-        <p class="text-gray-600">量化交易系统</p>
+        <h1 class="text-3xl font-bold text-primary mb-2">
+          Ginkgo
+        </h1>
+        <p class="text-gray-600">
+          量化交易系统
+        </p>
       </div>
 
       <a-form
         :model="formState"
         name="login"
-        @finish="handleLogin"
         layout="vertical"
+        @finish="handleLogin"
       >
         <a-form-item
           label="用户名"
           name="username"
           :rules="[{ required: true, message: '请输入用户名' }]"
         >
-          <a-input v-model:value="formState.username" placeholder="请输入用户名" />
+          <a-input
+            v-model:value="formState.username"
+            placeholder="请输入用户名"
+          />
         </a-form-item>
 
         <a-form-item
@@ -25,11 +32,19 @@
           name="password"
           :rules="[{ required: true, message: '请输入密码' }]"
         >
-          <a-input-password v-model:value="formState.password" placeholder="请输入密码" />
+          <a-input-password
+            v-model:value="formState.password"
+            placeholder="请输入密码"
+          />
         </a-form-item>
 
         <a-form-item>
-          <a-button type="primary" html-type="submit" block :loading="loading">
+          <a-button
+            type="primary"
+            html-type="submit"
+            block
+            :loading="loading"
+          >
             登录
           </a-button>
         </a-form-item>

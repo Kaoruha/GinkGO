@@ -1,19 +1,35 @@
 <template>
   <div class="graph-validator">
     <div class="validator-header">
-      <div class="validator-status" :class="{ success: isValid, error: !isValid }">
-        <CheckCircleOutlined v-if="isValid" class="status-icon" />
-        <CloseCircleOutlined v-else class="status-icon" />
+      <div
+        class="validator-status"
+        :class="{ success: isValid, error: !isValid }"
+      >
+        <CheckCircleOutlined
+          v-if="isValid"
+          class="status-icon"
+        />
+        <CloseCircleOutlined
+          v-else
+          class="status-icon"
+        />
         <span class="status-text">{{ isValid ? '验证通过' : '验证失败' }}</span>
       </div>
-      <a-button type="text" size="small" @click="$emit('close')">
+      <a-button
+        type="text"
+        size="small"
+        @click="$emit('close')"
+      >
         <CloseOutlined />
       </a-button>
     </div>
 
     <div class="validator-content">
       <!-- 错误列表 -->
-      <div v-if="errors.length > 0" class="error-section">
+      <div
+        v-if="errors.length > 0"
+        class="error-section"
+      >
         <div class="section-header">
           <ExclamationCircleOutlined class="section-icon error" />
           <span>错误 ({{ errors.length }})</span>
@@ -27,20 +43,37 @@
           >
             <WarningOutlined class="error-icon" />
             <span class="error-message">{{ error.message }}</span>
-            <a-tag v-if="error.node_id" size="small">节点</a-tag>
-            <a-tag v-if="error.edge_id" size="small">连接</a-tag>
+            <a-tag
+              v-if="error.node_id"
+              size="small"
+            >
+              节点
+            </a-tag>
+            <a-tag
+              v-if="error.edge_id"
+              size="small"
+            >
+              连接
+            </a-tag>
           </div>
         </div>
       </div>
 
       <!-- 警告列表 -->
-      <div v-if="warnings.length > 0" class="warning-section">
+      <div
+        v-if="warnings.length > 0"
+        class="warning-section"
+      >
         <div class="section-header">
           <InfoCircleOutlined class="section-icon warning" />
           <span>警告 ({{ warnings.length }})</span>
         </div>
         <div class="warning-list">
-          <div v-for="warning in warnings" :key="warning" class="warning-item">
+          <div
+            v-for="warning in warnings"
+            :key="warning"
+            class="warning-item"
+          >
             <InfoCircleOutlined class="warning-icon" />
             <span class="warning-message">{{ warning }}</span>
           </div>
@@ -48,7 +81,10 @@
       </div>
 
       <!-- 空状态 -->
-      <div v-if="errors.length === 0 && warnings.length === 0" class="empty-state">
+      <div
+        v-if="errors.length === 0 && warnings.length === 0"
+        class="empty-state"
+      >
         <CheckCircleOutlined class="empty-icon" />
         <p>节点图配置完全正确</p>
       </div>

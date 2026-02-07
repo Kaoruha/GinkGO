@@ -1,19 +1,32 @@
 <template>
   <div class="flex items-center justify-between">
     <div class="flex items-center space-x-4">
-      <a-button type="text" @click="goBack" class="text-gray-600 hover:text-gray-900">
-        <template #icon><ArrowLeftOutlined /></template>
+      <a-button
+        type="text"
+        class="text-gray-600 hover:text-gray-900"
+        @click="goBack"
+      >
+        <template #icon>
+          <ArrowLeftOutlined />
+        </template>
         返回列表
       </a-button>
-      <div class="h-6 w-px bg-gray-300"></div>
+      <div class="h-6 w-px bg-gray-300" />
       <div>
-        <h1 class="text-lg font-semibold text-gray-900">组件编辑器</h1>
-        <p class="text-sm text-gray-500">编辑策略、分析器、风控等组件代码</p>
+        <h1 class="text-lg font-semibold text-gray-900">
+          组件编辑器
+        </h1>
+        <p class="text-sm text-gray-500">
+          编辑策略、分析器、风控等组件代码
+        </p>
       </div>
     </div>
     <div class="flex items-center space-x-2 text-sm text-gray-500">
       <span v-if="componentInfo">{{ componentInfo.name }}</span>
-      <a-tag v-if="componentInfo" :color="getComponentTypeColor(componentInfo.component_type)">
+      <a-tag
+        v-if="componentInfo"
+        :color="getComponentTypeColor(componentInfo.component_type)"
+      >
         {{ getComponentTypeLabel(componentInfo.component_type) }}
       </a-tag>
     </div>

@@ -2,7 +2,11 @@
   <div class="node-property-panel">
     <div class="panel-header">
       <h3>节点属性</h3>
-      <a-button type="text" size="small" @click="$emit('close')">
+      <a-button
+        type="text"
+        size="small"
+        @click="$emit('close')"
+      >
         <CloseOutlined />
       </a-button>
     </div>
@@ -10,9 +14,14 @@
     <div class="panel-content">
       <!-- 基本信息 -->
       <div class="section">
-        <div class="section-title">基本信息</div>
+        <div class="section-title">
+          基本信息
+        </div>
         <a-form-item label="节点名称">
-          <a-input v-model:value="localNode.data.label" @change="handleUpdate" />
+          <a-input
+            v-model:value="localNode.data.label"
+            @change="handleUpdate"
+          />
         </a-form-item>
         <a-form-item label="节点类型">
           <a-tag :color="getNodeTypeColor(node.type)">
@@ -23,7 +32,9 @@
 
       <!-- 配置项 -->
       <div class="section">
-        <div class="section-title">配置参数</div>
+        <div class="section-title">
+          配置参数
+        </div>
 
         <!-- ENGINE 节点配置 -->
         <template v-if="node.type === NodeType.ENGINE">
@@ -46,9 +57,16 @@
         <!-- BROKER 节点配置 -->
         <template v-if="node.type === NodeType.BROKER">
           <a-form-item label="券商类型">
-            <a-select v-model:value="brokerConfig.broker_type" @change="handleUpdate">
-              <a-select-option value="simulated">模拟券商</a-select-option>
-              <a-select-option value="real">实盘券商</a-select-option>
+            <a-select
+              v-model:value="brokerConfig.broker_type"
+              @change="handleUpdate"
+            >
+              <a-select-option value="simulated">
+                模拟券商
+              </a-select-option>
+              <a-select-option value="real">
+                实盘券商
+              </a-select-option>
             </a-select>
           </a-form-item>
           <a-form-item label="初始资金">
@@ -100,20 +118,33 @@
 
       <!-- 端口信息 -->
       <div class="section">
-        <div class="section-title">端口信息</div>
+        <div class="section-title">
+          端口信息
+        </div>
         <div class="ports-info">
           <div class="port-group">
-            <div class="port-label">输入端口</div>
+            <div class="port-label">
+              输入端口
+            </div>
             <div class="port-list">
-              <a-tag v-for="port in inputPorts" :key="port.name" :color="port.required ? 'green' : 'default'">
+              <a-tag
+                v-for="port in inputPorts"
+                :key="port.name"
+                :color="port.required ? 'green' : 'default'"
+              >
                 {{ port.label }}
               </a-tag>
             </div>
           </div>
           <div class="port-group">
-            <div class="port-label">输出端口</div>
+            <div class="port-label">
+              输出端口
+            </div>
             <div class="port-list">
-              <a-tag v-for="port in outputPorts" :key="port.name">
+              <a-tag
+                v-for="port in outputPorts"
+                :key="port.name"
+              >
                 {{ port.label }}
               </a-tag>
             </div>
@@ -123,7 +154,11 @@
 
       <!-- 删除按钮 -->
       <div class="section danger">
-        <a-button danger block @click="handleDelete">
+        <a-button
+          danger
+          block
+          @click="handleDelete"
+        >
           <DeleteOutlined />
           删除节点
         </a-button>
