@@ -52,6 +52,8 @@ from typing import TYPE_CHECKING
 # Import your services, CRUDs, and data sources
 from ginkgo.data.sources import GinkgoTushare, GinkgoTDX
 from ginkgo.data.utils import get_crud, get_available_crud_names  # get_crud is used to instantiate CRUD classes
+from ginkgo.data.drivers.ginkgo_mongo import GinkgoMongo
+from ginkgo.libs import GCONF
 from ginkgo.data.services.adjustfactor_service import AdjustfactorService
 from ginkgo.data.services.stockinfo_service import StockinfoService
 from ginkgo.data.services.bar_service import BarService
@@ -60,6 +62,7 @@ from ginkgo.data.crud.tick_crud import TickCRUD
 from ginkgo.data.services.file_service import FileService
 from ginkgo.data.services.engine_service import EngineService
 from ginkgo.data.services.portfolio_service import PortfolioService
+from ginkgo.data.services.portfolio_mapping_service import PortfolioMappingService
 from ginkgo.data.services.redis_service import RedisService
 from ginkgo.data.services.kafka_service import KafkaService
 from ginkgo.data.services.signal_tracking_service import SignalTrackingService
@@ -81,6 +84,16 @@ class Container(containers.DeclarativeContainer):
     # Data Sources
     ginkgo_tushare_source = providers.Singleton(GinkgoTushare)
     ginkgo_tdx_source = providers.Singleton(GinkgoTDX)
+
+    # MongoDB Driver - Lazy singleton initialized on first access
+    mongo_driver = providers.Singleton(
+        GinkgoMongo,
+        user=GCONF.MONGOUSER,
+        pwd=GCONF.MONGOPWD,
+        host=GCONF.MONGOHOST,
+        port=GCONF.MONGOPORT,
+        db=GCONF.MONGODB,
+    )
 
     # CRUD Repositories - Auto-discovered from crud module
     # Generate provider configurations for all available CRUDs
@@ -167,6 +180,15 @@ class Container(containers.DeclarativeContainer):
         PortfolioService,
         crud_repo=portfolio_crud,
         portfolio_file_mapping_crud=portfolio_file_mapping_crud,
+    )
+
+    # Portfolio Mapping Service - MongoDB 图结构与 MySQL Mapping+Param 双向同步
+    portfolio_mapping_service = providers.Singleton(
+        PortfolioMappingService,
+        mapping_crud=portfolio_file_mapping_crud,
+        param_crud=param_crud,
+        mongo_driver=mongo_driver,
+        file_crud=file_crud,
     )
 
     # Mapping Service for managing all mapping relationships

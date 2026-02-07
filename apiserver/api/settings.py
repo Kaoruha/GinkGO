@@ -91,6 +91,10 @@ async def list_users(
 
         result = []
         for user in users:
+            # 跳过没有用户名的记录
+            if not user.username:
+                continue
+
             # 获取关联的凭证
             credentials = credential_crud.get_by_user_id(user.uuid, as_dataframe=False)
             credential = credentials[0] if credentials else None

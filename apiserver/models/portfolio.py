@@ -3,7 +3,7 @@ Portfolio相关数据模型
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 
@@ -105,10 +105,41 @@ class PortfolioCreate(BaseModel):
     """创建Portfolio请求"""
     name: str = Field(..., min_length=1, max_length=200)
     initial_cash: float = Field(..., gt=0)
+    mode: PortfolioMode = Field(default=PortfolioMode.BACKTEST)
     risk_config: Optional[dict] = None
+    # 图数据（用于节点图编辑器创建）
+    graph_data: Optional[Dict[str, Any]] = None
+    strategies: Optional[List[Dict[str, Any]]] = None
+    selectors: Optional[List[Dict[str, Any]]] = None
+    sizers: Optional[List[Dict[str, Any]]] = None
+    risk_managers: Optional[List[Dict[str, Any]]] = None
 
 
 class PortfolioUpdate(BaseModel):
     """更新Portfolio请求"""
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     state: Optional[PortfolioState] = None
+    graph_data: Optional[Dict[str, Any]] = None
+    config_locked: Optional[bool] = None
+
+
+class PortfolioGraphData(BaseModel):
+    """节点图数据"""
+    nodes: List[Dict[str, Any]]
+    edges: List[Dict[str, Any]]
+    viewport: Optional[Dict[str, Any]] = None
+
+
+class PortfolioConfigResponse(BaseModel):
+    """投资组合配置响应"""
+    uuid: str
+    portfolio_uuid: str
+    name: str
+    description: Optional[str]
+    graph_data: PortfolioGraphData
+    mode: PortfolioMode
+    version: int
+    is_template: bool
+    tags: List[str]
+    created_at: datetime
+    updated_at: datetime

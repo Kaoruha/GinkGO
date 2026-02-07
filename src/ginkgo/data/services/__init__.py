@@ -30,6 +30,7 @@ from ginkgo.data.services.bar_service import BarService
 from ginkgo.data.services.tick_service import TickService
 from ginkgo.data.services.file_service import FileService
 from ginkgo.data.services.engine_service import EngineService
+from ginkgo.data.services.portfolio_mapping_service import PortfolioMappingService
 from ginkgo.data.services.portfolio_service import PortfolioService
 from ginkgo.data.services.redis_service import RedisService
 from ginkgo.data.services.kafka_service import KafkaService

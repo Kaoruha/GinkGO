@@ -211,29 +211,51 @@ async def get_portfolio(uuid: str):
 
 @router.post("", response_model=PortfolioDetail, status_code=status.HTTP_201_CREATED)
 async def create_portfolio(data: PortfolioCreate):
-    """创建Portfolio"""
-    import uuid as uuid_lib
-    from datetime import datetime
+    """创建Portfolio（使用PortfolioService）"""
+    try:
+        # 使用 PortfolioService 创建组合
+        portfolio_service = get_portfolio_service()
 
-    async with get_db() as db:
-        portfolio_uuid = str(uuid_lib.uuid4())
-        await db.execute(
-            """INSERT INTO portfolio (uuid, name, initial_capital, cash, is_live, created_at)
-               VALUES (%s, %s, %s, %s, %s, %s)""",
-            [portfolio_uuid, data.name, data.initial_cash, data.initial_cash, 0, datetime.utcnow()]
+        result = portfolio_service.add(
+            name=data.name,
+            is_live=False  # BACKTEST 模式
         )
-        await db.commit()
+
+        if not result.is_success():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.error or "Failed to create portfolio"
+            )
+
+        portfolio = result.data
+
+        # 处理不同的返回类型（dict 或 model）
+        if isinstance(portfolio, dict):
+            portfolio_uuid = portfolio.get('uuid', '')
+            portfolio_name = portfolio.get('name', data.name)
+            initial_capital = portfolio.get('initial_capital', data.initial_cash)
+            cash = portfolio.get('cash', data.initial_cash)
+            create_at_value = portfolio.get('create_at')
+        else:
+            portfolio_uuid = portfolio.uuid
+            portfolio_name = portfolio.name
+            initial_capital = float(portfolio.initial_capital) if hasattr(portfolio, 'initial_capital') else data.initial_cash
+            cash = float(portfolio.cash) if hasattr(portfolio, 'cash') else data.initial_cash
+            create_at_value = portfolio.create_at if hasattr(portfolio, 'create_at') else None
+
+        from datetime import datetime
+        now = datetime.utcnow()
 
         return {
             "uuid": portfolio_uuid,
-            "name": data.name,
+            "name": portfolio_name,
             "mode": "BACKTEST",
             "state": "INITIALIZED",
             "config_locked": False,
             "net_value": 1.0,
-            "created_at": datetime.utcnow().isoformat(),
-            "initial_cash": data.initial_cash,
-            "current_cash": data.initial_cash,
+            "created_at": create_at_value if isinstance(create_at_value, datetime) else now,
+            "initial_cash": float(initial_capital),
+            "current_cash": float(cash),
             "positions": [],
             "strategies": [],
             "selectors": [],
@@ -241,6 +263,15 @@ async def create_portfolio(data: PortfolioCreate):
             "risk_managers": [],
             "risk_alerts": []
         }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating portfolio: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating portfolio: {str(e)}"
+        )
 
 
 @router.put("/{uuid}", response_model=PortfolioDetail)
