@@ -1,5 +1,7 @@
 """
 全局错误处理中间件
+
+处理所有 API 抛出的异常，返回统一的响应格式。
 """
 
 from fastapi import Request, HTTPException, status
@@ -7,22 +9,42 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 
 from core.logging import logger
+from core.exceptions import APIError
 
 
 async def global_error_handler(request: Request, exc: Exception):
-    """全局错误处理器"""
+    """
+    全局错误处理器
 
+    将所有异常转换为统一的 API 响应格式。
+
+    Args:
+        request: FastAPI 请求对象
+        exc: 捕获的异常
+
+    Returns:
+        JSONResponse: 统一格式的错误响应
+    """
     # 记录错误
     logger.error(f"Error processing {request.url.path}: {exc}")
 
-    # HTTPException 处理
+    # APIError 处理（使用新统一格式）
+    if isinstance(exc, APIError):
+        response_data = exc.to_dict()
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=response_data
+        )
+
+    # HTTPException 处理（兼容 FastAPI 内置异常）
     if isinstance(exc, HTTPException):
         return JSONResponse(
             status_code=exc.status_code,
             content={
-                "code": exc.status_code,
-                "message": exc.detail,
-                "timestamp": datetime.utcnow().isoformat() + "Z"
+                "success": False,
+                "data": None,
+                "error": str(exc.status_code),
+                "message": exc.detail
             }
         )
 
@@ -32,45 +54,9 @@ async def global_error_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
-            "code": 500,
-            "message": "Internal Server Error",
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "success": False,
+            "data": None,
+            "error": "INTERNAL_ERROR",
+            "message": "Internal Server Error"
         }
     )
-
-
-class APIError(Exception):
-    """自定义API错误基类"""
-
-    def __init__(self, message: str, code: int = 500):
-        self.message = message
-        self.code = code
-        super().__init__(self.message)
-
-
-class NotFoundError(APIError):
-    """资源未找到错误"""
-
-    def __init__(self, message: str = "Resource not found"):
-        super().__init__(message, 404)
-
-
-class ValidationError(APIError):
-    """验证错误"""
-
-    def __init__(self, message: str = "Validation failed"):
-        super().__init__(message, 400)
-
-
-class UnauthorizedError(APIError):
-    """未授权错误"""
-
-    def __init__(self, message: str = "Unauthorized"):
-        super().__init__(message, 401)
-
-
-class ForbiddenError(APIError):
-    """禁止访问错误"""
-
-    def __init__(self, message: str = "Forbidden"):
-        super().__init__(message, 403)

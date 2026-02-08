@@ -3,6 +3,7 @@ Ginkgo API Server
 FastAPI应用入口，为Web UI和其他客户端提供REST API和WebSocket服务
 """
 
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -12,6 +13,7 @@ from core.logging import setup_logging
 from middleware.auth import JWTAuthMiddleware
 from middleware.error_handler import global_error_handler
 from middleware.rate_limit import RateLimitMiddleware
+from core.exceptions import APIError
 from websocket.manager import connection_manager
 
 # 设置日志
@@ -34,27 +36,36 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Ginkgo API Server...")
     await connection_manager.start()
 
-    # TODO: 启动回测进度消费者（暂时禁用）
-    # try:
-    #     from services.backtest_progress_consumer import get_progress_consumer
-    #     progress_consumer = get_progress_consumer()
-    #     await progress_consumer.start()
-    #     logger.info("BacktestProgressConsumer started")
-    # except Exception as e:
-    #     logger.warning(f"Failed to start BacktestProgressConsumer: {e}")
+    # 启动回测进度消费者（后台任务，不阻塞）
+    try:
+        from services.backtest_progress_consumer import get_progress_consumer
+        progress_consumer = get_progress_consumer()
+        # 创建后台任务，不等待
+        asyncio.create_task(progress_consumer.start())
+        logger.info("BacktestProgressConsumer started (background)")
+    except Exception as e:
+        logger.warning(f"Failed to start BacktestProgressConsumer: {e}")
 
     yield
     # 关闭时
     logger.info("Shutting down Ginkgo API Server...")
 
-    # TODO: 停止回测进度消费者
-    # try:
-    #     from services.backtest_progress_consumer import get_progress_consumer
-    #     progress_consumer = get_progress_consumer()
-    #     await progress_consumer.stop()
-    #     logger.info("BacktestProgressConsumer stopped")
-    # except Exception as e:
-    #     logger.warning(f"Failed to stop BacktestProgressConsumer: {e}")
+    # 停止回测进度消费者
+    try:
+        from services.backtest_progress_consumer import get_progress_consumer
+        progress_consumer = get_progress_consumer()
+        await progress_consumer.stop()
+        logger.info("BacktestProgressConsumer stopped")
+    except Exception as e:
+        logger.warning(f"Failed to stop BacktestProgressConsumer: {e}")
+
+    # 关闭 Redis 连接池
+    try:
+        from core.redis_client import close_redis_pool
+        await close_redis_pool()
+        logger.info("Redis pool closed")
+    except Exception as e:
+        logger.warning(f"Failed to close Redis pool: {e}")
 
     await connection_manager.stop()
 
@@ -85,6 +96,7 @@ app.add_middleware(RateLimitMiddleware)
 
 # 全局错误处理
 app.exception_handler(Exception)(global_error_handler)
+app.exception_handler(APIError)(global_error_handler)
 
 
 @app.get("/health")
@@ -99,19 +111,20 @@ async def health_check_api():
     return {"status": "healthy", "service": "ginkgo-api-server"}
 
 
-# 路由注册
+# 路由注册 - 统一使用 /api/v1 前缀
 from api import auth, dashboard, portfolio, backtest, components, data, arena, node_graph
 from api import settings as settings_router
+from core.version import API_PREFIX
 
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
-app.include_router(portfolio.router, prefix="/api/portfolio", tags=["portfolio"])
-app.include_router(backtest.router, prefix="/api/backtest", tags=["backtest"])
-app.include_router(components.router, prefix="/api/components", tags=["components"])
-app.include_router(data.router, prefix="/api/data", tags=["data"])
-app.include_router(arena.router, prefix="/api/arena", tags=["arena"])
-app.include_router(settings_router.router, prefix="/api/settings", tags=["settings"])
-app.include_router(node_graph.router, prefix="/api/node-graphs", tags=["node-graphs"])
+app.include_router(auth.router, prefix=f"{API_PREFIX}/auth", tags=["auth"])
+app.include_router(dashboard.router, prefix=f"{API_PREFIX}/dashboards", tags=["dashboard"])
+app.include_router(portfolio.router, prefix=f"{API_PREFIX}/portfolios", tags=["portfolio"])
+app.include_router(backtest.router, prefix=f"{API_PREFIX}/backtests", tags=["backtest"])
+app.include_router(components.router, prefix=f"{API_PREFIX}/components", tags=["components"])
+app.include_router(data.router, prefix=f"{API_PREFIX}/data", tags=["data"])
+app.include_router(arena.router, prefix=f"{API_PREFIX}/arena", tags=["arena"])
+app.include_router(settings_router.router, prefix=f"{API_PREFIX}/settings", tags=["settings"])
+app.include_router(node_graph.router, prefix=f"{API_PREFIX}/node-graphs", tags=["node-graphs"])
 
 # WebSocket路由
 from websocket.handlers import portfolio_handler, system_handler
