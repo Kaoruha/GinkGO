@@ -1,4 +1,5 @@
 import request from '../request'
+import type { RequestOptions } from '@/types/api-request'
 
 // ==================== 用户管理 ====================
 
@@ -31,79 +32,106 @@ export interface UserUpdate {
 export const usersApi = {
   /**
    * 获取用户列表
+   * @param params 查询参数
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  list(params?: { status?: string; search?: string }): Promise<UserInfo[]> {
-    return request.get('/settings/users', { params })
+  list(params?: { status?: string; search?: string }, options?: RequestOptions): Promise<UserInfo[]> {
+    return request.get('/v1/settings/users', { params, signal: options?.signal })
   },
 
   /**
    * 创建用户
+   * @param data 用户数据
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  create(data: UserCreate): Promise<UserInfo> {
-    return request.post('/settings/users', data)
+  create(data: UserCreate, options?: RequestOptions): Promise<UserInfo> {
+    return request.post('/v1/settings/users', data, { signal: options?.signal })
   },
 
   /**
    * 更新用户
+   * @param uuid 用户 UUID
+   * @param data 更新数据
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  update(uuid: string, data: UserUpdate): Promise<{ message: string }> {
-    return request.put(`/settings/users/${uuid}`, data)
+  update(uuid: string, data: UserUpdate, options?: RequestOptions): Promise<{ message: string }> {
+    return request.put(`/v1/settings/users/${uuid}`, data, { signal: options?.signal })
   },
 
   /**
    * 删除用户
+   * @param uuid 用户 UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  delete(uuid: string): Promise<{ message: string }> {
-    return request.delete(`/settings/users/${uuid}`)
+  delete(uuid: string, options?: RequestOptions): Promise<{ message: string }> {
+    return request.delete(`/v1/settings/users/${uuid}`, { signal: options?.signal })
   },
 
   /**
    * 重置用户密码
+   * @param uuid 用户 UUID
+   * @param new_password 新密码
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  resetPassword(uuid: string, new_password: string): Promise<{ message: string }> {
-    return request.post(`/settings/users/${uuid}/reset-password`, { new_password })
+  resetPassword(uuid: string, new_password: string, options?: RequestOptions): Promise<{ message: string }> {
+    return request.post(`/v1/settings/users/${uuid}/reset-password`, { new_password }, { signal: options?.signal })
   },
 
   /**
    * 获取用户联系方式列表
+   * @param userUuid 用户 UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  listContacts(userUuid: string): Promise<UserContactInfo[]> {
-    return request.get(`/settings/users/${userUuid}/contacts`)
+  listContacts(userUuid: string, options?: RequestOptions): Promise<UserContactInfo[]> {
+    return request.get(`/v1/settings/users/${userUuid}/contacts`, { signal: options?.signal })
   },
 
   /**
    * 创建用户联系方式
+   * @param userUuid 用户 UUID
+   * @param data 联系方式数据
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  createContact(userUuid: string, data: UserContactCreate): Promise<UserContactInfo> {
-    return request.post(`/settings/users/${userUuid}/contacts`, data)
+  createContact(userUuid: string, data: UserContactCreate, options?: RequestOptions): Promise<UserContactInfo> {
+    return request.post(`/v1/settings/users/${userUuid}/contacts`, data, { signal: options?.signal })
   },
 
   /**
    * 更新用户联系方式
+   * @param contactUuid 联系方式 UUID
+   * @param data 更新数据
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  updateContact(contactUuid: string, data: UserContactUpdate): Promise<{ message: string }> {
-    return request.put(`/settings/users/contacts/${contactUuid}`, data)
+  updateContact(contactUuid: string, data: UserContactUpdate, options?: RequestOptions): Promise<{ message: string }> {
+    return request.put(`/v1/settings/users/contacts/${contactUuid}`, data, { signal: options?.signal })
   },
 
   /**
    * 删除用户联系方式
+   * @param contactUuid 联系方式 UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  deleteContact(contactUuid: string): Promise<{ message: string }> {
-    return request.delete(`/settings/users/contacts/${contactUuid}`)
+  deleteContact(contactUuid: string, options?: RequestOptions): Promise<{ message: string }> {
+    return request.delete(`/v1/settings/users/contacts/${contactUuid}`, { signal: options?.signal })
   },
 
   /**
    * 测试用户联系方式
+   * @param contactUuid 联系方式 UUID
+   * @param data 测试数据
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  testContact(contactUuid: string, data: { address: string; subject?: string; content?: string }): Promise<{ message: string; detail?: string }> {
-    return request.post(`/settings/users/contacts/${contactUuid}/test`, data)
+  testContact(contactUuid: string, data: { address: string; subject?: string; content?: string }, options?: RequestOptions): Promise<{ message: string; detail?: string }> {
+    return request.post(`/v1/settings/users/contacts/${contactUuid}/test`, data, { signal: options?.signal })
   },
 
   /**
    * 设置为主联系方式
+   * @param contactUuid 联系方式 UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  setPrimaryContact(contactUuid: string): Promise<{ message: string }> {
-    return request.post(`/settings/users/contacts/${contactUuid}/set-primary`)
+  setPrimaryContact(contactUuid: string, options?: RequestOptions): Promise<{ message: string }> {
+    return request.post(`/v1/settings/users/contacts/${contactUuid}/set-primary`, {}, { signal: options?.signal })
   }
 }
 
@@ -161,49 +189,49 @@ export const userGroupsApi = {
    * 获取用户组列表
    */
   list(): Promise<UserGroupInfo[]> {
-    return request.get('/settings/user-groups')
+    return request.get('/v1/settings/user-groups')
   },
 
   /**
    * 创建用户组
    */
   create(data: UserGroupCreate): Promise<UserGroupInfo> {
-    return request.post('/settings/user-groups', data)
+    return request.post('/v1/settings/user-groups', data)
   },
 
   /**
    * 更新用户组
    */
   update(uuid: string, data: Partial<UserGroupCreate>): Promise<{ message: string }> {
-    return request.put(`/settings/user-groups/${uuid}`, data)
+    return request.put(`/v1/settings/user-groups/${uuid}`, data)
   },
 
   /**
    * 删除用户组
    */
   delete(uuid: string): Promise<{ message: string }> {
-    return request.delete(`/settings/user-groups/${uuid}`)
+    return request.delete(`/v1/settings/user-groups/${uuid}`)
   },
 
   /**
    * 获取用户组成员列表
    */
   listMembers(groupUuid: string): Promise<GroupMember[]> {
-    return request.get(`/settings/user-groups/${groupUuid}/members`)
+    return request.get(`/v1/settings/user-groups/${groupUuid}/members`)
   },
 
   /**
    * 添加用户到用户组
    */
   addMember(groupUuid: string, userUuid: string): Promise<{ message: string; mapping_uuid: string }> {
-    return request.post(`/settings/user-groups/${groupUuid}/members`, { user_uuid: userUuid })
+    return request.post(`/v1/settings/user-groups/${groupUuid}/members`, { user_uuid: userUuid })
   },
 
   /**
    * 从用户组移除用户
    */
   removeMember(groupUuid: string, userUuid: string): Promise<{ message: string }> {
-    return request.delete(`/settings/user-groups/${groupUuid}/members/${userUuid}`)
+    return request.delete(`/v1/settings/user-groups/${groupUuid}/members/${userUuid}`)
   }
 }
 
@@ -276,84 +304,84 @@ export const notificationsApi = {
    * 获取通知模板列表
    */
   listTemplates(): Promise<NotificationTemplate[]> {
-    return request.get('/settings/notifications/templates')
+    return request.get('/v1/settings/notifications/templates')
   },
 
   /**
    * 创建通知模板
    */
   createTemplate(data: Partial<NotificationTemplate>): Promise<NotificationTemplate> {
-    return request.post('/settings/notifications/templates', data)
+    return request.post('/v1/settings/notifications/templates', data)
   },
 
   /**
    * 更新通知模板
    */
   updateTemplate(uuid: string, data: Partial<NotificationTemplate>): Promise<{ message: string }> {
-    return request.put(`/settings/notifications/templates/${uuid}`, data)
+    return request.put(`/v1/settings/notifications/templates/${uuid}`, data)
   },
 
   /**
    * 删除通知模板
    */
   deleteTemplate(uuid: string): Promise<{ message: string }> {
-    return request.delete(`/settings/notifications/templates/${uuid}`)
+    return request.delete(`/v1/settings/notifications/templates/${uuid}`)
   },
 
   /**
    * 切换模板启用状态
    */
   toggleTemplate(uuid: string, enabled: boolean): Promise<{ message: string }> {
-    return request.patch(`/settings/notifications/templates/${uuid}`, { enabled })
+    return request.patch(`/v1/settings/notifications/templates/${uuid}`, { enabled })
   },
 
   /**
    * 测试通知
    */
   testTemplate(uuid: string): Promise<{ message: string }> {
-    return request.post(`/settings/notifications/templates/${uuid}/test`)
+    return request.post(`/v1/settings/notifications/templates/${uuid}/test`)
   },
 
   /**
    * 获取通知历史
    */
   listHistory(params?: { type?: string; page?: number; page_size?: number }): Promise<NotificationHistory[]> {
-    return request.get('/settings/notifications/history', { params })
+    return request.get('/v1/settings/notifications/history', { params })
   },
 
   /**
    * 获取通知接收人列表
    */
   listRecipients(): Promise<NotificationRecipient[]> {
-    return request.get('/settings/notifications/recipients')
+    return request.get('/v1/settings/notifications/recipients')
   },
 
   /**
    * 创建通知接收人
    */
   createRecipient(data: NotificationRecipientCreate): Promise<NotificationRecipient> {
-    return request.post('/settings/notifications/recipients', data)
+    return request.post('/v1/settings/notifications/recipients', data)
   },
 
   /**
    * 更新通知接收人
    */
   updateRecipient(uuid: string, data: NotificationRecipientUpdate): Promise<{ message: string }> {
-    return request.put(`/settings/notifications/recipients/${uuid}`, data)
+    return request.put(`/v1/settings/notifications/recipients/${uuid}`, data)
   },
 
   /**
    * 删除通知接收人
    */
   deleteRecipient(uuid: string): Promise<{ message: string }> {
-    return request.delete(`/settings/notifications/recipients/${uuid}`)
+    return request.delete(`/v1/settings/notifications/recipients/${uuid}`)
   },
 
   /**
    * 切换接收人启用状态
    */
   toggleRecipient(uuid: string): Promise<{ message: string; is_active: boolean }> {
-    return request.patch(`/settings/notifications/recipients/${uuid}/toggle`)
+    return request.patch(`/v1/settings/notifications/recipients/${uuid}/toggle`)
   },
 
   /**
@@ -367,7 +395,7 @@ export const notificationsApi = {
     success_count: number
     failed_count: number
   }> {
-    return request.post(`/settings/notifications/recipients/${uuid}/test`)
+    return request.post(`/v1/settings/notifications/recipients/${uuid}/test`)
   }
 }
 
@@ -394,27 +422,27 @@ export const apiKeysApi = {
    * 获取API密钥列表
    */
   list(): Promise<APIKey[]> {
-    return request.get('/settings/api-keys')
+    return request.get('/v1/settings/api-keys')
   },
 
   /**
    * 创建API密钥
    */
   create(data: { name: string; expires_at?: string }): Promise<APIKey> {
-    return request.post('/settings/api-keys', data)
+    return request.post('/v1/settings/api-keys', data)
   },
 
   /**
    * 删除API密钥
    */
   delete(key_id: string): Promise<{ message: string }> {
-    return request.delete(`/settings/api-keys/${key_id}`)
+    return request.delete(`/v1/settings/api-keys/${key_id}`)
   },
 
   /**
    * 获取API统计
    */
   getStats(): Promise<APIStats> {
-    return request.get('/settings/api-stats')
+    return request.get('/v1/settings/api-stats')
   }
 }

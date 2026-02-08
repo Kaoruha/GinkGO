@@ -1,4 +1,6 @@
 import request from '../request'
+import type { APIResponse } from '@/types/api'
+import type { RequestOptions } from '@/types/api-request'
 
 // 组件配置参数
 export interface ComponentConfig {
@@ -44,8 +46,6 @@ export interface RiskManagementComponent {
   config?: ComponentConfig
 }
 
-// Note: Analyzers 已移至 Engine 级别配置
-
 export interface Portfolio {
   uuid: string
   name: string
@@ -59,18 +59,25 @@ export interface Portfolio {
 export interface PortfolioDetail extends Portfolio {
   initial_cash: number
   current_cash: number
+  benchmark?: string
+  description?: string
+  // 组件UUID引用
+  selector_uuid?: string
+  sizer_uuid?: string
+  // 组件列表（包含详细信息）
+  strategies: StrategyComponent[]
+  selectors: SelectorComponent[]
+  sizers: SizerComponent[]
+  risk_managers: RiskManagementComponent[]
+  analyzers: AnalyzerComponent[]
+  // 持仓信息
   positions: Array<{
     code: string
     volume: number
     cost_price: number
     current_price: number
   }>
-  // 组件列表
-  strategies: StrategyComponent[]
-  selectors: SelectorComponent[]
-  sizers: SizerComponent[]
-  risk_managers: RiskManagementComponent[]
-  // Note: Analyzers 已移至 Engine 级别配置
+  // 风险预警
   risk_alerts: Array<{
     uuid: string
     type: string
@@ -81,43 +88,85 @@ export interface PortfolioDetail extends Portfolio {
   }>
 }
 
+// 分析器组件
+export interface AnalyzerComponent {
+  uuid: string
+  name: string
+  type: string
+  config?: ComponentConfig
+}
+
+// 创建/更新Portfolio的数据结构
+export interface PortfolioCreateData {
+  name: string
+  initial_cash: number
+  mode: 'BACKTEST' | 'PAPER' | 'LIVE'
+  benchmark?: string
+  description?: string
+  selectors: Array<{
+    component_uuid: string
+    config?: Record<string, any>
+  }>
+  sizer_uuid: string
+  strategies: Array<{
+    component_uuid: string
+    weight: number
+    config?: Record<string, any>
+  }>
+  risk_managers?: Array<{
+    component_uuid: string
+    config?: Record<string, any>
+  }>
+  analyzers?: Array<{
+    component_uuid: string
+    config?: Record<string, any>
+  }>
+}
+
 export const portfolioApi = {
   /**
    * 获取Portfolio列表
+   * @param params 查询参数
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  list(params?: { mode?: string }): Promise<Portfolio[]> {
-    return request.get('/portfolio', { params })
+  list(params?: { mode?: string }, options?: RequestOptions): Promise<APIResponse<Portfolio[]>> {
+    return request.get('/v1/portfolios/', { params, signal: options?.signal })
   },
 
   /**
    * 获取Portfolio详情
+   * @param uuid Portfolio UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  get(uuid: string): Promise<PortfolioDetail> {
-    return request.get(`/portfolio/${uuid}`)
+  get(uuid: string, options?: RequestOptions): Promise<APIResponse<PortfolioDetail>> {
+    return request.get(`/v1/portfolios/${uuid}`, { signal: options?.signal })
   },
 
   /**
    * 创建Portfolio
+   * @param data Portfolio 数据
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  create(data: {
-    name: string
-    initial_cash: number
-    risk_config?: Record<string, unknown>
-  }): Promise<PortfolioDetail> {
-    return request.post('/portfolio', data)
+  create(data: PortfolioCreateData, options?: RequestOptions): Promise<APIResponse<PortfolioDetail>> {
+    return request.post('/v1/portfolios/', data, { signal: options?.signal })
   },
 
   /**
    * 更新Portfolio
+   * @param uuid Portfolio UUID
+   * @param data 更新数据
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  update(uuid: string, data: Partial<PortfolioDetail>): Promise<PortfolioDetail> {
-    return request.put(`/portfolio/${uuid}`, data)
+  update(uuid: string, data: Partial<PortfolioCreateData>, options?: RequestOptions): Promise<APIResponse<PortfolioDetail>> {
+    return request.put(`/v1/portfolios/${uuid}`, data, { signal: options?.signal })
   },
 
   /**
    * 删除Portfolio
+   * @param uuid Portfolio UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  delete(uuid: string): Promise<void> {
-    return request.delete(`/portfolio/${uuid}`)
+  delete(uuid: string, options?: RequestOptions): Promise<void> {
+    return request.delete(`/v1/portfolios/${uuid}`, { signal: options?.signal })
   }
 }
