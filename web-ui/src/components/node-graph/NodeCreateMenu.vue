@@ -122,10 +122,10 @@ const emit = defineEmits(['close', 'select'])
 
 const searchKeyword = ref('')
 const expandedSections = ref({
-  STRATEGY: true,
-  SELECTOR: true,
-  SIZER: true,
-  RISK: true,
+  strategy: true,
+  selector: true,
+  sizer: true,
+  risk: true,
 })
 
 // 根据端口类型过滤可用的组件类型
@@ -136,43 +136,43 @@ const availableTypes = computed(() => {
   // 定义端口数据类型到组件类型的映射
   const typeMapping: Record<string, string[]> = {
     // Portfolio 的输出端口可以连接的组件
-    'strategy': ['STRATEGY'],
-    'selector': ['SELECTOR'],
-    'sizer': ['SIZER'],
-    'risk': ['RISK_MANAGEMENT'],
-    'analyzer': ['ANALYZER'],
+    'strategy': ['strategy'],
+    'selector': ['selector'],
+    'sizer': ['sizer'],
+    'risk': ['risk'],
+    'analyzer': ['analyzer'],
     // 其他端口类型...
   }
 
-  return typeMapping[portDataType || ''] || ['STRATEGY', 'SELECTOR', 'SIZER', 'RISK_MANAGEMENT']
+  return typeMapping[portDataType || ''] || ['strategy', 'selector', 'sizer', 'risk']
 })
 
 // 菜单区域定义
 const menuSections = computed(() => {
   const sections = [
     {
-      type: 'STRATEGY',
+      type: 'strategy',
       label: '策略',
       color: 'cyan',
       icon: BulbOutlined,
       items: props.availableComponents.strategies
     },
     {
-      type: 'SELECTOR',
+      type: 'selector',
       label: '选股器',
       color: 'lime',
       icon: FilterOutlined,
       items: props.availableComponents.selectors
     },
     {
-      type: 'SIZER',
+      type: 'sizer',
       label: '仓位管理',
       color: 'gold',
       icon: PartitionOutlined,
       items: props.availableComponents.sizers
     },
     {
-      type: 'RISK',
+      type: 'risk',
       label: '风控',
       color: 'red',
       icon: SafetyOutlined,
@@ -212,10 +212,10 @@ const toggleSection = (type: string) => {
 // 获取区域图标
 const getSectionIcon = (type: string) => {
   const icons: Record<string, any> = {
-    STRATEGY: BulbOutlined,
-    SELECTOR: FilterOutlined,
-    SIZER: PartitionOutlined,
-    RISK: SafetyOutlined,
+    strategy: BulbOutlined,
+    selector: FilterOutlined,
+    sizer: PartitionOutlined,
+    risk: SafetyOutlined,
   }
   return icons[type] || SettingOutlined
 }

@@ -27,7 +27,7 @@
         <div class="node-icon" :class="`icon-${nodeType}`">
           <component :is="nodeIcon" />
         </div>
-        <span class="node-label">{{ node.data.label }}</span>
+        <span class="node-label">{{ data.label }}</span>
         <a-tag
           v-if="!isRootNode"
           size="small"
@@ -39,11 +39,11 @@
       </div>
       <div class="node-body" v-if="!isRootNode">
         <div
-          v-if="node.data.errors && node.data.errors.length > 0"
+          v-if="data.errors && data.errors.length > 0"
           class="node-errors"
         >
           <a-tooltip
-            v-for="error in node.data.errors"
+            v-for="error in data.errors"
             :key="error"
             :title="error"
           >
@@ -108,7 +108,7 @@ import { computed, ref } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { Tag } from 'ant-design-vue'
 import { WarningOutlined } from '@ant-design/icons-vue'
-import type { NodeProps, Node } from '@vue-flow/core'
+import type { Node, NodeProps } from '@vue-flow/core'
 import type { NodeType, GraphNode, NodePort } from './types'
 import { getOutputPorts, getInputPorts, NODE_TYPE_LABELS, NodeType as NodeTypeEnum } from './types'
 import {
@@ -123,11 +123,8 @@ import {
   BarChartOutlined,
 } from '@ant-design/icons-vue'
 
-interface Props extends NodeProps {
-  data: GraphNode['data']
-}
-
-const props = defineProps<Props>()
+// VueFlow会将节点数据作为props传递
+const props = defineProps<NodeProps>()
 const emit = defineEmits(['connection-start'])
 
 const selected = computed(() => props.selected || false)
