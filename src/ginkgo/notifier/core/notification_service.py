@@ -204,7 +204,7 @@ class NotificationService(BaseService):
                             final_content = ""  # embed包含description，content设为空
                             final_title = embed_obj.get("title", title)
                         except json.JSONDecodeError as e:
-                            print("[ERROR]"(f"Failed to parse embedded template JSON: {e}")
+                            print(f"[ERROR] Failed to parse embedded template JSON: {e}")
                             final_content = rendered_content
                     else:
                         # 文本/Markdown模板
@@ -320,7 +320,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error sending notification: {e}")
+            print(f"[ERROR] Error sending notification: {e}")
             return ServiceResult.error(
                 f"Notification send failed: {str(e)}",
                 message=str(e)
@@ -384,7 +384,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error sending batch notification: {e}")
+            print(f"[ERROR] Error sending batch notification: {e}")
             return ServiceResult.error(
                 f"Batch notification failed: {str(e)}"
             )
@@ -445,13 +445,13 @@ class NotificationService(BaseService):
 
         except ValueError as e:
             # 模板渲染错误
-            print("[ERROR]"(f"Template rendering error: {e}")
+            print(f"[ERROR] Template rendering error: {e}")
             return ServiceResult.error(
                 f"Template error: {str(e)}",
                 message=str(e)
             )
         except Exception as e:
-            print("[ERROR]"(f"Error sending template notification: {e}")
+            print(f"[ERROR] Error sending template notification: {e}")
             return ServiceResult.error(
                 f"Template notification failed: {str(e)}"
             )
@@ -467,7 +467,7 @@ class NotificationService(BaseService):
             List[str]: 可用渠道名称列表
         """
         if self.contact_crud is None:
-            print("[WARN]"("UserContactCRUD not initialized, cannot get user channels")
+            print("[WARN] UserContactCRUD not initialized, cannot get user channels")
             return []
 
         try:
@@ -491,7 +491,7 @@ class NotificationService(BaseService):
             return channels
 
         except Exception as e:
-            print("[ERROR]"(f"Error getting user channels: {e}")
+            print(f"[ERROR] Error getting user channels: {e}")
             return []
 
     def _resolve_user_uuid(self, user_input: str) -> Optional[str]:
@@ -513,7 +513,7 @@ class NotificationService(BaseService):
             result = self.user_service.fuzzy_search(user_input, limit=1)
 
             if not result.is_success:
-                print("[ERROR]"(f"User search failed: {result.message}")
+                print(f"[ERROR] User search failed: {result.message}")
                 return None
 
             if result.data.get("users"):
@@ -522,7 +522,7 @@ class NotificationService(BaseService):
             return None
 
         except Exception as e:
-            print("[ERROR]"(f"Error resolving user UUID: {e}")
+            print(f"[ERROR] Error resolving user UUID: {e}")
             return None
 
     def _resolve_group_uuids(self, group_input: str) -> List[str]:
@@ -544,7 +544,7 @@ class NotificationService(BaseService):
             result = self.user_group_service.fuzzy_search(group_input, limit=1)
 
             if not result.is_success:
-                print("[ERROR]"(f"Group search failed: {result.message}")
+                print(f"[ERROR] Group search failed: {result.message}")
                 return []
 
             if not result.data.get("groups"):
@@ -557,7 +557,7 @@ class NotificationService(BaseService):
             return [m.user_uuid for m in mappings]
 
         except Exception as e:
-            print("[ERROR]"(f"Error resolving group: {e}")
+            print(f"[ERROR] Error resolving group: {e}")
             return []
 
     def _get_group_users(self, group_name: str) -> ServiceResult:
@@ -590,7 +590,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error getting group users: {e}")
+            print(f"[ERROR] Error getting group users: {e}")
             return ServiceResult.error(f"Failed to get group users: {str(e)}")
 
     def _get_user_contact_address(self, user_uuid: str, channel: str) -> Optional[str]:
@@ -632,7 +632,7 @@ class NotificationService(BaseService):
             return None
 
         except Exception as e:
-            print("[ERROR]"(f"Error getting user contact address: {e}")
+            print(f"[ERROR] Error getting user contact address: {e}")
             return None
 
     @retry(max_try=3)
@@ -686,7 +686,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error sending user notification: {e}")
+            print(f"[ERROR] Error sending user notification: {e}")
             return ServiceResult.error(
                 f"User notification failed: {str(e)}"
             )
@@ -748,7 +748,7 @@ class NotificationService(BaseService):
                         **kwargs
                     )
                 except json.JSONDecodeError as e:
-                    print("[ERROR]"(f"Failed to parse embedded template JSON: {e}")
+                    print(f"[ERROR] Failed to parse embedded template JSON: {e}")
                     return ServiceResult.error(f"Invalid embedded template format: {str(e)}")
             else:
                 # 文本/Markdown模板直接使用渲染结果
@@ -762,12 +762,12 @@ class NotificationService(BaseService):
                 )
 
         except ValueError as e:
-            print("[ERROR]"(f"Template rendering error: {e}")
+            print(f"[ERROR] Template rendering error: {e}")
             return ServiceResult.error(
                 f"Template error: {str(e)}"
             )
         except Exception as e:
-            print("[ERROR]"(f"Error sending template to user: {e}")
+            print(f"[ERROR] Error sending template to user: {e}")
             return ServiceResult.error(
                 f"Template notification failed: {str(e)}"
             )
@@ -851,7 +851,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error sending group notification: {e}")
+            print(f"[ERROR] Error sending group notification: {e}")
             return ServiceResult.error(
                 f"Group notification failed: {str(e)}"
             )
@@ -933,7 +933,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error sending group template notification: {e}")
+            print(f"[ERROR] Error sending group template notification: {e}")
             return ServiceResult.error(
                 f"Group template notification failed: {str(e)}"
             )
@@ -971,7 +971,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error getting notification history: {e}")
+            print(f"[ERROR] Error getting notification history: {e}")
             return ServiceResult.error(
                 f"Failed to get history: {str(e)}"
             )
@@ -997,7 +997,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error getting failed notifications: {e}")
+            print(f"[ERROR] Error getting failed notifications: {e}")
             return ServiceResult.error(
                 f"Failed to get failed notifications: {str(e)}"
             )
@@ -1033,7 +1033,7 @@ class NotificationService(BaseService):
             return WebhookChannel(webhook_url=webhook_contact.address)
 
         except Exception as e:
-            print("[ERROR]"(f"Error creating webhook channel for user {user_uuid}: {e}")
+            print(f"[ERROR] Error creating webhook channel for user {user_uuid}: {e}")
             return None
 
     # ============================================================================
@@ -1103,7 +1103,7 @@ class NotificationService(BaseService):
                 )
 
         except Exception as e:
-            print("[ERROR]"(f"Error sending direct webhook: {e}")
+            print(f"[ERROR] Error sending direct webhook: {e}")
             return ServiceResult.error(
                 f"Direct webhook failed: {str(e)}"
             )
@@ -1279,7 +1279,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error sending trading signal webhook: {e}")
+            print(f"[ERROR] Error sending trading signal webhook: {e}")
             return ServiceResult.error(
                 f"Trading signal webhook failed: {str(e)}"
             )
@@ -1369,7 +1369,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error sending system notification webhook: {e}")
+            print(f"[ERROR] Error sending system notification webhook: {e}")
             return ServiceResult.error(
                 f"System notification webhook failed: {str(e)}"
             )
@@ -1495,7 +1495,7 @@ class NotificationService(BaseService):
                 )
 
         except Exception as e:
-            print("[ERROR]"(f"Error sending trading signal: {e}")
+            print(f"[ERROR] Error sending trading signal: {e}")
             return ServiceResult.error(
                 f"Trading signal failed: {str(e)}"
             )
@@ -1546,7 +1546,7 @@ class NotificationService(BaseService):
                     "Kafka components not configured and force_async=True"
                 )
             # Kafka 未配置，直接降级为同步发送
-            print("[WARN]"("Kafka components not configured, degrading to sync mode")
+            print("[WARN] Kafka components not configured, degrading to sync mode")
             return self.send(
                 content=content,
                 channels=channels,
@@ -1564,10 +1564,7 @@ class NotificationService(BaseService):
         if should_degrade:
             # Kafka 不可用，记录降级事件并降级为同步发送
             health_summary = self._kafka_health_checker.get_health_summary()
-            print("[WARN]"(
-                f"Kafka unavailable, degrading to sync mode. "
-                f"Health status: {health_summary}"
-            )
+            print(f"[WARN] Kafka unavailable, degrading to sync mode. Health status: {health_summary}")
             if force_async:
                 return ServiceResult.error(
                     f"Kafka unavailable and force_async=True. Status: {health_summary}"
@@ -1605,7 +1602,7 @@ class NotificationService(BaseService):
             # 等待消息发送完成（避免程序退出时的超时错误）
             self._kafka_producer.flush(timeout=2.0)
 
-            print("[DEBUG]"(f"Notification queued via Kafka for user {user_uuid}, channels: {channels}")
+            print(f"[DEBUG] Notification queued via Kafka for user {user_uuid}, channels: {channels}")
 
             return ServiceResult.success(
                 data={
@@ -1617,7 +1614,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Kafka async send error: {e}, degrading to sync mode")
+            print(f"[ERROR] Kafka async send error: {e}, degrading to sync mode")
             if force_async:
                 return ServiceResult.error(f"Kafka send failed: {str(e)}")
             return self.send(
@@ -1667,7 +1664,7 @@ class NotificationService(BaseService):
         if isinstance(channels, str):
             channels = [channels]
 
-        print("[DEBUG]"(f"Sending sync notification for user {user_uuid}, channels: {channels}")
+        print(f"[DEBUG] Sending sync notification for user {user_uuid}, channels: {channels}")
 
         # 直接调用同步发送方法
         return self.send(
@@ -1812,7 +1809,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error getting records for user '{user_uuid}': {e}")
+            print(f"[ERROR] Error getting records for user '{user_uuid}': {e}")
             return ServiceResult.error(
                 f"Failed to get records: {str(e)}"
             )
@@ -1847,7 +1844,7 @@ class NotificationService(BaseService):
             )
 
         except Exception as e:
-            print("[ERROR]"(f"Error getting records for template '{template_id}': {e}")
+            print(f"[ERROR] Error getting records for template '{template_id}': {e}")
             return ServiceResult.error(
                 f"Failed to get records: {str(e)}"
             )
@@ -1900,7 +1897,7 @@ def _get_notification_service() -> NotificationService:
         return _notification_service_instance
         
     except Exception as e:
-        print("[ERROR]"(f"Failed to initialize NotificationService: {e}")
+        print(f"[ERROR] Failed to initialize NotificationService: {e}")
         return None
 
 
@@ -1943,7 +1940,7 @@ def notify(
     try:
         service = _get_notification_service()
         if service is None:
-            print("[ERROR]"("NotificationService not available")
+            print("[ERROR] NotificationService not available")
             return False
 
         # 等级到模板ID的映射
@@ -1983,7 +1980,7 @@ def notify(
         recipients = recipient_crud.find(filters={"is_del": False}, as_dataframe=False)
 
         if not recipients:
-            print("[WARN]"("No notification recipients found, notification not sent")
+            print("[WARN] No notification recipients found, notification not sent")
             return False
 
         # 收集所有需要通知的用户UUID（去重）
@@ -2010,7 +2007,7 @@ def notify(
         user_uuids = list(user_uuids_set)
 
         if not user_uuids:
-            print("[WARN]"("No users found from notification recipients")
+            print("[WARN] No users found from notification recipients")
             return False
 
         # 构建标题
@@ -2086,7 +2083,7 @@ def notify(
             return success_count > 0
 
     except Exception as e:
-        print("[ERROR]"(f"Failed to send notification: {e}")
+        print(f"[ERROR] Failed to send notification: {e}")
         return False
 
 
@@ -2130,7 +2127,7 @@ def notify_with_fields(
     try:
         service = _get_notification_service()
         if service is None:
-            print("[ERROR]"(f"[{module}] NotificationService not available")
+            print(f"[ERROR] [{module}] NotificationService not available")
             return False
 
         # 获取所有系统通知接收人
@@ -2144,7 +2141,7 @@ def notify_with_fields(
         recipients = recipient_crud.find(filters={"is_del": False}, as_dataframe=False)
 
         if not recipients:
-            print("[WARN]"(f"[{module}] No notification recipients found")
+            print(f"[WARN] [{module}] No notification recipients found")
             return False
 
         # 收集所有需要通知的用户UUID（去重）
@@ -2171,7 +2168,7 @@ def notify_with_fields(
         user_uuids = list(user_uuids_set)
 
         if not user_uuids:
-            print("[WARN]"(f"[{module}] No users found from notification recipients")
+            print(f"[WARN] [{module}] No users found from notification recipients")
             return False
 
         # 异步模式：通过 Kafka 发送
@@ -2196,12 +2193,12 @@ def notify_with_fields(
                         print(f"[{module}] Notification queued for {len(user_uuids)} users (async)")
                         return True
                     else:
-                        print("[WARN]"(f"[{module}] Kafka send_async failed, falling back to sync mode")
+                        print(f"[WARN] [{module}] Kafka send_async failed, falling back to sync mode")
                 else:
-                    print("[WARN]"(f"[{module}] Kafka producer not available, falling back to sync mode")
+                    print(f"[WARN] [{module}] Kafka producer not available, falling back to sync mode")
 
             except Exception as e:
-                print("[WARN]"(f"[{module}] Async send failed: {e}, falling back to sync mode")
+                print(f"[WARN] [{module}] Async send failed: {e}, falling back to sync mode")
 
         # 同步模式：直接发送到 Discord webhook
         color = SYSTEM_LEVEL_COLORS.get(level.upper(), DISCORD_COLOR_WHITE)
@@ -2231,9 +2228,9 @@ def notify_with_fields(
             print(f"[{module}] Notification sent to {success_count}/{len(user_uuids)} users (sync mode)")
             return True
         else:
-            print("[WARN]"(f"[{module}] No notifications sent")
+            print(f"[WARN] [{module}] No notifications sent")
             return False
 
     except Exception as e:
-        print("[ERROR]"(f"[{module}] Failed to send notification with fields: {e}")
+        print(f"[ERROR] [{module}] Failed to send notification with fields: {e}")
         return False
