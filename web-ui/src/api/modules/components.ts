@@ -1,74 +1,102 @@
 import request from '../request'
+import type { RequestOptions } from '@/types/api-request'
+import type {
+  ComponentSummary,
+  ComponentDetail,
+  ComponentCreate,
+  ComponentUpdate,
+  ComponentParameter,
+  ComponentParameterDefinitions
+} from '@/types/component'
 
 // ==================== 组件管理 ====================
 
-export interface ComponentSummary {
-  uuid: string
-  name: string
-  component_type: string  // strategy, analyzer, risk, sizer, selector
-  file_type: number
-  description?: string
-  created_at: string
-  updated_at?: string
-  is_active: boolean
-}
-
-export interface ComponentDetail {
-  uuid: string
-  name: string
-  component_type: string
-  file_type: number
-  code?: string
-  description?: string
-  parameters: Array<{ [key: string]: any }>
-  created_at: string
-  updated_at?: string
-}
+// 重新导出类型（保持向后兼容）
+export type {
+  ComponentSummary,
+  ComponentDetail,
+  ComponentCreate,
+  ComponentUpdate,
+  ComponentParameter,
+  ComponentParameterDefinitions,
+  ComponentConfig,
+  ParamType
+} from '@/types/component'
 
 export const componentsApi = {
   /**
    * 获取组件列表
+   * @param params 查询参数
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  list(params?: { component_type?: string; is_active?: boolean }): Promise<ComponentSummary[]> {
-    return request.get('/components', { params })
+  list(params?: { component_type?: string; is_active?: boolean }, options?: RequestOptions): Promise<ComponentSummary[]> {
+    return request.get('/v1/components/', { params, signal: options?.signal })
   },
 
   /**
    * 获取组件详情
+   * @param uuid 组件 UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  get(uuid: string): Promise<ComponentDetail> {
-    return request.get(`/components/${uuid}`)
+  get(uuid: string, options?: RequestOptions): Promise<ComponentDetail> {
+    return request.get(`/v1/components/${uuid}`, { signal: options?.signal })
   },
 
   /**
    * 创建组件
+   * @param data 组件数据
+   * @param options 请求选项（支持 signal 取消请求）
    */
   create(data: {
     name: string
     component_type: string
     code: string
     description?: string
-  }): Promise<ComponentDetail> {
-    return request.post('/components', data)
+  }, options?: RequestOptions): Promise<ComponentDetail> {
+    return request.post('/v1/components/', data, { signal: options?.signal })
   },
 
   /**
    * 更新组件
+   * @param uuid 组件 UUID
+   * @param data 更新数据
+   * @param options 请求选项（支持 signal 取消请求）
    */
   update(uuid: string, data: {
     name?: string
     code?: string
     description?: string
     parameters?: Record<string, any>
-  }): Promise<{ message: string }> {
-    return request.put(`/components/${uuid}`, data)
+  }, options?: RequestOptions): Promise<{ message: string }> {
+    return request.put(`/v1/components/${uuid}`, data, { signal: options?.signal })
   },
 
   /**
    * 删除组件
+   * @param uuid 组件 UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  delete(uuid: string): Promise<{ message: string }> {
-    return request.delete(`/components/${uuid}`)
+  delete(uuid: string, options?: RequestOptions): Promise<{ message: string }> {
+    return request.delete(`/v1/components/${uuid}`, { signal: options?.signal })
+  },
+
+  // ==================== 组件参数管理 ====================
+
+  /**
+   * 获取组件参数定义
+   * @param componentName 组件名称
+   * @param options 请求选项（支持 signal 取消请求）
+   */
+  getParameters(componentName: string, options?: RequestOptions): Promise<ComponentParameter[]> {
+    return request.get(`/v1/components/parameters/${componentName}`, { signal: options?.signal })
+  },
+
+  /**
+   * 获取所有组件参数定义
+   * @param options 请求选项（支持 signal 取消请求）
+   */
+  getAllParameters(options?: RequestOptions): Promise<ComponentParameterDefinitions> {
+    return request.get('/v1/components/parameters', { signal: options?.signal })
   }
 }
 
@@ -148,24 +176,29 @@ export interface DataSource {
 export const dataApi = {
   /**
    * 获取数据统计
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  getStats(): Promise<DataStats> {
-    return request.get('/data/stats')
+  getStats(options?: RequestOptions): Promise<DataStats> {
+    return request.get('/v1/data/stats', { signal: options?.signal })
   },
 
   /**
    * 获取股票信息列表（分页）
+   * @param params 查询参数
+   * @param options 请求选项（支持 signal 取消请求）
    */
   getStockInfo(params?: {
     search?: string
     page?: number
     page_size?: number
-  }): Promise<PaginatedResponse<StockInfoSummary>> {
-    return request.get('/data/stockinfo', { params })
+  }, options?: RequestOptions): Promise<PaginatedResponse<StockInfoSummary>> {
+    return request.get('/v1/data/stockinfo', { params, signal: options?.signal })
   },
 
   /**
    * 获取K线数据列表（分页）
+   * @param params 查询参数
+   * @param options 请求选项（支持 signal 取消请求）
    */
   getBars(params?: {
     code?: string
@@ -173,12 +206,14 @@ export const dataApi = {
     end_date?: string
     page?: number
     page_size?: number
-  }): Promise<PaginatedResponse<BarDataSummary>> {
-    return request.get('/data/bars', { params })
+  }, options?: RequestOptions): Promise<PaginatedResponse<BarDataSummary>> {
+    return request.get('/v1/data/bars', { params, signal: options?.signal })
   },
 
   /**
    * 获取Tick数据列表（分页）
+   * @param params 查询参数
+   * @param options 请求选项（支持 signal 取消请求）
    */
   getTicks(params?: {
     code?: string
@@ -186,12 +221,14 @@ export const dataApi = {
     end_date?: string
     page?: number
     page_size?: number
-  }): Promise<PaginatedResponse<TickDataSummary>> {
-    return request.get('/data/ticks', { params })
+  }, options?: RequestOptions): Promise<PaginatedResponse<TickDataSummary>> {
+    return request.get('/v1/data/ticks', { params, signal: options?.signal })
   },
 
   /**
    * 获取复权因子列表（分页）
+   * @param params 查询参数
+   * @param options 请求选项（支持 signal 取消请求）
    */
   getAdjustFactors(params?: {
     code?: string
@@ -199,25 +236,28 @@ export const dataApi = {
     end_date?: string
     page?: number
     page_size?: number
-  }): Promise<PaginatedResponse<AdjustFactorSummary>> {
-    return request.get('/data/adjustfactors', { params })
+  }, options?: RequestOptions): Promise<PaginatedResponse<AdjustFactorSummary>> {
+    return request.get('/v1/data/adjustfactors', { params, signal: options?.signal })
   },
 
   /**
    * 触发数据更新
+   * @param data 更新请求
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  updateData(data: DataUpdateRequest): Promise<{
+  updateData(data: DataUpdateRequest, options?: RequestOptions): Promise<{
     message: string
     type: string
     codes?: string[]
   }> {
-    return request.post('/data/update', data)
+    return request.post('/v1/data/update', data, { signal: options?.signal })
   },
 
   /**
    * 获取数据源状态
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  getDataSources(): Promise<DataSource[]> {
-    return request.get('/data/sources')
+  getDataSources(options?: RequestOptions): Promise<DataSource[]> {
+    return request.get('/v1/data/sources', { signal: options?.signal })
   }
 }

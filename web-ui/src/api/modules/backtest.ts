@@ -1,4 +1,6 @@
 import request from '../request'
+import type { APIResponse, PaginatedResponse } from '@/types/api'
+import type { RequestOptions } from '@/types/api-request'
 
 // 分析器配置
 export interface AnalyzerConfig {
@@ -105,57 +107,143 @@ export interface AnalyzerTypeInfo {
 export const backtestApi = {
   /**
    * 获取回测任务列表
+   * @param params 查询参数
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  list(params?: { state?: string }): Promise<BacktestTask[]> {
-    return request.get('/backtest', { params })
+  list(params?: { state?: string; page?: number; page_size?: number }, options?: RequestOptions): Promise<PaginatedResponse<BacktestTask>> {
+    return request.get('/v1/backtests/', { params, signal: options?.signal })
   },
 
   /**
    * 获取回测任务详情
+   * @param uuid 回测任务 UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  get(uuid: string): Promise<BacktestTaskDetail> {
-    return request.get(`/backtest/${uuid}`)
+  get(uuid: string, options?: RequestOptions): Promise<APIResponse<BacktestTaskDetail>> {
+    return request.get(`/v1/backtests/${uuid}`, { signal: options?.signal })
   },
 
   /**
    * 创建回测任务
+   * @param data 回测配置
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  create(data: BacktestCreate): Promise<BacktestTaskDetail> {
-    return request.post('/backtest', data)
+  create(data: BacktestCreate, options?: RequestOptions): Promise<APIResponse<BacktestTaskDetail>> {
+    return request.post('/v1/backtests/', data, { signal: options?.signal })
   },
 
   /**
    * 启动回测任务
+   * @param uuid 回测任务 UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  start(uuid: string): Promise<{ message: string }> {
-    return request.post(`/backtest/${uuid}/start`)
+  start(uuid: string, options?: RequestOptions): Promise<APIResponse<{ uuid: string; state: string }>> {
+    return request.post(`/v1/backtests/${uuid}/start`, {}, { signal: options?.signal })
   },
 
   /**
    * 停止回测任务
+   * @param uuid 回测任务 UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  stop(uuid: string): Promise<{ message: string }> {
-    return request.post(`/backtest/${uuid}/stop`)
+  stop(uuid: string, options?: RequestOptions): Promise<APIResponse<{ uuid: string; state: string }>> {
+    return request.post(`/v1/backtests/${uuid}/stop`, {}, { signal: options?.signal })
   },
 
   /**
    * 删除回测任务
+   * @param uuid 回测任务 UUID
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  delete(uuid: string): Promise<void> {
-    return request.delete(`/backtest/${uuid}`)
+  delete(uuid: string, options?: RequestOptions): Promise<void> {
+    return request.delete(`/v1/backtests/${uuid}`, { signal: options?.signal })
   },
 
   /**
    * 获取可用的 Engine 列表（用于预填充配置）
+   * @param params 查询参数
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  getEngines(params?: { is_live?: boolean }): Promise<Engine[]> {
-    return request.get('/backtest/engines', { params: { is_live: false, ...params } })
+  getEngines(params?: { is_live?: boolean }, options?: RequestOptions): Promise<APIResponse<Engine[]>> {
+    return request.get('/v1/backtests/engines', { params: { is_live: false, ...params }, signal: options?.signal })
   },
 
   /**
    * 获取可用的分析器类型列表
+   * @param options 请求选项（支持 signal 取消请求）
    */
-  getAnalyzers(): Promise<AnalyzerTypeInfo[]> {
-    return request.get('/backtest/analyzers')
+  getAnalyzers(options?: RequestOptions): Promise<APIResponse<AnalyzerTypeInfo[]>> {
+    return request.get('/v1/backtests/analyzers', { signal: options?.signal })
+  },
+
+  /**
+   * 创建 SSE 连接监听回测进度
+   * @param uuid 回测任务 UUID
+   * @param onProgress 进度回调函数
+   * @param onComplete 完成回调函数
+   * @param onError 错误回调函数
+   * @returns EventSource 实例，用于关闭连接
+   */
+  subscribeProgress(
+    uuid: string,
+    onProgress: (data: BacktestProgress) => void,
+    onComplete?: (data: BacktestProgress) => void,
+    onError?: (error: string) => void
+  ): EventSource {
+    const eventSource = new EventSource(`/api/v1/backtests/${uuid}/events`)
+
+    // 监听普通消息事件
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as BacktestProgress
+        onProgress(data)
+      } catch (error) {
+        console.error('Failed to parse SSE data:', error)
+      }
+    }
+
+    // 监听完成事件
+    if (onComplete) {
+      eventSource.addEventListener('complete', (event) => {
+        try {
+          const data = JSON.parse((event as MessageEvent).data) as BacktestProgress
+          onComplete(data)
+        } catch (error) {
+          console.error('Failed to parse complete event:', error)
+        }
+      })
+    }
+
+    // 监听错误事件
+    if (onError) {
+      eventSource.addEventListener('error', (event) => {
+        try {
+          const data = JSON.parse((event as MessageEvent).data) as BacktestProgress
+          onError(data.error || 'Unknown error')
+        } catch (error) {
+          onError('Connection error')
+        }
+      })
+    }
+
+    // 监听连接错误
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error)
+      onError?.('Connection lost')
+    }
+
+    return eventSource
   }
+}
+
+/**
+ * 回测进度数据（来自 SSE）
+ */
+export interface BacktestProgress {
+  progress: number
+  state?: string
+  current_date?: string
+  result?: Record<string, any>
+  error?: string
+  updated_at: string
 }
