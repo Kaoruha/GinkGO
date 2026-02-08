@@ -6,6 +6,9 @@ from fastapi import APIRouter, HTTPException, status, Query, Request
 from typing import Optional
 from core.database import get_db
 from core.logging import logger
+from core.response import APIResponse, success_response
+from core.exceptions import NotFoundError, ValidationError, BusinessError
+from datetime import datetime
 import sys
 from pathlib import Path
 
@@ -36,7 +39,18 @@ def get_file_service():
     return container.file_service()
 
 
-@router.get("", response_model=list[PortfolioSummary])
+def get_mapping_service():
+    """获取PortfolioMappingService实例"""
+    from ginkgo.data.containers import container
+    return container.portfolio_mapping_service()
+
+def get_param_service():
+    """获取ParameterMetadataService实例"""
+    from ginkgo.data.containers import container
+    return container.parameter_metadata_service()
+
+
+@router.get("/", response_model=APIResponse[list[PortfolioSummary]])
 async def list_portfolios(
     mode: Optional[PortfolioMode] = Query(None, description="按运行模式筛选")
 ):
@@ -58,7 +72,12 @@ async def list_portfolios(
         result = portfolio_service.get(is_live=is_live_filter)
 
         if not result.is_success():
-            return []
+            return {
+                "success": True,
+                "data": [],
+                "error": None,
+                "message": "Portfolios retrieved successfully"
+            }
 
         portfolios = []
         for p in result.data or []:
@@ -73,227 +92,267 @@ async def list_portfolios(
                 "created_at": p.create_at.isoformat() if hasattr(p, 'create_at') and p.create_at else None
             })
 
-        return portfolios
+        return {
+            "success": True,
+            "data": portfolios,
+            "error": None,
+            "message": "Portfolios retrieved successfully"
+        }
     except Exception as e:
         logger.error(f"Error listing portfolios: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error listing portfolios: {str(e)}"
-        )
+        raise BusinessError(f"Error listing portfolios: {str(e)}")
 
 
-@router.get("/{uuid}", response_model=PortfolioDetail)
+@router.get("/{uuid}", response_model=APIResponse[PortfolioDetail])
 async def get_portfolio(uuid: str):
-    """获取Portfolio详情（从数据库，包含组件配置）"""
-    # 组件类型映射 (FILE_TYPES)
-    TYPE_NAMES = {
-        '1': 'STRATEGY',
-        '3': 'RISKMANAGER',
-        '4': 'SELECTOR',
-        '5': 'SIZER',
-        '6': 'STRATEGY',
-        'STRATEGY': 'STRATEGY',
-        'SELECTOR': 'SELECTOR',
-        'SIZER': 'SIZER',
-        'RISKMANAGER': 'RISKMANAGER',
-    }
-
+    """获取Portfolio详情（包含组件配置和参数）"""
     try:
-        # 获取PortfolioService
+        # 获取服务
         portfolio_service = get_portfolio_service()
+        mapping_service = get_mapping_service()
+        file_service = get_file_service()
 
-        # 获取基本信息
+        # 获取Portfolio基本信息
         portfolio_result = portfolio_service.get(portfolio_id=uuid)
         if not portfolio_result.is_success():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Portfolio {uuid} not found"
-            )
+            raise NotFoundError("Portfolio", uuid)
 
         portfolio_model = portfolio_result.data
         if isinstance(portfolio_model, list):
             portfolio_model = portfolio_model[0] if portfolio_model else None
 
         if portfolio_model is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Portfolio {uuid} not found"
-            )
+            raise NotFoundError("Portfolio", uuid)
 
-        # 获取组件信息
-        components_result = portfolio_service.get_components(portfolio_id=uuid)
+        # 获取组件映射和参数
+        mappings_result = mapping_service.get_portfolio_mappings(uuid, include_params=True)
 
-        # 获取FileService用于获取组件代码
-        file_service = get_file_service()
-
-        # 解析组件 (FILE_TYPES: STRATEGY=6, SELECTOR=4, SIZER=5, RISKMANAGER=3)
         strategies = []
         selectors = []
         sizers = []
         risk_managers = []
+        analyzers = []
 
-        if components_result.is_success():
-            for comp in components_result.data or []:
-                comp_type = comp.get('component_type', '')
-                component_id = comp.get('component_id', '')
+        if mappings_result.is_success():
+            from ginkgo.enums import FILE_TYPES
 
-                # 获取文件详情
-                code_content = None
-                try:
-                    file_result = file_service.get(filters={"uuid": component_id}, as_dataframe=False)
-                    if file_result.is_success() and file_result.data:
-                        file_data = file_result.data
-                        files = file_data.get("files", [])
-                        if files and len(files) > 0:
-                            file_obj = files[0]
-                            if hasattr(file_obj, 'data') and file_obj.data:
-                                try:
-                                    code_content = file_obj.data.decode('utf-8')
-                                except:
-                                    code_content = str(file_obj.data)
-                except Exception as e:
-                    logger.warning(f"Failed to get file {component_id}: {str(e)}")
+            for m in mappings_result.data:
+                # 获取文件信息
+                file_result = file_service.get_by_uuid(m['file_id'])
+                file_obj = None
+                if file_result.is_success() and file_result.data:
+                    file_obj = file_result.data.get("file") if isinstance(file_result.data, dict) else file_result.data
 
-                # 转换类型为可读名称
-                readable_type = TYPE_NAMES.get(comp_type, comp_type)
-
-                # 调试日志：打印组件代码
-                component_name = comp.get('component_name', '')
-                if 'fixed' in component_name.lower() or 'selector' in readable_type.lower():
-                    logger.info(f"Component {component_name} ({component_id}): code_length={len(code_content) if code_content else 0}, code_preview={code_content[:200] if code_content else None}")
-
-                # 保留mapping中的所有字段
+                file_type = m.get('type')
                 component_info = {
-                    "uuid": component_id,
-                    "name": comp.get('component_name', ''),
-                    "type": readable_type,
-                    "mount_id": comp.get('mount_id', ''),
-                    "created_at": comp.get('created_at'),
-                    "code": code_content,  # 组件代码（用于解析参数）
+                    "uuid": m['file_id'],
+                    "name": file_obj.name if file_obj else m.get('name', ''),
+                    "type": m.get('type'),
                 }
 
-                # 支持数字字符串和枚举名称
-                if comp_type in ('STRATEGY', '6', '1'):
-                    strategies.append(component_info)
-                elif comp_type in ('SELECTOR', '4'):
-                    selectors.append(component_info)
-                elif comp_type in ('SIZER', '5'):
-                    sizers.append(component_info)
-                elif comp_type in ('RISKMANAGER', '3'):
-                    risk_managers.append(component_info)
+                # 添加参数
+                params = m.get('params', {})
+                if params:
+                    # 将参数从param_0, param_1格式转换为实际参数名
+                    param_service = get_param_service()
+                    # 获取组件名称用于参数映射（不传file_type，让函数自动推断）
+                    component_name = file_obj.name if file_obj else ""
+                    param_names = param_service.get_component_parameter_names(
+                        component_name=component_name
+                    )
 
-        return {
-            "uuid": portfolio_model.uuid,
+                    # 转换参数
+                    config = {}
+                    for key, value in params.items():
+                        if key.startswith('param_'):
+                            idx = int(key.split('_')[1])
+                            if idx in param_names:
+                                param_name = param_names[idx]
+                                config[param_name] = value
+                    component_info['config'] = config
+
+                # 根据类型分组
+                if file_type == FILE_TYPES.SELECTOR:
+                    selectors.append(component_info)
+                elif file_type == FILE_TYPES.SIZER:
+                    sizers.append(component_info)
+                elif file_type == FILE_TYPES.STRATEGY:
+                    strategies.append(component_info)
+                elif file_type == FILE_TYPES.RISKMANAGER:
+                    risk_managers.append(component_info)
+                elif file_type == FILE_TYPES.ANALYZER:
+                    analyzers.append(component_info)
+
+        from datetime import datetime
+        create_at_value = portfolio_model.create_at if hasattr(portfolio_model, 'create_at') and portfolio_model.create_at else None
+
+        data = {
+            "uuid": uuid,
             "name": portfolio_model.name,
             "mode": "BACKTEST" if portfolio_model.is_live == 0 else "LIVE",
             "state": "INITIALIZED",
             "config_locked": False,
             "net_value": 1.0,
-            "created_at": portfolio_model.create_at.isoformat() if hasattr(portfolio_model, 'create_at') and portfolio_model.create_at else None,
-            "initial_cash": float(portfolio_model.initial_capital) if hasattr(portfolio_model, 'initial_capital') else 0,
-            "current_cash": float(portfolio_model.cash) if hasattr(portfolio_model, 'cash') else 0,
+            "created_at": create_at_value.isoformat() if isinstance(create_at_value, datetime) else create_at_value,
+            "initial_cash": float(portfolio_model.initial_capital) if hasattr(portfolio_model, 'initial_capital') else 100000.0,
+            "current_cash": float(portfolio_model.cash) if hasattr(portfolio_model, 'cash') else 100000.0,
             "positions": [],
             "strategies": strategies,
             "selectors": selectors,
             "sizers": sizers,
             "risk_managers": risk_managers,
+            "analyzers": analyzers,
             "risk_alerts": []
         }
-    except HTTPException:
+
+        return {
+            "success": True,
+            "data": data,
+            "error": None,
+            "message": "Portfolio retrieved successfully"
+        }
+
+    except NotFoundError:
         raise
     except Exception as e:
         logger.error(f"Error getting portfolio {uuid}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting portfolio: {str(e)}"
-        )
+        raise BusinessError(f"Error getting portfolio: {str(e)}")
 
 
-@router.post("", response_model=PortfolioDetail, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=APIResponse[PortfolioDetail], status_code=status.HTTP_201_CREATED)
 async def create_portfolio(data: PortfolioCreate):
-    """创建Portfolio（使用PortfolioService）"""
-    try:
-        # 使用 PortfolioService 创建组合
-        portfolio_service = get_portfolio_service()
+    """创建Portfolio（使用Saga事务保证一致性）
 
-        result = portfolio_service.add(
+    通过Saga模式确保Portfolio创建的事务一致性：
+    - 创建Portfolio实体
+    - 添加Selector组件
+    - 添加Sizer组件
+    - 添加Strategy组件
+    - 添加RiskManager组件
+    - 添加Analyzer组件
+
+    任何步骤失败都会自动回滚已完成的操作。
+    """
+    try:
+        from services.saga_transaction import PortfolioSagaFactory
+
+        # 准备组件数据
+        sizer_data = None
+        if data.sizer_uuid:
+            sizer_data = {'component_uuid': data.sizer_uuid, 'config': {}}
+
+        # 创建 Saga 事务
+        saga = PortfolioSagaFactory.create_portfolio_saga(
             name=data.name,
-            is_live=False  # BACKTEST 模式
+            is_live=False,  # BACKTEST 模式
+            selectors=data.selectors,
+            sizer=sizer_data,
+            strategies=data.strategies,
+            risk_managers=data.risk_managers or [],
+            analyzers=data.analyzers or []
         )
 
-        if not result.is_success():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=result.error or "Failed to create portfolio"
+        # 执行 Saga 事务
+        success = await saga.execute()
+
+        if not success:
+            logger.error(f"Failed to create portfolio: {saga.error}")
+            raise BusinessError(
+                f"Failed to create portfolio: {str(saga.error)}. "
+                "Transaction has been rolled back."
             )
 
-        portfolio = result.data
-
-        # 处理不同的返回类型（dict 或 model）
-        if isinstance(portfolio, dict):
-            portfolio_uuid = portfolio.get('uuid', '')
-            portfolio_name = portfolio.get('name', data.name)
-            initial_capital = portfolio.get('initial_capital', data.initial_cash)
-            cash = portfolio.get('cash', data.initial_cash)
-            create_at_value = portfolio.get('create_at')
+        # 获取创建后的完整数据
+        # saga.steps[0].result 可能是 dict 或对象
+        step_result = saga.steps[0].result
+        if isinstance(step_result, dict):
+            portfolio_uuid = step_result.get('uuid')
         else:
-            portfolio_uuid = portfolio.uuid
-            portfolio_name = portfolio.name
-            initial_capital = float(portfolio.initial_capital) if hasattr(portfolio, 'initial_capital') else data.initial_cash
-            cash = float(portfolio.cash) if hasattr(portfolio, 'cash') else data.initial_cash
-            create_at_value = portfolio.create_at if hasattr(portfolio, 'create_at') else None
+            portfolio_uuid = getattr(step_result, 'uuid', None)
 
-        from datetime import datetime
-        now = datetime.utcnow()
+        if not portfolio_uuid:
+            raise BusinessError("Failed to get portfolio UUID after creation")
 
-        return {
-            "uuid": portfolio_uuid,
-            "name": portfolio_name,
-            "mode": "BACKTEST",
-            "state": "INITIALIZED",
-            "config_locked": False,
-            "net_value": 1.0,
-            "created_at": create_at_value if isinstance(create_at_value, datetime) else now,
-            "initial_cash": float(initial_capital),
-            "current_cash": float(cash),
-            "positions": [],
-            "strategies": [],
-            "selectors": [],
-            "sizers": [],
-            "risk_managers": [],
-            "risk_alerts": []
-        }
+        response = await get_portfolio(portfolio_uuid)
+        return response
 
-    except HTTPException:
+    except BusinessError:
         raise
     except Exception as e:
         logger.error(f"Error creating portfolio: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating portfolio: {str(e)}"
-        )
+        raise BusinessError(f"Error creating portfolio: {str(e)}")
 
 
-@router.put("/{uuid}", response_model=PortfolioDetail)
+@router.put("/{uuid}", response_model=APIResponse[PortfolioDetail])
 async def update_portfolio(uuid: str, data: dict):
-    """更新Portfolio"""
-    async with get_db() as db:
-        await db.execute(
-            "UPDATE portfolio SET update_at = NOW() WHERE uuid = %s",
-            [uuid]
+    """更新Portfolio及其组件配置（使用Saga事务保证一致性）
+
+    通过Saga模式确保Portfolio更新的事务一致性：
+    - 备份当前状态
+    - 更新基本信息（名称、初始资金）
+    - 删除旧组件映射
+    - 添加新组件映射
+
+    任何步骤失败都会自动回滚到更新前的状态。
+    """
+    try:
+        from services.saga_transaction import PortfolioSagaFactory
+
+        # 准备更新参数
+        sizer_data = None
+        if data.get('sizer_uuid'):
+            sizer_data = {'component_uuid': data['sizer_uuid'], 'config': {}}
+
+        # 创建 Saga 事务
+        saga = PortfolioSagaFactory.update_portfolio_saga(
+            portfolio_uuid=uuid,
+            name=data.get('name'),
+            initial_cash=data.get('initial_cash'),
+            selectors=data.get('selectors'),
+            sizer=sizer_data,
+            strategies=data.get('strategies'),
+            risk_managers=data.get('risk_managers'),
+            analyzers=data.get('analyzers')
         )
-        await db.commit()
+
+        # 执行 Saga 事务
+        success = await saga.execute()
+
+        if not success:
+            logger.error(f"Failed to update portfolio: {saga.error}")
+            raise BusinessError(
+                f"Failed to update portfolio: {str(saga.error)}. "
+                "Transaction has been rolled back."
+            )
 
         # 返回更新后的数据
-        return await get_portfolio(uuid)
+        response = await get_portfolio(uuid)
+        return response
+
+    except (NotFoundError, BusinessError):
+        raise
+    except Exception as e:
+        logger.error(f"Error updating portfolio {uuid}: {str(e)}")
+        raise BusinessError(f"Error updating portfolio: {str(e)}")
 
 
 @router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_portfolio(uuid: str):
-    """删除Portfolio（软删除）"""
-    async with get_db() as db:
-        await db.execute(
-            "UPDATE portfolio SET is_del = 1, update_at = NOW() WHERE uuid = %s",
-            [uuid]
-        )
-        await db.commit()
+    """删除Portfolio（通过 service 层）"""
+    try:
+        # 获取 PortfolioService
+        portfolio_service = get_portfolio_service()
+
+        # 调用 service 的 delete 方法
+        result = portfolio_service.delete(portfolio_id=uuid)
+
+        if not result.is_success():
+            raise NotFoundError("Portfolio", uuid)
+
+        logger.info(f"Portfolio {uuid} deleted successfully")
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting portfolio {uuid}: {str(e)}")
+        raise BusinessError(f"Error deleting portfolio: {str(e)}")

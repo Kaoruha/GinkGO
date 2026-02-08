@@ -44,7 +44,7 @@ def get_file_service():
 
 # ==================== CRUD 操作 ====================
 
-@router.get("", response_model=dict)
+@router.get("/", response_model=dict)
 async def list_node_graphs(
     portfolio_uuid: Optional[str] = None,
     page: int = 1,
@@ -130,7 +130,7 @@ async def get_node_graph(
         )
 
 
-@router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_node_graph(
     data: NodeGraphCreate,
     db=Depends(get_db)

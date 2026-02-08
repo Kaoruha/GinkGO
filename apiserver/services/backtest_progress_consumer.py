@@ -1,18 +1,33 @@
 """
 Backtest Progress Consumer
 
-消费回测进度消息并更新数据库
+消费回测进度消息并更新数据库和Redis缓存
 """
 
 import asyncio
 import json
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime
 
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer
 from ginkgo.interfaces.kafka_topics import KafkaTopics
 from core.logging import logger
 from core.database import get_db_cursor
+from core.redis_client import set_backtest_progress, delete_backtest_progress
+
+
+# 在线程池中执行消费者初始化的函数
+def _create_consumer_sync(topic: str, group_id: str, offset: str):
+    """同步创建 Kafka Consumer（在线程池中运行）"""
+    return GinkgoConsumer(topic=topic, group_id=group_id, offset=offset)
+
+
+# 在线程池中执行 poll 的函数
+def _poll_sync(consumer) -> Optional[Dict[Any, Any]]:
+    """同步执行 poll（在线程池中运行）"""
+    if consumer and hasattr(consumer, 'consumer'):
+        return consumer.consumer.poll(timeout_ms=100)
+    return None
 
 
 class BacktestProgressConsumer:
@@ -22,6 +37,9 @@ class BacktestProgressConsumer:
         self.consumer: Optional[GinkgoConsumer] = None
         self._running = False
         self._task: Optional[asyncio.Task] = None
+        self._initialized = False
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._poll_interval = 1.0  # 轮询间隔（秒）
 
     async def start(self):
         """启动消费者"""
@@ -30,13 +48,9 @@ class BacktestProgressConsumer:
             return
 
         self._running = True
-        self.consumer = GinkgoConsumer(
-            topic=KafkaTopics.BACKTEST_PROGRESS,
-            group_id="api-server",
-            offset="earliest",
-        )
+        self._loop = asyncio.get_event_loop()
 
-        # 启动消费任务
+        # 启动消费任务（消费者初始化在消费循环中进行）
         self._task = asyncio.create_task(self._consume_messages())
 
         logger.info("BacktestProgressConsumer started")
@@ -61,10 +75,28 @@ class BacktestProgressConsumer:
         """消费消息"""
         while self._running:
             try:
-                # GinkgoConsumer.consumer 是底层的 KafkaConsumer
-                messages = self.consumer.consumer.poll(timeout_ms=1000)
+                # 如果消费者未初始化，尝试初始化
+                if not self._initialized:
+                    await self._init_consumer_async()
+                    await asyncio.sleep(0.1)
+                    continue
+
+                # 如果消费者未连接，尝试重连
+                if self.consumer is None or not self.consumer.is_connected:
+                    await self._init_consumer_async()
+                    await asyncio.sleep(1)
+                    continue
+
+                # 使用 run_in_executor 在线程池中执行 poll，避免阻塞事件循环
+                messages = await self._loop.run_in_executor(
+                    None,  # 使用默认线程池
+                    _poll_sync,
+                    self.consumer
+                )
 
                 if not messages:
+                    # 没有消息，继续下一轮
+                    await asyncio.sleep(self._poll_interval)
                     continue
 
                 # 处理消息 {TopicPartition: [ConsumerRecord]}
@@ -73,10 +105,36 @@ class BacktestProgressConsumer:
                         # message.value 已经反序列化，直接是 dict
                         await self._process_message(message.value)
 
+            except asyncio.CancelledError:
+                # 任务被取消，正常退出
+                break
             except Exception as e:
                 if self._running:
                     logger.error(f"Error consuming progress message: {e}")
                 await asyncio.sleep(1)
+
+    async def _init_consumer_async(self):
+        """异步初始化消费者（在线程池中执行，不阻塞事件循环）"""
+        try:
+            # 使用 run_in_executor 在线程池中执行同步操作
+            self.consumer = await self._loop.run_in_executor(
+                None,  # 使用默认线程池
+                _create_consumer_sync,
+                KafkaTopics.BACKTEST_PROGRESS,
+                "api-server",
+                "earliest"
+            )
+            self._initialized = True
+
+            if self.consumer and self.consumer.is_connected:
+                logger.info("Kafka Consumer for backtest progress connected successfully")
+            else:
+                logger.warning("Kafka Consumer not connected, will retry in consumption loop")
+
+        except Exception as e:
+            logger.warning(f"Kafka Consumer initialization failed: {e}, will retry later")
+            self.consumer = None
+            self._initialized = True  # 标记为已尝试初始化
 
     async def _process_message(self, message_value: dict):
         """处理进度消息"""
@@ -138,6 +196,15 @@ class BacktestProgressConsumer:
 
                 logger.debug(f"Updated progress for {task_uuid[:8]}: {progress:.1f}%")
 
+                # 写入 Redis（TTL 60秒）
+                progress_data = {
+                    "progress": progress,
+                    "state": state,
+                    "current_date": current_date,
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+                await set_backtest_progress(task_uuid, progress_data, ttl=60)
+
             except Exception as e:
                 logger.error(f"Failed to update progress for {task_uuid[:8]}: {e}")
 
@@ -167,6 +234,15 @@ class BacktestProgressConsumer:
 
                 logger.info(f"[{task_uuid[:8]}] Marked as completed")
 
+                # 写入 Redis（TTL 60秒）
+                progress_data = {
+                    "progress": 100.0,
+                    "state": "COMPLETED",
+                    "result": result,
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+                await set_backtest_progress(task_uuid, progress_data, ttl=60)
+
             except Exception as e:
                 logger.error(f"Failed to update completed for {task_uuid[:8]}: {e}")
 
@@ -183,6 +259,15 @@ class BacktestProgressConsumer:
 
                 logger.error(f"[{task_uuid[:8]}] Marked as failed: {error}")
 
+                # 写入 Redis（TTL 60秒）
+                progress_data = {
+                    "progress": 0.0,
+                    "state": "FAILED",
+                    "error": error,
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+                await set_backtest_progress(task_uuid, progress_data, ttl=60)
+
             except Exception as e:
                 logger.error(f"Failed to update failed for {task_uuid[:8]}: {e}")
 
@@ -198,6 +283,14 @@ class BacktestProgressConsumer:
                 await db.execute(query, ["CANCELLED", datetime.utcnow(), task_uuid])
 
                 logger.info(f"[{task_uuid[:8]}] Marked as cancelled")
+
+                # 写入 Redis（TTL 60秒）
+                progress_data = {
+                    "progress": 0.0,
+                    "state": "CANCELLED",
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+                await set_backtest_progress(task_uuid, progress_data, ttl=60)
 
             except Exception as e:
                 logger.error(f"Failed to update cancelled for {task_uuid[:8]}: {e}")
