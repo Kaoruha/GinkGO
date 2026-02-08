@@ -339,10 +339,12 @@ const loadData = async () => {
   const uuid = route.params.uuid as string
   loading.value = true
   try {
-    const data = await portfolioApi.get(uuid)
-    portfolio.value = data
-    configForm.config_locked = data.config_locked
-    configForm.initial_cash = data.initial_cash
+    const response = await portfolioApi.get(uuid)
+    portfolio.value = response.data || null
+    if (response.data) {
+      configForm.config_locked = response.data.config_locked
+      configForm.initial_cash = response.data.initial_cash
+    }
   } catch (error: any) {
     message.error(`加载失败: ${error.message || '未知错误'}`)
   } finally {

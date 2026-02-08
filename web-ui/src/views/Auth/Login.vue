@@ -62,12 +62,20 @@ import { authApi } from '@/api/modules/auth'
 const router = useRouter()
 
 const loading = ref(false)
+const isSubmitting = ref(false)  // 防止重复提交的标志
 const formState = reactive({
   username: '',
   password: ''
 })
 
 async function handleLogin() {
+  // 防止重复提交
+  if (isSubmitting.value) {
+    console.log('⚠️ 登录请求已在处理中，忽略重复请求')
+    return
+  }
+
+  isSubmitting.value = true
   loading.value = true
   try {
     const response = await authApi.login(formState)
@@ -78,6 +86,7 @@ async function handleLogin() {
     message.error('登录失败，请检查用户名和密码')
   } finally {
     loading.value = false
+    isSubmitting.value = false
   }
 }
 </script>

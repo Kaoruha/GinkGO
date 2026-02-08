@@ -95,6 +95,8 @@
                 :max="100000000"
                 :step="10000"
                 :precision="2"
+                :formatter="value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
+                :parser="value => value ? value.replace(/,/g, '') : ''"
                 style="width: 100%"
                 :disabled="isEditMode"
               >
@@ -293,7 +295,7 @@
       <!-- 中间画布区域 -->
       <div class="canvas-wrapper">
         <div
-          v-if="nodes.length === 0"
+          v-if="!nodes || nodes.length === 0"
           class="canvas-empty"
           @drop="handleDrop"
           @dragover.prevent
@@ -310,8 +312,8 @@
         </div>
         <NodeGraphCanvas
           v-else
-          :nodes="nodes"
-          :edges="edges"
+          :nodes="nodes || []"
+          :edges="edges || []"
           :available-components="{
             strategies: availableStrategies,
             selectors: availableSelectors,
@@ -439,7 +441,7 @@ const initializeDefaultNodes = () => {
   // 创建默认的Portfolio节点（居中）
   const defaultPortfolioNode: GraphNode = {
     id: 'portfolio-root',
-    type: 'PORTFOLIO',
+    type: 'portfolio',
     position: { x: 400, y: 200 },
     data: {
       label: formData.name || '投资组合',
@@ -467,6 +469,9 @@ const expandedSections = ref({
   sizer: true,
   risk: true
 })
+
+// 保存搜索前的展开状态
+const expandedSectionsBeforeSearch = ref({ ...expandedSections.value })
 
 // 搜索关键词
 const searchKeyword = ref('')
@@ -512,10 +517,21 @@ const filteredRisks = computed(() => {
   )
 })
 
-// 当搜索时自动展开所有类型
-watch(searchKeyword, (newVal) => {
-  if (newVal) {
-    expandedSections.value = { strategy: true, selector: true, sizer: true, risk: true }
+// 当搜索时自动展开有匹配结果的类型
+watch(searchKeyword, (newVal, oldVal) => {
+  if (newVal && !oldVal) {
+    // 开始搜索时，保存当前状态
+    expandedSectionsBeforeSearch.value = { ...expandedSections.value }
+    // 展开有结果的类型
+    expandedSections.value = {
+      strategy: filteredStrategies.value.length > 0,
+      selector: filteredSelectors.value.length > 0,
+      sizer: filteredSizers.value.length > 0,
+      risk: filteredRisks.value.length > 0
+    }
+  } else if (!newVal && oldVal) {
+    // 搜索结束时，恢复之前的状态
+    expandedSections.value = { ...expandedSectionsBeforeSearch.value }
   }
 })
 
@@ -531,25 +547,13 @@ const portfolioUuid = computed(() => route.params.uuid as string | undefined)
 // 加载组件列表
 const loadComponents = async () => {
   try {
-    console.log('=== 开始加载组件 ===')
     const allComponents = await componentsApi.list()
-    console.log('API返回原始数据:', allComponents)
-    console.log('数据类型:', typeof allComponents, '是否为数组:', Array.isArray(allComponents))
 
     // component_type 是字符串类型: 'strategy', 'selector', 'sizer', 'risk', 'analyzer'
     availableStrategies.value = allComponents.filter((c: ComponentSummary) => c.component_type === 'strategy')
     availableSelectors.value = allComponents.filter((c: ComponentSummary) => c.component_type === 'selector')
     availableSizers.value = allComponents.filter((c: ComponentSummary) => c.component_type === 'sizer')
     availableRisks.value = allComponents.filter((c: ComponentSummary) => c.component_type === 'risk')
-
-    console.log('=== 过滤后的组件 ===')
-    console.log('策略:', availableStrategies.value.length, availableStrategies.value.map(c => c.name))
-    console.log('选股器:', availableSelectors.value.length)
-    console.log('仓位管理:', availableSizers.value.length)
-    console.log('风控:', availableRisks.value.length)
-
-    console.log('=== expandedSections状态 ===')
-    console.log('expandedSections:', expandedSections.value)
   } catch (error: any) {
     console.error('加载组件失败:', error)
     message.error(`加载组件列表失败: ${error.message}`)
@@ -577,6 +581,7 @@ const loadPortfolioData = async () => {
 const handleDragStart = (event: DragEvent, type: string, component: ComponentSummary) => {
   if (event.dataTransfer) {
     event.dataTransfer.setData('application/json', JSON.stringify({ type, component }))
+    event.dataTransfer.effectAllowed = 'move'
   }
 }
 
@@ -592,10 +597,10 @@ const handleDrop = (event: DragEvent) => {
   // 创建新节点
   const newNode: GraphNode = {
     id: `node-${Date.now()}`,
-    type: type === 'strategy' ? 'STRATEGY' :
-          type === 'selector' ? 'SELECTOR' :
-          type === 'sizer' ? 'SIZER' :
-          'RISK_MANAGEMENT',
+    type: type === 'strategy' ? 'strategy' :
+          type === 'selector' ? 'selector' :
+          type === 'sizer' ? 'sizer' :
+          'risk',
     position: {
       x: event.offsetX - 100,
       y: event.offsetY - 50
@@ -610,6 +615,10 @@ const handleDrop = (event: DragEvent) => {
     }
   }
 
+  // 确保nodes已初始化
+  if (!nodes.value) {
+    nodes.value = []
+  }
   nodes.value.push(newNode)
   message.success(`已添加 ${component.name}`)
 }
@@ -632,7 +641,9 @@ const handleConnectionStart = (data: any) => {
 
 // 节点变化
 const handleNodesChange = (newNodes: GraphNode[]) => {
-  nodes.value = newNodes
+  if (newNodes) {
+    nodes.value = newNodes
+  }
 }
 
 // 边变化
@@ -668,7 +679,7 @@ const validateGraph = async () => {
     }
 
     // 验证策略节点
-    const strategyNodes = nodes.value.filter(n => n.type === 'STRATEGY')
+    const strategyNodes = nodes.value.filter(n => n.type === 'strategy')
     if (strategyNodes.length === 0) {
       validationErrors.value.push('请至少添加一个策略组件')
     }
@@ -727,23 +738,23 @@ const savePortfolio = async () => {
       const weight = node.data.config?.weight || 0
 
       switch (node.type) {
-        case 'STRATEGY':
+        case 'strategy':
           saveData.strategies.push({
             component_uuid: componentUuid,
             weight: weight / 100  // 转换为小数
           })
           break
-        case 'SELECTOR':
+        case 'selector':
           saveData.selectors.push({
             component_uuid: componentUuid
           })
           break
-        case 'SIZER':
+        case 'sizer':
           saveData.sizers.push({
             component_uuid: componentUuid
           })
           break
-        case 'RISK_MANAGEMENT':
+        case 'risk':
           saveData.risk_managers.push({
             component_uuid: componentUuid
           })
