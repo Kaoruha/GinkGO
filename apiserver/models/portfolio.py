@@ -106,13 +106,17 @@ class PortfolioCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     initial_cash: float = Field(..., gt=0)
     mode: PortfolioMode = Field(default=PortfolioMode.BACKTEST)
+    benchmark: Optional[str] = None
+    description: Optional[str] = None
     risk_config: Optional[dict] = None
     # 图数据（用于节点图编辑器创建）
     graph_data: Optional[Dict[str, Any]] = None
-    strategies: Optional[List[Dict[str, Any]]] = None
-    selectors: Optional[List[Dict[str, Any]]] = None
-    sizers: Optional[List[Dict[str, Any]]] = None
+    # 组件配置
+    selectors: List[Dict[str, Any]] = Field(default_factory=list)
+    sizer_uuid: Optional[str] = None
+    strategies: List[Dict[str, Any]] = Field(default_factory=list)
     risk_managers: Optional[List[Dict[str, Any]]] = None
+    analyzers: Optional[List[Dict[str, Any]]] = None
 
 
 class PortfolioUpdate(BaseModel):

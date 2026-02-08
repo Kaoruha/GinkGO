@@ -22,20 +22,20 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         "/docs",
         "/redoc",
         "/openapi.json",
-        "/api/auth/login",
-        "/api/auth/register",
-        "/api/auth/verify",
+        "/api/v1/auth/login",
+        "/api/v1/auth/register",
+        "/api/v1/auth/verify",
     }
 
     # 跳过认证的路径前缀（前缀匹配）
     SKIP_AUTH_PREFIXES = {
-        "/api/portfolio",  # 开发模式暂时跳过认证
-        "/api/backtest",   # 开发模式暂时跳过认证
-        "/api/node-graphs", # 开发模式暂时跳过认证（节点图配置）
-        "/api/components", # 开发模式暂时跳过认证
-        "/api/data",       # 开发模式暂时跳过认证
-        "/api/dashboard",  # 开发模式暂时跳过认证
-        "/api/settings",   # 开发模式暂时跳过认证（设置页面）
+        "/api/v1/portfolios",  # 开发模式暂时跳过认证
+        "/api/v1/backtests",   # 开发模式暂时跳过认证
+        "/api/v1/node-graphs", # 开发模式暂时跳过认证（节点图配置）
+        "/api/v1/components", # 开发模式暂时跳过认证
+        "/api/v1/data",       # 开发模式暂时跳过认证
+        "/api/v1/dashboard",  # 开发模式暂时跳过认证
+        "/api/v1/settings",   # 开发模式暂时跳过认证（设置页面）
     }
 
     async def dispatch(self, request: Request, call_next):
