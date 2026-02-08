@@ -94,7 +94,7 @@
 
     <!-- 投资组合列表 -->
     <div
-      v-if="loading"
+      v-if="isPortfolioLoading()"
       class="loading-container"
     >
       <a-spin size="large" />
@@ -294,10 +294,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
-import dayjs from 'dayjs'
 import {
   PlusOutlined,
   FolderOutlined,
@@ -312,7 +311,8 @@ import {
   ArrowDownOutlined,
   MinusOutlined
 } from '@ant-design/icons-vue'
-import { portfolioApi, type Portfolio } from '@/api/modules/portfolio'
+import { usePortfolioStore } from '@/stores/portfolio'
+import { storeToRefs } from 'pinia'
 import {
   getModeLabel,
   getModeColor,
@@ -321,39 +321,37 @@ import {
   getStateStatus
 } from '@/constants'
 import { formatDate } from '@/utils/format'
+import { useErrorHandler, useLoading } from '@/composables'
 
 const router = useRouter()
 
-// 状态管理
-const loading = ref(false)
-const portfolios = ref<Portfolio[]>([])
-const filterMode = ref('')
+// 使用 Store - 保持响应式
+const portfolioStore = usePortfolioStore()
+// 使用 storeToRefs 保持响应式连接
+const {
+  portfolios,
+  filterMode,
+  filteredPortfolios,
+  stats
+} = storeToRefs(portfolioStore)
+// 方法直接解构（不需要响应式）
+const {
+  fetchPortfolios,
+  deletePortfolio,
+  updatePortfolio
+} = portfolioStore
+
+// 使用统一错误处理
+const { execute } = useErrorHandler()
+
+// 使用统一 loading 管理
+const { isLoading: isPortfolioLoading } = useLoading({
+  key: 'portfolio-list'
+})
+
+// 本地状态
 const showCreateModal = ref(false)
 const creating = ref(false)
-
-// 统计数据
-const stats = computed(() => {
-  const filtered = filterMode.value
-    ? portfolios.value.filter(p => p.mode === filterMode.value)
-    : portfolios.value
-
-  return {
-    total: filtered.length,
-    running: filtered.filter(p => p.state === 'RUNNING').length,
-    avgNetValue: filtered.length > 0
-      ? filtered.reduce((sum, p) => sum + p.net_value, 0) / filtered.length
-      : 0,
-    totalAssets: filtered.length > 0
-      ? filtered.reduce((sum, p) => sum + p.net_value * 100000, 0) // 假设初始资金为10万
-      : 0
-  }
-})
-
-// 筛选后的列表
-const filteredPortfolios = computed(() => {
-  if (!filterMode.value) return portfolios.value
-  return portfolios.value.filter(p => p.mode === filterMode.value)
-})
 
 // 创建表单
 const createForm = reactive({
@@ -369,24 +367,9 @@ const createRules = {
   initial_cash: [{ required: true, message: '请输入初始资金', trigger: 'blur' }]
 }
 
-// 加载数据
-const loadData = async () => {
-  loading.value = true
-  try {
-    // 只有当 filterMode 不为空时才传递 mode 参数
-    const params = filterMode.value ? { mode: filterMode.value } : {}
-    const data = await portfolioApi.list(params)
-    portfolios.value = data
-  } catch (error: any) {
-    message.error(`加载失败: ${error.message || '未知错误'}`)
-  } finally {
-    loading.value = false
-  }
-}
-
 // 筛选变化
 const handleFilterChange = () => {
-  loadData()
+  fetchPortfolios(filterMode.value ? { mode: filterMode.value } : undefined)
 }
 
 // 净值变化样式
@@ -417,18 +400,19 @@ const handleCreate = async () => {
       message.warning('风险配置JSON格式不正确，将使用默认配置')
     }
 
-    await portfolioApi.create({
-      name: createForm.name,
-      initial_cash: createForm.initial_cash,
-      risk_config: Object.keys(riskConfig).length > 0 ? riskConfig : undefined
+    const result = await execute(async () => {
+      return await portfolioStore.createPortfolio({
+        name: createForm.name,
+        initial_cash: createForm.initial_cash,
+        risk_config: Object.keys(riskConfig).length > 0 ? riskConfig : undefined
+      })
     })
 
-    message.success('创建成功')
-    showCreateModal.value = false
-    resetCreateForm()
-    loadData()
-  } catch (error: any) {
-    message.error(`创建失败: ${error.message || '未知错误'}`)
+    if (result) {
+      message.success('创建成功')
+      showCreateModal.value = false
+      resetCreateForm()
+    }
   } finally {
     creating.value = false
   }
@@ -443,54 +427,58 @@ const resetCreateForm = () => {
 }
 
 // 停止组合
-const handleStop = (portfolio: Portfolio) => {
+const handleStop = (portfolio: any) => {
   Modal.confirm({
     title: '确认停止',
     content: `确定要停止投资组合"${portfolio.name}"吗？`,
     onOk: async () => {
-      try {
-        await portfolioApi.update(portfolio.uuid, { state: 'STOPPED' })
+      const result = await execute(async () => {
+        return await updatePortfolio(portfolio.uuid, { state: 'STOPPED' })
+      })
+      if (result) {
         message.success('已停止')
-        loadData()
-      } catch (error: any) {
-        message.error(`操作失败: ${error.message || '未知错误'}`)
       }
     }
   })
 }
 
 // 启动组合
-const handleStart = (portfolio: Portfolio) => {
-  try {
-    // TODO: 调用启动API
-    message.success('启动成功')
-    loadData()
-  } catch (error: any) {
-    message.error(`操作失败: ${error.message || '未知错误'}`)
-  }
+const handleStart = (portfolio: any) => {
+  Modal.confirm({
+    title: '确认启动',
+    content: `确定要启动投资组合"${portfolio.name}"吗？`,
+    onOk: async () => {
+      // TODO: 调用启动API
+      const result = await execute(async () => {
+        return await updatePortfolio(portfolio.uuid, { state: 'RUNNING' })
+      })
+      if (result) {
+        message.success('启动成功')
+      }
+    }
+  })
 }
 
 // 删除组合
-const handleDelete = (portfolio: Portfolio) => {
+const handleDelete = (portfolio: any) => {
   Modal.confirm({
     title: '确认删除',
     content: `确定要删除投资组合"${portfolio.name}"吗？此操作不可恢复。`,
     okText: '删除',
     okType: 'danger',
     onOk: async () => {
-      try {
-        await portfolioApi.delete(portfolio.uuid)
+      const result = await execute(async () => {
+        return await deletePortfolio(portfolio.uuid)
+      })
+      if (result) {
         message.success('删除成功')
-        loadData()
-      } catch (error: any) {
-        message.error(`删除失败: ${error.message || '未知错误'}`)
       }
     }
   })
 }
 
 onMounted(() => {
-  loadData()
+  fetchPortfolios()
 })
 </script>
 
@@ -498,7 +486,10 @@ onMounted(() => {
 .portfolio-list-container {
   padding: 24px;
   background: #f5f7fa;
-  min-height: calc(100vh - 64px);
+  height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .page-header {
@@ -506,6 +497,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .header-left .page-title {
@@ -532,18 +524,18 @@ onMounted(() => {
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .stat-card {
   border-radius: 12px;
   border: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: box-shadow 0.2s;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
 
 .stat-card :deep(.ant-statistic-title) {
@@ -557,31 +549,67 @@ onMounted(() => {
   font-weight: 600;
 }
 
+/* 滚动内容区域 */
+.loading-container,
+.empty-container,
+.portfolio-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* 滚动条样式 */
+.portfolio-grid::-webkit-scrollbar,
+.loading-container::-webkit-scrollbar,
+.empty-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.portfolio-grid::-webkit-scrollbar-track,
+.loading-container::-webkit-scrollbar-track,
+.empty-container::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.portfolio-grid::-webkit-scrollbar-thumb,
+.loading-container::-webkit-scrollbar-thumb,
+.empty-container::-webkit-scrollbar-thumb {
+  background: #bfbfbf;
+  border-radius: 4px;
+}
+
+.portfolio-grid::-webkit-scrollbar-thumb:hover,
+.loading-container::-webkit-scrollbar-thumb:hover,
+.empty-container::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
 .loading-container,
 .empty-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 400px;
+  min-height: 200px;
 }
 
 .portfolio-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 20px;
+  align-content: start;
 }
 
 .portfolio-card {
   border-radius: 12px;
   border: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: box-shadow 0.2s;
   cursor: pointer;
 }
 
 .portfolio-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .portfolio-card :deep(.ant-card-head) {

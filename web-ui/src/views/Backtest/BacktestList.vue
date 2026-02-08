@@ -96,7 +96,7 @@
       <a-spin size="large" />
     </div>
     <div
-      v-else-if="filteredBacktests.length === 0"
+      v-else-if="filteredTasks.length === 0"
       class="empty-container"
     >
       <a-empty description="暂无回测任务">
@@ -111,7 +111,7 @@
     <a-table
       v-else
       :columns="columns"
-      :data-source="filteredBacktests"
+      :data-source="filteredTasks"
       :pagination="{ pageSize: 10, showSizeChanger: true, showQuickJumper: true }"
       row-key="uuid"
       class="backtest-table"
@@ -147,10 +147,7 @@
         </template>
         <template v-if="column.key === 'actions'">
           <a-space>
-            <a
-              v-if="record.state === 'COMPLETED'"
-              @click="viewResult(record)"
-            >查看结果</a>
+            <a @click="viewDetail(record)">查看详情</a>
             <a
               v-if="record.state === 'PENDING'"
               @click="handleStart(record)"
@@ -240,7 +237,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
@@ -251,7 +248,8 @@ import {
   SyncOutlined,
   CloseCircleOutlined
 } from '@ant-design/icons-vue'
-import { backtestApi, type BacktestTask, type BacktestTaskDetail } from '@/api/modules/backtest'
+import { useBacktestStore } from '@/stores/backtest'
+import { storeToRefs } from 'pinia'
 import {
   getBacktestStateLabel,
   getBacktestStateColor,
@@ -261,12 +259,26 @@ import { formatDate } from '@/utils/format'
 
 const router = useRouter()
 
-// 状态管理
-const loading = ref(false)
-const backtests = ref<BacktestTask[]>([])
-const filterState = ref('')
+// 使用 Store - 保持响应式
+const backtestStore = useBacktestStore()
+// 使用 storeToRefs 保持响应式连接
+const {
+  loading,
+  filterState,
+  filteredTasks,
+  stats
+} = storeToRefs(backtestStore)
+// 方法直接解构（不需要响应式）
+const {
+  fetchTasks,
+  deleteTask,
+  startTask,
+  stopTask
+} = backtestStore
+
+// 本地状态
 const showResultModal = ref(false)
-const selectedBacktest = ref<BacktestTaskDetail | null>(null)
+const selectedBacktest = ref<any>(null)
 
 // 表格列
 const columns = [
@@ -278,42 +290,9 @@ const columns = [
   { title: '操作', key: 'actions', width: 150, fixed: 'right' }
 ]
 
-// 统计数据
-const stats = computed(() => {
-  const filtered = filterState.value
-    ? backtests.value.filter(t => t.state === filterState.value)
-    : backtests.value
-
-  return {
-    total: filtered.length,
-    completed: filtered.filter(t => t.state === 'COMPLETED').length,
-    running: filtered.filter(t => t.state === 'RUNNING').length,
-    failed: filtered.filter(t => t.state === 'FAILED').length
-  }
-})
-
-// 筛选后的列表
-const filteredBacktests = computed(() => {
-  if (!filterState.value) return backtests.value
-  return backtests.value.filter(t => t.state === filterState.value)
-})
-
-// 加载数据
-const loadData = async () => {
-  loading.value = true
-  try {
-    const data = await backtestApi.list({ state: filterState.value as any })
-    backtests.value = data
-  } catch (error: any) {
-    message.error(`加载失败: ${error.message || '未知错误'}`)
-  } finally {
-    loading.value = false
-  }
-}
-
 // 筛选变化
 const handleFilterChange = () => {
-  loadData()
+  fetchTasks(filterState.value || undefined)
 }
 
 // 格式化时长
@@ -341,10 +320,15 @@ const goToCreate = () => {
   router.push('/backtest/create')
 }
 
+// 查看详情
+const viewDetail = (task: any) => {
+  router.push(`/backtest/${task.uuid}`)
+}
+
 // 查看结果
-const viewResult = async (task: BacktestTask) => {
+const viewResult = async (task: any) => {
   try {
-    const detail = await backtestApi.get(task.uuid)
+    const detail = await backtestStore.fetchTask(task.uuid)
     selectedBacktest.value = detail
     showResultModal.value = true
   } catch (error: any) {
@@ -353,15 +337,14 @@ const viewResult = async (task: BacktestTask) => {
 }
 
 // 启动任务
-const handleStart = (task: BacktestTask) => {
+const handleStart = (task: any) => {
   Modal.confirm({
     title: '确认启动',
     content: `确定要启动回测任务"${task.name}"吗？`,
     onOk: async () => {
       try {
-        await backtestApi.start(task.uuid)
+        await startTask(task.uuid)
         message.success('启动成功')
-        loadData()
       } catch (error: any) {
         message.error(`操作失败: ${error.message || '未知错误'}`)
       }
@@ -370,15 +353,14 @@ const handleStart = (task: BacktestTask) => {
 }
 
 // 停止任务
-const handleStop = (task: BacktestTask) => {
+const handleStop = (task: any) => {
   Modal.confirm({
     title: '确认停止',
     content: `确定要停止回测任务"${task.name}"吗？`,
     onOk: async () => {
       try {
-        await backtestApi.stop(task.uuid)
+        await stopTask(task.uuid)
         message.success('已停止')
-        loadData()
       } catch (error: any) {
         message.error(`操作失败: ${error.message || '未知错误'}`)
       }
@@ -387,7 +369,7 @@ const handleStop = (task: BacktestTask) => {
 }
 
 // 删除任务
-const handleDelete = (task: BacktestTask) => {
+const handleDelete = (task: any) => {
   Modal.confirm({
     title: '确认删除',
     content: `确定要删除回测任务"${task.name}"吗？此操作不可恢复。`,
@@ -395,9 +377,8 @@ const handleDelete = (task: BacktestTask) => {
     okType: 'danger',
     onOk: async () => {
       try {
-        await backtestApi.delete(task.uuid)
+        await deleteTask(task.uuid)
         message.success('删除成功')
-        loadData()
       } catch (error: any) {
         message.error(`删除失败: ${error.message || '未知错误'}`)
       }
@@ -406,7 +387,7 @@ const handleDelete = (task: BacktestTask) => {
 }
 
 onMounted(() => {
-  loadData()
+  fetchTasks()
 })
 </script>
 

@@ -869,8 +869,8 @@ const handlePortfolioSelect = async (value: string) => {
   // 加载Portfolio详情
   if (!selectedPortfolioDetails.value.has(value)) {
     try {
-      const detail = await portfolioApi.get(value)
-      selectedPortfolioDetails.value.set(value, detail)
+      const response = await portfolioApi.get(value)
+      selectedPortfolioDetails.value.set(value, response.data || null)
     } catch (error: any) {
       message.error(`加载 Portfolio 信息失败: ${error.message}`)
     }
@@ -975,8 +975,8 @@ onMounted(() => {
 const loadPortfolios = async () => {
   loadingPortfolios.value = true
   try {
-    const data = await portfolioApi.list({ mode: 'BACKTEST' })
-    portfolios.value = data
+    const response = await portfolioApi.list({ mode: 'BACKTEST' })
+    portfolios.value = response.data || []
   } catch (error: any) {
     message.error(`加载投资组合列表失败: ${error.message}`)
   } finally {
@@ -988,8 +988,8 @@ const loadPortfolios = async () => {
 const loadAnalyzers = async () => {
   loadingAnalyzers.value = true
   try {
-    const data = await backtestApi.getAnalyzers()
-    analyzers.value = data
+    const response = await backtestApi.getAnalyzers()
+    analyzers.value = response.data || []
   } catch (error: any) {
     message.error(`加载分析器列表失败: ${error.message}`)
   } finally {
