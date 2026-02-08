@@ -8,8 +8,9 @@ import EmptyLayout from '@/layouts/EmptyLayout.vue'
 const Dashboard = () => import('@/views/Dashboard/index.vue')
 const PortfolioList = () => import('@/views/Portfolio/PortfolioList.vue')
 const PortfolioDetail = () => import('@/views/Portfolio/PortfolioDetail.vue')
-const PortfolioGraphEditor = () => import('@/views/Portfolio/PortfolioGraphEditor.vue')
+const PortfolioFormEditor = () => import('@/views/Portfolio/PortfolioFormEditor.vue')
 const BacktestList = () => import('@/views/Backtest/BacktestList.vue')
+const BacktestDetail = () => import('@/views/Backtest/BacktestDetail.vue')
 const BacktestCreate = () => import('@/views/Backtest/BacktestCreate.vue')
 const BacktestGraphEditor = () => import('@/views/BacktestGraphEditor.vue')
 const ComponentList = () => import('@/views/Components/ComponentList.vue')
@@ -47,8 +48,8 @@ const routes: RouteRecordRaw[] = [
     component: ComponentLayout,
     children: [
       { path: '', component: PortfolioList, name: 'portfolio-list' },
-      { path: 'create', component: PortfolioGraphEditor, name: 'portfolio-create' },
-      { path: ':uuid/edit', component: PortfolioGraphEditor, name: 'portfolio-edit' },
+      { path: 'create', component: PortfolioFormEditor, name: 'portfolio-create' },
+      { path: ':uuid/edit', component: PortfolioFormEditor, name: 'portfolio-edit' },
       { path: ':uuid', component: PortfolioDetail, name: 'portfolio-detail' }
     ]
   },
@@ -57,6 +58,7 @@ const routes: RouteRecordRaw[] = [
     component: ComponentLayout,
     children: [
       { path: '', component: BacktestList, name: 'backtest-list' },
+      { path: ':uuid', component: BacktestDetail, name: 'backtest-detail' },
       { path: 'create', component: BacktestCreate, name: 'backtest-create' },
       { path: 'graph-editor/:uuid?', component: BacktestGraphEditor, name: 'backtest-graph-editor' }
     ]
