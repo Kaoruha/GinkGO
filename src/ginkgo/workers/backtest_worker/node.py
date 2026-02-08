@@ -23,6 +23,7 @@ from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestTaskStat
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo.data.drivers import create_redis_connection
 from ginkgo.libs import GCONF
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
 class BacktestWorker:
@@ -165,7 +166,7 @@ class BacktestWorker:
         def consume_tasks():
             print("Task consumer thread started")
             self.task_consumer = GinkgoConsumer(
-                topic="backtest.assignments",
+                topic=KafkaTopics.BACKTEST_ASSIGNMENTS,
                 group_id="backtest-workers",
                 offset="earliest",
             )
@@ -253,6 +254,9 @@ class BacktestWorker:
             self.tasks[task.task_uuid] = processor
 
         self.metrics.record_task_start(task.task_uuid, task.name)
+
+        # 小延迟确保数据库事务已提交（额外安全措施）
+        time.sleep(0.05)  # 50ms
 
         # 启动线程
         processor.start()

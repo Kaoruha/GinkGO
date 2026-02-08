@@ -15,6 +15,7 @@ from typing import Dict
 
 from ginkgo.workers.backtest_worker.models import BacktestTask, EngineStage
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 # GLOG removed
 
 
@@ -102,8 +103,18 @@ class ProgressTracker:
         """发送消息到Kafka"""
         try:
             import json
+
+            # 根据消息类型选择 topic
+            msg_type = message.get("type", "progress")
+            if msg_type == "progress":
+                topic = KafkaTopics.BACKTEST_PROGRESS
+            elif msg_type in ("completed", "failed", "cancelled"):
+                topic = KafkaTopics.BACKTEST_RESULTS
+            else:
+                topic = KafkaTopics.BACKTEST_PROGRESS
+
             self.producer.produce(
-                topic="backtest.progress",
+                topic=topic,
                 key=message.get("task_uuid"),
                 value=json.dumps(message),
             )

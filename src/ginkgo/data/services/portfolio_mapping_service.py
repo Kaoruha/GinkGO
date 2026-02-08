@@ -256,7 +256,8 @@ class PortfolioMappingService(BaseService):
                 type=file_type,
                 source=SOURCE_TYPES.SIM
             )
-            mapping_uuid = self._mapping_crud.add(mapping)
+            mapping_obj = self._mapping_crud.add(mapping)
+            mapping_uuid = mapping_obj.uuid
 
             # 2. 同步参数到 MParam（使用 mapping_uuid）
             if params:
@@ -759,7 +760,7 @@ class PortfolioMappingService(BaseService):
             FILE_TYPES.STRATEGY: 100,
             FILE_TYPES.SELECTOR: 100,
             FILE_TYPES.SIZER: 400,
-            FILE_TYPES.RISKMANAGEMENT: 700,
+            FILE_TYPES.RISKMANAGER: 700,
             FILE_TYPES.ANALYZER: 1000,
         }
 
@@ -904,8 +905,8 @@ class PortfolioMappingService(BaseService):
             "STRATEGY": FILE_TYPES.STRATEGY,
             "SELECTOR": FILE_TYPES.SELECTOR,
             "SIZER": FILE_TYPES.SIZER,
-            "RISK_MANAGEMENT": FILE_TYPES.RISKMANAGEMENT,
-            "RISK": FILE_TYPES.RISKMANAGEMENT,
+            "RISK_MANAGEMENT": FILE_TYPES.RISKMANAGER,
+            "RISK": FILE_TYPES.RISKMANAGER,
             "ANALYZER": FILE_TYPES.ANALYZER,
         }
         return type_map.get(node_type_str.upper(), FILE_TYPES.OTHER)
@@ -925,6 +926,6 @@ class PortfolioMappingService(BaseService):
             FILE_TYPES.STRATEGY: "STRATEGY",
             FILE_TYPES.SELECTOR: "SELECTOR",
             FILE_TYPES.SIZER: "SIZER",
-            FILE_TYPES.RISKMANAGEMENT: "RISK_MANAGEMENT",
+            FILE_TYPES.RISKMANAGER: "RISK_MANAGEMENT",
             FILE_TYPES.ANALYZER: "ANALYZER",
         }.get(file_type, "OTHER")

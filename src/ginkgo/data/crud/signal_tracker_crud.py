@@ -306,3 +306,14 @@ class SignalTrackerCRUD(BaseCRUD[MSignalTracker]):
             engine_id: 引擎ID
         """
         self.delete_by_filters(engine_id=engine_id)
+
+    def delete_by_uuid(self, uuid: str) -> None:
+        """
+        根据UUID删除信号追踪记录
+
+        Args:
+            uuid: 记录UUID
+        """
+        if not uuid:
+            raise ValueError("uuid不能为空")
+        self.remove({"uuid": uuid})
