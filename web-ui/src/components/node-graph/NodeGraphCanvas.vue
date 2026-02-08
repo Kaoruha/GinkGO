@@ -1,5 +1,9 @@
 <template>
-  <div class="node-graph-canvas" @mousemove="handleMouseMove" @mouseup="handleMouseUp">
+  <div
+    class="node-graph-canvas"
+    @mousemove="handleMouseMove"
+    @mouseup="handleMouseUp"
+  >
     <VueFlow
       v-model:nodes="localNodes"
       v-model:edges="localEdges"
@@ -77,16 +81,28 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits(['node-click', 'edge-click', 'nodes-change', 'edges-change', 'connection-start'])
 
 // 本地响应式节点和边数据
-const localNodes = ref<GraphNode[]>([...(props.nodes || [])])
-const localEdges = ref<GraphEdge[]>([...(props.edges || [])])
+const localNodes = ref<GraphNode[]>([])
+const localEdges = ref<GraphEdge[]>([])
+
+// 初始化
+if (props.nodes && props.nodes.length > 0) {
+  localNodes.value = [...props.nodes]
+}
+if (props.edges && props.edges.length > 0) {
+  localEdges.value = [...props.edges]
+}
 
 // 监听props变化同步到local
 watch(() => props.nodes, (newNodes) => {
-  localNodes.value = [...newNodes]
+  if (newNodes) {
+    localNodes.value = [...newNodes]
+  }
 }, { deep: true })
 
 watch(() => props.edges, (newEdges) => {
-  localEdges.value = [...newEdges]
+  if (newEdges) {
+    localEdges.value = [...newEdges]
+  }
 }, { deep: true })
 
 // 监听节点上的连接开始事件
@@ -112,14 +128,18 @@ const { onNodesChange, onEdgesChange, onConnect: onConnectVueFlow, getNodes, get
 
 // 监听节点变化并emit给父组件
 onNodesChange((params) => {
-  localNodes.value = params.nodes as GraphNode[]
-  emit('nodes-change', localNodes.value)
+  if (params.nodes) {
+    localNodes.value = params.nodes as GraphNode[]
+    emit('nodes-change', localNodes.value)
+  }
 })
 
 // 监听边变化并emit给父组件
 onEdgesChange((params) => {
-  localEdges.value = params.edges as GraphEdge[]
-  emit('edges-change', localEdges.value)
+  if (params.edges) {
+    localEdges.value = params.edges as GraphEdge[]
+    emit('edges-change', localEdges.value)
+  }
 })
 
 // 快速创建菜单状态
@@ -255,37 +275,57 @@ const handleConnect = (connection: Connection) => {
 const handleDrop = (event: DragEvent) => {
   event.preventDefault()
 
-  // 从dataTransfer获取节点类型
-  const nodeType = event.dataTransfer?.getData('application/vue-flow') as NodeType
-  if (!nodeType) {
-    return
+  // 首先尝试获取组件数据（从组件面板拖拽）
+  const componentData = event.dataTransfer?.getData('application/json')
+  if (componentData) {
+    try {
+      const { type, component } = JSON.parse(componentData)
+
+      // 直接使用 event.target 获取 VueFlow 容器
+      const target = event.currentTarget as HTMLElement
+      if (!target) return
+
+      // 获取容器边界框
+      const rect = target.getBoundingClientRect()
+
+      // 计算相对于容器的坐标
+      const relativeX = event.clientX - rect.left
+      const relativeY = event.clientY - rect.top
+
+      // 创建新节点，节点左上角对准鼠标在容器中的位置
+      const newNode: GraphNode = {
+        id: `node-${Date.now()}`,
+        type: type as NodeType,
+        position: { x: relativeX, y: relativeY },
+        data: {
+          label: component.name,
+          config: {
+            component_uuid: component.uuid
+          },
+          componentUuid: component.uuid,
+          description: component.description
+        },
+      }
+
+      // 确保 localNodes.value 是数组
+      if (!Array.isArray(localNodes.value)) {
+        localNodes.value = []
+      }
+
+      // 添加节点
+      localNodes.value = [...localNodes.value, newNode]
+      emit('nodes-change', localNodes.value)
+      return
+    } catch (e) {
+      console.error('Failed to parse component data:', e)
+    }
   }
-
-  // 获取画布坐标
-  const canvas = event.currentTarget as HTMLElement
-  const rect = canvas.getBoundingClientRect()
-  const x = event.clientX - rect.left
-  const y = event.clientY - rect.top
-
-  // 创建新节点
-  const newNode: GraphNode = {
-    id: `node-${Date.now()}`,
-    type: nodeType,
-    position: { x, y },
-    data: {
-      label: NODE_TYPE_LABELS[nodeType],
-      config: {},
-    },
-  }
-
-  // 添加节点
-  localNodes.value = [...localNodes.value, newNode]
-  emit('nodes-change', localNodes.value)
 }
 
 // 处理拖拽悬停
 const handleDragOver = (event: DragEvent) => {
   event.preventDefault()
+  event.dataTransfer!.dropEffect = 'move'
 }
 
 // 关闭创建菜单
