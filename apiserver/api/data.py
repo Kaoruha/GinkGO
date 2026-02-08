@@ -169,6 +169,45 @@ async def get_data_stats():
             status_code=500,
             detail=f"Failed to get data stats: {str(e)}"
         )
+async def get_data_stats():
+    """获取数据统计信息"""
+    try:
+        stockinfo_service = get_stockinfo_service()
+        bar_service = get_bar_service()
+        adjustfactor_service = get_adjustfactor_service()
+        tick_service = get_tick_service()
+
+        # 获取股票总数
+        stock_count_result = stockinfo_service.count()
+        total_stocks = stock_count_result.data if stock_count_result.is_success() else 0
+
+        # 获取K线数据总量
+        bar_count_result = bar_service.count()
+        total_bars = bar_count_result.data if bar_count_result.is_success() else 0
+
+        # 获取复权因子总量
+        adjustfactor_count_result = adjustfactor_service.count()
+        total_adjust_factors = adjustfactor_count_result.data if adjustfactor_count_result.is_success() else 0
+
+        # Tick数据概况：抽样统计前10只股票（减少抽样数量以提高性能）
+        tick_data_summary = await get_tick_data_summary(stockinfo_service, tick_service, sample_size=10)
+
+        return {
+            "total_stocks": total_stocks,
+            "total_bars": total_bars,
+            "total_ticks": 0,  # Tick数据分表存储，无法直接统计总量
+            "total_adjust_factors": total_adjust_factors,
+            "tick_data_summary": tick_data_summary,
+            "data_sources": ["Tushare", "Yahoo", "BaoStock", "TDX"],
+            "latest_update": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting data stats: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get data stats: {str(e)}"
+        )
 
 
 async def get_tick_data_summary(stockinfo_service, tick_service, sample_size: int = 10) -> Dict[str, Any]:

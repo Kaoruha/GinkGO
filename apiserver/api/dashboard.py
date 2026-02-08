@@ -9,7 +9,7 @@ from models.dashboard import DashboardStats
 router = APIRouter()
 
 
-@router.get("/stats", response_model=DashboardStats)
+@router.get("/", response_model=DashboardStats)
 async def get_dashboard_stats(request: Request):
     """获取仪表盘统计数据"""
     # TODO: 从Ginkgo核心服务获取实际统计数据

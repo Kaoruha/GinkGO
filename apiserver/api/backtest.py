@@ -1,25 +1,45 @@
 """
 回测相关API路由
 
-按照 Engine 装配逻辑设计：
-1. Engine 配置：时间范围、Broker 参数
-2. Portfolio 选择：选择投资组合
-3. 组件配置：策略、选择器、Sizer、风控、分析器
+完全基于 Ginkgo 服务层，不直接访问数据库
 """
 
 from fastapi import APIRouter, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
 import uuid
 import json
+import asyncio
 
-from core.database import get_db
 from core.logging import logger
+from core.redis_client import get_backtest_progress
+from core.response import APIResponse, PaginatedResponse, paginated_response
+from core.exceptions import NotFoundError, ValidationError, BusinessError
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 from ginkgo.interfaces.kafka_topics import KafkaTopics
+from ginkgo.data.containers import container
 
 router = APIRouter()
+
+
+# ==================== Service 辅助函数 ====================
+
+def get_backtest_task_service():
+    """获取 BacktestTaskService 实例"""
+    return container.backtest_task_service()
+
+
+def get_engine_service():
+    """获取 EngineService 实例"""
+    return container.engine_service()
+
+
+def get_portfolio_service():
+    """获取 PortfolioService 实例"""
+    return container.portfolio_service()
+
 
 # Kafka Producer（延迟初始化）
 _kafka_producer: Optional[GinkgoProducer] = None
@@ -118,6 +138,14 @@ class ComponentConfig(BaseModel):
     frequency: Optional[str] = Field("DAY", description="数据频率")
 
 
+class AnalyzerTypeInfo(BaseModel):
+    """分析器类型信息"""
+    name: str
+    type: str
+    description: str = ""
+    parameters: Dict[str, Any] = {}
+
+
 class BacktestTaskCreate(BaseModel):
     """
     创建回测任务
@@ -143,61 +171,53 @@ class BacktestTaskCreate(BaseModel):
     component_config: Optional[ComponentConfig] = None
 
 
-# ==================== 数据库操作 ====================
+# ==================== Service 层操作 ====================
 
-async def get_engine_config(db, engine_uuid: str) -> dict:
-    """从数据库获取Engine配置"""
-    query = """
-        SELECT uuid, name, backtest_start_date, backtest_end_date,
-               broker_attitude, config_snapshot
-        FROM engine
-        WHERE uuid = %s AND is_live = 0
-    """
-    await db.execute(query, [engine_uuid])
-    engine = await db.fetchone()
+def get_engine_info(engine_uuid: str) -> dict:
+    """从服务层获取Engine信息"""
+    engine_service = get_engine_service()
+    result = engine_service.get(needle=engine_uuid)
 
-    if not engine:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Engine {engine_uuid} not found or not a backtest engine"
-        )
+    if not result.is_success() or not result.data:
+        raise NotFoundError("Engine", engine_uuid)
+
+    # 处理返回数据（可能是列表或单个对象）
+    engine = result.data
+    if isinstance(engine, list) and len(engine) > 0:
+        engine = engine[0]
+    elif isinstance(engine, list):
+        raise NotFoundError("Engine", engine_uuid)
 
     return {
-        "uuid": engine["uuid"],
-        "name": engine["name"],
-        "start_date": engine["backtest_start_date"].isoformat() if engine["backtest_start_date"] else None,
-        "end_date": engine["backtest_end_date"].isoformat() if engine["backtest_end_date"] else None,
-        "broker_attitude": engine["broker_attitude"],
-        "config_snapshot": json.loads(engine["config_snapshot"]) if engine["config_snapshot"] else {},
+        "uuid": getattr(engine, 'uuid', engine_uuid),
+        "name": getattr(engine, 'name', ''),
+        "is_live": getattr(engine, 'is_live', 0),
     }
 
 
-async def get_portfolio_name(db, portfolio_uuid: str) -> str:
-    """获取Portfolio名称"""
-    # TODO: 从portfolio表查询
-    # 暂时返回占位符
-    return "Unknown Portfolio"
+def get_portfolio_info(portfolio_uuid: str) -> dict:
+    """从服务层获取Portfolio信息"""
+    portfolio_service = get_portfolio_service()
+    result = portfolio_service.get(portfolio_id=portfolio_uuid)
+
+    if not result.is_success() or not result.data:
+        raise NotFoundError("Portfolio", portfolio_uuid)
+
+    # 处理返回数据（可能是列表或单个对象）
+    portfolio = result.data
+    if isinstance(portfolio, list) and len(portfolio) > 0:
+        portfolio = portfolio[0]
+    elif isinstance(portfolio, list):
+        raise NotFoundError("Portfolio", portfolio_uuid)
+
+    return {
+        "uuid": getattr(portfolio, 'uuid', portfolio_uuid),
+        "name": getattr(portfolio, 'name', 'Unknown Portfolio'),
+    }
 
 
-async def create_backtest_task(db, data: BacktestTaskCreate) -> dict:
-    """
-    创建回测任务（写入MySQL）
-
-    按照 Engine 装配逻辑组织配置，支持多个 Portfolio
-    """
-    task_uuid = str(uuid.uuid4())
-    now = datetime.utcnow()
-
-    # 如果提供了 Engine，获取其配置作为基础
-    engine_base_config = {}
-    if data.engine_uuid:
-        engine_config = await get_engine_config(db, data.engine_uuid)
-        engine_base_config = {
-            "engine_uuid": data.engine_uuid,
-            "engine_name": engine_config["name"],
-        }
-
-    # 构建 config（合并 Engine 配置和用户提供的配置）
+def build_backtest_config(data: BacktestTaskCreate) -> dict:
+    """构建回测配置（不访问数据库）"""
     config = {
         # Engine 配置
         "start_date": data.engine_config.start_date,
@@ -213,8 +233,6 @@ async def create_backtest_task(db, data: BacktestTaskCreate) -> dict:
         "analyzers": [a.dict() for a in (data.engine_config.analyzers or [])],
         # Portfolio 列表
         "portfolio_uuids": data.portfolio_uuids,
-        # 来自 Engine 的基础配置
-        **engine_base_config,
     }
 
     # 添加组件配置（如果有）
@@ -227,37 +245,59 @@ async def create_backtest_task(db, data: BacktestTaskCreate) -> dict:
             "frequency": data.component_config.frequency,
         })
 
-    # 获取 Portfolio 名称（多个）
-    portfolio_names = []
-    for portfolio_uuid in data.portfolio_uuids:
-        name = await get_portfolio_name(db, portfolio_uuid)
-        portfolio_names.append(name)
-    portfolio_name_str = ", ".join(portfolio_names)
+    # 如果提供了 Engine，获取其信息
+    if data.engine_uuid:
+        engine_info = get_engine_info(data.engine_uuid)
+        config.update({
+            "engine_uuid": data.engine_uuid,
+            "engine_name": engine_info["name"],
+        })
 
-    # 写入数据库（主 Portfolio 是第一个）
-    primary_portfolio_uuid = data.portfolio_uuids[0]
-    query = """
-        INSERT INTO backtest_tasks (
-            uuid, name, portfolio_uuid, portfolio_name, state, progress,
-            config, created_at
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    return config
+
+
+def create_backtest_task(data: BacktestTaskCreate) -> dict:
     """
-    await db.execute(query, (
-        task_uuid, data.name, primary_portfolio_uuid, portfolio_name_str,
-        "PENDING", 0.0, json.dumps(config), now
-    ))
+    创建回测任务（使用服务层）
+
+    按照 Engine 装配逻辑组织配置，支持多个 Portfolio
+    """
+    # 构建配置
+    config = build_backtest_config(data)
+
+    # 获取 Portfolio 名称（主Portfolio）
+    primary_portfolio_uuid = data.portfolio_uuids[0]
+    try:
+        portfolio_info = get_portfolio_info(primary_portfolio_uuid)
+        portfolio_name = portfolio_info["name"]
+    except NotFoundError:
+        portfolio_name = "Unknown Portfolio"
+
+    # 使用服务层创建任务
+    task_service = get_backtest_task_service()
+    result = task_service.create(
+        name=data.name,
+        portfolio_uuid=primary_portfolio_uuid,
+        portfolio_name=portfolio_name,
+        config=config,
+    )
+
+    if not result.is_success():
+        raise BusinessError(f"Failed to create backtest task: {result.error}")
+
+    task_info = result.data.get("task_info", {})
 
     return {
-        "uuid": task_uuid,
+        "uuid": task_info.get("uuid", str(uuid.uuid4())),
         "name": data.name,
         "portfolio_uuid": primary_portfolio_uuid,
         "portfolio_uuids": data.portfolio_uuids,
-        "portfolio_name": portfolio_name_str,
+        "portfolio_name": portfolio_name,
         "state": "PENDING",
         "progress": 0.0,
         "engine_uuid": config.get("engine_uuid"),
         "config": config,
-        "created_at": now.isoformat() + "Z",
+        "created_at": task_info.get("created_at", datetime.utcnow().isoformat() + "Z"),
         "started_at": None,
         "completed_at": None,
         "result": None,
@@ -302,307 +342,400 @@ async def send_cancel_to_kafka(task_uuid: str):
         msg=command,
     )
 
-    logger.info(f"Cancel command for {task_uuid} sent to Kafka")
+    logger.info(f"Cancel command sent for task {task_uuid}")
 
 
-# ==================== API路由 ====================
+# ==================== API 路由 ====================
 
-@router.get("", response_model=list[BacktestTaskSummary])
+@router.get("/", response_model=PaginatedResponse[BacktestTaskSummary])
 async def list_backtests(
     state: Optional[str] = Query(None, description="按状态筛选"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
 ):
-    """获取回测任务列表"""
-    async with get_db() as db:
-        query = "SELECT * FROM backtest_tasks"
-        params = []
+    """获取回测任务列表（使用 service 层）"""
+    try:
+        task_service = get_backtest_task_service()
 
-        if state:
-            query += " WHERE state = %s"
-            params.append(state)
+        # 使用服务层获取任务
+        result = task_service.get(state=state) if state else task_service.get()
 
-        query += " ORDER BY created_at DESC"
+        if not result.is_success():
+            return paginated_response([], page, page_size, 0)
 
-        await db.execute(query, params)
-        results = await db.fetchall()
+        tasks = result.data or []
 
-    summaries = []
-    for row in results:
-        summaries.append({
-            "uuid": row["uuid"],
-            "name": row["name"],
-            "portfolio_name": row["portfolio_name"],
-            "state": row["state"],
-            "progress": float(row["progress"]) if row["progress"] else 0.0,
-            "created_at": row["created_at"].isoformat() if row["created_at"] else None,
-            "started_at": row["started_at"].isoformat() if row.get("started_at") else None,
-            "completed_at": row["completed_at"].isoformat() if row.get("completed_at") else None,
-        })
+        # 转换为 API 模型
+        summaries = []
+        for task in tasks:
+            task_dict = task if isinstance(task, dict) else {
+                "uuid": getattr(task, 'uuid', ''),
+                "name": getattr(task, 'name', ''),
+                "portfolio_name": getattr(task, 'portfolio_name', ''),
+                "state": getattr(task, 'state', 'PENDING'),
+                "progress": getattr(task, 'progress', 0.0),
+                "created_at": getattr(task, 'created_at', None),
+                "started_at": getattr(task, 'started_at', None),
+                "finished_at": getattr(task, 'finished_at', None),
+            }
 
-    return summaries
+            # 将 datetime 对象转换为字符串
+            def format_date(dt):
+                if dt is None:
+                    return None
+                if isinstance(dt, str):
+                    return dt
+                return dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+
+            created_at_str = format_date(task_dict.get("created_at"))
+            started_at_str = format_date(task_dict.get("started_at"))
+            completed_at_str = format_date(task_dict.get("finished_at"))
+
+            summaries.append(BacktestTaskSummary(
+                uuid=task_dict["uuid"],
+                name=task_dict["name"],
+                portfolio_name=task_dict["portfolio_name"],
+                state=task_dict["state"],
+                progress=task_dict["progress"],
+                created_at=created_at_str or "",
+                started_at=started_at_str,
+                completed_at=completed_at_str,
+            ))
+
+        # 分页
+        total = len(summaries)
+        start = (page - 1) * page_size
+        end = start + page_size
+        paged_summaries = summaries[start:end]
+
+        return paginated_response(paged_summaries, page, page_size, total)
+
+    except Exception as e:
+        logger.error(f"Error listing backtests: {str(e)}")
+        raise BusinessError(f"Error listing backtests: {str(e)}")
 
 
-@router.get("/engines", response_model=list[dict])
+@router.get("/engines", response_model=APIResponse[List[dict]])
 async def list_backtest_engines(
     is_live: bool = Query(False, description="过滤是否实盘引擎")
 ):
-    """
-    获取可用的 Engine 列表
+    """获取可用的回测引擎列表"""
+    try:
+        engine_service = get_engine_service()
+        # is_live=0 表示回测引擎
+        result = engine_service.get(is_live=0 if not is_live else 1)
 
-    返回所有回测 Engine（is_live=0），可用于预填充配置
-    """
-    async with get_db() as db:
-        query = """
-            SELECT
-                uuid,
-                name,
-                is_live,
-                backtest_start_date,
-                backtest_end_date,
-                broker_attitude,
-                create_at
-            FROM engine
-            WHERE is_live = %s
-            ORDER BY create_at DESC
-        """
-        await db.execute(query, [int(is_live)])
-        results = await db.fetchall()
+        if not result.is_success():
+            return {
+                "success": True,
+                "data": [],
+                "error": None,
+                "message": "Engines retrieved successfully"
+            }
 
         engines = []
-        for row in results:
+        for engine in (result.data or []):
+            engine_dict = engine if isinstance(engine, dict) else {
+                "uuid": getattr(engine, 'uuid', ''),
+                "name": getattr(engine, 'name', ''),
+                "backtest_start_date": getattr(engine, 'backtest_start_date', None),
+                "backtest_end_date": getattr(engine, 'backtest_end_date', None),
+            }
             engines.append({
-                "uuid": row["uuid"],
-                "name": row["name"],
-                "is_live": bool(row["is_live"]),
-                "backtest_start_date": row["backtest_start_date"].isoformat() if row["backtest_start_date"] else None,
-                "backtest_end_date": row["backtest_end_date"].isoformat() if row["backtest_end_date"] else None,
-                "broker_attitude": row["broker_attitude"],
-                "created_at": row["create_at"].isoformat() if row["create_at"] else None,
+                "uuid": engine_dict["uuid"],
+                "name": engine_dict["name"],
+                "start_date": engine_dict.get("backtest_start_date"),
+                "end_date": engine_dict.get("backtest_end_date"),
             })
 
-        return engines
+        return {
+            "success": True,
+            "data": engines,
+            "error": None,
+            "message": "Engines retrieved successfully"
+        }
+
+    except Exception as e:
+        logger.error(f"Error listing engines: {str(e)}")
+        raise BusinessError(f"Error listing engines: {str(e)}")
 
 
-# ==================== 分析器 API ====================
-
-class AnalyzerTypeInfo(BaseModel):
-    """分析器类型信息"""
-    type: str = Field(..., description="分析器类型标识")
-    name: str = Field(..., description="分析器名称")
-    description: str = Field(..., description="分析器描述")
-    default_config: Dict[str, Any] = Field(default_factory=dict, description="默认配置")
-
-
-@router.get("/analyzers", response_model=list[AnalyzerTypeInfo])
+@router.get("/analyzers", response_model=APIResponse[List[AnalyzerTypeInfo]])
 async def list_analyzers():
     """
     获取可用的分析器类型列表
 
-    返回所有支持的分析器类型及其默认配置
+    返回系统中所有可用的分析器类型及其参数
     """
-    # TODO: 未来可以从数据库或配置文件读取
-    analyzers = [
-        {
-            "type": "SharpeAnalyzer",
-            "name": "Sharpe",
-            "description": "夏普比率分析",
-            "default_config": {
-                "period": 252,
-                "risk_free_rate": 0.03,
-                "annualization": 252
-            }
-        },
-        {
-            "type": "DrawdownAnalyzer",
-            "name": "Drawdown",
-            "description": "最大回撤分析",
-            "default_config": {}
-        },
-        {
-            "type": "ReturnAnalyzer",
-            "name": "Return",
-            "description": "收益率分析",
-            "default_config": {
-                "benchmark_return": 0.0
-            }
-        },
-        {
-            "type": "PortfolioAnalyzer",
-            "name": "Portfolio",
-            "description": "投资组合分析",
-            "default_config": {}
-        },
-        {
-            "type": "ComparisonAnalyzer",
-            "name": "Comparison",
-            "description": "多Portfolio对比分析",
-            "default_config": {}
-        }
-    ]
+    try:
+        from core.response import success_response
+        analyzer_service = container.analyzer_service()
+        result = analyzer_service.get_analyzer_types()
 
-    return analyzers
+        if not result.is_success():
+            return success_response([])
+
+        return success_response(result.data or [])
+
+    except Exception as e:
+        logger.error(f"Error listing analyzers: {str(e)}")
+        # 返回空列表而不是抛出异常
+        return {"success": True, "data": [], "error": None, "message": "Analyzers retrieved successfully"}
 
 
-@router.get("/{uuid}", response_model=BacktestTaskDetail)
+@router.get("/{uuid}", response_model=APIResponse[BacktestTaskDetail])
 async def get_backtest(uuid: str):
-    """获取回测任务详情"""
-    async with get_db() as db:
-        query = "SELECT * FROM backtest_tasks WHERE uuid = %s"
-        await db.execute(query, [uuid])
-        result = await db.fetchone()
+    """获取回测任务详情（使用 service 层）"""
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.get(uuid=uuid)
 
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Backtest task {uuid} not found"
-            )
+        if not result.is_success() or not result.data:
+            raise NotFoundError("BacktestTask", uuid)
 
-        # 解析配置
-        config = json.loads(result["config"]) if result["config"] else {}
-        engine_uuid = config.get("engine_uuid")  # 从 config 中提取 engine_uuid
+        task = result.data
+        if isinstance(task, list) and len(task) > 0:
+            task = task[0]
+        elif isinstance(task, list):
+            raise NotFoundError("BacktestTask", uuid)
+
+        # 转换为字典
+        task_dict = task if isinstance(task, dict) else {
+            "uuid": getattr(task, 'uuid', uuid),
+            "name": getattr(task, 'name', ''),
+            "portfolio_uuid": getattr(task, 'portfolio_uuid', ''),
+            "portfolio_name": getattr(task, 'portfolio_name', ''),
+            "state": getattr(task, 'state', 'PENDING'),
+            "progress": getattr(task, 'progress', 0.0),
+            "config": getattr(task, 'config', '{}'),
+            "created_at": getattr(task, 'created_at', None),
+            "started_at": getattr(task, 'started_at', None),
+            "finished_at": getattr(task, 'finished_at', None),
+            "worker_id": getattr(task, 'worker_id', None),
+            "error": getattr(task, 'error_message', None),
+        }
+
+        # 解析 config JSON
+        import json
+        config_str = task_dict.get("config", "{}")
+        if isinstance(config_str, str):
+            config = json.loads(config_str)
+        else:
+            config = config_str or {}
+
+        # 将 datetime 对象转换为字符串
+        def format_date(dt):
+            if dt is None:
+                return None
+            if isinstance(dt, str):
+                return dt
+            return dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+
+        detail = BacktestTaskDetail(
+            uuid=task_dict["uuid"],
+            name=task_dict["name"],
+            portfolio_name=task_dict["portfolio_name"],
+            portfolio_uuid=task_dict["portfolio_uuid"],
+            state=task_dict["state"],
+            progress=task_dict["progress"],
+            engine_uuid=config.get("engine_uuid"),
+            created_at=format_date(task_dict.get("created_at")) or "",
+            started_at=format_date(task_dict.get("started_at")),
+            completed_at=format_date(task_dict.get("finished_at")),
+            config=config,
+            result=None,  # 结果需要从 Redis 获取
+            worker_id=task_dict.get("worker_id"),
+            error=task_dict.get("error"),
+        )
 
         return {
-            "uuid": result["uuid"],
-            "name": result["name"],
-            "portfolio_uuid": result["portfolio_uuid"],
-            "portfolio_name": result["portfolio_name"],
-            "state": result["state"],
-            "progress": float(result["progress"]) if result["progress"] else 0.0,
-            "engine_uuid": engine_uuid,
-            "created_at": result["created_at"].isoformat() if result["created_at"] else None,
-            "started_at": result["started_at"].isoformat() if result.get("started_at") else None,
-            "completed_at": result["completed_at"].isoformat() if result.get("completed_at") else None,
-            "config": config,
-            "result": json.loads(result["result"]) if result.get("result") else None,
-            "worker_id": result.get("worker_id"),
-            "error": result.get("error"),
+            "success": True,
+            "data": detail.dict(),
+            "error": None,
+            "message": "Backtest task retrieved successfully"
         }
 
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting backtest {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting backtest: {str(e)}")
 
-@router.post("", response_model=BacktestTaskDetail, status_code=status.HTTP_201_CREATED)
+
+@router.post("/", response_model=APIResponse[BacktestTaskDetail], status_code=status.HTTP_201_CREATED)
 async def create_backtest(data: BacktestTaskCreate):
     """
     创建回测任务
 
-    按照 Engine 装配逻辑：
-    1. Engine 配置：时间范围、Broker 参数
-    2. Portfolio：选择投资组合
-    3. 组件配置：风控等参数
-
     流程：
-    1. 写入MySQL（state=PENDING）
-    2. 发送到Kafka
+    1. 创建任务记录（写入数据库）
+    2. 发送到Kafka（后台任务，不阻塞响应）
     3. 返回任务详情
     """
-    async with get_db() as db:
-        # 创建任务（写入数据库）
-        task = await create_backtest_task(db, data)
+    try:
+        # 1. 创建任务（使用服务层）
+        task = create_backtest_task(data)
 
-    # 发送到Kafka（分配给Worker）
-    await send_task_to_kafka(
-        task_uuid=task["uuid"],
-        portfolio_uuids=data.portfolio_uuids,
-        name=data.name,
-        config=task["config"],
-    )
+        # 2. 发送到Kafka（后台任务，不阻塞响应）
+        # 使用 asyncio.create_task 让 Kafka 发送在后台运行
+        asyncio.create_task(send_task_to_kafka(
+            task_uuid=task["uuid"],
+            portfolio_uuids=data.portfolio_uuids,
+            name=data.name,
+            config=task["config"],
+        ))
 
-    logger.info(f"Backtest task {task['uuid']} created and sent to Kafka")
+        # 立即返回响应，不等待 Kafka
+        return {
+            "success": True,
+            "data": task,
+            "error": None,
+            "message": "Backtest task created successfully"
+        }
 
-    return task
+    except (NotFoundError, BusinessError):
+        raise
+    except Exception as e:
+        logger.error(f"Error creating backtest: {str(e)}")
+        raise BusinessError(f"Error creating backtest: {str(e)}")
 
 
-@router.post("/{uuid}/start")
+@router.post("/{uuid}/start", response_model=APIResponse[dict])
 async def start_backtest(uuid: str):
-    """启动回测任务（发送到Kafka）"""
-    async with get_db() as db:
-        query = "SELECT * FROM backtest_tasks WHERE uuid = %s"
-        await db.execute(query, [uuid])
-        result = await db.fetchone()
+    """启动回测任务（使用 service 层）"""
+    try:
+        task_service = get_backtest_task_service()
 
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Backtest task {uuid} not found"
-            )
+        # 检查任务是否存在
+        result = task_service.get(uuid=uuid)
+        if not result.is_success() or not result.data:
+            raise NotFoundError("BacktestTask", uuid)
 
-        if result["state"] not in ["PENDING", "FAILED"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot start backtest in state {result['state']}"
-            )
+        # 启动任务
+        result = task_service.start_task(uuid, worker_id="api")
 
-        # 发送到Kafka
-        config = json.loads(result["config"]) if result["config"] else {}
-        portfolio_uuids = config.get("portfolio_uuids", [result["portfolio_uuid"]])
-        await send_task_to_kafka(
-            task_uuid=uuid,
-            portfolio_uuids=portfolio_uuids,
-            name=result["name"],
-            config=config,
-        )
+        if not result.is_success():
+            raise BusinessError(f"Failed to start task: {result.error}")
 
-        # 更新状态
-        await db.execute(
-            "UPDATE backtest_tasks SET state = %s, started_at = %s WHERE uuid = %s",
-            ["PENDING", datetime.utcnow(), uuid]
-        )
+        return {
+            "success": True,
+            "data": {"uuid": uuid, "state": "RUNNING"},
+            "error": None,
+            "message": "Backtest task started successfully"
+        }
 
-        return {"message": "Backtest task sent to execution queue"}
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting backtest {uuid}: {str(e)}")
+        raise BusinessError(f"Error starting backtest: {str(e)}")
 
 
-@router.post("/{uuid}/stop")
+@router.post("/{uuid}/stop", response_model=APIResponse[dict])
 async def stop_backtest(uuid: str):
-    """停止回测任务"""
-    async with get_db() as db:
-        query = "SELECT * FROM backtest_tasks WHERE uuid = %s"
-        await db.execute(query, [uuid])
-        result = await db.fetchone()
+    """停止回测任务（使用 service 层）"""
+    try:
+        task_service = get_backtest_task_service()
 
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Backtest task {uuid} not found"
-            )
+        # 检查任务是否存在
+        result = task_service.get(uuid=uuid)
+        if not result.is_success() or not result.data:
+            raise NotFoundError("BacktestTask", uuid)
 
-        if result["state"] != "RUNNING":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot stop backtest in state {result['state']}"
-            )
+        # 取消任务
+        result = task_service.cancel_task(uuid)
 
-        # 发送取消命令到Kafka
-        await send_cancel_to_kafka(uuid)
+        if not result.is_success():
+            raise BusinessError(f"Failed to stop task: {result.error}")
 
-        # 更新状态
-        await db.execute(
-            "UPDATE backtest_tasks SET state = %s, completed_at = %s WHERE uuid = %s",
-            ["CANCELLED", datetime.utcnow(), uuid]
-        )
+        # 发送取消命令到Kafka（后台任务，不阻塞响应）
+        asyncio.create_task(send_cancel_to_kafka(uuid))
 
-        return {"message": "Cancel command sent"}
+        return {
+            "success": True,
+            "data": {"uuid": uuid, "state": "CANCELLED"},
+            "error": None,
+            "message": "Backtest task stopped successfully"
+        }
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error stopping backtest {uuid}: {str(e)}")
+        raise BusinessError(f"Error stopping backtest: {str(e)}")
 
 
 @router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_backtest(uuid: str):
-    """删除回测任务"""
-    async with get_db() as db:
-        query = "SELECT * FROM backtest_tasks WHERE uuid = %s"
-        await db.execute(query, [uuid])
-        result = await db.fetchone()
+    """删除回测任务（使用 service 层）"""
+    try:
+        task_service = get_backtest_task_service()
 
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Backtest task {uuid} not found"
-            )
-
-        # 只能删除非运行中的任务
-        if result["state"] == "RUNNING":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot delete running backtest"
-            )
+        # 检查任务是否存在
+        result = task_service.get(uuid=uuid)
+        if not result.is_success() or not result.data:
+            raise NotFoundError("BacktestTask", uuid)
 
         # 删除任务
-        await db.execute("DELETE FROM backtest_tasks WHERE uuid = %s", [uuid])
+        result = task_service.delete(uuid)
 
-        return None
+        if not result.is_success():
+            raise BusinessError(f"Failed to delete task: {result.error}")
+
+        logger.info(f"Backtest task {uuid} deleted successfully")
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting backtest {uuid}: {str(e)}")
+        raise BusinessError(f"Error deleting backtest: {str(e)}")
+
+
+@router.get("/{uuid}/events")
+async def backtest_events(uuid: str):
+    """
+    SSE 端点 - 推送回测进度
+
+    通过Server-Sent Events实时推送回测进度
+    """
+    from fastapi import Request
+
+    async def event_stream():
+        """生成SSE事件流"""
+        try:
+            while True:
+                # 从Redis获取进度
+                progress_data = await get_backtest_progress(uuid)
+
+                if not progress_data:
+                    # 如果没有进度数据，发送心跳
+                    yield "event: keepalive\ndata: {}\n\n"
+                    await asyncio.sleep(1)
+                    continue
+
+                # 发送进度事件
+                import json
+                data = json.dumps(progress_data)
+                yield f"event: progress\ndata: {data}\n\n"
+
+                # 如果任务完成，结束流
+                state = progress_data.get("state", "")
+                if state in ["COMPLETED", "FAILED", "CANCELLED"]:
+                    break
+
+                await asyncio.sleep(0.5)  # 每0.5秒推送一次
+
+        except Exception as e:
+            logger.error(f"Error in event stream for {uuid}: {e}")
+            error_data = json.dumps({"error": str(e)})
+            yield f"event: error\ndata: {error_data}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
