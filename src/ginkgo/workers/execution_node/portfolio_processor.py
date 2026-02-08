@@ -115,7 +115,7 @@ class PortfolioProcessor(Thread):
     def start(self):
         """启动Portfolio处理器"""
         if self.is_running:
-            print("[WARN]"(f"PortfolioProcessor {self.portfolio_id} is already running")
+            print(f"[WARN] PortfolioProcessor {self.portfolio_id} is already running")
             return
 
         # 初始化Kafka控制命令消费者
@@ -128,7 +128,7 @@ class PortfolioProcessor(Thread):
             self._control_consumer.subscribe([KafkaTopics.CONTROL_COMMANDS])
             print(f"PortfolioProcessor {self.portfolio_id}: subscribed to {KafkaTopics.CONTROL_COMMANDS}")
         except Exception as e:
-            print("[ERROR]"(f"PortfolioProcessor {self.portfolio_id}: failed to subscribe to control commands: {e}")
+            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to subscribe to control commands: {e}")
             # 即使Kafka订阅失败，也允许启动（控制命令功能将不可用）
 
         self.is_running = True
@@ -206,7 +206,7 @@ class PortfolioProcessor(Thread):
             if not success:
                 raise Exception("sync_state_to_db failed")
         else:
-            print("[WARN]"(f"Portfolio {self.portfolio_id} does not support state persistence")
+            print(f"[WARN] Portfolio {self.portfolio_id} does not support state persistence")
 
     def load_state(self):
         """
@@ -219,7 +219,7 @@ class PortfolioProcessor(Thread):
         # 1. 从数据库读取最新持仓状态
         # 2. 恢复Portfolio的cash、positions等
         # 3. 恢复Portfolio的时间戳
-        print("[WARN]"(f"PortfolioProcessor {self.portfolio_id}: load_state not implemented yet")
+        print(f"[WARN] PortfolioProcessor {self.portfolio_id}: load_state not implemented yet")
 
     def stop(self):
         """
@@ -228,7 +228,7 @@ class PortfolioProcessor(Thread):
         注意：如需优雅停止（处理完队列中消息），请使用graceful_stop()
         """
         if not self.is_running:
-            print("[WARN]"(f"PortfolioProcessor {self.portfolio_id} is not running")
+            print(f"[WARN] PortfolioProcessor {self.portfolio_id} is not running")
             return
 
         print(f"Stopping PortfolioProcessor {self.portfolio_id}...")
@@ -239,7 +239,7 @@ class PortfolioProcessor(Thread):
                 self._control_consumer.close()
                 print(f"PortfolioProcessor {self.portfolio_id}: control consumer closed")
             except Exception as e:
-                print("[ERROR]"(f"PortfolioProcessor {self.portfolio_id}: failed to close control consumer: {e}")
+                print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to close control consumer: {e}")
 
         self.is_running = False
         self.is_active = False
@@ -255,7 +255,7 @@ class PortfolioProcessor(Thread):
         Portfolio保持状态，可以随时恢复
         """
         if not self.is_running:
-            print("[WARN]"(f"PortfolioProcessor {self.portfolio_id} is not running")
+            print(f"[WARN] PortfolioProcessor {self.portfolio_id} is not running")
             return
 
         self.is_paused = True
@@ -268,7 +268,7 @@ class PortfolioProcessor(Thread):
         恢复后，继续从input_queue获取并处理事件
         """
         if not self.is_running:
-            print("[WARN]"(f"PortfolioProcessor {self.portfolio_id} is not running")
+            print(f"[WARN] PortfolioProcessor {self.portfolio_id} is not running")
             return
 
         self.is_paused = False
@@ -323,7 +323,7 @@ class PortfolioProcessor(Thread):
             except Exception as e:
                 # 捕获异常，记录错误但不中断循环
                 self.error_count += 1
-                print("[ERROR]"(f"PortfolioProcessor {self.portfolio_id} error: {e}")
+                print(f"[ERROR] PortfolioProcessor {self.portfolio_id} error: {e}")
                 continue
 
         print(f"PortfolioProcessor {self.portfolio_id}: main loop stopped")
@@ -438,10 +438,10 @@ class PortfolioProcessor(Thread):
         try:
             # 非阻塞放入output_queue
             self.output_queue.put(event, block=False)
-            print("[DEBUG]"(f"PortfolioProcessor {self.portfolio_id}: Portfolio event {type(event).__name__} sent to output_queue")
+            print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: Portfolio event {type(event).__name__} sent to output_queue")
         except Exception as e:
             # Queue满时记录警告，但不抛异常（避免中断Portfolio）
-            print("[WARN]"(f"PortfolioProcessor {self.portfolio_id}: failed to put Portfolio event to output_queue: {e}")
+            print(f"[WARN] PortfolioProcessor {self.portfolio_id}: failed to put Portfolio event to output_queue: {e}")
 
     # ========== Kafka控制命令处理 ==========
 
@@ -465,11 +465,11 @@ class PortfolioProcessor(Thread):
                         # 解析Kafka消息
                         self._handle_control_command(record.value)
                     except Exception as e:
-                        print("[ERROR]"(f"PortfolioProcessor {self.portfolio_id}: failed to handle control command: {e}")
+                        print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to handle control command: {e}")
 
         except Exception as e:
             # Kafka消费异常不中断主循环
-            print("[ERROR]"(f"PortfolioProcessor {self.portfolio_id}: Kafka poll error: {e}")
+            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: Kafka poll error: {e}")
 
     def _handle_control_command(self, message: bytes) -> None:
         """
@@ -500,17 +500,17 @@ class PortfolioProcessor(Thread):
                 self._update_selectors()
             elif command_dto.command == ControlCommandDTO.Commands.BAR_SNAPSHOT:
                 # bar_snapshot由DataManager处理，PortfolioProcessor忽略
-                print("[DEBUG]"(f"PortfolioProcessor {self.portfolio_id}: ignoring bar_snapshot command (handled by DataManager)")
+                print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: ignoring bar_snapshot command (handled by DataManager)")
             elif command_dto.command == ControlCommandDTO.Commands.UPDATE_DATA:
                 # update_data由DataManager处理，PortfolioProcessor忽略
-                print("[DEBUG]"(f"PortfolioProcessor {self.portfolio_id}: ignoring update_data command (handled by DataManager)")
+                print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: ignoring update_data command (handled by DataManager)")
             else:
-                print("[WARN]"(f"PortfolioProcessor {self.portfolio_id}: unknown command type: {command_dto.command}")
+                print(f"[WARN] PortfolioProcessor {self.portfolio_id}: unknown command type: {command_dto.command}")
 
         except json.JSONDecodeError as e:
-            print("[ERROR]"(f"PortfolioProcessor {self.portfolio_id}: invalid JSON in control command: {e}")
+            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: invalid JSON in control command: {e}")
         except Exception as e:
-            print("[ERROR]"(f"PortfolioProcessor {self.portfolio_id}: failed to parse control command: {e}")
+            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: failed to parse control command: {e}")
 
     def _update_selectors(self) -> None:
         """
@@ -544,14 +544,14 @@ class PortfolioProcessor(Thread):
 
                         if codes:
                             all_codes.extend(codes)
-                            print("[DEBUG]"(f"PortfolioProcessor {self.portfolio_id}: selector {type(selector).__name__} picked {len(codes)} codes")
+                            print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: selector {type(selector).__name__} picked {len(codes)} codes")
 
                     except Exception as e:
                         # selector异常不中断整体流程
-                        print("[ERROR]"(f"PortfolioProcessor {self.portfolio_id}: selector {type(selector).__name__}.pick() failed: {e}")
+                        print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: selector {type(selector).__name__}.pick() failed: {e}")
                         continue
             else:
-                print("[DEBUG]"(f"PortfolioProcessor {self.portfolio_id}: no selectors configured")
+                print(f"[DEBUG] PortfolioProcessor {self.portfolio_id}: no selectors configured")
 
             # 去重
             all_codes = list(dict.fromkeys(all_codes))
@@ -568,4 +568,4 @@ class PortfolioProcessor(Thread):
             print(f"PortfolioProcessor {self.portfolio_id}: EventInterestUpdate published with {len(all_codes)} codes")
 
         except Exception as e:
-            print("[ERROR]"(f"PortfolioProcessor {self.portfolio_id}: _update_selectors failed: {e}")
+            print(f"[ERROR] PortfolioProcessor {self.portfolio_id}: _update_selectors failed: {e}")

@@ -196,6 +196,7 @@ def init():
 
         # Step 6: Admin user initialization (idempotent)
         console.print(":bust_in_silhouette: Initializing default admin user...")
+        admin_result = {'status': 'unknown', 'username': 'N/A'}
         try:
             admin_result = _init_admin_user()
             if admin_result['status'] == 'created':

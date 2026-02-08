@@ -238,8 +238,13 @@ class LiveDataFeeder(ILiveDataFeeder):
     
     # === IDataFeeder 基础接口实现 ===
     
-    def initialize(self) -> bool:
-        """初始化数据馈送器"""
+    def initialize(self, config: Dict[str, Any] = None) -> bool:
+        """
+        初始化数据馈送器
+
+        Args:
+            config: 配置参数（可选，当前实现中未使用）
+        """
         try:
             # 初始化连接管理器
             if self.host and self.port:

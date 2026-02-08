@@ -13,6 +13,7 @@ Engine Builder
 from typing import Optional, List, Callable
 from datetime import datetime
 import uuid
+import time
 
 from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestConfig, AnalyzerConfig
 from ginkgo.trading.engines import TimeControlledEventEngine
@@ -92,29 +93,56 @@ class EngineBuilder:
         print(f"[{task.task_uuid[:8]}] Portfolio {task.portfolio_uuid} not found in DB, creating default")
         return self._create_default_portfolio(task)
 
-    def _load_portfolio_from_db(self, portfolio_uuid: str) -> Optional[PortfolioT1Backtest]:
-        """从数据库加载Portfolio"""
-        try:
-            # 使用PortfolioService加载
-            portfolio_service = services.data.services.portfolio_service()
-            result = portfolio_service.load_portfolio_with_components(
-                portfolio_id=portfolio_uuid
-            )
+    def _load_portfolio_from_db(self, portfolio_uuid: str, max_retries: int = 3, retry_delay: float = 0.5) -> Optional[PortfolioT1Backtest]:
+        """
+        从数据库加载Portfolio（带重试机制）
 
-            if result.is_success() and result.data:
-                # 注意：load_portfolio_with_components返回的是PortfolioLive
-                # 回测需要PortfolioT1Backtest，需要转换或重新创建
-                from ginkgo.trading.portfolios.portfolio_live import PortfolioLive
-                if isinstance(result.data, PortfolioLive):
-                    # 转换为回测Portfolio
-                    return self._convert_to_backtest_portfolio(result.data)
-                return result.data
+        Args:
+            portfolio_uuid: Portfolio UUID
+            max_retries: 最大重试次数（默认3次）
+            retry_delay: 重试间隔秒数（默认0.5秒）
 
-            return None
+        Returns:
+            加载的Portfolio，失败返回None
+        """
+        last_error = None
 
-        except Exception as e:
-            print(f"[{portfolio_uuid[:8]}] Failed to load portfolio: {e}")
-            return None
+        for attempt in range(max_retries):
+            try:
+                # 使用PortfolioService加载
+                portfolio_service = services.data.services.portfolio_service()
+                result = portfolio_service.load_portfolio_with_components(
+                    portfolio_id=portfolio_uuid
+                )
+
+                if result.is_success() and result.data:
+                    # 注意：load_portfolio_with_components返回的是PortfolioLive
+                    # 回测需要PortfolioT1Backtest，需要转换或重新创建
+                    from ginkgo.trading.portfolios.portfolio_live import PortfolioLive
+                    if isinstance(result.data, PortfolioLive):
+                        # 转换为回测Portfolio
+                        return self._convert_to_backtest_portfolio(result.data)
+                    return result.data
+
+                # 如果不是最后一次尝试，等待重试
+                if attempt < max_retries - 1:
+                    print(f"[{portfolio_uuid[:8]}] Portfolio not ready (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s...")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"[{portfolio_uuid[:8]}] Portfolio not found after {max_retries} attempts")
+
+            except Exception as e:
+                last_error = e
+                print(f"[{portfolio_uuid[:8]}] Attempt {attempt + 1}/{max_retries} failed: {e}")
+
+                # 如果不是最后一次尝试，等待重试
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+
+        # 所有尝试都失败
+        if last_error:
+            print(f"[{portfolio_uuid[:8]}] Failed to load portfolio after {max_retries} attempts: {last_error}")
+        return None
 
     def _convert_to_backtest_portfolio(self, portfolio_live):
         """将PortfolioLive转换为PortfolioT1Backtest"""

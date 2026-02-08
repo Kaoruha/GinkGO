@@ -189,6 +189,7 @@ def backtest_run(
 
     try:
         from ginkgo.workers.backtest_worker.node import BacktestWorker
+        from ginkgo.interfaces.kafka_topics import KafkaTopics
 
         # 显示BacktestWorker信息
         console.print(Panel.fit(
@@ -234,7 +235,7 @@ def backtest_run(
         console.print(":white_check_mark: [green]BacktestWorker started successfully[/green]")
         console.print(f":information: Worker ID: {worker.worker_id}")
         console.print(f":information: Max tasks: {worker.max_backtests}")
-        console.print(f":information: Ready to receive tasks from 'backtest.assignments' topic\n")
+        console.print(f":information: Ready to receive tasks from '{KafkaTopics.BACKTEST_ASSIGNMENTS}' topic\n")
 
         # 保持运行
         console.print("[dim]Running... (Press Ctrl+C to stop)[/dim]\n")

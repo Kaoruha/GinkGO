@@ -111,7 +111,7 @@ class DataManager(threading.Thread):
             # 初始化LiveDataFeeder
             with self._feeder_lock:
                 if not self.live_feeder.initialize():
-                    print("[ERROR]"("Failed to initialize LiveDataFeeder")
+                    print("[ERROR] Failed to initialize LiveDataFeeder")
                     return False
 
                 # 设置事件发布器
@@ -119,7 +119,7 @@ class DataManager(threading.Thread):
 
                 # 启动LiveDataFeeder
                 if not self.live_feeder.start():
-                    print("[ERROR]"("Failed to start LiveDataFeeder")
+                    print("[ERROR] Failed to start LiveDataFeeder")
                     return False
 
             # 启动主线程
@@ -143,12 +143,12 @@ class DataManager(threading.Thread):
                     },
                 )
             except Exception as notify_error:
-                print("[WARN]"(f"Failed to send start notification: {notify_error}")
+                print(f"[WARN] Failed to send start notification: {notify_error}")
 
             return True
 
         except Exception as e:
-            print("[ERROR]"(f"DataManager start failed: {e}")
+            print(f"[ERROR] DataManager start failed: {e}")
 
             # 发送失败通知
             try:
@@ -213,12 +213,12 @@ class DataManager(threading.Thread):
                     },
                 )
             except Exception as notify_error:
-                print("[WARN]"(f"Failed to send stop notification: {notify_error}")
+                print(f"[WARN] Failed to send stop notification: {notify_error}")
 
             return True
 
         except Exception as e:
-            print("[ERROR]"(f"DataManager stop failed: {e}")
+            print(f"[ERROR] DataManager stop failed: {e}")
 
             # 发送失败通知
             try:
@@ -273,7 +273,7 @@ class DataManager(threading.Thread):
                 time.sleep(0.1)
 
             except Exception as e:
-                print("[ERROR]"(f"DataManager main loop error: {e}")
+                print(f"[ERROR] DataManager main loop error: {e}")
                 time.sleep(1)
 
         print("DataManager main loop ended")
@@ -286,7 +286,7 @@ class DataManager(threading.Thread):
                     dto = InterestUpdateDTO.model_validate_json(message.value)
                     self.update_subscriptions(dto)
                 except Exception as e:
-                    print("[ERROR]"(f"Failed to process interest update: {e}")
+                    print(f"[ERROR] Failed to process interest update: {e}")
         except Exception as e:
             pass  # 超时是正常的
 
@@ -298,7 +298,7 @@ class DataManager(threading.Thread):
                     dto = ControlCommandDTO.model_validate_json(message.value)
                     self._handle_control_command(dto)
                 except Exception as e:
-                    print("[ERROR]"(f"Failed to process control command: {e}")
+                    print(f"[ERROR] Failed to process control command: {e}")
         except Exception as e:
             pass  # 超时是正常的
 
@@ -327,7 +327,7 @@ class DataManager(threading.Thread):
             print(f"Subscriptions updated: {len(self.all_symbols)} symbols")
 
         except Exception as e:
-            print("[ERROR]"(f"Failed to update subscriptions: {e}")
+            print(f"[ERROR] Failed to update subscriptions: {e}")
 
     def _handle_control_command(self, dto: ControlCommandDTO) -> None:
         """
@@ -350,10 +350,10 @@ class DataManager(threading.Thread):
             elif dto.is_update_data():
                 print("Received update_data command (deprecated, use individual commands)")
             else:
-                print("[WARN]"(f"Unknown control command: {dto.command}")
+                print(f"[WARN] Unknown control command: {dto.command}")
 
         except Exception as e:
-            print("[ERROR]"(f"Failed to handle control command: {e}")
+            print(f"[ERROR] Failed to handle control command: {e}")
 
     @retry(max_try=3, backoff_factor=2)
     def _publish_to_kafka(self, topic: str, message: str) -> None:
@@ -366,7 +366,7 @@ class DataManager(threading.Thread):
         """
         if self._producer:
             self._producer.send(topic=topic, message=message)
-            print("[DEBUG]"(f"Published to {topic}")
+            print(f"[DEBUG] Published to {topic}")
 
     def _on_live_data_received(self, event) -> None:
         """
@@ -396,10 +396,10 @@ class DataManager(threading.Thread):
                     topic=KafkaTopics.MARKET_DATA,
                     message=dto.model_dump_json(),
                 )
-                print("[DEBUG]"(f"Published PriceUpdateDTO to Kafka: {event.code}")
+                print(f"[DEBUG] Published PriceUpdateDTO to Kafka: {event.code}")
 
         except Exception as e:
-            print("[ERROR]"(f"Failed to process live data: {e}")
+            print(f"[ERROR] Failed to process live data: {e}")
 
     def subscribe_live_data(self, symbols: List[str]) -> None:
         """
@@ -417,4 +417,4 @@ class DataManager(threading.Thread):
             print(f"Subscribed to live data for {len(symbols)} symbols")
 
         except Exception as e:
-            print("[ERROR]"(f"Failed to subscribe live data: {e}")
+            print(f"[ERROR] Failed to subscribe live data: {e}")
