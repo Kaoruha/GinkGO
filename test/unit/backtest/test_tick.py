@@ -4,7 +4,7 @@ import time
 import datetime
 import pandas as pd
 from decimal import Decimal
-from ginkgo.backtest.entities.tick import Tick
+from ginkgo.trading.entities.tick import Tick
 from ginkgo.libs import GLOG
 from ginkgo.enums import SOURCE_TYPES, TICKDIRECTION_TYPES
 
