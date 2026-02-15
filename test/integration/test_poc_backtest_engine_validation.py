@@ -17,11 +17,11 @@ from unittest.mock import Mock, patch, AsyncMock
 
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
 from ginkgo.trading.portfolios.t1backtest import PortfolioT1Backtest
-from ginkgo.trading.strategy.strategies.random_signal_strategy import RandomSignalStrategy
-from ginkgo.trading.strategy.selectors.fixed_selector import FixedSelector
-from ginkgo.trading.strategy.sizers.fixed_sizer import FixedSizer
-from ginkgo.trading.strategy.risk_managements.position_ratio_risk import PositionRatioRisk
-from ginkgo.trading.routing.broker_matchmaking import BrokerMatchMaking
+from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrategy
+from ginkgo.trading.selectors.fixed_selector import FixedSelector
+from ginkgo.trading.sizers.fixed_sizer import FixedSizer
+from ginkgo.trading.risk_management.position_ratio_risk import PositionRatioRisk
+# Note: BrokerMatchMaking module does not exist, using mock broker instead
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.trading.events.time_advance import EventTimeAdvance
 from ginkgo.trading.entities.bar import Bar

@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from ginkgo.backtest.analysis.analyzers.consecutive_pnl import ConsecutivePnL
+from ginkgo.trading.analysis.analyzers.consecutive_pnl import ConsecutivePnL
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 

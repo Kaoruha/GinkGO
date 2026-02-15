@@ -4,7 +4,7 @@ from decimal import Decimal
 import numpy as np
 from scipy import stats
 
-from ginkgo.backtest.analysis.analyzers.skew_kurtosis import SkewKurtosis
+from ginkgo.trading.analysis.analyzers.skew_kurtosis import SkewKurtosis
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 

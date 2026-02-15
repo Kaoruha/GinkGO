@@ -2,7 +2,7 @@ import unittest
 import datetime
 from unittest.mock import Mock, patch
 
-from ginkgo.backtest.execution.engines.historic_engine import HistoricEngine
+from ginkgo.trading.engines import BacktestEngine as HistoricEngine
 
 
 class HistoricEngineTest(unittest.TestCase):
@@ -47,8 +47,8 @@ class HistoricEngineTest(unittest.TestCase):
 
     def test_inheritance_from_event_engine(self):
         """测试是否正确继承EventEngine"""
-        from ginkgo.backtest.execution.engines.event_engine import EventEngine
-        from ginkgo.backtest.execution.engines.base_engine import BaseEngine
+        from ginkgo.trading.engines.event_engine import EventEngine
+        from ginkgo.trading.engines.base_engine import BaseEngine
         
         # 验证继承关系
         self.assertIsInstance(self.engine, EventEngine)

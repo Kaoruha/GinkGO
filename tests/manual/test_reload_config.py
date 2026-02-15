@@ -180,7 +180,7 @@ auto_reload_thread = threading.Thread(
     daemon=True
 )
 auto_reload_thread.start()
-    """\
+""")
 
 def main():
     print("=" * 60)

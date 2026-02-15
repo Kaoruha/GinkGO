@@ -30,9 +30,9 @@ from test.fixtures.trading_factories import (
 
 # 核心导入
 try:
-    from ginkgo.trading.strategy.risk_managements.position_ratio_risk import PositionRatioRisk
-    from ginkgo.trading.strategy.risk_managements.loss_limit_risk import LossLimitRisk
-    from ginkgo.trading.strategy.risk_managements.profit_target_risk import ProfitTargetRisk
+    from ginkgo.trading.risk_management.position_ratio_risk import PositionRatioRisk
+    from ginkgo.trading.risk_management.loss_limit_risk import LossLimitRisk
+    from ginkgo.trading.risk_management.profit_target_risk import ProfitTargetRisk
     from ginkgo.trading.entities.order import Order
     from ginkgo.trading.events.price_update import EventPriceUpdate
     from ginkgo.enums import DIRECTION_TYPES, ORDERSTATUS_TYPES

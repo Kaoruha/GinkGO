@@ -12,7 +12,7 @@ import os
 # Add src path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'src'))
 
-from ginkgo.backtest.computation.indicators.weighted_moving_average import WeightedMovingAverage
+from ginkgo.trading.computation.technical.weighted_moving_average import WeightedMovingAverage
 
 
 class TestWeightedMovingAverage(unittest.TestCase):
@@ -62,7 +62,7 @@ class TestWeightedMovingAverage(unittest.TestCase):
     
     def test_wma_vs_sma_comparison(self):
         """测试WMA与SMA的比较"""
-        from ginkgo.backtest.computation.indicators.simple_moving_average import SimpleMovingAverage
+        from ginkgo.trading.computation.technical.simple_moving_average import SimpleMovingAverage
         
         # 使用上升趋势数据
         prices = [100.0, 101.0, 102.0, 103.0, 104.0]

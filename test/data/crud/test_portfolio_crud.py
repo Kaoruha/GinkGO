@@ -98,7 +98,7 @@ sys.path.insert(0, str(project_root / "src"))
 
 from ginkgo.data.crud.portfolio_crud import PortfolioCRUD
 from ginkgo.data.models.model_portfolio import MPortfolio
-from ginkgo.enums import SOURCE_TYPES
+from ginkgo.enums import SOURCE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES
 
 
 @pytest.mark.database
@@ -122,30 +122,26 @@ class TestPortfolioCRUDInsert:
         test_portfolios = [
             MPortfolio(
                 name="test_portfolio_ma_strategy",
-                backtest_start_date=datetime(2023, 1, 1),
-                backtest_end_date=datetime(2023, 12, 31),
-                is_live=False,
+                mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                 source=SOURCE_TYPES.TEST
             ),
             MPortfolio(
                 name="test_portfolio_rsi_strategy",
-                backtest_start_date=datetime(2023, 6, 1),
-                backtest_end_date=datetime(2023, 12, 31),
-                is_live=True,
+                mode=PORTFOLIO_MODE_TYPES.LIVE.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.RUNNING.value,
                 source=SOURCE_TYPES.TEST
             ),
             MPortfolio(
                 name="test_portfolio_momentum",
-                backtest_start_date=datetime(2022, 1, 1),
-                backtest_end_date=datetime(2023, 6, 30),
-                is_live=False,
+                mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                 source=SOURCE_TYPES.TEST
             )
         ]
         print(f"✓ 创建测试数据: {len(test_portfolios)}条Portfolio记录")
         print(f"  - 投资组合名称: {[p.name for p in test_portfolios]}")
-        print(f"  - 实盘状态: {[p.is_live for p in test_portfolios]}")
-        print(f"  - 时间跨度: 2022-2023年")
+        print(f"  - 运行模式: {[PORTFOLIO_MODE_TYPES(p.mode).name for p in test_portfolios]}")
 
         try:
             # 批量插入
@@ -161,8 +157,8 @@ class TestPortfolioCRUDInsert:
 
             # 验证数据内容
             names = [portfolio.name for portfolio in query_result]
-            live_count = sum(1 for p in query_result if p.is_live)
-            backtest_count = sum(1 for p in query_result if not p.is_live)
+            live_count = sum(1 for p in query_result if p.mode == PORTFOLIO_MODE_TYPES.LIVE.value)
+            backtest_count = sum(1 for p in query_result if p.mode == PORTFOLIO_MODE_TYPES.BACKTEST.value)
 
             print(f"✓ 投资组合名称验证通过: {set(names)}")
             print(f"✓ 实盘组合: {live_count} 个")
@@ -186,14 +182,12 @@ class TestPortfolioCRUDInsert:
 
         test_portfolio = MPortfolio(
             name="test_single_portfolio",
-            backtest_start_date=datetime(2023, 1, 1),
-            backtest_end_date=datetime(2023, 12, 31),
-            is_live=False,
+            mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+            state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
             source=SOURCE_TYPES.TEST
         )
         print(f"✓ 创建测试Portfolio: {test_portfolio.name}")
-        print(f"  - 回测时间: {test_portfolio.backtest_start_date} ~ {test_portfolio.backtest_end_date}")
-        print(f"  - 实盘状态: {test_portfolio.is_live}")
+        print(f"  - 运行模式: {PORTFOLIO_MODE_TYPES(test_portfolio.mode).name}")
 
         try:
             # 单条插入
@@ -209,8 +203,7 @@ class TestPortfolioCRUDInsert:
 
             inserted_portfolio = query_result[0]
             print(f"✓ 插入的Portfolio验证: {inserted_portfolio.name}")
-            print(f"  - 回测开始: {inserted_portfolio.backtest_start_date}")
-            print(f"  - 回测结束: {inserted_portfolio.backtest_end_date}")
+            print(f"  - 运行模式: {PORTFOLIO_MODE_TYPES(inserted_portfolio.mode).name}")
             assert inserted_portfolio.name == "test_single_portfolio"
 
         except Exception as e:
@@ -227,14 +220,12 @@ class TestPortfolioCRUDInsert:
 
         live_portfolio = MPortfolio(
             name="test_live_trading",
-            backtest_start_date=datetime(2023, 1, 1),
-            backtest_end_date=datetime(2099, 12, 31),  # 实盘组合通常设置很远的结束时间
-            is_live=True,
+            mode=PORTFOLIO_MODE_TYPES.LIVE.value,
+            state=PORTFOLIO_RUNSTATE_TYPES.RUNNING.value,
             source=SOURCE_TYPES.TEST
         )
         print(f"✓ 创建实盘Portfolio: {live_portfolio.name}")
-        print(f"  - 实盘状态: {live_portfolio.is_live}")
-        print(f"  - 运行周期: {live_portfolio.backtest_start_date} ~ {live_portfolio.backtest_end_date}")
+        print(f"  - 运行模式: {PORTFOLIO_MODE_TYPES(live_portfolio.mode).name}")
 
         try:
             # 插入实盘组合
@@ -249,7 +240,7 @@ class TestPortfolioCRUDInsert:
 
             verified_portfolio = query_result[0]
             print(f"✓ 实盘Portfolio验证: {verified_portfolio.name}")
-            assert verified_portfolio.is_live == True
+            assert verified_portfolio.mode == PORTFOLIO_MODE_TYPES.LIVE.value
             print("✓ 实盘状态验证通过")
 
         except Exception as e:
@@ -282,74 +273,83 @@ class TestPortfolioCRUDQuery:
             # 验证查询结果
             for portfolio in portfolios:
                 print(f"  - 组合名称: {portfolio.name}")
-                print(f"  - 实盘状态: {portfolio.is_live}")
-                print(f"  - 回测时间: {portfolio.backtest_start_date} ~ {portfolio.backtest_end_date}")
+                print(f"  - 运行模式: {PORTFOLIO_MODE_TYPES(portfolio.mode).name}")
+                print(f"  - 运行状态: {PORTFOLIO_RUNSTATE_TYPES(portfolio.state).name}")
                 assert portfolio.name == "test_portfolio_ma_strategy"
 
         except Exception as e:
             print(f"✗ 查询失败: {e}")
             raise
 
-    def test_find_by_live_status(self):
-        """测试根据实盘状态查询Portfolio"""
+    def test_find_by_mode(self):
+        """测试根据运行模式查询Portfolio"""
         print("\n" + "="*60)
-        print("开始测试: 根据is_live状态查询Portfolio")
+        print("开始测试: 根据mode状态查询Portfolio")
         print("="*60)
 
         portfolio_crud = PortfolioCRUD()
 
         try:
             # 查询实盘组合
-            print("→ 查询实盘组合 (is_live=True)...")
-            live_portfolios = portfolio_crud.find(filters={"is_live": True})
+            print("→ 查询实盘组合 (mode=LIVE)...")
+            live_portfolios = portfolio_crud.find_by_mode(PORTFOLIO_MODE_TYPES.LIVE)
             print(f"✓ 查询到 {len(live_portfolios)} 个实盘组合")
 
             # 查询回测组合
-            print("→ 查询回测组合 (is_live=False)...")
-            backtest_portfolios = portfolio_crud.find(filters={"is_live": False})
+            print("→ 查询回测组合 (mode=BACKTEST)...")
+            backtest_portfolios = portfolio_crud.find_by_mode(PORTFOLIO_MODE_TYPES.BACKTEST)
             print(f"✓ 查询到 {len(backtest_portfolios)} 个回测组合")
+
+            # 查询模拟盘组合
+            print("→ 查询模拟盘组合 (mode=PAPER)...")
+            paper_portfolios = portfolio_crud.find_by_mode(PORTFOLIO_MODE_TYPES.PAPER)
+            print(f"✓ 查询到 {len(paper_portfolios)} 个模拟盘组合")
 
             # 验证查询结果
             print("→ 验证查询结果...")
             for portfolio in live_portfolios:
                 print(f"  - 实盘组合: {portfolio.name}")
-                assert portfolio.is_live == True
+                assert portfolio.mode == PORTFOLIO_MODE_TYPES.LIVE.value
 
             for portfolio in backtest_portfolios:
                 print(f"  - 回测组合: {portfolio.name}")
-                assert portfolio.is_live == False
+                assert portfolio.mode == PORTFOLIO_MODE_TYPES.BACKTEST.value
 
-            print("✓ 实盘状态查询验证成功")
+            print("✓ 运行模式查询验证成功")
 
         except Exception as e:
             print(f"✗ 实盘状态查询失败: {e}")
             raise
 
     def test_find_by_time_range(self):
-        """测试根据时间范围查询Portfolio"""
+        """测试根据创建时间范围查询Portfolio"""
         print("\n" + "="*60)
-        print("开始测试: 根据时间范围查询Portfolio")
+        print("开始测试: 根据创建时间范围查询Portfolio")
         print("="*60)
 
         portfolio_crud = PortfolioCRUD()
 
         try:
-            # 查询特定时间范围内运行的投资组合
-            target_date = datetime(2023, 6, 15)
-            print(f"→ 查询在 {target_date} 期间运行的投资组合...")
+            # 查询特定时间范围内创建的投资组合
+            start_time = datetime.now() - timedelta(days=30)
+            end_time = datetime.now() + timedelta(days=1)
+            print(f"→ 查询在 {start_time} ~ {end_time} 期间创建的投资组合...")
 
             all_portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_", "source": SOURCE_TYPES.TEST.value})
-            active_portfolios = [
+
+            # 根据创建时间过滤
+            recent_portfolios = [
                 p for p in all_portfolios
-                if p.backtest_start_date <= target_date <= p.backtest_end_date
+                if p.create_at and start_time <= p.create_at <= end_time
             ]
 
-            print(f"✓ 查询到 {len(active_portfolios)} 个活跃的投资组合")
+            print(f"✓ 查询到 {len(recent_portfolios)} 个最近创建的投资组合")
 
             # 验证时间范围
-            for portfolio in active_portfolios:
-                print(f"  - {portfolio.name}: {portfolio.backtest_start_date} ~ {portfolio.backtest_end_date}")
-                assert portfolio.backtest_start_date <= target_date <= portfolio.backtest_end_date
+            for portfolio in recent_portfolios:
+                print(f"  - {portfolio.name}: 创建于 {portfolio.create_at}")
+                if portfolio.create_at:
+                    assert start_time <= portfolio.create_at <= end_time
 
             print("✓ 时间范围查询验证成功")
 
@@ -406,23 +406,20 @@ class TestPortfolioCRUDQuery:
         test_portfolios = [
             MPortfolio(
                 name="convert_test_portfolio_1",
-                backtest_start_date=datetime(2023, 1, 1),
-                backtest_end_date=datetime(2023, 12, 31),
-                is_live=False,
+                mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                 source=SOURCE_TYPES.TEST
             ),
             MPortfolio(
                 name="convert_test_portfolio_2",
-                backtest_start_date=datetime(2023, 6, 1),
-                backtest_end_date=datetime(2024, 5, 31),
-                is_live=True,
+                mode=PORTFOLIO_MODE_TYPES.LIVE.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.RUNNING.value,
                 source=SOURCE_TYPES.TEST
             ),
             MPortfolio(
                 name="convert_test_portfolio_3",
-                backtest_start_date=datetime(2022, 1, 1),
-                backtest_end_date=datetime(2023, 12, 31),
-                is_live=False,
+                mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                 source=SOURCE_TYPES.TEST
             )
         ]
@@ -459,7 +456,7 @@ class TestPortfolioCRUDQuery:
             assert len(df) == len(model_list), f"DataFrame行数应等于ModelList长度，{len(df)} != {len(model_list)}"
 
             # 验证DataFrame列和内容
-            required_columns = ['uuid', 'name', 'backtest_start_date', 'backtest_end_date', 'is_live', 'create_at', 'update_at']
+            required_columns = ['uuid', 'name', 'mode', 'state', 'create_at', 'update_at']
             for col in required_columns:
                 assert col in df.columns, f"DataFrame缺少列: {col}"
             print(f"✓ 包含所有必要列: {required_columns}")
@@ -467,7 +464,7 @@ class TestPortfolioCRUDQuery:
             # 验证数据内容
             first_row = df.iloc[0]
             assert "convert_test_portfolio" in first_row['name']
-            print(f"✓ 数据内容验证通过: name={first_row['name']}, is_live={first_row['is_live']}")
+            print(f"✓ 数据内容验证通过: name={first_row['name']}, mode={PORTFOLIO_MODE_TYPES(first_row['mode']).name}")
 
             # 测试2: to_entities转换
             print("\n→ 测试to_entities转换...")
@@ -551,8 +548,7 @@ class TestPortfolioCRUDUpdate:
 
             target_portfolio = portfolios[0]
             print(f"✓ 找到投资组合: {target_portfolio.name}")
-            print(f"  - 当前状态: 实盘={target_portfolio.is_live}")
-            print(f"  - 回测时间: {target_portfolio.backtest_start_date} ~ {target_portfolio.backtest_end_date}")
+            print(f"  - 当前状态: mode={PORTFOLIO_MODE_TYPES(target_portfolio.mode).name}, state={PORTFOLIO_RUNSTATE_TYPES(target_portfolio.state).name}")
 
             # 更新投资组合名称和状态
             print("→ 更新投资组合属性...")
@@ -562,9 +558,12 @@ class TestPortfolioCRUDUpdate:
             else:
                 # 使用更短的前缀或截断原名称
                 new_name = f"upd_{target_portfolio.name}"[:64]
+
+            # 切换模式
+            new_mode = PORTFOLIO_MODE_TYPES.LIVE.value if target_portfolio.mode == PORTFOLIO_MODE_TYPES.BACKTEST.value else PORTFOLIO_MODE_TYPES.BACKTEST.value
             updated_data = {
                 "name": new_name,
-                "is_live": not target_portfolio.is_live  # 切换实盘状态
+                "mode": new_mode
             }
 
             portfolio_crud.update(target_portfolio.uuid, **updated_data)
@@ -577,20 +576,20 @@ class TestPortfolioCRUDUpdate:
 
             updated_portfolio = updated_portfolios[0]
             print(f"✓ 更新后名称: {updated_portfolio.name}")
-            print(f"✓ 更新后实盘状态: {updated_portfolio.is_live}")
+            print(f"✓ 更新后运行模式: {PORTFOLIO_MODE_TYPES(updated_portfolio.mode).name}")
 
             assert updated_portfolio.name == new_name
-            assert updated_portfolio.is_live != target_portfolio.is_live
+            assert updated_portfolio.mode != target_portfolio.mode
             print("✓ 投资组合更新验证成功")
 
         except Exception as e:
             print(f"✗ 更新投资组合失败: {e}")
             raise
 
-    def test_update_time_range(self):
-        """测试更新Portfolio时间范围"""
+    def test_update_state(self):
+        """测试更新Portfolio状态"""
         print("\n" + "="*60)
-        print("开始测试: 更新Portfolio时间范围")
+        print("开始测试: 更新Portfolio状态")
         print("="*60)
 
         portfolio_crud = PortfolioCRUD()
@@ -605,20 +604,18 @@ class TestPortfolioCRUDUpdate:
 
             target_portfolio = portfolios[0]
             print(f"✓ 找到投资组合: {target_portfolio.name}")
-            print(f"  - 原始时间范围: {target_portfolio.backtest_start_date} ~ {target_portfolio.backtest_end_date}")
+            print(f"  - 原始状态: state={PORTFOLIO_RUNSTATE_TYPES(target_portfolio.state).name}")
 
-            # 更新时间范围
-            print("→ 更新时间范围...")
-            new_start_date = target_portfolio.backtest_start_date - timedelta(days=30)
-            new_end_date = target_portfolio.backtest_end_date + timedelta(days=30)
+            # 更新状态
+            print("→ 更新状态...")
+            new_state = PORTFOLIO_RUNSTATE_TYPES.RUNNING.value if target_portfolio.state == PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value else PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value
 
             updated_data = {
-                "backtest_start_date": new_start_date,
-                "backtest_end_date": new_end_date
+                "state": new_state
             }
 
             portfolio_crud.update(target_portfolio.uuid, **updated_data)
-            print("✓ 时间范围更新成功")
+            print("✓ 状态更新成功")
 
             # 验证更新结果
             print("→ 验证更新结果...")
@@ -626,14 +623,13 @@ class TestPortfolioCRUDUpdate:
             assert len(updated_portfolios) == 1
 
             updated_portfolio = updated_portfolios[0]
-            print(f"✓ 更新后时间范围: {updated_portfolio.backtest_start_date} ~ {updated_portfolio.backtest_end_date}")
+            print(f"✓ 更新后状态: state={PORTFOLIO_RUNSTATE_TYPES(updated_portfolio.state).name}")
 
-            assert updated_portfolio.backtest_start_date == new_start_date
-            assert updated_portfolio.backtest_end_date == new_end_date
-            print("✓ 时间范围更新验证成功")
+            assert updated_portfolio.state == new_state
+            print("✓ 状态更新验证成功")
 
         except Exception as e:
-            print(f"✗ 时间范围更新失败: {e}")
+            print(f"✗ 状态更新失败: {e}")
             raise
 
     def test_update_portfolio_batch(self):
@@ -657,14 +653,15 @@ class TestPortfolioCRUDUpdate:
             # 批量更新投资组合状态
             for i, portfolio in enumerate(portfolios):
                 print(f"→ 更新投资组合 {portfolio.name} 的状态...")
-                portfolio_crud.update(portfolio.uuid, is_live=(i % 2 == 0))
+                new_mode = PORTFOLIO_MODE_TYPES.LIVE.value if i % 2 == 0 else PORTFOLIO_MODE_TYPES.BACKTEST.value
+                portfolio_crud.update(portfolio.uuid, mode=new_mode)
 
             print("✓ 批量更新完成")
 
             # 验证批量更新结果
             print("→ 验证批量更新结果...")
             updated_portfolios = portfolio_crud.find(filters={"name__like": "test_portfolio_", "source": SOURCE_TYPES.TEST.value}, page=1, page_size=3)
-            live_count = sum(1 for p in updated_portfolios if p.is_live)
+            live_count = sum(1 for p in updated_portfolios if p.mode == PORTFOLIO_MODE_TYPES.LIVE.value)
             print(f"✓ 更新后实盘组合数量: {live_count} 个")
             assert live_count >= 1
             print("✓ 批量更新验证成功")
@@ -695,9 +692,8 @@ class TestPortfolioCRUDDelete:
             print("→ 创建测试投资组合...")
             test_portfolio = MPortfolio(
                 name="test_portfolio_to_delete",
-                backtest_start_date=datetime(2023, 1, 1),
-                backtest_end_date=datetime(2023, 12, 31),
-                is_live=False,
+                mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                 source=SOURCE_TYPES.TEST
             )
             portfolio_crud.add(test_portfolio)
@@ -782,9 +778,8 @@ class TestPortfolioCRUDBusinessLogic:
             print("1. 创建回测阶段投资组合...")
             backtest_portfolio = MPortfolio(
                 name="lifecycle_backtest_test",
-                backtest_start_date=datetime(2023, 1, 1),
-                backtest_end_date=datetime(2023, 6, 30),
-                is_live=False,
+                mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                 source=SOURCE_TYPES.TEST
             )
             portfolio_crud.add(backtest_portfolio)
@@ -793,19 +788,18 @@ class TestPortfolioCRUDBusinessLogic:
             # 2. 模拟回测完成，转换为实盘
             print("2. 转换为实盘投资组合...")
             portfolio_crud.update(backtest_portfolio.uuid,
-                is_live=True,
-                backtest_end_date=datetime(2099, 12, 31)
+                mode=PORTFOLIO_MODE_TYPES.LIVE.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.RUNNING.value
             )
             print("✓ 转换为实盘组合成功")
 
             # 3. 验证生命周期状态
             print("3. 验证生命周期状态...")
             live_portfolio = portfolio_crud.find(filters={"uuid": backtest_portfolio.uuid})[0]
-            print(f"✓ 当前状态: 实盘={live_portfolio.is_live}")
-            print(f"✓ 运行周期: {live_portfolio.backtest_start_date} ~ {live_portfolio.backtest_end_date}")
+            print(f"✓ 当前状态: mode={PORTFOLIO_MODE_TYPES(live_portfolio.mode).name}, state={PORTFOLIO_RUNSTATE_TYPES(live_portfolio.state).name}")
 
-            assert live_portfolio.is_live == True
-            assert live_portfolio.backtest_end_date.year == 2099
+            assert live_portfolio.mode == PORTFOLIO_MODE_TYPES.LIVE.value
+            assert live_portfolio.state == PORTFOLIO_RUNSTATE_TYPES.RUNNING.value
             print("✓ 投资组合生命周期验证成功")
 
         except Exception as e:
@@ -826,23 +820,20 @@ class TestPortfolioCRUDBusinessLogic:
             strategy_portfolios = [
                 MPortfolio(
                     name="performance_ma_strategy",
-                    backtest_start_date=datetime(2023, 1, 1),
-                    backtest_end_date=datetime(2023, 12, 31),
-                    is_live=False,
+                    mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                    state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                     source=SOURCE_TYPES.TEST
                 ),
                 MPortfolio(
                     name="performance_rsi_strategy",
-                    backtest_start_date=datetime(2023, 1, 1),
-                    backtest_end_date=datetime(2023, 12, 31),
-                    is_live=False,
+                    mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                    state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                     source=SOURCE_TYPES.TEST
                 ),
                 MPortfolio(
                     name="performance_momentum_strategy",
-                    backtest_start_date=datetime(2023, 1, 1),
-                    backtest_end_date=datetime(2023, 12, 31),
-                    is_live=True,
+                    mode=PORTFOLIO_MODE_TYPES.LIVE.value,
+                    state=PORTFOLIO_RUNSTATE_TYPES.RUNNING.value,
                     source=SOURCE_TYPES.TEST
                 )
             ]
@@ -856,24 +847,21 @@ class TestPortfolioCRUDBusinessLogic:
             all_portfolios = portfolio_crud.find(filters={"name__like": "performance_%"})
 
             # 统计实盘和回测分布
-            live_portfolios = [p for p in all_portfolios if p.is_live]
-            backtest_portfolios = [p for p in all_portfolios if not p.is_live]
+            live_portfolios = [p for p in all_portfolios if p.mode == PORTFOLIO_MODE_TYPES.LIVE.value]
+            backtest_portfolios = [p for p in all_portfolios if p.mode == PORTFOLIO_MODE_TYPES.BACKTEST.value]
 
-            # 统计时间分布
-            durations = []
-            for p in all_portfolios:
-                duration = (p.backtest_end_date - p.backtest_start_date).days
-                durations.append(duration)
+            # 统计运行状态分布
+            running_portfolios = [p for p in all_portfolios if p.state == PORTFOLIO_RUNSTATE_TYPES.RUNNING.value]
 
             print(f"✓ 投资组合统计:")
             print(f"  - 总数量: {len(all_portfolios)}")
             print(f"  - 实盘组合: {len(live_portfolios)}")
             print(f"  - 回测组合: {len(backtest_portfolios)}")
-            print(f"  - 平均运行天数: {sum(durations)/len(durations):.0f}")
+            print(f"  - 运行中组合: {len(running_portfolios)}")
 
             # 验证分析结果
             assert len(all_portfolios) == len(live_portfolios) + len(backtest_portfolios)
-            assert all(d > 0 for d in durations)
+            assert len(running_portfolios) >= 1
             print("✓ 投资组合绩效分析验证成功")
 
         except Exception as e:
@@ -896,8 +884,6 @@ class TestPortfolioCRUDBusinessLogic:
             try:
                 invalid_portfolio = MPortfolio(
                     name="",  # 空字符串
-                    backtest_start_date=datetime(2023, 1, 1),
-                    backtest_end_date=datetime(2023, 12, 31),
                     source=SOURCE_TYPES.TEST
                 )
                 portfolio_crud.add(invalid_portfolio)
@@ -906,14 +892,11 @@ class TestPortfolioCRUDBusinessLogic:
             except Exception as e:
                 print(f"✓ 正确拒绝无效投资组合: {type(e).__name__}")
 
-            # 验证时间约束和名称约束（排除历史空名数据）
-            print("→ 验证时间约束和名称约束...")
+            # 验证名称约束（排除历史空名数据）
+            print("→ 验证名称约束...")
             valid_portfolios = portfolio_crud.find(page=1, page_size=10)
             valid_count = 0
             for portfolio in valid_portfolios:
-                # 验证时间逻辑
-                assert portfolio.backtest_start_date <= portfolio.backtest_end_date
-
                 # 只验证非空名称的数据（历史数据可能包含空名称）
                 if portfolio.name and len(portfolio.name.strip()) > 0:
                     # 验证名称长度
@@ -921,7 +904,7 @@ class TestPortfolioCRUDBusinessLogic:
                     assert len(portfolio.name) <= 64
                     valid_count += 1
 
-            print(f"✓ 验证了 {len(valid_portfolios)} 条投资组合的时间约束")
+            print(f"✓ 验证了 {len(valid_portfolios)} 条投资组合")
             print(f"✓ 验证了 {valid_count} 条投资组合的名称约束")
             print("✓ 数据完整性验证成功")
 
@@ -943,23 +926,20 @@ class TestPortfolioCRUDBusinessLogic:
             comparison_portfolios = [
                 MPortfolio(
                     name="compare_conservative",
-                    backtest_start_date=datetime(2023, 1, 1),
-                    backtest_end_date=datetime(2023, 12, 31),
-                    is_live=False,
+                    mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                    state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                     source=SOURCE_TYPES.TEST
                 ),
                 MPortfolio(
                     name="compare_aggressive",
-                    backtest_start_date=datetime(2023, 1, 1),
-                    backtest_end_date=datetime(2023, 12, 31),
-                    is_live=False,
+                    mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                    state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                     source=SOURCE_TYPES.TEST
                 ),
                 MPortfolio(
                     name="compare_balanced",
-                    backtest_start_date=datetime(2023, 1, 1),
-                    backtest_end_date=datetime(2023, 12, 31),
-                    is_live=True,
+                    mode=PORTFOLIO_MODE_TYPES.LIVE.value,
+                    state=PORTFOLIO_RUNSTATE_TYPES.RUNNING.value,
                     source=SOURCE_TYPES.TEST
                 )
             ]
@@ -980,21 +960,20 @@ class TestPortfolioCRUDBusinessLogic:
                     strategy_analysis[strategy_type] = {
                         "count": 0,
                         "live_count": 0,
-                        "total_days": 0
+                        "running_count": 0
                     }
 
                 strategy_analysis[strategy_type]["count"] += 1
-                if portfolio.is_live:
+                if portfolio.mode == PORTFOLIO_MODE_TYPES.LIVE.value:
                     strategy_analysis[strategy_type]["live_count"] += 1
-
-                duration = (portfolio.backtest_end_date - portfolio.backtest_start_date).days
-                strategy_analysis[strategy_type]["total_days"] += duration
+                if portfolio.state == PORTFOLIO_RUNSTATE_TYPES.RUNNING.value:
+                    strategy_analysis[strategy_type]["running_count"] += 1
 
             print(f"✓ 策略比较分析结果:")
             for strategy_type, analysis in strategy_analysis.items():
-                avg_days = analysis["total_days"] / analysis["count"]
-                live_ratio = analysis["live_count"] / analysis["count"]
-                print(f"  - {strategy_type}: {analysis['count']}个组合, 实盘率{live_ratio:.1%}, 平均{avg_days:.0f}天")
+                live_ratio = analysis["live_count"] / analysis["count"] if analysis["count"] > 0 else 0
+                running_ratio = analysis["running_count"] / analysis["count"] if analysis["count"] > 0 else 0
+                print(f"  - {strategy_type}: {analysis['count']}个组合, 实盘率{live_ratio:.1%}, 运行率{running_ratio:.1%}")
 
             # 验证分析结果
             assert len(strategy_analysis) >= 2  # 至少有2种策略类型
@@ -1047,9 +1026,9 @@ class TestPortfolioCRUDEnumValidation:
         for i, (source_type, source_name) in enumerate(source_types):
             test_portfolio = MPortfolio(
                 name=f"enum_source_test_{i+1:03d}",
-                description=f"测试投资组合 - {source_name}",
-                backtest_start_date=datetime(2023, 1, 1) + timedelta(days=i*30),
-                backtest_end_date=datetime(2023, 12, 31) + timedelta(days=i*30),
+                desc=f"测试投资组合 - {source_name}",
+                mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                 initial_capital=1000000.0 + i * 100000,
                 current_capital=1100000.0 + i * 110000,
                 risk_level=0.1 + i * 0.02,
@@ -1128,9 +1107,9 @@ class TestPortfolioCRUDEnumValidation:
         for i, (source, desc, name_prefix, initial_capital, risk_level) in enumerate(enum_combinations):
             test_portfolio = MPortfolio(
                 name=f"comprehensive_enum_{name_prefix}_{i+1:03d}",
-                description=f"{desc} - 综合枚举测试",
-                backtest_start_date=datetime(2023, 1, 1) + timedelta(days=i*30),
-                backtest_end_date=datetime(2023, 12, 31) + timedelta(days=i*30),
+                desc=f"{desc} - 综合枚举测试",
+                mode=PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                 initial_capital=initial_capital,
                 current_capital=initial_capital * 1.1,  # 假设有10%收益
                 risk_level=risk_level,

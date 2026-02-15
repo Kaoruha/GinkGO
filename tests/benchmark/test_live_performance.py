@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import List, Dict
 from statistics import mean, median
 
-from ginkgo.trading.enums import SOURCE_TYPES
+from ginkgo.enums import SOURCE_TYPES
 from ginkgo.trading.events import EventPriceUpdate
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer, GinkgoConsumer
 

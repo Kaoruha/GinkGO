@@ -14,9 +14,9 @@ from unittest.mock import Mock, patch, MagicMock
 
 # 测试导入
 try:
-    from ginkgo.backtest.strategy.strategies.ml_strategy_base import StrategyMLBase
-    from ginkgo.backtest.strategy.strategies.ml_predictor import StrategyMLPredictor
-    from ginkgo.backtest.entities.signal import Signal
+    from ginkgo.trading.strategies.ml_strategy_base import StrategyMLBase
+    from ginkgo.trading.strategies.ml_predictor import StrategyMLPredictor
+    from ginkgo.trading.entities import Signal
     from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
     ML_STRATEGIES_AVAILABLE = True
 except ImportError as e:
@@ -405,9 +405,9 @@ class TestMLStrategyIntegration(unittest.TestCase):
     def test_imports(self):
         """测试模块导入"""
         try:
-            from ginkgo.backtest.strategy.strategies import ML_STRATEGIES_AVAILABLE
+            from ginkgo.trading.strategies import ML_STRATEGIES_AVAILABLE
             if ML_STRATEGIES_AVAILABLE:
-                from ginkgo.backtest.strategy.strategies import StrategyMLBase, StrategyMLPredictor
+                from ginkgo.trading.strategies import StrategyMLBase, StrategyMLPredictor
                 self.assertIsNotNone(StrategyMLBase)
                 self.assertIsNotNone(StrategyMLPredictor)
             else:
@@ -418,7 +418,7 @@ class TestMLStrategyIntegration(unittest.TestCase):
     def test_strategy_inheritance(self):
         """测试策略继承关系"""
         if ML_STRATEGIES_AVAILABLE:
-            from ginkgo.backtest.strategy.strategies import StrategyMLBase, StrategyMLPredictor, StrategyBase
+            from ginkgo.trading.strategies import StrategyMLBase, StrategyMLPredictor, StrategyBase
             
             # 检查继承关系
             self.assertTrue(issubclass(StrategyMLBase, StrategyBase))
