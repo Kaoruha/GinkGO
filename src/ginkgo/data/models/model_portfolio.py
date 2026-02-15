@@ -12,26 +12,32 @@ import datetime
 
 from typing import Optional
 from functools import singledispatchmethod
-from sqlalchemy import String, DECIMAL, DateTime, Boolean
+from sqlalchemy import String, DECIMAL, DateTime, Boolean, Integer
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ginkgo.data.models.model_mysqlbase import MMysqlBase
 from ginkgo.trading.entities.order import Order
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES
 from ginkgo.libs import base_repr, datetime_normalize
 
 
 class MPortfolio(MMysqlBase):
     """
-    Similar to backtest.
+    Portfolio model with mode and state support.
     """
 
     __abstract__ = False
     __tablename__ = "portfolio"
 
-    name: Mapped[str] = mapped_column(String(64), default="default_live")
+    name: Mapped[str] = mapped_column(String(64), default="default_portfolio")
     desc: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    is_live: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Portfolio mode: BACKTEST(0), PAPER(1), LIVE(2)
+    mode: Mapped[int] = mapped_column(TINYINT, default=0, comment="运行模式: 0=回测, 1=模拟盘, 2=实盘")
+
+    # Portfolio state: INITIALIZED(0), RUNNING(1), PAUSED(2), STOPPING(3), STOPPED(4), RELOADING(5), MIGRATING(6)
+    state: Mapped[int] = mapped_column(TINYINT, default=0, comment="运行状态: 0=已初始化, 1=运行中, 2=已暂停, 3=停止中, 4=已停止, 5=重载中, 6=迁移中")
 
     # 投资组合核心业务字段
     initial_capital: Mapped[DECIMAL] = mapped_column(DECIMAL(20, 8), default=100000.00)
@@ -58,7 +64,8 @@ class MPortfolio(MMysqlBase):
         self,
         name: str,
         description: Optional[str] = None,
-        is_live: Optional[bool] = None,
+        mode: Optional[int] = None,
+        state: Optional[int] = None,
         source: Optional[SOURCE_TYPES] = None,
         initial_capital: Optional[float] = None,
         current_capital: Optional[float] = None,
@@ -77,9 +84,11 @@ class MPortfolio(MMysqlBase):
     ) -> None:
         self.name = name
         if description is not None:
-            self.description = description
-        if is_live is not None:
-            self.is_live = is_live
+            self.desc = description
+        if mode is not None:
+            self.mode = PORTFOLIO_MODE_TYPES.validate_input(mode) or PORTFOLIO_MODE_TYPES.BACKTEST.value
+        if state is not None:
+            self.state = PORTFOLIO_RUNSTATE_TYPES.validate_input(state) or PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value
         if source is not None:
             self.source = source
 
@@ -111,16 +120,19 @@ class MPortfolio(MMysqlBase):
         if winning_trades is not None:
             self.winning_trades = winning_trades
 
-        self.update_at = datetime.datetime.now()
+        self.updated_at = datetime.datetime.now()
 
     @update.register(pd.Series)
     def _(self, df: pd.DataFrame, *args, **kwargs) -> None:
         # TODO
         self.name = df["name"]
-        self.is_live = df["is_live"]
+        if "mode" in df.keys():
+            self.mode = PORTFOLIO_MODE_TYPES.validate_input(df["mode"]) or PORTFOLIO_MODE_TYPES.BACKTEST.value
+        if "state" in df.keys():
+            self.state = PORTFOLIO_RUNSTATE_TYPES.validate_input(df["state"]) or PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value
         if "source" in df.keys():
             self.source = df["source"]
-        self.update_at = datetime.datetime.now()
+        self.updated_at = datetime.datetime.now()
 
     def __repr__(self) -> str:
         return base_repr(self, "DB" + self.__tablename__.capitalize(), 12, 46)

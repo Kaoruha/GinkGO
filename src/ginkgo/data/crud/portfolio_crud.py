@@ -13,7 +13,7 @@ from datetime import datetime
 
 from ginkgo.data.crud.base_crud import BaseCRUD
 from ginkgo.data.models import MPortfolio
-from ginkgo.enums import SOURCE_TYPES
+from ginkgo.enums import SOURCE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES
 from ginkgo.libs import datetime_normalize, GLOG
 from ginkgo.data.access_control import restrict_crud_access
 
@@ -22,7 +22,7 @@ from ginkgo.data.access_control import restrict_crud_access
 class PortfolioCRUD(BaseCRUD[MPortfolio]):
     """
     Portfolio CRUD operations - Only overrides hook methods, never template methods.
-    
+
     Features:
     - Inherits ALL decorators (@time_logger, @retry, @cache) from BaseCRUD template methods
     - Only provides Portfolio-specific conversion and creation logic via hook methods
@@ -30,12 +30,7 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
     - Maintains architectural purity of template method pattern
     """
 
-
-    # 类级别声明，支持自动注册
-
-
     _model_class = MPortfolio
-
 
     def __init__(self):
         super().__init__(MPortfolio)
@@ -52,7 +47,7 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
             'name': {
                 'type': 'string',
                 'min': 1,
-                'max': 64  # 与模型String(64)一致
+                'max': 64
             },
 
             # 投资组合描述 - 可选字符串
@@ -62,11 +57,19 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
                 'max': 255
             },
 
-            # 是否实盘 - 布尔值
-            'is_live': {
-                'type': 'bool'
+            # 运行模式 - 枚举值
+            'mode': {
+                'type': 'enum',
+                'enum_class': PORTFOLIO_MODE_TYPES,
+                'default': PORTFOLIO_MODE_TYPES.BACKTEST.value
             },
 
+            # 运行状态 - 枚举值
+            'state': {
+                'type': 'enum',
+                'enum_class': PORTFOLIO_RUNSTATE_TYPES,
+                'default': PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value
+            },
         }
 
     def _create_from_params(self, **kwargs) -> MPortfolio:
@@ -74,7 +77,8 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         return MPortfolio(
             name=kwargs.get("name", "test_portfolio"),
             desc=kwargs.get("desc"),
-            is_live=kwargs.get("is_live", False),
+            mode=PORTFOLIO_MODE_TYPES.validate_input(kwargs.get("mode", PORTFOLIO_MODE_TYPES.BACKTEST)) or PORTFOLIO_MODE_TYPES.BACKTEST.value,
+            state=PORTFOLIO_RUNSTATE_TYPES.validate_input(kwargs.get("state", PORTFOLIO_RUNSTATE_TYPES.INITIALIZED)) or PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
             source=SOURCE_TYPES.validate_input(kwargs.get("source", SOURCE_TYPES.SIM)),
             initial_capital=kwargs.get("initial_capital", 100000.0),
             current_capital=kwargs.get("current_capital", 100000.0),
@@ -96,7 +100,8 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
             return MPortfolio(
                 name=getattr(item, 'name', 'test_portfolio'),
                 desc=getattr(item, 'desc', None),
-                is_live=getattr(item, 'is_live', False),
+                mode=PORTFOLIO_MODE_TYPES.validate_input(getattr(item, 'mode', PORTFOLIO_MODE_TYPES.BACKTEST)) or PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                state=PORTFOLIO_RUNSTATE_TYPES.validate_input(getattr(item, 'state', PORTFOLIO_RUNSTATE_TYPES.INITIALIZED)) or PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
                 source=SOURCE_TYPES.validate_input(getattr(item, 'source', SOURCE_TYPES.SIM)),
                 initial_capital=getattr(item, 'initial_capital', 100000.0),
                 current_capital=getattr(item, 'current_capital', 100000.0),
@@ -121,7 +126,9 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
             Dictionary mapping field names to enum classes
         """
         return {
-            'source': SOURCE_TYPES  # 数据源字段映射
+            'source': SOURCE_TYPES,
+            'mode': PORTFOLIO_MODE_TYPES,
+            'state': PORTFOLIO_RUNSTATE_TYPES
         }
 
     def _convert_models_to_business_objects(self, models: List[MPortfolio]) -> List[Any]:
@@ -147,7 +154,8 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
                 # Set the portfolio properties from the model
                 portfolio._uuid = model.uuid
                 portfolio._name = model.name
-                portfolio._is_live = model.is_live
+                portfolio._mode = PORTFOLIO_MODE_TYPES.from_int(model.mode) or PORTFOLIO_MODE_TYPES.BACKTEST
+                portfolio._state = PORTFOLIO_RUNSTATE_TYPES.from_int(model.state) or PORTFOLIO_RUNSTATE_TYPES.INITIALIZED
                 portfolio._create_at = model.create_at
                 portfolio._update_at = model.update_at
 
@@ -174,10 +182,29 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         return self.find(filters={"name__like": name_pattern}, order_by="update_at", desc_order=True,
                         as_dataframe=as_dataframe)
 
-    def find_by_live_status(self, is_live: bool, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
-        """Find portfolios by live status."""
-        return self.find(filters={"is_live": is_live}, order_by="update_at", desc_order=True,
+    def find_by_mode(self, mode: PORTFOLIO_MODE_TYPES, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+        """Find portfolios by mode (BACKTEST/PAPER/LIVE)."""
+        mode_value = PORTFOLIO_MODE_TYPES.validate_input(mode)
+        return self.find(filters={"mode": mode_value}, order_by="update_at", desc_order=True,
                         as_dataframe=as_dataframe)
+
+    def find_by_state(self, state: PORTFOLIO_RUNSTATE_TYPES, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+        """Find portfolios by state (INITIALIZED/RUNNING/PAUSED/...)."""
+        state_value = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
+        return self.find(filters={"state": state_value}, order_by="update_at", desc_order=True,
+                        as_dataframe=as_dataframe)
+
+    def find_paper_portfolios(self, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+        """Find all PAPER mode portfolios."""
+        return self.find_by_mode(PORTFOLIO_MODE_TYPES.PAPER, as_dataframe=as_dataframe)
+
+    def find_live_portfolios(self, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+        """Find all LIVE mode portfolios."""
+        return self.find_by_mode(PORTFOLIO_MODE_TYPES.LIVE, as_dataframe=as_dataframe)
+
+    def find_running_portfolios(self, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+        """Find all RUNNING state portfolios."""
+        return self.find_by_state(PORTFOLIO_RUNSTATE_TYPES.RUNNING, as_dataframe=as_dataframe)
 
     def get_all_uuids(self) -> List[str]:
         """
@@ -195,13 +222,19 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         """Delete portfolio by UUID."""
         if not uuid:
             raise ValueError("uuid不能为空")
-        
+
         GLOG.WARN(f"删除组合 {uuid}")
         return self.remove({"uuid": uuid})
 
-    def update_live_status(self, uuid: str, is_live: bool) -> None:
-        """Update portfolio live status."""
-        return self.modify({"uuid": uuid}, {"is_live": is_live})
+    def update_mode(self, uuid: str, mode: PORTFOLIO_MODE_TYPES) -> None:
+        """Update portfolio mode."""
+        mode_value = PORTFOLIO_MODE_TYPES.validate_input(mode)
+        return self.modify({"uuid": uuid}, {"mode": mode_value})
+
+    def update_state(self, uuid: str, state: PORTFOLIO_RUNSTATE_TYPES) -> None:
+        """Update portfolio state."""
+        state_value = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
+        return self.modify({"uuid": uuid}, {"state": state_value})
 
     # 别名方法，保持与测试期望的一致性
     def delete(self, uuid: str) -> None:
@@ -216,4 +249,53 @@ class PortfolioCRUD(BaseCRUD[MPortfolio]):
         if not kwargs:
             raise ValueError("至少需要提供一个更新字段")
 
+        # 处理枚举字段
+        if 'mode' in kwargs:
+            kwargs['mode'] = PORTFOLIO_MODE_TYPES.validate_input(kwargs['mode'])
+        if 'state' in kwargs:
+            kwargs['state'] = PORTFOLIO_RUNSTATE_TYPES.validate_input(kwargs['state'])
+
         return self.modify({"uuid": uuid}, kwargs)
+
+    # ==================== 废弃方法（向后兼容） ====================
+
+    def find_by_live_status(self, is_live: bool, as_dataframe: bool = False) -> Union[List[MPortfolio], pd.DataFrame]:
+        """
+        [已废弃] 按实盘状态查询投资组合
+
+        .. deprecated::
+            此方法已废弃，请使用 find_by_mode() 替代。
+
+            迁移示例:
+                旧: find_by_live_status(is_live=True)
+                新: find_by_mode(PORTFOLIO_MODE_TYPES.LIVE)
+
+        Args:
+            is_live: True=实盘, False=回测
+            as_dataframe: 是否返回DataFrame
+
+        Returns:
+            符合条件的投资组合列表
+        """
+        GLOG.WARN("find_by_live_status is deprecated, use find_by_mode instead")
+        mode = PORTFOLIO_MODE_TYPES.LIVE if is_live else PORTFOLIO_MODE_TYPES.BACKTEST
+        return self.find_by_mode(mode, as_dataframe=as_dataframe)
+
+    def update_live_status(self, uuid: str, is_live: bool) -> None:
+        """
+        [已废弃] 更新投资组合实盘状态
+
+        .. deprecated::
+            此方法已废弃，请使用 update_mode() 替代。
+
+            迁移示例:
+                旧: update_live_status(uuid, is_live=True)
+                新: update_mode(uuid, PORTFOLIO_MODE_TYPES.LIVE)
+
+        Args:
+            uuid: 投资组合UUID
+            is_live: True=实盘, False=回测
+        """
+        GLOG.WARN("update_live_status is deprecated, use update_mode instead")
+        mode = PORTFOLIO_MODE_TYPES.LIVE if is_live else PORTFOLIO_MODE_TYPES.BACKTEST
+        return self.update_mode(uuid, mode)
