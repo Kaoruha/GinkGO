@@ -17,6 +17,16 @@ from ginkgo.trading.interfaces.protocols.risk_management import IRiskManagement
 from test.fixtures.trading_factories import ProtocolTestFactory, OrderFactory, PositionFactory
 
 
+# ===== TDD阶段标记 =====
+
+def tdd_phase(phase: str):
+    """TDD阶段标记装饰器"""
+    def decorator(test_func):
+        test_func.tdd_phase = phase
+        return test_func
+    return decorator
+
+
 @pytest.mark.tdd
 @pytest.mark.protocol
 class TestIRiskManagementProtocol:
@@ -470,13 +480,3 @@ class TestIRiskManagementProtocolFinancialContext:
 
         # 仓位比例限制可能调整订单数量
         # 这取决于具体实现和限制参数
-
-
-# ===== TDD阶段标记 =====
-
-def tdd_phase(phase: str):
-    """TDD阶段标记装饰器"""
-    def decorator(test_func):
-        test_func.tdd_phase = phase
-        return test_func
-    return decorator

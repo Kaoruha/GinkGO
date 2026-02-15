@@ -1,322 +1,395 @@
-import unittest
+"""
+BaseSelector tests using pytest framework.
+Tests cover selector initialization, data feeder binding, pick functionality,
+and concrete implementations like FixedSelector.
+"""
+
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
-from ginkgo.backtest.strategy.selectors.base_selector import BaseSelector
-from ginkgo.backtest.strategy.selectors.fixed_selector import FixedSelector
-from ginkgo.backtest.feeders.base_feeder import BaseFeeder
+from ginkgo.trading.selectors import BaseSelector
+from ginkgo.trading.selectors import FixedSelector
+from ginkgo.trading.feeders.base_feeder import BaseFeeder
 
 
-class BaseSelectorTest(unittest.TestCase):
-    """
-    测试BaseSelector模块 - 测试基础选择器功能
-    """
+# ========== Fixtures ==========
 
-    def setUp(self):
-        """初始化测试用的BaseSelector实例"""
-        self.selector = BaseSelector("test_selector")
-        self.test_time = datetime(2024, 1, 1, 10, 0, 0)
-        self.selector.on_time_goes_by(self.test_time)
+@pytest.fixture
+def base_selector():
+    """Create a BaseSelector instance for testing."""
+    selector = BaseSelector("test_selector")
+    test_time = datetime(2024, 1, 1, 10, 0, 0)
+    selector.on_time_goes_by(test_time)
+    return selector
+
+
+@pytest.fixture
+def test_time():
+    """Create a test datetime."""
+    return datetime(2024, 1, 1, 10, 0, 0)
+
+
+@pytest.fixture
+def fixed_selector():
+    """Create a FixedSelector with valid codes."""
+    codes = '["000001.SZ", "000002.SZ", "600000.SH"]'
+    return FixedSelector("fixed_test", codes)
+
+
+# ========== Construction Tests ==========
+
+class TestBaseSelectorConstruction:
+    """Test BaseSelector construction and initialization."""
 
     def test_base_selector_init(self):
-        """测试基础选择器初始化"""
+        """Test base selector initialization."""
         selector = BaseSelector("test_selector")
-        self.assertIsNotNone(selector)
-
-        # 检查基本属性
-        self.assertTrue(hasattr(selector, "_name"))
-        self.assertEqual(selector._name, "test_selector")
-        self.assertTrue(hasattr(selector, "_data_feeder"))
-        self.assertIsNone(selector._data_feeder)
+        assert selector is not None
 
     def test_default_initialization(self):
-        """测试默认初始化"""
+        """Test default initialization."""
         selector = BaseSelector()
-        self.assertEqual(selector._name, "BaseSelector")
-        self.assertIsNone(selector._data_feeder)
+        assert selector._name == "BaseSelector"
+        assert selector._data_feeder is None
 
-    def test_name_property(self):
-        """测试name属性"""
-        self.assertEqual(self.selector.name, "test_selector")
+    def test_name_property(self, base_selector):
+        """Test name property."""
+        assert base_selector.name == "test_selector"
 
-    def test_bind_data_feeder(self):
-        """测试数据源绑定功能"""
-        # 创建mock数据源
+    def test_inheritance_from_backtest_base(self, base_selector):
+        """Test inheritance from BacktestBase."""
+        from ginkgo.trading.core.backtest_base import BacktestBase
+
+        assert isinstance(base_selector, BacktestBase)
+
+        # Verify inherited attributes and methods
+        assert hasattr(base_selector, "on_time_goes_by")
+        assert hasattr(base_selector, "now")
+        assert hasattr(base_selector, "_name")
+        assert hasattr(base_selector, "log")
+
+
+# ========== Data Feeder Binding Tests ==========
+
+class TestDataFeederBinding:
+    """Test data feeder binding functionality."""
+
+    def test_bind_data_feeder(self, base_selector):
+        """Test data feeder binding."""
         mock_feeder = Mock(spec=BaseFeeder)
-        
-        # 初始状态应该没有绑定数据源
-        self.assertIsNone(self.selector._data_feeder)
-        
-        # 绑定数据源
-        self.selector.bind_data_feeder(mock_feeder)
-        
-        # 验证绑定成功
-        self.assertEqual(self.selector._data_feeder, mock_feeder)
 
-    def test_bind_data_feeder_with_args_kwargs(self):
-        """测试带参数的数据源绑定"""
+        # Initial state should have no data feeder
+        assert base_selector._data_feeder is None
+
+        # Bind data feeder
+        base_selector.bind_data_feeder(mock_feeder)
+
+        # Verify binding successful
+        assert base_selector._data_feeder == mock_feeder
+
+    def test_bind_data_feeder_with_args_kwargs(self, base_selector):
+        """Test data feeder binding with args and kwargs."""
         mock_feeder = Mock()
         test_args = ("arg1", "arg2")
         test_kwargs = {"param1": "value1", "param2": "value2"}
-        
-        # 绑定数据源并传递参数
-        self.selector.bind_data_feeder(mock_feeder, *test_args, **test_kwargs)
-        
-        # 验证绑定成功
-        self.assertEqual(self.selector._data_feeder, mock_feeder)
 
-    def test_default_pick_method(self):
-        """测试默认的pick方法"""
-        # 默认pick方法应该返回空列表
-        result = self.selector.pick()
-        self.assertIsInstance(result, list)
-        self.assertEqual(len(result), 0)
+        base_selector.bind_data_feeder(mock_feeder, *test_args, **test_kwargs)
 
-    def test_pick_method_with_time_parameter(self):
-        """测试带时间参数的pick方法"""
+        # Verify binding successful
+        assert base_selector._data_feeder == mock_feeder
+
+    def test_data_feeder_rebinding(self, base_selector):
+        """Test data feeder rebinding."""
+        mock_feeder1 = Mock()
+        mock_feeder2 = Mock()
+
+        # Bind first data feeder
+        base_selector.bind_data_feeder(mock_feeder1)
+        assert base_selector._data_feeder == mock_feeder1
+
+        # Rebind with second data feeder
+        base_selector.bind_data_feeder(mock_feeder2)
+        assert base_selector._data_feeder == mock_feeder2
+
+    def test_data_feeder_none_binding(self, base_selector):
+        """Test binding None data feeder."""
+        # First bind a normal data feeder
+        mock_feeder = Mock()
+        base_selector.bind_data_feeder(mock_feeder)
+        assert base_selector._data_feeder == mock_feeder
+
+        # Bind None should override previous binding
+        base_selector.bind_data_feeder(None)
+        assert base_selector._data_feeder is None
+
+
+# ========== Pick Functionality Tests ==========
+
+class TestPickFunctionality:
+    """Test pick method functionality."""
+
+    def test_default_pick_method(self, base_selector):
+        """Test default pick method."""
+        # Default pick method should return empty list
+        result = base_selector.pick()
+        assert isinstance(result, list)
+        assert len(result) == 0
+
+    def test_pick_method_with_time_parameter(self, base_selector):
+        """Test pick method with time parameter."""
         test_time = datetime(2024, 1, 1, 15, 30, 0)
-        
-        result = self.selector.pick(time=test_time)
-        self.assertIsInstance(result, list)
-        self.assertEqual(len(result), 0)
 
-    def test_pick_method_with_args_kwargs(self):
-        """测试带任意参数的pick方法"""
+        result = base_selector.pick(time=test_time)
+        assert isinstance(result, list)
+        assert len(result) == 0
+
+    def test_pick_method_with_args_kwargs(self, base_selector):
+        """Test pick method with args and kwargs."""
         test_args = ("arg1", "arg2")
         test_kwargs = {"param1": "value1", "param2": "value2"}
-        
-        result = self.selector.pick("time", *test_args, **test_kwargs)
-        self.assertIsInstance(result, list)
-        self.assertEqual(len(result), 0)
 
-    def test_inheritance_from_backtest_base(self):
-        """测试是否正确继承BacktestBase"""
-        from ginkgo.backtest.core.backtest_base import BacktestBase
-        
-        # 验证继承关系
-        self.assertIsInstance(self.selector, BacktestBase)
-        
-        # 验证继承的属性和方法
-        self.assertTrue(hasattr(self.selector, "on_time_goes_by"))
-        self.assertTrue(hasattr(self.selector, "now"))
-        self.assertTrue(hasattr(self.selector, "_name"))
-        self.assertTrue(hasattr(self.selector, "log"))
+        result = base_selector.pick("time", *test_args, **test_kwargs)
+        assert isinstance(result, list)
+        assert len(result) == 0
 
-    def test_time_management(self):
-        """测试时间管理功能（继承自BacktestBase）"""
-        # 测试时间设置
-        test_time = datetime(2024, 2, 1, 15, 30, 0)
-        self.selector.on_time_goes_by(test_time)
-        self.assertEqual(self.selector.now, test_time)
+    def test_pick_with_none_time(self, base_selector):
+        """Test pick with None time."""
+        result = base_selector.pick(time=None)
+        assert isinstance(result, list)
+        assert len(result) == 0
 
-    def test_logging_functionality(self):
-        """测试日志功能（继承自BacktestBase）"""
-        with patch.object(self.selector, 'log') as mock_log:
-            # 调用log方法
-            self.selector.log("INFO", "Test message")
-            
-            # 验证log方法被调用
-            mock_log.assert_called_once_with("INFO", "Test message")
 
-    # =========================
-    # 具体实现测试（使用FixedSelector作为示例）
-    # =========================
+# ========== FixedSelector Tests ==========
+
+class TestFixedSelector:
+    """Test FixedSelector concrete implementation."""
 
     def test_concrete_selector_implementation(self):
-        """测试具体选择器实现（FixedSelector）"""
-        # 测试有效的JSON字符串
+        """Test concrete selector implementation."""
         valid_codes = '["000001.SZ", "000002.SZ", "600000.SH"]'
         selector = FixedSelector("fixed_test", valid_codes)
-        
-        # 验证初始化成功
-        self.assertIsNotNone(selector)
-        self.assertEqual(selector.name, "fixed_test")
-        self.assertIsInstance(selector, BaseSelector)
+
+        assert selector is not None
+        assert selector.name == "fixed_test"
+        assert isinstance(selector, BaseSelector)
 
     def test_fixed_selector_pick_functionality(self):
-        """测试FixedSelector的pick功能"""
+        """Test FixedSelector pick functionality."""
         codes = '["000001.SZ", "000002.SZ", "600000.SH"]'
         selector = FixedSelector("fixed_test", codes)
-        
-        # 测试pick方法
+
         result = selector.pick()
         expected = ["000001.SZ", "000002.SZ", "600000.SH"]
-        
-        self.assertEqual(result, expected)
-        self.assertIsInstance(result, list)
-        self.assertEqual(len(result), 3)
+
+        assert result == expected
+        assert isinstance(result, list)
+        assert len(result) == 3
+
+    @pytest.mark.parametrize("codes,expected", [
+        ('["000001.SZ"]', ["000001.SZ"]),
+        ('["000001.SZ", "000002.SZ"]', ["000001.SZ", "000002.SZ"]),
+        ('[]', []),
+    ])
+    def test_fixed_selector_with_different_codes(self, codes, expected):
+        """Test FixedSelector with different code lists."""
+        selector = FixedSelector("test", codes)
+        assert selector.pick() == expected
 
     def test_fixed_selector_invalid_json(self):
-        """测试FixedSelector处理无效JSON的情况"""
+        """Test FixedSelector with invalid JSON."""
         invalid_codes = "invalid json string"
-        
-        # 应该能创建实例，但_interested应该为空列表
+
         selector = FixedSelector("invalid_json_test", invalid_codes)
-        
-        # pick应该返回空列表
+
+        # pick should return empty list
         result = selector.pick()
-        self.assertEqual(result, [])
+        assert result == []
 
     def test_fixed_selector_with_logging(self):
-        """测试FixedSelector的日志记录"""
+        """Test FixedSelector logging."""
         codes = '["TEST001", "TEST002"]'
         selector = FixedSelector("logging_test", codes)
-        
+
         with patch.object(selector, 'log') as mock_log:
             result = selector.pick()
-            
-            # 验证日志被记录
+
+            # Verify log was called
             mock_log.assert_called_once()
             call_args = mock_log.call_args[0]
-            self.assertEqual(call_args[0], "DEBUG")
-            self.assertIn("pick", call_args[1])
+            assert call_args[0] == "DEBUG"
+            assert "pick" in call_args[1]
 
-    # =========================
-    # 边界和错误处理测试
-    # =========================
 
-    def test_data_feeder_rebinding(self):
-        """测试数据源重新绑定"""
-        mock_feeder1 = Mock()
-        mock_feeder2 = Mock()
-        
-        # 绑定第一个数据源
-        self.selector.bind_data_feeder(mock_feeder1)
-        self.assertEqual(self.selector._data_feeder, mock_feeder1)
-        
-        # 重新绑定第二个数据源
-        self.selector.bind_data_feeder(mock_feeder2)
-        self.assertEqual(self.selector._data_feeder, mock_feeder2)
+# ========== Time Management Tests ==========
 
-    def test_data_feeder_none_binding(self):
-        """测试绑定None数据源"""
-        # 先绑定一个正常的数据源
-        mock_feeder = Mock()
-        self.selector.bind_data_feeder(mock_feeder)
-        self.assertEqual(self.selector._data_feeder, mock_feeder)
-        
-        # 绑定None应该覆盖之前的绑定
-        self.selector.bind_data_feeder(None)
-        self.assertIsNone(self.selector._data_feeder)
+class TestTimeManagement:
+    """Test time management functionality."""
 
-    def test_pick_with_none_time(self):
-        """测试时间为None时的pick方法"""
-        result = self.selector.pick(time=None)
-        self.assertIsInstance(result, list)
-        self.assertEqual(len(result), 0)
+    def test_time_management(self, base_selector):
+        """Test time management (inherited from BacktestBase)."""
+        test_time = datetime(2024, 2, 1, 15, 30, 0)
+        base_selector.on_time_goes_by(test_time)
+        assert base_selector.now == test_time
+
+    @pytest.mark.parametrize("days_offset", [0, 1, 7, 30, 365])
+    def test_time_independence(self, base_selector, days_offset):
+        """Test time setting with different offsets."""
+        base_time = datetime(2024, 1, 1)
+        test_time = base_time + timedelta(days=days_offset)
+
+        base_selector.on_time_goes_by(test_time)
+        assert base_selector.now == test_time
+
+
+# ========== Logging Tests ==========
+
+class TestLogging:
+    """Test logging functionality."""
+
+    def test_logging_functionality(self, base_selector):
+        """Test logging functionality (inherited from BacktestBase)."""
+        with patch.object(base_selector, 'log') as mock_log:
+            base_selector.log("INFO", "Test message")
+
+            # Verify log method was called
+            mock_log.assert_called_once_with("INFO", "Test message")
+
+
+# ========== Independence Tests ==========
+
+class TestIndependence:
+    """Test independence of multiple selector instances."""
 
     def test_multiple_selectors_independence(self):
-        """测试多个选择器实例的独立性"""
+        """Test multiple selector instances independence."""
         selector1 = BaseSelector("selector1")
         selector2 = BaseSelector("selector2")
-        
+
         mock_feeder1 = Mock()
         mock_feeder2 = Mock()
-        
-        # 分别绑定不同的数据源
+
+        # Bind different data feeders
         selector1.bind_data_feeder(mock_feeder1)
         selector2.bind_data_feeder(mock_feeder2)
-        
-        # 验证独立性
-        self.assertEqual(selector1._data_feeder, mock_feeder1)
-        self.assertEqual(selector2._data_feeder, mock_feeder2)
-        self.assertNotEqual(selector1._data_feeder, selector2._data_feeder)
+
+        # Verify independence
+        assert selector1._data_feeder == mock_feeder1
+        assert selector2._data_feeder == mock_feeder2
+        assert selector1._data_feeder != selector2._data_feeder
 
     def test_selector_time_independence(self):
-        """测试选择器时间设置的独立性"""
+        """Test selector time setting independence."""
         selector1 = BaseSelector("selector1")
         selector2 = BaseSelector("selector2")
-        
+
         time1 = datetime(2024, 1, 1, 10, 0, 0)
         time2 = datetime(2024, 1, 2, 15, 30, 0)
-        
-        # 设置不同的时间
+
+        # Set different times
         selector1.on_time_goes_by(time1)
         selector2.on_time_goes_by(time2)
-        
-        # 验证时间独立性
-        self.assertEqual(selector1.now, time1)
-        self.assertEqual(selector2.now, time2)
 
-    # =========================
-    # 性能和资源管理测试
-    # =========================
+        # Verify time independence
+        assert selector1.now == time1
+        assert selector2.now == time2
+
+
+# ========== Performance Tests ==========
+
+class TestPerformance:
+    """Test performance with large datasets."""
 
     def test_selector_resource_cleanup(self):
-        """测试选择器资源清理"""
+        """Test selector resource cleanup."""
         selectors = []
-        
-        # 创建多个选择器实例
+
+        # Create multiple selector instances
         for i in range(10):
             selector = BaseSelector(f"selector_{i}")
             selector.bind_data_feeder(Mock())
             selectors.append(selector)
-        
-        # 验证所有选择器都正常工作
+
+        # Verify all selectors work
         for selector in selectors:
-            self.assertIsNotNone(selector._data_feeder)
+            assert selector._data_feeder is not None
             result = selector.pick()
-            self.assertIsInstance(result, list)
-        
-        # 清理引用
+            assert isinstance(result, list)
+
+        # Clear references
         selectors.clear()
-        
-        # 原始选择器应该仍然正常工作
-        self.assertIsNone(self.selector._data_feeder)
-        result = self.selector.pick()
-        self.assertIsInstance(result, list)
+
+        # Original selector should still work
+        base_selector = BaseSelector("original")
+        assert base_selector._data_feeder is None
+        result = base_selector.pick()
+        assert isinstance(result, list)
 
     def test_selector_with_large_time_range(self):
-        """测试选择器在大时间范围内的稳定性"""
+        """Test selector stability over large time range."""
+        selector = BaseSelector("range_test")
         start_time = datetime(2020, 1, 1)
-        
-        # 测试大时间跨度
+
+        # Test large time span
         for i in range(1000):
             test_time = start_time + timedelta(days=i)
-            self.selector.on_time_goes_by(test_time)
-            result = self.selector.pick(time=test_time)
-            
-            # 每次调用都应该返回空列表
-            self.assertIsInstance(result, list)
-            self.assertEqual(len(result), 0)
-        
-        # 验证最终时间设置正确
+            selector.on_time_goes_by(test_time)
+            result = selector.pick(time=test_time)
+
+            # Each call should return empty list
+            assert isinstance(result, list)
+            assert len(result) == 0
+
+        # Verify final time set correctly
         expected_final_time = start_time + timedelta(days=999)
-        self.assertEqual(self.selector.now, expected_final_time)
+        assert selector.now == expected_final_time
+
+
+# ========== Abstract Behavior Tests ==========
+
+class TestAbstractBehavior:
+    """Test abstract behavior enforcement."""
 
     def test_abstract_behavior_enforcement(self):
-        """测试抽象行为的强制执行"""
-        # BaseSelector不是真正的抽象类，但应该被子类重写
-        # 这里测试默认行为是否符合预期
-        
-        # 默认pick方法应该返回空列表，提示需要重写
-        result = self.selector.pick()
-        self.assertEqual(result, [])
-        
-        # 子类应该重写这个方法来提供具体实现
+        """Test abstract behavior enforcement."""
+        selector = BaseSelector("abstract_test")
+
+        # Default pick method should return empty list
+        result = selector.pick()
+        assert result == []
+
+        # Subclass should override this method
         class ConcreteSelector(BaseSelector):
             def pick(self, time=None, *args, **kwargs):
                 return ["OVERRIDDEN"]
-        
+
         concrete = ConcreteSelector("concrete")
         result = concrete.pick()
-        self.assertEqual(result, ["OVERRIDDEN"])
+        assert result == ["OVERRIDDEN"]
 
-    def test_selector_repr_method(self):
-        """测试选择器的字符串表示"""
-        repr_str = repr(self.selector)
-        self.assertIsInstance(repr_str, str)
-        self.assertIn("test_selector", repr_str)
 
-    def test_engine_id_access(self):
-        """测试engine_id访问（继承自BacktestBase）"""
-        # engine_id应该可以访问和设置
-        self.assertTrue(hasattr(self.selector, "engine_id"))
-        
+# ========== Representation Tests ==========
+
+class TestRepresentation:
+    """Test string representation."""
+
+    def test_selector_repr_method(self, base_selector):
+        """Test selector string representation."""
+        repr_str = repr(base_selector)
+        assert isinstance(repr_str, str)
+        assert "test_selector" in repr_str
+
+
+# ========== Engine ID Tests ==========
+
+class TestEngineIdAccess:
+    """Test engine_id access."""
+
+    def test_engine_id_access(self, base_selector):
+        """Test engine_id access (inherited from BacktestBase)."""
+        # engine_id should be accessible and settable
+        assert hasattr(base_selector, "engine_id")
+
         test_id = "test_engine_123"
-        self.selector.engine_id = test_id
-        self.assertEqual(self.selector.engine_id, test_id)
-
-
-if __name__ == '__main__':
-    unittest.main()
+        base_selector.engine_id = test_id
+        assert base_selector.engine_id == test_id

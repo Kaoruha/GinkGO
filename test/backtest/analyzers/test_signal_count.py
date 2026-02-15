@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from ginkgo.backtest.analysis.analyzers.signal_count import SignalCount
+from ginkgo.trading.analysis.analyzers.signal_count import SignalCount
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 

@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from ginkgo.backtest.analysis.analyzers.calmar_ratio import CalmarRatio
+from ginkgo.trading.analysis.analyzers.calmar_ratio import CalmarRatio
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 

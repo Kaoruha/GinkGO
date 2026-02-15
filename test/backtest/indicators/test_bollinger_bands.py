@@ -12,7 +12,7 @@ import os
 # Add src path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'src'))
 
-from ginkgo.backtest.computation.indicators.bollinger_bands import BollingerBands
+from ginkgo.trading.computation.technical.bollinger_bands import BollingerBands
 
 
 class TestBollingerBands(unittest.TestCase):
@@ -182,7 +182,7 @@ class TestBollingerBands(unittest.TestCase):
     
     def test_bollinger_bands_vs_sma(self):
         """测试布林带中轨与SMA的一致性"""
-        from ginkgo.backtest.computation.indicators.simple_moving_average import SimpleMovingAverage
+        from ginkgo.trading.computation.technical.simple_moving_average import SimpleMovingAverage
         
         upper, middle, lower, position = BollingerBands.cal(5, 2.0, self.test_prices_5)
         sma_result = SimpleMovingAverage.cal(5, self.test_prices_5)

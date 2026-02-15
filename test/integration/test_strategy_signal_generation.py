@@ -13,8 +13,8 @@ from ginkgo.trading.portfolios.t1backtest import PortfolioT1Backtest
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.trading.entities.bar import Bar
 from ginkgo.trading.entities.signal import Signal
-from ginkgo.trading.strategy.strategies.base_strategy import BaseStrategy
-from ginkgo.trading.strategy.sizers.base_sizer import BaseSizer
+from ginkgo.trading.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
 from ginkgo.enums import SOURCE_TYPES, DIRECTION_TYPES
 
 

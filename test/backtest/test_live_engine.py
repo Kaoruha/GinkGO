@@ -3,7 +3,7 @@
 # import threading
 # from unittest.mock import Mock, patch
 
-# from ginkgo.backtest.engines.live_engine import LiveEngine
+# from ginkgo.trading.engines.live_engine import LiveEngine
 
 
 # class LiveEngineTest(unittest.TestCase):
@@ -61,8 +61,8 @@
 
 #     def test_inheritance_from_event_engine(self):
 #         """测试是否正确继承EventEngine"""
-#         from ginkgo.backtest.engines.event_engine import EventEngine
-#         from ginkgo.backtest.engines.base_engine import BaseEngine
+#         from ginkgo.trading.engines.event_engine import EventEngine
+#         from ginkgo.trading.engines.base_engine import BaseEngine
 
 #         # 验证继承关系
 #         self.assertIsInstance(self.engine, EventEngine)
@@ -179,7 +179,7 @@
 #         # 3. 风险控制
 
 #         # LiveEngine导入了Position类，应该有相关功能
-#         from ginkgo.backtest.position import Position
+#         from ginkgo.trading.position import Position
 
 #         self.skipTest("TODO: Position management tests need implementation")
 

@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from ginkgo.backtest.analysis.analyzers.win_rate import WinRate
+from ginkgo.trading.analysis.analyzers.win_rate import WinRate
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 

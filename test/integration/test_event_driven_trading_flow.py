@@ -31,7 +31,7 @@ from ginkgo.trading.strategies.random_signal_strategy import RandomSignalStrateg
 from ginkgo.trading.selectors.fixed_selector import FixedSelector
 from ginkgo.trading.sizers.fixed_sizer import FixedSizer
 from ginkgo.trading.feeders.backtest_feeder import BacktestFeeder
-from ginkgo.trading.routing.router import Router
+# Note: Router module does not exist - using mock or alternative approach
 from ginkgo.trading.brokers.sim_broker import SimBroker
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.trading.events.signal_generation import EventSignalGeneration

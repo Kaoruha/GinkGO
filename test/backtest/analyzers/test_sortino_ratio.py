@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import numpy as np
 
-from ginkgo.backtest.analysis.analyzers.sortino_ratio import SortinoRatio
+from ginkgo.trading.analysis.analyzers.sortino_ratio import SortinoRatio
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 

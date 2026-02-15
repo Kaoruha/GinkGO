@@ -4,7 +4,7 @@ from unittest.mock import patch, Mock, MagicMock
 import threading
 import time
 
-from ginkgo.backtest.execution.engines.base_engine import BaseEngine
+from ginkgo.trading.engines.base_engine import BaseEngine
 from ginkgo.enums import ENGINESTATUS_TYPES
 
 
@@ -124,7 +124,7 @@ class BaseEngineTest(unittest.TestCase):
 
     def test_inheritance_from_backtest_base(self):
         """测试是否正确继承BacktestBase"""
-        from ginkgo.backtest.core.backtest_base import BacktestBase
+        from ginkgo.trading.core.backtest_base import BacktestBase
         
         # 验证继承关系
         self.assertIsInstance(self.engine, BacktestBase)

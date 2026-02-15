@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from ginkgo.backtest.analysis.analyzers.underwater_time import UnderwaterTime
+from ginkgo.trading.analysis.analyzers.underwater_time import UnderwaterTime
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 

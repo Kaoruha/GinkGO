@@ -12,7 +12,7 @@ import os
 # Add src path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'src'))
 
-from ginkgo.backtest.computation.indicators.average_true_range import AverageTrueRange
+from ginkgo.trading.computation.technical.average_true_range import AverageTrueRange
 
 
 class TestAverageTrueRange(unittest.TestCase):

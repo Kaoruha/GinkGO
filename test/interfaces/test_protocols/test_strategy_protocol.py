@@ -11,7 +11,7 @@ from datetime import datetime
 
 # 导入Protocol接口和实现类
 from ginkgo.trading.interfaces.protocols.strategy import IStrategy
-from ginkgo.trading.strategy.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.strategies.base_strategy import BaseStrategy
 from ginkgo.trading.events.price_update import EventPriceUpdate
 from ginkgo.trading.entities.bar import Bar
 from ginkgo.enums import FREQUENCY_TYPES

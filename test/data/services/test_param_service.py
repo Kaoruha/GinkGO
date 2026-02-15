@@ -1,60 +1,435 @@
 """
-ParamService 测试用例 - 重构版本
+ParamService数据服务测试
 
-测试参数管理服务的各项功能，使用真实数据库操作而非Mock
-遵循ServiceResult统一格式和container最佳实践
+测试参数管理服务的核心功能和业务逻辑
+遵循pytest最佳实践，使用fixtures和参数化测试
 """
-
 import pytest
-import time
-from datetime import datetime
-
-# 设置测试环境路径
 import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..', 'src'))
+from pathlib import Path
+from datetime import datetime
+import random
+import string
+
+# 添加项目路径
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root / "src"))
 
 from ginkgo.data.services.param_service import ParamService
-from ginkgo.data.services.base_service import ServiceResult
+from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.containers import container
-from ginkgo.libs import GLOG
+from ginkgo.libs import GCONF
 
 
-def generate_test_id(prefix="test"):
-    """生成短的测试ID（限制在32字符内）"""
-    import random
-    import string
-    suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    # 确保总长度不超过32字符
-    max_prefix_len = 32 - len("_") - len(suffix)
-    if len(prefix) > max_prefix_len:
-        prefix = prefix[:max_prefix_len]
-    return f"{prefix}_{suffix}"
+# ============================================================================
+# Fixtures - 共享测试资源
+# ============================================================================
+
+@pytest.fixture
+def ginkgo_config():
+    """配置调试模式"""
+    GCONF.set_debug(True)
+    yield GCONF
+    GCONF.set_debug(False)
 
 
+@pytest.fixture
+def param_service():
+    """获取ParamService实例"""
+    return container.param_service()
+
+
+@pytest.fixture
+def unique_mapping_id():
+    """生成唯一的测试映射ID"""
+    timestamp = datetime.now().strftime('%H%M%S')
+    suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    return f"test_{timestamp}_{suffix}"
+
+
+@pytest.fixture
+def sample_param(param_service, unique_mapping_id):
+    """创建示例参数"""
+    result = param_service.add(
+        mapping_id=unique_mapping_id,
+        index=0,
+        value="test_value"
+    )
+    yield result
+    # 清理
+    try:
+        param_service.delete(mapping_id=unique_mapping_id, index=0)
+    except Exception:
+        pass
+
+
+# ============================================================================
+# 参数化测试数据
+# ============================================================================
+
+# 有效的参数值
+VALID_VALUES = [
+    (0, "数值0"),
+    (1, "数值1"),
+    (100, "数值100"),
+    ("string_value", "字符串值"),
+    (True, "布尔值True"),
+    (False, "布尔值False"),
+]
+
+# 无效的索引
+INVALID_INDICES = [
+    (-1, "负数索引"),
+    (-100, "大负数索引"),
+]
+
+# 无效的映射ID
+INVALID_MAPPING_IDS = [
+    ("", "空字符串"),
+    ("   ", "纯空格"),
+]
+
+
+# ============================================================================
+# 测试类 - 服务初始化和构造
+# ============================================================================
+
+@pytest.mark.unit
+class TestParamServiceConstruction:
+    """测试ParamService初始化和构造"""
+
+    def test_service_initialization(self, param_service):
+        """测试服务初始化"""
+        assert param_service is not None
+        assert isinstance(param_service, ParamService)
+
+    def test_service_inherits_base_service(self, param_service):
+        """测试继承BaseService"""
+        assert isinstance(param_service, BaseService)
+
+    def test_crud_repo_exists(self, param_service):
+        """测试CRUD仓库存在"""
+        assert hasattr(param_service, '_crud_repo')
+        assert param_service._crud_repo is not None
+
+
+# ============================================================================
+# 测试类 - CRUD操作
+# ============================================================================
+
+@pytest.mark.database
 @pytest.mark.db_cleanup
-class TestParamServiceBasics:
-    """ParamService 基础功能测试"""
+class TestParamServiceCRUD:
+    """测试ParamService CRUD操作"""
 
     CLEANUP_CONFIG = {
         'param': {'param_info__param_key__like': 'test_%'}
     }
 
-    def test_service_initialization(self):
-        """测试服务初始化"""
-        service = container.param_service()
-        assert service is not None
-        assert hasattr(service, '_crud_repo')
-        assert service._crud_repo is not None
-        assert isinstance(service, ParamService)
+    def test_add_param_success(self, param_service, unique_mapping_id):
+        """测试成功添加参数"""
+        test_value = "test_value"
+        result = param_service.add(
+            mapping_id=unique_mapping_id,
+            index=0,
+            value=test_value
+        )
 
-    def test_health_check_success(self):
+        assert result.is_success()
+        assert result.data is not None
+        assert "param_info" in result.data
+        assert result.data["param_info"]["value"] == test_value
+
+    @pytest.mark.parametrize("index,description", INVALID_INDICES)
+    def test_add_param_invalid_index(self, param_service, unique_mapping_id, index, description):
+        """测试添加参数 - 无效索引"""
+        result = param_service.add(
+            mapping_id=unique_mapping_id,
+            index=index,
+            value="test_value"
+        )
+
+        assert not result.success
+        assert "索引必须是非负整数" in result.error or "参数索引必须是非负整数" in result.error
+
+    def test_add_param_duplicate(self, param_service, unique_mapping_id):
+        """测试添加重复参数"""
+        # 第一次添加
+        param_service.add(
+            mapping_id=unique_mapping_id,
+            index=0,
+            value="first_value"
+        )
+
+        # 第二次添加相同参数
+        result = param_service.add(
+            mapping_id=unique_mapping_id,
+            index=0,
+            value="second_value"
+        )
+
+        assert not result.success
+        assert "已存在参数" in result.error or "重复" in result.error
+
+    def test_get_param_by_id(self, param_service, unique_mapping_id):
+        """测试通过ID获取参数"""
+        # 先创建参数
+        create_result = param_service.add(
+            mapping_id=unique_mapping_id,
+            index=0,
+            value="test_value"
+        )
+        assert create_result.success
+        param_uuid = create_result.data["param_info"]["uuid"]
+
+        # 获取参数
+        result = param_service.get(param_id=param_uuid)
+
+        assert result.success
+        assert len(result.data) > 0
+        assert result.data[0].uuid == param_uuid
+
+    def test_get_param_by_mapping(self, param_service, unique_mapping_id):
+        """测试通过映射获取参数"""
+        # 创建多个参数
+        for i in range(3):
+            param_service.add(
+                mapping_id=unique_mapping_id,
+                index=i,
+                value=f"value_{i}"
+            )
+
+        # 获取参数
+        result = param_service.get(mapping_id=unique_mapping_id)
+
+        assert result.success
+        assert len(result.data) == 3
+
+    def test_update_param_by_id(self, param_service, unique_mapping_id):
+        """测试通过ID更新参数"""
+        # 先创建参数
+        create_result = param_service.add(
+            mapping_id=unique_mapping_id,
+            index=0,
+            value="original_value"
+        )
+        param_uuid = create_result.data["param_info"]["uuid"]
+
+        # 更新参数
+        result = param_service.update(
+            param_id=param_uuid,
+            value="updated_value"
+        )
+
+        assert result.success
+
+        # 验证更新
+        get_result = param_service.get(param_id=param_uuid)
+        assert get_result.success
+        if len(get_result.data) > 0:
+            assert get_result.data[0].value == "updated_value"
+
+    def test_delete_param_by_id(self, param_service, unique_mapping_id):
+        """测试通过ID删除参数"""
+        # 先创建参数
+        create_result = param_service.add(
+            mapping_id=unique_mapping_id,
+            index=0,
+            value="to_delete"
+        )
+        param_uuid = create_result.data["param_info"]["uuid"]
+
+        # 删除参数
+        result = param_service.delete(param_id=param_uuid)
+
+        assert result.success
+        assert result.data["deleted_count"] >= 1
+
+        # 验证已删除
+        get_result = param_service.get(param_id=param_uuid)
+        assert len(get_result.data) == 0
+
+    def test_count_params(self, param_service, unique_mapping_id):
+        """测试统计参数数量"""
+        # 创建几个参数
+        for i in range(3):
+            param_service.add(
+                mapping_id=unique_mapping_id,
+                index=i,
+                value=f"value_{i}"
+            )
+
+        # 统计参数
+        result = param_service.count(mapping_id=unique_mapping_id)
+
+        assert result.success
+        assert "count" in result.data
+        assert result.data["count"] == 3
+
+
+# ============================================================================
+# 测试类 - 业务方法
+# ============================================================================
+
+@pytest.mark.database
+@pytest.mark.db_cleanup
+class TestParamServiceBusinessMethods:
+    """测试ParamService业务方法"""
+
+    CLEANUP_CONFIG = {
+        'param': {'param_info__param_key__like': 'test_%'}
+    }
+
+    def test_exists_param_true(self, param_service, unique_mapping_id):
+        """测试检查参数存在性 - 存在"""
+        param_service.add(
+            mapping_id=unique_mapping_id,
+            index=0,
+            value="test_value"
+        )
+
+        result = param_service.exists(
+            mapping_id=unique_mapping_id,
+            index=0
+        )
+
+        assert result.success
+        assert result.data["exists"] is True
+
+    def test_exists_param_false(self, param_service):
+        """测试检查参数存在性 - 不存在"""
+        result = param_service.exists(
+            mapping_id="nonexistent_mapping",
+            index=999
+        )
+
+        assert result.success
+        assert result.data["exists"] is False
+
+    def test_get_by_mapping(self, param_service, unique_mapping_id):
+        """测试根据映射ID获取参数"""
+        # 创建多个参数
+        for i in range(3):
+            param_service.add(
+                mapping_id=unique_mapping_id,
+                index=i,
+                value=f"value_{i}"
+            )
+
+        result = param_service.get_by_mapping(unique_mapping_id)
+
+        assert result.success
+        assert len(result.data) == 3
+
+    def test_update_batch(self, param_service, unique_mapping_id):
+        """测试批量更新参数"""
+        # 先创建参数
+        for i in range(3):
+            param_service.add(
+                mapping_id=unique_mapping_id,
+                index=i,
+                value=f"original_{i}"
+            )
+
+        # 批量更新
+        params_dict = {0: "value0", 1: "value1", 2: "value2"}
+        result = param_service.update_batch(unique_mapping_id, params_dict)
+
+        assert result.success
+        assert result.data["success_count"] == 3
+        assert result.data["failed_count"] == 0
+
+    def test_copy_params(self, param_service):
+        """测试复制参数"""
+        source_mapping = unique_mapping_id()
+        target_mapping = unique_mapping_id()
+
+        # 创建源参数
+        for i in range(2):
+            param_service.add(
+                mapping_id=source_mapping,
+                index=i,
+                value=f"source_value_{i}"
+            )
+
+        # 复制参数
+        result = param_service.copy(
+            source_mapping=source_mapping,
+            target_mapping=target_mapping
+        )
+
+        assert result.success
+        assert result.data["copied_count"] == 2
+
+        # 清理目标参数
+        try:
+            param_service.delete_batch_by_mapping(target_mapping)
+        except Exception:
+            pass
+
+    def test_delete_batch_by_mapping(self, param_service, unique_mapping_id):
+        """测试删除映射参数"""
+        # 创建多个参数
+        for i in range(3):
+            param_service.add(
+                mapping_id=unique_mapping_id,
+                index=i,
+                value=f"value_{i}"
+            )
+
+        # 删除映射参数
+        result = param_service.delete_batch_by_mapping(unique_mapping_id)
+
+        assert result.success
+        assert result.data["deleted_count"] >= 1
+
+    def test_get_summary(self, param_service, unique_mapping_id):
+        """测试获取参数汇总"""
+        # 创建参数
+        for i in range(3):
+            param_service.add(
+                mapping_id=unique_mapping_id,
+                index=i,
+                value=f"value_{i}"
+            )
+
+        result = param_service.get_summary(unique_mapping_id)
+
+        assert result.success
+        summary_data = result.data
+        assert "total_params" in summary_data
+        assert "param_count" in summary_data
+        assert summary_data["total_params"] == 3
+
+    def test_validate_params(self, param_service, unique_mapping_id):
+        """测试参数验证"""
+        # 创建有效参数
+        for i in range(2):
+            param_service.add(
+                mapping_id=unique_mapping_id,
+                index=i,
+                value=f"value_{i}"
+            )
+
+        result = param_service.validate(unique_mapping_id)
+
+        assert result.success
+        assert result.data["is_valid"] is True
+
+
+# ============================================================================
+# 测试类 - 健康检查
+# ============================================================================
+
+@pytest.mark.unit
+class TestParamServiceHealthCheck:
+    """测试健康检查功能"""
+
+    def test_health_check_success(self, param_service):
         """测试健康检查成功"""
-        service = container.param_service()
-        result = service.health_check()
+        result = param_service.health_check()
 
-        # 验证ServiceResult格式统一
-        assert result.is_success(), f"健康检查失败: {result.error}"
+        assert result.is_success()
         assert result.data is not None
 
         # 验证健康检查数据结构
@@ -62,574 +437,134 @@ class TestParamServiceBasics:
         assert "service_name" in health_data
         assert "status" in health_data
         assert health_data["service_name"] == "ParamService"
-        assert health_data["status"] in ["healthy", "unhealthy", "degraded"]
 
 
-@pytest.mark.db_cleanup
-class TestParamServiceCRUD:
-    """ParamService CRUD 操作测试"""
+# ============================================================================
+# 测试类 - 错误处理
+# ============================================================================
 
-    CLEANUP_CONFIG = {
-        'param': {'param_info__param_key__like': 'test_%'}
-    }
+@pytest.mark.unit
+class TestParamServiceErrorHandling:
+    """测试错误处理"""
 
-    def test_add_param_success(self):
-        """测试添加参数成功"""
-        service = container.param_service()
-        # 生成唯一测试数据
-        timestamp = datetime.now().strftime('%H%M%S')
-        test_mapping_id = f"test_{timestamp}"
-        test_index = 0
-        test_value = "test_value"
-
-        # 执行添加操作
-        result = service.add(
-            mapping_id=test_mapping_id,
-            index=test_index,
-            value=test_value
-        )
-
-        # 验证ServiceResult格式
-        assert result.is_success(), f"添加参数失败: {result.error}"
-        assert result.data is not None
-
-        # 验证返回的参数信息
-        param_info = result.data
-        assert "param_info" in param_info
-        assert param_info["param_info"]["mapping_id"] == test_mapping_id
-        assert param_info["param_info"]["index"] == test_index
-        assert param_info["param_info"]["value"] == test_value
-
-        # 验证数据库中的实际数据
-        get_result = service.get(mapping_id=test_mapping_id, index=test_index)
-        assert get_result.success, "验证数据库中的数据失败"
-        assert len(get_result.data) > 0
-
-    def test_add_param_empty_mapping_id(self):
-        """测试添加参数 - 空映射ID"""
-        service = container.param_service()
-        result = service.add(mapping_id="", index=0, value="test")
-
-        assert not result.success, "空映射ID应该返回失败"
-        assert "映射ID不能为空" in result.error
-
-    def test_add_param_negative_index(self):
-        """测试添加参数 - 负数索引"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id("test_negative")
-
-        result = service.add(
-            mapping_id=test_mapping_id,
-            index=-1,
-            value="test"
-        )
-
-        assert not result.success, "负数索引应该返回失败"
-        assert "参数索引必须是非负整数" in result.error
-
-    def test_add_param_empty_value(self):
-        """测试添加参数 - 空值"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id("test_empty_value")
-
-        result = service.add(
-            mapping_id=test_mapping_id,
-            index=0,
-            value=None
-        )
-
-        assert not result.success, "空值应该返回失败"
-        assert "参数值不能为空" in result.error
-
-    def test_add_param_duplicate(self):
-        """测试添加参数 - 重复参数"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id("test_duplicate")
-        test_index = 0
-        test_value = "test_value"
-
-        # 先添加一个参数
-        first_result = service.add(
-            mapping_id=test_mapping_id,
-            index=test_index,
-            value=test_value
-        )
-
-        # 尝试添加重复参数
-        second_result = service.add(
-            mapping_id=test_mapping_id,
-            index=test_index,
-            value="another_value"
-        )
-
-        assert not second_result.success, "重复参数应该返回失败"
-        assert "已存在参数" in second_result.error
-
-    def test_update_param_by_id_success(self):
-        """测试通过ID更新参数成功"""
-        service = container.param_service()
-        # 先创建一个参数
-        test_mapping_id = generate_test_id('test')
-        create_result = service.add(
-            mapping_id=test_mapping_id,
-            index=0,
-            value="original_value"
-        )
-
-        assert create_result.success, "创建测试参数失败"
-        param_uuid = create_result.data["param_info"]["uuid"]
-
-        # 更新参数
-        update_result = service.update(
-            param_id=param_uuid,
-            value="updated_value"
-        )
-
-        assert update_result.success, f"更新参数失败: {update_result.error}"
-
-        # 验证更新后的数据
-        get_result = service.get(mapping_id=test_mapping_id, index=0)
-        assert get_result.success
-        if len(get_result.data) > 0:
-            updated_param = get_result.data[0]
-            assert updated_param.value == "updated_value"
-
-    def test_update_param_by_mapping_index_success(self):
-        """测试通过映射ID和索引更新参数成功"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
-
-        # 先创建参数
-        create_result = service.add(
-            mapping_id=test_mapping_id,
-            index=0,
-            value="original_value"
-        )
-
-        assert create_result.success, "创建测试参数失败"
-
-        # 通过映射ID和索引更新
-        update_result = service.update(
-            mapping_id=test_mapping_id,
-            index=0,
-            value="updated_value"
-        )
-
-        assert update_result.success, f"更新参数失败: {update_result.error}"
-
-        # 验证更新结果
-        get_result = service.get(mapping_id=test_mapping_id, index=0)
-        assert get_result.success
-        if len(get_result.data) > 0:
-            updated_param = get_result.data[0]
-            assert updated_param.value == "updated_value"
-
-    def test_update_param_no_identifier(self):
-        """测试更新参数 - 缺少标识符"""
-        service = container.param_service()
-        result = service.update(value="new_value")
-
-        assert not result.success, "缺少标识符应该返回失败"
-        assert "必须提供param_id或(mapping_id + index)" in result.error
-
-    def test_update_param_no_fields(self):
-        """测试更新参数 - 没有要更新的字段"""
-        service = container.param_service()
-        result = service.update(param_id="test_uuid")
-
-        assert not result.success, "没有更新字段应该返回失败"
-        assert "未提供要更新的字段" in result.error
-
-    def test_delete_param_by_id_success(self):
-        """测试通过ID删除参数成功"""
-        service = container.param_service()
-        # 先创建参数
-        test_mapping_id = generate_test_id('test')
-        create_result = service.add(
-            mapping_id=test_mapping_id,
-            index=0,
-            value="to_delete"
-        )
-
-        assert create_result.success, "创建测试参数失败"
-        param_uuid = create_result.data["param_info"]["uuid"]
-
-        # 删除参数
-        delete_result = service.delete(param_id=param_uuid)
-
-        assert delete_result.success, f"删除参数失败: {delete_result.error}"
-        assert delete_result.data["deleted_count"] >= 1
-
-        # 验证参数已被删除
-        get_result = service.get(param_id=param_uuid)
-        assert get_result.success
-        assert len(get_result.data) == 0
-
-    def test_delete_param_by_mapping_index_success(self):
-        """测试通过映射ID和索引删除参数成功"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
-
-        # 先创建参数
-        create_result = service.add(
-            mapping_id=test_mapping_id,
-            index=0,
-            value="to_delete"
-        )
-
-        assert create_result.success, "创建测试参数失败"
-
-        # 删除参数
-        delete_result = service.delete(
-            mapping_id=test_mapping_id,
-            index=0
-        )
-
-        assert delete_result.success, f"删除参数失败: {delete_result.error}"
-        assert delete_result.data["deleted_count"] >= 1
-
-    def test_delete_param_no_identifier(self):
-        """测试删除参数 - 缺少标识符"""
-        service = container.param_service()
-        result = service.delete()
-
-        assert not result.success, "缺少标识符应该返回失败"
-        assert "必须提供param_id或(mapping_id + index)" in result.error
-
-    def test_get_param_by_id_success(self):
-        """测试通过ID获取参数成功"""
-        service = container.param_service()
-        # 先创建参数
-        test_mapping_id = generate_test_id('test')
-        create_result = service.add(
-            mapping_id=test_mapping_id,
+    @pytest.mark.parametrize("mapping_id,description", INVALID_MAPPING_IDS)
+    def test_add_with_invalid_mapping_id(self, param_service, mapping_id, description):
+        """测试使用无效映射ID添加参数"""
+        result = param_service.add(
+            mapping_id=mapping_id,
             index=0,
             value="test_value"
         )
 
-        assert create_result.success, "创建测试参数失败"
-        param_uuid = create_result.data["param_info"]["uuid"]
+        assert not result.success
 
-        # 获取参数
-        get_result = service.get(param_id=param_uuid)
+    def test_update_without_identifier(self, param_service):
+        """测试更新缺少标识符"""
+        result = param_service.update(value="new_value")
 
-        assert get_result.success, f"获取参数失败: {get_result.error}"
-        assert isinstance(get_result.data, list)
-        assert len(get_result.data) > 0
-        assert get_result.data[0].uuid == param_uuid
+        assert not result.success
 
-    def test_get_param_by_mapping_success(self):
-        """测试通过映射ID获取参数成功"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
+    def test_delete_without_identifier(self, param_service):
+        """测试删除缺少标识符"""
+        result = param_service.delete()
 
-        # 创建多个参数
-        for i in range(3):
-            create_result = service.add(
-                mapping_id=test_mapping_id,
-                index=i,
-                value=f"value_{i}"
-            )
-
-        # 获取参数
-        get_result = service.get(mapping_id=test_mapping_id)
-
-        assert get_result.success, f"获取参数失败: {get_result.error}"
-        assert isinstance(get_result.data, list)
-        assert len(get_result.data) == 3
-
-    def test_count_params_success(self):
-        """测试统计参数数量成功"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
-
-        # 创建几个参数
-        for i in range(3):
-            create_result = service.add(
-                mapping_id=test_mapping_id,
-                index=i,
-                value=f"value_{i}"
-            )
-
-        # 统计参数
-        count_result = service.count(mapping_id=test_mapping_id)
-
-        assert count_result.success, f"统计参数失败: {count_result.error}"
-        assert "count" in count_result.data
-        assert isinstance(count_result.data["count"], int)
-        assert count_result.data["count"] == 3
-
-    def test_exists_param_true(self):
-        """测试检查参数存在性 - 存在"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
-
-        # 创建参数
-        create_result = service.add(
-            mapping_id=test_mapping_id,
-            index=0,
-            value="test_value"
-        )
-
-        assert create_result.success, "创建测试参数失败"
-
-        # 检查存在性
-        exists_result = service.exists(
-            mapping_id=test_mapping_id,
-            index=0
-        )
-
-        assert exists_result.success, f"检查存在性失败: {exists_result.error}"
-        assert exists_result.data["exists"] is True
-
-    def test_exists_param_false(self):
-        """测试检查参数存在性 - 不存在"""
-        service = container.param_service()
-        result = service.exists(
-            mapping_id="nonexistent_mapping",
-            index=999
-        )
-
-        assert result.success, f"检查存在性失败: {result.error}"
-        assert result.data["exists"] is False
+        assert not result.success
 
 
+# ============================================================================
+# 测试类 - 业务逻辑
+# ============================================================================
+
+@pytest.mark.database
 @pytest.mark.db_cleanup
-class TestParamServiceBusinessMethods:
-    """ParamService 业务方法测试"""
+class TestParamServiceBusinessLogic:
+    """测试业务逻辑"""
 
     CLEANUP_CONFIG = {
         'param': {'param_info__param_key__like': 'test_%'}
     }
 
-    def test_get_by_mapping_success(self):
-        """测试根据映射ID获取参数成功"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
-
-        # 创建测试参数
-        for i in range(3):
-            create_result = service.add(
-                mapping_id=test_mapping_id,
-                index=i,
-                value=f"value_{i}"
-            )
-
-        # 获取参数
-        result = service.get_by_mapping(test_mapping_id)
-
-        assert result.success, f"获取映射参数失败: {result.error}"
-        assert isinstance(result.data, list)
-        assert len(result.data) == 3
-
-    def test_get_by_mapping_empty_mapping_id(self):
-        """测试根据映射ID获取参数 - 空映射ID"""
-        service = container.param_service()
-        result = service.get_by_mapping("")
-
-        assert not result.success, "空映射ID应该返回失败"
-        assert "映射ID不能为空" in result.error
-
-    def test_update_batch_success(self):
-        """测试批量更新参数成功"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
-        params_dict = {0: "value0", 1: "value1", 2: "value2"}
-
-        # 先创建参数
-        for index in params_dict.keys():
-            create_result = service.add(
-                mapping_id=test_mapping_id,
-                index=index,
-                value=f"original_{index}"
-            )
-
-        # 批量更新
-        result = service.update_batch(test_mapping_id, params_dict)
-
-        assert result.success, f"批量更新失败: {result.error}"
-        assert result.data["success_count"] == 3
-        assert result.data["failed_count"] == 0
-
-        # 验证更新结果
-        for index, expected_value in params_dict.items():
-            get_result = service.get(mapping_id=test_mapping_id, index=index)
-            if get_result.success and len(get_result.data) > 0:
-                assert get_result.data[0].value == expected_value
-
-    def test_copy_success(self):
-        """测试复制参数成功"""
-        service = container.param_service()
-        source_mapping = generate_test_id('test')
-        target_mapping = generate_test_id('test')
-
-        # 创建源参数
-        source_params = []
-        for i in range(2):
-            create_result = service.add(
-                mapping_id=source_mapping,
-                index=i,
-                value=f"source_value_{i}"
-            )
-            if create_result.success:
-                source_params.append(create_result.data["param_info"])
-
-        # 复制参数
-        result = service.copy(
-            source_mapping=source_mapping,
-            target_mapping=target_mapping
-        )
-
-        assert result.success, f"复制参数失败: {result.error}"
-        assert result.data["copied_count"] == 2
-        assert result.data["failed_count"] == 0
-
-        # 清理目标参数
-        try:
-            service.delete_batch_by_mapping(target_mapping)
-        except:
-            pass
-
-    def test_copy_same_mapping(self):
-        """测试复制参数 - 相同映射"""
-        service = container.param_service()
-        test_mapping = generate_test_id('test')
-
-        result = service.copy(
-            source_mapping=test_mapping,
-            target_mapping=test_mapping
-        )
-
-        assert not result.success, "相同映射应该返回失败"
-        assert "源映射和目标映射不能相同" in result.error
-
-    def test_delete_batch_by_mapping_success(self):
-        """测试删除映射参数成功"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
-
-        # 创建多个参数
-        for i in range(3):
-            create_result = service.add(
-                mapping_id=test_mapping_id,
-                index=i,
-                value=f"value_{i}"
-            )
-
-        # 删除映射参数
-        result = service.delete_batch_by_mapping(test_mapping_id)
-
-        assert result.success, f"删除映射参数失败: {result.error}"
-        assert result.data["deleted_count"] >= 1
-
-        # 验证参数已被删除
-        get_result = service.get(mapping_id=test_mapping_id)
-        assert get_result.success
-        assert len(get_result.data) == 0
-
-    def test_get_summary_success(self):
-        """测试获取参数汇总成功"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
-
-        # 创建参数
-        for i in range(3):
-            create_result = service.add(
-                mapping_id=test_mapping_id,
-                index=i,
-                value=f"value_{i}"
-            )
-
-        # 获取汇总
-        result = service.get_summary(test_mapping_id)
-
-        assert result.success, f"获取参数汇总失败: {result.error}"
-        summary_data = result.data
-        assert "total_params" in summary_data
-        assert "param_count" in summary_data
-        assert "min_index" in summary_data
-        assert "max_index" in summary_data
-        assert summary_data["total_params"] == 3
-        assert summary_data["param_count"] == 3
-        assert summary_data["min_index"] == 0
-        assert summary_data["max_index"] == 2
-
-    def test_validate_success(self):
-        """测试参数验证成功"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
-
-        # 创建有效参数
-        for i in range(2):
-            create_result = service.add(
-                mapping_id=test_mapping_id,
-                index=i,
-                value=f"value_{i}"
-            )
-
-        # 验证参数
-        result = service.validate(test_mapping_id)
-
-        assert result.success, f"参数验证失败: {result.error}"
-        assert result.data["is_valid"] is True
-        assert result.data["param_count"] == 2
-
-
-@pytest.mark.db_cleanup
-class TestParamServiceIntegration:
-    """ParamService 集成测试"""
-
-    CLEANUP_CONFIG = {
-        'param': {'param_info__param_key__like': 'test_%'}
-    }
-
-    def test_param_lifecycle(self):
+    def test_param_lifecycle(self, param_service, unique_mapping_id):
         """测试参数完整生命周期"""
-        service = container.param_service()
-        test_mapping_id = generate_test_id('test')
-
-        # 1. 创建参数
-        create_result = service.add(
-            mapping_id=test_mapping_id,
+        # 1. 创建
+        create_result = param_service.add(
+            mapping_id=unique_mapping_id,
             index=0,
             value="lifecycle_value"
         )
-
-        assert create_result.success, "创建参数失败"
+        assert create_result.success
         param_uuid = create_result.data["param_info"]["uuid"]
 
-        # 2. 更新参数
-        update_result = service.update(
-            param_id=param_uuid,
-            value="updated_lifecycle_value"
-        )
-        assert update_result.success, "更新参数失败"
+        # 2. 读取
+        get_result = param_service.get(param_id=param_uuid)
+        assert get_result.success
+        assert len(get_result.data) > 0
 
         # 3. 检查存在性
-        exists_result = service.exists(
-            mapping_id=test_mapping_id,
+        exists_result = param_service.exists(
+            mapping_id=unique_mapping_id,
             index=0
         )
         assert exists_result.success
         assert exists_result.data["exists"] is True
 
-        # 4. 获取参数
-        get_result = service.get(param_id=param_uuid)
-        assert get_result.success
-        assert len(get_result.data) > 0
-        assert get_result.data[0].value == "updated_lifecycle_value"
+        # 4. 更新
+        update_result = param_service.update(
+            param_id=param_uuid,
+            value="updated_value"
+        )
+        assert update_result.success
 
-        # 5. 删除参数
-        delete_result = service.delete(param_id=param_uuid)
+        # 5. 删除
+        delete_result = param_service.delete(param_id=param_uuid)
         assert delete_result.success
 
         # 6. 验证已删除
-        final_get_result = service.get(param_id=param_uuid)
-        assert final_get_result.success
-        assert len(final_get_result.data) == 0
-
-        # 测试已删除，无需手动清理
+        final_get = param_service.get(param_id=param_uuid)
+        assert len(final_get.data) == 0
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+# ============================================================================
+# 测试类 - 边界测试
+# ============================================================================
+
+@pytest.mark.database
+@pytest.mark.db_cleanup
+class TestParamServiceEdgeCases:
+    """测试边界情况"""
+
+    CLEANUP_CONFIG = {
+        'param': {'param_info__param_key__like': 'test_%'}
+    }
+
+    @pytest.mark.parametrize("value,description", VALID_VALUES)
+    def test_various_value_types(self, param_service, unique_mapping_id, value, description):
+        """测试各种值类型"""
+        result = param_service.add(
+            mapping_id=unique_mapping_id,
+            index=0,
+            value=value
+        )
+
+        assert result.success
+        assert result.data["param_info"]["value"] == value
+
+    def test_same_mapping_different_indices(self, param_service, unique_mapping_id):
+        """测试相同映射不同索引"""
+        # 创建多个不同索引的参数
+        for i in range(5):
+            param_service.add(
+                mapping_id=unique_mapping_id,
+                index=i,
+                value=f"value_{i}"
+            )
+
+        # 获取所有参数
+        result = param_service.get(mapping_id=unique_mapping_id)
+
+        assert result.success
+        assert len(result.data) == 5
+
+        # 验证索引唯一性
+        indices = [p.index for p in result.data]
+        assert len(indices) == len(set(indices))

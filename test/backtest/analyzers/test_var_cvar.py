@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import numpy as np
 
-from ginkgo.backtest.analysis.analyzers.var_cvar import VarCVar
+from ginkgo.trading.analysis.analyzers.var_cvar import VarCVar
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 

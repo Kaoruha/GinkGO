@@ -3,8 +3,8 @@ import unittest
 import datetime
 from time import sleep
 import pandas as pd
-from ginkgo.data import *
-from ginkgo.backtest.selectors import MomentumSelector
+from ginkgo.data import container
+from ginkgo.trading.selectors.momentum_selector import MomentumSelector
 
 engine_id = "backtest_example_001"
 

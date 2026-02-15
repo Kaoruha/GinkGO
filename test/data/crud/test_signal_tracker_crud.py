@@ -34,7 +34,7 @@ from ginkgo.data.crud.signal_tracker_crud import SignalTrackerCRUD
 from ginkgo.data.models.model_signal_tracker import MSignalTracker
 from ginkgo.enums import (
     SOURCE_TYPES, DIRECTION_TYPES, EXECUTION_MODE,
-    TRACKING_STATUS, ACCOUNT_TYPE
+    TRACKINGSTATUS_TYPES, ACCOUNT_TYPE
 )
 
 
@@ -104,7 +104,7 @@ class TestSignalTrackerCRUDInsert:
             actual_price=Decimal("25.68"),
             actual_volume=800,
             actual_timestamp=base_time + timedelta(minutes=10, seconds=3),
-            tracking_status=TRACKING_STATUS.EXECUTED
+            tracking_status=TRACKINGSTATUS_TYPES.EXECUTED
         )
         executed_tracker.source = SOURCE_TYPES.TEST
         # 计算偏差
@@ -164,7 +164,7 @@ class TestSignalTrackerCRUDInsert:
             expected_price=Decimal("8.90"),
             expected_volume=2000,
             expected_timestamp=datetime(2023, 1, 3, 10, 30),
-            tracking_status=TRACKING_STATUS.NOTIFIED,
+            tracking_status=TRACKINGSTATUS_TYPES.NOTIFIED,
             notification_sent_at=datetime(2023, 1, 3, 10, 31)
         )
         test_tracker.source = SOURCE_TYPES.TEST
@@ -280,14 +280,14 @@ class TestSignalTrackerCRUDQuery:
             # 查询已执行的信号
             print("→ 查询已执行的信号...")
             executed_signals = signal_tracker_crud.find(filters={
-                "tracking_status": TRACKING_STATUS.EXECUTED.value
+                "tracking_status": TRACKINGSTATUS_TYPES.EXECUTED.value
             })
             print(f"✓ 查询到 {len(executed_signals)} 条已执行信号")
 
             # 查询等待确认的信号
             print("→ 查询等待确认的信号...")
             pending_signals = signal_tracker_crud.find(filters={
-                "tracking_status": TRACKING_STATUS.NOTIFIED.value
+                "tracking_status": TRACKINGSTATUS_TYPES.NOTIFIED.value
             })
             print(f"✓ 查询到 {len(pending_signals)} 条等待确认信号")
 
@@ -356,7 +356,7 @@ class TestSignalTrackerCRUDUpdate:
             # 查询等待执行的信号
             print("→ 查询等待执行的信号...")
             pending_trackers = signal_tracker_crud.find(filters={
-                "tracking_status": TRACKING_STATUS.NOTIFIED.value
+                "tracking_status": TRACKINGSTATUS_TYPES.NOTIFIED.value
             })
 
             if not pending_trackers:
@@ -376,7 +376,7 @@ class TestSignalTrackerCRUDUpdate:
             target_tracker.actual_price = actual_price
             target_tracker.actual_volume = actual_volume
             target_tracker.actual_timestamp = actual_timestamp
-            target_tracker.tracking_status = TRACKING_STATUS.EXECUTED.value
+            target_tracker.tracking_status = TRACKINGSTATUS_TYPES.EXECUTED.value
             target_tracker.execution_confirmed_at = actual_timestamp
 
             # 计算偏差
@@ -590,7 +590,7 @@ class TestSignalTrackerCRUDBusinessLogic:
             # 查询超时的信号
             print("→ 进行超时信号分析...")
             timeout_trackers = signal_tracker_crud.find(filters={
-                "tracking_status": TRACKING_STATUS.TIMEOUT.value
+                "tracking_status": TRACKINGSTATUS_TYPES.TIMEOUT.value
             })
 
             print(f"✓ 超时信号分析结果:")
@@ -663,7 +663,7 @@ class TestSignalTrackerCRUDDelete:
             actual_price=Decimal("12.52"),
             actual_volume=1000,
             actual_timestamp=datetime(2023, 6, 15, 10, 31),
-            tracking_status=TRACKING_STATUS.EXECUTED,
+            tracking_status=TRACKINGSTATUS_TYPES.EXECUTED,
             execution_confirmed_at=datetime(2023, 6, 15, 10, 32),
             price_deviation=Decimal("0.02"),
             volume_deviation=0,
@@ -723,7 +723,7 @@ class TestSignalTrackerCRUDDelete:
                 expected_price=Decimal("15.00"),
                 expected_volume=2000,
                 expected_timestamp=datetime(2023, 7, 1, 10, 30),
-                tracking_status=TRACKING_STATUS.NOTIFIED,
+                tracking_status=TRACKINGSTATUS_TYPES.NOTIFIED,
                 price_deviation=Decimal("0.00"),
                 volume_deviation=0,
                 time_delay_seconds=0
@@ -771,10 +771,10 @@ class TestSignalTrackerCRUDDelete:
         # 准备测试数据 - 不同追踪状态的数据
         print("→ 准备测试数据...")
         test_statuses = [
-            ("status_pending_test", TRACKING_STATUS.NOTIFIED),
-            ("status_confirmed", TRACKING_STATUS.EXECUTED),
-            ("status_rejected_test", TRACKING_STATUS.CANCELED),
-            ("status_pending_2", TRACKING_STATUS.NOTIFIED),
+            ("status_pending_test", TRACKINGSTATUS_TYPES.NOTIFIED),
+            ("status_confirmed", TRACKINGSTATUS_TYPES.EXECUTED),
+            ("status_rejected_test", TRACKINGSTATUS_TYPES.CANCELED),
+            ("status_pending_2", TRACKINGSTATUS_TYPES.NOTIFIED),
         ]
 
         for code, status in test_statuses:
@@ -802,19 +802,19 @@ class TestSignalTrackerCRUDDelete:
         try:
             # 删除待确认状态的数据
             print("\n→ 执行状态删除操作...")
-            before_count = len(signal_tracker_crud.find(filters={"tracking_status": TRACKING_STATUS.NOTIFIED}))
+            before_count = len(signal_tracker_crud.find(filters={"tracking_status": TRACKINGSTATUS_TYPES.NOTIFIED}))
             print(f"✓ 删除前待确认状态数据量: {before_count}")
 
-            signal_tracker_crud.remove(filters={"tracking_status": TRACKING_STATUS.NOTIFIED})
+            signal_tracker_crud.remove(filters={"tracking_status": TRACKINGSTATUS_TYPES.NOTIFIED})
             print("✓ 状态删除操作完成")
 
             # 验证删除结果
-            after_count = len(signal_tracker_crud.find(filters={"tracking_status": TRACKING_STATUS.NOTIFIED}))
+            after_count = len(signal_tracker_crud.find(filters={"tracking_status": TRACKINGSTATUS_TYPES.NOTIFIED}))
             print(f"✓ 删除后待确认状态数据量: {after_count}")
             assert after_count == 0, "删除后应该没有待确认状态数据"
 
             # 确认其他状态数据未受影响
-            other_status_count = len(signal_tracker_crud.find(filters={"tracking_status": TRACKING_STATUS.EXECUTED}))
+            other_status_count = len(signal_tracker_crud.find(filters={"tracking_status": TRACKINGSTATUS_TYPES.EXECUTED}))
             print(f"✓ 其他状态数据保留验证: {other_status_count}条")
             assert other_status_count > 0, "其他状态数据应该保留"
 
@@ -853,7 +853,7 @@ class TestSignalTrackerCRUDDelete:
                 expected_price=Decimal("25.00"),
                 expected_volume=3000,
                 expected_timestamp=datetime(2023, 9, 1, 10, 30),
-                tracking_status=TRACKING_STATUS.NOTIFIED,
+                tracking_status=TRACKINGSTATUS_TYPES.NOTIFIED,
                 price_deviation=Decimal("0.00"),
                 volume_deviation=0,
                 time_delay_seconds=0
@@ -916,7 +916,7 @@ class TestSignalTrackerCRUDDelete:
                 expected_price=Decimal(f"30.{1000+i}"),
                 expected_volume=4000 + i * 100,
                 expected_timestamp=test_time,
-                tracking_status=TRACKING_STATUS.NOTIFIED,
+                tracking_status=TRACKINGSTATUS_TYPES.NOTIFIED,
                 price_deviation=Decimal("0.00"),
                 volume_deviation=0,
                 time_delay_seconds=0
@@ -985,7 +985,7 @@ class TestSignalTrackerCRUDDelete:
                 expected_price=Decimal(f"40.{1000+i}"),
                 expected_volume=5000 + i * 200,
                 expected_timestamp=base_time + timedelta(hours=i),
-                tracking_status=TRACKING_STATUS.NOTIFIED,
+                tracking_status=TRACKINGSTATUS_TYPES.NOTIFIED,
                 price_deviation=Decimal("0.00"),
                 volume_deviation=0,
                 time_delay_seconds=0

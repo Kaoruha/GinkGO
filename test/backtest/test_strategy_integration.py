@@ -3,13 +3,13 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, MagicMock
 from decimal import Decimal
 
-from ginkgo.backtest.strategy.strategies import StrategyBase
-from ginkgo.backtest.entities.signal import Signal
-from ginkgo.backtest.entities.bar import Bar
-from ginkgo.backtest.execution.portfolios import PortfolioT1Backtest
-from ginkgo.backtest.strategy.selectors.fixed_selector import FixedSelector
-from ginkgo.backtest.strategy.sizers.fixed_sizer import FixedSizer
-from ginkgo.backtest.analysis.analyzers.net_value import NetValue
+from ginkgo.trading.strategies.base_strategy import StrategyBase
+from ginkgo.trading.entities import Signal
+from ginkgo.trading.entities import Bar
+from ginkgo.trading.portfolios import PortfolioT1Backtest
+from ginkgo.trading.selectors import FixedSelector
+from ginkgo.trading.sizers import FixedSizer
+from ginkgo.trading.analysis.analyzers.net_value import NetValue
 from ginkgo.enums import DIRECTION_TYPES, RECORDSTAGE_TYPES
 
 
