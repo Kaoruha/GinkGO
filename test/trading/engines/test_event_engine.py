@@ -1500,7 +1500,7 @@ class TestEventEngineComponentBinding:
         engine = EventEngine()
 
         # 使用BasePortfolio
-        from ginkgo.trading.portfolios.base_portfolio import BasePortfolio
+        from ginkgo.trading.bases.portfolio_base import PortfolioBase as BasePortfolio
 
         portfolio = BasePortfolio("TestPortfolio")
 
