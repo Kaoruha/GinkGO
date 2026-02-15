@@ -9,10 +9,10 @@ import sys
 from pathlib import Path
 
 # 导入BaseStrategy类和相关依赖
-from ginkgo.trading.strategy.strategies.base_strategy import BaseStrategy
+from ginkgo.trading.strategies.base_strategy import BaseStrategy
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.core.backtest_base import BacktestBase
-from ginkgo.trading.entities.time_related import TimeRelated
+from ginkgo.trading.mixins.time_mixin import TimeMixin as TimeRelated
 from ginkgo.enums import DIRECTION_TYPES
 from datetime import datetime
 

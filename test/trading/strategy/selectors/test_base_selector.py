@@ -13,7 +13,7 @@ project_root = Path(__file__).parent.parent.parent.parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
 # 导入BaseSelector相关组件
-from ginkgo.trading.strategy.selectors.base_selector import BaseSelector
+from ginkgo.trading.bases.selector_base import SelectorBase as BaseSelector
 from ginkgo.trading.feeders.base_feeder import BaseFeeder
 from datetime import datetime
 
