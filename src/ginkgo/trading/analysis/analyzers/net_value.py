@@ -18,10 +18,11 @@ class NetValue(BaseAnalyzer):
 
     def __init__(self, name: str = "net_value", *args, **kwargs):
         super(NetValue, self).__init__(name, *args, **kwargs)
-        # 在每天开始时激活净值记录
+        # 在每天开始时和结束时都激活净值记录
         self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
-        # 在每天结束时记录到数据库
-        self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
+        self.add_active_stage(RECORDSTAGE_TYPES.ENDDAY)
+        # 在每天结束时记录到数据库（记录收盘后净值）
+        self.set_record_stage(RECORDSTAGE_TYPES.ENDDAY)
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """激活净值计算，更新当前净值数据"""

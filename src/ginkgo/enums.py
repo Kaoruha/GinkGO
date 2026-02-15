@@ -554,14 +554,36 @@ class TEMPLATE_TYPES(EnumBase):
 
 # ==================== Portfolio运行时状态枚举 (Phase 5: 优雅重启) ====================
 
+class PORTFOLIO_MODE_TYPES(EnumBase):
+    """Portfolio 运行模式枚举"""
+
+    VOID = -1
+    BACKTEST = 0                  # 回测模式
+    PAPER = 1                     # 模拟盘模式
+    LIVE = 2                      # 实盘模式
+
+
 class PORTFOLIO_RUNSTATE_TYPES(EnumBase):
     """Portfolio 运行时状态枚举（Phase 5: 优雅重启机制）"""
 
-    RUNNING = "RUNNING"           # 正常运行
-    STOPPING = "STOPPING"         # 正在停止（准备重载）
-    STOPPED = "STOPPED"           # 已停止
-    RELOADING = "RELOADING"       # 正在重载配置
-    MIGRATING = "MIGRATING"       # 正在迁移到其他节点
+    VOID = -1
+    INITIALIZED = 0               # 已初始化
+    RUNNING = 1                   # 正常运行
+    PAUSED = 2                    # 已暂停
+    STOPPING = 3                  # 正在停止（准备重载）
+    STOPPED = 4                   # 已停止
+    RELOADING = 5                 # 正在重载配置
+    MIGRATING = 6                 # 正在迁移到其他节点
+
+
+# ==================== 默认分析器集合枚举 ====================
+
+class DEFAULT_ANALYZER_SET(EnumBase):
+    """默认分析器集合枚举 - 用于Portfolio默认分析器配置"""
+
+    MINIMAL = 1      # 最小集: NetValue, Profit
+    STANDARD = 2     # 标准集: + MaxDrawdown, SharpeRatio, WinRate
+    FULL = 3         # 完整集: 所有分析器
 
 
 # ==================== Data Worker 状态枚举 (009-data-worker) ====================
@@ -618,7 +640,10 @@ __all__ = [
     "TEMPLATE_TYPES",
     "RECIPIENT_TYPES",
     # Portfolio运行时状态枚举 (Phase 5)
+    "PORTFOLIO_MODE_TYPES",
     "PORTFOLIO_RUNSTATE_TYPES",
     # Data Worker 枚举 (009-data-worker)
     "WORKER_STATUS_TYPES",
+    # 默认分析器集合枚举
+    "DEFAULT_ANALYZER_SET",
 ]

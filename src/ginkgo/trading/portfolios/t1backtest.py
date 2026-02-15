@@ -121,11 +121,6 @@ class PortfolioT1Backtest(PortfolioBase):
         # Go next TimePhase - 统一使用hook机制
         self.update_worth()
         self.update_profit()
-        self.log("INFO", "🔧 About to process analyzer hooks")
-        for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ENDDAY]:
-            func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
-        for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ENDDAY]:
-            func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
 
         self.log("INFO", "🔧 About to call super().advance_time")
         super(PortfolioT1Backtest, self).advance_time(time, *args, **kwargs)
@@ -166,6 +161,16 @@ class PortfolioT1Backtest(PortfolioBase):
         # Reset past signals
         old_count = len(self._signals)
         self._signals = []
+
+        # ===== 步骤5: ENDDAY钩子（移到T+1信号处理之后）=====
+        # 在T+1订单成交后记录净值，确保记录的是收盘后的实际净值
+        self.log("INFO", "🔧 About to process ENDDAY analyzer hooks (after T+1 processing)")
+        self.update_worth()  # 更新净值（订单成交后的最新值）
+        self.update_profit()
+        for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ENDDAY]:
+            func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
+        for func in self._analyzer_record_hook[RECORDSTAGE_TYPES.ENDDAY]:
+            func(RECORDSTAGE_TYPES.ENDDAY, self.get_info())
 
         # ===== 步骤5: 新时间状态初始化 =====
         activate_count = len(self._analyzer_activate_hook.get(RECORDSTAGE_TYPES.NEWDAY, []))

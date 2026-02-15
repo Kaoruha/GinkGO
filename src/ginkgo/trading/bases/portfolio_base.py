@@ -52,7 +52,7 @@ from ginkgo.trading.events.order_lifecycle_events import (
 )
 from ginkgo.trading.entities.position import Position
 from ginkgo.trading.entities.order import Order
-from ginkgo.enums import DIRECTION_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES
+from ginkgo.enums import DIRECTION_TYPES, RECORDSTAGE_TYPES, SOURCE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES, DEFAULT_ANALYZER_SET
 from ginkgo.libs import GCONF, to_decimal
 
 
@@ -73,9 +73,20 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
     - 组件基础功能 (uuid, component_type, dataframe转换)
     """
 
+    # 内置默认分析器配置（字符串列表）
+    BUILTIN_DEFAULT_ANALYZERS = {
+        DEFAULT_ANALYZER_SET.MINIMAL: ['net_value', 'profit'],
+        DEFAULT_ANALYZER_SET.STANDARD: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio', 'win_rate'],
+        DEFAULT_ANALYZER_SET.FULL: ['net_value', 'profit', 'max_drawdown', 'sharpe_ratio',
+                                     'win_rate', 'volatility', 'sortino_ratio', 'calmar_ratio',
+                                     'hold_pct', 'signal_count'],
+    }
+
     def __init__(
         self,
         name: str = "Portfolio",
+        use_default_analyzers: bool = True,
+        default_analyzer_set: DEFAULT_ANALYZER_SET = DEFAULT_ANALYZER_SET.STANDARD,
         *args,
         **kwargs,
     ) -> None:
@@ -84,6 +95,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
 
         Args:
             name: 投资组合名称
+            use_default_analyzers: 是否使用默认分析器
+            default_analyzer_set: 默认分析器集合类型
             **kwargs: 传递给父类的参数
         """
         # 显式初始化各个Mixin，确保正确的初始化顺序
@@ -109,6 +122,10 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         # 标记为 Portfolio 组件（用于 ContextMixin 识别）
         self._is_portfolio = True
 
+        # Portfolio运行模式和状态
+        self._mode: PORTFOLIO_MODE_TYPES = PORTFOLIO_MODE_TYPES.BACKTEST
+        self._state: PORTFOLIO_RUNSTATE_TYPES = PORTFOLIO_RUNSTATE_TYPES.INITIALIZED
+
         # Portfolio核心业务属性
         self._cash: Decimal = Decimal("0")
         self._worth: Decimal = self._cash
@@ -131,6 +148,68 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
         self._batch_processor: Optional["TimeWindowBatchProcessor"] = None
         self._batch_processing_enabled = False
         self._original_on_signal = None  # 保存原始信号处理方法以便回退
+
+        # 默认分析器配置
+        self._use_default_analyzers = use_default_analyzers
+        self._default_analyzer_set = default_analyzer_set
+
+        # 初始化默认分析器
+        if use_default_analyzers:
+            self._init_default_analyzers()
+
+    def _init_default_analyzers(self) -> None:
+        """
+        初始化内置默认分析器（直接导入，不通过工厂）
+
+        根据配置的分析器集合，自动添加对应的默认分析器到Portfolio。
+        用户手动添加的同名分析器不会被覆盖。
+        """
+        # 延迟导入，避免循环依赖
+        from ginkgo.trading.analysis.analyzers.net_value import NetValue
+        from ginkgo.trading.analysis.analyzers.profit import Profit
+        from ginkgo.trading.analysis.analyzers.max_drawdown import MaxDrawdown
+        from ginkgo.trading.analysis.analyzers.sharpe_ratio import SharpeRatio
+        from ginkgo.trading.analysis.analyzers.win_rate import WinRate
+        from ginkgo.trading.analysis.analyzers.volatility import Volatility
+        from ginkgo.trading.analysis.analyzers.sortino_ratio import SortinoRatio
+        from ginkgo.trading.analysis.analyzers.calmar_ratio import CalmarRatio
+        from ginkgo.trading.analysis.analyzers.hold_pct import HoldPCT
+        from ginkgo.trading.analysis.analyzers.signal_count import SignalCount
+
+        # 内置分析器映射
+        builtin_map = {
+            'net_value': NetValue,
+            'profit': Profit,
+            'max_drawdown': MaxDrawdown,
+            'sharpe_ratio': SharpeRatio,
+            'win_rate': WinRate,
+            'volatility': Volatility,
+            'sortino_ratio': SortinoRatio,
+            'calmar_ratio': CalmarRatio,
+            'hold_pct': HoldPCT,
+            'signal_count': SignalCount,
+        }
+
+        analyzer_names = self.BUILTIN_DEFAULT_ANALYZERS.get(self._default_analyzer_set, [])
+        added_count = 0
+
+        for name in analyzer_names:
+            # 跳过已存在的分析器（用户手动添加的优先）
+            if name in self._analyzers:
+                self.log("DEBUG", f"Default analyzer '{name}' already exists, skipping")
+                continue
+
+            if name in builtin_map:
+                try:
+                    analyzer_class = builtin_map[name]
+                    analyzer = analyzer_class(name=name)
+                    self.add_analyzer(analyzer)
+                    added_count += 1
+                    self.log("DEBUG", f"Added default analyzer: {name}")
+                except Exception as e:
+                    self.log("ERROR", f"Failed to add default analyzer '{name}': {e}")
+
+        self.log("INFO", f"Initialized {added_count} default analyzers from set {self._default_analyzer_set.name}")
 
     # ========== 基础属性和方法 ==========
 
@@ -187,6 +266,58 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
     @property
     def analyzers(self) -> Dict:
         return self._analyzers
+
+    @property
+    def mode(self) -> PORTFOLIO_MODE_TYPES:
+        """
+        投资组合运行模式
+
+        Returns:
+            PORTFOLIO_MODE_TYPES: BACKTEST(回测), PAPER(模拟盘), LIVE(实盘)
+        """
+        return self._mode
+
+    @mode.setter
+    def mode(self, value: PORTFOLIO_MODE_TYPES) -> None:
+        """
+        设置投资组合运行模式
+
+        Args:
+            value: PORTFOLIO_MODE_TYPES 枚举值
+        """
+        if isinstance(value, PORTFOLIO_MODE_TYPES):
+            self._mode = value
+        elif isinstance(value, int):
+            self._mode = PORTFOLIO_MODE_TYPES.from_int(value) or PORTFOLIO_MODE_TYPES.BACKTEST
+        else:
+            self.log("WARN", f"Invalid mode value: {value}, using BACKTEST as default")
+            self._mode = PORTFOLIO_MODE_TYPES.BACKTEST
+
+    @property
+    def state(self) -> PORTFOLIO_RUNSTATE_TYPES:
+        """
+        投资组合运行状态
+
+        Returns:
+            PORTFOLIO_RUNSTATE_TYPES: INITIALIZED, RUNNING, PAUSED, STOPPING, STOPPED, RELOADING, MIGRATING
+        """
+        return self._state
+
+    @state.setter
+    def state(self, value: PORTFOLIO_RUNSTATE_TYPES) -> None:
+        """
+        设置投资组合运行状态
+
+        Args:
+            value: PORTFOLIO_RUNSTATE_TYPES 枚举值
+        """
+        if isinstance(value, PORTFOLIO_RUNSTATE_TYPES):
+            self._state = value
+        elif isinstance(value, int):
+            self._state = PORTFOLIO_RUNSTATE_TYPES.from_int(value) or PORTFOLIO_RUNSTATE_TYPES.INITIALIZED
+        else:
+            self.log("WARN", f"Invalid state value: {value}, using INITIALIZED as default")
+            self._state = PORTFOLIO_RUNSTATE_TYPES.INITIALIZED
 
     @property
     def profit(self) -> Decimal:
@@ -693,6 +824,8 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             "name": self.name,
             "now": self.get_time_provider().now() if self.get_time_provider() else None,
             "uuid": self.uuid,
+            "mode": self._mode,
+            "state": self._state,
             "cash": self.cash,
             "frozen": self.frozen,
             "profit": self.profit,

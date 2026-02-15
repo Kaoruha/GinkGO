@@ -312,18 +312,23 @@ class SimpleBacktest:
 
         # 净值分析结果
         print(f"\n📊 净值分析:")
+        # 使用实际的portfolio.worth作为当前净值（因为T+1订单可能在最后才成交）
+        actual_worth = float(self.portfolio.worth)
+        print(f"  期末净值: ¥{actual_worth:,.2f}")
+
         if self.net_value_analyzer and hasattr(self.net_value_analyzer, 'current_net_value'):
-            current_net_value = self.net_value_analyzer.current_net_value
-            print(f"  当前净值: ¥{current_net_value:,.2f}")
             if hasattr(self.net_value_analyzer, '_size') and self.net_value_analyzer._size > 0:
                 print(f"  净值记录数: {self.net_value_analyzer._size}")
-                # 计算净值统计
-                if self.net_value_analyzer._size > 1:
-                    values = self.net_value_analyzer._values[:self.net_value_analyzer._size]
-                    max_net_value = max(values)
-                    min_net_value = min(values)
-                    print(f"  最高净值: ¥{max_net_value:,.2f}")
-                    print(f"  最低净值: ¥{min_net_value:,.2f}")
+                # 计算净值统计 - 包含最终净值
+                values = list(self.net_value_analyzer._values[:self.net_value_analyzer._size])
+                # 添加最终净值到统计中
+                values.append(actual_worth)
+                max_net_value = max(values)
+                min_net_value = min(values)
+                print(f"  起始净值: ¥{values[0]:,.2f}")
+                print(f"  最高净值: ¥{max_net_value:,.2f}")
+                print(f"  最低净值: ¥{min_net_value:,.2f}")
+                if max_net_value > 0:
                     max_drawdown = (max_net_value - min_net_value) / max_net_value * 100
                     print(f"  最大回撤: {max_drawdown:.2f}%")
         else:
@@ -387,9 +392,9 @@ def main():
     # 创建回测实例
     backtest = SimpleBacktest(initial_cash=100000)
 
-    # 设置回测参数
-    start_date = datetime.datetime(2023, 1, 1)
-    end_date = datetime.datetime(2023, 1, 30)  # 完整月份回测
+    # 设置回测参数 (使用数据库中实际有数据的日期)
+    start_date = datetime.datetime(2023, 12, 1)
+    end_date = datetime.datetime(2023, 12, 5)
 
     # 设置组件
     backtest.setup(start_date, end_date)

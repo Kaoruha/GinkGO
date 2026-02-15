@@ -20,7 +20,8 @@ class Profit(BaseAnalyzer):
     def __init__(self, name: str = "ProfitAna", *args, **kwargs):
         super(Profit, self).__init__(name, *args, **kwargs)
         self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
-        self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
+        self.add_active_stage(RECORDSTAGE_TYPES.ENDDAY)
+        self.set_record_stage(RECORDSTAGE_TYPES.ENDDAY)
         self._last_worth = None
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
