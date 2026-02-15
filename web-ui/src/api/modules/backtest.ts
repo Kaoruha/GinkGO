@@ -247,3 +247,158 @@ export interface BacktestProgress {
   error?: string
   updated_at: string
 }
+
+// ========== 新增：回测报告、对比、模板相关 ==========
+
+/**
+ * 回测报告详情
+ */
+export interface BacktestReport {
+  task_uuid: string
+  task_name: string
+  // 基础指标
+  metrics: {
+    total_return: number
+    annual_return: number
+    sharpe_ratio: number
+    sortino_ratio: number
+    max_drawdown: number
+    win_rate: number
+    profit_loss_ratio: number
+    volatility: number
+  }
+  // 净值曲线数据
+  net_value: Array<{
+    date: string
+    value: number
+  }>
+  // 回撤数据
+  drawdown: Array<{
+    date: string
+    value: number
+  }>
+  // 持仓变化
+  positions: Array<{
+    date: string
+    positions: Array<{
+      code: string
+      weight: number
+    }>
+  }>
+  // 交易记录
+  trades: Array<{
+    uuid: string
+    code: string
+    direction: 'LONG' | 'SHORT'
+    volume: number
+    price: number
+    timestamp: string
+    profit?: number
+  }>
+}
+
+/**
+ * 回测对比数据
+ */
+export interface BacktestComparison {
+  task_uuid: string
+  task_name: string
+  metrics: BacktestReport['metrics']
+  net_value: Array<{ date: string; value: number }>
+}
+
+/**
+ * 回测对比结果
+ */
+export interface ComparisonResult {
+  tasks: BacktestComparison[]
+  comparison_table: Array<{
+    metric: string
+    values: Record<string, number>  // { task_uuid1: value1, task_uuid2: value2 }
+    best_task_uuid?: string
+  }>
+}
+
+/**
+ * 回测模板
+ */
+export interface BacktestTemplate {
+  uuid: string
+  name: string
+  description?: string
+  config: BacktestCreate
+  created_at: string
+  updated_at: string
+}
+
+// 扩展 backtestApi
+export const backtestApiExtended = {
+  ...backtestApi,
+
+  /**
+   * 获取回测报告
+   */
+  getReport(uuid: string, options?: RequestOptions): Promise<APIResponse<BacktestReport>> {
+    return request.get(`/v1/backtests/${uuid}/report`, { signal: options?.signal })
+  },
+
+  /**
+   * 回测对比
+   */
+  compare(taskUuids: string[], options?: RequestOptions): Promise<APIResponse<ComparisonResult>> {
+    return request.post('/v1/backtests/compare', { task_uuids: taskUuids }, { signal: options?.signal })
+  },
+
+  /**
+   * 获取回测日志流（SSE）
+   */
+  subscribeLogs(uuid: string, onMessage: (message: string) => void): EventSource {
+    const eventSource = new EventSource(`/api/v1/backtests/${uuid}/logs`)
+    eventSource.onmessage = (event) => {
+      onMessage(event.data)
+    }
+    return eventSource
+  },
+
+  /**
+   * 获取模板列表
+   */
+  listTemplates(options?: RequestOptions): Promise<APIResponse<BacktestTemplate[]>> {
+    return request.get('/v1/backtests/templates', { signal: options?.signal })
+  },
+
+  /**
+   * 获取模板详情
+   */
+  getTemplate(uuid: string, options?: RequestOptions): Promise<APIResponse<BacktestTemplate>> {
+    return request.get(`/v1/backtests/templates/${uuid}`, { signal: options?.signal })
+  },
+
+  /**
+   * 创建模板
+   */
+  createTemplate(data: { name: string; description?: string; config: BacktestCreate }, options?: RequestOptions): Promise<APIResponse<BacktestTemplate>> {
+    return request.post('/v1/backtests/templates', data, { signal: options?.signal })
+  },
+
+  /**
+   * 更新模板
+   */
+  updateTemplate(uuid: string, data: Partial<BacktestTemplate>, options?: RequestOptions): Promise<APIResponse<BacktestTemplate>> {
+    return request.put(`/v1/backtests/templates/${uuid}`, data, { signal: options?.signal })
+  },
+
+  /**
+   * 删除模板
+   */
+  deleteTemplate(uuid: string, options?: RequestOptions): Promise<void> {
+    return request.delete(`/v1/backtests/templates/${uuid}`, { signal: options?.signal })
+  },
+
+  /**
+   * 从模板创建回测
+   */
+  createFromTemplate(templateUuid: string, name: string, options?: RequestOptions): Promise<APIResponse<BacktestTaskDetail>> {
+    return request.post('/v1/backtests/templates/{templateUuid}/create', { name }, { signal: options?.signal })
+  }
+}

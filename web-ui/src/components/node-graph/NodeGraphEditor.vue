@@ -1,6 +1,6 @@
 <template>
   <div class="node-graph-editor">
-    <!-- 工具栏 -->
+    <!-- Custom -->
     <div class="toolbar">
       <a-button-group>
         <a-button
@@ -66,14 +66,14 @@
       </a-button-group>
     </div>
 
-    <!-- 主内容区 -->
+    <!-- Custom -->
     <div class="editor-content">
-      <!-- 左侧节点选择面板 -->
+      <!-- Custom -->
       <div class="node-palette">
         <NodePalette @node-drag-start="handleNodeDragStart" />
       </div>
 
-      <!-- 中间画布 -->
+      <!-- Custom -->
       <div class="canvas-container">
         <NodeGraphCanvas
           :nodes="nodes"
@@ -85,7 +85,7 @@
         />
       </div>
 
-      <!-- 右侧属性面板 -->
+      <!-- Custom -->
       <div class="property-panel">
         <NodePropertyPanel
           v-if="selectedNode"
@@ -101,7 +101,7 @@
       </div>
     </div>
 
-    <!-- 验证结果展示 -->
+    <!-- Custom -->
     <div
       v-if="validationResult"
       class="validation-panel"
@@ -113,7 +113,7 @@
       />
     </div>
 
-    <!-- 编译预览弹窗 -->
+    <!-- Custom -->
     <a-modal
       v-model:open="compileModalVisible"
       title="编译结果"

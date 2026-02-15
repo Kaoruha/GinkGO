@@ -1,6 +1,6 @@
 <template>
   <div class="portfolio-graph-editor">
-    <!-- 页面头部 -->
+    <!-- Custom -->
     <div class="page-header">
       <div class="header-left">
         <a-button
@@ -42,7 +42,7 @@
       </div>
     </div>
 
-    <!-- 基本信息卡片 -->
+    <!-- Custom -->
     <a-card class="info-card" title="基本信息">
       <a-form
         ref="formRef"
@@ -110,9 +110,9 @@
       </a-form>
     </a-card>
 
-    <!-- 编辑器内容 -->
+    <!-- Custom -->
     <div class="editor-content">
-      <!-- 左侧组件面板 -->
+      <!-- Custom -->
       <div class="component-palette">
         <div class="palette-header">
           <h3>组件库</h3>
@@ -130,7 +130,7 @@
           </a-input>
         </div>
         <div class="palette-content">
-          <!-- 策略组件 -->
+          <!-- Custom -->
           <div class="palette-section" v-if="filteredStrategies.length > 0 || !searchKeyword">
             <div
               class="section-header"
@@ -168,7 +168,7 @@
             </div>
           </div>
 
-          <!-- 选股器组件 -->
+          <!-- Custom -->
           <div class="palette-section" v-if="filteredSelectors.length > 0 || !searchKeyword">
             <div
               class="section-header"
@@ -206,7 +206,7 @@
             </div>
           </div>
 
-          <!-- Sizer 组件 -->
+          <!-- Sizer  -->
           <div class="palette-section" v-if="filteredSizers.length > 0 || !searchKeyword">
             <div
               class="section-header"
@@ -244,7 +244,7 @@
             </div>
           </div>
 
-          <!-- 风控组件 -->
+          <!-- Custom -->
           <div class="palette-section" v-if="filteredRisks.length > 0 || !searchKeyword">
             <div
               class="section-header"
@@ -282,7 +282,7 @@
             </div>
           </div>
 
-          <!-- 搜索无结果提示 -->
+          <!-- Custom -->
           <div
             v-if="searchKeyword && filteredStrategies.length === 0 && filteredSelectors.length === 0 && filteredSizers.length === 0 && filteredRisks.length === 0"
             class="search-empty"
@@ -292,7 +292,7 @@
         </div>
       </div>
 
-      <!-- 中间画布区域 -->
+      <!-- Custom -->
       <div class="canvas-wrapper">
         <div
           v-if="!nodes || nodes.length === 0"
@@ -329,7 +329,7 @@
         />
       </div>
 
-      <!-- 右侧属性面板 -->
+      <!-- Custom -->
       <div class="property-panel">
         <div class="panel-header">
           <h3>属性</h3>
@@ -352,7 +352,7 @@
       </div>
     </div>
 
-    <!-- 验证结果弹窗 -->
+    <!-- Custom -->
     <a-modal
       v-model:open="showValidationModal"
       title="配置验证"

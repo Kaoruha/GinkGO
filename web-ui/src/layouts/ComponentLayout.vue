@@ -39,11 +39,16 @@
                 v-for="child in item.children"
                 :key="child.path"
                 :to="child.path"
-                class="flex items-center px-4 py-2 rounded-lg transition-colors text-sm"
+                class="flex items-center justify-between px-4 py-2 rounded-lg transition-colors text-sm"
                 :class="isActive(child.path) ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'"
               >
-                <span class="mr-3">{{ child.icon || '•' }}</span>
-                <span>{{ child.label }}</span>
+                <div class="flex items-center">
+                  <span class="mr-3">{{ child.icon || '•' }}</span>
+                  <span>{{ child.label }}</span>
+                </div>
+                <a-tag v-if="child.status" :color="getStatusColor(child.status)" size="small">
+                  {{ getStatusLabel(child.status) }}
+                </a-tag>
               </router-link>
             </div>
           </div>
@@ -52,11 +57,16 @@
           <router-link
             v-else
             :to="item.path"
-            class="flex items-center px-4 py-2.5 rounded-lg transition-colors text-sm"
+            class="flex items-center justify-between px-4 py-2.5 rounded-lg transition-colors text-sm"
             :class="isActive(item.path) ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'"
           >
-            <span class="text-lg mr-3">{{ item.icon }}</span>
-            <span>{{ item.label }}</span>
+            <div class="flex items-center">
+              <span class="text-lg mr-3">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </div>
+            <a-tag v-if="item.status" :color="getStatusColor(item.status)" size="small">
+              {{ getStatusLabel(item.status) }}
+            </a-tag>
           </router-link>
         </template>
       </nav>
@@ -116,23 +126,70 @@ const expandedMenus = ref<Record<string, boolean>>({
   '/settings': false
 })
 
-// 菜单配置
+// 功能状态类型
+type MenuItemStatus = 'done' | 'pending-api' | 'todo'
+
+// 菜单配置（含状态标记）- 仅后端API已实现的模块标记为完成
 const menuItems = [
-  { path: '/', label: '仪表盘', icon: '' },
-  { path: '/portfolio', label: '投资组合', icon: '' },
-  { path: '/backtest', label: '回测任务', icon: '' },
-  { path: '/components', label: '组件管理', icon: '' },
-  { path: '/data', label: '数据管理', icon: '' },
-  { path: '/alert', label: '警报中心', icon: '' },
+  { path: '/', label: '仪表盘', icon: '', status: 'pending-api' as MenuItemStatus },
+  { path: '/portfolio', label: '投资组合', icon: '', status: 'done' as MenuItemStatus },
+  {
+    path: '/backtest',
+    label: '回测任务',
+    icon: '',
+    children: [
+      { path: '/backtest', label: '回测列表', icon: '', status: 'done' as MenuItemStatus },
+      { path: '/backtest/compare', label: '回测对比', icon: '', status: 'done' as MenuItemStatus }
+    ]
+  },
+  {
+    path: '/research',
+    label: '量化研究',
+    icon: '',
+    children: [
+      { path: '/research', label: '因子查看', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/research/ic-analysis', label: 'IC分析', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/research/layering', label: '分层回测', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/research/comparison', label: '因子对比', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/research/orthogonalization', label: '因子正交化', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/research/decay', label: '因子衰减', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/research/turnover', label: '换手率分析', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/research/portfolio-builder', label: '组合构建', icon: '', status: 'pending-api' as MenuItemStatus }
+    ]
+  },
+  {
+    path: '/trading',
+    label: '交易管理',
+    icon: '',
+    children: [
+      { path: '/trading/paper', label: '模拟盘', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/trading/live', label: '实盘', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/trading/orders', label: '订单管理', icon: '', status: 'pending-api' as MenuItemStatus }
+    ]
+  },
+  {
+    path: '/validation',
+    label: '策略验证',
+    icon: '',
+    children: [
+      { path: '/validation/optimizer', label: '参数优化', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/validation/out-of-sample', label: '样本外测试', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/validation/sensitivity', label: '敏感性分析', icon: '', status: 'pending-api' as MenuItemStatus },
+      { path: '/validation/monte-carlo', label: '蒙特卡洛', icon: '', status: 'pending-api' as MenuItemStatus }
+    ]
+  },
+  { path: '/components', label: '组件管理', icon: '', status: 'done' as MenuItemStatus },
+  { path: '/data', label: '数据管理', icon: '', status: 'pending-api' as MenuItemStatus },
+  { path: '/alert', label: '警报中心', icon: '', status: 'todo' as MenuItemStatus },
   {
     path: '/settings',
     label: '系统设置',
     icon: '',
     children: [
-      { path: '/settings/users', label: '用户管理', icon: '' },
-      { path: '/settings/user-groups', label: '用户组管理', icon: '' },
-      { path: '/settings/notifications', label: '通知管理', icon: '' },
-      { path: '/settings/api', label: 'API接口设置', icon: '' }
+      { path: '/settings/users', label: '用户管理', icon: '', status: 'done' as MenuItemStatus },
+      { path: '/settings/user-groups', label: '用户组管理', icon: '', status: 'done' as MenuItemStatus },
+      { path: '/settings/notifications', label: '通知管理', icon: '', status: 'done' as MenuItemStatus },
+      { path: '/settings/api', label: 'API接口设置', icon: '', status: 'done' as MenuItemStatus }
     ]
   }
 ]
@@ -171,6 +228,34 @@ const defaultPageTitle = computed(() => {
 // 切换菜单展开/折叠
 const toggleMenu = (path: string) => {
   expandedMenus.value[path] = !expandedMenus.value[path]
+}
+
+// 获取状态颜色
+const getStatusColor = (status?: MenuItemStatus) => {
+  switch (status) {
+    case 'done':
+      return 'green'  // 绿色 - 已完成
+    case 'pending-api':
+      return 'orange'  // 橙色 - 待API对接
+    case 'todo':
+      return 'default'   // 灰色 - 未实现
+    default:
+      return 'default'
+  }
+}
+
+// 获取状态标签
+const getStatusLabel = (status?: MenuItemStatus) => {
+  switch (status) {
+    case 'done':
+      return '✓'
+    case 'pending-api':
+      return '待后端'
+    case 'todo':
+      return '未实现'
+    default:
+      return ''
+  }
 }
 
 // 当路由变化时，自动展开包含当前路由的菜单

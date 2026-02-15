@@ -1,6 +1,6 @@
 <template>
   <div class="backtest-detail-container">
-    <!-- 页面头部 -->
+    <!-- Custom -->
     <div class="page-header">
       <div class="header-left">
         <a-button
@@ -42,7 +42,7 @@
       </div>
     </div>
 
-    <!-- 加载状态 -->
+    <!-- Custom -->
     <div
       v-if="loading"
       class="loading-container"
@@ -50,15 +50,15 @@
       <a-spin size="large" />
     </div>
 
-    <!-- 详情内容 -->
+    <!-- Custom -->
     <div
       v-else-if="backtest"
       class="detail-content"
     >
-      <!-- 基本信息和进度卡片 -->
+      <!-- Custom -->
       <div class="info-section">
         <a-row :gutter="16">
-          <!-- 状态卡片 -->
+          <!-- Custom -->
           <a-col :span="6">
             <a-card class="info-card">
               <a-statistic
@@ -73,7 +73,7 @@
             </a-card>
           </a-col>
 
-          <!-- 进度卡片 -->
+          <!-- Custom -->
           <a-col :span="18">
             <a-card class="info-card">
               <div class="progress-section">
@@ -99,12 +99,12 @@
         </a-row>
       </div>
 
-      <!-- 配置和结果 -->
+      <!-- Custom -->
       <a-row
         :gutter="16"
         style="margin-top: 16px"
       >
-        <!-- 配置信息 -->
+        <!-- Custom -->
         <a-col :span="12">
           <a-card title="回测配置">
             <a-descriptions
@@ -146,7 +146,7 @@
           </a-card>
         </a-col>
 
-        <!-- 回测结果 -->
+        <!-- Custom -->
         <a-col :span="12">
           <a-card title="回测结果">
             <div
@@ -197,7 +197,7 @@
         </a-col>
       </a-row>
 
-      <!-- 错误信息 -->
+      <!-- Custom -->
       <a-card
         v-if="backtest.error"
         style="margin-top: 16px"

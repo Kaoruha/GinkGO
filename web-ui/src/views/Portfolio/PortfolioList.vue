@@ -1,14 +1,10 @@
 <template>
   <div class="portfolio-list-container">
-    <!-- 页面头部 -->
+    <!-- Custom -->
     <div class="page-header">
       <div class="header-left">
-        <h1 class="page-title">
-          投资组合
-        </h1>
-        <p class="page-subtitle">
-          管理和监控您的所有投资组合
-        </p>
+        <h1 class="page-title">投资组合</h1>
+        <p class="page-subtitle">管理和监控您的所有投资组合</p>
       </div>
       <div class="header-actions">
         <a-radio-group
@@ -17,105 +13,63 @@
           size="large"
           @change="handleFilterChange"
         >
-          <a-radio-button value="">
-            全部
-          </a-radio-button>
-          <a-radio-button value="BACKTEST">
-            回测
-          </a-radio-button>
-          <a-radio-button value="PAPER">
-            模拟
-          </a-radio-button>
-          <a-radio-button value="LIVE">
-            实盘
-          </a-radio-button>
+          <a-radio-button value="">全部</a-radio-button>
+          <a-radio-button value="BACKTEST">回测</a-radio-button>
+          <a-radio-button value="PAPER">模拟</a-radio-button>
+          <a-radio-button value="LIVE">实盘</a-radio-button>
         </a-radio-group>
-        <a-button
-          type="primary"
-          size="large"
-          @click="goToCreate"
-        >
-          <PlusOutlined />
-          创建组合
+        <a-button type="primary" size="large" @click="goToCreate">
+          <PlusOutlined /> 创建组合
         </a-button>
       </div>
     </div>
 
-    <!-- 统计卡片 -->
+    <!-- Custom -->
     <div class="stats-row">
-      <a-card class="stat-card stat-card-blue">
-        <a-statistic
-          title="总投资组合"
-          :value="stats.total"
-          :value-style="{ color: '#1890ff', fontSize: '32px' }"
-        >
-          <template #prefix>
-            <FolderOutlined />
-          </template>
-        </a-statistic>
-      </a-card>
-      <a-card class="stat-card stat-card-green">
-        <a-statistic
-          title="运行中"
-          :value="stats.running"
-          :value-style="{ color: '#52c41a', fontSize: '32px' }"
-        >
-          <template #prefix>
-            <PlayCircleOutlined />
-          </template>
-        </a-statistic>
-      </a-card>
-      <a-card class="stat-card stat-card-orange">
-        <a-statistic
-          title="平均净值"
-          :value="stats.avgNetValue"
-          :precision="3"
-          :value-style="{ color: '#fa8c16', fontSize: '32px' }"
-        >
-          <template #prefix>
-            <LineChartOutlined />
-          </template>
-        </a-statistic>
-      </a-card>
-      <a-card class="stat-card stat-card-purple">
-        <a-statistic
-          title="总资产"
-          :value="stats.totalAssets"
-          :precision="2"
-          prefix="¥"
-          :value-style="{ color: '#722ed1', fontSize: '32px' }"
-        >
-          <template #prefix>
-            <DollarOutlined />
-          </template>
-        </a-statistic>
-      </a-card>
+      <StatisticCard
+        title="总投资组合"
+        :value="stats.total"
+        :icon="FolderOutlined"
+        icon-color="#1890ff"
+        type="primary"
+      />
+      <StatisticCard
+        title="运行中"
+        :value="stats.running"
+        :icon="PlayCircleOutlined"
+        icon-color="#52c41a"
+        type="success"
+      />
+      <StatisticCard
+        title="平均净值"
+        :value="stats.avgNetValue"
+        :precision="3"
+        :icon="LineChartOutlined"
+        icon-color="#fa8c16"
+        type="warning"
+      />
+      <StatisticCard
+        title="总资产"
+        :value="stats.totalAssets"
+        :precision="2"
+        prefix="¥"
+        :icon="DollarOutlined"
+        icon-color="#722ed1"
+      />
     </div>
 
-    <!-- 投资组合列表 -->
-    <div
-      v-if="isPortfolioLoading()"
-      class="loading-container"
-    >
+    <!-- Custom -->
+    <div v-if="isPortfolioLoading()" class="loading-container">
       <a-spin size="large" />
     </div>
-    <div
-      v-else-if="filteredPortfolios.length === 0"
-      class="empty-container"
-    >
-      <a-empty description="暂无投资组合">
-        <a-button
-          type="primary"
-          @click="showCreateModal = true"
-        >
-          创建第一个投资组合
-        </a-button>
-      </a-empty>
+    <div v-else-if="filteredPortfolios.length === 0" class="empty-container">
+      <EmptyState
+        description="暂无投资组合"
+        action-text="创建第一个投资组合"
+        :on-action="() => showCreateModal = true"
+      />
     </div>
-    <div
-      v-else
-      class="portfolio-grid"
-    >
+    <div v-else class="portfolio-grid">
       <a-card
         v-for="portfolio in filteredPortfolios"
         :key="portfolio.uuid"
@@ -132,14 +86,8 @@
           </div>
         </template>
         <template #extra>
-          <a-dropdown
-            :trigger="['click']"
-            @click.stop
-          >
-            <a
-              class="more-btn"
-              @click.prevent
-            >
+          <a-dropdown :trigger="['click']" @click.stop>
+            <a class="more-btn" @click.prevent>
               <MoreOutlined />
             </a>
             <template #overlay>
@@ -155,7 +103,7 @@
           </a-dropdown>
         </template>
 
-        <!-- 净值信息 -->
+        <!-- Custom -->
         <div class="net-value-section">
           <div class="net-value-main">
             <span class="net-value-value">{{ portfolio.net_value.toFixed(3) }}</span>
@@ -172,7 +120,7 @@
           </div>
         </div>
 
-        <!-- 状态信息 -->
+        <!-- Custom -->
         <div class="info-row">
           <span class="info-label">状态:</span>
           <a-tag :color="getStateColor(portfolio.state)">
@@ -191,7 +139,7 @@
           </a-tag>
         </div>
 
-        <!-- 操作按钮 -->
+        <!-- Custom -->
         <div class="action-buttons">
           <a-button
             v-if="portfolio.state === 'RUNNING'"
@@ -209,17 +157,14 @@
           >
             <PlayCircleOutlined /> 启动
           </a-button>
-          <a-button
-            size="small"
-            @click.stop="goToDetail(portfolio.uuid)"
-          >
+          <a-button size="small" @click.stop="goToDetail(portfolio.uuid)">
             <EyeOutlined /> 详情
           </a-button>
         </div>
       </a-card>
     </div>
 
-    <!-- 创建组合弹窗 -->
+    <!-- Custom -->
     <a-modal
       v-model:open="showCreateModal"
       title="创建投资组合"
@@ -228,45 +173,29 @@
       @ok="handleCreate"
       @cancel="resetCreateForm"
     >
-      <a-form
-        ref="createFormRef"
+      <ProForm
         :model="createForm"
         :rules="createRules"
-        layout="vertical"
+        @submit="handleCreate"
+        @cancel="resetCreateForm"
       >
-        <a-form-item
-          label="组合名称"
-          name="name"
-        >
+        <a-form-item label="组合名称" name="name">
           <a-input
             v-model:value="createForm.name"
             placeholder="请输入投资组合名称"
             size="large"
           />
         </a-form-item>
-        <a-form-item
-          label="运行模式"
-          name="mode"
-        >
-          <a-radio-group
-            v-model:value="createForm.mode"
-            size="large"
-          >
-            <a-radio-button value="BACKTEST">
-              回测模式
-            </a-radio-button>
-            <a-radio-button value="PAPER">
-              模拟交易
-            </a-radio-button>
-            <a-radio-button value="LIVE">
-              实盘交易
-            </a-radio-button>
+
+        <a-form-item label="运行模式" name="mode">
+          <a-radio-group v-model:value="createForm.mode" size="large">
+            <a-radio-button value="BACKTEST">回测模式</a-radio-button>
+            <a-radio-button value="PAPER">模拟交易</a-radio-button>
+            <a-radio-button value="LIVE">实盘交易</a-radio-button>
           </a-radio-group>
         </a-form-item>
-        <a-form-item
-          label="初始资金"
-          name="initial_cash"
-        >
+
+        <a-form-item label="初始资金" name="initial_cash">
           <a-input-number
             v-model:value="createForm.initial_cash"
             :min="1000"
@@ -276,20 +205,26 @@
             style="width: 100%"
             size="large"
           >
-            <template #prefix>
-              ¥
-            </template>
+            <template #prefix>¥</template>
           </a-input-number>
         </a-form-item>
+
         <a-form-item label="风险配置">
           <a-textarea
             v-model:value="createForm.risk_config"
-            placeholder="JSON格式，例如：{&quot;max_position_ratio&quot;: 0.3, &quot;stop_loss_ratio&quot;: 0.05}"
+            placeholder='JSON格式，例如：{"max_position_ratio": 0.3, "stop_loss_ratio": 0.05}'
             :rows="4"
           />
         </a-form-item>
-      </a-form>
+      </ProForm>
     </a-modal>
+
+    <!-- Loading Overlay -->
+    <LoadingOverlay
+      :visible="creating"
+      :text="'创建投资组合中...'"
+      @close="creating = false"
+    />
   </div>
 </template>
 
@@ -311,6 +246,10 @@ import {
   ArrowDownOutlined,
   MinusOutlined
 } from '@ant-design/icons-vue'
+import StatisticCard from '@/components/data/StatisticCard.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import ProForm from '@/components/form/ProForm.vue'
+import LoadingOverlay from '@/components/common/LoadingOverlay.vue'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { storeToRefs } from 'pinia'
 import {
@@ -325,16 +264,14 @@ import { useErrorHandler, useLoading } from '@/composables'
 
 const router = useRouter()
 
-// 使用 Store - 保持响应式
+// 使用 Store
 const portfolioStore = usePortfolioStore()
-// 使用 storeToRefs 保持响应式连接
 const {
   portfolios,
   filterMode,
   filteredPortfolios,
   stats
 } = storeToRefs(portfolioStore)
-// 方法直接解构（不需要响应式）
 const {
   fetchPortfolios,
   deletePortfolio,
@@ -389,14 +326,14 @@ const goToCreate = () => {
   router.push('/portfolio/create')
 }
 
-// 创建组合（保留用于模态框创建，如果需要的话）
+// 创建组合
 const handleCreate = async () => {
   creating.value = true
   try {
     let riskConfig: Record<string, any> = {}
     try {
       riskConfig = JSON.parse(createForm.risk_config)
-    } catch (e) {
+    } catch {
       message.warning('风险配置JSON格式不正确，将使用默认配置')
     }
 
@@ -448,7 +385,6 @@ const handleStart = (portfolio: any) => {
     title: '确认启动',
     content: `确定要启动投资组合"${portfolio.name}"吗？`,
     onOk: async () => {
-      // TODO: 调用启动API
       const result = await execute(async () => {
         return await updatePortfolio(portfolio.uuid, { state: 'RUNNING' })
       })
@@ -525,28 +461,6 @@ onMounted(() => {
   gap: 16px;
   margin-bottom: 24px;
   flex-shrink: 0;
-}
-
-.stat-card {
-  border-radius: 12px;
-  border: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: box-shadow 0.2s;
-}
-
-.stat-card:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-
-.stat-card :deep(.ant-statistic-title) {
-  font-size: 14px;
-  color: #8c8c8c;
-  margin-bottom: 8px;
-}
-
-.stat-card :deep(.ant-statistic-content) {
-  font-size: 32px;
-  font-weight: 600;
 }
 
 /* 滚动内容区域 */

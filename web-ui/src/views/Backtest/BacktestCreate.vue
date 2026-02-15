@@ -1,6 +1,6 @@
 <template>
   <div class="backtest-create-container">
-    <!-- 页面头部 -->
+    <!-- Custom -->
     <div class="page-header">
       <a-button
         class="back-btn"
@@ -18,7 +18,7 @@
       </div>
     </div>
 
-    <!-- 创建表单 -->
+    <!-- Custom -->
     <a-card class="form-card">
       <a-form
         ref="formRef"
@@ -27,7 +27,7 @@
         layout="vertical"
         @finish="handleSubmit"
       >
-        <!-- 步骤条 -->
+        <!-- Custom -->
         <a-steps
           :current="currentStep"
           class="form-steps"
@@ -38,7 +38,7 @@
           <a-step title="分析器（可选）" />
         </a-steps>
 
-        <!-- 步骤1：选择投资组合 -->
+        <!-- 1 -->
         <div
           v-show="currentStep === 0"
           class="step-content"
@@ -94,7 +94,7 @@
               </a-select>
             </a-form-item>
 
-            <!-- 已选Portfolio列表 -->
+            <!-- Portfolio -->
             <div
               v-if="selectedPortfolios.length > 0"
               class="selected-portfolios-list"
@@ -161,7 +161,7 @@
           </div>
         </div>
 
-        <!-- 步骤2：配置参数 -->
+        <!-- 2 -->
         <div
           v-show="currentStep === 1"
           class="step-content"
@@ -171,7 +171,7 @@
               回测时间范围
             </h3>
 
-            <!-- 简化的快速选择 -->
+            <!-- Custom -->
             <a-space
               :size="8"
               class="date-quick-select"
@@ -265,7 +265,7 @@
             :bordered="false"
             class="config-collapse"
           >
-            <!-- 撮合器配置 -->
+            <!-- Custom -->
             <a-collapse-panel
               key="broker"
               header="撮合器配置"
@@ -368,7 +368,7 @@
           </div>
         </div>
 
-        <!-- 步骤3：分析器配置 -->
+        <!-- 3 -->
         <div
           v-show="currentStep === 2"
           class="step-content"

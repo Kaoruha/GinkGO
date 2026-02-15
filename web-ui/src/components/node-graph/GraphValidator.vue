@@ -25,7 +25,7 @@
     </div>
 
     <div class="validator-content">
-      <!-- 错误列表 -->
+      <!-- Custom -->
       <div
         v-if="errors.length > 0"
         class="error-section"
@@ -59,7 +59,7 @@
         </div>
       </div>
 
-      <!-- 警告列表 -->
+      <!-- Custom -->
       <div
         v-if="warnings.length > 0"
         class="warning-section"
@@ -80,7 +80,7 @@
         </div>
       </div>
 
-      <!-- 空状态 -->
+      <!-- Custom -->
       <div
         v-if="errors.length === 0 && warnings.length === 0"
         class="empty-state"

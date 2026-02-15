@@ -23,7 +23,7 @@
       <MiniMap />
     </VueFlow>
 
-    <!-- 临时连接线 -->
+    <!-- Custom -->
     <svg
       v-if="tempConnection"
       class="temp-connection"
@@ -38,7 +38,7 @@
       />
     </svg>
 
-    <!-- 快速创建菜单 -->
+    <!-- Custom -->
     <NodeCreateMenu
       v-model:visible="showCreateMenu"
       :position="menuPosition"
