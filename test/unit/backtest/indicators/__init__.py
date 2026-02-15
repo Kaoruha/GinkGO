@@ -1,1 +1,0 @@
-# Indicators test package
