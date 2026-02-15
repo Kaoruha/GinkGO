@@ -5,7 +5,7 @@ Backtest Task Processor
 
 职责：
 - 任务生命周期管理（启动、运行、停止、清理）
-- 调用EngineBuilder装配TimeControlledEventEngine
+- 调用EngineAssemblyService装配TimeControlledEventEngine
 - 执行回测并上报进度
 - 处理结果和异常
 """
@@ -16,7 +16,7 @@ from datetime import datetime
 import time
 
 from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestTaskState, EngineStage
-from ginkgo.workers.backtest_worker.engine_builder import EngineBuilder
+from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
 from ginkgo.workers.backtest_worker.progress_tracker import ProgressTracker
 # GLOG removed
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
@@ -67,8 +67,8 @@ class BacktestProcessor(Thread):
             self.task.current_stage = EngineStage.ENGINE_BUILDING
             self.progress_tracker.report_stage(self.task, EngineStage.ENGINE_BUILDING, "Building engine...")
 
-            builder = EngineBuilder()
-            self._engine = builder.build(self.task)
+            assembly_service = EngineAssemblyService()
+            self._engine = assembly_service.build_engine_from_task(self.task)
 
             # 阶段3: 运行回测
             self.task.state = BacktestTaskState.RUNNING
