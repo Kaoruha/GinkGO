@@ -13,7 +13,12 @@ import pandas as pd
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.strategies.base_strategy import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
-from ginkgo.data import get_bars
+from ginkgo.data import container
+
+
+def get_bars(code, start=None, end=None, **kwargs):
+    """便捷函数：获取K线数据"""
+    return container.bar_service().get(code=code, start=start, end=end, **kwargs)
 
 
 class StrategyTrendFollow(BaseStrategy):
