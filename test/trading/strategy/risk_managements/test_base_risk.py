@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 # 导入BaseRiskManagement类和相关依赖
-from ginkgo.trading.strategy.risk_managements.base_risk import BaseRiskManagement
+from ginkgo.trading.bases.risk_base import RiskBase as BaseRiskManagement
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.events.base_event import EventBase

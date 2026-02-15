@@ -13,7 +13,7 @@ project_root = Path(__file__).parent.parent.parent.parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
 # 导入BaseSizer相关组件
-from ginkgo.trading.strategy.sizers.base_sizer import BaseSizer
+from ginkgo.trading.bases.sizer_base import SizerBase as BaseSizer
 from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.entities.order import Order
 from ginkgo.trading.feeders.base_feeder import BaseFeeder
