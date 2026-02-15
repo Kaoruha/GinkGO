@@ -6,7 +6,7 @@
       { selected, 'is-root': isRootNode }
     ]"
   >
-    <!-- 左侧输入端口 -->
+    <!-- Custom -->
     <div class="ports-left" v-if="inputs.length > 0">
       <div
         v-for="input in inputs"
@@ -21,7 +21,7 @@
       </div>
     </div>
 
-    <!-- 节点内容 -->
+    <!-- Custom -->
     <div class="node-content">
       <div class="node-header">
         <div class="node-icon" :class="`icon-${nodeType}`">
@@ -54,7 +54,7 @@
           {{ getNodeSummary() }}
         </div>
       </div>
-      <!-- 根节点显示配置信息 -->
+      <!-- Custom -->
       <div class="node-config" v-else>
         <div class="config-row">
           <span class="config-label">初始资金:</span>
@@ -69,7 +69,7 @@
       </div>
     </div>
 
-    <!-- 右侧输出端口 -->
+    <!-- Custom -->
     <div class="ports-right" v-if="outputs.length > 0">
       <div
         v-for="output in outputs"
@@ -83,7 +83,7 @@
       </div>
     </div>
 
-    <!-- 隐藏的 Handle（用于VueFlow内部连接） -->
+    <!--  HandleVueFlow -->
     <Handle
       v-for="input in inputs"
       :id="input.name"

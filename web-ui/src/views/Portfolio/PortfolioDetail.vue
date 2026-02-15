@@ -1,6 +1,6 @@
 <template>
   <div class="portfolio-detail-container">
-    <!-- 页面头部 -->
+    <!-- Custom -->
     <div class="page-header">
       <div class="header-left">
         <a-button
@@ -56,7 +56,7 @@
       </div>
     </div>
 
-    <!-- 加载状态 -->
+    <!-- Custom -->
     <div
       v-if="loading"
       class="loading-container"
@@ -64,12 +64,12 @@
       <a-spin size="large" />
     </div>
 
-    <!-- 详情内容 -->
+    <!-- Custom -->
     <div
       v-else-if="portfolio"
       class="detail-content"
     >
-      <!-- 统计卡片 -->
+      <!-- Custom -->
       <div class="stats-row">
         <a-card class="stat-card">
           <div class="stat-item">
@@ -104,7 +104,7 @@
         </a-card>
       </div>
 
-      <!-- 净值历史 (预留 TradingView 集成) -->
+      <!--  ( TradingView ) -->
       <a-card
         title="净值曲线"
         class="chart-card"
@@ -118,7 +118,7 @@
         </div>
       </a-card>
 
-      <!-- 持仓详情 -->
+      <!-- Custom -->
       <a-card
         title="持仓详情"
         class="positions-card"
@@ -163,7 +163,7 @@
         </a-table>
       </a-card>
 
-      <!-- 策略表现 -->
+      <!-- Custom -->
       <a-card
         v-if="portfolio.strategies.length > 0"
         title="策略表现"
@@ -210,7 +210,7 @@
         </div>
       </a-card>
 
-      <!-- 风控告警 -->
+      <!-- Custom -->
       <a-card
         v-if="portfolio.risk_alerts.length > 0"
         title="风控告警"
@@ -260,7 +260,7 @@
       </a-card>
     </div>
 
-    <!-- 配置弹窗 -->
+    <!-- Custom -->
     <a-modal
       v-model:open="showConfigModal"
       title="投资组合配置"

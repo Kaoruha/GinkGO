@@ -1,6 +1,6 @@
 <template>
   <div class="component-editor flex flex-col bg-white text-gray-900 h-full">
-    <!-- 顶部工具栏 -->
+    <!-- Custom -->
     <div class="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200 flex-shrink-0">
       <div class="flex items-center space-x-2">
         <span class="text-lg font-semibold">{{ componentInfo?.name || '加载中...' }}</span>
@@ -9,15 +9,15 @@
         </a-tag>
       </div>
       <div class="flex items-center">
-        <!-- 右侧预留空间 -->
+        <!-- Custom -->
       </div>
     </div>
 
-    <!-- 主内容区（包含代码编辑器和底部测试面板） -->
+    <!-- Custom -->
     <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
-      <!-- 代码编辑器区域 -->
+      <!-- Custom -->
       <div class="flex-1 flex overflow-hidden min-h-0">
-        <!-- 左侧：组件信息面板 -->
+        <!-- Custom -->
         <div class="w-60 bg-gray-50 border-r border-gray-200 overflow-y-auto flex-shrink-0">
           <div class="p-3">
             <h3 class="text-xs font-semibold text-gray-600 mb-2">
@@ -44,7 +44,7 @@
             </div>
           </div>
 
-          <!-- 参数配置 -->
+          <!-- Custom -->
           <div class="p-3 border-t border-gray-200">
             <h3 class="text-xs font-semibold text-gray-600 mb-2">
               参数配置
@@ -64,7 +64,7 @@
             </div>
           </div>
 
-          <!-- 测试数据输入 -->
+          <!-- Custom -->
           <div class="p-3 border-t border-gray-200">
             <h3 class="text-xs font-semibold text-gray-600 mb-2">
               测试配置
@@ -121,10 +121,10 @@
           </div>
         </div>
 
-        <!-- 中间：代码编辑器 -->
+        <!-- Custom -->
         <div class="flex-1 flex flex-col min-w-0">
           <div class="flex-1 relative bg-white min-h-0">
-            <!-- 保存按钮（右上角浮动） -->
+            <!-- Custom -->
             <div class="absolute top-3 right-3 z-10">
               <a-button
                 :loading="saving"
@@ -137,7 +137,7 @@
                 保存
               </a-button>
             </div>
-            <!-- CodeMirror 容器 -->
+            <!-- CodeMirror  -->
             <codemirror
               v-model="code"
               :style="{ height: '100%' }"
@@ -148,19 +148,19 @@
         </div>
       </div>
 
-      <!-- 底部：测试结果面板（可折叠） -->
+      <!-- Custom -->
       <div
         class="border-t border-gray-200 bg-gray-50 flex-shrink-0 transition-all duration-300"
         :style="{ height: panelHeight }"
       >
-        <!-- 折叠/展开按钮 -->
+        <!-- / -->
         <div
           class="flex items-center justify-between px-3 py-1 border-b border-gray-200 bg-white cursor-pointer"
           @click="togglePanel"
         >
           <span class="text-xs font-medium text-gray-600">测试结果</span>
           <div class="flex items-center space-x-2">
-            <!-- 测试状态摘要 -->
+            <!-- Custom -->
             <span
               v-if="testResult"
               class="text-xs text-gray-500"
@@ -180,7 +180,7 @@
           </div>
         </div>
 
-        <!-- 面板内容 -->
+        <!-- Custom -->
         <div
           v-show="!isPanelCollapsed"
           class="overflow-hidden"
@@ -202,7 +202,7 @@
               </a-button>
             </template>
 
-            <!-- 日志面板 -->
+            <!-- Custom -->
             <a-tab-pane
               key="logs"
               tab="日志"
@@ -226,7 +226,7 @@
               </div>
             </a-tab-pane>
 
-            <!-- 图表面板 -->
+            <!-- Custom -->
             <a-tabPane
               key="charts"
               tab="图表"
@@ -246,7 +246,7 @@
               </div>
             </a-tabPane>
 
-            <!-- 输出面板 -->
+            <!-- Custom -->
             <a-tabPane
               key="output"
               tab="输出"
@@ -265,7 +265,7 @@
               </div>
             </a-tabPane>
 
-            <!-- 统计面板 -->
+            <!-- Custom -->
             <a-tabPane
               key="stats"
               tab="统计"

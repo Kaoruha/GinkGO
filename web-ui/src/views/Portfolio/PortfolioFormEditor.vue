@@ -20,10 +20,10 @@
     </div>
 
     <div class="form-layout">
-      <!-- 左侧：基本信息 + 组件选择 -->
+      <!--  +  -->
       <div class="left-panel">
         <a-form ref="formRef" :model="formData" :rules="formRules" layout="vertical">
-          <!-- 基本信息 -->
+          <!-- Custom -->
           <a-card title="基本信息" size="small" class="form-card">
             <a-row :gutter="16">
               <a-col :span="12">
@@ -68,13 +68,13 @@
             </a-form-item>
           </a-card>
 
-          <!-- 组件选择区域 -->
+          <!-- Custom -->
           <a-card size="small" class="form-card">
             <template #title>
               <span>添加组件</span>
             </template>
 
-            <!-- 组件类型按钮组 -->
+            <!-- Custom -->
             <div class="component-type-tabs">
               <button
                 v-for="type in componentTypes"
@@ -86,7 +86,7 @@
               </button>
             </div>
 
-            <!-- 当前类型的选择器 -->
+            <!-- Custom -->
             <div class="component-selector">
               <a-select
                 v-if="activeComponentType === 'selector'"
@@ -197,10 +197,10 @@
         </a-form>
       </div>
 
-      <!-- 右侧：已选组件配置 -->
+      <!-- Custom -->
       <div class="right-panel">
         <a-card title="组件配置" size="small" class="config-card">
-          <!-- 选股器 -->
+          <!-- Custom -->
           <div v-if="formData.selectors.length > 0" class="config-section">
             <div class="section-header">
               <span class="section-title">选股器 ({{ formData.selectors.length }})</span>
@@ -244,7 +244,7 @@
             </div>
           </div>
 
-          <!-- 仓位管理器 -->
+          <!-- Custom -->
           <div v-if="formData.sizer" class="config-section">
             <div class="section-header">
               <span class="section-title">仓位管理器</span>
@@ -284,7 +284,7 @@
             </div>
           </div>
 
-          <!-- 策略 -->
+          <!-- Custom -->
           <div v-if="formData.strategies.length > 0" class="config-section">
             <div class="section-header">
               <span class="section-title">策略 ({{ formData.strategies.length }})</span>
@@ -339,7 +339,7 @@
             </div>
           </div>
 
-          <!-- 风控 -->
+          <!-- Custom -->
           <div v-if="formData.risk_managers.length > 0" class="config-section">
             <div class="section-header">
               <span class="section-title">风控 ({{ formData.risk_managers.length }})</span>
@@ -383,7 +383,7 @@
             </div>
           </div>
 
-          <!-- 分析器 -->
+          <!-- Custom -->
           <div v-if="formData.analyzers.length > 0" class="config-section">
             <div class="section-header">
               <span class="section-title">分析器 ({{ formData.analyzers.length }})</span>
@@ -427,7 +427,7 @@
             </div>
           </div>
 
-          <!-- 空状态 -->
+          <!-- Custom -->
           <a-empty v-if="isConfigEmpty" description="暂未配置组件" :image="false" />
         </a-card>
       </div>
