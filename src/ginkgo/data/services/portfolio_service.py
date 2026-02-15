@@ -25,7 +25,7 @@ import pandas as pd
 from datetime import datetime
 
 from ginkgo.libs import cache_with_expiration, retry, time_logger, GLOG
-from ginkgo.enums import FILE_TYPES
+from ginkgo.enums import FILE_TYPES, PORTFOLIO_MODE_TYPES, PORTFOLIO_RUNSTATE_TYPES
 from ginkgo.data.services.base_service import BaseService, ServiceResult
 from ginkgo.data.crud.model_conversion import ModelList
 
@@ -48,7 +48,7 @@ class PortfolioService(BaseService):
     def add(
         self,
         name: str,
-        is_live: bool = False,
+        mode: PORTFOLIO_MODE_TYPES = PORTFOLIO_MODE_TYPES.BACKTEST,
         description: str = None,
         **kwargs
     ) -> ServiceResult:
@@ -57,7 +57,7 @@ class PortfolioService(BaseService):
 
         Args:
             name: 投资组合名称
-            is_live: 是否为实盘交易组合
+            mode: 运行模式 (BACKTEST/PAPER/LIVE)
             description: 可选描述
 
         Returns:
@@ -79,23 +79,28 @@ class PortfolioService(BaseService):
             except Exception as e:
                 GLOG.WARN(f"无法检查投资组合存在性: {str(e)}")
 
+            # 获取模式名称
+            mode_name = mode.name if hasattr(mode, 'name') else str(mode)
+
             # 创建投资组合
             with self._crud_repo.get_session() as session:
                 portfolio_record = self._crud_repo.create(
                     name=name,
-                    is_live=is_live,
-                    desc=description or f"{'Live' if is_live else 'Backtest'} portfolio: {name}",
+                    mode=PORTFOLIO_MODE_TYPES.validate_input(mode) or PORTFOLIO_MODE_TYPES.BACKTEST.value,
+                    state=PORTFOLIO_RUNSTATE_TYPES.INITIALIZED.value,
+                    desc=description or f"{mode_name} portfolio: {name}",
                     session=session,
                 )
 
                 portfolio_info = {
                     "uuid": portfolio_record.uuid,
                     "name": portfolio_record.name,
-                    "is_live": portfolio_record.is_live,
+                    "mode": portfolio_record.mode,
+                    "state": portfolio_record.state,
                     "desc": portfolio_record.desc,
                 }
 
-                GLOG.INFO(f"成功创建投资组合 '{name}' (实盘: {is_live})")
+                GLOG.INFO(f"成功创建投资组合 '{name}' (模式: {mode_name})")
 
                 return ServiceResult.success(
                     data=portfolio_info,
@@ -112,7 +117,8 @@ class PortfolioService(BaseService):
         self,
         portfolio_id: str,
         name: str = None,
-        is_live: bool = None,
+        mode: PORTFOLIO_MODE_TYPES = None,
+        state: PORTFOLIO_RUNSTATE_TYPES = None,
         description: str = None,
         **kwargs
     ) -> ServiceResult:
@@ -122,7 +128,8 @@ class PortfolioService(BaseService):
         Args:
             portfolio_id: 投资组合UUID标识符
             name: 新的投资组合名称（可选）
-            is_live: 新的实盘状态（可选）
+            mode: 新的运行模式（可选）
+            state: 新的运行状态（可选）
             description: 新的描述信息（可选）
 
         Returns:
@@ -145,10 +152,14 @@ class PortfolioService(BaseService):
             updates["name"] = name
             updates_applied.append("name")
 
-        
-        if is_live is not None:
-            updates["is_live"] = is_live
-            updates_applied.append("is_live")
+
+        if mode is not None:
+            updates["mode"] = PORTFOLIO_MODE_TYPES.validate_input(mode)
+            updates_applied.append("mode")
+
+        if state is not None:
+            updates["state"] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
+            updates_applied.append("state")
 
         if description is not None:
             updates["desc"] = description
@@ -418,14 +429,15 @@ class PortfolioService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def get(self, portfolio_id: str = None, name: str = None, is_live: bool = None, as_dataframe: bool = False, **kwargs) -> ServiceResult:
+    def get(self, portfolio_id: str = None, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, as_dataframe: bool = False, **kwargs) -> ServiceResult:
         """
         获取投资组合数据
 
         Args:
             portfolio_id: 投资组合UUID
             name: 投资组合名称
-            is_live: 是否实盘组合
+            mode: 运行模式筛选
+            state: 运行状态筛选
             as_dataframe: 是否返回DataFrame
             **kwargs: 其他过滤条件
 
@@ -450,8 +462,11 @@ class PortfolioService(BaseService):
                 filters = kwargs.get('filters', {})
                 filters['is_del'] = False
 
-                if is_live is not None:
-                    filters['is_live'] = is_live
+                if mode is not None:
+                    filters['mode'] = PORTFOLIO_MODE_TYPES.validate_input(mode)
+
+                if state is not None:
+                    filters['state'] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
 
                 portfolios = self._crud_repo.find(filters=filters)
                 return ServiceResult.success(portfolios, f"获取到{len(portfolios)}个投资组合")
@@ -462,13 +477,14 @@ class PortfolioService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def count(self, name: str = None, is_live: bool = None, **kwargs) -> ServiceResult:
+    def count(self, name: str = None, mode: PORTFOLIO_MODE_TYPES = None, state: PORTFOLIO_RUNSTATE_TYPES = None, **kwargs) -> ServiceResult:
         """
         统计投资组合数量
 
         Args:
             name: 投资组合名称筛选
-            is_live: 是否实盘组合筛选
+            mode: 运行模式筛选
+            state: 运行状态筛选
             **kwargs: 其他过滤条件
 
         Returns:
@@ -480,8 +496,10 @@ class PortfolioService(BaseService):
 
             if name:
                 filters['name'] = name
-            if is_live is not None:
-                filters['is_live'] = is_live
+            if mode is not None:
+                filters['mode'] = PORTFOLIO_MODE_TYPES.validate_input(mode)
+            if state is not None:
+                filters['state'] = PORTFOLIO_RUNSTATE_TYPES.validate_input(state)
 
             count = self._crud_repo.count(filters=filters)
 
@@ -614,9 +632,30 @@ class PortfolioService(BaseService):
             if len(name) > 100:
                 return ServiceResult.error("投资组合名称不能超过100个字符")
 
-            # 布尔值验证
-            if 'is_live' in portfolio_data and not isinstance(portfolio_data['is_live'], bool):
-                return ServiceResult.error("is_live字段必须是布尔值")
+            # 枚举值验证
+            if 'mode' in portfolio_data:
+                mode_value = portfolio_data['mode']
+                if isinstance(mode_value, PORTFOLIO_MODE_TYPES):
+                    pass  # Valid enum
+                elif isinstance(mode_value, int):
+                    try:
+                        PORTFOLIO_MODE_TYPES(mode_value)
+                    except ValueError:
+                        return ServiceResult.error("mode字段值无效")
+                else:
+                    return ServiceResult.error("mode字段必须是枚举或整数")
+
+            if 'state' in portfolio_data:
+                state_value = portfolio_data['state']
+                if isinstance(state_value, PORTFOLIO_RUNSTATE_TYPES):
+                    pass  # Valid enum
+                elif isinstance(state_value, int):
+                    try:
+                        PORTFOLIO_RUNSTATE_TYPES(state_value)
+                    except ValueError:
+                        return ServiceResult.error("state字段值无效")
+                else:
+                    return ServiceResult.error("state字段必须是枚举或整数")
 
             return ServiceResult.success(
                 data={"valid": True},

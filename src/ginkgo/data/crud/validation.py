@@ -140,21 +140,27 @@ def validate_data_by_config(data: dict, field_config: dict) -> dict:
     """
     if not field_config:
         return data.copy()
-    
+
     validated = {}
-    
-    # 1. 必填字段检查 - 配置中的所有字段都必须存在
+
+    # 1. 应用默认值 - 为缺失的字段填充默认值
+    data_with_defaults = data.copy()
+    for field_name, field_spec in field_config.items():
+        if field_name not in data_with_defaults and 'default' in field_spec:
+            data_with_defaults[field_name] = field_spec['default']
+
+    # 2. 必填字段检查 - 配置中的所有字段都必须存在（有默认值除外）
     for field_name in field_config.keys():
-        if field_name not in data:
+        if field_name not in data_with_defaults:
             raise ValidationError(
                 f"Missing required field: {field_name}",
                 field_name,
                 None
             )
 
-    # 2. 逐字段验证和转换
+    # 3. 逐字段验证和转换
     for field_name, field_spec in field_config.items():
-        field_value = data[field_name]
+        field_value = data_with_defaults[field_name]
         
         try:
             # 类型转换
@@ -176,11 +182,11 @@ def validate_data_by_config(data: dict, field_config: dict) -> dict:
                 field_value
             )
     
-    # 3. 保留非配置字段（不验证，直接复制）
-    for field_name, field_value in data.items():
+    # 4. 保留非配置字段（不验证，直接复制）
+    for field_name, field_value in data_with_defaults.items():
         if field_name not in field_config:
             validated[field_name] = field_value
-    
+
     return validated
 
 
