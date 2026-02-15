@@ -18,7 +18,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
     # 跳过认证的路径（精确匹配）
     SKIP_AUTH_PATHS = {
         "/health",
-        "/api/health",  # 前端代理路径
+        "/api/health",
         "/docs",
         "/redoc",
         "/openapi.json",
@@ -29,13 +29,14 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
     # 跳过认证的路径前缀（前缀匹配）
     SKIP_AUTH_PREFIXES = {
-        "/api/v1/portfolios",  # 开发模式暂时跳过认证
-        "/api/v1/backtests",   # 开发模式暂时跳过认证
-        "/api/v1/node-graphs", # 开发模式暂时跳过认证（节点图配置）
-        "/api/v1/components", # 开发模式暂时跳过认证
-        "/api/v1/data",       # 开发模式暂时跳过认证
-        "/api/v1/dashboard",  # 开发模式暂时跳过认证
-        "/api/v1/settings",   # 开发模式暂时跳过认证（设置页面）
+        "/api/v1/portfolios",
+        "/api/v1/backtests",
+        "/api/v1/backtest",
+        "/api/v1/node-graphs",
+        "/api/v1/components",
+        "/api/v1/data",
+        "/api/v1/dashboard",
+        "/api/v1/settings",
     }
 
     async def dispatch(self, request: Request, call_next):
