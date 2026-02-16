@@ -470,83 +470,73 @@
 
 **Goal**: 计算因子 IC，生成统计指标
 
-### T041 [P] [US3] Create ICAnalyzer test
+### T041 [P] [US3] Create ICAnalyzer test ✅
 
 - **File**: `tests/research/test_ic_analysis.py`
-- **Test**: `pytest tests/research/test_ic_analysis.py -v`
+- **Test**: `pytest tests/research/test_ic_analysis.py -v` (13 passed)
 - **Acceptance**:
-  - [ ] 测试 Pearson IC、Rank IC 计算
-  - [ ] 测试统计指标计算
-  - [ ] 使用 `@pytest.mark.financial` 标记
+  - [x] 测试 Pearson IC、Rank IC 计算
+  - [x] 测试统计指标计算
+  - [x] 使用 `@pytest.mark.financial` 标记
 
-### T042 [P] [US3] Create ICStatistics dataclass
+### T042 [P] [US3] Create ICStatistics dataclass ✅
 
 - **File**: `src/ginkgo/research/models.py`
-- **Test**:
-  ```python
-  from ginkgo.research.models import ICStatistics
-  stats = ICStatistics(mean=0.05, std=0.15, icir=0.33, t_stat=2.1, p_value=0.03, pos_ratio=0.55)
-  assert stats.icir == stats.mean / stats.std
-  ```
+- **Test**: 通过
 - **Acceptance**:
-  - [ ] 包含字段: mean, std, icir, t_stat, p_value, pos_ratio, abs_mean
+  - [x] 包含字段: mean, std, icir, t_stat, p_value, pos_ratio, abs_mean
 
-### T043 [P] [US3] Create ICAnalysisResult dataclass
+### T043 [P] [US3] Create ICAnalysisResult dataclass ✅
 
 - **File**: `src/ginkgo/research/models.py`
-- **Test**:
-  ```python
-  from ginkgo.research.models import ICAnalysisResult
-  result = ICAnalysisResult(factor_name="MOM_20", periods=[1, 5, 10, 20])
-  assert result.periods == [1, 5, 10, 20]
-  ```
+- **Test**: 通过
 - **Acceptance**:
-  - [ ] 包含字段: factor_name, periods, date_range, ic_series, statistics
+  - [x] 包含字段: factor_name, periods, date_range, ic_series, statistics
 
-### T044 [US3] Implement ICAnalyzer.__init__
+### T044 [US3] Implement ICAnalyzer.__init__ ✅
 
 - **File**: `src/ginkgo/research/ic_analysis.py`
-- **Test**:
-  ```python
-  from ginkgo.research.ic_analysis import ICAnalyzer
-  analyzer = ICAnalyzer(factor_df, return_df)
-  assert analyzer.factor_data is not None
-  ```
+- **Test**: 通过
 - **Acceptance**:
-  - [ ] 验证输入数据格式
-  - [ ] 检查必需列: date, code, factor_value/return
+  - [x] 验证输入数据格式
+  - [x] 检查必需列: date, code, factor_value/return
 
-### T045 [US3] Implement ICAnalyzer.analyze (Pearson IC)
+### T045 [US3] Implement ICAnalyzer.analyze (Pearson IC) ✅
 
 - **File**: `src/ginkgo/research/ic_analysis.py`
-- **Test**:
-  ```python
-  result = analyzer.analyze(periods=[1, 5], method="pearson")
-  assert 1 in result.ic_series
-  assert len(result.ic_series[1]) > 0
-  ```
+- **Test**: 通过
 - **Acceptance**:
-  - [ ] 计算 `corr(factor_value, forward_return)`
-  - [ ] 支持多周期
+  - [x] 计算 `corr(factor_value, forward_return)`
+  - [x] 支持多周期
 
-### T046 [US3] Implement ICAnalyzer.analyze (Rank IC)
+### T046 [US3] Implement ICAnalyzer.analyze (Rank IC) ✅
 
 - **File**: `src/ginkgo/research/ic_analysis.py`
-- **Test**:
-  ```python
-  result = analyzer.analyze(periods=[1], method="spearman")
-  assert result.rank_ic_series is not None
-  ```
+- **Test**: 通过
 - **Acceptance**:
-  - [ ] 使用 Spearman 相关系数
-  - [ ] 存储到 `rank_ic_series`
+  - [x] 使用 Spearman 相关系数
+  - [x] 存储到 `rank_ic_series`
 
-### T047 [US3] Implement ICAnalyzer.get_statistics
+### T047 [US3] Implement ICAnalyzer.get_statistics ✅
 
 - **File**: `src/ginkgo/research/ic_analysis.py`
-- **Test**:
-  ```python
-  stats = analyzer.get_statistics(period=5)
+- **Test**: 通过
+- **Acceptance**:
+  - [x] 计算统计指标: mean, std, ICIR, t-stat, p-value, 正向比例
+  - [x] 返回 `ICStatistics` 对象
+
+### T048 [US3] Add research ic CLI command ✅
+
+- **File**: `src/ginkgo/client/research_cli.py`
+- **Test**: 模块可导入
+- **Acceptance**:
+  - [x] `ginkgo research ic` 命令框架 (已有)
+
+**Checkpoint**: IC 分析功能可用 ✅
+
+---
+
+## Phase 6: User Story 4 - 因子分层 (Priority: P2)
   assert -1 <= stats.pos_ratio <= 1
   assert stats.icir == stats.mean / stats.std
   ```
