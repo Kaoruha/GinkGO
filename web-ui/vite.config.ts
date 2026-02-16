@@ -26,7 +26,7 @@ export default defineConfig({
         manualChunks: {
           'vue-vendor': ['vue', 'vue-router', 'pinia'],
           'antd': ['ant-design-vue', '@ant-design/icons-vue'],
-          'charts': ['echarts', 'vue-echarts'],
+          'charts': ['lightweight-charts'],
         },
       },
     },

@@ -17,8 +17,7 @@
     "@ant-design/icons-vue": "^7.0.1",
     "axios": "^1.6.0",
     "dayjs": "^1.11.10",
-    "echarts": "^5.5.0",
-    "vue-echarts": "^6.6.0"
+    "lightweight-charts": "^4.1.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
