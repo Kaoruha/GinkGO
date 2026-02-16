@@ -24,7 +24,7 @@ __all__ = [
     "OptimizationContainer",
     # Data models
     "OptimizationResult",
-    "OptimizationPoint",
+    "OptimizationRun",
     "ParameterRange",
 ]
 
@@ -48,9 +48,9 @@ def __getattr__(name: str):
     elif name == "OptimizationResult":
         from ginkgo.trading.optimization.models import OptimizationResult
         return OptimizationResult
-    elif name == "OptimizationPoint":
-        from ginkgo.trading.optimization.models import OptimizationPoint
-        return OptimizationPoint
+    elif name == "OptimizationRun":
+        from ginkgo.trading.optimization.models import OptimizationRun
+        return OptimizationRun
     elif name == "ParameterRange":
         from ginkgo.trading.optimization.models import ParameterRange
         return ParameterRange
