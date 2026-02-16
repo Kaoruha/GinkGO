@@ -267,6 +267,39 @@ class LayerGroup:
 
 
 @dataclass
+class LayeringStatistics:
+    """
+    分层统计指标
+
+    存储因子分层的统计特征。
+
+    Attributes:
+        long_short_total_return: 多空组合总收益
+        long_short_sharpe: 多空组合夏普比率
+        max_drawdown: 最大回撤
+        monotonicity_r2: 单调性 R²
+        turnover: 换手率
+    """
+    long_short_total_return: Decimal = Decimal("0")
+    long_short_sharpe: Decimal = Decimal("0")
+    max_drawdown: Decimal = Decimal("0")
+    monotonicity_r2: Decimal = Decimal("0")
+    turnover: Decimal = Decimal("0")
+    win_rate: Decimal = Decimal("0")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """序列化为字典"""
+        return {
+            "long_short_total_return": str(self.long_short_total_return),
+            "long_short_sharpe": str(self.long_short_sharpe),
+            "max_drawdown": str(self.max_drawdown),
+            "monotonicity_r2": str(self.monotonicity_r2),
+            "turnover": str(self.turnover),
+            "win_rate": str(self.win_rate),
+        }
+
+
+@dataclass
 class LayeringResult:
     """
     分层分析结果
@@ -278,6 +311,7 @@ class LayeringResult:
         n_groups: 分组数
         groups: 分组数据 {group_id: LayerGroup}
         spread: 顶底组收益差 (Q_N - Q_1)
+        statistics: 分层统计指标
     """
     factor_name: str = ""
     n_groups: int = 5
@@ -285,6 +319,7 @@ class LayeringResult:
     spread: Decimal = Decimal("0")
     date_range: Optional[Tuple[str, str]] = None
     period: int = 1
+    statistics: Optional[LayeringStatistics] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def get_monotonicity(self) -> Decimal:
