@@ -6,7 +6,6 @@
 
 
 
-
 """
 Analysis Module - 分析评估层
 
@@ -22,6 +21,9 @@ Ginkgo Backtest Framework 分析评估层模块
 # === 分析器模块 ===
 from ginkgo.trading.analysis.analyzers import *
 
+# === 结果汇总器 ===
+from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
+
 # === 可视化模块 ===
 try:
     from ginkgo.trading.analysis.plots import *
@@ -31,11 +33,17 @@ except ImportError:
 
 __all__ = [
     # 分析器基类和实现
-    "BaseAnalyzer", "AnalyzerBase", 
-    "Profit", "NetValue", "MaxDrawdown", "SharpeRatio", 
+    "BaseAnalyzer", "AnalyzerBase",
+    "Profit", "NetValue", "MaxDrawdown", "SharpeRatio",
     "HoldPct", "SignalCount",
-    
+
     # 新增分析器
     "CalmarRatio", "SortinoRatio", "Volatility", "WinRate",
     "ConsecutivePnL", "UnderwaterTime", "VarCVar", "SkewKurtosis",
+
+    # 配置
+    "BASIC_ANALYZERS",
+
+    # 结果汇总
+    "BacktestResultAggregator",
 ]

@@ -1330,24 +1330,67 @@ class EngineAssemblyService(BaseService):
                     portfolio.add_risk_manager(risk_manager)
                     self._logger.DEBUG(f"✅ Added risk manager: {risk_manager.__class__.__name__}")
 
-            # Add analyzers (optional)
+            # Add analyzers: BASIC_ANALYZERS 先加载 + 用户配置（去重）
             analyzers = components.get("analyzers", [])
-            if len(analyzers) == 0:
-                self._logger.WARN(f"No analyzer found for portfolio {portfolio_id}. Backtest will go on without analysis.")
-            else:
-                self._logger.INFO(f"🔧 [ANALYZER] Starting to instantiate {len(analyzers)} analyzers...")
+
+            # 1. 先加载 BASIC_ANALYZERS
+            self._logger.INFO(f"🔧 [ANALYZER] Loading BASIC_ANALYZERS first...")
+            try:
+                from ginkgo.trading.analysis.analyzers import BASIC_ANALYZERS
+
+                print(f"[ENGINE_ASSEMBLY] 📊 Loading BASIC_ANALYZERS ({len(BASIC_ANALYZERS)} analyzers)...")
+                basic_loaded = 0
+
+                for analyzer_class in BASIC_ANALYZERS:
+                    try:
+                        analyzer = analyzer_class()
+                        analyzer.add_logger(logger)
+                        portfolio.add_analyzer(analyzer)
+                        basic_loaded += 1
+                        print(f"[ENGINE_ASSEMBLY]   ✅ {analyzer_class.__name__} loaded")
+                    except Exception as e:
+                        self._logger.ERROR(f"Failed to load {analyzer_class.__name__}: {e}")
+                        print(f"[ENGINE_ASSEMBLY]   ❌ {analyzer_class.__name__} failed: {e}")
+
+                print(f"[ENGINE_ASSEMBLY] ✅ BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
+                self._logger.INFO(f"✅ [ANALYZER] BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
+
+            except Exception as e:
+                self._logger.ERROR(f"Failed to load BASIC_ANALYZERS: {e}")
+                print(f"[ENGINE_ASSEMBLY] ❌ Failed to load BASIC_ANALYZERS: {e}")
+
+            # 2. 再加载用户配置的分析器（跳过已存在的）
+            if len(analyzers) > 0:
+                self._logger.INFO(f"🔧 [ANALYZER] Loading {len(analyzers)} user-configured analyzers...")
+                existing_names = set(portfolio.analyzers.keys()) if hasattr(portfolio, 'analyzers') else set()
+                user_loaded = 0
+                user_skipped = 0
+
+                print(f"[ENGINE_ASSEMBLY] 📊 Loading user analyzers (existing: {len(existing_names)})...")
+
                 for idx, analyzer_mapping in enumerate(analyzers):
-                    self._logger.INFO(f"🔧 [ANALYZER {idx+1}/{len(analyzers)}] file_id={analyzer_mapping.file_id[:8]}..., type={analyzer_mapping.type}")
                     analyzer, error = _instantiate_component_from_file(
                         analyzer_mapping.file_id, analyzer_mapping.type, analyzer_mapping.uuid
                     )
                     if analyzer is None:
                         self._logger.ERROR(f"Failed to instantiate analyzer: {error}")
-                        continue  # Continue with other analyzers instead of failing completely
+                        print(f"[ENGINE_ASSEMBLY]   ❌ Analyzer failed: {error}")
+                        continue
+
+                    analyzer_name = analyzer.name
+                    if analyzer_name in existing_names:
+                        print(f"[ENGINE_ASSEMBLY]   ⏭️ {analyzer.__class__.__name__} ({analyzer_name}) already exists, skipping")
+                        user_skipped += 1
+                        continue
 
                     analyzer.add_logger(logger)
                     portfolio.add_analyzer(analyzer)
-                    self._logger.INFO(f"✅ [ANALYZER] Added analyzer: {analyzer.__class__.__name__} (name={analyzer.name})")
+                    user_loaded += 1
+                    print(f"[ENGINE_ASSEMBLY]   ✅ {analyzer.__class__.__name__} ({analyzer_name}) added")
+                    self._logger.INFO(f"✅ [ANALYZER] Added: {analyzer.__class__.__name__}")
+
+                print(f"[ENGINE_ASSEMBLY] ✅ User analyzers: {user_loaded} added, {user_skipped} skipped (duplicate)")
+                self._logger.INFO(f"✅ [ANALYZER] User analyzers: {user_loaded} added, {user_skipped} skipped")
 
             return True
 
