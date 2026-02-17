@@ -307,6 +307,10 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                     if self._is_backtest_finished():
                         current_time = self._time_provider.now()
                         self.log("INFO", f"🏁 Backtest completed - {current_time.date()}")
+
+                        # 汇总回测结果
+                        self._aggregate_backtest_results()
+
                         # 设置main_flag来退出主循环，让线程自然结束
                         main_flag.set()
                         # 更新引擎状态为STOPPED，这样is_active会返回False
@@ -897,6 +901,47 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         # 当前时间已经到达或超过结束时间
         return current_time >= end_time
 
+    def _aggregate_backtest_results(self) -> None:
+        """
+        汇总回测结果
+
+        在回测结束时调用，从分析器读取数据并写回 BacktestTask
+        """
+        try:
+            from ginkgo import service_hub
+            from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
+
+            # 获取服务
+            analyzer_service = service_hub.data.analyzer_service()
+            backtest_task_service = service_hub.data.backtest_task_service()
+
+            # 创建汇总器
+            aggregator = BacktestResultAggregator(
+                analyzer_service=analyzer_service,
+                backtest_task_service=backtest_task_service
+            )
+
+            # 获取 portfolio 信息
+            portfolio_id = ""
+            if self._portfolios and len(self._portfolios) > 0:
+                portfolio_id = getattr(self._portfolios[0], 'portfolio_id', '')
+
+            # 汇总结果
+            result = aggregator.aggregate_and_save(
+                task_id=self.run_id or "",
+                portfolio_id=portfolio_id,
+                engine_id=self.engine_id,
+                status="completed"
+            )
+
+            if result.is_success():
+                self.log("INFO", f"📊 Backtest results aggregated: {result.data}")
+            else:
+                self.log("ERROR", f"Failed to aggregate backtest results: {result.error}")
+
+        except Exception as e:
+            self.log("ERROR", f"Error during backtest result aggregation: {e}")
+
     def _get_next_time(self) -> Optional[datetime]:
         """获取下一个时间点"""
         if self.mode == EXECUTION_MODE.BACKTEST:
@@ -1141,7 +1186,57 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         Returns:
             运行统计信息
         """
+        from datetime import datetime
+
         start_time = clock_now()
+
+        # 回测模式：启动前创建 BacktestTask 记录
+        if self.mode == EXECUTION_MODE.BACKTEST:
+            # 确保 run_id 已生成
+            if self._run_id is None:
+                self.generate_run_id()
+            self._create_backtest_task()
+
         self.start()
 
         return {"status": "started", "mode": self.mode.value, "start_time": start_time.isoformat()}
+
+    def _create_backtest_task(self) -> None:
+        """创建回测任务记录（在回测启动前调用）"""
+        try:
+            from ginkgo import service_hub
+
+            task_service = service_hub.data.backtest_task_service()
+
+            # 获取 portfolio_id
+            portfolio_id = ""
+            if self.portfolios:
+                portfolio_id = self.portfolios[0].portfolio_id
+
+            # 获取时间范围
+            start_time_str = None
+            end_time_str = None
+            if self._time_provider:
+                start_time, end_time = self._time_provider.get_time_range()
+                start_time_str = str(start_time) if start_time else None
+                end_time_str = str(end_time) if end_time else None
+
+            # 创建任务
+            result = task_service.create(
+                task_id=self.run_id,
+                engine_id=self.engine_id,
+                portfolio_id=portfolio_id,
+                config_snapshot={
+                    "engine_name": self.name,
+                    "start_time": start_time_str,
+                    "end_time": end_time_str,
+                }
+            )
+
+            if result.is_success():
+                self.log("INFO", f"Created backtest task: {self.run_id}")
+            else:
+                self.log("WARN", f"Failed to create backtest task: {result.error}")
+
+        except Exception as e:
+            self.log("ERROR", f"Error creating backtest task: {e}")

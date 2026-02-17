@@ -53,6 +53,7 @@ from typing import TYPE_CHECKING
 from ginkgo.data.sources import GinkgoTushare, GinkgoTDX
 from ginkgo.data.utils import get_crud, get_available_crud_names  # get_crud is used to instantiate CRUD classes
 from ginkgo.data.services.adjustfactor_service import AdjustfactorService
+from ginkgo.data.services.backtest_task_service import BacktestTaskService
 from ginkgo.data.services.stockinfo_service import StockinfoService
 from ginkgo.data.services.bar_service import BarService
 from ginkgo.data.services.tick_service import TickService
@@ -110,6 +111,7 @@ class Container(containers.DeclarativeContainer):
     kafka_crud = providers.Singleton(get_crud, "kafka")
     factor_crud = providers.Singleton(get_crud, "factor")
     analyzer_record_crud = providers.Singleton(get_crud, "analyzer_record")
+    backtest_task_crud = providers.Singleton(get_crud, "backtest_task")
 
     # User management CRUDs
     user_crud = providers.Singleton(get_crud, "user")
@@ -194,6 +196,15 @@ class Container(containers.DeclarativeContainer):
 
     # Analyzer service with AnalyzerRecordCRUD dependency
     analyzer_service = providers.Singleton(AnalyzerService, analyzer_crud=analyzer_record_crud)
+
+    # Backtest task service
+    backtest_task_service = providers.Singleton(
+        BacktestTaskService,
+        crud_repo=backtest_task_crud,
+        analyzer_service=analyzer_service,
+        engine_service=providers.Singleton(get_crud, "engine"),
+        portfolio_service=portfolio_service,
+    )
 
     # User management services
     user_service = providers.Singleton(

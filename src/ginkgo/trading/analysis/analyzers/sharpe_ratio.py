@@ -13,11 +13,12 @@ import pandas as pd
 
 
 class SharpeRatio(BaseAnalyzer):
+    """夏普比率分析器 - 计算风险调整后的收益指标"""
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, name: str, *args, **kwargs):
+    def __init__(self, name: str = "sharpe_ratio", *args, **kwargs):
         super(SharpeRatio, self).__init__(name, *args, **kwargs)
         self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
         self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
