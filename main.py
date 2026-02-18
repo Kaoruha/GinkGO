@@ -129,7 +129,7 @@ def _register_all_commands():
         return LazyTyper(module_name, app_name).app
 
     # 新的模块化命令架构 - 使用独立的CLI文件
-    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli, config_cli
+    from ginkgo.client import data_cli, engine_cli, portfolio_cli, param_cli, kafka_cli, worker_cli, mongo_cli, user_cli, group_cli, templates_cli, notify_cli, livecore_cli, execution_cli, scheduler_cli, tasktimer_cli, config_cli, serve_cli
 
     _main_app.add_typer(data_cli.app, name="data", help=":page_facing_up: Data management")
     _main_app.add_typer(engine_cli.app, name="engine", help=":fire: Engine management")
@@ -147,6 +147,9 @@ def _register_all_commands():
     _main_app.add_typer(scheduler_cli.app, name="scheduler", help=":calendar: Scheduler - Portfolio Dynamic Scheduler")
     _main_app.add_typer(tasktimer_cli.app, name="tasktimer", help=":alarm_clock: TaskTimer - Scheduled Task Manager")
     _main_app.add_typer(config_cli.app, name="config", help=":gear: Configuration management")
+
+    # Serve commands (api, webui, worker-data, worker-backtest, etc.)
+    _main_app.add_typer(serve_cli.app, name="serve", help=":rocket: Start services in foreground")
 
     # Validation command (component code validation before backtesting)
     from ginkgo.client.validation_cli import validate, console
@@ -172,54 +175,11 @@ def _register_all_commands():
     _main_app.command(name="init", help=":rocket: Initialize system")(core_cli.init if hasattr(core_cli, 'init') else lambda: None)
     _main_app.command(name="status", help=":bar_chart: System status")(core_cli.status)
     _main_app.command(name="version", help=":rabbit: Version info")(core_cli.version if hasattr(core_cli, 'version') else lambda: None)
-    _main_app.command(name="serve", help=":earth_globe_americas: API server")(core_cli.serve if hasattr(core_cli, 'serve') else lambda: None)
     _main_app.command(name="debug", help=":bug: Toggle debug mode")(core_cli.debug if hasattr(core_cli, 'debug') else lambda: None)
+    # serve 命令已移到 serve_cli.app (包含 api, webui, worker-data, worker-backtest 等子命令)
     # Configuration 已整合到 get/set config 命令中
 
-    # Add standalone serve and version commands (if not available in core_cli)
-    if not hasattr(core_cli, 'serve') or core_cli.serve is None:
-        @_main_app.command()
-        def serve(
-            host: str = typer.Option("0.0.0.0", "--host", "-h", help="Host to bind"),
-            port: int = typer.Option(8000, "--port", "-p", help="Port to bind"),
-            debug: bool = typer.Option(False, "--debug", help="Enable debug mode"),
-        ):
-            """
-            :rocket: Start Ginkgo API server
-            """
-            try:
-                import uvicorn
-                from pathlib import Path
-
-                working_directory = Path(__file__).parent
-                api_dir = working_directory / "api"
-
-                if not api_dir.exists():
-                    console.print(f"❌ API directory not found at {api_dir}")
-                    console.print("ℹ️ API server functionality may not be available")
-                    return
-
-                console.print("🚀 Starting Ginkgo API server...")
-                console.print(f"🌐 Host: {host}")
-                console.print(f"🚪 Port: {port}")
-                console.print(f"🐛 Debug: {debug}")
-
-                uvicorn.run(
-                    "main:app",
-                    host=host,
-                    port=port,
-                    reload=debug,
-                    app_dir=str(api_dir),
-                    log_level="debug" if debug else "info"
-                )
-
-            except ImportError:
-                console.print("❌ uvicorn not installed. Install with: pip install uvicorn")
-                raise typer.Exit(1)
-            except Exception as e:
-                console.print(f"❌ Failed to start server: {e}")
-                raise typer.Exit(1)
-
+    # Add standalone version command (if not available in core_cli)
     if not hasattr(core_cli, 'version') or core_cli.version is None:
         @_main_app.command()
         def version():
