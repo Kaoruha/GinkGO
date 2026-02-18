@@ -2,7 +2,8 @@
   <div class="page-container">
     <div class="page-header">
       <div class="page-title">
-        <span class="stage-badge stage-1">第一阶段</span>
+        <a-tag color="blue">回测</a-tag>
+        
         创建回测
       </div>
     </div>

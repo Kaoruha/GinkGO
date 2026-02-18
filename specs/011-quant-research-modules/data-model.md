@@ -1,12 +1,14 @@
 # Data Model: Ginkgo 量化研究功能模块
 
-**Date**: 2026-02-16
+**Date**: 2026-02-17
 **Feature**: 011-quant-research-modules
 
 ## 实体概览
 
 | 实体 | 模块 | 存储位置 | 描述 |
 |------|------|----------|------|
+| MBacktestTask | P0 | MySQL | 回测任务（原 MRunRecord） |
+| MEngine | P0 | MySQL | 引擎配置模板 |
 | PaperTradingState | P0 | MySQL | Paper Trading 运行状态 |
 | PaperTradingSignal | P0 | MySQL | Paper Trading 信号记录 |
 | ICAnalysisResult | P1 | Memory/Redis | IC 分析结果 |
@@ -15,6 +17,75 @@
 | WalkForwardResult | P2 | Memory | 走步验证结果 |
 | MonteCarloResult | P2 | Memory | 蒙特卡洛结果 |
 | ComparisonResult | P0 | Memory | 回测对比结果 |
+
+---
+
+## P0 - 回测任务实体
+
+### MBacktestTask
+
+> **Note**: 原名 `MRunRecord`，重命名为 `MBacktestTask` 以更清晰表达业务语义。
+> 详见 [backtest-task-model.md](./backtest-task-model.md)
+
+```python
+@dataclass
+class MBacktestTask:
+    """回测任务：记录每次回测执行的完整信息"""
+
+    # 标识
+    uuid: str                              # 任务唯一标识
+    task_id: str                           # 任务会话ID（唯一）
+    engine_id: str                         # 所属引擎ID
+    portfolio_id: str                      # 关联投资组合ID
+
+    # 执行信息
+    start_time: datetime
+    end_time: Optional[datetime]
+    duration_seconds: Optional[int]
+    status: Literal["running", "completed", "failed", "stopped"]
+    error_message: Optional[str]
+
+    # 业务统计
+    total_orders: int
+    total_signals: int
+    total_positions: int
+    total_events: int
+
+    # 性能指标
+    final_portfolio_value: str
+    total_pnl: str
+    max_drawdown: str
+    avg_event_processing_ms: str
+
+    # 配置快照
+    config_snapshot: str                   # JSON
+    environment_info: str                  # JSON
+```
+
+**存储**: MySQL `backtest_task` 表（原 `run_record`）
+
+### MEngine
+
+```python
+@dataclass
+class MEngine:
+    """引擎配置：可复用的回测配置模板"""
+
+    uuid: str
+    name: str
+    config_hash: str                       # 配置哈希
+    config_snapshot: str                   # 配置快照JSON
+    current_run_id: str                    # 当前运行的任务ID
+    run_count: int                         # 累计执行次数
+    backtest_start_date: Optional[datetime]
+    backtest_end_date: Optional[datetime]
+    is_live: bool
+    status: ENGINESTATUS_TYPES
+```
+
+**关系**:
+- `MEngine` 1:N `MBacktestTask`
+- 一个引擎配置可以执行多次回测，产生多个任务记录
 
 ---
 

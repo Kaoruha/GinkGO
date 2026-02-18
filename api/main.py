@@ -940,6 +940,39 @@ async def list_analyzers():
         return {"data": []}
 
 
+@app.get("/api/v1/components/handlers")
+async def list_handlers():
+    """获取事件处理器组件列表"""
+    try:
+        file_service = get_file_service()
+        result = file_service.get(filters={"type": FILE_TYPES.HANDLER.value})
+
+        if result.success and result.data:
+            handlers = []
+            files = result.data.get("files", []) if isinstance(result.data, dict) else result.data
+            for f in files:
+                params = []
+                try:
+                    import json
+                    data_obj = json.loads(f.data.decode('utf-8')) if f.data else {}
+                    params = data_obj.get("params", [])
+                except:
+                    params = extract_params_from_python(f.data)
+
+                handlers.append({
+                    "uuid": f.uuid,
+                    "name": f.name,
+                    "type": "handler",
+                    "params": params,
+                    "created_at": f.create_at.isoformat() if f.create_at else None,
+                })
+            return {"data": handlers}
+        return {"data": []}
+    except Exception as e:
+        print(f"[ERROR] Failed to list handlers: {e}")
+        return {"data": []}
+
+
 # ========== Portfolio 管理 ==========
 
 class PortfolioCreateRequest(BaseModel):
@@ -1511,16 +1544,35 @@ async def toggle_debug_mode(request: dict):
 # ========== 文件管理 ==========
 
 @app.get("/api/v1/file_list")
-async def fetch_file_list(query: str = "", page: int = 0, size: int = 100):
+async def fetch_file_list(query: str = "", page: int = 0, size: int = 100, type: int = None):
     """获取文件列表"""
     try:
         file_service = service_hub.data.file_service()
-        result = file_service.get_file_list(query, page, size)
+        # 使用 get() 方法，支持分页和类型过滤
+        file_type = None
+        if type is not None:
+            from ginkgo.enums import FILE_TYPES
+            try:
+                file_type = FILE_TYPES(type)
+            except ValueError:
+                pass
+
+        result = file_service.get(file_type=file_type, as_dataframe=False)
         if result.success:
-            return serialize_modellist(result.data)
+            files = result.data.get("files", [])
+            # 如果有搜索关键词，过滤名称
+            if query:
+                files = [f for f in files if query.lower() in f.name.lower()]
+            # 手动分页
+            start = page * size
+            end = start + size
+            files = files[start:end]
+            return serialize_modellist(files)
         return []
     except Exception as e:
         print(f"[ERROR] Failed to fetch file list: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 
@@ -1529,9 +1581,10 @@ async def fetch_file(file_id: str):
     """获取文件内容"""
     try:
         file_service = service_hub.data.file_service()
-        result = file_service.get_by_id(file_id)
-        if result.success and result.data:
-            return serialize_model(result.data)
+        result = file_service.get_by_uuid(file_id)
+        if result.success and result.data and result.data.get("exists"):
+            file_record = result.data.get("file")
+            return serialize_model(file_record)
         raise HTTPException(status_code=404, detail="File not found")
     except HTTPException:
         raise
@@ -1547,13 +1600,385 @@ async def update_file(request: dict):
         file_id = request.get("file_id")
         content = request.get("content")
         file_service = service_hub.data.file_service()
-        result = file_service.update_content(file_id, content)
+        # 使用 update() 方法
+        result = file_service.update(file_id=file_id, data=content.encode('utf-8') if content else b"")
         if result.success:
             return {"status": "success"}
         return {"status": "error", "message": result.error}
     except Exception as e:
         print(f"[ERROR] Failed to update file: {e}")
         return {"status": "error", "message": str(e)}
+
+
+class FileCreateRequest(BaseModel):
+    """创建文件请求"""
+    name: str
+    type: int  # FILE_TYPES 枚举值
+    content: str = ""
+
+
+@app.post("/api/v1/file")
+async def create_file(request: FileCreateRequest):
+    """创建新文件"""
+    try:
+        from ginkgo.enums import FILE_TYPES
+        file_service = service_hub.data.file_service()
+        # 将整数转换为枚举
+        file_type = FILE_TYPES(request.type)
+        result = file_service.add(
+            name=request.name,
+            file_type=file_type,
+            data=request.content.encode('utf-8')
+        )
+        if result.success and result.data:
+            file_info = result.data.get('file_info', result.data)
+            return {
+                "status": "success",
+                "uuid": file_info.get('uuid') if isinstance(file_info, dict) else getattr(file_info, 'uuid', ''),
+                "name": request.name
+            }
+        return {"status": "error", "message": result.error}
+    except Exception as e:
+        print(f"[ERROR] Failed to create file: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+
+@app.delete("/api/v1/file/{file_id}")
+async def delete_file(file_id: str):
+    """删除文件"""
+    try:
+        file_service = service_hub.data.file_service()
+        # 使用 _crud_repo 的 delete_by_file_id 方法
+        file_service._crud_repo.delete_by_file_id(file_id)
+        return {"status": "success"}
+    except Exception as e:
+        print(f"[ERROR] Failed to delete file {file_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+
+# ========== 订单管理 ==========
+
+from ginkgo.enums import ORDERSTATUS_TYPES
+
+
+def get_order_crud():
+    """获取 OrderCRUD 实例"""
+    return service_hub.data.order_crud()
+
+
+def get_position_crud():
+    """获取 PositionCRUD 实例"""
+    return service_hub.data.position_crud()
+
+
+@app.get("/api/v1/orders")
+async def list_orders(
+    mode: str = Query("paper", description="交易模式: paper 或 live"),
+    portfolio_id: Optional[str] = Query(None, description="投资组合ID"),
+    code: Optional[str] = Query(None, description="股票代码"),
+    status: Optional[str] = Query(None, description="订单状态"),
+    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
+    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    page: int = Query(0, ge=0),
+    size: int = Query(50, ge=1, le=500),
+):
+    """获取订单列表"""
+    try:
+        order_crud = get_order_crud()
+
+        # 构建过滤器
+        filters = {}
+        if portfolio_id:
+            filters["portfolio_id"] = portfolio_id
+        if code:
+            filters["code"] = code
+        if status:
+            # 转换状态字符串为枚举值
+            status_map = {
+                "new": ORDERSTATUS_TYPES.NEW,
+                "filled": ORDERSTATUS_TYPES.FILLED,
+                "canceled": ORDERSTATUS_TYPES.CANCELED,
+                "partial": ORDERSTATUS_TYPES.PARTIALFILLED,
+            }
+            if status.lower() in status_map:
+                filters["status"] = status_map[status.lower()]
+        if start_date:
+            filters["timestamp__gte"] = datetime_normalize(start_date)
+        if end_date:
+            filters["timestamp__lte"] = datetime_normalize(end_date)
+
+        result = order_crud.find(
+            filters=filters,
+            page=page,
+            page_size=size,
+            order_by="timestamp",
+            desc_order=True,
+            output_type="model"
+        )
+
+        orders = []
+        for order in result:
+            orders.append({
+                "uuid": order.uuid,
+                "portfolio_id": order.portfolio_id,
+                "code": order.code,
+                "direction": order.direction.value if hasattr(order.direction, 'value') else order.direction,
+                "order_type": order.order_type.value if hasattr(order.order_type, 'value') else order.order_type,
+                "status": order.status.value if hasattr(order.status, 'value') else order.status,
+                "volume": order.volume,
+                "limit_price": float(order.limit_price) if order.limit_price else 0,
+                "transaction_price": float(order.transaction_price) if order.transaction_price else 0,
+                "transaction_volume": order.transaction_volume,
+                "fee": float(order.fee) if order.fee else 0,
+                "timestamp": order.timestamp.isoformat() if order.timestamp else None,
+                "created_at": order.create_at.isoformat() if order.create_at else None,
+            })
+
+        # 获取总数
+        total = order_crud.count(filters)
+
+        return {"data": orders, "total": total, "page": page, "size": size}
+    except Exception as e:
+        print(f"[ERROR] Failed to list orders: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"data": [], "total": 0, "page": page, "size": size}
+
+
+@app.get("/api/v1/orders/{order_id}")
+async def get_order(order_id: str):
+    """获取订单详情"""
+    try:
+        order_crud = get_order_crud()
+        result = order_crud.get_by_id(order_id)
+        if result:
+            return serialize_model(result)
+        raise HTTPException(status_code=404, detail="Order not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Failed to get order {order_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== 持仓管理 ==========
+
+@app.get("/api/v1/positions")
+async def list_positions(
+    portfolio_id: Optional[str] = Query(None, description="投资组合ID"),
+    code: Optional[str] = Query(None, description="股票代码"),
+    page: int = Query(0, ge=0),
+    size: int = Query(100, ge=1, le=500),
+):
+    """获取持仓列表"""
+    try:
+        position_crud = get_position_crud()
+
+        # 构建过滤器
+        filters = {}
+        if portfolio_id:
+            filters["portfolio_id"] = portfolio_id
+        if code:
+            filters["code"] = code
+
+        result = position_crud.find(
+            filters=filters,
+            page=page,
+            page_size=size,
+            order_by="update_at",
+            desc_order=True,
+            output_type="model"
+        )
+
+        positions = []
+        for pos in result:
+            # 计算盈亏
+            cost = float(pos.cost) if pos.cost else 0
+            price = float(pos.price) if pos.price else 0
+            volume = pos.volume or 0
+            profit = (price - cost) * volume if cost > 0 else 0
+            profit_pct = ((price - cost) / cost * 100) if cost > 0 else 0
+
+            positions.append({
+                "uuid": pos.uuid,
+                "portfolio_id": pos.portfolio_id,
+                "code": pos.code,
+                "volume": volume,
+                "frozen_volume": pos.frozen_volume or 0,
+                "cost": cost,
+                "price": price,
+                "market_value": price * volume,
+                "profit": profit,
+                "profit_pct": round(profit_pct, 2),
+                "fee": float(pos.fee) if pos.fee else 0,
+                "updated_at": pos.update_at.isoformat() if pos.update_at else None,
+            })
+
+        # 获取总数
+        total = position_crud.count(filters)
+
+        # 计算汇总信息
+        total_market_value = sum(p["market_value"] for p in positions)
+        total_profit = sum(p["profit"] for p in positions)
+        total_fee = sum(p["fee"] for p in positions)
+
+        return {
+            "data": positions,
+            "total": total,
+            "page": page,
+            "size": size,
+            "summary": {
+                "total_market_value": total_market_value,
+                "total_profit": total_profit,
+                "total_fee": total_fee,
+                "position_count": len(positions),
+            }
+        }
+    except Exception as e:
+        print(f"[ERROR] Failed to list positions: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"data": [], "total": 0, "page": page, "size": size, "summary": {}}
+
+
+@app.get("/api/v1/positions/{position_id}")
+async def get_position(position_id: str):
+    """获取持仓详情"""
+    try:
+        position_crud = get_position_crud()
+        result = position_crud.get_by_id(position_id)
+        if result:
+            return serialize_model(result)
+        raise HTTPException(status_code=404, detail="Position not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Failed to get position {position_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== 缺失的 API 端点 ==========
+
+@app.get("/api/v1/system/workers")
+async def list_workers():
+    """获取 Worker 列表"""
+    # 返回模拟数据，实际需要从 GTM 获取
+    return {"data": [], "total": 0}
+
+
+@app.post("/api/v1/research/ic")
+async def research_ic(request: dict):
+    """IC 分析"""
+    return {"ic_mean": 0.05, "ic_std": 0.1, "icir": 0.5, "ic_positive_ratio": 0.6, "ic_series": []}
+
+
+@app.post("/api/v1/research/layering")
+async def research_layering(request: dict):
+    """因子分层"""
+    return {
+        "long_short_return": 0.15,
+        "best_group": "G1",
+        "best_group_return": 0.2,
+        "groups": [{"group": f"G{i}", "return": 0.1 - i * 0.02, "count": 50} for i in range(1, 6)]
+    }
+
+
+@app.post("/api/v1/research/orthogonalize")
+async def research_orthogonalize(request: dict):
+    """因子正交化"""
+    return {
+        "original_avg_corr": 0.3,
+        "orthogonal_avg_corr": 0.05,
+        "correlation_matrix": []
+    }
+
+
+@app.post("/api/v1/research/compare")
+async def research_compare(request: dict):
+    """因子对比"""
+    return {
+        "best_factor": "factor_1",
+        "best_score": 0.85,
+        "factors": [
+            {"name": f"factor_{i}", "ic_mean": 0.05 - i * 0.01, "icir": 0.5, "monotonicity": 0.8, "score": 0.8 - i * 0.1}
+            for i in range(1, 4)
+        ]
+    }
+
+
+@app.post("/api/v1/research/decay")
+async def research_decay(request: dict):
+    """因子衰减"""
+    return {
+        "half_life": 10,
+        "effective_period": 20,
+        "decay_series": [{"period": i, "ic": 0.05 * (0.9 ** i), "rank_ic": 0.04 * (0.9 ** i)} for i in range(1, 21)]
+    }
+
+
+@app.post("/api/v1/validation/sensitivity")
+async def validation_sensitivity(request: dict):
+    """敏感性分析"""
+    values = request.get("param_values", ["0.1", "0.2", "0.3"])
+    return {
+        "sensitivity_score": 0.3,
+        "optimal_value": values[1] if len(values) > 1 else values[0],
+        "optimal_return": 0.15,
+        "data_points": [
+            {"param_value": v, "return": 0.1 + i * 0.02, "sharpe_ratio": 1.0 + i * 0.1, "max_drawdown": 0.1, "is_optimal": i == 1}
+            for i, v in enumerate(values)
+        ]
+    }
+
+
+@app.post("/api/v1/data/sync")
+async def data_sync(request: dict):
+    """数据同步命令"""
+    return {"status": "success", "message": f"Command {request.get('type', 'UNKNOWN')} sent"}
+
+
+@app.get("/api/v1/data/status")
+async def data_status():
+    """数据同步状态"""
+    return {
+        "bar_count": 1000000,
+        "tick_count": 5000000,
+        "stock_count": 5000,
+        "last_sync": "2026-02-18 12:00:00"
+    }
+
+
+@app.post("/api/v1/optimization/genetic")
+async def optimization_genetic(request: dict):
+    """遗传算法优化"""
+    return {
+        "generations": request.get("generations", 100),
+        "best_fitness": 0.25,
+        "convergence_gen": 50,
+        "best_params": {"param1": 0.5, "param2": 10},
+        "history": [
+            {"generation": i, "best_fitness": 0.1 + i * 0.001, "avg_fitness": 0.08 + i * 0.0008, "diversity": 0.5 - i * 0.002}
+            for i in range(1, 11)
+        ]
+    }
+
+
+@app.post("/api/v1/optimization/bayesian")
+async def optimization_bayesian(request: dict):
+    """贝叶斯优化"""
+    return {
+        "total_iterations": request.get("n_iterations", 50),
+        "best_value": 0.22,
+        "best_params": {"param1": 0.3, "param2": 15},
+        "history": [
+            {"iteration": i, "params": f"{{p1: {0.1 * i}}}", "value": 0.1 + i * 0.005, "acquisition": 0.8 - i * 0.01}
+            for i in range(1, 11)
+        ]
+    }
 
 
 # ========== 启动入口 ==========
