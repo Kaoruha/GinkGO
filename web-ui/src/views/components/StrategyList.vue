@@ -1,9 +1,7 @@
+<script setup lang="ts">
+import ComponentListPage from './ComponentListPage.vue'
+</script>
+
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div class="page-title">Strategy列表</div>
-    </div>
-    <a-card><a-table /></a-card>
-  </div>
+  <ComponentListPage title="策略组件" :file-type="6" base-path="/components/strategies" />
 </template>
-<script setup lang="ts"></script>

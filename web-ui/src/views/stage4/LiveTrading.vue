@@ -2,7 +2,8 @@
   <div class="page-container">
     <div class="page-header">
       <div class="page-title">
-        <span class="stage-badge stage-4">第四阶段</span>
+        <a-tag color="red">实盘</a-tag>
+        
         实盘监控
         <a-tag color="red" style="margin-left: 8px">实盘运行</a-tag>
       </div>

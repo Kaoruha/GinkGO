@@ -76,7 +76,7 @@
               </a-dropdown>
             </div>
           </a-layout-header>
-          <a-layout-content class="content">
+          <a-layout-content class="content" :class="{ 'content-fullscreen': isEditorPage }">
             <router-view />
           </a-layout-content>
         </a-layout>
@@ -127,6 +127,12 @@ const isFullPage = computed(() => {
   return fullPageRoutes.includes(route.path) || route.meta?.fullPage === true
 })
 
+// 编辑器详情页（需要全屏 content）
+const isEditorPage = computed(() => {
+  // 组件管理详情页使用全屏布局
+  return route.path.match(/\/components\/(strategies|risks|sizers|selectors|analyzers|handlers)\/[a-f0-9-]+/)
+})
+
 // 初始化状态 - 未确定登录状态时显示加载
 const isInitializing = computed(() => {
   return !isFullPage.value && !authStore.isLoggedIn
@@ -174,7 +180,6 @@ const menuItems = computed<MenuProps['items']>(() => [
     title: 'Paper Trading',
     children: [
       { key: 'paper-trading', label: '模拟监控' },
-      { key: 'paper-config', label: '配置管理' },
       { key: 'paper-orders', label: '订单记录' },
     ],
   },
@@ -225,6 +230,9 @@ const menuItems = computed<MenuProps['items']>(() => [
       { key: 'components-strategies', label: '策略组件' },
       { key: 'components-risks', label: '风控组件' },
       { key: 'components-sizers', label: '仓位组件' },
+      { key: 'components-selectors', label: '选股器' },
+      { key: 'components-analyzers', label: '分析器' },
+      { key: 'components-handlers', label: '事件处理器' },
     ],
   },
   {
@@ -265,7 +273,6 @@ const routeToKeyMap: Record<string, string> = {
   '/stage2/montecarlo': 'validation-montecarlo',
   '/stage2/sensitivity': 'validation-sensitivity',
   '/stage3/paper': 'paper-trading',
-  '/stage3/paper/config': 'paper-config',
   '/stage3/paper/orders': 'paper-orders',
   '/stage4/live': 'live-trading',
   '/stage4/live/orders': 'live-orders',
@@ -281,6 +288,9 @@ const routeToKeyMap: Record<string, string> = {
   '/components/strategies': 'components-strategies',
   '/components/risks': 'components-risks',
   '/components/sizers': 'components-sizers',
+  '/components/selectors': 'components-selectors',
+  '/components/analyzers': 'components-analyzers',
+  '/components/handlers': 'components-handlers',
   '/data': 'data-overview',
   '/data/stocks': 'data-stocks',
   '/data/bars': 'data-bars',
@@ -301,7 +311,6 @@ const keyToParentMap: Record<string, string> = {
   'validation-montecarlo': 'validation',
   'validation-sensitivity': 'validation',
   'paper-trading': 'paper',
-  'paper-config': 'paper',
   'paper-orders': 'paper',
   'live-trading': 'live',
   'live-orders': 'live',
@@ -317,6 +326,9 @@ const keyToParentMap: Record<string, string> = {
   'components-strategies': 'components',
   'components-risks': 'components',
   'components-sizers': 'components',
+  'components-selectors': 'components',
+  'components-analyzers': 'components',
+  'components-handlers': 'components',
   'data-overview': 'data',
   'data-stocks': 'data',
   'data-bars': 'data',
@@ -362,7 +374,6 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     'validation-montecarlo': '/stage2/montecarlo',
     'validation-sensitivity': '/stage2/sensitivity',
     'paper-trading': '/stage3/paper',
-    'paper-config': '/stage3/paper/config',
     'paper-orders': '/stage3/paper/orders',
     'live-trading': '/stage4/live',
     'live-orders': '/stage4/live/orders',
@@ -378,6 +389,9 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     'components-strategies': '/components/strategies',
     'components-risks': '/components/risks',
     'components-sizers': '/components/sizers',
+    'components-selectors': '/components/selectors',
+    'components-analyzers': '/components/analyzers',
+    'components-handlers': '/components/handlers',
     'data-overview': '/data',
     'data-stocks': '/data/stocks',
     'data-bars': '/data/bars',
@@ -495,6 +509,13 @@ const handleUserMenuClick = async ({ key }: { key: string }) => {
   border-radius: 8px;
   height: calc(100vh - 112px);
   overflow: hidden;
+}
+
+.content-fullscreen {
+  padding: 0;
+  background: #1e1e1e;
+  border-radius: 8px;
+  height: calc(100vh - 112px);
 }
 
 :deep(.ant-menu) {
