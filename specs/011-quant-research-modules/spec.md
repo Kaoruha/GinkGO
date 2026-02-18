@@ -16,6 +16,18 @@ Ginkgo WebUI 提供了完整的量化交易工作流界面，但后端 Ginkgo �
 - Q: Paper Trading 的数据来源是什么？ → A: 实盘数据（当日真实市场数据），而非历史数据回放
 - Q: Paper Trading 的定位是什么？ → A: 策略生命周期的第三阶段，用于真实市场环境下的策略验证
 
+### Session 2026-02-18
+
+- Q: 模拟配置页面如何处理？ → A: 删除单独页面，合并到模拟交易页面的设置抽屉
+- Q: Worker管理如何处理？ → A: 合并到系统状态页面，不单独存在
+- Q: 告警中心优先级？ → A: 搁置，暂不实现
+- Q: 组件管理页面范围？ → A: 扩展为6个（策略/风控/仓位/选股器/分析器/事件处理器），共用代码编辑器组件
+- Q: 组件管理数据模型？ → A: 基于MFile模型，通过type字段区分组件类型
+- Q: 数据同步实现方式？ → A: 通过Kafka发送ControlCommandDTO命令，DataWorker消费处理
+- Q: 回测对比功能？ → A: 对比BASIC_ANALYZERS指标，相同analyzer的回测也可对比
+- Q: 订单/持仓刷新方式？ → A: 先手动刷新，后续通过WebSocket推送
+- Q: 系统状态刷新方式？ → A: 需要实时刷新，日志功能TODO（未来接入分布式日志系统）
+
 ### 策略生命周期与验证流程
 
 ```
@@ -333,9 +345,69 @@ Ginkgo WebUI 提供了完整的量化交易工作流界面，但后端 Ginkgo �
 ## Out of Scope
 
 1. **实盘交易执行**: Paper Trading 仅模拟成交，不执行真实订单，不修改实盘交易逻辑
-2. **WebUI 前端开发**: 本功能仅定义后端库 API，前端界面开发单独规划
-3. **数据源扩展**: 本功能使用现有数据源，不新增数据源类型
-4. **分布式计算**: 初期版本不支持分布式参数优化，后续可扩展
+2. **数据源扩展**: 本功能使用现有数据源，不新增数据源类型
+3. **分布式计算**: 初期版本不支持分布式参数优化，后续可扩展
+
+---
+
+## WebUI Implementation *(added 2026-02-18)*
+
+详细规划见: `docs/web-ui-implementation-plan.md`
+
+### 待实现页面清单
+
+**P1 - 高优先级**:
+- 组件管理（6个）: 策略/风控/仓位/选股器/分析器/事件处理器 - 代码编辑器模式
+- 实盘/模拟订单和持仓 - 交易监控
+
+**P2 - 中优先级**:
+- 系统状态（含Worker管理）- 实时刷新
+- 回测对比 - 对比BASIC_ANALYZERS
+- 走步验证/蒙特卡洛/敏感性分析
+- 数据同步 - Kafka命令发送
+- Dashboard完善
+
+**P3 - 低优先级**:
+- 因子研究（5个）: IC分析/分层/正交/对比/衰减
+- 参数优化（3个）: 网格/遗传/贝叶斯
+
+**搁置**:
+- 告警中心
+
+### 关键决策
+
+| 决策项 | 内容 |
+|--------|------|
+| 组件管理 | 基于MFile模型，type字段区分组件类型，共用代码编辑器 |
+| 模拟配置 | 合并到模拟交易页面设置抽屉 |
+| Worker管理 | 合并到系统状态页面 |
+| 数据同步 | Kafka发送ControlCommandDTO，DataWorker处理 |
+| 订单刷新 | 先手动，后续WebSocket推送 |
+
+### E2E测试方式
+
+**远程Chrome连接**:
+- Chrome调试地址: `192.168.50.10:9222`
+- WebUI地址: `192.168.50.12:5173`
+
+**环境变量配置**:
+```bash
+REMOTE_BROWSER=http://192.168.50.10:9222
+WEB_UI_URL=http://192.168.50.12:5173
+```
+
+**Playwright连接示例**:
+```javascript
+const { chromium } = require('playwright');
+const browser = await chromium.connectOverCDP(process.env.REMOTE_BROWSER);
+const page = browser.contexts()[0].pages()[0];
+await page.goto(process.env.WEB_UI_URL + '/dashboard');
+```
+
+**注意事项**:
+- Windows上Chrome默认监听IPv6 (::1)，需要配置v4tov6端口转发
+- 端口转发命令: `netsh interface portproxy add v4tov6 listenport=9222 listenaddress=0.0.0.0 connectport=9222 connectaddress=::1`
+- 测试脚本目录: `web-ui/tests/e2e/`
 
 ---
 
