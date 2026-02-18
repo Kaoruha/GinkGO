@@ -1,77 +1,96 @@
 <template>
   <a-config-provider :locale="zhCN">
-    <a-layout class="app-layout">
-      <a-layout-sider
-        v-model:collapsed="collapsed"
-        :trigger="null"
-        collapsible
-        theme="light"
-        width="220"
-      >
-        <div class="logo">
-          <img src="/favicon.svg" alt="Ginkgo" />
-          <span v-if="!collapsed">Ginkgo</span>
-        </div>
-        <a-menu
-          v-model:selectedKeys="selectedKeys"
-          mode="inline"
-          :items="menuItems"
-          @click="handleMenuClick"
-        />
-      </a-layout-sider>
-      <a-layout>
-        <a-layout-header class="header">
-          <div class="header-left">
-            <menu-unfold-outlined
-              v-if="collapsed"
-              class="trigger"
-              @click="collapsed = !collapsed"
-            />
-            <menu-fold-outlined
-              v-else
-              class="trigger"
-              @click="collapsed = !collapsed"
-            />
-            <a-breadcrumb class="breadcrumb">
-              <a-breadcrumb-item v-for="item in breadcrumbs" :key="item.path">
-                {{ item.title }}
-              </a-breadcrumb-item>
-            </a-breadcrumb>
+    <!-- 加载中状态 -->
+    <div v-if="isInitializing" class="init-loading">
+      <a-spin size="large" />
+    </div>
+
+    <!-- 登录页等全屏页面 -->
+    <template v-else-if="isFullPage">
+      <router-view />
+    </template>
+
+    <!-- 带布局的主页面（需要登录） -->
+    <template v-else-if="authStore.isLoggedIn">
+      <a-layout class="app-layout">
+        <a-layout-sider
+          v-model:collapsed="collapsed"
+          :trigger="null"
+          collapsible
+          theme="light"
+          width="220"
+        >
+          <div class="logo">
+            <img src="/favicon.svg" alt="Ginkgo" />
+            <span v-if="!collapsed">Ginkgo</span>
           </div>
-          <div class="header-right">
-            <a-badge :count="notificationCount" class="notification-badge">
-              <bell-outlined @click="showNotifications" />
-            </a-badge>
-            <a-dropdown>
-              <a-avatar style="background-color: #1890ff">
-                <template #icon><UserOutlined /></template>
-              </a-avatar>
-              <template #overlay>
-                <a-menu>
-                  <a-menu-item key="settings">
-                    <SettingOutlined /> 系统设置
-                  </a-menu-item>
-                  <a-menu-divider />
-                  <a-menu-item key="logout">
-                    <LogoutOutlined /> 退出登录
-                  </a-menu-item>
-                </a-menu>
-              </template>
-            </a-dropdown>
-          </div>
-        </a-layout-header>
-        <a-layout-content class="content">
-          <router-view />
-        </a-layout-content>
+          <a-menu
+            v-model:selectedKeys="selectedKeys"
+            v-model:openKeys="openKeys"
+            mode="inline"
+            :items="menuItems"
+            @click="handleMenuClick"
+          />
+        </a-layout-sider>
+        <a-layout>
+          <a-layout-header class="header">
+            <div class="header-left">
+              <menu-unfold-outlined
+                v-if="collapsed"
+                class="trigger"
+                @click="collapsed = !collapsed"
+              />
+              <menu-fold-outlined
+                v-else
+                class="trigger"
+                @click="collapsed = !collapsed"
+              />
+              <a-breadcrumb class="breadcrumb">
+                <a-breadcrumb-item v-for="item in breadcrumbs" :key="item.path">
+                  {{ item.title }}
+                </a-breadcrumb-item>
+              </a-breadcrumb>
+            </div>
+            <div class="header-right">
+              <a-badge :count="notificationCount" class="notification-badge">
+                <bell-outlined @click="showNotifications" />
+              </a-badge>
+              <a-dropdown>
+                <a-avatar style="background-color: #1890ff">
+                  <template #icon><UserOutlined /></template>
+                </a-avatar>
+                <template #overlay>
+                  <a-menu @click="handleUserMenuClick">
+                    <a-menu-item key="profile">
+                      <UserOutlined /> {{ authStore.displayName }}
+                    </a-menu-item>
+                    <a-menu-divider />
+                    <a-menu-item key="settings">
+                      <SettingOutlined /> 系统设置
+                    </a-menu-item>
+                    <a-menu-item key="logout">
+                      <LogoutOutlined /> 退出登录
+                    </a-menu-item>
+                  </a-menu>
+                </template>
+              </a-dropdown>
+            </div>
+          </a-layout-header>
+          <a-layout-content class="content">
+            <router-view />
+          </a-layout-content>
+        </a-layout>
       </a-layout>
-    </a-layout>
+    </template>
   </a-config-provider>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h } from 'vue'
+import { ref, computed, h, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
+import { message } from 'ant-design-vue'
+import { useAuthStore } from '@/stores/auth'
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -88,33 +107,59 @@ import {
   FunctionOutlined,
   BarChartOutlined,
   FileSearchOutlined,
+  DashboardOutlined,
+  WalletOutlined,
 } from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
 const collapsed = ref(false)
-const selectedKeys = ref<string[]>(['backtest'])
+const selectedKeys = ref<string[]>(['dashboard'])
+const openKeys = ref<string[]>([])
 const notificationCount = ref(0)
+
+// 全屏页面（不需要侧边栏布局）
+const isFullPage = computed(() => {
+  const fullPageRoutes = ['/login', '/404']
+  return fullPageRoutes.includes(route.path) || route.meta?.fullPage === true
+})
+
+// 初始化状态 - 未确定登录状态时显示加载
+const isInitializing = computed(() => {
+  return !isFullPage.value && !authStore.isLoggedIn
+})
 
 // 4阶段策略生命周期菜单
 const menuItems = computed<MenuProps['items']>(() => [
   {
+    key: 'dashboard',
+    icon: () => h(DashboardOutlined),
+    label: '概览',
+    title: 'Dashboard',
+  },
+  {
+    key: 'portfolio',
+    icon: () => h(WalletOutlined),
+    label: '投资组合',
+    title: '投资组合管理',
+  },
+  {
     key: 'backtest',
     icon: () => h(RocketOutlined),
-    label: '第一阶段：回测',
+    label: '策略回测',
     title: '策略回测验证',
     children: [
       { key: 'backtest-list', label: '回测列表' },
-      { key: 'backtest-create', label: '创建回测' },
       { key: 'backtest-compare', label: '回测对比' },
     ],
   },
   {
     key: 'validation',
     icon: () => h(ExperimentOutlined),
-    label: '第二阶段：验证',
+    label: '样本验证',
     title: '样本外验证',
     children: [
       { key: 'validation-walkforward', label: '走步验证' },
@@ -125,10 +170,10 @@ const menuItems = computed<MenuProps['items']>(() => [
   {
     key: 'paper',
     icon: () => h(LineChartOutlined),
-    label: '第三阶段：模拟',
+    label: '模拟交易',
     title: 'Paper Trading',
     children: [
-      { key: 'paper-trading', label: '模拟交易' },
+      { key: 'paper-trading', label: '模拟监控' },
       { key: 'paper-config', label: '配置管理' },
       { key: 'paper-orders', label: '订单记录' },
     ],
@@ -136,7 +181,7 @@ const menuItems = computed<MenuProps['items']>(() => [
   {
     key: 'live',
     icon: () => h(ThunderboltOutlined),
-    label: '第四阶段：实盘',
+    label: '实盘交易',
     title: '实盘交易',
     children: [
       { key: 'live-trading', label: '实盘监控' },
@@ -187,6 +232,7 @@ const menuItems = computed<MenuProps['items']>(() => [
     icon: () => h(DatabaseOutlined),
     label: '数据管理',
     children: [
+      { key: 'data-overview', label: '数据概览' },
       { key: 'data-stocks', label: '股票信息' },
       { key: 'data-bars', label: 'K线数据' },
       { key: 'data-sync', label: '数据同步' },
@@ -199,10 +245,102 @@ const menuItems = computed<MenuProps['items']>(() => [
     children: [
       { key: 'system-status', label: '系统状态' },
       { key: 'system-workers', label: 'Worker 管理' },
+      { key: 'system-users', label: '用户管理' },
+      { key: 'system-groups', label: '用户组管理' },
+      { key: 'system-notifications', label: '通知管理' },
       { key: 'system-alerts', label: '告警中心' },
     ],
   },
 ])
+
+// 路由路径到菜单 key 的映射
+const routeToKeyMap: Record<string, string> = {
+  '/dashboard': 'dashboard',
+  '/portfolio': 'portfolio',
+  '/portfolio/create': 'portfolio',
+  '/stage1/backtest': 'backtest-list',
+  '/stage1/backtest/create': 'backtest-list',
+  '/stage1/backtest/compare': 'backtest-compare',
+  '/stage2/walkforward': 'validation-walkforward',
+  '/stage2/montecarlo': 'validation-montecarlo',
+  '/stage2/sensitivity': 'validation-sensitivity',
+  '/stage3/paper': 'paper-trading',
+  '/stage3/paper/config': 'paper-config',
+  '/stage3/paper/orders': 'paper-orders',
+  '/stage4/live': 'live-trading',
+  '/stage4/live/orders': 'live-orders',
+  '/stage4/live/positions': 'live-positions',
+  '/research/ic': 'research-ic',
+  '/research/layering': 'research-layering',
+  '/research/orthogonal': 'research-orthogonal',
+  '/research/comparison': 'research-comparison',
+  '/research/decay': 'research-decay',
+  '/optimization/grid': 'optimization-grid',
+  '/optimization/genetic': 'optimization-genetic',
+  '/optimization/bayesian': 'optimization-bayesian',
+  '/components/strategies': 'components-strategies',
+  '/components/risks': 'components-risks',
+  '/components/sizers': 'components-sizers',
+  '/data': 'data-overview',
+  '/data/stocks': 'data-stocks',
+  '/data/bars': 'data-bars',
+  '/data/sync': 'data-sync',
+  '/system/status': 'system-status',
+  '/system/workers': 'system-workers',
+  '/system/users': 'system-users',
+  '/system/groups': 'system-groups',
+  '/system/notifications': 'system-notifications',
+  '/system/alerts': 'system-alerts',
+}
+
+// 子菜单 key 到父菜单 key 的映射
+const keyToParentMap: Record<string, string> = {
+  'backtest-list': 'backtest',
+  'backtest-compare': 'backtest',
+  'validation-walkforward': 'validation',
+  'validation-montecarlo': 'validation',
+  'validation-sensitivity': 'validation',
+  'paper-trading': 'paper',
+  'paper-config': 'paper',
+  'paper-orders': 'paper',
+  'live-trading': 'live',
+  'live-orders': 'live',
+  'live-positions': 'live',
+  'research-ic': 'research',
+  'research-layering': 'research',
+  'research-orthogonal': 'research',
+  'research-comparison': 'research',
+  'research-decay': 'research',
+  'optimization-grid': 'optimization',
+  'optimization-genetic': 'optimization',
+  'optimization-bayesian': 'optimization',
+  'components-strategies': 'components',
+  'components-risks': 'components',
+  'components-sizers': 'components',
+  'data-overview': 'data',
+  'data-stocks': 'data',
+  'data-bars': 'data',
+  'data-sync': 'data',
+  'system-status': 'system',
+  'system-workers': 'system',
+  'system-users': 'system',
+  'system-groups': 'system',
+  'system-notifications': 'system',
+  'system-alerts': 'system',
+}
+
+// 监听路由变化，更新菜单选中状态
+watch(() => route.path, (path) => {
+  const key = routeToKeyMap[path]
+  if (key) {
+    selectedKeys.value = [key]
+    // 同时展开父菜单
+    const parentKey = keyToParentMap[key]
+    if (parentKey && !openKeys.value.includes(parentKey)) {
+      openKeys.value = [...openKeys.value, parentKey]
+    }
+  }
+}, { immediate: true })
 
 const breadcrumbs = computed(() => {
   const matched = route.matched.filter(r => r.meta?.title)
@@ -216,8 +354,9 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
   const keyPath = key as string
   // 将菜单 key 转换为路由路径
   const routeMap: Record<string, string> = {
+    'dashboard': '/dashboard',
+    'portfolio': '/portfolio',
     'backtest-list': '/stage1/backtest',
-    'backtest-create': '/stage1/backtest/create',
     'backtest-compare': '/stage1/backtest/compare',
     'validation-walkforward': '/stage2/walkforward',
     'validation-montecarlo': '/stage2/montecarlo',
@@ -239,11 +378,15 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     'components-strategies': '/components/strategies',
     'components-risks': '/components/risks',
     'components-sizers': '/components/sizers',
+    'data-overview': '/data',
     'data-stocks': '/data/stocks',
     'data-bars': '/data/bars',
     'data-sync': '/data/sync',
     'system-status': '/system/status',
     'system-workers': '/system/workers',
+    'system-users': '/system/users',
+    'system-groups': '/system/groups',
+    'system-notifications': '/system/notifications',
     'system-alerts': '/system/alerts',
   }
 
@@ -255,11 +398,30 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
 const showNotifications = () => {
   // TODO: 显示通知面板
 }
+
+const handleUserMenuClick = async ({ key }: { key: string }) => {
+  if (key === 'logout') {
+    await authStore.logout()
+    message.success('已退出登录')
+    router.push('/login')
+  } else if (key === 'settings') {
+    router.push('/system/status')
+  }
+}
 </script>
 
 <style lang="less" scoped>
-.app-layout {
+.init-loading {
   min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f2f5;
+}
+
+.app-layout {
+  height: 100vh;
+  overflow: hidden;
 }
 
 .logo {
@@ -331,8 +493,8 @@ const showNotifications = () => {
   padding: 24px;
   background: #fff;
   border-radius: 8px;
-  min-height: calc(100vh - 112px);
-  overflow: auto;
+  height: calc(100vh - 112px);
+  overflow: hidden;
 }
 
 :deep(.ant-menu) {
@@ -341,5 +503,11 @@ const showNotifications = () => {
 
 :deep(.ant-layout-sider) {
   box-shadow: 2px 0 8px rgba(0, 21, 41, 0.05);
+  height: 100vh;
+  overflow-y: auto;
+}
+
+:deep(.ant-layout) {
+  height: 100%;
 }
 </style>
