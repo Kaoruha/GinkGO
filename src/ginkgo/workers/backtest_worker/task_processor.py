@@ -196,7 +196,8 @@ class BacktestProcessor(Thread):
             portfolio_mappings=portfolio_mappings,
             portfolio_configs=portfolio_configs,
             portfolio_components=portfolio_components_dict,
-            logger=logger
+            logger=logger,
+            progress_callback=self._on_progress,
         )
 
         if not result.success:

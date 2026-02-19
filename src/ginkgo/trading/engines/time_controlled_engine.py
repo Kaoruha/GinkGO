@@ -74,6 +74,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         event_timeout_seconds: float = 30.0,
         max_concurrent_handlers: int = 100,
         logical_time_start: Optional[datetime] = None,
+        progress_callback: Optional[callable] = None,
         *args,
         **kwargs,
     ):
@@ -88,6 +89,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             event_timeout_seconds: 事件超时时间（秒）
             max_concurrent_handlers: 最大并发处理器数量
             logical_time_start: 逻辑时间起始点（仅回测模式）
+            progress_callback: 进度回调函数，签名 callback(progress: float, current_date: str)
         """
         # 调用父类构造
         super().__init__(name=name, mode=mode, timer_interval=timer_interval, *args, **kwargs)
@@ -130,6 +132,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         # 时间范围配置（将在_initialize_components中使用）
         self._start_date = None
         self._end_date = None
+
+        # 进度回调
+        self._progress_callback = progress_callback
 
         # 初始化组件
         self._initialize_components()
@@ -326,6 +331,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                         event = EventTimeAdvance(next_time)
                         self.log("INFO", f"{self.name}: ⏰ Advancing time to {next_time.date()}")
                         self.put(event)
+
+                        # 调用进度回调
+                        self._report_progress(next_time)
                     # else: _get_next_time返回None的情况不会发生，因为_is_backtest_finished已经处理了
                 # 实盘模式：继续等待（由timer_loop定时推送事件）
                 continue
@@ -901,6 +909,35 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         # 当前时间已经到达或超过结束时间
         return current_time >= end_time
 
+    def _report_progress(self, current_time: datetime) -> None:
+        """
+        报告回测进度
+
+        Args:
+            current_time: 当前回测时间
+        """
+        if self._progress_callback is None:
+            return
+
+        try:
+            # 获取时间范围
+            start_time, end_time = self._time_provider.get_time_range()
+
+            if start_time and end_time:
+                # 计算进度百分比
+                total_days = (end_time - start_time).days
+                elapsed_days = (current_time - start_time).days
+
+                if total_days > 0:
+                    progress = min(100.0, max(0.0, (elapsed_days / total_days) * 100))
+                else:
+                    progress = 100.0
+
+                # 调用回调
+                self._progress_callback(progress, str(current_time.date()))
+        except Exception as e:
+            self.log("DEBUG", f"{self.name}: Progress report failed: {e}")
+
     def _aggregate_backtest_results(self) -> None:
         """
         汇总回测结果
@@ -1202,11 +1239,21 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
         return {"status": "started", "mode": self.mode.value, "start_time": start_time.isoformat()}
 
     def _create_backtest_task(self) -> None:
-        """创建回测任务记录（在回测启动前调用）"""
+        """创建回测任务记录（在回测启动前调用）
+
+        注意：如果任务已存在（由 BacktestWorker 创建），则跳过创建
+        """
         try:
             from ginkgo import service_hub
 
             task_service = service_hub.data.backtest_task_service()
+
+            # 检查任务是否已存在（由 BacktestWorker 创建）
+            if self.run_id:
+                exists_result = task_service.exists(uuid=self.run_id)
+                if exists_result.is_success() and exists_result.data.get("exists"):
+                    self.log("INFO", f"Backtest task already exists: {self.run_id}, skipping creation")
+                    return
 
             # 获取 portfolio_id
             portfolio_id = ""
