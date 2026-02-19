@@ -391,9 +391,11 @@ def sync(
             console.print(":information: Stock info sync not yet implemented")
 
         elif data_type == "day":
-            from ginkgo.data.containers import container
-            from ginkgo.data import fetch_and_update_cn_daybar, fetch_and_update_cn_daybar_with_date_range
+            from ginkgo import service_hub
             from datetime import datetime
+
+            bar_service = service_hub.data.bar_service()
+            stockinfo_service = service_hub.data.stockinfo_service()
 
             # 确定同步哪些股票
             if code:
@@ -401,10 +403,10 @@ def sync(
                 console.print(f":repeat: Syncing day data for {code}...")
             else:
                 # 获取所有股票代码
-                stockinfo_service = container.stockinfo_service()
-                stock_result = stockinfo_service.get()
-                if stock_result.success and stock_result.data:
-                    codes = [s.code for s in stock_result.data]
+                stock_result = stockinfo_service.list(page_size=5000)
+                if stock_result.is_success() and stock_result.data:
+                    stocks = stock_result.data.get('data', stock_result.data) if isinstance(stock_result.data, dict) else stock_result.data
+                    codes = [s.code for s in stocks]
                     console.print(f":repeat: Syncing day data for all {len(codes)} stocks...")
                 else:
                     console.print(":x: Failed to get stock list")
@@ -419,37 +421,25 @@ def sync(
                         console.print(f":information: Processing {current_code}...")
 
                         if full:
-                            if force:
-                                # 强制全量同步：从1990年开始，删除已有数据重新插入
-                                console.print(f":information: Force full sync for {current_code} (from 1990-01-01, overwrite existing)")
-                                from datetime import datetime
-                                result = fetch_and_update_cn_daybar_with_date_range(
-                                    current_code,
-                                    start_date=datetime(1990, 1, 1),
-                                    end_date=datetime.now()
-                                )
-                            else:
-                                # 全量同步：从1990年开始，跳过已有数据
-                                console.print(f":information: Full sync for {current_code} (from 1990-01-01, skip existing)")
-                                from datetime import datetime
-                                result = fetch_and_update_cn_daybar_with_date_range(
-                                    current_code,
-                                    start_date=datetime(1990, 1, 1),
-                                    end_date=datetime.now()
-                                )
+                            # 全量同步：从1990年开始
+                            console.print(f":information: Full sync for {current_code} (from 1990-01-01)")
+                            result = bar_service.sync_range(
+                                code=current_code,
+                                start_date=datetime(1990, 1, 1),
+                                end_date=datetime.now()
+                            )
                         else:
-                            # 增量同步：从最新日期开始到当下
-                            console.print(f":information: Incremental sync for {current_code} (from latest date)")
-                            result = fetch_and_update_cn_daybar(current_code, fast_mode=True)
+                            # 增量同步：智能同步
+                            console.print(f":information: Smart sync for {current_code}")
+                            result = bar_service.sync_smart(code=current_code)
 
-                        if result and (not hasattr(result, 'success') or result.success):
+                        if result and result.is_success():
                             success_count += 1
                             console.print(f":white_check_mark: {current_code} sync completed")
                         else:
                             error_count += 1
-                            console.print(f":x: {current_code} sync failed")
-                            if hasattr(result, 'error') and result.error:
-                                console.print(f"   Error: {result.error}")
+                            error_msg = result.message if hasattr(result, 'message') else str(result.error) if hasattr(result, 'error') else 'Unknown error'
+                            console.print(f":x: {current_code} sync failed: {error_msg}")
 
                     except Exception as e:
                         error_count += 1
@@ -464,9 +454,11 @@ def sync(
                     raise typer.Exit(1)
 
         elif data_type == "tick":
-            from ginkgo.data.containers import container
-            from ginkgo.data import fetch_and_update_tick_incremental, fetch_and_update_tick_full
+            from ginkgo import service_hub
             from datetime import datetime
+
+            tick_service = service_hub.data.tick_service()
+            stockinfo_service = service_hub.data.stockinfo_service()
 
             # 确定同步哪些股票
             if code:
@@ -474,10 +466,10 @@ def sync(
                 console.print(f":repeat: Syncing tick data for {code}...")
             else:
                 # 获取所有股票代码
-                stockinfo_service = container.stockinfo_service()
-                stock_result = stockinfo_service.get()
-                if stock_result.success and stock_result.data:
-                    codes = [s.code for s in stock_result.data]
+                stock_result = stockinfo_service.list(page_size=5000)
+                if stock_result.is_success() and stock_result.data:
+                    stocks = stock_result.data.get('data', stock_result.data) if isinstance(stock_result.data, dict) else stock_result.data
+                    codes = [s.code for s in stocks]
                     console.print(f":repeat: Syncing tick data for all {len(codes)} stocks...")
                 else:
                     console.print(":x: Failed to get stock list")
@@ -494,31 +486,25 @@ def sync(
                         if date:
                             # 指定日期同步
                             target_date = datetime.strptime(date, "%Y%m%d")
-                            console.print(f":information: Syncing tick data for {current_code} on {date} (force={force})")
-                            # TODO: 实现指定日期同步
+                            console.print(f":information: Syncing tick data for {current_code} on {date}")
+                            result = tick_service.sync_date(current_code, target_date)
 
                         elif full:
-                            if force:
-                                # 强制全量同步：从上市开始，删除已有数据重新插入
-                                console.print(f":information: Force full sync for {current_code} (from listing date, overwrite existing)")
-                                result = fetch_and_update_tick_full(current_code, force_overwrite=True)
-                            else:
-                                # 全量同步：从上市开始，跳过已有数据
-                                console.print(f":information: Full sync for {current_code} (from listing date, skip existing)")
-                                result = fetch_and_update_tick_full(current_code, force_overwrite=False)
+                            # 全量同步：从上市开始
+                            console.print(f":information: Full sync for {current_code} (from listing date)")
+                            result = tick_service.sync_backfill_by_date(current_code, force_overwrite=force)
                         else:
-                            # 增量同步：从最新日期开始到当下
-                            console.print(f":information: Incremental sync for {current_code} (from latest date)")
-                            result = fetch_and_update_tick_incremental(current_code)
+                            # 增量同步：智能同步
+                            console.print(f":information: Smart sync for {current_code}")
+                            result = tick_service.sync_smart(current_code)
 
-                        if result and (not hasattr(result, 'success') or result.success):
+                        if result and result.is_success():
                             success_count += 1
                             console.print(f":white_check_mark: {current_code} sync completed")
                         else:
                             error_count += 1
-                            console.print(f":x: {current_code} sync failed")
-                            if hasattr(result, 'error') and result.error:
-                                console.print(f"   Error: {result.error}")
+                            error_msg = result.message if hasattr(result, 'message') else str(result.error) if hasattr(result, 'error') else 'Unknown error'
+                            console.print(f":x: {current_code} sync failed: {error_msg}")
 
                     except Exception as e:
                         error_count += 1
