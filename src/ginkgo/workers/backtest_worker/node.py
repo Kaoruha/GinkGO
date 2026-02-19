@@ -69,6 +69,10 @@ class BacktestWorker:
         # Redis客户端
         self._redis = None
 
+        # 任务容量控制：用于阻塞等待空闲槽位
+        self._slot_available = Event()
+        self._slot_available.set()  # 初始时有空闲槽位
+
     def start(self):
         """启动BacktestWorker"""
         if self.is_running:
@@ -87,9 +91,15 @@ class BacktestWorker:
         # 清理旧数据
         self._cleanup_old_heartbeat_data()
 
+        # 获取任务服务（用于写入进度到数据库）
+        from ginkgo import services
+        task_service = services.data.backtest_task_service()
+
         # 初始化Kafka Producer（进度上报）
         self.progress_producer = GinkgoProducer()
-        self.progress_tracker = ProgressTracker(self.worker_id, self.progress_producer)
+        self.progress_tracker = ProgressTracker(
+            self.worker_id, self.progress_producer, task_service
+        )
 
         # 发送初始心跳
         self._send_heartbeat()
@@ -164,9 +174,11 @@ class BacktestWorker:
 
         def consume_tasks():
             print("Task consumer thread started")
+            # 使用独特的 consumer group ID 避免与其他实例冲突
+            unique_group_id = f"backtest-workers-{self.worker_id}"
             self.task_consumer = GinkgoConsumer(
                 topic="backtest.assignments",
-                group_id="backtest-workers",
+                group_id=unique_group_id,
                 offset="earliest",
             )
 
@@ -203,10 +215,29 @@ class BacktestWorker:
             self._cancel_task(task_uuid)
 
     def _start_task(self, assignment: dict):
-        """启动新任务"""
-        if not self._can_accept_task():
-            print(f"Worker at full capacity ({len(self.tasks)}/{self.max_backtests})")
-            return
+        """启动新任务（阻塞等待空闲槽位）"""
+        task_uuid = assignment.get("task_uuid", "unknown")[:8]
+
+        # 阻塞等待空闲槽位
+        while not self._can_accept_task():
+            print(f"[{task_uuid}] Worker at full capacity, waiting for slot...")
+            # 清除标志，等待任务完成时被设置
+            self._slot_available.clear()
+            # 等待最多 60 秒，每隔 1 秒检查一次是否应该停止
+            for _ in range(60):
+                if self.should_stop:
+                    print(f"[{task_uuid}] Worker stopping, discarding task")
+                    return
+                if self._slot_available.wait(timeout=1):
+                    break
+            else:
+                # 60秒后仍然没有槽位，继续等待
+                continue
+
+            # 被唤醒后再次检查容量
+            if self._can_accept_task():
+                print(f"[{task_uuid}] Slot available, proceeding with task")
+                break
 
         # 解析任务配置
         from ginkgo.workers.backtest_worker.models import BacktestConfig
@@ -277,6 +308,8 @@ class BacktestWorker:
                 success = processor.task.state != BacktestTaskState.FAILED
                 self.metrics.record_task_complete(task_uuid, success)
                 del self.tasks[task_uuid]
+                # 通知等待的线程有新槽位可用
+                self._slot_available.set()
 
     def _can_accept_task(self) -> bool:
         """检查是否还能接受任务"""
@@ -321,19 +354,22 @@ class BacktestWorker:
     def _send_heartbeat(self):
         """发送心跳到Redis"""
         try:
-            redis = self._get_redis()
-            key = f"backtest:worker:{self.worker_id}"
-            value = {
-                "worker_id": self.worker_id,
-                "status": "running" if self.is_running else "stopped",
-                "running_tasks": len(self.tasks),
-                "max_tasks": self.max_backtests,
-                "started_at": self.started_at,
-                "last_heartbeat": datetime.now().isoformat(),
-            }
+            from ginkgo.data.redis_schema import (
+                RedisKeyBuilder, BacktestWorkerHeartbeat, WorkerStatus, RedisTTL
+            )
 
-            import json
-            redis.setex(key, self.heartbeat_ttl, json.dumps(value))
+            redis = self._get_redis()
+            key = RedisKeyBuilder.backtest_worker_heartbeat(self.worker_id)
+
+            heartbeat = BacktestWorkerHeartbeat.create(
+                worker_id=self.worker_id,
+                status=WorkerStatus.RUNNING if self.is_running else WorkerStatus.STOPPED,
+                running_tasks=len(self.tasks),
+                max_tasks=self.max_backtests,
+                started_at=self.started_at
+            )
+
+            redis.setex(key, RedisTTL.BACKTEST_WORKER_HEARTBEAT, heartbeat.to_json())
             print(f"Heartbeat sent: {len(self.tasks)}/{self.max_backtests} tasks running")
 
         except Exception as e:
@@ -342,8 +378,10 @@ class BacktestWorker:
     def _clear_heartbeat(self):
         """清理Redis心跳"""
         try:
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+
             redis = self._get_redis()
-            key = f"backtest:worker:{self.worker_id}"
+            key = RedisKeyBuilder.backtest_worker_heartbeat(self.worker_id)
             redis.delete(key)
             print("Heartbeat cleared")
         except Exception as e:
@@ -352,8 +390,10 @@ class BacktestWorker:
     def _cleanup_old_heartbeat_data(self):
         """清理旧的心跳数据"""
         try:
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+
             redis = self._get_redis()
-            key = f"backtest:worker:{self.worker_id}"
+            key = RedisKeyBuilder.backtest_worker_heartbeat(self.worker_id)
             if redis.exists(key):
                 print(f"Old heartbeat data found for {self.worker_id}, cleaning up...")
                 redis.delete(key)
@@ -363,8 +403,9 @@ class BacktestWorker:
     def _is_worker_id_in_use(self) -> bool:
         """检查worker_id是否已被使用"""
         try:
+            from ginkgo.data.redis_schema import RedisKeyBuilder
             redis = self._get_redis()
-            key = f"backtest:worker:{self.worker_id}"
+            key = RedisKeyBuilder.backtest_worker_heartbeat(self.worker_id)
             return redis.exists(key)
         except Exception:
             return False

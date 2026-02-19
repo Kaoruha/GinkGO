@@ -172,13 +172,13 @@ class BacktestTaskService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def create(self, task_id: str, engine_id: str = "", portfolio_id: str = "",
+    def create(self, name: str = "", engine_id: str = "", portfolio_id: str = "",
                config_snapshot: dict = None, **kwargs) -> ServiceResult:
         """
         创建回测任务
 
         Args:
-            task_id: 任务会话ID
+            name: 任务名称（可选，用户可读标识）
             engine_id: 所属引擎ID
             portfolio_id: 关联投资组合ID
             config_snapshot: 配置快照
@@ -188,28 +188,18 @@ class BacktestTaskService(BaseService):
             ServiceResult: 创建结果
         """
         try:
-            if not task_id:
-                return ServiceResult.error("task_id is required")
-
-            # 检查 task_id 是否已存在
-            existing = self._crud_repo.get_task_by_task_id(task_id)
-            if existing:
-                return ServiceResult.error(f"Task with task_id '{task_id}' already exists")
-
-            # 创建任务
+            # 创建任务 (task_id 自动等于 uuid)
             task_data = {
-                "task_id": task_id,
+                "name": name,
                 "engine_id": engine_id,
                 "portfolio_id": portfolio_id,
-                "start_time": datetime.now(),
-                "status": "running",
                 "config_snapshot": json.dumps(config_snapshot or {}),
                 **kwargs
             }
 
             task = self._crud_repo.create(**task_data)
 
-            GLOG.INFO(f"Created backtest task: {task_id}")
+            GLOG.INFO(f"Created backtest task: {task.uuid}")
 
             return ServiceResult.success(task, f"Backtest task created successfully")
 
@@ -253,14 +243,14 @@ class BacktestTaskService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def update_status(self, task_id: str, status: str, error_message: str = "",
+    def update_status(self, uuid: str, status: str, error_message: str = "",
                       **result_fields) -> ServiceResult:
         """
         更新任务状态
 
         Args:
-            task_id: 任务会话ID
-            status: 新状态 (running/completed/failed/stopped)
+            uuid: 任务 UUID（与 task_id 等价）
+            status: 新状态 (created/pending/running/completed/failed/stopped)
             error_message: 错误信息
             **result_fields: 结果字段
 
@@ -268,23 +258,23 @@ class BacktestTaskService(BaseService):
             ServiceResult: 更新结果
         """
         try:
-            valid_statuses = ["running", "completed", "failed", "stopped"]
+            valid_statuses = ["created", "pending", "running", "completed", "failed", "stopped"]
             if status not in valid_statuses:
                 return ServiceResult.error(f"Invalid status: {status}")
 
             updated_count = self._crud_repo.update_task_status(
-                task_id=task_id,
+                uuid=uuid,
                 status=status,
                 error_message=error_message,
                 **result_fields
             )
 
             if updated_count == 0:
-                return ServiceResult.error(f"Backtest task not found: {task_id}")
+                return ServiceResult.error(f"Backtest task not found: {uuid}")
 
-            GLOG.INFO(f"Updated task {task_id} status to: {status}")
+            GLOG.INFO(f"Updated task {uuid} status to: {status}")
 
-            return ServiceResult.success({"task_id": task_id, "status": status},
+            return ServiceResult.success({"uuid": uuid, "status": status},
                                          f"Task status updated to {status}")
 
         except Exception as e:
@@ -330,15 +320,21 @@ class BacktestTaskService(BaseService):
         """
         try:
             total = self._crud_repo.count(filters={"is_del": False})
+            created = self._crud_repo.count(filters={"status": "created", "is_del": False})
+            pending = self._crud_repo.count(filters={"status": "pending", "is_del": False})
             running = self._crud_repo.count(filters={"status": "running", "is_del": False})
             completed = self._crud_repo.count(filters={"status": "completed", "is_del": False})
             failed = self._crud_repo.count(filters={"status": "failed", "is_del": False})
+            stopped = self._crud_repo.count(filters={"status": "stopped", "is_del": False})
 
             return ServiceResult.success({
                 "total": total,
+                "created": created,
+                "pending": pending,
                 "running": running,
                 "completed": completed,
-                "failed": failed
+                "failed": failed,
+                "stopped": stopped
             }, f"Statistics retrieved successfully")
 
         except Exception as e:
@@ -440,6 +436,53 @@ class BacktestTaskService(BaseService):
             return ServiceResult.error(f"Failed to check existence: {str(e)}")
 
     @time_logger
+    def update_progress(self, uuid: str, progress: float = None,
+                        current_stage: str = None, current_date: str = None) -> ServiceResult:
+        """
+        更新任务进度（用于SSE实时推送）
+
+        Args:
+            uuid: 任务 UUID（与 task_id 等价）
+            progress: 进度百分比 0-100
+            current_stage: 当前阶段 (DATA_PREPARING/ENGINE_BUILDING/RUNNING/FINALIZING)
+            current_date: 当前处理的业务日期
+
+        Returns:
+            ServiceResult: 更新结果
+        """
+        try:
+            updates = {}
+            if progress is not None:
+                updates["progress"] = str(min(100.0, max(0.0, progress)))
+            if current_stage is not None:
+                updates["current_stage"] = current_stage
+            if current_date is not None:
+                updates["current_date"] = current_date
+
+            if not updates:
+                return ServiceResult.error("No progress fields to update")
+
+            # 统一按 uuid 查找（task_id 与 uuid 等价）
+            updated_count = self._crud_repo.modify(
+                filters={"uuid": uuid},
+                updates=updates
+            )
+
+            if updated_count is None or updated_count == 0:
+                return ServiceResult.error(f"Backtest task not found: {uuid}")
+
+            return ServiceResult.success({
+                "uuid": uuid,
+                "progress": updates.get("progress"),
+                "current_stage": updates.get("current_stage"),
+                "current_date": updates.get("current_date")
+            }, f"Task progress updated")
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to update task progress: {e}")
+            return ServiceResult.error(f"Failed to update task progress: {str(e)}")
+
+    @time_logger
     def health_check(self) -> ServiceResult:
         """
         服务健康检查
@@ -457,6 +500,106 @@ class BacktestTaskService(BaseService):
 
         except Exception as e:
             return ServiceResult.error(f"Health check failed: {str(e)}")
+
+    # ===== 任务控制方法 =====
+
+    @time_logger
+    def start_task(self, uuid: str, portfolio_uuid: str = None, name: str = None,
+                   start_date: str = "", end_date: str = "",
+                   initial_cash: float = 100000.0,
+                   analyzers: list = None) -> ServiceResult:
+        """
+        启动回测任务（发送到Kafka队列）
+
+        Args:
+            uuid: 任务 UUID（与 task_id 等价）
+            portfolio_uuid: 投资组合UUID
+            name: 任务名称
+            start_date: 开始日期
+            end_date: 结束日期
+            initial_cash: 初始资金
+            analyzers: 分析器列表
+
+        Returns:
+            ServiceResult: 启动结果
+        """
+        try:
+            # 获取任务信息（task_id 与 uuid 等价，直接用 uuid 查找）
+            task = self._crud_repo.get_by_uuid(uuid)
+            if not task:
+                return ServiceResult.error("Backtest task not found")
+
+            # 发送启动命令到Kafka
+            import json
+            from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+
+            producer = GinkgoProducer()
+            assignment = {
+                "task_uuid": uuid,
+                "portfolio_uuid": portfolio_uuid or task.portfolio_id,
+                "name": name or f"backtest_{uuid[:8]}",
+                "command": "start",
+                "config": {
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "initial_cash": initial_cash,
+                    "analyzers": analyzers or [],
+                }
+            }
+
+            producer.send("backtest.assignments", assignment)
+            producer.flush(timeout=2.0)
+            producer.close()
+
+            # 更新任务状态为 pending (等待 Worker 调度)
+            self.update_status(uuid, status="pending")
+
+            GLOG.INFO(f"Started backtest task: {uuid}")
+            return ServiceResult.success({"uuid": uuid}, "Backtest task started")
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to start backtest task {uuid}: {e}")
+            return ServiceResult.error(f"Failed to start backtest task: {str(e)}")
+
+    @time_logger
+    def stop_task(self, uuid: str) -> ServiceResult:
+        """
+        停止回测任务（发送取消命令到Kafka）
+
+        Args:
+            uuid: 任务 UUID（与 task_id 等价）
+
+        Returns:
+            ServiceResult: 停止结果
+        """
+        try:
+            # 获取任务信息（task_id 与 uuid 等价，直接用 uuid 查找）
+            task = self._crud_repo.get_by_uuid(uuid)
+            if not task:
+                return ServiceResult.error("Backtest task not found")
+
+            # 发送取消命令到Kafka
+            from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
+
+            producer = GinkgoProducer()
+            assignment = {
+                "task_uuid": uuid,
+                "command": "cancel",
+            }
+
+            producer.send("backtest.assignments", assignment)
+            producer.flush(timeout=2.0)
+            producer.close()
+
+            # 更新任务状态为stopped
+            self.update_status(uuid, status="stopped")
+
+            GLOG.INFO(f"Stopped backtest task: {uuid}")
+            return ServiceResult.success({"uuid": uuid}, "Backtest task stopped")
+
+        except Exception as e:
+            GLOG.ERROR(f"Failed to stop backtest task {task_id}: {e}")
+            return ServiceResult.error(f"Failed to stop backtest task: {str(e)}")
 
 
 # 向后兼容别名
