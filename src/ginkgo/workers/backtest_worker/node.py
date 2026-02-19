@@ -11,7 +11,7 @@ BacktestWorker Node
 """
 
 from typing import Dict, Optional
-from threading import Thread, Lock, Event
+from threading import Thread, RLock, Event
 from datetime import datetime
 import time
 import logging
@@ -39,7 +39,7 @@ class BacktestWorker:
 
         # 任务管理：{task_uuid: BacktestProcessor}
         self.tasks: Dict[str, BacktestProcessor] = {}
-        self.task_lock = Lock()
+        self.task_lock = RLock()
 
         # Kafka
         self.task_consumer: Optional[GinkgoConsumer] = None
@@ -322,13 +322,18 @@ class BacktestWorker:
             while not self.should_stop:
                 try:
                     time.sleep(1)
+                    # 收集已完成的任务（不持有锁太久）
+                    completed_uuids = []
                     with self.task_lock:
-                        completed_tasks = [
-                            uuid for uuid, p in self.tasks.items()
-                            if not p.is_alive()
-                        ]
-                        for uuid in completed_tasks:
-                            self._remove_task(uuid)
+                        for uuid, p in list(self.tasks.items()):
+                            if not p.is_alive():
+                                completed_uuids.append(uuid)
+
+                    # 移除已完成的任务（_remove_task 会自己获取锁）
+                    for uuid in completed_uuids:
+                        print(f"[Cleanup] Task {uuid[:8]} thread exited, removing...")
+                        self._remove_task(uuid)
+                        print(f"[Cleanup] Task {uuid[:8]} removed, slot available")
                 except Exception as e:
                     print(f"Error in cleanup: {e}")
 
