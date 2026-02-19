@@ -155,6 +155,7 @@ class EngineAssemblyService(BaseService):
         portfolio_configs: Dict[str, Dict[str, Any]] = None,
         portfolio_components: Dict[str, Dict[str, Any]] = None,
         logger: Optional[GinkgoLogger] = None,
+        progress_callback: Optional[callable] = None,
     ) -> ServiceResult:
         """
         统一回测引擎装配方法
@@ -170,6 +171,7 @@ class EngineAssemblyService(BaseService):
             portfolio_configs: 投资组合配置字典（可选）
             portfolio_components: 投资组合组件字典（可选）
             logger: 可选的日志器实例
+            progress_callback: 进度回调函数，签名 callback(progress: float, current_date: str)
 
         Returns:
             ServiceResult containing the assembled engine or error information
@@ -206,6 +208,7 @@ class EngineAssemblyService(BaseService):
                 portfolio_configs=portfolio_configs or {},
                 portfolio_components=portfolio_components or {},
                 logger=logger,
+                progress_callback=progress_callback,
             )
 
             if engine is None:
@@ -589,6 +592,7 @@ class EngineAssemblyService(BaseService):
         portfolio_configs: Dict[str, Dict[str, Any]],
         portfolio_components: Dict[str, Dict[str, Any]],
         logger: GinkgoLogger,
+        progress_callback: Optional[callable] = None,
     ) -> Optional[BaseEngine]:
         """
         执行回测引擎装配的核心逻辑（来自原 assembler_backtest_engine）
@@ -604,7 +608,7 @@ class EngineAssemblyService(BaseService):
             )
 
             # Create base engine
-            engine = self._create_base_engine(engine_data, engine_id, logger)
+            engine = self._create_base_engine(engine_data, engine_id, logger, progress_callback)
             if engine is None:
                 return None
 
@@ -674,7 +678,8 @@ class EngineAssemblyService(BaseService):
             self._current_run_id = None
 
     def _create_base_engine(
-        self, engine_data: Dict[str, Any], engine_id: str, logger: GinkgoLogger
+        self, engine_data: Dict[str, Any], engine_id: str, logger: GinkgoLogger,
+        progress_callback: Optional[callable] = None,
     ) -> Optional[Any]:
         """Create and configure the base historic engine."""
         try:
@@ -685,9 +690,15 @@ class EngineAssemblyService(BaseService):
             engine = TimeControlledEventEngine(
                 name=engine_data["name"],
                 mode=EXECUTION_MODE.BACKTEST,
-                timer_interval=0.01  # 与示例保持一致，提高性能
+                timer_interval=0.01,  # 与示例保持一致，提高性能
+                progress_callback=progress_callback,
             )
             engine.set_engine_id(engine_id)
+
+            # 设置 run_id（用于回测结果聚合器和事件追踪）
+            run_id = engine_data.get("run_id", engine_id)
+            engine.set_run_id(run_id)
+
             engine.add_logger(logger)
 
             # 设置时间范围 - 使用引擎数据库中的时间配置
@@ -932,6 +943,85 @@ class EngineAssemblyService(BaseService):
         except Exception as e:
             self._logger.ERROR(f"Failed to bind components with ID injection: {e}")
             return False
+
+    def _instantiate_component_from_dict(
+        self, component_dict: Dict[str, Any], component_type: str, logger: GinkgoLogger
+    ):
+        """从字典配置实例化组件（支持 WebUI 创建的 portfolio）
+
+        Args:
+            component_dict: 包含 uuid, name, config 的字典
+            component_type: 组件类型 (strategy, selector, sizer, analyzer)
+            logger: 日志记录器
+
+        Returns:
+            tuple: (component_instance, error_message)
+        """
+        try:
+            component_uuid = component_dict.get("uuid", "")
+            component_name = component_dict.get("name", "")
+            component_config = component_dict.get("config", {})
+
+            # 组件名称到类的映射
+            component_registry = {
+                "strategy": {
+                    "random_signal_strategy": ("ginkgo.trading.strategies.random_signal_strategy", "RandomSignalStrategy"),
+                    "randomsignalstrategy": ("ginkgo.trading.strategies.random_signal_strategy", "RandomSignalStrategy"),
+                },
+                "selector": {
+                    "fixed_selector": ("ginkgo.trading.selectors.fixed_selector", "FixedSelector"),
+                    "fixedselector": ("ginkgo.trading.selectors.fixed_selector", "FixedSelector"),
+                    "cnall_selector": ("ginkgo.trading.selectors.cnall_selector", "CNAllSelector"),
+                    "cnallselector": ("ginkgo.trading.selectors.cnall_selector", "CNAllSelector"),
+                },
+                "sizer": {
+                    "fixed_sizer": ("ginkgo.trading.sizers.fixed_sizer", "FixedSizer"),
+                    "fixedsizer": ("ginkgo.trading.sizers.fixed_sizer", "FixedSizer"),
+                },
+                "analyzer": {
+                    "net_value": ("ginkgo.trading.analysis.analyzers.net_value", "NetValue"),
+                    "netvalue": ("ginkgo.trading.analysis.analyzers.net_value", "NetValue"),
+                },
+            }
+
+            # 查找组件类
+            registry = component_registry.get(component_type, {})
+            name_lower = component_name.lower()
+
+            # 尝试匹配（去掉前缀如 strategy_, selector_ 等）
+            for key in [name_lower, name_lower.split("_")[-1] if "_" in name_lower else name_lower]:
+                if key in registry:
+                    module_path, class_name = registry[key]
+                    break
+            else:
+                return None, f"Unknown {component_type}: {component_name}"
+
+            # 动态导入
+            import importlib
+            module = importlib.import_module(module_path)
+            component_class = getattr(module, class_name)
+
+            # 创建实例
+            component = component_class()
+
+            # 应用配置
+            for key, value in component_config.items():
+                if hasattr(component, key):
+                    setattr(component, key, value)
+                elif key == "codes" and hasattr(component, "set_codes"):
+                    # 处理 selector 的 codes 配置
+                    if isinstance(value, str):
+                        value = [c.strip() for c in value.split(",") if c.strip()]
+                    component.set_codes(value)
+                elif key == "volume" and hasattr(component, "set_volume"):
+                    component.set_volume(value)
+
+            self._logger.INFO(f"✅ Instantiated {component_type} from dict: {class_name}")
+            return component, None
+
+        except Exception as e:
+            import traceback
+            return None, f"Failed to instantiate {component_type} from dict: {e}\n{traceback.format_exc()}"
 
     def _perform_component_binding(
         self, portfolio: PortfolioT1Backtest, components: Dict[str, Any], logger: GinkgoLogger
@@ -1260,9 +1350,13 @@ class EngineAssemblyService(BaseService):
                 return False
 
             for strategy_mapping in strategies:
-                strategy, error = _instantiate_component_from_file(
-                    strategy_mapping.file_id, strategy_mapping.type, strategy_mapping.uuid
-                )
+                # 支持两种格式：dict 或 ORM 对象
+                if isinstance(strategy_mapping, dict):
+                    strategy, error = self._instantiate_component_from_dict(strategy_mapping, "strategy", logger)
+                else:
+                    strategy, error = _instantiate_component_from_file(
+                        strategy_mapping.file_id, strategy_mapping.type, strategy_mapping.uuid
+                    )
                 if strategy is None:
                     self._logger.ERROR(f"Failed to instantiate strategy: {error}")
                     return False
@@ -1277,9 +1371,13 @@ class EngineAssemblyService(BaseService):
                 self._logger.ERROR(f"No selector found for portfolio {portfolio_id}")
                 return False
             selector_mapping = selectors[0]
-            selector, error = _instantiate_component_from_file(
-                selector_mapping.file_id, selector_mapping.type, selector_mapping.uuid
-            )
+            # 支持两种格式：dict 或 ORM 对象
+            if isinstance(selector_mapping, dict):
+                selector, error = self._instantiate_component_from_dict(selector_mapping, "selector", logger)
+            else:
+                selector, error = _instantiate_component_from_file(
+                    selector_mapping.file_id, selector_mapping.type, selector_mapping.uuid
+                )
             if selector is None:
                 self._logger.ERROR(f"Failed to instantiate selector: {error}")
                 return False
@@ -1300,9 +1398,13 @@ class EngineAssemblyService(BaseService):
                 self._logger.ERROR(f"No sizer found for portfolio {portfolio_id}")
                 return False
             sizer_mapping = sizers[0]
-            sizer, error = _instantiate_component_from_file(
-                sizer_mapping.file_id, sizer_mapping.type, sizer_mapping.uuid
-            )
+            # 支持两种格式：dict 或 ORM 对象
+            if isinstance(sizer_mapping, dict):
+                sizer, error = self._instantiate_component_from_dict(sizer_mapping, "sizer", logger)
+            else:
+                sizer, error = _instantiate_component_from_file(
+                    sizer_mapping.file_id, sizer_mapping.type, sizer_mapping.uuid
+                )
             if sizer is None:
                 self._logger.ERROR(f"Failed to instantiate sizer: {error}")
                 return False
