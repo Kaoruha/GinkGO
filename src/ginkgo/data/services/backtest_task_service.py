@@ -453,7 +453,7 @@ class BacktestTaskService(BaseService):
         try:
             updates = {}
             if progress is not None:
-                updates["progress"] = str(min(100.0, max(0.0, progress)))
+                updates["progress"] = int(min(100, max(0, progress)))
             if current_stage is not None:
                 updates["current_stage"] = current_stage
             if current_date is not None:

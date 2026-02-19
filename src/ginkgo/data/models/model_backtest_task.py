@@ -49,18 +49,24 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
     __tablename__ = "backtest_task"
 
     # 执行标识信息
-    task_id: Mapped[str] = mapped_column(String(128), unique=True, comment="任务会话ID")
+    task_id: Mapped[str] = mapped_column(String(128), unique=True, comment="任务ID（等于uuid）")
+    name: Mapped[str] = mapped_column(String(255), default="", comment="任务名称（用户可读标识）")
     engine_id: Mapped[str] = mapped_column(String(64), default="", comment="所属引擎ID")
     portfolio_id: Mapped[str] = mapped_column(String(32), default="", comment="关联投资组合ID")
 
     # 运行时间信息
-    start_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), comment="开始时间")
+    start_time: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, default=None, comment="开始时间")
     end_time: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), default=None, comment="结束时间")
     duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, default=None, comment="运行时长(秒)")
 
     # 运行状态
-    status: Mapped[str] = mapped_column(String(32), default="running", comment="运行状态: running/completed/failed/stopped")
+    status: Mapped[str] = mapped_column(String(32), default="created", comment="运行状态: created/pending/running/completed/failed/stopped")
     error_message: Mapped[Optional[str]] = mapped_column(Text, default="", comment="错误信息")
+
+    # 进度信息（SSE推送支持）
+    progress: Mapped[int] = mapped_column(Integer, default=0, comment="进度百分比 0-100")
+    current_stage: Mapped[str] = mapped_column(String(32), default="", comment="当前阶段: DATA_PREPARING/ENGINE_BUILDING/RUNNING/FINALIZING")
+    current_date: Mapped[str] = mapped_column(String(32), default="", comment="当前处理的业务日期")
 
     # 业务统计
     total_orders: Mapped[int] = mapped_column(Integer, default=0, comment="订单总数")
@@ -94,6 +100,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
     def _(
         self,
         task_id: str,
+        name: str = "",
         engine_id: str = "",
         portfolio_id: str = "",
         start_time: Optional[datetime.datetime] = None,
@@ -118,6 +125,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
         **kwargs,
     ) -> None:
         self.task_id = task_id
+        self.name = name
         self.engine_id = engine_id
         self.portfolio_id = portfolio_id
         self.status = status
@@ -279,6 +287,25 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
             self.total_positions = total_positions
         if total_events is not None:
             self.total_events = total_events
+
+        self.update_at = datetime.datetime.now()
+
+    def update_progress(self, progress: int = None, current_stage: str = None,
+                        current_date: str = None) -> None:
+        """
+        更新任务进度（用于SSE实时推送）
+
+        Args:
+            progress (int): 进度百分比 0-100
+            current_stage (str): 当前阶段
+            current_date (str): 当前处理的业务日期
+        """
+        if progress is not None:
+            self.progress = int(min(100, max(0, progress)))
+        if current_stage is not None:
+            self.current_stage = current_stage
+        if current_date is not None:
+            self.current_date = current_date
 
         self.update_at = datetime.datetime.now()
 

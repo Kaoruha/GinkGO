@@ -929,9 +929,9 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
                 elapsed_days = (current_time - start_time).days
 
                 if total_days > 0:
-                    progress = min(100.0, max(0.0, (elapsed_days / total_days) * 100))
+                    progress = int(min(100, max(0, (elapsed_days / total_days) * 100)))
                 else:
-                    progress = 100.0
+                    progress = 100
 
                 # 调用回调
                 self._progress_callback(progress, str(current_time.date()))
