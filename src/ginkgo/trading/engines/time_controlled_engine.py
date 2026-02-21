@@ -471,6 +471,7 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             # 3. 发送Portfolio时间推进事件（异步，通过事件队列）
             from ginkgo.trading.events.component_time_advance import EventComponentTimeAdvance
 
+            print(f"[TIME ADVANCE] Putting EventComponentTimeAdvance for portfolio at {target_time}")
             self.put(EventComponentTimeAdvance(target_time, "portfolio"))
 
             # 4. Feeder.advance_time通过EventComponentTimeAdvance事件驱动机制处理
@@ -493,14 +494,19 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             target_time = info.target_time
             component_type = info.component_type
 
+            print(f"[COMPONENT TIME ADVANCE] Handling component_type={component_type}, target_time={target_time}")
+
             if component_type == "portfolio":
                 # 阶段1：推进Portfolio时间
+                print(f"[COMPONENT TIME ADVANCE] Found {len(self.portfolios)} portfolios")
                 self.log("DEBUG", f"{self.name}: 🔍 [PORTFOLIO LOOP] Found {len(self.portfolios)} portfolios")
                 for i, portfolio in enumerate(self.portfolios):
                     try:
+                        print(f"[COMPONENT TIME ADVANCE] Calling advance_time on portfolio #{i+1}: {portfolio.name}")
                         self.log("DEBUG", f"{self.name}: 🔍 [PORTFOLIO LOOP #{i+1}] About to call advance_time on {portfolio.name} (uuid: {getattr(portfolio, 'uuid', 'N/A')})")
                         portfolio.advance_time(target_time)
                         # Portfolio内部会发送EventInterestUpdate（如果兴趣集有变化）
+                        print(f"[COMPONENT TIME ADVANCE] Portfolio {portfolio.name} advanced to {target_time}")
                         self.log("DEBUG", f"{self.name}: Portfolio {portfolio.name} advanced to {target_time}")
                     except Exception as e:
                         self.log("ERROR", f"{self.name}: Portfolio time advance error: {e}")
@@ -703,7 +709,8 @@ class TimeControlledEventEngine(EventEngine, ITimeAwareComponent):
             "PortfolioT1Backtest": {
                 EVENT_TYPES.PRICEUPDATE: "on_price_received",  # 注意：PortfolioT1Backtest使用on_price_received
                 EVENT_TYPES.SIGNALGENERATION: "on_signal",
-                # EVENT_TYPES.ORDERPARTIALLYFILLED: "on_order_partially_filled",  # 移除：让Router处理
+                # ORDERPARTIALLYFILLED 通过 TradeGateway 路由，不需要直接注册
+                EVENT_TYPES.ORDERFILLED: "on_order_filled",  # 直接注册，确保订单完全成交处理
                 EVENT_TYPES.POSITIONUPDATE: "on_position_update",
                 EVENT_TYPES.CAPITALUPDATE: "on_capital_update",
                 EVENT_TYPES.PORTFOLIOUPDATE: "on_portfolio_update",
