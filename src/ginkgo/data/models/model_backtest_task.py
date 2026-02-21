@@ -49,10 +49,14 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
     __tablename__ = "backtest_task"
 
     # 执行标识信息
-    task_id: Mapped[str] = mapped_column(String(128), unique=True, comment="任务ID（等于uuid）")
+    run_id: Mapped[str] = mapped_column(String(32), unique=True, comment="运行会话ID（统一标识）")
     name: Mapped[str] = mapped_column(String(255), default="", comment="任务名称（用户可读标识）")
     engine_id: Mapped[str] = mapped_column(String(64), default="", comment="所属引擎ID")
     portfolio_id: Mapped[str] = mapped_column(String(32), default="", comment="关联投资组合ID")
+
+    # 回测数据区间
+    backtest_start_date: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="回测开始日期")
+    backtest_end_date: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, comment="回测结束日期")
 
     # 运行时间信息
     start_time: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True, default=None, comment="开始时间")
@@ -99,7 +103,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
     @update.register(str)
     def _(
         self,
-        task_id: str,
+        run_id: str,
         name: str = "",
         engine_id: str = "",
         portfolio_id: str = "",
@@ -124,7 +128,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
         *args,
         **kwargs,
     ) -> None:
-        self.task_id = task_id
+        self.run_id = run_id
         self.name = name
         self.engine_id = engine_id
         self.portfolio_id = portfolio_id
@@ -166,7 +170,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
     @update.register(pd.Series)
     def _(self, df: pd.Series, *args, **kwargs) -> None:
         required_fields = {
-            "task_id", "start_time", "status"
+            "run_id", "start_time", "status"
         }
 
         # 验证必填字段
@@ -174,7 +178,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
         if missing_fields:
             raise ValueError(f"Missing required fields: {missing_fields}")
 
-        self.task_id = df["task_id"]
+        self.run_id = df["run_id"]
         self.start_time = datetime_normalize(df["start_time"])
         self.status = df["status"]
 
@@ -318,7 +322,7 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
         """
         return {
             'uuid': self.uuid,
-            'task_id': self.task_id,
+            'run_id': self.run_id,
             'engine_id': self.engine_id,
             'portfolio_id': self.portfolio_id,
             'status': self.status,
@@ -341,6 +345,11 @@ class MBacktestTask(MMysqlBase, MBacktestRecordBase):
             },
             'error_message': self.error_message if self.error_message else None
         }
+
+    @property
+    def task_id(self) -> str:
+        """向后兼容属性，返回 run_id"""
+        return self.run_id
 
     def __repr__(self) -> str:
         return base_repr(self, f"BacktestTask[{self.status}]", 12, 80)
