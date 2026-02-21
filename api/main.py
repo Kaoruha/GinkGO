@@ -313,7 +313,7 @@ async def get_backtest(backtest_id: str):
 
 class BacktestCreateRequest(BaseModel):
     """创建回测任务请求"""
-    task_id: str
+    name: str = ""  # 用户可读名称
     engine_id: str = ""
     portfolio_id: str = ""
     start_date: Optional[str] = None  # YYYY-MM-DD 格式
@@ -323,36 +323,26 @@ class BacktestCreateRequest(BaseModel):
 
 @app.post("/api/v1/backtest")
 async def create_backtest(request: BacktestCreateRequest):
-    """创建回测任务"""
+    """创建回测任务（task_id 自动生成，等于 uuid）"""
     try:
+        # 校验 portfolio_id 必填
+        if not request.portfolio_id:
+            raise HTTPException(status_code=400, detail="portfolio_id is required")
+
         task_service = get_backtest_task_service()
 
-        # 检查 task_id 是否已存在
-        existing = task_service.exists(task_id=request.task_id)
-        if existing.is_success() and existing.data.get("exists"):
-            raise HTTPException(status_code=400, detail=f"Task ID '{request.task_id}' already exists")
-
-        # 解析日期
-        start_time = None
-        end_time = None
+        # 解析日期（存入 config_snapshot）
+        config = request.config_snapshot.copy() if request.config_snapshot else {}
         if request.start_date:
-            try:
-                start_time = datetime.strptime(request.start_date, "%Y-%m-%d")
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid start_date format, expected YYYY-MM-DD")
+            config["start_date"] = request.start_date
         if request.end_date:
-            try:
-                end_time = datetime.strptime(request.end_date, "%Y-%m-%d")
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid end_date format, expected YYYY-MM-DD")
+            config["end_date"] = request.end_date
 
         result = task_service.create(
-            task_id=request.task_id,
+            name=request.name,
             engine_id=request.engine_id,
             portfolio_id=request.portfolio_id,
-            config_snapshot=request.config_snapshot,
-            start_time=start_time or datetime.now(),
-            end_time=end_time,
+            config_snapshot=config,
         )
 
         if result.is_success():
@@ -381,6 +371,65 @@ async def delete_backtest(backtest_id: str):
     except Exception as e:
         print(f"[ERROR] Failed to delete backtest {backtest_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class BacktestStartRequest(BaseModel):
+    """启动回测任务请求"""
+    portfolio_uuid: str
+    name: str = ""
+    start_date: str = ""
+    end_date: str = ""
+    initial_cash: float = 100000.0
+    analyzers: list = []
+
+
+@app.post("/api/v1/backtest/{backtest_id}/start")
+async def start_backtest(backtest_id: str, request: BacktestStartRequest = None):
+    """启动回测任务（发送到Kafka队列）"""
+    task_service = get_backtest_task_service()
+
+    # 获取任务以检查 portfolio_id
+    task_result = task_service.get_by_id(backtest_id)
+    if not task_result.is_success() or not task_result.data:
+        raise HTTPException(status_code=404, detail="Backtest task not found")
+
+    task = task_result.data
+    # 优先使用请求中的 portfolio_uuid，否则使用任务创建时的 portfolio_id
+    portfolio_uuid = None
+    if request and request.portfolio_uuid:
+        portfolio_uuid = request.portfolio_uuid
+    elif task.portfolio_id:
+        portfolio_uuid = task.portfolio_id
+
+    # 校验必须有有效的 portfolio_uuid
+    if not portfolio_uuid:
+        raise HTTPException(
+            status_code=400,
+            detail="portfolio_uuid is required. Please select a portfolio when creating the task."
+        )
+
+    result = task_service.start_task(
+        uuid=backtest_id,  # backtest_id 就是 uuid
+        portfolio_uuid=portfolio_uuid,
+        name=request.name if request else None,
+        start_date=request.start_date if request else "",
+        end_date=request.end_date if request else "",
+        initial_cash=request.initial_cash if request else 100000.0,
+        analyzers=request.analyzers if request else [],
+    )
+    if result.is_success():
+        return {"success": True, "task_id": result.data.get("uuid"), "message": result.message}
+    raise HTTPException(status_code=404 if "not found" in result.error.lower() else 500, detail=result.error)
+
+
+@app.post("/api/v1/backtest/{backtest_id}/stop")
+async def stop_backtest(backtest_id: str):
+    """停止回测任务（发送取消命令到Kafka）"""
+    task_service = get_backtest_task_service()
+    result = task_service.stop_task(uuid=backtest_id)  # backtest_id 就是 uuid
+    if result.is_success():
+        return {"success": True, "task_id": result.data.get("uuid"), "message": result.message}
+    raise HTTPException(status_code=404 if "not found" in result.error.lower() else 500, detail=result.error)
 
 
 @app.get("/api/v1/backtest/{backtest_id}/netvalue")
@@ -415,6 +464,106 @@ async def compare_backtests(ids: str = Query(..., description="逗号分隔的�
         return {"data": {}}
 
 
+@app.get("/api/v1/backtest/{backtest_id}/progress")
+async def get_backtest_progress(backtest_id: str):
+    """获取回测任务进度"""
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.get_by_id(backtest_id)
+        if result.is_success() and result.data:
+            task = result.data
+            return {
+                "run_id": task.run_id,
+                "status": task.status,
+                "progress": float(task.progress) if task.progress else 0,
+                "current_stage": task.current_stage or "",
+                "current_date": task.current_date or "",
+                "total_orders": task.total_orders or 0,
+                "total_signals": task.total_signals or 0,
+                "total_events": task.total_events or 0,
+            }
+        raise HTTPException(status_code=404, detail="Backtest task not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Failed to get progress for {backtest_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/backtest/{backtest_id}/progress/stream")
+async def stream_backtest_progress(backtest_id: str):
+    """SSE 实时进度推送"""
+    async def event_generator():
+        import time as time_module
+        task_service = get_backtest_task_service()
+        last_progress = -1
+        last_stage = ""
+        consecutive_errors = 0
+        max_errors = 5
+
+        while True:
+            try:
+                result = task_service.get_by_id(backtest_id)
+                if result.is_success() and result.data:
+                    task = result.data
+                    current_progress = float(task.progress) if task.progress else 0
+                    current_stage = task.current_stage or ""
+                    status = task.status
+
+                    # 只有在进度或阶段变化时才发送，或者任务完成/失败时
+                    if (current_progress != last_progress or
+                        current_stage != last_stage or
+                        status in ["completed", "failed", "stopped"]):
+
+                        data = {
+                            "run_id": task.run_id,
+                            "status": status,
+                            "progress": current_progress,
+                            "current_stage": current_stage,
+                            "current_date": task.current_date or "",
+                            "total_orders": task.total_orders or 0,
+                            "total_signals": task.total_signals or 0,
+                            "total_events": task.total_events or 0,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+
+                        yield f"data: {json.dumps(data)}\n\n"
+
+                        last_progress = current_progress
+                        last_stage = current_stage
+                        consecutive_errors = 0
+
+                        # 任务结束，关闭连接
+                        if status in ["completed", "failed", "stopped"]:
+                            break
+                    else:
+                        # 发送心跳
+                        yield f": heartbeat\n\n"
+                else:
+                    consecutive_errors += 1
+                    if consecutive_errors >= max_errors:
+                        yield f"event: error\ndata: {json.dumps({'error': 'Task not found'})}\n\n"
+                        break
+
+            except Exception as e:
+                consecutive_errors += 1
+                if consecutive_errors >= max_errors:
+                    yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+                    break
+
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
 @app.get("/api/v1/backtest/{backtest_id}/analyzers")
 async def get_backtest_analyzers(backtest_id: str):
     """获取回测任务挂载的所有分析器及其最新值"""
@@ -426,12 +575,12 @@ async def get_backtest_analyzers(backtest_id: str):
             raise HTTPException(status_code=404, detail="Backtest task not found")
 
         task = task_result.data
-        task_id = task.task_id if hasattr(task, 'task_id') else task.get('task_id')
+        run_id = task.run_id if hasattr(task, 'run_id') else task.get('run_id')
         portfolio_id = task.portfolio_id if hasattr(task, 'portfolio_id') else task.get('portfolio_id')
 
         # 获取运行摘要（包含分析器列表）
         result_service = service_hub.data.result_service()
-        summary_result = result_service.get_run_summary(task_id)
+        summary_result = result_service.get_run_summary(run_id)
 
         analyzers = []
         if summary_result.is_success() and summary_result.data:
@@ -450,7 +599,7 @@ async def get_backtest_analyzers(backtest_id: str):
                     # 获取统计信息
                     if portfolio_id:
                         stats_result = result_service.get_analyzer_stats(
-                            run_id=task_id,
+                            run_id=run_id,
                             portfolio_id=portfolio_id,
                             analyzer_name=name
                         )
@@ -464,7 +613,7 @@ async def get_backtest_analyzers(backtest_id: str):
                 analyzers.append(analyzer_info)
 
         return {
-            "task_id": task_id,
+            "run_id": run_id,
             "portfolio_id": portfolio_id,
             "analyzers": analyzers,
             "total_count": len(analyzers)
@@ -474,6 +623,189 @@ async def get_backtest_analyzers(backtest_id: str):
     except Exception as e:
         print(f"[ERROR] Failed to get analyzers for backtest {backtest_id}: {e}")
         return {"task_id": None, "portfolio_id": None, "analyzers": [], "total_count": 0}
+
+
+@app.get("/api/v1/backtest/{backtest_id}/analyzer/{analyzer_name}")
+async def get_analyzer_timeseries(backtest_id: str, analyzer_name: str):
+    """获取指定分析器的时序数据"""
+    try:
+        # 获取回测任务信息
+        task_service = get_backtest_task_service()
+        task_result = task_service.get_by_id(backtest_id)
+        if not task_result.is_success() or not task_result.data:
+            raise HTTPException(status_code=404, detail="Backtest task not found")
+
+        task = task_result.data
+        run_id = task.run_id if hasattr(task, 'run_id') else task.get('run_id')
+        portfolio_id = task.portfolio_id if hasattr(task, 'portfolio_id') else task.get('portfolio_id')
+
+        # 获取分析器时序数据
+        result_service = service_hub.data.result_service()
+        data_result = result_service.get_analyzer_values(
+            run_id=run_id,
+            portfolio_id=portfolio_id,
+            analyzer_name=analyzer_name
+        )
+
+        data = []
+        stats = None
+
+        if data_result.is_success() and data_result.data:
+            raw_data = data_result.data
+            # 转换为前端友好格式
+            # raw_data 可能是 ModelList 或 list
+            for record in raw_data:
+                timestamp = getattr(record, 'timestamp', None) or getattr(record, 'business_timestamp', None)
+                value = getattr(record, 'value', None)
+                if timestamp:
+                    if hasattr(timestamp, 'strftime'):
+                        time_str = timestamp.strftime('%Y-%m-%d')
+                    else:
+                        time_str = str(timestamp)[:10]
+                    data.append({
+                        "time": time_str,
+                        "value": float(value) if value is not None else None
+                    })
+
+            # 获取统计信息
+            stats_result = result_service.get_analyzer_stats(
+                run_id=run_id,
+                portfolio_id=portfolio_id,
+                analyzer_name=analyzer_name
+            )
+            if stats_result.is_success() and stats_result.data:
+                stats = stats_result.data
+
+        return {
+            "analyzer_name": analyzer_name,
+            "data": data,
+            "stats": stats,
+            "count": len(data)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Failed to get analyzer timeseries {analyzer_name}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"analyzer_name": analyzer_name, "data": [], "stats": None, "count": 0}
+
+
+@app.get("/api/v1/backtest/{backtest_id}/signals")
+async def get_backtest_signals(
+    backtest_id: str,
+    page: int = Query(0, ge=0),
+    size: int = Query(100, ge=1, le=500)
+):
+    """获取回测的信号记录"""
+    try:
+        result_service = service_hub.data.result_service()
+        result = result_service.get_signals(run_id=backtest_id, page=page, page_size=size)
+
+        if not result.is_success() or not result.data:
+            return {"data": [], "total": 0, "page": page, "size": size}
+
+        raw_data = result.data.get("data", [])
+        total = result.data.get("total", 0)
+
+        signals = []
+        for signal in raw_data:
+            # direction 是 int 类型: 1=LONG, -1=SHORT
+            direction_val = signal.direction if hasattr(signal.direction, '__int__') else int(signal.direction) if signal.direction else 0
+            direction_str = "LONG" if direction_val == 1 else "SHORT" if direction_val == -1 else "UNKNOWN"
+
+            signals.append({
+                "uuid": signal.uuid,
+                "code": signal.code,
+                "direction": direction_str,
+                "reason": signal.reason or "",
+                "volume": signal.volume or 0,
+                "weight": float(signal.weight) if signal.weight else 0,
+                "strength": float(signal.strength) if signal.strength else 0,
+                "confidence": float(signal.confidence) if signal.confidence else 0,
+                "portfolio_id": signal.portfolio_id,
+                "timestamp": signal.timestamp.isoformat() if signal.timestamp else None,
+                "business_timestamp": signal.business_timestamp.isoformat() if hasattr(signal, 'business_timestamp') and signal.business_timestamp else None,
+            })
+
+        return {"data": signals, "total": total, "page": page, "size": size}
+    except Exception as e:
+        print(f"[ERROR] Failed to get signals for backtest {backtest_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"data": [], "total": 0, "page": page, "size": size}
+
+
+@app.get("/api/v1/backtest/{backtest_id}/orders")
+async def get_backtest_orders(backtest_id: str):
+    """获取回测的订单记录"""
+    try:
+        result_service = service_hub.data.result_service()
+        result = result_service.get_orders(run_id=backtest_id)
+
+        if not result.is_success() or not result.data:
+            return {"data": [], "total": 0}
+
+        raw_data = result.data.get("data", [])
+        total = result.data.get("total", 0)
+
+        orders = []
+        for order in raw_data:
+            orders.append({
+                "uuid": order.uuid,
+                "order_id": order.order_id,  # 关联的订单ID，用于聚合
+                "code": order.code,
+                "direction": order.direction.value if hasattr(order.direction, 'value') else str(order.direction),
+                "order_type": order.order_type.value if hasattr(order.order_type, 'value') else str(order.order_type),
+                "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+                "volume": order.volume or 0,
+                "limit_price": float(order.limit_price) if order.limit_price else 0,
+                "transaction_price": float(order.transaction_price) if order.transaction_price else 0,
+                "transaction_volume": order.transaction_volume or 0,
+                "fee": float(order.fee) if order.fee else 0,
+                "timestamp": order.timestamp.isoformat() if order.timestamp else None,
+            })
+
+        return {"data": orders, "total": total}
+    except Exception as e:
+        print(f"[ERROR] Failed to get orders for backtest {backtest_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"data": [], "total": 0}
+
+
+@app.get("/api/v1/backtest/{backtest_id}/positions")
+async def get_backtest_positions(backtest_id: str):
+    """获取回测的持仓记录"""
+    try:
+        result_service = service_hub.data.result_service()
+        result = result_service.get_positions(run_id=backtest_id)
+
+        if not result.is_success() or not result.data:
+            return {"data": [], "total": 0}
+
+        raw_data = result.data.get("data", [])
+        total = result.data.get("total", 0)
+
+        positions = []
+        for pos in raw_data:
+            positions.append({
+                "uuid": pos.uuid,
+                "code": pos.code,
+                "volume": pos.volume or 0,
+                "cost": float(pos.cost) if pos.cost else 0,
+                "market_value": float(pos.market_value) if pos.market_value else 0,
+                "profit": float(pos.profit) if pos.profit else 0,
+                "profit_pct": float(pos.profit_pct) if pos.profit_pct else 0,
+                "timestamp": pos.timestamp.isoformat() if pos.timestamp else None,
+            })
+
+        return {"data": positions, "total": total}
+    except Exception as e:
+        print(f"[ERROR] Failed to get positions for backtest {backtest_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"data": [], "total": 0}
 
 
 # ========== 引擎配置相关 ==========
@@ -816,6 +1148,7 @@ def extract_params_from_python(code: bytes) -> list:
 
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
+                class_name = node.name  # 获取类名
                 for item in node.body:
                     if isinstance(item, ast.FunctionDef) and item.name == '__init__':
                         params = []
@@ -852,6 +1185,7 @@ def extract_params_from_python(code: bytes) -> list:
                             # 解析默认值
                             default_idx = i - default_start
                             if default_idx >= 0 and default_idx < len(defaults):
+                                # 有显式默认值
                                 default = defaults[default_idx]
                                 if isinstance(default, ast.Constant):
                                     param["default"] = default.value
@@ -859,9 +1193,36 @@ def extract_params_from_python(code: bytes) -> list:
                                     param["default"] = ",".join([ast.unparse(e) for e in default.elts])
                                 else:
                                     param["default"] = ast.unparse(default)
+                            else:
+                                # 无显式默认值，设置智能默认值
+                                param_name_lower = arg.arg.lower()
 
-                            # 只添加有意义的参数（排除name等通用参数）
-                            if arg.arg not in ('name', 'args', 'kwargs'):
+                                if arg.arg == 'name':
+                                    # name 参数使用类名作为默认值
+                                    param["default"] = class_name
+                                elif param["type"] == "number":
+                                    # 根据参数名推断数字默认值
+                                    if any(kw in param_name_lower for kw in ['rate', 'ratio', 'percent']):
+                                        param["default"] = 0.1  # 比率类参数
+                                    elif any(kw in param_name_lower for kw in ['limit', 'max', 'count', 'size']):
+                                        param["default"] = 100  # 限制类参数
+                                    elif any(kw in param_name_lower for kw in ['period', 'days', 'window', 'length']):
+                                        param["default"] = 10  # 周期类参数
+                                    elif any(kw in param_name_lower for kw in ['threshold', 'min']):
+                                        param["default"] = 1  # 阈值类参数
+                                    else:
+                                        param["default"] = 0
+                                elif param["type"] == "boolean":
+                                    param["default"] = False
+                                else:
+                                    # 字符串类型：根据参数名推断
+                                    if any(kw in param_name_lower for kw in ['code', 'ticker', 'symbol', 'codes', 'tickers', 'symbols']):
+                                        param["default"] = "000001.SZ"  # 股票代码示例
+                                    else:
+                                        param["default"] = ""
+
+                            # 只添加有意义的参数（排除 *args 和 **kwargs）
+                            if arg.arg not in ('args', 'kwargs'):
                                 params.append(param)
 
                         return params
@@ -1207,8 +1568,8 @@ async def create_portfolio(request: PortfolioCreateRequest):
                     if mount_result.success and config:
                         mapping_uuid = mount_result.data.get('mount_id')
                         if mapping_uuid:
-                            # 将config dict转换为index:value格式
-                            params = {i: f"{k}={v}" for i, (k, v) in enumerate(config.items())}
+                            # 将config dict转换为index:value格式（只存储值，不存储key）
+                            params = {i: v for i, v in enumerate(config.values())}
                             mapping_service.create_component_parameters(mapping_uuid, component_uuid, params)
 
             # 挂载仓位管理器
@@ -1235,7 +1596,8 @@ async def create_portfolio(request: PortfolioCreateRequest):
                     if mount_result.success and config:
                         mapping_uuid = mount_result.data.get('mount_id')
                         if mapping_uuid:
-                            params = {i: f"{k}={v}" for i, (k, v) in enumerate(config.items())}
+                            # 将config dict转换为index:value格式（只存储值，不存储key）
+                            params = {i: v for i, v in enumerate(config.values())}
                             mapping_service.create_component_parameters(mapping_uuid, component_uuid, params)
 
             # 挂载风控
@@ -1253,7 +1615,8 @@ async def create_portfolio(request: PortfolioCreateRequest):
                     if mount_result.success and config:
                         mapping_uuid = mount_result.data.get('mount_id')
                         if mapping_uuid:
-                            params = {i: f"{k}={v}" for i, (k, v) in enumerate(config.items())}
+                            # 将config dict转换为index:value格式（只存储值，不存储key）
+                            params = {i: v for i, v in enumerate(config.values())}
                             mapping_service.create_component_parameters(mapping_uuid, component_uuid, params)
 
             # 挂载分析器
@@ -1271,7 +1634,8 @@ async def create_portfolio(request: PortfolioCreateRequest):
                     if mount_result.success and config:
                         mapping_uuid = mount_result.data.get('mount_id')
                         if mapping_uuid:
-                            params = {i: f"{k}={v}" for i, (k, v) in enumerate(config.items())}
+                            # 将config dict转换为index:value格式（只存储值，不存储key）
+                            params = {i: v for i, v in enumerate(config.values())}
                             mapping_service.create_component_parameters(mapping_uuid, component_uuid, params)
 
             portfolio_name = portfolio.get('name') if isinstance(portfolio, dict) else portfolio.name
@@ -1496,36 +1860,17 @@ async def get_bars(
 @app.get("/api/v1/system/status")
 async def get_system_status():
     """获取系统状态"""
-    try:
-        module_status = service_hub.get_module_status()
-        uptime = service_hub.get_uptime()
-
-        return {
-            "status": "running",
-            "version": "0.11.0",
-            "uptime": f"{int(uptime // 3600)}h {int((uptime % 3600) // 60)}m",
-            "modules": module_status,
-            "debug_mode": GCONF.DEBUGMODE,
-        }
-    except Exception as e:
-        print(f"[ERROR] Failed to get system status: {e}")
-        return {"status": "error", "version": "0.11.0", "error": str(e)}
+    from ginkgo.core.core_containers import container as core_container
+    system_service = core_container.services.system()
+    return system_service.get_system_status()
 
 
 @app.get("/api/v1/system/workers")
 async def list_workers():
-    """获取 Worker 列表"""
-    try:
-        # 通过 Redis 获取 worker 状态
-        redis_service = service_hub.data.redis_service()
-        if redis_service:
-            result = redis_service.get_worker_status()
-            if result.success:
-                return {"data": result.data}
-        return {"data": []}
-    except Exception as e:
-        print(f"[ERROR] Failed to list workers: {e}")
-        return {"data": []}
+    """获取所有组件和Worker状态"""
+    from ginkgo.core.core_containers import container as core_container
+    system_service = core_container.services.system()
+    return system_service.get_workers_status()
 
 
 @app.post("/api/v1/system/debug")
