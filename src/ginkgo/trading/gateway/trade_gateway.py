@@ -251,6 +251,9 @@ class TradeGateway(BaseTradeGateway):
         try:
             self.log("DEBUG", f"Processing order synchronously with {broker.__class__.__name__}")
 
+            # 保存 SUBMITTED 状态订单记录（在执行前）
+            self._save_submitted_order_record(order, event)
+
             # 提交事件给broker
             result = broker.submit_order_event(event)
 
@@ -265,6 +268,56 @@ class TradeGateway(BaseTradeGateway):
                 error_message=f"Sync execution error: {str(e)}"
             )
             self._handle_execution_result(error_result)
+
+    # [订单持久化] SUBMITTED 状态持久化位置
+    # 在订单提交给 broker 执行前保存，记录订单已提交状态
+    # NEW 状态由 Portfolio.on_signal() 保存 (t1backtest.py:350)
+    # FILLED/REJECTED/CANCELED 状态由 Portfolio 对应方法保存
+    def _save_submitted_order_record(self, order: Order, event) -> None:
+        """
+        保存 SUBMITTED 状态订单记录到数据库
+
+        Args:
+            order: 订单对象
+            event: 原始事件对象（包含 portfolio_id 等上下文信息）
+        """
+        try:
+            from ginkgo.data.containers import container
+
+            # 获取必要的上下文信息
+            portfolio_id = getattr(event, 'portfolio_id', None)
+            engine_id = self._bound_engine.engine_id if self._bound_engine else None
+            run_id = getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None
+
+            if not all([portfolio_id, engine_id, run_id]):
+                self.log("WARN", f"Missing context for saving SUBMITTED record: portfolio_id={portfolio_id}, engine_id={engine_id}, run_id={run_id}")
+                return
+
+            result_service = container.result_service()
+            result = result_service.create_order_record(
+                order_id=order.uuid,
+                portfolio_id=portfolio_id,
+                engine_id=engine_id,
+                run_id=run_id,
+                code=order.code,
+                direction=order.direction,
+                order_type=order.order_type,
+                status=ORDERSTATUS_TYPES.SUBMITTED,
+                volume=order.volume,
+                limit_price=order.limit_price,
+                frozen=order.frozen_money if hasattr(order, 'frozen_money') else 0,
+                transaction_price=0,
+                transaction_volume=0,
+                remain=order.volume,
+                fee=0,
+                timestamp=order.timestamp,
+                business_timestamp=order.business_timestamp if hasattr(order, 'business_timestamp') else order.timestamp,
+            )
+            print(f"[PERSISTENCE] SUBMITTED order record saved: code={order.code} order_id={order.uuid[:8]}")
+            self.log("INFO", f"Order SUBMITTED record saved: {order.code} {order.uuid[:8]}")
+        except Exception as e:
+            print(f"[PERSISTENCE ERROR] Failed to save SUBMITTED order record: {e}")
+            self.log("ERROR", f"Failed to save SUBMITTED order record: {e}")
 
     def _handle_async_execution(self, order: Order, broker: IBroker, execution_mode: str) -> None:
         """
@@ -798,6 +851,11 @@ class TradeGateway(BaseTradeGateway):
 
         self.log("INFO", f"🔥 [ROUTER] ORDERPARTIALLYFILLED事件处理完成")
 
+    # TODO: [订单持久化] on_order_rejected 未被引擎注册
+    #       ORDERREJECTED 事件直接注册给 Portfolio (engine_assembly_service.py:1562)
+    #       所以此路由方法不会被调用，保留仅为未来扩展考虑
+    #       如需启用路由，需在 time_controlled_engine.py 中添加:
+    #       EVENT_TYPES.ORDERREJECTED: "on_order_rejected"
     def on_order_rejected(self, event) -> None:
         """
         处理ORDERREJECTED事件，按portfolio_id路由到对应的Portfolio
