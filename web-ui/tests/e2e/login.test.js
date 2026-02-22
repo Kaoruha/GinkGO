@@ -12,7 +12,7 @@ const WEB_UI_URL = process.env.WEB_UI_URL || 'http://192.168.50.12:5173'
 async function getPage() {
   const browser = await chromium.connectOverCDP(REMOTE_BROWSER)
   const context = browser.contexts()[0] || await browser.newContext()
-  const page = context.pages()[0] || await context.newPage()
+  const page = context.pages()[0] || context.pages()[0]
   return { browser, page }
 }
 
