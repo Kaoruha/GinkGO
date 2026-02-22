@@ -65,9 +65,20 @@
             </div>
           </template>
           <template v-else-if="column.key === 'status'">
-            <a-tag :color="getStatusColor(record.status)">
-              {{ getStatusLabel(record.status) }}
-            </a-tag>
+            <div class="status-cell">
+              <a-tag :color="getStatusColor(record.status)">
+                {{ getStatusLabel(record.status) }}
+              </a-tag>
+              <!-- 运行中显示进度条 -->
+              <a-progress
+                v-if="record.status === 'running' || record.status === 'pending'"
+                :percent="record.progress || 0"
+                :show-info="true"
+                :stroke-color="{ '0%': '#108ee9', '100%': '#87d068' }"
+                size="small"
+                style="width: 80px; margin-left: 8px;"
+              />
+            </div>
           </template>
           <template v-else-if="column.key === 'total_pnl'">
             <span :style="{ color: parseFloat(record.total_pnl) >= 0 ? '#52c41a' : '#f5222d' }">
@@ -171,12 +182,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { backtestApi, type BacktestTask } from '@/api/modules/backtest'
 import { portfolioApi } from '@/api/modules/portfolio'
+import { useWebSocket } from '@/composables'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -210,7 +222,7 @@ const createForm = reactive({
 // 表格列
 const columns = [
   { title: '任务', key: 'task_info', width: 220 },
-  { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
+  { title: '状态', dataIndex: 'status', key: 'status', width: 200 },
   { title: '总盈亏', dataIndex: 'total_pnl', key: 'total_pnl', width: 100 },
   { title: '订单数', dataIndex: 'total_orders', key: 'total_orders', width: 80 },
   { title: '信号数', dataIndex: 'total_signals', key: 'total_signals', width: 80 },
@@ -445,6 +457,30 @@ onMounted(() => {
   loadBacktests()
   loadPortfolios()
 })
+
+// WebSocket 实时更新
+const { subscribe, isConnected } = useWebSocket()
+
+// 订阅回测进度更新
+let unsubscribe: (() => void) | null = null
+
+onMounted(() => {
+  // 订阅所有回测相关事件
+  unsubscribe = subscribe('*', (data) => {
+    if (data.type === 'progress' || data.type === 'running' ||
+        data.type === 'completed' || data.type === 'failed' ||
+        data.type === 'stopped') {
+      // 收到更新通知，重新加载列表
+      loadBacktests()
+    }
+  })
+})
+
+onUnmounted(() => {
+  if (unsubscribe) {
+    unsubscribe()
+  }
+})
 </script>
 
 <style scoped>
@@ -514,6 +550,13 @@ onMounted(() => {
   font-size: 11px;
   color: #999;
   font-family: monospace;
+}
+
+/* 状态单元格样式 */
+.status-cell {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 /* 可点击表格行样式 */
