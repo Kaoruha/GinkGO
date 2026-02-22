@@ -82,7 +82,7 @@
           </template>
           <template v-else-if="column.key === 'total_pnl'">
             <span :style="{ color: parseFloat(record.total_pnl) >= 0 ? '#52c41a' : '#f5222d' }">
-              {{ formatNumber(record.total_pnl) }}
+              {{ formatPnL(record.total_pnl) }}
             </span>
           </template>
           <template v-else-if="column.key === 'max_drawdown'">
@@ -92,7 +92,7 @@
           </template>
           <template v-else-if="column.key === 'sharpe_ratio'">
             <span :style="{ color: parseFloat(record.sharpe_ratio) >= 1 ? '#52c41a' : '#faad14' }">
-              {{ formatNumber(record.sharpe_ratio) }}
+              {{ formatDecimal(record.sharpe_ratio) }}
             </span>
           </template>
           <template v-else-if="column.key === 'duration'">
@@ -100,6 +100,9 @@
           </template>
           <template v-else-if="column.key === 'start_time'">
             {{ formatDateTime(record.start_time) }}
+          </template>
+          <template v-else-if="column.key === 'create_at'">
+            {{ formatDateTime(record.create_at) }}
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space @click.stop>
@@ -182,26 +185,43 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { backtestApi, type BacktestTask } from '@/api/modules/backtest'
 import { portfolioApi } from '@/api/modules/portfolio'
-import { useWebSocket } from '@/composables'
-import dayjs from 'dayjs'
+import { useWebSocket, useBacktestStatus, useListPage, commonSearchFilters } from '@/composables'
+import { formatPercent, formatDuration, formatDateTime } from '@/utils/format'
 
 const router = useRouter()
 
-// 状态
-const loading = ref(false)
+// 状态格式化
+const { getColor: getStatusColor, getLabel: getStatusLabel } = useBacktestStatus()
+
+// 列表页逻辑
+const {
+  loading,
+  data: backtests,
+  total,
+  page,
+  size,
+  searchKeyword,
+  pagination,
+  filteredData: filteredBacktests,
+  handleTableChange: baseHandleTableChange,
+} = useListPage<BacktestTask, { page: number; size: number; status?: string }>({
+  fetchFn: async (params) => {
+    const res = await backtestApi.list(params)
+    return { data: res.data || [], total: res.total || 0 }
+  },
+  defaultPageSize: 20,
+  searchFilter: commonSearchFilters.byNameAndUuid,
+})
+
+// 额外状态
 const creating = ref(false)
-const backtests = ref<BacktestTask[]>([])
 const portfolios = ref<any[]>([])
-const total = ref(0)
-const page = ref(0)
-const size = ref(20)
-const searchKeyword = ref('')
 const filterStatus = ref('')
 const showCreateModal = ref(false)
 const showNetValueModal = ref(false)
@@ -222,47 +242,29 @@ const createForm = reactive({
 // 表格列
 const columns = [
   { title: '任务', key: 'task_info', width: 220 },
-  { title: '状态', dataIndex: 'status', key: 'status', width: 200 },
+  { title: '状态', dataIndex: 'status', key: 'status', width: 180 },
   { title: '总盈亏', dataIndex: 'total_pnl', key: 'total_pnl', width: 100 },
-  { title: '订单数', dataIndex: 'total_orders', key: 'total_orders', width: 80 },
-  { title: '信号数', dataIndex: 'total_signals', key: 'total_signals', width: 80 },
-  { title: '开始时间', dataIndex: 'start_time', key: 'start_time', width: 140 },
+  { title: '订单数', dataIndex: 'total_orders', key: 'total_orders', width: 70 },
+  { title: '信号数', dataIndex: 'total_signals', key: 'total_signals', width: 70 },
+  { title: '创建时间', dataIndex: 'create_at', key: 'create_at', width: 140 },
   { title: '操作', key: 'action', width: 200, fixed: 'right' },
 ]
 
-// 分页配置
-const pagination = computed(() => ({
-  current: page.value + 1,
-  pageSize: size.value,
-  total: total.value,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (t: number) => `共 ${t} 条`,
-}))
-
-// 筛选后的列表
-const filteredBacktests = computed(() => {
-  if (!searchKeyword.value) return backtests.value
-  const keyword = searchKeyword.value.toLowerCase()
-  return backtests.value.filter(b =>
-    b.name?.toLowerCase().includes(keyword) ||
-    b.run_id?.toLowerCase().includes(keyword) ||
-    b.uuid?.toLowerCase().includes(keyword)
-  )
-})
-
-// 加载回测列表
+// 加载回测列表（带筛选）
 const loadBacktests = async () => {
+  const params: any = {}
+  if (filterStatus.value) {
+    params.status = filterStatus.value
+  }
+  await (loading as any).value || loading
+  // 直接调用 API 以支持筛选参数
   loading.value = true
   try {
-    const params: any = {
+    const res = await backtestApi.list({
       page: page.value,
       size: size.value,
-    }
-    if (filterStatus.value) {
-      params.status = filterStatus.value
-    }
-    const res = await backtestApi.list(params)
+      ...params,
+    })
     backtests.value = res.data || []
     total.value = res.total || 0
   } catch (e: any) {
@@ -283,10 +285,9 @@ const loadPortfolios = async () => {
   }
 }
 
-// 表格变化处理
+// 表格变化处理（需要重新加载数据）
 const handleTableChange = (pag: any) => {
-  page.value = pag.current - 1
-  size.value = pag.pageSize
+  baseHandleTableChange(pag)
   loadBacktests()
 }
 
@@ -301,7 +302,7 @@ const handleCreate = async () => {
   try {
     const taskId = `BT_${Date.now()}`
     await backtestApi.create({
-      name: createForm.name,  // name 作为顶层字段
+      name: createForm.name,
       run_id: taskId,
       portfolio_id: createForm.portfolio_id,
       start_date: createForm.startDate?.format('YYYY-MM-DD'),
@@ -329,30 +330,6 @@ const handleDelete = async (uuid: string) => {
     loadBacktests()
   } catch (e: any) {
     message.error(e.response?.data?.detail || '删除失败')
-  }
-}
-
-// 启动回测
-const handleStart = async (record: BacktestTask) => {
-  try {
-    // 解析 config_snapshot 获取日期
-    let config: any = {}
-    try {
-      config = JSON.parse(record.config_snapshot || '{}')
-    } catch (e) {
-      // ignore
-    }
-
-    await backtestApi.start(record.uuid, {
-      portfolio_uuid: record.portfolio_id,
-      name: record.name || record.run_id,
-      start_date: config.start_date || '',
-      end_date: config.end_date || '',
-    })
-    message.success('回测任务已启动')
-    loadBacktests()
-  } catch (e: any) {
-    message.error(e.response?.data?.detail || '启动失败')
   }
 }
 
@@ -388,7 +365,6 @@ const viewNetValue = async (record: BacktestTask) => {
   try {
     const res = await backtestApi.getNetValue(record.uuid)
     netValueData.value = res
-    // 等待 DOM 更新后渲染图表
     await nextTick()
     renderChart()
   } catch (e) {
@@ -399,10 +375,9 @@ const viewNetValue = async (record: BacktestTask) => {
   }
 }
 
-// 渲染图表（简单实现，实际应使用 ECharts）
+// 渲染图表
 const renderChart = () => {
   if (!chartRef.value || !netValueData.value) return
-  // TODO: 使用 ECharts 渲染净值曲线
   chartRef.value.innerHTML = '<p style="text-align: center; padding: 40px; color: #999;">净值曲线图表（待实现 ECharts 渲染）</p>'
 }
 
@@ -415,53 +390,16 @@ const resetForm = () => {
   createForm.initialCapital = 1000000
 }
 
-// 工具函数
-const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    created: 'default',
-    pending: 'warning',
-    running: 'processing',
-    completed: 'success',
-    failed: 'error',
-    stopped: 'default',
-  }
-  return colors[status] || 'default'
-}
-
-const getStatusLabel = (status: string) => {
-  const labels: Record<string, string> = {
-    created: '待启动',
-    pending: '等待中',
-    running: '运行中',
-    completed: '已完成',
-    failed: '失败',
-    stopped: '已停止',
-  }
-  return labels[status] || status
-}
-
-const formatNumber = (val: string) => {
+// 格式化数字（保留两位小数）
+const formatDecimal = (val: string) => {
   const num = parseFloat(val)
   if (isNaN(num)) return '-'
   return num.toFixed(2)
 }
 
-const formatPercent = (val: string) => {
-  const num = parseFloat(val)
-  if (isNaN(num)) return '-'
-  return (num * 100).toFixed(2) + '%'
-}
-
-const formatDuration = (seconds?: number) => {
-  if (!seconds) return '-'
-  if (seconds < 60) return `${seconds}秒`
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}分${seconds % 60}秒`
-  return `${Math.floor(seconds / 3600)}时${Math.floor((seconds % 3600) / 60)}分`
-}
-
-const formatDateTime = (dateStr?: string) => {
-  if (!dateStr) return '-'
-  return dayjs(dateStr).format('MM-DD HH:mm:ss')
+// 格式化盈亏
+const formatPnL = (val: string) => {
+  return formatDecimal(val)
 }
 
 onMounted(() => {
@@ -470,27 +408,31 @@ onMounted(() => {
 })
 
 // WebSocket 实时更新
-const { subscribe, isConnected } = useWebSocket()
-
-// 订阅回测进度更新
+const { subscribe } = useWebSocket()
 let unsubscribe: (() => void) | null = null
 
 onMounted(() => {
-  // 订阅所有回测相关事件
   unsubscribe = subscribe('*', (data) => {
-    if (data.type === 'progress' || data.type === 'running' ||
-        data.type === 'completed' || data.type === 'failed' ||
-        data.type === 'stopped') {
-      // 收到更新通知，重新加载列表
-      loadBacktests()
+    const taskId = data.task_id || data.task_uuid
+    if (!taskId) return
+
+    const task = backtests.value.find(b => b.uuid === taskId)
+    if (!task) return
+
+    if (data.type === 'progress') {
+      if (data.progress !== undefined) task.progress = data.progress
+      if (data.total_pnl !== undefined) task.total_pnl = data.total_pnl
+      if (data.total_orders !== undefined) task.total_orders = data.total_orders
+      if (data.total_signals !== undefined) task.total_signals = data.total_signals
+    } else if (data.type === 'completed' || data.type === 'failed' || data.type === 'stopped') {
+      task.status = data.type
+      task.progress = 100
     }
   })
 })
 
 onUnmounted(() => {
-  if (unsubscribe) {
-    unsubscribe()
-  }
+  if (unsubscribe) unsubscribe()
 })
 </script>
 
@@ -551,7 +493,6 @@ onUnmounted(() => {
   padding: 16px 0;
 }
 
-/* 任务名称样式 */
 .task-name {
   font-weight: 500;
   color: #333;
@@ -563,14 +504,12 @@ onUnmounted(() => {
   font-family: monospace;
 }
 
-/* 状态单元格样式 */
 .status-cell {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
 }
 
-/* 可点击表格行样式 */
 :deep(.ant-table-tbody > tr) {
   cursor: pointer;
   transition: background-color 0.2s;
