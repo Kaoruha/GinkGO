@@ -107,7 +107,22 @@
         <div class="card-content">
           <p class="desc">{{ portfolio.desc || '暂无描述' }}</p>
 
-          <div class="metrics">
+          <!-- 回测模式指标 -->
+          <div v-if="portfolio.mode === 0" class="metrics">
+            <div class="metric">
+              <span class="label">回测次数</span>
+              <span class="value">{{ portfolio.backtest_count || 0 }}</span>
+            </div>
+            <div class="metric">
+              <span class="label">平均收益</span>
+              <span class="value" :class="{ positive: portfolio.avg_return >= 0, negative: portfolio.avg_return < 0 }">
+                {{ formatPercentValue(portfolio.avg_return) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 模拟/实盘模式指标 -->
+          <div v-else class="metrics">
             <div class="metric">
               <span class="label">净值</span>
               <span class="value" :class="{ positive: portfolio.net_value >= 1, negative: portfolio.net_value < 1 }">
@@ -116,7 +131,7 @@
             </div>
             <div class="metric">
               <span class="label">初始资金</span>
-              <span class="value">¥{{ (portfolio.initial_cash || 0).toLocaleString() }}</span>
+              <span class="value">{{ formatMoney(portfolio.initial_cash) }}</span>
             </div>
           </div>
 
@@ -124,7 +139,7 @@
             <a-tag :color="getStateColor(portfolio.state)" size="small">
               {{ getStateLabel(portfolio.state) }}
             </a-tag>
-            <span class="date">{{ formatDate(portfolio.created_at) }}</span>
+            <span class="date">{{ formatShortDate(portfolio.created_at) }}</span>
           </div>
         </div>
       </a-card>
@@ -154,12 +169,18 @@ import { message, Modal } from 'ant-design-vue'
 import { PlusOutlined, MoreOutlined, EyeOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { storeToRefs } from 'pinia'
+import { usePortfolioMode, usePortfolioState } from '@/composables'
+import { formatMoney } from '@/utils/format'
 import PortfolioFormEditor from './PortfolioFormEditor.vue'
 
 const router = useRouter()
 const portfolioStore = usePortfolioStore()
 const { portfolios, loading, filterMode, stats, filteredPortfolios } = storeToRefs(portfolioStore)
 const { fetchPortfolios, deletePortfolio } = portfolioStore
+
+// 状态格式化
+const { getColor: getModeColor, getLabel: getModeLabel } = usePortfolioMode()
+const { getColor: getStateColor, getLabel: getStateLabel } = usePortfolioState()
 
 const searchKeyword = ref('')
 const createModalVisible = ref(false)
@@ -174,12 +195,13 @@ const filteredAndSearchedPortfolios = computed(() => {
   )
 })
 
-const getModeColor = (mode: number) => ({ 0: 'blue', 1: 'orange', 2: 'red' }[mode] || 'default')
-const getModeLabel = (mode: number) => ({ 0: '回测', 1: '模拟', 2: '实盘' }[mode] || '未知')
-const getStateColor = (state: number) => ({ 0: 'default', 1: 'green', 2: 'blue', 3: 'red' }[state] || 'default')
-const getStateLabel = (state: number) => ({ 0: '已停止', 1: '运行中', 2: '已完成', 3: '错误' }[state] || '未知')
+// 格式化百分比（用于平均收益）
+const formatPercentValue = (val: number | undefined) => {
+  return ((val || 0) * 100).toFixed(2) + '%'
+}
 
-const formatDate = (dateStr: string) => {
+// 格式化短日期（用于卡片底部）
+const formatShortDate = (dateStr: string) => {
   if (!dateStr) return ''
   const date = new Date(dateStr)
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`
