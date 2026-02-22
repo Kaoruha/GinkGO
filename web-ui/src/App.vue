@@ -436,6 +436,7 @@ const handleUserMenuClick = async ({ key }: { key: string }) => {
 .app-layout {
   height: 100vh;
   overflow: hidden;
+  background: #f0f2f5;
 }
 
 .logo {
@@ -503,19 +504,18 @@ const handleUserMenuClick = async ({ key }: { key: string }) => {
 }
 
 .content {
-  margin: 24px;
   padding: 24px;
   background: #fff;
-  border-radius: 8px;
-  height: calc(100vh - 112px);
-  overflow: hidden;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .content-fullscreen {
   padding: 0;
   background: #1e1e1e;
   border-radius: 8px;
-  height: calc(100vh - 112px);
+  flex: 1;
 }
 
 :deep(.ant-menu) {
@@ -526,6 +526,10 @@ const handleUserMenuClick = async ({ key }: { key: string }) => {
   box-shadow: 2px 0 8px rgba(0, 21, 41, 0.05);
   height: 100vh;
   overflow-y: auto;
+}
+
+:deep(.ant-layout) {
+  height: 100%;
 }
 
 :deep(.ant-layout) {
