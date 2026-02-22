@@ -25,6 +25,8 @@
       <div class="filter-bar">
         <a-radio-group v-model:value="filterStatus" button-style="solid" size="small" @change="loadBacktests">
           <a-radio-button value="">全部</a-radio-button>
+          <a-radio-button value="created">待启动</a-radio-button>
+          <a-radio-button value="pending">等待中</a-radio-button>
           <a-radio-button value="running">运行中</a-radio-button>
           <a-radio-button value="completed">已完成</a-radio-button>
           <a-radio-button value="failed">失败</a-radio-button>
@@ -33,7 +35,7 @@
     </div>
 
     <!-- 可滚动的内容区域 -->
-    <div class="scrollable-content">
+    <div class="scrollable-content table-fill-container">
       <!-- 加载状态 -->
       <div v-if="loading" class="loading-container">
         <a-spin size="large" />
@@ -56,7 +58,13 @@
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'status'">
+          <template v-if="column.key === 'task_info'">
+            <div>
+              <div class="task-name">{{ record.name || '(未命名)' }}</div>
+              <div class="task-uuid">{{ record.uuid }}</div>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'status'">
             <a-tag :color="getStatusColor(record.status)">
               {{ getStatusLabel(record.status) }}
             </a-tag>
@@ -84,6 +92,14 @@
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space @click.stop>
+              <!-- 启动按钮：仅对 created/pending 状态显示 -->
+              <a-popconfirm
+                v-if="record.status === 'created' || record.status === 'pending'"
+                title="确定要启动此回测任务吗？"
+                @confirm="handleStart(record)"
+              >
+                <a-button type="link" size="small" @click.stop>启动</a-button>
+              </a-popconfirm>
               <a-button type="link" size="small" @click.stop="viewDetail(record)">
                 详情
               </a-button>
@@ -139,7 +155,7 @@
     <!-- 净值曲线模态框 -->
     <a-modal
       v-model:open="showNetValueModal"
-      :title="`${currentTask?.task_id || ''} 净值曲线`"
+      :title="`${currentTask?.run_id || ''} 净值曲线`"
       width="800px"
       :footer="null"
     >
@@ -193,15 +209,12 @@ const createForm = reactive({
 
 // 表格列
 const columns = [
-  { title: '任务ID', dataIndex: 'task_id', key: 'task_id', width: 180, ellipsis: true },
+  { title: '任务', key: 'task_info', width: 220 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
-  { title: '总盈亏', dataIndex: 'total_pnl', key: 'total_pnl', width: 120 },
-  { title: '夏普比率', dataIndex: 'sharpe_ratio', key: 'sharpe_ratio', width: 100 },
-  { title: '最大回撤', dataIndex: 'max_drawdown', key: 'max_drawdown', width: 100 },
+  { title: '总盈亏', dataIndex: 'total_pnl', key: 'total_pnl', width: 100 },
   { title: '订单数', dataIndex: 'total_orders', key: 'total_orders', width: 80 },
   { title: '信号数', dataIndex: 'total_signals', key: 'total_signals', width: 80 },
-  { title: '运行时长', key: 'duration', width: 100 },
-  { title: '开始时间', dataIndex: 'start_time', key: 'start_time', width: 160 },
+  { title: '开始时间', dataIndex: 'start_time', key: 'start_time', width: 140 },
   { title: '操作', key: 'action', width: 200, fixed: 'right' },
 ]
 
@@ -220,9 +233,9 @@ const filteredBacktests = computed(() => {
   if (!searchKeyword.value) return backtests.value
   const keyword = searchKeyword.value.toLowerCase()
   return backtests.value.filter(b =>
-    b.task_id?.toLowerCase().includes(keyword) ||
-    b.engine_id?.toLowerCase().includes(keyword) ||
-    b.portfolio_id?.toLowerCase().includes(keyword)
+    b.name?.toLowerCase().includes(keyword) ||
+    b.run_id?.toLowerCase().includes(keyword) ||
+    b.uuid?.toLowerCase().includes(keyword)
   )
 })
 
@@ -276,12 +289,12 @@ const handleCreate = async () => {
   try {
     const taskId = `BT_${Date.now()}`
     await backtestApi.create({
-      task_id: taskId,
+      name: createForm.name,  // name 作为顶层字段
+      run_id: taskId,
       portfolio_id: createForm.portfolio_id,
       start_date: createForm.startDate?.format('YYYY-MM-DD'),
       end_date: createForm.endDate?.format('YYYY-MM-DD'),
       config_snapshot: {
-        name: createForm.name,
         initial_capital: createForm.initialCapital,
       },
     })
@@ -304,6 +317,30 @@ const handleDelete = async (uuid: string) => {
     loadBacktests()
   } catch (e: any) {
     message.error(e.response?.data?.detail || '删除失败')
+  }
+}
+
+// 启动回测
+const handleStart = async (record: BacktestTask) => {
+  try {
+    // 解析 config_snapshot 获取日期
+    let config: any = {}
+    try {
+      config = JSON.parse(record.config_snapshot || '{}')
+    } catch (e) {
+      // ignore
+    }
+
+    await backtestApi.start(record.uuid, {
+      portfolio_uuid: record.portfolio_id,
+      name: record.name || record.run_id,
+      start_date: config.start_date || '',
+      end_date: config.end_date || '',
+    })
+    message.success('回测任务已启动')
+    loadBacktests()
+  } catch (e: any) {
+    message.error(e.response?.data?.detail || '启动失败')
   }
 }
 
@@ -358,6 +395,8 @@ const resetForm = () => {
 // 工具函数
 const getStatusColor = (status: string) => {
   const colors: Record<string, string> = {
+    created: 'default',
+    pending: 'warning',
     running: 'processing',
     completed: 'success',
     failed: 'error',
@@ -368,6 +407,8 @@ const getStatusColor = (status: string) => {
 
 const getStatusLabel = (status: string) => {
   const labels: Record<string, string> = {
+    created: '待启动',
+    pending: '等待中',
     running: '运行中',
     completed: '已完成',
     failed: '失败',
@@ -461,6 +502,18 @@ onMounted(() => {
 
 .net-value-chart {
   padding: 16px 0;
+}
+
+/* 任务名称样式 */
+.task-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.task-uuid {
+  font-size: 11px;
+  color: #999;
+  font-family: monospace;
 }
 
 /* 可点击表格行样式 */

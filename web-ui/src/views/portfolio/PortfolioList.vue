@@ -234,15 +234,14 @@ onMounted(() => fetchPortfolios())
 
 .fixed-header {
   flex-shrink: 0;
-  padding: 24px 24px 0 24px;
-  background: #fff;
+  margin-bottom: 16px;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .header-left {
@@ -253,7 +252,7 @@ onMounted(() => fetchPortfolios())
 
 .header-left h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
 }
 
@@ -263,11 +262,11 @@ onMounted(() => fetchPortfolios())
 }
 
 .filter-bar {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .stats-row {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .stat-card {
@@ -277,7 +276,6 @@ onMounted(() => fetchPortfolios())
 .scrollable-content {
   flex: 1;
   overflow-y: auto;
-  padding: 0 24px 24px 24px;
 }
 
 .loading-container {
@@ -288,8 +286,8 @@ onMounted(() => fetchPortfolios())
 
 .portfolio-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
 }
 
 .portfolio-card {

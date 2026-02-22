@@ -49,11 +49,17 @@ html, body {
 
 // Page container
 .page-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
   .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
+    flex-shrink: 0;
 
     .page-title {
       font-size: 20px;
@@ -68,7 +74,30 @@ html, body {
   }
 
   .page-content {
-    // Content styles
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  // 让 ant-row 填充剩余空间
+  > .ant-row:last-child {
+    flex: 1;
+    align-items: stretch;
+
+    > .ant-col {
+      display: flex;
+
+      > .ant-card {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+
+        > .ant-card-body {
+          flex: 1;
+          overflow: auto;
+        }
+      }
+    }
   }
 }
 
@@ -84,7 +113,34 @@ html, body {
   }
 }
 
-// Table styles
+// Table styles - 表格填满容器
+.table-fill-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  .ant-table-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ant-spin-nested-loading,
+  .ant-spin-container,
+  .ant-table,
+  .ant-table-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ant-table-body {
+    flex: 1;
+    overflow: auto !important;
+  }
+}
+
 .ant-table-wrapper {
   .ant-table-thead > tr > th {
     background: #fafafa;
