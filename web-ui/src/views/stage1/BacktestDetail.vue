@@ -6,11 +6,11 @@
     </div>
 
     <!-- 详情内容 -->
-    <div v-else-if="backtest">
+    <div v-else-if="backtest" class="detail-content">
       <div class="page-header">
         <div class="page-title">
           <a-tag :color="getStatusColor(backtest.status)">{{ getStatusLabel(backtest.status) }}</a-tag>
-          {{ backtest.task_id }}
+          {{ backtest.run_id }}
         </div>
         <a-space>
           <a-button v-if="backtest.status === 'running'" type="primary" danger @click="stopBacktest">停止回测</a-button>
@@ -18,170 +18,195 @@
         </a-space>
       </div>
 
-      <!-- 基本信息 -->
-      <a-card title="基本信息" style="margin-bottom: 16px">
-        <a-descriptions :column="3" bordered size="small">
-          <a-descriptions-item label="任务ID">{{ backtest.task_id }}</a-descriptions-item>
-          <a-descriptions-item label="UUID">
-            <a-typography-text copyable :copy-text="backtest.uuid" style="font-size: 12px;">
-              {{ backtest.uuid?.substring(0, 8) }}...
-            </a-typography-text>
-          </a-descriptions-item>
-          <a-descriptions-item label="状态">
-            <a-tag :color="getStatusColor(backtest.status)">{{ getStatusLabel(backtest.status) }}</a-tag>
-          </a-descriptions-item>
-          <a-descriptions-item label="关联引擎">{{ backtest.engine_id || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="投资组合">{{ backtest.portfolio_id || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="运行时长">{{ formatDuration(backtest.duration_seconds) }}</a-descriptions-item>
-          <a-descriptions-item label="开始时间">{{ formatDateTime(backtest.start_time) }}</a-descriptions-item>
-          <a-descriptions-item label="结束时间">{{ formatDateTime(backtest.end_time) }}</a-descriptions-item>
-          <a-descriptions-item label="创建时间">{{ formatDateTime(backtest.create_at) }}</a-descriptions-item>
-        </a-descriptions>
-      </a-card>
+      <!-- Tab 标签页 -->
+      <a-tabs v-model:activeKey="activeTab">
+        <!-- 概览 -->
+        <a-tab-pane key="overview" tab="概览">
+          <!-- 基本信息 -->
+          <a-card title="基本信息" style="margin-bottom: 16px">
+            <a-descriptions :column="3" bordered size="small">
+              <a-descriptions-item label="任务ID">{{ backtest.run_id }}</a-descriptions-item>
+              <a-descriptions-item label="UUID">
+                <a-typography-text copyable :copy-text="backtest.uuid" style="font-size: 12px;">
+                  {{ backtest.uuid?.substring(0, 8) }}...
+                </a-typography-text>
+              </a-descriptions-item>
+              <a-descriptions-item label="状态">
+                <a-tag :color="getStatusColor(backtest.status)">{{ getStatusLabel(backtest.status) }}</a-tag>
+              </a-descriptions-item>
+              <a-descriptions-item label="关联引擎">{{ backtest.engine_id || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="投资组合">{{ backtest.portfolio_id || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="运行时长">{{ formatDuration(backtest.duration_seconds) }}</a-descriptions-item>
+              <a-descriptions-item label="开始时间">{{ formatDateTime(backtest.start_time) }}</a-descriptions-item>
+              <a-descriptions-item label="结束时间">{{ formatDateTime(backtest.end_time) }}</a-descriptions-item>
+              <a-descriptions-item label="创建时间">{{ formatDateTime(backtest.create_at) }}</a-descriptions-item>
+            </a-descriptions>
+          </a-card>
 
-      <!-- 配置快照 -->
-      <a-card title="配置快照" style="margin-bottom: 16px">
-        <a-descriptions :column="3" bordered size="small">
-          <a-descriptions-item label="配置名称">{{ configSnapshot.name || backtest.task_id }}</a-descriptions-item>
-          <a-descriptions-item label="初始资金">{{ formatMoney(configSnapshot.initial_capital) }}</a-descriptions-item>
-          <a-descriptions-item label="数据源">{{ configSnapshot.data_source || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="回测区间" :span="3">
-            {{ formatDate(backtest.start_time) }} 至 {{ formatDate(backtest.end_time) }}
-          </a-descriptions-item>
-        </a-descriptions>
-      </a-card>
+          <!-- 配置快照 -->
+          <a-card title="配置快照" style="margin-bottom: 16px">
+            <a-descriptions :column="3" bordered size="small">
+              <a-descriptions-item label="配置名称">{{ configSnapshot.name || backtest.run_id }}</a-descriptions-item>
+              <a-descriptions-item label="初始资金">{{ formatMoney(configSnapshot.initial_capital) }}</a-descriptions-item>
+              <a-descriptions-item label="数据源">{{ configSnapshot.data_source || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="回测区间" :span="3">
+                {{ formatDate(backtest.backtest_start_date) || formatDate(backtest.start_time) }} 至 {{ formatDate(backtest.backtest_end_date) || formatDate(backtest.end_time) }}
+              </a-descriptions-item>
+            </a-descriptions>
+          </a-card>
 
-      <!-- 统计指标 -->
-      <a-card title="回测指标" style="margin-bottom: 16px">
-        <a-row :gutter="16">
-          <a-col :span="4">
-            <a-statistic
-              title="最终资产"
-              :value="parseFloat(backtest.final_portfolio_value || '0')"
-              :precision="2"
-              prefix="¥"
-            />
-          </a-col>
-          <a-col :span="4">
-            <a-statistic
-              title="总盈亏"
-              :value="parseFloat(backtest.total_pnl || '0')"
-              :precision="2"
-              :value-style="{ color: pnlColor }"
-            />
-          </a-col>
-          <a-col :span="4">
-            <a-statistic
-              title="年化收益"
-              :value="parseFloat(backtest.annual_return || '0') * 100"
-              :precision="2"
-              suffix="%"
-              :value-style="{ color: parseFloat(backtest.annual_return || '0') >= 0 ? '#52c41a' : '#f5222d' }"
-            />
-          </a-col>
-          <a-col :span="4">
-            <a-statistic title="夏普比率" :value="parseFloat(backtest.sharpe_ratio || '0')" :precision="2" />
-          </a-col>
-          <a-col :span="4">
-            <a-statistic
-              title="最大回撤"
-              :value="parseFloat(backtest.max_drawdown || '0') * 100"
-              :precision="2"
-              suffix="%"
-              :value-style="{ color: parseFloat(backtest.max_drawdown || '0') <= 0.1 ? '#52c41a' : '#f5222d' }"
-            />
-          </a-col>
-          <a-col :span="4">
-            <a-statistic title="胜率" :value="parseFloat(backtest.win_rate || '0') * 100" :precision="1" suffix="%" />
-          </a-col>
-        </a-row>
-      </a-card>
+          <!-- 统计指标 -->
+          <a-card title="回测指标" style="margin-bottom: 16px">
+            <a-row :gutter="16">
+              <a-col :span="4">
+                <a-statistic
+                  title="最终资产"
+                  :value="parseFloat(backtest.final_portfolio_value || '0')"
+                  :precision="2"
+                  prefix="¥"
+                />
+              </a-col>
+              <a-col :span="4">
+                <a-statistic
+                  title="总盈亏"
+                  :value="parseFloat(backtest.total_pnl || '0')"
+                  :precision="2"
+                  :value-style="{ color: pnlColor }"
+                />
+              </a-col>
+              <a-col :span="4">
+                <a-statistic
+                  title="年化收益"
+                  :value="parseFloat(backtest.annual_return || '0') * 100"
+                  :precision="2"
+                  suffix="%"
+                  :value-style="{ color: parseFloat(backtest.annual_return || '0') >= 0 ? '#52c41a' : '#f5222d' }"
+                />
+              </a-col>
+              <a-col :span="4">
+                <a-statistic title="夏普比率" :value="parseFloat(backtest.sharpe_ratio || '0')" :precision="2" />
+              </a-col>
+              <a-col :span="4">
+                <a-statistic
+                  title="最大回撤"
+                  :value="parseFloat(backtest.max_drawdown || '0') * 100"
+                  :precision="2"
+                  suffix="%"
+                  :value-style="{ color: parseFloat(backtest.max_drawdown || '0') <= 0.1 ? '#52c41a' : '#f5222d' }"
+                />
+              </a-col>
+              <a-col :span="4">
+                <a-statistic title="胜率" :value="parseFloat(backtest.win_rate || '0') * 100" :precision="1" suffix="%" />
+              </a-col>
+            </a-row>
+          </a-card>
 
-      <!-- 执行统计 -->
-      <a-card title="执行统计" style="margin-bottom: 16px">
-        <a-row :gutter="24">
-          <a-col :span="4">
-            <a-statistic title="订单数" :value="backtest.total_orders || 0" />
-          </a-col>
-          <a-col :span="4">
-            <a-statistic title="信号数" :value="backtest.total_signals || 0" />
-          </a-col>
-          <a-col :span="4">
-            <a-statistic title="持仓记录" :value="backtest.total_positions || 0" />
-          </a-col>
-          <a-col :span="4">
-            <a-statistic title="事件数" :value="backtest.total_events || 0" />
-          </a-col>
-          <a-col :span="4">
-            <a-statistic title="平均处理" :value="parseFloat(backtest.avg_event_processing_ms || '0')" :precision="1" suffix="ms" />
-          </a-col>
-          <a-col :span="4">
-            <a-statistic title="峰值内存" :value="parseFloat(backtest.peak_memory_mb || '0')" :precision="1" suffix="MB" />
-          </a-col>
-        </a-row>
-      </a-card>
+          <!-- 执行统计 -->
+          <a-card title="执行统计" style="margin-bottom: 16px">
+            <a-row :gutter="24">
+              <a-col :span="4">
+                <a-statistic title="订单数" :value="backtest.total_orders || 0" />
+              </a-col>
+              <a-col :span="4">
+                <a-statistic title="信号数" :value="backtest.total_signals || 0" />
+              </a-col>
+              <a-col :span="4">
+                <a-statistic title="持仓记录" :value="backtest.total_positions || 0" />
+              </a-col>
+              <a-col :span="4">
+                <a-statistic title="事件数" :value="backtest.total_events || 0" />
+              </a-col>
+              <a-col :span="4">
+                <a-statistic title="平均处理" :value="parseFloat(backtest.avg_event_processing_ms || '0')" :precision="1" suffix="ms" />
+              </a-col>
+              <a-col :span="4">
+                <a-statistic title="峰值内存" :value="parseFloat(backtest.peak_memory_mb || '0')" :precision="1" suffix="MB" />
+              </a-col>
+            </a-row>
+          </a-card>
 
-      <!-- 分析器列表 -->
-      <a-card title="分析器" style="margin-bottom: 16px">
-        <a-spin :spinning="analyzersLoading">
-          <a-table
-            v-if="analyzers.length > 0"
-            :columns="analyzerColumns"
-            :data-source="analyzers"
-            :pagination="false"
-            size="small"
-            row-key="name"
-          >
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'name'">
-                <a-tag color="blue">{{ record.name }}</a-tag>
-              </template>
-              <template v-else-if="column.key === 'latest_value'">
-                <span :style="{ color: getAnalyzerValueColor(record.name, record.latest_value) }">
-                  {{ formatAnalyzerValue(record.name, record.latest_value) }}
-                </span>
-              </template>
-              <template v-else-if="column.key === 'stats' && record.stats">
-                <a-tooltip>
-                  <template #title>
-                    <div>最小: {{ formatAnalyzerValue(record.name, record.stats.min) }}</div>
-                    <div>最大: {{ formatAnalyzerValue(record.name, record.stats.max) }}</div>
-                    <div>平均: {{ formatAnalyzerValue(record.name, record.stats.avg) }}</div>
-                    <div>变化: {{ formatAnalyzerValue(record.name, record.stats.change) }}</div>
+          <!-- 分析器列表 -->
+          <a-card title="分析器" style="margin-bottom: 16px">
+            <a-spin :spinning="analyzersLoading">
+              <a-table
+                v-if="analyzers.length > 0"
+                :columns="analyzerColumns"
+                :data-source="analyzers"
+                :pagination="false"
+                size="small"
+                row-key="name"
+              >
+                <template #bodyCell="{ column, record }">
+                  <template v-if="column.key === 'name'">
+                    <a-tag color="blue">{{ record.name }}</a-tag>
                   </template>
-                  <span class="stats-detail">
-                    {{ record.stats.count }} 条记录
-                  </span>
-                </a-tooltip>
-              </template>
-              <template v-else-if="column.key === 'trend' && record.stats">
-                <a-tooltip :title="`首: ${formatAnalyzerValue(record.name, record.stats.first)} → 末: ${formatAnalyzerValue(record.name, record.stats.latest)}`">
-                  <span :style="{ color: record.stats.change >= 0 ? '#52c41a' : '#f5222d' }">
-                    {{ record.stats.change >= 0 ? '↑' : '↓' }} {{ formatAnalyzerValue(record.name, Math.abs(record.stats.change)) }}
-                  </span>
-                </a-tooltip>
-              </template>
-            </template>
-          </a-table>
-          <a-empty v-else description="暂无分析器数据（回测完成后生成）" />
-        </a-spin>
-      </a-card>
+                  <template v-else-if="column.key === 'latest_value'">
+                    <span :style="{ color: getAnalyzerValueColor(record.name, record.latest_value) }">
+                      {{ formatAnalyzerValue(record.name, record.latest_value) }}
+                    </span>
+                  </template>
+                  <template v-else-if="column.key === 'stats' && record.stats">
+                    <a-tooltip>
+                      <template #title>
+                        <div>最小: {{ formatAnalyzerValue(record.name, record.stats.min) }}</div>
+                        <div>最大: {{ formatAnalyzerValue(record.name, record.stats.max) }}</div>
+                        <div>平均: {{ formatAnalyzerValue(record.name, record.stats.avg) }}</div>
+                        <div>变化: {{ formatAnalyzerValue(record.name, record.stats.change) }}</div>
+                      </template>
+                      <span class="stats-detail">
+                        {{ record.stats.count }} 条记录
+                      </span>
+                    </a-tooltip>
+                  </template>
+                  <template v-else-if="column.key === 'trend' && record.stats">
+                    <a-tooltip :title="`首: ${formatAnalyzerValue(record.name, record.stats.first)} → 末: ${formatAnalyzerValue(record.name, record.stats.latest)}`">
+                      <span :style="{ color: record.stats.change >= 0 ? '#52c41a' : '#f5222d' }">
+                        {{ record.stats.change >= 0 ? '↑' : '↓' }} {{ formatAnalyzerValue(record.name, Math.abs(record.stats.change)) }}
+                      </span>
+                    </a-tooltip>
+                  </template>
+                </template>
+              </a-table>
+              <a-empty v-else description="暂无分析器数据（回测完成后生成）" />
+            </a-spin>
+          </a-card>
 
-      <!-- 净值曲线 -->
-      <a-card title="净值曲线">
-        <NetValueChart v-if="netValueData.length > 0" :data="netValueData" :benchmark-data="benchmarkData" :height="350" />
-        <a-empty v-else description="暂无净值数据（回测完成后生成）" />
-      </a-card>
+          <!-- 净值曲线 -->
+          <a-card title="净值曲线">
+            <NetValueChart v-if="netValueData.length > 0" :data="netValueData" :benchmark-data="benchmarkData" :height="350" />
+            <a-empty v-else description="暂无净值数据（回测完成后生成）" />
+          </a-card>
 
-      <!-- 错误信息 -->
-      <a-card v-if="backtest.error_message" title="错误信息" style="margin-top: 16px">
-        <a-alert type="error" :message="backtest.error_message" show-icon />
-      </a-card>
+          <!-- 错误信息 -->
+          <a-card v-if="backtest.error_message" title="错误信息" style="margin-top: 16px">
+            <a-alert type="error" :message="backtest.error_message" show-icon />
+          </a-card>
 
-      <!-- 环境信息 -->
-      <a-card v-if="environmentInfo && Object.keys(environmentInfo).length > 0" title="环境信息" style="margin-top: 16px">
-        <pre class="env-info">{{ JSON.stringify(environmentInfo, null, 2) }}</pre>
-      </a-card>
+          <!-- 环境信息 -->
+          <a-card v-if="environmentInfo && Object.keys(environmentInfo).length > 0" title="环境信息" style="margin-top: 16px">
+            <pre class="env-info">{{ JSON.stringify(environmentInfo, null, 2) }}</pre>
+          </a-card>
+        </a-tab-pane>
+
+        <!-- 分析器详情 -->
+        <a-tab-pane key="analyzers" tab="分析器">
+          <AnalyzerPanel
+            :taskId="backtest.run_id"
+            :portfolioId="backtest.portfolio_id"
+            :analyzers="analyzers"
+          />
+        </a-tab-pane>
+
+        <!-- 交易记录 -->
+        <a-tab-pane key="trades" tab="交易记录">
+          <TradeRecordsPanel :taskId="backtest.run_id" />
+        </a-tab-pane>
+
+        <!-- 日志 -->
+        <a-tab-pane key="logs" tab="日志">
+          <a-empty description="日志功能开发中" />
+        </a-tab-pane>
+      </a-tabs>
     </div>
 
     <!-- 错误状态 -->
@@ -200,6 +225,8 @@ import { message } from 'ant-design-vue'
 import { NetValueChart } from '@/components/charts'
 import type { LineData } from 'lightweight-charts'
 import { backtestApi, type BacktestTask, type AnalyzerInfo } from '@/api/modules/backtest'
+import AnalyzerPanel from './components/AnalyzerPanel.vue'
+import TradeRecordsPanel from './components/TradeRecordsPanel.vue'
 import dayjs from 'dayjs'
 
 const route = useRoute()
@@ -211,6 +238,7 @@ const netValueData = ref<LineData[]>([])
 const benchmarkData = ref<LineData[]>([])
 const analyzers = ref<AnalyzerInfo[]>([])
 const analyzersLoading = ref(false)
+const activeTab = ref('overview')
 
 // 分析器表格列定义
 const analyzerColumns = [
@@ -442,7 +470,16 @@ onMounted(() => {
 
 <style scoped>
 .page-container {
-  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .page-header {
@@ -450,6 +487,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .page-title {
@@ -465,6 +503,7 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   padding: 100px;
+  flex: 1;
 }
 
 .env-info {
