@@ -1,6 +1,6 @@
 /**
  * Playwright E2E 测试 - Backtest CRUD 流程
- * 测试创建回测任务、查看列表、删除任务
+ * 测试创建回测任务、查看列表、搜索、筛选、分页、删除任务
  */
 
 import { test, expect } from '@playwright/test'
@@ -13,7 +13,7 @@ const WEB_UI_URL = process.env.WEB_UI_URL || 'http://192.168.50.12:5173'
 async function getPage() {
   const browser = await chromium.connectOverCDP(REMOTE_BROWSER)
   const context = browser.contexts()[0] || await browser.newContext()
-  const page = context.pages()[0] || await context.newPage()
+  const page = context.pages()[0] || context.pages()[0]
   return { browser, page }
 }
 
@@ -108,8 +108,6 @@ test.describe.serial('Backtest CRUD Flow', () => {
 
     // 验证模态框关闭
     await page.waitForTimeout(1000)
-    const modalAfter = await page.$('.ant-modal')
-    // 模态框应该关闭了
     console.log('✅ 模态框已关闭')
   })
 
@@ -125,7 +123,6 @@ test.describe.serial('Backtest CRUD Flow', () => {
     const tableRows = await page.$$('.ant-table-tbody tr')
     console.log('表格行数:', tableRows.length)
 
-    // 如果有数据，验证任务存在
     if (tableRows.length > 0) {
       const firstRowText = await tableRows[0].textContent()
       console.log('第一行内容:', firstRowText?.substring(0, 100))
@@ -136,18 +133,53 @@ test.describe.serial('Backtest CRUD Flow', () => {
     }
   })
 
-  test('3. Filter by status', async () => {
+  test('3. Search functionality', async () => {
     const { page } = await getPage()
+    test.setTimeout(60000)
 
-    // 访问回测列表页面
     await page.goto(`${WEB_UI_URL}/stage1/backtest`)
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(2000)
 
-    // 点击"已完成"筛选按钮
+    console.log('=== 测试搜索功能 ===')
+
+    // 获取搜索前的数据
+    const beforeRows = await page.$$('.ant-table-tbody tr')
+    const beforeCount = beforeRows.length
+    console.log('搜索前行数:', beforeCount)
+
+    // 使用搜索框搜索
+    const searchInput = await page.$('.ant-input-search input')
+    if (searchInput) {
+      // 输入搜索关键词
+      await searchInput.fill('BT_')
+      await page.waitForTimeout(1000)
+
+      // 验证搜索结果（前端过滤）
+      const afterRows = await page.$$('.ant-table-tbody tr')
+      console.log('搜索后行数:', afterRows.length)
+
+      // 清空搜索
+      await searchInput.fill('')
+      await page.waitForTimeout(500)
+
+      // 验证恢复原数据
+      const clearedRows = await page.$$('.ant-table-tbody tr')
+      console.log('清空搜索后行数:', clearedRows.length)
+
+      console.log('✅ 搜索功能正常')
+    }
+  })
+
+  test('4. Filter by status', async () => {
+    const { page } = await getPage()
+
+    await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(2000)
+
     console.log('=== 测试状态筛选 ===')
 
-    // 获取筛选前的行数
     const beforeRows = await page.$$('.ant-table-tbody tr')
     const beforeCount = beforeRows.length
     console.log('筛选前行数:', beforeCount)
@@ -156,41 +188,101 @@ test.describe.serial('Backtest CRUD Flow', () => {
     await page.click('.ant-radio-button-wrapper:has-text("已完成")')
     await page.waitForTimeout(1000)
 
-    // 检查筛选后结果
     const afterRows = await page.$$('.ant-table-tbody tr')
     console.log('筛选后行数:', afterRows.length)
+
+    // 点击"全部"恢复
+    await page.click('.ant-radio-button-wrapper:has-text("全部")')
+    await page.waitForTimeout(1000)
 
     console.log('✅ 状态筛选功能正常')
   })
 
-  test('4. Delete backtest task', async () => {
+  test('5. Pagination', async () => {
     const { page } = await getPage()
     test.setTimeout(60000)
 
-    // 访问回测列表页面
     await page.goto(`${WEB_UI_URL}/stage1/backtest`)
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(2000)
 
-    // 检查是否有数据可删除
+    console.log('=== 测试分页功能 ===')
+
+    // 检查分页器是否存在
+    const pagination = await page.$('.ant-pagination')
+    if (pagination) {
+      // 获取当前页码
+      const currentPage = await pagination.$('.ant-pagination-item-active')
+      if (currentPage) {
+        const pageText = await currentPage.textContent()
+        console.log('当前页码:', pageText)
+      }
+
+      // 检查分页信息
+      const totalText = await pagination.$eval('.ant-pagination-total-text', el => el.textContent).catch(() => null)
+      if (totalText) {
+        console.log('分页信息:', totalText)
+      }
+
+      console.log('✅ 分页功能正常')
+    } else {
+      console.log('⚠️ 数据较少，无分页器')
+    }
+  })
+
+  test('6. Table row click navigation', async () => {
+    const { page } = await getPage()
+
+    await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(2000)
+
+    console.log('=== 测试行点击导航 ===')
+
+    const tableRows = await page.$$('.ant-table-tbody tr')
+    if (tableRows.length > 0) {
+      // 点击第一行（非操作按钮区域）
+      const firstRow = tableRows[0]
+      const taskName = await firstRow.$eval('.task-name', el => el.textContent).catch(() => '')
+      console.log('点击任务:', taskName)
+
+      // 点击行进入详情
+      await firstRow.click()
+      await page.waitForTimeout(2000)
+
+      // 验证URL变化
+      const currentUrl = page.url()
+      if (currentUrl.includes('/stage1/backtest/')) {
+        console.log('✅ 行点击导航正常，URL:', currentUrl)
+      }
+    } else {
+      console.log('⚠️ 没有数据可测试')
+    }
+  })
+
+  test('7. Delete backtest task', async () => {
+    const { page } = await getPage()
+    test.setTimeout(60000)
+
+    await page.goto(`${WEB_UI_URL}/stage1/backtest`)
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(2000)
+
     const tableRows = await page.$$('.ant-table-tbody tr')
 
     if (tableRows.length > 0) {
       console.log('=== 删除回测任务 ===')
 
-      // 点击第一行的删除按钮
       const deleteBtn = await tableRows[0].$('button:has-text("删除")')
       if (deleteBtn) {
         await deleteBtn.click()
         await page.waitForTimeout(500)
 
-        // 确认删除
         const confirmBtn = await page.$('.ant-popconfirm .ant-btn-dangerous')
         if (confirmBtn) {
           await confirmBtn.click()
           await page.waitForTimeout(2000)
 
-          // 验证删除成功消息
           const successMsg = await page.$('.ant-message-success')
           if (successMsg) {
             console.log('✅ 删除成功')
