@@ -483,6 +483,24 @@ class TradeGateway(BaseTradeGateway):
             else:
                 self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create ORDER_REJECTED event!")
 
+        elif result.status == ORDERSTATUS_TYPES.NEW:
+            # 🔥 [BUG FIX] SimBroker 在验证失败时返回 NEW 状态（用作 REJECTED）
+            # 这里需要将 NEW 作为拒绝处理，发布拒绝事件并保存记录
+            self.log("WARN", f"❌ ORDER REJECTED (NEW status): {result.error_message}")
+
+            # 创建拒绝事件
+            event = result.to_event(engine_id=self._bound_engine.engine_id if self._bound_engine else None,
+                                    run_id=getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None)
+            if event:
+                self.log("INFO", f"🔥 [ROUTER] Creating ORDER_REJECTED event for NEW status: {type(event).__name__}")
+                self.log("INFO", f"🔥 [ROUTER] Rejection reason: {result.error_message}")
+
+                # 发布拒绝事件到引擎
+                self.publish_event(event)
+                self.log("INFO", f"🔥 [ROUTER] ORDER_REJECTED event published to engine (from NEW status)")
+            else:
+                self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create ORDER_REJECTED event for NEW status!")
+
         elif result.status == ORDERSTATUS_TYPES.SUBMITTED:
             # 对于异步提交，这里不需要发布事件，将在回调中处理
             pass
