@@ -12,7 +12,7 @@ const WEB_UI_URL = process.env.WEB_UI_URL || 'http://192.168.50.12:5173'
 async function getPage() {
   const browser = await chromium.connectOverCDP(REMOTE_BROWSER)
   const context = browser.contexts()[0] || await browser.newContext()
-  const page = context.pages()[0] || await context.newPage()
+  const page = context.pages()[0] || context.pages()[0]
   return { browser, page }
 }
 
@@ -129,7 +129,8 @@ test.describe('组件管理功能', () => {
 
     // 验证跳转到详情页
     await expect(page.locator('.component-detail')).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('.code-textarea')).toBeVisible({ timeout: 5000 })
+    // Monaco Editor 使用 .monaco-editor 类
+    await expect(page.locator('.monaco-editor')).toBeVisible({ timeout: 5000 })
 
     // 验证 URL 包含文件 ID
     expect(page.url()).toMatch(/\/components\/strategies\/[a-f0-9-]+/)
@@ -149,13 +150,18 @@ test.describe('组件管理功能', () => {
 
     // 确保详情页已加载
     await expect(page.locator('.component-detail')).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('.code-textarea')).toBeVisible({ timeout: 5000 })
+    // Monaco Editor 使用 .monaco-editor 类
+    await expect(page.locator('.monaco-editor')).toBeVisible({ timeout: 5000 })
 
-    // 在 textarea 中输入内容
-    const textarea = page.locator('.code-textarea')
-    await textarea.click({ force: true })
-    await page.keyboard.press('Control+a')
-    await page.keyboard.type('# Test edit content\nprint("hello world")')
+    // 使用 Monaco Editor API 直接设置内容
+    const testContent = `# Test edit content ${Date.now()}\nprint("hello world")`
+    await page.evaluate((content) => {
+      const editors = window.monaco?.editor?.getEditors?.() || []
+      if (editors.length > 0) {
+        editors[0].setValue(content)
+      }
+    }, testContent)
+    await page.waitForTimeout(800)
 
     // 点击保存按钮
     await page.click('.toolbar button:has-text("保存")')

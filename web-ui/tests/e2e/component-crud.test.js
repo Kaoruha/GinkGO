@@ -13,7 +13,7 @@ const WEB_UI_URL = process.env.WEB_UI_URL || 'http://192.168.50.12:5173'
 async function getPage() {
   const browser = await chromium.connectOverCDP(REMOTE_BROWSER)
   const context = browser.contexts()[0] || await browser.newContext()
-  const page = context.pages()[0] || await context.newPage()
+  const page = context.pages()[0] || context.pages()[0]
   return { browser, page }
 }
 
@@ -136,9 +136,54 @@ for (const comp of componentTypes) {
       await expect(page.locator('.component-detail')).toBeVisible({ timeout: 5000 })
       expect(page.url()).toContain(comp.path + '/')
 
-      // 验证文件名显示
+      // ========== 验证详情页各项内容 ==========
+
+      // 1. 验证文件名显示正确
       const fileName = await page.locator('.file-name').textContent()
       expect(fileName).toBe(testFileName)
+      console.log(`✅ 文件名验证成功: ${fileName}`)
+
+      // 2. 验证组件类型标签显示正确
+      const typeTag = page.locator('.file-info .ant-tag')
+      if (await typeTag.count() > 0) {
+        const tagText = await typeTag.textContent()
+        expect(tagText).toBeTruthy()
+        console.log(`✅ 类型标签验证成功: ${tagText}`)
+      }
+
+      // 3. 验证Monaco编辑器加载成功
+      const monacoEditor = page.locator('.monaco-editor')
+      await expect(monacoEditor).toBeVisible({ timeout: 5000 })
+      console.log(`✅ Monaco编辑器加载成功`)
+
+      // 4. 验证工具栏按钮存在
+      const backBtn = page.locator('.back-btn')
+      await expect(backBtn).toBeVisible()
+
+      const saveBtn = page.locator('.toolbar button:has-text("保存")')
+      await expect(saveBtn).toBeVisible()
+
+      const resetBtn = page.locator('.toolbar button:has-text("重置")')
+      await expect(resetBtn).toBeVisible()
+      console.log(`✅ 工具栏按钮验证成功`)
+
+      // 5. 验证底部状态栏存在
+      const statusBar = page.locator('.status-bar')
+      await expect(statusBar).toBeVisible()
+      console.log(`✅ 状态栏验证成功`)
+
+      // 6. 验证初始内容为空（新文件）
+      const editorContent = await page.evaluate(() => {
+        const editors = window.monaco?.editor?.getEditors?.() || []
+        if (editors.length > 0) {
+          return editors[0].getValue()
+        }
+        return ''
+      })
+      expect(editorContent).toBe('')
+      console.log(`✅ 初始内容验证成功（空文件）`)
+
+      console.log(`✅ [${comp.name}] 详情页所有验证通过`)
     })
 
     test(`[${comp.name}] 编辑并保存文件`, async () => {
@@ -158,25 +203,26 @@ for (const comp of componentTypes) {
       // 验证详情页加载
       await expect(page.locator('.component-detail')).toBeVisible({ timeout: 5000 })
 
+      // 记录文件名，用于后续重新进入
+      const fileName = await page.locator('.file-name').textContent()
+      console.log(`📄 当前文件: ${fileName}`)
+
       // 等待编辑器加载
       await page.waitForTimeout(1000)
+
+      // 准备测试内容（包含时间戳以便唯一标识）
+      const timestamp = Date.now()
+      const testContent = `# E2E Test ${timestamp}\nprint("hello")`
 
       const monacoEditor = page.locator('.monaco-editor')
       const textareaEditor = page.locator('.code-textarea')
 
       if (await monacoEditor.count() > 0) {
         // Monaco Editor: 使用 evaluate 直接操作 Monaco API 设置内容
-        const testContent = `# E2E Test Edit ${Date.now()}\nprint("hello world")`
         await page.evaluate((content) => {
-          // 获取 Monaco 编辑器实例并设置值
-          const editorEl = document.querySelector('.monaco-editor')
-          if (editorEl) {
-            // 尝试从全局 window 获取编辑器
-            const editors = window.monaco?.editor?.getEditors?.() || []
-            if (editors.length > 0) {
-              const editor = editors[0]
-              editor.setValue(content)
-            }
+          const editors = window.monaco?.editor?.getEditors?.() || []
+          if (editors.length > 0) {
+            editors[0].setValue(content)
           }
         }, testContent)
         await page.waitForTimeout(800)
@@ -184,28 +230,78 @@ for (const comp of componentTypes) {
         // Textarea: 直接输入
         await textareaEditor.click({ force: true })
         await page.keyboard.press('Control+a')
-        await page.keyboard.type(`# E2E Test Edit ${Date.now()}\nprint("hello")`)
+        await page.keyboard.type(testContent)
         await page.waitForTimeout(500)
       }
 
-      // 等待未保存标记出现
-      await page.waitForTimeout(500)
+      // 验证未保存标记出现
+      const unsavedBadge = page.locator('.unsaved-badge')
+      await expect(unsavedBadge).toBeVisible({ timeout: 3000 })
+      console.log(`✅ 未保存标记显示正确`)
+
+      // 验证保存按钮启用
+      const saveBtn = page.locator('.toolbar button:has-text("保存")')
+      await expect(saveBtn).not.toBeDisabled()
+      console.log(`✅ 保存按钮已启用`)
 
       // 点击保存按钮
-      const saveBtn = page.locator('.toolbar button:has-text("保存")')
       await saveBtn.click({ force: true })
       await page.waitForTimeout(2000)
 
-      // 验证保存成功消息
-      const successMsg = page.locator('.ant-message-success, .ant-message')
-      const hasSuccess = await successMsg.isVisible({ timeout: 3000 }).catch(() => false)
+      // 验证未保存标记消失
+      const unsavedAfterSave = await page.locator('.unsaved-badge').isVisible().catch(() => false)
+      expect(unsavedAfterSave).toBe(false)
+      console.log(`✅ 保存后未保存标记已消失`)
 
-      // 如果没有成功消息，检查未保存标记是否消失
-      if (!hasSuccess) {
-        const unsaved = await page.locator('.unsaved-badge').isVisible().catch(() => false)
-        // 未保存标记消失也算成功
-        expect(unsaved).toBe(false)
-      }
+      // ========== 退出详情页返回列表 ==========
+      await page.locator('.back-btn').click({ force: true })
+      await page.waitForTimeout(2000)
+
+      // 验证回到列表页
+      expect(page.url()).toMatch(new RegExp(`${comp.path}/?$`))
+      console.log(`✅ 返回列表页成功`)
+
+      // ========== 重新进入详情页验证内容 ==========
+      // 搜索刚才编辑的文件
+      const searchInput = page.locator('.ant-input-search input').first()
+      await searchInput.fill(fileName)
+      await page.waitForTimeout(800)
+
+      // 点击进入详情
+      await page.click('.ant-table-tbody tr:first-child .file-link')
+      await page.waitForTimeout(2000)
+
+      // 验证详情页加载
+      await expect(page.locator('.component-detail')).toBeVisible({ timeout: 5000 })
+
+      // 等待编辑器加载
+      await page.waitForTimeout(1500)
+
+      // 验证文件名一致
+      const reloadedFileName = await page.locator('.file-name').textContent()
+      expect(reloadedFileName).toBe(fileName)
+      console.log(`✅ 重新加载后文件名一致: ${reloadedFileName}`)
+
+      // 验证内容确实持久化
+      const savedContent = await page.evaluate(() => {
+        const editors = window.monaco?.editor?.getEditors?.() || []
+        if (editors.length > 0) {
+          return editors[0].getValue()
+        }
+        return ''
+      })
+
+      // 验证内容包含时间戳（确保是刚保存的内容）
+      const hasTimestamp = savedContent.includes(String(timestamp))
+      expect(hasTimestamp).toBe(true)
+      console.log(`✅ 内容持久化验证成功，时间戳: ${timestamp}`)
+
+      // 验证未保存标记不存在
+      const unsavedAfterReload = await page.locator('.unsaved-badge').isVisible().catch(() => false)
+      expect(unsavedAfterReload).toBe(false)
+      console.log(`✅ 重新加载后无未保存标记`)
+
+      console.log(`✅ [${comp.name}] 编辑保存-退出-重进验证全部通过`)
     })
 
     test(`[${comp.name}] 返回列表页`, async () => {
