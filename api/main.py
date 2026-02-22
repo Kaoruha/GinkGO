@@ -323,7 +323,7 @@ class BacktestCreateRequest(BaseModel):
 
 @app.post("/api/v1/backtest")
 async def create_backtest(request: BacktestCreateRequest):
-    """创建回测任务（task_id 自动生成，等于 uuid）"""
+    """创建回测任务并自动启动"""
     try:
         # 校验 portfolio_id 必填
         if not request.portfolio_id:
@@ -346,7 +346,22 @@ async def create_backtest(request: BacktestCreateRequest):
         )
 
         if result.is_success():
-            return serialize_model(result.data)
+            task = result.data
+            task_uuid = task.uuid
+
+            # 自动启动任务
+            start_result = task_service.start_task(
+                uuid=task_uuid,
+                portfolio_uuid=request.portfolio_id,
+                name=request.name,
+                start_date=request.start_date or "",
+                end_date=request.end_date or "",
+            )
+
+            if not start_result.is_success():
+                print(f"[WARN] Auto-start failed for {task_uuid}: {start_result.error}")
+
+            return serialize_model(task)
         else:
             raise HTTPException(status_code=500, detail=result.error)
     except HTTPException:
