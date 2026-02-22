@@ -6,24 +6,26 @@ Progress Tracker
 职责：
 - 跟踪任务进度
 - 上报进度到Kafka（每2秒 + 关键节点）
+- 写入进度到数据库（用于SSE实时推送）
 - 记录重要阶段变化
 """
 
 from threading import Lock
 from time import time
-from typing import Dict
+from typing import Dict, Optional
 
 from ginkgo.workers.backtest_worker.models import BacktestTask, EngineStage
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
-# GLOG removed
 
 
 class ProgressTracker:
     """进度跟踪器"""
 
-    def __init__(self, worker_id: str, kafka_producer: GinkgoProducer):
+    def __init__(self, worker_id: str, kafka_producer: GinkgoProducer,
+                 task_service=None):
         self.worker_id = worker_id
         self.producer = kafka_producer
+        self.task_service = task_service  # BacktestTaskService 实例
         self.lock = Lock()
 
         # 上报频率控制
@@ -53,6 +55,9 @@ class ProgressTracker:
             "timestamp": task.started_at.isoformat() if task.started_at else None,
         })
 
+        # 同时写入数据库（用于SSE推送）
+        self._write_progress_to_db(task.task_uuid, progress=progress, current_date=current_date)
+
     def report_stage(self, task: BacktestTask, stage: EngineStage, message: str):
         """上报关键阶段（立即上报）"""
         self._send_to_kafka({
@@ -66,6 +71,13 @@ class ProgressTracker:
         })
         print(f"[{task.task_uuid[:8]}] Stage: {stage.value} - {message}")
 
+        # 第一个阶段时，更新状态为 running 并设置 start_time
+        if stage == EngineStage.DATA_PREPARING:
+            self._write_status_to_db(task.task_uuid, "running", current_stage=stage.value)
+        else:
+            # 其他阶段只更新 current_stage
+            self._write_progress_to_db(task.task_uuid, current_stage=stage.value)
+
     def report_completed(self, task: BacktestTask, result: dict):
         """上报完成"""
         self._send_to_kafka({
@@ -76,6 +88,9 @@ class ProgressTracker:
             "timestamp": task.completed_at.isoformat() if task.completed_at else None,
         })
         print(f"[{task.task_uuid[:8]}] Reported completion")
+
+        # 更新数据库状态为 completed
+        self._write_status_to_db(task.task_uuid, "completed", result=result)
 
     def report_failed(self, task: BacktestTask, error: str):
         """上报失败"""
@@ -88,6 +103,9 @@ class ProgressTracker:
         })
         print(f"[{task.task_uuid[:8]}] Reported failure: {error}")
 
+        # 更新数据库状态为 failed
+        self._write_status_to_db(task.task_uuid, "failed", error_message=error)
+
     def report_cancelled(self, task: BacktestTask):
         """上报取消"""
         self._send_to_kafka({
@@ -98,15 +116,113 @@ class ProgressTracker:
         })
         print(f"[{task.task_uuid[:8]}] Reported cancellation")
 
+        # 更新数据库状态为 stopped
+        self._write_status_to_db(task.task_uuid, "stopped")
+
+    def report_failed_by_uuid(self, task_uuid: str, error: str):
+        """通过 UUID 上报失败（无需完整 BacktestTask 对象）"""
+        short_uuid = task_uuid[:8] if task_uuid else "unknown"
+        self._send_to_kafka({
+            "type": "failed",
+            "task_uuid": task_uuid,
+            "worker_id": self.worker_id,
+            "error": error,
+            "timestamp": None,
+        })
+        print(f"[{short_uuid}] Reported failure by UUID: {error}")
+
+        # 更新数据库状态为 failed
+        self._write_status_to_db(task_uuid, "failed", error_message=error)
+
     def _send_to_kafka(self, message: dict):
         """发送消息到Kafka"""
         try:
             import json
-            self.producer.produce(
+            self.producer.send_async(
                 topic="backtest.progress",
-                key=message.get("task_uuid"),
-                value=json.dumps(message),
+                msg=json.dumps(message),
             )
-            self.producer.flush(timeout=1.0)
         except Exception as e:
             print(f"Failed to report progress: {e}")
+
+    def _write_progress_to_db(self, task_id: str, progress: float = None,
+                               current_stage: str = None, current_date: str = None):
+        """写入进度到数据库（用于SSE推送）"""
+        if self.task_service is None:
+            return
+
+        try:
+            result = self.task_service.update_progress(
+                uuid=task_id,  # task_id 与 uuid 等价
+                progress=progress,
+                current_stage=current_stage,
+                current_date=current_date
+            )
+            if not result.success:
+                print(f"Failed to write progress to DB: {result.message}")
+
+            # 通知 WebSocket 客户端
+            self._notify_ws_clients(task_id, "progress")
+        except Exception as e:
+            print(f"Error writing progress to DB: {e}")
+
+    def _notify_ws_clients(self, task_id: str, event_type: str = "progress"):
+        """通过 API 通知 WebSocket 客户端有更新"""
+        try:
+            import requests
+            # 异步发送通知，不阻塞主流程
+            requests.post(
+                f"http://localhost:8000/api/v1/backtest/{task_id}/notify",
+                params={"event_type": event_type},
+                timeout=1  # 1秒超时
+            )
+        except Exception as e:
+            # 通知失败不影响主流程
+            pass
+
+    def _write_status_to_db(self, task_id: str, status: str, error_message: str = "", result: dict = None,
+                              current_stage: str = None):
+        """写入任务状态到数据库"""
+        if self.task_service is None:
+            return
+
+        try:
+            from datetime import datetime
+
+            # 构建结果字段
+            result_fields = {}
+
+            # 状态为 running 时，设置 start_time 和 current_stage
+            if status == "running":
+                result_fields["start_time"] = datetime.now()
+                if current_stage:
+                    result_fields["current_stage"] = current_stage
+
+            # 完成状态时，设置结果字段
+            if result:
+                result_fields.update({
+                    "total_pnl": str(result.get("total_pnl", "0")),
+                    "total_orders": result.get("total_orders", 0),
+                    "total_signals": result.get("total_signals", 0),
+                    "total_positions": result.get("total_positions", 0),
+                    "total_events": result.get("total_events", 0),
+                    "final_portfolio_value": str(result.get("final_portfolio_value", "0")),
+                    "max_drawdown": str(result.get("max_drawdown", "0")),
+                    "sharpe_ratio": str(result.get("sharpe_ratio", "0")),
+                    "annual_return": str(result.get("annual_return", "0")),
+                    "win_rate": str(result.get("win_rate", "0")),
+                })
+
+            result_obj = self.task_service.update_status(
+                uuid=task_id,  # task_id 与 uuid 等价
+                status=status,
+                error_message=error_message,
+                **result_fields
+            )
+            if not result_obj.is_success():
+                print(f"Failed to write status to DB: {result_obj.message}")
+
+            # 通知 WebSocket 客户端状态变化
+            self._notify_ws_clients(task_id, status)
+        except Exception as e:
+            print(f"Error writing status to DB: {e}")

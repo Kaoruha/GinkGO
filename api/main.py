@@ -16,7 +16,7 @@ import json
 import secrets
 import hashlib
 
-from fastapi import FastAPI, Query, HTTPException, Request, Depends
+from fastapi import FastAPI, Query, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
@@ -562,6 +562,84 @@ async def stream_backtest_progress(backtest_id: str):
             "X-Accel-Buffering": "no",
         }
     )
+
+
+# ========== WebSocket 实时通知 ==========
+
+class ConnectionManager:
+    """WebSocket 连接管理器"""
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        print(f"[WS] Client connected, total: {len(self.active_connections)}")
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+        print(f"[WS] Client disconnected, total: {len(self.active_connections)}")
+
+    async def broadcast(self, message: dict):
+        """广播消息给所有连接的客户端"""
+        disconnected = []
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                disconnected.append(connection)
+        for conn in disconnected:
+            self.disconnect(conn)
+
+ws_manager = ConnectionManager()
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket 实时通知端点"""
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            # 保持连接，等待客户端消息（心跳或订阅）
+            data = await websocket.receive_text()
+            # 可以处理订阅特定任务等逻辑
+            if data == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+    except Exception as e:
+        print(f"[WS] Error: {e}")
+        ws_manager.disconnect(websocket)
+
+
+def notify_backtest_update(task_id: str, event_type: str = "progress"):
+    """通知前端回测任务有更新（从 Worker 调用）"""
+    import asyncio
+    message = {
+        "type": event_type,
+        "task_id": task_id,
+        "timestamp": datetime.now().isoformat()
+    }
+    # 在事件循环中广播
+    try:
+        loop = asyncio.get_event_loop()
+        loop.create_task(ws_manager.broadcast(message))
+    except RuntimeError:
+        # 如果没有事件循环，使用 asyncio.run
+        asyncio.run(ws_manager.broadcast(message))
+
+
+@app.post("/api/v1/backtest/{backtest_id}/notify")
+async def backtest_notify(backtest_id: str, event_type: str = "progress"):
+    """接收 Worker 的更新通知，广播给 WebSocket 客户端"""
+    message = {
+        "type": event_type,
+        "task_id": backtest_id,
+        "timestamp": datetime.now().isoformat()
+    }
+    await ws_manager.broadcast(message)
+    return {"success": True, "clients": len(ws_manager.active_connections)}
 
 
 @app.get("/api/v1/backtest/{backtest_id}/analyzers")
