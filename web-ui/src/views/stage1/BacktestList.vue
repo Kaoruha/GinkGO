@@ -103,13 +103,13 @@
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space @click.stop>
-              <!-- 启动按钮：仅对 created/pending 状态显示 -->
+              <!-- 停止按钮：仅对 running 状态显示 -->
               <a-popconfirm
-                v-if="record.status === 'created' || record.status === 'pending'"
-                title="确定要启动此回测任务吗？"
-                @confirm="handleStart(record)"
+                v-if="record.status === 'running'"
+                title="确定要停止此回测任务吗？"
+                @confirm="handleStop(record)"
               >
-                <a-button type="link" size="small" @click.stop>启动</a-button>
+                <a-button type="link" size="small" danger @click.stop>停止</a-button>
               </a-popconfirm>
               <a-button type="link" size="small" @click.stop="viewDetail(record)">
                 详情
@@ -353,6 +353,17 @@ const handleStart = async (record: BacktestTask) => {
     loadBacktests()
   } catch (e: any) {
     message.error(e.response?.data?.detail || '启动失败')
+  }
+}
+
+// 停止回测
+const handleStop = async (record: BacktestTask) => {
+  try {
+    await backtestApi.stop(record.uuid)
+    message.success('回测任务已停止')
+    loadBacktests()
+  } catch (e: any) {
+    message.error(e.response?.data?.detail || '停止失败')
   }
 }
 
