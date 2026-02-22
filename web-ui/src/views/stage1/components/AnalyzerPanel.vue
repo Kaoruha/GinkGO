@@ -74,11 +74,12 @@
     </a-card>
 
     <!-- 数据表格 -->
-    <a-card v-if="tableData.length > 0" title="数据记录">
+    <a-card v-if="tableData.length > 0" title="数据记录" class="table-card">
       <a-table
         :columns="columns"
         :data-source="tableData"
-        :pagination="{ pageSize: 20 }"
+        :pagination="false"
+        :scroll="{ y: 400 }"
         size="small"
         row-key="time"
       />
@@ -161,13 +162,17 @@ watch(() => props.analyzers, (newAnalyzers) => {
 
 <style scoped>
 .analyzer-panel {
-  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .analyzer-selector {
   margin-bottom: 16px;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .analyzer-selector .label {
@@ -179,5 +184,44 @@ watch(() => props.analyzers, (newAnalyzers) => {
   color: #999;
   font-size: 12px;
   margin-left: 4px;
+}
+
+.table-card {
+  flex: 1;
+  overflow: hidden;
+  margin-bottom: 0;
+}
+
+.table-card :deep(.ant-card-body) {
+  height: calc(100% - 57px);
+  overflow: hidden;
+  padding: 12px;
+}
+
+.table-card :deep(.ant-table-wrapper) {
+  height: 100%;
+}
+
+.table-card :deep(.ant-spin-nested-loading) {
+  height: 100%;
+}
+
+.table-card :deep(.ant-spin-container) {
+  height: 100%;
+}
+
+.table-card :deep(.ant-table) {
+  height: 100%;
+}
+
+.table-card :deep(.ant-table-container) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-card :deep(.ant-table-body) {
+  flex: 1;
+  overflow: auto !important;
 }
 </style>
