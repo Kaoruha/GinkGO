@@ -3,7 +3,7 @@
     <div class="page-header">
       <div class="page-title">
         <a-tag color="blue">回测</a-tag>
-        创建回测
+        {{ isCopyMode ? '复制回测' : '创建回测' }}
       </div>
     </div>
 
@@ -64,7 +64,9 @@
 
         <a-form-item>
           <a-space>
-            <a-button type="primary" html-type="submit" :loading="submitting">创建回测</a-button>
+            <a-button type="primary" html-type="submit" :loading="submitting">
+              {{ isCopyMode ? '创建副本' : '创建回测' }}
+            </a-button>
             <a-button @click="$router.back()">取消</a-button>
           </a-space>
         </a-form-item>
@@ -74,14 +76,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { portfolioApi, type Portfolio } from '@/api/modules/portfolio'
 import { backtestApi, type BacktestTask } from '@/api/modules/backtest'
 import type { Dayjs } from 'dayjs'
 
 const router = useRouter()
+const route = useRoute()
 
 const form = ref({
   name: '',
@@ -94,6 +97,21 @@ const form = ref({
 const portfolioLoading = ref(false)
 const portfolioOptions = ref<Array<{ label: string; value: string }>>([])
 const submitting = ref(false)
+
+// 是否是复制模式
+const isCopyMode = computed(() => route.query.copy === 'true')
+
+// 检查是否是复制模式，预填表单
+const checkCopyMode = () => {
+  if (route.query.copy === 'true') {
+    // 复制模式，预填表单
+    if (route.query.name) form.value.name = route.query.name as string
+    if (route.query.portfolio_id) form.value.portfolio_id = route.query.portfolio_id as string
+    if (route.query.start_date) form.value.start_date = route.query.start_date as string
+    if (route.query.end_date) form.value.end_date = route.query.end_date as string
+    if (route.query.initial_cash) form.value.initial_cash = Number(route.query.initial_cash) as number
+  }
+}
 
 // 加载投资组合列表
 const loadPortfolios = async () => {
@@ -130,7 +148,7 @@ const handleSubmit = async () => {
       }
     }) as BacktestTask
 
-    message.success('回测任务创建成功')
+    message.success(isCopyMode.value ? '回测任务已复制' : '回测任务创建成功')
     // 跳转到回测详情页
     router.push(`/stage1/backtest/${result.uuid}`)
   } catch (error: any) {
@@ -142,6 +160,7 @@ const handleSubmit = async () => {
 
 onMounted(() => {
   loadPortfolios()
+  checkCopyMode()
 })
 </script>
 
