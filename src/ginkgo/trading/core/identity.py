@@ -81,89 +81,51 @@ class IdentityUtils:
     @staticmethod
     def generate_run_id(engine_id: str = None, sequence: int = 1) -> str:
         """
-        生成运行ID（限制32字符以内）
-
-        使用时间戳+UUID确保唯一性，不再依赖engine_id和序列号。
+        生成运行ID（32位UUID格式，与uuid规则相同）
 
         Args:
             engine_id (str): 引擎ID（已废弃，保留用于兼容性）
             sequence (int): 执行序列号（已废弃，保留用于兼容性）
 
         Returns:
-            str: 紧凑格式，确保不超过32字符
+            str: 32位UUID hex字符串
 
         Examples:
-            >>> IdentityUtils.generate_run_id("engine_abc_123", 1)
-            '2512231200_a3b5c7d9e2f1a4b6'
+            >>> IdentityUtils.generate_run_id()
+            'a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2'
         """
         import uuid
-
-        # 时间戳格式：YYMMDD_HHMM
-        timestamp = datetime.now().strftime('%y%m%d%H%M')
-
-        # 生成 UUID 并截取前 16 位
-        uuid_short = uuid.uuid4().hex[:16]
-
-        # 组合：timestamp_uuid (确保不超过32字符)
-        run_id = f"{timestamp}_{uuid_short}"
-
-        # 限制 32 字符
-        return run_id[:32]
+        return uuid.uuid4().hex
     
     @staticmethod
     def parse_run_id(run_id: str) -> Dict[str, Any]:
         """
         解析run_id获取组成信息
-        
+
+        注意：新格式的run_id是32位UUID，无时间戳信息。
+        此方法主要用于验证格式。
+
         Args:
-            run_id (str): 运行ID
-            
+            run_id (str): 运行ID（32位UUID hex）
+
         Returns:
-            Dict: 包含engine_id、timestamp、sequence的字典
-            
+            Dict: 包含验证结果
+
         Examples:
-            >>> IdentityUtils.parse_run_id("engine_abc_123_run_20240101_120000_001")
-            {
-                'engine_id': 'engine_abc_123',
-                'timestamp': '20240101_120000', 
-                'sequence': 1,
-                'datetime': datetime(2024, 1, 1, 12, 0, 0)
-            }
+            >>> IdentityUtils.parse_run_id("a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2")
+            {'valid': True, 'format': 'uuid32'}
         """
-        parts = run_id.split('_')
-        if len(parts) < 4 or 'run' not in parts:
-            return {'error': 'Invalid run_id format'}
-        
+        import uuid
         try:
-            # 找到'run'关键字的位置
-            run_index = parts.index('run')
-            
-            # engine_id是'run'之前的所有部分
-            engine_id = '_'.join(parts[:run_index])
-            
-            # timestamp和sequence在'run'之后
-            if len(parts) > run_index + 2:
-                timestamp_parts = parts[run_index + 1:run_index + 3]  # 日期和时间部分
-                timestamp = '_'.join(timestamp_parts)
-                sequence = int(parts[run_index + 3])
-                
-                # 尝试解析datetime
-                try:
-                    dt = datetime.strptime(timestamp, '%Y%m%d_%H%M%S')
-                except ValueError:
-                    dt = None
-                
-                return {
-                    'engine_id': engine_id,
-                    'timestamp': timestamp,
-                    'sequence': sequence,
-                    'datetime': dt
-                }
-        except (ValueError, IndexError):
+            # 尝试解析为 UUID
+            if len(run_id) == 32:
+                uuid.UUID(hex=run_id)
+                return {'valid': True, 'format': 'uuid32'}
+        except ValueError:
             pass
-            
-        return {'error': 'Failed to parse run_id'}
-    
+
+        return {'valid': False, 'error': 'Invalid run_id format'}
+
     @staticmethod
     def validate_uuid_format(uuid_str: str) -> bool:
         """

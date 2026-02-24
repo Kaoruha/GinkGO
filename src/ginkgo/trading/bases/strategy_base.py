@@ -46,3 +46,48 @@ class StrategyBase(TimeMixin, ContextMixin, NamedMixin, LoggableMixin, Base):
         NamedMixin.__init__(self, name=name, **kwargs)
         LoggableMixin.__init__(self, **kwargs)
         Base.__init__(self)
+
+    def create_signal(
+        self,
+        code: str,
+        direction,
+        reason: str = "",
+        volume: int = 0,
+        weight: float = 0.0,
+        strength: float = 0.5,
+        confidence: float = 0.5,
+        **kwargs
+    ):
+        """
+        创建带有完整上下文的交易信号
+
+        自动填充 portfolio_id、engine_id、run_id，策略只需关注业务参数。
+
+        Args:
+            code: 股票代码
+            direction: 交易方向 (DIRECTION_TYPES)
+            reason: 信号原因
+            volume: 建议交易量
+            weight: 信号权重
+            strength: 信号强度
+            confidence: 信号置信度
+            **kwargs: 其他 Signal 参数 (如 business_timestamp)
+
+        Returns:
+            Signal: 带有完整上下文的信号对象
+        """
+        from ginkgo.trading.entities.signal import Signal
+
+        return Signal(
+            portfolio_id=self.portfolio_id,
+            engine_id=self.engine_id,
+            run_id=self.run_id,
+            code=code,
+            direction=direction,
+            reason=reason,
+            volume=volume,
+            weight=weight,
+            strength=strength,
+            confidence=confidence,
+            **kwargs
+        )
