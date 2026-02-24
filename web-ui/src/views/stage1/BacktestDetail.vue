@@ -25,7 +25,6 @@
           <!-- 基本信息 -->
           <a-card title="基本信息" style="margin-bottom: 16px">
             <a-descriptions :column="3" bordered size="small">
-              <a-descriptions-item label="任务ID">{{ backtest.run_id }}</a-descriptions-item>
               <a-descriptions-item label="UUID">
                 <a-typography-text copyable :copy-text="backtest.uuid" style="font-size: 12px;">
                   {{ backtest.uuid?.substring(0, 8) }}...
@@ -34,9 +33,8 @@
               <a-descriptions-item label="状态">
                 <a-tag :color="getStatusColor(backtest.status)">{{ getStatusLabel(backtest.status) }}</a-tag>
               </a-descriptions-item>
-              <a-descriptions-item label="关联引擎">{{ backtest.engine_id || '-' }}</a-descriptions-item>
               <a-descriptions-item label="投资组合">{{ backtest.portfolio_id || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="运行时长">{{ formatDuration(backtest.duration_seconds) }}</a-descriptions-item>
+              <a-descriptions-item label="运行时长">{{ formatDuration(backtest) }}</a-descriptions-item>
               <a-descriptions-item label="开始时间">{{ formatDateTime(backtest.start_time) }}</a-descriptions-item>
               <a-descriptions-item label="结束时间">{{ formatDateTime(backtest.end_time) }}</a-descriptions-item>
               <a-descriptions-item label="创建时间">{{ formatDateTime(backtest.create_at) }}</a-descriptions-item>
@@ -46,13 +44,55 @@
           <!-- 配置快照 -->
           <a-card title="配置快照" style="margin-bottom: 16px">
             <a-descriptions :column="3" bordered size="small">
-              <a-descriptions-item label="配置名称">{{ configSnapshot.name || backtest.run_id }}</a-descriptions-item>
-              <a-descriptions-item label="初始资金">{{ formatMoney(configSnapshot.initial_capital) }}</a-descriptions-item>
-              <a-descriptions-item label="数据源">{{ configSnapshot.data_source || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="配置名称">{{ configSnapshot.name || backtest.uuid }}</a-descriptions-item>
+              <a-descriptions-item label="初始资金">{{ formatMoney(configSnapshot.initial_cash) }}</a-descriptions-item>
               <a-descriptions-item label="回测区间" :span="3">
-                {{ formatDate(backtest.backtest_start_date) || formatDate(backtest.start_time) }} 至 {{ formatDate(backtest.backtest_end_date) || formatDate(backtest.end_time) }}
+                {{ configSnapshot.start_date || '-' }} 至 {{ configSnapshot.end_date || '-' }}
               </a-descriptions-item>
             </a-descriptions>
+
+            <!-- Portfolio 组件配置 -->
+            <div v-if="configSnapshot.portfolio_snapshot" style="margin-top: 16px;">
+              <a-divider style="margin: 12px 0;" />
+              <a-descriptions title="Portfolio 组件" :column="1" bordered size="small">
+                <a-descriptions-item label="Portfolio">
+                  {{ configSnapshot.portfolio_snapshot.name }} ({{ configSnapshot.portfolio_snapshot.uuid?.substring(0, 8) }}...)
+                </a-descriptions-item>
+              </a-descriptions>
+
+              <!-- Selectors -->
+              <div v-if="configSnapshot.portfolio_snapshot.components?.selectors?.length" style="margin-top: 12px;">
+                <a-typography-text strong style="color: #1890ff;">选股器 ({{ configSnapshot.portfolio_snapshot.components.selectors.length }})</a-typography-text>
+                <div v-for="(selector, idx) in configSnapshot.portfolio_snapshot.components.selectors" :key="idx" style="margin-left: 16px; margin-top: 4px;">
+                  <a-tag color="blue">{{ getComponentName(selector) }}</a-tag>
+                  <span style="margin-left: 8px; font-size: 12px; color: #666;">
+                    {{ formatConfigParams(selector.config) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Sizer -->
+              <div v-if="configSnapshot.portfolio_snapshot.components?.sizer" style="margin-top: 12px;">
+                <a-typography-text strong style="color: #52c41a;">仓位管理</a-typography-text>
+                <div style="margin-left: 16px; margin-top: 4px;">
+                  <a-tag color="green">{{ getComponentName(configSnapshot.portfolio_snapshot.components.sizer) }}</a-tag>
+                  <span style="margin-left: 8px; font-size: 12px; color: #666;">
+                    {{ formatConfigParams(configSnapshot.portfolio_snapshot.components.sizer.config) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Strategies -->
+              <div v-if="configSnapshot.portfolio_snapshot.components?.strategies?.length" style="margin-top: 12px;">
+                <a-typography-text strong style="color: #fa8c16;">策略 ({{ configSnapshot.portfolio_snapshot.components.strategies.length }})</a-typography-text>
+                <div v-for="(strategy, idx) in configSnapshot.portfolio_snapshot.components.strategies" :key="idx" style="margin-left: 16px; margin-top: 4px;">
+                  <a-tag color="orange">{{ getComponentName(strategy) }}</a-tag>
+                  <span style="margin-left: 8px; font-size: 12px; color: #666;">
+                    {{ formatConfigParams(strategy.config) }}
+                  </span>
+                </div>
+              </div>
+            </div>
           </a-card>
 
           <!-- 统计指标 -->
@@ -219,12 +259,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { NetValueChart } from '@/components/charts'
 import type { LineData } from 'lightweight-charts'
-import { backtestApi, type BacktestTask, type AnalyzerInfo } from '@/api/modules/backtest'
+import { useBacktestStore } from '@/stores'
+import { useWebSocket, useBacktestStatus } from '@/composables'
 import AnalyzerPanel from './components/AnalyzerPanel.vue'
 import TradeRecordsPanel from './components/TradeRecordsPanel.vue'
 import dayjs from 'dayjs'
@@ -232,13 +273,20 @@ import dayjs from 'dayjs'
 const route = useRoute()
 const router = useRouter()
 
-const loading = ref(true)
-const backtest = ref<BacktestTask | null>(null)
+// ========== Store ==========
+const backtestStore = useBacktestStore()
+const { getColor: getStatusColor, getLabel: getStatusLabel } = useBacktestStatus()
+
+// ========== 本地状态 ==========
 const netValueData = ref<LineData[]>([])
 const benchmarkData = ref<LineData[]>([])
-const analyzers = ref<AnalyzerInfo[]>([])
-const analyzersLoading = ref(false)
 const activeTab = ref('overview')
+
+// ========== 计算属性（从 Store 获取） ==========
+const loading = computed(() => backtestStore.detailLoading)
+const backtest = computed(() => backtestStore.currentTask)
+const analyzers = computed(() => backtestStore.currentAnalyzers)
+const analyzersLoading = ref(false)
 
 // 分析器表格列定义
 const analyzerColumns = [
@@ -305,28 +353,22 @@ const loadBacktest = async () => {
     return
   }
 
-  loading.value = true
   try {
-    const data = await backtestApi.get(uuid)
-    backtest.value = data
+    await backtestStore.fetchTask(uuid)
 
     // 加载净值数据
-    try {
-      const netValue = await backtestApi.getNetValue(uuid)
-      if (netValue?.strategy) {
-        netValueData.value = netValue.strategy.map((item: any) => ({
-          time: item.time,
-          value: item.value
-        }))
-      }
-      if (netValue?.benchmark) {
-        benchmarkData.value = netValue.benchmark.map((item: any) => ({
-          time: item.time,
-          value: item.value
-        }))
-      }
-    } catch {
-      // 净值数据加载失败不影响主流程
+    const netValue = await backtestStore.fetchNetValue(uuid)
+    if (netValue?.strategy) {
+      netValueData.value = netValue.strategy.map((item: any) => ({
+        time: item.time,
+        value: item.value
+      }))
+    }
+    if (netValue?.benchmark) {
+      benchmarkData.value = netValue.benchmark.map((item: any) => ({
+        time: item.time,
+        value: item.value
+      }))
     }
 
     // 加载分析器列表
@@ -334,8 +376,6 @@ const loadBacktest = async () => {
   } catch (e: any) {
     console.error('Failed to load backtest:', e)
     message.error('加载回测详情失败')
-  } finally {
-    loading.value = false
   }
 }
 
@@ -343,11 +383,9 @@ const loadBacktest = async () => {
 const loadAnalyzers = async (uuid: string) => {
   analyzersLoading.value = true
   try {
-    const data = await backtestApi.getAnalyzers(uuid)
-    analyzers.value = data.analyzers || []
+    await backtestStore.fetchAnalyzers(uuid)
   } catch (e) {
     console.error('Failed to load analyzers:', e)
-    // 分析器加载失败不影响主流程
   } finally {
     analyzersLoading.value = false
   }
@@ -357,31 +395,17 @@ const goBack = () => {
   router.push('/stage1/backtest')
 }
 
-const stopBacktest = () => {
-  message.info('停止回测功能待实现')
+const stopBacktest = async () => {
+  if (!backtest.value?.uuid) return
+  try {
+    await backtestStore.stopTask(backtest.value.uuid)
+    message.success('回测已停止')
+  } catch (e) {
+    message.error('停止失败')
+  }
 }
 
 // 工具函数
-const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    running: 'processing',
-    completed: 'success',
-    failed: 'error',
-    stopped: 'default',
-  }
-  return colors[status] || 'default'
-}
-
-const getStatusLabel = (status: string) => {
-  const labels: Record<string, string> = {
-    running: '运行中',
-    completed: '已完成',
-    failed: '失败',
-    stopped: '已停止',
-  }
-  return labels[status] || status
-}
-
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return '-'
   return dayjs(dateStr).format('YYYY-MM-DD')
@@ -392,16 +416,59 @@ const formatDateTime = (dateStr?: string) => {
   return dayjs(dateStr).format('YYYY-MM-DD HH:mm:ss')
 }
 
-const formatDuration = (seconds?: number) => {
-  if (!seconds) return '-'
-  if (seconds < 60) return `${seconds}秒`
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}分${seconds % 60}秒`
-  return `${Math.floor(seconds / 3600)}时${Math.floor((seconds % 3600) / 60)}分`
+const formatDuration = (backtest: any) => {
+  // 优先使用 duration_seconds
+  if (backtest.duration_seconds && backtest.duration_seconds > 0) {
+    const seconds = backtest.duration_seconds
+    if (seconds < 60) return `${seconds}秒`
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}分${seconds % 60}秒`
+    return `${Math.floor(seconds / 3600)}时${Math.floor((seconds % 3600) / 60)}分`
+  }
+  // 如果没有 duration_seconds，从 start_time 和 end_time 计算
+  if (backtest.start_time && backtest.end_time) {
+    const start = dayjs(backtest.start_time)
+    const end = dayjs(backtest.end_time)
+    const diff = end.diff(start, 'second')
+    if (diff < 60) return `${diff}秒`
+    if (diff < 3600) return `${Math.floor(diff / 60)}分${diff % 60}秒`
+    return `${Math.floor(diff / 3600)}时${Math.floor((diff % 3600) / 60)}分`
+  }
+  return '-'
 }
 
 const formatMoney = (value?: number) => {
   if (value === undefined || value === null) return '-'
   return `¥${value.toLocaleString()}`
+}
+
+// 获取组件名称
+const getComponentName = (component: any) => {
+  if (!component) return '-'
+  return component.name || '-'
+}
+
+// 格式化组件配置 - 按顺序显示所有参数
+const formatConfigParams = (config: Record<string, any>) => {
+  if (!config) return '-'
+
+  // 按 param_0, param_1, param_2... 顺序显示
+  const paramKeys = Object.keys(config)
+    .filter(k => k.startsWith('param_'))
+    .sort((a, b) => {
+      const numA = parseInt(a.replace('param_', '')) || 0
+      const numB = parseInt(b.replace('param_', '')) || 0
+      return numA - numB
+    })
+
+  if (paramKeys.length === 0) return '-'
+
+  return paramKeys.map(k => `${k}: ${config[k]}`).join(', ')
+}
+
+// 格式化组件配置
+const formatConfig = (config: Record<string, any>) => {
+  if (!config) return '-'
+  return formatConfigParams(config)
 }
 
 // 格式化分析器值
@@ -463,8 +530,34 @@ const getAnalyzerValueColor = (name: string, value: number | null): string => {
   return '#666'
 }
 
+// ========== 生命周期 ==========
 onMounted(() => {
   loadBacktest()
+})
+
+onUnmounted(() => {
+  backtestStore.clearCurrentTask()
+})
+
+// WebSocket 实时更新
+const { subscribe } = useWebSocket()
+let unsubscribe: (() => void) | null = null
+
+onMounted(() => {
+  unsubscribe = subscribe('*', (data) => {
+    const taskId = data.task_id || data.task_uuid
+    if (!taskId || taskId !== backtest.value?.uuid) return
+
+    backtestStore.updateProgress({
+      task_id: taskId,
+      status: data.type === 'progress' ? undefined : data.type,
+      progress: data.progress,
+    })
+  })
+})
+
+onUnmounted(() => {
+  if (unsubscribe) unsubscribe()
 })
 </script>
 

@@ -18,7 +18,7 @@
       <a-table
         :columns="selectColumns"
         :dataSource="backtestList"
-        :rowKey="(record: BacktestItem) => record.task_id"
+        :rowKey="(record: BacktestItem) => record.run_id"
         :rowSelection="rowSelection"
         :pagination="false"
         size="small"
@@ -39,7 +39,7 @@
         </template>
       </a-table>
       <div style="margin-top: 16px">
-        <a-text>已选择 {{ selectedIds.length }} 个回测任务</a-text>
+        <span>已选择 {{ selectedIds.length }} 个回测任务</span>
       </div>
     </a-card>
 
@@ -75,18 +75,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import request from '@/api/request'
-
-interface BacktestItem {
-  task_id: string
-  name: string
-  status: string
-  start_time: string
-  end_time: string
-  total_return?: number
-  sharpe_ratio?: number
-  max_drawdown?: number
-}
+import { backtestApi } from '@/api'
+import type { BacktestTask } from '@/api'
 
 interface MetricItem {
   name: string
@@ -101,12 +91,12 @@ interface CompareResult {
 
 const listLoading = ref(false)
 const loading = ref(false)
-const backtestList = ref<BacktestItem[]>([])
+const backtestList = ref<BacktestTask[]>([])
 const selectedIds = ref<string[]>([])
 const compareResult = ref<CompareResult | null>(null)
 
 const selectColumns = [
-  { title: '任务ID', dataIndex: 'task_id', width: 150 },
+  { title: '任务ID', dataIndex: 'run_id', width: 150 },
   { title: '名称', dataIndex: 'name', width: 200 },
   { title: '状态', key: 'status', width: 100 },
   { title: '总收益', key: 'total_return', width: 120 },
@@ -123,7 +113,7 @@ const rowSelection = computed(() => ({
     }
     selectedIds.value = keys
   },
-  getCheckboxProps: (record: BacktestItem) => ({
+  getCheckboxProps: (record: BacktestTask) => ({
     disabled: record.status !== 'completed',
   }),
 }))
@@ -173,8 +163,8 @@ const formatValue = (value: any, type: string) => {
 const fetchBacktestList = async () => {
   listLoading.value = true
   try {
-    const response = await request.get('/api/v1/backtest', { params: { size: 50 } })
-    backtestList.value = response.data?.data || []
+    const response = await backtestApi.list({ size: 50 })
+    backtestList.value = response.data || []
   } catch (e) {
     message.error('获取回测列表失败')
   } finally {
@@ -190,10 +180,8 @@ const runCompare = async () => {
 
   loading.value = true
   try {
-    const response = await request.get('/api/v1/backtest/compare', {
-      params: { ids: selectedIds.value.join(',') }
-    })
-    compareResult.value = response.data?.data || null
+    const response = await backtestApi.compare(selectedIds.value)
+    compareResult.value = response.data || null
   } catch (e) {
     message.error('对比失败')
   } finally {
