@@ -71,16 +71,45 @@ export const dataApi = {
 
   // ===== 数据同步 =====
   /**
+   * 发送同步命令
+   */
+  sync(params: {
+    type: string
+    codes: string[]
+    full?: boolean
+    overwrite?: boolean
+  }): Promise<{ status: string }> {
+    return request.post('/v1/data/sync', {
+      type: params.type,
+      codes: params.codes,
+      full: params.full,
+      overwrite: params.overwrite,
+    })
+  },
+
+  /**
+   * 获取数据状态
+   */
+  getStatus(): Promise<{
+    bar_count: number
+    tick_count: number
+    stock_count: number
+    last_sync: string
+  }> {
+    return request.get('/v1/data/status')
+  },
+
+  /**
    * 同步股票信息
    */
-  syncStockInfo(): Promise<{ task_id: string }> {
+  syncStockInfo(): Promise<{ run_id: string }> {
     return request.post('/v1/data/sync/stockinfo')
   },
 
   /**
    * 同步 K 线数据
    */
-  syncBars(codes: string[]): Promise<{ task_id: string }> {
+  syncBars(codes: string[]): Promise<{ run_id: string }> {
     return request.post('/v1/data/sync/bars', { codes })
   },
 

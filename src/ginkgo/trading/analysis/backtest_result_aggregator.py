@@ -52,13 +52,12 @@ class BacktestResultAggregator:
     ANALYZER_VOLATILITY = "volatility"
     ANALYZER_PROFIT = "ProfitAna"  # 注意：Profit分析器的name是ProfitAna
     ANALYZER_SIGNAL_COUNT = "signal_count"
+    ANALYZER_ORDER_COUNT = "order_count"
 
     def __init__(
         self,
         analyzer_service=None,
         backtest_task_service=None,
-        signal_crud=None,
-        order_crud=None
     ):
         """
         初始化汇总器
@@ -66,13 +65,9 @@ class BacktestResultAggregator:
         Args:
             analyzer_service: 分析器服务（读取分析器数据）
             backtest_task_service: 回测任务服务（更新任务结果）
-            signal_crud: Signal CRUD（统计信号数）
-            order_crud: Order CRUD（统计订单数）
         """
         self._analyzer_service = analyzer_service
         self._backtest_task_service = backtest_task_service
-        self._signal_crud = signal_crud
-        self._order_crud = order_crud
 
     @time_logger
     def aggregate_and_save(
@@ -82,7 +77,9 @@ class BacktestResultAggregator:
         engine_id: str = "",
         status: str = "completed",
         error_message: str = "",
-        duration_seconds: Optional[int] = None
+        duration_seconds: Optional[int] = None,
+        backtest_start_date: datetime = None,
+        backtest_end_date: datetime = None
     ) -> ServiceResult:
         """
         汇总分析器结果并保存到 BacktestTask
@@ -94,6 +91,8 @@ class BacktestResultAggregator:
             status: 回测状态 (completed/failed/stopped)
             error_message: 错误信息
             duration_seconds: 运行时长
+            backtest_start_date: 回测数据开始日期 (datetime)
+            backtest_end_date: 回测数据结束日期 (datetime)
 
         Returns:
             ServiceResult: 汇总结果
@@ -121,9 +120,15 @@ class BacktestResultAggregator:
                 "total_events": stats.get("total_events", 0),
             }
 
+            # 添加回测日期范围（如果有）
+            if backtest_start_date:
+                result_fields["backtest_start_date"] = backtest_start_date
+            if backtest_end_date:
+                result_fields["backtest_end_date"] = backtest_end_date
+
             if self._backtest_task_service:
                 update_result = self._backtest_task_service.update_status(
-                    task_id=task_id,
+                    uuid=task_id,  # task_id 与 uuid 等价
                     status=status,
                     error_message=error_message,
                     **result_fields
@@ -219,12 +224,12 @@ class BacktestResultAggregator:
 
             df = self._get_dataframe(net_value_result)
             if df is not None and len(df) > 0:
-                # 最终净值
-                final_value = float(df['value'].iloc[-1])
+                # 降序排列：iloc[0] 是最新值，iloc[-1] 是最早值
+                final_value = float(df['value'].iloc[0])
                 metrics["final_portfolio_value"] = str(final_value)
 
                 # 总盈亏 = 最终净值 - 初始净值
-                initial_value = float(df['value'].iloc[0])
+                initial_value = float(df['value'].iloc[-1])
                 total_pnl = final_value - initial_value
                 metrics["total_pnl"] = str(total_pnl)
 
@@ -252,7 +257,7 @@ class BacktestResultAggregator:
 
             df = self._get_dataframe(sharpe_result)
             if df is not None and len(df) > 0:
-                sharpe = float(df['value'].iloc[-1])
+                sharpe = float(df['value'].iloc[0])  # 降序排列，第一行是最新的
                 metrics["sharpe_ratio"] = str(sharpe)
 
             # 获取年化收益
@@ -265,7 +270,7 @@ class BacktestResultAggregator:
 
             df = self._get_dataframe(annual_return_result)
             if df is not None and len(df) > 0:
-                annual_return = float(df['value'].iloc[-1])
+                annual_return = float(df['value'].iloc[0])  # 降序排列，第一行是最新的
                 metrics["annual_return"] = str(annual_return)
 
             # 获取胜率
@@ -278,7 +283,7 @@ class BacktestResultAggregator:
 
             df = self._get_dataframe(win_rate_result)
             if df is not None and len(df) > 0:
-                win_rate = float(df['value'].iloc[-1])
+                win_rate = float(df['value'].iloc[0])  # 降序排列，第一行是最新的
                 metrics["win_rate"] = str(win_rate)
 
         except Exception as e:
@@ -293,7 +298,7 @@ class BacktestResultAggregator:
         engine_id: str
     ) -> Dict[str, int]:
         """
-        汇总业务统计数据
+        汇总业务统计数据（从分析器数据获取最新值）
 
         Args:
             task_id: 任务ID
@@ -310,25 +315,35 @@ class BacktestResultAggregator:
             "total_events": 0,
         }
 
-        # 统计信号数
-        if self._signal_crud:
-            try:
-                count_result = self._signal_crud.count(
-                    filters={"run_id": task_id, "portfolio_id": portfolio_id}
-                )
-                stats["total_signals"] = count_result or 0
-            except Exception as e:
-                GLOG.DEBUG(f"Could not count signals: {e}")
+        if not self._analyzer_service:
+            return stats
 
-        # 统计订单数
-        if self._order_crud:
-            try:
-                count_result = self._order_crud.count(
-                    filters={"run_id": task_id, "portfolio_id": portfolio_id}
-                )
-                stats["total_orders"] = count_result or 0
-            except Exception as e:
-                GLOG.DEBUG(f"Could not count orders: {e}")
+        try:
+            # 从 signal_count 分析器获取信号数（取最新值，因为记录的是累计值）
+            signal_count_result = self._analyzer_service.get_by_run_id(
+                run_id=task_id,
+                portfolio_id=portfolio_id,
+                analyzer_name=self.ANALYZER_SIGNAL_COUNT,
+                limit=10
+            )
+            df = self._get_dataframe(signal_count_result)
+            if df is not None and len(df) > 0:
+                # 降序排列，第一行是最新的累计值
+                stats["total_signals"] = int(df['value'].iloc[0])
+
+            # 从 order_count 分析器获取订单数（取最新值）
+            order_count_result = self._analyzer_service.get_by_run_id(
+                run_id=task_id,
+                portfolio_id=portfolio_id,
+                analyzer_name=self.ANALYZER_ORDER_COUNT,
+                limit=10
+            )
+            df = self._get_dataframe(order_count_result)
+            if df is not None and len(df) > 0:
+                stats["total_orders"] = int(df['value'].iloc[0])
+
+        except Exception as e:
+            GLOG.DEBUG(f"Error aggregating stats: {e}")
 
         return stats
 
