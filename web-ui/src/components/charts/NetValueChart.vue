@@ -66,7 +66,10 @@ const initChart = () => {
       lineColor: '#2196F3',
       lineWidth: 2,
     })
-    mainSeries.setData(props.data)
+    // 去重并排序数据（lightweight-charts 要求时间升序且无重复）
+    const uniqueData = [...new Map(props.data.map((item: any) => [item.time, item])).values()]
+      .sort((a: any, b: any) => (a.time > b.time ? 1 : -1))
+    mainSeries.setData(uniqueData)
   }
 
   // 基准净值曲线
@@ -76,7 +79,10 @@ const initChart = () => {
       lineWidth: 1,
       lineStyle: 2, // 虚线
     })
-    benchmarkSeries.setData(props.benchmarkData)
+    // 去重并排序数据
+    const uniqueBenchmark = [...new Map(props.benchmarkData.map((item: any) => [item.time, item])).values()]
+      .sort((a: any, b: any) => (a.time > b.time ? 1 : -1))
+    benchmarkSeries.setData(uniqueBenchmark)
   }
 
   chart.timeScale().fitContent()
@@ -103,13 +109,19 @@ onUnmounted(() => {
 
 watch(() => props.data, (newData) => {
   if (mainSeries && newData.length > 0) {
-    mainSeries.setData(newData)
+    // 去重并排序数据
+    const uniqueData = [...new Map(newData.map((item: any) => [item.time, item])).values()]
+      .sort((a: any, b: any) => (a.time > b.time ? 1 : -1))
+    mainSeries.setData(uniqueData)
   }
 }, { deep: true })
 
 watch(() => props.benchmarkData, (newData) => {
   if (benchmarkSeries && newData.length > 0) {
-    benchmarkSeries.setData(newData)
+    // 去重并排序数据
+    const uniqueData = [...new Map(newData.map((item: any) => [item.time, item])).values()]
+      .sort((a: any, b: any) => (a.time > b.time ? 1 : -1))
+    benchmarkSeries.setData(uniqueData)
   }
 }, { deep: true })
 
