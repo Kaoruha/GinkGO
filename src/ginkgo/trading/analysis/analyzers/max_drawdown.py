@@ -8,6 +8,7 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.libs.data.number import to_decimal
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 
@@ -27,7 +28,7 @@ class MaxDrawdown(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """激活最大回撤计算，更新当前回撤数据"""
-        current_worth = portfolio_info.get("worth", 0)
+        current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
         
         if self._max_worth is None:
             # 初始化，第一天无回撤

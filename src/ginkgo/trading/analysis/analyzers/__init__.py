@@ -12,6 +12,7 @@ from ginkgo.trading.analysis.analyzers.annualized_returns import AnnualizedRetur
 from ginkgo.trading.analysis.analyzers.hold_pct import HoldPCT
 from ginkgo.trading.analysis.analyzers.max_drawdown import MaxDrawdown
 from ginkgo.trading.analysis.analyzers.net_value import NetValue
+from ginkgo.trading.analysis.analyzers.order_count import OrderCount
 from ginkgo.trading.analysis.analyzers.profit import Profit
 from ginkgo.trading.analysis.analyzers.sharpe_ratio import SharpeRatio
 from ginkgo.trading.analysis.analyzers.signal_count import SignalCount
@@ -30,6 +31,7 @@ __all__ = [
     "HoldPCT",
     "MaxDrawdown",
     "NetValue",
+    "OrderCount",
     "Profit",
     "SharpeRatio",
     "SignalCount",
@@ -60,4 +62,5 @@ BASIC_ANALYZERS = [
     Profit,             # 每日利润
     Volatility,         # 波动率 - 风险基础指标
     SignalCount,        # 信号计数 - 执行统计
+    OrderCount,         # 订单计数 - 执行统计
 ]
