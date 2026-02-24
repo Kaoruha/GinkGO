@@ -116,6 +116,12 @@ class SimpleBacktest:
         print(f"🎯 目标股票: {selector._interested}")
         print(f"📊 净值分析器: {self.net_value_analyzer.name} 已添加")
 
+        # 8. 设置 run_id（用于 ClickHouse 记录关联）
+        import uuid
+        self.run_id = uuid.uuid4().hex
+        self.engine.set_run_id(self.run_id)
+        print(f"📋 Run ID: {self.run_id}")
+
     def run_backtest(self):
         """运行回测 - 纯引擎组装和运行，去除监控延迟"""
         print("\n🚀 启动事件驱动回测...")
