@@ -212,7 +212,7 @@ class EngineAssemblyService(BaseService):
             )
 
             if engine is None:
-                return ServiceResult(success=False, error=f"Failed to assemble engine {engine_id}")
+                return ServiceResult(success=False, error=f"No portfolios bound to engine {engine_id}")
 
             # 清理历史记录（仅当从数据服务获取时）
             if engine_id and portfolio_configs:
@@ -622,6 +622,7 @@ class EngineAssemblyService(BaseService):
             self._logger.INFO(f"🔍 [STATE] After setup_engine_infrastructure: {engine.status} (state: {engine.state})")
 
             # Process all portfolios with ID injection
+            bound_portfolio_count = 0
             for portfolio_mapping in portfolio_mappings:
                 portfolio_id = portfolio_mapping.portfolio_id
 
@@ -653,9 +654,16 @@ class EngineAssemblyService(BaseService):
                     continue
                 else:
                     self._logger.INFO(f"✅ Successfully bound portfolio {portfolio_id} to engine")
+                    bound_portfolio_count += 1
+
+            # 检查是否至少有一个Portfolio成功绑定
+            if bound_portfolio_count == 0:
+                error_msg = f"No portfolios were successfully bound to engine {engine_id}"
+                self._logger.ERROR(error_msg)
+                return None
 
             # 监控：portfolio绑定后的状态
-            self._logger.INFO(f"🔍 [STATE] After portfolio binding: {engine.status} (state: {engine.state})")
+            self._logger.INFO(f"🔍 [STATE] After portfolio binding: {engine.status} (state: {engine.state}), bound_portfolios={bound_portfolio_count}")
 
             # Setup data feeder AFTER all portfolios are bound (matching Example order)
             self._setup_data_feeder_for_engine(engine, logger)
@@ -698,6 +706,12 @@ class EngineAssemblyService(BaseService):
             # 设置 run_id（用于回测结果聚合器和事件追踪）
             run_id = engine_data.get("run_id", engine_id)
             engine.set_run_id(run_id)
+
+            # 调试：验证 run_id 是否正确设置到 EngineContext
+            engine_context = engine.get_engine_context()
+            self._logger.INFO(f"🔍 [RUN_ID CHECK] engine.set_run_id({run_id}) called")
+            self._logger.INFO(f"🔍 [RUN_ID CHECK] EngineContext.run_id = {engine_context.run_id}")
+            self._logger.INFO(f"🔍 [RUN_ID CHECK] EngineContext.engine_id = {engine_context.engine_id}")
 
             engine.add_logger(logger)
 
@@ -864,14 +878,30 @@ class EngineAssemblyService(BaseService):
 
             # 🔥 延迟查找设计：先绑定组件到Portfolio，此时Portfolio还没有context
             # 但组件会在调用 run_id 等属性时，通过 _bound_portfolio 延迟查找获取
+            print(f"[BIND PORTFOLIO] Calling _bind_components_to_portfolio_with_ids for {portfolio_id}")
             success = self._bind_components_to_portfolio_with_ids(portfolio, components, logger)
+            print(f"[BIND PORTFOLIO] _bind_components_to_portfolio_with_ids returned: {success}")
             if not success:
+                self._logger.ERROR(f"[BIND PORTFOLIO] Failed to bind components for portfolio {portfolio_id}")
                 return False
 
             # 然后绑定Portfolio到Engine，Portfolio获得context
             # 组件后续通过 _bound_portfolio 延迟查找即可获取到 run_id
-            self._logger.DEBUG(f"About to call _register_portfolio_with_engine with portfolio {portfolio_id}")
+            print(f"[BIND PORTFOLIO] About to call _register_portfolio_with_engine for {portfolio_id}")
             self._register_portfolio_with_engine(engine, portfolio)
+            print(f"[BIND PORTFOLIO] _register_portfolio_with_engine completed for {portfolio_id}")
+
+            # 调试：验证 Portfolio 绑定后的 context
+            if hasattr(portfolio, '_context') and portfolio._context:
+                self._logger.INFO(f"🔍 [CONTEXT CHECK] Portfolio._context.run_id = {portfolio._context.run_id}")
+                self._logger.INFO(f"🔍 [CONTEXT CHECK] Portfolio._context.engine_id = {portfolio._context.engine_id}")
+                # 检查 analyzers 的 run_id
+                if hasattr(portfolio, '_analyzers'):
+                    for name, analyzer in portfolio._analyzers.items():
+                        analyzer_run_id = analyzer.run_id if hasattr(analyzer, 'run_id') else 'N/A'
+                        self._logger.INFO(f"🔍 [CONTEXT CHECK] Analyzer {name}.run_id = {analyzer_run_id}")
+            else:
+                self._logger.WARN(f"⚠️ Portfolio has no _context after binding to engine!")
 
             self._logger.INFO(f"✅ Portfolio {portfolio_id} bound to engine successfully")
             return True
@@ -938,10 +968,16 @@ class EngineAssemblyService(BaseService):
         """绑定组件到Portfolio（简化版：移除ID注入，保留动态实例化）"""
         try:
             # 直接执行组件绑定逻辑，不进行ID注入
-            return self._perform_component_binding(portfolio, components, logger)
+            print(f"[BIND COMPONENTS] Calling _perform_component_binding")
+            result = self._perform_component_binding(portfolio, components, logger)
+            print(f"[BIND COMPONENTS] _perform_component_binding returned: {result} (type: {type(result).__name__})")
+            return result
 
         except Exception as e:
             self._logger.ERROR(f"Failed to bind components with ID injection: {e}")
+            import traceback
+            print(f"[BIND COMPONENTS] Exception: {e}")
+            print(traceback.format_exc())
             return False
 
     def _instantiate_component_from_dict(
@@ -1043,6 +1079,33 @@ class EngineAssemblyService(BaseService):
             self._logger.INFO(f"  Sizers: {len(sizers)}")
             self._logger.INFO(f"  Risk managers: {len(risk_managers)}")
             self._logger.INFO(f"  Analyzers: {len(analyzers)}")
+
+            # 🔥 优先加载 BASIC_ANALYZERS（在任何其他组件之前）
+            # 这样即使其他组件加载失败，分析器也能记录数据
+            self._logger.INFO(f"🔧 [ANALYZER] Loading BASIC_ANALYZERS first...")
+            try:
+                from ginkgo.trading.analysis.analyzers import BASIC_ANALYZERS
+
+                print(f"[ENGINE_ASSEMBLY] 📊 Loading BASIC_ANALYZERS ({len(BASIC_ANALYZERS)} analyzers)...")
+                basic_loaded = 0
+
+                for analyzer_class in BASIC_ANALYZERS:
+                    try:
+                        analyzer = analyzer_class()
+                        analyzer.add_logger(logger)
+                        portfolio.add_analyzer(analyzer)
+                        basic_loaded += 1
+                        print(f"[ENGINE_ASSEMBLY]   ✅ {analyzer_class.__name__} loaded")
+                    except Exception as e:
+                        self._logger.ERROR(f"Failed to load {analyzer_class.__name__}: {e}")
+                        print(f"[ENGINE_ASSEMBLY]   ❌ {analyzer_class.__name__} failed: {e}")
+
+                print(f"[ENGINE_ASSEMBLY] ✅ BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
+                self._logger.INFO(f"✅ [ANALYZER] BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
+
+            except Exception as e:
+                self._logger.ERROR(f"Failed to load BASIC_ANALYZERS: {e}")
+                print(f"[ENGINE_ASSEMBLY] ❌ Failed to load BASIC_ANALYZERS: {e}")
 
             def _instantiate_component_from_file(file_id: str, component_type: int, mapping_uuid: str):
                 """从文件内容实例化组件"""
@@ -1351,7 +1414,12 @@ class EngineAssemblyService(BaseService):
 
             for strategy_mapping in strategies:
                 # 支持两种格式：dict 或 ORM 对象
-                if isinstance(strategy_mapping, dict):
+                # 如果 dict 中包含 file_id，使用文件加载方式
+                if isinstance(strategy_mapping, dict) and "file_id" in strategy_mapping:
+                    strategy, error = _instantiate_component_from_file(
+                        strategy_mapping["file_id"], strategy_mapping.get("type", 6), strategy_mapping["mapping_uuid"]
+                    )
+                elif isinstance(strategy_mapping, dict):
                     strategy, error = self._instantiate_component_from_dict(strategy_mapping, "strategy", logger)
                 else:
                     strategy, error = _instantiate_component_from_file(
@@ -1372,7 +1440,12 @@ class EngineAssemblyService(BaseService):
                 return False
             selector_mapping = selectors[0]
             # 支持两种格式：dict 或 ORM 对象
-            if isinstance(selector_mapping, dict):
+            # 如果 dict 中包含 file_id，使用文件加载方式
+            if isinstance(selector_mapping, dict) and "file_id" in selector_mapping:
+                selector, error = _instantiate_component_from_file(
+                    selector_mapping["file_id"], selector_mapping.get("type", 4), selector_mapping["mapping_uuid"]
+                )
+            elif isinstance(selector_mapping, dict):
                 selector, error = self._instantiate_component_from_dict(selector_mapping, "selector", logger)
             else:
                 selector, error = _instantiate_component_from_file(
@@ -1393,13 +1466,25 @@ class EngineAssemblyService(BaseService):
                 self._logger.WARN("Selector has no interested codes or _interested attribute")
 
             # Add sizer (required)
+            # 兼容两种格式：sizers (列表) 或 sizer (单个对象)
             sizers = components.get("sizers", [])
+            if len(sizers) == 0:
+                # 尝试单数形式
+                sizer_single = components.get("sizer")
+                if sizer_single:
+                    sizers = [sizer_single]
+
             if len(sizers) == 0:
                 self._logger.ERROR(f"No sizer found for portfolio {portfolio_id}")
                 return False
             sizer_mapping = sizers[0]
             # 支持两种格式：dict 或 ORM 对象
-            if isinstance(sizer_mapping, dict):
+            # 如果 dict 中包含 file_id，使用文件加载方式
+            if isinstance(sizer_mapping, dict) and "file_id" in sizer_mapping:
+                sizer, error = _instantiate_component_from_file(
+                    sizer_mapping["file_id"], sizer_mapping.get("type", 5), sizer_mapping["mapping_uuid"]
+                )
+            elif isinstance(sizer_mapping, dict):
                 sizer, error = self._instantiate_component_from_dict(sizer_mapping, "sizer", logger)
             else:
                 sizer, error = _instantiate_component_from_file(
@@ -1421,9 +1506,15 @@ class EngineAssemblyService(BaseService):
                 )
             else:
                 for risk_manager_mapping in risk_managers:
-                    risk_manager, error = _instantiate_component_from_file(
-                        risk_manager_mapping.file_id, risk_manager_mapping.type, risk_manager_mapping.uuid
-                    )
+                    # 支持两种格式：dict 或 ORM 对象
+                    if isinstance(risk_manager_mapping, dict) and "file_id" in risk_manager_mapping:
+                        risk_manager, error = _instantiate_component_from_file(
+                            risk_manager_mapping["file_id"], risk_manager_mapping.get("type", 3), risk_manager_mapping["mapping_uuid"]
+                        )
+                    else:
+                        risk_manager, error = _instantiate_component_from_file(
+                            risk_manager_mapping.file_id, risk_manager_mapping.type, risk_manager_mapping.uuid
+                        )
                     if risk_manager is None:
                         self._logger.ERROR(f"Failed to instantiate risk manager: {error}")
                         continue
@@ -1432,36 +1523,7 @@ class EngineAssemblyService(BaseService):
                     portfolio.add_risk_manager(risk_manager)
                     self._logger.DEBUG(f"✅ Added risk manager: {risk_manager.__class__.__name__}")
 
-            # Add analyzers: BASIC_ANALYZERS 先加载 + 用户配置（去重）
-            analyzers = components.get("analyzers", [])
-
-            # 1. 先加载 BASIC_ANALYZERS
-            self._logger.INFO(f"🔧 [ANALYZER] Loading BASIC_ANALYZERS first...")
-            try:
-                from ginkgo.trading.analysis.analyzers import BASIC_ANALYZERS
-
-                print(f"[ENGINE_ASSEMBLY] 📊 Loading BASIC_ANALYZERS ({len(BASIC_ANALYZERS)} analyzers)...")
-                basic_loaded = 0
-
-                for analyzer_class in BASIC_ANALYZERS:
-                    try:
-                        analyzer = analyzer_class()
-                        analyzer.add_logger(logger)
-                        portfolio.add_analyzer(analyzer)
-                        basic_loaded += 1
-                        print(f"[ENGINE_ASSEMBLY]   ✅ {analyzer_class.__name__} loaded")
-                    except Exception as e:
-                        self._logger.ERROR(f"Failed to load {analyzer_class.__name__}: {e}")
-                        print(f"[ENGINE_ASSEMBLY]   ❌ {analyzer_class.__name__} failed: {e}")
-
-                print(f"[ENGINE_ASSEMBLY] ✅ BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
-                self._logger.INFO(f"✅ [ANALYZER] BASIC_ANALYZERS: {basic_loaded}/{len(BASIC_ANALYZERS)} loaded")
-
-            except Exception as e:
-                self._logger.ERROR(f"Failed to load BASIC_ANALYZERS: {e}")
-                print(f"[ENGINE_ASSEMBLY] ❌ Failed to load BASIC_ANALYZERS: {e}")
-
-            # 2. 再加载用户配置的分析器（跳过已存在的）
+            # 加载用户配置的分析器（跳过已存在的 BASIC_ANALYZERS）
             if len(analyzers) > 0:
                 self._logger.INFO(f"🔧 [ANALYZER] Loading {len(analyzers)} user-configured analyzers...")
                 existing_names = set(portfolio.analyzers.keys()) if hasattr(portfolio, 'analyzers') else set()
@@ -1471,9 +1533,15 @@ class EngineAssemblyService(BaseService):
                 print(f"[ENGINE_ASSEMBLY] 📊 Loading user analyzers (existing: {len(existing_names)})...")
 
                 for idx, analyzer_mapping in enumerate(analyzers):
-                    analyzer, error = _instantiate_component_from_file(
-                        analyzer_mapping.file_id, analyzer_mapping.type, analyzer_mapping.uuid
-                    )
+                    # 支持两种格式：dict 或 ORM 对象
+                    if isinstance(analyzer_mapping, dict) and "file_id" in analyzer_mapping:
+                        analyzer, error = _instantiate_component_from_file(
+                            analyzer_mapping["file_id"], analyzer_mapping.get("type", 1), analyzer_mapping["mapping_uuid"]
+                        )
+                    else:
+                        analyzer, error = _instantiate_component_from_file(
+                            analyzer_mapping.file_id, analyzer_mapping.type, analyzer_mapping.uuid
+                        )
                     if analyzer is None:
                         self._logger.ERROR(f"Failed to instantiate analyzer: {error}")
                         print(f"[ENGINE_ASSEMBLY]   ❌ Analyzer failed: {error}")
@@ -1494,10 +1562,14 @@ class EngineAssemblyService(BaseService):
                 print(f"[ENGINE_ASSEMBLY] ✅ User analyzers: {user_loaded} added, {user_skipped} skipped (duplicate)")
                 self._logger.INFO(f"✅ [ANALYZER] User analyzers: {user_loaded} added, {user_skipped} skipped")
 
+            print(f"[BIND COMPONENTS] _perform_component_binding completed successfully, returning True")
             return True
 
         except Exception as e:
             self._logger.ERROR(f"Failed to perform component binding: {e}")
+            import traceback
+            print(f"[BIND COMPONENTS] Exception in _perform_component_binding: {e}")
+            print(traceback.format_exc())
             return False
 
     def _bind_components_to_portfolio(
