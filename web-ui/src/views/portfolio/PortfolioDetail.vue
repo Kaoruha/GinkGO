@@ -75,14 +75,22 @@
       <div class="stats-row">
         <a-card class="stat-card">
           <div class="stat-item">
-            <span class="stat-label">总净值</span>
-            <span class="stat-value">{{ portfolio.net_value.toFixed(3) }}</span>
+            <span class="stat-label">平均净值</span>
+            <span v-if="avgNetValue" class="stat-value">{{ avgNetValue.toFixed(3) }}</span>
+            <span v-else class="stat-value">-</span>
             <span
+              v-if="avgNetValue"
               class="stat-change"
-              :class="getChangeClass(portfolio.net_value)"
+              :class="getChangeClass(avgNetValue)"
             >
-              {{ ((portfolio.net_value - 1) * 100).toFixed(2) }}%
+              {{ ((avgNetValue - 1) * 100).toFixed(2) }}%
             </span>
+          </div>
+        </a-card>
+        <a-card class="stat-card">
+          <div class="stat-item">
+            <span class="stat-label">回测次数</span>
+            <span class="stat-value">{{ backtestTasks.filter(t => t.status === 'completed').length }}</span>
           </div>
         </a-card>
         <a-card class="stat-card">
@@ -93,15 +101,11 @@
         </a-card>
         <a-card class="stat-card">
           <div class="stat-item">
-            <span class="stat-label">当前现金</span>
-            <span class="stat-value">¥{{ formatNumber(portfolio.current_cash) }}</span>
-            <span class="stat-label">现金比: {{ (portfolio.current_cash / (portfolio.net_value * portfolio.initial_cash) * 100).toFixed(1) }}%</span>
-          </div>
-        </a-card>
-        <a-card class="stat-card">
-          <div class="stat-item">
-            <span class="stat-label">持仓市值</span>
-            <span class="stat-value">¥{{ formatNumber(portfolio.net_value * portfolio.initial_cash - portfolio.current_cash) }}</span>
+            <span class="stat-label">平均盈亏</span>
+            <span v-if="avgNetValue" class="stat-value" :class="getChangeClass(avgNetValue)">
+              {{ ((avgNetValue - 1) * 100).toFixed(2) }}%
+            </span>
+            <span v-else class="stat-value">-</span>
           </div>
         </a-card>
       </div>
@@ -204,6 +208,41 @@
             暂无组件配置
           </div>
         </div>
+      </a-card>
+
+      <!-- 关联回测任务 -->
+      <a-card title="回测任务" class="backtests-card">
+        <a-spin v-if="backtestLoading" />
+        <div v-else-if="backtestTasks.length === 0" class="empty-text">
+          暂无回测任务
+        </div>
+        <a-table
+          v-else
+          :columns="backtestColumns"
+          :data-source="backtestTasks"
+          :pagination="false"
+          row-key="uuid"
+          size="small"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'name'">
+              <a @click="goToBacktest(record.uuid)">{{ record.name || '(未命名)' }}</a>
+            </template>
+            <template v-else-if="column.key === 'status'">
+              <a-tag :color="getBacktestStatusColor(record.status)">
+                {{ getBacktestStatusLabel(record.status) }}
+              </a-tag>
+            </template>
+            <template v-else-if="column.key === 'total_pnl'">
+              <span :style="{ color: parseFloat(record.total_pnl) >= 0 ? '#f5222d' : '#52c41a' }">
+                {{ parseFloat(record.total_pnl).toFixed(2) }}
+              </span>
+            </template>
+            <template v-else-if="column.key === 'create_at'">
+              {{ formatDate(record.create_at) }}
+            </template>
+          </template>
+        </a-table>
       </a-card>
 
       <!-- 净值历史 (预留 TradingView 集成) -->
@@ -391,7 +430,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
@@ -404,6 +443,7 @@ import {
   EditOutlined
 } from '@ant-design/icons-vue'
 import { portfolioApi, type PortfolioDetail } from '@/api/modules/portfolio'
+import { backtestApi, type BacktestTask } from '@/api/modules/backtest'
 import {
   getModeLabel,
   getModeColor,
@@ -420,6 +460,32 @@ const route = useRoute()
 const loading = ref(false)
 const portfolio = ref<PortfolioDetail | null>(null)
 const showConfigModal = ref(false)
+const backtestTasks = ref<BacktestTask[]>([])
+const backtestLoading = ref(false)
+
+// 计算回测平均净值
+const avgNetValue = computed(() => {
+  const completedTasks = backtestTasks.value.filter(t => t.status === 'completed')
+  if (completedTasks.length === 0) return null
+
+  const initialValues = completedTasks.map(t => {
+    try {
+      const config = JSON.parse(t.config_snapshot || '{}')
+      return config.initial_capital || 1000000
+    } catch {
+      return 1000000
+    }
+  })
+
+  const netValues = completedTasks.map((t, i) => {
+    const finalValue = parseFloat(t.final_portfolio_value) || 0
+    const initialValue = initialValues[i]
+    return finalValue / initialValue
+  })
+
+  const sum = netValues.reduce((a, b) => a + b, 0)
+  return sum / netValues.length
+})
 
 // 配置表单
 const configForm = reactive({
@@ -437,6 +503,15 @@ const positionColumns = [
   { title: '盈亏', key: 'profit_loss', width: 100, align: 'right' }
 ]
 
+// 回测任务表格列
+const backtestColumns = [
+  { title: '任务名称', dataIndex: 'name', key: 'name', width: 200 },
+  { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
+  { title: '总盈亏', dataIndex: 'total_pnl', key: 'total_pnl', width: 100, align: 'right' },
+  { title: '订单数', dataIndex: 'total_orders', key: 'total_orders', width: 80, align: 'right' },
+  { title: '创建时间', dataIndex: 'create_at', key: 'create_at', width: 150 },
+]
+
 // 加载数据
 const loadData = async () => {
   const uuid = route.params.id as string
@@ -446,11 +521,57 @@ const loadData = async () => {
     portfolio.value = data
     configForm.config_locked = data.config_locked
     configForm.initial_cash = data.initial_cash
+    // 加载关联的回测任务
+    loadBacktestTasks(uuid)
   } catch (error: any) {
     message.error(`加载失败: ${error.message || '未知错误'}`)
   } finally {
     loading.value = false
   }
+}
+
+// 加载关联的回测任务
+const loadBacktestTasks = async (portfolioId: string) => {
+  backtestLoading.value = true
+  try {
+    const res = await backtestApi.list({ portfolio_id: portfolioId, size: 10 })
+    backtestTasks.value = res.data || []
+  } catch (error: any) {
+    console.error('Failed to load backtest tasks:', error)
+  } finally {
+    backtestLoading.value = false
+  }
+}
+
+// 跳转到回测详情
+const goToBacktest = (uuid: string) => {
+  router.push(`/stage1/backtest/${uuid}`)
+}
+
+// 获取回测状态颜色
+const getBacktestStatusColor = (status: string) => {
+  const colors: Record<string, string> = {
+    created: 'default',
+    pending: 'warning',
+    running: 'processing',
+    completed: 'success',
+    failed: 'error',
+    stopped: 'default',
+  }
+  return colors[status] || 'default'
+}
+
+// 获取回测状态标签
+const getBacktestStatusLabel = (status: string) => {
+  const labels: Record<string, string> = {
+    created: '待启动',
+    pending: '等待中',
+    running: '运行中',
+    completed: '已完成',
+    failed: '失败',
+    stopped: '已停止',
+  }
+  return labels[status] || status
 }
 
 // 获取变化样式
@@ -680,7 +801,8 @@ onMounted(() => {
 .positions-card,
 .strategies-card,
 .alerts-card,
-.components-card {
+.components-card,
+.backtests-card {
   border-radius: 12px;
   border: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
