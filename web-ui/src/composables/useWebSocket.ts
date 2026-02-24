@@ -10,12 +10,23 @@ const ws = ref<WebSocket | null>(null)
 const isConnected = ref(false)
 const handlers = new Map<string, Set<MessageHandler>>()
 
-function connect(url: string = 'ws://localhost:8000/ws') {
+function getWebSocketUrl(): string {
+  // 使用当前页面的 host 构建 WebSocket URL
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.host
+  // 如果是前端开发服务器 (5173)，使用后端端口 8000
+  const wsHost = host.includes(':5173') ? host.replace(':5173', ':8000') : host
+  return `${protocol}//${wsHost}/ws`
+}
+
+function connect(url?: string) {
   if (ws.value?.readyState === WebSocket.OPEN) {
     return
   }
 
-  ws.value = new WebSocket(url)
+  const wsUrl = url || getWebSocketUrl()
+  console.log('[WS] Connecting to', wsUrl)
+  ws.value = new WebSocket(wsUrl)
 
   ws.value.onopen = () => {
     isConnected.value = true
@@ -26,7 +37,7 @@ function connect(url: string = 'ws://localhost:8000/ws') {
     isConnected.value = false
     console.log('[WS] Disconnected')
     // 5秒后重连
-    setTimeout(() => connect(url), 5000)
+    setTimeout(() => connect(wsUrl), 5000)
   }
 
   ws.value.onerror = (error) => {
