@@ -56,16 +56,17 @@ class BacktestTaskService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def get(self, task_id: str = None, engine_id: str = None, portfolio_id: str = None,
-            status: str = None) -> ServiceResult:
+    def get(self, run_id: str = None, engine_id: str = None, portfolio_id: str = None,
+            status: str = None, task_id: str = None) -> ServiceResult:
         """
         获取回测任务
 
         Args:
-            task_id: 任务会话ID
+            run_id: 运行会话ID
             engine_id: 引擎ID
             portfolio_id: 投资组合ID
             status: 任务状态
+            task_id: 向后兼容参数（等同于 run_id）
 
         Returns:
             ServiceResult: 查询结果
@@ -73,8 +74,10 @@ class BacktestTaskService(BaseService):
         try:
             filters = {"is_del": False}
 
-            if task_id:
-                filters["task_id"] = task_id
+            # 支持 run_id 或向后兼容的 task_id
+            actual_run_id = run_id or task_id
+            if actual_run_id:
+                filters["run_id"] = actual_run_id
             if engine_id:
                 filters["engine_id"] = engine_id
             if portfolio_id:
@@ -91,20 +94,24 @@ class BacktestTaskService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def get_by_id(self, uuid: str) -> ServiceResult:
+    def get_by_id(self, backtest_id: str) -> ServiceResult:
         """
-        通过 UUID 获取单个任务
+        通过 ID 获取单个任务（支持 uuid 或 run_id）
 
         Args:
-            uuid: 任务 UUID
+            backtest_id: 任务标识（可以是 uuid 或 run_id）
 
         Returns:
             ServiceResult: 查询结果
         """
         try:
-            result = self._crud_repo.get_by_uuid(uuid)
+            # 先尝试用 uuid 查询
+            result = self._crud_repo.get_by_uuid(backtest_id)
             if result is None:
-                return ServiceResult.error(f"Backtest task not found: {uuid}")
+                # 如果 uuid 查不到，尝试用 run_id 查询
+                result = self._crud_repo.get_by_run_id(backtest_id)
+            if result is None:
+                return ServiceResult.error(f"Backtest task not found: {backtest_id}")
             return ServiceResult.success(result, f"Successfully retrieved backtest task")
 
         except Exception as e:
@@ -112,24 +119,29 @@ class BacktestTaskService(BaseService):
 
     @time_logger
     @retry(max_try=3)
-    def get_by_task_id(self, task_id: str) -> ServiceResult:
+    def get_by_run_id(self, run_id: str) -> ServiceResult:
         """
-        通过 task_id 获取单个任务
+        通过 run_id 获取单个任务
 
         Args:
-            task_id: 任务会话ID
+            run_id: 运行会话ID
 
         Returns:
             ServiceResult: 查询结果
         """
         try:
-            result = self._crud_repo.get_task_by_task_id(task_id)
+            result = self._crud_repo.get_by_run_id(run_id)
             if result is None:
-                return ServiceResult.error(f"Backtest task not found: {task_id}")
+                return ServiceResult.error(f"Backtest task not found: {run_id}")
             return ServiceResult.success(result, f"Successfully retrieved backtest task")
 
         except Exception as e:
             return ServiceResult.error(f"Failed to get backtest task: {str(e)}")
+
+    # 向后兼容
+    def get_by_task_id(self, task_id: str) -> ServiceResult:
+        """向后兼容方法，调用 get_by_run_id"""
+        return self.get_by_run_id(task_id)
 
     @time_logger
     @retry(max_try=3)
@@ -249,7 +261,7 @@ class BacktestTaskService(BaseService):
         更新任务状态
 
         Args:
-            uuid: 任务 UUID（与 task_id 等价）
+            uuid: 任务标识（可以是 uuid 或 run_id）
             status: 新状态 (created/pending/running/completed/failed/stopped)
             error_message: 错误信息
             **result_fields: 结果字段
@@ -262,19 +274,28 @@ class BacktestTaskService(BaseService):
             if status not in valid_statuses:
                 return ServiceResult.error(f"Invalid status: {status}")
 
+            # 查找任务，支持 uuid 或 run_id
+            task = self._crud_repo.get_by_uuid(uuid)
+            if not task:
+                task = self._crud_repo.get_by_run_id(uuid)
+            if not task:
+                return ServiceResult.error(f"Backtest task not found: {uuid}")
+
+            # 使用真实的 uuid 更新
+            real_uuid = task.uuid
             updated_count = self._crud_repo.update_task_status(
-                uuid=uuid,
+                uuid=real_uuid,
                 status=status,
                 error_message=error_message,
                 **result_fields
             )
 
             if updated_count == 0:
-                return ServiceResult.error(f"Backtest task not found: {uuid}")
+                return ServiceResult.error(f"Backtest task not found: {real_uuid}")
 
-            GLOG.INFO(f"Updated task {uuid} status to: {status}")
+            GLOG.INFO(f"Updated task {real_uuid} status to: {status}")
 
-            return ServiceResult.success({"uuid": uuid, "status": status},
+            return ServiceResult.success({"uuid": real_uuid, "run_id": task.run_id, "status": status},
                                          f"Task status updated to {status}")
 
         except Exception as e:
@@ -411,13 +432,14 @@ class BacktestTaskService(BaseService):
             return ServiceResult.error(f"Failed to compare tasks: {str(e)}")
 
     @time_logger
-    def exists(self, task_id: str = None, uuid: str = None) -> ServiceResult:
+    def exists(self, run_id: str = None, uuid: str = None, task_id: str = None) -> ServiceResult:
         """
         检查任务是否存在
 
         Args:
-            task_id: 任务会话ID
+            run_id: 运行会话ID
             uuid: 任务 UUID
+            task_id: 向后兼容参数（等同于 run_id）
 
         Returns:
             ServiceResult: 存在性检查结果
@@ -425,10 +447,11 @@ class BacktestTaskService(BaseService):
         try:
             if uuid:
                 exists = self._crud_repo.exists(filters={"uuid": uuid, "is_del": False})
-            elif task_id:
-                exists = self._crud_repo.exists(filters={"task_id": task_id, "is_del": False})
+            elif run_id or task_id:
+                actual_run_id = run_id or task_id
+                exists = self._crud_repo.exists(filters={"run_id": actual_run_id, "is_del": False})
             else:
-                return ServiceResult.error("task_id or uuid is required")
+                return ServiceResult.error("run_id or uuid is required")
 
             return ServiceResult.success({"exists": exists}, "Existence check completed")
 
@@ -442,7 +465,7 @@ class BacktestTaskService(BaseService):
         更新任务进度（用于SSE实时推送）
 
         Args:
-            uuid: 任务 UUID（与 task_id 等价）
+            uuid: 任务标识（可以是 uuid 或 run_id）
             progress: 进度百分比 0-100
             current_stage: 当前阶段 (DATA_PREPARING/ENGINE_BUILDING/RUNNING/FINALIZING)
             current_date: 当前处理的业务日期
@@ -462,17 +485,26 @@ class BacktestTaskService(BaseService):
             if not updates:
                 return ServiceResult.error("No progress fields to update")
 
-            # 统一按 uuid 查找（task_id 与 uuid 等价）
+            # 查找任务，支持 uuid 或 run_id
+            task = self._crud_repo.get_by_uuid(uuid)
+            if not task:
+                task = self._crud_repo.get_by_run_id(uuid)
+            if not task:
+                return ServiceResult.error(f"Backtest task not found: {uuid}")
+
+            # 使用真实的 uuid 更新
+            real_uuid = task.uuid
             updated_count = self._crud_repo.modify(
-                filters={"uuid": uuid},
+                filters={"uuid": real_uuid},
                 updates=updates
             )
 
             if updated_count is None or updated_count == 0:
-                return ServiceResult.error(f"Backtest task not found: {uuid}")
+                return ServiceResult.error(f"Backtest task not found: {real_uuid}")
 
             return ServiceResult.success({
-                "uuid": uuid,
+                "uuid": real_uuid,
+                "run_id": task.run_id,
                 "progress": updates.get("progress"),
                 "current_stage": updates.get("current_stage"),
                 "current_date": updates.get("current_date")
@@ -512,7 +544,7 @@ class BacktestTaskService(BaseService):
         启动回测任务（发送到Kafka队列）
 
         Args:
-            uuid: 任务 UUID（与 task_id 等价）
+            uuid: 任务标识（可以是 uuid 或 run_id）
             portfolio_uuid: 投资组合UUID
             name: 任务名称
             start_date: 开始日期
@@ -524,20 +556,31 @@ class BacktestTaskService(BaseService):
             ServiceResult: 启动结果
         """
         try:
-            # 获取任务信息（task_id 与 uuid 等价，直接用 uuid 查找）
+            # 获取任务信息（支持 uuid 或 run_id）
             task = self._crud_repo.get_by_uuid(uuid)
+            if not task:
+                task = self._crud_repo.get_by_run_id(uuid)
             if not task:
                 return ServiceResult.error("Backtest task not found")
 
-            # 发送启动命令到Kafka
+            # 发送启动命令到Kafka（使用 run_id 作为任务标识）
             import json
             from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 
+            real_uuid = task.uuid  # 用于更新状态
+            run_id = task.run_id   # 用于信号/订单存储
+
+            # 如果没有提供日期，使用数据库中的日期
+            if not start_date and task.backtest_start_date:
+                start_date = task.backtest_start_date.strftime("%Y-%m-%d")
+            if not end_date and task.backtest_end_date:
+                end_date = task.backtest_end_date.strftime("%Y-%m-%d")
+
             producer = GinkgoProducer()
             assignment = {
-                "task_uuid": uuid,
+                "task_uuid": run_id,  # 使用 run_id，与信号/订单保持一致
                 "portfolio_uuid": portfolio_uuid or task.portfolio_id,
-                "name": name or f"backtest_{uuid[:8]}",
+                "name": name or f"backtest_{run_id[:8]}",
                 "command": "start",
                 "config": {
                     "start_date": start_date,
@@ -552,10 +595,10 @@ class BacktestTaskService(BaseService):
             producer.close()
 
             # 更新任务状态为 pending (等待 Worker 调度)
-            self.update_status(uuid, status="pending")
+            self.update_status(real_uuid, status="pending")
 
-            GLOG.INFO(f"Started backtest task: {uuid}")
-            return ServiceResult.success({"uuid": uuid}, "Backtest task started")
+            GLOG.INFO(f"Started backtest task: {run_id}")
+            return ServiceResult.success({"uuid": real_uuid, "run_id": run_id}, "Backtest task started")
 
         except Exception as e:
             GLOG.ERROR(f"Failed to start backtest task {uuid}: {e}")
@@ -567,23 +610,27 @@ class BacktestTaskService(BaseService):
         停止回测任务（发送取消命令到Kafka）
 
         Args:
-            uuid: 任务 UUID（与 task_id 等价）
+            uuid: 任务标识（可以是 uuid 或 run_id）
 
         Returns:
             ServiceResult: 停止结果
         """
         try:
-            # 获取任务信息（task_id 与 uuid 等价，直接用 uuid 查找）
+            # 获取任务信息（支持 uuid 或 run_id）
             task = self._crud_repo.get_by_uuid(uuid)
+            if not task:
+                task = self._crud_repo.get_by_run_id(uuid)
             if not task:
                 return ServiceResult.error("Backtest task not found")
 
-            # 发送取消命令到Kafka
+            # 发送取消命令到Kafka（使用 run_id 作为任务标识）
             from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
 
+            real_uuid = task.uuid  # 用于更新状态
+            run_id = task.run_id   # 任务标识
             producer = GinkgoProducer()
             assignment = {
-                "task_uuid": uuid,
+                "task_uuid": run_id,  # 使用 run_id
                 "command": "cancel",
             }
 
@@ -592,13 +639,13 @@ class BacktestTaskService(BaseService):
             producer.close()
 
             # 更新任务状态为stopped
-            self.update_status(uuid, status="stopped")
+            self.update_status(real_uuid, status="stopped")
 
-            GLOG.INFO(f"Stopped backtest task: {uuid}")
-            return ServiceResult.success({"uuid": uuid}, "Backtest task stopped")
+            GLOG.INFO(f"Stopped backtest task: {run_id}")
+            return ServiceResult.success({"uuid": real_uuid, "run_id": run_id}, "Backtest task stopped")
 
         except Exception as e:
-            GLOG.ERROR(f"Failed to stop backtest task {task_id}: {e}")
+            GLOG.ERROR(f"Failed to stop backtest task: {e}")
             return ServiceResult.error(f"Failed to stop backtest task: {str(e)}")
 
 
