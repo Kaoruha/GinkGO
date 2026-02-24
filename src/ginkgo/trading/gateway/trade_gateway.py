@@ -506,10 +506,19 @@ class TradeGateway(BaseTradeGateway):
             pass
 
         elif result.status == ORDERSTATUS_TYPES.CANCELED:
-            self.log("INFO", f"🚫 CANCELED by {broker.__class__.__name__}: {result.broker_order_id}")
+            self.log("INFO", f"🚫 CANCELED: {result.error_message or 'No reason'}")
 
-            # 发布订单取消事件
-            event = result.to_event(order, original_event, self.publish_event)
+            # 创建取消事件
+            engine_id = self._bound_engine.engine_id if self._bound_engine else None
+            run_id = getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None
+            event = result.to_event(engine_id=engine_id, run_id=run_id)
+            if event:
+                self.log("INFO", f"🔥 [ROUTER] Creating ORDER_CANCELED event: {type(event).__name__}")
+                # 发布取消事件到引擎
+                self.publish_event(event)
+                self.log("INFO", f"🔥 [ROUTER] ORDER_CANCELED event published to engine")
+            else:
+                self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create ORDER_CANCELED event!")
 
         # 更新订单跟踪状态
         if result.broker_order_id and hasattr(self, '_processing_orders'):
