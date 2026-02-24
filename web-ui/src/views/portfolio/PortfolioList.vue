@@ -6,7 +6,7 @@
       <div class="page-header">
         <div class="header-left">
           <h1>投资组合</h1>
-          <a-tag color="purple">{{ stats.total }} 个组合</a-tag>
+          <a-tag color="purple">{{ total }} 个组合</a-tag>
         </div>
         <div class="header-right">
           <a-input-search
@@ -64,14 +64,14 @@
       </div>
 
       <!-- 空状态 -->
-      <a-empty v-else-if="filteredAndSearchedPortfolios.length === 0" description="暂无投资组合">
+      <a-empty v-else-if="displayPortfolios.length === 0" description="暂无投资组合">
         <a-button type="primary" @click="showCreateModal">创建第一个组合</a-button>
       </a-empty>
 
       <!-- 卡片列表 -->
       <div v-else class="portfolio-grid">
       <a-card
-        v-for="portfolio in filteredAndSearchedPortfolios"
+        v-for="portfolio in displayPortfolios"
         :key="portfolio.uuid"
         class="portfolio-card"
         hoverable
@@ -144,6 +144,12 @@
         </div>
       </a-card>
       </div>
+
+      <!-- 滚动加载触发器 -->
+      <div v-if="displayPortfolios.length > 0" ref="loadMoreTrigger" class="load-more-trigger">
+        <a-spin v-if="loadingMore" size="small" />
+        <div v-else-if="!hasMore" class="no-more">没有更多了</div>
+      </div>
     </div>
 
     <!-- 创建组合模态框 -->
@@ -163,7 +169,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { PlusOutlined, MoreOutlined, EyeOutlined, DeleteOutlined } from '@ant-design/icons-vue'
@@ -175,8 +181,17 @@ import PortfolioFormEditor from './PortfolioFormEditor.vue'
 
 const router = useRouter()
 const portfolioStore = usePortfolioStore()
-const { portfolios, loading, filterMode, stats, filteredPortfolios } = storeToRefs(portfolioStore)
-const { fetchPortfolios, deletePortfolio } = portfolioStore
+const {
+  portfolios,
+  loading,
+  loadingMore,
+  filterMode,
+  stats,
+  filteredPortfolios,
+  hasMore,
+  total
+} = storeToRefs(portfolioStore)
+const { fetchPortfolios, fetchStats, deletePortfolio } = portfolioStore
 
 // 状态格式化
 const { getColor: getModeColor, getLabel: getModeLabel } = usePortfolioMode()
@@ -185,14 +200,80 @@ const { getColor: getStateColor, getLabel: getStateLabel } = usePortfolioState()
 const searchKeyword = ref('')
 const createModalVisible = ref(false)
 const formEditorRef = ref()
+const loadMoreTrigger = ref<HTMLElement>()
 
-const filteredAndSearchedPortfolios = computed(() => {
-  if (!searchKeyword.value) return filteredPortfolios.value
-  const keyword = searchKeyword.value.toLowerCase()
-  return filteredPortfolios.value.filter((p: any) =>
-    p.name?.toLowerCase().includes(keyword) ||
-    p.desc?.toLowerCase().includes(keyword)
-  )
+// 显示的投资组合（后端搜索，前端只做筛选过滤）
+const displayPortfolios = computed(() => {
+  return filteredPortfolios.value
+})
+
+// Intersection Observer 用于滚动加载
+let observer: IntersectionObserver | null = null
+
+const setupIntersectionObserver = () => {
+  // 等待 DOM 更新后设置 observer
+  nextTick(() => {
+    if (!loadMoreTrigger.value) {
+      console.log('⚠️ loadMoreTrigger 元素不存在，跳过 observer 设置')
+      return
+    }
+
+    if (observer) {
+      observer.disconnect()
+    }
+
+    // 获取滚动容器
+    const scrollableContainer = document.querySelector('.scrollable-content')
+    if (!scrollableContainer) {
+      console.log('⚠️ .scrollable-content 元素不存在，跳过 observer 设置')
+      return
+    }
+
+    observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (entry.isIntersecting && hasMore.value && !loading.value && !loadingMore.value) {
+          console.log(`📜 触发加载更多 - 当前: ${portfolios.value.length}, total: ${total.value}`)
+          loadMore()
+        }
+      },
+      {
+        root: scrollableContainer as Element,
+        rootMargin: '100px',
+        threshold: 0.1
+      }
+    )
+
+    observer.observe(loadMoreTrigger.value)
+    console.log('✅ Intersection Observer 已设置 (root: .scrollable-content)')
+  })
+}
+
+const loadMore = async () => {
+  if (!hasMore.value || loading.value || loadingMore.value) return
+  await fetchPortfolios({ append: true })
+}
+
+// 监听筛选模式变化，重置加载
+watch(filterMode, () => {
+  fetchPortfolios({ page: 0, append: false })
+})
+
+// 监听搜索关键词变化，后端搜索（带防抖）
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchKeyword, (newVal) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    fetchPortfolios({ page: 0, append: false, keyword: newVal || undefined })
+  }, 500)
+})
+
+// 当数据加载后，设置滚动监听
+watch(displayPortfolios, (newVal) => {
+  if (newVal.length > 0 && !observer) {
+    console.log(`📦 数据加载完成，设置滚动监听 (${newVal.length} 条)`)
+    setupIntersectionObserver()
+  }
 })
 
 // 格式化百分比（用于平均收益）
@@ -207,7 +288,9 @@ const formatShortDate = (dateStr: string) => {
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
-const handleFilterChange = () => fetchPortfolios()
+const handleFilterChange = () => {
+  // filterMode 变化会触发 watch，这里不需要额外处理
+}
 
 const showCreateModal = () => {
   createModalVisible.value = true
@@ -219,7 +302,8 @@ const closeCreateModal = () => {
 
 const handleCreated = (uuid: string) => {
   createModalVisible.value = false
-  fetchPortfolios()
+  fetchPortfolios({ page: 0, append: false })
+  fetchStats()  // 刷新统计数据
   router.push(`/portfolio/${uuid}`)
 }
 
@@ -243,7 +327,17 @@ const confirmDelete = (record: any) => {
   })
 }
 
-onMounted(() => fetchPortfolios())
+onMounted(() => {
+  fetchPortfolios({ page: 0, append: false })
+  fetchStats()  // 获取统计数据
+  setupIntersectionObserver()
+})
+
+onUnmounted(() => {
+  if (observer) {
+    observer.disconnect()
+  }
+})
 </script>
 
 <style scoped>
@@ -395,6 +489,18 @@ onMounted(() => fetchPortfolios())
 .modal-form-container {
   height: 70vh;
   overflow: hidden;
+}
+
+.load-more-trigger {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.load-more-trigger .no-more {
+  color: #999;
+  font-size: 14px;
 }
 
 /* 响应式 */

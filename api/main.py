@@ -330,13 +330,82 @@ async def create_backtest(request: BacktestCreateRequest):
             raise HTTPException(status_code=400, detail="portfolio_id is required")
 
         task_service = get_backtest_task_service()
+        portfolio_service = get_portfolio_service()
 
-        # 解析日期（存入 config_snapshot）
+        # 获取 Portfolio 完整信息（包含组件配置）
+        portfolio_result = portfolio_service.get(portfolio_id=request.portfolio_id)
+        if not portfolio_result.is_success() or not portfolio_result.data:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+
+        portfolios = portfolio_result.data
+        portfolio = portfolios[0] if portfolios else None
+        if not portfolio:
+            raise HTTPException(status_code=404, detail="Portfolio not found")
+
+        # 获取组件配置
+        components_result = portfolio_service.get_components(portfolio_id=request.portfolio_id)
+        components = []
+        if components_result.is_success() and components_result.data:
+            components = components_result.data
+
+        # 组件类型映射 (FILE_TYPES: SELECTOR=4, SIZER=5, STRATEGY=6, RISKMANAGER=7, ANALYZER=8)
+        type_map = {'4': 'SELECTOR', '5': 'SIZER', '6': 'STRATEGY', '7': 'RISKMANAGER', '8': 'ANALYZER'}
+
+        # 获取参数服务
+        mapping_service = service_hub.data.mapping_service()
+
+        # 为每个组件添加类型名称和参数
+        for c in components:
+            c['type_name'] = type_map.get(str(c.get('component_type', '')), 'UNKNOWN')
+            mount_id = c.get('mount_id')
+            if mount_id:
+                params_result = mapping_service.get_portfolio_parameters(mount_id)
+                if params_result.success and params_result.data:
+                    config = {}
+                    for param in params_result.data:
+                        value = param.value
+                        if '=' in value:
+                            k, v = value.split('=', 1)
+                            try:
+                                v = float(v) if '.' in v else int(v)
+                            except:
+                                pass
+                            config[k] = v
+                        else:
+                            config[f"param_{param.index}"] = value
+                    c['config'] = config
+                else:
+                    c['config'] = {}
+            else:
+                c['config'] = {}
+
+        # 分类组件
+        selectors = [c for c in components if c.get('type_name') == 'SELECTOR']
+        sizers = [c for c in components if c.get('type_name') == 'SIZER']
+        strategies = [c for c in components if c.get('type_name') == 'STRATEGY']
+        risks = [c for c in components if c.get('type_name') == 'RISKMANAGER']
+
+        # 构建组件快照
+        components_snapshot = {
+            "selectors": [{"uuid": s.get("component_id"), "name": s.get("component_name"), "config": s.get("config", {})} for s in selectors],
+            "sizer": {"uuid": sizers[0].get("component_id"), "name": sizers[0].get("component_name"), "config": sizers[0].get("config", {})} if sizers else None,
+            "strategies": [{"uuid": st.get("component_id"), "name": st.get("component_name"), "config": st.get("config", {})} for st in strategies],
+            "risk_managers": [{"uuid": r.get("component_id"), "name": r.get("component_name"), "config": r.get("config", {})} for r in risks]
+        }
+
+        # 构建配置快照
         config = request.config_snapshot.copy() if request.config_snapshot else {}
         if request.start_date:
             config["start_date"] = request.start_date
         if request.end_date:
             config["end_date"] = request.end_date
+
+        config["portfolio_snapshot"] = {
+            "uuid": portfolio.uuid,
+            "name": portfolio.name,
+            "initial_cash": float(portfolio.initial_capital) if portfolio.initial_capital else 0,
+            "components": components_snapshot
+        }
 
         result = task_service.create(
             name=request.name,
@@ -646,11 +715,16 @@ def notify_backtest_update(task_id: str, event_type: str = "progress"):
 
 
 @app.post("/api/v1/backtest/{backtest_id}/notify")
-async def backtest_notify(backtest_id: str, event_type: str = "progress"):
+async def backtest_notify(backtest_id: str, event_type: str = "progress", progress: int = 0,
+                          total_pnl: str = "0", total_orders: int = 0, total_signals: int = 0):
     """接收 Worker 的更新通知，广播给 WebSocket 客户端"""
     message = {
         "type": event_type,
         "task_id": backtest_id,
+        "progress": progress,
+        "total_pnl": total_pnl,
+        "total_orders": total_orders,
+        "total_signals": total_signals,
         "timestamp": datetime.now().isoformat()
     }
     await ws_manager.broadcast(message)
@@ -1122,10 +1196,10 @@ def get_file_service():
 
 @app.get("/api/v1/components/strategies")
 async def list_strategies():
-    """获取策略组件列表"""
+    """获取策略组件列表（包含所有版本，最新版本优先）"""
     try:
         file_service = get_file_service()
-        result = file_service.get(filters={"type": FILE_TYPES.STRATEGY.value})
+        result = file_service.get(filters={"type": FILE_TYPES.STRATEGY.value}, order_by="create_at", desc_order=True)
         print(f"[DEBUG] result.success={result.success}, data type={type(result.data)}")
 
         if result.success and result.data:
@@ -1147,6 +1221,8 @@ async def list_strategies():
                     "uuid": f.uuid,
                     "name": f.name,
                     "type": "strategy",
+                    "version": getattr(f, 'version', '1.0.0'),
+                    "is_latest": getattr(f, 'is_latest', True),
                     "params": params,
                     "created_at": f.create_at.isoformat() if f.create_at else None,
                 })
@@ -1161,10 +1237,10 @@ async def list_strategies():
 
 @app.get("/api/v1/components/risks")
 async def list_risks():
-    """获取风控组件列表"""
+    """获取风控组件列表（包含所有版本，最新版本优先）"""
     try:
         file_service = get_file_service()
-        result = file_service.get(filters={"type": FILE_TYPES.RISKMANAGER.value})
+        result = file_service.get(filters={"type": FILE_TYPES.RISKMANAGER.value}, order_by="create_at", desc_order=True)
 
         if result.success and result.data:
             risks = []
@@ -1183,6 +1259,8 @@ async def list_risks():
                     "uuid": f.uuid,
                     "name": f.name,
                     "type": "risk",
+                    "version": getattr(f, 'version', '1.0.0'),
+                    "is_latest": getattr(f, 'is_latest', True),
                     "params": params,
                     "created_at": f.create_at.isoformat() if f.create_at else None,
                 })
@@ -1197,10 +1275,10 @@ async def list_risks():
 
 @app.get("/api/v1/components/sizers")
 async def list_sizers():
-    """获取仓位组件列表"""
+    """获取仓位组件列表（包含所有版本，最新版本优先）"""
     try:
         file_service = get_file_service()
-        result = file_service.get(filters={"type": FILE_TYPES.SIZER.value})
+        result = file_service.get(filters={"type": FILE_TYPES.SIZER.value}, order_by="create_at", desc_order=True)
 
         if result.success and result.data:
             sizers = []
@@ -1219,6 +1297,8 @@ async def list_sizers():
                     "uuid": f.uuid,
                     "name": f.name,
                     "type": "sizer",
+                    "version": getattr(f, 'version', '1.0.0'),
+                    "is_latest": getattr(f, 'is_latest', True),
                     "params": params,
                     "created_at": f.create_at.isoformat() if f.create_at else None,
                 })
@@ -1327,10 +1407,10 @@ def extract_params_from_python(code: bytes) -> list:
 
 @app.get("/api/v1/components/selectors")
 async def list_selectors():
-    """获取选股器组件列表"""
+    """获取选股器组件列表（包含所有版本，最新版本优先）"""
     try:
         file_service = get_file_service()
-        result = file_service.get(filters={"type": FILE_TYPES.SELECTOR.value})
+        result = file_service.get(filters={"type": FILE_TYPES.SELECTOR.value}, order_by="create_at", desc_order=True)
 
         if result.success and result.data:
             selectors = []
@@ -1350,6 +1430,8 @@ async def list_selectors():
                     "uuid": f.uuid,
                     "name": f.name,
                     "type": "selector",
+                    "version": getattr(f, 'version', '1.0.0'),
+                    "is_latest": getattr(f, 'is_latest', True),
                     "params": params,
                     "created_at": f.create_at.isoformat() if f.create_at else None,
                 })
@@ -1362,10 +1444,10 @@ async def list_selectors():
 
 @app.get("/api/v1/components/analyzers")
 async def list_analyzers():
-    """获取分析器组件列表"""
+    """获取分析器组件列表（包含所有版本，最新版本优先）"""
     try:
         file_service = get_file_service()
-        result = file_service.get(filters={"type": FILE_TYPES.ANALYZER.value})
+        result = file_service.get(filters={"type": FILE_TYPES.ANALYZER.value}, order_by="create_at", desc_order=True)
 
         if result.success and result.data:
             analyzers = []
@@ -1384,6 +1466,8 @@ async def list_analyzers():
                     "uuid": f.uuid,
                     "name": f.name,
                     "type": "analyzer",
+                    "version": getattr(f, 'version', '1.0.0'),
+                    "is_latest": getattr(f, 'is_latest', True),
                     "params": params,
                     "created_at": f.create_at.isoformat() if f.create_at else None,
                 })
@@ -1437,6 +1521,7 @@ class PortfolioCreateRequest(BaseModel):
     description: Optional[str] = None
     selectors: List[Dict[str, Any]] = []
     sizer_uuid: Optional[str] = None
+    sizer_config: Dict[str, Any] = {}
     strategies: List[Dict[str, Any]] = []
     risk_managers: List[Dict[str, Any]] = []
     analyzers: List[Dict[str, Any]] = []
@@ -1447,13 +1532,15 @@ class PortfolioCreateRequest(BaseModel):
 async def list_portfolios(
     mode: Optional[str] = None,
     state: Optional[str] = None,
+    keyword: Optional[str] = None,
     page: int = Query(0, ge=0),
-    size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=100),
 ):
     """获取 Portfolio 列表"""
     try:
         portfolio_service = get_portfolio_service()
-        result = portfolio_service.get(page=page, page_size=size)
+        backtest_service = get_backtest_task_service()
+        result = portfolio_service.get(page=page, page_size=page_size, name=keyword)
 
         if result.success:
             portfolios = []
@@ -1467,6 +1554,28 @@ async def list_portfolios(
                 net_value = 1.0
                 if p.initial_capital and p.current_capital and float(p.initial_capital) > 0:
                     net_value = float(p.current_capital) / float(p.initial_capital)
+
+                # 获取回测统计数据（用于回测模式）
+                backtest_count = 0
+                avg_return = 0.0
+                try:
+                    backtest_result = backtest_service.list(portfolio_id=p.uuid, page=0, page_size=100)
+                    if backtest_result.success and backtest_result.data:
+                        tasks = backtest_result.data.get("data", [])
+                        completed_tasks = [t for t in tasks if t.status == "completed"]
+                        backtest_count = len(completed_tasks)
+                        if completed_tasks:
+                            returns = []
+                            for t in completed_tasks:
+                                final_value = float(t.final_portfolio_value or 0)
+                                config = json.loads(t.config_snapshot or '{}')
+                                initial = float(config.get('initial_capital', 1000000))
+                                if initial > 0:
+                                    returns.append((final_value - initial) / initial)
+                            if returns:
+                                avg_return = sum(returns) / len(returns)
+                except Exception as e:
+                    pass  # 忽略回测统计错误
 
                 portfolios.append({
                     "uuid": p.uuid,
@@ -1483,16 +1592,68 @@ async def list_portfolios(
                     "max_drawdown": float(p.max_drawdown) if p.max_drawdown else 0,
                     "win_rate": float(p.win_rate) if p.win_rate else 0,
                     "net_value": round(net_value, 4),
+                    "backtest_count": backtest_count,
+                    "avg_return": round(avg_return, 4),
                     "created_at": p.create_at.isoformat() if p.create_at else None,
                     "updated_at": p.update_at.isoformat() if p.update_at else None,
                 })
-            return {"data": portfolios, "total": len(portfolios)}
+
+            # 获取总数（带搜索条件）
+            total_count = 0
+            try:
+                count_result = portfolio_service.count(name=keyword)
+                if count_result.success and count_result.data:
+                    total_count = count_result.data.get("count", 0)
+            except Exception:
+                total_count = len(portfolios)
+
+            return {"data": portfolios, "total": total_count}
         return {"data": [], "total": 0}
     except Exception as e:
         print(f"[ERROR] Failed to list portfolios: {e}")
         import traceback
         traceback.print_exc()
         return {"data": [], "total": 0}
+
+
+@app.get("/api/v1/portfolio/stats")
+async def get_portfolio_stats():
+    """获取 Portfolio 统计"""
+    try:
+        portfolio_service = get_portfolio_service()
+
+        # 使用 count 方法获取总数
+        total_result = portfolio_service.count()
+        total = total_result.data.get("count", 0) if total_result.success else 0
+
+        # 获取所有数据用于计算资产和净值
+        result = portfolio_service.get(page=0, page_size=10000)
+
+        total_assets = 0
+        avg_net_value = 1.0
+
+        if result.success and result.data:
+            portfolios = result.data
+            total_assets = sum(float(p.initial_capital or 0) for p in portfolios)
+
+            # 计算平均净值
+            net_values = []
+            for p in portfolios:
+                if p.initial_capital and p.current_capital and float(p.initial_capital) > 0:
+                    net_values.append(float(p.current_capital) / float(p.initial_capital))
+            avg_net_value = sum(net_values) / len(net_values) if net_values else 1.0
+
+        return {
+            "total": total,
+            "running": 0,  # state 不是数据库字段，无法直接统计
+            "avg_net_value": round(avg_net_value, 4),
+            "total_assets": total_assets,
+        }
+    except Exception as e:
+        print(f"[ERROR] Failed to get portfolio stats: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"total": 0, "running": 0, "avg_net_value": 1.0, "total_assets": 0}
 
 
 @app.get("/api/v1/portfolio/{portfolio_id}")
@@ -1627,12 +1788,47 @@ async def create_portfolio(request: PortfolioCreateRequest):
         portfolio_service = get_portfolio_service()
         from ginkgo import service_hub
         mapping_service = service_hub.data.mapping_service()
+        file_service = service_hub.data.file_service()
+
+        # 辅助函数：根据组件参数定义顺序保存参数
+        def save_component_params(mapping_uuid: str, component_uuid: str, config: dict, component_type: str):
+            """根据组件的参数定义顺序，从config中提取值并保存"""
+            # 从代码中提取参数定义
+            file_result = file_service.get_by_uuid(component_uuid)
+            if not file_result.success or not file_result.data:
+                return
+
+            file_info = file_result.data
+            if isinstance(file_info, dict) and "file" in file_info:
+                mfile = file_info["file"]
+                if hasattr(mfile, 'data') and mfile.data:
+                    # 直接使用bytes，避免编码转换问题
+                    params_def = extract_params_from_python(mfile.data)
+                else:
+                    return
+            else:
+                return
+
+            # 按照参数定义顺序，保存所有参数（包括默认值）
+            params = {}
+            for i, param_def in enumerate(params_def):
+                param_name = param_def.get('name')
+                # 优先使用config中的值，否则使用默认值
+                if param_name in config:
+                    params[i] = str(config[param_name])
+                else:
+                    default_value = param_def.get('default', '')
+                    params[i] = str(default_value)
+            if params:
+                mapping_service.create_component_parameters(mapping_uuid, component_uuid, params)
+                # 参数已保存
 
         # 创建投资组合
         result = portfolio_service.add(
             name=request.name,
             description=request.description or request.name,
-            is_live=request.mode == "LIVE"
+            is_live=request.mode == "LIVE",
+            initial_capital=request.initial_cash
         )
 
         if result.success and result.data:
@@ -1657,13 +1853,11 @@ async def create_portfolio(request: PortfolioCreateRequest):
                         component_name=f"selector_{component_uuid[:8]}",
                         component_type=FILE_TYPES.SELECTOR
                     )
-                    # 保存参数
-                    if mount_result.success and config:
+                    # 保存参数（按参数定义顺序，包括默认值）
+                    if mount_result.success:
                         mapping_uuid = mount_result.data.get('mount_id')
                         if mapping_uuid:
-                            # 将config dict转换为index:value格式（只存储值，不存储key）
-                            params = {i: v for i, v in enumerate(config.values())}
-                            mapping_service.create_component_parameters(mapping_uuid, component_uuid, params)
+                            save_component_params(mapping_uuid, component_uuid, config, 'selector')
 
             # 挂载仓位管理器
             if request.sizer_uuid:
@@ -1673,6 +1867,11 @@ async def create_portfolio(request: PortfolioCreateRequest):
                     component_name=f"sizer_{request.sizer_uuid[:8]}",
                     component_type=FILE_TYPES.SIZER
                 )
+                # 保存sizer参数（按参数定义顺序，包括默认值）
+                if mount_result.success:
+                    mapping_uuid = mount_result.data.get('mount_id')
+                    if mapping_uuid:
+                        save_component_params(mapping_uuid, request.sizer_uuid, request.sizer_config, 'sizer')
 
             # 挂载策略并保存参数
             for strategy in request.strategies:
@@ -1685,13 +1884,11 @@ async def create_portfolio(request: PortfolioCreateRequest):
                         component_name=f"strategy_{component_uuid[:8]}",
                         component_type=FILE_TYPES.STRATEGY
                     )
-                    # 保存参数
-                    if mount_result.success and config:
+                    # 保存参数（按参数定义顺序，包括默认值）
+                    if mount_result.success:
                         mapping_uuid = mount_result.data.get('mount_id')
                         if mapping_uuid:
-                            # 将config dict转换为index:value格式（只存储值，不存储key）
-                            params = {i: v for i, v in enumerate(config.values())}
-                            mapping_service.create_component_parameters(mapping_uuid, component_uuid, params)
+                            save_component_params(mapping_uuid, component_uuid, config, 'strategy')
 
             # 挂载风控
             for risk in request.risk_managers:
@@ -1704,13 +1901,11 @@ async def create_portfolio(request: PortfolioCreateRequest):
                         component_name=f"risk_{component_uuid[:8]}",
                         component_type=FILE_TYPES.RISKMANAGER
                     )
-                    # 保存参数
-                    if mount_result.success and config:
+                    # 保存参数（按参数定义顺序，包括默认值）
+                    if mount_result.success:
                         mapping_uuid = mount_result.data.get('mount_id')
                         if mapping_uuid:
-                            # 将config dict转换为index:value格式（只存储值，不存储key）
-                            params = {i: v for i, v in enumerate(config.values())}
-                            mapping_service.create_component_parameters(mapping_uuid, component_uuid, params)
+                            save_component_params(mapping_uuid, component_uuid, config, 'risk')
 
             # 挂载分析器
             for analyzer in request.analyzers:
@@ -1723,13 +1918,11 @@ async def create_portfolio(request: PortfolioCreateRequest):
                         component_name=f"analyzer_{component_uuid[:8]}",
                         component_type=FILE_TYPES.ANALYZER
                     )
-                    # 保存参数
-                    if mount_result.success and config:
+                    # 保存参数（按参数定义顺序，包括默认值）
+                    if mount_result.success:
                         mapping_uuid = mount_result.data.get('mount_id')
                         if mapping_uuid:
-                            # 将config dict转换为index:value格式（只存储值，不存储key）
-                            params = {i: v for i, v in enumerate(config.values())}
-                            mapping_service.create_component_parameters(mapping_uuid, component_uuid, params)
+                            save_component_params(mapping_uuid, component_uuid, config, 'analyzer')
 
             portfolio_name = portfolio.get('name') if isinstance(portfolio, dict) else portfolio.name
             return {"uuid": portfolio_uuid, "name": portfolio_name}
@@ -1823,36 +2016,6 @@ async def stop_portfolio(portfolio_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/v1/portfolio/stats")
-async def get_portfolio_stats():
-    """获取 Portfolio 统计"""
-    try:
-        portfolio_service = get_portfolio_service()
-        result = portfolio_service.get()
-
-        if result.success and result.data:
-            portfolios = result.data
-            total = len(portfolios)
-            live_count = len([p for p in portfolios if p.is_live])
-            total_assets = sum(float(p.initial_capital or 0) for p in portfolios)
-
-            # 计算平均净值
-            net_values = []
-            for p in portfolios:
-                if p.initial_capital and p.current_capital and float(p.initial_capital) > 0:
-                    net_values.append(float(p.current_capital) / float(p.initial_capital))
-            avg_net_value = sum(net_values) / len(net_values) if net_values else 1.0
-
-            return {
-                "total": total,
-                "running": live_count,
-                "avg_net_value": round(avg_net_value, 4),
-                "total_assets": total_assets,
-            }
-        return {"total": 0, "running": 0, "avg_net_value": 1.0, "total_assets": 0}
-    except Exception as e:
-        print(f"[ERROR] Failed to get portfolio stats: {e}")
-        return {"total": 0, "running": 0, "avg_net_value": 1.0, "total_assets": 0}
 
 
 # ========== 数据管理 ==========
@@ -2093,6 +2256,92 @@ async def delete_file(file_id: str):
         return {"status": "success"}
     except Exception as e:
         print(f"[ERROR] Failed to delete file {file_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+
+# ========== 组件版本管理 ==========
+
+@app.post("/api/v1/file/{file_id}/version")
+async def create_file_version(file_id: str, request: dict):
+    """创建组件新版本"""
+    try:
+        content = request.get("content")
+        name = request.get("name")
+        file_service = service_hub.data.file_service()
+
+        # 将内容转换为 bytes
+        data = content.encode('utf-8') if content else None
+
+        result = file_service.create_new_version(file_id=file_id, data=data, name=name)
+
+        if result.success:
+            return {
+                "status": "success",
+                "data": result.data
+            }
+        return {"status": "error", "message": result.error}
+    except Exception as e:
+        print(f"[ERROR] Failed to create version for file {file_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/v1/file/{name}/versions")
+async def get_file_versions(name: str, type: int = None):
+    """获取组件的所有版本"""
+    try:
+        from ginkgo.enums import FILE_TYPES
+        file_service = service_hub.data.file_service()
+
+        file_type = None
+        if type is not None:
+            try:
+                file_type = FILE_TYPES(type)
+            except ValueError:
+                pass
+
+        result = file_service.get_version_history(name=name, file_type=file_type)
+
+        if result.success:
+            return {
+                "status": "success",
+                "data": result.data
+            }
+        return {"status": "error", "message": result.error}
+    except Exception as e:
+        print(f"[ERROR] Failed to get versions for file {name}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/v1/file/{name}/latest")
+async def get_file_latest_version(name: str, type: int = None):
+    """获取组件的最新版本"""
+    try:
+        from ginkgo.enums import FILE_TYPES
+        file_service = service_hub.data.file_service()
+
+        file_type = None
+        if type is not None:
+            try:
+                file_type = FILE_TYPES(type)
+            except ValueError:
+                pass
+
+        result = file_service.get_latest_version(name=name, file_type=file_type)
+
+        if result.success:
+            return {
+                "status": "success",
+                "data": result.data
+            }
+        return {"status": "error", "message": result.error}
+    except Exception as e:
+        print(f"[ERROR] Failed to get latest version for file {name}: {e}")
         import traceback
         traceback.print_exc()
         return {"status": "error", "message": str(e)}
@@ -2426,6 +2675,12 @@ if __name__ == "__main__":
 
     # 启用调试模式以便访问数据库
     GCONF.set_debug(True)
+
+    # 清除连接缓存，确保使用DEBUG端口
+    from ginkgo.data.drivers import container as conn_container
+    conn_container._mysql_conn = None
+    conn_container._click_conn = None
+    print(f"[INFO] DEBUG mode enabled (MySQL:{GCONF.MYSQLPORT}, ClickHouse:{GCONF.CLICKPORT})")
 
     print("[INFO] Starting Ginkgo API Server...")
     uvicorn.run(app, host="0.0.0.0", port=8000)

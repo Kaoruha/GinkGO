@@ -1,12 +1,7 @@
 <template>
   <a-config-provider :locale="zhCN">
-    <!-- 加载中状态 -->
-    <div v-if="isInitializing" class="init-loading">
-      <a-spin size="large" />
-    </div>
-
     <!-- 登录页等全屏页面 -->
-    <template v-else-if="isFullPage">
+    <template v-if="isFullPage">
       <router-view />
     </template>
 
@@ -82,6 +77,9 @@
         </a-layout>
       </a-layout>
     </template>
+
+    <!-- Fallback - 让路由守卫处理重定向 -->
+    <router-view v-else />
   </a-config-provider>
 </template>
 
@@ -131,11 +129,6 @@ const isFullPage = computed(() => {
 const isEditorPage = computed(() => {
   // 组件管理详情页使用全屏布局
   return route.path.match(/\/components\/(strategies|risks|sizers|selectors|analyzers|handlers)\/[a-f0-9-]+/)
-})
-
-// 初始化状态 - 未确定登录状态时显示加载
-const isInitializing = computed(() => {
-  return !isFullPage.value && !authStore.isLoggedIn
 })
 
 // 4阶段策略生命周期菜单

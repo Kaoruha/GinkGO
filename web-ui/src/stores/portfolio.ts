@@ -7,17 +7,25 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   const portfolios = ref<Portfolio[]>([])
   const currentPortfolio = ref<Portfolio | null>(null)
   const loading = ref(false)
+  const loadingMore = ref(false)
   const filterMode = ref<string>('')
 
+  // 分页状态
+  const currentPage = ref(0)
+  const pageSize = ref(20)
+  const total = ref(0)
+  const hasMore = computed(() => portfolios.value.length < total.value)
+
+  // 统计数据（从 API 获取）
+  const statsData = ref<{ total: number; running: number; avgNetValue: number; totalAssets: number }>({
+    total: 0,
+    running: 0,
+    avgNetValue: 1,
+    totalAssets: 0
+  })
+
   // 统计数据
-  const stats = computed(() => ({
-    total: portfolios.value.length,
-    running: portfolios.value.filter(p => p.state === 'RUNNING').length,
-    avgNetValue: portfolios.value.length > 0
-      ? portfolios.value.reduce((sum, p) => sum + p.net_value, 0) / portfolios.value.length
-      : 1,
-    totalAssets: portfolios.value.reduce((sum, p) => sum + p.initial_cash, 0),
-  }))
+  const stats = computed(() => statsData.value)
 
   // 筛选后的列表
   const filteredPortfolios = computed(() => {
@@ -26,17 +34,37 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   })
 
   // 获取列表
-  async function fetchPortfolios(params?: { mode?: string }) {
-    loading.value = true
+  async function fetchPortfolios(params?: { mode?: string; page?: number; page_size?: number; append?: boolean }) {
+    const append = params?.append || false
+    const page = params?.page ?? (append ? currentPage.value + 1 : 0)
+    const page_size = params?.page_size ?? pageSize.value
+
+    if (append) {
+      loadingMore.value = true
+    } else {
+      loading.value = true
+      currentPage.value = 0
+    }
+
     try {
-      const result = await portfolioApi.list(params)
-      portfolios.value = result.data || []
+      const result = await portfolioApi.list({ ...params, page, page_size })
+      const newData = result.data || []
+
+      if (append) {
+        portfolios.value.push(...newData)
+      } else {
+        portfolios.value = newData
+      }
+
+      currentPage.value = page
+      total.value = result.total || 0
       return result
     } catch (error) {
       console.error('Failed to fetch portfolios:', error)
       return null
     } finally {
       loading.value = false
+      loadingMore.value = false
     }
   }
 
@@ -129,15 +157,37 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
+  // 获取统计数据
+  async function fetchStats() {
+    try {
+      const result = await portfolioApi.getStats()
+      statsData.value = {
+        total: result.total || 0,
+        running: result.running || 0,
+        avgNetValue: result.avg_net_value || 1,
+        totalAssets: result.total_assets || 0
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error)
+    }
+  }
+
   return {
     portfolios,
     currentPortfolio,
     loading,
+    loadingMore,
     filterMode,
+    currentPage,
+    pageSize,
+    total,
+    hasMore,
     stats,
+    statsData,
     filteredPortfolios,
     fetchPortfolios,
     fetchPortfolio,
+    fetchStats,
     createPortfolio,
     updatePortfolio,
     deletePortfolio,
