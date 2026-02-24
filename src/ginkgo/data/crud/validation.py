@@ -360,7 +360,13 @@ def _convert_single_type(value: Any, type_name: str) -> Any:
     elif type_name == 'enum':
         # 枚举类型需要配合 choices 参数使用
         return value
-    
+
+    elif type_name == 'none':
+        # none 类型只接受 None 值
+        if value is None:
+            return None
+        raise ValueError(f"Cannot convert non-None value '{value}' to none type")
+
     elif type_name == 'numeric':
         # numeric 是 int|float|decimal 的别名
         for numeric_type in ['int', 'float', 'decimal']:

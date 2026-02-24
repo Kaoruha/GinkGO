@@ -226,13 +226,11 @@ class ComponentParameterExtractor:
             param_index = 0
 
             for param_name, param in init_signature.parameters.items():
-                # 跳过self和name参数
+                # 跳过self, args, kwargs
                 if param_name in ['self', 'args', 'kwargs']:
                     continue
-                if param_name == 'name':
-                    continue  # name是通用参数，跳过
 
-                # 记录参数
+                # 记录参数（包括name，用户可以自定义组件名称）
                 parameters[param_index] = param_name
                 param_index += 1
 
@@ -280,13 +278,11 @@ class ComponentParameterExtractor:
             for arg in init_method.args.args:
                 arg_name = arg.arg
 
-                # 跳过self和name参数
+                # 跳过self, args, kwargs
                 if arg_name in ['self', 'args', 'kwargs']:
                     continue
-                if arg_name == 'name':
-                    continue  # name是通用参数，跳过
 
-                # 记录参数
+                # 记录参数（包括name，用户可以自定义组件名称）
                 parameters[param_index] = arg_name
                 param_index += 1
 
@@ -337,13 +333,11 @@ class ComponentParameterExtractor:
             for arg in init_method.args.args:
                 arg_name = arg.arg
 
-                # 跳过self和name参数
+                # 跳过self, args, kwargs
                 if arg_name in ['self', 'args', 'kwargs']:
                     continue
-                if arg_name == 'name':
-                    continue  # name是通用参数，跳过
 
-                # 记录参数
+                # 记录参数（包括name，用户可以自定义组件名称）
                 parameters[param_index] = arg_name
                 param_index += 1
 

@@ -285,11 +285,11 @@ class AnalyzerRecordCRUD(BaseCRUD[MAnalyzerRecord]):
 
         Examples:
             # 查询某次运行的所有 analyzer 记录
-            records = crud.get_by_run_id("present_engine_r_251223_0200_001")
+            records = crud.get_by_run_id("a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2")
 
             # 查询某次运行的特定 portfolio 和 analyzer
             records = crud.get_by_run_id(
-                run_id="present_engine_r_251223_0200_001",
+                run_id="a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2",
                 portfolio_id="present_portfolio_uuid",
                 analyzer_name="net_value"
             )
