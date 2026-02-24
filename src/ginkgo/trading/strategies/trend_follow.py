@@ -10,20 +10,19 @@
 import datetime
 from decimal import Decimal
 import pandas as pd
-from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.strategies.base_strategy import BaseStrategy
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.data import get_bars
 
 
 class StrategyTrendFollow(BaseStrategy):
     """
     趋势跟踪策略
-    
+
     基于移动平均线和价格动量的趋势跟踪策略。
     使用快慢均线交叉和价格动量确认来产生交易信号。
     """
-    
+
     __abstract__ = False
 
     def __init__(
@@ -56,19 +55,16 @@ class StrategyTrendFollow(BaseStrategy):
 
     def _generate_signal(
         self, portfolio_info, code: str, direction: DIRECTION_TYPES, reason: str
-    ) -> Signal:
+    ):
         """
         生成交易信号
         """
         self.log("INFO", f"Generate {direction.value} signal for {code} from {self.name}")
-        return Signal(
-            portfolio_id=portfolio_info["uuid"],
-            engine_id=self.engine_id,
-            timestamp=portfolio_info["now"],
+        return self.create_signal(
             code=code,
             direction=direction,
             reason=reason,
-            source=SOURCE_TYPES.STRATEGY,
+            business_timestamp=portfolio_info.get("now"),
         )
 
     def _check_position_risk(self, portfolio_info, code: str, current_price: float) -> bool:
