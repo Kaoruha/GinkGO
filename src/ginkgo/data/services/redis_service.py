@@ -196,11 +196,12 @@ class RedisService(BaseService):
             ServiceResult: 保存结果
         """
         try:
-            cache_key = f"{data_type}_update_{code}"
+            from ginkgo.data.redis_schema import RedisKeyBuilder, RedisTTL
+            cache_key = RedisKeyBuilder.sync_progress(data_type, code)
             date_str = date.strftime("%Y-%m-%d")
 
             self._crud_repo.sadd(cache_key, date_str)
-            self._crud_repo.expire(cache_key, 60 * 60 * 24 * 30)  # 30天TTL
+            self._crud_repo.expire(cache_key, RedisTTL.SYNC_PROGRESS)
 
             self._logger.DEBUG(f"Saved sync progress: {code} - {date_str}")
             return ServiceResult.success(
@@ -225,7 +226,8 @@ class RedisService(BaseService):
             ServiceResult: 查询结果，包含同步日期集合
         """
         try:
-            cache_key = f"{data_type}_update_{code}"
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+            cache_key = RedisKeyBuilder.sync_progress(data_type, code)
             progress_set = self._crud_repo.smembers(cache_key)
             return ServiceResult.success(
                 data=progress_set,
@@ -282,7 +284,8 @@ class RedisService(BaseService):
             ServiceResult: 包含操作结果和状态信息
         """
         try:
-            cache_key = f"{data_type}_update_{code}"
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+            cache_key = RedisKeyBuilder.sync_progress(data_type, code)
             deleted = self._crud_repo.delete(cache_key)
             self._logger.INFO(f"Cleared sync progress for {code} ({data_type}), deleted: {deleted}")
             return ServiceResult.success(
@@ -933,6 +936,280 @@ class RedisService(BaseService):
             self._logger.ERROR(f"Failed to get Redis info: {e}")
             return {"connected": False, "error": str(e)}
 
+    def ping(self) -> bool:
+        """
+        检查Redis连接是否正常
+
+        Returns:
+            bool: 连接正常返回True，否则返回False
+        """
+        try:
+            return self._crud_repo.ping()
+        except Exception as e:
+            self._logger.ERROR(f"Redis ping failed: {e}")
+            return False
+
+    def get_backtest_worker_status(self) -> ServiceResult:
+        """
+        获取所有BacktestWorker的状态
+
+        Returns:
+            ServiceResult: 包含BacktestWorker状态列表
+        """
+        try:
+            from ginkgo.data.redis_schema import (
+                RedisKeyPattern, BacktestWorkerHeartbeat, parse_heartbeat_data
+            )
+
+            workers = []
+
+            # 获取所有 backtest worker 的心跳键
+            heartbeat_keys = self._crud_repo.keys(RedisKeyPattern.BACKTEST_WORKER_HEARTBEAT_ALL)
+
+            for key in heartbeat_keys:
+                try:
+                    data = self._crud_repo.get(key)
+                    heartbeat_data = parse_heartbeat_data(data)
+
+                    if heartbeat_data and 'worker_id' in heartbeat_data:
+                        workers.append({
+                            "worker_id": heartbeat_data.get("worker_id"),
+                            "status": heartbeat_data.get("status", "unknown"),
+                            "active_tasks": heartbeat_data.get("running_tasks", 0),
+                            "max_tasks": heartbeat_data.get("max_tasks", 0),
+                            "last_heartbeat": heartbeat_data.get("last_heartbeat", ""),
+                        })
+                except Exception as e:
+                    self._logger.WARN(f"Failed to parse heartbeat data for {key}: {e}")
+                    continue
+
+            return ServiceResult.success(
+                data=workers,
+                message=f"Found {len(workers)} backtest workers"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get backtest worker status: {e}")
+            return ServiceResult.error(f"Failed to get backtest worker status: {str(e)}")
+
+    def get_worker_status(self) -> ServiceResult:
+        """
+        获取所有DataWorker的状态
+
+        Returns:
+            ServiceResult: 包含DataWorker状态列表
+        """
+        try:
+            from ginkgo.data.redis_schema import (
+                RedisKeyPattern, DataWorkerHeartbeat, parse_heartbeat_data
+            )
+
+            workers = []
+
+            # 获取所有 data worker 的心跳键
+            heartbeat_keys = self._crud_repo.keys(RedisKeyPattern.DATA_WORKER_HEARTBEAT_ALL)
+
+            for key in heartbeat_keys:
+                try:
+                    data = self._crud_repo.get(key)
+                    heartbeat_data = parse_heartbeat_data(data)
+
+                    if heartbeat_data and 'node_id' in heartbeat_data:
+                        stats = heartbeat_data.get("stats", {})
+                        workers.append({
+                            "worker_id": heartbeat_data.get("node_id"),
+                            "status": heartbeat_data.get("status", "unknown"),
+                            "task_count": stats.get("messages_processed", 0),
+                            "last_heartbeat": heartbeat_data.get("timestamp", ""),
+                        })
+                except Exception as e:
+                    self._logger.WARN(f"Failed to parse heartbeat data for {key}: {e}")
+                    continue
+
+            return ServiceResult.success(
+                data=workers,
+                message=f"Found {len(workers)} data workers"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get worker status: {e}")
+            return ServiceResult.error(f"Failed to get worker status: {str(e)}")
+
+    def get_execution_node_status(self) -> ServiceResult:
+        """
+        获取所有ExecutionNode的状态
+
+        Returns:
+            ServiceResult: 包含ExecutionNode状态列表
+        """
+        try:
+            from ginkgo.data.redis_schema import (
+                RedisKeyPattern, parse_heartbeat_data, extract_id_from_key, RedisKeyPrefix
+            )
+
+            nodes = []
+
+            # 获取所有 execution node 的心跳键
+            heartbeat_keys = self._crud_repo.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
+
+            for key in heartbeat_keys:
+                try:
+                    data = self._crud_repo.get(key)
+                    heartbeat_data = parse_heartbeat_data(data)
+
+                    # 心跳值可能是 ISO 时间戳字符串
+                    node_id = extract_id_from_key(key, f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
+
+                    nodes.append({
+                        "node_id": node_id,
+                        "status": "running" if data else "stale",
+                        "active_portfolios": heartbeat_data.get("active_portfolios", 0) if isinstance(heartbeat_data, dict) else 0,
+                        "last_heartbeat": heartbeat_data.get("timestamp", data) if isinstance(heartbeat_data, dict) else data,
+                    })
+                except Exception as e:
+                    self._logger.WARN(f"Failed to parse heartbeat data for {key}: {e}")
+                    continue
+
+            return ServiceResult.success(
+                data=nodes,
+                message=f"Found {len(nodes)} execution nodes"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get execution node status: {e}")
+            return ServiceResult.error(f"Failed to get execution node status: {str(e)}")
+
+    def get_scheduler_status(self) -> ServiceResult:
+        """
+        获取所有Scheduler的状态
+
+        Returns:
+            ServiceResult: 包含Scheduler状态列表
+        """
+        try:
+            from ginkgo.data.redis_schema import (
+                RedisKeyPattern, parse_heartbeat_data, extract_id_from_key, RedisKeyPrefix
+            )
+
+            schedulers = []
+
+            # 获取所有 scheduler 的心跳键
+            heartbeat_keys = self._crud_repo.keys(RedisKeyPattern.SCHEDULER_HEARTBEAT_ALL)
+
+            for key in heartbeat_keys:
+                try:
+                    data = self._crud_repo.get(key)
+                    heartbeat_data = parse_heartbeat_data(data)
+
+                    node_id = extract_id_from_key(key, f"{RedisKeyPrefix.SCHEDULER_HEARTBEAT}:")
+
+                    schedulers.append({
+                        "node_id": node_id,
+                        "status": heartbeat_data.get("status", "running") if isinstance(heartbeat_data, dict) else "running",
+                        "running_tasks": heartbeat_data.get("running_tasks", 0) if isinstance(heartbeat_data, dict) else 0,
+                        "pending_tasks": heartbeat_data.get("pending_tasks", 0) if isinstance(heartbeat_data, dict) else 0,
+                        "last_heartbeat": heartbeat_data.get("timestamp", data) if isinstance(heartbeat_data, dict) else data,
+                    })
+                except Exception as e:
+                    self._logger.WARN(f"Failed to parse heartbeat data for {key}: {e}")
+                    continue
+
+            return ServiceResult.success(
+                data=schedulers,
+                message=f"Found {len(schedulers)} schedulers"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get scheduler status: {e}")
+            return ServiceResult.error(f"Failed to get scheduler status: {str(e)}")
+
+    def get_task_timer_status(self) -> ServiceResult:
+        """
+        获取所有TaskTimer的状态
+
+        Returns:
+            ServiceResult: 包含TaskTimer状态列表
+        """
+        try:
+            from ginkgo.data.redis_schema import (
+                RedisKeyPattern, parse_heartbeat_data, extract_id_from_key, RedisKeyPrefix
+            )
+
+            timers = []
+
+            # 获取所有 task timer 的心跳键
+            heartbeat_keys = self._crud_repo.keys(RedisKeyPattern.TASK_TIMER_HEARTBEAT_ALL)
+
+            for key in heartbeat_keys:
+                try:
+                    data = self._crud_repo.get(key)
+                    heartbeat_data = parse_heartbeat_data(data)
+
+                    node_id = extract_id_from_key(key, f"{RedisKeyPrefix.TASK_TIMER_HEARTBEAT}:")
+
+                    timers.append({
+                        "node_id": node_id,
+                        "status": heartbeat_data.get("status", "running") if isinstance(heartbeat_data, dict) else "running",
+                        "jobs_count": heartbeat_data.get("jobs_count", 0) if isinstance(heartbeat_data, dict) else 0,
+                        "last_heartbeat": heartbeat_data.get("timestamp", data) if isinstance(heartbeat_data, dict) else data,
+                    })
+                except Exception as e:
+                    self._logger.WARN(f"Failed to parse heartbeat data for {key}: {e}")
+                    continue
+
+            return ServiceResult.success(
+                data=timers,
+                message=f"Found {len(timers)} task timers"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get task timer status: {e}")
+            return ServiceResult.error(f"Failed to get task timer status: {str(e)}")
+
+    def get_all_components_status(self) -> ServiceResult:
+        """
+        获取所有组件的状态汇总
+
+        Returns:
+            ServiceResult: 包含所有组件状态的字典
+        """
+        try:
+            result = {
+                "data_workers": [],
+                "backtest_workers": [],
+                "execution_nodes": [],
+                "schedulers": [],
+                "task_timers": [],
+            }
+
+            # DataWorker
+            dw_result = self.get_worker_status()
+            if dw_result.success:
+                result["data_workers"] = dw_result.data or []
+
+            # BacktestWorker
+            bw_result = self.get_backtest_worker_status()
+            if bw_result.success:
+                result["backtest_workers"] = bw_result.data or []
+
+            # ExecutionNode
+            en_result = self.get_execution_node_status()
+            if en_result.success:
+                result["execution_nodes"] = en_result.data or []
+
+            # Scheduler
+            s_result = self.get_scheduler_status()
+            if s_result.success:
+                result["schedulers"] = s_result.data or []
+
+            # TaskTimer
+            tt_result = self.get_task_timer_status()
+            if tt_result.success:
+                result["task_timers"] = tt_result.data or []
+
+            return ServiceResult.success(
+                data=result,
+                message="All components status retrieved"
+            )
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get all components status: {e}")
+            return ServiceResult.error(f"Failed to get all components status: {str(e)}")
+
     # ==================== 函数缓存管理 ====================
     
     def set_function_cache(self, func_name: str, cache_key: str, result: Any,
@@ -952,8 +1229,9 @@ class RedisService(BaseService):
         try:
             import json
             import time
-            
-            full_cache_key = f"ginkgo_func_cache_{func_name}_{cache_key}"
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+
+            full_cache_key = RedisKeyBuilder.func_cache(func_name, cache_key)
             cache_data = {
                 "result": result,
                 "timestamp": time.time(),
@@ -984,8 +1262,9 @@ class RedisService(BaseService):
         """
         try:
             import json
-            
-            full_cache_key = f"ginkgo_func_cache_{func_name}_{cache_key}"
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+
+            full_cache_key = RedisKeyBuilder.func_cache(func_name, cache_key)
             cache_json = self._crud_repo.get(full_cache_key)
             
             if cache_json:
@@ -1009,12 +1288,13 @@ class RedisService(BaseService):
             int: 清除的缓存条目数量
         """
         try:
+            from ginkgo.data.redis_schema import RedisKeyPrefix
             if pattern:
                 cache_pattern = pattern
             elif func_name:
-                cache_pattern = f"ginkgo_func_cache_{func_name}_*"
+                cache_pattern = f"{RedisKeyPrefix.FUNC_CACHE}_{func_name}_*"
             else:
-                cache_pattern = "ginkgo_func_cache_*"
+                cache_pattern = f"{RedisKeyPrefix.FUNC_CACHE}_*"
             
             cache_keys = self._crud_repo.keys(cache_pattern)
             cleared_count = 0
@@ -1044,11 +1324,12 @@ class RedisService(BaseService):
         try:
             import json
             import time
-            
+            from ginkgo.data.redis_schema import RedisKeyPrefix
+
             if func_name:
-                cache_pattern = f"ginkgo_func_cache_{func_name}_*"
+                cache_pattern = f"{RedisKeyPrefix.FUNC_CACHE}_{func_name}_*"
             else:
-                cache_pattern = "ginkgo_func_cache_*"
+                cache_pattern = f"{RedisKeyPrefix.FUNC_CACHE}_*"
             
             cache_keys = self._crud_repo.keys(cache_pattern)
             
@@ -1107,7 +1388,8 @@ class RedisService(BaseService):
             int: 检查的缓存条目数量
         """
         try:
-            cache_pattern = "ginkgo_func_cache_*"
+            from ginkgo.data.redis_schema import RedisKeyPrefix
+            cache_pattern = f"{RedisKeyPrefix.FUNC_CACHE}_*"
             cache_keys = self._crud_repo.keys(cache_pattern)
             
             checked_count = 0
@@ -1132,7 +1414,8 @@ class RedisService(BaseService):
         """
         try:
             # 简单测试Redis连接和基本操作
-            test_key = "ginkgo_func_cache_test"
+            from ginkgo.data.redis_schema import RedisKeyPrefix
+            test_key = f"{RedisKeyPrefix.FUNC_CACHE}_test"
             test_value = "test"
             
             success = self._crud_repo.set(test_key, test_value, 1)  # 1秒过期
@@ -1424,13 +1707,16 @@ class RedisService(BaseService):
         Returns:
             ServiceResult: 包含清理统计信息
         """
-        # Ginkgo相关的键模式
+        # Ginkgo相关的键模式 (使用统一schema)
+        from ginkgo.data.redis_schema import (
+            RedisKeyPattern, RedisKeyPrefix
+        )
         ginkgo_patterns = [
-            "ginkgo_*",          # 通用ginkgo前缀
-            "*_update_*",        # 同步进度缓存
-            "task_status_*",     # 任务状态缓存
-            "ginkgo_func_cache_*",  # 函数缓存
-            "ginkgo_heartbeat_*",   # 进程心跳
+            RedisKeyPattern.ALL_GINKGO_KEYS,  # ginkgo:*
+            RedisKeyPattern.SYNC_PROGRESS_ALL,  # *_update_*
+            RedisKeyPattern.TASK_STATUS_ALL,  # ginkgo:task_status:*
+            RedisKeyPattern.FUNC_CACHE_ALL,  # ginkgo_func_cache_*
+            "ginkgo_heartbeat_*",   # 进程心跳 (旧模式兼容)
             "ginkgo_thread_pool",   # 线程池
             "ginkgo_dataworker_pool",  # 数据工作池
             "test_*",            # 测试键
