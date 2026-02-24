@@ -84,7 +84,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import request from '@/api/request'
+import { dataApi } from '@/api'
 
 interface CommandRecord {
   type: string
@@ -120,8 +120,7 @@ const sendCommand = async () => {
   const codes = command.codes.split('\n').map(c => c.trim()).filter(c => c)
 
   try {
-    // 调用后端 API 发送命令
-    const response = await request.post('/api/v1/data/sync', {
+    const response = await dataApi.sync({
       type: command.type,
       codes,
       full: command.fullSync,
@@ -132,7 +131,7 @@ const sendCommand = async () => {
       type: command.type,
       codes: codes.join(', '),
       time: new Date().toLocaleString('zh-CN'),
-      success: response.data?.status === 'success',
+      success: response.status === 'success',
     })
 
     message.success('命令已发送')
@@ -161,13 +160,11 @@ const clearHistory = () => {
 
 const fetchSyncStatus = async () => {
   try {
-    const response = await request.get('/api/v1/data/status')
-    if (response.data) {
-      syncStatus.bar_count = response.data.bar_count || 0
-      syncStatus.tick_count = response.data.tick_count || 0
-      syncStatus.stock_count = response.data.stock_count || 0
-      syncStatus.last_sync = response.data.last_sync || '-'
-    }
+    const data = await dataApi.getStatus()
+    syncStatus.bar_count = data.bar_count || 0
+    syncStatus.tick_count = data.tick_count || 0
+    syncStatus.stock_count = data.stock_count || 0
+    syncStatus.last_sync = data.last_sync || '-'
   } catch (e) {
     console.error('获取同步状态失败:', e)
   }
