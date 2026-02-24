@@ -32,7 +32,8 @@ class ProgressTracker:
         self.report_interval = 2.0  # 每2秒
         self.last_report_time: Dict[str, float] = {}
 
-    def report_progress(self, task: BacktestTask, progress: float, current_date: str):
+    def report_progress(self, task: BacktestTask, progress: float, current_date: str,
+                        total_pnl: str = "0", total_orders: int = 0, total_signals: int = 0):
         """上报进度（频率限制）"""
         with self.lock:
             now = time()
@@ -56,7 +57,10 @@ class ProgressTracker:
         })
 
         # 同时写入数据库（用于SSE推送）
-        self._write_progress_to_db(task.task_uuid, progress=progress, current_date=current_date)
+        self._write_progress_to_db(
+            task.task_uuid, progress=progress, current_date=current_date,
+            total_pnl=total_pnl, total_orders=total_orders, total_signals=total_signals
+        )
 
     def report_stage(self, task: BacktestTask, stage: EngineStage, message: str):
         """上报关键阶段（立即上报）"""
@@ -146,7 +150,8 @@ class ProgressTracker:
             print(f"Failed to report progress: {e}")
 
     def _write_progress_to_db(self, task_id: str, progress: float = None,
-                               current_stage: str = None, current_date: str = None):
+                               current_stage: str = None, current_date: str = None,
+                               total_pnl: str = "0", total_orders: int = 0, total_signals: int = 0):
         """写入进度到数据库（用于SSE推送）"""
         if self.task_service is None:
             return
@@ -162,18 +167,29 @@ class ProgressTracker:
                 print(f"Failed to write progress to DB: {result.message}")
 
             # 通知 WebSocket 客户端
-            self._notify_ws_clients(task_id, "progress")
+            self._notify_ws_clients(
+                task_id, "progress",
+                progress=int(progress or 0),
+                total_pnl=total_pnl, total_orders=total_orders, total_signals=total_signals
+            )
         except Exception as e:
             print(f"Error writing progress to DB: {e}")
 
-    def _notify_ws_clients(self, task_id: str, event_type: str = "progress"):
+    def _notify_ws_clients(self, task_id: str, event_type: str = "progress", progress: int = 0,
+                            total_pnl: str = "0", total_orders: int = 0, total_signals: int = 0):
         """通过 API 通知 WebSocket 客户端有更新"""
         try:
             import requests
             # 异步发送通知，不阻塞主流程
             requests.post(
                 f"http://localhost:8000/api/v1/backtest/{task_id}/notify",
-                params={"event_type": event_type},
+                params={
+                    "event_type": event_type,
+                    "progress": progress,
+                    "total_pnl": total_pnl,
+                    "total_orders": total_orders,
+                    "total_signals": total_signals,
+                },
                 timeout=1  # 1秒超时
             )
         except Exception as e:
@@ -223,6 +239,15 @@ class ProgressTracker:
                 print(f"Failed to write status to DB: {result_obj.message}")
 
             # 通知 WebSocket 客户端状态变化
-            self._notify_ws_clients(task_id, status)
+            if result:
+                self._notify_ws_clients(
+                    task_id, status,
+                    progress=100,
+                    total_pnl=str(result.get("total_pnl", "0")),
+                    total_orders=result.get("total_orders", 0),
+                    total_signals=result.get("total_signals", 0)
+                )
+            else:
+                self._notify_ws_clients(task_id, status)
         except Exception as e:
             print(f"Error writing status to DB: {e}")
