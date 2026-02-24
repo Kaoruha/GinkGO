@@ -6,6 +6,8 @@ export interface ComponentSummary {
   type: string
   component_type: 'strategy' | 'selector' | 'sizer' | 'risk' | 'analyzer'
   description?: string
+  version?: string
+  is_latest?: boolean
   params?: any[]
   parameters?: any[]
 }
@@ -29,39 +31,47 @@ export const componentsApi = {
    * 获取策略组件列表
    */
   async getStrategies(): Promise<ComponentSummary[]> {
-    const res = await request.get<{ data: ComponentSummary[] }>('/v1/components/strategies')
-    return (res.data || []).map(item => ({ ...item, component_type: 'strategy', parameters: item.params }))
+    const res: any = await request.get('/v1/components/strategies')
+    return (res.data || []).map((item: any) => ({ ...item, component_type: 'strategy', parameters: item.params }))
   },
 
   /**
    * 获取选股器组件列表
    */
   async getSelectors(): Promise<ComponentSummary[]> {
-    const res = await request.get<{ data: ComponentSummary[] }>('/v1/components/selectors')
-    return (res.data || []).map(item => ({ ...item, component_type: 'selector', parameters: item.params }))
+    const res: any = await request.get('/v1/components/selectors')
+    return (res.data || []).map((item: any) => ({ ...item, component_type: 'selector', parameters: item.params }))
   },
 
   /**
    * 获取风控组件列表
    */
   async getRisks(): Promise<ComponentSummary[]> {
-    const res = await request.get<{ data: ComponentSummary[] }>('/v1/components/risks')
-    return (res.data || []).map(item => ({ ...item, component_type: 'risk', parameters: item.params }))
+    const res: any = await request.get('/v1/components/risks')
+    return (res.data || []).map((item: any) => ({ ...item, component_type: 'risk', parameters: item.params }))
   },
 
   /**
    * 获取仓位组件列表
    */
   async getSizers(): Promise<ComponentSummary[]> {
-    const res = await request.get<{ data: ComponentSummary[] }>('/v1/components/sizers')
-    return (res.data || []).map(item => ({ ...item, component_type: 'sizer', parameters: item.params }))
+    const res: any = await request.get('/v1/components/sizers')
+    return (res.data || []).map((item: any) => ({ ...item, component_type: 'sizer', parameters: item.params }))
   },
 
   /**
    * 获取分析器组件列表
    */
   async getAnalyzers(): Promise<ComponentSummary[]> {
-    const res = await request.get<{ data: ComponentSummary[] }>('/v1/components/analyzers')
-    return (res.data || []).map(item => ({ ...item, component_type: 'analyzer', parameters: item.params }))
+    const res: any = await request.get('/v1/components/analyzers')
+    return (res.data || []).map((item: any) => ({ ...item, component_type: 'analyzer', parameters: item.params }))
+  },
+
+  /**
+   * 获取指定组件的所有版本
+   */
+  async getVersions(name: string, type: number): Promise<ComponentSummary[]> {
+    const res: any = await request.get(`/v1/file/${name}/versions?type=${type}`)
+    return (res.data || []).map((item: any) => ({ ...item, parameters: item.params }))
   },
 }

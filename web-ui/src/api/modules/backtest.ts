@@ -2,14 +2,17 @@ import request from '../request'
 
 export interface BacktestTask {
   uuid: string
-  task_id: string
+  run_id: string
+  name: string
   engine_id: string
   portfolio_id: string
-  status: 'running' | 'completed' | 'failed' | 'stopped'
-  start_time: string
+  status: 'created' | 'pending' | 'running' | 'completed' | 'failed' | 'stopped'
+  start_time: string | null
   end_time?: string
   duration_seconds?: number
   error_message?: string
+  progress?: string
+  current_stage?: string
   total_orders: number
   total_signals: number
   total_positions: number
@@ -26,10 +29,21 @@ export interface BacktestTask {
 }
 
 export interface BacktestCreateRequest {
-  task_id: string
+  name?: string
   engine_id?: string
   portfolio_id?: string
+  start_date?: string
+  end_date?: string
   config_snapshot?: Record<string, any>
+}
+
+export interface BacktestStartRequest {
+  portfolio_uuid?: string
+  name?: string
+  start_date?: string
+  end_date?: string
+  initial_cash?: number
+  analyzers?: string[]
 }
 
 export interface BacktestListParams {
@@ -74,10 +88,65 @@ export interface AnalyzerInfo {
 }
 
 export interface BacktestAnalyzersResponse {
-  task_id: string
+  run_id: string
   portfolio_id: string
   analyzers: AnalyzerInfo[]
   total_count: number
+}
+
+export interface AnalyzerTimeseriesResponse {
+  analyzer_name: string
+  data: Array<{ time: string; value: number | null }>
+  stats: {
+    analyzer_name: string
+    count: number
+    min: number
+    max: number
+    avg: number
+    latest: number | null
+    first: number | null
+    change: number
+  } | null
+  count: number
+}
+
+export interface SignalRecord {
+  uuid: string
+  code: string
+  direction: string
+  reason: string
+  volume: number
+  weight: number
+  strength: number
+  confidence: number
+  portfolio_id: string
+  timestamp: string | null
+  business_timestamp: string | null
+}
+
+export interface OrderRecord {
+  uuid: string
+  code: string
+  direction: string
+  order_type: string
+  status: string
+  volume: number
+  limit_price: number
+  transaction_price: number
+  transaction_volume: number
+  fee: number
+  timestamp: string | null
+}
+
+export interface PositionRecord {
+  uuid: string
+  code: string
+  volume: number
+  cost: number
+  market_value: number
+  profit: number
+  profit_pct: number
+  timestamp: string | null
 }
 
 export const backtestApi = {
@@ -128,5 +197,47 @@ export const backtestApi = {
    */
   getAnalyzers(uuid: string): Promise<BacktestAnalyzersResponse> {
     return request.get(`/v1/backtest/${uuid}/analyzers`)
+  },
+
+  /**
+   * 启动回测任务
+   */
+  start(uuid: string, data?: BacktestStartRequest): Promise<{ success: boolean; run_id: string; message: string }> {
+    return request.post(`/v1/backtest/${uuid}/start`, data || {})
+  },
+
+  /**
+   * 停止回测任务
+   */
+  stop(uuid: string): Promise<{ success: boolean; run_id: string; message: string }> {
+    return request.post(`/v1/backtest/${uuid}/stop`)
+  },
+
+  /**
+   * 获取分析器时序数据
+   */
+  getAnalyzerData(uuid: string, analyzerName: string): Promise<AnalyzerTimeseriesResponse> {
+    return request.get(`/v1/backtest/${uuid}/analyzer/${analyzerName}`)
+  },
+
+  /**
+   * 获取回测信号记录
+   */
+  getSignals(uuid: string, page: number = 0, size: number = 100): Promise<{ data: SignalRecord[]; total: number; page: number; size: number }> {
+    return request.get(`/v1/backtest/${uuid}/signals`, { params: { page, size } })
+  },
+
+  /**
+   * 获取回测订单记录
+   */
+  getOrders(uuid: string): Promise<{ data: OrderRecord[]; total: number }> {
+    return request.get(`/v1/backtest/${uuid}/orders`)
+  },
+
+  /**
+   * 获取回测持仓记录
+   */
+  getPositions(uuid: string): Promise<{ data: PositionRecord[]; total: number }> {
+    return request.get(`/v1/backtest/${uuid}/positions`)
   },
 }

@@ -1,20 +1,21 @@
 <template>
-  <div class="component-list-page">
-    <div class="page-header">
-      <div class="page-title">{{ title }}</div>
-      <a-space>
-        <a-input-search
-          v-model:value="searchText"
-          placeholder="搜索文件名"
-          style="width: 240px"
-          allow-clear
-        />
-        <a-button type="primary" @click="handleCreate">
-          <template #icon><PlusOutlined /></template>
-          新建
-        </a-button>
-      </a-space>
-    </div>
+  <ListPageLayout
+    :title="title"
+    :loading="loading"
+    :empty="filteredFiles.length === 0"
+    empty-text="暂无文件"
+    empty-action-text="创建第一个文件"
+    :search-placeholder="'搜索文件名'"
+    @create="handleCreate"
+  >
+    <template #actions>
+      <a-input-search
+        v-model:value="searchText"
+        placeholder="搜索文件名"
+        style="width: 240px"
+        allow-clear
+      />
+    </template>
 
     <a-table
       :columns="columns"
@@ -32,23 +33,20 @@
           </router-link>
         </template>
         <template v-if="column.key === 'type'">
-          <a-tag :color="getTypeColor(record.type)">{{ getTypeName(record.type) }}</a-tag>
+          <StatusTag :status="getTypeName(record.type)" type="system" />
         </template>
         <template v-if="column.key === 'update_at'">
           {{ formatDate(record.update_at || record.created_at) }}
         </template>
         <template v-if="column.key === 'actions'">
-          <a-space>
-            <router-link :to="getDetailUrl(record)">
-              <a-button type="link" size="small">编辑</a-button>
-            </router-link>
-            <a-popconfirm
-              title="确定删除此文件？"
-              @confirm="handleDelete(record)"
-            >
-              <a-button type="link" danger size="small">删除</a-button>
-            </a-popconfirm>
-          </a-space>
+          <TableActions
+            :record="record"
+            :actions="[
+              { key: 'edit', label: '编辑', to: getDetailUrl(record) },
+              { key: 'delete', label: '删除', confirm: '确定删除此文件？' }
+            ]"
+            @action="handleAction"
+          />
         </template>
       </template>
     </a-table>
@@ -66,20 +64,21 @@
         </a-form-item>
       </a-form>
     </a-modal>
-  </div>
+  </ListPageLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { PlusOutlined } from '@ant-design/icons-vue'
 import { fileApi, type FileItem } from '@/api/modules/file'
+import { ListPageLayout, StatusTag, TableActions } from '@/components/common'
+import { formatDate } from '@/utils/format'
 
 interface Props {
   title: string
   fileType: number
-  basePath: string  // 如 '/components/strategies'
+  basePath: string
 }
 
 const props = defineProps<Props>()
@@ -107,32 +106,8 @@ const typeNames: Record<number, string> = {
   1: '分析器', 3: '风控', 4: '选股器', 5: '仓位', 6: '策略', 8: '处理器'
 }
 
-const typeColors: Record<number, string> = {
-  1: 'blue', 3: 'red', 4: 'green', 5: 'orange', 6: 'purple', 8: 'cyan'
-}
-
 function getTypeName(type: number): string {
   return typeNames[type] || '未知'
-}
-
-function getTypeColor(type: number): string {
-  return typeColors[type] || 'default'
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '-'
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  } catch {
-    return dateStr
-  }
 }
 
 function getDetailUrl(record: FileItem): string {
@@ -176,46 +151,28 @@ async function handleCreateConfirm() {
   }
 }
 
-async function handleDelete(file: FileItem) {
-  try {
-    const result = await fileApi.delete(file.uuid)
-    if (result.status === 'success') {
-      message.success('删除成功')
-      await loadFiles()
-    } else {
-      message.error('删除失败')
+async function handleAction(key: string, record: FileItem) {
+  if (key === 'delete') {
+    try {
+      const result = await fileApi.delete(record.uuid)
+      if (result.status === 'success') {
+        message.success('删除成功')
+        await loadFiles()
+      } else {
+        message.error('删除失败')
+      }
+    } catch (error: any) {
+      message.error(error.message || '删除失败')
     }
-  } catch (error: any) {
-    message.error(error.message || '删除失败')
   }
 }
 
 watch(() => props.fileType, () => {
   loadFiles()
 }, { immediate: true })
-
-onMounted(() => {
-  loadFiles()
-})
 </script>
 
-<style lang="less" scoped>
-.component-list-page {
-  padding: 0;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.page-title {
-  font-size: 18px;
-  font-weight: 600;
-}
-
+<style scoped>
 .file-table {
   background: #fff;
   border-radius: 8px;
@@ -224,9 +181,9 @@ onMounted(() => {
 .file-link {
   color: #1890ff;
   font-weight: 500;
+}
 
-  &:hover {
-    text-decoration: underline;
-  }
+.file-link:hover {
+  text-decoration: underline;
 }
 </style>
