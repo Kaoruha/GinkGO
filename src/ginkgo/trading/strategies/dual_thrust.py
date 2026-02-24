@@ -9,9 +9,8 @@
 
 import datetime
 from decimal import Decimal
-from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.strategies.base_strategy import BaseStrategy
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
+from ginkgo.enums import DIRECTION_TYPES
 from ginkgo.data import get_bars
 import pandas as pd
 
@@ -50,14 +49,11 @@ class StrategyDualThrust(BaseStrategy):
         Generates a signal for the given code and direction.
         """
         self.log("INFO", f"Gen {direction.value} Signal about {code} from {self.name}")
-        return Signal(
-            portfolio_id=portfolio_info["uuid"],
-            engine_id=self.engine_id,
-            timestamp=portfolio_info["now"],
+        return self.create_signal(
             code=code,
             direction=direction,
             reason="Dual Thrust",
-            source=SOURCE_TYPES.STRATEGY,
+            business_timestamp=portfolio_info.get("now"),
         )
 
     def cal(self, portfolio_info, event, *args, **kwargs):
