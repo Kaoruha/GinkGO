@@ -154,6 +154,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import { CopyOutlined } from '@ant-design/icons-vue'
 import { useBacktestStore, usePortfolioStore } from '@/stores'
 import { useWebSocket } from '@/composables'
 import { formatPercent, formatDuration, formatDateTime } from '@/utils/format'
@@ -243,6 +244,7 @@ const columns = [
 // 表格操作按钮
 const tableActions = computed<TableAction[]>(() => [
   { key: 'stop', label: '停止', confirm: '确定要停止此回测任务吗？', show: currentTask?.value?.status === 'running' },
+  { key: 'copy', label: '复制', icon: 'CopyOutlined' },
   { key: 'detail', label: '详情' },
   { key: 'netvalue', label: '净值曲线' },
   { key: 'delete', label: '删除', confirm: '确定要删除此回测任务吗？' },
@@ -269,6 +271,21 @@ const handleTableChange = (pag: any) => {
 
 const handleAction = async (key: string, record: BacktestTask) => {
   switch (key) {
+    case 'copy':
+      // 跳转到创建页面并传递复制参数
+      router.push({
+        path: '/stage1/backtest/create',
+        query: {
+          copy: 'true',
+          name: `${record.name} (副本)`,
+          portfolio_id: record.portfolio_id,
+          // 从 config_snapshot 解析日期
+          start_date: extractStartDate(record),
+          end_date: extractEndDate(record),
+          initial_cash: extractInitialCash(record)
+        }
+      })
+      break
     case 'detail':
       router.push(`/stage1/backtest/${record.uuid}`)
       break
@@ -284,6 +301,44 @@ const handleAction = async (key: string, record: BacktestTask) => {
       message.success('删除成功')
       break
   }
+}
+
+// 从回测任务中提取日期参数
+const extractStartDate = (task: BacktestTask): string => {
+  if (task.config_snapshot) {
+    try {
+      const config = JSON.parse(task.config_snapshot)
+      return config.start_date || config.backtest_start_date || ''
+    } catch {
+      // 如果解析失败，从回测日期推断
+      return task.start_time ? task.start_time.split('T')[0] : ''
+    }
+  }
+  return task.start_time ? task.start_time.split('T')[0] : ''
+}
+
+const extractEndDate = (task: BacktestTask): string => {
+  if (task.config_snapshot) {
+    try {
+      const config = JSON.parse(task.config_snapshot)
+      return config.end_date || config.backtest_end_date || ''
+    } catch {
+      return task.end_time ? task.end_time.split('T')[0] : ''
+    }
+  }
+  return task.end_time ? task.end_time.split('T')[0] : ''
+}
+
+const extractInitialCash = (task: BacktestTask): number => {
+  if (task.config_snapshot) {
+    try {
+      const config = JSON.parse(task.config_snapshot)
+      return config.initial_cash || config.initial_capital || 100000
+    } catch {
+      return 100000
+    }
+  }
+  return 100000
 }
 
 const handleCreate = async () => {
