@@ -40,6 +40,7 @@ export interface PortfolioCreateRequest {
   description?: string
   selectors?: { component_uuid: string; config?: Record<string, any> }[]
   sizer_uuid?: string
+  sizer_config?: Record<string, any>
   strategies?: { component_uuid: string; weight?: number; config?: Record<string, any> }[]
   risk_managers?: { component_uuid: string; config?: Record<string, any> }[]
   analyzers?: { component_uuid: string; config?: Record<string, any> }[]
@@ -51,6 +52,7 @@ export interface PortfolioListParams {
   state?: string
   page?: number
   page_size?: number
+  keyword?: string
 }
 
 export const portfolioApi = {

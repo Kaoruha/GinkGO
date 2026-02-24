@@ -81,12 +81,20 @@ class PortfolioService(BaseService):
 
             # 创建投资组合
             with self._crud_repo.get_session() as session:
-                portfolio_record = self._crud_repo.create(
-                    name=name,
-                    is_live=is_live,
-                    desc=description or f"{'Live' if is_live else 'Backtest'} portfolio: {name}",
-                    session=session,
-                )
+                # 提取 initial_capital 参数
+                initial_capital = kwargs.get('initial_capital', None)
+                create_kwargs = {
+                    "name": name,
+                    "is_live": is_live,
+                    "desc": description or f"{'Live' if is_live else 'Backtest'} portfolio: {name}",
+                    "session": session,
+                }
+                if initial_capital is not None:
+                    create_kwargs["initial_capital"] = initial_capital
+                    create_kwargs["current_capital"] = initial_capital
+                    create_kwargs["cash"] = initial_capital
+
+                portfolio_record = self._crud_repo.create(**create_kwargs)
 
                 portfolio_info = {
                     "uuid": portfolio_record.uuid,
@@ -397,11 +405,22 @@ class PortfolioService(BaseService):
             # 转换为统一的组件信息格式
             components = []
             for mapping in mappings or []:
+                # 从 File 表获取实际文件名
+                actual_file_name = mapping.name  # 默认使用 mapping.name
+                try:
+                    from ginkgo import services
+                    file_crud = services.data.cruds.file()
+                    files = file_crud.find(filters={"uuid": mapping.file_id}, page_size=1)
+                    if files and len(files) > 0:
+                        actual_file_name = files[0].name  # 使用 File 表中的实际文件名
+                except Exception as e:
+                    GLOG.WARN(f"Failed to get file name for {mapping.file_id}: {e}")
+
                 component_info = {
                     "mount_id": mapping.uuid,
                     "portfolio_id": mapping.portfolio_id,
                     "component_id": mapping.file_id,
-                    "component_name": mapping.name,
+                    "component_name": actual_file_name,  # 使用 File 表中的实际文件名
                     "component_type": mapping.type.name if hasattr(mapping.type, "name") else str(mapping.type),
                     "created_at": mapping.created_at.isoformat() if hasattr(mapping, 'created_at') else None,
                 }
@@ -440,11 +459,6 @@ class PortfolioService(BaseService):
                     return ServiceResult.error(f"投资组合不存在: {portfolio_id}")
                 return ServiceResult.success(portfolios, "获取投资组合成功")
 
-            elif name:
-                # 按名称查询
-                portfolios = self._crud_repo.find(filters={"name": name, "is_del": False})
-                return ServiceResult.success(portfolios, f"获取到{len(portfolios)}个投资组合")
-
             else:
                 # 按条件查询
                 filters = kwargs.get('filters', {})
@@ -453,7 +467,15 @@ class PortfolioService(BaseService):
                 if is_live is not None:
                     filters['is_live'] = is_live
 
-                portfolios = self._crud_repo.find(filters=filters)
+                # 支持名称模糊搜索
+                if name:
+                    filters['name__like'] = f'%{name}%'
+
+                # 支持分页参数
+                page = kwargs.get('page', 0)
+                page_size = kwargs.get('page_size', 20)
+
+                portfolios = self._crud_repo.find(filters=filters, page=page, page_size=page_size)
                 return ServiceResult.success(portfolios, f"获取到{len(portfolios)}个投资组合")
 
         except Exception as e:
@@ -479,7 +501,7 @@ class PortfolioService(BaseService):
             filters['is_del'] = False
 
             if name:
-                filters['name'] = name
+                filters['name__like'] = f'%{name}%'
             if is_live is not None:
                 filters['is_live'] = is_live
 
