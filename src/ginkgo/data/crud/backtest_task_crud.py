@@ -48,30 +48,39 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         注意：_get_field_config() 中的所有字段都会被视为必填字段。
         非必填字段不应添加到此配置中。
 
+        run_id 自动生成，如未指定则自动生成，因此不在此配置中。
+
         Returns:
             dict: 字段配置字典
         """
-        return {
-            "task_id": {"type": "string", "min": 1, "max": 128},
-        }
+        return {}  # run_id 自动生成，无需必填验证
 
     def _create_from_params(self, **kwargs) -> MBacktestTask:
         """
         Hook method: Create MBacktestTask from parameters.
+
+        设计原则：会话实体的 uuid = run_id（主键就是会话ID）
         """
+        from ginkgo.trading.core.identity import IdentityUtils
+
         source_value = kwargs.get("source", SOURCE_TYPES.SIM)
         if isinstance(source_value, SOURCE_TYPES):
             source_value = source_value.value
         else:
             source_value = SOURCE_TYPES.validate_input(source_value) or -1
 
-        return MBacktestTask(
-            task_id=kwargs.get("task_id", ""),
+        # 生成 run_id（如果未提供），使用与 uuid 相同的规则
+        run_id = kwargs.get("run_id") or IdentityUtils.generate_run_id()
+
+        model = MBacktestTask(
+            uuid=run_id,  # 会话实体的 uuid = run_id
+            run_id=run_id,
+            name=kwargs.get("name", ""),  # 用户可指定名称
             engine_id=kwargs.get("engine_id", ""),
             portfolio_id=kwargs.get("portfolio_id", ""),
-            start_time=kwargs.get("start_time", datetime.now()),
+            start_time=kwargs.get("start_time"),
             end_time=kwargs.get("end_time"),
-            status=kwargs.get("status", "running"),
+            status=kwargs.get("status", "created"),
             error_message=kwargs.get("error_message", ""),
             total_orders=kwargs.get("total_orders", 0),
             total_signals=kwargs.get("total_signals", 0),
@@ -88,6 +97,8 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
             source=source_value,
         )
 
+        return model
+
     def get_tasks_by_engine(self, engine_id: str, page: int = 0, page_size: int = 20) -> ModelList:
         """
         获取指定引擎的所有回测任务
@@ -102,7 +113,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         """
         return self.find(
             filters={"engine_id": engine_id, "is_del": False},
-            order_by="-start_time",
+            order_by="create_at", desc_order=True,
             page=page,
             page_size=page_size
         )
@@ -121,7 +132,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         """
         return self.find(
             filters={"portfolio_id": portfolio_id, "is_del": False},
-            order_by="-start_time",
+            order_by="create_at", desc_order=True,
             page=page,
             page_size=page_size
         )
@@ -135,7 +146,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         """
         return self.find(
             filters={"status": "running", "is_del": False},
-            order_by="-start_time"
+            order_by="create_at", desc_order=True
         )
 
     def get_completed_tasks(self, page: int = 0, page_size: int = 20) -> ModelList:
@@ -168,20 +179,25 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         """
         return self.count(filters={"status": status, "is_del": False})
 
-    def get_task_by_task_id(self, task_id: str) -> Optional[MBacktestTask]:
+    def get_by_run_id(self, run_id: str) -> Optional[MBacktestTask]:
         """
-        通过 task_id 获取任务
+        通过 run_id 获取任务
 
         Args:
-            task_id: 任务会话ID
+            run_id: 运行会话ID
 
         Returns:
             MBacktestTask or None
         """
-        results = self.find(filters={"task_id": task_id, "is_del": False})
+        results = self.find(filters={"run_id": run_id, "is_del": False})
         if results and len(results) > 0:
             return results[0]
         return None
+
+    # 向后兼容
+    def get_task_by_task_id(self, task_id: str) -> Optional[MBacktestTask]:
+        """向后兼容方法，调用 get_by_run_id"""
+        return self.get_by_run_id(task_id)
 
     def get_by_uuid(self, uuid: str) -> Optional[MBacktestTask]:
         """
@@ -200,7 +216,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
 
     def update_task_status(
         self,
-        task_id: str,
+        uuid: str,
         status: str,
         error_message: str = "",
         **result_fields
@@ -209,7 +225,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         更新任务状态
 
         Args:
-            task_id: 任务会话ID
+            uuid: 任务 UUID（与 task_id 等价）
             status: 新状态
             error_message: 错误信息
             **result_fields: 结果字段 (final_portfolio_value, total_pnl, etc.)
@@ -223,7 +239,9 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
         if status in ["completed", "failed", "stopped"]:
             updates["end_time"] = datetime.now()
 
-        return self.modify(filters={"task_id": task_id}, updates=updates)
+        # 统一按 uuid 查找（task_id 与 uuid 等价）
+        count = self.modify(filters={"uuid": uuid}, updates=updates)
+        return count if count is not None else 0
 
     def get_tasks_page_filtered(
         self,
@@ -263,7 +281,7 @@ class BacktestTaskCRUD(BaseCRUD[MBacktestTask]):
 
         return self.find(
             filters=filters,
-            order_by="-start_time",
+            order_by="create_at", desc_order=True,
             page=page,
             page_size=page_size
         )
