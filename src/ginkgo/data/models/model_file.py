@@ -3,7 +3,7 @@ import datetime
 
 from typing import Optional
 from functools import singledispatchmethod
-from sqlalchemy import String, Enum, LargeBinary
+from sqlalchemy import String, Enum, LargeBinary, Boolean
 from sqlalchemy.dialects.mysql import TINYINT, MEDIUMBLOB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,6 +20,11 @@ class MFile(MMysqlBase):
     name: Mapped[str] = mapped_column(String(40), default="ginkgo_file")
     data: Mapped[bytes] = mapped_column(MEDIUMBLOB, default=b"")
 
+    # 版本管理字段
+    version: Mapped[str] = mapped_column(String(32), default="1.0.0", comment="版本号")
+    parent_uuid: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, comment="父版本UUID")
+    is_latest: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否最新版本")
+
     @singledispatchmethod
     def update(self, *args, **kwargs) -> None:
         raise NotImplementedError("Unsupported type --> {args}")
@@ -31,6 +36,9 @@ class MFile(MMysqlBase):
         type: Optional[FILE_TYPES] = None,
         data: Optional[bytes] = None,
         source: Optional[SOURCE_TYPES] = None,
+        version: Optional[str] = None,
+        parent_uuid: Optional[str] = None,
+        is_latest: Optional[bool] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -41,6 +49,12 @@ class MFile(MMysqlBase):
             self.data = data
         if source is not None:
             self.set_source(source)
+        if version is not None:
+            self.version = version
+        if parent_uuid is not None:
+            self.parent_uuid = parent_uuid
+        if is_latest is not None:
+            self.is_latest = is_latest
         self.update_at = datetime.datetime.now()
 
     @update.register(pd.Series)
