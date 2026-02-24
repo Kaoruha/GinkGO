@@ -98,7 +98,8 @@ class TaskTimer:
 
     def _get_heartbeat_key(self) -> str:
         """获取心跳Redis Key"""
-        return f"heartbeat:task_timer:{self.node_id}"
+        from ginkgo.data.redis_schema import RedisKeyBuilder
+        return RedisKeyBuilder.task_timer_heartbeat(self.node_id)
 
     def _start_heartbeat_thread(self):
         """启动心跳上报线程"""

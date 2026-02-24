@@ -239,6 +239,17 @@ class BacktestWorker:
                 print(f"[{task_uuid}] Slot available, proceeding with task")
                 break
 
+        # 验证必要的任务参数
+        portfolio_uuid = assignment.get("portfolio_uuid")
+        if not portfolio_uuid:
+            print(f"[{task_uuid}] ERROR: portfolio_uuid is required but missing, discarding task")
+            # 上报任务失败到数据库
+            self.progress_tracker.report_failed_by_uuid(
+                task_uuid=assignment.get("task_uuid", ""),
+                error="portfolio_uuid is required"
+            )
+            return
+
         # 解析任务配置
         from ginkgo.workers.backtest_worker.models import BacktestConfig
 
@@ -310,6 +321,14 @@ class BacktestWorker:
                 del self.tasks[task_uuid]
                 # 通知等待的线程有新槽位可用
                 self._slot_available.set()
+
+        # 任务完成后提交 Kafka offset，防止重复消费
+        if self.task_consumer and self.task_consumer.is_connected:
+            try:
+                self.task_consumer.commit()
+                print(f"[{task_uuid[:8]}] Kafka offset committed")
+            except Exception as e:
+                print(f"[{task_uuid[:8]}] Failed to commit offset: {e}")
 
     def _can_accept_task(self) -> bool:
         """检查是否还能接受任务"""

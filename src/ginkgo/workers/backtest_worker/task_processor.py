@@ -18,6 +18,7 @@ import time
 from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestTaskState, EngineStage
 from ginkgo.workers.backtest_worker.progress_tracker import ProgressTracker
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
+from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
 from ginkgo import services
 from ginkgo.libs import GinkgoLogger
 from ginkgo.trading.time.clock import now as clock_now
@@ -88,6 +89,9 @@ class BacktestProcessor(Thread):
             # 通知分析器回测结束
             if hasattr(self._engine, 'notify_analyzers_backtest_end'):
                 self._engine.notify_analyzers_backtest_end()
+
+            # 汇总分析器结果并保存到数据库
+            self._aggregate_and_save_results()
 
             # 阶段4: 完成处理
             self.task.state = BacktestTaskState.COMPLETED
@@ -201,7 +205,8 @@ class BacktestProcessor(Thread):
         )
 
         if not result.success:
-            raise RuntimeError(f"Failed to assemble engine: {result.error}")
+            error_msg = result.error or "Unknown error"
+            raise RuntimeError(f"Engine assembly failed for {self.task.task_uuid[:8]}: {error_msg}")
 
         print(f"[{self.task.task_uuid[:8]}] Engine assembled successfully")
         return result.data
@@ -285,14 +290,28 @@ class BacktestProcessor(Thread):
                 FILE_TYPES.ANALYZER.value: "analyzers",
             }
 
+            # 获取文件 CRUD 以读取文件名称
+            file_crud = data_container.cruds.file()
+
             for mapping in mappings:
                 # 使用 mapping.type (不是 component_type)
                 component_type = mapping.type
                 category = type_mapping.get(component_type)
                 if category and category in components:
+                    # 获取文件信息以获取组件名称
+                    component_name = ""
+                    try:
+                        file_records = file_crud.find(filters={"uuid": mapping.file_id})
+                        if file_records and len(file_records) > 0:
+                            component_name = file_records[0].name
+                    except Exception as e:
+                        print(f"[{self.task.task_uuid[:8]}] Failed to get file name: {e}")
+
                     components[category].append({
                         "file_id": mapping.file_id,
                         "mapping_uuid": mapping.uuid,
+                        "name": component_name,  # 添加组件名称
+                        "type": component_type,  # 🔧 添加组件类型（engine_assembly_service 需要此字段）
                     })
 
             print(f"[{self.task.task_uuid[:8]}] Components loaded: strategies={len(components['strategies'])}, "
@@ -314,8 +333,47 @@ class BacktestProcessor(Thread):
         self.task.progress = progress
         self.task.current_date = current_date
 
+        # 从 portfolio 获取实时统计
+        total_pnl = "0"
+        total_orders = 0
+        total_signals = 0
+
+        try:
+            portfolios = getattr(self._engine, 'portfolios', [])
+            portfolio = None
+            for p in portfolios:
+                if getattr(p, 'uuid', None) == self.task.portfolio_uuid:
+                    portfolio = p
+                    break
+            if portfolio is None and portfolios:
+                portfolio = portfolios[0]
+
+            if portfolio:
+                # 计算盈亏（使用 worth = cash + 持仓价值）
+                initial_cash = self.task.config.initial_cash
+                current_worth = float(getattr(portfolio, 'worth', 0) or getattr(portfolio, '_worth', 0))
+                if current_worth == 0:
+                    current_cash = float(getattr(portfolio, 'cash', initial_cash))
+                    current_worth = current_cash
+                pnl = current_worth - initial_cash
+                total_pnl = str(pnl)
+
+                # 从策略获取信号数
+                strategies = getattr(portfolio, 'strategies', [])
+                for s in strategies:
+                    total_signals += getattr(s, 'signal_count', 0)
+
+                # 从持仓获取订单数（近似）
+                positions = getattr(portfolio, 'positions', {})
+                total_orders = len(positions) if isinstance(positions, dict) else 0
+        except Exception as e:
+            pass  # 统计获取失败不影响主流程
+
         # 每2秒上报一次（由ProgressTracker控制频率）
-        self.progress_tracker.report_progress(self.task, progress, current_date)
+        self.progress_tracker.report_progress(
+            self.task, progress, current_date,
+            total_pnl=total_pnl, total_orders=total_orders, total_signals=total_signals
+        )
 
     def _calculate_result(self, engine_result: Dict[str, Any]) -> Dict[str, Any]:
         """计算回测结果"""
@@ -365,6 +423,64 @@ class BacktestProcessor(Thread):
                 "total_return": 0.0,
                 "error": str(e),
             }
+
+    def _aggregate_and_save_results(self):
+        """汇总分析器结果并保存到数据库"""
+        try:
+            # 从 data_container 获取服务（不直接使用 CRUD）
+            from ginkgo.data.containers import container as data_container
+
+            analyzer_service = data_container.analyzer_service()
+            backtest_task_service = data_container.backtest_task_service()
+
+            # 计算运行时长
+            duration_seconds = None
+            if self.task.started_at and self.task.completed_at:
+                duration_seconds = int((self.task.completed_at - self.task.started_at).total_seconds())
+
+            # 创建汇总器（只传入 service，不传入 crud）
+            aggregator = BacktestResultAggregator(
+                analyzer_service=analyzer_service,
+                backtest_task_service=backtest_task_service,
+            )
+
+            # 汇总并保存
+            # 转换日期字符串为 datetime 对象
+            backtest_start = None
+            backtest_end = None
+            if self.task.config.start_date:
+                try:
+                    backtest_start = datetime.strptime(str(self.task.config.start_date), "%Y-%m-%d")
+                except ValueError:
+                    backtest_start = datetime.strptime(str(self.task.config.start_date)[:10], "%Y-%m-%d")
+            if self.task.config.end_date:
+                try:
+                    backtest_end = datetime.strptime(str(self.task.config.end_date), "%Y-%m-%d")
+                except ValueError:
+                    backtest_end = datetime.strptime(str(self.task.config.end_date)[:10], "%Y-%m-%d")
+
+            result = aggregator.aggregate_and_save(
+                task_id=self.task.task_uuid,
+                portfolio_id=self.task.portfolio_uuid,
+                engine_id=self.task.task_uuid,
+                status="completed",
+                duration_seconds=duration_seconds,
+                backtest_start_date=backtest_start,
+                backtest_end_date=backtest_end
+            )
+
+            if result.is_success():
+                print(f"[{self.task.task_uuid[:8]}] Results aggregated and saved successfully")
+                # 更新本地结果
+                self._result.update(result.data.get("metrics", {}))
+                self._result.update(result.data.get("stats", {}))
+            else:
+                print(f"[{self.task.task_uuid[:8]}] Failed to aggregate results: {result.error}")
+
+        except Exception as e:
+            print(f"[{self.task.task_uuid[:8]}] Error in result aggregation: {e}")
+            import traceback
+            traceback.print_exc()
 
     def cancel(self):
         """取消任务"""
