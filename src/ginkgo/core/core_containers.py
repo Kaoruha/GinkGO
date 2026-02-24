@@ -131,34 +131,41 @@ def _get_stability_util_class():
                 return True
         return MockStabilityUtils
 
+def _get_system_service_instance():
+    """Create system service instance."""
+    from ginkgo.core.services.system_service import SystemService
+    return SystemService()
+
 
 class Container(containers.DeclarativeContainer):
     """
     Core module dependency injection container.
-    
+
     Provides unified access to core services and utilities using FactoryAggregate,
     following the data module's successful pattern.
     """
-    
+
     # ============= CORE SERVICES =============
     # Service factories - using Singleton for shared state services
     config_service = providers.Singleton(_get_config_service_class)
     logger_service = providers.Singleton(_get_logger_service_class)
     thread_service = providers.Singleton(_get_thread_service_class)
-    
+    system_service = providers.Singleton(_get_system_service_instance)
+
     # Services aggregate - similar to data module's cruds
     services = providers.FactoryAggregate(
         config=config_service,
         logger=logger_service,
-        thread=thread_service
+        thread=thread_service,
+        system=system_service
     )
-    
+
     # ============= UTILITIES =============
     # Utility factories - using Factory for per-use instances
     validator = providers.Factory(_get_validator_class)
     health_check = providers.Factory(_get_health_check_class)
     stability_util = providers.Factory(_get_stability_util_class)
-    
+
     # Utilities aggregate
     utilities = providers.FactoryAggregate(
         validator=validator,
@@ -176,9 +183,10 @@ def get_service(service_type: str):
     service_mapping = {
         'config': container.services.config,
         'logger': container.services.logger,
-        'thread': container.services.thread
+        'thread': container.services.thread,
+        'system': container.services.system
     }
-    
+
     if service_type in service_mapping:
         return service_mapping[service_type]()
     else:
@@ -200,7 +208,7 @@ def get_utility(utility_type: str):
 def get_service_info():
     """Get service information (backward compatibility)"""
     return {
-        "services": ["config", "logger", "thread"],
+        "services": ["config", "logger", "thread", "system"],
         "utilities": ["validator", "health_check", "stability"]
     }
 

@@ -177,7 +177,8 @@ class Container(containers.DeclarativeContainer):
         notification_service,
         record_crud,
         group_id: str = "notification_worker_group",
-        auto_offset_reset: str = "earliest"
+        auto_offset_reset: str = "earliest",
+        node_id: str = None
     ) -> NotificationWorker:
         """Factory function to create NotificationWorker."""
         from ginkgo.notifier.workers.notification_worker import NotificationWorker
@@ -185,7 +186,8 @@ class Container(containers.DeclarativeContainer):
             notification_service=notification_service,
             record_crud=record_crud,
             group_id=group_id,
-            auto_offset_reset=auto_offset_reset
+            auto_offset_reset=auto_offset_reset,
+            node_id=node_id
         )
 
     # Worker provider (Factory pattern - allows creating multiple workers)

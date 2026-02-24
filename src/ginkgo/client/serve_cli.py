@@ -344,7 +344,7 @@ def serve_livecore():
 
 @app.command("execution")
 def serve_execution(
-    node_id: Optional[str] = typer.Option(None, "--node-id", "-n", help="ExecutionNode unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="ExecutionNode unique identifier"),
     portfolio_id: Optional[str] = typer.Option(None, "--portfolio", "-p", help="Specific portfolio ID to load"),
 ):
     """
@@ -352,7 +352,7 @@ def serve_execution(
 
     Examples:
       ginkgo serve execution
-      ginkgo serve execution --node-id node_1
+      ginkgo serve execution --id node_1
       ginkgo serve execution --portfolio portfolio_123
     """
     import signal
@@ -505,7 +505,7 @@ def serve_scheduler(
 @app.command("tasktimer")
 def serve_tasktimer(
     config: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file"),
-    node_id: str = typer.Option("task_timer_1", "--node-id", "-n", help="Node ID"),
+    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="Node ID"),
 ):
     """
     :alarm_clock: Start TaskTimer scheduled task manager.
@@ -513,9 +513,17 @@ def serve_tasktimer(
     Examples:
       ginkgo serve tasktimer
       ginkgo serve tasktimer --config /path/to/config.yml
+      ginkgo serve tasktimer --node-id timer_1
     """
     import signal
     import time
+    import os
+    import socket
+
+    if node_id is None:
+        node_id = os.getenv("GINKGO_NODE_ID")
+    if node_id is None:
+        node_id = f"tasktimer_{socket.gethostname()}"
 
     try:
         from ginkgo.livecore.task_timer import TaskTimer
@@ -568,23 +576,41 @@ def serve_tasktimer(
 
 
 @app.command("worker-data")
-def serve_worker_data():
+def serve_worker_data(
+    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="Node unique identifier"),
+):
     """
     :gear: Start DataWorker in foreground.
 
     Examples:
       ginkgo serve worker-data
+      ginkgo serve worker-data --node-id data_1
     """
+    import os
+    import socket
+
+    if node_id is None:
+        node_id = os.getenv("GINKGO_NODE_ID")
+    if node_id is None:
+        node_id = f"data_worker_{socket.gethostname()}"
+
     try:
         from ginkgo.libs.core.threading import GinkgoThreadManager
 
         gtm = GinkgoThreadManager()
 
-        console.print(f"\n:rocket: [bold green]Starting DataWorker...[/bold green]")
+        console.print(Panel.fit(
+            f"[bold cyan]:gear: DataWorker[/bold cyan]\n"
+            f"[dim]Node ID:[/dim] {node_id}",
+            title="[bold]Data Collection Worker[/bold]",
+            border_style="cyan"
+        ))
+
+        console.print(f"\n:rocket: [bold green]Starting DataWorker '{node_id}'...[/bold green]")
         console.print(":information: Press Ctrl+C to stop\n")
 
         try:
-            gtm.run_data_worker()
+            gtm.run_data_worker(node_id=node_id)
         except KeyboardInterrupt:
             console.print("\n:information: Worker stopped by user")
         except Exception as e:
@@ -598,7 +624,7 @@ def serve_worker_data():
 
 @app.command("worker-backtest")
 def serve_worker_backtest(
-    worker_id: Optional[str] = typer.Option(None, "--worker-id", "-w", help="Worker unique identifier"),
+    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="Node unique identifier"),
     max_tasks: int = typer.Option(5, "--max-tasks", "-m", help="Maximum concurrent tasks"),
 ):
     """
@@ -606,7 +632,7 @@ def serve_worker_backtest(
 
     Examples:
       ginkgo serve worker-backtest
-      ginkgo serve worker-backtest --worker-id worker_1
+      ginkgo serve worker-backtest --node-id backtest_1
       ginkgo serve worker-backtest --max-tasks 10
     """
     import signal
@@ -614,10 +640,10 @@ def serve_worker_backtest(
     import os
     import socket
 
-    if worker_id is None:
-        worker_id = os.getenv("GINKGO_WORKER_ID")
-    if worker_id is None:
-        worker_id = f"backtest_worker_{socket.gethostname()}"
+    if node_id is None:
+        node_id = os.getenv("GINKGO_NODE_ID")
+    if node_id is None:
+        node_id = f"backtest_worker_{socket.gethostname()}"
 
     try:
         from ginkgo.workers.backtest_worker.node import BacktestWorker
@@ -625,14 +651,14 @@ def serve_worker_backtest(
 
         console.print(Panel.fit(
             f"[bold cyan]:backtest: BacktestWorker[/bold cyan]\n"
-            f"[dim]Worker ID:[/dim] {worker_id}\n"
+            f"[dim]Node ID:[/dim] {node_id}\n"
             f"[dim]Max Tasks:[/dim] {max_tasks}",
             title="[bold]Backtest Execution Engine[/bold]",
             border_style="cyan"
         ))
 
-        console.print(f"\n:rocket: [bold green]Creating BacktestWorker '{worker_id}'...[/bold green]")
-        worker = BacktestWorker(worker_id=worker_id)
+        console.print(f"\n:rocket: [bold green]Creating BacktestWorker '{node_id}'...[/bold green]")
+        worker = BacktestWorker(worker_id=node_id)
         worker.max_backtests = max_tasks
 
         def signal_handler(sig, frame):
@@ -650,7 +676,7 @@ def serve_worker_backtest(
         worker.start()
 
         console.print(":white_check_mark: [green]BacktestWorker started[/green]")
-        console.print(f":information: Worker ID: {worker.worker_id}")
+        console.print(f":information: Node ID: {worker.worker_id}")
         console.print(f":information: Max tasks: {worker.max_backtests}\n")
 
         while worker.is_running:
@@ -669,28 +695,38 @@ def serve_worker_backtest(
 
 
 @app.command("worker-notify")
-def serve_worker_notify():
+def serve_worker_notify(
+    node_id: Optional[str] = typer.Option(None, "--id", "-id", help="Node unique identifier"),
+):
     """
     :bell: Start NotificationWorker in foreground.
 
     Examples:
       ginkgo serve worker-notify
+      ginkgo serve worker-notify --node-id notify_1
     """
     import signal
     import time
     import os
+    import socket
+
+    if node_id is None:
+        node_id = os.getenv("GINKGO_NODE_ID")
+    if node_id is None:
+        node_id = f"notify_worker_{socket.gethostname()}"
 
     try:
         from ginkgo.notifier.core.notification_worker import NotificationWorker
 
         console.print(Panel.fit(
-            f"[bold cyan]:bell: NotificationWorker[/bold cyan]",
+            f"[bold cyan]:bell: NotificationWorker[/bold cyan]\n"
+            f"[dim]Node ID:[/dim] {node_id}",
             title="[bold]Notification Service[/bold]",
             border_style="cyan"
         ))
 
-        console.print(f"\n:rocket: [bold green]Creating NotificationWorker...[/bold green]")
-        worker = NotificationWorker()
+        console.print(f"\n:rocket: [bold green]Creating NotificationWorker '{node_id}'...[/bold green]")
+        worker = NotificationWorker(node_id=node_id)
 
         def signal_handler(sig, frame):
             console.print("\n\n[yellow]:warning: Stopping...[/yellow]")
@@ -706,7 +742,8 @@ def serve_worker_notify():
 
         worker.start()
 
-        console.print(":white_check_mark: [green]NotificationWorker started[/green]\n")
+        console.print(":white_check_mark: [green]NotificationWorker started[/green]")
+        console.print(f":information: Node ID: {node_id}\n")
 
         while worker.is_running:
             time.sleep(1)
