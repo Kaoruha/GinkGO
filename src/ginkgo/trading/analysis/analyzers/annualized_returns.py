@@ -6,6 +6,7 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.libs.data.number import to_decimal
 from ginkgo.enums import RECORDSTAGE_TYPES
 import math
 
@@ -28,7 +29,7 @@ class AnnualizedReturn(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """计算年化收益率"""
-        current_worth = portfolio_info.get("worth", 0)
+        current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
 
         if self._initial_worth is None:
             # 第一天，初始化
