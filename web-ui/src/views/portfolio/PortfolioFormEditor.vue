@@ -105,6 +105,8 @@
                   <div class="component-option">
                     <span class="component-name">{{ selector.name }}</span>
                     <a-tag size="small" color="lime">SEL</a-tag>
+                    <a-tag v-if="selector.version" size="small" color="default">{{ selector.version }}</a-tag>
+                    <a-tag v-if="selector.is_latest" size="small" color="blue">最新</a-tag>
                   </div>
                 </a-select-option>
               </a-select>
@@ -126,6 +128,8 @@
                   <div class="component-option">
                     <span class="component-name">{{ sizer.name }}</span>
                     <a-tag size="small" color="gold">SIZ</a-tag>
+                    <a-tag v-if="sizer.version" size="small" color="default">{{ sizer.version }}</a-tag>
+                    <a-tag v-if="sizer.is_latest" size="small" color="blue">最新</a-tag>
                   </div>
                 </a-select-option>
               </a-select>
@@ -147,6 +151,8 @@
                   <div class="component-option">
                     <span class="component-name">{{ strategy.name }}</span>
                     <a-tag size="small" color="cyan">STRAT</a-tag>
+                    <a-tag v-if="strategy.version" size="small" color="default">{{ strategy.version }}</a-tag>
+                    <a-tag v-if="strategy.is_latest" size="small" color="blue">最新</a-tag>
                   </div>
                 </a-select-option>
               </a-select>
@@ -168,6 +174,8 @@
                   <div class="component-option">
                     <span class="component-name">{{ risk.name }}</span>
                     <a-tag size="small" color="red">RISK</a-tag>
+                    <a-tag v-if="risk.version" size="small" color="default">{{ risk.version }}</a-tag>
+                    <a-tag v-if="risk.is_latest" size="small" color="blue">最新</a-tag>
                   </div>
                 </a-select-option>
               </a-select>
@@ -189,6 +197,8 @@
                   <div class="component-option">
                     <span class="component-name">{{ analyzer.name }}</span>
                     <a-tag size="small" color="purple">ANA</a-tag>
+                    <a-tag v-if="analyzer.version" size="small" color="default">{{ analyzer.version }}</a-tag>
+                    <a-tag v-if="analyzer.is_latest" size="small" color="blue">最新</a-tag>
                   </div>
                 </a-select-option>
               </a-select>
@@ -212,7 +222,24 @@
                 class="config-item"
               >
                 <div class="item-header">
-                  <span class="item-name">{{ selector.name }}</span>
+                  <div class="item-info">
+                    <span class="item-name">{{ selector.name }}</span>
+                    <a-select
+                      v-model:value="selector.version"
+                      size="small"
+                      style="width: 100px"
+                      :disabled="getComponentVersions(selector.name, 'selector').length <= 1"
+                      @change="(value) => changeComponentVersion('selector', index, value)"
+                    >
+                      <a-select-option
+                        v-for="v in getComponentVersions(selector.name, 'selector')"
+                        :key="v.uuid"
+                        :value="v.version"
+                      >
+                        {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
+                      </a-select-option>
+                    </a-select>
+                  </div>
                   <a-button type="text" danger size="small" @click="removeSelector(index)">
                     <CloseOutlined />
                   </a-button>
@@ -274,7 +301,24 @@
             <div class="config-list">
               <div class="config-item">
                 <div class="item-header">
-                  <span class="item-name">{{ formData.sizer.name }}</span>
+                  <div class="item-info">
+                    <span class="item-name">{{ formData.sizer.name }}</span>
+                    <a-select
+                      v-model:value="formData.sizer.version"
+                      size="small"
+                      style="width: 100px"
+                      :disabled="getComponentVersions(formData.sizer.name, 'sizer').length <= 1"
+                      @change="(value) => changeComponentVersion('sizer', 0, value)"
+                    >
+                      <a-select-option
+                        v-for="v in getComponentVersions(formData.sizer.name, 'sizer')"
+                        :key="v.uuid"
+                        :value="v.version"
+                      >
+                        {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
+                      </a-select-option>
+                    </a-select>
+                  </div>
                 </div>
                 <div v-if="formData.sizer.parameters && formData.sizer.parameters.length > 0" class="item-params">
                   <div
@@ -330,7 +374,24 @@
                 class="config-item"
               >
                 <div class="item-header">
-                  <span class="item-name">{{ strategy.name }}</span>
+                  <div class="item-info">
+                    <span class="item-name">{{ strategy.name }}</span>
+                    <a-select
+                      v-model:value="strategy.version"
+                      size="small"
+                      style="width: 100px"
+                      :disabled="getComponentVersions(strategy.name, 'strategy').length <= 1"
+                      @change="(value) => changeComponentVersion('strategy', index, value)"
+                    >
+                      <a-select-option
+                        v-for="v in getComponentVersions(strategy.name, 'strategy')"
+                        :key="v.uuid"
+                        :value="v.version"
+                      >
+                        {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
+                      </a-select-option>
+                    </a-select>
+                  </div>
                   <div class="item-actions">
                     <a-input-number
                       v-model:value="strategy.weight"
@@ -400,7 +461,24 @@
                 class="config-item"
               >
                 <div class="item-header">
-                  <span class="item-name">{{ risk.name }}</span>
+                  <div class="item-info">
+                    <span class="item-name">{{ risk.name }}</span>
+                    <a-select
+                      v-model:value="risk.version"
+                      size="small"
+                      style="width: 100px"
+                      :disabled="getComponentVersions(risk.name, 'risk').length <= 1"
+                      @change="(value) => changeComponentVersion('risk', index, value)"
+                    >
+                      <a-select-option
+                        v-for="v in getComponentVersions(risk.name, 'risk')"
+                        :key="v.uuid"
+                        :value="v.version"
+                      >
+                        {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
+                      </a-select-option>
+                    </a-select>
+                  </div>
                   <a-button type="text" danger size="small" @click="removeRisk(index)">
                     <CloseOutlined />
                   </a-button>
@@ -459,7 +537,24 @@
                 class="config-item"
               >
                 <div class="item-header">
-                  <span class="item-name">{{ analyzer.name }}</span>
+                  <div class="item-info">
+                    <span class="item-name">{{ analyzer.name }}</span>
+                    <a-select
+                      v-model:value="analyzer.version"
+                      size="small"
+                      style="width: 100px"
+                      :disabled="getComponentVersions(analyzer.name, 'analyzer').length <= 1"
+                      @change="(value) => changeComponentVersion('analyzer', index, value)"
+                    >
+                      <a-select-option
+                        v-for="v in getComponentVersions(analyzer.name, 'analyzer')"
+                        :key="v.uuid"
+                        :value="v.version"
+                      >
+                        {{ v.version }}{{ v.is_latest ? ' (最新)' : '' }}
+                      </a-select-option>
+                    </a-select>
+                  </div>
                   <a-button type="text" danger size="small" @click="removeAnalyzer(index)">
                     <CloseOutlined />
                   </a-button>
@@ -553,12 +648,12 @@ const formData = ref({
   mode: 'BACKTEST',
   benchmark: '',
   description: '',
-  selectors: [] as Array<{ uuid: string; name: string; parameters?: any[]; config: Record<string, any> }>,
+  selectors: [] as Array<{ uuid: string; name: string; version: string; parameters?: any[]; config: Record<string, any> }>,
   sizer_uuid: undefined as string | undefined,
-  sizer: null as { uuid: string; name: string; parameters?: any[]; config: Record<string, any> } | null,
-  strategies: [] as Array<{ uuid: string; name: string; weight: number; parameters?: any[]; config: Record<string, any> }>,
-  risk_managers: [] as Array<{ uuid: string; name: string; parameters?: any[]; config: Record<string, any> }>,
-  analyzers: [] as Array<{ uuid: string; name: string; parameters?: any[]; config: Record<string, any> }>
+  sizer: null as { uuid: string; name: string; version: string; parameters?: any[]; config: Record<string, any> } | null,
+  strategies: [] as Array<{ uuid: string; name: string; version: string; weight: number; parameters?: any[]; config: Record<string, any> }>,
+  risk_managers: [] as Array<{ uuid: string; name: string; version: string; parameters?: any[]; config: Record<string, any> }>,
+  analyzers: [] as Array<{ uuid: string; name: string; version: string; parameters?: any[]; config: Record<string, any> }>
 })
 
 // 表单验证规则
@@ -574,6 +669,9 @@ const availableSelectors = ref<ComponentSummary[]>([])
 const availableSizers = ref<ComponentSummary[]>([])
 const availableRisks = ref<ComponentSummary[]>([])
 const availableAnalyzers = ref<ComponentSummary[]>([])
+
+// 组件版本缓存
+const componentVersionsCache = ref<Record<string, ComponentSummary[]>>({})
 
 // 临时选择
 const selectedSelector = ref<string>()
@@ -629,9 +727,18 @@ const getSizerName = () => {
 const addSelector = async (uuid: string) => {
   const selector = availableSelectors.value.find(s => s.uuid === uuid)
   if (selector && !isSelectorAdded(uuid)) {
+    // 预加载该组件的所有版本
+    await loadComponentVersions(selector.name, 'selector')
+
     const parameters = await loadComponentParameters(uuid)
     const config = buildDefaultConfig(parameters)
-    formData.value.selectors.push({ uuid: selector.uuid, name: selector.name, parameters, config })
+    formData.value.selectors.push({
+      uuid: selector.uuid,
+      name: selector.name,
+      version: selector.version || 'UNKNOWN_VERSION',  // 使用版本号
+      parameters,
+      config
+    })
     selectedSelector.value = undefined
   }
 }
@@ -641,15 +748,137 @@ const removeSelector = (index: number) => {
   formData.value.selectors.splice(index, 1)
 }
 
+// 获取组件的所有版本（同步方法，从缓存获取）
+const getComponentVersions = (name: string, type: string): ComponentSummary[] => {
+  const cacheKey = `${name}_${type}`
+  return componentVersionsCache.value[cacheKey] || []
+}
+
+// 异步加载组件版本（在添加组件时调用）
+const loadComponentVersions = async (name: string, type: string) => {
+  const cacheKey = `${name}_${type}`
+  if (!componentVersionsCache.value[cacheKey]) {
+    try {
+      const typeMap: Record<string, number> = {
+        selector: 4,
+        sizer: 5,
+        strategy: 6,
+        risk: 3,
+        analyzer: 1
+      }
+      componentVersionsCache.value[cacheKey] = await componentsApi.getVersions(name, typeMap[type] || 0)
+    } catch (error) {
+      console.error('Failed to load component versions:', error)
+      componentVersionsCache.value[cacheKey] = []
+    }
+  }
+  return componentVersionsCache.value[cacheKey]
+}
+
+// 切换组件版本
+const changeComponentVersion = async (componentType: string, index: number, versionValue: string) => {
+  try {
+    // 根据组件类型获取所有版本和旧配置
+    let componentName = ''
+    let oldConfig: Record<string, any> = {}
+    let componentTypeKey = ''
+
+    if (componentType === 'selector') {
+      componentName = formData.value.selectors[index].name
+      oldConfig = formData.value.selectors[index].config || {}
+      componentTypeKey = 'selector'
+    } else if (componentType === 'sizer') {
+      componentName = formData.value.sizer!.name
+      oldConfig = formData.value.sizer!.config || {}
+      componentTypeKey = 'sizer'
+    } else if (componentType === 'strategy') {
+      componentName = formData.value.strategies[index].name
+      oldConfig = formData.value.strategies[index].config || {}
+      componentTypeKey = 'strategy'
+    } else if (componentType === 'risk') {
+      componentName = formData.value.risk_managers[index].name
+      oldConfig = formData.value.risk_managers[index].config || {}
+      componentTypeKey = 'risk'
+    } else if (componentType === 'analyzer') {
+      componentName = formData.value.analyzers[index].name
+      oldConfig = formData.value.analyzers[index].config || {}
+      componentTypeKey = 'analyzer'
+    }
+
+    // 从版本缓存中找到对应的 UUID
+    const versions = getComponentVersions(componentName, componentTypeKey)
+    const targetVersion = versions.find(v => v.version === versionValue)
+    if (!targetVersion) {
+      console.error(`Version ${versionValue} not found for component ${componentName}`)
+      return
+    }
+    const newUuid = targetVersion.uuid
+
+    // 获取新版本的参数
+    const parameters = await loadComponentParameters(newUuid)
+    const newConfig = buildDefaultConfig(parameters)
+
+    // 合并配置：保留旧配置中存在的参数值，新增参数使用默认值
+    const mergedConfig: Record<string, any> = {}
+    for (const param of parameters) {
+      const paramName = param.name
+      if (paramName in oldConfig) {
+        // 参数在旧配置中存在，保留用户设置的值
+        mergedConfig[paramName] = oldConfig[paramName]
+      } else {
+        // 新参数，使用默认值
+        mergedConfig[paramName] = newConfig[paramName]
+      }
+    }
+
+    // 更新组件信息
+    if (componentType === 'selector') {
+      formData.value.selectors[index].uuid = newUuid
+      formData.value.selectors[index].version = versionValue
+      formData.value.selectors[index].parameters = parameters
+      formData.value.selectors[index].config = mergedConfig
+    } else if (componentType === 'sizer') {
+      if (formData.value.sizer) {
+        formData.value.sizer.uuid = newUuid
+        formData.value.sizer.version = versionValue
+        formData.value.sizer.parameters = parameters
+        formData.value.sizer.config = mergedConfig
+      }
+    } else if (componentType === 'strategy') {
+      formData.value.strategies[index].uuid = newUuid
+      formData.value.strategies[index].version = versionValue
+      formData.value.strategies[index].parameters = parameters
+      formData.value.strategies[index].config = mergedConfig
+    } else if (componentType === 'risk') {
+      formData.value.risk_managers[index].uuid = newUuid
+      formData.value.risk_managers[index].version = versionValue
+      formData.value.risk_managers[index].parameters = parameters
+      formData.value.risk_managers[index].config = mergedConfig
+    } else if (componentType === 'analyzer') {
+      formData.value.analyzers[index].uuid = newUuid
+      formData.value.analyzers[index].version = versionValue
+      formData.value.analyzers[index].parameters = parameters
+      formData.value.analyzers[index].config = mergedConfig
+    }
+  } catch (error) {
+    console.error('Failed to change component version:', error)
+    message.error('切换版本失败')
+  }
+}
+
 // 添加仓位管理器
 const addSizer = async (uuid: string) => {
   const sizer = availableSizers.value.find(s => s.uuid === uuid)
   if (sizer) {
+    // 预加载该组件的所有版本
+    await loadComponentVersions(sizer.name, 'sizer')
+
     const parameters = await loadComponentParameters(uuid)
     const config = buildDefaultConfig(parameters)
     formData.value.sizer = {
       uuid: sizer.uuid,
       name: sizer.name,
+      version: sizer.version || 'UNKNOWN_VERSION',  // 使用版本号
       parameters,
       config
     }
@@ -666,11 +895,15 @@ const removeSizer = () => {
 const addStrategy = async (uuid: string) => {
   const strategy = availableStrategies.value.find(s => s.uuid === uuid)
   if (strategy && !isStrategyAdded(uuid)) {
+    // 预加载该组件的所有版本
+    await loadComponentVersions(strategy.name, 'strategy')
+
     const parameters = await loadComponentParameters(uuid)
     const config = buildDefaultConfig(parameters)
     formData.value.strategies.push({
       uuid: strategy.uuid,
       name: strategy.name,
+      version: strategy.version || 'UNKNOWN_VERSION',  // 使用版本号
       weight: 100,
       parameters,
       config
@@ -688,9 +921,18 @@ const removeStrategy = (index: number) => {
 const addRisk = async (uuid: string) => {
   const risk = availableRisks.value.find(r => r.uuid === uuid)
   if (risk && !isRiskAdded(uuid)) {
+    // 预加载该组件的所有版本
+    await loadComponentVersions(risk.name, 'risk')
+
     const parameters = await loadComponentParameters(uuid)
     const config = buildDefaultConfig(parameters)
-    formData.value.risk_managers.push({ uuid: risk.uuid, name: risk.name, parameters, config })
+    formData.value.risk_managers.push({
+      uuid: risk.uuid,
+      name: risk.name,
+      version: risk.version || 'UNKNOWN_VERSION',  // 使用版本号
+      parameters,
+      config
+    })
     selectedRisk.value = undefined
   }
 }
@@ -704,9 +946,18 @@ const removeRisk = (index: number) => {
 const addAnalyzer = async (uuid: string) => {
   const analyzer = availableAnalyzers.value.find(a => a.uuid === uuid)
   if (analyzer && !isAnalyzerAdded(uuid)) {
+    // 预加载该组件的所有版本
+    await loadComponentVersions(analyzer.name, 'analyzer')
+
     const parameters = await loadComponentParameters(uuid)
     const config = buildDefaultConfig(parameters)
-    formData.value.analyzers.push({ uuid: analyzer.uuid, name: analyzer.name, parameters, config })
+    formData.value.analyzers.push({
+      uuid: analyzer.uuid,
+      name: analyzer.name,
+      version: analyzer.version || 'UNKNOWN_VERSION',  // 使用版本号
+      parameters,
+      config
+    })
     selectedAnalyzer.value = undefined
   }
 }
@@ -770,6 +1021,7 @@ const loadPortfolioData = async () => {
       sizer = {
         uuid: data.sizer_uuid,
         name: data.sizer_name || '',
+        version: data.sizer_uuid,  // 使用uuid作为默认版本
         parameters,
         config
       }
@@ -778,12 +1030,14 @@ const loadPortfolioData = async () => {
     const selectors = (data.selectors || []).map((s: any) => ({
       uuid: s.uuid,
       name: s.name,
+      version: s.uuid,  // 使用uuid作为默认版本
       parameters: s.parameters || [],
       config: s.config || {}
     }))
     const strategies = (data.strategies || []).map((s: any) => ({
       uuid: s.uuid,
       name: s.name,
+      version: s.uuid,  // 使用uuid作为默认版本
       weight: Math.round((s.weight || 0) * 100),
       parameters: s.parameters || [],
       config: s.config || {}
@@ -791,6 +1045,7 @@ const loadPortfolioData = async () => {
     const riskManagers = (data.risk_managers || []).map((r: any) => ({
       uuid: r.uuid,
       name: r.name,
+      version: r.uuid,  // 使用uuid作为默认版本
       parameters: r.parameters || [],
       config: r.config || {}
     }))
@@ -852,6 +1107,7 @@ const savePortfolio = async () => {
       config: s.config || {}
     })),
     sizer_uuid: formData.value.sizer?.uuid || '',
+    sizer_config: formData.value.sizer?.config || {},
     strategies: normalizedStrategies,
     risk_managers: formData.value.risk_managers.map(r => ({
       component_uuid: r.uuid,
@@ -1104,6 +1360,13 @@ onMounted(() => {
   justify-content: space-between;
   padding: 8px 12px;
   background: #fff;
+}
+
+.item-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
 }
 
 .item-name {
