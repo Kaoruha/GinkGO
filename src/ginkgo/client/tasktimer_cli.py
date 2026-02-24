@@ -164,7 +164,8 @@ def status(
             decode_responses=True
         )
 
-        heartbeat_key = f"heartbeat:task_timer:{node_id}"
+        from ginkgo.data.redis_schema import RedisKeyBuilder
+        heartbeat_key = RedisKeyBuilder.task_timer_heartbeat(node_id)
 
         # Check heartbeat
         exists = redis_client.exists(heartbeat_key)
@@ -303,7 +304,8 @@ def heartbeat(
             console.print(f"Checked at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
             # Get all heartbeat keys
-            heartbeat_keys = redis_client.keys("heartbeat:*")
+            from ginkgo.data.redis_schema import RedisKeyPattern
+            heartbeat_keys = redis_client.keys(RedisKeyPattern.ALL_HEARTBEATS)
 
             if not heartbeat_keys:
                 console.print("[yellow]No heartbeat data found. Components may not be running.[/yellow]")

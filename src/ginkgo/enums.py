@@ -188,6 +188,7 @@ class ORDERSTATUS_TYPES(EnumBase):
     NEW = 1
     SUBMITTED = 2
     PARTIAL_FILLED = 3
+    PARTIALLY_FILLED = 3  # 别名，兼容不同命名风格
     FILLED = 4
     CANCELED = 5
     REJECTED = 6

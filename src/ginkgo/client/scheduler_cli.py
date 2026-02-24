@@ -172,7 +172,8 @@ def status():
 
         # Get scheduler info from Redis
         # Check for heartbeat keys to find active nodes
-        heartbeat_keys = redis_client.keys("heartbeat:node:*")
+        from ginkgo.data.redis_schema import RedisKeyPattern
+        heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
 
         if not heartbeat_keys:
             console.print("[yellow]:warning: No ExecutionNodes found (no heartbeats)[/yellow]")
@@ -278,7 +279,8 @@ def nodes():
         redis_client = redis_crud.redis
 
         # Get all heartbeat keys
-        heartbeat_keys = redis_client.keys("heartbeat:node:*")
+        from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
+        heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
 
         if not heartbeat_keys:
             console.print("[yellow]:warning: No healthy ExecutionNodes found[/yellow]")
@@ -294,7 +296,7 @@ def nodes():
         table.add_column("Last Heartbeat", style="dim")
 
         for key in heartbeat_keys:
-            node_id = key.decode('utf-8').replace("heartbeat:node:", "")
+            node_id = extract_id_from_key(key.decode('utf-8'), f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
 
             # Get heartbeat TTL
             ttl = redis_client.ttl(key)
@@ -483,10 +485,11 @@ def recalculate(
         redis_client = redis_crud.redis
 
         # Get healthy nodes
-        heartbeat_keys = redis_client.keys("heartbeat:node:*")
+        from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
+        heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
         healthy_nodes = []
         for key in heartbeat_keys:
-            node_id = key.decode('utf-8').split(":")[-1]
+            node_id = extract_id_from_key(key.decode('utf-8'), f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
             ttl = redis_client.ttl(key)
             if ttl > 0:
                 healthy_nodes.append(node_id)
@@ -569,10 +572,11 @@ def schedule(
         redis_client = redis_crud.redis
 
         # Get healthy nodes
-        heartbeat_keys = redis_client.keys("heartbeat:node:*")
+        from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
+        heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
         healthy_nodes = []
         for key in heartbeat_keys:
-            node_id = key.decode('utf-8').split(":")[-1]
+            node_id = extract_id_from_key(key.decode('utf-8'), f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
             ttl = redis_client.ttl(key)
             if ttl > 0:
                 healthy_nodes.append(node_id)

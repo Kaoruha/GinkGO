@@ -343,7 +343,7 @@ def show(
 
     Examples:
         ginkgo result show                    # List available runs
-        ginkgo result show --run-id eng_abc_r_251223_1200_001
+        ginkgo result show --run-id a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2
         ginkgo result show --run-id xxx --portfolio yyy --analyzer net_value --mode terminal
     """
     from ginkgo.data.containers import container
