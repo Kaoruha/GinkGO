@@ -5,38 +5,23 @@ Backtest Task Processor
 
 职责：
 - 任务生命周期管理（启动、运行、停止、清理）
-<<<<<<< HEAD
-- 调用EngineAssemblyService装配TimeControlledEventEngine
-=======
 - 调用 EngineAssemblyService 装配引擎
->>>>>>> 011-quant-research
 - 执行回测并上报进度
 - 处理结果和异常
 """
 
 from threading import Thread, Event
-<<<<<<< HEAD
-from typing import Optional, Callable, Dict, Any
-=======
 from typing import Optional, Dict, Any
->>>>>>> 011-quant-research
 from datetime import datetime
 import time
 
 from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestTaskState, EngineStage
-<<<<<<< HEAD
-from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
-from ginkgo.workers.backtest_worker.progress_tracker import ProgressTracker
-# GLOG removed
-from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
-=======
 from ginkgo.workers.backtest_worker.progress_tracker import ProgressTracker
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
 from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
 from ginkgo import services
 from ginkgo.libs import GinkgoLogger
 from ginkgo.trading.time.clock import now as clock_now
->>>>>>> 011-quant-research
 
 
 class BacktestProcessor(Thread):
@@ -62,13 +47,10 @@ class BacktestProcessor(Thread):
         self._exception: Optional[Exception] = None
         self._result: Optional[Dict[str, Any]] = None
 
-<<<<<<< HEAD
-=======
         # 服务
         self._assembly_service = services.trading.services.engine_assembly_service()
         self._portfolio_service = services.data.portfolio_service()
 
->>>>>>> 011-quant-research
     def run(self):
         """执行回测任务"""
         self.task.started_at = datetime.utcnow()
@@ -77,51 +59,30 @@ class BacktestProcessor(Thread):
         try:
             print(f"[{self.task.task_uuid[:8]}] Starting backtest task: {self.task.name}")
 
-<<<<<<< HEAD
-            # 保存进度回调到config中
-            self.task.config._progress_callback = self._on_progress
-
-=======
->>>>>>> 011-quant-research
             # 阶段1: 数据准备
             self.task.state = BacktestTaskState.DATA_PREPARING
             self.task.current_stage = EngineStage.DATA_PREPARING
             self.progress_tracker.report_stage(self.task, EngineStage.DATA_PREPARING, "Preparing data...")
-<<<<<<< HEAD
-            time.sleep(0.5)  # 给上报一点时间
-=======
             time.sleep(0.5)
->>>>>>> 011-quant-research
 
             # 阶段2: 引擎装配
             self.task.state = BacktestTaskState.ENGINE_BUILDING
             self.task.current_stage = EngineStage.ENGINE_BUILDING
             self.progress_tracker.report_stage(self.task, EngineStage.ENGINE_BUILDING, "Building engine...")
 
-<<<<<<< HEAD
-            assembly_service = EngineAssemblyService()
-            self._engine = assembly_service.build_engine_from_task(self.task)
-=======
             self._engine = self._assemble_engine()
->>>>>>> 011-quant-research
 
             # 阶段3: 运行回测
             self.task.state = BacktestTaskState.RUNNING
             self.task.current_stage = EngineStage.RUNNING
             self.progress_tracker.report_stage(self.task, EngineStage.RUNNING, "Running backtest...")
 
-<<<<<<< HEAD
-            # 执行回测
-            result = self._engine.run()
-
-=======
             # 执行回测（run() 启动引擎后立即返回，需要等待引擎完成）
             result = self._engine.run()
 
             # 等待引擎主线程完成
             self._wait_for_engine_completion()
 
->>>>>>> 011-quant-research
             # 计算回测结果
             self._result = self._calculate_result(result)
 
@@ -129,12 +90,9 @@ class BacktestProcessor(Thread):
             if hasattr(self._engine, 'notify_analyzers_backtest_end'):
                 self._engine.notify_analyzers_backtest_end()
 
-<<<<<<< HEAD
-=======
             # 汇总分析器结果并保存到数据库
             self._aggregate_and_save_results()
 
->>>>>>> 011-quant-research
             # 阶段4: 完成处理
             self.task.state = BacktestTaskState.COMPLETED
             self.task.progress = 100.0
@@ -161,8 +119,6 @@ class BacktestProcessor(Thread):
             import traceback
             print(traceback.format_exc())
 
-<<<<<<< HEAD
-=======
     def _wait_for_engine_completion(self, timeout: float = 3600.0):
         """
         等待引擎主线程完成
@@ -369,7 +325,6 @@ class BacktestProcessor(Thread):
             traceback.print_exc()
             return None
 
->>>>>>> 011-quant-research
     def _on_progress(self, progress: float, current_date: str, current_time: datetime = None):
         """进度回调（由引擎调用）"""
         if self._stop_event.is_set():
@@ -378,10 +333,6 @@ class BacktestProcessor(Thread):
         self.task.progress = progress
         self.task.current_date = current_date
 
-<<<<<<< HEAD
-        # 每2秒上报一次（由ProgressTracker控制频率）
-        self.progress_tracker.report_progress(self.task, progress, current_date)
-=======
         # 从 portfolio 获取实时统计
         total_pnl = "0"
         total_orders = 0
@@ -423,41 +374,10 @@ class BacktestProcessor(Thread):
             self.task, progress, current_date,
             total_pnl=total_pnl, total_orders=total_orders, total_signals=total_signals
         )
->>>>>>> 011-quant-research
 
     def _calculate_result(self, engine_result: Dict[str, Any]) -> Dict[str, Any]:
         """计算回测结果"""
         try:
-<<<<<<< HEAD
-            # 从引擎获取Portfolio
-            portfolio = self._engine.portfolios[self.task.portfolio_uuid]
-
-            # 基础指标
-            initial_cash = self.task.config.initial_cash
-            final_cash = portfolio.get_cash()
-            total_return = (final_cash - initial_cash) / initial_cash if initial_cash > 0 else 0
-
-            # TODO: 计算更多指标
-            result = {
-                "task_uuid": self.task.task_uuid,
-                "total_return": total_return,
-                "annual_return": 0.0,  # TODO
-                "sharpe_ratio": 0.0,  # TODO
-                "max_drawdown": 0.0,  # TODO
-                "win_rate": 0.0,  # TODO
-                "profit_loss_ratio": 0.0,
-                "total_trades": 0,
-                "total_days": 0,
-                "daily_returns": [],
-                "equity_curve": [],
-                "drawdowns": [],
-                "winning_trades": 0,
-                "losing_trades": 0,
-                "avg_win": 0.0,
-                "avg_loss": 0.0,
-                "max_win": 0.0,
-                "max_loss": 0.0,
-=======
             # 从引擎获取Portfolio（portfolios 是 list）
             portfolios = getattr(self._engine, 'portfolios', [])
             portfolio = None
@@ -492,7 +412,6 @@ class BacktestProcessor(Thread):
                 "win_rate": 0.0,
                 "total_trades": 0,
                 "total_signals": 0,
->>>>>>> 011-quant-research
             }
 
             return result
@@ -505,8 +424,6 @@ class BacktestProcessor(Thread):
                 "error": str(e),
             }
 
-<<<<<<< HEAD
-=======
     def _aggregate_and_save_results(self):
         """汇总分析器结果并保存到数据库"""
         try:
@@ -565,7 +482,6 @@ class BacktestProcessor(Thread):
             import traceback
             traceback.print_exc()
 
->>>>>>> 011-quant-research
     def cancel(self):
         """取消任务"""
         print(f"[{self.task.task_uuid[:8]}] Cancelling task...")
