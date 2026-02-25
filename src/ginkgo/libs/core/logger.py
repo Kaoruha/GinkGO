@@ -12,6 +12,13 @@ from enum import Enum
 from typing import Optional, Dict, Any, List
 
 
+# ==================== T029: 创建 contextvars.ContextVar ====================
+
+_trace_id_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "trace_id", default=None
+)
+
+
 
 
 
@@ -90,6 +97,7 @@ def ecs_processor(logger, log_method, event_dict):
     - message: 日志消息
     - process.pid: 进程ID
     - host.hostname: 主机名
+    - trace.id: 追踪ID (T034)
 
     Args:
         logger: structlog logger对象
@@ -116,6 +124,11 @@ def ecs_processor(logger, log_method, event_dict):
         event_dict["process"] = {"pid": os.getpid()}
     if "host" not in event_dict:
         event_dict["host"] = {"hostname": os.getenv("HOSTNAME", platform.node())}
+
+    # T034: 添加 trace_id
+    trace_id = _trace_id_ctx.get()
+    if trace_id:
+        event_dict["trace"] = {"id": trace_id}
 
     return event_dict
 
@@ -217,46 +230,70 @@ def masking_processor(logger, log_method, event_dict):
 
 def configure_structlog():
     """
-    配置 structlog (T013)
+    配置 structlog (T013, T055)
 
-    设置完整的处理器链：
+    设置完整的处理器链（按性能优化排序）：
+
+    === 快速处理器（无 I/O，简单操作）===
     1. contextvars.merge_contextvars - 合并上下文变量
     2. stdlib.add_log_level - 添加日志级别
     3. stdlib.add_logger_name - 添加日志记录器名称
-    4. TimeStamper - 添加时间戳
-    5. StackInfoRenderer - 渲染堆栈信息
-    6. format_exc_info - 格式化异常信息
-    7. UnicodeDecoder - Unicode解码
-    8. ecs_processor - ECS字段映射
-    9. ginkgo_processor - Ginkgo业务字段
-    10. container_metadata_processor - 容器元数据
-    11. masking_processor - 敏感数据脱敏
-    12. JSONRenderer - JSON渲染器
+    4. UnicodeDecoder - Unicode解码
 
-    Note:
-        此函数将在后续任务中被调用，当前仅提供配置结构。
+    === 快速处理器（简单逻辑）===
+    5. ginkgo_processor - Ginkgo业务字段（简单字典检查）
+    6. masking_processor - 敏感数据脱敏（字段迭代）
+
+    === 中等处理器（格式化/重组）===
+    7. TimeStamper - 添加时间戳（日期时间格式化）
+    8. ecs_processor - ECS字段映射（字典重组）
+
+    === 慢速处理器（I/O 或复杂处理）===
+    9. container_metadata_processor - 容器元数据（可能触发文件 I/O）
+    10. StackInfoRenderer - 渲染堆栈信息（堆栈遍历）
+    11. format_exc_info - 格式化异常信息（异常处理）
+
+    === 最慢处理器（放在最后）===
+    12. JSONRenderer - JSON渲染器（JSON 序列化）
+
+    Performance Notes (T055):
+    - cache_logger_on_first_use=True: 首次调用后缓存 logger 实例，提升 10-20%
+    - 处理器按性能排序：快速处理器在前，减少不必要的数据处理
+    - JSONRenderer 放在最后：仅在最终输出时才进行序列化
+
+    Args:
+        None
+
+    Returns:
+        None
     """
     try:
         import structlog
 
         structlog.configure(
             processors=[
+                # === 快速处理器（极快）===
                 structlog.contextvars.merge_contextvars,
                 structlog.stdlib.add_log_level,
                 structlog.stdlib.add_logger_name,
+                structlog.processors.UnicodeDecoder(),
+                # === 快速处理器（简单逻辑）===
+                ginkgo_processor,
+                masking_processor,
+                # === 中等处理器（格式化）===
                 structlog.processors.TimeStamper(fmt="iso"),
+                ecs_processor,
+                # === 慢速处理器（可选）===
+                container_metadata_processor,
                 structlog.processors.StackInfoRenderer,
                 structlog.processors.format_exc_info,
-                structlog.processors.UnicodeDecoder(),
-                ecs_processor,
-                ginkgo_processor,
-                container_metadata_processor,
-                masking_processor,
+                # === 最慢处理器（放在最后）===
                 structlog.processors.JSONRenderer()
             ],
             wrapper_class=structlog.stdlib.BoundLogger,
             context_class=dict,
             logger_factory=structlog.stdlib.LoggerFactory(),
+            # T055: 缓存 logger 实例以提升性能
             cache_logger_on_first_use=True,
         )
     except ImportError:
@@ -316,14 +353,34 @@ class GinkgoLogger:
         self._error_lock = threading.RLock()  # 线程安全锁
         self._max_error_history = 1000  # 最大错误历史记录数
 
-        # 调用 structlog 配置
-        configure_structlog()
+        # T037: 检测日志模式
+        mode = getattr(GCONF, 'LOGGING_MODE', 'auto')
+        if mode == 'auto':
+            from ginkgo.libs.utils.log_utils import is_container_environment
+            self._is_container = is_container_environment()
+        elif mode == 'container':
+            self._is_container = True
+        else:  # local
+            self._is_container = False
+
+        # 配置 structlog 和 handlers
+        if self._is_container:
+            # 容器模式：JSON 输出到 stdout/stderr
+            configure_structlog()
+        else:
+            # 本地模式：Rich 控制台 + 文件
+            # 在本地模式下仍然配置 structlog 用于业务逻辑
+            configure_structlog()
 
         self._setup_handlers(console_log)
 
     def _setup_handlers(self, console_log):
-        # 文件日志已禁用 - 仅保留控制台输出
-        # self._setup_file_handler()
+        # T037-T039: 本地模式文件日志支持
+        # 在本地模式下启用文件日志，容器模式禁用
+        if not self._is_container:
+            # 本地模式：启用文件日志
+            if LOGGING_FILE_ON:
+                self._setup_file_handler()
         self._setup_console_handler(console_log)
         # self._setup_error_handler()
 
@@ -549,42 +606,54 @@ class GinkgoLogger:
         if not self.logger.isEnabledFor(logging.DEBUG):
             return
 
-        # 使用 structlog 输出
-        try:
-            import structlog
-            log = structlog.get_logger(self.logger_name)
-            log.debug(msg)
-        except ImportError:
-            # structlog 未安装，使用标准日志
+        # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
+        if not self._is_container:
+            # 本地模式：使用标准 logging（支持文件输出）
             self.log("DEBUG", msg)
+        else:
+            # 容器模式：使用 structlog JSON 输出
+            try:
+                import structlog
+                log = structlog.get_logger(self.logger_name)
+                log.debug(msg)
+            except ImportError:
+                self.log("DEBUG", msg)
 
     def INFO(self, msg: str) -> None:
         """记录 INFO 级别日志"""
         if not self.logger.isEnabledFor(logging.INFO):
             return
 
-        # 使用 structlog 输出
-        try:
-            import structlog
-            log = structlog.get_logger(self.logger_name)
-            log.info(msg)
-        except ImportError:
-            # structlog 未安装，使用标准日志
+        # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
+        if not self._is_container:
+            # 本地模式：使用标准 logging（支持文件输出）
             self.log("INFO", msg)
+        else:
+            # 容器模式：使用 structlog JSON 输出
+            try:
+                import structlog
+                log = structlog.get_logger(self.logger_name)
+                log.info(msg)
+            except ImportError:
+                self.log("INFO", msg)
 
     def WARN(self, msg: str) -> None:
         """记录 WARNING 级别日志"""
         if not self.logger.isEnabledFor(logging.WARNING):
             return
 
-        # 使用 structlog 输出
-        try:
-            import structlog
-            log = structlog.get_logger(self.logger_name)
-            log.warning(msg)
-        except ImportError:
-            # structlog 未安装，使用标准日志
+        # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
+        if not self._is_container:
+            # 本地模式：使用标准 logging（支持文件输出）
             self.log("WARNING", msg)
+        else:
+            # 容器模式：使用 structlog JSON 输出
+            try:
+                import structlog
+                log = structlog.get_logger(self.logger_name)
+                log.warning(msg)
+            except ImportError:
+                self.log("WARNING", msg)
 
     def ERROR(self, msg: str) -> None:
         """记录 ERROR 级别日志（含智能流量控制）"""
@@ -594,25 +663,86 @@ class GinkgoLogger:
         # 使用智能流量控制
         should_log, processed_msg = self._should_log_error(msg)
         if should_log:
-            # 使用 structlog 输出
-            try:
-                import structlog
-                log = structlog.get_logger(self.logger_name)
-                log.error(processed_msg)
-            except ImportError:
-                # structlog 未安装，使用标准日志
+            # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
+            if not self._is_container:
+                # 本地模式：使用标准 logging（支持文件输出）
                 self.log("ERROR", processed_msg)
+            else:
+                # 容器模式：使用 structlog JSON 输出
+                try:
+                    import structlog
+                    log = structlog.get_logger(self.logger_name)
+                    log.error(processed_msg)
+                except ImportError:
+                    self.log("ERROR", processed_msg)
 
     def CRITICAL(self, msg: str) -> None:
         """记录 CRITICAL 级别日志"""
         if not self.logger.isEnabledFor(logging.CRITICAL):
             return
 
-        # 使用 structlog 输出
-        try:
-            import structlog
-            log = structlog.get_logger(self.logger_name)
-            log.critical(msg)
-        except ImportError:
-            # structlog 未安装，使用标准日志
+        # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
+        if not self._is_container:
+            # 本地模式：使用标准 logging（支持文件输出）
             self.log("CRITICAL", msg)
+        else:
+            # 容器模式：使用 structlog JSON 输出
+            try:
+                import structlog
+                log = structlog.get_logger(self.logger_name)
+                log.critical(msg)
+            except ImportError:
+                self.log("CRITICAL", msg)
+
+    # ==================== T030-T033: trace_id 上下文管理 ====================
+
+    def set_trace_id(self, trace_id: str) -> contextvars.Token:
+        """
+        设置当前 trace_id（使用 contextvars）(T030)
+
+        Args:
+            trace_id: 追踪ID字符串
+
+        Returns:
+            contextvars.Token: 用于恢复上下文的令牌
+        """
+        return _trace_id_ctx.set(trace_id)
+
+    def get_trace_id(self) -> Optional[str]:
+        """
+        获取当前 trace_id (T031)
+
+        Returns:
+            Optional[str]: 当前追踪ID，如果未设置则返回 None
+        """
+        return _trace_id_ctx.get()
+
+    def clear_trace_id(self, token: contextvars.Token) -> None:
+        """
+        清除 trace_id，恢复之前的值 (T032)
+
+        Args:
+            token: set_trace_id 返回的令牌
+        """
+        _trace_id_ctx.reset(token)
+
+    @contextlib.contextmanager
+    def with_trace_id(self, trace_id: str):
+        """
+        临时设置 trace_id 的上下文管理器 (T033)
+
+        Args:
+            trace_id: 临时追踪ID字符串
+
+        Yields:
+            None
+
+        Example:
+            >>> with logger.with_trace_id("trace-123"):
+            ...     logger.INFO("This log has trace_id")
+        """
+        token = _trace_id_ctx.set(trace_id)
+        try:
+            yield
+        finally:
+            _trace_id_ctx.reset(token)

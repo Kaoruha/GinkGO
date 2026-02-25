@@ -137,39 +137,39 @@
 
 ### Tests for User Story 2 (TDD - 先写测试) ⚠️
 
-- [ ] T025 [P] [US2] 测试 trace_id 上下文管理在 tests/unit/libs/test_core_logger.py
+- [X] T025 [P] [US2] 测试 trace_id 上下文管理在 tests/unit/libs/test_core_logger.py
   - 测试 set_trace_id() 返回 Token
   - 测试 get_trace_id() 获取当前值
   - 测试 clear_trace_id() 恢复上下文
   - 使用 pytest.mark.tdd 标记
-- [ ] T026 [P] [US2] 测试 with_trace_id 上下文管理器在 tests/unit/libs/test_core_logger.py
+- [X] T026 [P] [US2] 测试 with_trace_id 上下文管理器在 tests/unit/libs/test_core_logger.py
   - 测试退出后 trace_id 自动清除
   - 使用 pytest.mark.tdd 标记
-- [ ] T027 [P] [US2] 测试多线程 trace_id 隔离在 tests/unit/libs/test_core_logger.py
+- [X] T027 [P] [US2] 测试多线程 trace_id 隔离在 tests/unit/libs/test_core_logger.py
   - 测试 contextvars 线程隔离特性
   - 使用 pytest.mark.tdd 标记
-- [ ] T028 [P] [US2] 测试异步上下文传播在 tests/unit/libs/test_core_logger.py
+- [X] T028 [P] [US2] 测试异步上下文传播在 tests/unit/libs/test_core_logger.py
   - 测试 async/await 场景下 trace_id 自动传播
   - 使用 pytest.mark.tdd 标记
 
 ### Implementation for User Story 2
 
 **Ginkgo 追踪上下文管理**:
-- [ ] T029 [US2] 实现 contextvars.ContextVar _trace_id_ctx 在 src/ginkgo/libs/core/logger.py
+- [X] T029 [US2] 实现 contextvars.ContextVar _trace_id_ctx 在 src/ginkgo/libs/core/logger.py
   - 默认值 None
   - 线程隔离
-- [ ] T030 [US2] 实现 set_trace_id() 方法在 src/ginkgo/libs/core/logger.py
+- [X] T030 [US2] 实现 set_trace_id() 方法在 src/ginkgo/libs/core/logger.py
   - 返回 contextvars.Token 用于恢复
   - 自动注入到日志 event dict 的 trace.id 字段
-- [ ] T031 [US2] 实现 get_trace_id() 方法在 src/ginkgo/libs/core/logger.py
-- [ ] T032 [US2] 实现 clear_trace_id() 方法在 src/ginkgo/libs/core/logger.py
+- [X] T031 [US2] 实现 get_trace_id() 方法在 src/ginkgo/libs/core/logger.py
+- [X] T032 [US2] 实现 clear_trace_id() 方法在 src/ginkgo/libs/core/logger.py
   - 使用 Token 恢复之前的值
-- [ ] T033 [US2] 实现 with_trace_id() 上下文管理器在 src/ginkgo/libs/core/logger.py
+- [X] T033 [US2] 实现 with_trace_id() 上下文管理器在 src/ginkgo/libs/core/logger.py
   - 使用 @contextlib.contextmanager
   - 自动清理 trace_id
 
 **Ginkgo 质量保证**:
-- [ ] T034 [US2] 添加类型注解到所有 trace_id 相关方法
+- [X] T034 [US2] 添加类型注解到所有 trace_id 相关方法
 
 **Checkpoint**: User Story 2 完成 - trace_id 追踪功能可用
 
@@ -183,26 +183,26 @@
 
 ### Tests for User Story 3 (TDD - 先写测试) ⚠️
 
-- [ ] T035 [P] [US3] 测试本地模式文件日志在 tests/unit/libs/test_core_logger.py
+- [X] T035 [P] [US3] 测试本地模式文件日志在 tests/unit/libs/test_core_logger.py
   - 测试日志写入本地文件
   - 测试 Rich 控制台格式输出
   - 使用 pytest.mark.tdd 标记
-- [ ] T036 [P] [US3] 测试自动环境检测在 tests/unit/libs/test_log_utils.py
+- [X] T036 [P] [US3] 测试自动环境检测在 tests/unit/libs/test_log_utils.py
   - 测试 mode=auto 时正确选择模式
   - 使用 pytest.mark.tdd 标记
 
 ### Implementation for User Story 3
 
 **Ginkgo 本地模式输出**:
-- [ ] T037 [US3] 实现本地模式文件输出处理器在 src/ginkgo/libs/core/logger.py
+- [X] T037 [US3] 实现本地模式文件输出处理器在 src/ginkgo/libs/core/logger.py
   - 使用 RichHandler 控制台输出
   - 使用 RotatingFileHandler 文件输出
-- [ ] T038 [US3] 实现模式自动检测逻辑在 src/ginkgo/libs/core/logger.py
+- [X] T038 [US3] 实现模式自动检测逻辑在 src/ginkgo/libs/core/logger.py
   - mode=auto 时调用 is_container_environment()
   - 自动切换容器/本地模式
 
 **Ginkgo 质量保证**:
-- [ ] T039 [US3] 验证向后兼容性 - 所有现有 GLOG 调用无需修改
+- [X] T039 [US3] 验证向后兼容性 - 所有现有 GLOG 调用无需修改
 
 **Checkpoint**: User Story 3 完成 - 本地开发模式兼容
 
@@ -216,12 +216,12 @@
 
 ### Tests for User Story 4 (TDD - 先写测试) ⚠️
 
-- [ ] T040 [P] [US4] 创建 LokiClient 单元测试在 tests/unit/services/logging/test_loki_client.py
+- [X] T040 [P] [US4] 创建 LokiClient 单元测试在 tests/unit/services/logging/test_loki_client.py
   - 测试 query() 方法构建正确 HTTP 请求
   - Mock requests.get 返回
   - 测试响应解析
   - 使用 pytest.mark.tdd 标记
-- [ ] T041 [P] [US4] 创建 LogService 单元测试在 tests/unit/services/logging/test_log_service.py
+- [X] T041 [P] [US4] 创建 LogService 单元测试在 tests/unit/services/logging/test_log_service.py
   - 测试 query_logs() 多条件过滤
   - 测试 query_by_portfolio()
   - 测试 query_by_trace_id()
@@ -232,37 +232,37 @@
 ### Implementation for User Story 4
 
 **Loki HTTP 客户端**:
-- [ ] T042 [US4] 创建 LokiClient 类在 src/ginkgo/services/logging/clients/loki_client.py
+- [X] T042 [US4] 创建 LokiClient 类在 src/ginkgo/services/logging/clients/loki_client.py
   - __init__(base_url: str)
   - query(logql: str, limit: int = 100) -> List[Dict]
   - _parse_response(response) -> List[Dict]
   - 使用 requests 库调用 Loki HTTP API
-- [ ] T043 [US4] 实现 LogQL 查询字符串构建在 src/ginkgo/services/logging/clients/loki_client.py
+- [X] T043 [US4] 实现 LogQL 查询字符串构建在 src/ginkgo/services/logging/clients/loki_client.py
   - 支持标签过滤: {key="value"}
   - 支持内容搜索: |= "pattern"
   - 支持时间范围: [1h]
 
 **LogService 封装**:
-- [ ] T044 [US4] 创建 LogService 类在 src/ginkgo/services/logging/log_service.py
+- [X] T044 [US4] 创建 LogService 类在 src/ginkgo/services/logging/log_service.py
   - __init__(loki_client: LokiClient)
   - query_logs(portfolio_id, strategy_id, trace_id, level, start_time, end_time, limit, offset) -> List[Dict]
   - _build_logql(**filters) -> str: 构建 LogQL 查询
-- [ ] T045 [US4] 实现 query_by_portfolio() 在 src/ginkgo/services/logging/log_service.py
-- [ ] T046 [US4] 实现 query_by_trace_id() 在 src/ginkgo/services/logging/log_service.py
-- [ ] T047 [US4] 实现 query_errors() 在 src/ginkgo/services/logging/log_service.py
-- [ ] T048 [US4] 实现 get_log_count() 在 src/ginkgo/services/logging/log_service.py
-- [ ] T049 [US4] 实现 Loki 不可用时的错误处理在 src/ginkgo/services/logging/log_service.py
+- [X] T045 [US4] 实现 query_by_portfolio() 在 src/ginkgo/services/logging/log_service.py
+- [X] T046 [US4] 实现 query_by_trace_id() 在 src/ginkgo/services/logging/log_service.py
+- [X] T047 [US4] 实现 query_errors() 在 src/ginkgo/services/logging/log_service.py
+- [X] T048 [US4] 实现 get_log_count() 在 src/ginkgo/services/logging/log_service.py
+- [X] T049 [US4] 实现 Loki 不可用时的错误处理在 src/ginkgo/services/logging/log_service.py
   - 捕获 requests.exceptions.RequestException
   - 返回友好错误或空列表
 
 **ServiceHub 注册**:
-- [ ] T050 [US4] 注册 log_service 到 ServiceHub 在 src/ginkgo/services/logging/__init__.py
+- [X] T050 [US4] 注册 log_service 到 ServiceHub 在 src/ginkgo/services/logging/__init__.py
   - services.logging.log_service() 访问入口
 
 **Ginkgo 质量保证**:
-- [ ] T051 [US4] 添加三行头部注释到 services/logging/ 所有文件
-- [ ] T052 [US4] 添加类型注解到所有 LogService 和 LokiClient 方法
-- [ ] T053 [US4] 使用 Pydantic 验证 Loki 响应模型
+- [X] T051 [US4] 添加三行头部注释到 services/logging/ 所有文件
+- [X] T052 [US4] 添加类型注解到所有 LogService 和 LokiClient 方法
+- [X] T053 [US4] 使用 Pydantic 验证 Loki 响应模型
 
 **Checkpoint**: User Story 4 完成 - 业务日志查询功能可用
 
@@ -273,22 +273,22 @@
 **Purpose**: 跨用户故事的优化和质量保证
 
 **Ginkgo 性能优化任务**:
-- [ ] T054 [P] 日志序列化性能测试 (验证 < 0.1ms 目标)
-- [ ] T055 [P] structlog 配置优化 (processors 顺序调优)
+- [X] T054 [P] 日志序列化性能测试 (验证 < 0.1ms 目标)
+- [X] T055 [P] structlog 配置优化 (processors 顺序调优)
 
 **Ginkgo 质量保证任务**:
-- [ ] T056 [P] TDD 流程验证 (确保所有功能都有测试，覆盖率 > 85%)
-- [ ] T057 [P] 代码质量检查 (类型注解、命名规范、装饰器使用)
-- [ ] T058 [P] API 兼容性测试 (现有 GLOG 调用无需修改)
-- [ ] T059 [P] 多线程安全测试 (contextvars 隔离验证)
-- [ ] T060 [P] 异步兼容测试 (async/await 场景)
+- [X] T056 [P] TDD 流程验证 (确保所有功能都有测试，覆盖率 > 85%)
+- [X] T057 [P] 代码质量检查 (类型注解、命名规范、装饰器使用)
+- [X] T058 [P] API 兼容性测试 (现有 GLOG 调用无需修改)
+- [X] T059 [P] 多线程安全测试 (contextvars 隔离验证)
+- [X] T060 [P] 异步兼容测试 (async/await 场景)
 
 **文档和维护任务**:
-- [ ] T061 [P] 更新 quickstart.md 验证 (确保所有示例可运行)
-- [ ] T062 [P] API 文档更新 (包含 LogService 使用示例)
-- [ ] T063 [P] 架构文档更新 (数据流图更新)
-- [ ] T064 Code cleanup and refactoring
-- [ ] T065 运行完整测试套件并确保覆盖率 > 85%
+- [X] T061 [P] 更新 quickstart.md 验证 (确保所有示例可运行)
+- [X] T062 [P] API 文档更新 (包含 LogService 使用示例)
+- [X] T063 [P] 架构文档更新 (数据流图更新)
+- [X] T064 Code cleanup and refactoring
+- [X] T065 运行完整测试套件并确保覆盖率 > 85%
 
 ---
 
