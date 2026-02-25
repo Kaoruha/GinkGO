@@ -1,0 +1,48 @@
+# TaskTimer配置文件
+#
+# 定时任务调度器配置，支持多个cron任务
+#
+# 任务配置说明:
+#   - name: 任务名称（唯一标识）
+#   - cron: cron表达式（分 时 日 月 周）
+#   - command: 命令类型（bar_snapshot, update_selector, update_data, heartbeat_test）
+#   - enabled: 是否启用
+#
+# Cron表达式示例:
+#   "* * * * *"      - 每分钟
+#   "0 * * * *"      - 每小时
+#   "0 0 * * *"      - 每天零点
+#   "0 21 * * *"     - 每天21:00
+#   "*/5 * * * *"    - 每5分钟
+
+scheduled_tasks:
+  # 心跳测试任务（每天00:00）
+  # 用于验证TaskTimer正常运行，发送Discord通知
+  # 建议在测试环境启用，生产环境可关闭
+  - name: heartbeat_test
+    cron: "0 0 * * *"
+    command: heartbeat_test
+    enabled: true
+
+  # K线快照任务（每天21:00触发）
+  # 发送bar_snapshot控制命令到Kafka
+  # DataManager接收后推送当日K线数据
+  - name: bar_snapshot
+    cron: "0 21 * * *"
+    command: bar_snapshot
+    enabled: true
+
+  # Selector更新任务（每小时触发）
+  # 发送update_selector控制命令到Kafka
+  # ExecutionNode接收后触发selector.pick()
+  - name: update_selector
+    cron: "0 * * * *"
+    command: update_selector
+    enabled: true
+
+  # 数据更新任务（可选，19:00触发）
+  # 发送update_data控制命令到Kafka
+  # - name: update_data
+  #   cron: "0 19 * * *"
+  #   command: update_data
+  #   enabled: false

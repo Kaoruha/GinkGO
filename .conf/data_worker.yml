@@ -1,0 +1,56 @@
+# Data Worker配置文件
+#
+# 数据采集Worker配置，无需配置数据源（已集成在BarCRUD.get_bars()内）
+# 数据源通过GCONF在~/.ginkgo/config.yml中配置
+#
+# 配置说明:
+#   - worker: Worker运行参数
+#   - logging: 日志配置
+#   - heartbeat: 心跳配置
+
+# Worker配置
+worker:
+  # Kafka消费者组ID（多实例负载均衡）
+  group_id: data_worker_group
+  # Kafka订阅主题
+  topic: ginkgo.live.control.commands
+  # 批量写入大小（ClickHouse优化）
+  batch_size: 1000
+  # 失败重试次数
+  retry_attempts: 3
+  # 重试退避因子
+  retry_backoff_factor: 2.0
+  # 消息轮询超时（秒）
+  poll_timeout: 1.0
+
+# 心跳配置
+heartbeat:
+  # 心跳间隔（秒）
+  interval: 10
+  # 心跳TTL（秒）- 应大于interval，建议3倍
+  ttl: 30
+  # 心跳键前缀
+  key_prefix: heartbeat:data_worker
+
+# 日志配置
+logging:
+  # 日志级别: DEBUG, INFO, WARNING, ERROR
+  level: INFO
+  # 日志文件路径（可选，默认输出到stdout）
+  file: /ginkgo/.logs/dataworker.log
+  # 日志轮转
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# 数据质量监控（可选，P3功能）
+quality:
+  # 是否启用数据质量报告
+  enabled: false
+  # 数据缺失告警阈值
+  missing_threshold_warning: 0.05  # 5%
+  missing_threshold_error: 0.20    # 20%
+  # 数据延迟告警阈值（分钟）
+  delay_threshold_warning: 5
+  delay_threshold_error: 10
+  # 报告推送主题
+  notification_topic: ginkgo.notifications
