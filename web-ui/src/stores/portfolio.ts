@@ -34,7 +34,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   })
 
   // 获取列表
-  async function fetchPortfolios(params?: { mode?: string; page?: number; page_size?: number; append?: boolean }) {
+  async function fetchPortfolios(params?: { mode?: string; page?: number; page_size?: number; append?: boolean; keyword?: string }) {
     const append = params?.append || false
     const page = params?.page ?? (append ? currentPage.value + 1 : 0)
     const page_size = params?.page_size ?? pageSize.value
@@ -47,7 +47,15 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
 
     try {
-      const result = await portfolioApi.list({ ...params, page, page_size })
+      // 只传递 API 需要的参数，不传递 append
+      const apiParams: { mode?: string; page?: number; page_size?: number; keyword?: string } = {
+        page,
+        page_size
+      }
+      if (params?.mode) apiParams.mode = params.mode
+      if (params?.keyword) apiParams.keyword = params.keyword
+
+      const result = await portfolioApi.list(apiParams)
       const newData = result.data || []
 
       if (append) {
