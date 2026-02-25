@@ -72,12 +72,34 @@ log_file_on: False
 log_default_file: ginkgo.log
 log_level_console: DEBUG
 log_level_file: CRITICAL
-log_color: 
+log_color:
   DEBUG: white
   INFO: green
   WARNING: yellow
   ERROR: red
   CRITICAL: bold_red
+
+# 分布式日志配置（Loki架构）
+logging:
+  mode: auto              # auto（自动检测）/ container（容器模式）/ local（本地模式）
+  format: json            # json（结构化）/ plain（纯文本）
+
+  # 容器环境配置
+  container:
+    enabled: true         # 容器日志是否启用
+    json_output: true     # 是否输出JSON格式
+
+  # 本地环境配置
+  local:
+    file_enabled: true    # 本地文件日志是否启用
+    file_path: "ginkgo.log"  # 日志文件路径
+
+  # 敏感字段脱敏
+  mask_fields:            # 需要脱敏的字段列表
+    - password
+    - secret
+    - token
+    - api_key
 
 # DB
 # db_driver: clickhouse

@@ -19,8 +19,8 @@
 
 **Purpose**: 依赖安装和项目结构准备
 
-- [ ] T001 添加 structlog>=24.0.0 到项目依赖 (pyproject.toml 或 setup.py)
-- [ ] T002 创建 services/logging 目录结构: src/ginkgo/services/logging/{__init__.py,log_service.py,clients/loki_client.py}
+- [X] T001 添加 structlog>=24.0.0 到项目依赖 (pyproject.toml 或 setup.py)
+- [X] T002 创建 services/logging 目录结构: src/ginkgo/services/logging/{__init__.py,log_service.py,clients/loki_client.py}
 
 ---
 
@@ -32,18 +32,18 @@
 
 ### 日志工具函数（所有用户故事依赖）
 
-- [ ] T003 [P] 创建容器检测函数 is_container_environment() 在 src/ginkgo/libs/utils/log_utils.py
+- [X] T003 [P] 创建容器检测函数 is_container_environment() 在 src/ginkgo/libs/utils/log_utils.py
   - 检测环境变量 (DOCKER_CONTAINER, KUBERNETES_SERVICE_HOST)
   - 检测 /proc/1/cgroup 文件
   - 检测 /.dockerenv 文件
-- [ ] T004 [P] 创建容器元数据采集函数 get_container_metadata() 在 src/ginkgo/libs/utils/log_utils.py
+- [X] T004 [P] 创建容器元数据采集函数 get_container_metadata() 在 src/ginkgo/libs/utils/log_utils.py
   - 采集 container.id
   - 采集 kubernetes.pod.name, kubernetes.namespace
   - 采集 host.hostname, process.pid
 
 ### 日志配置扩展
 
-- [ ] T005 扩展 GCONF 配置项在 src/ginkgo/config/logging_config.py
+- [X] T005 扩展 GCONF 配置项在 src/ginkgo/config/logging_config.py
   - LOGGING_MODE (auto/container/local)
   - LOGGING_FORMAT (json/plain)
   - LOGGING_LEVEL_CONSOLE, LOGGING_LEVEL_FILE
@@ -53,23 +53,23 @@
 
 ### 日志核心枚举类型
 
-- [ ] T006 [P] 创建 LogMode 枚举在 src/ginkgo/libs/core/logger.py (container/local/auto)
-- [ ] T007 [P] 创建 LogCategory 枚举在 src/ginkgo/libs/core/logger.py (system/backtest)
-- [ ] T008 [P] 创建 LogLevel 枚举在 src/ginkgo/libs/core/logger.py (debug/info/warning/error/critical)
+- [X] T006 [P] 创建 LogMode 枚举在 src/ginkgo/libs/core/logger.py (container/local/auto)
+- [X] T007 [P] 创建 LogCategory 枚举在 src/ginkgo/libs/core/logger.py (system/backtest)
+- [X] T008 [P] 创建 LogLevel 枚举在 src/ginkgo/libs/core/logger.py (debug/info/warning/error/critical)
 
 ### structlog 配置和处理器
 
-- [ ] T009 [P] 创建 ECS 字段映射处理器 ecs_processor() 在 src/ginkgo/libs/core/logger.py
+- [X] T009 [P] 创建 ECS 字段映射处理器 ecs_processor() 在 src/ginkgo/libs/core/logger.py
   - 映射 @timestamp, log.level, log.logger, message
   - 映射 process.pid, host.hostname
-- [ ] T010 [P] 创建 ginkgo 业务字段处理器 ginkgo_processor() 在 src/ginkgo/libs/core/logger.py
+- [X] T010 [P] 创建 ginkgo 业务字段处理器 ginkgo_processor() 在 src/ginkgo/libs/core/logger.py
   - 添加 ginkgo.log_category
   - 添加 ginkgo.strategy_id, ginkgo.portfolio_id
-- [ ] T011 [P] 创建容器元数据处理器 container_metadata_processor() 在 src/ginkgo/libs/core/logger.py
+- [X] T011 [P] 创建容器元数据处理器 container_metadata_processor() 在 src/ginkgo/libs/core/logger.py
   - 注入 container.id, kubernetes.* 字段
-- [ ] T012 [P] 创建敏感数据脱敏处理器 masking_processor() 在 src/ginkgo/libs/core/logger.py
+- [X] T012 [P] 创建敏感数据脱敏处理器 masking_processor() 在 src/ginkgo/libs/core/logger.py
   - 根据 GCONF.LOGGING_MASK_FIELDS 配置脱敏
-- [ ] T013 配置 structlog 在 src/ginkgo/libs/core/logger.py
+- [X] T013 配置 structlog 在 src/ginkgo/libs/core/logger.py
   - 设置 processors 链（contextvars, stdlib, ECS, ginkgo, container, masking, JSONRenderer）
   - 配置 wrapper_class=structlog.stdlib.BoundLogger
   - 配置 context_class=dict
@@ -88,42 +88,42 @@
 
 > **NOTE: 先写这些测试，确保它们 FAIL 后再实现功能**
 
-- [ ] T014 [P] [US1] 创建 GinkgoLogger 单元测试框架在 tests/unit/libs/test_core_logger.py
+- [X] T014 [P] [US1] 创建 GinkgoLogger 单元测试框架在 tests/unit/libs/test_core_logger.py
   - 测试 DEBUG/INFO/WARN/ERROR/CRITICAL 方法输出 JSON 格式
   - 测试包含 ECS 标准字段 (@timestamp, log.level, log.logger, message)
   - 使用 pytest.mark.tdd 标记
-- [ ] T015 [P] [US1] 测试容器环境检测在 tests/unit/libs/test_log_utils.py
+- [X] T015 [P] [US1] 测试容器环境检测在 tests/unit/libs/test_log_utils.py
   - 测试 is_container_environment() 各种场景
   - Mock 环境变量和文件系统
   - 使用 pytest.mark.tdd 标记
-- [ ] T016 [P] [US1] 测试容器元数据采集在 tests/unit/libs/test_log_utils.py
+- [X] T016 [P] [US1] 测试容器元数据采集在 tests/unit/libs/test_log_utils.py
   - 测试 get_container_metadata() 返回正确字段
   - 使用 pytest.mark.tdd 标记
 
 ### Implementation for User Story 1
 
 **GinkgoLogger 核心重写**:
-- [ ] T017 [US1] 重写 GinkgoLogger.DEBUG/INFO/WARN/ERROR/CRITICAL 方法在 src/ginkgo/libs/core/logger.py
+- [X] T017 [US1] 重写 GinkgoLogger.DEBUG/INFO/WARN/ERROR/CRITICAL 方法在 src/ginkgo/libs/core/logger.py
   - 保持现有 API 签名完全兼容
   - 内部调用 structlog 底层
   - 使用 contextvars 绑定的上下文
-- [ ] T018 [US1] 实现 JSON 输出处理器在 src/ginkgo/libs/core/logger.py
+- [X] T018 [US1] 实现 JSON 输出处理器在 src/ginkgo/libs/core/logger.py
   - 容器模式: structlog.processors.JSONRenderer()
   - 本地模式: Rich 控制台格式
 
 **Ginkgo 级别控制**:
-- [ ] T019 [US1] 实现 set_level() 方法在 src/ginkgo/libs/core/logger.py (保持兼容)
-- [ ] T020 [US1] 实现 set_console_level() 方法在 src/ginkgo/libs/core/logger.py (保持兼容)
-- [ ] T021 [US1] 实现 get_current_levels() 方法在 src/ginkgo/libs/core/logger.py (保持兼容)
+- [X] T019 [US1] 实现 set_level() 方法在 src/ginkgo/libs/core/logger.py (保持兼容)
+- [X] T020 [US1] 实现 set_console_level() 方法在 src/ginkgo/libs/core/logger.py (保持兼容)
+- [X] T021 [US1] 实现 get_current_levels() 方法在 src/ginkgo/libs/core/logger.py (保持兼容)
 
 **Ginkgo 错误统计迁移**:
-- [ ] T022 [US1] 迁移 _should_log_error() 智能限流逻辑到 src/ginkgo/libs/core/logger.py
+- [X] T022 [US1] 迁移 _should_log_error() 智能限流逻辑到 src/ginkgo/libs/core/logger.py
   - 保持现有错误流量控制功能 (FR-LOG-009)
   - 集成到 structlog processor
 
 **Ginkgo 质量保证**:
-- [ ] T023 [US1] 添加三行头部注释 (Upstream/Downstream/Role) 到 src/ginkgo/libs/core/logger.py
-- [ ] T024 [US1] 添加类型注解到所有 GinkgoLogger 公共方法
+- [X] T023 [US1] 添加三行头部注释 (Upstream/Downstream/Role) 到 src/ginkgo/libs/core/logger.py
+- [X] T024 [US1] 添加类型注解到所有 GinkgoLogger 公共方法
 
 **Checkpoint**: User Story 1 完成 - 容器环境日志聚合功能可用
 
