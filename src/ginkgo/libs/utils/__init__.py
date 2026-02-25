@@ -35,6 +35,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from ginkgo.libs.utils.log_utils import is_container_environment, get_container_metadata
+except ImportError:
+    pass
+
 __all__ = [
     # Common utilities
     "try_wait_counter", "str2bool", "time_logger", "format_time_seconds",
@@ -44,5 +49,8 @@ __all__ = [
     "pretty_repr", "base_repr", "fix_string_length", "chinese_count", "GinkgoColor",
     
     # Optional imports
-    "cn_index", "GinkgoSingleLinkedNode", "GinkgoSingleLinkedList", "find_process_by_keyword"
+    "cn_index", "GinkgoSingleLinkedNode", "GinkgoSingleLinkedList", "find_process_by_keyword",
+
+    # Log utilities
+    "is_container_environment", "get_container_metadata"
 ]

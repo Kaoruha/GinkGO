@@ -1,6 +1,15 @@
 # Upstream: All Modules
 # Downstream: Standard Library
-# Role: GLOG日志核心提供统一日志记录和格式化输出功能支持Rich控制台输出和文件日志记录支持交易系统功能和组件集成提供完整业务支持
+# Role: GLOG日志核心，基于 structlog 实现结构化日志输出，支持容器环境 JSON 格式和本地 Rich 控制台输出
+
+
+# Imports for structlog and distributed logging
+import contextvars
+import contextlib
+import platform
+from datetime import datetime
+from enum import Enum
+from typing import Optional, Dict, Any, List
 
 
 
@@ -20,6 +29,243 @@ from rich.logging import RichHandler
 from pathlib import Path
 from ginkgo.libs.core.config import GCONF
 
+# ==================== T006-T008: 日志核心枚举类型 ====================
+
+
+class LogMode(str, Enum):
+    """
+    日志模式枚举 (T006)
+
+    用于控制系统日志输出行为：
+    - container: 容器模式，输出JSON格式日志到stdout/stderr
+    - local: 本地模式，输出到文件和控制台
+    - auto: 自动检测，根据运行环境自动选择
+    """
+    CONTAINER = "container"
+    LOCAL = "local"
+    AUTO = "auto"
+
+
+class LogCategory(str, Enum):
+    """
+    日志类别枚举 (T007)
+
+    用于区分不同业务场景的日志：
+    - system: 系统级别日志
+    - backtest: 回测相关日志
+    """
+    SYSTEM = "system"
+    BACKTEST = "backtest"
+
+
+class LogLevel(str, Enum):
+    """
+    日志级别枚举 (T008)
+
+    ECS标准日志级别：
+    - debug: 调试信息
+    - info: 一般信息
+    - warning: 警告信息
+    - error: 错误信息
+    - critical: 严重错误
+    """
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
+
+
+# ==================== T009-T012: structlog 处理器 ====================
+
+
+def ecs_processor(logger, log_method, event_dict):
+    """
+    ECS 字段映射处理器 (T009)
+
+    将标准日志字段映射到 Elastic Common Schema (ECS) 格式：
+    - @timestamp: ISO 8601格式时间戳
+    - log.level: 日志级别
+    - log.logger: 日志记录器名称
+    - message: 日志消息
+    - process.pid: 进程ID
+    - host.hostname: 主机名
+
+    Args:
+        logger: structlog logger对象
+        log_method: 日志方法
+        event_dict: 日志事件字典
+
+    Returns:
+        Dict: 更新后的日志事件字典
+    """
+    # 时间戳映射
+    event_dict["@timestamp"] = event_dict.pop("timestamp", datetime.utcnow().isoformat())
+
+    # log.* 字段映射
+    event_dict["log"] = {
+        "level": event_dict.pop("level", "info"),
+        "logger": event_dict.pop("logger_name", "ginkgo")
+    }
+
+    # 消息字段
+    event_dict["message"] = event_dict.pop("event", "")
+
+    # 进程和主机信息（仅在不存在时设置，避免覆盖 container_metadata_processor 的值）
+    if "process" not in event_dict:
+        event_dict["process"] = {"pid": os.getpid()}
+    if "host" not in event_dict:
+        event_dict["host"] = {"hostname": os.getenv("HOSTNAME", platform.node())}
+
+    return event_dict
+
+
+def ginkgo_processor(logger, log_method, event_dict):
+    """
+    Ginkgo 业务字段处理器 (T010)
+
+    注入Ginkgo业务相关的扩展字段：
+    - ginkgo.log_category: 日志类别
+    - ginkgo.strategy_id: 策略ID
+    - ginkgo.portfolio_id: 组合ID
+    - ginkgo.event_type: 事件类型
+    - ginkgo.symbol: 交易标的
+
+    Args:
+        logger: structlog logger对象
+        log_method: 日志方法
+        event_dict: 日志事件字典
+
+    Returns:
+        Dict: 更新后的日志事件字典
+    """
+    if "ginkgo" not in event_dict:
+        event_dict["ginkgo"] = {}
+
+    # 从 contextvars 获取业务上下文
+    # TODO: 在后续任务中实现 contextvars 集成
+    # event_dict["ginkgo"]["log_category"] = _log_category_ctx.get()
+    # event_dict["ginkgo"]["strategy_id"] = _strategy_id_ctx.get()
+    # event_dict["ginkgo"]["portfolio_id"] = _portfolio_id_ctx.get()
+
+    return event_dict
+
+
+def container_metadata_processor(logger, log_method, event_dict):
+    """
+    容器元数据处理器 (T011)
+
+    在容器环境中注入容器和Kubernetes元数据：
+    - container.id: 容器ID
+    - kubernetes.pod.name: Pod名称
+    - kubernetes.namespace: 命名空间
+
+    Args:
+        logger: structlog logger对象
+        log_method: 日志方法
+        event_dict: 日志事件字典
+
+    Returns:
+        Dict: 更新后的日志事件字典
+    """
+    try:
+        from ginkgo.libs.utils.log_utils import get_container_metadata
+        metadata = get_container_metadata()
+        if "container" in metadata:
+            event_dict["container"] = metadata["container"]
+        if "kubernetes" in metadata:
+            event_dict["kubernetes"] = metadata["kubernetes"]
+        # 确保 host 和 process 字段存在
+        if "host" in metadata:
+            event_dict["host"] = metadata["host"]
+        if "process" in metadata:
+            event_dict["process"] = metadata["process"]
+    except ImportError:
+        pass
+
+    return event_dict
+
+
+def masking_processor(logger, log_method, event_dict):
+    """
+    敏感数据脱敏处理器 (T012)
+
+    根据 GCONF.LOGGING_MASK_FIELDS 配置对敏感字段进行脱敏处理。
+
+    Args:
+        logger: structlog logger对象
+        log_method: 日志方法
+        event_dict: 日志事件字典
+
+    Returns:
+        Dict: 更新后的日志事件字典
+    """
+    # TODO: 在 T005 任务中实现 GCONF.LOGGING_MASK_FIELDS 配置
+    mask_fields = []
+    if hasattr(GCONF, "LOGGING_MASK_FIELDS"):
+        mask_fields = GCONF.LOGGING_MASK_FIELDS
+
+    for field in mask_fields:
+        if field in event_dict:
+            event_dict[field] = "***MASKED***"
+
+    return event_dict
+
+
+# ==================== T013: structlog 配置 ====================
+
+
+def configure_structlog():
+    """
+    配置 structlog (T013)
+
+    设置完整的处理器链：
+    1. contextvars.merge_contextvars - 合并上下文变量
+    2. stdlib.add_log_level - 添加日志级别
+    3. stdlib.add_logger_name - 添加日志记录器名称
+    4. TimeStamper - 添加时间戳
+    5. StackInfoRenderer - 渲染堆栈信息
+    6. format_exc_info - 格式化异常信息
+    7. UnicodeDecoder - Unicode解码
+    8. ecs_processor - ECS字段映射
+    9. ginkgo_processor - Ginkgo业务字段
+    10. container_metadata_processor - 容器元数据
+    11. masking_processor - 敏感数据脱敏
+    12. JSONRenderer - JSON渲染器
+
+    Note:
+        此函数将在后续任务中被调用，当前仅提供配置结构。
+    """
+    try:
+        import structlog
+
+        structlog.configure(
+            processors=[
+                structlog.contextvars.merge_contextvars,
+                structlog.stdlib.add_log_level,
+                structlog.stdlib.add_logger_name,
+                structlog.processors.TimeStamper(fmt="iso"),
+                structlog.processors.StackInfoRenderer,
+                structlog.processors.format_exc_info,
+                structlog.processors.UnicodeDecoder(),
+                ecs_processor,
+                ginkgo_processor,
+                container_metadata_processor,
+                masking_processor,
+                structlog.processors.JSONRenderer()
+            ],
+            wrapper_class=structlog.stdlib.BoundLogger,
+            context_class=dict,
+            logger_factory=structlog.stdlib.LoggerFactory(),
+            cache_logger_on_first_use=True,
+        )
+    except ImportError:
+        # structlog 未安装，使用标准日志
+        pass
+
+
+# ==================== 原有配置读取 ====================
+
 # Read Configure
 LOGGING_LEVEL_CONSOLE = GCONF.LOGGING_LEVEL_CONSOLE
 LOGGING_LEVEL_FILE = GCONF.LOGGING_LEVEL_FILE
@@ -31,6 +277,8 @@ LOGGING_FILE_ON = GCONF.LOGGING_FILE_ON
 
 class GinkgoLogger:
     """
+    GinkgoLogger - 基于 structlog 的结构化日志记录器
+
     Args:
         logger_name(str): logger name
         file_names(List): file names
@@ -67,6 +315,9 @@ class GinkgoLogger:
         self._error_timestamps = {}  # 错误时间戳 {pattern_hash: last_log_time}
         self._error_lock = threading.RLock()  # 线程安全锁
         self._max_error_history = 1000  # 最大错误历史记录数
+
+        # 调用 structlog 配置
+        configure_structlog()
 
         self._setup_handlers(console_log)
 
@@ -293,31 +544,75 @@ class GinkgoLogger:
         # log_method(f"{msg}  [{filename} -> {function}()  L:{lineno}]", stacklevel=2)
         log_method(msg, stacklevel=4)
 
-    def DEBUG(self, msg: str):
+    def DEBUG(self, msg: str) -> None:
+        """记录 DEBUG 级别日志"""
         if not self.logger.isEnabledFor(logging.DEBUG):
             return
-        self.log("DEBUG", msg)
 
-    def INFO(self, msg: str):
+        # 使用 structlog 输出
+        try:
+            import structlog
+            log = structlog.get_logger(self.logger_name)
+            log.debug(msg)
+        except ImportError:
+            # structlog 未安装，使用标准日志
+            self.log("DEBUG", msg)
+
+    def INFO(self, msg: str) -> None:
+        """记录 INFO 级别日志"""
         if not self.logger.isEnabledFor(logging.INFO):
             return
-        self.log("INFO", msg)
 
-    def WARN(self, msg: str):
+        # 使用 structlog 输出
+        try:
+            import structlog
+            log = structlog.get_logger(self.logger_name)
+            log.info(msg)
+        except ImportError:
+            # structlog 未安装，使用标准日志
+            self.log("INFO", msg)
+
+    def WARN(self, msg: str) -> None:
+        """记录 WARNING 级别日志"""
         if not self.logger.isEnabledFor(logging.WARNING):
             return
-        self.log("WARNING", msg)
 
-    def ERROR(self, msg: str):
+        # 使用 structlog 输出
+        try:
+            import structlog
+            log = structlog.get_logger(self.logger_name)
+            log.warning(msg)
+        except ImportError:
+            # structlog 未安装，使用标准日志
+            self.log("WARNING", msg)
+
+    def ERROR(self, msg: str) -> None:
+        """记录 ERROR 级别日志（含智能流量控制）"""
         if not self.logger.isEnabledFor(logging.ERROR):
             return
-        
+
         # 使用智能流量控制
         should_log, processed_msg = self._should_log_error(msg)
         if should_log:
-            self.log("ERROR", processed_msg)
+            # 使用 structlog 输出
+            try:
+                import structlog
+                log = structlog.get_logger(self.logger_name)
+                log.error(processed_msg)
+            except ImportError:
+                # structlog 未安装，使用标准日志
+                self.log("ERROR", processed_msg)
 
-    def CRITICAL(self, msg: str):
+    def CRITICAL(self, msg: str) -> None:
+        """记录 CRITICAL 级别日志"""
         if not self.logger.isEnabledFor(logging.CRITICAL):
             return
-        self.log("CRITICAL", msg)
+
+        # 使用 structlog 输出
+        try:
+            import structlog
+            log = structlog.get_logger(self.logger_name)
+            log.critical(msg)
+        except ImportError:
+            # structlog 未安装，使用标准日志
+            self.log("CRITICAL", msg)

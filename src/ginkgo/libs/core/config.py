@@ -899,5 +899,151 @@ class GinkgoConfig(object):
         config = self._read_config()
         return config.get("streaming", {})
 
+    # ==================== 分布式日志配置 ====================
+
+    @property
+    def LOGGING_MODE(self) -> str:
+        """
+        日志模式：自动检测/容器/本地
+
+        默认值: "auto"
+        配置路径: logging.mode
+        选项:
+        - "auto": 自动检测运行环境
+        - "container": 强制容器模式（JSON输出到stdout/stderr）
+        - "local": 强制本地模式（文件输出）
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                logging_config = config.get("logging", {})
+                return logging_config.get("mode", "auto")
+            except Exception:
+                pass
+        # 尝试环境变量
+        return os.environ.get("GINKGO_LOGGING_MODE", "auto")
+
+    @property
+    def LOGGING_FORMAT(self) -> str:
+        """
+        日志格式类型
+
+        默认值: "json"
+        配置路径: logging.format
+        选项:
+        - "json": JSON结构化日志（容器环境推荐）
+        - "plain": 纯文本格式（本地环境）
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                logging_config = config.get("logging", {})
+                return logging_config.get("format", "json")
+            except Exception:
+                pass
+        # 尝试环境变量
+        return os.environ.get("GINKGO_LOGGING_FORMAT", "json")
+
+    @property
+    def LOGGING_CONTAINER_ENABLED(self) -> bool:
+        """
+        容器日志是否启用
+
+        默认值: True
+        配置路径: logging.container.enabled
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                container_config = config.get("logging", {}).get("container", {})
+                value = container_config.get("enabled", True)
+                return str(value).upper() == "TRUE"
+            except Exception:
+                pass
+        # 尝试环境变量
+        env_value = os.environ.get("GINKGO_LOGGING_CONTAINER_ENABLED", "true")
+        return env_value.upper() == "TRUE"
+
+    @property
+    def LOGGING_CONTAINER_JSON_OUTPUT(self) -> bool:
+        """
+        容器环境是否输出JSON格式
+
+        默认值: True
+        配置路径: logging.container.json_output
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                container_config = config.get("logging", {}).get("container", {})
+                value = container_config.get("json_output", True)
+                return str(value).upper() == "TRUE"
+            except Exception:
+                pass
+        # 尝试环境变量
+        env_value = os.environ.get("GINKGO_LOGGING_CONTAINER_JSON_OUTPUT", "true")
+        return env_value.upper() == "TRUE"
+
+    @property
+    def LOGGING_LOCAL_FILE_ENABLED(self) -> bool:
+        """
+        本地文件日志是否启用
+
+        默认值: True
+        配置路径: logging.local.file_enabled
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                local_config = config.get("logging", {}).get("local", {})
+                value = local_config.get("file_enabled", True)
+                return str(value).upper() == "TRUE"
+            except Exception:
+                pass
+        # 尝试环境变量
+        env_value = os.environ.get("GINKGO_LOGGING_LOCAL_FILE_ENABLED", "true")
+        return env_value.upper() == "TRUE"
+
+    @property
+    def LOGGING_LOCAL_FILE_PATH(self) -> str:
+        """
+        本地日志文件路径
+
+        默认值: "ginkgo.log"
+        配置路径: logging.local.file_path
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                local_config = config.get("logging", {}).get("local", {})
+                return local_config.get("file_path", "ginkgo.log")
+            except Exception:
+                pass
+        # 尝试环境变量
+        return os.environ.get("GINKGO_LOGGING_LOCAL_FILE_PATH", "ginkgo.log")
+
+    @property
+    def LOGGING_MASK_FIELDS(self) -> list:
+        """
+        敏感字段脱敏列表
+
+        默认值: []
+        配置路径: logging.mask_fields
+        用途: 自动脱敏日志中的敏感字段（如password, token等）
+        """
+        if self._has_local_config:
+            try:
+                config = self._read_config()
+                logging_config = config.get("logging", {})
+                return logging_config.get("mask_fields", [])
+            except Exception as e:
+                print(f"[GCONF] Error reading logging.mask_fields: {e}")
+                return []
+        # 尝试环境变量
+        env_value = os.environ.get("GINKGO_LOGGING_MASK_FIELDS")
+        if env_value:
+            return [v.strip() for v in env_value.split(",")]
+        return []
+
 
 GCONF = GinkgoConfig()
