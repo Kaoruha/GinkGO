@@ -1,8 +1,4 @@
 import request from '../request'
-<<<<<<< HEAD
-import type { RequestOptions } from '@/types/api-request'
-=======
->>>>>>> 011-quant-research
 
 export interface LoginRequest {
   username: string
@@ -20,16 +16,6 @@ export interface LoginResponse {
   }
 }
 
-<<<<<<< HEAD
-export const authApi = {
-  /**
-   * 用户登录
-   * @param data 登录数据
-   * @param options 请求选项（支持 signal 取消请求）
-   */
-  login(data: LoginRequest, options?: RequestOptions): Promise<LoginResponse> {
-    return request.post('/v1/auth/login', data, { signal: options?.signal })
-=======
 export interface UserInfo {
   uuid: string
   username: string
@@ -45,26 +31,10 @@ export const authApi = {
    */
   login(data: LoginRequest): Promise<LoginResponse> {
     return request.post('/v1/auth/login', data)
->>>>>>> 011-quant-research
   },
 
   /**
    * 用户登出
-<<<<<<< HEAD
-   * @param options 请求选项（支持 signal 取消请求）
-   */
-  logout(options?: RequestOptions): Promise<void> {
-    return request.post('/v1/auth/logout', {}, { signal: options?.signal })
-  },
-
-  /**
-   * 验证Token
-   * @param options 请求选项（支持 signal 取消请求）
-   */
-  verifyToken(options?: RequestOptions): Promise<{ valid: boolean }> {
-    return request.get('/v1/auth/verify', { signal: options?.signal })
-  }
-=======
    */
   logout(): Promise<void> {
     return request.post('/v1/auth/logout')
@@ -120,5 +90,4 @@ export const saveAuth = (response: LoginResponse) => {
 export const clearAuth = () => {
   localStorage.removeItem('access_token')
   localStorage.removeItem('user_info')
->>>>>>> 011-quant-research
 }

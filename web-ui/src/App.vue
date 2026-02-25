@@ -1,28 +1,4 @@
 <template>
-<<<<<<< HEAD
-  <router-view />
-</template>
-
-<script setup lang="ts">
-</script>
-
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-#app {
-  width: 100%;
-  height: 100vh;
-=======
   <a-config-provider :locale="zhCN">
     <!-- 登录页等全屏页面 -->
     <template v-if="isFullPage">
@@ -551,6 +527,5 @@ const handleUserMenuClick = async ({ key }: { key: string }) => {
 
 :deep(.ant-layout) {
   height: 100%;
->>>>>>> 011-quant-research
 }
 </style>
