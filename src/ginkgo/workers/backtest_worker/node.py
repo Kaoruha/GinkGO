@@ -11,7 +11,11 @@ BacktestWorker Node
 """
 
 from typing import Dict, Optional
+<<<<<<< HEAD
 from threading import Thread, Lock, Event
+=======
+from threading import Thread, RLock, Event
+>>>>>>> 011-quant-research
 from datetime import datetime
 import time
 import logging
@@ -23,7 +27,10 @@ from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestTaskStat
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoConsumer, GinkgoProducer
 from ginkgo.data.drivers import create_redis_connection
 from ginkgo.libs import GCONF
+<<<<<<< HEAD
 from ginkgo.interfaces.kafka_topics import KafkaTopics
+=======
+>>>>>>> 011-quant-research
 
 
 class BacktestWorker:
@@ -40,7 +47,11 @@ class BacktestWorker:
 
         # 任务管理：{task_uuid: BacktestProcessor}
         self.tasks: Dict[str, BacktestProcessor] = {}
+<<<<<<< HEAD
         self.task_lock = Lock()
+=======
+        self.task_lock = RLock()
+>>>>>>> 011-quant-research
 
         # Kafka
         self.task_consumer: Optional[GinkgoConsumer] = None
@@ -70,6 +81,13 @@ class BacktestWorker:
         # Redis客户端
         self._redis = None
 
+<<<<<<< HEAD
+=======
+        # 任务容量控制：用于阻塞等待空闲槽位
+        self._slot_available = Event()
+        self._slot_available.set()  # 初始时有空闲槽位
+
+>>>>>>> 011-quant-research
     def start(self):
         """启动BacktestWorker"""
         if self.is_running:
@@ -88,9 +106,21 @@ class BacktestWorker:
         # 清理旧数据
         self._cleanup_old_heartbeat_data()
 
+<<<<<<< HEAD
         # 初始化Kafka Producer（进度上报）
         self.progress_producer = GinkgoProducer()
         self.progress_tracker = ProgressTracker(self.worker_id, self.progress_producer)
+=======
+        # 获取任务服务（用于写入进度到数据库）
+        from ginkgo import services
+        task_service = services.data.backtest_task_service()
+
+        # 初始化Kafka Producer（进度上报）
+        self.progress_producer = GinkgoProducer()
+        self.progress_tracker = ProgressTracker(
+            self.worker_id, self.progress_producer, task_service
+        )
+>>>>>>> 011-quant-research
 
         # 发送初始心跳
         self._send_heartbeat()
@@ -165,9 +195,17 @@ class BacktestWorker:
 
         def consume_tasks():
             print("Task consumer thread started")
+<<<<<<< HEAD
             self.task_consumer = GinkgoConsumer(
                 topic=KafkaTopics.BACKTEST_ASSIGNMENTS,
                 group_id="backtest-workers",
+=======
+            # 使用独特的 consumer group ID 避免与其他实例冲突
+            unique_group_id = f"backtest-workers-{self.worker_id}"
+            self.task_consumer = GinkgoConsumer(
+                topic="backtest.assignments",
+                group_id=unique_group_id,
+>>>>>>> 011-quant-research
                 offset="earliest",
             )
 
@@ -184,6 +222,18 @@ class BacktestWorker:
                         for message in records:
                             # GinkgoConsumer 已反序列化，message.value 直接是 dict
                             assignment = message.value
+<<<<<<< HEAD
+=======
+
+                            # 🔥 [FIX] 在接收任务后立即提交 offset，防止 worker 重启后重复消费
+                            # 注意：这里只确认"消息已接收"，不是"任务已完成"
+                            # 任务完成状态由 progress_tracker 跟踪
+                            try:
+                                self.task_consumer.commit()
+                            except Exception as e:
+                                print(f"Failed to commit offset after receiving task: {e}")
+
+>>>>>>> 011-quant-research
                             self._handle_task_assignment(assignment)
 
                 except Exception as e:
@@ -204,9 +254,51 @@ class BacktestWorker:
             self._cancel_task(task_uuid)
 
     def _start_task(self, assignment: dict):
+<<<<<<< HEAD
         """启动新任务"""
         if not self._can_accept_task():
             print(f"Worker at full capacity ({len(self.tasks)}/{self.max_backtests})")
+=======
+        """启动新任务（阻塞等待空闲槽位）"""
+        task_uuid = assignment.get("task_uuid", "unknown")[:8]
+
+        # 🔥 [FIX] 检查任务是否已经完成，避免重复执行
+        existing_status = self.progress_tracker.get_task_status(assignment.get("task_uuid"))
+        if existing_status and existing_status in ["completed", "failed", "cancelled"]:
+            print(f"[{task_uuid}] Task already {existing_status}, skipping...")
+            return
+
+        # 阻塞等待空闲槽位
+        while not self._can_accept_task():
+            print(f"[{task_uuid}] Worker at full capacity, waiting for slot...")
+            # 清除标志，等待任务完成时被设置
+            self._slot_available.clear()
+            # 等待最多 60 秒，每隔 1 秒检查一次是否应该停止
+            for _ in range(60):
+                if self.should_stop:
+                    print(f"[{task_uuid}] Worker stopping, discarding task")
+                    return
+                if self._slot_available.wait(timeout=1):
+                    break
+            else:
+                # 60秒后仍然没有槽位，继续等待
+                continue
+
+            # 被唤醒后再次检查容量
+            if self._can_accept_task():
+                print(f"[{task_uuid}] Slot available, proceeding with task")
+                break
+
+        # 验证必要的任务参数
+        portfolio_uuid = assignment.get("portfolio_uuid")
+        if not portfolio_uuid:
+            print(f"[{task_uuid}] ERROR: portfolio_uuid is required but missing, discarding task")
+            # 上报任务失败到数据库
+            self.progress_tracker.report_failed_by_uuid(
+                task_uuid=assignment.get("task_uuid", ""),
+                error="portfolio_uuid is required"
+            )
+>>>>>>> 011-quant-research
             return
 
         # 解析任务配置
@@ -255,9 +347,12 @@ class BacktestWorker:
 
         self.metrics.record_task_start(task.task_uuid, task.name)
 
+<<<<<<< HEAD
         # 小延迟确保数据库事务已提交（额外安全措施）
         time.sleep(0.05)  # 50ms
 
+=======
+>>>>>>> 011-quant-research
         # 启动线程
         processor.start()
 
@@ -281,6 +376,19 @@ class BacktestWorker:
                 success = processor.task.state != BacktestTaskState.FAILED
                 self.metrics.record_task_complete(task_uuid, success)
                 del self.tasks[task_uuid]
+<<<<<<< HEAD
+=======
+                # 通知等待的线程有新槽位可用
+                self._slot_available.set()
+
+        # 任务完成后提交 Kafka offset，防止重复消费
+        if self.task_consumer and self.task_consumer.is_connected:
+            try:
+                self.task_consumer.commit()
+                print(f"[{task_uuid[:8]}] Kafka offset committed")
+            except Exception as e:
+                print(f"[{task_uuid[:8]}] Failed to commit offset: {e}")
+>>>>>>> 011-quant-research
 
     def _can_accept_task(self) -> bool:
         """检查是否还能接受任务"""
@@ -293,6 +401,7 @@ class BacktestWorker:
             while not self.should_stop:
                 try:
                     time.sleep(1)
+<<<<<<< HEAD
                     with self.task_lock:
                         completed_tasks = [
                             uuid for uuid, p in self.tasks.items()
@@ -300,6 +409,20 @@ class BacktestWorker:
                         ]
                         for uuid in completed_tasks:
                             self._remove_task(uuid)
+=======
+                    # 收集已完成的任务（不持有锁太久）
+                    completed_uuids = []
+                    with self.task_lock:
+                        for uuid, p in list(self.tasks.items()):
+                            if not p.is_alive():
+                                completed_uuids.append(uuid)
+
+                    # 移除已完成的任务（_remove_task 会自己获取锁）
+                    for uuid in completed_uuids:
+                        print(f"[Cleanup] Task {uuid[:8]} thread exited, removing...")
+                        self._remove_task(uuid)
+                        print(f"[Cleanup] Task {uuid[:8]} removed, slot available")
+>>>>>>> 011-quant-research
                 except Exception as e:
                     print(f"Error in cleanup: {e}")
 
@@ -325,6 +448,7 @@ class BacktestWorker:
     def _send_heartbeat(self):
         """发送心跳到Redis"""
         try:
+<<<<<<< HEAD
             redis = self._get_redis()
             key = f"backtest:worker:{self.worker_id}"
             value = {
@@ -338,6 +462,24 @@ class BacktestWorker:
 
             import json
             redis.setex(key, self.heartbeat_ttl, json.dumps(value))
+=======
+            from ginkgo.data.redis_schema import (
+                RedisKeyBuilder, BacktestWorkerHeartbeat, WorkerStatus, RedisTTL
+            )
+
+            redis = self._get_redis()
+            key = RedisKeyBuilder.backtest_worker_heartbeat(self.worker_id)
+
+            heartbeat = BacktestWorkerHeartbeat.create(
+                worker_id=self.worker_id,
+                status=WorkerStatus.RUNNING if self.is_running else WorkerStatus.STOPPED,
+                running_tasks=len(self.tasks),
+                max_tasks=self.max_backtests,
+                started_at=self.started_at
+            )
+
+            redis.setex(key, RedisTTL.BACKTEST_WORKER_HEARTBEAT, heartbeat.to_json())
+>>>>>>> 011-quant-research
             print(f"Heartbeat sent: {len(self.tasks)}/{self.max_backtests} tasks running")
 
         except Exception as e:
@@ -346,8 +488,15 @@ class BacktestWorker:
     def _clear_heartbeat(self):
         """清理Redis心跳"""
         try:
+<<<<<<< HEAD
             redis = self._get_redis()
             key = f"backtest:worker:{self.worker_id}"
+=======
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+
+            redis = self._get_redis()
+            key = RedisKeyBuilder.backtest_worker_heartbeat(self.worker_id)
+>>>>>>> 011-quant-research
             redis.delete(key)
             print("Heartbeat cleared")
         except Exception as e:
@@ -356,8 +505,15 @@ class BacktestWorker:
     def _cleanup_old_heartbeat_data(self):
         """清理旧的心跳数据"""
         try:
+<<<<<<< HEAD
             redis = self._get_redis()
             key = f"backtest:worker:{self.worker_id}"
+=======
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+
+            redis = self._get_redis()
+            key = RedisKeyBuilder.backtest_worker_heartbeat(self.worker_id)
+>>>>>>> 011-quant-research
             if redis.exists(key):
                 print(f"Old heartbeat data found for {self.worker_id}, cleaning up...")
                 redis.delete(key)
@@ -367,8 +523,14 @@ class BacktestWorker:
     def _is_worker_id_in_use(self) -> bool:
         """检查worker_id是否已被使用"""
         try:
+<<<<<<< HEAD
             redis = self._get_redis()
             key = f"backtest:worker:{self.worker_id}"
+=======
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+            redis = self._get_redis()
+            key = RedisKeyBuilder.backtest_worker_heartbeat(self.worker_id)
+>>>>>>> 011-quant-research
             return redis.exists(key)
         except Exception:
             return False

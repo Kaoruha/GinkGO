@@ -334,15 +334,17 @@ class ResultService(BaseService):
             if not values:
                 return ServiceResult.error("没有有效的数值数据")
 
+            # get_by_run_id 使用降序排列 (desc_order=True)
+            # values[0] 是最新值，values[-1] 是最旧值
             stats = {
                 "analyzer_name": analyzer_name,
                 "count": len(values),
                 "min": min(values),
                 "max": max(values),
                 "avg": sum(values) / len(values),
-                "latest": values[-1] if values else None,
-                "first": values[0] if values else None,
-                "change": values[-1] - values[0] if len(values) >= 2 else 0
+                "latest": values[0] if values else None,
+                "first": values[-1] if values else None,
+                "change": values[0] - values[-1] if len(values) >= 2 else 0
             }
 
             GLOG.INFO(f"获取 analyzer={analyzer_name} 的统计信息成功")
@@ -351,3 +353,214 @@ class ResultService(BaseService):
         except Exception as e:
             GLOG.ERROR(f"获取统计信息失败: {e}")
             return ServiceResult.error(f"获取统计信息失败: {e}")
+
+    @time_logger
+    @retry(max_try=3)
+    def get_signals(
+        self,
+        run_id: str,
+        portfolio_id: Optional[str] = None,
+        page: int = 0,
+        page_size: int = 100
+    ) -> ServiceResult:
+        """
+        获取回测信号记录
+
+        Args:
+            run_id: 运行会话ID
+            portfolio_id: 投资组合ID（可选）
+            page: 页码
+            page_size: 每页数量
+
+        Returns:
+            ServiceResult[List]: 信号记录列表
+        """
+        try:
+            if not run_id:
+                return ServiceResult.error("run_id 不能为空")
+
+            from ginkgo.data.crud.signal_crud import SignalCRUD
+            signal_crud = SignalCRUD()
+
+            filters = {"run_id": run_id}
+            if portfolio_id:
+                filters["portfolio_id"] = portfolio_id
+
+            result = signal_crud.find(
+                filters=filters,
+                page=page,
+                page_size=page_size,
+                order_by="timestamp",
+                desc_order=True
+            )
+
+            total = signal_crud.count(filters)
+
+            GLOG.INFO(f"获取 run_id={run_id} 的信号记录成功: {len(result)} 条")
+            return ServiceResult.success({"data": result, "total": total, "page": page, "page_size": page_size})
+
+        except Exception as e:
+            GLOG.ERROR(f"获取信号记录失败: {e}")
+            return ServiceResult.error(f"获取信号记录失败: {e}")
+
+    @time_logger
+    @retry(max_try=3)
+    def get_orders(
+        self,
+        run_id: str,
+        portfolio_id: Optional[str] = None
+    ) -> ServiceResult:
+        """
+        获取回测订单记录
+
+        Args:
+            run_id: 运行会话ID
+            portfolio_id: 投资组合ID（可选）
+
+        Returns:
+            ServiceResult[List]: 订单记录列表
+        """
+        try:
+            if not run_id:
+                return ServiceResult.error("run_id 不能为空")
+
+            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
+            order_record_crud = OrderRecordCRUD()
+
+            filters = {"run_id": run_id}
+            if portfolio_id:
+                filters["portfolio_id"] = portfolio_id
+
+            result = order_record_crud.find(
+                filters=filters,
+                order_by="timestamp",
+                desc_order=True
+            )
+
+            total = order_record_crud.count(filters)
+
+            GLOG.INFO(f"获取 run_id={run_id} 的订单记录成功: {len(result)} 条")
+            return ServiceResult.success({"data": result, "total": total})
+
+        except Exception as e:
+            GLOG.ERROR(f"获取订单记录失败: {e}")
+            return ServiceResult.error(f"获取订单记录失败: {e}")
+
+    @time_logger
+    @retry(max_try=3)
+    def get_positions(
+        self,
+        run_id: str,
+        portfolio_id: Optional[str] = None
+    ) -> ServiceResult:
+        """
+        获取回测持仓记录
+
+        Args:
+            run_id: 运行会话ID
+            portfolio_id: 投资组合ID（可选）
+
+        Returns:
+            ServiceResult[List]: 持仓记录列表
+        """
+        try:
+            if not run_id:
+                return ServiceResult.error("run_id 不能为空")
+
+            from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
+            position_record_crud = PositionRecordCRUD()
+
+            filters = {"run_id": run_id}
+            if portfolio_id:
+                filters["portfolio_id"] = portfolio_id
+
+            result = position_record_crud.find(
+                filters=filters,
+                order_by="timestamp",
+                desc_order=True
+            )
+
+            total = position_record_crud.count(filters)
+
+            GLOG.INFO(f"获取 run_id={run_id} 的持仓记录成功: {len(result)} 条")
+            return ServiceResult.success({"data": result, "total": total})
+
+        except Exception as e:
+            GLOG.ERROR(f"获取持仓记录失败: {e}")
+            return ServiceResult.error(f"获取持仓记录失败: {e}")
+
+    @time_logger
+    @retry(max_try=3)
+    def create_order_record(self, **kwargs) -> ServiceResult:
+        """
+        创建订单记录
+
+        Args:
+            order_id: 订单ID
+            portfolio_id: 投资组合ID
+            engine_id: 引擎ID
+            run_id: 运行会话ID
+            code: 股票代码
+            direction: 交易方向
+            order_type: 订单类型
+            status: 订单状态
+            volume: 委托数量
+            limit_price: 限价
+            transaction_price: 成交价格
+            transaction_volume: 成交数量
+            timestamp: 时间戳
+            business_timestamp: 业务时间戳
+            **kwargs: 其他参数
+
+        Returns:
+            ServiceResult: 创建结果
+        """
+        try:
+            from ginkgo.data.crud.order_record_crud import OrderRecordCRUD
+            order_record_crud = OrderRecordCRUD()
+
+            order_record_crud.create(**kwargs)
+
+            GLOG.INFO(f"订单记录创建成功: code={kwargs.get('code')} run_id={kwargs.get('run_id')}")
+            return ServiceResult.success({"message": "Order record created"})
+
+        except Exception as e:
+            GLOG.ERROR(f"创建订单记录失败: {e}")
+            return ServiceResult.error(f"创建订单记录失败: {e}")
+
+    @time_logger
+    @retry(max_try=3)
+    def create_position_record(self, **kwargs) -> ServiceResult:
+        """
+        创建持仓记录
+
+        Args:
+            portfolio_id: 投资组合ID
+            engine_id: 引擎ID
+            run_id: 运行会话ID
+            code: 股票代码
+            volume: 持仓数量
+            cost: 成本
+            price: 当前价格
+            frozen_volume: 冻结数量
+            frozen_money: 冻结金额
+            fee: 手续费
+            timestamp: 时间戳
+            business_timestamp: 业务时间戳
+            **kwargs: 其他参数
+
+        Returns:
+            ServiceResult: 创建结果
+        """
+        try:
+            from ginkgo.data.crud.position_record_crud import PositionRecordCRUD
+            position_record_crud = PositionRecordCRUD()
+
+            position_record_crud.create(**kwargs)
+
+            GLOG.INFO(f"持仓记录创建成功: code={kwargs.get('code')} run_id={kwargs.get('run_id')}")
+            return ServiceResult.success({"message": "Position record created"})
+
+        except Exception as e:
+            GLOG.ERROR(f"创建持仓记录失败: {e}")
+            return ServiceResult.error(f"创建持仓记录失败: {e}")

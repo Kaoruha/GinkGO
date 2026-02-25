@@ -87,6 +87,35 @@ class PortfolioT1Backtest(PortfolioBase):
             return self.positions[code]
         return None
 
+    def add_position(self, position: Position) -> None:
+        """
+        重写基类方法，添加持仓并持久化（通过 Service 层）
+        """
+        # 调用基类方法添加持仓
+        super().add_position(position)
+
+        # 将持仓记录保存（通过 Service 层）
+        try:
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            result_service.create_position_record(
+                portfolio_id=position.portfolio_id,
+                engine_id=position.engine_id,
+                run_id=position.run_id,
+                code=position.code,
+                cost=position.cost,
+                volume=position.volume,
+                frozen_volume=position.frozen_volume,
+                frozen_money=position.frozen_money,
+                price=position.price,
+                fee=position.fee,
+                timestamp=position.timestamp,
+                business_timestamp=self.business_timestamp,
+            )
+            self.log("DEBUG", f"Position record saved: {position.code} volume={position.volume}")
+        except Exception as e:
+            self.log("ERROR", f"Failed to save position record: {e}")
+
     def advance_time(self, time: any, *args, **kwargs) -> None:
         """
         时间推进到下一周期
@@ -322,6 +351,10 @@ class PortfolioT1Backtest(PortfolioBase):
                 print(
                     f"[SIZED] {order.direction.name} {order.code} {order.volume}shares @ {order.limit_price} Portfolio:{self.uuid[:8]} Order:{order.uuid[:8]}"
                 )
+                # [订单持久化] NEW 状态持久化位置
+                # SUBMITTED 状态由 TradeGateway._save_submitted_order_record() 保存
+                # FILLED 状态由 on_order_partially_filled() 保存
+                self._save_order_record(order, ORDERSTATUS_TYPES.NEW)
             else:
                 print(
                     f"[SIZED_FAIL] {event.payload.direction.name} {event.payload.code} Reason:Sizer returned None Portfolio:{self.uuid[:8]} Signal:{event.payload.uuid[:8]}"
@@ -539,12 +572,12 @@ class PortfolioT1Backtest(PortfolioBase):
                             portfolio_id=signal.portfolio_id,
                             engine_id=signal.engine_id,
                             run_id=signal.run_id,
-                            timestamp=signal.timestamp,
+                            timestamp=signal.business_timestamp,  # 使用业务时间，而不是系统时间
                             code=signal.code,
                             direction=signal.direction,
                             reason=signal.reason,
                             source=signal.source,
-                            business_timestamp=signal.business_timestamp,  # 添加业务时间戳
+                            business_timestamp=signal.business_timestamp,
                         )
                         self.log("DEBUG", f"Signal saved to database: {signal.code} {signal.direction}")
                     except Exception as e:
@@ -567,7 +600,51 @@ class PortfolioT1Backtest(PortfolioBase):
                     self.put(e)
                     print(f"✅ [PUBLISHED] EventSignalGeneration sent to engine: {event_uuid}")
 
+    # ===== 订单记录保存辅助方法 =====
+    def _save_order_record(self, order, status, transaction_price=0, transaction_volume=0, fee=0):
+        """
+        保存订单记录到数据库
+
+        Args:
+            order: 订单对象
+            status: 订单状态
+            transaction_price: 成交价格
+            transaction_volume: 成交数量
+            fee: 手续费
+        """
+        try:
+            from ginkgo.data.containers import container
+            result_service = container.result_service()
+            result = result_service.create_order_record(
+                order_id=order.uuid,
+                portfolio_id=self.uuid,
+                engine_id=self.engine_id,
+                run_id=self.run_id,
+                code=order.code,
+                direction=order.direction,
+                order_type=order.order_type,
+                status=status,
+                volume=order.volume,
+                limit_price=order.limit_price,
+                frozen=order.frozen_money if hasattr(order, 'frozen_money') else 0,
+                transaction_price=transaction_price,
+                transaction_volume=transaction_volume,
+                remain=order.remain if hasattr(order, 'remain') else 0,
+                fee=fee,
+                timestamp=order.timestamp,
+                business_timestamp=order.business_timestamp if hasattr(order, 'business_timestamp') else order.timestamp,
+            )
+            print(f"[PERSISTENCE] Order record saved: code={order.code} status={status.name} price={transaction_price} vol={transaction_volume}")
+            return result.success
+        except Exception as e:
+            print(f"[PERSISTENCE ERROR] Failed to save order record: {e}")
+            self.log("ERROR", f"Failed to save order record: {e}")
+            return False
+
     # ===== 新增：订单生命周期事件处理（ACK/部分成交/拒绝/过期/撤销确认） =====
+    # TODO: [订单持久化] SUBMITTED 状态由 TradeGateway._save_submitted_order_record() 保存
+    #       ORDERACK 事件只注册给 TradeGateway，不注册给 Portfolio
+    #       所以此方法不会被引擎调用，保留仅为兼容性考虑
     def on_order_ack(self, event) -> None:
         try:
             for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERACK]:
@@ -577,12 +654,18 @@ class PortfolioT1Backtest(PortfolioBase):
             self.log(
                 "INFO", f"ACK: order={event.order_id[:8]} code={event.code} msg={getattr(event, 'ack_message', '')}"
             )
+
             # 可选：跟踪订单
             if hasattr(self, "_orders") and event.order not in self._orders:
                 self._orders.append(event.order)
+
         except Exception as e:
             self.log("ERROR", f"on_order_ack failed: {e}")
+            import traceback
+            traceback.print_exc()
 
+    # [订单持久化] FILLED/PARTIAL_FILLED 状态持久化位置
+    # 事件由 TradeGateway.on_order_partially_filled() 路由到此处
     def on_order_partially_filled(self, event) -> None:
         try:
             if self.is_event_from_future(event):
@@ -597,6 +680,7 @@ class PortfolioT1Backtest(PortfolioBase):
                 self.log("ERROR", "Partial fill event missing order payload")
                 return
 
+            # 先从事件中获取成交信息
             qty = int(getattr(event, "filled_quantity", 0) or 0)
             price = to_decimal(getattr(event, "fill_price", 0) or 0)
             fee = to_decimal(getattr(event, "commission", 0) or 0)
@@ -607,6 +691,9 @@ class PortfolioT1Backtest(PortfolioBase):
                     f"🚫 [FILL REJECTED] Order NOT added to filled_orders list: {order.code} {order.direction.name}",
                 )
                 return
+
+            # 保存订单记录（FILLED 状态）
+            self._save_order_record(order, ORDERSTATUS_TYPES.FILLED, price, qty, fee)
 
             # 🔥 [CRITICAL FIX] 只有在验证通过后才添加到成交订单列表
             # 🎯 订单统计更新：跟踪已成交的订单
@@ -731,6 +818,8 @@ class PortfolioT1Backtest(PortfolioBase):
 
             self.log("ERROR", f"on_order_partially_filled traceback: {traceback.format_exc()}")
 
+    # [订单持久化] REJECTED 状态持久化位置
+    # 事件由 engine_assembly_service.py:1562 直接注册到 Portfolio
     def on_order_rejected(self, event) -> None:
         try:
             for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDERREJECTED]:
@@ -742,10 +831,18 @@ class PortfolioT1Backtest(PortfolioBase):
             print(
                 f"[REJECT] {getattr(event.order, 'direction', 'UNKNOWN').name} {event.code} Reason:{event.reject_reason} Order:{event.order_id[:8]} Portfolio:{self.uuid[:8]}"
             )
-            # BrokerMatchMaking 会同时发送取消事件以触发资金解冻；此处仅记录
+
+            # 保存订单记录（REJECTED 状态）
+            order = getattr(event, "order", None)
+            if order:
+                self._save_order_record(order, ORDERSTATUS_TYPES.REJECTED)
+
         except Exception as e:
             self.log("ERROR", f"on_order_rejected failed: {e}")
 
+    # TODO: [订单持久化] EXPIRED 状态缺少订单记录持久化
+    #       需要添加: self._save_order_record(order, ORDERSTATUS_TYPES.EXPIRED)
+    #       注意：过期一般伴随取消事件，可能需要去重处理
     def on_order_expired(self, event) -> None:
         try:
             for func in self._analyzer_activate_hook[RECORDSTAGE_TYPES.ORDEREXPIRED]:
@@ -757,6 +854,9 @@ class PortfolioT1Backtest(PortfolioBase):
         except Exception as e:
             self.log("ERROR", f"on_order_expired failed: {e}")
 
+
+    # [订单持久化] CANCELED 状态持久化位置
+    # 事件由 engine_assembly_service.py:1559 直接注册到 Portfolio
     def on_order_cancel_ack(self, event) -> None:
         try:
             self.log("INFO", f"Got An Order Cancelled... {self.business_timestamp}")
@@ -777,6 +877,11 @@ class PortfolioT1Backtest(PortfolioBase):
                 return
 
             order = getattr(event, "order", None)
+
+            # 保存订单记录（CANCELED 状态）
+            if order:
+                self._save_order_record(order, ORDERSTATUS_TYPES.CANCELED)
+
             direction = getattr(event, "direction", None) or (order.direction if hasattr(order, "direction") else None)
 
             if direction == DIRECTION_TYPES.LONG:

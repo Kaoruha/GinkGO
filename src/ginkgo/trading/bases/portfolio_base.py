@@ -801,6 +801,37 @@ class PortfolioBase(TimeMixin, ContextMixin, EngineBindableMixin,
             return
         return self.analyzers[key]
 
+    def load_basic_analyzers(self) -> None:
+        """
+        加载基础分析器
+
+        自动加载 BASIC_ANALYZERS 中定义的基础分析器，
+        确保回测结果汇总时能获取到所需的核心指标。
+        """
+        from ginkgo.trading.analysis.analyzers import BASIC_ANALYZERS
+
+        print(f"[PORTFOLIO] 📊 Loading BASIC_ANALYZERS ({len(BASIC_ANALYZERS)} analyzers)...")
+        loaded_count = 0
+        failed_analyzers = []
+
+        for analyzer_class in BASIC_ANALYZERS:
+            try:
+                analyzer = analyzer_class()
+                self.add_analyzer(analyzer)
+                loaded_count += 1
+                print(f"[PORTFOLIO]   ✅ {analyzer_class.__name__} loaded")
+            except Exception as e:
+                failed_analyzers.append(analyzer_class.__name__)
+                self.log("ERROR", f"Failed to load basic analyzer {analyzer_class.__name__}: {e}")
+                print(f"[PORTFOLIO]   ❌ {analyzer_class.__name__} failed: {e}")
+
+        if loaded_count == len(BASIC_ANALYZERS):
+            print(f"[PORTFOLIO] ✅ All {loaded_count} BASIC_ANALYZERS loaded successfully")
+        else:
+            print(f"[PORTFOLIO] ⚠️ Loaded {loaded_count}/{len(BASIC_ANALYZERS)} analyzers. Failed: {failed_analyzers}")
+
+        self.log("INFO", f"Loaded {loaded_count}/{len(BASIC_ANALYZERS)} basic analyzers")
+
     def _handle_analyzer_error(self, analyzer, error, stage, portfolio_info):
         """
         统一的分析器错误处理

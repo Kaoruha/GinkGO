@@ -107,8 +107,7 @@ class Scheduler(threading.Thread):
     - 心跳检测：检查 Redis 中的心跳键（TTL=30秒）
     """
 
-    # Redis 键前缀
-    HEARTBEAT_PREFIX = "heartbeat:node:"
+    # Redis 键前缀 (使用统一schema，保留仅用于非心跳键)
     SCHEDULE_PLAN_KEY = "schedule:plan"
     NODE_PORTFOLIOS_PREFIX = "node:"
     NODE_METRICS_PREFIX = "node:metrics:"
@@ -468,7 +467,8 @@ class Scheduler(threading.Thread):
             deleted_keys = []
 
             # 清理 Scheduler 心跳（预留，当前没有心跳机制）
-            heartbeat_key = f"heartbeat:scheduler:{self.node_id}"
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+            heartbeat_key = RedisKeyBuilder.scheduler_heartbeat(self.node_id)
             try:
                 if self.redis_client.exists(heartbeat_key):
                     self.redis_client.delete(heartbeat_key)
@@ -512,13 +512,14 @@ class Scheduler(threading.Thread):
             List[Dict]: 健康的 Node 列表，每个包含 node_id 和 metrics
         """
         try:
+            from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix
             # 扫描所有心跳键
-            heartbeat_keys = self.redis_client.keys(f"{self.HEARTBEAT_PREFIX}*")
+            heartbeat_keys = self.redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
 
             healthy_nodes = []
             for key in heartbeat_keys:
                 # 提取 node_id
-                node_id = key.decode('utf-8').replace(self.HEARTBEAT_PREFIX, "")
+                node_id = extract_id_from_key(key.decode('utf-8'), f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:")
 
                 # 获取 Node 性能指标
                 metrics = self._get_node_metrics(node_id)

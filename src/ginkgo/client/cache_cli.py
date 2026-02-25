@@ -228,22 +228,24 @@ def status():
         # Function cache statistics
         try:
             # Get function cache keys count
-            func_cache_keys = redis_service.crud_repo.keys("ginkgo_func_cache_*")
+            from ginkgo.data.redis_schema import RedisKeyPattern
+            func_cache_keys = redis_service.crud_repo.keys(RedisKeyPattern.FUNC_CACHE_ALL)
             func_cache_count = len(func_cache_keys) if func_cache_keys else 0
             table.add_row(
-                "Function Cache", 
+                "Function Cache",
                 ":white_check_mark: Active" if func_cache_count > 0 else ":information_source: Empty",
                 f"{func_cache_count} entries"
             )
         except Exception as e:
             table.add_row("Function Cache", ":x: Error", str(e))
-        
+
         # Sync progress cache
         try:
-            sync_keys = redis_service.crud_repo.keys("ginkgo_sync_progress_*")
+            from ginkgo.data.redis_schema import RedisKeyPattern
+            sync_keys = redis_service.crud_repo.keys(RedisKeyPattern.SYNC_PROGRESS_ALL)
             sync_count = len(sync_keys) if sync_keys else 0
             table.add_row(
-                "Sync Progress", 
+                "Sync Progress",
                 ":white_check_mark: Active" if sync_count > 0 else ":information_source: Empty",
                 f"{sync_count} entries"
             )
@@ -280,13 +282,14 @@ def list(
         redis_service = container.redis_service()
         
         # Determine which patterns to search for
+        from ginkgo.data.redis_schema import RedisKeyPattern
         patterns = []
         if cache_type is None or cache_type == CacheType.ALL:
-            patterns = ["ginkgo_func_cache_*", "ginkgo_sync_progress_*"]
+            patterns = [RedisKeyPattern.FUNC_CACHE_ALL, RedisKeyPattern.SYNC_PROGRESS_ALL]
         elif cache_type == CacheType.FUNCTION:
-            patterns = ["ginkgo_func_cache_*"]
+            patterns = [RedisKeyPattern.FUNC_CACHE_ALL]
         elif cache_type in [CacheType.SYNC, CacheType.TICK]:
-            patterns = ["ginkgo_sync_progress_*"]
+            patterns = [RedisKeyPattern.SYNC_PROGRESS_ALL]
             
         # Create results table
         table = Table(show_header=True, header_style="bold magenta")
@@ -302,17 +305,17 @@ def list(
                     # Determine cache type from key
                     if "func_cache" in key:
                         cache_type_display = "Function"
-                        # Extract function name from key
+                        # Extract function name from key: ginkgo_func_cache_{func_name}_{cache_key}
                         parts = key.split("_")
                         func_name = parts[3] if len(parts) > 3 else "Unknown"
                         details = f"Function: {func_name}"
-                    elif "sync_progress" in key:
+                    elif "_update_" in key:
                         cache_type_display = "Sync Progress"
-                        # Extract code and type from key
-                        parts = key.split("_")
-                        code = parts[3] if len(parts) > 3 else "Unknown"
-                        data_type = parts[4] if len(parts) > 4 else "Unknown"
-                        details = f"Code: {code}, Type: {data_type}"
+                        # Extract code and type from key: {data_type}_update_{code}
+                        parts = key.split("_update_")
+                        data_type = parts[0] if len(parts) > 0 else "Unknown"
+                        code = parts[1] if len(parts) > 1 else "Unknown"
+                        details = f"Type: {data_type}, Code: {code}"
                     else:
                         cache_type_display = "Other"
                         details = "Unknown format"

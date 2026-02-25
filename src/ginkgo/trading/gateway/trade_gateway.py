@@ -76,6 +76,9 @@ class TradeGateway(BaseTradeGateway):
         # Portfolio事件路由映射
         self._portfolio_handlers: Dict[str, Any] = {}
 
+        # 跟踪上一个价格数据的日期，用于检测日期变化并清空缓存
+        self._last_price_date = None
+
         self.log("INFO", f"Initialized {self.name} with {len(self.brokers)} brokers")
         self._log_market_mapping()
 
@@ -224,6 +227,28 @@ class TradeGateway(BaseTradeGateway):
 
         price_data = event.payload
 
+        # 🔥 [FIX] 检测日期变化，清空Broker的市场数据缓存
+        current_date = None
+        if hasattr(price_data, 'timestamp'):
+            current_date = price_data.timestamp.date()
+        elif hasattr(event, 'timestamp'):
+            current_date = event.timestamp.date()
+
+        if current_date and self._last_price_date and current_date != self._last_price_date:
+            # 日期变化，清空所有回测Broker的市场数据缓存
+            if GCONF.DEBUGMODE:
+                print(f"🔥 [ROUTER] Date changed from {self._last_price_date} to {current_date}, clearing market data cache")
+            for broker in self.brokers:
+                if self._detect_execution_mode(broker) == "backtest":
+                    if hasattr(broker, 'clear_market_data'):
+                        broker.clear_market_data()
+                        if GCONF.DEBUGMODE:
+                            print(f"🔥 [ROUTER] Market data cache cleared for broker: {broker.__class__.__name__}")
+
+        # 更新最后看到的日期
+        if current_date:
+            self._last_price_date = current_date
+
         # 检查是否有回测模式的Broker需要价格数据
         for broker in self.brokers:
             if self._detect_execution_mode(broker) == "backtest":
@@ -251,6 +276,9 @@ class TradeGateway(BaseTradeGateway):
         try:
             self.log("DEBUG", f"Processing order synchronously with {broker.__class__.__name__}")
 
+            # 保存 SUBMITTED 状态订单记录（在执行前）
+            self._save_submitted_order_record(order, event)
+
             # 提交事件给broker
             result = broker.submit_order_event(event)
 
@@ -262,9 +290,60 @@ class TradeGateway(BaseTradeGateway):
             # 发布错误事件
             error_result = BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                order=order,
                 error_message=f"Sync execution error: {str(e)}"
             )
             self._handle_execution_result(error_result)
+
+    # [订单持久化] SUBMITTED 状态持久化位置
+    # 在订单提交给 broker 执行前保存，记录订单已提交状态
+    # NEW 状态由 Portfolio.on_signal() 保存 (t1backtest.py:350)
+    # FILLED/REJECTED/CANCELED 状态由 Portfolio 对应方法保存
+    def _save_submitted_order_record(self, order: Order, event) -> None:
+        """
+        保存 SUBMITTED 状态订单记录到数据库
+
+        Args:
+            order: 订单对象
+            event: 原始事件对象（包含 portfolio_id 等上下文信息）
+        """
+        try:
+            from ginkgo.data.containers import container
+
+            # 获取必要的上下文信息
+            portfolio_id = getattr(event, 'portfolio_id', None)
+            engine_id = self._bound_engine.engine_id if self._bound_engine else None
+            run_id = getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None
+
+            if not all([portfolio_id, engine_id, run_id]):
+                self.log("WARN", f"Missing context for saving SUBMITTED record: portfolio_id={portfolio_id}, engine_id={engine_id}, run_id={run_id}")
+                return
+
+            result_service = container.result_service()
+            result = result_service.create_order_record(
+                order_id=order.uuid,
+                portfolio_id=portfolio_id,
+                engine_id=engine_id,
+                run_id=run_id,
+                code=order.code,
+                direction=order.direction,
+                order_type=order.order_type,
+                status=ORDERSTATUS_TYPES.SUBMITTED,
+                volume=order.volume,
+                limit_price=order.limit_price,
+                frozen=order.frozen_money if hasattr(order, 'frozen_money') else 0,
+                transaction_price=0,
+                transaction_volume=0,
+                remain=order.volume,
+                fee=0,
+                timestamp=order.timestamp,
+                business_timestamp=order.business_timestamp if hasattr(order, 'business_timestamp') else order.timestamp,
+            )
+            print(f"[PERSISTENCE] SUBMITTED order record saved: code={order.code} order_id={order.uuid[:8]}")
+            self.log("INFO", f"Order SUBMITTED record saved: {order.code} {order.uuid[:8]}")
+        except Exception as e:
+            print(f"[PERSISTENCE ERROR] Failed to save SUBMITTED order record: {e}")
+            self.log("ERROR", f"Failed to save SUBMITTED order record: {e}")
 
     def _handle_async_execution(self, order: Order, broker: IBroker, execution_mode: str) -> None:
         """
@@ -309,6 +388,7 @@ class TradeGateway(BaseTradeGateway):
             # 发布错误事件
             error_result = BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                order=order,
                 error_message=f"Async execution error: {str(e)}"
             )
             self._handle_execution_result(error_result)
@@ -430,15 +510,42 @@ class TradeGateway(BaseTradeGateway):
             else:
                 self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create ORDER_REJECTED event!")
 
+        elif result.status == ORDERSTATUS_TYPES.NEW:
+            # 🔥 [BUG FIX] SimBroker 在验证失败时返回 NEW 状态（用作 REJECTED）
+            # 这里需要将 NEW 作为拒绝处理，发布拒绝事件并保存记录
+            self.log("WARN", f"❌ ORDER REJECTED (NEW status): {result.error_message}")
+
+            # 创建拒绝事件
+            event = result.to_event(engine_id=self._bound_engine.engine_id if self._bound_engine else None,
+                                    run_id=getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None)
+            if event:
+                self.log("INFO", f"🔥 [ROUTER] Creating ORDER_REJECTED event for NEW status: {type(event).__name__}")
+                self.log("INFO", f"🔥 [ROUTER] Rejection reason: {result.error_message}")
+
+                # 发布拒绝事件到引擎
+                self.publish_event(event)
+                self.log("INFO", f"🔥 [ROUTER] ORDER_REJECTED event published to engine (from NEW status)")
+            else:
+                self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create ORDER_REJECTED event for NEW status!")
+
         elif result.status == ORDERSTATUS_TYPES.SUBMITTED:
             # 对于异步提交，这里不需要发布事件，将在回调中处理
             pass
 
         elif result.status == ORDERSTATUS_TYPES.CANCELED:
-            self.log("INFO", f"🚫 CANCELED by {broker.__class__.__name__}: {result.broker_order_id}")
+            self.log("INFO", f"🚫 CANCELED: {result.error_message or 'No reason'}")
 
-            # 发布订单取消事件
-            event = result.to_event(order, original_event, self.publish_event)
+            # 创建取消事件
+            engine_id = self._bound_engine.engine_id if self._bound_engine else None
+            run_id = getattr(self._bound_engine, 'run_id', None) if self._bound_engine else None
+            event = result.to_event(engine_id=engine_id, run_id=run_id)
+            if event:
+                self.log("INFO", f"🔥 [ROUTER] Creating ORDER_CANCELED event: {type(event).__name__}")
+                # 发布取消事件到引擎
+                self.publish_event(event)
+                self.log("INFO", f"🔥 [ROUTER] ORDER_CANCELED event published to engine")
+            else:
+                self.log("ERROR", f"🔥 [ROUTER] ❌ Failed to create ORDER_CANCELED event!")
 
         # 更新订单跟踪状态
         if result.broker_order_id and hasattr(self, '_processing_orders'):
@@ -798,6 +905,11 @@ class TradeGateway(BaseTradeGateway):
 
         self.log("INFO", f"🔥 [ROUTER] ORDERPARTIALLYFILLED事件处理完成")
 
+    # TODO: [订单持久化] on_order_rejected 未被引擎注册
+    #       ORDERREJECTED 事件直接注册给 Portfolio (engine_assembly_service.py:1562)
+    #       所以此路由方法不会被调用，保留仅为未来扩展考虑
+    #       如需启用路由，需在 time_controlled_engine.py 中添加:
+    #       EVENT_TYPES.ORDERREJECTED: "on_order_rejected"
     def on_order_rejected(self, event) -> None:
         """
         处理ORDERREJECTED事件，按portfolio_id路由到对应的Portfolio

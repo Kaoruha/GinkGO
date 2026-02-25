@@ -89,7 +89,8 @@ class SimBroker(BaseBroker, IBroker):
             # 添加SimBroker验证失败的订单拒绝日志
             print(f"[BROKER_REJECT] {order.direction.name} {order.code} Reason:Validation Failed Broker:SIM Order:{order.uuid[:8]}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,  # 使用正确的 REJECTED 状态
+                order=order,
                 error_message="Order validation failed by SimBroker"
             )
 
@@ -116,8 +117,9 @@ class SimBroker(BaseBroker, IBroker):
         except Exception as e:
             self.log("ERROR", f"❌ [SIMBROKER] Execution error: {e}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,  # 使用正确的 REJECTED 状态
                 broker_order_id=broker_order_id,
+                order=order,
                 error_message=f"SimBroker execution error: {str(e)}"
             )
 
@@ -184,7 +186,7 @@ class SimBroker(BaseBroker, IBroker):
         """
         self.log("WARN", f"🚫 CANCEL REQUESTED: {order_id} (SimBroker orders execute immediately)")
         return BrokerExecutionResult(
-            status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+            status=ORDERSTATUS_TYPES.REJECTED,  # 取消请求被拒绝
             error_message="Cannot cancel: SimBroker orders execute immediately"
         )
 
@@ -209,8 +211,9 @@ class SimBroker(BaseBroker, IBroker):
             if market_data is None:
                 self.log("ERROR", f"❌ [SIMBROKER] No market data for {order.code}")
                 return BrokerExecutionResult(
-                    status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                    status=ORDERSTATUS_TYPES.REJECTED,  # 使用正确的 REJECTED 状态
                     broker_order_id=broker_order_id,
+                    order=order,
                     error_message=f"No market data available for {order.code}"
                 )
             self.log("DEBUG", f"✅ [SIMBROKER] Market data obtained for {order.code}")
@@ -228,6 +231,7 @@ class SimBroker(BaseBroker, IBroker):
                 return BrokerExecutionResult(
                     status=ORDERSTATUS_TYPES.CANCELED,
                     broker_order_id=broker_order_id,
+                    order=order,
                     error_message="Invalid price data"
                 )
             self.log("DEBUG", f"✅ [SIMBROKER] Price validation passed")
@@ -239,6 +243,7 @@ class SimBroker(BaseBroker, IBroker):
                 return BrokerExecutionResult(
                     status=ORDERSTATUS_TYPES.CANCELED,
                     broker_order_id=broker_order_id,
+                    order=order,
                     error_message="Order cannot be filled at current price"
                 )
             self.log("DEBUG", f"✅ [SIMBROKER] Order can be filled")
@@ -250,6 +255,7 @@ class SimBroker(BaseBroker, IBroker):
                 return BrokerExecutionResult(
                     status=ORDERSTATUS_TYPES.CANCELED,
                     broker_order_id=broker_order_id,
+                    order=order,
                     error_message="Price limit up/down"
                 )
             self.log("DEBUG", f"✅ [SIMBROKER] No price limit restrictions")
@@ -275,6 +281,7 @@ class SimBroker(BaseBroker, IBroker):
                 return BrokerExecutionResult(
                     status=ORDERSTATUS_TYPES.REJECTED,
                     broker_order_id=broker_order_id,
+                    order=order,
                     error_message="Insufficient funds for execution"
                 )
 
@@ -313,8 +320,9 @@ class SimBroker(BaseBroker, IBroker):
             import traceback
             self.log("ERROR", f"❌ [SIMBROKER] Traceback: {traceback.format_exc()}")
             return BrokerExecutionResult(
-                status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                status=ORDERSTATUS_TYPES.REJECTED,  # 使用正确的 REJECTED 状态
                 broker_order_id=broker_order_id,
+                order=order,
                 error_message=f"Simulation error: {str(e)}"
             )
 

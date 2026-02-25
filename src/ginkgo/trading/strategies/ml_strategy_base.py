@@ -24,8 +24,7 @@ from decimal import Decimal
 from abc import abstractmethod
 
 from ginkgo.trading.strategies.base_strategy import BaseStrategy
-from ginkgo.entities.signal import Signal
-from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES, MODEL_TYPES
+from ginkgo.enums import DIRECTION_TYPES, MODEL_TYPES
 from ginkgo.libs import GLOG
 from ginkgo.data import get_bars
 
@@ -376,25 +375,23 @@ class StrategyMLBase(BaseStrategy):
             self.log("ERROR", f"信号生成失败: {code}, {e}")
             return []
 
-    def _create_signal(self, portfolio_info, code: str, 
-                      direction: DIRECTION_TYPES, reason: str) -> Signal:
+    def _create_signal(self, portfolio_info, code: str,
+                      direction: DIRECTION_TYPES, reason: str):
         """创建交易信号"""
-        signal = Signal(
-            portfolio_id=portfolio_info["uuid"],
-            engine_id=self.engine_id,
-            timestamp=portfolio_info["now"],
+        # 使用基类方法创建信号（自动填充 run_id 等上下文）
+        signal = self.create_signal(
             code=code,
             direction=direction,
             reason=reason,
-            source=SOURCE_TYPES.STRATEGY,
+            business_timestamp=portfolio_info.get("now"),
         )
-        
+
         # 添加ML特定信息
         signal.strategy_name = self.name
         signal.model_type = self._model_info.get('model_type', 'Unknown')
-        
+
         self.log("INFO", f"生成ML信号: {code} {direction.value} - {reason}")
-        
+
         return signal
 
     def update_performance_monitoring(self, code: str, prediction: float, 

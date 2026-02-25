@@ -115,14 +115,14 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
             force (bool): 是否强制生成新的run_id（即使当前已存在）
 
         Returns:
-            str: 生成的run_id
+            str: 生成的run_id（32位UUID格式）
         """
         from ..core.identity import IdentityUtils
 
         # 只有在强制生成或当前run_id为空时才生成新的
         if force or self._run_id is None:
             self._run_sequence += 1
-            self._run_id = IdentityUtils.generate_run_id(self._engine_id, self._run_sequence)
+            self._run_id = IdentityUtils.generate_run_id()
             # 同时更新 EngineContext
             self._engine_context.set_run_id(self._run_id)
             self.log("INFO", f"Generated new run_id: {self._run_id} for engine_id={self.engine_id}")

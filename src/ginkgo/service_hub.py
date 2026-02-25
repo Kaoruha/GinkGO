@@ -41,7 +41,12 @@ Architecture:
     │   ├── portfolios (组合访问器)
     │   └── strategies (策略访问器)
     ├── core (核心模块访问器)
-    └── features (因子模块访问器)
+    ├── features (因子模块访问器)
+    ├── research (因子研究模块访问器) [NEW]
+    ├── validation (策略验证模块访问器) [NEW]
+    ├── paper (Paper Trading模块访问器) [NEW]
+    ├── comparison (回测对比模块访问器) [NEW]
+    └── optimization (参数优化模块访问器) [NEW]
 """
 
 from typing import Dict, Any, Optional, List
@@ -89,7 +94,7 @@ class ServiceHub:
     def get_module_status(self) -> Dict[str, Dict[str, Any]]:
         """获取所有模块的详细状态"""
         status = {}
-        for module_name in ['data', 'trading', 'core', 'ml', 'features', 'notifier']:
+        for module_name in ['data', 'trading', 'core', 'ml', 'features', 'notifier', 'research', 'validation', 'paper', 'comparison', 'optimization']:
             try:
                 module = getattr(self, module_name)
                 if module is not None:
@@ -144,7 +149,7 @@ class ServiceHub:
         """列出所有可用模块"""
         available = ["data"]  # data模块始终可用
 
-        for module_name in ["trading", "core", "ml", "features", "notifier"]:
+        for module_name in ["trading", "core", "ml", "features", "notifier", "research", "validation", "paper", "comparison", "optimization"]:
             try:
                 module = getattr(self, module_name)
                 if module is not None:
@@ -339,6 +344,123 @@ class ServiceHub:
             self._module_errors['notifier'] = str(e)
             if self._debug_mode:
                 print(f":x: 通知模块错误: {e}")
+                import traceback
+                traceback.print_exc()
+            return None
+
+    # ==================== 新增量化研究模块 ====================
+
+    @property
+    def research(self):
+        """因子研究模块访问器"""
+        if 'research' in self._module_cache:
+            return self._module_cache['research']
+
+        @self._measure_performance('research')
+        def _load_research():
+            from ginkgo.research.containers import research_container
+            return research_container
+
+        try:
+            container = _load_research()
+            self._module_cache['research'] = container
+            return container
+        except Exception as e:
+            self._module_errors['research'] = str(e)
+            if self._debug_mode:
+                print(f":x: 因子研究模块错误: {e}")
+                import traceback
+                traceback.print_exc()
+            return None
+
+    @property
+    def validation(self):
+        """策略验证模块访问器"""
+        if 'validation' in self._module_cache:
+            return self._module_cache['validation']
+
+        @self._measure_performance('validation')
+        def _load_validation():
+            from ginkgo.validation.containers import validation_container
+            return validation_container
+
+        try:
+            container = _load_validation()
+            self._module_cache['validation'] = container
+            return container
+        except Exception as e:
+            self._module_errors['validation'] = str(e)
+            if self._debug_mode:
+                print(f":x: 策略验证模块错误: {e}")
+                import traceback
+                traceback.print_exc()
+            return None
+
+    @property
+    def paper(self):
+        """Paper Trading模块访问器"""
+        if 'paper' in self._module_cache:
+            return self._module_cache['paper']
+
+        @self._measure_performance('paper')
+        def _load_paper():
+            from ginkgo.trading.paper.containers import paper_container
+            return paper_container
+
+        try:
+            container = _load_paper()
+            self._module_cache['paper'] = container
+            return container
+        except Exception as e:
+            self._module_errors['paper'] = str(e)
+            if self._debug_mode:
+                print(f":x: Paper Trading模块错误: {e}")
+                import traceback
+                traceback.print_exc()
+            return None
+
+    @property
+    def comparison(self):
+        """回测对比模块访问器"""
+        if 'comparison' in self._module_cache:
+            return self._module_cache['comparison']
+
+        @self._measure_performance('comparison')
+        def _load_comparison():
+            from ginkgo.trading.comparison.containers import comparison_container
+            return comparison_container
+
+        try:
+            container = _load_comparison()
+            self._module_cache['comparison'] = container
+            return container
+        except Exception as e:
+            self._module_errors['comparison'] = str(e)
+            if self._debug_mode:
+                print(f":x: 回测对比模块错误: {e}")
+                import traceback
+                traceback.print_exc()
+            return None
+
+    @property
+    def optimization(self):
+        """参数优化模块访问器"""
+        if 'optimization' in self._module_cache:
+            return self._module_cache['optimization']
+
+        @self._measure_performance('optimization')
+        def _load_optimization():
+            from ginkgo.trading.optimization.containers import optimization_container
+            return optimization_container
+
+        try:
+            container = _load_optimization()
+            self._module_cache['optimization'] = container
+            return container
+        except Exception as e:
+            self._module_errors['optimization'] = str(e)
+            if self._debug_mode:
+                print(f":x: 参数优化模块错误: {e}")
                 import traceback
                 traceback.print_exc()
             return None

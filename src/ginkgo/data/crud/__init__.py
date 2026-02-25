@@ -10,6 +10,7 @@
 
 from ginkgo.data.crud.adjustfactor_crud import AdjustfactorCRUD
 from ginkgo.data.crud.analyzer_record_crud import AnalyzerRecordCRUD
+from ginkgo.data.crud.backtest_task_crud import BacktestTaskCRUD
 from ginkgo.data.crud.bar_crud import BarCRUD
 from ginkgo.data.crud.backtest_task_crud import BacktestTaskCRUD
 from ginkgo.data.crud.base_crud import BaseCRUD

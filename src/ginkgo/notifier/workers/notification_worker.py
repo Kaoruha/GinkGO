@@ -73,7 +73,8 @@ class NotificationWorker:
         notification_service,
         record_crud: NotificationRecordCRUD,
         group_id: Optional[str] = None,
-        auto_offset_reset: str = "earliest"
+        auto_offset_reset: str = "earliest",
+        node_id: Optional[str] = None
     ):
         """
         初始化 NotificationWorker
@@ -83,11 +84,13 @@ class NotificationWorker:
             record_crud: NotificationRecordCRUD 实例
             group_id: Consumer group ID（可选，默认为 notification_worker_group）
             auto_offset_reset: Offset 重置策略（earliest/latest）
+            node_id: 节点ID（可选，用于标识和心跳）
         """
         self.notification_service = notification_service
         self.record_crud = record_crud
         self._group_id = group_id or self.WORKER_GROUP_ID
         self._auto_offset_reset = auto_offset_reset
+        self._node_id = node_id or "notification_worker"
 
         # Worker 状态
         self._status = WorkerStatus.STOPPED

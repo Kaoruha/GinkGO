@@ -64,7 +64,7 @@ def show(
 
     Examples:
         # 按运行会话查询（新方式）
-        ginkgo result show --run-id eng_abc_r_251223_1200_001
+        ginkgo result show --run-id a3b5c7d9e2f1a4b6c8d0e2f4a6b8c0d2
 
         # 按引擎/投资组合/分析器查询（旧方式）
         ginkgo result show --engine present_engine --portfolio present_portfolio --analyzer net_value

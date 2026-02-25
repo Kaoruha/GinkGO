@@ -197,7 +197,6 @@ class BarCRUD(BaseCRUD[MBar]):
             order_by="timestamp",
             desc_order=desc_order,
             as_dataframe=as_dataframe,
-            output_type="bar" if not as_dataframe else "model",
         )
 
     def get_latest_bars(self, code: str, limit: int = 1, page: Optional[int] = None, as_dataframe: bool = False) -> Union[List[Bar], pd.DataFrame]:
@@ -217,7 +216,6 @@ class BarCRUD(BaseCRUD[MBar]):
             order_by="timestamp",
             desc_order=True,
             as_dataframe=as_dataframe,
-            output_type="bar" if not as_dataframe else "model",
         )
 
     def remove_by_code_and_date_range(

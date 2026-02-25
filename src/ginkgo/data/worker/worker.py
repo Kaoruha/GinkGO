@@ -31,8 +31,8 @@ class DataWorker(threading.Thread):
     DEFAULT_CONSUMER_GROUP: str = "data_worker_group"
     NOTIFICATIONS_TOPIC: str = "ginkgo.notifications"  # 通知主题
 
-    # 心跳配置
-    HEARTBEAT_KEY_PREFIX: str = "heartbeat:data_worker"
+    # 心跳配置 (从统一schema获取)
+    HEARTBEAT_KEY_PREFIX: str = "heartbeat:data_worker"  # 保持向后兼容，实际使用从redis_schema获取
     HEARTBEAT_TTL: int = 30  # 秒
     HEARTBEAT_INTERVAL: int = 10  # 秒
 
@@ -561,8 +561,10 @@ class DataWorker(threading.Thread):
         def heartbeat_loop():
             while not self._stop_event.is_set():
                 try:
-                    # 通过RedisCRUD获取原始Redis客户端
                     from ginkgo.data.crud import RedisCRUD
+                    from ginkgo.data.redis_schema import (
+                        RedisKeyBuilder, DataWorkerHeartbeat, WorkerStatus, RedisTTL
+                    )
 
                     redis_crud = RedisCRUD()
                     redis_client = redis_crud.redis
@@ -572,23 +574,19 @@ class DataWorker(threading.Thread):
                         self._stop_event.wait(self.HEARTBEAT_INTERVAL)
                         continue
 
-                    # 构建心跳键
-                    heartbeat_key = f"{self.HEARTBEAT_KEY_PREFIX}:{self._node_id}"
+                    # 构建心跳键和数据
+                    heartbeat_key = RedisKeyBuilder.data_worker_heartbeat(self._node_id)
+                    heartbeat = DataWorkerHeartbeat.create(
+                        node_id=self._node_id,
+                        status=str(self._status),
+                        stats=self._stats.copy()
+                    )
 
-                    # 心跳数据
-                    heartbeat_data = {
-                        "node_id": self._node_id,
-                        "status": str(self._status),
-                        "timestamp": datetime.now().isoformat(),
-                        "stats": self._stats.copy()
-                    }
-
-                    # 写入Redis（带TTL）- 使用原始Redis客户端的setex方法
-                    import json
+                    # 写入Redis（带TTL）
                     redis_client.setex(
                         heartbeat_key,
-                        self.HEARTBEAT_TTL,
-                        json.dumps(heartbeat_data, ensure_ascii=False)
+                        RedisTTL.DATA_WORKER_HEARTBEAT,
+                        heartbeat.to_json()
                     )
 
                     with self._lock:

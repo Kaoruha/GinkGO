@@ -10,7 +10,6 @@
 import time
 import datetime
 from ginkgo.trading.events import EventSignalGeneration
-from ginkgo.trading.entities.signal import Signal
 from ginkgo.trading.strategies.base_strategy import BaseStrategy
 from ginkgo.enums import DIRECTION_TYPES, SOURCE_TYPES
 from ginkgo.data import get_bars
@@ -39,16 +38,13 @@ class StrategyVolumeActivate(BaseStrategy):
         r = df["volume"].iloc[-1] / mean
         if r < 0.67 and r > 0.6:
             self.log("INFO", f"Gen Signal about {event.code} from {self.name}")
-            s = Signal(
-                portfolio_id=portfolio_info["uuid"],
-                engine_id=self.engine_id,
-                timestamp=portfolio_info["now"],
+            s = self.create_signal(
                 code=event.code,
                 direction=DIRECTION_TYPES.LONG,
                 reason="Volume Activate",
-                source=SOURCE_TYPES.STRATEGY,
+                business_timestamp=portfolio_info.get("now"),
             )
             return [s]
-        
+
         # 如果没有生成信号，返回空列表
         return []

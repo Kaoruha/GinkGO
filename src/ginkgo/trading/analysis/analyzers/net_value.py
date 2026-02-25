@@ -8,6 +8,7 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.libs.data.number import to_decimal
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 
@@ -26,7 +27,7 @@ class NetValue(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """激活净值计算，更新当前净值数据"""
-        current_worth = portfolio_info.get("worth", 0)
+        current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
         self.add_data(current_worth)
 
     def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:

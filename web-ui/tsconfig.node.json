@@ -4,7 +4,12 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
+<<<<<<< HEAD
     "allowSyntheticDefaultImports": true
+=======
+    "allowSyntheticDefaultImports": true,
+    "strict": true
+>>>>>>> 011-quant-research
   },
   "include": ["vite.config.ts"]
 }

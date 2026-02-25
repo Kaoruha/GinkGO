@@ -143,6 +143,7 @@ class FixedSizer(BaseSizer):
                     remain=planned_cost,
                     fee=0,
                     timestamp=current_time,
+                    business_timestamp=signal.business_timestamp if hasattr(signal, 'business_timestamp') else current_time,
                 )
             elif signal.direction == DIRECTION_TYPES.SHORT:
                 pos = portfolio_info["positions"].get(code)
@@ -170,6 +171,7 @@ class FixedSizer(BaseSizer):
                     remain=0,
                     fee=0,
                     timestamp=current_time,
+                    business_timestamp=signal.business_timestamp if hasattr(signal, 'business_timestamp') else current_time,
                 )
             return o
         except Exception as e:

@@ -341,7 +341,8 @@ def status(
             console.print(f":information: Querying status of ExecutionNode '{node_id}'...")
 
             # Check heartbeat
-            heartbeat_key = f"heartbeat:node:{node_id}"
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+            heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
             heartbeat_exists = redis_client.exists(heartbeat_key)
 
             if not heartbeat_exists:
@@ -375,14 +376,15 @@ def status(
             console.print(":information: Querying [bold]all[/bold] ExecutionNodes...")
 
             # Get all heartbeat keys
-            heartbeat_keys = redis_client.keys("heartbeat:node:*")
+            from ginkgo.data.redis_schema import RedisKeyPattern, extract_id_from_key, RedisKeyPrefix, RedisKeyBuilder
+            heartbeat_keys = redis_client.keys(RedisKeyPattern.EXECUTION_NODE_HEARTBEAT_ALL)
 
             if not heartbeat_keys:
                 console.print("[yellow]:warning: No ExecutionNodes running (no heartbeats found)[/yellow]")
                 return
 
             # Extract node IDs
-            node_ids = [key.decode('utf-8').replace("heartbeat:node:", "") for key in heartbeat_keys]
+            node_ids = [extract_id_from_key(key.decode('utf-8'), f"{RedisKeyPrefix.EXECUTION_NODE_HEARTBEAT}:") for key in heartbeat_keys]
 
             # Create table for all nodes
             table = Table(title=f":execution: ExecutionNode Status ({len(node_ids)} nodes)", show_header=True)
@@ -395,7 +397,7 @@ def status(
 
             for node_id in node_ids:
                 # Get heartbeat TTL
-                heartbeat_key = f"heartbeat:node:{node_id}"
+                heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
                 heartbeat_ttl = redis_client.ttl(heartbeat_key)
 
                 # Get metrics
@@ -489,7 +491,8 @@ def cleanup(
         redis_client = redis_crud.redis
 
         # Keys to cleanup
-        heartbeat_key = f"heartbeat:node:{node_id}"
+        from ginkgo.data.redis_schema import RedisKeyBuilder
+        heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(node_id)
         metrics_key = f"node:metrics:{node_id}"
 
         # Check what exists

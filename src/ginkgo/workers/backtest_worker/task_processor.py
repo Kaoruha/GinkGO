@@ -5,21 +5,38 @@ Backtest Task Processor
 
 职责：
 - 任务生命周期管理（启动、运行、停止、清理）
+<<<<<<< HEAD
 - 调用EngineAssemblyService装配TimeControlledEventEngine
+=======
+- 调用 EngineAssemblyService 装配引擎
+>>>>>>> 011-quant-research
 - 执行回测并上报进度
 - 处理结果和异常
 """
 
 from threading import Thread, Event
+<<<<<<< HEAD
 from typing import Optional, Callable, Dict, Any
+=======
+from typing import Optional, Dict, Any
+>>>>>>> 011-quant-research
 from datetime import datetime
 import time
 
 from ginkgo.workers.backtest_worker.models import BacktestTask, BacktestTaskState, EngineStage
+<<<<<<< HEAD
 from ginkgo.trading.services.engine_assembly_service import EngineAssemblyService
 from ginkgo.workers.backtest_worker.progress_tracker import ProgressTracker
 # GLOG removed
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
+=======
+from ginkgo.workers.backtest_worker.progress_tracker import ProgressTracker
+from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
+from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
+from ginkgo import services
+from ginkgo.libs import GinkgoLogger
+from ginkgo.trading.time.clock import now as clock_now
+>>>>>>> 011-quant-research
 
 
 class BacktestProcessor(Thread):
@@ -45,6 +62,13 @@ class BacktestProcessor(Thread):
         self._exception: Optional[Exception] = None
         self._result: Optional[Dict[str, Any]] = None
 
+<<<<<<< HEAD
+=======
+        # 服务
+        self._assembly_service = services.trading.services.engine_assembly_service()
+        self._portfolio_service = services.data.portfolio_service()
+
+>>>>>>> 011-quant-research
     def run(self):
         """执行回测任务"""
         self.task.started_at = datetime.utcnow()
@@ -53,31 +77,51 @@ class BacktestProcessor(Thread):
         try:
             print(f"[{self.task.task_uuid[:8]}] Starting backtest task: {self.task.name}")
 
+<<<<<<< HEAD
             # 保存进度回调到config中
             self.task.config._progress_callback = self._on_progress
 
+=======
+>>>>>>> 011-quant-research
             # 阶段1: 数据准备
             self.task.state = BacktestTaskState.DATA_PREPARING
             self.task.current_stage = EngineStage.DATA_PREPARING
             self.progress_tracker.report_stage(self.task, EngineStage.DATA_PREPARING, "Preparing data...")
+<<<<<<< HEAD
             time.sleep(0.5)  # 给上报一点时间
+=======
+            time.sleep(0.5)
+>>>>>>> 011-quant-research
 
             # 阶段2: 引擎装配
             self.task.state = BacktestTaskState.ENGINE_BUILDING
             self.task.current_stage = EngineStage.ENGINE_BUILDING
             self.progress_tracker.report_stage(self.task, EngineStage.ENGINE_BUILDING, "Building engine...")
 
+<<<<<<< HEAD
             assembly_service = EngineAssemblyService()
             self._engine = assembly_service.build_engine_from_task(self.task)
+=======
+            self._engine = self._assemble_engine()
+>>>>>>> 011-quant-research
 
             # 阶段3: 运行回测
             self.task.state = BacktestTaskState.RUNNING
             self.task.current_stage = EngineStage.RUNNING
             self.progress_tracker.report_stage(self.task, EngineStage.RUNNING, "Running backtest...")
 
+<<<<<<< HEAD
             # 执行回测
             result = self._engine.run()
 
+=======
+            # 执行回测（run() 启动引擎后立即返回，需要等待引擎完成）
+            result = self._engine.run()
+
+            # 等待引擎主线程完成
+            self._wait_for_engine_completion()
+
+>>>>>>> 011-quant-research
             # 计算回测结果
             self._result = self._calculate_result(result)
 
@@ -85,6 +129,12 @@ class BacktestProcessor(Thread):
             if hasattr(self._engine, 'notify_analyzers_backtest_end'):
                 self._engine.notify_analyzers_backtest_end()
 
+<<<<<<< HEAD
+=======
+            # 汇总分析器结果并保存到数据库
+            self._aggregate_and_save_results()
+
+>>>>>>> 011-quant-research
             # 阶段4: 完成处理
             self.task.state = BacktestTaskState.COMPLETED
             self.task.progress = 100.0
@@ -111,6 +161,215 @@ class BacktestProcessor(Thread):
             import traceback
             print(traceback.format_exc())
 
+<<<<<<< HEAD
+=======
+    def _wait_for_engine_completion(self, timeout: float = 3600.0):
+        """
+        等待引擎主线程完成
+
+        Args:
+            timeout: 最大等待时间（秒），默认1小时
+        """
+        if self._engine is None:
+            return
+
+        # 获取引擎的主线程
+        main_thread = getattr(self._engine, '_main_thread', None)
+        if main_thread is None:
+            print(f"[{self.task.task_uuid[:8]}] Engine has no main thread, skipping wait")
+            return
+
+        # 检查线程是否已启动
+        if not main_thread.is_alive():
+            print(f"[{self.task.task_uuid[:8]}] Engine main thread already completed")
+            return
+
+        # 等待线程完成
+        print(f"[{self.task.task_uuid[:8]}] Waiting for engine to complete...")
+        main_thread.join(timeout=timeout)
+
+        if main_thread.is_alive():
+            print(f"[{self.task.task_uuid[:8]}] Engine did not complete within {timeout}s, forcing stop")
+            self._engine.stop()
+            main_thread.join(timeout=10.0)
+        else:
+            print(f"[{self.task.task_uuid[:8]}] Engine completed successfully")
+
+    def _assemble_engine(self) -> TimeControlledEventEngine:
+        """
+        装配回测引擎
+
+        将 BacktestTask 转换为 EngineAssemblyService 需要的参数格式
+        """
+        print(f"[{self.task.task_uuid[:8]}] Assembling backtest engine...")
+
+        # 1. 构建引擎配置
+        engine_data = {
+            "name": f"BacktestEngine_{self.task.task_uuid[:8]}",
+            "run_id": self.task.task_uuid,
+            "backtest_start_date": self.task.config.start_date,
+            "backtest_end_date": self.task.config.end_date,
+            "initial_capital": self.task.config.initial_cash,
+            "commission_rate": self.task.config.commission_rate,
+            "slippage_rate": self.task.config.slippage_rate,
+            "broker": "backtest",
+            "frequency": self.task.config.frequency,
+        }
+
+        # 2. 获取 Portfolio 配置和组件
+        portfolio_config, portfolio_components = self._get_portfolio_config_and_components()
+
+        # 3. 构建 portfolio mappings
+        portfolio_mapping = type('PortfolioMapping', (), {
+            'portfolio_id': self.task.portfolio_uuid
+        })()
+        portfolio_mappings = [portfolio_mapping]
+
+        # 4. 构建 portfolio_configs 和 portfolio_components 字典
+        portfolio_configs = {self.task.portfolio_uuid: portfolio_config}
+        portfolio_components_dict = {self.task.portfolio_uuid: portfolio_components}
+
+        # 5. 创建 logger
+        now = clock_now().strftime("%Y%m%d%H%M%S")
+        logger = GinkgoLogger(
+            logger_name=f"backtest_{self.task.task_uuid[:8]}",
+            file_names=[f"bt_{self.task.task_uuid[:8]}_{now}"],
+            console_log=False
+        )
+
+        # 6. 调用 EngineAssemblyService
+        result = self._assembly_service.assemble_backtest_engine(
+            engine_id=self.task.task_uuid,
+            engine_data=engine_data,
+            portfolio_mappings=portfolio_mappings,
+            portfolio_configs=portfolio_configs,
+            portfolio_components=portfolio_components_dict,
+            logger=logger,
+            progress_callback=self._on_progress,
+        )
+
+        if not result.success:
+            error_msg = result.error or "Unknown error"
+            raise RuntimeError(f"Engine assembly failed for {self.task.task_uuid[:8]}: {error_msg}")
+
+        print(f"[{self.task.task_uuid[:8]}] Engine assembled successfully")
+        return result.data
+
+    def _get_portfolio_config_and_components(self) -> tuple:
+        """
+        获取 Portfolio 配置和组件
+
+        必须从数据库加载，没有组件配置视为错误
+        """
+        # 从数据库加载
+        portfolio_result = self._portfolio_service.load_portfolio_with_components(
+            portfolio_id=self.task.portfolio_uuid
+        )
+
+        if not portfolio_result.is_success() or not portfolio_result.data:
+            raise ValueError(f"Portfolio {self.task.portfolio_uuid} not found in database")
+
+        # 从数据库获取配置
+        config = self._extract_portfolio_config_from_db(portfolio_result.data)
+
+        # 获取组件文件映射
+        components = self._get_portfolio_components_from_db()
+
+        if not components:
+            raise ValueError(
+                f"Portfolio {self.task.portfolio_uuid} has no component configured. "
+                f"Please bind at least one strategy to the portfolio before running backtest."
+            )
+
+        # 检查是否有策略组件
+        if not components.get("strategies"):
+            raise ValueError(
+                f"Portfolio {self.task.portfolio_uuid} has no strategy configured. "
+                f"Please bind at least one strategy to the portfolio before running backtest."
+            )
+
+        print(f"[{self.task.task_uuid[:8]}] Loaded portfolio {self.task.portfolio_uuid} from database")
+        return config, components
+
+    def _extract_portfolio_config_from_db(self, portfolio_data) -> Dict[str, Any]:
+        """从数据库结果提取 Portfolio 配置"""
+        return {
+            "uuid": self.task.portfolio_uuid,
+            "name": portfolio_data.name if hasattr(portfolio_data, 'name') else f"Portfolio_{self.task.portfolio_uuid[:8]}",
+            "cash": float(portfolio_data.cash) if hasattr(portfolio_data, 'cash') else self.task.config.initial_cash,
+            "initial_capital": self.task.config.initial_cash,
+        }
+
+    def _get_portfolio_components_from_db(self) -> Dict[str, Any]:
+        """从数据库获取 Portfolio 组件配置"""
+        try:
+            from ginkgo.data.containers import container as data_container
+            from ginkgo.enums import FILE_TYPES
+
+            # 获取文件映射 CRUD
+            file_mapping_crud = data_container.cruds.portfolio_file_mapping()
+
+            # 查询映射 - 使用 find_by_portfolio 或 find
+            mappings = file_mapping_crud.find(
+                filters={"portfolio_id": self.task.portfolio_uuid, "is_del": False}
+            )
+            if not mappings:
+                print(f"[{self.task.task_uuid[:8]}] No file mappings found for portfolio {self.task.portfolio_uuid}")
+                return None
+
+            components = {
+                "strategies": [],
+                "sizers": [],
+                "selectors": [],
+                "risk_managers": [],
+                "analyzers": []
+            }
+
+            # FILE_TYPES 值到组件分类的映射
+            type_mapping = {
+                FILE_TYPES.STRATEGY.value: "strategies",
+                FILE_TYPES.SIZER.value: "sizers",
+                FILE_TYPES.SELECTOR.value: "selectors",
+                FILE_TYPES.RISKMANAGER.value: "risk_managers",
+                FILE_TYPES.ANALYZER.value: "analyzers",
+            }
+
+            # 获取文件 CRUD 以读取文件名称
+            file_crud = data_container.cruds.file()
+
+            for mapping in mappings:
+                # 使用 mapping.type (不是 component_type)
+                component_type = mapping.type
+                category = type_mapping.get(component_type)
+                if category and category in components:
+                    # 获取文件信息以获取组件名称
+                    component_name = ""
+                    try:
+                        file_records = file_crud.find(filters={"uuid": mapping.file_id})
+                        if file_records and len(file_records) > 0:
+                            component_name = file_records[0].name
+                    except Exception as e:
+                        print(f"[{self.task.task_uuid[:8]}] Failed to get file name: {e}")
+
+                    components[category].append({
+                        "file_id": mapping.file_id,
+                        "mapping_uuid": mapping.uuid,
+                        "name": component_name,  # 添加组件名称
+                        "type": component_type,  # 🔧 添加组件类型（engine_assembly_service 需要此字段）
+                    })
+
+            print(f"[{self.task.task_uuid[:8]}] Components loaded: strategies={len(components['strategies'])}, "
+                  f"sizers={len(components['sizers'])}, risk_managers={len(components['risk_managers'])}")
+
+            return components
+
+        except Exception as e:
+            print(f"[{self.task.task_uuid[:8]}] Failed to get portfolio components: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+>>>>>>> 011-quant-research
     def _on_progress(self, progress: float, current_date: str, current_time: datetime = None):
         """进度回调（由引擎调用）"""
         if self._stop_event.is_set():
@@ -119,12 +378,57 @@ class BacktestProcessor(Thread):
         self.task.progress = progress
         self.task.current_date = current_date
 
+<<<<<<< HEAD
         # 每2秒上报一次（由ProgressTracker控制频率）
         self.progress_tracker.report_progress(self.task, progress, current_date)
+=======
+        # 从 portfolio 获取实时统计
+        total_pnl = "0"
+        total_orders = 0
+        total_signals = 0
+
+        try:
+            portfolios = getattr(self._engine, 'portfolios', [])
+            portfolio = None
+            for p in portfolios:
+                if getattr(p, 'uuid', None) == self.task.portfolio_uuid:
+                    portfolio = p
+                    break
+            if portfolio is None and portfolios:
+                portfolio = portfolios[0]
+
+            if portfolio:
+                # 计算盈亏（使用 worth = cash + 持仓价值）
+                initial_cash = self.task.config.initial_cash
+                current_worth = float(getattr(portfolio, 'worth', 0) or getattr(portfolio, '_worth', 0))
+                if current_worth == 0:
+                    current_cash = float(getattr(portfolio, 'cash', initial_cash))
+                    current_worth = current_cash
+                pnl = current_worth - initial_cash
+                total_pnl = str(pnl)
+
+                # 从策略获取信号数
+                strategies = getattr(portfolio, 'strategies', [])
+                for s in strategies:
+                    total_signals += getattr(s, 'signal_count', 0)
+
+                # 从持仓获取订单数（近似）
+                positions = getattr(portfolio, 'positions', {})
+                total_orders = len(positions) if isinstance(positions, dict) else 0
+        except Exception as e:
+            pass  # 统计获取失败不影响主流程
+
+        # 每2秒上报一次（由ProgressTracker控制频率）
+        self.progress_tracker.report_progress(
+            self.task, progress, current_date,
+            total_pnl=total_pnl, total_orders=total_orders, total_signals=total_signals
+        )
+>>>>>>> 011-quant-research
 
     def _calculate_result(self, engine_result: Dict[str, Any]) -> Dict[str, Any]:
         """计算回测结果"""
         try:
+<<<<<<< HEAD
             # 从引擎获取Portfolio
             portfolio = self._engine.portfolios[self.task.portfolio_uuid]
 
@@ -153,6 +457,42 @@ class BacktestProcessor(Thread):
                 "avg_loss": 0.0,
                 "max_win": 0.0,
                 "max_loss": 0.0,
+=======
+            # 从引擎获取Portfolio（portfolios 是 list）
+            portfolios = getattr(self._engine, 'portfolios', [])
+            portfolio = None
+
+            # 在列表中查找匹配的 portfolio
+            for p in portfolios:
+                if getattr(p, 'uuid', None) == self.task.portfolio_uuid:
+                    portfolio = p
+                    break
+
+            # 如果没找到，使用第一个 portfolio
+            if portfolio is None and portfolios:
+                portfolio = portfolios[0]
+
+            if portfolio:
+                initial_cash = self.task.config.initial_cash
+                final_cash = float(portfolio.cash) if hasattr(portfolio, 'cash') else initial_cash
+                total_return = (final_cash - initial_cash) / initial_cash if initial_cash > 0 else 0
+            else:
+                total_return = 0.0
+                initial_cash = self.task.config.initial_cash
+                final_cash = initial_cash
+
+            result = {
+                "task_uuid": self.task.task_uuid,
+                "initial_cash": initial_cash,
+                "final_cash": final_cash,
+                "total_return": total_return,
+                "annual_return": 0.0,
+                "sharpe_ratio": 0.0,
+                "max_drawdown": 0.0,
+                "win_rate": 0.0,
+                "total_trades": 0,
+                "total_signals": 0,
+>>>>>>> 011-quant-research
             }
 
             return result
@@ -165,6 +505,67 @@ class BacktestProcessor(Thread):
                 "error": str(e),
             }
 
+<<<<<<< HEAD
+=======
+    def _aggregate_and_save_results(self):
+        """汇总分析器结果并保存到数据库"""
+        try:
+            # 从 data_container 获取服务（不直接使用 CRUD）
+            from ginkgo.data.containers import container as data_container
+
+            analyzer_service = data_container.analyzer_service()
+            backtest_task_service = data_container.backtest_task_service()
+
+            # 计算运行时长
+            duration_seconds = None
+            if self.task.started_at and self.task.completed_at:
+                duration_seconds = int((self.task.completed_at - self.task.started_at).total_seconds())
+
+            # 创建汇总器（只传入 service，不传入 crud）
+            aggregator = BacktestResultAggregator(
+                analyzer_service=analyzer_service,
+                backtest_task_service=backtest_task_service,
+            )
+
+            # 汇总并保存
+            # 转换日期字符串为 datetime 对象
+            backtest_start = None
+            backtest_end = None
+            if self.task.config.start_date:
+                try:
+                    backtest_start = datetime.strptime(str(self.task.config.start_date), "%Y-%m-%d")
+                except ValueError:
+                    backtest_start = datetime.strptime(str(self.task.config.start_date)[:10], "%Y-%m-%d")
+            if self.task.config.end_date:
+                try:
+                    backtest_end = datetime.strptime(str(self.task.config.end_date), "%Y-%m-%d")
+                except ValueError:
+                    backtest_end = datetime.strptime(str(self.task.config.end_date)[:10], "%Y-%m-%d")
+
+            result = aggregator.aggregate_and_save(
+                task_id=self.task.task_uuid,
+                portfolio_id=self.task.portfolio_uuid,
+                engine_id=self.task.task_uuid,
+                status="completed",
+                duration_seconds=duration_seconds,
+                backtest_start_date=backtest_start,
+                backtest_end_date=backtest_end
+            )
+
+            if result.is_success():
+                print(f"[{self.task.task_uuid[:8]}] Results aggregated and saved successfully")
+                # 更新本地结果
+                self._result.update(result.data.get("metrics", {}))
+                self._result.update(result.data.get("stats", {}))
+            else:
+                print(f"[{self.task.task_uuid[:8]}] Failed to aggregate results: {result.error}")
+
+        except Exception as e:
+            print(f"[{self.task.task_uuid[:8]}] Error in result aggregation: {e}")
+            import traceback
+            traceback.print_exc()
+
+>>>>>>> 011-quant-research
     def cancel(self):
         """取消任务"""
         print(f"[{self.task.task_uuid[:8]}] Cancelling task...")
