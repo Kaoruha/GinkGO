@@ -1,0 +1,55 @@
+# Promtail 最终配置 - 采集 ginkgo 容器并解析 JSON
+server:
+  http_listen_port: 9080
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: ginkgo
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+
+    relabel_configs:
+      # 只保留 ginkgo 容器
+      - source_labels: [__meta_docker_container_name]
+        regex: '/ginkgo-'
+        action: keep
+
+      # 添加容器名标签
+      - source_labels: [__meta_docker_container_name]
+        target_label: container
+        regex: '/(ginkgo-.*)'
+
+      # 移除不需要的标签
+      - regex: '__meta_docker.*'
+        action: labeldrop
+
+    # 解析结构化 JSON 日志
+    pipeline_stages:
+      # Docker 日志格式
+      - json:
+          expressions:
+            raw: log
+
+      # Ginkgo JSON 日志解析
+      - json:
+          expressions:
+            message: message
+            level: log.level
+            log_category: ginkgo.log_category
+            strategy_id: ginkgo.strategy_id
+            portfolio_id: ginkgo.portfolio_id
+            symbol: ginkgo.symbol
+            trace_id: trace.id
+
+      # 提取标签
+      - labels:
+          level:
+          log_category:
+          strategy_id:
+          portfolio_id:
+          trace_id:

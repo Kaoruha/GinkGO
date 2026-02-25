@@ -146,7 +146,7 @@ Thumbs.db
 
 # Project specific
 .claude/
-.conf/
+# .conf/ - 移除整目录排除，只排除敏感文件
 .db/
 .logs/
 *.log
@@ -156,9 +156,15 @@ Thumbs.db
 *.config
 *.config.json
 *.config.yaml
-*.config.yml
-*config*.secret*
-*config*.private*
+
+# Docker compose 环境变量文件（包含敏感信息）
+.env
+.env.*
+docker-compose.override.yml
+
+# Loki/Promtail 配置文件除外
+!.conf/loki-config.yml
+!.conf/promtail-config.yml
 
 # 凭证和密钥文件
 *.key
