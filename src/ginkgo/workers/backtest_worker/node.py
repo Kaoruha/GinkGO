@@ -195,6 +195,15 @@ class BacktestWorker:
                         for message in records:
                             # GinkgoConsumer 已反序列化，message.value 直接是 dict
                             assignment = message.value
+
+                            # 🔥 [FIX] 在接收任务后立即提交 offset，防止 worker 重启后重复消费
+                            # 注意：这里只确认"消息已接收"，不是"任务已完成"
+                            # 任务完成状态由 progress_tracker 跟踪
+                            try:
+                                self.task_consumer.commit()
+                            except Exception as e:
+                                print(f"Failed to commit offset after receiving task: {e}")
+
                             self._handle_task_assignment(assignment)
 
                 except Exception as e:
@@ -217,6 +226,12 @@ class BacktestWorker:
     def _start_task(self, assignment: dict):
         """启动新任务（阻塞等待空闲槽位）"""
         task_uuid = assignment.get("task_uuid", "unknown")[:8]
+
+        # 🔥 [FIX] 检查任务是否已经完成，避免重复执行
+        existing_status = self.progress_tracker.get_task_status(assignment.get("task_uuid"))
+        if existing_status and existing_status in ["completed", "failed", "cancelled"]:
+            print(f"[{task_uuid}] Task already {existing_status}, skipping...")
+            return
 
         # 阻塞等待空闲槽位
         while not self._can_accept_task():
