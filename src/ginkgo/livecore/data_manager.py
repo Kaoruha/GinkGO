@@ -248,17 +248,14 @@ class DataManager(threading.Thread):
         print("DataManager main loop started")
 
         # 创建Kafka Consumers
-        bootstrap_servers = f"{GCONF.KAFKAHOST}:{GCONF.KAFKAPORT}"
         self._consumer_interest = GinkgoConsumer(
             topic=KafkaTopics.INTEREST_UPDATES,
             group_id="data_manager_interest_group",
-            bootstrap_servers=bootstrap_servers,
         )
 
         self._consumer_control = GinkgoConsumer(
             topic=KafkaTopics.CONTROL_COMMANDS,
             group_id="data_manager_control_group",
-            bootstrap_servers=bootstrap_servers,
         )
 
         while not self._stopped.is_set():
