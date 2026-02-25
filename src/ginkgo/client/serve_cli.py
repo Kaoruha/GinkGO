@@ -716,7 +716,18 @@ def serve_worker_notify(
         node_id = f"notify_worker_{socket.gethostname()}"
 
     try:
-        from ginkgo.notifier.core.notification_worker import NotificationWorker
+        from ginkgo.notifier.workers.notification_worker import NotificationWorker
+        from ginkgo.notifier.core.notification_service import NotificationService
+        from ginkgo.notifier.core.template_engine import TemplateEngine
+        from ginkgo.data.crud import NotificationRecordCRUD
+        from ginkgo.data.crud import NotificationTemplateCRUD
+        from ginkgo.data.crud import UserCRUD
+        from ginkgo.data.crud import UserContactCRUD
+        from ginkgo.data.crud import UserGroupCRUD
+        from ginkgo.data.crud import UserGroupMappingCRUD
+        from ginkgo.user.services import UserService
+        from ginkgo.user.services import UserGroupService
+        from ginkgo import services
 
         console.print(Panel.fit(
             f"[bold cyan]:bell: NotificationWorker[/bold cyan]\n"
@@ -726,7 +737,33 @@ def serve_worker_notify(
         ))
 
         console.print(f"\n:rocket: [bold green]Creating NotificationWorker '{node_id}'...[/bold green]")
-        worker = NotificationWorker(node_id=node_id)
+
+        # 初始化所有 CRUD 依赖
+        template_crud = services.data.cruds.notification_template()
+        record_crud = services.data.cruds.notification_record()
+        user_crud = services.data.cruds.user()
+        user_contact_crud = services.data.cruds.user_contact()
+        group_crud = services.data.cruds.user_group()
+        group_mapping_crud = services.data.cruds.user_group_mapping()
+
+        # 初始化服务
+        template_engine = TemplateEngine(template_crud)
+        user_service = UserService(user_crud, user_contact_crud)
+        user_group_service = UserGroupService(group_crud, group_mapping_crud)
+
+        notification_service = NotificationService(
+            template_crud=template_crud,
+            record_crud=record_crud,
+            template_engine=template_engine,
+            user_service=user_service,
+            user_group_service=user_group_service
+        )
+
+        worker = NotificationWorker(
+            notification_service=notification_service,
+            record_crud=record_crud,
+            node_id=node_id
+        )
 
         def signal_handler(sig, frame):
             console.print("\n\n[yellow]:warning: Stopping...[/yellow]")

@@ -18,6 +18,14 @@ _trace_id_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "trace_id", default=None
 )
 
+# 业务上下文 context variables
+_log_category_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "log_category", default=None
+)
+_business_context_ctx: contextvars.ContextVar[Dict[str, Any]] = contextvars.ContextVar(
+    "business_context", default={}
+)
+
 
 
 
@@ -156,10 +164,14 @@ def ginkgo_processor(logger, log_method, event_dict):
         event_dict["ginkgo"] = {}
 
     # 从 contextvars 获取业务上下文
-    # TODO: 在后续任务中实现 contextvars 集成
-    # event_dict["ginkgo"]["log_category"] = _log_category_ctx.get()
-    # event_dict["ginkgo"]["strategy_id"] = _strategy_id_ctx.get()
-    # event_dict["ginkgo"]["portfolio_id"] = _portfolio_id_ctx.get()
+    log_category = _log_category_ctx.get()
+    if log_category:
+        event_dict["ginkgo"]["log_category"] = log_category
+
+    # 获取所有绑定的业务上下文
+    business_context = _business_context_ctx.get()
+    for key, value in business_context.items():
+        event_dict["ginkgo"][key] = value
 
     return event_dict
 
@@ -285,7 +297,7 @@ def configure_structlog():
                 ecs_processor,
                 # === 慢速处理器（可选）===
                 container_metadata_processor,
-                structlog.processors.StackInfoRenderer,
+                structlog.processors.StackInfoRenderer(),
                 structlog.processors.format_exc_info,
                 # === 最慢处理器（放在最后）===
                 structlog.processors.JSONRenderer()
@@ -746,3 +758,70 @@ class GinkgoLogger:
             yield
         finally:
             _trace_id_ctx.reset(token)
+
+    # ==================== 业务上下文管理 ====================
+
+    def set_log_category(self, category: str) -> None:
+        """
+        设置日志类别
+
+        Args:
+            category: 日志类别 ("system" 或 "backtest")
+
+        Example:
+            >>> GLOG.set_log_category("backtest")
+            >>> GLOG.INFO("Backtest started")  # 日志将包含 log_category="backtest"
+        """
+        _log_category_ctx.set(category)
+
+    def bind_context(self, **kwargs) -> None:
+        """
+        绑定业务上下文（会自动添加到所有后续日志）
+
+        Args:
+            **kwargs: 业务上下文字段
+                - strategy_id: UUID
+                - portfolio_id: UUID
+                - event_type: str
+                - symbol: str
+                - direction: str
+                - 其他自定义字段
+
+        Example:
+            >>> GLOG.bind_context(
+            ...     strategy_id=strategy.uuid,
+            ...     portfolio_id=portfolio.uuid
+            ... )
+            >>> GLOG.INFO("Signal generated")  # 自动包含上述字段
+        """
+        current_context = _business_context_ctx.get()
+        if current_context is None:
+            current_context = {}
+        current_context.update(kwargs)
+        _business_context_ctx.set(current_context)
+
+    def unbind_context(self, *keys: str) -> None:
+        """
+        解绑指定的上下文字段
+
+        Args:
+            *keys: 要解绑的字段名称
+
+        Example:
+            >>> GLOG.unbind_context("strategy_id", "portfolio_id")
+        """
+        current_context = _business_context_ctx.get()
+        if current_context:
+            for key in keys:
+                current_context.pop(key, None)
+            _business_context_ctx.set(current_context)
+
+    def clear_context(self) -> None:
+        """
+        清除所有业务上下文
+
+        Example:
+            >>> GLOG.clear_context()
+        """
+        _business_context_ctx.set({})
+        _log_category_ctx.set(None)

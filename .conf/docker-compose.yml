@@ -242,6 +242,89 @@ services:
         limits:
           cpus: '2.00'
           memory: 4096M
+  # Loki Stack - 分布式日志系统
+  loki:
+    image: grafana/loki:main-84ffd0d
+    container_name: ginkgo-loki
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    ports:
+      - "3100:3100"
+    command:
+      - -config.file=/etc/loki/local-config.yaml
+      - --validation.allow-structured-metadata=false
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-storage:/loki
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  promtail:
+    image: grafana/promtail:main-84ffd0d
+    container_name: ginkgo-promtail
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./promtail-config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+
+  grafana:
+    image: grafana/grafana:main-ubuntu
+    container_name: ginkgo-grafana
+    restart: always
+    user: "472"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_INSTALL_PLUGINS=
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    depends_on:
+      - loki
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+
   # Mongo
   mongo-master:
     image: 'mongo:6.0.27-jammy'
@@ -358,9 +441,10 @@ services:
   notify-worker:
     build:
       context: ..
-      dockerfile: .conf/Dockerfile.notify
-    image: ginkgo/notification-worker:latest
+      dockerfile: .conf/Dockerfile.ginkgo
+    image: ginkgo/worker:latest
     container_name: ginkgo-notify-worker
+    command: ["python", "main.py", "serve", "worker-notify"]
     restart: always
     logging:
       driver: "json-file"
@@ -402,6 +486,7 @@ services:
       WORKER_GROUP_ID: notification_worker_group
       GINKGO_DEBUG_MODE: "False"
       LOG_LEVEL: INFO
+      LOGGING_MODE: container
       PYTHONUNBUFFERED: 1
       # 通知系统配置
       GINKGO_NOTIFICATION_DISCORD_TIMEOUT: 3
@@ -430,9 +515,10 @@ services:
   tasktimer:
     build:
       context: ..
-      dockerfile: .conf/Dockerfile.tasktimer
-    image: ginkgo/tasktimer:latest
+      dockerfile: .conf/Dockerfile.ginkgo
+    image: ginkgo/worker:latest
     container_name: ginkgo-tasktimer
+    command: ["python", "main.py", "serve", "tasktimer"]
     restart: always
     logging:
       driver: "json-file"
@@ -466,6 +552,7 @@ services:
       # 运行配置
       GINKGO_DEBUG_MODE: "False"
       LOG_LEVEL: INFO
+      LOGGING_MODE: container
       PYTHONUNBUFFERED: 1
     volumes:
       # 映射用户配置目录中的 task_timer.yml（容器内读取 /root/.ginkgo/task_timer.yml）
@@ -484,9 +571,10 @@ services:
   livecore:
     build:
       context: ..
-      dockerfile: .conf/Dockerfile.livecore
-    image: ginkgo/livecore:latest
+      dockerfile: .conf/Dockerfile.ginkgo
+    image: ginkgo/worker:latest
     container_name: ginkgo-livecore
+    command: ["python", "main.py", "serve", "livecore"]
     restart: always
     logging:
       driver: "json-file"
@@ -527,6 +615,7 @@ services:
       # 运行配置
       GINKGO_DEBUG_MODE: "False"
       LOG_LEVEL: INFO
+      LOGGING_MODE: container
       PYTHONUNBUFFERED: 1
       TZ: Asia/Shanghai
     volumes:
@@ -546,8 +635,9 @@ services:
   data-worker:
     build:
       context: ..
-      dockerfile: .conf/Dockerfile.dataworker
-    image: ginkgo/data-worker:latest
+      dockerfile: .conf/Dockerfile.ginkgo
+    image: ginkgo/worker:latest
+    command: ["python", "main.py", "serve", "worker-data"]
     restart: always
     logging:
       driver: "json-file"
@@ -607,8 +697,9 @@ services:
   execution-node:
     build:
       context: ..
-      dockerfile: .conf/Dockerfile.executionnode
-    image: ginkgo/execution-node:latest
+      dockerfile: .conf/Dockerfile.ginkgo
+    image: ginkgo/worker:latest
+    command: ["python", "main.py", "serve", "execution"]
     restart: always
     logging:
       driver: "json-file"
@@ -649,6 +740,7 @@ services:
       # 运行配置
       GINKGO_DEBUG_MODE: "False"
       LOG_LEVEL: INFO
+      LOGGING_MODE: container
       PYTHONUNBUFFERED: 1
       TZ: Asia/Shanghai
     volumes:
@@ -728,3 +820,10 @@ services:
   #       reservations:
   #         cpus: '0.25'
   #         memory: 256M
+
+# Loki Stack 命名卷
+volumes:
+  grafana-storage:
+    driver: local
+  loki-storage:
+    driver: local
