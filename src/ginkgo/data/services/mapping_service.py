@@ -529,10 +529,13 @@ class MappingService(BaseService):
     @retry(max_try=3)
     def create_component_parameters(self, mapping_uuid: str, file_uuid: str,
                                       parameters: Dict[int, str]) -> ServiceResult:
-        """为组件创建参数"""
+        """为组件创建参数（先删除旧参数再创建新参数）"""
         try:
-            params_created = 0
-            param_details = []
+            # 先删除该 mapping 的所有旧参数，避免重复
+            try:
+                self._param_crud.remove(filters={"mapping_id": mapping_uuid})
+            except Exception:
+                pass  # 忽略删除失败（可能没有旧参数）
 
             # 批量创建所有参数
             param_list = []

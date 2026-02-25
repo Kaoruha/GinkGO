@@ -142,6 +142,10 @@ class ContextMixin:
         if self._bound_portfolio and hasattr(self._bound_portfolio, '_context') and self._bound_portfolio._context:
             return self._bound_portfolio._context.run_id
 
+        # 后备：使用 TimeMixin 的 _validation_run_id（当 set_run_id 被调用时设置）
+        if hasattr(self, '_validation_run_id') and self._validation_run_id is not None:
+            return self._validation_run_id
+
         return None
 
     @property

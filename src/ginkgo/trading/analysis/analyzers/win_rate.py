@@ -8,6 +8,7 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.libs.data.number import to_decimal
 from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd
 import numpy as np
@@ -35,8 +36,8 @@ class WinRate(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """计算胜率"""
-        current_worth = portfolio_info.get("worth", 0)
-        
+        current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
+
         if self._last_worth is None:
             self._last_worth = current_worth
             win_rate = 0.0
@@ -46,7 +47,7 @@ class WinRate(BaseAnalyzer):
                 daily_pnl = current_worth - self._last_worth
                 daily_return = daily_pnl / self._last_worth
                 self._returns.append(daily_return)
-                
+
                 # 统计盈亏
                 if daily_pnl > 0:
                     self._win_count += 1

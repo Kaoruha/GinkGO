@@ -351,9 +351,16 @@ class GinkgoThreadManager:
 
     def run_data_worker(self, *args, **kwargs):
         """Run data worker in containerized mode using DataWorker class."""
+        import os
+        import socket
         try:
             from ginkgo.data.worker.worker import DataWorker
             from ginkgo import service_hub
+
+            # Get node_id from kwargs or environment
+            node_id = kwargs.get('node_id') or os.getenv("GINKGO_NODE_ID")
+            if node_id is None:
+                node_id = f"data_worker_{socket.gethostname()}"
 
             # Get services from service_hub
             bar_crud = service_hub.data.cruds.bar()
@@ -362,7 +369,8 @@ class GinkgoThreadManager:
             worker = DataWorker(
                 bar_crud=bar_crud,
                 group_id="data_worker_group",
-                auto_offset_reset="earliest"
+                auto_offset_reset="earliest",
+                node_id=node_id
             )
 
             # Start worker

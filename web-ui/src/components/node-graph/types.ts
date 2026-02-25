@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
  * 节点图拖拉拽配置回测功能 - TypeScript 类型定义
  */
@@ -432,4 +433,32 @@ export function getInputPorts(nodeType: NodeType): NodePort[] {
  */
 export function getOutputPorts(nodeType: NodeType): NodePort[] {
   return NODE_PORTS[nodeType].filter(p => p.type === 'output')
+=======
+export type NodeType = 'strategy' | 'selector' | 'sizer' | 'risk'
+
+export interface GraphNode {
+  id: string
+  type: NodeType
+  name: string
+  componentId: string
+  x: number
+  y: number
+  params?: any[]
+  config?: Record<string, any>
+}
+
+export interface GraphEdge {
+  id: string
+  source: string
+  target: string
+  sourceHandle?: string
+  targetHandle?: string
+}
+
+export interface NodeTemplate {
+  type: NodeType
+  name: string
+  componentId: string
+  defaultParams?: any[]
+>>>>>>> 011-quant-research
 }

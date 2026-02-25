@@ -8,6 +8,7 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.libs.data.number import to_decimal
 from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd
 
@@ -26,7 +27,7 @@ class Profit(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """激活利润计算，计算当日利润"""
-        current_worth = portfolio_info.get("worth", 0)
+        current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
         
         if self._last_worth is None:
             self._last_worth = current_worth

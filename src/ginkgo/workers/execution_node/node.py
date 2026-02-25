@@ -413,7 +413,8 @@ class ExecutionNode:
         try:
             redis_client = self._get_redis_client()
             if redis_client:
-                heartbeat_key = f"heartbeat:node:{self.node_id}"
+                from ginkgo.data.redis_schema import RedisKeyBuilder
+                heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(self.node_id)
                 metrics_key = f"node:metrics:{self.node_id}"
 
                 deleted_heartbeat = redis_client.delete(heartbeat_key)
@@ -1675,7 +1676,8 @@ class ExecutionNode:
                 logger.warning("Failed to get Redis client for node_id check")
                 return False  # 无法检查，保守策略：允许启动
 
-            heartbeat_key = f"heartbeat:node:{self.node_id}"
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+            heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(self.node_id)
             heartbeat_exists = redis_client.exists(heartbeat_key)
 
             if not heartbeat_exists:
@@ -1720,7 +1722,8 @@ class ExecutionNode:
                 return
 
             # 构造键名
-            heartbeat_key = f"heartbeat:node:{self.node_id}"
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+            heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(self.node_id)
             metrics_key = f"node:metrics:{self.node_id}"
 
             # 删除旧的心跳数据
@@ -1830,7 +1833,8 @@ class ExecutionNode:
                 return
 
             # 构造心跳键
-            heartbeat_key = f"heartbeat:node:{self.node_id}"
+            from ginkgo.data.redis_schema import RedisKeyBuilder
+            heartbeat_key = RedisKeyBuilder.execution_node_heartbeat(self.node_id)
 
             # 设置心跳值（当前时间戳）
             heartbeat_value = datetime.now().isoformat()

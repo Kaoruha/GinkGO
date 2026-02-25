@@ -602,8 +602,141 @@ class FileService(BaseService):
                 f"Failed to get file content: {str(e)}"
             )
 
-    
-    
+    # 版本管理方法
+    @retry(max_try=3)
+    def create_new_version(
+        self,
+        file_id: str,
+        data: bytes = None,
+        name: str = None
+    ) -> ServiceResult:
+        """
+        创建组件的新版本
+
+        Args:
+            file_id: 当前文件的UUID
+            data: 新的代码内容（可选）
+            name: 新的名称（可选）
+
+        Returns:
+            ServiceResult: 包含新版本文件信息
+        """
+        try:
+            if not file_id or not file_id.strip():
+                return ServiceResult.error("File ID cannot be empty")
+
+            # 验证源文件存在
+            source_file = self.get_by_uuid(file_id)
+            if not source_file.success or not source_file.data.get("exists"):
+                return ServiceResult.error(f"Source file not found: {file_id}")
+
+            new_file = self._crud_repo.create_new_version(file_id, data, name)
+
+            with self._crud_repo.get_session() as session:
+                self._crud_repo.add(new_file, session=session)
+
+                file_info = {
+                    "uuid": new_file.uuid,
+                    "name": new_file.name,
+                    "type": new_file.type,
+                    "version": new_file.version,
+                    "parent_uuid": new_file.parent_uuid,
+                    "is_latest": new_file.is_latest,
+                    "data_size": len(new_file.data),
+                }
+
+                self._logger.INFO(
+                    f"Created new version {new_file.version} for file '{new_file.name}' "
+                    f"(parent: {file_id})"
+                )
+
+                return ServiceResult.success(
+                    data={"file_info": file_info},
+                    message=f"New version {new_file.version} created successfully"
+                )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to create new version: {e}")
+            return ServiceResult.error(f"Failed to create new version: {str(e)}")
+
+    def get_latest_version(self, name: str, file_type: FILE_TYPES = None) -> ServiceResult:
+        """
+        获取指定组件的最新版本
+
+        Args:
+            name: 文件名称
+            file_type: 文件类型（可选）
+
+        Returns:
+            ServiceResult: 包含最新版本文件信息
+        """
+        try:
+            if not name or not name.strip():
+                return ServiceResult.error("File name cannot be empty")
+
+            file = self._crud_repo.get_latest_by_name(name, file_type)
+            if not file:
+                return ServiceResult.error(f"File not found: {name}")
+
+            file_info = {
+                "uuid": file.uuid,
+                "name": file.name,
+                "type": file.type,
+                "version": file.version,
+                "parent_uuid": file.parent_uuid,
+                "is_latest": file.is_latest,
+                "create_at": file.create_at.isoformat() if file.create_at else None,
+            }
+
+            return ServiceResult.success(
+                data={"file_info": file_info},
+                message=f"Latest version {file.version} found"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get latest version: {e}")
+            return ServiceResult.error(f"Failed to get latest version: {str(e)}")
+
+    def get_version_history(self, name: str, file_type: FILE_TYPES = None) -> ServiceResult:
+        """
+        获取组件的所有版本历史
+
+        Args:
+            name: 文件名称
+            file_type: 文件类型（可选）
+
+        Returns:
+            ServiceResult: 包含版本历史列表
+        """
+        try:
+            if not name or not name.strip():
+                return ServiceResult.error("File name cannot be empty")
+
+            files = self._crud_repo.get_version_history(name, file_type)
+
+            versions = []
+            for f in files:
+                versions.append({
+                    "uuid": f.uuid,
+                    "name": f.name,
+                    "type": f.type,
+                    "version": f.version,
+                    "parent_uuid": f.parent_uuid,
+                    "is_latest": f.is_latest,
+                    "create_at": f.create_at.isoformat() if f.create_at else None,
+                    "update_at": f.update_at.isoformat() if f.update_at else None,
+                })
+
+            return ServiceResult.success(
+                data={"versions": versions, "count": len(versions)},
+                message=f"Found {len(versions)} versions for '{name}'"
+            )
+
+        except Exception as e:
+            self._logger.ERROR(f"Failed to get version history: {e}")
+            return ServiceResult.error(f"Failed to get version history: {str(e)}")
+
+
     @retry(max_try=3)
     def initialize(self, working_dir: str = None) -> ServiceResult:
         """

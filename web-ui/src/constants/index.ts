@@ -1,4 +1,5 @@
 /**
+<<<<<<< HEAD
  * 常量统一导出
  */
 
@@ -19,3 +20,9 @@ export {
 } from './backtest'
 // Component 常量
 export * from './component'
+=======
+ * 常量导出入口
+ */
+
+export * from './portfolio'
+>>>>>>> 011-quant-research

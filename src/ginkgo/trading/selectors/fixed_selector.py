@@ -17,7 +17,7 @@ class FixedSelector(BaseSelector):
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, name: str, codes: Union[str, List[str]], *args, **kwargs) -> None:
+    def __init__(self, name: str = "FixedSelector", codes: Union[str, List[str]] = "", *args, **kwargs) -> None:
         super(FixedSelector, self).__init__(name, *args, **kwargs)
 
         self._interested = []

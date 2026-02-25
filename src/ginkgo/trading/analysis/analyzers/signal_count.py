@@ -5,41 +5,55 @@
 
 
 
-
-
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
 from ginkgo.enums import RECORDSTAGE_TYPES
 
 
 class SignalCount(BaseAnalyzer):
-    """优化的信号计数分析器 - 记录每天的信号生成数量"""
+    """信号计数分析器 - 记录累计信号数量（取最新值即为总数）
+
+    激活阶段: SIGNALGENERATION - 信号生成时增加计数
+    记录阶段: ENDDAY - 每天结束时写入当前累计值
+    """
 
     __abstract__ = False
 
     def __init__(self, name: str = "signal_count", *args, **kwargs):
         super(SignalCount, self).__init__(name, *args, **kwargs)
-        # 在信号生成时激活计数
+        # 激活阶段：信号生成时
         self.add_active_stage(RECORDSTAGE_TYPES.SIGNALGENERATION)
-        # 在每天结束时记录到数据库
+        # 记录阶段：每天结束时
         self.set_record_stage(RECORDSTAGE_TYPES.ENDDAY)
-        # 简单的日计数器
-        self._daily_count = 0
+        # 累计信号数
+        self._total_count = 0
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """每次信号生成时增加计数并更新数据点"""
-        self._daily_count += 1
-        # 关键：每次都调用add_data，框架会自动处理时间戳覆盖
-        self.add_data(self._daily_count)
+        """信号生成时增加累计计数"""
+        self._total_count += 1
+        self.add_data(self._total_count)
 
     def _do_record(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
-        """记录当天最终计数到数据库并重置计数器"""
-        # 记录到数据库
-        self.add_record()
+        """每天结束时记录当前累计值到数据库"""
+        # 确保当天有数据（即使没有信号也要记录当前累计值）
+        current_time = self.get_current_time()
+        if current_time is None:
+            return
 
-        # 重置计数器为下一天准备
-        self._daily_count = 0
+        # 直接写入数据库，不依赖 _index_map
+        from ginkgo.data.containers import container as data_container
+        analyzer_service = data_container.analyzer_service()
+        analyzer_service.add_record(
+            portfolio_id=self.portfolio_id,
+            engine_id=self.engine_id,
+            run_id=self.run_id,
+            timestamp=current_time.strftime("%Y-%m-%d %H:%M:%S"),
+            business_timestamp=current_time.strftime("%Y-%m-%d %H:%M:%S"),
+            value=self._total_count,
+            name=self.name,
+            analyzer_id=self._analyzer_id,
+        )
 
     @property
-    def current_daily_count(self) -> int:
-        """当前日信号计数（只读属性）"""
-        return self._daily_count
+    def total_count(self) -> int:
+        """累计信号数（只读属性）"""
+        return self._total_count

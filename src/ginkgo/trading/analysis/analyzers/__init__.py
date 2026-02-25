@@ -12,6 +12,7 @@ from ginkgo.trading.analysis.analyzers.annualized_returns import AnnualizedRetur
 from ginkgo.trading.analysis.analyzers.hold_pct import HoldPCT
 from ginkgo.trading.analysis.analyzers.max_drawdown import MaxDrawdown
 from ginkgo.trading.analysis.analyzers.net_value import NetValue
+from ginkgo.trading.analysis.analyzers.order_count import OrderCount
 from ginkgo.trading.analysis.analyzers.profit import Profit
 from ginkgo.trading.analysis.analyzers.sharpe_ratio import SharpeRatio
 from ginkgo.trading.analysis.analyzers.signal_count import SignalCount
@@ -26,20 +27,40 @@ from ginkgo.trading.analysis.analyzers.consecutive_pnl import ConsecutivePnL
 
 __all__ = [
     "BaseAnalyzer",
-    "AnnualizedReturn", 
+    "AnnualizedReturn",
     "HoldPCT",
     "MaxDrawdown",
     "NetValue",
+    "OrderCount",
     "Profit",
     "SharpeRatio",
     "SignalCount",
     # 新增的高级量化指标
     "SortinoRatio",
-    "CalmarRatio", 
+    "CalmarRatio",
     "Volatility",
     "WinRate",
     "UnderwaterTime",
     "VarCVar",
     "SkewKurtosis",
     "ConsecutivePnL",
+    # 配置
+    "BASIC_ANALYZERS",
+]
+
+
+# ============= 基础分析器配置 =============
+# BASIC_ANALYZERS: 回测时必须加载的基础分析器
+# 这些分析器用于生成 BacktestTask 详情页所需的核心指标
+
+BASIC_ANALYZERS = [
+    NetValue,           # 净值曲线 - 最终资产、总盈亏
+    MaxDrawdown,        # 最大回撤
+    SharpeRatio,        # 夏普比率
+    AnnualizedReturn,   # 年化收益
+    WinRate,            # 胜率
+    Profit,             # 每日利润
+    Volatility,         # 波动率 - 风险基础指标
+    SignalCount,        # 信号计数 - 执行统计
+    OrderCount,         # 订单计数 - 执行统计
 ]

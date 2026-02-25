@@ -8,16 +8,18 @@
 
 
 from ginkgo.trading.analysis.analyzers.base_analyzer import BaseAnalyzer
+from ginkgo.libs.data.number import to_decimal
 from ginkgo.enums import RECORDSTAGE_TYPES
 import pandas as pd
 
 
 class SharpeRatio(BaseAnalyzer):
+    """夏普比率分析器 - 计算风险调整后的收益指标"""
     # The class with this __abstract__  will rebuild the class from bytes.
     # If not run time function will pass the class.
     __abstract__ = False
 
-    def __init__(self, name: str, *args, **kwargs):
+    def __init__(self, name: str = "sharpe_ratio", *args, **kwargs):
         super(SharpeRatio, self).__init__(name, *args, **kwargs)
         self.add_active_stage(RECORDSTAGE_TYPES.NEWDAY)
         self.set_record_stage(RECORDSTAGE_TYPES.NEWDAY)
@@ -28,13 +30,13 @@ class SharpeRatio(BaseAnalyzer):
 
     def _do_activate(self, stage: RECORDSTAGE_TYPES, portfolio_info: dict, *args, **kwargs) -> None:
         """激活夏普比率计算"""
-        current_worth = portfolio_info.get("worth", 0)
-        
+        current_worth = float(to_decimal(portfolio_info.get("worth", 0)))
+
         if self._base_value is None:
             self._base_value = current_worth
             self.add_data(0)  # 初始夏普比率为0
             return
-            
+
         self._days += 1
         if self._days > 365:
             self._days = self._days - 365
