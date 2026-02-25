@@ -6,56 +6,35 @@ Progress Tracker
 职责：
 - 跟踪任务进度
 - 上报进度到Kafka（每2秒 + 关键节点）
-<<<<<<< HEAD
-=======
 - 写入进度到数据库（用于SSE实时推送）
->>>>>>> 011-quant-research
 - 记录重要阶段变化
 """
 
 from threading import Lock
 from time import time
-<<<<<<< HEAD
-from typing import Dict
-
-from ginkgo.workers.backtest_worker.models import BacktestTask, EngineStage
-from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
-from ginkgo.interfaces.kafka_topics import KafkaTopics
-# GLOG removed
-=======
 from typing import Dict, Optional
 
 from ginkgo.workers.backtest_worker.models import BacktestTask, EngineStage
 from ginkgo.data.drivers.ginkgo_kafka import GinkgoProducer
->>>>>>> 011-quant-research
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
 class ProgressTracker:
     """进度跟踪器"""
 
-<<<<<<< HEAD
-    def __init__(self, worker_id: str, kafka_producer: GinkgoProducer):
-        self.worker_id = worker_id
-        self.producer = kafka_producer
-=======
     def __init__(self, worker_id: str, kafka_producer: GinkgoProducer,
                  task_service=None):
         self.worker_id = worker_id
         self.producer = kafka_producer
         self.task_service = task_service  # BacktestTaskService 实例
->>>>>>> 011-quant-research
         self.lock = Lock()
 
         # 上报频率控制
         self.report_interval = 2.0  # 每2秒
         self.last_report_time: Dict[str, float] = {}
 
-<<<<<<< HEAD
-    def report_progress(self, task: BacktestTask, progress: float, current_date: str):
-=======
     def report_progress(self, task: BacktestTask, progress: float, current_date: str,
                         total_pnl: str = "0", total_orders: int = 0, total_signals: int = 0):
->>>>>>> 011-quant-research
         """上报进度（频率限制）"""
         with self.lock:
             now = time()
@@ -78,15 +57,12 @@ class ProgressTracker:
             "timestamp": task.started_at.isoformat() if task.started_at else None,
         })
 
-<<<<<<< HEAD
-=======
         # 同时写入数据库（用于SSE推送）
         self._write_progress_to_db(
             task.task_uuid, progress=progress, current_date=current_date,
             total_pnl=total_pnl, total_orders=total_orders, total_signals=total_signals
         )
 
->>>>>>> 011-quant-research
     def report_stage(self, task: BacktestTask, stage: EngineStage, message: str):
         """上报关键阶段（立即上报）"""
         self._send_to_kafka({
@@ -100,8 +76,6 @@ class ProgressTracker:
         })
         print(f"[{task.task_uuid[:8]}] Stage: {stage.value} - {message}")
 
-<<<<<<< HEAD
-=======
         # 第一个阶段时，更新状态为 running 并设置 start_time
         if stage == EngineStage.DATA_PREPARING:
             self._write_status_to_db(task.task_uuid, "running", current_stage=stage.value)
@@ -109,7 +83,6 @@ class ProgressTracker:
             # 其他阶段只更新 current_stage
             self._write_progress_to_db(task.task_uuid, current_stage=stage.value)
 
->>>>>>> 011-quant-research
     def report_completed(self, task: BacktestTask, result: dict):
         """上报完成"""
         self._send_to_kafka({
@@ -121,12 +94,9 @@ class ProgressTracker:
         })
         print(f"[{task.task_uuid[:8]}] Reported completion")
 
-<<<<<<< HEAD
-=======
         # 更新数据库状态为 completed
         self._write_status_to_db(task.task_uuid, "completed", result=result)
 
->>>>>>> 011-quant-research
     def report_failed(self, task: BacktestTask, error: str):
         """上报失败"""
         self._send_to_kafka({
@@ -138,12 +108,9 @@ class ProgressTracker:
         })
         print(f"[{task.task_uuid[:8]}] Reported failure: {error}")
 
-<<<<<<< HEAD
-=======
         # 更新数据库状态为 failed
         self._write_status_to_db(task.task_uuid, "failed", error_message=error)
 
->>>>>>> 011-quant-research
     def report_cancelled(self, task: BacktestTask):
         """上报取消"""
         self._send_to_kafka({
@@ -154,8 +121,6 @@ class ProgressTracker:
         })
         print(f"[{task.task_uuid[:8]}] Reported cancellation")
 
-<<<<<<< HEAD
-=======
         # 更新数据库状态为 stopped
         self._write_status_to_db(task.task_uuid, "stopped")
 
@@ -174,33 +139,12 @@ class ProgressTracker:
         # 更新数据库状态为 failed
         self._write_status_to_db(task_uuid, "failed", error_message=error)
 
->>>>>>> 011-quant-research
     def _send_to_kafka(self, message: dict):
         """发送消息到Kafka"""
         try:
             import json
-<<<<<<< HEAD
-
-            # 根据消息类型选择 topic
-            msg_type = message.get("type", "progress")
-            if msg_type == "progress":
-                topic = KafkaTopics.BACKTEST_PROGRESS
-            elif msg_type in ("completed", "failed", "cancelled"):
-                topic = KafkaTopics.BACKTEST_RESULTS
-            else:
-                topic = KafkaTopics.BACKTEST_PROGRESS
-
-            self.producer.produce(
-                topic=topic,
-                key=message.get("task_uuid"),
-                value=json.dumps(message),
-            )
-            self.producer.flush(timeout=1.0)
-        except Exception as e:
-            print(f"Failed to report progress: {e}")
-=======
             self.producer.send_async(
-                topic="backtest.progress",
+                topic=KafkaTopics.BACKTEST_PROGRESS,
                 msg=json.dumps(message),
             )
         except Exception as e:
@@ -345,4 +289,3 @@ class ProgressTracker:
         except Exception as e:
             print(f"Error getting task status for {task_uuid[:8]}: {e}")
             return None
->>>>>>> 011-quant-research

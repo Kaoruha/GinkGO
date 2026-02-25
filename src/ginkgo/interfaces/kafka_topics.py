@@ -131,13 +131,13 @@ class KafkaTopics:
     # ============================================
 
     # 回测任务分配（API/Scheduler → BacktestWorker）
-    BACKTEST_ASSIGNMENTS = "ginkgo.backtest.assignments"
+    BACKTEST_ASSIGNMENTS = "backtest.assignments"
 
     # 回测进度上报（BacktestWorker → API/WebSocket）
-    BACKTEST_PROGRESS = "ginkgo.backtest.progress"
+    BACKTEST_PROGRESS = "backtest.progress"
 
     # 回测结果发布（BacktestWorker → API/存储服务）
-    BACKTEST_RESULTS = "ginkgo.backtest.results"
+    BACKTEST_RESULTS = "backtest.results"
 
     # ============================================
     # 通知 Topics (Notifications)
