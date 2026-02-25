@@ -1,134 +1,97 @@
-"""
-Loki Client
-
-Grafana Loki client for centralized log aggregation and management.
-
-This client provides integration with Grafana Loki for storing and querying
-logs in a centralized location, enabling better log analysis and monitoring.
-
-TODO:
-    - Implement Loki HTTP API client
-    - Add support for log submission (POST /loki/api/v1/push)
-    - Add support for log queries (GET /loki/api/v1/query)
-    - Implement batch submission for improved performance
-    - Add retry logic with exponential backoff
-    - Add support for stream labels (environment, service, etc.)
-    - Implement JSON-formatted log entries
-    - Add authentication support (API tokens, OAuth)
-"""
+# T042: Grafana Loki HTTP 客户端实现
+# 封装 Loki API 调用，支持日志查询和 LogQL 构建
 
 import requests
 from typing import Dict, List, Any, Optional
-from datetime import datetime
 
 
 class LokiClient:
-    """
-    Grafana Loki client for centralized log management.
+    """Grafana Loki HTTP 客户端
 
-    This client handles communication with Grafana Loki API for
-    submitting and querying logs.
+    封装 Loki HTTP API，提供日志查询和 LogQL 构建功能。
 
     Attributes:
-        endpoint: Loki API endpoint URL
-        labels: Default labels to apply to all log entries
-        batch_size: Maximum number of logs to batch before submission
-
-    TODO:
-        - Implement __init__ with endpoint and authentication configuration
-        - Add support for default labels (environment, host, service)
-        - Implement batch management and automatic flushing
-        - Add health check and connection validation
+        base_url: Loki API endpoint URL
     """
 
-    def __init__(
-        self,
-        endpoint: str = "http://localhost:3100",
-        labels: Optional[Dict[str, str]] = None,
-        batch_size: int = 100
-    ):
-        """Initialize the Loki client.
+    def __init__(self, base_url: str = "http://localhost:3100"):
+        """初始化 Loki 客户端
 
         Args:
-            endpoint: Loki API endpoint URL
-            labels: Default labels to apply to all log entries
-            batch_size: Maximum batch size before automatic submission
-
-        TODO:
-            - Validate endpoint URL format
-            - Store authentication credentials
-            - Initialize batch buffer
-            - Set up default labels from GCONF
+            base_url: Loki API endpoint URL
         """
-        self.endpoint = endpoint
-        self.labels = labels or {}
-        self.batch_size = batch_size
-        self._batch: List[Dict[str, Any]] = []
+        self.base_url = base_url
 
-    def log(self, message: str, level: str = "info", **labels):
-        """Submit a log entry to Loki.
+    # T042: 查询日志（调用 Loki HTTP API）
+    def query(self, logql: str, limit: int = 100) -> List[Dict]:
+        """查询日志
 
         Args:
-            message: The log message
-            level: Log level (info, warning, error, debug)
-            **labels: Additional labels for this log entry
-
-        TODO:
-            - Format log entry for Loki API
-            - Merge default labels with entry-specific labels
-            - Add to batch buffer
-            - Trigger automatic flush if batch_size reached
-            - Add timestamp in nanoseconds (Loki requirement)
-        """
-        entry = {
-            "message": message,
-            "level": level,
-            **labels
-        }
-        self._batch.append(entry)
-
-    def flush(self):
-        """Flush the current batch of logs to Loki.
-
-        TODO:
-            - Format batch for Loki push API
-            - Send POST request to /loki/api/v1/push
-            - Implement retry logic with exponential backoff
-            - Clear batch after successful submission
-            - Handle and log submission failures
-        """
-        if not self._batch:
-            return
-
-        # TODO: Implement batch submission
-        # url = f"{self.endpoint}/loki/api/v1/push"
-        # response = requests.post(url, json=payload)
-        self._batch.clear()
-
-    def query(self, query_string: str, limit: int = 100):
-        """Query logs from Loki.
-
-        Args:
-            query_string: LogQL query string
-            limit: Maximum number of results to return
+            logql: LogQL 查询字符串
+            limit: 最大返回结果数
 
         Returns:
-            List of matching log entries
-
-        TODO:
-            - Build query request to /loki/api/v1/query
-            - Handle query response parsing
-            - Add support for range queries
-            - Implement query result caching
+            日志条目列表，每个条目包含 timestamp 和 message
         """
-        # TODO: Implement log query
-        pass
+        try:
+            response = requests.get(
+                f"{self.base_url}/loki/api/v1/query",
+                params={"query": logql, "limit": limit},
+                timeout=5
+            )
+            response.raise_for_status()
+            return self._parse_response(response)
+        except requests.exceptions.RequestException:
+            # T049: Loki 不可用时的错误处理 - 优雅降级
+            return []
 
-    def close(self):
-        """Close the Loki client and flush any remaining logs.
+    def _parse_response(self, response) -> List[Dict]:
+        """解析 Loki 响应
 
-        TODO:
-            - Flush remaining batch
-            - Close any open connections
+        Args:
+            response: requests.Response 对象
+
+        Returns:
+            解析后的日志条目列表
         """
-        self.flush()
+        data = response.json()
+        if "data" not in data:
+            return []
+
+        results = data["data"].get("result", [])
+        logs = []
+        for result in results:
+            for entry in result.get("values", []):
+                # entry: [timestamp_ns, log_line]
+                if len(entry) >= 2:
+                    logs.append({"timestamp": entry[0], "message": entry[1]})
+        return logs
+
+    # T043: LogQL 查询字符串构建
+    def build_logql(self, **filters) -> str:
+        """构建 LogQL 查询字符串
+
+        Args:
+            **filters: 过滤条件，支持:
+                - portfolio_id: 组合 ID
+                - strategy_id: 策略 ID
+                - trace_id: 链路追踪 ID
+                - level: 日志级别
+
+        Returns:
+            LogQL 查询字符串
+        """
+        selectors = []
+
+        if "portfolio_id" in filters:
+            selectors.append(f'portfolio_id="{filters["portfolio_id"]}"')
+        if "strategy_id" in filters:
+            selectors.append(f'strategy_id="{filters["strategy_id"]}"')
+        if "trace_id" in filters:
+            selectors.append(f'trace_id="{filters["trace_id"]}"')
+        if "level" in filters:
+            selectors.append(f'level="{filters["level"]}"')
+
+        if selectors:
+            return "{" + ", ".join(selectors) + "}"
+        return "{}"

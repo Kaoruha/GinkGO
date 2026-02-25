@@ -11,5 +11,6 @@ Example:
 """
 
 from ginkgo.services.logging.log_service import LogService
+from ginkgo.services.logging.clients.loki_client import LokiClient
 
-__all__ = ["LogService"]
+__all__ = ["LogService", "LokiClient"]
