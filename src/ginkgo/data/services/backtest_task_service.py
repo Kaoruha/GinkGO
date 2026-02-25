@@ -21,6 +21,7 @@ from datetime import datetime
 from ginkgo.libs import cache_with_expiration, retry, time_logger, GLOG
 from ginkgo.data.crud.model_conversion import ModelList
 from ginkgo.data.services.base_service import BaseService, ServiceResult
+from ginkgo.interfaces.kafka_topics import KafkaTopics
 
 
 class BacktestTaskService(BaseService):
@@ -590,7 +591,7 @@ class BacktestTaskService(BaseService):
                 }
             }
 
-            producer.send("backtest.assignments", assignment)
+            producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
             producer.flush(timeout=2.0)
             producer.close()
 
@@ -634,7 +635,7 @@ class BacktestTaskService(BaseService):
                 "command": "cancel",
             }
 
-            producer.send("backtest.assignments", assignment)
+            producer.send(KafkaTopics.BACKTEST_ASSIGNMENTS, assignment)
             producer.flush(timeout=2.0)
             producer.close()
 
