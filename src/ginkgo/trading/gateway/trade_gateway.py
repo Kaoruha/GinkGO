@@ -76,6 +76,9 @@ class TradeGateway(BaseTradeGateway):
         # Portfolio事件路由映射
         self._portfolio_handlers: Dict[str, Any] = {}
 
+        # 跟踪上一个价格数据的日期，用于检测日期变化并清空缓存
+        self._last_price_date = None
+
         self.log("INFO", f"Initialized {self.name} with {len(self.brokers)} brokers")
         self._log_market_mapping()
 
@@ -224,6 +227,28 @@ class TradeGateway(BaseTradeGateway):
 
         price_data = event.payload
 
+        # 🔥 [FIX] 检测日期变化，清空Broker的市场数据缓存
+        current_date = None
+        if hasattr(price_data, 'timestamp'):
+            current_date = price_data.timestamp.date()
+        elif hasattr(event, 'timestamp'):
+            current_date = event.timestamp.date()
+
+        if current_date and self._last_price_date and current_date != self._last_price_date:
+            # 日期变化，清空所有回测Broker的市场数据缓存
+            if GCONF.DEBUGMODE:
+                print(f"🔥 [ROUTER] Date changed from {self._last_price_date} to {current_date}, clearing market data cache")
+            for broker in self.brokers:
+                if self._detect_execution_mode(broker) == "backtest":
+                    if hasattr(broker, 'clear_market_data'):
+                        broker.clear_market_data()
+                        if GCONF.DEBUGMODE:
+                            print(f"🔥 [ROUTER] Market data cache cleared for broker: {broker.__class__.__name__}")
+
+        # 更新最后看到的日期
+        if current_date:
+            self._last_price_date = current_date
+
         # 检查是否有回测模式的Broker需要价格数据
         for broker in self.brokers:
             if self._detect_execution_mode(broker) == "backtest":
@@ -265,6 +290,7 @@ class TradeGateway(BaseTradeGateway):
             # 发布错误事件
             error_result = BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                order=order,
                 error_message=f"Sync execution error: {str(e)}"
             )
             self._handle_execution_result(error_result)
@@ -362,6 +388,7 @@ class TradeGateway(BaseTradeGateway):
             # 发布错误事件
             error_result = BrokerExecutionResult(
                 status=ORDERSTATUS_TYPES.NEW,  # REJECTED
+                order=order,
                 error_message=f"Async execution error: {str(e)}"
             )
             self._handle_execution_result(error_result)
