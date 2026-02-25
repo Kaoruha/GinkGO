@@ -251,3 +251,40 @@ class ProgressTracker:
                 self._notify_ws_clients(task_id, status)
         except Exception as e:
             print(f"Error writing status to DB: {e}")
+
+    def get_task_status(self, task_uuid: str) -> Optional[str]:
+        """
+        查询任务当前状态
+
+        Args:
+            task_uuid: 任务UUID
+
+        Returns:
+            Optional[str]: 任务状态 (completed/failed/running/pending/created)，如果查询失败返回 None
+        """
+        if self.task_service is None:
+            return None
+
+        try:
+            result = self.task_service.get(task_uuid)
+            if result.is_success() and result.data:
+                # result.data 可能是 MBacktestTask 对象或列表
+                if isinstance(result.data, list):
+                    if len(result.data) > 0:
+                        task_obj = result.data[0]
+                    else:
+                        return None
+                else:
+                    task_obj = result.data
+
+                # 尝试获取 status 属性
+                if hasattr(task_obj, 'status'):
+                    # status 可能是枚举类型，转换为字符串
+                    status = task_obj.status
+                    return str(status) if not hasattr(status, 'value') else str(status.value)
+                elif hasattr(task_obj, 'get'):
+                    return task_obj.get("status")
+            return None
+        except Exception as e:
+            print(f"Error getting task status for {task_uuid[:8]}: {e}")
+            return None
