@@ -1008,9 +1008,12 @@ class BaseCRUD(Generic[T], ABC):
                     return 0
             s.commit()
 
-    def _do_modify(self, filters: Dict[str, Any], updates: Dict[str, Any], session: Optional[Session] = None) -> None:
+    def _do_modify(self, filters: Dict[str, Any], updates: Dict[str, Any], session: Optional[Session] = None) -> int:
         """
         Hook method: Override to customize modify logic.
+
+        Returns:
+            int: Number of records updated
         """
         if session is None:
             conn = self._get_connection()
@@ -1035,8 +1038,11 @@ class BaseCRUD(Generic[T], ABC):
             # Execute update
             if filter_conditions:
                 stmt = update(self.model_class).where(and_(*filter_conditions)).values(updates)
-                s.execute(stmt)
-                GLOG.DEBUG(f"Updated {self.model_class.__name__} records")
+                result = s.execute(stmt)
+                updated_rows = result.rowcount if result else 0
+                print(f"Updated {self.model_class.__name__} records: {updated_rows}")
+                return updated_rows
+            return 0
 
     def _do_count(self, filters: Optional[Dict[str, Any]] = None, session: Optional[Session] = None) -> int:
         """
