@@ -1,0 +1,49 @@
+# Ginkgo 统一 Worker 镜像
+# 支持: data-worker, backtest-worker, notify-worker, execution-node, livecore, tasktimer
+# 通过 docker-compose 的 command 参数指定不同服务
+
+FROM python:3.12.11-slim-bookworm
+
+# 设置工作目录
+RUN mkdir -p /ginkgo
+
+WORKDIR /ginkgo
+
+# 安装系统依赖
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        libpq-dev \
+        ca-certificates \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装 uv（极快的 Python 包管理器）
+RUN pip install -i https://mirrors.aliyun.com/pypi/simple/ uv
+
+ENV PATH="/root/.local/bin:${PATH}"
+
+# 复制依赖文件
+COPY requirements.txt ./
+
+# 使用 uv 安装依赖（比 pip 快 10-100 倍）
+RUN uv pip install \
+    -r requirements.txt \
+    --system \
+    -i https://mirrors.aliyun.com/pypi/simple/ \
+    && rm -rf /root/.cache/uv /root/.cache/pip
+
+# 复制源代码
+COPY main.py ./
+COPY src/ ./
+
+# 复制配置文件（部分 worker 需要）
+COPY .conf/task_timer.yml ./src/ginkgo/config/task_timer.yml
+
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/ginkgo/src
+
+# 默认命令（显示帮助，实际命令由 docker-compose 覆盖）
+CMD ["python", "main.py", "--help"]
