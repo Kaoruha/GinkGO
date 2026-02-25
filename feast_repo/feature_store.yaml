@@ -1,7 +1,7 @@
 project: ginkgo
-registry: 
+registry:
   registry_type: sql
-  path: mysql+pymysql://ginkgoadm:hellomysql@${FEAST_MYSQL_HOST:-localhost}:3306/feast
+  path: mysql+pymysql://ginkgoadm:${FEAST_MYSQL_PASSWORD:-password}@${FEAST_MYSQL_HOST:-localhost}:3306/feast
 provider: local
 online_store:
   type: redis

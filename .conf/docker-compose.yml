@@ -345,96 +345,96 @@ services:
       - ../.logs/mongo:/var/log/mongodb
       - ./mongo_entrypoint:/docker-entrypoint-initdb.d
   # Feast Feature Server - API服务
-  # feast-server:
-  #   build:
-  #     context: ..
-  #     dockerfile: .conf/Dockerfile.feast
-  #   image: feast:0.51.click.redis.mysql
-  #   container_name: ginkgo-feast-server
-  #   restart: always
-  #   depends_on:
-  #     - redis-master
-  #     - clickhouse-master
-  #     - mysql-master
-  #   environment:
-  #     # 日志级别
-  #     LOG_LEVEL: info
-  #     # Feast服务配置
-  #     FEAST_SERVE_HOST: 0.0.0.0
-  #     FEAST_SERVE_PORT: 6566
-  #     # MySQL配置
-  #     FEAST_MYSQL_HOST: mysql-master
-  #     FEAST_MYSQL_PORT: 3306
-  #     FEAST_MYSQL_USER: ${FEAST_MYSQL_USER}
-  #     FEAST_MYSQL_PASSWORD: ${FEAST_MYSQL_PASSWORD}
-  #     FEAST_MYSQL_DATABASE: feast
-  #     # Redis配置
-  #     FEAST_REDIS_HOST: redis-master
-  #     FEAST_REDIS_PORT: 6379
-  #     # ClickHouse配置
-  #     FEAST_CLICKHOUSE_HOST: clickhouse-master
-  #     FEAST_CLICKHOUSE_PORT: 8123
-  #     FEAST_CLICKHOUSE_USER: ${FEAST_CLICKHOUSE_USER}
-  #     FEAST_CLICKHOUSE_PASSWORD: ${FEAST_CLICKHOUSE_PASSWORD}
-  #     FEAST_CLICKHOUSE_DATABASE: ginkgo
-  #     # Python环境配置
-  #     PYTHONPATH: /feast
-  #     PYTHONUNBUFFERED: 1
-  #   ports:
-  #     - "6566:6566"  # HTTP API端口
-  #   working_dir: /feast
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "curl -f http://localhost:6566/health || exit 1"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 60s  # 增加启动等待时间
+  feast-server:
+    build:
+      context: ..
+      dockerfile: .conf/Dockerfile.feast
+    image: feast:0.51.click.redis.mysql
+    container_name: ginkgo-feast-server
+    restart: always
+    depends_on:
+      - redis-master
+      - clickhouse-master
+      - mysql-master
+    environment:
+      # 日志级别
+      LOG_LEVEL: info
+      # Feast服务配置
+      FEAST_SERVE_HOST: 0.0.0.0
+      FEAST_SERVE_PORT: 6566
+      # MySQL配置
+      FEAST_MYSQL_HOST: mysql-master
+      FEAST_MYSQL_PORT: 3306
+      FEAST_MYSQL_USER: ${FEAST_MYSQL_USER}
+      FEAST_MYSQL_PASSWORD: ${FEAST_MYSQL_PASSWORD}
+      FEAST_MYSQL_DATABASE: feast
+      # Redis配置
+      FEAST_REDIS_HOST: redis-master
+      FEAST_REDIS_PORT: 6379
+      # ClickHouse配置
+      FEAST_CLICKHOUSE_HOST: clickhouse-master
+      FEAST_CLICKHOUSE_PORT: 8123
+      FEAST_CLICKHOUSE_USER: ${FEAST_CLICKHOUSE_USER}
+      FEAST_CLICKHOUSE_PASSWORD: ${FEAST_CLICKHOUSE_PASSWORD}
+      FEAST_CLICKHOUSE_DATABASE: ginkgo
+      # Python环境配置
+      PYTHONPATH: /feast
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "6566:6566"  # HTTP API端口
+    working_dir: /feast
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:6566/health')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s  # 增加启动等待时间
 
-  # # Feast Web UI - 管理界面
-  # feast-ui:
-  #   build:
-  #     context: ..
-  #     dockerfile: .conf/Dockerfile.feast
-  #   image: feast:0.51.click.redis.mysql
-  #   container_name: ginkgo-feast-ui
-  #   restart: always
-  #   depends_on:
-  #     - redis-master
-  #     - clickhouse-master
-  #     - mysql-master
-  #   environment:
-  #     # 日志级别
-  #     LOG_LEVEL: info
-  #     # Feast WebUI配置
-  #     FEAST_UI_HOST: ${FEAST_UI_HOST}
-  #     FEAST_UI_PORT: ${FEAST_UI_PORT}
-  #     # MySQL配置
-  #     FEAST_MYSQL_HOST: mysql-master
-  #     FEAST_MYSQL_PORT: 3306
-  #     FEAST_MYSQL_USER: ${FEAST_MYSQL_USER}
-  #     FEAST_MYSQL_PASSWORD: ${FEAST_MYSQL_PASSWORD}
-  #     FEAST_MYSQL_DATABASE: feast
-  #     # Redis配置
-  #     FEAST_REDIS_HOST: redis-master
-  #     FEAST_REDIS_PORT: 6379
-  #     # ClickHouse配置
-  #     FEAST_CLICKHOUSE_HOST: clickhouse-master
-  #     FEAST_CLICKHOUSE_PORT: 8123
-  #     FEAST_CLICKHOUSE_USER: ${FEAST_CLICKHOUSE_USER}
-  #     FEAST_CLICKHOUSE_PASSWORD: ${FEAST_CLICKHOUSE_PASSWORD}
-  #     FEAST_CLICKHOUSE_DATABASE: ginkgo
-  #     # Python环境配置
-  #     PYTHONPATH: /feast
-  #     PYTHONUNBUFFERED: 1
-  #   ports:
-  #     - "9999:9999"  # Web UI端口
-  #   working_dir: /feast
-  #   command: ["/feast/start-feast-ui.sh"]
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "curl -f http://localhost:9999 || exit 1"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
+  # Feast Web UI - 管理界面
+  feast-ui:
+    build:
+      context: ..
+      dockerfile: .conf/Dockerfile.feast
+    image: feast:0.51.click.redis.mysql
+    container_name: ginkgo-feast-ui
+    restart: always
+    depends_on:
+      - redis-master
+      - clickhouse-master
+      - mysql-master
+    environment:
+      # 日志级别
+      LOG_LEVEL: info
+      # Feast WebUI配置
+      FEAST_UI_HOST: ${FEAST_UI_HOST}
+      FEAST_UI_PORT: ${FEAST_UI_PORT}
+      # MySQL配置
+      FEAST_MYSQL_HOST: mysql-master
+      FEAST_MYSQL_PORT: 3306
+      FEAST_MYSQL_USER: ${FEAST_MYSQL_USER}
+      FEAST_MYSQL_PASSWORD: ${FEAST_MYSQL_PASSWORD}
+      FEAST_MYSQL_DATABASE: feast
+      # Redis配置
+      FEAST_REDIS_HOST: redis-master
+      FEAST_REDIS_PORT: 6379
+      # ClickHouse配置
+      FEAST_CLICKHOUSE_HOST: clickhouse-master
+      FEAST_CLICKHOUSE_PORT: 8123
+      FEAST_CLICKHOUSE_USER: ${FEAST_CLICKHOUSE_USER}
+      FEAST_CLICKHOUSE_PASSWORD: ${FEAST_CLICKHOUSE_PASSWORD}
+      FEAST_CLICKHOUSE_DATABASE: ginkgo
+      # Python环境配置
+      PYTHONPATH: /feast
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "9999:9999"  # Web UI端口
+    working_dir: /feast
+    command: ["/feast/start-feast-ui.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9999')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
   #     start_period: 60s
 
   # Notification Worker - 通知消息处理
