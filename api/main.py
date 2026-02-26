@@ -1539,7 +1539,6 @@ async def list_portfolios(
     """获取 Portfolio 列表"""
     try:
         portfolio_service = get_portfolio_service()
-        backtest_service = get_backtest_task_service()
         result = portfolio_service.get(page=page, page_size=page_size, name=keyword)
 
         if result.success:
@@ -1549,41 +1548,63 @@ async def list_portfolios(
             # 按创建时间降序排序（最新的在前面）
             raw_data = sorted(raw_data, key=lambda x: x.create_at or datetime.min, reverse=True)
 
-            for p in raw_data:
+            # 分页处理
+            total_count = len(raw_data)
+            start_idx = page * page_size
+            end_idx = start_idx + page_size
+            paginated_data = raw_data[start_idx:end_idx]
+
+            # 批量获取回测统计（只查询当前页 portfolios 的回测数据）
+            portfolio_backtest_stats = {}
+            if paginated_data:
+                try:
+                    from ginkgo import services
+                    backtest_crud = services.data.cruds.backtest_task()
+                    portfolio_ids = [p.uuid for p in paginated_data]
+
+                    # 使用 __in 操作符只查询当前页 portfolios 的回测
+                    backtest_tasks = backtest_crud.find(
+                        filters={"portfolio_id__in": portfolio_ids, "is_del": False}
+                    )
+
+                    # 按 portfolio_id 分组统计
+                    for task in backtest_tasks:
+                        # 只统计已完成的回测
+                        if task.status == "completed":
+                            pid = str(task.portfolio_id)
+                            if pid not in portfolio_backtest_stats:
+                                portfolio_backtest_stats[pid] = {"count": 0, "returns": []}
+                            portfolio_backtest_stats[pid]["count"] += 1
+                            try:
+                                final_value = float(task.final_portfolio_value or 0)
+                                config = json.loads(task.config_snapshot or '{}')
+                                initial = float(config.get('initial_capital', 1000000))
+                                if initial > 0:
+                                    portfolio_backtest_stats[pid]["returns"].append((final_value - initial) / initial)
+                            except:
+                                pass
+                except Exception as e:
+                    pass  # 忽略回测统计错误
+
+            for p in paginated_data:
                 # 计算净值
                 net_value = 1.0
                 if p.initial_capital and p.current_capital and float(p.initial_capital) > 0:
                     net_value = float(p.current_capital) / float(p.initial_capital)
 
-                # 获取回测统计数据（用于回测模式）
-                backtest_count = 0
-                avg_return = 0.0
-                try:
-                    backtest_result = backtest_service.list(portfolio_id=p.uuid, page=0, page_size=100)
-                    if backtest_result.success and backtest_result.data:
-                        tasks = backtest_result.data.get("data", [])
-                        completed_tasks = [t for t in tasks if t.status == "completed"]
-                        backtest_count = len(completed_tasks)
-                        if completed_tasks:
-                            returns = []
-                            for t in completed_tasks:
-                                final_value = float(t.final_portfolio_value or 0)
-                                config = json.loads(t.config_snapshot or '{}')
-                                initial = float(config.get('initial_capital', 1000000))
-                                if initial > 0:
-                                    returns.append((final_value - initial) / initial)
-                            if returns:
-                                avg_return = sum(returns) / len(returns)
-                except Exception as e:
-                    pass  # 忽略回测统计错误
+                # 从预加载的统计数据中获取
+                stats = portfolio_backtest_stats.get(p.uuid, {})
+                backtest_count = stats.get("count", 0)
+                returns = stats.get("returns", [])
+                avg_return = sum(returns) / len(returns) if returns else 0.0
 
                 portfolios.append({
                     "uuid": p.uuid,
                     "name": p.name,
                     "desc": p.desc or "",
-                    "is_live": p.is_live or False,
-                    "mode": 2 if p.is_live else 0,  # 根据 is_live 推断模式
-                    "state": 0,  # 默认停止状态
+                    "is_live": p.mode == 2,  # mode=2 表示实盘
+                    "mode": p.mode,  # 直接使用 mode 字段
+                    "state": p.state,  # 使用实际 state
                     "initial_cash": float(p.initial_capital) if p.initial_capital else 100000,
                     "current_cash": float(p.current_capital) if p.current_capital else 100000,
                     "cash": float(p.cash) if p.cash else 100000,
@@ -1598,15 +1619,6 @@ async def list_portfolios(
                     "updated_at": p.update_at.isoformat() if p.update_at else None,
                 })
 
-            # 获取总数（带搜索条件）
-            total_count = 0
-            try:
-                count_result = portfolio_service.count(name=keyword)
-                if count_result.success and count_result.data:
-                    total_count = count_result.data.get("count", 0)
-            except Exception:
-                total_count = len(portfolios)
-
             return {"data": portfolios, "total": total_count}
         return {"data": [], "total": 0}
     except Exception as e:
@@ -1618,7 +1630,7 @@ async def list_portfolios(
 
 @app.get("/api/v1/portfolio/stats")
 async def get_portfolio_stats():
-    """获取 Portfolio 统计"""
+    """获取 Portfolio 统计（全量数据统计）"""
     try:
         portfolio_service = get_portfolio_service()
 

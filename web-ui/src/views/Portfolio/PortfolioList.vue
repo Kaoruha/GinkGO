@@ -69,7 +69,7 @@
         :on-action="() => showCreateModal = true"
       />
     </div>
-    <div v-else class="portfolio-grid">
+    <div v-else class="portfolio-grid" ref="scrollContainer">
       <a-card
         v-for="portfolio in filteredPortfolios"
         :key="portfolio.uuid"
@@ -162,6 +162,15 @@
           </a-button>
         </div>
       </a-card>
+
+      <!-- 加载更多提示 -->
+      <div v-if="loadingMore" class="load-more-loading">
+        <a-spin size="small" />
+        <span>加载中...</span>
+      </div>
+      <div v-else-if="!hasMore && filteredPortfolios.length > 0" class="load-more-finished">
+        <span>已加载全部</span>
+      </div>
     </div>
 
     <!-- Custom -->
@@ -229,7 +238,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import {
@@ -270,13 +279,19 @@ const {
   portfolios,
   filterMode,
   filteredPortfolios,
-  stats
+  stats,
+  hasMore,
+  loadingMore
 } = storeToRefs(portfolioStore)
 const {
   fetchPortfolios,
+  fetchStats,
   deletePortfolio,
   updatePortfolio
 } = portfolioStore
+
+// 滚动容器引用
+const scrollContainer = ref<HTMLElement | null>(null)
 
 // 使用统一错误处理
 const { execute } = useErrorHandler()
@@ -307,6 +322,28 @@ const createRules = {
 // 筛选变化
 const handleFilterChange = () => {
   fetchPortfolios(filterMode.value ? { mode: filterMode.value } : undefined)
+}
+
+// 滚动加载更多
+const handleScroll = (e: Event) => {
+  const target = e.target as HTMLElement
+  const scrollTop = target.scrollTop
+  const scrollHeight = target.scrollHeight
+  const clientHeight = target.clientHeight
+
+  // 距离底部 100px 时触发加载
+  if (scrollHeight - scrollTop - clientHeight < 100 && hasMore.value && !loadingMore.value) {
+    loadMore()
+  }
+}
+
+// 加载更多
+const loadMore = async () => {
+  if (!hasMore.value || loadingMore.value) return
+  await fetchPortfolios({
+    mode: filterMode.value || undefined,
+    append: true
+  })
 }
 
 // 净值变化样式
@@ -415,6 +452,18 @@ const handleDelete = (portfolio: any) => {
 
 onMounted(() => {
   fetchPortfolios()
+  fetchStats()  // 获取全量统计数据
+  // 添加滚动监听
+  if (scrollContainer.value) {
+    scrollContainer.value.addEventListener('scroll', handleScroll)
+  }
+})
+
+onUnmounted(() => {
+  // 移除滚动监听
+  if (scrollContainer.value) {
+    scrollContainer.value.removeEventListener('scroll', handleScroll)
+  }
 })
 </script>
 
@@ -632,6 +681,23 @@ onMounted(() => {
 
 .action-buttons .ant-btn {
   flex: 1;
+}
+
+/* 加载更多提示 */
+.load-more-loading,
+.load-more-finished {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  color: #8c8c8c;
+  font-size: 14px;
+  grid-column: 1 / -1;
+}
+
+.load-more-loading {
+  color: #1890ff;
 }
 
 /* 响应式 */
