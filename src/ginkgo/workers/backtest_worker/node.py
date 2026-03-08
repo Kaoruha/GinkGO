@@ -180,7 +180,7 @@ class BacktestWorker:
             self.task_consumer = GinkgoConsumer(
                 topic=KafkaTopics.BACKTEST_ASSIGNMENTS,
                 group_id=unique_group_id,
-                offset="earliest",
+                offset="latest",  # 只消费新消息，避免处理大量历史消息
             )
 
             while not self.should_stop:
@@ -197,9 +197,8 @@ class BacktestWorker:
                             # GinkgoConsumer 已反序列化，message.value 直接是 dict
                             assignment = message.value
 
-                            # 🔥 [FIX] 在接收任务后立即提交 offset，防止 worker 重启后重复消费
-                            # 注意：这里只确认"消息已接收"，不是"任务已完成"
-                            # 任务完成状态由 progress_tracker 跟踪
+                            # 立即提交 offset，防止 worker 重启后重复消费
+                            # 任务状态由数据库跟踪，失败的任务会被标记为 failed
                             try:
                                 self.task_consumer.commit()
                             except Exception as e:
@@ -228,11 +227,37 @@ class BacktestWorker:
         """启动新任务（阻塞等待空闲槽位）"""
         task_uuid = assignment.get("task_uuid", "unknown")[:8]
 
-        # 🔥 [FIX] 检查任务是否已经完成，避免重复执行
+        # 检查任务是否已经在 Worker 中运行
+        with self.task_lock:
+            if task_uuid in self.tasks:
+                print(f"[{task_uuid}] Task already running in this worker, skipping...")
+                return
+
+        # 检查任务状态
         existing_status = self.progress_tracker.get_task_status(assignment.get("task_uuid"))
+        print(f"[{task_uuid}] Current task status: {existing_status}")
+
+        # 如果任务已完成/失败/取消，跳过
         if existing_status and existing_status in ["completed", "failed", "cancelled"]:
             print(f"[{task_uuid}] Task already {existing_status}, skipping...")
             return
+
+        # 如果任务状态是 pending 或 running，但不在 Worker 中运行，可能是僵尸任务
+        # 重置任务状态为 created，允许重新处理
+        if existing_status and existing_status in ["pending", "running"]:
+            print(f"[{task_uuid}] Task is {existing_status} but not running, resetting to created...")
+            try:
+                # 尝试重置状态为 created
+                result = self.progress_tracker.task_service.update_status(
+                    uuid=assignment.get("task_uuid"),
+                    status="created"
+                )
+                if result.is_success():
+                    print(f"[{task_uuid}] Reset task status to created")
+                else:
+                    print(f"[{task_uuid}] Failed to reset status: {result.error}")
+            except Exception as e:
+                print(f"[{task_uuid}] Error resetting status: {e}")
 
         # 阻塞等待空闲槽位
         while not self._can_accept_task():
@@ -263,6 +288,18 @@ class BacktestWorker:
             self.progress_tracker.report_failed_by_uuid(
                 task_uuid=assignment.get("task_uuid", ""),
                 error="portfolio_uuid is required"
+            )
+            return
+
+        # 验证日期参数
+        config_dict = assignment.get("config", {})
+        start_date = config_dict.get("start_date")
+        end_date = config_dict.get("end_date")
+        if not start_date or not end_date:
+            print(f"[{task_uuid}] ERROR: start_date and end_date are required, discarding task")
+            self.progress_tracker.report_failed_by_uuid(
+                task_uuid=assignment.get("task_uuid", ""),
+                error=f"Missing dates: start_date={start_date}, end_date={end_date}"
             )
             return
 
