@@ -20,7 +20,7 @@ from ginkgo.workers.backtest_worker.progress_tracker import ProgressTracker
 from ginkgo.trading.engines.time_controlled_engine import TimeControlledEventEngine
 from ginkgo.trading.analysis.backtest_result_aggregator import BacktestResultAggregator
 from ginkgo import services
-from ginkgo.libs import GinkgoLogger
+from ginkgo.libs import GLOG, GinkgoLogger
 from ginkgo.trading.time.clock import now as clock_now
 
 

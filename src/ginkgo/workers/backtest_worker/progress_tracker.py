@@ -136,6 +136,9 @@ class ProgressTracker:
         })
         print(f"[{short_uuid}] Reported failure by UUID: {error}")
 
+        # 更新数据库状态为 failed（修复：之前缺少这步）
+        self._write_status_to_db(task_uuid, "failed", error_message=error)
+
         # 更新数据库状态为 failed
         self._write_status_to_db(task_uuid, "failed", error_message=error)
 
@@ -258,7 +261,7 @@ class ProgressTracker:
         查询任务当前状态
 
         Args:
-            task_uuid: 任务UUID
+            task_uuid: 任务UUID (实际是 run_id)
 
         Returns:
             Optional[str]: 任务状态 (completed/failed/running/pending/created)，如果查询失败返回 None
@@ -267,16 +270,11 @@ class ProgressTracker:
             return None
 
         try:
-            result = self.task_service.get(task_uuid)
+            # 使用 get_by_id 而不是 get，因为 get_by_id 更可靠（先尝试 uuid，再尝试 run_id）
+            result = self.task_service.get_by_id(task_uuid)
             if result.is_success() and result.data:
-                # result.data 可能是 MBacktestTask 对象或列表
-                if isinstance(result.data, list):
-                    if len(result.data) > 0:
-                        task_obj = result.data[0]
-                    else:
-                        return None
-                else:
-                    task_obj = result.data
+                # result.data 是单个 MBacktestTask 对象
+                task_obj = result.data
 
                 # 尝试获取 status 属性
                 if hasattr(task_obj, 'status'):
