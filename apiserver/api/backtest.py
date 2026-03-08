@@ -328,23 +328,6 @@ async def send_task_to_kafka(task_uuid: str, portfolio_uuids: list, name: str, c
     logger.info(f"Task {task_uuid} sent to Kafka with {len(portfolio_uuids)} portfolio(s)")
 
 
-async def send_cancel_to_kafka(task_uuid: str):
-    """发送取消命令到Kafka"""
-    producer = get_kafka_producer()
-
-    command = {
-        "command": "cancel",
-        "task_uuid": task_uuid,
-    }
-
-    producer.send(
-        topic=KafkaTopics.BACKTEST_ASSIGNMENTS,
-        msg=command,
-    )
-
-    logger.info(f"Cancel command sent for task {task_uuid}")
-
-
 # ==================== API 路由 ====================
 
 @router.get("/", response_model=PaginatedResponse[BacktestTaskSummary])
@@ -611,15 +594,15 @@ async def start_backtest(uuid: str):
         if not result.is_success() or not result.data:
             raise NotFoundError("BacktestTask", uuid)
 
-        # 启动任务
-        result = task_service.start_task(uuid, worker_id="api")
+        # 启动任务（使用正确的参数）
+        result = task_service.start_task(uuid)
 
         if not result.is_success():
             raise BusinessError(f"Failed to start task: {result.error}")
 
         return {
             "success": True,
-            "data": {"uuid": uuid, "state": "RUNNING"},
+            "data": {"uuid": uuid, "run_id": result.data.get("run_id", uuid), "state": "PENDING"},
             "error": None,
             "message": "Backtest task started successfully"
         }
@@ -633,7 +616,10 @@ async def start_backtest(uuid: str):
 
 @router.post("/{uuid}/stop", response_model=APIResponse[dict])
 async def stop_backtest(uuid: str):
-    """停止回测任务（使用 service 层）"""
+    """停止回测任务
+
+    状态机规则：只能停止 running 状态的任务
+    """
     try:
         task_service = get_backtest_task_service()
 
@@ -642,18 +628,15 @@ async def stop_backtest(uuid: str):
         if not result.is_success() or not result.data:
             raise NotFoundError("BacktestTask", uuid)
 
-        # 取消任务
-        result = task_service.cancel_task(uuid)
+        # 停止任务（service层会处理状态检查和Kafka消息）
+        result = task_service.stop_task(uuid)
 
         if not result.is_success():
             raise BusinessError(f"Failed to stop task: {result.error}")
 
-        # 发送取消命令到Kafka（后台任务，不阻塞响应）
-        asyncio.create_task(send_cancel_to_kafka(uuid))
-
         return {
             "success": True,
-            "data": {"uuid": uuid, "state": "CANCELLED"},
+            "data": {"uuid": uuid, "run_id": result.data.get("run_id"), "status": "stopped"},
             "error": None,
             "message": "Backtest task stopped successfully"
         }
@@ -663,6 +646,40 @@ async def stop_backtest(uuid: str):
     except Exception as e:
         logger.error(f"Error stopping backtest {uuid}: {str(e)}")
         raise BusinessError(f"Error stopping backtest: {str(e)}")
+
+
+@router.post("/{uuid}/cancel", response_model=APIResponse[dict])
+async def cancel_backtest(uuid: str):
+    """取消回测任务
+
+    状态机规则：只能取消 created/pending 状态的任务（尚未开始执行的任务）
+    """
+    try:
+        task_service = get_backtest_task_service()
+
+        # 检查任务是否存在
+        result = task_service.get(uuid=uuid)
+        if not result.is_success() or not result.data:
+            raise NotFoundError("BacktestTask", uuid)
+
+        # 取消任务（service层会处理状态检查和Kafka消息）
+        result = task_service.cancel_task(uuid)
+
+        if not result.is_success():
+            raise BusinessError(f"Failed to cancel task: {result.error}")
+
+        return {
+            "success": True,
+            "data": {"uuid": uuid, "run_id": result.data.get("run_id"), "status": "stopped"},
+            "error": None,
+            "message": "Backtest task cancelled successfully"
+        }
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling backtest {uuid}: {str(e)}")
+        raise BusinessError(f"Error cancelling backtest: {str(e)}")
 
 
 @router.delete("/{uuid}", status_code=status.HTTP_204_NO_CONTENT)
@@ -739,3 +756,311 @@ async def backtest_events(uuid: str):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/{uuid}/signals", response_model=APIResponse[dict])
+async def get_backtest_signals(
+    uuid: str,
+    page: int = Query(0, ge=0, description="页码"),
+    size: int = Query(100, ge=1, le=1000, description="每页数量")
+):
+    """
+    获取回测信号记录（按 run_id 过滤）
+
+    Args:
+        uuid: BacktestTask.uuid 或 BacktestTask.run_id
+        page: 页码
+        size: 每页数量
+
+    Returns:
+        按 run_id 过滤的信号列表
+    """
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.get_by_id(uuid)
+
+        if not result.is_success() or not result.data:
+            raise NotFoundError("BacktestTask", uuid)
+
+        task = result.data
+        if isinstance(task, list) and len(task) > 0:
+            task = task[0]
+
+        run_id = getattr(task, 'run_id', uuid)
+
+        # 查询信号（按 run_id 过滤）
+        signal_crud = container.cruds.signal()
+
+        signals = signal_crud.find(
+            filters={"run_id": run_id},
+            page=page,
+            page_size=size,
+            order_by="timestamp",
+            desc_order=True,
+            as_dataframe=False
+        )
+
+        total = signal_crud.count(filters={"run_id": run_id})
+
+        # 转换信号为字典格式
+        signals_data = []
+        for s in signals:
+            signals_data.append({
+                "uuid": getattr(s, 'uuid', ''),
+                "portfolio_id": getattr(s, 'portfolio_id', ''),
+                "engine_id": getattr(s, 'engine_id', ''),
+                "run_id": getattr(s, 'run_id', ''),
+                "code": getattr(s, 'code', ''),
+                "direction": getattr(s, 'direction', None),
+                "reason": getattr(s, 'reason', ''),
+                "timestamp": getattr(s, 'timestamp', None),
+                "source": getattr(s, 'source', None),
+            })
+
+        return {
+            "success": True,
+            "data": {
+                "data": signals_data,
+                "total": total,
+                "page": page,
+                "size": size
+            },
+            "error": None,
+            "message": "Signals retrieved successfully"
+        }
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting signals for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting signals: {str(e)}")
+
+
+@router.get("/{uuid}/orders", response_model=APIResponse[dict])
+async def get_backtest_orders(uuid: str):
+    """
+    获取回测订单记录（按 run_id 过滤）
+
+    Args:
+        uuid: BacktestTask.uuid 或 BacktestTask.run_id
+
+    Returns:
+        按 run_id 过滤的订单列表
+    """
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.get_by_id(uuid)
+
+        if not result.is_success() or not result.data:
+            raise NotFoundError("BacktestTask", uuid)
+
+        task = result.data
+        if isinstance(task, list) and len(task) > 0:
+            task = task[0]
+
+        run_id = getattr(task, 'run_id', uuid)
+
+        order_crud = container.cruds.order()
+
+        orders = order_crud.find(
+            filters={"run_id": run_id},
+            as_dataframe=False
+        )
+
+        total = order_crud.count(filters={"run_id": run_id})
+
+        # 转换订单为字典格式
+        orders_data = []
+        for o in orders:
+            orders_data.append({
+                "uuid": getattr(o, 'uuid', ''),
+                "portfolio_id": getattr(o, 'portfolio_id', ''),
+                "engine_id": getattr(o, 'engine_id', ''),
+                "run_id": getattr(o, 'run_id', ''),
+                "code": getattr(o, 'code', ''),
+                "direction": getattr(o, 'direction', None),
+                "order_type": getattr(o, 'order_type', None),
+                "status": getattr(o, 'status', None),
+                "volume": getattr(o, 'volume', 0),
+                "limit_price": str(getattr(o, 'limit_price', 0)),
+                "transaction_price": str(getattr(o, 'transaction_price', 0)),
+                "transaction_volume": getattr(o, 'transaction_volume', 0),
+                "fee": str(getattr(o, 'fee', 0)),
+                "timestamp": getattr(o, 'timestamp', None),
+            })
+
+        return {
+            "success": True,
+            "data": {
+                "data": orders_data,
+                "total": total
+            },
+            "error": None,
+            "message": "Orders retrieved successfully"
+        }
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting orders for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting orders: {str(e)}")
+
+
+@router.get("/{uuid}/positions", response_model=APIResponse[dict])
+async def get_backtest_positions(uuid: str):
+    """
+    获取回测持仓记录（按 run_id 过滤）
+
+    Args:
+        uuid: BacktestTask.uuid 或 BacktestTask.run_id
+
+    Returns:
+        按 run_id 过滤的持仓列表
+    """
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.get_by_id(uuid)
+
+        if not result.is_success() or not result.data:
+            raise NotFoundError("BacktestTask", uuid)
+
+        task = result.data
+        if isinstance(task, list) and len(task) > 0:
+            task = task[0]
+
+        run_id = getattr(task, 'run_id', uuid)
+
+        position_crud = container.cruds.position()
+
+        positions = position_crud.find(
+            filters={"run_id": run_id},
+            as_dataframe=False
+        )
+
+        total = position_crud.count(filters={"run_id": run_id})
+
+        # 转换持仓为字典格式
+        positions_data = []
+        for p in positions:
+            positions_data.append({
+                "uuid": getattr(p, 'uuid', ''),
+                "portfolio_id": getattr(p, 'portfolio_id', ''),
+                "engine_id": getattr(p, 'engine_id', ''),
+                "run_id": getattr(p, 'run_id', ''),
+                "code": getattr(p, 'code', ''),
+                "cost": str(getattr(p, 'cost', 0)),
+                "volume": getattr(p, 'volume', 0),
+                "frozen_volume": getattr(p, 'frozen_volume', 0),
+                "price": str(getattr(p, 'price', 0)),
+                "fee": str(getattr(p, 'fee', 0)),
+            })
+
+        return {
+            "success": True,
+            "data": {
+                "data": positions_data,
+                "total": total
+            },
+            "error": None,
+            "message": "Positions retrieved successfully"
+        }
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting positions for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting positions: {str(e)}")
+
+
+@router.get("/{uuid}/analyzer/{analyzer_name}", response_model=APIResponse[dict])
+async def get_backtest_analyzer_data(
+    uuid: str,
+    analyzer_name: str
+):
+    """
+    获取回测分析器数据
+
+    Args:
+        uuid: BacktestTask.uuid 或 run_id
+        analyzer_name: 分析器名称（如 net_value, drawdown 等）
+
+    Returns:
+        分析器时序数据和统计信息
+    """
+    try:
+        task_service = get_backtest_task_service()
+        result = task_service.get_by_id(uuid)
+
+        if not result.is_success() or not result.data:
+            raise NotFoundError("BacktestTask", uuid)
+
+        task = result.data
+        if isinstance(task, list) and len(task) > 0:
+            task = task[0]
+
+        # 使用任务的 run_id（支持历史运行查看）
+        run_id = getattr(task, 'run_id', uuid)
+        portfolio_id = task.portfolio_id
+
+        # 查询分析器记录
+        from ginkgo.data.containers import container
+        analyzer_crud = container.cruds.analyzer_record()
+
+        records = analyzer_crud.get_by_run_id(
+            run_id=run_id,
+            portfolio_id=portfolio_id,
+            analyzer_name=analyzer_name,
+            page_size=10000,
+            as_dataframe=False
+        )
+
+        if not records:
+            return {
+                "success": True,
+                "data": {
+                    "data": [],
+                    "stats": None
+                },
+                "error": None,
+                "message": "No analyzer data found"
+            }
+
+        # 转换为前端格式
+        data = []
+        values = []
+        for r in records:
+            data.append({
+                "time": r.business_timestamp.isoformat() if r.business_timestamp else r.timestamp.isoformat(),
+                "value": float(r.value) if r.value is not None else None
+            })
+            if r.value is not None:
+                values.append(float(r.value))
+
+        # 计算统计信息
+        stats = None
+        if values:
+            stats = {
+                "count": len(values),
+                "min": min(values),
+                "max": max(values),
+                "avg": sum(values) / len(values),
+                "first": values[0] if values else None,
+                "latest": values[-1] if values else None,
+                "change": (values[-1] - values[0]) if len(values) > 1 else 0
+            }
+
+        return {
+            "success": True,
+            "data": {
+                "data": data,
+                "stats": stats
+            },
+            "error": None,
+            "message": "Analyzer data retrieved successfully"
+        }
+
+    except NotFoundError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting analyzer data for {uuid}: {str(e)}")
+        raise BusinessError(f"Error getting analyzer data: {str(e)}")
