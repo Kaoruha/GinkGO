@@ -1,0 +1,369 @@
+openapi: 3.0.0
+info:
+  title: Ginkgo Backtest API
+  version: 1.0.0
+  description: 回测任务管理 API 接口规范
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: 开发环境
+
+tags:
+  - name: backtests
+    description: 回测任务管理
+
+paths:
+  /backtests:
+    get:
+      summary: 获取回测任务列表
+      tags: [backtests]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [created, pending, running, completed, stopped, failed]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListBacktestsResponse'
+
+  /backtests/{uuid}:
+    get:
+      summary: 获取回测任务详情
+      tags: [backtests]
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestTask'
+        '404':
+          description: 任务不存在
+
+    delete:
+      summary: 删除回测任务
+      tags: [backtests]
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          description: 无权限删除
+        '404':
+          description: 任务不存在
+
+  /backtests/{uuid}/start:
+    post:
+      summary: 启动回测任务
+      description: |
+        启动已完成/失败/已停止的回测任务，创建新的回测实例（新UUID）。
+        原任务保持为历史记录。
+      tags: [backtests]
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 启动成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartBacktestResponse'
+        '400':
+          description: 任务状态不允许启动
+        '403':
+          description: 无权限操作
+        '404':
+          description: 任务不存在
+
+  /backtests/{uuid}/stop:
+    post:
+      summary: 停止回测任务
+      description: |
+        停止正在运行的回测任务。
+        仅 running 状态的任务可以停止。
+      tags: [backtests]
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 停止成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: 任务状态不允许停止
+        '403':
+          description: 无权限操作
+        '404':
+          description: 任务不存在
+
+  /backtests/{uuid}/cancel:
+    post:
+      summary: 取消回测任务
+      description: |
+        取消待调度或排队中的回测任务。
+        仅 created 或 pending 状态的任务可以取消。
+      tags: [backtests]
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 取消成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: 任务状态不允许取消
+        '403':
+          description: 无权限操作
+        '404':
+          description: 任务不存在
+
+components:
+  schemas:
+    BacktestStatus:
+      type: string
+      enum: [created, pending, running, completed, stopped, failed]
+      description: |
+        回测任务状态：
+        - created: 待调度
+        - pending: 排队中
+        - running: 进行中
+        - completed: 已完成
+        - stopped: 已停止
+        - failed: 失败
+
+    BacktestConfig:
+      type: object
+      required:
+        - start_date
+        - end_date
+        - commission_rate
+        - slippage_rate
+        - broker_attitude
+      properties:
+        start_date:
+          type: string
+          format: date
+          description: 回测开始日期 (YYYY-MM-DD)
+        end_date:
+          type: string
+          format: date
+          description: 回测结束日期 (YYYY-MM-DD)
+        initial_cash:
+          type: number
+          description: 初始资金
+        commission_rate:
+          type: number
+          description: 手续费率
+        slippage_rate:
+          type: number
+          description: 滑点率
+        broker_attitude:
+          type: integer
+          enum: [1, 2, 3]
+          description: Broker 态度 (1=悲观, 2=乐观, 3=随机)
+
+    BacktestResult:
+      type: object
+      properties:
+        total_return:
+          type: number
+          description: 总收益率
+        annual_return:
+          type: number
+          description: 年化收益率
+        sharpe_ratio:
+          type: number
+          description: 夏普比率
+        max_drawdown:
+          type: number
+          description: 最大回撤
+        win_rate:
+          type: number
+          description: 胜率
+
+    BacktestTask:
+      type: object
+      required:
+        - uuid
+        - name
+        - status
+        - created_at
+        - updated_at
+        - creator_id
+        - portfolio_uuid
+        - portfolio_name
+        - config
+        - progress
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: 任务唯一标识
+        name:
+          type: string
+          description: 任务名称
+        status:
+          $ref: '#/components/schemas/BacktestStatus'
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+        started_at:
+          type: string
+          format: date-time
+          description: 开始时间
+        completed_at:
+          type: string
+          format: date-time
+          description: 完成时间
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: 进度百分比
+        current_stage:
+          type: string
+          description: 当前阶段描述
+        creator_id:
+          type: string
+          description: 创建者用户 ID
+        portfolio_uuid:
+          type: string
+          format: uuid
+          description: 关联的投资组合 UUID
+        portfolio_name:
+          type: string
+          description: 投资组合名称
+        config:
+          $ref: '#/components/schemas/BacktestConfig'
+        result:
+          $ref: '#/components/schemas/BacktestResult'
+        error_message:
+          type: string
+          description: 错误信息
+
+    ListBacktestsResponse:
+      type: object
+      required:
+        - data
+        - total
+        - page
+        - size
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BacktestTask'
+        total:
+          type: integer
+          description: 总数
+        page:
+          type: integer
+          description: 当前页
+        size:
+          type: integer
+          description: 每页数量
+
+    StartBacktestResponse:
+      type: object
+      required:
+        - uuid
+        - status
+        - message
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: 新创建的任务 UUID
+        status:
+          $ref: '#/components/schemas/BacktestStatus'
+        message:
+          type: string
+          description: 操作消息
+
+    OperationResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: 错误消息
+        detail:
+          type: string
+          description: 错误详情
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
