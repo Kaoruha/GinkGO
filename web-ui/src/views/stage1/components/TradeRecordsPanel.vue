@@ -127,11 +127,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { backtestApi, type SignalRecord, type OrderRecord, type PositionRecord } from '@/api/modules/backtest'
 
 interface Props {
-  taskId: string
+  taskId: string  // run_id
 }
 
 const props = defineProps<Props>()
@@ -301,6 +301,7 @@ const getTimelineColor = (status: string | number) => {
 // 加载数据
 const loadSignals = async () => {
   if (!props.taskId) return
+
   signalsLoading.value = true
   try {
     const result = await backtestApi.getSignals(props.taskId)
@@ -315,6 +316,7 @@ const loadSignals = async () => {
 
 const loadOrders = async () => {
   if (!props.taskId) return
+
   ordersLoading.value = true
   try {
     const result = await backtestApi.getOrders(props.taskId)
@@ -328,6 +330,7 @@ const loadOrders = async () => {
 
 const loadPositions = async () => {
   if (!props.taskId) return
+
   positionsLoading.value = true
   try {
     const result = await backtestApi.getPositions(props.taskId)
