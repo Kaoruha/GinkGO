@@ -458,61 +458,92 @@ async def delete_backtest(backtest_id: str):
 
 
 class BacktestStartRequest(BaseModel):
-    """启动回测任务请求"""
-    portfolio_uuid: str
-    name: str = ""
-    start_date: str = ""
-    end_date: str = ""
-    initial_cash: float = 100000.0
-    analyzers: list = []
+    """启动回测任务请求（仅用于未来可能的参数扩展，当前不需要参数）"""
+    pass
 
 
 @app.post("/api/v1/backtest/{backtest_id}/start")
-async def start_backtest(backtest_id: str, request: BacktestStartRequest = None):
-    """启动回测任务（发送到Kafka队列）"""
+async def start_backtest(backtest_id: str):
+    """
+    启动回测任务（操作）
+
+    从任务记录中读取配置并启动，不接受参数。
+    如需修改配置，请使用编辑接口。
+    """
     task_service = get_backtest_task_service()
 
-    # 获取任务以检查 portfolio_id
+    # 获取任务记录
     task_result = task_service.get_by_id(backtest_id)
     if not task_result.is_success() or not task_result.data:
         raise HTTPException(status_code=404, detail="Backtest task not found")
 
     task = task_result.data
-    # 优先使用请求中的 portfolio_uuid，否则使用任务创建时的 portfolio_id
-    portfolio_uuid = None
-    if request and request.portfolio_uuid:
-        portfolio_uuid = request.portfolio_uuid
-    elif task.portfolio_id:
-        portfolio_uuid = task.portfolio_id
+
+    # 从任务记录中获取参数（操作不接受参数）
+    portfolio_uuid = task.portfolio_id
+    task_name = task.name or f"backtest_{task.run_id[:8]}"
+
+    # 从任务记录中解析配置快照，获取原始参数
+    import json
+    config_snapshot = {}
+    try:
+        if task.config_snapshot:
+            config_snapshot = json.loads(task.config_snapshot)
+    except:
+        pass
+
+    # 获取日期参数
+    start_date = config_snapshot.get("start_date", "")
+    end_date = config_snapshot.get("end_date", "")
+
+    # 如果任务记录中有日期字段，也使用它们
+    if not start_date and task.backtest_start_date:
+        start_date = task.backtest_start_date.strftime("%Y-%m-%d")
+    if not end_date and task.backtest_end_date:
+        end_date = task.backtest_end_date.strftime("%Y-%m-%d")
+
+    # �金和分析器参数
+    initial_cash = config_snapshot.get("initial_cash", 100000.0)
+    analyzers = config_snapshot.get("analyzers", [])
 
     # 校验必须有有效的 portfolio_uuid
     if not portfolio_uuid:
         raise HTTPException(
             status_code=400,
-            detail="portfolio_uuid is required. Please select a portfolio when creating the task."
+            detail="Task has no portfolio_id. Please recreate the task with a valid portfolio."
         )
 
     result = task_service.start_task(
-        uuid=backtest_id,  # backtest_id 就是 uuid
+        uuid=backtest_id,
         portfolio_uuid=portfolio_uuid,
-        name=request.name if request else None,
-        start_date=request.start_date if request else "",
-        end_date=request.end_date if request else "",
-        initial_cash=request.initial_cash if request else 100000.0,
-        analyzers=request.analyzers if request else [],
+        name=task_name,
+        start_date=start_date,
+        end_date=end_date,
+        initial_cash=initial_cash,
+        analyzers=analyzers,
     )
     if result.is_success():
-        return {"success": True, "task_id": result.data.get("uuid"), "message": result.message}
+        return {"success": True, "run_id": result.data.get("run_id"), "message": result.message}
     raise HTTPException(status_code=404 if "not found" in result.error.lower() else 500, detail=result.error)
 
 
 @app.post("/api/v1/backtest/{backtest_id}/stop")
 async def stop_backtest(backtest_id: str):
-    """停止回测任务（发送取消命令到Kafka）"""
+    """停止回测任务（只能停止 running 状态的任务）"""
     task_service = get_backtest_task_service()
     result = task_service.stop_task(uuid=backtest_id)  # backtest_id 就是 uuid
     if result.is_success():
-        return {"success": True, "task_id": result.data.get("uuid"), "message": result.message}
+        return {"success": True, "run_id": result.data.get("run_id"), "message": result.message}
+    raise HTTPException(status_code=404 if "not found" in result.error.lower() else 500, detail=result.error)
+
+
+@app.post("/api/v1/backtest/{backtest_id}/cancel")
+async def cancel_backtest(backtest_id: str):
+    """取消回测任务（只能取消 created/pending 状态的任务）"""
+    task_service = get_backtest_task_service()
+    result = task_service.cancel_task(uuid=backtest_id)  # backtest_id 就是 uuid
+    if result.is_success():
+        return {"success": True, "run_id": result.data.get("run_id"), "message": result.message}
     raise HTTPException(status_code=404 if "not found" in result.error.lower() else 500, detail=result.error)
 
 
