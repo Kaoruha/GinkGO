@@ -118,6 +118,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
         return MPosition(
             portfolio_id=kwargs.get("portfolio_id"),
             engine_id=kwargs.get("engine_id"),
+            run_id=kwargs.get("run_id", ""),  # 添加 run_id 字段
             code=kwargs.get("code"),
             cost=to_decimal(kwargs.get("cost", 0)),
             volume=kwargs.get("volume", 0),
@@ -137,6 +138,7 @@ class PositionCRUD(BaseCRUD[MPosition]):
             return MPosition(
                 portfolio_id=getattr(item, 'portfolio_id'),
                 engine_id=getattr(item, 'engine_id', ''),
+                run_id=getattr(item, 'run_id', ""),  # 添加 run_id 字段
                 code=getattr(item, 'code'),
                 cost=to_decimal(getattr(item, 'cost', 0)),
                 volume=getattr(item, 'volume', 0),
