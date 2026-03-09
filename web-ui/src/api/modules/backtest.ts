@@ -11,7 +11,7 @@ export interface BacktestTask {
   end_time?: string
   duration_seconds?: number
   error_message?: string
-  progress?: string
+  progress?: number
   current_stage?: string
   total_orders: number
   total_signals: number
@@ -50,6 +50,7 @@ export interface BacktestListParams {
   engine_id?: string
   portfolio_id?: string
   status?: string
+  keyword?: string
   page?: number
   size?: number
 }
@@ -214,6 +215,13 @@ export const backtestApi = {
   },
 
   /**
+   * 取消回测任务
+   */
+  cancel(uuid: string): Promise<{ success: boolean; run_id: string; message: string }> {
+    return request.post(`/v1/backtest/${uuid}/cancel`)
+  },
+
+  /**
    * 获取分析器时序数据
    */
   getAnalyzerData(uuid: string, analyzerName: string): Promise<AnalyzerTimeseriesResponse> {
@@ -240,4 +248,6 @@ export const backtestApi = {
   getPositions(uuid: string): Promise<{ data: PositionRecord[]; total: number }> {
     return request.get(`/v1/backtest/${uuid}/positions`)
   },
+
 }
+
