@@ -10,10 +10,40 @@
       <div class="page-header">
         <div class="page-title">
           <a-tag :color="getStatusColor(backtest.status)">{{ getStatusLabel(backtest.status) }}</a-tag>
-          {{ backtest.run_id }}
+          <span style="font-family: monospace; font-size: 13px; margin-left: 8px;">{{ backtest.run_id?.substring(0, 16) }}...</span>
         </div>
         <a-space>
-          <a-button v-if="backtest.status === 'running'" type="primary" danger @click="stopBacktest">停止回测</a-button>
+          <!-- 重新运行按钮：已完成/失败/已停止状态显示 -->
+          <a-tooltip v-if="canReRun" :title="reRunTooltip">
+            <a-button
+              type="primary"
+              :disabled="!hasPermission"
+              @click="handleReRun"
+            >
+              重新运行
+            </a-button>
+          </a-tooltip>
+          <!-- 停止按钮：进行中状态显示 -->
+          <a-tooltip v-if="canStop" :title="stopTooltip">
+            <a-button
+              type="primary"
+              danger
+              :disabled="!hasPermission"
+              @click="stopBacktest"
+            >
+              停止回测
+            </a-button>
+          </a-tooltip>
+          <!-- 删除按钮 -->
+          <a-tooltip v-if="canDelete" :title="deleteTooltip">
+            <a-button
+              danger
+              :disabled="!hasPermission"
+              @click="handleDelete"
+            >
+              删除
+            </a-button>
+          </a-tooltip>
           <a-button @click="goBack">返回列表</a-button>
         </a-space>
       </div>
@@ -39,6 +69,22 @@
               <a-descriptions-item label="结束时间">{{ formatDateTime(backtest.end_time) }}</a-descriptions-item>
               <a-descriptions-item label="创建时间">{{ formatDateTime(backtest.create_at) }}</a-descriptions-item>
             </a-descriptions>
+          </a-card>
+
+          <!-- 回测进度 -->
+          <a-card v-if="backtest.status === 'running' || backtest.status === 'pending'" title="回测进度" style="margin-bottom: 16px">
+            <div class="progress-section">
+              <div class="progress-header">
+                <span class="progress-label">{{ backtest.current_stage || '处理中' }}</span>
+                <span class="progress-value">{{ ((backtest.progress || 0)).toFixed(1) }}%</span>
+              </div>
+              <a-progress
+                :percent="backtest.progress || 0"
+                :status="backtest.status === 'running' ? 'active' : 'normal'"
+                size="large"
+                :stroke-color="backtest.status === 'running' ? '#1890ff' : '#52c41a'"
+              />
+            </div>
           </a-card>
 
           <!-- 配置快照 -->
@@ -261,11 +307,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import { NetValueChart } from '@/components/charts'
 import type { LineData } from 'lightweight-charts'
-import { useBacktestStore } from '@/stores'
+import { useBacktestStore, useAuthStore } from '@/stores'
 import { useWebSocket, useBacktestStatus } from '@/composables'
+import { BACKTEST_STATES, canStartByState, canStopByState } from '@/constants/backtest'
 import AnalyzerPanel from './components/AnalyzerPanel.vue'
 import TradeRecordsPanel from './components/TradeRecordsPanel.vue'
 import dayjs from 'dayjs'
@@ -275,6 +322,7 @@ const router = useRouter()
 
 // ========== Store ==========
 const backtestStore = useBacktestStore()
+const authStore = useAuthStore()
 const { getColor: getStatusColor, getLabel: getStatusLabel } = useBacktestStatus()
 
 // ========== 本地状态 ==========
@@ -345,6 +393,42 @@ const pnlColor = computed(() => {
   return pnl >= 0 ? '#52c41a' : '#f5222d'
 })
 
+// 权限检查 - 简化版，使用 admin 权限
+const hasPermission = computed(() => {
+  // 暂时只检查 admin 权限，等待后端 API 添加 creator_id 字段
+  return authStore.isAdmin
+})
+
+// 状态检查
+const canReRun = computed(() => {
+  if (!backtest.value) return false
+  return canStartByState(backtest.value.status)
+})
+
+const canStop = computed(() => {
+  if (!backtest.value) return false
+  return canStopByState(backtest.value.status)
+})
+
+const canDelete = computed(() => {
+  if (!backtest.value) return false
+  // 只能删除已完成、已停止、失败状态的任务
+  return [BACKTEST_STATES.COMPLETED, BACKTEST_STATES.STOPPED, BACKTEST_STATES.FAILED].includes(backtest.value.status)
+})
+
+// Tooltip 文本
+const reRunTooltip = computed(() => {
+  return hasPermission.value ? '创建新任务并运行相同的配置' : '你没有权限操作此任务'
+})
+
+const stopTooltip = computed(() => {
+  return hasPermission.value ? '停止正在运行的任务' : '你没有权限操作此任务'
+})
+
+const deleteTooltip = computed(() => {
+  return hasPermission.value ? '删除此回测任务' : '你没有权限操作此任务'
+})
+
 // 加载回测详情
 const loadBacktest = async () => {
   const uuid = route.params.id as string
@@ -379,6 +463,8 @@ const loadBacktest = async () => {
   }
 }
 
+// ========== 运行控制 ==========
+
 // 加载分析器列表
 const loadAnalyzers = async (uuid: string) => {
   analyzersLoading.value = true
@@ -397,12 +483,62 @@ const goBack = () => {
 
 const stopBacktest = async () => {
   if (!backtest.value?.uuid) return
+
+  Modal.confirm({
+    title: '确认停止',
+    content: '确定要停止此回测任务吗？',
+    onOk: async () => {
+      try {
+        await backtestStore.stopTask(backtest.value.uuid)
+        message.success('回测已停止')
+      } catch (e) {
+        message.error('停止失败')
+      }
+    }
+  })
+}
+
+const handleReRun = async () => {
+  if (!backtest.value) return
+
   try {
-    await backtestStore.stopTask(backtest.value.uuid)
-    message.success('回测已停止')
-  } catch (e) {
-    message.error('停止失败')
+    // 从配置快照中获取日期参数
+    const params = {
+      start_date: configSnapshot.value?.start_date,
+      end_date: configSnapshot.value?.end_date
+    }
+
+    // 调用启动接口，会创建新任务
+    const result = await backtestStore.startTask(backtest.value.uuid, params)
+    message.success('已创建新回测任务')
+
+    // 跳转到新任务详情页
+    if (result?.task_uuid) {
+      router.push(`/stage1/backtest/${result.task_uuid}`)
+    }
+  } catch (e: any) {
+    message.error(e.response?.data?.detail || '重新运行失败')
   }
+}
+
+const handleDelete = async () => {
+  if (!backtest.value?.uuid) return
+
+  Modal.confirm({
+    title: '确认删除',
+    content: '删除后无法恢复，确定要删除此回测任务吗？',
+    okText: '删除',
+    okType: 'danger',
+    onOk: async () => {
+      try {
+        await backtestStore.deleteTask(backtest.value.uuid)
+        message.success('删除成功')
+        goBack()
+      } catch (e: any) {
+        message.error(e.response?.data?.detail || '删除失败')
+      }
+    }
+  })
 }
 
 // 工具函数
@@ -531,19 +667,14 @@ const getAnalyzerValueColor = (name: string, value: number | null): string => {
 }
 
 // ========== 生命周期 ==========
-onMounted(() => {
-  loadBacktest()
-})
-
-onUnmounted(() => {
-  backtestStore.clearCurrentTask()
-})
-
 // WebSocket 实时更新
 const { subscribe } = useWebSocket()
 let unsubscribe: (() => void) | null = null
 
 onMounted(() => {
+  loadBacktest()
+
+  // 订阅 WebSocket 更新
   unsubscribe = subscribe('*', (data) => {
     const taskId = data.task_id || data.task_uuid
     if (!taskId || taskId !== backtest.value?.uuid) return
@@ -557,6 +688,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  backtestStore.clearCurrentTask()
   if (unsubscribe) unsubscribe()
 })
 </script>
@@ -615,6 +747,29 @@ onUnmounted(() => {
 }
 
 .stats-detail:hover {
+  color: #1890ff;
+}
+
+.progress-section {
+  padding: 8px 0;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.progress-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.progress-value {
+  font-size: 16px;
+  font-weight: 600;
   color: #1890ff;
 }
 </style>

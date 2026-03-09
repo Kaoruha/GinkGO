@@ -12,7 +12,7 @@
       </div>
       <div class="header-actions">
         <a-radio-group
-          v-model:value="filterState"
+          v-model:value="filterStatus"
           button-style="solid"
           size="large"
           @change="handleFilterChange"
@@ -20,16 +20,23 @@
           <a-radio-button value="">
             全部
           </a-radio-button>
-          <a-radio-button value="PENDING">
-            等待中
+          <a-radio-button value="pending">
+            排队中
           </a-radio-button>
-          <a-radio-button value="RUNNING">
-            运行中
+          <a-radio-button value="running">
+            进行中
           </a-radio-button>
-          <a-radio-button value="COMPLETED">
+          <a-radio-button value="completed">
             已完成
           </a-radio-button>
         </a-radio-group>
+        <a-button
+          size="large"
+          :loading="refreshing"
+          @click="handleRefresh"
+        >
+          <ReloadOutlined />
+        </a-button>
         <a-button
           type="primary"
           size="large"
@@ -38,6 +45,39 @@
           <PlusOutlined /> 创建回测
         </a-button>
       </div>
+    </div>
+
+    <!-- 批量操作栏 -->
+    <div v-if="selectedIds.size > 0" class="batch-action-bar">
+      <div class="batch-info">
+        已选择 <strong>{{ selectedIds.size }}</strong> 项
+      </div>
+      <a-space>
+        <a-button
+          :disabled="!canBatchStart"
+          :loading="batchOperationLoading"
+          @click="handleBatchStart"
+        >
+          <PlayCircleOutlined /> 批量启动
+        </a-button>
+        <a-button
+          :disabled="!canBatchStop"
+          :loading="batchOperationLoading"
+          @click="handleBatchStop"
+        >
+          <StopOutlined /> 批量停止
+        </a-button>
+        <a-button
+          :disabled="!canBatchCancel"
+          :loading="batchOperationLoading"
+          @click="handleBatchCancel"
+        >
+          <CloseCircleOutlined /> 批量取消
+        </a-button>
+        <a-button @click="handleClearSelection">
+          取消选择
+        </a-button>
+      </a-space>
     </div>
 
     <!-- 统计卡片 -->
@@ -96,7 +136,7 @@
       <a-spin size="large" />
     </div>
     <div
-      v-else-if="filteredTasks.length === 0"
+      v-else-if="tasks.length === 0"
       class="empty-container"
     >
       <a-empty description="暂无回测任务">
@@ -111,8 +151,13 @@
     <a-table
       v-else
       :columns="columns"
-      :data-source="filteredTasks"
+      :data-source="tasks"
       :pagination="{ pageSize: 10, showSizeChanger: true, showQuickJumper: true }"
+      :row-selection="{
+        selectedRowKeys: Array.from(selectedIds),
+        onChange: handleSelectionChange,
+        getCheckboxProps: (record) => ({ disabled: !canOperateTask(record) })
+      }"
       row-key="uuid"
       class="backtest-table"
     >
@@ -124,17 +169,14 @@
             <span class="portfolio-name">{{ record.portfolio_name }}</span>
           </div>
         </template>
-        <template v-if="column.key === 'state'">
-          <a-tag :color="getBacktestStateColor(record.state)">
-            <a-badge :status="getBacktestStateStatus(record.state)" />
-            {{ getBacktestStateLabel(record.state) }}
-          </a-tag>
+        <template v-if="column.key === 'status'">
+          <StatusTag :status="record.status" type="backtest" />
         </template>
         <template v-if="column.key === 'progress'">
           <div class="progress-cell">
             <a-progress
               :percent="record.progress"
-              :status="record.state === 'FAILED' ? 'exception' : record.state === 'COMPLETED' ? 'success' : 'active'"
+              :status="record.status === 'failed' ? 'exception' : record.status === 'completed' ? 'success' : 'active'"
               size="small"
             />
           </div>
@@ -148,18 +190,27 @@
         <template v-if="column.key === 'actions'">
           <a-space>
             <a @click="viewDetail(record)">查看详情</a>
-            <a
-              v-if="record.state === 'PENDING'"
-              @click="handleStart(record)"
-            >启动</a>
-            <a
-              v-if="record.state === 'RUNNING'"
-              @click="handleStop(record)"
-            >停止</a>
-            <a
-              v-if="record.state !== 'RUNNING'"
-              @click="handleDelete(record)"
-            >删除</a>
+            <a-tooltip v-if="!canOperateTask(record)" title="仅创建者可操作">
+              <span style="color: #ccc;">无权限</span>
+            </a-tooltip>
+            <template v-else>
+              <a
+                v-if="canStartTask(record)"
+                @click="handleStart(record)"
+              >启动</a>
+              <a
+                v-if="canStopTask(record)"
+                @click="handleStop(record)"
+              >停止</a>
+              <a
+                v-if="canCancelTask(record)"
+                @click="handleCancel(record)"
+              >取消</a>
+              <a
+                v-if="canDeleteTask(record)"
+                @click="handleDelete(record)"
+              >删除</a>
+            </template>
           </a-space>
         </template>
       </template>
@@ -237,62 +288,104 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import {
   PlusOutlined,
+  ReloadOutlined,
+  PlayCircleOutlined,
+  StopOutlined,
+  CloseCircleOutlined,
   FileTextOutlined,
   CheckCircleOutlined,
-  SyncOutlined,
-  CloseCircleOutlined
+  SyncOutlined
 } from '@ant-design/icons-vue'
 import { useBacktestStore } from '@/stores/backtest'
 import { storeToRefs } from 'pinia'
-import {
-  getBacktestStateLabel,
-  getBacktestStateColor,
-  getBacktestStateStatus
-} from '@/constants'
+import StatusTag from '@/components/common/StatusTag.vue'
 import { formatDate } from '@/utils/format'
+import type { BacktestTask } from '@/api'
 
 const router = useRouter()
 
-// 使用 Store - 保持响应式
+// 使用 Store
 const backtestStore = useBacktestStore()
-// 使用 storeToRefs 保持响应式连接
 const {
   loading,
-  filterState,
-  filteredTasks,
-  stats
+  tasks,
+  batchOperationLoading,
+  wsConnected,
+  pollingMode
 } = storeToRefs(backtestStore)
-// 方法直接解构（不需要响应式）
+
+// Store 方法
 const {
-  fetchTasks,
-  deleteTask,
+  fetchList,
   startTask,
-  stopTask
+  stopTask,
+  cancelTask,
+  deleteTask,
+  batchStart,
+  batchStop,
+  batchCancel,
+  onWebSocketConnected,
+  onWebSocketDisconnected,
+  canOperateTask,
+  canStartTask,
+  canStopTask,
+  canCancelTask,
+  canDeleteTask
 } = backtestStore
 
 // 本地状态
+const filterStatus = ref<string>('')
+const refreshing = ref(false)
+const selectedIds = ref<Set<string>>(new Set())
 const showResultModal = ref(false)
 const selectedBacktest = ref<any>(null)
 
 // 表格列
 const columns = [
   { title: '任务名称', key: 'name', width: 250 },
-  { title: '状态', key: 'state', width: 120 },
+  { title: '状态', key: 'status', width: 120 },
   { title: '进度', key: 'progress', width: 150 },
   { title: '创建时间', key: 'created_at', width: 180 },
   { title: '运行时长', key: 'duration', width: 120 },
-  { title: '操作', key: 'actions', width: 150, fixed: 'right' }
+  { title: '操作', key: 'actions', width: 200, fixed: 'right' }
 ]
+
+// 批量操作权限判断
+const canBatchStart = computed(() => {
+  return Array.from(selectedIds.value)
+    .map(uuid => tasks.value.find(t => t.uuid === uuid))
+    .filter(Boolean)
+    .some(task => canStartTask(task!))
+})
+
+const canBatchStop = computed(() => {
+  return Array.from(selectedIds.value)
+    .map(uuid => tasks.value.find(t => t.uuid === uuid))
+    .filter(Boolean)
+    .some(task => canStopTask(task!))
+})
+
+const canBatchCancel = computed(() => {
+  return Array.from(selectedIds.value)
+    .map(uuid => tasks.value.find(t => t.uuid === uuid))
+    .filter(Boolean)
+    .some(task => canCancelTask(task!))
+})
 
 // 筛选变化
 const handleFilterChange = () => {
-  fetchTasks(filterState.value || undefined)
+  fetchTasks()
+}
+
+// 获取任务列表
+const fetchTasks = async () => {
+  await fetchList({ status: filterStatus.value || undefined })
 }
 
 // 格式化时长
@@ -315,29 +408,119 @@ const getChangeClass = (value: number) => {
   return 'value-flat'
 }
 
+// 刷新列表
+const handleRefresh = async () => {
+  refreshing.value = true
+  await fetchTasks()
+  refreshing.value = false
+}
+
+// 选择变化处理
+const handleSelectionChange = (selectedKeys: string[]) => {
+  selectedIds.value = new Set(selectedKeys)
+}
+
+// 清除选择
+const handleClearSelection = () => {
+  selectedIds.value.clear()
+}
+
+// 批量启动
+const handleBatchStart = async () => {
+  const uuids = Array.from(selectedIds.value).filter(uuid => {
+    const task = tasks.value.find(t => t.uuid === uuid)
+    return task && canStartTask(task)
+  })
+
+  if (uuids.length === 0) {
+    message.warning('没有可启动的任务')
+    return
+  }
+
+  Modal.confirm({
+    title: '确认批量启动',
+    content: `确定要启动 ${uuids.length} 个回测任务吗？`,
+    onOk: async () => {
+      try {
+        const result = await batchStart(uuids)
+        message.success(`批量启动完成：成功 ${result.success} 个，失败 ${result.failed} 个`)
+        handleClearSelection()
+        await fetchTasks()
+      } catch (error: any) {
+        message.error(`操作失败: ${error.message || '未知错误'}`)
+      }
+    }
+  })
+}
+
+// 批量停止
+const handleBatchStop = async () => {
+  const uuids = Array.from(selectedIds.value).filter(uuid => {
+    const task = tasks.value.find(t => t.uuid === uuid)
+    return task && canStopTask(task)
+  })
+
+  if (uuids.length === 0) {
+    message.warning('没有可停止的任务')
+    return
+  }
+
+  Modal.confirm({
+    title: '确认批量停止',
+    content: `确定要停止 ${uuids.length} 个回测任务吗？`,
+    onOk: async () => {
+      try {
+        const result = await batchStop(uuids)
+        message.success(`批量停止完成：成功 ${result.success} 个，失败 ${result.failed} 个`)
+        handleClearSelection()
+        await fetchTasks()
+      } catch (error: any) {
+        message.error(`操作失败: ${error.message || '未知错误'}`)
+      }
+    }
+  })
+}
+
+// 批量取消
+const handleBatchCancel = async () => {
+  const uuids = Array.from(selectedIds.value).filter(uuid => {
+    const task = tasks.value.find(t => t.uuid === uuid)
+    return task && canCancelTask(task)
+  })
+
+  if (uuids.length === 0) {
+    message.warning('没有可取消的任务')
+    return
+  }
+
+  Modal.confirm({
+    title: '确认批量取消',
+    content: `确定要取消 ${uuids.length} 个回测任务吗？`,
+    onOk: async () => {
+      try {
+        const result = await batchCancel(uuids)
+        message.success(`批量取消完成：成功 ${result.success} 个，失败 ${result.failed} 个`)
+        handleClearSelection()
+        await fetchTasks()
+      } catch (error: any) {
+        message.error(`操作失败: ${error.message || '未知错误'}`)
+      }
+    }
+  })
+}
+
 // 跳转创建页面
 const goToCreate = () => {
   router.push('/backtest/create')
 }
 
 // 查看详情
-const viewDetail = (task: any) => {
+const viewDetail = (task: BacktestTask) => {
   router.push(`/backtest/${task.uuid}`)
 }
 
-// 查看结果
-const viewResult = async (task: any) => {
-  try {
-    const detail = await backtestStore.fetchTask(task.uuid)
-    selectedBacktest.value = detail
-    showResultModal.value = true
-  } catch (error: any) {
-    message.error(`加载详情失败: ${error.message || '未知错误'}`)
-  }
-}
-
 // 启动任务
-const handleStart = (task: any) => {
+const handleStart = (task: BacktestTask) => {
   Modal.confirm({
     title: '确认启动',
     content: `确定要启动回测任务"${task.name}"吗？`,
@@ -345,6 +528,7 @@ const handleStart = (task: any) => {
       try {
         await startTask(task.uuid)
         message.success('启动成功')
+        await fetchTasks()
       } catch (error: any) {
         message.error(`操作失败: ${error.message || '未知错误'}`)
       }
@@ -353,7 +537,7 @@ const handleStart = (task: any) => {
 }
 
 // 停止任务
-const handleStop = (task: any) => {
+const handleStop = (task: BacktestTask) => {
   Modal.confirm({
     title: '确认停止',
     content: `确定要停止回测任务"${task.name}"吗？`,
@@ -361,6 +545,24 @@ const handleStop = (task: any) => {
       try {
         await stopTask(task.uuid)
         message.success('已停止')
+        await fetchTasks()
+      } catch (error: any) {
+        message.error(`操作失败: ${error.message || '未知错误'}`)
+      }
+    }
+  })
+}
+
+// 取消任务
+const handleCancel = (task: BacktestTask) => {
+  Modal.confirm({
+    title: '确认取消',
+    content: `确定要取消回测任务"${task.name}"吗？`,
+    onOk: async () => {
+      try {
+        await cancelTask(task.uuid)
+        message.success('已取消')
+        await fetchTasks()
       } catch (error: any) {
         message.error(`操作失败: ${error.message || '未知错误'}`)
       }
@@ -369,7 +571,7 @@ const handleStop = (task: any) => {
 }
 
 // 删除任务
-const handleDelete = (task: any) => {
+const handleDelete = (task: BacktestTask) => {
   Modal.confirm({
     title: '确认删除',
     content: `确定要删除回测任务"${task.name}"吗？此操作不可恢复。`,
@@ -379,6 +581,7 @@ const handleDelete = (task: any) => {
       try {
         await deleteTask(task.uuid)
         message.success('删除成功')
+        await fetchTasks()
       } catch (error: any) {
         message.error(`删除失败: ${error.message || '未知错误'}`)
       }
@@ -386,8 +589,16 @@ const handleDelete = (task: any) => {
   })
 }
 
+// 生命周期
 onMounted(() => {
   fetchTasks()
+  // TODO: 在这里可以初始化 WebSocket 连接
+  // onWebSocketConnected()
+})
+
+onUnmounted(() => {
+  // 清理资源
+  // onWebSocketDisconnected()
 })
 </script>
 
@@ -422,6 +633,27 @@ onMounted(() => {
   display: flex;
   gap: 16px;
   align-items: center;
+}
+
+.batch-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
+}
+
+.batch-info {
+  font-size: 14px;
+  color: #1a1a1a;
+}
+
+.batch-info strong {
+  color: #1890ff;
+  font-size: 16px;
 }
 
 .stats-row {
