@@ -1,11 +1,11 @@
 """
-E2E回测测试
+E2E 回测测试
 
 验证完整的回测流程：
-1. 通过API创建回测任务
+1. 通过 API 创建回测任务
 2. 等待回测完成
-3. 验证BacktestTask记录
-4. 验证AnalyzerRecord记录
+3. 验证 BacktestTask 记录
+4. 验证 AnalyzerRecord 记录
 """
 
 import pytest
@@ -13,8 +13,11 @@ import requests
 import time
 from datetime import datetime
 
-# API配置
-API_BASE = "http://192.168.50.12:8000"
+from .config import config
+
+
+# API 配置从 config 读取
+API_BASE = config.api_base  # 已在 config.py 中添加此属性
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +36,7 @@ def test_portfolio_id(api_client):
     portfolio_id = "df40070a2ec54f3a83a9cd9d20889090"
 
     # 验证Portfolio存在
-    response = api_client.get(f"{API_BASE}/api/v1/portfolio/{portfolio_id}")
+    response = api_client.get(f"{API_BASE}/portfolio/{portfolio_id}")
     assert response.status_code == 200
 
     portfolio = response.json()
@@ -63,7 +66,7 @@ def test_backtest_full_flow(api_client, test_portfolio_id):
         }
     }
 
-    response = api_client.post(f"{API_BASE}/api/v1/backtest", json=payload)
+    response = api_client.post(f"{API_BASE}/backtest", json=payload)
     assert response.status_code == 200
 
     task = response.json()
@@ -77,7 +80,7 @@ def test_backtest_full_flow(api_client, test_portfolio_id):
     start_time = time.time()
 
     while time.time() - start_time < max_wait:
-        response = api_client.get(f"{API_BASE}/api/v1/backtest/{task_id}")
+        response = api_client.get(f"{API_BASE}/backtest/{task_id}")
         assert response.status_code == 200
 
         task_status = response.json()
@@ -99,7 +102,7 @@ def test_backtest_full_flow(api_client, test_portfolio_id):
 
     # 3. 验证BacktestTask
     print("\n📊 步骤3: 验证BacktestTask记录")
-    response = api_client.get(f"{API_BASE}/api/v1/backtest/{task_id}")
+    response = api_client.get(f"{API_BASE}/backtest/{task_id}")
     assert response.status_code == 200
 
     task = response.json()
@@ -113,7 +116,7 @@ def test_backtest_full_flow(api_client, test_portfolio_id):
 
     # 4. 验证AnalyzerRecord
     print("\n📈 步骤4: 验证AnalyzerRecord记录")
-    response = api_client.get(f"{API_BASE}/api/v1/backtest/{task_id}/analyzers")
+    response = api_client.get(f"{API_BASE}/backtest/{task_id}/analyzers")
     assert response.status_code == 200
 
     result = response.json()
@@ -128,7 +131,7 @@ def test_backtest_full_flow(api_client, test_portfolio_id):
 
     # 5. 验证净值数据
     print("\n📊 步骤5: 验证净值曲线")
-    response = api_client.get(f"{API_BASE}/api/v1/backtest/{task_id}/netvalue")
+    response = api_client.get(f"{API_BASE}/backtest/{task_id}/netvalue")
     assert response.status_code == 200
 
     netvalue = response.json()
