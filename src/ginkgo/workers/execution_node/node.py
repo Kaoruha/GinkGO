@@ -1343,6 +1343,14 @@ class ExecutionNode:
 
                     event_data = message.value
 
+                    # T069/T070: 恢复分布式追踪上下文（从 PriceUpdateDTO 的 trace_id/span_id）
+                    trace_id = event_data.get('trace_id')
+                    span_id = event_data.get('span_id')
+                    if trace_id:
+                        GLOG.set_trace_id(trace_id)
+                    if span_id:
+                        GLOG.set_span_id(span_id)
+
                     # 解析EventPriceUpdate
                     event = EventPriceUpdate(
                         code=event_data['code'],
