@@ -475,6 +475,8 @@ class PortfolioProcessor(Thread):
         """
         处理控制命令
 
+        T070: 恢复 trace_id 和 span_id 到 GLOG 上下文，用于分布式追踪
+
         解析Kafka消息中的ControlCommandDTO，根据命令类型路由到对应处理方法。
 
         Args:
@@ -493,6 +495,15 @@ class PortfolioProcessor(Thread):
 
             # 使用ControlCommandDTO解析
             command_dto = ControlCommandDTO(**command_data)
+
+            # T070: 恢复分布式追踪上下文到 GLOG
+            if command_dto.trace_id:
+                GLOG.set_trace_id(command_dto.trace_id)
+            if command_dto.span_id:
+                GLOG.set_span_id(command_dto.span_id)
+
+            # 现在所有后续日志都会带有 trace_id 和 span_id
+            GLOG.INFO(f"[PortfolioProcessor {self.portfolio_id}] 接收到控制命令: {command_dto.command}, trace_id={command_dto.trace_id}")
 
             # 路由命令到对应处理方法
             if command_dto.command == ControlCommandDTO.Commands.UPDATE_SELECTOR:

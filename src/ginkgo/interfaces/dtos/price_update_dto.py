@@ -36,6 +36,10 @@ class PriceUpdateDTO(BaseModel):
     # 数据来源
     source: Optional[str] = Field(None, description="数据源标识（eastmoney/fushu/alpaca）")
 
+    # T069: 分布式追踪支持（用于跨服务日志关联）
+    trace_id: Optional[str] = Field(None, description="分布式追踪ID（用于跨服务日志关联）")
+    span_id: Optional[str] = Field(None, description="Span ID（用于调用链中的子操作）")
+
     @classmethod
     def from_tick(cls, tick_event) -> "PriceUpdateDTO":
         """
