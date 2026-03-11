@@ -1,0 +1,72 @@
+# Vector Configuration for Ginkgo Distributed Logging
+# Compatible with Vector 0.39.0
+
+# ============================================================================
+# Input Sources
+# ============================================================================
+
+[sources.ginkgo_logs]
+type = "file"
+include = ["/var/log/ginkgo/**/*.log"]
+
+# Read from the beginning on first start
+read_from = "beginning"
+
+# ============================================================================
+# Transforms
+# ============================================================================
+
+[transforms.parse_json]
+inputs = ["ginkgo_logs"]
+type = "remap"
+source = '''
+# File source puts line content in .message field
+# Parse it as JSON
+. = parse_json!(.message)
+'''
+
+[transforms.route_by_category]
+inputs = ["parse_json"]
+type = "route"
+
+# Route logs by log_category field
+route.backtest = '.log_category == "backtest"'
+route.component = '.log_category == "component"'
+route.performance = '.log_category == "performance"'
+
+# ============================================================================
+# Sinks - ClickHouse
+# ============================================================================
+
+[sinks.clickhouse_backtest]
+type = "clickhouse"
+inputs = ["route_by_category.backtest"]
+database = "ginkgo"
+table = "ginkgo_logs_backtest"
+endpoint = "http://clickhouse-master:8123"
+
+[sinks.clickhouse_backtest.batch]
+max_events = 100
+timeout_secs = 5
+
+[sinks.clickhouse_component]
+type = "clickhouse"
+inputs = ["route_by_category.component"]
+database = "ginkgo"
+table = "ginkgo_logs_component"
+endpoint = "http://clickhouse-master:8123"
+
+[sinks.clickhouse_component.batch]
+max_events = 100
+timeout_secs = 5
+
+[sinks.clickhouse_performance]
+type = "clickhouse"
+inputs = ["route_by_category.performance"]
+database = "ginkgo"
+table = "ginkgo_logs_performance"
+endpoint = "http://clickhouse-master:8123"
+
+[sinks.clickhouse_performance.batch]
+max_events = 100
+timeout_secs = 5
