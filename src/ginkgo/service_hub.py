@@ -42,6 +42,7 @@ Architecture:
     │   └── strategies (策略访问器)
     ├── core (核心模块访问器)
     ├── features (因子模块访问器)
+    ├── logging (日志服务模块访问器) [NEW]
     ├── research (因子研究模块访问器) [NEW]
     ├── validation (策略验证模块访问器) [NEW]
     ├── paper (Paper Trading模块访问器) [NEW]
@@ -94,7 +95,7 @@ class ServiceHub:
     def get_module_status(self) -> Dict[str, Dict[str, Any]]:
         """获取所有模块的详细状态"""
         status = {}
-        for module_name in ['data', 'trading', 'core', 'ml', 'features', 'notifier', 'research', 'validation', 'paper', 'comparison', 'optimization']:
+        for module_name in ['data', 'trading', 'core', 'ml', 'features', 'notifier', 'logging', 'research', 'validation', 'paper', 'comparison', 'optimization']:
             try:
                 module = getattr(self, module_name)
                 if module is not None:
@@ -149,7 +150,7 @@ class ServiceHub:
         """列出所有可用模块"""
         available = ["data"]  # data模块始终可用
 
-        for module_name in ["trading", "core", "ml", "features", "notifier", "research", "validation", "paper", "comparison", "optimization"]:
+        for module_name in ["trading", "core", "ml", "features", "notifier", "logging", "research", "validation", "paper", "comparison", "optimization"]:
             try:
                 module = getattr(self, module_name)
                 if module is not None:
@@ -461,6 +462,29 @@ class ServiceHub:
             self._module_errors['optimization'] = str(e)
             if self._debug_mode:
                 print(f":x: 参数优化模块错误: {e}")
+                import traceback
+                traceback.print_exc()
+            return None
+
+    @property
+    def logging(self):
+        """日志服务模块访问器"""
+        if 'logging' in self._module_cache:
+            return self._module_cache['logging']
+
+        @self._measure_performance('logging')
+        def _load_logging():
+            from ginkgo.services.logging.containers import container as logging_container
+            return logging_container
+
+        try:
+            container = _load_logging()
+            self._module_cache['logging'] = container
+            return container
+        except Exception as e:
+            self._module_errors['logging'] = str(e)
+            if self._debug_mode:
+                print(f":x: 日志服务模块错误: {e}")
                 import traceback
                 traceback.print_exc()
             return None

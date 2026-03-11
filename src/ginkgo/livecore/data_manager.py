@@ -369,12 +369,18 @@ class DataManager(threading.Thread):
         """
         实时数据接收回调
 
+        T069: 携带 trace_id 和 span_id 用于分布式追踪
+
         Args:
             event: EventPriceUpdate事件
         """
         try:
-            # 转换为DTO
+            # 转换为DTO（携带分布式追踪上下文）
             if hasattr(event, 'event_type') and event.event_type.value == 1:  # PRICE_UPDATE
+                # T069: 从 GLOG 获取当前 trace_id 和 span_id
+                trace_id = GLOG.get_trace_id()
+                span_id = GLOG.get_span_id()
+
                 dto = PriceUpdateDTO(
                     symbol=event.code,
                     timestamp=event.timestamp,
@@ -386,6 +392,8 @@ class DataManager(threading.Thread):
                     volume=getattr(event, 'volume', None),
                     amount=getattr(event, 'amount', None),
                     source=self._feeder_type,
+                    trace_id=trace_id,  # T069: 携带 trace_id
+                    span_id=span_id,    # T069: 携带 span_id
                 )
 
                 # 发布到Kafka（带重试）
