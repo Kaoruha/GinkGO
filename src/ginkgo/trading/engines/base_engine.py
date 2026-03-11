@@ -51,6 +51,7 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         self._run_id = None
         self._run_sequence: int = 0
         self._state: ENGINESTATUS_TYPES = ENGINESTATUS_TYPES.IDLE
+        self._trace_id_token = None  # 用于清理 GLOG trace_id
 
         # === 创建 EngineContext 实例 ===
         from ..context.engine_context import EngineContext
@@ -125,6 +126,11 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
             self._run_id = IdentityUtils.generate_run_id()
             # 同时更新 EngineContext
             self._engine_context.set_run_id(self._run_id)
+
+            # 设置 trace_id 到 GLOG（用于分布式日志追踪）
+            from ginkgo.libs import GLOG
+            self._trace_id_token = GLOG.set_trace_id(self._run_id)
+
             self.log("INFO", f"Generated new run_id: {self._run_id} for engine_id={self.engine_id}")
 
         return self._run_id
@@ -236,6 +242,13 @@ class BaseEngine(NamedMixin, LoggableMixin, ABC):
         try:
             self._state = ENGINESTATUS_TYPES.STOPPED
             self.log("INFO", f"Engine '{self.name}' stopped: engine_id={self.engine_id}, run_id={self.run_id}")
+
+            # 清理 GLOG trace_id
+            if self._trace_id_token is not None:
+                from ginkgo.libs import GLOG
+                GLOG.clear_trace_id(self._trace_id_token)
+                self._trace_id_token = None
+
             return True
         except Exception as e:
             self.log("ERROR", f"Failed to stop engine: {str(e)}")
