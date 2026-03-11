@@ -98,6 +98,14 @@
 - **FR-009**: System MUST 支持多策略并行回测和实时风控
 - **FR-010**: System MUST 遵循TDD开发流程，先写测试再实现功能
 
+**DTO消息队列原则**:
+- **FR-011**: System MUST 所有 Kafka 消息发送使用 DTO 包装（Pydantic BaseModel 实现）
+- **FR-012**: 发送端 MUST 使用 DTO.model_dump_json() 序列化消息
+- **FR-013**: 接收端 MUST 使用 DTO(**data) 反序列化消息
+- **FR-014**: DTO MUST 提供 Commands 常量类定义命令/事件类型
+- **FR-015**: DTO MUST 提供 is_xxx() 方法进行类型判断
+- **FR-016**: 禁止直接发送字典或裸 JSON 字符串到 Kafka
+
 **功能特性需求**:
 - **FR-011**: System MUST [具体功能 capability]
 - **FR-012**: Users MUST be able to [关键交互]
