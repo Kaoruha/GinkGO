@@ -101,6 +101,22 @@ logging:
     - token
     - api_key
 
+  # 日志TTL配置（天）
+  ttl:
+    backtest: 180          # 回测日志保留180天
+    component: 90          # 组件日志保留90天
+    performance: 30        # 性能日志保留30天
+
+  # DEBUG日志采样率
+  sampling_rate: 0.1       # 生产环境DEBUG日志采样率10%
+
+  # 允许动态调整日志级别的模块白名单
+  level_whitelist:        # 允许动态调整的模块列表
+    - backtest
+    - trading
+    - data
+    - analysis
+
 # DB
 # db_driver: clickhouse
 
