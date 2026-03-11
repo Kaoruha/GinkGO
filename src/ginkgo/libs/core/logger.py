@@ -18,6 +18,11 @@ _trace_id_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "trace_id", default=None
 )
 
+# T064: span_id 用于分布式追踪中的子操作
+_span_id_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "span_id", default=None
+)
+
 # 业务上下文 context variables
 _log_category_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "log_category", default=None
@@ -137,6 +142,13 @@ def ecs_processor(logger, log_method, event_dict):
     trace_id = _trace_id_ctx.get()
     if trace_id:
         event_dict["trace"] = {"id": trace_id}
+
+    # T064: 添加 span_id
+    span_id = _span_id_ctx.get()
+    if span_id:
+        if "trace" not in event_dict:
+            event_dict["trace"] = {}
+        event_dict["trace"]["span_id"] = span_id
 
     return event_dict
 
@@ -387,12 +399,12 @@ class GinkgoLogger:
         self._setup_handlers(console_log)
 
     def _setup_handlers(self, console_log):
-        # T037-T039: 本地模式文件日志支持
-        # 在本地模式下启用文件日志，容器模式禁用
-        if not self._is_container:
-            # 本地模式：启用文件日志
-            if LOGGING_FILE_ON:
-                self._setup_file_handler()
+        # T037-T039: 文件日志支持
+        # 文件日志统一使用 JSON 格式（供 Vector 采集）
+        # stdout 可以根据模式选择格式
+        if LOGGING_FILE_ON:
+            # 始终使用 JSON 格式文件日志（容器和本地环境统一）
+            self._setup_json_file_handler()
         self._setup_console_handler(console_log)
         # self._setup_error_handler()
 
@@ -481,6 +493,81 @@ class GinkgoLogger:
         for i in self._file_names:
             handler = self.add_file_handler(i, LOGGING_LEVEL_FILE)
             self.file_handlers.append(handler)
+
+    def _setup_json_file_handler(self):
+        """
+        容器模式：设置 JSON 格式文件日志处理器
+
+        输出到 /var/log/ginkgo/ 目录，使用 JSON 格式供 Vector 采集解析。
+        """
+        if not self._file_names:
+            self._file_names = [LOGGING_DEFAULT_FILE]
+
+        for file_name in self._file_names:
+            if not file_name.endswith(".log"):
+                file_name += ".log"
+
+            # 容器模式使用 /var/log/ginkgo/ 路径
+            file_path = os.path.join(LOGGING_PATH, file_name)
+
+            # 确保目录存在
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+            # 创建 JSON 格式化器
+            import json
+
+            class JsonFormatter(logging.Formatter):
+                """JSON 格式化器 - 输出单行 JSON 供 Vector 解析"""
+
+                def format(self, record):
+                    log_obj = {
+                        "timestamp": datetime.fromtimestamp(record.created).isoformat(),
+                        "level": record.levelname.lower(),
+                        "logger_name": record.name,
+                        "message": record.getMessage(),
+                        "pid": os.getpid(),
+                        "hostname": platform.node(),
+                    }
+
+                    # 添加 trace_id (从 contextvars 获取)
+                    trace_id = _trace_id_ctx.get(None)
+                    if trace_id:
+                        log_obj["trace_id"] = trace_id
+
+                    # 添加 span_id
+                    span_id = _span_id_ctx.get(None)
+                    if span_id:
+                        log_obj["span_id"] = span_id
+
+                    # 添加 log_category
+                    log_category = _log_category_ctx.get(None)
+                    if log_category:
+                        log_obj["log_category"] = log_category
+
+                    # 添加业务上下文
+                    business_context = _business_context_ctx.get({})
+                    if business_context:
+                        log_obj.update(business_context)
+
+                    # 异常信息
+                    if record.exc_info:
+                        log_obj["exception"] = self.formatException(record.exc_info)
+
+                    return json.dumps(log_obj, ensure_ascii=False)
+
+            # 创建文件处理器
+            file_handler = RotatingFileHandler(
+                filename=file_path,
+                encoding="utf-8",
+                mode="a",
+                maxBytes=self.max_file_bytes,
+                backupCount=self.backup_count,
+            )
+            file_handler.set_name(f"json_{self.gen_file_handler_name(file_name)}")
+            file_handler.setLevel(self.get_log_level(LOGGING_LEVEL_FILE))
+            file_handler.setFormatter(JsonFormatter())
+            self.file_handlers.append(file_handler)
+            self.logger.addHandler(file_handler)
 
     def gen_file_handler_name(self, file_name) -> str:
         return f"file_handler_{file_name}"
@@ -618,6 +705,13 @@ class GinkgoLogger:
         if not self.logger.isEnabledFor(logging.DEBUG):
             return
 
+        # T116: 生产环境 DEBUG 日志采样（减少日志量）
+        sampling_rate = getattr(GCONF, 'LOGGING_SAMPLING_RATE', 0.1)
+        if sampling_rate < 1.0:
+            import random
+            if random.random() > sampling_rate:
+                return  # 采样跳过此条日志
+
         # T037: 本地模式使用标准 logging 输出到文件，容器模式使用 structlog
         if not self._is_container:
             # 本地模式：使用标准 logging（支持文件输出）
@@ -631,6 +725,9 @@ class GinkgoLogger:
             except ImportError:
                 self.log("DEBUG", msg)
 
+            # 同时写入文件（供 Vector 采集）
+            self.log("DEBUG", msg)
+
     def INFO(self, msg: str) -> None:
         """记录 INFO 级别日志"""
         if not self.logger.isEnabledFor(logging.INFO):
@@ -641,13 +738,16 @@ class GinkgoLogger:
             # 本地模式：使用标准 logging（支持文件输出）
             self.log("INFO", msg)
         else:
-            # 容器模式：使用 structlog JSON 输出
+            # 容器模式：使用 structlog JSON 输出到 stdout/stderr
             try:
                 import structlog
                 log = structlog.get_logger(self.logger_name)
                 log.info(msg)
             except ImportError:
                 self.log("INFO", msg)
+
+            # 同时写入文件（供 Vector 采集）
+            self.log("INFO", msg)
 
     def WARN(self, msg: str) -> None:
         """记录 WARNING 级别日志"""
@@ -666,6 +766,9 @@ class GinkgoLogger:
                 log.warning(msg)
             except ImportError:
                 self.log("WARNING", msg)
+
+            # 同时写入文件（供 Vector 采集）
+            self.log("WARNING", msg)
 
     def ERROR(self, msg: str) -> None:
         """记录 ERROR 级别日志（含智能流量控制）"""
@@ -688,6 +791,9 @@ class GinkgoLogger:
                 except ImportError:
                     self.log("ERROR", processed_msg)
 
+                # 同时写入文件（供 Vector 采集）
+                self.log("ERROR", processed_msg)
+
     def CRITICAL(self, msg: str) -> None:
         """记录 CRITICAL 级别日志"""
         if not self.logger.isEnabledFor(logging.CRITICAL):
@@ -705,6 +811,9 @@ class GinkgoLogger:
                 log.critical(msg)
             except ImportError:
                 self.log("CRITICAL", msg)
+
+            # 同时写入文件（供 Vector 采集）
+            self.log("CRITICAL", msg)
 
     # ==================== T030-T033: trace_id 上下文管理 ====================
 
@@ -758,6 +867,64 @@ class GinkgoLogger:
             yield
         finally:
             _trace_id_ctx.reset(token)
+
+    # ==================== T064: span_id 上下文管理 ====================
+
+    def set_span_id(self, span_id: str) -> contextvars.Token:
+        """
+        设置当前 span_id（用于分布式追踪中的子操作）
+
+        Args:
+            span_id: Span ID字符串
+
+        Returns:
+            contextvars.Token: 用于恢复上下文的令牌
+
+        Example:
+            >>> token = GLOG.set_span_id("span-456")
+            >>> GLOG.INFO("Processing sub-operation")
+            >>> GLOG.clear_span_id(token)
+        """
+        return _span_id_ctx.set(span_id)
+
+    def get_span_id(self) -> Optional[str]:
+        """
+        获取当前 span_id
+
+        Returns:
+            Optional[str]: 当前Span ID，如果未设置则返回 None
+        """
+        return _span_id_ctx.get()
+
+    def clear_span_id(self, token: contextvars.Token) -> None:
+        """
+        清除 span_id，恢复之前的值
+
+        Args:
+            token: set_span_id 返回的令牌
+        """
+        _span_id_ctx.reset(token)
+
+    @contextlib.contextmanager
+    def with_span_id(self, span_id: str):
+        """
+        临时设置 span_id 的上下文管理器
+
+        Args:
+            span_id: 临时Span ID字符串
+
+        Yields:
+            None
+
+        Example:
+            >>> with logger.with_span_id("span-456"):
+            ...     logger.INFO("This log has both trace_id and span_id")
+        """
+        token = _span_id_ctx.set(span_id)
+        try:
+            yield
+        finally:
+            _span_id_ctx.reset(token)
 
     # ==================== 业务上下文管理 ====================
 
